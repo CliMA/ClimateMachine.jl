@@ -198,15 +198,17 @@ let
     ArrayType = CLIMA.array_type()
     mpicomm = MPI.COMM_WORLD
 
-    dt = 1e-4
-    timeend = 100 * dt
-
     polynomialorder = 4
 
     Nhorz = 4
-    Rrange = 1.0:0.25:2.0
 
-    @testset "$(@__FILE__)" for FT in (Float64,) #Float32)
+    tolerance = Dict(Float64 => 1e-15, Float32 => 1e-7)
+
+    @testset "$(@__FILE__)" for FT in (Float64, Float32)
+        dt = FT(1e-4)
+        timeend = 100 * dt
+        Rrange = range(FT(1), stop = FT(2), step = FT(1 // 4))
+
         Random.seed!(0)
         @info (ArrayType, FT)
         delta_mass = run(
@@ -219,6 +221,6 @@ let
             FT,
             dt,
         )
-        @test abs(delta_mass) < 1e-15
+        @test abs(delta_mass) < tolerance[FT]
     end
 end
