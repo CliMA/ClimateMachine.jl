@@ -138,8 +138,47 @@ end
 For information on the function `prefactorize`, see
 the **module** `CLIMA.LinearSolvers`.
 
-Having described both explicit and IMEX-type Runge-Kutta methods,
-we will describe the core `dostep!` function in more detail.
+### The Struct and its Constructor
+
+The `Struct` defining important quantities for a given time-integrator
+is a subset of an `AbstractODESolver`. For simplicity, we assume
+a standard Runge-Kutta method:
+```julia
+struct MyRKMethod{T, RT, AT, Nstages} <: AbstractODESolver
+    "time step size"
+    dt::RT
+    "rhs function"
+    rhs!
+    "Storage for the stage vectors"
+    Qstage::AT
+    "RK coefficient vector A (rhs scaling)"
+    RKA::Array{RT, 2}
+    "RK coefficient vector B (rhs accumulation scaling)"
+    RKB::Array{RT, 1}
+    "RK coefficient vector C (temporal scaling)"
+    RKC::Array{RT, 1}
+    # May require more attributes depending on the type of RK method
+
+    # Constructor
+    function MyRKMethod(args...)
+        # Body of the constructor
+        ...
+        return MyRKMethod(constructor_args...)
+    end
+end
+```
+Since time-integration
+methods are often complex and drastically different from one another,
+the `Struct` and its `Constructor`, `MyRKMethod(args...)`, will often look
+quite different, i.e. explicit and IMEX time-integrators have
+different `Struct` attributes and `Constructor` arguments.
+
+As a general rule of thumb, all Runge-Kutta-based methods
+will need to keep track of the time-step size `dt` as wells as
+the Butcher tableau coefficients. If your time-integrator has
+an implicit component (semi-implicit) or is fully implicit, the
+`Struct` will need to know about the `implicitoperator` and
+the corresponding `linearsolver`.
 
 ### The `dostep!` function
 
