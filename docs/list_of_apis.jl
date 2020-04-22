@@ -2,8 +2,7 @@
 #### Defines list of Application Programming Interface (APIs)
 ####
 
-apis =
-Any[
+apis = Any[
     "Home" => "APIs/index.md",
     "Atmos" => Any[
         "AtmosModel" => "APIs/Atmos/AtmosModel.md"
@@ -11,9 +10,7 @@ Any[
     ],
     "Ocean" => Any[],
     "Land" => Any[],
-    "Common" => Any[
-        "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md"
-    ],
+    "Common" => Any["Surface Fluxes" => "APIs/Common/SurfaceFluxes.md"],
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => Any[
         "List of variables" => "APIs/Diagnostics/Diagnostics.md"
