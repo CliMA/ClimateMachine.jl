@@ -87,9 +87,9 @@ uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
 version = "2.10.2"
 
 [[Cassette]]
-git-tree-sha1 = "03ea3a0cc6342bc2157c896b2908757f9c89b9da"
+git-tree-sha1 = "ff6f5109371926beb67ec3101be17d2c211e497d"
 uuid = "7057c7e9-c182-5462-911a-8362d720325c"
-version = "0.3.2"
+version = "0.3.3"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]

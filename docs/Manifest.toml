@@ -99,9 +99,9 @@ uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
 version = "2.10.2"
 
 [[Cassette]]
-git-tree-sha1 = "03ea3a0cc6342bc2157c896b2908757f9c89b9da"
+git-tree-sha1 = "ff6f5109371926beb67ec3101be17d2c211e497d"
 uuid = "7057c7e9-c182-5462-911a-8362d720325c"
-version = "0.3.2"
+version = "0.3.3"
 
 [[CategoricalArrays]]
 deps = ["Compat", "DataAPI", "Future", "JSON", "Missings", "Printf", "Reexport", "Statistics", "Unicode"]
@@ -577,9 +577,9 @@ version = "0.6.5"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "FFMPEG", "FixedPointNumbers", "GR", "GeometryTypes", "JSON", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs"]
-git-tree-sha1 = "5fe0092e7c1890de1af9d58e1519a7e7c844b943"
+git-tree-sha1 = "15b69b1848d1747aefe8be9b89ccc8f8ab175181"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.0.12"
+version = "1.0.13"
 
 [[Polynomials]]
 deps = ["LinearAlgebra", "RecipesBase"]
