@@ -137,3 +137,36 @@ end
 ```
 For information on the function `prefactorize`, see
 the **module** `CLIMA.LinearSolvers`.
+
+Having described both explicit and IMEX-type Runge-Kutta methods,
+we will describe the core `dostep!` function in more detail.
+
+### The `dostep!` function
+
+No matter the type of time-integration method, **all** time-steppers
+require the implementation of the `dostep!` function. Suppose we have
+some time-stepper, say `MyTimeIntegrator`. Then the arguments to the
+`dostep!` function will be:
+```julia
+function dostep!(
+    Q,
+    rkmethod::MyTimeIntegrator,
+    p,
+    time,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    in_slow_scaling = nothing,
+)
+    # Function body
+end
+```
+Where `Q` is the state vector, `time` denotes the time for the next time-step,
+the time-integrator, and `slow_δ`, `slow_rv_dQ`, `in_slow_scaling`
+are optional arguments contributing to additional terms in the
+ODE right-hand side. More information on those argument will be covered
+in a later section. Note that the argument `p` should be interpreted as
+a context manager for more sophisticated time-stepping methods
+(for example, schemes with *multiple* RK methods); typical
+Runge-Kutta schemes will generally not need to worry about the argument `p`.
+The argument `rkmethod` is used for multiple dispatch, and `Q` is an
+array that gets overwritten with field values at the next time-step.
