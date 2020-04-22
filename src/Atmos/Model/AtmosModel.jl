@@ -35,6 +35,7 @@ import CLIMA.DGmethods:
     init_aux!,
     init_state!,
     update_aux!,
+    update_aux_diffusive!,
     LocalGeometry,
     lengthscale,
     resolutionmetric,
@@ -495,7 +496,8 @@ function update_aux!(
     m::AtmosModel,
     Q::MPIStateArray,
     t::Real,
-    elems::UnitRange,
+    elems::UnitRange;
+    diffusive=true
 )
     FT = eltype(Q)
     auxstate = dg.auxstate
@@ -509,6 +511,27 @@ function update_aux!(
 
     return true
 end
+
+function update_aux_diffusive!(
+    dg::DGModel,
+    m::AtmosModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    A = dg.auxstate
+
+    # store ∇ʰu as integrand for w
+    function f!(m::AtmosModel, Q, A, D, t)
+        @inbounds begin
+            D.turbulence.Divergence = tr(D.turbulence.∇u)
+        end
+        return nothing
+    end
+    nodal_update_aux!(f!, dg, m, Q, t, elems; diffusive = true)
+    return true
+end
+
 
 function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
     atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
