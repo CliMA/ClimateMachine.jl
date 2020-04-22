@@ -47,15 +47,15 @@ using CLIMA.VTK
 using CLIMA.ODESolvers
 using CLIMA.GenericCallbacks
 
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
+using CLIMAParameters
+using CLIMAParameters.Planet: planet_radius, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 
 # Though not required, here we are explicit about which values we read out the
-# `PlanetParameters` and `MoistThermodynamics`
-using CLIMA.PlanetParameters: planet_radius, grav, MSLP
+# `MoistThermodynamics`
+
 using CLIMA.MoistThermodynamics:
     air_temperature,
     air_pressure,
@@ -111,12 +111,12 @@ function eulerflux!(F, Q, _, aux, t)
         e_int = e - (u^2 + v^2 + w^2) / 2 - ϕ
 
         ## compute the pressure
-        T = air_temperature(e_int)
-        P = air_pressure(T, ρ)
+        T = air_temperature(param_set, e_int)
+        P = air_pressure(param_set, T, ρ)
 
         e_ref_int = ρe_ref / ρ_ref - ϕ
-        T_ref = air_temperature(e_ref_int)
-        P_ref = air_pressure(T_ref, ρ_ref)
+        T_ref = air_temperature(param_set, e_ref_int)
+        P_ref = air_pressure(param_set, T_ref, ρ_ref)
 
         ## set the actual flux
         F[1, _dρ], F[2, _dρ], F[3, _dρ] = ρu, ρv, ρw
@@ -175,9 +175,9 @@ function wavespeed(n, Q, aux, _...)
         e_int = e - (u^2 + v^2 + w^2) / 2 - ϕ
 
         ## compute the temperature
-        T = air_temperature(e_int)
+        T = air_temperature(param_set, e_int)
 
-        abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(T)
+        abs(n[1] * u + n[2] * v + n[3] * w) + soundspeed_air(param_set, T)
     end
 end
 #md nothing # hide
@@ -232,23 +232,25 @@ end
 function auxiliary_state_initialization!(T0, aux, x, y, z)
     @inbounds begin
         FT = eltype(aux)
-        p0 = FT(MSLP)
+        _MSLP::FT = MSLP(param_set)
+        _planet_radius::FT = planet_radius(param_set)
+        _grav::FT = grav(param_set)
 
         ## Convert to Spherical coordinates
         (r, _, _) = cartesian_to_spherical(FT, x, y, z)
 
         ## Calculate the geopotential ϕ
-        h = r - FT(planet_radius) # height above the planet surface
-        ϕ = FT(grav) * h
+        h = r - _planet_radius # height above the planet surface
+        ϕ = _grav * h
 
         ## Pressure assuming hydrostatic balance
-        P_ref = p0 * exp(-ϕ / (gas_constant_air(FT) * T0))
+        P_ref = _MSLP * exp(-ϕ / (gas_constant_air(param_set, FT) * T0))
 
         ## Density from the ideal gas law
-        ρ_ref = air_density(FT(T0), P_ref)
+        ρ_ref = air_density(param_set, FT(T0), P_ref)
 
         ## Calculate the reference total potential energy
-        e_int = internal_energy(FT(T0))
+        e_int = internal_energy(param_set, FT(T0))
         ρe_ref = e_int * ρ_ref + ρ_ref * ϕ
 
         ## Fill the auxiliary state array
@@ -269,16 +271,16 @@ end
 function initialcondition!(domain_height, Q, x, y, z, aux, _...)
     @inbounds begin
         FT = eltype(Q)
-        p0 = FT(MSLP)
+        _planet_radius::FT = planet_radius(param_set)
 
         (r, λ, φ) = cartesian_to_spherical(FT, x, y, z)
-        h = r - FT(planet_radius)
+        h = r - _planet_radius
 
         ## Get the reference pressure from the previously defined reference state
         ρ_ref, ρe_ref, ϕ = aux[_a_ρ_ref], aux[_a_ρe_ref], aux[_a_ϕ]
         e_ref_int = ρe_ref / ρ_ref - ϕ
-        T_ref = air_temperature(e_ref_int)
-        P_ref = air_pressure(T_ref, ρ_ref)
+        T_ref = air_temperature(param_set, e_ref_int)
+        P_ref = air_pressure(param_set, T_ref, ρ_ref)
 
         ## Define the initial pressure Perturbation
         α, nv, γ = 3, 1, 100
@@ -289,11 +291,11 @@ function initialcondition!(domain_height, Q, x, y, z, aux, _...)
 
         ## Define the initial pressure and compute the density perturbation
         P = P_ref + dP
-        ρ = air_density(T_ref, P)
+        ρ = air_density(param_set, T_ref, P)
         dρ = ρ - ρ_ref
 
         ## Define the initial total energy perturbation
-        e_int = internal_energy(T_ref)
+        e_int = internal_energy(param_set, T_ref)
         ρe = e_int * ρ + ρ * ϕ
         dρe = ρe - ρe_ref
 
@@ -314,8 +316,8 @@ function compute_δP!(δP, Q, _, aux)
 
         ## Compute the reference pressure
         e_ref_int = ρe_ref / ρ_ref - ϕ
-        T_ref = air_temperature(e_ref_int)
-        P_ref = air_pressure(T_ref, ρ_ref)
+        T_ref = air_temperature(param_set, e_ref_int)
+        P_ref = air_pressure(param_set, T_ref, ρ_ref)
 
         ## Compute the fulle states
         ρ = ρ_ref + dρ
@@ -329,8 +331,8 @@ function compute_δP!(δP, Q, _, aux)
         e_int = e - (u^2 + v^2 + w^2) / 2 - ϕ
 
         ## compute the pressure
-        T = air_temperature(e_int)
-        P = air_pressure(T, ρ)
+        T = air_temperature(param_set, e_int)
+        P = air_pressure(param_set, T, ρ)
 
         ## store the pressure perturbation
         δP[1] = P - P_ref
@@ -352,11 +354,12 @@ function setupDG(
     FT,
 )
 
+    _planet_radius::FT = planet_radius(param_set)
     ## Create the element grid in the vertical direction
     Rrange = range(
-        FT(planet_radius),
+        _planet_radius,
         length = Ne_vertical + 1,
-        stop = planet_radius + domain_height,
+        stop = _planet_radius + domain_height,
     )
 
     ## Set up the mesh topology for the sphere
@@ -461,7 +464,7 @@ let
     ## Since we are using explicit time stepping the acoustic wave speed will
     ## dominate our CFL restriction along with the vertical element size
     element_size = (domain_height / Ne_vertical)
-    acoustic_speed = soundspeed_air(FT(T0))
+    acoustic_speed = soundspeed_air(param_set, FT(T0))
     dt = element_size / acoustic_speed / polynomialorder^2
 
     ## Adjust the time step so we exactly hit 1 hour for VTK output

@@ -14,9 +14,17 @@ vars_diffusive(rem::RemainderModel, FT) = vars_diffusive(rem.main, FT)
 vars_aux(rem::RemainderModel, FT) = vars_aux(rem.main, FT)
 vars_integrals(rem::RemainderModel, FT) = vars_integrals(rem.main, FT)
 vars_reverse_integrals(rem::RemainderModel, FT) = vars_integrals(rem.main, FT)
+vars_gradient_laplacian(rem::RemainderModel, FT) =
+    vars_gradient_laplacian(rem.main, FT)
+vars_hyperdiffusive(rem::RemainderModel, FT) = vars_hyperdiffusive(rem.main, FT)
 
-update_aux!(dg::DGModel, rem::RemainderModel, Q::MPIStateArray, t::Real) =
-    update_aux!(dg, rem.main, Q, t)
+update_aux!(
+    dg::DGModel,
+    rem::RemainderModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+) = update_aux!(dg, rem.main, Q, t, elems)
 
 integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
     integral_load_aux!(rem.main, integ, state, aux)
@@ -34,6 +42,16 @@ reverse_integral_load_aux!(
 reverse_integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
     reverse_integral_set_aux!(rem.main, aux, integ)
 
+function hyperdiffusive!(
+    rem::RemainderModel,
+    hyperdiffusive::Vars,
+    hypertransform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    hyperdiffusive!(rem.main, hyperdiffusive, hypertransform, state, aux, t)
+end
 function flux_diffusive!(
     rem::RemainderModel,
     flux::Grad,
@@ -110,7 +128,6 @@ end
 init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
 init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
 
-
 function flux_nondiffusive!(
     rem::RemainderModel,
     flux::Grad,
@@ -139,16 +156,17 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     m = getfield(source, :array)
-    source!(rem.main, source, state, diffusive, aux, t)
+    source!(rem.main, source, state, diffusive, aux, t, direction)
 
     source_s = similar(source)
     m_s = getfield(source_s, :array)
 
     for sub in rem.subs
         fill!(m_s, 0)
-        source!(sub, source_s, state, diffusive, aux, t)
+        source!(sub, source_s, state, diffusive, aux, t, direction)
         m .-= m_s
     end
     nothing

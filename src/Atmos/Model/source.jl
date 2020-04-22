@@ -1,11 +1,5 @@
-using CLIMA.PlanetParameters: Omega
-export Source,
-    Gravity,
-    RayleighSponge,
-    Subsidence,
-    GeostrophicForcing,
-    Coriolis,
-    CloudSource
+using CLIMAParameters.Planet: Omega
+export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -17,8 +11,9 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
-    f(atmos, source, state, diffusive, aux, t)
+    f(atmos, source, state, diffusive, aux, t, direction)
 end
 function atmos_source!(
     ::Nothing,
@@ -28,6 +23,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 ) end
 # sources are applied additively
 @generated function atmos_source!(
@@ -38,11 +34,20 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     N = fieldcount(stuple)
     return quote
-        Base.Cartesian.@nexprs $N i ->
-            atmos_source!(stuple[i], atmos, source, state, diffusive, aux, t)
+        Base.Cartesian.@nexprs $N i -> atmos_source!(
+            stuple[i],
+            atmos,
+            source,
+            state,
+            diffusive,
+            aux,
+            t,
+            direction,
+        )
         return nothing
     end
 end
@@ -58,6 +63,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     if atmos.ref_state isa HydrostaticState
         source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
@@ -75,9 +81,12 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
+    FT = eltype(state)
+    _Omega::FT = Omega(atmos.param_set)
     # note: this assumes a SphericalOrientation
-    source.ρu -= SVector(0, 0, 2 * Omega) × state.ρu
+    source.ρu -= SVector(0, 0, 2 * _Omega) × state.ρu
 end
 
 struct Subsidence{FT} <: Source
@@ -92,11 +101,12 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     w_sub = subsidence_velocity(subsidence, z)
-    k̂ = vertical_unit_vector(atmos.orientation, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
 
     source.ρe -= ρ * w_sub * dot(k̂, diffusive.∇h_tot)
     source.moisture.ρq_tot -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
@@ -119,9 +129,10 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     fkvector = s.f_coriolis * ẑ
     source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
 end
@@ -153,6 +164,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     x = aux.coord[1]

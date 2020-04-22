@@ -1,368 +1,281 @@
-# The test is based on a modelling set-up designed for the
-# 8th International Cloud Modelling Workshop
-# (ICMW, Muhlbauer et al., 2013, case 1, doi:10.1175/BAMS-D-12-00188.1)
-#
-# See chapter 2 in Arabas et al 2015 for setup details:
-#@Article{gmd-8-1677-2015,
-#AUTHOR = {Arabas, S. and Jaruga, A. and Pawlowska, H. and Grabowski, W. W.},
-#TITLE = {libcloudph++ 1.0: a single-moment bulk, double-moment bulk, and particle-based warm-rain microphysics library in C++},
-#JOURNAL = {Geoscientific Model Development},
-#VOLUME = {8},
-#YEAR = {2015},
-#NUMBER = {6},
-#PAGES = {1677--1707},
-#URL = {https://www.geosci-model-dev.net/8/1677/2015/},
-#DOI = {10.5194/gmd-8-1677-2015}
-#}
+include("KinematicModel.jl")
 
-using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGBalanceLawDiscretizations
-using CLIMA.DGBalanceLawDiscretizations.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.VTK
-
-using LinearAlgebra
-using StaticArrays
-using Printf
-
-using CLIMA.PlanetParameters
-using CLIMA.MoistThermodynamics
-using CLIMA.Microphysics
-
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
-
-const _nstate = 5
-const _ρ, _ρu, _ρw, _ρe_tot, _ρq_tot = 1:_nstate
-const stateid =
-    (ρid = _ρ, ρuid = _ρu, ρwid = _ρw, ρe_tot_id = _ρe_tot, ρq_tot_id = _ρq_tot)
-const statenames = ("ρ", "ρu", "ρw", "ρe_tot", "ρq_tot")
-
-const _nauxcstate = 3
-const _c_z, _c_x, _c_p = 1:_nauxcstate
-
-
-# preflux computation for wavespeed function
-@inline function preflux(Q)
-    @inbounds begin
-        # unpack all the state variables
-        ρ, ρu, ρw, ρe_tot, ρq_tot =
-            Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot]
-        u, w, e_tot, q_tot = ρu / ρ, ρw / ρ, ρe_tot / ρ, ρq_tot / ρ
-
-        return (u, w, ρ, q_tot, e_tot)
+function vars_state(m::KinematicModel, FT)
+    @vars begin
+        ρ::FT
+        ρu::SVector{3, FT}
+        ρe::FT
+        ρq_tot::FT
     end
 end
 
-
-# boundary condition
-@inline function bcstate!(QP, VFP, auxP, nM, QM, VFM, auxM, bctype, t)
-    @inbounds begin
-        ρu_M, ρw_M, ρe_tot_M, ρq_tot_M =
-            QM[_ρu], QM[_ρw], QM[_ρe_tot], QM[_ρq_tot]
-
-        ρu_nM = nM[1] * ρu_M + nM[2] * ρw_M
-
-        QP[_ρu] = ρu_M - 2 * nM[1] * ρu_nM
-        QP[_ρw] = ρw_M - 2 * nM[2] * ρu_nM
-
-        QP[_ρe_tot], QP[_ρq_tot] = ρe_tot_M, ρq_tot_M
-
-        auxM .= auxP
+function vars_aux(m::KinematicModel, FT)
+    @vars begin
+        # defined in init_aux
+        p::FT
+        z::FT
+        # defined in update_aux
+        u::FT
+        w::FT
+        q_tot::FT
+        q_vap::FT
+        q_liq::FT
+        q_ice::FT
+        e_tot::FT
+        e_kin::FT
+        e_pot::FT
+        e_int::FT
+        T::FT
+        S::FT
+        RH::FT
     end
 end
 
+function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
+    FT = eltype(state)
 
-# max eigenvalue
-@inline function wavespeed(n, Q, aux, t)
-    u, w, ρ, q_tot, e_tot = preflux(Q)
-    @inbounds abs(n[1] * u + n[2] * w)
+    _grav::FT = grav(param_set)
+
+    dc = eddy_model.data_config
+
+    # density
+    q_pt_0 = PhasePartition(dc.qt_0)
+    R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
+    T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
+    ρ::FT = aux.p / R_m / T
+    state.ρ = ρ
+
+    # moisture
+    state.ρq_tot = ρ * dc.qt_0
+
+    # velocity (derivative of streamfunction)
+    ρu::FT =
+        dc.wmax * dc.xmax / dc.zmax *
+        cos(π * z / dc.zmax) *
+        cos(2 * π * x / dc.xmax)
+    ρw::FT = 2 * dc.wmax * sin(π * z / dc.zmax) * sin(2 * π * x / dc.xmax)
+    state.ρu = SVector(ρu, FT(0), ρw)
+    u::FT = ρu / ρ
+    w::FT = ρw / ρ
+
+    # energy
+    e_kin::FT = 1 // 2 * (u^2 + w^2)
+    e_pot::FT = _grav * z
+    e_int::FT = internal_energy(param_set, T, q_pt_0)
+    e_tot::FT = e_kin + e_pot + e_int
+    state.ρe = ρ * e_tot
+
+    return nothing
 end
 
+function kinematic_model_nodal_update_aux!(
+    m::KinematicModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    FT = eltype(state)
+    _grav::FT = grav(param_set)
 
-@inline function constant_auxiliary_init!(aux, x, z, _...)
-    @inbounds begin
-        aux[_c_z] = z  # for gravity
-        aux[_c_x] = x
+    aux.u = state.ρu[1] / state.ρ
+    aux.w = state.ρu[3] / state.ρ
 
-        FT = eltype(aux)
+    aux.q_tot = state.ρq_tot / state.ρ
 
-        # initial condition
-        θ_0::FT = 289         # K
-        p_0::FT = 101500      # Pa
-        p_1000::FT = 100000      # Pa
-        qt_0::FT = 7.5 * 1e-3  # kg/kg
-        z_0::FT = 0           # m
+    aux.e_tot = state.ρe / state.ρ
+    aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
+    aux.e_pot = _grav * aux.z
+    aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
-        R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
+    # saturation adjustment happens here
+    ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
+    pp = PhasePartition(ts)
 
-        # Pressure profile assuming hydrostatic and constant θ and qt profiles.
-        # It is done this way to be consistent with Arabas paper.
-        # It's not neccesarily the best way to initialize with our model variables.
-        p =
-            p_1000 *
-            (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
+    aux.T = ts.T
+    aux.q_vap = aux.q_tot - pp.liq - pp.ice
+    aux.q_liq = pp.liq
+    aux.q_ice = pp.ice
 
-        aux[_c_p] = p  # for prescribed pressure gradient (kinematic setup)
-    end
+    q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+    aux.S =
+        max(
+            0,
+            aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1),
+        ) * FT(100)
+    aux.RH =
+        aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
 end
 
+function boundary_state!(
+    ::Rusanov,
+    m::KinematicModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+) end
 
-# physical flux function
-@inline function eulerflux!(F, Q, QV, aux, t)
-    u, w, ρ, q_tot, e_tot = preflux(Q)
-    @inbounds begin
-        p = aux[_c_p]
-
-        F .= 0
-        # advect the moisture and energy
-        F[1, _ρq_tot], F[2, _ρq_tot] = u * ρ * q_tot, w * ρ * q_tot
-        F[1, _ρe_tot], F[2, _ρe_tot] = u * (ρ * e_tot + p), w * (ρ * e_tot + p)
-        # don't advect momentum (kinematic setup)
-    end
+@inline function wavespeed(
+    m::KinematicModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    u = state.ρu / state.ρ
+    return abs(dot(nM, u))
 end
 
+@inline function flux_nondiffusive!(
+    m::KinematicModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    FT = eltype(state)
 
-# initial condition
-const w_max = 0.6    # m/s
-const Z_max = 1500.0 # m
-const X_max = 1500.0 # m
-
-@inline function single_eddy!(Q, t, x, z, _...)
-    FT = eltype(Q)
-
-    # initial condition
-    θ_0::FT = 289         # K
-    p_0::FT = 101500      # Pa
-    p_1000::FT = 100000      # Pa
-    qt_0::FT = 7.5 * 1e-3  # kg/kg
-    z_0::FT = 0           # m
-
-    R_m, cp_m, cv_m, γ = gas_constants(PhasePartition(qt_0))
-
-    @inbounds begin
-        # Pressure profile assuming hydrostatic and constant θ and qt profiles.
-        # It is done this way to be consistent with Arabas paper.
-        # It's not neccesarily the best way to initialize with our model variables.
-        p =
-            p_1000 *
-            (
-                (p_0 / p_1000)^(R_d / cp_d) -
-                R_d / cp_d * grav / θ_0 / R_m * (z - z_0)
-            )^(cp_d / R_d)
-        T::FT = θ_0 * exner_given_pressure(p, PhasePartition(qt_0))
-        ρ::FT = p / R_m / T
-
-        # TODO should this be more "grid aware"?
-        # the velocity is calculated as derivative of streamfunction
-        ρu::FT =
-            w_max * X_max / Z_max * cos(π * z / Z_max) * cos(2 * π * x / X_max)
-        ρw::FT = 2 * w_max * sin(π * z / Z_max) * sin(2 * π * x / X_max)
-        u = ρu / ρ
-        w = ρw / ρ
-
-        ρq_tot::FT = ρ * qt_0
-
-        e_int = internal_energy(T, PhasePartition(qt_0))
-        ρe_tot = ρ * (grav * z + (1 // 2) * (u^2 + w^2) + e_int)
-
-        Q[_ρ], Q[_ρu], Q[_ρw], Q[_ρe_tot], Q[_ρq_tot] =
-            ρ, ρu, ρw, ρe_tot, ρq_tot
-    end
-end
-
-
-function main(
-    mpicomm,
-    FT,
-    topl::AbstractTopology{dim},
-    N,
-    timeend,
-    ArrayType,
-    dt,
-) where {dim}
-
-    grid = DiscontinuousSpectralElementGrid(
-        topl,
-        FloatType = FT,
-        DeviceArray = ArrayType,
-        polynomialorder = N,
+    # advect moisture ...
+    flux.ρq_tot = SVector(
+        state.ρu[1] * state.ρq_tot / state.ρ,
+        FT(0),
+        state.ρu[3] * state.ρq_tot / state.ρ,
     )
-    numflux!(x...) = NumericalFluxes.rusanov!(x..., eulerflux!, wavespeed)
-    numbcflux!(x...) = NumericalFluxes.rusanov_boundary_flux!(
-        x...,
-        eulerflux!,
-        bcstate!,
-        wavespeed,
+    # ... energy ...
+    flux.ρe = SVector(
+        state.ρu[1] / state.ρ * (state.ρe + aux.p),
+        FT(0),
+        state.ρu[3] / state.ρ * (state.ρe + aux.p),
     )
-
-
-
-    # spacedisc = data needed for evaluating the right-hand side function
-    spacedisc = DGBalanceLaw(
-        grid = grid,
-        length_state_vector = _nstate,
-        flux! = eulerflux!,
-        numerical_flux! = numflux!,
-        numerical_boundary_flux! = numbcflux!,
-        auxiliary_state_length = _nauxcstate,
-        auxiliary_state_initialization! = constant_auxiliary_init!,
-    )
-
-    # This is a actual state/function that lives on the grid
-    initialcondition(Q, x...) = single_eddy!(Q, FT(0), x...)
-    Q = MPIStateArray(spacedisc, initialcondition)
-
-    npoststates = 9
-    v_q_liq, v_q_vap, v_q_tot, v_p, v_T, v_e_tot, v_e_int, v_e_kin, v_e_pot =
-        1:npoststates
-    postnames = (
-        "q_liq",
-        "q_vap",
-        "q_tot",
-        "p",
-        "T",
-        "e_tot",
-        "e_int",
-        "e_kin",
-        "e_pot",
-    )
-    postprocessarray = MPIStateArray(spacedisc; nstate = npoststates)
-
-    writevtk("initial_condition", Q, spacedisc, statenames)
-
-    lsrk = LSRK54CarpenterKennedy(spacedisc, Q; dt = dt, t0 = 0)
-
-    io = MPI.Comm_rank(mpicomm) == 0 ? stdout : devnull
-    eng0 = norm(Q)
-    @printf(io, "----\n")
-    @printf(io, "||Q||₂ (initial) =  %.16e\n", eng0)
-
-    # Set up the information callback
-    timer = [time_ns()]
-    cbinfo = GenericCallbacks.EveryXWallTimeSeconds(10, mpicomm) do (s = false)
-        if s
-            timer[1] = time_ns()
-        else
-            run_time = (time_ns() - timer[1]) * 1e-9
-            (min, sec) = fldmod(run_time, 60)
-            (hrs, min) = fldmod(min, 60)
-            @printf(io, "----\n")
-            @printf(io, "simtime =  %.16e\n", ODESolvers.gettime(lsrk))
-            @printf(
-                io,
-                "runtime =  %03d:%02d:%05.2f (hour:min:sec)\n",
-                hrs,
-                min,
-                sec
-            )
-            @printf(io, "||Q||₂  =  %.16e\n", norm(Q))
-        end
-        nothing
-    end
-
-    step = [0]
-    mkpath("vtk")
-
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(60) do (init = false)
-        DGBalanceLawDiscretizations.dof_iteration!(
-            postprocessarray,
-            spacedisc,
-            Q,
-        ) do R, Q, QV, aux
-            @inbounds begin
-                u, w, ρ, q_tot, e_tot = preflux(Q)
-                z = aux[_c_z]
-                p = aux[_c_p]
-
-                e_int = e_tot - 1 // 2 * (u^2 + w^2) - grav * z
-                ts = PhaseEquil(e_int, ρ, q_tot) # saturation adjustment happens here
-                pp = PhasePartition(ts)
-                R[v_T] = ts.T
-                R[v_p] = p
-
-                R[v_q_tot] = q_tot
-                R[v_q_vap] = q_tot - pp.liq
-                R[v_q_liq] = pp.liq
-
-                R[v_e_tot] = e_tot
-                R[v_e_int] = e_int
-                R[v_e_kin] = 1 // 2 * (u^2 + w^2)
-                R[v_e_pot] = grav * z
-
-            end
-        end
-
-        outprefix = @sprintf(
-            "vtk/ex_1_microphysics_sat_adj_%dD_mpirank%04d_step%04d",
-            dim,
-            MPI.Comm_rank(mpicomm),
-            step[1]
-        )
-        @printf(io, "----\n")
-        @printf(io, "doing VTK output =  %s\n", outprefix)
-        writevtk(
-            outprefix,
-            Q,
-            spacedisc,
-            statenames,
-            postprocessarray,
-            postnames,
-        )
-        step[1] += 1
-        nothing
-    end
-
-    solve!(Q, lsrk; timeend = timeend, callbacks = (cbinfo, cbvtk))
-
-    Qe = MPIStateArray(
-        spacedisc,
-        (Q, x...) -> single_eddy!(Q, FT(timeend), x...),
-    )
-
-    # Print some end of the simulation information
-    engf = norm(Q)
-    @printf(io, "----\n")
-    @printf(io, "||Q||₂ ( final ) = %.16e\n", engf)
+    # ... and don't advect momentum (kinematic setup)
 end
 
-function run(dim, Ne, N, timeend, FT)
+source!(::KinematicModel, _...) = nothing
 
+function main()
     CLIMA.init()
-    ArrayType = CLIMA.array_type()
+
+    # Working precision
+    FT = Float64
+    # DG polynomial order
+    N = 4
+    # Domain resolution and size
+    Δx = FT(20)
+    Δy = FT(1)
+    Δz = FT(20)
+    resolution = (Δx, Δy, Δz)
+    # Domain extents
+    xmax = 1500
+    ymax = 10
+    zmax = 1500
+    # initial configuration
+    wmax = FT(0.6)  # max velocity of the eddy  [m/s]
+    θ_0 = FT(289) # init. theta value (const) [K]
+    p_0 = FT(101500) # surface pressure [Pa]
+    p_1000 = FT(100000) # reference pressure in theta definition [Pa]
+    qt_0 = FT(7.5 * 1e-3) # init. total water specific humidity (const) [kg/kg]
+    z_0 = FT(0) # surface height
+
+    # time stepping
+    t_ini = FT(0)
+    t_end = FT(60 * 30)
+    dt = 40
+    output_freq = 9
+
+    driver_config = config_kinematic_eddy(
+        FT,
+        N,
+        resolution,
+        xmax,
+        ymax,
+        zmax,
+        wmax,
+        θ_0,
+        p_0,
+        p_1000,
+        qt_0,
+        z_0,
+    )
+    solver_config = CLIMA.SolverConfiguration(
+        t_ini,
+        t_end,
+        driver_config;
+        ode_dt = dt,
+        init_on_cpu = true,
+        #Courant_number = CFL,
+    )
 
     mpicomm = MPI.COMM_WORLD
 
-    brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = Z_max), 2)
+    # output for paraview
+    model = driver_config.bl
+    step = [0]
+    cbvtk =
+        GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
+            mkpath("vtk/")
+            outprefix = @sprintf(
+                "vtk/new_ex_1_mpirank%04d_step%04d",
+                MPI.Comm_rank(mpicomm),
+                step[1]
+            )
+            @info "doing VTK output" outprefix
+            writevtk(
+                outprefix,
+                solver_config.Q,
+                solver_config.dg,
+                flattenednames(vars_state(model, FT)),
+                solver_config.dg.auxstate,
+                flattenednames(vars_aux(model, FT)),
+            )
+            step[1] += 1
+            nothing
+        end
 
-    topl = BrickTopology(mpicomm, brickrange, periodicity = (true, false))
-    dt = 1
+    # get aux variables indices for testing
+    q_tot_ind = varsindex(vars_aux(model, FT), :q_tot)
+    q_vap_ind = varsindex(vars_aux(model, FT), :q_vap)
+    q_liq_ind = varsindex(vars_aux(model, FT), :q_liq)
+    q_ice_ind = varsindex(vars_aux(model, FT), :q_ice)
+    S_ind = varsindex(vars_aux(model, FT), :S)
 
-    main(mpicomm, FT, topl, N, timeend, ArrayType, dt)
+    # call solve! function for time-integrator
+    result = CLIMA.invoke!(
+        solver_config;
+        user_callbacks = (cbvtk,),
+        check_euclidean_distance = true,
+    )
 
+    # no supersaturation
+    max_S = maximum(abs.(solver_config.dg.auxstate[:, S_ind, :]))
+    @test isequal(max_S, FT(0))
+
+    # qt is conserved
+    max_q_tot = maximum(abs.(solver_config.dg.auxstate[:, q_tot_ind, :]))
+    min_q_tot = minimum(abs.(solver_config.dg.auxstate[:, q_tot_ind, :]))
+    @test isapprox(max_q_tot, qt_0; rtol = 1e-3)
+    @test isapprox(min_q_tot, qt_0; rtol = 1e-3)
+
+    # q_vap + q_liq = q_tot
+    max_water_diff = maximum(abs.(
+        solver_config.dg.auxstate[:, q_tot_ind, :] .-
+        solver_config.dg.auxstate[:, q_vap_ind, :] .-
+        solver_config.dg.auxstate[:, q_liq_ind, :],
+    ))
+    @test isequal(max_water_diff, FT(0))
+
+    # no ice
+    max_q_ice = maximum(abs.(solver_config.dg.auxstate[:, q_ice_ind, :]))
+    @test isequal(max_q_ice, FT(0))
+
+    # q_liq ∈ reference range
+    max_q_liq = max(solver_config.dg.auxstate[:, q_liq_ind, :]...)
+    min_q_liq = min(solver_config.dg.auxstate[:, q_liq_ind, :]...)
+    @test max_q_liq < FT(1e-3)
+    @test isequal(min_q_liq, FT(0))
 end
 
-using Test
-let
-    timeend = 30 * 60
-    numelem = (75, 75)
-    lvls = 3
-    dim = 2
-    FT = Float64
-
-    polynomialorder = 4
-
-    run(dim, ntuple(j -> numelem[j], dim), polynomialorder, timeend, FT)
-end
-
-nothing
+main()

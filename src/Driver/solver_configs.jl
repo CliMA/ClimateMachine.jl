@@ -36,20 +36,23 @@ DGmethods.courant(
     sc::SolverConfiguration;
     Q = sc.Q,
     dt = sc.dt,
+    simtime = gettime(sc.solver),
     direction = EveryDirection(),
-) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, direction)
+) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, simtime, direction)
 
 """
-    CLIMA.setup_solver(t0::FT,
-                      timeend::FT,
-                      driver_config::DriverConfiguration,
-                      init_args...;
-                      init_on_cpu=false,
-                      ode_solver_type=driver_config.solver_type,
-                      ode_dt=nothing,
-                      modeldata=nothing,
-                      Courant_number=0.4,
-                      diffdir=EveryDirection())
+    CLIMA.SolverConfiguration(
+        t0::FT,
+        timeend::FT,
+        driver_config::DriverConfiguration,
+        init_args...;
+        init_on_cpu=false,
+        ode_solver_type=driver_config.solver_type,
+        ode_dt=nothing,
+        modeldata=nothing,
+        Courant_number=0.4,
+        diffdir=EveryDirection(),
+    )
 
 Set up the DG model per the specified driver configuration, set up
 the ODE solver, and return a `SolverConfiguration` to be used with
@@ -69,7 +72,7 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
 """
-function setup_solver(
+function SolverConfiguration(
     t0::FT,
     timeend::FT,
     driver_config::DriverConfiguration,
@@ -83,7 +86,7 @@ function setup_solver(
     timeend_dt_adjust = true,
     CFL_direction = EveryDirection(),
 ) where {FT <: AbstractFloat}
-    @tic setup_solver
+    @tic SolverConfiguration
 
     bl = driver_config.bl
     grid = driver_config.grid
@@ -92,18 +95,46 @@ function setup_solver(
     gradnumflux = driver_config.gradnumflux
 
     # create DG model, initialize ODE state
-    dg = DGModel(
-        bl,
-        grid,
-        numfluxnondiff,
-        numfluxdiff,
-        gradnumflux,
-        modeldata = modeldata,
-        diffusion_direction = diffdir,
-    )
-    @info @sprintf("Initializing %s", driver_config.name)
-    Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
-    update_aux!(dg, bl, Q, FT(0))
+    if Settings.restart_from_num > 0
+        s_Q, s_aux, t0 = Callbacks.read_checkpoint(
+            Settings.checkpoint_dir,
+            driver_config.name,
+            driver_config.array_type,
+            driver_config.mpicomm,
+            Settings.restart_from_num,
+        )
+
+        auxstate = restart_auxstate(bl, grid, s_aux)
+
+        dg = DGModel(
+            bl,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            auxstate = auxstate,
+            diffusion_direction = diffdir,
+            modeldata = modeldata,
+        )
+
+        @info @sprintf("Restarting %s from time %8.2f", driver_config.name, t0)
+        Q = restart_ode_state(dg, s_Q; init_on_cpu = init_on_cpu)
+    else
+        dg = DGModel(
+            bl,
+            grid,
+            numfluxnondiff,
+            numfluxdiff,
+            gradnumflux,
+            diffusion_direction = diffdir,
+            modeldata = modeldata,
+        )
+
+        @info @sprintf("Initializing %s", driver_config.name,)
+        Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+    end
+    update_aux!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+
     # create the linear model for IMEX solvers
     linmodel = nothing
     if isa(ode_solver_type, ExplicitSolverType)
@@ -125,8 +156,16 @@ function setup_solver(
     end
 
     # initial Δt specified or computed
+    simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-        ode_dt = calculate_dt(dg, dtmodel, Q, Courant_number, CFL_direction)
+        ode_dt = CLIMA.DGmethods.calculate_dt(
+            dg,
+            dtmodel,
+            Q,
+            Courant_number,
+            simtime,
+            CFL_direction,
+        )
     end
     @info "hello"
     numberofsteps = convert(Int, cld(timeend, ode_dt))
@@ -155,7 +194,8 @@ function setup_solver(
         slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
-        solver = ode_solver_type.solver_method((slow_solver, fast_solver))
+        solver =
+            ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
     else # solver_type === IMEXSolverType
         vdg = DGModel(
             linmodel,
@@ -176,7 +216,7 @@ function setup_solver(
         )
     end
 
-    @toc setup_solver
+    @toc SolverConfiguration
 
     return SolverConfiguration(
         driver_config.name,
