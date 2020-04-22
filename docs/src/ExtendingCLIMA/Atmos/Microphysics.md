@@ -97,6 +97,9 @@ The default value of ``C_{drag}`` is chosen such that the ``v_t`` is close to th
 ```@example rain_terminal_velocity
 using CLIMA.Microphysics
 using Plots
+using CLIMAParameters
+abstract type EarthParameterSet <: AbstractParameterSet end
+param_set = EarthParameterSet()
 
 # eq. 5d in Smolarkiewicz and Grabowski 1996
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
@@ -109,7 +112,7 @@ end
 q_rain_range = range(1e-8, stop=5e-3, length=100)
 ρ_air, q_tot, ρ_air_ground = 1.2, 20 * 1e-3, 1.22
 
-plot(q_rain_range * 1e3,  [terminal_velocity(q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="velocity [m/s]", title="Average terminal velocity of rain", label="CLIMA")
+plot(q_rain_range * 1e3,  [terminal_velocity(param_set, q_rai, ρ_air) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="velocity [m/s]", title="Average terminal velocity of rain", label="CLIMA")
 plot!(q_rain_range * 1e3, [terminal_velocity_empirical(q_rai, q_tot, ρ_air, ρ_air_ground) for q_rai in q_rain_range], label="Empirical")
 savefig("rain_terminal_velocity.svg") # hide
 nothing # hide
@@ -168,6 +171,7 @@ The default value of collision efficiency ``E_{coll}`` is set to 0.8 so that the
 using CLIMA.Microphysics
 using CLIMAParameters
 using Plots
+using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 param_set = EarthParameterSet()
 
@@ -313,21 +317,6 @@ savefig("rain_evaporation_rate.svg") # hide
 nothing # hide
 ```
 ![](rain_evaporation_rate.svg)
-
-
-```@meta
-CurrentModule = CLIMA.Microphysics
-```
-
-## Functions
-
-```@docs
-terminal_velocity
-conv_q_vap_to_q_liq
-conv_q_liq_to_q_rai_acnv
-conv_q_liq_to_q_rai_accr
-conv_q_rai_to_q_vap
-```
 
 ## References
 
