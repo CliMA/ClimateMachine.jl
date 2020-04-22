@@ -16,12 +16,11 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 
 # Some notes on using CLIMA
 
-The following instructions to install and run the code assume that Julia
-version 1.0.1 or greater installed; GPU version requires version 1.2 or greater
-and an NVIDIA GPU.
+CLIMA requires the following:
 
-The [MPI.jl][0] package that is used assumes that you have a working MPI
-installation
+ - Julia 1.3: currently [Julia 1.3.1](https://julialang.org/downloads/oldreleases/#v131_dec_30_2019) is used for testing.
+ - A working MPI installation: see [MPI.jl installation](https://juliaparallel.github.io/MPI.jl/stable/installation/).
+ - GPU functionality requires an NVIDIA GPU with CUDA drivers.
 
 ## Setup
 
@@ -44,5 +43,3 @@ environment variable `JULIA_MPI_PATH`. Additionally, if your MPI is not
 installed in a single place, e.g., MPI from macports in OSX, you may need to set
 `JULIA_MPI_INCLUDE_PATH` and `JULIA_MPI_LIBRARY_PATH`; for macports installs of
 MPI these would be subdirectories in `/opt/local/include` and `/opt/local/lib`.
-
-[0]: https://github.com/JuliaParallel/MPI.jl
