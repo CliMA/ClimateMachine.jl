@@ -60,7 +60,7 @@ Base.@kwdef mutable struct CLIMA_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
     diagnostics::String = "never"
-    vtk::String = "never"
+    vtk::String = "60secs"
     monitor_timestep_duration::String = "never"
     monitor_courant_numbers::String = "never"
     checkpoint::String = "never"

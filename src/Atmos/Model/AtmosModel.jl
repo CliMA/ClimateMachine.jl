@@ -521,10 +521,9 @@ function update_aux_diffusive!(
 )
     A = dg.auxstate
 
-    # store ∇ʰu as integrand for w
     function f!(m::AtmosModel, Q, A, D, t)
         @inbounds begin
-            D.turbulence.Divergence = tr(D.turbulence.∇u)
+            aux.turbulence.Divergence = tr(D.turbulence.∇u)
         end
         return nothing
     end

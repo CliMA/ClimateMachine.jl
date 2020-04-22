@@ -686,7 +686,7 @@ function atmos_init_aux!(
     geom::LocalGeometry,
 )
     aux.turbulence.Δ = lengthscale(geom)
-    aux.turbulence.Divergence = lengthscale(geom)
+    aux.turbulence.Divergence = FT(0)
 end
 function gradvariables!(
     m::DivDamping,
