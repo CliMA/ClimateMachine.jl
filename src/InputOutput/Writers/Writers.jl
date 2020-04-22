@@ -4,8 +4,11 @@
 Abstracts writing dimensioned data so that output can be to a NetCDF
 file or to a JLD2 file.
 
-Currently, a single file per time of writing is envisioned. Thus, a
-`t` dimension is implicitly defined as `[1]`.
+Currently, a single file per time of writing is used. Thus, a `time`
+dimension is implicitly defined of length 1, with a value of the
+current simulation time.
+
+TODO: use an unlimited dimension for time and append?
 """
 
 module Writers
@@ -29,9 +32,11 @@ and variable values to a file. Specialized by every `Writer` subtype.
 # Arguments:
 # - `writer`: instance of a subtype of `AbstractWriter`.
 # - `filename`: into which to write data (without extension).
-# - `dims`: Dict of dimension name to axis.
-# - `varvals`: Tuple of a k-tuple of dimension names and a Dict, of
-# variable name to k-dimensional array of values.
+# - `dims`: Dict of dimension name to 2-tuple of dimension values and Dict
+#   of attributes.
+# - `varvals`: Dict of variable name to 3-tuple of a k-tuple of dimension
+#   names, k-dimensional array of values, and Dict of attributes.
+#   variable name to k-dimensional array of values.
 # - `simtime`: Current simulation time.
 """
 function write_data end

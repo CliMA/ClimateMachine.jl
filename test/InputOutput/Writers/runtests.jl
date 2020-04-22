@@ -6,13 +6,13 @@ using ClimateMachine.Writers
 
 @testset "Writers" begin
     odims = OrderedDict(
-        "x" => collect(1:5),
-        "y" => collect(1:5),
-        "z" => collect(1010:10:1050),
+        "x" => (collect(1:5), Dict()),
+        "y" => (collect(1:5), Dict()),
+        "z" => (collect(1010:10:1050), Dict()),
     )
     ovars = OrderedDict(
-        "v1" => (("x", "y", "z"), rand(5, 5, 5)),
-        "v2" => (("x", "y", "z"), rand(5, 5, 5)),
+        "v1" => (("x", "y", "z"), rand(5, 5, 5), Dict()),
+        "v2" => (("x", "y", "z"), rand(5, 5, 5), Dict()),
     )
     jfn, _ = mktemp()
     jfull = full_name(JLD2Writer(), jfn)
