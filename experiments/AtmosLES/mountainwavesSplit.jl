@@ -74,7 +74,7 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
 
     # Choose explicit solver
     solver_type = MultirateInfinitesimalStep
-    fast_solver_type = StrongStabilityPreservingRungeKutta
+    fast_solver_type = StormerVerlet
 
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==StormerVerlet
@@ -82,7 +82,7 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
                 linear_model = AtmosAcousticGravityLinearModelSplit,
                 slow_method = MIS2,
                 fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-                number_of_steps = (45,),
+                number_of_steps = (70,),
             )
         elseif fast_solver_type==StrongStabilityPreservingRungeKutta
             ode_solver = CLIMA.MISSolverType(
@@ -118,7 +118,7 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
                 hevi_split = true,
             )
         end
-        Δt = FT(3.0)
+        Δt = FT(5.0)
     elseif solver_type==StrongStabilityPreservingRungeKutta
         ode_solver = CLIMA.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
         #ode_solver = CLIMA.ExplicitSolverType(solver_method = SSPRK34SpiteriRuuth)
@@ -173,9 +173,9 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 4
+    N = 2
     # Number of elements in each direction
-    Ne = (20, 0, 10)
+    Ne = (100, 0, 78)
     # Domain extents
     xmin = FT(-20000)
     xmax = FT(20000)
