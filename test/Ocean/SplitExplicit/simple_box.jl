@@ -13,10 +13,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-import CLIMA.SplitExplicit:
-    ocean_init_aux!,
-    ocean_init_state!,
-    ocean_boundary_state!,
+using CLIMA.SplitExplicit:
     CoastlineFreeSlip,
     CoastlineNoSlip,
     OceanFloorFreeSlip,
@@ -25,9 +22,8 @@ import CLIMA.SplitExplicit:
     OceanSurfaceStressNoForcing,
     OceanSurfaceNoStressForcing,
     OceanSurfaceStressForcing
-import CLIMA.DGmethods:
-    update_aux!, update_aux_diffusive!, vars_state, vars_aux, VerticalDirection
-using GPUifyLoops
+using CLIMA.DGmethods: vars_state, vars_aux
+import CLIMA.SplitExplicit: ocean_init_aux!, ocean_init_state!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
@@ -60,23 +56,12 @@ function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
     FT = eltype(A)
     @inbounds A.y = geom.coord[2]
 
-    # not sure if this is needed but getting weird intialization stuff
-    A.w = -0
-    A.pkin = -0
-    A.wz0 = -0
-    A.Δη = -0
-    A.∫u = @SVector [-0, -0]
-
     return nothing
 end
 
 # A is Filled afer the state
 function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
     @inbounds A.y = geom.coord[2]
-
-    A.Gᵁ = @SVector [0, 0]
-    A.Ū = @SVector [0, 0]
-    A.η̄ = 0
 
     return nothing
 end

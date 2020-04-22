@@ -14,11 +14,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
-using CLIMA.PlanetParameters: grav
-import CLIMA.SplitExplicit:
-    ocean_init_aux!,
-    ocean_init_state!,
-    ocean_boundary_state!,
+using CLIMA.SplitExplicit:
     CoastlineFreeSlip,
     CoastlineNoSlip,
     OceanFloorFreeSlip,
@@ -27,26 +23,20 @@ import CLIMA.SplitExplicit:
     OceanSurfaceStressNoForcing,
     OceanSurfaceNoStressForcing,
     OceanSurfaceStressForcing
-import CLIMA.DGmethods:
-    update_aux!, update_aux_diffusive!, vars_state, vars_aux, VerticalDirection
-using GPUifyLoops
+using CLIMA.DGmethods: vars_state, vars_aux
+import CLIMA.SplitExplicit: ocean_init_aux!, ocean_init_state!
 
-const ArrayType = CLIMA.array_type()
+using CLIMAParameters
+using CLIMAParameters.Planet: grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
-struct SimpleBox{T} <: AbstractOceanProblem
+struct SimpleBox{T, BC} <: AbstractOceanProblem
     Lˣ::T
     Lʸ::T
     H::T
     τₒ::T
-end
-
-@inline function ocean_boundary_state!(
-    m::BarotropicModel,
-    p::SimpleBox,
-    bctype,
-    x...,
-)
-    return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+    boundary_condition::BC
 end
 
 # A is Filled afer the state
@@ -56,8 +46,9 @@ function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
     return nothing
 end
 
-function main()
+function main(BC)
     CLIMA.init()
+    ArrayType = CLIMA.array_type()
     mpicomm = MPI.COMM_WORLD
 
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -68,8 +59,12 @@ function main()
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
     brickrange_2D = (xrange, yrange)
-    topl_2D =
-        BrickTopology(mpicomm, brickrange_2D, periodicity = (false, false))
+    topl_2D = BrickTopology(
+        mpicomm,
+        brickrange_2D;
+        periodicity = (false, false),
+        boundary = ((1, 1), (1, 1)),
+    )
     grid_2D = DiscontinuousSpectralElementGrid(
         topl_2D,
         FloatType = FT,
@@ -77,12 +72,12 @@ function main()
         polynomialorder = N,
     )
 
-    prob = SimpleBox{FT}(Lˣ, Lʸ, H, τₒ)
-    model = OceanModel{FT}(prob, cʰ = cʰ)
+    prob = SimpleBox{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, BC)
+    model = OceanModel{FT}(param_set, prob, cʰ = cʰ)
     barotropicmodel =
         BarotropicModel(model, CLIMA.SplitExplicit.SurfaceStress())
 
-    @show typeof(barotropicmodel.source)
+    typeof(barotropicmodel.source)
 
     minΔx = Lˣ / Nˣ / (N + 1)
     CFL_gravity = minΔx / model.cʰ
@@ -217,9 +212,11 @@ const H = 1000  # m
 xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
 yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
 
-const cʰ = sqrt(grav * H)
+const cʰ = sqrt(grav(param_set) * H)
 const cᶻ = 0
 
 const τₒ = 1e-1  # (m/s)^2
 
-main()
+BC_noslip = (CoastlineNoSlip(),)
+
+main(BC_noslip)
