@@ -102,6 +102,10 @@ conv_q_liq_to_q_rai_accr = tendency to q_rai due to accretion from q_liq [1/s]
 conv_q_rai_to_q_vap      = tendency to q_vap due to evaporation from q_rai [1/s]
 ```
 
+### 2.7 Diagnostics
+
+Please see `CliMA Diagnostic Variable List`.
+
 ### TODO
 ```
 Update with list of additional parameters / source terms as necessary

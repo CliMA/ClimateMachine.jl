@@ -7,6 +7,7 @@ deps/deps.jl
 docs/build/
 docs/site/
 docs/src/examples/
+docs/src/generated/
 src/**/Manifest.toml
 *.vtk
 *.dat
@@ -14,5 +15,7 @@ src/**/Manifest.toml
 *.pvtu
 *.swp
 *.png
+*.nc
 !docs/src/assets/*.png
 *~
+TAGS
