@@ -14,10 +14,11 @@ For dispatching to isentropic formulas
 struct DryAdiabaticProcess end
 
 """
-    air_pressure_given_θ(θ::FT, Φ::FT, ::DryAdiabaticProcess)
+    air_pressure_given_θ(param_set, θ::FT, Φ::FT, ::DryAdiabaticProcess)
 
 The air pressure for an isentropic process, where
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `θ` potential temperature
  - `Φ` gravitational potential
 """
@@ -34,10 +35,11 @@ function air_pressure_given_θ(
 end
 
 """
-    air_pressure(T::FT, T∞::FT, p∞::FT, ::DryAdiabaticProcess)
+    air_pressure(param_set, T::FT, T∞::FT, p∞::FT, ::DryAdiabaticProcess)
 
 The air pressure for an isentropic process, where
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `T` temperature
  - `T∞` ambient temperature
  - `p∞` ambient pressure
@@ -54,10 +56,11 @@ function air_pressure(
 end
 
 """
-    air_temperature(p::FT, θ::FT, Φ::FT, ::DryAdiabaticProcess)
+    air_temperature(param_set, p::FT, θ::FT, Φ::FT, ::DryAdiabaticProcess)
 
 The air temperature for an isentropic process, where
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `p` pressure
  - `θ` potential temperature
 """
