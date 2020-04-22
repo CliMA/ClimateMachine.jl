@@ -28,12 +28,24 @@ There are several types of functions:
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_tot`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities (`q.liq` and `q.ice`) from the internal energy `e_int` by saturation adjustment:
+A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_tot`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities (`q.liq` and `q.ice`) from the internal energy `e_int` by saturation adjustment.
+
+## Interface
+
+Users are encouraged to first establish a thermodynamic state with one of our [Thermodynamic State Constructors](@ref). For example, we would construct a moist thermodynamic state using
+
 ```julia
-T = saturation_adjustment(e_int, ρ, q_tot);
-q = PhasePartition_equil(T, ρ, q_tot);
+ts = PhaseEquil(param_set, e_int, ρ, q_tot);
 ```
-here, `ρ` is the density of the moist air, and the internal energy `e_int = e_tot - e_kin - geopotential` is the total energy `e_tot` minus kinetic energy `e_kin` and potential energy `geopotential` (all energies per unit mass). No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
+
+here, `ρ` is the density of the moist air, and the internal energy `e_int = e_tot - e_kin - geopotential` is the total energy `e_tot` minus kinetic energy `e_kin` and potential energy `geopotential` (all energies per unit mass). Once we've established a thermodynamic state, we can call [Thermodynamic state methods](@ref) that support thermodynamic states:
+
+```julia
+T = air_temperature(ts);
+q = PhasePartition(ts);
+```
+
+No changes to the "right-hand sides" of the dynamical equations are needed for a moist dynamical core that supports clouds, as long as they do not precipitate. Additional source-sink terms arise from precipitation.
 
 Schematically, the workflow in such a core would look as follows:
 ```julia
@@ -57,71 +69,18 @@ do timestep   # timestepping loop
   e_int = e_tot - 0.5 * (u^2 + v^2 + w^2) - geopotential
 
   # compute temperature, pressure and condensate specific humidities,
-  T = saturation_adjustment(e_int, ρ, q_tot);
-  q = PhasePartition_equil(T, ρ, q_tot);
-  p = air_pressure(T, ρ, q)
+  ts = PhaseEquil(param_set, e_int, ρ, q_tot);
+  T = air_temperature(ts);
+  q = PhasePartition(ts);
+  p = air_pressure(ts);
 
 end
 ```
 
-For a dynamical core that additionally uses the liquid and ice specific humidities `q.liq` and `q.ice` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is replaced by a direct calculation of temperature and pressure:
+For a dynamical core that additionally uses the liquid and ice specific humidities `q.liq` and `q.ice` as prognostic variables, and thus explicitly allows the presence of non-equilibrium phases such as supercooled water, the saturation adjustment in the above workflow is replaced calling a non-equilibrium moist thermodynamic state:
 ```julia
-T = air_temperature(e_int, q)
-p = air_pressure(T, ρ, q)
+q_tot, q_liq, q_ice = ...
+ts = PhaseNonEquil(param_set, e_int, ρ, PhasePartition(q_tot, q_liq, q_ice));
+T = air_temperature(ts);
+p = air_pressure(ts);
 ```
-
-## Functions
-
-```@meta
-CurrentModule = CLIMA.MoistThermodynamics
-```
-
-```@docs
-PhasePartition
-PhasePartition_equil
-ThermodynamicState
-PhaseDry
-PhaseEquil
-PhaseNonEquil
-TemperatureSHumEquil
-LiquidIcePotTempSHumEquil
-LiquidIcePotTempSHumNonEquil
-LiquidIcePotTempSHumNonEquil_given_pressure
-```
-
-```@docs
-air_density
-air_pressure
-air_temperature
-air_temperature_from_liquid_ice_pottemp
-cp_m
-cv_m
-dry_pottemp
-exner
-gas_constant_air
-Ice
-internal_energy
-internal_energy_sat
-latent_heat_fusion
-latent_heat_sublim
-latent_heat_vapor
-Liquid
-liquid_fraction
-liquid_ice_pottemp
-liquid_ice_pottemp_sat
-gas_constants
-saturation_adjustment
-saturation_excess
-q_vap_saturation
-q_vap_saturation_generic
-saturation_vapor_pressure
-soundspeed_air
-specific_volume
-total_energy
-virtual_pottemp
-```
-
-
-
-
-

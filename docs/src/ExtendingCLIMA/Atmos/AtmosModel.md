@@ -1,12 +1,12 @@
-# AtmosModel 
+# AtmosModel
 
-This page provides a summary of a specific type of balance law within the CLIMA source code, 
-the `AtmosModel`. This documentation aims to introduce a user to the properties of the 
-`AtmosModel`, including the balance law equations and default model configurations. Both 
-LES and GCM configurations are included.  
+This page provides a summary of a specific type of balance law within the CLIMA source code,
+the `AtmosModel`. This documentation aims to introduce a user to the properties of the
+`AtmosModel`, including the balance law equations and default model configurations. Both
+LES and GCM configurations are included.
 
 ## Conservation Equations
-The conservation equations specific to this implementation of `AtmosModel` are included below. 
+The conservation equations specific to this implementation of `AtmosModel` are included below.
 
 
 ### Mass
@@ -44,21 +44,16 @@ The conservation equations specific to this implementation of `AtmosModel` are i
 
 ### Tracer Species
 ```math
-\frac{(\rho \chi_i)}{t} + \nabla\cdot \left(\rho \chi_i \vec{u} \right) = \rho \mathcal{S}_{\chi_i} - \nabla\cdot (\rho \vec{d}_{\chi_i}) + \nabla\cdot (\rho \chi_{i} w_{\chi, i} \vec{\hat k})   
+\frac{(\rho \chi_i)}{t} + \nabla\cdot \left(\rho \chi_i \vec{u} \right) = \rho \mathcal{S}_{\chi_i} - \nabla\cdot (\rho \vec{d}_{\chi_i}) + \nabla\cdot (\rho \chi_{i} w_{\chi, i} \vec{\hat k})
 ```
 
-## Equation Abstractions 
+## Equation Abstractions
 
 ```math
 \frac{\partial \vec{Y}}{\partial t} = - \nabla \cdot (\vec{F}_{nondiff} + \vec{F}_{diff} + \vec{F}_{rad} + \vec{F}_{precip}) + \vec{S}
 ```
 
 ### State Variables
-```@docs
-CLIMA.Atmos.vars_state
-```
-
-
 ```math
 \vec{Y}=\left( \begin{array}{c}
 \rho \\
@@ -74,10 +69,8 @@ CLIMA.Atmos.vars_state
 ### Fluxes
 
 #### Nondiffusive Fluxes
-```@docs
-CLIMA.Atmos.flux_nondiffusive!
-```
- ```math
+
+```math
  \mathrm{F}_{nondiff}=\left( \begin{array}{c}
  \rho \vec{u} \\
  \rho \vec{u} \otimes \vec{u} + (p - p_r) \vec{I}_3 \\
@@ -88,10 +81,9 @@ CLIMA.Atmos.flux_nondiffusive!
 \end{array}
 \right).
 ```
+
 #### Diffusive Fluxes
-```@docs
-CLIMA.Atmos.flux_diffusive!
-```
+
 ```math
 \mathrm{F}_{diff}=\left( \begin{array}{c}
 \rho\vec{d}_{q_t} \\
@@ -106,14 +98,14 @@ CLIMA.Atmos.flux_diffusive!
 
 #### Radiation Fluxes
 ```math
-\mathrm{F}_{rad} = 
+\mathrm{F}_{rad} =
 \left( \begin{array}{c}
 \vec{0} \\
 \vec{0} \\
 \rho \vec{F}_R \\
 \vec{0} \\
 \vec{0} \\
-\vec{0} 
+\vec{0}
 \end{array}
 \right)
 ```
@@ -132,12 +124,8 @@ q_c w_c \vec{\hat k} \otimes \rho \vec{u}  \\
 ```
 
 #### Sources
-```@docs
-CLIMA.Atmos.source!
-```
-
 ```math
-\mathrm{S}(\vec{Y}, \nabla\vec{Y})= 
+\mathrm{S}(\vec{Y}, \nabla\vec{Y})=
  \left( \begin{array}{c}
  -\rho C(q_t \rightarrow q_p) \\
   -(\rho - \rho_r) \nabla\Phi - 2 \vec{\Omega} \times \rho\vec{u}  + \rho \vec{F}_{\vec{u}} \\
@@ -150,17 +138,13 @@ CLIMA.Atmos.source!
 ```
 
 ## Configurations
-The struct `AtmosModel` defines a specific subtype of a balance law (i.e. conservation equations) specific to 
-atmospheric modelling. A complete description of a `model` is provided by the fields listed below. In this 
+The struct `AtmosModel` defines a specific subtype of a balance law (i.e. conservation equations) specific to
+atmospheric modelling. A complete description of a `model` is provided by the fields listed below. In this
 implementation of the `AtmosModel` we concern ourselves with the conservative form of the compressible equations
-of moist fluid motion given a set of initial, boundary and forcing(source) conditions. 
-
-```@docs
-CLIMA.Atmos.AtmosModel
-```
+of moist fluid motion given a set of initial, boundary and forcing(source) conditions.
 
 ### LES Configuration (with defaults)
-Default field values for the LES `AtmosModel` definition are included below. Users are directed to the 
+Default field values for the LES `AtmosModel` definition are included below. Users are directed to the
 model subcomponent pages to view the possible options for each subcomponent.
 ```
     ::Type{AtmosLESConfigType},
@@ -187,15 +171,15 @@ model subcomponent pages to view the possible options for each subcomponent.
 ```
 
 !!! note
-    
-    Most AtmosModel subcomponents are common to both LES / GCM configurations. 
-    Equation sets are written in vector-invariant form and solved in Cartesian coordinates. 
+
+    Most AtmosModel subcomponents are common to both LES / GCM configurations.
+    Equation sets are written in vector-invariant form and solved in Cartesian coordinates.
     The component `orientation` determines whether the problem is solved in a `box (LES)` or a `sphere (GCM)`)
 
 
 ### GCM Configuration (with defaults)
-Default field values for the GCM `AtmosModel` definition are included below. Users are directed to the 
-model subcomponent pages to view the possible options for each subcomponent. 
+Default field values for the GCM `AtmosModel` definition are included below. Users are directed to the
+model subcomponent pages to view the possible options for each subcomponent.
 ```
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
