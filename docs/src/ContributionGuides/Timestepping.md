@@ -209,3 +209,22 @@ a context manager for more sophisticated time-stepping methods
 Runge-Kutta schemes will generally not need to worry about the argument `p`.
 The argument `rkmethod` is used for multiple dispatch, and `Q` is an
 array that gets overwritten with field values at the next time-step.
+
+### Multirate Runge-Kutta Methods
+
+Multirate time-integration is a popular approach for weather and climate
+simulations. The core idea is that the ODE in question can be expressed
+as the sum of a `fast` and `slow` component. In the atmosphere, `fast`
+dynamics include the modes associated with acoustic waves
+(assuming a compressible or pseudo-compressible model of the atmosphere),
+typically on the order of 300 m/s, while dynamics associated with advection,
+diffusion, and radiation represent `slow` dynamics. The core idea behind
+a multirate method is to step each component (fast and slow) forward
+in time at a different rate (hence the name "Multi-Rate").
+
+There are several different approaches for multirate methods. In CLIMA,
+a multirate time-stepper is provided as
+[MultirateRungeKutta](@ref MultirateRungeKutta),
+which takes a given number of Runge-Kutta methods (one for each rate).
+
+## Implementation Considerations
