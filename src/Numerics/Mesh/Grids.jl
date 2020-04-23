@@ -582,10 +582,6 @@ function indefinite_integral_interpolation_matrix(r, ω)
 end
 # }}}
 
-using Requires
-@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-    using .CUDAnative
-end
 using KernelAbstractions.Extras: @unroll
 
 using StaticArrays

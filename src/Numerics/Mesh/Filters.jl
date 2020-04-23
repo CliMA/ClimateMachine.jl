@@ -213,11 +213,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid, ::TMARFilter)
     wait(device, event)
 end
 
-using Requires
 using ..Mesh.Grids: EveryDirection, VerticalDirection, HorizontalDirection
-@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-    using .CUDAnative
-end
 using KernelAbstractions.Extras: @unroll
 
 const _M = Grids._M

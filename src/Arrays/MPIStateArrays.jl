@@ -784,10 +784,6 @@ end
 
 @init tictoc()
 
-using Requires
-@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-    using .CUDAnative
-end
 using KernelAbstractions.Extras: @unroll
 
 @kernel function knl_fillsendbuf!(
