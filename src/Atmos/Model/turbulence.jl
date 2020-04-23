@@ -20,7 +20,7 @@
 using DocStringExtensions
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss, DivDamping
-export turbulence_tensors
+export turbulence_tensors, div_damping_helper!
 
 # ### Abstract Type
 # We define a `TurbulenceClosure` abstract type and
@@ -82,6 +82,13 @@ function diffusive!(
     t,
 ) end
 
+""" 
+    div_damping_helper!(m::AtmosModel, ::TurbulenceClosure, Q, aux, diff , t)
+Helper function for divergence damping calculation as a turbulence subtype.
+"""
+function div_damping_helper!(::AtmosModel, ::TurbulenceClosure, Q, aux, diff, t)
+    return nothing
+end
 function turbulence_tensors end
 
 turbulence_tensors(atmos::AtmosModel, args...) =
@@ -686,7 +693,7 @@ function atmos_init_aux!(
     geom::LocalGeometry,
 )
     aux.turbulence.Δ = lengthscale(geom)
-    aux.turbulence.Divergence = FT(0)
+    aux.turbulence.Divergence = eltype(aux)(0)
 end
 function gradvariables!(
     m::DivDamping,
@@ -715,6 +722,12 @@ function diffusive!(
     diffusive.turbulence.∇Divergence = 
         ∇transform.turbulence.Divergence .- dot(∇transform.turbulence.Divergence, k̂) * k̂
 end
+function div_damping_helper!(m::AtmosModel, ::DivDamping, Q, aux, diff, t)
+    @inbounds begin
+        aux.turbulence.Divergence = tr(diff.turbulence.∇u)
+    end
+    return nothing
+end
 function turbulence_tensors(
     m::DivDamping,
     orientation::Orientation,
@@ -725,31 +738,26 @@ function turbulence_tensors(
     t::Real,
 )
     FT = eltype(state)
-    k̂ = vertical_unit_vector(orientation, param_set, aux)
     _inv_Pr_turb::FT = inv_Pr_turb(param_set)
+    α = diffusive.turbulence.∇u
+    S = symmetrize(α)
+    k̂ = vertical_unit_vector(orientation, param_set, aux)
 
-    ∇u = diffusive.turbulence.∇u
-    S = symmetrize(∇u)
     normS = strain_rate_magnitude(S)
-
-    δ = aux.turbulence.Δ
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
     f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
 
-    δ_vec = SVector(δ, δ, δ)
-    δ_m = δ_vec ./ transpose(δ_vec)
-    ∇û = ∇u .* δ_m
-    Ŝ = symmetrize(∇û)
-    ν₀ =
-        (m.C .* δ_vec) .^ 2 * max(
-            FT(1e-5),
-            -dot(transpose(∇û) * (∇û), Ŝ) / (dot(∇û, ∇û) .+ eps(normS)),
-        )
+    β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
+    Bβ = principal_invariants(β)[2]
 
-    ν_v = k̂ .* dot(ν₀, k̂)
+    ν₀ = m.C^2 * FT(2.5) * sqrt(abs(Bβ / (norm2(α) + eps(FT))))
+
+    ν = SVector{3, FT}(ν₀, ν₀, ν₀)
+    ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
     ν = SDiagonal(ν_h + ν_v .* f_b²)
     D_t = diag(ν) * _inv_Pr_turb
-    τ = -2 * ν * S
+    Fdiv = SDiagonal(SVector(ν_h .* diffusive.turbulence.∇Divergence))
+    τ = (-2 * ν * S) + Fdiv
     return ν, D_t, τ
 end

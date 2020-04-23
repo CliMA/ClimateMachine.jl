@@ -14,7 +14,7 @@ using ..ColumnwiseLUSolver
 using ..ConfigTypes
 using ..Diagnostics
 using ..DGmethods
-using ..DGmethods: update_aux!
+using ..DGmethods: update_aux_diffusive!
 using ..DGmethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids

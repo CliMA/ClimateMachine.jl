@@ -490,14 +490,13 @@ end
     return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
 end
 
-
+#=
 function update_aux!(
     dg::DGModel,
     m::AtmosModel,
     Q::MPIStateArray,
     t::Real,
-    elems::UnitRange;
-    diffusive=true
+    elems::UnitRange
 )
     FT = eltype(Q)
     auxstate = dg.auxstate
@@ -511,6 +510,7 @@ function update_aux!(
 
     return true
 end
+=# 
 
 function update_aux_diffusive!(
     dg::DGModel,
@@ -519,18 +519,23 @@ function update_aux_diffusive!(
     t::Real,
     elems::UnitRange,
 )
-    A = dg.auxstate
+    FT = eltype(Q)
+    aux = dg.auxstate
+    diff = dg.diffstate
 
-    function f!(m::AtmosModel, Q, A, D, t)
-        @inbounds begin
-            aux.turbulence.Divergence = tr(D.turbulence.∇u)
-        end
-        return nothing
+    if num_integrals(m, FT) > 0
+        indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
+        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
     end
-    nodal_update_aux!(f!, dg, m, Q, t, elems; diffusive = true)
+
+    nodal_update_aux!(div_damping_helper!, dg, m, Q, t, elems; diffusive = true)
+    nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
     return true
 end
 
+function div_damping_helper!(m::AtmosModel, Q, aux, diff, t)
+    div_damping_helper!(m, m.turbulence, Q, aux, diff, t)
+end
 
 function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
     atmos_nodal_update_aux!(m.moisture, m, state, aux, t)

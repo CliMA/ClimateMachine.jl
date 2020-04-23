@@ -98,7 +98,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = DivDamping(1),
+        turbulence = DivDamping(0.25),
         hyperdiffusion = StandardHyperDiffusion(60),
         source = (Gravity(),),
         tracers = NTracers{ntracers, FT}(δ_χ),

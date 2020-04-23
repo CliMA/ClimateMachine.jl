@@ -26,6 +26,14 @@ update_aux!(
     elems::UnitRange,
 ) = update_aux!(dg, rem.main, Q, t, elems)
 
+update_aux_diffusive!(
+    dg::DGModel,
+    rem::RemainderModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange
+) = update_aux_diffusive!(dg, rem.main, Q, t, elems)
+
 integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
     integral_load_aux!(rem.main, integ, state, aux)
 

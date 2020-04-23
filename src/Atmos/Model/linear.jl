@@ -81,6 +81,16 @@ function update_aux!(
 )
     return false
 end
+function update_aux_diffusive!(
+    dg::DGModel,
+    lm::AtmosLinearModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange;
+    diffusive=true
+)
+    return false
+end
 function flux_diffusive!(
     lm::AtmosLinearModel,
     flux::Grad,
