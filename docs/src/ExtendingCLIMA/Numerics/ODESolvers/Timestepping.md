@@ -71,7 +71,8 @@ the standard way is to consider an ARK method with **two** partitions:
 one explicit part, and one implicit part. The implicit part will require
 a linear solver.
 
-An ARK method with an explicit and implicit component will require **two***
+
+An ARK method with an explicit and implicit component will require **two**
 Butcher Tableaus: one for each of the partitioned components.
 Additionally, a linear solver is required.
 Currently, CLIMA supports the follow set of ARK methods for IMEX-based
@@ -271,3 +272,37 @@ while all subsequent solvers are faster than the previous.
 Just like all other previously mentioned time-integrators,
 the `dostep!` function will need to be implemented, taking into
 account the nesting of several solvers.
+
+## Writing Tests
+
+Testing is critical for the success and sustainability of any
+software project. Therefore, it is absolutely *imperative*
+for all newly added time-integrator to have a corresponding
+regression test.
+
+The standard way is to consider an ODE with an analytic solution.
+A given time-integrator will have a known convergence rate,
+and thus a good regression test would be to verify temporal
+convergence in the computed solution. Several examples can
+be found in `CLIMA/test/ODESolvers`.
+
+
+## Performance Checks
+
+Timing performance of a time-integrator can be done using
+standard guidelines for CPU and GPU architectures. Certain
+factors that impact the performance of a time-integrator
+includes the following:
+1. Memory management -- how much memory is a given method using, in particular,
+storing stage vectors for RK methods. For IMEX methods, using direct
+solvers (LU factorization, for example) often has a significant impact
+on memory usage.
+2. Right-hand side evaluations -- for explicit methods, the total
+number of function evaluations contributes to most of the arithmetic
+intensity of the time-integrator. More evaluates require more
+compute resources.
+3. Solving linear systems -- for IMEX or implicit methods, solving
+a linear system of equations is required. This is arguably the most
+expensive part of any IMEX/implicit time-integrator. Things to
+consider include: iterative methods, preconditioning, and parallel
+scalability.
