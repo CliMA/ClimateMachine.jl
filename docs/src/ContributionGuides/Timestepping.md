@@ -138,7 +138,7 @@ end
 For information on the function `prefactorize`, see
 the **module** `CLIMA.LinearSolvers`.
 
-### The Struct and its Constructor
+## The Struct and its Constructor
 
 The `Struct` defining important quantities for a given time-integrator
 is a subset of an `AbstractODESolver`. For simplicity, we assume
@@ -180,7 +180,7 @@ an implicit component (semi-implicit) or is fully implicit, the
 `Struct` will need to know about the `implicitoperator` and
 the corresponding `linearsolver`.
 
-### The `dostep!` function
+## The `dostep!` function
 
 No matter the type of time-integration method, **all** time-steppers
 require the implementation of the `dostep!` function. Suppose we have
@@ -210,7 +210,7 @@ Runge-Kutta schemes will generally not need to worry about the argument `p`.
 The argument `rkmethod` is used for multiple dispatch, and `Q` is an
 array that gets overwritten with field values at the next time-step.
 
-### Multirate Runge-Kutta Methods
+## Multirate Runge-Kutta Methods
 
 Multirate time-integration is a popular approach for weather and climate
 simulations. The core idea is that the ODE in question can be expressed
@@ -227,4 +227,47 @@ a multirate time-stepper is provided as
 [MultirateRungeKutta](@ref MultirateRungeKutta),
 which takes a given number of Runge-Kutta methods (one for each rate).
 
-## Implementation Considerations
+### Implementation Considerations
+Generally speaking, a multirate method requires composing
+several different time-stepping methods for different components
+of the ODE. Therefore, the `Struct` and its `Constructor` may
+look something like:
+```julia
+export MyMultirateMethod
+
+struct MyMultirateMethod{SS, FS, RT} <: AbstractODESolver
+    "slow solver"
+    slow_solver::SS
+    "fast solver"
+    fast_solver::FS
+    # May require more attributes depending on implementation
+
+    # Constructor
+    function MyMultirateMethod(args...)
+        # Body of constructor
+        ...
+        return MyMultirateMethod(constructor_args...)
+    end
+end
+```
+
+One can imagine a scenario where several rates are
+operating in tandem. There are a number of possible
+approaches for handling this. One example is to
+*recursively* nest multiple `MyMultirateMethod` instances:
+```julia
+function MyMultirateMethod(solvers::Tuple, Q; dt::Real)
+    # Take a tuple of solvers and defined a nested
+    # multirate method
+    fast_solver = MyMultirateMethod(solvers[2:end], Q; dt = dt)
+    slow_solver = solver[1]
+    return MyMultirateMethod(slow_solver, fast_solver, Q; dt = dt)
+end
+```
+Note that this example assumes the solvers `Tuple` is ordered
+in such a way that the first element is the *slowest* solver,
+while all subsequent solvers are faster than the previous.
+
+Just like all other previously mentioned time-integrators,
+the `dostep!` function will need to be implemented, taking into
+account the nesting of several solvers.
