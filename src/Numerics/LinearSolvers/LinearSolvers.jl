@@ -5,7 +5,6 @@ using ..MPIStateArrays
 using StaticArrays, LinearAlgebra
 
 using KernelAbstractions
-include("LinearSolvers_kernels.jl")
 
 # just for testing LinearSolvers
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
@@ -125,6 +124,21 @@ function linearsolve!(
     cvg[] = converged
 
     iters
+end
+
+using Requires
+@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
+    using .CUDAnative
+end
+
+@kernel function linearcombination!(Q, cs, Xs, increment::Bool)
+    i = @index(Global, Linear)
+    if !increment
+        @inbounds Q[i] = -zero(eltype(Q))
+    end
+    @inbounds for j in 1:length(cs)
+        Q[i] += cs[j] * Xs[j][i]
+    end
 end
 
 end
