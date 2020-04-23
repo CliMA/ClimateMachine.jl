@@ -2,18 +2,7 @@
 
 # To create an example using CLIMA, please use [Literate.jl](https://github.com/fredrikekre/Literate.jl), and consult the [Literate documentation](https://fredrikekre.github.io/Literate.jl/stable/) for questions.
 #
-# For now, all literate examples are held in the `literate_examples` directory, and generated with the following code in `docs/make.jl`:
-
-using Literate
-const examples_directory = pwd() * "/literate_examples/"
-const output_directory = pwd() * "/generated/"
-
-examples = readdir(examples_directory)
-
-for example in examples
-    example_filepath = examples_directory * example
-    Literate.markdown(example_filepath, output_directory, documenter = true)
-end
+# For now, all literate examples are held in the `examples` directory
 
 # With Literate, all comments turn into markdown text and any Julia code is read and run *as if it is in the Julia REPL*.
 # As a small caveat to this, you might need to suppress the output of certain commands.
