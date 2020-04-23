@@ -1,6 +1,9 @@
 export MRIGARKDecoupledImplicit
 export MRIGARKIRK21aSandu,
-    MRIGARKESDIRK34aSandu, MRIGARKESDIRK46aSandu, MRIGARKESDIRK23LSA
+    MRIGARKESDIRK34aSandu,
+    MRIGARKESDIRK46aSandu,
+    MRIGARKESDIRK23LSA,
+    MRIGARKESDIRK24LSA
 
 """
     MRIGARKDecoupledImplicit(f!, backward_euler_solver, fastsolver, Γs, γ̂s, Q,
@@ -106,7 +109,6 @@ mutable struct MRIGARKDecoupledImplicit{
 
         # Couple of sanity checks on the assumptions of coefficients being of
         # the decoupled implicit structure of Sandu (2019)
-        @assert Δc[end] == 0
         @assert all(isapprox.(Δc[2:2:end], 0; atol = 2 * eps(RT)))
 
         Δc = Δc[1:2:(end - 1)]
@@ -448,6 +450,109 @@ function MRIGARKESDIRK23LSA(
     @assert Γ0[2, 2] + Γ0[3, 2] + Γ0[4, 2] ≈ 1 / (2 * rt2)
     @assert Γ0[4, 3] ≈ 1 - 1 / rt2
 
+
+    MRIGARKDecoupledImplicit(
+        slowrhs!,
+        implicitsolve!,
+        fastsolver,
+        (Γ0,),
+        (γ̂0,),
+        Q,
+        dt,
+        t0,
+    )
+end
+
+"""
+    MRIGARKESDIRK24LSA(f!,
+                       fastsolver,
+                       Q;
+                       dt,
+                       t0 = 0,
+                       γ = 0.2,
+                       c3 = (2γ + 1) / 2,
+                       a32 = 0.2,
+                       α = -0.1,
+                       β1 = c3 / 10,
+                       β2 = c3 / 10,
+                       )
+
+A 2nd order, 4 stage decoupled implicit scheme. It is based on an L-Stable,
+stiffly-accurate ESDIRK.
+"""
+function MRIGARKESDIRK24LSA(
+    slowrhs!,
+    implicitsolve!,
+    fastsolver,
+    Q;
+    dt,
+    t0 = 0,
+    γ = 0.2,
+    c3 = (2γ + 1) / 2,
+    a32 = 0.2,
+    α = -0.1,
+    β1 = c3 / 10,
+    β2 = c3 / 10,
+)
+    T = real(eltype(Q))
+
+    # Check L-Stability constraint; bound comes from Kennedy and Carpenter
+    # (2016) Table 5.
+    @assert 0.1804253064293985641345831 ≤ γ < 1 // 2
+
+    # check the stage times are increasing
+    @assert 2γ < c3 < 1
+
+    # Original RK scheme
+    # Enforce L-Stability
+    b3 = (2 * (1 - γ)^2 - 1) / 4 / a32
+
+    # Enforce 2nd order accuracy
+    b2 = (1 - 2γ - 2b3 * c3) / 4γ
+
+    A = [
+        0 0 0 0
+        γ γ 0 0
+        c3 - a32 - γ a32 γ 0
+        1 - b2 - b3 - γ b2 b3 γ
+    ]
+    c = sum(A, dims = 2)
+    b = A[end, :]
+
+    # Check 2nd order accuracy
+    @assert sum(b) ≈ 1
+    @assert 2 * sum(A' * b) ≈ 1
+
+    # Setup the GARK Tableau
+    Δc = [c[2], 0, c[3] - c[2], 0, c[4] - c[3], 0]
+
+    Γ0 = zeros(T, 6, 4)
+    Γ0[1, 1] = Δc[1]
+
+    Γ0[2, 1] = A[2, 1] - Γ0[1, 1]
+    Γ0[2, 2] = A[2, 2]
+
+    Γ0[3, 1] = α
+    Γ0[3, 2] = Δc[3] - Γ0[3, 1]
+
+    Γ0[4, 1] = A[3, 1] - Γ0[1, 1] - Γ0[2, 1] - Γ0[3, 1]
+    Γ0[4, 2] = A[3, 2] - Γ0[1, 2] - Γ0[2, 2] - Γ0[3, 2]
+    Γ0[4, 3] = A[3, 3]
+
+    Γ0[5, 1] = β1
+    Γ0[5, 2] = β2
+    Γ0[5, 3] = Δc[5] - Γ0[5, 1] - Γ0[5, 2]
+
+    Γ0[6, 1] = A[4, 1] - Γ0[1, 1] - Γ0[2, 1] - Γ0[3, 1] - Γ0[4, 1] - Γ0[5, 1]
+    Γ0[6, 2] = A[4, 2] - Γ0[1, 2] - Γ0[2, 2] - Γ0[3, 2] - Γ0[4, 2] - Γ0[5, 2]
+    Γ0[6, 3] = A[4, 3] - Γ0[1, 3] - Γ0[2, 3] - Γ0[3, 3] - Γ0[4, 3] - Γ0[5, 3]
+    Γ0[6, 4] = A[4, 4]
+
+    γ̂0 = [0 0 0 0]
+
+    # Check consistency with original scheme
+    @assert all(A ≈ [0 0 0 0; accumulate(+, Γ0, dims = 1)[2:2:end, :]])
+    @assert all(Δc ≈ sum(Γ0, dims = 2))
 
     MRIGARKDecoupledImplicit(
         slowrhs!,
