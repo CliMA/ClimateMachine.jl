@@ -49,7 +49,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     Δθ::FT = 0
 
     if r <= rc
-        Δθ = FT(5) * cospi(r / rc / 2)
+        Δθ = -FT(5) * cospi(r / rc / 2)
     end
 
     #Perturbed state:
@@ -98,7 +98,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = DivDamping(0.25),
+        turbulence = DivDamping(0.21),
         hyperdiffusion = StandardHyperDiffusion(60),
         source = (Gravity(),),
         tracers = NTracers{ntracers, FT}(δ_χ),
@@ -148,7 +148,7 @@ function main()
     timeend = FT(1000)
 
     # Courant number
-    CFL = FT(20)
+    CFL = FT(10)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(

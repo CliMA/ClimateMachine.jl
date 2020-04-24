@@ -82,6 +82,19 @@ function diffusive!(
     t,
 ) end
 
+"""
+    flux_diffusive!(::TurbulenceClosure,_...)
+"""
+function flux_diffusive!(
+    tc::TurbulenceClosure,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    D_t,
+) end
+
 """ 
     div_damping_helper!(m::AtmosModel, ::TurbulenceClosure, Q, aux, diff , t)
 Helper function for divergence damping calculation as a turbulence subtype.
@@ -683,9 +696,9 @@ $(DocStringExtensions.FIELDS)
 struct DivDamping{FT} <: TurbulenceClosure
     C::FT
 end
-vars_aux(::DivDamping, FT) = @vars(Δ::FT, Divergence::FT)
-vars_gradient(::DivDamping, FT) = @vars(θ_v::FT, Divergence::FT)
-vars_diffusive(::DivDamping, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, ∇Divergence::SVector{3,FT})
+vars_aux(::DivDamping, FT) = @vars(Δ::FT, divergence::FT)
+vars_gradient(::DivDamping, FT) = @vars(θ_v::FT, divergence::FT)
+vars_diffusive(::DivDamping, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, ∇divergence::SVector{3,FT})
 function atmos_init_aux!(
     ::DivDamping,
     ::AtmosModel,
@@ -693,7 +706,7 @@ function atmos_init_aux!(
     geom::LocalGeometry,
 )
     aux.turbulence.Δ = lengthscale(geom)
-    aux.turbulence.Divergence = eltype(aux)(0)
+    aux.turbulence.divergence = eltype(aux)(0)
 end
 function gradvariables!(
     m::DivDamping,
@@ -703,7 +716,7 @@ function gradvariables!(
     t::Real,
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
-    transform.turbulence.Divergence = aux.turbulence.Divergence
+    transform.turbulence.divergence = aux.turbulence.divergence
 end
 function diffusive!(
     ::DivDamping,
@@ -719,15 +732,17 @@ function diffusive!(
     diffusive.turbulence.∇u = ∇transform.u
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
-    diffusive.turbulence.∇Divergence = 
-        ∇transform.turbulence.Divergence .- dot(∇transform.turbulence.Divergence, k̂) * k̂
+    diffusive.turbulence.∇divergence = 
+        ∇transform.turbulence.divergence #.- dot(∇transform.turbulence.divergence, k̂) * k̂
 end
+
 function div_damping_helper!(m::AtmosModel, ::DivDamping, Q, aux, diff, t)
     @inbounds begin
-        aux.turbulence.Divergence = tr(diff.turbulence.∇u)
+        aux.turbulence.divergence = tr(diff.turbulence.∇u)
     end
     return nothing
 end
+
 function turbulence_tensors(
     m::DivDamping,
     orientation::Orientation,
@@ -737,27 +752,36 @@ function turbulence_tensors(
     aux::Vars,
     t::Real,
 )
+    
     FT = eltype(state)
     _inv_Pr_turb::FT = inv_Pr_turb(param_set)
-    α = diffusive.turbulence.∇u
-    S = symmetrize(α)
+    ∇u = diffusive.turbulence.∇u
+    S = symmetrize(∇u)
+    normS = strain_rate_magnitude(S)
     k̂ = vertical_unit_vector(orientation, param_set, aux)
 
-    normS = strain_rate_magnitude(S)
+    # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
-
-    β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
-    Bβ = principal_invariants(β)[2]
-
-    ν₀ = m.C^2 * FT(2.5) * sqrt(abs(Bβ / (norm2(α) + eps(FT))))
-
+    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    ν₀ = normS * (m.C * aux.turbulence.Δ)^2 + FT(1e-5)
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
     ν = SDiagonal(ν_h + ν_v .* f_b²)
     D_t = diag(ν) * _inv_Pr_turb
-    Fdiv = SDiagonal(SVector(ν_h .* diffusive.turbulence.∇Divergence))
-    τ = (-2 * ν * S) + Fdiv
+    τ = -2 * ν * S
     return ν, D_t, τ
+end
+
+function flux_diffusive!(
+    tc::DivDamping,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    D_t,
+)
+    c_sound = eltype(state)(330)
+    flux.ρu += eltype(state)(0.1 * c_sound)^2 * SDiagonal(SVector(diffusive.turbulence.∇divergence))
 end

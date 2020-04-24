@@ -469,6 +469,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
         t,
     )
     flux_diffusive!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
+    flux_diffusive!(atmos.turbulence, flux, state, diffusive, aux, t, D_t)
 end
 
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
