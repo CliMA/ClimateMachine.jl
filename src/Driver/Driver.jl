@@ -306,40 +306,6 @@ function invoke!(
 
     # set up callbacks
     callbacks = ()
-<<<<<<< HEAD
-    if Settings.show_updates
-        # set up the information callback
-        upd_starttime = Ref(now())
-        cbinfo = GenericCallbacks.EveryXWallTimeSeconds(
-            Settings.update_interval,
-            mpicomm,
-        ) do (init = false)
-            if init
-                upd_starttime[] = now()
-            else
-                runtime = Dates.format(
-                    convert(Dates.DateTime, Dates.now() - upd_starttime[]),
-                    Dates.dateformat"HH:MM:SS",
-                )
-                energy = norm(solver_config.Q)
-		mass = weightedsum(solver_config.Q,5)
-                @info @sprintf(
-                    """Update
-                    simtime = %8.2f / %8.2f
-                    runtime = %s
-                    norm(Q) = %.16e
-		    mass = %.16e""",
-                    ODESolvers.gettime(solver),
-                    solver_config.timeend,
-                    runtime,
-                    energy,
-		    mass
-                )
-            end
-            user_info_callback(init)
-        end
-        callbacks = (callbacks..., cbinfo)
-=======
 
     # info callback
     cb_updates = Callbacks.show_updates(
@@ -349,7 +315,6 @@ function invoke!(
     )
     if cb_updates !== nothing
         callbacks = (callbacks..., cb_updates)
->>>>>>> 0812871eccaeaeebc6c73f80b029eb36166bc06d
     end
 
     # diagnostics callback(s)
@@ -409,27 +374,17 @@ function invoke!(
     eng0 = norm(Q)
     mass0 = weightedsum(Q,5)
     @info @sprintf(
-<<<<<<< HEAD
-        """Starting %s
-        dt              = %.5e
-        timeend         = %8.2f
-        number of steps = %d
-        norm(Q)         = %.16e
-	mass            = %.16e""",
-=======
         """
 Starting %s
     dt              = %.5e
     timeend         = %8.2f
     number of steps = %d
     norm(Q)         = %.16e""",
->>>>>>> 0812871eccaeaeebc6c73f80b029eb36166bc06d
         solver_config.name,
         solver_config.dt,
         solver_config.timeend,
         solver_config.numberofsteps,
         eng0,
-	mass0
     )
 
     # run the simulation
@@ -462,16 +417,6 @@ Starting %s
         end
     end
 
-<<<<<<< HEAD
-    engf = norm(solver_config.Q)
-    massf = weightedsum(solver_config.Q,5)
-    @info @sprintf(
-        """Finished
-        norm(Q)            = %.16e
-        norm(Q) / norm(Q₀) = %.16e
-        norm(Q) - norm(Q₀) = %.16e
-	mass = %.16e""",
-=======
     engf = norm(Q)
     @info @sprintf(
         """
@@ -479,11 +424,9 @@ Finished
     norm(Q)            = %.16e
     norm(Q) / norm(Q₀) = %.16e
     norm(Q) - norm(Q₀) = %.16e""",
->>>>>>> 0812871eccaeaeebc6c73f80b029eb36166bc06d
         engf,
         engf / eng0,
         engf - eng0,
-	massf
     )
 
     if check_euclidean_distance

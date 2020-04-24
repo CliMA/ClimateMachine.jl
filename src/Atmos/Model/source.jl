@@ -169,14 +169,14 @@ function atmos_source!(
     FT = eltype(state)
     x = aux.coord[1]
     y = aux.coord[2]
-    z = altitude(atmos.orientation, aux)
-    ctop = 0.0
+    z = altitude(atmos, aux)
+    ctop = 1.0
     cx = 0.0
     cy = 0.0
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
         #h = s.z_max / 12
-        ctop =s.α_max * sinpi(r / 2)^s.γ #1 + tanh((z-s.z_max)/h)
+        ctop = s.α_max * sinpi((1-r) / 2)^s.γ #1 + tanh((z-s.z_max)/h)
 
 
        #source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
@@ -193,7 +193,7 @@ function atmos_source!(
           cy  = 1 + tanh((abs(y)-400000)/h)#s.α_max * sinpi(r / 2)^s.γ
         end
        
-          β_sponge = 1.0 - (1.0-ctop)*(1.0 - cx)*(1.0 - cy) 
+          β_sponge = 1.0 - ctop*(1.0 - cx)*(1.0 - cy) 
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
         #source.ρu -= β_sponge * (dot(state.ρu, SVector(FT(0),FT(0),FT(1))) * SVector(FT(0),FT(0),FT(1)) - state.ρ * s.u_relaxation)
 end

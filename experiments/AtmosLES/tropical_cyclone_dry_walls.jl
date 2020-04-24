@@ -15,12 +15,12 @@ using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
-using CLIMA.PlanetParameters
+using CLIMAParameters
+using CLIMAParameters.Planet
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 using CLIMA.VariableTemplates
 using Dierckx
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
 
 import CLIMA.DGmethods:
     vars_state,
@@ -36,7 +36,6 @@ import CLIMA.DGmethods:
 
 import CLIMA.DGmethods: boundary_state!
 import CLIMA.Atmos: flux_diffusive!
-
 
 
 
@@ -64,18 +63,19 @@ function init_tc!(bl, state, aux, (x, y, z), args...)
     Δθ = anom * exp(-(x^2 + y^2) / (2 * RMW^2))
     θ_liq = data_t / (1 + 0.61 * data_q) + Δθ
     T = air_temperature_from_liquid_ice_pottemp_given_pressure(
+        bl.param_set,
         θ_liq,
         pres,
-        PhasePartition(FT(0)),
+        PhasePartition(FT(data_q)),
     )
-    ρ = air_density(T, pres)
+    ρ = air_density(bl.param_set,T, pres)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E = ρ * total_energy(e_kin, e_pot, T, PhasePartition(FT(0)))
+    E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(data_q)))
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
-    #state.moisture.ρq_tot = ρ * data_q
+    state.moisture.ρq_tot = ρ * data_q
     #state.moisture.ρq_liq = FT(0)
     #state.moisture.ρq_ice = FT(0)
     return nothing
@@ -127,8 +127,8 @@ function spline_int()
             for k in 1:length(zinit)
                 anom[k] = t_anom * exp(-(pinit[k] - 40000)^2 / 2 / (11000^2))
                 thetav[i, j, k] =
-                    tinit[k] / (1 + 0.61 * qinit[k]) + anom[k] * exp(-(X[i]^2 + Y[j]^2) / (2 * RMW^2))
-                theta[i, j, k] = thetav[i, j, k] #/ (1 + 0.61 * qinit[k])
+                    tinit[k]  + anom[k] * exp(-(X[i]^2 + Y[j]^2) / (2 * RMW^2))
+                theta[i, j, k] = thetav[i, j, k] / (1 + 0.61 * qinit[k])
             end
         end
     end
@@ -140,10 +140,10 @@ function spline_int()
     tvinit[1] = tinit[1]
     piinit[1] = 1
     for k in 2:maxz
-        tvinit[k] = tinit[k] / (1 + 0.61 * qinit[k])
+        tvinit[k] = tinit[k] 
         piinit[k] =
             piinit[k - 1] -
-            grav / (1004 * 0.5 * (tvinit[k] + tvinit[k - 1])) *
+            9.81 / (1004 * 0.5 * (tvinit[k] + tvinit[k - 1])) *
             (zinit[k] - zinit[k - 1])
     end
     for i in 1:length(X)
@@ -152,7 +152,7 @@ function spline_int()
             ppi[i, j, maxz] = piinit[maxz]
             temp[i, j, maxz] = tinit[maxz] * piinit[maxz]
             rho[i, j, maxz] =
-                pinit[maxz] / (R_d * tvinit[maxz] * piinit[maxz])
+              pinit[maxz] / (287.04 * tvinit[maxz] * piinit[maxz])
         end
     end
     for i in 1:length(X)
@@ -160,13 +160,13 @@ function spline_int()
             for k in (maxz - 1):-1:1
                 ppi[i, j, k] =
                     ppi[i, j, k + 1] +
-                    grav /
+                    9.81 /
                     (1004 * 0.5 * (thetav[i, j, k] + thetav[i, j, k + 1])) *
                     (zinit[k + 1] - zinit[k])
-                pressure[i, j, k] = MSLP * ppi[i, j, k]^(1004 / 287.04)
+                pressure[i, j, k] = 101325 * ppi[i, j, k]^(1004 / 287.04)
                 temp[i, j, k] = theta[i, j, k] * ppi[i, j, k]
                 rho[i, j, k] =
-                    pressure[i, j, k] / (R_d * thetav[i, j, k] * ppi[i, j, k])
+                    pressure[i, j, k] / (287.04 * thetav[i, j, k] * ppi[i, j, k])
             end
         end
     end
@@ -248,20 +248,25 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
   piinit[1] = 1
   for k in 2:maxz
     thinit[k] = tinit[k]/(1+0.61*qinit[k])
-    piinit[k] = piinit[k-1] - grav / (1004 * 0.5 *(tinit[k] + tinit[k-1])) * (zinit[k] - zinit[k-1])
+    piinit[k] = piinit[k-1] - 9.81 / (1004 * 0.5 *(tinit[k] + tinit[k-1])) * (zinit[k] - zinit[k-1])
   end
     T_min = FT(thinit[maxz] * piinit[maxz])
     T_s = FT(thinit[1] * piinit[1])
     @info T_min, T_s
-    Γ_lapse = FT(grav / cp_d)
+    Γ_lapse = FT(9.81 / 1004)
+    tvmax = T_s*(1+0.61*qinit[1])
+    deltatv = -( T_min   - tvmax)
+    @info deltatv
+    htv = 20000.0
     T = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
+    Tv = DecayingTemperatureProfile(tvmax,deltatv,htv)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)
     # Sponge
-    c_sponge = FT(1)#0.00833
+    c_sponge = 0.00833
     # Rayleigh damping
     u_relaxation = SVector(FT(0), FT(0), FT(0))
-    zsponge = FT(15000.0)
+    zsponge = FT(16000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
 
@@ -273,11 +278,12 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_tc!
 
-    source = (Gravity(), rayleigh_sponge, Coriolis())
+    source = (Gravity(),rayleigh_sponge, Coriolis())
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
-        ref_state = ref_state,
-        moisture = DryModel{FT}(),
+        AtmosLESConfigType,
+	param_set;
+	ref_state = ref_state,
+        moisture = EquilMoist{FT}(),
         turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
         source = source,
         boundarycondition = (
@@ -286,42 +292,40 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ))),
                 energy = BulkFormulationEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu),
-                #moisture = BulkFormulationMoisture(
-                #    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
-                #),
+                moisture = BulkFormulationMoisture(
+                    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
+                ),
             ),
             AtmosBC(),
-	    AtmosBC(energy = PrescribedTemperature((state⁻, aux⁻, t)-> 218),)
+	    #AtmosBC(energy = PrescribedTemperature((state⁻, aux⁻, t)-> 218),)
         ),
         init_state = ics,
-        param_set = ParameterSet{FT}(),
     )
 
-    ode_solver =
-        CLIMA.IMEXSolverType()
+    ode_solver = CLIMA.IMEXSolverType()
 
     config = CLIMA.AtmosLESConfiguration(
-        "CYCLONE_WALLS",
+        "CYCLONE_WALLS_30",
         N,
         resolution,
         xmax,
         ymax,
         zmax,
+	param_set,
         init_tc!,
         xmin = xmin,
         ymin = ymin,
         solver_type = ode_solver,
         model = model,
 	periodicity =(false,false,false),
-	boundary = ((2,2),(2,2),(1,3)),
+	boundary = ((2,2),(2,2),(1,2)),
     )
     return config
 end
-
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.setup_diagnostics([dgngrp])
+    return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -348,12 +352,11 @@ function main()
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres =
         spline_int()
     driver_config = config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
-    solver_config = CLIMA.setup_solver(
+    solver_config = CLIMA.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         (spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres),
-        Courant_number = 0.35,
 	init_on_cpu = true,
     )
     dgn_config = config_diagnostics(driver_config)
@@ -361,9 +364,30 @@ function main()
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(
             solver_config.Q,
-            (6, 7, 8),
+            (6),
             solver_config.dg.grid,
             TMARFilter(),
+        )
+        nothing
+    end
+    filterorder = 30
+    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
+    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            (2,3,4),
+            solver_config.dg.grid,
+            filter,
+        )
+        nothing
+    end
+    cutoff = CutoffFilter(solver_config.dg.grid)
+    cbcutoff = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            (2,3,4),
+            solver_config.dg.grid,
+            cutoff,
         )
         nothing
     end
@@ -371,7 +395,7 @@ function main()
     result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        #user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter,cbfilter),
         check_euclidean_distance = true,
     )
 end
