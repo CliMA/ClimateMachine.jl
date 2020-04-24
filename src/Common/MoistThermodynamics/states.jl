@@ -60,14 +60,14 @@ may be needed).
 
 # Constructors
 
-    PhaseEquil(e_int, ρ, q_tot)
+    PhaseEquil(param_set, e_int, ρ, q_tot)
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
 struct PhaseEquil{FT, PS} <: ThermodynamicState{FT}
-    "parameter set (e.g., planet parameters)"
+    "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
     e_int::FT
@@ -101,14 +101,14 @@ A dry thermodynamic state (`q_tot = 0`).
 
 # Constructors
 
-    PhaseDry(e_int, ρ)
+    PhaseDry(param_set, e_int, ρ)
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
 struct PhaseDry{FT, PS} <: ThermodynamicState{FT}
-    "parameter set (e.g., planet parameters)"
+    "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
     e_int::FT
@@ -119,10 +119,11 @@ PhaseDry(param_set::APS, e_int::FT, ρ::FT) where {FT} =
     PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
 
 """
-    PhaseDry_given_pT(p, T)
+    PhaseDry_given_pT(param_set, p, T)
 
 Constructs a [`PhaseDry`](@ref) thermodynamic state from:
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `p` pressure
  - `T` temperature
 """
@@ -134,10 +135,11 @@ end
 
 
 """
-    LiquidIcePotTempSHumEquil(θ_liq_ice, ρ, q_tot)
+    LiquidIcePotTempSHumEquil(param_set, θ_liq_ice, ρ, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
@@ -166,10 +168,11 @@ function LiquidIcePotTempSHumEquil(
 end
 
 """
-    LiquidIcePotTempSHumEquil_given_pressure(θ_liq_ice, p, q_tot)
+    LiquidIcePotTempSHumEquil_given_pressure(param_set, θ_liq_ice, p, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `θ_liq_ice` liquid-ice potential temperature
  - `p` pressure
  - `q_tot` total specific humidity
@@ -199,10 +202,11 @@ function LiquidIcePotTempSHumEquil_given_pressure(
 end
 
 """
-    TemperatureSHumEquil(T, p, q_tot)
+    TemperatureSHumEquil(param_set, T, p, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `T` temperature
  - `p` pressure
  - `q_tot` total specific humidity
@@ -227,7 +231,7 @@ be computed directly).
 
 # Constructors
 
-    PhaseNonEquil(e_int, q::PhasePartition, ρ)
+    PhaseNonEquil(param_set, e_int, q::PhasePartition, ρ)
 
 # Fields
 
@@ -235,7 +239,7 @@ $(DocStringExtensions.FIELDS)
 
 """
 struct PhaseNonEquil{FT, PS} <: ThermodynamicState{FT}
-    "parameter set (e.g., planet parameters)"
+    "parameter set, used to dispatch planet parameter function calls"
     param_set::PS
     "internal energy"
     e_int::FT
@@ -254,10 +258,11 @@ function PhaseNonEquil(
 end
 
 """
-    LiquidIcePotTempSHumNonEquil(θ_liq_ice, ρ, q_pt)
+    LiquidIcePotTempSHumNonEquil(param_set, θ_liq_ice, ρ, q_pt)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
  - `q_pt` phase partition
@@ -286,10 +291,11 @@ function LiquidIcePotTempSHumNonEquil(
 end
 
 """
-    LiquidIcePotTempSHumNonEquil_given_pressure(θ_liq_ice, p, q_pt)
+    LiquidIcePotTempSHumNonEquil_given_pressure(param_set, θ_liq_ice, p, q_pt)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `θ_liq_ice` liquid-ice potential temperature
  - `p` pressure
  - `q_pt` phase partition
@@ -312,9 +318,12 @@ function LiquidIcePotTempSHumNonEquil_given_pressure(
 end
 
 """
-    fixed_lapse_rate_ref_state(z::FT,
-                               T_surface::FT,
-                               T_min::FT) where {FT<:AbstractFloat}
+    fixed_lapse_rate_ref_state(
+        param_set::APS,
+        z::FT,
+        T_surface::FT,
+        T_min::FT,
+        ) where {FT <: AbstractFloat}
 
 Fixed lapse rate hydrostatic reference state
 """
@@ -339,9 +348,10 @@ function fixed_lapse_rate_ref_state(
 end
 
 """
-    tested_convergence_range(FT, n)
+    tested_convergence_range(param_set, n::Int, ::Type{FT})
 
 A range of input arguments to thermodynamic state constructors
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `e_int` internal energy
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
