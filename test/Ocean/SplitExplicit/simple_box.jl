@@ -160,7 +160,6 @@ function main(BC, solver)
         Rusanov(),
         CentralNumericalFluxDiffusive(),
         CentralNumericalFluxGradient();
-        direction = VerticalDirection(),
         auxstate = dg.auxstate,
         diffstate = dg.diffstate,
     )
@@ -289,9 +288,9 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_test_integrals"
+vtkpath = "vtk_test_integrals_big_gravity"
 
-const timeend = 3600   # s
+const timeend = 360   # s
 const tout = 120 # s
 
 const N = 4
