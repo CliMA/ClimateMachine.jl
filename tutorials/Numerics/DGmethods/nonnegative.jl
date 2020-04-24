@@ -1,4 +1,4 @@
-# This example uses the TMAR Filter from
+# This tutorial uses the TMAR Filter from
 #
 #    @article{doi:10.1175/MWR-D-16-0220.1,
 #      author = {Light, Devin and Durran, Dale},
@@ -13,7 +13,7 @@
 #      doi = {10.1175/MWR-D-16-0220.1},
 #    }
 #
-# to reproduce the example in section 4b.  It is a shear swirling
+# to reproduce the tutorial in section 4b.  It is a shear swirling
 # flow deformation of a transported quantity from LeVeque 1996.  The exact
 # solution at the final time is the same as the initial condition.
 

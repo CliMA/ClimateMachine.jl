@@ -12,8 +12,8 @@ cpu = [
   { file = "test/Numerics/Mesh/mpi_getpartition.jl", slurmargs = ["--ntasks=5"], args = [] },
   { file = "test/Numerics/Mesh/mpi_sortcolumns.jl", slurmargs = ["--ntasks=4"], args = [] },
   { file = "test/Numerics/ODESolvers/ode_tests_convergence.jl", slurmargs = ["--ntasks=1"], args = [] },
-  { file = "examples/Microphysics/ex_1_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "examples/Microphysics/ex_2_Kessler.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "tutorials/Microphysics/ex_1_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "tutorials/Microphysics/ex_2_Kessler.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 cpu_gpu = [
@@ -44,10 +44,10 @@ cpu_gpu = [
   { file = "test/Numerics/LinearSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3", "--time=02:00:00"], args = [] },
   { file = "test/Numerics/Mesh/interpolation.jl", slurmargs = ["--ntasks=3", "--time=02:00:00"], args = [] },
   { file = "test/Ocean/ShallowWater/GyreDriver.jl", slurmargs = ["--ntasks=1"], args = [] },
-  { file = "examples/DGmethods_old/ex_001_periodic_advection.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "examples/DGmethods_old/ex_002_solid_body_rotation.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "examples/DGmethods_old/ex_003_acoustic_wave.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "examples/Numerics/DGmethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "tutorials/Numerics/DGmethods_old/ex_001_periodic_advection.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "tutorials/Numerics/DGmethods_old/ex_002_solid_body_rotation.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "tutorials/Numerics/DGmethods_old/ex_003_acoustic_wave.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "tutorials/Numerics/DGmethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 gpu = [
@@ -55,7 +55,7 @@ gpu = [
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
   { file = "test/Numerics/DGmethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = ["--integration-testing"] },
-  { file = "examples/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
+  { file = "tutorials/Atmos/dry_rayleigh_benard.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
   { file = "experiments/AtmosGCM/heldsuarez.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
   { file = "experiments/AtmosLES/risingbubble.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/AtmosLES/surfacebubble.jl", slurmargs = ["--ntasks=3", "--time=01:30:00"], args = [] },
