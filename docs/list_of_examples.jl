@@ -33,7 +33,7 @@ for example in examples_files
     code = strip(read(script, String))
     mdpost(str) = replace(str, "@__CODE__" => code)
     Literate.markdown(input, gen_dir, postprocess = mdpost)
-    Literate.notebook(input, gen_dir, execute = true)
+    #Literate.notebook(input, gen_dir, execute = true)
 end
 
 examples = [
