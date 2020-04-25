@@ -1,12 +1,12 @@
-# # Example 003: Acoustic Wave on Sphere
+# # Tutorial 003: Acoustic Wave on Sphere
 #
 #md # !!! jupyter
-#md #     This example is also available as a Jupyter notebook:
-#md #     [`ex_003_acoustic_wave.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods_old/generated/ex_003_acoustic_wave.html)
+#md #     This tutorial is also available as a Jupyter notebook:
+#md #     [`ex_003_acoustic_wave.ipynb`](@__NBVIEWER_ROOT_URL__tutorials/Numerics/DGmethods_old/generated/ex_003_acoustic_wave.html)
 #
 # ## Introduction
 #
-# In this example we will set up and run the acoustic wave test problem from
+# In this tutorial we will set up and run the acoustic wave test problem from
 # [Tomita and Satoh (2004)](https://doi.org/10.1016/j.fluiddyn.2004.03.003).
 # ```
 # @article{TomitaSatoh2004,

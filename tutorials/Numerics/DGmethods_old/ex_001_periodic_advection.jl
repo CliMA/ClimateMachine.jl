@@ -1,8 +1,8 @@
-# # Example 001: Periodic Advection
+# # Tutorial 001: Periodic Advection
 #
 #md # !!! jupyter
-#md #     This example is also available as a Jupyter notebook:
-#md #     [`ex_001_periodic_advection.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods_old/generated/ex_001_periodic_advection.html)
+#md #     This tutorial is also available as a Jupyter notebook:
+#md #     [`ex_001_periodic_advection.ipynb`](@__NBVIEWER_ROOT_URL__tutorials/Numerics/DGmethods_old/generated/ex_001_periodic_advection.html)
 #
 # Key ideas of this tutorial:
 #   - Setting up PDE
@@ -13,7 +13,7 @@
 #
 # ## Introduction
 #
-# In this example we will solve the constant coefficient advection equation on a
+# In this tutorial we will solve the constant coefficient advection equation on a
 # periodic domain; the domain is taken to be the unit square or cube depending on
 # whether the problem is two- or three-dimensional.
 #
@@ -118,7 +118,7 @@ end
 # function that fills in an `MVector` for the numerical flux given two states,
 # the "viscous state", a unit normal to the face, the simulation time, and a
 # user-defined auxiliary state; the viscous and auxiliary states will be
-# discussed in a subsequent examples. In the function below `F` is the numerical
+# discussed in a subsequent tutorials. In the function below `F` is the numerical
 # flux to fill, `nM` is the unit normal pointing away from the minus side and
 # toward the plus side, `QM` and `QP` are `MVector`s of the solution state on
 # the minus and plus sides of the interface, `viscM` and `viscP` are the viscous
@@ -151,7 +151,7 @@ function upwindflux!(fs, nM, stateM, viscM, auxM, stateP, viscP, auxP, t)
 end
 #md nothing # hide
 
-# In later examples we will demonstrate how to use the Rusanov flux which is
+# In later tutorials we will demonstrate how to use the Rusanov flux which is
 # included in the `CLIMA.DGBalanceLawDiscretizations.NumericalFluxes` submodule.
 # This is a more general-purpose flux which approximates the solution Riemann
 # problem by using an average of the flux on either side of the interface with
@@ -160,7 +160,7 @@ end
 #------------------------------------------------------------------------------
 
 # ### Initial Condition
-# In this example we take the initial condition to be
+# In this tutorial we take the initial condition to be
 # ```math
 # q(\vec{x}, t=0) = \prod_{i=1}^{d} \exp(\sin(2\pi x_{i})),
 # ```
@@ -177,7 +177,7 @@ end
 # x_{3})) = 1$ we can safely assume the dimensionality is always $3$ in our
 # implication of the initial condition.
 #
-# Note: The last argument needs to be caught but not used for this example
+# Note: The last argument needs to be caught but not used for this tutorial
 function initialcondition!(Q, x_1, x_2, x_3, _...)
   @inbounds Q[1] = exp(sin(2π * x_1)) * exp(sin(2π * x_2)) * exp(sin(2π * x_3))
 end
@@ -334,7 +334,7 @@ let
   # and the user is responsible for opening each of the files to "stitch"
   # together the image.
 
-  # In order to run the simulation we need to use an ODE solver. In this example
+  # In order to run the simulation we need to use an ODE solver. In this tutorial
   # we will use a low storage Runge-Kutta method which can be initialized with a
   # spatial discretization, solution vector (not stored but used to define
   # needed auxiliary arrays), initial solution time, and a time step size; this

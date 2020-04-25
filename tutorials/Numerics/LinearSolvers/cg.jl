@@ -1,5 +1,5 @@
 # # Conjugate Gradient
-# In this example we describe the basics of using the conjugate gradient iterative solvers
+# In this tutorial we describe the basics of using the conjugate gradient iterative solvers
 # At the end you should be able to
 # 1. Use Conjugate Gradient to solve a linear system
 # 2. Know when to not use it

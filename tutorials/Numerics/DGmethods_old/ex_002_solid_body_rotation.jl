@@ -1,8 +1,8 @@
-# # Example 002: Solid Body Rotation
+# # Tutorial 002: Solid Body Rotation
 #
 #md # !!! jupyter
-#md #     This example is also available as a Jupyter notebook:
-#md #     [`ex_002_solid_body_rotation.ipynb`](@__NBVIEWER_ROOT_URL__examples/DGmethods_old/generated/ex_002_solid_body_rotation.html)
+#md #     This tutorial is also available as a Jupyter notebook:
+#md #     [`ex_002_solid_body_rotation.ipynb`](@__NBVIEWER_ROOT_URL__tutorials/Numerics/DGmethods_old/generated/ex_002_solid_body_rotation.html)
 #
 # Key ideas of this tutorial:
 #   - Setting up auxiliary state variables
@@ -10,7 +10,7 @@
 #
 # ## Introduction
 #
-# In this example we will solve the variable coefficient advection equation. The
+# In this tutorial we will solve the variable coefficient advection equation. The
 # velocity field used is solid body rotation where the domain is the square or
 # domain $\Omega = [-1, 1]^{d}$ where $d=2$ or $3$.
 #
@@ -55,7 +55,7 @@ MPI.Initialized() || MPI.Init()
 #------------------------------------------------------------------------------
 
 # ### Initializing the Velocity Field
-# The key difference between this example and [example
+# The key difference between this tutorial and [tutorial
 # 001](ex_001_periodic_advection.html) is that in this case we have a
 # non-constant velocity field. In the balance law solver, in addition to the
 # PDE state at every degree of freedom we can also define a constant in time
@@ -90,7 +90,7 @@ end
 #md # flux $\boldsymbol{F} = \vec{u} q$. The balance law solver will will pass
 #md # user-defined auxiliary state at a degree of freedom through to the flux
 #md # function as the fourth argument; the third and fifth arguments which are
-#md # not needed for this example is the viscous state and simulation time).
+#md # not needed for this tutorial is the viscous state and simulation time).
 function advectionflux!(F, state, _, uvec, _)
   FT = eltype(state) # get the floating point type we are using
   @inbounds begin
@@ -103,9 +103,9 @@ end
 #------------------------------------------------------------------------------
 
 # ### Numerical Flux
-# As in [example 001](ex_001_periodic_advection.html) we will use an upwind
+# As in [tutorial 001](ex_001_periodic_advection.html) we will use an upwind
 # numerical flux; more discussion of this can be seen in the [numerical
-# flux](ex_001_periodic_advection.html#numerical_flux-1) section of example 001.
+# flux](ex_001_periodic_advection.html#numerical_flux-1) section of tutorial 001.
 #
 # The auxiliary state for the minus and plus sides of the interface will be
 # passed in through arguments 4 and 6 of the numerical flux callback. Since the
@@ -160,7 +160,7 @@ end
 #------------------------------------------------------------------------------
 
 # ### Initial Condition
-# In this example we take the initial condition to be
+# In this tutorial we take the initial condition to be
 # ```math
 # q(\vec{x}, t=0) =
 # \exp\left(-\left(8\left\|\vec{x}-\frac{1}{2}\vec{e}_{1}\right\|_2\right)^2\right)

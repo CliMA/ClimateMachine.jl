@@ -2,12 +2,12 @@ Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
 using CLIMA, Documenter, Literate
 
-examples_dir = joinpath(@__DIR__, "..", "examples")      # julia src files
+tutorials_dir = joinpath(@__DIR__, "..", "tutorials")      # julia src files
 generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
 mkpath(generated_dir)
-generate_examples = true
+generate_tutorials = true
 
-include("list_of_examples.jl")           # defines a dict `examples`
+include("list_of_tutorials.jl")           # defines a dict `tutorials`
 include("list_of_extending_clima.jl")    # defines a dict `extending_clima`
 include("list_of_discussions.jl")        # defines a dict `apis`
 include("list_of_apis.jl")               # defines a dict `discussions`
@@ -15,7 +15,7 @@ include("list_of_apis.jl")               # defines a dict `discussions`
 pages = Any[
     "Home" => "index.md",
     "Installation" => "Installation.md",
-    "Examples" => examples,
+    "Tutorials" => tutorials,
     "Extending CLIMA" => extending_clima,
     "APIs" => apis,
     "Theory & design philosophy" => discussions,
