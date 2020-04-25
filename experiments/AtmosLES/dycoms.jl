@@ -302,7 +302,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 1, tolerance = FT(100)),
+        moisture = EquilMoist{FT}(; tolerance = FT(2), maxiter = 1),
         radiation = radiation,
         source = source,
         boundarycondition = (

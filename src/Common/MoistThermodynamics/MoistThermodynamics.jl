@@ -26,6 +26,7 @@ Because these parameters are widely used throughout this module,
 module MoistThermodynamics
 
 using DocStringExtensions
+using KernelAbstractions: @print
 
 using RootSolvers
 
@@ -1002,7 +1003,20 @@ function saturation_adjustment(
             maxiter,
         )
         if !sol.converged
-            error("saturation_adjustment did not converge")
+            @print("WARNING: maxiter reached in saturation_adjustment (did not converge). Please report an issue with a gist of these values:\n")
+            @print(
+                "   e_int=",
+                e_int,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol,
+                "\n"
+            )
         end
         return sol.root
     end
@@ -1083,7 +1097,20 @@ function saturation_adjustment_SecantMethod(
             maxiter,
         )
         if !sol.converged
-            error("saturation_adjustment_SecantMethod did not converge")
+            @print("WARNING: maxiter reached in saturation_adjustment_SecantMethod (did not converge). Please report an issue with a gist of these values:\n")
+            @print(
+                "   e_int=",
+                e_int,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol,
+                "\n"
+            )
         end
         return sol.root
     end
