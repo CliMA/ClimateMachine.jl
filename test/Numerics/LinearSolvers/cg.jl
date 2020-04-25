@@ -7,6 +7,7 @@ using CLIMA
 using CLIMA.LinearSolvers
 using CLIMA.ConjugateGradientSolver
 using CLIMA.MPIStateArrays
+using CUDAapi
 using Random
 Random.seed!(1235)
 
@@ -48,18 +49,22 @@ let
         @test norm(A * x - b) / norm(b) < err_thresh
     end
 
-    at_A = ArrayType(A)
-    at_b = ArrayType(b)
-    at_x = ArrayType(ones(n) * 1.0)
-    mulbyat_A!(y, x) = (y .= at_A * x)
-    at_method(b, tol) = ConjugateGradient(b, max_iter = n)
-    linearsolver = at_method(at_b, tol)
-    iters = linearsolve!(mulbyat_A!, linearsolver, at_x, at_b; max_iters = n)
-    exact = at_A \ at_b
+    # Testing for CuArrays
+    if CUDAapi.has_cuda_gpu()
+        at_A = ArrayType(A)
+        at_b = ArrayType(b)
+        at_x = ArrayType(ones(n) * 1.0)
+        mulbyat_A!(y, x) = (y .= at_A * x)
+        at_method(b, tol) = ConjugateGradient(b, max_iter = n)
+        linearsolver = at_method(at_b, tol)
+        iters =
+            linearsolve!(mulbyat_A!, linearsolver, at_x, at_b; max_iters = n)
+        exact = at_A \ at_b
 
-    @testset "Architecture-specific Array test" begin
-        @test norm(at_x - exact) / norm(exact) < err_thresh
-        @test norm(at_A * at_x - at_b) / norm(at_b) < err_thresh
+        @testset "CuArray test" begin
+            @test norm(at_x - exact) / norm(exact) < err_thresh
+            @test norm(at_A * at_x - at_b) / norm(at_b) < err_thresh
+        end
     end
 
     mpi_b = MPIStateArray{T}(mpicomm, ArrayType, 4, 4, 4)
@@ -75,6 +80,7 @@ let
     end
 
     mpi_b.data[:] .= ArrayType(randn(4^3))
+    mpi_x.data[:] .= ArrayType(randn(4^3))
 
     mpi_method(mpi_b, tol) = ConjugateGradient(mpi_b, max_iter = n)
     linearsolver = mpi_method(mpi_b, tol)
