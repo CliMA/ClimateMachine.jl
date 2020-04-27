@@ -1,5 +1,6 @@
 status = [
   "CLIMA",
+  "docs-build",
   "ci/slurmci"
 ]
 delete_merged_branches = true
