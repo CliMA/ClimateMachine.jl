@@ -355,19 +355,7 @@ function CB_constructor(interval::String, solver_config, default = nothing)
     bl = dg.balancelaw
     secs_per_day = day(bl.param_set)
 
-    if endswith(interval, "hours")
-        secs = 60 * 60 * parse(Int, interval[1:(end - 5)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "mins")
-        secs = 60 * parse(Int, interval[1:(end - 4)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "secs")
-        secs = parse(Int, interval[1:(end - 4)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "smonths")
+    if endswith(interval, "smonths")
         ticks = 30.0 * secs_per_day * parse(Float64, interval[1:(end - 7)])
         return (func) ->
             GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
@@ -379,9 +367,29 @@ function CB_constructor(interval::String, solver_config, default = nothing)
         ticks = 60.0 * 60.0 * parse(Float64, interval[1:(end - 6)])
         return (func) ->
             GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
+    elseif endswith(interval, "smins")
+        ticks = 60.0 * parse(Float64, interval[1:(end - 5)])
+        return (func) ->
+            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
+    elseif endswith(interval, "ssecs")
+        ticks = parse(Float64, interval[1:(end - 5)])
+        return (func) ->
+            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
     elseif endswith(interval, "steps")
         steps = parse(Int, interval[1:(end - 5)])
         return (func) -> GenericCallbacks.EveryXSimulationSteps(func, steps)
+    elseif endswith(interval, "hours")
+        secs = 60 * 60 * parse(Int, interval[1:(end - 5)])
+        return (func) ->
+            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
+    elseif endswith(interval, "mins")
+        secs = 60 * parse(Int, interval[1:(end - 4)])
+        return (func) ->
+            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
+    elseif endswith(interval, "secs")
+        secs = parse(Int, interval[1:(end - 4)])
+        return (func) ->
+            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
     elseif interval == "default"
         if default === nothing
             @warn "no default available; ignoring"

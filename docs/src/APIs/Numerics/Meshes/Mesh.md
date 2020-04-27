@@ -61,13 +61,13 @@ Filters.TMARFilter
 
 ```@docs
 Interpolation.InterpolationBrick
-Interpolation.InterpolationCubedSphere 
+Interpolation.InterpolationCubedSphere
 ```
 
 ### Functions
 
 ```@docs
-Interpolation.interpolate_local! 
+Interpolation.interpolate_local!
 Interpolation.project_cubed_sphere!
 Interpolation.accumulate_interpolated_data!
 ```

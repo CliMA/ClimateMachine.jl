@@ -16,11 +16,6 @@ using .NumericalFluxes:
 
 using ..Mesh.Geometry
 
-using Requires
-@init @require CUDAnative = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
-    using .CUDAnative
-end
-
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
 const _ξ1x1, _ξ2x1, _ξ3x1 = Grids._ξ1x1, Grids._ξ2x1, Grids._ξ3x1
 const _ξ1x2, _ξ2x2, _ξ3x2 = Grids._ξ1x2, Grids._ξ2x2, Grids._ξ3x2
