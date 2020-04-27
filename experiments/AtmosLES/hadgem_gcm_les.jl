@@ -22,13 +22,10 @@ using CLIMA.MoistThermodynamics
 using CLIMA.ODESolvers
 using CLIMA.VariableTemplates
 
-# Parameters
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-
+using CLIMAParameters
+using CLIMAParameters.Planet: e_int_v0, grav, day
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 # Physics specific imports 
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
@@ -85,6 +82,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     return nothing
 end
@@ -111,12 +109,13 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction
 )
     # Establish problem float-type
     FT = eltype(state)
     _grav = grav(atmos.param_set)
     # Establish vertical orientation
-    k̂ = vertical_unit_vector(atmos.orientation, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
     _e_int_v0 = e_int_v0(atmos.param_set)
     # Unpack vertical gradients
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
@@ -160,11 +159,12 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction
 )
     # Establish problem float-type
     FT = eltype(state)
     _grav = grav(atmos.param_set)
-    k̂ = vertical_unit_vector(atmos.orientation, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
     # Establish vertical orientation
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
     ρw_adv = -aux.ref_state.wap / _grav
@@ -197,10 +197,11 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction
 )
     _grav = grav(atmos.param_set)
     # Establish vertical orientation
-    k̂ = vertical_unit_vector(atmos.orientation, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
     # Establish subsidence velocity
     w_s = -aux.ref_state.wap / aux.ref_state.ρ / _grav
     # Compute tendency terms
@@ -239,6 +240,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction
 )
     #Unpack sponge parameters
     FT = eltype(state)
@@ -248,7 +250,7 @@ function atmos_source!(
     γ = s.γ
     # Establish sponge relaxation velocity
     u_geo = SVector(aux.ref_state.ua, aux.ref_state.va, 0)
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
@@ -274,7 +276,7 @@ function str2var(str::String, var::Any)
     @eval(($str) = ($var))
 end
 
-parsed_args = parse_commandline()
+parsed_args = parse_commandline(nothing)
 groupid = parsed_args["group-id"]
 
 # Define the get_gcm_info function
@@ -390,8 +392,8 @@ function init_cfsites!(bl, state, aux, (x, y, z), t, spl)
     ρ_gcm = FT(1 / spl.spl_alpha(z))
 
     # Compute field properties based on interpolated data
-    ρ = air_density(ta, P, PhasePartition(q_tot))
-    e_int = internal_energy(ta, PhasePartition(q_tot))
+    ρ = air_density(bl.param_set, ta, P, PhasePartition(q_tot))
+    e_int = internal_energy(bl.param_set, ta, PhasePartition(q_tot))
     e_kin = (ua^2 + va^2) / 2
     e_pot = _grav * z
     # Assignment of state variables
@@ -427,7 +429,8 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Boundary Conditions
     u_star = FT(0.28)
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         ref_state = GCMReferenceState{FT}(),
         turbulence = SmagorinskyLilly{FT}(0.23),
         source = (
@@ -445,14 +448,13 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> hfls + hfss),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> hfls / latent_heat_vapor(T_sfc),
+                    (state, aux, t) -> hfls / latent_heat_vapor(param_set,T_sfc),
                 ),
             ),
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         init_state = init_cfsites!,
-        param_set = ParameterSet{FT}(),
     )
     mrrk_solver = CLIMA.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
@@ -467,6 +469,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_cfsites!,
         solver_type = mrrk_solver,
         model = model,
@@ -476,7 +479,7 @@ end
 
 # Define the diagnostics configuration (Atmos-Default)
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
     return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
