@@ -425,8 +425,8 @@ function interpolate_local!(
                                     @inbounds vout_ii[vari] +=
                                         sv[
                                             ii + (ij - 1) * qm1 + (ik - 1) *
-                                            qm1 *
-                                            qm1,
+                                                                  qm1 *
+                                                                  qm1,
                                             vari,
                                             el,
                                         ] * wb[ii] / (ξ1l - m1_r[ii])#phir[ii]
@@ -1306,8 +1306,8 @@ function interpolate_local!(
                                     @inbounds vout_ii[vari] +=
                                         sv[
                                             ii + (ij - 1) * qm1 + (ik - 1) *
-                                            qm1 *
-                                            qm1,
+                                                                  qm1 *
+                                                                  qm1,
                                             vari,
                                             el,
                                         ] * wb[ii] / (ξ1l - m1_r[ii])#phir[ii]
@@ -1487,7 +1487,8 @@ This function projects the velocity field along unit vectors in radial, lat and 
 # Fields
  - `intrp_cs`: Initialized cubed sphere structure
  - `v`: Array consisting of x1, x2 and x3 components of the vector field
- - `uvwi`:  Tuple providing the column numbers for x1, x2 and x3 components of vector field in the array. These columns will be replaced with projected vector fields along unit vectors in rad, lat and long directions.
+ - `uvwi`:  Tuple providing the column numbers for x1, x2 and x3 components of vector field in the array. 
+            These columns will be replaced with projected vector fields along unit vectors in rad, lat and long directions.
 """
 function project_cubed_sphere!(
     intrp_cs::InterpolationCubedSphere{FT},
