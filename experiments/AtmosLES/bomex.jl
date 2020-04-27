@@ -66,11 +66,10 @@ using CLIMA.ODESolvers
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
+using CLIMAParameters
+using CLIMAParameters.Planet: e_int_v0, grav, day
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import CLIMA.DGmethods: vars_state, vars_aux
 import CLIMA.Atmos: source!, atmos_source!, altitude
@@ -97,6 +96,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
 
     f_coriolis = s.f_coriolis
@@ -104,10 +104,10 @@ function atmos_source!(
     u_slope = s.u_slope
     v_geostrophic = s.v_geostrophic
 
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     # Note z dependence of eastward geostrophic velocity
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     fkvector = f_coriolis * ẑ
     # Accumulate sources
     source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
@@ -141,6 +141,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
 
     z_max = s.z_max
@@ -151,9 +152,9 @@ function atmos_source!(
     u_slope = s.u_slope
     v_geostrophic = s.v_geostrophic
 
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
@@ -193,11 +194,12 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     ρ = state.ρ
-    z = altitude(atmos.orientation, aux)
-    _e_int_v0 = e_int_v0(atmos.param_set)
+    z = altitude(atmos, aux)
+    _e_int_v0 = FT(e_int_v0(atmos.param_set))
 
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
@@ -215,7 +217,7 @@ function atmos_source!(
     w_sub = s.w_sub
     ∂qt∂t_peak = s.∂qt∂t_peak
     ∂θ∂t_peak = s.∂θ∂t_peak
-    k̂ = vertical_unit_vector(atmos.orientation, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
 
     # Thermodynamic state identification
     q_pt = PhasePartition(TS)
@@ -275,10 +277,10 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     P_sfc::FT = 1.015e5 # Surface air pressure
     qg::FT = 22.45e-3 # Total moisture at surface
     q_pt_sfc = PhasePartition(qg) # Surface moisture partitioning
-    Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set) # Moist gas constant
+    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc) # Moist gas constant
     θ_liq_sfc = FT(299.1) # Prescribed θ_liq at surface
     T_sfc = FT(300.4) # Surface temperature
-    _grav = grav(bl.param_set)
+    _grav = FT(grav(bl.param_set))
 
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 0
@@ -329,7 +331,7 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, P, q_tot, bl.param_set)
+    TS = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, P, q_tot)
     T = air_temperature(TS)
     ρ = air_density(TS)
     q_pt = PhasePartition(TS)
@@ -358,7 +360,6 @@ end
 
 function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
-    param_set = ParameterSet{FT}()
     ics = init_bomex!     # Initial conditions
 
     C_smag = FT(0.18)     # Smagorinsky coefficient
@@ -368,11 +369,12 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     T_sfc = FT(300.4)     # Surface temperature `[K]`
     LHF = FT(147.2)       # Latent heat flux `[W/m²]`
     SHF = FT(9.5)         # Sensible heat flux `[W/m²]`
+    moisture_flux = LHF / latent_heat_vapor(param_set, T_sfc)
 
     ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
     zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
     zh_moisture = FT(500)     # High altitude limit for piecewise function (moisture source)
-    ∂θ∂t_peak = FT(-2 / day(param_set))  # Potential temperature tendency (energy source)
+    ∂θ∂t_peak = FT(-2 / FT(day(param_set)))  # Potential temperature tendency (energy source)
 
     z_sponge = FT(2400)     # Start of sponge layer
     α_max = FT(0.75)        # Strength of sponge layer (timescale)
@@ -418,7 +420,8 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
     # Assemble model components
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         source = source,
@@ -431,13 +434,12 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> LHF / latent_heat_vapor(T_sfc),
+                    (state, aux, t) -> moisture_flux,
                 ),
             ),
             AtmosBC(),
         ),
         init_state = ics,
-        param_set = param_set,
     )
 
     # Assemble configuration
@@ -448,6 +450,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_bomex!,
         solver_type = ode_solver_type,
         model = model,
@@ -456,7 +459,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
     return CLIMA.DiagnosticsConfiguration([dgngrp])
 end

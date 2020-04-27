@@ -1,74 +1,50 @@
 module HydrostaticBoussinesq
 
-export HydrostaticBoussinesqModel,
-    AbstractHydrostaticBoussinesqProblem,
-    LinearHBModel,
-    calculate_dt,
-    SimpleBoxProblem,
-    HomogeneousBox,
-    OceanGyre
+export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem
 
 using StaticArrays
-using LinearAlgebra: I, dot, Diagonal, norm
+using LinearAlgebra: dot, Diagonal
+using CLIMAParameters.Planet: grav
+
 using ..VariableTemplates
 using ..MPIStateArrays
-using ..DGmethods: init_ode_state
-using ..PlanetParameters: grav
-using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
-using ..Mesh.Grids:
-    polynomialorder,
-    VerticalDirection,
-    HorizontalDirection,
-    EveryDirection,
-    min_node_distance
-using ..DGmethods: courant
-
-using ..DGmethods.NumericalFluxes:
-    Rusanov,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxDiffusive,
-    CentralNumericalFluxNonDiffusive
-
-import ..Courant:
-    advective_courant, nondiffusive_courant, diffusive_courant, viscous_courant
-
-import ..DGmethods.NumericalFluxes:
-    update_penalty!, numerical_flux_diffusive!, NumericalFluxNonDiffusive
-
-import ..DGmethods:
+using ..Mesh.Filters: apply!
+using ..Mesh.Grids: VerticalDirection
+using ..DGmethods:
     BalanceLaw,
-    vars_aux,
+    LocalGeometry,
+    DGModel,
+    indefinite_stack_integral!,
+    reverse_indefinite_stack_integral!,
+    nodal_update_aux!,
+    copy_stack_field_down!
+using ..DGmethods.NumericalFluxes: Rusanov
+
+import ..DGmethods.NumericalFluxes: update_penalty!
+import ..DGmethods:
     vars_state,
+    init_state!,
+    vars_aux,
+    init_aux!,
     vars_gradient,
+    gradvariables!,
     vars_diffusive,
+    diffusive!,
+    vars_integrals,
+    integral_load_aux!,
+    integral_set_aux!,
+    vars_reverse_integrals,
+    reverse_integral_load_aux!,
+    reverse_integral_set_aux!,
     flux_nondiffusive!,
     flux_diffusive!,
     source!,
     wavespeed,
-    boundary_state!,
     update_aux!,
-    update_aux_diffusive!,
-    gradvariables!,
-    init_aux!,
-    init_state!,
-    LocalGeometry,
-    DGModel,
-    nodal_update_aux!,
-    diffusive!,
-    copy_stack_field_down!,
-    create_state,
-    calculate_dt,
-    vars_integrals,
-    vars_reverse_integrals,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    integral_load_aux!,
-    integral_set_aux!,
-    reverse_integral_load_aux!,
-    reverse_integral_set_aux!
+    update_aux_diffusive!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
-∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
+⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 
 abstract type AbstractHydrostaticBoussinesqProblem end
 
@@ -95,7 +71,8 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
+    param_set::PS
     problem::P
     ρₒ::T
     cʰ::T
@@ -108,6 +85,7 @@ struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
     fₒ::T
     β::T
     function HydrostaticBoussinesqModel{FT}(
+        param_set::PS,
         problem;
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
@@ -119,8 +97,9 @@ struct HydrostaticBoussinesqModel{P, T} <: BalanceLaw
         κᶻ = FT(1e-4),  # m^2 / s
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat}
-        return new{typeof(problem), FT}(
+    ) where {FT <: AbstractFloat, PS}
+        return new{PS, typeof(problem), FT}(
+            param_set,
             problem,
             ρₒ,
             cʰ,
@@ -418,8 +397,8 @@ A -> array of aux variables
 t -> time, not used
 
 # computations
-∂ᵗu = ∇∘(g*η + g∫αᵀθdz + v∘u)
-∂ᵗθ = ∇∘(vθ) where v = (u,v,w)
+∂ᵗu = ∇⋅(g*η + g∫αᵀθdz + v⋅u)
+∂ᵗθ = ∇⋅(vθ) where v = (u,v,w)
 """
 @inline function flux_nondiffusive!(
     m::HBModel,
@@ -428,6 +407,8 @@ t -> time, not used
     A::Vars,
     t::Real,
 )
+    FT = eltype(Q)
+    _grav::FT = grav(m.param_set)
     @inbounds begin
         u = Q.u # Horizontal components of velocity
         η = Q.η
@@ -443,10 +424,10 @@ t -> time, not used
         ]
 
         # ∇h • (g η)
-        F.u += grav * η * Iʰ
+        F.u += _grav * η * Iʰ
 
         # ∇h • (- ∫(αᵀ θ))
-        F.u += grav * pkin * Iʰ
+        F.u += _grav * pkin * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
@@ -473,8 +454,8 @@ this computation is done pointwise at each nodal point
 - `t`: time, not used
 
 # computations
-∂ᵗu = -∇∘(ν∇u)
-∂ᵗθ = -∇∘(κ∇θ)
+∂ᵗu = -∇⋅(ν∇u)
+∂ᵗθ = -∇⋅(κ∇θ)
 """
 @inline function flux_diffusive!(
     m::HBModel,
@@ -508,13 +489,14 @@ end
     ∂ᵗη = w|(z=0)
 """
 @inline function source!(
-    m::HBModel{P},
+    m::HBModel,
     S::Vars,
     Q::Vars,
     D::Vars,
     A::Vars,
     t::Real,
-) where {P}
+    direction,
+)
     @inbounds begin
         u, v = Q.u # Horizontal components of velocity
         wz0 = A.wz0
@@ -577,17 +559,27 @@ end
 
     doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
 """
-function update_aux!(dg::DGModel, m::HBModel, Q::MPIStateArray, t::Real)
+function update_aux!(
+    dg::DGModel,
+    m::HBModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
     MD = dg.modeldata
 
-    # required to ensure that after integration velocity field is divergence free
-    vert_filter = MD.vert_filter
-    # Q[1] = u[1] = u, Q[2] = u[2] = v
-    apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
+    # `update_aux!` gets called twice, once for the real elements and once for
+    # the ghost elements.  Only apply the filters to the real elems.
+    if elems == dg.grid.topology.realelems
+        # required to ensure that after integration velocity field is divergence free
+        vert_filter = MD.vert_filter
+        # Q[1] = u[1] = u, Q[2] = u[2] = v
+        apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
 
-    exp_filter = MD.exp_filter
-    # Q[4] = θ
-    apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+        exp_filter = MD.exp_filter
+        # Q[4] = θ
+        apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+    end
 
     return true
 end
@@ -607,6 +599,7 @@ function update_aux_diffusive!(
     m::HBModel,
     Q::MPIStateArray,
     t::Real,
+    elems::UnitRange,
 )
     A = dg.auxstate
 
@@ -620,91 +613,23 @@ function update_aux_diffusive!(
 
         return nothing
     end
-    nodal_update_aux!(f!, dg, m, Q, t; diffusive = true)
+    nodal_update_aux!(f!, dg, m, Q, t, elems; diffusive = true)
 
     # compute integrals for w and pkin
-    indefinite_stack_integral!(dg, m, Q, A, t) # bottom -> top
-    reverse_indefinite_stack_integral!(dg, m, Q, A, t) # top -> bottom
+    indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
+    reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
     # project w(z=0) down the stack
     # Need to be consistent with vars_aux
     # A[1] = w, A[3] = wz0
-    copy_stack_field_down!(dg, m, A, 1, 3)
+    copy_stack_field_down!(dg, m, A, 1, 3, elems)
 
     return true
 end
 
-"""
-    boundary_state!(nf, ::HBModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::HBModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
-    )
-end
-
-"""
-    boundary_state!(nf, ::HBModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-
-applies boundary conditions for the parabolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::HBModel,
-    Q⁺::Vars,
-    D⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    D⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.problem,
-        bctype,
-        nf,
-        Q⁺,
-        D⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        D⁻,
-        A⁻,
-        t,
-    )
-end
-
 include("SimpleBoxProblem.jl")
-include("OceanBoundaryConditions.jl")
 include("LinearHBModel.jl")
+include("BoundaryConditions.jl")
 include("Courant.jl")
 
 end

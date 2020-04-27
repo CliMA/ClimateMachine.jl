@@ -8,6 +8,7 @@ I have
 
 - [ ] Written and run all necessary tests with CLIMA by including `tests/runtests.jl`
 - [ ] Followed all necessary [style guidelines](https://climate-machine.github.io/CLIMA/latest/CodingConventions.html) and run `julia .dev/format.jl`
+- [ ] Updated the documentation to reflect changes from this PR.
 
 <!--- Please leave the following section --->
 

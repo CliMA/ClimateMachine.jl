@@ -7,12 +7,20 @@ Accumulate mean fields and covariance statistics on the computational grid.
 module Diagnostics
 
 export DiagnosticsGroup,
-    setup_atmos_default_diagnostics, setup_dump_state_and_aux_diagnostics
+    setup_atmos_default_diagnostics,
+    setup_dump_state_and_aux_diagnostics,
+    VecGrad,
+    compute_vec_grad,
+    SphericalCoord,
+    compute_vec_grad_spherical,
+    Vorticity,
+    compute_vorticity
 
 using Dates
 using FileIO
 using JLD2
 using MPI
+using OrderedCollections
 using Printf
 using StaticArrays
 
@@ -23,6 +31,7 @@ using ..DGmethods:
 using ..Mesh.Interpolation
 using ..MPIStateArrays
 using ..VariableTemplates
+using ..Writers
 
 Base.@kwdef mutable struct Diagnostic_Settings
     mpicomm::MPI.Comm = MPI.COMM_WORLD
@@ -65,11 +74,12 @@ mutable struct DiagnosticsGroup
     init::Function
     fini::Function
     collect::Function
-    interval::Int
+    interval::String
     out_prefix::String
+    writer::AbstractWriter
     interpol::Union{Nothing, InterpolationTopology}
     project::Bool
-    step::Int
+    num::Int
 
     DiagnosticsGroup(
         name,
@@ -78,6 +88,7 @@ mutable struct DiagnosticsGroup
         collect,
         interval,
         out_prefix,
+        writer,
         interpol,
         project,
     ) = new(
@@ -87,6 +98,7 @@ mutable struct DiagnosticsGroup
         collect,
         interval,
         out_prefix,
+        writer,
         interpol,
         project,
         0,
@@ -102,27 +114,30 @@ function (dgngrp::DiagnosticsGroup)(currtime; init = false, fini = false)
     if fini
         dgngrp.fini(dgngrp, currtime)
     end
-    dgngrp.step += 1
+    dgngrp.num += 1
 end
 
 """
     setup_atmos_default_diagnostics(
-            interval::Int,
-            out_prefix::String;
-            interpol = nothing,
-            project  = true)
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+        project = true,
+    )
 
 Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
 diagnostics, currently a set of diagnostics developed for DYCOMS. All
 the diagnostics in the group will run at the specified `interval`, be
 interpolated to the specified boundaries and resolution, and
-will be written to (currently) JLD2 files prefixed by `out_prefix`.
+will be written to files prefixed by `out_prefix` using `writer`.
 
 TODO: this will be refactored soon.
 """
 function setup_atmos_default_diagnostics(
-    interval::Int,
+    interval::String,
     out_prefix::String;
+    writer = NetCDFWriter(),
     interpol = nothing,
     project = true,
 )
@@ -133,6 +148,7 @@ function setup_atmos_default_diagnostics(
         Diagnostics.atmos_default_collect,
         interval,
         out_prefix,
+        writer,
         interpol,
         project,
     )
@@ -140,10 +156,12 @@ end
 
 """
     setup_dump_state_and_aux_diagnostics(
-            interval::Int,
-            out_prefix::String;
-            interpol = nothing,
-            project  = true)
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+        project = true,
+    )
 
 Create and return a `DiagnosticsGroup` containing a diagnostic that
 simply dumps the state and aux variables at the specified `interval`
@@ -152,8 +170,9 @@ after being interpolated, into NetCDF files prefixed by `out_prefix`.
 TODO: this will be refactored soon.
 """
 function setup_dump_state_and_aux_diagnostics(
-    interval::Int,
+    interval::String,
     out_prefix::String;
+    writer = NetCDFWriter(),
     interpol = nothing,
     project = true,
 )
@@ -164,6 +183,7 @@ function setup_dump_state_and_aux_diagnostics(
         Diagnostics.dump_state_and_aux_collect,
         interval,
         out_prefix,
+        writer,
         interpol,
         project,
     )
@@ -227,5 +247,5 @@ end
 
 include("atmos_default.jl")
 include("dump_state_and_aux.jl")
-
+include("diagnostic_fields.jl")
 end # module Diagnostics

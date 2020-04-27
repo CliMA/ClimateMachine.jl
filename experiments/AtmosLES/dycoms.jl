@@ -16,11 +16,10 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
+using CLIMAParameters
+using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 import CLIMA.DGmethods:
     vars_state,
@@ -145,21 +144,21 @@ function flux_radiation!(
     t::Real,
 )
     FT = eltype(flux)
-    z = altitude(atmos.orientation, aux)
+    z = altitude(atmos, aux)
     Δz_i = max(z - m.z_i, -zero(FT))
     # Constants
     upward_flux_from_cloud = m.F_0 * exp(-aux.∫dnz.radiation.attenuation_coeff)
     upward_flux_from_sfc = m.F_1 * exp(-aux.∫dz.radiation.attenuation_coeff)
     free_troposphere_flux =
         m.ρ_i *
-        cp_d(atmos.param_set) *
+        FT(cp_d(atmos.param_set)) *
         m.D_subsidence *
         m.α_z *
         cbrt(Δz_i) *
         (Δz_i / 4 + m.z_i)
     F_rad =
         upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
-    ẑ = vertical_unit_vector(atmos.orientation, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     flux.ρe += F_rad * ẑ
 end
 function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real) end
@@ -188,14 +187,15 @@ eprint = {https://doi.org/10.1175/MWR2930.1}
 function init_dycoms!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
-    z = altitude(bl.orientation, aux)
+    z = altitude(bl, aux)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = gas_constant_air(q_pt_sfc, bl.param_set)
+    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc)
     T_sfc = FT(290.4)
-    P_sfc = MSLP(bl.param_set)
+    _MSLP = FT(MSLP(bl.param_set))
+    _grav = FT(grav(bl.param_set))
 
     # Specify moisture profiles
     q_liq = FT(0)
@@ -216,18 +216,18 @@ function init_dycoms!(bl, state, aux, (x, y, z), t)
     u, v, w = ugeo, vgeo, FT(0)
 
     # Perturb initial state to break symmetry and trigger turbulent convection
-    r1 = FT(rand(Uniform(-0.002, 0.002)))
+    r1 = FT(rand(Uniform(-0.001, 0.001)))
     if z <= 200.0
         θ_liq += r1 * θ_liq
     end
 
     # Pressure
-    H = Rm_sfc * T_sfc / grav(bl.param_set)
-    p = P_sfc * exp(-z / H)
+    H = Rm_sfc * T_sfc / _grav
+    p = _MSLP * exp(-z / H)
 
     # Density, Temperature
 
-    ts = LiquidIcePotTempSHumEquil_given_pressure(θ_liq, p, q_tot, bl.param_set)
+    ts = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, p, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
@@ -246,8 +246,9 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Reference state
     T_min = FT(289)
     T_s = FT(290.4)
-    param_set = ParameterSet{FT}()
-    Γ_lapse = FT(grav(param_set) / cp_d(param_set))
+    _grav = FT(grav(param_set))
+    _cp_d = FT(cp_d(param_set))
+    Γ_lapse = _grav / _cp_d
     T = LinearTemperatureProfile(T_min, T_s, Γ_lapse)
     rel_hum = FT(0)
     ref_state = HydrostaticState(T, rel_hum)
@@ -287,6 +288,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     LHF = FT(115)
     SHF = FT(15)
     ics = init_dycoms!
+    moisture_flux = LHF / FT(LH_v0(param_set))
 
     source = (
         Gravity(),
@@ -296,10 +298,11 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     )
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5),
+        moisture = EquilMoist{FT}(maxiter = 1, tolerance = FT(100)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -309,13 +312,12 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> LHF / LH_v0(param_set),
+                    (state, aux, t) -> moisture_flux,
                 ),
             ),
             AtmosBC(),
         ),
         init_state = ics,
-        param_set = param_set,
     )
 
     ode_solver =
@@ -328,6 +330,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         xmax,
         ymax,
         zmax,
+        param_set,
         init_dycoms!,
         solver_type = ode_solver,
         model = model,
@@ -336,7 +339,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
     return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
