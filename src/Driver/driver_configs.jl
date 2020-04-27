@@ -56,6 +56,32 @@ struct MultirateSolverType <: AbstractSolverType
     end
 end
 
+struct MultirateHEVISolverType <: AbstractSolverType
+    linear_model::Type
+    linear_solver::Type
+    solver_method::Type
+    slow_method::Function
+    fast_method::Function
+    timestep_ratio::Int
+    function MultirateHEVISolverType(;
+        linear_model = AtmosAcousticGravityLinearModel,
+        linear_solver = ManyColumnLU,
+        solver_method = MultirateRungeKutta,
+        slow_method = ARK2GiraldoKellyConstantinescu,
+        fast_method = LSRK54CarpenterKennedy,
+        timestep_ratio = 100,
+    )
+        return new(
+            linear_model,
+            linear_solver,
+            solver_method,
+            slow_method,
+            fast_method,
+            timestep_ratio,
+        )
+    end
+end
+
 DefaultSolverType = IMEXSolverType
 
 abstract type ConfigSpecificInfo end
