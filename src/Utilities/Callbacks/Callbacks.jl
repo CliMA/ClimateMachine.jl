@@ -14,13 +14,14 @@ using CLIMAParameters.Planet: day
 
 using ..Courant
 using ..Checkpoint
-using ..DGmethods: vars_state, vars_aux
+using ..DGmethods: courant, vars_state, vars_aux
 using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays
 using ..ODESolvers
 using ..VariableTemplates
 using ..VTK
+using ..Mesh.Grids: HorizontalDirection, VerticalDirection
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     using .CuArrays, .CuArrays.CUDAdrv, .CuArrays.CUDAnative
@@ -239,32 +240,32 @@ function monitor_courant_numbers(mcn_opt, solver_config)
     if cb_constr !== nothing
         cb_cfl = cb_constr() do (init = false)
             Δt = solver_config.dt
-            c_v = DGmethods.courant(
+            c_v = courant(
                 nondiffusive_courant,
                 solver_config,
                 direction = VerticalDirection(),
             )
-            c_h = DGmethods.courant(
+            c_h = courant(
                 nondiffusive_courant,
                 solver_config,
                 direction = HorizontalDirection(),
             )
-            ca_v = DGmethods.courant(
+            ca_v = courant(
                 advective_courant,
                 solver_config,
                 direction = VerticalDirection(),
             )
-            ca_h = DGmethods.courant(
+            ca_h = courant(
                 advective_courant,
                 solver_config,
                 direction = HorizontalDirection(),
             )
-            cd_v = DGmethods.courant(
+            cd_v = courant(
                 diffusive_courant,
                 solver_config,
                 direction = VerticalDirection(),
             )
-            cd_h = DGmethods.courant(
+            cd_h = courant(
                 diffusive_courant,
                 solver_config,
                 direction = HorizontalDirection(),

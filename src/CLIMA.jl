@@ -1,5 +1,10 @@
 module CLIMA
 
+using Pkg.TOML
+
+const CLIMA_VERSION =
+    VersionNumber(TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"])
+
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
 include(joinpath("Utilities", "ArtifactWrappers", "ArtifactWrappers.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))

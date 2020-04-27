@@ -86,7 +86,22 @@ const Settings = CLIMA_Settings(array_type = Array)
 function parse_commandline(custom_settings)
     exc_handler =
         isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
-    s = ArgParseSettings(exc_handler = exc_handler)
+    s = ArgParseSettings(
+        prog = "CLIMA",
+        description = "Climate Machine: an Earth System Model that automatically learns from data\n",
+        preformatted_description = true,
+        epilog = """
+            Any <interval> unless otherwise stated may be specified as:
+                - 2hours or 10mins or 30secs => wall-clock time
+                - 9.5smonths or 3.3sdays or 1.5shours => simulation time
+                - 1000steps => simulation steps
+                - never => disable
+                - default => use experiment specified interval (only for diagnostics at present)
+            """,
+        preformatted_epilog = true,
+        version = string(CLIMA_VERSION),
+        exc_handler = exc_handler,
+    )
     add_arg_group!(s, "CLIMA")
 
     @add_arg_table! s begin
@@ -95,26 +110,32 @@ function parse_commandline(custom_settings)
         action = :store_true
         "--show-updates"
         help = "interval at which to show simulation updates"
+        metavar = "<interval>"
         arg_type = String
         default = "60secs"
         "--diagnostics"
         help = "interval at which to collect diagnostics"
+        metavar = "<interval>"
         arg_type = String
         default = "never"
         "--vtk"
         help = "interval at which to output VTK"
+        metavar = "<interval>"
         arg_type = String
         default = "never"
         "--monitor-timestep-duration"
         help = "interval in time-steps at which to output wall-clock time per time-step"
+        metavar = "<interval>"
         arg_type = String
         default = "never"
         "--monitor-courant-numbers"
         help = "interval at which to output acoustic, advective, and diffusive Courant numbers"
+        metavar = "<interval>"
         arg_type = String
         default = "never"
         "--checkpoint"
         help = "interval at which to create a checkpoint"
+        metavar = "<interval>"
         arg_type = String
         default = "never"
         "--checkpoint-keep-all"
@@ -125,18 +146,22 @@ function parse_commandline(custom_settings)
         action = :store_true
         "--checkpoint-dir"
         help = "the directory in which to store checkpoints"
+        metavar = "<path>"
         arg_type = String
         default = "checkpoint"
         "--restart-from-num"
         help = "checkpoint number from which to restart (in <checkpoint-dir>)"
+        metavar = "<number>"
         arg_type = Int
         default = -1
         "--log-level"
         help = "set the log level to one of debug/info/warn/error"
+        metavar = "<level>"
         arg_type = String
         default = "info"
         "--output-dir"
         help = "directory for output data"
+        metavar = "<path>"
         arg_type = String
         default = "output"
         "--integration-testing"
@@ -233,8 +258,8 @@ function init(; disable_gpu = false, arg_settings = nothing)
     end
 
     # set up the array type appropriately depending on whether we're using GPUs
-    if get(ENV, "CLIMA_GPU", "") != "false" && !Settings.disable_gpu &&
-       CUDAapi.has_cuda_gpu()
+    if get(ENV, "CLIMA_GPU", "") != "false" &&
+       !Settings.disable_gpu && CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array
