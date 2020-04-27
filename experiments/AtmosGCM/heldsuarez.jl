@@ -189,13 +189,14 @@ function main()
 
     # Set up ODE solver configuration
     ode_solver_type = CLIMA.MultirateHEVISolverType(
-        outer_method = MRIGARKESDIRK34aSandu,
+        outer_method = MRIGARKESDIRK24LSA,
         middle_method = MRIGARKERK45aSandu,
         inner_method = LSRK54CarpenterKennedy,
-        timestep_ratio_outer = 50,
+        timestep_ratio_outer = 25,
         timestep_ratio_inner = 50,
     )
-    CFL = FT(33)
+    # ode_solver_type = CLIMA.DefaultSolverType()
+    CFL = FT(0.2)
 
     # Set up experiment
     solver_config = CLIMA.SolverConfiguration(
@@ -205,7 +206,7 @@ function main()
         ode_solver_type = ode_solver_type,
         Courant_number = CFL,
         init_on_cpu = true,
-        CFL_direction = VerticalDirection(),
+        CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
 
