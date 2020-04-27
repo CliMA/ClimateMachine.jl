@@ -27,6 +27,8 @@ struct HeldSuarezDataConfig{FT}
     T_ref::FT
 end
 
+const ntracers = 1
+
 function init_heldsuarez!(bl, state, aux, coords, t)
     FT = eltype(state)
 
@@ -36,6 +38,8 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = rnd * aux.ref_state.ρe
 
+    # Set initial tracers states to some constant value (arbitrary for testing purposes) 
+    state.tracers.ρχ = @SVector [FT(ii) for ii in 1:ntracers]
     nothing
 end
 
@@ -46,6 +50,9 @@ function config_heldsuarez(FT, poly_order, resolution)
     H_t::FT = 8e3   # height sclae over which temperature drops (m)
     temp_profile_ref = DecayingTemperatureProfile(T_sfc, ΔT, H_t)
     ref_state = HydrostaticState(temp_profile_ref, FT(0))
+
+    # Set up "heavy" tracer block
+    δ_χ = @SVector [FT(ii) for ii in 1:ntracers] # Arbitrary integer scaling for diffusivity
 
     # Set up a Rayleigh sponge to dampen flow at the top of the domain
     domain_height::FT = 30e3               # distance between surface and top of atmosphere (m)
@@ -73,9 +80,10 @@ function config_heldsuarez(FT, poly_order, resolution)
         turbulence = SmagorinskyLilly(c_smag),
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
-        data_config = HeldSuarezDataConfig(T_ref),
+        data_config = HeldSuarezDataConfig{FT}(T_ref),
     )
 
     config = CLIMA.AtmosGCMConfiguration(
@@ -180,7 +188,7 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 120                             # experiment day number
+    n_days = 0.1                               # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
