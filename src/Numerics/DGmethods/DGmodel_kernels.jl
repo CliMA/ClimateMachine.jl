@@ -1451,7 +1451,7 @@ end
                 reverse_integral_load_aux!(
                     bl,
                     Vars{vars_reverse_integrals(bl, FT)}(l_V),
-                    Vars{vars_state(bl, FT)}(view(state, ijk, :, et)),
+                    Vars{vars_state(bl, FT)}(view(state, ijk, :, e)),
                     Vars{vars_aux(bl, FT)}(view(auxstate, ijk, :, e)),
                 )
                 l_V .= l_T .- l_V
