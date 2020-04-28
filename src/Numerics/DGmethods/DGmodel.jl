@@ -600,22 +600,16 @@ function restart_auxiliary_state(bl, grid, aux_data)
 end
 
 # fallback
-function update_auxiliary_state!(
-    dg::DGModel,
-    balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
+function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
     return false
 end
 
 function update_auxiliary_state_gradient!(
     dg::DGModel,
-    balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
+    balance_law,
+    state_conservative,
+    t,
+    elems,
 )
     return false
 end
