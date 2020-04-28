@@ -569,12 +569,24 @@ function main()
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
+    
+    filterorder = 2*N
+    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
+    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            1:size(solver_config.Q, 2),
+            solver_config.dg.grid,
+            filter,
+        )
+        nothing
+    end
 
     # Invoke solver (calls solve! function for time-integrator)
     result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )
 
