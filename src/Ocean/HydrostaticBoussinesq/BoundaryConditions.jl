@@ -36,7 +36,7 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
 @generated function ocean_boundary_state!(
     nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
     boundaries::Tuple,
-    ocean,
+    ocean::HBModel,
     Q⁺,
     A⁺,
     n,
@@ -77,7 +77,7 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
 @generated function ocean_boundary_state!(
     nf::NumericalFluxDiffusive,
     boundaries::Tuple,
-    ocean,
+    ocean::HBModel,
     Q⁺,
     D⁺,
     A⁺,

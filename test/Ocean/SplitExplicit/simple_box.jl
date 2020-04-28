@@ -288,7 +288,7 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_test_integrals_big_gravity"
+vtkpath = "vtk_test_integrals"
 
 const timeend = 360   # s
 const tout = 120 # s
@@ -329,7 +329,10 @@ BC_noslip_nowind =
 BC_freeslip =
     (CoastlineFreeSlip(), OceanFloorFreeSlip(), OceanSurfaceNoStressForcing())
 
+BC_noslip_noforcing =
+    (CoastlineNoSlip(), OceanFloorNoSlip(), OceanSurfaceStressNoForcing())
+
 solver_multirate = MultistateMultirateRungeKutta
 solver_singlerate = MultistateRungeKutta
 
-main(BC_noslip, solver_singlerate)
+main(BC_noslip_noforcing, solver_singlerate)

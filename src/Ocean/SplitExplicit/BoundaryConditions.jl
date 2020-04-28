@@ -28,7 +28,7 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
 end
 
 """
-    boundary_state!(nf, ::BarotropiclModel, args...)
+    boundary_state!(nf, ::BarotropicModel, args...)
 
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
@@ -62,7 +62,7 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
 @generated function ocean_boundary_state!(
     nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
     boundaries::Tuple,
-    ocean,
+    ocean::AbstractOceanModel,
     Q⁺,
     A⁺,
     n,
@@ -103,7 +103,7 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
 @generated function ocean_boundary_state!(
     nf::NumericalFluxDiffusive,
     boundaries::Tuple,
-    ocean,
+    ocean::AbstractOceanModel,
     Q⁺,
     D⁺,
     A⁺,
