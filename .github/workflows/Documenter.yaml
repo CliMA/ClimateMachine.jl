@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - master
+      - trying
+      - staging
     tags: '*'
   pull_request:
 
 jobs:
-  build:
+  docs-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
