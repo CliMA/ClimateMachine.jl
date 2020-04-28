@@ -27,37 +27,41 @@ struct DGRemainderModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
     diffusion_direction::DD
     modeldata::MD
 end
+
 function DGRemainderModel(
-    balancelaw,
-    grid,
-    numfluxnondiff,
-    numfluxdiff,
-    gradnumflux;
-    auxstate = create_auxstate(balancelaw, grid),
-    diffstate = create_diffstate(balancelaw, grid),
-    hyperdiffstate = create_hyperdiffstate(balancelaw, grid),
+    maindg,
+    subsdg,
+    numerical_flux_first_order,
+    numerical_flux_second_order,
+    numerical_flux_gradient;
+    state_auxiliary = maindg.state_auxiliary,
+    state_gradient_flux = create_gradient_state(maindg.balancelaw, maindg.grid),
+    states_higher_order = create_higher_order_states(
+        maindg.balancelaw,
+        maindg.grid,
+    ),
     direction = EveryDirection(),
-    diffusion_direction = direction,
-    modeldata = nothing,
+    diffusion_direction = maindg.diffusion_direction,
+    modeldata = maindg.modeldata,
 )
+    balancelaw = RemainderModel(
+        maindg.balancelaw,
+        ntuple(i -> subsdg[i].balancelaw, length(subsdg)),
+    )
     DGRemainderModel(
         balancelaw,
-        grid,
-        numfluxnondiff,
-        numfluxdiff,
-        gradnumflux,
-        auxstate,
-        diffstate,
-        hyperdiffstate,
+        maindg.grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        state_auxiliary,
+        state_gradient_flux,
+        states_higher_order,
         direction,
         diffusion_direction,
         modeldata,
     )
 end
-
-
-
-
 
 # Inherit most of the functionality from the main model
 vars_state_conservative(rem::RemainderModel, FT) =
