@@ -2,7 +2,7 @@ using CLIMA
 using CLIMA.ConfigTypes
 using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
-using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
+using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, RemainderModel
 using CLIMA.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -17,7 +17,6 @@ using CLIMA.MoistThermodynamics:
 using CLIMA.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
-    RemainderModel,
     NoOrientation,
     NoReferenceState,
     ReferenceState,

@@ -142,15 +142,8 @@ function normal_boundary_flux_second_order!(
     )
 end
 
-init_state_auxiliary!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) =
-    nothing
-init_state_conservative!(
-    rem::RemainderModel,
-    state::Vars,
-    aux::Vars,
-    coords,
-    t,
-) = nothing
+init_state_auxiliary!(rem::RemainderModel, _...) = nothing
+init_state_conservative!(rem::RemainderModel, _...) = nothing
 
 function flux_first_order!(
     rem::RemainderModel,
