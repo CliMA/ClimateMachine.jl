@@ -42,6 +42,9 @@ function DGModel(
     )
 end
 
+# Include the remainder model for composing DG models and balance laws
+include("remainder.jl")
+
 function (dg::DGModel)(
     tendency,
     state_conservative,
