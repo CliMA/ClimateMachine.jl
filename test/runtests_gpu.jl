@@ -4,13 +4,13 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 
 @test CuArrays.functional()
 
-for submodule in [
+for submodule in [#"Utilities/ParametersType",
     #"Common/MoistThermodynamics",
-    #"Common/SurfaceFluxes",
+    #"Atmos/Parameterizations/SurfaceFluxes",
+    #"Mesh",
+    #"DGmethods",
+    "ODESolvers",
     "Arrays",
-    #"Numerics/Mesh",
-    #"Numerics/DGmethods",
-    "Numerics/ODESolvers",
 ]
     println("Starting tests for $submodule")
     t = @elapsed include(joinpath(submodule, "runtests.jl"))

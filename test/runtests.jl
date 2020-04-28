@@ -18,11 +18,14 @@ end
         "InputOutput",
         "Utilities",
         "Common",
-        "Arrays",
         "Atmos",
-        "Numerics",
+        "Mesh",
+        "DGmethods",
         "Diagnostics",
+        "ODESolvers",
         "Ocean",
+        "Arrays",
+        "LinearSolvers",
         "Driver",
     ]
         if all_tests || "$submodule" in ARGS || "CLIMA" in ARGS
