@@ -21,6 +21,7 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.ODESolvers
 using CLIMA.VariableTemplates
+using CLIMA.Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
@@ -479,8 +480,12 @@ end
 
 # Define the diagnostics configuration (Atmos-Default)
 function config_diagnostics(driver_config)
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    interval = "0.1shours"
+    writer = NetCDFWriter()
+    dgngrp = setup_atmos_default_diagnostics(
+                interval, driver_config.name; 
+                writer=writer
+             )
     return CLIMA.DiagnosticsConfiguration([dgngrp])
 end
 
