@@ -1,7 +1,9 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
+abstract type AbstractDGModel end
+
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <: AbstractDGModel
     balancelaw::BL
     grid::G
     numerical_flux_first_order::NFND
@@ -45,14 +47,13 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
-function (dg::DGModel)(
+function (dg::AbstractDGModel)(
     tendency,
     state_conservative,
     ::Nothing,
     t;
     increment = false,
 )
-
     balance_law = dg.balancelaw
     device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
 
@@ -513,7 +514,7 @@ function (dg::DGModel)(
     wait(device, comp_stream)
 end
 
-function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
+function init_ode_state(dg::AbstractDGModel, args...; init_on_cpu = false)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
     balance_law = dg.balancelaw
@@ -577,7 +578,7 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     return state_conservative
 end
 
-function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
+function restart_ode_state(dg::AbstractDGModel, state_data; init_on_cpu = false)
     bl = dg.balancelaw
     grid = dg.grid
 
@@ -600,12 +601,18 @@ function restart_auxiliary_state(bl, grid, aux_data)
 end
 
 # fallback
-function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
+function update_auxiliary_state!(
+    dg::AbstractDGModel,
+    balance_law,
+    state_conservative,
+    t,
+    elems,
+)
     return false
 end
 
 function update_auxiliary_state_gradient!(
-    dg::DGModel,
+    dg::AbstractDGModel,
     balance_law,
     state_conservative,
     t,
@@ -615,7 +622,7 @@ function update_auxiliary_state_gradient!(
 end
 
 function indefinite_stack_integral!(
-    dg::DGModel,
+    dg::AbstractDGModel,
     m::BalanceLaw,
     state_conservative::MPIStateArray,
     state_auxiliary::MPIStateArray,
@@ -658,7 +665,7 @@ function indefinite_stack_integral!(
 end
 
 function reverse_indefinite_stack_integral!(
-    dg::DGModel,
+    dg::AbstractDGModel,
     m::BalanceLaw,
     state_conservative::MPIStateArray,
     state_auxiliary::MPIStateArray,
@@ -700,7 +707,7 @@ end
 
 function nodal_update_auxiliary_state!(
     f!,
-    dg::DGModel,
+    dg::AbstractDGModel,
     m::BalanceLaw,
     state_conservative::MPIStateArray,
     t::Real,
@@ -757,7 +764,7 @@ function nodal_update_auxiliary_state!(
 end
 
 """
-    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+    courant(local_courant::Function, dg::AbstractDGModel, m::BalanceLaw,
             state_conservative::MPIStateArray, direction=EveryDirection())
 Returns the maximum of the evaluation of the function `local_courant`
 pointwise throughout the domain.  The function `local_courant` is given an
@@ -774,7 +781,7 @@ model.
 """
 function courant(
     local_courant::Function,
-    dg::DGModel,
+    dg::AbstractDGModel,
     m::BalanceLaw,
     state_conservative::MPIStateArray,
     Δt,
@@ -829,7 +836,7 @@ function courant(
 end
 
 function copy_stack_field_down!(
-    dg::DGModel,
+    dg::AbstractDGModel,
     m::BalanceLaw,
     state_auxiliary::MPIStateArray,
     fldin,
@@ -867,7 +874,7 @@ function copy_stack_field_down!(
     wait(device, event)
 end
 
-function MPIStateArrays.MPIStateArray(dg::DGModel)
+function MPIStateArrays.MPIStateArray(dg::AbstractDGModel)
     balance_law = dg.balancelaw
     grid = dg.grid
 

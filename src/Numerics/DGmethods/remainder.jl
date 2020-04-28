@@ -1,3 +1,4 @@
+export DGRemainderModel
 """
     RemainderModel(main::BalanceLaw, subcomponents::Tuple)
 
@@ -11,6 +12,52 @@ struct RemainderModel{M, S} <: BalanceLaw
     main::M
     subs::S
 end
+
+struct DGRemainderModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
+       AbstractDGModel
+    balancelaw::BL
+    grid::G
+    numerical_flux_first_order::NFND
+    numerical_flux_second_order::NFD
+    numerical_flux_gradient::GNF
+    state_auxiliary::AS
+    state_gradient_flux::DS
+    states_higher_order::HDS
+    direction::D
+    diffusion_direction::DD
+    modeldata::MD
+end
+function DGRemainderModel(
+    balancelaw,
+    grid,
+    numfluxnondiff,
+    numfluxdiff,
+    gradnumflux;
+    auxstate = create_auxstate(balancelaw, grid),
+    diffstate = create_diffstate(balancelaw, grid),
+    hyperdiffstate = create_hyperdiffstate(balancelaw, grid),
+    direction = EveryDirection(),
+    diffusion_direction = direction,
+    modeldata = nothing,
+)
+    DGRemainderModel(
+        balancelaw,
+        grid,
+        numfluxnondiff,
+        numfluxdiff,
+        gradnumflux,
+        auxstate,
+        diffstate,
+        hyperdiffstate,
+        direction,
+        diffusion_direction,
+        modeldata,
+    )
+end
+
+
+
+
 
 # Inherit most of the functionality from the main model
 vars_state_conservative(rem::RemainderModel, FT) =
@@ -33,10 +80,10 @@ vars_gradient_laplacian(rem::RemainderModel, FT) =
 
 vars_hyperdiffusive(rem::RemainderModel, FT) = vars_hyperdiffusive(rem.main, FT)
 
-update_auxiliary_state!(dg::DGModel, rem::RemainderModel, args...) =
+update_auxiliary_state!(dg::DGRemainderModel, rem::RemainderModel, args...) =
     update_auxiliary_state!(dg, rem.main, args...)
 
-update_auxiliary_state_gradient!(dg::DGModel, rem::RemainderModel, args...) =
+update_auxiliary_state_gradient!(dg::DGRemainderModel, rem::RemainderModel, args...) =
     update_auxiliary_state_gradient!(dg, rem.main, args...)
 
 integral_load_auxiliary_state!(rem::RemainderModel, args...) =
