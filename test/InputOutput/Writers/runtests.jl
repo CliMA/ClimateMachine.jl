@@ -10,7 +10,10 @@ using CLIMA.Writers
         "y" => collect(1:5),
         "z" => collect(1010:10:1050),
     )
-    ovars = OrderedDict("v1" => rand(5, 5, 5), "v2" => rand(5, 5, 5))
+    ovars = OrderedDict(
+        "v1" => (("x", "y", "z"), rand(5, 5, 5)),
+        "v2" => (("x", "y", "z"), rand(5, 5, 5)),
+    )
     jfn, _ = mktemp()
     jfull = full_name(JLD2Writer(), jfn)
     write_data(JLD2Writer(), jfn, odims, ovars)
@@ -26,8 +29,10 @@ using CLIMA.Writers
         @test jds["x"] == odims["x"]
         @test jds["y"] == odims["y"]
         @test jds["z"] == odims["z"]
-        @test get(jds, "v1", []) == ovars["v1"]
-        @test get(jds, "v2", []) == ovars["v2"]
+        @test jds["t"] == [1]
+        @test get(jds, "v1", []) == ovars["v1"][2]
+        @test get(jds, "v2", []) == ovars["v2"][2]
+        @test get(jds, "simtime", [1.0]) == [0.5]
     end
 
     NCDataset(nfull, "r") do nds
@@ -40,7 +45,9 @@ using CLIMA.Writers
         catch e
             true
         end
-        @test nds["v1"] == ovars["v1"]
-        @test nds["v2"] == ovars["v2"]
+        @test nds["t"] == [1]
+        @test nds["v1"] == ovars["v1"][2]
+        @test nds["v2"] == ovars["v2"][2]
+        @test nds["simtime"] == [0.5]
     end
 end
