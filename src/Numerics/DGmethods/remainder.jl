@@ -1,6 +1,6 @@
 export remainder_DGModel
 """
-    RemainderModel(main::BalanceLaw, subcomponents::Tuple)
+    RemBL(main::BalanceLaw, subcomponents::Tuple)
 
 Compute the "remainder" contribution of the `main` model, after subtracting
 `subcomponents`.
@@ -8,7 +8,7 @@ Compute the "remainder" contribution of the `main` model, after subtracting
 Currently only the `flux_nondiffusive!` and `source!` are handled by the
 remainder model
 """
-struct RemainderModel{M, S} <: BalanceLaw
+struct RemBL{M, S} <: BalanceLaw
     main::M
     subs::S
 end
@@ -32,7 +32,7 @@ function remainder_DGModel(
     diffusion_direction = maindg.diffusion_direction,
     modeldata = maindg.modeldata,
 )
-    balance_law = RemainderModel(
+    balance_law = RemBL(
         maindg.balance_law,
         ntuple(i -> subsdg[i].balance_law, length(subsdg)),
     )
@@ -52,95 +52,82 @@ function remainder_DGModel(
 end
 
 # Inherit most of the functionality from the main model
-vars_state_conservative(rem_balance_law::RemainderModel, FT) =
+vars_state_conservative(rem_balance_law::RemBL, FT) =
     vars_state_conservative(rem_balance_law.main, FT)
 
-vars_state_gradient(rem_balance_law::RemainderModel, FT) =
+vars_state_gradient(rem_balance_law::RemBL, FT) =
     vars_state_gradient(rem_balance_law.main, FT)
 
-vars_state_gradient_flux(rem_balance_law::RemainderModel, FT) =
+vars_state_gradient_flux(rem_balance_law::RemBL, FT) =
     vars_state_gradient_flux(rem_balance_law.main, FT)
 
-vars_state_auxiliary(rem_balance_law::RemainderModel, FT) =
+vars_state_auxiliary(rem_balance_law::RemBL, FT) =
     vars_state_auxiliary(rem_balance_law.main, FT)
 
-vars_integrals(rem_balance_law::RemainderModel, FT) =
+vars_integrals(rem_balance_law::RemBL, FT) =
     vars_integrals(rem_balance_law.main, FT)
 
-vars_reverse_integrals(rem_balance_law::RemainderModel, FT) =
+vars_reverse_integrals(rem_balance_law::RemBL, FT) =
     vars_integrals(rem_balance_law.main, FT)
 
-vars_gradient_laplacian(rem_balance_law::RemainderModel, FT) =
+vars_gradient_laplacian(rem_balance_law::RemBL, FT) =
     vars_gradient_laplacian(rem_balance_law.main, FT)
 
-vars_hyperdiffusive(rem_balance_law::RemainderModel, FT) =
+vars_hyperdiffusive(rem_balance_law::RemBL, FT) =
     vars_hyperdiffusive(rem_balance_law.main, FT)
 
-update_auxiliary_state!(dg::DGModel, rem_balance_law::RemainderModel, args...) =
+update_auxiliary_state!(dg::DGModel, rem_balance_law::RemBL, args...) =
     update_auxiliary_state!(dg, rem_balance_law.main, args...)
 
-update_auxiliary_state_gradient!(
-    dg::DGModel,
-    rem_balance_law::RemainderModel,
-    args...,
-) = update_auxiliary_state_gradient!(dg, rem_balance_law.main, args...)
+update_auxiliary_state_gradient!(dg::DGModel, rem_balance_law::RemBL, args...) =
+    update_auxiliary_state_gradient!(dg, rem_balance_law.main, args...)
 
-integral_load_auxiliary_state!(rem_balance_law::RemainderModel, args...) =
+integral_load_auxiliary_state!(rem_balance_law::RemBL, args...) =
     integral_load_auxiliary_state!(rem_balance_law.main, args...)
 
-integral_set_auxiliary_state!(rem_balance_law::RemainderModel, args...) =
+integral_set_auxiliary_state!(rem_balance_law::RemBL, args...) =
     integral_set_auxiliary_state!(rem_balance_law.main, args...)
 
-reverse_integral_load_auxiliary_state!(
-    rem_balance_law::RemainderModel,
-    args...,
-) = reverse_integral_load_auxiliary_state!(rem_balance_law.main, args...)
+reverse_integral_load_auxiliary_state!(rem_balance_law::RemBL, args...) =
+    reverse_integral_load_auxiliary_state!(rem_balance_law.main, args...)
 
-reverse_integral_set_auxiliary_state!(
-    rem_balance_law::RemainderModel,
-    args...,
-) = reverse_integral_set_auxiliary_state!(rem_balance_law.main, args...)
+reverse_integral_set_auxiliary_state!(rem_balance_law::RemBL, args...) =
+    reverse_integral_set_auxiliary_state!(rem_balance_law.main, args...)
 
-transform_post_gradient_laplacian!(rem_balance_law::RemainderModel, args...) =
+transform_post_gradient_laplacian!(rem_balance_law::RemBL, args...) =
     transform_post_gradient_laplacian!(rem_balance_law.main, args...)
 
-flux_second_order!(rem_balance_law::RemainderModel, args...) =
+flux_second_order!(rem_balance_law::RemBL, args...) =
     flux_second_order!(rem_balance_law.main, args...)
 
-compute_gradient_argument!(rem_balance_law::RemainderModel, args...) =
+compute_gradient_argument!(rem_balance_law::RemBL, args...) =
     compute_gradient_argument!(rem_balance_law.main, args...)
 
-compute_gradient_flux!(rem_balance_law::RemainderModel, args...) =
+compute_gradient_flux!(rem_balance_law::RemBL, args...) =
     compute_gradient_flux!(rem_balance_law.main, args...)
 
-boundary_state!(nf, rem_balance_law::RemainderModel, args...) =
+boundary_state!(nf, rem_balance_law::RemBL, args...) =
     boundary_state!(nf, rem_balance_law.main, args...)
 
-init_state_auxiliary!(rem_balance_law::RemainderModel, args...) =
+init_state_auxiliary!(rem_balance_law::RemBL, args...) =
     init_state_auxiliary!(rem_balance_law.main, args...)
 
-init_state_conservative!(rem_balance_law::RemainderModel, args...) =
+init_state_conservative!(rem_balance_law::RemBL, args...) =
     init_state_conservative!(rem_balance_law.main, args...)
 
-function wavespeed(
-    rem_balance_law::RemainderModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
+function wavespeed(rem_balance_law::RemBL, nM, state::Vars, aux::Vars, t::Real)
     ref = aux.ref_state
     return wavespeed(rem_balance_law.main, nM, state, aux, t) -
            sum(sub -> wavespeed(sub, nM, state, aux, t), rem_balance_law.subs)
 end
 
 import .NumericalFluxes: normal_boundary_flux_second_order!
-boundary_state!(nf, rem_balance_law::RemainderModel, x...) =
+boundary_state!(nf, rem_balance_law::RemBL, x...) =
     boundary_state!(nf, rem_balance_law.main, x...)
 
 normal_boundary_flux_second_order!(
     nf,
-    rem_balance_law::RemainderModel,
+    rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     args...,
 ) where {S} = normal_boundary_flux_second_order!(
@@ -150,11 +137,11 @@ normal_boundary_flux_second_order!(
     args...,
 )
 
-init_state_auxiliary!(rem_balance_law::RemainderModel, _...) = nothing
-init_state_conservative!(rem_balance_law::RemainderModel, _...) = nothing
+init_state_auxiliary!(rem_balance_law::RemBL, _...) = nothing
+init_state_conservative!(rem_balance_law::RemBL, _...) = nothing
 
 function flux_first_order!(
-    rem_balance_law::RemainderModel,
+    rem_balance_law::RemBL,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -175,7 +162,7 @@ function flux_first_order!(
 end
 
 function source!(
-    rem_balance_law::RemainderModel,
+    rem_balance_law::RemBL,
     source::Vars,
     state::Vars,
     diffusive::Vars,
