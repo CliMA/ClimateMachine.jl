@@ -7,15 +7,15 @@ function write_data(nc::NetCDFWriter, filename, dims, varvals, simtime)
         for (dn, dv) in dims
             ds.dim[dn] = length(dv)
         end
-        ds.dim["time"] = 1
+        ds.dim["t"] = 1
         for (dn, dv) in dims
             defVar(ds, dn, dv, (dn,))
         end
-        defVar(ds, "time", 1, ("time",))
+        defVar(ds, "t", 1, ("t",))
         for (vn, vv) in varvals
-            defVar(ds, vn, vv, collect(keys(dims)))
+            defVar(ds, vn, vv[2], vv[1])
         end
-        defVar(ds, "simtime", [simtime], ("time",))
+        defVar(ds, "simtime", [simtime], ("t",))
     end
     return nothing
 end
