@@ -263,7 +263,7 @@ function dostep!(
 
                 # Update solution and scale RHS
                 event = stage_update!(device(Q), groupsize)(
-                    fast.variant,
+                    slow.variant,
                     slow_rv_Q,
                     slow_rv_Qstages,
                     slow_rv_Rstages,
@@ -294,7 +294,7 @@ function dostep!(
             )
 
             # update Qstages
-            Qstages[istage] .+= Qtt
+            slow_Qstages[slow_s] .+= slow_Qtt
 
             slow_rhs_linear!(
                 slow_Rstages[slow_s],
@@ -329,18 +329,18 @@ function dostep!(
                 slow_rka = slow_RKA_explicit[slow_s % length(slow_RKA_explicit) + 1]
             end
             fast_time = slow_stage_time + (substep - 1) * fast_dt
-            dostep!(Q, fast, param, fast_time, slow_δ, slow_rv_dQ, slow_rka)
+            dostep!(Q, fast, param, fast_time, slow_δ, realview(fast.dQ), slow_rka)
         end
     end
 
-    if split_nonlinear_linear
-        for istage in 1:Nstages
+    if slow_split_nonlinear_linear
+        for istage in 1:Nouter_stages
             stagetime = time + RKC[istage] * dt
             slow_rhs_linear!(
-                Rstages[istage],
-                Qstages[istage],
-                p,
-                stagetime,
+                slow_Rstages[istage],
+                slow_Qstages[istage],
+                param,
+                slow_stage_time,
                 increment = true,
             )
         end
@@ -349,16 +349,16 @@ function dostep!(
     # compose the final solution
     event = Event(device(Q))
     event = solution_update!(device(Q), groupsize)(
-        variant,
-        rv_Q,
-        rv_Rstages,
-        RKB,
+        slow.variant,
+        slow_rv_Q,
+        slow_rv_Rstages,
+        slow_RKB,
         dt,
-        Val(Nstages),
-        slow_δ,
-        slow_rv_dQ,
-        slow_scaling;
-        ndrange = length(rv_Q),
+        Val(Nouter_stages),
+        in_slow_δ,
+        in_slow_rv_dQ,
+        in_slow_scaling;
+        ndrange = length(slow_rv_Q),
         dependencies = (event,),
     )
     wait(device(Q), event)
