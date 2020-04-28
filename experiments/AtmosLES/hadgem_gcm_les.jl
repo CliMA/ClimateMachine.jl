@@ -434,6 +434,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         param_set;
         ref_state = GCMReferenceState{FT}(),
         turbulence = SmagorinskyLilly{FT}(0.23),
+        hyperdiffusion = StandardHyperdiffusion(1800),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
@@ -570,7 +571,7 @@ function main()
         nothing
     end
     
-    filterorder = 2*N
+    filterorder = N
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -586,7 +587,7 @@ function main()
     result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter, cbfilter),
+        user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 

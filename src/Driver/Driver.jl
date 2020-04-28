@@ -222,37 +222,37 @@ function init(; disable_gpu = false, arg_settings = nothing)
     try
         parsed_args = parse_commandline(arg_settings)
         Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
-        delete!(parsed_args, "disable-gpu")
+#        delete!(parsed_args, "disable-gpu")
         Settings.show_updates = parsed_args["show-updates"]
-        delete!(parsed_args, "show-updates")
+#        delete!(parsed_args, "show-updates")
         Settings.diagnostics = parsed_args["diagnostics"]
-        delete!(parsed_args, "diagnostics")
+#        delete!(parsed_args, "diagnostics")
         Settings.vtk = parsed_args["vtk"]
-        delete!(parsed_args, "vtk")
+#        delete!(parsed_args, "vtk")
         Settings.monitor_timestep_duration =
             parsed_args["monitor-timestep-duration"]
-        delete!(parsed_args, "monitor-timestep-duration")
+#        delete!(parsed_args, "monitor-timestep-duration")
         Settings.monitor_courant_numbers =
             parsed_args["monitor-courant-numbers"]
-        delete!(parsed_args, "monitor-courant-numbers")
+#        delete!(parsed_args, "monitor-courant-numbers")
         Settings.log_level = uppercase(parsed_args["log-level"])
-        delete!(parsed_args, "log-level")
-        Settings.groupid = parsed_args["group-id"]
-        delete!(parsed_args, "group-id")
+#        delete!(parsed_args, "log-level")
         Settings.checkpoint = parsed_args["checkpoint"]
-        delete!(parsed_args, "checkpoint")
+#        delete!(parsed_args, "checkpoint")
         Settings.checkpoint_keep_one = !parsed_args["checkpoint-keep-all"]
-        delete!(parsed_args, "checkpoint-keep-all")
+#        delete!(parsed_args, "checkpoint-keep-all")
         Settings.checkpoint_at_end = parsed_args["checkpoint-at-end"]
-        delete!(parsed_args, "checkpoint-at-end")
+#        delete!(parsed_args, "checkpoint-at-end")
         Settings.checkpoint_dir = parsed_args["checkpoint-dir"]
-        delete!(parsed_args, "checkpoint-dir")
+#        delete!(parsed_args, "checkpoint-dir")
         Settings.restart_from_num = parsed_args["restart-from-num"]
-        delete!(parsed_args, "restart-from-num")
+#        delete!(parsed_args, "restart-from-num")
         Settings.output_dir = parsed_args["output-dir"]
-        delete!(parsed_args, "output-dir")
+#        delete!(parsed_args, "output-dir")
         Settings.integration_testing = parsed_args["integration-testing"]
-        delete!(parsed_args, "integration-testing")
+#        delete!(parsed_args, "integration-testing")
+        Settings.groupid = parsed_args["group-id"]
+#        delete!(parsed_args, "group-id")
     catch
         Settings.disable_gpu = disable_gpu
     end
