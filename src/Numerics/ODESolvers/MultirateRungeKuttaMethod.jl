@@ -217,16 +217,17 @@ function dostep!(
     slow_rhs! = slow.rhs!
     slow_rhs_linear! = slow.rhs_linear!
     slow_Qhat = slow.Qhat
+    slow_Qtt = slow.variant_storage.Qtt
 
     slow_Qstages = slow.Qstages
     slow_Rstages = slow.Rstages
-    slow_Lstages = slow.variant_storage.Lstages
+    # slow_Lstages = slow.variant_storage.Lstages
     slow_rv_Q = realview(Q)
     slow_rv_Qstages = realview.(slow_Qstages)
-    slow_rv_Lstages = realview.(slow_Lstages)
+    # slow_rv_Lstages = realview.(slow_Lstages)
     slow_rv_Rstages = realview.(slow_Rstages)
     slow_rv_Qhat = realview(slow_Qhat)
-    slow_rv_Qtt = realview(slow.variant_storage.Qtt)
+    slow_rv_Qtt = realview(slow_Qtt)
     slow_split_nonlinear_linear = slow.split_nonlinear_linear
 
     groupsize = 256
@@ -241,59 +242,67 @@ function dostep!(
         # NOTE: This part of the code assumes that the IMEX method
         # employs an additive RK method with an explicit first stage
         # (no linear solve in the first stage).
-        if slow_s !== 1
+        if slow_s === 1
+            # No implicit solve during first slow stage
+            slow_rhs!(
+                slow_Rstages[slow_s],
+                slow_Qstages[slow_s],
+                param,
+                slow_stage_time,
+                increment = false,
+            )
+        else
             # implicit linear solve only appears after the
             # first slow stage is completed
+            if in_slow_δ !== nothing
+
+                slow_scaling = nothing
+                if slow_s == length(slow_RKB)
+                    slow_scaling = in_slow_scaling
+                end
+
+                # Update solution and scale RHS
+                event = stage_update!(device(Q), groupsize)(
+                    fast.variant,
+                    slow_rv_Q,
+                    slow_rv_Qstages,
+                    slow_rv_Rstages,
+                    slow_rv_Qhat,
+                    slow_rv_Qtt,
+                    slow_RKA_explicit,
+                    slow_RKA_implicit,
+                    dt,
+                    Val(slow_s),
+                    Val(slow_split_nonlinear_linear),
+                    slow_δ,
+                    slow_scaling;
+                    ndrange = length(slow_rv_Q),
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+
+            # Solves
+            # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
             linearsolve!(
                 slow_implicitoperator!,
                 slow_linearsolver,
-                slow_Qstages[istage],
+                slow_Qtt,
                 slow_Qhat,
                 param,
                 slow_stage_time,
             )
-        end
 
-        # Calculate right-hand side tendencies for the slow solver
-        slow_rhs!(
-            slow_Rstages[slow_s],
-            slow_Qstages[slow_s],
-            param,
-            slow_stage_time,
-            increment = false,
-        )
-        slow_rhs_linear!(
-            slow_Lstages[slow_s],
-            slow_Qstages[slow_s],
-            param,
-            slow_stage_time,
-            increment = false,
-        )
+            # update Qstages
+            Qstages[istage] .+= Qtt
 
-        if in_slow_δ !== nothing
-            slow_scaling = nothing
-            if slow_s == length(slow_RKB)
-                slow_scaling = in_slow_scaling
-            end
-            # Update solution and scale RHS
-            event = stage_update!(device(Q), groupsize)(
-                fast.variant,
-                slow_rv_Q,
-                slow_rv_Qstages,
-                slow_rv_Lstages,
-                slow_rv_Rstages,
-                slow_rv_Qhat,
-                slow_RKA_explicit,
-                slow_RKA_implicit,
-                dt,
-                Val(slow_s),
-                Val(slow_split_nonlinear_linear),
-                slow_δ,
-                in_slow_rv_dQ;
-                ndrange = length(slow_rv_Q),
-                dependencies = (event,),
+            slow_rhs_linear!(
+                slow_Rstages[slow_s],
+                slow_Qstages[slow_s],
+                param,
+                slow_stage_time,
+                increment = false,
             )
-            wait(device(Q), event)
         end
 
         # Fractional time for slow stage
@@ -323,5 +332,35 @@ function dostep!(
             dostep!(Q, fast, param, fast_time, slow_δ, slow_rv_dQ, slow_rka)
         end
     end
+
+    if split_nonlinear_linear
+        for istage in 1:Nstages
+            stagetime = time + RKC[istage] * dt
+            slow_rhs_linear!(
+                Rstages[istage],
+                Qstages[istage],
+                p,
+                stagetime,
+                increment = true,
+            )
+        end
+    end
+
+    # compose the final solution
+    event = Event(device(Q))
+    event = solution_update!(device(Q), groupsize)(
+        variant,
+        rv_Q,
+        rv_Rstages,
+        RKB,
+        dt,
+        Val(Nstages),
+        slow_δ,
+        slow_rv_dQ,
+        slow_scaling;
+        ndrange = length(rv_Q),
+        dependencies = (event,),
+    )
+    wait(device(Q), event)
     updatedt!(fast, fast_dt_in)
 end
