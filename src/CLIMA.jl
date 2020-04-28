@@ -29,7 +29,6 @@ include(joinpath(
     "HydrostaticBoussinesq",
     "HydrostaticBoussinesqModel.jl",
 ))
-include(joinpath("Numerics", "DGmethods_old", "DGBalanceLawDiscretizations.jl"))
 include(joinpath("Numerics", "LinearSolvers", "LinearSolvers.jl"))
 include(joinpath(
     "Numerics",

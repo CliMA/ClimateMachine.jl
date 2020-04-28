@@ -138,7 +138,7 @@ function run(
         source = source,
         init_state = Initialise_Density_Current!,
     )
-    # -------------- Define dgbalancelaw --------------------------- #
+    # -------------- Define DGModel --------------------------- #
     dg = DGModel(
         model,
         grid,

@@ -28,7 +28,6 @@ using Test
 using CLIMA
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
-using CLIMA.DGBalanceLawDiscretizations
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.Grids
 using CLIMA.GenericCallbacks
