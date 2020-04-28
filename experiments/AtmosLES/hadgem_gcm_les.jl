@@ -434,7 +434,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         param_set;
         ref_state = GCMReferenceState{FT}(),
         turbulence = SmagorinskyLilly{FT}(0.23),
-        hyperdiffusion = StandardHyperdiffusion(1800),
+        #hyperdiffusion = StandardHyperDiffusion(1800),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
