@@ -14,35 +14,4 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 [codecov-img]: https://codecov.io/gh/climate-machine/CLIMA/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/climate-machine/CLIMA
 
-# Some notes on using CLIMA
-
-The following instructions to install and run the code assume that Julia
-version 1.0.1 or greater installed; GPU version requires version 1.2 or greater
-and an NVIDIA GPU.
-
-The [MPI.jl][0] package that is used assumes that you have a working MPI
-installation
-
-## Setup
-
-```bash
-julia --project=@. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
-```
-You can test that things were installed properly with
-```bash
-julia --project=@. $CLIMA_HOME/test/runtests.jl
-```
-where `$CLIMA_HOME` is the path to the base CLIMA directory.
-
-CLIMA will default to running on the GPU on a GPU-enabled system.
-To force a CPU run set the environment variable `CLIMA_GPU` to `false`.
-
-## Problems building MPI.jl
-
-If you are having problems building MPI.jl then most likely you need to set the
-environment variable `JULIA_MPI_PATH`. Additionally, if your MPI is not
-installed in a single place, e.g., MPI from macports in OSX, you may need to set
-`JULIA_MPI_INCLUDE_PATH` and `JULIA_MPI_LIBRARY_PATH`; for macports installs of
-MPI these would be subdirectories in `/opt/local/include` and `/opt/local/lib`.
-
-[0]: https://github.com/JuliaParallel/MPI.jl
+For installation instructions and explanations on how to use CLIMA, please look at the [Documentation](https://climate-machine.github.io/CLIMA/latest/Installation).

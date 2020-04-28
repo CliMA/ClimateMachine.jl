@@ -46,7 +46,7 @@ const mpicomm = MPI.COMM_WORLD
     numelems = 12
     realelems = 1:7
     ghostelems = 8:12
-    
+
     QA = MPIStateArray{Int}(mpicomm, ArrayType, 1, 1, numelems,
                             realelems = realelems,
                             ghostelems = ghostelems)

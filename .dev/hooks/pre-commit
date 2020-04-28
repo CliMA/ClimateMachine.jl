@@ -1,0 +1,41 @@
+#!/usr/bin/env julia
+#
+# Called by git-commit with no arguments.  This checks to make sure that all
+# .jl files are indented correctly before a commit is made.
+#
+# To enable this hook, make this file executable and copy it in
+# $GIT_DIR/hooks.
+
+toplevel_directory = chomp(read(`git rev-parse --show-toplevel`, String))
+
+using Pkg
+Pkg.activate(joinpath(toplevel_directory, ".dev"))
+Pkg.instantiate()
+
+using JuliaFormatter
+
+include(joinpath(toplevel_directory, ".dev", "clima_formatter_options.jl"))
+
+needs_format = false
+
+for diffoutput in split.(readlines(`git diff --name-status --cached`))
+    status = diffoutput[1]
+    filename = diffoutput[end]
+    (!startswith(status, "D") && endswith(filename, ".jl")) || continue
+
+    a = read(`git show :$filename`, String)
+    b = format_text(a; clima_formatter_options...)
+
+    if a != b
+        fullfilename = joinpath(toplevel_directory, filename)
+
+        @error """File $filename needs to be indented with:
+            julia $(joinpath(toplevel_directory, ".dev", "climaformat.jl")) $fullfilename
+        and added to the git index via
+            git add $fullfilename
+        """
+        global needs_format = true
+    end
+end
+
+exit(needs_format ? 1 : 0)
