@@ -186,7 +186,7 @@ function SolverConfiguration(
             states_higher_order = dg.states_higher_order,
         )
         slow_model = RemainderModel(bl, (linmodel,))
-        slow_dg = DGModel(
+        slow_dg = remainder_DGModel(
             slow_model,
             grid,
             numerical_flux_first_order,

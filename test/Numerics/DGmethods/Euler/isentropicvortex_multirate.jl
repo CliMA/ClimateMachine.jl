@@ -3,7 +3,7 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using ClimateMachine.DGmethods:
-    DGModel, init_ode_state, LocalGeometry, RemainderModel
+    DGModel, init_ode_state, LocalGeometry, RemainderModel, remainder_DGModel
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -181,7 +181,7 @@ function run(
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
     )
-    slow_dg = DGModel(
+    slow_dg = remainder_DGModel(
         slow_model,
         grid,
         RusanovNumericalFlux(),

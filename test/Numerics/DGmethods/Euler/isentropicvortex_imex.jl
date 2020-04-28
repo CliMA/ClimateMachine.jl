@@ -3,7 +3,7 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using ClimateMachine.DGmethods:
-    DGModel, init_ode_state, LocalGeometry, RemainderModel
+    DGModel, init_ode_state, LocalGeometry, RemainderModel, remainder_DGModel
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -185,7 +185,7 @@ function run(
     )
 
     if split_explicit_implicit
-        dg_nonlinear = DGModel(
+        dg_nonlinear = remainder_DGModel(
             nonlinear_model,
             grid,
             RusanovNumericalFlux(),
