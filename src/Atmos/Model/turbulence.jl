@@ -782,5 +782,5 @@ function flux_diffusive!(
     t::Real,
     D_t,
 )
-    flux.ρu += eltype(state)(0.1 * aux.turbulence.Δ)^2 * SDiagonal(SVector(diffusive.turbulence.∇divergence))
+    flux.ρu += eltype(state)(tc.C * aux.turbulence.Δ)^2 * SDiagonal(SVector(diffusive.turbulence.∇divergence))
 end

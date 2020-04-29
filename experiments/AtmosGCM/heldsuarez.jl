@@ -68,7 +68,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = SmagorinskyLilly(c_smag),
+        turbulence = DivDamping(c_smag),
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
@@ -180,7 +180,7 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 120                             # experiment day number
+    n_days = 1500                            # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
