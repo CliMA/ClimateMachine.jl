@@ -8,7 +8,6 @@ module ODESolvers
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
-using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 

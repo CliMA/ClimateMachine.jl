@@ -5,7 +5,6 @@ using ..MPIStateArrays
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using StaticArrays
-using ..SpaceMethods
 using ..VariableTemplates
 using DocStringExtensions
 using KernelAbstractions

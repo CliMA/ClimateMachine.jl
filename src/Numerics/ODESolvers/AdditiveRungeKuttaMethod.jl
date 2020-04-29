@@ -156,42 +156,6 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     end
 end
 
-function AdditiveRungeKutta(
-    spacedisc::AbstractSpaceMethod,
-    spacedisc_linear::AbstractSpaceMethod,
-    backward_euler_solver,
-    RKA_explicit,
-    RKA_implicit,
-    RKB,
-    RKC,
-    split_explicit_implicit,
-    variant,
-    Q::AT;
-    dt = nothing,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    rhs! =
-        (x...; increment) ->
-            SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-    rhs_implicit! =
-        (x...; increment) ->
-            SpaceMethods.odefun!(spacedisc_linear, x..., increment = increment)
-    AdditiveRungeKutta(
-        rhs!,
-        rhs_implicit!,
-        backward_euler_solver,
-        RKA_explicit,
-        RKA_implicit,
-        RKB,
-        RKC,
-        split_explicit_implicit,
-        variant,
-        Q;
-        dt = dt,
-        t0 = t0,
-    )
-end
-
 # this will only work for iterative solves
 # direct solvers use prefactorization
 function updatedt!(ark::AdditiveRungeKutta, dt)
