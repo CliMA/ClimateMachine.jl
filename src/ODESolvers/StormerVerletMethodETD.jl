@@ -102,9 +102,10 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   rhs!(dQ, Q, p, time, increment = false)
   event = Event(device(Q))
   event = update!(device(Q), groupsize)(
-         dQa.+offset1a,
+         dQa,
          Qa,
-         dτ/2;
+         dτ/2,
+         offset1a;
          ndrange = length(Qa),
          dependencies = (event,),
   )
@@ -135,9 +136,10 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
     rhs!(dQ, Q, p, time, increment = false)
     event = Event(device(Q))
     event = update!(device(Q), groupsize)(
-           dQb.+0.5*(offset0b.+offset1b),
+           dQb,
            Qb,
-           dτ;
+           dτ,
+           0.5*(offset0b.+offset1b);
            ndrange = length(Qb),
            dependencies = (event,),
     )
@@ -147,9 +149,10 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
     rhs!(dQ, Q, p, time, increment = false) #increment = true? damit auf dQ draufaddiert
     event = Event(device(Q))
     event = update!(device(Q), groupsize)(
-           dQa .+ offset1a,
+           dQa,
            Qa,
-           dτ;
+           dτ,
+           offset1a;
            ndrange = length(Qa),
            dependencies = (event,),
     )
@@ -183,9 +186,10 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   rhs!(dQ, Q, p, time, increment = false)
   event = Event(device(Q))
   event = update!(device(Q), groupsize)(
-         dQb .+ 0.5*(offset0b.+offset1b),
+         dQb,
          Qb,
-         dτ;
+         dτ,
+         0.5*(offset0b.+offset1b);
          ndrange = length(Qb),
          dependencies = (event,),
   )
@@ -195,9 +199,10 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   rhs!(dQ, Q, p, time, increment = false)
   event = Event(device(Q))
   event = update!(device(Q), groupsize)(
-         dQa .+ offset1a,
+         dQa,
          Qa,
-         dτ/2;
+         dτ/2,
+         offset1a;
          ndrange = length(Qa),
          dependencies = (event,),
   )
@@ -207,17 +212,17 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
   end
-
 end
 
 @kernel function update!(
     dQ,
     Q,
     dt,
+    offset
 )
     i = @index(Global, Linear)
     @inbounds begin
-      Q[i] += (dQ[i]) * dt
+      Q[i] += (dQ[i]+offset[i]) * dt
     end
 end
 
