@@ -248,36 +248,37 @@ macro visitQ(nhorzelem, nvertelem, Nqk, Nq, expr)
     end)
 end
 
-# Helpers to extract data from `Q`, etc.
-function extract_state(dg, localQ, ijk, e)
+# Helpers to extract data from the various state arrays
+function extract_state_conservative(dg, state_conservative, ijk, e)
     bl = dg.balancelaw
-    FT = eltype(localQ)
-    nstate = number_state_conservative(bl, FT)
-    l_Q = MArray{Tuple{nstate}, FT}(undef)
-    for s in 1:nstate
-        l_Q[s] = localQ[ijk, s, e]
+    FT = eltype(state_conservative)
+    num_state_conservative = number_state_conservative(bl, FT)
+    local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
+    for s in 1:num_state_conservative
+        local_state_conservative[s] = state_conservative[ijk, s, e]
     end
-    return Vars{vars_state_conservative(bl, FT)}(l_Q)
+    return Vars{vars_state_conservative(bl, FT)}(local_state_conservative)
 end
-function extract_aux(dg, state_auxiliary, ijk, e)
+function extract_state_auxiliary(dg, state_auxiliary, ijk, e)
     bl = dg.balancelaw
     FT = eltype(state_auxiliary)
-    nauxstate = number_state_auxiliary(bl, FT)
-    l_aux = MArray{Tuple{nauxstate}, FT}(undef)
-    for s in 1:nauxstate
-        l_aux[s] = state_auxiliary[ijk, s, e]
+    num_state_auxiliary = number_state_auxiliary(bl, FT)
+    local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+    for s in 1:num_state_auxiliary
+        local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
     end
-    return Vars{vars_state_auxiliary(bl, FT)}(l_aux)
+    return Vars{vars_state_auxiliary(bl, FT)}(local_state_auxiliary)
 end
-function extract_diffusion(dg, localdiff, ijk, e)
+function extract_state_gradient_flux(dg, state_gradient_flux, ijk, e)
     bl = dg.balancelaw
-    FT = eltype(localdiff)
-    ndiff = number_state_gradient_flux(bl, FT)
-    l_diff = MArray{Tuple{ndiff}, FT}(undef)
-    for s in 1:ndiff
-        l_diff[s] = localdiff[ijk, s, e]
+    FT = eltype(state_gradient_flux)
+    num_state_gradient_flux = number_state_gradient_flux(bl, FT)
+    local_state_gradient_flux =
+        MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+    for s in 1:num_state_gradient_flux
+        local_state_gradient_flux[s] = state_gradient_flux[ijk, s, e]
     end
-    return Vars{vars_state_gradient_flux(bl, FT)}(l_diff)
+    return Vars{vars_state_gradient_flux(bl, FT)}(local_state_gradient_flux)
 end
 
 include("atmos_common.jl")
