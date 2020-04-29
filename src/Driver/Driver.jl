@@ -25,7 +25,7 @@ using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
 
-const cuarray_pkgid =
+const cuarrays_pkgid =
     Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
@@ -49,8 +49,8 @@ end
 _init_array(::Type{Array}) = nothing
 
 function gpu_allowscalar(val)
-    if haskey(Base.loaded_modules, CLIMA.cuarray_pkgid)
-        Base.loaded_modules[CLIMA.cuarray_pkgid].allowscalar(val)
+    if haskey(Base.loaded_modules, CLIMA.cuarrays_pkgid)
+        Base.loaded_modules[CLIMA.cuarrays_pkgid].allowscalar(val)
     end
     return nothing
 end
