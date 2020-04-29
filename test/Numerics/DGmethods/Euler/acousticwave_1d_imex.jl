@@ -153,11 +153,11 @@ function run(
     odesolver = ARK2GiraldoKellyConstantinescu(
         dg,
         lineardg,
-        linearsolver,
+        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = false,
+        split_explicit_implicit = false,
     )
 
     filterorder = 18

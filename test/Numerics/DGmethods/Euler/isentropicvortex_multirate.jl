@@ -211,7 +211,7 @@ function run(
         fast_ode_solver = FastMethod(
             fast_dg,
             fast_dg,
-            linearsolver,
+            LinearBackwardEulerSolver(linearsolver; isadjustable = true),
             Q;
             dt = fast_dt,
             paperversion = true,
