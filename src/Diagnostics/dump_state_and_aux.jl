@@ -100,22 +100,24 @@ function dump_state_and_aux_collect(dgngrp, currtime)
         error("Dump of non-interpolated data currently unsupported")
     end
 
-    dims = get_dims(dgngrp)
+    if mpirank == 0
+        dims = get_dims(dgngrp)
+        dim_names = tuple(collect(keys(dims))...)
 
-    statevarvals = OrderedDict()
-    for i in 1:number_state_conservative(bl, FT)
-        statevarvals[statenames[i]] =
-            ((collect(keys(dims)),), all_state_data[:, :, :, i])
+        statevarvals = OrderedDict()
+        for i in 1:number_state_conservative(bl, FT)
+            statevarvals[statenames[i]] = (dim_names, all_state_data[:, :, :, i])
+        end
+        write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
+
+        auxvarvals = OrderedDict()
+        for i in 1:number_state_auxiliary(bl, FT)
+            auxvarvals[auxnames[i]] = (dim_names, all_aux_data[:, :, :, i])
+        end
+        write_data(dgngrp.writer, auxfilename, dims, auxvarvals, currtime)
     end
-    write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 
-    auxvarvals = OrderedDict()
-    for i in 1:number_state_auxiliary(bl, FT)
-        auxvarvals[auxnames[i]] =
-            ((collect(keys(dims)),), all_aux_data[:, :, :, i])
-    end
-    write_data(dgngrp.writer, auxfilename, dims, auxvarvals, currtime)
-
+    MPI.Barrier(mpicomm)
     return nothing
 end
 
