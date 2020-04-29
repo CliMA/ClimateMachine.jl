@@ -149,8 +149,8 @@ function compute_vec_grad(
 
     vgrad = VecGrad(Npl, Nel, FT)
     ind = [
-        varsindex(vars_state(model, FT), :ρ)
-        varsindex(vars_state(model, FT), :ρu)
+        varsindex(vars_state_conservative(model, FT), :ρ)
+        varsindex(vars_state_conservative(model, FT), :ρu)
     ]
     _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
 

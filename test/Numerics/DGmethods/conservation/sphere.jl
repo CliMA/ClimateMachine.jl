@@ -27,32 +27,32 @@ using Random
 using CLIMA.VariableTemplates
 import CLIMA.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     boundary_state!,
-    init_aux!,
-    init_state!,
+    init_state_auxiliary!,
+    init_state_conservative!,
     init_ode_state,
     LocalGeometry
 import CLIMA.DGmethods.NumericalFluxes:
-    NumericalFluxNonDiffusive,
-    numerical_flux_nondiffusive!,
-    numerical_boundary_flux_nondiffusive!
+    NumericalFluxFirstOrder,
+    numerical_flux_first_order!,
+    numerical_boundary_flux_first_order!
 
 struct ConservationTestModel <: BalanceLaw end
 
-vars_aux(::ConservationTestModel, T) = @vars(vel::SVector{3, T})
-vars_state(::ConservationTestModel, T) = @vars(q::T, p::T)
+vars_state_auxiliary(::ConservationTestModel, T) = @vars(vel::SVector{3, T})
+vars_state_conservative(::ConservationTestModel, T) = @vars(q::T, p::T)
 
-vars_gradient(::ConservationTestModel, T) = @vars()
-vars_diffusive(::ConservationTestModel, T) = @vars()
+vars_state_gradient(::ConservationTestModel, T) = @vars()
+vars_state_gradient_flux(::ConservationTestModel, T) = @vars()
 
-function init_aux!(::ConservationTestModel, aux::Vars, g::LocalGeometry)
+function init_state_auxiliary!(::ConservationTestModel, aux::Vars, g::LocalGeometry)
     x, y, z = g.coord
     r = x^2 + y^2 + z^2
     aux.vel = SVector(
@@ -62,12 +62,12 @@ function init_aux!(::ConservationTestModel, aux::Vars, g::LocalGeometry)
     )
 end
 
-function init_state!(::ConservationTestModel, state::Vars, aux::Vars, coord, t)
+function init_state_conservative!(::ConservationTestModel, state::Vars, aux::Vars, coord, t)
     state.q = rand()
     state.p = rand()
 end
 
-function flux_nondiffusive!(
+function flux_first_order!(
     ::ConservationTestModel,
     flux::Grad,
     state::Vars,
@@ -79,19 +79,19 @@ function flux_nondiffusive!(
     flux.p = -state.p .* vel
 end
 
-flux_diffusive!(::ConservationTestModel, _...) = nothing
+flux_second_order!(::ConservationTestModel, _...) = nothing
 
 source!(::ConservationTestModel, _...) = nothing
 
-struct ConservationTestModelNumFlux <: NumericalFluxNonDiffusive end
+struct ConservationTestModelNumFlux <: NumericalFluxFirstOrder end
 
 boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::ConservationTestModel,
     _...,
 ) = nothing
 
-function numerical_flux_nondiffusive!(
+function numerical_flux_first_order!(
     ::ConservationTestModelNumFlux,
     bl::BalanceLaw,
     fluxᵀn::Vars{S},
@@ -115,7 +115,7 @@ function numerical_flux_nondiffusive!(
     end
 end
 
-function numerical_boundary_flux_nondiffusive!(
+function numerical_boundary_flux_first_order!(
     ::ConservationTestModelNumFlux,
     bl::BalanceLaw,
     fluxᵀn::Vars{S},
@@ -155,7 +155,7 @@ function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
         ConservationTestModel(),
         grid,
         ConservationTestModelNumFlux(),
-        CentralNumericalFluxDiffusive(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 

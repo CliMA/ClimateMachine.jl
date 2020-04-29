@@ -42,10 +42,10 @@ Default stub functions for a generic tracer type are defined here.
 abstract type TracerModel end
 
 
-vars_state(::TracerModel, FT) = @vars()
-vars_gradient(::TracerModel, FT) = @vars()
-vars_diffusive(::TracerModel, FT) = @vars()
-vars_aux(::TracerModel, FT) = @vars()
+vars_state_conservative(::TracerModel, FT) = @vars()
+vars_state_gradient(::TracerModel, FT) = @vars()
+vars_state_gradient_flux(::TracerModel, FT) = @vars()
+vars_state_auxiliary(::TracerModel, FT) = @vars()
 
 function atmos_init_aux!(
     ::TracerModel,
@@ -55,7 +55,7 @@ function atmos_init_aux!(
 )
     nothing
 end
-function atmos_nodal_update_aux!(
+function atmos_nodal_update_auxiliary_state!(
     ::TracerModel,
     m::AtmosModel,
     state::Vars,
@@ -74,7 +74,7 @@ function flux_tracers!(
 )
     nothing
 end
-function diffusive!(
+function compute_gradient_flux!(
     ::TracerModel,
     diffusive::Vars,
     ∇transform::Grad,
@@ -84,7 +84,7 @@ function diffusive!(
 )
     nothing
 end
-function flux_diffusive!(
+function flux_second_order!(
     ::TracerModel,
     flux::Grad,
     state::Vars,
@@ -95,7 +95,7 @@ function flux_diffusive!(
 )
     nothing
 end
-function gradvariables!(
+function compute_gradient_argument!(
     ::TracerModel,
     transform::Vars,
     state::Vars,
@@ -122,7 +122,7 @@ tracers required.  Note that tracer naming is not currently supported,
 i.e. the user must track each tracer variable based on its
 numerical index. Sources can be added to each tracer based on the
 corresponding numerical vector index. Initial profiles must be specified using the
-`init_state!` hook at the experiment level.
+`init_state_conservative!` hook at the experiment level.
 
 ```@docs
 CLIMA.Atmos.NTracers{N,FT}

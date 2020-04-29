@@ -4,7 +4,7 @@ using Logging
 using CLIMA.Mesh.Topologies
 using CLIMA.Mesh.Grids
 using CLIMA.DGmethods
-using CLIMA.DGmethods: nodal_update_aux!
+using CLIMA.DGmethods: nodal_update_auxiliary_state!
 using CLIMA.DGmethods.NumericalFluxes
 using CLIMA.MPIStateArrays
 using CLIMA.ODESolvers
@@ -139,7 +139,7 @@ function advective_courant(
 end
 
 function boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     ::AdvectionDiffusion,
     stateP::Vars,
     auxP::Vars,
@@ -163,7 +163,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)
@@ -213,8 +213,8 @@ function run(
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 

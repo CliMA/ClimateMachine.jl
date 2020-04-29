@@ -37,8 +37,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
     dg = DGModel(
         MMSModel{dim}(),
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 

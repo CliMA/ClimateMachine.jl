@@ -57,8 +57,8 @@ end
 create_dg(model, grid, direction) =
   DGModel(model,
           grid,
-          Rusanov(),
-          CentralNumericalFluxDiffusive(),
+          RusanovNumericalFlux(),
+          CentralNumericalFluxSecondOrder(),
           CentralNumericalFluxGradient(),
           direction=direction)
 

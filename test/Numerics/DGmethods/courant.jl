@@ -10,7 +10,7 @@ using Printf
 using LinearAlgebra
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
 using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
+    RusanovNumericalFlux, CentralNumericalFluxGradient, CentralNumericalFluxSecondOrder
 using CLIMA.Courant
 using CLIMA.Atmos:
     AtmosModel,
@@ -26,7 +26,7 @@ using CLIMA.Atmos:
     HydrostaticState,
     IsothermalProfile,
     ConstantViscosityWithDivergence,
-    vars_state,
+    vars_state_conservative,
     soundspeed
 using CLIMA.Atmos
 using CLIMA.ODESolvers
@@ -121,14 +121,14 @@ let
                     moisture = DryModel(),
                     source = Gravity(),
                     boundarycondition = (),
-                    init_state = initialcondition!,
+                    init_state_conservative = initialcondition!,
                 )
 
                 dg = DGModel(
                     model,
                     grid,
-                    Rusanov(),
-                    CentralNumericalFluxDiffusive(),
+                    RusanovNumericalFlux(),
+                    CentralNumericalFluxSecondOrder(),
                     CentralNumericalFluxGradient(),
                 )
 

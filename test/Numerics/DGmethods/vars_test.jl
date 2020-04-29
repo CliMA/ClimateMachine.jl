@@ -14,43 +14,41 @@ using GPUifyLoops
 
 import CLIMA.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
     vars_integrals,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     wavespeed,
-    update_aux!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
+    update_auxiliary_state!,
     boundary_state!,
-    init_aux!,
-    init_state!,
+    init_state_auxiliary!,
+    init_state_conservative!,
     init_ode_state,
     LocalGeometry
 
 
 struct VarsTestModel{dim} <: BalanceLaw end
 
-vars_state(::VarsTestModel, T) = @vars(x::T, coord::SVector{3, T})
-vars_aux(m::VarsTestModel, T) = @vars(coord::SVector{3, T}, polynomial::T)
-vars_diffusive(m::VarsTestModel, T) = @vars()
+vars_state_conservative(::VarsTestModel, T) = @vars(x::T, coord::SVector{3, T})
+vars_state_auxiliary(m::VarsTestModel, T) = @vars(coord::SVector{3, T}, polynomial::T)
+vars_state_gradient_flux(m::VarsTestModel, T) = @vars()
 
-flux_nondiffusive!(::VarsTestModel, _...) = nothing
-flux_diffusive!(::VarsTestModel, _...) = nothing
+flux_first_order!(::VarsTestModel, _...) = nothing
+flux_second_order!(::VarsTestModel, _...) = nothing
 source!(::VarsTestModel, _...) = nothing
 boundary_state!(_, ::VarsTestModel, _...) = nothing
 wavespeed(::VarsTestModel, _...) = 1
 
-function init_state!(m::VarsTestModel, state::Vars, aux::Vars, coord, t::Real)
+function init_state_conservative!(m::VarsTestModel, state::Vars, aux::Vars, coord, t::Real)
     @inbounds state.x = coord[1]
     state.coord = coord
 end
 
-function init_aux!(
+function init_state_auxiliary!(
     ::VarsTestModel{dim},
     aux::Vars,
     g::LocalGeometry,
@@ -78,18 +76,18 @@ function run(mpicomm, dim, Ne, N, FT, ArrayType)
     dg = DGModel(
         VarsTestModel{dim}(),
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
     Q = init_ode_state(dg, FT(0))
     @test Array(Q.x)[:, 1, :] == Array(Q.coord)[:, 1, :]
-    @test Array(dg.auxstate.coord) == Array(Q.coord)
+    @test Array(dg.state_auxiliary.coord) == Array(Q.coord)
     x = Array(Q.coord)[:, 1, :]
     y = Array(Q.coord)[:, 2, :]
     z = Array(Q.coord)[:, 3, :]
-    @test Array(dg.auxstate.polynomial)[:, 1, :] ≈ x .* y + x .* z + y .* z
+    @test Array(dg.state_auxiliary.polynomial)[:, 1, :] ≈ x .* y + x .* z + y .* z
 end
 
 let

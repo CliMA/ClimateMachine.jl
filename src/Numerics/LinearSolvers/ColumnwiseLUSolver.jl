@@ -5,7 +5,7 @@ export ManyColumnLU, SingleColumnLU
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..DGmethods
-using ..DGmethods: BalanceLaw, DGModel, num_state, num_diffusive
+using ..DGmethods: BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
 using ..LinearSolvers
 const LS = LinearSolvers
 using ..MPIStateArrays
@@ -86,12 +86,12 @@ function band_lu!(A, dg::DGModel)
     FT = eltype(A)
     device = typeof(A) <: Array ? CPU() : CUDA()
 
-    nstate = num_state(bl, FT)
+    nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
     Nq = N + 1
     Nqj = dimensionality(grid) == 2 ? 1 : Nq
 
-    eband = num_diffusive(bl, FT) == 0 ? 1 : 2
+    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
 
     nrealelem = length(topology.elems)
     nvertelem = topology.stacksize
@@ -111,7 +111,7 @@ function band_lu!(A, dg::DGModel)
     end
 
     event = Event(device)
-    event = band_lu_knl!(device, groupsize)(
+    event = band_lu_kernel!(device, groupsize)(
         A,
         Val(Nq),
         Val(groupsize[1]),
@@ -136,19 +136,19 @@ function band_forward!(Q, A, dg::DGModel)
     FT = eltype(A)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    nstate = num_state(bl, FT)
+    nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
     Nq = N + 1
     Nqj = dimensionality(grid) == 2 ? 1 : Nq
 
-    eband = num_diffusive(bl, FT) == 0 ? 1 : 2
+    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
 
     nrealelem = length(topology.elems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
 
     event = Event(device)
-    event = band_forward_knl!(device, (Nq, Nqj))(
+    event = band_forward_kernel!(device, (Nq, Nqj))(
         Q.data,
         A,
         Val(Nq),
@@ -173,19 +173,19 @@ function band_back!(Q, A, dg::DGModel)
     FT = eltype(A)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    nstate = num_state(bl, FT)
+    nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
     Nq = N + 1
     Nqj = dimensionality(grid) == 2 ? 1 : Nq
 
-    eband = num_diffusive(bl, FT) == 0 ? 1 : 2
+    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
 
     nrealelem = length(topology.elems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
 
     event = Event(device)
-    event = band_back_knl!(device, (Nq, Nqj))(
+    event = band_back_kernel!(device, (Nq, Nqj))(
         Q.data,
         A,
         Val(Nq),
@@ -292,13 +292,13 @@ function banded_matrix(
     FT = eltype(Q.data)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    nstate = num_state(bl, FT)
+    nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
     Nq = N + 1
 
     # p is lower bandwidth
     # q is upper bandwidth
-    eband = num_diffusive(bl, FT) == 0 ? 1 : 2
+    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
     p = q = nstate * Nq * eband - 1
 
     nrealelem = length(topology.elems)
@@ -327,7 +327,7 @@ function banded_matrix(
             for k in 1:Nq
                 # Set a single 1 per column and rest 0
                 event = Event(device)
-                event = knl_set_banded_data!(device, (Nq, Nqj, Nq))(
+                event = kernel_set_banded_data!(device, (Nq, Nqj, Nq))(
                     bl,
                     Val(dim),
                     Val(N),
@@ -348,7 +348,7 @@ function banded_matrix(
 
                 # Store the banded matrix
                 event = Event(device)
-                event = knl_set_banded_matrix!(device, (Nq, Nqj, Nq))(
+                event = kernel_set_banded_matrix!(device, (Nq, Nqj, Nq))(
                     bl,
                     Val(dim),
                     Val(N),
@@ -398,8 +398,8 @@ function banded_matrix_vector_product!(
     FT = eltype(Q.data)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    eband = num_diffusive(bl, FT) == 0 ? 1 : 2
-    nstate = num_state(bl, FT)
+    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
+    nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
     Nq = N + 1
     p = q = nstate * Nq * eband - 1
@@ -413,7 +413,7 @@ function banded_matrix_vector_product!(
     Nqj = dim == 2 ? 1 : Nq
 
     event = Event(device)
-    event = knl_banded_matrix_vector_product!(device, (Nq, Nqj, Nq))(
+    event = kernel_banded_matrix_vector_product!(device, (Nq, Nqj, Nq))(
         bl,
         Val(dim),
         Val(N),
@@ -435,7 +435,7 @@ using StaticArrays
 using KernelAbstractions.Extras: @unroll
 
 @doc """
-    band_lu_knl!(A, Val(Nq), Val(Nqi), Val(Nqj), Val(nstate), Val(nvertelem),
+    band_lu_kernel!(A, Val(Nq), Val(Nqi), Val(Nqj), Val(nstate), Val(nvertelem),
                  Val(nhorzelem), Val(eband))
 
 This performs Band Gaussian Elimination (Algorithm 4.3.1 of Golub and Van
@@ -476,8 +476,8 @@ is stored as
       year = 2013
     }
 
-""" band_lu_knl!
-@kernel function band_lu_knl!(
+""" band_lu_kernel!
+@kernel function band_lu_kernel!(
     A,
     ::Val{Nq},
     ::Val{Nqi},
@@ -523,7 +523,7 @@ is stored as
 end
 
 @doc """
-    band_forward_knl!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
+    band_forward_kernel!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
                       Val(nhorzelem), Val(eband))
 
 This performs Band Forward Substitution (Algorithm 4.3.2 of Golub and Van
@@ -551,8 +551,8 @@ eband - 1`.
       year = 2013
     }
 
-""" band_forward_knl!
-@kernel function band_forward_knl!(
+""" band_forward_kernel!
+@kernel function band_forward_kernel!(
     b,
     LU::AbstractArray{T, N},
     ::Val{Nq},
@@ -620,7 +620,7 @@ eband - 1`.
 end
 
 @doc """
-    band_back_knl!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
+    band_back_kernel!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
                    Val(nhorzelem), Val(eband))
 
 This performs Band Back Substitution (Algorithm 4.3.3 of Golub and Van
@@ -648,8 +648,8 @@ eband - 1`.
       year = 2013
     }
 
-""" band_back_knl!
-@kernel function band_back_knl!(
+""" band_back_kernel!
+@kernel function band_back_kernel!(
     b,
     LU::AbstractArray{T, N},
     ::Val{Nq},
@@ -722,7 +722,7 @@ eband - 1`.
     end
 end
 
-@kernel function knl_set_banded_data!(
+@kernel function kernel_set_banded_data!(
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{N},
@@ -739,7 +739,7 @@ end
 
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
-        nstate = num_state(bl, FT)
+        nstate = number_state_conservative(bl, FT)
     end
 
     ev, eh = @index(Group, NTuple)
@@ -758,7 +758,7 @@ end
     end
 end
 
-@kernel function knl_set_banded_matrix!(
+@kernel function kernel_set_banded_matrix!(
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{N},
@@ -777,7 +777,7 @@ end
     @uniform begin
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
-        nstate = num_state(bl, FT)
+        nstate = number_state_conservative(bl, FT)
 
         # sin, kin, evin are the state, vertical fod, and vert element we are
         # handling
@@ -818,7 +818,7 @@ end
     end
 end
 
-@kernel function knl_banded_matrix_vector_product!(
+@kernel function kernel_banded_matrix_vector_product!(
     bl::BalanceLaw,
     ::Val{dim},
     ::Val{N},
@@ -835,7 +835,7 @@ end
     @uniform begin
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
-        nstate = num_state(bl, FT)
+        nstate = number_state_conservative(bl, FT)
 
         elo = div(q, Nq * nstate - 1)
         eup = div(p, Nq * nstate - 1)
