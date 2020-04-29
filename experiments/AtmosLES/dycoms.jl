@@ -49,7 +49,6 @@ function atmos_nodal_update_aux!(
     aux::Vars,
     t::Real,
 ) end
-function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
 function integral_load_aux!(
     ::RadiationModel,
     integ::Vars,
@@ -71,8 +70,6 @@ function flux_radiation!(
     aux::Vars,
     t::Real,
 ) end
-
-
 
 # ------------------------ Begin Radiation Model ---------------------- #
 """
@@ -112,9 +109,9 @@ function integral_load_aux!(
     FT = eltype(state)
     integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
 end
-function integral_set_aux!(m::DYCOMSRadiation, aux::Vars, integrand::Vars)
-    integrand = integrand.radiation.attenuation_coeff
-    aux.∫dz.radiation.attenuation_coeff = integrand
+function integral_set_aux!(m::DYCOMSRadiation, aux::Vars, integral::Vars)
+    integral = integral.radiation.attenuation_coeff
+    aux.∫dz.radiation.attenuation_coeff = integral
 end
 
 vars_reverse_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
@@ -125,14 +122,15 @@ function reverse_integral_load_aux!(
     aux::Vars,
 )
     FT = eltype(state)
-    integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+    #integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+    integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
 end
 function reverse_integral_set_aux!(
     m::DYCOMSRadiation,
     aux::Vars,
-    integrand::Vars,
+    integral::Vars,
 )
-    aux.∫dnz.radiation.attenuation_coeff = integrand.radiation.attenuation_coeff
+    aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
 end
 
 function flux_radiation!(
@@ -161,7 +159,6 @@ function flux_radiation!(
     ẑ = vertical_unit_vector(atmos, aux)
     flux.ρe += F_rad * ẑ
 end
-function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real) end
 # -------------------------- End Radiation Model ------------------------ #
 
 """

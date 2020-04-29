@@ -209,7 +209,10 @@ function SolverConfiguration(
         solver = ode_solver_type.solver_method(
             dg,
             vdg,
-            ode_solver_type.linear_solver(),
+            LinearBackwardEulerSolver(
+                ode_solver_type.linear_solver();
+                isadjustable = false,
+            ),
             Q;
             dt = ode_dt,
             t0 = t0,

@@ -14,7 +14,6 @@ function atmos_nodal_update_aux!(
     aux::Vars,
     t::Real,
 ) end
-function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
 function integral_set_aux!(
     ::RadiationModel,
     integ::Vars,

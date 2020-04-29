@@ -8,6 +8,7 @@ module Diagnostics
 
 export DiagnosticsGroup,
     setup_atmos_default_diagnostics,
+    setup_atmos_core_diagnostics,
     setup_dump_state_and_aux_diagnostics,
     VecGrad,
     compute_vec_grad,
@@ -127,12 +128,9 @@ end
     )
 
 Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
-diagnostics, currently a set of diagnostics developed for DYCOMS. All
-the diagnostics in the group will run at the specified `interval`, be
-interpolated to the specified boundaries and resolution, and
-will be written to files prefixed by `out_prefix` using `writer`.
-
-TODO: this will be refactored soon.
+diagnostics. All the diagnostics in the group will run at the specified
+`interval`, be interpolated to the specified boundaries and resolution,
+and will be written to files prefixed by `out_prefix` using `writer`.
 """
 function setup_atmos_default_diagnostics(
     interval::String,
@@ -155,6 +153,40 @@ function setup_atmos_default_diagnostics(
 end
 
 """
+    setup_atmos_core_diagnostics(
+            interval::Int,
+            out_prefix::String;
+            writer::AbstractWriter,
+            interpol = nothing,
+            project  = true)
+
+Create and return a `DiagnosticsGroup` containing the "AtmosCore"
+diagnostics. All the diagnostics in the group will run at the
+specified `interval`, be interpolated to the specified boundaries
+and resolution, and will be written to files prefixed by `out_prefix`
+using `writer`.
+"""
+function setup_atmos_core_diagnostics(
+    interval::Int,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+    project = true,
+)
+    return DiagnosticsGroup(
+        "AtmosCore",
+        Diagnostics.atmos_core_init,
+        Diagnostics.atmos_core_fini,
+        Diagnostics.atmos_core_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+        project,
+    )
+end
+
+"""
     setup_dump_state_and_aux_diagnostics(
         interval::String,
         out_prefix::String;
@@ -166,8 +198,6 @@ end
 Create and return a `DiagnosticsGroup` containing a diagnostic that
 simply dumps the state and aux variables at the specified `interval`
 after being interpolated, into NetCDF files prefixed by `out_prefix`.
-
-TODO: this will be refactored soon.
 """
 function setup_dump_state_and_aux_diagnostics(
     interval::String,
@@ -246,6 +276,8 @@ function extract_diffusion(dg, localdiff, ijk, e)
 end
 
 include("atmos_default.jl")
+include("atmos_core.jl")
 include("dump_state_and_aux.jl")
 include("diagnostic_fields.jl")
+
 end # module Diagnostics

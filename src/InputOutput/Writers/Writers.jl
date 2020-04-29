@@ -1,3 +1,13 @@
+"""
+    Writers
+
+Abstracts writing dimensioned data so that output can be to a NetCDF
+file or to a JLD2 file.
+
+Currently, a single file per time of writing is envisioned. Thus, a
+`t` dimension is implicitly defined as `[1]`.
+"""
+
 module Writers
 
 export AbstractWriter, NetCDFWriter, JLD2Writer, write_data, full_name
@@ -20,7 +30,8 @@ and variable values to a file. Specialized by every `Writer` subtype.
 # - `writer`: instance of a subtype of `AbstractWriter`.
 # - `filename`: into which to write data (without extension).
 # - `dims`: Dict of dimension name to axis.
-# - `varvals`: Dict of variable name to array of values.
+# - `varvals`: Tuple of a k-tuple of dimension names and a Dict, of
+# variable name to k-dimensional array of values.
 # - `simtime`: Current simulation time.
 """
 function write_data end

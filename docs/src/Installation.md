@@ -24,9 +24,9 @@ If you are using a cluster, it is very likely that a version of MPI is already i
 
 If you are working from a desktop or laptop computer or are maintaining a system without MPI, here are our recommendation for desktop users:
 
-- Windows -- [Microsoft MPI](https://docs.microsoft.com/en-us/message-passing-interface/microsoft-mpi) 
-- MacOS -- [Open MPI](https://www.open-mpi.org/) or [MPICH](https://www.mpich.org/), which can be installed via a package manager like [homebrew](https://brew.sh/) or installing manually 
-- Linux -- [OpenMPI](https://www.open-mpi.org/) or [MPICH](https://www.mpich.org/), which are available from package managers and user repos 
+- Windows -- [Microsoft MPI](https://docs.microsoft.com/en-us/message-passing-interface/microsoft-mpi)
+- MacOS -- [Open MPI](https://www.open-mpi.org/) or [MPICH](https://www.mpich.org/), which can be installed via a package manager like [homebrew](https://brew.sh/) or installing manually
+- Linux -- [OpenMPI](https://www.open-mpi.org/) or [MPICH](https://www.mpich.org/), which are available from package managers and user repos
 
 Once you have MPI running on your machine, please add the `MPI` package in Julia with
 
@@ -52,7 +52,7 @@ As of now, CLIMA is not registered as an official Julia package, so you will nee
 git clone https://github.com/climate-machine/CLIMA.git
 ```
 
-Once on your machine, you will need to run CLIMA with 
+Once on your machine, you will need to run CLIMA with
 ```
 julia --project=@. -e "using Pkg; Pkg.instantiate(); Pkg.API.precompile()"
 ```
@@ -62,17 +62,17 @@ julia --project=@. $CLIMA_HOME/test/runtests.jl
 ```
 where `$CLIMA_HOME` is the path to the base CLIMA directory.
 
-From here, you can run any of the examples.
-For example, if you would like to run the dry Rayleigh Bernard example, you might run
+From here, you can run any of the tutorials.
+For example, if you would like to run the dry Rayleigh Bernard tutorial, you might run
 
 ```julia
-julia> include("examples/Atmos/dry_rayleigh_benard.jl")
+julia> include("tutorials/Atmos/dry_rayleigh_benard.jl")
 ```
 
 or, from outside the REPL, in the `CLIMA/` directory:
 
 ```
-julia --project=. examples/Atmos/dry_rayleigh_benard.jl
+julia --project=. tutorials/Atmos/dry_rayleigh_benard.jl
 ```
 
 CLIMA will default to running on the GPU on a GPU-enabled system.

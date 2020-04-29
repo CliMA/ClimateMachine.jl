@@ -96,13 +96,15 @@ function dump_state_and_aux_collect(dgngrp, currtime)
 
     statevarvals = OrderedDict()
     for i in 1:num_state(bl, FT)
-        statevarvals[statenames[i]] = all_state_data[:, :, :, i]
+        statevarvals[statenames[i]] =
+            ((collect(keys(dims)),), all_state_data[:, :, :, i])
     end
     write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 
     auxvarvals = OrderedDict()
     for i in 1:num_aux(bl, FT)
-        auxvarvals[auxnames[i]] = all_aux_data[:, :, :, i]
+        auxvarvals[auxnames[i]] =
+            ((collect(keys(dims)),), all_aux_data[:, :, :, i])
     end
     write_data(dgngrp.writer, auxfilename, dims, auxvarvals, currtime)
 

@@ -1,5 +1,10 @@
 module CLIMA
 
+using Pkg.TOML
+
+const CLIMA_VERSION =
+    VersionNumber(TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"])
+
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))
 include(joinpath("Utilities", "ArtifactWrappers", "ArtifactWrappers.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))
@@ -16,7 +21,6 @@ include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGmethods", "Courant.jl"))
-include(joinpath("Numerics", "DGmethods", "SpaceMethods.jl"))
 include(joinpath("Numerics", "DGmethods", "DGmethods.jl"))
 include(joinpath("Ocean", "ShallowWater", "ShallowWaterModel.jl"))
 include(joinpath(
@@ -24,7 +28,6 @@ include(joinpath(
     "HydrostaticBoussinesq",
     "HydrostaticBoussinesqModel.jl",
 ))
-include(joinpath("Numerics", "DGmethods_old", "DGBalanceLawDiscretizations.jl"))
 include(joinpath("Numerics", "LinearSolvers", "LinearSolvers.jl"))
 include(joinpath(
     "Numerics",
