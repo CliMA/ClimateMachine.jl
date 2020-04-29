@@ -59,21 +59,6 @@ mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: AbstractODESolver
     end
 end
 
-function LowStorageRungeKutta2N(
-    spacedisc::AbstractSpaceMethod,
-    RKA,
-    RKB,
-    RKC,
-    Q::AT;
-    dt = 0,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    rhs! =
-        (x...; increment) ->
-            SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-    LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
-end
-
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
             [slow_δ, slow_rv_dQ, slow_scaling])

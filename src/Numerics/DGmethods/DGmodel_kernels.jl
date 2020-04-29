@@ -34,8 +34,6 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 
 Computational kernel: Evaluate the volume integrals on right-hand side of a
 `BalanceLaw` semi-discretization.
-
-See [`odefun!`](@ref) for usage.
 """ volumerhs!
 @kernel function volumerhs!(
     bl::BalanceLaw,
@@ -379,8 +377,6 @@ end
 
 Computational kernel: Evaluate the surface integrals on right-hand side of a
 `BalanceLaw` semi-discretization.
-
-See [`odefun!`](@ref) for usage.
 """ facerhs!
 @kernel function facerhs!(
     bl::BalanceLaw,
