@@ -39,7 +39,8 @@ if generate_tutorials
     end
 
     for tutorial in tutorials_jl
-        gen_dir = joinpath(generated_dir, relpath(dirname(tutorial), tutorials_dir))
+        gen_dir =
+            joinpath(generated_dir, relpath(dirname(tutorial), tutorials_dir))
         input = abspath(tutorial)
         script = Literate.script(input, gen_dir)
         code = strip(read(script, String))
@@ -52,7 +53,10 @@ if generate_tutorials
 
     # These files mirror the .jl files in `CLIMA/tutorials/`:
     tutorials = Any[
-        "Atmos" => Any["Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",],
+        "Atmos" => Any[
+            "Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",
+            "Rising Bubble LES" => "ExtendingCLIMA/Atmos/Model/risingbubble.md",
+        ],
         "Ocean" => Any[],
         "Numerics" => Any[
             "LinearSolvers" => Any["Conjugate Gradient" => "generated/Numerics/LinearSolvers/cg.md",],
