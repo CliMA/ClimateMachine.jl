@@ -462,7 +462,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 7,
+        timestep_ratio = 10,
     )
     config = CLIMA.AtmosLESConfiguration(
         "HadGEM2-CLIMA",
