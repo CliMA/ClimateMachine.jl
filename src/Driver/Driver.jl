@@ -25,6 +25,9 @@ using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
 
+const cuarray_pkgid =
+    Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
+
 @init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
     using .CuArrays, .CuArrays.CUDAdrv, .CuArrays.CUDAnative
 
@@ -45,8 +48,6 @@ end
 
 _init_array(::Type{Array}) = nothing
 
-const cuarray_pkgid =
-    Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 function gpu_allowscalar(val)
     if haskey(Base.loaded_modules, CLIMA.cuarray_pkgid)
         Base.loaded_modules[CLIMA.cuarray_pkgid].allowscalar(val)
@@ -250,6 +251,8 @@ function init(; disable_gpu = false, arg_settings = nothing)
     # set up the array type appropriately depending on whether we're using GPUs
     if get(ENV, "CLIMA_GPU", "") != "false" &&
        !Settings.disable_gpu && CUDAapi.has_cuda_gpu()
+        # only load CuArrays if GPU present
+        CuArrays = Base.require(cuarrays_pkgid)
         atyp = CuArrays.CuArray
     else
         atyp = Array

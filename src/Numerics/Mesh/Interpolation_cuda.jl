@@ -1,5 +1,3 @@
-
-
 using CuArrays, CUDAnative
 
 function interpolate_local!(
