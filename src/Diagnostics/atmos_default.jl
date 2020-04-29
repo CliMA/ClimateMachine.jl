@@ -5,54 +5,16 @@ using ..Mesh.Grids
 using ..MoistThermodynamics
 using LinearAlgebra
 
-Base.@kwdef mutable struct AtmosDefaultCollectedDiagnostics
-    zvals::Union{Nothing, Array} = nothing
-    repdvsr::Union{Nothing, Array} = nothing
-end
-const AtmosDefaultCollected = AtmosDefaultCollectedDiagnostics()
-
 """
     atmos_default_init(bl, currtime)
 
 Initialize the 'AtmosDefault' diagnostics group.
 """
 function atmos_default_init(dgngrp::DiagnosticsGroup, currtime)
-    mpicomm = Settings.mpicomm
-    dg = Settings.dg
-    Q = Settings.Q
-    FT = eltype(Q)
-    grid = dg.grid
-    topology = grid.topology
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
-    nrealelem = length(topology.realelems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
+    atmos_collect_onetime(Settings.mpicomm, Settings.dg, Settings.Q)
 
-    if Array ∈ typeof(Q).parameters
-        localvgeo = grid.vgeo
-    else
-        localvgeo = Array(grid.vgeo)
-    end
-
-    AtmosDefaultCollected.zvals = zeros(FT, Nqk * nvertelem)
-    AtmosDefaultCollected.repdvsr = zeros(FT, Nqk * nvertelem)
-
-    @visitQ nhorzelem nvertelem Nqk Nq begin
-        z = localvgeo[ijk, grid.x3id, e]
-        MH = localvgeo[ijk, grid.MHid, e]
-        AtmosDefaultCollected.zvals[Nqk * (ev - 1) + k] += MH * z
-        AtmosDefaultCollected.repdvsr[Nqk * (ev - 1) + k] += MH
-    end
-
-    # compute the full number of points on a slab
-    MPI.Allreduce!(AtmosDefaultCollected.repdvsr, +, mpicomm)
-
-    AtmosDefaultCollected.zvals ./= AtmosDefaultCollected.repdvsr
+    return nothing
 end
-
-include("thermo.jl")
 
 # Simple horizontal averages
 function vars_atmos_default_simple(m::AtmosModel, FT)
@@ -88,7 +50,7 @@ num_atmos_default_simple_vars(m, FT) = varsize(vars_atmos_default_simple(m, FT))
 atmos_default_simple_vars(m, array) =
     Vars{vars_atmos_default_simple(m, eltype(array))}(array)
 
-function compute_simple_sums!(
+function atmos_default_simple_sums!(
     atmos::AtmosModel,
     state,
     diffusive_flux,
@@ -115,7 +77,7 @@ function compute_simple_sums!(
     d_h_tot = -D_t .* diffusive_flux.∇h_tot
     sums.w_ht_sgs += MH * d_h_tot[end] * state.ρ
 
-    compute_simple_sums!(
+    atmos_default_simple_sums!(
         atmos.moisture,
         state,
         diffusive_flux,
@@ -127,7 +89,7 @@ function compute_simple_sums!(
 
     return nothing
 end
-function compute_simple_sums!(
+function atmos_default_simple_sums!(
     ::MoistureModel,
     state,
     diffusive_flux,
@@ -138,7 +100,7 @@ function compute_simple_sums!(
 )
     return nothing
 end
-function compute_simple_sums!(
+function atmos_default_simple_sums!(
     moist::EquilMoist,
     state,
     diffusive_flux,
@@ -195,10 +157,9 @@ num_atmos_default_ho_vars(m, FT) = varsize(vars_atmos_default_ho(m, FT))
 atmos_default_ho_vars(m, array) =
     Vars{vars_atmos_default_ho(m, eltype(array))}(array)
 
-function compute_ho_sums!(
+function atmos_default_ho_sums!(
     atmos::AtmosModel,
     state,
-    diffusive_flux,
     aux,
     thermo,
     MH,
@@ -230,11 +191,20 @@ function compute_ho_sums!(
     sums.cov_w_thv += MH * w′ * θ_vir′ * state.ρ
     sums.cov_w_ei += MH * w′ * e_int′ * state.ρ
 
-    compute_ho_sums!(atmos.moisture, state, thermo, MH, ha, w′, e_int′, sums)
+    atmos_default_ho_sums!(
+        atmos.moisture,
+        state,
+        thermo,
+        MH,
+        ha,
+        w′,
+        e_int′,
+        sums,
+    )
 
     return nothing
 end
-function compute_ho_sums!(
+function atmos_default_ho_sums!(
     ::MoistureModel,
     state,
     thermo,
@@ -246,7 +216,7 @@ function compute_ho_sums!(
 )
     return nothing
 end
-function compute_ho_sums!(
+function atmos_default_ho_sums!(
     moist::EquilMoist,
     state,
     thermo,
@@ -274,8 +244,6 @@ function compute_ho_sums!(
 
     return nothing
 end
-
-
 
 """
     atmos_default_collect(bl, currtime)
@@ -315,6 +283,9 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     end
     FT = eltype(localQ)
 
+    zvals = AtmosCollected.zvals
+    repdvsr = AtmosCollected.repdvsr
+
     # Visit each node of the state variables array and:
     # - generate and store the thermo variables,
     # - accumulate the simple horizontal sums, and
@@ -326,7 +297,9 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         zeros(FT, num_atmos_default_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
-    ql_gt_0 = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
+    ql_gt_0_z = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
+    ql_gt_0_full = zeros(FT, (Nq * Nq * nhorzelem))
+    # In honor of PyCLES!
     cld_top = FT(-100000)
     cld_base = FT(100000)
     @visitQ nhorzelem nvertelem Nqk Nq begin
@@ -341,7 +314,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         compute_thermo!(bl, state, aux, thermo)
 
         simple = atmos_default_simple_vars(bl, simple_sums[evk])
-        compute_simple_sums!(
+        atmos_default_simple_sums!(
             bl,
             state,
             diffusive_flux,
@@ -354,16 +327,16 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
         if !iszero(thermo.moisture.q_liq)
             idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
-            ql_gt_0[evk][idx] = one(FT)
+            ql_gt_0_z[evk][idx] = one(FT)
+            ql_gt_0_full[idx] = one(FT)
 
-            z = AtmosDefaultCollected.zvals[evk]
+            z = zvals[evk]
             cld_top = max(cld_top, z)
             cld_base = min(cld_base, z)
         end
     end
 
     # reduce horizontal sums and cloud data across ranks and compute averages
-    repdvsr = AtmosDefaultCollected.repdvsr
     simple_avgs = [
         zeros(FT, num_atmos_default_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
@@ -373,10 +346,10 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         MPI.Allreduce!(simple_sums[evk], simple_avgs[evk], +, mpicomm)
         simple_avgs[evk] .= simple_avgs[evk] ./ repdvsr[evk]
 
-        tot_ql_gt_0 = MPI.Reduce(sum(ql_gt_0[evk]), +, 0, mpicomm)
-        tot_horz = MPI.Reduce(length(ql_gt_0[evk]), +, 0, mpicomm)
+        tot_ql_gt_0_z = MPI.Reduce(sum(ql_gt_0_z[evk]), +, 0, mpicomm)
+        tot_horz_z = MPI.Reduce(length(ql_gt_0_z[evk]), +, 0, mpicomm)
         if mpirank == 0
-            cld_frac[evk] = tot_ql_gt_0 / tot_horz
+            cld_frac[evk] = tot_ql_gt_0_z / tot_horz_z
         end
     end
     cld_top = MPI.Reduce(cld_top, MPI.MAX, 0, mpicomm)
@@ -386,6 +359,12 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     cld_base = MPI.Reduce(cld_base, MPI.MIN, 0, mpicomm)
     if cld_base == FT(100000)
         cld_base = NaN
+    end
+    tot_ql_gt_0_full = MPI.Reduce(sum(ql_gt_0_full), +, 0, mpicomm)
+    tot_horz_full = MPI.Reduce(length(ql_gt_0_full), +, 0, mpicomm)
+    cld_cover = zero(FT)
+    if mpirank == 0
+        cld_cover = tot_ql_gt_0_full / tot_horz_full
     end
 
     # complete density averaging
@@ -412,27 +391,16 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         evk = Nqk * (ev - 1) + k
 
         state = extract_state(dg, localQ, ijk, e)
-        diffusive_flux = extract_diffusion(dg, localdiff, ijk, e)
         aux = extract_aux(dg, localaux, ijk, e)
         thermo = thermo_vars(bl, thermo_array[ijk, e])
         MH = localvgeo[ijk, grid.MHid, e]
 
         simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
         ho = atmos_default_ho_vars(bl, ho_sums[evk])
-        compute_ho_sums!(
-            bl,
-            state,
-            diffusive_flux,
-            aux,
-            thermo,
-            MH,
-            simple_ha,
-            ho,
-        )
+        atmos_default_ho_sums!(bl, state, aux, thermo, MH, simple_ha, ho)
     end
 
     # reduce across ranks and compute averages
-    repdvsr = AtmosDefaultCollected.repdvsr
     ho_avgs = [
         zeros(FT, num_atmos_default_ho_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
@@ -444,7 +412,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         end
     end
 
-    # complete the density averaging and prepare output
+    # complete density averaging and prepare output
     if mpirank == 0
         varvals = OrderedDict()
         for vari in 1:length(simple_varnames)
@@ -472,6 +440,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         varvals["cld_frac"] = (("z",), cld_frac)
         varvals["cld_top"] = (("t",), cld_top)
         varvals["cld_base"] = (("t",), cld_base)
+        varvals["cld_cover"] = (("t",), cld_cover)
 
         # write output
         dprefix = @sprintf(
@@ -485,7 +454,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         write_data(
             dgngrp.writer,
             dfilename,
-            OrderedDict("z" => AtmosDefaultCollected.zvals),
+            OrderedDict("z" => zvals),
             varvals,
             currtime,
         )
