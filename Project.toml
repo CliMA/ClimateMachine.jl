@@ -4,6 +4,7 @@ authors = ["Climate Modeling Alliance"]
 version = "0.1.0"
 
 [deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 CLIMAParameters = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
 CUDAapi = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"

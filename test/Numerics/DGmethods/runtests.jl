@@ -12,6 +12,10 @@ include(joinpath("..", "..", "testhelpers.jl"))
         @__DIR__,
         "advection_diffusion/pseudo1D_advection_diffusion.jl",
     ))
+    runmpi(joinpath(
+        @__DIR__,
+        "advection_diffusion/advection_diffusion_model_1dimex_bgmres.jl",
+    ))
     runmpi(joinpath(@__DIR__, "compressible_Navier_Stokes/ref_state.jl"))
     runmpi(joinpath(@__DIR__, "horizontal_integral_test.jl"))
     runmpi(joinpath(@__DIR__, "courant.jl"), ntasks = 2)

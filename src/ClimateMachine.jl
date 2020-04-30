@@ -41,6 +41,11 @@ include(joinpath(
 ))
 include(joinpath("Numerics", "LinearSolvers", "ColumnwiseLUSolver.jl"))
 include(joinpath("Numerics", "LinearSolvers", "ConjugateGradientSolver.jl"))
+include(joinpath(
+    "Numerics",
+    "LinearSolvers",
+    "BatchedGeneralizedMinimalResidualSolver.jl",
+))
 include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
 include(joinpath("Numerics", "ODESolvers", "GenericCallbacks.jl"))
 include(joinpath("Atmos", "Model", "AtmosModel.jl"))
