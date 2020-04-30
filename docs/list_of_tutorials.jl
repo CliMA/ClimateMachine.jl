@@ -22,6 +22,7 @@ if generate_tutorials
         for (root, dirs, files) in Base.Filesystem.walkdir(tutorials_dir)
         for f in files
     ]
+    filter!(x -> endswith(x, ".jl"), tutorials_jl) # only grab .jl files
 
     filter!(x -> !occursin("topo.jl", x), tutorials_jl)                       # currently broken, TODO: Fix me!
     filter!(x -> !occursin("dry_rayleigh_benard.jl", x), tutorials_jl)        # currently broken, TODO: Fix me!
