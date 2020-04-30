@@ -64,8 +64,13 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
-vars_state_conservative(lm::AtmosLinearModel, FT) =
-    vars_state_conservative(lm.atmos, FT)
+function vars_state_conservative(lm::AtmosLinearModel, FT)
+    @vars begin
+        ρ::FT
+        ρu::SVector{3, FT}
+        ρe::FT
+    end
+end
 vars_state_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_state_gradient_flux(lm::AtmosLinearModel, FT) = @vars()
 vars_state_auxiliary(lm::AtmosLinearModel, FT) =
