@@ -203,14 +203,14 @@ function run_brick_diagostics_fields_test()
         vort = compute_vorticity(dg, vgrad)
         #----------------------------------------------------------------------------
         Ω₁_exact =
-            fcnz(x1, x2, x3, xmax, ymax, zmax) -
-            fcny(x1, x2, x3, xmax, ymax, zmax)
-        Ω₂_exact =
-            fcnx(x1, x2, x3, xmax, ymax, zmax) -
-            fcnz(x1, x2, x3, xmax, ymax, zmax)
-        Ω₃_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -
+            fcnz(x1, x2, x3, xmax, ymax, zmax)
+        Ω₂_exact =
+            fcnz(x1, x2, x3, xmax, ymax, zmax) -
             fcnx(x1, x2, x3, xmax, ymax, zmax)
+        Ω₃_exact =
+            fcnx(x1, x2, x3, xmax, ymax, zmax) -
+            fcny(x1, x2, x3, xmax, ymax, zmax)
 
         err = zeros(FT, 12)
 
