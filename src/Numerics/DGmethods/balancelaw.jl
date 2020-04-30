@@ -69,7 +69,7 @@ function init_state_auxiliary! end
 
 User defined function for computing the first order fluxes locally at each nodal point. The named tuple `states` contains the following
     states.flux --> flux for each conservative state
-    states.state --> conservative states
+    states.conservative --> conservative states
     states.auxiliary --> auxiliary variables
 """ flux_first_order!
 flux_first_order!(::BalanceLaw, ::NamedTuple, t) = nothing
@@ -79,7 +79,7 @@ flux_first_order!(::BalanceLaw, ::NamedTuple, t) = nothing
 
 User defined function for computing the second order fluxes locally at each nodal point. The named tuple `states` contains the following
     states.flux --> flux for each conservative state
-    states.state --> conservative states
+    states.conservative --> conservative states
     states.auxiliary --> auxiliary variables
     states.gradient_flux --> gradient fluxes derived from the conservative states
     states.hyperdiffusion --> hyperdiffusive fluxes derived from the conservative states
@@ -91,7 +91,7 @@ flux_second_order!(::BalanceLaw, ::NamedTuple, t) = nothing
 
 User defined function for computing the second order fluxes locally at each nodal point. The named tuple `states` contains the following
     states.source --> source for each conservative state
-    states.state --> conservative states
+    states.conservative --> conservative states
     states.auxiliary --> auxiliary variables
     states.gradient_flux --> gradient fluxes derived from the conservative states
 """ source!

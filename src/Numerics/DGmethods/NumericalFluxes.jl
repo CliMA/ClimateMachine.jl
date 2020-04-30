@@ -140,41 +140,28 @@ function numerical_flux_first_order! end
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
     balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
+    states::NamedTuple,
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
     bctype,
     t,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
+    states1⁻::NamedTuple,
 ) where {S, A}
 
     boundary_state!(
         numerical_flux,
         balance_law,
-        state_conservative⁺,
-        state_auxiliary⁺,
+        states,
         normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        aux1⁻,
+        states1⁻,
     )
 
     numerical_flux_first_order!(
         numerical_flux,
         balance_law,
-        fluxᵀn,
+        states,
         normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
-        state_conservative⁺,
-        state_auxiliary⁺,
         t,
     )
 end
@@ -198,46 +185,38 @@ update_penalty!(::RusanovNumericalFlux, ::BalanceLaw, _...) = nothing
 function numerical_flux_first_order!(
     numerical_flux::RusanovNumericalFlux,
     balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
+    states::NamedTuple,
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
     t,
 ) where {S, A}
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
         balance_law,
-        fluxᵀn,
+        states,
         normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
-        state_conservative⁺,
-        state_auxiliary⁺,
         t,
     )
 
-    fluxᵀn = parent(fluxᵀn)
-    wavespeed⁻ = wavespeed(
-        balance_law,
-        normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
-        t,
-    )
-    wavespeed⁺ = wavespeed(
-        balance_law,
-        normal_vector,
-        state_conservative⁺,
-        state_auxiliary⁺,
-        t,
-    )
+    states⁻ =
+        (conservative = states.conservative⁻, auxiliary = states.auxiliary⁻)
+    states⁺ =
+        (conservative = states.conservative⁺, auxiliary = states.auxiliary⁺)
+
+    wavespeed⁻ = wavespeed(balance_law, states⁻, normal_vector, t)
+    wavespeed⁺ = wavespeed(balance_law, states⁺, normal_vector, t)
+
     max_wavespeed = max(wavespeed⁻, wavespeed⁺)
     penalty =
         max_wavespeed *
-        (parent(state_conservative⁻) - parent(state_conservative⁺))
+        (parent(states.conservative⁻) - parent(states.conservative⁺))
+
+    states_less_flux = (
+        conservative⁻ = states.conservative⁻,
+        auxiliary⁻ = states.auxiliary⁻,
+        conservative⁺ = states.conservative⁺,
+        auxiliary⁺ = states.auxiliary⁺,
+    )
 
     # TODO: should this operate on ΔQ or penalty?
     update_penalty!(
@@ -246,13 +225,11 @@ function numerical_flux_first_order!(
         normal_vector,
         max_wavespeed,
         Vars{S}(penalty),
-        state_conservative⁻,
-        state_auxiliary⁻,
-        state_conservative⁺,
-        state_auxiliary⁺,
+        states_less_flux,
         t,
     )
 
+    fluxᵀn = parent(states.flux)
     fluxᵀn .+= penalty / 2
 end
 
@@ -272,39 +249,33 @@ struct CentralNumericalFluxFirstOrder <: NumericalFluxFirstOrder end
 function numerical_flux_first_order!(
     ::CentralNumericalFluxFirstOrder,
     balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
+    states::NamedTuple,
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
     t,
 ) where {S, A}
 
-    FT = eltype(fluxᵀn)
+    FT = eltype(states.flux)
     num_state_conservative = number_state_conservative(balance_law, FT)
-    fluxᵀn = parent(fluxᵀn)
 
-    flux⁻ = similar(fluxᵀn, Size(3, num_state_conservative))
+    flux⁻ = similar(states.flux, Size(3, num_state_conservative))
     fill!(flux⁻, -zero(FT))
-    flux_first_order!(
-        balance_law,
-        Grad{S}(flux⁻),
-        state_conservative⁻,
-        state_auxiliary⁻,
-        t,
+    states⁻ = (
+        flux = flux⁻,
+        conservative = states.conservative⁻,
+        auxiliary = states.auxiliary⁻,
     )
+    flux_first_order!(balance_law, states⁻, t)
 
-    flux⁺ = similar(fluxᵀn, Size(3, num_state_conservative))
+    flux⁺ = similar(states.flux, Size(3, num_state_conservative))
     fill!(flux⁺, -zero(FT))
-    flux_first_order!(
-        balance_law,
-        Grad{S}(flux⁺),
-        state_conservative⁺,
-        state_auxiliary⁺,
-        t,
+    states⁺ = (
+        flux = flux⁺,
+        conservative = states.conservative⁺,
+        auxiliary = states.auxiliary⁺,
     )
+    flux_first_order!(balance_law, states⁺, t)
 
+    fluxᵀn = parent(states.flux)
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2)
 end
 
@@ -352,47 +323,37 @@ struct CentralNumericalFluxSecondOrder <: NumericalFluxSecondOrder end
 function numerical_flux_second_order!(
     ::CentralNumericalFluxSecondOrder,
     balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
+    states::NamedTuple,
     normal_vector⁻::SVector,
-    state_conservative⁻::Vars{S},
-    state_gradient_flux⁻::Vars{D},
-    state_hyperdiffusive⁻::Vars{HD},
-    state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
-    state_gradient_flux⁺::Vars{D},
-    state_hyperdiffusive⁺::Vars{HD},
-    state_auxiliary⁺::Vars{A},
     t,
 ) where {S, D, HD, A}
 
-    FT = eltype(fluxᵀn)
+    FT = eltype(states.flux)
     num_state_conservative = number_state_conservative(balance_law, FT)
-    fluxᵀn = parent(fluxᵀn)
 
-    flux⁻ = similar(fluxᵀn, Size(3, num_state_conservative))
+    flux⁻ = similar(states.flux, Size(3, num_state_conservative))
     fill!(flux⁻, -zero(FT))
-    flux_second_order!(
-        balance_law,
-        Grad{S}(flux⁻),
-        state_conservative⁻,
-        state_gradient_flux⁻,
-        state_hyperdiffusive⁻,
-        state_auxiliary⁻,
-        t,
+    states⁻ = (
+        flux = flux⁻,
+        conservative = states.conservative⁻,
+        auxiliary = states.auxiliary⁻,
+        gradient_flux = states.gradient_flux⁻,
+        hyperdiffusive = states.hyperdiffusive⁻,
     )
+    flux_second_order!(balance_law, states⁻, t)
 
-    flux⁺ = similar(fluxᵀn, Size(3, num_state_conservative))
+    flux⁺ = similar(states.flux, Size(3, num_state_conservative))
     fill!(flux⁺, -zero(FT))
-    flux_second_order!(
-        balance_law,
-        Grad{S}(flux⁺),
-        state_conservative⁺,
-        state_gradient_flux⁺,
-        state_hyperdiffusive⁺,
-        state_auxiliary⁺,
-        t,
+    states⁺ = (
+        flux = flux⁺,
+        conservative = states.conservative⁺,
+        auxiliary = states.auxiliary⁺,
+        gradient_flux = states.gradient_flux⁺,
+        hyperdiffusive = states.hyperdiffusive⁺,
     )
+    flux_second_order!(balance_law, states⁺, t)
 
+    fluxᵀn = parent(states.flux)
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector⁻ / 2)
 end
 
@@ -510,132 +471,45 @@ end
 numerical_boundary_flux_second_order!(
     numerical_flux::CentralNumericalFluxSecondOrder,
     balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
+    states::NamedTuple,
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
-    state_gradient_flux⁻::Vars{D},
-    state_hyperdiffusive⁻::Vars{HD},
-    state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
-    state_gradient_flux⁺::Vars{D},
-    state_hyperdiffusive⁺::Vars{HD},
-    state_auxiliary⁺::Vars{A},
     bctype,
     t,
-    state1⁻::Vars{S},
-    diff1⁻::Vars{D},
-    aux1⁻::Vars{A},
-) where {S, D, HD, A} = normal_boundary_flux_second_order!(
+    states1⁻::NamedTuple,
+) = normal_boundary_flux_second_order!(
     numerical_flux,
     balance_law,
-    fluxᵀn,
+    states,
     normal_vector,
-    state_conservative⁻,
-    state_gradient_flux⁻,
-    state_hyperdiffusive⁻,
-    state_auxiliary⁻,
-    state_conservative⁺,
-    state_gradient_flux⁺,
-    state_hyperdiffusive⁺,
-    state_auxiliary⁺,
     bctype,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    states1⁻,
 )
 
 function normal_boundary_flux_second_order!(
     numerical_flux,
     balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
+    states::NamedTuple,
     normal_vector,
-    state_conservative⁻,
-    state_gradient_flux⁻,
-    state_hyperdiffusive⁻,
-    state_auxiliary⁻,
-    state_conservative⁺,
-    state_gradient_flux⁺,
-    state_hyperdiffusive⁺,
-    state_auxiliary⁺,
     bctype,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-) where {S}
-    FT = eltype(fluxᵀn)
-    num_state_conservative = number_state_conservative(balance_law, FT)
-    fluxᵀn = parent(fluxᵀn)
-
-    flux = similar(fluxᵀn, Size(3, num_state_conservative))
-    fill!(flux, -zero(FT))
-    boundary_flux_second_order!(
-        numerical_flux,
-        balance_law,
-        Grad{S}(flux),
-        state_conservative⁺,
-        state_gradient_flux⁺,
-        state_hyperdiffusive⁺,
-        state_auxiliary⁺,
-        normal_vector,
-        state_conservative⁻,
-        state_gradient_flux⁻,
-        state_hyperdiffusive⁻,
-        state_auxiliary⁻,
-        bctype,
-        t,
-        state1⁻,
-        diff1⁻,
-        aux1⁻,
-    )
-
-    fluxᵀn .+= flux' * normal_vector
-end
-
-# This is the function that my be overloaded for flux-based BCs
-function boundary_flux_second_order!(
-    numerical_flux::NumericalFluxSecondOrder,
-    balance_law,
-    flux,
-    state_conservative⁺,
-    state_gradient_flux⁺,
-    state_hyperdiffusive⁺,
-    state_auxiliary⁺,
-    normal_vector,
-    state_conservative⁻,
-    state_gradient_flux⁻,
-    state_hyperdiffusive⁻,
-    state_auxiliary⁻,
-    bctype,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    states1⁻::NamedTuple,
 )
     boundary_state!(
         numerical_flux,
         balance_law,
-        state_conservative⁺,
-        state_gradient_flux⁺,
-        state_auxiliary⁺,
+        states,
         normal_vector,
-        state_conservative⁻,
-        state_gradient_flux⁻,
-        state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        diff1⁻,
-        aux1⁻,
+        states1⁻,
     )
-    flux_second_order!(
+
+    numerical_flux_second_order!(
+        numerical_flux,
         balance_law,
-        flux,
-        state_conservative⁺,
-        state_gradient_flux⁺,
-        state_hyperdiffusive⁺,
-        state_auxiliary⁺,
+        states,
+        normal_vector,
         t,
     )
 end
