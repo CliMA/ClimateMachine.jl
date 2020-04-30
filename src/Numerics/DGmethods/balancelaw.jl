@@ -64,10 +64,38 @@ num_reverse_integrals(m::BalanceLaw, FT) =
 
 function init_state_conservative! end
 function init_state_auxiliary! end
+@doc """
+    flux_first_order!(::BalanceLaw, states::NamedTuple, t)
 
-function flux_first_order! end
-function flux_second_order! end
-function source! end
+User defined function for computing the first order fluxes locally at each nodal point. The named tuple `states` contains the following
+    states.flux --> flux for each conservative state
+    states.state --> conservative states
+    states.auxiliary --> auxiliary variables
+""" flux_first_order!
+flux_first_order!(::BalanceLaw, ::NamedTuple, t) = nothing
+
+@doc """
+    flux_second_order!(::BalanceLaw, states::NamedTuple, t)
+
+User defined function for computing the second order fluxes locally at each nodal point. The named tuple `states` contains the following
+    states.flux --> flux for each conservative state
+    states.state --> conservative states
+    states.auxiliary --> auxiliary variables
+    states.gradient_flux --> gradient fluxes derived from the conservative states
+    states.hyperdiffusion --> hyperdiffusive fluxes derived from the conservative states
+""" flux_second_order!
+flux_second_order!(::BalanceLaw, ::NamedTuple, t) = nothing
+
+@doc """
+    source!(::BalanceLaw, states::NamedTuple, t, direction)
+
+User defined function for computing the second order fluxes locally at each nodal point. The named tuple `states` contains the following
+    states.source --> source for each conservative state
+    states.state --> conservative states
+    states.auxiliary --> auxiliary variables
+    states.gradient_flux --> gradient fluxes derived from the conservative states
+""" source!
+source!(::BalanceLaw, ::NamedTuple, t, direction) = nothing
 
 function compute_gradient_argument! end
 function compute_gradient_flux! end

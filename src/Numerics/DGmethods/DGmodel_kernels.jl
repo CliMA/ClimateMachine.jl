@@ -123,16 +123,18 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
         end
 
-        fill!(local_flux, -zero(eltype(local_flux)))
-        flux_first_order!(
-            balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_first_order = (
+            flux =     Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            state = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            t,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary,
+            ),
         )
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        flux_first_order!(balance_law, states, t)
 
         @unroll for s in 1:num_state_conservative
             shared_flux[1, i, j, k, s] = local_flux[1, s]
@@ -140,22 +142,25 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             shared_flux[3, i, j, k, s] = local_flux[3, s]
         end
 
-        fill!(local_flux, -zero(eltype(local_flux)))
-        flux_second_order!(
-            balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_second_order = (
+            flux =     Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            state = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative,
             ),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(
-                local_state_gradient_flux,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary,
             ),
-            Vars{vars_hyperdiffusive(balance_law, FT)}(
+            gradient_flux =
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
+            hyperdiffusion = Vars{vars_hyperdiffusive(balance_law, FT)}(
                 local_state_hyperdiffusion,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            t,
         )
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        flux_second_order!(balance_law, states_second_order, t)
 
         @unroll for s in 1:num_state_conservative
             shared_flux[1, i, j, k, s] += local_flux[1, s]
@@ -180,20 +185,24 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             end
         end
 
-        fill!(local_source, -zero(eltype(local_source)))
-        source!(
-            balance_law,
-            Vars{vars_state_conservative(balance_law, FT)}(local_source),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_source = (
+            source = Vars{vars_state_conservative(balance_law, FT)}(
+                local_source,
+            ),
+            state = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative,
             ),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(
-                local_state_gradient_flux,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            t,
-            direction,
+            gradient_flux =
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
         )
+
+        fill!(local_source, -zero(eltype(local_source)))
+        source!(balance_law, states_source, t, direction)
 
         @unroll for s in 1:num_state_conservative
             local_tendency[s] += local_source[s]
@@ -312,16 +321,18 @@ end
             local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
         end
 
-        fill!(local_flux, -zero(eltype(local_flux)))
-        flux_first_order!(
-            balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_first_order = (
+            flux =     Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            state = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            t,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary,
+            ),
         )
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        flux_first_order!(balance_law, states_first_order, t)
 
         @unroll for s in 1:num_state_conservative
             shared_flux[1, i, j, k, s] = local_flux[1, s]
@@ -329,22 +340,25 @@ end
             shared_flux[3, i, j, k, s] = local_flux[3, s]
         end
 
-        fill!(local_flux, -zero(eltype(local_flux)))
-        flux_second_order!(
-            balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_second_order = (
+            flux =     Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            state = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative,
             ),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(
-                local_state_gradient_flux,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary,
             ),
-            Vars{vars_hyperdiffusive(balance_law, FT)}(
+            gradient_flux =
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
+            hyperdiffusion = Vars{vars_hyperdiffusive(balance_law, FT)}(
                 local_state_hyperdiffusion,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            t,
         )
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        flux_second_order!(balance_law, states_second_order, t)
 
         @unroll for s in 1:num_state_conservative
             shared_flux[1, i, j, k, s] += local_flux[1, s]
@@ -360,20 +374,24 @@ end
             shared_flux[3, i, j, k, s] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
         end
 
-        fill!(local_source, -zero(eltype(local_source)))
-        source!(
-            balance_law,
-            Vars{vars_state_conservative(balance_law, FT)}(local_source),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_source = (
+            source = Vars{vars_state_conservative(balance_law, FT)}(
+                local_source,
+            ),
+            state = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative,
             ),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(
-                local_state_gradient_flux,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            t,
-            direction,
+            gradient_flux =
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
         )
+
+        fill!(local_source, -zero(eltype(local_source)))
+        source!(balance_law, states_source, t, direction)
 
         @unroll for s in 1:num_state_conservative
             local_tendency[s] += local_source[s]
