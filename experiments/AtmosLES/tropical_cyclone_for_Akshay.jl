@@ -305,7 +305,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     ode_solver = CLIMA.IMEXSolverType()
 
     config = CLIMA.AtmosLESConfiguration(
-        "CYCLONE_WALLS_30",
+        "CYCLONE_WALLS_AKSHAY",
         N,
         resolution,
         xmax,
@@ -395,7 +395,7 @@ function main()
     result = CLIMA.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
 end
