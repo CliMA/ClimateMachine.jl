@@ -7,10 +7,17 @@ using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using CLIMA.DGmethods: DGModel, Vars, vars_state_conservative, number_state_conservative, init_ode_state
+using CLIMA.DGmethods:
+    DGModel,
+    Vars,
+    vars_state_conservative,
+    number_state_conservative,
+    init_ode_state
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
 using CLIMA.DGmethods.NumericalFluxes:
-    RusanovNumericalFlux, CentralNumericalFluxSecondOrder, CentralNumericalFluxGradient
+    RusanovNumericalFlux,
+    CentralNumericalFluxSecondOrder,
+    CentralNumericalFluxGradient
 using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test

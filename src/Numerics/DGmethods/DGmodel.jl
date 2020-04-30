@@ -1,4 +1,5 @@
-using .NumericalFluxes: CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
+using .NumericalFluxes:
+    CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     balancelaw::BL
@@ -41,7 +42,13 @@ function DGModel(
     )
 end
 
-function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = false)
+function (dg::DGModel)(
+    tendency,
+    state_conservative,
+    ::Nothing,
+    t;
+    increment = false,
+)
 
     balance_law = dg.balancelaw
     device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
@@ -75,7 +82,13 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
     communicate =
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
 
-    update_auxiliary_state!(dg, balance_law, state_conservative, t, dg.grid.topology.realelems)
+    update_auxiliary_state!(
+        dg,
+        balance_law,
+        state_conservative,
+        t,
+        dg.grid.topology.realelems,
+    )
 
     if nhyperviscstate > 0
         hypervisc_indexmap = create_hypervisc_indexmap(balance_law)
@@ -94,8 +107,10 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
     # Gradient Computation #
     ########################
     if communicate
-        exchange_state_conservative =
-            MPIStateArrays.begin_ghost_exchange!(state_conservative; dependencies = comp_stream)
+        exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
+            state_conservative;
+            dependencies = comp_stream,
+        )
     end
 
     if num_state_gradient_flux > 0 || nhyperviscstate > 0
@@ -141,13 +156,21 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
         )
 
         if communicate
-            exchange_state_conservative =
-                MPIStateArrays.end_ghost_exchange!(state_conservative; dependencies = exchange_state_conservative)
+            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+                state_conservative;
+                dependencies = exchange_state_conservative,
+            )
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_conservative)
-            update_auxiliary_state!(dg, balance_law, state_conservative, t, dg.grid.topology.ghostelems)
+            update_auxiliary_state!(
+                dg,
+                balance_law,
+                state_conservative,
+                t,
+                dg.grid.topology.ghostelems,
+            )
             exchange_state_conservative = Event(device)
         end
 
@@ -175,10 +198,11 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
 
         if communicate
             if num_state_gradient_flux > 0
-                exchange_state_gradient_flux = MPIStateArrays.begin_ghost_exchange!(
-                    state_gradient_flux,
-                    dependencies = comp_stream,
-                )
+                exchange_state_gradient_flux =
+                    MPIStateArrays.begin_ghost_exchange!(
+                        state_gradient_flux,
+                        dependencies = comp_stream,
+                    )
             end
             if nhyperviscstate > 0
                 exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
@@ -192,7 +216,13 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
             # update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
             wait(device, comp_stream)
-            update_auxiliary_state_gradient!(dg, balance_law, state_conservative, t, dg.grid.topology.realelems)
+            update_auxiliary_state_gradient!(
+                dg,
+                balance_law,
+                state_conservative,
+                t,
+                dg.grid.topology.realelems,
+            )
             comp_stream = Event(device)
         end
     end
@@ -202,37 +232,39 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
         # Laplacian Computation #
         #########################
 
-        comp_stream = volume_divergence_of_gradients!(device, workgroups_volume)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            grid.vgeo,
-            grid.D,
-            topology.realelems;
-            ndrange = ndrange_volume,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            volume_divergence_of_gradients!(device, workgroups_volume)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                grid.vgeo,
+                grid.D,
+                topology.realelems;
+                ndrange = ndrange_volume,
+                dependencies = (comp_stream,),
+            )
 
-        comp_stream = interface_divergence_of_gradients!(device, workgroups_surface)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralNumericalFluxDivergence(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.interiorelems;
-            ndrange = ndrange_interior_surface,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            interface_divergence_of_gradients!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxDivergence(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.interiorelems;
+                ndrange = ndrange_interior_surface,
+                dependencies = (comp_stream,),
+            )
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
@@ -241,23 +273,24 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
             )
         end
 
-        comp_stream = interface_divergence_of_gradients!(device, workgroups_surface)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralNumericalFluxDivergence(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.exteriorelems;
-            ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_Qhypervisc_grad),
-        )
+        comp_stream =
+            interface_divergence_of_gradients!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxDivergence(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.exteriorelems;
+                ndrange = ndrange_exterior_surface,
+                dependencies = (comp_stream, exchange_Qhypervisc_grad),
+            )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.begin_ghost_exchange!(
@@ -270,44 +303,46 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
         # Hyperdiffusive terms computation #
         ####################################
 
-        comp_stream = volume_gradients_of_laplacians!(device, workgroups_volume)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            state_conservative.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            grid.ω,
-            grid.D,
-            topology.realelems,
-            t;
-            ndrange = ndrange_volume,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            volume_gradients_of_laplacians!(device, workgroups_volume)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_conservative.data,
+                state_auxiliary.data,
+                grid.vgeo,
+                grid.ω,
+                grid.D,
+                topology.realelems,
+                t;
+                ndrange = ndrange_volume,
+                dependencies = (comp_stream,),
+            )
 
-        comp_stream = interface_gradients_of_laplacians!(device, workgroups_surface)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralNumericalFluxHigherOrder(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            state_conservative.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.interiorelems,
-            t;
-            ndrange = ndrange_interior_surface,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            interface_gradients_of_laplacians!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxHigherOrder(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_conservative.data,
+                state_auxiliary.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.interiorelems,
+                t;
+                ndrange = ndrange_interior_surface,
+                dependencies = (comp_stream,),
+            )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
@@ -316,26 +351,27 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
             )
         end
 
-        comp_stream = interface_gradients_of_laplacians!(device, workgroups_surface)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralNumericalFluxHigherOrder(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            state_conservative.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.exteriorelems,
-            t;
-            ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_Qhypervisc_div),
-        )
+        comp_stream =
+            interface_gradients_of_laplacians!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxHigherOrder(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_conservative.data,
+                state_auxiliary.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.exteriorelems,
+                t;
+                ndrange = ndrange_exterior_surface,
+                dependencies = (comp_stream, exchange_Qhypervisc_div),
+            )
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
@@ -395,16 +431,23 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
     if communicate
         if num_state_gradient_flux > 0 || nhyperviscstate > 0
             if num_state_gradient_flux > 0
-                exchange_state_gradient_flux = MPIStateArrays.end_ghost_exchange!(
-                    state_gradient_flux;
-                    dependencies = exchange_state_gradient_flux,
-                )
+                exchange_state_gradient_flux =
+                    MPIStateArrays.end_ghost_exchange!(
+                        state_gradient_flux;
+                        dependencies = exchange_state_gradient_flux,
+                    )
 
                 # update_aux_diffusive may start asynchronous work on the
                 # compute device and we synchronize those here through a device
                 # event.
                 wait(device, exchange_state_gradient_flux)
-                update_auxiliary_state_gradient!(dg, balance_law, state_conservative, t, dg.grid.topology.ghostelems)
+                update_auxiliary_state_gradient!(
+                    dg,
+                    balance_law,
+                    state_conservative,
+                    t,
+                    dg.grid.topology.ghostelems,
+                )
                 exchange_state_gradient_flux = Event(device)
             end
             if nhyperviscstate > 0
@@ -414,13 +457,21 @@ function (dg::DGModel)(tendency, state_conservative, ::Nothing, t; increment = f
                 )
             end
         else
-            exchange_state_conservative =
-                MPIStateArrays.end_ghost_exchange!(state_conservative; dependencies = exchange_state_conservative)
+            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+                state_conservative;
+                dependencies = exchange_state_conservative,
+            )
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_conservative)
-            update_auxiliary_state!(dg, balance_law, state_conservative, t, dg.grid.topology.ghostelems)
+            update_auxiliary_state!(
+                dg,
+                balance_law,
+                state_conservative,
+                t,
+                dg.grid.topology.ghostelems,
+            )
             exchange_state_conservative = Event(device)
         end
     end
@@ -519,8 +570,14 @@ function init_ode_state(
     end
 
     event = Event(device)
-    event = MPIStateArrays.begin_ghost_exchange!(state_conservative; dependencies = event)
-    event = MPIStateArrays.end_ghost_exchange!(state_conservative; dependencies = event)
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_conservative;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_conservative;
+        dependencies = event,
+    )
     wait(device, event)
 
     return state_conservative
@@ -677,7 +734,8 @@ function nodal_update_auxiliary_state!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_auxiliary_state! = kernel_nodal_update_auxiliary_state!(device, Np)
+    nodal_update_auxiliary_state! =
+        kernel_nodal_update_auxiliary_state!(device, Np)
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive

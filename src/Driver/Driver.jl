@@ -14,7 +14,8 @@ using ..ColumnwiseLUSolver
 using ..ConfigTypes
 using ..Diagnostics
 using ..DGmethods
-using ..DGmethods: vars_state_conservative, vars_state_auxiliary, update_auxiliary_state!
+using ..DGmethods:
+    vars_state_conservative, vars_state_auxiliary, update_auxiliary_state!
 using ..DGmethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
@@ -259,7 +260,8 @@ function init(; disable_gpu = false, arg_settings = nothing)
 
     # set up the array type appropriately depending on whether we're using GPUs
     if get(ENV, "CLIMA_GPU", "") != "false" &&
-       !Settings.disable_gpu && CUDAapi.has_cuda_gpu()
+       !Settings.disable_gpu &&
+       CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
     else
         atyp = Array

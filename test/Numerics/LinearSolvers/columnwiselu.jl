@@ -6,7 +6,8 @@ using KernelAbstractions, StaticArrays
 
 using CLIMA
 using CLIMA.LinearSolvers
-using CLIMA.ColumnwiseLUSolver: band_lu_kernel!, band_forward_kernel!, band_back_kernel!
+using CLIMA.ColumnwiseLUSolver:
+    band_lu_kernel!, band_forward_kernel!, band_back_kernel!
 
 
 CLIMA.init()

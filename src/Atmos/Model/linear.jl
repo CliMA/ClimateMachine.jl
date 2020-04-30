@@ -64,10 +64,12 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
-vars_state_conservative(lm::AtmosLinearModel, FT) = vars_state_conservative(lm.atmos, FT)
+vars_state_conservative(lm::AtmosLinearModel, FT) =
+    vars_state_conservative(lm.atmos, FT)
 vars_state_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_state_gradient_flux(lm::AtmosLinearModel, FT) = @vars()
-vars_state_auxiliary(lm::AtmosLinearModel, FT) = vars_state_auxiliary(lm.atmos, FT)
+vars_state_auxiliary(lm::AtmosLinearModel, FT) =
+    vars_state_auxiliary(lm.atmos, FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 vars_reverse_integrals(lm::AtmosLinearModel, FT) = @vars()
 
@@ -92,17 +94,25 @@ function flux_second_order!(
 )
     nothing
 end
-integral_load_auxiliary_state!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) =
+integral_load_auxiliary_state!(
+    lm::AtmosLinearModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+) = nothing
+integral_set_auxiliary_state!(lm::AtmosLinearModel, aux::Vars, integ::Vars) =
     nothing
-integral_set_auxiliary_state!(lm::AtmosLinearModel, aux::Vars, integ::Vars) = nothing
 reverse_integral_load_auxiliary_state!(
     lm::AtmosLinearModel,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) = nothing
-reverse_integral_set_auxiliary_state!(lm::AtmosLinearModel, aux::Vars, integ::Vars) =
-    nothing
+reverse_integral_set_auxiliary_state!(
+    lm::AtmosLinearModel,
+    aux::Vars,
+    integ::Vars,
+) = nothing
 flux_second_order!(
     lm::AtmosLinearModel,
     flux::Grad,
@@ -130,8 +140,15 @@ function boundary_state!(
 )
     nothing
 end
-init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing
-init_state_conservative!(lm::AtmosLinearModel, state::Vars, aux::Vars, coords, t) = nothing
+init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) =
+    nothing
+init_state_conservative!(
+    lm::AtmosLinearModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+) = nothing
 
 
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel

@@ -63,7 +63,11 @@ function reverse_integral_load_auxiliary_state!(
     state::Vars,
     aux::Vars,
 ) end
-function reverse_integral_set_auxiliary_state!(::RadiationModel, aux::Vars, integ::Vars) end
+function reverse_integral_set_auxiliary_state!(
+    ::RadiationModel,
+    aux::Vars,
+    integ::Vars,
+) end
 function flux_radiation!(
     ::RadiationModel,
     flux::Grad,
@@ -110,7 +114,11 @@ function integral_load_auxiliary_state!(
     FT = eltype(state)
     integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
 end
-function integral_set_auxiliary_state!(m::DYCOMSRadiation, aux::Vars, integral::Vars)
+function integral_set_auxiliary_state!(
+    m::DYCOMSRadiation,
+    aux::Vars,
+    integral::Vars,
+)
     integral = integral.radiation.attenuation_coeff
     aux.∫dz.radiation.attenuation_coeff = integral
 end

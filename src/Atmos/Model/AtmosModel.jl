@@ -508,7 +508,14 @@ function update_auxiliary_state!(
         reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
     end
 
-    nodal_update_auxiliary_state!(atmos_nodal_update_auxiliary_state!, dg, m, Q, t, elems)
+    nodal_update_auxiliary_state!(
+        atmos_nodal_update_auxiliary_state!,
+        dg,
+        m,
+        Q,
+        t,
+        elems,
+    )
 
     return true
 end
@@ -537,7 +544,12 @@ function atmos_nodal_update_auxiliary_state!(m::AtmosModel, state::Vars, aux::Va
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
 end
 
-function integral_load_auxiliary_state!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
+function integral_load_auxiliary_state!(
+    m::AtmosModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+)
     integral_load_auxiliary_state!(m.radiation, integ, state, aux)
 end
 
@@ -554,7 +566,11 @@ function reverse_integral_load_auxiliary_state!(
     reverse_integral_load_auxiliary_state!(m.radiation, integ, state, aux)
 end
 
-function reverse_integral_set_auxiliary_state!(m::AtmosModel, aux::Vars, integ::Vars)
+function reverse_integral_set_auxiliary_state!(
+    m::AtmosModel,
+    aux::Vars,
+    integ::Vars,
+)
     reverse_integral_set_auxiliary_state!(m.radiation, aux, integ)
 end
 
@@ -618,7 +634,14 @@ Initialise state variables.
 `args...` provides an option to include configuration data
 (current use cases include problem constants, spline-interpolants)
 """ init_state_conservative!
-function init_state_conservative!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
+function init_state_conservative!(
+    m::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+    args...,
+)
     m.init_state_conservative(m, state, aux, coords, t, args...)
 end
 end # module

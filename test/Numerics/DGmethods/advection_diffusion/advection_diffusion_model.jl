@@ -209,7 +209,11 @@ end
 
 initialize the auxiliary state
 """
-function init_state_auxiliary!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(
+    m::AdvectionDiffusion,
+    aux::Vars,
+    geom::LocalGeometry,
+)
     aux.coord = geom.coord
     init_velocity_diffusion!(m.problem, aux, geom)
 end
@@ -286,8 +290,10 @@ function boundary_state!(
     elseif bctype == 2 # Neumann with data
         FT = eltype(diff⁺)
         ngrad = number_state_gradient(m, FT)
-        ∇state =
-            Grad{vars_state_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+        ∇state = Grad{vars_state_gradient(m, FT)}(similar(
+            parent(diff⁺),
+            Size(3, ngrad),
+        ))
         # Get analytic gradient
         Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
         compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
@@ -295,8 +301,10 @@ function boundary_state!(
     elseif bctype == 4 # zero Neumann
         FT = eltype(diff⁺)
         ngrad = number_state_gradient(m, FT)
-        ∇state =
-            Grad{vars_state_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+        ∇state = Grad{vars_state_gradient(m, FT)}(similar(
+            parent(diff⁺),
+            Size(3, ngrad),
+        ))
         # Get analytic gradient
         ∇state.ρ = SVector{3, FT}(0, 0, 0)
         # convert to auxDG variables
@@ -344,8 +352,10 @@ function boundary_flux_second_order!(
     elseif bctype == 2 # Neumann data
         FT = eltype(diff⁺)
         ngrad = number_state_gradient(m, FT)
-        ∇state =
-            Grad{vars_state_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+        ∇state = Grad{vars_state_gradient(m, FT)}(similar(
+            parent(diff⁺),
+            Size(3, ngrad),
+        ))
         # Get analytic gradient
         Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
         # get the diffusion coefficient

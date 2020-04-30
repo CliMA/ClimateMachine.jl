@@ -4,7 +4,9 @@ using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
 using CLIMA.DGmethods.NumericalFluxes:
-    RusanovNumericalFlux, CentralNumericalFluxGradient, CentralNumericalFluxSecondOrder
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
 using CLIMA.ODESolvers
 using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
 using CLIMA.VTK: writevtk, writepvtu

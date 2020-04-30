@@ -171,10 +171,14 @@ function run(mpicomm, dim, Ne, N, FT, ArrayType)
     dg(dQdt, Q, nothing, 0.0)
 
     # Wrapping in Array ensure both GPU and CPU code use same approx
-    @test Array(dg.state_auxiliary.data[:, 1, :]) ≈ Array(dg.state_auxiliary.data[:, 8, :])
-    @test Array(dg.state_auxiliary.data[:, 2, :]) ≈ Array(dg.state_auxiliary.data[:, 9, :])
-    @test Array(dg.state_auxiliary.data[:, 3, :]) ≈ Array(dg.state_auxiliary.data[:, 10, :])
-    @test Array(dg.state_auxiliary.data[:, 4, :]) ≈ Array(dg.state_auxiliary.data[:, 11, :])
+    @test Array(dg.state_auxiliary.data[:, 1, :]) ≈
+          Array(dg.state_auxiliary.data[:, 8, :])
+    @test Array(dg.state_auxiliary.data[:, 2, :]) ≈
+          Array(dg.state_auxiliary.data[:, 9, :])
+    @test Array(dg.state_auxiliary.data[:, 3, :]) ≈
+          Array(dg.state_auxiliary.data[:, 10, :])
+    @test Array(dg.state_auxiliary.data[:, 4, :]) ≈
+          Array(dg.state_auxiliary.data[:, 11, :])
 end
 
 let

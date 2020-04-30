@@ -126,7 +126,11 @@ vars_state_gradient(m::KinematicModel, FT) = @vars()
 
 vars_state_gradient_flux(m::KinematicModel, FT) = @vars()
 
-function init_state_auxiliary!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(
+    m::KinematicModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
 
     FT = eltype(aux)
     x, y, z = geom.coord
@@ -170,7 +174,14 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
-    nodal_update_auxiliary_state!(kinematic_model_nodal_update_auxiliary_state!, dg, m, Q, t, elems)
+    nodal_update_auxiliary_state!(
+        kinematic_model_nodal_update_auxiliary_state!,
+        dg,
+        m,
+        Q,
+        t,
+        elems,
+    )
     return true
 end
 

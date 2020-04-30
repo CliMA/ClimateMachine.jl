@@ -74,7 +74,8 @@ end
 struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
 
 # There is no boundary since we are periodic
-numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) = nothing
+numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) =
+    nothing
 
 function numerical_flux_second_order!(
     ::PenaltyNumFluxDiffusive,
@@ -142,7 +143,11 @@ sol1d(x) = sin(2pi * x)^4 - 3 / 8
 dxx_sol1d(x) =
     -16 * pi^2 * sin(2pi * x)^2 * (sin(2pi * x)^2 - 3 * cos(2pi * x)^2)
 
-function init_state_auxiliary!(::PoissonModel{dim}, aux::Vars, g::LocalGeometry) where {dim}
+function init_state_auxiliary!(
+    ::PoissonModel{dim},
+    aux::Vars,
+    g::LocalGeometry,
+) where {dim}
     aux.rhs_ϕ = 0
     @inbounds for d in 1:dim
         x1 = g.coord[d]

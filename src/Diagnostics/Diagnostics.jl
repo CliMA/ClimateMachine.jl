@@ -28,7 +28,12 @@ using StaticArrays
 using CLIMA
 using ..DGmethods
 using ..DGmethods:
-    number_state_conservative, vars_state_conservative, number_state_auxiliary, vars_state_auxiliary, vars_state_gradient_flux, number_state_gradient_flux
+    number_state_conservative,
+    vars_state_conservative,
+    number_state_auxiliary,
+    vars_state_auxiliary,
+    vars_state_gradient_flux,
+    number_state_gradient_flux
 using ..Mesh.Interpolation
 using ..MPIStateArrays
 using ..VariableTemplates

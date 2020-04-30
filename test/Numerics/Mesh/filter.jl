@@ -184,7 +184,8 @@ end
     end
 end
 
-CLIMA.DGmethods.vars_state_conservative(::FilterTestModel{1}, FT) where {N} = @vars(q::FT)
+CLIMA.DGmethods.vars_state_conservative(::FilterTestModel{1}, FT) where {N} =
+    @vars(q::FT)
 function CLIMA.DGmethods.init_state_conservative!(
     ::FilterTestModel{1},
     state::Vars,
