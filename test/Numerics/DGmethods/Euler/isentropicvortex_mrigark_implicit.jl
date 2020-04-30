@@ -176,15 +176,7 @@ function run(
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
     )
-    fast_dg = DGRemainderModel(
-        dg,
-        (slow_dg,),
-        grid,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        state_auxiliary = dg.state_auxiliary,
-    )
+    fast_dg = DGRemainderModel(dg, (slow_dg,))
 
     timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
 
