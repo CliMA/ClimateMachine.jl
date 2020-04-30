@@ -366,7 +366,7 @@ end
 vars_aux(::SmagorinskyLilly, FT) = @vars(Δ::FT)
 vars_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
 vars_diffusive(::SmagorinskyLilly, FT) =
-    @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
+    @vars(∇u::SMatrix{3,3,FT,9}, S::SHermitianCompact{3, FT, 6}, N²::FT)
 
 
 function atmos_init_aux!(
@@ -621,6 +621,8 @@ function diffusive!(
     diffusive.turbulence.∇u = ∇transform.u
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
+    diffusive.turbulence.∇divergence = 
+        ∇transform.turbulence.divergence .- dot(∇transform.turbulence.divergence, k̂) * k̂
 end
 function turbulence_tensors(
     m::AnisoMinDiss,
@@ -733,7 +735,7 @@ function diffusive!(
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
     diffusive.turbulence.∇divergence = 
-        ∇transform.turbulence.divergence #.- dot(∇transform.turbulence.divergence, k̂) * k̂
+        ∇transform.turbulence.divergence .- dot(∇transform.turbulence.divergence, k̂) * k̂
 end
 
 function div_damping_helper!(m::AtmosModel, ::DivDamping, Q, aux, diff, t)
@@ -773,6 +775,7 @@ function turbulence_tensors(
     return ν, D_t, τ
 end
 
+#=
 function flux_diffusive!(
     tc::DivDamping,
     flux::Grad,
@@ -784,3 +787,4 @@ function flux_diffusive!(
 )
     flux.ρu += eltype(state)(tc.C * aux.turbulence.Δ)^2 * SDiagonal(SVector(diffusive.turbulence.∇divergence))
 end
+=# 

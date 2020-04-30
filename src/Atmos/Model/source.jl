@@ -1,5 +1,5 @@
 using CLIMAParameters.Planet: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, DivergenceDamping
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -172,4 +172,27 @@ function atmos_source!(
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
+end
+
+"""
+    DivergenceDamping{FT} <: Source
+
+"""
+struct DivergenceDamping{FT} <: Source
+    "Damping coefficient"
+    _C::FT
+    "Min node distance"
+    Δ_min::FT
+end
+function atmos_source!(
+    s::DivergenceDamping,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    HorizontalDirection,
+)
+    source.ρu += SVector((s._C * s.Δ_min)^2 * (diffusive.turbulence.∇divergence))
 end

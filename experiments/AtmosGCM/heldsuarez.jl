@@ -71,7 +71,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         turbulence = DivDamping(c_smag),
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
+        source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge, DivergenceDamping{FT}(0.05,700)),
         init_state = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
     )
@@ -180,7 +180,7 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 1500                            # experiment day number
+    n_days = 2*365                           # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
@@ -192,7 +192,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = 0.21,
         init_on_cpu = true,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
