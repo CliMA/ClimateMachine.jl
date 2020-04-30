@@ -10,64 +10,78 @@ q_{,t} + Σ_{i=1,...d} F_{i,i} = s
 ```
 
 Subtypes `L` should define the following methods:
-- `vars_aux(::L)`: a tuple of symbols containing the auxiliary variables
-- `vars_state(::L)`: a tuple of symbols containing the state variables
-- `vars_gradient(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
-- `vars_gradient_laplacian(::L)`: a tuple of symbols containing the transformed variables of which gradients of laplacian are computed, they have to be a subset of `vars_gradient`
-- `vars_diffusive(::L)`: a tuple of symbols containing the diffusive variables
+- `vars_state_conservative(::L)`: a tuple of symbols containing the state variables
+- `vars_state_auxiliary(::L)`: a tuple of symbols containing the auxiliary variables
+- `vars_state_gradient(::L)`: a tuple of symbols containing the transformed variables of which gradients are computed
+- `vars_state_gradient_flux(::L)`: a tuple of symbols containing the diffusive variables
+- `vars_gradient_laplacian(::L)`: a tuple of symbols containing the transformed variables of which gradients of laplacian are computed, they have to be a subset of `vars_state_gradient`
 - `vars_hyperdiffusive(::L)`: a tuple of symbols containing the hyperdiffusive variables
-- `flux_nondiffusive!(::L, flux::Grad, state::State, auxstate::State, t::Real)`
-- `flux_diffusive!(::L, flux::Grad, state::State, diffstate::State, hyperdiffstate::State, auxstate::State, t::Real)`
-- `gradvariables!(::L, transformstate::State, state::State, auxstate::State, t::Real)`: transformation of state variables to variables of which gradients are computed
-- `diffusive!(::L, diffstate::State, ∇transformstate::Grad, auxstate::State, t::Real)`: transformation of gradients to the diffusive variables
-- `hyperdiffusive!(::L, hyperdiffstate::State, ∇Δtransformstate::Grad, auxstate::State, t::Real)`: transformation of laplacian gradients to the hyperdiffusive variables
-- `source!(::L, source::State, state::State, diffusive::Vars, auxstate::State, t::Real, direction::Direction)
-- `wavespeed(::L, n⁻, state::State, aux::State, t::Real)`
-- `boundary_state!(::NumericalFluxGradient, ::L, state⁺::State, aux⁺::State, normal⁻, state⁻::State, aux⁻::State, bctype, t)`
-- `boundary_state!(::NumericalFluxNonDiffusive, ::L, state⁺::State, aux⁺::State, normal⁻, state⁻::State, aux⁻::State, bctype, t)`
-- `boundary_state!(::NumericalFluxDiffusive, ::L, state⁺::State, diff⁺::State, aux⁺::State, normal⁻, state⁻::State, diff⁻::State, aux⁻::State, bctype, t)`
-- `init_aux!(::L, aux::State, coords, args...)`
-- `init_state!(::L, state::State, aux::State, coords, args...)`
+- `flux_first_order!(::L, flux::Grad, state_conservative::Vars, state_auxiliary::Vars, t::Real)`
+- `flux_second_order!(::L, flux::Grad, state_conservative::Vars, state_gradient_flux::Vars, Qhypervisc_div::Vars, state_auxiliary::Vars, t::Real)`
+- `compute_gradient_argument!(::L, transformstate::Vars, state_conservative::Vars, state_auxiliary::Vars, t::Real)`: transformation of state variables to variables of which gradients are computed
+- `compute_gradient_flux!(::L, state_gradient_flux::Vars, ∇transformstate::Grad, state_auxiliary::Vars, t::Real)`: transformation of gradients to the diffusive variables
+- `transform_post_gradient_laplacian!(::L, Qhypervisc_div::Vars, ∇Δtransformstate::Grad, state_auxiliary::Vars, t::Real)`: transformation of laplacian gradients to the hyperdiffusive variables
+- `source!(::L, source::Vars, state_conservative::Vars, diffusive::Vars, state_auxiliary::Vars, t::Real)`
+- `wavespeed(::L, n⁻, state_conservative::Vars, state_auxiliary::Vars, t::Real)`
+- `boundary_state!(::NumericalFluxGradient, ::L, state_conservative⁺::Vars, state_auxiliary⁺::Vars, normal⁻, state_conservative⁻::Vars, state_auxiliary⁻::Vars, bctype, t)`
+- `boundary_state!(::NumericalFluxFirstOrder, ::L, state_conservative⁺::Vars, state_auxiliary⁺::Vars, normal⁻, state_conservative⁻::Vars, state_auxiliary⁻::Vars, bctype, t)`
+- `boundary_state!(::NumericalFluxSecondOrder, ::L, state_conservative⁺::Vars, state_gradient_flux⁺::Vars, state_auxiliary⁺::Vars, normal⁻, state_conservative⁻::Vars, state_gradient_flux⁻::Vars, state_auxiliary⁻::Vars, bctype, t)`
+- `init_state_auxiliary!(::L, state_auxiliary::Vars, coords, args...)`
+- `init_state_conservative!(::L, state_conservative::Vars, state_auxiliary::Vars, coords, args...)`
 
 """
 abstract type BalanceLaw end # PDE part
 
 # function stubs
-function vars_state end
-function vars_aux end
-function vars_gradient end
+function vars_state_conservative end
+function vars_state_auxiliary end
+
+function vars_state_gradient end
+function vars_state_gradient_flux end
+
 vars_gradient_laplacian(::BalanceLaw, FT) = @vars()
-function vars_diffusive end
 vars_hyperdiffusive(::BalanceLaw, FT) = @vars()
+
 vars_integrals(::BalanceLaw, FT) = @vars()
 vars_reverse_integrals(::BalanceLaw, FT) = @vars()
 
-num_aux(m::BalanceLaw, FT) = varsize(vars_aux(m, FT))
-num_state(m::BalanceLaw, FT) = varsize(vars_state(m, FT)) # nstate
-num_gradient(m::BalanceLaw, FT) = varsize(vars_gradient(m, FT))  # number_gradient_states
+number_state_conservative(m::BalanceLaw, FT) = varsize(vars_state_conservative(m, FT))
+number_state_auxiliary(m::BalanceLaw, FT) = varsize(vars_state_auxiliary(m, FT))
+
+number_state_gradient(m::BalanceLaw, FT) = varsize(vars_state_gradient(m, FT))
+number_state_gradient_flux(m::BalanceLaw, FT) = varsize(vars_state_gradient_flux(m, FT))
+
 num_gradient_laplacian(m::BalanceLaw, FT) =
     varsize(vars_gradient_laplacian(m, FT))
-num_diffusive(m::BalanceLaw, FT) = varsize(vars_diffusive(m, FT)) # number_viscous_states
 num_hyperdiffusive(m::BalanceLaw, FT) = varsize(vars_hyperdiffusive(m, FT))
+
 num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m, FT))
 num_reverse_integrals(m::BalanceLaw, FT) =
     varsize(vars_reverse_integrals(m, FT))
 
-function update_aux! end
-function integral_load_aux! end
-function integral_set_aux! end
-function reverse_integral_load_aux! end
-function reverse_integral_set_aux! end
-function flux_nondiffusive! end
-function flux_diffusive! end
-function gradvariables! end
-function diffusive! end
-function hyperdiffusive! end
+
+function init_state_conservative! end
+function init_state_auxiliary! end
+
+function flux_first_order! end
+function flux_second_order! end
 function source! end
+
+function compute_gradient_argument! end
+function compute_gradient_flux! end
+function transform_post_gradient_laplacian! end
+
 function wavespeed end
 function boundary_state! end
-function init_aux! end
-function init_state! end
+
+function update_auxiliary_state! end
+function update_auxiliary_state_gradient! end
+
+function integral_load_auxiliary_state! end
+function integral_set_auxiliary_state! end
+function reverse_integral_load_auxiliary_state! end
+function reverse_integral_set_auxiliary_state! end
+
 
 using ..Courant
 """
@@ -83,7 +97,7 @@ function calculate_dt(dg, model, Q, Courant_number, t, direction)
 end
 
 
-function create_state(bl::BalanceLaw, grid)
+function create_conservative_state(balance_law::BalanceLaw, grid)
     topology = grid.topology
     # FIXME: Remove after updating CUDA
     h_vgeo = Array(grid.vgeo)
@@ -94,12 +108,12 @@ function create_state(bl::BalanceLaw, grid)
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    V = vars_state(bl, FT)
-    state = MPIStateArray{FT, V}(
+    V = vars_state_conservative(balance_law, FT)
+    state_conservative = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
         Np,
-        num_state(bl, FT),
+        number_state_conservative(balance_law, FT),
         length(topology.elems),
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -110,10 +124,10 @@ function create_state(bl::BalanceLaw, grid)
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
     )
-    return state
+    return state_conservative
 end
 
-function create_auxstate(bl, grid)
+function create_auxiliary_state(balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -124,12 +138,12 @@ function create_auxstate(bl, grid)
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    V = vars_aux(bl, FT)
-    auxstate = MPIStateArray{FT, V}(
+    V = vars_state_auxiliary(balance_law, FT)
+    state_auxiliary = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
         Np,
-        num_aux(bl, FT),
+        number_state_auxiliary(balance_law, FT),
         length(topology.elems),
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -144,26 +158,26 @@ function create_auxstate(bl, grid)
     dim = dimensionality(grid)
     polyorder = polynomialorder(grid)
     vgeo = grid.vgeo
-    device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+    device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     event = Event(device)
-    event = initauxstate!(device, Np, Np * nrealelem)(
-        bl,
+    event = kernel_init_state_auxiliary!(device, Np, Np * nrealelem)(
+        balance_law,
         Val(dim),
         Val(polyorder),
-        auxstate.data,
+        state_auxiliary.data,
         vgeo,
         topology.realelems,
         dependencies = (event,),
     )
-    event = MPIStateArrays.begin_ghost_exchange!(auxstate; dependencies = event)
-    event = MPIStateArrays.end_ghost_exchange!(auxstate; dependencies = event)
+    event = MPIStateArrays.begin_ghost_exchange!(state_auxiliary; dependencies = event)
+    event = MPIStateArrays.end_ghost_exchange!(state_auxiliary; dependencies = event)
     wait(device, event)
 
-    return auxstate
+    return state_auxiliary
 end
 
-function create_diffstate(bl, grid)
+function create_gradient_state(balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -175,12 +189,12 @@ function create_diffstate(bl, grid)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
     # TODO: Clean up this MPIStateArray interface...
-    V = vars_diffusive(bl, FT)
-    diffstate = MPIStateArray{FT, V}(
+    V = vars_state_gradient_flux(balance_law, FT)
+    state_gradient_flux = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
         Np,
-        num_diffusive(bl, FT),
+        number_state_gradient_flux(balance_law, FT),
         length(topology.elems),
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -192,10 +206,10 @@ function create_diffstate(bl, grid)
         weights = weights,
     )
 
-    return diffstate
+    return state_gradient_flux
 end
 
-function create_hyperdiffstate(bl, grid)
+function create_higher_order_states(balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -206,9 +220,9 @@ function create_hyperdiffstate(bl, grid)
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    ngradlapstate = num_gradient_laplacian(bl, FT)
+    ngradlapstate = num_gradient_laplacian(balance_law, FT)
     # TODO: Clean up this MPIStateArray interface...
-    V = vars_gradient_laplacian(bl, FT)
+    V = vars_gradient_laplacian(balance_law, FT)
     Qhypervisc_grad = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
@@ -225,7 +239,7 @@ function create_hyperdiffstate(bl, grid)
         weights = weights,
     )
 
-    V = vars_hyperdiffusive(bl, FT)
+    V = vars_hyperdiffusive(balance_law, FT)
     Qhypervisc_div = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,

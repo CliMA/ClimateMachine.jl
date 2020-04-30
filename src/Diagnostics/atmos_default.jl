@@ -272,14 +272,14 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     #
     if Array ∈ typeof(Q).parameters
         localQ = Q.realdata
-        localaux = dg.auxstate.realdata
+        localaux = dg.state_auxiliary.realdata
         localvgeo = grid.vgeo
-        localdiff = dg.diffstate.realdata
+        localdiff = dg.state_gradient_flux.realdata
     else
         localQ = Array(Q.realdata)
-        localaux = Array(dg.auxstate.realdata)
+        localaux = Array(dg.state_auxiliary.realdata)
         localvgeo = Array(grid.vgeo)
-        localdiff = Array(dg.diffstate.realdata)
+        localdiff = Array(dg.state_gradient_flux.realdata)
     end
     FT = eltype(localQ)
 

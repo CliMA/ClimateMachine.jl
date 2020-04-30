@@ -5,7 +5,7 @@ using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.VariableTemplates
 using CLIMA.Mesh.Grids: polynomialorder
-using CLIMA.DGmethods: vars_state
+using CLIMA.DGmethods: vars_state_conservative
 using CLIMA.HydrostaticBoussinesq
 
 using CLIMAParameters
@@ -84,11 +84,11 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
 
     result = CLIMA.invoke!(solver_config)
 
-    maxQ = Vars{vars_state(driver_config.bl, FT)}(maximum(
+    maxQ = Vars{vars_state_conservative(driver_config.bl, FT)}(maximum(
         solver_config.Q,
         dims = (1, 3),
     ))
-    minQ = Vars{vars_state(driver_config.bl, FT)}(minimum(
+    minQ = Vars{vars_state_conservative(driver_config.bl, FT)}(minimum(
         solver_config.Q,
         dims = (1, 3),
     ))

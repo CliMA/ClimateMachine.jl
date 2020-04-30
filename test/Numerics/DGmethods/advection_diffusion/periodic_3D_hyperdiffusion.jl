@@ -52,7 +52,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
   filename = @sprintf("%s/%s_mpirank%04d_step%04d",
                       vtkdir, testname, MPI.Comm_rank(mpicomm), vtkstep)
 
-  statenames = flattenednames(vars_state(model, eltype(Q)))
+  statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
   exactnames = statenames .* "_exact"
 
   writevtk(filename, Q, dg, statenames, Qe, exactnames)
@@ -91,8 +91,8 @@ function run(mpicomm, ArrayType, dim, topl, N, timeend, FT, direction,
   model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D))
   dg = DGModel(model,
                grid,
-               CentralNumericalFluxNonDiffusive(),
-               CentralNumericalFluxDiffusive(),
+               CentralNumericalFluxFirstOrder(),
+               CentralNumericalFluxSecondOrder(),
                CentralNumericalFluxGradient(),
                direction=direction())
 

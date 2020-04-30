@@ -79,7 +79,7 @@ function main()
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
-        init_state = setup,
+        init_state_conservative = setup,
     )
 
     driver_config = CLIMA.AtmosGCMConfiguration(
@@ -145,10 +145,10 @@ function main()
         Q = solver_config.Q
         if Array ∈ typeof(Q).parameters
             h_Q = Q.realdata
-            h_aux = dg.auxstate.realdata
+            h_aux = dg.state_auxiliary.realdata
         else
             h_Q = Array(Q.realdata)
-            h_aux = Array(dg.auxstate.realdata)
+            h_aux = Array(dg.state_auxiliary.realdata)
         end
         t = ODESolvers.gettime(solver_config.solver)
 

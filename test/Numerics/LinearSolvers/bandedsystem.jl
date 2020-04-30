@@ -7,10 +7,10 @@ using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using CLIMA.DGmethods: DGModel, Vars, vars_state, num_state, init_ode_state
+using CLIMA.DGmethods: DGModel, Vars, vars_state_conservative, number_state_conservative, init_ode_state
 using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
 using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxDiffusive, CentralNumericalFluxGradient
+    RusanovNumericalFlux, CentralNumericalFluxSecondOrder, CentralNumericalFluxGradient
 using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test
@@ -110,23 +110,23 @@ let
                     δ = FT(1 // 10)
                     model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
 
-                    # the nonlinear model is needed so we can grab the auxstate below
+                    # the nonlinear model is needed so we can grab the state_auxiliary below
                     dg = DGModel(
                         model,
                         grid,
-                        Rusanov(),
-                        CentralNumericalFluxDiffusive(),
+                        RusanovNumericalFlux(),
+                        CentralNumericalFluxSecondOrder(),
                         CentralNumericalFluxGradient(),
                     )
 
                     vdg = DGModel(
                         model,
                         grid,
-                        Rusanov(),
-                        CentralNumericalFluxDiffusive(),
+                        RusanovNumericalFlux(),
+                        CentralNumericalFluxSecondOrder(),
                         CentralNumericalFluxGradient();
                         direction = VerticalDirection(),
-                        auxstate = dg.auxstate,
+                        state_auxiliary = dg.state_auxiliary,
                     )
 
                     A_banded = banded_matrix(

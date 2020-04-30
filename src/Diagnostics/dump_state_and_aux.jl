@@ -60,14 +60,14 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     statefilename = joinpath(Settings.output_dir, dprefix)
     auxfilename = joinpath(Settings.output_dir, "$(dprefix)_aux")
 
-    statenames = flattenednames(vars_state(bl, FT))
+    statenames = flattenednames(vars_state_conservative(bl, FT))
     #statenames = ("rho", "rhou", "rhov", "rhow", "rhoe")
-    auxnames = flattenednames(vars_aux(bl, FT))
+    auxnames = flattenednames(vars_state_auxiliary(bl, FT))
 
     all_state_data = nothing
     all_aux_data = nothing
     if dgngrp.interpol !== nothing
-        istate = DA(Array{FT}(undef, dgngrp.interpol.Npl, num_state(bl, FT)))
+        istate = DA(Array{FT}(undef, dgngrp.interpol.Npl, number_state_conservative(bl, FT)))
         interpolate_local!(dgngrp.interpol, Q.data, istate)
 
         if dgngrp.project
@@ -83,8 +83,8 @@ function dump_state_and_aux_collect(dgngrp, currtime)
         all_state_data =
             accumulate_interpolated_data(mpicomm, dgngrp.interpol, istate)
 
-        iaux = DA(Array{FT}(undef, dgngrp.interpol.Npl, num_aux(bl, FT)))
-        interpolate_local!(dgngrp.interpol, dg.auxstate.data, iaux)
+        iaux = DA(Array{FT}(undef, dgngrp.interpol.Npl, number_state_auxiliary(bl, FT)))
+        interpolate_local!(dgngrp.interpol, dg.state_auxiliary.data, iaux)
 
         all_aux_data =
             accumulate_interpolated_data(mpicomm, dgngrp.interpol, iaux)
@@ -95,14 +95,14 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     dims = get_dims(dgngrp)
 
     statevarvals = OrderedDict()
-    for i in 1:num_state(bl, FT)
+    for i in 1:number_state_conservative(bl, FT)
         statevarvals[statenames[i]] =
             ((collect(keys(dims)),), all_state_data[:, :, :, i])
     end
     write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 
     auxvarvals = OrderedDict()
-    for i in 1:num_aux(bl, FT)
+    for i in 1:number_state_auxiliary(bl, FT)
         auxvarvals[auxnames[i]] =
             ((collect(keys(dims)),), all_aux_data[:, :, :, i])
     end

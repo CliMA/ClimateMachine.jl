@@ -26,10 +26,10 @@ end
 
 """
     writevtk(prefix, Q::MPIStateArray, dg::DGModel, fieldnames,
-             auxstate::MPIStateArray, auxfieldnames)
+             state_auxiliary::MPIStateArray, auxfieldnames)
 
 Write a vtk file for all the fields in the state array `Q` and auxiliary state
-`auxstate` using geometry and connectivity information from `dg.grid`. The
+`state_auxiliary` using geometry and connectivity information from `dg.grid`. The
 filename will start with `prefix` which may also contain a directory path. The
 names used for each of the fields in the vtk file can be specified through the
 collection of strings `fieldnames` and `auxfieldnames`.
@@ -38,8 +38,8 @@ If `fieldnames === nothing` then the fields names will be `"Q1"` through `"Qk"`
 where `k` is the number of states in `Q`, i.e., `k = size(Q,2)`.
 
 If `auxfieldnames === nothing` then the fields names will be `"aux1"` through
-`"auxk"` where `k` is the number of states in `auxstate`, i.e., `k =
-size(auxstate,2)`.
+`"auxk"` where `k` is the number of states in `state_auxiliary`, i.e., `k =
+size(state_auxiliary,2)`.
 
 """
 function writevtk(
@@ -47,14 +47,14 @@ function writevtk(
     Q::MPIStateArray,
     dg::DGModel,
     fieldnames,
-    auxstate,
+    state_auxiliary,
     auxfieldnames,
 )
     @tic writevtk_Q_aux
     vgeo = dg.grid.vgeo
     host_array = Array ∈ typeof(Q).parameters
-    (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, auxstate.data) :
-        (Array(vgeo), Array(Q), Array(auxstate))
+    (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, state_auxiliary.data) :
+        (Array(vgeo), Array(Q), Array(state_auxiliary))
     writevtk_helper(
         prefix,
         h_vgeo,
@@ -80,7 +80,7 @@ function writevtk_helper(
     Q::Array,
     grid,
     fieldnames,
-    auxstate = nothing,
+    state_auxiliary = nothing,
     auxfieldnames = nothing,
 )
 
@@ -108,30 +108,30 @@ function writevtk_helper(
             size(Q, 2),
         )
     end
-    if auxstate !== nothing
+    if state_auxiliary !== nothing
         if auxfieldnames === nothing
             auxfields = ntuple(
                 i -> (
                     "aux$i",
                     reshape(
-                        (@view auxstate[:, i, :]),
+                        (@view state_auxiliary[:, i, :]),
                         ntuple(j -> Nq, dim)...,
                         nelem,
                     ),
                 ),
-                size(auxstate, 2),
+                size(state_auxiliary, 2),
             )
         else
             auxfields = ntuple(
                 i -> (
                     auxfieldnames[i],
                     reshape(
-                        (@view auxstate[:, i, :]),
+                        (@view state_auxiliary[:, i, :]),
                         ntuple(j -> Nq, dim)...,
                         nelem,
                     ),
                 ),
-                size(auxstate, 2),
+                size(state_auxiliary, 2),
             )
         end
         fields = (fields..., auxfields...)

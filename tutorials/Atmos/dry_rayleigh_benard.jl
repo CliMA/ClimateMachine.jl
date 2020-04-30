@@ -142,7 +142,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
             ),
         ),
         tracers = NTracers{ntracers, FT}(δ_χ),
-        init_state = init_problem!,
+        init_state_conservative = init_problem!,
         data_config = data_config,
     )
 

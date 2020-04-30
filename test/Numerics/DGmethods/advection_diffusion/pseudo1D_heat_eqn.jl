@@ -12,7 +12,7 @@ using Printf
 using Dates
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
 using CLIMA.VTK: writevtk, writepvtu
-import CLIMA.DGmethods.NumericalFluxes: normal_boundary_flux_diffusive!
+import CLIMA.DGmethods.NumericalFluxes: normal_boundary_flux_second_order!
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -54,8 +54,8 @@ function initial_condition!(
 end
 Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
 
-function normal_boundary_flux_diffusive!(
-    ::CentralNumericalFluxDiffusive,
+function normal_boundary_flux_second_order!(
+    ::CentralNumericalFluxSecondOrder,
     ::AdvectionDiffusion{dim, HeatEqn{nd, κ, A}},
     fluxᵀn::Vars{S},
     n⁻,
@@ -118,8 +118,8 @@ function run(
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         direction = direction(),
     )

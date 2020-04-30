@@ -478,7 +478,7 @@ function fillsendbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_fillsendbuf!(device(buf), 256)(
+    event = kernel_fillsendbuf!(device(buf), 256)(
         Val(Np),
         Val(nvar),
         sendbuf,
@@ -507,7 +507,7 @@ function transferrecvbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_transferrecvbuf!(device(buf), 256)(
+    event = kernel_transferrecvbuf!(device(buf), 256)(
         Val(Np),
         Val(nvar),
         buf,
@@ -786,7 +786,7 @@ end
 
 using KernelAbstractions.Extras: @unroll
 
-@kernel function knl_fillsendbuf!(
+@kernel function kernel_fillsendbuf!(
     ::Val{Np},
     ::Val{nvar},
     sendbuf,
@@ -804,7 +804,7 @@ using KernelAbstractions.Extras: @unroll
     end
 end
 
-@kernel function knl_transferrecvbuf!(
+@kernel function kernel_transferrecvbuf!(
     ::Val{Np},
     ::Val{nvar},
     buf,

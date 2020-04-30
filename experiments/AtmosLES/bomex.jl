@@ -71,9 +71,9 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import CLIMA.DGmethods: vars_state, vars_aux
+import CLIMA.DGmethods: vars_state_conservative, vars_state_auxiliary
 import CLIMA.Atmos: source!, atmos_source!, altitude
-import CLIMA.Atmos: flux_diffusive!, thermo_state
+import CLIMA.Atmos: flux_second_order!, thermo_state
 
 """
   Bomex Geostrophic Forcing (Source)
@@ -444,7 +444,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
             ),
             AtmosBC(),
         ),
-        init_state = ics,
+        init_state_conservative = ics,
     )
 
     # Assemble configuration

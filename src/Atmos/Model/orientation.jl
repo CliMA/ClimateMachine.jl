@@ -12,7 +12,7 @@ export vertical_unit_vector,
 abstract type Orientation end
 
 
-function vars_aux(m::Orientation, T)
+function vars_state_auxiliary(m::Orientation, T)
     @vars begin
         Φ::T # gravitational potential
         ∇Φ::SVector{3, T}
@@ -68,7 +68,7 @@ end
 No gravitional force or potential.
 """
 struct NoOrientation <: Orientation end
-function vars_aux(m::NoOrientation, T)
+function vars_state_auxiliary(m::NoOrientation, T)
     @vars()
 end
 atmos_init_aux!(::NoOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry) =
