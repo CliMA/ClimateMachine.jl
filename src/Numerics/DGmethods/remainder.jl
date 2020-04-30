@@ -87,6 +87,27 @@ function DGRemainderModel(
         maindg.balancelaw,
         ntuple(i -> subsdg[i].balancelaw, length(subsdg)),
     )
+    FT = eltype(state_auxiliary)
+
+    # If any of these asserts fail, the remainder model will need to be extended
+    # to allow for it; see `flux_first_order!` and `source!` below.
+    for subdg in subsdg
+        @assert number_state_conservative(subdg.balancelaw, FT) ==
+                number_state_conservative(maindg.balancelaw, FT)
+        @assert number_state_auxiliary(subdg.balancelaw, FT) ==
+                number_state_auxiliary(maindg.balancelaw, FT)
+
+        @assert number_state_gradient(subdg.balancelaw, FT) == 0
+        @assert number_state_gradient_flux(subdg.balancelaw, FT) == 0
+
+        @assert num_gradient_laplacian(subdg.balancelaw, FT) == 0
+        @assert num_hyperdiffusive(subdg.balancelaw, FT) == 0
+
+        @assert num_integrals(subdg.balancelaw, FT) == 0
+        @assert num_reverse_integrals(subdg.balancelaw, FT) == 0
+    end
+
+
     DGRemainderModel(
         balancelaw,
         maindg.grid,
@@ -158,12 +179,15 @@ init_state_auxiliary!(rem::RemBL, args...) =
 init_state_conservative!(rem::RemBL, args...) =
     init_state_conservative!(rem.main, args...)
 
-function wavespeed(rem::RemBL, nM, state::Vars, aux::Vars, t::Real)
-    ref = aux.ref_state
-    return wavespeed(rem.main, nM, state, aux, t) -
-           sum(sub -> wavespeed(sub, nM, state, aux, t), rem.subs)
-end
+"""
+    function flux_first_order!(
+        rem::RemBL,
+        x...
+    )
 
+Evaluate the remainder flux by first evaluating the main flux and subtracting
+the subcomponent fluxes.
+"""
 function flux_first_order!(
     rem::RemBL,
     flux::Grad,
@@ -185,6 +209,16 @@ function flux_first_order!(
     nothing
 end
 
+
+"""
+    function source!(
+        rem::RemBL,
+        x...
+    )
+
+Evaluate the remainder source by first evaluating the main source and subtracting
+the subcomponent sources.
+"""
 function source!(
     rem::RemBL,
     source::Vars,
@@ -206,6 +240,27 @@ function source!(
         m .-= m_s
     end
     nothing
+end
+
+"""
+    function wavespeed(
+        rem::RemBL,
+        x...
+    )
+
+The wavespeed for a remainder model is defined to be the difference of the wavespeed
+of the main model and the sum of the subcomponents.
+
+Note: Defining the wavespeed in this manner can result in a smaller value than
+the actually wavespeed of the remainder physics model depending on the
+composition of the models.
+"""
+function wavespeed(rem::RemBL, nM, state::Vars, aux::Vars, t::Real)
+    ref = aux.ref_state
+    return abs(
+        wavespeed(rem.main, nM, state, aux, t) -
+        sum(sub -> wavespeed(sub, nM, state, aux, t), rem.subs),
+    )
 end
 
 # Here the fluxes are pirated to handle the case of tuples of fluxes
