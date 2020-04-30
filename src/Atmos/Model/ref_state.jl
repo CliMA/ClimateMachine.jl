@@ -18,10 +18,10 @@ condition or for linearization.
 """
 abstract type ReferenceState end
 
-vars_state(m::ReferenceState, FT) = @vars()
-vars_gradient(m::ReferenceState, FT) = @vars()
-vars_diffusive(m::ReferenceState, FT) = @vars()
-vars_aux(m::ReferenceState, FT) = @vars()
+vars_state_conservative(m::ReferenceState, FT) = @vars()
+vars_state_gradient(m::ReferenceState, FT) = @vars()
+vars_state_gradient_flux(m::ReferenceState, FT) = @vars()
+vars_state_auxiliary(m::ReferenceState, FT) = @vars()
 atmos_init_aux!(
     ::ReferenceState,
     ::AtmosModel,
@@ -48,7 +48,7 @@ struct HydrostaticState{P, F} <: ReferenceState
     relativehumidity::F
 end
 
-vars_aux(m::HydrostaticState, FT) =
+vars_state_auxiliary(m::HydrostaticState, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
 
 

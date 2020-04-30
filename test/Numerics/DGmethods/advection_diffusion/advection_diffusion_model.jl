@@ -1,29 +1,29 @@
 using StaticArrays
 using CLIMA.VariableTemplates
-using CLIMA.DGmethods: nodal_update_aux!
+using CLIMA.DGmethods: nodal_update_auxiliary_state!
 import CLIMA.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    flux_first_order!,
+    flux_second_order!,
     source!,
-    gradvariables!,
-    diffusive!,
-    init_aux!,
-    update_aux!,
-    init_state!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    init_state_auxiliary!,
+    update_auxiliary_state!,
+    init_state_conservative!,
     boundary_state!,
     wavespeed,
     LocalGeometry,
-    num_state,
-    num_gradient
+    number_state_conservative,
+    number_state_gradient
 using CLIMA.DGmethods.NumericalFluxes:
-    NumericalFluxNonDiffusive, NumericalFluxDiffusive, NumericalFluxGradient
+    NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
 import CLIMA.DGmethods.NumericalFluxes:
-    numerical_flux_nondiffusive!, boundary_flux_diffusive!
+    numerical_flux_first_order!, boundary_flux_second_order!
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -53,9 +53,9 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_aux(::AdvectionDiffusion, FT) =
+vars_state_auxiliary(::AdvectionDiffusion, FT) =
     @vars(coord::SVector{3, FT}, u::SVector{3, FT}, D::SMatrix{3, 3, FT, 9})
-function vars_aux(
+function vars_state_auxiliary(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
     FT,
 ) where {dim, P, fluxBC}
@@ -66,24 +66,24 @@ function vars_aux(
 end
 
 # Density is only state
-vars_state(::AdvectionDiffusion, FT) = @vars(ρ::FT)
+vars_state_conservative(::AdvectionDiffusion, FT) = @vars(ρ::FT)
 
 # Take the gradient of density
-vars_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
-vars_gradient(
+vars_state_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
+vars_state_gradient(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
     FT,
 ) where {dim, P, fluxBC} = @vars()
 
 # The DG auxiliary variable: D ∇ρ
-vars_diffusive(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, FT})
-vars_diffusive(
+vars_state_gradient_flux(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, FT})
+vars_state_gradient_flux(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
     FT,
 ) where {dim, P, fluxBC} = @vars()
 
 """
-    flux_nondiffusive!(m::AdvectionDiffusion, flux::Grad, state::Vars,
+    flux_first_order!(m::AdvectionDiffusion, flux::Grad, state::Vars,
                        aux::Vars, t::Real)
 
 Computes non-diffusive flux `F` in:
@@ -99,7 +99,7 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_nondiffusive!(
+function flux_first_order!(
     ::AdvectionDiffusion,
     flux::Grad,
     state::Vars,
@@ -112,7 +112,7 @@ function flux_nondiffusive!(
 end
 
 """
-flux_diffusive!(m::AdvectionDiffusion, flux::Grad, auxDG::Vars)
+flux_second_order!(m::AdvectionDiffusion, flux::Grad, auxDG::Vars)
 
 Computes diffusive flux `F` in:
 
@@ -127,16 +127,16 @@ Where
  - `ρ` is the advected quantity
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
-function flux_diffusive!(::AdvectionDiffusion, flux::Grad, auxDG::Vars)
+function flux_second_order!(::AdvectionDiffusion, flux::Grad, auxDG::Vars)
     σ = auxDG.σ
     flux.ρ += -σ
 end
-flux_diffusive!(
+flux_second_order!(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
     flux::Grad,
     auxDG::Vars,
 ) where {dim, P, fluxBC} = nothing
-flux_diffusive!(
+flux_second_order!(
     m::AdvectionDiffusion,
     flux::Grad,
     state::Vars,
@@ -144,15 +144,15 @@ flux_diffusive!(
     auxHDG::Vars,
     aux::Vars,
     t::Real,
-) = flux_diffusive!(m, flux, auxDG)
+) = flux_second_order!(m, flux, auxDG)
 
 """
-    gradvariables!(m::AdvectionDiffusion, transform::Vars, state::Vars,
+    compute_gradient_argument!(m::AdvectionDiffusion, transform::Vars, state::Vars,
                    aux::Vars, t::Real)
 
 Set the variable to take the gradient of (`ρ` in this case)
 """
-function gradvariables!(
+function compute_gradient_argument!(
     m::AdvectionDiffusion,
     transform::Vars,
     state::Vars,
@@ -163,12 +163,12 @@ function gradvariables!(
 end
 
 """
-    diffusive!(m::AdvectionDiffusion, transform::Vars, gradvars::Vars,
+    compute_gradient_flux!(m::AdvectionDiffusion, transform::Vars, gradvars::Vars,
                aux::Vars)
 
 Set the variable to take the gradient of (`ρ` in this case)
 """
-function diffusive!(
+function compute_gradient_flux!(
     m::AdvectionDiffusion,
     auxDG::Vars,
     gradvars::Grad,
@@ -178,14 +178,14 @@ function diffusive!(
     D = aux.D
     auxDG.σ = D * ∇ρ
 end
-diffusive!(
+compute_gradient_flux!(
     m::AdvectionDiffusion,
     auxDG::Vars,
     gradvars::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-) = diffusive!(m, auxDG, gradvars, aux)
+) = compute_gradient_flux!(m, auxDG, gradvars, aux)
 
 """
     source!(m::AdvectionDiffusion, _...)
@@ -205,17 +205,17 @@ function wavespeed(m::AdvectionDiffusion, nM, state::Vars, aux::Vars, t::Real)
 end
 
 """
-    init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
+    init_state_auxiliary!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
 
 initialize the auxiliary state
 """
-function init_aux!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
     init_velocity_diffusion!(m.problem, aux, geom)
 end
 
 has_variable_coefficients(::AdvectionDiffusionProblem) = false
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::AdvectionDiffusion,
     Q::MPIStateArray,
@@ -223,7 +223,7 @@ function update_aux!(
     elems::UnitRange,
 )
     if has_variable_coefficients(m.problem)
-        nodal_update_aux!(dg, m, Q, t, elems) do m, state, aux, t
+        nodal_update_auxiliary_state!(dg, m, Q, t, elems) do m, state, aux, t
             update_velocity_diffusion!(m.problem, m, state, aux, t)
         end
         return true
@@ -231,7 +231,7 @@ function update_aux!(
     return false
 end
 
-function init_state!(
+function init_state_conservative!(
     m::AdvectionDiffusion,
     state::Vars,
     aux::Vars,
@@ -266,7 +266,7 @@ function boundary_state!(
 end
 
 function boundary_state!(
-    nf::CentralNumericalFluxDiffusive,
+    nf::CentralNumericalFluxSecondOrder,
     m::AdvectionDiffusion,
     state⁺::Vars,
     diff⁺::Vars,
@@ -285,27 +285,27 @@ function boundary_state!(
         diff⁺.σ = diff⁻.σ
     elseif bctype == 2 # Neumann with data
         FT = eltype(diff⁺)
-        ngrad = num_gradient(m, FT)
+        ngrad = number_state_gradient(m, FT)
         ∇state =
-            Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+            Grad{vars_state_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
         # Get analytic gradient
         Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
-        diffusive!(m, diff⁺, ∇state, aux⁻)
+        compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
         # compute the diffusive flux using the boundary state
     elseif bctype == 4 # zero Neumann
         FT = eltype(diff⁺)
-        ngrad = num_gradient(m, FT)
+        ngrad = number_state_gradient(m, FT)
         ∇state =
-            Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+            Grad{vars_state_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
         # Get analytic gradient
         ∇state.ρ = SVector{3, FT}(0, 0, 0)
         # convert to auxDG variables
-        diffusive!(m, diff⁺, ∇state, aux⁻)
+        compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
     end
     nothing
 end
 boundary_state!(
-    nf::CentralNumericalFluxDiffusive,
+    nf::CentralNumericalFluxSecondOrder,
     m::AdvectionDiffusion{dim, P, fluxBC, true},
     state⁺::Vars,
     diff⁺::Vars,
@@ -319,8 +319,8 @@ boundary_state!(
     _...,
 ) where {dim, P, fluxBC} = nothing
 
-function boundary_flux_diffusive!(
-    nf::CentralNumericalFluxDiffusive,
+function boundary_flux_second_order!(
+    nf::CentralNumericalFluxSecondOrder,
     m::AdvectionDiffusion{dim, P, true},
     F,
     state⁺,
@@ -340,12 +340,12 @@ function boundary_flux_diffusive!(
     # Default initialize flux to minus side
     if bctype ∈ (1, 3) # Dirchlet
         # Just use the minus side values since Dirchlet
-        flux_diffusive!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
+        flux_second_order!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
     elseif bctype == 2 # Neumann data
         FT = eltype(diff⁺)
-        ngrad = num_gradient(m, FT)
+        ngrad = number_state_gradient(m, FT)
         ∇state =
-            Grad{vars_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
+            Grad{vars_state_gradient(m, FT)}(similar(parent(diff⁺), Size(3, ngrad)))
         # Get analytic gradient
         Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
         # get the diffusion coefficient
@@ -360,14 +360,14 @@ function boundary_flux_diffusive!(
     end
     nothing
 end
-boundary_flux_diffusive!(
-    ::CentralNumericalFluxDiffusive,
+boundary_flux_second_order!(
+    ::CentralNumericalFluxSecondOrder,
     ::AdvectionDiffusion{dim, P, true, true},
     _...,
 ) where {dim, P} = nothing
 
-struct UpwindNumericalFlux <: NumericalFluxNonDiffusive end
-function numerical_flux_nondiffusive!(
+struct UpwindNumericalFlux <: NumericalFluxFirstOrder end
+function numerical_flux_first_order!(
     ::UpwindNumericalFlux,
     ::AdvectionDiffusion,
     fluxᵀn::Vars{S},

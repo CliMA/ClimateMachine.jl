@@ -31,15 +31,16 @@ export turbulence_tensors
 ## Abstract Type
 We define a `TurbulenceClosure` abstract type and
 default functions for the generic turbulence closure
-which will be overloaded with model specific functions. Minimally, overloaded functions for the 
-following stubs must be defined for a turbulence model. 
+which will be overloaded with model specific functions. Minimally, overloaded functions for the
+following stubs must be defined for a turbulence model.
 
 ```@example turbulence
 abstract type TurbulenceClosure end
 
-vars_aux(::TurbulenceClosure, FT) = @vars()
-vars_diffusive(::TurbulenceClosure, FT) = @vars()
-vars_gradient(::TurbulenceClosure, FT) = @vars()
+
+vars_state_gradient((::TurbulenceClosure, FT) = @vars()
+vars_state_gradient_flux(::TurbulenceClosure, FT) = @vars()
+vars_state_auxiliary(::TurbulenceClosure, FT) = @vars()
 
 function atmos_init_aux!(
     ::TurbulenceClosure,
@@ -47,14 +48,14 @@ function atmos_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 ) end
-function gradvariables!(
+function compute_gradient_argument!(
     ::TurbulenceClosure,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
-function diffusive!(
+function compute_gradient_flux!(
     ::TurbulenceClosure,
     ::Orientation,
     diffusive,
@@ -65,13 +66,13 @@ function diffusive!(
 ) end
 ```
 
-The following may need to be addressed if turbulence models require 
-additional state variables or auxiliary variable updates (e.g. TKE 
-based models) 
+The following may need to be addressed if turbulence models require
+additional state variables or auxiliary variable updates (e.g. TKE
+based models)
 
 ```@example turbulence
-vars_state(::TurbulenceClosure, FT) = @vars()
-function atmos_nodal_update_aux!(
+vars_state_conservative(::TurbulenceClosure, FT) = @vars()
+function atmos_nodal_update_auxiliary_state!(
     ::TurbulenceClosure,
     ::AtmosModel,
     state::Vars,
@@ -81,10 +82,10 @@ function atmos_nodal_update_aux!(
 ```
 
 ## Eddy-viscosity Models
-The following function provides an example of a stub for an eddy-viscosity model. 
-Currently, scalar and diagonal tensor viscosities and diffusivities are supported. 
+The following function provides an example of a stub for an eddy-viscosity model.
+Currently, scalar and diagonal tensor viscosities and diffusivities are supported.
 
-```@docs 
+```@docs
 CLIMA.Atmos.turbulence_tensors
 ```
 

@@ -433,7 +433,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         AtmosLESConfigType,
         param_set;
         ref_state = GCMReferenceState{FT}(),
-        turbulence = SmagorinskyLilly{FT}(0.23),
+        turbulence = SmagorinskyLilly{FT}(0.20),
         #hyperdiffusion = StandardHyperDiffusion(1800),
         source = (
             Gravity(),
@@ -455,7 +455,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             ),
             AtmosBC(),
         ),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
         init_state = init_cfsites!,
     )
     mrrk_solver = CLIMA.MultirateSolverType(
@@ -510,7 +510,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(9)
+    CFL = FT(7)
 
     # Execute the get_gcm_info function
     (

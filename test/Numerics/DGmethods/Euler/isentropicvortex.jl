@@ -4,10 +4,10 @@ using CLIMA.Mesh.Topologies: BrickTopology
 using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov,
+    RusanovNumericalFlux,
     CentralNumericalFluxGradient,
-    CentralNumericalFluxDiffusive,
-    CentralNumericalFluxNonDiffusive
+    CentralNumericalFluxSecondOrder,
+    CentralNumericalFluxFirstOrder
 using CLIMA.ODESolvers
 using CLIMA.VTK: writevtk, writepvtu
 using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
@@ -22,7 +22,7 @@ using CLIMA.Atmos:
     NoPrecipitation,
     NoRadiation,
     ConstantViscosityWithDivergence,
-    vars_state
+    vars_state_conservative
 using CLIMA.VariableTemplates: flattenednames
 
 using CLIMAParameters
@@ -53,7 +53,8 @@ function main()
     expected_error = Dict()
 
     # just to make it shorter and aligning
-    Central = CentralNumericalFluxNonDiffusive
+    Rusanov = RusanovNumericalFlux
+    Central = CentralNumericalFluxFirstOrder
 
     expected_error[Float64, 2, Rusanov, 1] = 1.1990999506538110e+01
     expected_error[Float64, 2, Rusanov, 2] = 2.0813000228865612e+00
@@ -97,7 +98,7 @@ function main()
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32), dims in (2, 3)
-            for NumericalFlux in (Rusanov, Central)
+            for NumericalFlux in (RusanovNumericalFlux, Central)
                 @info @sprintf """Configuration
                                   ArrayType     = %s
                                   FT        = %s
@@ -192,14 +193,14 @@ function run(
         moisture = DryModel(),
         source = nothing,
         boundarycondition = (),
-        init_state = isentropicvortex_initialcondition!,
+        init_state_conservative = isentropicvortex_initialcondition!,
     )
 
     dg = DGModel(
         model,
         grid,
         NumericalFlux(),
-        CentralNumericalFluxDiffusive(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -353,7 +354,7 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)

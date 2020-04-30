@@ -6,7 +6,7 @@ using KernelAbstractions, StaticArrays
 
 using CLIMA
 using CLIMA.LinearSolvers
-using CLIMA.ColumnwiseLUSolver: band_lu_knl!, band_forward_knl!, band_back_knl!
+using CLIMA.ColumnwiseLUSolver: band_lu_kernel!, band_forward_kernel!, band_back_kernel!
 
 
 CLIMA.init()
@@ -53,7 +53,7 @@ let
     ndrange = (Nq, Nq, nhorzelem)
 
     event = Event(device)
-    event = band_lu_knl!(device, groupsize, ndrange)(
+    event = band_lu_kernel!(device, groupsize, ndrange)(
         d_F,
         Val(Nq),
         Val(Nq),
@@ -86,7 +86,7 @@ let
     d_x = ArrayType(b)
 
     event = Event(device)
-    event = band_forward_knl!(device, groupsize, ndrange)(
+    event = band_forward_kernel!(device, groupsize, ndrange)(
         d_x,
         d_F,
         Val(Nq),
@@ -98,7 +98,7 @@ let
         dependencies = (event,),
     )
 
-    event = band_back_knl!(device, groupsize, ndrange)(
+    event = band_back_kernel!(device, groupsize, ndrange)(
         d_x,
         d_F,
         Val(Nq),

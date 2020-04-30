@@ -14,7 +14,7 @@ using CLIMAParameters.Planet: day
 
 using ..Courant
 using ..Checkpoint
-using ..DGmethods: courant, vars_state, vars_aux
+using ..DGmethods: courant, vars_state_conservative, vars_state_auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays
@@ -139,10 +139,10 @@ function vtk(vtk_opt, solver_config, output_dir)
             )
             outprefix = joinpath(output_dir, vprefix)
 
-            statenames = flattenednames(vars_state(bl, FT))
-            auxnames = flattenednames(vars_aux(bl, FT))
+            statenames = flattenednames(vars_state_conservative(bl, FT))
+            auxnames = flattenednames(vars_state_auxiliary(bl, FT))
 
-            writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
+            writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
             # Generate the pvtu file for these vtk files
             if MPI.Comm_rank(mpicomm) == 0

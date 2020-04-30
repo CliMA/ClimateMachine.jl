@@ -1,6 +1,6 @@
 include("KinematicModel.jl")
 
-function vars_state(m::KinematicModel, FT)
+function vars_state_conservative(m::KinematicModel, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -9,9 +9,9 @@ function vars_state(m::KinematicModel, FT)
     end
 end
 
-function vars_aux(m::KinematicModel, FT)
+function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
-        # defined in init_aux
+        # defined in init_state_auxiliary
         p::FT
         z::FT
         # defined in update_aux
@@ -68,7 +68,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     return nothing
 end
 
-function kinematic_model_nodal_update_aux!(
+function kinematic_model_nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -107,7 +107,7 @@ function kinematic_model_nodal_update_aux!(
 end
 
 function boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     m::KinematicModel,
     state⁺,
     aux⁺,
@@ -130,7 +130,7 @@ function boundary_state!(
     return abs(dot(nM, u))
 end
 
-@inline function flux_nondiffusive!(
+@inline function flux_first_order!(
     m::KinematicModel,
     flux::Grad,
     state::Vars,
@@ -227,20 +227,20 @@ function main()
                 outprefix,
                 solver_config.Q,
                 solver_config.dg,
-                flattenednames(vars_state(model, FT)),
-                solver_config.dg.auxstate,
-                flattenednames(vars_aux(model, FT)),
+                flattenednames(vars_state_conservative(model, FT)),
+                solver_config.dg.state_auxiliary,
+                flattenednames(vars_state_auxiliary(model, FT)),
             )
             step[1] += 1
             nothing
         end
 
     # get aux variables indices for testing
-    q_tot_ind = varsindex(vars_aux(model, FT), :q_tot)
-    q_vap_ind = varsindex(vars_aux(model, FT), :q_vap)
-    q_liq_ind = varsindex(vars_aux(model, FT), :q_liq)
-    q_ice_ind = varsindex(vars_aux(model, FT), :q_ice)
-    S_ind = varsindex(vars_aux(model, FT), :S)
+    q_tot_ind = varsindex(vars_state_auxiliary(model, FT), :q_tot)
+    q_vap_ind = varsindex(vars_state_auxiliary(model, FT), :q_vap)
+    q_liq_ind = varsindex(vars_state_auxiliary(model, FT), :q_liq)
+    q_ice_ind = varsindex(vars_state_auxiliary(model, FT), :q_ice)
+    S_ind = varsindex(vars_state_auxiliary(model, FT), :S)
 
     # call solve! function for time-integrator
     result = CLIMA.invoke!(
@@ -250,30 +250,30 @@ function main()
     )
 
     # no supersaturation
-    max_S = maximum(abs.(solver_config.dg.auxstate[:, S_ind, :]))
+    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
     @test isequal(max_S, FT(0))
 
     # qt is conserved
-    max_q_tot = maximum(abs.(solver_config.dg.auxstate[:, q_tot_ind, :]))
-    min_q_tot = minimum(abs.(solver_config.dg.auxstate[:, q_tot_ind, :]))
+    max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
+    min_q_tot = minimum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
     @test isapprox(max_q_tot, qt_0; rtol = 1e-3)
     @test isapprox(min_q_tot, qt_0; rtol = 1e-3)
 
     # q_vap + q_liq = q_tot
     max_water_diff = maximum(abs.(
-        solver_config.dg.auxstate[:, q_tot_ind, :] .-
-        solver_config.dg.auxstate[:, q_vap_ind, :] .-
-        solver_config.dg.auxstate[:, q_liq_ind, :],
+        solver_config.dg.state_auxiliary[:, q_tot_ind, :] .-
+        solver_config.dg.state_auxiliary[:, q_vap_ind, :] .-
+        solver_config.dg.state_auxiliary[:, q_liq_ind, :],
     ))
     @test isequal(max_water_diff, FT(0))
 
     # no ice
-    max_q_ice = maximum(abs.(solver_config.dg.auxstate[:, q_ice_ind, :]))
+    max_q_ice = maximum(abs.(solver_config.dg.state_auxiliary[:, q_ice_ind, :]))
     @test isequal(max_q_ice, FT(0))
 
     # q_liq ∈ reference range
-    max_q_liq = max(solver_config.dg.auxstate[:, q_liq_ind, :]...)
-    min_q_liq = min(solver_config.dg.auxstate[:, q_liq_ind, :]...)
+    max_q_liq = max(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
+    min_q_liq = min(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
     @test max_q_liq < FT(1e-3)
     @test isequal(min_q_liq, FT(0))
 end
