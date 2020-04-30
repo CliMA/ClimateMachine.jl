@@ -28,9 +28,9 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import CLIMA.DGmethods: vars_state, vars_aux
+import CLIMA.DGmethods: vars_state_conservative, vars_state_auxiliary
 import CLIMA.Atmos: source!, atmos_source!, altitude
-import CLIMA.Atmos: flux_diffusive!, thermo_state
+import CLIMA.Atmos: compute_gradient_flux!, thermo_state
 
 # Citation for problem setup
 """
@@ -55,7 +55,7 @@ GCMReferenceState{FT} <: ReferenceState
 A ReferenceState informed by data from a GCM (Here, HADGEM2)
 """
 struct GCMReferenceState{FT} <: ReferenceState end
-vars_aux(m::GCMReferenceState, FT) = @vars(
+vars_state_auxiliary(m::GCMReferenceState, FT) = @vars(
     ρ::FT,
     p::FT,
     ta::FT,
@@ -456,13 +456,13 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
-        init_state = init_cfsites!,
+        init_state_conservative = init_cfsites!,
     )
     mrrk_solver = CLIMA.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+        timestep_ratio = 12,
     )
     config = CLIMA.AtmosLESConfiguration(
         "HadGEM2-CLIMA",

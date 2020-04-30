@@ -514,8 +514,8 @@ function init_ode_state(
             ndrange = Np * nrealelem,
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
-        state .= h_state_conservative
-        auxstate .= h_state_auxiliary
+        state_conservative .= h_state_conservative
+        state_auxiliary .= h_state_auxiliary
     end
 
     event = Event(device)
