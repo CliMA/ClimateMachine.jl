@@ -1,5 +1,7 @@
 using ..DGmethods.NumericalFluxes:
-    RusanovNumericalFlux, CentralNumericalFluxGradient, CentralNumericalFluxSecondOrder
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
 
 abstract type OceanBoundaryCondition end
 

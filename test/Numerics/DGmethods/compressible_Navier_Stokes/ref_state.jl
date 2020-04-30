@@ -66,7 +66,12 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
     mkpath("vtk")
     outprefix = @sprintf("vtk/refstate")
-    writevtk(outprefix, dg.state_auxiliary, dg, flattenednames(vars_state_auxiliary(model, FT)))
+    writevtk(
+        outprefix,
+        dg.state_auxiliary,
+        dg,
+        flattenednames(vars_state_auxiliary(model, FT)),
+    )
     return FT(0)
 end
 
@@ -103,7 +108,12 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
     mkpath("vtk")
     outprefix = @sprintf("vtk/refstate")
-    writevtk(outprefix, dg.state_auxiliary, dg, flattenednames(vars_state_auxiliary(model, FT)))
+    writevtk(
+        outprefix,
+        dg.state_auxiliary,
+        dg,
+        flattenednames(vars_state_auxiliary(model, FT)),
+    )
     return FT(0)
 end
 

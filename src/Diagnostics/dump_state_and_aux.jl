@@ -67,7 +67,11 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     all_state_data = nothing
     all_aux_data = nothing
     if dgngrp.interpol !== nothing
-        istate = DA(Array{FT}(undef, dgngrp.interpol.Npl, number_state_conservative(bl, FT)))
+        istate = DA(Array{FT}(
+            undef,
+            dgngrp.interpol.Npl,
+            number_state_conservative(bl, FT),
+        ))
         interpolate_local!(dgngrp.interpol, Q.data, istate)
 
         if dgngrp.project
@@ -83,7 +87,11 @@ function dump_state_and_aux_collect(dgngrp, currtime)
         all_state_data =
             accumulate_interpolated_data(mpicomm, dgngrp.interpol, istate)
 
-        iaux = DA(Array{FT}(undef, dgngrp.interpol.Npl, number_state_auxiliary(bl, FT)))
+        iaux = DA(Array{FT}(
+            undef,
+            dgngrp.interpol.Npl,
+            number_state_auxiliary(bl, FT),
+        ))
         interpolate_local!(dgngrp.interpol, dg.state_auxiliary.data, iaux)
 
         all_aux_data =

@@ -52,7 +52,11 @@ vars_state_conservative(::ConservationTestModel, T) = @vars(q::T, p::T)
 vars_state_gradient(::ConservationTestModel, T) = @vars()
 vars_state_gradient_flux(::ConservationTestModel, T) = @vars()
 
-function init_state_auxiliary!(::ConservationTestModel, aux::Vars, g::LocalGeometry)
+function init_state_auxiliary!(
+    ::ConservationTestModel,
+    aux::Vars,
+    g::LocalGeometry,
+)
     x, y, z = g.coord
     r = x^2 + y^2 + z^2
     aux.vel = SVector(
@@ -62,7 +66,13 @@ function init_state_auxiliary!(::ConservationTestModel, aux::Vars, g::LocalGeome
     )
 end
 
-function init_state_conservative!(::ConservationTestModel, state::Vars, aux::Vars, coord, t)
+function init_state_conservative!(
+    ::ConservationTestModel,
+    state::Vars,
+    aux::Vars,
+    coord,
+    t,
+)
     state.q = rand()
     state.p = rand()
 end

@@ -23,7 +23,14 @@ function flux_moisture!(
     aux::Vars,
     t::Real,
 ) end
-function compute_gradient_flux!(::MoistureModel, diffusive, ∇transform, state, aux, t) end
+function compute_gradient_flux!(
+    ::MoistureModel,
+    diffusive,
+    ∇transform,
+    state,
+    aux,
+    t,
+) end
 function flux_second_order!(
     ::MoistureModel,
     flux::Grad,
@@ -141,7 +148,8 @@ EquilMoist{FT}(;
 vars_state_conservative(::EquilMoist, FT) = @vars(ρq_tot::FT)
 vars_state_gradient(::EquilMoist, FT) = @vars(q_tot::FT)
 vars_state_gradient_flux(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
-vars_state_auxiliary(::EquilMoist, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
+vars_state_auxiliary(::EquilMoist, FT) =
+    @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,

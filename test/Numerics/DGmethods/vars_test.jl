@@ -34,7 +34,8 @@ import CLIMA.DGmethods:
 struct VarsTestModel{dim} <: BalanceLaw end
 
 vars_state_conservative(::VarsTestModel, T) = @vars(x::T, coord::SVector{3, T})
-vars_state_auxiliary(m::VarsTestModel, T) = @vars(coord::SVector{3, T}, polynomial::T)
+vars_state_auxiliary(m::VarsTestModel, T) =
+    @vars(coord::SVector{3, T}, polynomial::T)
 vars_state_gradient_flux(m::VarsTestModel, T) = @vars()
 
 flux_first_order!(::VarsTestModel, _...) = nothing
@@ -43,7 +44,13 @@ source!(::VarsTestModel, _...) = nothing
 boundary_state!(_, ::VarsTestModel, _...) = nothing
 wavespeed(::VarsTestModel, _...) = 1
 
-function init_state_conservative!(m::VarsTestModel, state::Vars, aux::Vars, coord, t::Real)
+function init_state_conservative!(
+    m::VarsTestModel,
+    state::Vars,
+    aux::Vars,
+    coord,
+    t::Real,
+)
     @inbounds state.x = coord[1]
     state.coord = coord
 end
@@ -87,7 +94,8 @@ function run(mpicomm, dim, Ne, N, FT, ArrayType)
     x = Array(Q.coord)[:, 1, :]
     y = Array(Q.coord)[:, 2, :]
     z = Array(Q.coord)[:, 3, :]
-    @test Array(dg.state_auxiliary.polynomial)[:, 1, :] ≈ x .* y + x .* z + y .* z
+    @test Array(dg.state_auxiliary.polynomial)[:, 1, :] ≈
+          x .* y + x .* z + y .* z
 end
 
 let

@@ -66,8 +66,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         Nqk = dim == 2 ? 1 : Nq
 
         local_source = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_conservative =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_flux = MArray{Tuple{3, num_state_conservative}, FT}(undef)
@@ -125,7 +127,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         flux_first_order!(
             balance_law,
             Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             t,
         )
@@ -140,9 +144,15 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         flux_second_order!(
             balance_law,
             Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
-            Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
+            Vars{vars_state_gradient_flux(balance_law, FT)}(
+                local_state_gradient_flux,
+            ),
+            Vars{vars_hyperdiffusive(balance_law, FT)}(
+                local_state_hyperdiffusion,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             t,
         )
@@ -155,15 +165,18 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
         # Build "inside metrics" flux
         @unroll for s in 1:num_state_conservative
-            F1, F2, F3 =
-                shared_flux[1, i, j, k, s], shared_flux[2, i, j, k, s], shared_flux[3, i, j, k, s]
+            F1, F2, F3 = shared_flux[1, i, j, k, s],
+            shared_flux[2, i, j, k, s],
+            shared_flux[3, i, j, k, s]
 
             shared_flux[1, i, j, k, s] = M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
             if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                shared_flux[2, i, j, k, s] = M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                shared_flux[2, i, j, k, s] =
+                    M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
             end
             if dim == 3 && direction isa EveryDirection
-                shared_flux[3, i, j, k, s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                shared_flux[3, i, j, k, s] =
+                    M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
             end
         end
 
@@ -171,8 +184,12 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         source!(
             balance_law,
             Vars{vars_state_conservative(balance_law, FT)}(local_source),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
+            Vars{vars_state_gradient_flux(balance_law, FT)}(
+                local_state_gradient_flux,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             t,
             direction,
@@ -192,12 +209,14 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
                 # ξ2-grid lines
                 if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                    local_tendency[s] += MI * s_D[n, j] * shared_flux[2, i, n, k, s]
+                    local_tendency[s] +=
+                        MI * s_D[n, j] * shared_flux[2, i, n, k, s]
                 end
 
                 # ξ3-grid lines
                 if dim == 3 && direction isa EveryDirection
-                    local_tendency[s] += MI * s_D[n, k] * shared_flux[3, i, j, n, s]
+                    local_tendency[s] +=
+                        MI * s_D[n, k] * shared_flux[3, i, j, n, s]
                 end
             end
         end
@@ -242,8 +261,10 @@ end
         Nqk = dim == 2 ? 1 : Nq
 
         local_source = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_conservative =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_flux = MArray{Tuple{3, num_state_conservative}, FT}(undef)
@@ -295,7 +316,9 @@ end
         flux_first_order!(
             balance_law,
             Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             t,
         )
@@ -310,9 +333,15 @@ end
         flux_second_order!(
             balance_law,
             Grad{vars_state_conservative(balance_law, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
-            Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
+            Vars{vars_state_gradient_flux(balance_law, FT)}(
+                local_state_gradient_flux,
+            ),
+            Vars{vars_hyperdiffusive(balance_law, FT)}(
+                local_state_hyperdiffusion,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             t,
         )
@@ -325,8 +354,9 @@ end
 
         # Build "inside metrics" flux
         @unroll for s in 1:num_state_conservative
-            F1, F2, F3 =
-                shared_flux[1, i, j, k, s], shared_flux[2, i, j, k, s], shared_flux[3, i, j, k, s]
+            F1, F2, F3 = shared_flux[1, i, j, k, s],
+            shared_flux[2, i, j, k, s],
+            shared_flux[3, i, j, k, s]
             shared_flux[3, i, j, k, s] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
         end
 
@@ -334,8 +364,12 @@ end
         source!(
             balance_law,
             Vars{vars_state_conservative(balance_law, FT)}(local_source),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
+            Vars{vars_state_gradient_flux(balance_law, FT)}(
+                local_state_gradient_flux,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             t,
             direction,
@@ -430,25 +464,35 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
 
-        local_state_conservative⁻ = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_gradient_flux⁻ = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_conservative⁻ =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_gradient_flux⁻ =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_hyperdiffusion⁻ = MArray{Tuple{nhyperviscstate}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
         # Need two copies since numerical_flux_first_order! can modify state_conservative⁺
-        local_state_conservative⁺nondiff = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_conservative⁺diff = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_conservative⁺nondiff =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_conservative⁺diff =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
 
         # Need two copies since numerical_flux_first_order! can modify state_auxiliary⁺
-        local_state_auxiliary⁺nondiff = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_auxiliary⁺diff = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_auxiliary⁺nondiff =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_auxiliary⁺diff =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
-        local_state_gradient_flux⁺ = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_flux⁺ =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_hyperdiffusion⁺ = MArray{Tuple{nhyperviscstate}, FT}(undef)
 
-        local_state_conservative_bottom1 = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_gradient_flux_bottom1 = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_auxiliary_bottom1 = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_conservative_bottom1 =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_gradient_flux_bottom1 =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_auxiliary_bottom1 =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
         local_flux = MArray{Tuple{num_state_conservative}, FT}(undef)
     end
@@ -491,7 +535,9 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
         # Load plus side data
         @unroll for s in 1:num_state_conservative
-            local_state_conservative⁺diff[s] = local_state_conservative⁺nondiff[s] = state_conservative[vid⁺, s, e⁺]
+            local_state_conservative⁺diff[s] =
+                local_state_conservative⁺nondiff[s] =
+                    state_conservative[vid⁺, s, e⁺]
         end
 
         @unroll for s in 1:num_state_gradient_flux
@@ -503,7 +549,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         end
 
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁺diff[s] = local_state_auxiliary⁺nondiff[s] = state_auxiliary[vid⁺, s, e⁺]
+            local_state_auxiliary⁺diff[s] =
+                local_state_auxiliary⁺nondiff[s] = state_auxiliary[vid⁺, s, e⁺]
         end
 
         bctype = elemtobndy[f, e⁻]
@@ -514,10 +561,18 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 balance_law,
                 Vars{vars_state_conservative(balance_law, FT)}(local_flux),
                 SVector(normal_vector),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺nondiff),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺nondiff),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺nondiff,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺nondiff,
+                ),
                 t,
             )
             numerical_flux_second_order!(
@@ -525,27 +580,46 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 balance_law,
                 Vars{vars_state_conservative(balance_law, FT)}(local_flux),
                 normal_vector,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux⁻),
-                Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺diff),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux⁺),
-                Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion⁺),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺diff),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁻,
+                ),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺diff,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁺,
+                ),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺diff,
+                ),
                 t,
             )
         else
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:num_state_conservative
-                    local_state_conservative_bottom1[s] = state_conservative[n + Nqk^2, s, e⁻]
+                    local_state_conservative_bottom1[s] =
+                        state_conservative[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:num_state_gradient_flux
-                    local_state_gradient_flux_bottom1[s] = state_gradient_flux[n + Nqk^2, s, e⁻]
+                    local_state_gradient_flux_bottom1[s] =
+                        state_gradient_flux[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] = state_auxiliary[n + Nqk^2, s, e⁻]
+                    local_state_auxiliary_bottom1[s] =
+                        state_auxiliary[n + Nqk^2, s, e⁻]
                 end
             end
             numerical_boundary_flux_first_order!(
@@ -553,33 +627,67 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 balance_law,
                 Vars{vars_state_conservative(balance_law, FT)}(local_flux),
                 SVector(normal_vector),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺nondiff),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺nondiff),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺nondiff,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺nondiff,
+                ),
                 bctype,
                 t,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative_bottom1),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary_bottom1),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative_bottom1,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary_bottom1,
+                ),
             )
             numerical_boundary_flux_second_order!(
                 numerical_flux_second_order,
                 balance_law,
                 Vars{vars_state_conservative(balance_law, FT)}(local_flux),
                 normal_vector,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux⁻),
-                Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺diff),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux⁺),
-                Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion⁺),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺diff),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁻,
+                ),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺diff,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁺,
+                ),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺diff,
+                ),
                 bctype,
                 t,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative_bottom1),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux_bottom1),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary_bottom1),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative_bottom1,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux_bottom1,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary_bottom1,
+                ),
             )
         end
 
@@ -625,7 +733,8 @@ end
         ngradtransformstate = num_state_conservative
 
         local_transform = MArray{Tuple{ngradstate}, FT}(undef)
-        local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
     end
 
@@ -713,11 +822,18 @@ end
         end
 
         if num_state_gradient_flux > 0
-            fill!(local_state_gradient_flux, -zero(eltype(local_state_gradient_flux)))
+            fill!(
+                local_state_gradient_flux,
+                -zero(eltype(local_state_gradient_flux)),
+            )
             compute_gradient_flux!(
                 balance_law,
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
-                Grad{vars_state_gradient(balance_law, FT)}(local_transform_gradient),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
+                Grad{vars_state_gradient(balance_law, FT)}(
+                    local_transform_gradient,
+                ),
                 Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
                 Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
                 t,
@@ -761,7 +877,8 @@ end
 
         Nqk = dim == 2 ? 1 : Nq
         local_transform = MArray{Tuple{ngradstate}, FT}(undef)
-        local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
 
         _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
@@ -832,11 +949,18 @@ end
         end
 
         if num_state_gradient_flux > 0
-            fill!(local_state_gradient_flux, -zero(eltype(local_state_gradient_flux)))
+            fill!(
+                local_state_gradient_flux,
+                -zero(eltype(local_state_gradient_flux)),
+            )
             compute_gradient_flux!(
                 balance_law,
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
-                Grad{vars_state_gradient(balance_law, FT)}(local_transform_gradient),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
+                Grad{vars_state_gradient(balance_law, FT)}(
+                    local_transform_gradient,
+                ),
                 Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
                 Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
                 t,
@@ -903,22 +1027,28 @@ end
 
         ngradtransformstate = num_state_conservative
 
-        local_state_conservative⁻ = MArray{Tuple{ngradtransformstate}, FT}(undef)
+        local_state_conservative⁻ =
+            MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_transform⁻ = MArray{Tuple{ngradstate}, FT}(undef)
         l_nG⁻ = MArray{Tuple{3, ngradstate}, FT}(undef)
 
-        local_state_conservative⁺ = MArray{Tuple{ngradtransformstate}, FT}(undef)
+        local_state_conservative⁺ =
+            MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_transform⁺ = MArray{Tuple{ngradstate}, FT}(undef)
 
         # FIXME state_gradient_flux is sort of a terrible name...
-        local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
-        local_state_conservative⁻visc = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_conservative⁻visc =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
-        local_state_conservative_bottom1 = MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_auxiliary_bottom1 = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_conservative_bottom1 =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_auxiliary_bottom1 =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
     end
 
     eI = @index(Group, Linear)
@@ -953,7 +1083,9 @@ end
         compute_gradient_argument!(
             balance_law,
             Vars{vars_state_gradient(balance_law, FT)}(local_transform⁻),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁻,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
             t,
         )
@@ -971,13 +1103,18 @@ end
         compute_gradient_argument!(
             balance_law,
             Vars{vars_state_gradient(balance_law, FT)}(local_transform⁺),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁺,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺),
             t,
         )
 
         bctype = elemtobndy[f, e⁻]
-        fill!(local_state_gradient_flux, -zero(eltype(local_state_gradient_flux)))
+        fill!(
+            local_state_gradient_flux,
+            -zero(eltype(local_state_gradient_flux)),
+        )
         if bctype == 0
             numerical_flux_gradient!(
                 numerical_flux_gradient,
@@ -985,20 +1122,36 @@ end
                 local_transform_gradient,
                 SVector(normal_vector),
                 Vars{vars_state_gradient(balance_law, FT)}(local_transform⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
                 Vars{vars_state_gradient(balance_law, FT)}(local_transform⁺),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺,
+                ),
                 t,
             )
             if num_state_gradient_flux > 0
                 compute_gradient_flux!(
                     balance_law,
-                    Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
-                    Grad{vars_state_gradient(balance_law, FT)}(local_transform_gradient),
-                    Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                    Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
+                    Vars{vars_state_gradient_flux(balance_law, FT)}(
+                        local_state_gradient_flux,
+                    ),
+                    Grad{vars_state_gradient(balance_law, FT)}(
+                        local_transform_gradient,
+                    ),
+                    Vars{vars_state_conservative(balance_law, FT)}(
+                        local_state_conservative⁻,
+                    ),
+                    Vars{vars_state_auxiliary(balance_law, FT)}(
+                        local_state_auxiliary⁻,
+                    ),
                     t,
                 )
             end
@@ -1006,10 +1159,12 @@ end
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:num_state_conservative
-                    local_state_conservative_bottom1[s] = state_conservative[n + Nqk^2, s, e⁻]
+                    local_state_conservative_bottom1[s] =
+                        state_conservative[n + Nqk^2, s, e⁻]
                 end
                 @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] = state_auxiliary[n + Nqk^2, s, e⁻]
+                    local_state_auxiliary_bottom1[s] =
+                        state_auxiliary[n + Nqk^2, s, e⁻]
                 end
             end
             numerical_boundary_flux_gradient!(
@@ -1018,23 +1173,43 @@ end
                 local_transform_gradient,
                 SVector(normal_vector),
                 Vars{vars_state_gradient(balance_law, FT)}(local_transform⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
                 Vars{vars_state_gradient(balance_law, FT)}(local_transform⁺),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺,
+                ),
                 bctype,
                 t,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative_bottom1),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary_bottom1),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative_bottom1,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary_bottom1,
+                ),
             )
             if num_state_gradient_flux > 0
                 compute_gradient_flux!(
                     balance_law,
-                    Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
-                    Grad{vars_state_gradient(balance_law, FT)}(local_transform_gradient),
-                    Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                    Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
+                    Vars{vars_state_gradient_flux(balance_law, FT)}(
+                        local_state_gradient_flux,
+                    ),
+                    Grad{vars_state_gradient(balance_law, FT)}(
+                        local_transform_gradient,
+                    ),
+                    Vars{vars_state_conservative(balance_law, FT)}(
+                        local_state_conservative⁻,
+                    ),
+                    Vars{vars_state_auxiliary(balance_law, FT)}(
+                        local_state_auxiliary⁻,
+                    ),
                     t,
                 )
             end
@@ -1058,16 +1233,26 @@ end
 
         compute_gradient_flux!(
             balance_law,
-            Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_conservative⁻visc),
+            Vars{vars_state_gradient_flux(balance_law, FT)}(
+                local_state_conservative⁻visc,
+            ),
             Grad{vars_state_gradient(balance_law, FT)}(l_nG⁻),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁻,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
             t,
         )
 
 
         @unroll for s in 1:num_state_gradient_flux
-            state_gradient_flux[vid⁻, s, e⁻] += vMI * sM * (local_state_gradient_flux[s] - local_state_conservative⁻visc[s])
+            state_gradient_flux[vid⁻, s, e⁻] +=
+                vMI *
+                sM *
+                (
+                    local_state_gradient_flux[s] -
+                    local_state_conservative⁻visc[s]
+                )
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
@@ -1215,8 +1400,12 @@ Update the auxiliary state array
 
             f!(
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary,
+                ),
                 t,
             )
 
@@ -1252,7 +1441,8 @@ end
 
     local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-    local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+    local_state_gradient_flux =
+        MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
     eI = @index(Group, Linear)
     n = @index(Local, Linear)
@@ -1277,9 +1467,15 @@ end
 
             f!(
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux,
+                ),
                 t,
             )
 
@@ -1317,7 +1513,8 @@ See [`BalanceLaw`](@ref) for usage.
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
 
-        local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_conservative =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_kernel = MArray{Tuple{nout, Nq}, FT}(undef)
     end
@@ -1362,9 +1559,17 @@ See [`BalanceLaw`](@ref) for usage.
 
                 integral_load_auxiliary_state!(
                     balance_law,
-                    Vars{vars_integrals(balance_law, FT)}(view(local_kernel, :, k)),
-                    Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
-                    Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
+                    Vars{vars_integrals(balance_law, FT)}(view(
+                        local_kernel,
+                        :,
+                        k,
+                    )),
+                    Vars{vars_state_conservative(balance_law, FT)}(
+                        local_state_conservative,
+                    ),
+                    Vars{vars_state_auxiliary(balance_law, FT)}(
+                        local_state_auxiliary,
+                    ),
                 )
 
                 # multiply in the curve jacobian
@@ -1390,8 +1595,17 @@ See [`BalanceLaw`](@ref) for usage.
                 ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
                 integral_set_auxiliary_state!(
                     balance_law,
-                    Vars{vars_state_auxiliary(balance_law, FT)}(view(state_auxiliary, ijk, :, e)),
-                    Vars{vars_integrals(balance_law, FT)}(view(local_kernel, :, k)),
+                    Vars{vars_state_auxiliary(balance_law, FT)}(view(
+                        state_auxiliary,
+                        ijk,
+                        :,
+                        e,
+                    )),
+                    Vars{vars_integrals(balance_law, FT)}(view(
+                        local_kernel,
+                        :,
+                        k,
+                    )),
                 )
                 @unroll for ind_out in 1:nout
                     local_integral[ind_out, k] = local_integral[ind_out, Nq]
@@ -1435,8 +1649,18 @@ end
         reverse_integral_load_auxiliary_state!(
             balance_law,
             Vars{vars_reverse_integrals(balance_law, FT)}(l_T),
-            Vars{vars_state_conservative(balance_law, FT)}(view(state, ijk, :, et)),
-            Vars{vars_state_auxiliary(balance_law, FT)}(view(state_auxiliary, ijk, :, et)),
+            Vars{vars_state_conservative(balance_law, FT)}(view(
+                state,
+                ijk,
+                :,
+                et,
+            )),
+            Vars{vars_state_auxiliary(balance_law, FT)}(view(
+                state_auxiliary,
+                ijk,
+                :,
+                et,
+            )),
         )
 
         # Loop up the stack of elements
@@ -1447,13 +1671,28 @@ end
                 reverse_integral_load_auxiliary_state!(
                     balance_law,
                     Vars{vars_reverse_integrals(balance_law, FT)}(l_V),
-                    Vars{vars_state_conservative(balance_law, FT)}(view(state, ijk, :, e)),
-                    Vars{vars_state_auxiliary(balance_law, FT)}(view(state_auxiliary, ijk, :, e)),
+                    Vars{vars_state_conservative(balance_law, FT)}(view(
+                        state,
+                        ijk,
+                        :,
+                        e,
+                    )),
+                    Vars{vars_state_auxiliary(balance_law, FT)}(view(
+                        state_auxiliary,
+                        ijk,
+                        :,
+                        e,
+                    )),
                 )
                 l_V .= l_T .- l_V
                 reverse_integral_set_auxiliary_state!(
                     balance_law,
-                    Vars{vars_state_auxiliary(balance_law, FT)}(view(state_auxiliary, ijk, :, e)),
+                    Vars{vars_state_auxiliary(balance_law, FT)}(view(
+                        state_auxiliary,
+                        ijk,
+                        :,
+                        e,
+                    )),
                     Vars{vars_reverse_integrals(balance_law, FT)}(l_V),
                 )
             end
@@ -1885,10 +2124,15 @@ end
             end
         end
 
-        fill!(local_state_hyperdiffusion, -zero(eltype(local_state_hyperdiffusion)))
+        fill!(
+            local_state_hyperdiffusion,
+            -zero(eltype(local_state_hyperdiffusion)),
+        )
         transform_post_gradient_laplacian!(
             balance_law,
-            Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion),
+            Vars{vars_hyperdiffusive(balance_law, FT)}(
+                local_state_hyperdiffusion,
+            ),
             Grad{vars_gradient_laplacian(balance_law, FT)}(l_grad_lap),
             Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
@@ -1988,10 +2232,15 @@ end
             l_grad_lap[3, s] = -ξvx3 * lap_ξv
         end
 
-        fill!(local_state_hyperdiffusion, -zero(eltype(local_state_hyperdiffusion)))
+        fill!(
+            local_state_hyperdiffusion,
+            -zero(eltype(local_state_hyperdiffusion)),
+        )
         transform_post_gradient_laplacian!(
             balance_law,
-            Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion),
+            Vars{vars_hyperdiffusive(balance_law, FT)}(
+                local_state_hyperdiffusion,
+            ),
             Grad{vars_gradient_laplacian(balance_law, FT)}(l_grad_lap),
             Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
@@ -2058,10 +2307,12 @@ end
         l_lap⁺ = MArray{Tuple{ngradlapstate}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
 
-        local_state_conservative⁻ = MArray{Tuple{ngradtransformstate}, FT}(undef)
+        local_state_conservative⁻ =
+            MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
-        local_state_conservative⁺ = MArray{Tuple{ngradtransformstate}, FT}(undef)
+        local_state_conservative⁺ =
+            MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
     end
 
@@ -2115,35 +2366,56 @@ end
             numerical_flux_higher_order!(
                 hyperviscnumflux,
                 balance_law,
-                Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion,
+                ),
                 normal_vector,
                 Vars{vars_gradient_laplacian(balance_law, FT)}(l_lap⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
                 Vars{vars_gradient_laplacian(balance_law, FT)}(l_lap⁺),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺,
+                ),
                 t,
             )
         else
             numerical_boundary_flux_higher_order!(
                 hyperviscnumflux,
                 balance_law,
-                Vars{vars_hyperdiffusive(balance_law, FT)}(local_state_hyperdiffusion),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion,
+                ),
                 normal_vector,
                 Vars{vars_gradient_laplacian(balance_law, FT)}(l_lap⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁻),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
                 Vars{vars_gradient_laplacian(balance_law, FT)}(l_lap⁺),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative⁺),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺,
+                ),
                 bctype,
                 t,
             )
         end
 
         @unroll for s in 1:nhyperviscstate
-            Qhypervisc_grad[vid⁻, s, e⁻] += vMI * sM * local_state_hyperdiffusion[s]
+            Qhypervisc_grad[vid⁻, s, e⁻] +=
+                vMI * sM * local_state_hyperdiffusion[s]
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
@@ -2176,9 +2448,11 @@ end
 
         Np = Nq * Nq * Nqk
 
-        local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_state_conservative =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_gradient_flux = MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
     end
 
     e = @index(Group, Linear)
@@ -2199,9 +2473,13 @@ end
         Δx = pointwise_courant[n, e]
         c = local_courant(
             balance_law,
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            Vars{vars_state_gradient_flux(balance_law, FT)}(local_state_gradient_flux),
+            Vars{vars_state_gradient_flux(balance_law, FT)}(
+                local_state_gradient_flux,
+            ),
             Δx,
             Δt,
             simtime,
