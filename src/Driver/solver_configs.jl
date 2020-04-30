@@ -105,7 +105,7 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        auxstate = restart_auxstate(bl, grid, s_aux)
+        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
 
         dg = DGModel(
             bl,
@@ -113,7 +113,7 @@ function SolverConfiguration(
             numerical_flux_first_order,
             numerical_flux_second_order,
             numerical_flux_gradient,
-            state_auxiliary = auxstate,
+            state_auxiliary = state_auxiliary,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )

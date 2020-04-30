@@ -41,15 +41,21 @@ num_atmos_core_simple_vars(m, FT) = varsize(vars_atmos_core_simple(m, FT))
 atmos_core_simple_vars(m, array) =
     Vars{vars_atmos_core_simple(m, eltype(array))}(array)
 
-function atmos_core_simple_sums!(atmos::AtmosModel, state, thermo, MH, sums)
-    sums.u_core += MH * state.ρu[1]
-    sums.v_core += MH * state.ρu[2]
-    sums.w_core += MH * state.ρu[3]
-    sums.avg_rho_core += MH * state.ρ
-    sums.rho_core += MH * state.ρ * state.ρ
-    sums.qt_core += MH * state.moisture.ρq_tot
-    sums.thl_core += MH * thermo.moisture.θ_liq_ice * state.ρ
-    sums.ei_core += MH * thermo.e_int * state.ρ
+function atmos_core_simple_sums!(
+    atmos::AtmosModel,
+    state_conservative,
+    thermo,
+    MH,
+    sums,
+)
+    sums.u_core += MH * state_conservative.ρu[1]
+    sums.v_core += MH * state_conservative.ρu[2]
+    sums.w_core += MH * state_conservative.ρu[3]
+    sums.avg_rho_core += MH * state_conservative.ρ
+    sums.rho_core += MH * state_conservative.ρ * state_conservative.ρ
+    sums.qt_core += MH * state_conservative.moisture.ρq_tot
+    sums.thl_core += MH * thermo.moisture.θ_liq_ice * state_conservative.ρ
+    sums.ei_core += MH * thermo.e_int * state_conservative.ρ
 
     return nothing
 end
@@ -75,31 +81,42 @@ end
 num_atmos_core_ho_vars(m, FT) = varsize(vars_atmos_core_ho(m, FT))
 atmos_core_ho_vars(m, array) = Vars{vars_atmos_core_ho(m, eltype(array))}(array)
 
-function atmos_core_ho_sums!(atmos::AtmosModel, state, thermo, MH, ha, sums)
-    u = state.ρu[1] / state.ρ
+function atmos_core_ho_sums!(
+    atmos::AtmosModel,
+    state_conservative,
+    thermo,
+    MH,
+    ha,
+    sums,
+)
+    u = state_conservative.ρu[1] / state_conservative.ρ
     u′ = u - ha.u_core
-    v = state.ρu[2] / state.ρ
+    v = state_conservative.ρu[2] / state_conservative.ρ
     v′ = v - ha.v_core
-    w = state.ρu[3] / state.ρ
+    w = state_conservative.ρu[3] / state_conservative.ρ
     w′ = w - ha.w_core
-    q_tot = state.moisture.ρq_tot / state.ρ
+    q_tot = state_conservative.moisture.ρq_tot / state_conservative.ρ
     q_tot′ = q_tot - ha.qt_core
     θ_liq_ice′ = thermo.moisture.θ_liq_ice - ha.thl_core
     e_int′ = thermo.e_int - ha.ei_core
 
-    sums.var_u_core += MH * u′^2 * state.ρ
-    sums.var_v_core += MH * v′^2 * state.ρ
-    sums.var_w_core += MH * w′^2 * state.ρ
-    sums.var_qt_core += MH * q_tot′^2 * state.ρ
-    sums.var_thl_core += MH * θ_liq_ice′^2 * state.ρ
-    sums.var_ei_core += MH * e_int′^2 * state.ρ
+    sums.var_u_core += MH * u′^2 * state_conservative.ρ
+    sums.var_v_core += MH * v′^2 * state_conservative.ρ
+    sums.var_w_core += MH * w′^2 * state_conservative.ρ
+    sums.var_qt_core += MH * q_tot′^2 * state_conservative.ρ
+    sums.var_thl_core += MH * θ_liq_ice′^2 * state_conservative.ρ
+    sums.var_ei_core += MH * e_int′^2 * state_conservative.ρ
 
-    sums.cov_w_rho_core += MH * w′ * (state.ρ - ha.avg_rho_core) * state.ρ
-    sums.cov_w_qt_core += MH * w′ * q_tot′ * state.ρ
-    sums.cov_w_thl_core += MH * w′ * θ_liq_ice′ * state.ρ
-    sums.cov_qt_thl_core += MH * q_tot′ * θ_liq_ice′ * state.ρ
-    sums.cov_qt_ei_core += MH * q_tot′ * e_int′ * state.ρ
-    sums.cov_w_ei_core += MH * w′ * e_int′ * state.ρ
+    sums.cov_w_rho_core +=
+        MH *
+        w′ *
+        (state_conservative.ρ - ha.avg_rho_core) *
+        state_conservative.ρ
+    sums.cov_w_qt_core += MH * w′ * q_tot′ * state_conservative.ρ
+    sums.cov_w_thl_core += MH * w′ * θ_liq_ice′ * state_conservative.ρ
+    sums.cov_qt_thl_core += MH * q_tot′ * θ_liq_ice′ * state_conservative.ρ
+    sums.cov_qt_ei_core += MH * q_tot′ * e_int′ * state_conservative.ρ
+    sums.cov_w_ei_core += MH * w′ * e_int′ * state_conservative.ρ
 
     return nothing
 end
@@ -134,19 +151,17 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
 
-    # get the state, auxiliary and geo variables onto the host if needed
+    # get needed arrays onto the CPU
     if Array ∈ typeof(Q).parameters
-        localQ = Q.realdata
-        localaux = dg.auxstate.realdata
-        localvgeo = grid.vgeo
-        localdiff = dg.diffstate.realdata
+        host_state_conservative = Q.realdata
+        host_state_auxiliary = dg.state_auxiliary.realdata
+        host_vgeo = grid.vgeo
     else
-        localQ = Array(Q.realdata)
-        localaux = Array(dg.auxstate.realdata)
-        localvgeo = Array(grid.vgeo)
-        localdiff = Array(dg.diffstate.realdata)
+        host_state_conservative = Array(Q.realdata)
+        host_state_auxiliary = Array(dg.state_auxiliary.realdata)
+        host_vgeo = Array(grid.vgeo)
     end
-    FT = eltype(localQ)
+    FT = eltype(host_state_conservative)
 
     zvals = AtmosCollected.zvals
 
@@ -168,20 +183,22 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
-        state = extract_state(dg, localQ, ijk, e)
-        aux = extract_aux(dg, localaux, ijk, e)
-        MH = localvgeo[ijk, grid.MHid, e]
+        state_conservative =
+            extract_state_conservative(dg, host_state_conservative, ijk, e)
+        state_auxiliary =
+            extract_state_auxiliary(dg, host_state_auxiliary, ijk, e)
+        MH = host_vgeo[ijk, grid.MHid, e]
 
         thermo = thermo_vars(bl, thermo_array[ijk, e])
-        compute_thermo!(bl, state, aux, thermo)
+        compute_thermo!(bl, state_conservative, state_auxiliary, thermo)
 
-        if thermo.moisture.q_liq > 0 && state.ρu[3] > 0
+        if thermo.moisture.q_liq > 0 && state_conservative.ρu[3] > 0
             idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
             ql_w_gt_0[evk][idx] = one(FT)
             core_repdvsr[evk] += MH
 
             simple = atmos_core_simple_vars(bl, simple_sums[evk])
-            atmos_core_simple_sums!(bl, state, thermo, MH, simple)
+            atmos_core_simple_sums!(bl, state_conservative, thermo, MH, simple)
         end
     end
 
@@ -222,14 +239,22 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
-        state = extract_state(dg, localQ, ijk, e)
+        state_conservative =
+            extract_state_conservative(dg, host_state_conservative, ijk, e)
         thermo = thermo_vars(bl, thermo_array[ijk, e])
-        MH = localvgeo[ijk, grid.MHid, e]
+        MH = host_vgeo[ijk, grid.MHid, e]
 
-        if thermo.moisture.q_liq > 0 && state.ρu[3] > 0
+        if thermo.moisture.q_liq > 0 && state_conservative.ρu[3] > 0
             simple_ha = atmos_core_simple_vars(bl, simple_avgs[evk])
             ho = atmos_core_ho_vars(bl, ho_sums[evk])
-            atmos_core_ho_sums!(bl, state, thermo, MH, simple_ha, ho)
+            atmos_core_ho_sums!(
+                bl,
+                state_conservative,
+                thermo,
+                MH,
+                simple_ha,
+                ho,
+            )
         end
     end
 

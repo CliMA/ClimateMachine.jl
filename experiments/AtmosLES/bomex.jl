@@ -465,8 +465,8 @@ end
 
 function config_diagnostics(driver_config)
     default_dgngrp =
-        setup_atmos_default_diagnostics("10000steps", driver_config.name)
-    core_dgngrp = setup_atmos_core_diagnostics("10000steps", driver_config.name)
+        setup_atmos_default_diagnostics("2500steps", driver_config.name)
+    core_dgngrp = setup_atmos_core_diagnostics("2500steps", driver_config.name)
     return CLIMA.DiagnosticsConfiguration([default_dgngrp, core_dgngrp])
 end
 

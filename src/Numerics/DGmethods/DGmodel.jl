@@ -602,10 +602,10 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxstate(bl, grid, aux_data)
-    auxstate = create_auxstate(bl, grid)
-    auxstate .= aux_data
-    return auxstate
+function restart_auxiliary_state(bl, grid, aux_data)
+    state_auxiliary = create_auxiliary_state(bl, grid)
+    state_auxiliary .= aux_data
+    return state_auxiliary
 end
 
 # fallback
