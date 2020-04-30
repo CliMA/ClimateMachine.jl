@@ -462,7 +462,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 12,
+        timestep_ratio = 15,
     )
     config = CLIMA.AtmosLESConfiguration(
         "HadGEM2-CLIMA",
@@ -510,7 +510,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(7)
+    CFL = FT(10)
 
     # Execute the get_gcm_info function
     (
