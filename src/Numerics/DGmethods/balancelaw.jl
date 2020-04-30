@@ -69,8 +69,8 @@ function flux_first_order! end
 function flux_second_order! end
 function source! end
 
-function compute_gradient_argument! end
-function compute_gradient_flux! end
+compute_gradient_argument!(::BalanceLaw, args...) = nothing
+compute_gradient_flux!(::BalanceLaw, args...) = nothing
 function transform_post_gradient_laplacian! end
 
 function wavespeed end
