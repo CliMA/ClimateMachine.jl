@@ -45,11 +45,13 @@ vars_hyperdiffusive(::BalanceLaw, FT) = @vars()
 vars_integrals(::BalanceLaw, FT) = @vars()
 vars_reverse_integrals(::BalanceLaw, FT) = @vars()
 
-number_state_conservative(m::BalanceLaw, FT) = varsize(vars_state_conservative(m, FT))
+number_state_conservative(m::BalanceLaw, FT) =
+    varsize(vars_state_conservative(m, FT))
 number_state_auxiliary(m::BalanceLaw, FT) = varsize(vars_state_auxiliary(m, FT))
 
 number_state_gradient(m::BalanceLaw, FT) = varsize(vars_state_gradient(m, FT))
-number_state_gradient_flux(m::BalanceLaw, FT) = varsize(vars_state_gradient_flux(m, FT))
+number_state_gradient_flux(m::BalanceLaw, FT) =
+    varsize(vars_state_gradient_flux(m, FT))
 
 num_gradient_laplacian(m::BalanceLaw, FT) =
     varsize(vars_gradient_laplacian(m, FT))
@@ -170,8 +172,14 @@ function create_auxiliary_state(balance_law, grid)
         topology.realelems,
         dependencies = (event,),
     )
-    event = MPIStateArrays.begin_ghost_exchange!(state_auxiliary; dependencies = event)
-    event = MPIStateArrays.end_ghost_exchange!(state_auxiliary; dependencies = event)
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
     wait(device, event)
 
     return state_auxiliary

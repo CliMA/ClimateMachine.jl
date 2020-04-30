@@ -8,10 +8,13 @@ struct RemainderModel{M, S} <: BalanceLaw
     subs::S
 end
 
-vars_state_conservative(rem::RemainderModel, FT) = vars_state_conservative(rem.main, FT)
+vars_state_conservative(rem::RemainderModel, FT) =
+    vars_state_conservative(rem.main, FT)
 vars_state_gradient(rem::RemainderModel, FT) = vars_state_gradient(rem.main, FT)
-vars_state_gradient_flux(rem::RemainderModel, FT) = vars_state_gradient_flux(rem.main, FT)
-vars_state_auxiliary(rem::RemainderModel, FT) = vars_state_auxiliary(rem.main, FT)
+vars_state_gradient_flux(rem::RemainderModel, FT) =
+    vars_state_gradient_flux(rem.main, FT)
+vars_state_auxiliary(rem::RemainderModel, FT) =
+    vars_state_auxiliary(rem.main, FT)
 vars_integrals(rem::RemainderModel, FT) = vars_integrals(rem.main, FT)
 vars_reverse_integrals(rem::RemainderModel, FT) = vars_integrals(rem.main, FT)
 vars_gradient_laplacian(rem::RemainderModel, FT) =
@@ -26,8 +29,12 @@ update_auxiliary_state!(
     elems::UnitRange,
 ) = update_auxiliary_state!(dg, rem.main, Q, t, elems)
 
-integral_load_auxiliary_state!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
-    integral_load_auxiliary_state!(rem.main, integ, state, aux)
+integral_load_auxiliary_state!(
+    rem::RemainderModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+) = integral_load_auxiliary_state!(rem.main, integ, state, aux)
 
 integral_set_auxiliary_state!(rem::RemainderModel, aux::Vars, integ::Vars) =
     integral_set_auxiliary_state!(rem.main, aux, integ)
@@ -39,8 +46,11 @@ reverse_integral_load_auxiliary_state!(
     aux::Vars,
 ) = reverse_integral_load_auxiliary_state!(rem.main, integ, state, aux)
 
-reverse_integral_set_auxiliary_state!(rem::RemainderModel, aux::Vars, integ::Vars) =
-    reverse_integral_set_auxiliary_state!(rem.main, aux, integ)
+reverse_integral_set_auxiliary_state!(
+    rem::RemainderModel,
+    aux::Vars,
+    integ::Vars,
+) = reverse_integral_set_auxiliary_state!(rem.main, aux, integ)
 
 function transform_post_gradient_laplacian!(
     rem::RemainderModel,
@@ -50,7 +60,14 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 )
-    transform_post_gradient_laplacian!(rem.main, hyperdiffusive, hypertransform, state, aux, t)
+    transform_post_gradient_laplacian!(
+        rem.main,
+        hyperdiffusive,
+        hypertransform,
+        state,
+        aux,
+        t,
+    )
 end
 function flux_second_order!(
     rem::RemainderModel,
@@ -125,8 +142,15 @@ function normal_boundary_flux_second_order!(
     )
 end
 
-init_state_auxiliary!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
-init_state_conservative!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
+init_state_auxiliary!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) =
+    nothing
+init_state_conservative!(
+    rem::RemainderModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+) = nothing
 
 function flux_first_order!(
     rem::RemainderModel,

@@ -24,9 +24,11 @@ end
 """
     Copy over state, aux, and diff variables from HBModel
 """
-vars_state_conservative(lm::LinearHBModel, FT) = vars_state_conservative(lm.ocean, FT)
+vars_state_conservative(lm::LinearHBModel, FT) =
+    vars_state_conservative(lm.ocean, FT)
 vars_state_gradient(lm::LinearHBModel, FT) = vars_state_gradient(lm.ocean, FT)
-vars_state_gradient_flux(lm::LinearHBModel, FT) = vars_state_gradient_flux(lm.ocean, FT)
+vars_state_gradient_flux(lm::LinearHBModel, FT) =
+    vars_state_gradient_flux(lm.ocean, FT)
 vars_state_auxiliary(lm::LinearHBModel, FT) = vars_state_auxiliary(lm.ocean, FT)
 vars_integrals(lm::LinearHBModel, FT) = @vars()
 
@@ -41,7 +43,8 @@ vars_integrals(lm::LinearHBModel, FT) = @vars()
     No need to init, initialize by full model
 """
 init_state_auxiliary!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing
-init_state_conservative!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
+init_state_conservative!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) =
+    nothing
 
 """
     compute_gradient_argument!(::LinearHBModel)
@@ -56,7 +59,13 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function compute_gradient_argument!(m::LinearHBModel, G::Vars, Q::Vars, A, t)
+@inline function compute_gradient_argument!(
+    m::LinearHBModel,
+    G::Vars,
+    Q::Vars,
+    A,
+    t,
+)
     G.∇u = Q.u
     G.∇θ = Q.θ
 

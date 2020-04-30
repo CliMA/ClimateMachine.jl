@@ -117,7 +117,13 @@ advective_flux!(::SWModel, ::Nothing, _...) = nothing
     return nothing
 end
 
-function compute_gradient_argument!(m::SWModel, f::Vars, q::Vars, α::Vars, t::Real)
+function compute_gradient_argument!(
+    m::SWModel,
+    f::Vars,
+    q::Vars,
+    α::Vars,
+    t::Real,
+)
     compute_gradient_argument!(m.turbulence, f, q, α, t)
 end
 
@@ -135,7 +141,14 @@ compute_gradient_argument!(::LinearDrag, _...) = nothing
     return nothing
 end
 
-function compute_gradient_flux!(m::SWModel, σ::Vars, δ::Grad, q::Vars, α::Vars, t::Real)
+function compute_gradient_flux!(
+    m::SWModel,
+    σ::Vars,
+    δ::Grad,
+    q::Vars,
+    α::Vars,
+    t::Real,
+)
     compute_gradient_flux!(m.turbulence, σ, δ, q, α, t)
 end
 

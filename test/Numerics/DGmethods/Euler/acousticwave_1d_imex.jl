@@ -5,7 +5,9 @@ using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid, VerticalDirection
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes:
-    RusanovNumericalFlux, CentralNumericalFluxGradient, CentralNumericalFluxSecondOrder
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
 using CLIMA.ODESolvers
 using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU

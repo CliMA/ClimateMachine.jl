@@ -75,7 +75,8 @@ struct Rain <: PrecipitationModel end
 vars_state_conservative(::Rain, FT) = @vars(ρq_rain::FT)
 vars_state_gradient(::Rain, FT) = @vars(q_rain::FT)
 vars_state_gradient_flux(::Rain, FT) = @vars(ρd_q_rain::SVector{3, FT})
-vars_state_auxiliary(::Rain, FT) = @vars(terminal_velocity::FT, src_q_rai_tot::FT)
+vars_state_auxiliary(::Rain, FT) =
+    @vars(terminal_velocity::FT, src_q_rai_tot::FT)
 
 function atmos_nodal_update_auxiliary_state!(
     rain::Rain,

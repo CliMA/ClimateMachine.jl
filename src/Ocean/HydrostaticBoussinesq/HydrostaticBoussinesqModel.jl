@@ -246,7 +246,14 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function compute_gradient_flux!(m::HBModel, D::Vars, G::Grad, Q::Vars, A::Vars, t)
+@inline function compute_gradient_flux!(
+    m::HBModel,
+    D::Vars,
+    G::Grad,
+    Q::Vars,
+    A::Vars,
+    t,
+)
     ν = viscosity_tensor(m)
     D.ν∇u = ν * G.∇u
 
@@ -308,7 +315,12 @@ I -> array of integrand variables
 Q -> array of state variables
 A -> array of aux variables
 """
-@inline function integral_load_auxiliary_state!(m::HBModel, I::Vars, Q::Vars, A::Vars)
+@inline function integral_load_auxiliary_state!(
+    m::HBModel,
+    I::Vars,
+    Q::Vars,
+    A::Vars,
+)
     I.∇hu = A.w # borrow the w value from A...
     I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
 
@@ -378,7 +390,11 @@ m -> model in this case HBModel
 A -> array of aux variables
 I -> array of integrand variables
 """
-@inline function reverse_integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
+@inline function reverse_integral_set_auxiliary_state!(
+    m::HBModel,
+    A::Vars,
+    I::Vars,
+)
     A.pkin = I.αᵀθ
 
     return nothing

@@ -10,7 +10,9 @@ using Printf
 using LinearAlgebra
 using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
 using CLIMA.DGmethods.NumericalFluxes:
-    RusanovNumericalFlux, CentralNumericalFluxGradient, CentralNumericalFluxSecondOrder
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
 using CLIMA.Courant
 using CLIMA.Atmos:
     AtmosModel,

@@ -181,14 +181,24 @@ function atmos_normal_boundary_flux_second_order!(
         atmos,
         args...,
     )
-    atmos_energy_normal_boundary_flux_second_order!(nf, bc.energy, atmos, args...)
+    atmos_energy_normal_boundary_flux_second_order!(
+        nf,
+        bc.energy,
+        atmos,
+        args...,
+    )
     atmos_moisture_normal_boundary_flux_second_order!(
         nf,
         bc.moisture,
         atmos,
         args...,
     )
-    atmos_tracer_normal_boundary_flux_second_order!(nf, bc.tracer, atmos, args...)
+    atmos_tracer_normal_boundary_flux_second_order!(
+        nf,
+        bc.tracer,
+        atmos,
+        args...,
+    )
 end
 
 include("bc_momentum.jl")

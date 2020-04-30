@@ -68,7 +68,9 @@ function numerical_flux_gradient!(
     t,
 ) where {T, S, A}
 
-    transform_gradient .= normal_vector .* (parent(state_gradient⁺) .+ parent(state_gradient⁻))' ./ 2
+    transform_gradient .=
+        normal_vector .*
+        (parent(state_gradient⁺) .+ parent(state_gradient⁻))' ./ 2
 end
 
 function numerical_boundary_flux_gradient!(
@@ -101,7 +103,13 @@ function numerical_boundary_flux_gradient!(
         aux1⁻,
     )
 
-    compute_gradient_argument!(balance_law, state_gradient⁺, state_conservative⁺, state_auxiliary⁺, t)
+    compute_gradient_argument!(
+        balance_law,
+        state_gradient⁺,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+    )
     transform_gradient .= normal_vector .* parent(state_gradient⁺)'
 end
 
@@ -212,13 +220,38 @@ function numerical_flux_first_order!(
     )
 
     fluxᵀn = parent(fluxᵀn)
-    wavespeed⁻ = wavespeed(balance_law, normal_vector, state_conservative⁻, state_auxiliary⁻, t)
-    wavespeed⁺ = wavespeed(balance_law, normal_vector, state_conservative⁺, state_auxiliary⁺, t)
+    wavespeed⁻ = wavespeed(
+        balance_law,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        t,
+    )
+    wavespeed⁺ = wavespeed(
+        balance_law,
+        normal_vector,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+    )
     max_wavespeed = max(wavespeed⁻, wavespeed⁺)
-    penalty = max_wavespeed * (parent(state_conservative⁻) - parent(state_conservative⁺))
+    penalty =
+        max_wavespeed *
+        (parent(state_conservative⁻) - parent(state_conservative⁺))
 
     # TODO: should this operate on ΔQ or penalty?
-    update_penalty!(numerical_flux, balance_law, normal_vector, max_wavespeed, Vars{S}(penalty), state_conservative⁻, state_auxiliary⁻, state_conservative⁺, state_auxiliary⁺, t)
+    update_penalty!(
+        numerical_flux,
+        balance_law,
+        normal_vector,
+        max_wavespeed,
+        Vars{S}(penalty),
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+    )
 
     fluxᵀn .+= penalty / 2
 end
@@ -254,11 +287,23 @@ function numerical_flux_first_order!(
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_conservative))
     fill!(flux⁻, -zero(FT))
-    flux_first_order!(balance_law, Grad{S}(flux⁻), state_conservative⁻, state_auxiliary⁻, t)
+    flux_first_order!(
+        balance_law,
+        Grad{S}(flux⁻),
+        state_conservative⁻,
+        state_auxiliary⁻,
+        t,
+    )
 
     flux⁺ = similar(fluxᵀn, Size(3, num_state_conservative))
     fill!(flux⁺, -zero(FT))
-    flux_first_order!(balance_law, Grad{S}(flux⁺), state_conservative⁺, state_auxiliary⁺, t)
+    flux_first_order!(
+        balance_law,
+        Grad{S}(flux⁺),
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+    )
 
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2)
 end
@@ -326,11 +371,27 @@ function numerical_flux_second_order!(
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_conservative))
     fill!(flux⁻, -zero(FT))
-    flux_second_order!(balance_law, Grad{S}(flux⁻), state_conservative⁻, state_gradient_flux⁻, state_hyperdiffusive⁻, state_auxiliary⁻, t)
+    flux_second_order!(
+        balance_law,
+        Grad{S}(flux⁻),
+        state_conservative⁻,
+        state_gradient_flux⁻,
+        state_hyperdiffusive⁻,
+        state_auxiliary⁻,
+        t,
+    )
 
     flux⁺ = similar(fluxᵀn, Size(3, num_state_conservative))
     fill!(flux⁺, -zero(FT))
-    flux_second_order!(balance_law, Grad{S}(flux⁺), state_conservative⁺, state_gradient_flux⁺, state_hyperdiffusive⁺, state_auxiliary⁺, t)
+    flux_second_order!(
+        balance_law,
+        Grad{S}(flux⁺),
+        state_conservative⁺,
+        state_gradient_flux⁺,
+        state_hyperdiffusive⁺,
+        state_auxiliary⁺,
+        t,
+    )
 
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector⁻ / 2)
 end
@@ -346,7 +407,8 @@ function numerical_flux_divergence!(
     grad⁻::Grad{GL},
     grad⁺::Grad{GL},
 ) where {GL}
-    parent(div_penalty) .= (parent(grad⁺) .- parent(grad⁻))' * (normal_vector / 2)
+    parent(div_penalty) .=
+        (parent(grad⁺) .- parent(grad⁻))' * (normal_vector / 2)
 end
 
 function numerical_boundary_flux_divergence!(
@@ -358,8 +420,22 @@ function numerical_boundary_flux_divergence!(
     grad⁺::Grad{GL},
     bctype,
 ) where {GL}
-    boundary_state!(numerical_flux, balance_law, grad⁺, normal_vector, grad⁻, bctype)
-    numerical_flux_divergence!(numerical_flux, balance_law, div_penalty, normal_vector, grad⁻, grad⁺)
+    boundary_state!(
+        numerical_flux,
+        balance_law,
+        grad⁺,
+        normal_vector,
+        grad⁻,
+        bctype,
+    )
+    numerical_flux_divergence!(
+        numerical_flux,
+        balance_law,
+        div_penalty,
+        normal_vector,
+        grad⁻,
+        grad⁺,
+    )
 end
 
 abstract type GradNumericalFlux end
@@ -379,7 +455,14 @@ function numerical_flux_higher_order!(
     t,
 ) where {HD, GL, S, A}
     G = normal_vector .* (parent(lap⁻) .+ parent(lap⁺))' ./ 2
-    transform_post_gradient_laplacian!(balance_law, hyperdiff, Grad{GL}(G), state_conservative⁻, state_auxiliary⁻, t)
+    transform_post_gradient_laplacian!(
+        balance_law,
+        hyperdiff,
+        Grad{GL}(G),
+        state_conservative⁻,
+        state_auxiliary⁻,
+        t,
+    )
 end
 
 function numerical_boundary_flux_higher_order!(
@@ -546,7 +629,15 @@ function boundary_flux_second_order!(
         diff1⁻,
         aux1⁻,
     )
-    flux_second_order!(balance_law, flux, state_conservative⁺, state_gradient_flux⁺, state_hyperdiffusive⁺, state_auxiliary⁺, t)
+    flux_second_order!(
+        balance_law,
+        flux,
+        state_conservative⁺,
+        state_gradient_flux⁺,
+        state_hyperdiffusive⁺,
+        state_auxiliary⁺,
+        t,
+    )
 end
 
 end
