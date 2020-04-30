@@ -53,30 +53,25 @@ function main()
     numlevels = integration_testing ? 4 : 1
 
     expected_error = Dict()
+    expected_error[Float64, MRIGARKIRK21aSandu, 1] = 2.3236071337679274e+01
+    expected_error[Float64, MRIGARKIRK21aSandu, 2] = 5.2652585224989430e+00
+    expected_error[Float64, MRIGARKIRK21aSandu, 3] = 1.2100430848052603e-01
+    expected_error[Float64, MRIGARKIRK21aSandu, 4] = 2.1974838909870273e-03
 
-    expected_error[Float64, false, 1] = 2.3225467541870387e+01
-    expected_error[Float64, false, 2] = 5.2663709730295070e+00
-    expected_error[Float64, false, 3] = 1.2183770894070467e-01
-    expected_error[Float64, false, 4] = 2.8660813871243937e-03
-
-    expected_error[Float64, true, 1] = 2.3225467618783981e+01
-    expected_error[Float64, true, 2] = 5.2663709730207771e+00
-    expected_error[Float64, true, 3] = 1.2183770891083319e-01
-    expected_error[Float64, true, 4] = 2.8660813810759854e-03
+    expected_error[Float64, MRIGARKESDIRK34aSandu, 1] = 2.3235626679098608e+01
+    expected_error[Float64, MRIGARKESDIRK34aSandu, 2] = 5.2672845223341218e+00
+    expected_error[Float64, MRIGARKESDIRK34aSandu, 3] = 1.2097276468825705e-01
+    expected_error[Float64, MRIGARKESDIRK34aSandu, 4] = 2.0920468129065205e-03
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64,), dims in 2
-            for split_explicit_implicit in (false, true)
-                let
-                    split = split_explicit_implicit ? "(Nonlinear, Linear)" :
-                        "(Full, Linear)"
-                    @info @sprintf """Configuration
-                                      ArrayType = %s
-                                      FT    = %s
-                                      dims      = %d
-                                      splitting = %s
-                                      """ ArrayType "$FT" dims split
-                end
+            for mrigark_method in (MRIGARKIRK21aSandu, MRIGARKESDIRK34aSandu)
+                @info @sprintf """Configuration
+                                  ArrayType      = %s
+                                  mrigark_method = %s
+                                  FT             = %s
+                                  dims           = %d
+                                  """ ArrayType "$mrigark_method" "$FT" dims
 
                 setup = IsentropicVortexSetup{FT}()
                 errors = Vector{FT}(undef, numlevels)
@@ -90,14 +85,14 @@ function main()
                         polynomialorder,
                         numelems,
                         setup,
-                        split_explicit_implicit,
+                        mrigark_method,
                         FT,
                         dims,
                         level,
                     )
 
                     @test errors[level] ≈
-                          expected_error[FT, split_explicit_implicit, level]
+                          expected_error[FT, mrigark_method, level]
                 end
 
                 rates = @. log2(
@@ -122,7 +117,7 @@ function run(
     polynomialorder,
     numelems,
     setup,
-    split_explicit_implicit,
+    mrigark_method,
     FT,
     dims,
     level,
@@ -159,9 +154,13 @@ function run(
         boundarycondition = (),
         init_state = isentropicvortex_initialcondition!,
     )
-
-    linear_model = AtmosAcousticLinearModel(model)
-    nonlinear_model = RemainderModel(model, (linear_model,))
+    # This is a bad idea; this test is just testing how
+    # implicit GARK composes with explicit methods
+    # The linear model has the fast time scales but will be
+    # treated implicitly (outer solver)
+    slow_model = AtmosAcousticLinearModel(model)
+    # The remainder will be treated explicitly in the inner loop
+    fast_model = RemainderModel(model, (slow_model,))
 
     dg = DGModel(
         model,
@@ -170,9 +169,16 @@ function run(
         CentralNumericalFluxDiffusive(),
         CentralNumericalFluxGradient(),
     )
-
-    dg_linear = DGModel(
-        linear_model,
+    fast_dg = DGModel(
+        fast_model,
+        grid,
+        Rusanov(),
+        CentralNumericalFluxDiffusive(),
+        CentralNumericalFluxGradient();
+        auxstate = dg.auxstate,
+    )
+    slow_dg = DGModel(
+        slow_model,
         grid,
         Rusanov(),
         CentralNumericalFluxDiffusive(),
@@ -180,39 +186,29 @@ function run(
         auxstate = dg.auxstate,
     )
 
-    if split_explicit_implicit
-        dg_nonlinear = DGModel(
-            nonlinear_model,
-            grid,
-            Rusanov(),
-            CentralNumericalFluxDiffusive(),
-            CentralNumericalFluxGradient();
-            auxstate = dg.auxstate,
-        )
-    end
-
     timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
 
     # determine the time step
     elementsize = minimum(step.(brickrange))
     dt =
         elementsize / soundspeed_air(model.param_set, setup.T∞) /
-        polynomialorder^2
+        polynomialorder^2 / 5
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = GeneralizedMinimalResidual(Q; M = 10, rtol = 1e-10)
-    ode_solver = ARK2GiraldoKellyConstantinescu(
-        split_explicit_implicit ? dg_nonlinear : dg,
-        dg_linear,
+    fastsolver = LSRK54CarpenterKennedy(fast_dg, Q; dt = dt)
+
+    linearsolver = GeneralizedMinimalResidual(Q; M = 50, rtol = 1e-10)
+
+    ode_solver = mrigark_method(
+        slow_dg,
         LinearBackwardEulerSolver(linearsolver; isadjustable = true),
+        fastsolver,
         Q;
         dt = dt,
         t0 = 0,
-        split_explicit_implicit = split_explicit_implicit,
-        paperversion = true,
     )
 
     eng0 = norm(Q)
@@ -246,9 +242,9 @@ function run(
     if output_vtk
         # create vtk dir
         vtkdir =
-            "vtk_isentropicvortex_imex" *
-            "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)" *
-            "_$(split_explicit_implicit)"
+            "vtk_isentropicvortex_mrigark" *
+            "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)" *
+            "_$(FastMethod)_level$(level)"
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -362,7 +358,7 @@ function do_output(
     Q,
     Qe,
     model,
-    testname = "isentropicvortex_imex",
+    testname = "isentropicvortex_mrigark",
 )
     ## name of the file that this MPI rank will write
     filename = @sprintf(

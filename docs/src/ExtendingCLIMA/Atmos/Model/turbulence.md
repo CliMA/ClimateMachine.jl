@@ -2,7 +2,7 @@
 EditURL = "<unknown>/src/Atmos/Model/turbulence.jl"
 ```
 
-## Turbulence Closures
+## [Turbulence Closures](@id Turbulence-Closures-docs)
 In `turbulence.jl` we specify turbulence closures. Currently,
 pointwise models of the eddy viscosity/eddy diffusivity type are
 supported for turbulent shear and tracer diffusivity. Methods currently supported

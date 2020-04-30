@@ -8,7 +8,6 @@ module ODESolvers
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
-using ..SpaceMethods
 using ..LinearSolvers
 using ..MPIStateArrays: device, realview
 
@@ -47,6 +46,7 @@ function general_dostep!(
     time, dt = solver.t, solver.dt
     final_step = false
     if adjustfinalstep && time + dt > timeend
+        orig_dt = dt
         dt = timeend - time
         updatedt!(solver, dt)
         final_step = true
@@ -58,6 +58,7 @@ function general_dostep!(
     if !final_step
         solver.t += dt
     else
+        updatedt!(solver, orig_dt)
         solver.t = timeend
     end
 end
@@ -156,6 +157,9 @@ function solve!(
 end
 # }}}
 
+include("BackwardEulerSolvers.jl")
+include("MultirateInfinitesimalGARKExplicit.jl")
+include("MultirateInfinitesimalGARKDecoupledImplicit.jl")
 include("LowStorageRungeKuttaMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")

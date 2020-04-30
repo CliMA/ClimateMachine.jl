@@ -49,7 +49,6 @@ function atmos_nodal_update_aux!(
     aux::Vars,
     t::Real,
 ) end
-function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
 function integral_load_aux!(
     ::RadiationModel,
     integ::Vars,
@@ -160,7 +159,6 @@ function flux_radiation!(
     ẑ = vertical_unit_vector(atmos, aux)
     flux.ρe += F_rad * ẑ
 end
-function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real) end
 # -------------------------- End Radiation Model ------------------------ #
 
 """

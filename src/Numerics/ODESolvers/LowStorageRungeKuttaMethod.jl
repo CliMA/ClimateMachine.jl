@@ -59,21 +59,6 @@ mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: AbstractODESolver
     end
 end
 
-function LowStorageRungeKutta2N(
-    spacedisc::AbstractSpaceMethod,
-    RKA,
-    RKB,
-    RKC,
-    Q::AT;
-    dt = 0,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    rhs! =
-        (x...; increment) ->
-            SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-    LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
-end
-
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
             [slow_δ, slow_rv_dQ, slow_scaling])
@@ -143,6 +128,74 @@ end
         end
     end
 end
+
+"""
+    dostep!(Q, lsrk::LowStorageRungeKutta2N, p::MRIParam, time::Real,
+            dt::Real)
+
+Use the 2N low storage Runge--Kutta method `lsrk` to step `Q` forward in time
+from the current time `time` to final time `time + dt`.
+
+If the optional parameter `slow_δ !== nothing` then `slow_rv_dQ * slow_δ` is
+added as an additionall ODE right-hand side source. If the optional parameter
+`slow_scaling !== nothing` then after the final stage update the scaling
+`slow_rv_dQ *= slow_scaling` is performed.
+"""
+function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
+    dt = lsrk.dt
+
+    RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
+    rhs!, dQ = lsrk.rhs!, lsrk.dQ
+
+    rv_Q = realview(Q)
+    rv_dQ = realview(dQ)
+
+    groupsize = 256
+
+    for s in 1:length(RKA)
+        stage_time = time + RKC[s] * dt
+        rhs!(dQ, Q, mrip.p, stage_time, increment = true)
+
+        # update solution and scale RHS
+        τ = (stage_time - mrip.ts) / mrip.Δts
+        event = Event(device(Q))
+        event = lsrk_mri_update!(device(Q), groupsize)(
+            rv_dQ,
+            rv_Q,
+            RKA[s % length(RKA) + 1],
+            RKB[s],
+            τ,
+            dt,
+            mrip.γs,
+            mrip.Rs;
+            ndrange = length(rv_Q),
+            dependencies = (event,),
+        )
+        wait(device(Q), event)
+    end
+end
+
+@kernel function lsrk_mri_update!(dQ, Q, rka, rkb, τ, dt, γs, Rs)
+    i = @index(Global, Linear)
+    @inbounds begin
+        NΓ = length(γs)
+        Ns = length(γs[1])
+        dqi = dQ[i]
+
+        for s in 1:Ns
+            ri = Rs[s][i]
+            sc = γs[NΓ][s]
+            for k in (NΓ - 1):-1:1
+                sc = sc * τ + γs[k][s]
+            end
+            dqi += sc * ri
+        end
+
+        Q[i] += rkb * dt * dqi
+        dQ[i] = rka * dqi
+    end
+end
+
 
 """
     LSRKEulerMethod(f, Q; dt, t0 = 0)
