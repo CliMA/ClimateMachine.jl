@@ -139,12 +139,10 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
         localQ = Q.realdata
         localaux = dg.state_auxiliary.realdata
         localvgeo = grid.vgeo
-        localdiff = dg.state_gradient_flux.realdata
     else
         localQ = Array(Q.realdata)
         localaux = Array(dg.state_auxiliary.realdata)
         localvgeo = Array(grid.vgeo)
-        localdiff = Array(dg.state_gradient_flux.realdata)
     end
     FT = eltype(localQ)
 
