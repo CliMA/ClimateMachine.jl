@@ -290,6 +290,7 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dz::vars_integrals(m, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
+        N²::FT
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -512,6 +513,23 @@ function update_auxiliary_state!(
     return true
 end
 
+function update_auxiliary_state_gradient!(
+    dg::DGModel,
+    m::AtmosModel,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    A = dg.state_auxiliary
+    function f!(m::AtmosModel, Q, A, D, t)
+        @inbounds begin
+            A.N² = D.turbulence.N²
+        end
+        return nothing
+    end
+    nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
+    return true
+end
 function atmos_nodal_update_auxiliary_state!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)

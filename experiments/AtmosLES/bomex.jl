@@ -362,7 +362,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
     ics = init_bomex!     # Initial conditions
 
-    C_smag = FT(0.18)     # Smagorinsky coefficient
+    C_smag = FT(0.20)     # Smagorinsky coefficient
 
     u_star = FT(0.28)     # Friction velocity
 
@@ -484,16 +484,16 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(6400)
-    ymax = FT(6400)
+    xmax = FT(2500)
+    ymax = FT(2500)
     zmax = FT(3000)
 
     t0 = FT(0)
 
     # For a full-run, please set the timeend to 3600*6 seconds
     # For the test we set this to == 30 minutes
-    timeend = FT(1800)
-    #timeend = FT(3600 * 6)
+    #timeend = FT(1800)
+    timeend = FT(3600 * 6)
     CFLmax = FT(8)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)

@@ -462,7 +462,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 15,
+        timestep_ratio = 12,
     )
     config = CLIMA.AtmosLESConfiguration(
         "HadGEM2-CLIMA",
@@ -481,7 +481,7 @@ end
 
 # Define the diagnostics configuration (Atmos-Default)
 function config_diagnostics(driver_config)
-    interval = "0.1shours"
+    interval = ""
     writer = NetCDFWriter()
     dgngrp = setup_atmos_default_diagnostics(
                 interval, driver_config.name; 
@@ -510,7 +510,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(10)
+    CFL = FT(12)
 
     # Execute the get_gcm_info function
     (
