@@ -564,55 +564,6 @@ function normal_boundary_flux_second_order!(
     diff1⁻,
     aux1⁻,
 ) where {S}
-    FT = eltype(fluxᵀn)
-    num_state_conservative = number_state_conservative(balance_law, FT)
-    fluxᵀn = parent(fluxᵀn)
-
-    flux = similar(fluxᵀn, Size(3, num_state_conservative))
-    fill!(flux, -zero(FT))
-    boundary_flux_second_order!(
-        numerical_flux,
-        balance_law,
-        Grad{S}(flux),
-        state_conservative⁺,
-        state_gradient_flux⁺,
-        state_hyperdiffusive⁺,
-        state_auxiliary⁺,
-        normal_vector,
-        state_conservative⁻,
-        state_gradient_flux⁻,
-        state_hyperdiffusive⁻,
-        state_auxiliary⁻,
-        bctype,
-        t,
-        state1⁻,
-        diff1⁻,
-        aux1⁻,
-    )
-
-    fluxᵀn .+= flux' * normal_vector
-end
-
-# This is the function that my be overloaded for flux-based BCs
-function boundary_flux_second_order!(
-    numerical_flux::NumericalFluxSecondOrder,
-    balance_law,
-    flux,
-    state_conservative⁺,
-    state_gradient_flux⁺,
-    state_hyperdiffusive⁺,
-    state_auxiliary⁺,
-    normal_vector,
-    state_conservative⁻,
-    state_gradient_flux⁻,
-    state_hyperdiffusive⁻,
-    state_auxiliary⁻,
-    bctype,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-)
     boundary_state!(
         numerical_flux,
         balance_law,
@@ -629,9 +580,15 @@ function boundary_flux_second_order!(
         diff1⁻,
         aux1⁻,
     )
-    flux_second_order!(
+    numerical_flux_second_order!(
+        numerical_flux,
         balance_law,
-        flux,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_gradient_flux⁻,
+        state_hyperdiffusive⁻,
+        state_auxiliary⁻,
         state_conservative⁺,
         state_gradient_flux⁺,
         state_hyperdiffusive⁺,

@@ -52,7 +52,6 @@ import CLIMA.DGmethods:
     reverse_integral_set_auxiliary_state!
 import ..DGmethods.NumericalFluxes:
     boundary_state!,
-    boundary_flux_second_order!,
     normal_boundary_flux_second_order!,
     NumericalFluxFirstOrder,
     NumericalFluxGradient,
