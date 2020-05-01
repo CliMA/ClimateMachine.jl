@@ -218,15 +218,15 @@ let
     expected_result[2, 1, Float32, VerticalDirection] = 2.0514704287052155e-02
     expected_result[2, 2, Float32, VerticalDirection] = 5.6839984608814120e-04
     expected_result[2, 3, Float32, VerticalDirection] = 1.0241863492410630e-05
-    expected_result[3, 1, Float32, EveryDirection] = 1.2601226335391402e-03
-    expected_result[3, 2, Float32, EveryDirection] = 2.2367596102412790e-05
-    expected_result[3, 3, Float32, EveryDirection] = 1.1315821211610455e-05
-    expected_result[3, 1, Float32, HorizontalDirection] = 5.1570408977568150e-03
-    expected_result[3, 2, Float32, HorizontalDirection] = 6.6678490838967264e-05
-    expected_result[3, 3, Float32, HorizontalDirection] = 9.9300414149183780e-05
-    expected_result[3, 1, Float32, VerticalDirection] = 2.0514601841568947e-02
-    expected_result[3, 2, Float32, VerticalDirection] = 5.6837650481611490e-04
-    expected_result[3, 3, Float32, VerticalDirection] = 3.2248572097159922e-05
+    expected_result[3, 1, Float32, EveryDirection] = 1.2601461494341493e-03
+    expected_result[3, 2, Float32, EveryDirection] = 2.2380427253665403e-05
+    expected_result[3, 3, Float32, EveryDirection] = 1.1313175491522998e-05
+    expected_result[3, 1, Float32, HorizontalDirection] = 5.1570334471762180e-03
+    expected_result[3, 2, Float32, HorizontalDirection] = 6.6673339460976422e-05
+    expected_result[3, 3, Float32, HorizontalDirection] = 9.9301614682190120e-05
+    expected_result[3, 1, Float32, VerticalDirection] = 2.0514605566859245e-02
+    expected_result[3, 2, Float32, VerticalDirection] = 5.6837813463062048e-04
+    expected_result[3, 3, Float32, VerticalDirection] = 3.2253094104817137e-05
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32)

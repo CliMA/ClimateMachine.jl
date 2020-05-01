@@ -163,7 +163,7 @@ function create_auxiliary_state(balance_law, grid)
     device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
     nrealelem = length(topology.realelems)
     event = Event(device)
-    event = kernel_init_state_auxiliary!(device, Np, Np * nrealelem)(
+    event = kernel_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
         balance_law,
         Val(dim),
         Val(polyorder),
