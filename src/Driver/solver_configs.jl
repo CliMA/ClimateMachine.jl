@@ -185,26 +185,13 @@ function SolverConfiguration(
             state_gradient_flux = dg.state_gradient_flux,
             states_higher_order = dg.states_higher_order,
         )
-<<<<<<< HEAD
         slow_dg = DGRemainderModel(dg, (fast_dg,))
-=======
-        slow_model = RemainderModel(bl, (linmodel,))
-        slow_dg = DGModel(
-            slow_model,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            diffusion_direction = diffdir,
-        )
->>>>>>> dd6a9fdc6... Pass diffusion argument into multirate inner solvers
         slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
         solver =
             ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
-    elseif isa(ode_solver_type, MRIHEVISolverType)
+    elseif isa(ode_solver_type, MultirateHEVISolverType)
         # Vertical acoustic waves
         vertical_dg = DGModel(
             linmodel,
@@ -228,16 +215,7 @@ function SolverConfiguration(
         )
 
         # Advection, diffusion, etc.
-        middle_model = RemainderModel(bl, (linmodel,))
-        rem_dg = DGModel(
-            middle_model,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            diffusion_direction = diffdir,
-        )
+        rem_dg = DGRemainderModel(dg, (vertical_dg, horizontal_dg))
 
         inner_method = ode_solver_type.inner_method
         middle_method = ode_solver_type.middle_method
