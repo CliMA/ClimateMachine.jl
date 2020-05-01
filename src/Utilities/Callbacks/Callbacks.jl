@@ -6,7 +6,6 @@ using KernelAbstractions
 using LinearAlgebra
 using MPI
 using Printf
-using Requires
 using Statistics
 
 using CLIMAParameters
@@ -23,11 +22,9 @@ using ..VariableTemplates
 using ..VTK
 using ..Mesh.Grids: HorizontalDirection, VerticalDirection
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays, .CuArrays.CUDAdrv, .CuArrays.CUDAnative
-    @eval _sync_device(::Type{CuArray}) = synchronize()
-end
+using CuArrays, CuArrays.CUDAdrv, CuArrays.CUDAnative
 
+_sync_device(::Type{CuArray}) = synchronize()
 _sync_device(::Type{Array}) = nothing
 
 """

@@ -1,11 +1,7 @@
-using Distributions
-using Random
-using StaticArrays
-using Test
-using DocStringExtensions
-using LinearAlgebra
-
+#!/usr/bin/env julia --project
 using CLIMA
+CLIMA.init()
+
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
 using CLIMA.Diagnostics
@@ -15,6 +11,13 @@ using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
+
+using Distributions
+using Random
+using StaticArrays
+using Test
+using DocStringExtensions
+using LinearAlgebra
 
 using CLIMAParameters
 using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
@@ -351,7 +354,6 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    CLIMA.init()
 
     FT = Float64
 
