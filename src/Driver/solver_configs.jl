@@ -197,7 +197,7 @@ function SolverConfiguration(
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
         solver =
             ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
-    elseif isa(ode_solver_type, MultirateHEVISolverType)
+    elseif isa(ode_solver_type, MRIHEVISolverType)
         # Vertical acoustic waves
         vertical_dg = DGModel(
             linmodel,

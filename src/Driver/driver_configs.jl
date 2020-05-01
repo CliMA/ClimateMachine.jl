@@ -73,7 +73,7 @@ end
 """
 TODO: Document all solver types
 """
-struct MultirateHEVISolverType <: AbstractSolverType
+struct MRIHEVISolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     outer_method::Function
@@ -81,7 +81,7 @@ struct MultirateHEVISolverType <: AbstractSolverType
     inner_method::Function
     timestep_ratio_outer::Int
     timestep_ratio_inner::Int
-    function MultirateHEVISolverType(;
+    function MRIHEVISolverType(;
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
         outer_method = MRIGARKIRK21aSandu,
