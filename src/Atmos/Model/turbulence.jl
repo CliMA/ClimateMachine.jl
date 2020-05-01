@@ -774,17 +774,3 @@ function turbulence_tensors(
     τ = -2 * ν * S
     return ν, D_t, τ
 end
-
-#=
-function flux_diffusive!(
-    tc::DivDamping,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    D_t,
-)
-    flux.ρu += eltype(state)(tc.C * aux.turbulence.Δ)^2 * SDiagonal(SVector(diffusive.turbulence.∇divergence))
-end
-=# 
