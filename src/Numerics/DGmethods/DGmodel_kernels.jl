@@ -735,13 +735,13 @@ end
 
         ngradtransformstate = num_state_conservative
 
-        local_transform = MArray{Tuple{ngradstate}, FT}(undef)
+        local_gradient_argument = MArray{Tuple{ngradstate}, FT}(undef)
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
+        local_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
     end
 
-    shared_transform = @localmem FT (Nq, Nq, Nqk, ngradstate)
+    shared_gradient_argument = @localmem FT (Nq, Nq, Nqk, ngradstate)
     s_D = @localmem FT (Nq, Nq)
 
     local_state_conservative = @private FT (ngradtransformstate,)
@@ -762,16 +762,20 @@ end
             local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
         end
 
-        fill!(local_transform, -zero(eltype(local_transform)))
-        compute_gradient_argument!(
-            balance_law,
-            Vars{vars_state_gradient(balance_law, FT)}(local_transform),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
-            t,
+        states_gradient = (
+            argument = Vars{vars_state_gradient(balance_law, FT)}(
+                local_gradient_argument,
+            ),
+            conservative =
+                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
+            auxiliary =
+                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
         )
+
+        fill!(local_gradient_argument, -zero(eltype(local_gradient_argument)))
+        compute_gradient_argument!(balance_law, states_gradient, t)
         @unroll for s in 1:ngradstate
-            shared_transform[i, j, k, s] = local_transform[s]
+            shared_gradient_argument[i, j, k, s] = local_gradient_argument[s]
         end
         @synchronize
 
@@ -790,57 +794,59 @@ end
         @unroll for s in 1:ngradstate
             Gξ1 = Gξ2 = Gξ3 = zero(FT)
             @unroll for n in 1:Nq
-                Gξ1 += s_D[i, n] * shared_transform[n, j, k, s]
+                Gξ1 += s_D[i, n] * shared_gradient_argument[n, j, k, s]
                 if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                    Gξ2 += s_D[j, n] * shared_transform[i, n, k, s]
+                    Gξ2 += s_D[j, n] * shared_gradient_argument[i, n, k, s]
                 end
                 if dim == 3 && direction isa EveryDirection
-                    Gξ3 += s_D[k, n] * shared_transform[i, j, n, s]
+                    Gξ3 += s_D[k, n] * shared_gradient_argument[i, j, n, s]
                 end
             end
-            local_transform_gradient[1, s] = ξ1x1 * Gξ1
-            local_transform_gradient[2, s] = ξ1x2 * Gξ1
-            local_transform_gradient[3, s] = ξ1x3 * Gξ1
+            local_gradient[1, s] = ξ1x1 * Gξ1
+            local_gradient[2, s] = ξ1x2 * Gξ1
+            local_gradient[3, s] = ξ1x3 * Gξ1
 
             if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                local_transform_gradient[1, s] += ξ2x1 * Gξ2
-                local_transform_gradient[2, s] += ξ2x2 * Gξ2
-                local_transform_gradient[3, s] += ξ2x3 * Gξ2
+                local_gradient[1, s] += ξ2x1 * Gξ2
+                local_gradient[2, s] += ξ2x2 * Gξ2
+                local_gradient[3, s] += ξ2x3 * Gξ2
             end
 
             if dim == 3 && direction isa EveryDirection
-                local_transform_gradient[1, s] += ξ3x1 * Gξ3
-                local_transform_gradient[2, s] += ξ3x2 * Gξ3
-                local_transform_gradient[3, s] += ξ3x3 * Gξ3
+                local_gradient[1, s] += ξ3x1 * Gξ3
+                local_gradient[2, s] += ξ3x2 * Gξ3
+                local_gradient[3, s] += ξ3x3 * Gξ3
             end
         end
 
         @unroll for s in 1:ngradlapstate
             Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                local_transform_gradient[1, hypervisc_indexmap[s]]
+                local_gradient[1, hypervisc_indexmap[s]]
             Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                local_transform_gradient[2, hypervisc_indexmap[s]]
+                local_gradient[2, hypervisc_indexmap[s]]
             Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                local_transform_gradient[3, hypervisc_indexmap[s]]
+                local_gradient[3, hypervisc_indexmap[s]]
         end
 
         if num_state_gradient_flux > 0
+            states_gradient_flux = (
+                gradient_flux =
+                    Vars{vars_state_gradient_flux(balance_law, FT)}(
+                        local_state_gradient_flux,
+                    ),
+                gradient = Grad{vars_state_gradient(balance_law, FT)}(
+                    local_gradient,
+                ),
+                conservative =
+                    Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
+                auxiliary =
+                    Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
+            )
             fill!(
                 local_state_gradient_flux,
                 -zero(eltype(local_state_gradient_flux)),
             )
-            compute_gradient_flux!(
-                balance_law,
-                Vars{vars_state_gradient_flux(balance_law, FT)}(
-                    local_state_gradient_flux,
-                ),
-                Grad{vars_state_gradient(balance_law, FT)}(
-                    local_transform_gradient,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
-                t,
-            )
+            compute_gradient_flux!(balance_law, states_gradient_flux, t)
 
             @unroll for s in 1:num_state_gradient_flux
                 state_gradient_flux[ijk, s, e] = local_state_gradient_flux[s]
@@ -879,17 +885,17 @@ end
         Nq = N + 1
 
         Nqk = dim == 2 ? 1 : Nq
-        local_transform = MArray{Tuple{ngradstate}, FT}(undef)
+        local_gradient_argument = MArray{Tuple{ngradstate}, FT}(undef)
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
+        local_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
 
         _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
         _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
     end
 
-    shared_transform = @localmem FT (Nq, Nq, Nqk, ngradstate)
+    shared_gradient_argument = @localmem FT (Nq, Nq, Nqk, ngradstate)
     s_D = @localmem FT (Nq, Nq)
 
     local_state_conservative = @private FT (ngradtransformstate,)
@@ -910,16 +916,20 @@ end
             local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
         end
 
-        fill!(local_transform, -zero(eltype(local_transform)))
-        compute_gradient_argument!(
-            balance_law,
-            Vars{vars_state_gradient(balance_law, FT)}(local_transform),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
-            t,
+        states_gradient = (
+            argument = Vars{vars_state_gradient(balance_law, FT)}(
+                local_gradient_argument,
+            ),
+            conservative =
+                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
+            auxiliary =
+                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
         )
+
+        fill!(local_gradient_argument, -zero(eltype(local_gradient_argument)))
+        compute_gradient_argument!(balance_law, states_gradient, t)
         @unroll for s in 1:ngradstate
-            shared_transform[i, j, k, s] = local_transform[s]
+            shared_gradient_argument[i, j, k, s] = local_gradient_argument[s]
         end
         @synchronize
 
@@ -932,42 +942,44 @@ end
             Gζ = zero(FT)
             @unroll for n in 1:Nq
                 if dim == 2
-                    Gζ += s_D[j, n] * shared_transform[i, n, k, s]
+                    Gζ += s_D[j, n] * shared_gradient_argument[i, n, k, s]
                 elseif dim == 3
-                    Gζ += s_D[k, n] * shared_transform[i, j, n, s]
+                    Gζ += s_D[k, n] * shared_gradient_argument[i, j, n, s]
                 end
             end
-            local_transform_gradient[1, s] = ζx1 * Gζ
-            local_transform_gradient[2, s] = ζx2 * Gζ
-            local_transform_gradient[3, s] = ζx3 * Gζ
+            local_gradient[1, s] = ζx1 * Gζ
+            local_gradient[2, s] = ζx2 * Gζ
+            local_gradient[3, s] = ζx3 * Gζ
         end
 
         @unroll for s in 1:ngradlapstate
             Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                local_transform_gradient[1, hypervisc_indexmap[s]]
+                local_gradient[1, hypervisc_indexmap[s]]
             Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                local_transform_gradient[2, hypervisc_indexmap[s]]
+                local_gradient[2, hypervisc_indexmap[s]]
             Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                local_transform_gradient[3, hypervisc_indexmap[s]]
+                local_gradient[3, hypervisc_indexmap[s]]
         end
 
         if num_state_gradient_flux > 0
+            states_gradient_flux = (
+                gradient_flux =
+                    Vars{vars_state_gradient_flux(balance_law, FT)}(
+                        local_state_gradient_flux,
+                    ),
+                gradient = Grad{vars_state_gradient(balance_law, FT)}(
+                    local_gradient,
+                ),
+                conservative =
+                    Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
+                auxiliary =
+                    Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
+            )
             fill!(
                 local_state_gradient_flux,
                 -zero(eltype(local_state_gradient_flux)),
             )
-            compute_gradient_flux!(
-                balance_law,
-                Vars{vars_state_gradient_flux(balance_law, FT)}(
-                    local_state_gradient_flux,
-                ),
-                Grad{vars_state_gradient(balance_law, FT)}(
-                    local_transform_gradient,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_conservative[:]),
-                Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary[:]),
-                t,
-            )
+            compute_gradient_flux!(balance_law, states_gradient_flux, t)
         end
 
         @unroll for s in 1:num_state_gradient_flux
@@ -1033,18 +1045,18 @@ end
         local_state_conservative⁻ =
             MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_transform⁻ = MArray{Tuple{ngradstate}, FT}(undef)
+        local_gradient_argument⁻ = MArray{Tuple{ngradstate}, FT}(undef)
         l_nG⁻ = MArray{Tuple{3, ngradstate}, FT}(undef)
 
         local_state_conservative⁺ =
             MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_transform⁺ = MArray{Tuple{ngradstate}, FT}(undef)
+        local_gradient_argument⁺ = MArray{Tuple{ngradstate}, FT}(undef)
 
         # FIXME state_gradient_flux is sort of a terrible name...
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
+        local_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
         local_state_conservative⁻visc =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
@@ -1082,10 +1094,12 @@ end
             local_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
         end
 
-        fill!(local_transform⁻, -zero(eltype(local_transform⁻)))
+        fill!(local_gradient_argument⁻, -zero(eltype(local_gradient_argument⁻)))
         compute_gradient_argument!(
             balance_law,
-            Vars{vars_state_gradient(balance_law, FT)}(local_transform⁻),
+            Vars{vars_state_gradient(balance_law, FT)}(
+                local_gradient_argument⁻,
+            ),
             Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative⁻,
             ),
@@ -1102,10 +1116,12 @@ end
             local_state_auxiliary⁺[s] = state_auxiliary[vid⁺, s, e⁺]
         end
 
-        fill!(local_transform⁺, -zero(eltype(local_transform⁺)))
+        fill!(local_gradient_argument⁺, -zero(eltype(local_gradient_argument⁺)))
         compute_gradient_argument!(
             balance_law,
-            Vars{vars_state_gradient(balance_law, FT)}(local_transform⁺),
+            Vars{vars_state_gradient(balance_law, FT)}(
+                local_gradient_argument⁺,
+            ),
             Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative⁺,
             ),
@@ -1122,16 +1138,20 @@ end
             numerical_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
-                local_transform_gradient,
+                local_gradient,
                 SVector(normal_vector),
-                Vars{vars_state_gradient(balance_law, FT)}(local_transform⁻),
+                Vars{vars_state_gradient(balance_law, FT)}(
+                    local_gradient_argument⁻,
+                ),
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
                 ),
                 Vars{vars_state_auxiliary(balance_law, FT)}(
                     local_state_auxiliary⁻,
                 ),
-                Vars{vars_state_gradient(balance_law, FT)}(local_transform⁺),
+                Vars{vars_state_gradient(balance_law, FT)}(
+                    local_gradient_argument⁺,
+                ),
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁺,
                 ),
@@ -1146,9 +1166,7 @@ end
                     Vars{vars_state_gradient_flux(balance_law, FT)}(
                         local_state_gradient_flux,
                     ),
-                    Grad{vars_state_gradient(balance_law, FT)}(
-                        local_transform_gradient,
-                    ),
+                    Grad{vars_state_gradient(balance_law, FT)}(local_gradient),
                     Vars{vars_state_conservative(balance_law, FT)}(
                         local_state_conservative⁻,
                     ),
@@ -1173,16 +1191,20 @@ end
             numerical_boundary_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
-                local_transform_gradient,
+                local_gradient,
                 SVector(normal_vector),
-                Vars{vars_state_gradient(balance_law, FT)}(local_transform⁻),
+                Vars{vars_state_gradient(balance_law, FT)}(
+                    local_gradient_argument⁻,
+                ),
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
                 ),
                 Vars{vars_state_auxiliary(balance_law, FT)}(
                     local_state_auxiliary⁻,
                 ),
-                Vars{vars_state_gradient(balance_law, FT)}(local_transform⁺),
+                Vars{vars_state_gradient(balance_law, FT)}(
+                    local_gradient_argument⁺,
+                ),
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁺,
                 ),
@@ -1204,9 +1226,7 @@ end
                     Vars{vars_state_gradient_flux(balance_law, FT)}(
                         local_state_gradient_flux,
                     ),
-                    Grad{vars_state_gradient(balance_law, FT)}(
-                        local_transform_gradient,
-                    ),
+                    Grad{vars_state_gradient(balance_law, FT)}(local_gradient),
                     Vars{vars_state_conservative(balance_law, FT)}(
                         local_state_conservative⁻,
                     ),
@@ -1220,18 +1240,18 @@ end
 
         @unroll for j in 1:ngradstate
             @unroll for i in 1:3
-                l_nG⁻[i, j] = normal_vector[i] * local_transform⁻[j]
+                l_nG⁻[i, j] = normal_vector[i] * local_gradient_argument⁻[j]
             end
         end
 
         @unroll for s in 1:ngradlapstate
             j = hypervisc_indexmap[s]
             Qhypervisc_grad[vid⁻, 3 * (s - 1) + 1, e⁻] +=
-                vMI * sM * (local_transform_gradient[1, j] - l_nG⁻[1, j])
+                vMI * sM * (local_gradient[1, j] - l_nG⁻[1, j])
             Qhypervisc_grad[vid⁻, 3 * (s - 1) + 2, e⁻] +=
-                vMI * sM * (local_transform_gradient[2, j] - l_nG⁻[2, j])
+                vMI * sM * (local_gradient[2, j] - l_nG⁻[2, j])
             Qhypervisc_grad[vid⁻, 3 * (s - 1) + 3, e⁻] +=
-                vMI * sM * (local_transform_gradient[3, j] - l_nG⁻[3, j])
+                vMI * sM * (local_gradient[3, j] - l_nG⁻[3, j])
         end
 
         compute_gradient_flux!(

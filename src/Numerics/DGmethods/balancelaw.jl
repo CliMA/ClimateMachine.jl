@@ -89,7 +89,7 @@ flux_second_order!(::BalanceLaw, ::NamedTuple, t) = nothing
 @doc """
     source!(::BalanceLaw, states::NamedTuple, t, direction)
 
-User defined function for computing the second order fluxes locally at each nodal point. The named tuple `states` contains the following
+User defined function for computing the sources locally at each nodal point. The named tuple `states` contains the following
     states.source --> source for each conservative state
     states.conservative --> conservative states
     states.auxiliary --> auxiliary variables
@@ -97,8 +97,26 @@ User defined function for computing the second order fluxes locally at each noda
 """ source!
 source!(::BalanceLaw, ::NamedTuple, t, direction) = nothing
 
-function compute_gradient_argument! end
-function compute_gradient_flux! end
+@doc """
+    compute_gradient_argument!(::BalanceLaw, states::NamedTuple, t)
+
+User defined function for computing the arguments to the gradients locally at each nodal point. The named tuple `states` contains the following
+    states.argument --> argument for each gradient
+    states.conservative --> conservative states
+    states.auxiliary --> auxiliary variables
+""" compute_gradient_argument!
+compute_gradient_argument!(::BalanceLaw, ::NamedTuple, t) = nothing
+
+@doc """
+    compute_gradient_flux!(::BalanceLaw, states::NamedTuple, t)
+
+User defined function for computing the gradient fluxes locally at each nodal point. The named tuple `states` contains the following
+    states.gradient_flux --> gradient flux for each conservative state
+    states.gradient --> gradients for each conservative state
+    states.conservative --> conservative states
+    states.auxiliary --> auxiliary variables
+""" compute_gradient_flux!
+compute_gradient_flux!(::BalanceLaw, ::NamedTuple, t) = nothing
 function transform_post_gradient_laplacian! end
 
 function wavespeed end
