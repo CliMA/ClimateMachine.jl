@@ -1,11 +1,14 @@
-using Test
+#!/usr/bin/env julia --project
 using CLIMA
+CLIMA.init()
 using CLIMA.GenericCallbacks
 using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.VariableTemplates
 using CLIMA.Mesh.Grids: polynomialorder
 using CLIMA.HydrostaticBoussinesq
+
+using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
@@ -29,8 +32,6 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
 end
 
 function run_ocean_gyre(; imex::Bool = false, BC = nothing)
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order

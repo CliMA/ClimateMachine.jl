@@ -1,10 +1,10 @@
 module CMBuffers
 
-using Requires
 using MPI
 using CUDAapi
 using KernelAbstractions
 using StaticArrays
+using CuArrays
 
 export CMBuffer
 export SingleCMBuffer, DoubleCMBuffer
@@ -16,10 +16,7 @@ export get_stage, get_transfer, prepare_transfer!, prepare_stage!
 end
 
 device(::Union{Array, SArray, MArray}) = CPU()
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
-    device(::CuArray) = CUDA()
-end
+device(::CuArray) = CUDA()
 
 ###
 # Note: We use pinned and device-mapped hostbuffers in double staging
