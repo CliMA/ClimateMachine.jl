@@ -188,7 +188,7 @@ function main()
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
     # Set up ODE solver configuration
-    ode_solver_type = CLIMA.MultirateHEVISolverType(
+    ode_solver_type = CLIMA.MRIHEVISolverType(
         outer_method = MRIGARKESDIRK24LSA,
         middle_method = MRIGARKERK45aSandu,
         inner_method = LSRK54CarpenterKennedy,
