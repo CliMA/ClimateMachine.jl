@@ -74,27 +74,27 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   dQb = @view(dQ.realdata[:,sv.mask_b,:])
 
 
-  offset1=sv.offset1;
-  offset0=sv.offset0;
-  offset1a = offset1[:,sv.mask_a,:];
-  offset1b = offset1[:,sv.mask_b,:];
-  offset0a = offset0[:,sv.mask_a,:];
-  offset0b = offset0[:,sv.mask_b,:];
+  offset1=realview(sv.offset1);
+  offset0=realview(sv.offset0);
+  offset1a = @view(offset1[:,sv.mask_a,:]);
+  offset1b = @view(offset1[:,sv.mask_b,:]);
+  offset0a = @view(offset0[:,sv.mask_a,:]);
+  offset0b = @view(offset0[:,sv.mask_b,:]);
 
   τ=0.0;
   dTime=nsLoc*dτ;
 
-  groupsize = 256
 
+  groupsize = 256
   event = Event(device(Q))
   event = update!(device(Q), groupsize)(
-         realview(offset1),
+         offset1,
          Val(iStage),
          map(realview, fYnj[1:iStage]),
          βS[iStage+1,:],
          τ,
          nPhi;
-         ndrange = length(realview(offset1)),
+         ndrange = length(offset1),
          dependencies = (event,),
   )
   wait(device(Q), event)
@@ -105,6 +105,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          dQa,
          Qa,
          dτ/2,
+         slow_δ,
          offset1a;
          ndrange = length(Qa),
          dependencies = (event,),
@@ -117,18 +118,18 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   for i = 1:nsLoc-1
 
     offset0=deepcopy(offset1);
-    offset0a = @view(offset0[:,sv.mask_a,:]);
-    offset0b = @view(offset0[:,sv.mask_b,:]);
+    offset0a = realview(offset0[:,sv.mask_a,:]);
+    offset0b = realview(offset0[:,sv.mask_b,:]);
 
     event = Event(device(Q))
     event = update!(device(Q), groupsize)(
-           realview(offset1),
+           offset1,
            Val(iStage),
            map(realview, fYnj[1:iStage]),
            βS[iStage+1,:],
            τ,
            nPhi;
-           ndrange = length(realview(offset1)),
+           ndrange = length(offset1),
            dependencies = (event,),
     )
     wait(device(Q), event)
@@ -139,7 +140,8 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
            dQb,
            Qb,
            dτ,
-           0.5*(offset0b.+offset1b);
+           slow_δ,
+           0.5.*(offset0b.+offset1b);
            ndrange = length(Qb),
            dependencies = (event,),
     )
@@ -152,6 +154,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
            dQa,
            Qa,
            dτ,
+           slow_δ,
            offset1a;
            ndrange = length(Qa),
            dependencies = (event,),
@@ -167,18 +170,18 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   end
 
   offset0=deepcopy(offset1);
-  offset0a = @view(offset0[:,sv.mask_a,:]);
-  offset0b = @view(offset0[:,sv.mask_b,:]);
+  offset0a = realview(offset0[:,sv.mask_a,:]);
+  offset0b = realview(offset0[:,sv.mask_b,:]);
 
   event = Event(device(Q))
   event = update!(device(Q), groupsize)(
-         realview(offset1),
+         offset1,
          Val(iStage),
          map(realview, fYnj[1:iStage]),
          βS[iStage+1,:],
          τ,
          nPhi;
-         ndrange = length(realview(offset1)),
+         ndrange = length(offset1),
          dependencies = (event,),
   )
   wait(device(Q), event)
@@ -189,6 +192,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          dQb,
          Qb,
          dτ,
+         slow_δ,
          0.5*(offset0b.+offset1b);
          ndrange = length(Qb),
          dependencies = (event,),
@@ -202,6 +206,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          dQa,
          Qa,
          dτ/2,
+         slow_δ,
          offset1a;
          ndrange = length(Qa),
          dependencies = (event,),
@@ -212,18 +217,6 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   if slow_rka !== nothing
     slow_rv_dQ .*= slow_rka
   end
-end
-
-@kernel function update!(
-    dQ,
-    Q,
-    dt,
-    offset
-)
-    i = @index(Global, Linear)
-    @inbounds begin
-      Q[i] += (dQ[i]+offset[i]) * dt
-    end
 end
 
 @kernel function update!(
