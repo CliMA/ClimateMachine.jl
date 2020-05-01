@@ -200,7 +200,7 @@ end
 # The experiment definition is now complete. Time to run it.
 
 # ## Running the Experiment
-# `julia --project /experiments/AtmosLES/risingbubble.jl` will run the experiment from the main CLIMA directory,
+# `julia --project /experiments/AtmosLES/taylor-green.jl` will run the experiment from the main CLIMA directory,
 # with diagnostics output at the intervals specified in [`config_diagnostics`](@ref config_diagnostics). You
 # can also prescribe command line arguments (docs pending, `Driver.jl`) for simulation update and output specifications.
 # For rapid turnaround, we recommend that you run this experiment on a GPU.
