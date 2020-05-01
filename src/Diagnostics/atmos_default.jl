@@ -47,14 +47,13 @@ function vars_atmos_default_simple(m::EquilMoist, FT)
         w_qt_sgs::FT
     end
 end
-vars_atmos_default_simple(::TurbulenceClosure, FT) = @vars()
-# We don't specify the type of `t` below because `N²` exists in
-# all turbulence closures defined. As soon as we add a diagnostic
-# variable that doesn't, we'll have to define methods for all the
-# turbulence closures.
-function vars_atmos_default_simple(t, FT)
+# We don't specialize on the specific TurbulenceClosure below
+# because `N²` exists in # all turbulence closures defined thus
+# far. As soon as we add a diagnostic # variable that doesn't,
+# we'll have to define methods for all the turbulence closures.
+function vars_atmos_default_simple(t::TurbulenceClosure, FT)
     @vars begin
-        d_N²::FT
+        d_Nsquared::FT
     end
 end
 num_atmos_default_simple_vars(m, FT) = varsize(vars_atmos_default_simple(m, FT))
@@ -144,16 +143,6 @@ function atmos_default_simple_sums!(
     return nothing
 end
 function atmos_default_simple_sums!(
-    ::TurbulenceClosure,
-    state_conservative,
-    state_gradient_flux,
-    thermo,
-    MH,
-    sums,
-)
-    return nothing
-end
-function atmos_default_simple_sums!(
     turbulence,
     state_conservative,
     state_gradient_flux,
@@ -161,7 +150,7 @@ function atmos_default_simple_sums!(
     MH,
     sums,
 )
-    sums.turbulence.d_N² += MH * state_gradient_flux.turbulence.N² * state_conservative.ρ
+    sums.turbulence.d_Nsquared += MH * state_gradient_flux.turbulence.N² * state_conservative.ρ
 
     return nothing
 end
