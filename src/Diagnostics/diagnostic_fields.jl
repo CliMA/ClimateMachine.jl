@@ -389,11 +389,11 @@ end
         ijk = i + ((j - 1) + (k - 1) * qm1) * qm1
 
         vort_data[ijk, Ω₁, e] =
-            vgrad_data[ijk, ∂₃u₂, e] - vgrad_data[ijk, ∂₂u₃, e]
+            vgrad_data[ijk, ∂₂u₃, e] - vgrad_data[ijk, ∂₃u₂, e]
         vort_data[ijk, Ω₂, e] =
-            vgrad_data[ijk, ∂₁u₃, e] - vgrad_data[ijk, ∂₃u₁, e]
+            vgrad_data[ijk, ∂₃u₁, e] - vgrad_data[ijk, ∂₁u₃, e]
         vort_data[ijk, Ω₃, e] =
-            vgrad_data[ijk, ∂₂u₁, e] - vgrad_data[ijk, ∂₁u₂, e]
+            vgrad_data[ijk, ∂₁u₂, e] - vgrad_data[ijk, ∂₂u₁, e]
     end
 end
 #--------------------------------------------------------------------------------------------------
