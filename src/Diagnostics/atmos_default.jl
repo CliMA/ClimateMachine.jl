@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel, thermo_state, turbulence_tensors
+using ..Atmos: MoistureModel, TurbulenceClosure, thermo_state, turbulence_tensors
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..MoistThermodynamics
@@ -17,7 +17,7 @@ function atmos_default_init(dgngrp::DiagnosticsGroup, currtime)
 end
 
 # Simple horizontal averages
-function vars_atmos_default_simple(m::AtmosModel, FT)
+function vars_atmos_default_simple(atmos::AtmosModel, FT)
     @vars begin
         u::FT
         v::FT
@@ -33,7 +33,8 @@ function vars_atmos_default_simple(m::AtmosModel, FT)
         hm::FT
         w_ht_sgs::FT
 
-        moisture::vars_atmos_default_simple(m.moisture, FT)
+        moisture::vars_atmos_default_simple(atmos.moisture, FT)
+        turbulence::vars_atmos_default_simple(atmos.turbulence, FT)
     end
 end
 vars_atmos_default_simple(::MoistureModel, FT) = @vars()
@@ -44,6 +45,16 @@ function vars_atmos_default_simple(m::EquilMoist, FT)
         qv::FT                  # q_vap
         thl::FT                 # θ_liq
         w_qt_sgs::FT
+    end
+end
+vars_atmos_default_simple(::TurbulenceClosure, FT) = @vars()
+# We don't specify the type of `t` below because `N²` exists in
+# all turbulence closures defined. As soon as we add a diagnostic
+# variable that doesn't, we'll have to define methods for all the
+# turbulence closures.
+function vars_atmos_default_simple(t, FT)
+    @vars begin
+        d_N²::FT
     end
 end
 num_atmos_default_simple_vars(m, FT) = varsize(vars_atmos_default_simple(m, FT))
@@ -92,6 +103,14 @@ function atmos_default_simple_sums!(
         D_t,
         sums,
     )
+    atmos_default_simple_sums!(
+        atmos.turbulence,
+        state_conservative,
+        state_gradient_flux,
+        thermo,
+        MH,
+        sums,
+    )
 
     return nothing
 end
@@ -121,6 +140,28 @@ function atmos_default_simple_sums!(
     sums.moisture.thl += MH * thermo.moisture.θ_liq_ice * state_conservative.ρ
     d_q_tot = (-D_t) .* state_gradient_flux.moisture.∇q_tot
     sums.moisture.w_qt_sgs += MH * d_q_tot[end] * state_conservative.ρ
+
+    return nothing
+end
+function atmos_default_simple_sums!(
+    ::TurbulenceClosure,
+    state_conservative,
+    state_gradient_flux,
+    thermo,
+    MH,
+    sums,
+)
+    return nothing
+end
+function atmos_default_simple_sums!(
+    turbulence,
+    state_conservative,
+    state_gradient_flux,
+    thermo,
+    MH,
+    sums,
+)
+    sums.turbulence.d_N² += MH * state_gradient_flux.turbulence.N² * state_conservative.ρ
 
     return nothing
 end
@@ -379,10 +420,13 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     end
 
     # complete density averaging
-    simple_varnames = map(
-        s -> startswith(s, "moisture.") ? s[10:end] : s,
-        flattenednames(vars_atmos_default_simple(bl, FT)),
-    )
+    simple_varnames = let f(s) =
+        if startswith(s, "moisture.") s[10:end]
+        elseif startswith(s, "turbulence.") s[12:end]
+        else s
+        end
+        map(f, flattenednames(vars_atmos_default_simple(bl, FT)))
+    end
     for vari in 1:length(simple_varnames)
         for evk in 1:(Nqk * nvertelem)
             simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
@@ -441,10 +485,13 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals[simple_varnames[vari]] = (("z",), davg)
         end
 
-        ho_varnames = map(
-            s -> startswith(s, "moisture.") ? s[10:end] : s,
-            flattenednames(vars_atmos_default_ho(bl, FT)),
-        )
+        ho_varnames = let f(s) =
+            if startswith(s, "moisture.") s[10:end]
+            elseif startswith(s, "turbulence.") s[12:end]
+            else s
+            end
+            map(f, flattenednames(vars_atmos_default_ho(bl, FT)))
+        end
         for vari in 1:length(ho_varnames)
             davg = zeros(FT, Nqk * nvertelem)
             for evk in 1:(Nqk * nvertelem)
