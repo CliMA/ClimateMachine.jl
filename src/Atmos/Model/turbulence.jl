@@ -73,6 +73,7 @@ function compute_gradient_argument!(
 Post-gradient-transformed variables specific to turbulence models.
 """
 function compute_gradient_flux!(
+    ::AtmosModel,
     ::TurbulenceClosure,
     ::Orientation,
     diffusive,
@@ -233,6 +234,7 @@ vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
 function compute_gradient_flux!(
+    ::AtmosModel,
     ::ConstantViscosityWithDivergence,
     ::Orientation,
     diffusive::Vars,
@@ -346,9 +348,7 @@ end
 vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
 vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
 vars_state_gradient_flux(::SmagorinskyLilly, FT) =
-    @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
-
-
+    @vars(S::SHermitianCompact{3, FT, 6}, N²::FT, θ_v::SVector{3,FT})
 function atmos_init_aux!(
     ::SmagorinskyLilly,
     ::AtmosModel,
@@ -359,16 +359,19 @@ function atmos_init_aux!(
 end
 
 function compute_gradient_argument!(
+    am::AtmosModel,
     m::SmagorinskyLilly,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 )
-    transform.turbulence.θ_v = aux.moisture.θ_v
+    ts = thermo_state(am,state,aux)
+    transform.turbulence.θ_v = virtual_pottemp(ts)
 end
 
 function compute_gradient_flux!(
+    am::AtmosModel,
     ::SmagorinskyLilly,
     orientation::Orientation,
     diffusive::Vars,
@@ -377,12 +380,12 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-
+    ts = thermo_state(am,state,aux)
     diffusive.turbulence.S = symmetrize(∇transform.u)
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.N² =
-        dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
-    @show(∇transform.turbulence.θ_v, (aux.coord[1], aux.coord[2],aux.coord[3]))
+        dot(∇transform.turbulence.θ_v, ∇Φ) / virtual_pottemp(ts)
+    diffusive.turbulence.θ_v = ∇transform.turbulence.θ_v
 end
 
 function turbulence_tensors(
@@ -470,12 +473,13 @@ struct Vreman{FT} <: TurbulenceClosure
 end
 vars_state_auxiliary(::Vreman, FT) = @vars(Δ::FT)
 vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, θ_v::SVector{3,FT})
 
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.turbulence.Δ = lengthscale(geom)
 end
 function compute_gradient_argument!(
+    am::AtmosModel,
     m::Vreman,
     transform::Vars,
     state::Vars,
@@ -485,6 +489,7 @@ function compute_gradient_argument!(
     transform.turbulence.θ_v = aux.moisture.θ_v
 end
 function compute_gradient_flux!(
+    am::AtmosModel,
     ::Vreman,
     orientation::Orientation,
     diffusive::Vars,
@@ -497,6 +502,7 @@ function compute_gradient_flux!(
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
+    diffusive.turbulence.θ_v = ∇transform.turbulence.θ_v
 end
 
 function turbulence_tensors(
@@ -572,7 +578,7 @@ end
 vars_state_auxiliary(::AnisoMinDiss, FT) = @vars(Δ::FT)
 vars_state_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
 vars_state_gradient_flux(::AnisoMinDiss, FT) =
-    @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+    @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, θ_v::SVector{3,FT})
 function atmos_init_aux!(
     ::AnisoMinDiss,
     ::AtmosModel,
@@ -591,6 +597,7 @@ function compute_gradient_argument!(
     transform.turbulence.θ_v = aux.moisture.θ_v
 end
 function compute_gradient_flux!(
+    ::AtmosModel,
     ::AnisoMinDiss,
     orientation::Orientation,
     diffusive::Vars,
@@ -603,6 +610,7 @@ function compute_gradient_flux!(
     diffusive.turbulence.∇u = ∇transform.u
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
+    diffusive.turbulence.θ_v = ∇transform.turbulence.θ_v
 end
 function turbulence_tensors(
     m::AnisoMinDiss,
