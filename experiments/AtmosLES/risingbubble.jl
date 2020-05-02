@@ -1,3 +1,4 @@
+#!/usr/bin/env julia --project
 # # [Example - Rising Thermal Bubble](@id EX-RTB-docs)
 #
 # In this example, we demonstrate the usage of the CLIMA [AtmosModel](@ref AtmosModel-docs)
@@ -56,16 +57,12 @@
 # Before setting up our experiment, we recognize that we need to import
 # some pre-defined functions from other packages. Julia allows us to use existing modules (variable workspaces), or write our own to do so.
 # Complete documentation for the Julia module system can be found [here](https://docs.julialang.org/en/v1/manual/modules/#).
-#
-# In CLIMA we use `StaticArrays` for our variable arrays.
-using StaticArrays
-# We also use the `Test` package to help with unit tests and continuous integration systems to design sensible tests
-# for our experiment to ensure new / modified blocks of code don't damage the fidelity of the physics. The test defined within this experiment is not a unit test for a specific subcomponent, but ensures time-integration of the defined problem conditions within a reasonable tolerance. Immediately useful macros and functions from this include `@test` and `@testset` which will allow us to define the testing parameter sets.
-using Test
 
-# We then need to use the CLIMA module! This imports all functions specific to atmospheric and ocean flow modelling.
+# We need to use the CLIMA module! This imports all functions specific to atmospheric and ocean flow modelling.
 # While we do not cover the ins-and-outs of the contents of each of these we provide brief descriptions of the utility of each of the loaded packages.
 using CLIMA
+CLIMA.init()
+
 using CLIMA.Atmos
 # - Required so that we inherit the appropriate model types for the large-eddy simulation (LES) and global-circulation-model (GCM) configurations.
 using CLIMA.ConfigTypes
@@ -82,6 +79,13 @@ using CLIMA.MoistThermodynamics
 # - Required so we may access our variable arrays by a sensible naming convention rather than by numerical array indices.
 using CLIMA.VariableTemplates
 # - Required so we may access planet parameters ([CLIMAParameters](https://climate-machine.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
+
+# In CLIMA we use `StaticArrays` for our variable arrays.
+using StaticArrays
+# We also use the `Test` package to help with unit tests and continuous integration systems to design sensible tests
+# for our experiment to ensure new / modified blocks of code don't damage the fidelity of the physics. The test defined within this experiment is not a unit test for a specific subcomponent, but ensures time-integration of the defined problem conditions within a reasonable tolerance. Immediately useful macros and functions from this include `@test` and `@testset` which will allow us to define the testing parameter sets.
+using Test
+
 using CLIMAParameters
 using CLIMAParameters.Atmos.SubgridScale: C_smag
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
@@ -263,8 +267,6 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    CLIMA.init()
-
     # These are essentially arguments passed to the [`config_risingbubble`](@ref config-helper) function.
     # For type consistency we explicitly define the problem floating-precision.
     FT = Float64

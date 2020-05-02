@@ -115,7 +115,7 @@ function (dg::DGModel)(
 
     if num_state_gradient_flux > 0 || nhyperviscstate > 0
 
-        comp_stream = volume_gradients!(device, workgroups_volume)(
+        comp_stream = volume_gradients!(device, (Nq, Nq))(
             balance_law,
             Val(dim),
             Val(N),
@@ -129,7 +129,7 @@ function (dg::DGModel)(
             grid.D,
             hypervisc_indexmap,
             topology.realelems,
-            ndrange = ndrange_volume,
+            ndrange = (Nq * nrealelem, Nq),
             dependencies = (comp_stream,),
         )
 
@@ -385,7 +385,7 @@ function (dg::DGModel)(
     ###################
     # RHS Computation #
     ###################
-    comp_stream = volume_tendency!(device, workgroups_volume)(
+    comp_stream = volume_tendency!(device, (Nq, Nq))(
         balance_law,
         Val(dim),
         Val(N),
@@ -401,7 +401,7 @@ function (dg::DGModel)(
         grid.D,
         topology.realelems,
         increment;
-        ndrange = ndrange_volume,
+        ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
 
@@ -534,7 +534,7 @@ function init_ode_state(
 
     if !init_on_cpu
         event = Event(device)
-        event = kernel_init_state_conservative!(device, Np)(
+        event = kernel_init_state_conservative!(device, min(Np, 1024))(
             balance_law,
             Val(dim),
             Val(N),
@@ -735,7 +735,7 @@ function nodal_update_auxiliary_state!(
     Np = dofs_per_element(grid)
 
     nodal_update_auxiliary_state! =
-        kernel_nodal_update_auxiliary_state!(device, Np)
+        kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive

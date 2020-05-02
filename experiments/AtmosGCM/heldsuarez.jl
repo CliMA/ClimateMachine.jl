@@ -1,10 +1,6 @@
-using Distributions: Uniform
-using LinearAlgebra
-using StaticArrays
-using Random: rand
-using Test
-
+#!/usr/bin/env julia --project
 using CLIMA
+CLIMA.init()
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
 using CLIMA.Diagnostics
@@ -15,6 +11,12 @@ using CLIMA.Mesh.Filters
 using CLIMA.Mesh.Grids
 using CLIMA.MoistThermodynamics: air_temperature, internal_energy, air_pressure
 using CLIMA.VariableTemplates
+
+using Distributions: Uniform
+using LinearAlgebra
+using StaticArrays
+using Random: rand
+using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
@@ -173,8 +175,6 @@ function config_diagnostics(FT, driver_config)
 end
 
 function main()
-    CLIMA.init()
-
     # Driver configuration parameters
     FT = Float32                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
