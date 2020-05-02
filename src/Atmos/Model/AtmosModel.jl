@@ -35,7 +35,6 @@ import CLIMA.DGmethods:
     init_state_auxiliary!,
     init_state_conservative!,
     update_auxiliary_state!,
-    update_auxiliary_state_gradient!,
     LocalGeometry,
     lengthscale,
     resolutionmetric,
@@ -291,8 +290,6 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dz::vars_integrals(m, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
-        N²::FT
-        S::SMatrix{3,3,FT,9}
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -388,7 +385,7 @@ function compute_gradient_argument!(
     transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
 
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
-    compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
+    compute_gradient_argument!(atmos, atmos.turbulence, transform, state, aux, t)
     compute_gradient_argument!(atmos.hyperdiffusion, transform, state, aux, t)
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
 end
@@ -405,6 +402,7 @@ function compute_gradient_flux!(
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
+        atmos,
         atmos.turbulence,
         atmos.orientation,
         diffusive,
