@@ -1,258 +1,256 @@
 using ..Atmos
-using ..Atmos: thermo_state, turbulence_tensors
+using ..Atmos: MoistureModel, thermo_state, turbulence_tensors
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..MoistThermodynamics
-using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 using LinearAlgebra
 
-Base.@kwdef mutable struct AtmosCollectedDiagnostics
-    zvals::Union{Nothing, Array} = nothing
-    repdvsr::Union{Nothing, Array} = nothing
-end
-const CollectedDiagnostics = AtmosCollectedDiagnostics()
+"""
+    atmos_default_init(bl, currtime)
 
-include("diagnostic_vars.jl")
-
+Initialize the 'AtmosDefault' diagnostics group.
+"""
 function atmos_default_init(dgngrp::DiagnosticsGroup, currtime)
-    mpicomm = Settings.mpicomm
-    dg = Settings.dg
-    Q = Settings.Q
-    FT = eltype(Q)
-    grid = dg.grid
-    topology = grid.topology
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
-    nrealelem = length(topology.realelems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
-
-    if Array ∈ typeof(Q).parameters
-        localvgeo = grid.vgeo
-    else
-        localvgeo = Array(grid.vgeo)
-    end
-
-    CollectedDiagnostics.zvals = zeros(FT, Nqk * nvertelem)
-    CollectedDiagnostics.repdvsr = zeros(FT, Nqk * nvertelem)
-
-    @visitQ nhorzelem nvertelem Nqk Nq begin
-        z = localvgeo[ijk, grid.x3id, e]
-        MH = localvgeo[ijk, grid.MHid, e]
-        CollectedDiagnostics.zvals[Nqk * (ev - 1) + k] += MH * z
-        CollectedDiagnostics.repdvsr[Nqk * (ev - 1) + k] += MH
-    end
-
-    # compute the full number of points on a slab
-    MPI.Allreduce!(CollectedDiagnostics.repdvsr, +, mpicomm)
-
-    CollectedDiagnostics.zvals ./= CollectedDiagnostics.repdvsr
-end
-
-# thermodynamic variables of interest
-function vars_thermo(FT)
-    @vars begin
-        q_liq::FT
-        q_ice::FT
-        q_vap::FT
-        T::FT
-        θ_liq_ice::FT
-        θ_dry::FT
-        θ_v::FT
-        e_int::FT
-        h_m::FT
-        h_t::FT
-    end
-end
-num_thermo(FT) = varsize(vars_thermo(FT))
-thermo_vars(array) = Vars{vars_thermo(eltype(array))}(array)
-
-function compute_thermo!(bl, state, aux, ijk, e, thermoQ)
-    e_tot = state.ρe / state.ρ
-    ts = thermo_state(bl, state, aux)
-    e_int = internal_energy(ts)
-    Phpart = PhasePartition(ts)
-
-    th = thermo_vars(thermoQ[ijk, e])
-    th.q_liq = Phpart.liq
-    th.q_ice = Phpart.ice
-    th.q_vap = vapor_specific_humidity(ts)
-    th.T = air_temperature(ts)
-    th.θ_liq_ice = liquid_ice_pottemp(ts)
-    th.θ_dry = dry_pottemp(ts)
-    th.θ_v = virtual_pottemp(ts)
-    th.e_int = e_int
-
-    # Moist and total henthalpy
-    R_m = gas_constant_air(ts)
-    th.h_m = e_int + R_m * th.T
-    th.h_t = e_tot + R_m * th.T
+    atmos_collect_onetime(Settings.mpicomm, Settings.dg, Settings.Q)
 
     return nothing
 end
 
-# horizontal averages
-function vars_horzavg(FT)
+# Simple horizontal averages
+function vars_atmos_default_simple(m::AtmosModel, FT)
     @vars begin
-        ρ::FT
-        ρu::FT
-        ρv::FT
-        ρw::FT
-        e_tot::FT
-        ρq_tot::FT
-        q_liq::FT
-        q_vap::FT
-        θ_liq_ice::FT
-        θ_dry::FT
-        θ_v::FT
-        e_int::FT
-        h_m::FT
-        h_t::FT
-        qt_sgs::FT
-        ht_sgs::FT
+        u::FT
+        v::FT
+        w::FT
+        avg_rho::FT             # ρ
+        rho::FT                 # ρρ
+        temp::FT
+        thd::FT                 # θ_dry
+        thv::FT                 # θ_vir
+        et::FT                  # e_tot
+        ei::FT                  # e_int
+        ht::FT
+        hm::FT
+        w_ht_sgs::FT
+
+        moisture::vars_atmos_default_simple(m.moisture, FT)
     end
 end
-num_horzavg(FT) = varsize(vars_horzavg(FT))
-horzavg_vars(array) = Vars{vars_horzavg(eltype(array))}(array)
+vars_atmos_default_simple(::MoistureModel, FT) = @vars()
+function vars_atmos_default_simple(m::EquilMoist, FT)
+    @vars begin
+        qt::FT                  # q_tot
+        ql::FT                  # q_liq
+        qv::FT                  # q_vap
+        thl::FT                 # θ_liq
+        w_qt_sgs::FT
+    end
+end
+num_atmos_default_simple_vars(m, FT) = varsize(vars_atmos_default_simple(m, FT))
+atmos_default_simple_vars(m, array) =
+    Vars{vars_atmos_default_simple(m, eltype(array))}(array)
 
-function compute_horzsums!(
+function atmos_default_simple_sums!(
     atmos::AtmosModel,
-    state,
-    diffusive_flux,
-    aux,
-    k,
-    ijk,
-    ev,
-    e,
-    Nqk,
-    nvertelem,
-    MH,
-    localaux,
-    thermoQ,
-    horzsums,
-    LWP,
+    state_conservative,
+    state_gradient_flux,
+    state_auxiliary,
+    thermo,
     currtime,
+    MH,
+    sums,
 )
-    th = thermo_vars(thermoQ[ijk, e])
-    hs = horzavg_vars(horzsums[Nqk * (ev - 1) + k])
-    hs.ρ += MH * state.ρ
-    hs.ρu += MH * state.ρu[1]
-    hs.ρv += MH * state.ρu[2]
-    hs.ρw += MH * state.ρu[3]
-    hs.e_tot += MH * state.ρe
-    hs.q_liq += MH * th.q_liq
-    hs.q_vap += MH * th.q_vap
-    hs.θ_liq_ice += MH * th.θ_liq_ice
-    hs.θ_dry += MH * th.θ_dry
-    hs.θ_v += MH * th.θ_v
-    hs.e_int += MH * th.e_int
-    hs.h_m += MH * th.h_m
-    hs.h_t += MH * th.h_t
+    sums.u += MH * state_conservative.ρu[1]
+    sums.v += MH * state_conservative.ρu[2]
+    sums.w += MH * state_conservative.ρu[3]
+    sums.avg_rho += MH * state_conservative.ρ
+    sums.rho += MH * state_conservative.ρ * state_conservative.ρ
+    sums.temp += MH * thermo.T * state_conservative.ρ
+    sums.thd += MH * thermo.θ_dry * state_conservative.ρ
+    sums.thv += MH * thermo.θ_vir * state_conservative.ρ
+    sums.et += MH * state_conservative.ρe
+    sums.ei += MH * thermo.e_int * state_conservative.ρ
+    sums.ht += MH * thermo.h_tot * state_conservative.ρ
+    sums.hm += MH * thermo.h_moi * state_conservative.ρ
 
-    # TODO: temporary fix
-    if isa(atmos.moisture, EquilMoist)
-        hs.ρq_tot += MH * state.moisture.ρq_tot
-    end
+    ν, D_t, _ = turbulence_tensors(
+        atmos,
+        state_conservative,
+        state_gradient_flux,
+        state_auxiliary,
+        currtime,
+    )
+    d_h_tot = -D_t .* state_gradient_flux.∇h_tot
+    sums.w_ht_sgs += MH * d_h_tot[end] * state_conservative.ρ
 
-    ν, D_t, _ = turbulence_tensors(atmos, state, diffusive_flux, aux, currtime)
+    atmos_default_simple_sums!(
+        atmos.moisture,
+        state_conservative,
+        state_gradient_flux,
+        thermo,
+        MH,
+        D_t,
+        sums,
+    )
 
-    # TODO: temporary fix
-    if isa(atmos.moisture, EquilMoist)
-        d_q_tot = (-D_t) .* diffusive_flux.moisture.∇q_tot
-        hs.qt_sgs += MH * state.ρ * d_q_tot[end]
-    end
-
-    d_h_tot = -D_t .* diffusive_flux.∇h_tot
-    hs.ht_sgs += MH * state.ρ * d_h_tot[end]
-
-    # liquid water path
-    # this condition is also going to be used to get the number of points that
-    # exist on a horizontal plane provided all planes have the same number of
-    # points
-    # TODO adjust for possibility of non equivalent horizontal slabs
-    if ev == floor(nvertelem / 2) && k == floor(Nqk / 2)
-        # TODO: uncomment the line below after rewriting the LWP assignment below using aux.∫dz...?
-        # aux = extract_aux(dg, localaux, ijk, e)
-        LWP[1] += MH * (localaux[ijk, 1, e] + localaux[ijk, 2, e])
-    end
+    return nothing
+end
+function atmos_default_simple_sums!(
+    ::MoistureModel,
+    state_conservative,
+    state_gradient_flux,
+    thermo,
+    MH,
+    D_t,
+    sums,
+)
+    return nothing
+end
+function atmos_default_simple_sums!(
+    moist::EquilMoist,
+    state_conservative,
+    state_gradient_flux,
+    thermo,
+    MH,
+    D_t,
+    sums,
+)
+    sums.moisture.qt += MH * state_conservative.moisture.ρq_tot
+    sums.moisture.ql += MH * thermo.moisture.q_liq * state_conservative.ρ
+    sums.moisture.qv += MH * thermo.moisture.q_vap * state_conservative.ρ
+    sums.moisture.thl += MH * thermo.moisture.θ_liq_ice * state_conservative.ρ
+    d_q_tot = (-D_t) .* state_gradient_flux.moisture.∇q_tot
+    sums.moisture.w_qt_sgs += MH * d_q_tot[end] * state_conservative.ρ
 
     return nothing
 end
 
-function compute_diagnosticsums!(
-    atmos,
-    state,
-    k,
-    ijk,
-    ev,
-    e,
-    Nqk,
-    nvertelem,
+# Variances and covariances
+function vars_atmos_default_ho(m::AtmosModel, FT)
+    @vars begin
+        var_u::FT               # u′u′
+        var_v::FT               # v′v′
+        var_w::FT               # w′w′
+        w3::FT                  # w′w′w′
+        tke::FT
+        var_ei::FT              # e_int′e_int′
+
+        cov_w_u::FT             # w′u′
+        cov_w_v::FT             # w′v′
+        cov_w_rho::FT           # w′ρ′
+        cov_w_thd::FT           # w′θ_dry′
+        cov_w_thv::FT           # w′θ_v′
+        cov_w_ei::FT            # w′e_int′
+
+        moisture::vars_atmos_default_ho(m.moisture, FT)
+    end
+end
+vars_atmos_default_ho(::MoistureModel, FT) = @vars()
+function vars_atmos_default_ho(m::EquilMoist, FT)
+    @vars begin
+        var_qt::FT              # q_tot′q_tot′
+        var_thl::FT             # θ_liq_ice′θ_liq_ice′
+
+        cov_w_qt::FT            # w′q_tot′
+        cov_w_ql::FT            # w′q_liq′
+        cov_w_qv::FT            # w′q_vap′
+        cov_w_thl::FT           # w′θ_liq_ice′
+        cov_qt_thl::FT          # q_tot′θ_liq_ice′
+        cov_qt_ei::FT           # q_tot′e_int′
+    end
+end
+num_atmos_default_ho_vars(m, FT) = varsize(vars_atmos_default_ho(m, FT))
+atmos_default_ho_vars(m, array) =
+    Vars{vars_atmos_default_ho(m, eltype(array))}(array)
+
+function atmos_default_ho_sums!(
+    atmos::AtmosModel,
+    state_conservative,
+    thermo,
     MH,
-    thermoQ,
-    horzavgs,
-    dsums,
+    ha,
+    sums,
 )
-    zvals = CollectedDiagnostics.zvals
-    th = thermo_vars(thermoQ[ijk, e])
-    ha = horzavg_vars(horzavgs[Nqk * (ev - 1) + k])
-    ds = diagnostic_vars(dsums[Nqk * (ev - 1) + k])
+    u = state_conservative.ρu[1] / state_conservative.ρ
+    u′ = u - ha.u
+    v = state_conservative.ρu[2] / state_conservative.ρ
+    v′ = v - ha.v
+    w = state_conservative.ρu[3] / state_conservative.ρ
+    w′ = w - ha.w
+    e_int′ = thermo.e_int - ha.ei
+    θ_dry′ = thermo.θ_dry - ha.thd
+    θ_vir′ = thermo.θ_vir - ha.thv
 
-    u = state.ρu[1] / state.ρ
-    v = state.ρu[2] / state.ρ
-    w = state.ρu[3] / state.ρ
-    ũ = ha.ρu / ha.ρ
-    ṽ = ha.ρv / ha.ρ
-    w̃ = ha.ρw / ha.ρ
-    ẽ = ha.e_tot / ha.ρ
-    q̃_tot = ha.ρq_tot / ha.ρ
-    # TODO: temporary fix
-    if isa(atmos.moisture, EquilMoist)
-        q_tot = state.moisture.ρq_tot / state.ρ
-    end
+    sums.var_u += MH * u′^2 * state_conservative.ρ
+    sums.var_v += MH * v′^2 * state_conservative.ρ
+    sums.var_w += MH * w′^2 * state_conservative.ρ
+    sums.w3 += MH * w′^3 * state_conservative.ρ
+    sums.tke +=
+        0.5 * (
+            MH * u′^2 * state_conservative.ρ +
+            MH * v′^2 * state_conservative.ρ +
+            MH * w′^2 * state_conservative.ρ
+        )
+    sums.var_ei += MH * e_int′^2 * state_conservative.ρ
 
-    # state and functions of state
-    ds.u += MH * ũ
-    ds.v += MH * ṽ
-    ds.w += MH * w̃
-    ds.e_tot += MH * ẽ
-    ds.q_tot += MH * ha.ρq_tot / ha.ρ
-    ds.q_liq += MH * ha.q_liq
-    ds.thd += MH * ha.θ_dry
-    ds.thl += MH * ha.θ_liq_ice
-    ds.thv += MH * ha.θ_v
-    ds.e_int += MH * ha.e_int
-    ds.h_m += MH * ha.h_m
-    ds.h_t += MH * ha.h_t
-    ds.qt_sgs += MH * ha.qt_sgs
-    ds.ht_sgs += MH * ha.ht_sgs
+    sums.cov_w_u += MH * w′ * u′ * state_conservative.ρ
+    sums.cov_w_v += MH * w′ * v′ * state_conservative.ρ
+    sums.cov_w_rho +=
+        MH * w′ * (state_conservative.ρ - ha.avg_rho) * state_conservative.ρ
+    sums.cov_w_thd += MH * w′ * θ_dry′ * state_conservative.ρ
+    sums.cov_w_thv += MH * w′ * θ_vir′ * state_conservative.ρ
+    sums.cov_w_ei += MH * w′ * e_int′ * state_conservative.ρ
 
-    # vertical fluxes
-    ds.vert_eddy_mass_flux += MH * (w - w̃) * (state.ρ - ha.ρ)
-    ds.vert_eddy_u_flux += MH * (w - w̃) * (u - ha.ρu / ha.ρ)
-    ds.vert_eddy_v_flux += MH * (w - w̃) * (v - ha.ρv / ha.ρ)
-    ds.vert_eddy_ql_flux += MH * (w - w̃) * (th.q_liq - ha.q_liq)
-    ds.vert_eddy_qv_flux += MH * (w - w̃) * (th.q_vap - ha.q_vap)
-    ds.vert_eddy_thd_flux += MH * (w - w̃) * (th.θ_dry - ha.θ_dry)
-    ds.vert_eddy_thv_flux += MH * (w - w̃) * (th.θ_v - ha.θ_v)
-    ds.vert_eddy_thl_flux += MH * (w - w̃) * (th.θ_liq_ice - ha.θ_liq_ice)
-    # TODO: temporary fix
-    if isa(atmos.moisture, EquilMoist)
-        ds.vert_eddy_qt_flux += MH * (w - w̃) * (q_tot - q̃_tot)
-        ds.vert_qt_flux += MH * w * q_tot
-    end
+    atmos_default_ho_sums!(
+        atmos.moisture,
+        state_conservative,
+        thermo,
+        MH,
+        ha,
+        w′,
+        e_int′,
+        sums,
+    )
 
-    # variances
-    ds.uvariance += MH * (u - ũ)^2
-    ds.vvariance += MH * (v - ṽ)^2
-    ds.wvariance += MH * (w - w̃)^2
+    return nothing
+end
+function atmos_default_ho_sums!(
+    ::MoistureModel,
+    state_conservative,
+    thermo,
+    MH,
+    ha,
+    w′,
+    e_int′,
+    sums,
+)
+    return nothing
+end
+function atmos_default_ho_sums!(
+    moist::EquilMoist,
+    state_conservative,
+    thermo,
+    MH,
+    ha,
+    w′,
+    e_int′,
+    sums,
+)
+    q_tot = state_conservative.moisture.ρq_tot / state_conservative.ρ
+    q_tot′ = q_tot - ha.moisture.qt
+    q_liq′ = thermo.moisture.q_liq - ha.moisture.ql
+    q_vap′ = thermo.moisture.q_vap - ha.moisture.qv
+    θ_liq_ice′ = thermo.moisture.θ_liq_ice - ha.moisture.thl
 
-    # skewness
-    ds.wskew += MH * (w - w̃)^3
+    sums.moisture.var_qt += MH * q_tot′^2 * state_conservative.ρ
+    sums.moisture.var_thl += MH * θ_liq_ice′^2 * state_conservative.ρ
 
-    # turbulent kinetic energy
-    ds.TKE = 0.5 * (ds.uvariance + ds.vvariance + ds.wvariance)
+    sums.moisture.cov_w_qt += MH * w′ * q_tot′ * state_conservative.ρ
+    sums.moisture.cov_w_ql += MH * w′ * q_liq′ * state_conservative.ρ
+    sums.moisture.cov_w_qv += MH * w′ * q_vap′ * state_conservative.ρ
+    sums.moisture.cov_w_thl += MH * w′ * θ_liq_ice′ * state_conservative.ρ
+    sums.moisture.cov_qt_thl += MH * q_tot′ * θ_liq_ice′ * state_conservative.ρ
+    sums.moisture.cov_qt_ei += MH * q_tot′ * e_int′ * state_conservative.ρ
 
     return nothing
 end
@@ -260,42 +258,14 @@ end
 """
     atmos_default_collect(bl, currtime)
 
-Perform a global grid traversal to compute various diagnostics.
+Collect the various 'AtmosDefault' diagnostic variables for the
+current timestep and write them into a file.
 """
 function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     mpicomm = Settings.mpicomm
     dg = Settings.dg
     Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
-    current_time = string(currtime)
-
-    # make sure this time step is not already recorded
-    dprefix = @sprintf(
-        "%s_%s-%s-num%04d",
-        dgngrp.out_prefix,
-        dgngrp.name,
-        Settings.starttime,
-        dgngrp.num
-    )
-    dfilename = joinpath(Settings.output_dir, dprefix)
-    docollect = [false]
-    if mpirank == 0
-        dfullname = full_name(dgngrp.writer, dfilename)
-        if isfile(dfullname)
-            @warn """
-Diagnostics $(dgngrp.name) collection
-    output file $dfullname exists
-    skipping collection at $current_time"""
-        else
-            docollect[1] = true
-        end
-    end
-    MPI.Bcast!(docollect, 0, mpicomm)
-    if !docollect[1]
-        return nothing
-    end
-
-    # extract grid information
     bl = dg.balancelaw
     grid = dg.grid
     topology = grid.topology
@@ -307,134 +277,208 @@ Diagnostics $(dgngrp.name) collection
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
 
-    # get the state, auxiliary and geo variables onto the host if needed
+    # get needed arrays onto the CPU
     if Array ∈ typeof(Q).parameters
-        localQ = Q.realdata
-        localaux = dg.auxstate.realdata
-        localvgeo = grid.vgeo
-        localdiff = dg.diffstate.realdata
+        host_state_conservative = Q.realdata
+        host_state_auxiliary = dg.state_auxiliary.realdata
+        host_vgeo = grid.vgeo
+        host_state_gradient_flux = dg.state_gradient_flux.realdata
     else
-        localQ = Array(Q.realdata)
-        localaux = Array(dg.auxstate.realdata)
-        localvgeo = Array(grid.vgeo)
-        localdiff = Array(dg.diffstate.realdata)
+        host_state_conservative = Array(Q.realdata)
+        host_state_auxiliary = Array(dg.state_auxiliary.realdata)
+        host_vgeo = Array(grid.vgeo)
+        host_state_gradient_flux = Array(dg.state_gradient_flux.realdata)
     end
-    FT = eltype(localQ)
+    FT = eltype(host_state_conservative)
 
-    nstate = num_state(bl, FT)
-    nauxstate = num_aux(bl, FT)
-    ndiff = num_diffusive(bl, FT)
+    zvals = AtmosCollected.zvals
+    repdvsr = AtmosCollected.repdvsr
 
-    # thermo variables
-    thermoQ = [zeros(FT, num_thermo(FT)) for _ in 1:npoints, _ in 1:nrealelem]
-
-    # horizontal sums and the liquid water path
-    l_LWP = zeros(FT, 1)
-    horzsums = [zeros(FT, num_horzavg(FT)) for _ in 1:(Nqk * nvertelem)]
-
-    # compute thermo variables and horizontal sums in a single pass
+    # Visit each node of the state variables array and:
+    # - generate and store the thermo variables,
+    # - accumulate the simple horizontal sums, and
+    # - determine the cloud fraction, top and base
+    #
+    thermo_array =
+        [zeros(FT, num_thermo(bl, FT)) for _ in 1:npoints, _ in 1:nrealelem]
+    simple_sums = [
+        zeros(FT, num_atmos_default_simple_vars(bl, FT))
+        for _ in 1:(Nqk * nvertelem)
+    ]
+    ql_gt_0_z = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
+    ql_gt_0_full = zeros(FT, (Nq * Nq * nhorzelem))
+    # In honor of PyCLES!
+    cld_top = FT(-100000)
+    cld_base = FT(100000)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state(dg, localQ, ijk, e)
-        aux = extract_aux(dg, localaux, ijk, e)
+        evk = Nqk * (ev - 1) + k
 
-        compute_thermo!(bl, state, aux, ijk, e, thermoQ)
+        state_conservative =
+            extract_state_conservative(dg, host_state_conservative, ijk, e)
+        state_gradient_flux =
+            extract_state_gradient_flux(dg, host_state_gradient_flux, ijk, e)
+        state_auxiliary =
+            extract_state_auxiliary(dg, host_state_auxiliary, ijk, e)
+        MH = host_vgeo[ijk, grid.MHid, e]
 
-        diffusive_flux = extract_diffusion(dg, localdiff, ijk, e)
-        MH = localvgeo[ijk, grid.MHid, e]
-        compute_horzsums!(
+        thermo = thermo_vars(bl, thermo_array[ijk, e])
+        compute_thermo!(bl, state_conservative, state_auxiliary, thermo)
+
+        simple = atmos_default_simple_vars(bl, simple_sums[evk])
+        atmos_default_simple_sums!(
             bl,
-            state,
-            diffusive_flux,
-            aux,
-            k,
-            ijk,
-            ev,
-            e,
-            Nqk,
-            nvertelem,
-            MH,
-            localaux,
-            thermoQ,
-            horzsums,
-            l_LWP,
+            state_conservative,
+            state_gradient_flux,
+            state_auxiliary,
+            thermo,
             currtime,
+            MH,
+            simple,
         )
-    end
 
-    # compute the horizontal and LWP averages
-    repdvsr = CollectedDiagnostics.repdvsr
-    horzavgs = [zeros(FT, num_horzavg(FT)) for _ in 1:(Nqk * nvertelem)]
-    for ev in 1:nvertelem
-        for k in 1:Nqk
-            hsum = MPI.Allreduce(horzsums[Nqk * (ev - 1) + k], +, mpicomm)
-            horzavgs[Nqk * (ev - 1) + k] .= hsum ./ repdvsr[Nqk * (ev - 1) + k]
+        if !iszero(thermo.moisture.q_liq)
+            idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
+            ql_gt_0_z[evk][idx] = one(FT)
+            ql_gt_0_full[idx] = one(FT)
+
+            z = zvals[evk]
+            cld_top = max(cld_top, z)
+            cld_base = min(cld_base, z)
         end
     end
-    LWP = zero(FT)
-    LWP = MPI.Reduce(l_LWP[1], +, 0, mpicomm)
+
+    # reduce horizontal sums and cloud data across ranks and compute averages
+    simple_avgs = [
+        zeros(FT, num_atmos_default_simple_vars(bl, FT))
+        for _ in 1:(Nqk * nvertelem)
+    ]
+    cld_frac = zeros(FT, Nqk * nvertelem)
+    for evk in 1:(Nqk * nvertelem)
+        MPI.Allreduce!(simple_sums[evk], simple_avgs[evk], +, mpicomm)
+        simple_avgs[evk] .= simple_avgs[evk] ./ repdvsr[evk]
+
+        tot_ql_gt_0_z = MPI.Reduce(sum(ql_gt_0_z[evk]), +, 0, mpicomm)
+        tot_horz_z = MPI.Reduce(length(ql_gt_0_z[evk]), +, 0, mpicomm)
+        if mpirank == 0
+            cld_frac[evk] = tot_ql_gt_0_z / tot_horz_z
+        end
+    end
+    cld_top = MPI.Reduce(cld_top, MPI.MAX, 0, mpicomm)
+    if cld_top == FT(-100000)
+        cld_top = NaN
+    end
+    cld_base = MPI.Reduce(cld_base, MPI.MIN, 0, mpicomm)
+    if cld_base == FT(100000)
+        cld_base = NaN
+    end
+    tot_ql_gt_0_full = MPI.Reduce(sum(ql_gt_0_full), +, 0, mpicomm)
+    tot_horz_full = MPI.Reduce(length(ql_gt_0_full), +, 0, mpicomm)
+    cld_cover = zero(FT)
     if mpirank == 0
-        LWP /= repdvsr[1]
+        cld_cover = tot_ql_gt_0_full / tot_horz_full
     end
 
-    # compute the diagnostics using the previous computed values
-    dsums = [zeros(FT, num_diagnostic(FT)) for _ in 1:(Nqk * nvertelem)]
-    @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state(dg, localQ, ijk, e)
-        MH = localvgeo[ijk, grid.MHid, e]
-        compute_diagnosticsums!(
-            bl,
-            state,
-            k,
-            ijk,
-            ev,
-            e,
-            Nqk,
-            nvertelem,
-            MH,
-            thermoQ,
-            horzavgs,
-            dsums,
-        )
-    end
-    varvals = OrderedDict()
-    varnames = flattenednames(vars_diagnostic(FT))
-    for vari in 1:length(varnames)
-        davg = zeros(FT, Nqk * nvertelem)
+    # complete density averaging
+    simple_varnames = map(
+        s -> startswith(s, "moisture.") ? s[10:end] : s,
+        flattenednames(vars_atmos_default_simple(bl, FT)),
+    )
+    for vari in 1:length(simple_varnames)
         for evk in 1:(Nqk * nvertelem)
-            dsum = MPI.Reduce(dsums[evk][vari], +, 0, mpicomm)
-            if mpirank == 0
-                davg[evk] = dsum / repdvsr[evk]
+            simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
+            avg_rho = simple_ha.avg_rho
+            if simple_varnames[vari] != "avg_rho"
+                simple_avgs[evk][vari] /= avg_rho
             end
         end
+    end
+
+    # compute the variances and covariances
+    ho_sums = [
+        zeros(FT, num_atmos_default_ho_vars(bl, FT))
+        for _ in 1:(Nqk * nvertelem)
+    ]
+    @visitQ nhorzelem nvertelem Nqk Nq begin
+        evk = Nqk * (ev - 1) + k
+
+        state_conservative =
+            extract_state_conservative(dg, host_state_conservative, ijk, e)
+        thermo = thermo_vars(bl, thermo_array[ijk, e])
+        MH = host_vgeo[ijk, grid.MHid, e]
+
+        simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
+        ho = atmos_default_ho_vars(bl, ho_sums[evk])
+        atmos_default_ho_sums!(
+            bl,
+            state_conservative,
+            thermo,
+            MH,
+            simple_ha,
+            ho,
+        )
+    end
+
+    # reduce across ranks and compute averages
+    ho_avgs = [
+        zeros(FT, num_atmos_default_ho_vars(bl, FT))
+        for _ in 1:(Nqk * nvertelem)
+    ]
+    for evk in 1:(Nqk * nvertelem)
+        MPI.Reduce!(ho_sums[evk], ho_avgs[evk], +, 0, mpicomm)
         if mpirank == 0
-            varvals[varnames[vari]] = davg
+            ho_avgs[evk] .= ho_avgs[evk] ./ repdvsr[evk]
         end
     end
 
-    # write diagnostics
+    # complete density averaging and prepare output
     if mpirank == 0
+        varvals = OrderedDict()
+        for vari in 1:length(simple_varnames)
+            davg = zeros(FT, Nqk * nvertelem)
+            for evk in 1:(Nqk * nvertelem)
+                davg[evk] = simple_avgs[evk][vari]
+            end
+            varvals[simple_varnames[vari]] = (("z",), davg)
+        end
+
+        ho_varnames = map(
+            s -> startswith(s, "moisture.") ? s[10:end] : s,
+            flattenednames(vars_atmos_default_ho(bl, FT)),
+        )
+        for vari in 1:length(ho_varnames)
+            davg = zeros(FT, Nqk * nvertelem)
+            for evk in 1:(Nqk * nvertelem)
+                simple_ha = atmos_default_simple_vars(bl, simple_avgs[evk])
+                avg_rho = simple_ha.avg_rho
+                davg[evk] = ho_avgs[evk][vari] / avg_rho
+            end
+            varvals[ho_varnames[vari]] = (("z",), davg)
+        end
+
+        varvals["cld_frac"] = (("z",), cld_frac)
+        varvals["cld_top"] = (("t",), cld_top)
+        varvals["cld_base"] = (("t",), cld_base)
+        varvals["cld_cover"] = (("t",), cld_cover)
+
+        # write output
+        dprefix = @sprintf(
+            "%s_%s_%s_num%04d",
+            dgngrp.out_prefix,
+            dgngrp.name,
+            Settings.starttime,
+            dgngrp.num
+        )
+        dfilename = joinpath(Settings.output_dir, dprefix)
         write_data(
             dgngrp.writer,
             dfilename,
-            OrderedDict("z" => CollectedDiagnostics.zvals),
+            OrderedDict("z" => zvals),
             varvals,
             currtime,
         )
     end
 
-    # write LWP
-    if mpirank == 0
-        jldopen(
-            joinpath(
-                Settings.output_dir,
-                "liquid_water_path-$(Settings.starttime).jld2",
-            ),
-            "a+",
-        ) do file
-            file[current_time] = LWP
-        end
-    end
-
+    MPI.Barrier(mpicomm)
     return nothing
 end # function collect
 

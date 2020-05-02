@@ -65,29 +65,6 @@ mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <:
     end
 end
 
-function StrongStabilityPreservingRungeKutta(
-    spacedisc::AbstractSpaceMethod,
-    RKA,
-    RKB,
-    RKC,
-    Q::AT;
-    dt = 0,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    rhs! =
-        (x...; increment) ->
-            SpaceMethods.odefun!(spacedisc, x..., increment = increment)
-    StrongStabilityPreservingRungeKutta(
-        rhs!,
-        RKA,
-        RKB,
-        RKC,
-        Q;
-        dt = dt,
-        t0 = t0,
-    )
-end
-
 """
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                        time::Real, [slow_δ, slow_rv_dQ, slow_scaling])

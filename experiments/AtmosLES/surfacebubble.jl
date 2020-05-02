@@ -1,11 +1,6 @@
-using Distributions
-using Random
-using StaticArrays
-using Test
-using DocStringExtensions
-using LinearAlgebra
-
+#!/usr/bin/env julia --project
 using CLIMA
+CLIMA.init()
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
 using CLIMA.GenericCallbacks
@@ -15,6 +10,13 @@ using CLIMA.ODESolvers
 using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
+
+using Distributions
+using Random
+using StaticArrays
+using Test
+using DocStringExtensions
+using LinearAlgebra
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
@@ -100,7 +102,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(),
-        init_state = init_surfacebubble!,
+        init_state_conservative = init_surfacebubble!,
     )
     config = CLIMA.AtmosLESConfiguration(
         "SurfaceDrivenBubble",
@@ -125,7 +127,6 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    CLIMA.init()
     FT = Float64
     # DG polynomial order
     N = 4

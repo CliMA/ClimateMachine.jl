@@ -29,9 +29,7 @@ extending_clima = Any[
         # "Home" => "ExtendingCLIMA/Numerics/Meshes/index.md",
         ],
         "DG methods" => Any["How to make a balance law" => "ExtendingCLIMA/Numerics/DGmethods/how_to_make_a_balance_law.md",],
-        "ODE Solvers" => Any[
-        # "Home" => "ExtendingCLIMA/Numerics/ODESolvers/index.md",
-        ],
+        "ODE Solvers" => Any["Time-integration" => "ExtendingCLIMA/Numerics/ODESolvers/Timestepping.md",],
         "Linear Solvers" => Any["Iterative Solvers" => "ExtendingCLIMA/Numerics/LinearSolvers/IterativeSolvers.md",],
     ],
 ]

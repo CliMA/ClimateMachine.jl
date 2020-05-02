@@ -142,11 +142,17 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
             ),
         ),
         tracers = NTracers{ntracers, FT}(δ_χ),
-        init_state = init_problem!,
+        init_state_conservative = init_problem!,
         data_config = data_config,
     )
-    ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+
+    ode_solver = CLIMA.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 10,
+    )
+
     config = CLIMA.AtmosLESConfiguration(
         "DryRayleighBenardConvection",
         N,
@@ -177,7 +183,8 @@ function main()
     Δh = FT(10)
     # Time integrator setup
     t0 = FT(0)
-    CFLmax = FT(0.90)
+    # Courant number
+    CFLmax = FT(5)
     timeend = FT(1000)
     xmax, ymax, zmax = FT(250), FT(250), FT(500)
 

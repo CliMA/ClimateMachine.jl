@@ -84,7 +84,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)
@@ -136,8 +136,8 @@ function run(
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         direction = EveryDirection(),
     )
@@ -145,10 +145,10 @@ function run(
     vdg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
-        auxstate = dg.auxstate,
+        state_auxiliary = dg.state_auxiliary,
         direction = VerticalDirection(),
     )
 
@@ -158,11 +158,11 @@ function run(
     ode_solver = ARK548L2SA2KennedyCarpenter(
         dg,
         vdg,
-        linearsolvertype(),
+        LinearBackwardEulerSolver(linearsolvertype(); isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = false,
+        split_explicit_implicit = false,
     )
 
     eng0 = norm(Q)

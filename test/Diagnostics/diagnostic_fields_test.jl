@@ -19,7 +19,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import CLIMA.Mesh.Grids: _x1, _x2, _x3
-import CLIMA.DGmethods: vars_state
+import CLIMA.DGmethods: vars_state_conservative
 import CLIMA.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
@@ -97,7 +97,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         ref_state = ref_state,
-        init_state = init_risingbubble!,
+        init_state_conservative = init_risingbubble!,
     )
 
     # Problem configuration
@@ -168,8 +168,8 @@ function run_brick_diagostics_fields_test()
         Npl = size(Q.realdata, 1)
 
         ind = [
-            varsindex(vars_state(model, FT), :ρ)
-            varsindex(vars_state(model, FT), :ρu)
+            varsindex(vars_state_conservative(model, FT), :ρ)
+            varsindex(vars_state_conservative(model, FT), :ρu)
         ]
         _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
 
@@ -203,14 +203,14 @@ function run_brick_diagostics_fields_test()
         vort = compute_vorticity(dg, vgrad)
         #----------------------------------------------------------------------------
         Ω₁_exact =
-            fcnz(x1, x2, x3, xmax, ymax, zmax) -
-            fcny(x1, x2, x3, xmax, ymax, zmax)
-        Ω₂_exact =
-            fcnx(x1, x2, x3, xmax, ymax, zmax) -
-            fcnz(x1, x2, x3, xmax, ymax, zmax)
-        Ω₃_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -
+            fcnz(x1, x2, x3, xmax, ymax, zmax)
+        Ω₂_exact =
+            fcnz(x1, x2, x3, xmax, ymax, zmax) -
             fcnx(x1, x2, x3, xmax, ymax, zmax)
+        Ω₃_exact =
+            fcnx(x1, x2, x3, xmax, ymax, zmax) -
+            fcny(x1, x2, x3, xmax, ymax, zmax)
 
         err = zeros(FT, 12)
 

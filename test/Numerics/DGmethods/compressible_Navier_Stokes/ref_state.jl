@@ -31,10 +31,10 @@ using CLIMA.Atmos
 using CLIMA.Atmos: internal_energy, thermo_state
 import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed
 
-init_state!(bl, state, aux, coords, t) = nothing
+init_state_conservative!(bl, state, aux, coords, t) = nothing
 
 # initial condition
-using CLIMA.Atmos: vars_aux
+using CLIMA.Atmos: vars_state_auxiliary
 
 function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
@@ -51,14 +51,14 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         AtmosLESConfigType,
         param_set;
         ref_state = HydrostaticState(IsothermalProfile(T_s), RH),
-        init_state = init_state!,
+        init_state_conservative = init_state_conservative!,
     )
 
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -66,7 +66,12 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
     mkpath("vtk")
     outprefix = @sprintf("vtk/refstate")
-    writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, FT)))
+    writevtk(
+        outprefix,
+        dg.state_auxiliary,
+        dg,
+        flattenednames(vars_state_auxiliary(model, FT)),
+    )
     return FT(0)
 end
 
@@ -88,14 +93,14 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
             LinearTemperatureProfile(T_min, T_s, Γ),
             RH,
         ),
-        init_state = init_state!,
+        init_state_conservative = init_state_conservative!,
     )
 
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -103,7 +108,12 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
     mkpath("vtk")
     outprefix = @sprintf("vtk/refstate")
-    writevtk(outprefix, dg.auxstate, dg, flattenednames(vars_aux(model, FT)))
+    writevtk(
+        outprefix,
+        dg.state_auxiliary,
+        dg,
+        flattenednames(vars_state_auxiliary(model, FT)),
+    )
     return FT(0)
 end
 

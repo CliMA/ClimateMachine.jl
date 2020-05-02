@@ -1,4 +1,4 @@
-# ODESolvers
+# [ODESolvers](@id ODESolvers-docs)
 
 ```@meta
 CurrentModule = CLIMA

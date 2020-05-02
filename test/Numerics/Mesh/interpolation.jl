@@ -26,7 +26,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 
-using CLIMA.Atmos: vars_state, vars_aux
+using CLIMA.Atmos: vars_state_conservative, vars_state_auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
@@ -134,14 +134,14 @@ function run_brick_interpolation_test()
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             source = (Gravity(),),
-            init_state = Initialize_Brick_Interpolation_Test!,
+            init_state_conservative = Initialize_Brick_Interpolation_Test!,
         )
 
         dg = DGModel(
             model,
             grid,
-            Rusanov(),
-            CentralNumericalFluxDiffusive(),
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
         )
 
@@ -181,7 +181,7 @@ function run_brick_interpolation_test()
         intrp_brck = InterpolationBrick(grid, xbnd, x1g, x2g, x3g)        # sets up the interpolation structure
         iv = DA(Array{FT}(undef, intrp_brck.Npl, nvars))                  # allocating space for the interpolation variable
         if pid == 0
-            fiv = DA(Array{FT}(undef, nx1, nx2, nx3, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0 
+            fiv = DA(Array{FT}(undef, nx1, nx2, nx3, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0
         else
             fiv = DA(Array{FT}(undef, 0, 0, 0, 0))
         end
@@ -297,14 +297,14 @@ function run_cubed_sphere_interpolation_test()
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             moisture = DryModel(),
             source = nothing,
-            init_state = setup,
+            init_state_conservative = setup,
         )
 
         dg = DGModel(
             model,
             grid,
-            Rusanov(),
-            CentralNumericalFluxDiffusive(),
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
         )
 
@@ -356,7 +356,7 @@ function run_cubed_sphere_interpolation_test()
         ) # sets up the interpolation structure
         iv = DA(Array{FT}(undef, intrp_cs.Npl, nvars))             # allocating space for the interpolation variable
         if pid == 0
-            fiv = DA(Array{FT}(undef, n_rad, n_lat, n_long, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0 
+            fiv = DA(Array{FT}(undef, n_rad, n_lat, n_long, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0
         else
             fiv = DA(Array{FT}(undef, 0, 0, 0, 0))
         end

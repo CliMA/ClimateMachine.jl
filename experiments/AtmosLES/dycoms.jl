@@ -1,11 +1,7 @@
-using Distributions
-using Random
-using StaticArrays
-using Test
-using DocStringExtensions
-using LinearAlgebra
-
+#!/usr/bin/env julia --project
 using CLIMA
+CLIMA.init()
+
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
 using CLIMA.Diagnostics
@@ -16,54 +12,65 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
+using Distributions
+using Random
+using StaticArrays
+using Test
+using DocStringExtensions
+using LinearAlgebra
+
 using CLIMAParameters
 using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import CLIMA.DGmethods:
-    vars_state,
-    vars_aux,
+    vars_state_conservative,
+    vars_state_auxiliary,
     vars_integrals,
     vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
-    integral_load_aux!,
-    integral_set_aux!,
-    reverse_integral_load_aux!,
-    reverse_integral_set_aux!
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
 
 import CLIMA.DGmethods: boundary_state!
-import CLIMA.Atmos: flux_diffusive!
+import CLIMA.Atmos: flux_second_order!
 
 # -------------------- Radiation Model -------------------------- #
-vars_state(::RadiationModel, FT) = @vars()
-vars_aux(::RadiationModel, FT) = @vars()
+vars_state_conservative(::RadiationModel, FT) = @vars()
+vars_state_auxiliary(::RadiationModel, FT) = @vars()
 vars_integrals(::RadiationModel, FT) = @vars()
 vars_reverse_integrals(::RadiationModel, FT) = @vars()
 
-function atmos_nodal_update_aux!(
+function atmos_nodal_update_auxiliary_state!(
     ::RadiationModel,
     ::AtmosModel,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
-function preodefun!(::RadiationModel, aux::Vars, state::Vars, t::Real) end
-function integral_load_aux!(
+
+function integral_load_auxiliary_state!(
     ::RadiationModel,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) end
-function integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
-function reverse_integral_load_aux!(
+function integral_set_auxiliary_state!(::RadiationModel, aux::Vars, integ::Vars) end
+function reverse_integral_load_auxiliary_state!(
     ::RadiationModel,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) end
-function reverse_integral_set_aux!(::RadiationModel, aux::Vars, integ::Vars) end
+function reverse_integral_set_auxiliary_state!(
+    ::RadiationModel,
+    aux::Vars,
+    integ::Vars,
+) end
 function flux_radiation!(
     ::RadiationModel,
     flux::Grad,
@@ -71,8 +78,6 @@ function flux_radiation!(
     aux::Vars,
     t::Real,
 ) end
-
-
 
 # ------------------------ Begin Radiation Model ---------------------- #
 """
@@ -100,10 +105,10 @@ struct DYCOMSRadiation{FT} <: RadiationModel
     F_1::FT
 end
 
-vars_aux(m::DYCOMSRadiation, FT) = @vars(Rad_flux::FT)
+vars_state_auxiliary(m::DYCOMSRadiation, FT) = @vars(Rad_flux::FT)
 
 vars_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
-function integral_load_aux!(
+function integral_load_auxiliary_state!(
     m::DYCOMSRadiation,
     integrand::Vars,
     state::Vars,
@@ -112,27 +117,32 @@ function integral_load_aux!(
     FT = eltype(state)
     integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
 end
-function integral_set_aux!(m::DYCOMSRadiation, aux::Vars, integrand::Vars)
-    integrand = integrand.radiation.attenuation_coeff
-    aux.∫dz.radiation.attenuation_coeff = integrand
+function integral_set_auxiliary_state!(
+    m::DYCOMSRadiation,
+    aux::Vars,
+    integral::Vars,
+)
+    integral = integral.radiation.attenuation_coeff
+    aux.∫dz.radiation.attenuation_coeff = integral
 end
 
 vars_reverse_integrals(m::DYCOMSRadiation, FT) = @vars(attenuation_coeff::FT)
-function reverse_integral_load_aux!(
+function reverse_integral_load_auxiliary_state!(
     m::DYCOMSRadiation,
     integrand::Vars,
     state::Vars,
     aux::Vars,
 )
     FT = eltype(state)
-    integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+    #integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+    integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
 end
-function reverse_integral_set_aux!(
+function reverse_integral_set_auxiliary_state!(
     m::DYCOMSRadiation,
     aux::Vars,
-    integrand::Vars,
+    integral::Vars,
 )
-    aux.∫dnz.radiation.attenuation_coeff = integrand.radiation.attenuation_coeff
+    aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
 end
 
 function flux_radiation!(
@@ -161,7 +171,6 @@ function flux_radiation!(
     ẑ = vertical_unit_vector(atmos, aux)
     flux.ρe += F_rad * ẑ
 end
-function preodefun!(m::DYCOMSRadiation, aux::Vars, state::Vars, t::Real) end
 # -------------------------- End Radiation Model ------------------------ #
 
 """
@@ -317,7 +326,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
             ),
             AtmosBC(),
         ),
-        init_state = ics,
+        init_state_conservative = ics,
     )
 
     ode_solver =
@@ -345,7 +354,6 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    CLIMA.init()
 
     FT = Float64
 

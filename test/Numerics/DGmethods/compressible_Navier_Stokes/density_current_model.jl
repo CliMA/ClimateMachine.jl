@@ -19,7 +19,7 @@ using StaticArrays
 using Logging, Printf, Dates
 using CLIMA.VTK
 using Random
-using CLIMA.Atmos: vars_state, vars_aux
+using CLIMA.Atmos: vars_state_conservative, vars_state_auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
@@ -136,14 +136,14 @@ function run(
         ),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
-        init_state = Initialise_Density_Current!,
+        init_state_conservative = Initialise_Density_Current!,
     )
-    # -------------- Define dgbalancelaw --------------------------- #
+    # -------------- Define DGModel --------------------------- #
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -193,9 +193,9 @@ function run(
             outprefix,
             Q,
             dg,
-            flattenednames(vars_state(model, FT)),
-            dg.auxstate,
-            flattenednames(vars_aux(model, FT)),
+            flattenednames(vars_state_conservative(model, FT)),
+            dg.state_auxiliary,
+            flattenednames(vars_state_auxiliary(model, FT)),
         )
         step[1] += 1
         nothing

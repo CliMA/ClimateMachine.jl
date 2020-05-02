@@ -127,7 +127,7 @@ function main()
         moisture = MMSDryModel(),
         source = mms3_source!,
         boundarycondition = InitStateBC(),
-        init_state = mms3_init_state!,
+        init_state_conservative = mms3_init_state!,
     )
 
     brickrange = (
@@ -165,8 +165,8 @@ function main()
         model,
         MPI.COMM_WORLD,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         CLIMA.AtmosLESSpecificInfo(),
     )
@@ -181,8 +181,8 @@ function main()
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 

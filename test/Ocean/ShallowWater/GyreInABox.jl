@@ -16,8 +16,8 @@ using CLIMA.VTK
 import CLIMA.ShallowWater:
     shallow_init_state!,
     shallow_init_aux!,
-    vars_state,
-    vars_aux,
+    vars_state_conservative,
+    vars_state_auxiliary,
     shallow_boundary_state!,
     TurbulenceClosure,
     LinearDrag,

@@ -4,11 +4,11 @@ using LinearAlgebra
 export HyperDiffusion, NoHyperDiffusion, StandardHyperDiffusion
 
 abstract type HyperDiffusion end
-vars_state(::HyperDiffusion, FT) = @vars()
-vars_aux(::HyperDiffusion, FT) = @vars()
-vars_gradient(::HyperDiffusion, FT) = @vars()
+vars_state_conservative(::HyperDiffusion, FT) = @vars()
+vars_state_auxiliary(::HyperDiffusion, FT) = @vars()
+vars_state_gradient(::HyperDiffusion, FT) = @vars()
 vars_gradient_laplacian(::HyperDiffusion, FT) = @vars()
-vars_diffusive(::HyperDiffusion, FT) = @vars()
+vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
 vars_hyperdiffusive(::HyperDiffusion, FT) = @vars()
 function atmos_init_aux!(
     ::HyperDiffusion,
@@ -16,21 +16,21 @@ function atmos_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 ) end
-function atmos_nodal_update_aux!(
+function atmos_nodal_update_auxiliary_state!(
     ::HyperDiffusion,
     ::AtmosModel,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
-function gradvariables!(
+function compute_gradient_argument!(
     ::HyperDiffusion,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
-function hyperdiffusive!(
+function transform_post_gradient_laplacian!(
     h::HyperDiffusion,
     hyperdiffusive::Vars,
     gradvars::Grad,
@@ -38,7 +38,7 @@ function hyperdiffusive!(
     aux::Vars,
     t::Real,
 ) end
-function flux_diffusive!(
+function flux_second_order!(
     h::HyperDiffusion,
     flux::Grad,
     state::Vars,
@@ -47,7 +47,7 @@ function flux_diffusive!(
     aux::Vars,
     t::Real,
 ) end
-function diffusive!(
+function compute_gradient_flux!(
     h::HyperDiffusion,
     diffusive::Vars,
     ∇transform::Grad,
@@ -58,22 +58,22 @@ function diffusive!(
 
 """
   NoHyperDiffusion <: HyperDiffusion
-Defines a default hyperdiffusion model with zero diffusive fluxes. 
+Defines a default hyperdiffusion model with zero diffusive fluxes.
 """
 struct NoHyperDiffusion <: HyperDiffusion end
 
 """
   StandardHyperDiffusion{FT} <: HyperDiffusion
 Horizontal hyperdiffusion methods for application in GCM and LES settings
-Timescales are prescribed by the user while the diffusion coefficient is 
+Timescales are prescribed by the user while the diffusion coefficient is
 computed as a function of the grid lengthscale.
 """
 struct StandardHyperDiffusion{FT} <: HyperDiffusion
     τ_timescale::FT
 end
 
-vars_aux(::StandardHyperDiffusion, FT) = @vars(Δ::FT)
-vars_gradient(::StandardHyperDiffusion, FT) =
+vars_state_auxiliary(::StandardHyperDiffusion, FT) = @vars(Δ::FT)
+vars_state_gradient(::StandardHyperDiffusion, FT) =
     @vars(u::SVector{3, FT}, h_tot::FT)
 vars_gradient_laplacian(::StandardHyperDiffusion, FT) =
     @vars(u::SVector{3, FT}, h_tot::FT)
@@ -89,7 +89,7 @@ function atmos_init_aux!(
     aux.hyperdiffusion.Δ = lengthscale(geom)
 end
 
-function gradvariables!(
+function compute_gradient_argument!(
     h::StandardHyperDiffusion,
     transform::Vars,
     state::Vars,
@@ -101,7 +101,7 @@ function gradvariables!(
     transform.hyperdiffusion.h_tot = transform.h_tot
 end
 
-function hyperdiffusive!(
+function transform_post_gradient_laplacian!(
     h::StandardHyperDiffusion,
     hyperdiffusive::Vars,
     hypertransform::Grad,
@@ -119,7 +119,7 @@ function hyperdiffusive!(
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
 end
 
-function flux_diffusive!(
+function flux_second_order!(
     h::StandardHyperDiffusion,
     flux::Grad,
     state::Vars,

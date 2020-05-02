@@ -64,15 +64,17 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
-vars_state(lm::AtmosLinearModel, FT) = vars_state(lm.atmos, FT)
-vars_gradient(lm::AtmosLinearModel, FT) = @vars()
-vars_diffusive(lm::AtmosLinearModel, FT) = @vars()
-vars_aux(lm::AtmosLinearModel, FT) = vars_aux(lm.atmos, FT)
+vars_state_conservative(lm::AtmosLinearModel, FT) =
+    vars_state_conservative(lm.atmos, FT)
+vars_state_gradient(lm::AtmosLinearModel, FT) = @vars()
+vars_state_gradient_flux(lm::AtmosLinearModel, FT) = @vars()
+vars_state_auxiliary(lm::AtmosLinearModel, FT) =
+    vars_state_auxiliary(lm.atmos, FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 vars_reverse_integrals(lm::AtmosLinearModel, FT) = @vars()
 
 
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     lm::AtmosLinearModel,
     Q::MPIStateArray,
@@ -81,7 +83,7 @@ function update_aux!(
 )
     return false
 end
-function flux_diffusive!(
+function flux_second_order!(
     lm::AtmosLinearModel,
     flux::Grad,
     state::Vars,
@@ -92,18 +94,26 @@ function flux_diffusive!(
 )
     nothing
 end
-integral_load_aux!(lm::AtmosLinearModel, integ::Vars, state::Vars, aux::Vars) =
-    nothing
-integral_set_aux!(lm::AtmosLinearModel, aux::Vars, integ::Vars) = nothing
-reverse_integral_load_aux!(
+integral_load_auxiliary_state!(
     lm::AtmosLinearModel,
     integ::Vars,
     state::Vars,
     aux::Vars,
 ) = nothing
-reverse_integral_set_aux!(lm::AtmosLinearModel, aux::Vars, integ::Vars) =
+integral_set_auxiliary_state!(lm::AtmosLinearModel, aux::Vars, integ::Vars) =
     nothing
-flux_diffusive!(
+reverse_integral_load_auxiliary_state!(
+    lm::AtmosLinearModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+) = nothing
+reverse_integral_set_auxiliary_state!(
+    lm::AtmosLinearModel,
+    aux::Vars,
+    integ::Vars,
+) = nothing
+flux_second_order!(
     lm::AtmosLinearModel,
     flux::Grad,
     state::Vars,
@@ -117,21 +127,28 @@ function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
 end
 
 function boundary_state!(
-    nf::NumericalFluxNonDiffusive,
+    nf::NumericalFluxFirstOrder,
     atmoslm::AtmosLinearModel,
     args...,
 )
     atmos_boundary_state!(nf, AtmosBC(), atmoslm, args...)
 end
 function boundary_state!(
-    nf::NumericalFluxDiffusive,
+    nf::NumericalFluxSecondOrder,
     atmoslm::AtmosLinearModel,
     args...,
 )
     nothing
 end
-init_aux!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) = nothing
-init_state!(lm::AtmosLinearModel, state::Vars, aux::Vars, coords, t) = nothing
+init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) =
+    nothing
+init_state_conservative!(
+    lm::AtmosLinearModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+) = nothing
 
 
 struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
@@ -144,7 +161,7 @@ struct AtmosAcousticLinearModel{M} <: AtmosLinearModel
     end
 end
 
-function flux_nondiffusive!(
+function flux_first_order!(
     lm::AtmosAcousticLinearModel,
     flux::Grad,
     state::Vars,
@@ -178,7 +195,7 @@ struct AtmosAcousticGravityLinearModel{M} <: AtmosLinearModel
         new{M}(atmos)
     end
 end
-function flux_nondiffusive!(
+function flux_first_order!(
     lm::AtmosAcousticGravityLinearModel,
     flux::Grad,
     state::Vars,
