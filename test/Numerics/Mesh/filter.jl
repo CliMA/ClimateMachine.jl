@@ -94,8 +94,8 @@ CLIMA.init()
 end
 
 struct FilterTestModel{N} <: CLIMA.DGmethods.BalanceLaw end
-CLIMA.DGmethods.vars_aux(::FilterTestModel, FT) = @vars()
-CLIMA.DGmethods.init_aux!(::FilterTestModel, _...) = nothing
+CLIMA.DGmethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
+CLIMA.DGmethods.init_state_auxiliary!(::FilterTestModel, _...) = nothing
 
 # Legendre Polynomials
 l0(r) = 1
@@ -113,9 +113,9 @@ filtered(::VerticalDirection, dim, x, y, z) =
 filtered(::HorizontalDirection, dim, x, y, z) =
     (dim == 2) ? l2(x) * l3(y) + l3(x) : l2(x) * l3(y) + l3(x) + l2(y)
 
-CLIMA.DGmethods.vars_state(::FilterTestModel{4}, FT) where {N} =
+CLIMA.DGmethods.vars_state_conservative(::FilterTestModel{4}, FT) where {N} =
     @vars(q1::FT, q2::FT, q3::FT, q4::FT)
-function CLIMA.DGmethods.init_state!(
+function CLIMA.DGmethods.init_state_conservative!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
@@ -170,7 +170,7 @@ end
                     nothing,
                     nothing,
                     nothing;
-                    diffstate = nothing,
+                    state_gradient_flux = nothing,
                 )
 
                 Q = CLIMA.DGmethods.init_ode_state(dg, nothing, dim)
@@ -184,8 +184,9 @@ end
     end
 end
 
-CLIMA.DGmethods.vars_state(::FilterTestModel{1}, FT) where {N} = @vars(q::FT)
-function CLIMA.DGmethods.init_state!(
+CLIMA.DGmethods.vars_state_conservative(::FilterTestModel{1}, FT) where {N} =
+    @vars(q::FT)
+function CLIMA.DGmethods.init_state_conservative!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,
@@ -222,7 +223,7 @@ end
                 nothing,
                 nothing,
                 nothing;
-                diffstate = nothing,
+                state_gradient_flux = nothing,
             )
 
             Q = CLIMA.DGmethods.init_ode_state(dg)

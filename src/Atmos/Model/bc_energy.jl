@@ -7,7 +7,7 @@ No energy flux across the boundary.
 """
 struct Insulating <: EnergyBC end
 function atmos_energy_boundary_state!(nf, bc_energy::Insulating, atmos, args...) end
-function atmos_energy_normal_boundary_flux_diffusive!(
+function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::Insulating,
     atmos,
@@ -46,7 +46,7 @@ function atmos_energy_boundary_state!(
     state⁺.ρe =
         E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
 end
-function atmos_energy_normal_boundary_flux_diffusive!(
+function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedTemperature,
     atmos,
@@ -89,7 +89,7 @@ function atmos_energy_boundary_state!(
     atmos,
     args...,
 ) end
-function atmos_energy_normal_boundary_flux_diffusive!(
+function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedEnergyFlux,
     atmos,

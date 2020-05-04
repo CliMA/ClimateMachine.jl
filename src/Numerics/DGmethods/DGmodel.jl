@@ -1,14 +1,15 @@
-using .NumericalFluxes: CentralHyperDiffusiveFlux, CentralDivPenalty
+using .NumericalFluxes:
+    CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     balancelaw::BL
     grid::G
-    numfluxnondiff::NFND
-    numfluxdiff::NFD
-    gradnumflux::GNF
-    auxstate::AS
-    diffstate::DS
-    hyperdiffstate::HDS
+    numerical_flux_first_order::NFND
+    numerical_flux_second_order::NFD
+    numerical_flux_gradient::GNF
+    state_auxiliary::AS
+    state_gradient_flux::DS
+    states_higher_order::HDS
     direction::D
     diffusion_direction::DD
     modeldata::MD
@@ -16,12 +17,12 @@ end
 function DGModel(
     balancelaw,
     grid,
-    numfluxnondiff,
-    numfluxdiff,
-    gradnumflux;
-    auxstate = create_auxstate(balancelaw, grid),
-    diffstate = create_diffstate(balancelaw, grid),
-    hyperdiffstate = create_hyperdiffstate(balancelaw, grid),
+    numerical_flux_first_order,
+    numerical_flux_second_order,
+    numerical_flux_gradient;
+    state_auxiliary = create_auxiliary_state(balancelaw, grid),
+    state_gradient_flux = create_gradient_state(balancelaw, grid),
+    states_higher_order = create_higher_order_states(balancelaw, grid),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
@@ -29,22 +30,28 @@ function DGModel(
     DGModel(
         balancelaw,
         grid,
-        numfluxnondiff,
-        numfluxdiff,
-        gradnumflux,
-        auxstate,
-        diffstate,
-        hyperdiffstate,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        state_auxiliary,
+        state_gradient_flux,
+        states_higher_order,
         direction,
         diffusion_direction,
         modeldata,
     )
 end
 
-function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
+function (dg::DGModel)(
+    tendency,
+    state_conservative,
+    ::Nothing,
+    t;
+    increment = false,
+)
 
-    bl = dg.balancelaw
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    balance_law = dg.balancelaw
+    device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
     topology = grid.topology
@@ -56,13 +63,13 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     Nfp = Nq * Nqk
     nrealelem = length(topology.realelems)
 
-    Qvisc = dg.diffstate
-    Qhypervisc_grad, Qhypervisc_div = dg.hyperdiffstate
-    auxstate = dg.auxstate
+    state_gradient_flux = dg.state_gradient_flux
+    Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
+    state_auxiliary = dg.state_auxiliary
 
-    FT = eltype(Q)
-    nviscstate = num_diffusive(bl, FT)
-    nhyperviscstate = num_hyperdiffusive(bl, FT)
+    FT = eltype(state_conservative)
+    num_state_gradient_flux = number_state_gradient_flux(balance_law, FT)
+    nhyperviscstate = num_hyperdiffusive(balance_law, FT)
 
     Np = dofs_per_element(grid)
 
@@ -75,16 +82,22 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     communicate =
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
 
-    update_aux!(dg, bl, Q, t, dg.grid.topology.realelems)
+    update_auxiliary_state!(
+        dg,
+        balance_law,
+        state_conservative,
+        t,
+        dg.grid.topology.realelems,
+    )
 
     if nhyperviscstate > 0
-        hypervisc_indexmap = create_hypervisc_indexmap(bl)
+        hypervisc_indexmap = create_hypervisc_indexmap(balance_law)
     else
         hypervisc_indexmap = nothing
     end
 
-    exchange_Q = NoneEvent()
-    exchange_Qvisc = NoneEvent()
+    exchange_state_conservative = NoneEvent()
+    exchange_state_gradient_flux = NoneEvent()
     exchange_Qhypervisc_grad = NoneEvent()
     exchange_Qhypervisc_div = NoneEvent()
 
@@ -94,40 +107,42 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     # Gradient Computation #
     ########################
     if communicate
-        exchange_Q =
-            MPIStateArrays.begin_ghost_exchange!(Q; dependencies = comp_stream)
+        exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
+            state_conservative;
+            dependencies = comp_stream,
+        )
     end
 
-    if nviscstate > 0 || nhyperviscstate > 0
+    if num_state_gradient_flux > 0 || nhyperviscstate > 0
 
-        comp_stream = volumeviscterms!(device, workgroups_volume)(
-            bl,
+        comp_stream = volume_gradients!(device, (Nq, Nq))(
+            balance_law,
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            Q.data,
-            Qvisc.data,
+            state_conservative.data,
+            state_gradient_flux.data,
             Qhypervisc_grad.data,
-            auxstate.data,
+            state_auxiliary.data,
             grid.vgeo,
             t,
             grid.D,
             hypervisc_indexmap,
             topology.realelems,
-            ndrange = ndrange_volume,
+            ndrange = (Nq * nrealelem, Nq),
             dependencies = (comp_stream,),
         )
 
-        comp_stream = faceviscterms!(device, workgroups_surface)(
-            bl,
+        comp_stream = interface_gradients!(device, workgroups_surface)(
+            balance_law,
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            dg.gradnumflux,
-            Q.data,
-            Qvisc.data,
+            dg.numerical_flux_gradient,
+            state_conservative.data,
+            state_gradient_flux.data,
             Qhypervisc_grad.data,
-            auxstate.data,
+            state_auxiliary.data,
             grid.vgeo,
             grid.sgeo,
             t,
@@ -141,26 +156,34 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         )
 
         if communicate
-            exchange_Q =
-                MPIStateArrays.end_ghost_exchange!(Q; dependencies = exchange_Q)
+            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+                state_conservative;
+                dependencies = exchange_state_conservative,
+            )
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_Q)
-            update_aux!(dg, bl, Q, t, dg.grid.topology.ghostelems)
-            exchange_Q = Event(device)
+            wait(device, exchange_state_conservative)
+            update_auxiliary_state!(
+                dg,
+                balance_law,
+                state_conservative,
+                t,
+                dg.grid.topology.ghostelems,
+            )
+            exchange_state_conservative = Event(device)
         end
 
-        comp_stream = faceviscterms!(device, workgroups_surface)(
-            bl,
+        comp_stream = interface_gradients!(device, workgroups_surface)(
+            balance_law,
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            dg.gradnumflux,
-            Q.data,
-            Qvisc.data,
+            dg.numerical_flux_gradient,
+            state_conservative.data,
+            state_gradient_flux.data,
             Qhypervisc_grad.data,
-            auxstate.data,
+            state_auxiliary.data,
             grid.vgeo,
             grid.sgeo,
             t,
@@ -170,15 +193,16 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             hypervisc_indexmap,
             grid.exteriorelems;
             ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_Q),
+            dependencies = (comp_stream, exchange_state_conservative),
         )
 
         if communicate
-            if nviscstate > 0
-                exchange_Qvisc = MPIStateArrays.begin_ghost_exchange!(
-                    Qvisc,
-                    dependencies = comp_stream,
-                )
+            if num_state_gradient_flux > 0
+                exchange_state_gradient_flux =
+                    MPIStateArrays.begin_ghost_exchange!(
+                        state_gradient_flux,
+                        dependencies = comp_stream,
+                    )
             end
             if nhyperviscstate > 0
                 exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
@@ -188,11 +212,17 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             end
         end
 
-        if nviscstate > 0
+        if num_state_gradient_flux > 0
             # update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
             wait(device, comp_stream)
-            update_aux_diffusive!(dg, bl, Q, t, dg.grid.topology.realelems)
+            update_auxiliary_state_gradient!(
+                dg,
+                balance_law,
+                state_conservative,
+                t,
+                dg.grid.topology.realelems,
+            )
             comp_stream = Event(device)
         end
     end
@@ -202,37 +232,39 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         # Laplacian Computation #
         #########################
 
-        comp_stream = volumedivgrad!(device, workgroups_volume)(
-            bl,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            grid.vgeo,
-            grid.D,
-            topology.realelems;
-            ndrange = ndrange_volume,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            volume_divergence_of_gradients!(device, workgroups_volume)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                grid.vgeo,
+                grid.D,
+                topology.realelems;
+                ndrange = ndrange_volume,
+                dependencies = (comp_stream,),
+            )
 
-        comp_stream = facedivgrad!(device, workgroups_surface)(
-            bl,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralDivPenalty(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.interiorelems;
-            ndrange = ndrange_interior_surface,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            interface_divergence_of_gradients!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxDivergence(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.interiorelems;
+                ndrange = ndrange_interior_surface,
+                dependencies = (comp_stream,),
+            )
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
@@ -241,23 +273,24 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             )
         end
 
-        comp_stream = facedivgrad!(device, workgroups_surface)(
-            bl,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralDivPenalty(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.exteriorelems;
-            ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_Qhypervisc_grad),
-        )
+        comp_stream =
+            interface_divergence_of_gradients!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxDivergence(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.exteriorelems;
+                ndrange = ndrange_exterior_surface,
+                dependencies = (comp_stream, exchange_Qhypervisc_grad),
+            )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.begin_ghost_exchange!(
@@ -270,44 +303,46 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         # Hyperdiffusive terms computation #
         ####################################
 
-        comp_stream = volumehyperviscterms!(device, workgroups_volume)(
-            bl,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            Q.data,
-            auxstate.data,
-            grid.vgeo,
-            grid.ω,
-            grid.D,
-            topology.realelems,
-            t;
-            ndrange = ndrange_volume,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            volume_gradients_of_laplacians!(device, workgroups_volume)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_conservative.data,
+                state_auxiliary.data,
+                grid.vgeo,
+                grid.ω,
+                grid.D,
+                topology.realelems,
+                t;
+                ndrange = ndrange_volume,
+                dependencies = (comp_stream,),
+            )
 
-        comp_stream = facehyperviscterms!(device, workgroups_surface)(
-            bl,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralHyperDiffusiveFlux(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            Q.data,
-            auxstate.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.interiorelems,
-            t;
-            ndrange = ndrange_interior_surface,
-            dependencies = (comp_stream,),
-        )
+        comp_stream =
+            interface_gradients_of_laplacians!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxHigherOrder(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_conservative.data,
+                state_auxiliary.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.interiorelems,
+                t;
+                ndrange = ndrange_interior_surface,
+                dependencies = (comp_stream,),
+            )
 
         if communicate
             exchange_Qhypervisc_div = MPIStateArrays.end_ghost_exchange!(
@@ -316,26 +351,27 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
             )
         end
 
-        comp_stream = facehyperviscterms!(device, workgroups_surface)(
-            bl,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            CentralHyperDiffusiveFlux(),
-            Qhypervisc_grad.data,
-            Qhypervisc_div.data,
-            Q.data,
-            auxstate.data,
-            grid.vgeo,
-            grid.sgeo,
-            grid.vmap⁻,
-            grid.vmap⁺,
-            grid.elemtobndy,
-            grid.exteriorelems,
-            t;
-            ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_Qhypervisc_div),
-        )
+        comp_stream =
+            interface_gradients_of_laplacians!(device, workgroups_surface)(
+                balance_law,
+                Val(dim),
+                Val(N),
+                dg.diffusion_direction,
+                CentralNumericalFluxHigherOrder(),
+                Qhypervisc_grad.data,
+                Qhypervisc_div.data,
+                state_conservative.data,
+                state_auxiliary.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                grid.exteriorelems,
+                t;
+                ndrange = ndrange_exterior_surface,
+                dependencies = (comp_stream, exchange_Qhypervisc_div),
+            )
 
         if communicate
             exchange_Qhypervisc_grad = MPIStateArrays.begin_ghost_exchange!(
@@ -349,38 +385,38 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     ###################
     # RHS Computation #
     ###################
-    comp_stream = volumerhs!(device, workgroups_volume)(
-        bl,
+    comp_stream = volume_tendency!(device, (Nq, Nq))(
+        balance_law,
         Val(dim),
         Val(N),
         dg.direction,
-        dQdt.data,
-        Q.data,
-        Qvisc.data,
+        tendency.data,
+        state_conservative.data,
+        state_gradient_flux.data,
         Qhypervisc_grad.data,
-        auxstate.data,
+        state_auxiliary.data,
         grid.vgeo,
         t,
         grid.ω,
         grid.D,
         topology.realelems,
         increment;
-        ndrange = ndrange_volume,
+        ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
 
-    comp_stream = facerhs!(device, workgroups_surface)(
-        bl,
+    comp_stream = interface_tendency!(device, workgroups_surface)(
+        balance_law,
         Val(dim),
         Val(N),
         dg.direction,
-        dg.numfluxnondiff,
-        dg.numfluxdiff,
-        dQdt.data,
-        Q.data,
-        Qvisc.data,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        tendency.data,
+        state_conservative.data,
+        state_gradient_flux.data,
         Qhypervisc_grad.data,
-        auxstate.data,
+        state_auxiliary.data,
         grid.vgeo,
         grid.sgeo,
         t,
@@ -393,19 +429,26 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
     )
 
     if communicate
-        if nviscstate > 0 || nhyperviscstate > 0
-            if nviscstate > 0
-                exchange_Qvisc = MPIStateArrays.end_ghost_exchange!(
-                    Qvisc;
-                    dependencies = exchange_Qvisc,
-                )
+        if num_state_gradient_flux > 0 || nhyperviscstate > 0
+            if num_state_gradient_flux > 0
+                exchange_state_gradient_flux =
+                    MPIStateArrays.end_ghost_exchange!(
+                        state_gradient_flux;
+                        dependencies = exchange_state_gradient_flux,
+                    )
 
                 # update_aux_diffusive may start asynchronous work on the
                 # compute device and we synchronize those here through a device
                 # event.
-                wait(device, exchange_Qvisc)
-                update_aux_diffusive!(dg, bl, Q, t, dg.grid.topology.ghostelems)
-                exchange_Qvisc = Event(device)
+                wait(device, exchange_state_gradient_flux)
+                update_auxiliary_state_gradient!(
+                    dg,
+                    balance_law,
+                    state_conservative,
+                    t,
+                    dg.grid.topology.ghostelems,
+                )
+                exchange_state_gradient_flux = Event(device)
             end
             if nhyperviscstate > 0
                 exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
@@ -414,29 +457,37 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
                 )
             end
         else
-            exchange_Q =
-                MPIStateArrays.end_ghost_exchange!(Q; dependencies = exchange_Q)
+            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+                state_conservative;
+                dependencies = exchange_state_conservative,
+            )
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_Q)
-            update_aux!(dg, bl, Q, t, dg.grid.topology.ghostelems)
-            exchange_Q = Event(device)
+            wait(device, exchange_state_conservative)
+            update_auxiliary_state!(
+                dg,
+                balance_law,
+                state_conservative,
+                t,
+                dg.grid.topology.ghostelems,
+            )
+            exchange_state_conservative = Event(device)
         end
     end
 
-    comp_stream = facerhs!(device, workgroups_surface)(
-        bl,
+    comp_stream = interface_tendency!(device, workgroups_surface)(
+        balance_law,
         Val(dim),
         Val(N),
         dg.direction,
-        dg.numfluxnondiff,
-        dg.numfluxdiff,
-        dQdt.data,
-        Q.data,
-        Qvisc.data,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        tendency.data,
+        state_conservative.data,
+        state_gradient_flux.data,
         Qhypervisc_grad.data,
-        auxstate.data,
+        state_auxiliary.data,
         grid.vgeo,
         grid.sgeo,
         t,
@@ -447,8 +498,8 @@ function (dg::DGModel)(dQdt, Q, ::Nothing, t; increment = false)
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,
-            exchange_Q,
-            exchange_Qvisc,
+            exchange_state_conservative,
+            exchange_state_gradient_flux,
             exchange_Qhypervisc_grad,
         ),
     )
@@ -462,27 +513,27 @@ end
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
-    bl = dg.balancelaw
+    balance_law = dg.balancelaw
     grid = dg.grid
 
-    state = create_state(bl, grid)
+    state_conservative = create_conservative_state(balance_law, grid)
 
     topology = grid.topology
     Np = dofs_per_element(grid)
 
-    auxstate = dg.auxstate
+    state_auxiliary = dg.state_auxiliary
     dim = dimensionality(grid)
     N = polynomialorder(grid)
     nrealelem = length(topology.realelems)
 
     if !init_on_cpu
         event = Event(device)
-        event = initstate!(device, Np)(
-            bl,
+        event = kernel_init_state_conservative!(device, min(Np, 1024))(
+            balance_law,
             Val(dim),
             Val(N),
-            state.data,
-            auxstate.data,
+            state_conservative.data,
+            state_auxiliary.data,
             grid.vgeo,
             topology.realelems,
             args...;
@@ -491,30 +542,36 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
         )
         wait(device, event)
     else
-        h_state = similar(state, Array)
-        h_auxstate = similar(auxstate, Array)
-        h_auxstate .= auxstate
-        event = initstate!(CPU(), Np)(
-            bl,
+        h_state_conservative = similar(state_conservative, Array)
+        h_state_auxiliary = similar(state_auxiliary, Array)
+        h_state_auxiliary .= state_auxiliary
+        event = kernel_init_state_conservative!(CPU(), Np)(
+            balance_law,
             Val(dim),
             Val(N),
-            h_state.data,
-            h_auxstate.data,
+            h_state_conservative.data,
+            h_state_auxiliary.data,
             Array(grid.vgeo),
             topology.realelems,
             args...;
             ndrange = Np * nrealelem,
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
-        state .= h_state
+        state_conservative .= h_state_conservative
     end
 
     event = Event(device)
-    event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
-    event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_conservative;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_conservative;
+        dependencies = event,
+    )
     wait(device, event)
 
-    return state
+    return state_conservative
 end
 
 function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
@@ -533,27 +590,27 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxstate(bl, grid, aux_data)
-    auxstate = create_auxstate(bl, grid)
-    auxstate .= aux_data
-    return auxstate
+function restart_auxiliary_state(bl, grid, aux_data)
+    state_auxiliary = create_auxiliary_state(bl, grid)
+    state_auxiliary .= aux_data
+    return state_auxiliary
 end
 
 # fallback
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
-    bl::BalanceLaw,
-    Q::MPIStateArray,
+    balance_law::BalanceLaw,
+    state_conservative::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
     return false
 end
 
-function update_aux_diffusive!(
+function update_auxiliary_state_gradient!(
     dg::DGModel,
-    bl::BalanceLaw,
-    Q::MPIStateArray,
+    balance_law::BalanceLaw,
+    state_conservative::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
@@ -563,13 +620,13 @@ end
 function indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
-    Q::MPIStateArray,
-    auxstate::MPIStateArray,
+    state_conservative::MPIStateArray,
+    state_auxiliary::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems,
 )
 
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
     topology = grid.topology
@@ -579,7 +636,7 @@ function indefinite_stack_integral!(
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
 
-    FT = eltype(Q)
+    FT = eltype(state_conservative)
 
     # do integrals
     nelem = length(elems)
@@ -587,13 +644,13 @@ function indefinite_stack_integral!(
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = knl_indefinite_stack_integral!(device, (Nq, Nqk))(
+    event = kernel_indefinite_stack_integral!(device, (Nq, Nqk))(
         m,
         Val(dim),
         Val(N),
         Val(nvertelem),
-        Q.data,
-        auxstate.data,
+        state_conservative.data,
+        state_auxiliary.data,
         grid.vgeo,
         grid.Imat,
         horzelems;
@@ -606,13 +663,13 @@ end
 function reverse_indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
-    Q::MPIStateArray,
-    auxstate::MPIStateArray,
+    state_conservative::MPIStateArray,
+    state_auxiliary::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems,
 )
 
-    device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+    device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
     topology = grid.topology
@@ -622,7 +679,7 @@ function reverse_indefinite_stack_integral!(
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
 
-    FT = eltype(auxstate)
+    FT = eltype(state_auxiliary)
 
     # do integrals
     nelem = length(elems)
@@ -630,13 +687,13 @@ function reverse_indefinite_stack_integral!(
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = knl_reverse_indefinite_stack_integral!(device, (Nq, Nqk))(
+    event = kernel_reverse_indefinite_stack_integral!(device, (Nq, Nqk))(
         m,
         Val(dim),
         Val(N),
         Val(nvertelem),
-        Q.data,
-        auxstate.data,
+        state_conservative.data,
+        state_auxiliary.data,
         horzelems;
         ndrange = (length(horzelems) * Nq, Nqk),
         dependencies = (event,),
@@ -644,16 +701,16 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
-function nodal_update_aux!(
+function nodal_update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
-    Q::MPIStateArray,
+    state_conservative::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.realelems;
     diffusive = false,
 )
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
     topology = grid.topology
@@ -665,18 +722,19 @@ function nodal_update_aux!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_aux! = knl_nodal_update_aux!(device, Np)
-    ### update aux variables
+    nodal_update_auxiliary_state! =
+        kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
+    ### update state_auxiliary variables
     event = Event(device)
     if diffusive
-        event = nodal_update_aux!(
+        event = nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
             f!,
-            Q.data,
-            dg.auxstate.data,
-            dg.diffstate.data,
+            state_conservative.data,
+            dg.state_auxiliary.data,
+            dg.state_gradient_flux.data,
             t,
             elems,
             grid.activedofs;
@@ -684,13 +742,13 @@ function nodal_update_aux!(
             dependencies = (event,),
         )
     else
-        event = nodal_update_aux!(
+        event = nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
             f!,
-            Q.data,
-            dg.auxstate.data,
+            state_conservative.data,
+            dg.state_auxiliary.data,
             t,
             elems,
             grid.activedofs;
@@ -703,14 +761,14 @@ end
 
 """
     courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
-            Q::MPIStateArray, direction=EveryDirection())
+            state_conservative::MPIStateArray, direction=EveryDirection())
 Returns the maximum of the evaluation of the function `local_courant`
 pointwise throughout the domain.  The function `local_courant` is given an
 approximation of the local node distance `Δx`.  The `direction` controls which
 reference directions are considered when computing the minimum node distance
 `Δx`.
 An example `local_courant` function is
-    function local_courant(m::AtmosModel, state::Vars, aux::Vars,
+    function local_courant(m::AtmosModel, state_conservative::Vars, state_auxiliary::Vars,
                            diffusive::Vars, Δx)
       return Δt * cmax / Δx
     end
@@ -721,7 +779,7 @@ function courant(
     local_courant::Function,
     dg::DGModel,
     m::BalanceLaw,
-    Q::MPIStateArray,
+    state_conservative::MPIStateArray,
     Δt,
     simtime,
     direction = EveryDirection(),
@@ -738,7 +796,7 @@ function courant(
         device = grid.vgeo isa Array ? CPU() : CUDA()
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
-        event = Grids.knl_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
+        event = Grids.kernel_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
             Val(N),
             Val(dim),
             direction,
@@ -748,15 +806,15 @@ function courant(
             ndrange = (nrealelem * Nq, Nq, Nqk),
             dependencies = (event,),
         )
-        event = knl_local_courant!(device, Nq * Nq * Nqk)(
+        event = kernel_local_courant!(device, Nq * Nq * Nqk)(
             m,
             Val(dim),
             Val(N),
             pointwise_courant,
             local_courant,
-            Q.data,
-            dg.auxstate.data,
-            dg.diffstate.data,
+            state_conservative.data,
+            dg.state_auxiliary.data,
+            dg.state_gradient_flux.data,
             topology.realelems,
             Δt,
             simtime,
@@ -767,7 +825,7 @@ function courant(
         wait(device, event)
         rank_courant_max = maximum(pointwise_courant)
     else
-        rank_courant_max = typemin(eltype(Q))
+        rank_courant_max = typemin(eltype(state_conservative))
     end
 
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
@@ -776,13 +834,13 @@ end
 function copy_stack_field_down!(
     dg::DGModel,
     m::BalanceLaw,
-    auxstate::MPIStateArray,
+    state_auxiliary::MPIStateArray,
     fldin,
     fldout,
     elems = topology.elems,
 )
 
-    device = typeof(auxstate.data) <: Array ? CPU() : CUDA()
+    device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
     topology = grid.topology
@@ -798,11 +856,11 @@ function copy_stack_field_down!(
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = knl_copy_stack_field_down!(device, (Nq, Nqk))(
+    event = kernel_copy_stack_field_down!(device, (Nq, Nqk))(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        auxstate.data,
+        state_auxiliary.data,
         horzelems,
         Val(fldin),
         Val(fldout);
@@ -813,15 +871,15 @@ function copy_stack_field_down!(
 end
 
 function MPIStateArrays.MPIStateArray(dg::DGModel)
-    bl = dg.balancelaw
+    balance_law = dg.balancelaw
     grid = dg.grid
 
-    state = create_state(bl, grid)
+    state_conservative = create_conservative_state(balance_law, grid)
 
-    return state
+    return state_conservative
 end
 
-function create_hypervisc_indexmap(bl::BalanceLaw)
+function create_hypervisc_indexmap(balance_law::BalanceLaw)
     # helper function
     _getvars(v, ::Type) = v
     function _getvars(v::Vars, ::Type{T}) where {T <: NamedTuple}
@@ -829,8 +887,8 @@ function create_hypervisc_indexmap(bl::BalanceLaw)
         collect(Iterators.Flatten(_getvars.(fields, fieldtypes(T))))
     end
 
-    gradvars = vars_gradient(bl, Int)
-    gradlapvars = vars_gradient_laplacian(bl, Int)
+    gradvars = vars_state_gradient(balance_law, Int)
+    gradlapvars = vars_gradient_laplacian(balance_law, Int)
     indices = Vars{gradvars}(1:varsize(gradvars))
     SVector{varsize(gradlapvars)}(_getvars(indices, gradlapvars))
 end

@@ -164,7 +164,7 @@ function apply!(
     nrealelem = length(topology.realelems)
 
     event = Event(device)
-    event = knl_apply_filter!(device, (Nq, Nq, Nqk))(
+    event = kernel_apply_filter!(device, (Nq, Nq, Nqk))(
         Val(dim),
         Val(N),
         Val(nstate),
@@ -200,7 +200,7 @@ function apply!(Q, states, grid::DiscontinuousSpectralElementGrid, ::TMARFilter)
     nreduce = 2^ceil(Int, log2(Nq * Nqk))
 
     event = Event(device)
-    event = knl_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
+    event = kernel_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
         Val(nreduce),
         Val(dim),
         Val(N),
@@ -219,7 +219,7 @@ using KernelAbstractions.Extras: @unroll
 const _M = Grids._M
 
 @doc """
-    knl_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{direction},
+    kernel_apply_filter!(::Val{dim}, ::Val{N}, ::Val{nstate}, ::Val{direction},
                       Q, ::Val{states}, filtermatrix,
                       elems) where {dim, N, nstate, states, direction}
 
@@ -227,8 +227,8 @@ Computational kernel: Applies the `filtermatrix` to the `states` of `Q`.
 
 The `direction` argument is used to control if the filter is applied in the
 horizontal and/or vertical reference directions.
-""" knl_apply_filter!
-@kernel function knl_apply_filter!(
+""" kernel_apply_filter!
+@kernel function kernel_apply_filter!(
     ::Val{dim},
     ::Val{N},
     ::Val{nstate},
@@ -333,7 +333,7 @@ horizontal and/or vertical reference directions.
     end
 end
 
-@kernel function knl_apply_TMAR_filter!(
+@kernel function kernel_apply_TMAR_filter!(
     ::Val{nreduce},
     ::Val{dim},
     ::Val{N},

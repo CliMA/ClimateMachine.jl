@@ -5,7 +5,9 @@ using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid, VerticalDirection
 using CLIMA.Mesh.Filters
 using CLIMA.DGmethods: DGModel, init_ode_state
 using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
 using CLIMA.ODESolvers
 using CLIMA.GeneralizedMinimalResidualSolver
 using CLIMA.ColumnwiseLUSolver: ManyColumnLU
@@ -24,8 +26,8 @@ using CLIMA.Atmos:
     NoPrecipitation,
     NoRadiation,
     ConstantViscosityWithDivergence,
-    vars_state,
-    vars_aux,
+    vars_state_conservative,
+    vars_state_auxiliary,
     Gravity,
     HydrostaticState,
     IsothermalProfile,
@@ -115,26 +117,26 @@ function run(
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = Gravity(),
-        init_state = setup,
+        init_state_conservative = setup,
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
     lineardg = DGModel(
         linearmodel,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
-        auxstate = dg.auxstate,
+        state_auxiliary = dg.state_auxiliary,
     )
 
     # determine the time step
@@ -288,9 +290,9 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
-    auxnames = flattenednames(vars_aux(model, eltype(Q)))
-    writevtk(filename, Q, dg, statenames, dg.auxstate, auxnames)
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0

@@ -35,7 +35,7 @@ function boundary_state!(nf, atmos::AtmosModel, args...)
 end
 
 function boundary_state!(
-    nf::Union{CentralHyperDiffusiveFlux, CentralDivPenalty},
+    nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
     m::AtmosModel,
     x...,
 )
@@ -87,7 +87,7 @@ function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
 end
 
 
-function normal_boundary_flux_diffusive!(
+function normal_boundary_flux_second_order!(
     nf,
     atmos::AtmosModel,
     fluxᵀn::Vars{S},
@@ -104,7 +104,7 @@ function normal_boundary_flux_diffusive!(
     t,
     args...,
 ) where {S}
-    atmos_normal_boundary_flux_diffusive!(
+    atmos_normal_boundary_flux_second_order!(
         nf,
         atmos.boundarycondition,
         atmos,
@@ -123,7 +123,7 @@ function normal_boundary_flux_diffusive!(
         args...,
     )
 end
-@generated function atmos_normal_boundary_flux_diffusive!(
+@generated function atmos_normal_boundary_flux_second_order!(
     nf,
     tup::Tuple,
     atmos::AtmosModel,
@@ -146,7 +146,7 @@ end
         Base.Cartesian.@nif(
             $(N + 1),
             i -> bctype == i, # conditionexpr
-            i -> atmos_normal_boundary_flux_diffusive!(
+            i -> atmos_normal_boundary_flux_second_order!(
                 nf,
                 tup[i],
                 atmos,
@@ -169,26 +169,36 @@ end
         return nothing
     end
 end
-function atmos_normal_boundary_flux_diffusive!(
+function atmos_normal_boundary_flux_second_order!(
     nf,
     bc::AtmosBC,
     atmos::AtmosModel,
     args...,
 )
-    atmos_momentum_normal_boundary_flux_diffusive!(
+    atmos_momentum_normal_boundary_flux_second_order!(
         nf,
         bc.momentum,
         atmos,
         args...,
     )
-    atmos_energy_normal_boundary_flux_diffusive!(nf, bc.energy, atmos, args...)
-    atmos_moisture_normal_boundary_flux_diffusive!(
+    atmos_energy_normal_boundary_flux_second_order!(
+        nf,
+        bc.energy,
+        atmos,
+        args...,
+    )
+    atmos_moisture_normal_boundary_flux_second_order!(
         nf,
         bc.moisture,
         atmos,
         args...,
     )
-    atmos_tracer_normal_boundary_flux_diffusive!(nf, bc.tracer, atmos, args...)
+    atmos_tracer_normal_boundary_flux_second_order!(
+        nf,
+        bc.tracer,
+        atmos,
+        args...,
+    )
 end
 
 include("bc_momentum.jl")

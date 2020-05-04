@@ -1,3 +1,6 @@
+using ..Atmos
+using ..Atmos: MoistureModel
+
 # Helpers to gather the thermodynamic variables across the DG grid
 #
 

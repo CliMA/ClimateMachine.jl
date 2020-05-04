@@ -1,6 +1,6 @@
 include("KinematicModel.jl")
 
-function vars_state(m::KinematicModel, FT)
+function vars_state_conservative(m::KinematicModel, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -12,9 +12,9 @@ function vars_state(m::KinematicModel, FT)
     end
 end
 
-function vars_aux(m::KinematicModel, FT)
+function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
-        # defined in init_aux
+        # defined in init_state_auxiliary
         p::FT
         z::FT
         # defined in update_aux
@@ -84,7 +84,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     return nothing
 end
 
-function kinematic_model_nodal_update_aux!(
+function kinematic_model_nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -141,7 +141,7 @@ function kinematic_model_nodal_update_aux!(
 end
 
 function boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     m::KinematicModel,
     state⁺,
     aux⁺,
@@ -171,7 +171,7 @@ end
     return abs(nu)
 end
 
-@inline function flux_nondiffusive!(
+@inline function flux_first_order!(
     m::KinematicModel,
     flux::Grad,
     state::Vars,
@@ -327,17 +327,17 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     # get state variables indices for filtering
-    ρq_liq_ind = varsindex(vars_state(model, FT), :ρq_liq)
-    ρq_ice_ind = varsindex(vars_state(model, FT), :ρq_ice)
-    ρq_rai_ind = varsindex(vars_state(model, FT), :ρq_rai)
+    ρq_liq_ind = varsindex(vars_state_conservative(model, FT), :ρq_liq)
+    ρq_ice_ind = varsindex(vars_state_conservative(model, FT), :ρq_ice)
+    ρq_rai_ind = varsindex(vars_state_conservative(model, FT), :ρq_rai)
     # get aux variables indices for testing
-    q_tot_ind = varsindex(vars_aux(model, FT), :q_tot)
-    q_vap_ind = varsindex(vars_aux(model, FT), :q_vap)
-    q_liq_ind = varsindex(vars_aux(model, FT), :q_liq)
-    q_ice_ind = varsindex(vars_aux(model, FT), :q_ice)
-    q_rai_ind = varsindex(vars_aux(model, FT), :q_rai)
-    S_ind = varsindex(vars_aux(model, FT), :S)
-    rain_w_ind = varsindex(vars_aux(model, FT), :rain_w)
+    q_tot_ind = varsindex(vars_state_auxiliary(model, FT), :q_tot)
+    q_vap_ind = varsindex(vars_state_auxiliary(model, FT), :q_vap)
+    q_liq_ind = varsindex(vars_state_auxiliary(model, FT), :q_liq)
+    q_ice_ind = varsindex(vars_state_auxiliary(model, FT), :q_ice)
+    q_rai_ind = varsindex(vars_state_auxiliary(model, FT), :q_rai)
+    S_ind = varsindex(vars_state_auxiliary(model, FT), :S)
+    rain_w_ind = varsindex(vars_state_auxiliary(model, FT), :rain_w)
 
     # filter out negative values
     cb_tmar_filter =
@@ -366,9 +366,9 @@ function main()
                 outprefix,
                 solver_config.Q,
                 solver_config.dg,
-                flattenednames(vars_state(model, FT)),
-                solver_config.dg.auxstate,
-                flattenednames(vars_aux(model, FT)),
+                flattenednames(vars_state_conservative(model, FT)),
+                solver_config.dg.state_auxiliary,
+                flattenednames(vars_state_auxiliary(model, FT)),
             )
             step[1] += 1
             nothing
@@ -382,33 +382,33 @@ function main()
     )
 
     # supersaturation in the model
-    max_S = maximum(abs.(solver_config.dg.auxstate[:, S_ind, :]))
+    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
     @test max_S < FT(0.25)
     @test max_S > FT(0)
 
     # qt < reference number
-    max_q_tot = maximum(abs.(solver_config.dg.auxstate[:, q_tot_ind, :]))
+    max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
     @test max_q_tot < FT(0.0077)
 
     # no ice
-    max_q_ice = maximum(abs.(solver_config.dg.auxstate[:, q_ice_ind, :]))
+    max_q_ice = maximum(abs.(solver_config.dg.state_auxiliary[:, q_ice_ind, :]))
     @test isequal(max_q_ice, FT(0))
 
     # q_liq ∈ reference range
-    max_q_liq = max(solver_config.dg.auxstate[:, q_liq_ind, :]...)
-    min_q_liq = min(solver_config.dg.auxstate[:, q_liq_ind, :]...)
+    max_q_liq = max(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
+    min_q_liq = min(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
     @test max_q_liq < FT(1e-3)
     @test abs(min_q_liq) < FT(1e-5)
 
     # q_rai ∈ reference range
-    max_q_rai = max(solver_config.dg.auxstate[:, q_rai_ind, :]...)
-    min_q_rai = min(solver_config.dg.auxstate[:, q_rai_ind, :]...)
+    max_q_rai = max(solver_config.dg.state_auxiliary[:, q_rai_ind, :]...)
+    min_q_rai = min(solver_config.dg.state_auxiliary[:, q_rai_ind, :]...)
     @test max_q_rai < FT(3e-5)
     @test abs(min_q_rai) < FT(3e-8)
 
     # terminal velocity ∈ reference range
-    max_rain_w = max(solver_config.dg.auxstate[:, rain_w_ind, :]...)
-    min_rain_w = min(solver_config.dg.auxstate[:, rain_w_ind, :]...)
+    max_rain_w = max(solver_config.dg.state_auxiliary[:, rain_w_ind, :]...)
+    min_rain_w = min(solver_config.dg.state_auxiliary[:, rain_w_ind, :]...)
     @test max_rain_w < FT(4)
     @test isequal(min_rain_w, FT(0))
 end

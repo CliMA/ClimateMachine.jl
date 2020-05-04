@@ -307,7 +307,7 @@ function min_node_distance(
         device = grid.vgeo isa Array ? CPU() : CUDA()
         min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
-        event = knl_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
+        event = kernel_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
             Val(N),
             Val(dim),
             direction,
@@ -591,7 +591,7 @@ const _x2 = Grids._x2
 const _x3 = Grids._x3
 
 @doc """
-    knl_min_neighbor_distance!(::Val{N}, ::Val{dim}, direction,
+    kernel_min_neighbor_distance!(::Val{N}, ::Val{dim}, direction,
                              min_neighbor_distance, vgeo, topology.realelems)
 
 Computational kernel: Computes the minimum physical distance between node
@@ -599,8 +599,8 @@ neighbors within an element.
 
 The `direction` in the reference element controls which nodes are considered
 neighbors.
-""" knl_min_neighbor_distance!
-@kernel function knl_min_neighbor_distance!(
+""" kernel_min_neighbor_distance!
+@kernel function kernel_min_neighbor_distance!(
     ::Val{N},
     ::Val{dim},
     direction,

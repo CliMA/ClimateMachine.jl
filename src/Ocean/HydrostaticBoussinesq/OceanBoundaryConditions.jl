@@ -1,5 +1,7 @@
 using ..DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
 
 abstract type OceanBoundaryCondition end
 
@@ -22,7 +24,7 @@ applies boundary condition ν∇u = 0 and κ∇θ = 0
 """
 
 """
-    ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip, ::Rusanov)
+    ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip, ::Union{RusanovNumericalFlux, CentralNumericalFluxGradient})
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
@@ -36,7 +38,7 @@ apply no penetration boundary for temperature
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     ::CoastlineFreeSlip,
     ::HBModel,
     Q⁺,
@@ -88,7 +90,7 @@ apply no penetration boundary for temperature
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::CoastlineFreeSlip, ::CentralNumericalFluxSecondOrder)
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
@@ -105,7 +107,7 @@ sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇�
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::CoastlineFreeSlip,
     ::HBModel,
     Q⁺,
@@ -131,7 +133,7 @@ applies boundary condition u = 0 and κ∇θ = 0
 """
 
 """
-    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::Rusanov)
+    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::RusanovNumericalFlux)
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
@@ -146,7 +148,7 @@ set sets ghost point to have no numerical flux on the boundary for u
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     ::CoastlineNoSlip,
     ::HBModel,
     Q⁺,
@@ -194,7 +196,7 @@ set numerical flux to zero for u
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::CoastlineNoSlip, ::CentralNumericalFluxSecondOrder)
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
@@ -211,7 +213,7 @@ sets ghost point to have no numerical flux on the boundary for u and κ∇θ
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::CoastlineNoSlip,
     ::HBModel,
     Q⁺,
@@ -237,7 +239,7 @@ applies boundary condition ν∇u = 0 and κ∇θ = 0
 """
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::Rusanov)
+    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::RusanovNumericalFlux)
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
@@ -252,7 +254,7 @@ set ghost point to have no numerical flux on the boundary for w
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     ::OceanFloorFreeSlip,
     ::HBModel,
     Q⁺,
@@ -300,7 +302,7 @@ set numerical flux to zero for w
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::OceanFloorFreeSlip, ::CentralNumericalFluxSecondOrder)
 
 apply free slip boundary conditions for velocity
 apply no penetration boundary for temperature
@@ -317,7 +319,7 @@ sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇�
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::OceanFloorFreeSlip,
     ::HBModel,
     Q⁺,
@@ -344,7 +346,7 @@ applies boundary condition u = 0 and κ∇θ = 0
 """
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::Rusanov)
+    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::RusanovNumericalFlux)
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
@@ -359,7 +361,7 @@ set sets ghost point to have no numerical flux on the boundary for u and w
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     ::OceanFloorNoSlip,
     ::HBModel,
     Q⁺,
@@ -409,7 +411,7 @@ set numerical flux to zero for u and w
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::OceanFloorNoSlip, ::CentralNumericalFluxSecondOrder)
 
 apply no slip boundary condition for velocity
 apply no penetration boundary for temperature
@@ -426,7 +428,7 @@ sets ghost point to have no numerical flux on the boundary for u,w and κ∇θ
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::OceanFloorNoSlip,
     ::HBModel,
     Q⁺,
@@ -448,12 +450,12 @@ sets ghost point to have no numerical flux on the boundary for u,w and κ∇θ
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::Union{OceanSurface*}, ::Union{Rusanov, CentralNumericalFluxGradient})
+    ocean_boundary_state!(::HBModel, ::Union{OceanSurface*}, ::Union{RusanovNumericalFlux, CentralNumericalFluxGradient})
 
 applying neumann boundary conditions, so don't need to do anything for these numerical fluxes
 """
 @inline function ocean_boundary_state!(
-    ::Union{Rusanov, CentralNumericalFluxGradient},
+    ::Union{RusanovNumericalFlux, CentralNumericalFluxGradient},
     ::Union{
         OceanSurfaceNoStressNoForcing,
         OceanSurfaceStressNoForcing,
@@ -472,7 +474,7 @@ applying neumann boundary conditions, so don't need to do anything for these num
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanSurfaceNoStressNoForcing, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceNoStressNoForcing, ::CentralNumericalFluxSecondOrder)
 
 apply no flux boundary condition for velocity
 apply no flux boundary condition for temperature
@@ -489,7 +491,7 @@ set ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::OceanSurfaceNoStressNoForcing,
     ::HBModel,
     Q⁺,
@@ -508,7 +510,7 @@ set ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanSurfaceStressNoForcing, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceStressNoForcing, ::CentralNumericalFluxSecondOrder)
 
 apply wind-stress boundary condition for velocity
 apply no flux boundary condition for temperature
@@ -525,7 +527,7 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::OceanSurfaceStressNoForcing,
     m::HBModel,
     Q⁺,
@@ -547,7 +549,7 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanSurfaceNoStressForcing, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceNoStressForcing, ::CentralNumericalFluxSecondOrder)
 
 apply no flux boundary condition for velocity
 apply forcing boundary condition for temperature
@@ -564,7 +566,7 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::OceanSurfaceNoStressForcing,
     m::HBModel,
     Q⁺,
@@ -586,7 +588,7 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 end
 
 """
-    ocean_boundary_state!(::HBModel, ::OceanSurfaceStressForcing, ::CentralNumericalFluxDiffusive)
+    ocean_boundary_state!(::HBModel, ::OceanSurfaceStressForcing, ::CentralNumericalFluxSecondOrder)
 
 apply wind-stress boundary condition for velocity
 apply forcing boundary condition for temperature
@@ -603,7 +605,7 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
 - `t`:  time, not used
 """
 @inline function ocean_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     ::OceanSurfaceStressForcing,
     m::HBModel,
     Q⁺,

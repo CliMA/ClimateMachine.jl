@@ -1,3 +1,4 @@
+#!/usr/bin/env julia --project
 #=
 # This experiment file establishes the initial conditions, boundary conditions,
 # source terms and simulation parameters (domain size + resolution) for the
@@ -48,14 +49,9 @@ URL = {https://journals.ametsoc.org/doi/abs/10.1175/1520-0469%282003%2960%3C1201
 eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1201%3AALESIS%3E2.0.CO%3B2}
 =#
 
-using Distributions
-using Random
-using StaticArrays
-using Test
-using DocStringExtensions
-using LinearAlgebra
-
 using CLIMA
+CLIMA.init()
+
 using CLIMA.Atmos
 using CLIMA.ConfigTypes
 using CLIMA.DGmethods.NumericalFluxes
@@ -66,14 +62,21 @@ using CLIMA.ODESolvers
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
+using Distributions
+using Random
+using StaticArrays
+using Test
+using DocStringExtensions
+using LinearAlgebra
+
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import CLIMA.DGmethods: vars_state, vars_aux
+import CLIMA.DGmethods: vars_state_conservative, vars_state_auxiliary
 import CLIMA.Atmos: source!, atmos_source!, altitude
-import CLIMA.Atmos: flux_diffusive!, thermo_state
+import CLIMA.Atmos: flux_second_order!, thermo_state
 
 """
   Bomex Geostrophic Forcing (Source)
@@ -444,7 +447,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
             ),
             AtmosBC(),
         ),
-        init_state = ics,
+        init_state_conservative = ics,
     )
 
     # Assemble configuration
@@ -464,14 +467,13 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    default_dgngrp =
+        setup_atmos_default_diagnostics("2500steps", driver_config.name)
+    core_dgngrp = setup_atmos_core_diagnostics("2500steps", driver_config.name)
+    return CLIMA.DiagnosticsConfiguration([default_dgngrp, core_dgngrp])
 end
 
 function main()
-    CLIMA.init()
-
     FT = Float32
 
     # DG polynomial order

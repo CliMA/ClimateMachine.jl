@@ -1,4 +1,4 @@
-# AtmosModel
+# [AtmosModel](@id AtmosModel-docs) 
 
 This page provides a summary of a specific type of balance law within the CLIMA source code,
 the `AtmosModel`. This documentation aims to introduce a user to the properties of the
@@ -44,7 +44,7 @@ The conservation equations specific to this implementation of `AtmosModel` are i
 
 ### Tracer Species
 ```math
-\frac{(\rho \chi_i)}{t} + \nabla\cdot \left(\rho \chi_i \vec{u} \right) = \rho \mathcal{S}_{\chi_i} - \nabla\cdot (\rho \vec{d}_{\chi_i}) + \nabla\cdot (\rho \chi_{i} w_{\chi, i} \vec{\hat k})
+\frac{(\partial \rho \chi_i)}{\partial t} + \nabla\cdot \left(\rho \chi_i \vec{u} \right) = \rho \mathcal{S}_{\chi_i} - \nabla\cdot (\rho \vec{d}_{\chi_i}) + \nabla\cdot (\rho \chi_{i} w_{\chi, i} \vec{\hat k})   
 ```
 
 ## Equation Abstractions
@@ -123,7 +123,11 @@ q_c w_c \vec{\hat k} \otimes \rho \vec{u}  \\
 \end{array} \right)
 ```
 
-#### Sources
+#### [Sources]*(*@id atmos-sources)
+```@docs
+CLIMA.Atmos.source!
+```
+
 ```math
 \mathrm{S}(\vec{Y}, \nabla\vec{Y})=
  \left( \begin{array}{c}
@@ -143,8 +147,8 @@ atmospheric modelling. A complete description of a `model` is provided by the fi
 implementation of the `AtmosModel` we concern ourselves with the conservative form of the compressible equations
 of moist fluid motion given a set of initial, boundary and forcing(source) conditions.
 
-### LES Configuration (with defaults)
-Default field values for the LES `AtmosModel` definition are included below. Users are directed to the
+### [LES Configuration](@id LESConfig) (with defaults)
+Default field values for the LES `AtmosModel` definition are included below. Users are directed to the 
 model subcomponent pages to view the possible options for each subcomponent.
 ```
     ::Type{AtmosLESConfigType},
@@ -166,7 +170,7 @@ model subcomponent pages to view the possible options for each subcomponent.
     source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state::IS = nothing,
+    init_state_conservative::IS = nothing,
     data_config::DC = nothing,
 ```
 
@@ -177,9 +181,9 @@ model subcomponent pages to view the possible options for each subcomponent.
     The component `orientation` determines whether the problem is solved in a `box (LES)` or a `sphere (GCM)`)
 
 
-### GCM Configuration (with defaults)
-Default field values for the GCM `AtmosModel` definition are included below. Users are directed to the
-model subcomponent pages to view the possible options for each subcomponent.
+### [GCM Configuration](@id GCMConfig)(with defaults)
+Default field values for the GCM `AtmosModel` definition are included below. Users are directed to the 
+model subcomponent pages to view the possible options for each subcomponent. 
 ```
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
@@ -200,6 +204,6 @@ model subcomponent pages to view the possible options for each subcomponent.
     source::S = (Gravity(), Coriolis()),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state::IS = nothing,
+    init_state_conservative::IS = nothing,
     data_config::DC = nothing,
 ```

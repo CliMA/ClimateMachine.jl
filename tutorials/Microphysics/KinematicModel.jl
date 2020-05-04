@@ -56,16 +56,16 @@ import CLIMA.DGmethods:
     BalanceLaw,
     DGModel,
     LocalGeometry,
-    vars_state,
-    vars_aux,
-    vars_gradient,
-    vars_diffusive,
-    init_state!,
-    init_aux!,
-    update_aux!,
-    nodal_update_aux!,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    vars_state_conservative,
+    vars_state_auxiliary,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    update_auxiliary_state!,
+    nodal_update_auxiliary_state!,
+    flux_first_order!,
+    flux_second_order!,
     wavespeed,
     boundary_state!,
     source!
@@ -89,7 +89,7 @@ struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
     precipitation::P
     source::S
     boundarycondition::BC
-    init_state::IS
+    init_state_conservative::IS
     data_config::DC
 end
 
@@ -101,12 +101,12 @@ function KinematicModel{FT}(
     precipitation::P = nothing,
     source::S = nothing,
     boundarycondition::BC = nothing,
-    init_state::IS = nothing,
+    init_state_conservative::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, M, P, S, BC, IS, DC}
 
     @assert param_set ≠ nothing
-    @assert init_state ≠ nothing
+    @assert init_state_conservative ≠ nothing
 
     atmos = (
         param_set,
@@ -115,18 +115,22 @@ function KinematicModel{FT}(
         precipitation,
         source,
         boundarycondition,
-        init_state,
+        init_state_conservative,
         data_config,
     )
 
     return KinematicModel{FT, typeof.(atmos)...}(atmos...)
 end
 
-vars_gradient(m::KinematicModel, FT) = @vars()
+vars_state_gradient(m::KinematicModel, FT) = @vars()
 
-vars_diffusive(m::KinematicModel, FT) = @vars()
+vars_state_gradient_flux(m::KinematicModel, FT) = @vars()
 
-function init_aux!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(
+    m::KinematicModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
 
     FT = eltype(aux)
     x, y, z = geom.coord
@@ -152,7 +156,7 @@ function init_aux!(m::KinematicModel, aux::Vars, geom::LocalGeometry)
     aux.z = z
 end
 
-function init_state!(
+function init_state_conservative!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -160,22 +164,29 @@ function init_state!(
     t,
     args...,
 )
-    m.init_state(m, state, aux, coords, t, args...)
+    m.init_state_conservative(m, state, aux, coords, t, args...)
 end
 
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::KinematicModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
-    nodal_update_aux!(kinematic_model_nodal_update_aux!, dg, m, Q, t, elems)
+    nodal_update_auxiliary_state!(
+        kinematic_model_nodal_update_auxiliary_state!,
+        dg,
+        m,
+        Q,
+        t,
+        elems,
+    )
     return true
 end
 
 function boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     m::KinematicModel,
     state⁺,
     aux⁺,
@@ -187,7 +198,7 @@ function boundary_state!(
     args...,
 ) end
 
-@inline function flux_diffusive!(
+@inline function flux_second_order!(
     m::KinematicModel,
     flux::Grad,
     state::Vars,
@@ -197,7 +208,7 @@ function boundary_state!(
     t::Real,
 ) end
 
-@inline function flux_diffusive!(
+@inline function flux_second_order!(
     m::KinematicModel,
     flux::Grad,
     state::Vars,
@@ -240,7 +251,7 @@ function config_kinematic_eddy(
         AtmosLESConfigType,
         param_set;
         boundarycondition = nothing,
-        init_state = init_kinematic_eddy!,
+        init_state_conservative = init_kinematic_eddy!,
         data_config = kmc,
     )
 
