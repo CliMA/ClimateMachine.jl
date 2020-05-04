@@ -353,7 +353,6 @@ function update_aux_diffusive!(
     FT = eltype(Q)
     A = dg.auxstate
 
-
     # store ∇ʰu as integrand for w
     # update vertical diffusivity for convective adjustment
     function f!(::OceanModel, Q, A, D, t)

@@ -87,6 +87,9 @@ end
     # need to calculate int_u using integral kernels
     # u_slow := u_slow + (1/H) * (u_fast - \int_{-H}^{0} u_slow)
 
+    ### store u° to aux for debugging purposes
+    dgSlow.auxstate.u° .= Qslow.u
+
     # Compute: \int_{-H}^{0} u_slow)
     ### need to make sure this is stored into aux.∫u
     indefinite_stack_integral!(dgSlow, slow, Qslow, dgSlow.auxstate, 0)
@@ -97,12 +100,9 @@ end
     boxy_∫u = reshape(dgSlow.auxstate.∫u, Nq^2, Nq, 2, nelemv, nelemh)
     flat_∫u = @view boxy_∫u[:, end, :, end, :]
 
-    ### Δu is a place holder for 1/H * (Ū - ∫u)
+    ### Δu is a place holder for 1/H * (Ū - ∫u°)
     Δu = dgFast.auxstate.Δu
     Δu .= 1 / slow.problem.H * (dgFast.auxstate.Ū / total_fast_step - flat_∫u)
-
-    ### store u° to aux for debugging purposes
-    dgSlow.auxstate.u° .= Qslow.u
 
     ### copy the 2D contribution down the 3D solution
     ### need to reshape these things for the broadcast
