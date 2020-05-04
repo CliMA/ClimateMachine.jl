@@ -202,10 +202,8 @@ function dostep!(
     slow = mrrk.slow_solver
     fast = mrrk.fast_solver
 
-    # Get the implciit operator and linear solver for
-    # the outer IMEX loop
-    slow_implicitoperator! = slow.implicitoperator!
-    slow_linearsolver = slow.linearsolver
+    # Get the linear solver for the outer IMEX loop
+    slow_besolver! = slow.besolver!
 
     # Butcher tableau for the ARK method (explicit and implicit parts)
     slow_RKA_explicit = slow.RKA_explicit
@@ -213,9 +211,9 @@ function dostep!(
     slow_RKB = slow.RKB
     slow_RKC = slow.RKC
 
-    # Explicit (slow_rhs!) and implicit (slow_rhs_linear!) tendencies
+    # Explicit (slow_rhs!) and implicit (slow_rhs_implicit!) tendencies
     slow_rhs! = slow.rhs!
-    slow_rhs_linear! = slow.rhs_linear!
+    slow_rhs_implicit! = slow.rhs_implicit!
     slow_Qhat = slow.Qhat
     slow_Qtt = slow.variant_storage.Qtt
 
@@ -228,7 +226,7 @@ function dostep!(
     slow_rv_Rstages = realview.(slow_Rstages)
     slow_rv_Qhat = realview(slow_Qhat)
     slow_rv_Qtt = realview(slow_Qtt)
-    slow_split_nonlinear_linear = slow.split_nonlinear_linear
+    slow_split_explicit_implicit = slow.split_explicit_implicit
 
     groupsize = 256
     Nouter_stages = length(slow_RKB)
@@ -273,7 +271,7 @@ function dostep!(
                     slow_RKA_implicit,
                     dt,
                     Val(slow_s),
-                    Val(slow_split_nonlinear_linear),
+                    Val(slow_split_explicit_implicit),
                     slow_δ,
                     slow_scaling;
                     ndrange = length(slow_rv_Q),
@@ -283,20 +281,14 @@ function dostep!(
             end
 
             # Solves
-            # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_linear!(Q_tt)
-            linearsolve!(
-                slow_implicitoperator!,
-                slow_linearsolver,
-                slow_Qtt,
-                slow_Qhat,
-                param,
-                slow_stage_time,
-            )
+            # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Q_tt)
+            α = dt * slow_RKA_implicit[slow_s, slow_s]
+            slow_besolver!(slow_Qtt, slow_Qhat, α, param, slow_stage_time)
 
             # update Qstages
             slow_Qstages[slow_s] .+= slow_Qtt
 
-            slow_rhs_linear!(
+            slow_rhs_implicit!(
                 slow_Rstages[slow_s],
                 slow_Qstages[slow_s],
                 param,
@@ -333,10 +325,10 @@ function dostep!(
         end
     end
 
-    if slow_split_nonlinear_linear
+    if slow_split_explicit_implicit
         for istage in 1:Nouter_stages
             stagetime = time + RKC[istage] * dt
-            slow_rhs_linear!(
+            slow_rhs_implicit!(
                 slow_Rstages[istage],
                 slow_Qstages[istage],
                 param,
