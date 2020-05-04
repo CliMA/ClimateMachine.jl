@@ -154,9 +154,9 @@ function atmos_default_simple_sums!(
     sums,
 )
     sums.turbulence.d_Nsquared += MH * state_gradient_flux.turbulence.N² * state_conservative.ρ
-    sums.turbulence.d_thvx += MH * state_gradient_flux.turbulence.θ_v[1] * state_conservative.ρ
-    sums.turbulence.d_thvy += MH * state_gradient_flux.turbulence.θ_v[2] * state_conservative.ρ
-    sums.turbulence.d_thvz += MH * state_gradient_flux.turbulence.θ_v[3] * state_conservative.ρ
+    sums.turbulence.d_thvx += MH * state_gradient_flux.turbulence.∇θ_v[1] * state_conservative.ρ
+    sums.turbulence.d_thvy += MH * state_gradient_flux.turbulence.∇θ_v[2] * state_conservative.ρ
+    sums.turbulence.d_thvz += MH * state_gradient_flux.turbulence.∇θ_v[3] * state_conservative.ρ
 
     return nothing
 end

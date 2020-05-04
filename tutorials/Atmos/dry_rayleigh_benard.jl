@@ -129,7 +129,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = Vreman(C_smag),
+        turbulence = SmagorinskyLilly(C_smag),
         source = (Gravity(),),
         boundarycondition = (
             AtmosBC(

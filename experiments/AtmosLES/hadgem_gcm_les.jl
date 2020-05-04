@@ -433,7 +433,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         AtmosLESConfigType,
         param_set;
         ref_state = GCMReferenceState{FT}(),
-        turbulence = SmagorinskyLilly{FT}(0.20),
+        turbulence = SmagorinskyLilly{FT}(0.25),
         #hyperdiffusion = StandardHyperDiffusion(1800),
         source = (
             Gravity(),
@@ -567,7 +567,7 @@ function main()
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+       # Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
     
