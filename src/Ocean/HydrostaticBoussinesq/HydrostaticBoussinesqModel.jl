@@ -153,17 +153,13 @@ helper variables for computation
 first half is because there is no dedicated integral kernels
 these variables are used to compute vertical integrals
 w = vertical velocity
-w_reverse = w but integrated in the opposite direction
 wz0 = w at z = 0
 pkin = bulk hydrostatic pressure contribution
-pkin_reverse = pkin but integrated in the opposite direction
+
 
 second half of these are fields that are used for computation
-θʳ = relaxation value of the sea surface temperature
-f = coriolis force
-τ = wind stress
-ν = vector of viscosities (zonal, meridional, vertical)
-κ = vector of diffusivities (zonal, meridional, vertical)
+y = north-south coordinate
+
 """
 # If this order is changed check update_auxiliary_state!
 function vars_state_auxiliary(m::HBModel, T)
