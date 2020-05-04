@@ -535,13 +535,16 @@ function update_auxiliary_state_gradient!(
         reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
     end
 
-    nodal_update_auxiliary_state!(div_damping_helper!, dg, m, Q, t, elems; diffusive = true)
+    nodal_update_auxiliary_state!(divergence_damping_helper!, dg, m, Q, t, elems; diffusive = true)
     nodal_update_auxiliary_state!(atmos_nodal_update_auxiliary_state!, dg, m, Q, t, elems)
     return true
 end
 
-function div_damping_helper!(m::AtmosModel, Q, aux, diff, t)
-    div_damping_helper!(m, m.turbulence, Q, aux, diff, t)
+function divergence_damping_helper!(m::AtmosModel, Q, aux, diff, t)
+    @inbounds begin
+        aux.turbulence.divergence = tr(diff.turbulence.∇u)
+    end
+    return nothing
 end
 
 function atmos_nodal_update_auxiliary_state!(

@@ -19,8 +19,8 @@
 
 using DocStringExtensions
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss, DivDamping
-export turbulence_tensors, div_damping_helper!
+export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
+export turbulence_tensors
 
 # ### Abstract Type
 # We define a `TurbulenceClosure` abstract type and
@@ -659,118 +659,6 @@ function turbulence_tensors(
     ν_v = k̂ .* dot(ν₀, k̂)
     ν_h = ν₀ .- ν_v
     ν = SDiagonal(ν_h + ν_v .* f_b²)
-    D_t = diag(ν) * _inv_Pr_turb
-    τ = -2 * ν * S
-    return ν, D_t, τ
-end
-
-
-# ### [Divergence Damping](@id div-damping)
-# Divergence Damping implementation
-# ```math
-# \mathrm{F}_{DD} = \nu_{D} \nabla (\nabla \cdot (\rho u_{horz})) / \rho
-# ```
-"""
-    DivDamping{FT} <: TurbulenceClosure
-
-Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
-is specified and used to compute the equivalent DivDamping coefficient (computed as the solution to the
-eigenvalue problem for the Laplacian operator).
-
-# Fields
-$(DocStringExtensions.FIELDS)
- 
-# Reference
-
-    @article{
-        doi:10.1063/1.5037039,
-        author = {Vreugdenhil,Catherine A.  and Taylor,John R. },
-        title = {Large-eddy simulations of stratified plane Couette flow using the anisotropic minimum-dissipation model},
-        journal = {Physics of Fluids},
-        volume = {30},
-        number = {8},
-        pages = {085104},
-        year = {2018},
-        doi = {10.1063/1.5037039},
-        URL = {https://doi.org/10.1063/1.5037039}
-    }
-
-"""
-struct DivDamping{FT} <: TurbulenceClosure
-    C::FT
-end
-vars_state_auxiliary(::DivDamping, FT) = @vars(Δ::FT, divergence::FT)
-vars_state_gradient(::DivDamping, FT) = @vars(θ_v::FT, divergence::FT)
-vars_state_gradient_flux(::DivDamping, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, ∇divergence::SVector{3,FT})
-function atmos_init_aux!(
-    ::DivDamping,
-    ::AtmosModel,
-    aux::Vars,
-    geom::LocalGeometry,
-)
-    aux.turbulence.Δ = lengthscale(geom)
-    aux.turbulence.divergence = eltype(aux)(0)
-end
-function gradvariables!(
-    m::DivDamping,
-    transform::Vars,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    transform.turbulence.θ_v = aux.moisture.θ_v
-    transform.turbulence.divergence = aux.turbulence.divergence
-end
-function diffusive!(
-    ::DivDamping,
-    orientation::Orientation,
-    diffusive::Vars,
-    ∇transform::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    ∇Φ = ∇gravitational_potential(orientation, aux)
-    k̂ = ∇Φ ./ norm(∇Φ)
-    diffusive.turbulence.∇u = ∇transform.u
-    diffusive.turbulence.N² =
-        dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
-    diffusive.turbulence.∇divergence = 
-        ∇transform.turbulence.divergence .- dot(∇transform.turbulence.divergence, k̂) * k̂
-end
-
-function div_damping_helper!(m::AtmosModel, ::DivDamping, Q, aux, diff, t)
-    @inbounds begin
-        aux.turbulence.divergence = tr(diff.turbulence.∇u)
-    end
-    return nothing
-end
-
-function turbulence_tensors(
-    m::DivDamping,
-    orientation::Orientation,
-    param_set::AbstractParameterSet,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-)
-    
-    FT = eltype(state)
-    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
-    ∇u = diffusive.turbulence.∇u
-    S = symmetrize(∇u)
-    normS = strain_rate_magnitude(S)
-    k̂ = vertical_unit_vector(orientation, param_set, aux)
-
-    # squared buoyancy correction
-    Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
-    ν₀ = normS * (m.C * aux.turbulence.Δ)^2
-    ν = SVector{3, FT}(ν₀, ν₀, ν₀)
-    ν_v = k̂ .* dot(ν, k̂)
-    ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
