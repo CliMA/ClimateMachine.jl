@@ -348,7 +348,7 @@ end
 vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
 vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
 vars_state_gradient_flux(::SmagorinskyLilly, FT) =
-    @vars(S::SHermitianCompact{3, FT, 6}, N²::FT, θ_v::SVector{3,FT})
+    @vars(S::SHermitianCompact{3, FT, 6}, N²::FT, θ_v::SVector{3,FT}, ∂Φ∂z::FT)
 function atmos_init_aux!(
     ::SmagorinskyLilly,
     ::AtmosModel,
@@ -397,21 +397,19 @@ function turbulence_tensors(
     aux::Vars,
     t::Real,
 )
-
     FT = eltype(state)
     _inv_Pr_turb::FT = inv_Pr_turb(param_set)
     S = diffusive.turbulence.S
     normS = strain_rate_magnitude(S)
     k̂ = vertical_unit_vector(orientation, param_set, aux)
-
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
-    ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2 + FT(1e-5)
+    f_b² = 1 # sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
@@ -532,7 +530,7 @@ function turbulence_tensors(
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
@@ -645,7 +643,7 @@ function turbulence_tensors(
 
     ν_v = k̂ .* dot(ν₀, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ

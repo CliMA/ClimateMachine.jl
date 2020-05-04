@@ -430,7 +430,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = Vreman{FT}(C_smag),
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         source = source,
         boundarycondition = (
@@ -477,7 +477,7 @@ function main()
     FT = Float32
 
     # DG polynomial order
-    N = 20
+    N = 4
     # Domain resolution and size
     Δh = FT(100)
     Δv = FT(40)
