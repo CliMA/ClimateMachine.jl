@@ -70,7 +70,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = DivDamping(c_smag),
+        turbulence = SmagorinskyLilly(c_smag),
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge, DivergenceDamping{FT}(0.05,700)),
