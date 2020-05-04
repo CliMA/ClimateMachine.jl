@@ -236,7 +236,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         source = (Gravity(),),
         tracers = NTracers{ntracers, FT}(δ_χ),
         ref_state = ref_state,
-        init_state = init_risingbubble!,
+        init_state_conservative = init_risingbubble!,
     )
 
     # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.

@@ -74,7 +74,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge, DivergenceDamping{FT}(0.05,700)),
-        init_state = init_heldsuarez!,
+        init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
     )
 
