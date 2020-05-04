@@ -770,7 +770,7 @@ function turbulence_tensors(
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b² + FT(1e-5))
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
