@@ -95,6 +95,8 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
 
     groupsize = 256
 
+    fast_dt_in = getdt(fast)
+
     for slow_s in 1:length(slow.RKA)
         # Currnent slow state time
         slow_stage_time = time + slow.RKC[slow_s] * slow_dt
@@ -144,8 +146,7 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
         end
 
         # Determine number of substeps we need
-        fast_dt = getdt(fast)
-        nsubsteps = fast_dt > 0 ? ceil(Int, γ * slow_dt / getdt(fast)) : 1
+        nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * slow_dt / fast_dt_in) : 1
         fast_dt = γ * slow_dt / nsubsteps
 
         updatedt!(fast, fast_dt)
@@ -177,5 +178,6 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
             total_fast_step,
         )
     end
+    updatedt!(fast, fast_dt_in)
     return nothing
 end
