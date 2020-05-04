@@ -518,9 +518,8 @@ function update_auxiliary_state!(
 
     return true
 end
-=# 
 
-function update_aux_diffusive!(
+function update_auxiliary_state_gradient!(
     dg::DGModel,
     m::AtmosModel,
     Q::MPIStateArray,
