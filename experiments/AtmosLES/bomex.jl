@@ -419,12 +419,15 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Choose multi-rate explicit solver
-    ode_solver_type = CLIMA.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
+    ode_solver_type =
+        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+    
+#    ode_solver_type = CLIMA.MultirateSolverType(
+#        linear_model = AtmosAcousticGravityLinearModel,
+#        slow_method = LSRK144NiegemannDiehlBusch,
+#        fast_method = LSRK144NiegemannDiehlBusch,
+#        timestep_ratio = 10,
+#    )
 
     # Assemble model components
     model = AtmosModel{FT}(
@@ -495,7 +498,7 @@ function main()
     # For the test we set this to == 30 minutes
     #timeend = FT(1800)
     timeend = FT(3600 * 6)
-    CFLmax = FT(8)
+    CFLmax = FT(1)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(

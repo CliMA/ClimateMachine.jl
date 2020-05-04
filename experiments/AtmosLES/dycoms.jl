@@ -370,7 +370,7 @@ function main()
     zmax = FT(2500)
 
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(14400)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(
