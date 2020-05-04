@@ -134,7 +134,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         )
 
         fill!(local_flux, -zero(eltype(local_flux)))
-        flux_first_order!(balance_law, states, t)
+        flux_first_order!(balance_law, states_first_order, t)
 
         @unroll for s in 1:num_state_conservative
             shared_flux[1, i, j, k, s] = local_flux[1, s]

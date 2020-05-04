@@ -58,8 +58,9 @@ function numerical_flux_gradient!(
     ::CentralNumericalFluxGradient,
     balance_law::BalanceLaw,
     states::NamedTuple,
+    normal_vector,
     t,
-) where {T, S, A}
+)
 
     states.gradient .=
         normal_vector .*
@@ -74,7 +75,7 @@ function numerical_boundary_flux_gradient!(
     bctype,
     t,
     states1⁻::NamedTuple,
-) where {D, T, S, A}
+)
     states_boundary = (
         conservative⁻ = states.conservative⁻,
         auxiliary⁻ = states.auxiliary⁻,
@@ -134,7 +135,7 @@ function numerical_boundary_flux_first_order!(
     bctype,
     t,
     states1⁻::NamedTuple,
-) where {S, A}
+)
 
     boundary_state!(
         numerical_flux,
@@ -177,7 +178,7 @@ function numerical_flux_first_order!(
     states::NamedTuple,
     normal_vector::SVector,
     t,
-) where {S, A}
+)
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
@@ -200,7 +201,8 @@ function numerical_flux_first_order!(
         max_wavespeed *
         (parent(states.conservative⁻) - parent(states.conservative⁺))
 
-    states_less_flux = (
+    states_penalty = (
+        penalty = penalty,
         conservative⁻ = states.conservative⁻,
         auxiliary⁻ = states.auxiliary⁻,
         conservative⁺ = states.conservative⁺,
@@ -213,8 +215,7 @@ function numerical_flux_first_order!(
         balance_law,
         normal_vector,
         max_wavespeed,
-        Vars{S}(penalty),
-        states_less_flux,
+        states_penalty,
         t,
     )
 
@@ -241,7 +242,7 @@ function numerical_flux_first_order!(
     states::NamedTuple,
     normal_vector::SVector,
     t,
-) where {S, A}
+)
 
     FT = eltype(states.flux)
     num_state_conservative = number_state_conservative(balance_law, FT)
@@ -315,7 +316,7 @@ function numerical_flux_second_order!(
     states::NamedTuple,
     normal_vector⁻::SVector,
     t,
-) where {S, D, HD, A}
+)
 
     FT = eltype(states.flux)
     num_state_conservative = number_state_conservative(balance_law, FT)

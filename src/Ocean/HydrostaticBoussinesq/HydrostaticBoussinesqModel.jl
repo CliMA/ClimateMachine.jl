@@ -22,7 +22,6 @@ using ..DGmethods.NumericalFluxes: RusanovNumericalFlux
 
 import ..DGmethods.NumericalFluxes: update_penalty!
 import ..DGmethods:
-
     vars_state_conservative,
     init_state_conservative!,
     vars_state_auxiliary,
@@ -212,9 +211,14 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function compute_gradient_argument!(m::HBModel, G::Vars, Q::Vars, A, t)
-    G.∇u = Q.u
-    G.∇θ = Q.θ
+@inline function compute_gradient_argument!(m::HBModel, states::NamedTuple, t)
+    u = states.conservative.u
+    θ = states.conservative.θ
+    ∇u = states.argument.∇u
+    ∇θ = states.argument.∇θ
+
+    ∇u = u
+    ∇θ = θ
 
     return nothing
 end
@@ -246,19 +250,16 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function compute_gradient_flux!(
-    m::HBModel,
-    D::Vars,
-    G::Grad,
-    Q::Vars,
-    A::Vars,
-    t,
-)
+@inline function compute_gradient_flux!(m::HBModel, states::NamedTuple, t)
+    ∇u = states.gradient.∇u
+    ∇θ = states.gradient.∇θ
+    ν∇u = states.gradient_flux.ν∇u
+    κ∇θ = states.gradient_flux.κ∇θ
     ν = viscosity_tensor(m)
-    D.ν∇u = ν * G.∇u
+    κ = diffusivity_tensor(m, ∇θ[3])
 
-    κ = diffusivity_tensor(m, G.∇θ[3])
-    D.κ∇θ = κ * G.∇θ
+    ν∇u = ν * ∇u
+    κ∇θ = κ * ∇θ
 
     return nothing
 end
@@ -417,23 +418,19 @@ t -> time, not used
 ∂ᵗu = ∇⋅(g*η + g∫αᵀθdz + v⋅u)
 ∂ᵗθ = ∇⋅(vθ) where v = (u,v,w)
 """
-@inline function flux_first_order!(
-    m::HBModel,
-    F::Grad,
-    Q::Vars,
-    A::Vars,
-    t::Real,
-)
-    FT = eltype(Q)
+@inline function flux_first_order!(m::HBModel, states::NamedTuple, t)
+    FT = eltype(states.conservative)
     _grav::FT = grav(m.param_set)
     @inbounds begin
-        u = Q.u # Horizontal components of velocity
-        η = Q.η
-        θ = Q.θ
-        w = A.w   # vertical velocity
-        pkin = A.pkin
+        u, v = states.conservative.u # Horizontal components of velocity
+        η = states.conservative.η
+        θ = states.conservative.θ
+        w = states.auxiliary.w   # vertical velocity
+        pkin = states.auxiliary.pkin # kinematic pressure
+        Fᵘ = states.flux.u
+        Fᶿ = states.flux.θ
 
-        v = @SVector [u[1], u[2], w]
+        ṽ = @SVector [u, v, w]
         Iʰ = @SMatrix [
             1 -0
             -0 1
@@ -441,16 +438,16 @@ t -> time, not used
         ]
 
         # ∇h • (g η)
-        F.u += _grav * η * Iʰ
+        Fᵘ += _grav * η * Iʰ
 
         # ∇h • (- ∫(αᵀ θ))
-        F.u += _grav * pkin * Iʰ
+        Fᵘ += _grav * pkin * Iʰ
 
         # ∇h • (v ⊗ u)
-        # F.u += v * u'
+        # Fᵘ += v * u'
 
         # ∇ • (u θ)
-        F.θ += v * θ
+        Fᶿ += ṽ * θ
     end
 
     return nothing
@@ -474,17 +471,14 @@ this computation is done pointwise at each nodal point
 ∂ᵗu = -∇⋅(ν∇u)
 ∂ᵗθ = -∇⋅(κ∇θ)
 """
-@inline function flux_second_order!(
-    m::HBModel,
-    F::Grad,
-    Q::Vars,
-    D::Vars,
-    HD::Vars,
-    A::Vars,
-    t::Real,
-)
-    F.u -= D.ν∇u
-    F.θ -= D.κ∇θ
+@inline function flux_second_order!(m::HBModel, states::NamedTuple, t)
+    Fᵘ = states.flux.u
+    Fᶿ = states.flux.θ
+    ν∇u = states.gradient_flux.ν∇u
+    κ∇θ = states.gradient_flux.κ∇θ
+
+    Fᵘ -= ν∇u
+    Fᶿ -= κ∇θ
 
     return nothing
 end
@@ -505,24 +499,17 @@ end
     ∂ᵗu = -f×u
     ∂ᵗη = w|(z=0)
 """
-@inline function source!(
-    m::HBModel,
-    S::Vars,
-    Q::Vars,
-    D::Vars,
-    A::Vars,
-    t::Real,
-    direction,
-)
+@inline function source!(m::HBModel, states::NamedTuple, t, direction)
     @inbounds begin
-        u, v = Q.u # Horizontal components of velocity
-        wz0 = A.wz0
+        u, v = states.conservative.u # Horizontal components of velocity
+        wz0 = states.auxiliary.wz0 # vertical velocity at z = 0
+        Sᵘ = states.source.u
 
         # f × u
-        f = coriolis_force(m, A.y)
-        S.u -= @SVector [-f * v, f * u]
+        f = coriolis_force(m, states.auxiliary.y)
+        Sᵘ -= @SVector [-f * v, f * u]
 
-        S.η += wz0
+        states.source.η += wz0
     end
 
     return nothing
@@ -556,14 +543,10 @@ function update_penalty!(
     ::HBModel,
     n⁻,
     λ,
-    ΔQ::Vars,
-    Q⁻,
-    A⁻,
-    Q⁺,
-    A⁺,
+    states::NamedTuple,
     t,
 )
-    ΔQ.η = -0
+    states.penalty.η = -0
 
     return nothing
 end

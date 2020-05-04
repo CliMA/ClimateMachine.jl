@@ -41,17 +41,15 @@ apply no penetration boundary for temperature
     ::RusanovNumericalFlux,
     ::CoastlineFreeSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    u⁻ = Q⁻.u
+    u⁻ = states.conservative⁻.u
+    u⁺ = states.conservative⁺.u
     n = @SVector [n⁻[1], n⁻[2]]
 
-    Q⁺.u = u⁻ - 2 * (n ⋅ u⁻) * n
+    u⁺ = u⁻ - 2 * (n ⋅ u⁻) * n
 
     return nothing
 end
@@ -74,17 +72,15 @@ apply no penetration boundary for temperature
     ::CentralNumericalFluxGradient,
     ::CoastlineFreeSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    u⁻ = Q⁻.u
+    u⁻ = states.conservative⁻.u
+    u⁺ = states.conservative⁺.u
     n = @SVector [n⁻[1], n⁻[2]]
 
-    Q⁺.u = u⁻ - (n ⋅ u⁻) * n
+    u⁺ = u⁻ - (n ⋅ u⁻) * n
 
     return nothing
 end
@@ -110,18 +106,17 @@ sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇�
     ::CentralNumericalFluxSecondOrder,
     ::CoastlineFreeSlip,
     ::HBModel,
-    Q⁺,
-    D⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    D⁻,
-    A⁻,
     t,
 )
-    D⁺.ν∇u = -D⁻.ν∇u
+    ν∇u⁻ = states.gradient_flux⁻.ν∇u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    ν∇u⁺ = states.gradient_flux⁺.ν∇u
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+    ν∇u⁺ = -ν∇u⁻
+    κ∇θ⁺ = -κ∇θ⁻
 
     return nothing
 end
@@ -151,14 +146,14 @@ set sets ghost point to have no numerical flux on the boundary for u
     ::RusanovNumericalFlux,
     ::CoastlineNoSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    Q⁺.u = -Q⁻.u
+    u⁻ = states.conservative⁻.u
+    u⁺ = states.conservative⁺.u
+
+    u⁺ = -u⁻
 
     return nothing
 end
@@ -182,15 +177,14 @@ set numerical flux to zero for u
     ::CentralNumericalFluxGradient,
     ::CoastlineNoSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    FT = eltype(Q⁺)
-    Q⁺.u = SVector(-zero(FT), -zero(FT))
+    u⁺ = states.conservative⁺.u
+    FT = eltype(u⁺)
+
+    u⁺ = SVector(-zero(FT), -zero(FT))
 
     return nothing
 end
@@ -216,18 +210,17 @@ sets ghost point to have no numerical flux on the boundary for u and κ∇θ
     ::CentralNumericalFluxSecondOrder,
     ::CoastlineNoSlip,
     ::HBModel,
-    Q⁺,
-    D⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    D⁻,
-    A⁻,
     t,
 )
-    Q⁺.u = -Q⁻.u
+    u⁻ = states.conservative⁻.u
+    u⁺ = states.conservative⁺.u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+    u⁺ = -u⁻
+    κ∇θ⁺ = -κ∇θ⁻
 
     return nothing
 end
@@ -257,14 +250,14 @@ set ghost point to have no numerical flux on the boundary for w
     ::RusanovNumericalFlux,
     ::OceanFloorFreeSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    A⁺.w = -A⁻.w
+    w⁻ = states.auxiliary⁻.w
+    w⁺ = states.auxiliary⁺.w
+
+    w⁺ = -w⁻
 
     return nothing
 end
@@ -288,15 +281,14 @@ set numerical flux to zero for w
     ::CentralNumericalFluxGradient,
     ::OceanFloorFreeSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    FT = eltype(Q⁺)
-    A⁺.w = -zero(FT)
+    w⁺ = states.auxiliary⁺.w
+    FT = eltype(w⁺)
+
+    w⁺ = -zero(FT)
 
     return nothing
 end
@@ -322,19 +314,20 @@ sets ghost point to have no numerical flux on the boundary for ν∇u and κ∇�
     ::CentralNumericalFluxSecondOrder,
     ::OceanFloorFreeSlip,
     ::HBModel,
-    Q⁺,
-    D⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    D⁻,
-    A⁻,
     t,
 )
-    A⁺.w = -A⁻.w
-    D⁺.ν∇u = -D⁻.ν∇u
+    w⁻ = states.auxiliary⁻.w
+    w⁺ = states.auxiliary⁺.w
+    ν∇u⁻ = states.gradient_flux⁻.ν∇u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    ν∇u⁺ = states.gradient_flux⁺.ν∇u
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+    w⁺ = -w⁻
+    ν∇u⁺ = -ν∇u⁻
+    κ∇θ⁺ = -κ∇θ⁻
 
     return nothing
 end
@@ -364,15 +357,17 @@ set sets ghost point to have no numerical flux on the boundary for u and w
     ::RusanovNumericalFlux,
     ::OceanFloorNoSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    Q⁺.u = -Q⁻.u
-    A⁺.w = -A⁻.w
+    u⁻ = states.conservative⁻.u
+    u⁺ = states.conservative⁺.u
+    w⁻ = states.auxiliary⁻.w
+    w⁺ = states.auxiliary⁺.w
+
+    u⁺ = -u⁻
+    w⁺ = -w⁻
 
     return nothing
 end
@@ -396,16 +391,16 @@ set numerical flux to zero for u and w
     ::CentralNumericalFluxGradient,
     ::OceanFloorNoSlip,
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
-    FT = eltype(Q⁺)
-    Q⁺.u = SVector(-zero(FT), -zero(FT))
-    A⁺.w = -zero(FT)
+    u⁺ = states.conservative⁺.u
+    w⁺ = states.auxiliary⁺.w
+    FT = eltype(u⁺)
+
+    u⁺ = SVector(-zero(FT), -zero(FT))
+    w⁺ = -zero(FT)
 
     return nothing
 end
@@ -440,11 +435,16 @@ sets ghost point to have no numerical flux on the boundary for u,w and κ∇θ
     A⁻,
     t,
 )
+    u⁻ = states.conservative⁻.u
+    u⁺ = states.conservative⁺.u
+    w⁻ = states.auxiliary⁻.w
+    w⁺ = states.auxiliary⁺.w
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
 
-    Q⁺.u = -Q⁻.u
-    A⁺.w = -A⁻.w
-
-    D⁺.κ∇θ = -D⁻.κ∇θ
+    u⁺ = -u⁻
+    w⁺ = -w⁻
+    κ∇θ⁺ = -κ∇θ⁻
 
     return nothing
 end
@@ -463,11 +463,8 @@ applying neumann boundary conditions, so don't need to do anything for these num
         OceanSurfaceStressForcing,
     },
     ::HBModel,
-    Q⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    A⁻,
     t,
 )
     return nothing
@@ -503,8 +500,13 @@ set ghost point to have no numerical flux on the boundary for ν∇u and κ∇θ
     A⁻,
     t,
 )
-    D⁺.ν∇u = -D⁻.ν∇u
-    D⁺.κ∇θ = -D⁻.κ∇θ
+    ν∇u⁻ = states.gradient_flux⁻.ν∇u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    ν∇u⁺ = states.gradient_flux⁺.ν∇u
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
+
+    ν∇u⁺ = -ν∇u⁻
+    κ∇θ⁺ = -κ∇θ⁻
 
     return nothing
 end
@@ -539,11 +541,16 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
     A⁻,
     t,
 )
+    ν∇u⁻ = states.gradient_flux⁻.ν∇u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    ν∇u⁺ = states.gradient_flux⁺.ν∇u
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
+
     τᶻ = kinematic_stress(m.problem, A⁻.y, m.ρₒ)
     τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
-    D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+    ν∇u⁺ = -ν∇u⁻ + 2 * τ
+    κ∇θ⁺ = -κ∇θ⁻
 
     return nothing
 end
@@ -569,20 +576,20 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
     ::CentralNumericalFluxSecondOrder,
     ::OceanSurfaceNoStressForcing,
     m::HBModel,
-    Q⁺,
-    D⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    D⁻,
-    A⁻,
     t,
 )
-    D⁺.ν∇u = -D⁻.ν∇u
+    ν∇u⁻ = states.gradient_flux⁻.ν∇u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    ν∇u⁺ = states.gradient_flux⁺.ν∇u
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
 
     σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
     σ = @SVector [-0, -0, σᶻ]
-    D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+
+    ν∇u⁺ = -ν∇u⁻
+    κ∇θ⁺ = -κ∇θ⁻ + 2 * σ
 
     return nothing
 end
@@ -608,22 +615,23 @@ set ghost point for numerical flux on the boundary for ν∇u and κ∇θ
     ::CentralNumericalFluxSecondOrder,
     ::OceanSurfaceStressForcing,
     m::HBModel,
-    Q⁺,
-    D⁺,
-    A⁺,
+    states,
     n⁻,
-    Q⁻,
-    D⁻,
-    A⁻,
     t,
 )
+    ν∇u⁻ = states.gradient_flux⁻.ν∇u
+    κ∇θ⁻ = states.gradient_flux⁻.κ∇θ
+    ν∇u⁺ = states.gradient_flux⁺.ν∇u
+    κ∇θ⁺ = states.gradient_flux⁺.κ∇θ
+
     τᶻ = kinematic_stress(m.problem, A⁻.y, m.ρₒ)
     τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
-    D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
     σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
     σ = @SVector [-0, -0, σᶻ]
-    D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+
+    ν∇u⁺ = -ν∇u⁻ + 2 * τ
+    κ∇θ⁺ = -κ∇θ⁻ + 2 * σ
 
     return nothing
 end

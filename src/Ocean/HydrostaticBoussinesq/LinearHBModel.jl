@@ -61,13 +61,16 @@ this computation is done pointwise at each nodal point
 """
 @inline function compute_gradient_argument!(
     m::LinearHBModel,
-    G::Vars,
-    Q::Vars,
-    A,
+    states::NamedTuple,
     t,
 )
-    G.∇u = Q.u
-    G.∇θ = Q.θ
+    u = states.conservative.u
+    θ = states.conservative.θ
+    ∇u = states.arguments.∇u
+    ∇θ = states.arguments.∇θ
+
+    ∇u = u
+    ∇θ = θ
 
     return nothing
 end
@@ -88,17 +91,18 @@ this computation is done pointwise at each nodal point
 """
 @inline function compute_gradient_flux!(
     lm::LinearHBModel,
-    D::Vars,
-    G::Grad,
-    Q::Vars,
-    A::Vars,
+    states::NamedTuple,
     t,
 )
+    ∇u = states.gradient.∇u
+    ∇θ = states.gradient.∇θ
+    ν∇u = states.gradient_flux.ν∇u
+    κ∇θ = states.gradient_flux.κ∇θ
     ν = viscosity_tensor(lm.ocean)
-    D.ν∇u = ν * G.∇u
+    κ = diffusivity_tensor(lm.ocean, ∇θ[3])
 
-    κ = diffusivity_tensor(lm.ocean, G.∇θ[3])
-    D.κ∇θ = κ * G.∇θ
+    ν∇u = ν * ∇u
+    κ∇θ = κ * ∇θ
 
     return nothing
 end
@@ -121,17 +125,14 @@ this computation is done pointwise at each nodal point
 ∂ᵗu = -∇⋅(ν∇u)
 ∂ᵗθ = -∇⋅(κ∇θ)
 """
-@inline function flux_second_order!(
-    lm::LinearHBModel,
-    F::Grad,
-    Q::Vars,
-    D::Vars,
-    HD::Vars,
-    A::Vars,
-    t::Real,
-)
-    F.u -= D.ν∇u
-    F.θ -= D.κ∇θ
+@inline function flux_second_order!(lm::LinearHBModel, states::NamedTuple, t)
+    Fᵘ = states.flux.u
+    Fᶿ = states.flux.θ
+    ν∇u = states.gradient_flux.ν∇u
+    κ∇θ = states.gradient_flux.κ∇θ
+
+    Fᵘ -= ν∇u
+    Fᶿ -= κ∇θ
 
     return nothing
 end
