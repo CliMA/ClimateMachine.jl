@@ -205,37 +205,44 @@ function SolverConfiguration(
         vdg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = VerticalDirection(),
-            diffusion_direction = diffdir,
         )
         hdg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = HorizontalDirection(),
-            diffusion_direction = diffdir,
         )
         rem_model = RemainderModel(bl, (linmodel,))
         rem_dg = DGModel(
             rem_model,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             diffusion_direction = diffdir,
         )
         slow_solver = ode_solver_type.slow_method(
-            dg,
+            rem_dg,
             vdg,
-            ode_solver_type.linear_solver(),
+            LinearBackwardEulerSolver(
+                ode_solver_type.linear_solver();
+                isadjustable = false,
+            ),
             Q;
             dt = ode_dt,
             t0 = t0,
