@@ -363,9 +363,9 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosure
     C_smag::FT
 end
 
-vars_aux(::SmagorinskyLilly, FT) = @vars(Δ::FT)
-vars_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
-vars_diffusive(::SmagorinskyLilly, FT) =
+vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
+vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
+vars_state_gradient_flux(::SmagorinskyLilly, FT) =
     @vars(∇u::SMatrix{3,3,FT,9}, S::SHermitianCompact{3, FT, 6}, N²::FT)
 
 
@@ -699,9 +699,9 @@ $(DocStringExtensions.FIELDS)
 struct DivDamping{FT} <: TurbulenceClosure
     C::FT
 end
-vars_aux(::DivDamping, FT) = @vars(Δ::FT, divergence::FT)
-vars_gradient(::DivDamping, FT) = @vars(θ_v::FT, divergence::FT)
-vars_diffusive(::DivDamping, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, ∇divergence::SVector{3,FT})
+vars_state_auxiliary(::DivDamping, FT) = @vars(Δ::FT, divergence::FT)
+vars_state_gradient(::DivDamping, FT) = @vars(θ_v::FT, divergence::FT)
+vars_state_gradient_flux(::DivDamping, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, ∇divergence::SVector{3,FT})
 function atmos_init_aux!(
     ::DivDamping,
     ::AtmosModel,
@@ -766,11 +766,11 @@ function turbulence_tensors(
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
     f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
-    ν₀ = normS * (m.C * aux.turbulence.Δ)^2 + FT(1e-5)
+    ν₀ = normS * (m.C * aux.turbulence.Δ)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    ν = SDiagonal(ν_h + ν_v .* f_b² + FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
