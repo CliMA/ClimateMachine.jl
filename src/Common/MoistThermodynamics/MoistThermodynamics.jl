@@ -994,11 +994,9 @@ function saturation_adjustment(
     else
         sol = find_zero(
             T -> internal_energy_sat(param_set, T, ρ, q_tot) - e_int,
-            T_ -> ∂e_int_∂T(param_set, T_, e_int, ρ, q_tot),
-            T_1,
-            NewtonsMethod(),
+            NewtonsMethod(T_1, T_ -> ∂e_int_∂T(param_set, T_, e_int, ρ, q_tot)),
             CompactSolution(),
-            tol,
+            SolutionTolerance(tol),
             maxiter,
         )
         if !sol.converged
@@ -1075,11 +1073,9 @@ function saturation_adjustment_SecantMethod(
         T_2 = bound_upper_temperature(T_1, T_2)
         sol = find_zero(
             T -> internal_energy_sat(param_set, T, ρ, q_tot) - e_int,
-            T_1,
-            T_2,
-            SecantMethod(),
+            SecantMethod(T_1, T_2),
             CompactSolution(),
-            tol,
+            SolutionTolerance(tol),
             maxiter,
         )
         if !sol.converged
@@ -1141,11 +1137,9 @@ function saturation_adjustment_q_tot_θ_liq_ice(
         T_2 = bound_upper_temperature(T_1, T_2)
         sol = find_zero(
             T -> liquid_ice_pottemp_sat(param_set, T, ρ, q_tot) - θ_liq_ice,
-            T_1,
-            T_2,
-            SecantMethod(),
+            SecantMethod(T_1, T_2),
             CompactSolution(),
-            tol,
+            SolutionTolerance(tol),
             maxiter,
         )
         if !sol.converged
@@ -1211,11 +1205,9 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
                     air_density(param_set, T, p, PhasePartition(q_tot)),
                     q_tot,
                 ) - θ_liq_ice,
-            T_1,
-            T_2,
-            SecantMethod(),
+            SecantMethod(T_1, T_2),
             CompactSolution(),
-            tol,
+            SolutionTolerance(tol),
             maxiter,
         )
         if !sol.converged
@@ -1419,11 +1411,9 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
                 air_pressure(param_set, T, ρ, q),
                 q,
             ),
-        _T_min,
-        _T_max,
-        SecantMethod(),
+        SecantMethod(_T_min, _T_max),
         CompactSolution(),
-        tol,
+        SolutionTolerance(tol),
         maxiter,
     )
     if !sol.converged
