@@ -16,7 +16,6 @@ using ..DGmethods
 using ..DGmethods: update_auxiliary_state_gradient!
 using ..DGmethods:
     vars_state_conservative, vars_state_auxiliary, update_auxiliary_state!
->>>>>>> 499cb7ccd850019bb6e9d770cf8f9bb403060b3c
 using ..DGmethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
