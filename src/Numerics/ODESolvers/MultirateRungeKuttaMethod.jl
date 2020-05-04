@@ -253,13 +253,12 @@ function dostep!(
             # implicit linear solve only appears after the
             # first slow stage is completed
             if in_slow_δ !== nothing
-
                 slow_scaling = nothing
                 if slow_s == length(slow_RKB)
                     slow_scaling = in_slow_scaling
                 end
-
                 # Update solution and scale RHS
+                event = Event(device(Q))
                 event = stage_update!(device(Q), groupsize)(
                     slow.variant,
                     slow_rv_Q,
@@ -288,7 +287,7 @@ function dostep!(
             # update Qstages
             slow_Qstages[slow_s] .+= slow_Qtt
 
-            slow_rhs_implicit!(
+            slow_rhs!(
                 slow_Rstages[slow_s],
                 slow_Qstages[slow_s],
                 param,
@@ -306,10 +305,7 @@ function dostep!(
 
         # RKB for the slow with fractional time factor remove (since full
         # integration of fast will result in scaling by γ)
-        slow_δ = slow_RKB[slow_s] / (γ)
-
-        # RKB for the slow with fractional time factor remove (since full
-        # integration of fast will result in scaling by γ)
+        slow_δ = slow_RKB[slow_s] / γ
         nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * dt / fast_dt_in) : 1
         fast_dt = γ * dt / nsubsteps
 
@@ -321,38 +317,80 @@ function dostep!(
                 slow_rka = slow_RKA_explicit[slow_s % length(slow_RKA_explicit) + 1]
             end
             fast_time = slow_stage_time + (substep - 1) * fast_dt
-            dostep!(Q, fast, param, fast_time, slow_δ, realview(fast.dQ), slow_rka)
+            dostep!(Q, fast, param, fast_time, slow_δ, slow_rv_Rstages, slow_rka)
         end
     end
 
-    if slow_split_explicit_implicit
-        for istage in 1:Nouter_stages
-            stagetime = time + RKC[istage] * dt
-            slow_rhs_implicit!(
-                slow_Rstages[istage],
-                slow_Qstages[istage],
-                param,
-                slow_stage_time,
-                increment = true,
-            )
-        end
-    end
-
-    # compose the final solution
-    event = Event(device(Q))
-    event = solution_update!(device(Q), groupsize)(
-        slow.variant,
-        slow_rv_Q,
-        slow_rv_Rstages,
-        slow_RKB,
-        dt,
-        Val(Nouter_stages),
-        in_slow_δ,
-        in_slow_rv_dQ,
-        in_slow_scaling;
-        ndrange = length(slow_rv_Q),
-        dependencies = (event,),
-    )
-    wait(device(Q), event)
+    # if slow_split_explicit_implicit
+    #     for istage in 1:Nouter_stages
+    #         stagetime = time + RKC[istage] * dt
+    #         slow_rhs_implicit!(
+    #             slow_Rstages[istage],
+    #             slow_Qstages[istage],
+    #             param,
+    #             slow_stage_time,
+    #             increment = true,
+    #         )
+    #     end
+    # end
+    #
+    # # compose the final solution
+    # event = Event(device(Q))
+    # event = solution_update!(device(Q), groupsize)(
+    #     slow.variant,
+    #     slow_rv_Q,
+    #     slow_rv_Rstages,
+    #     slow_RKB,
+    #     dt,
+    #     Val(Nouter_stages),
+    #     in_slow_δ,
+    #     in_slow_rv_dQ,
+    #     in_slow_scaling;
+    #     ndrange = length(slow_rv_Q),
+    #     dependencies = (event,),
+    # )
+    # wait(device(Q), event)
     updatedt!(fast, fast_dt_in)
+end
+
+@kernel function stage_mrrk_update!(
+    ::LowStorageVariant,
+    Q,
+    Qstages,
+    Rstages,
+    Qhat,
+    Qtt,
+    RKA_explicit,
+    RKA_implicit,
+    dt,
+    ::Val{is},
+    ::Val{split_explicit_implicit},
+    slow_δ,
+    slow_dQ,
+) where {is, split_explicit_implicit}
+    i = @index(Global, Linear)
+    @inbounds begin
+        Qhat_i = Q[i]
+        Qstages_is_i = -zero(eltype(Q))
+
+        if slow_δ !== nothing
+            Rstages[is - 1][i] += slow_δ * slow_dQ[i]
+        end
+
+        @unroll for js in 1:(is - 1)
+            if split_explicit_implicit
+                rkcoeff = RKA_implicit[is, js] / RKA_implicit[is, is]
+            else
+                rkcoeff =
+                    (RKA_implicit[is, js] - RKA_explicit[is, js]) /
+                    RKA_implicit[is, is]
+            end
+            commonterm = rkcoeff * Qstages[js][i]
+            Qhat_i += commonterm + dt * RKA_explicit[is, js] * Rstages[js][i]
+            Qstages_is_i -= commonterm
+        end
+        Qstages[is][i] = Qstages_is_i
+        Qhat[i] = Qhat_i
+        Qtt[i] = Qhat_i
+    end
 end
