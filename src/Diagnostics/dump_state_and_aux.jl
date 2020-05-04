@@ -106,7 +106,8 @@ function dump_state_and_aux_collect(dgngrp, currtime)
 
         statevarvals = OrderedDict()
         for i in 1:number_state_conservative(bl, FT)
-            statevarvals[statenames[i]] = (dim_names, all_state_data[:, :, :, i])
+            statevarvals[statenames[i]] =
+                (dim_names, all_state_data[:, :, :, i])
         end
         write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 
