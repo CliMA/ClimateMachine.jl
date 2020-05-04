@@ -266,7 +266,7 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
     Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     N = polynomialorder(grid)

@@ -2,7 +2,7 @@ using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
-    balancelaw::BL
+    balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
     numerical_flux_second_order::NFD
@@ -15,20 +15,20 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     modeldata::MD
 end
 function DGModel(
-    balancelaw,
+    balance_law,
     grid,
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
-    state_auxiliary = create_auxiliary_state(balancelaw, grid),
-    state_gradient_flux = create_gradient_state(balancelaw, grid),
-    states_higher_order = create_higher_order_states(balancelaw, grid),
+    state_auxiliary = create_auxiliary_state(balance_law, grid),
+    state_gradient_flux = create_gradient_state(balance_law, grid),
+    states_higher_order = create_higher_order_states(balance_law, grid),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
 )
     DGModel(
-        balancelaw,
+        balance_law,
         grid,
         numerical_flux_first_order,
         numerical_flux_second_order,
@@ -50,7 +50,7 @@ function (dg::DGModel)(
     increment = false,
 )
 
-    balance_law = dg.balancelaw
+    balance_law = dg.balance_law
     device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
@@ -513,7 +513,7 @@ end
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
-    balance_law = dg.balancelaw
+    balance_law = dg.balance_law
     grid = dg.grid
 
     state_conservative = create_conservative_state(balance_law, grid)
@@ -575,7 +575,7 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
 end
 
 function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
 
     state = create_state(bl, grid)
@@ -871,7 +871,7 @@ function copy_stack_field_down!(
 end
 
 function MPIStateArrays.MPIStateArray(dg::DGModel)
-    balance_law = dg.balancelaw
+    balance_law = dg.balance_law
     grid = dg.grid
 
     state_conservative = create_conservative_state(balance_law, grid)

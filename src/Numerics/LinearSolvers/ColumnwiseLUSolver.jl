@@ -78,7 +78,7 @@ end
 
 """
 function band_lu!(A, dg::DGModel)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     @assert isstacked(topology)
@@ -128,7 +128,7 @@ function band_lu!(A, dg::DGModel)
 end
 
 function band_forward!(Q, A, dg::DGModel)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     @assert isstacked(topology)
@@ -165,7 +165,7 @@ function band_forward!(Q, A, dg::DGModel)
 end
 
 function band_back!(Q, A, dg::DGModel)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     @assert isstacked(topology)
@@ -284,7 +284,7 @@ function banded_matrix(
     args...;
     single_column = false,
 )
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     @assert isstacked(topology)
@@ -390,7 +390,7 @@ function banded_matrix_vector_product!(
     dQ::MPIStateArray,
     Q::MPIStateArray,
 )
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     @assert isstacked(topology)

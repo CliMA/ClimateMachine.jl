@@ -46,7 +46,7 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     dg = Settings.dg
     Q = Settings.Q
     FT = eltype(Q.data)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     mpirank = MPI.Comm_rank(mpicomm)
 
     # filename (may also want to take out)

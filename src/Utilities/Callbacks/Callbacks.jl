@@ -123,7 +123,7 @@ function vtk(vtk_opt, solver_config, output_dir)
 
         mpicomm = solver_config.mpicomm
         dg = solver_config.dg
-        bl = dg.balancelaw
+        bl = dg.balance_law
         Q = solver_config.Q
         FT = eltype(Q)
 
@@ -350,7 +350,7 @@ function CB_constructor(interval::String, solver_config, default = nothing)
     mpicomm = solver_config.mpicomm
     solver = solver_config.solver
     dg = solver_config.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     secs_per_day = day(bl.param_set)
 
     if endswith(interval, "smonths")
