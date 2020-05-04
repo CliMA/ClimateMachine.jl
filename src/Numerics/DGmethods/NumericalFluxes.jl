@@ -57,60 +57,49 @@ struct CentralNumericalFluxGradient <: NumericalFluxGradient end
 function numerical_flux_gradient!(
     ::CentralNumericalFluxGradient,
     balance_law::BalanceLaw,
-    transform_gradient::MMatrix,
-    normal_vector::SVector,
-    state_gradient⁻::Vars{T},
-    state_conservative⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_gradient⁺::Vars{T},
-    state_conservative⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
+    states::NamedTuple,
     t,
 ) where {T, S, A}
 
-    transform_gradient .=
+    states.gradient .=
         normal_vector .*
-        (parent(state_gradient⁺) .+ parent(state_gradient⁻))' ./ 2
+        (parent(states.argument⁺) .+ parent(states.argument⁻))' ./ 2
 end
 
 function numerical_boundary_flux_gradient!(
     numerical_flux::CentralNumericalFluxGradient,
     balance_law::BalanceLaw,
-    transform_gradient::MMatrix,
+    states::NamedTuple,
     normal_vector::SVector,
-    state_gradient⁻::Vars{T},
-    state_conservative⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_gradient⁺::Vars{T},
-    state_conservative⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
     bctype,
     t,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
+    states1⁻::NamedTuple,
 ) where {D, T, S, A}
+    states_boundary = (
+        conservative⁻ = states.conservative⁻,
+        auxiliary⁻ = states.auxiliary⁻,
+        conservative⁺ = states.conservative⁺,
+        auxiliary⁺ = states.auxiliary⁺,
+    )
+
     boundary_state!(
         numerical_flux,
         balance_law,
-        state_conservative⁺,
-        state_auxiliary⁺,
+        states_boundary,
         normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        aux1⁻,
+        states1⁻,
     )
 
-    compute_gradient_argument!(
-        balance_law,
-        state_gradient⁺,
-        state_conservative⁺,
-        state_auxiliary⁺,
-        t,
+    states_argument = (
+        argument = states.argument⁺,
+        conservative = states.conservative⁺,
+        auxiliary = states.auxiliary⁺,
     )
-    transform_gradient .= normal_vector .* parent(state_gradient⁺)'
+
+    compute_gradient_argument!(balance_law, states_argument, t)
+    states.gradient .= normal_vector .* parent(states.argument⁺)'
 end
 
 """

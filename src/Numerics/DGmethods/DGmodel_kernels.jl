@@ -652,11 +652,11 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 end
             end
             states1⁻_first_order = (
-                conservative1⁻ =
+                conservative =
                     Vars{vars_state_conservative(balance_law, FT)}(
                         local_state_conservative_bottom1,
                     ),
-                auxiliary1⁻ = Vars{vars_state_auxiliary(balance_law, FT)}(
+                auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
                     local_state_auxiliary_bottom1,
                 ),
             )
@@ -671,14 +671,14 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             )
 
             states1⁻_second_order = (
-                conservative1⁻ =
+                conservative =
                     Vars{vars_state_conservative(balance_law, FT)}(
                         local_state_conservative_bottom1,
                     ),
-                auxiliary1⁻ = Vars{vars_state_auxiliary(balance_law, FT)}(
+                auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
                     local_state_auxiliary_bottom1,
                 ),
-                gradient_flux1⁻ =
+                gradient_flux =
                     Vars{vars_state_gradient_flux(balance_law, FT)}(
                         local_state_gradient_flux_bottom1,
                     ),
@@ -1053,11 +1053,10 @@ end
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_gradient_argument⁺ = MArray{Tuple{ngradstate}, FT}(undef)
 
-        # FIXME state_gradient_flux is sort of a terrible name...
-        local_state_gradient_flux =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
-        local_state_conservative⁻visc =
+        local_state_gradient_flux⁻ =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_state_gradient_flux⁺ =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
         local_state_conservative_bottom1 =
@@ -1094,18 +1093,20 @@ end
             local_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
         end
 
-        fill!(local_gradient_argument⁻, -zero(eltype(local_gradient_argument⁻)))
-        compute_gradient_argument!(
-            balance_law,
-            Vars{vars_state_gradient(balance_law, FT)}(
+        states_gradient⁻ = (
+            argument = Vars{vars_state_gradient(balance_law, FT)}(
                 local_gradient_argument⁻,
             ),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            conservative = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative⁻,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
-            t,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary⁻,
+            ),
         )
+
+        fill!(local_gradient_argument⁻, -zero(eltype(local_gradient_argument⁻)))
+        compute_gradient_argument!(balance_law, states_gradient⁻, t)
 
         # Load plus side data
         @unroll for s in 1:ngradtransformstate
@@ -1116,65 +1117,74 @@ end
             local_state_auxiliary⁺[s] = state_auxiliary[vid⁺, s, e⁺]
         end
 
-        fill!(local_gradient_argument⁺, -zero(eltype(local_gradient_argument⁺)))
-        compute_gradient_argument!(
-            balance_law,
-            Vars{vars_state_gradient(balance_law, FT)}(
+        states_gradient⁺ = (
+            argument = Vars{vars_state_gradient(balance_law, FT)}(
                 local_gradient_argument⁺,
             ),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            conservative = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative⁺,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁺),
-            t,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary⁺,
+            ),
         )
+
+        fill!(local_gradient_argument⁺, -zero(eltype(local_gradient_argument⁺)))
+        compute_gradient_argument!(balance_law, states_gradient⁺, t)
 
         bctype = elemtobndy[f, e⁻]
         fill!(
-            local_state_gradient_flux,
-            -zero(eltype(local_state_gradient_flux)),
+            local_state_gradient_flux⁺,
+            -zero(eltype(local_state_gradient_flux⁺)),
         )
+
+        states_gradient = (
+            gradient = local_gradient,
+            argument⁻ = Vars{vars_state_gradient(balance_law, FT)}(
+                local_gradient_argument⁻,
+            ),
+            conservative⁻ = Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁻,
+            ),
+            auxiliary⁻ = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary⁻,
+            ),
+            argument⁺ = Vars{vars_state_gradient(balance_law, FT)}(
+                local_gradient_argument⁺,
+            ),
+            conservative⁺ = Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁺,
+            ),
+            auxiliary⁺ = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary⁺,
+            ),
+        )
+
+        states_gradient_flux⁺ = (
+            gradient_flux =
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁺,
+                ),
+            gradient =
+                Grad{vars_state_gradient(balance_law, FT)}(local_gradient),
+            conservative = Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁻,
+            ),
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary⁻,
+            ),
+        )
+
         if bctype == 0
             numerical_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
-                local_gradient,
+                states_gradient,
                 SVector(normal_vector),
-                Vars{vars_state_gradient(balance_law, FT)}(
-                    local_gradient_argument⁻,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁻,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state_gradient(balance_law, FT)}(
-                    local_gradient_argument⁺,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁺,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁺,
-                ),
                 t,
             )
             if num_state_gradient_flux > 0
-                compute_gradient_flux!(
-                    balance_law,
-                    Vars{vars_state_gradient_flux(balance_law, FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state_gradient(balance_law, FT)}(local_gradient),
-                    Vars{vars_state_conservative(balance_law, FT)}(
-                        local_state_conservative⁻,
-                    ),
-                    Vars{vars_state_auxiliary(balance_law, FT)}(
-                        local_state_auxiliary⁻,
-                    ),
-                    t,
-                )
+                compute_gradient_flux!(balance_law, states_gradient_flux⁺, t)
             end
         else
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
@@ -1188,53 +1198,26 @@ end
                         state_auxiliary[n + Nqk^2, s, e⁻]
                 end
             end
-            numerical_boundary_flux_gradient!(
-                numerical_flux_gradient,
-                balance_law,
-                local_gradient,
-                SVector(normal_vector),
-                Vars{vars_state_gradient(balance_law, FT)}(
-                    local_gradient_argument⁻,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁻,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state_gradient(balance_law, FT)}(
-                    local_gradient_argument⁺,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁺,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁺,
-                ),
-                bctype,
-                t,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative_bottom1,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
+            states1⁻ = (
+                conservative =
+                    Vars{vars_state_conservative(balance_law, FT)}(
+                        local_state_conservative_bottom1,
+                    ),
+                auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
                     local_state_auxiliary_bottom1,
                 ),
             )
+            numerical_boundary_flux_gradient!(
+                numerical_flux_gradient,
+                balance_law,
+                states_gradient,
+                SVector(normal_vector),
+                bctype,
+                t,
+                states1⁻,
+            )
             if num_state_gradient_flux > 0
-                compute_gradient_flux!(
-                    balance_law,
-                    Vars{vars_state_gradient_flux(balance_law, FT)}(
-                        local_state_gradient_flux,
-                    ),
-                    Grad{vars_state_gradient(balance_law, FT)}(local_gradient),
-                    Vars{vars_state_conservative(balance_law, FT)}(
-                        local_state_conservative⁻,
-                    ),
-                    Vars{vars_state_auxiliary(balance_law, FT)}(
-                        local_state_auxiliary⁻,
-                    ),
-                    t,
-                )
+                compute_gradient_flux!(balance_law, states_gradient_flux⁺, t)
             end
         end
 
@@ -1254,28 +1237,26 @@ end
                 vMI * sM * (local_gradient[3, j] - l_nG⁻[3, j])
         end
 
-        compute_gradient_flux!(
-            balance_law,
-            Vars{vars_state_gradient_flux(balance_law, FT)}(
-                local_state_conservative⁻visc,
-            ),
-            Grad{vars_state_gradient(balance_law, FT)}(l_nG⁻),
-            Vars{vars_state_conservative(balance_law, FT)}(
+        states_gradient_flux⁻ = (
+            gradient_flux =
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁻,
+                ),
+            gradient = Grad{vars_state_gradient(balance_law, FT)}(l_nG⁻),
+            conservative = Vars{vars_state_conservative(balance_law, FT)}(
                 local_state_conservative⁻,
             ),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary⁻),
-            t,
+            auxiliary = Vars{vars_state_auxiliary(balance_law, FT)}(
+                local_state_auxiliary⁻,
+            ),
         )
-
+        compute_gradient_flux!(balance_law, states_gradient_flux⁻, t)
 
         @unroll for s in 1:num_state_gradient_flux
             state_gradient_flux[vid⁻, s, e⁻] +=
                 vMI *
                 sM *
-                (
-                    local_state_gradient_flux[s] -
-                    local_state_conservative⁻visc[s]
-                )
+                (local_state_gradient_flux⁺[s] - local_state_gradient_flux⁻[s])
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
