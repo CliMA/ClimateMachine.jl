@@ -127,5 +127,13 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
         @assert lin.isadjustable
         update_backward_Euler_solver!(lin, Q, α)
     end
+
+    # We allow for `linearsolve!` to only solve for a subset of variables where
+    # the rest of variables assume the tendency update is zero.
+    #
+    # TODO apply the following line only of `linearsolve!` doesn't update all of
+    # the variables.
+    Q .= Qhat
+
     linearsolve!(lin.factors, lin.solver, Q, Qhat, p, t)
 end
