@@ -189,16 +189,17 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     m = getfield(flux, :array)
-    flux_first_order!(rem.main, flux, state, aux, t)
+    flux_first_order!(rem.main, flux, state, aux, t, direction)
 
     flux_s = similar(flux)
     m_s = getfield(flux_s, :array)
 
     for sub in rem.subs
         fill!(m_s, 0)
-        flux_first_order!(sub, flux_s, state, aux, t)
+        flux_first_order!(sub, flux_s, state, aux, t, direction)
         m .-= m_s
     end
     nothing

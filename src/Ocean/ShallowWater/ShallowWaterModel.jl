@@ -84,6 +84,7 @@ end
     q::Vars,
     α::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(q)
     _grav::FT = grav(m.param_set)

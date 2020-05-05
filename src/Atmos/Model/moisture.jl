@@ -40,13 +40,7 @@ function flux_second_order!(
     t::Real,
     D_t,
 ) end
-function flux_first_order!(
-    ::MoistureModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
+function flux_first_order!(::MoistureModel, _...) end
 function compute_gradient_argument!(
     ::MoistureModel,
     transform::Vars,
