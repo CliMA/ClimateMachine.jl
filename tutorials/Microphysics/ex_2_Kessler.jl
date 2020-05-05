@@ -177,6 +177,7 @@ end
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     rain_w = terminal_velocity(param_set, state.ρq_rai / state.ρ, state.ρ)

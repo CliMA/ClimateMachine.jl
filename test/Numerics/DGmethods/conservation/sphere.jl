@@ -83,6 +83,7 @@ function flux_first_order!(
     state::Vars,
     auxstate::Vars,
     t::Real,
+    direction,
 )
     vel = auxstate.vel
     flux.q = state.q .* vel
@@ -111,6 +112,7 @@ function numerical_flux_first_order!(
     state⁺::Vars{S},
     aux⁺::Vars{A},
     t,
+    direction,
 ) where {S, A}
     un⁻ = dot(n, aux⁻.vel)
     un⁺ = dot(n, aux⁺.vel)
@@ -136,6 +138,7 @@ function numerical_boundary_flux_first_order!(
     aux⁺::Vars{A},
     bctype,
     t,
+    direction,
     state1⁻::Vars{S},
     aux1⁻::Vars{A},
 ) where {S, A}
