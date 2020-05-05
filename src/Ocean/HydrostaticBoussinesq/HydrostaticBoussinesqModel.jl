@@ -419,6 +419,7 @@ t -> time, not used
     Q::Vars,
     A::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(Q)
     _grav::FT = grav(m.param_set)
