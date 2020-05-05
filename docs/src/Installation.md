@@ -2,13 +2,14 @@
 
 Installation of CLIMA can be divided into 3 parts:
 
-1. Installation of Julia (1.3.1)
+1. Installation of Julia (1.4.1)
 2. Installation of MPI
 3. Installation of CLIMA
 
-## Installation of Julia (1.3.1)
+## Installation of Julia (1.4.1)
 
-The Climate Machine (CLIMA) uses the Julia programming language; however, at the current time, certain dependencies are only available on Julia 1.3, so please download the download the appropriate binary for your platform from [Julia's old releases](https://julialang.org/downloads/oldreleases/#v131_dec_30_2019).
+The Climate Machine (CLIMA) uses the Julia programming language and has been tested for the Julia version 1.4.1, which can be downloaded via your package manager or from the [Julia website](https://julialang.org/downloads/#current_stable_release).
+CLIMA has also been tested for Julia version 1.3, which can be found in [Julia's old releases](https://julialang.org/downloads/oldreleases/).
 
 ## Installation of MPI
 
