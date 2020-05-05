@@ -46,7 +46,7 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     dg = Settings.dg
     Q = Settings.Q
     FT = eltype(Q.data)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     mpirank = MPI.Comm_rank(mpicomm)
 
     # filename (may also want to take out)
@@ -106,7 +106,8 @@ function dump_state_and_aux_collect(dgngrp, currtime)
 
         statevarvals = OrderedDict()
         for i in 1:number_state_conservative(bl, FT)
-            statevarvals[statenames[i]] = (dim_names, all_state_data[:, :, :, i])
+            statevarvals[statenames[i]] =
+                (dim_names, all_state_data[:, :, :, i])
         end
         write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 

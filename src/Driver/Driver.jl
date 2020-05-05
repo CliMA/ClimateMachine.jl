@@ -327,7 +327,7 @@ function invoke!(
 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     Q = solver_config.Q
     FT = eltype(Q)
     timeend = solver_config.timeend
