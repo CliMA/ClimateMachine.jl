@@ -386,6 +386,7 @@ function compute_gradient_argument!(
     t::Real,
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
+    transform.turbulence.divergence = aux.turbulence.divergence
 end
 
 function compute_gradient_flux!(
@@ -402,6 +403,8 @@ function compute_gradient_flux!(
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
+    diffusive.turbulence.∇divergence = 
+        ∇transform.turbulence.divergence .- dot(∇transform.turbulence.divergence, k̂) * k̂
 end
 
 function turbulence_tensors(
@@ -488,8 +491,8 @@ struct Vreman{FT} <: TurbulenceClosure
     C_smag::FT
 end
 vars_state_auxiliary(::Vreman, FT) = @vars(Δ::FT)
-vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT, divergence::FT)
+vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT, ∇divergence::SVector{3,FT})
 
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.turbulence.Δ = lengthscale(geom)
@@ -502,6 +505,7 @@ function compute_gradient_argument!(
     t::Real,
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
+    transform.turbulence.divergence = aux.turbulence.divergence
 end
 function compute_gradient_flux!(
     ::Vreman,
@@ -516,6 +520,8 @@ function compute_gradient_flux!(
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
+    diffusive.turbulence.∇divergence = 
+        ∇transform.turbulence.divergence .- dot(∇transform.turbulence.divergence, k̂) * k̂
 end
 
 function turbulence_tensors(
@@ -608,6 +614,7 @@ function compute_gradient_argument!(
     t::Real,
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
+    transform.turbulence.divergence = aux.turbulence.divergence
 end
 function compute_gradient_flux!(
     ::AnisoMinDiss,
