@@ -1,21 +1,33 @@
+# Temporary
 *.DS_Store
+*.swp
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
 *.DS_Store
-deps/deps.jl
+*~
+TAGS
+
+# Docs
 docs/build/
 docs/site/
 docs/src/tutorials/
 docs/src/generated/
+!docs/src/assets/*.png
+!docs/src/assets/*.svg
+
+# Deps
 src/**/Manifest.toml
+
+# Data
 *.vtk
 *.dat
 *.vtu
 *.pvtu
-*.swp
-*.png
 *.nc
-!docs/src/assets/*.png
-*~
-TAGS
+
+# Figs
+*.png
+*.jpg
+*.jpeg
+*.svg
