@@ -524,15 +524,16 @@ function update_auxiliary_state_gradient!(
     m::AtmosModel,
     Q::MPIStateArray,
     t::Real,
-    elems::UnitRange,
+    elems::UnitRange;
+    diffusive=true
 )
     FT = eltype(Q)
     aux = dg.state_auxiliary
     diff = dg.state_gradient_flux
 
     if num_integrals(m, FT) > 0
-        indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
-        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
+        indefinite_stack_integral!(dg, m, Q, aux, t, elems)
+        reverse_indefinite_stack_integral!(dg, m, Q, aux, t, elems)
     end
 
     nodal_update_auxiliary_state!(divergence_damping_helper!, dg, m, Q, t, elems; diffusive = true)
