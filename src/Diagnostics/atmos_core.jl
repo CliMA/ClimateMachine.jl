@@ -12,7 +12,7 @@ Initialize the 'AtmosCore' diagnostics group.
 """
 function atmos_core_init(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     if isa(bl.moisture, DryModel)
         @warn """
             Diagnostics ($dgngrp.name): cannot be used with `DryModel`
@@ -128,7 +128,7 @@ Perform a global grid traversal to compute various diagnostics.
 """
 function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     if isa(bl.moisture, DryModel)
         @warn """
             Diagnostics $(dgngrp.name): cannot be used with `DryModel`

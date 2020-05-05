@@ -38,7 +38,7 @@ DGmethods.courant(
     dt = sc.dt,
     simtime = gettime(sc.solver),
     direction = EveryDirection(),
-) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, simtime, direction)
+) = DGmethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
 """
     CLIMA.SolverConfiguration(
