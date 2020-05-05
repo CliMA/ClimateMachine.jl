@@ -211,6 +211,8 @@ function dostep!(
     # calculate the rhs at first stage to initialize the stage loop
     rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
 
+    # Zero the tendency for the variables not touched by `rhs_implicit!`.
+    Lstages[1] .= 0
     rhs_implicit!(
         Lstages[1],
         Qstages[1],
@@ -251,6 +253,9 @@ function dostep!(
         besolver!(Qstages[istage], Qhat, α, p, stagetime)
 
         rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
+
+        # Zero the tendency for the variables not touched by `rhs_implicit!`.
+        Lstages[istage] .= 0
         rhs_implicit!(
             Lstages[istage],
             Qstages[istage],
