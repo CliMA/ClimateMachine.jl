@@ -16,8 +16,8 @@ const mpicomm = MPI.COMM_WORLD
         QA = MPIStateArray{Float32}(mpicomm, ArrayType, localsize...)
         QB = similar(QA)
 
-        QA .= A
-        QB .= B
+        copyto!(QA, A)
+        copyto!(QB, B)
 
         @test Array(QA) == A
         @test Array(QB) == B

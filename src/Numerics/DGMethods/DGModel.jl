@@ -622,8 +622,8 @@ function init_ode_state(
     else
         h_state_prognostic = similar(state_prognostic, Array)
         h_state_auxiliary = similar(state_auxiliary, Array)
-        h_state_auxiliary .= state_auxiliary
-        event = kernel_init_state_prognostic!(CPU(), Np)(
+        copyto!(h_state_auxiliary, state_auxiliary)
+        event = kernel_init_state_conservative!(CPU(), Np)(
             balance_law,
             Val(dim),
             Val(N),
@@ -635,7 +635,7 @@ function init_ode_state(
             ndrange = Np * nrealelem,
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
-        state_prognostic .= h_state_prognostic
+        copyto!(state_conservative, h_state_conservative)
     end
 
     event = Event(device)
