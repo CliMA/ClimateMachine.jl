@@ -140,7 +140,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     local_state_auxiliary,
                 ),
                 t,
-                direction,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -188,6 +188,66 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 end
                 if dim == 3 && direction isa EveryDirection
                     local_flux_3[s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                end
+            end
+
+            # In the case of the remainder model we may need to loop through the
+            # models to add in restricted direction componennts
+            if direction isa EveryDirection && balance_law isa RemBL
+                if rembl_has_subs_direction(HorizontalDirection(), balance_law)
+                    fill!(local_flux, -zero(eltype(local_flux)))
+                    flux_first_order!(
+                        balance_law,
+                        Grad{vars_state_conservative(balance_law, FT)}(
+                            local_flux,
+                        ),
+                        Vars{vars_state_conservative(balance_law, FT)}(
+                            local_state_conservative,
+                        ),
+                        Vars{vars_state_auxiliary(balance_law, FT)}(
+                            local_state_auxiliary,
+                        ),
+                        t,
+                        (HorizontalDirection(),),
+                    )
+                    @unroll for s in 1:num_state_conservative
+                        F1, F2, F3 =
+                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
+                        shared_flux[1, i, j, s] +=
+                            M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+                        if dim == 3
+                            shared_flux[2, i, j, s] +=
+                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                        end
+                    end
+                end
+                if rembl_has_subs_direction(VerticalDirection(), balance_law)
+                    fill!(local_flux, -zero(eltype(local_flux)))
+                    flux_first_order!(
+                        balance_law,
+                        Grad{vars_state_conservative(balance_law, FT)}(
+                            local_flux,
+                        ),
+                        Vars{vars_state_conservative(balance_law, FT)}(
+                            local_state_conservative,
+                        ),
+                        Vars{vars_state_auxiliary(balance_law, FT)}(
+                            local_state_auxiliary,
+                        ),
+                        t,
+                        (VerticalDirection(),),
+                    )
+                    @unroll for s in 1:num_state_conservative
+                        F1, F2, F3 =
+                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
+                        if dim == 2
+                            shared_flux[2, i, j, s] +=
+                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                        elseif dim == 3
+                            local_flux_3[s] +=
+                                M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                        end
+                    end
                 end
             end
 
@@ -356,7 +416,7 @@ end
                     local_state_auxiliary,
                 ),
                 t,
-                direction,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -564,7 +624,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         # `HorizontalDirection()` faces and the remaining two faces are
         # `VerticalDirection()` faces
         face_direction =
-            f in 1:(nface - 2) ? HorizontalDirection() : VerticalDirection()
+            f in 1:(nface - 2) ? (EveryDirection(), HorizontalDirection()) :
+            (EveryDirection(), VerticalDirection())
         e⁻ = e[1]
         normal_vector = SVector(
             sgeo[_n1, n, f, e⁻],
