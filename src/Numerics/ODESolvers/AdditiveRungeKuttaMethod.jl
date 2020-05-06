@@ -4,6 +4,8 @@ export AdditiveRungeKutta
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
+using FileIO
+
 # Naive formulation that uses equation 3.8 from Giraldo, Kelly, and
 # Constantinescu (2013) directly.  Seems to cut the number of solver iterations
 # by half but requires Nstages - 1 additional storage.
@@ -285,6 +287,10 @@ function dostep!(
     wait(device(Q), event)
 end
 
+using LinearAlgebra
+
+__step__ = 0
+
 function dostep!(
     Q,
     ark::AdditiveRungeKutta,
@@ -296,6 +302,9 @@ function dostep!(
     slow_scaling = nothing,
 )
     dt = ark.dt
+
+    global __step__ += 1
+    @show "Here 1" __step__ norm(Q[:, end, :])
 
     besolver! = ark.besolver!
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
@@ -318,6 +327,8 @@ function dostep!(
 
     # calculate the rhs at first stage to initialize the stage loop
     rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
+
+    @show "Here 2" __step__ norm(Q[:, end, :])
 
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
@@ -345,16 +356,28 @@ function dostep!(
         )
         wait(device(Q), event)
 
+        @show "Here 3" __step__ norm(Qhat[:, end, :])
+
         # solves
         # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Q_tt)
         α = dt * RKA_implicit[istage, istage]
         besolver!(Qtt, Qhat, α, p, stagetime)
 
+        @show "Here 4" __step__ norm(Qtt[:, end, :])
+
         # update Qstages
         Qstages[istage] .+= Qtt
 
+        @show "Here 5" __step__ norm(Qstages[istage][:, end, :]) norm(Rstages[istage][
+            :,
+            end,
+            :,
+        ])
+
         rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
     end
+
+    @show "Here 6" __step__ norm(Q[:, end, :])
 
     if split_explicit_implicit
         for istage in 1:Nstages
@@ -369,6 +392,7 @@ function dostep!(
         end
     end
 
+    @show "Here 7" __step__ norm(Q[:, end, :])
     # compose the final solution
     event = Event(device(Q))
     event = solution_update!(device(Q), groupsize)(
@@ -385,6 +409,7 @@ function dostep!(
         dependencies = (event,),
     )
     wait(device(Q), event)
+    @show "Here 8" __step__ norm(Q[:, end, :])
 end
 
 @kernel function stage_update!(

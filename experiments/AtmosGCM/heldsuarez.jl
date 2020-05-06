@@ -33,7 +33,8 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     FT = eltype(state)
 
     # Set initial state to reference state with random perturbation
-    rnd = FT(1.0 + rand(Uniform(-1e-3, 1e-3)))
+    # rnd = FT(1.0 + rand(Uniform(-1e-3, 1e-3)))
+    rnd = one(FT)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = rnd * aux.ref_state.ρe
@@ -184,11 +185,11 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float32                             # floating type precision
+    FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 0.1                               # experiment day number
+    n_days = 0.002                            # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
