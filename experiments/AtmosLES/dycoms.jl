@@ -311,7 +311,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 1, tolerance = FT(100)),
+        moisture = EquilMoist{FT}(maxiter = 5, tolerance = FT(5)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -329,8 +329,14 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         init_state_conservative = ics,
     )
 
-    ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+    #ode_solver =
+    #    CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+    ode_solver = CLIMA.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 10,
+    )
 
     config = CLIMA.AtmosLESConfiguration(
         "DYCOMS",
@@ -371,6 +377,7 @@ function main()
 
     t0 = FT(0)
     timeend = FT(14400)
+    CFL = FT(10)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(
@@ -378,6 +385,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
+        Courant_number = CFL
     )
     dgn_config = config_diagnostics(driver_config)
 

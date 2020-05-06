@@ -365,7 +365,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
     ics = init_bomex!     # Initial conditions
 
-    C_smag = FT(0.20)     # Smagorinsky coefficient
+    C_smag = FT(0.21)     # Smagorinsky coefficient
 
     u_star = FT(0.28)     # Friction velocity
 
@@ -419,22 +419,23 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Choose multi-rate explicit solver
+    #=
     ode_solver_type =
         CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
-    
-#    ode_solver_type = CLIMA.MultirateSolverType(
-#        linear_model = AtmosAcousticGravityLinearModel,
-#        slow_method = LSRK144NiegemannDiehlBusch,
-#        fast_method = LSRK144NiegemannDiehlBusch,
-#        timestep_ratio = 10,
-#    )
+    =# 
+    ode_solver_type = CLIMA.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 10,
+    )
 
     # Assemble model components
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(1)),
         source = source,
         boundarycondition = (
             AtmosBC(
@@ -488,8 +489,8 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(2500)
-    ymax = FT(2500)
+    xmax = FT(4500)
+    ymax = FT(4500)
     zmax = FT(3000)
 
     t0 = FT(0)
@@ -498,7 +499,7 @@ function main()
     # For the test we set this to == 30 minutes
     #timeend = FT(1800)
     timeend = FT(3600 * 6)
-    CFLmax = FT(1)
+    CFLmax = FT(8)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(
