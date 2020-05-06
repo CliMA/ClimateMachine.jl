@@ -39,7 +39,7 @@ format = Documenter.HTML(
     mathengine = mathengine,
     collapselevel = 1,
     # prettyurls = !("local" in ARGS),
-    # canonical = "https://climate-machine.github.io/CLIMA/stable/",
+    # canonical = "https://CliMA.github.io/CLIMA/stable/",
 )
 
 makedocs(
@@ -58,7 +58,7 @@ makedocs(
 include("clean_build_folder.jl")
 
 deploydocs(
-    repo = "github.com/climate-machine/CLIMA.git",
+    repo = "github.com/CliMA/CLIMA.git",
     target = "build",
     push_preview = true,
 )

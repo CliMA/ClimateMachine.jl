@@ -25,7 +25,7 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 
-# [CLIMA parameters](https://github.com/climate-machine/CLIMAParameters.jl) are needed to have access to Earth's physical parameters
+# [CLIMA parameters](https://github.com/CliMA/CLIMAParameters.jl) are needed to have access to Earth's physical parameters
 #
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
@@ -250,7 +250,7 @@ end
 #
 # Choose frequency and resolution of output, and a diagnostics group (dgngrp)
 # which defines output variables. This needs to be defined
-# in [diagnostics](https://climate-machine.github.io/CLIMA/latest/generated/Diagnostics).
+# in [diagnostics](https://CliMA.github.io/CLIMA/latest/generated/Diagnostics).
 interval = "1000steps"
 _planet_radius = FT(planet_radius(param_set))
 info = driver_config.config_info

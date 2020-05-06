@@ -16,12 +16,12 @@ We will try to guide you along the process here, but this is by no means an exha
 
 ## Forks and branches
 
-To start contributing, first create your own fork (version of CLIMA) [on GitHub](https://github.com/climate-machine/CLIMA) and check out your copy:
+To start contributing, first create your own fork (version of CLIMA) [on GitHub](https://github.com/CliMA/CLIMA) and check out your copy:
 
 ```
 $ git clone https://github.com/<username>/CLIMA.git
 $ cd CLIMA
-$ git remote add upstream https://github.com/climate-machine/CLIMA.git
+$ git remote add upstream https://github.com/CliMA/CLIMA.git
 ```
 
 This will create two places for you to keep code, one called `origin`, which is your own fork and another called `upstream`, which is CLIMA's main repository.
@@ -66,7 +66,7 @@ This will help us keep the commit history clean on the master branch of CLIMA.
 
 ## Formatting and style
 
-For the most part, we follow the [YASGuide](https://github.com/jrevels/YASGuide) for Julia formatting, with small exceptions covered in the [Coding Conventions](https://climate-machine.github.io/CLIMA/latest/CodingConventions.html) section of the documentation.
+For the most part, we follow the [YASGuide](https://github.com/jrevels/YASGuide) for Julia formatting, with small exceptions covered in the [Coding Conventions](https://CliMA.github.io/CLIMA/latest/CodingConventions.html) section of the documentation.
 
 In addition to this, once you are happy with your PR, please apply [JuliaFormatter.jl](https://github.com/domluna/JuliaFormatter.jl) to all changed files in the repository.
 

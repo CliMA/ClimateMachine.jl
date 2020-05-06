@@ -1,6 +1,6 @@
 # Contribution Guide for Abstract Iterative Solvers
 
-An abstract iterative solver is a **module** that needs **one struct**, **one constructor**, and **two functions** in order to interface with the rest of [CLIMA](https://github.com/climate-machine). In what follows we will describe in detail the function signatures, return values, and struct properties necessary to build with [CLIMA](https://github.com/climate-machine).
+An abstract iterative solver is a **module** that needs **one struct**, **one constructor**, and **two functions** in order to interface with the rest of [CLIMA](https://github.com/CliMA). In what follows we will describe in detail the function signatures, return values, and struct properties necessary to build with [CLIMA](https://github.com/CliMA).
 
 
 We have the following concrete implementations:
