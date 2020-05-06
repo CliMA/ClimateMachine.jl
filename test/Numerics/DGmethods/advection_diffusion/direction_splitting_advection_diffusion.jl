@@ -1,11 +1,11 @@
 using Test
 using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
+using ClimateMachine
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
 using LinearAlgebra
 using Random
 
@@ -142,8 +142,8 @@ end
 
 let
     Random.seed!(44)
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
     FT = Float64
     numlevels = 2

@@ -4,7 +4,7 @@ export ConjugateGradient
 
 using ..LinearSolvers
 const LS = LinearSolvers
-using CLIMA.MPIStateArrays
+using ClimateMachine.MPIStateArrays
 using LinearAlgebra
 using LazyArrays
 using StaticArrays

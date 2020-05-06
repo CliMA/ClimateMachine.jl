@@ -1,8 +1,8 @@
 using Test
 using MPI
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.MPIStateArrays
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MPIStateArrays
 using KernelAbstractions
 
 device(A) = typeof(A) <: Array ? CPU() : CUDA()

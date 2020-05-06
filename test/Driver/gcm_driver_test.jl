@@ -1,15 +1,16 @@
 using StaticArrays
 using Test
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
-using CLIMA.Grids
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks: EveryXSimulationSteps
-using CLIMA.Mesh.Filters
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Grids
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
+using ClimateMachine.Mesh.Filters
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
@@ -50,8 +51,6 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
 end
 
 function main()
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order
@@ -82,13 +81,13 @@ function main()
         init_state_conservative = setup,
     )
 
-    ode_solver = CLIMA.MultirateSolverType(
+    ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 180,
     )
-    driver_config = CLIMA.AtmosGCMConfiguration(
+    driver_config = ClimateMachine.AtmosGCMConfiguration(
         "GCM Driver test",
         N,
         resolution,
@@ -98,8 +97,12 @@ function main()
         solver_type = ode_solver,
         model = model,
     )
-    solver_config =
-        CLIMA.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+    )
 
     # Set up the filter callback
     filterorder = 18
@@ -116,7 +119,7 @@ function main()
     end
 
     cb_test = 0
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         user_callbacks = (cbfilter,),
         user_info_callback = (init) -> cb_test += 1,

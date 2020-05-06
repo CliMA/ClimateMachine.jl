@@ -1,8 +1,8 @@
-module CLIMA
+module ClimateMachine
 
 using Pkg.TOML
 
-const CLIMA_VERSION =
+const CLIMATEMACHINE_VERSION =
     VersionNumber(TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"])
 
 include(joinpath("Utilities", "TicToc", "TicToc.jl"))

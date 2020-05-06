@@ -4,14 +4,14 @@ using LinearAlgebra
 using Random
 using KernelAbstractions, StaticArrays
 
-using CLIMA
-using CLIMA.LinearSolvers
-using CLIMA.ColumnwiseLUSolver:
+using ClimateMachine
+using ClimateMachine.LinearSolvers
+using ClimateMachine.ColumnwiseLUSolver:
     band_lu_kernel!, band_forward_kernel!, band_back_kernel!
 
 
-CLIMA.init()
-const ArrayType = CLIMA.array_type()
+ClimateMachine.init()
+const ArrayType = ClimateMachine.array_type()
 const device = ArrayType == Array ? CPU() : CUDA()
 
 function band_to_full(B, p, q)

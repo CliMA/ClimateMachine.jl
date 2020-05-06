@@ -1,20 +1,20 @@
 using MPI
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Atmos
-using CLIMA.VariableTemplates
-using CLIMA.MoistThermodynamics
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Atmos
+using ClimateMachine.VariableTemplates
+using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -27,14 +27,14 @@ if !@isdefined integration_testing
     )
 end
 
-using CLIMA.Atmos
-using CLIMA.Atmos: internal_energy, thermo_state
-import CLIMA.Atmos: MoistureModel, temperature, pressure, soundspeed
+using ClimateMachine.Atmos
+using ClimateMachine.Atmos: internal_energy, thermo_state
+import ClimateMachine.Atmos: MoistureModel, temperature, pressure, soundspeed
 
 init_state_conservative!(bl, state, aux, coords, t) = nothing
 
 # initial condition
-using CLIMA.Atmos: vars_state_auxiliary
+using ClimateMachine.Atmos: vars_state_auxiliary
 
 function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
@@ -119,8 +119,8 @@ end
 
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

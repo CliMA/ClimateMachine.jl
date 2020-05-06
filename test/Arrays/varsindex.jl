@@ -1,12 +1,12 @@
 using Test, MPI
 
-using CLIMA
-using CLIMA.MPIStateArrays
-using CLIMA.VariableTemplates: @vars, varsindex
+using ClimateMachine
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.VariableTemplates: @vars, varsindex
 using StaticArrays
 
-CLIMA.init()
-const ArrayType = CLIMA.array_type()
+ClimateMachine.init()
+const ArrayType = ClimateMachine.array_type()
 const mpicomm = MPI.COMM_WORLD
 
 const V = @vars begin

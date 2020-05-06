@@ -1,7 +1,7 @@
 # InputOutput
 
 ```@meta
-CurrentModule = CLIMA
+CurrentModule = ClimateMachine
 ```
 
 ## `VTK`

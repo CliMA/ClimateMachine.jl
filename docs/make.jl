@@ -1,6 +1,6 @@
 Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
-using CLIMA, Documenter, Literate
+using ClimateMachine, Documenter, Literate
 
 generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
 mkpath(generated_dir)
@@ -39,11 +39,11 @@ format = Documenter.HTML(
     mathengine = mathengine,
     collapselevel = 1,
     # prettyurls = !("local" in ARGS),
-    # canonical = "https://CliMA.github.io/CLIMA/stable/",
+    # canonical = "https://CliMA.github.io/ClimateMachine.jl/stable/",
 )
 
 makedocs(
-    sitename = "CLIMA",
+    sitename = "ClimateMachine",
     doctest = false,
     strict = false,
     linkcheck = false,
@@ -51,14 +51,14 @@ makedocs(
     checkdocs = :exports,
     # checkdocs = :all,
     clean = true,
-    modules = [Documenter, CLIMA],
+    modules = [Documenter, ClimateMachine],
     pages = pages,
 )
 
 include("clean_build_folder.jl")
 
 deploydocs(
-    repo = "github.com/CliMA/CLIMA.git",
+    repo = "github.com/CliMA/ClimateMachine.jl.git",
     target = "build",
     push_preview = true,
 )

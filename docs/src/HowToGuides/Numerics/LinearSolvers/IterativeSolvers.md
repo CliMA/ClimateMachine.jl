@@ -1,6 +1,6 @@
 # Contribution Guide for Abstract Iterative Solvers
 
-An abstract iterative solver is a **module** that needs **one struct**, **one constructor**, and **two functions** in order to interface with the rest of [CLIMA](https://github.com/CliMA). In what follows we will describe in detail the function signatures, return values, and struct properties necessary to build with [CLIMA](https://github.com/CliMA).
+An abstract iterative solver is a **module** that needs **one struct**, **one constructor**, and **two functions** in order to interface with the rest of [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl). In what follows we will describe in detail the function signatures, return values, and struct properties necessary to build with [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl).
 
 
 We have the following concrete implementations:
@@ -100,7 +100,7 @@ linearoperator!(y, x, args...)
     return nothing
 end
 ```
-It represents action of a linear operator ``L`` on a vector ``x``, that stores the value in the vector ``y``, i.e. ``Lx = y``. The last argument (the args...) is necessary due to how linear operators are defined within CLIMA.
+It represents action of a linear operator ``L`` on a vector ``x``, that stores the value in the vector ``y``, i.e. ``Lx = y``. The last argument (the args...) is necessary due to how linear operators are defined within ClimateMachine.
 
 The ``` Q ``` and ```Qrhs``` function arguments are supposed to represent the solution of the linear system `LQ = Qrhs` where `L` is the linear operator implicitly defined by ```linearoperator!```.
 
@@ -136,7 +136,7 @@ linearoperator!(y, x, args...)
     return nothing
 end
 ```
-It represents action of a linear operator ``L`` on a vector ``x``, that stores the value in the vector ``y``, i.e. ``Lx = y``. The last argument (the args...) is necessary due to how linear operators are defined within CLIMA.
+It represents action of a linear operator ``L`` on a vector ``x``, that stores the value in the vector ``y``, i.e. ``Lx = y``. The last argument (the args...) is necessary due to how linear operators are defined within ClimateMachine.
 
 The ``` Q ``` and ```Qrhs``` function arguments are supposed to represent the solution of the linear system `LQ = Qrhs` where `L` is the linear operator implicitly defined by ```linearoperator!```.
 
@@ -147,7 +147,7 @@ The iteration function must have **3 return values**:
 
 The return values keep track of whether or not the iterative algorithm has converged as well as how many times the linear operator was applied. The residual norm is useful since it is often used to determine a stopping criteria.
 
-## CLIMA Specific Considerations
+## ClimateMachine Specific Considerations
 An MPIStateArray ```Q``` in 3D, has the following structure by default:
 ```julia
 size(Q) = (n_ijk, n_s, n_e)

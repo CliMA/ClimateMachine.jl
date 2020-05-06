@@ -11,21 +11,21 @@ The boundary conditions are `p = q` when `dot(n, u) > 0` and
 =#
 
 using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
+using ClimateMachine
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
 
-using CLIMA.VariableTemplates
-import CLIMA.DGmethods:
+using ClimateMachine.VariableTemplates
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -39,7 +39,7 @@ import CLIMA.DGmethods:
     init_state_conservative!,
     init_ode_state,
     LocalGeometry
-import CLIMA.DGmethods.NumericalFluxes:
+import ClimateMachine.DGmethods.NumericalFluxes:
     NumericalFluxFirstOrder,
     numerical_flux_first_order!,
     numerical_boundary_flux_first_order!
@@ -204,8 +204,8 @@ end
 
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
     polynomialorder = 4

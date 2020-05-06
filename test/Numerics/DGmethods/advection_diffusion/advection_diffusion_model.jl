@@ -1,7 +1,7 @@
 using StaticArrays
-using CLIMA.VariableTemplates
-using CLIMA.DGmethods: nodal_update_auxiliary_state!
-import CLIMA.DGmethods:
+using ClimateMachine.VariableTemplates
+using ClimateMachine.DGmethods: nodal_update_auxiliary_state!
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -20,9 +20,9 @@ import CLIMA.DGmethods:
     LocalGeometry,
     number_state_conservative,
     number_state_gradient
-using CLIMA.DGmethods.NumericalFluxes:
+using ClimateMachine.DGmethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
-import CLIMA.DGmethods.NumericalFluxes:
+import ClimateMachine.DGmethods.NumericalFluxes:
     numerical_flux_first_order!, boundary_flux_second_order!
 
 using CLIMAParameters

@@ -1,12 +1,12 @@
 using DocStringExtensions
 using KernelAbstractions
-using CLIMA.Mesh.Geometry
+using ClimateMachine.Mesh.Geometry
 
-import CLIMA.Mesh.Grids:
+import ClimateMachine.Mesh.Grids:
     _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3
 
-using CLIMA.VariableTemplates
-import CLIMA.VariableTemplates.varsindex
+using ClimateMachine.VariableTemplates
+import ClimateMachine.VariableTemplates.varsindex
 
 """
     VecGrad{FT <: AbstractFloat,
@@ -55,7 +55,7 @@ struct VecGrad{
     ∂₃u₃::FTA2D
 
     function VecGrad(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
-        DA = CLIMA.array_type()
+        DA = ClimateMachine.array_type()
         data = DA{FT}(undef, Npl, 9, Nel)
 
         ∂₁u₁, ∂₂u₁, ∂₃u₁ =
@@ -114,7 +114,7 @@ struct Vorticity{
     "View of x3 component of vorticity"
     Ω₃::FTA2D
     function Vorticity(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
-        DA = CLIMA.array_type()
+        DA = ClimateMachine.array_type()
         data = DA{FT}(undef, Npl, 3, Nel)
         Ω₁ = view(data, :, 1, :)
         Ω₂ = view(data, :, 2, :)
@@ -145,7 +145,7 @@ function compute_vec_grad(
     Nel = size(Q.realdata, 3) # # of spectral elements
     Npl = size(Q.realdata, 1) # # of dof per element
     qm1 = size(dg.grid.D, 2)  # poly order + 1
-    DA = CLIMA.array_type()
+    DA = ClimateMachine.array_type()
 
     vgrad = VecGrad(Npl, Nel, FT)
     ind = [
@@ -203,7 +203,7 @@ function compute_vorticity(
     Npl = size(vgrad.∂₁u₁, 1)
     Nel = size(vgrad.∂₁u₁, 2)
     qm1 = size(dg.grid.D, 2)  # poly order + 1
-    DA = CLIMA.array_type()
+    DA = ClimateMachine.array_type()
     device = DA <: Array ? CPU() : CUDA()
 
     vort = Vorticity(Npl, Nel, FT)

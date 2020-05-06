@@ -1,16 +1,16 @@
 using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
+using ClimateMachine
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -95,8 +95,8 @@ end
 
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 
