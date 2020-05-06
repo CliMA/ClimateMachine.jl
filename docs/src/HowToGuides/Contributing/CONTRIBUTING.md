@@ -204,4 +204,31 @@ in the same step, use `bors r+`.
 ### Tests
 
 Most PRs should include tests and these will be reviewed as part of the code
-review process on GitHub.  Add your tests in the `test/` directory.
+review process on github.  Add your tests in the `test/` directory.
+
+### Building a system image
+
+ClimateMachine has a number of dependencies which can lead to a significant startup time,
+for example the call
+```
+julia --project experiments/AtmosLES/dycoms.jl --help
+```
+can take 30 seconds or more to execute. By using a custom system image this can
+be reduced to 3 seconds.
+
+A reasonable system image for ClimateMachine can be built use the julia program
+`.dev/systemimage/climate_machine_image.jl`. With no arguments this program will
+create the system image `.dev/systemimage/ClimateMachine.so`. With an argument,
+the image will be created using the path specified by the argument.
+
+Once the image is created, the image can be used using the `-J` argument to
+`julia`, namely:
+```
+julia -J.dev/systemimage/ClimateMachine.so --project experiments/AtmosLES/dycoms.jl --help
+```
+
+!!! note
+
+    If the ClimateMachine `Project.toml` or `Manifest.toml` changes the system
+    image MUST be recompiled. This is because the custom system image has a
+    "locked" version of the packages and their dependencies.
