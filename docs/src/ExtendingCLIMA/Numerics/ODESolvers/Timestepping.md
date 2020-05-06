@@ -1,7 +1,7 @@
 # Contribution Guide for Abstract Time-stepping Algorithms
 
 This guide gives a brief overview on how time-stepping methods are
-implemented in [CLIMA](https://github.com/climate-machine), and
+implemented in [CLIMA](https://github.com/CliMA), and
 how one might contribute a new time-stepping method.
 
 Currently, CLIMA supports a variety of time-stepping methods within

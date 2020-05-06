@@ -78,7 +78,7 @@ using CLIMA.Mesh.Filters
 using CLIMA.MoistThermodynamics
 # - Required so we may access our variable arrays by a sensible naming convention rather than by numerical array indices.
 using CLIMA.VariableTemplates
-# - Required so we may access planet parameters ([CLIMAParameters](https://climate-machine.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
+# - Required so we may access planet parameters ([CLIMAParameters](https://CliMA.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
 
 # In CLIMA we use `StaticArrays` for our variable arrays.
 using StaticArrays
@@ -212,7 +212,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
 
     # The model coefficient for the turbulence closure is defined via the [CLIMAParameters
-    # package](https://climate-machine.github.io/CLIMAParameters.jl/latest/)
+    # package](https://CliMA.github.io/CLIMAParameters.jl/latest/)
     # A reference state for the linearisation step is also defined.
     ref_state =
         HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
@@ -220,7 +220,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # The fun part! Here we assemble the `AtmosModel`.
     #md # !!! note
     #md #     Docs on model subcomponent options can be found here:
-    #md #     - [`param_set`](https://climate-machine.github.io/CLIMAParameters.jl/latest/)
+    #md #     - [`param_set`](https://CliMA.github.io/CLIMAParameters.jl/latest/)
     #md #     - [`turbulence`](@ref Turbulence-Closures-docs)
     #md #     - [`hyperdiffusion`](@ref Hyperdiffusion-docs)
     #md #     - [`source`](@ref atmos-sources)
@@ -324,7 +324,7 @@ end
 # For rapid turnaround, we recommend that you run this experiment on a GPU.
 
 # ## [Output Visualisation](@id output-viz)
-#md # See command line output arguments listed [here](https://github.com/climate-machine/CLIMA/wiki/CLIMA-command-line-arguments).
+#md # See command line output arguments listed [here](https://github.com/CliMA/CLIMA/wiki/CLIMA-command-line-arguments).
 #md # For VTK output,
 #md # - [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/)
 #md # - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)

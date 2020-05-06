@@ -46,10 +46,10 @@ If you suspect there may be a problem with the Julia MPI package, please [create
 
 ## Installation of CLIMA
 
-As of now, CLIMA is not registered as an official Julia package, so you will need to download [the source](https://github.com/climate-machine/CLIMA.git) with a command, such as:
+As of now, CLIMA is not registered as an official Julia package, so you will need to download [the source](https://github.com/CliMA/CLIMA.git) with a command, such as:
 
 ```
-git clone https://github.com/climate-machine/CLIMA.git
+git clone https://github.com/CliMA/CLIMA.git
 ```
 
 Once on your machine, you will need to run CLIMA with

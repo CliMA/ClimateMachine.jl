@@ -124,7 +124,7 @@ using CLIMA.MoistThermodynamics
 using CLIMA.VariableTemplates
 ```
 
-- Required so we may access planet parameters ([CLIMAParameters](https://climate-machine.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
+- Required so we may access planet parameters ([CLIMAParameters](https://CliMA.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
 
 ```@example risingbubble
 using CLIMAParameters
@@ -293,7 +293,7 @@ integers corresponding to the tracer index identifier)
 ```
 
 The model coefficient for the turbulence closure is defined via the [CLIMAParameters
-package](https://climate-machine.github.io/CLIMAParameters.jl/latest/)
+package](https://CliMA.github.io/CLIMAParameters.jl/latest/)
 A reference state for the linearisation step is also defined.
 
 ```@example risingbubble
@@ -306,7 +306,7 @@ The fun part! Here we assemble the `AtmosModel`.
 ```@example risingbubble
     #md # !!! note
     #md #     Docs on model subcomponent options can be found here:
-    #md #     - [`param_set`](https://climate-machine.github.io/CLIMAParameters.jl/latest/)
+    #md #     - [`param_set`](https://CliMA.github.io/CLIMAParameters.jl/latest/)
     #md #     - [`turbulence`](@ref Turbulence-Closures-docs)
     #md #     - [`hyperdiffusion`](@ref Hyperdiffusion-docs)
     #md #     - [`source`](@ref atmos-sources)
@@ -437,7 +437,7 @@ can also prescribe command line arguments (docs pending, `Driver.jl`) for simula
 For rapid turnaround, we recommend that you run this experiment on a GPU.
 
 ## [Output Visualisation](@id output-viz)
-See command line output arguments listed [here](https://github.com/climate-machine/CLIMA/wiki/CLIMA-command-line-arguments).
+See command line output arguments listed [here](https://github.com/CliMA/CLIMA/wiki/CLIMA-command-line-arguments).
 For VTK output,
 - [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/)
 - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)
