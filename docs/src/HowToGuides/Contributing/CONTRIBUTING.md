@@ -107,7 +107,12 @@ See `man 5 githooks` for more information about git hooks.
 
 ### Precompiling the JuliaFormatter
 
-To speed up the formatter and the githook, a custom system image can be built with the [`PackageCompiler`]. That said, the following [drawback] from the `PackageCompiler` repository should be noted:
+To speed up the formatter and the githook, a custom system image can be built
+with the [`PackageCompiler`](https://github.com/JuliaLang/PackageCompiler.jl).
+That said, the following
+[drawback](https://julialang.github.io/PackageCompiler.jl/dev/sysimages/#Drawbacks-to-custom-sysimages-1)
+from the `PackageCompiler` repository should
+be noted:
 
 > It should be clearly stated that there are some drawbacks to using a custom
 > sysimage, thereby sidestepping the standard Julia package precompilation
@@ -158,6 +163,3 @@ If you are a collaborator and want to test and merge in the same step, use `bors
 
 Most PRs should include tests and these will be reviewed as part of the code review process on GitHub.
 Add your tests in the `test/` directory.
-
-[`PackageCompiler`]: https://github.com/JuliaLang/PackageCompiler.jl
-[drawback]: https://julialang.github.io/PackageCompiler.jl/dev/sysimages/#Drawbacks-to-custom-sysimages-1
