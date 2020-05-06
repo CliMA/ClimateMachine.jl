@@ -15,12 +15,10 @@ number of states in `Q`, i.e., `k = size(Q,2)`.
 
 """
 function writevtk(prefix, Q::MPIStateArray, dg::DGModel, fieldnames = nothing)
-    @tic writevtk_Q
     vgeo = dg.grid.vgeo
     host_array = Array ∈ typeof(Q).parameters
     (h_vgeo, h_Q) = host_array ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
     writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames)
-    @toc writevtk_Q
     return nothing
 end
 
@@ -50,7 +48,6 @@ function writevtk(
     state_auxiliary,
     auxfieldnames,
 )
-    @tic writevtk_Q_aux
     vgeo = dg.grid.vgeo
     host_array = Array ∈ typeof(Q).parameters
     (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, state_auxiliary.data) :
@@ -64,7 +61,6 @@ function writevtk(
         h_aux,
         auxfieldnames,
     )
-    @toc writevtk_Q_aux
     return nothing
 end
 
