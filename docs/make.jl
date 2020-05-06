@@ -5,18 +5,18 @@ using CLIMA, Documenter, Literate
 generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
 mkpath(generated_dir)
 
-include("list_of_experiments.jl")        # defines a dict `experiments`
-include("list_of_tutorials.jl")          # defines a dict `tutorials`
-include("list_of_extending_clima.jl")    # defines a dict `extending_clima`
-include("list_of_discussions.jl")        # defines a dict `apis`
-include("list_of_apis.jl")               # defines a dict `discussions`
+include("list_of_experiments.jl")        # defines a nested array `experiments`
+include("list_of_tutorials.jl")          # defines a nested array `tutorials`
+include("list_of_how_to_guides.jl")      # defines a nested array `how_to_guides`
+include("list_of_discussions.jl")        # defines a nested array `apis`
+include("list_of_apis.jl")               # defines a nested array `discussions`
 
 pages = Any[
     "Home" => "index.md",
     "Installation" => "Installation.md",
     "Experiments" => experiments,
     "Tutorials" => tutorials,
-    "Extending CLIMA" => extending_clima,
+    "How-to-guides" => how_to_guides,
     "APIs" => apis,
     "Theory & design philosophy" => discussions,
     # TODO: Move everything below here into one of the above sections
