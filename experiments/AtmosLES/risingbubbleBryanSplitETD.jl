@@ -83,7 +83,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ode_solver = CLIMA.MISSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = ETDRK3,
-        fast_method = (dg,dt,Q) -> StormerVerletETD(dg, dt,[1,5], 2:4, Q),
+        fast_method = (dg,Q) -> StormerVerletETD(dg, [1,5], 2:4, Q),
         number_of_steps = (12,),
     )
 

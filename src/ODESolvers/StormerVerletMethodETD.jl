@@ -23,8 +23,6 @@ struct StormerVerletETD{T, RT, AT} <: AbstractODESolver
   "rhs function"
   rhs!
 
-  max_inner_dt::RT
-
   mask_a
   mask_b
 
@@ -32,7 +30,7 @@ struct StormerVerletETD{T, RT, AT} <: AbstractODESolver
   offset0
 
   dQ::AT
-  function StormerVerletETD(rhs!, max_inner_dt, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
+  function StormerVerletETD(rhs!, mask_a, mask_b, Q::AT; dt=0, t0=0) where {AT<:AbstractArray}
 
     T = eltype(Q)
     RT = real(T)
@@ -47,7 +45,7 @@ struct StormerVerletETD{T, RT, AT} <: AbstractODESolver
     fill!(offset1, 0)
     fill!(offset0, 0)
 
-    new{T, RT, AT}(dt, t0, rhs!, max_inner_dt, mask_a, mask_b, offset1, offset0, dQ)
+    new{T, RT, AT}(dt, t0, rhs!, mask_a, mask_b, offset1, offset0, dQ)
   end
 end
 

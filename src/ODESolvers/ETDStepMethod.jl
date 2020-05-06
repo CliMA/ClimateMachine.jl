@@ -52,8 +52,8 @@ mutable struct ETDStep{
   tsfastrhs!::TimeScaledRHS{N,RT} where N
   "fast rhs method"
   fastsolver::FS
-  #"number of steps"
-  #nsubsteps::Int
+  "number of steps"
+  nsteps::Int
 
   nStages::Int64
   nPhi::Int64
@@ -95,7 +95,7 @@ mutable struct ETDStep{
     fYnj = ntuple(_ -> similar(Q), Nstages-1)
     offset = similar(Q)
     tsfastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
-    fastsolver = fastmethod(tsfastrhs!, dt/nsteps, Q)
+    fastsolver = fastmethod(tsfastrhs!, Q)
 
     #d = sum(β, dims=2)
 
@@ -130,6 +130,7 @@ mutable struct ETDStep{
       slowrhs!,
       tsfastrhs!,
       fastsolver,
+      nsteps,
       Nstages,
       nPhi,
       nPhiStages,
@@ -157,6 +158,7 @@ function dostep!(Q, etd::ETDStep, p, time)
   slowrhs! = etd.slowrhs!
   fastsolver = etd.fastsolver
   fastrhs! = etd.tsfastrhs!
+  nsteps=etd.nsteps
 
   nStages = etd.nStages
 
@@ -164,12 +166,8 @@ function dostep!(Q, etd::ETDStep, p, time)
   for iStage = 1:nStages-1
     slowrhs!(fYnj[iStage], Q, p, time + c[iStage]*dt, increment=false)
 
-    nsteps = cld(dt, fastsolver.max_inner_dt)
-    inner_dt = dt / nsteps
-
-    nstepsLoc=Int64(ceil(nsteps*c[iStage+1]));
-    dtLoc=Float64(dt)*c[iStage+1];
-    dτ=dtLoc/nstepsLoc;
+    nstepsLoc=ceil(Int,nsteps*c[iStage+1]);
+    dτ=dt*c[iStage+1]/nstepsLoc;
 
     dostep!(Q, fastsolver, p, time, dτ, nstepsLoc, iStage, β, βS, nPhi, fYnj, FT(1), realview(offset), nothing)  #(1c)
   end
