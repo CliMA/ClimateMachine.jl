@@ -20,6 +20,7 @@ cpu_gpu = [
   { file = "test/Arrays/varsindex.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Diagnostics/diagnostic_fields_test.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/vars_test.jl", slurmargs = ["--ntasks=1"], args = [] },
+  { file = "test/Numerics/DGmethods/remainder_model.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/Euler/isentropicvortex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/Euler/isentropicvortex_imex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGmethods/Euler/isentropicvortex_multirate.jl", slurmargs = ["--ntasks=3"], args = [] },
