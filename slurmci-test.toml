@@ -14,8 +14,6 @@ cpu = [
   { file = "test/Numerics/Mesh/mpi_getpartition.jl", slurmargs = ["--ntasks=5"], args = [] },
   { file = "test/Numerics/Mesh/mpi_sortcolumns.jl", slurmargs = ["--ntasks=4"], args = [] },
   { file = "test/Numerics/ODESolvers/ode_tests_convergence.jl", slurmargs = ["--ntasks=1"], args = [] },
-  { file = "tutorials/Microphysics/ex_1_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
-  { file = "tutorials/Microphysics/ex_2_Kessler.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 cpu_gpu = [
@@ -43,6 +41,9 @@ cpu_gpu = [
   { file = "test/Ocean/ShallowWater/2D_hydrostatic_spindown.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Ocean/HydrostaticBoussinesq/3D_hydrostatic_spindown.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "tutorials/Numerics/DGMethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Atmos/Parameterizations/Microphysics/KM_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Atmos/Parameterizations/Microphysics/KM_warm_rain.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Atmos/Parameterizations/Microphysics/KM_ice.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
 gpu = [
