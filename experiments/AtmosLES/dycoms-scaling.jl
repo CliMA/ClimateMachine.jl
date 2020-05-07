@@ -372,12 +372,12 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(1000)
+    xmax = FT(4000)
     ymax = FT(1000)
     zmax = FT(1500)
 
     t0 = FT(0)
-    timeend = FT(14400)
+    timeend = FT(200)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(
@@ -385,7 +385,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
-        Courant_number=FT(1.8),
+        Courant_number=FT(1.0),
     )
     dgn_config = config_diagnostics(driver_config)
 
