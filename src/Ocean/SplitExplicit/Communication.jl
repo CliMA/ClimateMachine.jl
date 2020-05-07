@@ -63,14 +63,14 @@ end
     Qfast,
     fast_time,
     fast_dt,
-    total_fast_step,
+    weight,
 )
     #- might want to use some of the weighting factors: weights_η & weights_U
     #- should account for case where fast_dt < fast.param.dt
 
     # for now, with our simple weight, we just take the most recent value for the average
-    dgFast.auxstate.η̄ .= Qfast.η
-    dgFast.auxstate.Ū .+= Qfast.U
+    dgFast.auxstate.η̄ .+= weight * Qfast.η
+    dgFast.auxstate.Ū .+= weight * Qfast.U
 
     return nothing
 end
@@ -82,7 +82,7 @@ end
     dgFast,
     Qslow,
     Qfast,
-    total_fast_step,
+    total_fast_weight,
 )
     # need to calculate int_u using integral kernels
     # u_slow := u_slow + (1/H) * (u_fast - \int_{-H}^{0} u_slow)
@@ -102,7 +102,9 @@ end
 
     ### Δu is a place holder for 1/H * (Ū - ∫u°)
     Δu = dgFast.auxstate.Δu
-    Δu .= 1 / slow.problem.H * (dgFast.auxstate.Ū / total_fast_step - flat_∫u)
+    Ū = dgFast.auxstate.Ū
+    Ū .*= 1 / total_fast_weight
+    Δu .= 1 / slow.problem.H * (Ū - flat_∫u)
 
     ### copy the 2D contribution down the 3D solution
     ### need to reshape these things for the broadcast

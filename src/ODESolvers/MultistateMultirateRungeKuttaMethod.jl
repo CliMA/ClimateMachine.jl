@@ -88,16 +88,23 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
     slow_bl = slow.rhs!.balancelaw
     fast_bl = fast.rhs!.balancelaw
 
-    # set state to match slow model
-    # zero out the cummulative arrays
-    initialize_fast_state!(slow_bl, fast_bl, slow.rhs!, fast.rhs!, Qslow, Qfast)
-    total_fast_step = 0
-
     groupsize = 256
 
     fast_dt_in = getdt(fast)
 
     for slow_s in 1:length(slow.RKA)
+        # set state to match slow model
+        # zero out the cummulative arrays
+        initialize_fast_state!(
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+        )
+        total_fast_weight = 0
+
         # Currnent slow state time
         slow_stage_time = time + slow.RKC[slow_s] * slow_dt
 
@@ -146,7 +153,9 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
         end
 
         # Determine number of substeps we need
-        nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * slow_dt / fast_dt_in) : 1
+        # for ocean split explicit want to go to 1.5 slow_dt
+        nsubsteps =
+            fast_dt_in > 0 ? ceil(Int, 1.5 * γ * slow_dt / fast_dt_in) : 1
         fast_dt = γ * slow_dt / nsubsteps
 
         updatedt!(fast, fast_dt)
@@ -155,15 +164,16 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
             fast_time = slow_stage_time + (substep - 1) * fast_dt
             dostep!(Qfast, fast, param, fast_time)
             #  ---> need to cumulate U at this time (and not at each RKB sub-time-step)
+            weight = substep > ceil(Int, nsubsteps / 3) ? 1 : 0
             cummulate_fast_solution!(
                 fast_bl,
                 fast.rhs!,
                 Qfast,
                 fast_time,
                 fast_dt,
-                total_fast_step,
+                weight,
             )
-            total_fast_step += 1
+            total_fast_weight += weight
         end
 
         ### later testing ignore this
@@ -175,7 +185,7 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
             fast.rhs!,
             Qslow,
             Qfast,
-            total_fast_step,
+            total_fast_weight,
         )
     end
     updatedt!(fast, fast_dt_in)
