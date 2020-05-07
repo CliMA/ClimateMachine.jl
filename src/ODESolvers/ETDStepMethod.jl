@@ -40,8 +40,8 @@ mutable struct ETDStep{
   dt::RT
   "time"
   t::RT
-  #"storage for y_n"
-  #yn::AT
+  "storage for y_n"
+  yn::AT
   "Storage for ``f(Y_nj)``"
   fYnj::NTuple{Nstagesm1, AT}
   "Storage for offset"
@@ -90,7 +90,7 @@ mutable struct ETDStep{
     RT = real(T)
 
 
-    #yn = similar(Q)
+    yn = similar(Q)
     #ΔYnj = ntuple(_ -> similar(Q), Nstages-2)
     fYnj = ntuple(_ -> similar(Q), Nstages-1)
     offset = similar(Q)
@@ -125,6 +125,7 @@ mutable struct ETDStep{
     }(
       RT(dt),
       RT(t0),
+      yn,
       fYnj,
       offset,
       slowrhs!,
@@ -149,7 +150,7 @@ function dostep!(Q, etd::ETDStep, p, time)
   β = etd.β
   βS = etd.βS
   nPhi = etd.nPhi
-  #yn = etd.yn
+  yn = etd.yn
   fYnj = etd.fYnj
   offset = etd.offset
   d = etd.d
@@ -162,13 +163,14 @@ function dostep!(Q, etd::ETDStep, p, time)
 
   nStages = etd.nStages
 
-  #copyto!(yn, Q) # first stage
+  copyto!(yn, Q) # first stage
   for iStage = 1:nStages-1
     slowrhs!(fYnj[iStage], Q, p, time + c[iStage]*dt, increment=false)
 
     nstepsLoc=ceil(Int,nsteps*c[iStage+1]);
     dτ=dt*c[iStage+1]/nstepsLoc;
 
+    copyto!(Q, yn)
     dostep!(Q, fastsolver, p, time, dτ, nstepsLoc, iStage, β, βS, nPhi, fYnj, FT(1), realview(offset), nothing)  #(1c)
   end
 end
