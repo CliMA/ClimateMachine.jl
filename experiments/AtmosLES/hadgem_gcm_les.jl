@@ -495,7 +495,7 @@ function main()
     CLIMA.init()
 
     # Working precision
-    FT = Float32
+    FT = Float64
     # DG polynomial order
     N = 4
     # Domain resolution and size
