@@ -7,7 +7,16 @@ using ClimateMachine.Mesh.Grids:
     VerticalDirection,
     HorizontalDirection,
     EveryDirection
-using ClimateMachine.DGmethods: DGModel, init_ode_state, remainder_DGModel
+using ClimateMachine.DGmethods:
+    DGModel,
+    init_ode_state,
+    remainder_DGModel,
+    wavespeed,
+    number_state_conservative,
+    number_state_auxiliary,
+    vars_state_conservative,
+    vars_state_auxiliary
+using ClimateMachine.VariableTemplates: Vars
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -30,6 +39,7 @@ const param_set = EarthParameterSet()
 using MPI
 using Test
 using StaticArrays
+using LinearAlgebra
 
 using Random
 
@@ -143,6 +153,34 @@ function run(
         state_auxiliary = dg.state_auxiliary,
     )
 
+    # Create some random data to check the wavespeed function with
+    nM = rand(3)
+    nM /= norm(nM)
+    state_conservative = Vars{vars_state_conservative(dg.balance_law, FT)}(rand(
+        FT,
+        number_state_conservative(dg.balance_law, FT),
+    ))
+    state_auxiliary = Vars{vars_state_auxiliary(dg.balance_law, FT)}(rand(
+        FT,
+        number_state_auxiliary(dg.balance_law, FT),
+    ))
+    full_wavespeed = wavespeed(
+        dg.balance_law,
+        nM,
+        state_conservative,
+        state_auxiliary,
+        FT(0),
+        (EveryDirection(),),
+    )
+    acoustic_wavespeed = wavespeed(
+        acoustic_dg.balance_law,
+        nM,
+        state_conservative,
+        state_auxiliary,
+        FT(0),
+        (EveryDirection(),),
+    )
+
     # Evaluate the full tendency
     full_tendency = similar(Q)
     dg(full_tendency, Q, nothing, 0; increment = false)
@@ -151,68 +189,280 @@ function run(
     split_tendency = similar(Q)
 
     # Check pulling acoustic model out
-    rem_dg = remainder_DGModel(
-        dg,
-        (acoustic_dg,);
-        numerical_flux_first_order = (
-            dg.numerical_flux_first_order,
-            (acoustic_dg.numerical_flux_first_order,),
-        ),
-    )
-    rem_dg(split_tendency, Q, nothing, 0; increment = false)
-    acoustic_dg(split_tendency, Q, nothing, 0; increment = true)
-    A = Array(full_tendency.data)
-    B = Array(split_tendency.data)
-    @test all(isapprox.(A, B, rtol = sqrt(eps(FT)), atol = 10 * sqrt(eps(FT))))
+    @testset "full acoustic" begin
+        rem_dg = remainder_DGModel(
+            dg,
+            (acoustic_dg,);
+            numerical_flux_first_order = (
+                dg.numerical_flux_first_order,
+                (acoustic_dg.numerical_flux_first_order,),
+            ),
+        )
+        rem_dg(split_tendency, Q, nothing, 0; increment = false)
+        acoustic_dg(split_tendency, Q, nothing, 0; increment = true)
+        A = Array(full_tendency.data)
+        B = Array(split_tendency.data)
+        # Test that we have a fully discrete splitting
+        @test all(isapprox.(
+            A,
+            B,
+            rtol = sqrt(eps(FT)),
+            atol = 10 * sqrt(eps(FT)),
+        ))
+
+        # Test that wavespeeds are split by direction
+        every_wavespeed = full_wavespeed - acoustic_wavespeed
+        horz_wavespeed = -zero(FT)
+        vert_wavespeed = -zero(FT)
+        @test every_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(),),
+        )
+        @test horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (HorizontalDirection(),),
+        )
+        @test vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (VerticalDirection(),),
+        )
+        @test every_wavespeed + horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), HorizontalDirection()),
+        )
+        @test every_wavespeed + vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), VerticalDirection()),
+        )
+    end
 
     # Check pulling acoustic model but as two pieces
-    rem_dg = remainder_DGModel(
-        dg,
-        (hacoustic_dg, vacoustic_dg);
-        numerical_flux_first_order = (
-            dg.numerical_flux_first_order,
-            (
-                hacoustic_dg.numerical_flux_first_order,
-                vacoustic_dg.numerical_flux_first_order,
+    @testset "horizontal and vertical acoustic" begin
+        rem_dg = remainder_DGModel(
+            dg,
+            (hacoustic_dg, vacoustic_dg);
+            numerical_flux_first_order = (
+                dg.numerical_flux_first_order,
+                (
+                    hacoustic_dg.numerical_flux_first_order,
+                    vacoustic_dg.numerical_flux_first_order,
+                ),
             ),
-        ),
-    )
-    rem_dg(split_tendency, Q, nothing, 0; increment = false)
-    vacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
-    hacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
-    A = Array(full_tendency.data)
-    B = Array(split_tendency.data)
-    @test all(isapprox.(A, B, rtol = sqrt(eps(FT)), atol = 10 * sqrt(eps(FT))))
+        )
+        rem_dg(split_tendency, Q, nothing, 0; increment = false)
+        vacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
+        hacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
+        A = Array(full_tendency.data)
+        B = Array(split_tendency.data)
+        # Test that we have a fully discrete splitting
+        @test all(isapprox.(
+            A,
+            B,
+            rtol = sqrt(eps(FT)),
+            atol = 10 * sqrt(eps(FT)),
+        ))
+
+        # Test that wavespeeds are split by direction
+        every_wavespeed = full_wavespeed
+        horz_wavespeed = -acoustic_wavespeed
+        vert_wavespeed = -acoustic_wavespeed
+        @test every_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(),),
+        )
+        @test horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (HorizontalDirection(),),
+        )
+        @test vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (VerticalDirection(),),
+        )
+        @test every_wavespeed + horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), HorizontalDirection()),
+        )
+        @test every_wavespeed + vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), VerticalDirection()),
+        )
+    end
 
     # Check pulling horizontal acoustic model
-    rem_dg = remainder_DGModel(
-        dg,
-        (hacoustic_dg,);
-        numerical_flux_first_order = (
-            dg.numerical_flux_first_order,
-            (hacoustic_dg.numerical_flux_first_order,),
-        ),
-    )
-    rem_dg(split_tendency, Q, nothing, 0; increment = false)
-    hacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
-    A = Array(full_tendency.data)
-    B = Array(split_tendency.data)
-    @test all(isapprox.(A, B, rtol = sqrt(eps(FT)), atol = 10 * sqrt(eps(FT))))
+    @testset "horizontal acoustic" begin
+        rem_dg = remainder_DGModel(
+            dg,
+            (hacoustic_dg,);
+            numerical_flux_first_order = (
+                dg.numerical_flux_first_order,
+                (hacoustic_dg.numerical_flux_first_order,),
+            ),
+        )
+        rem_dg(split_tendency, Q, nothing, 0; increment = false)
+        hacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
+        A = Array(full_tendency.data)
+        B = Array(split_tendency.data)
+        # Test that we have a fully discrete splitting
+        @test all(isapprox.(
+            A,
+            B,
+            rtol = sqrt(eps(FT)),
+            atol = 10 * sqrt(eps(FT)),
+        ))
+
+        # Test that wavespeeds are split by direction
+        every_wavespeed = full_wavespeed
+        horz_wavespeed = -acoustic_wavespeed
+        vert_wavespeed = -zero(eltype(FT))
+        @test every_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(),),
+        )
+        @test horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (HorizontalDirection(),),
+        )
+        @test vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (VerticalDirection(),),
+        )
+        @test every_wavespeed + horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), HorizontalDirection()),
+        )
+        @test every_wavespeed + vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), VerticalDirection()),
+        )
+    end
 
     # Check pulling vertical acoustic model
-    rem_dg = remainder_DGModel(
-        dg,
-        (vacoustic_dg,);
-        numerical_flux_first_order = (
-            dg.numerical_flux_first_order,
-            (vacoustic_dg.numerical_flux_first_order,),
-        ),
-    )
-    rem_dg(split_tendency, Q, nothing, 0; increment = false)
-    vacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
-    A = Array(full_tendency.data)
-    B = Array(split_tendency.data)
-    @test all(isapprox.(A, B, rtol = sqrt(eps(FT)), atol = 10 * sqrt(eps(FT))))
+    @testset "vertical acoustic" begin
+        rem_dg = remainder_DGModel(
+            dg,
+            (vacoustic_dg,);
+            numerical_flux_first_order = (
+                dg.numerical_flux_first_order,
+                (vacoustic_dg.numerical_flux_first_order,),
+            ),
+        )
+        rem_dg(split_tendency, Q, nothing, 0; increment = false)
+        vacoustic_dg(split_tendency, Q, nothing, 0; increment = true)
+        A = Array(full_tendency.data)
+        B = Array(split_tendency.data)
+        # Test that we have a fully discrete splitting
+        @test all(isapprox.(
+            A,
+            B,
+            rtol = sqrt(eps(FT)),
+            atol = 10 * sqrt(eps(FT)),
+        ))
+
+        # Test that wavespeeds are split by direction
+        every_wavespeed = full_wavespeed
+        horz_wavespeed = -zero(eltype(FT))
+        vert_wavespeed = -acoustic_wavespeed
+        @test every_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(),),
+        )
+        @test horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (HorizontalDirection(),),
+        )
+        @test vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (VerticalDirection(),),
+        )
+        @test every_wavespeed + horz_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), HorizontalDirection()),
+        )
+        @test every_wavespeed + vert_wavespeed ≈ wavespeed(
+            rem_dg.balance_law,
+            nM,
+            state_conservative,
+            state_auxiliary,
+            FT(0),
+            (EveryDirection(), VerticalDirection()),
+        )
+    end
 end
 
 Base.@kwdef struct RemainderTestSetup{FT}
