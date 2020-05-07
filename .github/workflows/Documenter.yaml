@@ -22,7 +22,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install mpich libmpich-dev
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
+        run: |
+          sudo apt install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5
+          julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

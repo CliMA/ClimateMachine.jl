@@ -370,7 +370,12 @@ const μ_exact = 1 // 100
         cos(pi * x) *
         cos(pi * y)^3 *
         cos(pi * z)^3 +
-        16 * pi * sin(pi * x)^2 * cos(pi * t)^2 * cos(pi * y)^2 * cos(pi * z)^2 +
+        16 *
+        pi *
+        sin(pi * x)^2 *
+        cos(pi * t)^2 *
+        cos(pi * y)^2 *
+        cos(pi * z)^2 +
         420 * sin(pi * x)^2 * cos(pi * t)^2 * cos(pi * y)^2 * cos(pi * z)^2 +
         4 *
         pi *

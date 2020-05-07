@@ -10,7 +10,6 @@ using ClimateMachine.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
-using GPUifyLoops
 
 import ClimateMachine.DGmethods:
     BalanceLaw,

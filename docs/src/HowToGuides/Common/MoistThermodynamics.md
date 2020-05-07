@@ -1,6 +1,12 @@
 # [MoistThermodynamics Module](@id MoistThermodynamics-docs)
 
-The `MoistThermodynamics` module provides all thermodynamic functions needed for the atmosphere and functions shared across model components. The functions are general for a moist atmosphere that includes suspended cloud condensate in the working fluid; the special case of a dry atmosphere is obtained for zero specific humidities (or simply by omitting the optional specific humidity arguments in the functions that are needed for a dry atmosphere). The general formulation assumes that there are tracers for the total water specific humidity `q_tot`, the liquid specific humidity `q_liq`, and the ice specific humidity `q_ice` to characterize the thermodynamic state and composition of moist air.
+MoistThermodynamics.jl provides all thermodynamic functions needed for the atmosphere and functions shared across model components. The functions are general for a moist atmosphere that includes suspended cloud condensate in the working fluid; the special case of a dry atmosphere is obtained for zero specific humidities (or simply by omitting the optional specific humidity arguments in the functions that are needed for a dry atmosphere). The general formulation assumes that there are tracers for specific humidity `q`, partitioned into
+
+ - `q.tot` total water specific humidity
+ - `q.liq` liquid specific humidity
+ - `q.ice` ice specific humidity
+
+to characterize the thermodynamic state and composition of moist air.
 
 There are several types of functions:
 
@@ -28,9 +34,9 @@ There are several types of functions:
 7. Auxiliary functions for diagnostic purposes, e.g., other thermodynamic quantities
     * `liquid_ice_pottemp` (liquid-ice potential temperature)
 
-A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q_tot`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities (`q.liq` and `q.ice`) from the internal energy `e_int` by saturation adjustment.
+A moist dynamical core that assumes equilibrium thermodynamics can be obtained from a dry dynamical core with total energy as a prognostic variable by including a tracer for the total specific humidity `q.tot`, using the functions, e.g., for the energies in the module, and computing the temperature `T` and the liquid and ice specific humidities (`q.liq` and `q.ice`) from the internal energy `e_int` by saturation adjustment.
 
-## Interface
+## Usage
 
 Users are encouraged to first establish a thermodynamic state with one of our [Thermodynamic State Constructors](@ref). For example, we would construct a moist thermodynamic state using
 
@@ -84,3 +90,37 @@ ts = PhaseNonEquil(param_set, e_int, ρ, PhasePartition(q_tot, q_liq, q_ice));
 T = air_temperature(ts);
 p = air_pressure(ts);
 ```
+
+## Extending
+
+If MoistThermodynamics.jl does not have a particular thermodynamic constructor that is needed, you can implement a new one in `CLIMA/src/Common/MoistThermodynamics/states.jl`. In this constructor, you must add whichever arguments you wish to offer as inputs, then translate this thermodynamic state into one of:
+
+ - `PhaseDry` a dry thermodynamic state, uniquely determined by two independent thermodynamic properties
+ - `PhaseEquil` a moist thermodynamic state in thermodynamic equilibrium, uniquely determined by three independent thermodynamic properties
+ - `PhaseNonEquil` a moist thermodynamic state in thermodynamic non-equilibrium, uniquely determined by four independent thermodynamic properties
+
+For example, to add a thermodynamic state constructor that accepts temperature, density and total specific humidity, we could add the following code to `states.jl`:
+
+```
+"""
+    TemperatureSHumEquil_given_density(param_set, T, ρ, q_tot)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
+
+ - `param_set` parameter set, used to dispatch planet parameter function calls
+ - `T` temperature
+ - `ρ` density
+ - `q_tot` total specific humidity
+"""
+function TemperatureSHumEquil(
+    param_set::APS,
+    T::FT,
+    ρ::FT,
+    q_tot::FT,
+) where {FT <: Real}
+    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    e_int = internal_energy(param_set, T, q)
+    return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot, T)
+end
+```
+

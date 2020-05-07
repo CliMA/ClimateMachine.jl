@@ -1,6 +1,6 @@
 using MPI, Test
 
-include(joinpath("..","..","testhelpers.jl"))
+include(joinpath("..", "..", "testhelpers.jl"))
 
 include("BrickMesh.jl")
 include("Elements.jl")
@@ -24,18 +24,13 @@ MPI.Initialized() && MPI.Finalize()
 Base.GC.gc()
 
 @testset "MPI Jobs" begin
-
-    tests = [
-        (3, "mpi_centroid.jl")
-        (2, "mpi_connect_ell.jl")
-        (3, "interpolation.jl")
-        (3, "mpi_connect.jl")
-        (3, "mpi_connect_stacked.jl")
-        (2, "mpi_connect_stacked_3d.jl")
-        (3, "mpi_getpartition.jl")
-        (3, "mpi_partition.jl")
-        (1, "mpi_sortcolumns.jl")
-    ]
-
-    runmpi(tests, @__FILE__)
+    runmpi(joinpath(@__DIR__, "mpi_centroid.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect_ell.jl"), ntasks = 2)
+    runmpi(joinpath(@__DIR__, "interpolation.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect_stacked.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect_stacked_3d.jl"), ntasks = 2)
+    runmpi(joinpath(@__DIR__, "mpi_getpartition.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_partition.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_sortcolumns.jl"), ntasks = 1)
 end

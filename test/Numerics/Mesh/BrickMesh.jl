@@ -82,11 +82,7 @@ end
     @test ((1, 2, 3), 5) == BrickMesh.vertsortandorder(3, 2, 1)
     @test ((1, 2, 3), 6) == BrickMesh.vertsortandorder(1, 3, 2)
 
-    err = ErrorException(
-        "Problem finding vertex ordering (1, 1, 2) with flips" *
-        "\n          (false, true, false)",
-    )
-    @test_throws err BrickMesh.vertsortandorder(2, 1, 1)
+    @test_throws ErrorException BrickMesh.vertsortandorder(2, 1, 1)
 
     @test ((1, 2, 3, 4), 1) == BrickMesh.vertsortandorder(1, 2, 3, 4)
     @test ((1, 2, 3, 4), 2) == BrickMesh.vertsortandorder(1, 3, 2, 4)
@@ -97,12 +93,7 @@ end
     @test ((1, 2, 3, 4), 7) == BrickMesh.vertsortandorder(4, 2, 3, 1)
     @test ((1, 2, 3, 4), 8) == BrickMesh.vertsortandorder(4, 3, 2, 1)
 
-    err = ErrorException(
-        "Problem finding vertex ordering (1, 1, 3, 3)" *
-        "\n            with flips" *
-        " (false, true, false, false, true)",
-    )
-    @test_throws err BrickMesh.vertsortandorder(1, 3, 3, 1)
+    @test_throws ErrorException BrickMesh.vertsortandorder(1, 3, 3, 1)
 end
 
 @testset "Mesh" begin

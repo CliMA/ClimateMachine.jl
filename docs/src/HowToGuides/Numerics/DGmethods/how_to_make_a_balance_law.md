@@ -4,7 +4,7 @@ Defining the set of solved PDEs in ClimateMachine revolve around defining a [`Ba
 
 ```
 ∂Y
--- = - ∇ • {F_{first_order}(Y) + F_{second_order}(Y, Σ) ) + S_{non_conservative}(Y, Σ)
+-- = - ∇ • (F_{first_order}(Y) + F_{second_order}(Y, Σ) ) + S_{non_conservative}(Y, Σ)
 ∂t
 ```
 
