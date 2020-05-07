@@ -1,7 +1,7 @@
 # Meshing Stuff
 
 ```@meta
-CurrentModule = CLIMA.Mesh
+CurrentModule = ClimateMachine.Mesh
 ```
 
 ## `Topologies`

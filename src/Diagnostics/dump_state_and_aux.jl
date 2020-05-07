@@ -41,7 +41,7 @@ function get_dims(dgngrp)
 end
 
 function dump_state_and_aux_collect(dgngrp, currtime)
-    DA = CLIMA.array_type()
+    DA = ClimateMachine.array_type()
     mpicomm = Settings.mpicomm
     dg = Settings.dg
     Q = Settings.Q

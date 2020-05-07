@@ -17,7 +17,8 @@
 
 # ## Basic Example
 # First we must load a few things
-using CLIMA, CLIMA.LinearSolvers, CLIMA.ConjugateGradientSolver
+using ClimateMachine,
+    ClimateMachine.LinearSolvers, ClimateMachine.ConjugateGradientSolver
 using LinearAlgebra, Random
 
 # Next we define a 3x3 symmetric positive definite linear system. (In the CliMa code a symmetric positive definite system could arise from treating diffusion implicitly.)

@@ -1,14 +1,14 @@
 using Test
-using CLIMA
+using ClimateMachine
 using StaticArrays
 using LinearAlgebra
 using KernelAbstractions
-using CLIMA.MPIStateArrays: device
+using ClimateMachine.MPIStateArrays: device
 
 include("ode_tests_common.jl")
 
-CLIMA.init()
-const ArrayType = CLIMA.array_type()
+ClimateMachine.init()
+const ArrayType = ClimateMachine.array_type()
 
 @testset "ODE Solvers" begin
     @testset "Convergence/extensive" begin

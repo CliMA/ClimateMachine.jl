@@ -1,7 +1,7 @@
 # Microphysics
 
 ```@meta
-CurrentModule = CLIMA.Microphysics
+CurrentModule = ClimateMachine.Microphysics
 ```
 
 ## Methods

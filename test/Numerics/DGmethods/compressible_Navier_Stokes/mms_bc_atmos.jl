@@ -1,20 +1,20 @@
 using MPI
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Atmos
-using CLIMA.VariableTemplates
-using CLIMA.MoistThermodynamics
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Atmos
+using ClimateMachine.VariableTemplates
+using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 using Test
 
 using CLIMAParameters
@@ -30,8 +30,8 @@ end
 
 include("mms_solution_generated.jl")
 
-using CLIMA.Atmos
-import CLIMA.Atmos:
+using ClimateMachine.Atmos
+import ClimateMachine.Atmos:
     MoistureModel,
     temperature,
     pressure,
@@ -239,8 +239,8 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

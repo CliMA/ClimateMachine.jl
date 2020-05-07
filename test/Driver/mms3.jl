@@ -1,15 +1,16 @@
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Topologies
-using CLIMA.MoistThermodynamics
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.VariableTemplates
-import CLIMA.Atmos:
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.VariableTemplates
+import ClimateMachine.Atmos:
     MoistureModel,
     temperature,
     pressure,
@@ -99,8 +100,6 @@ function mms3_source!(
 end
 
 function main()
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order
@@ -113,8 +112,9 @@ function main()
     nsteps = ceil(Int64, timeend / ode_dt)
     ode_dt = timeend / nsteps
 
-    ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK54CarpenterKennedy)
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK54CarpenterKennedy,
+    )
 
     expected_result = FT(3.403104838700577e-02)
 
@@ -151,16 +151,16 @@ function main()
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
-        DeviceArray = CLIMA.array_type(),
+        DeviceArray = ClimateMachine.array_type(),
         polynomialorder = N,
         meshwarp = warpfun,
     )
-    driver_config = CLIMA.DriverConfiguration(
+    driver_config = ClimateMachine.DriverConfiguration(
         AtmosLESConfigType(),
         "MMS3",
         N,
         FT,
-        CLIMA.array_type(),
+        ClimateMachine.array_type(),
         ode_solver,
         model,
         MPI.COMM_WORLD,
@@ -168,10 +168,10 @@ function main()
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
-        CLIMA.AtmosLESSpecificInfo(),
+        ClimateMachine.AtmosLESSpecificInfo(),
     )
 
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -186,7 +186,7 @@ function main()
         CentralNumericalFluxGradient(),
     )
 
-    CLIMA.invoke!(solver_config)
+    ClimateMachine.invoke!(solver_config)
 
     Qe = init_ode_state(dg, timeend)
     result = euclidean_distance(solver_config.Q, Qe)

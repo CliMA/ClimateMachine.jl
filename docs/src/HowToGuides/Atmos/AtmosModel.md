@@ -1,6 +1,6 @@
 # [AtmosModel](@id AtmosModel-docs) 
 
-This page provides a summary of a specific type of balance law within the CLIMA source code,
+This page provides a summary of a specific type of balance law within the ClimateMachine source code,
 the `AtmosModel`. This documentation aims to introduce a user to the properties of the
 `AtmosModel`, including the balance law equations and default model configurations. Both
 LES and GCM configurations are included.
@@ -125,7 +125,7 @@ q_c w_c \vec{\hat k} \otimes \rho \vec{u}  \\
 
 #### [Sources]*(*@id atmos-sources)
 ```@docs
-CLIMA.Atmos.source!
+ClimateMachine.Atmos.source!
 ```
 
 ```math

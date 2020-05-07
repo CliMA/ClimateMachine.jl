@@ -113,7 +113,7 @@ carried around). For the purposes of this model, moist variables are
 considered separately in `moisture.jl`.
 
 ```@docs
-CLIMA.Atmos.NoTracers
+ClimateMachine.Atmos.NoTracers
 ```
 
 ## [NTracers](@id multiple-tracers)
@@ -125,5 +125,5 @@ corresponding numerical vector index. Initial profiles must be specified using t
 `init_state_conservative!` hook at the experiment level.
 
 ```@docs
-CLIMA.Atmos.NTracers{N,FT}
+ClimateMachine.Atmos.NTracers{N,FT}
 ```

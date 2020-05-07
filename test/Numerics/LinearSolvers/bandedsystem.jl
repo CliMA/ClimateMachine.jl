@@ -1,24 +1,25 @@
-using CLIMA
+using ClimateMachine
 using MPI
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.VTK: writemesh
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.VTK: writemesh
 using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using CLIMA.DGmethods:
+using ClimateMachine.DGmethods:
     DGModel,
     Vars,
     vars_state_conservative,
     number_state_conservative,
     init_ode_state
-using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
-using CLIMA.DGmethods.NumericalFluxes:
+using ClimateMachine.ColumnwiseLUSolver:
+    banded_matrix, banded_matrix_vector_product!
+using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxGradient
-using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
+using ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test
 
@@ -52,8 +53,8 @@ end
 
 let
     # boiler plate MPI stuff
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
     Random.seed!(777 + MPI.Comm_rank(mpicomm))

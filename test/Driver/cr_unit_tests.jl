@@ -1,11 +1,12 @@
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.Checkpoint
-using CLIMA.ConfigTypes
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
-using CLIMA.Grids
-using CLIMA.ODESolvers
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.Checkpoint
+using ClimateMachine.ConfigTypes
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Grids
+using ClimateMachine.ODESolvers
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -50,8 +51,6 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
 end
 
 function main()
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order
@@ -82,7 +81,7 @@ function main()
         init_state_conservative = setup,
     )
 
-    driver_config = CLIMA.AtmosGCMConfiguration(
+    driver_config = ClimateMachine.AtmosGCMConfiguration(
         "Checkpoint unit tests",
         N,
         resolution,
@@ -91,22 +90,26 @@ function main()
         setup;
         model = model,
     )
-    solver_config =
-        CLIMA.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+    )
 
-    isdir(CLIMA.Settings.checkpoint_dir) ||
-    mkpath(CLIMA.Settings.checkpoint_dir)
+    isdir(ClimateMachine.Settings.checkpoint_dir) ||
+    mkpath(ClimateMachine.Settings.checkpoint_dir)
 
     @testset "Checkpoint/restart unit tests" begin
         rm_checkpoint(
-            CLIMA.Settings.checkpoint_dir,
+            ClimateMachine.Settings.checkpoint_dir,
             solver_config.name,
             solver_config.mpicomm,
             0,
         )
         write_checkpoint(
             solver_config,
-            CLIMA.Settings.checkpoint_dir,
+            ClimateMachine.Settings.checkpoint_dir,
             solver_config.name,
             solver_config.mpicomm,
             0,
@@ -119,12 +122,12 @@ function main()
             MPI.Comm_rank(solver_config.mpicomm),
             0,
         )
-        cfull = joinpath(CLIMA.Settings.checkpoint_dir, cname)
+        cfull = joinpath(ClimateMachine.Settings.checkpoint_dir, cname)
         @test isfile(cfull)
 
         s_Q, s_aux, s_t = try
             read_checkpoint(
-                CLIMA.Settings.checkpoint_dir,
+                ClimateMachine.Settings.checkpoint_dir,
                 nm,
                 driver_config.array_type,
                 solver_config.mpicomm,
@@ -157,7 +160,7 @@ function main()
         @test t == s_t
 
         rm_checkpoint(
-            CLIMA.Settings.checkpoint_dir,
+            ClimateMachine.Settings.checkpoint_dir,
             solver_config.name,
             solver_config.mpicomm,
             0,

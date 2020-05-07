@@ -3,24 +3,25 @@ using Random
 using StaticArrays
 using Test
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import CLIMA.Mesh.Grids: _x1, _x2, _x3
-import CLIMA.DGmethods: vars_state_conservative
-import CLIMA.VariableTemplates.varsindex
+import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
+import ClimateMachine.DGmethods: vars_state_conservative
+import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -80,7 +81,7 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
-    ode_solver = CLIMA.MultirateSolverType(
+    ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
@@ -101,7 +102,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Problem configuration
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "DryRisingBubble",
         N,
         resolution,
@@ -119,12 +120,11 @@ end
 function config_diagnostics(driver_config)
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 #-------------------------------------------------------------------------
 function run_brick_diagostics_fields_test()
-    CLIMA.init()
-    DA = CLIMA.array_type()
+    DA = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
     root = 0
     pid = MPI.Comm_rank(mpicomm)
@@ -150,7 +150,7 @@ function run_brick_diagostics_fields_test()
         CFL = FT(20)
 
         driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-        solver_config = CLIMA.SolverConfiguration(
+        solver_config = ClimateMachine.SolverConfiguration(
             t0,
             timeend,
             driver_config,

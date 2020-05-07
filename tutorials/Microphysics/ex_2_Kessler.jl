@@ -268,8 +268,6 @@ function source!(
 end
 
 function main()
-    CLIMA.init()
-
     # Working precision
     FT = Float64
     # DG polynomial order
@@ -313,7 +311,7 @@ function main()
         qt_0,
         z_0,
     )
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t_ini,
         t_end,
         driver_config;
@@ -375,7 +373,7 @@ function main()
         end
 
     # call solve! function for time-integrator
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         user_callbacks = (cb_tmar_filter, cb_vtk),
         check_euclidean_distance = true,

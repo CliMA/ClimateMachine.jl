@@ -1,15 +1,15 @@
 using Test
 using MPI
-using CLIMA
-using CLIMA.MPIStateArrays
-using CLIMA.Mesh.BrickMesh
+using ClimateMachine
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.Mesh.BrickMesh
 using Pkg
 using KernelAbstractions
 
 device(A) = typeof(A) <: Array ? CPU() : CUDA()
 
-CLIMA.init()
-const ArrayType = CLIMA.array_type()
+ClimateMachine.init()
+const ArrayType = ClimateMachine.array_type()
 const comm = MPI.COMM_WORLD
 
 

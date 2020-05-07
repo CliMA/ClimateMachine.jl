@@ -1,5 +1,5 @@
 using Test, StaticArrays
-using CLIMA.VariableTemplates
+using ClimateMachine.VariableTemplates
 
 struct TestModel{A, B, C}
     a::A

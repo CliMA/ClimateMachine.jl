@@ -1,9 +1,9 @@
 using Test
 
-using CLIMA.SurfaceFluxes
-using CLIMA.SurfaceFluxes.Nishizawa2018
-using CLIMA.SurfaceFluxes.Byun1990
-using CLIMA.MoistThermodynamics
+using ClimateMachine.SurfaceFluxes
+using ClimateMachine.SurfaceFluxes.Nishizawa2018
+using ClimateMachine.SurfaceFluxes.Byun1990
+using ClimateMachine.MoistThermodynamics
 using RootSolvers
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end

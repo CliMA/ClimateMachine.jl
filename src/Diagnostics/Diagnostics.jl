@@ -25,7 +25,7 @@ using OrderedCollections
 using Printf
 using StaticArrays
 
-using CLIMA
+using ClimateMachine
 using ..DGmethods
 using ..DGmethods:
     number_state_conservative,

@@ -2,7 +2,7 @@ using JLD2
 using NCDatasets
 using OrderedCollections
 using Test
-using CLIMA.Writers
+using ClimateMachine.Writers
 
 @testset "Writers" begin
     odims = OrderedDict(

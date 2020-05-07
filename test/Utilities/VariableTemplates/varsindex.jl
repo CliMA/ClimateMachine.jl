@@ -1,5 +1,5 @@
 using Test, StaticArrays
-using CLIMA.VariableTemplates: varsindex, @vars
+using ClimateMachine.VariableTemplates: varsindex, @vars
 using StaticArrays
 
 struct MoistureModel{FT} end

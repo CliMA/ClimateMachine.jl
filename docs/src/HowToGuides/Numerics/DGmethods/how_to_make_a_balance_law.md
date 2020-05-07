@@ -1,6 +1,6 @@
 # How to make a Balance law
 
-Defining the set of solved PDEs in CLIMA revolve around defining a [`BalanceLaw`](@ref). A balance law solves equations of the form:
+Defining the set of solved PDEs in ClimateMachine revolve around defining a [`BalanceLaw`](@ref). A balance law solves equations of the form:
 
 ```
 ∂Y

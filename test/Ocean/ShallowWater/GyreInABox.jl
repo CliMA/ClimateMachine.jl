@@ -1,19 +1,19 @@
 using MPI
-using CLIMA
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.VariableTemplates: flattenednames
-using CLIMA.ShallowWater
+using ClimateMachine
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.ShallowWater
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
-import CLIMA.ShallowWater:
+using ClimateMachine.VTK
+import ClimateMachine.ShallowWater:
     shallow_init_state!,
     shallow_init_aux!,
     vars_state_conservative,

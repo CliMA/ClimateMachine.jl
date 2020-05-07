@@ -1,7 +1,7 @@
 using MPI
 using Test
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers: AbstractODESolver
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers: AbstractODESolver
 
 mutable struct PseudoSolver <: AbstractODESolver
     t::UInt64

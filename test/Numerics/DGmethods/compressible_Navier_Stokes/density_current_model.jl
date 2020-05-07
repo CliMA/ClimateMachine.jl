@@ -1,25 +1,25 @@
 
 # Load Packages
 using MPI
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Geometry
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Atmos
-using CLIMA.VariableTemplates
-using CLIMA.MoistThermodynamics
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Atmos
+using ClimateMachine.VariableTemplates
+using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 using Random
-using CLIMA.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
@@ -220,8 +220,8 @@ end
 # --------------- Test block / Loggers ------------------ #
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
     for FT in (Float32, Float64)

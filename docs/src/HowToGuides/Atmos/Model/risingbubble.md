@@ -4,7 +4,7 @@ EditURL = "<unknown>/experiments/AtmosLES/risingbubble.jl"
 
 # [Example - Rising Thermal Bubble](@id EX-RTB-docs)
 
-In this example, we demonstrate the usage of the CLIMA [AtmosModel](@ref AtmosModel-docs)
+In this example, we demonstrate the usage of the ClimateMachine [AtmosModel](@ref AtmosModel-docs)
 machinery to solve for a the fluid dynamics of a thermal perturbation
 in a neutrally stratified background state defined by its uniform
 potential temperature. We solve a flow in a [`FlatOrientation`](@ref LESConfig) (Box) configuration - this is representative of a large-eddy simulation. Several versions of the problem setup
@@ -30,9 +30,9 @@ The example is essentially a lineb-by-line walkthrough.
 8) Default settings can be found in `src/Driver/<files>.jl`
 
 !!! note
-    This experiment setup assumes that you have installed CLIMA according to
+    This experiment setup assumes that you have installed ClimateMachine according to
     the instructions on the landing page. We suggest that you attempt to run the
-    `runtests.jl` file in the main `CLIMA` directory to ensure that packages and
+    `runtests.jl` file in the main `ClimateMachine` directory to ensure that packages and
     `git` histories are consistently installed / managed. We assume the users' familiarity
     with the conservative form of the equations of motion for a compressible fluid (see the [`AtmosModel`](@ref AtmosModel-docs) page).
 
@@ -61,7 +61,7 @@ Before setting up our experiment, we recognize that we need to import
 some pre-defined functions from other packages. Julia allows us to use existing modules (variable workspaces), or write our own to do so.
 Complete documentation for the Julia module system can be found [here](https://docs.julialang.org/en/v1/manual/modules/#).
 
-In CLIMA we use `StaticArrays` for our variable arrays.
+In ClimateMachine we use `StaticArrays` for our variable arrays.
 
 ```@example risingbubble
 using StaticArrays
@@ -74,54 +74,54 @@ for our experiment to ensure new / modified blocks of code don't damage the fide
 using Test
 ```
 
-We then need to use the CLIMA module! This imports all functions specific to atmospheric and ocean flow modelling.
+We then need to use the ClimateMachine module! This imports all functions specific to atmospheric and ocean flow modelling.
 While we do not cover the ins-and-outs of the contents of each of these we provide brief descriptions of the utility of each of the loaded packages.
 
 ```@example risingbubble
-using CLIMA
-using CLIMA.Atmos
+using ClimateMachine
+using ClimateMachine.Atmos
 ```
 
 - Required so that we inherit the appropriate model types for the large-eddy simulation (LES) and global-circulation-model (GCM) configurations.
 
 ```@example risingbubble
-using CLIMA.ConfigTypes
+using ClimateMachine.ConfigTypes
 ```
 
 - Required so that we may define diagnostics configurations, e.g. choice of file-writer, choice of output variable sets, output-frequency and directory,
 
 ```@example risingbubble
-using CLIMA.Diagnostics
+using ClimateMachine.Diagnostics
 ```
 
 - Required so that we may define (or utilise existing functions) functions that are `called-back` or executed at frequencies of either timesteps, simulation-time, or wall-clock time.
 
 ```@example risingbubble
-using CLIMA.GenericCallbacks
+using ClimateMachine.GenericCallbacks
 ```
 
 - Required so we load the appropriate functions for the time-integration component. Contains ODESolver methods.
 
 ```@example risingbubble
-using CLIMA.ODESolvers
+using ClimateMachine.ODESolvers
 ```
 
 - Required for utility of spatial filtering functions (e.g. positivity preservation)
 
 ```@example risingbubble
-using CLIMA.Mesh.Filters
+using ClimateMachine.Mesh.Filters
 ```
 
 - Required so functions for computation of moist thermodynamic quantities is enabled.
 
 ```@example risingbubble
-using CLIMA.MoistThermodynamics
+using ClimateMachine.MoistThermodynamics
 ```
 
 - Required so we may access our variable arrays by a sensible naming convention rather than by numerical array indices.
 
 ```@example risingbubble
-using CLIMA.VariableTemplates
+using ClimateMachine.VariableTemplates
 ```
 
 - Required so we may access planet parameters ([CLIMAParameters](https://CliMA.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
@@ -250,7 +250,7 @@ end
 ```
 
 ## [Model Configuration](@id config-helper)
-We define a configuration function to assist in prescribing the physical model. The purpose of this is to populate the [`CLIMA.AtmosLESConfiguration`](@ref LESConfig) with arguments appropriate to the problem being considered.
+We define a configuration function to assist in prescribing the physical model. The purpose of this is to populate the [`ClimateMachine.AtmosLESConfiguration`](@ref LESConfig) with arguments appropriate to the problem being considered.
 
 ```@example risingbubble
 """
@@ -274,7 +274,7 @@ Apply the outer constructor to define the `ode_solver`. Here
 from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
 
 ```@example risingbubble
-    ode_solver = CLIMA.MultirateSolverType(
+    ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
@@ -328,7 +328,7 @@ The fun part! Here we assemble the `AtmosModel`.
 Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.
 
 ```@example risingbubble
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "DryRisingBubble",       # Problem title [String]
         N,                       # Polynomial order [Int]
         resolution,              # (Δx, Δy, Δz) effective resolution [m]
@@ -354,11 +354,11 @@ Here we define the diagnostic configuration specific to this problem.
 function config_diagnostics(driver_config)
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
+    ClimateMachine.init()
 ```
 
 These are essentially arguments passed to the [`config_risingbubble`](@ref config-helper) function.
@@ -390,7 +390,7 @@ Assign configurations so they can be passed to the `invoke!` function
 
 ```@example risingbubble
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -413,7 +413,7 @@ Invoke solver (calls `solve!` function for time-integrator), pass the driver, so
 information.
 
 ```@example risingbubble
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
@@ -431,13 +431,13 @@ end
 The experiment definition is now complete. Time to run it.
 
 ## Running the Experiment
-`julia --project /experiments/AtmosLES/risingbubble.jl` will run the experiment from the main CLIMA directory,
+`julia --project /experiments/AtmosLES/risingbubble.jl` will run the experiment from the main ClimateMachine directory,
 with diagnostics output at the intervals specified in [`config_diagnostics`](@ref config_diagnostics). You
 can also prescribe command line arguments (docs pending, `Driver.jl`) for simulation update and output specifications.
 For rapid turnaround, we recommend that you run this experiment on a GPU.
 
 ## [Output Visualisation](@id output-viz)
-See command line output arguments listed [here](https://github.com/CliMA/CLIMA/wiki/CLIMA-command-line-arguments).
+See command line output arguments listed [here](https://github.com/CliMA/ClimateMachine.jl/wiki/ClimateMachine-command-line-arguments).
 For VTK output,
 - [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/)
 - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)
