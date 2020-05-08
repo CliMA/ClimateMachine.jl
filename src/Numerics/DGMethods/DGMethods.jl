@@ -66,4 +66,12 @@ function calculate_dt(dg, model, Q, Courant_number, t, direction)
     return Courant_number / CFL
 end
 
+
+export SchurComplement, SchurDGModel
+export init_schur_state
+export schur_extract_state
+include("schurcomplement.jl")
+include("SchurDGmodel.jl")
+include("SchurDGmodel_kernels.jl")
+
 end
