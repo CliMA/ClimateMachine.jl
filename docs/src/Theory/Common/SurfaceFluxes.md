@@ -1,6 +1,7 @@
 # Surface Fluxes
 
-Surface flux functions, e.g. for buoyancy flux, friction velocity, and exchange coefficients.
+Surface flux functions, e.g. for buoyancy flux, friction velocity, and
+exchange coefficients.
 
 ## `Byun1990`
 
@@ -16,8 +17,8 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 param_set = EarthParameterSet()
 
 FT = Float64
-Ri_range = range(FT(-1.2), stop=FT(0.24), length=100)
-scales = FT[50,200,600,1000,10_000]
+Ri_range = range(FT(-1.2), stop = FT(0.24), length = 100)
+scales = FT[50, 200, 600, 1000, 10_000]
 
 z_0 = FT(1.0)
 γ_m, γ_h = FT(15.0), FT(9.0)
@@ -25,10 +26,13 @@ z_0 = FT(1.0)
 Pr_0 = FT(0.74)
 
 plot(Ri_range,
-    [Byun1990.compute_exchange_coefficients(param_set, Ri,scale*z_0,z_0,γ_m,γ_h,β_m,β_h,Pr_0)[1]
+     [Byun1990.compute_exchange_coefficients(param_set, Ri, scale * z_0, z_0,
+                                             γ_m, γ_h, β_m, β_h, Pr_0)[1]
         for Ri in Ri_range, scale in scales],
-    xlabel="Bulk Richardson number (Ri_b)", ylabel="Drag coefficient", title="Momentum exchange coefficient",
-    labels=scales, legendtitle=L"z/z_0")
+     xlabel = "Bulk Richardson number (Ri_b)",
+     ylabel = "Drag coefficient",
+     title = "Momentum exchange coefficient",
+     labels = scales, legendtitle=L"z/z_0")
 
 savefig("exchange_byun1990_fig4a.svg") # hide
 nothing # hide
@@ -39,10 +43,13 @@ Recreation of Figure 4(a) from Byun (1990)
 
 ```@example byun1990
 plot(Ri_range,
-    [Byun1990.compute_exchange_coefficients(param_set, Ri,scale*z_0,z_0,γ_m,γ_h,β_m,β_h,Pr_0)[2]
+     [Byun1990.compute_exchange_coefficients(param_set, Ri, scale * z_0, z_0,
+                                             γ_m, γ_h, β_m, β_h, Pr_0)[2]
         for Ri in Ri_range, scale in scales],
-    xlabel="Bulk Richardson number (Ri_b)", ylabel="Exchange coefficient", title="Heat exchange coefficient",
-    labels=scales, legendtitle=L"z/z_0")
+     xlabel = "Bulk Richardson number (Ri_b)",
+     ylabel = "Exchange coefficient",
+     title = "Heat exchange coefficient",
+     labels = scales, legendtitle=L"z/z_0")
 
 savefig("exchange_byun1990_fig4b.svg") # hide
 nothing # hide
@@ -54,12 +61,14 @@ Recreation of Figure 4(b) from Byun (1990)
 ## `Nishizawa2018`
 
 ### Plots
-```@example
+
+```@example nishizawa2018
 using ClimateMachine.SurfaceFluxes.Nishizawa2018
 using Plots, LaTeXStrings
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 param_set = EarthParameterSet()
+
 FT = Float64
 
 a = FT(4.7)
@@ -69,10 +78,14 @@ u_ave = FT(10)
 flux = FT(1)
 Δz = range(FT(10.0), stop=FT(100.0), length=100)
 Ψ_m_tol, tol_abs, iter_max = FT(1e-3), FT(1e-3), 10
+
 u_star = Nishizawa2018.compute_friction_velocity.(
-  Ref(param_set),
-  u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
-plot(u_star, Δz, title = "Friction velocity vs dz", xlabel = "Friction velocity", ylabel = "dz")
+    Ref(param_set),
+    u_ave, θ, flux, Δz, z_0, a, Ψ_m_tol, tol_abs, iter_max)
+
+plot(u_star, Δz, title = "Friction velocity vs dz",
+     xlabel = "Friction velocity", ylabel = "dz")
+
 savefig("friction_velocity.svg") # hide
 nothing # hide
 ```

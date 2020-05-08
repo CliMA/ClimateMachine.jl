@@ -1,6 +1,8 @@
 # Microphysics Module
 
-The `Microphysics` module describes warm rain bulk parameterization of cloud microphysical processes. The module describes the warm rain (no ice and snow) formation and is based on the ideas of Kessler 1995.
+The `Microphysics` module describes warm rain bulk parameterization of
+cloud microphysical processes. The module describes the warm rain (no ice
+and snow) formation and is based on the ideas of Kessler 1995.
 
 Parameterized processes include:
   - rain sedimentation with mass weighted average terminal velocity,
@@ -15,7 +17,8 @@ The cloud microphysics variables are expressed as specific humidities:
   - q_liq - liquid water specific humidity,
   - q_rai - rain water specific humidity.
 
-Parameters used in the parameterization are defined in `MicrophysicsParameters` module. They consist of:
+Parameters used in the parameterization are defined in
+`MicrophysicsParameters` module. They consist of:
 
 |    symbol            |         definition                                        | units                    | default value         |
 |----------------------|-----------------------------------------------------------|--------------------------|-----------------------|
@@ -32,7 +35,8 @@ Parameters used in the parameterization are defined in `MicrophysicsParameters` 
 
 ## Rain drop size distribution
 
-The rain-drop size distribution is assumed to follow Marshall-Palmer distribution (Marshall Palmer 1948 eq. 1):
+The rain-drop size distribution is assumed to follow Marshall-Palmer
+distribution (Marshall Palmer 1948 eq. 1):
 ```math
 \begin{equation}
 n(r) = n_{0_{MP}} exp\left(- \lambda_{MP} \, r \right)
@@ -40,11 +44,16 @@ n(r) = n_{0_{MP}} exp\left(- \lambda_{MP} \, r \right)
 ```
 where:
  - ``r`` is the drop radius,
- - ``n_{0_{MP}}`` and ``\lambda_{MP}`` are the Marshall-Palmer distribution parameters (twice the values used in the Marshall Palmer 1948, because we use drop radius and not diameter).
+ - ``n_{0_{MP}}`` and ``\lambda_{MP}`` are the Marshall-Palmer distribution
+ parameters (twice the values used in the Marshall Palmer 1948, because
+ we use drop radius and not diameter).
 
 ## Terminal velocity
 
-The terminal velocity of an individual rain drop is defined by the balance between the gravitational acceleration (taking into account the density difference between water and air) and the drag force:
+The terminal velocity of an individual rain drop is defined by the balance
+between the gravitational acceleration (taking into account the density
+difference between water and air) and the drag force:
+
 ```math
 \begin{equation}
 v_{drop} = \left(\frac{8}{3 \, C_{drag}} \left( \frac{\rho_{water}}{\rho} -1 \right) \right)^{1/2} (g \, r)^{1/2} = v_c(\rho) \, (g \, r)^{1/2}
@@ -57,7 +66,8 @@ where:
  - ``\rho_{water}`` is the density of water,
  - ``\rho`` is the density of air.
 
-The mass weighted terminal velocity ``v_t`` is defined following Ogura and Takahashi 1971
+The mass weighted terminal velocity ``v_t`` is defined following Ogura
+and Takahashi 1971
 ```math
 \begin{equation}
 v_t = \frac{F_{rain}}{RWC}
@@ -65,8 +75,10 @@ v_t = \frac{F_{rain}}{RWC}
 \end{equation}
 ```
 where:
- - ``F_{rain} = \int_0^\infty n(r) \, m(r) \, v_{drop}(r) \, dr`` is the vertical flux of rain drops,
- - ``RWC = \int_0^\infty n(r) \, m(r) \, dr = \rho \, q_{rai}`` is the rain water content.
+ - ``F_{rain} = \int_0^\infty n(r) \, m(r) \, v_{drop}(r) \, dr`` is the
+ vertical flux of rain drops,
+ - ``RWC = \int_0^\infty n(r) \, m(r) \, dr = \rho \, q_{rai}`` is the
+ rain water content.
 
 Integrating over the assumed Marshall-Palmer distribution results in
 ```math
@@ -81,7 +93,8 @@ F_{rain} = \Gamma \left(\frac{9}{2} \right) \frac{4}{3} n_{0_{MP}} \, \pi \, \rh
 \label{eq:frain}
 \end{equation}
 ```
-Substituting eq.(\ref{eq:lambda}) and eq.(\ref{eq:frain}) into eq.(\ref{eq:vt}) results in:
+Substituting eq.(\ref{eq:lambda}) and eq.(\ref{eq:frain}) into
+eq.(\ref{eq:vt}) results in:
 ```math
 \begin{equation}
 v_t = \Gamma \left( \frac{9}{2} \right) \, \frac{v_c(\rho)}{6} \, \left( \frac{g}{\lambda_{MP}}\right)^{1/2}
@@ -91,8 +104,11 @@ where ``\lambda_{MP}`` is computed as
 ```math
 \lambda_{MP} = \left( \frac{8 \pi \rho_{water} n_{0_{MP}}}{\rho q_{rai}} \right)^{1/4}
 ```
-The default value of ``C_{drag}`` is chosen such that the ``v_t`` is close to the empirical terminal velocity formulation in Smolarkiewicz and Grabowski 1996. Assuming a constant drag coefficient is an approximation as it should be size and flow dependent, see [drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html).
-
+The default value of ``C_{drag}`` is chosen such that the ``v_t`` is
+close to the empirical terminal velocity formulation in Smolarkiewicz
+and Grabowski 1996. Assuming a constant drag coefficient is
+an approximation as it should be size and flow dependent, see
+[drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html).
 
 ```@example rain_terminal_velocity
 using ClimateMachine.Microphysics
@@ -122,7 +138,8 @@ nothing # hide
 
 ## Cloud condensation/evaporation
 
-Condensation and evaporation of cloud water is parameterized as a relaxation to equilibrium value at the current time step.
+Condensation and evaporation of cloud water is parameterized as a relaxation
+to equilibrium value at the current time step.
 ```math
 \begin{equation}
   \left. \frac{d \, q_{liq}}{dt} \right|_{cond, evap} = \frac{q^{eq}_{liq} - q_{liq}}{\tau_{cond\_evap}}
@@ -131,11 +148,14 @@ Condensation and evaporation of cloud water is parameterized as a relaxation to 
 where:
  - ``q^{eq}_{liq}`` - liquid water specific humidity in equilibrium,
  - ``q_{liq}`` - liquid water specific humidity,
- - ``\tau_{cond\_evap}`` - relaxation timescale (parameter in `MicrophysicsParameters` module).
+ - ``\tau_{cond\_evap}`` - relaxation timescale (parameter in
+ `MicrophysicsParameters` module).
 
 ## Autoconversion
 
-Autoconversion defines the rate of conversion form cloud to rain water due to collisions between cloud droplets. It is parameterized following Kessler 1995:
+Autoconversion defines the rate of conversion form cloud to rain water
+due to collisions between cloud droplets. It is parameterized following
+Kessler 1995:
 ```math
 \begin{equation}
   \left. \frac{d \, q_{rai}}{dt} \right|_{acnv} = \frac{max(0, q_{liq} - q_{liq\_threshold})}{\tau_{acnv}}
@@ -143,14 +163,19 @@ Autoconversion defines the rate of conversion form cloud to rain water due to co
 ```
 where:
  - ``q_{liq}`` - liquid water specific humidity,
- - ``\tau_{acnv}`` - timescale (parameter in `MicrophysicsParameters` module),
- - ``q_{liq\_threshold}`` - autoconversion (parameter in `MicrophysicsParameters` module).
+ - ``\tau_{acnv}`` - timescale (parameter in `MicrophysicsParameters`
+ module),
+ - ``q_{liq\_threshold}`` - autoconversion (parameter in
+ `MicrophysicsParameters` module).
 
-The default values of ``\tau_{acnv}`` and ``q_{liq\_threshold}`` are based on Smolarkiewicz and Grabowski 1996.
+The default values of ``\tau_{acnv}`` and ``q_{liq\_threshold}`` are based
+on Smolarkiewicz and Grabowski 1996.
 
 ## Accretion
 
-Accretion defines the rate of conversion from cloud to rain water resulting from collisions between cloud droplets and rain drops. It is parameterized following Kessler 1995:
+Accretion defines the rate of conversion from cloud to rain water resulting
+from collisions between cloud droplets and rain drops. It is parameterized
+following Kessler 1995:
 ```math
 \begin{equation}
 \left. \frac{d \, q_{rai}}{dt} \right|_{accr} = \int_0^\infty n(r) \, \pi r^2 \, v_{drop} E_{col} q_{liq} dr
@@ -166,7 +191,11 @@ Integrating over the distribution and using the RWC to eliminate the ``\lambda_{
 \left. \frac{d \, q_{rai}}{dt} \right|_{accr}  = \Gamma \left(\frac{7}{2} \right) \pi^{1/8} 8^{-7/8} E_{col} v_c(\rho) \, \left(\frac{\rho}{\rho_{water}}\right)^{7/8} n_{0_{MP}}^{1/8} g^{1/2} q_{liq} q_{rai}^{7/8} = A(\rho) \, n_{0_{MP}}^{1/8} g^{1/2} q_{liq} q_{rai}^{7/8}
 \end{equation}
 ```
-The default value of collision efficiency ``E_{coll}`` is set to 0.8 so that the resulting accretion rate is close to the empirical accretion rate in Smolarkiewicz and Grabowski 1996. Assuming a constant ``E_{col}`` is an approximation, see for example [collision efficiency](https://journals.ametsoc.org/doi/10.1175/1520-0469%282001%29058%3C0742%3ACEODIA%3E2.0.CO%3B2).
+The default value of collision efficiency ``E_{coll}`` is set to
+0.8 so that the resulting accretion rate is close to the empirical
+accretion rate in Smolarkiewicz and Grabowski 1996. Assuming a
+constant ``E_{col}`` is an approximation, see for example [collision
+efficiency](https://journals.ametsoc.org/doi/10.1175/1520-0469%282001%29058%3C0742%3ACEODIA%3E2.0.CO%3B2).
 
 ```@example accretion
 using ClimateMachine.Microphysics
@@ -216,8 +245,10 @@ where:
  - ``K_{thermo}`` is the thermal conductivity of air,
  - ``R_v`` is the gas constant of water vapor,
  - ``D_{vapor}`` is the diffusivity of water vapor,
- - ``S(q_{vap}, q_{vap}^{sat}) = \frac{q_{vap}}{q_{vap}^{sat}} - 1 `` is commonly labeled as supersaturation,
- - ``G(T) = \left(\frac{L}{KT} \left(\frac{L}{R_v T} - 1 \right) + \frac{R_v T}{p_{vap}^{sat} D} \right)^{-1}`` combines the effects of thermal conductivity and water diffusivity.
+ - ``S(q_{vap}, q_{vap}^{sat}) = \frac{q_{vap}}{q_{vap}^{sat}} - 1 ``
+ is commonly labeled as supersaturation,
+ - ``G(T) = \left(\frac{L}{KT} \left(\frac{L}{R_v T} - 1 \right) + \frac{R_v T}{p_{vap}^{sat} D} \right)^{-1}``
+ combines the effects of thermal conductivity and water diffusivity.
 
 The rate of ``q_{rai}`` evaporation is:
 ```math
@@ -228,7 +259,8 @@ The rate of ``q_{rai}`` evaporation is:
 where:
  - ``F(r)`` is the rain drop ventilation factor.
 
-Following Seifert and Beheng 2006 eq. 24 the ventilation factor is defined as:
+Following Seifert and Beheng 2006 eq. 24 the ventilation factor is
+defined as:
 ```math
 \begin{equation}
 F(r) = a_{vent} + b_{vent}  N_{Sc}^{1/3} N_{Re}(r)^{1/2}
@@ -255,7 +287,8 @@ The final integral is:
                                                   \int_0^\infty \left( a_{vent} r + b_{vent} N_{Sc}^{1/3} (2 v_c(\rho))^{1/2} \frac{g^{1/4}}{\nu_{air}^{1/2}} r^{7/4} \right) exp(-\lambda_{MP} r) dr
 \end{equation}
 ```
-Integrating and eliminating ``\lambda_{MP}`` using eq.(\ref{eq:lambda}) results in:
+Integrating and eliminating ``\lambda_{MP}`` using eq.(\ref{eq:lambda})
+results in:
 ```math
 \begin{equation}
 \left. \frac{d \, q_{rai}}{dt} \right|_{evap}  = S(q_{vap}, q_{vap}^{sat}) \frac{G(T) n_{0_{MP}}^{1/2}}{\rho} \left( A q_{rai}^{1/2} + B \frac{g^{1/4}}{n_{0_{MP}}^{3/16} \nu_{air}^{1/2}} q_{rai}^{11/16} \right)
@@ -265,7 +298,9 @@ where:
  - ``A = (2 \pi)^{1/2} a_{vent} \left( \frac{\rho}{\rho_{water}} \right)^{1/2}``
  - ``B = \Gamma\left(\frac{11}{4}\right) 2^{7/16} \pi^{5/16} b_{vent} N_{Sc}^{1/3} v_c(\rho)^{1/2} \left( \frac{\rho}{\rho_{water}} \right)^{11/16}``
 
-The values of ``a_{vent}`` and ``b_{vent}`` are chosen so that at ``q_{tot} = 15 g/kg`` and ``T=288K`` the resulting rain evaporation rate is close to the empirical rain evaporation rate from Smolarkiewicz and Grabowski 1996.
+The values of ``a_{vent}`` and ``b_{vent}`` are chosen so that at ``q_{tot}
+= 15 g/kg`` and ``T=288K`` the resulting rain evaporation rate is close
+to the empirical rain evaporation rate from Smolarkiewicz and Grabowski 1996.
 
 ```@example rain_evaporation
 using ClimateMachine.Microphysics
