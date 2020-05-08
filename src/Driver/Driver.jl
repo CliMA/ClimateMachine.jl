@@ -408,7 +408,6 @@ Starting %s
     )
 
     # run the simulation
-    @time begin #SM
     @tic solve!
     solve!(
         Q,
@@ -418,7 +417,6 @@ Starting %s
         adjustfinalstep = adjustfinalstep,
     )
     @toc solve!
-    end #SM
 
     # write end checkpoint if requested
     if Settings.checkpoint_at_end

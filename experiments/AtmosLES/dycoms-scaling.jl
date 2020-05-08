@@ -281,7 +281,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Sponge
     c_sponge = 1.0
     # Rayleigh damping
-    zsponge = FT(980.0)
+    zsponge = FT(1000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
@@ -309,7 +309,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         ref_state = ref_state,
         turbulence = Vreman{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 1, tolerance = FT(100)),
+        moisture = EquilMoist{FT}(maxiter = 3, tolerance = FT(0.5)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -346,9 +346,9 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         ymax,
         zmax,
         param_set,
-        init_dycoms!,
+        init_dycoms!,        
+        model = model, 
         solver_type = ode_solver,
-        model = model,
     )
     return config
 end
@@ -368,16 +368,16 @@ function main()
     N = 4
 
     # Domain resolution and size
-    Δh = FT(40)
-    Δv = FT(20)
+    Δh = FT(25)
+    Δv = FT(5)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(4000)
-    ymax = FT(1000)
+    xmax = FT(3000)
+    ymax = FT(3000)
     zmax = FT(1500)
 
     t0 = FT(0)
-    timeend = FT(200)
+    timeend = FT(14400)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = CLIMA.SolverConfiguration(
@@ -385,7 +385,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
-        Courant_number=FT(1.0),
+        Courant_number=FT(1.7),
     )
     dgn_config = config_diagnostics(driver_config)
 
