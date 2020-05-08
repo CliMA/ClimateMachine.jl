@@ -18,4 +18,11 @@ include("NumericalFluxes.jl")
 include("DGmodel.jl")
 include("DGmodel_kernels.jl")
 
+export SchurComplement, SchurDGModel
+export init_schur_state
+export schur_extract_state
+include("schurcomplement.jl")
+include("SchurDGmodel.jl")
+include("SchurDGmodel_kernels.jl")
+
 end
