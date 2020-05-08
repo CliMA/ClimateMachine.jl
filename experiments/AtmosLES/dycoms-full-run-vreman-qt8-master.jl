@@ -281,7 +281,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Sponge
     c_sponge = 1.0
     # Rayleigh damping
-    zsponge = FT(1000.0)
+    zsponge = FT(980.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
