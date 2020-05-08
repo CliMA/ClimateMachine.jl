@@ -47,7 +47,7 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
     t::RT
 
     function MultirateRungeKutta(
-        slow_solver::LSRK2N,
+        slow_solver,
         fast_solver,
         Q = nothing;
         dt = getdt(slow_solver),
@@ -55,31 +55,7 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
-        RT = real(eltype(slow_solver.dQ))
-        new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0))
-    end
-end
-
-mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
-    "slow solver"
-    slow_solver::SS
-    "fast solver"
-    fast_solver::FS
-    "time step"
-    dt::RT
-    "time"
-    t::RT
-
-    function MultirateRungeKutta(
-        slow_solver::ARK,
-        fast_solver,
-        Q = nothing;
-        dt = getdt(slow_solver),
-        t0 = slow_solver.t,
-    ) where {AT <: AbstractArray}
-        SS = typeof(slow_solver)
-        FS = typeof(fast_solver)
-        RT = real(eltype(slow_solver.Qhat))
+        RT = real(eltype(slow_solver.dt))
         new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0))
     end
 end
