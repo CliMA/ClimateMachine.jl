@@ -10,27 +10,26 @@ using Random
 using StaticArrays
 using Test
 
-# CLIMA Modules
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.GenericCallbacks
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.Diagnostics
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.ODESolvers
-using CLIMA.VariableTemplates
-using CLIMA.Writers
+#  Modules
+using .Atmos
+using .ConfigTypes
+using .GenericCallbacks
+using .DGmethods.NumericalFluxes
+using .Diagnostics
+using .Mesh.Filters
+using .MoistThermodynamics
+using .ODESolvers
+using .VariableTemplates
+using .Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import CLIMA.DGmethods: vars_state_conservative, vars_state_auxiliary
-import CLIMA.Atmos: source!, atmos_source!, altitude
-import CLIMA.Atmos: compute_gradient_flux!, thermo_state
+import .DGmethods: vars_state_conservative, vars_state_auxiliary
+import .Atmos: source!, atmos_source!, altitude
+import .Atmos: compute_gradient_flux!, thermo_state
 
 # Citation for problem setup
 """
@@ -306,8 +305,8 @@ function get_gcm_info(groupid)
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    filename = "/home/asridhar/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
-    #filename = "/Users/asridhar/research/codes/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
+    filename = "/home/asridhar//datasets/HadGEM2-A_amip.2004-2008.07.nc"
+    #filename = "/Users/asridhar/research/codes//datasets/HadGEM2-A_amip.2004-2008.07.nc"
     req_varnames = (
         "zg",
         "ta",
@@ -458,14 +457,14 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
         init_state_conservative = init_cfsites!,
     )
-    mrrk_solver = CLIMA.MultirateSolverType(
+    mrrk_solver = .MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 12,
     )
-    config = CLIMA.AtmosLESConfiguration(
-        "HadGEM2-CLIMA",
+    config = .AtmosLESConfiguration(
+        "HadGEM2-",
         N,
         resolution,
         xmax,
@@ -487,12 +486,12 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return .DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
 
-    CLIMA.init()
+    .init()
 
     # Working precision
     FT = Float64
@@ -554,7 +553,7 @@ function main()
     driver_config =
         config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Set up solver configuration
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = .SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -571,7 +570,7 @@ function main()
         nothing
     end
     
-    filterorder = N
+    filterorder = 2*N
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -584,10 +583,10 @@ function main()
     end
 
     # Invoke solver (calls solve! function for time-integrator)
-    result = CLIMA.invoke!(
+    result = .invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )
 
