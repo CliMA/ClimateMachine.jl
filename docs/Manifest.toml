@@ -68,7 +68,7 @@ git-tree-sha1 = "143ef231a14c2ab1ac7e838c559ee1e45c0d1b57"
 uuid = "179af706-886a-5703-950a-314cd64e0468"
 version = "0.1.0"
 
-[[CLIMA]]
+[[ClimateMachine]]
 deps = ["ArgParse", "CLIMAParameters", "CUDAapi", "CUDAdrv", "CUDAnative", "Combinatorics", "Coverage", "CuArrays", "Dates", "DelimitedFiles", "Distributions", "DocStringExtensions", "DoubleFloats", "FileIO", "ForwardDiff", "GPUifyLoops", "GaussQuadrature", "JLD2", "KernelAbstractions", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "OrderedCollections", "Pkg", "Printf", "Random", "Requires", "RootSolvers", "SpecialFunctions", "StaticArrays", "Statistics", "WriteVTK"]
 path = ".."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"

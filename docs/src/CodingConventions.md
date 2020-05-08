@@ -12,7 +12,7 @@ A list of recommended coding conventions.
 
  - Function names should be lowercase, with words separated by underscores as necessary to improve readability.
 
- - Variable names follow the format used in the [VariableList](https://climate-machine.github.io/CLIMA/latest/VariableList.html). In addition, follow CMIP conventions (http://clipc-services.ceda.ac.uk/dreq/) where possible and practicable.
+ - Variable names follow the format used in the [VariableList](https://CliMA.github.io/ClimateMachine.jl/latest/VariableList.html). In addition, follow CMIP conventions (http://clipc-services.ceda.ac.uk/dreq/) where possible and practicable.
 
  - Make names consistent, distinctive, and meaningful.
 

@@ -1,7 +1,7 @@
 # Diagnostics
 
 ```@meta
-CurrentModule = CLIMA.Diagnostics
+CurrentModule = ClimateMachine.Diagnostics
 ```
 
 ## `Diagnostic Fields`
@@ -11,13 +11,13 @@ Diagnostics computes the physically relevant fields for postprocessing.
 ### Types
 
 ```@docs
-CLIMA.Diagnostics.VecGrad
-CLIMA.Diagnostics.Vorticity
+ClimateMachine.Diagnostics.VecGrad
+ClimateMachine.Diagnostics.Vorticity
 ```
 
 ### Functions
 
 ```@docs
-CLIMA.Diagnostics.compute_vec_grad
-CLIMA.Diagnostics.compute_vorticity
+ClimateMachine.Diagnostics.compute_vec_grad
+ClimateMachine.Diagnostics.compute_vorticity
 ```

@@ -6,16 +6,17 @@ using Random
 using StaticArrays
 using Test
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.ODESolvers
-using CLIMA.VariableTemplates
-using CLIMA.Writers
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.ODESolvers
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, MSLP
@@ -26,13 +27,13 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)
-    _grav::FT = grav(param_set)
-    _MSLP::FT = MSLP(param_set)
+    _grav::FT = grav(bl.param_set)
+    _MSLP::FT = MSLP(bl.param_set)
 
     # These constants are those used by Stevens et al. (2005)
     qref = FT(9.0e-3)
     q_pt_sfc = PhasePartition(qref)
-    Rm_sfc = FT(gas_constant_air(q_pt_sfc))
+    Rm_sfc = FT(gas_constant_air(param_set, q_pt_sfc))
     T_sfc = FT(292.5)
     P_sfc = _MSLP
 
@@ -80,16 +81,18 @@ function init_sin_test!(bl, state, aux, (x, y, z), t)
 end
 
 function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK54CarpenterKennedy)
-    config = CLIMA.AtmosLESConfiguration(
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK54CarpenterKennedy,
+    )
+    config = ClimateMachine.AtmosLESConfiguration(
         "Diagnostics SIN test",
         N,
         resolution,
         xmax,
         ymax,
         zmax,
-        init_sin_test!,
+        param_set,
+        init_sin_test!;
         solver_type = ode_solver,
     )
 
@@ -97,20 +100,18 @@ function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = 100
+    interval = "100steps"
     dgngrp = setup_atmos_default_diagnostics(
         interval,
         replace(driver_config.name, " " => "_"),
         writer = JLD2Writer(),
     )
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
-
     # Disable driver diagnostics as we're testing it here
-    CLIMA.Settings.enable_diagnostics = false
+    ClimateMachine.Settings.diagnostics = "never"
 
     FT = Float64
 
@@ -131,7 +132,7 @@ function main()
     timeend = dt
 
     driver_config = config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -152,7 +153,7 @@ function main()
     dgn_config.groups[1](currtime, init = true)
     dgn_config.groups[1](currtime)
 
-    CLIMA.invoke!(solver_config)
+    ClimateMachine.invoke!(solver_config)
 
     # Check results
     mpirank = MPI.Comm_rank(mpicomm)
@@ -180,4 +181,5 @@ function main()
         @test err <= 2e-15
     end
 end
+
 main()

@@ -3,17 +3,17 @@ using Test
 using StaticArrays
 using Logging, Printf
 
-using CLIMA
-using CLIMA.LinearSolvers
-using CLIMA.GeneralizedConjugateResidualSolver
-using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.VariableTemplates
-using CLIMA.DGmethods
-import CLIMA.DGmethods:
+using ClimateMachine
+using ClimateMachine.LinearSolvers
+using ClimateMachine.GeneralizedConjugateResidualSolver
+using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.VariableTemplates
+using ClimateMachine.DGmethods
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -30,7 +30,7 @@ import CLIMA.DGmethods:
     init_state_conservative!,
     LocalGeometry
 
-import CLIMA.DGmethods.NumericalFluxes:
+import ClimateMachine.DGmethods.NumericalFluxes:
     NumericalFluxSecondOrder, numerical_flux_second_order!
 
 if !@isdefined integration_testing
@@ -215,8 +215,8 @@ function run(
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

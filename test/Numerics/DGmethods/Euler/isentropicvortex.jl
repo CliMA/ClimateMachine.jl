@@ -1,20 +1,21 @@
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies: BrickTopology
-using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
-using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes:
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies: BrickTopology
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.DGmethods: DGModel, init_ode_state
+using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxFirstOrder
-using CLIMA.ODESolvers
-using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.MPIStateArrays: euclidean_distance
-using CLIMA.MoistThermodynamics:
+using ClimateMachine.ODESolvers
+using ClimateMachine.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.MPIStateArrays: euclidean_distance
+using ClimateMachine.MoistThermodynamics:
     air_density, total_energy, soundspeed_air, PhaseDry_given_pT
-using CLIMA.Atmos:
+using ClimateMachine.Atmos:
     AtmosModel,
     NoOrientation,
     NoReferenceState,
@@ -23,7 +24,7 @@ using CLIMA.Atmos:
     NoRadiation,
     ConstantViscosityWithDivergence,
     vars_state_conservative
-using CLIMA.VariableTemplates: flattenednames
+using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
@@ -42,8 +43,8 @@ end
 const output_vtk = false
 
 function main()
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

@@ -1,6 +1,6 @@
 # # How to generate a literate tutorial file
 
-# To create an tutorial using CLIMA, please use [Literate.jl](https://github.com/fredrikekre/Literate.jl), and consult the [Literate documentation](https://fredrikekre.github.io/Literate.jl/stable/) for questions.
+# To create an tutorial using ClimateMachine, please use [Literate.jl](https://github.com/fredrikekre/Literate.jl), and consult the [Literate documentation](https://fredrikekre.github.io/Literate.jl/stable/) for questions.
 #
 # For now, all literate tutorials are held in the `tutorials` directory
 
@@ -25,4 +25,4 @@ using Plots
 plot(x)
 
 # Please consider writing the comments in your tutorial as if they are meant to be read as an *article explaining the topic the tutorial is meant to explain.*
-# If there are any specific nuances to writing Literate documentation for CLIMA, please let us know!
+# If there are any specific nuances to writing Literate documentation for ClimateMachine, please let us know!

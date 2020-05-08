@@ -46,15 +46,15 @@ _init_array(::Type{Array}) = nothing
 const cuarray_pkgid =
     Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
 function gpu_allowscalar(val)
-    if haskey(Base.loaded_modules, CLIMA.cuarray_pkgid)
-        Base.loaded_modules[CLIMA.cuarray_pkgid].allowscalar(val)
+    if haskey(Base.loaded_modules, ClimateMachine.cuarray_pkgid)
+        Base.loaded_modules[ClimateMachine.cuarray_pkgid].allowscalar(val)
     end
     return nothing
 end
 
 # Note that the initial values specified here are overwritten by the
 # command line argument defaults in `parse_commandline()`.
-Base.@kwdef mutable struct CLIMA_Settings
+Base.@kwdef mutable struct ClimateMachine_Settings
     disable_gpu::Bool = false
     show_updates::String = "60secs"
     diagnostics::String = "never"
@@ -72,7 +72,7 @@ Base.@kwdef mutable struct CLIMA_Settings
     integration_testing::Bool = false
     array_type
 end
-const Settings = CLIMA_Settings(array_type = Array)
+const Settings = ClimateMachine_Settings(array_type = Array)
 
 
 """
@@ -94,10 +94,10 @@ function parse_commandline(custom_settings)
                 - default => use experiment specified interval (only for diagnostics at present)
             """,
         preformatted_epilog = true,
-        version = string(CLIMA_VERSION),
+        version = string(CLIMATEMACHINE_VERSION),
         exc_handler = exc_handler,
     )
-    add_arg_group!(s, "CLIMA")
+    add_arg_group!(s, "ClimateMachine")
 
     @add_arg_table! s begin
         "--disable-gpu"
@@ -176,32 +176,32 @@ function parse_commandline(custom_settings)
 end
 
 """
-    CLIMA.array_type()
+    ClimateMachine.array_type()
 
-Return the array type used by CLIMA. This defaults to (CPU-based) `Array`
+Return the array type used by ClimateMachine. This defaults to (CPU-based) `Array`
 and is only correctly set (based on choice from the command line, from
-an environment variable, or from experiment code) after `CLIMA.init()`
+an environment variable, or from experiment code) after `ClimateMachine.init()`
 is called.
 """
 array_type() = Settings.array_type
 
 """
-    CLIMA.init(
+    ClimateMachine.init(
         ;
         disable_gpu = false,
         arg_settings = nothing,
     )
 
-Perform necessary initializations for CLIMA:
+Perform necessary initializations for ClimateMachine:
 - Initialize MPI.
 - Parse command line arguments. To support experiment-specific arguments,
 `arg_settings` may be specified (it is an `ArgParse.ArgParseSettings`);
-it will be imported into CLIMA's settings.
+it will be imported into ClimateMachine's settings.
 - Determine whether GPU(s) is available and should be used (pass
-`disable-gpu = true` if not) and set the CLIMA array type appropriately.
+`disable-gpu = true` if not) and set the ClimateMachine array type appropriately.
 - Set up the global logger.
 
-Returns a `Dict` containing non-CLIMA command-line arguments.
+Returns a `Dict` containing non-ClimateMachine command-line arguments.
 """
 function init(; disable_gpu = false, arg_settings = nothing)
     # set up timing mechanism
@@ -253,7 +253,7 @@ function init(; disable_gpu = false, arg_settings = nothing)
     end
 
     # set up the array type appropriately depending on whether we're using GPUs
-    if get(ENV, "CLIMA_GPU", "") != "false" &&
+    if get(ENV, "CLIMATEMACHINE_GPU", "") != "false" &&
        !Settings.disable_gpu &&
        CUDAapi.has_cuda_gpu()
         atyp = CuArrays.CuArray
@@ -287,7 +287,7 @@ include("solver_configs.jl")
 include("diagnostics_configs.jl")
 
 """
-    CLIMA.invoke!(
+    ClimateMachine.invoke!(
         solver_config::SolverConfiguration;
         diagnostics_config = nothing,
         user_callbacks = (),

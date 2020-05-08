@@ -1,18 +1,19 @@
 using MPI
-using CLIMA
+using ClimateMachine
 using Logging
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
 using LinearAlgebra
 using Printf
 using Dates
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.ODESolvers
-using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.Mesh.Grids: min_node_distance
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.ODESolvers
+using ClimateMachine.VTK: writevtk, writepvtu
+using ClimateMachine.Mesh.Grids: min_node_distance
 
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
@@ -204,12 +205,13 @@ end
 
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
     numlevels =
-        integration_testing || CLIMA.Settings.integration_testing ? 3 : 1
+        integration_testing || ClimateMachine.Settings.integration_testing ? 3 :
+        1
 
     polynomialorder = 4
     base_num_elem = 4

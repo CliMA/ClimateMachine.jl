@@ -1,22 +1,23 @@
 using MPI
-using CLIMA
+using ClimateMachine
 using Logging
 using Test
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LinearSolvers
-using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.ColumnwiseLUSolver:
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.LinearSolvers
+using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.ColumnwiseLUSolver:
     SingleColumnLU, ManyColumnLU, banded_matrix, banded_matrix_vector_product!
-using CLIMA.ODESolvers
+using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf
 using Dates
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.VTK: writevtk, writepvtu
 
 if !@isdefined integration_testing
     if length(ARGS) > 0
@@ -266,8 +267,8 @@ function run(
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

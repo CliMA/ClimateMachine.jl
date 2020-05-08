@@ -1,6 +1,6 @@
 using Pkg.Artifacts
 
-using CLIMA.ArtifactWrappers
+using ClimateMachine.ArtifactWrappers
 
 # Get dycoms dataset folder:
 dycoms_dataset = ArtifactWrapper(

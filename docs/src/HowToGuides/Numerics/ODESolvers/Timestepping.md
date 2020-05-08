@@ -1,12 +1,12 @@
 # Contribution Guide for Abstract Time-stepping Algorithms
 
 This guide gives a brief overview on how time-stepping methods are
-implemented in [CLIMA](https://github.com/climate-machine), and
+implemented in [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl), and
 how one might contribute a new time-stepping method.
 
-Currently, CLIMA supports a variety of time-stepping methods within
+Currently, ClimateMachine supports a variety of time-stepping methods within
 the Runge-Kutta framework. For purely explicit time-integration,
-CLIMA supports the following methods:
+ClimateMachine supports the following methods:
 1. [LSRK54CarpenterKennedy](@ref LSRK54CarpenterKennedy)
 2. [LSRK144NiegemannDiehlBusch](@ref LSRK144NiegemannDiehlBusch)
 3. [SSPRK33ShuOsher](@ref SSPRK33ShuOsher)
@@ -60,7 +60,7 @@ function ODESolver.dostep!(Q, rkmethod::MyExplicitRKMethod, p,
 end
 ```
 Once `dostep!` is implemented, `MyExplicitRKMethod` should be
-ready for use in CLIMA.
+ready for use in ClimateMachine.
 
 ## Basic Template for an IMEX/Additive Runge-Kutta Method
 
@@ -75,7 +75,7 @@ a linear solver.
 An ARK method with an explicit and implicit component will require **two**
 Butcher Tableaus: one for each of the partitioned components.
 Additionally, a linear solver is required.
-Currently, CLIMA supports the follow set of ARK methods for IMEX-based
+Currently, ClimateMachine supports the follow set of ARK methods for IMEX-based
 timestepping:
 1. [ARK2GiraldoKellyConstantinescu](@ref ARK2GiraldoKellyConstantinescu)
 2. [ARK548L2SA2KennedyCarpenter](@ref ARK548L2SA2KennedyCarpenter)
@@ -137,7 +137,7 @@ function updatedt!(ark::MyIMEXMethod, dt::Real)
 end
 ```
 For information on the function `prefactorize`, see
-the **module** `CLIMA.LinearSolvers`.
+the **module** `ClimateMachine.LinearSolvers`.
 
 ## The Struct and its Constructor
 
@@ -223,7 +223,7 @@ diffusion, and radiation represent `slow` dynamics. The core idea behind
 a multirate method is to step each component (fast and slow) forward
 in time at a different rate (hence the name "Multi-Rate").
 
-There are several different approaches for multirate methods. In CLIMA,
+There are several different approaches for multirate methods. In ClimateMachine,
 a multirate time-stepper is provided as
 [MultirateRungeKutta](@ref MultirateRungeKutta),
 which takes a given number of Runge-Kutta methods (one for each rate).
@@ -284,7 +284,7 @@ The standard way is to consider an ODE with an analytic solution.
 A given time-integrator will have a known convergence rate,
 and thus a good regression test would be to verify temporal
 convergence in the computed solution. Several examples can
-be found in `CLIMA/test/ODESolvers`.
+be found in `ClimateMachine.jl/test/ODESolvers`.
 
 
 ## Performance Checks

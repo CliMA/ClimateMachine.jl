@@ -19,20 +19,22 @@
 
 using MPI
 using Test
-using CLIMA
+using ClimateMachine
+ClimateMachine.init()
 using Logging
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Filters
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf
 using Dates
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.VTK: writevtk, writepvtu
 
 include(joinpath(
     @__DIR__,
@@ -198,8 +200,7 @@ function run(
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

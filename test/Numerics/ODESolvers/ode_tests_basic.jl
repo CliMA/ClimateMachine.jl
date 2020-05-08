@@ -1,11 +1,11 @@
 using Test
-using CLIMA
+using ClimateMachine
 using LinearAlgebra
 
 include("ode_tests_common.jl")
 
-CLIMA.init()
-const ArrayType = CLIMA.array_type()
+ClimateMachine.init()
+const ArrayType = ClimateMachine.array_type()
 
 a = 100
 b = 1

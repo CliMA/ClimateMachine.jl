@@ -1,7 +1,7 @@
 # Arrays
 
 ```@meta
-CurrentModule = CLIMA.MPIStateArrays
+CurrentModule = ClimateMachine.MPIStateArrays
 ```
 ## `MPIStateArrays`
 

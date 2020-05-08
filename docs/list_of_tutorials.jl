@@ -52,12 +52,9 @@ if generate_tutorials
 
     # TODO: Should we use AutoPages.jl?
 
-    # These files mirror the .jl files in `CLIMA/tutorials/`:
+    # These files mirror the .jl files in `ClimateMachine.jl/tutorials/`:
     tutorials = Any[
-        "Atmos" => Any[
-            "Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",
-            "Rising Bubble LES" => "ExtendingCLIMA/Atmos/Model/risingbubble.md",
-        ],
+        "Atmos" => Any["Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",],
         "Ocean" => Any[],
         "Numerics" => Any[
             "LinearSolvers" => Any["Conjugate Gradient" => "generated/Numerics/LinearSolvers/cg.md",],

@@ -1,16 +1,17 @@
 #!/usr/bin/env julia --project
-using CLIMA
-CLIMA.init()
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.ColumnwiseLUSolver: ManyColumnLU
-using CLIMA.Mesh.Filters
-using CLIMA.Mesh.Grids
-using CLIMA.MoistThermodynamics: air_temperature, internal_energy, air_pressure
-using CLIMA.VariableTemplates
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MoistThermodynamics:
+    air_temperature, internal_energy, air_pressure
+using ClimateMachine.VariableTemplates
 
 using Distributions: Uniform
 using LinearAlgebra
@@ -78,7 +79,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         data_config = HeldSuarezDataConfig(T_ref),
     )
 
-    config = CLIMA.AtmosGCMConfiguration(
+    config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
         poly_order,
         resolution,
@@ -162,8 +163,11 @@ function config_diagnostics(FT, driver_config)
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
     resolution = (FT(10), FT(10), FT(1000)) # in (deg, deg, m)
-    interpol =
-        CLIMA.InterpolationConfiguration(driver_config, boundaries, resolution)
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
 
     dgngrp = setup_dump_state_and_aux_diagnostics(
         interval,
@@ -171,7 +175,7 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
         project = true,
     )
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -188,7 +192,7 @@ function main()
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
@@ -215,7 +219,7 @@ function main()
     end
 
     # Run the model
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),

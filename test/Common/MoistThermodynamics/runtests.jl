@@ -1,5 +1,5 @@
 using Test
-using CLIMA.MoistThermodynamics
+using ClimateMachine.MoistThermodynamics
 using NCDatasets
 using Random
 MT = MoistThermodynamics

@@ -539,7 +539,7 @@ where additional variable definitions are in:
 
 ## Temperature
 
-Note that, while temperature may be computed using different thermodynamic formulations, [`ThermodynamicState`](@ref CLIMA.MoistThermodynamics.ThermodynamicState)'s are immediately converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
+Note that, while temperature may be computed using different thermodynamic formulations, [`ThermodynamicState`](@ref ClimateMachine.MoistThermodynamics.ThermodynamicState)'s are immediately converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
 
 ### Dry temperature
 

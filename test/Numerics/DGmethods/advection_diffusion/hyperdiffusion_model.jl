@@ -1,6 +1,6 @@
 using StaticArrays
-using CLIMA.VariableTemplates
-import CLIMA.DGmethods:
+using ClimateMachine.VariableTemplates
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -19,7 +19,7 @@ import CLIMA.DGmethods:
     vars_gradient_laplacian,
     vars_hyperdiffusive,
     transform_post_gradient_laplacian!
-using CLIMA.DGmethods.NumericalFluxes:
+using ClimateMachine.DGmethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
 abstract type HyperDiffusionProblem end

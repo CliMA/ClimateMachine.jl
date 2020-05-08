@@ -292,7 +292,7 @@ We can build a 3 by 2 element two-dimensional mesh that is periodic in the
 \$x2\$-direction with
 ```jldoctest brickmesh
 
-using CLIMA.Topologies
+using ClimateMachine.Topologies
 using MPI
 MPI.Init()
 topology = BrickTopology(MPI.COMM_SELF, (2:5,4:6);
@@ -443,7 +443,7 @@ We can build a 3 by 2 element two-dimensional mesh that is periodic in the
 \$x2\$-direction with
 ```jldoctest brickmesh
 
-using CLIMA.Topologies
+using ClimateMachine.Topologies
 using MPI
 MPI.Init()
 topology = StackedBrickTopology(MPI.COMM_SELF, (2:5,4:6);
@@ -727,7 +727,7 @@ Note that this topology is logically 2-D but embedded in a 3-D space
 We can build a cubed shell mesh with 10 elements on each cube, total elements is
 `10 * 10 * 6 = 600`, with
 ```jldoctest brickmesh
-using CLIMA.Topologies
+using ClimateMachine.Topologies
 using MPI
 MPI.Init()
 topology = CubedShellTopology(MPI.COMM_SELF, 10, Float64)
@@ -1033,7 +1033,7 @@ on a space-filling curve. Further, stacks are not split at MPI boundaries.
 We can build a cubed sphere mesh with 10 x 10 x 5 elements on each cube, total
 elements is `10 * 10 * 5 * 6 = 3000`, with
 ```jldoctest brickmesh
-using CLIMA.Topologies
+using ClimateMachine.Topologies
 using MPI
 MPI.Init()
 Nhorz = 10

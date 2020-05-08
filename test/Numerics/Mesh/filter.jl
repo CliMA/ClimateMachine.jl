@@ -1,14 +1,15 @@
 using Test
-import CLIMA
-using CLIMA.VariableTemplates: @vars, Vars
-using CLIMA.Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
-using CLIMA.MPIStateArrays: weightedsum
+import ClimateMachine
+using ClimateMachine.VariableTemplates: @vars, Vars
+using ClimateMachine.Mesh.Grids:
+    EveryDirection, HorizontalDirection, VerticalDirection
+using ClimateMachine.MPIStateArrays: weightedsum
 
 import GaussQuadrature
 using MPI
 using LinearAlgebra
 
-CLIMA.init()
+ClimateMachine.init()
 
 @testset "Exponential and Cutoff filter matrix" begin
     let
@@ -25,17 +26,19 @@ CLIMA.init()
 
         N = size(W, 1) - 1
 
-        topology =
-            CLIMA.Mesh.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0)
+        topology = ClimateMachine.Mesh.Topologies.BrickTopology(
+            MPI.COMM_SELF,
+            -1.0:2.0:1.0,
+        )
 
-        grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = Float64,
             DeviceArray = Array,
         )
 
-        filter = CLIMA.Mesh.Filters.ExponentialFilter(grid, 0, 32)
+        filter = ClimateMachine.Mesh.Filters.ExponentialFilter(grid, 0, 32)
         @test filter.filter ≈ W
     end
 
@@ -52,16 +55,18 @@ CLIMA.init()
 
         N = size(W, 1) - 1
 
-        topology =
-            CLIMA.Mesh.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0)
-        grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        topology = ClimateMachine.Mesh.Topologies.BrickTopology(
+            MPI.COMM_SELF,
+            -1.0:2.0:1.0,
+        )
+        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = Float64,
             DeviceArray = Array,
         )
 
-        filter = CLIMA.Mesh.Filters.ExponentialFilter(grid, 1, 4)
+        filter = ClimateMachine.Mesh.Filters.ExponentialFilter(grid, 1, 4)
         @test filter.filter ≈ W
     end
 
@@ -70,16 +75,18 @@ CLIMA.init()
         N = 5
         Nc = 4
 
-        topology =
-            CLIMA.Mesh.Topologies.BrickTopology(MPI.COMM_SELF, -1.0:2.0:1.0)
-        grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(
+        topology = ClimateMachine.Mesh.Topologies.BrickTopology(
+            MPI.COMM_SELF,
+            -1.0:2.0:1.0,
+        )
+        grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
             topology;
             polynomialorder = N,
             FloatType = T,
             DeviceArray = Array,
         )
 
-        ξ = CLIMA.Mesh.Grids.referencepoints(grid)
+        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)
         a, b = GaussQuadrature.legendre_coefs(T, N)
         V = GaussQuadrature.orthonormal_poly(ξ, a, b)
 
@@ -88,14 +95,15 @@ CLIMA.init()
 
         W = V * Diagonal(Σ) / V
 
-        filter = CLIMA.Mesh.Filters.CutoffFilter(grid, Nc)
+        filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, Nc)
         @test filter.filter ≈ W
     end
 end
 
-struct FilterTestModel{N} <: CLIMA.DGmethods.BalanceLaw end
-CLIMA.DGmethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
-CLIMA.DGmethods.init_state_auxiliary!(::FilterTestModel, _...) = nothing
+struct FilterTestModel{N} <: ClimateMachine.DGmethods.BalanceLaw end
+ClimateMachine.DGmethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
+ClimateMachine.DGmethods.init_state_auxiliary!(::FilterTestModel, _...) =
+    nothing
 
 # Legendre Polynomials
 l0(r) = 1
@@ -113,9 +121,11 @@ filtered(::VerticalDirection, dim, x, y, z) =
 filtered(::HorizontalDirection, dim, x, y, z) =
     (dim == 2) ? l2(x) * l3(y) + l3(x) : l2(x) * l3(y) + l3(x) + l2(y)
 
-CLIMA.DGmethods.vars_state_conservative(::FilterTestModel{4}, FT) where {N} =
-    @vars(q1::FT, q2::FT, q3::FT, q4::FT)
-function CLIMA.DGmethods.init_state_conservative!(
+ClimateMachine.DGmethods.vars_state_conservative(
+    ::FilterTestModel{4},
+    FT,
+) where {N} = @vars(q1::FT, q2::FT, q3::FT, q4::FT)
+function ClimateMachine.DGmethods.init_state_conservative!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
@@ -149,22 +159,23 @@ end
                     j -> range(FT(-1); length = Ne[j] + 1, stop = 1),
                     dim,
                 )
-                topl = CLIMA.Mesh.Topologies.BrickTopology(
+                topl = ClimateMachine.Mesh.Topologies.BrickTopology(
                     MPI.COMM_WORLD,
                     brickrange,
                     periodicity = ntuple(j -> true, dim),
                 )
 
-                grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(
-                    topl,
-                    FloatType = FT,
-                    DeviceArray = CLIMA.array_type(),
-                    polynomialorder = N,
-                )
+                grid =
+                    ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
+                        topl,
+                        FloatType = FT,
+                        DeviceArray = ClimateMachine.array_type(),
+                        polynomialorder = N,
+                    )
 
-                filter = CLIMA.Mesh.Filters.CutoffFilter(grid, 2)
+                filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, 2)
 
-                dg = CLIMA.DGmethods.DGModel(
+                dg = ClimateMachine.DGmethods.DGModel(
                     FilterTestModel{4}(),
                     grid,
                     nothing,
@@ -173,20 +184,32 @@ end
                     state_gradient_flux = nothing,
                 )
 
-                Q = CLIMA.DGmethods.init_ode_state(dg, nothing, dim)
+                Q = ClimateMachine.DGmethods.init_ode_state(dg, nothing, dim)
 
-                CLIMA.Mesh.Filters.apply!(Q, (1, 3), grid, filter, direction())
+                ClimateMachine.Mesh.Filters.apply!(
+                    Q,
+                    (1, 3),
+                    grid,
+                    filter,
+                    direction(),
+                )
 
-                P = CLIMA.DGmethods.init_ode_state(dg, direction(), dim)
+                P = ClimateMachine.DGmethods.init_ode_state(
+                    dg,
+                    direction(),
+                    dim,
+                )
                 @test Array(Q.data) ≈ Array(P.data)
             end
         end
     end
 end
 
-CLIMA.DGmethods.vars_state_conservative(::FilterTestModel{1}, FT) where {N} =
-    @vars(q::FT)
-function CLIMA.DGmethods.init_state_conservative!(
+ClimateMachine.DGmethods.vars_state_conservative(
+    ::FilterTestModel{1},
+    FT,
+) where {N} = @vars(q::FT)
+function ClimateMachine.DGmethods.init_state_conservative!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,
@@ -204,20 +227,20 @@ end
         @testset for dim in 2:3
             brickrange =
                 ntuple(j -> range(FT(-1); length = Ne[j] + 1, stop = 1), dim)
-            topl = CLIMA.Mesh.Topologies.BrickTopology(
+            topl = ClimateMachine.Mesh.Topologies.BrickTopology(
                 MPI.COMM_WORLD,
                 brickrange,
                 periodicity = ntuple(j -> true, dim),
             )
 
-            grid = CLIMA.Mesh.Grids.DiscontinuousSpectralElementGrid(
+            grid = ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid(
                 topl,
                 FloatType = FT,
-                DeviceArray = CLIMA.array_type(),
+                DeviceArray = ClimateMachine.array_type(),
                 polynomialorder = N,
             )
 
-            dg = CLIMA.DGmethods.DGModel(
+            dg = ClimateMachine.DGmethods.DGModel(
                 FilterTestModel{1}(),
                 grid,
                 nothing,
@@ -226,16 +249,16 @@ end
                 state_gradient_flux = nothing,
             )
 
-            Q = CLIMA.DGmethods.init_ode_state(dg)
+            Q = ClimateMachine.DGmethods.init_ode_state(dg)
 
             initialsumQ = weightedsum(Q)
             @test minimum(Q.realdata) < 0
 
-            CLIMA.Mesh.Filters.apply!(
+            ClimateMachine.Mesh.Filters.apply!(
                 Q,
                 1,
                 grid,
-                CLIMA.Mesh.Filters.TMARFilter(),
+                ClimateMachine.Mesh.Filters.TMARFilter(),
             )
 
             sumQ = weightedsum(Q)

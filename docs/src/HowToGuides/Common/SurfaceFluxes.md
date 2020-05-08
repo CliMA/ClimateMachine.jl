@@ -9,7 +9,7 @@ Compute surface fluxes using the approach in Byun (1990).
 ### Plots
 
 ```@example byun1990
-using CLIMA.SurfaceFluxes.Byun1990
+using ClimateMachine.SurfaceFluxes.Byun1990
 using Plots, LaTeXStrings
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -55,7 +55,7 @@ Recreation of Figure 4(b) from Byun (1990)
 
 ### Plots
 ```@example
-using CLIMA.SurfaceFluxes.Nishizawa2018
+using ClimateMachine.SurfaceFluxes.Nishizawa2018
 using Plots, LaTeXStrings
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end

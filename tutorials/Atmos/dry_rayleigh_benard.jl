@@ -5,16 +5,17 @@ using Test
 using DocStringExtensions
 using Printf
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics: TemperatureSHumEquil, internal_energy
-using CLIMA.VariableTemplates
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics: TemperatureSHumEquil, internal_energy
+using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
@@ -146,14 +147,14 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         data_config = data_config,
     )
 
-    ode_solver = CLIMA.MultirateSolverType(
+    ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )
 
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "DryRayleighBenardConvection",
         N,
         resolution,
@@ -171,11 +172,10 @@ end
 function config_diagnostics(driver_config)
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
     FT = Float64
     # DG polynomial order
     N = 4
@@ -193,7 +193,7 @@ function main()
             Δv = Δh
             resolution = (Δh, Δh, Δv)
             driver_config = config_problem(FT, N, resolution, xmax, ymax, zmax)
-            solver_config = CLIMA.SolverConfiguration(
+            solver_config = ClimateMachine.SolverConfiguration(
                 t0,
                 timeend,
                 driver_config,
@@ -212,7 +212,7 @@ function main()
                     )
                     nothing
                 end
-            result = CLIMA.invoke!(
+            result = ClimateMachine.invoke!(
                 solver_config;
                 diagnostics_config = dgn_config,
                 user_callbacks = (cbtmarfilter,),

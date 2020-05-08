@@ -1,5 +1,5 @@
-using CLIMA.ODESolvers
-using CLIMA.LinearSolvers
+using ClimateMachine.ODESolvers
+using ClimateMachine.LinearSolvers
 
 const slow_mrrk_methods =
     ((LSRK54CarpenterKennedy, 4), (LSRK144NiegemannDiehlBusch, 4))
