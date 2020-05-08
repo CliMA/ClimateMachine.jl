@@ -17,7 +17,7 @@ using ClimateMachine.MoistThermodynamics:
     air_density, total_energy, soundspeed_air, PhaseDry_given_pT
 using ClimateMachine.Atmos:
     AtmosModel,
-    NoOrientation,
+    NoGravity,
     NoReferenceState,
     DryModel,
     NoPrecipitation,
@@ -188,7 +188,7 @@ function run(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        orientation = NoOrientation(),
+        orientation = NoGravity(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),

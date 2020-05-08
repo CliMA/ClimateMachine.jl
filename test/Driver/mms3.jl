@@ -121,7 +121,7 @@ function main()
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        orientation = NoOrientation(),
+        orientation = NoGravity(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
         moisture = MMSDryModel(),

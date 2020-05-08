@@ -1,6 +1,6 @@
 # TODO: add Coriolis vectors
 using CLIMAParameters.Planet: grav, planet_radius
-export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
+export Orientation, NoGravity, FlatOrientation, SphericalOrientation
 export vertical_unit_vector,
     altitude,
     latitude,
@@ -63,20 +63,20 @@ end
 
 
 """
-    NoOrientation
+    NoGravity
 
 No gravitional force or potential.
 """
-struct NoOrientation <: Orientation end
-function vars_state_auxiliary(m::NoOrientation, T)
+struct NoGravity <: Orientation end
+function vars_state_auxiliary(m::NoGravity, T)
     @vars()
 end
-atmos_init_aux!(::NoOrientation, ::AtmosModel, aux::Vars, geom::LocalGeometry) =
+atmos_init_aux!(::NoGravity, ::AtmosModel, aux::Vars, geom::LocalGeometry) =
     nothing
-gravitational_potential(::NoOrientation, aux::Vars) = -zero(eltype(aux))
-∇gravitational_potential(::NoOrientation, aux::Vars) =
+gravitational_potential(::NoGravity, aux::Vars) = -zero(eltype(aux))
+∇gravitational_potential(::NoGravity, aux::Vars) =
     SVector{3, eltype(aux)}(0, 0, 0)
-altitude(orientation::NoOrientation, param_set, aux::Vars) = -zero(eltype(aux))
+altitude(orientation::NoGravity, param_set, aux::Vars) = -zero(eltype(aux))
 
 """
     SphericalOrientation <: Orientation

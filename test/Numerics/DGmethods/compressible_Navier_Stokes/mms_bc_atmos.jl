@@ -156,7 +156,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         model = AtmosModel{FT}(
             AtmosLESConfigType,
             param_set;
-            orientation = NoOrientation(),
+            orientation = NoGravity(),
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
             moisture = MMSDryModel(),
@@ -168,7 +168,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         model = AtmosModel{FT}(
             AtmosLESConfigType,
             param_set;
-            orientation = NoOrientation(),
+            orientation = NoGravity(),
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
             moisture = MMSDryModel(),

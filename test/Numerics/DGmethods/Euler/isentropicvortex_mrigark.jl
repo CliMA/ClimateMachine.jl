@@ -20,7 +20,7 @@ using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
     RemainderModel,
-    NoOrientation,
+    NoGravity,
     NoReferenceState,
     ReferenceState,
     DryModel,
@@ -149,7 +149,7 @@ function run(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        orientation = NoOrientation(),
+        orientation = NoGravity(),
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
