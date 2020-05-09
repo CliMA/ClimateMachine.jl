@@ -29,7 +29,7 @@ function init_greenvortex!(bl, state, aux, (x, y, z), t)
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
     γ::FT = c_p / c_v
-    
+
     # Compute perturbed thermodynamic state:
     ρ = FT(1.178)      # density
     ρu = SVector(FT(0), FT(0), FT(0))  # momentum
@@ -37,16 +37,16 @@ function init_greenvortex!(bl, state, aux, (x, y, z), t)
     e_pot = FT(0)# potential energy
     Pinf = 101325
     Uzero = FT(100)
-    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y)) 
+    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y))
     u = Uzero * sin(x) * cos(y) * cos(z)
-    v = - Uzero * cos(x) * sin(y) * cos(z)
-    e_kin = 0.5 * (u^2+v^2)
+    v = -Uzero * cos(x) * sin(y) * cos(z)
+    e_kin = 0.5 * (u^2 + v^2)
     T = p / (ρ * R_gas)
     e_int = internal_energy(bl.param_set, T, PhasePartition(FT(0)))
     ρe_tot = ρ * (e_kin + e_pot + e_int)
     # Assign State Variables
     state.ρ = ρ
-    state.ρu = SVector(FT(ρ * u),FT(ρ * v),FT(0))
+    state.ρu = SVector(FT(ρ * u), FT(ρ * v), FT(0))
     state.ρe = ρe_tot
 end
 
@@ -62,12 +62,22 @@ Arguments
 Returns
 - `config` = Object using the constructor for the `AtmosLESConfiguration`
 """
-function config_greenvortex(FT, N, resolution, xmax, ymax, zmax,xmin,ymin,zmin)
+function config_greenvortex(
+    FT,
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+    xmin,
+    ymin,
+    zmin,
+)
 
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
-    
+
     _C_smag = FT(C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
@@ -75,7 +85,7 @@ function config_greenvortex(FT, N, resolution, xmax, ymax, zmax,xmin,ymin,zmin)
         param_set;                          # Parameter set corresponding to earth parameters
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
-        source = (),                       
+        source = (),
         init_state_conservative = init_greenvortex!,             # Apply the initial condition
     )
 
@@ -89,11 +99,11 @@ function config_greenvortex(FT, N, resolution, xmax, ymax, zmax,xmin,ymin,zmin)
         zmax,                    # Domain maximum size [m]
         param_set,               # Parameter set.
         init_greenvortex!,      # Function specifying initial condition
-        boundary = ((0,0),(0,0),(0,0)),
-	    periodicity = (true,true,true),
-	    xmin = xmin,
-	    ymin = ymin,
-	    zmin = zmin,
+        boundary = ((0, 0), (0, 0), (0, 0)),
+        periodicity = (true, true, true),
+        xmin = xmin,
+        ymin = ymin,
+        zmin = zmin,
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
     )
@@ -114,7 +124,7 @@ function main()
     Ncellsx = 64
     Ncellsy = 64
     Ncellsz = 64
-    Δx = FT(2*pi/Ncellsx)
+    Δx = FT(2 * pi / Ncellsx)
     Δy = Δx
     Δz = Δx
     resolution = (Δx, Δy, Δz)
@@ -128,7 +138,17 @@ function main()
     timeend = FT(0.5)
     CFL = FT(1.8)
 
-    driver_config = config_greenvortex(FT, N, resolution, xmax, ymax, zmax,xmin,ymin,zmin)
+    driver_config = config_greenvortex(
+        FT,
+        N,
+        resolution,
+        xmax,
+        ymax,
+        zmax,
+        xmin,
+        ymin,
+        zmin,
+    )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
