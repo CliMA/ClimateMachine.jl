@@ -32,9 +32,9 @@ version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "cee952c726065d21a6b9a0abe04e201debdffc20"
+git-tree-sha1 = "0517f50df07250903194a94c2bc793c2bc239a76"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.3.0"
+version = "0.3.1"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -58,9 +58,9 @@ uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.6+2"
 
 [[CEnum]]
-git-tree-sha1 = "62847acab40e6855a9b5905ccb99c2b5cf6b3ebb"
+git-tree-sha1 = "1b77a77c3b28e0b3f413f7567c9bb8dd9bdccd14"
 uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.2.0"
+version = "0.3.0"
 
 [[CFTime]]
 deps = ["Dates", "Printf"]
@@ -76,21 +76,21 @@ version = "0.1.3"
 
 [[CUDAapi]]
 deps = ["Libdl", "Logging"]
-git-tree-sha1 = "d7ceadd8f821177d05b897c0517e94633db535fe"
+git-tree-sha1 = "831b825d10104bd29e28f6da93312a976830717b"
 uuid = "3895d2a7-ec45-59b8-82bb-cfc6a382f9b3"
-version = "3.1.0"
+version = "4.0.0"
 
 [[CUDAdrv]]
 deps = ["CEnum", "CUDAapi", "Printf"]
-git-tree-sha1 = "01e90fa34e25776bc7c8661183d4519149ebfe59"
+git-tree-sha1 = "f56bbf18c86bcff7a961a32a4947a5abb2963a29"
 uuid = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
-version = "6.0.0"
+version = "6.3.0"
 
 [[CUDAnative]]
-deps = ["Adapt", "CEnum", "CUDAapi", "CUDAdrv", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "Printf", "TimerOutputs"]
-git-tree-sha1 = "f86269ff60ebe082a2806ecbce51f3cadc68afe9"
+deps = ["Adapt", "BinaryProvider", "CEnum", "CUDAapi", "CUDAdrv", "ExprTools", "GPUCompiler", "LLVM", "Libdl", "Pkg", "Printf"]
+git-tree-sha1 = "ac86db2b05fdfec96b011e25a504ffe7476e8a68"
 uuid = "be33ccc6-a3ff-5ff2-a52e-74243cff1e17"
-version = "2.10.2"
+version = "3.1.0"
 
 [[Cassette]]
 git-tree-sha1 = "ff6f5109371926beb67ec3101be17d2c211e497d"
@@ -108,6 +108,12 @@ deps = ["ArgParse", "CLIMAParameters", "CUDAapi", "CUDAdrv", "CUDAnative", "Comb
 path = ".."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.1.0"
+
+[[CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "cab4da992adc0a64f63fa30d2db2fd8bec40cab4"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "0.5.11"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -171,9 +177,9 @@ version = "0.2.0"
 
 [[Contour]]
 deps = ["StaticArrays"]
-git-tree-sha1 = "6d56f927b33d3820561b8f89d7de311718683846"
+git-tree-sha1 = "0b17db36e7e03f8437e0d1f55aea3e4a60c74353"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
-version = "0.5.2"
+version = "0.5.3"
 
 [[Coverage]]
 deps = ["CoverageTools", "HTTP", "JSON", "LibGit2", "MbedTLS"]
@@ -187,11 +193,17 @@ git-tree-sha1 = "328154f6062b0053588295df6bffe22e1436597a"
 uuid = "c36e975a-824b-4404-a568-ef97ca766997"
 version = "1.1.0"
 
+[[Cthulhu]]
+deps = ["CodeTracking", "InteractiveUtils", "REPL", "Unicode"]
+git-tree-sha1 = "a4849ec61df9659423cc63b298ed895904ee9743"
+uuid = "f68482b8-f384-11e8-15f7-abe071a5a75f"
+version = "1.0.2"
+
 [[CuArrays]]
-deps = ["AbstractFFTs", "Adapt", "CEnum", "CUDAapi", "CUDAdrv", "CUDAnative", "DataStructures", "GPUArrays", "Libdl", "LinearAlgebra", "MacroTools", "NNlib", "Printf", "Random", "Requires", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "7fa1331a0e0cd10e43b94b280027bda45990cb63"
+deps = ["AbstractFFTs", "Adapt", "CEnum", "CUDAapi", "CUDAdrv", "CUDAnative", "DataStructures", "GPUArrays", "Libdl", "LinearAlgebra", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "TimerOutputs"]
+git-tree-sha1 = "870a4ac61e99c36f42d15e496fd290c841541d90"
 uuid = "3a865a2d-5b23-5a0f-bc46-62713ec82fae"
-version = "1.7.3"
+version = "2.2.0"
 
 [[DataAPI]]
 git-tree-sha1 = "176e23402d80e7743fc26c19c681bfb11246af32"
@@ -336,9 +348,15 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GPUArrays]]
 deps = ["AbstractFFTs", "Adapt", "LinearAlgebra", "Printf", "Random", "Serialization"]
-git-tree-sha1 = "e756da6cee76a5f1436a05827fa8fdf3badc577f"
+git-tree-sha1 = "ce4579ebffef43e07318e9544ffeb6532c95d04d"
 uuid = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
-version = "2.0.1"
+version = "3.3.0"
+
+[[GPUCompiler]]
+deps = ["Cthulhu", "DataStructures", "InteractiveUtils", "LLVM", "Libdl", "TimerOutputs"]
+git-tree-sha1 = "5275aa268ecd09640b32560e1eae90c78816e4d1"
+uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
+version = "0.2.0"
 
 [[GPUifyLoops]]
 deps = ["Cassette", "Requires", "StaticArrays"]
