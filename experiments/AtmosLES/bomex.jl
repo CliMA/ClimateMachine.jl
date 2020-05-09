@@ -481,7 +481,7 @@ function main()
     FT = Float32
 
     # DG polynomial order
-    N = 4
+    N = 8
     # Domain resolution and size
     Δh = FT(100)
     Δv = FT(40)

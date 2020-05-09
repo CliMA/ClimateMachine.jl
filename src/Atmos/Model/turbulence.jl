@@ -229,14 +229,51 @@ struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
     ρν::FT
 end
 
-vars_state_gradient(::ConstantViscosityWithDivergence, FT) = @vars()
+vars_state_gradient(::ConstantViscosityWithDivergence, FT) = @vars(θ_v::FT)
+vars_state_auxiliary(::ConstantViscosityWithDivergence, FT) = @vars(Δ::FT)
 vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
-    @vars(S::SHermitianCompact{3, FT, 6})
+    @vars(S::SHermitianCompact{3, FT, 6}, 
+          N²::FT, 
+          ∇θ_v::SVector{3,FT}, 
+          Richardson::FT,
+          ν_x::FT,
+          ν_y::FT,
+          ν_z::FT,
+          ∂u∂x::FT,
+          ∂u∂y::FT,
+          ∂u∂z::FT,
+          ∂v∂x::FT,
+          ∂v∂y::FT,
+          ∂v∂z::FT,
+          ∂w∂x::FT,
+          ∂w∂y::FT,
+          ∂w∂z::FT
+         )
+
+function atmos_init_aux!(
+    ::ConstantViscosityWithDivergence,
+    ::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.turbulence.Δ = lengthscale(geom)
+end
+function compute_gradient_argument!(
+    am::AtmosModel,
+    m::ConstantViscosityWithDivergence,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ts = thermo_state(am,state,aux)
+    transform.turbulence.θ_v = virtual_pottemp(ts)
+end
 
 function compute_gradient_flux!(
-    ::AtmosModel,
-    ::ConstantViscosityWithDivergence,
-    ::Orientation,
+    am::AtmosModel,
+    m::ConstantViscosityWithDivergence,
+    orientation::Orientation,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -244,7 +281,47 @@ function compute_gradient_flux!(
     t::Real,
 )
 
+    FT = eltype(state)
+    ts = thermo_state(am,state,aux)
     diffusive.turbulence.S = symmetrize(∇transform.u)
+    ∇Φ = ∇gravitational_potential(orientation, aux)
+    diffusive.turbulence.N² =
+        dot(∇transform.turbulence.θ_v, ∇Φ) / virtual_pottemp(ts)
+    diffusive.turbulence.∇θ_v = ∇transform.turbulence.θ_v
+
+    # Diagnostics Only
+    k̂ = ∇Φ/norm(∇Φ)
+    normS = strain_rate_magnitude(diffusive.turbulence.S)
+    Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
+    f_b² = sqrt(clamp(FT(1) - Richardson * FT(3), FT(0), FT(1)))
+    ν₀ = m.ρν / state.ρ
+    ν = SVector{3, FT}(ν₀, ν₀, ν₀)
+    ν_v = k̂ .* dot(ν, k̂)
+    ν_h = ν₀ .- ν_v
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5)) 
+    
+    ∇u = ∇transform.u
+
+    diffusive.turbulence.Richardson = Richardson
+    diffusive.turbulence.ν_x = ν_h[1]
+    diffusive.turbulence.ν_y = ν_h[2]
+    diffusive.turbulence.ν_z = ν_v[3]
+    
+    diffusive.turbulence.ν_x = ν[1,1]
+    diffusive.turbulence.ν_y = ν[2,2]
+    diffusive.turbulence.ν_z = ν[3,3]
+    
+    diffusive.turbulence.∂u∂x = ∇u[1,1]
+    diffusive.turbulence.∂u∂y = ∇u[1,2]
+    diffusive.turbulence.∂u∂z = ∇u[1,3]
+    
+    diffusive.turbulence.∂v∂x = ∇u[2,1]
+    diffusive.turbulence.∂v∂x = ∇u[2,2]
+    diffusive.turbulence.∂v∂y = ∇u[2,3]
+    
+    diffusive.turbulence.∂w∂z = ∇u[3,1]
+    diffusive.turbulence.∂w∂y = ∇u[3,2]
+    diffusive.turbulence.∂w∂z = ∇u[3,3]
 end
 
 function turbulence_tensors(
@@ -353,7 +430,17 @@ vars_state_gradient_flux(::SmagorinskyLilly, FT) =
           Richardson::FT,
           ν_x::FT,
           ν_y::FT,
-          ν_z::FT)
+          ν_z::FT,
+          ∂u∂x::FT,
+          ∂u∂y::FT,
+          ∂u∂z::FT,
+          ∂v∂x::FT,
+          ∂v∂y::FT,
+          ∂v∂z::FT,
+          ∂w∂x::FT,
+          ∂w∂y::FT,
+          ∂w∂z::FT,
+         )
 function atmos_init_aux!(
     ::SmagorinskyLilly,
     ::AtmosModel,
@@ -397,17 +484,30 @@ function compute_gradient_flux!(
     k̂ = ∇Φ/norm(∇Φ)
     normS = strain_rate_magnitude(diffusive.turbulence.S)
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = 1#sqrt(clamp(FT(1) - Richardson * FT(3), FT(0), FT(1)))
+    f_b² = sqrt(clamp(FT(1) - Richardson * FT(3), FT(0), FT(1)))
     ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
     ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5)) 
-
+    ∇u = ∇transform.u
     diffusive.turbulence.Richardson = Richardson
-    diffusive.turbulence.ν_x = ν_h[1]
-    diffusive.turbulence.ν_y = ν_h[2]
-    diffusive.turbulence.ν_z = ν_v[3]
+
+    diffusive.turbulence.ν_x = ν[1,1]
+    diffusive.turbulence.ν_y = ν[2,2]
+    diffusive.turbulence.ν_z = ν[3,3]
+    
+    diffusive.turbulence.∂u∂x = ∇u[1,1]
+    diffusive.turbulence.∂u∂y = ∇u[1,2]
+    diffusive.turbulence.∂u∂z = ∇u[1,3]
+    
+    diffusive.turbulence.∂v∂x = ∇u[2,1]
+    diffusive.turbulence.∂v∂x = ∇u[2,2]
+    diffusive.turbulence.∂v∂y = ∇u[2,3]
+    
+    diffusive.turbulence.∂w∂z = ∇u[3,1]
+    diffusive.turbulence.∂w∂y = ∇u[3,2]
+    diffusive.turbulence.∂w∂z = ∇u[3,3]
 end
 
 function turbulence_tensors(
@@ -426,7 +526,7 @@ function turbulence_tensors(
     k̂ = vertical_unit_vector(orientation, param_set, aux)
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = 1#sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)

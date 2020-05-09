@@ -61,6 +61,15 @@ function vars_atmos_default_simple(t::TurbulenceClosure, FT)
         ν_x::FT
         ν_y::FT
         ν_z::FT
+        ∂u∂x::FT
+        ∂u∂y::FT
+        ∂u∂z::FT
+        ∂v∂x::FT
+        ∂v∂y::FT
+        ∂v∂z::FT
+        ∂w∂x::FT
+        ∂w∂y::FT
+        ∂w∂z::FT
     end
 end
 num_atmos_default_simple_vars(m, FT) = varsize(vars_atmos_default_simple(m, FT))
@@ -165,6 +174,18 @@ function atmos_default_simple_sums!(
     sums.turbulence.ν_x += MH * state_gradient_flux.turbulence.ν_x * state_conservative.ρ
     sums.turbulence.ν_y += MH * state_gradient_flux.turbulence.ν_y * state_conservative.ρ
     sums.turbulence.ν_z += MH * state_gradient_flux.turbulence.ν_z * state_conservative.ρ
+    
+    sums.turbulence.∂u∂x += MH *state_gradient_flux.turbulence.∂u∂x
+    sums.turbulence.∂u∂y += MH *state_gradient_flux.turbulence.∂u∂y
+    sums.turbulence.∂u∂z += MH *state_gradient_flux.turbulence.∂u∂z
+
+    sums.turbulence.∂v∂x += MH *state_gradient_flux.turbulence.∂v∂x
+    sums.turbulence.∂v∂y += MH *state_gradient_flux.turbulence.∂v∂x
+    sums.turbulence.∂v∂z += MH *state_gradient_flux.turbulence.∂v∂y
+    
+    sums.turbulence.∂w∂x += MH *state_gradient_flux.turbulence.∂w∂z
+    sums.turbulence.∂w∂y += MH *state_gradient_flux.turbulence.∂w∂y
+    sums.turbulence.∂w∂z += MH *state_gradient_flux.turbulence.∂w∂z
 
     return nothing
 end
