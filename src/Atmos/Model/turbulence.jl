@@ -348,7 +348,12 @@ end
 vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
 vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
 vars_state_gradient_flux(::SmagorinskyLilly, FT) =
-    @vars(S::SHermitianCompact{3, FT, 6}, N²::FT, ∇θ_v::SVector{3,FT})
+    @vars(S::SHermitianCompact{3, FT, 6}, 
+          N²::FT, ∇θ_v::SVector{3,FT}, 
+          Richardson::FT,
+          ν_x::FT,
+          ν_y::FT,
+          ν_z::FT)
 function atmos_init_aux!(
     ::SmagorinskyLilly,
     ::AtmosModel,
@@ -372,7 +377,7 @@ end
 
 function compute_gradient_flux!(
     am::AtmosModel,
-    ::SmagorinskyLilly,
+    m::SmagorinskyLilly,
     orientation::Orientation,
     diffusive::Vars,
     ∇transform::Grad,
@@ -380,12 +385,29 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
+    FT = eltype(state)
     ts = thermo_state(am,state,aux)
     diffusive.turbulence.S = symmetrize(∇transform.u)
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / virtual_pottemp(ts)
     diffusive.turbulence.∇θ_v = ∇transform.turbulence.θ_v
+
+    # Diagnostics Only
+    k̂ = ∇Φ/norm(∇Φ)
+    normS = strain_rate_magnitude(diffusive.turbulence.S)
+    Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
+    f_b² = 1#sqrt(clamp(FT(1) - Richardson * FT(3), FT(0), FT(1)))
+    ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2
+    ν = SVector{3, FT}(ν₀, ν₀, ν₀)
+    ν_v = k̂ .* dot(ν, k̂)
+    ν_h = ν₀ .- ν_v
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5)) 
+
+    diffusive.turbulence.Richardson = Richardson
+    diffusive.turbulence.ν_x = ν_h[1]
+    diffusive.turbulence.ν_y = ν_h[2]
+    diffusive.turbulence.ν_z = ν_v[3]
 end
 
 function turbulence_tensors(
@@ -404,7 +426,7 @@ function turbulence_tensors(
     k̂ = vertical_unit_vector(orientation, param_set, aux)
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    f_b² = 1#sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
