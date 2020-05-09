@@ -79,6 +79,25 @@ function MultirateRungeKutta(
     MultirateRungeKutta(slow_solver, fast_solver, Q; dt = dt, t0 = t0)
 end
 
+dostep!(
+    Q,
+    mrrk::MultirateRungeKutta{SS},
+    param,
+    time::Real,
+    in_slow_δ = nothing,
+    in_slow_rv_dQ = nothing,
+    in_slow_scaling = nothing,
+) where {SS <: ARK} = dostep!(
+    Q,
+    mrrk,
+    mrrk.slow_solver.variant,
+    param,
+    time,
+    in_slow_δ,
+    in_slow_rv_dQ,
+    in_slow_scaling,
+)
+
 function dostep!(
     Q,
     mrrk::MultirateRungeKutta{SS},
@@ -113,7 +132,7 @@ function dostep!(
             end
             # update solution and scale RHS
             event = Event(device(Q))
-            event = update!(device(Q), groupsize)(
+            event = mrrk_update!(device(Q), groupsize)(
                 slow_rv_dQ,
                 in_slow_rv_dQ,
                 in_slow_δ,
@@ -153,35 +172,6 @@ function dostep!(
     end
     updatedt!(fast, fast_dt_in)
 end
-
-@kernel function update!(fast_dQ, slow_dQ, δ, slow_rka = nothing)
-    i = @index(Global, Linear)
-    @inbounds begin
-        fast_dQ[i] += δ * slow_dQ[i]
-        if slow_rka !== nothing
-            slow_dQ[i] *= slow_rka
-        end
-    end
-end
-
-dostep!(
-    Q,
-    mrrk::MultirateRungeKutta{SS},
-    param,
-    time::Real,
-    in_slow_δ = nothing,
-    in_slow_rv_dQ = nothing,
-    in_slow_scaling = nothing,
-) where {SS <: ARK} = dostep!(
-    Q,
-    mrrk,
-    mrrk.slow_solver.variant,
-    param,
-    time,
-    in_slow_δ,
-    in_slow_rv_dQ,
-    in_slow_scaling,
-)
 
 function dostep!(
     Q,
@@ -226,6 +216,8 @@ function dostep!(
 
     groupsize = 256
 
+    fast_dt_in = getdt(inner_solver)
+
     # calculate the rhs at first stage to initialize the stage loop
     outer_rhs!(
         outer_Rstages[1],
@@ -235,11 +227,42 @@ function dostep!(
         increment = false,
     )
 
+    # Fractional time for slow stage
+    γ = outer_RKC[2] - outer_RKC[1]
+
+    # RKB for the slow with fractional time factor remove (since full
+    # integration of fast will result in scaling by γ)
+    slow_δ = outer_RKB[1] / γ
+
+    # RKB for the slow with fractional time factor remove (since full
+    # integration of fast will result in scaling by γ)
+    nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * dt / fast_dt_in) : 1
+    fast_dt = γ * dt / nsubsteps
+
+    updatedt!(inner_solver, fast_dt)
+
+    for substep in 1:nsubsteps
+        slow_rka = nothing
+        if substep == nsubsteps
+            slow_rka = outer_RKA_explicit[1 % length(outer_RKA_explicit) + 1]
+        end
+        fast_time = time + outer_RKC[1] * dt + (substep - 1) * fast_dt
+        dostep!(
+            outer_Qstages[1],
+            inner_solver,
+            param,
+            fast_time,
+            slow_δ,
+            rv_outerRstages[1],
+            slow_rka,
+        )
+    end
+
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
         stagetime = time + outer_RKC[istage] * dt
 
-        # this kernel also initializes Qtt for the linear solver
+        # This kernel also initializes Qtt for the linear solver.
         event = Event(device(Q))
         event = stage_update!(device(Q), groupsize)(
             variant,
@@ -275,6 +298,41 @@ function dostep!(
             stagetime,
             increment = false,
         )
+
+        # Fractional time for slow stage
+        if istage == Nstages
+            γ = 1 - outer_RKC[istage]
+        else
+            γ = outer_RKC[istage + 1] - outer_RKC[istage]
+        end
+
+        # RKB for the slow with fractional time factor remove (since full
+        # integration of fast will result in scaling by γ)
+        slow_δ = outer_RKB[istage] / γ
+
+        # RKB for the slow with fractional time factor remove (since full
+        # integration of fast will result in scaling by γ)
+        nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * dt / fast_dt_in) : 1
+        fast_dt = γ * dt / nsubsteps
+
+        updatedt!(inner_solver, fast_dt)
+
+        for substep in 1:nsubsteps
+            slow_rka = nothing
+            if substep == nsubsteps
+                slow_rka = outer_RKA_explicit[istage % length(outer_RKA_explicit) + 1]
+            end
+            fast_time = stagetime + (substep - 1) * fast_dt
+            dostep!(
+                outer_Qstages[istage],
+                inner_solver,
+                param,
+                fast_time,
+                slow_δ,
+                rv_outerRstages[istage],
+                slow_rka
+            )
+        end
     end
 
     if split_explicit_implicit
@@ -306,4 +364,14 @@ function dostep!(
         dependencies = (event,),
     )
     wait(device(Q), event)
+end
+
+@kernel function mrrk_update!(fast_dQ, slow_dQ, δ, slow_rka = nothing)
+    i = @index(Global, Linear)
+    @inbounds begin
+        fast_dQ[i] += δ * slow_dQ[i]
+        if slow_rka !== nothing
+            slow_dQ[i] *= slow_rka
+        end
+    end
 end
