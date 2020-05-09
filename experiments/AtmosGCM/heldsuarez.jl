@@ -192,7 +192,7 @@ function main()
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
     # Set up ODE solver configuration
-    ode_solver_type = CLIMA.MRIHEVISolverType(
+    ode_solver_type = ClimateMachine.MRIHEVISolverType(
         outer_method = MRIGARKESDIRK24LSA,
         middle_method = MRIGARKERK45aSandu,
         inner_method = LSRK54CarpenterKennedy,
@@ -200,7 +200,7 @@ function main()
         timestep_ratio_inner = 50,
     )
     # ode_solver_type = CLIMA.DefaultSolverType()
-    CFL = FT(0.2)
+    CFL = FT(0.01)
 
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
