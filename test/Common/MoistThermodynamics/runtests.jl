@@ -2,6 +2,7 @@ using Test
 using ClimateMachine.MoistThermodynamics
 using NCDatasets
 using Random
+using RootSolvers
 MT = MoistThermodynamics
 using LinearAlgebra
 
@@ -258,7 +259,7 @@ end
         ρ,
         q_tot,
         10,
-        1e-2,
+        ResidualTolerance(1e-2),
     ) ≈ 300.0
     @test abs(
         MT.saturation_adjustment(
@@ -267,7 +268,7 @@ end
             ρ,
             q_tot,
             10,
-            1e-2,
+            ResidualTolerance(1e-2),
         ) - 300.0,
     ) < tol_T
 
@@ -279,7 +280,7 @@ end
         ρ,
         q_tot,
         10,
-        1e-2,
+        ResidualTolerance(1e-2),
     ) ≈ 200.0
     @test abs(
         MT.saturation_adjustment(
@@ -288,7 +289,7 @@ end
             ρ,
             q_tot,
             10,
-            1e-2,
+            ResidualTolerance(1e-2),
         ) - 200.0,
     ) < tol_T
     q = PhasePartition_equil(param_set, T, ρ, q_tot)
@@ -345,8 +346,8 @@ end
             tested_profiles(param_set, 50, FT)
 
         # PhaseEquil
-        ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-4))
-        ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 4)
+        ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-3))
+        ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
         # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈
@@ -374,7 +375,7 @@ end
                 ρ,
                 q_tot,
                 100,
-                FT(1e-4),
+                FT(1e-3),
                 MT.saturation_adjustment_SecantMethod,
             )
         ts =
@@ -383,7 +384,7 @@ end
                 e_int,
                 ρ,
                 q_tot,
-                30,
+                35,
                 FT(1e-1),
                 MT.saturation_adjustment_SecantMethod,
             ) # Needs to be in sync with default
@@ -558,7 +559,7 @@ end
                 e_int,
                 ρ,
                 q_tot,
-                30,
+                40,
                 FT(1e-1),
                 Ref(MT.saturation_adjustment_SecantMethod),
             )
@@ -566,7 +567,7 @@ end
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
         @test all(air_density.(ts) .≈ ρ)
 
-        ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 4)
+        ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
         @test all(air_density.(ts) .≈ ρ)
@@ -616,8 +617,8 @@ end
                 Ref(param_set),
                 θ_liq_ice,
                 ρ,
-                10,
-                FT(1e-3),
+                20,
+                ResidualTolerance(FT(5e-5)),
                 q_pt,
             )
         T_expansion =
@@ -631,7 +632,7 @@ end
         e_int_ = internal_energy.(Ref(param_set), T_non_linear, q_pt)
         ts = PhaseNonEquil.(Ref(param_set), e_int_, ρ, q_pt)
         @test all(T_non_linear .≈ air_temperature.(ts))
-        @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+        @test all(isapprox(θ_liq_ice, liquid_ice_pottemp.(ts), rtol = rtol))
 
         # LiquidIcePotTempSHumEquil
         ts =
@@ -659,7 +660,7 @@ end
                 θ_liq_ice,
                 p,
                 q_tot,
-                40,
+                35,
                 FT(1e-3),
             )
         @test all(isapprox.(liquid_ice_pottemp.(ts), θ_liq_ice, atol = 1e-1))
@@ -698,7 +699,7 @@ end
                 5,
                 FT(1e-3),
             )
-        @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+        @test all(isapprox.(θ_liq_ice, liquid_ice_pottemp.(ts), rtol = rtol))
         @test all(air_density.(ts) .≈ ρ)
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈ getproperty.(q_pt, :tot),
