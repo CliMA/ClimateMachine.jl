@@ -6,7 +6,7 @@ export total_specific_humidity
 # Energies
 export total_energy, internal_energy, internal_energy_sat
 
-# Specific heats of moist air
+# Specific heats and gas constants of moist air
 export cp_m, cv_m, gas_constant_air, gas_constants
 
 # Latent heats
@@ -151,12 +151,15 @@ total_specific_humidity(ts::PhaseNonEquil) = ts.q.tot
 """
     cp_m(param_set, [q::PhasePartition])
 
-The isobaric specific heat capacity of moist
-air where, optionally,
+The isobaric specific heat capacity of moist air given
  - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+and, optionally
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-function cp_m(param_set::APS, q::PhasePartition{FT}) where {FT <: Real}
+function cp_m(
+    param_set::APS,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
     _cp_d::FT = cp_d(param_set)
     _cp_v::FT = cp_v(param_set)
     _cp_l::FT = cp_l(param_set)
@@ -173,8 +176,7 @@ cp_m(param_set::APS, ::Type{FT}) where {FT <: Real} =
 """
     cp_m(ts::ThermodynamicState)
 
-The isobaric specific heat capacity of moist
-air, given a thermodynamic state `ts`.
+The isobaric specific heat capacity of moist air, given a thermodynamic state `ts`.
 """
 cp_m(ts::ThermodynamicState) = cp_m(ts.param_set, PhasePartition(ts))
 cp_m(ts::PhaseDry{FT}) where {FT <: Real} = FT(cp_d(ts.param_set))
@@ -182,9 +184,9 @@ cp_m(ts::PhaseDry{FT}) where {FT <: Real} = FT(cp_d(ts.param_set))
 """
     cv_m(param_set, [q::PhasePartition])
 
-The isochoric specific heat capacity of moist
-air where optionally,
+The isochoric specific heat capacity of moist air given
  - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+and, optionally
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
 function cv_m(param_set::APS, q::PhasePartition{FT}) where {FT <: Real}
@@ -204,8 +206,7 @@ cv_m(param_set::APS, ::Type{FT}) where {FT <: Real} =
 """
     cv_m(ts::ThermodynamicState)
 
-The isochoric specific heat capacity of moist
-air given a thermodynamic state `ts`.
+The isochoric specific heat capacity of moist air, given a thermodynamic state `ts`.
 """
 cv_m(ts::ThermodynamicState) = cv_m(ts.param_set, PhasePartition(ts))
 cv_m(ts::PhaseDry{FT}) where {FT <: Real} = FT(cv_d(ts.param_set))
@@ -925,7 +926,9 @@ Compute the temperature that is consistent with
  - `e_int` internal energy
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
- - `tol` tolerance for non-linear equation solve
+ - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
+    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
+    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
@@ -942,7 +945,7 @@ function saturation_adjustment(
     ρ::FT,
     q_tot::FT,
     maxiter::Int,
-    tol::FT,
+    tol::AbstractTolerance,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
 
@@ -956,7 +959,7 @@ function saturation_adjustment(
             T -> internal_energy_sat(param_set, T, ρ, q_tot) - e_int,
             NewtonsMethod(T_1, T_ -> ∂e_int_∂T(param_set, T_, e_int, ρ, q_tot)),
             CompactSolution(),
-            SolutionTolerance(tol),
+            tol,
             maxiter,
         )
         if !sol.converged
@@ -1000,7 +1003,9 @@ Compute the temperature `T` that is consistent with
  - `e_int` internal energy
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
- - `tol` tolerance for non-linear equation solve
+ - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
+    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
+    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
@@ -1015,7 +1020,7 @@ function saturation_adjustment_SecantMethod(
     ρ::FT,
     q_tot::FT,
     maxiter::Int,
-    tol::FT,
+    tol::AbstractTolerance,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
     T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
@@ -1035,7 +1040,7 @@ function saturation_adjustment_SecantMethod(
             T -> internal_energy_sat(param_set, T, ρ, q_tot) - e_int,
             SecantMethod(T_1, T_2),
             CompactSolution(),
-            SolutionTolerance(tol),
+            tol,
             maxiter,
         )
         if !sol.converged
@@ -1054,7 +1059,9 @@ Compute the temperature `T` that is consistent with
  - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `ρ` (moist-)air density
- - `tol` tolerance for non-linear equation solve
+ - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
+    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
+    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
@@ -1071,7 +1078,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(
     ρ::FT,
     q_tot::FT,
     maxiter::Int,
-    tol::FT,
+    tol::AbstractTolerance,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
     T_1 = max(
@@ -1099,7 +1106,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(
             T -> liquid_ice_pottemp_sat(param_set, T, ρ, q_tot) - θ_liq_ice,
             SecantMethod(T_1, T_2),
             CompactSolution(),
-            SolutionTolerance(tol),
+            tol,
             maxiter,
         )
         if !sol.converged
@@ -1118,7 +1125,9 @@ Compute the temperature `T` that is consistent with
  - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `p` pressure
- - `tol` tolerance for non-linear equation solve
+ - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
+    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
+    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
 
 by finding the root of
@@ -1135,7 +1144,7 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
     p::FT,
     q_tot::FT,
     maxiter::Int,
-    tol::FT,
+    tol::AbstractTolerance,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
     T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(
@@ -1167,7 +1176,7 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
                 ) - θ_liq_ice,
             SecantMethod(T_1, T_2),
             CompactSolution(),
-            SolutionTolerance(tol),
+            tol,
             maxiter,
         )
         if !sol.converged
@@ -1343,7 +1352,9 @@ Computes temperature `T` given
  - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
  - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
- - `tol` tolerance for non-linear equation solve
+ - `tol` absolute tolerance for non-linear equation iterations. Can be one of:
+    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
+    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
@@ -1358,7 +1369,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
     θ_liq_ice::FT,
     ρ::FT,
     maxiter::Int,
-    tol::FT,
+    tol::AbstractTolerance,
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
@@ -1373,7 +1384,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
             ),
         SecantMethod(_T_min, _T_max),
         CompactSolution(),
-        SolutionTolerance(tol),
+        tol,
         maxiter,
     )
     if !sol.converged

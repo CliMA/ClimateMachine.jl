@@ -15,7 +15,12 @@ tested with in runtests.jl
         T_min::FT,
         ) where {FT <: AbstractFloat}
 
-Fixed lapse rate hydrostatic reference state
+Fixed lapse rate hydrostatic reference state given
+
+ - `param_set` parameter set, used to dispatch planet parameter function calls
+ - `z` altitude
+ - `T_surface` surface temperature
+ - `T_min` minimum temperature
 """
 function fixed_lapse_rate(
     param_set::AbstractParameterSet,
