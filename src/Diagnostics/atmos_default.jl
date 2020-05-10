@@ -175,17 +175,17 @@ function atmos_default_simple_sums!(
     sums.turbulence.ν_y += MH * state_gradient_flux.turbulence.ν_y * state_conservative.ρ
     sums.turbulence.ν_z += MH * state_gradient_flux.turbulence.ν_z * state_conservative.ρ
     
-    sums.turbulence.∂u∂x += MH *state_gradient_flux.turbulence.∂u∂x
-    sums.turbulence.∂u∂y += MH *state_gradient_flux.turbulence.∂u∂y
-    sums.turbulence.∂u∂z += MH *state_gradient_flux.turbulence.∂u∂z
+    sums.turbulence.∂u∂x += MH *state_gradient_flux.turbulence.∂u∂x * state_conservative.ρ
+    sums.turbulence.∂u∂y += MH *state_gradient_flux.turbulence.∂u∂y * state_conservative.ρ 
+    sums.turbulence.∂u∂z += MH *state_gradient_flux.turbulence.∂u∂z * state_conservative.ρ
 
-    sums.turbulence.∂v∂x += MH *state_gradient_flux.turbulence.∂v∂x
-    sums.turbulence.∂v∂y += MH *state_gradient_flux.turbulence.∂v∂x
-    sums.turbulence.∂v∂z += MH *state_gradient_flux.turbulence.∂v∂y
+    sums.turbulence.∂v∂x += MH *state_gradient_flux.turbulence.∂v∂x * state_conservative.ρ
+    sums.turbulence.∂v∂y += MH *state_gradient_flux.turbulence.∂v∂x * state_conservative.ρ
+    sums.turbulence.∂v∂z += MH *state_gradient_flux.turbulence.∂v∂y * state_conservative.ρ
     
-    sums.turbulence.∂w∂x += MH *state_gradient_flux.turbulence.∂w∂z
-    sums.turbulence.∂w∂y += MH *state_gradient_flux.turbulence.∂w∂y
-    sums.turbulence.∂w∂z += MH *state_gradient_flux.turbulence.∂w∂z
+    sums.turbulence.∂w∂x += MH *state_gradient_flux.turbulence.∂w∂z * state_conservative.ρ
+    sums.turbulence.∂w∂y += MH *state_gradient_flux.turbulence.∂w∂y * state_conservative.ρ
+    sums.turbulence.∂w∂z += MH *state_gradient_flux.turbulence.∂w∂z * state_conservative.ρ
 
     return nothing
 end

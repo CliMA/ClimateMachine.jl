@@ -307,10 +307,6 @@ function compute_gradient_flux!(
     diffusive.turbulence.ν_y = ν_h[2]
     diffusive.turbulence.ν_z = ν_v[3]
     
-    diffusive.turbulence.ν_x = ν[1,1]
-    diffusive.turbulence.ν_y = ν[2,2]
-    diffusive.turbulence.ν_z = ν[3,3]
-    
     diffusive.turbulence.∂u∂x = ∇u[1,1]
     diffusive.turbulence.∂u∂y = ∇u[1,2]
     diffusive.turbulence.∂u∂z = ∇u[1,3]

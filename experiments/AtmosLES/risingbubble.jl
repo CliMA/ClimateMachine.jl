@@ -232,7 +232,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
         param_set;                                   # Parameter set corresponding to earth parameters
         #turbulence = SmagorinskyLilly{FT}(0.25),     # Turbulence closure model
-        turbulence = ConstantViscosityWithDivergence{FT}(10),     # Turbulence closure model
+        turbulence = ConstantViscosityWithDivergence{FT}(20),     # Turbulence closure model
         #hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
         source = (Gravity(),),                       # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),       # Tracer model with diffusivity coefficients
