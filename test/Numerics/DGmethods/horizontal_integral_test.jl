@@ -3,7 +3,6 @@ using StaticArrays
 using Logging
 using Printf
 using LinearAlgebra
-using GPUifyLoops
 using Test
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies

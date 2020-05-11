@@ -2,7 +2,8 @@ using MPI
 using Test
 using LinearAlgebra
 using Random
-using GPUifyLoops, StaticArrays
+using StaticArrays
+using KernelAbstractions: CPU, CUDA
 using ClimateMachine
 using ClimateMachine.LinearSolvers
 using ClimateMachine.ConjugateGradientSolver

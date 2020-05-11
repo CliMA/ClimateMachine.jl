@@ -8,7 +8,7 @@ using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.Writers
 using StaticArrays
-using GPUifyLoops
+using KernelAbstractions: CPU, CUDA
 
 using ClimateMachine.VariableTemplates
 #------------------------------------------------

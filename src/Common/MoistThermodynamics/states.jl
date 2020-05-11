@@ -102,9 +102,6 @@ function PhaseEquil(
     temperature_tol::FT = FT(1e-1),
     sat_adjust::Function = saturation_adjustment,
 ) where {FT <: Real}
-    # TODO: Remove these safety nets, or at least add warnings
-    # waiting on fix: github.com/vchuravy/GPUifyLoops.jl/issues/104
-
     _cv_d = FT(cv_d(param_set))
     # Convert temperature tolerance to a convergence criterion on internal energy residuals
     tol = ResidualTolerance(temperature_tol * _cv_d)
