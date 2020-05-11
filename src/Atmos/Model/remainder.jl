@@ -8,41 +8,51 @@ struct RemainderModel{M, S} <: BalanceLaw
     subs::S
 end
 
-vars_state(rem::RemainderModel, FT) = vars_state(rem.main, FT)
-vars_gradient(rem::RemainderModel, FT) = vars_gradient(rem.main, FT)
-vars_diffusive(rem::RemainderModel, FT) = vars_diffusive(rem.main, FT)
-vars_aux(rem::RemainderModel, FT) = vars_aux(rem.main, FT)
+vars_state_conservative(rem::RemainderModel, FT) =
+    vars_state_conservative(rem.main, FT)
+vars_state_gradient(rem::RemainderModel, FT) = vars_state_gradient(rem.main, FT)
+vars_state_gradient_flux(rem::RemainderModel, FT) =
+    vars_state_gradient_flux(rem.main, FT)
+vars_state_auxiliary(rem::RemainderModel, FT) =
+    vars_state_auxiliary(rem.main, FT)
 vars_integrals(rem::RemainderModel, FT) = vars_integrals(rem.main, FT)
 vars_reverse_integrals(rem::RemainderModel, FT) = vars_integrals(rem.main, FT)
 vars_gradient_laplacian(rem::RemainderModel, FT) =
     vars_gradient_laplacian(rem.main, FT)
 vars_hyperdiffusive(rem::RemainderModel, FT) = vars_hyperdiffusive(rem.main, FT)
 
-update_aux!(
+update_auxiliary_state!(
     dg::DGModel,
     rem::RemainderModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
-) = update_aux!(dg, rem.main, Q, t, elems)
+) = update_auxiliary_state!(dg, rem.main, Q, t, elems)
 
-integral_load_aux!(rem::RemainderModel, integ::Vars, state::Vars, aux::Vars) =
-    integral_load_aux!(rem.main, integ, state, aux)
-
-integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
-    integral_set_aux!(rem.main, aux, integ)
-
-reverse_integral_load_aux!(
+integral_load_auxiliary_state!(
     rem::RemainderModel,
     integ::Vars,
     state::Vars,
     aux::Vars,
-) = reverse_integral_load_aux!(rem.main, integ, state, aux)
+) = integral_load_auxiliary_state!(rem.main, integ, state, aux)
 
-reverse_integral_set_aux!(rem::RemainderModel, aux::Vars, integ::Vars) =
-    reverse_integral_set_aux!(rem.main, aux, integ)
+integral_set_auxiliary_state!(rem::RemainderModel, aux::Vars, integ::Vars) =
+    integral_set_auxiliary_state!(rem.main, aux, integ)
 
-function hyperdiffusive!(
+reverse_integral_load_auxiliary_state!(
+    rem::RemainderModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+) = reverse_integral_load_auxiliary_state!(rem.main, integ, state, aux)
+
+reverse_integral_set_auxiliary_state!(
+    rem::RemainderModel,
+    aux::Vars,
+    integ::Vars,
+) = reverse_integral_set_auxiliary_state!(rem.main, aux, integ)
+
+function transform_post_gradient_laplacian!(
     rem::RemainderModel,
     hyperdiffusive::Vars,
     hypertransform::Grad,
@@ -50,9 +60,16 @@ function hyperdiffusive!(
     aux::Vars,
     t::Real,
 )
-    hyperdiffusive!(rem.main, hyperdiffusive, hypertransform, state, aux, t)
+    transform_post_gradient_laplacian!(
+        rem.main,
+        hyperdiffusive,
+        hypertransform,
+        state,
+        aux,
+        t,
+    )
 end
-function flux_diffusive!(
+function flux_second_order!(
     rem::RemainderModel,
     flux::Grad,
     state::Vars,
@@ -61,25 +78,25 @@ function flux_diffusive!(
     aux::Vars,
     t::Real,
 )
-    flux_diffusive!(rem.main, flux, state, diffusive, hyperdiffusive, aux, t)
+    flux_second_order!(rem.main, flux, state, diffusive, hyperdiffusive, aux, t)
 end
 
-gradvariables!(
+compute_gradient_argument!(
     rem::RemainderModel,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
-) = gradvariables!(rem.main, transform, state, aux, t)
+) = compute_gradient_argument!(rem.main, transform, state, aux, t)
 
-diffusive!(
+compute_gradient_flux!(
     rem::RemainderModel,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-) = diffusive!(rem.main, diffusive, ∇transform, state, aux, t)
+) = compute_gradient_flux!(rem.main, diffusive, ∇transform, state, aux, t)
 
 function wavespeed(rem::RemainderModel, nM, state::Vars, aux::Vars, t::Real)
     ref = aux.ref_state
@@ -89,7 +106,7 @@ end
 
 boundary_state!(nf, rem::RemainderModel, x...) =
     boundary_state!(nf, rem.main, x...)
-function normal_boundary_flux_diffusive!(
+function normal_boundary_flux_second_order!(
     nf,
     rem::RemainderModel,
     fluxᵀn::Vars{S},
@@ -106,7 +123,7 @@ function normal_boundary_flux_diffusive!(
     t,
     args...,
 ) where {S}
-    normal_boundary_flux_diffusive!(
+    normal_boundary_flux_second_order!(
         nf,
         rem.main,
         fluxᵀn,
@@ -125,10 +142,17 @@ function normal_boundary_flux_diffusive!(
     )
 end
 
-init_aux!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) = nothing
-init_state!(rem::RemainderModel, state::Vars, aux::Vars, coords, t) = nothing
+init_state_auxiliary!(rem::RemainderModel, aux::Vars, geom::LocalGeometry) =
+    nothing
+init_state_conservative!(
+    rem::RemainderModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+) = nothing
 
-function flux_nondiffusive!(
+function flux_first_order!(
     rem::RemainderModel,
     flux::Grad,
     state::Vars,
@@ -136,14 +160,14 @@ function flux_nondiffusive!(
     t::Real,
 )
     m = getfield(flux, :array)
-    flux_nondiffusive!(rem.main, flux, state, aux, t)
+    flux_first_order!(rem.main, flux, state, aux, t)
 
     flux_s = similar(flux)
     m_s = getfield(flux_s, :array)
 
     for sub in rem.subs
         fill!(m_s, 0)
-        flux_nondiffusive!(sub, flux_s, state, aux, t)
+        flux_first_order!(sub, flux_s, state, aux, t)
         m .-= m_s
     end
     nothing

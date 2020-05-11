@@ -3,35 +3,35 @@ using Test
 using StaticArrays
 using Logging, Printf
 
-using CLIMA
-using CLIMA.LinearSolvers
-using CLIMA.GeneralizedConjugateResidualSolver
-using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.VariableTemplates
-using CLIMA.DGmethods
-import CLIMA.DGmethods:
+using ClimateMachine
+using ClimateMachine.LinearSolvers
+using ClimateMachine.GeneralizedConjugateResidualSolver
+using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.VariableTemplates
+using ClimateMachine.DGmethods
+import ClimateMachine.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     boundary_state!,
-    numerical_boundary_flux_diffusive!,
-    gradvariables!,
-    diffusive!,
-    init_aux!,
-    init_state!,
+    numerical_boundary_flux_second_order!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    init_state_auxiliary!,
+    init_state_conservative!,
     LocalGeometry
 
-import CLIMA.DGmethods.NumericalFluxes:
-    NumericalFluxDiffusive, numerical_flux_diffusive!
+import ClimateMachine.DGmethods.NumericalFluxes:
+    NumericalFluxSecondOrder, numerical_flux_second_order!
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -42,41 +42,42 @@ end
 
 struct PoissonModel{dim} <: BalanceLaw end
 
-vars_aux(::PoissonModel, T) = @vars(rhs_ϕ::T)
-vars_state(::PoissonModel, T) = @vars(ϕ::T)
-vars_gradient(::PoissonModel, T) = @vars(ϕ::T)
-vars_diffusive(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
+vars_state_auxiliary(::PoissonModel, T) = @vars(rhs_ϕ::T)
+vars_state_conservative(::PoissonModel, T) = @vars(ϕ::T)
+vars_state_gradient(::PoissonModel, T) = @vars(ϕ::T)
+vars_state_gradient_flux(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
 
 boundary_state!(nf, bl::PoissonModel, _...) = nothing
 
-function flux_nondiffusive!(
+function flux_first_order!(
     ::PoissonModel,
     flux::Grad,
     state::Vars,
-    auxstate::Vars,
+    state_auxiliary::Vars,
     t::Real,
 )
     nothing
 end
 
-function flux_diffusive!(
+function flux_second_order!(
     ::PoissonModel,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
     hyperdiffusive::Vars,
-    auxstate::Vars,
+    state_auxiliary::Vars,
     t::Real,
 )
     flux.ϕ = diffusive.∇ϕ
 end
 
-struct PenaltyNumFluxDiffusive <: NumericalFluxDiffusive end
+struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
 
 # There is no boundary since we are periodic
-numerical_boundary_flux_diffusive!(nf::PenaltyNumFluxDiffusive, _...) = nothing
+numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) =
+    nothing
 
-function numerical_flux_diffusive!(
+function numerical_flux_second_order!(
     ::PenaltyNumFluxDiffusive,
     bl::PoissonModel,
     fluxᵀn::Vars{S},
@@ -92,8 +93,8 @@ function numerical_flux_diffusive!(
     t,
 ) where {S, HD, D, A}
 
-    numerical_flux_diffusive!(
-        CentralNumericalFluxDiffusive(),
+    numerical_flux_second_order!(
+        CentralNumericalFluxSecondOrder(),
         bl,
         fluxᵀn,
         n,
@@ -114,22 +115,22 @@ function numerical_flux_diffusive!(
     Fᵀn .-= tau * (parent(state⁻) - parent(state⁺))
 end
 
-function gradvariables!(
+function compute_gradient_argument!(
     ::PoissonModel,
     transformstate::Vars,
     state::Vars,
-    auxstate::Vars,
+    state_auxiliary::Vars,
     t::Real,
 )
     transformstate.ϕ = state.ϕ
 end
 
-function diffusive!(
+function compute_gradient_flux!(
     ::PoissonModel,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
-    auxstate::Vars,
+    state_auxiliary::Vars,
     t::Real,
 )
     diffusive.∇ϕ = ∇transform.ϕ
@@ -142,7 +143,11 @@ sol1d(x) = sin(2pi * x)^4 - 3 / 8
 dxx_sol1d(x) =
     -16 * pi^2 * sin(2pi * x)^2 * (sin(2pi * x)^2 - 3 * cos(2pi * x)^2)
 
-function init_aux!(::PoissonModel{dim}, aux::Vars, g::LocalGeometry) where {dim}
+function init_state_auxiliary!(
+    ::PoissonModel{dim},
+    aux::Vars,
+    g::LocalGeometry,
+) where {dim}
     aux.rhs_ϕ = 0
     @inbounds for d in 1:dim
         x1 = g.coord[d]
@@ -153,7 +158,7 @@ function init_aux!(::PoissonModel{dim}, aux::Vars, g::LocalGeometry) where {dim}
     end
 end
 
-function init_state!(
+function init_state_conservative!(
     ::PoissonModel{dim},
     state::Vars,
     aux::Vars,
@@ -185,13 +190,13 @@ function run(
     dg = DGModel(
         PoissonModel{dim}(),
         grid,
-        CentralNumericalFluxNonDiffusive(),
+        CentralNumericalFluxFirstOrder(),
         PenaltyNumFluxDiffusive(),
         CentralNumericalFluxGradient(),
     )
 
     Q = init_ode_state(dg, FT(0))
-    Qrhs = dg.auxstate
+    Qrhs = dg.state_auxiliary
     Qexact = init_ode_state(dg, FT(0))
 
     linearoperator!(y, x) = dg(y, x, nothing, 0; increment = false)
@@ -210,8 +215,8 @@ function run(
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

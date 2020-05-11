@@ -7,23 +7,23 @@ using ..VariableTemplates
 using LinearAlgebra: I, dot
 using CLIMAParameters.Planet: grav
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
     vars_integrals,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     wavespeed,
     boundary_state!,
-    gradvariables!,
-    init_aux!,
-    init_state!,
+    compute_gradient_argument!,
+    init_state_auxiliary!,
+    init_state_conservative!,
     LocalGeometry,
-    diffusive!
+    compute_gradient_flux!
 
 using ..DGmethods.NumericalFluxes
 
@@ -52,33 +52,33 @@ struct SWModel{PS, P, T, A, S} <: BalanceLaw
     c::S
 end
 
-function vars_state(m::SWModel, T)
+function vars_state_conservative(m::SWModel, T)
     @vars begin
         U::SVector{3, T}
         η::T
     end
 end
 
-function vars_aux(m::SWModel, T)
+function vars_state_auxiliary(m::SWModel, T)
     @vars begin
         f::SVector{3, T}
         τ::SVector{3, T}  # value includes τₒ, g, and ρ
     end
 end
 
-function vars_gradient(m::SWModel, T)
+function vars_state_gradient(m::SWModel, T)
     @vars begin
         U::SVector{3, T}
     end
 end
 
-function vars_diffusive(m::SWModel, T)
+function vars_state_gradient_flux(m::SWModel, T)
     @vars begin
         ν∇U::SMatrix{3, 3, T, 9}
     end
 end
 
-@inline function flux_nondiffusive!(
+@inline function flux_first_order!(
     m::SWModel,
     F::Grad,
     q::Vars,
@@ -117,31 +117,44 @@ advective_flux!(::SWModel, ::Nothing, _...) = nothing
     return nothing
 end
 
-function gradvariables!(m::SWModel, f::Vars, q::Vars, α::Vars, t::Real)
-    gradvariables!(m.turbulence, f, q, α, t)
+function compute_gradient_argument!(
+    m::SWModel,
+    f::Vars,
+    q::Vars,
+    α::Vars,
+    t::Real,
+)
+    compute_gradient_argument!(m.turbulence, f, q, α, t)
 end
 
-gradvariables!(::LinearDrag, _...) = nothing
+compute_gradient_argument!(::LinearDrag, _...) = nothing
 
-@inline function gradvariables!(
+@inline function compute_gradient_argument!(
     T::ConstantViscosity,
     f::Vars,
     q::Vars,
     α::Vars,
     t::Real,
 )
-    f.U = q.U
+    f.∇U = q.U
 
     return nothing
 end
 
-function diffusive!(m::SWModel, σ::Vars, δ::Grad, q::Vars, α::Vars, t::Real)
-    diffusive!(m.turbulence, σ, δ, q, α, t)
+function compute_gradient_flux!(
+    m::SWModel,
+    σ::Vars,
+    δ::Grad,
+    q::Vars,
+    α::Vars,
+    t::Real,
+)
+    compute_gradient_flux!(m.turbulence, σ, δ, q, α, t)
 end
 
-diffusive!(::LinearDrag, _...) = nothing
+compute_gradient_flux!(::LinearDrag, _...) = nothing
 
-@inline function diffusive!(
+@inline function compute_gradient_flux!(
     T::ConstantViscosity,
     σ::Vars,
     δ::Grad,
@@ -150,14 +163,14 @@ diffusive!(::LinearDrag, _...) = nothing
     t::Real,
 )
     ν = T.ν
-    ∇U = δ.U
+    ∇U = δ.∇U
 
     σ.ν∇U = ν * ∇U
 
     return nothing
 end
 
-function flux_diffusive!(
+function flux_second_order!(
     m::SWModel,
     G::Grad,
     q::Vars,
@@ -166,12 +179,12 @@ function flux_diffusive!(
     α::Vars,
     t::Real,
 )
-    flux_diffusive!(m.turbulence, G, q, σ, α, t)
+    flux_second_order!(m.turbulence, G, q, σ, α, t)
 end
 
-flux_diffusive!(::LinearDrag, _...) = nothing
+flux_second_order!(::LinearDrag, _...) = nothing
 
-@inline function flux_diffusive!(
+@inline function flux_second_order!(
     ::ConstantViscosity,
     G::Grad,
     q::Vars,
@@ -217,12 +230,12 @@ linear_drag!(::ConstantViscosity, _...) = nothing
 end
 
 function shallow_init_aux! end
-function init_aux!(m::SWModel, aux::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::SWModel, aux::Vars, geom::LocalGeometry)
     shallow_init_aux!(m.problem, aux, geom)
 end
 
 function shallow_init_state! end
-function init_state!(m::SWModel, state::Vars, aux::Vars, coords, t)
+function init_state_conservative!(m::SWModel, state::Vars, aux::Vars, coords, t)
     shallow_init_state!(m.problem, m.turbulence, state, aux, coords, t)
 end
 
@@ -252,7 +265,7 @@ function boundary_state!(
 end
 
 @inline function shallow_boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     m::SWModel,
     ::LinearDrag,
     state⁺,
@@ -279,7 +292,7 @@ shallow_boundary_state!(
 ) = nothing
 
 shallow_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     m::SWModel,
     ::LinearDrag,
     _...,
@@ -303,7 +316,7 @@ function boundary_state!(
 end
 
 @inline function shallow_boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,
@@ -336,7 +349,7 @@ end
 end
 
 @inline function shallow_boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,

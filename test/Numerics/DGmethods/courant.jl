@@ -1,18 +1,20 @@
 using Test
 using MPI
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.VTK
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.VTK
 using Logging
 using Printf
 using LinearAlgebra
-using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
-using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
-using CLIMA.Courant
-using CLIMA.Atmos:
+using ClimateMachine.DGmethods: DGModel, init_ode_state, LocalGeometry, courant
+using ClimateMachine.DGmethods.NumericalFluxes:
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
+using ClimateMachine.Courant
+using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
     RemainderModel,
@@ -26,20 +28,20 @@ using CLIMA.Atmos:
     HydrostaticState,
     IsothermalProfile,
     ConstantViscosityWithDivergence,
-    vars_state,
+    vars_state_conservative,
     soundspeed
-using CLIMA.Atmos
-using CLIMA.ODESolvers
+using ClimateMachine.Atmos
+using ClimateMachine.ODESolvers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-using CLIMA.MoistThermodynamics:
+using ClimateMachine.MoistThermodynamics:
     air_density, total_energy, internal_energy, soundspeed_air
 
-using CLIMA.VariableTemplates: Vars
+using ClimateMachine.VariableTemplates: Vars
 using StaticArrays
 
 const p∞ = 10^5
@@ -76,8 +78,8 @@ end
 
 let
     # boiler plate MPI stuff
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
     # Mesh generation parameters
@@ -121,14 +123,14 @@ let
                     moisture = DryModel(),
                     source = Gravity(),
                     boundarycondition = (),
-                    init_state = initialcondition!,
+                    init_state_conservative = initialcondition!,
                 )
 
                 dg = DGModel(
                     model,
                     grid,
-                    Rusanov(),
-                    CentralNumericalFluxDiffusive(),
+                    RusanovNumericalFlux(),
+                    CentralNumericalFluxSecondOrder(),
                     CentralNumericalFluxGradient(),
                 )
 

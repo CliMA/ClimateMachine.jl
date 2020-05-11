@@ -1,17 +1,25 @@
-using CLIMA
+using ClimateMachine
 using MPI
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.VTK: writemesh
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.VTK: writemesh
 using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using CLIMA.DGmethods: DGModel, Vars, vars_state, num_state, init_ode_state
-using CLIMA.ColumnwiseLUSolver: banded_matrix, banded_matrix_vector_product!
-using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxDiffusive, CentralNumericalFluxGradient
-using CLIMA.MPIStateArrays: MPIStateArray, euclidean_distance
+using ClimateMachine.DGmethods:
+    DGModel,
+    Vars,
+    vars_state_conservative,
+    number_state_conservative,
+    init_ode_state
+using ClimateMachine.ColumnwiseLUSolver:
+    banded_matrix, banded_matrix_vector_product!
+using ClimateMachine.DGmethods.NumericalFluxes:
+    RusanovNumericalFlux,
+    CentralNumericalFluxSecondOrder,
+    CentralNumericalFluxGradient
+using ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test
 
@@ -45,8 +53,8 @@ end
 
 let
     # boiler plate MPI stuff
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
     Random.seed!(777 + MPI.Comm_rank(mpicomm))
@@ -110,23 +118,23 @@ let
                     δ = FT(1 // 10)
                     model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
 
-                    # the nonlinear model is needed so we can grab the auxstate below
+                    # the nonlinear model is needed so we can grab the state_auxiliary below
                     dg = DGModel(
                         model,
                         grid,
-                        Rusanov(),
-                        CentralNumericalFluxDiffusive(),
+                        RusanovNumericalFlux(),
+                        CentralNumericalFluxSecondOrder(),
                         CentralNumericalFluxGradient(),
                     )
 
                     vdg = DGModel(
                         model,
                         grid,
-                        Rusanov(),
-                        CentralNumericalFluxDiffusive(),
+                        RusanovNumericalFlux(),
+                        CentralNumericalFluxSecondOrder(),
                         CentralNumericalFluxGradient();
                         direction = VerticalDirection(),
-                        auxstate = dg.auxstate,
+                        state_auxiliary = dg.state_auxiliary,
                     )
 
                     A_banded = banded_matrix(

@@ -1,11 +1,12 @@
 using StaticArrays
 using Test
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.Mesh.Grids
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, MSLP
@@ -58,8 +59,6 @@ function init_test!(bl, state, aux, (x, y, z), t)
 end
 
 function main()
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order
@@ -78,8 +77,8 @@ function main()
     timeend = FT(10)
     CFL = FT(0.4)
 
-    ode_solver = CLIMA.ExplicitSolverType()
-    driver_config = CLIMA.AtmosLESConfiguration(
+    ode_solver = ClimateMachine.ExplicitSolverType()
+    driver_config = ClimateMachine.AtmosLESConfiguration(
         "Driver test",
         N,
         resolution,
@@ -90,7 +89,7 @@ function main()
         init_test!,
         solver_type = ode_solver,
     )
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -99,20 +98,22 @@ function main()
 
     # Test the courant wrapper
     # by default the CFL should be less than what asked for
-    CFL_nondiff = CLIMA.DGmethods.courant(
-        CLIMA.Courant.nondiffusive_courant,
+    CFL_nondiff = ClimateMachine.DGmethods.courant(
+        ClimateMachine.Courant.nondiffusive_courant,
         solver_config,
     )
     @test CFL_nondiff < CFL
-    CFL_adv =
-        CLIMA.DGmethods.courant(CLIMA.Courant.advective_courant, solver_config)
-    CFL_adv_v = CLIMA.DGmethods.courant(
-        CLIMA.Courant.advective_courant,
+    CFL_adv = ClimateMachine.DGmethods.courant(
+        ClimateMachine.Courant.advective_courant,
+        solver_config,
+    )
+    CFL_adv_v = ClimateMachine.DGmethods.courant(
+        ClimateMachine.Courant.advective_courant,
         solver_config;
         direction = VerticalDirection(),
     )
-    CFL_adv_h = CLIMA.DGmethods.courant(
-        CLIMA.Courant.advective_courant,
+    CFL_adv_h = ClimateMachine.DGmethods.courant(
+        ClimateMachine.Courant.advective_courant,
         solver_config;
         direction = HorizontalDirection(),
     )
@@ -129,11 +130,11 @@ function main()
     @test isapprox(CFL_adv, ca_h, atol = 0.0005)
 
     cb_test = 0
-    result = CLIMA.invoke!(solver_config)
+    result = ClimateMachine.invoke!(solver_config)
     # cb_test should be zero since user_info_callback not specified
     @test cb_test == 0
 
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config,
         user_info_callback = (init) -> cb_test += 1,
     )
@@ -141,7 +142,7 @@ function main()
     @test cb_test > 0
 
     # Test that if dt is not adjusted based on final time the CFL is correct
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -149,8 +150,8 @@ function main()
         timeend_dt_adjust = false,
     )
 
-    CFL_nondiff = CLIMA.DGmethods.courant(
-        CLIMA.Courant.nondiffusive_courant,
+    CFL_nondiff = ClimateMachine.DGmethods.courant(
+        ClimateMachine.Courant.nondiffusive_courant,
         solver_config,
     )
     @test CFL_nondiff ≈ CFL

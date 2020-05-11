@@ -1,48 +1,48 @@
 using MPI
 using StaticArrays
-using CLIMA
-using CLIMA.VariableTemplates
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.MPIStateArrays
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
+using ClimateMachine
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
 using GPUifyLoops
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     wavespeed,
     LocalGeometry,
     boundary_state!,
-    init_aux!,
-    init_state!,
+    init_state_auxiliary!,
+    init_state_conservative!,
     init_ode_state,
-    update_aux!,
+    update_auxiliary_state!,
     vars_integrals,
     vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
-    integral_load_aux!,
-    integral_set_aux!,
-    reverse_integral_load_aux!,
-    reverse_integral_set_aux!
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
 
 
 struct IntegralTestModel{dim} <: BalanceLaw end
 
 vars_reverse_integrals(::IntegralTestModel, T) = @vars(a::T, b::T)
 vars_integrals(::IntegralTestModel, T) = @vars(a::T, b::T)
-vars_aux(m::IntegralTestModel, T) = @vars(
+vars_state_auxiliary(m::IntegralTestModel, T) = @vars(
     int::vars_integrals(m, T),
     rev_int::vars_reverse_integrals(m, T),
     coord::SVector{3, T},
@@ -52,17 +52,17 @@ vars_aux(m::IntegralTestModel, T) = @vars(
     rev_b::T
 )
 
-vars_state(::IntegralTestModel, T) = @vars()
-vars_diffusive(::IntegralTestModel, T) = @vars()
+vars_state_conservative(::IntegralTestModel, T) = @vars()
+vars_state_gradient_flux(::IntegralTestModel, T) = @vars()
 
-flux_nondiffusive!(::IntegralTestModel, _...) = nothing
-flux_diffusive!(::IntegralTestModel, _...) = nothing
+flux_first_order!(::IntegralTestModel, _...) = nothing
+flux_second_order!(::IntegralTestModel, _...) = nothing
 source!(::IntegralTestModel, _...) = nothing
 boundary_state!(_, ::IntegralTestModel, _...) = nothing
-init_state!(::IntegralTestModel, _...) = nothing
+init_state_conservative!(::IntegralTestModel, _...) = nothing
 wavespeed(::IntegralTestModel, _...) = 1
 
-function init_aux!(
+function init_state_auxiliary!(
     ::IntegralTestModel{dim},
     aux::Vars,
     g::LocalGeometry,
@@ -89,20 +89,20 @@ function init_aux!(
     end
 end
 
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::IntegralTestModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
-    indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
-    reverse_indefinite_stack_integral!(dg, m, Q, dg.auxstate, t, elems)
+    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+    reverse_indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
 
     return true
 end
 
-@inline function integral_load_aux!(
+@inline function integral_load_auxiliary_state!(
     m::IntegralTestModel,
     integrand::Vars,
     state::Vars,
@@ -113,7 +113,7 @@ end
     integrand.b = 2 * x + sin(x) * y - (z - 1)^2 * y^2
 end
 
-@inline function integral_set_aux!(
+@inline function integral_set_auxiliary_state!(
     m::IntegralTestModel,
     aux::Vars,
     integral::Vars,
@@ -122,7 +122,7 @@ end
     aux.int.b = integral.b
 end
 
-@inline function reverse_integral_load_aux!(
+@inline function reverse_integral_load_auxiliary_state!(
     m::IntegralTestModel,
     integral::Vars,
     state::Vars,
@@ -132,7 +132,7 @@ end
     integral.b = aux.int.b
 end
 
-@inline function reverse_integral_set_aux!(
+@inline function reverse_integral_set_auxiliary_state!(
     m::IntegralTestModel,
     aux::Vars,
     integral::Vars,
@@ -160,8 +160,8 @@ function run(mpicomm, dim, Ne, N, FT, ArrayType)
     dg = DGModel(
         IntegralTestModel{dim}(),
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -171,15 +171,19 @@ function run(mpicomm, dim, Ne, N, FT, ArrayType)
     dg(dQdt, Q, nothing, 0.0)
 
     # Wrapping in Array ensure both GPU and CPU code use same approx
-    @test Array(dg.auxstate.data[:, 1, :]) ≈ Array(dg.auxstate.data[:, 8, :])
-    @test Array(dg.auxstate.data[:, 2, :]) ≈ Array(dg.auxstate.data[:, 9, :])
-    @test Array(dg.auxstate.data[:, 3, :]) ≈ Array(dg.auxstate.data[:, 10, :])
-    @test Array(dg.auxstate.data[:, 4, :]) ≈ Array(dg.auxstate.data[:, 11, :])
+    @test Array(dg.state_auxiliary.data[:, 1, :]) ≈
+          Array(dg.state_auxiliary.data[:, 8, :])
+    @test Array(dg.state_auxiliary.data[:, 2, :]) ≈
+          Array(dg.state_auxiliary.data[:, 9, :])
+    @test Array(dg.state_auxiliary.data[:, 3, :]) ≈
+          Array(dg.state_auxiliary.data[:, 10, :])
+    @test Array(dg.state_auxiliary.data[:, 4, :]) ≈
+          Array(dg.state_auxiliary.data[:, 11, :])
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

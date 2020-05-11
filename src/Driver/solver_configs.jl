@@ -1,12 +1,12 @@
-# CLIMA solver configurations
+# ClimateMachine solver configurations
 #
 # Contains helper functions to establish solver configurations to be
-# used with the CLIMA driver.
+# used with the ClimateMachine driver.
 
 """
-    CLIMA.SolverConfiguration
+    ClimateMachine.SolverConfiguration
 
-Parameters needed by `CLIMA.solve!()` to run a simulation.
+Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 """
 struct SolverConfiguration{FT}
     name::String
@@ -38,10 +38,10 @@ DGmethods.courant(
     dt = sc.dt,
     simtime = gettime(sc.solver),
     direction = EveryDirection(),
-) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, simtime, direction)
+) = DGmethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
 """
-    CLIMA.SolverConfiguration(
+    ClimateMachine.SolverConfiguration(
         t0::FT,
         timeend::FT,
         driver_config::DriverConfiguration,
@@ -56,14 +56,14 @@ DGmethods.courant(
 
 Set up the DG model per the specified driver configuration, set up
 the ODE solver, and return a `SolverConfiguration` to be used with
-`CLIMA.invoke!()`.
+`ClimateMachine.invoke!()`.
 
 # Arguments:
 # - `t0::FT`: simulation start time.
 # - `timeend::FT`: simulation end time.
 # - `driver_config::DriverConfiguration`: from `AtmosLESConfiguration()`, etc.
-# - `init_args...`: passed through to `init_state!()`.
-# - `init_on_cpu=false`: run `init_state!()` on CPU?
+# - `init_args...`: passed through to `init_state_conservative!()`.
+# - `init_on_cpu=false`: run `init_state_conservative!()` on CPU?
 # - `ode_solver_type=driver_config.solver_type`: override solver choice.
 # - `ode_dt=nothing`: override timestep computation.
 # - `modeldata=nothing`: passed through to `DGModel`.
@@ -90,11 +90,12 @@ function SolverConfiguration(
 
     bl = driver_config.bl
     grid = driver_config.grid
-    numfluxnondiff = driver_config.numfluxnondiff
-    numfluxdiff = driver_config.numfluxdiff
-    gradnumflux = driver_config.gradnumflux
+    numerical_flux_first_order = driver_config.numerical_flux_first_order
+    numerical_flux_second_order = driver_config.numerical_flux_second_order
+    numerical_flux_gradient = driver_config.numerical_flux_gradient
 
-    # create DG model, initialize ODE state
+    # Create the DG model and initialize the ODE state. If we're restarting,
+    # use state data from the checkpoint.
     if Settings.restart_from_num > 0
         s_Q, s_aux, t0 = Callbacks.read_checkpoint(
             Settings.checkpoint_dir,
@@ -104,15 +105,15 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        auxstate = restart_auxstate(bl, grid, s_aux)
+        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
 
         dg = DGModel(
             bl,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = state_auxiliary,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
@@ -123,9 +124,9 @@ function SolverConfiguration(
         dg = DGModel(
             bl,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
@@ -133,13 +134,13 @@ function SolverConfiguration(
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
     end
-    update_aux!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+    update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
 
-    # create the linear model for IMEX solvers
+    # create the linear model for IMEX and Multirate solvers
     linmodel = nothing
     if isa(ode_solver_type, ExplicitSolverType)
         dtmodel = bl
-    else # ode_solver_type === IMEXSolverType
+    else
         linmodel = ode_solver_type.linear_model(bl)
         dtmodel = linmodel
     end
@@ -158,7 +159,7 @@ function SolverConfiguration(
     # initial Δt specified or computed
     simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-        ode_dt = CLIMA.DGmethods.calculate_dt(
+        ode_dt = ClimateMachine.DGmethods.calculate_dt(
             dg,
             dtmodel,
             Q,
@@ -177,19 +178,23 @@ function SolverConfiguration(
         fast_dg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
         )
         slow_model = RemainderModel(bl, (linmodel,))
         slow_dg = DGModel(
             slow_model,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
         )
         slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
@@ -200,16 +205,21 @@ function SolverConfiguration(
         vdg = DGModel(
             linmodel,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
-            auxstate = dg.auxstate,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = VerticalDirection(),
         )
         solver = ode_solver_type.solver_method(
             dg,
             vdg,
-            ode_solver_type.linear_solver(),
+            LinearBackwardEulerSolver(
+                ode_solver_type.linear_solver();
+                isadjustable = false,
+            ),
             Q;
             dt = ode_dt,
             t0 = t0,

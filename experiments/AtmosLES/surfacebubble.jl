@@ -1,20 +1,22 @@
+#!/usr/bin/env julia --project
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.Diagnostics
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
+
 using Distributions
 using Random
 using StaticArrays
 using Test
 using DocStringExtensions
 using LinearAlgebra
-
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.GenericCallbacks
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.Diagnostics
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
@@ -87,8 +89,9 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
 
     C_smag = FT(0.23)
 
-    ode_solver =
-        CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
 
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -100,9 +103,9 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(),
-        init_state = init_surfacebubble!,
+        init_state_conservative = init_surfacebubble!,
     )
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "SurfaceDrivenBubble",
         N,
         resolution,
@@ -121,11 +124,10 @@ end
 function config_diagnostics(driver_config)
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
     FT = Float64
     # DG polynomial order
     N = 4
@@ -140,7 +142,7 @@ function main()
     timeend = FT(2000)
 
     driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -153,7 +155,7 @@ function main()
         nothing
     end
 
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),

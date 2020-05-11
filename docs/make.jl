@@ -1,109 +1,64 @@
 Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
-using CLIMA, Documenter, Literate
+using ClimateMachine, Documenter, Literate
 
-# TODO: Add generated examples back
-# include("generate.jl")
+generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
+mkpath(generated_dir)
 
-GENERATED_BL_EXAMPLES = [
-    joinpath("examples", "DGmethods_old", "generated", f)
-    for
-    f in ("ex_001_periodic_advection.md", "ex_002_solid_body_rotation.md")
-]
-GENERATED_BL_EXAMPLES = filter!(x -> isfile(x), GENERATED_BL_EXAMPLES)
-
-# Literate examples created in their own literate_example directory for now
-const examples_directory = joinpath(@__DIR__, "..", "literate_examples")
-const output_directory = joinpath(@__DIR__, "src", "generated")
-# read the examples in the directory
-examples = readdir(examples_directory)
-
-for example in examples
-    example_filepath = joinpath(examples_directory, example)
-    Literate.markdown(example_filepath, output_directory, documenter = true)
-end
+include("list_of_experiments.jl")        # defines a nested array `experiments`
+include("list_of_tutorials.jl")          # defines a nested array `tutorials`
+include("list_of_how_to_guides.jl")      # defines a nested array `how_to_guides`
+include("list_of_discussions.jl")        # defines a nested array `apis`
+include("list_of_apis.jl")               # defines a nested array `discussions`
 
 pages = Any[
     "Home" => "index.md",
-    "Common" => Any[
-        "MoistThermodynamics" => "Common/MoistThermodynamics.md",
-        "SurfaceFluxes" => "Common/SurfaceFluxes.md",
-    ],
-    "Utilites" => Any[],
-    "Atmos" => Any[
-        "EDMF Equations" => "Atmos/EDMFEquations.md",
-        "Microphysics" => "Atmos/Microphysics.md",
-        "AtmosModel" => "Atmos/Model/AtmosModel.md",
-        "Turbulence" => "Atmos/Model/turbulence.md",
-        "Tracers" => "Atmos/Model/tracers.md",
-    ],
-    "Diagnostics" => "Diagnostics.md",
-    "Numerics" => Any[
-        "ODESolvers" => "Numerics/ODESolvers.md",
-        "LinearSolvers" => "Numerics/LinearSolvers.md",
-        "Mesh" => "Numerics/Mesh.md",
-        "Arrays" => "Numerics/Arrays.md",
-        "DGmethods_old" => "Numerics/DGmethods_old.md",
-    ],
-    "InputOutput.md",
-    "Examples" => [
-        "Conjugate Gradient" => "generated/example_cg.md",
-        "Notes on Literate" => "generated/literate_markdown.md",
-    ],
+    "Installation" => "Installation.md",
+    "Experiments" => experiments,
+    "Tutorials" => tutorials,
+    "How-to-guides" => how_to_guides,
+    "APIs" => apis,
+    "Theory & design philosophy" => discussions,
+    # TODO: Move everything below here into one of the above sections
     "Developer docs" => Any[
-        "Contribution Guides" => Any[
-            "ContributionGuides/CONTRIBUTING.md",
-            "ContributionGuides/IterativeSolvers.md",
-        ],
         "CodingConventions.md",
         "AcceptableUnicode.md",
         "VariableList.md",
-        "DiagnosticVariables.md",
     ],
 ]
 
-if !isempty(GENERATED_BL_EXAMPLES)
-    push!(
-        pages,
-        "Balance Law Examples" =>
-            ["BalanceLawOverview.md", GENERATED_BL_EXAMPLES...],
-    )
-end
+mathengine = MathJax(Dict(
+    :TeX => Dict(
+        :equationNumbers => Dict(:autoNumber => "AMS"),
+        :Macros => Dict(),
+    ),
+))
 
+format = Documenter.HTML(
+    prettyurls = get(ENV, "CI", nothing) == "true",
+    mathengine = mathengine,
+    collapselevel = 1,
+    # prettyurls = !("local" in ARGS),
+    # canonical = "https://CliMA.github.io/ClimateMachine.jl/stable/",
+)
 
 makedocs(
-    sitename = "CLIMA",
+    sitename = "ClimateMachine",
     doctest = false,
     strict = false,
     linkcheck = false,
+    format = format,
     checkdocs = :exports,
     # checkdocs = :all,
-    format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", nothing) == "true",
-        mathengine = MathJax(Dict(
-            :TeX => Dict(
-                :equationNumbers => Dict(:autoNumber => "AMS"),
-                :Macros => Dict(),
-            ),
-        )),
-        # prettyurls = !("local" in ARGS),
-        # canonical = "https://climate-machine.github.io/CLIMA/stable/",
-    ),
     clean = true,
-    modules = [Documenter, CLIMA],
+    modules = [Documenter, ClimateMachine],
     pages = pages,
 )
 
-# make sure there are no *.vtu files left around from the build
-p = joinpath(@__DIR__, "build", "examples", "DGmethods_old", "generated")
-if ispath(p)
-    cd(p) do
-        foreach(file -> endswith(file, ".vtu") && rm(file), readdir())
-    end
-end
+include("clean_build_folder.jl")
 
 deploydocs(
-    repo = "github.com/climate-machine/CLIMA.git",
+    repo = "github.com/CliMA/ClimateMachine.jl.git",
     target = "build",
     push_preview = true,
 )

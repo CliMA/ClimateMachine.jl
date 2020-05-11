@@ -3,24 +3,25 @@ using Random
 using StaticArrays
 using Test
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import CLIMA.Mesh.Grids: _x1, _x2, _x3
-import CLIMA.DGmethods: vars_state
-import CLIMA.VariableTemplates.varsindex
+import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
+import ClimateMachine.DGmethods: vars_state_conservative
+import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -80,7 +81,7 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
-    ode_solver = CLIMA.MultirateSolverType(
+    ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
@@ -97,11 +98,11 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         ref_state = ref_state,
-        init_state = init_risingbubble!,
+        init_state_conservative = init_risingbubble!,
     )
 
     # Problem configuration
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "DryRisingBubble",
         N,
         resolution,
@@ -119,12 +120,11 @@ end
 function config_diagnostics(driver_config)
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 #-------------------------------------------------------------------------
 function run_brick_diagostics_fields_test()
-    CLIMA.init()
-    DA = CLIMA.array_type()
+    DA = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
     root = 0
     pid = MPI.Comm_rank(mpicomm)
@@ -150,7 +150,7 @@ function run_brick_diagostics_fields_test()
         CFL = FT(20)
 
         driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-        solver_config = CLIMA.SolverConfiguration(
+        solver_config = ClimateMachine.SolverConfiguration(
             t0,
             timeend,
             driver_config,
@@ -168,8 +168,8 @@ function run_brick_diagostics_fields_test()
         Npl = size(Q.realdata, 1)
 
         ind = [
-            varsindex(vars_state(model, FT), :ρ)
-            varsindex(vars_state(model, FT), :ρu)
+            varsindex(vars_state_conservative(model, FT), :ρ)
+            varsindex(vars_state_conservative(model, FT), :ρu)
         ]
         _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
 
@@ -203,14 +203,14 @@ function run_brick_diagostics_fields_test()
         vort = compute_vorticity(dg, vgrad)
         #----------------------------------------------------------------------------
         Ω₁_exact =
-            fcnz(x1, x2, x3, xmax, ymax, zmax) -
-            fcny(x1, x2, x3, xmax, ymax, zmax)
-        Ω₂_exact =
-            fcnx(x1, x2, x3, xmax, ymax, zmax) -
-            fcnz(x1, x2, x3, xmax, ymax, zmax)
-        Ω₃_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -
+            fcnz(x1, x2, x3, xmax, ymax, zmax)
+        Ω₂_exact =
+            fcnz(x1, x2, x3, xmax, ymax, zmax) -
             fcnx(x1, x2, x3, xmax, ymax, zmax)
+        Ω₃_exact =
+            fcnx(x1, x2, x3, xmax, ymax, zmax) -
+            fcny(x1, x2, x3, xmax, ymax, zmax)
 
         err = zeros(FT, 12)
 

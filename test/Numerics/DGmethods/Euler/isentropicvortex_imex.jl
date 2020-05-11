@@ -1,18 +1,22 @@
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies: BrickTopology
-using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid
-using CLIMA.DGmethods: DGModel, init_ode_state, LocalGeometry
-using CLIMA.DGmethods.NumericalFluxes:
-    Rusanov, CentralNumericalFluxGradient, CentralNumericalFluxDiffusive
-using CLIMA.ODESolvers
-using CLIMA.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
-using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.MPIStateArrays: euclidean_distance
-using CLIMA.MoistThermodynamics:
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies: BrickTopology
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.DGmethods: DGModel, init_ode_state, LocalGeometry
+using ClimateMachine.DGmethods.NumericalFluxes:
+    RusanovNumericalFlux,
+    CentralNumericalFluxGradient,
+    CentralNumericalFluxSecondOrder
+using ClimateMachine.ODESolvers
+using ClimateMachine.GeneralizedMinimalResidualSolver:
+    GeneralizedMinimalResidual
+using ClimateMachine.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.MPIStateArrays: euclidean_distance
+using ClimateMachine.MoistThermodynamics:
     air_density, total_energy, internal_energy, soundspeed_air
-using CLIMA.Atmos:
+using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
     RemainderModel,
@@ -23,9 +27,9 @@ using CLIMA.Atmos:
     NoPrecipitation,
     NoRadiation,
     ConstantViscosityWithDivergence,
-    vars_state
-using CLIMA.VariableTemplates: @vars, Vars, flattenednames
-import CLIMA.Atmos: atmos_init_aux!, vars_aux
+    vars_state_conservative
+using ClimateMachine.VariableTemplates: @vars, Vars, flattenednames
+import ClimateMachine.Atmos: atmos_init_aux!, vars_state_auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
@@ -44,8 +48,8 @@ end
 const output_vtk = false
 
 function main()
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 
@@ -66,9 +70,9 @@ function main()
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64,), dims in 2
-            for split_nonlinear_linear in (false, true)
+            for split_explicit_implicit in (false, true)
                 let
-                    split = split_nonlinear_linear ? "(Nonlinear, Linear)" :
+                    split = split_explicit_implicit ? "(Nonlinear, Linear)" :
                         "(Full, Linear)"
                     @info @sprintf """Configuration
                                       ArrayType = %s
@@ -90,14 +94,14 @@ function main()
                         polynomialorder,
                         numelems,
                         setup,
-                        split_nonlinear_linear,
+                        split_explicit_implicit,
                         FT,
                         dims,
                         level,
                     )
 
                     @test errors[level] ≈
-                          expected_error[FT, split_nonlinear_linear, level]
+                          expected_error[FT, split_explicit_implicit, level]
                 end
 
                 rates = @. log2(
@@ -122,7 +126,7 @@ function run(
     polynomialorder,
     numelems,
     setup,
-    split_nonlinear_linear,
+    split_explicit_implicit,
     FT,
     dims,
     level,
@@ -157,7 +161,7 @@ function run(
         moisture = DryModel(),
         source = nothing,
         boundarycondition = (),
-        init_state = isentropicvortex_initialcondition!,
+        init_state_conservative = isentropicvortex_initialcondition!,
     )
 
     linear_model = AtmosAcousticLinearModel(model)
@@ -166,28 +170,28 @@ function run(
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
     dg_linear = DGModel(
         linear_model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
-        auxstate = dg.auxstate,
+        state_auxiliary = dg.state_auxiliary,
     )
 
-    if split_nonlinear_linear
+    if split_explicit_implicit
         dg_nonlinear = DGModel(
             nonlinear_model,
             grid,
-            Rusanov(),
-            CentralNumericalFluxDiffusive(),
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient();
-            auxstate = dg.auxstate,
+            state_auxiliary = dg.state_auxiliary,
         )
     end
 
@@ -205,13 +209,13 @@ function run(
 
     linearsolver = GeneralizedMinimalResidual(Q; M = 10, rtol = 1e-10)
     ode_solver = ARK2GiraldoKellyConstantinescu(
-        split_nonlinear_linear ? dg_nonlinear : dg,
+        split_explicit_implicit ? dg_nonlinear : dg,
         dg_linear,
-        linearsolver,
+        LinearBackwardEulerSolver(linearsolver; isadjustable = true),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = split_nonlinear_linear,
+        split_explicit_implicit = split_explicit_implicit,
         paperversion = true,
     )
 
@@ -248,7 +252,7 @@ function run(
         vtkdir =
             "vtk_isentropicvortex_imex" *
             "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)" *
-            "_$(split_nonlinear_linear)"
+            "_$(split_explicit_implicit)"
         mkpath(vtkdir)
 
         vtkstep = 0
@@ -296,7 +300,7 @@ end
 struct IsentropicVortexReferenceState{FT} <: ReferenceState
     setup::IsentropicVortexSetup{FT}
 end
-vars_aux(::IsentropicVortexReferenceState, FT) =
+vars_state_auxiliary(::IsentropicVortexReferenceState, FT) =
     @vars(ρ::FT, ρe::FT, p::FT, T::FT)
 function atmos_init_aux!(
     m::IsentropicVortexReferenceState,
@@ -373,7 +377,7 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)

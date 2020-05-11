@@ -1,22 +1,23 @@
 using MPI
-using CLIMA
+using ClimateMachine
 using Logging
 using Test
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.LinearSolvers
-using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.ColumnwiseLUSolver:
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.LinearSolvers
+using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.ColumnwiseLUSolver:
     SingleColumnLU, ManyColumnLU, banded_matrix, banded_matrix_vector_product!
-using CLIMA.ODESolvers
+using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf
 using Dates
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.VTK: writevtk, writepvtu
 
 if !@isdefined integration_testing
     if length(ARGS) > 0
@@ -84,7 +85,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
         vtkstep
     )
 
-    statenames = flattenednames(vars_state(model, eltype(Q)))
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)
@@ -136,8 +137,8 @@ function run(
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         direction = EveryDirection(),
     )
@@ -145,10 +146,10 @@ function run(
     vdg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
-        auxstate = dg.auxstate,
+        state_auxiliary = dg.state_auxiliary,
         direction = VerticalDirection(),
     )
 
@@ -158,11 +159,11 @@ function run(
     ode_solver = ARK548L2SA2KennedyCarpenter(
         dg,
         vdg,
-        linearsolvertype(),
+        LinearBackwardEulerSolver(linearsolvertype(); isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_nonlinear_linear = false,
+        split_explicit_implicit = false,
     )
 
     eng0 = norm(Q)
@@ -256,8 +257,8 @@ function run(
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

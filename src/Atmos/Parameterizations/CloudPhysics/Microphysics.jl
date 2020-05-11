@@ -10,7 +10,7 @@ Microphysics parameterization based on the ideas of Kessler_1995:
 """
 module Microphysics
 
-using CLIMA.MoistThermodynamics
+using ClimateMachine.MoistThermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav
 using CLIMAParameters.Atmos.Microphysics:

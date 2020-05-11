@@ -1,9 +1,9 @@
 using Test
-using CLIMA.Mesh.Topologies
+using ClimateMachine.Mesh.Topologies
 using Combinatorics, MPI
 
 @testset "cubedshellwarp tests" begin
-    import CLIMA.Mesh.Topologies: cubedshellwarp
+    import ClimateMachine.Mesh.Topologies: cubedshellwarp
 
     @testset "check radius" begin
         @test hypot(cubedshellwarp(3.0, -2.2, 1.3)...) ≈ 3.0 rtol = eps()
@@ -52,7 +52,7 @@ using Combinatorics, MPI
 end
 
 @testset "cubedshellunwarp" begin
-    import CLIMA.Mesh.Topologies: cubedshellwarp, cubedshellunwarp
+    import ClimateMachine.Mesh.Topologies: cubedshellwarp, cubedshellunwarp
 
     for u in permutations([3.0, 2.999999999, 1.3])
         @test all(cubedshellunwarp(cubedshellwarp(u...)...) .≈ u)

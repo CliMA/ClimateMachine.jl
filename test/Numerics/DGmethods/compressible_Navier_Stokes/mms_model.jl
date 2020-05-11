@@ -1,33 +1,33 @@
-using CLIMA.VariableTemplates
+using ClimateMachine.VariableTemplates
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
-    vars_diffusive,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     wavespeed,
     boundary_state!,
-    gradvariables!,
-    diffusive!,
-    init_aux!,
-    init_state!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    init_state_auxiliary!,
+    init_state_conservative!,
     init_ode_state,
     LocalGeometry
 
 
 struct MMSModel{dim} <: BalanceLaw end
 
-vars_aux(::MMSModel, T) = @vars(x1::T, x2::T, x3::T)
-vars_state(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
-vars_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
-vars_diffusive(::MMSModel, T) =
+vars_state_auxiliary(::MMSModel, T) = @vars(x1::T, x2::T, x3::T)
+vars_state_conservative(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
+vars_state_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
+vars_state_gradient_flux(::MMSModel, T) =
     @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
 
-function flux_nondiffusive!(
+function flux_first_order!(
     ::MMSModel,
     flux::Grad,
     state::Vars,
@@ -50,7 +50,7 @@ function flux_nondiffusive!(
         SVector(u * (state.ρe + P), v * (state.ρe + P), w * (state.ρe + P))
 end
 
-function flux_diffusive!(
+function flux_second_order!(
     ::MMSModel,
     flux::Grad,
     state::Vars,
@@ -74,7 +74,7 @@ function flux_diffusive!(
     )
 end
 
-function gradvariables!(
+function compute_gradient_argument!(
     ::MMSModel,
     transformstate::Vars,
     state::Vars,
@@ -87,7 +87,7 @@ function gradvariables!(
     transformstate.w = ρinv * state.ρw
 end
 
-function diffusive!(
+function compute_gradient_flux!(
     ::MMSModel,
     diffusive::Vars,
     ∇transform::Grad,
@@ -145,7 +145,7 @@ function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
 end
 
 function boundary_state!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     bl::MMSModel,
     stateP::Vars,
     auxP::Vars,
@@ -156,14 +156,14 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_conservative!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
 # FIXME: This is probably not right....
 boundary_state!(::CentralNumericalFluxGradient, bl::MMSModel, _...) = nothing
 
 function boundary_state!(
-    ::CentralNumericalFluxDiffusive,
+    ::CentralNumericalFluxSecondOrder,
     bl::MMSModel,
     stateP::Vars,
     diffP::Vars,
@@ -176,17 +176,17 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_conservative!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
-function init_aux!(::MMSModel, aux::Vars, g::LocalGeometry)
+function init_state_auxiliary!(::MMSModel, aux::Vars, g::LocalGeometry)
     x1, x2, x3 = g.coord
     aux.x1 = x1
     aux.x2 = x2
     aux.x3 = x3
 end
 
-function init_state!(
+function init_state_conservative!(
     bl::MMSModel{dim},
     state::Vars,
     aux::Vars,

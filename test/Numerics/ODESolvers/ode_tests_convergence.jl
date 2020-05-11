@@ -1,12 +1,14 @@
 using Test
-using CLIMA
+using ClimateMachine
 using StaticArrays
 using LinearAlgebra
+using KernelAbstractions
+using ClimateMachine.MPIStateArrays: device
 
 include("ode_tests_common.jl")
 
-CLIMA.init()
-const ArrayType = CLIMA.array_type()
+ClimateMachine.init()
+const ArrayType = ClimateMachine.array_type()
 
 @testset "ODE Solvers" begin
     @testset "Convergence/extensive" begin
@@ -81,20 +83,24 @@ const ArrayType = CLIMA.array_type()
 
                 q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
                 for (method, expected_order) in imex_methods
-                    for split_nonlinear_linear in (false, true)
+                    for split_explicit_implicit in (false, true)
                         for variant in (LowStorageVariant(), NaiveVariant())
                             for (n, dt) in enumerate(dts)
                                 Q = ArrayType{ComplexF64}(q0)
-                                rhs! = split_nonlinear_linear ? rhs_nonlinear! :
+                                rhs! =
+                                    split_explicit_implicit ? rhs_nonlinear! :
                                     rhs_full!
                                 solver = method(
                                     rhs!,
                                     rhs_linear!,
-                                    DivideLinearSolver(),
+                                    LinearBackwardEulerSolver(
+                                        DivideLinearSolver(),
+                                        isadjustable = true,
+                                    ),
                                     Q;
                                     dt = dt,
                                     t0 = 0.0,
-                                    split_nonlinear_linear = split_nonlinear_linear,
+                                    split_explicit_implicit = split_explicit_implicit,
                                     variant = variant,
                                 )
                                 solve!(Q, solver; timeend = finaltime)
@@ -362,10 +368,13 @@ const ArrayType = CLIMA.array_type()
                                 fast_method(
                                     rhs_fast!,
                                     rhs_zero!,
-                                    DivideLinearSolver(),
+                                    LinearBackwardEulerSolver(
+                                        DivideLinearSolver(),
+                                        isadjustable = true,
+                                    ),
                                     Q;
                                     dt = fast_dt,
-                                    split_nonlinear_linear = false,
+                                    split_explicit_implicit = false,
                                 ),
                             ))
                             solve!(Q, solver; timeend = finaltime)
@@ -558,6 +567,422 @@ const ArrayType = CLIMA.array_type()
                                 max(rate3_order, rate2_order, rate1_order)
 
                             @test 2 <= rate[end]
+                        end
+                    end
+                end
+            end
+        end
+
+        #=
+        Test problem (8.2) from Sandu (2019) for MRI-GARK Schemes
+            @article{Sandu2019,
+                title={A class of multirate infinitesimal gark methods},
+                author={Sandu, Adrian},
+                journal={SIAM Journal on Numerical Analysis},
+                volume={57},
+                number={5},
+                pages={2300--2327},
+                year={2019},
+                publisher={SIAM},
+                doi={10.1137/18M1205492}
+            }
+        =#
+        @testset "2-rate problem" begin
+            ω = 20
+            λf = -10
+            λs = -1
+            ξ = 1 // 10
+            α = 1
+            ηfs = ((1 - ξ) / α) * (λf - λs)
+            ηsf = -ξ * α * (λf - λs)
+            Ω = @SMatrix [
+                λf ηfs
+                ηsf λs
+            ]
+
+            function rhs_fast!(dQ, Q, param, t; increment)
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        yf = Q[1]
+                        ys = Q[2]
+                        gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                        gs = (-2 + ys^2 - cos(t)) / 2ys
+                        dQ[1] +=
+                            Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+
+
+            function rhs_slow!(dQ, Q, param, t; increment)
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        yf = Q[1]
+                        ys = Q[2]
+                        gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+                        gs = (-2 + ys^2 - cos(t)) / 2ys
+                        dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+
+            struct ODETestConvNonLinBE <: AbstractBackwardEulerSolver end
+            ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE) = true
+            function (::ODETestConvNonLinBE)(Q, Qhat, α, p, t)
+                @kernel function knl!(Q, Qhat, α, p, t)
+                    @inbounds begin
+                        # Slow RHS has zero tendency of yf so just copy Qhat
+                        Q[1] = yf = Qhat[1]
+
+                        gf = (-3 + yf^2 - cos(ω * t)) / 2yf
+
+                        # solves: Q = Qhat[2] + α * rhs_slow(Q, t)
+                        # (simplifies to a quadratic equation)
+                        a = 2 - α * Ω[2, 2]
+                        b = -2 * (Qhat[2] + α * Ω[2, 1] * gf)
+                        c = α * (Ω[2, 2] * (2 + cos(t)) + sin(t))
+                        Q[2] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    Q,
+                    Qhat,
+                    α,
+                    p,
+                    t;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+
+            exactsolution(t) =
+                ArrayType([sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))])
+
+            finaltime = 1
+            dts = [2.0^(-k) for k in 2:7]
+            error = similar(dts)
+            @testset "Explicit" begin
+                for (mri_method, mri_expected_order) in mrigark_erk_methods
+                    for (fast_method, fast_expected_order) in
+                        fast_mrigark_methods
+                        for (n, slow_dt) in enumerate(dts)
+                            Q = exactsolution(0)
+                            fast_dt = slow_dt / ω
+                            fastsolver = fast_method(rhs_fast!, Q; dt = fast_dt)
+                            solver = mri_method(
+                                rhs_slow!,
+                                fastsolver,
+                                Q,
+                                dt = slow_dt,
+                            )
+                            solve!(Q, solver; timeend = finaltime)
+                            error[n] = norm(Q - exactsolution(finaltime))
+                        end
+
+                        rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                        order = mri_expected_order
+                        @test isapprox(
+                            rate[end],
+                            mri_expected_order;
+                            atol = 0.3,
+                        )
+                    end
+                end
+            end
+
+            @testset "Implicit" begin
+                for (mri_method, mri_expected_order) in mrigark_irk_methods
+                    for (fast_method, fast_expected_order) in
+                        fast_mrigark_methods
+                        for (n, slow_dt) in enumerate(dts)
+                            Q = exactsolution(0)
+                            fast_dt = slow_dt / ω
+                            fastsolver = fast_method(rhs_fast!, Q; dt = fast_dt)
+                            solver = mri_method(
+                                rhs_slow!,
+                                ODETestConvNonLinBE(),
+                                fastsolver,
+                                Q,
+                                dt = slow_dt,
+                            )
+                            solve!(Q, solver; timeend = finaltime)
+                            error[n] = norm(Q - exactsolution(finaltime))
+                        end
+
+                        rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                        order = mri_expected_order
+                        @test isapprox(
+                            rate[end],
+                            mri_expected_order;
+                            atol = 0.3,
+                        )
+                    end
+                end
+            end
+
+            @testset "IMEX" begin
+                for (method, expected_order) in imex_methods
+                    for (n, dt) in enumerate(dts)
+                        Q = exactsolution(0)
+                        solver = method(
+                            rhs_fast!,
+                            rhs_slow!,
+                            ODETestConvNonLinBE(),
+                            Q;
+                            dt = dt,
+                            t0 = 0.0,
+                            split_explicit_implicit = true,
+                            variant = NaiveVariant(),
+                        )
+                        solve!(Q, solver; timeend = finaltime)
+                        error[n] = norm(Q - exactsolution(finaltime))
+                    end
+                    rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                    order = expected_order
+                    @test isapprox(rate[end], expected_order; atol = 0.3)
+                end
+            end
+        end
+
+        # 3-rate modification of the above test problem
+        @testset "3-rate problem" begin
+            ω1, ω2, ω3 = 20, 5, 1
+            λ1, λ2, λ3 = -20, -5, -1
+            β1, β2, β3 = 2, 2, 2
+
+            ξ12 = λ2 / (λ1 + λ2)
+            ξ13 = λ3 / (λ1 + λ3)
+            ξ23 = λ3 / (λ2 + λ3)
+
+            α12, α13, α23 = 1, 1, 1
+
+            η12 = ((1 - ξ12) / α12) * (λ1 - λ2)
+            η13 = 0#((1 - ξ13) / α13) * (λ1 - λ3)
+            η23 = ((1 - ξ23) / α23) * (λ2 - λ3)
+
+            η21 = ξ12 * α12 * (λ2 - λ1)
+            η31 = 0#ξ13 * α13 * (λ3 - λ1)
+            η32 = ξ23 * α23 * (λ3 - λ2)
+
+            Ω = @SMatrix [
+                λ1 η12 η13
+                η21 λ2 η23
+                η31 η32 λ3
+            ]
+
+            function rhs1!(dQ, Q, param, t; increment)
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        y1, y2, y3 = Q[1], Q[2], Q[3]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                            (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                        ]
+                        dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+            function rhs2!(dQ, Q, param, t; increment)
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        y1, y2, y3 = Q[1], Q[2], Q[3]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                            (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                        ]
+                        dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+            function rhs3!(dQ, Q, param, t; increment)
+                @kernel function knl!(dQ, Q, t, increment)
+                    @inbounds begin
+                        increment || (dQ .= 0)
+                        y1, y2, y3 = Q[1], Q[2], Q[3]
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                            (-β3 + y3^2 - cos(ω3 * t)) / 2y3,
+                        ]
+                        dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    dQ,
+                    Q,
+                    t,
+                    increment;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+            struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
+            ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE3Rate) = true
+            function (::ODETestConvNonLinBE3Rate)(Q, Qhat, α, p, t)
+                @kernel function knl!(Q, Qhat, α, p, t)
+                    @inbounds begin
+                        # Slower RHS has zero tendency of yf so just copy Qhat
+                        Q[1] = y1 = Qhat[1]
+                        Q[2] = y2 = Qhat[2]
+
+                        g = @SVector [
+                            (-β1 + y1^2 - cos(ω1 * t)) / 2y1,
+                            (-β2 + y2^2 - cos(ω2 * t)) / 2y2,
+                        ]
+
+                        # solves: Q = Qhat + α * rhs_slow(Q, t)
+                        # (simplifies to a quadratic equation)
+                        a = 2 - α * Ω[3, 3]
+                        b =
+                            -2 *
+                            (Qhat[3] + α * Ω[3, 1] * g[1] + α * Ω[3, 2] * g[2])
+                        c = α * (Ω[3, 3] * (β3 + cos(t)) + sin(t))
+                        Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
+                    end
+                end
+                event = Event(device(Q))
+                event = knl!(device(Q), 1)(
+                    Q,
+                    Qhat,
+                    α,
+                    p,
+                    t;
+                    ndrange = 1,
+                    dependencies = (event,),
+                )
+                wait(device(Q), event)
+            end
+
+            exactsolution(t) = ArrayType([
+                sqrt(β1 + cos(ω1 * t)),
+                sqrt(β2 + cos(ω2 * t)),
+                sqrt(β3 + cos(ω3 * t)),
+            ])
+
+            finaltime = 1
+            dts = [2.0^(-k) for k in 1:7]
+            error = similar(dts)
+            @testset "Explicit" begin
+                for (slow_method, slow_order) in mrigark_erk_methods
+                    for (mid_method, mid_order) in mrigark_erk_methods
+                        for (fast_method, fast_order) in fast_mrigark_methods
+                            for (n, slow_dt) in enumerate(dts)
+                                Q = exactsolution(0)
+                                mid_dt = slow_dt / ω2
+                                fast_dt = slow_dt / ω1
+                                fastsolver = fast_method(rhs1!, Q; dt = fast_dt)
+                                midsolver = mid_method(
+                                    rhs2!,
+                                    fastsolver,
+                                    Q,
+                                    dt = mid_dt,
+                                )
+                                slowsolver = slow_method(
+                                    rhs3!,
+                                    midsolver,
+                                    Q,
+                                    dt = slow_dt,
+                                )
+                                solve!(Q, slowsolver; timeend = finaltime)
+                                error[n] = norm(Q - exactsolution(finaltime))
+                            end
+
+                            rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                            expected_order =
+                                min(slow_order, mid_order, fast_order)
+                            @test isapprox(
+                                rate[end],
+                                expected_order;
+                                atol = 0.3,
+                            )
+                        end
+                    end
+                end
+            end
+            @testset "Implicit-Explicit" begin
+                for (slow_method, slow_order) in mrigark_irk_methods
+                    for (mid_method, mid_order) in mrigark_erk_methods
+                        for (fast_method, fast_order) in fast_mrigark_methods
+                            for (n, slow_dt) in enumerate(dts)
+                                Q = exactsolution(0)
+                                mid_dt = slow_dt / ω2
+                                fast_dt = slow_dt / ω1
+                                fastsolver = fast_method(rhs1!, Q; dt = fast_dt)
+                                midsolver = mid_method(
+                                    rhs2!,
+                                    fastsolver,
+                                    Q,
+                                    dt = mid_dt,
+                                )
+                                slowsolver = slow_method(
+                                    rhs3!,
+                                    ODETestConvNonLinBE3Rate(),
+                                    midsolver,
+                                    Q,
+                                    dt = slow_dt,
+                                )
+                                solve!(Q, slowsolver; timeend = finaltime)
+                                error[n] = norm(Q - exactsolution(finaltime))
+                            end
+
+                            rate = log2.(error[1:(end - 1)] ./ error[2:end])
+                            expected_order =
+                                min(slow_order, mid_order, fast_order)
+                            @test isapprox(
+                                rate[end],
+                                expected_order;
+                                atol = 0.4,
+                            )
                         end
                     end
                 end

@@ -1,16 +1,16 @@
 module Interpolation
 using DocStringExtensions
-using CLIMA
+using ClimateMachine
 using MPI
 import GaussQuadrature
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Geometry
-using CLIMA.Mesh.Elements
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Elements
 using LinearAlgebra
 using StaticArrays
 import KernelAbstractions: CPU, CUDA
-#-------------------
+
 using CUDAnative
 using CuArrays
 
@@ -23,8 +23,7 @@ export InterpolationBrick,
     InterpolationTopology
 
 abstract type InterpolationTopology end
-#--------------------------------------------------------
-#--------------------------------------------------------
+
 """
     InterpolationBrick{
     FT <: AbstractFloat,
@@ -118,7 +117,7 @@ struct InterpolationBrick{
     x2i_all::UI16VD
     "x3 interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
     x3i_all::UI16VD
-    #-----Inner constructor---------------------------------------------------
+
     function InterpolationBrick(
         grid::DiscontinuousSpectralElementGrid{FT},
         xbnd::Array{FT, 2},
@@ -145,7 +144,7 @@ struct InterpolationBrick{
         Np = n1g * n2g * n3g
         marker = BitArray{3}(undef, n1g, n2g, n3g)
         fill!(marker, true)
-        #-----------------------------------------------------------------------------------
+
         Nel = length(grid.topology.realelems) # # of elements on local process
         offset = Vector{Int}(undef, Nel + 1) # offsets for the interpolated variable
         n123 = zeros(Int, ndim)        # # of unique ξ1, ξ2, ξ3 points in each cell
@@ -163,9 +162,8 @@ struct InterpolationBrick{
         x = map(i -> zeros(FT, ndim, i), zeros(Int, Nel)) # interpolation grid points embedded in each cell
 
         offset[1] = 0
-        #-----------------------------------------------------------------------------------
+
         for el in 1:Nel
-            #-------------------------------------
             for (xg, dim) in zip((x1g, x2g, x3g), 1:ndim)
                 xbndl[1, dim], xbndl[2, dim] =
                     extrema(grid.topology.elemtocoord[dim, :, el])
@@ -217,9 +215,9 @@ struct InterpolationBrick{
                 end
                 offset[el + 1] = offset[el] + length(ξ1[el])
             end
-            #-------------------------------------
+
         end # el loop
-        #-----------------------------------------------------------------------------------
+
         m1_r, m1_w = GaussQuadrature.legendre(FT, qm1, GaussQuadrature.both)
         wb = Elements.baryweights(m1_r)
 
@@ -243,7 +241,7 @@ struct InterpolationBrick{
                 x1i_d[j] = x1i[i][ctr]
                 x2i_d[j] = x2i[i][ctr]
                 x3i_d[j] = x3i[i][ctr]
-                #-----setting up interpolation
+                # set up interpolation
                 fac1 = FT(0)
                 fac2 = FT(0)
                 fac3 = FT(0)
@@ -273,11 +271,10 @@ struct InterpolationBrick{
 
                 fac_d[j] = FT(1) / (fac1 * fac2 * fac3)
 
-                #-----------------------------
                 ctr += 1
             end
         end
-        #----MPI setup for gathering data on proc # 0----------------------
+        # MPI setup for gathering data on proc 0
         root = 0
         Np_all = zeros(Int32, npr)
         Np_all[pid + 1] = Npl
@@ -297,7 +294,7 @@ struct InterpolationBrick{
         MPI.Gatherv!(x1i_d, x1i_all, Np_all, root, mpicomm)
         MPI.Gatherv!(x2i_d, x2i_all, Np_all, root, mpicomm)
         MPI.Gatherv!(x3i_d, x3i_all, Np_all, root, mpicomm)
-        #-----------------------------------------------------
+
         if device == CUDA()
             ξ1_d = DA(ξ1_d)
             ξ2_d = DA(ξ2_d)
@@ -353,18 +350,18 @@ struct InterpolationBrick{
         )
 
     end
-    #--------------------------------------------------------
+
 end # struct InterpolationBrick
-#--------------------------------------------------------
+
 """
-    interpolate_local!(intrp_brck::InterpolationBrick{FT}, 
-                               sv::AbstractArray{FT}, 
+    interpolate_local!(intrp_brck::InterpolationBrick{FT},
+                               sv::AbstractArray{FT},
                                 v::AbstractArray{FT}) where {FT <: AbstractFloat}
 
 This interpolation function works for a brick, where stretching/compression happens only along the x1, x2 & x3 axis.
 Here x1 = X1(ξ1), x2 = X2(ξ2) and x3 = X3(ξ3)
 
-# Arguments 
+# Arguments
  - `intrp_brck`: Initialized InterpolationBrick structure
  - `sv`: State Array consisting of various variables on the discontinuous Galerkin grid
  - `v`:  Interpolated variables
@@ -374,7 +371,7 @@ function interpolate_local!(
     sv::AbstractArray{FT},
     v::AbstractArray{FT},
 ) where {FT <: AbstractFloat}
-    #-------------- ----------------------------------------------------------------------------
+
     offset = intrp_brck.offset
     m1_r = intrp_brck.m1_r
     wb = intrp_brck.wb
@@ -383,7 +380,7 @@ function interpolate_local!(
     ξ3 = intrp_brck.ξ3
     flg = intrp_brck.flg
     fac = intrp_brck.fac
-    #------------------------------------------------------------------------------------------
+
     qm1 = length(m1_r)
     Nel = length(offset) - 1
     nvars = size(sv, 2)
@@ -391,18 +388,18 @@ function interpolate_local!(
     device = typeof(sv) <: Array ? CPU() : CUDA()
 
     if device == CPU()
-        #------------------------------------------------------------------------------------------
+
         Nel = length(offset) - 1
 
         vout = zeros(FT, nvars)
         vout_ii = zeros(FT, nvars)
         vout_ij = zeros(FT, nvars)
 
-        for el in 1:Nel #-----for each element elno
+        for el in 1:Nel # for each element elno
             np = offset[el + 1] - offset[el]
             off = offset[el]
 
-            for i in 1:np # interpolating point-by-point
+            for i in 1:np # interpolate point-by-point
                 ξ1l = ξ1[off + i]
                 ξ2l = ξ2[off + i]
                 ξ3l = ξ3[off + i]
@@ -416,11 +413,10 @@ function interpolate_local!(
                 f3 == 0 ? (ikloop = 1:qm1) : (ikloop = f3:f3)
 
                 for ik in ikloop
-                    #--------------------------------------------
                     vout_ij .= 0.0
                     f2 == 0 ? (ijloop = 1:qm1) : (ijloop = f2:f2)
                     for ij in ijloop #1:qm1
-                        #----------------------------------------------------------------------------
+
                         vout_ii .= 0.0
 
                         if f1 == 0
@@ -455,7 +451,7 @@ function interpolate_local!(
                                 @inbounds vout_ij[vari] = vout_ii[vari]
                             end
                         end
-                        #----------------------------------------------------------------------------
+
                     end
                     if f3 == 0
                         for vari in 1:nvars
@@ -467,14 +463,14 @@ function interpolate_local!(
                             @inbounds vout[vari] = vout_ij[vari]
                         end
                     end
-                    #--------------------------------------------
+
                 end
                 for vari in 1:nvars
                     @inbounds v[off + i, vari] = vout[vari] * fc
                 end
             end
         end
-        #------------------------------------------------------------------------------------------
+
     else
         @cuda threads = (qm1, qm1) blocks = (Nel, nvars) shmem =
             qm1 * (qm1 + 2) * sizeof(FT) interpolate_brick_CUDA!(
@@ -491,9 +487,7 @@ function interpolate_local!(
         )
     end
 end
-#--------------------------------------------------------
 
-#--------------------------------------------------------
 function interpolate_brick_CUDA!(
     offset::AbstractArray{T, 1},
     m1_r::AbstractArray{FT, 1},
@@ -512,24 +506,24 @@ function interpolate_brick_CUDA!(
     el = blockIdx().x                       # assigning one element per block
     st_idx = blockIdx().y
     qm1 = length(m1_r)
-    #--------creating views for shared memory
+    # create views for shared memory
     shm_FT = @cuDynamicSharedMem(FT, (qm1, qm1 + 2))
 
     vout_jk = view(shm_FT, :, 1:qm1)
     wb_sh = view(shm_FT, :, qm1 + 1)
     m1_r_sh = view(shm_FT, :, qm1 + 2)
-    #------loading shared memory-----------------------------
+    # load shared memory
     if tk == 1
         wb_sh[tj] = wb[tj]
         m1_r_sh[tj] = m1_r[tj]
     end
     sync_threads()
-    #-----------------------------------
+
     np = offset[el + 1] - offset[el]
     off = offset[el]
 
-    for i in 1:np # interpolating point-by-point
-        #-----------------------------------
+    for i in 1:np # interpolate point-by-point
+
         ξ1l = ξ1[off + i]
         ξ2l = ξ2[off + i]
         ξ3l = ξ3[off + i]
@@ -540,7 +534,7 @@ function interpolate_brick_CUDA!(
         fc = fac[off + i]
 
 
-        if f1 == 0 # applying phir
+        if f1 == 0 # apply phir
             @inbounds vout_jk[tj, tk] =
                 sv[1 + (tj - 1) * qm1 + (tk - 1) * qm1 * qm1, st_idx, el] *
                 wb_sh[1] / (ξ1l - m1_r_sh[1])
@@ -554,7 +548,7 @@ function interpolate_brick_CUDA!(
                 sv[f1 + (tj - 1) * qm1 + (tk - 1) * qm1 * qm1, st_idx, el]
         end
 
-        if f2 == 0 # applying phis
+        if f2 == 0 # apply phis
             @inbounds vout_jk[tj, tk] *= (wb_sh[tj] / (ξ2l - m1_r_sh[tj]))
         end
         sync_threads()
@@ -570,7 +564,7 @@ function interpolate_brick_CUDA!(
                 end
             end
 
-            if f3 == 0 # applying phit
+            if f3 == 0 # apply phit
                 @inbounds vout_jk[1, tk] *= (wb_sh[tk] / (ξ3l - m1_r_sh[tk]))
             end
         end
@@ -589,14 +583,11 @@ function interpolate_brick_CUDA!(
             @inbounds v[off + i, st_idx] = vout_jk[1, 1] * fc
         end
 
-
-        #-----------------------------------
     end
-    #-----------------------------------
 
     return nothing
 end
-#--------------------------------------------------------
+
 """
     InterpolationCubedSphere{
     FT <: AbstractFloat,
@@ -694,7 +685,7 @@ struct InterpolationCubedSphere{
     m1_w::FTVD
     "Barycentric weights"
     wb::FTVD
-    # MPI setup for gathering interpolated variable on proc # 0
+    # MPI setup for gathering interpolated variable on proc 0
     "Number of interpolation points on each of the processes"
     Np_all::I32V
     "Radial interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
@@ -703,7 +694,7 @@ struct InterpolationCubedSphere{
     lati_all::UI16VD
     "Longitude interpolation grid index of interpolation points within each element on all processes stored only on proc 0"
     longi_all::UI16VD
-    #-------Inner Constructor-------------------------------------------------
+
     function InterpolationCubedSphere(
         grid::DiscontinuousSpectralElementGrid,
         vert_range::AbstractArray{FT},
@@ -741,7 +732,7 @@ struct InterpolationCubedSphere{
         uw_grd = zeros(FT, 3)
         diffv = zeros(FT, 3)
         ξ = zeros(FT, 3)
-        #----------------------------------------------
+
         glob_ord = grid.topology.origsendorder # to account for reordering of elements after the partitioning process
 
         glob_elem_no = zeros(Int, nvert * length(glob_ord))
@@ -761,9 +752,8 @@ struct InterpolationCubedSphere{
 
 
         offset_d = zeros(Int, Nel + 1)
-        #--------------------------------
+
         for i in 1:n_rad
-            #--------------------------------
             rad = rad_grd[i]
             if rad ≤ vert_range[1]       # accounting for minor rounding errors from unwarp function at boundaries
                 vert_range[1] - rad < toler1 ? l_nrm = 1 :
@@ -783,7 +773,7 @@ struct InterpolationCubedSphere{
                     end
                 end
             end
-            #--------------------------------
+
             for j in 1:n_lat
                 @inbounds x3_grd = rad * sind(lat_grd[j])
                 for k in 1:n_long
@@ -794,11 +784,11 @@ struct InterpolationCubedSphere{
 
                     uw_grd[1], uw_grd[2], uw_grd[3] =
                         Topologies.cubedshellunwarp(x1_grd, x2_grd, x3_grd) # unwarping from sphere to cubed shell
-                    #--------------------------------
+
                     x1_uw2_grd = uw_grd[1] / rad # unwrapping cubed shell on to a 2D grid (in 3D space, -1 to 1 cube)
                     x2_uw2_grd = uw_grd[2] / rad
                     x3_uw2_grd = uw_grd[3] / rad
-                    #--------------------------------
+
                     if abs(x1_uw2_grd + 1) < toler2 # face 1 (x1 == -1 plane)
                         l2 = min(div(x2_uw2_grd + 1, Δh) + 1, nhor)
                         l3 = min(div(x3_uw2_grd + 1, Δh) + 1, nhor)
@@ -855,7 +845,7 @@ struct InterpolationCubedSphere{
                     else
                         error("error: unwrapped grid does not lie on any of the 6 faces")
                     end
-                    #--------------------------------
+
                     el_loc = get(glob_to_loc, el_glob, nothing)
                     if el_loc ≠ nothing # computing inner coordinates for local elements
                         invert_trilear_mapping_hex!(
@@ -875,7 +865,7 @@ struct InterpolationCubedSphere{
                         push!(longi[el_loc], UInt16(k))
                         offset_d[el_loc + 1] += 1
                     end
-                    #--------------------------------
+
                 end
             end
         end
@@ -910,7 +900,7 @@ struct InterpolationCubedSphere{
                 @inbounds rad_d[j] = radi[i][ctr]
                 @inbounds lat_d[j] = lati[i][ctr]
                 @inbounds long_d[j] = longi[i][ctr]
-                #-----setting up interpolation
+                # set up interpolation
                 fac1 = FT(0)
                 fac2 = FT(0)
                 fac3 = FT(0)
@@ -939,11 +929,11 @@ struct InterpolationCubedSphere{
                 flg_d[3, j] ≠ 0 && (fac3 = FT(1))
 
                 fac_d[j] = FT(1) / (fac1 * fac2 * fac3)
-                #-----------------------------
+
                 ctr += 1
             end
         end
-        #----MPI setup for gathering data on proc # 0----------------------
+        # MPI setup for gathering data on proc 0
         root = 0
         Np_all = zeros(Int32, npr)
         Np_all[pid + 1] = Int32(Npl)
@@ -963,7 +953,7 @@ struct InterpolationCubedSphere{
         MPI.Gatherv!(rad_d, radi_all, Np_all, root, mpicomm)
         MPI.Gatherv!(lat_d, lati_all, Np_all, root, mpicomm)
         MPI.Gatherv!(long_d, longi_all, Np_all, root, mpicomm)
-        #-----------------------------------------------------
+
         if device == CUDA()
             ξ1_d = DA(ξ1_d)
             ξ2_d = DA(ξ2_d)
@@ -1028,18 +1018,18 @@ struct InterpolationCubedSphere{
             lati_all,
             longi_all,
         )
-        #-----------------------------------------------------------------------------------
-    end # Inner constructor function InterpolationCubedSphere
-    #-----------------------------------------------------------------------------------
-end # structure InterpolationCubedSphere
-#--------------------------------------------------------
+
+    end # Inner constructor InterpolationCubedSphere
+
+end # struct InterpolationCubedSphere
+
 """
-    invert_trilear_mapping_hex!(X1::AbstractArray{FT,1}, 
-                                X2::AbstractArray{FT,1}, 
+    invert_trilear_mapping_hex!(X1::AbstractArray{FT,1},
+                                X2::AbstractArray{FT,1},
                                 X3::AbstractArray{FT,1},
-                                 x::AbstractArray{FT,1}, 
-                                 d::AbstractArray{FT,1}, 
-                               tol::FT, 
+                                 x::AbstractArray{FT,1},
+                                 d::AbstractArray{FT,1},
+                               tol::FT,
                                  ξ::AbstractArray{FT,1}) where FT <: AbstractFloat
 
 This function computes ξ = (ξ1,ξ2,ξ3) given x = (x1,x2,x3) and the (8) vertex coordinates of a Hexahedron. Newton-Raphson method is used.
@@ -1067,7 +1057,7 @@ function invert_trilear_mapping_hex!(
     trilinear_map_minus_x!(ξ, X1, X2, X3, x, d)
     err = sqrt(d[1] * d[1] + d[2] * d[2] + d[3] * d[3])
     ctr = 0
-    #---Newton-Raphson iterations---------------------------
+    # Newton-Raphson iterations
     while err > tol
         trilinear_map_IJac_x_vec!(ξ, X1, X2, X3, d)
         ξ .-= d
@@ -1085,11 +1075,11 @@ function invert_trilear_mapping_hex!(
             )
         end
     end
-    #-------------------------------------------------------
+
     clamp!(ξ, FT(-1), FT(1))
     return nothing
 end
-#--------------------------------------------------------
+
 function trilinear_map_minus_x!(
     ξ::AbstractArray{FT, 1},
     x1v::AbstractArray{FT, 1},
@@ -1144,7 +1134,7 @@ function trilinear_map_minus_x!(
 
     return nothing
 end
-#--------------------------------------------------------
+
 function trilinear_map_IJac_x_vec!(
     ξ::AbstractArray{FT, 1},
     x1v::AbstractArray{FT, 1},
@@ -1158,7 +1148,7 @@ function trilinear_map_IJac_x_vec!(
     m1 = 1 - ξ[1]
     m2 = 1 - ξ[2]
     m3 = 1 - ξ[3]
-    #-------------------------------------------------------------------------
+
     Jac11 =
         (
             m2 * (m3 * (x1v[2] - x1v[1]) + p3 * (x1v[6] - x1v[5])) +
@@ -1176,7 +1166,7 @@ function trilinear_map_IJac_x_vec!(
             m1 * (m2 * (x1v[5] - x1v[1]) + p2 * (x1v[7] - x1v[3])) +
             p1 * (m2 * (x1v[6] - x1v[2]) + p2 * (x1v[8] - x1v[4]))
         ) / 8.0
-    #-------------------------------------------------------------------------
+
     Jac21 =
         (
             m2 * (m3 * (x2v[2] - x2v[1]) + p3 * (x2v[6] - x2v[5])) +
@@ -1194,7 +1184,7 @@ function trilinear_map_IJac_x_vec!(
             m1 * (m2 * (x2v[5] - x2v[1]) + p2 * (x2v[7] - x2v[3])) +
             p1 * (m2 * (x2v[6] - x2v[2]) + p2 * (x2v[8] - x2v[4]))
         ) / 8.0
-    #-------------------------------------------------------------------------
+
     Jac31 =
         (
             m2 * (m3 * (x3v[2] - x3v[1]) + p3 * (x3v[6] - x3v[5])) +
@@ -1212,7 +1202,7 @@ function trilinear_map_IJac_x_vec!(
             m1 * (m2 * (x3v[5] - x3v[1]) + p2 * (x3v[7] - x3v[3])) +
             p1 * (m2 * (x3v[6] - x3v[2]) + p2 * (x3v[8] - x3v[4]))
         ) / 8.0
-    #-------------------------------------------------------------------------
+
     # computing cofactor matrix
     C11 = Jac22 * Jac33 - Jac23 * Jac32
     C12 = -Jac21 * Jac33 + Jac23 * Jac31
@@ -1237,10 +1227,10 @@ function trilinear_map_IJac_x_vec!(
 
     return nothing
 end
-#--------------------------------------------------------
+
 """
-    interpolate_local!(intrp_cs::InterpolationCubedSphere{FT}, 
-                             sv::AbstractArray{FT}, 
+    interpolate_local!(intrp_cs::InterpolationCubedSphere{FT},
+                             sv::AbstractArray{FT},
                               v::AbstractArray{FT}) where {FT <: AbstractFloat}
 
 This interpolation function works for cubed spherical shell geometry.
@@ -1255,7 +1245,7 @@ function interpolate_local!(
     sv::AbstractArray{FT},
     v::AbstractArray{FT},
 ) where {FT <: AbstractFloat}
-    #------------------------------------------------------------------------------------------
+
     offset = intrp_cs.offset
     m1_r = intrp_cs.m1_r
     wb = intrp_cs.wb
@@ -1268,7 +1258,7 @@ function interpolate_local!(
     longi = intrp_cs.longi
     lat_grd = intrp_cs.lat_grd
     long_grd = intrp_cs.long_grd
-    #------------------------------------------------------------------------------------------
+
     qm1 = length(m1_r)
     nvars = size(sv, 2)
     Nel = length(offset) - 1
@@ -1278,7 +1268,7 @@ function interpolate_local!(
     device = typeof(sv) <: Array ? CPU() : CUDA()
 
     if device == CPU()
-        #------------------------------------------------------------------------------------------
+
         Nel = length(offset) - 1
 
         vout = zeros(FT, nvars) #FT(0)
@@ -1286,7 +1276,7 @@ function interpolate_local!(
         vout_ij = zeros(FT, nvars) #FT(0)
 
 
-        for el in 1:Nel #-----for each element elno
+        for el in 1:Nel # for each element elno
             np = offset[el + 1] - offset[el]
             off = offset[el]
 
@@ -1304,11 +1294,10 @@ function interpolate_local!(
                 f3 == 0 ? (ikloop = 1:qm1) : (ikloop = f3:f3)
 
                 for ik in ikloop
-                    #--------------------------------------------
                     vout_ij .= 0.0
                     f2 == 0 ? (ijloop = 1:qm1) : (ijloop = f2:f2)
                     for ij in ijloop #1:qm1
-                        #----------------------------------------------------------------------------
+
                         vout_ii .= 0.0
 
                         if f1 == 0
@@ -1343,7 +1332,7 @@ function interpolate_local!(
                                 @inbounds vout_ij[vari] = vout_ii[vari]
                             end
                         end
-                        #----------------------------------------------------------------------------
+
                     end
                     if f3 == 0
                         for vari in 1:nvars
@@ -1355,16 +1344,16 @@ function interpolate_local!(
                             @inbounds vout[vari] = vout_ij[vari]
                         end
                     end
-                    #--------------------------------------------
+
                 end
                 for vari in 1:nvars
                     @inbounds v[off + i, vari] = vout[vari] * fc
                 end
             end
         end
-        #------------------------------------------------------------------------------------------
+
     else
-        #------------------------------------------------------------------------------------------
+
         @cuda threads = (qm1, qm1) blocks = (Nel, nvars) shmem =
             qm1 * (qm1 + 2) * sizeof(FT) interpolate_cubed_sphere_CUDA!(
             offset,
@@ -1378,11 +1367,11 @@ function interpolate_local!(
             sv,
             v,
         )
-        #------------------------------------------------------------------------------------------
+
     end
     return nothing
 end
-#--------------------------------------------------------
+
 function interpolate_cubed_sphere_CUDA!(
     offset::AbstractArray{T, 1},
     m1_r::AbstractArray{FT, 1},
@@ -1404,24 +1393,24 @@ function interpolate_cubed_sphere_CUDA!(
     qm1 = length(m1_r)
     nvars = size(sv, 2)
     _ρu, _ρv, _ρw = 2, 3, 4
-    #--------creating views for shared memory
+    # creating views for shared memory
     shm_FT = @cuDynamicSharedMem(FT, (qm1, qm1 + 2))
 
     vout_jk = view(shm_FT, :, 1:qm1)
     wb_sh = view(shm_FT, :, qm1 + 1)
     m1_r_sh = view(shm_FT, :, qm1 + 2)
-    #------loading shared memory-----------------------------
+    # load shared memory
     if tk == 1
         wb_sh[tj] = wb[tj]
         m1_r_sh[tj] = m1_r[tj]
     end
     sync_threads()
-    #-----------------------------------
+
     np = offset[el + 1] - offset[el]
     off = offset[el]
 
     for i in 1:np # interpolating point-by-point
-        #-----------------------------------
+
         ξ1l = ξ1[off + i]
         ξ2l = ξ2[off + i]
         ξ3l = ξ3[off + i]
@@ -1482,23 +1471,24 @@ function interpolate_cubed_sphere_CUDA!(
 
 
         end
-        #-----------------------------------
+
     end
-    #-----------------------------------
+
     return nothing
 end
-#--------------------------------------------------------
+
 """
-    project_cubed_sphere!(intrp_cs::InterpolationCubedSphere{FT}, 
-                                 v::AbstractArray{FT}, 
+    project_cubed_sphere!(intrp_cs::InterpolationCubedSphere{FT},
+                                 v::AbstractArray{FT},
                               uvwi::Tuple{Int,Int,Int}) where {FT <: AbstractFloat}
 
 This function projects the velocity field along unit vectors in radial, lat and long directions for cubed spherical shell geometry.
 
 # Fields
  - `intrp_cs`: Initialized cubed sphere structure
- - `v`: Array consisting of velocity field on the discontinuous Galerkin grid
- - `uvwi`:  Tuple providing the column numbers for u, v and w in the array. These columns will be replaced with projected velocity fields.
+ - `v`: Array consisting of x1, x2 and x3 components of the vector field
+ - `uvwi`:  Tuple providing the column numbers for x1, x2 and x3 components of vector field in the array. 
+            These columns will be replaced with projected vector fields along unit vectors in rad, lat and long directions.
 """
 function project_cubed_sphere!(
     intrp_cs::InterpolationCubedSphere{FT},
@@ -1558,7 +1548,7 @@ function project_cubed_sphere!(
         error("project_cubed_sphere!: unsupported device, only CPU() and CUDA() supported")
     end
 end
-#--------------------------------------------------------
+
 function project_cubed_sphere_CUDA!(
     lat_grd::AbstractArray{FT, 1},
     long_grd::AbstractArray{FT, 1},
@@ -1606,10 +1596,10 @@ function project_cubed_sphere_CUDA!(
     end # TODO: cosd / sind having issues on GPU. Unable to isolate the issue at this point. Needs to be revisited.
     return nothing
 end
-#--------------------------------------------------------
+
 """
-    accumulate_interpolated_data!(intrp::InterpolationTopology, 
-                                     iv::AbstractArray{FT,2}, 
+    accumulate_interpolated_data!(intrp::InterpolationTopology,
+                                     iv::AbstractArray{FT,2},
                                     fiv::AbstractArray{FT,4}) where {FT <: AbstractFloat}
 
 This interpolation function gathers interpolated data onto process # 0.
@@ -1625,7 +1615,7 @@ function accumulate_interpolated_data!(
     fiv::AbstractArray{FT, 4},
 ) where {FT <: AbstractFloat}
 
-    DA = CLIMA.array_type()           # device array
+    DA = ClimateMachine.array_type()           # device array
     device = DA <: Array ? CPU() : CUDA()
     mpicomm = MPI.COMM_WORLD
     pid = MPI.Comm_rank(mpicomm)
@@ -1662,7 +1652,7 @@ function accumulate_interpolated_data!(
         pid == 0 ? v_all = Array{FT}(undef, np_tot, nvars) :
         v_all = Array{FT}(undef, 0, nvars)
         if device == CPU()
-            #------------------------------
+
             for vari in 1:nvars
                 MPI.Gatherv!(
                     view(iv, :, vari),
@@ -1672,9 +1662,9 @@ function accumulate_interpolated_data!(
                     mpicomm,
                 )
             end
-            #------------------------------
+
         elseif device == CUDA()
-            #------------------------------
+
             v = Array(iv)
             for vari in 1:nvars
                 MPI.Gatherv!(
@@ -1686,7 +1676,7 @@ function accumulate_interpolated_data!(
                 )
             end
             v_all = DA(v_all)
-            #------------------------------
+
         else
             error("accumulate_interpolate_data: unsupported device, only CPU() and CUDA() supported")
         end
@@ -1722,7 +1712,7 @@ function accumulate_interpolated_data!(
     MPI.Barrier(mpicomm)
     return nothing
 end
-#--------------------------------------------------------
+
 function accumulate_helper_CUDA!(
     i1::AbstractArray{UInt16, 1},
     i2::AbstractArray{UInt16, 1},
@@ -1743,7 +1733,7 @@ function accumulate_helper_CUDA!(
         end
     end
 end
-#--------------------------------------------------------
+
 
 function accumulate_interpolated_data(
     mpicomm::MPI.Comm,

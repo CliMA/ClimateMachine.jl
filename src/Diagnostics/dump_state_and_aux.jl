@@ -41,12 +41,12 @@ function get_dims(dgngrp)
 end
 
 function dump_state_and_aux_collect(dgngrp, currtime)
-    DA = CLIMA.array_type()
+    DA = ClimateMachine.array_type()
     mpicomm = Settings.mpicomm
     dg = Settings.dg
     Q = Settings.Q
     FT = eltype(Q.data)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     mpirank = MPI.Comm_rank(mpicomm)
 
     # filename (may also want to take out)
@@ -60,14 +60,18 @@ function dump_state_and_aux_collect(dgngrp, currtime)
     statefilename = joinpath(Settings.output_dir, dprefix)
     auxfilename = joinpath(Settings.output_dir, "$(dprefix)_aux")
 
-    statenames = flattenednames(vars_state(bl, FT))
+    statenames = flattenednames(vars_state_conservative(bl, FT))
     #statenames = ("rho", "rhou", "rhov", "rhow", "rhoe")
-    auxnames = flattenednames(vars_aux(bl, FT))
+    auxnames = flattenednames(vars_state_auxiliary(bl, FT))
 
     all_state_data = nothing
     all_aux_data = nothing
     if dgngrp.interpol !== nothing
-        istate = DA(Array{FT}(undef, dgngrp.interpol.Npl, num_state(bl, FT)))
+        istate = DA(Array{FT}(
+            undef,
+            dgngrp.interpol.Npl,
+            number_state_conservative(bl, FT),
+        ))
         interpolate_local!(dgngrp.interpol, Q.data, istate)
 
         if dgngrp.project
@@ -83,8 +87,12 @@ function dump_state_and_aux_collect(dgngrp, currtime)
         all_state_data =
             accumulate_interpolated_data(mpicomm, dgngrp.interpol, istate)
 
-        iaux = DA(Array{FT}(undef, dgngrp.interpol.Npl, num_aux(bl, FT)))
-        interpolate_local!(dgngrp.interpol, dg.auxstate.data, iaux)
+        iaux = DA(Array{FT}(
+            undef,
+            dgngrp.interpol.Npl,
+            number_state_auxiliary(bl, FT),
+        ))
+        interpolate_local!(dgngrp.interpol, dg.state_auxiliary.data, iaux)
 
         all_aux_data =
             accumulate_interpolated_data(mpicomm, dgngrp.interpol, iaux)
@@ -92,20 +100,25 @@ function dump_state_and_aux_collect(dgngrp, currtime)
         error("Dump of non-interpolated data currently unsupported")
     end
 
-    dims = get_dims(dgngrp)
+    if mpirank == 0
+        dims = get_dims(dgngrp)
+        dim_names = tuple(collect(keys(dims))...)
 
-    statevarvals = OrderedDict()
-    for i in 1:num_state(bl, FT)
-        statevarvals[statenames[i]] = all_state_data[:, :, :, i]
+        statevarvals = OrderedDict()
+        for i in 1:number_state_conservative(bl, FT)
+            statevarvals[statenames[i]] =
+                (dim_names, all_state_data[:, :, :, i])
+        end
+        write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
+
+        auxvarvals = OrderedDict()
+        for i in 1:number_state_auxiliary(bl, FT)
+            auxvarvals[auxnames[i]] = (dim_names, all_aux_data[:, :, :, i])
+        end
+        write_data(dgngrp.writer, auxfilename, dims, auxvarvals, currtime)
     end
-    write_data(dgngrp.writer, statefilename, dims, statevarvals, currtime)
 
-    auxvarvals = OrderedDict()
-    for i in 1:num_aux(bl, FT)
-        auxvarvals[auxnames[i]] = all_aux_data[:, :, :, i]
-    end
-    write_data(dgngrp.writer, auxfilename, dims, auxvarvals, currtime)
-
+    MPI.Barrier(mpicomm)
     return nothing
 end
 

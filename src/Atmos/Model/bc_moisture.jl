@@ -12,7 +12,7 @@ function atmos_moisture_boundary_state!(
     atmos,
     args...,
 ) end
-function atmos_moisture_normal_boundary_flux_diffusive!(
+function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::Impermeable,
     atmos,
@@ -35,7 +35,7 @@ function atmos_moisture_boundary_state!(
     atmos,
     args...,
 ) end
-function atmos_moisture_normal_boundary_flux_diffusive!(
+function atmos_moisture_normal_boundary_flux_second_order!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
     atmos,

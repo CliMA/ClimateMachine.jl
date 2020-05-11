@@ -1,18 +1,20 @@
 using MPI
-using CLIMA
+using ClimateMachine
 using Logging
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf
 using Dates
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.VTK: writevtk, writepvtu
-import CLIMA.DGmethods.NumericalFluxes: normal_boundary_flux_diffusive!
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.VTK: writevtk, writepvtu
+import ClimateMachine.DGmethods.NumericalFluxes:
+    normal_boundary_flux_second_order!
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -54,8 +56,8 @@ function initial_condition!(
 end
 Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
 
-function normal_boundary_flux_diffusive!(
-    ::CentralNumericalFluxDiffusive,
+function normal_boundary_flux_second_order!(
+    ::CentralNumericalFluxSecondOrder,
     ::AdvectionDiffusion{dim, HeatEqn{nd, κ, A}},
     fluxᵀn::Vars{S},
     n⁻,
@@ -118,8 +120,8 @@ function run(
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
         direction = direction(),
     )
@@ -181,8 +183,8 @@ end
 
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 
@@ -218,21 +220,21 @@ let
     expected_result[2, 1, Float32, VerticalDirection] = 2.0514704287052155e-02
     expected_result[2, 2, Float32, VerticalDirection] = 5.6839984608814120e-04
     expected_result[2, 3, Float32, VerticalDirection] = 1.0241863492410630e-05
-    expected_result[3, 1, Float32, EveryDirection] = 1.2601226335391402e-03
-    expected_result[3, 2, Float32, EveryDirection] = 2.2367596102412790e-05
-    expected_result[3, 3, Float32, EveryDirection] = 1.1315821211610455e-05
-    expected_result[3, 1, Float32, HorizontalDirection] = 5.1570408977568150e-03
-    expected_result[3, 2, Float32, HorizontalDirection] = 6.6678490838967264e-05
-    expected_result[3, 3, Float32, HorizontalDirection] = 9.9300414149183780e-05
-    expected_result[3, 1, Float32, VerticalDirection] = 2.0514601841568947e-02
-    expected_result[3, 2, Float32, VerticalDirection] = 5.6837650481611490e-04
-    expected_result[3, 3, Float32, VerticalDirection] = 3.2248572097159922e-05
+    expected_result[3, 1, Float32, EveryDirection] = 1.2601461494341493e-03
+    expected_result[3, 2, Float32, EveryDirection] = 2.2380427253665403e-05
+    expected_result[3, 3, Float32, EveryDirection] = 1.1313175491522998e-05
+    expected_result[3, 1, Float32, HorizontalDirection] = 5.1570334471762180e-03
+    expected_result[3, 2, Float32, HorizontalDirection] = 6.6673339460976422e-05
+    expected_result[3, 3, Float32, HorizontalDirection] = 9.9301614682190120e-05
+    expected_result[3, 1, Float32, VerticalDirection] = 2.0514605566859245e-02
+    expected_result[3, 2, Float32, VerticalDirection] = 5.6837813463062048e-04
+    expected_result[3, 3, Float32, VerticalDirection] = 3.2253094104817137e-05
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32)
-            numlevels =
-                integration_testing || CLIMA.Settings.integration_testing ? 3 :
-                1
+            numlevels = integration_testing ||
+            ClimateMachine.Settings.integration_testing ?
+                3 : 1
             result = zeros(FT, numlevels)
             for dim in 2:3
                 for direction in

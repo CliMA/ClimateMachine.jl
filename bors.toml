@@ -1,6 +1,7 @@
 status = [
-  "CLIMA",
-  "ci/slurmci"
+  "azure-ci",
+  "ci/slurmci",
+  "docs-build"
 ]
 delete_merged_branches = true
 timeout_sec = 86400

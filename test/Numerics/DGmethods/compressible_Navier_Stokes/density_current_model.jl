@@ -1,25 +1,25 @@
 
 # Load Packages
 using MPI
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Geometry
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Atmos
-using CLIMA.VariableTemplates
-using CLIMA.MoistThermodynamics
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Atmos
+using ClimateMachine.VariableTemplates
+using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 using Random
-using CLIMA.Atmos: vars_state, vars_aux
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
@@ -136,14 +136,14 @@ function run(
         ),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
-        init_state = Initialise_Density_Current!,
+        init_state_conservative = Initialise_Density_Current!,
     )
-    # -------------- Define dgbalancelaw --------------------------- #
+    # -------------- Define DGModel --------------------------- #
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -193,9 +193,9 @@ function run(
             outprefix,
             Q,
             dg,
-            flattenednames(vars_state(model, FT)),
-            dg.auxstate,
-            flattenednames(vars_aux(model, FT)),
+            flattenednames(vars_state_conservative(model, FT)),
+            dg.state_auxiliary,
+            flattenednames(vars_state_auxiliary(model, FT)),
         )
         step[1] += 1
         nothing
@@ -220,8 +220,8 @@ end
 # --------------- Test block / Loggers ------------------ #
 using Test
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
     for FT in (Float32, Float64)

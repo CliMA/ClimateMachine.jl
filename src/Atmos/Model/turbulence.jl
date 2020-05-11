@@ -28,13 +28,13 @@ export turbulence_tensors
 # which will be overloaded with model specific functions.
 abstract type TurbulenceClosure end
 
-vars_state(::TurbulenceClosure, FT) = @vars()
-vars_aux(::TurbulenceClosure, FT) = @vars()
+vars_state_conservative(::TurbulenceClosure, FT) = @vars()
+vars_state_auxiliary(::TurbulenceClosure, FT) = @vars()
 
 
 """
     atmos_init_aux!
-Initialise auxiliary variables for turbulence models. 
+Initialise auxiliary variables for turbulence models.
 Overload for specific type of turbulence closure.
 """
 function atmos_init_aux!(
@@ -45,11 +45,11 @@ function atmos_init_aux!(
 ) end
 
 """
-    atmos_nodal_update_aux!
-Update auxiliary variables for turbulence models. 
+    atmos_nodal_update_auxiliary_state!
+Update auxiliary variables for turbulence models.
 Overload for specific turbulence closure type
 """
-function atmos_nodal_update_aux!(
+function atmos_nodal_update_auxiliary_state!(
     ::TurbulenceClosure,
     ::AtmosModel,
     state::Vars,
@@ -58,10 +58,10 @@ function atmos_nodal_update_aux!(
 ) end
 
 """
-    gradvariables!
+    compute_gradient_argument!
 Assign pre-gradient-transform variables specific to turbulence models.
 """
-function gradvariables!(
+function compute_gradient_argument!(
     ::TurbulenceClosure,
     transform::Vars,
     state::Vars,
@@ -69,10 +69,10 @@ function gradvariables!(
     t::Real,
 ) end
 """
-    diffusive!(::TurbulenceClosure, _...)
+    compute_gradient_flux!(::TurbulenceClosure, _...)
 Post-gradient-transformed variables specific to turbulence models.
 """
-function diffusive!(
+function compute_gradient_flux!(
     ::TurbulenceClosure,
     ::Orientation,
     diffusive,
@@ -89,24 +89,24 @@ turbulence_tensors(atmos::AtmosModel, args...) =
 
 """
     ν, D_t, τ = turbulence_tensors(
-                    ::TurbulenceClosure, 
-                    orientation::Orientation, 
-                    param_set::AbstractParameterSet, 
-                    state::Vars, 
-                    diffusive::Vars, 
-                    aux::Vars, 
+                    ::TurbulenceClosure,
+                    orientation::Orientation,
+                    param_set::AbstractParameterSet,
+                    state::Vars,
+                    diffusive::Vars,
+                    aux::Vars,
                     t::Real
                 )
 Compute the kinematic viscosity (`ν`), the diffusivity (`D_t`) and SGS momentum flux tensor (`τ`)
 for a given turbulence closure. Each closure overloads this method with the appropriate calculations
-for the returned quantities. 
+for the returned quantities.
 
-# Arguments 
+# Arguments
 
 - `::TurbulenceClosure` = Struct identifier for turbulence closure model
 - `orientation` = `AtmosModel.orientation`
 - `param_set` = `AtmosModel.param_set`
-- `state` = Array of prognostic (state) variables. See `vars_state` in `AtmosModel`
+- `state` = Array of prognostic (state) variables. See `vars_state_conservative` in `AtmosModel`
 - `diffusive` = Array of diffusive variables
 - `aux` = Array of auxiliary variables
 - `t` = time
@@ -121,7 +121,7 @@ turbulence_tensors(m::TurbulenceClosure, atmos::AtmosModel, args...) =
 # ### [Pricipal Invariants](@id tensor-invariants)
 # ```math
 # \textit{I}_{1} = \mathrm{tr(X)} \\
-# \textit{I}_{2} = (\mathrm{tr(X)}^2 - \mathrm{tr(X^2)}) / 2 \\ 
+# \textit{I}_{2} = (\mathrm{tr(X)}^2 - \mathrm{tr(X^2)}) / 2 \\
 # \textit{I}_{3} = \mathrm{det(X)} \\
 # ```
 """
@@ -138,12 +138,12 @@ end
 
 # ### [Symmetrize](@id symmetric-tensors)
 # ```math
-# \frac{\mathrm{X} + \mathrm{X}^{T}}{2} \\ 
+# \frac{\mathrm{X} + \mathrm{X}^{T}}{2} \\
 # ```
 """
     symmetrize(X)
 
-Given a (3,3) second rank tensor X, compute `(X + X')/2`, returning a 
+Given a (3,3) second rank tensor X, compute `(X + X')/2`, returning a
 symmetric `SHermitianCompact` object.
 """
 function symmetrize(X::StaticArray{Tuple{3, 3}})
@@ -158,13 +158,13 @@ function symmetrize(X::StaticArray{Tuple{3, 3}})
 end
 
 # ### [2-Norm](@id tensor-norms)
-# Given a tensor X, return the tensor dot product 
+# Given a tensor X, return the tensor dot product
 # ```math
 # \sum_{i,j} S_{ij}^2
 # ```
 """
     norm2(X)
-Given a tensor `X`, computes its tensor dot product. 
+Given a tensor `X`, computes its tensor dot product.
 """
 function norm2(X::SMatrix{3, 3, FT}) where {FT}
     abs2(X[1, 1]) +
@@ -197,7 +197,7 @@ end
 # \vec{S}(\vec{u}) = \frac{1}{2}  \left(\nabla\vec{u} +  \left( \nabla\vec{u} \right)^T \right)
 # ```
 # \mathrm{S} is the rate-of-strain tensor. (Symmetric component of the velocity gradient). Note that the
-# skew symmetric component (rate-of-rotation) is not currently computed. 
+# skew symmetric component (rate-of-rotation) is not currently computed.
 """
     strain_rate_magnitude(S)
 Given the rate-of-strain tensor `S`, computes its magnitude.
@@ -228,11 +228,11 @@ struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
     ρν::FT
 end
 
-vars_gradient(::ConstantViscosityWithDivergence, FT) = @vars()
-vars_diffusive(::ConstantViscosityWithDivergence, FT) =
+vars_state_gradient(::ConstantViscosityWithDivergence, FT) = @vars()
+vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
-function diffusive!(
+function compute_gradient_flux!(
     ::ConstantViscosityWithDivergence,
     ::Orientation,
     diffusive::Vars,
@@ -266,7 +266,7 @@ end
 
 # ### [Smagorinsky-Lilly](@id smagorinsky-lilly)
 # The Smagorinsky turbulence model, with Lilly's correction to
-# stratified atmospheric flows, is included in CLIMA.
+# stratified atmospheric flows, is included in ClimateMachine.
 # The input parameter to this model is the Smagorinsky coefficient.
 # For atmospheric flows, the coefficient `C_smag` typically takes values between
 # 0.15 and 0.23. Flow dependent `C_smag` are currently not supported (e.g. Germano's
@@ -277,7 +277,7 @@ end
 # ```
 # with the stratification correction term
 # ```math
-# f_{b} = 
+# f_{b} =
 #    \begin{cases}
 #    1 & \mathrm{Ri} \leq 0 ,\\
 #    \max(0, 1 - \mathrm{Ri} / \mathrm{Pr}_{t})^{1/4} & \mathrm{Ri} > 0 .
@@ -285,7 +285,7 @@ end
 # ```
 # ```math
 # \mathrm{Ri} =  \frac{N^2}{{|S|}^2}
-# ``` 
+# ```
 # ```math
 # N = \left( \frac{g}{\theta_v} \frac{\partial \theta_v}{\partial z}\right)^{1/2}
 # ```
@@ -343,9 +343,9 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosure
     C_smag::FT
 end
 
-vars_aux(::SmagorinskyLilly, FT) = @vars(Δ::FT)
-vars_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
-vars_diffusive(::SmagorinskyLilly, FT) =
+vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
+vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
+vars_state_gradient_flux(::SmagorinskyLilly, FT) =
     @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
 
 
@@ -358,7 +358,7 @@ function atmos_init_aux!(
     aux.turbulence.Δ = lengthscale(geom)
 end
 
-function gradvariables!(
+function compute_gradient_argument!(
     m::SmagorinskyLilly,
     transform::Vars,
     state::Vars,
@@ -368,7 +368,7 @@ function gradvariables!(
     transform.turbulence.θ_v = aux.moisture.θ_v
 end
 
-function diffusive!(
+function compute_gradient_flux!(
     ::SmagorinskyLilly,
     orientation::Orientation,
     diffusive::Vars,
@@ -449,7 +449,7 @@ If Δᵢ = Δ, then β = Δ²αᵀα
 # Fields
 
 $(DocStringExtensions.FIELDS)
-    
+
 # Reference
 
     @article{Vreman2004,
@@ -467,14 +467,14 @@ struct Vreman{FT} <: TurbulenceClosure
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
-vars_aux(::Vreman, FT) = @vars(Δ::FT)
-vars_gradient(::Vreman, FT) = @vars(θ_v::FT)
-vars_diffusive(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+vars_state_auxiliary(::Vreman, FT) = @vars(Δ::FT)
+vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT)
+vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 
 function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.turbulence.Δ = lengthscale(geom)
 end
-function gradvariables!(
+function compute_gradient_argument!(
     m::Vreman,
     transform::Vars,
     state::Vars,
@@ -483,7 +483,7 @@ function gradvariables!(
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
 end
-function diffusive!(
+function compute_gradient_flux!(
     ::Vreman,
     orientation::Orientation,
     diffusive::Vars,
@@ -548,7 +548,7 @@ eigenvalue problem for the Laplacian operator).
 
 # Fields
 $(DocStringExtensions.FIELDS)
- 
+
 # Reference
 
     @article{
@@ -568,9 +568,10 @@ $(DocStringExtensions.FIELDS)
 struct AnisoMinDiss{FT} <: TurbulenceClosure
     C_poincare::FT
 end
-vars_aux(::AnisoMinDiss, FT) = @vars(Δ::FT)
-vars_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
-vars_diffusive(::AnisoMinDiss, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+vars_state_auxiliary(::AnisoMinDiss, FT) = @vars(Δ::FT)
+vars_state_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
+vars_state_gradient_flux(::AnisoMinDiss, FT) =
+    @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 function atmos_init_aux!(
     ::AnisoMinDiss,
     ::AtmosModel,
@@ -579,7 +580,7 @@ function atmos_init_aux!(
 )
     aux.turbulence.Δ = lengthscale(geom)
 end
-function gradvariables!(
+function compute_gradient_argument!(
     m::AnisoMinDiss,
     transform::Vars,
     state::Vars,
@@ -588,7 +589,7 @@ function gradvariables!(
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
 end
-function diffusive!(
+function compute_gradient_flux!(
     ::AnisoMinDiss,
     orientation::Orientation,
     diffusive::Vars,

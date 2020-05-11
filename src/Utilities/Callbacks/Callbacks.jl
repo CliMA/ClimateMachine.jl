@@ -6,7 +6,6 @@ using KernelAbstractions
 using LinearAlgebra
 using MPI
 using Printf
-using Requires
 using Statistics
 
 using CLIMAParameters
@@ -14,19 +13,19 @@ using CLIMAParameters.Planet: day
 
 using ..Courant
 using ..Checkpoint
-using ..DGmethods: vars_state, vars_aux
+using ..DGmethods: courant, vars_state_conservative, vars_state_auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays
 using ..ODESolvers
+using ..TicToc
 using ..VariableTemplates
 using ..VTK
+using ..Mesh.Grids: HorizontalDirection, VerticalDirection
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays, .CuArrays.CUDAdrv, .CuArrays.CUDAnative
-    @eval _sync_device(::Type{CuArray}) = synchronize()
-end
+using CuArrays, CuArrays.CUDAdrv, CuArrays.CUDAnative
 
+_sync_device(::Type{CuArray}) = synchronize()
 _sync_device(::Type{Array}) = nothing
 
 """
@@ -92,6 +91,7 @@ function diagnostics(
                 CB_constructor(diagnostics_opt, solver_config, dgngrp.interval)
             cb_constr === nothing && continue
             fn = cb_constr() do (init = false)
+                @tic diagnostics
                 currtime = ODESolvers.gettime(solver_config.solver)
                 @info @sprintf(
                     """
@@ -102,6 +102,7 @@ Diagnostics: %s
                     string(currtime),
                 )
                 dgngrp(currtime, init = init)
+                @toc diagnostics
                 nothing
             end
             dgncbs = (dgncbs..., fn)
@@ -125,11 +126,12 @@ function vtk(vtk_opt, solver_config, output_dir)
 
         mpicomm = solver_config.mpicomm
         dg = solver_config.dg
-        bl = dg.balancelaw
+        bl = dg.balance_law
         Q = solver_config.Q
         FT = eltype(Q)
 
         cb_vtk = cb_constr() do (init = false)
+            @tic vtk
             vprefix = @sprintf(
                 "%s_mpirank%04d_num%04d",
                 solver_config.name,
@@ -138,10 +140,10 @@ function vtk(vtk_opt, solver_config, output_dir)
             )
             outprefix = joinpath(output_dir, vprefix)
 
-            statenames = flattenednames(vars_state(bl, FT))
-            auxnames = flattenednames(vars_aux(bl, FT))
+            statenames = flattenednames(vars_state_conservative(bl, FT))
+            auxnames = flattenednames(vars_state_auxiliary(bl, FT))
 
-            writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
+            writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
             # Generate the pvtu file for these vtk files
             if MPI.Comm_rank(mpicomm) == 0
@@ -162,6 +164,7 @@ function vtk(vtk_opt, solver_config, output_dir)
             end
 
             vtknum[] += 1
+            @toc vtk
             nothing
         end
         return cb_vtk
@@ -239,32 +242,32 @@ function monitor_courant_numbers(mcn_opt, solver_config)
     if cb_constr !== nothing
         cb_cfl = cb_constr() do (init = false)
             Δt = solver_config.dt
-            c_v = DGmethods.courant(
+            c_v = courant(
                 nondiffusive_courant,
                 solver_config,
                 direction = VerticalDirection(),
             )
-            c_h = DGmethods.courant(
+            c_h = courant(
                 nondiffusive_courant,
                 solver_config,
                 direction = HorizontalDirection(),
             )
-            ca_v = DGmethods.courant(
+            ca_v = courant(
                 advective_courant,
                 solver_config,
                 direction = VerticalDirection(),
             )
-            ca_h = DGmethods.courant(
+            ca_h = courant(
                 advective_courant,
                 solver_config,
                 direction = HorizontalDirection(),
             )
-            cd_v = DGmethods.courant(
+            cd_v = courant(
                 diffusive_courant,
                 solver_config,
                 direction = VerticalDirection(),
             )
-            cd_h = DGmethods.courant(
+            cd_h = courant(
                 diffusive_courant,
                 solver_config,
                 direction = HorizontalDirection(),
@@ -352,22 +355,10 @@ function CB_constructor(interval::String, solver_config, default = nothing)
     mpicomm = solver_config.mpicomm
     solver = solver_config.solver
     dg = solver_config.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     secs_per_day = day(bl.param_set)
 
-    if endswith(interval, "hours")
-        secs = 60 * 60 * parse(Int, interval[1:(end - 5)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "mins")
-        secs = 60 * parse(Int, interval[1:(end - 4)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "secs")
-        secs = parse(Int, interval[1:(end - 4)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "smonths")
+    if endswith(interval, "smonths")
         ticks = 30.0 * secs_per_day * parse(Float64, interval[1:(end - 7)])
         return (func) ->
             GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
@@ -379,9 +370,29 @@ function CB_constructor(interval::String, solver_config, default = nothing)
         ticks = 60.0 * 60.0 * parse(Float64, interval[1:(end - 6)])
         return (func) ->
             GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
+    elseif endswith(interval, "smins")
+        ticks = 60.0 * parse(Float64, interval[1:(end - 5)])
+        return (func) ->
+            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
+    elseif endswith(interval, "ssecs")
+        ticks = parse(Float64, interval[1:(end - 5)])
+        return (func) ->
+            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
     elseif endswith(interval, "steps")
         steps = parse(Int, interval[1:(end - 5)])
         return (func) -> GenericCallbacks.EveryXSimulationSteps(func, steps)
+    elseif endswith(interval, "hours")
+        secs = 60 * 60 * parse(Int, interval[1:(end - 5)])
+        return (func) ->
+            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
+    elseif endswith(interval, "mins")
+        secs = 60 * parse(Int, interval[1:(end - 4)])
+        return (func) ->
+            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
+    elseif endswith(interval, "secs")
+        secs = parse(Int, interval[1:(end - 4)])
+        return (func) ->
+            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
     elseif interval == "default"
         if default === nothing
             @warn "no default available; ignoring"
@@ -401,6 +412,10 @@ function CB_constructor(interval::String, solver_config, default = nothing)
         )
         return nothing
     end
+end
+
+function __init__()
+    tictoc()
 end
 
 end # module
