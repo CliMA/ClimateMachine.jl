@@ -248,7 +248,6 @@ vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
           ∂w∂x::FT,
           ∂w∂y::FT,
           ∂w∂z::FT,
-          τ::SMatrix{3,3,FT,9}
          )
 
 function atmos_init_aux!(
@@ -320,7 +319,7 @@ function compute_gradient_flux!(
     diffusive.turbulence.∂w∂y = ∇u[3,2]
     diffusive.turbulence.∂w∂z = ∇u[3,3]
 
-    diffusive.turbulence.τ = -2 .* diffusive.turbulence.S .* ν + (2 .*ν ./ 3) * tr(diffusive.turbulence.S)*I
+    #diffusive.turbulence.τ = -2 .* diffusive.turbulence.S .* ν + (2 .*ν ./ 3) * tr(diffusive.turbulence.S)*I
 end
 
 function turbulence_tensors(
@@ -339,7 +338,7 @@ function turbulence_tensors(
     ν = m.ρν / state.ρ
     D_t = ν * _inv_Pr_turb
     τ = (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
-    return ν, D_t, diffusive.turbulence.τ
+    return ν, D_t, τ
 end
 
 # ### [Smagorinsky-Lilly](@id smagorinsky-lilly)
@@ -524,9 +523,6 @@ function turbulence_tensors(
 )
     FT = eltype(state)
     _inv_Pr_turb::FT = inv_Pr_turb(param_set)
-    ν_x = diffusive.turbulence.ν_x
-    ν_y = diffusive.turbulence.ν_y
-    ν_z = diffusive.turbulence.ν_z
     S = diffusive.turbulence.S
     normS = strain_rate_magnitude(S)
     k̂ = vertical_unit_vector(orientation, param_set, aux)
@@ -537,8 +533,12 @@ function turbulence_tensors(
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    #ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
-    ν = SDiagonal(ν_x, ν_y, ν_z)
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
+    
+    #ν_x = diffusive.turbulence.ν_x
+    #ν_y = diffusive.turbulence.ν_y
+    #ν_z = diffusive.turbulence.ν_z
+    #ν = SDiagonal(ν_x, ν_y, ν_z)
 
     D_t = diag(ν) * _inv_Pr_turb
     
@@ -552,8 +552,8 @@ function turbulence_tensors(
     ∂w∂y = diffusive.turbulence.∂w∂y
     ∂w∂z = diffusive.turbulence.∂w∂z
 
-    S0 = SHermitianCompact{3,FT,6}(SVector((∂u∂x),(∂u∂y + ∂v∂x)/2,(∂w∂x + ∂u∂z)/2,(∂v∂y),(∂w∂y + ∂v∂z)/2,(∂w∂z)))
-    τ = -2 .* ν .* S0
+    #S0 = SHermitianCompact{3,FT,6}(SVector((∂u∂x),(∂u∂y + ∂v∂x)/2,(∂w∂x + ∂u∂z)/2,(∂v∂y),(∂w∂y + ∂v∂z)/2,(∂w∂z)))
+    τ = -2 .* ν .* S
 
     return ν, D_t, τ
 end

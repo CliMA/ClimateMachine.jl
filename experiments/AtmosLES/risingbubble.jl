@@ -231,8 +231,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
         param_set;                                   # Parameter set corresponding to earth parameters
-        turbulence = SmagorinskyLilly{FT}(0.25),     # Turbulence closure model
-        #turbulence = ConstantViscosityWithDivergence{FT}(20),     # Turbulence closure model
+        #turbulence = SmagorinskyLilly{FT}(0.25),     # Turbulence closure model
+        turbulence = ConstantViscosityWithDivergence{FT}(10),     # Turbulence closure model
         #hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
         source = (Gravity(),),                       # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),       # Tracer model with diffusivity coefficients
@@ -284,7 +284,7 @@ function main()
     zmax = FT(2500)
     t0 = FT(0)
     timeend = FT(1000)
-    CFL = FT(15)
+    CFL = FT(5)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
