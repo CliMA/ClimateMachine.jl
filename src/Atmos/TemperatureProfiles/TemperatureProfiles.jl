@@ -186,10 +186,17 @@ function (profile::StableTemperatureProfile)(
 ) where {PS}
 
     z = altitude(orientation, param_set, aux)
-    S=profile.N*profile.N/grav
-    θ=profile.θ_surface*exp(S*z)
-    p=MSLP*(1.0-grav/(cp_d*profile.θ_surface*S)*(1.0-exp(-S*z)))^(cp_d/R_d)
-    T=(p/MSLP)^(R_d/cp_d)*θ
+    
+    FT = typeof(z)
+    _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
+
+    S = profile.N * profile.N / _grav
+    θ = profile.θ_surface * exp(S * z)
+    p = _MSLP * (1.0 - _grav / (_cp_d * profile.θ_surface * S) * (1.0 - exp(-S * z))) ^ (_cp_d / _R_d)
+    T = (p / _MSLP) ^ (_R_d / _cp_d) * θ
     return (T, p)
 end
 
