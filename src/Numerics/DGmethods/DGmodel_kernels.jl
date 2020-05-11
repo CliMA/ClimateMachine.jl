@@ -1,7 +1,4 @@
 using .NumericalFluxes:
-    NumericalFluxGradient,
-    NumericalFluxFirstOrder,
-    NumericalFluxSecondOrder,
     numerical_flux_gradient!,
     numerical_flux_first_order!,
     numerical_flux_second_order!,
@@ -458,8 +455,8 @@ end
 
 @doc """
     interface_tendency!(balance_law::BalanceLaw, Val(polyorder),
-            numerical_flux_first_order::NumericalFluxFirstOrder,
-            numerical_flux_second_order::NumericalFluxSecondOrder,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
             tendency, state_conservative, state_gradient_flux, state_auxiliary,
             vgeo, sgeo, t, vmap⁻, vmap⁺, elemtobndy,
             elems)
@@ -472,8 +469,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     ::Val{dim},
     ::Val{polyorder},
     direction,
-    numerical_flux_first_order::NumericalFluxFirstOrder,
-    numerical_flux_second_order::NumericalFluxSecondOrder,
+    numerical_flux_first_order,
+    numerical_flux_second_order,
     tendency,
     state_conservative,
     state_gradient_flux,
@@ -1117,7 +1114,7 @@ end
     ::Val{dim},
     ::Val{polyorder},
     direction,
-    numerical_flux_gradient::NumericalFluxGradient,
+    numerical_flux_gradient,
     state_conservative,
     state_gradient_flux,
     Qhypervisc_grad,
