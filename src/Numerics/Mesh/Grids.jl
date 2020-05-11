@@ -307,14 +307,14 @@ function min_node_distance(
         device = grid.vgeo isa Array ? CPU() : CUDA()
         min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
-        event = kernel_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
+        event = kernel_min_neighbor_distance!(device, min(Nq * Nq * Nqk, 1024))(
             Val(N),
             Val(dim),
             direction,
             min_neighbor_distance,
             grid.vgeo,
             topology.realelems;
-            ndrange = (Nq, Nq, Nqk, nrealelem),
+            ndrange = (Nq * Nq * Nqk * nrealelem),
             dependencies = (event,),
         )
         wait(device, event)
@@ -613,6 +613,7 @@ neighbors.
         FT = eltype(min_neighbor_distance)
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
+        Np = Nq * Nq * Nqk
 
         if direction isa EveryDirection
             mininξ = (true, true, true)
@@ -623,12 +624,16 @@ neighbors.
         end
     end
 
-    e = @index(Group, Linear)
-    i, j, k = @index(Local, NTuple)
+    I = @index(Global, Linear)
+    e = (I - 1) ÷ Np + 1
+    ijk = (I - 1) % Np + 1
+
+    i = (ijk - 1) % Nq + 1
+    j = (ijk - 1) ÷ Nq % Nq + 1
+    k = (ijk - 1) ÷ Nq^2 % Nqk + 1
 
     md = typemax(FT)
 
-    ijk = i + Nq * (j - 1) + Nq * Nq * (k - 1)
     x = SVector(vgeo[ijk, _x1, e], vgeo[ijk, _x2, e], vgeo[ijk, _x3, e])
 
     if mininξ[1]

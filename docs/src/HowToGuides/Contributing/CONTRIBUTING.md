@@ -70,13 +70,6 @@ For the most part, we follow the [YASGuide](https://github.com/jrevels/YASGuide)
 
 In addition to this, once you are happy with your PR, please apply [JuliaFormatter.jl](https://github.com/domluna/JuliaFormatter.jl) to all changed files in the repository.
 
-To apply our formatter settings to all changed files, run:
-```
-julia .dev/format.jl
-```
-
-Formatting changes should be done as a separate commit, ideally the last commit of the pull request (you may want to leave it until all other changes have been approved).
-
 ### Formatting utility
 
 A convenience utility is located at `.dev/climaformat.jl` that will format the julia files in the given path. For example, from the top-level ClimateMachine directory

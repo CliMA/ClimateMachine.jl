@@ -808,17 +808,20 @@ function courant(
         device = grid.vgeo isa Array ? CPU() : CUDA()
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
-        event = Grids.kernel_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
+        event = Grids.kernel_min_neighbor_distance!(
+            device,
+            min(Nq * Nq * Nqk, 1024),
+        )(
             Val(N),
             Val(dim),
             direction,
             pointwise_courant,
             grid.vgeo,
             topology.realelems;
-            ndrange = (nrealelem * Nq, Nq, Nqk),
+            ndrange = (nrealelem * Nq * Nq * Nqk),
             dependencies = (event,),
         )
-        event = kernel_local_courant!(device, Nq * Nq * Nqk)(
+        event = kernel_local_courant!(device, min(Nq * Nq * Nqk, 1024))(
             m,
             Val(dim),
             Val(N),
