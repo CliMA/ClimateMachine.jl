@@ -78,3 +78,86 @@ This document contains the diagnostic variables in CliMA.
 | cov\_qt\_thl\_core | cloud core covariance of total specific humidity and liquid-ice potential temperature |
 | cov\_qt\_ei\_core  | cloud core covariance of total specific humidity and specific internal energy         |
 | core\_frac       | cloud core (q\_liq > 0 and w > 0) fraction                                             |
+
+## GCM diagnostics
+(also see [tapio' issue](https://github.com/CliMA/ClimateMachine.jl/issues/214))
+
+### Dry Held-Suarez
+
+| short name | description                                                                |
+|:-----------|:---------------------------------------------------------------------------|
+| 2D fields (dependent on latitude and vertical coordinates)
+|:-----------|:---------------------------------------------------------------------------|
+| mass streamfunction
+|
+|:-----------|:---------------------------------------------------------------------------|
+| 2D fields (dependent on horizontal coordinates)
+|:-----------|:---------------------------------------------------------------------------|
+|
+|:-----------|:---------------------------------------------------------------------------|
+| 3D fields (dependent on horizontal and vertical coordinates)
+|:-----------|:---------------------------------------------------------------------------|
+| u          | zonal velocity (along lon)                                                 |
+| v          | meridional velocity (along lon)                                            |
+| w          | vertical velocity (along altitude)                                         |
+| rho        | density                                                                    |
+| e          | internal energy                                                            |
+
+| T          | air temperature                                                            |
+| theta_d    | dry potential temperature                                                  |
+
+| vort       | relative vorticity                                                         |
+| stream     | horizontal streamfunction (Laplacian of vort)                              |
+| pv_qg      | potential vostivity (f + vort + f/N d2/dz2 stream)                         |
+| pv_ertel   | Ertel potential vostivity                                                  |
+| div        | divergence                                                                 |
+
+| [u*v*]     | (co)variances using zonal mean (also for uu, vv, vT, wT, wb etc - user def)|
+
+| u'v'       | (co)variances using time mean (also for uu, vv, vT, wT, wb etc - user def) |
+
+| u''v''     | (co)variances using highpass/lowpass filter                                |
+
+
+### Moist aquaplanet (additional to H-S)
+| short name | description                                                                |
+|:-----------|:---------------------------------------------------------------------------|
+| 2D fields (dependent on horizontal coordinates)
+|:-----------|:---------------------------------------------------------------------------|
+| Top of atmosphere (TOA) downwelling shortwave flux
+| TOA Upwelling shortwave flux
+| TOA Upwelling longwave flux
+| Up- and downwelling shortwave flux at surface
+| Up- and downwelling longwave flux at surface
+Sensible heat flux at surface
+| Latent heat flux at surface
+| Surface air temperature
+| Rain rate at surface
+| Snow rate at surface
+| (Later: sea ice cover, leaf temperature, soil temperature, ...)
+|:-----------|:---------------------------------------------------------------------------|
+| 3D fields (dependent on horizontal and vertical coordinates)
+|:-----------|:---------------------------------------------------------------------------|
+| Total specific humidity q_t
+| Liquid specific humidity
+| Ice specific humidity
+| Relative humidity
+| Cloud fraction
+| Virtual potential temperature
+| Moist static energy
+| Some covariances, such as CF Ta_s, where CF is cloud fraction and Ta_s is surface air temperature
+| Higher-order statistics (horizontal)
+|
+| Third moment (~skewness) of vertical velocity w^3
+|
+| Power spectrum
+| Phase speed spectra
+|
+| Extremes, e.g.:
+| Frequency with which a given rain rate threshold at the surface is exceeded
+| Blocking indices
+| Heatwaves
+| Extreme storms and other tracked features
+|
+
+
