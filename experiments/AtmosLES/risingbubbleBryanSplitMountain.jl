@@ -47,7 +47,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     _grav::FT = grav(bl.param_set)
 
     xc::FT = 10000
-    zc::FT = 2000
+    zc::FT = 3000
     r = sqrt((x - xc)^2 + (z - zc)^2)
     rc::FT = 2000
     θ_ref::FT = 300
@@ -77,26 +77,66 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     state.moisture.ρq_tot = ρ * q_pt.tot
 end
 
-function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
+function config_risingbubble(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
 
     # Choose explicit solver
-    ode_solver = CLIMA.MISSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = MIS2,
-        fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
-            :MISKWRK43,
-            dg,
-            (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),
-            Q,
-            nsteps = nsteps,
-        ),
-        number_of_steps = (12,2),
-        hevi_split = true
-    )
+    solver_type = MultirateInfinitesimalStep
+    fast_solver_type = StormerVerlet
+
+    if solver_type==MultirateInfinitesimalStep
+        if fast_solver_type==StormerVerlet
+            ode_solver = CLIMA.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModelSplit,
+                mis_method = MIS2,
+                fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
+                nsubsteps = (15,),
+            )
+        elseif fast_solver_type==StrongStabilityPreservingRungeKutta
+            ode_solver = CLIMA.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
+                fast_method = SSPRK33ShuOsher,
+                nsubsteps = (45,),
+            )
+        elseif fast_solver_type==MultirateInfinitesimalStep
+            ode_solver = CLIMA.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
+                fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
+                    :MISKWRK43,
+                    dg,
+                    (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),
+                    Q,
+                    nsteps = nsteps,
+                ),
+                nsubsteps = (12,2),
+                hivi_splitting = true
+            )
+        elseif fast_solver_type==MultirateRungeKutta
+            ode_solver = CLIMA.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
+                fast_method = (dg,Q,nsteps) -> MultirateRungeKutta(
+                    :LSRK144NiegemannDiehlBusch,
+                    dg,
+                    Q, nsteps=nsteps,
+                ),
+                nsubsteps = (12,4),
+                hivi_splitting = true,
+            )
+        end
+        Δt = FT(0.4)
+    elseif solver_type==StrongStabilityPreservingRungeKutta
+        ode_solver = CLIMA.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
+        #ode_solver = CLIMA.ExplicitSolverType(solver_method = SSPRK34SpiteriRuuth)
+        Δt = FT(0.1)
+    end
 
     # Set up the model
     C_smag = FT(0.23)
     ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+        #HydrostaticState(IsothermalProfile(FT(T_0)),FT(0))
+        #HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
     model = AtmosModel{FT}(
         AtmosLESConfigType;
         turbulence = SmagorinskyLilly{FT}(C_smag), #AnisoMinDiss{FT}(1),
@@ -107,6 +147,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Problem configuration
+    function agnesiWarp(x,y,z)
+        h=(hm*a^2)/((x-0.5*(xmin+xmax))^2+a^2)
+        return x,y,zmax*(z+h)/(zmax+h)
+    end
     config = CLIMA.AtmosLESConfiguration(
         "DryRisingBubble",
         N,
@@ -117,10 +161,11 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,
+        meshwarp = agnesiWarp,
         #boundary = ((0, 0), (0, 0), (0, 0)),
         #periodicity = (false, true, false),
     )
-    return config
+    return config, Δt
 end
 
 function config_diagnostics(driver_config)
@@ -135,25 +180,28 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 4
+    N = 2
     # Domain resolution and size
     Δx = FT(125)
     Δy = FT(125)
     Δz = FT(125)
     resolution = (Δx, Δy, Δz)
     # Domain extents
+    xmin = FT(0)
     xmax = FT(20000)
     ymax = FT(1000)
     zmax = FT(10000)
+    # Mountain parameters
+    hm = FT(1000)
+    a = FT(10000)
     # Simulation time
     t0 = FT(0)
-    Δt = FT(0.4)
     timeend = FT(1000)
 
     # Courant number
     CFL = FT(20)
 
-    driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
+    driver_config, Δt = config_risingbubble(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
     solver_config = CLIMA.SolverConfiguration(
         t0,
         timeend,
@@ -170,10 +218,11 @@ function main()
         nothing
     end
 
+    nvtk=timeend/(Δt*100)
     vtk_step = 0
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(20)  do (init=false)
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(nvtk)  do (init=false)
         mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplitMIS_mpirank%04d_step%04d",
+        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplitMountain_mpirank%04d_step%04d",
                          MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
             flattenednames(vars_state(driver_config.bl,FT)),

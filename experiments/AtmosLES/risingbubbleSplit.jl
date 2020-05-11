@@ -1,27 +1,27 @@
-using Random
+using ClimateMachine
+ClimateMachine.init()
+
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
+using ClimateMachine.VTK
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+
 using StaticArrays
 using Test
 using Printf
 using MPI
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
-using CLIMA.VTK
-using CLIMA.Atmos: vars_state, vars_aux
-
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Atmos.SubgridScale: C_smag
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -63,7 +63,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     q_tot = FT(0)
-    ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
+    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
     q_pt = PhasePartition(ts)
 
     ρu = SVector(FT(0), FT(0), FT(0))
@@ -82,11 +82,11 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
 
-    ode_solver = CLIMA.MISSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = MIS2,
+    ode_solver = ClimateMachine.MISSolverType(
+        fast_model = AtmosAcousticGravityLinearModel,
+        mis_method = MIS2,
         fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-        number_of_steps = (10,),
+        nsubsteps = (10,),
     )
 
     # Set up the model
@@ -94,22 +94,23 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ref_state =
         HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
+        AtmosLESConfigType,
+        param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         ref_state = ref_state,
-        init_state = init_risingbubble!,
-        param_set = param_set,
+        init_state_conservative = init_risingbubble!,
     )
 
     # Problem configuration
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "DryRisingBubble",
         N,
         resolution,
         xmax,
         ymax,
         zmax,
+        param_set,
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,
@@ -118,13 +119,13 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
+    ClimateMachine.init()
 
     # Working precision
     FT = Float64
@@ -146,7 +147,7 @@ function main()
     CFL = FT(20)
 
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -168,15 +169,15 @@ function main()
         outprefix = @sprintf("./vtk-rtb/small_mpirank%04d_step%04d",
                          MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
-            flattenednames(vars_state(driver_config.bl,FT)),
-            solver_config.dg.auxstate,
-            flattenednames(vars_aux(driver_config.bl,FT)))
+            flattenednames(vars_state_conservative(driver_config.bl,FT)),
+            solver_config.dg.state_auxiliary,
+            flattenednames(vars_state_auxiliary(driver_config.bl,FT)))
         vtk_step += 1
         nothing
      end
 
     # Invoke solver (calls solve! function for time-integrator)
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,cbvtk),

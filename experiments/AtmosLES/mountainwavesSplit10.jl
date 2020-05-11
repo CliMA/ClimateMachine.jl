@@ -1,27 +1,27 @@
-using Random
+using ClimateMachine
+ClimateMachine.init()
+
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
+using ClimateMachine.VTK
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+
 using StaticArrays
 using Test
 using Printf
 using MPI
 
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
-using CLIMA.VTK
-using CLIMA.Atmos: vars_state, vars_aux
-
-using CLIMA.Parameters
-using CLIMA.UniversalConstants
-const clima_dir = dirname(pathof(CLIMA))
-include(joinpath(clima_dir, "..", "Parameters", "Parameters.jl"))
-using CLIMA.Parameters.Planet
-param_set = ParameterSet()
+using CLIMAParameters
+using CLIMAParameters.Atmos.SubgridScale: C_smag
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # ------------------------ Description ------------------------- #
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -55,7 +55,7 @@ function init_gravitywave!(bl, state, aux, (x, y, z), t)
     p = p0 * (1 - _grav / (c_p * θ_ref * N^2 / _grav) * (1 - exp(-N^2 / _grav * z))) ^ (c_p / R_gas) # density
     ρ = p / ((p / p0) ^ kappa * R_gas * θ); # density
     q_tot = FT(0)
-    ts = LiquidIcePotTempSHumEquil(θ, ρ, q_tot, bl.param_set)
+    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
     q_pt = PhasePartition(ts)
 
     ρu = SVector(UMax * ρ, FT(0), FT(0))
@@ -75,27 +75,26 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
     # Choose explicit solver
     solver_type = MultirateInfinitesimalStep
     fast_solver_type = StormerVerlet
-#   fast_solver_type==StrongStabilityPreservingRungeKutta
 
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==StormerVerlet
-            ode_solver = CLIMA.MISSolverType(
-                linear_model = AtmosAcousticGravityLinearModelSplit,
-                slow_method = MIS2,
+            ode_solver = ClimateMachine.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModelSplit,
+                mis_method = MIS2,
                 fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
-                number_of_steps = (140,),
+                nsubsteps = (140,),
             )
         elseif fast_solver_type==StrongStabilityPreservingRungeKutta
-            ode_solver = CLIMA.MISSolverType(
-                linear_model = AtmosAcousticGravityLinearModel,
-                slow_method = MIS2,
+            ode_solver = ClimateMachine.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
                 fast_method = SSPRK33ShuOsher,
-                number_of_steps = (45,),
+                nsubsteps = (45,),
             )
         elseif fast_solver_type==MultirateInfinitesimalStep
-            ode_solver = CLIMA.MISSolverType(
-                linear_model = AtmosAcousticGravityLinearModel,
-                slow_method = MIS2,
+            ode_solver = ClimateMachine.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
                 fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
                     :MISKWRK43,
                     dg,
@@ -103,26 +102,26 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
                     Q,
                     nsteps = nsteps,
                 ),
-                number_of_steps = (45,7),
-                hevi_split = true
+                nsubsteps = (45,7),
+                hivi_splitting = true
             )
         elseif fast_solver_type==MultirateRungeKutta
-            ode_solver = CLIMA.MISSolverType(
-                linear_model = AtmosAcousticGravityLinearModel,
-                slow_method = MIS2,
+            ode_solver = ClimateMachine.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
                 fast_method = (dg,Q,nsteps) -> MultirateRungeKutta(
                     :LSRK144NiegemannDiehlBusch,
                     dg,
                     Q, nsteps=nsteps,
                 ),
-                number_of_steps = (45,15),
-                hevi_split = true,
+                nsubsteps = (45,15),
+                hivi_splitting = true,
             )
         end
         Δt = FT(10.0)
     elseif solver_type==StrongStabilityPreservingRungeKutta
-        ode_solver = CLIMA.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
-        #ode_solver = CLIMA.ExplicitSolverType(solver_method = SSPRK34SpiteriRuuth)
+        ode_solver = ClimateMachine.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
+        #ode_solver = ClimateMachine.ExplicitSolverType(solver_method = SSPRK34SpiteriRuuth)
         Δt = FT(0.1)
     end
 
@@ -144,12 +143,12 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
     )
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType;
-#       turbulence = SmagorinskyLilly{FT}(C_smag), #AnisoMinDiss{FT}(1),
+        AtmosLESConfigType,
+        param_set;
+        #turbulence = SmagorinskyLilly{FT}(C_smag), #AnisoMinDiss{FT}(1),
         source = (Gravity(),sponge,),
         ref_state = ref_state,
-        init_state = init_gravitywave!,
-        param_set = param_set,
+        init_state_conservative = init_gravitywave!,
     )
 
     # Problem configuration
@@ -157,13 +156,14 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
         h=(hm*a^2)/((x-0.5*(xmin+xmax))^2+a^2)
         return x,y,zmax*(z+h)/(zmax+h)
     end
-    config = CLIMA.AtmosLESConfiguration(
+    config = ClimateMachine.AtmosLESConfiguration(
         "GravityWave",
         N,
         resolution,
         xmax,
         ymax,
         zmax,
+        param_set,
         init_gravitywave!,
         xmin = xmin,
         solver_type = ode_solver,
@@ -176,13 +176,13 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
 end
 
 function config_diagnostics(driver_config)
-    interval = 10000 # in time steps
+    interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
+    ClimateMachine.init()
 
     # Working precision
     FT = Float64
@@ -213,7 +213,7 @@ function main()
     CFL = FT(20)
 
     driver_config, Δt = config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -236,15 +236,15 @@ function main()
         outprefix = @sprintf("./vtk-rtb/mountainwavesSplit10_Ne%04d_mpirank%04d_step%04d",
                          Ne[1], MPI.Comm_rank(driver_config.mpicomm), vtk_step)
         writevtk(outprefix, solver_config.Q, solver_config.dg,
-            flattenednames(vars_state(driver_config.bl,FT)),
-            solver_config.dg.auxstate,
-            flattenednames(vars_aux(driver_config.bl,FT)))
+            flattenednames(vars_state_conservative(driver_config.bl,FT)),
+            solver_config.dg.state_auxiliary,
+            flattenednames(vars_state_auxiliary(driver_config.bl,FT)))
         vtk_step += 1
         nothing
      end
 
     # Invoke solver (calls solve! function for time-integrator)
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbvtk,),
