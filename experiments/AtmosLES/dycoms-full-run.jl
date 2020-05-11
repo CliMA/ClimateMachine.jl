@@ -372,7 +372,7 @@ function main()
 
     t0 = FT(0)
     timeend = FT(14400)
-    Cmax = FL(1.8)
+    Cmax = FT(1.8)
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
