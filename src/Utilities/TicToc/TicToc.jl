@@ -15,26 +15,31 @@ const tictoc_track_memory = true
 
 if tictoc_track_memory
 
-mutable struct TimingInfo
-    ncalls::Int
-    time::UInt64
-    allocd::Int64
-    gctime::UInt64
-    curr::UInt64
-    mem::Base.GC_Num
-end
-TimingInfo() = TimingInfo(0, 0, 0, 0, 0,
-                          Base.GC_Num(0, 0, 0, 0, 0, 0, 0,
-                                      0, 0, 0, 0, 0, 0, 0))
+    mutable struct TimingInfo
+        ncalls::Int
+        time::UInt64
+        allocd::Int64
+        gctime::UInt64
+        curr::UInt64
+        mem::Base.GC_Num
+    end
+    TimingInfo() = TimingInfo(
+        0,
+        0,
+        0,
+        0,
+        0,
+        Base.GC_Num(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    )
 
 else # !tictoc_track_memory
 
-mutable struct TimingInfo
-    ncalls::Int
-    time::UInt64
-    curr::UInt64
-end
-TimingInfo() = TimingInfo(0, 0, 0)
+    mutable struct TimingInfo
+        ncalls::Int
+        time::UInt64
+        curr::UInt64
+    end
+    TimingInfo() = TimingInfo(0, 0, 0)
 
 end # if tictoc_track_memory
 
@@ -132,14 +137,23 @@ function print_timing_info()
     else
         println("name,ncalls,tottime(ns)")
     end
-    for i = 1:length(timing_info_names)
+    for i in 1:length(timing_info_names)
         @static if tictoc_track_memory
-            s = @sprintf("%s,%d,%d,%d,%d", timing_info_names[i],
-                         timing_infos[i].ncalls, timing_infos[i].time,
-                         timing_infos[i].allocd, timing_infos[i].gctime)
+            s = @sprintf(
+                "%s,%d,%d,%d,%d",
+                timing_info_names[i],
+                timing_infos[i].ncalls,
+                timing_infos[i].time,
+                timing_infos[i].allocd,
+                timing_infos[i].gctime
+            )
         else
-            s = @sprintf("%s,%d,%d", timing_info_names[i],
-                         timing_infos[i].ncalls, timing_infos[i].time)
+            s = @sprintf(
+                "%s,%d,%d",
+                timing_info_names[i],
+                timing_infos[i].ncalls,
+                timing_infos[i].time
+            )
         end
         println(s)
     end
@@ -172,4 +186,3 @@ function tictoc()
 end
 
 end # module
-
