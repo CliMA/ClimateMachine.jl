@@ -134,7 +134,6 @@ function reverse_integral_load_auxiliary_state!(
     aux::Vars,
 )
     FT = eltype(state)
-    #integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
     integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
 end
 function reverse_integral_set_auxiliary_state!(
@@ -275,7 +274,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     radiation = DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1)
 
     # Sources
-    f_coriolis = FT(1.03e-4)
+    f_coriolis = FT(0.762e-4)
     u_geostrophic = FT(7.0)
     v_geostrophic = FT(-5.5)
     w_ref = FT(0)
@@ -283,7 +282,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Sponge
     c_sponge = 1
     # Rayleigh damping
-    zsponge = FT(1500.0)
+    zsponge = FT(1000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
@@ -310,8 +309,8 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 1, tolerance = FT(100)),
+        turbulence = Vreman{FT}(C_smag),
+        moisture = EquilMoist{FT}(maxiter = 4, tolerance = FT(1)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -368,10 +367,11 @@ function main()
 
     xmax = FT(1000)
     ymax = FT(1000)
-    zmax = FT(2500)
+    zmax = FT(1500)
 
     t0 = FT(0)
     timeend = FT(100)
+    Cmax = FT(1.7)     # use this for single-rate explicit LSRK144
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -379,6 +379,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
+        Courant_number = Cmax,
     )
     dgn_config = config_diagnostics(driver_config)
 
