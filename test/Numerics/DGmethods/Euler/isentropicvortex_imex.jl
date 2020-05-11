@@ -184,14 +184,7 @@ function run(
     )
 
     if split_explicit_implicit
-        dg_nonlinear = remainder_DGModel(
-            dg,
-            (dg_linear,),
-            RusanovNumericalFlux(),
-            CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient();
-            state_auxiliary = dg.state_auxiliary,
-        )
+        dg_nonlinear = remainder_DGModel(dg, (dg_linear,))
     end
 
     timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
