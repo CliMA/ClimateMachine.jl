@@ -57,7 +57,7 @@ The available concrete implementations are:
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
+mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, IT, Nstages, Nstages_sq, Nsubsteps} <:
                AbstractAdditiveRungeKutta
     "time step"
     dt::RT
@@ -73,6 +73,8 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     Qstages::NTuple{Nstages, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
     Rstages::NTuple{Nstages, AT}
+    "Storage for substepped RHS during the AdditiveRungeKutta update"
+    Fstages::NTuple{Nsubsteps, AT}
     "Storage for the linear solver rhs vector"
     Qhat::AT
     "RK coefficient matrix A for the explicit scheme"
@@ -88,6 +90,8 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     variant::V
     "Storage dependent on the variant of the ARK scheme"
     variant_storage::VS
+    "Substepping parameter for the explicit part of the ARK scheme"
+    explicit_substepping::IT
 
     function AdditiveRungeKutta(
         rhs!,
@@ -102,17 +106,20 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
         Q::AT;
         dt = nothing,
         t0 = 0,
+        explicit_substepping = 1,
     ) where {AT <: AbstractArray}
 
         @assert dt != nothing
 
         T = eltype(Q)
         RT = real(T)
+        IT = typeof(explicit_substepping)
 
         Nstages = length(RKB)
 
         Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
         Rstages = ntuple(i -> similar(Q), Nstages)
+        Fstages = ntuple(i -> similar(Q), Nstages)
         Qhat = similar(Q)
 
         V = typeof(variant)
@@ -136,7 +143,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
         @assert besolver! isa LinBESolver || variant isa NaiveVariant
         BE = typeof(besolver!)
 
-        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2}(
+        new{T, RT, AT, BE, V, VS, IT, Nstages, Nstages^2, explicit_substepping}(
             RT(dt),
             RT(t0),
             rhs!,
@@ -144,6 +151,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
             besolver!,
             Qstages,
             Rstages,
+            Fstages,
             Qhat,
             RKA_explicit,
             RKA_implicit,
@@ -152,6 +160,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
             split_explicit_implicit,
             variant,
             variant_storage,
+            explicit_substepping,
         )
     end
 end
@@ -198,6 +207,10 @@ function dostep!(
     split_explicit_implicit = ark.split_explicit_implicit
     Lstages = ark.variant_storage.Lstages
 
+    explicit_substepping = ark.explicit_substepping
+    RKA_explicit ./ explicit_substepping
+    RKB_explicit = RKB ./ explicit_substepping
+
     rv_Q = realview(Q)
     rv_Qstages = realview.(Qstages)
     rv_Lstages = realview.(Lstages)
@@ -209,15 +222,17 @@ function dostep!(
     groupsize = 256
 
     # calculate the rhs at first stage to initialize the stage loop
-    rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
-
-    rhs_implicit!(
-        Lstages[1],
-        Qstages[1],
-        p,
-        time + RKC[1] * dt,
-        increment = false,
-    )
+    explicit_dt = dt / explicit_substepping
+    for substep in 1:explicit_substepping
+        rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * explicit_dt, increment = false)
+        rhs_implicit!(
+            Lstages[1],
+            Qstages[1],
+            p,
+            time + RKC[1] * explicit_dt,
+            increment = false,
+        )
+    end
 
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
@@ -250,14 +265,17 @@ function dostep!(
         α = dt * RKA_implicit[istage, istage]
         besolver!(Qstages[istage], Qhat, α, p, stagetime)
 
-        rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
-        rhs_implicit!(
-            Lstages[istage],
-            Qstages[istage],
-            p,
-            stagetime,
-            increment = false,
-        )
+        expl_stagetime = time + RKC[istage] * explicit_dt
+        for substep in 1:explicit_substepping
+            rhs!(Rstages[istage], Qstages[istage], p, expl_stagetime, increment = false)
+            rhs_implicit!(
+                Lstages[istage],
+                Qstages[istage],
+                p,
+                expl_stagetime,
+                increment = false,
+            )
+        end
     end
 
     # compose the final solution
@@ -297,6 +315,7 @@ function dostep!(
     RKB, RKC = ark.RKB, ark.RKC
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
     Qstages, Rstages = ark.Qstages, ark.Rstages
+    Fstages = ark.Fstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Qtt = ark.variant_storage.Qtt
@@ -304,6 +323,7 @@ function dostep!(
     rv_Q = realview(Q)
     rv_Qstages = realview.(Qstages)
     rv_Rstages = realview.(Rstages)
+    rv_Rstages = realview.(Fstages)
     rv_Qhat = realview(Qhat)
     rv_Qtt = realview(Qtt)
 
@@ -311,8 +331,38 @@ function dostep!(
 
     groupsize = 256
 
+    M = ark.explicit_substepping
+
     # calculate the rhs at first stage to initialize the stage loop
-    rhs!(Rstages[1], Qstages[1], p, time + RKC[1] * dt, increment = false)
+    println("explicit_substepping = ", M)
+    for substep = 1:M
+        Δc = RKC[2] - RKC[1]
+        subtime = time + Δc * dt / M
+        rhs!(
+            Fstages[substep],
+            Qstages[1],
+            p,
+            subtime,
+            increment = false,
+        )
+        # update solution and scale RHS
+        event = Event(device(Q))
+        event = substep_update!(device(Q), groupsize)(
+            rv_Rstages[1],
+            rv_Fstages[substep],
+            rv_Q,
+            RKA[1],
+            RKB[1],
+            dt,
+            M,
+            slow_δ,
+            slow_rv_dQ,
+            slow_scaling;
+            ndrange = length(rv_Q),
+            dependencies = (event,),
+        )
+        wait(device(Q), event)
+    end
 
     # note that it is important that this loop does not modify Q!
     for istage in 2:Nstages
@@ -330,11 +380,13 @@ function dostep!(
             rv_Qtt,
             RKA_explicit,
             RKA_implicit,
+            RKC,
             dt,
             Val(istage),
             Val(split_explicit_implicit),
             slow_δ,
-            slow_rv_dQ;
+            slow_rv_dQ,
+            M;
             ndrange = length(rv_Q),
             dependencies = (event,),
         )
@@ -348,7 +400,13 @@ function dostep!(
         # update Qstages
         Qstages[istage] .+= Qtt
 
-        rhs!(Rstages[istage], Qstages[istage], p, stagetime, increment = false)
+        rhs!(
+            Rstages[istage],
+            Qstages[istage],
+            p,
+            stagetime,
+            increment = false,
+        )
     end
 
     if split_explicit_implicit
@@ -380,6 +438,28 @@ function dostep!(
         dependencies = (event,),
     )
     wait(device(Q), event)
+end
+
+@kernel function substep_update!(
+    dQ,
+    dF,
+    Q,
+    rka,
+    rkb,
+    dt,
+    M,
+)
+    i = @index(Global, Linear)
+    @inbounds begin
+        if slow_δ !== nothing
+            dQ[i] += slow_δ * slow_dQ[i]
+        end
+        Q[i] += rkb * dt * dQ[i]
+        dQ[i] *= rka
+        if slow_scaling !== nothing
+            slow_dQ[i] *= slow_scaling
+        end
+    end
 end
 
 @kernel function stage_update!(
@@ -437,6 +517,7 @@ end
     ::Val{split_explicit_implicit},
     slow_δ,
     slow_dQ,
+    M,
 ) where {is, split_explicit_implicit}
     i = @index(Global, Linear)
     @inbounds begin
@@ -471,6 +552,7 @@ end
     Lstages,
     Rstages,
     RKB,
+    RKB_explicit,
     dt,
     ::Val{Nstages},
     ::Val{split_explicit_implicit},
@@ -501,6 +583,7 @@ end
     Q,
     Rstages,
     RKB,
+    RKB_explicit,
     dt,
     ::Val{Nstages},
     slow_δ,
@@ -559,6 +642,7 @@ function ARK2GiraldoKellyConstantinescu(
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
     paperversion = false,
+    explicit_substepping = 1,
 ) where {AT <: AbstractArray}
 
     @assert dt != nothing
@@ -633,6 +717,7 @@ function ARK548L2SA2KennedyCarpenter(
     t0 = 0,
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
+    explicit_substepping = 1,
 ) where {AT <: AbstractArray}
 
     @assert dt != nothing
@@ -784,6 +869,7 @@ function ARK437L2SA1KennedyCarpenter(
     t0 = 0,
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
+    explicit_substepping = 1,
 ) where {AT <: AbstractArray}
 
     @assert dt != nothing

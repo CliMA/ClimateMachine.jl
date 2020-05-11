@@ -223,6 +223,8 @@ function SolverConfiguration(
             Q;
             dt = ode_dt,
             t0 = t0,
+            split_explicit_implicit = true,
+            explicit_substepping = ode_solver_type.explicit_substepping,
         )
     end
 

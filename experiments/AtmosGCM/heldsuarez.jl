@@ -191,13 +191,19 @@ function main()
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        explicit_substepping = 1,
+    )
+    CFL = FT(0.2)
+
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = CFL,
         init_on_cpu = true,
+        ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )

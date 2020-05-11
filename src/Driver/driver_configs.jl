@@ -23,13 +23,15 @@ struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
+    explicit_substepping::Int
     # FIXME: this is Atmos-specific
     function IMEXSolverType(;
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
+        explicit_substepping = 1,
     )
-        return new(linear_model, linear_solver, solver_method)
+        return new(linear_model, linear_solver, solver_method, explicit_substepping)
     end
 end
 
