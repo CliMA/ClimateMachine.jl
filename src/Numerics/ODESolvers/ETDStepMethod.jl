@@ -1,5 +1,5 @@
 
-export EB4, EB1, ETDRK3
+export ETDStep, EB4, EB1, ETDRK3
 
 """
 ETDStep(slowrhs!, fastrhs!, fastmethod,
