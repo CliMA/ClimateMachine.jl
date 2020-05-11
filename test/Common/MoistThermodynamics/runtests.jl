@@ -2,27 +2,31 @@ using Test
 using ClimateMachine.MoistThermodynamics
 using NCDatasets
 using Random
+using RootSolvers
 MT = MoistThermodynamics
 using CLIMA.PlanetParameters
 using LinearAlgebra
 
 using CLIMA.Parameters
 
+# Tolerances for tested quantities:
+const atol_temperature = 1e-1
+const atol_pressure = MSLP(param_set) * 2e-2
+const atol_energy = 1e-1
+const rtol_temperature = 1e-1
+const rtol_pressure = 1e-1
+const rtol_energy = 1e-1
+
 float_types = [Float32, Float64]
 
-using CLIMA
-using CLIMA.Parameters
-const clima_dir = dirname(pathof(CLIMA))
-# We will depend on MoistThermodynamics's default Parameters:
-include(joinpath(clima_dir, "..", "Parameters", "EarthParameters.jl"))
-
+include("profiles.jl")
 include("data_tests.jl")
 
 @testset "moist thermodynamics - isentropic processes" begin
     for FT in [Float64]
         # for FT in float_types
-        e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+        z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+            tested_profiles(param_set, 50, FT)
         Φ = FT(1)
         Random.seed!(15)
         perturbation = FT(0.1) * rand(length(T))
@@ -158,7 +162,7 @@ end
         ρ,
         q_tot,
         10,
-        1e-2,
+        ResidualTolerance(1e-2),
     ) ≈ 300.0
     @test abs(
         MT.saturation_adjustment(
@@ -166,7 +170,7 @@ end
             ρ,
             q_tot,
             10,
-            1e-2,
+            ResidualTolerance(1e-2),
         ) - 300.0,
     ) < tol_T
 
@@ -177,7 +181,7 @@ end
         ρ,
         q_tot,
         10,
-        1e-2,
+        ResidualTolerance(1e-2),
     ) ≈ 200.0
     @test abs(
         MT.saturation_adjustment(
@@ -185,7 +189,7 @@ end
             ρ,
             q_tot,
             10,
-            1e-2,
+            ResidualTolerance(1e-2),
         ) - 200.0,
     ) < tol_T
     q = PhasePartition_equil(T, ρ, q_tot)
@@ -234,12 +238,12 @@ end
 
     for FT in float_types
         rtol = FT(1e-2)
-        e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+        z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+            tested_profiles(param_set, 50, FT)
 
         # PhaseEquil
-        ts_exact = PhaseEquil.(e_int, ρ, q_tot, 100, FT(1e-4))
-        ts = PhaseEquil.(e_int, ρ, q_tot)
+        ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-3))
+        ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
         # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈
@@ -266,7 +270,7 @@ end
                 ρ,
                 q_tot,
                 100,
-                FT(1e-4),
+                FT(1e-3),
                 MT.saturation_adjustment_SecantMethod,
             )
         ts =
@@ -274,7 +278,7 @@ end
                 e_int,
                 ρ,
                 q_tot,
-                30,
+                35,
                 FT(1e-1),
                 MT.saturation_adjustment_SecantMethod,
             ) # Needs to be in sync with default
@@ -310,7 +314,7 @@ end
         @test all(isapprox.(
             internal_energy.(ts),
             internal_energy.(ts_exact),
-            rtol = rtol,
+            rtol = 10 * rtol,
         ))
         @test all(isapprox.(
             liquid_ice_pottemp.(ts),
@@ -405,8 +409,11 @@ end
 
     for FT in float_types
         rtol = FT(1e-2)
-        e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            MT.tested_convergence_range(50, FT)
+
+        _MSLP = FT(MSLP(param_set))
+
+        z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+            tested_profiles(param_set, 50, FT)
 
         # PhaseDry
         ts = PhaseDry.(e_int, ρ)
@@ -423,7 +430,7 @@ end
                 e_int,
                 ρ,
                 q_tot,
-                30,
+                40,
                 FT(1e-1),
                 Ref(MT.saturation_adjustment_SecantMethod),
             )
@@ -474,8 +481,8 @@ end
             air_temperature_from_liquid_ice_pottemp_non_linear.(
                 θ_liq_ice,
                 ρ,
-                10,
-                FT(1e-3),
+                20,
+                ResidualTolerance(FT(5e-5)),
                 q_pt,
             )
         T_expansion =
@@ -484,7 +491,7 @@ end
         e_int_ = internal_energy.(T_non_linear, q_pt)
         ts = PhaseNonEquil.(e_int_, ρ, q_pt)
         @test all(T_non_linear .≈ air_temperature.(ts))
-        @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+        @test all(isapprox(θ_liq_ice, liquid_ice_pottemp.(ts), rtol = rtol))
 
         # LiquidIcePotTempSHumEquil
         ts = LiquidIcePotTempSHumEquil.(θ_liq_ice, ρ, q_tot, 40, FT(1e-3))
@@ -503,7 +510,7 @@ end
                 θ_liq_ice,
                 p,
                 q_tot,
-                40,
+                35,
                 FT(1e-3),
             )
         @test all(isapprox.(liquid_ice_pottemp.(ts), θ_liq_ice, atol = 1e-1))
@@ -527,8 +534,16 @@ end
         )
 
         # LiquidIcePotTempSHumNonEquil
-        ts = LiquidIcePotTempSHumNonEquil.(θ_liq_ice, ρ, q_pt, 5, FT(1e-3))
-        @test all(θ_liq_ice .≈ liquid_ice_pottemp.(ts))
+        ts =
+            LiquidIcePotTempSHumNonEquil.(
+                Ref(param_set),
+                θ_liq_ice,
+                ρ,
+                q_pt,
+                5,
+                FT(1e-3),
+            )
+        @test all(isapprox.(θ_liq_ice, liquid_ice_pottemp.(ts), rtol = rtol))
         @test all(air_density.(ts) .≈ ρ)
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈ getproperty.(q_pt, :tot),
@@ -549,7 +564,8 @@ end
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
     FT = Float32
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+        tested_profiles(param_set, 50, FT)
 
     ρu = FT[1.0, 2.0, 3.0]
     e_pot = FT(100.0)
@@ -624,7 +640,8 @@ end
 @testset "moist thermodynamics - dry limit" begin
 
     FT = Float64
-    e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = MT.tested_convergence_range(50, FT)
+    z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
+        tested_profiles(param_set, 50, FT)
 
     # PhasePartition test is noisy, so do this only once:
     ts_dry = PhaseDry(first(e_int), first(ρ))

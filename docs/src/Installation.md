@@ -80,7 +80,7 @@ To run ClimateMachine on the CPU run set the environment variable `CLIMATEMACHIN
 This can be done in the Julia REPL with:
 
 ```julia
-julia> ENV["CLIMATEMACHINE_GPU"] = true
+julia> ENV["CLIMATEMACHINE_GPU"] = false
 ```
 
 Otherwise, you can initialize ClimateMachine without a GPU with the `ClimateMachine.init(disable_gpu=true)` command or set the environmental variable locally.
