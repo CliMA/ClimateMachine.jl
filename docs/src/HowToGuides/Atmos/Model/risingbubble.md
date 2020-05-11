@@ -10,7 +10,7 @@ in a neutrally stratified background state defined by its uniform
 potential temperature. We solve a flow in a [`FlatOrientation`](@ref LESConfig) (Box) configuration - this is representative of a large-eddy simulation. Several versions of the problem setup
 may be found in literature, but the general idea is to examine the vertical ascent of a
 thermal `bubble` (we can interpret these as simple representation of convective updrafts).
-The example is essentially a lineb-by-line walkthrough.
+The example is essentially a line-by-line walk-through.
 
 ## Description of experiment
 1) Dry Rising Bubble (circular potential temperature perturbation)
@@ -63,70 +63,70 @@ Complete documentation for the Julia module system can be found [here](https://d
 
 In ClimateMachine we use `StaticArrays` for our variable arrays.
 
-```@example risingbubble
+```julia
 using StaticArrays
 ```
 
 We also use the `Test` package to help with unit tests and continuous integration systems to design sensible tests
 for our experiment to ensure new / modified blocks of code don't damage the fidelity of the physics. The test defined within this experiment is not a unit test for a specific subcomponent, but ensures time-integration of the defined problem conditions within a reasonable tolerance. Immediately useful macros and functions from this include `@test` and `@testset` which will allow us to define the testing parameter sets.
 
-```@example risingbubble
+```julia
 using Test
 ```
 
 We then need to use the ClimateMachine module! This imports all functions specific to atmospheric and ocean flow modelling.
 While we do not cover the ins-and-outs of the contents of each of these we provide brief descriptions of the utility of each of the loaded packages.
 
-```@example risingbubble
+```julia
 using ClimateMachine
 using ClimateMachine.Atmos
 ```
 
 - Required so that we inherit the appropriate model types for the large-eddy simulation (LES) and global-circulation-model (GCM) configurations.
 
-```@example risingbubble
+```julia
 using ClimateMachine.ConfigTypes
 ```
 
 - Required so that we may define diagnostics configurations, e.g. choice of file-writer, choice of output variable sets, output-frequency and directory,
 
-```@example risingbubble
+```julia
 using ClimateMachine.Diagnostics
 ```
 
 - Required so that we may define (or utilise existing functions) functions that are `called-back` or executed at frequencies of either timesteps, simulation-time, or wall-clock time.
 
-```@example risingbubble
+```julia
 using ClimateMachine.GenericCallbacks
 ```
 
 - Required so we load the appropriate functions for the time-integration component. Contains ODESolver methods.
 
-```@example risingbubble
+```julia
 using ClimateMachine.ODESolvers
 ```
 
 - Required for utility of spatial filtering functions (e.g. positivity preservation)
 
-```@example risingbubble
+```julia
 using ClimateMachine.Mesh.Filters
 ```
 
 - Required so functions for computation of moist thermodynamic quantities is enabled.
 
-```@example risingbubble
+```julia
 using ClimateMachine.MoistThermodynamics
 ```
 
 - Required so we may access our variable arrays by a sensible naming convention rather than by numerical array indices.
 
-```@example risingbubble
+```julia
 using ClimateMachine.VariableTemplates
 ```
 
-- Required so we may access planet parameters ([CLIMAParameters](https://CliMA.github.io/CLIMAParameters.jl/latest/) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
+- Required so we may access planet parameters ([CLIMAParameters](https://github.com/CliMA/CLIMAParameters.jl) specific to this problem include the gas constant, specific heats, mean-sea-level pressure, gravity and the Smagorinsky coefficient)
 
-```@example risingbubble
+```julia
 using CLIMAParameters
 using CLIMAParameters.Atmos.SubgridScale: C_smag
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
@@ -145,7 +145,7 @@ This example of a rising thermal bubble can be classified as an initial value pr
     - `state.moisture.ρq_tot` = Scalar quantity for the total specific humidity
     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration only; we can interpret these as dye injections for visualisation purposes)
 
-```@example risingbubble
+```julia
 """
     init_risingbubble!(bl, state, aux, (x,y,z), t)
 
@@ -161,28 +161,19 @@ Returns
 - Updated values for `state.<variable_name>`
 """
 function init_risingbubble!(bl, state, aux, (x, y, z), t)
-```
 
-Problem float-type
+    FT = eltype(state) # Problem float-type
 
-```@example risingbubble
-    FT = eltype(state)
-```
-
-Unpack constant parameters
-
-```@example risingbubble
+    ## Unpack constant parameters
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
     c_v::FT = cv_d(bl.param_set)
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
     γ::FT = c_p / c_v
-```
 
-Define bubble center and background potential temperature
+    ## Define bubble center and background potential temperature
 
-```@example risingbubble
     xc::FT = 1250
     yc::FT = 1250
     zc::FT = 1000
@@ -190,19 +181,15 @@ Define bubble center and background potential temperature
     rc::FT = 500
     θ_ref::FT = 300
     Δθ::FT = 0
-```
 
-Compute temperature difference over bubble region
+    ## Compute temperature difference over bubble region
 
-```@example risingbubble
     if r <= rc
         Δθ = FT(5) * cospi(r / rc / 2)
     end
-```
 
-Compute perturbed thermodynamic state:
+    ## Compute perturbed thermodynamic state:
 
-```@example risingbubble
     θ = θ_ref + Δθ                                      # potential temperature
     π_exner = FT(1) - _grav / (c_p * θ) * z             # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)      # density
@@ -216,31 +203,23 @@ Compute perturbed thermodynamic state:
     ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
 
     ρχ = FT(0)                                          # tracer
-```
 
-We inject tracers at the initial condition at some specified z coordinates
+    ## We inject tracers at the initial condition at some specified z coordinates
 
-```@example risingbubble
     if 500 < z <= 550
         ρχ += FT(0.05)
     end
-```
 
-We want 4 tracers
+    ## We want 4 tracers
 
-```@example risingbubble
     ntracers = 4
-```
 
-Define 4 tracers, (arbitrary scaling for this demo problem)
+    ## Define 4 tracers, (arbitrary scaling for this demo problem)
 
-```@example risingbubble
     ρχ = SVector{ntracers, FT}(ρχ, ρχ / 2, ρχ / 3, ρχ / 4)
-```
 
-Assign State Variables
+    ## Assign State Variables
 
-```@example risingbubble
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe_tot
@@ -252,7 +231,7 @@ end
 ## [Model Configuration](@id config-helper)
 We define a configuration function to assist in prescribing the physical model. The purpose of this is to populate the [`ClimateMachine.AtmosLESConfiguration`](@ref LESConfig) with arguments appropriate to the problem being considered.
 
-```@example risingbubble
+```julia
 """
     config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
@@ -266,47 +245,39 @@ Returns
 - `config` = Object using the constructor for the `AtmosLESConfiguration`
 """
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
-```
 
-Choose an Explicit Multi-rate Solver from the existing [ODESolvers](@ref ODESolvers-docs) options
-Apply the outer constructor to define the `ode_solver`. Here
-`AtmosAcousticGravityLinearModel` splits the acoustic-gravity wave components
-from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
+    ## Choose an Explicit Multi-rate Solver from the existing [ODESolvers](@ref ODESolvers-docs) options
+    ## Apply the outer constructor to define the `ode_solver`. Here
+    ## `AtmosAcousticGravityLinearModel` splits the acoustic-gravity wave components
+    ## from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
 
-```@example risingbubble
     ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )
-```
 
-Since we want four tracers, we specify this and include
-the appropriate diffusivity scaling coefficients (normally these
-would be physically informed but for this demonstration we use
-integers corresponding to the tracer index identifier)
+    ## Since we want four tracers, we specify this and include
+    ## the appropriate diffusivity scaling coefficients (normally these
+    ## would be physically informed but for this demonstration we use
+    ## integers corresponding to the tracer index identifier)
 
-```@example risingbubble
     ntracers = 4
     δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
-```
 
-The model coefficient for the turbulence closure is defined via the [CLIMAParameters
-package](https://CliMA.github.io/CLIMAParameters.jl/latest/)
-A reference state for the linearisation step is also defined.
+    ## The model coefficient for the turbulence closure is defined via the [CLIMAParameters
+    ## package](https://github.com/CliMA/CLIMAParameters.jl)
+    ## A reference state for the linearisation step is also defined.
 
-```@example risingbubble
     ref_state =
         HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
-```
 
-The fun part! Here we assemble the `AtmosModel`.
+    ## The fun part! Here we assemble the `AtmosModel`.
 
-```@example risingbubble
     #md # !!! note
     #md #     Docs on model subcomponent options can be found here:
-    #md #     - [`param_set`](https://CliMA.github.io/CLIMAParameters.jl/latest/)
+    #md #     - [`param_set`](https://github.com/CliMA/CLIMAParameters.jl)
     #md #     - [`turbulence`](@ref Turbulence-Closures-docs)
     #md #     - [`hyperdiffusion`](@ref Hyperdiffusion-docs)
     #md #     - [`source`](@ref atmos-sources)
@@ -323,11 +294,9 @@ The fun part! Here we assemble the `AtmosModel`.
         ref_state = ref_state,                       # Reference state
         init_state = init_risingbubble!,             # Apply the initial condition
     )
-```
 
-Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.
+    ## Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.
 
-```@example risingbubble
     config = ClimateMachine.AtmosLESConfiguration(
         "DryRisingBubble",       # Problem title [String]
         N,                       # Polynomial order [Int]
@@ -350,7 +319,7 @@ end
 ## [Diagnostics](@id config_diagnostics)
 Here we define the diagnostic configuration specific to this problem.
 
-```@example risingbubble
+```julia
 function config_diagnostics(driver_config)
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
@@ -359,21 +328,17 @@ end
 
 function main()
     ClimateMachine.init()
-```
 
-These are essentially arguments passed to the [`config_risingbubble`](@ref config-helper) function.
-For type consistency we explicitly define the problem floating-precision.
+    ## These are essentially arguments passed to the [`config_risingbubble`](@ref config-helper) function.
+    ## For type consistency we explicitly define the problem floating-precision.
 
-```@example risingbubble
     FT = Float64
-```
 
-We need to specify the polynomial order for the DG discretization, effective resolution, simulation end-time,
-the domain bounds, and the courant-number for the time-integrator. Note how the time-integration components
-`solver_config` are distinct from the spatial / model components in `driver_config`. `init_on_cpu` is a helper
-keyword argument that forces problem initialisation on CPU (thereby allowing the use of random seeds, spline interpolants and other special functions at the initialisation step.)
+    ## We need to specify the polynomial order for the DG discretization, effective resolution, simulation end-time,
+    ## the domain bounds, and the courant-number for the time-integrator. Note how the time-integration components
+    ## `solver_config` are distinct from the spatial / model components in `driver_config`. `init_on_cpu` is a helper
+    ## keyword argument that forces problem initialisation on CPU (thereby allowing the use of random seeds, spline interpolants and other special functions at the initialisation step.)
 
-```@example risingbubble
     N = 4
     Δh = FT(50)
     Δv = FT(50)
@@ -384,11 +349,9 @@ keyword argument that forces problem initialisation on CPU (thereby allowing the
     t0 = FT(0)
     timeend = FT(1000)
     CFL = FT(20)
-```
 
-Assign configurations so they can be passed to the `invoke!` function
+    ## Assign configurations so they can be passed to the `invoke!` function
 
-```@example risingbubble
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -398,32 +361,26 @@ Assign configurations so they can be passed to the `invoke!` function
         Courant_number = CFL,
     )
     dgn_config = config_diagnostics(driver_config)
-```
 
-User defined filter (TMAR positivity preserving filter)
+    ## User defined filter (TMAR positivity preserving filter)
 
-```@example risingbubble
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
-```
 
-Invoke solver (calls `solve!` function for time-integrator), pass the driver, solver and diagnostic config
-information.
+    ## Invoke solver (calls `solve!` function for time-integrator), pass the driver, solver and diagnostic config
+    ## information.
 
-```@example risingbubble
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
-```
 
-Check that the solution norm is reasonable.
+    ## Check that the solution norm is reasonable.
 
-```@example risingbubble
     @test isapprox(result, FT(1); atol = 1.5e-3)
 end
 ```
@@ -445,11 +402,6 @@ are two commonly used programs for `.vtu` files.
 For NetCDF or JLD2 diagnostics you may use Julia's [`NCDatasets`](https://github.com/Alexander-Barth/NCDatasets.jl) and [`JLD2`](https://github.com/JuliaIO/JLD2.jl) packages with
 a suitable plotting program.
 
-```@example risingbubble
+```julia
 main();
 ```
-
----
-
-*This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
-

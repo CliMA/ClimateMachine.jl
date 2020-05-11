@@ -15,7 +15,7 @@ jobs:
         version: 1.3
     - name: Apply JuliaFormatter
       run: |
-        julia --project=.dev .dev/format.jl origin/master
+        julia --project=.dev .dev/climaformat.jl .
     - name: Check formatting diff
       run: |
         git diff --color=always --exit-code
