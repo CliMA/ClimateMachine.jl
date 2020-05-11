@@ -16,7 +16,7 @@ In `tracers.jl`, we define the equation sets governing
 tracer dynamics. Specifically, we address the the equations
 of tracer motion in conservation form,
 
-```@example tracers
+```julia
 export NoTracers, NTracers
 ```
 
@@ -38,9 +38,8 @@ and [`NTracers`](@ref multiple-tracers).
 
 Default stub functions for a generic tracer type are defined here.
 
-```@example tracers
-abstract type TracerModel end
-
+```julia
+abstract type TracerModel <: BalanceLaw end
 
 vars_state_conservative(::TracerModel, FT) = @vars()
 vars_state_gradient(::TracerModel, FT) = @vars()

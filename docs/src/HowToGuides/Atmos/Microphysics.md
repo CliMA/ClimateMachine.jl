@@ -98,8 +98,9 @@ The default value of ``C_{drag}`` is chosen such that the ``v_t`` is close to th
 using ClimateMachine.Microphysics
 using Plots
 using CLIMAParameters
-abstract type EarthParameterSet <: AbstractParameterSet end
-param_set = EarthParameterSet()
+using CLIMAParameters.Atmos.Microphysics
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 # eq. 5d in Smolarkiewicz and Grabowski 1996
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
@@ -172,7 +173,7 @@ using ClimateMachine.Microphysics
 using Plots
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
-param_set = EarthParameterSet()
+const param_set = EarthParameterSet()
 
 # eq. 5b in Smolarkiewicz and Grabowski 1996
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
@@ -271,7 +272,7 @@ using ClimateMachine.Microphysics
 using ClimateMachine.MoistThermodynamics
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
+using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP, molmass_ratio
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -310,7 +311,7 @@ q = PhasePartition(q_tot, q_liq, q_ice)
 R = gas_constant_air(param_set, q)
 ρ = p / R / T
 
-plot(q_rain_range * 1e3,  [conv_q_rai_to_q_vap(q_rai, q, T, p, ρ) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="rain evaporation rate [1/s]", title="Rain evaporation", label="ClimateMachine")
+plot(q_rain_range * 1e3,  [conv_q_rai_to_q_vap(param_set, q_rai, q, T, p, ρ) for q_rai in q_rain_range], xlabel="q_rain [g/kg]", ylabel="rain evaporation rate [1/s]", title="Rain evaporation", label="ClimateMachine")
 plot!(q_rain_range * 1e3, [rain_evap_empirical(q_rai, q, T, p, ρ) for q_rai in q_rain_range], label="empirical")
 savefig("rain_evaporation_rate.svg") # hide
 nothing # hide

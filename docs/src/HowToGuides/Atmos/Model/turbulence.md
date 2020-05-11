@@ -21,7 +21,7 @@ are:\
     - `turbulence=Vreman(C_smag)`\
     - `turbulence=AnisoMinDiss(C_poincare)`
 
-```@example turbulence
+```julia
 using DocStringExtensions
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
@@ -34,7 +34,7 @@ default functions for the generic turbulence closure
 which will be overloaded with model specific functions. Minimally, overloaded functions for the
 following stubs must be defined for a turbulence model.
 
-```@example turbulence
+```julia
 abstract type TurbulenceClosure end
 
 
@@ -70,7 +70,7 @@ The following may need to be addressed if turbulence models require
 additional state variables or auxiliary variable updates (e.g. TKE
 based models)
 
-```@example turbulence
+```julia
 vars_state_conservative(::TurbulenceClosure, FT) = @vars()
 function atmos_nodal_update_auxiliary_state!(
     ::TurbulenceClosure,
@@ -137,7 +137,7 @@ skew symmetric component (rate-of-rotation) is not currently computed.
 ClimateMachine.Atmos.strain_rate_magnitude
 ```
 
-```@example turbulence
+```julia
 """
     strain_rate_magnitude(S)
 Given the rate-of-strain tensor `S`, computes its magnitude.
