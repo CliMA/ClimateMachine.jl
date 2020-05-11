@@ -2594,8 +2594,10 @@ end
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
     end
 
-    e = @index(Group, Linear)
-    n = @index(Local, Linear)
+    I = @index(Global, Linear)
+    e = (I - 1) ÷ Np + 1
+    n = (I - 1) % Np + 1
+
     @inbounds begin
         @unroll for s in 1:num_state_conservative
             local_state_conservative[s] = state_conservative[n, s, e]
