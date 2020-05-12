@@ -197,9 +197,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # Apply the outer constructor to define the `ode_solver`. Here
     # `AtmosAcousticGravityLinearModel` splits the acoustic-gravity wave components
     # from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
-    ode_solver = ClimateMachine.MultirateSolverType(
+    ode_solver = ClimateMachine.MRIExplicitGARKSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
+        slow_method = MRIGARKERK33aSandu,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )

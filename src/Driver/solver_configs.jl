@@ -197,6 +197,27 @@ function SolverConfiguration(
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
         solver =
             ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
+    elseif isa(ode_solver_type, MRIExplicitGARKSolverType)
+        fast_dg = DGModel(
+            linmodel,
+            grid,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+        )
+        slow_dg = remainder_DGModel(
+            dg,
+            (fast_dg,);
+            ode_solver_type.remainder_kwargs...,
+        )
+        fast_dt = ode_dt / ode_solver_type.timestep_ratio
+        fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
+        solver =
+            ode_solver_type.slow_method(slow_dg, fast_solver, Q, dt = ode_dt)
+
     elseif isa(ode_solver_type, MRIHEVISolverType)
         # Vertical acoustic waves
         vertical_dg = DGModel(

@@ -81,6 +81,7 @@ struct MRIHEVISolverType <: AbstractSolverType
     inner_method::Function
     timestep_ratio_outer::Int
     timestep_ratio_inner::Int
+    remainder_kwargs::NamedTuple
     function MRIHEVISolverType(;
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
@@ -89,6 +90,7 @@ struct MRIHEVISolverType <: AbstractSolverType
         inner_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio_outer = 100,
         timestep_ratio_inner = 100,
+        remainder_kwargs = NamedTuple(),
     )
         return new(
             linear_model,
@@ -98,6 +100,33 @@ struct MRIHEVISolverType <: AbstractSolverType
             inner_method,
             timestep_ratio_outer,
             timestep_ratio_inner,
+            remainder_kwargs,
+        )
+    end
+end
+
+"""
+TODO: Document all solver types
+"""
+struct MRIExplicitGARKSolverType <: AbstractSolverType
+    linear_model::Type
+    slow_method::Function
+    fast_method::Function
+    timestep_ratio::Int
+    remainder_kwargs::NamedTuple
+    function MRIExplicitGARKSolverType(;
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = MRIGARKERK33aSandu,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 100,
+        remainder_kwargs = NamedTuple(),
+    )
+        return new(
+            linear_model,
+            slow_method,
+            fast_method,
+            timestep_ratio,
+            remainder_kwargs,
         )
     end
 end
