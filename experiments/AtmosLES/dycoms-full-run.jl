@@ -311,7 +311,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 15, tolerance = FT(2)),
+        moisture = EquilMoist{FT}(maxiter = 10, tolerance = FT(1)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -329,9 +329,22 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         init_state_conservative = ics,
     )
 
+    #LSRK144 single-rate
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
+
+    #=LSRK multi-rate
+    ode_solver = ClimateMachine.MultirateSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 14,
+    )=#
+
+    #=IMEX
+    ode_solver = ClimateMachine.DefaultSolverType()
+    =#
 
     config = ClimateMachine.AtmosLESConfiguration(
         "DYCOMS",
@@ -359,20 +372,20 @@ function main()
     FT = Float64
 
     # DG polynomial order
-    N = 3
+    N = 4
 
     # Domain resolution and size
-    Δh = FT(15)
-    Δv = FT(2.5)
+    Δh = FT(40)
+    Δv = FT(20)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(1000)
-    ymax = FT(1000)
+    xmax = FT(500)
+    ymax = FT(500)
     zmax = FT(1500)
 
     t0 = FT(0)
     timeend = FT(14400)
-    Cmax = FT(1.7)
+    Cmax = FT(1.8)
     
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
