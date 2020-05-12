@@ -275,13 +275,13 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    ::Dir,
-) where {Dir <: Direction}
+    ::Dirs,
+) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
     m = getfield(source, :array)
-    if EveryDirection() isa Dir ||
+    if EveryDirection() isa Union{Dirs.types...} ||
        rem.maindir isa EveryDirection ||
-       rem.maindir isa Dir
-        source!(rem.main, source, state, diffusive, aux, t, rem.maindir)
+       rem.maindir isa Union{Dirs.types...}
+        source!(rem.main, source, state, diffusive, aux, t, (rem.maindir,))
     end
 
     source_s = similar(source)
@@ -290,12 +290,12 @@ function source!(
     # Force the loop to unroll to get type stability on the GPU
     ntuple(Val(length(rem.subs))) do k
         Base.@_inline_meta
-        @inbounds if EveryDirection() isa Dir ||
+        @inbounds if EveryDirection() isa Union{Dirs.types...} ||
                      rem.subsdir[k] isa EveryDirection ||
-                     rem.subsdir[k] isa Dir
+                     rem.subsdir[k] isa Union{Dirs.types...}
             sub = rem.subs[k]
             fill!(m_s, -zero(eltype(m_s)))
-            source!(sub, source_s, state, diffusive, aux, t, rem.subsdir[k])
+            source!(sub, source_s, state, diffusive, aux, t, (rem.subsdir[k],))
             m .-= m_s
         end
     end

@@ -227,9 +227,9 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction,
-)
-    if direction isa VerticalDirection || direction isa EveryDirection
+    ::NTuple{1, Dir},
+) where {Dir <: Direction}
+    if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
         source.ρu -= state.ρ * ∇Φ
     end
