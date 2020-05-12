@@ -333,21 +333,6 @@ end
     dest
 end
 
-
-# The following `__no_overlap_*` functions exist to support the old DG balance
-# law where we still use GPUifyLoops.  They should NOT be used in new code.
-function __no_overlap_begin_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = begin_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
-function __no_overlap_end_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = end_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
 """
     begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 

@@ -8,7 +8,6 @@ using ClimateMachine.MPIStateArrays
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
-using GPUifyLoops
 
 struct ConjugateGradient{AT1, AT2, FT, RD, RT, IT} <:
        LS.AbstractIterativeLinearSolver
