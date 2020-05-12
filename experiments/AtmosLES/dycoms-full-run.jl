@@ -329,18 +329,18 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         init_state_conservative = ics,
     )
 
-    #LSRK144 single-rate
+    #=LSRK144 single-rate
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
-    )
+    )=#
 
-    #=LSRK multi-rate
+    #LSRK multi-rate
     ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 14,
-    )=#
+        timestep_ratio = 11,
+    )
 
     #=IMEX
     ode_solver = ClimateMachine.DefaultSolverType()
@@ -385,7 +385,7 @@ function main()
 
     t0 = FT(0)
     timeend = FT(14400)
-    Cmax = FT(1.8)
+    Cmax = FT(15)
     
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
