@@ -27,11 +27,6 @@ jobs:
     displayName: 'Download and extract Julia'
   - bash: |
       set -o xtrace
-      sudo apt-get update
-      sudo apt-get install mpich libmpich-dev
-    displayName: 'Install dependencies'
-  - bash: |
-      set -o xtrace
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
@@ -58,12 +53,6 @@ jobs:
       hdiutil mount -readonly -mountpoint juliamnt julia-$(JULIA_VERSION)-latest-mac64.dmg
       cp -a juliamnt/*.app/Contents/Resources/julia julia-$(JULIA_VERSION)
     displayName: 'Download and extract Julia'
-  - bash: |
-      set -o xtrace
-      brew update
-      brew upgrade
-      brew install mpich
-    displayName: 'Install dependencies'
   - bash: |
       set -o xtrace
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
@@ -94,11 +83,6 @@ jobs:
       wget https://julialang-s3.julialang.org/bin/winnt/x64/$(JULIA_VERSION)/julia-$(JULIA_VERSION)-latest-win64.exe -OutFile julia-$(JULIA_VERSION)-latest-win64.exe
       Start-Process -FilePath .\julia-$(JULIA_VERSION)-latest-win64.exe -ArgumentList "/S /D=C:\julia-$(JULIA_VERSION)" -NoNewWindow -Wait
     displayName: 'Download and extract Julia'
-  - powershell: |
-      Set-PSDebug -Trace 1
-      wget https://download.microsoft.com/download/a/5/2/a5207ca5-1203-491a-8fb8-906fd68ae623/msmpisetup.exe -OutFile msmpisetup.exe
-      Start-Process -FilePath .\msmpisetup.exe "-unattend -minimal"
-    displayName: 'Install dependencies'
   - powershell: |
       Set-PSDebug -Trace 1
       C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'using InteractiveUtils; versioninfo()'
