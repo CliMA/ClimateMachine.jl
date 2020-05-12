@@ -8,8 +8,10 @@ using LinearAlgebra
 using Random
 using StaticArrays
 using ClimateMachine.DGmethods:
+    BalanceLaw,
     DGModel,
     Vars,
+    create_conservative_state,
     vars_state_conservative,
     number_state_conservative,
     init_ode_state
@@ -20,6 +22,8 @@ using ClimateMachine.DGmethods.NumericalFluxes:
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxGradient
 using ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
+using ClimateMachine.VariableTemplates
+using ClimateMachine.ColumnwiseLUSolver
 
 using Test
 
@@ -37,6 +41,14 @@ function init_velocity_diffusion!(
 
     # diffusion of strength β in the n direction
     aux.D = β * n * n'
+end
+
+struct BigAdvectionDiffusion <: BalanceLaw end
+function vars_state_conservative(::BigAdvectionDiffusion, FT)
+    @vars begin
+        ρ::FT
+        X::SVector{3, FT}
+    end
 end
 
 function initial_condition!(
@@ -158,6 +170,61 @@ let
                         Array(dQ2.realdata),
                         atol = 100 * eps(FT),
                     ))
+
+                    big_Q =
+                        create_conservative_state(BigAdvectionDiffusion(), grid)
+                    big_dQ =
+                        create_conservative_state(BigAdvectionDiffusion(), grid)
+
+                    big_Q .= NaN
+                    big_dQ .= NaN
+
+                    big_Q[:, 1:size(Q, 2), :] .= Q
+
+                    vdg(big_dQ, big_Q, nothing, 0; increment = false)
+
+                    @test all(isapprox.(
+                        Array(big_dQ.realdata[:, 1:size(Q, 2), :]),
+                        Array(dQ1.realdata),
+                        atol = 100 * eps(FT),
+                    ))
+
+                    @test all(big_dQ[:, (size(Q, 2) + 1):end, :] .== 0)
+
+                    big_dQ[:, (size(Q, 2) + 1):end, :] .= -7
+
+                    vdg(big_dQ, big_Q, nothing, 0; increment = true)
+
+                    @test all(big_dQ[:, (size(Q, 2) + 1):end, :] .== -7)
+
+                    @test all(isapprox.(
+                        Array(big_dQ.realdata[:, 1:size(Q, 2), :]),
+                        Array(dQ1.realdata),
+                        atol = 100 * eps(FT),
+                    ))
+
+                    big_A = banded_matrix(
+                        vdg,
+                        similar(big_dQ),
+                        similar(big_Q);
+                        single_column = single_column,
+                    )
+                    @test all(isapprox.(
+                        Array(big_A),
+                        Array(A_banded),
+                        atol = 100 * eps(FT),
+                    ))
+
+                    ColumnwiseLUSolver.band_lu!(big_A, vdg)
+                    ColumnwiseLUSolver.band_forward!(big_dQ, big_A, vdg)
+                    ColumnwiseLUSolver.band_back!(big_dQ, big_A, vdg)
+
+                    @test all(isapprox.(
+                        Array(big_dQ.realdata[:, 1:size(Q, 2), :]),
+                        Array(Q.realdata),
+                        atol = 100 * eps(FT),
+                    ))
+                    @test all(big_dQ[:, (size(Q, 2) + 1):end, :] .== -7)
 
                     α = FT(1 // 10)
                     function op!(LQ, Q)
