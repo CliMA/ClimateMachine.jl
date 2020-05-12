@@ -147,64 +147,72 @@ function remainder_DGModel(
 end
 
 # Inherit most of the functionality from the main model
-vars_state_conservative(rem::RemBL, FT) = vars_state_conservative(rem.main, FT)
+vars_state_conservative(rem_balance_law::RemBL, FT) =
+    vars_state_conservative(rem_balance_law.main, FT)
 
-vars_state_gradient(rem::RemBL, FT) = vars_state_gradient(rem.main, FT)
+vars_state_gradient(rem_balance_law::RemBL, FT) =
+    vars_state_gradient(rem_balance_law.main, FT)
 
-vars_state_gradient_flux(rem::RemBL, FT) =
-    vars_state_gradient_flux(rem.main, FT)
+vars_state_gradient_flux(rem_balance_law::RemBL, FT) =
+    vars_state_gradient_flux(rem_balance_law.main, FT)
 
-vars_state_auxiliary(rem::RemBL, FT) = vars_state_auxiliary(rem.main, FT)
+vars_state_auxiliary(rem_balance_law::RemBL, FT) =
+    vars_state_auxiliary(rem_balance_law.main, FT)
 
-vars_integrals(rem::RemBL, FT) = vars_integrals(rem.main, FT)
+vars_integrals(rem_balance_law::RemBL, FT) =
+    vars_integrals(rem_balance_law.main, FT)
 
-vars_reverse_integrals(rem::RemBL, FT) = vars_integrals(rem.main, FT)
+vars_reverse_integrals(rem_balance_law::RemBL, FT) =
+    vars_integrals(rem_balance_law.main, FT)
 
-vars_gradient_laplacian(rem::RemBL, FT) = vars_gradient_laplacian(rem.main, FT)
+vars_gradient_laplacian(rem_balance_law::RemBL, FT) =
+    vars_gradient_laplacian(rem_balance_law.main, FT)
 
-vars_hyperdiffusive(rem::RemBL, FT) = vars_hyperdiffusive(rem.main, FT)
+vars_hyperdiffusive(rem_balance_law::RemBL, FT) =
+    vars_hyperdiffusive(rem_balance_law.main, FT)
 
-update_auxiliary_state!(dg::DGModel, rem::RemBL, args...) =
-    update_auxiliary_state!(dg, rem.main, args...)
+update_auxiliary_state!(dg::DGModel, rem_balance_law::RemBL, args...) =
+    update_auxiliary_state!(dg, rem_balance_law.main, args...)
 
-update_auxiliary_state_gradient!(dg::DGModel, rem::RemBL, args...) =
-    update_auxiliary_state_gradient!(dg, rem.main, args...)
+update_auxiliary_state_gradient!(dg::DGModel, rem_balance_law::RemBL, args...) =
+    update_auxiliary_state_gradient!(dg, rem_balance_law.main, args...)
 
-integral_load_auxiliary_state!(rem::RemBL, args...) =
-    integral_load_auxiliary_state!(rem.main, args...)
+integral_load_auxiliary_state!(rem_balance_law::RemBL, args...) =
+    integral_load_auxiliary_state!(rem_balance_law.main, args...)
 
-integral_set_auxiliary_state!(rem::RemBL, args...) =
-    integral_set_auxiliary_state!(rem.main, args...)
+integral_set_auxiliary_state!(rem_balance_law::RemBL, args...) =
+    integral_set_auxiliary_state!(rem_balance_law.main, args...)
 
-reverse_integral_load_auxiliary_state!(rem::RemBL, args...) =
-    reverse_integral_load_auxiliary_state!(rem.main, args...)
+reverse_integral_load_auxiliary_state!(rem_balance_law::RemBL, args...) =
+    reverse_integral_load_auxiliary_state!(rem_balance_law.main, args...)
 
-reverse_integral_set_auxiliary_state!(rem::RemBL, args...) =
-    reverse_integral_set_auxiliary_state!(rem.main, args...)
+reverse_integral_set_auxiliary_state!(rem_balance_law::RemBL, args...) =
+    reverse_integral_set_auxiliary_state!(rem_balance_law.main, args...)
 
-transform_post_gradient_laplacian!(rem::RemBL, args...) =
-    transform_post_gradient_laplacian!(rem.main, args...)
+transform_post_gradient_laplacian!(rem_balance_law::RemBL, args...) =
+    transform_post_gradient_laplacian!(rem_balance_law.main, args...)
 
-flux_second_order!(rem::RemBL, args...) = flux_second_order!(rem.main, args...)
+flux_second_order!(rem_balance_law::RemBL, args...) =
+    flux_second_order!(rem_balance_law.main, args...)
 
-compute_gradient_argument!(rem::RemBL, args...) =
-    compute_gradient_argument!(rem.main, args...)
+compute_gradient_argument!(rem_balance_law::RemBL, args...) =
+    compute_gradient_argument!(rem_balance_law.main, args...)
 
-compute_gradient_flux!(rem::RemBL, args...) =
-    compute_gradient_flux!(rem.main, args...)
+compute_gradient_flux!(rem_balance_law::RemBL, args...) =
+    compute_gradient_flux!(rem_balance_law.main, args...)
 
-boundary_state!(nf, rem::RemBL, args...) =
-    boundary_state!(nf, rem.main, args...)
+boundary_state!(nf, rem_balance_law::RemBL, args...) =
+    boundary_state!(nf, rem_balance_law.main, args...)
 
-init_state_auxiliary!(rem::RemBL, args...) =
-    init_state_auxiliary!(rem.main, args...)
+init_state_auxiliary!(rem_balance_law::RemBL, args...) =
+    init_state_auxiliary!(rem_balance_law.main, args...)
 
-init_state_conservative!(rem::RemBL, args...) =
-    init_state_conservative!(rem.main, args...)
+init_state_conservative!(rem_balance_law::RemBL, args...) =
+    init_state_conservative!(rem_balance_law.main, args...)
 
 """
     function flux_first_order!(
-        rem::RemBL,
+        rem_balance_law::RemBL,
         flux::Grad,
         state::Vars,
         aux::Vars,
@@ -221,7 +229,7 @@ are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
 function flux_first_order!(
-    rem::RemBL,
+    rem_balance_law::RemBL,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -229,20 +237,34 @@ function flux_first_order!(
     ::Dirs,
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
     m = getfield(flux, :array)
-    if rem.maindir isa Union{Dirs.types...}
-        flux_first_order!(rem.main, flux, state, aux, t, (rem.maindir,))
+    if rem_balance_law.maindir isa Union{Dirs.types...}
+        flux_first_order!(
+            rem_balance_law.main,
+            flux,
+            state,
+            aux,
+            t,
+            (rem_balance_law.maindir,),
+        )
     end
 
     flux_s = similar(flux)
     m_s = getfield(flux_s, :array)
 
     # Force the loop to unroll to get type stability on the GPU
-    @inbounds ntuple(Val(length(rem.subs))) do k
+    @inbounds ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
-        @inbounds if rem.subsdir[k] isa Union{Dirs.types...}
-            sub = rem.subs[k]
+        @inbounds if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
+            sub = rem_balance_law.subs[k]
             fill!(m_s, 0)
-            flux_first_order!(sub, flux_s, state, aux, t, (rem.subsdir[k],))
+            flux_first_order!(
+                sub,
+                flux_s,
+                state,
+                aux,
+                t,
+                (rem_balance_law.subsdir[k],),
+            )
             m .-= m_s
         end
     end
@@ -252,7 +274,7 @@ end
 
 """
     function source!(
-        rem::RemBL,
+        rem_balance_law::RemBL,
         source::Vars,
         state::Vars,
         diffusive::Vars,
@@ -269,7 +291,7 @@ are evaluated. When these models are evaluated the models underlying `direction`
 is passed (not the original `directions` argument).
 """
 function source!(
-    rem::RemBL,
+    rem_balance_law::RemBL,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -279,23 +301,39 @@ function source!(
 ) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
     m = getfield(source, :array)
     if EveryDirection() isa Union{Dirs.types...} ||
-       rem.maindir isa EveryDirection ||
-       rem.maindir isa Union{Dirs.types...}
-        source!(rem.main, source, state, diffusive, aux, t, (rem.maindir,))
+       rem_balance_law.maindir isa EveryDirection ||
+       rem_balance_law.maindir isa Union{Dirs.types...}
+        source!(
+            rem_balance_law.main,
+            source,
+            state,
+            diffusive,
+            aux,
+            t,
+            (rem_balance_law.maindir,),
+        )
     end
 
     source_s = similar(source)
     m_s = getfield(source_s, :array)
 
     # Force the loop to unroll to get type stability on the GPU
-    ntuple(Val(length(rem.subs))) do k
+    ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
         @inbounds if EveryDirection() isa Union{Dirs.types...} ||
-                     rem.subsdir[k] isa EveryDirection ||
-                     rem.subsdir[k] isa Union{Dirs.types...}
-            sub = rem.subs[k]
+                     rem_balance_law.subsdir[k] isa EveryDirection ||
+                     rem_balance_law.subsdir[k] isa Union{Dirs.types...}
+            sub = rem_balance_law.subs[k]
             fill!(m_s, -zero(eltype(m_s)))
-            source!(sub, source_s, state, diffusive, aux, t, (rem.subsdir[k],))
+            source!(
+                sub,
+                source_s,
+                state,
+                diffusive,
+                aux,
+                t,
+                (rem_balance_law.subsdir[k],),
+            )
             m .-= m_s
         end
     end
@@ -304,8 +342,8 @@ end
 
 """
     function wavespeed(
-        rem::RemBL,
-        x...
+        rem_balance_law::RemBL,
+        args...,
     )
 
 The wavespeed for a remainder model is defined to be the difference of the wavespeed
@@ -315,11 +353,11 @@ Note: Defining the wavespeed in this manner can result in a smaller value than
 the actually wavespeed of the remainder physics model depending on the
 composition of the models.
 """
-function wavespeed(rem::RemBL, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(rem_balance_law::RemBL, nM, state::Vars, aux::Vars, t::Real)
     ref = aux.ref_state
     return abs(
-        wavespeed(rem.main, nM, state, aux, t) -
-        sum(sub -> wavespeed(sub, nM, state, aux, t), rem.subs),
+        wavespeed(rem_balance_law.main, nM, state, aux, t) -
+        sum(sub -> wavespeed(sub, nM, state, aux, t), rem_balance_law.subs),
     )
 end
 
@@ -656,14 +694,19 @@ function numerical_boundary_flux_gradient!(
 end
 
 """
-    normal_boundary_flux_second_order!(nf, rem::RemBL, args...)
+    normal_boundary_flux_second_order!(nf, rem_balance_law::RemBL, args...)
 
 Currently the main models `normal_boundary_flux_second_order!` is called. If the
 subcomponents models have second order terms this would need to be updated.
 """
 normal_boundary_flux_second_order!(
     nf,
-    rem::RemBL,
+    rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     args...,
-) where {S} = normal_boundary_flux_second_order!(nf, rem.main, fluxᵀn, args...)
+) where {S} = normal_boundary_flux_second_order!(
+    nf,
+    rem_balance_law.main,
+    fluxᵀn,
+    args...,
+)
