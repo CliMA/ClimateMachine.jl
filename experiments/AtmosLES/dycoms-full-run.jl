@@ -311,7 +311,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 3, tolerance = FT(0.1)),
+        moisture = EquilMoist{FT}(maxiter = 15, tolerance = FT(2)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -359,11 +359,11 @@ function main()
     FT = Float64
 
     # DG polynomial order
-    N = 4
+    N = 3
 
     # Domain resolution and size
-    Δh = FT(40)
-    Δv = FT(20)
+    Δh = FT(15)
+    Δv = FT(2.5)
     resolution = (Δh, Δh, Δv)
 
     xmax = FT(1000)
@@ -372,13 +372,15 @@ function main()
 
     t0 = FT(0)
     timeend = FT(14400)
-
+    Cmax = FT(1.7)
+    
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         init_on_cpu = true,
+        Courant_number = Cmax,
     )
     dgn_config = config_diagnostics(driver_config)
 
