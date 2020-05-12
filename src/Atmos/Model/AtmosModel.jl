@@ -13,7 +13,11 @@ using ..MoistThermodynamics
 import ..MoistThermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
-    VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
+    VerticalDirection,
+    HorizontalDirection,
+    min_node_distance,
+    EveryDirection,
+    Direction
 
 import ClimateMachine.DGmethods:
     BalanceLaw,

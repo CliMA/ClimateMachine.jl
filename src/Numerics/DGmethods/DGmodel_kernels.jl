@@ -274,7 +274,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     local_state_auxiliary,
                 ),
                 t,
-                direction,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -484,7 +484,7 @@ end
                     local_state_auxiliary,
                 ),
                 t,
-                direction,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
