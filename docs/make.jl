@@ -4,6 +4,7 @@ using ClimateMachine, Documenter, Literate
 ENV["GKSwstype"] = "100" # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
 
 generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
+rm(generated_dir, force = true, recursive = true)
 mkpath(generated_dir)
 
 include("list_of_experiments.jl")        # defines a nested array `experiments`
