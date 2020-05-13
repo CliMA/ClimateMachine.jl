@@ -191,12 +191,21 @@ function main()
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
+    ode_solver = ClimateMachine.MultirateHEVISolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = ARK2GiraldoKellyConstantinescu,
+        timestep_ratio = 10,
+    )
+    CFL = FT(0.2)
+
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = CFL,
+        ode_solver_type = ode_solver,
         init_on_cpu = true,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
@@ -224,6 +233,7 @@ function main()
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
+        adjustfinalstep = false,
     )
 end
 
