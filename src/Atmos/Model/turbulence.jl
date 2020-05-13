@@ -247,7 +247,7 @@ vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
           ∂v∂z::FT,
           ∂w∂x::FT,
           ∂w∂y::FT,
-          ∂w∂z::FT
+          ∂w∂z::FT,
          )
 
 function atmos_init_aux!(
@@ -303,9 +303,9 @@ function compute_gradient_flux!(
     ∇u = ∇transform.u
 
     diffusive.turbulence.Richardson = Richardson
-    diffusive.turbulence.ν_x = ν_h[1]
-    diffusive.turbulence.ν_y = ν_h[2]
-    diffusive.turbulence.ν_z = ν_v[3]
+    diffusive.turbulence.ν_x = ν[1,1]
+    diffusive.turbulence.ν_y = ν[2,2]
+    diffusive.turbulence.ν_z = ν[3,3]
     
     diffusive.turbulence.∂u∂x = ∇u[1,1]
     diffusive.turbulence.∂u∂y = ∇u[1,2]
@@ -318,6 +318,8 @@ function compute_gradient_flux!(
     diffusive.turbulence.∂w∂z = ∇u[3,1]
     diffusive.turbulence.∂w∂y = ∇u[3,2]
     diffusive.turbulence.∂w∂z = ∇u[3,3]
+
+    #diffusive.turbulence.τ = -2 .* diffusive.turbulence.S .* ν + (2 .*ν ./ 3) * tr(diffusive.turbulence.S)*I
 end
 
 function turbulence_tensors(
@@ -486,8 +488,10 @@ function compute_gradient_flux!(
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
+    
     ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5)) 
     ∇u = ∇transform.u
+
     diffusive.turbulence.Richardson = Richardson
 
     diffusive.turbulence.ν_x = ν[1,1]
@@ -505,7 +509,6 @@ function compute_gradient_flux!(
     diffusive.turbulence.∂w∂z = ∇u[3,1]
     diffusive.turbulence.∂w∂y = ∇u[3,2]
     diffusive.turbulence.∂w∂z = ∇u[3,3]
-    
     #diffusive.turbulence.τ_debug = -2 .* ν .* diffusive.turbulence.S
 end
 
@@ -530,9 +533,28 @@ function turbulence_tensors(
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5)) 
+    ν = SDiagonal(ν_h + ν_v .* f_b² .+ FT(1e-5))
+    
+    #ν_x = diffusive.turbulence.ν_x
+    #ν_y = diffusive.turbulence.ν_y
+    #ν_z = diffusive.turbulence.ν_z
+    #ν = SDiagonal(ν_x, ν_y, ν_z)
+
     D_t = diag(ν) * _inv_Pr_turb
-    τ = -2 * ν * S
+    
+    ∂u∂x = diffusive.turbulence.∂u∂x
+    ∂u∂y = diffusive.turbulence.∂u∂y
+    ∂u∂z = diffusive.turbulence.∂u∂z
+    ∂v∂x = diffusive.turbulence.∂v∂x
+    ∂v∂y = diffusive.turbulence.∂v∂x
+    ∂v∂z = diffusive.turbulence.∂v∂y
+    ∂w∂x = diffusive.turbulence.∂w∂z
+    ∂w∂y = diffusive.turbulence.∂w∂y
+    ∂w∂z = diffusive.turbulence.∂w∂z
+
+    #S0 = SHermitianCompact{3,FT,6}(SVector((∂u∂x),(∂u∂y + ∂v∂x)/2,(∂w∂x + ∂u∂z)/2,(∂v∂y),(∂w∂y + ∂v∂z)/2,(∂w∂z)))
+    τ = -2 .* ν .* S
+
     return ν, D_t, τ
 end
 

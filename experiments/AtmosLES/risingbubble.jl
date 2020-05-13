@@ -284,7 +284,7 @@ function main()
     zmax = FT(2500)
     t0 = FT(0)
     timeend = FT(1000)
-    CFL = FT(20)
+    CFL = FT(5)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
