@@ -1,20 +1,20 @@
-# The set-up was designed for the
-# 8th International Cloud Modelling Workshop
-# (ICMW, Muhlbauer et al., 2013, case 1, doi:10.1175/BAMS-D-12-00188.1)
-#
-# See chapter 2 in Arabas et al 2015 for setup details:
-#@Article{gmd-8-1677-2015,
-#AUTHOR = {Arabas, S. and Jaruga, A. and Pawlowska, H. and Grabowski, W. W.},
-#TITLE = {libcloudph++ 1.0: a single-moment bulk, double-moment bulk,
-#         and particle-based warm-rain microphysics library in C++},
-#JOURNAL = {Geoscientific Model Development},
-#VOLUME = {8},
-#YEAR = {2015},
-#NUMBER = {6},
-#PAGES = {1677--1707},
-#URL = {https://www.geosci-model-dev.net/8/1677/2015/},
-#DOI = {10.5194/gmd-8-1677-2015}
-#}
+##  The set-up was designed for the
+##  8th International Cloud Modelling Workshop
+##  (ICMW, Muhlbauer et al., 2013, case 1, doi:10.1175/BAMS-D-12-00188.1)
+##
+##  See chapter 2 in Arabas et al 2015 for setup details:
+## @Article{gmd-8-1677-2015,
+## AUTHOR = {Arabas, S. and Jaruga, A. and Pawlowska, H. and Grabowski, W. W.},
+## TITLE = {libcloudph++ 1.0: a single-moment bulk, double-moment bulk,
+##          and particle-based warm-rain microphysics library in C++},
+## JOURNAL = {Geoscientific Model Development},
+## VOLUME = {8},
+## YEAR = {2015},
+## NUMBER = {6},
+## PAGES = {1677--1707},
+## URL = {https://www.geosci-model-dev.net/8/1677/2015/},
+## DOI = {10.5194/gmd-8-1677-2015}
+## }
 
 using Dates
 using DocStringExtensions
@@ -141,12 +141,12 @@ function init_state_auxiliary!(
     _cp_d::FT = cp_d(m.param_set)
     _grav::FT = grav(m.param_set)
 
-    # TODO - should R_d and cp_d here be R_m and cp_m?
+    ## TODO - should R_d and cp_d here be R_m and cp_m?
     R_m, cp_m, cv_m, γ = gas_constants(m.param_set, PhasePartition(dc.qt_0))
 
-    # Pressure profile assuming hydrostatic and constant θ and qt profiles.
-    # It is done this way to be consistent with Arabas paper.
-    # It's not necessarily the best way to initialize with our model variables.
+    ## Pressure profile assuming hydrostatic and constant θ and qt profiles.
+    ## It is done this way to be consistent with Arabas paper.
+    ## It's not necessarily the best way to initialize with our model variables.
     p =
         dc.p_1000 *
         (
@@ -231,7 +231,7 @@ function config_kinematic_eddy(
     qt_0,
     z_0,
 )
-    # Choose explicit solver
+    ## Choose explicit solver
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -248,7 +248,7 @@ function config_kinematic_eddy(
         FT(z_0),
     )
 
-    # Set up the model
+    ## Set up the model
     model = KinematicModel{FT}(
         AtmosLESConfigType,
         param_set;

@@ -1,21 +1,21 @@
-# This tutorial uses the TMAR Filter from
-#
-#    @article{doi:10.1175/MWR-D-16-0220.1,
-#      author = {Light, Devin and Durran, Dale},
-#      title = {Preserving Nonnegativity in Discontinuous Galerkin
-#               Approximations to Scalar Transport via Truncation and Mass
-#               Aware Rescaling (TMAR)},
-#      journal = {Monthly Weather Review},
-#      volume = {144},
-#      number = {12},
-#      pages = {4771-4786},
-#      year = {2016},
-#      doi = {10.1175/MWR-D-16-0220.1},
-#    }
-#
-# to reproduce the tutorial in section 4b.  It is a shear swirling
-# flow deformation of a transported quantity from LeVeque 1996.  The exact
-# solution at the final time is the same as the initial condition.
+## This tutorial uses the TMAR Filter from
+##
+##    @article{doi:10.1175/MWR-D-16-0220.1,
+##      author = {Light, Devin and Durran, Dale},
+##      title = {Preserving Nonnegativity in Discontinuous Galerkin
+##               Approximations to Scalar Transport via Truncation and Mass
+##               Aware Rescaling (TMAR)},
+##      journal = {Monthly Weather Review},
+##      volume = {144},
+##      number = {12},
+##      pages = {4771-4786},
+##      year = {2016},
+##      doi = {10.1175/MWR-D-16-0220.1},
+##    }
+##
+## to reproduce the tutorial in section 4b.  It is a shear swirling
+## flow deformation of a transported quantity from LeVeque 1996.  The exact
+## solution at the final time is the same as the initial condition.
 
 using MPI
 using Test
@@ -36,11 +36,10 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 
+
+const clima_dir = dirname(dirname(pathof(ClimateMachine)))
 include(joinpath(
-    @__DIR__,
-    "..",
-    "..",
-    "..",
+    clima_dir,
     "test",
     "Numerics",
     "DGmethods",
@@ -146,7 +145,7 @@ function run(
 
     initialsumQ = weightedsum(Q)
 
-    # We integrate so that the final solution is equal to the initial solution
+    ## We integrate so that the final solution is equal to the initial solution
     Qe = copy(Q)
 
     rhs! = function (dQdt, Q, ::Nothing, t; increment = false)
@@ -162,9 +161,9 @@ function run(
 
     mkpath(vtkdir)
     vtkstep = 0
-    # output initial step
+    ## output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, "nonnegative")
-    # setup the output callback
+    ## setup the output callback
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
         vtkstep += 1
         minQ, maxQ = minimum(Q), maximum(Q)

@@ -3,7 +3,7 @@
 # At the end you should be able to
 # 1. Use Conjugate Gradient to solve a linear system
 # 2. Know when to not use it
-# 3. Contruct a column-wise linear solver with Conjugate Gradient
+# 3. Construct a column-wise linear solver with Conjugate Gradient
 
 # ## What is it?
 # Conjugate Gradient is an iterative method for solving special kinds of linear systems:
@@ -56,7 +56,7 @@ linearsolver = ConjugateGradient(b);
 x = ones(typeof(1.0), 3);
 # To solve the linear system we just need to pass to the linearsolve! function
 iters = linearsolve!(linear_operator!, linearsolver, x, b)
-# The variable `x` gets overwitten during the linear solve
+# The variable `x` gets overwritten during the linear solve
 # The norm of the error is
 norm(x - x_exact) / norm(x_exact)
 # The relative norm of the residual is
@@ -103,7 +103,7 @@ linearsolver = ConjugateGradient(b, max_iter = 100);
 x = ones(typeof(1.0), 3);
 # To (not) solve the linear system we just need to pass to the linearsolve! function
 iters = linearsolve!(linear_operator!, linearsolver, x, b)
-# The variable `x` gets overwitten during the linear solve
+# The variable `x` gets overwritten during the linear solve
 # The norm of the error is
 norm(x - x_exact) / norm(x_exact)
 # The relative norm of the residual is
@@ -191,4 +191,4 @@ iters
 # ## Tips
 # 1. The convergence criteria should be changed, machine precision is too small and the maximum iterations is often too large
 # 2. Use a preconditioner if possible
-# 3. Make sure that the linear system really is symmetric and positive-definite 
+# 3. Make sure that the linear system really is symmetric and positive-definite

@@ -8,7 +8,6 @@ generated_files = [
     for (root, dirs, files) in Base.Filesystem.walkdir(generated_dir)
     for f in files
 ]
-println("Generated files: $(generated_files)")
 
 filter!(
     x -> any([endswith(x, y) for y in file_extensions_to_remove]),

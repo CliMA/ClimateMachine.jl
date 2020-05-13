@@ -38,7 +38,7 @@ nothing # hide
 # Construct the Held-Suarez forcing function
 # We can view this as part the right-hand-side of our governing equations. It
 # forces the total energy field in a way that the resulting steady-state velocity
-# and temperature fields of the simluation resemble those of an idealized dry
+# and temperature fields of the simulation resemble those of an idealized dry
 # planet.
 function held_suarez_forcing!(
     balance_law,
@@ -87,8 +87,8 @@ function held_suarez_forcing!(
     φ = latitude(balance_law.orientation, aux)
     p = air_pressure(balance_law.param_set, T, ρ)
 
-    ##TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
-    #for topography, but leave unchanged for calculations of σ involved in T_equil
+    ## TODO: replace _p0 with dynamic surface pressure in Δσ calculations to account
+    ## for topography, but leave unchanged for calculations of σ involved in T_equil
     _p0 = 1.01325e5
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
@@ -107,10 +107,10 @@ end
 nothing # hide
 
 # ## Set initial condition
-# When using ClimateMachine, we need to define a function that sets the intial state of our
+# When using ClimateMachine, we need to define a function that sets the initial state of our
 # model run. In our case, we use the reference state of the simulation (defined
 # below) and add a little bit of noise. Note that the initial states includes a
-# zero initial velocity field. 
+# zero initial velocity field.
 function init_heldsuarez!(balance_law, state, aux, coordinates, time)
     FT = eltype(state)
 
@@ -138,17 +138,17 @@ FT = Float32
 nothing # hide
 
 # ## Setup model configuration
-# Now that we have definied our forcing and initialization functions, and have
-# initialized ClimateMachine, we can set up the model. 
-# 
+# Now that we have defined our forcing and initialization functions, and have
+# initialized ClimateMachine, we can set up the model.
+#
 # ## Set up a reference state
 # We start by setting up a
 # reference state. This is simply a vector field that we subtract from the
 # solutions to the governing equations to both improve numerical stability of the
 # implicit time stepper and enable faster model spin-up. The reference state
-# assumes hydrostatic balance and ideal gas law, with a pressure $p_r(z)$ and 
+# assumes hydrostatic balance and ideal gas law, with a pressure $p_r(z)$ and
 # density $\rho_r(z)$ that only depend on altitude $z$ and are in hydrostatic balance
-# with each other. 
+# with each other.
 # In this example, the reference temperature field smoothly transitions from a
 # linearly decaying profile near the surface to a constant temperature profile at the top
 # of the domain.
@@ -182,7 +182,7 @@ nothing # hide
 
 # ## Instantiate the model
 # The Held Suarez setup was designed to produce an equilibrated state
-# that is comparable to the zonal mean of the Earth’s atmosphere. 
+# that is comparable to the zonal mean of the Earth’s atmosphere.
 model = AtmosModel{FT}(
     AtmosGCMConfigType,
     param_set;
@@ -191,12 +191,12 @@ model = AtmosModel{FT}(
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
     source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
-    init_state = init_heldsuarez!,
+    init_state_conservative = init_heldsuarez!,
 )
 nothing # hide
 # This concludes the setup of the physical model!
 
-# ## Set up the driver 
+# ## Set up the driver
 # We just need to set up a few parameters that define the resolution of the
 # discontinuous Galerkin method and how long we want to run our model setup for.
 poly_order = 5                        ## discontinuous Galerkin polynomial order

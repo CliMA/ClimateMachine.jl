@@ -100,7 +100,7 @@ end
 
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
-    # Boundary conditions
+    ## Boundary conditions
     T_bot = FT(299)
 
     _cp_d::FT = cp_d(param_set)
@@ -112,7 +112,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
     ntracers = 1
     δ_χ = SVector{ntracers, FT}(1)
 
-    # Turbulence
+    ## Turbulence
     C_smag = FT(0.23)
     data_config = DryRayleighBenardConvectionDataConfig{FT}(
         0,
@@ -126,7 +126,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         FT(T_bot - T_lapse * zmax),
     )
 
-    # Set up the model
+    ## Set up the model
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -177,13 +177,13 @@ end
 
 function main()
     FT = Float64
-    # DG polynomial order
+    ## DG polynomial order
     N = 4
-    # Domain resolution and size
+    ## Domain resolution and size
     Δh = FT(10)
-    # Time integrator setup
+    ## Time integrator setup
     t0 = FT(0)
-    # Courant number
+    ## Courant number
     CFLmax = FT(5)
     timeend = FT(1000)
     xmax, ymax, zmax = FT(250), FT(250), FT(500)
@@ -201,7 +201,7 @@ function main()
                 Courant_number = CFLmax,
             )
             dgn_config = config_diagnostics(driver_config)
-            # User defined callbacks (TMAR positivity preserving filter)
+            ## User defined callbacks (TMAR positivity preserving filter)
             cbtmarfilter =
                 GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
                     Filters.apply!(
@@ -218,7 +218,7 @@ function main()
                 user_callbacks = (cbtmarfilter,),
                 check_euclidean_distance = true,
             )
-            # result == engf/eng0
+            ## result == engf/eng0
             @test isapprox(result, FT(1); atol = 1.5e-2)
         end
     end

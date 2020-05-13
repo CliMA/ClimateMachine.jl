@@ -14,6 +14,16 @@ if generate_tutorials
 
     tutorials_dir = joinpath(@__DIR__, "..", "tutorials")      # julia src files
 
+    non_tutorial_files = ["KinematicModel.jl"]
+    skip_execute = [
+        "heldsuarez.jl",                # broken
+        "dry_rayleigh_benard.jl",       # takes too long
+        "nonnegative.jl",               # takes too long
+        "ex_2_Kessler.jl",              # takes too long
+        "ex_1_saturation_adjustment.jl", # takes too long
+    ]
+
+
     # generate tutorials
     import Literate
 
@@ -24,15 +34,10 @@ if generate_tutorials
     ]
     filter!(x -> endswith(x, ".jl"), tutorials_jl) # only grab .jl files
 
-    filter!(x -> !occursin("topo.jl", x), tutorials_jl)                       # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("dry_rayleigh_benard.jl", x), tutorials_jl)        # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("ex_001_periodic_advection.jl", x), tutorials_jl)  # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("ex_002_solid_body_rotation.jl", x), tutorials_jl) # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("ex_003_acoustic_wave.jl", x), tutorials_jl)       # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("ex_004_nonnegative.jl", x), tutorials_jl)         # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("KinematicModel.jl", x), tutorials_jl)             # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("ex_1_saturation_adjustment.jl", x), tutorials_jl) # currently broken, TODO: Fix me!
-    filter!(x -> !occursin("ex_2_Kessler.jl", x), tutorials_jl)               # currently broken, TODO: Fix me!
+    filter!(
+        x -> !any([occursin(y, x) for y in non_tutorial_files]),
+        tutorials_jl,
+    )
 
     println("Building literate tutorials:")
     for tutorial in tutorials_jl
@@ -47,7 +52,9 @@ if generate_tutorials
         code = strip(read(script, String))
         mdpost(str) = replace(str, "@__CODE__" => code)
         Literate.markdown(input, gen_dir, postprocess = mdpost)
-        # Literate.notebook(input, gen_dir, execute = true)
+        if !any([occursin(y, input) for y in skip_execute])
+            Literate.notebook(input, gen_dir, execute = true)
+        end
     end
 
     # TODO: Should we use AutoPages.jl?

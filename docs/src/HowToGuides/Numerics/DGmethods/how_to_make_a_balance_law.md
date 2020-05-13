@@ -20,7 +20,7 @@ In order to alleviate users from being concerned with the burden of spatial disc
 
 ## Variable name specification methods
 | **Method** | Necessary | Purpose |
-|:-----|:-|:----|
+|:-----|:--|:----|
 | [`vars_state_conservative`](@ref)         | **YES** |  specify the names of the variables in the conservative state vector, typically mass, momentum, and various tracers. |
 | [`vars_state_auxiliary`](@ref)           | **YES** |  specify the names of any variables required for the balance law that aren't related to derivatives of the state variables (e.g. spatial coordinates or various integrals) or those needed to solve expensive auxiliary equations (e.g., temperature via a non-linear equation solve)     |
 | [`vars_state_gradient`](@ref)         | **YES** |  specify the names of the gradients of functions of the conservative state variables. used to represent values before **and** after differentiation |
@@ -65,7 +65,7 @@ In order to alleviate users from being concerned with the burden of spatial disc
 
 While `Y` can be thought of a column vector (each _row_ of which corresponds to each state variable and its prognostic equation), the _second_ function argument inside these methods behave as dictionaries, for example:
 
-```
+```julia
 struct MyModel <: BalanceLaw end
 
 function vars_state_conservative(m::MyModel, FT)

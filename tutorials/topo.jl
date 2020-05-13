@@ -6,7 +6,6 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGmethods
 using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
-using ClimateMachine.LowStorageRungeKuttaMethod
 using LinearAlgebra
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
