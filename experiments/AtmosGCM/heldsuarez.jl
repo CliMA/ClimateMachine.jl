@@ -6,13 +6,15 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.ColumnwiseLUSolver
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.MoistThermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
 
+using Printf
+using Dates
 using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
@@ -184,7 +186,8 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 120                             # experiment day number
+    n_days = 1/24
+    # n_days = 120                             # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
@@ -193,11 +196,17 @@ function main()
 
     ode_solver = ClimateMachine.MultirateHEVISolverType(
         linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
+        slow_method = LSRK54CarpenterKennedy,
         fast_method = ARK2GiraldoKellyConstantinescu,
-        timestep_ratio = 10,
+        timestep_ratio = 5,
     )
-    CFL = FT(0.2)
+    CFL = FT(0.85)
+
+    #= ode_solver = ClimateMachine.IMEXSolverType(
+        linear_model = AtmosAcousticGravityLinearModel,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+    )
+    CFL = FT(0.2) =#
 
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
@@ -228,12 +237,21 @@ function main()
     end
 
     # Run the model
+    starttime = Ref(now())
+    starttime[] = now()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
-        check_euclidean_distance = true,
-        adjustfinalstep = false,
+        check_euclidean_distance = false,
+    )
+    runtime = Dates.format(
+        convert(Dates.DateTime, Dates.now() - starttime[]),
+        Dates.dateformat"HH:MM:SS",
+    )
+    @info @sprintf(
+        """
+Finished in %s seconds""", runtime
     )
 end
 
