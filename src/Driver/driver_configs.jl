@@ -82,6 +82,7 @@ struct MRIHEVISolverType <: AbstractSolverType
     timestep_ratio_outer::Int
     timestep_ratio_inner::Int
     remainder_kwargs::NamedTuple
+    discrete_splitting::Bool
     function MRIHEVISolverType(;
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
@@ -91,6 +92,9 @@ struct MRIHEVISolverType <: AbstractSolverType
         timestep_ratio_outer = 100,
         timestep_ratio_inner = 100,
         remainder_kwargs = NamedTuple(),
+        # if true then a true discrete splitting is used for the remainder
+        # model, otherwise the splitting is done at the physics level
+        discrete_splitting = true,
     )
         return new(
             linear_model,
@@ -101,6 +105,7 @@ struct MRIHEVISolverType <: AbstractSolverType
             timestep_ratio_outer,
             timestep_ratio_inner,
             remainder_kwargs,
+            discrete_splitting,
         )
     end
 end
@@ -114,12 +119,16 @@ struct MRIExplicitGARKSolverType <: AbstractSolverType
     fast_method::Function
     timestep_ratio::Int
     remainder_kwargs::NamedTuple
+    discrete_splitting::Bool
     function MRIExplicitGARKSolverType(;
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = MRIGARKERK33aSandu,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 100,
         remainder_kwargs = NamedTuple(),
+        # if true then a true discrete splitting is used for the remainder
+        # model, otherwise the splitting is done at the physics level
+        discrete_splitting = true,
     )
         return new(
             linear_model,
@@ -127,6 +136,7 @@ struct MRIExplicitGARKSolverType <: AbstractSolverType
             fast_method,
             timestep_ratio,
             remainder_kwargs,
+            discrete_splitting,
         )
     end
 end

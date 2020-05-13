@@ -208,10 +208,16 @@ function SolverConfiguration(
             state_gradient_flux = dg.state_gradient_flux,
             states_higher_order = dg.states_higher_order,
         )
+        remainder_kwargs = ode_solver_type.discrete_splitting ? NamedTuple() :
+            (
+            numerical_flux_first_order = numerical_flux_first_order,
+            numerical_flux_second_order = numerical_flux_second_order,
+            numerical_flux_gradient = numerical_flux_gradient,
+        )
         slow_dg = remainder_DGModel(
             dg,
             (fast_dg,);
-            ode_solver_type.remainder_kwargs...,
+            remainder_kwargs...,
         )
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
@@ -246,10 +252,16 @@ function SolverConfiguration(
         )
 
         # Advection, diffusion, etc.
+        remainder_kwargs = ode_solver_type.discrete_splitting ? NamedTuple() :
+            (
+            numerical_flux_first_order = numerical_flux_first_order,
+            numerical_flux_second_order = numerical_flux_second_order,
+            numerical_flux_gradient = numerical_flux_gradient,
+        )
         rem_dg = remainder_DGModel(
             dg,
             (vertical_dg, horizontal_dg);
-            ode_solver_type.remainder_kwargs...,
+            remainder_kwargs...,
         )
 
         inner_method = ode_solver_type.inner_method

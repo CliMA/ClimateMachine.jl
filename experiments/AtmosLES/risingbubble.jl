@@ -199,9 +199,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
     ode_solver = ClimateMachine.MRIExplicitGARKSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = MRIGARKERK33aSandu,
+        slow_method = MRIGARKERK45aSandu,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+        timestep_ratio = 100,
     )
 
     # Since we want four tracers, we specify this and include
