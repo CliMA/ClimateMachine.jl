@@ -68,6 +68,7 @@ struct MultirateHEVISolverType <: AbstractSolverType
     slow_method::Function
     fast_method::Function
     timestep_ratio::Int
+    discrete_splitting::Bool
     function MultirateHEVISolverType(;
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
@@ -75,6 +76,9 @@ struct MultirateHEVISolverType <: AbstractSolverType
         slow_method = LSRK54CarpenterKennedy,
         fast_method = ARK2GiraldoKellyConstantinescu,
         timestep_ratio = 100,
+        # if true then a true discrete splitting is used for the remainder
+        # model, otherwise the splitting is done at the physics level
+        discrete_splitting = true,
     )
         return new(
             linear_model,
@@ -83,6 +87,7 @@ struct MultirateHEVISolverType <: AbstractSolverType
             slow_method,
             fast_method,
             timestep_ratio,
+            discrete_splitting,
         )
     end
 end
