@@ -58,6 +58,7 @@ using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.ODESolvers
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
@@ -435,7 +436,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 10, tolerance = FT(2)),
+        moisture = EquilMoist{FT}(; maxiter = 10, tolerance = FT(1)),
         source = source,
         boundarycondition = (
             AtmosBC(
@@ -478,10 +479,10 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    FT = Float32
+    FT = Float64
 
     # DG polynomial order
-    N = 8
+    N = 6
     # Domain resolution and size
     Δh = FT(100)
     Δv = FT(40)
@@ -489,8 +490,8 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(2500)
-    ymax = FT(2500)
+    xmax = FT(6400)
+    ymax = FT(6400)
     zmax = FT(3000)
 
     t0 = FT(0)
@@ -499,7 +500,7 @@ function main()
     # For the test we set this to == 30 minutes
     #timeend = FT(1800)
     timeend = FT(3600 * 6)
-    CFLmax = FT(10)
+    CFLmax = FT(8)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(

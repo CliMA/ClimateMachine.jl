@@ -175,7 +175,7 @@ function AtmosLESConfiguration(
     brickrange = (
         grid1d(xmin, xmax, elemsize = Δx * N),
         grid1d(ymin, ymax, elemsize = Δy * N),
-        grid1d(zmin, zmax, elemsize = Δz * N),
+        grid1d(zmin, zmax, SingleExponentialStretching{FT}(2.00); nelem=12),
     )
     topology = StackedBrickTopology(
         mpicomm,

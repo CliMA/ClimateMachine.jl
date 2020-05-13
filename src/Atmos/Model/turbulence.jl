@@ -436,6 +436,7 @@ vars_state_gradient_flux(::SmagorinskyLilly, FT) =
           ∂w∂x::FT,
           ∂w∂y::FT,
           ∂w∂z::FT,
+          τ_debug::SMatrix{3,3,FT,9}
          )
 function atmos_init_aux!(
     ::SmagorinskyLilly,
@@ -504,6 +505,8 @@ function compute_gradient_flux!(
     diffusive.turbulence.∂w∂z = ∇u[3,1]
     diffusive.turbulence.∂w∂y = ∇u[3,2]
     diffusive.turbulence.∂w∂z = ∇u[3,3]
+    
+    #diffusive.turbulence.τ_debug = -2 .* ν .* diffusive.turbulence.S
 end
 
 function turbulence_tensors(

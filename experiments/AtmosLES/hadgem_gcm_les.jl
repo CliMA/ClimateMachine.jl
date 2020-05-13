@@ -11,25 +11,26 @@ using StaticArrays
 using Test
 
 #  Modules
-using .Atmos
-using .ConfigTypes
-using .GenericCallbacks
-using .DGmethods.NumericalFluxes
-using .Diagnostics
-using .Mesh.Filters
-using .MoistThermodynamics
-using .ODESolvers
-using .VariableTemplates
-using .Writers
+using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.Diagnostics
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.ODESolvers
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import .DGmethods: vars_state_conservative, vars_state_auxiliary
-import .Atmos: source!, atmos_source!, altitude
-import .Atmos: compute_gradient_flux!, thermo_state
+import ClimateMachine.DGmethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.Atmos: source!, atmos_source!, altitude
+import ClimateMachine.Atmos: compute_gradient_flux!, thermo_state
 
 # Citation for problem setup
 """
@@ -305,8 +306,7 @@ function get_gcm_info(groupid)
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    filename = "/home/asridhar//datasets/HadGEM2-A_amip.2004-2008.07.nc"
-    #filename = "/Users/asridhar/research/codes//datasets/HadGEM2-A_amip.2004-2008.07.nc"
+    filename = "/home/asridhar/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
     req_varnames = (
         "zg",
         "ta",
@@ -432,12 +432,12 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         AtmosLESConfigType,
         param_set;
         ref_state = GCMReferenceState{FT}(),
-        turbulence = SmagorinskyLilly{FT}(0.25),
+        turbulence = SmagorinskyLilly{FT}(0.23),
         #hyperdiffusion = StandardHyperDiffusion(1800),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
-            LinearSponge{FT}(zmax, zmax * 0.85, 0.8, 4),
+            LinearSponge{FT}(zmax, zmax -1000, 0.75, 4),
             MoistureTendency(),
             TemperatureTendency(),
             SubsidenceTendency(),
@@ -454,17 +454,17 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             ),
             AtmosBC(),
         ),
-        moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
+        moisture = EquilMoist{FT}(; maxiter = 10, tolerance = FT(2)),
         init_state_conservative = init_cfsites!,
     )
-    mrrk_solver = .MultirateSolverType(
+    mrrk_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 12,
+        timestep_ratio = 10,
     )
-    config = .AtmosLESConfiguration(
-        "HadGEM2-",
+    config = ClimateMachine.AtmosLESConfiguration(
+        "HadGEM2",
         N,
         resolution,
         xmax,
@@ -486,30 +486,30 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return .DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
 
-    .init()
+    ClimateMachine.init()
 
     # Working precision
-    FT = Float64
+    FT = Float32
     # DG polynomial order
-    N = 4
+    N = 8
     # Domain resolution and size
     Δh = FT(75)
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(2500)
-    ymax = FT(2500)
-    zmax = FT(4000)
+    xmax = FT(2000)
+    ymax = FT(2000)
+    zmax = FT(4500)
     # Simulation time
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(12)
+    CFL = FT(3)
 
     # Execute the get_gcm_info function
     (
@@ -553,7 +553,7 @@ function main()
     driver_config =
         config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Set up solver configuration
-    solver_config = .SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -566,7 +566,7 @@ function main()
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-       # Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
         nothing
     end
     
@@ -583,10 +583,10 @@ function main()
     end
 
     # Invoke solver (calls solve! function for time-integrator)
-    result = .invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter, cbfilter),
+        user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 
