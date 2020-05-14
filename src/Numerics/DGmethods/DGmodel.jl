@@ -578,7 +578,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     bl = dg.balance_law
     grid = dg.grid
 
-    state = create_state(bl, grid)
+    state = create_conservative_state(bl, grid)
     state .= state_data
 
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
