@@ -98,10 +98,9 @@ uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
 
 [[Combinatorics]]
-deps = ["Polynomials"]
-git-tree-sha1 = "8153f2c7cc4446958920242c4caa3dc0e061918f"
+git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
 uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
-version = "1.0.1"
+version = "1.0.2"
 
 [[CommonSubexpressions]]
 deps = ["Test"]
@@ -342,9 +341,9 @@ version = "0.14.0"
 
 [[MPICH_jll]]
 deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
-git-tree-sha1 = "f25a503231b1ca0a93ac6efb07044574354a039d"
+git-tree-sha1 = "4d37f1e07b4e2a74462eebf9ee48c626d15ffdac"
 uuid = "7cb0a576-ebde-5e09-9194-50597f1243b4"
-version = "3.3.2+9"
+version = "3.3.2+10"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -453,9 +452,9 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Polynomials]]
 deps = ["Intervals", "LinearAlgebra", "RecipesBase"]
-git-tree-sha1 = "19f1b9e3f27702309880b9ccb051287729af7db4"
+git-tree-sha1 = "23b99e32043d2fa4c0d1975ca30e14e00c6ea53b"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
-version = "0.8.0"
+version = "1.0.6"
 
 [[Printf]]
 deps = ["Unicode"]
@@ -531,9 +530,9 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[SpecialFunctions]]
 deps = ["OpenSpecFun_jll"]
-git-tree-sha1 = "e19b98acb182567bcb7b75bb5d9eedf3a3b5ec6c"
+git-tree-sha1 = "0d440173da9f6d306f0c20664433734e487be8bd"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "0.10.0"
+version = "0.10.1"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
@@ -572,9 +571,9 @@ version = "1.0.1"
 
 [[TimeZones]]
 deps = ["Dates", "EzXML", "Mocking", "Printf", "RecipesBase", "Serialization", "Unicode"]
-git-tree-sha1 = "07af1bd3226d644ca1a3235c93e7d0207ce4536a"
+git-tree-sha1 = "db7bc2051d4c2e5f336409224df81485c00de6cb"
 uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
-version = "1.1.1"
+version = "1.2.0"
 
 [[TimerOutputs]]
 deps = ["Printf"]
