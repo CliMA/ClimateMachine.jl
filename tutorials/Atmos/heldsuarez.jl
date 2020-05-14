@@ -221,12 +221,25 @@ driver_config = ClimateMachine.AtmosGCMConfiguration(
     model = model,
 );
 
-# The next lines set up the time stepper.
+# The next lines set up the time stepper. Since the resolution
+# in the vertical is much finer than in the horizontal,
+# the 'stiff' parts of the PDE will be in the vertical.
+# Setting `splitting_type = HEVISplitting()` will treat
+# vertical acoustic waves implicitly, while all other dynamics
+# are treated explicitly.
+ode_solver_type = ClimateMachine.IMEXSolverType(
+    splitting_type = HEVISplitting(),
+    implicit_model = AtmosAcousticGravityLinearModel,
+    implicit_solver = ManyColumnLU,
+    solver_method = ARK2GiraldoKellyConstantinescu,
+)
+
 solver_config = ClimateMachine.SolverConfiguration(
     timestart,
     timeend,
     driver_config,
     Courant_number = FT(0.2),
+    ode_solver_type = ode_solver_type,
     init_on_cpu = true,
     CFL_direction = HorizontalDirection(),
     diffdir = HorizontalDirection(),

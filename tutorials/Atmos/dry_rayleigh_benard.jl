@@ -146,11 +146,15 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         data_config = data_config,
     )
 
-    ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
+    # Set up the time-integrator, using a multirate infinitesimal step
+    # method. The option `splitting_type = ClimateMachine.SlowFastSplitting()`
+    # separates fast-slow modes by splitting away the acoustic waves and
+    # treating them via a sub-stepped explicit method.
+    ode_solver = ClimateMachine.MISSolverType(;
+        splitting_type = ClimateMachine.SlowFastSplitting(),
+        mis_method = MIS2,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+        nsubsteps = 10,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(
@@ -187,7 +191,7 @@ function main()
     # Time integrator setup
     t0 = FT(0)
     # Courant number
-    CFLmax = FT(5)
+    CFLmax = FT(20)
     timeend = FT(1000)
     xmax, ymax, zmax = FT(250), FT(250), FT(500)
 
