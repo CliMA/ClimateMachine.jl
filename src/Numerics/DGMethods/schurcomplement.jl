@@ -13,10 +13,13 @@ schur_number_gradient_auxiliary(m::SchurComplement, FT) = varsize(schur_vars_gra
 
 function schur_init_aux! end
 function schur_init_state! end
-function schur_extract_state! end
 
 function schur_lhs_conservative! end
 function schur_lhs_nonconservative! end
+function schur_rhs_conservative! end
+function schur_rhs_nonconservative! end
+function schur_update_conservative! end
+function schur_update_nonconservative! end
 
 function create_schur_state(schur_complement::SchurComplement, grid)
     topology = grid.topology
@@ -68,6 +71,8 @@ function create_schur_auxiliary_state(schur_complement::SchurComplement, balance
     topology = grid.topology
     Np = dofs_per_element(grid)
     Nq = polynomialorder(grid) + 1
+    dim = dimensionality(grid)
+    Nqk = dim == 2 ? 1 : Nq
 
     h_vgeo = Array(grid.vgeo)
     FT = eltype(h_vgeo)
@@ -93,7 +98,6 @@ function create_schur_auxiliary_state(schur_complement::SchurComplement, balance
         weights = weights,
     )
 
-    dim = dimensionality(grid)
     polyorder = polynomialorder(grid)
     vgeo = grid.vgeo
     device = typeof(schur_auxstate.data) <: Array ? CPU() : CUDA()
@@ -114,8 +118,9 @@ function create_schur_auxiliary_state(schur_complement::SchurComplement, balance
     event = MPIStateArrays.end_ghost_exchange!(schur_auxstate; dependencies = event)
     
     schur_indexmap = create_schur_indexmap(schur_complement)
-    event = schur_auxiliary_gradients!(device, (Nq, Nq, Nq), (Nq * nrealelem, Nq, Nq))(
+    event = schur_auxiliary_gradients!(device, (Nq, Nq, Nqk), (Nq * nrealelem, Nq, Nqk))(
         schur_complement,
+        balance_law,
         schur_auxstate.data,
         vgeo,
         grid.D,
@@ -144,7 +149,6 @@ function create_schur_gradient_state(schur_complement::SchurComplement, grid)
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    # TODO: Clean up this MPIStateArray interface...
     V = schur_vars_state_gradient(schur_complement, FT)
     schur_gradient_state = MPIStateArray{FT, V}(
         topology.mpicomm,
