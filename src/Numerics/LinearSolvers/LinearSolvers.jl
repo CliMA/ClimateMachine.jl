@@ -123,6 +123,7 @@ function linearsolve!(
     converged || @warn "Solver did not attain convergence after $iters iterations"
     cvg[] = converged
 
+    @show iters
     iters
 end
 

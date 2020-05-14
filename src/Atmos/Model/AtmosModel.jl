@@ -314,6 +314,7 @@ include("source.jl")
 include("tracers.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
+include("schur_linear.jl")
 include("remainder.jl")
 include("courant.jl")
 

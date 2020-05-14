@@ -1,5 +1,7 @@
-export LinearBackwardEulerSolver, AbstractBackwardEulerSolver
-
+export LinearBackwardEulerSolver, AbstractBackwardEulerSolver,
+       BackwardEulerODESolver
+using LinearAlgebra
+using CLIMA.DGmethods
 """
     op! = EulerOperator(f!, ϵ)
 
@@ -111,6 +113,7 @@ function setup_backward_Euler_solver(lin::LinearBackwardEulerSolver, Q, α, rhs!
 end
 
 function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
+    #println("hi1, dt = $α")
     lin.α = α
     FT = eltype(Q)
     lin.factors = prefactorize(
@@ -122,10 +125,106 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
     )
 end
 
-function (lin::LinBESolver)(Q, Qhat, α, p, t)
+function (lin::LinBESolver)(schur_dg, Q, Qhat, α, p, t)
     if lin.α != α
         @assert lin.isadjustable
         update_backward_Euler_solver!(lin, Q, α)
     end
-    linearsolve!(lin.factors, lin.solver, Q, Qhat, p, t)
+
+    dg = lin.rhs!
+
+    #init_schur_state(schur_dg, Qhat, dg.state_auxiliary, α)
+    #@show extrema(schur_dg.schur_state)
+    #@show norm(schur_dg.schur_state)
+    #linearsolve!(lin.factors, lin.solver, Q, Qhat, p, t)
+    #init_schur_state(schur_dg, Q, dg.state_auxiliary, α)
+    #@show extrema(schur_dg.schur_state)
+    #@show norm(schur_dg.schur_state)
+    #@show extrema(Q[:, 2, :])
+    
+    #@show extrema(Q[:, 1, :])
+    #@show extrema(Q[:, 2, :])
+    #@show extrema(Q[:, 3, :])
+    #@show extrema(Q[:, 4, :])
+    #@show extrema(Q[:, 5, :])
+
+    init_schur_state(schur_dg, Qhat, dg.state_auxiliary, α)
+    ##@show extrema(schur_dg.schur_state)
+    ##@show norm(schur_dg.schur_state)
+    linearsolve!(schur_dg, lin.solver, schur_dg.schur_state, schur_dg.schur_rhs, α)
+    ##@show extrema(schur_dg.schur_state)
+    ##@show norm(schur_dg.schur_state)
+
+    ##@show extrema(Qhat[:, 1, :])
+    ##@show extrema(Qhat[:, 2, :])
+    ##@show extrema(Qhat[:, 3, :])
+    ##@show extrema(Qhat[:, 4, :])
+    ##@show extrema(Qhat[:, 5, :])
+
+    schur_extract_state(schur_dg, Q, Qhat, dg.state_auxiliary, α)
+
+    #@show extrema(Q[:, 1, :])
+    #@show extrema(Q[:, 2, :])
+    #@show extrema(Q[:, 3, :])
+    #@show extrema(Q[:, 4, :])
+    #@show extrema(Q[:, 5, :])
 end
+
+
+mutable struct BackwardEulerODESolver{T, RT, AT, BE} <: AbstractODESolver
+    "time step"
+    dt::RT
+    "time"
+    t::RT
+    "rhs function"
+    rhs!
+    "Storage for RHS"
+    Qhat::AT
+    "backward Euler solver"
+    besolver!::BE
+    schur
+
+    function BackwardEulerODESolver(
+        rhs!,
+        Q::AT,
+        backward_euler_solver;
+        dt = 0,
+        t0 = 0,
+        schur = nothing
+    ) where {AT <: AbstractArray}
+        T = eltype(Q)
+        RT = real(T)
+
+        besolver! = setup_backward_Euler_solver(
+            backward_euler_solver,
+            Q,
+            dt,
+            rhs!,
+        )
+        BE = typeof(besolver!)
+
+        Qhat = similar(Q)
+        fill!(Qhat, 0)
+
+        new{T, RT, AT, BE}(RT(dt), RT(t0), rhs!, Qhat, besolver!, schur)
+    end
+end
+
+# this will only work for iterative solves
+# direct solvers use prefactorization
+function updatedt!(bes::BackwardEulerODESolver, dt)
+    #println("hi2, dt = $dt")
+    @assert Δt_is_adjustable(bes.besolver!)
+    update_backward_Euler_solver!(bes.besolver!, bes.Qhat, dt)
+end
+
+function dostep!(
+    Q,
+    bes::BackwardEulerODESolver,
+    p,
+    time
+)
+    bes.Qhat .= Q
+    bes.besolver!(bes.schur, Q, bes.Qhat, bes.dt, p, time)
+end
+
