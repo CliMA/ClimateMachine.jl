@@ -8,4 +8,5 @@ include("iterativesolvers.jl")
     runmpi(joinpath(@__DIR__, "poisson.jl"))
     runmpi(joinpath(@__DIR__, "bandedsystem.jl"))
     runmpi(joinpath(@__DIR__, "cg.jl"))
+    runmpi(joinpath(@__DIR__, "bgmres.jl"))
 end

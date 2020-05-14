@@ -7,6 +7,7 @@ We have the following concrete implementations:
 1. [GMRES](@ref GeneralizedMinimalResidual)
 2. [Conjugate Residual](@ref GeneralizedConjugateResidual)
 3. [Conjugate Gradient](@ref ConjugateGradientSolver)
+4. [Batched GMRES](@ref BatchedGeneralizedMinimalResidual)
 
 ## Basic Template for an Iterative Solver
 
@@ -198,4 +199,3 @@ Timing performance can be done with general CPU/GPU guidelines
 - The name of the module is the name of the struct but with solver appended
 - Q refers to the initial guess for the iterative solver that gets overwritten with the final solution
 - Qrhs refers to the right hand side of the linear system
-
