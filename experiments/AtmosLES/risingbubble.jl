@@ -197,11 +197,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # Apply the outer constructor to define the `ode_solver`. Here
     # `AtmosAcousticGravityLinearModel` splits the acoustic-gravity wave components
     # from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
-    ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+    ode_solver = ClimateMachine.MultirateInfinitesimalStepSolverType(
+        solver_method = MIS2,
+        fast_method = LSRK54CarpenterKennedy,
+        nsubsteps = 100,
     )
 
     # Since we want four tracers, we specify this and include
@@ -283,7 +282,7 @@ function main()
     zmax = FT(2500)
     t0 = FT(0)
     timeend = FT(1000)
-    CFL = FT(20)
+    CFL = FT(30)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)

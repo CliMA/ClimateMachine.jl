@@ -81,12 +81,13 @@ function main()
         init_state_conservative = setup,
     )
 
-    ode_solver = ClimateMachine.MultirateSolverType(
+    ode_solver = ClimateMachine.MultirateInfinitesimalStepSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
+        solver_method = MIS2,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 180,
+        nsubsteps = 100,
     )
+
     driver_config = ClimateMachine.AtmosGCMConfiguration(
         "GCM Driver test",
         N,
