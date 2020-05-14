@@ -201,6 +201,37 @@ function SolverConfiguration(
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
         solver =
             ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
+    elseif isa(ode_solver_type, MultirateInfinitesimalStepSolverType)
+        fast_dg = DGModel(
+            linmodel,
+            grid,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+        )
+        slow_model = RemainderModel(bl, (linmodel,))
+        slow_dg = DGModel(
+            slow_model,
+            grid,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
+            state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
+        )
+        solver = ode_solver_type.solver_method(
+            slow_dg,
+            fast_dg,
+            ode_solver_type.fast_method,
+            ode_solver_type.nsubsteps,
+            Q;
+            dt = ode_dt,
+            t0 = t0,
+        )
     else # solver_type === IMEXSolverType
         vdg = DGModel(
             linmodel,

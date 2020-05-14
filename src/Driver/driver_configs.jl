@@ -58,6 +58,26 @@ struct MultirateSolverType <: AbstractSolverType
     end
 end
 
+struct MultirateInfinitesimalStepSolverType <: AbstractSolverType
+    linear_model::Type
+    solver_method::Function
+    fast_method::Function
+    nsubsteps::Int
+    function MultirateInfinitesimalStepSolverType(;
+        linear_model = AtmosAcousticGravityLinearModel,
+        solver_method = MIS2,
+        fast_method = LSRK54CarpenterKennedy,
+        nsubsteps = 10,
+    )
+        return new(
+            linear_model,
+            solver_method,
+            fast_method,
+            nsubsteps,
+        )
+    end
+end
+
 DefaultSolverType = IMEXSolverType
 
 abstract type ConfigSpecificInfo end
