@@ -503,14 +503,14 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(5000)
-    ymax = FT(5000)
+    xmax = FT(2400)
+    ymax = FT(2400)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(6)
+    CFL = FT(5)
 
     # Execute the get_gcm_info function
     (
