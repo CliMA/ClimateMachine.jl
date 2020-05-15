@@ -1,18 +1,16 @@
 """
     ConfigTypes
 
-Module containing CLIMA configuration types.
+Module containing ClimateMachine configuration types.
 """
 module ConfigTypes
 
-export CLIMAConfigType,
-       AtmosLESConfigType,
-       AtmosGCMConfigType,
-       OceanBoxGCMConfigType
+export ClimateMachineConfigType,
+    AtmosLESConfigType, AtmosGCMConfigType, OceanBoxGCMConfigType
 
-abstract type CLIMAConfigType end
-struct AtmosLESConfigType <: CLIMAConfigType end
-struct AtmosGCMConfigType <: CLIMAConfigType end
-struct OceanBoxGCMConfigType <: CLIMAConfigType end
+abstract type ClimateMachineConfigType end
+struct AtmosLESConfigType <: ClimateMachineConfigType end
+struct AtmosGCMConfigType <: ClimateMachineConfigType end
+struct OceanBoxGCMConfigType <: ClimateMachineConfigType end
 
 end

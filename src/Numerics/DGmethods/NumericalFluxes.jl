@@ -12,7 +12,7 @@ export NumericalFluxGradient,
 
 
 using StaticArrays, LinearAlgebra
-using CLIMA.VariableTemplates
+using ClimateMachine.VariableTemplates
 using KernelAbstractions.Extras: @unroll
 import ..DGmethods:
     BalanceLaw,

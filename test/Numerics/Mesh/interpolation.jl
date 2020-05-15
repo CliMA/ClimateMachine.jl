@@ -1,32 +1,32 @@
 using Test, MPI
 import GaussQuadrature
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Geometry
-using CLIMA.Mesh.Interpolation
-using CLIMA.Writers
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Interpolation
+using ClimateMachine.Writers
 using StaticArrays
-using GPUifyLoops
+using KernelAbstractions: CPU, CUDA
 
-using CLIMA.VariableTemplates
+using ClimateMachine.VariableTemplates
 #------------------------------------------------
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.MPIStateArrays
-using CLIMA.ODESolvers
-using CLIMA.GenericCallbacks
-using CLIMA.Atmos
-using CLIMA.VariableTemplates
-using CLIMA.MoistThermodynamics
-using CLIMA.TicToc
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Atmos
+using ClimateMachine.VariableTemplates
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.TicToc
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
-using CLIMA.VTK
+using ClimateMachine.VTK
 
-using CLIMA.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
@@ -38,7 +38,7 @@ using Random
 using Statistics
 const seed = MersenneTwister(0)
 
-const ArrayType = CLIMA.array_type()
+const ArrayType = ClimateMachine.array_type()
 #-------------------------------------
 function Initialize_Brick_Interpolation_Test!(
     bl,
@@ -90,10 +90,10 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
 end
 #----------------------------------------------------------------------------
 function run_brick_interpolation_test()
-    CLIMA.init()
+    ClimateMachine.init()
     for FT in (Float32, Float64)
-        ArrayType = CLIMA.array_type()
-        DA = CLIMA.array_type()
+        ArrayType = ClimateMachine.array_type()
+        DA = ClimateMachine.array_type()
         mpicomm = MPI.COMM_WORLD
         root = 0
         pid = MPI.Comm_rank(mpicomm)
@@ -107,9 +107,9 @@ function run_brick_interpolation_test()
 
         polynomialorder = 5 #8# 5 #8 #4
         #-------------------------
-        _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id,
-        CLIMA.Mesh.Grids.vgeoid.x2id,
-        CLIMA.Mesh.Grids.vgeoid.x3id
+        _x, _y, _z = ClimateMachine.Mesh.Grids.vgeoid.x1id,
+        ClimateMachine.Mesh.Grids.vgeoid.x2id,
+        ClimateMachine.Mesh.Grids.vgeoid.x3id
         #-------------------------
 
         brickrange = (
@@ -242,10 +242,10 @@ end #function run_brick_interpolation_test
 # Cubed sphere, lat/long interpolation test
 #----------------------------------------------------------------------------
 function run_cubed_sphere_interpolation_test()
-    CLIMA.init()
+    ClimateMachine.init()
     for FT in (Float32, Float64) #Float32 #Float64
-        DA = CLIMA.array_type()
-        device = CLIMA.array_type() <: Array ? CPU() : CUDA()
+        DA = ClimateMachine.array_type()
+        device = ClimateMachine.array_type() <: Array ? CPU() : CUDA()
         mpicomm = MPI.COMM_WORLD
         root = 0
         pid = MPI.Comm_rank(mpicomm)
@@ -258,9 +258,9 @@ function run_cubed_sphere_interpolation_test()
         numelem_vert = 4
 
         #-------------------------
-        _x, _y, _z = CLIMA.Mesh.Grids.vgeoid.x1id,
-        CLIMA.Mesh.Grids.vgeoid.x2id,
-        CLIMA.Mesh.Grids.vgeoid.x3id
+        _x, _y, _z = ClimateMachine.Mesh.Grids.vgeoid.x1id,
+        ClimateMachine.Mesh.Grids.vgeoid.x2id,
+        ClimateMachine.Mesh.Grids.vgeoid.x3id
         _ρ, _ρu, _ρv, _ρw = 1, 2, 3, 4
         #-------------------------
         _planet_radius::FT = planet_radius(param_set)
@@ -286,7 +286,7 @@ function run_cubed_sphere_interpolation_test()
             FloatType = FT,
             DeviceArray = DA,
             polynomialorder = polynomialorder,
-            meshwarp = CLIMA.Mesh.Topologies.cubedshellwarp,
+            meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
         )
 
         model = AtmosModel{FT}(

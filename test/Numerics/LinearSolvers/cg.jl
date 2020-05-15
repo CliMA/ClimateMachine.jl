@@ -2,19 +2,20 @@ using MPI
 using Test
 using LinearAlgebra
 using Random
-using GPUifyLoops, StaticArrays
-using CLIMA
-using CLIMA.LinearSolvers
-using CLIMA.ConjugateGradientSolver
-using CLIMA.MPIStateArrays
+using StaticArrays
+using KernelAbstractions: CPU, CUDA
+using ClimateMachine
+using ClimateMachine.LinearSolvers
+using ClimateMachine.ConjugateGradientSolver
+using ClimateMachine.MPIStateArrays
 using CUDAapi
 using Random
 Random.seed!(1235)
 
 let
-    CLIMA.init()
+    ClimateMachine.init()
     mpicomm = MPI.COMM_WORLD
-    ArrayType = CLIMA.array_type()
+    ArrayType = ClimateMachine.array_type()
     device = ArrayType == Array ? CPU() : CUDA()
     n = 100
     T = Float64

@@ -2,7 +2,7 @@ using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
-    balancelaw::BL
+    balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
     numerical_flux_second_order::NFD
@@ -15,20 +15,20 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     modeldata::MD
 end
 function DGModel(
-    balancelaw,
+    balance_law,
     grid,
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
-    state_auxiliary = create_auxiliary_state(balancelaw, grid),
-    state_gradient_flux = create_gradient_state(balancelaw, grid),
-    states_higher_order = create_higher_order_states(balancelaw, grid),
+    state_auxiliary = create_auxiliary_state(balance_law, grid),
+    state_gradient_flux = create_gradient_state(balance_law, grid),
+    states_higher_order = create_higher_order_states(balance_law, grid),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
 )
     DGModel(
-        balancelaw,
+        balance_law,
         grid,
         numerical_flux_first_order,
         numerical_flux_second_order,
@@ -50,7 +50,7 @@ function (dg::DGModel)(
     increment = false,
 )
 
-    balance_law = dg.balancelaw
+    balance_law = dg.balance_law
     device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
 
     grid = dg.grid
@@ -115,7 +115,7 @@ function (dg::DGModel)(
 
     if num_state_gradient_flux > 0 || nhyperviscstate > 0
 
-        comp_stream = volume_gradients!(device, workgroups_volume)(
+        comp_stream = volume_gradients!(device, (Nq, Nq))(
             balance_law,
             Val(dim),
             Val(N),
@@ -129,7 +129,7 @@ function (dg::DGModel)(
             grid.D,
             hypervisc_indexmap,
             topology.realelems,
-            ndrange = ndrange_volume,
+            ndrange = (Nq * nrealelem, Nq),
             dependencies = (comp_stream,),
         )
 
@@ -385,7 +385,7 @@ function (dg::DGModel)(
     ###################
     # RHS Computation #
     ###################
-    comp_stream = volume_tendency!(device, workgroups_volume)(
+    comp_stream = volume_tendency!(device, (Nq, Nq))(
         balance_law,
         Val(dim),
         Val(N),
@@ -401,7 +401,7 @@ function (dg::DGModel)(
         grid.D,
         topology.realelems,
         increment;
-        ndrange = ndrange_volume,
+        ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
 
@@ -519,7 +519,7 @@ function init_ode_state(
 )
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
 
-    balance_law = dg.balancelaw
+    balance_law = dg.balance_law
     grid = dg.grid
 
     state_conservative = create_conservative_state(balance_law, grid)
@@ -534,7 +534,7 @@ function init_ode_state(
 
     if !init_on_cpu
         event = Event(device)
-        event = kernel_init_state_conservative!(device, Np)(
+        event = kernel_init_state_conservative!(device, min(Np, 1024))(
             balance_law,
             Val(dim),
             Val(N),
@@ -584,7 +584,7 @@ function init_ode_state(
 end
 
 function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     grid = dg.grid
 
     state = create_state(bl, grid)
@@ -735,7 +735,7 @@ function nodal_update_auxiliary_state!(
     Np = dofs_per_element(grid)
 
     nodal_update_auxiliary_state! =
-        kernel_nodal_update_auxiliary_state!(device, Np)
+        kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive
@@ -808,17 +808,20 @@ function courant(
         device = grid.vgeo isa Array ? CPU() : CUDA()
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
-        event = Grids.kernel_min_neighbor_distance!(device, (Nq, Nq, Nqk))(
+        event = Grids.kernel_min_neighbor_distance!(
+            device,
+            min(Nq * Nq * Nqk, 1024),
+        )(
             Val(N),
             Val(dim),
             direction,
             pointwise_courant,
             grid.vgeo,
             topology.realelems;
-            ndrange = (nrealelem * Nq, Nq, Nqk),
+            ndrange = (nrealelem * Nq * Nq * Nqk),
             dependencies = (event,),
         )
-        event = kernel_local_courant!(device, Nq * Nq * Nqk)(
+        event = kernel_local_courant!(device, min(Nq * Nq * Nqk, 1024))(
             m,
             Val(dim),
             Val(N),
@@ -883,7 +886,7 @@ function copy_stack_field_down!(
 end
 
 function MPIStateArrays.MPIStateArray(dg::DGModel)
-    balance_law = dg.balancelaw
+    balance_law = dg.balance_law
     grid = dg.grid
 
     state_conservative = create_conservative_state(balance_law, grid)

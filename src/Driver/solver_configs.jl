@@ -1,12 +1,12 @@
-# CLIMA solver configurations
+# ClimateMachine solver configurations
 #
 # Contains helper functions to establish solver configurations to be
-# used with the CLIMA driver.
+# used with the ClimateMachine driver.
 
 """
-    CLIMA.SolverConfiguration
+    ClimateMachine.SolverConfiguration
 
-Parameters needed by `CLIMA.solve!()` to run a simulation.
+Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 """
 struct SolverConfiguration{FT}
     name::String
@@ -38,10 +38,10 @@ DGmethods.courant(
     dt = sc.dt,
     simtime = gettime(sc.solver),
     direction = EveryDirection(),
-) = DGmethods.courant(f, sc.dg, sc.dg.balancelaw, Q, dt, simtime, direction)
+) = DGmethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
 """
-    CLIMA.SolverConfiguration(
+    ClimateMachine.SolverConfiguration(
         t0::FT,
         timeend::FT,
         driver_config::DriverConfiguration,
@@ -56,7 +56,7 @@ DGmethods.courant(
 
 Set up the DG model per the specified driver configuration, set up
 the ODE solver, and return a `SolverConfiguration` to be used with
-`CLIMA.invoke!()`.
+`ClimateMachine.invoke!()`.
 
 # Arguments:
 # - `t0::FT`: simulation start time.
@@ -159,7 +159,7 @@ function SolverConfiguration(
     # initial Δt specified or computed
     simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-        ode_dt = CLIMA.DGmethods.calculate_dt(
+        ode_dt = ClimateMachine.DGmethods.calculate_dt(
             dg,
             dtmodel,
             Q,

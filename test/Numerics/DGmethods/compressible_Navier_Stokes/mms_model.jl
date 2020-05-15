@@ -1,6 +1,6 @@
-using CLIMA.VariableTemplates
+using ClimateMachine.VariableTemplates
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,

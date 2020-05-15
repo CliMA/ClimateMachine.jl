@@ -22,6 +22,7 @@ if generate_tutorials
         for (root, dirs, files) in Base.Filesystem.walkdir(tutorials_dir)
         for f in files
     ]
+    filter!(x -> endswith(x, ".jl"), tutorials_jl) # only grab .jl files
 
     filter!(x -> !occursin("topo.jl", x), tutorials_jl)                       # currently broken, TODO: Fix me!
     filter!(x -> !occursin("dry_rayleigh_benard.jl", x), tutorials_jl)        # currently broken, TODO: Fix me!
@@ -51,17 +52,15 @@ if generate_tutorials
 
     # TODO: Should we use AutoPages.jl?
 
-    # These files mirror the .jl files in `CLIMA/tutorials/`:
+    # These files mirror the .jl files in `ClimateMachine.jl/tutorials/`:
     tutorials = Any[
-        "Atmos" => Any[
-            "Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",
-            "Rising Bubble LES" => "ExtendingCLIMA/Atmos/Model/risingbubble.md",
-        ],
+        "Atmos" => Any["Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",],
         "Ocean" => Any[],
-        "Numerics" => Any[
-            "LinearSolvers" => Any["Conjugate Gradient" => "generated/Numerics/LinearSolvers/cg.md",],
-            "Contributing" => Any["Notes on Literate" => "generated/literate_markdown.md",],
-        ],
+        "Numerics" => Any["LinearSolvers" => Any[
+            "Conjugate Gradient" => "generated/Numerics/LinearSolvers/cg.md",
+            "Batched Generalized Minimal Residual" => "generated/Numerics/LinearSolvers/bgmres.md",
+        ],],
+        "Contributing" => Any["Notes on Literate" => "generated/literate_markdown.md",],
     ]
 
 end

@@ -1,7 +1,7 @@
 # LinearSolvers
 
 ```@meta
-CurrentModule = CLIMA
+CurrentModule = ClimateMachine
 ```
 
 ## [`GeneralizedConjugateResidual`](@id GeneralizedConjugateResidual)

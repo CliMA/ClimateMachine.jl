@@ -17,12 +17,9 @@ using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     similar(Array{FT}, dims...)
 
-using Requires
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
-    Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
-        similar(CuArray{FT}, dims...)
-end
+using CuArrays
+Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
+    similar(CuArray{FT}, dims...)
 
 include("CMBuffers.jl")
 using .CMBuffers
@@ -334,21 +331,6 @@ end
         copyto!(dest.realdata, transform_broadcasted(bc, dest.data))
     end
     dest
-end
-
-
-# The following `__no_overlap_*` functions exist to support the old DG balance
-# law where we still use GPUifyLoops.  They should NOT be used in new code.
-function __no_overlap_begin_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = begin_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
-function __no_overlap_end_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = end_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
 end
 
 """
@@ -764,25 +746,22 @@ device(Q::MPIStateArray) = device(Q.data)
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
 
-    device(::CuArray) = CUDA()
-    realview(Q::CuArray) = Q
+device(::CuArray) = CUDA()
+realview(Q::CuArray) = Q
 
-    # transform all arguments of `bc` from MPIStateArrays to CuArrays
-    # and replace CPU function with GPU variants
-    function transform_broadcasted(bc::Broadcasted, ::CuArray)
-        transform_cuarray(bc)
-    end
-    function transform_cuarray(bc::Broadcasted)
-        Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
-    end
-    transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
-    transform_cuarray(x) = x
+# transform all arguments of `bc` from MPIStateArrays to CuArrays
+# and replace CPU function with GPU variants
+function transform_broadcasted(bc::Broadcasted, ::CuArray)
+    transform_cuarray(bc)
 end
+function transform_cuarray(bc::Broadcasted)
+    Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
+end
+transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
+transform_cuarray(x) = x
 
-@init tictoc()
+# @init tictoc()
 
 using KernelAbstractions.Extras: @unroll
 

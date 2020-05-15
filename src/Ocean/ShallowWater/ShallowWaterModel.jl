@@ -7,7 +7,7 @@ using ..VariableTemplates
 using LinearAlgebra: I, dot
 using CLIMAParameters.Planet: grav
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,

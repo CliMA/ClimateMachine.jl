@@ -1,25 +1,28 @@
-using CLIMA
-using CLIMA.ConfigTypes
-using CLIMA.Mesh.Topologies: StackedCubedSphereTopology, cubedshellwarp, grid1d
-using CLIMA.Mesh.Grids: DiscontinuousSpectralElementGrid, VerticalDirection
-using CLIMA.Mesh.Filters
-using CLIMA.DGmethods: DGModel, init_ode_state
-using CLIMA.DGmethods.NumericalFluxes:
+using ClimateMachine
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Mesh.Topologies:
+    StackedCubedSphereTopology, cubedshellwarp, grid1d
+using ClimateMachine.Mesh.Grids:
+    DiscontinuousSpectralElementGrid, VerticalDirection
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.DGmethods: DGModel, init_ode_state
+using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder
-using CLIMA.ODESolvers
-using CLIMA.GeneralizedMinimalResidualSolver
-using CLIMA.ColumnwiseLUSolver: ManyColumnLU
-using CLIMA.VTK: writevtk, writepvtu
-using CLIMA.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps
-using CLIMA.MoistThermodynamics:
+using ClimateMachine.ODESolvers
+using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.VTK: writevtk, writepvtu
+using ClimateMachine.GenericCallbacks:
+    EveryXWallTimeSeconds, EveryXSimulationSteps
+using ClimateMachine.MoistThermodynamics:
     air_density,
     soundspeed_air,
     internal_energy,
     PhaseDry_given_pT,
     PhasePartition
-using CLIMA.Atmos:
+using ClimateMachine.Atmos:
     AtmosModel,
     SphericalOrientation,
     DryModel,
@@ -36,7 +39,7 @@ using CLIMA.Atmos:
     latitude,
     longitude,
     gravitational_potential
-using CLIMA.VariableTemplates: flattenednames
+using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
@@ -48,8 +51,8 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 const output_vtk = false
 
 function main()
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

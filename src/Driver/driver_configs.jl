@@ -1,7 +1,7 @@
-# CLIMA driver configurations
+# ClimateMachine driver configurations
 #
 # Contains helper functions to establish simulation configurations to be
-# used with the CLIMA driver. Currently:
+# used with the ClimateMachine driver. Currently:
 # - AtmosLESConfiguration
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
@@ -68,12 +68,12 @@ end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 
 """
-    CLIMA.DriverConfiguration
+    ClimateMachine.DriverConfiguration
 
-Collects all parameters necessary to set up a CLIMA simulation.
+Collects all parameters necessary to set up a ClimateMachine simulation.
 """
 struct DriverConfiguration{FT}
-    config_type::CLIMAConfigType
+    config_type::ClimateMachineConfigType
 
     name::String
     N::Int
@@ -154,7 +154,7 @@ function AtmosLESConfiguration(
     xmin = zero(FT),
     ymin = zero(FT),
     zmin = zero(FT),
-    array_type = CLIMA.array_type(),
+    array_type = ClimateMachine.array_type(),
     solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -240,7 +240,7 @@ function AtmosGCMConfiguration(
     domain_height::FT,
     param_set::AbstractParameterSet,
     init_GCM!;
-    array_type = CLIMA.array_type(),
+    array_type = ClimateMachine.array_type(),
     solver_type = DefaultSolverType(),
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -318,7 +318,7 @@ function OceanBoxGCMConfiguration(
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
     model::HydrostaticBoussinesqModel;
     FT = Float64,
-    array_type = CLIMA.array_type(),
+    array_type = ClimateMachine.array_type(),
     solver_type = ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     ),

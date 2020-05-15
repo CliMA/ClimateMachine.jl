@@ -12,7 +12,7 @@ Initialize the 'AtmosCore' diagnostics group.
 """
 function atmos_core_init(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     if isa(bl.moisture, DryModel)
         @warn """
             Diagnostics ($dgngrp.name): cannot be used with `DryModel`
@@ -33,6 +33,8 @@ function vars_atmos_core_simple(m::AtmosModel, FT)
         avg_rho_core::FT        # ρ
         rho_core::FT            # ρρ
         qt_core::FT             # q_tot
+        ql_core::FT             # q_liq
+        thv_core::FT            # θ_vir
         thl_core::FT            # θ_liq
         ei_core::FT             # e_int
     end
@@ -54,6 +56,8 @@ function atmos_core_simple_sums!(
     sums.avg_rho_core += MH * state_conservative.ρ
     sums.rho_core += MH * state_conservative.ρ * state_conservative.ρ
     sums.qt_core += MH * state_conservative.moisture.ρq_tot
+    sums.ql_core += MH * thermo.moisture.q_liq * state_conservative.ρ
+    sums.thv_core += MH * thermo.θ_vir * state_conservative.ρ
     sums.thl_core += MH * thermo.moisture.θ_liq_ice * state_conservative.ρ
     sums.ei_core += MH * thermo.e_int * state_conservative.ρ
 
@@ -128,7 +132,7 @@ Perform a global grid traversal to compute various diagnostics.
 """
 function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     if isa(bl.moisture, DryModel)
         @warn """
             Diagnostics $(dgngrp.name): cannot be used with `DryModel`

@@ -25,7 +25,7 @@ using OrderedCollections
 using Printf
 using StaticArrays
 
-using CLIMA
+using ClimateMachine
 using ..DGmethods
 using ..DGmethods:
     number_state_conservative,
@@ -250,7 +250,7 @@ end
 
 # Helpers to extract data from the various state arrays
 function extract_state_conservative(dg, state_conservative, ijk, e)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     FT = eltype(state_conservative)
     num_state_conservative = number_state_conservative(bl, FT)
     local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
@@ -260,7 +260,7 @@ function extract_state_conservative(dg, state_conservative, ijk, e)
     return Vars{vars_state_conservative(bl, FT)}(local_state_conservative)
 end
 function extract_state_auxiliary(dg, state_auxiliary, ijk, e)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     FT = eltype(state_auxiliary)
     num_state_auxiliary = number_state_auxiliary(bl, FT)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -270,7 +270,7 @@ function extract_state_auxiliary(dg, state_auxiliary, ijk, e)
     return Vars{vars_state_auxiliary(bl, FT)}(local_state_auxiliary)
 end
 function extract_state_gradient_flux(dg, state_gradient_flux, ijk, e)
-    bl = dg.balancelaw
+    bl = dg.balance_law
     FT = eltype(state_gradient_flux)
     num_state_gradient_flux = number_state_gradient_flux(bl, FT)
     local_state_gradient_flux =

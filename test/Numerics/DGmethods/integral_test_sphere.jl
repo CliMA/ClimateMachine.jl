@@ -1,18 +1,17 @@
 using MPI
 using StaticArrays
-using CLIMA
-using CLIMA.VariableTemplates
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.MPIStateArrays
-using CLIMA.DGmethods
-using CLIMA.DGmethods.NumericalFluxes
+using ClimateMachine
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
 using Printf
 using LinearAlgebra
 using Logging
-using GPUifyLoops
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -155,8 +154,8 @@ function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
 end
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 

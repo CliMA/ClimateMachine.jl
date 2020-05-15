@@ -6,7 +6,6 @@ using KernelAbstractions
 using LinearAlgebra
 using MPI
 using Printf
-using Requires
 using Statistics
 
 using CLIMAParameters
@@ -19,15 +18,14 @@ using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays
 using ..ODESolvers
+using ..TicToc
 using ..VariableTemplates
 using ..VTK
 using ..Mesh.Grids: HorizontalDirection, VerticalDirection
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays, .CuArrays.CUDAdrv, .CuArrays.CUDAnative
-    @eval _sync_device(::Type{CuArray}) = synchronize()
-end
+using CuArrays, CuArrays.CUDAdrv, CuArrays.CUDAnative
 
+_sync_device(::Type{CuArray}) = synchronize()
 _sync_device(::Type{Array}) = nothing
 
 """
@@ -93,6 +91,7 @@ function diagnostics(
                 CB_constructor(diagnostics_opt, solver_config, dgngrp.interval)
             cb_constr === nothing && continue
             fn = cb_constr() do (init = false)
+                @tic diagnostics
                 currtime = ODESolvers.gettime(solver_config.solver)
                 @info @sprintf(
                     """
@@ -103,6 +102,7 @@ Diagnostics: %s
                     string(currtime),
                 )
                 dgngrp(currtime, init = init)
+                @toc diagnostics
                 nothing
             end
             dgncbs = (dgncbs..., fn)
@@ -126,11 +126,12 @@ function vtk(vtk_opt, solver_config, output_dir)
 
         mpicomm = solver_config.mpicomm
         dg = solver_config.dg
-        bl = dg.balancelaw
+        bl = dg.balance_law
         Q = solver_config.Q
         FT = eltype(Q)
 
         cb_vtk = cb_constr() do (init = false)
+            @tic vtk
             vprefix = @sprintf(
                 "%s_mpirank%04d_num%04d",
                 solver_config.name,
@@ -163,6 +164,7 @@ function vtk(vtk_opt, solver_config, output_dir)
             end
 
             vtknum[] += 1
+            @toc vtk
             nothing
         end
         return cb_vtk
@@ -353,7 +355,7 @@ function CB_constructor(interval::String, solver_config, default = nothing)
     mpicomm = solver_config.mpicomm
     solver = solver_config.solver
     dg = solver_config.dg
-    bl = dg.balancelaw
+    bl = dg.balance_law
     secs_per_day = day(bl.param_set)
 
     if endswith(interval, "smonths")
@@ -410,6 +412,10 @@ function CB_constructor(interval::String, solver_config, default = nothing)
         )
         return nothing
     end
+end
+
+function __init__()
+    tictoc()
 end
 
 end # module

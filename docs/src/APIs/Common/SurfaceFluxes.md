@@ -1,7 +1,7 @@
 # Surface Fluxes
 
 ```@meta
-CurrentModule = CLIMA.SurfaceFluxes
+CurrentModule = ClimateMachine.SurfaceFluxes
 ```
 
 ```@docs

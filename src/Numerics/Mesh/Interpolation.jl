@@ -1,12 +1,12 @@
 module Interpolation
 using DocStringExtensions
-using CLIMA
+using ClimateMachine
 using MPI
 import GaussQuadrature
-using CLIMA.Mesh.Topologies
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Geometry
-using CLIMA.Mesh.Elements
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Elements
 using LinearAlgebra
 using StaticArrays
 import KernelAbstractions: CPU, CUDA
@@ -1615,7 +1615,7 @@ function accumulate_interpolated_data!(
     fiv::AbstractArray{FT, 4},
 ) where {FT <: AbstractFloat}
 
-    DA = CLIMA.array_type()           # device array
+    DA = ClimateMachine.array_type()           # device array
     device = DA <: Array ? CPU() : CUDA()
     mpicomm = MPI.COMM_WORLD
     pid = MPI.Comm_rank(mpicomm)

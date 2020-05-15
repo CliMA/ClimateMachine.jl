@@ -5,27 +5,27 @@
 # moisture or parametrization schemes of the physics) for atmospheric models.
 # It is forced by a thermal relaxation to a reference state and damped by linear (Rayleigh) friction. This example demonstrates how
 #
-#   * to set up a CLIMA-Atmos GCM configuration;
+#   * to set up a ClimateMachine-Atmos GCM configuration;
 #   * to select and save GCM diagnostics output.
 #
-# To begin, we load CLIMA and a few miscellaneous useful Julia packages.
+# To begin, we load ClimateMachine and a few miscellaneous useful Julia packages.
 using Distributions
 using Random
 using StaticArrays
 
-# CLIMA specific modules needed to make this example work (e.g., we will need
+# ClimateMachine specific modules needed to make this example work (e.g., we will need
 # spectral filters, etc.).
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.Mesh.Grids
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
+using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
 
-# [CLIMA parameters](https://github.com/climate-machine/CLIMAParameters.jl) are needed to have access to Earth's physical parameters
+# [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are needed to have access to Earth's physical parameters
 #
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
@@ -107,7 +107,7 @@ end
 nothing # hide
 
 # ## Set initial condition
-# When using CLIMA, we need to define a function that sets the intial state of our
+# When using ClimateMachine, we need to define a function that sets the intial state of our
 # model run. In our case, we use the reference state of the simulation (defined
 # below) and add a little bit of noise. Note that the initial states includes a
 # zero initial velocity field. 
@@ -124,14 +124,14 @@ function init_heldsuarez!(balance_law, state, aux, coordinates, time)
 end
 nothing # hide
 
-# ## Initialize CLIMA
-# Before we do anything further, we need to initialize CLIMA. Among other things,
+# ## Initialize ClimateMachine
+# Before we do anything further, we need to initialize ClimateMachine. Among other things,
 # this will initialize the MPI for us.
-CLIMA.init()
+ClimateMachine.init()
 nothing # hide
 
 # ## Setting the floating-type precision
-# CLIMA allows us to run a model with different floating-type precisions, with
+# ClimateMachine allows us to run a model with different floating-type precisions, with
 # lower precision we get our results faster, and with higher precision, we may get
 # more accurate results, depending on the questions we are after.
 FT = Float32
@@ -139,7 +139,7 @@ nothing # hide
 
 # ## Setup model configuration
 # Now that we have definied our forcing and initialization functions, and have
-# initialized CLIMA, we can set up the model. 
+# initialized ClimateMachine, we can set up the model. 
 # 
 # ## Set up a reference state
 # We start by setting up a
@@ -209,7 +209,7 @@ timeend = FT(n_days * day(param_set)) ## end time (s)
 nothing # hide
 
 # The next lines set up the spatial grid.
-driver_config = CLIMA.AtmosGCMConfiguration(
+driver_config = ClimateMachine.AtmosGCMConfiguration(
     "HeldSuarez",
     poly_order,
     resolution,
@@ -220,7 +220,7 @@ driver_config = CLIMA.AtmosGCMConfiguration(
 );
 
 # The next lines set up the time stepper.
-solver_config = CLIMA.SolverConfiguration(
+solver_config = ClimateMachine.SolverConfiguration(
     timestart,
     timeend,
     driver_config,
@@ -250,7 +250,7 @@ end
 #
 # Choose frequency and resolution of output, and a diagnostics group (dgngrp)
 # which defines output variables. This needs to be defined
-# in [diagnostics](https://climate-machine.github.io/CLIMA/latest/generated/Diagnostics).
+# in [diagnostics](https://CliMA.github.io/ClimateMachine.jl/latest/generated/Diagnostics).
 interval = "1000steps"
 _planet_radius = FT(planet_radius(param_set))
 info = driver_config.config_info
@@ -259,8 +259,11 @@ boundaries = [
     FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
 ]
 resolution = (FT(10), FT(10), FT(1000)) # in (deg, deg, m)
-interpol =
-    CLIMA.InterpolationConfiguration(driver_config, boundaries, resolution)
+interpol = ClimateMachine.InterpolationConfiguration(
+    driver_config,
+    boundaries,
+    resolution,
+)
 
 dgn_config = setup_dump_state_and_aux_diagnostics(
     interval,
@@ -274,7 +277,7 @@ nothing # hide
 # Finally, we can run the model using the physical setup and solvers from above. We
 # use the spectral filter in our callbacks after every time step, and collect
 # the diagnostics output.
-result = CLIMA.invoke!(
+result = ClimateMachine.invoke!(
     solver_config;
     diagnostics_config = dgn_config,
     user_callbacks = (cbfilter,),

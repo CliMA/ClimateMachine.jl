@@ -1,2 +1,2 @@
-# CLIMA-atmos Gravity-waves
+# ClimateMachine-atmos Gravity-waves
 Parameterizations of gravity waves

@@ -1,5 +1,5 @@
 using Test
-using CLIMA.TicToc
+using ClimateMachine.TicToc
 
 function foo()
     @tic foo
@@ -15,11 +15,12 @@ end
 
 @testset "TicToc" begin
     @test tictoc() >= 2
-    foo_i = findfirst(s->s==:tictoc__foo, TicToc.timing_info_names)
-    bar_i = findfirst(s->s==:tictoc__bar, TicToc.timing_info_names)
+    foo_i = findfirst(s -> s == :tictoc__foo, TicToc.timing_info_names)
+    bar_i = findfirst(s -> s == :tictoc__bar, TicToc.timing_info_names)
     @test foo_i != nothing
     @test bar_i != nothing
-    foo(); foo()
+    foo()
+    foo()
     @test TicToc.timing_infos[foo_i].ncalls == 2
     @test TicToc.timing_infos[bar_i].ncalls == 0
     @test TicToc.timing_infos[foo_i].time >= 5e8
@@ -41,4 +42,3 @@ end
     @test findnext("tictoc__foo", str, 1) != nothing
     @test findnext("tictoc__bar", str, 1) != nothing
 end
-
