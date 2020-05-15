@@ -4,6 +4,7 @@ export NumericalFluxGradient,
     NumericalFluxFirstOrder,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
+    UpwindNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -347,6 +348,37 @@ function numerical_flux_first_order!(
 
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2)
 end
+
+"""
+    UpwindNumericalFlux <: NumericalFluxFirstOrder
+
+The UpwindNumericalFlux numerical flux.
+
+# Usage
+
+    UpwindNumericalFlux()
+
+!!! note
+
+    A balance law must provide a concrete implementation of
+        ```
+        function numerical_flux_first_order!(
+            ::UpwindNumericalFlux,
+            balance_law::BalanceLaw,
+            fluxᵀn::Vars{S},
+            normal_vector::SVector,
+            state_conservative⁻::Vars{S},
+            state_auxiliary⁻::Vars{A},
+            state_conservative⁺::Vars{S},
+            state_auxiliary⁺::Vars{A},
+            t,
+        ) where {S, A}
+        ```
+    for this flux to be used
+
+"""
+
+struct UpwindNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder
