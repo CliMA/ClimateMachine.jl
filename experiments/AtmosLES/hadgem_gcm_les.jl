@@ -10,27 +10,27 @@ using Random
 using StaticArrays
 using Test
 
-# CLIMA Modules
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.GenericCallbacks
-using CLIMA.DGmethods.NumericalFluxes
-using CLIMA.Diagnostics
-using CLIMA.Mesh.Filters
-using CLIMA.MoistThermodynamics
-using CLIMA.ODESolvers
-using CLIMA.VariableTemplates
-using CLIMA.Writers
+# ClimateMachine Modules
+using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.Diagnostics
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.ODESolvers
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import CLIMA.DGmethods: vars_state_conservative, vars_state_auxiliary
-import CLIMA.Atmos: source!, atmos_source!, altitude
-import CLIMA.Atmos: compute_gradient_flux!, thermo_state
+import ClimateMachine.DGmethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.Atmos: source!, atmos_source!, altitude
+import ClimateMachine.Atmos: compute_gradient_flux!, thermo_state
 
 # Citation for problem setup
 """
@@ -458,14 +458,14 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
         init_state_conservative = init_cfsites!,
     )
-    mrrk_solver = CLIMA.MultirateSolverType(
+    mrrk_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 12,
     )
-    config = CLIMA.AtmosLESConfiguration(
-        "HadGEM2-CLIMA",
+    config = ClimateMachine.AtmosLESConfiguration(
+        "HadGEM2-ClimateMachine",
         N,
         resolution,
         xmax,
@@ -487,12 +487,12 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
 
-    CLIMA.init()
+    ClimateMachine.init()
 
     # Working precision
     FT = Float32
@@ -503,14 +503,14 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(2500)
-    ymax = FT(2500)
+    xmax = FT(5000)
+    ymax = FT(5000)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(12)
+    CFL = FT(6)
 
     # Execute the get_gcm_info function
     (
@@ -554,7 +554,7 @@ function main()
     driver_config =
         config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Set up solver configuration
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
@@ -584,7 +584,7 @@ function main()
     end
 
     # Invoke solver (calls solve! function for time-integrator)
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
