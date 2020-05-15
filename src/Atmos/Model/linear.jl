@@ -1,5 +1,6 @@
 using CLIMAParameters.Planet: R_d, cv_d, T_0, e_int_v0, e_int_i0
-
+using ..DGmethods.NumericalFluxes: RusanovNumericalFlux
+import ..DGmethods.NumericalFluxes: update_penalty!
 """
     linearized_air_pressure(ρ, ρe_tot, ρe_pot, ρq_tot=0, ρq_liq=0, ρq_ice=0)
 
@@ -72,6 +73,27 @@ vars_state_auxiliary(lm::AtmosLinearModel, FT) =
     vars_state_auxiliary(lm.atmos, FT)
 vars_integrals(lm::AtmosLinearModel, FT) = @vars()
 vars_reverse_integrals(lm::AtmosLinearModel, FT) = @vars()
+
+function update_penalty!(
+    ::RusanovNumericalFlux,
+    ::AtmosLinearModel,
+    _,
+    _,
+    penalty,
+    _...,
+)
+    # We only want the jumps in the variables that are really a part of the linear
+    # model so we save them, zero the whole array, then put them back
+    ρ = penalty.ρ
+    ρu = penalty.ρu
+    ρe = penalty.ρe
+
+    fill!(parent(penalty), -zero(eltype(penalty)))
+
+    penalty.ρ = ρ
+    penalty.ρu = ρu
+    penalty.ρe = ρe
+end
 
 
 function update_auxiliary_state!(
