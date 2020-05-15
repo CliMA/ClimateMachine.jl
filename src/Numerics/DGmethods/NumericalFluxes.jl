@@ -40,10 +40,36 @@ import ..DGmethods:
 
 Any `P <: NumericalFluxGradient` should define methods for:
 
-   numerical_flux_gradient!(gnf::P, balance_law::BalanceLaw, diffF, n⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
-                            Qstate_gradient_flux⁺, Qaux⁺, t)
-   numerical_boundary_flux_gradient!(gnf::P, balance_law::BalanceLaw, local_state_gradient_flux, n⁻, local_transform⁻, local_state_conservative⁻,
-                                     local_state_auxiliary⁻, local_transform⁺, local_state_conservative⁺, local_state_auxiliary⁺, bctype, t)
+   function numerical_flux_gradient!(
+       numerical_flux::NumericalFluxGradient,
+       balance_law::BalanceLaw,
+       transform_gradient::MMatrix,
+       normal_vector::SVector,
+       state_gradient⁻::Vars{T},
+       state_conservative⁻::Vars{S},
+       state_auxiliary⁻::Vars{A},
+       state_gradient⁺::Vars{T},
+       state_conservative⁺::Vars{S},
+       state_auxiliary⁺::Vars{A},
+       t,
+   ) where {T, S, A}
+
+   function numerical_boundary_flux_gradient!(
+       numerical_flux::NumericalFluxGradient,
+       balance_law::BalanceLaw,
+       transform_gradient::MMatrix,
+       normal_vector::SVector,
+       state_gradient⁻::Vars{T},
+       state_conservative⁻::Vars{S},
+       state_auxiliary⁻::Vars{A},
+       state_gradient⁺::Vars{T},
+       state_conservative⁺::Vars{S},
+       state_auxiliary⁺::Vars{A},
+       bctype,
+       t,
+       state1⁻::Vars{S},
+       aux1⁻::Vars{A},
+   ) where {D, T, S, A}
 
 """
 abstract type NumericalFluxGradient end
@@ -116,22 +142,36 @@ end
 """
     NumericalFluxFirstOrder
 
-Any `N <: NumericalFluxFirstOrder` should define the a method for
+Any `N <: NumericalFluxFirstOrder` should define a methods for
 
-    numerical_flux_first_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qaux⁻, Q⁺,
-                                 Qaux⁺, t)
-
-where
-- `flux` is the numerical flux array
-- `normal_vector⁻` is the unit normal
-- `Q⁻`/`Q⁺` are the minus/positive state arrays
-- `t` is the time
+    Function numerical_flux_first_order!(
+        numerical_flux::NumericalFluxFirstOrder,
+        balance_law::BalanceLaw,
+        fluxᵀn::Vars{S},
+        normal_vector::SVector,
+        state_conservative⁻::Vars{S},
+        state_auxiliary⁻::Vars{A},
+        state_conservative⁺::Vars{S},
+        state_auxiliary⁺::Vars{A},
+        t,
+    ) where {S, A}
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_first_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻,
-                                          Qaux⁻, Q⁺, Qaux⁺, bctype, t)
-
+    function numerical_boundary_flux_first_order!(
+        numerical_flux::NumericalFluxFirstOrder,
+        balance_law::BalanceLaw,
+        fluxᵀn::Vars{S},
+        normal_vector::SVector,
+        state_conservative⁻::Vars{S},
+        state_auxiliary⁻::Vars{A},
+        state_conservative⁺::Vars{S},
+        state_auxiliary⁺::Vars{A},
+        bctype,
+        t,
+        state1⁻::Vars{S},
+        aux1⁻::Vars{A},
+    ) where {S, A}
 """
 abstract type NumericalFluxFirstOrder end
 
@@ -313,22 +353,63 @@ end
 
 Any `N <: NumericalFluxSecondOrder` should define the a method for
 
-    numerical_flux_second_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
-                              Qstate_gradient_flux⁺, Qaux⁺, t)
-
-where
-- `flux` is the numerical flux array
-- `normal_vector⁻` is the unit normal
-- `Q⁻`/`Q⁺` are the minus/positive state arrays
-- `Qstate_gradient_flux⁻`/`Qstate_gradient_flux⁺` are the minus/positive diffusive state arrays
-- `Qstate_gradient_flux⁻`/`Qstate_gradient_flux⁺` are the minus/positive auxiliary state arrays
-- `t` is the time
+    function numerical_flux_second_order!(
+        numerical_flux::NumericalFluxSecondOrder,
+        balance_law::BalanceLaw,
+        fluxᵀn::Vars{S},
+        normal_vector⁻::SVector,
+        state_conservative⁻::Vars{S},
+        state_gradient_flux⁻::Vars{D},
+        state_hyperdiffusive⁻::Vars{HD},
+        state_auxiliary⁻::Vars{A},
+        state_conservative⁺::Vars{S},
+        state_gradient_flux⁺::Vars{D},
+        state_hyperdiffusive⁺::Vars{HD},
+        state_auxiliary⁺::Vars{A},
+        t,
+    ) where {S, D, HD, A}
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_second_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻,
-                                       Qaux⁻, Q⁺, Qstate_gradient_flux⁺, Qaux⁺, bctype, t)
+    function numerical_boundary_flux_second_order!(
+        numerical_flux::NumericalFluxSecondOrder,
+        balance_law::BalanceLaw,
+        fluxᵀn::Vars{S},
+        normal_vector::SVector,
+        state_conservative⁻::Vars{S},
+        state_gradient_flux⁻::Vars{D},
+        state_hyperdiffusive⁻::Vars{HD},
+        state_auxiliary⁻::Vars{A},
+        state_conservative⁺::Vars{S},
+        state_gradient_flux⁺::Vars{D},
+        state_hyperdiffusive⁺::Vars{HD},
+        state_auxiliary⁺::Vars{A},
+        bctype,
+        t,
+        state1⁻::Vars{S},
+        diff1⁻::Vars{D},
+        aux1⁻::Vars{A},
+    ) where {S, D, HD, A}
 
+    function normal_boundary_flux_second_order!(
+        numerical_flux,
+        balance_law::BalanceLaw,
+        fluxᵀn::Vars{S},
+        normal_vector,
+        state_conservative⁻,
+        state_gradient_flux⁻,
+        state_hyperdiffusive⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_gradient_flux⁺,
+        state_hyperdiffusive⁺,
+        state_auxiliary⁺,
+        bctype,
+        t,
+        state1⁻,
+        diff1⁻,
+        aux1⁻,
+    ) where {S}
 """
 abstract type NumericalFluxSecondOrder end
 
