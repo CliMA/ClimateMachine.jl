@@ -31,3 +31,6 @@ src/**/Manifest.toml
 *.jpg
 *.jpeg
 *.svg
+
+# Julia System Images
+*.so
