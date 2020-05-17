@@ -6,6 +6,7 @@ export AtmosModel,
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
 using CLIMAParameters.Atmos.SubgridScale: C_smag
+using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
 using ..VariableTemplates
@@ -15,50 +16,50 @@ using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
 
-import CLIMA.DGmethods:
+import ClimateMachine.DGmethods:
     BalanceLaw,
-    vars_aux,
-    vars_state,
-    vars_gradient,
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
     vars_gradient_laplacian,
-    vars_diffusive,
+    vars_state_gradient_flux,
     vars_hyperdiffusive,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     wavespeed,
     boundary_state!,
-    gradvariables!,
-    diffusive!,
-    hyperdiffusive!,
-    init_aux!,
-    init_state!,
-    update_aux!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    transform_post_gradient_laplacian!,
+    init_state_auxiliary!,
+    init_state_conservative!,
+    update_auxiliary_state!,
     LocalGeometry,
     lengthscale,
     resolutionmetric,
     DGModel,
-    nodal_update_aux!,
-    num_state,
+    nodal_update_auxiliary_state!,
+    number_state_conservative,
     num_integrals,
     vars_integrals,
     vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
-    integral_load_aux!,
-    integral_set_aux!,
-    reverse_integral_load_aux!,
-    reverse_integral_set_aux!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!,
     dynsgs!
 import ..DGmethods.NumericalFluxes:
     boundary_state!,
-    boundary_flux_diffusive!,
-    normal_boundary_flux_diffusive!,
-    NumericalFluxNonDiffusive,
+    boundary_flux_second_order!,
+    normal_boundary_flux_second_order!,
+    NumericalFluxFirstOrder,
     NumericalFluxGradient,
-    NumericalFluxDiffusive,
-    CentralHyperDiffusiveFlux,
-    CentralDivPenalty
+    NumericalFluxSecondOrder,
+    CentralNumericalFluxHigherOrder,
+    CentralNumericalFluxDivergence
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
@@ -66,31 +67,64 @@ import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
     AtmosModel <: BalanceLaw
 
 A `BalanceLaw` for atmosphere modeling.
+Users may over-ride prescribed default values for each field.
 
 # Usage
 
-    AtmosModel(orientation, ref_state, turbulence, hyperdiffusion, moisture, radiation, source, tracers,
-               boundarycondition, init_state)
+    AtmosModel(
+        param_set,
+        orientation,
+        ref_state,
+        turbulence,
+        hyperdiffusion,
+        moisture,
+        radiation,
+        source,
+        tracers,
+        boundarycondition,
+        init_state_conservative
+    )
 
+
+# Fields
+$(DocStringExtensions.FIELDS)
 """
 struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
        BalanceLaw
+    "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
+    "Orientation ([`ClimateMachine.FlatOrientation`](@ref)(LES in a box) or [`ClimateMachine.SphericalOrientation`](GCM))"
     orientation::O
+    "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
+    "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
     turbulence::T
+    "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
     hyperdiffusion::HD
+    "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
+    "Precipitation Model (Equations for dynamics of precipitating species)"
     precipitation::P
+    "Radiation Model (Equations for radiative fluxes)"
     radiation::R
+    "Source Terms (Problem specific source terms)"
     source::S
+    "Tracer Terms (Equations for dynamics of active and passive tracers)"
     tracers::TR
-    # TODO: Probably want to have different bc for state and diffusion...
+    "Boundary condition specification"
     boundarycondition::BC
-    init_state::IS
+    "Initial Condition (Function to assign initial values of state variables)"
+    init_state_conservative::IS
+    "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
 
+
+"""
+    function AtmosModel{FT}()
+Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`)
+
+"""
 function AtmosModel{FT}(
     ::Type{AtmosLESConfigType},
     param_set::AbstractParameterSet;
@@ -110,13 +144,12 @@ function AtmosModel{FT}(
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
     tracers::TR = NoTracers(),
-    # TODO: Probably want to have different bc for state and diffusion...
     boundarycondition::BC = AtmosBC(),
-    init_state::IS = nothing,
+    init_state_conservative::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC}
     @assert param_set ≠ nothing
-    @assert init_state ≠ nothing
+    @assert init_state_conservative ≠ nothing
 
     atmos = (
         param_set,
@@ -130,7 +163,7 @@ function AtmosModel{FT}(
         source,
         tracers,
         boundarycondition,
-        init_state,
+        init_state_conservative,
         data_config,
     )
 
@@ -156,11 +189,11 @@ function AtmosModel{FT}(
     source::S = (Gravity(), Coriolis()),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state::IS = nothing,
+    init_state_conservative::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC}
     @assert param_set ≠ nothing
-    @assert init_state ≠ nothing
+    @assert init_state_conservative ≠ nothing
     atmos = (
         param_set,
         orientation,
@@ -173,75 +206,112 @@ function AtmosModel{FT}(
         source,
         tracers,
         boundarycondition,
-        init_state,
+        init_state_conservative,
         data_config,
     )
 
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
 
-function vars_state(m::AtmosModel, FT)
+
+"""
+    vars_state_conservative(m::AtmosModel, FT)
+Conserved state variables (Prognostic Variables)
+"""
+function vars_state_conservative(m::AtmosModel, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
         ρe::FT
-        turbulence::vars_state(m.turbulence, FT)
-        hyperdiffusion::vars_state(m.hyperdiffusion, FT)
-        moisture::vars_state(m.moisture, FT)
-        radiation::vars_state(m.radiation, FT)
-        tracers::vars_state(m.tracers, FT)
+        turbulence::vars_state_conservative(m.turbulence, FT)
+        hyperdiffusion::vars_state_conservative(m.hyperdiffusion, FT)
+        moisture::vars_state_conservative(m.moisture, FT)
+        radiation::vars_state_conservative(m.radiation, FT)
+        tracers::vars_state_conservative(m.tracers, FT)
     end
 end
-function vars_gradient(m::AtmosModel, FT)
+
+"""
+    vars_state_gradient(m::AtmosModel, FT)
+Pre-transform gradient variables
+"""
+function vars_state_gradient(m::AtmosModel, FT)
     @vars begin
         u::SVector{3, FT}
         h_tot::FT
-        turbulence::vars_gradient(m.turbulence, FT)
-        hyperdiffusion::vars_gradient(m.hyperdiffusion, FT)
-        moisture::vars_gradient(m.moisture, FT)
-        tracers::vars_gradient(m.tracers, FT)
+        turbulence::vars_state_gradient(m.turbulence, FT)
+        hyperdiffusion::vars_state_gradient(m.hyperdiffusion, FT)
+        moisture::vars_state_gradient(m.moisture, FT)
+        tracers::vars_state_gradient(m.tracers, FT)
     end
 end
-function vars_diffusive(m::AtmosModel, FT)
+"""
+    vars_state_gradient_flux(m::AtmosModel, FT)
+Post-transform gradient variables
+"""
+function vars_state_gradient_flux(m::AtmosModel, FT)
     @vars begin
         ∇h_tot::SVector{3, FT}
-        turbulence::vars_diffusive(m.turbulence, FT)
-        hyperdiffusion::vars_diffusive(m.hyperdiffusion, FT)
-        moisture::vars_diffusive(m.moisture, FT)
-        tracers::vars_diffusive(m.tracers, FT)
+        turbulence::vars_state_gradient_flux(m.turbulence, FT)
+        hyperdiffusion::vars_state_gradient_flux(m.hyperdiffusion, FT)
+        moisture::vars_state_gradient_flux(m.moisture, FT)
+        tracers::vars_state_gradient_flux(m.tracers, FT)
     end
 end
+
+"""
+    vars_gradient_laplacian(m::AtmosModel, FT)
+Pre-transform hyperdiffusive variables
+"""
 function vars_gradient_laplacian(m::AtmosModel, FT)
     @vars begin
         hyperdiffusion::vars_gradient_laplacian(m.hyperdiffusion, FT)
     end
 end
+
+"""
+    vars_hyperdiffusive(m::AtmosModel, FT)
+Post-transform hyperdiffusive variables
+"""
 function vars_hyperdiffusive(m::AtmosModel, FT)
     @vars begin
         hyperdiffusion::vars_hyperdiffusive(m.hyperdiffusion, FT)
     end
 end
 
-function vars_aux(m::AtmosModel, FT)
+"""
+    vars_state_auxiliary(m::AtmosModel, FT)
+Auxiliary variables, such as vertical (stack)
+integrals, coordinates, orientation information,
+reference states, subcomponent auxiliary vars,
+debug variables
+"""
+function vars_state_auxiliary(m::AtmosModel, FT)
     @vars begin
         ∫dz::vars_integrals(m, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
-        orientation::vars_aux(m.orientation, FT)
-        ref_state::vars_aux(m.ref_state, FT)
-        turbulence::vars_aux(m.turbulence, FT)
-        hyperdiffusion::vars_aux(m.hyperdiffusion, FT)
-        moisture::vars_aux(m.moisture, FT)
-        tracers::vars_aux(m.tracers, FT)
-        radiation::vars_aux(m.radiation, FT)
+        orientation::vars_state_auxiliary(m.orientation, FT)
+        ref_state::vars_state_auxiliary(m.ref_state, FT)
+        turbulence::vars_state_auxiliary(m.turbulence, FT)
+        hyperdiffusion::vars_state_auxiliary(m.hyperdiffusion, FT)
+        moisture::vars_state_auxiliary(m.moisture, FT)
+        tracers::vars_state_auxiliary(m.tracers, FT)
+        radiation::vars_state_auxiliary(m.radiation, FT)
         χ̅::FT
     end
 end
+"""
+    vars_integrals(m::AtmosModel, FT)
+"""
 function vars_integrals(m::AtmosModel, FT)
     @vars begin
         radiation::vars_integrals(m.radiation, FT)
     end
 end
+"""
+    vars_reverse_integrals(m::AtmosModel, FT)
+"""
 function vars_reverse_integrals(m::AtmosModel, FT)
     @vars begin
         radiation::vars_reverse_integrals(m.radiation, FT)
@@ -262,24 +332,19 @@ include("linear.jl")
 include("remainder.jl")
 include("courant.jl")
 
-"""
-    flux_nondiffusive!(m::AtmosModel, flux::Grad, state::Vars, aux::Vars,
-                       t::Real)
+@doc """
+    flux_first_order!(
+        m::AtmosModel,
+        flux::Grad,
+        state::Vars,
+        aux::Vars,
+        t::Real
+    )
 
-Computes flux non-diffusive flux portion of `F` in:
-
-```
-∂Y
--- = - ∇ • (F_{adv} + F_{press} + F_{nondiff} + F_{diff}) + S(Y)
-∂t
-```
-Where
-
- - `F_{adv}`      Advective flux             ; see [`flux_advective!`]@ref()
- - `F_{press}`    Pressure flux              ; see [`flux_pressure!`]@ref()
- - `F_{diff}`     Fluxes that state gradients; see [`flux_diffusive!`]@ref()
-"""
-@inline function flux_nondiffusive!(
+Computes and assembles non-diffusive fluxes in the model
+equations.
+""" flux_first_order!
+@inline function flux_first_order!(
     m::AtmosModel,
     flux::Grad,
     state::Vars,
@@ -309,7 +374,7 @@ Where
     flux_tracers!(m.tracers, m, flux, state, aux, t)
 end
 
-function gradvariables!(
+function compute_gradient_argument!(
     atmos::AtmosModel,
     transform::Vars,
     state::Vars,
@@ -319,13 +384,14 @@ function gradvariables!(
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
     transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
-    gradvariables!(atmos.moisture, transform, state, aux, t)
-    gradvariables!(atmos.turbulence, transform, state, aux, t)
-    gradvariables!(atmos.hyperdiffusion, transform, state, aux, t)
-    gradvariables!(atmos.tracers, transform, state, aux, t)
+
+    compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
+    compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
+    compute_gradient_argument!(atmos.hyperdiffusion, transform, state, aux, t)
+    compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
 end
 
-function diffusive!(
+function compute_gradient_flux!(
     atmos::AtmosModel,
     diffusive::Vars,
     ∇transform::Grad,
@@ -336,7 +402,7 @@ function diffusive!(
     diffusive.∇h_tot = ∇transform.h_tot
 
     # diffusion terms required for SGS turbulence computations
-    diffusive!(
+    compute_gradient_flux!(
         atmos.turbulence,
         atmos.orientation,
         diffusive,
@@ -346,11 +412,11 @@ function diffusive!(
         t,
     )
     # diffusivity of moisture components
-    diffusive!(atmos.moisture, diffusive, ∇transform, state, aux, t)
-    diffusive!(atmos.tracers, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
 end
 
-function hyperdiffusive!(
+function transform_post_gradient_laplacian!(
     atmos::AtmosModel,
     hyperdiffusive::Vars,
     hypertransform::Grad,
@@ -358,7 +424,7 @@ function hyperdiffusive!(
     aux::Vars,
     t::Real,
 )
-    hyperdiffusive!(
+    transform_post_gradient_laplacian!(
         atmos.hyperdiffusion,
         hyperdiffusive,
         hypertransform,
@@ -368,7 +434,21 @@ function hyperdiffusive!(
     )
 end
 
-@inline function flux_diffusive!(
+@doc """
+    flux_second_order!(
+        atmos::AtmosModel,
+        flux::Grad,
+        state::Vars,
+        diffusive::Vars,
+        hyperdiffusive::Vars,
+        aux::Vars,
+        t::Real
+    )
+Diffusive fluxes in AtmosModel. Viscosity, diffusivity are calculated
+in the turbulence subcomponent and accessed within the diffusive flux
+function. Contributions from subcomponents are then assembled (pointwise).
+""" flux_second_order!
+@inline function flux_second_order!(
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
@@ -379,9 +459,9 @@ end
 )
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     d_h_tot = -D_t .* diffusive.∇h_tot
-    flux_diffusive!(atmos, flux, state, τ, d_h_tot)
-    flux_diffusive!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
-    flux_diffusive!(
+    flux_second_order!(atmos, flux, state, τ, d_h_tot)
+    flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(
         atmos.hyperdiffusion,
         flux,
         state,
@@ -390,11 +470,11 @@ end
         aux,
         t,
     )
-    flux_diffusive!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
 end
 
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
-@inline function flux_diffusive!(
+@inline function flux_second_order!(
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
@@ -413,7 +493,7 @@ end
 end
 
 
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::AtmosModel,
     Q::MPIStateArray,
@@ -422,49 +502,80 @@ function update_aux!(
     elems::UnitRange,
 )
     FT = eltype(Q)
-    auxstate = dg.auxstate
+    state_auxiliary = dg.state_auxiliary
 
     if num_integrals(m, FT) > 0
-        indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
-        reverse_indefinite_stack_integral!(dg, m, Q, auxstate, t, elems)
+        indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
+        reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
     end
 
     dynsgs!(dg, m, Q, dQdt, dg.auxstate, t, elems)
+    nodal_update_auxiliary_state!(
+        atmos_nodal_update_auxiliary_state!,
+        dg,
+        m,
+        Q,
+        t,
+        elems,
+    )
 
     nodal_update_aux!(atmos_nodal_update_aux!, dg, m, Q, t, elems)
     return true
 end
 
-function atmos_nodal_update_aux!(m::AtmosModel, state::Vars, aux::Vars, t::Real)
-    atmos_nodal_update_aux!(m.moisture, m, state, aux, t)
-    atmos_nodal_update_aux!(m.radiation, m, state, aux, t)
-    atmos_nodal_update_aux!(m.turbulence, m, state, aux, t)
-    atmos_nodal_update_aux!(m.tracers, m, state, aux, t)
+function atmos_nodal_update_auxiliary_state!(
+    m::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
 end
 
-function integral_load_aux!(m::AtmosModel, integ::Vars, state::Vars, aux::Vars)
-    integral_load_aux!(m.radiation, integ, state, aux)
-end
-
-function integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
-    integral_set_aux!(m.radiation, aux, integ)
-end
-
-function reverse_integral_load_aux!(
+function integral_load_auxiliary_state!(
     m::AtmosModel,
     integ::Vars,
     state::Vars,
     aux::Vars,
 )
-    reverse_integral_load_aux!(m.radiation, integ, state, aux)
+    integral_load_auxiliary_state!(m.radiation, integ, state, aux)
 end
 
-function reverse_integral_set_aux!(m::AtmosModel, aux::Vars, integ::Vars)
-    reverse_integral_set_aux!(m.radiation, aux, integ)
+function integral_set_auxiliary_state!(m::AtmosModel, aux::Vars, integ::Vars)
+    integral_set_auxiliary_state!(m.radiation, aux, integ)
 end
 
-# TODO: figure out a nice way to handle this
-function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+function reverse_integral_load_auxiliary_state!(
+    m::AtmosModel,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    reverse_integral_load_auxiliary_state!(m.radiation, integ, state, aux)
+end
+
+function reverse_integral_set_auxiliary_state!(
+    m::AtmosModel,
+    aux::Vars,
+    integ::Vars,
+)
+    reverse_integral_set_auxiliary_state!(m.radiation, aux, integ)
+end
+
+
+@doc """
+    init_state_auxiliary!(
+        m::AtmosModel,
+        aux::Vars,
+        geom::LocalGeometry
+        )
+Initialise auxiliary variables for each AtmosModel subcomponent.
+Store Cartesian coordinate information in `aux.coord`.
+""" init_state_auxiliary!
+function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
     atmos_init_aux!(m.orientation, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)
@@ -473,16 +584,23 @@ function init_aux!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     atmos_init_aux!(m.tracers, m, aux, geom)
 end
 
-"""
-    source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars,
-            aux::Vars, t::Real, direction::Direction)
-Computes flux `S(Y)` in:
+@doc """
+    source!(
+        m::AtmosModel,
+        source::Vars,
+        state::Vars,
+        diffusive::Vars,
+        aux::Vars,
+        t::Real,
+        direction::Direction
+    )
+Computes (and assembles) source terms `S(Y)` in:
 ```
 ∂Y
 -- = - ∇ • F + S(Y)
 ∂t
 ```
-"""
+""" source!
 function source!(
     m::AtmosModel,
     source::Vars,
@@ -495,7 +613,26 @@ function source!(
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
 
-function init_state!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
-    m.init_state(m, state, aux, coords, t, args...)
+@doc """
+    init_state_conservative!(
+        m::AtmosModel,
+        state::Vars,
+        aux::Vars,
+        coords,
+        t,
+        args...)
+Initialise state variables.
+`args...` provides an option to include configuration data
+(current use cases include problem constants, spline-interpolants)
+""" init_state_conservative!
+function init_state_conservative!(
+    m::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    coords,
+    t,
+    args...,
+)
+    m.init_state_conservative(m, state, aux, coords, t, args...)
 end
 end # module

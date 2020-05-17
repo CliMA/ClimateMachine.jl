@@ -1,7 +1,7 @@
 """
     InitStateBC
 
-Set the value at the boundary to match the `init_state!` function. This is
+Set the value at the boundary to match the `init_state_conservative!` function. This is
 mainly useful for cases where the problem has an explicit solution.
 
 # TODO: This should be fixed later once BCs are figured out (likely want
@@ -9,7 +9,7 @@ mainly useful for cases where the problem has an explicit solution.
 """
 struct InitStateBC end
 function atmos_boundary_state!(
-    ::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+    ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc::InitStateBC,
     m::AtmosModel,
     state⁺::Vars,
@@ -21,10 +21,10 @@ function atmos_boundary_state!(
     t,
     _...,
 )
-    init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
+    init_state_conservative!(m, state⁺, aux⁺, aux⁺.coord, t)
 end
 
-function atmos_normal_boundary_flux_diffusive!(
+function atmos_normal_boundary_flux_second_order!(
     nf,
     bc::InitStateBC,
     atmos,
@@ -43,7 +43,7 @@ function atmos_normal_boundary_flux_diffusive!(
     args...,
 )
 
-    normal_boundary_flux_diffusive!(
+    normal_boundary_flux_second_order!(
         nf,
         atmos,
         fluxᵀn,
@@ -65,7 +65,7 @@ end
 
 
 function boundary_state!(
-    ::NumericalFluxDiffusive,
+    ::NumericalFluxSecondOrder,
     m::AtmosModel,
     state⁺::Vars,
     diff⁺::Vars,
@@ -78,5 +78,5 @@ function boundary_state!(
     t,
     args...,
 )
-    init_state!(m, state⁺, aux⁺, aux⁺.coord, t)
+    init_state_conservative!(m, state⁺, aux⁺, aux⁺.coord, t)
 end

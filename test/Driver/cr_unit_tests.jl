@@ -1,10 +1,12 @@
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.MoistThermodynamics
-using CLIMA.VariableTemplates
-using CLIMA.Grids
-using CLIMA.ODESolvers
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.Checkpoint
+using ClimateMachine.ConfigTypes
+using ClimateMachine.MoistThermodynamics
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Grids
+using ClimateMachine.ODESolvers
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -49,8 +51,6 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
 end
 
 function main()
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order
@@ -78,10 +78,10 @@ function main()
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
-        init_state = setup,
+        init_state_conservative = setup,
     )
 
-    driver_config = CLIMA.AtmosGCMConfiguration(
+    driver_config = ClimateMachine.AtmosGCMConfiguration(
         "Checkpoint unit tests",
         N,
         resolution,
@@ -90,15 +90,30 @@ function main()
         setup;
         model = model,
     )
-    solver_config =
-        CLIMA.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_dt = dt,
+    )
 
-    isdir(CLIMA.Settings.checkpoint_dir) ||
-    mkpath(CLIMA.Settings.checkpoint_dir)
+    isdir(ClimateMachine.Settings.checkpoint_dir) ||
+    mkpath(ClimateMachine.Settings.checkpoint_dir)
 
     @testset "Checkpoint/restart unit tests" begin
-        CLIMA.rm_checkpoint(solver_config, 0)
-        CLIMA.write_checkpoint(solver_config, 0)
+        rm_checkpoint(
+            ClimateMachine.Settings.checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            0,
+        )
+        write_checkpoint(
+            solver_config,
+            ClimateMachine.Settings.checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            0,
+        )
 
         nm = replace(solver_config.name, " " => "_")
         cname = @sprintf(
@@ -107,11 +122,17 @@ function main()
             MPI.Comm_rank(solver_config.mpicomm),
             0,
         )
-        cfull = joinpath(CLIMA.Settings.checkpoint_dir, cname)
+        cfull = joinpath(ClimateMachine.Settings.checkpoint_dir, cname)
         @test isfile(cfull)
 
         s_Q, s_aux, s_t = try
-            CLIMA.read_checkpoint(nm, solver_config.mpicomm, 0)
+            read_checkpoint(
+                ClimateMachine.Settings.checkpoint_dir,
+                nm,
+                driver_config.array_type,
+                solver_config.mpicomm,
+                0,
+            )
         catch
             (nothing, nothing, nothing)
         end
@@ -127,10 +148,10 @@ function main()
         Q = solver_config.Q
         if Array ∈ typeof(Q).parameters
             h_Q = Q.realdata
-            h_aux = dg.auxstate.realdata
+            h_aux = dg.state_auxiliary.realdata
         else
             h_Q = Array(Q.realdata)
-            h_aux = Array(dg.auxstate.realdata)
+            h_aux = Array(dg.state_auxiliary.realdata)
         end
         t = ODESolvers.gettime(solver_config.solver)
 
@@ -138,7 +159,12 @@ function main()
         @test h_aux == s_aux
         @test t == s_t
 
-        CLIMA.rm_checkpoint(solver_config, 0)
+        rm_checkpoint(
+            ClimateMachine.Settings.checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            0,
+        )
         @test !isfile(cfull)
     end
 end

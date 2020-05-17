@@ -1,5 +1,5 @@
 using ..DGmethods.NumericalFluxes:
-    NumericalFluxNonDiffusive, NumericalFluxGradient, NumericalFluxDiffusive
+    NumericalFluxFirstOrder, NumericalFluxGradient, NumericalFluxSecondOrder
 
 import ..DGmethods: boundary_state!
 
@@ -34,7 +34,7 @@ applies boundary conditions for the first-order and gradient fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
 @generated function ocean_boundary_state!(
-    nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     boundaries::Tuple,
     ocean,
     Q⁺,
@@ -75,7 +75,7 @@ applies boundary conditions for the second-order fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
 @generated function ocean_boundary_state!(
-    nf::NumericalFluxDiffusive,
+    nf::NumericalFluxSecondOrder,
     boundaries::Tuple,
     ocean,
     Q⁺,

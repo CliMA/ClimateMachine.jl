@@ -1,34 +1,27 @@
 Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
-using CLIMA, Documenter
+using ClimateMachine, Documenter, Literate
+ENV["GKSwstype"] = "100" # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
 
-# TODO: Add generated examples back
-# include("generate.jl")
+generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
+rm(generated_dir, force = true, recursive = true)
+mkpath(generated_dir)
 
-GENERATED_BL_EXAMPLES = [
-    joinpath("examples", "DGmethods_old", "generated", f)
-    for
-    f in ("ex_001_periodic_advection.md", "ex_002_solid_body_rotation.md")
-]
-GENERATED_BL_EXAMPLES = filter!(x -> isfile(x), GENERATED_BL_EXAMPLES)
+include("list_of_experiments.jl")        # defines a nested array `experiments`
+include("list_of_tutorials.jl")          # defines a nested array `tutorials`
+include("list_of_how_to_guides.jl")      # defines a nested array `how_to_guides`
+include("list_of_discussions.jl")        # defines a nested array `apis`
+include("list_of_apis.jl")               # defines a nested array `discussions`
 
 pages = Any[
     "Home" => "index.md",
-    "Common" => Any["MoistThermodynamics" => "Common/MoistThermodynamics.md",],
-    "Utilites" => Any[],
-    "Atmos" => Any[
-        "Atmos/SurfaceFluxes.md",
-        "Atmos/EDMFEquations.md",
-        "Microphysics" => "Atmos/Microphysics.md",
-        "AtmosModel" => "Atmos/Model/turbulence.md",
-        "AtmosModel" => "Atmos/Model/tracers.md",
-    ],
-    "ODESolvers" => "ODESolvers.md",
-    "LinearSolvers" => "LinearSolvers.md",
-    "Mesh" => "Mesh.md",
-    "Arrays" => "Arrays.md",
-    "DGmethods_old" => "DGmethods_old.md",
-    "InputOutput.md",
+    "Installation" => "Installation.md",
+    "Experiments" => experiments,
+    "Tutorials" => tutorials,
+    "How-to-guides" => how_to_guides,
+    "APIs" => apis,
+    "Theory & design philosophy" => discussions,
+    # TODO: Move everything below here into one of the above sections
     "Developer docs" => Any[
         "CodingConventions.md",
         "AcceptableUnicode.md",
@@ -36,44 +29,38 @@ pages = Any[
     ],
 ]
 
-if !isempty(GENERATED_BL_EXAMPLES)
-    push!(
-        pages,
-        "Balance Law Examples" =>
-            ["BalanceLawOverview.md", GENERATED_BL_EXAMPLES...],
-    )
-end
+mathengine = MathJax(Dict(
+    :TeX => Dict(
+        :equationNumbers => Dict(:autoNumber => "AMS"),
+        :Macros => Dict(),
+    ),
+))
 
+format = Documenter.HTML(
+    prettyurls = get(ENV, "CI", nothing) == "true",
+    mathengine = mathengine,
+    collapselevel = 1,
+    # prettyurls = !("local" in ARGS),
+    # canonical = "https://CliMA.github.io/ClimateMachine.jl/stable/",
+)
 
 makedocs(
-    sitename = "CLIMA",
+    sitename = "ClimateMachine",
     doctest = false,
     strict = false,
     linkcheck = false,
+    format = format,
     checkdocs = :exports,
     # checkdocs = :all,
-    format = Documenter.HTML(
-        prettyurls = get(ENV, "CI", nothing) == "true",
-        mathengine = MathJax(Dict(
-            :TeX => Dict(
-                :equationNumbers => Dict(:autoNumber => "AMS"),
-                :Macros => Dict(),
-            ),
-        )),
-        # prettyurls = !("local" in ARGS),
-        # canonical = "https://climate-machine.github.io/CLIMA/stable/",
-    ),
     clean = true,
-    modules = [Documenter, CLIMA],
+    modules = [Documenter, ClimateMachine],
     pages = pages,
 )
 
-# make sure there are no *.vtu files left around from the build
-p = joinpath(@__DIR__, "build", "examples", "DGmethods_old", "generated")
-if ispath(p)
-    cd(p) do
-        foreach(file -> endswith(file, ".vtu") && rm(file), readdir())
-    end
-end
+include("clean_build_folder.jl")
 
-deploydocs(repo = "github.com/climate-machine/CLIMA.git", target = "build")
+deploydocs(
+    repo = "github.com/CliMA/ClimateMachine.jl.git",
+    target = "build",
+    push_preview = true,
+)

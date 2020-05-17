@@ -1,10 +1,11 @@
-# CLIMA driver configurations
+# ClimateMachine driver configurations
 #
 # Contains helper functions to establish simulation configurations to be
-# used with the CLIMA driver. Currently:
+# used with the ClimateMachine driver. Currently:
 # - AtmosLESConfiguration
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
+# - SingleStackConfiguration
 #
 # User-customized configurations can use these as templates.
 
@@ -23,8 +24,8 @@ struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
-    # FIXME: this is Atmos-specific
     function IMEXSolverType(;
+        # FIXME: this is Atmos-specific
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
@@ -40,6 +41,7 @@ struct MultirateSolverType <: AbstractSolverType
     fast_method::Function
     timestep_ratio::Int
     function MultirateSolverType(;
+        # FIXME: this is Atmos-specific
         linear_model = AtmosAcousticGravityLinearModel,
         solver_method = MultirateRungeKutta,
         slow_method = LSRK54CarpenterKennedy,
@@ -66,21 +68,22 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_horz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
+struct SingleStackSpecificInfo <: ConfigSpecificInfo end
 
 """
-    CLIMA.DriverConfiguration
+    ClimateMachine.DriverConfiguration
 
-Collects all parameters necessary to set up a CLIMA simulation.
+Collects all parameters necessary to set up a ClimateMachine simulation.
 """
 struct DriverConfiguration{FT}
-    config_type::CLIMAConfigType
+    config_type::ClimateMachineConfigType
 
     name::String
     N::Int
     array_type
     solver_type::AbstractSolverType
     #
-    # AtmosModel details
+    # Model details
     bl::BalanceLaw
     #
     # execution details
@@ -90,9 +93,9 @@ struct DriverConfiguration{FT}
     grid::DiscontinuousSpectralElementGrid
     #
     # DGModel details
-    numfluxnondiff::NumericalFluxNonDiffusive
-    numfluxdiff::NumericalFluxDiffusive
-    gradnumflux::NumericalFluxGradient
+    numerical_flux_first_order::NumericalFluxFirstOrder
+    numerical_flux_second_order::NumericalFluxSecondOrder
+    numerical_flux_gradient::NumericalFluxGradient
     #
     # configuration-specific info
     config_info::ConfigSpecificInfo
@@ -107,9 +110,9 @@ struct DriverConfiguration{FT}
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
         grid::DiscontinuousSpectralElementGrid,
-        numfluxnondiff::NumericalFluxNonDiffusive,
-        numfluxdiff::NumericalFluxDiffusive,
-        gradnumflux::NumericalFluxGradient,
+        numerical_flux_first_order::NumericalFluxFirstOrder,
+        numerical_flux_second_order::NumericalFluxSecondOrder,
+        numerical_flux_gradient::NumericalFluxGradient,
         config_info::ConfigSpecificInfo,
     )
         return new{FT}(
@@ -121,16 +124,16 @@ struct DriverConfiguration{FT}
             bl,
             mpicomm,
             grid,
-            numfluxnondiff,
-            numfluxdiff,
-            gradnumflux,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
+            numerical_flux_gradient,
             config_info,
         )
     end
 end
 
 function print_model_info(model)
-    msg = "AtmosModel composition\n"
+    msg = "Model composition\n"
     for key in fieldnames(typeof(model))
         msg =
             msg * @sprintf(
@@ -154,20 +157,20 @@ function AtmosLESConfiguration(
     xmin = zero(FT),
     ymin = zero(FT),
     zmin = zero(FT),
-    array_type = CLIMA.array_type(),
+    array_type = ClimateMachine.array_type(),
     solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state = init_LES!,
+        init_state_conservative = init_LES!,
     ),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
     periodicity = (true, true, false),
     meshwarp = (x...) -> identity(x),
-    numfluxnondiff = Rusanov(),
-    numfluxdiff = CentralNumericalFluxDiffusive(),
-    gradnumflux = CentralNumericalFluxGradient(),
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
     print_model_info(model)
@@ -226,9 +229,9 @@ Establishing Atmos LES configuration for %s
         model,
         mpicomm,
         grid,
-        numfluxnondiff,
-        numfluxdiff,
-        gradnumflux,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
         AtmosLESSpecificInfo(),
     )
 end
@@ -240,18 +243,18 @@ function AtmosGCMConfiguration(
     domain_height::FT,
     param_set::AbstractParameterSet,
     init_GCM!;
-    array_type = CLIMA.array_type(),
+    array_type = ClimateMachine.array_type(),
     solver_type = DefaultSolverType(),
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
-        init_state = init_GCM!,
+        init_state_conservative = init_GCM!,
     ),
     mpicomm = MPI.COMM_WORLD,
     meshwarp::Function = cubedshellwarp,
-    numfluxnondiff = Rusanov(),
-    numfluxdiff = CentralNumericalFluxDiffusive(),
-    gradnumflux = CentralNumericalFluxGradient(),
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
     print_model_info(model)
@@ -305,9 +308,9 @@ Establishing Atmos GCM configuration for %s
         model,
         mpicomm,
         grid,
-        numfluxnondiff,
-        numfluxdiff,
-        gradnumflux,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
         AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
     )
 end
@@ -318,14 +321,14 @@ function OceanBoxGCMConfiguration(
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
     model::HydrostaticBoussinesqModel;
     FT = Float64,
-    array_type = CLIMA.array_type(),
+    array_type = ClimateMachine.array_type(),
     solver_type = ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     ),
     mpicomm = MPI.COMM_WORLD,
-    numfluxnondiff = Rusanov(),
-    numfluxdiff = CentralNumericalFluxDiffusive(),
-    gradnumflux = CentralNumericalFluxGradient(),
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
     periodicity = (false, false, false),
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
@@ -360,9 +363,91 @@ function OceanBoxGCMConfiguration(
         model,
         mpicomm,
         grid,
-        numfluxnondiff,
-        numfluxdiff,
-        gradnumflux,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
         OceanBoxGCMSpecificInfo(),
+    )
+end
+
+function SingleStackConfiguration(
+    name::String,
+    N::Int,
+    nelem_vert::Int,
+    zmax::FT,
+    param_set::AbstractParameterSet,
+    model::BalanceLaw;
+    zmin = zero(FT),
+    array_type = ClimateMachine.array_type(),
+    solver_type = ExplicitSolverType(),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = ((0, 0), (0, 0), (1, 2)),
+    periodicity = (true, true, false),
+    meshwarp = (x...) -> identity(x),
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
+
+    print_model_info(model)
+
+    xmin, xmax = zero(FT), one(FT)
+    ymin, ymax = zero(FT), one(FT)
+    brickrange = (
+        grid1d(xmin, xmax, nelem = 1),
+        grid1d(ymin, ymax, nelem = 1),
+        grid1d(zmin, zmax, nelem = nelem_vert),
+    )
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+        meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing single stack configuration for %s
+    precision        = %s
+    polynomial order = %d
+    domain           = %.2f m x%.2f m x%.2f m
+    #vert elems      = %d
+    MPI ranks        = %d
+    min(Δ_horz)      = %.2f m
+    min(Δ_vert)      = %.2f m""",
+        name,
+        FT,
+        N,
+        xmax,
+        ymax,
+        zmax,
+        nelem_vert,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
+    )
+
+    return DriverConfiguration(
+        SingleStackConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        model,
+        mpicomm,
+        grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        SingleStackSpecificInfo(),
     )
 end

@@ -1,4 +1,4 @@
-# CliMA Variable List
+# ClimateMachine Variable List
 
 This document is currently for collaborators within the project with access to the Overleaf CliMA-Atmos docs. The purpose of this page is to unify the naming conventions used in the Overleaf document in a manner useful for coding. This document suggests 'reserved' variable names in <property>_<species> format with the default working fluid (no-subscript) being moist air. Contributors to the CliMA repository are welcome to suggest changes when necessary.
 
@@ -101,6 +101,10 @@ conv_q_liq_to_q_rai_acnv = tendency to q_rai due to autoconversion from q_liq [1
 conv_q_liq_to_q_rai_accr = tendency to q_rai due to accretion from q_liq [1/s]
 conv_q_rai_to_q_vap      = tendency to q_vap due to evaporation from q_rai [1/s]
 ```
+
+### 2.7 Diagnostics
+
+Please see `CliMA Diagnostic Variable List`.
 
 ### TODO
 ```

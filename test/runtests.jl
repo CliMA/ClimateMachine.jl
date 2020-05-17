@@ -11,24 +11,21 @@ function include_test(_module)
 end
 
 
-@testset "CLIMA" begin
+@testset "ClimateMachine" begin
     all_tests = isempty(ARGS) || "all" in ARGS ? true : false
 
     for submodule in [
         "InputOutput",
         "Utilities",
         "Common",
-        "Atmos",
-        "Mesh",
-        "DGmethods",
-        "Diagnostics",
-        "ODESolvers",
-        "Ocean",
         "Arrays",
-        "LinearSolvers",
+        "Atmos",
+        "Numerics",
+        "Diagnostics",
+        "Ocean",
         "Driver",
     ]
-        if all_tests || "$submodule" in ARGS || "CLIMA" in ARGS
+        if all_tests || "$submodule" in ARGS || "ClimateMachine" in ARGS
             include_test(submodule)
         end
     end

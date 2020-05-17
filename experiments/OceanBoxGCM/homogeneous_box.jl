@@ -1,13 +1,15 @@
-using Test
-using CLIMA
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.Mesh.Filters
-using CLIMA.VariableTemplates
-using CLIMA.Mesh.Grids: polynomialorder
-using CLIMA.DGmethods: vars_state
-using CLIMA.HydrostaticBoussinesq
+#!/usr/bin/env julia --project
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.DGmethods: vars_state_conservative
+using ClimateMachine.HydrostaticBoussinesq
 
+using Test
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -24,15 +26,17 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
     cʰ = sqrt(_grav * problem.H) # m/s
     model = HydrostaticBoussinesqModel{FT}(param_set, problem, cʰ = cʰ)
 
-    config =
-        CLIMA.OceanBoxGCMConfiguration("homogeneous_box", N, resolution, model)
+    config = ClimateMachine.OceanBoxGCMConfiguration(
+        "homogeneous_box",
+        N,
+        resolution,
+        model,
+    )
 
     return config
 end
 
 function run_homogeneous_box(; imex::Bool = false, BC = nothing)
-    CLIMA.init()
-
     FT = Float64
 
     # DG polynomial order
@@ -53,15 +57,16 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
     timeend = FT(6 * 3600) # s
 
     if imex
-        solver_type = CLIMA.IMEXSolverType(
+        solver_type = ClimateMachine.IMEXSolverType(
             linear_model = LinearHBModel,
-            linear_solver = CLIMA.ColumnwiseLUSolver.SingleColumnLU,
+            linear_solver = ClimateMachine.ColumnwiseLUSolver.SingleColumnLU,
         )
         Nᶻ = Int(400)
         Courant_number = 0.1
     else
-        solver_type =
-            CLIMA.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+        solver_type = ClimateMachine.ExplicitSolverType(
+            solver_method = LSRK144NiegemannDiehlBusch,
+        )
         Courant_number = 0.4
     end
 
@@ -72,7 +77,7 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
     exp_filter = ExponentialFilter(grid, 1, 8)
     modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
 
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
@@ -82,13 +87,13 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
         Courant_number = Courant_number,
     )
 
-    result = CLIMA.invoke!(solver_config)
+    result = ClimateMachine.invoke!(solver_config)
 
-    maxQ = Vars{vars_state(driver_config.bl, FT)}(maximum(
+    maxQ = Vars{vars_state_conservative(driver_config.bl, FT)}(maximum(
         solver_config.Q,
         dims = (1, 3),
     ))
-    minQ = Vars{vars_state(driver_config.bl, FT)}(minimum(
+    minQ = Vars{vars_state_conservative(driver_config.bl, FT)}(minimum(
         solver_config.Q,
         dims = (1, 3),
     ))
@@ -99,24 +104,24 @@ end
 @testset "$(@__FILE__)" begin
     boundary_conditions = [
         (
-            CLIMA.HydrostaticBoussinesq.CoastlineNoSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
         ),
         (
-            CLIMA.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
         ),
         (
-            CLIMA.HydrostaticBoussinesq.CoastlineNoSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanFloorFreeSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanFloorFreeSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
         ),
         (
-            CLIMA.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanFloorFreeSlip(),
-            CLIMA.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanFloorFreeSlip(),
+            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
         ),
     ]
 

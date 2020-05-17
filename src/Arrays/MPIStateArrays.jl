@@ -1,26 +1,25 @@
 module MPIStateArrays
-using ..TicToc
-using LinearAlgebra
+
 using DoubleFloats
-using LazyArrays
-using StaticArrays
 using KernelAbstractions
-using Requires
+using LazyArrays
+using LinearAlgebra
 using MPI
+using StaticArrays
+
+using ..TicToc
 using ..VariableTemplates: @vars, varsindex
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
-
 
 # This is so we can do things like
 #   similar(Array{Float64}, Int, 3, 4)
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     similar(Array{FT}, dims...)
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
-    Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
-        similar(CuArray{FT}, dims...)
-end
+
+using CuArrays
+Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
+    similar(CuArray{FT}, dims...)
 
 include("CMBuffers.jl")
 using .CMBuffers
@@ -334,21 +333,6 @@ end
     dest
 end
 
-
-# The following `__no_overlap_*` functions exist to support the old DG balance
-# law where we still use GPUifyLoops.  They should NOT be used in new code.
-function __no_overlap_begin_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = begin_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
-function __no_overlap_end_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = end_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
 """
     begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 
@@ -476,7 +460,7 @@ function fillsendbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_fillsendbuf!(device(buf), 256)(
+    event = kernel_fillsendbuf!(device(buf), 256)(
         Val(Np),
         Val(nvar),
         sendbuf,
@@ -505,7 +489,7 @@ function transferrecvbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = knl_transferrecvbuf!(device(buf), 256)(
+    event = kernel_transferrecvbuf!(device(buf), 256)(
         Val(Np),
         Val(nvar),
         buf,
@@ -762,26 +746,59 @@ device(Q::MPIStateArray) = device(Q.data)
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
 
-@init @require CuArrays = "3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin
-    using .CuArrays
 
-    device(::CuArray) = CUDA()
-    realview(Q::CuArray) = Q
+device(::CuArray) = CUDA()
+realview(Q::CuArray) = Q
 
-    # transform all arguments of `bc` from MPIStateArrays to CuArrays
-    # and replace CPU function with GPU variants
-    function transform_broadcasted(bc::Broadcasted, ::CuArray)
-        transform_cuarray(bc)
+# transform all arguments of `bc` from MPIStateArrays to CuArrays
+# and replace CPU function with GPU variants
+function transform_broadcasted(bc::Broadcasted, ::CuArray)
+    transform_cuarray(bc)
+end
+function transform_cuarray(bc::Broadcasted)
+    Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
+end
+transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
+transform_cuarray(x) = x
+
+# @init tictoc()
+
+using KernelAbstractions.Extras: @unroll
+
+@kernel function kernel_fillsendbuf!(
+    ::Val{Np},
+    ::Val{nvar},
+    sendbuf,
+    buf,
+    vmapsend,
+    nvmapsend,
+) where {Np, nvar}
+
+    i = @index(Global, Linear)
+    @inbounds begin
+        e, n = fldmod1(vmapsend[i], Np)
+        @unroll for s in 1:nvar
+            sendbuf[s, i] = buf[n, s, e]
+        end
     end
-    function transform_cuarray(bc::Broadcasted)
-        Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
-    end
-    transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
-    transform_cuarray(x) = x
 end
 
-@init tictoc()
+@kernel function kernel_transferrecvbuf!(
+    ::Val{Np},
+    ::Val{nvar},
+    buf,
+    recvbuf,
+    vmaprecv,
+    nvmaprecv,
+) where {Np, nvar}
 
-include("MPIStateArrays_kernels.jl")
+    i = @index(Global, Linear)
+    @inbounds begin
+        e, n = fldmod1(vmaprecv[i], Np)
+        @unroll for s in 1:nvar
+            buf[n, s, e] = recvbuf[s, i]
+        end
+    end
+end
 
 end

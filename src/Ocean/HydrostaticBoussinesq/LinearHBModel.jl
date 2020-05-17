@@ -24,27 +24,30 @@ end
 """
     Copy over state, aux, and diff variables from HBModel
 """
-vars_state(lm::LinearHBModel, FT) = vars_state(lm.ocean, FT)
-vars_gradient(lm::LinearHBModel, FT) = vars_gradient(lm.ocean, FT)
-vars_diffusive(lm::LinearHBModel, FT) = vars_diffusive(lm.ocean, FT)
-vars_aux(lm::LinearHBModel, FT) = vars_aux(lm.ocean, FT)
+vars_state_conservative(lm::LinearHBModel, FT) =
+    vars_state_conservative(lm.ocean, FT)
+vars_state_gradient(lm::LinearHBModel, FT) = vars_state_gradient(lm.ocean, FT)
+vars_state_gradient_flux(lm::LinearHBModel, FT) =
+    vars_state_gradient_flux(lm.ocean, FT)
+vars_state_auxiliary(lm::LinearHBModel, FT) = vars_state_auxiliary(lm.ocean, FT)
 vars_integrals(lm::LinearHBModel, FT) = @vars()
 
 """
     No integration, hyperbolic flux, or source terms
 """
 @inline integrate_aux!(::LinearHBModel, _...) = nothing
-@inline flux_nondiffusive!(::LinearHBModel, _...) = nothing
+@inline flux_first_order!(::LinearHBModel, _...) = nothing
 @inline source!(::LinearHBModel, _...) = nothing
 
 """
     No need to init, initialize by full model
 """
-init_aux!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing
-init_state!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
+init_state_auxiliary!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing
+init_state_conservative!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) =
+    nothing
 
 """
-    gradvariables!(::LinearHBModel)
+    compute_gradient_argument!(::LinearHBModel)
 
 copy u and θ to var_gradient
 this computation is done pointwise at each nodal point
@@ -56,15 +59,21 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function gradvariables!(m::LinearHBModel, G::Vars, Q::Vars, A, t)
-    G.u = Q.u
-    G.θ = Q.θ
+@inline function compute_gradient_argument!(
+    m::LinearHBModel,
+    G::Vars,
+    Q::Vars,
+    A,
+    t,
+)
+    G.∇u = Q.u
+    G.∇θ = Q.θ
 
     return nothing
 end
 
 """
-    diffusive!(::LinearHBModel)
+    compute_gradient_flux!(::LinearHBModel)
 
 copy ν∇u and κ∇θ to var_diffusive
 this computation is done pointwise at each nodal point
@@ -77,7 +86,7 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function diffusive!(
+@inline function compute_gradient_flux!(
     lm::LinearHBModel,
     D::Vars,
     G::Grad,
@@ -86,16 +95,16 @@ this computation is done pointwise at each nodal point
     t,
 )
     ν = viscosity_tensor(lm.ocean)
-    D.ν∇u = ν * G.u
+    D.ν∇u = ν * G.∇u
 
-    κ = diffusivity_tensor(lm.ocean, G.θ[3])
-    D.κ∇θ = κ * G.θ
+    κ = diffusivity_tensor(lm.ocean, G.∇θ[3])
+    D.κ∇θ = κ * G.∇θ
 
     return nothing
 end
 
 """
-    flux_diffusive!(::HBModel)
+    flux_second_order!(::HBModel)
 
 calculates the parabolic flux contribution to state variables
 this computation is done pointwise at each nodal point
@@ -112,7 +121,7 @@ this computation is done pointwise at each nodal point
 ∂ᵗu = -∇⋅(ν∇u)
 ∂ᵗθ = -∇⋅(κ∇θ)
 """
-@inline function flux_diffusive!(
+@inline function flux_second_order!(
     lm::LinearHBModel,
     F::Grad,
     Q::Vars,

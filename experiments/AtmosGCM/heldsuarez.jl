@@ -1,20 +1,23 @@
+#!/usr/bin/env julia --project
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MoistThermodynamics:
+    air_temperature, internal_energy, air_pressure
+using ClimateMachine.VariableTemplates
+
 using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
 using Random: rand
 using Test
-
-using CLIMA
-using CLIMA.Atmos
-using CLIMA.ConfigTypes
-using CLIMA.Diagnostics
-using CLIMA.GenericCallbacks
-using CLIMA.ODESolvers
-using CLIMA.ColumnwiseLUSolver: ManyColumnLU
-using CLIMA.Mesh.Filters
-using CLIMA.Mesh.Grids
-using CLIMA.MoistThermodynamics: air_temperature, internal_energy, air_pressure
-using CLIMA.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
@@ -72,11 +75,11 @@ function config_heldsuarez(FT, poly_order, resolution)
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
-        init_state = init_heldsuarez!,
+        init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
     )
 
-    config = CLIMA.AtmosGCMConfiguration(
+    config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
         poly_order,
         resolution,
@@ -150,7 +153,7 @@ function held_suarez_forcing!(
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = 1000 # in time steps
+    interval = "100000steps" # chosen to allow a single diagnostics collection
 
     _planet_radius = FT(planet_radius(param_set))
 
@@ -160,8 +163,11 @@ function config_diagnostics(FT, driver_config)
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
     resolution = (FT(10), FT(10), FT(1000)) # in (deg, deg, m)
-    interpol =
-        CLIMA.InterpolationConfiguration(driver_config, boundaries, resolution)
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
 
     dgngrp = setup_dump_state_and_aux_diagnostics(
         interval,
@@ -169,12 +175,10 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
         project = true,
     )
-    return CLIMA.DiagnosticsConfiguration([dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    CLIMA.init()
-
     # Driver configuration parameters
     FT = Float32                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
@@ -188,7 +192,7 @@ function main()
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
-    solver_config = CLIMA.SolverConfiguration(
+    solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
@@ -215,7 +219,7 @@ function main()
     end
 
     # Run the model
-    result = CLIMA.invoke!(
+    result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),

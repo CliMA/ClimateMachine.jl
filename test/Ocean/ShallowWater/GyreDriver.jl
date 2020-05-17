@@ -105,8 +105,8 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
     dg = DGModel(
         model,
         grid,
-        Rusanov(),
-        CentralNumericalFluxDiffusive(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
@@ -119,14 +119,14 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
 
     if test > 2
         outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
-        statenames = flattenednames(vars_state(model, eltype(Q)))
-        auxnames = flattenednames(vars_aux(model, eltype(Q)))
-        writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
+        statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+        writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
         outprefix = @sprintf("exact_mpirank%04d", MPI.Comm_rank(mpicomm))
-        statenames = flattenednames(vars_state(model, eltype(Qe)))
-        auxnames = flattenednames(vars_aux(model, eltype(Qe)))
-        writevtk(outprefix, Qe, dg, statenames, dg.auxstate, auxnames)
+        statenames = flattenednames(vars_state_conservative(model, eltype(Qe)))
+        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Qe)))
+        writevtk(outprefix, Qe, dg, statenames, dg.state_auxiliary, auxnames)
 
         step = [0]
         vtkpath = outname
@@ -139,9 +139,10 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
                 step[1]
             )
             @debug "doing VTK output" outprefix
-            statenames = flattenednames(vars_state(model, eltype(Q)))
-            auxnames = flattenednames(vars_aux(model, eltype(Q)))
-            writevtk(outprefix, Q, dg, statenames, dg.auxstate, auxnames)
+            statenames =
+                flattenednames(vars_state_conservative(model, eltype(Q)))
+            auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+            writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
             step[1] += 1
             nothing
         end
@@ -167,8 +168,8 @@ end
 ################
 
 let
-    CLIMA.init()
-    ArrayType = CLIMA.array_type()
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
     model = setup_model(FT, stommel, linear, τₒ, fₒ, β, λ, ν, Lˣ, Lʸ, H)

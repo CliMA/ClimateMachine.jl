@@ -16,32 +16,33 @@ using ..DGmethods:
     DGModel,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
-    nodal_update_aux!,
+    nodal_update_auxiliary_state!,
     copy_stack_field_down!
-using ..DGmethods.NumericalFluxes: Rusanov
+using ..DGmethods.NumericalFluxes: RusanovNumericalFlux
 
 import ..DGmethods.NumericalFluxes: update_penalty!
 import ..DGmethods:
-    vars_state,
-    init_state!,
-    vars_aux,
-    init_aux!,
-    vars_gradient,
-    gradvariables!,
-    vars_diffusive,
-    diffusive!,
+
+    vars_state_conservative,
+    init_state_conservative!,
+    vars_state_auxiliary,
+    init_state_auxiliary!,
+    vars_state_gradient,
+    compute_gradient_argument!,
+    vars_state_gradient_flux,
+    compute_gradient_flux!,
     vars_integrals,
-    integral_load_aux!,
-    integral_set_aux!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
     vars_reverse_integrals,
-    reverse_integral_load_aux!,
-    reverse_integral_set_aux!,
-    flux_nondiffusive!,
-    flux_diffusive!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!,
+    flux_first_order!,
+    flux_second_order!,
     source!,
     wavespeed,
-    update_aux!,
-    update_aux_diffusive!
+    update_auxiliary_state!,
+    update_auxiliary_state_gradient!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -117,7 +118,7 @@ end
 HBModel = HydrostaticBoussinesqModel
 
 """
-    vars_state(::HBModel)
+    vars_state_conservative(::HBModel)
 
 prognostic variables evolved forward in time
 
@@ -126,7 +127,7 @@ u = (u,v) = (zonal velocity, meridional velocity)
 θ = temperature
 """
 # If this order is changed check the filter usage!
-function vars_state(m::HBModel, T)
+function vars_state_conservative(m::HBModel, T)
     @vars begin
         u::SVector{2, T}
         η::T # real a 2-D variable TODO: should be 2D
@@ -135,37 +136,33 @@ function vars_state(m::HBModel, T)
 end
 
 """
-    init_state!(::HBModel)
+    init_state_conservative!(::HBModel)
 
 sets the initial value for state variables
 dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_state! end
-function init_state!(m::HBModel, Q::Vars, A::Vars, coords, t)
+function init_state_conservative!(m::HBModel, Q::Vars, A::Vars, coords, t)
     return ocean_init_state!(m.problem, Q, A, coords, t)
 end
 
 """
-    vars_aux(::HBModel)
+    vars_state_auxiliary(::HBModel)
 helper variables for computation
 
 first half is because there is no dedicated integral kernels
 these variables are used to compute vertical integrals
 w = vertical velocity
-w_reverse = w but integrated in the opposite direction
 wz0 = w at z = 0
 pkin = bulk hydrostatic pressure contribution
-pkin_reverse = pkin but integrated in the opposite direction
+
 
 second half of these are fields that are used for computation
-θʳ = relaxation value of the sea surface temperature
-f = coriolis force
-τ = wind stress
-ν = vector of viscosities (zonal, meridional, vertical)
-κ = vector of diffusivities (zonal, meridional, vertical)
+y = north-south coordinate
+
 """
-# If this order is changed check update_aux!
-function vars_aux(m::HBModel, T)
+# If this order is changed check update_auxiliary_state!
+function vars_state_auxiliary(m::HBModel, T)
     @vars begin
         w::T     # ∫(-∇⋅u)
         pkin::T  # ∫(-αᵀθ)
@@ -175,31 +172,31 @@ function vars_aux(m::HBModel, T)
 end
 
 """
-    init_aux!(::HBModel)
+    init_state_auxiliary!(::HBModel)
 
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_aux! end
-function init_aux!(m::HBModel, A::Vars, geom::LocalGeometry)
+function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
     return ocean_init_aux!(m, m.problem, A, geom)
 end
 
 """
-    vars_gradient(::HBModel)
+    vars_state_gradient(::HBModel)
 
 variables that you want to take a gradient of
 these are just copies in our model
 """
-function vars_gradient(m::HBModel, T)
+function vars_state_gradient(m::HBModel, T)
     @vars begin
-        u::SVector{2, T}
-        θ::T
+        ∇u::SVector{2, T}
+        ∇θ::T
     end
 end
 
 """
-    gradvariables!(::HBModel)
+    compute_gradient_argument!(::HBModel)
 
 copy u and θ to var_gradient
 this computation is done pointwise at each nodal point
@@ -211,20 +208,20 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function gradvariables!(m::HBModel, G::Vars, Q::Vars, A, t)
-    G.u = Q.u
-    G.θ = Q.θ
+@inline function compute_gradient_argument!(m::HBModel, G::Vars, Q::Vars, A, t)
+    G.∇u = Q.u
+    G.∇θ = Q.θ
 
     return nothing
 end
 
 """
-    vars_diffusive(::HBModel)
+    vars_state_gradient_flux(::HBModel)
 
 the output of the gradient computations
 multiplies ∇u by viscosity tensor and ∇θ by the diffusivity tensor
 """
-function vars_diffusive(m::HBModel, T)
+function vars_state_gradient_flux(m::HBModel, T)
     @vars begin
         ν∇u::SMatrix{3, 2, T, 6}
         κ∇θ::SVector{3, T}
@@ -232,7 +229,7 @@ function vars_diffusive(m::HBModel, T)
 end
 
 """
-    diffusive!(::HBModel)
+    compute_gradient_flux!(::HBModel)
 
 copy ∇u and ∇θ to var_diffusive
 this computation is done pointwise at each nodal point
@@ -245,12 +242,19 @@ this computation is done pointwise at each nodal point
 - `A`: array of aux variables
 - `t`: time, not used
 """
-@inline function diffusive!(m::HBModel, D::Vars, G::Grad, Q::Vars, A::Vars, t)
+@inline function compute_gradient_flux!(
+    m::HBModel,
+    D::Vars,
+    G::Grad,
+    Q::Vars,
+    A::Vars,
+    t,
+)
     ν = viscosity_tensor(m)
-    D.ν∇u = ν * G.u
+    D.ν∇u = ν * G.∇u
 
-    κ = diffusivity_tensor(m, G.θ[3])
-    D.κ∇θ = κ * G.θ
+    κ = diffusivity_tensor(m, G.∇θ[3])
+    D.κ∇θ = κ * G.∇θ
 
     return nothing
 end
@@ -296,7 +300,7 @@ function vars_integrals(m::HBModel, T)
 end
 
 """
-    integral_load_aux!(::HBModel)
+    integral_load_auxiliary_state!(::HBModel)
 
 copy w to var_integral
 this computation is done pointwise at each nodal point
@@ -307,7 +311,12 @@ I -> array of integrand variables
 Q -> array of state variables
 A -> array of aux variables
 """
-@inline function integral_load_aux!(m::HBModel, I::Vars, Q::Vars, A::Vars)
+@inline function integral_load_auxiliary_state!(
+    m::HBModel,
+    I::Vars,
+    Q::Vars,
+    A::Vars,
+)
     I.∇hu = A.w # borrow the w value from A...
     I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
 
@@ -315,7 +324,7 @@ A -> array of aux variables
 end
 
 """
-    integral_set_aux!(::HBModel)
+    integral_set_auxiliary_state!(::HBModel)
 
 copy integral results back out to aux
 this computation is done pointwise at each nodal point
@@ -325,7 +334,7 @@ m -> model in this case HBModel
 A -> array of aux variables
 I -> array of integrand variables
 """
-@inline function integral_set_aux!(m::HBModel, A::Vars, I::Vars)
+@inline function integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
     A.w = I.∇hu
     A.pkin = I.αᵀθ
 
@@ -345,7 +354,7 @@ function vars_reverse_integrals(m::HBModel, T)
 end
 
 """
-    reverse_integral_load_aux!(::HBModel)
+    reverse_integral_load_auxiliary_state!(::HBModel)
 
 copy αᵀθ to var_reverse_integral
 this computation is done pointwise at each nodal point
@@ -355,7 +364,7 @@ m -> model in this case HBModel
 I -> array of integrand variables
 A -> array of aux variables
 """
-@inline function reverse_integral_load_aux!(
+@inline function reverse_integral_load_auxiliary_state!(
     m::HBModel,
     I::Vars,
     Q::Vars,
@@ -367,7 +376,7 @@ A -> array of aux variables
 end
 
 """
-    reverse_integral_set_aux!(::HBModel)
+    reverse_integral_set_auxiliary_state!(::HBModel)
 
 copy reverse integral results back out to aux
 this computation is done pointwise at each nodal point
@@ -377,14 +386,18 @@ m -> model in this case HBModel
 A -> array of aux variables
 I -> array of integrand variables
 """
-@inline function reverse_integral_set_aux!(m::HBModel, A::Vars, I::Vars)
+@inline function reverse_integral_set_auxiliary_state!(
+    m::HBModel,
+    A::Vars,
+    I::Vars,
+)
     A.pkin = I.αᵀθ
 
     return nothing
 end
 
 """
-    flux_nondiffusive!(::HBModel)
+    flux_first_order!(::HBModel)
 
 calculates the hyperbolic flux contribution to state variables
 this computation is done pointwise at each nodal point
@@ -400,7 +413,7 @@ t -> time, not used
 ∂ᵗu = ∇⋅(g*η + g∫αᵀθdz + v⋅u)
 ∂ᵗθ = ∇⋅(vθ) where v = (u,v,w)
 """
-@inline function flux_nondiffusive!(
+@inline function flux_first_order!(
     m::HBModel,
     F::Grad,
     Q::Vars,
@@ -440,7 +453,7 @@ t -> time, not used
 end
 
 """
-    flux_diffusive!(::HBModel)
+    flux_second_order!(::HBModel)
 
 calculates the parabolic flux contribution to state variables
 this computation is done pointwise at each nodal point
@@ -457,7 +470,7 @@ this computation is done pointwise at each nodal point
 ∂ᵗu = -∇⋅(ν∇u)
 ∂ᵗθ = -∇⋅(κ∇θ)
 """
-@inline function flux_diffusive!(
+@inline function flux_second_order!(
     m::HBModel,
     F::Grad,
     Q::Vars,
@@ -535,7 +548,7 @@ calculates the wavespeed for rusanov flux
 """
 # We want not have jump penalties on η (since not a flux variable)
 function update_penalty!(
-    ::Rusanov,
+    ::RusanovNumericalFlux,
     ::HBModel,
     n⁻,
     λ,
@@ -552,14 +565,14 @@ function update_penalty!(
 end
 
 """
-    update_aux!(::HBModel)
+    update_auxiliary_state!(::HBModel)
 
     applies the vertical filter to the zonal and meridional velocities to preserve numerical incompressibility
     applies an exponential filter to θ to anti-alias the non-linear advective term
 
     doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
 """
-function update_aux!(
+function update_auxiliary_state!(
     dg::DGModel,
     m::HBModel,
     Q::MPIStateArray,
@@ -585,7 +598,7 @@ function update_aux!(
 end
 
 """
-    update_aux_diffusive!(::HBModel)
+    update_auxiliary_state_gradient!(::HBModel)
 
     ∇hu to w for integration
     performs integration for w and pkin (should be moved to its own integral kernels)
@@ -594,14 +607,14 @@ end
     now for actual update aux stuff
     implements convective adjustment by bumping the vertical diffusivity up by a factor of 1000 if dθdz < 0
 """
-function update_aux_diffusive!(
+function update_auxiliary_state_gradient!(
     dg::DGModel,
     m::HBModel,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
-    A = dg.auxstate
+    A = dg.state_auxiliary
 
     # store ∇ʰu as integrand for w
     function f!(m::HBModel, Q, A, D, t)
@@ -613,14 +626,14 @@ function update_aux_diffusive!(
 
         return nothing
     end
-    nodal_update_aux!(f!, dg, m, Q, t, elems; diffusive = true)
+    nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
     # project w(z=0) down the stack
-    # Need to be consistent with vars_aux
+    # Need to be consistent with vars_state_auxiliary
     # A[1] = w, A[3] = wz0
     copy_stack_field_down!(dg, m, A, 1, 3, elems)
 

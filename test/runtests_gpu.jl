@@ -6,11 +6,11 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 
 for submodule in [
     #"Common/MoistThermodynamics",
-    #"Atmos/Parameterizations/SurfaceFluxes",
-    #"Mesh",
-    #"DGmethods",
-    "ODESolvers",
+    #"Common/SurfaceFluxes",
     "Arrays",
+    #"Numerics/Mesh",
+    #"Numerics/DGmethods",
+    "Numerics/ODESolvers",
 ]
     println("Starting tests for $submodule")
     t = @elapsed include(joinpath(submodule, "runtests.jl"))
