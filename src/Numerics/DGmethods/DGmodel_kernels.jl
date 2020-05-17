@@ -320,6 +320,9 @@ end
             local_MI[k] = vgeo[ijk, _MI, e]
         end
 
+        # ensure D is loaded
+        @synchronize(dim == 3)
+
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
