@@ -86,6 +86,7 @@ function (dg::DGModel)(
         dg,
         balance_law,
         state_conservative,
+        tendency,
         t,
         dg.grid.topology.realelems,
     )
@@ -168,6 +169,7 @@ function (dg::DGModel)(
                 dg,
                 balance_law,
                 state_conservative,
+                tendency,
                 t,
                 dg.grid.topology.ghostelems,
             )
@@ -469,6 +471,7 @@ function (dg::DGModel)(
                 dg,
                 balance_law,
                 state_conservative,
+                tendency,
                 t,
                 dg.grid.topology.ghostelems,
             )
@@ -601,6 +604,7 @@ function update_auxiliary_state!(
     dg::DGModel,
     balance_law::BalanceLaw,
     state_conservative::MPIStateArray,
+    dQdt::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
@@ -906,7 +910,7 @@ function dynsgs!(
     m::BalanceLaw,
     Q::MPIStateArray,
     dQdt::MPIStateArray,
-    auxstate::MPIStateArray,
+    state_auxiliary::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems
 )
@@ -937,7 +941,7 @@ function dynsgs!(
         Val(dim),
         Val(N),
         Q.data,
-        auxstate.data,
+        state_auxiliary.data,
         dQdt.data,
         elems, 
         nvertelem,
@@ -950,6 +954,6 @@ function dynsgs!(
     wait(device, event)
     loc_μ = maximum(μ_dynsgs)
     temp_μ = MPI.Allreduce(loc_μ, max, topology.mpicomm)
-    auxstate.data[:,end,:] .= temp_μ
+    state_auxiliary.data[:,end,:] .= temp_μ
     nothing
 end
