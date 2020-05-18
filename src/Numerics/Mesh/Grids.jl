@@ -9,7 +9,7 @@ using KernelAbstractions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
-export referencepoints, min_node_distance
+export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection
 
 abstract type Direction end
@@ -324,6 +324,21 @@ function min_node_distance(
     end
 
     MPI.Allreduce(locmin, min, topology.mpicomm)
+end
+
+"""
+    get_z(grid, z_scale = 1)
+
+Get the Gauss-Lobatto points along the Z-coordinate.
+
+ - `grid`: DG grid
+ - `z_scale`: multiplies `z-coordinate`
+"""
+function get_z(
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    z_scale = 1,
+) where {T, dim, N}
+    return reshape(grid.vgeo[(1:((N + 1)^2):((N + 1)^3)), _x3, :], :) * z_scale
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
