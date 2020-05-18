@@ -582,11 +582,11 @@ function init_ode_state(
 
     event = Event(device)
     event = MPIStateArrays.begin_ghost_exchange!(
-        state_conservative;
+        state_auxiliary;
         dependencies = event,
     )
     event = MPIStateArrays.end_ghost_exchange!(
-        state_conservative;
+        state_auxiliary;
         dependencies = event,
     )
     wait(device, event)
