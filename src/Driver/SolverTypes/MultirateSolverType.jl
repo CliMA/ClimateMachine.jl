@@ -58,6 +58,7 @@ function solversetup(
         state_auxiliary = dg.state_auxiliary,
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
+        direction = EveryDirection(),
     )
 
     slow_model = RemainderModel(dg.balance_law, (linmodel,))

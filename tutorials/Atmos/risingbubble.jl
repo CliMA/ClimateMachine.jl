@@ -201,13 +201,13 @@ end
 # appropriate to the problem being considered.
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
-    # Choose an Explicit Multi-rate Solver from the existing [ODESolvers](@ref
-    # ODESolvers-docs) options Apply the outer constructor to define the
-    # `ode_solver`. Here `AtmosAcousticGravityLinearModel` splits the
-    # acoustic-gravity wave components from the advection-diffusion dynamics.
-    # The 1D-IMEX method is less appropriate for the problem given the current
-    # mesh aspect ratio (1:1)
+    # Choose an Explicit Multi-rate Solver from the existing [ODESolvers](@ref ODESolvers-docs) options
+    # Apply the outer constructor to define the `ode_solver`. Here
+    # `ClimateMachine.SlowFastSplitting()` splits the acoustic-gravity wave components
+    # from the advection-diffusion dynamics, treating both parts using explicit Runge Kutta methods.
+    # The 1D-IMEX approach is less appropriate for the problem given the current mesh aspect ratio (1:1)
     ode_solver = ClimateMachine.MultirateSolverType(
+        splitting_type = ClimateMachine.SlowFastSplitting(),
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
