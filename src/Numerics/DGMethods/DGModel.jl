@@ -1,7 +1,7 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD, SC, SS}
     balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
@@ -13,6 +13,8 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     direction::D
     diffusion_direction::DD
     modeldata::MD
+    schur_complement::SC
+    states_schur_complement::SS
 end
 
 function DGModel(
@@ -36,9 +38,15 @@ function DGModel(
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
+    schur_complement = nothing,
 )
     state_auxiliary =
         init_state(state_auxiliary, balance_law, grid, Auxiliary())
+    
+    states_schur_complement = create_schur_states(schur_complement,
+                                                  balance_law, 
+                                                  state_auxiliary,
+                                                  grid)
     DGModel(
         balance_law,
         grid,
@@ -51,6 +59,8 @@ function DGModel(
         direction,
         diffusion_direction,
         modeldata,
+        schur_complement,
+        states_schur_complement
     )
 end
 

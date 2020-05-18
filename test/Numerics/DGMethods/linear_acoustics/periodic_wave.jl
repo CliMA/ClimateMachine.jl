@@ -137,6 +137,9 @@ function run(
         CentralNumericalFluxGradient(),
     )
 
+    #schur_complement = nothing
+    schur_complement = AtmosAcousticLinearSchurComplement()
+
     dg_linear = DGModel(
         linear_model,
         grid,
@@ -145,7 +148,11 @@ function run(
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
+        schur_complement = schur_complement
     )
+    
+    #schur_model = AtmosAcousticLinearSchurComplement()
+    #schur_dg = SchurDGModel(schur_model, linear_model, grid, dg_linear.state_auxiliary)
 
     #timeend = FT(0.0001)
     timeend = FT(0.001)
@@ -164,19 +171,19 @@ function run(
 
     Q = init_ode_state(dg, FT(0))
 
+    if isnothing(schur_complement)
+      linearsolver = GeneralizedMinimalResidual(Q; M = 60, rtol = 1e-6)
+    else
+      linearsolver = GeneralizedMinimalResidual(dg_linear.states_schur_complement.state;
+                                                M = 60, rtol = 1e-6)
+    end
 
-    schur_model = AtmosAcousticLinearSchurComplement()
-    schur_dg = SchurDGModel(schur_model, linear_model, grid, dg_linear.state_auxiliary)
-
-    #linearsolver = GeneralizedMinimalResidual(Q; M = 60, rtol = 1e-6)
-    linearsolver = GeneralizedMinimalResidual(schur_dg.schur_state; M = 60, rtol = 1e-6)
-
-    #ode_solver = LSRK54CarpenterKennedy(dg_linear, Q; dt = dt, t0 = 0)
-    #ode_solver = LSRK144NiegemannDiehlBusch(dg_linear, Q; dt = dt, t0 = 0)
+    ode_solver = LSRK54CarpenterKennedy(dg_linear, Q; dt = dt, t0 = 0)
+    ode_solver = LSRK144NiegemannDiehlBusch(dg_linear, Q; dt = dt, t0 = 0)
     ode_solver = BackwardEulerODESolver(dg_linear, Q,
                                         LinearBackwardEulerSolver(linearsolver;
                                                                   isadjustable=true);
-                                        dt = dt, t0 = 0, schur=schur_dg)
+                                        dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     dims == 2 && (numelems = (numelems..., 0))
