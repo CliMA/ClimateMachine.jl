@@ -6,22 +6,26 @@ ARK = AdditiveRungeKutta
 
 """
 """
-struct MultirateSolverType{SS, FS} <: AbstractSolverType
+struct MultirateSolverType{DS, SS, FS} <: AbstractSolverType
+    splitting_type::DS
     linear_model::Type
     slow_method::SS
     fast_method::FS
     timestep_ratio::Int
 
     function MultirateSolverType(;
+        splitting_type = SlowFastSplitting(),
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK54CarpenterKennedy,
         fast_method = LSRK54CarpenterKennedy,
         timestep_ratio = 100,
     )
+        DS = typeof(splitting_type)
         SS = typeof(slow_method)
         FS = typeof(fast_method)
 
-        return new{SS, FS}(
+        return new{DS, SS, FS}(
+            splitting_type,
             linear_model,
             slow_method,
             fast_method,
@@ -33,13 +37,35 @@ end
 """
 """
 function solversetup(
-    ode_solver::MultirateSolverType{SS, FS},
+    ode_solver::MultirateSolverType{DS, SS, FS},
     dg,
     Q,
     dt,
     t0,
     diffusion_direction,
-) where {SS, FS}
+) where {DS, SS, FS}
+    solversetup(
+        ode_solver.splitting_type,
+        ode_solver,
+        dg,
+        Q,
+        dt,
+        t0,
+        diffusion_direction,
+    )
+end
+
+"""
+"""
+function solversetup(
+    ::SlowFastSplitting,
+    ode_solver::MultirateSolverType{DS, SS, FS},
+    dg,
+    Q,
+    dt,
+    t0,
+    diffusion_direction,
+) where {DS, SS, FS}
 
     linmodel = ode_solver.linear_model(dg.balance_law)
     fast_dg = DGModel(
