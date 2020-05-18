@@ -32,10 +32,15 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     FT = eltype(state)
 
     # Set initial state to reference state with random perturbation
-    rnd = FT(1.0 + rand(Uniform(-1e-3, 1e-3)))
+    rnd = FT(1.0)# + rand(Uniform(-1e-3, 1e-3)))
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = rnd * aux.ref_state.ρe
+
+    ρχ = FT(1)                                          # tracer
+    ntracers = 1
+    ρχ = SVector{ntracers, FT}(ρχ)
+    state.tracers.ρχ = ρχ
 
     nothing
 end
@@ -67,6 +72,15 @@ function config_heldsuarez(FT, poly_order, resolution)
     T_ref::FT = 255        # reference temperature for Held-Suarez forcing (K)
     τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
     c_smag::FT = 0.21      # Smagorinsky coefficient
+
+    ntracers = 1
+    δ_χ = SVector{ntracers, FT}(1)
+    
+    ode_solver = ClimateMachine.IMEXSolverType(
+        split_explicit_implicit = true,
+        discrete_splitting = false,
+    )
+
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
@@ -77,6 +91,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
+        tracers = NTracers{ntracers, FT}(δ_χ),
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -87,6 +102,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         param_set,
         init_heldsuarez!;
         model = model,
+        solver_type = ode_solver
     )
 
     return config
@@ -180,13 +196,14 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float32                             # floating type precision
+    FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
     n_days = 120                             # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
+
 
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
