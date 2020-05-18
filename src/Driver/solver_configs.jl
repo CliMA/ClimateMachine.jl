@@ -209,8 +209,27 @@ function SolverConfiguration(
             states_higher_order = dg.states_higher_order,
             direction = VerticalDirection(),
         )
+
+        if ode_solver_type.split_explicit_implicit
+            remainder_kwargs =
+                ode_solver_type.discrete_splitting ? NamedTuple() :
+                (
+                    numerical_flux_first_order = numerical_flux_first_order,
+                    numerical_flux_second_order = numerical_flux_second_order,
+                    numerical_flux_gradient = numerical_flux_gradient,
+                )
+            remdg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
+        end
+
+        #dQ2 = similar(Q)
+        #function rem_dg(dQ, Q, p, t; increment)
+        #    dg(dQ, Q, p, t; increment = increment)
+        #    vdg(dQ2, Q, p, t; increment = false)
+        #    dQ .= dQ .- dQ2
+        #end
+
         solver = ode_solver_type.solver_method(
-            dg,
+            ode_solver_type.split_explicit_implicit ? remdg : dg,
             vdg,
             LinearBackwardEulerSolver(
                 ode_solver_type.linear_solver();
@@ -219,6 +238,7 @@ function SolverConfiguration(
             Q;
             dt = ode_dt,
             t0 = t0,
+            split_explicit_implicit = ode_solver_type.split_explicit_implicit,
         )
     end
 

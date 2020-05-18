@@ -24,13 +24,23 @@ struct IMEXSolverType <: AbstractSolverType
     linear_model::Type
     linear_solver::Type
     solver_method::Function
+    split_explicit_implicit::Bool
+    discrete_splitting::Bool
     function IMEXSolverType(;
         # FIXME: this is Atmos-specific
         linear_model = AtmosAcousticGravityLinearModel,
         linear_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = false,
+        discrete_splitting = true,
     )
-        return new(linear_model, linear_solver, solver_method)
+        return new(
+            linear_model,
+            linear_solver,
+            solver_method,
+            split_explicit_implicit,
+            discrete_splitting,
+        )
     end
 end
 
