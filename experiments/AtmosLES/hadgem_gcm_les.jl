@@ -428,6 +428,7 @@ end
 function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Boundary Conditions
     u_star = FT(0.28)
+    zeroflux = FT(0)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -452,7 +453,11 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
                     (state, aux, t) -> hfls / latent_heat_vapor(param_set,T_sfc),
                 ),
             ),
-            AtmosBC(),
+            AtmosBC(
+                momentum = Impenetrable(FreeSlip()),
+                energy = PrescribedEnergyFlux((state, aux, t) -> zeroflux),
+                moisture = PrescribedMoistureFlux((state, aux, t) -> zeroflux,),
+            ),
         ),
         moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
         init_state_conservative = init_cfsites!,
@@ -502,8 +507,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(2400)
-    ymax = FT(2400)
+    xmax = FT(4800)
+    ymax = FT(4800)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
