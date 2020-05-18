@@ -37,7 +37,8 @@ help = """
 Usage: climaformat.jl [flags] [FILE/PATH]...
 
 Formats the given julia files using the CLIMA formatting options.  If paths
-are given it will format the julia files in the paths.
+are given it will format the julia files in the paths. Otherwise, it will
+format all changed julia files.
 
     -v, --verbose
         Print the name of the files being formatted with relevant details.
@@ -71,9 +72,15 @@ function parse_opts!(args::Vector{String})
 end
 
 opts = parse_opts!(ARGS)
-if isempty(ARGS) || haskey(opts, :help)
+if haskey(opts, :help)
     write(stdout, help)
     exit(0)
 end
+if isempty(ARGS)
+    filenames = readlines(`git diff --name-only --diff-filter=AM HEAD`)
+    filter!(f -> endswith(f, ".jl"), filenames)
+else
+    filenames = ARGS
+end
 
-format(ARGS; clima_formatter_options..., opts...)
+format(filenames; clima_formatter_options..., opts...)
