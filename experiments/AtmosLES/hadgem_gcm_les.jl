@@ -278,7 +278,7 @@ function str2var(str::String, var::Any)
 end
 
 parsed_args = parse_commandline(nothing)
-groupid = parsed_args["group-id"]
+const groupid = parsed_args["group-id"]
 
 # Define the get_gcm_info function
 """
@@ -307,7 +307,6 @@ function get_gcm_info(groupid)
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
     filename = "/home/asridhar/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
-    #filename = "/Users/asridhar/research/codes/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
     req_varnames = (
         "zg",
         "ta",
@@ -465,7 +464,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         timestep_ratio = 12,
     )
     config = ClimateMachine.AtmosLESConfiguration(
-        "HadGEM2-ClimateMachine",
+        "HadGEM2-ClimateMachine-$groupid",
         N,
         resolution,
         xmax,

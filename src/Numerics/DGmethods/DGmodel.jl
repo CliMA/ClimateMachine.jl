@@ -580,6 +580,17 @@ function init_ode_state(
     )
     wait(device, event)
 
+    event = Event(device)
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_conservative;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_conservative;
+        dependencies = event,
+    )
+    wait(device, event)
+
     return state_conservative
 end
 
@@ -587,7 +598,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     bl = dg.balance_law
     grid = dg.grid
 
-    state = create_state(bl, grid)
+    state = create_conservative_state(bl, grid)
     state .= state_data
 
     device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
@@ -595,10 +606,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
     event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)
     wait(device, event)
-
-    MPIStateArrays.start_ghost_exchange!(auxstate)
-    MPIStateArrays.finish_ghost_exchange!(auxstate)
-
+    
     return state
 end
 
@@ -736,6 +744,7 @@ function nodal_update_auxiliary_state!(
 
     nodal_update_auxiliary_state! =
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
+
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive
