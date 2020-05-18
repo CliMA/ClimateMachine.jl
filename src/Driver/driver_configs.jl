@@ -112,7 +112,10 @@ function AtmosLESConfiguration(
     ymin = zero(FT),
     zmin = zero(FT),
     array_type = ClimateMachine.array_type(),
-    solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
+    solver_type = IMEXSolverType(
+        implicit_solver = SingleColumnLU,
+        implicit_solver_adjustable = false,
+    ),
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;

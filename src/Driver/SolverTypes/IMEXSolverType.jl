@@ -3,25 +3,31 @@ export IMEXSolverType
 
 """
 """
-struct IMEXSolverType <: AbstractSolverType
+struct IMEXSolverType{DS, ST} <: AbstractSolverType
+    splitting_type::DS
     linear_model::Type
     linear_solver::Type
     linear_solver_adjustable::Bool
     solver_method::Function
-    solver_storage_variant::Type
+    solver_storage_variant::ST
 
     function IMEXSolverType(;
+        splitting_type = HEVISplitting(),
         linear_model = AtmosAcousticGravityLinearModel,
-        linear_solver = ManyColumnLU,
-        linear_solver_adjustable = false,
+        implicit_solver = ManyColumnLU,
+        implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
         solver_storage_variant = LowStorageVariant(),
     )
 
-        return new(
+        DS = typeof(splitting_type)
+        ST = typeof(solver_storage_variant)
+
+        return new{DS, ST}(
+            splitting_type,
             linear_model,
-            linear_solver,
-            linear_solver_adjustable,
+            implicit_solver,
+            implicit_solver_adjustable,
             solver_method,
             solver_storage_variant,
         )
@@ -31,13 +37,13 @@ end
 """
 """
 function solversetup(
-    ode_solver::IMEXSolverType,
+    ode_solver::IMEXSolverType{DS},
     dg,
     Q,
     dt,
     t0,
     diffusion_direction,
-)
+) where {DS <: HEVISplitting}
 
     vdg = DGModel(
         ode_solver.linear_model(dg.balance_law),
@@ -55,8 +61,8 @@ function solversetup(
         dg,
         vdg,
         LinearBackwardEulerSolver(
-            ode_solver.linear_solver();
-            isadjustable = ode_solver.linear_solver_adjustable,
+            ode_solver.implicit_solver();
+            isadjustable = ode_solver.implicit_solver_adjustable,
         ),
         Q;
         dt = dt,
