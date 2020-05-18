@@ -351,13 +351,19 @@ end
         local_schur_state⁺ = schur_state[vid⁺, 1, e⁺]
 
         bctype = elemtobndy[f, e⁻]
-        if bctype == 0
-            @unroll for d in 1:3
-              local_penalty[d] = normal_vector[d] *
-                (local_schur_state⁺ .- local_schur_state⁻) / 2
-            end
-        else
-          #
+        if bctype != 0
+          schur_gradient_boundary_state!(
+            schur_complement,
+            balance_law,
+            Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁺),
+            normal_vector,
+            Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁻),
+            bctype
+          )
+        end
+        @unroll for d in 1:3
+          local_penalty[d] = normal_vector[d] *
+            (local_schur_state⁺ .- local_schur_state⁻) / 2
         end
 
         @unroll for d in 1:3
@@ -621,36 +627,50 @@ end
         end
 
         bctype = elemtobndy[f, e⁻]
-        if bctype == 0
-            fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
-            schur_lhs_conservative!(
-                schur_complement,
-                balance_law,
-                Grad{schur_vars_state(schur_complement, FT)}(local_flux⁻),
-                Vars{schur_vars_state(schur_complement, FT)}(
-                    local_schur_state⁻,
-                ),
-                Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
-                Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
-                α
-            )
-            
-            fill!(local_flux⁺, -zero(eltype(local_flux⁺)))
-            schur_lhs_conservative!(
-                schur_complement,
-                balance_law,
-                Grad{schur_vars_state(schur_complement, FT)}(local_flux⁺),
-                Vars{schur_vars_state(schur_complement, FT)}(
-                    local_schur_state⁺,
-                ),
-                Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
-                Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
-                α
-            )
-            local_schur_lhs = normal_vector' * SVector(local_flux⁻ + local_flux⁺) / 2
-        else
-          #
+        if bctype != 0
+          schur_lhs_boundary_state!(
+            schur_complement,
+            balance_law,
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state⁺,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
+            normal_vector,
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state⁻,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
+            bctype
+          )
         end
+        fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
+        schur_lhs_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{schur_vars_state(schur_complement, FT)}(local_flux⁻),
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state⁻,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
+            α
+        )
+        
+        fill!(local_flux⁺, -zero(eltype(local_flux⁺)))
+        schur_lhs_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{schur_vars_state(schur_complement, FT)}(local_flux⁺),
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state⁺,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
+            α
+        )
+        local_schur_lhs = normal_vector' * SVector(local_flux⁻ + local_flux⁺) / 2
 
         #Update RHS
         schur_lhs[vid⁻, 1, e⁻] += vMI * sM * local_schur_lhs
@@ -894,34 +914,46 @@ end
         end
 
         bctype = elemtobndy[f, e⁻]
-        if bctype == 0
-            fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
-            schur_rhs_conservative!(
-                schur_complement,
-                balance_law,
-                Grad{schur_vars_state(schur_complement, FT)}(local_flux⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁻,
-                ),
-                Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
-                α
-            )
-            
-            fill!(local_flux⁺, -zero(eltype(local_flux⁺)))
-            schur_rhs_conservative!(
-                schur_complement,
-                balance_law,
-                Grad{schur_vars_state(schur_complement, FT)}(local_flux⁺),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁺,
-                ),
-                Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
-                α
-            )
-            local_schur_rhs= normal_vector' * SVector(local_flux⁻ + local_flux⁺) / 2
-        else
-          #
+        if bctype != 0
+           schur_rhs_boundary_state!(
+             schur_complement,
+             balance_law,
+             Vars{vars_state_conservative(balance_law, FT)}(
+                 local_state_conservative⁺,
+             ),
+             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
+             normal_vector,
+             Vars{vars_state_conservative(balance_law, FT)}(
+                 local_state_conservative⁻,
+             ),
+             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
+             bctype
+           )
         end
+        fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
+        schur_rhs_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{schur_vars_state(schur_complement, FT)}(local_flux⁻),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁻,
+            ),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
+            α
+        )
+        
+        fill!(local_flux⁺, -zero(eltype(local_flux⁺)))
+        schur_rhs_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{schur_vars_state(schur_complement, FT)}(local_flux⁺),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative⁺,
+            ),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
+            α
+        )
+        local_schur_rhs= normal_vector' * SVector(local_flux⁻ + local_flux⁺) / 2
 
         #Update RHS
         schur_rhs[vid⁻, 1, e⁻] += vMI * sM * local_schur_rhs
@@ -1203,34 +1235,49 @@ end
         end
 
         bctype = elemtobndy[f, e⁻]
-        if bctype == 0
-            fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
-            schur_update_conservative!(
-                schur_complement,
-                balance_law,
-                Grad{vars_state_conservative(balance_law, FT)}(local_flux⁻),
-                Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁻),
-                Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
-                Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁻),
-                α
-            )
-            
-            fill!(local_flux⁺, -zero(eltype(local_flux⁺)))
-            schur_update_conservative!(
-                schur_complement,
-                balance_law,
-                Grad{vars_state_conservative(balance_law, FT)}(local_flux⁺),
-                Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁺),
-                Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
-                Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
-                Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁺),
-                α
-            )
-            local_state_lhs .= (local_flux⁻ + local_flux⁺)' * normal_vector / 2
-        else
-          #
+        if bctype != 0
+           schur_update_boundary_state!(
+             schur_complement,
+             balance_law,
+             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁺),
+             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
+             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
+             Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁺),
+             normal_vector,
+             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁻),
+             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
+             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
+             Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁻),
+             bctype,
+           )
         end
+        fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
+        schur_update_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{vars_state_conservative(balance_law, FT)}(local_flux⁻),
+            Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁻),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
+            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁻),
+            α
+        )
+        
+        fill!(local_flux⁺, -zero(eltype(local_flux⁺)))
+        schur_update_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{vars_state_conservative(balance_law, FT)}(local_flux⁺),
+            Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁺),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
+            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁺),
+            α
+        )
+        local_state_lhs .= (local_flux⁻ + local_flux⁺)' * normal_vector / 2
+        
+        
+        
 
         #Update RHS
         @unroll for s in 1:num_state_conservative
