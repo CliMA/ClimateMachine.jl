@@ -22,6 +22,7 @@ include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGmethods", "Courant.jl"))
 include(joinpath("Numerics", "DGmethods", "DGmethods.jl"))
+include(joinpath("Utilities", "SingleStackUtils", "SingleStackUtils.jl"))
 include(joinpath("Ocean", "ShallowWater", "ShallowWaterModel.jl"))
 include(joinpath(
     "Ocean",
