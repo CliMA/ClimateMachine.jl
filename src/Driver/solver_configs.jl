@@ -211,6 +211,8 @@ function SolverConfiguration(
             numerical_flux_second_order,
             numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = VerticalDirection(),
         )
 
@@ -222,6 +224,8 @@ function SolverConfiguration(
             numerical_flux_second_order,
             numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             direction = HorizontalDirection(),
         )
 
@@ -234,6 +238,8 @@ function SolverConfiguration(
             numerical_flux_second_order,
             numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
+            state_gradient_flux = dg.state_gradient_flux,
+            states_higher_order = dg.states_higher_order,
             diffusion_direction = diffdir,
         )
 
