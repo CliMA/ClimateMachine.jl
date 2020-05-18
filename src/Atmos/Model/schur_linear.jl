@@ -8,7 +8,11 @@ import CLIMA.DGmethods: SchurComplement,
                         schur_rhs_conservative!,
                         schur_rhs_nonconservative!,
                         schur_update_conservative!,
-                        schur_update_nonconservative!
+                        schur_update_nonconservative!,
+                        schur_lhs_boundary_state!,
+                        schur_gradient_boundary_state!,
+                        schur_update_boundary_state!,
+                        schur_rhs_boundary_state!
 
 using CLIMAParameters.Planet: kappa_d
 
@@ -52,7 +56,28 @@ function schur_lhs_nonconservative!(::AtmosAcousticLinearSchurComplement,
   Δp = -R_d(param_set) * T_0(param_set) / (γ - 1)
   lhs_state.p = p / ((γ - 1) * α * (h0 - Δp)) - α * ∇h0' / h0 * ∇p
 end
+function schur_gradient_boundary_state!(::AtmosAcousticLinearSchurComplement, 
+                                   balance_law,
+                                   schur_state⁺, n,
+                                   schur_state⁻, bctype
+                                  )
+  nothing
+end
+function schur_lhs_boundary_state!(::AtmosAcousticLinearSchurComplement, 
+                                   balance_law,
+                                   schur_state⁺, schur_grad⁺, schur_aux⁺, n,
+                                   schur_state⁻, schur_grad⁻, schur_aux⁻, bctype
+                                  )
+  schur_grad⁺.∇p = schur_grad⁻.∇p - 2 * dot(schur_grad⁻.∇p, n) * n
+end
 
+function schur_rhs_boundary_state!(::AtmosAcousticLinearSchurComplement, 
+                                   balance_law,
+                                   state⁺, schur_aux⁺, n,
+                                   state⁻, schur_aux⁻, bctype
+                                  )
+  state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) * n
+end
 function schur_rhs_conservative!(::AtmosAcousticLinearSchurComplement, 
                                  balance_law,
                                  rhs_flux, state, schur_aux, α)
@@ -91,4 +116,13 @@ function schur_update_nonconservative!(::AtmosAcousticLinearSchurComplement,
   lhs_state.ρ = state_rhs.ρ
   lhs_state.ρu = state_rhs.ρu
   lhs_state.ρe = state_rhs.ρe
+end
+
+function schur_update_boundary_state!(::AtmosAcousticLinearSchurComplement, 
+                                   balance_law,
+                                   schur_state⁺, schur_grad⁺, schur_aux⁺, state_rhs⁺, n,
+                                   schur_state⁻, schur_grad⁻, schur_aux⁻, state_rhs⁻, bctype
+                                  )
+  schur_grad⁺.∇p = schur_grad⁻.∇p - 2 * dot(schur_grad⁻.∇p, n) * n
+  state_rhs⁺.ρu = state_rhs⁻.ρu - 2 * dot(state_rhs⁻.ρu, n) * n
 end

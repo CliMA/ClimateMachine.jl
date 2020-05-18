@@ -21,6 +21,11 @@ function schur_rhs_nonconservative! end
 function schur_update_conservative! end
 function schur_update_nonconservative! end
 
+function schur_lhs_boundary_state! end
+function schur_gradient_boundary_state! end
+function schur_update_boundary_state! end
+function schur_rhs_boundary_state! end
+
 create_schur_states(::Nothing, _...) = nothing
 function create_schur_states(schur_complement::SchurComplement,
                              balance_law::BalanceLaw,
