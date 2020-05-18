@@ -141,7 +141,6 @@ function run(
 end
 
 let
-    Random.seed!(44)
     ClimateMachine.init()
     ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
