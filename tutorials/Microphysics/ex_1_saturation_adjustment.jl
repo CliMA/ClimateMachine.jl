@@ -210,19 +210,27 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     # output for paraview
+
+    # initialize base prefix directory from rank 0
+    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    if MPI.Comm_rank(mpicomm) == 0
+        mkpath(vtkdir)
+    end
+    MPI.Barrier(mpicomm)
+
     model = driver_config.bl
     step = [0]
     cbvtk =
         GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
-            mkpath("vtk/")
-            outprefix = @sprintf(
-                "vtk/new_ex_1_mpirank%04d_step%04d",
+            out_dirname = @sprintf(
+                "new_ex_1_mpirank%04d_step%04d",
                 MPI.Comm_rank(mpicomm),
                 step[1]
             )
-            @info "doing VTK output" outprefix
+            out_path_prefix = joinpath(vtkdir, out_dirname)
+            @info "doing VTK output" out_path_prefix
             writevtk(
-                outprefix,
+                out_path_prefix,
                 solver_config.Q,
                 solver_config.dg,
                 flattenednames(vars_state_conservative(model, FT)),
