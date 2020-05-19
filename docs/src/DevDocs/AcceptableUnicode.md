@@ -1,12 +1,11 @@
 # Acceptable Unicode characters
 
-Using Unicode seems to be irresistible. However, we
-must ensure avoiding problematic Unicode usage.
+Using Unicode seems to be irresistible. However, we must ensure avoiding
+problematic Unicode usage.
 
-Below is a list of acceptable Unicode characters.
-**All characters not listed below are forbidden**. We
-forbid the use of accents (dot, hat, vec, etc.), because
-this can lead to visually ambiguous characters.
+Below is a list of acceptable Unicode characters.  **All characters not
+listed below are forbidden**. We forbid the use of accents (dot, hat, vec,
+etc.), because this can lead to visually ambiguous characters.
 
 ## Acceptable lower-case Greek letters
 
