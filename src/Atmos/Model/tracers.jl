@@ -99,6 +99,16 @@ function compute_gradient_argument!(
 )
     nothing
 end
+function wavespeed_tracers!(
+    ::TracerModel,
+    wavespeed::Vars,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    nothing
+end
 
 # ### [NoTracers](@id no-tracers)
 # The default tracer type in both the LES and GCM configurations is the
@@ -197,4 +207,22 @@ function flux_second_order!(
 end
 function flux_second_order!(tr::NTracers, flux::Grad, state::Vars, d_χ)
     flux.tracers.ρχ += d_χ * state.ρ
+end
+
+function wavespeed_tracers!(
+    tr::NTracers{N, FT},
+    wavespeed::Vars,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) where {N, FT}
+
+    ρinv = 1 / state.ρ
+    u = ρinv * state.ρu
+    uN = abs(dot(nM, u))
+
+    wavespeed.tracers.ρχ = fill(uN, SVector{N, FT})
+
+    return nothing
 end
