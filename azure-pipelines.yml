@@ -30,9 +30,13 @@ jobs:
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
-      ./julia-$(JULIA_VERSION)/bin/julia -e 'using Test; @testset "system image" begin; @test include(joinpath(".dev", "systemimage", "climate_machine_image.jl")); end;'
     displayName: 'Run the tests'
     continueOnError: true
+  - bash: |
+      set -o xtrace
+      ./julia-$(JULIA_VERSION)/bin/julia -e 'include(joinpath(".dev", "systemimage", "climate_machine_image.jl"))'
+    displayName: 'Build System Image'
+
 
 - job: macOS
 
@@ -59,11 +63,13 @@ jobs:
       ./julia-$(JULIA_VERSION)/bin/julia -e 'using InteractiveUtils; versioninfo()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       ./julia-$(JULIA_VERSION)/bin/julia --project=@. -e 'using Pkg; Pkg.test()'
-      ./julia-$(JULIA_VERSION)/bin/julia -e 'using Test; @testset "system image" begin; @test include(joinpath(".dev", "systemimage", "climate_machine_image.jl")); end;'
-
     env:
       MPICH_INTERFACE_HOSTNAME: localhost
     displayName: 'Run the tests'
+  - bash: |
+      set -o xtrace
+      ./julia-$(JULIA_VERSION)/bin/julia -e 'include(joinpath(".dev", "systemimage", "climate_machine_image.jl"))'
+    displayName: 'Build System Image'
 
 
 - job: Windows
@@ -91,5 +97,8 @@ jobs:
       C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'using InteractiveUtils; versioninfo()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.instantiate()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.test()'
-      C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'using Test; @testset "system image" begin; @test include(joinpath(".dev", "systemimage", "climate_machine_image.jl")); end;'
     displayName: 'Run the tests'
+  - powershell: |
+      Set-PSDebug -Trace 1
+      C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'include(joinpath(".dev", "systemimage", "climate_machine_image.jl"))'
+    displayName: 'Build System Image'
