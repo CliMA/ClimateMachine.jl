@@ -84,7 +84,6 @@ This document contains the diagnostic variables in CliMA.
 - based on [this issue](https://github.com/CliMA/ClimateMachine.jl/issues/214)
 
 ### 2D fields (dependent on latitude and vertical coordinates)
-
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | stream_euler | Eulerian meridional streamfunction                                       |
@@ -130,33 +129,31 @@ This document contains the diagnostic variables in CliMA.
 | power\_spec_eke  | eddy kinetic energy power spectrum                                   |
 
 ## GCM: Moist aquaplanet (additional to Held-Suarez)
-| short name | description                                                                |
-|:-----------|:---------------------------------------------------------------------------|
 
 ### 2D fields (dependent on horizontal coordinates)                                        
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| toa\_sw\_do    | Top of atmosphere (TOA) downwelling shortwave flux                     |
+| toa\_sw\_do    | top of atmosphere (TOA) downwelling shortwave flux                     |
 | toa\_sw_up     | TOA Upwelling shortwave flux                                           |
 | toa\_lw\_up    | TOA Upwelling longwave flux                                            |
-| toa\_sw\_sfc   | Up- and downwelling shortwave flux at surface                          |
-| toa\_lw\_sfc   | Up- and downwelling longwave flux at surface                           |
-| sensible\_sfc  | Sensible heat flux at surface                                          |
-| latent\_sfc    | Latent heat flux at surface                                            |
-| T\_sfc         | Surface air temperature                                                |
-| rain\_sfc      | Rain rate at surface                                                   |
-| sno\w\_sfc     | Snow rate at surface                                                   |
-| xx             | (Later: sea ice cover, leaf temperature, soil temperature, ...)        |
+| toa\_sw\_sfc   | up- and downwelling shortwave flux at surface                          |
+| toa\_lw\_sfc   | up- and downwelling longwave flux at surface                           |
+| sensible\_sfc  | sensible heat flux at surface                                          |
+| latent\_sfc    | latent heat flux at surface                                            |
+| T\_sfc         | surface air temperature                                                |
+| rain\_sfc      | rain rate at surface                                                   |
+| snow\_sfc      | snow rate at surface                                                   |
+
 
 ### 3D fields (dependent on horizontal and vertical coordinates)                            
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | ql           | liquid water specific humidity                                           |
-| qv           | water vapor specific humidity                                            |
+| qv           | water vapour specific humidity                                            |
 | qi           | ice specific humidity                                                    |
-| rh           | Relative humidity                                                        |
-| cld\_frac    | Cloud fraction                                                           |
-| thv          | Virtual potential temperature                                            |
+| rh           | relative humidity                                                        |
+| cld\_frac    | cloud fraction                                                           |
+| thv          | virtual potential temperature                                            |
 | thl          | liquid-ice potential temperature                                         |
 | ht           | total specific enthalpy                                                  |
 | hm           | specific enthalpy                                                        |
@@ -165,7 +162,12 @@ This document contains the diagnostic variables in CliMA.
 ### More complex diagnostics, e.g. extremes
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| rain_thres    | Frequency with which a given rain rate threshold at the surface is exceeded   |
-| temp_thres    | Frequency with which a given temperature threshold at the surface is exceeded |
+| rain_thres    | frequency with which a given rain rate threshold at the surface is exceeded   |
+| temp_thres    | frequency with which a given temperature threshold at the surface is exceeded |
 | track_loc     | frequency of tracked features (e.g. cyclones, blocking)                       |
 | track_int     | intensity of tracked features (e.g. cyclones, blocking)                       |
+
+## full GCM
+| short name | description                                                                |
+|:-----------|:---------------------------------------------------------------------------|
+| xx             | (Later: sea ice cover, leaf temperature, soil temperature, ...)        |
