@@ -5,7 +5,7 @@ using ClimateMachine.Mesh.Topologies:
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, VerticalDirection
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.DGmethods: DGModel, init_ode_state
+using ClimateMachine.DGmethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -148,6 +148,8 @@ function run(
         state_auxiliary = dg.state_auxiliary,
     )
 
+    remdg = remainder_DGModel(dg, (lineardg,))
+
     # determine the time step
     element_size = (setup.domain_height / numelem_vert)
     acoustic_speed = soundspeed_air(model.param_set, FT(setup.T_ref))
@@ -162,13 +164,13 @@ function run(
     linearsolver = ManyColumnLU()
 
     odesolver = ARK2GiraldoKellyConstantinescu(
-        dg,
+        remdg,
         lineardg,
         LinearBackwardEulerSolver(linearsolver; isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_explicit_implicit = false,
+        split_explicit_implicit = true,
     )
 
     filterorder = 18
