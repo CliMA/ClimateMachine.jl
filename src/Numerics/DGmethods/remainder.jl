@@ -86,10 +86,24 @@ function remainder_DGModel(
     # If any of these asserts fail, the remainder model will need to be extended
     # to allow for it; see `flux_first_order!` and `source!` below.
     for subdg in subsdg
-        @assert number_state_conservative(subdg.balance_law, FT) ==
+        @assert number_state_conservative(subdg.balance_law, FT) ≤
                 number_state_conservative(maindg.balance_law, FT)
         @assert number_state_auxiliary(subdg.balance_law, FT) ==
                 number_state_auxiliary(maindg.balance_law, FT)
+
+
+        # This checks that the sub model and full model share the same
+        # indexing for the state variables.
+        v_m = vars_state_conservative(maindg.balance_law, FT)
+        v_s = vars_state_conservative(subdg.balance_law, FT)
+        for name in fieldnames(v_s)
+            @assert varsindex(v_s, name) === varsindex(v_m, name)
+            #  FIXME: Check that recursive vars are a subset as well.  The check
+            #  here that they are equal is over restrictive.
+            if fieldtype(v_s, name) isa NamedTuple
+                @assert getfield(v_s, name) === getfield(v_m, name)
+            end
+        end
 
         @assert number_state_gradient(subdg.balance_law, FT) == 0
         @assert number_state_gradient_flux(subdg.balance_law, FT) == 0
@@ -237,15 +251,17 @@ function flux_first_order!(
         )
     end
 
-    flux_s = similar(flux)
-    m_s = getfield(flux_s, :array)
 
     # Force the loop to unroll to get type stability on the GPU
     @inbounds ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
         @inbounds if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
+            FT = eltype(m)
+            num_state_conservative_s = number_state_conservative(sub, FT)
+            m_s = MArray{Tuple{3, num_state_conservative_s}, FT}(undef)
             fill!(m_s, -zero(eltype(m_s)))
+            flux_s = Grad{vars_state_conservative(sub, FT)}(m_s)
             flux_first_order!(
                 sub,
                 flux_s,
@@ -254,7 +270,7 @@ function flux_first_order!(
                 t,
                 (rem_balance_law.subsdir[k],),
             )
-            m .-= m_s
+            m[:, 1:num_state_conservative_s] .-= m_s
         end
     end
     nothing
@@ -303,9 +319,6 @@ function source!(
         )
     end
 
-    source_s = similar(source)
-    m_s = getfield(source_s, :array)
-
     # Force the loop to unroll to get type stability on the GPU
     ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
@@ -313,7 +326,11 @@ function source!(
                      rem_balance_law.subsdir[k] isa EveryDirection ||
                      rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
+            FT = eltype(m)
+            num_state_conservative_s = number_state_conservative(sub, FT)
+            m_s = similar(m, num_state_conservative_s)
             fill!(m_s, -zero(eltype(m_s)))
+            source_s = Vars{vars_state_conservative(sub, FT)}(m_s)
             source!(
                 sub,
                 source_s,
@@ -323,7 +340,7 @@ function source!(
                 t,
                 (rem_balance_law.subsdir[k],),
             )
-            m .-= m_s
+            m[1:num_state_conservative_s] .-= m_s
         end
     end
     nothing
@@ -350,7 +367,7 @@ function wavespeed(
     t::Real,
     ::Dirs,
 ) where {ND, Dirs <: NTuple{ND, Direction}}
-    rem_wavespeed = if rem_balance_law.maindir isa Union{Dirs.types...}
+    rem_c = if rem_balance_law.maindir isa Union{Dirs.types...}
         wavespeed(
             rem_balance_law.main,
             nM,
@@ -363,6 +380,11 @@ function wavespeed(
         -zero(eltype(state))
     end
 
+    # Make the remainder balance law wavespeed a vector
+    rem_wavespeed = similar(getfield(state, :array))
+    fill!(rem_wavespeed, -zero(eltype(rem_wavespeed)))
+    rem_wavespeed .= rem_c
+
     ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
         @inbounds if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
@@ -373,7 +395,9 @@ function wavespeed(
                 wavespeed(sub, nM, state, aux, t, (rem_balance_law.subsdir[k],))
 
             # subtract sub_wavespeed from the main wavespeed
-            rem_wavespeed -= sub_wavespeed
+            FT = eltype(rem_wavespeed)
+            num_state_conservative_s = number_state_conservative(sub, FT)
+            rem_wavespeed[1:num_state_conservative_s] .-= sub_wavespeed
         end
     end
     return rem_wavespeed
