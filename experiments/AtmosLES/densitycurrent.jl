@@ -230,7 +230,7 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
         param_set; #Parameter set corresponding to earth parameters
-	turbulence = SmagorinskyLilly(_C_smag),#DynamicSubgridStabilization(),       # Turbulence closure model
+	turbulence = DynamicSubgridStabilization(),       # Turbulence closure model
         #hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
         moisture = DryModel(),
 	source = (Gravity(),),                       # Gravity is the only source term here

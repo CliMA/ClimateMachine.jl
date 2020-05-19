@@ -1,5 +1,12 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
+using ..Mesh.Geometry
+
+# {{{ FIXME: remove this after we've figure out how to pass through to kernel
+const _ξ1x1, _ξ2x1, _ξ3x1 = Grids._ξ1x1, Grids._ξ2x1, Grids._ξ3x1
+const _ξ1x2, _ξ2x2, _ξ3x2 = Grids._ξ1x2, Grids._ξ2x2, Grids._ξ3x2
+const _ξ1x3, _ξ2x3, _ξ3x3 = Grids._ξ1x3, Grids._ξ2x3, Grids._ξ3x3
+const _M, _MI = Grids._M, Grids._MI
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     balance_law::BL
@@ -934,26 +941,42 @@ function dynsgs!(
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
     
     μ_dynsgs = similar(Q.data, Nq^dim, number_state_conservative(m,FT), nrealelem)
-    
-    event = Event(device)
-    event = knl_dynsgs!(device, (Nq, Nqk))(
-        m,
-        Val(dim),
-        Val(N),
-        Q.data,
-        state_auxiliary.data,
-        dQdt.data,
-        elems, 
-        nvertelem,
-        nhorzelem,
-        grid.vgeo,
-        μ_dynsgs;
-        ndrange = (length(horzelems) * Nq, Nqk),
-        dependencies = (event,),
-    )
-    wait(device, event)
-    loc_μ = maximum(μ_dynsgs)
-    temp_μ = MPI.Allreduce(loc_μ, max, topology.mpicomm)
+   vgeo = grid.vgeo
+   localQ = Q.data
+   S = zero(FT)
+    Q_ave = similar(Q.data, number_state_conservative(m,FT))
+    fill!(Q_ave, zero(FT))
+    @info size(vgeo)
+    for e in 1:nrealelem
+      for ijk in 1:Nq^dim
+        M = vgeo[ijk,_M,e]
+	S += M
+	for s in 1:number_state_conservative(m,FT)
+	  Q_ave[s] += M * localQ[ijk,s,e]
+	end
+      end
+    end
+    Q_ave = Q_ave ./ S
+    l_δ̅ = similar(Q.data, Nq^dim, number_state_conservative(m,FT), nrealelem)
+    fill!(l_δ̅, zero(FT))
+    for e in 1:nrealelem
+      for ijk in 1:Nq^dim
+        for s in 1:number_state_conservative(m,FT)
+          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s]
+        end
+      end
+    end
+   rhs = dQdt.data
+   l_rhs_m = similar(Q.data, number_state_conservative(m,FT), 1)
+   l_δ̅_m = similar(Q.data, number_state_conservative(m,FT), 1)
+   for s in 1:number_state_conservative(m,FT)
+       l_rhs_m[s] = maximum(abs(rhs[:,s,:]))
+       l_δ̅_m[s] = maximum(abs(l_δ̅[:,s,:]))
+       l_rhs_m[s] = MPI.Allreduce(l_rhs_m[s], max, topology.mpicomm)
+       l_δ̅_m[s] = MPI.Allreduce(l_δ̅[s], max, topology.mpicomm)
+   end
+   μ = l_rhs_m[s] ./ (l_δ̅_m[s] + eps(FT))
+   temp_μ = maximum(μ)
     state_auxiliary.data[:,end,:] .= temp_μ
     nothing
 end
