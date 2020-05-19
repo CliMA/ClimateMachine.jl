@@ -54,7 +54,7 @@ struct HEVISplitting <: DiscreteSplittingType end
         diffusion_direction,
     )
 
-TODO: Fill out
+A function which returns a configured ODE solver.
 """
 solversetup(
     ode_solver::AbstractSolverType,
