@@ -375,8 +375,8 @@ function main()
     N = 3
 
     # Domain resolution and size
-    Δh = FT(2)
-    Δv = FT(2)
+    Δh = FT(2.0)
+    Δv = FT(2.0)
     resolution = (Δh, Δh, Δv)
 
     xmax = FT(500)
