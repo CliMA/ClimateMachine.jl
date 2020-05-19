@@ -2,6 +2,7 @@
 export MISSolverType
 
 """
+# Description
     MISSolverType(;
         splitting_type = SlowFastSplitting(),
         linear_model = AtmosAcousticGravityLinearModel,
@@ -39,7 +40,8 @@ fast and slow dynamics respectively, depending on the state `Q`.
 
 ### References
     @article{KnothWensch2014,
-        title={Generalized split-explicit Runge--Kutta methods for the compressible Euler equations},
+        title={Generalized split-explicit Runge--Kutta methods for
+            the compressible Euler equations},
         author={Knoth, Oswald and Wensch, Joerg},
         journal={Monthly Weather Review},
         volume={142},
@@ -80,6 +82,22 @@ struct MISSolverType{DS} <: AbstractSolverType
     end
 end
 
+"""
+# Description
+    function solversetup(
+        ode_solver::MISSolverType{DS},
+        dg,
+        Q,
+        dt,
+        t0,
+        diffusion_direction,
+    ) where {DS <: SlowFastSplitting}
+
+Creates an ODE solver for the partition slow-fast ODE
+using an MIS method with explicit time-integration.
+The splitting of the fast (acoustic and gravity waves)
+dynamics is done in _all_ spatial directions.
+"""
 function solversetup(
     ode_solver::MISSolverType{DS},
     dg,

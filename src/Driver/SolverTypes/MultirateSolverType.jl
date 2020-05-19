@@ -2,14 +2,81 @@
 export MultirateSolverType
 
 """
+# Description
+    MultirateSolverType(;
+        splitting_type = SlowFastSplitting(),
+        linear_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = ManyColumnLU,
+        implicit_solver_adjustable = false,
+        slow_method = LSRK54CarpenterKennedy,
+        fast_method = LSRK54CarpenterKennedy,
+        timestep_ratio = 100,
+    )
+
+This solver type constructs an ODE solver using a standard multirate
+Runge-Kutta implementation. This solver computes solutions to ODEs with
+the partitioned form:
+
+```math
+    \\dot{Q} = f_fast(Q, t) + f_slow(Q, t)
+```
+
+where the right-hand-side functions `f_fast` and `f_slow` denote
+fast and slow dynamics respectively, depending on the state `Q`.
+
+# Arguments
+- `splitting_type` (DiscreteSplittingType): The type of discrete
+    splitting to apply to the right-hand side.
+    Default: `SlowFastSplitting()`
+- `linear_model` (Type): The linear model describing fast dynamics.
+    Default: `AtmosAcousticGravityLinearModel`
+- `implicit_solver` (Type): A linear solver for inverting the
+    implicit system of equations (if using `HEVISplitting()`).
+    Default: `ManyColumnLU`
+- `implicit_solver_adjustable` (Bool): A flag identifying whether
+    or not the `implicit_solver` can be updated as the time-step
+    size changes. This is particularly important when using
+    an implicit solver within a multirate scheme.
+    Default: `false`
+- `slow_method` (Function): Function defining the particular explicit
+    Runge-Kutta method to be used for the slow processes.
+    Default: `LSRK54CarpenterKennedy`
+- `fast_method` (Function): Function defining the fast solver.
+    Depending on the choice of `splitting_type`, this can be
+    an explicit Runge Kutta method or a 1-D IMEX (additive Runge-Kutta)
+    method.
+    Default: `LSRK54CarpenterKennedy`
+- `timestep_ratio` (Int): Integer denoting the ratio between the slow
+    and fast time-step sizes.
+    Default: `100`
+
+### References
+    @article{SchlegelKnothArnoldWolke2012,
+        title={Implementation of multirate time integration methods for air
+            pollution modelling},
+        author={Schlegel, M and Knoth, O and Arnold, M and Wolke, R},
+        journal={Geoscientific Model Development},
+        volume={5},
+        number={6},
+        pages={1395--1405},
+        year={2012},
+        publisher={Copernicus GmbH}
+    }
 """
 struct MultirateSolverType{DS} <: AbstractSolverType
+    # The type of discrete splitting to apply to the right-hand side
     splitting_type::DS
+    # Linear model describing fast dynamics
     linear_model::Type
+    # Choice of implicit solver
     implicit_solver::Type
+    # Can the implicit solver be updated with changing dt?
     implicit_solver_adjustable::Bool
+    # RK method for evaluating the slow processes
     slow_method::Function
+    # RK method for evaluating the fast processes
     fast_method::Function
+    # The ratio between slow and fast time-step sizes
     timestep_ratio::Int
 
     function MultirateSolverType(;
@@ -37,6 +104,49 @@ struct MultirateSolverType{DS} <: AbstractSolverType
 end
 
 """
+# Description
+    function solversetup(
+        ode_solver::MultirateSolverType{DS},
+        dg,
+        Q,
+        dt,
+        t0,
+        diffusion_direction,
+    ) where {DS <: SlowFastSplitting}
+
+Creates an ODE solver for the partition slow-fast ODE
+using a multirate method with explicit time-integration.
+The splitting of the fast (acoustic and gravity waves)
+dynamics is done in _all_ spatial directions. Examples
+of a similar implementations include the following
+references.
+
+### References
+    @article{SchlegelKnothArnoldWolke2012,
+        title={Implementation of multirate time integration methods for air
+            pollution modelling},
+        author={Schlegel, M and Knoth, O and Arnold, M and Wolke, R},
+        journal={Geoscientific Model Development},
+        volume={5},
+        number={6},
+        pages={1395--1405},
+        year={2012},
+        publisher={Copernicus GmbH}
+    }
+
+    @article{Schlegel_2009,
+        doi = {10.1016/j.cam.2008.08.009},
+        url = {https://doi.org/10.1016%2Fj.cam.2008.08.009},
+        year = {2009},
+        month = {apr},
+        publisher = {Elsevier {BV}},
+        volume = {226},
+        number = {2},
+        pages = {345--357},
+        author = {Martin Schlegel and Oswald Knoth and Martin Arnold and Ralf Wolke},
+        title = {Multirate Runge{\textendash}Kutta schemes for advection equations},
+        journal = {Journal of Computational and Applied Mathematics}
+    }
 """
 function solversetup(
     ode_solver::MultirateSolverType{DS},
@@ -47,8 +157,10 @@ function solversetup(
     diffusion_direction,
 ) where {DS <: SlowFastSplitting}
 
+    # Extract linear model and define a DG model
+    # for the fast processes (acoustic/gravity waves
+    # in all spatial directions)
     linmodel = ode_solver.linear_model(dg.balance_law)
-
     fast_dg = DGModel(
         linmodel,
         dg.grid,
@@ -61,8 +173,10 @@ function solversetup(
         direction = EveryDirection(),
     )
 
+    # Using the RemainderModel, we subtract away the
+    # fast processes and define a DG model for the
+    # slower processes (advection and diffusion)
     slow_model = RemainderModel(dg.balance_law, (linmodel,))
-
     slow_dg = DGModel(
         slow_model,
         dg.grid,
@@ -72,6 +186,8 @@ function solversetup(
         state_auxiliary = dg.state_auxiliary,
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
+        # Ensure diffusion direction is passed to the correct
+        # DG model
         diffusion_direction = diffusion_direction,
     )
 
@@ -88,6 +204,58 @@ function solversetup(
 end
 
 """
+# Description
+    solversetup(
+        ode_solver::MultirateSolverType{DS},
+        dg,
+        Q,
+        dt,
+        t0,
+        diffusion_direction,
+    ) where {DS <: HEVISplitting}
+
+Creates an ODE solver for the partition slow-fast ODE
+using a multirate method with HEVI time-integration.
+The splitting of the fast (acoustic and gravity waves)
+dynamics is performed by splitting the fast model
+into horizontal and vertical directions. All horizontal
+acoustic waves are treated explicitly, while the 1-D
+vertical problem is treated implicitly. The HEVI-splitting
+of the acoustic waves is handled using an IMEX additive
+Runge-Kutta method in the fast (inner-most) solver.
+
+Examples of similar multirate-HEVI approaches include
+the following references.
+
+### References
+    @article{doms2011description,
+        title={A Description of the Nonhydrostatic Regional COSMO model.
+            Part I: Dynamics and Numerics},
+        author={Doms, G{\"u}nther and Baldauf, M},
+        journal={Deutscher Wetterdienst, Offenbach},
+        year={2011}
+    }
+
+    @article{Tomita_2008,
+        doi = {10.1137/070692273},
+        url = {https://doi.org/10.1137%2F070692273},
+        year = 2008,
+        month = {jan},
+        publisher = {Society for Industrial {\&} Applied Mathematics ({SIAM})},
+        volume = {30},
+        number = {6},
+        pages = {2755--2776},
+        author = {Hirofumi Tomita and Koji Goto and Masaki Satoh},
+        title = {A New Approach to Atmospheric General Circulation Model:
+            Global Cloud Resolving Model {NICAM} and its Computational Performance},
+        journal = {{SIAM} Journal on Scientific Computing}
+    }
+
+# Comments:
+Currently, the only HEVI-type splitting ClimateMachine can currently
+do only involves splitting the acoustic processes; it is not currently
+possible to perform more fine-grained separation of tendencies
+(for example, including vertical advection or diffusion in the 1-D implicit problem)
 """
 function solversetup(
     ode_solver::MultirateSolverType{DS},
@@ -98,8 +266,11 @@ function solversetup(
     diffusion_direction,
 ) where {DS <: HEVISplitting}
 
+    # Extract linear model and define a DG model
+    # for the fast processes
     linmodel = ode_solver.linear_model(dg.balance_law)
 
+    # Full DG model for the acoustic waves in all directions
     acoustic_dg_full = DGModel(
         linmodel,
         dg.grid,
@@ -112,6 +283,7 @@ function solversetup(
         direction = EveryDirection(),
     )
 
+    # DG model for the vertical acoustic waves only
     acoustic_dg_vert = DGModel(
         linmodel,
         dg.grid,
@@ -124,8 +296,11 @@ function solversetup(
         direction = VerticalDirection(),
     )
 
+    # Compute fast time-step size from target ratio
     fast_dt = dt / ode_solver.timestep_ratio
 
+    # Fast solver for the acoustic/gravity waves using
+    # a HEVI-type splitting and a 1-D IMEX method
     fast_solver = ode_solver.fast_method(
         acoustic_dg_full,
         acoustic_dg_vert,
@@ -136,12 +311,18 @@ function solversetup(
         Q;
         dt = fast_dt,
         t0 = t0,
+        # NOTE: This needs to be `false` since the ARK method will
+        # evaluate the explicit part using the RemainderModel
+        # (Difference between acoustic_dg_full and acoustic_dg_vert)
         split_explicit_implicit = false,
+        # NOTE: Do we want to support more variants?
         variant = LowStorageVariant(),
     )
 
+    # Finally, we subtract away the
+    # fast processes and define a DG model for the
+    # slower processes (advection and diffusion)
     slow_model = RemainderModel(dg.balance_law, (linmodel,))
-
     slow_dg = DGModel(
         slow_model,
         dg.grid,
@@ -151,6 +332,8 @@ function solversetup(
         state_auxiliary = dg.state_auxiliary,
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
+        # Ensure diffusion direction is passed to the correct
+        # DG model
         diffusion_direction = diffusion_direction,
     )
 
