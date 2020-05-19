@@ -230,6 +230,7 @@ function numerical_flux_first_order!(
         state_conservative⁻,
         state_auxiliary⁻,
         t,
+        direction,
     )
     wavespeed⁺ = wavespeed(
         balance_law,
@@ -237,6 +238,7 @@ function numerical_flux_first_order!(
         state_conservative⁺,
         state_auxiliary⁺,
         t,
+        direction,
     )
     max_wavespeed = max(wavespeed⁻, wavespeed⁺)
     penalty =

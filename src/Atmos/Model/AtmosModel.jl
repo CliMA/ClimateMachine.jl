@@ -487,7 +487,14 @@ end
     flux.ρe += d_h_tot * state.ρ
 end
 
-@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+@inline function wavespeed(
+    m::AtmosModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
     return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
