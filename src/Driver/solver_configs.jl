@@ -2,7 +2,7 @@
 #
 # Contains helper functions to establish solver configurations to be
 # used with the ClimateMachine driver.
-
+using ClimateMachine.DGmethods
 """
     ClimateMachine.SolverConfiguration
 
@@ -133,8 +133,14 @@ function SolverConfiguration(
 
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+	Nq = polynomialorder(dg.grid)
+	dim = dimensionality(dg.grid)
+	topology = dg.grid.topology
+	nrealelem = length(topology.realelems)
+	dQdt = create_conservative_state(dg.balance_law,dg.grid)
+        fill!(dQdt.data, zero(FT))
     end
-    update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+    update_auxiliary_state!(dg, bl, Q, dQdt,FT(0), dg.grid.topology.realelems)
 
     # create the linear model for IMEX and Multirate solvers
     linmodel = nothing

@@ -117,7 +117,7 @@ Arguments
 Returns
 - Updated values for `state.<variable_name>`
 """
-function init_risingbubble!(bl, state, aux, (x, y, z), t)
+function init_densitycurrent!(bl, state, aux, (x, y, z), t)
     # Problem float-type
     FT = eltype(state)
 
@@ -135,19 +135,19 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     zc::FT = 3000
     rx = 4000
     rz = 2000
-    r = sqrt((x - xc)/rx^2 + (z - zc)/rz^2)
+    r = sqrt(((x - xc)/rx)^2 + ((z - zc)/rz)^2)
     #rc::FT = 500
     θ_ref::FT = 300
     Δθ::FT = 0
     θc = FT(-15)
     # Compute temperature difference over bubble region
     if r <= 1
-        Δθ = θc/2 *(1+ cospi(r))
+        Δθ = (θc/2) *(1+ cospi(r))
     end
 
     # Compute perturbed thermodynamic state:
-    θ = θ_ref - Δθ                                      # potential temperature
-    π_exner = FT(1) - _grav / (c_p * θ) * z             # exner pressure
+    θ = θ_ref + Δθ                                      # potential temperature
+    π_exner = FT(1) - _grav / (c_p * θ) * z# exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)      # density
     q_tot = FT(0)                                       # total specific humidity
     ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot) # thermodynamic state
@@ -175,7 +175,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_pt.tot
+    #state.moisture.ρq_tot = ρ * q_pt.tot
     #state.tracers.ρχ = ρχ
 end
 
@@ -193,17 +193,14 @@ Arguments
 Returns
 - `config` = Object using the constructor for the `AtmosLESConfiguration`
 """
-function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
+function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose an Explicit Multi-rate Solver from the existing [ODESolvers](@ref ODESolvers-docs) options
     # Apply the outer constructor to define the `ode_solver`. Here
     # `AtmosAcousticGravityLinearModel` splits the acoustic-gravity wave components
     # from the advection-diffusion dynamics. The 1D-IMEX method is less appropriate for the problem given the current mesh aspect ratio (1:1)
-    ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
 
     # Since we want four tracers, we specify this and include
@@ -232,27 +229,33 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     _C_smag = FT(C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
-        param_set;                                   # Parameter set corresponding to earth parameters
-        turbulence = DynamicSubgridStabilization(),       # Turbulence closure model
+        param_set; #Parameter set corresponding to earth parameters
+	turbulence = SmagorinskyLilly(_C_smag),#DynamicSubgridStabilization(),       # Turbulence closure model
         #hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
-        source = (Gravity(),),                       # Gravity is the only source term here
+        moisture = DryModel(),
+	source = (Gravity(),),                       # Gravity is the only source term here
         #tracers = NTracers{ntracers, FT}(δ_χ),       # Tracer model with diffusivity coefficients
         ref_state = ref_state,                       # Reference state
-        init_state_conservative = init_risingbubble!,             # Apply the initial condition
-    )
+        init_state_conservative = init_densitycurrent!,# Apply the initial condition
+        boundarycondition = (
+            AtmosBC(),)  
+	)
+
 
     # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.
     config = ClimateMachine.AtmosLESConfiguration(
-        "DryRisingBubble",       # Problem title [String]
+        "DensitycurrentDYNSGS",       # Problem title [String]
         N,                       # Polynomial order [Int]
         resolution,              # (Δx, Δy, Δz) effective resolution [m]
         xmax,                    # Domain maximum size [m]
         ymax,                    # Domain maximum size [m]
         zmax,                    # Domain maximum size [m]
         param_set,               # Parameter set.
-        init_risingbubble!,      # Function specifying initial condition
+        init_densitycurrent!,      # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
+	periodicity =(false,false,false),
+        boundary = ((1,1),(1,1),(1,1)),
     )
     return config
 end
@@ -271,7 +274,7 @@ end
 function main()
     # These are essentially arguments passed to the [`config_risingbubble`](@ref config-helper) function.
     # For type consistency we explicitly define the problem floating-precision.
-    FT = Float64
+    FT = Float32
     # We need to specify the polynomial order for the DG discretization, effective resolution, simulation end-time,
     # the domain bounds, and the courant-number for the time-integrator. Note how the time-integration components
     # `solver_config` are distinct from the spatial / model components in `driver_config`. `init_on_cpu` is a helper
@@ -281,22 +284,22 @@ function main()
     Δy = FT(200)
     Δv = FT(50)
     resolution = (Δh, Δy, Δv)
-    xmax = FT(15000)
+    xmax = FT(25600)
     ymax = FT(1000)
-    zmax = FT(10000)
+    zmax = FT(6400)
     t0 = FT(0)
-    timeend = FT(1000)
-    CFL = FT(20)
+    timeend = FT(900)
+    CFL = FT(1.7)
 
     # Assign configurations so they can be passed to the `invoke!` function
-    driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
+    driver_config = config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         init_on_cpu = true,
-       # Courant_number = CFL,
-        ode_dt = FT(1)
+        Courant_number = CFL,
+       # ode_dt = FT(1)
     )
     dgn_config = config_diagnostics(driver_config)
 

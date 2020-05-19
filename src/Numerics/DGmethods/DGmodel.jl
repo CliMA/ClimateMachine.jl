@@ -933,7 +933,7 @@ function dynsgs!(
 
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
     
-    μ_dynsgs = similar(grid.vgeo, Nq^dim, num_state(m,FT), nrealelem)
+    μ_dynsgs = similar(Q.data, Nq^dim, number_state_conservative(m,FT), nrealelem)
     
     event = Event(device)
     event = knl_dynsgs!(device, (Nq, Nqk))(

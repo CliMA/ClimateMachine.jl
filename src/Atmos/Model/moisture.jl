@@ -99,7 +99,7 @@ Assumes the moisture components is in the dry limit.
 """
 struct DryModel <: MoistureModel end
 
-vars_state_auxiliary(::DryModel, FT) = @vars(θ_v::FT, air_T::FT)
+vars_state_auxiliary(::DryModel, FT) = @vars(θ_v::FT, air_T::FT,c::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::DryModel,
     atmos::AtmosModel,
@@ -111,6 +111,7 @@ vars_state_auxiliary(::DryModel, FT) = @vars(θ_v::FT, air_T::FT)
     ts = PhaseDry(atmos.param_set, e_int, state.ρ)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
+    aux.moisture.c = soundspeed_air(ts)
     nothing
 end
 
@@ -148,7 +149,7 @@ vars_state_conservative(::EquilMoist, FT) = @vars(ρq_tot::FT)
 vars_state_gradient(::EquilMoist, FT) = @vars(q_tot::FT)
 vars_state_gradient_flux(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state_auxiliary(::EquilMoist, FT) =
-    @vars(temperature::FT, θ_v::FT, q_liq::FT, cₛ::FT)
+    @vars(temperature::FT, θ_v::FT, q_liq::FT, c::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
@@ -170,7 +171,7 @@ vars_state_auxiliary(::EquilMoist, FT) =
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
-    aux.moisture.cₛ = soundspeed_air(ts)
+    aux.moisture.c = soundspeed_air(ts)
     nothing
 end
 

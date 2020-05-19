@@ -649,9 +649,9 @@ end
 """
 struct DynamicSubgridStabilization <: TurbulenceClosure end
 
-vars_aux(::DynamicSubgridStabilization, FT) = @vars(Δ::FT, μ_sgs::FT)
-vars_gradient(::DynamicSubgridStabilization, FT) = @vars(θ_v::FT)
-vars_diffusive(::DynamicSubgridStabilization, FT) =
+vars_state_auxiliary(::DynamicSubgridStabilization, FT) = @vars(Δ::FT, μ_sgs::FT)
+vars_state_gradient(::DynamicSubgridStabilization, FT) = @vars(θ_v::FT)
+vars_state_gradient_flux(::DynamicSubgridStabilization, FT) =
     @vars(∇u::SMatrix{3, 3, FT, 9})
 
 function atmos_init_aux!(
@@ -661,10 +661,9 @@ function atmos_init_aux!(
     geom::LocalGeometry,
 )
     aux.turbulence.Δ = lengthscale(geom)
-    aux.turbulence.μ_sgs = eltype(aux)(1)
+    aux.turbulence.μ_sgs = eltype(aux)(0)
 end
-
-function gradvariables!(
+function compute_gradient_argument!(
     m::DynamicSubgridStabilization,
     transform::Vars,
     state::Vars,
@@ -673,7 +672,18 @@ function gradvariables!(
 )
     transform.turbulence.θ_v = aux.moisture.θ_v
 end
+function compute_gradient_flux!(
+    ::DynamicSubgridStabilization,
+    orientation::Orientation,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
 
+    diffusive.turbulence.∇u = ∇transform.u
+end
 function turbulence_tensors(
     m::DynamicSubgridStabilization,
     orientation::Orientation,
@@ -688,7 +698,7 @@ function turbulence_tensors(
     α = diffusive.turbulence.∇u
     S = symmetrize(α)
     Δ = aux.turbulence.Δ
-    ν = min(abs(Δ^2 * aux.χ̅), FT(0.5) * Δ * aux.moisture.cₛ)
+    ν = min(abs(Δ^2 * aux.χ̅), FT(0.5) * Δ * aux.moisture.c)
     ν = SDiagonal(ν,ν,ν)
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 *ν * S
@@ -700,7 +710,6 @@ function atmos_nodal_update_aux!(
     state::Vars,
     aux::Vars,
     t::Real,
-    μ_sgs::Real
 ) 
-    aux.turbulence.μ_sgs = μ_sgs
+    aux.turbulence.μ_sgs = aux.χ̅
 end

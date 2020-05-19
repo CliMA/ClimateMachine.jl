@@ -2652,9 +2652,9 @@ end
 ) where {dim, N}
     @uniform begin
         FT = eltype(Q)
-        nstate = num_state(bl, FT)
-        nviscstate = num_diffusive(bl, FT)
-        nauxstate = num_aux(bl, FT)
+        nstate = number_state_conservative(bl, FT)
+        nviscstate = number_state_gradient_flux(bl, FT)
+        nauxstate = number_state_auxiliary(bl, FT)
 
         Nq = N + 1
 
@@ -2683,15 +2683,16 @@ end
     @inbounds begin
         M = vgeo[ijk, _M, e]
         @unroll for s in 1:nstate
-            l_ΣM[s] += M
+            l_ΣM[s] += 1#M
             l_ΣQ[s] += M * Q[ijk, s, e]
         end
     end
-
+     
     @inbounds begin 
         @unroll for s in 1:nstate
             l_Q[s] = Q[ijk,s,e]
-        end
+            @info l_ΣM[s] 
+      end
     end
 
     @inbounds begin
@@ -2699,10 +2700,11 @@ end
             l_Q̅[s] = l_ΣQ[s] / l_ΣM[s]
             l_δ̅[s] = l_Q[s] - l_Q̅[s]
             l_R[s] = rhs[ijk, s, e]
-        end
+            #@info "residuals etc", l_R[s],l_δ̅[s] l_Q̅[s]
+       end
     end
-
     @unroll for s in 1:nstate
-        μ_dynsgs[ijk,s,e] = abs(l_R[s] ./ (l_δ̅[s] + eps(FT)))
-    end
+        μ_dynsgs[ijk,s,e] = abs(l_R[s] ./ (abs(l_δ̅[s]) + eps(FT)))
+        #@info "viscosity", μ_dynsgs[ijk,s,e]
+   end
 end
