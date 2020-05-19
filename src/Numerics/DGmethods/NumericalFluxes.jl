@@ -234,9 +234,9 @@ function numerical_flux_first_order!(
         state_auxiliary⁺,
         t,
     )
-    max_wavespeed = max(wavespeed⁻, wavespeed⁺)
+    max_wavespeed = max.(wavespeed⁻, wavespeed⁺)
     penalty =
-        max_wavespeed *
+        max_wavespeed .*
         (parent(state_conservative⁻) - parent(state_conservative⁺))
 
     # TODO: should this operate on ΔQ or penalty?
