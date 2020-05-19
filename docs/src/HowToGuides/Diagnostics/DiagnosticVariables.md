@@ -88,8 +88,8 @@ This document contains the diagnostic variables in CliMA.
 |:-----------|:---------------------------------------------------------------------------|
 | 2D fields (dependent on latitude and vertical coordinates)
 |:-----------|:---------------------------------------------------------------------------|
-| mass streamfunction
-|
+| stream_euler | Eulerian meridional streamfunction         |
+|            
 |:-----------|:---------------------------------------------------------------------------|
 | 2D fields (dependent on horizontal coordinates)
 |:-----------|:---------------------------------------------------------------------------|
@@ -97,67 +97,74 @@ This document contains the diagnostic variables in CliMA.
 |:-----------|:---------------------------------------------------------------------------|
 | 3D fields (dependent on horizontal and vertical coordinates)
 |:-----------|:---------------------------------------------------------------------------|
-| u          | zonal velocity (along lon)                                                 |
-| v          | meridional velocity (along lon)                                            |
+| u          | zonal velocity (along longitude)                                           |
+| v          | meridional velocity (along latitude)                                       |
 | w          | vertical velocity (along altitude)                                         |
 | rho        | density                                                                    |
-| e          | internal energy                                                            |
-
+| et         | total specific energy                                                      |
+| ei         | specific internal energy                                                   |
+|
 | T          | air temperature                                                            |
-| theta_d    | dry potential temperature                                                  |
-
+| thd        | dry potential temperature                                                  |
+|
 | vort       | relative vorticity                                                         |
 | stream     | horizontal streamfunction (Laplacian of vort)                              |
-| pv_qg      | potential vostivity (f + vort + f/N d2/dz2 stream)                         |
-| pv_ertel   | Ertel potential vostivity                                                  |
+| pv\_qg     | potential vorticity (f + vort + f/N d2/dz2 stream)                         |
+| pv\_ertel  | Ertel potential vorticity                                                  |
 | div        | divergence                                                                 |
+|
+|  var\_uu\_zonal  | variances using zonal mean (also for vv, ww, TT, option for others) |
+|  cov\_uv\_zonal  | covariances using zonal mean (also for uw, vw, uT, vT, wT, option for others)|
+|
+|  var\_uu\_time   | variances using time mean (also for vv, ww, TT, option for others) |
+|  cov\_uv\_time   | covariances using time mean (also for uw, vw, uT, vT, wT, option for others)|
+|
+|  var\_uu\_bandpass  | (co)variances using a Lanczos filter (also for vv, ww, TT, option for others) |
+|  cov\_uv\_bandpass  | (co)variances using a Lanczos filter (also for uw, vw, uT, vT, wT, option for others)|
+|
+|  cov\_uv\_zonal  | (co)variances using zonal mean (also for uu, vv, vT, wT etc - user def)|
+|  cov\_uv\_zonal  | (co)variances using zonal mean (also for uu, vv, vT, wT etc - user def)|
+|
+|:-----------|:---------------------------------------------------------------------------|
+| Spectral decomposition
+|:-----------|:---------------------------------------------------------------------------|
+| power\_spec_eke  | eddy kinetic energy power spectrum                                   |
 
-| [u*v*]     | (co)variances using zonal mean (also for uu, vv, vT, wT, wb etc - user def)|
 
-| u'v'       | (co)variances using time mean (also for uu, vv, vT, wT, wb etc - user def) |
-
-| u''v''     | (co)variances using highpass/lowpass filter                                |
-
-
-### Moist aquaplanet (additional to H-S)
+### Moist aquaplanet (additional to Held-Suarez)
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | 2D fields (dependent on horizontal coordinates)
 |:-----------|:---------------------------------------------------------------------------|
-| Top of atmosphere (TOA) downwelling shortwave flux
-| TOA Upwelling shortwave flux
-| TOA Upwelling longwave flux
-| Up- and downwelling shortwave flux at surface
-| Up- and downwelling longwave flux at surface
-Sensible heat flux at surface
-| Latent heat flux at surface
-| Surface air temperature
-| Rain rate at surface
-| Snow rate at surface
-| (Later: sea ice cover, leaf temperature, soil temperature, ...)
+| toa\_sw\_do    | Top of atmosphere (TOA) downwelling shortwave flux                     |
+| toa\_sw_up     | TOA Upwelling shortwave flux                                           |
+| toa\_lw\_up    | TOA Upwelling longwave flux                                            |
+| toa\_sw\_sfc   | Up- and downwelling shortwave flux at surface                          |
+| toa\_lw\_sfc   | Up- and downwelling longwave flux at surface                           |
+| sensible\_sfc  | Sensible heat flux at surface                                          |
+| latent\_sfc    | Latent heat flux at surface                                            |
+| T\_sfc         | Surface air temperature                                                |
+| rain\_sfc      | Rain rate at surface                                                   |
+| sno\w\_sfc     | Snow rate at surface                                                   |
+| xx             | (Later: sea ice cover, leaf temperature, soil temperature, ...)        |
 |:-----------|:---------------------------------------------------------------------------|
 | 3D fields (dependent on horizontal and vertical coordinates)
 |:-----------|:---------------------------------------------------------------------------|
-| Total specific humidity q_t
-| Liquid specific humidity
-| Ice specific humidity
-| Relative humidity
-| Cloud fraction
-| Virtual potential temperature
-| Moist static energy
-| Some covariances, such as CF Ta_s, where CF is cloud fraction and Ta_s is surface air temperature
-| Higher-order statistics (horizontal)
-|
-| Third moment (~skewness) of vertical velocity w^3
-|
-| Power spectrum
-| Phase speed spectra
-|
-| Extremes, e.g.:
-| Frequency with which a given rain rate threshold at the surface is exceeded
-| Blocking indices
-| Heatwaves
-| Extreme storms and other tracked features
-|
+| ql           | liquid water specific humidity                                           |
+| qv           | water vapor specific humidity                                            |
+| qi           | ice specific humidity                                                    |
+| rh           | Relative humidity                                                        |
+| cld\_frac    | Cloud fraction                                                           |
+| thv          | Virtual potential temperature                                            |
+| thl          | liquid-ice potential temperature                                         |
+| ht           | total specific enthalpy                                                  |
+| hm           | specific enthalpy                                                        |
+| mse          | moist static energy                                                      |
 
-
+|:-----------|:---------------------------------------------------------------------------|
+| More complex diagnostics, e.g. extremes 
+|:-----------|:---------------------------------------------------------------------------|
+| rain_thres    | Frequency with which a given rain rate threshold at the surface is exceeded   |
+| temp_thres    | Frequency with which a given temperature threshold at the surface is exceeded |
+| track_loc     | frequency of tracked features (e.g. cyclones, blocking)                       |
+| track_int     | intensity of tracked features (e.g. cyclones, blocking)                       |
