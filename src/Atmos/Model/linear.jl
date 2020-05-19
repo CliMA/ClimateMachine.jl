@@ -58,7 +58,7 @@ end
         state.ρ,
         state.ρe,
         ρe_pot,
-        state.moisture.ρq_tot,
+        aux.ref_state.ρq_tot,
     )
 end
 
