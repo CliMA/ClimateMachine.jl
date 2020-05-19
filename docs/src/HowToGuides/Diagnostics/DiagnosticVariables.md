@@ -79,23 +79,22 @@ This document contains the diagnostic variables in CliMA.
 | cov\_qt\_ei\_core  | cloud core covariance of total specific humidity and specific internal energy         |
 | core\_frac       | cloud core (q\_liq > 0 and w > 0) fraction                                             |
 
-## GCM diagnostics
-(also see [tapio' issue](https://github.com/CliMA/ClimateMachine.jl/issues/214))
+## GCM: Dry Held-Suarez
 
-### Dry Held-Suarez
+- based on [this issue](https://github.com/CliMA/ClimateMachine.jl/issues/214)
+
+### 2D fields (dependent on latitude and vertical coordinates)
 
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| 2D fields (dependent on latitude and vertical coordinates)
+| stream_euler | Eulerian meridional streamfunction                                       |
+
+### 2D fields (dependent on horizontal coordinates)                                       
+| short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| stream_euler | Eulerian meridional streamfunction         |
-|            
-|:-----------|:---------------------------------------------------------------------------|
-| 2D fields (dependent on horizontal coordinates)
-|:-----------|:---------------------------------------------------------------------------|
-|
-|:-----------|:---------------------------------------------------------------------------|
-| 3D fields (dependent on horizontal and vertical coordinates)
+
+### 3D fields (dependent on horizontal and vertical coordinates)
+| short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | u          | zonal velocity (along longitude)                                           |
 | v          | meridional velocity (along latitude)                                       |
@@ -103,38 +102,39 @@ This document contains the diagnostic variables in CliMA.
 | rho        | density                                                                    |
 | et         | total specific energy                                                      |
 | ei         | specific internal energy                                                   |
-|
+|                                                                                         |
 | T          | air temperature                                                            |
 | thd        | dry potential temperature                                                  |
-|
+|                                                                                         |
 | vort       | relative vorticity                                                         |
 | stream     | horizontal streamfunction (Laplacian of vort)                              |
 | pv\_qg     | potential vorticity (f + vort + f/N d2/dz2 stream)                         |
 | pv\_ertel  | Ertel potential vorticity                                                  |
 | div        | divergence                                                                 |
-|
+|                                                                                         |
 |  var\_uu\_zonal  | variances using zonal mean (also for vv, ww, TT, option for others) |
 |  cov\_uv\_zonal  | covariances using zonal mean (also for uw, vw, uT, vT, wT, option for others)|
-|
+|                                                                                         |
 |  var\_uu\_time   | variances using time mean (also for vv, ww, TT, option for others) |
 |  cov\_uv\_time   | covariances using time mean (also for uw, vw, uT, vT, wT, option for others)|
-|
+|                                                                                         |
 |  var\_uu\_bandpass  | (co)variances using a Lanczos filter (also for vv, ww, TT, option for others) |
 |  cov\_uv\_bandpass  | (co)variances using a Lanczos filter (also for uw, vw, uT, vT, wT, option for others)|
-|
+|                                                                                         |
 |  cov\_uv\_zonal  | (co)variances using zonal mean (also for uu, vv, vT, wT etc - user def)|
 |  cov\_uv\_zonal  | (co)variances using zonal mean (also for uu, vv, vT, wT etc - user def)|
-|
-|:-----------|:---------------------------------------------------------------------------|
-| Spectral decomposition
+
+### Spectral decomposition
+| short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | power\_spec_eke  | eddy kinetic energy power spectrum                                   |
 
-
-### Moist aquaplanet (additional to Held-Suarez)
+## GCM: Moist aquaplanet (additional to Held-Suarez)
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| 2D fields (dependent on horizontal coordinates)
+
+### 2D fields (dependent on horizontal coordinates)                                        
+| short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | toa\_sw\_do    | Top of atmosphere (TOA) downwelling shortwave flux                     |
 | toa\_sw_up     | TOA Upwelling shortwave flux                                           |
@@ -147,8 +147,9 @@ This document contains the diagnostic variables in CliMA.
 | rain\_sfc      | Rain rate at surface                                                   |
 | sno\w\_sfc     | Snow rate at surface                                                   |
 | xx             | (Later: sea ice cover, leaf temperature, soil temperature, ...)        |
-|:-----------|:---------------------------------------------------------------------------|
-| 3D fields (dependent on horizontal and vertical coordinates)
+
+### 3D fields (dependent on horizontal and vertical coordinates)                            
+| short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | ql           | liquid water specific humidity                                           |
 | qv           | water vapor specific humidity                                            |
@@ -161,8 +162,8 @@ This document contains the diagnostic variables in CliMA.
 | hm           | specific enthalpy                                                        |
 | mse          | moist static energy                                                      |
 
-|:-----------|:---------------------------------------------------------------------------|
-| More complex diagnostics, e.g. extremes 
+### More complex diagnostics, e.g. extremes
+| short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
 | rain_thres    | Frequency with which a given rain rate threshold at the surface is exceeded   |
 | temp_thres    | Frequency with which a given temperature threshold at the surface is exceeded |
