@@ -216,14 +216,9 @@ function schur_lhs!(
 
     FT = eltype(schur_state)
 
-    #num_state_gradient = number_state_gradient(balance_law, FT)
-    #Np = dofs_per_element(grid)
-
-    #workgroups_volume = (Nq, Nq, Nqk)
-    #ndrange_volume = (nrealelem * Nq, Nq, Nqk)
     workgroups_surface = Nfp
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
-    #ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
+    ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
 
     communicate =
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
@@ -272,6 +267,39 @@ function schur_lhs!(
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
+    
+    if communicate
+        exchange_schur_state = MPIStateArrays.end_ghost_exchange!(
+            schur_state;
+            dependencies = exchange_schur_state,
+        )
+    end
+    
+    comp_stream = schur_interface_gradients!(device, workgroups_surface)(
+        schur_complement,
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        schur_state_gradient.data,
+        schur_state.data,
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.exteriorelems;
+        ndrange = ndrange_exterior_surface,
+        dependencies = (comp_stream, exchange_schur_state),
+    )
+
+    if communicate
+       exchange_schur_state_gradient =
+           MPIStateArrays.begin_ghost_exchange!(
+               schur_state_gradient,
+               dependencies = comp_stream,
+           )
+    end
 
     comp_stream = schur_volume_lhs!(device, (Nq, Nq, Nqk))(
         schur_complement,
@@ -310,12 +338,40 @@ function schur_lhs!(
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
-    wait(comp_stream)
+    
+    if communicate
+       exchange_schur_state_gradient =
+           MPIStateArrays.end_ghost_exchange!(
+               schur_state_gradient,
+               dependencies = exchange_schur_state_gradient
+           )
+    end
+    
+    comp_stream = schur_interface_lhs!(device, workgroups_surface)(
+        schur_complement,
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        schur_lhs.data,
+        schur_state.data,
+        schur_state_auxiliary.data,
+        schur_state_gradient.data,
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.exteriorelems,
+        α;
+        ndrange = ndrange_exterior_surface,
+        dependencies = (comp_stream, exchange_schur_state_gradient)
+    )
 
     ## The synchronization here through a device event prevents CuArray based and
     ## other default stream kernels from launching before the work scheduled in
     ## this function is finished.
-    #wait(device, comp_stream)
+    wait(device, comp_stream)
 end
 
 function init_schur_state(state_conservative, α, dg)
@@ -332,6 +388,13 @@ function init_schur_state(state_conservative, α, dg)
     Nfp = Nq * Nqk
     nrealelem = length(topology.realelems)
     
+    workgroups_surface = Nfp
+    ndrange_interior_surface = Nfp * length(grid.interiorelems)
+    ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
+    
+    communicate =
+        !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
+    
     schur_complement = dg.schur_complement
     balance_law = dg.balance_law
     state_auxiliary = dg.state_auxiliary
@@ -339,8 +402,18 @@ function init_schur_state(state_conservative, α, dg)
     schur_rhs = dg.states_schur_complement.rhs
     schur_state_auxiliary = dg.states_schur_complement.auxiliary
 
-    event = Event(device)
-    event = kernel_init_schur_state!(device, min(Np, 1024))(
+    exchange_state_conservative = NoneEvent()
+
+    comp_stream = Event(device)
+    
+    if communicate
+      exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
+          schur_state;
+          dependencies = comp_stream,
+      )
+    end
+
+    comp_stream = kernel_init_schur_state!(device, min(Np, 1024))(
         schur_complement,
         balance_law,
         schur_state.data,
@@ -351,22 +424,11 @@ function init_schur_state(state_conservative, α, dg)
         Val(dim),
         Val(N);
         ndrange = Np * nrealelem,
-        dependencies = (event,),
-    )
-    wait(device, event)
-
-    event = Event(device)
-    event = MPIStateArrays.begin_ghost_exchange!(
-        schur_state;
-        dependencies = event,
-    )
-    event = MPIStateArrays.end_ghost_exchange!(
-        schur_state;
-        dependencies = event,
+        dependencies = (comp_stream,),
     )
 
     # init rhs
-    event = schur_volume_rhs!(device, (Nq, Nq, Nqk))(
+    comp_stream = schur_volume_rhs!(device, (Nq, Nq, Nqk))(
         schur_complement,
         balance_law,
         Val(dim),
@@ -379,12 +441,20 @@ function init_schur_state(state_conservative, α, dg)
         grid.D,
         α,
         ndrange = (nrealelem * Nq, Nq, Nqk),
-        dependencies = (event,),
+        dependencies = (comp_stream,),
     )
+    #event = Event(device)
+    #event = MPIStateArrays.begin_ghost_exchange!(
+    #    schur_state;
+    #    dependencies = event,
+    #)
+    #event = MPIStateArrays.end_ghost_exchange!(
+    #    schur_state;
+    #    dependencies = event,
+    #)
+
     
-    workgroups_surface = Nfp
-    ndrange_interior_surface = Nfp * length(grid.interiorelems)
-    event = schur_interface_rhs!(device, workgroups_surface)(
+    comp_stream = schur_interface_rhs!(device, workgroups_surface)(
         schur_complement,
         balance_law,
         Val(dim),
@@ -401,9 +471,48 @@ function init_schur_state(state_conservative, α, dg)
         grid.interiorelems,
         α;
         ndrange = ndrange_interior_surface,
-        dependencies = (event,),
+        dependencies = (comp_stream,),
     )
-    wait(device, event)
+    
+    if communicate
+      exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+          schur_state;
+          dependencies = exchange_state_conservative,
+      )
+    end
+    
+    comp_stream = schur_interface_rhs!(device, workgroups_surface)(
+        schur_complement,
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        schur_rhs.data,
+        state_conservative.data,
+        schur_state_auxiliary.data,
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.exteriorelems,
+        α;
+        ndrange = ndrange_exterior_surface,
+        dependencies = (comp_stream, exchange_state_conservative),
+    )
+    
+    if communicate
+      comp_stream = MPIStateArrays.end_ghost_exchange!(
+          schur_rhs;
+          dependencies = comp_stream
+      )
+      comp_stream = MPIStateArrays.end_ghost_exchange!(
+          schur_rhs;
+          dependencies = comp_stream,
+      )
+    end
+
+    wait(device, comp_stream)
 end
 
 function schur_extract_state(state_lhs, state_rhs, α, dg)
@@ -418,9 +527,13 @@ function schur_extract_state(state_lhs, state_rhs, α, dg)
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
     Nfp = Nq * Nqk
+    nrealelem = length(topology.realelems)
     workgroups_surface = Nfp
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
-    nrealelem = length(topology.realelems)
+    ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
+    
+    communicate =
+        !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
     
     schur_complement = dg.schur_complement
     balance_law = dg.balance_law
@@ -430,8 +543,23 @@ function schur_extract_state(state_lhs, state_rhs, α, dg)
     schur_state_auxiliary = dg.states_schur_complement.auxiliary
     schur_state_gradient = dg.states_schur_complement.gradient
 
-    event = Event(device)
-    event = schur_volume_update!(device, (Nq, Nq, Nqk))(
+    exchange_schur_state = NoneEvent()
+    exchange_schur_state_gradient = NoneEvent()
+
+    comp_stream = Event(device)
+    
+    if communicate
+      exchange_schur_state = MPIStateArrays.begin_ghost_exchange!(
+          schur_state;
+          dependencies = comp_stream,
+      )
+      exchange_schur_state_gradient = MPIStateArrays.begin_ghost_exchange!(
+          schur_state_gradient;
+          dependencies = comp_stream,
+      )
+    end
+
+    comp_stream = schur_volume_update!(device, (Nq, Nq, Nqk))(
         schur_complement,
         balance_law,
         Val(dim),
@@ -446,10 +574,10 @@ function schur_extract_state(state_lhs, state_rhs, α, dg)
         grid.D,
         α,
         ndrange = (nrealelem * Nq, Nq, Nqk),
-        dependencies = (event,),
+        dependencies = (comp_stream,),
     )
     
-    event = schur_interface_update!(device, workgroups_surface)(
+    comp_stream = schur_interface_update!(device, workgroups_surface)(
         schur_complement,
         balance_law,
         Val(dim),
@@ -468,7 +596,41 @@ function schur_extract_state(state_lhs, state_rhs, α, dg)
         grid.interiorelems,
         α;
         ndrange = ndrange_interior_surface,
-        dependencies = (event,),
+        dependencies = (comp_stream,),
     )
-    wait(device, event)
+    
+    if communicate
+      exchange_schur_state = MPIStateArrays.end_ghost_exchange!(
+          schur_state;
+          dependencies = exchange_schur_state,
+      )
+      exchange_schur_state_gradient = MPIStateArrays.end_ghost_exchange!(
+          schur_state_gradient;
+          dependencies = exchange_schur_state_gradient,
+      )
+    end
+    
+    comp_stream = schur_interface_update!(device, workgroups_surface)(
+        schur_complement,
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        state_lhs.data,
+        state_rhs.data,
+        schur_state.data,
+        schur_state_gradient.data,
+        schur_state_auxiliary.data,
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.exteriorelems,
+        α;
+        ndrange = ndrange_exterior_surface,
+        dependencies = (comp_stream, exchange_schur_state, exchange_schur_state_gradient),
+    )
+
+    wait(device, comp_stream)
 end
