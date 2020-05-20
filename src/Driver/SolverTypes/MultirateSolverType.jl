@@ -136,7 +136,6 @@ references.
 
     @article{Schlegel_2009,
         doi = {10.1016/j.cam.2008.08.009},
-        url = {https://doi.org/10.1016%2Fj.cam.2008.08.009},
         year = {2009},
         month = {apr},
         publisher = {Elsevier {BV}},
@@ -144,7 +143,7 @@ references.
         number = {2},
         pages = {345--357},
         author = {Martin Schlegel and Oswald Knoth and Martin Arnold and Ralf Wolke},
-        title = {Multirate Runge{\textendash}Kutta schemes for advection equations},
+        title = {Multirate Runge-Kutta schemes for advection equations},
         journal = {Journal of Computational and Applied Mathematics}
     }
 """
@@ -238,10 +237,9 @@ the following references.
 
     @article{Tomita_2008,
         doi = {10.1137/070692273},
-        url = {https://doi.org/10.1137%2F070692273},
-        year = 2008,
+        year = {2008},
         month = {jan},
-        publisher = {Society for Industrial {\&} Applied Mathematics ({SIAM})},
+        publisher = {Society for Industrial and Applied Mathematics ({SIAM})},
         volume = {30},
         number = {6},
         pages = {2755--2776},
