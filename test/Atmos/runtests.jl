@@ -7,5 +7,8 @@ using Test, Pkg
             include_test(submodule)
         end
     end
+    if all_tests || "Atmos" in ARGS
+        include("linear_upwindflux.jl")
+    end
 
 end
