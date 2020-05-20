@@ -66,7 +66,6 @@ function schur_gradient_boundary_state!(::AtmosAcousticLinearSchurComplement,
                                    schur_state⁺, n,
                                    schur_state⁻, bctype
                                   )
-  #schur_state⁺.p = -schur_state⁻.p
 end
 function schur_lhs_boundary_state!(::AtmosAcousticLinearSchurComplement, 
                                    balance_law,
