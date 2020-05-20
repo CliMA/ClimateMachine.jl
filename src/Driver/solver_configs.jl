@@ -146,11 +146,21 @@ function SolverConfiguration(
     end
 
     # default Courant number
-    if Courant_number == nothing
-        if ode_solver_type.solver_method == LSRK144NiegemannDiehlBusch
-            Courant_number = FT(1.7)
-        elseif ode_solver_type.solver_method == LSRK54CarpenterKennedy
-            Courant_number = FT(0.3)
+    # TODO: Think about revising this or drop it entirely.
+    # This is difficult to determine/approximate
+    # for MIS and general Multirate methods. It's also very
+    # problem-specific, meaning the default values shown below
+    # will not always be stable for a given experiment!!!
+    # For now, just leave in the default values for the ExplicitSolverType
+    # methods
+    if Courant_number === nothing
+        if isa(ode_solver_type, ExplicitSolverType)
+            if ode_solver_type.solver_method == LSRK144NiegemannDiehlBusch
+                Courant_number = FT(1.7)
+            else
+                @assert ode_solver_type.solver_method == LSRK54CarpenterKennedy
+                Courant_number = FT(0.3)
+            end
         else
             Courant_number = FT(0.5)
         end
