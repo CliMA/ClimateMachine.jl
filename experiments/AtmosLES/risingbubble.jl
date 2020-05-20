@@ -203,6 +203,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
 
     # Since we want four tracers, we specify this and include
     # the appropriate diffusivity scaling coefficients (normally these
@@ -232,7 +235,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
         param_set;                                   # Parameter set corresponding to earth parameters
         turbulence = SmagorinskyLilly(_C_smag),       # Turbulence closure model
-        hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
+        #hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
         source = (Gravity(),),                       # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),       # Tracer model with diffusivity coefficients
         ref_state = ref_state,                       # Reference state
@@ -283,7 +286,7 @@ function main()
     zmax = FT(2500)
     t0 = FT(0)
     timeend = FT(1000)
-    CFL = FT(20)
+    CFL = FT(0.4)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)

@@ -10,6 +10,12 @@ function flattenednames(::Type{T}; prefix = "") where {T <: SHermitianCompact}
     Iterators.flatten |>
     collect
 end
+function flattenednames(::Type{T}; prefix = "") where {T <: SMatrix}
+    N = size(T, 1)
+    [["$prefix[$i,$j]" for i in 1:N] for j in 1:N] |>
+    Iterators.flatten |>
+    collect
+end
 function flattenednames(::Type{T}; prefix = "") where {T <: NamedTuple}
     map(1:fieldcount(T)) do i
         Ti = fieldtype(T, i)

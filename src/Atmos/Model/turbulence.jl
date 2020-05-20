@@ -206,6 +206,9 @@ function strain_rate_magnitude(S::SHermitianCompact{3, FT, 6}) where {FT}
     return sqrt(2 * norm2(S))
 end
 
+function strain_rate_magnitude(S::SArray{Tuple{3,3},FT,2,9}) where {FT}
+    return sqrt(2 * norm2(S))
+end
 # ### [Constant Viscosity Model](@id constant-viscosity)
 # `ConstantViscosityWithDivergence` requires a user to specify the constant viscosity (kinematic)
 # and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
@@ -369,7 +372,7 @@ function compute_gradient_argument!(
 end
 
 function compute_gradient_flux!(
-    ::SmagorinskyLilly,
+    tm::SmagorinskyLilly,
     orientation::Orientation,
     diffusive::Vars,
     ∇transform::Grad,
@@ -378,7 +381,9 @@ function compute_gradient_flux!(
     t::Real,
 )
 
+    FT = eltype(state)
     diffusive.turbulence.S = symmetrize(∇transform.u)
+
     ∇Φ = ∇gravitational_potential(orientation, aux)
     diffusive.turbulence.N² =
         dot(∇transform.turbulence.θ_v, ∇Φ) / aux.moisture.θ_v
@@ -402,12 +407,16 @@ function turbulence_tensors(
 
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
-    ν₀ = normS * (m.C_smag * aux.turbulence.Δ)^2 + FT(1e-5)
+    if aux.coord[3] <= FT(3400)
+        f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    else
+        f_b² = FT(1)
+    end
+    ν₀ = normS * (m.C_smag)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h + ν_v .* f_b²)
+    ν = SDiagonal(ν_h .* FT(50.8^2) + ν_v .* f_b² .* FT(13.81^2) .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
@@ -515,9 +524,13 @@ function turbulence_tensors(
 
     normS = strain_rate_magnitude(S)
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
+    if aux.coord[3] <= FT(3400)
+        f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    else
+        f_b² = FT(1)
+    end
 
-    β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
+    β = (α' * α) .* (aux.turbulence.Δ)^2
     Bβ = principal_invariants(β)[2]
 
     ν₀ = m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ / (norm2(α) + eps(FT))))

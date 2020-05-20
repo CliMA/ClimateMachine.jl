@@ -348,7 +348,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    interval = "10000steps"
+    interval = "5smins"
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end

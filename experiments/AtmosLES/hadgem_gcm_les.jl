@@ -51,7 +51,6 @@ DOI = {10.5194/gmd-10-359-2017}
 # Reference state setup (GCM reference)
 """
 GCMReferenceState{FT} <: ReferenceState
-
 A ReferenceState informed by data from a GCM (Here, HADGEM2)
 """
 struct GCMReferenceState{FT} <: ReferenceState end
@@ -433,12 +432,12 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         AtmosLESConfigType,
         param_set;
         ref_state = GCMReferenceState{FT}(),
-        turbulence = Vreman{FT}(0.20),
-        #hyperdiffusion = StandardHyperDiffusion(1800),
+        turbulence = Vreman{FT}(0.23),
+        hyperdiffusion = StandardHyperDiffusion(3600),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
-            LinearSponge{FT}(zmax, zmax * 0.85, 0.8, 4),
+            LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
             MoistureTendency(),
             TemperatureTendency(),
             SubsidenceTendency(),
@@ -453,21 +452,22 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
                     (state, aux, t) -> hfls / latent_heat_vapor(param_set,T_sfc),
                 ),
             ),
-            AtmosBC(
-                momentum = Impenetrable(FreeSlip()),
-                energy = PrescribedEnergyFlux((state, aux, t) -> zeroflux),
-                moisture = PrescribedMoistureFlux((state, aux, t) -> zeroflux,),
-            ),
+            AtmosBC(),
         ),
-        moisture = EquilMoist{FT}(; maxiter = 1, tolerance = FT(100)),
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(5)),
         init_state_conservative = init_cfsites!,
     )
     mrrk_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 12,
+        timestep_ratio = 10,
     )
+    #=
+    lsrk_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+    =# 
     config = ClimateMachine.AtmosLESConfiguration(
         "HadGEM2-ClimateMachine-$groupid",
         N,
@@ -507,8 +507,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(4800)
-    ymax = FT(4800)
+    xmax = FT(1800)
+    ymax = FT(1800)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
