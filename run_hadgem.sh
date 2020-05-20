@@ -11,7 +11,7 @@
 
 #SBATCH --output=/groups/esm/asridhar/GCP/out_%j_site%a_MR5-10.5_V.out
 set -euo pipefail 
-export JULIA_MPI_BINARY=system
+
 module load julia/1.3.0
 module load openmpi/4.0.3_cuda-10.0 cmake/3.10.2 cuda/10.0 hdf5/1.10.1 netcdf-c/4.6.1
 
