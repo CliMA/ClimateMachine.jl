@@ -374,7 +374,7 @@ function schur_lhs!(
     wait(device, comp_stream)
 end
 
-function init_schur_state(state_conservative, α, dg)
+function init_schur_state(state_lhs, state_rhs, α, dg)
     grid = dg.grid
     device = arraytype(grid) <: Array ? CPU() : CUDA()
 
@@ -402,13 +402,13 @@ function init_schur_state(state_conservative, α, dg)
     schur_rhs = dg.states_schur_complement.rhs
     schur_state_auxiliary = dg.states_schur_complement.auxiliary
 
-    exchange_state_conservative = NoneEvent()
+    exchange_state_rhs = NoneEvent()
 
     comp_stream = Event(device)
     
     if communicate
-      exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
-          schur_state;
+      exchange_state_rhs = MPIStateArrays.begin_ghost_exchange!(
+          state_rhs;
           dependencies = comp_stream,
       )
     end
@@ -418,7 +418,7 @@ function init_schur_state(state_conservative, α, dg)
         balance_law,
         schur_state.data,
         schur_state_auxiliary.data,
-        state_conservative.data,
+        state_lhs.data,
         state_auxiliary.data,
         grid.vgeo,
         Val(dim),
@@ -435,7 +435,7 @@ function init_schur_state(state_conservative, α, dg)
         Val(N),
         dg.direction,
         schur_rhs.data,
-        state_conservative.data,
+        state_rhs.data,
         schur_state_auxiliary.data,
         grid.vgeo,
         grid.D,
@@ -461,7 +461,7 @@ function init_schur_state(state_conservative, α, dg)
         Val(N),
         dg.direction,
         schur_rhs.data,
-        state_conservative.data,
+        state_rhs.data,
         schur_state_auxiliary.data,
         grid.vgeo,
         grid.sgeo,
@@ -475,9 +475,9 @@ function init_schur_state(state_conservative, α, dg)
     )
     
     if communicate
-      exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
-          schur_state;
-          dependencies = exchange_state_conservative,
+      exchange_state_rhs = MPIStateArrays.end_ghost_exchange!(
+          state_rhs;
+          dependencies = exchange_state_rhs,
       )
     end
     
@@ -488,7 +488,7 @@ function init_schur_state(state_conservative, α, dg)
         Val(N),
         dg.direction,
         schur_rhs.data,
-        state_conservative.data,
+        state_rhs.data,
         schur_state_auxiliary.data,
         grid.vgeo,
         grid.sgeo,
@@ -498,7 +498,7 @@ function init_schur_state(state_conservative, α, dg)
         grid.exteriorelems,
         α;
         ndrange = ndrange_exterior_surface,
-        dependencies = (comp_stream, exchange_state_conservative),
+        dependencies = (comp_stream, exchange_state_rhs),
     )
     
     if communicate
@@ -549,14 +549,75 @@ function schur_extract_state(state_lhs, state_rhs, α, dg)
     comp_stream = Event(device)
     
     if communicate
-      exchange_schur_state = MPIStateArrays.begin_ghost_exchange!(
-          schur_state;
-          dependencies = comp_stream,
-      )
-      exchange_schur_state_gradient = MPIStateArrays.begin_ghost_exchange!(
-          schur_state_gradient;
-          dependencies = comp_stream,
-      )
+        exchange_schur_state = MPIStateArrays.begin_ghost_exchange!(
+            schur_state;
+            dependencies = comp_stream,
+        )
+    end
+
+    comp_stream = schur_volume_gradients!(device, (Nq, Nq, Nqk))(
+        schur_complement,
+        balance_law,
+        schur_state_gradient.data,
+        schur_state.data,
+        schur_state_auxiliary.data,
+        grid.vgeo,
+        grid.D,
+        dg.direction,
+        Val(dim),
+        Val(N),
+        ndrange = (Nq * nrealelem, Nq, Nqk),
+        dependencies = (comp_stream,),
+    )
+
+    comp_stream = schur_interface_gradients!(device, workgroups_surface)(
+        schur_complement,
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        schur_state_gradient.data,
+        schur_state.data,
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.interiorelems;
+        ndrange = ndrange_interior_surface,
+        dependencies = (comp_stream,),
+    )
+    
+    if communicate
+        exchange_schur_state = MPIStateArrays.end_ghost_exchange!(
+            schur_state;
+            dependencies = exchange_schur_state,
+        )
+    end
+    
+    comp_stream = schur_interface_gradients!(device, workgroups_surface)(
+        schur_complement,
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        schur_state_gradient.data,
+        schur_state.data,
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.exteriorelems;
+        ndrange = ndrange_exterior_surface,
+        dependencies = (comp_stream, exchange_schur_state),
+    )
+    
+    if communicate
+        exchange_schur_state_gradient = MPIStateArrays.begin_ghost_exchange!(
+            schur_state_gradient;
+            dependencies = comp_stream,
+        )
     end
 
     comp_stream = schur_volume_update!(device, (Nq, Nq, Nqk))(
@@ -600,10 +661,6 @@ function schur_extract_state(state_lhs, state_rhs, α, dg)
     )
     
     if communicate
-      exchange_schur_state = MPIStateArrays.end_ghost_exchange!(
-          schur_state;
-          dependencies = exchange_schur_state,
-      )
       exchange_schur_state_gradient = MPIStateArrays.end_ghost_exchange!(
           schur_state_gradient;
           dependencies = exchange_schur_state_gradient,

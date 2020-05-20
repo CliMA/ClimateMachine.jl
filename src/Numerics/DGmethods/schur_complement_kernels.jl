@@ -324,6 +324,8 @@ end
         Nqk = dim == 2 ? 1 : N + 1
 
         local_penalty = MArray{Tuple{3}, FT}(undef)
+        local_schur_state⁻ = MArray{Tuple{1}, FT}(undef)
+        local_schur_state⁺ = MArray{Tuple{1}, FT}(undef)
     end
 
     eI = @index(Group, Linear)
@@ -346,9 +348,9 @@ end
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
         # Load minus side data
-        local_schur_state⁻ = schur_state[vid⁻, 1, e⁻]
+        local_schur_state⁻[1] = schur_state[vid⁻, 1, e⁻]
         # Load plus side data
-        local_schur_state⁺ = schur_state[vid⁺, 1, e⁺]
+        local_schur_state⁺[1] = schur_state[vid⁺, 1, e⁺]
 
         bctype = elemtobndy[f, e⁻]
         if bctype != 0
@@ -363,7 +365,7 @@ end
         end
         @unroll for d in 1:3
           local_penalty[d] = normal_vector[d] *
-            (local_schur_state⁺ .- local_schur_state⁻) / 2
+            (local_schur_state⁺[1] .- local_schur_state⁻[1]) / 2
         end
 
         @unroll for d in 1:3
@@ -645,6 +647,7 @@ end
             bctype
           )
         end
+
         fill!(local_flux⁻, -zero(eltype(local_flux⁻)))
         schur_lhs_conservative!(
             schur_complement,
@@ -953,7 +956,7 @@ end
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
             α
         )
-        local_schur_rhs= normal_vector' * SVector(local_flux⁻ + local_flux⁺) / 2
+        local_schur_rhs = normal_vector' * SVector(local_flux⁻ + local_flux⁺) / 2
 
         #Update RHS
         schur_rhs[vid⁻, 1, e⁻] += vMI * sM * local_schur_rhs
@@ -1275,8 +1278,6 @@ end
             α
         )
         local_state_lhs .= (local_flux⁻ + local_flux⁺)' * normal_vector / 2
-        
-        
         
 
         #Update RHS

@@ -31,8 +31,9 @@ schur_vars_gradient_auxiliary(::AtmosAcousticLinearSchurComplement, FT) = @vars(
 
 function schur_init_aux!(::AtmosAcousticLinearSchurComplement,
                          lm, schur_aux, aux, geom)
-  schur_aux.h0 = (aux.ref_state.ρe + aux.ref_state.p) / aux.ref_state.ρ
-  schur_aux.Φ = gravitational_potential(lm.atmos.orientation, aux)
+  Φ = gravitational_potential(lm.atmos.orientation, aux)
+  schur_aux.h0 = (aux.ref_state.ρe + aux.ref_state.p) / aux.ref_state.ρ - Φ
+  schur_aux.Φ = Φ
 end
 
 function schur_init_state!(::AtmosAcousticLinearSchurComplement,
@@ -65,7 +66,7 @@ function schur_gradient_boundary_state!(::AtmosAcousticLinearSchurComplement,
                                    schur_state⁺, n,
                                    schur_state⁻, bctype
                                   )
-  nothing
+  #schur_state⁺.p = -schur_state⁻.p
 end
 function schur_lhs_boundary_state!(::AtmosAcousticLinearSchurComplement, 
                                    balance_law,
@@ -75,13 +76,6 @@ function schur_lhs_boundary_state!(::AtmosAcousticLinearSchurComplement,
   schur_grad⁺.∇p = schur_grad⁻.∇p - 2 * dot(schur_grad⁻.∇p, n) * n
 end
 
-function schur_rhs_boundary_state!(::AtmosAcousticLinearSchurComplement, 
-                                   balance_law,
-                                   state⁺, schur_aux⁺, n,
-                                   state⁻, schur_aux⁻, bctype
-                                  )
-  state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) * n
-end
 function schur_rhs_conservative!(::AtmosAcousticLinearSchurComplement, 
                                  balance_law,
                                  rhs_flux, state, schur_aux, α)
@@ -94,13 +88,20 @@ function schur_rhs_nonconservative!(::AtmosAcousticLinearSchurComplement,
   param_set = lm.atmos.param_set
   γ = 1 / (1 - kappa_d(param_set))
   ρ = state.ρ
-  ρe = state.ρe
   ρu = state.ρu
+  ρe = state.ρe
   h0 = schur_aux.h0
   ∇h0 = schur_aux.∇h0
   Δp = -R_d(param_set) * T_0(param_set) / (γ - 1)
   
-  rhs_state.p = (ρe - Δp * ρ)/ (α * (h0 - Δp - Φ)) - ∇h0' * ρu / (h0 - Δp - Φ)
+  rhs_state.p = (ρe - (Φ + Δp) * ρ) / (α * (h0 - Δp - Φ)) - ∇h0' * ρu / (h0 - Δp - Φ)
+end
+function schur_rhs_boundary_state!(::AtmosAcousticLinearSchurComplement, 
+                                   balance_law,
+                                   state⁺, schur_aux⁺, n,
+                                   state⁻, schur_aux⁻, bctype
+                                  )
+  state⁺.ρu = state⁻.ρu - 2 * dot(state⁻.ρu, n) * n
 end
 
 function schur_update_conservative!(::AtmosAcousticLinearSchurComplement, 
