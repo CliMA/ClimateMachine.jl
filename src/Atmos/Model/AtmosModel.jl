@@ -509,7 +509,7 @@ function update_auxiliary_state!(
         reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
     end
 
-    dynsgs!(dg, m, Q, dQdt, dg.state_auxiliary, t, elems)
+  #  dynsgs!(dg, m, Q, dQdt, dg.state_auxiliary, t, elems)
     nodal_update_auxiliary_state!(
         atmos_nodal_update_auxiliary_state!,
         dg,

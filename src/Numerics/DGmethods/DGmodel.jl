@@ -414,6 +414,7 @@ function (dg::DGModel)(
         dependencies = (comp_stream,),
     )
 
+    dynsgs!(dg, balance_law, state_conservative, tendency, dg.state_auxiliary, t)
     comp_stream = interface_tendency!(device, workgroups_surface)(
         balance_law,
         Val(dim),
@@ -485,7 +486,7 @@ function (dg::DGModel)(
             exchange_state_conservative = Event(device)
         end
     end
-
+    #dynsgs!(dg, balance_law, state_conservative, tendency, dg.state_auxiliary, t)
     comp_stream = interface_tendency!(device, workgroups_surface)(
         balance_law,
         Val(dim),
@@ -513,7 +514,7 @@ function (dg::DGModel)(
             exchange_Qhypervisc_grad,
         ),
     )
-
+   # dynsgs!(dg, balance_law, state_conservative, tendency, dg.state_auxiliary, t)
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
@@ -941,15 +942,14 @@ function dynsgs!(
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
     
     μ_dynsgs = similar(Q.data, Nq^dim, number_state_conservative(m,FT), nrealelem)
-   vgeo = grid.vgeo
-   localQ = Q.data
+   vgeo = Array(grid.vgeo)
+   localQ = Array(Q.data)
    S = zero(FT)
-    Q_ave = similar(Q.data, number_state_conservative(m,FT))
+    Q_ave = Array(similar(Q.data, number_state_conservative(m,FT)))
     fill!(Q_ave, zero(FT))
-    @info size(vgeo)
     for e in 1:nrealelem
       for ijk in 1:Nq^dim
-        M = vgeo[ijk,_M,e]
+        M = vgeo[ijk, _M, e]
 	S += M
 	for s in 1:number_state_conservative(m,FT)
 	  Q_ave[s] += M * localQ[ijk,s,e]
@@ -957,7 +957,8 @@ function dynsgs!(
       end
     end
     Q_ave = Q_ave ./ S
-    l_δ̅ = similar(Q.data, Nq^dim, number_state_conservative(m,FT), nrealelem)
+    @info "Q",Q_ave
+    l_δ̅ = Array(similar(Q.data, Nq^dim, number_state_conservative(m,FT), nrealelem))
     fill!(l_δ̅, zero(FT))
     for e in 1:nrealelem
       for ijk in 1:Nq^dim
@@ -967,16 +968,35 @@ function dynsgs!(
       end
     end
    rhs = dQdt.data
-   l_rhs_m = similar(Q.data, number_state_conservative(m,FT), 1)
-   l_δ̅_m = similar(Q.data, number_state_conservative(m,FT), 1)
+   l_rhs_m = Array(similar(Q.data, number_state_conservative(m,FT), nrealelem))
+   l_δ̅_m = Array(similar(Q.data, number_state_conservative(m,FT)))
    for s in 1:number_state_conservative(m,FT)
-       l_rhs_m[s] = maximum(abs(rhs[:,s,:]))
-       l_δ̅_m[s] = maximum(abs(l_δ̅[:,s,:]))
-       l_rhs_m[s] = MPI.Allreduce(l_rhs_m[s], max, topology.mpicomm)
-       l_δ̅_m[s] = MPI.Allreduce(l_δ̅[s], max, topology.mpicomm)
+       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
+       #l_rhs_m[s] = MPI.Allreduce(l_rhs_m[s], max, topology.mpicomm)
+       l_δ̅_m[s] = MPI.Allreduce(l_δ̅_m[s], max, topology.mpicomm)
    end
-   μ = l_rhs_m[s] ./ (l_δ̅_m[s] + eps(FT))
-   temp_μ = maximum(μ)
-    state_auxiliary.data[:,end,:] .= temp_μ
+   for e in 1:nrealelem
+     for s in 1:number_state_conservative(m,FT)
+       l_rhs_m[s,e] = maximum(abs.(rhs[:,s,e]))
+     end
+   end
+
+   
+   μ = Array(similar(Q.data, number_state_conservative(m,FT), nrealelem))
+   for e in 1:nrealelem
+     for s in 1:number_state_conservative(m,FT)
+       μ[s,e] = l_rhs_m[s,e] / l_δ̅_m[s]
+     end
+   end
+   
+   μ = l_rhs_m ./ (l_δ̅_m .+ eps(FT))
+   @info maximum(μ)
+   #temp_μ = maximum(μ)
+   #if (isnan(temp_μ))
+   #@info l_rhs_m, temp_μ
+   #end
+   for e in 1:nrealelem
+    state_auxiliary.data[:,end,e] .= maximum(μ[:,e])
+   end
     nothing
 end

@@ -289,7 +289,7 @@ function main()
     zmax = FT(6400)
     t0 = FT(0)
     timeend = FT(900)
-    CFL = FT(1.7)
+    CFL = FT(0.2)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
