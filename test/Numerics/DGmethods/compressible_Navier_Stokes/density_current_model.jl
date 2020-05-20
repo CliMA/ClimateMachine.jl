@@ -13,6 +13,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays

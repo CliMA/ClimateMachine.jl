@@ -88,6 +88,8 @@ using ClimateMachine.ODESolvers
 # - Required for utility of spatial filtering functions (e.g. positivity
 #   preservation)
 using ClimateMachine.Mesh.Filters
+# - Required so functions for computation of temperature profiles.
+using ClimateMachine.TemperatureProfiles
 # - Required so functions for computation of moist thermodynamic quantities is
 #   enabled.
 using ClimateMachine.MoistThermodynamics
