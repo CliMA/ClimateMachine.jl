@@ -49,15 +49,7 @@ vars_state_gradient_flux(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
 
 boundary_state!(nf, bl::PoissonModel, _...) = nothing
 
-function flux_first_order!(
-    ::PoissonModel,
-    flux::Grad,
-    state::Vars,
-    state_auxiliary::Vars,
-    t::Real,
-)
-    nothing
-end
+function flux_first_order!(::PoissonModel, _...) end
 
 function flux_second_order!(
     ::PoissonModel,

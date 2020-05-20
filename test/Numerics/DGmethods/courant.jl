@@ -17,7 +17,6 @@ using ClimateMachine.Courant
 using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
-    RemainderModel,
     FlatOrientation,
     NoReferenceState,
     ReferenceState,

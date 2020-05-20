@@ -22,7 +22,7 @@ Subtypes `L` should define the following methods:
 - `compute_gradient_flux!(::L, state_gradient_flux::Vars, ∇transformstate::Grad, state_auxiliary::Vars, t::Real)`: transformation of gradients to the diffusive variables
 - `transform_post_gradient_laplacian!(::L, Qhypervisc_div::Vars, ∇Δtransformstate::Grad, state_auxiliary::Vars, t::Real)`: transformation of laplacian gradients to the hyperdiffusive variables
 - `source!(::L, source::Vars, state_conservative::Vars, diffusive::Vars, state_auxiliary::Vars, t::Real)`
-- `wavespeed(::L, n⁻, state_conservative::Vars, state_auxiliary::Vars, t::Real)`
+- `wavespeed(::L, n⁻, state_conservative::Vars, state_auxiliary::Vars, t::Real, direction)`
 - `boundary_state!(::NumericalFluxGradient, ::L, state_conservative⁺::Vars, state_auxiliary⁺::Vars, normal⁻, state_conservative⁻::Vars, state_auxiliary⁻::Vars, bctype, t)`
 - `boundary_state!(::NumericalFluxFirstOrder, ::L, state_conservative⁺::Vars, state_auxiliary⁺::Vars, normal⁻, state_conservative⁻::Vars, state_auxiliary⁻::Vars, bctype, t)`
 - `boundary_state!(::NumericalFluxSecondOrder, ::L, state_conservative⁺::Vars, state_gradient_flux⁺::Vars, state_auxiliary⁺::Vars, normal⁻, state_conservative⁻::Vars, state_gradient_flux⁻::Vars, state_auxiliary⁻::Vars, bctype, t)`

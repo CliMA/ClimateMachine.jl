@@ -152,6 +152,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
+        discrete_splitting = false,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

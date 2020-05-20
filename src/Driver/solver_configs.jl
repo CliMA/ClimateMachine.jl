@@ -185,17 +185,13 @@ function SolverConfiguration(
             state_gradient_flux = dg.state_gradient_flux,
             states_higher_order = dg.states_higher_order,
         )
-        slow_model = RemainderModel(bl, (linmodel,))
-        slow_dg = DGModel(
-            slow_model,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
+        remainder_kwargs = ode_solver_type.discrete_splitting ? NamedTuple() :
+            (
+            numerical_flux_first_order = numerical_flux_first_order,
+            numerical_flux_second_order = numerical_flux_second_order,
+            numerical_flux_gradient = numerical_flux_gradient,
         )
+        slow_dg = remainder_DGModel(dg, (fast_dg,); remainder_kwargs...)
         slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
         fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)

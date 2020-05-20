@@ -10,12 +10,13 @@ using KernelAbstractions
 export DiscontinuousSpectralElementGrid, AbstractGrid
 export dofs_per_element, arraytype, dimensionality, polynomialorder
 export referencepoints, min_node_distance, get_z
-export EveryDirection, HorizontalDirection, VerticalDirection
+export EveryDirection, HorizontalDirection, VerticalDirection, Direction
 
 abstract type Direction end
 struct EveryDirection <: Direction end
 struct HorizontalDirection <: Direction end
 struct VerticalDirection <: Direction end
+Base.in(::T, ::S) where {T <: Direction, S <: Direction} = T == S
 
 abstract type AbstractGrid{
     FloatType,

@@ -84,6 +84,7 @@ end
     q::Vars,
     α::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(q)
     _grav::FT = grav(m.param_set)
@@ -197,7 +198,7 @@ flux_second_order!(::LinearDrag, _...) = nothing
     return nothing
 end
 
-@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
+@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real, direction) = m.c
 
 @inline function source!(
     m::SWModel{P},

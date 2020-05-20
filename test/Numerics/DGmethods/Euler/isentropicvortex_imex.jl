@@ -2,7 +2,8 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.DGmethods: DGModel, init_ode_state, LocalGeometry
+using ClimateMachine.DGmethods:
+    DGModel, init_ode_state, LocalGeometry, remainder_DGModel
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -19,7 +20,6 @@ using ClimateMachine.MoistThermodynamics:
 using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
-    RemainderModel,
     NoOrientation,
     NoReferenceState,
     ReferenceState,
@@ -165,7 +165,6 @@ function run(
     )
 
     linear_model = AtmosAcousticLinearModel(model)
-    nonlinear_model = RemainderModel(model, (linear_model,))
 
     dg = DGModel(
         model,
@@ -185,14 +184,7 @@ function run(
     )
 
     if split_explicit_implicit
-        dg_nonlinear = DGModel(
-            nonlinear_model,
-            grid,
-            RusanovNumericalFlux(),
-            CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient();
-            state_auxiliary = dg.state_auxiliary,
-        )
+        dg_nonlinear = remainder_DGModel(dg, (dg_linear,))
     end
 
     timeend = FT(2 * setup.domain_halflength / setup.translation_speed)

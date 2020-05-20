@@ -1,7 +1,6 @@
 module Atmos
 
-export AtmosModel,
-    AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel, RemainderModel
+export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
@@ -14,7 +13,11 @@ using ..MoistThermodynamics
 import ..MoistThermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
-    VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
+    VerticalDirection,
+    HorizontalDirection,
+    min_node_distance,
+    EveryDirection,
+    Direction
 
 import ClimateMachine.DGmethods:
     BalanceLaw,
@@ -327,7 +330,6 @@ include("source.jl")
 include("tracers.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
-include("remainder.jl")
 include("courant.jl")
 
 @doc """
@@ -348,6 +350,7 @@ equations.
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
     ρinv = 1 / ρ
@@ -484,7 +487,14 @@ end
     flux.ρe += d_h_tot * state.ρ
 end
 
-@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+@inline function wavespeed(
+    m::AtmosModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
     uN = abs(dot(nM, u))
