@@ -160,7 +160,7 @@ function parse_commandline(custom_settings)
         action = :store_true
     end
 
-    if custom_settings !== nothing
+    if !isnothing(custom_settings)
         import_settings!(s, custom_settings)
     end
 
@@ -334,12 +334,12 @@ function invoke!(
         solver_config,
         user_info_callback,
     )
-    if cb_updates !== nothing
+    if !isnothing(cb_updates)
         callbacks = (callbacks..., cb_updates)
     end
 
     # diagnostics callback(s)
-    if Settings.diagnostics !== "never" && diagnostics_config !== nothing
+    if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
         Diagnostics.init(mpicomm, dg, Q, dgn_starttime, Settings.output_dir)
 
@@ -354,7 +354,7 @@ function invoke!(
 
     # vtk callback
     cb_vtk = Callbacks.vtk(Settings.vtk, solver_config, Settings.output_dir)
-    if cb_vtk !== nothing
+    if !isnothing(cb_vtk)
         callbacks = (callbacks..., cb_vtk)
     end
 
@@ -364,7 +364,7 @@ function invoke!(
         Settings.array_type,
         mpicomm,
     )
-    if cb_mtd !== nothing
+    if !isnothing(cb_mtd)
         callbacks = (callbacks..., cb_mtd)
     end
 
@@ -373,7 +373,7 @@ function invoke!(
         Settings.monitor_courant_numbers,
         solver_config,
     )
-    if cb_mcn !== nothing
+    if !isnothing(cb_mcn)
         callbacks = (callbacks..., cb_mcn)
     end
 
@@ -384,7 +384,7 @@ function invoke!(
         solver_config,
         Settings.checkpoint_dir,
     )
-    if cb_checkpoint !== nothing
+    if !isnothing(cb_checkpoint)
         callbacks = (callbacks..., cb_checkpoint)
     end
 
@@ -430,12 +430,15 @@ Starting %s
     end
 
     # fini diagnostics groups
-    if Settings.diagnostics !== "never" && diagnostics_config !== nothing
+    if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         currtime = ODESolvers.gettime(solver)
         for dgngrp in diagnostics_config.groups
             dgngrp(currtime, fini = true)
         end
     end
+
+    # fini VTK
+    !isnothing(cb_vtk) && cb_vtk()
 
     engf = norm(Q)
     @info @sprintf(

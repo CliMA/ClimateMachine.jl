@@ -114,9 +114,8 @@ end
 function (dgngrp::DiagnosticsGroup)(currtime; init = false, fini = false)
     if init
         dgngrp.init(dgngrp, currtime)
-    else
-        dgngrp.collect(dgngrp, currtime)
     end
+    dgngrp.collect(dgngrp, currtime)
     if fini
         dgngrp.fini(dgngrp, currtime)
     end
