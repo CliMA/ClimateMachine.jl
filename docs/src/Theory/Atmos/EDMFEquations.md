@@ -1098,16 +1098,3 @@ Bottom boundary
 where additional variable/function definitions are in:
 
  - [BC functions](@ref) $\Gamma_{TKE}$, $\Gamma_{\phi}$, $F_{\eint}$, $\SensibleSurfaceHeatFlux$, $F_{\qt}$, $\LatentSurfaceHeatFlux$.
-
-## Case-specific configurations
-
-| **Case** | **Variable**                 | **Value**                        | **Reference**    |
-|:---------|------------------------------|----------------------------------|------------------|
-| Bomex    | $\BC{p_s}$                   | 1000 [hPa]                       |                  |
-| Bomex    | $\BC{\DM{\qt}}$              | 5 [g/kg]                         |                  |
-| Bomex    | $\BC{\DM{\ThetaLiqIce}}$     | 300 [K]                          |                  |
-| Bomex    | $\BC{\TCV{w}{\qt}}$          | $5.2 \times 10^{-5} [m s^{-1}]$  |                  |
-| Bomex    | $\BC{\TCV{w}{\ThetaLiqIce}}$ | $8 \times 10^{-3} [K m s^{-1}]$  |                  |
-| Soares   | $\BC{\TCV{w}{\qt}}$          | $2.5 \times 10^{-5} [m s^{-1}]$  |                  |
-| Soares   | $\BC{\TCV{w}{\ThetaLiqIce}}$ | $6 \times 10^{-2} [K m s^{-1}]$  |                  |
-|          |                              |                                  |                  |

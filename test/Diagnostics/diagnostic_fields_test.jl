@@ -89,9 +89,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Set up the model
+    T_profile = DryAdiabaticProfile{FT}(param_set)
     C_smag = FT(0.23)
-    ref_state =
-        HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+    ref_state = HydrostaticState(T_profile)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
