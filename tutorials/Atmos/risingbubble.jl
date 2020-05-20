@@ -13,10 +13,12 @@
 # ## Description of experiment
 # 1) Dry Rising Bubble (circular potential temperature perturbation)
 # 2) Boundaries
-#    - `Impenetrable(FreeSlip())` - no momentum flux, no mass flux through
+#    Top and Bottom boundaries:
+#    - `Impenetrable(FreeSlip())` - Top and bottom: no momentum flux, no mass flux through
 #      walls.
 #    - `Impermeable()` - non-porous walls, i.e. no diffusive fluxes through
 #       walls.
+#    Lateral boundaries
 #    - Laterally periodic
 # 3) Domain - 2500m (horizontal) x 2500m (horizontal) x 2500m (vertical)
 # 4) Resolution - 50m effective resolution
@@ -40,7 +42,6 @@
 #md #     - Package requirements
 #md #     - Defining a `model` subtype for the set of conservation equations
 #md #     - Defining the initial conditions
-#md #     - Applying boundary conditions
 #md #     - Applying source terms
 #md #     - Choosing a turbulence model
 #md #     - Adding tracers to the model
@@ -148,19 +149,21 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     γ::FT = c_p / c_v
 
     # Define bubble center and background potential temperature
-    xc::FT = 1250
-    yc::FT = 1250
-    zc::FT = 1000
-    r = sqrt((x - xc)^2 + (y - yc)^2 + (z - zc)^2)
-    rc::FT = 500
+    xc::FT = 5000
+    yc::FT = 1000
+    zc::FT = 2000
+    r = sqrt((x - xc)^2 + (z - zc)^2)
+    rc::FT = 2000
+    θamplitude::FT = 2
+
     # TODO: clean this up, or add convenience function:
     # This is configured in the reference hydrostatic state
     θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
-    Δθ::FT = 0
 
-    # Compute temperature difference over bubble region
+    # Add the thermal perturbation:
+    Δθ::FT = 0
     if r <= rc
-        Δθ = FT(5) * cospi(r / rc / 2)
+        Δθ = θamplitude * (1.0 - r / rc)
     end
 
     # Compute perturbed thermodynamic state:
@@ -203,18 +206,25 @@ end
 # appropriate to the problem being considered.
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
-    # Choose an Explicit Multi-rate Solver from the existing [ODESolvers](@ref
-    # ODESolvers-docs) options Apply the outer constructor to define the
-    # `ode_solver`. Here `AtmosAcousticGravityLinearModel` splits the
-    # acoustic-gravity wave components from the advection-diffusion dynamics.
+    # Choose an Explicit Single-rate Solver from the existing [ODESolvers](@ref
+    # ODESolvers-docs) options. Apply the outer constructor to define the
+    # `ode_solver`.
     # The 1D-IMEX method is less appropriate for the problem given the current
-    # mesh aspect ratio (1:1)
-    ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+    # mesh aspect ratio (1:1).
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
+    # If the user prefers a multi-rate explicit time integrator,
+    # the ode_solver above can be replaced with 
+    # 
+    # `ode_solver = ClimateMachine.MultirateSolverType(
+    #    linear_model = AtmosAcousticGravityLinearModel,
+    #    slow_method = LSRK144NiegemannDiehlBusch,
+    #    fast_method = LSRK144NiegemannDiehlBusch,
+    #    timestep_ratio = 10,
+    # )`
+    #See [ODESolvers](@ref ODESolvers-docs) for all of the available solvers.
+
 
     # Since we want four tracers, we specify this and include the appropriate
     # diffusivity scaling coefficients (normally these would be physically
@@ -222,6 +232,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # tracer index identifier)
     ntracers = 4
     δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
+    # To assemble `AtmosModel` with no tracers, set `tracers = NoTracers()`.
 
     # The model coefficient for the turbulence closure is defined via the
     # [CLIMAParameters
@@ -298,15 +309,20 @@ function main()
     # random seeds, spline interpolants and other special functions at the
     # initialisation step.)
     N = 4
-    Δh = FT(50)
-    Δv = FT(50)
+    Δh = FT(125)
+    Δv = FT(125)
     resolution = (Δh, Δh, Δv)
-    xmax = FT(2500)
-    ymax = FT(2500)
-    zmax = FT(2500)
+    xmax = FT(10000)
+    ymax = FT(500)
+    zmax = FT(10000)
     t0 = FT(0)
     timeend = FT(1000)
-    CFL = FT(20)
+
+    # Use up to 20 if ode_solver is the multi-rate LRRK144.
+    # CFL = FT(15)
+
+    # Use up to 1.7 if ode_solver is the single rate LSRK144.
+    CFL = FT(1.7)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
@@ -357,9 +373,13 @@ end
 #md # - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)
 #md # are two commonly used programs for `.vtu` files.
 #md #
-#md # For NetCDF or JLD2 diagnostics you may use Julia's
+#md # For NetCDF or JLD2 diagnostics you may use any of the following tools:
+#md # Julia's
 #md # [`NCDatasets`](https://github.com/Alexander-Barth/NCDatasets.jl) and
 #md # [`JLD2`](https://github.com/JuliaIO/JLD2.jl) packages with a suitable
+#md #
+#md # or the known and quick NCDF visualization tool:
+#md # [`ncview`](https://meteora.ucsd.edu/~pierce/ncview_home_page.html)
 #md # plotting program.
 
 #
