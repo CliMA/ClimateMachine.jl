@@ -292,9 +292,9 @@ function config_diagnostics(driver_config, FT)
     info = driver_config.config_info
     boundaries = [
         FT(0.0)     FT(0)    FT(0)
-        FT(10000.0) FT(2500) FT(10000)
+        FT(10000.0) FT(2000) FT(10000)
     ]
-    resolution = (FT(125), FT(125), FT(125)) # in (m, m, m)
+    resolution = (FT(60), FT(125), FT(60)) # in (m, m, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
@@ -305,7 +305,7 @@ function config_diagnostics(driver_config, FT)
         interval,
         driver_config.name,
         interpol = interpol,
-        project = true,
+        project = false, #true for Cubed sphere interpolation
     )
     
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
@@ -326,8 +326,8 @@ function main()
     # random seeds, spline interpolants and other special functions at the
     # initialisation step.)
     N = 4
-    Δh = FT(125)
-    Δv = FT(125)
+    Δh = FT(62.5)
+    Δv = FT(62.5)
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
     ymax = FT(2500)
