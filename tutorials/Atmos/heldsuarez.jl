@@ -24,6 +24,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 

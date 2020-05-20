@@ -11,6 +11,7 @@ using LinearAlgebra, StaticArrays
 using ..ConfigTypes
 using ..VariableTemplates
 using ..MoistThermodynamics
+using ..TemperatureProfiles
 import ..MoistThermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:

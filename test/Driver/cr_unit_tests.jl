@@ -3,6 +3,7 @@ ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
