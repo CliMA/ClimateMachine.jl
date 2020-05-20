@@ -131,79 +131,14 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
     end
 
     if lin.rhs! isa Function || isnothing(lin.rhs!.schur_complement)
-      #println("start")
-      #@show extrema(Q.realdata[:, 1, :])
-      #@show extrema(Q.realdata[:, 2, :])
-      #@show extrema(Q.realdata[:, 3, :])
-      #@show extrema(Q.realdata[:, 4, :])
-      #@show extrema(Q.realdata[:, 5, :])
-      
-      #test1 = Qhat.realdata[:, 2:4, :]
       linearsolve!(lin.factors, lin.solver, Q, Qhat, p, t)
-      #test2 = Q.realdata[:, 2:4, :] 
-      #test = (test1 .- test2) ./ α
-      #@show extrema(test[:, 1, :])
-      #@show extrema(test[:, 2, :])
-      #@show extrema(test[:, 3, :])
-
-      #println("end")
-      #@show extrema(Q.realdata[:, 1, :])
-      #@show extrema(Q.realdata[:, 2, :])
-      #@show extrema(Q.realdata[:, 3, :])
-      #@show extrema(Q.realdata[:, 4, :])
-      #@show extrema(Q.realdata[:, 5, :])
-      
-      # TESTING
-      #dQ = similar(Q)
-      #Q2 = similar(Q)
-      #lin.rhs!(dQ, Q, p, t)
-      #Q2 .= Qhat .+ α .* dQ
-
-      #dg = lin.rhs!
-      #init_schur_state(Q, Qhat, α, dg)
-      #schur_extract_state(Q, Qhat, α, dg)
-
-      #Q[:, 1, :] .= Q2[:, 1, :]
-      #Q[:, 2:4, :] .= Q2[:, 2:4, :]
-      ##Q[:, 5, :] .= Q2[:, 5, :]
-
-      #println("extraction")
-      #@show extrema(Q.realdata[:, 1, :])
-      #@show extrema(Q.realdata[:, 2, :])
-      #@show extrema(Q.realdata[:, 3, :])
-      #@show extrema(Q.realdata[:, 4, :])
-      #@show extrema(Q.realdata[:, 5, :])
     else
       dg = lin.rhs!
       init_schur_state(Q, Qhat, α, dg)
-
       schur_state = dg.states_schur_complement.state
       schur_rhs = dg.states_schur_complement.rhs
-
-      #@show extrema(Q.realdata[:, 1, :])
-      #@show extrema(Q.realdata[:, 2, :])
-      #@show extrema(Q.realdata[:, 3, :])
-      #@show extrema(Q.realdata[:, 4, :])
-      #@show extrema(Q.realdata[:, 5, :])
-      #@show extrema(schur_state)
       linearsolve!(schur_lhs!, lin.solver, schur_state, schur_rhs, α, dg)
-      #@show extrema(schur_state)
       schur_extract_state(Q, Qhat, α, dg)
-      
-      #@show extrema(dg.states_schur_complement.auxiliary[:, 1, :])
-      #@show extrema(dg.states_schur_complement.auxiliary[:, 2, :])
-      #@show extrema(dg.states_schur_complement.auxiliary[:, 3, :])
-      #@show extrema(dg.states_schur_complement.auxiliary[:, 4, :])
-      #@show extrema(dg.states_schur_complement.auxiliary[:, 5, :])
-
-      #@show extrema(dg.states_schur_complement.gradient[:, 1, :])
-      #@show extrema(dg.states_schur_complement.gradient[:, 2, :])
-      #@show extrema(dg.states_schur_complement.gradient[:, 3, :])
-      #@show extrema(Q.realdata[:, 1, :])
-      #@show extrema(Q.realdata[:, 2, :])
-      #@show extrema(Q.realdata[:, 3, :])
-      #@show extrema(Q.realdata[:, 4, :])
-      #@show extrema(Q.realdata[:, 5, :])
     end
 end
 
