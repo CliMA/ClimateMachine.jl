@@ -63,12 +63,11 @@ function config_heldsuarez(FT, poly_order, resolution)
     exp_name = "HeldSuarez"
     T_ref::FT = 255        # reference temperature for Held-Suarez forcing (K)
     τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
-    c_smag::FT = 0.21      # Smagorinsky coefficient
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = SmagorinskyLilly(c_smag),
+        turbulence = ConstantViscosityWithDivergence(FT(0)) 
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
@@ -193,7 +192,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = 0.1,
         init_on_cpu = true,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
@@ -203,7 +202,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 10
+    filterorder = 14
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
