@@ -129,7 +129,6 @@ const param_set = EarthParameterSet()
 #md #     - `state.ρ` = Scalar quantity for initial density profile
 #md #     - `state.ρu`= 3-component vector for initial momentum profile
 #md #     - `state.ρe`= Scalar quantity for initial total-energy profile
-#md #     - `state.moisture.ρq_tot` = Scalar quantity for the total specific
 #md #       humidity
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualisation
@@ -152,7 +151,9 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     zc::FT = 1000
     r = sqrt((x - xc)^2 + (y - yc)^2 + (z - zc)^2)
     rc::FT = 500
-    θ_ref::FT = 300
+    # TODO: clean this up, or add convenience function:
+    # This is configured in the reference hydrostatic state
+    θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
     Δθ::FT = 0
 
     # Compute temperature difference over bubble region
@@ -164,9 +165,9 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     θ = θ_ref + Δθ                                      # potential temperature
     π_exner = FT(1) - _grav / (c_p * θ) * z             # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)      # density
-    q_tot = FT(0)                                       # total specific humidity
-    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot) # thermodynamic state
-    q_pt = PhasePartition(ts)                           # phase partition
+    T = θ * π_exner
+    e_int = internal_energy(bl.param_set, T)
+    ts = PhaseDry(bl.param_set, e_int, ρ)
     ρu = SVector(FT(0), FT(0), FT(0))                   # momentum
     #State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
@@ -190,7 +191,6 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_pt.tot
     state.tracers.ρχ = ρχ
 end
 
@@ -225,8 +225,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # [CLIMAParameters
     # package](https://CliMA.github.io/CLIMAParameters.jl/latest/) A reference
     # state for the linearisation step is also defined.
-    ref_state =
-        HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+    T_surface = FT(300)
+    T_min_ref = FT(0)
+    T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
+    ref_state = HydrostaticState(T_profile)
 
     # The fun part! Here we assemble the `AtmosModel`.
     #md # !!! note
@@ -243,6 +245,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,                           # Flow in a box, requires the AtmosLESConfigType
         param_set;                                    # Parameter set corresponding to earth parameters
         turbulence = SmagorinskyLilly(_C_smag),       # Turbulence closure model
+        moisture = DryModel(),                        # Exclude moisture variables
         hyperdiffusion = StandardHyperDiffusion(60),  # Hyperdiffusion (4th order) model
         source = (Gravity(),),                        # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),        # Tracer model with diffusivity coefficients

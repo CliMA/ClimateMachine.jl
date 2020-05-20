@@ -522,7 +522,7 @@ function main()
         check_euclidean_distance = true,
     )
 
-    @test isapprox(result, FT(1); atol = 2e-3)
+    @test isapprox(result, FT(1); atol = 4e-3)
 end
 
 main()

@@ -65,8 +65,8 @@ function main()
     outputtime = 60 * 60
 
     expected_result = Dict()
-    expected_result[Float32] = 9.5064378310656000e+13
-    expected_result[Float64] = 9.5073452847081828e+13
+    expected_result[Float32] = 9.2987451244544000e+13
+    expected_result[Float64] = 9.2993570967854438e+13
 
     for FT in (Float32, Float64)
         result = run(
@@ -112,11 +112,13 @@ function run(
         meshwarp = cubedshellwarp,
     )
 
+    T_profile = IsothermalProfile(param_set, setup.T_ref)
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         orientation = SphericalOrientation(),
-        ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0)),
+        ref_state = HydrostaticState(T_profile),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = Gravity(),

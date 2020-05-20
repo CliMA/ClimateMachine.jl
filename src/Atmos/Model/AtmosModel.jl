@@ -128,14 +128,7 @@ function AtmosModel{FT}(
     ::Type{AtmosLESConfigType},
     param_set::AbstractParameterSet;
     orientation::O = FlatOrientation(),
-    ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(
-            FT(200),
-            FT(280),
-            FT(grav(param_set)) / FT(cp_d(param_set)),
-        ),
-        FT(0),
-    ),
+    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     hyperdiffusion::HD = NoHyperDiffusion(),
     moisture::M = EquilMoist{FT}(),
@@ -172,14 +165,7 @@ function AtmosModel{FT}(
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
     orientation::O = SphericalOrientation(),
-    ref_state::RS = HydrostaticState(
-        LinearTemperatureProfile(
-            FT(200),
-            FT(280),
-            FT(grav(param_set)) / FT(cp_d(param_set)),
-        ),
-        FT(0),
-    ),
+    ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     hyperdiffusion::HD = NoHyperDiffusion(),
     moisture::M = EquilMoist{FT}(),

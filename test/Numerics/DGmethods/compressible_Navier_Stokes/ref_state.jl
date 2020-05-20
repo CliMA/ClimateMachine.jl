@@ -45,12 +45,12 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         polynomialorder = N,
     )
 
-    T_s = 320.0
-    RH = 0.01
+    T_s = FT(290)
+    T_profile = IsothermalProfile(param_set, T_s)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(IsothermalProfile(T_s), RH),
+        ref_state = HydrostaticState(T_profile),
         init_state_conservative = init_state_conservative!,
     )
 
@@ -84,15 +84,11 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         polynomialorder = N,
     )
 
-    T_min, T_s, Γ = FT(290), FT(320), FT(6.5 * 10^-3)
-    RH = 0.01
+    T_profile = DecayingTemperatureProfile{FT}(param_set)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(
-            LinearTemperatureProfile(T_min, T_s, Γ),
-            RH,
-        ),
+        ref_state = HydrostaticState(T_profile),
         init_state_conservative = init_state_conservative!,
     )
 

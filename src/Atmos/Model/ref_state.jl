@@ -3,11 +3,10 @@ using DocStringExtensions
 export NoReferenceState,
     HydrostaticState,
     IsothermalProfile,
-    LinearTemperatureProfile,
     DecayingTemperatureProfile,
     DryAdiabaticProfile
 
-using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav
+using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
 
 """
     ReferenceState
@@ -16,6 +15,19 @@ Reference state, for example, used as initial
 condition or for linearization.
 """
 abstract type ReferenceState end
+
+"""
+    TemperatureProfile
+
+Specifies the temperature or virtual temperature profile for a reference state.
+
+Instances of this type are required to be callable objects with the following signature
+
+    T,p = (::TemperatureProfile)(orientation::Orientation, aux::Vars)
+
+where `T` is the temperature or virtual temperature (in K), and `p` is the pressure (in Pa).
+"""
+abstract type TemperatureProfile{FT <: AbstractFloat} end
 
 vars_state_conservative(m::ReferenceState, FT) = @vars()
 vars_state_gradient(m::ReferenceState, FT) = @vars()
@@ -40,11 +52,19 @@ struct NoReferenceState <: ReferenceState end
 """
     HydrostaticState{P,T} <: ReferenceState
 
-A hydrostatic state specified by a temperature profile and relative humidity.
+A hydrostatic state specified by a virtual temperature profile and relative humidity.
 """
-struct HydrostaticState{P, F} <: ReferenceState
-    temperatureprofile::P
-    relativehumidity::F
+struct HydrostaticState{P, FT} <: ReferenceState
+    virtual_temperature_profile::P
+    relative_humidity::FT
+end
+function HydrostaticState(
+    virtual_temperature_profile::TemperatureProfile{FT},
+) where {FT}
+    return HydrostaticState{typeof(virtual_temperature_profile), FT}(
+        virtual_temperature_profile,
+        FT(0),
+    )
 end
 
 vars_state_auxiliary(m::HydrostaticState, FT) =
@@ -57,17 +77,25 @@ function atmos_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 ) where {P, F}
-    T, p = m.temperatureprofile(atmos.orientation, atmos.param_set, aux)
+    T_virt, p =
+        m.virtual_temperature_profile(atmos.orientation, atmos.param_set, aux)
     FT = eltype(aux)
     _R_d::FT = R_d(atmos.param_set)
 
-    aux.ref_state.T = T
+    ρ = p / (_R_d * T_virt)
+    aux.ref_state.ρ = ρ
     aux.ref_state.p = p
-    aux.ref_state.ρ = ρ = p / (_R_d * T)
-    q_vap_sat = q_vap_saturation(atmos.param_set, T, ρ)
-    aux.ref_state.ρq_tot = ρq_tot = ρ * m.relativehumidity * q_vap_sat
+    # We evaluate the saturation vapor pressure, approximating
+    # temperature by virtual temperature
+    q_vap_sat = q_vap_saturation(atmos.param_set, T_virt, ρ)
+
+    ρq_tot = ρ * relative_humidity(m) * q_vap_sat
+    aux.ref_state.ρq_tot = ρq_tot
 
     q_pt = PhasePartition(ρq_tot)
+    R_m = gas_constant_air(atmos.param_set, q_pt)
+    T = T_virt * R_m / _R_d
+    aux.ref_state.T = T
     aux.ref_state.ρe = ρ * internal_energy(atmos.param_set, T, q_pt)
 
     e_kin = F(0)
@@ -76,148 +104,110 @@ function atmos_init_aux!(
 end
 
 
+"""
+    IsothermalProfile(param_set, T_virt)
+
+A uniform virtual temperature profile, which is implemented
+as a special case of [`DecayingTemperatureProfile`](@ref).
+"""
+IsothermalProfile(param_set::AbstractParameterSet, T_virt::FT) where {FT} =
+    DecayingTemperatureProfile{FT}(param_set, T_virt, T_virt)
 
 """
-    TemperatureProfile
-
-Specifies the temperature profile for a reference state.
-
-Instances of this type are required to be callable objects with the following signature
-
-    T,p = (::TemperatureProfile)(orientation::Orientation, aux::Vars)
-
-where `T` is the temperature (in K), and `p` is the pressure (in hPa).
-"""
-abstract type TemperatureProfile end
+    DryAdiabaticProfile{FT} <: TemperatureProfile{FT}
 
 
-"""
-    IsothermalProfile{F} <: TemperatureProfile
-
-A uniform temperature profile.
+A temperature profile that has uniform dry potential temperature `θ`
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
-struct IsothermalProfile{F} <: TemperatureProfile
-    "temperature (K)"
-    T::F
-end
-
-function (profile::IsothermalProfile)(
-    orientation::Orientation,
-    param_set,
-    aux::Vars,
-)
-    FT = eltype(aux)
-    _R_d::FT = R_d(param_set)
-    _MSLP::FT = MSLP(param_set)
-    p =
-        _MSLP *
-        exp(-gravitational_potential(orientation, aux) / (_R_d * profile.T))
-    return (profile.T, p)
+struct DryAdiabaticProfile{FT} <: TemperatureProfile{FT}
+    "Surface temperature (K)"
+    T_surface::FT
+    "Minimum temperature (K)"
+    T_min_ref::FT
+    function DryAdiabaticProfile{FT}(
+        param_set::AbstractParameterSet,
+        T_surface::FT = FT(T_surf_ref(param_set)),
+        _T_min_ref::FT = FT(T_min_ref(param_set)),
+    ) where {FT <: AbstractFloat}
+        return new{FT}(T_surface, _T_min_ref)
+    end
 end
 
 """
-    DryAdiabaticProfile{F} <: TemperatureProfile
+    (profile::DryAdiabaticProfile)(
+        orientation::Orientation,
+        param_set::AbstractParameterSet,
+        aux::Vars,
+    )
 
-
-A temperature profile that has uniform potential temperature θ until it
-reaches the minimum specified temperature `T_min`
-
-# Fields
-
-$(DocStringExtensions.FIELDS)
+Returns dry adiabatic temperature and pressure profiles
+with zero relative humidity. The temperature is truncated
+to be greater than or equal to `profile.T_min_ref`.
 """
-struct DryAdiabaticProfile{F} <: TemperatureProfile
-    "minimum temperature (K)"
-    T_min::F
-    "potential temperature (K)"
-    θ::F
-end
-
 function (profile::DryAdiabaticProfile)(
     orientation::Orientation,
-    param_set,
+    param_set::AbstractParameterSet,
     aux::Vars,
 )
     FT = eltype(aux)
-    _cp_d::FT = cp_d(param_set)
-    _grav::FT = grav(param_set)
-    LinearTemperatureProfile(profile.T_min, profile.θ, FT(_grav / _cp_d))(
-        orientation,
-        param_set,
-        aux,
-    )
-end
-
-"""
-    LinearTemperatureProfile{F} <: TemperatureProfile
-
-A temperature profile which decays linearly with height `z`, until it reaches a minimum specified temperature.
-
-```math
-T(z) = \\max(T_{\\text{surface}} − Γ z, T_{\\text{min}})
-```
-
-# Fields
-
-$(DocStringExtensions.FIELDS)
-"""
-struct LinearTemperatureProfile{FT} <: TemperatureProfile
-    "minimum temperature (K)"
-    T_min::FT
-    "surface temperature (K)"
-    T_surface::FT
-    "lapse rate (K/m)"
-    Γ::FT
-end
-
-function (profile::LinearTemperatureProfile)(
-    orientation::Orientation,
-    param_set::PS,
-    aux::Vars,
-) where {PS}
-
-    FT = eltype(aux)
     _R_d::FT = R_d(param_set)
+    _cp_d::FT = cp_d(param_set)
     _grav::FT = grav(param_set)
     _MSLP::FT = MSLP(param_set)
 
     z = altitude(orientation, param_set, aux)
-    T = max(profile.T_surface - profile.Γ * z, profile.T_min)
 
-    p = _MSLP * (T / profile.T_surface)^(_grav / (_R_d * profile.Γ))
-    if T == profile.T_min
-        z_top = (profile.T_surface - profile.T_min) / profile.Γ
-        H_min = _R_d * profile.T_min / _grav
+    # Temperature
+    Γ = _grav / _cp_d
+    T = max(profile.T_surface - Γ * z, profile.T_min_ref)
+
+    # Pressure
+    p = _MSLP * (T / profile.T_surface)^(_grav / (_R_d * Γ))
+    if T == profile.T_min_ref
+        z_top = (profile.T_surface - profile.T_min_ref) / Γ
+        H_min = _R_d * profile.T_min_ref / _grav
         p *= exp(-(z - z_top) / H_min)
     end
     return (T, p)
 end
 
 """
-    DecayingTemperatureProfile{F} <: TemperatureProfile
+    DecayingTemperatureProfile{F} <: TemperatureProfile{FT}
 
-A virtual temperature profile that decays smoothly with height `z`, dropping by a specified temperature difference `ΔTv` over a height scale `H_t`.
+A virtual temperature profile that decays smoothly with height `z`, from
+`T_virt_surf` to `T_min_ref` over a height scale `H_t`. The default height
+scale `H_t` is the density scale height evaluated with `T_virt_surf`.
 
 ```math
-Tv(z) = \\max(Tv{\\text{surface}} − ΔTv \\tanh(z/H_{\\text{t}})
+T_{\\text{v}}(z) = \\max(T_{\\text{v, sfc}} − (T_{\\text{v, sfc}} - T_{\\text{v, min}}) \\tanh(z/H_{\\text{t}})
 ```
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
-struct DecayingTemperatureProfile{FT} <: TemperatureProfile
-    "virtual temperature at surface (K)"
-    Tv_surface::FT
-    "virtual temperature drop from surface to top of the atmosphere (K)"
-    ΔTv::FT
-    "height scale over which virtual temperature drops (m)"
+struct DecayingTemperatureProfile{FT} <: TemperatureProfile{FT}
+    "Virtual temperature at surface (K)"
+    T_virt_surf::FT
+    "Minimum virtual temperature at the top of the atmosphere (K)"
+    T_min_ref::FT
+    "Height scale over which virtual temperature drops (m)"
     H_t::FT
+    function DecayingTemperatureProfile{FT}(
+        param_set::AbstractParameterSet,
+        _T_virt_surf::FT = FT(T_surf_ref(param_set)),
+        _T_min_ref::FT = FT(T_min_ref(param_set)),
+        H_t::FT = FT(R_d(param_set)) * FT(T_surf_ref(param_set)) /
+                  FT(grav(param_set)),
+    ) where {FT <: AbstractFloat}
+        return new{FT}(_T_virt_surf, _T_min_ref, H_t)
+    end
 end
+
 
 function (profile::DecayingTemperatureProfile)(
     orientation::Orientation,
@@ -225,16 +215,28 @@ function (profile::DecayingTemperatureProfile)(
     aux::Vars,
 )
     z = altitude(orientation, param_set, aux)
-    Tv = profile.Tv_surface - profile.ΔTv * tanh(z / profile.H_t)
+    ΔTv = profile.T_virt_surf - profile.T_min_ref
+    Tv = profile.T_virt_surf - ΔTv * tanh(z / profile.H_t)
     FT = typeof(z)
     _R_d::FT = R_d(param_set)
     _grav::FT = grav(param_set)
     _MSLP::FT = MSLP(param_set)
 
-    ΔTv_p = profile.ΔTv / profile.Tv_surface
-    H_surface = _R_d * profile.Tv_surface / _grav
-    p = -z - profile.H_t * ΔTv_p * log(cosh(z / profile.H_t) - atanh(ΔTv_p))
-    p /= H_surface * (1 - ΔTv_p^2)
+    ΔTv′ = ΔTv / profile.T_virt_surf
+    p = -z - profile.H_t * ΔTv′ * log(cosh(z / profile.H_t) - atanh(ΔTv′))
+    p /= profile.H_t * (1 - ΔTv′^2)
     p = _MSLP * exp(p)
     return (Tv, p)
 end
+
+
+"""
+    relative_humidity(hs::HydrostaticState{P,FT})
+
+Here, we enforce that relative humidity is zero
+for a dry adiabatic profile.
+"""
+relative_humidity(hs::HydrostaticState{P, FT}) where {P, FT} =
+    hs.relative_humidity
+relative_humidity(hs::HydrostaticState{DryAdiabaticProfile, FT}) where {FT} =
+    FT(0)
