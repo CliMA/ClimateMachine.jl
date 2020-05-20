@@ -109,18 +109,15 @@ function kinematic_model_nodal_update_auxiliary_state!(
     # supersaturation
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
     aux.T = air_temperature(param_set, aux.e_int, q)
-    aux.S =
-        max(
-            0,
-            aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) - FT(1),
-        ) * FT(100)
-    aux.RH =
-        aux.q_vap / q_vap_saturation(param_set, aux.T, state.ρ, q) * FT(100)
+    ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
+    aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
+    aux.RH = aux.q_vap / q_vap_saturation(ts_neq) * FT(100)
 
     aux.rain_w = terminal_velocity(param_set, aux.q_rai, state.ρ)
 
     # uncomment below for more diagnostics
-    #q_eq = PhasePartition_equil(aux.T, state.ρ, aux.q_tot)
+    #ts_eq = TemperatureSHumEquil(param_set, aux.T, state.ρ, aux.q_tot)
+    #q_eq = PhasePartition(ts_eq)
     #aux.src_cloud_liq = conv_q_vap_to_q_liq(q_eq, q)
     #aux.src_cloud_ice = conv_q_vap_to_q_ice(q_eq, q)
     #aux.src_acnv = conv_q_liq_to_q_rai_acnv(aux.q_liq)
@@ -240,7 +237,8 @@ function source!(
     q = PhasePartition(q_tot, q_liq, q_ice)
     T = air_temperature(param_set, e_int, q)
     # equilibrium state at current T
-    q_eq = PhasePartition_equil(param_set, T, state.ρ, q_tot)
+    ts_eq = TemperatureSHumEquil(param_set, T, state.ρ, q_tot)
+    q_eq = PhasePartition(ts_eq)
 
     # zero out the source terms
     source.ρq_tot = FT(0)

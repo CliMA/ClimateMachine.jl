@@ -2,10 +2,13 @@ export PhasePartition
 # Thermodynamic states
 export ThermodynamicState,
     PhaseDry,
+    PhaseDry_given_ρT,
     PhaseDry_given_pT,
     PhaseEquil,
     PhaseNonEquil,
     TemperatureSHumEquil,
+    TemperatureSHumEquil_given_pressure,
+    TemperatureSHumNonEquil,
     LiquidIcePotTempSHumEquil,
     LiquidIcePotTempSHumEquil_given_pressure,
     LiquidIcePotTempSHumNonEquil,
@@ -149,6 +152,20 @@ function PhaseDry_given_pT(param_set::APS, p::FT, T::FT) where {FT <: Real}
     return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
 end
 
+"""
+    PhaseDry_given_ρT(param_set, ρ, T)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `ρ` density
+ - `T` temperature
+"""
+function PhaseDry_given_ρT(param_set::APS, ρ::FT, T::FT) where {FT <: Real}
+    e_int = internal_energy(param_set, T)
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+end
+
 
 """
     LiquidIcePotTempSHumEquil(param_set, θ_liq_ice, ρ, q_tot)
@@ -220,7 +237,28 @@ function LiquidIcePotTempSHumEquil_given_pressure(
 end
 
 """
-    TemperatureSHumEquil(param_set, T, p, q_tot)
+    TemperatureSHumEquil(param_set, T, ρ, q_tot)
+
+Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
+
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `T` temperature
+ - `ρ` density
+ - `q_tot` total specific humidity
+"""
+function TemperatureSHumEquil(
+    param_set::APS,
+    T::FT,
+    ρ::FT,
+    q_tot::FT,
+) where {FT <: Real}
+    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    e_int = internal_energy(param_set, T, q)
+    return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot, T)
+end
+
+"""
+    TemperatureSHumEquil_given_pressure(param_set, T, p, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
 
@@ -229,7 +267,7 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
  - `p` pressure
  - `q_tot` total specific humidity
 """
-function TemperatureSHumEquil(
+function TemperatureSHumEquil_given_pressure(
     param_set::APS,
     T::FT,
     p::FT,
@@ -273,6 +311,26 @@ function PhaseNonEquil(
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT}
     return PhaseNonEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q)
+end
+
+"""
+    TemperatureSHumNonEquil(param_set, T, ρ, q_pt)
+
+Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `T` temperature
+ - `ρ` (moist-)air density
+ - `q_pt` phase partition
+"""
+function TemperatureSHumNonEquil(
+    param_set::APS,
+    T::FT,
+    ρ::FT,
+    q_pt::PhasePartition{FT},
+) where {FT <: Real}
+    e_int = internal_energy(param_set, T, q_pt)
+    return PhaseNonEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_pt)
 end
 
 """

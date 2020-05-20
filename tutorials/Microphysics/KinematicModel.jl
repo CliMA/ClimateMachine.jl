@@ -41,6 +41,8 @@ using ClimateMachine.MoistThermodynamics:
     PhasePartition,
     internal_energy,
     q_vap_saturation,
+    TemperatureSHumEquil,
+    TemperatureSHumNonEquil,
     air_temperature
 using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
