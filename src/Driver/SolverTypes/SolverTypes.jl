@@ -50,9 +50,8 @@ struct HEVISplitting <: DiscreteSplittingType end
 A function which returns a model representing the dynamics
 with the most restrictive time-stepping requirements.
 """
-getdtmodel(ode_solver::AbstractSolverType, bl) = throw(
-    MethodError(solversetup, (ode_solver, bl),),
-)
+getdtmodel(ode_solver::AbstractSolverType, bl) =
+    throw(MethodError(solversetup, (ode_solver, bl)),)
 
 """
     solversetup(
@@ -73,12 +72,10 @@ solversetup(
     dt,
     t0,
     diffusion_direction,
-) = throw(
-    MethodError(
-        solversetup,
-        (ode_solver, dg, Q, dt, t0, diffusion_direction),
-    )
-)
+) = throw(MethodError(
+    solversetup,
+    (ode_solver, dg, Q, dt, t0, diffusion_direction),
+))
 
 include("ExplicitSolverType.jl")
 include("IMEXSolverType.jl")

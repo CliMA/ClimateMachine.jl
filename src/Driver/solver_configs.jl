@@ -174,14 +174,7 @@ function SolverConfiguration(
     timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
 
     # create the solver
-    solver = solversetup(
-        ode_solver_type,
-        dg,
-        Q,
-        ode_dt,
-        t0,
-        diffdir,
-    )
+    solver = solversetup(ode_solver_type, dg, Q, ode_dt, t0, diffdir)
 
     @toc SolverConfiguration
 

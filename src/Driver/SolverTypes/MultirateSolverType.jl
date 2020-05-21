@@ -205,10 +205,7 @@ function solversetup(
     fast_dt = dt / ode_solver.timestep_ratio
     fast_solver = ode_solver.fast_method(fast_dg, Q; dt = fast_dt)
 
-    solver = MultirateRungeKutta(
-        (slow_solver, fast_solver),
-        t0 = t0
-    )
+    solver = MultirateRungeKutta((slow_solver, fast_solver), t0 = t0)
 
     return solver
 end
@@ -348,10 +345,7 @@ function solversetup(
 
     slow_solver = ode_solver.slow_method(slow_dg, Q; dt = dt, t0 = t0)
 
-    solver = MultirateRungeKutta(
-        (slow_solver, fast_solver),
-        t0 = t0,
-    )
+    solver = MultirateRungeKutta((slow_solver, fast_solver), t0 = t0)
 
     return solver
 end

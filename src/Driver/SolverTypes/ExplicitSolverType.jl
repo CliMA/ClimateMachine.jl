@@ -19,9 +19,7 @@ struct ExplicitSolverType <: AbstractSolverType
     # Function for an explicit Runge-Kutta method
     solver_method::Function
 
-    function ExplicitSolverType(;
-        solver_method = LSRK54CarpenterKennedy,
-    )
+    function ExplicitSolverType(; solver_method = LSRK54CarpenterKennedy)
 
         return new(solver_method)
     end
@@ -61,12 +59,7 @@ function solversetup(
     diffusion_direction,
 )
 
-    solver = ode_solver.solver_method(
-        dg,
-        Q;
-        dt = dt,
-        t0 = t0,
-    )
+    solver = ode_solver.solver_method(dg, Q; dt = dt, t0 = t0)
 
     return solver
 end
