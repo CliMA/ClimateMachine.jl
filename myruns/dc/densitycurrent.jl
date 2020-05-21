@@ -285,9 +285,9 @@ function main()
     # `solver_config` are distinct from the spatial / model components in `driver_config`. `init_on_cpu` is a helper
     # keyword argument that forces problem initialisation on CPU (thereby allowing the use of random seeds, spline interpolants and other special functions at the initialisation step.)
     N = 4
-    Δh = FT(50)
+    Δh = FT(25)
     Δy = FT(200)
-    Δv = FT(50)
+    Δv = FT(25)
     resolution = (Δh, Δy, Δv)
     xmax = FT(25600)
     ymax = FT(1000)
