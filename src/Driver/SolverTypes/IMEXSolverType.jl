@@ -5,7 +5,7 @@ export IMEXSolverType
 # Description
     IMEXSolverType(;
         splitting_type = HEVISplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
@@ -26,7 +26,7 @@ implicit operator.
 - `splitting_type` (DiscreteSplittingType): The type of discrete
     splitting to apply to the right-hand side.
     Default: `SlowFastSplitting()`
-- `linear_model` (Type): The linear model describing fast dynamics.
+- `implicit_model` (Type): The linear model describing fast dynamics.
     Default: `AtmosAcousticGravityLinearModel`
 - `implicit_solver` (Type): A linear solver for inverting the
     implicit system of equations.
@@ -59,7 +59,7 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
     # The type of discrete splitting to apply to the right-hand side
     splitting_type::DS
     # Linear model describing fast dynamics
-    linear_model::Type
+    implicit_model::Type
     # Choice of implicit solver
     implicit_solver::Type
     # Can the implicit solver be updated with changing dt?
@@ -71,7 +71,7 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
 
     function IMEXSolverType(;
         splitting_type = HEVISplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
@@ -83,13 +83,24 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
 
         return new{DS, ST}(
             splitting_type,
-            linear_model,
+            implicit_model,
             implicit_solver,
             implicit_solver_adjustable,
             solver_method,
             solver_storage_variant,
         )
     end
+end
+
+"""
+    getdtmodel(ode_solver::IMEXSolverType, bl)
+
+A function which returns a model representing the dynamics
+with the most restrictive time-stepping requirements.
+"""
+function getdtmodel(ode_solver::IMEXSolverType, bl)
+    # Most restrictive dynamics are treated implicitly
+    return ode_solver.implicit_model(bl)
 end
 
 """
@@ -125,9 +136,9 @@ function solversetup(
 ) where {DS <: HEVISplitting}
 
     # All we need to do is create a DGModel for the
-    # vertical acoustic waves (determined from the `linear_model`)
+    # vertical acoustic waves (determined from the `implicit_model`)
     vdg = DGModel(
-        ode_solver.linear_model(dg.balance_law),
+        ode_solver.implicit_model(dg.balance_law),
         dg.grid,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,

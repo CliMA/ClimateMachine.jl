@@ -5,7 +5,7 @@ export MultirateSolverType
 # Description
     MultirateSolverType(;
         splitting_type = SlowFastSplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         implicit_solver_adjustable = false,
         slow_method = LSRK54CarpenterKennedy,
@@ -28,7 +28,7 @@ fast and slow dynamics respectively, depending on the state `Q`.
 - `splitting_type` (DiscreteSplittingType): The type of discrete
     splitting to apply to the right-hand side.
     Default: `SlowFastSplitting()`
-- `linear_model` (Type): The linear model describing fast dynamics.
+- `fast_model` (Type): The model describing fast dynamics.
     Default: `AtmosAcousticGravityLinearModel`
 - `implicit_solver` (Type): A linear solver for inverting the
     implicit system of equations (if using `HEVISplitting()`).
@@ -66,8 +66,8 @@ fast and slow dynamics respectively, depending on the state `Q`.
 struct MultirateSolverType{DS} <: AbstractSolverType
     # The type of discrete splitting to apply to the right-hand side
     splitting_type::DS
-    # Linear model describing fast dynamics
-    linear_model::Type
+    # The model describing fast dynamics
+    fast_model::Type
     # Choice of implicit solver
     implicit_solver::Type
     # Can the implicit solver be updated with changing dt?
@@ -81,7 +81,7 @@ struct MultirateSolverType{DS} <: AbstractSolverType
 
     function MultirateSolverType(;
         splitting_type = SlowFastSplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         implicit_solver_adjustable = false,
         slow_method = LSRK54CarpenterKennedy,
@@ -93,7 +93,7 @@ struct MultirateSolverType{DS} <: AbstractSolverType
 
         return new{DS}(
             splitting_type,
-            linear_model,
+            fast_model,
             implicit_solver,
             implicit_solver_adjustable,
             slow_method,
@@ -101,6 +101,17 @@ struct MultirateSolverType{DS} <: AbstractSolverType
             timestep_ratio,
         )
     end
+end
+
+"""
+    getdtmodel(ode_solver::MultirateSolverType, bl)
+
+A function which returns a model representing the dynamics
+with the most restrictive time-stepping requirements.
+"""
+function getdtmodel(ode_solver::MultirateSolverType, bl)
+    # Most restrictive dynamics are part of the fast model
+    return ode_solver.fast_model(bl)
 end
 
 """
@@ -159,9 +170,9 @@ function solversetup(
     # Extract linear model and define a DG model
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
-    linmodel = ode_solver.linear_model(dg.balance_law)
+    fast_model = ode_solver.fast_model(dg.balance_law)
     fast_dg = DGModel(
-        linmodel,
+        fast_model,
         dg.grid,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
@@ -175,7 +186,7 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    slow_model = RemainderModel(dg.balance_law, (linmodel,))
+    slow_model = RemainderModel(dg.balance_law, (fast_model,))
     slow_dg = DGModel(
         slow_model,
         dg.grid,
@@ -266,7 +277,7 @@ function solversetup(
 
     # Extract linear model and define a DG model
     # for the fast processes
-    linmodel = ode_solver.linear_model(dg.balance_law)
+    linmodel = ode_solver.fast_model(dg.balance_law)
 
     # Full DG model for the acoustic waves in all directions
     acoustic_dg_full = DGModel(

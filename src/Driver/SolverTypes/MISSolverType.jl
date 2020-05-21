@@ -5,7 +5,7 @@ export MISSolverType
 # Description
     MISSolverType(;
         splitting_type = SlowFastSplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
         nsubsteps = 50,
@@ -27,7 +27,7 @@ fast and slow dynamics respectively, depending on the state `Q`.
 - `splitting_type` (DiscreteSplittingType): The type of discrete
     splitting to apply to the right-hand side.
     Default: `SlowFastSplitting()`
-- `linear_model` (Type): The linear model describing fast dynamics.
+- `fast_model` (Type): The model describing fast dynamics.
     Default: `AtmosAcousticGravityLinearModel`
 - `mis_method` (Function): Function defining the particular MIS
     method to be used.
@@ -53,8 +53,8 @@ fast and slow dynamics respectively, depending on the state `Q`.
 struct MISSolverType{DS} <: AbstractSolverType
     # The type of discrete splitting to apply to the right-hand side
     splitting_type::DS
-    # Linear model describing fast dynamics
-    linear_model::Type
+    # The model describing fast dynamics
+    fast_model::Type
     # Main MIS function
     mis_method::Function
     # Fast RK solver
@@ -64,7 +64,7 @@ struct MISSolverType{DS} <: AbstractSolverType
 
     function MISSolverType(;
         splitting_type = SlowFastSplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
         nsubsteps = 50,
@@ -74,12 +74,23 @@ struct MISSolverType{DS} <: AbstractSolverType
 
         return new{DS}(
             splitting_type,
-            linear_model,
+            fast_model,
             mis_method,
             fast_method,
             nsubsteps,
         )
     end
+end
+
+"""
+    getdtmodel(ode_solver::MISSolverType, bl)
+
+A function which returns a model representing the dynamics
+with the most restrictive time-stepping requirements.
+"""
+function getdtmodel(ode_solver::MISSolverType, bl)
+    # Most restrictive dynamics are part of the fast model
+    return ode_solver.fast_model(bl)
 end
 
 """
@@ -107,12 +118,12 @@ function solversetup(
     diffusion_direction,
 ) where {DS <: SlowFastSplitting}
 
-    # Extract linear model and define a DG model
+    # Extract fast model and define a DG model
     # for the fast processes (acoustic/gravity waves
     # in all spatial directions)
-    linmodel = ode_solver.linear_model(dg.balance_law)
+    fast_model = ode_solver.fast_model(dg.balance_law)
     fast_dg = DGModel(
-        linmodel,
+        fast_model,
         dg.grid,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
@@ -126,7 +137,7 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    slow_model = RemainderModel(dg.balance_law, (linmodel,))
+    slow_model = RemainderModel(dg.balance_law, (fast_model,))
     slow_dg = DGModel(
         slow_model,
         dg.grid,

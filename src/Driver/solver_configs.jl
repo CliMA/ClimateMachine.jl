@@ -160,16 +160,7 @@ function SolverConfiguration(
     # initial Δt specified or computed
     simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-
-        # create the linear model for IMEX and Multirate solvers
-        linmodel = nothing
-        if isa(ode_solver_type, ExplicitSolverType)
-            dtmodel = bl
-        else
-            linmodel = ode_solver_type.linear_model(bl)
-            dtmodel = linmodel
-        end
-
+        dtmodel = getdtmodel(ode_solver_type, bl)
         ode_dt = ClimateMachine.DGmethods.calculate_dt(
             dg,
             dtmodel,
