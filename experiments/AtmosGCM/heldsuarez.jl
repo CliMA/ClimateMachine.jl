@@ -6,7 +6,7 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU, SingleColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
@@ -189,13 +189,16 @@ function main()
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        splitting_type = HEVISplitting(),
-        implicit_model = AtmosAcousticGravityLinearModel,
+    ode_solver_type = ClimateMachine.MultirateSolverType(;
+        splitting_type = ClimateMachine.HEVISplitting(),
+        fast_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
+        implicit_solver_adjustable = true,
+        slow_method = LSRK54CarpenterKennedy,
+        fast_method = ARK1ForwardBackwardEuler,
+        timestep_ratio = 30,
     )
-    CFL = FT(0.2)
+    CFL = FT(0.8)
 
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
