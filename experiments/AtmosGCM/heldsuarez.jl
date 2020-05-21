@@ -1,6 +1,18 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+using ArgParse
+
+s = ArgParseSettings()
+@add_arg_table! s begin
+    "--number-of-tracers"
+    help = "Number of dummy tracers"
+    metavar = "<number>"
+    arg_type = Int
+    default = 0
+end
+
+parsed_args = ClimateMachine.cli(custom_settings = s)
+const number_of_tracers = parsed_args["number-of-tracers"]
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -39,6 +51,10 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = rnd * aux.ref_state.ρe
 
+    if number_of_tracers > 0
+        state.tracers.ρχ = @SVector [FT(ii) for ii in 1:number_of_tracers]
+    end
+
     nothing
 end
 
@@ -66,6 +82,14 @@ function config_heldsuarez(FT, poly_order, resolution)
     T_ref::FT = 255        # reference temperature for Held-Suarez forcing (K)
     τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
     c_smag::FT = 0.21      # Smagorinsky coefficient
+
+    if number_of_tracers > 0
+        δ_χ = @SVector [FT(ii) for ii in 1:number_of_tracers]
+        tracers = NTracers{number_of_tracers, FT}(δ_χ)
+    else
+        tracers = NoTracers()
+    end
+
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
@@ -76,6 +100,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
+        tracers = tracers,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
