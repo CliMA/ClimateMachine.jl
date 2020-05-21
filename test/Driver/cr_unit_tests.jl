@@ -3,6 +3,7 @@ ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
@@ -72,8 +73,9 @@ function main()
     )
 
     setup = AcousticWaveSetup{FT}()
+    T_profile = IsothermalProfile(param_set, setup.T_ref)
     orientation = SphericalOrientation()
-    ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0))
+    ref_state = HydrostaticState(T_profile)
     turbulence = ConstantViscosityWithDivergence(FT(0))
     model = AtmosModel{FT}(
         AtmosGCMConfigType,

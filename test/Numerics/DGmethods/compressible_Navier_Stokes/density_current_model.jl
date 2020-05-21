@@ -13,6 +13,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using LinearAlgebra
 using StaticArrays
@@ -127,13 +128,11 @@ function run(
     )
     # -------------- Define model ---------------------------------- #
     source = Gravity()
+    T_profile = DryAdiabaticProfile{FT}(param_set)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(
-            DryAdiabaticProfile(typemin(FT), FT(300)),
-            FT(0),
-        ),
+        ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
         init_state_conservative = Initialise_Density_Current!,

@@ -9,6 +9,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
@@ -42,11 +43,8 @@ end
 
 function config_heldsuarez(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
-    T_sfc::FT = 290 # surface temperature of reference state (K)
-    ΔT::FT = 60     # temperature drop between surface and top of atmosphere (K)
-    H_t::FT = 8e3   # height sclae over which temperature drops (m)
-    temp_profile_ref = DecayingTemperatureProfile(T_sfc, ΔT, H_t)
-    ref_state = HydrostaticState(temp_profile_ref, FT(0))
+    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set)
+    ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up a Rayleigh sponge to dampen flow at the top of the domain
     domain_height::FT = 30e3               # distance between surface and top of atmosphere (m)
