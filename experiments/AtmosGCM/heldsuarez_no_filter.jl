@@ -9,7 +9,6 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
@@ -181,7 +180,7 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 120                             # experiment day number
+    n_days = 2*365                           # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
@@ -203,7 +202,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 14
+    filterorder = 18
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
