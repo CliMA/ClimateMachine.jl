@@ -1,6 +1,7 @@
 export AbstractAdditiveRungeKutta
 export LowStorageVariant, NaiveVariant
 export AdditiveRungeKutta
+export ARK1ForwardBackwardEuler
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
@@ -520,6 +521,52 @@ end
             Q[i] += RKB[is] * dt * Rstages[is][i]
         end
     end
+end
+
+function ARK1ForwardBackwardEuler(
+    F,
+    L,
+    backward_euler_solver,
+    Q::AT;
+    dt = nothing,
+    t0 = 0,
+    split_explicit_implicit = false,
+    variant = LowStorageVariant(),
+) where {AT <: AbstractArray}
+
+    @assert dt !== nothing
+
+    T = eltype(Q)
+    RT = real(T)
+
+    RKA_explicit = [
+        RT(0) RT(0)
+        RT(1) RT(0)
+    ]
+    RKA_implicit = [
+        RT(0) RT(0)
+        RT(0) RT(1)
+    ]
+
+    RKB = [RT(0), RT(1)]
+    RKC = [RT(1), RT(1)]
+
+    Nstages = length(RKB)
+
+    AdditiveRungeKutta(
+        F,
+        L,
+        backward_euler_solver,
+        RKA_explicit,
+        RKA_implicit,
+        RKB,
+        RKC,
+        split_explicit_implicit,
+        variant,
+        Q;
+        dt = dt,
+        t0 = t0,
+    )
 end
 
 """
