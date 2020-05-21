@@ -25,7 +25,7 @@ implicit operator.
 # Arguments
 - `splitting_type` (DiscreteSplittingType): The type of discrete
     splitting to apply to the right-hand side.
-    Default: `SlowFastSplitting()`
+    Default: `HEVISplitting()`
 - `implicit_model` (Type): The linear model describing fast dynamics.
     Default: `AtmosAcousticGravityLinearModel`
 - `implicit_solver` (Type): A linear solver for inverting the
@@ -106,13 +106,13 @@ end
 """
 # Description
     solversetup(
-        ode_solver::IMEXSolverType{DS},
+        ode_solver::IMEXSolverType{HEVISplitting},
         dg,
         Q,
         dt,
         t0,
         diffusion_direction,
-    ) where {DS <: HEVISplitting}
+    )
 
 Creates an ODE solver using a HEVI-type time-integration
 scheme. All horizontal acoustic waves are treated explicitly,
@@ -127,13 +127,13 @@ possible to perform more fine-grained separation of tendencies
 (for example, including vertical advection or diffusion in the 1-D implicit problem)
 """
 function solversetup(
-    ode_solver::IMEXSolverType{DS},
+    ode_solver::IMEXSolverType{HEVISplitting},
     dg,
     Q,
     dt,
     t0,
     diffusion_direction,
-) where {DS <: HEVISplitting}
+)
 
     # All we need to do is create a DGModel for the
     # vertical acoustic waves (determined from the `implicit_model`)

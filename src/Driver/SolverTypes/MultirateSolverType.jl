@@ -117,13 +117,13 @@ end
 """
 # Description
     function solversetup(
-        ode_solver::MultirateSolverType{DS},
+        ode_solver::MultirateSolverType{SlowFastSplitting},
         dg,
         Q,
         dt,
         t0,
         diffusion_direction,
-    ) where {DS <: SlowFastSplitting}
+    )
 
 Creates an ODE solver for the partition slow-fast ODE
 using a multirate method with explicit time-integration.
@@ -159,13 +159,13 @@ references.
     }
 """
 function solversetup(
-    ode_solver::MultirateSolverType{DS},
+    ode_solver::MultirateSolverType{SlowFastSplitting},
     dg,
     Q,
     dt,
     t0,
     diffusion_direction,
-) where {DS <: SlowFastSplitting}
+)
 
     # Extract linear model and define a DG model
     # for the fast processes (acoustic/gravity waves
@@ -213,13 +213,13 @@ end
 """
 # Description
     solversetup(
-        ode_solver::MultirateSolverType{DS},
+        ode_solver::MultirateSolverType{HEVISplitting},
         dg,
         Q,
         dt,
         t0,
         diffusion_direction,
-    ) where {DS <: HEVISplitting}
+    )
 
 Creates an ODE solver for the partition slow-fast ODE
 using a multirate method with HEVI time-integration.
@@ -264,13 +264,13 @@ possible to perform more fine-grained separation of tendencies
 (for example, including vertical advection or diffusion in the 1-D implicit problem)
 """
 function solversetup(
-    ode_solver::MultirateSolverType{DS},
+    ode_solver::MultirateSolverType{HEVISplitting},
     dg,
     Q,
     dt,
     t0,
     diffusion_direction,
-) where {DS <: HEVISplitting}
+)
 
     # Extract linear model and define a DG model
     # for the fast processes

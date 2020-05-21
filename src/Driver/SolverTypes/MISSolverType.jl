@@ -96,13 +96,13 @@ end
 """
 # Description
     function solversetup(
-        ode_solver::MISSolverType{DS},
+        ode_solver::MISSolverType{SlowFastSplitting},
         dg,
         Q,
         dt,
         t0,
         diffusion_direction,
-    ) where {DS <: SlowFastSplitting}
+    )
 
 Creates an ODE solver for the partition slow-fast ODE
 using an MIS method with explicit time-integration.
@@ -110,13 +110,13 @@ The splitting of the fast (acoustic and gravity waves)
 dynamics is done in _all_ spatial directions.
 """
 function solversetup(
-    ode_solver::MISSolverType{DS},
+    ode_solver::MISSolverType{SlowFastSplitting},
     dg,
     Q,
     dt,
     t0,
     diffusion_direction,
-) where {DS <: SlowFastSplitting}
+)
 
     # Extract fast model and define a DG model
     # for the fast processes (acoustic/gravity waves
