@@ -287,6 +287,7 @@ For a specific global site, establish and store the GCM state
 for each available vertical level. `groupid` refers to the integer
 index of the specific global site that we are interested in.
 """
+const forcingfile = "HadGEM2-A_amip.2004-2008.07"
 function get_gcm_info(groupid)
 
     @printf("--------------------------------------------------\n")
@@ -305,7 +306,7 @@ function get_gcm_info(groupid)
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    filename = "/home/asridhar/CLIMA/datasets/HadGEM2-A_amip.2004-2008.07.nc"
+    filename = "/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
     req_varnames = (
         "zg",
         "ta",
@@ -463,13 +464,8 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )
-    #=
-    lsrk_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-    =# 
     config = ClimateMachine.AtmosLESConfiguration(
-        "HadGEM2-ClimateMachine-$groupid",
+        forcingfile*"_$groupid",
         N,
         resolution,
         xmax,
