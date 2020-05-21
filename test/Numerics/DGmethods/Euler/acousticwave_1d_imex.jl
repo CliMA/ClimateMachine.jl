@@ -22,6 +22,7 @@ using ClimateMachine.MoistThermodynamics:
     internal_energy,
     PhaseDry_given_pT,
     PhasePartition
+using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
     AtmosModel,
     SphericalOrientation,
@@ -33,7 +34,6 @@ using ClimateMachine.Atmos:
     vars_state_auxiliary,
     Gravity,
     HydrostaticState,
-    IsothermalProfile,
     AtmosAcousticGravityLinearModel,
     altitude,
     latitude,

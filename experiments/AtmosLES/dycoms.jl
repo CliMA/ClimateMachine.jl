@@ -9,6 +9,7 @@ using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 

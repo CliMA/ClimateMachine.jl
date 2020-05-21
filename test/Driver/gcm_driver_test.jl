@@ -6,6 +6,7 @@ ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.MoistThermodynamics
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
 using ClimateMachine.ODESolvers

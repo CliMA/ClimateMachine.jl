@@ -9,6 +9,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
