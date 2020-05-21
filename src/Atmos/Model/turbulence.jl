@@ -407,11 +407,7 @@ function turbulence_tensors(
 
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    if aux.coord[3] <= FT(3400)
-        f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
-    else
-        f_b² = FT(1)
-    end
+    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     ν₀ = normS * (m.C_smag)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
