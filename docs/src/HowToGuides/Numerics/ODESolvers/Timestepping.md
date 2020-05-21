@@ -81,9 +81,11 @@ Butcher Tableaus: one for each of the partitioned components.  Additionally,
 a linear solver is required.  Currently, ClimateMachine supports the follow
 set of ARK methods for IMEX-based timestepping:
 
-1. [ARK2GiraldoKellyConstantinescu](@ref ARK2GiraldoKellyConstantinescu)
-2. [ARK548L2SA2KennedyCarpenter](@ref ARK548L2SA2KennedyCarpenter)
-3. [ARK437L2SA1KennedyCarpenter](@ref ARK437L2SA1KennedyCarpenter)
+1. [ARK1ForwardBackwardEuler](@ref ARK1ForwardBackwardEuler)
+2. [ARK2ImplicitExplicitMidpoint](@ref ARK2ImplicitExplicitMidpoint)
+3. [ARK2GiraldoKellyConstantinescu](@ref ARK2GiraldoKellyConstantinescu)
+4. [ARK548L2SA2KennedyCarpenter](@ref ARK548L2SA2KennedyCarpenter)
+5. [ARK437L2SA1KennedyCarpenter](@ref ARK437L2SA1KennedyCarpenter)
 
 For example, consider the following:
 
