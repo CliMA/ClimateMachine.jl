@@ -228,10 +228,10 @@ driver_config = ClimateMachine.AtmosGCMConfiguration(
 # vertical acoustic waves implicitly, while all other dynamics
 # are treated explicitly.
 ode_solver_type = ClimateMachine.IMEXSolverType(
-        splitting_type = HEVISplitting(),
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
+    splitting_type = HEVISplitting(),
+    implicit_model = AtmosAcousticGravityLinearModel,
+    implicit_solver = ManyColumnLU,
+    solver_method = ARK2GiraldoKellyConstantinescu,
 )
 
 solver_config = ClimateMachine.SolverConfiguration(
