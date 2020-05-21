@@ -160,7 +160,7 @@ function held_suarez_forcing!(
 
     #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
     #for topography, but leave unchanged for calculations of σ involved in T_equil
-    _p0 = 1.01325e5
+    _p0 = FT(1.01325e5)
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
     Δσ = (σ - σ_b) / (1 - σ_b)
