@@ -166,10 +166,10 @@ struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
     τₒ::T
     boundary_condition::BC
     function HomogeneousBox{FT}(
-        Lˣ,             # m
-        Lʸ,             # m
-        H;              # m
-        τₒ = FT(1e-1),  # N/m²
+        Lˣ,            # m
+        Lʸ,            # m
+        H;             # m
+        τₒ = FT(1e-1), # N/m²
         BC = (
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Impenetrable(NoSlip()), Insulating()),
