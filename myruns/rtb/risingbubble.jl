@@ -213,13 +213,17 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # acoustic-gravity wave components from the advection-diffusion dynamics.
     # The 1D-IMEX method is less appropriate for the problem given the current
     # mesh aspect ratio (1:1)
-    ode_solver = ClimateMachine.MultirateSolverType(
+#=    ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )
-
+=#
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+    
     # Since we want four tracers, we specify this and include the appropriate
     # diffusivity scaling coefficients (normally these would be physically
     # informed but for this demonstration we use integers corresponding to the
@@ -326,16 +330,16 @@ function main()
     # random seeds, spline interpolants and other special functions at the
     # initialisation step.)
     N = 4
-    Δh = FT(62.5)
-    Δv = FT(62.5)
+    Δh = FT(15.625)
+    Δv = FT(15.625)
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
-    ymax = FT(2500)
+    ymax = FT(62.5)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(1000)
-    CFL = FT(10)
-
+    timeend = FT(1200)
+    CFL = FT(1.7)
+    
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -345,7 +349,7 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
-    dgn_config = config_diagnostics(driver_config, FT)
+    #dgn_config = config_diagnostics(driver_config, FT)
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
@@ -357,7 +361,7 @@ function main()
     # information.
     result = ClimateMachine.invoke!(
         solver_config;
-        diagnostics_config = dgn_config,
+        #diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
