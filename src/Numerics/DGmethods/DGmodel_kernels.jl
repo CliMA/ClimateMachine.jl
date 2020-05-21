@@ -49,6 +49,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     t,
     ω,
     D,
+    NVD,
     elems,
     increment,
 ) where {dim, polyorder}
@@ -75,12 +76,15 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_flux = MArray{Tuple{3, num_state_conservative}, FT}(undef)
         local_flux_3 = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_flux_nonvisc_3 = MArray{Tuple{num_state_conservative}, FT}(undef)
     end
 
     shared_flux = @localmem FT (2, Nq, Nq, num_state_conservative)
+    shared_flux_nonvisc = @localmem FT (2, Nq, Nq, num_state_conservative)
     s_D = @localmem FT (Nq, Nq)
 
     local_tendency = @private FT (Nqk, num_state_conservative)
+    local_NVD = @private FT (Nqk, num_state_conservative)
     local_MI = @private FT (Nqk,)
 
     e = @index(Group, Linear)
@@ -92,6 +96,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
                 local_tendency[k, s] =
+                    increment ? tendency[ijk, s, e] : zero(FT)
+                local_NVD[k, s] =
                     increment ? tendency[ijk, s, e] : zero(FT)
             end
             local_MI[k] = vgeo[ijk, _MI, e]
@@ -149,8 +155,34 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 shared_flux[1, i, j, s] = local_flux[1, s]
                 shared_flux[2, i, j, s] = local_flux[2, s]
                 local_flux_3[s] = local_flux[3, s]
+                shared_flux_nonvisc[1, i, j, s] = local_flux[1, s]
+                shared_flux_nonvisc[2, i, j, s] = local_flux[2, s]
+                local_flux_nonvisc_3[s] = local_flux[3, s]
+            end
+            @unroll for s in 1:num_state_conservative
+                F1, F2, F3 = shared_flux_nonvisc[1, i, j, s],
+                shared_flux_nonvisc[2, i, j, s],
+                local_flux_nonvisc_3[s]
+
+                shared_flux_nonvisc[1, i, j, s] =
+                    M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    shared_flux_nonvisc[2, i, j, s] =
+                        M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                end
+                if dim == 3 && direction isa EveryDirection
+                    local_flux_nonvisc_3[s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                end
             end
 
+            if dim == 3 && direction isa EveryDirection
+                @unroll for n in 1:Nqk
+                    MI = local_MI[n]
+                    @unroll for s in 1:num_state_conservative
+                        local_NVD[n, s] += MI * s_D[k, n] * local_flux_nonvisc_3[s] 
+                   end
+                end
+            end
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
                 balance_law,
@@ -221,6 +253,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
             @unroll for s in 1:num_state_conservative
                 local_tendency[k, s] += local_source[s]
+                local_NVD[k, s] += local_source[s]
             end
             @synchronize
 
@@ -231,12 +264,15 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     # ξ1-grid lines
                     local_tendency[k, s] +=
                         MI * s_D[n, i] * shared_flux[1, n, j, s]
-
+                    local_NVD[k, s] +=
+                        MI * s_D[n, i] * shared_flux_nonvisc[1, n, j, s]
                     # ξ2-grid lines
                     if dim == 3 || (dim == 2 && direction isa EveryDirection)
                         local_tendency[k, s] +=
                             MI * s_D[n, j] * shared_flux[2, i, n, s]
-                    end
+                        local_NVD[k, s] +=
+                            MI * s_D[n, j] * shared_flux_nonvisc[2, i, n, s] 
+                   end
                 end
             end
         end
@@ -245,6 +281,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
                 tendency[ijk, s, e] = local_tendency[k, s]
+                NVD[ijk, s, e] = local_NVD[k, s]
             end
         end
     end
@@ -264,6 +301,7 @@ end
     t,
     ω,
     D,
+    NVD,
     elems,
     increment,
 ) where {dim, polyorder}
@@ -290,7 +328,7 @@ end
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_flux = MArray{Tuple{3, num_state_conservative}, FT}(undef)
         local_flux_total = MArray{Tuple{3, num_state_conservative}, FT}(undef)
-
+        local_flux_nonvisc = MArray{Tuple{3, num_state_conservative}, FT}(undef)
         _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
         _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
@@ -300,6 +338,7 @@ end
     end
 
     local_tendency = @private FT (Nqk, num_state_conservative)
+    local_NVD = @private FT (Nqk, num_state_conservative)
     local_MI = @private FT (Nqk,)
 
     shared_flux = @localmem FT shared_flux_size
@@ -315,6 +354,8 @@ end
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
                 local_tendency[k, s] =
+                    increment ? tendency[ijk, s, e] : zero(FT)
+                local_NVD[k, s] =
                     increment ? tendency[ijk, s, e] : zero(FT)
             end
             local_MI[k] = vgeo[ijk, _MI, e]
@@ -364,8 +405,34 @@ end
                 local_flux_total[1, s] = local_flux[1, s]
                 local_flux_total[2, s] = local_flux[2, s]
                 local_flux_total[3, s] = local_flux[3, s]
+                local_flux_nonvisc[1, s] += local_flux[1, s]
+                local_flux_nonvisc[2, s] += local_flux[2, s]
+                local_flux_nonvisc[3, s] += local_flux[3, s]
+            end
+           
+            # Build "inside metrics" flux
+            @unroll for s in 1:num_state_conservative
+                F1, F2, F3 = local_flux_nonvisc[1, s],
+                local_flux_nonvisc[2, s],
+                local_flux_nonvisc[3, s]
+                Fv = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+                if dim == 2
+                    shared_flux[i, j, s] = Fv
+                else
+                    local_flux_nonvisc[1, s] = Fv
+                end
             end
 
+            if dim == 3
+                @unroll for n in 1:Nqk
+                    MI = local_MI[n]
+                    @unroll for s in 1:num_state_conservative
+                        local_NVD[n, s] +=
+                            MI * s_D[k, n] * local_flux_nonvisc[1, s]
+                    end
+                end
+            end
+     
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
                 balance_law,
@@ -433,6 +500,7 @@ end
 
             @unroll for s in 1:num_state_conservative
                 local_tendency[k, s] += local_source[s]
+                local_NVD[k, s] += local_source[s]
             end
 
             @synchronize(dim == 2)
@@ -451,6 +519,7 @@ end
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
                 tendency[ijk, s, e] = local_tendency[k, s]
+                NVD[ijk, s, e] = local_NVD[k, s]
             end
         end
     end
@@ -485,6 +554,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     vmap⁻,
     vmap⁺,
     elemtobndy,
+    NVD,
     elems,
 ) where {dim, polyorder}
     @uniform begin
@@ -550,7 +620,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         local_state_auxiliary_bottom1 =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
-        local_flux = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_flux_visc = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_flux_nonvisc = MArray{Tuple{num_state_conservative}, FT}(undef)
     end
 
     eI = @index(Group, Linear)
@@ -610,12 +681,13 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         end
 
         bctype = elemtobndy[f, e⁻]
-        fill!(local_flux, -zero(eltype(local_flux)))
+        fill!(local_flux_visc, -zero(eltype(local_flux_visc)))
+        fill!(local_flux_nonvisc, -zero(eltype(local_flux_nonvisc)))
         if bctype == 0
             numerical_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
+                Vars{vars_state_conservative(balance_law, FT)}(local_flux_nonvisc),
                 SVector(normal_vector),
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
@@ -634,7 +706,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             numerical_flux_second_order!(
                 numerical_flux_second_order,
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
+                Vars{vars_state_conservative(balance_law, FT)}(local_flux_visc),
                 normal_vector,
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
@@ -681,7 +753,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             numerical_boundary_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
+                Vars{vars_state_conservative(balance_law, FT)}(local_flux_nonvisc),
                 SVector(normal_vector),
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
@@ -707,7 +779,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             numerical_boundary_flux_second_order!(
                 numerical_flux_second_order,
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
+                Vars{vars_state_conservative(balance_law, FT)}(local_flux_visc),
                 normal_vector,
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
@@ -750,7 +822,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         #Update RHS
         @unroll for s in 1:num_state_conservative
             # FIXME: Should we pretch these?
-            tendency[vid⁻, s, e⁻] -= vMI * sM * local_flux[s]
+            tendency[vid⁻, s, e⁻] -= vMI * sM * (local_flux_visc[s] + local_flux_nonvisc[s])
+            NVD[vid⁻, s, e⁻]-= vMI * sM * local_flux_nonvisc[s]
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)

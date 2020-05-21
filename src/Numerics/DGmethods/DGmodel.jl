@@ -390,7 +390,10 @@ function (dg::DGModel)(
         end
     end
 
-
+    nondiff_tendency = create_conservative_state(balance_law,grid)
+    placeholder_tendency = create_conservative_state(balance_law,grid)
+    placeholder_tendency.data = tendency.data
+    fill!(nondiff_tendency.data, zero(FT))
     ###################
     # RHS Computation #
     ###################
@@ -399,7 +402,7 @@ function (dg::DGModel)(
         Val(dim),
         Val(N),
         dg.direction,
-        tendency.data,
+        placeholder_tendency.data,
         state_conservative.data,
         state_gradient_flux.data,
         Qhypervisc_grad.data,
@@ -408,13 +411,14 @@ function (dg::DGModel)(
         t,
         grid.ω,
         grid.D,
+	nondiff_tendency.data,
         topology.realelems,
         increment;
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
 
-    dynsgs!(dg, balance_law, state_conservative, tendency, dg.state_auxiliary, t)
+    #dynsgs!(dg, balance_law, state_conservative, tendency, dg.state_auxiliary, t)
     comp_stream = interface_tendency!(device, workgroups_surface)(
         balance_law,
         Val(dim),
@@ -422,7 +426,7 @@ function (dg::DGModel)(
         dg.direction,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
-        tendency.data,
+        placeholder_tendency.data,
         state_conservative.data,
         state_gradient_flux.data,
         Qhypervisc_grad.data,
@@ -433,6 +437,7 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
+	nondiff_tendency.data,
         grid.interiorelems;
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
@@ -494,6 +499,55 @@ function (dg::DGModel)(
         dg.direction,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
+        placeholder_tendency.data,
+        state_conservative.data,
+        state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.sgeo,
+        t,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        nondiff_tendency.data,
+        grid.exteriorelems;
+        ndrange = ndrange_exterior_surface,
+        dependencies = (
+            comp_stream,
+            exchange_state_conservative,
+            exchange_state_gradient_flux,
+            exchange_Qhypervisc_grad,
+        ),
+    )
+    dynsgs!(dg, balance_law, state_conservative, nondiff_tendency, dg.state_auxiliary, t)
+    comp_stream = volume_tendency!(device, (Nq, Nq))(
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        tendency.data,
+        state_conservative.data,
+        state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        t,
+        grid.ω,
+        grid.D,
+        nondiff_tendency,
+        topology.realelems,
+        increment;
+        ndrange = (nrealelem * Nq, Nq),
+        dependencies = (comp_stream,),
+    )
+    comp_stream = interface_tendency!(device, workgroups_surface)(
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
         tendency.data,
         state_conservative.data,
         state_gradient_flux.data,
@@ -505,6 +559,79 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
+        nondiff_tendency,
+        grid.interiorelems;
+        ndrange = ndrange_interior_surface,
+        dependencies = (comp_stream,),
+    )
+
+    if communicate
+        if num_state_gradient_flux > 0 || nhyperviscstate > 0
+            if num_state_gradient_flux > 0
+                exchange_state_gradient_flux =
+                    MPIStateArrays.end_ghost_exchange!(
+                        state_gradient_flux;
+                        dependencies = exchange_state_gradient_flux,
+                    )
+
+                # update_aux_diffusive may start asynchronous work on the
+                # compute device and we synchronize those here through a device
+                # event.
+                wait(device, exchange_state_gradient_flux)
+                update_auxiliary_state_gradient!(
+                    dg,
+                    balance_law,
+                    state_conservative,
+                    t,
+                    dg.grid.topology.ghostelems,
+                )
+                exchange_state_gradient_flux = Event(device)
+            end
+            if nhyperviscstate > 0
+                exchange_Qhypervisc_grad = MPIStateArrays.end_ghost_exchange!(
+                    Qhypervisc_grad;
+                    dependencies = exchange_Qhypervisc_grad,
+                )
+    end
+        else
+            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+                state_conservative;
+                dependencies = exchange_state_conservative,
+            )
+
+            # update_aux may start asynchronous work on the compute device and
+            # we synchronize those here through a device event.
+            wait(device, exchange_state_conservative)
+            update_auxiliary_state!(
+                dg,
+                balance_law,
+                state_conservative,
+                tendency,
+                t,
+                dg.grid.topology.ghostelems,
+            )
+            exchange_state_conservative = Event(device)
+        end
+    end
+    comp_stream = interface_tendency!(device, workgroups_surface)(
+        balance_law,
+        Val(dim),
+        Val(N),
+        dg.direction,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        tendency.data,
+        state_conservative.data,
+        state_gradient_flux.data,
+        Qhypervisc_grad.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.sgeo,
+        t,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        nondiff_tendency,
         grid.exteriorelems;
         ndrange = ndrange_exterior_surface,
         dependencies = (
@@ -514,7 +641,7 @@ function (dg::DGModel)(
             exchange_Qhypervisc_grad,
         ),
     )
-   # dynsgs!(dg, balance_law, state_conservative, tendency, dg.state_auxiliary, t)
+    #dynsgs!(dg, balance_law, state_conservative, nondiff_tendency, dg.state_auxiliary, t)
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
@@ -981,7 +1108,8 @@ function dynsgs!(
      end
    end
 
-   
+   #@info "rhs" l_rhs_m
+  # @info "delta" l_δ̅_m
    μ = Array(similar(Q.data, number_state_conservative(m,FT), nrealelem))
    for e in 1:nrealelem
      for s in 1:number_state_conservative(m,FT)
