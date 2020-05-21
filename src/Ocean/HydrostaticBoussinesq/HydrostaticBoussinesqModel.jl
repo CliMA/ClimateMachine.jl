@@ -88,17 +88,17 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
     function HydrostaticBoussinesqModel{FT}(
         param_set::PS,
         problem;
-        ρₒ = FT(1000),  # kg / m^3
+        ρₒ = FT(1000),  # kg/m³
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
-        αᵀ = FT(2e-4),  # (m/s)^2 / K
-        νʰ = FT(5e3),   # m^2 / s
-        νᶻ = FT(5e-3),  # m^2 / s
-        κʰ = FT(1e3),   # m^2 / s # horizontal diffusivity
-        κᶻ = FT(1e-4),  # m^2 / s # background vertical diffusivity
-        κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
+        αᵀ = FT(2e-4),  # 1/K
+        νʰ = FT(5e3),   # m²/s
+        νᶻ = FT(5e-3),  # m²/s
+        κʰ = FT(1e3),   # m²/s # horizontal diffusivity
+        κᶻ = FT(1e-4),  # m²/s # background vertical diffusivity
+        κᶜ = FT(1e-1),  # m²/s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
-        β = FT(1e-11), # Hz / m
+        β = FT(1e-11), # Hz/m
     ) where {FT <: AbstractFloat, PS}
         return new{PS, typeof(problem), FT}(
             param_set,
@@ -155,7 +155,7 @@ second half is because there is no dedicated integral kernels
 these variables are used to compute vertical integrals
 w = vertical velocity
 wz0 = w at z = 0
-pkin = bulk hydrostatic pressure contribution
+Δp = bulk pressure anomaly
 
 
 first half of these are fields that are used for computation
@@ -166,7 +166,7 @@ function vars_state_auxiliary(m::HBModel, T)
     @vars begin
         y::T     # y-coordinate of the box
         w::T     # ∫(-∇⋅u)
-        pkin::T  # ∫(-αᵀθ)
+        Δp::T    # -ρₒg∫(αᵀθ)
         wz0::T   # w at z=0
     end
 end
@@ -289,12 +289,13 @@ end
     vars_integral(::HBModel)
 
 location to store integrands for bottom up integrals
-∇hu = the horizontal divegence of u, e.g. dw/dz
+∇ʰu = the horizontal divegence of u, e.g. dw/dz
+bouyancy = g∫(αT - βS)
 """
 function vars_integrals(m::HBModel, T)
     @vars begin
         ∇ʰu::T
-        αᵀθ::T
+        bouyancy::T
     end
 end
 
@@ -317,7 +318,9 @@ A -> array of aux variables
     A::Vars,
 )
     I.∇ʰu = A.w # borrow the w value from A...
-    I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
+    I.bouyancy = grav(m.param_set) * m.αᵀ * Q.θ
+    # eventually add -g * β * S to above
+    # integral will be reversed below
 
     return nothing
 end
@@ -335,27 +338,26 @@ I -> array of integrand variables
 """
 @inline function integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
     A.w = I.∇ʰu
-    A.pkin = I.αᵀθ
+    A.Δp = -m.ρₒ * I.bouyancy
 
     return nothing
 end
-
 """
     vars_reverse_integral(::HBModel)
 
 location to store integrands for top down integrals
-αᵀθ = density perturbation
+bouyancy = - relative density perturbation * gravity
 """
 function vars_reverse_integrals(m::HBModel, T)
     @vars begin
-        αᵀθ::T
+        bouyancy::T
     end
 end
 
 """
     reverse_integral_load_auxiliary_state!(::HBModel)
 
-copy αᵀθ to var_reverse_integral
+copy bouyancy to var_reverse_integral
 this computation is done pointwise at each nodal point
 
 arguments:
@@ -369,7 +371,7 @@ A -> array of aux variables
     Q::Vars,
     A::Vars,
 )
-    I.αᵀθ = A.pkin
+    I.bouyancy = A.Δp
 
     return nothing
 end
@@ -390,7 +392,7 @@ I -> array of integrand variables
     A::Vars,
     I::Vars,
 )
-    A.pkin = I.αᵀθ
+    A.Δp = I.bouyancy
 
     return nothing
 end
@@ -420,14 +422,13 @@ t -> time, not used
     t::Real,
     direction,
 )
-    FT = eltype(Q)
-    _grav::FT = grav(m.param_set)
     @inbounds begin
         u = Q.u # Horizontal components of velocity
         η = Q.η
         θ = Q.θ
         w = A.w   # vertical velocity
-        pkin = A.pkin
+        Δp = A.Δp
+        ρₒ = m.ρₒ
 
         v = @SVector [u[1], u[2], w]
         Iʰ = @SMatrix [
@@ -437,10 +438,10 @@ t -> time, not used
         ]
 
         # ∇h • (g η)
-        F.u += _grav * η * Iʰ
+        F.u += grav(m.param_set) * η * Iʰ
 
-        # ∇h • (- ∫(αᵀ θ))
-        F.u += _grav * pkin * Iʰ
+        # ∇h • (- g∫(αθ - βS))
+        F.u += Δp / ρₒ * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
@@ -599,8 +600,8 @@ end
 """
     update_auxiliary_state_gradient!(::HBModel)
 
-    ∇hu to w for integration
-    performs integration for w and pkin (should be moved to its own integral kernels)
+    ∇ʰu to w for integration
+    performs integration for w and Δp (should be moved to its own integral kernels)
     copies down w and wz0 because we don't have 2D structures
 
     now for actual update aux stuff
@@ -628,7 +629,7 @@ function update_auxiliary_state_gradient!(
     end
     nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
 
-    # compute integrals for w and pkin
+    # compute integrals for w and Δp
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 

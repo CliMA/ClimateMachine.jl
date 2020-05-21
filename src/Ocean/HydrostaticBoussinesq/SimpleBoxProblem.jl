@@ -49,7 +49,7 @@ function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
 
     # needed for proper CFL condition calculation
     A.w = 0
-    A.pkin = 0
+    A.Δp = 0
     A.wz0 = 0
 
     return nothing
@@ -110,10 +110,10 @@ struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
     τₒ::T
     boundary_condition::BC
     function HomogeneousBox{FT}(
-        Lˣ,             # m
-        Lʸ,             # m
-        H;              # m
-        τₒ = FT(1e-1),  # N/m²
+        Lˣ,            # m
+        Lʸ,            # m
+        H;             # m
+        τₒ = FT(1e-1), # N/m²
         BC = (
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Impenetrable(NoSlip()), Insulating()),
@@ -125,8 +125,7 @@ struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
 end
 
 """
-    ocean_init_state!(::HomogeneousBox)
-
+    ocean_init_state!(::Homogeneous>
 initialize u,v with random values, η with 0, and θ with a constant (20)
 
 # Arguments
