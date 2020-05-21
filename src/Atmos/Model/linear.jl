@@ -80,6 +80,7 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
+# FIXME: Add moisture back in
 function vars_state_conservative(m::AtmosLinearModel, FT)
     @vars begin
         ρ::FT
@@ -258,6 +259,8 @@ end
 
 # Note: this assumes that the reference state is continuous across element
 # boundaries
+
+# FIXME: Include moisture
 function numerical_flux_first_order!(
     ::UpwindNumericalFlux,
     balance_law::Union{
