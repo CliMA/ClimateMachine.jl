@@ -208,7 +208,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # The 1D-IMEX approach is less appropriate for the problem given the current mesh aspect ratio (1:1)
     ode_solver = ClimateMachine.MultirateSolverType(
         splitting_type = ClimateMachine.SlowFastSplitting(),
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
