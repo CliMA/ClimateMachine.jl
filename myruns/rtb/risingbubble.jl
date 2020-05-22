@@ -88,6 +88,8 @@ using ClimateMachine.ODESolvers
 # - Required for utility of spatial filtering functions (e.g. positivity
 #   preservation)
 using ClimateMachine.Mesh.Filters
+# - Required so functions for computation of temperature profiles.
+using ClimateMachine.TemperatureProfiles
 # - Required so functions for computation of moist thermodynamic quantities is
 #   enabled.
 using ClimateMachine.MoistThermodynamics
@@ -147,21 +149,20 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
 
     # Define bubble center and background potential temperature
     xc::FT = 5000
-    yc::FT = 1000
+    yc::FT =    0
     zc::FT = 2000
     r = sqrt((x - xc)^2 + (z - zc)^2)
-    #r = sqrt((x - xc)^2 + (y - yc)^2 + (z - zc)^2)
     rc::FT = 2000
     # TODO: clean this up, or add convenience function:
     # This is configured in the reference hydrostatic state
     θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
     Δθ::FT = 0
-    θamplitude = FT(2)
-    
+    θamplitude::FT = 2
+
     # Compute temperature difference over bubble region
     if r <= rc
         #Δθ = FT(5) * cospi(r / rc / 2)
-        Δθ = θamplitude * (1.0 - r/rc)
+        Δθ = FT(2) * (1 - r/rc)
     end
 
     # Compute perturbed thermodynamic state:
@@ -177,27 +178,10 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     e_pot = gravitational_potential(bl.orientation, aux)# potential energy
     ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
 
-    #
-    # Tracers
-    #
-    # We want 4 tracers
-    ntracers = 0
-    
-    #ρχ = FT(0)                                          # tracer
-
-    ## We inject tracers at the initial condition at some specified z coordinates
-    #if 500 < z <= 550
-    #    ρχ += FT(0.05)
-    #end
-
-    # Define 4 tracers, (arbitrary scaling for this demo problem)
-    #ρχ = SVector{ntracers, FT}(ρχ, ρχ / 2, ρχ / 3, ρχ / 4)
-
     # Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe_tot
-    #state.tracers.ρχ = ρχ
 end
 
 # ## [Model Configuration](@id config-helper)
@@ -213,13 +197,12 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # acoustic-gravity wave components from the advection-diffusion dynamics.
     # The 1D-IMEX method is less appropriate for the problem given the current
     # mesh aspect ratio (1:1)
-#=    ode_solver = ClimateMachine.MultirateSolverType(
+    #=ode_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
-    )
-=#
+    )=#
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -227,9 +210,6 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # Since we want four tracers, we specify this and include the appropriate
     # diffusivity scaling coefficients (normally these would be physically
     # informed but for this demonstration we use integers corresponding to the
-    # tracer index identifier)
-    ntracers = 0
-    #δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
 
     # The model coefficient for the turbulence closure is defined via the
     # [CLIMAParameters
@@ -237,7 +217,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # state for the linearisation step is also defined.
     T_surface = FT(300)
     T_min_ref = FT(0)
-    T_profile = DecayingTemperatureProfile{FT}(param_set) 
+    T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
 
     # The fun part! Here we assemble the `AtmosModel`.
@@ -258,6 +238,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         moisture = DryModel(),                        # Exclude moisture variables
         hyperdiffusion = StandardHyperDiffusion(60),  # Hyperdiffusion (4th order) model
         source = (Gravity(),),                        # Gravity is the only source term here
+        tracers = NoTracers(),        # Tracer model with diffusivity coefficients
         ref_state = ref_state,                        # Reference state
         init_state_conservative = init_risingbubble!, # Apply the initial condition
     )
@@ -285,35 +266,10 @@ end
 
 # ## [Diagnostics](@id config_diagnostics)
 # Here we define the diagnostic configuration specific to this problem.
-function config_diagnostics(driver_config, FT)
+function config_diagnostics(driver_config)
     interval = "10000steps"
-    # ## Setup diagnostic output
-    #
-    # Choose frequency and resolution of output, and a diagnostics group (dgngrp)
-    # which defines output variables. This needs to be defined in
-    # [diagnostics](https://CliMA.github.io/ClimateMachine.jl/latest/generated/Diagnostics).
-    interval = "1000steps"
-    info = driver_config.config_info
-    boundaries = [
-        FT(0.0)     FT(0)    FT(0)
-        FT(10000.0) FT(2000) FT(10000)
-    ]
-    resolution = (FT(60), FT(125), FT(60)) # in (m, m, m)
-    interpol = ClimateMachine.InterpolationConfiguration(
-        driver_config,
-        boundaries,
-        resolution,
-    )
-    
-    dgn_config = setup_dump_state_and_aux_diagnostics(
-        interval,
-        driver_config.name,
-        interpol = interpol,
-        project = false, #true for Cubed sphere interpolation
-    )
-    
     dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return ClimateMachine.DiagnosticsConfiguration([dgn_config])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
@@ -330,16 +286,17 @@ function main()
     # random seeds, spline interpolants and other special functions at the
     # initialisation step.)
     N = 4
-    Δh = FT(250)
+    Δx = FT(250)
+    Δy = FT(250)
     Δv = FT(250)
-    resolution = (Δh, Δh, Δv)
+    resolution = (Δx, Δy, Δv)
     xmax = FT(10000)
     ymax = FT(1000)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(1200)
-    CFL = FT(1.7)
-    
+    timeend = FT(1000)
+    CFL = FT(1.5)
+
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -349,7 +306,7 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
-    #dgn_config = config_diagnostics(driver_config, FT)
+    dgn_config = config_diagnostics(driver_config)
 
     # User defined filter (TMAR positivity preserving filter)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
@@ -361,13 +318,13 @@ function main()
     # information.
     result = ClimateMachine.invoke!(
         solver_config;
-        #diagnostics_config = dgn_config,
+        diagnostics_config = dgn_config,
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 
     # Check that the solution norm is reasonable.
-    #@test isapprox(result, FT(1); atol = 1.5e-3)
+    @test isapprox(result, FT(1); atol = 1.5e-3)
 end
 
 # The experiment definition is now complete. Time to run it.
