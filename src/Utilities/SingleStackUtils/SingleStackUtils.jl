@@ -78,7 +78,7 @@ end
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
-        exclude::Vector{String} = [],
+        exclude::Vector{String} = String[],
     ) where {T, dim, N}
         exclude = [],
     )
@@ -93,7 +93,7 @@ function get_vars_from_element_stack(
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
-    exclude::Vector{String} = [],
+    exclude::Vector{String} = String[],
 ) where {T, dim, N}
     Nq = N + 1
     return [
