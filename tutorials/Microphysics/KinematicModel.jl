@@ -41,6 +41,7 @@ using ClimateMachine.MoistThermodynamics:
     PhasePartition,
     internal_energy,
     q_vap_saturation,
+    relative_humidity,
     TemperatureSHumEquil,
     TemperatureSHumNonEquil,
     air_temperature

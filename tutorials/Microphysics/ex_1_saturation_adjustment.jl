@@ -96,10 +96,9 @@ function kinematic_model_nodal_update_auxiliary_state!(
     aux.q_liq = pp.liq
     aux.q_ice = pp.ice
 
-    q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
-    ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
-    aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
-    aux.RH = aux.q_vap / q_vap_saturation(ts_neq) * FT(100)
+    # TODO: add super_saturation method in moist thermo
+    aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
+    aux.RH = relative_humidity(ts)
 end
 
 function boundary_state!(

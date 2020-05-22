@@ -105,11 +105,12 @@ function PhaseEquil(
     temperature_tol::FT = FT(1e-1),
     sat_adjust::Function = saturation_adjustment,
 ) where {FT <: Real}
+    phase_type = PhaseEquil
     _cv_d = FT(cv_d(param_set))
     # Convert temperature tolerance to a convergence criterion on internal energy residuals
     tol = ResidualTolerance(temperature_tol * _cv_d)
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
-    T = sat_adjust(param_set, e_int, ρ, q_tot_safe, maxiter, tol)
+    T = sat_adjust(param_set, e_int, ρ, q_tot_safe, phase_type, maxiter, tol)
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot_safe, T)
 end
 
@@ -187,16 +188,18 @@ function LiquidIcePotTempSHumEquil(
     maxiter::Int = 36,
     temperature_tol::FT = FT(1e-1),
 ) where {FT <: Real}
+    phase_type = PhaseEquil
     tol = ResidualTolerance(temperature_tol)
     T = saturation_adjustment_q_tot_θ_liq_ice(
         param_set,
         θ_liq_ice,
         ρ,
         q_tot,
+        phase_type,
         maxiter,
         tol,
     )
-    q_pt = PhasePartition_equil(param_set, T, ρ, q_tot)
+    q_pt = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     e_int = internal_energy(param_set, T, q_pt)
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot, T)
 end
@@ -221,17 +224,19 @@ function LiquidIcePotTempSHumEquil_given_pressure(
     maxiter::Int = 30,
     temperature_tol::FT = FT(1e-1),
 ) where {FT <: Real}
+    phase_type = PhaseEquil
     tol = ResidualTolerance(temperature_tol)
     T = saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
         param_set,
         θ_liq_ice,
         p,
         q_tot,
+        phase_type,
         maxiter,
         tol,
     )
     ρ = air_density(param_set, T, p, PhasePartition(q_tot))
-    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     e_int = internal_energy(param_set, T, q)
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q.tot, T)
 end
@@ -252,7 +257,8 @@ function TemperatureSHumEquil(
     ρ::FT,
     q_tot::FT,
 ) where {FT <: Real}
-    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    phase_type = PhaseEquil
+    q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     e_int = internal_energy(param_set, T, q)
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot, T)
 end
@@ -273,8 +279,9 @@ function TemperatureSHumEquil_given_pressure(
     p::FT,
     q_tot::FT,
 ) where {FT <: Real}
+    phase_type = PhaseEquil
     ρ = air_density(param_set, T, p, PhasePartition(q_tot))
-    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     e_int = internal_energy(param_set, T, q)
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot, T)
 end
@@ -354,6 +361,7 @@ function LiquidIcePotTempSHumNonEquil(
     maxiter::Int = 10,
     potential_temperature_tol::FT = FT(1e-2),
 ) where {FT <: Real}
+    phase_type = PhaseNonEquil
     tol = ResidualTolerance(potential_temperature_tol)
     T = air_temperature_from_liquid_ice_pottemp_non_linear(
         param_set,
