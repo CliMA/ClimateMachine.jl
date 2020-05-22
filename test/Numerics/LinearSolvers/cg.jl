@@ -16,7 +16,6 @@ let
     ClimateMachine.init()
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
-    device = ArrayType == Array ? CPU() : CUDA()
     n = 100
     T = Float64
     A = rand(n, n)

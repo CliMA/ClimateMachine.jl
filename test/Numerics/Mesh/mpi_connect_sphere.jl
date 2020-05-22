@@ -5,8 +5,6 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.MPIStateArrays
 using KernelAbstractions
 
-device(A) = typeof(A) <: Array ? CPU() : CUDA()
-
 function main()
     FT = Float64
     Nhorz = 3
@@ -91,10 +89,10 @@ function main()
         topology.realelems,
     ]
 
-    event = Event(device(x1x2x3.data))
+    event = Event(array_device(x1x2x3))
     event = MPIStateArrays.begin_ghost_exchange!(x1x2x3, dependencies = event)
     event = MPIStateArrays.end_ghost_exchange!(x1x2x3, dependencies = event)
-    wait(device(x1x2x3.data), event)
+    wait(array_device(x1x2x3), event)
 
     # Check x1x2x3 matches after
     x1 = @view x1x2x3.data[:, 1, :]

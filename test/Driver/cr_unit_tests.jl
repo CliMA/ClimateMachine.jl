@@ -1,3 +1,9 @@
+using MPI
+using Printf
+using StaticArrays
+using Test
+import KernelAbstractions: CPU
+
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
@@ -8,15 +14,11 @@ using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
 using ClimateMachine.ODESolvers
+import ClimateMachine.MPIStateArrays: array_device
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-
-using MPI
-using Printf
-using StaticArrays
-using Test
 
 Base.@kwdef struct AcousticWaveSetup{FT}
     domain_height::FT = 10e3
@@ -148,7 +150,7 @@ function main()
 
         dg = solver_config.dg
         Q = solver_config.Q
-        if Array ∈ typeof(Q).parameters
+        if array_device(Q) isa CPU
             h_Q = Q.realdata
             h_aux = dg.state_auxiliary.realdata
         else

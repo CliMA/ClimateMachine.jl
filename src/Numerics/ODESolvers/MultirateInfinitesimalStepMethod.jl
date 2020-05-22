@@ -172,8 +172,8 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
         slowrhs!(fYnj[i - 1], Q, p, time + c[i - 1] * dt, increment = false)
 
         groupsize = 256
-        event = Event(device(Q))
-        event = update!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = update!(array_device(Q), groupsize)(
             realview(Q),
             realview(offset),
             Val(i),
@@ -188,7 +188,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
             ndrange = length(realview(Q)),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
 
         fastrhs!.a = time + c̃[i] * dt
         fastrhs!.b = (c[i] - c̃[i]) / d[i]

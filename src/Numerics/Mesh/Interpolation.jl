@@ -1,15 +1,18 @@
 module Interpolation
+
 using DocStringExtensions
 using ClimateMachine
+using LinearAlgebra
 using MPI
+using StaticArrays
 import GaussQuadrature
+import KernelAbstractions: CPU, CUDA
+
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Elements
-using LinearAlgebra
-using StaticArrays
-import KernelAbstractions: CPU, CUDA
+import ClimateMachine.MPIStateArrays: array_device
 
 using CUDAnative
 using CuArrays
@@ -295,7 +298,7 @@ struct InterpolationBrick{
         MPI.Gatherv!(x2i_d, x2i_all, Np_all, root, mpicomm)
         MPI.Gatherv!(x3i_d, x3i_all, Np_all, root, mpicomm)
 
-        if device == CUDA()
+        if device isa CUDA
             ξ1_d = DA(ξ1_d)
             ξ2_d = DA(ξ2_d)
             ξ3_d = DA(ξ3_d)
@@ -385,9 +388,9 @@ function interpolate_local!(
     Nel = length(offset) - 1
     nvars = size(sv, 2)
 
-    device = typeof(sv) <: Array ? CPU() : CUDA()
+    device = array_device(sv)
 
-    if device == CPU()
+    if device isa CPU
 
         Nel = length(offset) - 1
 
@@ -954,7 +957,7 @@ struct InterpolationCubedSphere{
         MPI.Gatherv!(lat_d, lati_all, Np_all, root, mpicomm)
         MPI.Gatherv!(long_d, longi_all, Np_all, root, mpicomm)
 
-        if device == CUDA()
+        if device isa CUDA
             ξ1_d = DA(ξ1_d)
             ξ2_d = DA(ξ2_d)
             ξ3_d = DA(ξ3_d)
@@ -1265,9 +1268,9 @@ function interpolate_local!(
     np_tot = size(v, 1)
     _ρu, _ρv, _ρw = 2, 3, 4
 
-    device = typeof(sv) <: Array ? CPU() : CUDA()
+    device = array_device(sv)
 
-    if device == CPU()
+    if device isa CPU
 
         Nel = length(offset) - 1
 
@@ -1507,8 +1510,8 @@ function project_cubed_sphere!(
     _ρw = uvwi[3]
     np_tot = size(v, 1)
 
-    device = typeof(v) <: Array ? CPU() : CUDA()
-    if device == CPU()
+    device = array_device(v)
+    if device isa CPU
         for i in 1:np_tot
             @inbounds vrad =
                 v[i, _ρu] * cosd(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) +
@@ -1528,7 +1531,7 @@ function project_cubed_sphere!(
             @inbounds v[i, _ρv] = vlat
             @inbounds v[i, _ρw] = vlon
         end
-    elseif device == CUDA()
+    elseif device isa CUDA
         n_threads = 256
         n_blocks = (
             np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
@@ -1615,8 +1618,7 @@ function accumulate_interpolated_data!(
     fiv::AbstractArray{FT, 4},
 ) where {FT <: AbstractFloat}
 
-    DA = ClimateMachine.array_type()           # device array
-    device = DA <: Array ? CPU() : CUDA()
+    device = array_device(iv)
     mpicomm = MPI.COMM_WORLD
     pid = MPI.Comm_rank(mpicomm)
     npr = MPI.Comm_size(mpicomm)
@@ -1651,7 +1653,7 @@ function accumulate_interpolated_data!(
         Np_all = intrp.Np_all
         pid == 0 ? v_all = Array{FT}(undef, np_tot, nvars) :
         v_all = Array{FT}(undef, 0, nvars)
-        if device == CPU()
+        if device isa CPU
 
             for vari in 1:nvars
                 MPI.Gatherv!(
@@ -1663,7 +1665,7 @@ function accumulate_interpolated_data!(
                 )
             end
 
-        elseif device == CUDA()
+        elseif device isa CUDA
 
             v = Array(iv)
             for vari in 1:nvars
@@ -1675,7 +1677,7 @@ function accumulate_interpolated_data!(
                     mpicomm,
                 )
             end
-            v_all = DA(v_all)
+            v_all = CuArray(v_all)
 
         else
             error("accumulate_interpolate_data: unsupported device, only CPU() and CUDA() supported")
@@ -1685,13 +1687,13 @@ function accumulate_interpolated_data!(
     end
 
     if pid == 0
-        if device == CPU()
+        if device isa CPU
             for i in 1:np_tot
                 for vari in 1:nvars
                     @inbounds fiv[i1[i], i2[i], i3[i], vari] = v_all[i, vari]
                 end
             end
-        elseif device == CUDA()
+        elseif device isa CUDA
             n_threads = 256
             n_blocks = (
                 np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
@@ -1765,7 +1767,7 @@ function accumulate_interpolated_data(
         error("Unsupported topology; only InterpolationCubedSphere and InterpolationBrick supported")
     end
 
-    if Array ∈ typeof(iv).parameters
+    if array_device(iv) isa CPU
         h_iv = iv
         h_i1 = i1
         h_i2 = i2

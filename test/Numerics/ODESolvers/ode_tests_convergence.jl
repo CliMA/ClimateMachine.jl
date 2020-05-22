@@ -3,7 +3,7 @@ using ClimateMachine
 using StaticArrays
 using LinearAlgebra
 using KernelAbstractions
-using ClimateMachine.MPIStateArrays: device
+using ClimateMachine.MPIStateArrays: array_device
 
 include("ode_tests_common.jl")
 
@@ -612,8 +612,8 @@ const ArrayType = ClimateMachine.array_type()
                             Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -621,7 +621,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
 
@@ -636,8 +636,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -645,7 +645,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
             struct ODETestConvNonLinBE <: AbstractBackwardEulerSolver end
@@ -666,8 +666,8 @@ const ArrayType = ClimateMachine.array_type()
                         Q[2] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     Q,
                     Qhat,
                     α,
@@ -676,7 +676,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
             exactsolution(t) =
@@ -807,8 +807,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -816,7 +816,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
             function rhs2!(dQ, Q, param, t; increment)
                 @kernel function knl!(dQ, Q, t, increment)
@@ -831,8 +831,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -840,7 +840,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
             function rhs3!(dQ, Q, param, t; increment)
                 @kernel function knl!(dQ, Q, t, increment)
@@ -855,8 +855,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -864,7 +864,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
             struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
             ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE3Rate) = true
@@ -890,8 +890,8 @@ const ArrayType = ClimateMachine.array_type()
                         Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     Q,
                     Qhat,
                     α,
@@ -900,7 +900,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
             exactsolution(t) = ArrayType([

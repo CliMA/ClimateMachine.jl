@@ -105,8 +105,8 @@ function dostep!(
         if s == length(RKB)
             slow_scaling = in_slow_scaling
         end
-        event = Event(device(Q))
-        event = update!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = update!(array_device(Q), groupsize)(
             rv_Rstage,
             rv_Q,
             rv_Qstage,
@@ -120,7 +120,7 @@ function dostep!(
             ndrange = length(rv_Q),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
     end
     rv_Q .= rv_Qstage
 end

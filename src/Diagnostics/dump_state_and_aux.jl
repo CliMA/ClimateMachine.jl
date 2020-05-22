@@ -5,7 +5,7 @@ end
 function get_dims(dgngrp)
     if dgngrp.interpol !== nothing
         if dgngrp.interpol isa InterpolationBrick
-            if Array ∈ typeof(dgngrp.interpol.x1g).parameters
+            if array_device(dgngrp.interpol.x1g) isa CPU
                 h_x1g = dgngrp.interpol.x1g
                 h_x2g = dgngrp.interpol.x2g
                 h_x3g = dgngrp.interpol.x3g
@@ -16,7 +16,7 @@ function get_dims(dgngrp)
             end
             dims = OrderedDict("x" => h_x1g, "y" => h_x2g, "z" => h_x3g)
         elseif dgngrp.interpol isa InterpolationCubedSphere
-            if Array ∈ typeof(dgngrp.interpol.rad_grd).parameters
+            if array_device(dgngrp.interpol.rad_grd) isa CPU
                 h_rad_grd = dgngrp.interpol.rad_grd
                 h_lat_grd = dgngrp.interpol.lat_grd
                 h_long_grd = dgngrp.interpol.long_grd

@@ -24,6 +24,7 @@ using MPI
 using OrderedCollections
 using Printf
 using StaticArrays
+import KernelAbstractions: CPU
 
 using ClimateMachine
 using ..DGmethods
