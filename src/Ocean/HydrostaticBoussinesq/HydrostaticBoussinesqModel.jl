@@ -154,7 +154,7 @@ second half is because there is no dedicated integral kernels
 these variables are used to compute vertical integrals
 w = vertical velocity
 wz0 = w at z = 0
-kinematic_pressure = bulk hydrostatic pressure contribution
+Δp = bulk pressure anomaly
 
 
 first half of these are fields that are used for computation
@@ -165,7 +165,7 @@ function vars_state(m::HBModel, ::Auxiliary, T)
     @vars begin
         y::T     # y-coordinate of the box
         w::T     # ∫(-∇⋅u)
-        kinematic_pressure::T  # -g∫(αᵀθ)
+        Δp::T    # -ρₒg∫(αᵀθ)
         wz0::T   # w at z=0
         uᵈ::SVector{2, T}    # velocity deviation from vertical mean
         ΔGᵘ::SVector{2, T}   # vertically averaged tendency
@@ -376,7 +376,7 @@ I -> array of integrand variables
 """
 @inline function integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
     A.w = I.∇ʰu
-    A.kinematic_pressure = -m.ρₒ * I.bouyancy
+    A.Δp = -m.ρₒ * I.bouyancy
 
     return nothing
 end
@@ -384,7 +384,7 @@ end
     vars_reverse_integral(::HBModel)
 
 location to store integrands for top down integrals
-bouyancy = density perturbation
+bouyancy = - relative density perturbation * gravity
 """
 function vars_state(m::HBModel, ::DownwardIntegrals, T)
     @vars begin
@@ -409,7 +409,7 @@ A -> array of aux variables
     Q::Vars,
     A::Vars,
 )
-    I.bouyancy = A.kinematic_pressure
+    I.bouyancy = A.Δp
 
     return nothing
 end
@@ -430,7 +430,7 @@ I -> array of integrand variables
     A::Vars,
     I::Vars,
 )
-    A.kinematic_pressure = I.bouyancy
+    A.Δp = I.bouyancy
 
     return nothing
 end
@@ -466,15 +466,16 @@ t -> time, not used
 
         # ∇h • (- ∫(αᵀ θ))
         ρₒ = m.ρₒ
-        kinematic_pressure = A.kinematic_pressure
+        Δp = A.Δp
+        ρₒ = m.ρₒ
         Iʰ = @SMatrix [
             1 -0
             -0 1
             -0 -0
         ]
 
-        # ∇h • (- g∫(αᵀ θ)) / ρₒ
-        F.u += kinematic_pressure / ρₒ * Iʰ
+        # ∇h • (- g∫(αθ - βS))
+        F.u += Δp / ρₒ * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
@@ -666,7 +667,7 @@ end
     update_auxiliary_state_gradient!(::HBModel)
 
     ∇ʰu to w for integration
-    performs integration for w and kinematic_pressure (should be moved to its own integral kernels)
+    performs integration for w and Δp (should be moved to its own integral kernels)
     copies down w and wz0 because we don't have 2D structures
 
     now for actual update aux stuff
@@ -685,7 +686,7 @@ function update_auxiliary_state_gradient!(
     f! = nodal_update_auxiliary_state!
     update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
 
-    # compute integrals for w and kinematic_pressure
+    # compute integrals for w and Δp
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
