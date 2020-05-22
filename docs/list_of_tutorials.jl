@@ -19,6 +19,7 @@ if generate_tutorials
     skip_execute = [
         "heldsuarez.jl",                 # broken
         "risingbubble.jl",               # broken
+        "densitycurrent.jl",             # broken
         "topo.jl",                       # broken
         "dry_rayleigh_benard.jl",        # takes too long
         "nonnegative.jl",                # takes too long
