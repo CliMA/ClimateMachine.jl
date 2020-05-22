@@ -7,7 +7,10 @@ using KernelAbstractions, StaticArrays
 using ClimateMachine
 using ClimateMachine.LinearSolvers
 using ClimateMachine.ColumnwiseLUSolver:
-    band_lu_kernel!, band_forward_kernel!, band_back_kernel!
+    band_lu_kernel!,
+    band_forward_kernel!,
+    band_back_kernel!,
+    DGColumnBandedMatrix
 
 
 ClimateMachine.init()
@@ -26,7 +29,8 @@ function band_to_full(B, p, q)
 end
 
 let
-    Nq = 2
+    N = 1
+    Nq = N + 1
     nstate = 3
     nvertelem = 5
     nhorzelem = 4
@@ -38,6 +42,7 @@ let
 
     Random.seed!(1234)
     AB = rand(FT, Nq, Nq, p + q + 1, n, nhorzelem)
+
     AB[:, :, q + 1, :, :] .+= 10 # Make A's diagonally dominate
 
     Random.seed!(5678)
@@ -49,6 +54,18 @@ let
     xp = reshape(PermutedDimsArray(x, perm), n, Nq, Nq, nhorzelem)
 
     d_F = ArrayType(AB)
+    d_F = DGColumnBandedMatrix{
+        3,
+        N,
+        nstate,
+        nhorzelem,
+        nvertelem,
+        eband,
+        false,
+        typeof(d_F),
+    }(
+        d_F,
+    )
 
     groupsize = (Nq, Nq)
     ndrange = (Nq, Nq, nhorzelem)
@@ -56,18 +73,11 @@ let
     event = Event(device)
     event = band_lu_kernel!(device, groupsize, ndrange)(
         d_F,
-        Val(Nq),
-        Val(Nq),
-        Val(Nq),
-        Val(nstate),
-        Val(nvertelem),
-        Val(nhorzelem),
-        Val(eband),
         dependencies = (event,),
     )
     wait(device, event)
 
-    F = Array(d_F)
+    F = Array(d_F.data)
 
     for h in 1:nhorzelem, j in 1:Nq, i in 1:Nq
         B = AB[i, j, :, :, h]
@@ -90,24 +100,12 @@ let
     event = band_forward_kernel!(device, groupsize, ndrange)(
         d_x,
         d_F,
-        Val(Nq),
-        Val(Nq),
-        Val(nstate),
-        Val(nvertelem),
-        Val(nhorzelem),
-        Val(eband),
         dependencies = (event,),
     )
 
     event = band_back_kernel!(device, groupsize, ndrange)(
         d_x,
         d_F,
-        Val(Nq),
-        Val(Nq),
-        Val(nstate),
-        Val(nvertelem),
-        Val(nhorzelem),
-        Val(eband),
         dependencies = (event,),
     )
     wait(device, event)

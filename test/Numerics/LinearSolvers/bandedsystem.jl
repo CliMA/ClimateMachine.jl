@@ -152,7 +152,7 @@ let
                     Q.data .= dQ1.data
 
                     vdg(dQ1, Q, nothing, 0; increment = false)
-                    banded_matrix_vector_product!(vdg, A_banded, dQ2, Q)
+                    banded_matrix_vector_product!(A_banded, dQ2, Q)
                     @test all(isapprox.(
                         Array(dQ1.realdata),
                         Array(dQ2.realdata),
@@ -181,7 +181,7 @@ let
                     Q.data .= dQ1.data
 
                     op!(dQ1, Q)
-                    banded_matrix_vector_product!(vdg, A_banded, dQ2, Q)
+                    banded_matrix_vector_product!(A_banded, dQ2, Q)
                     @test all(isapprox.(
                         Array(dQ1.realdata),
                         Array(dQ2.realdata),
