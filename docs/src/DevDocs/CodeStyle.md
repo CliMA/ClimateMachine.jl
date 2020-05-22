@@ -36,7 +36,7 @@ For the most part, we follow the
 ## Use `JuliaFormatter`
 
 Once you are happy with your PR, apply our
-[JuliaFormatter.jl](https://github.com/domluna/JuliaFormatter.jl) settings to
+[JuliaFormatter.jl](https://domluna.github.io/JuliaFormatter.jl/stable/) settings to
 all changed files in the repository from the top-level `ClimateMachine`
 directory:
 ```
