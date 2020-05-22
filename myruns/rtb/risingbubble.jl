@@ -237,7 +237,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     # state for the linearisation step is also defined.
     T_surface = FT(300)
     T_min_ref = FT(0)
-    T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
+    T_profile = DecayingTemperatureProfile{FT}(param_set) 
     ref_state = HydrostaticState(T_profile)
 
     # The fun part! Here we assemble the `AtmosModel`.

@@ -293,7 +293,7 @@ function main()
     ymax = FT(2200)
     zmax = FT(6400)
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(900)
     CFL = FT(1.5)
 
     # Assign configurations so they can be passed to the `invoke!` function
