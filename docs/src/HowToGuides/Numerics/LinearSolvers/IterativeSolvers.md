@@ -1,5 +1,9 @@
 # Contribution Guide for Abstract Iterative Solvers
 
+```@meta
+CurrentModule = ClimateMachine
+```
+
 An abstract iterative solver is a **module** that needs **one struct**,
 **one constructor**, and **two functions** in order to interface with the
 rest of [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl). In
@@ -8,10 +12,10 @@ return values, and struct properties necessary to build with
 [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl).
 
 We have the following concrete implementations:
-1. [GMRES](@ref GeneralizedMinimalResidual)
-2. [Conjugate Residual](@ref GeneralizedConjugateResidual)
+1. [GMRES](@ref GeneralizedMinimalResidualSolver.GeneralizedMinimalResidual)
+2. [Conjugate Residual](@ref GeneralizedConjugateResidualSolver.GeneralizedConjugateResidual)
 3. [Conjugate Gradient](@ref ConjugateGradientSolver)
-4. [Batched GMRES](@ref BatchedGeneralizedMinimalResidual)
+4. [Batched GMRES](@ref BatchedGeneralizedMinimalResidualSolver.BatchedGeneralizedMinimalResidual)
 
 ## Basic Template for an Iterative Solver
 

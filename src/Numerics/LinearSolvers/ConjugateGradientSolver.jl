@@ -1,3 +1,8 @@
+"""
+    ConjugateGradientSolver
+
+Conjugate Gradient method solver
+"""
 module ConjugateGradientSolver
 
 export ConjugateGradient

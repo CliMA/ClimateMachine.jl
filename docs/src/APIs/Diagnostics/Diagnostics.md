@@ -4,7 +4,13 @@
 CurrentModule = ClimateMachine.Diagnostics
 ```
 
-## `Diagnostic Fields`
+## Diagnostics
+
+```@docs
+Diagnostics
+```
+
+## Diagnostic Fields
 
 Diagnostics computes the physically relevant fields for postprocessing.
 
