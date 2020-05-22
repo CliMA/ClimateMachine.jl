@@ -514,14 +514,21 @@ function main()
         nothing
     end
 
+    norm_ρ_Q₀ = norm(solver_config.Q[:, 1, :])
+    cb_check_mass_cons =
+        GenericCallbacks.EveryXSimulationSteps(500) do (init = false)
+            norm_ρ = norm(solver_config.Q[:, 1, :])
+            Δρ_ratio = (norm_ρ - norm_ρ_Q₀) / norm_ρ_Q₀
+            @test isapprox(Δρ_ratio, FT(0); atol = 1e-3)
+            nothing
+        end
+
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cb_check_mass_cons),
         check_euclidean_distance = true,
     )
-
-    @test isapprox(result, FT(1); atol = 4e-3)
 end
 
 main()
