@@ -235,7 +235,7 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                          # Flow in a box, requires the AtmosLESConfigType
         param_set; #Parameter set corresponding to earth parameters
-	    turbulence = SmagorinskyLilly(_C_smag),       # Turbulence closure model
+	    turbulence = Vreman(_C_smag),       # Turbulence closure model
         #hyperdiffusion = StandardHyperDiffusion(60), # Hyperdiffusion (4th order) model
         moisture = DryModel(),
 	    source = (Gravity(),),                       # Gravity is the only source term here
@@ -285,13 +285,13 @@ function main()
     # `solver_config` are distinct from the spatial / model components in `driver_config`. `init_on_cpu` is a helper
     # keyword argument that forces problem initialisation on CPU (thereby allowing the use of random seeds, spline interpolants and other special functions at the initialisation step.)
     N = 4
-    Δh = FT(25)
-    Δy = FT(200)
-    Δv = FT(25)
-    resolution = (Δh, Δy, Δv)
-    xmax = FT(25600)
-    ymax = FT(1000)
-    zmax = FT(6400)
+    Δx = FT(5.0)
+    Δy = FT(500)
+    Δv = FT(5.0)
+    resolution = (Δx, Δy, Δv)
+    xmax = FT(20000)
+    ymax = FT(2000)
+    zmax = FT(6000)
     t0 = FT(0)
     timeend = FT(1000)
     CFL = FT(1.5)
