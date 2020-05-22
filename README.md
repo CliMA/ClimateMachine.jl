@@ -24,4 +24,4 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 [bors-img]: https://bors.tech/images/badge_small.svg
 [bors-url]: https://app.bors.tech/repositories/11521
 
-For installation instructions and explanations on how to use the Climate Machine, please look at the [Documentation](https://CliMA.github.io/ClimateMachine.jl/latest/Installation).
+For installation instructions and explanations on how to use the Climate Machine, please look at the [Documentation](https://clima.github.io/ClimateMachine.jl/latest/GettingStarted/Installation/).
