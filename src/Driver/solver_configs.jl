@@ -146,7 +146,7 @@ function SolverConfiguration(
     end
 
     # default Courant number
-    if Courant_number == nothing
+    if Courant_number === nothing
         if ode_solver_type.solver_method == LSRK144NiegemannDiehlBusch
             Courant_number = FT(1.7)
         elseif ode_solver_type.solver_method == LSRK54CarpenterKennedy
@@ -195,6 +195,7 @@ function SolverConfiguration(
             state_auxiliary = dg.state_auxiliary,
             state_gradient_flux = dg.state_gradient_flux,
             states_higher_order = dg.states_higher_order,
+            diffusion_direction = diffdir,
         )
         slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
         fast_dt = ode_dt / ode_solver_type.timestep_ratio
