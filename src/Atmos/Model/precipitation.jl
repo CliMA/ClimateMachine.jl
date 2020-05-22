@@ -107,7 +107,6 @@ function atmos_nodal_update_auxiliary_state!(
     # T     = air_temperature(e_int, q)
     T = air_temperature(ts)
     # equilibrium state at current T
-    # q_eq = PhasePartition_equil(T, ρ, q_tot)
     q_eq = PhasePartition_equil(ts)
 
     # tendency from cloud water condensation/evaporation

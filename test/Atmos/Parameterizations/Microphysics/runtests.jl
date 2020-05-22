@@ -121,7 +121,8 @@ end
         ρ::FT,
     ) where {FT <: Real}
 
-        q_sat = q_vap_saturation(param_set, T, ρ, q)
+        ts_neq = TemperatureSHumNonEquil(param_set, T, ρ, q)
+        q_sat = q_vap_saturation(ts_neq)
         q_vap = q.tot - q.liq
         rr = q_rai / (1 - q.tot)
         rv_sat = q_sat / (1 - q.tot)

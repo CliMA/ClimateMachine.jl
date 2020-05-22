@@ -69,7 +69,9 @@ function atmos_init_aux!(
     aux.ref_state.p = p
     # We evaluate the saturation vapor pressure, approximating
     # temperature by virtual temperature
-    q_vap_sat = q_vap_saturation(atmos.param_set, T_virt, ρ)
+    # ts = TemperatureSHumEquil(atmos.param_set, T_virt, ρ, FT(0))
+    ts = PhaseDry_given_ρT(atmos.param_set, ρ, T_virt)
+    q_vap_sat = q_vap_saturation(ts)
 
     ρq_tot = ρ * relative_humidity(m) * q_vap_sat
     aux.ref_state.ρq_tot = ρq_tot

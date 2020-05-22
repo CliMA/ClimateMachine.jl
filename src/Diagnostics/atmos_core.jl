@@ -13,10 +13,12 @@ Initialize the 'AtmosCore' diagnostics group.
 function atmos_core_init(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
     bl = dg.balance_law
-    if isa(bl.moisture, DryModel)
+    # FIXME properly
+    if !isa(bl.moisture, EquilMoist)
         @warn """
-            Diagnostics ($dgngrp.name): cannot be used with `DryModel`
+            Diagnostics $(dgngrp.name): can only be used with the `EquilMoist` moisture model
             """
+        return nothing
     end
 
     atmos_collect_onetime(Settings.mpicomm, Settings.dg, Settings.Q)
@@ -133,10 +135,12 @@ Perform a global grid traversal to compute various diagnostics.
 function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
     bl = dg.balance_law
-    if isa(bl.moisture, DryModel)
+    # FIXME properly
+    if !isa(bl.moisture, EquilMoist)
         @warn """
-            Diagnostics $(dgngrp.name): cannot be used with `DryModel`
+            Diagnostics $(dgngrp.name): can only be used with the `EquilMoist` moisture model
             """
+        return nothing
     end
 
     mpicomm = Settings.mpicomm

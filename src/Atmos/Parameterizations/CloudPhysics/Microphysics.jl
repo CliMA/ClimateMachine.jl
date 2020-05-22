@@ -233,7 +233,8 @@ function conv_q_rai_to_q_vap(
     _MP_n_0::FT = MP_n_0(param_set)
 
     if qr > FT(0)
-        qv_sat = q_vap_saturation(param_set, T, ρ, q)
+        ts_neq = TemperatureSHumNonEquil(param_set, T, ρ, q)
+        qv_sat = q_vap_saturation(ts_neq)
         q_v = q.tot - q.liq - q.ice
         S = q_v / qv_sat - FT(1)
 
