@@ -34,7 +34,7 @@ mathengine = MathJax(Dict(
 ))
 
 format = Documenter.HTML(
-    prettyurls = get(ENV, "CI", nothing) == "true",
+    prettyurls = get(ENV, "CI", "") == "true",
     mathengine = mathengine,
     collapselevel = 1,
     # prettyurls = !("local" in ARGS),
@@ -45,7 +45,7 @@ makedocs(
     sitename = "ClimateMachine",
     doctest = false,
     strict = false,
-    linkcheck = false,
+    linkcheck = true,
     format = format,
     checkdocs = :exports,
     # checkdocs = :all,

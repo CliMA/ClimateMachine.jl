@@ -33,7 +33,7 @@ julia> ]
 ```
 
 If you are having problems, see the [`MPI.jl`
-documentation](https://juliaparallel.github.io/MPI.jl/stable/configuration.html)
+documentation](https://juliaparallel.github.io/MPI.jl/stable/configuration)
 for help.
 
 ## Install the `ClimateMachine`

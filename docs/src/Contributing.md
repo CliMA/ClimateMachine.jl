@@ -96,3 +96,27 @@ We use [`bors`](https://bors.tech/) to manage the `ClimateMachine` repo.
 If you're a collaborator and have the necessary permissions, you can type
 `bors try` in a comment on a PR to have some additional tests run on that
 PR, or `bors r+` to try and merge the code.
+
+## Contributing Documentation
+
+Documentation is written in Julia-flavored markdown and generated from two sources:
+```
+$CLIMATEMACHINE_HOME/docs/src
+```
+And [Literate.jl](https://fredrikekre.github.io/Literate.jl/v2/) tutorials:
+```
+$CLIMATEMACHINE_HOME/tutorials
+```
+
+To locally build the documentation you need to create a new `docs` project
+to build and install the documentation related dependencies:
+
+```
+cd $CLIMATEMACHINE_HOME
+julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
+julia --project=docs docs/make.jl
+```
+
+The makefile script will generate the appropriate markdown files and
+static html from both the `docs/src` and `tutorials/` directories,
+saving the output in `docs/src/generated`.
