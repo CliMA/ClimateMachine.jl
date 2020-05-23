@@ -80,7 +80,7 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_rv_dQ *= slow_scaling` is performed.
 """
 function dostep!(Q, sv::StormerVerlet{1,T,RT,AT} where {T,RT,AT}, p, time::Real,
-                      dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
+                      dt::Real, nsteps::Int, iStage::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
   gamma = sv.gamma
@@ -172,7 +172,7 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_rv_dQ *= slow_scaling` is performed.
 """
 function dostep!(Q, sv::StormerVerlet{2,T,RT,AT} where {T,RT,AT}, p, time::Real,
-                      dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
+                      dt::Real, nsteps::Int, iStage::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs!, dQ = sv.rhs!, sv.dQ
   #gamma = sv.gamma
@@ -318,7 +318,7 @@ added as an additional ODE right-hand side source. If the optional parameter
 `slow_rv_dQ *= slow_scaling` is performed.
 """
 function dostep!(Q, sv::StormerVerletHEVI, p, time::Real,
-                      dt::Real, nsteps::Int, slow_δ, slow_rv_dQ, slow_rka)
+                      dt::Real, nsteps::Int, iStage::Int, slow_δ, slow_rv_dQ, slow_rka)
 
   rhs_h!, rhs_v!, dQ, A_v = sv.rhs_h!, sv.rhs_v!, sv.dQ, sv.A_v
 

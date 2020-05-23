@@ -103,6 +103,7 @@ function dostep!(
     time::Real,
     dt::Real,
     nsteps::Int,
+    iStage::Int,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,

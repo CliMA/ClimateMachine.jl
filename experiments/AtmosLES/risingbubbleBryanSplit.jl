@@ -6,9 +6,11 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.ColumnwiseLUSolver
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.VTK
 using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
 
@@ -120,7 +122,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_method = (dg,Q,nsteps) -> MultirateRungeKutta(
                     :LSRK144NiegemannDiehlBusch,
                     dg,
-                    Q, nsteps=nsteps,
+                    Q,
+                    nsteps=nsteps,
                 ),
                 nsubsteps = (12,4),
                 hivi_splitting = true,
@@ -132,10 +135,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_method = (dg, Q, dt, nsteps) -> AdditiveRungeKutta(
                     :ARK548L2SA2KennedyCarpenter,
                     dg,
-                    ManyColumnLU(),
+                    LinearBackwardEulerSolver(ManyColumnLU(), isadjustable=true),
                     Q,
-                    dt=dt,
-                    nsteps=nsteps,
+                    dt = dt,
+                    nsteps = nsteps,
                 ),
                 nsubsteps = (12,),
                 hivi_splitting = true,

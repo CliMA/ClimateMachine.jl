@@ -244,7 +244,7 @@ function dostep!(
     p,
     time::Real,
     dt::Real,
-    nsteps::Int,
+    nsubsteps::Int,
     iStage::Int,
     slow_δ = nothing,
     slow_rv_dQ = nothing,
@@ -259,7 +259,7 @@ function dostep!(
     )
     =#
     ark.besolver! = ark.besolvers![iStage];
-    for i = 1:nsteps
+    for i = 1:nsubsteps
         dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
     end
 end
