@@ -23,7 +23,7 @@ $(DocStringExtensions.FIELDS)
 
     VecGrad(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
 
-# Arguments for the inner constructor    
+# Arguments for the inner constructor
  - `Npl`: Number of local degrees of freedom in a spectral element
  - `Nel`: Number of spectral elements
  - `FT`: Floating point precision
@@ -95,7 +95,7 @@ $(DocStringExtensions.FIELDS)
 
     Vorticity(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
 
-# Arguments for the inner constructor    
+# Arguments for the inner constructor
  - `Npl`: Number of local degrees of freedom in a spectral element
  - `Nel`: Number of spectral elements
  - `FT`: Floating point precision
@@ -131,7 +131,7 @@ end
 
 This function computes the spatial gradients of the velocity field.
 
-# Arguments 
+# Arguments
  - `model`: BalanceLaw
  - `Q`: State array
  - `dg`: DGmodel
@@ -191,7 +191,7 @@ end
 
 This function computes the vorticity of the velocity field.
 
-# Arguments 
+# Arguments
  - `dg`: DGmodel
  - `vgrad`: Velocity gradients
  - `vort`: Vorticity

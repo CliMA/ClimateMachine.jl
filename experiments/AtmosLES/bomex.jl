@@ -268,7 +268,6 @@ end
 """
   Initial Condition for BOMEX LES
 """
-seed = MersenneTwister(0)
 function init_bomex!(bl, state, aux, (x, y, z), t)
     # This experiment runs the BOMEX LES Configuration
     # (Shallow cumulus cloud regime)
@@ -356,8 +355,8 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     state.moisture.ρq_tot = ρ * q_tot
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand(seed) * ρe_tot / 100
-        state.moisture.ρq_tot += rand(seed) * ρ * q_tot / 100
+        state.ρe += rand() * ρe_tot / 100
+        state.moisture.ρq_tot += rand() * ρ * q_tot / 100
     end
 end
 
@@ -515,14 +514,21 @@ function main()
         nothing
     end
 
+    norm_ρ_Q₀ = norm(solver_config.Q[:, 1, :])
+    cb_check_mass_cons =
+        GenericCallbacks.EveryXSimulationSteps(500) do (init = false)
+            norm_ρ = norm(solver_config.Q[:, 1, :])
+            Δρ_ratio = (norm_ρ - norm_ρ_Q₀) / norm_ρ_Q₀
+            @test isapprox(Δρ_ratio, FT(0); atol = 1e-3)
+            nothing
+        end
+
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cb_check_mass_cons),
         check_euclidean_distance = true,
     )
-
-    @test isapprox(result, FT(1); atol = 4e-3)
 end
 
 main()

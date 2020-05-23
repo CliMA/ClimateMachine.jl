@@ -3,6 +3,11 @@
 ```@meta
 CurrentModule = ClimateMachine.MoistThermodynamics
 ```
+## Moist Thermodynamics
+
+```@docs
+MoistThermodynamics
+```
 
 ## Thermodynamic State Constructors
 

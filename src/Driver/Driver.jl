@@ -1,3 +1,5 @@
+using Base.Threads
+
 using ArgParse
 using CUDAapi
 using Dates
@@ -5,6 +7,8 @@ using LinearAlgebra
 using Logging
 using MPI
 using Printf
+using Random
+
 using CLIMAParameters
 
 using ..Atmos
@@ -145,6 +149,9 @@ function parse_commandline(custom_settings)
         metavar = "<number>"
         arg_type = Int
         default = -1
+        "--fix-rng-seed"
+        help = "set RNG seed to a fixed value for reproducibility"
+        action = :store_true
         "--log-level"
         help = "set the log level to one of debug/info/warn/error"
         metavar = "<level>"
@@ -252,6 +259,15 @@ function init(; disable_gpu = false, arg_settings = nothing)
     end
     _init_array(atyp)
     Settings.array_type = atyp
+
+    # fix the RNG seeds if requested
+    if parsed_args["fix-rng-seed"]
+        rank = MPI.Comm_rank(MPI.COMM_WORLD)
+        for tid in 1:nthreads()
+            s = 1000 * rank + tid
+            Random.seed!(Random.default_rng(tid), s)
+        end
+    end
 
     # create the output directory if needed on delegated rank
     if MPI.Comm_rank(MPI.COMM_WORLD) == 0

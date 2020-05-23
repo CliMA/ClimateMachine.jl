@@ -219,7 +219,6 @@ let
         timeend = 100 * dt
         Rrange = range(FT(1), stop = FT(2), step = FT(1 // 4))
 
-        Random.seed!(0)
         @info (ArrayType, FT)
         delta_mass = run(
             mpicomm,

@@ -1,44 +1,37 @@
-using Test, MPI
+using Dates
+using LinearAlgebra
+using Logging
+using MPI
+using Printf
+using StaticArrays
+using Statistics
+using Test
 import GaussQuadrature
+
+using KernelAbstractions: CPU, CUDA
+
 using ClimateMachine
+ClimateMachine.init()
 using ClimateMachine.ConfigTypes
+using ClimateMachine.Atmos
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.DGmethods
+using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Interpolation
-using ClimateMachine.Writers
-using StaticArrays
-using KernelAbstractions: CPU, CUDA
-
-using ClimateMachine.VariableTemplates
-#------------------------------------------------
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.MoistThermodynamics
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
-using ClimateMachine.GenericCallbacks
-using ClimateMachine.Atmos
 using ClimateMachine.VariableTemplates
-using ClimateMachine.MoistThermodynamics
-using ClimateMachine.TicToc
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-using ClimateMachine.VTK
-
-using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-
-using Random
-using Statistics
-const seed = MersenneTwister(0)
-
-const ArrayType = ClimateMachine.array_type()
 #-------------------------------------
 function Initialize_Brick_Interpolation_Test!(
     bl,
@@ -90,9 +83,7 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
 end
 #----------------------------------------------------------------------------
 function run_brick_interpolation_test()
-    ClimateMachine.init()
     for FT in (Float32, Float64)
-        ArrayType = ClimateMachine.array_type()
         DA = ClimateMachine.array_type()
         mpicomm = MPI.COMM_WORLD
         root = 0
@@ -242,7 +233,6 @@ end #function run_brick_interpolation_test
 # Cubed sphere, lat/long interpolation test
 #----------------------------------------------------------------------------
 function run_cubed_sphere_interpolation_test()
-    ClimateMachine.init()
     for FT in (Float32, Float64) #Float32 #Float64
         DA = ClimateMachine.array_type()
         device = ClimateMachine.array_type() <: Array ? CPU() : CUDA()

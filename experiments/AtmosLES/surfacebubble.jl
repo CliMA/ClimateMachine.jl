@@ -12,7 +12,6 @@ using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 
 using Distributions
-using Random
 using StaticArrays
 using Test
 using DocStringExtensions

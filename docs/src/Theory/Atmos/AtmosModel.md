@@ -1,4 +1,4 @@
-# [AtmosModel](@id AtmosModel-docs)
+# Atmos Model
 
 This page provides a summary of a specific type of balance law within the
 `ClimateMachine` source code, the `AtmosModel`. This documentation aims to
@@ -124,10 +124,7 @@ q_c w_c \vec{\hat k} \otimes \rho \vec{u}  \\
 \end{array} \right)
 ```
 
-#### [Sources]*(*@id atmos-sources)
-```@docs
-ClimateMachine.Atmos.source!
-```
+#### Sources
 
 ```math
 \mathrm{S}(\vec{Y}, \nabla\vec{Y})=

@@ -50,7 +50,7 @@ makedocs(
     checkdocs = :exports,
     # checkdocs = :all,
     clean = true,
-    modules = [Documenter, ClimateMachine],
+    modules = [ClimateMachine],
     pages = pages,
 )
 

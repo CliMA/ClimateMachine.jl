@@ -1,5 +1,9 @@
 # Contribution Guide for Abstract Time-stepping Algorithms
 
+```@meta
+CurrentModule = ClimateMachine.ODESolvers
+```
+
 This guide gives a brief overview on how time-stepping methods are
 implemented in [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl),
 and how one might contribute a new time-stepping method.
