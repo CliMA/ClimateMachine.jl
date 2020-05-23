@@ -1,7 +1,7 @@
 name = "ClimateMachine"
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 authors = ["Climate Modeling Alliance"]
-version = "0.1.0"
+version = "0.2.0-DEV"
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
