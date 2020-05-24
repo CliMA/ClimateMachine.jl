@@ -89,7 +89,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          offset1,
          Val(iStage),
          map(realview, fYnj[1:iStage]),
-         βS[iStage+1,:],
+         βS,
          τ,
          nPhi;
          ndrange = length(offset1),
@@ -124,7 +124,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
            offset1,
            Val(iStage),
            map(realview, fYnj[1:iStage]),
-           βS[iStage+1,:],
+           βS,
            τ,
            nPhi;
            ndrange = length(offset1),
@@ -176,7 +176,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          offset1,
          Val(iStage),
          map(realview, fYnj[1:iStage]),
-         βS[iStage+1,:],
+         βS,
          τ,
          nPhi;
          ndrange = length(offset1),
@@ -221,23 +221,23 @@ end
     offset,
     ::Val{iStage},
     fYnj,
-    βSiStage,
+    βS,
     τ,
     nPhi
 ) where {iStage}
     e = @index(Global, Linear)
     @inbounds begin
-      fac = βSiStage[1][nPhi];
+      fac = βS[nPhi][iStage+1,1];
       @unroll for k in (nPhi-1):-1:1
-        fac=fac.*τ.+βSiStage[1][k];
+        fac=fac.*τ.+βS[k][iStage+1,1];
       end
       offset[e]=fac.*fYnj[1][e];
 
       @unroll for jStage in 2:iStage
-        fac = βSiStage[jStage][nPhi];
+        fac = βS[nPhi][iStage+1,jStage];
 
         @unroll for k in (nPhi-1):-1:1
-          fac=fac.*τ.+βSiStage[jStage][k];
+          fac=fac.*τ.+βS[k][iStage+1,jStage];
         end
          offset[e]+=fac.*fYnj[jStage][e];
       end

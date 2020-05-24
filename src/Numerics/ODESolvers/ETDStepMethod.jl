@@ -33,8 +33,8 @@ mutable struct ETDStep{
   FS,
   Nstages,
   Nstagesm1,
-  Nstagesm2,
-  Nstages_sq
+  Nstages_sq,
+  Nβ,
 } <: AbstractODESolver
   "time step"
   dt::RT
@@ -55,20 +55,14 @@ mutable struct ETDStep{
   "number of steps"
   nsteps::Int
 
-  nStages::Int64
-  nPhi::Int64
-  nPhiStages::Array{Int64,1}
+  nStages::Int
+  nPhi::Int
+  nPhiStages::SArray{NTuple{1, Nstages}, Int, 1, Nstages}
 
-  #α::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
-  #β::SArray{NTuple{2, Nstages}, AT, 2, Nstages_sq}
-  #βS::SArray{NTuple{2, Nstages}, AT, 2, Nstages_sq}
-  β::Array{Array{Float64,1},2};
-  βS::Array{Array{Float64,1},2};
+  β::NTuple{Nβ, SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}};
+  βS::NTuple{Nβ, SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}};
 
-  #γ::SArray{NTuple{2, Nstages}, RT, 2, Nstages_sq}
-  d::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
   c::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
-  #c̃::SArray{NTuple{1, Nstages}, RT, 1, Nstages}
 
   function ETDStep(
     slowrhs!,
@@ -89,30 +83,23 @@ mutable struct ETDStep{
     T = eltype(Q)
     RT = real(T)
 
-
     yn = similar(Q)
-    #ΔYnj = ntuple(_ -> similar(Q), Nstages-2)
     fYnj = ntuple(_ -> similar(Q), Nstages-1)
     offset = similar(Q)
     tsfastrhs! = TimeScaledRHS(RT(0), RT(0), fastrhs!)
     fastsolver = fastmethod(tsfastrhs!, Q)
 
-    #d = sum(β, dims=2)
+    for i=2:Nstages
+      for j=1:i-1
+        kFac=1;
+          for k=1:nPhi
+            kFac=kFac*max(k-1,1);
+            βS[k][i,j]=β[k][i,j]/(kFac*c[i]);
+            β[k][i,j]=β[k][i,j]/c[i];
+          end
+      end
+    end
 
-    #c = similar(d)
-    d=copy(c);
-
-    #for i = eachindex(c)
-      #c[i] = d[i]
-      #if i > 1
-      #   c[i] += sum(j-> (α[i,j] + γ[i,j])*c[j], 1:i-1)
-      #end
-    #end
-    #c̃ = α*c
-
-    #new{T, RT, AT, typeof(fastsolver), Nstages, Nstages-1, Nstages-2, Nstages ^ 2}(RT(dt), RT(t0), yn, ΔYnj, fYnj, offset,
-    #                                       slowrhs!, tsfastrhs!, fastsolver,
-    #                                       α, β, γ, d, c, c̃)
     new{
       T,
       RT,
@@ -120,8 +107,8 @@ mutable struct ETDStep{
       typeof(fastsolver),
       Nstages,
       Nstages-1,
-      Nstages-2,
-      Nstages ^ 2
+      Nstages ^ 2,
+      length(β),
     }(
       RT(dt),
       RT(t0),
@@ -137,7 +124,6 @@ mutable struct ETDStep{
       nPhiStages,
       β,
       βS,
-      d,
       c
     )
   end
@@ -153,9 +139,7 @@ function dostep!(Q, etd::ETDStep, p, time)
   yn = etd.yn
   fYnj = etd.fYnj
   offset = etd.offset
-  d = etd.d
   c = etd.c
-  #c̃ = etd.c̃
   slowrhs! = etd.slowrhs!
   fastsolver = etd.fastsolver
   fastrhs! = etd.tsfastrhs!
@@ -171,117 +155,93 @@ function dostep!(Q, etd::ETDStep, p, time)
     dτ=dt*c[iStage+1]/nstepsLoc;
 
     copyto!(Q, yn)
-    dostep!(Q, fastsolver, p, time, dτ, nstepsLoc, iStage, β, βS, nPhi, fYnj, FT(1), realview(offset), nothing)  #(1c)
+    dostep!(Q, fastsolver, p, time, dτ, nstepsLoc, iStage, β, βS, nPhi, fYnj, FT(1), realview(offset), nothing)
   end
 end
 
+
 function EB1(slowrhs!, fastrhs!, fastmethod, nsteps, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+
+  T = eltype(Q)
+  RT = real(T)
 
   nStages=2;
   nPhi=1;
 
-  nPhiStages=[0, 1]; #???
+  nPhiStages=[0, 1];
 
-  β = [[[0.0]] [[0.0]];
-      [[1.0]] [[0.0]]];
-  βS =[[[0.0]] [[0.0]];
-      [[0.0]] [[0.0]]];
+  β0 = [RT(0) RT(0)
+        RT(1) RT(0)];
+  βS0 = zeros(RT,2,2);
 
+  c = [RT(0) RT(1) RT(1)];
 
-  c = [0.0, 1.0, 1.0];
-
-  for i=2:2
-    for j=1:i-1
-    kFac=1;
-      for k=1:1
-        kFac=kFac*max(k-1,1)*c[i];
-        βS[i,j][k]=β[i,j][k]/kFac;
-      end
-    end
-  end
-
-  ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, β, βS, c, Q; dt=dt, t0=t0)
+  ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, (β0,), (βS0,), c, Q; dt=dt, t0=t0)
 end
 
 function ETDRK3(slowrhs!, fastrhs!, fastmethod, nsteps, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+
+    T = eltype(Q)
+    RT = real(T)
 
     nStages=4;
     nPhi=1;
 
     nPhiStages=[0,1,1,1];
 
-    β = [[[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-         [[1.0/3.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-         [[0.0,0.0,0.0]] [[1.0/2.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-         [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[1.0,0.0,0.0]] [[0.0,0.0,0.0]]];
+    β0 = [
+            RT(0)         RT(0)         RT(0)     RT(0)
+            RT(1 // 3)    RT(0)         RT(0)     RT(0)
+            RT(0)         RT(1 // 2)    RT(0)     RT(0)
+            RT(0)         RT(0)         RT(1)     RT(0)
+    ];
+    βS0 = zeros(RT,4,4);
+    β1 = zeros(RT,4,4);
+    βS1 = zeros(RT,4,4);
+    β2 = zeros(RT,4,4);
+    βS2 = zeros(RT,4,4);
 
-    #βS=similar(β);
+    c = [RT(0) RT(1 // 3) RT(1 // 2) RT(1)];
 
-    βS = [[[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-          [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-          [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-          [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]]];
-
-    c = [0.0, 0.33333333333333333, 0.5, 1.0];
-       #c[i] is usually sum of first elements in i-th row)
-
-    for i=2:nStages
-      for j=1:i-1
-        kFac=1;
-          for k=1:nPhi
-            kFac=kFac*max(k-1,1);
-            βS[i,j][k]=β[i,j][k]/(kFac*c[i]);
-            β[i,j][k]=β[i,j][k]/c[i];
-          end
-      end
-    end
-
-    #=γ = [0  0               0              0;
-         0  0               0              0;
-         0  0.652465126004  0              0;
-         0 -0.0732769849457 0.144902430420 0]=# #not needed (yet?)
-
-    ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, β, βS, c, Q; dt=dt, t0=t0)
+    ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, (β0, β1, β2), (βS0, βS1, βS2), c, Q; dt=dt, t0=t0)
 end
 
 function EB4(slowrhs!, fastrhs!, fastmethod, nsteps, Q::AT; dt=0, t0=0) where {AT <: AbstractArray}
+
+  T = eltype(Q)
+  RT = real(T)
 
   nStages=5;
   nPhi=3;
 
   nPhiStages=[0,1,2,2,3];
 
-  β = [[[0.0,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]];
-       [[0.5,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]];
-       [[0.5,-1.0,0.0]] [[0.0,1.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]];
-       [[1.0,-2.0,0.0]] [[0.0,0.0,0.0]]  [[0.0,2.0,0.0]]  [[0.0,0.0,0.0]]  [[0.0,0.0,0.0]];
-       [[1.0,-3.0,4.0]] [[0.0,2.0,-4.0]] [[0.0,2.0,-4.0]] [[0.0,-1.0,4.0]] [[0.0,0.0,0.0]]];
+  β0 = [
+          RT(0)         RT(0)     RT(0)     RT(0)     RT(0)
+          RT(1 // 2)    RT(0)     RT(0)     RT(0)     RT(0)
+          RT(1 // 2)    RT(0)     RT(0)     RT(0)     RT(0)
+          RT(1)         RT(0)     RT(1)     RT(0)     RT(0)
+          RT(1)         RT(0)     RT(0)     RT(0)     RT(0)
+  ];
+  βS0 = zeros(RT,5,5);
+  β1 = [
+          RT(0)       RT(0)     RT(0)     RT(0)     RT(0)
+          RT(0)       RT(0)     RT(0)     RT(0)     RT(0)
+          RT(-1)      RT(1)     RT(0)     RT(0)     RT(0)
+          RT(-2)      RT(0)     RT(2)     RT(0)     RT(0)
+          RT(-3)      RT(2)     RT(2)     RT(-1)    RT(0)
+  ];
+  βS1 = zeros(RT,5,5);
+  β1 = [
+          RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
+          RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
+          RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
+          RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
+          RT(4)      RT(-4)    RT(-4)    RT(4)     RT(0)
+  ];
+  βS2 = zeros(RT,5,5);
 
-  #βS=similar(β);
-  βS = [[[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-        [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-        [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-        [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]];
-        [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]] [[0.0,0.0,0.0]]];
+  c = [RT(0) RT(1 // 2) RT(1 // 2) RT(1) RT(1)];
 
-  c = [0.0, 0.5, 0.5, 1.0, 1.0];
-     #c[i] is usually sum of first elements in i-th row)
-
-  for i=2:nStages
-    for j=1:i-1
-      kFac=1;
-        for k=1:nPhi
-          kFac=kFac*max(k-1,1);
-          βS[i,j][k]=β[i,j][k]/(kFac*c[i]);
-          β[i,j][k]=β[i,j][k]/c[i];
-        end
-    end
-  end
-
-  #=γ = [0  0               0              0;
-       0  0               0              0;
-       0  0.652465126004  0              0;
-       0 -0.0732769849457 0.144902430420 0]=# #not needed (yet?)
-
-  ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, β, βS, c, Q; dt=dt, t0=t0)
+  ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, (β0, β1, β2), (βS0, βS1, βS2), c, Q; dt=dt, t0=t0)
 end
