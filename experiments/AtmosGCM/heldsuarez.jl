@@ -14,10 +14,8 @@ using ClimateMachine.MoistThermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
 
-using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
-using Random: rand
 using Test
 
 using CLIMAParameters
@@ -32,11 +30,23 @@ end
 function init_heldsuarez!(bl, state, aux, coords, t)
     FT = eltype(state)
 
-    # Set initial state to reference state with random perturbation
-    rnd = FT(1.0 + rand(Uniform(-1e-3, 1e-3)))
+    φ = latitude(bl.orientation, aux)
+    λ = longitude(bl.orientation, aux)
+    z = altitude(bl.orientation, bl.param_set, aux)
+  
+    # Prepare a small-amplitude large-scale perturbation 
+    # in the lower part of the flow domain and away from the boundaries
+    if FT(1000) < z < FT(6000)
+      perturbation = FT(1e-3 * cos(2*φ) * sin(2*λ))
+    else
+      perturbation = FT(0)
+    end
+
+    # Set initial state to reference state with perturbation
+    # to bring the flow slightly out of balance
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = rnd * aux.ref_state.ρe
+    state.ρe = FT(1 + perturbation) * aux.ref_state.ρe
 
     nothing
 end
@@ -48,8 +58,8 @@ function config_heldsuarez(FT, poly_order, resolution)
 
     # Set up a Rayleigh sponge to dampen flow at the top of the domain
     domain_height::FT = 30e3               # distance between surface and top of atmosphere (m)
-    z_sponge::FT = 12e3                    # height at which sponge begins (m)
-    α_relax::FT = 1 / 60 / 15              # sponge relaxation rate (1/s)
+    z_sponge::FT = 25e3                    # height at which sponge begins (m)
+    α_relax::FT = 1 / 900                  # sponge relaxation rate (1/s)
     exp_sponge = 2                         # sponge exponent for squared-sinusoid profile
     u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
     sponge = RayleighSponge{FT}(
@@ -63,13 +73,12 @@ function config_heldsuarez(FT, poly_order, resolution)
     # Set up the atmosphere model
     exp_name = "HeldSuarez"
     T_ref::FT = 255        # reference temperature for Held-Suarez forcing (K)
-    τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
-    c_smag::FT = 0.21      # Smagorinsky coefficient
+    τ_hyper::FT = 200      # hyperdiffusion time scale in (s)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = SmagorinskyLilly(c_smag),
+        turbulence = ConstantViscosityWithDivergence(FT(0)),
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
@@ -160,7 +169,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(10), FT(10), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(5), FT(5), FT(2000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
@@ -180,8 +189,8 @@ function main()
     # Driver configuration parameters
     FT = Float32                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 5                               # horizontal element number
-    n_vert = 5                               # vertical element number
+    n_horz = 3                               # horizontal element number
+    n_vert = 3                               # vertical element number
     n_days = 120                             # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
@@ -194,8 +203,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
-        init_on_cpu = true,
+        Courant_number = 0.05,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
@@ -204,7 +212,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 10
+    filterorder = 16
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
