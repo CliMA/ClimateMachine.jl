@@ -170,6 +170,8 @@ function atmos_source!(
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
-        source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+      
+        δρu = state.ρu .- state.ρ * s.u_relaxation
+        source.ρu -= β_sponge * δρu 
     end
 end
