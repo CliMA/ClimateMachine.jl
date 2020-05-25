@@ -2,17 +2,42 @@ using StaticNumbers
 export remainder_DGModel
 
 """
-    RemBL(main::BalanceLaw, subcomponents::Tuple)
+    RemBL(
+        main::BalanceLaw,
+        subcomponents::Tuple,
+        maindir::Direction,
+        subsdir::Tuple,
+    )
 
-Compute the "remainder" contribution of the `main` model, after subtracting
-`subcomponents`.
-
-Currently only the `flux_nondiffusive!` and `source!` are handled by the
-remainder model
+Balance law for holding remainder model information. Direction is put here since
+direction is so intertwined with the DGModel_kernels, that it is easier to hande
+this in this container.
 """
-struct RemBL{M, S} <: BalanceLaw
+struct RemBL{M, S, MD, SD} <: BalanceLaw
     main::M
     subs::S
+    maindir::MD
+    subsdir::SD
+end
+
+"""
+    rembl_has_subs_direction(
+        direction::Direction,
+        rem_balance_law::RemBL,
+    )
+
+Query whether the `rem_balance_law` has any subcomponent balance laws operating
+in the direction `direction`
+"""
+@generated function rembl_has_subs_direction(
+    ::Dir,
+    ::RemBL{MainBL, SubsBL, MainDir, SubsDir},
+) where {Dir <: Direction, MainBL, SubsBL, MainDir, SubsDir <: Tuple}
+    if Dir in SubsDir.types
+        return :(true)
+    else
+        return :(false)
+    end
 end
 
 
@@ -20,7 +45,6 @@ end
     remainder_DGModel(
         maindg::DGModel,
         subsdg::NTuple{NumModels, DGModel};
-        direction = EveryDirection(),
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
@@ -50,7 +74,6 @@ data and arrays are aliased to the `maindg` values.
 function remainder_DGModel(
     maindg::DGModel,
     subsdg::NTuple{NumModels, DGModel};
-    direction = EveryDirection(),
     numerical_flux_first_order = maindg.numerical_flux_first_order,
     numerical_flux_second_order = maindg.numerical_flux_second_order,
     numerical_flux_gradient = maindg.numerical_flux_gradient,
@@ -60,10 +83,6 @@ function remainder_DGModel(
     diffusion_direction = maindg.diffusion_direction,
     modeldata = maindg.modeldata,
 ) where {NumModels}
-    balance_law = RemBL(
-        maindg.balance_law,
-        ntuple(i -> subsdg[i].balance_law, length(subsdg)),
-    )
     FT = eltype(state_auxiliary)
 
     # If any of these asserts fail, the remainder model will need to be extended
@@ -81,9 +100,27 @@ function remainder_DGModel(
         @assert num_gradient_laplacian(subdg.balance_law, FT) == 0
         @assert num_hyperdiffusive(subdg.balance_law, FT) == 0
 
+        # Do not currenlty support nested remainder models
+        # For this to work the way directions and numerical fluxes are handled
+        # would need to be updated.
+        @assert !(subdg.balance_law isa RemBL)
+
         @assert num_integrals(subdg.balance_law, FT) == 0
         @assert num_reverse_integrals(subdg.balance_law, FT) == 0
+
+        # The remainder model requires that the subcomponent direction be
+        # included in the main model directions
+        @assert (
+            maindg.direction isa EveryDirection ||
+            maindg.direction === subdg.direction
+        )
     end
+    balance_law = RemBL(
+        maindg.balance_law,
+        ntuple(i -> subsdg[i].balance_law, length(subsdg)),
+        maindg.direction,
+        ntuple(i -> subsdg[i].direction, length(subsdg)),
+    )
 
 
     DGModel(
@@ -95,7 +132,7 @@ function remainder_DGModel(
         state_auxiliary,
         state_gradient_flux,
         states_higher_order,
-        direction,
+        maindg.direction,
         diffusion_direction,
         modeldata,
     )
@@ -188,18 +225,39 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
-    direction,
-)
+    ::Dirs,
+) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
     m = parent(flux)
-    flux_first_order!(rem_balance_law.main, flux, state, aux, t, direction)
+    if rem_balance_law.maindir isa Union{Dirs.types...}
+        flux_first_order!(
+            rem_balance_law.main,
+            flux,
+            state,
+            aux,
+            t,
+            (rem_balance_law.maindir,),
+        )
+    end
 
     flux_s = similar(flux)
     m_s = parent(flux_s)
 
-    for sub in rem_balance_law.subs
-        fill!(m_s, 0)
-        flux_first_order!(sub, flux_s, state, aux, t, direction)
-        m .-= m_s
+    # Force the loop to unroll to get type stability on the GPU
+    @inbounds ntuple(Val(length(rem_balance_law.subs))) do k
+        Base.@_inline_meta
+        if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
+            sub = rem_balance_law.subs[k]
+            fill!(m_s, -zero(eltype(m_s)))
+            flux_first_order!(
+                sub,
+                flux_s,
+                state,
+                aux,
+                t,
+                (rem_balance_law.subsdir[k],),
+            )
+            m .-= m_s
+        end
     end
     nothing
 end
@@ -230,18 +288,45 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction,
-)
+    ::Dir,
+) where {Dir <: Direction}
     m = parent(source)
-    source!(rem_balance_law.main, source, state, diffusive, aux, t, direction)
+    if EveryDirection() isa Dir ||
+       rem_balance_law.maindir isa EveryDirection ||
+       rem_balance_law.maindir isa Dir
+        source!(
+            rem_balance_law.main,
+            source,
+            state,
+            diffusive,
+            aux,
+            t,
+            rem_balance_law.maindir,
+        )
+    end
 
     source_s = similar(source)
     m_s = parent(source_s)
 
-    for sub in rem_balance_law.subs
-        fill!(m_s, 0)
-        source!(sub, source_s, state, diffusive, aux, t, direction)
-        m .-= m_s
+    # Force the loop to unroll to get type stability on the GPU
+    ntuple(Val(length(rem_balance_law.subs))) do k
+        Base.@_inline_meta
+        @inbounds if EveryDirection() isa Dir ||
+                     rem_balance_law.subsdir[k] isa EveryDirection ||
+                     rem_balance_law.subsdir[k] isa Dir
+            sub = rem_balance_law.subs[k]
+            fill!(m_s, -zero(eltype(m_s)))
+            source!(
+                sub,
+                source_s,
+                state,
+                diffusive,
+                aux,
+                t,
+                rem_balance_law.subsdir[k],
+            )
+            m .-= m_s
+        end
     end
     nothing
 end
@@ -321,46 +406,71 @@ function numerical_flux_first_order!(
     state_auxiliary⁻::Vars{A},
     state_conservative⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
-    x...,
-) where {NumSubFluxes, S, A}
+    t,
+    ::Dirs,
+) where {NumSubFluxes, S, A, Dirs <: NTuple{2, Direction}}
     # Call the numerical flux for the main model
-    @inbounds numerical_flux_first_order!(
-        numerical_fluxes[1],
-        rem_balance_law.main,
-        fluxᵀn,
-        normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
-        state_conservative⁺,
-        state_auxiliary⁺,
-        x...,
-    )
-
-    # Create put the sub model fluxes
-    a_fluxᵀn = parent(fluxᵀn)
-    sub_fluxᵀn = similar(fluxᵀn)
-    a_sub_fluxᵀn = parent(sub_fluxᵀn)
-
-    FT = eltype(a_sub_fluxᵀn)
-    @unroll for k in 1:NumSubFluxes
-        @inbounds sub = rem_balance_law.subs[k]
-        @inbounds nf = numerical_fluxes[2][k]
-        # compute this submodels flux
-        fill!(a_sub_fluxᵀn, -zero(FT))
-        numerical_flux_first_order!(
-            nf,
-            sub,
-            sub_fluxᵀn,
+    if rem_balance_law.maindir isa Union{Dirs.types...}
+        @inbounds numerical_flux_first_order!(
+            numerical_fluxes[1],
+            rem_balance_law.main,
+            fluxᵀn,
             normal_vector,
             state_conservative⁻,
             state_auxiliary⁻,
             state_conservative⁺,
             state_auxiliary⁺,
-            x...,
+            t,
+            (rem_balance_law.maindir,),
         )
+    end
 
-        # Subtract off this sub models flux
-        a_fluxᵀn .-= a_sub_fluxᵀn
+    # Create put the sub model fluxes
+    a_fluxᵀn = parent(fluxᵀn)
+
+    # Force the loop to unroll to get type stability on the GPU
+    ntuple(Val(length(rem_balance_law.subs))) do k
+        Base.@_inline_meta
+        @inbounds if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
+            sub = rem_balance_law.subs[k]
+            nf = numerical_fluxes[2][k]
+
+            FT = eltype(a_fluxᵀn)
+            num_state_conservative = number_state_conservative(sub, FT)
+
+            a_sub_fluxᵀn = MVector{num_state_conservative, FT}(undef)
+            a_sub_state_conservative⁻ =
+                MVector{num_state_conservative, FT}(undef)
+            a_sub_state_conservative⁺ =
+                MVector{num_state_conservative, FT}(undef)
+
+            state_rng = static(1):static(number_state_conservative(sub, FT))
+            a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
+            a_sub_state_conservative⁻ .= parent(state_conservative⁻)[state_rng]
+            a_sub_state_conservative⁺ .= parent(state_conservative⁺)[state_rng]
+
+            # compute this submodels flux
+            fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
+            numerical_flux_first_order!(
+                nf,
+                sub,
+                Vars{vars_state_conservative(sub, FT)}(a_sub_fluxᵀn),
+                normal_vector,
+                Vars{vars_state_conservative(sub, FT)}(
+                    a_sub_state_conservative⁻,
+                ),
+                state_auxiliary⁻,
+                Vars{vars_state_conservative(sub, FT)}(
+                    a_sub_state_conservative⁺,
+                ),
+                state_auxiliary⁺,
+                t,
+                (rem_balance_law.subsdir[k],),
+            )
+
+            # Subtract off this sub models flux
+            a_fluxᵀn[state_rng] .-= a_sub_fluxᵀn
+        end
     end
 end
 
@@ -403,8 +513,12 @@ function numerical_boundary_flux_first_order!(
     state_auxiliary⁻::Vars{A},
     state_conservative⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
-    x...,
-) where {NumSubFluxes, S, A}
+    bctype,
+    t,
+    ::Dirs,
+    state_conservative1⁻::Vars{S},
+    state_auxiliary1⁻::Vars{A},
+) where {NumSubFluxes, S, A, Dirs <: NTuple{2, Direction}}
     # Since the fluxes are allowed to modified these we need backups so they can
     # be reset as we go
     a_state_conservative⁺ = parent(state_conservative⁺)
@@ -415,48 +529,84 @@ function numerical_boundary_flux_first_order!(
 
 
     # Call the numerical flux for the main model
-    @inbounds numerical_boundary_flux_first_order!(
-        numerical_fluxes[1],
-        rem_balance_law.main,
-        fluxᵀn,
-        normal_vector,
-        state_conservative⁻,
-        state_auxiliary⁻,
-        state_conservative⁺,
-        state_auxiliary⁺,
-        x...,
-    )
-
-    # Create put the sub model fluxes
-    a_fluxᵀn = parent(fluxᵀn)
-    sub_fluxᵀn = similar(fluxᵀn)
-    a_sub_fluxᵀn = parent(sub_fluxᵀn)
-
-    FT = eltype(a_sub_fluxᵀn)
-    @unroll for k in 1:NumSubFluxes
-        @inbounds sub = rem_balance_law.subs[k]
-        @inbounds nf = numerical_fluxes[2][k]
-
-        # reset the plus-side data
-        a_state_conservative⁺ .= a_back_state_conservative⁺
-        a_state_auxiliary⁺ .= a_back_state_auxiliary⁺
-
-        # compute this submodels flux
-        fill!(a_sub_fluxᵀn, -zero(FT))
-        numerical_boundary_flux_first_order!(
-            nf,
-            sub,
-            sub_fluxᵀn,
+    if rem_balance_law.maindir isa Union{Dirs.types...}
+        @inbounds numerical_boundary_flux_first_order!(
+            numerical_fluxes[1],
+            rem_balance_law.main,
+            fluxᵀn,
             normal_vector,
             state_conservative⁻,
             state_auxiliary⁻,
             state_conservative⁺,
             state_auxiliary⁺,
-            x...,
+            bctype,
+            t,
+            (rem_balance_law.maindir,),
+            state_conservative1⁻,
+            state_auxiliary1⁻,
         )
+    end
 
-        # Subtract off this sub models flux
-        a_fluxᵀn .-= a_sub_fluxᵀn
+    # Create put the sub model fluxes
+    a_fluxᵀn = parent(fluxᵀn)
+
+    # Force the loop to unroll to get type stability on the GPU
+    ntuple(Val(length(rem_balance_law.subs))) do k
+        Base.@_inline_meta
+        @inbounds if rem_balance_law.subsdir[k] isa Union{Dirs.types...}
+            sub = rem_balance_law.subs[k]
+            nf = numerical_fluxes[2][k]
+
+            # reset the plus-side data
+            a_state_conservative⁺ .= a_back_state_conservative⁺
+            a_state_auxiliary⁺ .= a_back_state_auxiliary⁺
+
+            FT = eltype(a_fluxᵀn)
+            num_state_conservative = number_state_conservative(sub, FT)
+
+            a_sub_fluxᵀn = MVector{num_state_conservative, FT}(undef)
+            a_sub_state_conservative⁻ =
+                MVector{num_state_conservative, FT}(undef)
+            a_sub_state_conservative⁺ =
+                MVector{num_state_conservative, FT}(undef)
+            a_sub_state_conservative1⁻ =
+                MVector{num_state_conservative, FT}(undef)
+
+            state_rng = static(1):static(number_state_conservative(sub, FT))
+            a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
+            a_sub_state_conservative⁻ .= parent(state_conservative⁻)[state_rng]
+            a_sub_state_conservative⁺ .= parent(state_conservative⁺)[state_rng]
+            a_sub_state_conservative1⁻ .=
+                parent(state_conservative1⁻)[state_rng]
+
+
+            # compute this submodels flux
+            fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
+            numerical_boundary_flux_first_order!(
+                nf,
+                sub,
+                Vars{vars_state_conservative(sub, FT)}(a_sub_fluxᵀn),
+                normal_vector,
+                Vars{vars_state_conservative(sub, FT)}(
+                    a_sub_state_conservative⁻,
+                ),
+                state_auxiliary⁻,
+                Vars{vars_state_conservative(sub, FT)}(
+                    a_sub_state_conservative⁺,
+                ),
+                state_auxiliary⁺,
+                bctype,
+                t,
+                (rem_balance_law.subsdir[k],),
+                Vars{vars_state_conservative(sub, FT)}(
+                    a_sub_state_conservative1⁻,
+                ),
+                state_auxiliary1⁻,
+            )
+
+            # Subtract off this sub models flux
+            a_fluxᵀn[state_rng] .-= a_sub_fluxᵀn
+        end
     end
 end
 
