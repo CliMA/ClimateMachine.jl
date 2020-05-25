@@ -25,7 +25,11 @@ using ..TemperatureProfiles
 import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
-    VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
+    VerticalDirection,
+    HorizontalDirection,
+    min_node_distance,
+    EveryDirection,
+    Direction
 
 using ClimateMachine.BalanceLaws:
     BalanceLaw, number_state_conservative, num_integrals
