@@ -19,7 +19,7 @@ features such as droughts, rainfall extremes, and high-impact storms.
 The `ClimateMachine` currently consists of three models for the subcomponents
 of the Earth system:
 
-* [`ClimateMachine.Atmos`](@ref AtmosModel-docs): A model of the fluid
+* `ClimateMachine.Atmos`: A model of the fluid
   mechanics of the atmosphere and its interaction with solar radiation and
   phase changes of water that occur, for example, in clouds.
 
