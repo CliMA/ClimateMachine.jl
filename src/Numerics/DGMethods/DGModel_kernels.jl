@@ -140,6 +140,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     local_state_auxiliary,
                 ),
                 t,
+                direction,
             )
 
             @unroll for s in 1:num_state_conservative
@@ -355,6 +356,7 @@ end
                     local_state_auxiliary,
                 ),
                 t,
+                direction,
             )
 
             @unroll for s in 1:num_state_conservative
@@ -557,6 +559,12 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     @inbounds e[1] = elems[eI]
 
     @inbounds for f in faces
+        # The remainder model needs to know which direction of face the model is
+        # being evaluated for. So faces 1:(nface - 2) are flagged as
+        # `HorizontalDirection()` faces and the remaining two faces are
+        # `VerticalDirection()` faces
+        face_direction =
+            f in 1:(nface - 2) ? HorizontalDirection() : VerticalDirection()
         e⁻ = e[1]
         normal_vector = SVector(
             sgeo[_n1, n, f, e⁻],
@@ -627,6 +635,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                     local_state_auxiliary⁺nondiff,
                 ),
                 t,
+                face_direction,
             )
             numerical_flux_second_order!(
                 numerical_flux_second_order,
@@ -694,6 +703,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 ),
                 bctype,
                 t,
+                face_direction,
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative_bottom1,
                 ),

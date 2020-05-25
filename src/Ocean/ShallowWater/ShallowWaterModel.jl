@@ -87,6 +87,7 @@ end
     q::Vars,
     α::Vars,
     t::Real,
+    direction,
 )
     U = @SVector [q.U[1], q.U[2], -0]
     η = q.η

@@ -146,6 +146,7 @@ function numerical_boundary_flux_first_order!(
     state_auxiliary⁺::Vars{A},
     bctype,
     t,
+    direction,
     state1⁻::Vars{S},
     aux1⁻::Vars{A},
 ) where {S, A}
@@ -174,6 +175,7 @@ function numerical_boundary_flux_first_order!(
         state_conservative⁺,
         state_auxiliary⁺,
         t,
+        direction,
     )
 end
 
@@ -203,6 +205,7 @@ function numerical_flux_first_order!(
     state_conservative⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
+    direction,
 ) where {S, A}
 
     numerical_flux_first_order!(
@@ -215,6 +218,7 @@ function numerical_flux_first_order!(
         state_conservative⁺,
         state_auxiliary⁺,
         t,
+        direction,
     )
 
     fluxᵀn = parent(fluxᵀn)
@@ -277,6 +281,7 @@ function numerical_flux_first_order!(
     state_conservative⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
+    direction,
 ) where {S, A}
 
     FT = eltype(fluxᵀn)
@@ -291,6 +296,7 @@ function numerical_flux_first_order!(
         state_conservative⁻,
         state_auxiliary⁻,
         t,
+        direction,
     )
 
     flux⁺ = similar(fluxᵀn, Size(3, num_state_conservative))
@@ -301,6 +307,7 @@ function numerical_flux_first_order!(
         state_conservative⁺,
         state_auxiliary⁺,
         t,
+        direction,
     )
 
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2)

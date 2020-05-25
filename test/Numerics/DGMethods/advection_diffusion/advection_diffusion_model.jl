@@ -107,6 +107,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
     u = aux.u
@@ -389,6 +390,7 @@ function numerical_flux_first_order!(
     state⁺::Vars{S},
     aux⁺::Vars{A},
     t,
+    direction,
 ) where {S, A}
     un⁻ = dot(n, aux⁻.u)
     un⁺ = dot(n, aux⁺.u)

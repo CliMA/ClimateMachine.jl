@@ -35,6 +35,7 @@ function flux_first_order!(
     state::Vars,
     auxstate::Vars,
     t::Real,
+    direction,
 )
     # preflux
     T = eltype(flux)

@@ -304,6 +304,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    _...,
 )
     flux.ρ = state.ρu
 
