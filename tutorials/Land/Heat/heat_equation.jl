@@ -235,13 +235,7 @@ end;
 
 # We have no sources, nor non-diffusive fluxes.
 function source!(m::HeatModel, _...) end;
-function flux_first_order!(
-    m::HeatModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end;
+function flux_first_order!(m::HeatModel, _...) end;
 
 # Compute diffusive flux (``F(α, ρcT, t) = -α ∇ρcT`` in the original PDE).
 # Note that:

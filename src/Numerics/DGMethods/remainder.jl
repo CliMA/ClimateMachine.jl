@@ -188,16 +188,17 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     m = parent(flux)
-    flux_first_order!(rem_balance_law.main, flux, state, aux, t)
+    flux_first_order!(rem_balance_law.main, flux, state, aux, t, direction)
 
     flux_s = similar(flux)
     m_s = parent(flux_s)
 
     for sub in rem_balance_law.subs
         fill!(m_s, 0)
-        flux_first_order!(sub, flux_s, state, aux, t)
+        flux_first_order!(sub, flux_s, state, aux, t, direction)
         m .-= m_s
     end
     nothing

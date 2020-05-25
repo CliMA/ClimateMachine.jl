@@ -46,13 +46,7 @@ vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_hyperdiffusive(::HyperDiffusion, FT) = @vars(σ::SVector{3, FT})
 
-function flux_first_order!(
-    m::HyperDiffusion,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
+function flux_first_order!(m::HyperDiffusion, _...) end
 
 """
     flux_second_order!(m::HyperDiffusion, flux::Grad, state::Vars,

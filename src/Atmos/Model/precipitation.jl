@@ -42,13 +42,7 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 ) end
-function flux_first_order!(
-    ::PrecipitationModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
+function flux_first_order!(::PrecipitationModel, _...) end
 function compute_gradient_argument!(
     ::PrecipitationModel,
     transform::Vars,
