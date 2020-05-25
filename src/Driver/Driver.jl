@@ -21,7 +21,8 @@ using ..DGMethods:
     vars_state_conservative,
     vars_state_auxiliary,
     update_auxiliary_state!,
-    RemainderModel
+    RemainderModel,
+    remainder_DGModel
 using ..DGMethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
