@@ -191,7 +191,8 @@ function transform_post_gradient_laplacian! end
         n⁻,
         state_conservative::Vars,
         state_auxiliary::Vars,
-        t::Real
+        t::Real,
+        direction
     )
 
 wavespeed
