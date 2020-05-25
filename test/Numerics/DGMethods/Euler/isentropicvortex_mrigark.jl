@@ -175,14 +175,7 @@ function run(
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
     )
-    slow_dg = remainder_DGModel(
-        dg,
-        (fast_dg,),
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        state_auxiliary = dg.state_auxiliary,
-    )
+    slow_dg = remainder_DGModel(dg, (fast_dg,))
 
     timeend = FT(2 * setup.domain_halflength / setup.translation_speed)
     # determine the slow time step
