@@ -288,12 +288,12 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    ::Dir,
-) where {Dir <: Direction}
+    ::Dirs,
+) where {NumDirs, Dirs <: NTuple{NumDirs, Direction}}
     m = parent(source)
-    if EveryDirection() isa Dir ||
+    if EveryDirection() isa Union{Dirs.types...} ||
        rem_balance_law.maindir isa EveryDirection ||
-       rem_balance_law.maindir isa Dir
+       rem_balance_law.maindir isa Union{Dirs.types...}
         source!(
             rem_balance_law.main,
             source,
@@ -301,7 +301,7 @@ function source!(
             diffusive,
             aux,
             t,
-            rem_balance_law.maindir,
+            (rem_balance_law.maindir,),
         )
     end
 
@@ -311,9 +311,9 @@ function source!(
     # Force the loop to unroll to get type stability on the GPU
     ntuple(Val(length(rem_balance_law.subs))) do k
         Base.@_inline_meta
-        @inbounds if EveryDirection() isa Dir ||
+        @inbounds if EveryDirection() isa Union{Dirs.types...} ||
                      rem_balance_law.subsdir[k] isa EveryDirection ||
-                     rem_balance_law.subsdir[k] isa Dir
+                     rem_balance_law.subsdir[k] isa Union{Dirs.types...}
             sub = rem_balance_law.subs[k]
             fill!(m_s, -zero(eltype(m_s)))
             source!(
@@ -323,7 +323,7 @@ function source!(
                 diffusive,
                 aux,
                 t,
-                rem_balance_law.subsdir[k],
+                (rem_balance_law.subsdir[k],),
             )
             m .-= m_s
         end
