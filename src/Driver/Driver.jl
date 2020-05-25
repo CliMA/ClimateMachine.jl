@@ -18,7 +18,10 @@ using ..ConfigTypes
 using ..Diagnostics
 using ..DGMethods
 using ..DGMethods:
-    vars_state_conservative, vars_state_auxiliary, update_auxiliary_state!
+    vars_state_conservative,
+    vars_state_auxiliary,
+    update_auxiliary_state!,
+    RemainderModel
 using ..DGMethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids

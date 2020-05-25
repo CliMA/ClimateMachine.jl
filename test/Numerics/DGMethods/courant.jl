@@ -8,7 +8,8 @@ using ClimateMachine.VTK
 using Logging
 using Printf
 using LinearAlgebra
-using ClimateMachine.DGMethods: DGModel, init_ode_state, LocalGeometry, courant
+using ClimateMachine.DGMethods:
+    DGModel, init_ode_state, LocalGeometry, courant, RemainderModel
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,

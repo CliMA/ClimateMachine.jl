@@ -2,7 +2,7 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.DGMethods: DGModel, init_ode_state, LocalGeometry
+using ClimateMachine.DGMethods: DGModel, init_ode_state, LocalGeometry, RemainderModel
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
