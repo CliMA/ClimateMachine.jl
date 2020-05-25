@@ -2,8 +2,7 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.DGMethods:
-    DGModel, init_ode_state, RemainderModel, remainder_DGModel
+using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
@@ -163,8 +162,6 @@ function run(
     # The linear model has the fast time scales but will be
     # treated implicitly (outer solver)
     slow_model = AtmosAcousticLinearModel(model)
-    # The remainder will be treated explicitly in the inner loop
-    fast_model = RemainderModel(model, (slow_model,))
 
     dg = DGModel(
         model,
@@ -173,16 +170,17 @@ function run(
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
-    fast_dg = remainder_DGModel(
-        fast_model,
+    slow_dg = DGModel(
+        slow_model,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
     )
-    slow_dg = DGModel(
-        slow_model,
+    fast_dg = remainder_DGModel(
+        dg,
+        (slow_dg,),
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
