@@ -136,7 +136,7 @@ function source!(
     source.ρe = SE_g(t, aux.x1, aux.x2, aux.x3, Val(dim))
 end
 
-function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real, direction)
     T = eltype(state)
     γ = T(γ_exact)
     ρinv = 1 / state.ρ

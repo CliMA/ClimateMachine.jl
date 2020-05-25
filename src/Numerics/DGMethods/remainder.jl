@@ -337,24 +337,51 @@ end
         args...,
     )
 
-The wavespeed for a remainder model is defined to be the difference of the wavespeed
-of the main model and the sum of the subcomponents.
+The wavespeed for a remainder model is defined to be the difference of the
+wavespeed of the main model and the sum of the subcomponents.
 
 Note: Defining the wavespeed in this manner can result in a smaller value than
 the actually wavespeed of the remainder physics model depending on the
 composition of the models.
 """
-function wavespeed(rem::RemBL, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(
+    rem_balance_law::RemBL,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    dir::Dirs,
+) where {ND, Dirs <: NTuple{ND, Direction}}
     FT = eltype(state)
 
-    ws = fill(0, MVector{number_state_conservative(rem.main, FT), FT})
-    rs = fill(0, MVector{number_state_conservative(rem.main, FT), FT})
+    ws = fill(
+        -zero(FT),
+        MVector{number_state_conservative(rem_balance_law.main, FT), FT},
+    )
+    rs = fill(
+        -zero(FT),
+        MVector{number_state_conservative(rem_balance_law.main, FT), FT},
+    )
 
-    ws .= wavespeed(rem.main, nM, state, aux, t)
+    # Compute the main components wavespeed
+    if rem_balance_law.maindir isa Union{Dirs.types...}
+        ws .= wavespeed(
+            rem_balance_law.main,
+            nM,
+            state,
+            aux,
+            t,
+            (rem_balance_law.maindir,),
+        )
+    end
 
-    for sub in rem.subs
-        num_state = static(number_state_conservative(sub, Float32))
-        @inbounds rs[static(1):num_state] .+= wavespeed(sub, nM, state, aux, t)
+    # Compute the sub components wavespeed
+    for (sub, subdir) in zip(rem_balance_law.subs, rem_balance_law.subsdir)
+        @inbounds if subdir isa Union{Dirs.types...}
+            num_state = static(number_state_conservative(sub, Float32))
+            rs[static(1):num_state] .+=
+                wavespeed(sub, nM, state, aux, t, (subdir,))
+        end
     end
 
     ws .-= rs

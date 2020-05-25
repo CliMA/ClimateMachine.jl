@@ -200,7 +200,14 @@ source!(m::AdvectionDiffusion, _...) = nothing
 
 Wavespeed with respect to vector `nM`
 """
-function wavespeed(m::AdvectionDiffusion, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(
+    m::AdvectionDiffusion,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     u = aux.u
     abs(dot(nM, u))
 end
