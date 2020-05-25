@@ -186,10 +186,9 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    slow_model = RemainderModel(dg.balance_law, (fast_model,))
     slow_dg = remainder_DGModel(
-        slow_model,
-        dg.grid,
+        dg,
+        (fast_dg,),
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
         dg.numerical_flux_gradient,
