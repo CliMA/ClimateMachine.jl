@@ -36,7 +36,6 @@ ClimateMachine.Atmos.Rain
 ## Reference states
 
 ```@docs
-ClimateMachine.Atmos.RemainderModel
 ClimateMachine.Atmos.HydrostaticState
 ClimateMachine.Atmos.InitStateBC
 ClimateMachine.Atmos.ReferenceState

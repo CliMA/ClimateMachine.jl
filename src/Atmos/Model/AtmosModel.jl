@@ -1,7 +1,6 @@
 module Atmos
 
-export AtmosModel,
-    AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel, RemainderModel
+export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
@@ -342,7 +341,6 @@ include("source.jl")
 include("tracers.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
-include("remainder.jl")
 include("courant.jl")
 include("filters.jl")
 
