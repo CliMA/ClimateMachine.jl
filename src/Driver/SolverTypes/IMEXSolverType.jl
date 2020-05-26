@@ -79,6 +79,16 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
         solver_storage_variant = LowStorageVariant(),
     )
 
+    function IMEXSolverType(::Type{<:OceanBoxGCMSpecificInfo};
+        splitting_type = HEVISplitting(),
+        implicit_model = LinearHBModel,
+        implicit_solver = BatchedGeneralizedMinimalResidual,
+        implicit_solver_adjustable = false,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        solver_storage_variant = LowStorageVariant(),
+    )
+    
+
         DS = typeof(splitting_type)
         ST = typeof(solver_storage_variant)
 

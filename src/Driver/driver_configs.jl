@@ -279,9 +279,7 @@ function OceanBoxGCMConfiguration(
     model::HydrostaticBoussinesqModel;
     FT = Float64,
     array_type = ClimateMachine.array_type(),
-    solver_type = ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    ),
+    solver_type = IMEXSolverType(OceanBoxGCMSpecificInfo),
     mpicomm = MPI.COMM_WORLD,
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),

@@ -8,6 +8,7 @@ using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.SystemSolvers: BatchedGeneralizedMinimalResidual
+using ClimateMachine.LinearSolvers
 using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf
