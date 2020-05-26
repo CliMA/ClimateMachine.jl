@@ -419,7 +419,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.IMEXSolverType();
+    ode_solver_type = ClimateMachine.IMEXSolverType()
 
     # Assemble model components
     model = AtmosModel{FT}(
@@ -514,21 +514,21 @@ function main()
     Q = solver_config.Q
     # Volume geometry information
     vgeo = driver_config.grid.vgeo
-    M = vgeo[:,Grids._M,:]
+    M = vgeo[:, Grids._M, :]
     # Unpack prognostic vars
     ρ₀ = Q.ρ
     ρe₀ = Q.ρe
     # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M) 
+    Σρ₀ = sum(ρ₀ .* M)
     Σρe₀ = sum(ρe₀ .* M)
     cb_check_cons =
         GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
             Q = solver_config.Q
-            δρ =(sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-            δρe =(sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
+            δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
+            δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
             @show (abs(δρ))
             @show (abs(δρe))
-            @test (abs(δρ)  <= 0.0001)
+            @test (abs(δρ) <= 0.0001)
             @test (abs(δρe) <= 0.0025)
             nothing
         end
