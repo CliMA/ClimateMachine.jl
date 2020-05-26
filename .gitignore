@@ -17,6 +17,8 @@ docs/src/generated/
 !docs/src/assets/*.svg
 
 # Deps
+docs/**/Manifest.toml
+env/**/Manifest.toml
 src/**/Manifest.toml
 
 # Data

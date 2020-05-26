@@ -1,4 +1,19 @@
-Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
+rm(joinpath(@__DIR__, "Manifest.toml"), force = true)       # Remove local Manifest.toml
+# rm(joinpath(@__DIR__, "..", "Manifest.toml"), force = true) # Remove local Manifest.toml
+
+# Avoiding having to add deps to docs/ environment:
+env_viz = joinpath(@__DIR__, "..", "env", "viz")
+env_doc = @__DIR__
+
+using Pkg
+push!(LOAD_PATH, env_viz); Pkg.activate(env_viz); Pkg.instantiate(; verbose=true)
+push!(LOAD_PATH, env_doc); Pkg.activate(env_doc); Pkg.instantiate(; verbose=true)
+
+cd(joinpath(@__DIR__, "..")) do
+    Pkg.develop(PackageSpec(path="."))
+    Pkg.activate(pwd())
+    Pkg.instantiate(; verbose=true)
+end
 
 using ClimateMachine, Documenter, Literate
 
@@ -37,8 +52,6 @@ format = Documenter.HTML(
     prettyurls = get(ENV, "CI", "") == "true",
     mathengine = mathengine,
     collapselevel = 1,
-    # prettyurls = !("local" in ARGS),
-    # canonical = "https://CliMA.github.io/ClimateMachine.jl/stable/",
 )
 
 makedocs(
@@ -48,7 +61,6 @@ makedocs(
     linkcheck = true,
     format = format,
     checkdocs = :exports,
-    # checkdocs = :all,
     clean = true,
     modules = [ClimateMachine],
     pages = pages,
