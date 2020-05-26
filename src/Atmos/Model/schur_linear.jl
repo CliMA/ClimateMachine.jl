@@ -1,4 +1,4 @@
-import CLIMA.DGmethods: SchurComplement,
+import ...DGmethods: SchurComplement,
                         schur_vars_state_auxiliary,
                         schur_vars_gradient_auxiliary,
                         schur_init_aux!,
