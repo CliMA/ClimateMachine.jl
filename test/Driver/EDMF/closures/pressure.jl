@@ -1,3 +1,5 @@
+#### Pressure model kernels
+
 function perturbation_pressure(
     ss::SingleStack{FT, N},
     m::PerturbationPressureModel,
@@ -6,9 +8,9 @@ function perturbation_pressure(
     aux::Vars,
     t::Real,
     direction,
-    i::N # YAIR CHECK THIS LINE 
+    i::N # YAIR CHECK THIS LINE
 ) where {FT, N}
-    
+
     # Alias convention:
     gm = state
     en = state

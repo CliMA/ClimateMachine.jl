@@ -1,3 +1,5 @@
+#### Turbulence model kernels
+
 function compute_buoyancy_gradients(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
@@ -10,16 +12,16 @@ function compute_buoyancy_gradients(
     δ::FT,
     εt::FT,
 ) where {FT, N}
-    # think how to call subdomain statistics here to get cloudy and dry values of T if you nee them 
+    # think how to call subdomain statistics here to get cloudy and dry values of T if you nee them
     # buoyancy gradients via chain-role
     ∂b∂ρ = - g/gm.ρ
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
     ∂ρ∂e_int_dry    = - R_d*gm_a.p_0/(R_m*T*T)/((1-en_q_tot)*cv_d+q_vap *cv_v)
     #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
     ∂ρ∂e_int_cloudy = - (R_d*gm_a.p_0/(R_m*T*T)/((1-en_q_tot)*cv_d+q_vap *cv_v+q_liq*cv_l+ q_ice*cv_i)
-                       + gm_a.p_0/(R_m*R_m*T)*ϵ_v*R_d/(cv_v*(T-T0)+e_int_i0) )  
+                       + gm_a.p_0/(R_m*R_m*T)*ϵ_v*R_d/(cv_v*(T-T0)+e_int_i0) )
     #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
-    
+
     ∂ρ∂e_int = (en_a.cld_frac * ∂ρ∂e_int_cloudy + (1-en_a.cld_frac) * ∂ρ∂e_int_dry)
     ∂ρ∂q_tot = R_d*gm_a.p_0/(R_m*R_m*T)
     # apply chain role

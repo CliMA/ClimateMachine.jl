@@ -1,3 +1,4 @@
+#### Surface model kernels
 
 function compute_ustar(
     ss::SingleStack{FT, N},
@@ -11,7 +12,7 @@ function compute_ustar(
     δ::FT,
     εt::FT,
     ) where {FT, N}
-    
+
 return ustar
 end;
 
@@ -44,9 +45,9 @@ function compute_inversion_height(
   en_s = source
   up_s = source.edmf.updraft
   en_d = state.edmf.environment.diffusive
-  
-  # k_1 = first_interior(grid, Zmin()) - how to compute the height of the first grid point 
-  windspeed = compute_windspeed(q, k_1, gm, 0.0)^2
+
+  # k_1 = first_interior(grid, Zmin()) - how to compute the height of the first grid point
+  windspeed = compute_windspeed(q, k_1, gm, FT(0.0))^2
   _grav::FT = grav(param_set)
 
   # test if we need to look at the free convective limit
