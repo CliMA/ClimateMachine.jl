@@ -212,7 +212,7 @@ end
     schur_state_auxiliary,
     vgeo,
     D,
-    direction,
+    direction::Union{EveryDirection, HorizontalDirection},
     ::Val{dim},
     ::Val{polyorder},
 ) where {dim, polyorder}
@@ -272,6 +272,64 @@ end
         state_gradient_y += ξ3x2 * Gξ3
         state_gradient_z += ξ3x3 * Gξ3
       end
+
+      schur_state_gradient[ijk, 1, e] = state_gradient_x
+      schur_state_gradient[ijk, 2, e] = state_gradient_y
+      schur_state_gradient[ijk, 3, e] = state_gradient_z
+    end
+end
+
+@kernel function schur_volume_gradients!(
+    schur_complement::SchurComplement,
+    balance_law::BalanceLaw,
+    schur_state_gradient,
+    schur_state,
+    schur_state_auxiliary,
+    vgeo,
+    D,
+    ::VerticalDirection,
+    ::Val{dim},
+    ::Val{polyorder},
+) where {dim, polyorder}
+    @uniform begin
+        N = polyorder
+        FT = eltype(schur_state_auxiliary)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+    end
+    
+    s_D = @localmem FT (Nq, Nq)
+    shared_state = @localmem FT (Nq, Nq, Nqk)
+    
+    e = @index(Group, Linear)
+    ijk = @index(Local, Linear)
+    i, j, k = @index(Local, NTuple)
+
+    @inbounds @views begin
+      s_D[i, j] = D[i, j]
+
+      shared_state[i, j, k] = schur_state[ijk, 1, e]
+      @synchronize
+
+      if dim == 2
+          ζx1, ζx2, ζx3 =
+              vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
+      else
+          ζx1, ζx2, ζx3 =
+              vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
+      end
+
+      Gζ = zero(FT)
+      @unroll for n in 1:Nq
+          if dim == 2
+              Gζ += s_D[j, n] * shared_state[i, n, k]
+          else
+              Gζ += s_D[k, n] * shared_state[i, j, n]
+          end
+      end
+      state_gradient_x = ζx1 * Gζ
+      state_gradient_y = ζx2 * Gζ
+      state_gradient_z = ζx3 * Gζ
 
       schur_state_gradient[ijk, 1, e] = state_gradient_x
       schur_state_gradient[ijk, 2, e] = state_gradient_y
@@ -381,7 +439,7 @@ end
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    direction,
+    direction::Union{EveryDirection, HorizontalDirection},
     schur_lhs,
     schur_state,
     schur_state_auxiliary,
@@ -512,6 +570,134 @@ end
 
             # ξ3-grid lines
             if dim == 3 && direction isa EveryDirection
+                local_schur_lhs[1] -=
+                    MI * s_D[n, k] * shared_flux[3, i, j, n]
+            end
+        end
+        
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+        schur_lhs[ijk, 1, e] = local_schur_lhs[1]
+    end
+end
+
+@kernel function schur_volume_lhs!(
+    schur_complement::SchurComplement,
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    ::VerticalDirection,
+    schur_lhs,
+    schur_state,
+    schur_state_auxiliary,
+    schur_state_gradient,
+    vgeo,
+    D,
+    α
+) where {dim, polyorder}
+    @uniform begin
+        N = polyorder
+        FT = eltype(schur_state)
+        
+        schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
+        schur_num_state_gradient = schur_number_state_gradient(schur_complement, FT)
+
+        Nq = N + 1
+
+        Nqk = dim == 2 ? 1 : Nq
+
+        local_source = MArray{Tuple{1,}, FT}(undef)
+        local_schur_state =
+            MArray{Tuple{1,}, FT}(undef)
+        local_schur_state_gradient =
+            MArray{Tuple{schur_num_state_gradient}, FT}(undef)
+        local_schur_state_auxiliary = MArray{Tuple{schur_num_state_auxiliary}, FT}(undef)
+        local_flux = MArray{Tuple{3, 1}, FT}(undef)
+    end
+
+    shared_flux = @localmem FT (3, Nq, Nq, Nqk)
+    s_D = @localmem FT (Nq, Nq)
+    
+    local_schur_lhs = @private FT (1,)
+
+    e = @index(Group, Linear)
+    ijk = @index(Local, Linear)
+    i, j, k = @index(Local, NTuple)
+
+    @inbounds begin
+        s_D[i, j] = D[i, j]
+
+        M = vgeo[ijk, _M, e]
+        if dim == 2
+            ζx1 = vgeo[ijk, _ξ2x1, e]
+            ζx2 = vgeo[ijk, _ξ2x2, e]
+            ζx3 = vgeo[ijk, _ξ2x3, e]
+        else
+            ζx1 = vgeo[ijk, _ξ3x1, e]
+            ζx2 = vgeo[ijk, _ξ3x2, e]
+            ζx3 = vgeo[ijk, _ξ3x3, e]
+        end
+
+        local_schur_lhs[1] = zero(FT)
+        local_schur_state[1] = schur_state[ijk, 1, e]
+
+        @unroll for s in 1:schur_num_state_auxiliary
+            local_schur_state_auxiliary[s] = schur_state_auxiliary[ijk, s, e]
+        end
+
+        @unroll for s in 1:schur_num_state_gradient
+            local_schur_state_gradient[s] = schur_state_gradient[ijk, s, e]
+        end
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        schur_lhs_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{schur_vars_state(schur_complement, FT)}(local_flux),
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
+            α
+        )
+
+        shared_flux[1, i, j, k] = local_flux[1]
+        shared_flux[2, i, j, k] = local_flux[2]
+        shared_flux[3, i, j, k] = local_flux[3]
+
+        # Build "inside metrics" flux
+        F1, F2, F3 = shared_flux[1, i, j, k],
+                     shared_flux[2, i, j, k],
+                     shared_flux[3, i, j, k]
+
+        shared_flux[3, i, j, k] =
+                M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+
+        fill!(local_source, -zero(eltype(local_source)))
+        schur_lhs_nonconservative!(
+            schur_complement,
+            balance_law,
+            Vars{schur_vars_state(schur_complement, FT)}(local_source),
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(
+                local_schur_state_gradient,
+            ),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
+            α
+        )
+
+        local_schur_lhs[1] += local_source[1]
+        @synchronize
+
+        # Weak "inside metrics" derivative
+        MI = vgeo[ijk, _MI, e]
+        @unroll for n in 1:Nq
+            if dim == 2
+                local_schur_lhs[1] -=
+                    MI * s_D[n, j] * shared_flux[3, i, n, k]
+            else
                 local_schur_lhs[1] -=
                     MI * s_D[n, k] * shared_flux[3, i, j, n]
             end
@@ -687,7 +873,7 @@ end
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    direction,
+    direction::Union{EveryDirection, HorizontalDirection},
     schur_rhs,
     state_conservative,
     schur_state_auxiliary,
@@ -810,6 +996,125 @@ end
 
             # ξ3-grid lines
             if dim == 3 && direction isa EveryDirection
+                local_schur_rhs[1] -=
+                    MI * s_D[n, k] * shared_flux[3, i, j, n]
+            end
+        end
+        
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+        schur_rhs[ijk, 1, e] = local_schur_rhs[1]
+    end
+end
+
+@kernel function schur_volume_rhs!(
+    schur_complement::SchurComplement,
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    ::VerticalDirection,
+    schur_rhs,
+    state_conservative,
+    schur_state_auxiliary,
+    vgeo,
+    D,
+    α
+) where {dim, polyorder}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state_conservative)
+        
+        num_state_conservative = number_state_conservative(balance_law, FT)
+        schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
+
+        Nq = N + 1
+
+        Nqk = dim == 2 ? 1 : Nq
+
+        local_source = MArray{Tuple{1,}, FT}(undef)
+        local_state_conservative =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_schur_state_auxiliary = MArray{Tuple{schur_num_state_auxiliary}, FT}(undef)
+        local_flux = MArray{Tuple{3, 1}, FT}(undef)
+    end
+
+    shared_flux = @localmem FT (3, Nq, Nq, Nqk)
+    s_D = @localmem FT (Nq, Nq)
+    
+    local_schur_rhs = @private FT (1,)
+
+    e = @index(Group, Linear)
+    ijk = @index(Local, Linear)
+    i, j, k = @index(Local, NTuple)
+
+    @inbounds begin
+        s_D[i, j] = D[i, j]
+
+        M = vgeo[ijk, _M, e]
+        if dim == 2
+            ζx1 = vgeo[ijk, _ξ2x1, e]
+            ζx2 = vgeo[ijk, _ξ2x2, e]
+            ζx3 = vgeo[ijk, _ξ2x3, e]
+        else
+            ζx1 = vgeo[ijk, _ξ3x1, e]
+            ζx2 = vgeo[ijk, _ξ3x2, e]
+            ζx3 = vgeo[ijk, _ξ3x3, e]
+        end
+
+        local_schur_rhs[1] = zero(FT)
+        
+        @unroll for s in 1:num_state_conservative
+          local_state_conservative[s] = state_conservative[ijk, s, e]
+        end
+
+        @unroll for s in 1:schur_num_state_auxiliary
+            local_schur_state_auxiliary[s] = schur_state_auxiliary[ijk, s, e]
+        end
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        schur_rhs_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{schur_vars_state(schur_complement, FT)}(local_flux),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
+            α
+        )
+
+        shared_flux[1, i, j, k] = local_flux[1]
+        shared_flux[2, i, j, k] = local_flux[2]
+        shared_flux[3, i, j, k] = local_flux[3]
+
+        # Build "inside metrics" flux
+        F1, F2, F3 = shared_flux[1, i, j, k],
+                     shared_flux[2, i, j, k],
+                     shared_flux[3, i, j, k]
+
+        shared_flux[3, i, j, k] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+
+        fill!(local_source, -zero(eltype(local_source)))
+        schur_rhs_nonconservative!(
+            schur_complement,
+            balance_law,
+            Vars{schur_vars_state(schur_complement, FT)}(local_source),
+            Vars{vars_state_conservative(balance_law, FT)}(
+                local_state_conservative,
+            ),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
+            α,
+        )
+
+        local_schur_rhs[1] += local_source[1]
+        @synchronize
+
+        # Weak "inside metrics" derivative
+        MI = vgeo[ijk, _MI, e]
+        @unroll for n in 1:Nq
+            if dim == 2
+                local_schur_rhs[1] -=
+                    MI * s_D[n, j] * shared_flux[3, i, n, k]
+            else
                 local_schur_rhs[1] -=
                     MI * s_D[n, k] * shared_flux[3, i, j, n]
             end
@@ -970,7 +1275,7 @@ end
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    direction,
+    direction::Union{EveryDirection, HorizontalDirection},
     state_lhs,
     state_rhs,
     schur_state,
@@ -1114,6 +1419,150 @@ end
 
               # ξ3-grid lines
               if dim == 3 && direction isa EveryDirection
+                  local_state_lhs[s] -=
+                      MI * s_D[n, k] * shared_flux[3, i, j, n, s]
+              end
+          end
+        end
+        
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+        @unroll for s in 1:num_state_conservative
+          state_lhs[ijk, s, e] = local_state_lhs[s]
+        end
+    end
+end
+
+@kernel function schur_volume_update!(
+    schur_complement::SchurComplement,
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    ::VerticalDirection,
+    state_lhs,
+    state_rhs,
+    schur_state,
+    schur_state_gradient,
+    schur_state_auxiliary,
+    vgeo,
+    D,
+    α
+) where {dim, polyorder}
+    @uniform begin
+        N = polyorder
+        FT = eltype(schur_state)
+        
+        num_state_conservative = number_state_conservative(balance_law, FT)
+        schur_num_state_gradient = schur_number_state_gradient(schur_complement, FT)
+        schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
+
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+
+        local_source =
+            MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_schur_state = MArray{Tuple{1,}, FT}(undef)
+        local_schur_state_gradient = MArray{Tuple{schur_num_state_gradient}, FT}(undef)
+        local_schur_state_auxiliary = MArray{Tuple{schur_num_state_auxiliary}, FT}(undef)
+        local_state_rhs = MArray{Tuple{num_state_conservative}, FT}(undef)
+        local_flux = MArray{Tuple{3, num_state_conservative}, FT}(undef)
+    end
+
+    shared_flux = @localmem FT (3, Nq, Nq, Nqk, num_state_conservative)
+    s_D = @localmem FT (Nq, Nq)
+    
+    local_state_lhs = @private FT (num_state_conservative,)
+
+    e = @index(Group, Linear)
+    ijk = @index(Local, Linear)
+    i, j, k = @index(Local, NTuple)
+
+    @inbounds begin
+        s_D[i, j] = D[i, j]
+
+        M = vgeo[ijk, _M, e]
+        if dim == 2
+            ζx1 = vgeo[ijk, _ξ2x1, e]
+            ζx2 = vgeo[ijk, _ξ2x2, e]
+            ζx3 = vgeo[ijk, _ξ2x3, e]
+        else
+            ζx1 = vgeo[ijk, _ξ3x1, e]
+            ζx2 = vgeo[ijk, _ξ3x2, e]
+            ζx3 = vgeo[ijk, _ξ3x3, e]
+        end
+        
+        @unroll for s in 1:num_state_conservative
+          local_state_lhs[s] = zero(FT)
+        end
+
+        local_schur_state[1] = schur_state[ijk, 1, e]
+
+        @unroll for s in 1:schur_num_state_gradient
+            local_schur_state_gradient[s] = schur_state_gradient[ijk, s, e]
+        end
+
+        @unroll for s in 1:schur_num_state_auxiliary
+            local_schur_state_auxiliary[s] = schur_state_auxiliary[ijk, s, e]
+        end
+        
+        @unroll for s in 1:num_state_conservative
+          local_state_rhs[s] = state_rhs[ijk, s, e]
+        end
+
+        fill!(local_flux, -zero(eltype(local_flux)))
+        schur_update_conservative!(
+            schur_complement,
+            balance_law,
+            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            Vars{schur_vars_state(schur_complement, FT)}(local_schur_state),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
+            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
+            α
+        )
+
+        @unroll for s in 1:num_state_conservative
+          shared_flux[1, i, j, k, s] = local_flux[1, s]
+          shared_flux[2, i, j, k, s] = local_flux[2, s]
+          shared_flux[3, i, j, k, s] = local_flux[3, s]
+        end
+
+        # Build "inside metrics" flux
+        @unroll for s in 1:num_state_conservative
+          F1, F2, F3 = shared_flux[1, i, j, k, s],
+                       shared_flux[2, i, j, k, s],
+                       shared_flux[3, i, j, k, s]
+
+          shared_flux[3, i, j, k, s] = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+        end
+
+        fill!(local_source, -zero(eltype(local_source)))
+        schur_update_nonconservative!(
+            schur_complement,
+            balance_law,
+            Vars{vars_state_conservative(balance_law, FT)}(local_source),
+            Vars{schur_vars_state(schur_complement, FT)}(
+                local_schur_state,
+            ),
+            Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
+            Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
+            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
+            α
+        )
+
+        @unroll for s in 1:num_state_conservative
+          local_state_lhs[s] += local_source[s]
+        end
+        @synchronize
+
+        # Weak "inside metrics" derivative
+        MI = vgeo[ijk, _MI, e]
+        @unroll for s in 1:num_state_conservative
+          @unroll for n in 1:Nq
+              # ξ2-grid lines
+              if dim == 2
+                  local_state_lhs[s] -=
+                      MI * s_D[n, j] * shared_flux[3, i, n, k, s]
+              else
                   local_state_lhs[s] -=
                       MI * s_D[n, k] * shared_flux[3, i, j, n, s]
               end
