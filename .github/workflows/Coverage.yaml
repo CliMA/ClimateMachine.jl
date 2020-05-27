@@ -8,12 +8,11 @@ on:
 
 jobs:
   coverage:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-16.04
     strategy:
       matrix:
         julia-version: ['1.3']
-        os: [ubuntu-latest]
-        project: ['CLIMA']
+        project: ['ClimateMachine.jl']
 
     steps:
     - uses: actions/checkout@v1.0.0
@@ -21,26 +20,24 @@ jobs:
       uses: julia-actions/setup-julia@v1
       with:
         version: ${{ matrix.julia-version }}
+
     - name: Install deps
       run: |
         set -o xtrace
         sudo apt-get update
         sudo apt-get install mpich libmpich-dev
+
     - name: Test with coverage
       env:
         JULIA_PROJECT: "@."
       run: |
-        julia --project=@. -e 'using Pkg;
-                               Pkg.instantiate()'
-        julia --project=@. -e 'using Pkg;
-                               cd(Pkg.dir("CLIMA"));
-                               Pkg.test(coverage=true)'
-    - name: Generate coverage
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+        julia --project=@. -e 'using Pkg; Pkg.test(coverage=true)'
+
+    - name: Generate coverage file
       env:
         JULIA_PROJECT: "@."
-      run: julia --project=@. -e 'using Pkg;
-                                  cd(Pkg.dir("CLIMA"));
-                                  Pkg.add("Coverage");
+      run: julia --project=@. -e 'using Pkg; Pkg.add("Coverage");
                                   using Coverage;
                                   LCOV.writefile("coverage-lcov.info", Codecov.process_folder())'
       if: success()

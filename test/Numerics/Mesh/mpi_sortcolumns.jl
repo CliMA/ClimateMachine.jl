@@ -1,3 +1,4 @@
+using Random
 using Test
 using MPI
 using ClimateMachine.Mesh.BrickMesh
@@ -7,6 +8,7 @@ function main()
     comm = MPI.COMM_WORLD
     rank = MPI.Comm_rank(comm)
 
+    Random.seed!(1234)
     d = 4
     A = rand(1:10, d, 3rank)
     B = BrickMesh.parallelsortcolumns(comm, A, rev = true)

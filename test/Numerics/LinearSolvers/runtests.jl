@@ -1,14 +1,12 @@
 using Test, MPI
-include(joinpath("..","..","testhelpers.jl"))
+include(joinpath("..", "..", "testhelpers.jl"))
 
 include("iterativesolvers.jl")
 
 @testset "Linear Solvers Poisson" begin
-    tests = [
-        (1, "columnwiselu.jl"),
-        (1, "poisson.jl"),
-        (1, "bandedsystem.jl"),
-        (1, "cg.jl"),
-    ]
-    runmpi(tests, @__FILE__)
+    runmpi(joinpath(@__DIR__, "columnwiselu.jl"))
+    runmpi(joinpath(@__DIR__, "poisson.jl"))
+    runmpi(joinpath(@__DIR__, "bandedsystem.jl"))
+    runmpi(joinpath(@__DIR__, "cg.jl"))
+    runmpi(joinpath(@__DIR__, "bgmres.jl"))
 end

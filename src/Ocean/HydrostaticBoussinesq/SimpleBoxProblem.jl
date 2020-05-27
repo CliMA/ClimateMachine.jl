@@ -48,7 +48,7 @@ function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
     FT = eltype(A)
     @inbounds A.y = geom.coord[2]
 
-    # not sure if this is needed but getting weird intialization stuff
+    # needed for proper CFL condition calculation
     A.w = 0
     A.pkin = 0
     A.wz0 = 0
@@ -123,7 +123,7 @@ jet stream like windstress
 - `y`: y-coordinate in the box
 """
 @inline kinematic_stress(p::HomogeneousBox, y, ρ) =
-    -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
+    (p.τₒ / ρ) * cos(y * π / p.Lʸ)
 
 ##########################
 # Homogenous wind stress #
@@ -199,7 +199,7 @@ jet stream like windstress
 - `p`: problem object to dispatch on and get additional parameters
 - `y`: y-coordinate in the box
 """
-@inline kinematic_stress(p::OceanGyre, y, ρ) = -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
+@inline kinematic_stress(p::OceanGyre, y, ρ) = (p.τₒ / ρ) * cos(y * π / p.Lʸ)
 
 """
     temperature_flux(::OceanGyre)
@@ -213,5 +213,5 @@ cool-warm north-south linear temperature gradient
 """
 @inline function temperature_flux(p::OceanGyre, y, θ)
     θʳ = p.θᴱ * (1 - y / p.Lʸ)
-    return p.λʳ * (θʳ - θ)
+    return p.λʳ * (θ - θʳ)
 end

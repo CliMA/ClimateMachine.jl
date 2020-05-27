@@ -21,7 +21,7 @@ using ClimateMachine,
     ClimateMachine.LinearSolvers, ClimateMachine.ConjugateGradientSolver
 using LinearAlgebra, Random
 
-# Next we define a 3x3 symmetric positive definite linear system. (In the CliMa code a symmetric positive definite system could arise from treating diffusion implicitly.)
+# Next we define a 3x3 symmetric positive definite linear system. (In the ClimateMachine code a symmetric positive definite system could arise from treating diffusion implicitly.)
 A = [
     2.0 -1.0 0.0
     -1.0 2.0 -1.0
@@ -114,8 +114,8 @@ iters
 
 
 # ## More Complex Example
-# Here we show how to construct a column-wise iterative solver similar to what is is in the CliMa code. The following is not for the faint of heart.
-# We must first define a linear operator that acts like on in CliMa
+# Here we show how to construct a column-wise iterative solver similar to what is is in the ClimateMachine code. The following is not for the faint of heart.
+# We must first define a linear operator that acts like one in the ClimateMachine
 function closure_linear_operator!(A, tup)
     function linear_operator!(y, x)
         alias_x = reshape(x, tup)

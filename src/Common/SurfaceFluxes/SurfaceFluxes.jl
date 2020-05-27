@@ -34,7 +34,6 @@
 """
 module SurfaceFluxes
 
-using RootSolvers
 using ..MoistThermodynamics
 using DocStringExtensions
 using NLsolve
@@ -42,6 +41,7 @@ using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet: molmass_ratio, grav
 using CLIMAParameters.SubgridScale: von_karman_const
 
+const APS = AbstractParameterSet
 abstract type SurfaceFluxesModel end
 
 struct Momentum end
@@ -100,7 +100,7 @@ If `pottemp_flux` is not given, then it is computed by iteration
 of equations 3, 17, and 18 in Nishizawa2018.
 """
 function surface_conditions(
-    param_set::AbstractParameterSet,
+    param_set::APS,
     x_initial::Vector{FT},
     x_ave::Vector{FT},
     x_s::Vector{FT},
@@ -186,7 +186,7 @@ end
 
 
 function compute_physical_scale(
-    param_set::AbstractParameterSet,
+    param_set::APS,
     x,
     u,
     Δz,
@@ -265,7 +265,7 @@ end
 
 Monin-Obukhov length. Eq. 3
 """
-function monin_obukhov_len(param_set::AbstractParameterSet, u, θ_bar, flux)
+function monin_obukhov_len(param_set::APS, u, θ_bar, flux)
     FT = typeof(u)
     _grav::FT = grav(param_set)
     _von_karman_const::FT = von_karman_const(param_set)

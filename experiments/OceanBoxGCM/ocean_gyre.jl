@@ -53,7 +53,6 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
     H = 1000   # m
     dimensions = (Lˣ, Lʸ, H)
 
-    outpdir = "output"
     timestart = FT(0)    # s
     timeout = FT(0.25 * 86400) # s
     timeend = FT(86400) # s
@@ -86,7 +85,6 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
         modeldata = modeldata,
     )
 
-    mkpath(outpdir)
     ClimateMachine.Settings.vtk = "never"
     # vtk_interval = ceil(Int64, timeout / solver_config.dt)
     # ClimateMachine.Settings.vtk = "$(vtk_interval)steps"

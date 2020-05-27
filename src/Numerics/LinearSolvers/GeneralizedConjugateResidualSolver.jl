@@ -12,8 +12,9 @@ using StaticArrays
 using KernelAbstractions
 
 """
-# Conjugate Residual
     GeneralizedConjugateResidual(K, Q; rtol, atol)
+
+# Conjugate Residual
 
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `K` is the number of steps after which the algorithm
@@ -21,11 +22,11 @@ is restarted (if it has not converged), `Q` is a reference state used only
 to allocate the solver internal state, and `tolerance` specifies the convergence
 criterion based on the relative residual norm. The amount of memory
 required by the solver state is roughly `(2K + 2) * size(Q)`.
-This object is intended to be passed to the [`linearsolve!`](@ref) command.
+This object is intended to be passed to the [`linearsolve!`](@ref LinearSolvers.linearsolve!) command.
 
 This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983).
 
-### References
+## References
 
     @article{eisenstat1983variational,
       title={Variational iterative methods for nonsymmetric systems of linear equations},

@@ -11,6 +11,7 @@ include(joinpath("InputOutput", "Writers", "Writers.jl"))
 include(joinpath("Common", "ConfigTypes", "ConfigTypes.jl"))
 include(joinpath("Utilities", "VariableTemplates", "VariableTemplates.jl"))
 include(joinpath("Common", "MoistThermodynamics", "MoistThermodynamics.jl"))
+include(joinpath("Atmos", "TemperatureProfiles", "TemperatureProfiles.jl"))
 include(joinpath(
     "Atmos",
     "Parameterizations",
@@ -22,6 +23,7 @@ include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGmethods", "Courant.jl"))
 include(joinpath("Numerics", "DGmethods", "DGmethods.jl"))
+include(joinpath("Utilities", "SingleStackUtils", "SingleStackUtils.jl"))
 include(joinpath("Ocean", "ShallowWater", "ShallowWaterModel.jl"))
 include(joinpath(
     "Ocean",
@@ -41,6 +43,11 @@ include(joinpath(
 ))
 include(joinpath("Numerics", "LinearSolvers", "ColumnwiseLUSolver.jl"))
 include(joinpath("Numerics", "LinearSolvers", "ConjugateGradientSolver.jl"))
+include(joinpath(
+    "Numerics",
+    "LinearSolvers",
+    "BatchedGeneralizedMinimalResidualSolver.jl",
+))
 include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
 include(joinpath("Numerics", "ODESolvers", "GenericCallbacks.jl"))
 include(joinpath("Atmos", "Model", "AtmosModel.jl"))

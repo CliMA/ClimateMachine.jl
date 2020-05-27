@@ -1,9 +1,11 @@
 # # Dry atmosphere GCM with Held-Suarez forcing
 #
-# The Held-Suarez setup (Held and Suarez, 1994) is a textbook example for a simplified atmospheric global circulation model configuration
-# which has been used as a benchmark experiment for development of the dynamical cores (i.e., GCMs without continents,
-# moisture or parametrization schemes of the physics) for atmospheric models.
-# It is forced by a thermal relaxation to a reference state and damped by linear (Rayleigh) friction. This example demonstrates how
+# The Held-Suarez setup (Held and Suarez, 1994) is a textbook example for a
+# simplified atmospheric global circulation model configuration which has been
+# used as a benchmark experiment for development of the dynamical cores (i.e.,
+# GCMs without continents, moisture or parametrization schemes of the physics)
+# for atmospheric models.  It is forced by a thermal relaxation to a reference
+# state and damped by linear (Rayleigh) friction. This example demonstrates how
 #
 #   * to set up a ClimateMachine-Atmos GCM configuration;
 #   * to select and save GCM diagnostics output.
@@ -22,11 +24,12 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.MoistThermodynamics
 using ClimateMachine.VariableTemplates
 
-# [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are needed to have access to Earth's physical parameters
-#
+# [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
+# needed to have access to Earth's physical parameters.
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
 
@@ -35,11 +38,10 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 nothing # hide
 
-# Construct the Held-Suarez forcing function
-# We can view this as part the right-hand-side of our governing equations. It
-# forces the total energy field in a way that the resulting steady-state velocity
-# and temperature fields of the simluation resemble those of an idealized dry
-# planet.
+# Construct the Held-Suarez forcing function. We can view this as part the
+# right-hand-side of our governing equations. It forces the total energy field
+# in a way that the resulting steady-state velocity and temperature fields of
+# the simulation resemble those of an idealized dry planet.
 function held_suarez_forcing!(
     balance_law,
     source,
@@ -87,8 +89,9 @@ function held_suarez_forcing!(
     φ = latitude(balance_law.orientation, aux)
     p = air_pressure(balance_law.param_set, T, ρ)
 
-    ##TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
-    #for topography, but leave unchanged for calculations of σ involved in T_equil
+    ##TODO: replace _p0 with dynamic surface pressure in Δσ calculations to
+    #account for topography, but leave unchanged for calculations of σ involved
+    #in T_equil
     _p0 = 1.01325e5
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
@@ -107,10 +110,10 @@ end
 nothing # hide
 
 # ## Set initial condition
-# When using ClimateMachine, we need to define a function that sets the intial state of our
-# model run. In our case, we use the reference state of the simulation (defined
-# below) and add a little bit of noise. Note that the initial states includes a
-# zero initial velocity field. 
+# When using ClimateMachine, we need to define a function that sets the initial
+# state of our model run. In our case, we use the reference state of the
+# simulation (defined below) and add a little bit of noise. Note that the
+# initial states includes a zero initial velocity field.
 function init_heldsuarez!(balance_law, state, aux, coordinates, time)
     FT = eltype(state)
 
@@ -125,43 +128,41 @@ end
 nothing # hide
 
 # ## Initialize ClimateMachine
-# Before we do anything further, we need to initialize ClimateMachine. Among other things,
-# this will initialize the MPI for us.
+# Before we do anything further, we need to initialize ClimateMachine. Among
+# other things, this will initialize the MPI us.
 ClimateMachine.init()
 nothing # hide
 
 # ## Setting the floating-type precision
-# ClimateMachine allows us to run a model with different floating-type precisions, with
-# lower precision we get our results faster, and with higher precision, we may get
-# more accurate results, depending on the questions we are after.
+# ClimateMachine allows us to run a model with different floating-type
+# precisions, with lower precision we get our results faster, and with higher
+# precision, we may get more accurate results, depending on the questions we
+# are after.
 FT = Float32
 nothing # hide
 
 # ## Setup model configuration
-# Now that we have definied our forcing and initialization functions, and have
-# initialized ClimateMachine, we can set up the model. 
-# 
+# Now that we have defined our forcing and initialization functions, and have
+# initialized ClimateMachine, we can set up the model.
+#
 # ## Set up a reference state
-# We start by setting up a
-# reference state. This is simply a vector field that we subtract from the
-# solutions to the governing equations to both improve numerical stability of the
-# implicit time stepper and enable faster model spin-up. The reference state
-# assumes hydrostatic balance and ideal gas law, with a pressure $p_r(z)$ and 
-# density $\rho_r(z)$ that only depend on altitude $z$ and are in hydrostatic balance
-# with each other. 
+# We start by setting up a reference state. This is simply a vector field that
+# we subtract from the solutions to the governing equations to both improve
+# numerical stability of the implicit time stepper and enable faster model
+# spin-up. The reference state assumes hydrostatic balance and ideal gas law,
+# with a pressure $p_r(z)$ and density $\rho_r(z)$ that only depend on altitude
+# $z$ and are in hydrostatic balance with each other.
+#
 # In this example, the reference temperature field smoothly transitions from a
-# linearly decaying profile near the surface to a constant temperature profile at the top
-# of the domain.
-T_surface = FT(290) ## surface temperature (K)
-ΔT = FT(60)  ## temperature drop between surface and top of atmosphere (K)
-H_t = FT(8e3) ## height scale over which temperature drops (m)
-temp_profile_ref = DecayingTemperatureProfile(T_surface, ΔT, H_t)
-ref_state = HydrostaticState(temp_profile_ref, FT(0))
+# linearly decaying profile near the surface to a constant temperature profile
+# at the top of the domain.
+temp_profile_ref = DecayingTemperatureProfile{FT}(param_set)
+ref_state = HydrostaticState(temp_profile_ref)
 nothing # hide
 
 # ## Set up a Rayleigh sponge layer
-# To avoid wave reflection at the top of the domain, the model
-# applies a sponge layer that linearly damps the momentum equations.
+# To avoid wave reflection at the top of the domain, the model applies a sponge
+# layer that linearly damps the momentum equations.
 domain_height = FT(30e3)               ## height of the computational domain (m)
 z_sponge = FT(12e3)                    ## height at which sponge begins (m)
 α_relax = FT(1 / 60 / 15)              ## sponge relaxation rate (1/s)
@@ -172,8 +173,8 @@ nothing # hide
 
 # ## Set up turbulence models
 # In order to produce a stable simulation, we need to dissipate energy and
-# enstrophy at the smallest scales of the developed flow field. To achieve this we
-# set up diffusive forcing functions.
+# enstrophy at the smallest scales of the developed flow field. To achieve this
+# we set up diffusive forcing functions.
 c_smag = FT(0.21)   ## Smagorinsky constant
 τ_hyper = FT(4 * 3600) ## hyperdiffusion time scale
 turbulence_model = SmagorinskyLilly(c_smag)
@@ -181,8 +182,8 @@ hyperdiffusion_model = StandardHyperDiffusion(FT(4 * 3600))
 nothing # hide
 
 # ## Instantiate the model
-# The Held Suarez setup was designed to produce an equilibrated state
-# that is comparable to the zonal mean of the Earth’s atmosphere. 
+# The Held Suarez setup was designed to produce an equilibrated state that is
+# comparable to the zonal mean of the Earth’s atmosphere.
 model = AtmosModel{FT}(
     AtmosGCMConfigType,
     param_set;
@@ -196,9 +197,10 @@ model = AtmosModel{FT}(
 nothing # hide
 # This concludes the setup of the physical model!
 
-# ## Set up the driver 
+# ## Set up the driver
 # We just need to set up a few parameters that define the resolution of the
-# discontinuous Galerkin method and how long we want to run our model setup for.
+# discontinuous Galerkin method and for how long we want to run our model
+# setup.
 poly_order = 5                        ## discontinuous Galerkin polynomial order
 n_horz = 2                            ## horizontal element number
 n_vert = 2                            ## vertical element number
@@ -231,9 +233,9 @@ solver_config = ClimateMachine.SolverConfiguration(
 );
 
 # ## Set up spectral exponential filter
-# After every completed time step we apply a spectral filter to remove remaining
-# small-scale noise introduced by the numerical procedures. This assures that our
-# run remains stable.
+# After every completed time step we apply a spectral filter to remove
+# remaining small-scale noise introduced by the numerical procedures. This
+# assures that our run remains stable.
 filterorder = 10
 filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
 cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -249,8 +251,8 @@ end
 # ## Setup diagnostic output
 #
 # Choose frequency and resolution of output, and a diagnostics group (dgngrp)
-# which defines output variables. This needs to be defined
-# in [diagnostics](https://CliMA.github.io/ClimateMachine.jl/latest/generated/Diagnostics).
+# which defines output variables. This needs to be defined in
+# [diagnostics](https://CliMA.github.io/ClimateMachine.jl/latest/generated/Diagnostics).
 interval = "1000steps"
 _planet_radius = FT(planet_radius(param_set))
 info = driver_config.config_info
@@ -274,9 +276,9 @@ dgn_config = setup_dump_state_and_aux_diagnostics(
 nothing # hide
 
 # ## Run the model
-# Finally, we can run the model using the physical setup and solvers from above. We
-# use the spectral filter in our callbacks after every time step, and collect
-# the diagnostics output.
+# Finally, we can run the model using the physical setup and solvers from
+# above. We use the spectral filter in our callbacks after every time step, and
+# collect the diagnostics output.
 result = ClimateMachine.invoke!(
     solver_config;
     diagnostics_config = dgn_config,
