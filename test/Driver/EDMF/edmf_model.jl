@@ -20,14 +20,12 @@ Base.@kwdef struct EntrainmentDetrainment{FT}
 end
 
 Base.@kwdef struct SurfaceModel{FT}
-    "Surface specific humidity [kg/kg]"
-    P_surf::FT = 0.0016
     "Surface pressure [pasc]"
     P_surf::FT = 101300.0
     "Surface internal energy []"
     surface_e_int::FT = 300.0*1004.0
     "Surface total specific humidity [kg/kg]"
-    surface_q_tot::FT = 0.0
+    surface_q_tot::FT = 0.0016
     "Surface I-flux [m^3/s^3]"
     e_int_surface_flux::FT = 0.0
     "Surface q_tot-flux [m/s*kg/kg]"
