@@ -1,12 +1,18 @@
 #### Helper kernels
+# these functions should recive as inputs the state vector and provide as outputs  
+# the cloud fraction in the subdomain as well as the values of 
+# T, R_m, q_tot, q_vap ,q_liq, q_ice for the cloudy and dry parts of the subdomain. 
+# I have stored these values in two structures 'dry' and 'cloudy'. 
+# When using SubdomainMean the subdomain is either cloudy or dry and all values are the same 
+# while when using LognormalQuadrature the subdomain can be partially cloudy and partially dry and the cloudy and dry values differ 
 
 function compute_subdomain_statistics!(
   m::SingleStack{FT,N},
   state::Vars,
   aux::Vars,
   t::Real,
-  statistical_model::SubdomainMean,
-  ) where {FT,IT}
+  statistical_model::SubdomainMean, # this need to be a passed argument that determines the type of statistical model to be used
+  ) where {FT,IT} # need to call micophysics model as well to populate cloudy and dry 
 
   gm_a = aux
   en_a = aux.edmf.environment
@@ -15,31 +21,49 @@ function compute_subdomain_statistics!(
   en = state.edmf.environment
   up = state.edmf.updraft
 
-  t_cloudy, q_tot_cloudy, q_vap_cloudy = FT(0)
   ts = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
   T = air_temperature(ts)
   q_liq = PhasePartition(ts).liq
-  q_vap = PhasePartition(ts).vap
-  if q_liq > 0
+  q_ice = PhasePartition(ts).ice
+  
+  if q_liq+q_ice > 0
     en_a.cld_frac = 1
-    t_cloudy      = T
-    e_int_cloudy  = en.e_int
-    q_tot_cloudy  = q_tot
-    q_vap_cloudy  = q_vap
+    cloudy.q_tot = en.q_tot
+    cloudy.T     = air_temperature(ts)
+    cloudy.R_m   = gas_constant_air(ts) 
+    cloudy.q_vap = q_vap
+    cloudy.q_liq = q_liq
+    cloudy.q_ice = q_ice
+    dry.q_tot = en.q_tot
+    dry.T     = cloudy.T
+    dry.R_m   = cloudy.R_m
+    dry.q_vap = cloudy.q_vap
+    dry.q_liq = FT(0)
+    dry.q_ice = FT(0)
   else
     en_a.cld_frac = 0
-    t_dry         = T
+    dry.q_tot = en.q_tot
+    dry.T     = air_temperature(ts)
+    dry.R_m   = gas_constant_air(ts) 
+    dry.q_vap = PhasePartition(ts).vap
+    dry.q_liq = FT(0)
+    dry.q_ice = FT(0)
+    cloudy.q_tot = en.q_tot
+    cloudy.T     = dry.T
+    cloudy.R_m   = dry.R_m
+    cloudy.q_vap = q_vap
+    cloudy.q_liq = q_liq
+    cloudy.q_ice = q_ice
   end
+  return cloudy, dry
 end
-
-
 
 function compute_subdomain_statistics!(
   m::SingleStack{FT,N},
   state::Vars,
   aux::Vars,
   t::Real,
-  statistical_model::Lognormal,
+  statistical_model::LognormalQuadrature,
   ) where {FT, N}
 
   gm_a = aux
@@ -57,14 +81,14 @@ function compute_subdomain_statistics!(
   inner_src = zeros(src_len);
   outer_src = zeros(src_len);
   i_Sqt = collect(1:src_len);
-  i_SH = collect(1:src_len);
-  i_Sqt_H = collect(1:src_len);
+  i_SI = collect(1:src_len);
+  i_Sqt_I = collect(1:src_len);
   i_Sqt_qt = collect(1:src_len);
-  i_SH_H = collect(1:src_len);
-  i_SH_qt = collect(1:src_len);
+  i_SI_I = collect(1:src_len);
+  i_SI_qt = collect(1:src_len);
   i_ql = collect(1:env_len);
   i_T = collect(1:env_len);
-  i_eint = collect(1:env_len);
+  i_I = collect(1:env_len);
   i_ρ = collect(1:env_len);
   i_cf = collect(1:env_len);
   i_qt_cld = collect(1:env_len);
@@ -72,9 +96,6 @@ function compute_subdomain_statistics!(
   i_T_cld = collect(1:env_len);
   i_T_dry = collect(1:env_len);
   i_rf = collect(1:env_len);
-
-  e_int_cv
-
 
   if (en.q_tot_cv > eps(FT) && en.e_int_cv > eps(FT) && fabs(en.e_int_q_tot_cv) > eps(FT)
       && en.q_tot > eps(FT) && sqrt(en.q_tot_cv) < en.q_tot)
@@ -87,8 +108,8 @@ function compute_subdomain_statistics!(
     μ_q = log(en.q_tot*en.q_tot/sqrt(en.q_tot*en.q_tot + en.q_tot_cv))
     μ_θ = log(en.e_int*en.e_int/sqrt(en.e_int*en.e_int + en.e_int_cv, k, i]))
     # clean outer vectors
-    outer_src = 0.0*outer_src
-    outer_env = 0.0*outer_env
+    outer_src = FT(0)*outer_src
+    outer_env = FT(0)*outer_env
 
     for j_qt in 1:m.quadrature_order
       qt_hat = exp(μ_q + sqrt2 * σ_q * abscissas[j_q])
@@ -96,45 +117,45 @@ function compute_subdomain_statistics!(
       # clean innner vectors
       inner_src = 0.0*inner_src
       inner_env = 0.0*inner_env
-      for j_eint in 1:model.order
-        e_int_hat = exp(μ_eint_star + sqrt2 * σ_cond_θ_q * abscissas[j_eint])
-        ts = moist_thermo()??
+      for j_I in 1:model.quadrature_order
+        e_int_hat = exp(μ_eint_star + sqrt2 * σ_cond_θ_q * abscissas[j_I])
+        ts = PhaseEquil(param_set ,en.e_int, gm.ρ, en.q_tot)
         T = air_temperature(ts)
         q_liq = PhasePartition(ts).liq
-        q_vap = q_tot - q_liq
-        θ = dry_pottemp(ts)
+        q_vap = PhasePartition(ts).vap
+        q_ice = PhasePartition(ts).ice
 
         # microphysics rain should apply here to update qt, ql, thetal, T
         # now collect the inner values of
-        inner_env[i_ql]     += q_liq * weights[j_eint] * sqpi_inv
-        inner_env[i_T]      += T     * weights[j_eint] * sqpi_inv
-        inner_env[i_eint]   += e_int * weights[j_eint] * sqpi_inv
-        inner_env[i_ρ]      += ρ     * weights[j_eint] * sqpi_inv
+        inner_env[i_ql]     += q_liq * weights[j_I] * sqpi_inv
+        inner_env[i_T]      += T     * weights[j_I] * sqpi_inv
+        inner_env[i_I]      += e_int * weights[j_I] * sqpi_inv
+        inner_env[i_ρ]      += ρ     * weights[j_I] * sqpi_inv
         # rain area fraction
         if qr_src > 0
-            inner_env[i_rf]     += weights[j_eint] * sqpi_inv
+            inner_env[i_rf]     += weights[j_I] * sqpi_inv
         end
         # cloudy/dry categories for buoyancy in TKE
         if q_liq > 0.0
-            inner_env[i_cf]     +=          weights[j_eint] * sqpi_inv
-            inner_env[i_qt_cld] += qt_hat * weights[j_eint] * sqpi_inv
-            inner_env[i_T_cld]  += T      * weights[j_eint] * sqpi_inv
+            inner_env[i_cf]     +=          weights[j_I] * sqpi_inv
+            inner_env[i_qt_cld] += qt_hat * weights[j_I] * sqpi_inv
+            inner_env[i_T_cld]  += T      * weights[j_I] * sqpi_inv
         else
-            inner_env[i_qt_dry] += qt_hat * weights[j_eint] * sqpi_inv
-            inner_env[i_T_dry]  += T      * weights[j_eint] * sqpi_inv
+            inner_env[i_qt_dry] += qt_hat * weights[j_I] * sqpi_inv
+            inner_env[i_T_dry]  += T      * weights[j_I] * sqpi_inv
         end
         # products for variance and covariance source terms
-        inner_src[i_Sqt]    += -qr_src                 * weights[j_eint] * sqpi_inv
-        inner_src[i_SH]     +=  eint_rain_src          * weights[j_eint] * sqpi_inv
-        inner_src[i_Sqt_H]  += -qr_src         * θ     * weights[j_eint] * sqpi_inv
-        inner_src[i_SH_H]   +=  eint_rain_src  * θ     * weights[j_eint] * sqpi_inv
-        inner_src[i_Sqt_qt] += -qr_src         * q_tot * weights[j_eint] * sqpi_inv
-        inner_src[i_SH_qt]  +=  eint_rain_src  * q_tot * weights[j_eint] * sqpi_inv
+        inner_src[i_Sqt]    += -qr_src                 * weights[j_I] * sqpi_inv
+        inner_src[i_SI]     +=  eint_rain_src          * weights[j_I] * sqpi_inv
+        inner_src[i_Sqt_I]  += -qr_src         * e_int * weights[j_I] * sqpi_inv
+        inner_src[i_SI_I]   +=  eint_rain_src  * e_int * weights[j_I] * sqpi_inv
+        inner_src[i_Sqt_qt] += -qr_src         * q_tot * weights[j_I] * sqpi_inv
+        inner_src[i_SI_qt]  +=  eint_rain_src  * q_tot * weights[j_I] * sqpi_inv
       end
 
       outer_env[i_ql]     += inner_env[i_ql]     * weights[j_qt] * sqpi_inv
       outer_env[i_T]      += inner_env[i_T]      * weights[j_qt] * sqpi_inv
-      outer_env[i_eint]   += inner_env[i_eint]   * weights[j_qt] * sqpi_inv
+      outer_env[i_I]      += inner_env[i_I]      * weights[j_qt] * sqpi_inv
       outer_env[i_ρ]      += inner_env[i_ρ]      * weights[j_qt] * sqpi_inv
       outer_env[i_cf]     += inner_env[i_cf]     * weights[j_qt] * sqpi_inv
       outer_env[i_qt_cld] += inner_env[i_qt_cld] * weights[j_qt] * sqpi_inv
@@ -144,14 +165,28 @@ function compute_subdomain_statistics!(
       outer_env[i_rf]     += inner_env[i_rf]     * weights[j_qt] * sqpi_inv
 
       outer_src[i_Sqt]    += inner_src[i_Sqt]    * weights[j_qt] * sqpi_inv
-      outer_src[i_SH]     += inner_src[i_SH]     * weights[j_qt] * sqpi_inv
-      outer_src[i_Sqt_H]  += inner_src[i_Sqt_H]  * weights[j_qt] * sqpi_inv
-      outer_src[i_SH_H]   += inner_src[i_SH_H]   * weights[j_qt] * sqpi_inv
+      outer_src[i_SI]     += inner_src[i_SI]     * weights[j_qt] * sqpi_inv
+      outer_src[i_Sqt_I]  += inner_src[i_Sqt_I]  * weights[j_qt] * sqpi_inv
+      outer_src[i_SI_I]   += inner_src[i_SI_I]   * weights[j_qt] * sqpi_inv
       outer_src[i_Sqt_qt] += inner_src[i_Sqt_qt] * weights[j_qt] * sqpi_inv
-      outer_src[i_SH_qt]  += inner_src[i_SH_qt]  * weights[j_qt] * sqpi_inv
+      outer_src[i_SI_qt]  += inner_src[i_SI_qt]  * weights[j_qt] * sqpi_inv
     end
 
-    en.cld_frac  = outer_env[i_cf]
+    en_a.cld_frac = outer_env[i_cf]
+    cloudy.q_tot = outer_env[i_qt_cld]
+    cloudy.T     = outer_env[i_T]
+    cloudy.R_m   = gas_constant_air(ts) 
+    cloudy.q_vap = q_vap
+    cloudy.q_liq = q_liq
+    cloudy.q_ice = q_ice
+    dry.q_tot = en.q_tot
+    dry.T     = cloudy.T
+    dry.R_m   = cloudy.R_m
+    dry.q_vap = cloudy.q_vap
+    dry.q_liq = FT(0)
+    dry.q_ice = FT(0)
+
+    en.cld_frac  = 
     t_cloudy     = outer_env[i_T]
     q_tot_cloudy = outer_env[i_qt_cld]
     q_vap_cloudy = outer_env[i_qt_cld] - outer_env[i_ql]

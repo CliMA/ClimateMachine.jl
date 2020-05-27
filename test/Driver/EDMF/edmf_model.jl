@@ -69,6 +69,10 @@ Base.@kwdef struct MixingLengthModel{FT}
 end
 
 Base.@kwdef struct MicrophysicsModel{FT}
+    "dry stract"
+    dry::MArray{Tuple{6},FT} = MArray{Tuple{6},FT}([0,0,0,0,0,0])
+    "cloudy stract"
+    cloudy::MArray{Tuple{6},FT} = MArray{Tuple{6},FT}([0,0,0,0,0,0])
     "enviromental cloud fraction"
     cf_initial::FT = 0.0 # need to define a function for cf
     "quadrature order" # can we code it that if order is 1 than we get mean ?  do we need the gaussian option?

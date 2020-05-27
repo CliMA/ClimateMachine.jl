@@ -14,12 +14,32 @@ function compute_buoyancy_gradients(
 ) where {FT, N}
     # think how to call subdomain statistics here to get cloudy and dry values of T if you nee them
     # buoyancy gradients via chain-role
+    # Alias convention:
+    gm = state
+    en = state
+    up = state.edmf.updraft
+    gm_s = source
+    en_s = source
+    up_s = source.edmf.updraft
+    en_d = state.edmf.environment.diffusive
+
+    cv_d::FT = cv_d(param_set)
+    cv_v::FT = cp_v(param_set)
+    cv_l::FT = cp_l(param_set)
+    cv_i::FT = cp_i(param_set)
+    T0::FT = T_0(param_set)
+    e_int_i0::FT = e_int_i0(param_set)
+    ϵ_v = 1. / molmass_ratio(param_set)
+    g = FT(grav(param_set))
+    R_d = FT(R_d(param_set))
+
+    cloudy, dry = compute_subdomain_statistics!(m, state, aux ,t, statistical_model)
     ∂b∂ρ = - g/gm.ρ
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
-    ∂ρ∂e_int_dry    = - R_d*gm_a.p_0/(R_m*T*T)/((1-en_q_tot)*cv_d+q_vap *cv_v)
+    ∂ρ∂e_int_dry    = - R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*cv_d+dry.q_vap *cv_v)
     #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
-    ∂ρ∂e_int_cloudy = - (R_d*gm_a.p_0/(R_m*T*T)/((1-en_q_tot)*cv_d+q_vap *cv_v+q_liq*cv_l+ q_ice*cv_i)
-                       + gm_a.p_0/(R_m*R_m*T)*ϵ_v*R_d/(cv_v*(T-T0)+e_int_i0) )
+    ∂ρ∂e_int_cloudy = - (R_d*gm_a.p_0/(cloudy.R_m*cloudy.T*cloudy.T)/((1-cloudy.q_tot)*cv_d+cloudy.q_vap *cv_v+cloudy.q_liq*cv_l+ cloudy.q_ice*cv_i)
+                       + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ϵ_v*R_d/(cv_v*(cloudy.T-T0)+e_int_i0) )
     #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
 
     ∂ρ∂e_int = (en_a.cld_frac * ∂ρ∂e_int_cloudy + (1-en_a.cld_frac) * ∂ρ∂e_int_dry)
