@@ -548,9 +548,14 @@ end
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(air_density.(ts) .≈ ρ)
 
-        ts = PhaseDry_given_pT.(Ref(param_set), p, T)
-        @test all(internal_energy.(ts) .≈ internal_energy.(Ref(param_set), T))
-        @test all(air_density.(ts) .≈ ρ)
+        ts_p = PhaseDry_given_pT.(Ref(param_set), p, T)
+        @test all(internal_energy.(ts_p) .≈ internal_energy.(Ref(param_set), T))
+        @test all(air_density.(ts_p) .≈ ρ)
+
+        ts = PhaseDry_given_ρT.(Ref(param_set), ρ, T)
+
+        @test all(air_density.(ts_p) .≈ air_density.(ts))
+        @test all(internal_energy.(ts_p) .≈ internal_energy.(ts))
 
         # PhaseEquil
         ts =
@@ -731,14 +736,29 @@ end
     ts_dry = PhaseDry.(Ref(param_set), e_int, ρ)
     ts_dry_pT = PhaseDry_given_pT.(Ref(param_set), p, T)
     ts_eq = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 15, FT(1e-1))
+
     ts_T =
         TemperatureSHumEquil.(
+            Ref(param_set),
+            air_temperature.(ts_dry),
+            air_density.(ts_dry),
+            q_tot,
+        )
+    ts_Tp =
+        TemperatureSHumEquil_given_pressure.(
             Ref(param_set),
             air_temperature.(ts_dry),
             air_pressure.(ts_dry),
             q_tot,
         )
+
+    @test all(air_temperature.(ts_T) .≈ air_temperature.(ts_Tp))
+    # @test all(isapprox.(air_pressure.(ts_T), air_pressure.(ts_Tp), atol = _MSLP * 2e-2)) # TODO: Fails, needs fixing / better test
+    @test all(total_specific_humidity.(ts_T) .≈ total_specific_humidity.(ts_Tp))
+
     ts_neq = PhaseNonEquil.(Ref(param_set), e_int, ρ, q_pt)
+    ts_T_neq = TemperatureSHumNonEquil.(Ref(param_set), T, ρ, q_pt)
+
     ts_θ_liq_ice_eq =
         LiquidIcePotTempSHumEquil.(
             Ref(param_set),
@@ -772,7 +792,9 @@ end
         ts_dry_pT,
         ts_eq,
         ts_T,
+        ts_Tp,
         ts_neq,
+        ts_T_neq,
         ts_θ_liq_ice_eq,
         ts_θ_liq_ice_eq_p,
         ts_θ_liq_ice_neq,

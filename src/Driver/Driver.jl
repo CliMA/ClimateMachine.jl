@@ -1,3 +1,5 @@
+using Base.Threads
+
 using ArgParse
 using CUDAapi
 using Dates
@@ -5,6 +7,8 @@ using LinearAlgebra
 using Logging
 using MPI
 using Printf
+using Random
+
 using CLIMAParameters
 
 using ..Atmos
@@ -149,6 +153,9 @@ function parse_commandline(custom_settings)
         metavar = "<number>"
         arg_type = Int
         default = -1
+        "--fix-rng-seed"
+        help = "set RNG seed to a fixed value for reproducibility"
+        action = :store_true
         "--log-level"
         help = "set the log level to one of debug/info/warn/error"
         metavar = "<level>"
@@ -158,7 +165,7 @@ function parse_commandline(custom_settings)
         help = "directory for output data"
         metavar = "<path>"
         arg_type = String
-        default = "output"
+        default = get(ENV, "CLIMATEMACHINE_OUTPUT_DIR", "output")
         "--integration-testing"
         help = "enable integration testing"
         action = :store_true
@@ -168,7 +175,7 @@ function parse_commandline(custom_settings)
         default = "site17"
     end
 
-    if custom_settings !== nothing
+    if !isnothing(custom_settings)
         import_settings!(s, custom_settings)
     end
 
@@ -263,13 +270,25 @@ function init(; disable_gpu = false, arg_settings = nothing)
     _init_array(atyp)
     Settings.array_type = atyp
 
-    # create the output directory if needed
-    if Settings.diagnostics !== "never" || Settings.vtk !== "never"
-        mkpath(Settings.output_dir)
+    # fix the RNG seeds if requested
+    if parsed_args["fix-rng-seed"]
+        rank = MPI.Comm_rank(MPI.COMM_WORLD)
+        for tid in 1:nthreads()
+            s = 1000 * rank + tid
+            Random.seed!(Random.default_rng(tid), s)
+        end
     end
-    if Settings.checkpoint !== "never" || Settings.checkpoint_at_end
-        mkpath(Settings.checkpoint_dir)
+
+    # create the output directory if needed on delegated rank
+    if MPI.Comm_rank(MPI.COMM_WORLD) == 0
+        if Settings.diagnostics != "never" || Settings.vtk != "never"
+            mkpath(Settings.output_dir)
+        end
+        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
+            mkpath(Settings.checkpoint_dir)
+        end
     end
+    MPI.Barrier(MPI.COMM_WORLD)
 
     # set up logging
     loglevel = Settings.log_level == "DEBUG" ? Logging.Debug :
@@ -344,12 +363,12 @@ function invoke!(
         solver_config,
         user_info_callback,
     )
-    if cb_updates !== nothing
+    if !isnothing(cb_updates)
         callbacks = (callbacks..., cb_updates)
     end
 
     # diagnostics callback(s)
-    if Settings.diagnostics !== "never" && diagnostics_config !== nothing
+    if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
         Diagnostics.init(mpicomm, dg, Q, dgn_starttime, Settings.output_dir)
 
@@ -364,7 +383,7 @@ function invoke!(
 
     # vtk callback
     cb_vtk = Callbacks.vtk(Settings.vtk, solver_config, Settings.output_dir)
-    if cb_vtk !== nothing
+    if !isnothing(cb_vtk)
         callbacks = (callbacks..., cb_vtk)
     end
 
@@ -374,7 +393,7 @@ function invoke!(
         Settings.array_type,
         mpicomm,
     )
-    if cb_mtd !== nothing
+    if !isnothing(cb_mtd)
         callbacks = (callbacks..., cb_mtd)
     end
 
@@ -383,7 +402,7 @@ function invoke!(
         Settings.monitor_courant_numbers,
         solver_config,
     )
-    if cb_mcn !== nothing
+    if !isnothing(cb_mcn)
         callbacks = (callbacks..., cb_mcn)
     end
 
@@ -394,7 +413,7 @@ function invoke!(
         solver_config,
         Settings.checkpoint_dir,
     )
-    if cb_checkpoint !== nothing
+    if !isnothing(cb_checkpoint)
         callbacks = (callbacks..., cb_checkpoint)
     end
 
@@ -440,12 +459,15 @@ Starting %s
     end
 
     # fini diagnostics groups
-    if Settings.diagnostics !== "never" && diagnostics_config !== nothing
+    if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         currtime = ODESolvers.gettime(solver)
         for dgngrp in diagnostics_config.groups
             dgngrp(currtime, fini = true)
         end
     end
+
+    # fini VTK
+    !isnothing(cb_vtk) && cb_vtk()
 
     engf = norm(Q)
     @info @sprintf(

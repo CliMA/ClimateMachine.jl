@@ -15,9 +15,10 @@ if generate_tutorials
     tutorials_dir = joinpath(@__DIR__, "..", "tutorials")      # julia src files
 
     non_tutorial_files =
-        ["KinematicModel.jl", "helper_funcs.jl", "plotting_funcs.jl"]
+        ["KinematicModel.jl", "clean_build_folder.jl", "plothelpers.jl"]
     skip_execute = [
         "heldsuarez.jl",                 # broken
+        "risingbubble.jl",               # broken
         "topo.jl",                       # broken
         "dry_rayleigh_benard.jl",        # takes too long
         "nonnegative.jl",                # takes too long
@@ -58,7 +59,10 @@ if generate_tutorials
 
     # These files mirror the .jl files in `ClimateMachine.jl/tutorials/`:
     tutorials = Any[
-        "Atmos" => Any["Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",],
+        "Atmos" => Any[
+            "Dry Idealized GCM" => "generated/Atmos/heldsuarez.md",
+            "Rising Thermal Bubble" => "generated/Atmos/risingbubble.md",
+        ],
         "Ocean" => Any[],
         "Land" => Any["Heat" => Any["Heat Equation" => "generated/Land/Heat/heat_equation.md"],],
         "Numerics" => Any["LinearSolvers" => Any[

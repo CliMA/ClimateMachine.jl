@@ -2,10 +2,9 @@
 
 The Climate Machine is a new Earth system model that leverages recent advances in the computational and data sciences to learn directly from a wealth of Earth observations from space and the ground. The Climate Machine will harness more data than ever before, providing a new level of accuracy to predictions of droughts, heat waves, and rainfall extremes.
 
-|||
-|---------------------:|:----------------------------------------------|
-| **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |
 | **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]    |
+|----------------------|-----------------------------------------------|
+| **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |
 | **Azure Build**      | [![azure][azure-img]][azure-url]              |
 | **Code Coverage**    | [![codecov][codecov-img]][codecov-url]        |
 | **Bors**             | [![Bors enabled][bors-img]][bors-url]         |
@@ -25,4 +24,4 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 [bors-img]: https://bors.tech/images/badge_small.svg
 [bors-url]: https://app.bors.tech/repositories/11521
 
-For installation instructions and explanations on how to use the Climate Machine, please look at the [Documentation](https://CliMA.github.io/ClimateMachine.jl/latest/Installation).
+For installation instructions and explanations on how to use the Climate Machine, please look at the [Documentation](https://clima.github.io/ClimateMachine.jl/latest/GettingStarted/Installation/).

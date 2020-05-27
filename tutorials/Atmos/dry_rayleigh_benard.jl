@@ -14,7 +14,8 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics: TemperatureSHumEquil, internal_energy
+using ClimateMachine.MoistThermodynamics:
+    TemperatureSHumEquil_given_pressure, internal_energy
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
@@ -30,7 +31,7 @@ const param_set = EarthParameterSet()
 # 3) Domain - 250m[horizontal] x 250m[horizontal] x 500m[vertical]
 # 4) Timeend - 1000s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
-# 6) Random seed in initial condition (Requires `init_on_cpu=true` argument)
+# 6) Random values in initial condition (Requires `init_on_cpu=true` argument)
 # 7) Overrides defaults for
 #               `C_smag`
 #               `Courant_number`
@@ -40,8 +41,6 @@ const param_set = EarthParameterSet()
 #               `bc`
 #               `sources`
 # 8) Default settings can be found in src/Driver/Configurations.jl
-
-const randomseed = MersenneTwister(1)
 
 struct DryRayleighBenardConvectionDataConfig{FT}
     xmin::FT
@@ -68,10 +67,10 @@ function init_problem!(bl, state, aux, (x, y, z), t)
     γ::FT = _cp_d / _cv_d
     δT =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
-        cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
+        cospi(6 * z / (dc.zmax - dc.zmin)) + rand()
     δw =
         sinpi(6 * z / (dc.zmax - dc.zmin)) *
-        cospi(6 * z / (dc.zmax - dc.zmin)) + rand(randomseed)
+        cospi(6 * z / (dc.zmax - dc.zmin)) + rand()
     ΔT = _grav / _cv_d * z + δT
     T = dc.T_bot - ΔT
     P = _MSLP * (T / dc.T_bot)^(_grav / _R_d / dc.T_lapse)
@@ -79,7 +78,7 @@ function init_problem!(bl, state, aux, (x, y, z), t)
 
     q_tot = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
-    ts = TemperatureSHumEquil(bl.param_set, T, P, q_tot)
+    ts = TemperatureSHumEquil_given_pressure(bl.param_set, T, P, q_tot)
 
     ρu, ρv, ρw = FT(0), FT(0), ρ * δw
 

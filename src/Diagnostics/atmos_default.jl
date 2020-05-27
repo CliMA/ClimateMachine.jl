@@ -336,14 +336,17 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
             simple,
         )
 
-        if !iszero(thermo.moisture.q_liq)
-            idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
-            ql_gt_0_z[evk][idx] = one(FT)
-            ql_gt_0_full[idx] = one(FT)
+        # FIXME properly
+        if isa(bl.moisture, EquilMoist)
+            if !iszero(thermo.moisture.q_liq)
+                idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
+                ql_gt_0_z[evk][idx] = one(FT)
+                ql_gt_0_full[idx] = one(FT)
 
-            z = zvals[evk]
-            cld_top = max(cld_top, z)
-            cld_base = min(cld_base, z)
+                z = zvals[evk]
+                cld_top = max(cld_top, z)
+                cld_base = min(cld_base, z)
+            end
         end
     end
 
@@ -357,25 +360,31 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
         MPI.Allreduce!(simple_sums[evk], simple_avgs[evk], +, mpicomm)
         simple_avgs[evk] .= simple_avgs[evk] ./ repdvsr[evk]
 
-        tot_ql_gt_0_z = MPI.Reduce(sum(ql_gt_0_z[evk]), +, 0, mpicomm)
-        tot_horz_z = MPI.Reduce(length(ql_gt_0_z[evk]), +, 0, mpicomm)
-        if mpirank == 0
-            cld_frac[evk] = tot_ql_gt_0_z / tot_horz_z
+        # FIXME properly
+        if isa(bl.moisture, EquilMoist)
+            tot_ql_gt_0_z = MPI.Reduce(sum(ql_gt_0_z[evk]), +, 0, mpicomm)
+            tot_horz_z = MPI.Reduce(length(ql_gt_0_z[evk]), +, 0, mpicomm)
+            if mpirank == 0
+                cld_frac[evk] = tot_ql_gt_0_z / tot_horz_z
+            end
         end
     end
-    cld_top = MPI.Reduce(cld_top, MPI.MAX, 0, mpicomm)
-    if cld_top == FT(-100000)
-        cld_top = NaN
-    end
-    cld_base = MPI.Reduce(cld_base, MPI.MIN, 0, mpicomm)
-    if cld_base == FT(100000)
-        cld_base = NaN
-    end
-    tot_ql_gt_0_full = MPI.Reduce(sum(ql_gt_0_full), +, 0, mpicomm)
-    tot_horz_full = MPI.Reduce(length(ql_gt_0_full), +, 0, mpicomm)
-    cld_cover = zero(FT)
-    if mpirank == 0
-        cld_cover = tot_ql_gt_0_full / tot_horz_full
+    # FIXME properly
+    if isa(bl.moisture, EquilMoist)
+        cld_top = MPI.Reduce(cld_top, MPI.MAX, 0, mpicomm)
+        if cld_top == FT(-100000)
+            cld_top = NaN
+        end
+        cld_base = MPI.Reduce(cld_base, MPI.MIN, 0, mpicomm)
+        if cld_base == FT(100000)
+            cld_base = NaN
+        end
+        tot_ql_gt_0_full = MPI.Reduce(sum(ql_gt_0_full), +, 0, mpicomm)
+        tot_horz_full = MPI.Reduce(length(ql_gt_0_full), +, 0, mpicomm)
+        cld_cover = zero(FT)
+        if mpirank == 0
+            cld_cover = tot_ql_gt_0_full / tot_horz_full
+        end
     end
 
     # complete density averaging
@@ -455,10 +464,13 @@ function atmos_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals[ho_varnames[vari]] = (("z",), davg)
         end
 
-        varvals["cld_frac"] = (("z",), cld_frac)
-        varvals["cld_top"] = (("t",), cld_top)
-        varvals["cld_base"] = (("t",), cld_base)
-        varvals["cld_cover"] = (("t",), cld_cover)
+        # FIXME properly
+        if isa(bl.moisture, EquilMoist)
+            varvals["cld_frac"] = (("z",), cld_frac)
+            varvals["cld_top"] = (("t",), cld_top)
+            varvals["cld_base"] = (("t",), cld_base)
+            varvals["cld_cover"] = (("t",), cld_cover)
+        end
 
         # write output
         dprefix = @sprintf(

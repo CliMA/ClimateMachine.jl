@@ -3,18 +3,17 @@ EditURL = "<unknown>/src/Atmos/Model/turbulence.jl"
 ```
 
 ## [Turbulence Closures](@id Turbulence-Closures-docs)
-In `turbulence.jl` we specify turbulence closures. Currently,
-pointwise models of the eddy viscosity/eddy diffusivity type are
-supported for turbulent shear and tracer diffusivity. Methods currently supported
-are:\
+In `turbulence.jl` we specify turbulence closures. Currently, pointwise
+models of the eddy viscosity/eddy diffusivity type are supported for
+turbulent shear and tracer diffusivity. Methods currently supported are:\
 [`ConstantViscosityWithDivergence`](@ref constant-viscosity)\
 [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 [`Vreman`](@ref vreman)\
 [`AnisoMinDiss`](@ref aniso-min-diss)\
 
 !!! note
-    Usage: This is a quick-ref guide to using turbulence models as a subcomponent
-    of `AtmosModel` \
+    Usage: This is a quick-ref guide to using turbulence models as a
+    subcomponent of `AtmosModel` \
     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
     - `turbulence=ConstantViscosityWithDivergence(ν)`\
     - `turbulence=SmagorinskyLilly(C_smag)`\
@@ -29,10 +28,10 @@ export turbulence_tensors
 ```
 
 ## Abstract Type
-We define a `TurbulenceClosure` abstract type and
-default functions for the generic turbulence closure
-which will be overloaded with model specific functions. Minimally, overloaded functions for the
-following stubs must be defined for a turbulence model.
+We define a `TurbulenceClosure` abstract type and default functions for the
+generic turbulence closure which will be overloaded with model specific
+functions. Minimally, overloaded functions for the following stubs must
+be defined for a turbulence model.
 
 ```julia
 abstract type TurbulenceClosure end
@@ -67,8 +66,8 @@ function compute_gradient_flux!(
 ```
 
 The following may need to be addressed if turbulence models require
-additional state variables or auxiliary variable updates (e.g. TKE
-based models)
+additional state variables or auxiliary variable updates (e.g. TKE based
+models)
 
 ```julia
 vars_state_conservative(::TurbulenceClosure, FT) = @vars()
@@ -82,15 +81,18 @@ function atmos_nodal_update_auxiliary_state!(
 ```
 
 ## Eddy-viscosity Models
-The following function provides an example of a stub for an eddy-viscosity model.
-Currently, scalar and diagonal tensor viscosities and diffusivities are supported.
+The following function provides an example of a stub for an eddy-viscosity
+model.  Currently, scalar and diagonal tensor viscosities and diffusivities
+are supported.
 
 ```@docs
 ClimateMachine.Atmos.turbulence_tensors
 ```
 
-Generic math functions for use within the turbulence closures such as the [principal tensor invariants](@ref tensor-invariants),
-[symmetric tensors](@ref symmetric-tensors) and [tensor norms](@ref tensor-norms) have been included.
+Generic math functions for use within the turbulence closures such as
+the [principal tensor invariants](@ref tensor-invariants), [symmetric
+tensors](@ref symmetric-tensors) and [tensor norms](@ref tensor-norms)
+have been included.
 
 ### [Pricipal Invariants](@id tensor-invariants)
 ```math
@@ -121,8 +123,9 @@ ClimateMachine.Atmos.norm2
 ```
 
 ### [Strain-rate Magnitude](@id strain-rate-magnitude)
-By definition, the strain-rate magnitude, as defined in
-standard turbulence modelling is computed such that
+By definition, the strain-rate magnitude, as defined in standard turbulence
+modelling is computed such that
+
 ```math
 |\mathrm{S}| = \sqrt{2 \sum_{i,j} \mathrm{S}_{ij}^2}
 ```
@@ -130,8 +133,9 @@ where
 ```math
 \vec{S}(\vec{u}) = \frac{1}{2}  \left(\nabla\vec{u} +  \left( \nabla\vec{u} \right)^T \right)
 ```
-\mathrm{S} is the rate-of-strain tensor. (Symmetric component of the velocity gradient). Note that the
-skew symmetric component (rate-of-rotation) is not currently computed.
+\mathrm{S} is the rate-of-strain tensor. (Symmetric component of the
+velocity gradient). Note that the skew symmetric component (rate-of-rotation)
+is not currently computed.
 
 ```@docs
 ClimateMachine.Atmos.strain_rate_magnitude
@@ -148,9 +152,11 @@ end
 ```
 
 ### [Constant Viscosity Model](@id constant-viscosity)
-`ConstantViscosityWithDivergence` requires a user to specify the constant viscosity (kinematic)
-and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
-computed using the turbulent Prandtl number for the appropriate problem regime.
+`ConstantViscosityWithDivergence` requires a user to specify the constant
+viscosity (kinematic) and appropriately computes the turbulent stress
+tensor based on this term. Diffusivity can be computed using the turbulent
+Prandtl number for the appropriate problem regime.
+
 ```math
 \tau = - 2 \nu \mathrm{S}
 ```
@@ -186,24 +192,27 @@ f_{b} =
 ```math
 N = \left( \frac{g}{\theta_v} \frac{\partial \theta_v}{\partial z}\right)^{1/2}
 ```
-Here, $\mathrm{Ri}$ and $\mathrm{Pr}_{t}$ are the Richardson and
-turbulent Prandtl numbers respectively.  $\Delta$ is the mixing length in the
-relevant coordinate direction. We use the DG metric terms to determine the
-local effective resolution (see `src/Mesh/Geometry.jl`), and modify the vertical lengthscale by the
-stratification correction factor $\mathrm{f}_{b}$ so that $\Delta_{vert} = \Delta z f_b$.
+Here, $\mathrm{Ri}$ and $\mathrm{Pr}_{t}$ are the Richardson and turbulent
+Prandtl numbers respectively.  $\Delta$ is the mixing length in the relevant
+coordinate direction. We use the DG metric terms to determine the local
+effective resolution (see `src/Mesh/Geometry.jl`), and modify the vertical
+lengthscale by the stratification correction factor $\mathrm{f}_{b}$
+so that $\Delta_{vert} = \Delta z f_b$.
 
 ```@docs
 ClimateMachine.Atmos.SmagorinskyLilly
 ```
 
 ## [Vreman Model](@id vreman)
-Vreman's turbulence model for anisotropic flows, which provides a
-less dissipative solution (specifically in the near-wall and transitional regions)
-than the Smagorinsky-Lilly method. This model
-relies of first derivatives of the velocity vector (i.e., the gradient tensor).
-By design, the Vreman model handles transitional as well as fully turbulent flows adequately.
-The input parameter to this model is the Smagorinsky coefficient - the coefficient is modified
-within the model functions to account for differences in model construction.
+Vreman's turbulence model for anisotropic flows, which provides a less
+dissipative solution (specifically in the near-wall and transitional regions)
+than the Smagorinsky-Lilly method. This model relies of first derivatives
+of the velocity vector (i.e., the gradient tensor).  By design, the Vreman
+model handles transitional as well as fully turbulent flows adequately.
+The input parameter to this model is the Smagorinsky coefficient -
+the coefficient is modified within the model functions to account for
+differences in model construction.
+
 #### Equations
 ```math
 \nu_{t} = 2.5 C_{s}^2 \sqrt{\frac{B_{\beta}}{u_{i,j}u_{i,j}}},
@@ -222,10 +231,12 @@ ClimateMachine.Atmos.Vreman
 ```
 
 ## [Anisotropic Minimum Dissipation](@id aniso-min-diss)
-This method is based Vreugdenhil and Taylor's minimum-dissipation eddy-viscosity model.
-The principles of the Rayleigh quotient minimizer are applied to the energy dissipation terms in the
-conservation equations, resulting in a maximum dissipation bound, and a model for
-eddy viscosity and eddy diffusivity.
+This method is based Vreugdenhil and Taylor's minimum-dissipation
+eddy-viscosity model.  The principles of the Rayleigh quotient minimizer
+are applied to the energy dissipation terms in the conservation equations,
+resulting in a maximum dissipation bound, and a model for eddy viscosity
+and eddy diffusivity.
+
 ```math
 \nu_e = (\mathrm{C}\delta)^2  \mathrm{max}\left[0, - \frac{\hat{\partial}_k \hat{u}_{i} \hat{\partial}_k \hat{u}_{j} \mathrm{\hat{S}}_{ij}}{\hat{\partial}_p \hat{u}_{q} \hat{\partial}_p \hat{u}_{q}} \right]
 ```

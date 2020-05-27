@@ -1,5 +1,9 @@
 export flattenednames
 
+flattenednames(nt::Type{NTuple{N, T}}; prefix = "") where {N, T} =
+    Iterators.flatten([
+        flattenednames(T; prefix = "$(prefix)[$i]") for i in 1:N
+    ]) |> collect
 flattenednames(::Type{NamedTuple{(), Tuple{}}}; prefix = "") = ()
 flattenednames(::Type{T}; prefix = "") where {T <: Real} = (prefix,)
 flattenednames(::Type{T}; prefix = "") where {T <: SVector} =

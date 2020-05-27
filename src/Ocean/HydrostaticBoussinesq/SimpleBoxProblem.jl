@@ -48,7 +48,7 @@ function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
     FT = eltype(A)
     @inbounds A.y = geom.coord[2]
 
-    # not sure if this is needed but getting weird intialization stuff
+    # needed for proper CFL condition calculation
     A.w = 0
     A.pkin = 0
     A.wz0 = 0

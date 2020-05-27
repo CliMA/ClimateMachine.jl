@@ -230,7 +230,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    diffusive.α∇ρcT = m.α * ∇transform.ρcT
+    diffusive.α∇ρcT = -m.α * ∇transform.ρcT
 end;
 
 # We have no sources, nor non-diffusive fluxes.
@@ -256,12 +256,12 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 )
-    flux.ρcT -= diffusive.α∇ρcT
+    flux.ρcT += diffusive.α∇ρcT
 end;
 
 # ### Boundary conditions
 
-# Second-order terms in our equations, ``∇⋅(G)`` where ``G = α∇ρcT``, are
+# Second-order terms in our equations, ``∇⋅(F)`` where ``F = -α∇ρcT``, are
 # internally reformulated to first-order unknowns.
 # Boundary conditions must be specified for all unknowns, both first-order and
 # second-order unknowns which have been reformulated.
@@ -305,7 +305,7 @@ function boundary_state!(
     if bctype == 1 # bottom
         state⁺.ρcT = m.ρc * m.T_bottom
     elseif bctype == 2 # top
-        diff⁺.α∇ρcT = -n⁻ * m.flux_top
+        diff⁺.α∇ρcT = n⁻ * m.flux_top
     end
 end;
 

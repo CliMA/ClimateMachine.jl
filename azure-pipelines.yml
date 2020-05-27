@@ -90,5 +90,4 @@ jobs:
       C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'using InteractiveUtils; versioninfo()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.instantiate()'
       C:\julia-$(JULIA_VERSION)\bin\julia.exe --project=@. -e 'using Pkg; Pkg.test()'
-      C:\julia-$(JULIA_VERSION)\bin\julia.exe -e 'using Test; @testset "system image" begin;@test include(".dev/systemimage/climate_machine_image.jl"); end;'
     displayName: 'Run the tests'

@@ -4,9 +4,10 @@
 CurrentModule = ClimateMachine
 ```
 
-## `VTK`
+## VTK
 
 ### Functions
+
 ```@docs
 VTK.writevtk
 VTK.writevtk_helper

@@ -539,7 +539,10 @@ where additional variable definitions are in:
 
 ## Temperature
 
-Note that, while temperature may be computed using different thermodynamic formulations, [`ThermodynamicState`](@ref ClimateMachine.MoistThermodynamics.ThermodynamicState)'s are immediately converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
+Note that, while temperature may be computed using different
+thermodynamic formulations, [`ThermodynamicState`](@ref
+ClimateMachine.MoistThermodynamics.ThermodynamicState)'s are immediately
+converted to the ($\qt, \eint, \rhoRef{}$)-formulation.
 
 ### Dry temperature
 
@@ -562,7 +565,8 @@ Functionally,
 
 ### ($\qt, \eint, \rhoRef{}$)-formulation
 
-Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
+Here, $T$ conditionally satisfies the non-linear set of equations, which
+can be solved using a standard root solver (e.g., Secant method):
 
 ```math
 \begin{align}
@@ -592,7 +596,8 @@ T & = T(\qt, \eint, \rhoRef) \\
 
 ### ($\qt, \ThetaLiqIce, \rhoRef, \pRef$)-formulation
 
-Here, $T$ conditionally satisfies the non-linear set of equations, which can be solved using a standard root solver (e.g., Secant method):
+Here, $T$ conditionally satisfies the non-linear set of equations, which
+can be solved using a standard root solver (e.g., Secant method):
 
 ```math
 \begin{align}
@@ -622,7 +627,9 @@ T & = T(\qt, \ThetaLiqIce, \rhoRef, \pRef) \\
 ```
 
 ## Reference state profiles
-Using the hydrostatic balance, $\PD_z \pRef = - \rhoRef{} \grav$, and the ideal gas law, $\pRef = \rhoRef{} \Rm \TRef$, the reference state profiles are computed as:
+Using the hydrostatic balance, $\PD_z \pRef = - \rhoRef{} \grav$, and the
+ideal gas law, $\pRef = \rhoRef{} \Rm \TRef$, the reference state profiles
+are computed as:
 
 ```math
 \begin{align}
@@ -727,10 +734,12 @@ Pending.
 
     Add definitions for universal functions (e.g., $\Psi_m$).
 
-Variables in this section must be computed simultaneously because it requires the solution of a non-linear equation.
+Variables in this section must be computed simultaneously because it
+requires the solution of a non-linear equation.
 
 ### Monin-Obhukov length
-NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in [Surface fluxes](@ref) must be solved simultaneously
+NOTE: All variables (Monin-Obhukov length, friction velocity, temperature
+scale) in [Surface fluxes](@ref) must be solved simultaneously
 ```math
 \begin{align}\label{eq:MOLen}
 \MOLen = \begin{cases}
@@ -741,7 +750,8 @@ NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale)
 ```
 
 ### Friction velocity
-NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in [Surface fluxes](@ref) must be solved simultaneously
+NOTE: All variables (Monin-Obhukov length, friction velocity, temperature
+scale) in [Surface fluxes](@ref) must be solved simultaneously
 
  - Knowns: $u_{\mathrm{ave}} = \sqrt{\DM{u}^2+\DM{v}^2}, \LayerThickness, \SurfaceRoughness{m}$
 
@@ -757,7 +767,8 @@ R_{z0m}              & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 where $\Psi_m$ is defined in Appendix A, equations A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
 
 ### Temperature scale
-NOTE: All variables (Monin-Obhukov length, friction velocity, temperature scale) in [Surface fluxes](@ref) must be solved simultaneously
+NOTE: All variables (Monin-Obhukov length, friction velocity, temperature
+scale) in [Surface fluxes](@ref) must be solved simultaneously
 
  - Knowns: $\theta_{\mathrm{ave}}, \theta_s, \LayerThickness, \SurfaceRoughness{h}$
 
@@ -769,7 +780,10 @@ R_{z0h}                          & = 1 - \SurfaceRoughness{h}/\LayerThickness \\
 \SurfaceHeatFlux                 & = -\FrictionVelocity\TemperatureScale , \label{eq:SurfaceHeatFlux}  \\
 \end{align}
 ```
-where $\Psi_h$ is defined in Appendix A, equation A6 in Nishizawa, S., and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov Similarity for Finite Volume Models." Journal of Advances in Modeling Earth Systems 10.12 (2018): 3159-3175.
+where $\Psi_h$ is defined in Appendix A, equation A6 in Nishizawa, S.,
+and Y. Kitamura. "A Surface Flux Scheme Based on the Monin‐Obukhov
+Similarity for Finite Volume Models." Journal of Advances in Modeling
+Earth Systems 10.12 (2018): 3159-3175.
 
 ## Prandtl number
 
@@ -833,7 +847,9 @@ where additional variable definitions are in:
 
  - [Prandtl number](@ref) ($Pr$).
 
-Smoothing function is provided in python file. The Prandtl number was used from Eq. 75 in Dan Li 2019 "Turbulent Prandtl number in the atmospheric BL - where are we now".
+Smoothing function is provided in python file. The Prandtl number was used
+from Eq. 75 in Dan Li 2019 "Turbulent Prandtl number in the atmospheric BL -
+where are we now".
 
 ## Eddy diffusivity
 
@@ -858,7 +874,9 @@ where additional variable definitions are in:
 
 !!! todo
 
-    Currently, $\BuoyancyFlux$ is hard-coded from the first expression (which was used in SCAMPy), however, this value should be computed from the SurfaceFluxes section.
+    Currently, $\BuoyancyFlux$ is hard-coded from the first expression
+    (which was used in SCAMPy), however, this value should be computed
+    from the SurfaceFluxes section.
 
 ```math
 \begin{align}\label{eq:BuoyancyFlux}
@@ -993,7 +1011,8 @@ where additional variable definitions are in:
 
  - [Latent heat](@ref) ($\LatentHeatV{T}$).
 
-and equation \eqref{eq:TopPercentile} represents the mean of the top $x$-fraction of a standard normal distribution (Neggers et al., 2009).
+and equation \eqref{eq:TopPercentile} represents the mean of the top
+$x$-fraction of a standard normal distribution (Neggers et al., 2009).
 
 ```math
 \begin{align}
@@ -1063,7 +1082,9 @@ Top boundary
 
 !!! todo
 
-    Currently, we only account for the _intra_ sub-domain covariance, but we would like to also account for the _inter_ sub-domain covariance for all but the $TKE$.
+    Currently, we only account for the _intra_ sub-domain covariance, but
+    we would like to also account for the _inter_ sub-domain covariance
+    for all but the $TKE$.
 
 Bottom boundary
 ```math
@@ -1077,17 +1098,3 @@ Bottom boundary
 where additional variable/function definitions are in:
 
  - [BC functions](@ref) $\Gamma_{TKE}$, $\Gamma_{\phi}$, $F_{\eint}$, $\SensibleSurfaceHeatFlux$, $F_{\qt}$, $\LatentSurfaceHeatFlux$.
-
-## Case-specific configurations
-
-| **Case** | **Variable**                 | **Value**                        | **Reference**    |
-|:---------|------------------------------|----------------------------------|------------------|
-| Bomex    | $\BC{p_s}$                   | 1000 [hPa]                       |                  |
-| Bomex    | $\BC{\DM{\qt}}$              | 5 [g/kg]                         |                  |
-| Bomex    | $\BC{\DM{\ThetaLiqIce}}$     | 300 [K]                          |                  |
-| Bomex    | $\BC{\TCV{w}{\qt}}$          | $5.2 \times 10^{-5} [m s^{-1}]$  |                  |
-| Bomex    | $\BC{\TCV{w}{\ThetaLiqIce}}$ | $8 \times 10^{-3} [K m s^{-1}]$  |                  |
-| Soares   | $\BC{\TCV{w}{\qt}}$          | $2.5 \times 10^{-5} [m s^{-1}]$  |                  |
-| Soares   | $\BC{\TCV{w}{\ThetaLiqIce}}$ | $6 \times 10^{-2} [K m s^{-1}]$  |                  |
-|          |                              |                                  |                  |
-

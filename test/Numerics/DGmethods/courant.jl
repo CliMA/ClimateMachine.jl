@@ -14,6 +14,7 @@ using ClimateMachine.DGmethods.NumericalFluxes:
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder
 using ClimateMachine.Courant
+using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
@@ -26,7 +27,6 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     Gravity,
     HydrostaticState,
-    IsothermalProfile,
     ConstantViscosityWithDivergence,
     vars_state_conservative,
     soundspeed

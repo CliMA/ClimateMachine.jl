@@ -4,6 +4,14 @@
 CurrentModule = ClimateMachine.SurfaceFluxes
 ```
 
+## Surface Fluxes
+
+```@docs
+SurfaceFluxes
+```
+
+## Methods
+
 ```@docs
 compute_buoyancy_flux
 Byun1990.monin_obukhov_len

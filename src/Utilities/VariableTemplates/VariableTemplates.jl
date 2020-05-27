@@ -267,4 +267,22 @@ end
     expr
 end
 
+
+@inline function Base.getindex(
+    v::Vars{NTuple{N, T}, A, offset},
+    i,
+) where {N, T, A, offset}
+    # 1 <= i <= N
+    array = parent(v)
+    return Vars{T, A, offset + (i - 1) * varsize(T)}(array)
+end
+@inline function Base.getindex(
+    v::Grad{NTuple{N, T}, A, offset},
+    i,
+) where {N, T, A, offset}
+    # 1 <= i <= N
+    array = parent(v)
+    return Grad{T, A, offset + (i - 1) * varsize(T)}(array)
+end
+
 end # module
