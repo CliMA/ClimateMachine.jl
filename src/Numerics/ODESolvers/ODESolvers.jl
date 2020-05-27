@@ -44,7 +44,7 @@ function general_dostep!(
     timeend::Real;
     adjustfinalstep::Bool,
 )
-    time, dt = solver.t, solver.dt
+    time, dt = gettime(solver), getdt(solver)
     final_step = false
     if adjustfinalstep && time + dt > timeend
         orig_dt = dt
@@ -57,10 +57,10 @@ function general_dostep!(
     dostep!(Q, solver, p, time)
 
     if !final_step
-        solver.t += dt
+        updatetime!(solver, time + dt)
     else
         updatedt!(solver, orig_dt)
-        solver.t = timeend
+        updatetime!(solver, timeend)
     end
 end
 
@@ -150,5 +150,6 @@ include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
 include("SplitExplicitMethod.jl")
+include("DifferentialEquations.jl")
 
 end # module

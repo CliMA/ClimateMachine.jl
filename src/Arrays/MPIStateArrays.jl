@@ -336,6 +336,12 @@ end
     dest
 end
 
+@inline function Base.zero(Q::MPIStateArray{FT}) where {FT}
+    S = similar(Q)
+    fill!(S, 0)
+    return S
+end
+
 """
     begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 
