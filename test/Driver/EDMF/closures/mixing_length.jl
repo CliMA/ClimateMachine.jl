@@ -1,3 +1,5 @@
+#### Mixing length model kernels
+
 function mixing_length(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
@@ -11,10 +13,9 @@ function mixing_length(
     εt::FT,
 ) where {FT, N}
 
-    include(joinpath("/..", "lamb_smooth_minimum.jl"))
 
     # Q - do I need to define L as a vector ?
-    # Q - how to pass 
+    # Q - how to pass
     # need to code the functions: obukhov_length, ustar, ϕ_m, lamb_smooth_minimum
 
     # Alias convention:
@@ -39,7 +40,7 @@ function mixing_length(
     R_d = FT(R_d(param_set))
 
     ρinv = 1/gm.ρ
-    L = Vector(undef, 3)
+    fill!(m.L, 0)
     a_L = model.a_L(obukhov_length)
     b_L = model.b_L(obukhov_length)
 
@@ -51,8 +52,8 @@ function mixing_length(
     TKE_Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2
     ∂e_int∂z = en_d.e_int
     ∂q_tot∂z = en_d.q_tot
-    
- 
+
+
     # Thermodynamic local variables for mixing length
     ts = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
     Π = exner(ts)
@@ -68,36 +69,36 @@ function mixing_length(
 
     # compute L1 - static stability
     buoyancy_freq = g*en_d.∇θ_ρ/θ_ρ
-    if buoyancy_freq>0
-      L[1] = sqrt(m.c_w*tke)/buoyancy_freq
+    if buoyancy_freq>FT(0)
+      m.L[1] = sqrt(m.c_w*tke)/buoyancy_freq
     else
-      L[1] = 1e-6
+      m.L[1] = FT(1e-6)
     end
 
     # compute L2 - law of the wall
-    if obukhov_length < 0.0 #unstable case
-      L[2] = (m.κ * z/(sqrt(tke)/m.ustar/m.ustar)* m.c_k) * min(
-         (1 - 100 * z/obukhov_length)^0.2, 1/m.κ))
+    if obukhov_length < FT(0) #unstable case
+      m.L[2] = (m.κ * z/(sqrt(tke)/m.ustar/m.ustar)* m.c_k) * min(
+         (1 - 100 * z/obukhov_length)^FT(0.2), 1/m.κ))
     else # neutral or stable cases
-      L[2] = m.κ * z/(sqrt(max(q[:tke, k_1, en], FT(0))/m.ustar/m.ustar)*m.c_k)
+      m.L[2] = m.κ * z/(sqrt(max(q[:tke, k_1, en], FT(0))/m.ustar/m.ustar)*m.c_k)
     end
 
-    # I think this is an alrenative way for the same computation
+    # I think this is an alternative way for the same computation
     ξ = z/obukhov_length
     κ_star = m.ustar/sqrt(tke)
-    L[2] = m.κ*z/(m.c_k*κ_star*ϕ_m(ξ, a_L, b_L))
+    m.L[2] = m.κ*z/(m.c_k*κ_star*ϕ_m(ξ, a_L, b_L))
 
     # compute L3 - entrainment detrainment sources
-    
+
     # buoyancy gradients via chain-role
     ∂b∂z_e_int, ∂b∂z_q_tot = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction, δ, εt)
-    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, TKE_Shear, ∂b∂z_q_tot, 0.25)
+    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, TKE_Shear, ∂b∂z_q_tot, FT(0.25))
     Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length, 53,13,130)
 
     # Production/destruction terms
     a = m.c_m*(TKE_Shear - ∂b∂z_e_int/Pr_z - ∂b∂z_q_tot/Pr_z)* sqrt(tke)
     # Dissipation term
-    b = 0.0
+    b = FT(0)
 
     for i in 1:N
       a_up = up[i].ρa/gm.ρ
@@ -107,18 +108,18 @@ function mixing_length(
 
     c_neg = m.c_m*tke*sqrt(tke)
     if abs(a) > eps(FT) && 4*a*c_neg > - b^2
-              l_entdet = max( -b/2.0/a + sqrt(b^2 + 4*a*c_neg)/2/a, 0)
+              l_entdet = max( -b/FT(2)/a + sqrt(b^2 + 4*a*c_neg)/2/a, FT(0))
     elseif abs(a) < eps(FT) && abs(b) > eps(FT)
               l_entdet = c_neg/b
     else
-      l_entdet = 0.0
+      l_entdet = FT(0)
     end
-    L[3] = l_entdet
+    m.L[3] = l_entdet
 
-    lower_bound = 0.1
-    upper_bound = 1.5
-    # make sure to include "lamb_smooth_minimum"
-    l =lamb_smooth_minimum(L,lower_bound, upper_bound)
-    
+    lower_bound = FT(0.1)
+    upper_bound = FT(1.5)
+
+    l = lamb_smooth_minimum(L,lower_bound, upper_bound)
+
     return l
 end;

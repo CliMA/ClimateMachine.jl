@@ -1,3 +1,5 @@
+#### Entrainment-Detrainment kernels
+
 function entr_detr(
     ss::SingleStack{FT, N},
     m::EntrainmentDetrainmentModel,
@@ -6,7 +8,7 @@ function entr_detr(
     aux::Vars,
     t::Real,
     direction,
-    i::N # YAIR CHECK THIS LINE 
+    i::N # YAIR CHECK THIS LINE
 ) where {FT, N}
 
     # Alias convention:

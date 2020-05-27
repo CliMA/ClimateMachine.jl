@@ -1,3 +1,5 @@
+#### Helper kernels
+
 function compute_subdomain_statistics!(
   m::SingleStack{FT,N},
   state::Vars,
@@ -44,7 +46,7 @@ function compute_subdomain_statistics!(
   t::Real,
   statistical_model::Lognormal,
   ) where {FT, N}
-  
+
   gm_a = aux
   en_a = aux.edmf.environment
   up_a = aux.edmf.updraft
