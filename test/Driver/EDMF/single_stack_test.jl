@@ -271,6 +271,10 @@ Base.@kwdef struct SingleStack{FT, N} <: BalanceLaw
     cf_initial::FT = 0.0 # need to define a function for cf
     "Domain height"
     zmax::FT = 3000
+    "subdomain statistics model" 
+    zmax::FT = 3000 # needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"  
+    "quadrature order" # can we code it thaht if order is 1 than we get mean ?  do we need the gaussian option? 
+    quadrature_order::FT = 3# yair needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"      
     # "Initial density"
     # ρ_IC::FT = 1
     # "Initial conditions for temperature"
@@ -486,8 +490,8 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     up_a = aux.edmf.updraft
 
     gm_a.buoyancy = 0.0
-    gm_a.ρ_0 = hydrostatic_ref()  # yair 
-    gm_a.p_0 = hydrostatic_ref()  # yair 
+    gm_a.ρ_0 = hydrostatic_ref()  # yair - this needs to be computed consistantly by the  functions below 
+    gm_a.p_0 = hydrostatic_ref()  # yair - this needs to be computed consistantly by the  functions below 
     
     en_a.buoyancy = 0.0
     en_a.cld_frac = 0.0
@@ -612,7 +616,7 @@ function single_stack_nodal_update_aux!(
     en = state.edmf.environment
     up = state.edmf.updraft
 
-    #   -------------  Compute buoyanies of subdomains 
+    #   -------------  Compute buoyancies of subdomains 
     ρinv = 1/gm.ρ
     b_upds = 0.0
     a_upds = 0.0
@@ -642,6 +646,7 @@ function single_stack_nodal_update_aux!(
     gm_a.buoyancy = 0
 
     #   -------------  Compute env cld_frac
+    subdomain_statistics()
     en_a.cld_frac = 0.0 # here a quadrature model shoiuld be called
     #   -------------  Compute upd_top
     for i in 1:N
