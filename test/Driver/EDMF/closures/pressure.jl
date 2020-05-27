@@ -8,7 +8,7 @@ function perturbation_pressure(
     aux::Vars,
     t::Real,
     direction,
-    i::N # YAIR CHECK THIS LINE
+    i::Int
 ) where {FT, N}
 
     # Alias convention:
