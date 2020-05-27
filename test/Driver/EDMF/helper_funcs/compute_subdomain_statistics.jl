@@ -151,15 +151,15 @@ function compute_subdomain_statistics!(
       outer_src[i_SH_qt]  += inner_src[i_SH_qt]  * weights[j_qt] * sqpi_inv
     end
 
-    en.cld_frac              = outer_env[i_cf]
-    tmp[:t_cloudy, k, i]     = outer_env[i_T]
-    tmp[:q_tot_cloudy, k, i] = outer_env[i_qt_cld]
-    tmp[:q_vap_cloudy, k, i] = outer_env[i_qt_cld] - outer_env[i_ql]
-    tmp[:q_tot_dry, k, i]    = outer_env[i_qt_dry]
+    en.cld_frac  = outer_env[i_cf]
+    t_cloudy     = outer_env[i_T]
+    q_tot_cloudy = outer_env[i_qt_cld]
+    q_vap_cloudy = outer_env[i_qt_cld] - outer_env[i_ql]
+    q_tot_dry    = outer_env[i_qt_dry]
 
-    ts = TemperatureSHumEquil(param_set, tmp[:t_cloudy, k], p_0=tmp[:p_0, k, i], tmp[:q_tot_cloudy, k, i])
-    tmp[:θ_cloudy, k, i]     = liquid_ice_pottemp(ts)
-    tmp[:θ_dry, k, i]        = dry_pottemp(ts)
+    ts = TemperatureSHumEquil(param_set, t_cloudy, p_0, q_tot_cloudy) # revisit this thermo stats 
+    θ_cloudy = liquid_ice_pottemp(ts)
+    θ_dry    = dry_pottemp(ts)
 
     return Sqt_eint_cov, Sqt_var
   end

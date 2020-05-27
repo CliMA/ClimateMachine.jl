@@ -15,7 +15,6 @@ function mixing_length(
 
 
     # Q - do I need to define L as a vector ?
-    # Q - how to pass
     # need to code the functions: obukhov_length, ustar, ϕ_m, lamb_smooth_minimum
 
     # Alias convention:
@@ -83,11 +82,6 @@ function mixing_length(
       m.L[2] = m.κ * z/(sqrt(max(q[:tke, k_1, en], FT(0))/m.ustar/m.ustar)*m.c_k)
     end
 
-    # I think this is an alternative way for the same computation
-    ξ = z/obukhov_length
-    κ_star = m.ustar/sqrt(tke)
-    m.L[2] = m.κ*z/(m.c_k*κ_star*ϕ_m(ξ, a_L, b_L))
-
     # compute L3 - entrainment detrainment sources
 
     # buoyancy gradients via chain-role
@@ -119,7 +113,7 @@ function mixing_length(
     lower_bound = FT(0.1)
     upper_bound = FT(1.5)
 
-    l = lamb_smooth_minimum(L,lower_bound, upper_bound)
+    l = lamb_smooth_minimum(m.L,lower_bound, upper_bound)
 
     return l
 end;
