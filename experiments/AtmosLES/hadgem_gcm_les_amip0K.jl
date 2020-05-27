@@ -464,6 +464,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
     )
+    imex_solver = ClimateMachine.IMEXSolverType()
     config = ClimateMachine.AtmosLESConfiguration(
         forcingfile*"_$groupid",
         N,
@@ -473,7 +474,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         zmax,
         param_set,
         init_cfsites!,
-        solver_type = mrrk_solver,
+        solver_type = imex_solver,
         model = model,
     )
     return config
@@ -487,7 +488,9 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    core_dgngrp = setup_atmos_core_diagnostics("2500steps", 
+                                               driver_config.name)
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, core_dgngrp])
 end
 
 function main()
@@ -503,14 +506,15 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(3600)
-    ymax = FT(3600)
+    xmax = FT(2000)
+    ymax = FT(2000)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
     CFL = FT(10)
+    CFL_IMEX = FT(0.90)
 
     # Execute the get_gcm_info function
     (
@@ -560,7 +564,7 @@ function main()
         driver_config,
         splines;
         init_on_cpu = true,
-        Courant_number = CFL,
+        Courant_number = CFL_IMEX,
     )
     # Set up diagnostic configuration
     dgn_config = config_diagnostics(driver_config)
