@@ -13,25 +13,20 @@ function compute_subdomain_statistics!(
   en = state.edmf.environment
   up = state.edmf.updraft
 
-  @unpack params param_set
-  @inbounds for k in over_elems_real(grid)
-    q_tot = q[:q_tot, k, en]
-    ts = ActiveThermoState(param_set, q, tmp, k, en)
-    T = air_temperature(ts)
-    q_liq = PhasePartition(ts).liq
-    q_vap = q_tot - q_liq
-    θ = dry_pottemp(ts)
-    if q_liq > 0
-      tmp[:CF, k] = FT(1)
-      tmp[:θ_cloudy, k]     = θ
-      tmp[:t_cloudy, k]     = T
-      tmp[:q_tot_cloudy, k] = q_tot
-      tmp[:q_vap_cloudy, k] = q_vap
-    else
-      tmp[:CF, k] = FT(0)
-      tmp[:θ_dry, k]     = θ
-      tmp[:q_tot_dry, k] = q_tot
-    end
+  t_cloudy, q_tot_cloudy, q_vap_cloudy = FT(0)
+  ts = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
+  T = air_temperature(ts)
+  q_liq = PhasePartition(ts).liq
+  q_vap = PhasePartition(ts).vap
+  if q_liq > 0
+    en_a.cld_frac = 1
+    t_cloudy      = T
+    e_int_cloudy  = en.e_int
+    q_tot_cloudy  = q_tot
+    q_vap_cloudy  = q_vap
+  else
+    en_a.cld_frac = 0
+    t_dry         = T
   end
 end
 
