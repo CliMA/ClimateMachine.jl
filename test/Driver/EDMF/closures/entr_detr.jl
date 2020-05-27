@@ -52,7 +52,7 @@ function entr_detr!(
     D_δ = 1/(1+exp( db/dw/m.μ_0*(m.χ - up_area/(up_area+en_area))))
     M_δ = ( max((RH_up^β-RH_en^m.β),0.0) )^(1/m.β)
     M_ϵ = ( max((RH_en^β-RH_up^m.β),0.0) )^(1/m.β)
-    λ = min(abs(db/dw),m.c_λ*abs(db/(sqrt_tke+1e-8)))
+    λ = min(abs(db/dw),m.c_λ*abs(db/(sqrt_tke+sqrt(eps))))
 
     # compute entrainment/detrainmnet components
     εt = 2*up_area*m.c_t*sqrt_tke/(w_up*up_area*up_a[i].cloud.updraft_top)

@@ -19,16 +19,16 @@
 # -------------- First Moment Equations:
 #                grid mean
 # ``
-#     "tendency"           "second order flux"                   "first order flux"    "non-conservative source"
-# \frac{∂ ρ}{∂ t}         =                                        - ∇ ⋅ (ρu)
-# \frac{∂ ρ u}{∂ t}       = - ∇ ⋅ (-ρK ∇u0        - ρ*MF_{u} )     - ∇ ⋅ (ρu u')
-# \frac{∂ ρ e_{int}}{∂ t} = - ∇ ⋅ (-ρK ∇e_{int,0} - ρ*MF_{e_int} ) - ∇ ⋅ (u ρ_{int}) + S_{microphysics}
-# \frac{∂ ρ q_{tot}}{∂ t} = - ∇ ⋅ (-ρK ∇E_{tot,0} - ρ*MF_{q_tot} ) - ∇ ⋅ (u ρ_{tot}) + S_{microphysics}
+#     "tendency"           "second order flux"   "first order flux"                 "non-conservative source"
+# \frac{∂ ρ}{∂ t}         =                         - ∇ ⋅ (ρu)
+# \frac{∂ ρ u}{∂ t}       = - ∇ ⋅ (-ρaK ∇u0       ) - ∇ ⋅ (ρu u' - ρ*MF_{u} )         + S_{surface Friction}
+# \frac{∂ ρ e_{int}}{∂ t} = - ∇ ⋅ (-ρaK ∇e_{int,0}) - ∇ ⋅ (u ρ_{int} - ρ*MF_{e_int} ) + S_{microphysics}
+# \frac{∂ ρ q_{tot}}{∂ t} = - ∇ ⋅ (-ρaK ∇E_{tot,0}) - ∇ ⋅ (u ρ_{tot} - ρ*MF_{q_tot} ) + S_{microphysics}
 # MF_ϕ = \sum{a_i * (w_i-w0)(ϕ_i-ϕ0)}_{i=1:N}
 # K is the Eddy_Diffusivity, given as a function of enviromental variables
 # ``
 
-#                i'th updraft equations
+#                i'th updraft equations (no second order flux)
 # ``
 #     "tendency"                 "first order flux"    "non-conservative sources"
 # \frac{∂ ρa_i}{∂ t}           = - ∇ ⋅ (ρu_i)         + (E_{i0}           - Δ_{i0})
@@ -36,15 +36,15 @@
 # \frac{∂ ρa_i e_{int,i}}{∂ t} = - ∇ ⋅ (ρu*e_{int,i}) + (E_{i0}*e_{int,0} - Δ_{i0}*e_{int,i}) + ρS_{int,i}
 # \frac{∂ ρa_i q_{tot,i}}{∂ t} = - ∇ ⋅ (ρu*q_{tot,i}) + (E_{i0}*q_{tot,0} - Δ_{i0}*q_{tot,i}) + ρS_{tot,i}
 # b = 0.01*(e_{int,i} - e_{int})/e_{int}
-
-#                environment equations
+#
+#                environment equations first moment
 # ``
 # a0 = 1-sum{a_i}{i=1:N}
 # u0 = (1-sum{a_i*u_i}{i=1:N})/a0
 # E_int0 = (1-sum{a_i*E_int_i}{i=1:N})/a0
 # q_tot0 = (1-sum{a_i*q_tot_i}{i=1:N})/a0
-
-# -------------- Second Moment Equation in the Environment:
+#
+#                environment equations second moment
 # ``
 #     "tendency"           "second order flux"       "first order flux"  "non-conservative source"
 # \frac{∂ ρa_0ϕ'ψ'}{∂ t} =  - ∇ ⋅ (-ρa_0⋅K⋅∇ϕ'ψ')  - ∇ ⋅ (u ρa_0⋅ϕ'ψ')   + 2ρa_0⋅K(∂_z⋅ϕ)(∂_z⋅ψ)  + (E_{i0}*ϕ'ψ' - Δ_{i0}*ϕ'ψ') + ρa_0⋅D_{ϕ'ψ',0} + ρa_0⋅S_{ϕ'ψ',0}
@@ -284,9 +284,13 @@ Base.@kwdef struct SingleStack{FT, N} <: BalanceLaw
     "Surface total specific humidity [kg/kg]"
     surface_q_tot::FT = 0.0
     "Surface I-flux [m^3/s^3]"
-    θ_liq_flux_surf::FT = 0.0
+    e_int_surface_flux::FT = 0.0
     "Surface q_tot-flux [m/s*kg/kg]"
-    q_tot_flux_surf::FT = 0.0
+    q_tot_surface_flux::FT = 0.0
+    "Top I-flux [m^3/s^3]"
+    e_int_top_flux::FT = 0.0
+    "Top q_tot-flux [m/s*kg/kg]"
+    q_tot_top_flux::FT = 0.0
     # # add reference state
     # ref_state::RS = HydrostaticState(                   # quickly added at end
     #     LinearTemperatureProfile(                       # quickly added at end
@@ -322,7 +326,9 @@ function vars_state_auxiliary(m::NTuple{N,Updraft}, FT) where {N}
 end
 
 function vars_state_auxiliary(::Updraft, FT)
-    @vars(buoyancy::FT)
+    @vars(buoyancy::FT,
+          upd_top::FT,
+          )
 end
 
 function vars_state_auxiliary(::Environment, FT)
@@ -382,16 +388,13 @@ function vars_state_conservative(m::SingleStack, FT)
           ρu::SVector{3, FT},
           ρe_int::FT,
           ρq_tot::FT,
-          u::SVector{3, FT},
-          e_int::FT,
-          q_tot::FT,
           edmf::vars_state_conservative(m.edmf, FT));
 end
 
 function vars_state_gradient(::Updraft, FT)
-    @vars(ρe_int::FT,
-          ρe_int::FT,
-          u::SVector{3, FT},
+    @vars(u::SVector{3, FT},
+          e_int::FT,
+          e_int::FT,
           )
 end
 
@@ -399,7 +402,10 @@ function vars_state_gradient(::Environment, FT)
     @vars(e_int::FT,
           q_tot::FT,
           u::SVector{3, FT},
-          ∇θ_ρ::TF,
+          tke::TF,
+          e_int_cv::TF,
+          q_tot_cv::TF,
+          e_int_q_tot_cv::TF,
           )
 end
 
@@ -416,10 +422,7 @@ function vars_state_gradient(m::EDMF, FT)
 end
 
 function vars_state_gradient(m::SingleStack, FT)
-    @vars(ρe_int::FT,
-          ρq_tot::FT,
-          u::SVector{3, FT},
-          edmf::vars_state_gradient(m.edmf, FT));
+    @vars(edmf::vars_state_gradient(m.edmf, FT));
 end
 
 
@@ -430,9 +433,14 @@ end
 vars_state_gradient_flux(::Updraft, FT) = @vars()
 
 function vars_state_gradient_flux(::Environment, FT)
-    @vars(ρa∇e_int::SVector{3, FT},
-          ρa∇q_tot::SVector{3, FT},
-          ρa∇u::SMatrix{3, 3, FT, 9},
+    @vars(∇e_int::SVector{3, FT},
+          ∇q_tot::SVector{3, FT},
+          ∇u::SMatrix{3, 3, FT, 9},
+          ∇tke::TF,
+          ∇e_int_cv::TF,
+          ∇q_tot_cv::TF,
+          ∇e_int_q_tot_cv::TF,
+          ∇θ_ρ::TF, # used in a diagnostic equation for the mixing length 
           )
 end
 
@@ -443,10 +451,7 @@ function vars_state_gradient_flux(m::EDMF, FT)
 end
 
 function vars_state_gradient_flux(m::SingleStack, FT)
-    @vars(ρ∇e_int::SVector{3, FT},
-          ρ∇q_tot::SVector{3, FT},
-          ρ∇u::SMatrix{3, 3, FT, 9},
-          edmf::vars_state_gradient_flux(m.edmf, FT));
+    @vars(edmf::vars_state_gradient_flux(m.edmf, FT));
 end
 # ## Define the compute kernels
 
@@ -475,21 +480,30 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     # R_m = R_m()
 
 
-    # # -------------------
-
     # Alias convention:
     gm_a = aux
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
-    gm_a.T = m.initialT
 
+    gm_a.buoyancy = 0.0
+    gm_a.ρ_0 = hydrostatic_ref()  # yair 
+    gm_a.p_0 = hydrostatic_ref()  # yair 
+    
+    en_a.buoyancy = 0.0
+    en_a.cld_frac = 0.0
+    
     for i in 1:N
-        up_a[i].T = gm_a.T
+        up_a[i].buoyancy = 0.0
+        up_a[i].upd_top = 0.0
     end
 
     en_a.T = gm_a.T
     en_a.cld_frac = m.cf_initial
 end;
+
+# The following two functions should compute the hydrostatic and adiabatic reference state 
+# this state integrates upwards the equations d(log(p))/dz = -g/(R_m*T) 
+# with q_tot and θ_liq at each z level equal thier respective surface values. 
 
 function integral_load_auxiliary_state!(
     m::SingleStack{FT,N},
@@ -540,15 +554,15 @@ function init_state_conservative!(
 
     # SCM setting - need to have sepearete cases coded and called from a folder - see what LES does 
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile 
-    TS = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, P, q_tot)
-    T = air_temperature(TS)
-    ρ = air_density(TS)
-    q_pt = PhasePartition(TS)
+    ts = LiquidIcePotTempSHumEquil_given_pressure(param_set, θ_liq, P, q_tot)
+    T = air_temperature(ts)
+    ρ = air_density(ts)
     
-    # Initialize prognostic variables in the subdomains 
-    #         * first moment variables in the updrafts are set to grid mean, area is set to 0.1 ? or Zero?  
-    #         * second moment variables in the environment - what is the best profile to start with? 
-    #         * initialize surface values ? 
+    gm.ρ = 
+    gm.ρu = 0.0
+    gm.ρe_int = 0.0
+    gm.ρq_tot = 0.0
+
     a_up = m.a_updraft_initial/FT(N)
     for i in 1:N
         up[i].ρa = ρ * a_up
@@ -576,48 +590,8 @@ function update_auxiliary_state!(
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
-)
-    gm_a = aux
-    en_a = aux.edmf.environment
-    up_a = aux.edmf.updraft
-    gm = state
-    en = state.edmf.environment
-    up = state.edmf.updraft
-
-    # computing buoyancy with PhaseEquil (i.e. qv_star) that uses gm.ρ instead of ρ_i that is unkown
-    b_ups = 0.0
-    a_ups = 0.0
-    for i in 1:N
-        ts = PhaseEquil(param_set ,up[i].e_int, gm.ρ, up[i].q_tot)
-        up_a[i].T = air_temperature(ts)
-        ρ_i = air_density(ts)
-        up_a[i].buoyancy = -grav*(ρ_i-aux.ref_state.ρ)/gm.ρ
-        b_ups += up_a[i].buoyancy
-        a_ups += up_a[i].ρa/gm.ρ
-    end
-
-    env_e_int = (gm.e_int - up[i].e_int*up[i].ρa/gm.ρ)/(1-up[i].ρa/gm.ρ)
-    env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa/gm.ρ)/(1-up[i].ρa/gm.ρ)
-    ts = PhaseEquil(param_set ,env_e_int, gm.ρ, env_q_tot)
-    env_T = air_temperature(ts)
-    env_ρ = air_density(ts)
-    env_q_tot = PhasePartition(ts).tot
-    env_q_liq = PhasePartition(ts).liq
-    env_q_ice = PhasePartition(ts).ice
-    b_env = -grav*(env_ρ-aux.ref_state.ρ)/gm.ρ
-    b_gm = (1 - a_ups)*b_env
-    for i in 1:N
-        b_gm += up_a[i].buoayncy*up_a[i].ρa/gm.ρ
-    end
-    up_a[i].buoyancy -= b_gm
-    gm_a.buoyancy = 0
-
-    # For non-analytic reference profiles:
-    if num_integrals(m, FT) > 0
-        indefinite_stack_integral!(dg, m, Q, state_auxiliary, FT(0), elems)
-        reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, FT(0), elems)
-    end
-    nodal_update_auxiliary_state!(single_stack_nodal_update_aux!, dg, m, Q, t, elems)
+)   # Charlie - please check this call to the oveload func
+    nodal_update_auxiliary_state!(single_stack_nodal_update_aux!, dg, m, Q, t, elems) 
     return true # TODO: remove return true
 end;
 
@@ -631,30 +605,48 @@ function single_stack_nodal_update_aux!(
     t::Real,
 ) where {FT, N}
 
-    # Alias convention:
     gm_a = aux
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
     gm = state
     en = state.edmf.environment
     up = state.edmf.updraft
-    ρ = gm.ρ
+
+    #   -------------  Compute buoyanies of subdomains 
     ρinv = 1/gm.ρ
-
-    gm_a.T = gm.ρcT*ρinv/m.c
+    b_upds = 0.0
+    a_upds = 0.0
     for i in 1:N
-        up_a[i].T = up[i].ρacT/(m.c*up[i].ρa)
-    end
+        # computing buoyancy with PhaseEquil (i.e. qv_star) that uses gm.ρ instead of ρ_i that is unkown
+        ts = PhaseEquil(param_set ,up[i].e_int, gm.ρ, up[i].q_tot)
 
-    a_env  = 1 - sum([up[i].ρa*ρinv for i in 1:N])
-    # @show en_a.T
-    # @show gm_a.T
-    # @show up_a[1].T
-    # @show up_a[2].T
-    en_a.T = (gm_a.T - sum([ up_a[i].T*up[i].ρa*ρinv for i in 1:N]))/a_env
-    θ_liq_ice
-    TemperatureSHumEquil(m.param_set, T, p, q_tot)
-    LiquidIcePotTempSHumEquil_given_pressure(m.param_set, θ_liq_ice::FT, p::FT, q_tot::FT, maxiter::Int = 30, temperature_tol::FT = FT(1e-1))
+        ρ_i = air_density(ts)
+        up_a[i].buoyancy = -grav*(ρ_i-aux.ref_state.ρ)*ρinv
+        b_upds += up_a[i].buoyancy
+        a_upds += up_a[i].ρa*ρinv
+    end
+    # compute the buoyancy of the environment
+    env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+    env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+    ts = PhaseEquil(param_set ,env_e_int, gm.ρ, env_q_tot)
+    env_ρ = air_density(ts)
+    env_q_liq = PhasePartition(ts).liq
+    env_q_ice = PhasePartition(ts).ice
+    b_env = -grav*(env_ρ-aux.ref_state.ρ)*ρinv
+    # subtract the grid mean
+    b_gm = (1 - a_ups)*b_env
+    for i in 1:N
+        b_gm += up_a[i].buoayncy*up_a[i].ρa*ρinv
+    end
+    up_a[i].buoyancy -= b_gm
+    gm_a.buoyancy = 0
+
+    #   -------------  Compute env cld_frac
+    en_a.cld_frac = 0.0 # here a quadrature model shoiuld be called
+    #   -------------  Compute upd_top
+    for i in 1:N
+        up_a[i].upd_top = 0.0 # ?? this is a difficult one as we need to find the maximum z in which up[i].a > minval
+    end
 end;
 
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
@@ -677,16 +669,19 @@ function compute_gradient_argument!(
     en = state.edmf.environment
 
     ρ = gm.ρ
-    en_t.u     = en_a.u
-    en_t.q_tot = en_a.q_tot
-    en_t.e_int = en_a.e_int
+    env_u = (gm.u - up[i].u*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+    env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+    env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+    en_t.u     = env_u
+    en_t.q_tot = env_q_tot
+    en_t.e_int = env_e_int
 
     ts = thermo_state(SingleStack, state, aux)
     en_t.θ_ρ = virtual_pottemp(ts)
 
-    for i in 1:N
-        up_t[i].u = up[i].ρau/up[i].ρa
-    end
+    # for i in 1:N
+    #     up_t[i].u = up[i].ρau/up[i].ρa
+    # end
 end;
 
 # Specify where in `diffusive::Vars` to store the computed gradient from
@@ -740,29 +735,26 @@ function source!(
     gm_s = source
     en_s = source
     up_s = source.edmf.updraft
-    # I am missing the computation of up_a[i].cloud.updraft_top
-    # I am missing the computation of env_area 
 
-    # condition on updraft_area>0 ?
-    a_env = sum([up[i].ρa for i in 1:N])
+    # should be conditioned on updraft_area > minval 
+    a_env = 1-sum([up[i].ρa for i in 1:N])*ρinv
+    ρinv = 1/gm.ρ
     for i in 1:N
         # get enviroment values for e_int, q_tot , u[3]
-        env_u = 
-        env_e_int = 
-        env_q_tot = 
+        env_u = (gm.u - up[i].u*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+        env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+        env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
 
         # first moment sources 
         εt, ε, δ = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
-        # add gradient of u,v,w with z for tke shear 
-        # add gradient of u,v,w with z for tke shear 
         l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
+        K_eddy = m.c_k*l*sqrt(en.tke)
         dpdz, dpdz_tke_i = perturbation_pressure(m, m.edmf.pressure, source, state, diffusive, aux, t, direction, i)
-        en_a.K_eddy = m.c_k*l*sqrt(en.tke)
 
            # entrainment and detrainment 
-        w_i = up[i].ρu[3]/gm.ρ
+        w_i = up[i].ρu[3]*ρinv
         up_s[i].ρa      += up[i].ρa * w_i * (ε - δ)
-        up_s[i].ρau     += up[i].ρa * w_i * ((ε+εt)*up_s[i].ρau - (δ+εt)*env_u)
+        up_s[i].ρau     += up[i].ρa * w_i * ((ε+εt)*up_s[i].ρau     - (δ+εt)*env_u)
         up_s[i].ρae_int += up[i].ρa * w_i * ((ε+εt)*up_s[i].ρae_int - (δ+εt)*env_e_int)
         up_s[i].ρaq_tot += up[i].ρa * w_i * ((ε+εt)*up_s[i].ρaq_tot - (δ+εt)*env_q_tot)
 
@@ -771,6 +763,8 @@ function source!(
 
         # second moment sources 
         en.ρatke += dpdz_tke_i
+
+        # sources  for the grid mean 
     end
 end;
 
@@ -794,11 +788,12 @@ function flux_first_order!(
     up_f = flux.edmf.updraft
 
     # gm
-    gm_f.ρ = gm.ρu
-    u = gm.ρu / gm.ρ
-    gm_f.ρu = gm.ρu * u'
-    gm_f.ρcT = u * gm.ρcT
     ρinv = 1/gm.ρ
+    gm_f.ρ = gm.ρu
+    u = gm.ρu * ρinv
+    gm_f.ρu = gm.ρu * u'
+    gm_f.ρe_int = u * gm.ρe_int
+    gm_f.ρq_tot = u * gm.ρq_tot
 
     # up
     for i in 1:N
@@ -810,10 +805,6 @@ function flux_first_order!(
 
 end;
 
-# Compute diffusive flux (``F(α, ρcT, t) = -α ∇ρcT`` in the original PDE).
-# Note that:
-# - `diffusive.α∇ρcT` is available here because we've specified `α∇ρcT` in
-# `vars_state_gradient_flux`
 function flux_second_order!(
     m::SingleStack{FT,N},
     flux::Grad,
@@ -837,11 +828,15 @@ function flux_second_order!(
     up_f = flux.edmf.updraft
     en_f = flux.edmf.environment
     
+    # compute the mixing length and eddy diffusivity 
+    # (I am repeating this after doing in sources assumign that it is better to compute this twice than to add mixing length as a aux.variable)
+    l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
+    K_eddy = m.c_k*l*sqrt(en.tke)
     # flux_second_order in the grid mean is the enviroment turbulent diffussion 
     en_ρa = gm.ρ-sum([up[i].ρa for i in 1:N])
-    gm_f.ρe_int += en_ρa*en_a.K_eddy*en_d.∇e_int # check prentel number here 
-    gm_f.ρq_tot += en_ρa*en_a.K_eddy*en_d.∇q_tot # check prentel number here 
-    gm_f.ρu     += en_ρa*en_a.K_eddy*en_d.∇u     # check prentel number here 
+    gm_f.ρe_int += en_ρa*K_eddy*en_d.∇e_int # check prentel number here 
+    gm_f.ρq_tot += en_ρa*K_eddy*en_d.∇q_tot # check prentel number here 
+    gm_f.ρu     += en_ρa*K_eddy*en_d.∇u     # check prentel number here 
 end;
 
 # ### Boundary conditions
@@ -867,25 +862,34 @@ function boundary_state!(
     gm = state⁺
     up = state⁺.edmf.updraft
     if bctype == 1 # bottom
-        gm.ρ = 1
+        gm.ρ = m.surface_ρ # find out how is the density at the surafce computed in the LES? 
         gm.ρu = SVector(0,0,0)
         gm.ρe_int = gm.ρ * m.surface_e_int
         gm.ρq_tot = gm.ρ * m.surface_q_tot
 
+        # placeholder to add a function for updraft surface value
+        # this dunction should use surface covariancve in the grid mean from a corresponing function
         for i in 1:N
-            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
+            upd_a_surf, upd_e_int_surf, upd_q_tot_surf  = compute_updraft_surface_BC(i)
             up[i].ρau = SVector(0,0,0)
-            up[i].ρae_int = gm.ρe_int*up[i].ρa/gm.ρ
-            up[i].ρaq_tot = gm.ρq_tot*up[i].ρa/gm.ρ
+            up[i].ρa = upd_a_surf
+            up[i].ρae_int = upd_e_int_surf
+            up[i].ρaq_tot = upd_q_tot_surf 
         end
 
     elseif bctype == 2 # top
-        gm.ρ = 1
+        ## importnet - can the clima implemntation allow for upwinding ?
+        # if yes not BC on upd are needed at the top (currently set to GM)
+        # if not many issues might  come up with area fraction at the upd top 
+        
+        gm.ρ = # placeholder to find out how density at the top is computed in the LES? 
         gm.ρu = SVector(0,0,0)
 
         for i in 1:N
-            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
             up[i].ρau = SVector(0,0,0)
+            up[i].ρa = 0.0
+            up[i].ρae_int = gm.ρe_int*up[i].ρa*ρinv
+            up[i].ρaq_tot = gm.ρq_tot*up[i].ρa*ρinv
         end
 
     end
@@ -912,26 +916,32 @@ function boundary_state!(
     gm_d = diff⁺
     up_d = diff⁺.edmf.updraft
     if bctype == 1 # bottom
-        gm.ρ = 1
-        gm.ρu = SVector(0,0,0)
-        gm.ρcT = gm.ρ*m.c * m.T_bottom
+        gm_d.ρ∇e_int = gm.ρ * m.e_int_surface_flux # e_int_surface_flux has units of w'e_int'
+        gm_d.ρ∇q_tot = gm.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
 
-        for i in 1:N
-            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
-            up[i].ρau = SVector(0,0,0)
-            up[i].ρacT = gm.ρ*m.c * m.T_bottom
-        end
+        # placeholder to add function for surface TKE and covariances 
+        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = get_surface_covariance()
+        en_d.ρatke = gm.ρ * area_en * tke
+        en_d.ρae_int_cv = gm.ρ * area_en * e_int_cv
+        en_d.ρaq_tot_cv = gm.ρ * area_en * q_tot_cv
+        en_d.ρae_int_q_tot_cv = gm.ρ * area_en * e_int_q_tot_cv
+        
+        gm_d.ρ∇u[1] = gm.ρ * m.u_surface_flux # u_surface_flux has units of w'u'
+        gm_d.ρ∇u[2] = gm.ρ * m.v_surface_flux # v_surface_flux has units of w'v'
+        gm_d.ρ∇e_int = gm.ρ * m.e_int_surface_flux # e_int_surface_flux has units of w'e_int'
+        gm_d.ρ∇q_tot = gm.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
 
     elseif bctype == 2 # top
-        gm.ρ = 1
-        gm.ρu = SVector(0,0,0)
-        gm_d.α∇ρcT = -n⁻ * m.flux_top
+        # for now zero flux at the top 
+        en_d.ρatke = -n⁻ * 0.0
+        en_d.ρae_int_cv = -n⁻ * 0.0
+        en_d.ρaq_tot_cv = -n⁻ * 0.0
+        en_d.ρae_int_q_tot_cv = -n⁻ * 0.0
 
-        for i in 1:N
-            up[i].ρa = m.a_updraft_initial/FT(N)*gm.ρ
-            up[i].ρau = SVector(0,0,0)
-            up_d[i].αa∇ρcT = -n⁻ * m.flux_top
-        end
+        gm_d.ρ∇u[1] = -n⁻ * 0.0 
+        gm_d.ρ∇u[2] = -n⁻ * 0.0 
+        gm_d.ρ∇e_int = -n⁻ * 0.0 
+        gm_d.ρ∇q_tot = -n⁻ * 0.0 
     end
 end;
 

@@ -25,7 +25,7 @@ function perturbation_pressure(
 
     nh_press_buoy    = - up[i].ρa * up_a[i].buoyancy * m.α_b
     nh_pressure_adv  = up[i].ρa * m.α_a * w_i*up_d.∇u[3]
-    nh_pressure_drag = - ρa_k * m.α_d * (w_up - w_env)*abs(w_up - w_env)/max(up_a[i].cloud.updraft_top, 500.0)
+    nh_pressure_drag = - ρa_k * m.α_d * (w_up - w_env)*abs(w_up - w_env)/max(up_a[i].upd_top, 500.0)
 
     dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
     dpdz_tke_i = (w_up - w_env)*dpdz
