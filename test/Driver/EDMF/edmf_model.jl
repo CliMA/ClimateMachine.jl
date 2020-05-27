@@ -3,6 +3,8 @@
 #### Entrainment-Detrainment model
 
 Base.@kwdef struct EntrainmentDetrainment{FT}
+    "Fractional scales"
+    Λ::MArray{Tuple{2},FT} = MArray{Tuple{2},FT}([0,0])
     "Entrainmnet TKE scale"
     c_λ::FT = 0.3
     "Entrainment factor"

@@ -1,5 +1,6 @@
 #### EDMF model kernels
 
+include(joinpath("helper_funcs", "nondimensional_exchange_functions.jl"))
 include(joinpath("helper_funcs", "lamb_smooth_minimum.jl"))
 include(joinpath("helper_funcs", "compute_subdomain_statistics.jl"))
 include(joinpath("closures", "entr_detr.jl"))
