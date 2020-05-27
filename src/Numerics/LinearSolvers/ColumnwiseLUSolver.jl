@@ -12,6 +12,8 @@ const LS = LinearSolvers
 using ..MPIStateArrays
 using LinearAlgebra
 using KernelAbstractions
+using Adapt
+import ..Mesh.Grids: polynomialorder, dimensionality
 
 abstract type AbstractColumnLUSolver <: AbstractLinearSolver end
 
@@ -33,9 +35,51 @@ the same.  The systems are solved using a non-pivoted LU factorization.
 """
 struct SingleColumnLU <: AbstractColumnLUSolver end
 
-struct ColumnwiseLU{F, AT}
-    f::F
+struct ColumnwiseLU{AT}
     A::AT
+end
+
+struct DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC, AT}
+    data::AT
+end
+DGColumnBandedMatrix(
+    A::DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC},
+    data,
+) where {D, P, NS, EH, EV, EB, SC} =
+    DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC, typeof(data)}(data)
+Base.eltype(A::DGColumnBandedMatrix) = eltype(A.data)
+Base.size(A::DGColumnBandedMatrix) = size(A.data)
+dimensionality(::DGColumnBandedMatrix{D}) where {D} = D
+polynomialorder(::DGColumnBandedMatrix{D, P}) where {D, P} = P
+num_state(::DGColumnBandedMatrix{D, P, NS}) where {D, P, NS} = NS
+num_horz_elem(::DGColumnBandedMatrix{D, P, NS, EH}) where {D, P, NS, EH} = EH
+num_vert_elem(
+    ::DGColumnBandedMatrix{D, P, NS, EH, EV},
+) where {D, P, NS, EH, EV} = EV
+elem_band(
+    ::DGColumnBandedMatrix{D, P, NS, EH, EV, EB},
+) where {D, P, NS, EH, EV, EB} = EB
+single_column(
+    ::DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC},
+) where {D, P, NS, EH, EV, EB, SC} = SC
+lower_bandwidth(A::DGColumnBandedMatrix) =
+    (polynomialorder(A) + 1) * num_state(A) * elem_band(A) - 1
+upper_bandwidth(A::DGColumnBandedMatrix) = lower_bandwidth(A)
+Base.reshape(A::DGColumnBandedMatrix, args...) =
+    DGColumnBandedMatrix(A, reshape(A.data, args...))
+Adapt.adapt_structure(to, A::DGColumnBandedMatrix) =
+    DGColumnBandedMatrix(A, adapt(to, A.data))
+
+
+Base.@propagate_inbounds function Base.getindex(A::DGColumnBandedMatrix, I...)
+    return A.data[I...]
+end
+Base.@propagate_inbounds function Base.setindex!(
+    A::DGColumnBandedMatrix,
+    val,
+    I...,
+)
+    A.data[I...] = val
 end
 
 function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
@@ -51,57 +95,43 @@ function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
         single_column = typeof(solver) <: SingleColumnLU,
     )
 
-    band_lu!(A, dg)
+    band_lu!(A)
 
-    ColumnwiseLU(dg, A)
+    ColumnwiseLU(A)
 end
 
 function LS.linearsolve!(
-    clu::ColumnwiseLU{F},
+    clu::ColumnwiseLU,
     ::AbstractColumnLUSolver,
     Q,
     Qrhs,
     args...,
-) where {F <: DGModel}
+)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    dg = clu.f
     A = clu.A
     Q .= Qrhs
 
-    band_forward!(Q, A, dg)
-    band_back!(Q, A, dg)
+    band_forward!(Q, A)
+    band_back!(Q, A)
 end
 
 """
-    band_lu!(A, dg::DGModel)
+    band_lu!(A)
 
 """
-function band_lu!(A, dg::DGModel)
-    bl = dg.balance_law
-    grid = dg.grid
-    topology = grid.topology
-    @assert isstacked(topology)
-    @assert typeof(dg.direction) <: VerticalDirection
+function band_lu!(A)
+    device = typeof(A.data) <: Array ? CPU() : CUDA()
 
-    FT = eltype(A)
-    device = typeof(A) <: Array ? CPU() : CUDA()
-
-    nstate = number_state_conservative(bl, FT)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqj = dimensionality(grid) == 2 ? 1 : Nq
-
-    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
-
-    nrealelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
+    nstate = num_state(A)
+    Nq = polynomialorder(A) + 1
+    Nqj = dimensionality(A) == 2 ? 1 : Nq
+    nhorzelem = num_horz_elem(A)
 
     groupsize = (Nq, Nqj)
     ndrange = (nhorzelem * Nq, Nqj)
 
-    if ndims(A) == 2
+    if single_column(A)
         # single column case
         #
         # TODO Would it be faster to copy the matrix to the host and factorize it
@@ -114,87 +144,40 @@ function band_lu!(A, dg::DGModel)
     event = Event(device)
     event = band_lu_kernel!(device, groupsize)(
         A,
-        Val(Nq),
-        Val(groupsize[1]),
-        Val(groupsize[2]),
-        Val(nstate),
-        Val(nvertelem),
-        Val(ndrange[end]),
-        Val(eband);
         ndrange = ndrange,
         dependencies = (event,),
     )
     wait(device, event)
 end
 
-function band_forward!(Q, A, dg::DGModel)
-    bl = dg.balance_law
-    grid = dg.grid
-    topology = grid.topology
-    @assert isstacked(topology)
-    @assert typeof(dg.direction) <: VerticalDirection
-
-    FT = eltype(A)
+function band_forward!(Q, A)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    nstate = number_state_conservative(bl, FT)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqj = dimensionality(grid) == 2 ? 1 : Nq
-
-    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
-
-    nrealelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
+    Nq = polynomialorder(A) + 1
+    Nqj = dimensionality(A) == 2 ? 1 : Nq
+    nhorzelem = num_horz_elem(A)
 
     event = Event(device)
     event = band_forward_kernel!(device, (Nq, Nqj))(
         Q.data,
         A,
-        Val(Nq),
-        Val(Nqj),
-        Val(nstate),
-        Val(nvertelem),
-        Val(nhorzelem),
-        Val(eband);
         ndrange = (nhorzelem * Nq, Nqj),
         dependencies = (event,),
     )
     wait(device, event)
 end
 
-function band_back!(Q, A, dg::DGModel)
-    bl = dg.balance_law
-    grid = dg.grid
-    topology = grid.topology
-    @assert isstacked(topology)
-    @assert typeof(dg.direction) <: VerticalDirection
-
-    FT = eltype(A)
+function band_back!(Q, A)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    nstate = number_state_conservative(bl, FT)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqj = dimensionality(grid) == 2 ? 1 : Nq
-
-    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
-
-    nrealelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
+    Nq = polynomialorder(A) + 1
+    Nqj = dimensionality(A) == 2 ? 1 : Nq
+    nhorzelem = num_horz_elem(A)
 
     event = Event(device)
     event = band_back_kernel!(device, (Nq, Nqj))(
         Q.data,
         A,
-        Val(Nq),
-        Val(Nqj),
-        Val(nstate),
-        Val(nvertelem),
-        Val(nhorzelem),
-        Val(eband);
         ndrange = (nhorzelem * Nq, Nqj),
         dependencies = (event,),
     )
@@ -210,7 +193,7 @@ Forms the banded matrices for each the column operator defined by the `DGModel`
 dg.  If `single_column=false` then a banded matrix is stored for each column and
 if `single_column=true` only the banded matrix associated with the first column
 of the first element is stored. The bandwidth of the DG column banded matrix is
-`p = q = (polynomialorder + 1) * nstate * nvertelem - 1` with `p` and `q` being
+`p = q = (polynomialorder + 1) * nstate * eband - 1` with `p` and `q` being
 the upper and lower bandwidths.
 
 The banded matrices are stored in the LAPACK band storage format
@@ -255,7 +238,7 @@ operator `f!` which is assumed to have the same banded structure as the
 `DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
 column and if `single_column=true` only the banded matrix associated with the
 first column of the first element is stored. The bandwidth of the DG column
-banded matrix is `p = q = (polynomialorder + 1) * nstate * nvertelem - 1` with
+banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
 `p` and `q` being the upper and lower bandwidths.
 
 The banded matrices are stored in the LAPACK band storage format
@@ -322,6 +305,19 @@ function banded_matrix(
     end
     fill!(A, zero(FT))
 
+    A = DGColumnBandedMatrix{
+        dim,
+        N,
+        nstate,
+        nhorzelem,
+        nvertelem,
+        eband,
+        single_column,
+        typeof(A),
+    }(
+        A,
+    )
+
     # loop through all DOFs in a column and compute the matrix column
     for ev in 1:nvertelem
         for s in 1:nstate
@@ -331,6 +327,7 @@ function banded_matrix(
                 event = kernel_set_banded_data!(device, (Nq, Nqj, Nq))(
                     bl,
                     Val(dim),
+                    Val(nstate),
                     Val(N),
                     Val(nvertelem),
                     Q.data,
@@ -350,13 +347,6 @@ function banded_matrix(
                 # Store the banded matrix
                 event = Event(device)
                 event = kernel_set_banded_matrix!(device, (Nq, Nqj, Nq))(
-                    bl,
-                    Val(dim),
-                    Val(N),
-                    Val(nvertelem),
-                    Val(p),
-                    Val(q),
-                    Val(eband + 1),
                     A,
                     dQ.data,
                     k,
@@ -371,12 +361,13 @@ function banded_matrix(
             end
         end
     end
+
     A
 end
 
 
 """
-    banded_matrix_vector_product!(dg::DGModel, A, dQ::MPIStateArray,
+    banded_matrix_vector_product!(A, dQ::MPIStateArray,
                                   Q::MPIStateArray)
 
 Compute a matrix vector product `dQ = A * Q` where `A` is assumed to be a matrix
@@ -384,43 +375,16 @@ created using the `banded_matrix` function.
 
 This function is primarily for testing purposes.
 """
-function banded_matrix_vector_product!(
-    dg::DGModel,
-    A,
-    dQ::MPIStateArray,
-    Q::MPIStateArray,
-)
-    bl = dg.balance_law
-    grid = dg.grid
-    topology = grid.topology
-    @assert isstacked(topology)
-    @assert typeof(dg.direction) <: VerticalDirection
-
-    FT = eltype(Q.data)
+function banded_matrix_vector_product!(A, dQ::MPIStateArray, Q::MPIStateArray)
     device = typeof(Q.data) <: Array ? CPU() : CUDA()
 
-    eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
-    nstate = number_state_conservative(bl, FT)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    p = q = nstate * Nq * eband - 1
-
-    nrealelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
-
-    dim = dimensionality(grid)
-
-    Nqj = dim == 2 ? 1 : Nq
+    Nq = polynomialorder(A) + 1
+    Nqj = dimensionality(A) == 2 ? 1 : Nq
+    nvertelem = num_vert_elem(A)
+    nhorzelem = num_horz_elem(A)
 
     event = Event(device)
     event = kernel_banded_matrix_vector_product!(device, (Nq, Nqj, Nq))(
-        bl,
-        Val(dim),
-        Val(N),
-        Val(nvertelem),
-        Val(p),
-        Val(q),
         dQ.data,
         A,
         Q.data,
@@ -436,8 +400,7 @@ using StaticArrays
 using KernelAbstractions.Extras: @unroll
 
 @doc """
-    band_lu_kernel!(A, Val(Nq), Val(Nqi), Val(Nqj), Val(nstate), Val(nvertelem),
-                 Val(nhorzelem), Val(eband))
+    band_lu_kernel!(A)
 
 This performs Band Gaussian Elimination (Algorithm 4.3.1 of Golub and Van
 Loan).  The array `A` contains a band matrix for each vertical column.  For
@@ -478,20 +441,13 @@ is stored as
     }
 
 """ band_lu_kernel!
-@kernel function band_lu_kernel!(
-    A,
-    ::Val{Nq},
-    ::Val{Nqi},
-    ::Val{Nqj},
-    ::Val{nstate},
-    ::Val{nvertelem},
-    ::Val{nhorzelem},
-    ::Val{eband},
-) where {Nq, Nqi, Nqj, nstate, nvertelem, nhorzelem, eband}
+@kernel function band_lu_kernel!(A)
     @uniform begin
-        FT = eltype(A)
+        Nq = polynomialorder(A) + 1
+        nstate = num_state(A)
+        nvertelem = num_vert_elem(A)
         n = nstate * Nq * nvertelem
-        p = q = nstate * Nq * eband - 1
+        p, q = lower_bandwidth(A), upper_bandwidth(A)
     end
 
     h = @index(Group, Linear)
@@ -524,8 +480,7 @@ is stored as
 end
 
 @doc """
-    band_forward_kernel!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
-                      Val(nhorzelem), Val(eband))
+    band_forward_kernel!(b, LU)
 
 This performs Band Forward Substitution (Algorithm 4.3.2 of Golub and Van
 Loan), i.e., the right-hand side `b` is replaced with the solution of `L*x=b`.
@@ -553,20 +508,16 @@ eband - 1`.
     }
 
 """ band_forward_kernel!
-@kernel function band_forward_kernel!(
-    b,
-    LU::AbstractArray{T, N},
-    ::Val{Nq},
-    ::Val{Nqj},
-    ::Val{nstate},
-    ::Val{nvertelem},
-    ::Val{nhorzelem},
-    ::Val{eband},
-) where {T, N, Nq, Nqj, nstate, nvertelem, nhorzelem, eband}
+@kernel function band_forward_kernel!(b, LU)
     @uniform begin
         FT = eltype(b)
+        nstate = num_state(LU)
+        Nq = polynomialorder(LU) + 1
+        Nqj = dimensionality(LU) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(LU)
         n = nstate * Nq * nvertelem
-        p = q = eband * nstate * Nq - 1
+        eband = elem_band(LU)
+        p, q = lower_bandwidth(LU), upper_bandwidth(LU)
 
         l_b = MArray{Tuple{p + 1}, FT}(undef)
     end
@@ -592,7 +543,8 @@ eband - 1`.
                     jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq
 
                     @unroll for ii in 2:(p + 1)
-                        Lii = N == 2 ? LU[ii + q, jj] : LU[i, j, ii + q, jj, h]
+                        Lii = single_column(LU) ? LU[ii + q, jj] :
+                            LU[i, j, ii + q, jj, h]
                         l_b[ii] -= Lii * l_b[1]
                     end
 
@@ -621,8 +573,7 @@ eband - 1`.
 end
 
 @doc """
-    band_back_kernel!(b, LU, Val(Nq), Val(Nqj), Val(nstate), Val(nvertelem),
-                   Val(nhorzelem), Val(eband))
+    band_back_kernel!(b, LU)
 
 This performs Band Back Substitution (Algorithm 4.3.3 of Golub and Van
 Loan), i.e., the right-hand side `b` is replaced with the solution of `U*x=b`.
@@ -650,20 +601,16 @@ eband - 1`.
     }
 
 """ band_back_kernel!
-@kernel function band_back_kernel!(
-    b,
-    LU::AbstractArray{T, N},
-    ::Val{Nq},
-    ::Val{Nqj},
-    ::Val{nstate},
-    ::Val{nvertelem},
-    ::Val{nhorzelem},
-    ::Val{eband},
-) where {T, N, Nq, Nqj, nstate, nvertelem, nhorzelem, eband}
+@kernel function band_back_kernel!(b, LU)
     @uniform begin
         FT = eltype(b)
+        nstate = num_state(LU)
+        Nq = polynomialorder(LU) + 1
+        Nqj = dimensionality(LU) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(LU)
         n = nstate * Nq * nvertelem
-        q = nstate * Nq * eband - 1
+        q = upper_bandwidth(LU)
+        eband = elem_band(LU)
 
         l_b = MArray{Tuple{q + 1}, FT}(undef)
     end
@@ -691,11 +638,12 @@ eband - 1`.
                 @unroll for s in nstate:-1:1
                     jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq
 
-                    l_b[q + 1] /=
-                        N == 2 ? LU[q + 1, jj] : LU[i, j, q + 1, jj, h]
+                    l_b[q + 1] /= single_column(LU) ? LU[q + 1, jj] :
+                        LU[i, j, q + 1, jj, h]
 
                     @unroll for ii in 1:q
-                        Uii = N == 2 ? LU[ii, jj] : LU[i, j, ii, jj, h]
+                        Uii =
+                            single_column(LU) ? LU[ii, jj] : LU[i, j, ii, jj, h]
                         l_b[ii] -= Uii * l_b[q + 1]
                     end
 
@@ -726,6 +674,7 @@ end
 @kernel function kernel_set_banded_data!(
     bl::BalanceLaw,
     ::Val{dim},
+    ::Val{nstate},
     ::Val{N},
     ::Val{nvertelem},
     Q,
@@ -734,13 +683,12 @@ end
     evin,
     helems,
     velems,
-) where {dim, N, nvertelem}
+) where {dim, N, nstate, nvertelem}
     @uniform begin
         FT = eltype(Q)
 
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
-        nstate = number_state_conservative(bl, FT)
     end
 
     ev, eh = @index(Group, NTuple)
@@ -760,25 +708,23 @@ end
 end
 
 @kernel function kernel_set_banded_matrix!(
-    bl::BalanceLaw,
-    ::Val{dim},
-    ::Val{N},
-    ::Val{nvertelem},
-    ::Val{p},
-    ::Val{q},
-    ::Val{eshift},
-    A::AbstractArray{FT, AN},
+    A,
     dQ,
     kin,
     sin,
     evin,
     helems,
     vpelems,
-) where {dim, N, nvertelem, p, q, eshift, FT, AN}
+)
     @uniform begin
-        Nq = N + 1
-        Nqj = dim == 2 ? 1 : Nq
-        nstate = number_state_conservative(bl, FT)
+        FT = eltype(A)
+        nstate = num_state(A)
+        Nq = polynomialorder(A) + 1
+        Nqj = dimensionality(A) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(A)
+        p = lower_bandwidth(A)
+        q = upper_bandwidth(A)
+        eshift = elem_band(A) + 1
 
         # sin, kin, evin are the state, vertical fod, and vert element we are
         # handling
@@ -806,9 +752,9 @@ end
                 bb = ii - jj
                 # make sure we're in the bandwidth
                 if -q ≤ bb ≤ p
-                    if AN === 5
+                    if !single_column(A)
                         A[i, j, bb + q + 1, jj, eh] = dQ[ijk, s, e]
-                    elseif AN === 2
+                    else
                         if (i, j, eh) == (1, 1, 1)
                             A[bb + q + 1, jj] = dQ[ijk, s, e]
                         end
@@ -819,24 +765,15 @@ end
     end
 end
 
-@kernel function kernel_banded_matrix_vector_product!(
-    bl::BalanceLaw,
-    ::Val{dim},
-    ::Val{N},
-    ::Val{nvertelem},
-    ::Val{p},
-    ::Val{q},
-    dQ,
-    A::AbstractArray{FT, AN},
-    Q,
-    helems,
-    velems,
-) where {dim, N, nvertelem, p, q, FT, AN}
-
+@kernel function kernel_banded_matrix_vector_product!(dQ, A, Q, helems, velems)
     @uniform begin
-        Nq = N + 1
-        Nqj = dim == 2 ? 1 : Nq
-        nstate = number_state_conservative(bl, FT)
+        FT = eltype(A)
+        nstate = num_state(A)
+        Nq = polynomialorder(A) + 1
+        Nqj = dimensionality(A) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(A)
+        p = lower_bandwidth(A)
+        q = upper_bandwidth(A)
 
         elo = div(q, Nq * nstate - 1)
         eup = div(p, Nq * nstate - 1)
@@ -861,10 +798,10 @@ end
                         jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq
                         bb = ii - jj
                         if -q ≤ bb ≤ p
-                            if AN === 5
+                            if !single_column(A)
                                 Ax +=
                                     A[i, j, bb + q + 1, jj, eh] * Q[ijk, ss, ee]
-                            elseif AN === 2
+                            else
                                 Ax += A[bb + q + 1, jj] * Q[ijk, ss, ee]
                             end
                         end
