@@ -37,6 +37,8 @@ function mixing_length(
     ϵ_v = 1. / molmass_ratio(param_set)
     g = FT(grav(param_set))
     R_d = FT(R_d(param_set))
+    bflux = 
+    obukhov_length = compute_MO_len(m.κ, m.ustar, bflux)
 
     ρinv = 1/gm.ρ
     fill!(m.L, 0)

@@ -33,7 +33,7 @@ function compute_buoyancy_gradients(
     g = FT(grav(param_set))
     R_d = FT(R_d(param_set))
 
-    cloudy, dry = compute_subdomain_statistics!(m, state, aux ,t, statistical_model)
+    cloudy, dry = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model) # can I call the microphyscis model here?     
     ∂b∂ρ = - g/gm.ρ
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
     ∂ρ∂e_int_dry    = - R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*cv_d+dry.q_vap *cv_v)
@@ -63,5 +63,37 @@ function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length, a_empirical, b_
                         (1+(a_empirical/b_empirical)*Grad_Ri -sqrt( (1+(a_empirical/c_empirical)*Grad_Ri)^2 - 4*Grad_Ri ) ) )
     end
     return Pr_z
+end;
+
+function surface_variance(flux1::FT, flux2::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
+  c_star1 = -flux1/ustar
+  c_star2 = -flux2/ustar
+  if oblength < 0
+    return 4 * c_star1 * c_star2 * (1 - 8.3 * zLL/oblength)^(-2/3)
+  else
+    return 4 * c_star1 * c_star2
+  end
+end;
+
+function compute_windspeed(
+    ss::SingleStack{FT, N},
+    m::MixingLengthModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+    ) where {FT, N}
+    windspeed_min = FT(0.01)
+  return max(hypot(gm.u, gm.v), windspeed_min)
+end;
+
+function compute_MO_len(k_Karman::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
+  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / k_Karman
+end;
+
+function compute_blux(g::FT, ϵ_v::FT, bflux::FT) where {FT<:Real, PS}
+  return (g * ((8.0e-3 + (ϵ_v-1)*(299.1 * 5.2e-5  + 22.45e-3 * 8.0e-3)) /(299.1 * (1.0 + (ϵ_v-1) * 22.45e-3))))
 end;
 
