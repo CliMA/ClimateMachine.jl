@@ -1,21 +1,8 @@
-module ColumnwiseLUSolver
+#### Columnwise LU Solver
 
 export ManyColumnLU, SingleColumnLU
 
-using ..Mesh.Grids
-using ..Mesh.Topologies
-using ..DGmethods
-using ..DGmethods:
-    BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
-using ..LinearSolvers
-const LS = LinearSolvers
-using ..MPIStateArrays
-using LinearAlgebra
-using KernelAbstractions
-using Adapt
-import ..Mesh.Grids: polynomialorder, dimensionality
-
-abstract type AbstractColumnLUSolver <: AbstractLinearSolver end
+abstract type AbstractColumnLUSolver <: AbstractSystemSolver end
 
 """
     ManyColumnLU()
@@ -82,7 +69,7 @@ Base.@propagate_inbounds function Base.setindex!(
     A.data[I...] = val
 end
 
-function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
+function prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
     dg = op.f!
 
     # TODO: can we get away with just passing the grid?
@@ -100,7 +87,7 @@ function LS.prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
     ColumnwiseLU(A)
 end
 
-function LS.linearsolve!(
+function linearsolve!(
     clu::ColumnwiseLU,
     ::AbstractColumnLUSolver,
     Q,
@@ -184,8 +171,12 @@ end
 
 
 """
-    banded_matrix(dg::DGModel, [Q::MPIStateArray, dQ::MPIStateArray,
-                  single_column=false])
+    banded_matrix(
+        dg::DGModel,
+        Q::MPIStateArray = MPIStateArray(dg),
+        dQ::MPIStateArray = MPIStateArray(dg);
+        single_column = false,
+    )
 
 Forms the banded matrices for each the column operator defined by the `DGModel`
 dg.  If `single_column=false` then a banded matrix is stored for each column and
@@ -226,10 +217,14 @@ function banded_matrix(
 end
 
 """
-    banded_matrix(f!::Function, dg::DGModel,
-                  Q::MPIStateArray = MPIStateArray(dg),
-                  dQ::MPIStateArray = MPIStateArray(dg), args...;
-                  single_column = false, args...)
+    banded_matrix(
+        f!,
+        dg::DGModel,
+        Q::MPIStateArray = MPIStateArray(dg),
+        dQ::MPIStateArray = MPIStateArray(dg),
+        args...;
+        single_column = false,
+    )
 
 Forms the banded matrices for each the column operator defined by the linear
 operator `f!` which is assumed to have the same banded structure as the
@@ -365,8 +360,11 @@ end
 
 
 """
-    banded_matrix_vector_product!(A, dQ::MPIStateArray,
-                                  Q::MPIStateArray)
+    banded_matrix_vector_product!(
+        A,
+        dQ::MPIStateArray,
+        Q::MPIStateArray
+    )
 
 Compute a matrix vector product `dQ = A * Q` where `A` is assumed to be a matrix
 created using the `banded_matrix` function.
@@ -810,5 +808,4 @@ end
             dQ[ijk, s, e] = Ax
         end
     end
-end
 end

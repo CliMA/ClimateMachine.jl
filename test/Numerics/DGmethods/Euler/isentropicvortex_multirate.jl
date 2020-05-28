@@ -8,8 +8,7 @@ using ClimateMachine.DGmethods.NumericalFluxes:
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder
 using ClimateMachine.ODESolvers
-using ClimateMachine.GeneralizedMinimalResidualSolver:
-    GeneralizedMinimalResidual
+using ClimateMachine.SystemSolvers: GeneralizedMinimalResidual
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps

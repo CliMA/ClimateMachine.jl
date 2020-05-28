@@ -5,8 +5,7 @@ using Random
 using StaticArrays
 using KernelAbstractions: CPU, CUDA
 using ClimateMachine
-using ClimateMachine.LinearSolvers
-using ClimateMachine.ConjugateGradientSolver
+using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays
 using CUDAapi
 using Random

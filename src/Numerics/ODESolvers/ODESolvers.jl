@@ -8,7 +8,7 @@ module ODESolvers
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
-using ..LinearSolvers
+using ..SystemSolvers
 using ..MPIStateArrays: array_device, realview
 
 export solve!, updatedt!, gettime
