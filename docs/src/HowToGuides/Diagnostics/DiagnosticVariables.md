@@ -4,6 +4,8 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 
 ## LES Diagnostics
 
+- unless otherwise stated, these fields are density weighted using horizontally-avaraged density
+
 ### default
 
 | short name | description                                                                |
@@ -11,11 +13,11 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 | u          | x-velocity                                                                 |
 | v          | y-velocity                                                                 |
 | w          | z-velocity                                                                 |
-| avg_rho    | density   ?                                                                |
-| rho        | (density-averaged) density        ?                                        |
-| qt         | total specific humidity*                                                   |
-| ql         | liquid water specific humidity*                                            |
-| qv         | water vapor specific humidity*                                             |
+| avg_rho    | density (not density-unweighted)                                           |
+| rho        | density (density-weighted)                                                 |
+| qt         | total specific humidity                                                    |
+| ql         | liquid water specific humidity                                             |
+| qv         | water vapor specific humidity                                              |
 | thd        | potential temperature                                                      |
 | thv        | virtual potential temperature                                              |
 | thl        | liquid-ice potential temperature*                                          |
@@ -43,13 +45,13 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 | cov\_w\_ei   | vertical eddy flux of specific internal energy                           |
 | cov\_qt\_thl | covariance of total specific humidity and liquid-ice potential temperature |
 | cov\_qt\_ei  | covariance of total specific humidity and specific internal energy       |
-| w\_qt\_sgs   | vertical sgs flux of total specific humidity*                            |
-| w\_ht\_sgs   | vertical sgs flux of total specific enthalpy*                            |
-| cld\_frac   | cloud fraction*                                                           |
-| cld\_cover  | cloud cover*                                                              |
-| cld\_top    | cloud top*                                                                |
-| cld\_base   | cloud base*                                                               |
-| lwp        | liquid water path*                                                         |
+| w\_qt\_sgs   | vertical sgs flux of total specific humidity                            |
+| w\_ht\_sgs   | vertical sgs flux of total specific enthalpy                            |
+| cld\_frac   | cloud fraction                                                           |
+| cld\_cover  | cloud cover                                                              |
+| cld\_top    | cloud top                                                                |
+| cld\_base   | cloud base                                                               |
+| lwp        | liquid water path                                                         |
 
 ### core
 
@@ -77,7 +79,7 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 | cov\_w\_ei\_core   | cloud core vertical eddy flux of specific internal energy                             |
 | cov\_qt\_thl\_core | cloud core covariance of total specific humidity and liquid-ice potential temperature |
 | cov\_qt\_ei\_core  | cloud core covariance of total specific humidity and specific internal energy         |
-| core\_frac       | cloud core (q\_liq > 0 and w > 0) fraction                                             |
+| core\_frac       | cloud core (q\_liq > 0 and w > 0) fraction                                              |
 
 ## GCM: Dry Held-Suarez
 
