@@ -136,8 +136,6 @@ function main()
         nothing
     end
 
-
-
     # Run the model
     result = ClimateMachine.invoke!(
         solver_config;
