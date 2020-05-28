@@ -94,12 +94,12 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float32                             # floating type precision
+    FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 3                               # horizontal element number
-    n_vert = 3                               # vertical element number
+    n_vert = 10                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(2*3600)                       # end time (s)
+    timeend = FT(4*3600)                       # end time (s)
 
     # Set up driver configuration
     driver_config = config_solidbody(FT, poly_order, (n_horz, n_vert))
@@ -109,9 +109,9 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.002,
+        Courant_number = 0.05,
         CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
+        diffdir = EveryDirection(),
     )
 
     # Set up diagnostics
@@ -134,7 +134,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
 end
