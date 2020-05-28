@@ -72,7 +72,7 @@ function compute_windspeed(
     t::Real,
     direction,
     ) where {FT, N}
-    windspeed_min = FT(0.01)
+    windspeed_min = FT(0.01) # does this needs to be exposed ? 
   return max(hypot(gm.u, gm.v), windspeed_min)
 end;
 

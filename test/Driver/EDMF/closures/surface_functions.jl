@@ -83,8 +83,10 @@ function env_surface_covariances(ss::SingleStack{FT, N},
     source::Vars,
     state::Vars,
     ) where {FT, N}
-  bflux = compute_blux(ss, m, source, state) 
-  oblength = compute_MO_len(m.κ, m.ustar, bflux)
+  # yair - I would like to call the surface functions from src/Atmos/Model/SurfaceFluxes.jl
+  bflux = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, T_b, q, α_0)
+  oblength = Nishizawa2018.monin_obukhov_len(param_set, ustar, bflux)
+  zLL = FT(20) # how to get the z fir st interior ?
   if oblength < 0
     e_int_var       = FT(4) * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
     q_tot_var       = FT(4) * (edmf.q_tot_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))

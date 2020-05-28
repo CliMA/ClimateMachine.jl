@@ -202,7 +202,7 @@ Base.@kwdef struct SingleStack{FT, N} <: BalanceLaw
     "Domain height"
     zmax::FT = 3000
     "subdomain statistics model"
-    zmax::FT = 3000 # needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"
+    subdomain_statistics = 'mean' # needs to be define as a string: "mean", "gaussian quadrature", lognormal quadrature"
     # "Initial density"
     # ρ_IC::FT = 1
     # "Initial conditions for temperature"
