@@ -26,7 +26,7 @@ function entr_detr(
     w_up = up[i].u[3]
     w_en = (gm.ρu[3]-sum([up[j].ρau[3] for j in 1:N]))*ρinv
     b_up = up[i].buoyancy
-    b_en = (gm_a.buoyancy-sum([ρinv*up[i].ρa*up_a[i].buoyancy for i in 1:N]))
+    b_en = (gm_a.buoyancy-sum([ρinv*up[j].ρa*up_a[j].buoyancy for j in 1:N]))
     sqrt_tke = sqrt(max(en.tke,0.0))
     ts_up = PhaseEquil(param_set ,up[i].e_int, up[i].ρ, up[i].q_tot)
     RH_up = relative_humidity(ts_up)
