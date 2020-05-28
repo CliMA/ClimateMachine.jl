@@ -24,7 +24,7 @@ function entr_detr(
     ρinv = 1/gm.ρ
     up_area = up[i].ρa/gm.ρ
     w_up = up[i].u[3]
-    w_en = (gm.ρu[3]-sum([up[i].ρau[3] for i in 1:N]))*ρinv
+    w_en = (gm.ρu[3]-sum([up[j].ρau[3] for j in 1:N]))*ρinv
     b_up = up[i].buoyancy
     b_en = (gm_a.buoyancy-sum([ρinv*up[i].ρa*up_a[i].buoyancy for i in 1:N]))
     sqrt_tke = sqrt(max(en.tke,0.0))
