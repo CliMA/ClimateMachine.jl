@@ -33,8 +33,6 @@ function mixing_length(
 
     ρinv = 1/gm.ρ
     fill!(m.L, 0)
-    a_L = model.a_L(obukhov_length) # these functions are still missing 
-    b_L = model.b_L(obukhov_length) # these functions are still missing 
 
     # precompute
     en_area  = 1-sum([up[i].ρa for i in 1:N])*ρinv

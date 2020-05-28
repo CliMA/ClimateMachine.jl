@@ -28,13 +28,13 @@ Base.@kwdef struct SurfaceModel{FT}
     surface_e_int::FT = 300.0*1004.0
     "Surface total specific humidity [kg/kg]"
     surface_q_tot::FT = 0.0016
-    "Surface I-flux [m^3/s^3]"
+    "Surface internal energy flux [m^3/s^3]"
     e_int_surface_flux::FT = 0.0
-    "Surface q_tot-flux [m/s*kg/kg]"
+    "Surface total specific humidity flux [m/s*kg/kg]"
     q_tot_surface_flux::FT = 0.0
-    "Top I-flux [m^3/s^3]"
+    "Top internal energy flux [m^3/s^3]"
     e_int_top_flux::FT = 0.0
-    "Top q_tot-flux [m/s*kg/kg]"
+    "Top total specific humidity flux [m/s*kg/kg]"
     q_tot_top_flux::FT = 0.0
     "Sufcae area"
     a_surf::FT = 0.1

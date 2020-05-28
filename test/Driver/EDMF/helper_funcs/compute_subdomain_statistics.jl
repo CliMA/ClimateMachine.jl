@@ -27,6 +27,7 @@ function compute_subdomain_statistics!(
   q_ice = PhasePartition(ts).ice
   # here cloudy and dry are indetical as only one will be used based on the value of cld_frac,
   # but I define both as in the  quadratuhre options to come they will differ and both will be used
+  ## I need to find out how to initiate cloudy and dry structures 
   if q_liq+q_ice > 0
     en_a.cld_frac = 1
     cloudy.q_tot = en.q_tot
