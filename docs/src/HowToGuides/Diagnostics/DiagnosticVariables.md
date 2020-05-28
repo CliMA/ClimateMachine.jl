@@ -20,7 +20,7 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 | qv         | water vapor specific humidity                                              |
 | thd        | potential temperature                                                      |
 | thv        | virtual potential temperature                                              |
-| thl        | liquid-ice potential temperature*                                          |
+| thl        | liquid-ice potential temperature                                           |
 | et         | total specific energy                                                      |
 | ei         | specific internal energy                                                   |
 | ht         | specific enthalpy from total energy                                        |
@@ -133,6 +133,8 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 | power\_spec_eke  | eddy kinetic energy power spectrum                                   |
 
 ## GCM: Moist aquaplanet (additional to Held-Suarez)
+
+- GCM variables are not currently density weigted 
 
 ### 2D fields (dependent on horizontal coordinates) *                                      
 | short name | description                                                                |
