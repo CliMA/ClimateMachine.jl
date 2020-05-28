@@ -4,7 +4,7 @@ export GeneralizedConjugateResidual
 
 using ..LinearSolvers
 const LS = LinearSolvers
-using ..MPIStateArrays: device, realview
+using ..MPIStateArrays: array_device, realview
 
 using LinearAlgebra
 using LazyArrays
@@ -156,8 +156,8 @@ function LS.doiteration!(
         groupsize = 256
         T = eltype(alpha)
 
-        event = Event(device(Q))
-        event = LS.linearcombination!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = LS.linearcombination!(array_device(Q), groupsize)(
             rv_nextp,
             (one(T), alpha[1:k]...),
             (rv_residual, rv_p[1:k]...),
@@ -166,7 +166,7 @@ function LS.doiteration!(
             dependencies = (event,),
         )
 
-        event = LS.linearcombination!(device(Q), groupsize)(
+        event = LS.linearcombination!(array_device(Q), groupsize)(
             rv_L_nextp,
             (one(T), alpha[1:k]...),
             (rv_L_residual, rv_L_p[1:k]...),
@@ -174,7 +174,7 @@ function LS.doiteration!(
             ndrange = length(rv_nextp),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
     end
 
     (false, K, residual_norm)

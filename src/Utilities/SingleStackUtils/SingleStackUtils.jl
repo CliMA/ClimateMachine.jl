@@ -4,6 +4,7 @@ export get_vars_from_nodal_stack, get_vars_from_element_stack
 
 using OrderedCollections
 using StaticArrays
+import KernelAbstractions: CPU
 
 using ..DGmethods
 using ..DGmethods.Grids
@@ -45,7 +46,7 @@ function get_vars_from_nodal_stack(
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
     nvertelem = grid.topology.stacksize
-    host_Q = Array ∈ typeof(Q).parameters ? Q.realdata : Array(Q.realdata)
+    host_Q = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
 
     # set up the dictionary to be returned
     var_names = flattenednames(vars)

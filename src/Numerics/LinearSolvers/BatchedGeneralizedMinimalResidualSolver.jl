@@ -309,11 +309,10 @@ function LS.doiteration!(
     args...,
 )
     # Get device and groupsize information
-    if isa(gmres.b, Array)
-        device = CPU()
+    device = array_device(gmres.b)
+    if isa(device, CPU)
         groupsize = Threads.nthreads()
-    else
-        device = CUDA()
+    else # isa(device, CUDA)
         groupsize = 256
     end
 

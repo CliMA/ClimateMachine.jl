@@ -251,10 +251,10 @@ this computation is done pointwise at each nodal point
     t,
 )
     ν = viscosity_tensor(m)
-    D.ν∇u = ν * G.∇u
+    D.ν∇u = -ν * G.∇u
 
     κ = diffusivity_tensor(m, G.∇θ[3])
-    D.κ∇θ = κ * G.∇θ
+    D.κ∇θ = -κ * G.∇θ
 
     return nothing
 end
@@ -479,8 +479,8 @@ this computation is done pointwise at each nodal point
     A::Vars,
     t::Real,
 )
-    F.u -= D.ν∇u
-    F.θ -= D.κ∇θ
+    F.u += D.ν∇u
+    F.θ += D.κ∇θ
 
     return nothing
 end
@@ -620,8 +620,8 @@ function update_auxiliary_state_gradient!(
     function f!(m::HBModel, Q, A, D, t)
         @inbounds begin
             ν = viscosity_tensor(m)
-            ∇u = ν \ D.ν∇u
-            A.w = -(∇u[1, 1] + ∇u[2, 2])
+            ∇u = ν \ D.ν∇u # minus sign included in gradient flux
+            A.w = (∇u[1, 1] + ∇u[2, 2])
         end
 
         return nothing

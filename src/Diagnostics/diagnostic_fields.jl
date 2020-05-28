@@ -1,12 +1,11 @@
 using DocStringExtensions
 using KernelAbstractions
-using ClimateMachine.Mesh.Geometry
 
-import ClimateMachine.Mesh.Grids:
+using ..Mesh.Geometry
+using ..VariableTemplates
+import ..Mesh.Grids:
     _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3
 
-using ClimateMachine.VariableTemplates
-import ClimateMachine.VariableTemplates.varsindex
 
 """
     VecGrad{FT <: AbstractFloat,
@@ -159,13 +158,12 @@ function compute_vec_grad(
     D = dg.grid.D
     sv = Q.data
 
-    device = DA <: Array ? CPU() : CUDA()
     g = DA{FT}(undef, Npl, Nel, 3, 3)
 
     workgroup = (qm1, qm1)
     ndrange = (Nel * qm1, qm1)
 
-    kernel = compute_vec_grad_kernel!(device, workgroup)
+    kernel = compute_vec_grad_kernel!(array_device(g), workgroup)
     event = kernel(
         sv,
         D,
@@ -203,8 +201,6 @@ function compute_vorticity(
     Npl = size(vgrad.∂₁u₁, 1)
     Nel = size(vgrad.∂₁u₁, 2)
     qm1 = size(dg.grid.D, 2)  # poly order + 1
-    DA = ClimateMachine.array_type()
-    device = DA <: Array ? CPU() : CUDA()
 
     vort = Vorticity(Npl, Nel, FT)
 
@@ -216,7 +212,7 @@ function compute_vorticity(
     workgroup = (qm1, qm1)
     ndrange = (Nel * qm1, qm1)
 
-    kernel = compute_vorticity_kernel!(device, workgroup)
+    kernel = compute_vorticity_kernel!(array_device(vgrad_data), workgroup)
     event = kernel(vgrad_data, vort_data, Val(qm1), ndrange = ndrange)
     wait(event)
 

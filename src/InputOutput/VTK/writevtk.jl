@@ -1,3 +1,5 @@
+import KernelAbstractions: CPU
+
 using ..Mesh.Grids
 using ..MPIStateArrays
 using ..DGmethods
@@ -16,8 +18,8 @@ number of states in `Q`, i.e., `k = size(Q,2)`.
 """
 function writevtk(prefix, Q::MPIStateArray, dg::DGModel, fieldnames = nothing)
     vgeo = dg.grid.vgeo
-    host_array = Array ∈ typeof(Q).parameters
-    (h_vgeo, h_Q) = host_array ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
+    device = array_device(Q)
+    (h_vgeo, h_Q) = device isa CPU ? (vgeo, Q.data) : (Array(vgeo), Array(Q))
     writevtk_helper(prefix, h_vgeo, h_Q, dg.grid, fieldnames)
     return nothing
 end
@@ -49,8 +51,9 @@ function writevtk(
     auxfieldnames,
 )
     vgeo = dg.grid.vgeo
-    host_array = Array ∈ typeof(Q).parameters
-    (h_vgeo, h_Q, h_aux) = host_array ? (vgeo, Q.data, state_auxiliary.data) :
+    device = array_device(Q)
+    (h_vgeo, h_Q, h_aux) =
+        device isa CPU ? (vgeo, Q.data, state_auxiliary.data) :
         (Array(vgeo), Array(Q), Array(state_auxiliary))
     writevtk_helper(
         prefix,

@@ -4,7 +4,7 @@ export GeneralizedMinimalResidual
 
 using ..LinearSolvers
 const LS = LinearSolvers
-using ..MPIStateArrays: device, realview
+using ..MPIStateArrays: array_device, realview
 
 using LinearAlgebra
 using LazyArrays
@@ -160,8 +160,8 @@ function LS.doiteration!(
     rv_Q = realview(Q)
     rv_krylov_basis = realview.(krylov_basis)
     groupsize = 256
-    event = Event(device(Q))
-    event = LS.linearcombination!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = LS.linearcombination!(array_device(Q), groupsize)(
         rv_Q,
         y,
         rv_krylov_basis,
@@ -169,7 +169,7 @@ function LS.doiteration!(
         ndrange = length(rv_Q),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
 
     # if not converged restart
     converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
