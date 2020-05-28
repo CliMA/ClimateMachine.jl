@@ -14,10 +14,8 @@ using ClimateMachine.MoistThermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
 
-using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
-using Random: rand
 using Test
 
 using CLIMAParameters
@@ -33,7 +31,8 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     FT = eltype(state)
 
     # Set initial state to reference state with random perturbation
-    rnd = FT(1.0 + rand(Uniform(-1e-3, 1e-3)))
+    # rnd = FT(1.0 + rand(Uniform(-1e-3, 1e-3)))
+    rnd = FT(1.0)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = rnd * aux.ref_state.ρe
@@ -64,15 +63,14 @@ function config_heldsuarez(FT, poly_order, resolution)
     exp_name = "HeldSuarez"
     T_ref::FT = 255        # reference temperature for Held-Suarez forcing (K)
     τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
-    c_smag::FT = 0.21      # Smagorinsky coefficient
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = SmagorinskyLilly(c_smag),
-        hyperdiffusion = StandardHyperDiffusion(τ_hyper),
+        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
+        source = (Gravity(), Coriolis()),
         init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
     )
@@ -160,7 +158,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(10), FT(10), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(5), FT(5), FT(2000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
@@ -178,10 +176,10 @@ end
 
 function main()
     # Driver configuration parameters
-    FT = Float32                             # floating type precision
+    FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 5                               # horizontal element number
-    n_vert = 5                               # vertical element number
+    n_horz = 3                               # horizontal element number
+    n_vert = 3                               # vertical element number
     n_days = 120                             # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
@@ -194,8 +192,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
-        init_on_cpu = true,
+        Courant_number = 0.05,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
@@ -204,15 +201,21 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 10
+    filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
+        @views begin
+          solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
+          Filters.apply!(
             solver_config.Q,
             1:size(solver_config.Q, 2),
             solver_config.dg.grid,
             filter,
-        )
+          )
+          solver_config.Q.data[:, 1, :] .+= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .+= solver_config.dg.state_auxiliary.data[:, 11, :]
+        end
         nothing
     end
 

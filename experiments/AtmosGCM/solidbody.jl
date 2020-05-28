@@ -97,9 +97,9 @@ function main()
     FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 3                               # horizontal element number
-    n_vert = 10                               # vertical element number
+    n_vert = 3                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(4*3600)                       # end time (s)
+    timeend = FT(365*24*60*60)                     # end time (s)
 
     # Set up driver configuration
     driver_config = config_solidbody(FT, poly_order, (n_horz, n_vert))
@@ -109,7 +109,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.05,
+        Courant_number = 0.1,
         CFL_direction = HorizontalDirection(),
         diffdir = EveryDirection(),
     )
@@ -121,20 +121,28 @@ function main()
     filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
+        @views begin
+          solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
+          Filters.apply!(
             solver_config.Q,
             1:size(solver_config.Q, 2),
             solver_config.dg.grid,
             filter,
-        )
+          )
+          solver_config.Q.data[:, 1, :] .+= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .+= solver_config.dg.state_auxiliary.data[:, 11, :]
+        end
         nothing
     end
+
+
 
     # Run the model
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        #user_callbacks = (cbfilter,),
+        user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
 end
