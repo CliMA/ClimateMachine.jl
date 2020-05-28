@@ -28,13 +28,10 @@ function mixing_length(
 
     z = gm_a.z
     # Parameters
-    cv_d::FT = cv_d(param_set)
-    cv_v::FT = cp_v(param_set)
-    cv_l::FT = cp_l(param_set)
-    cv_i::FT = cp_i(param_set)
+    
     T0::FT = T_0(param_set)
     e_int_i0::FT = e_int_i0(param_set)
-    ϵ_v = 1. / molmass_ratio(param_set)
+    ϵ_v::FT = 1 / molmass_ratio(param_set)
     g = FT(grav(param_set))
     R_d = FT(R_d(param_set))
     bflux = 
@@ -60,7 +57,7 @@ function mixing_length(
     Π = exner(ts)
     lv = latent_heat_vapor(ts)
     cp_m_ = cp_m(ts)
-    tke = sqrt(max(en.ρatke, FT(0))*ρinv)
+    tke = sqrt(en.ρatke, FT(0))*ρinv/en_area
     θ_ρ = virtual_pottemp(ts)
     R_m = gas_constant_air(ts)
     T = air_temperature(ts)

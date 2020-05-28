@@ -27,23 +27,23 @@ function entr_detr(
     w_en = (gm.ρu[3]-sum([up[j].ρau[3] for j in 1:N]))*ρinv
     b_up = up[i].buoyancy
     b_en = (gm_a.buoyancy-sum([ρinv*up[j].ρa*up_a[j].buoyancy for j in 1:N]))
-    sqrt_tke = sqrt(max(en.tke,0.0))
+    sqrt_tke = sqrt(max(en.tke,0))
     ts_up = PhaseEquil(param_set ,up[i].e_int, up[i].ρ, up[i].q_tot)
     RH_up = relative_humidity(ts_up)
     ts_en = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
     RH_en = relative_humidity(ts_en)
-    dw = max(w_up - w_en,1e-4)
+    dw = max(w_up - w_en,FT(1e-4))
     db = b_up - b_en
 
     if RH_up==1.0 || RH_en==1.0
       c_δ = m.c_δ
     else
-      c_δ = 0.0
+      c_δ = 0
     end
     # compute dry and moist nondimentional exchange functions
     D_ϵ ,D_δ ,M_δ ,M_ϵ = nondimensional_exchange_functions(ss ,m,state,diffusive,aux,t,direction,i) # YAIR CHECK THIS LINE WITH CHARLIE
     m.Λ[1] = abs(db/dw)
-    m.Λ[2] = m.c_λ*abs(db/(sqrt_tke+sqrt(eps)))
+    m.Λ[2] = m.c_λ*abs(db/(sqrt_tke+sqrt(eps(FT))))
     lower_bound = FT(0.1)
     upper_bound = FT(0.0005)
     λ = lamb_smooth_minimum(m.Λ,lower_bound, upper_bound)

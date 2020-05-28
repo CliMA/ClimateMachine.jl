@@ -23,27 +23,27 @@ function compute_buoyancy_gradients(
     up_s = source.edmf.updraft
     en_d = state.edmf.environment.diffusive
 
-    cv_d::FT = cv_d(param_set)
-    cv_v::FT = cp_v(param_set)
-    cv_l::FT = cp_l(param_set)
-    cv_i::FT = cp_i(param_set)
-    T0::FT = T_0(param_set)
+    _cv_d::FT    = cv_d(param_set)
+    _cv_v::FT    = cp_v(param_set)
+    _cv_l::FT    = cp_l(param_set)
+    _cv_i::FT    = cp_i(param_set)
+    _T0::FT      = T_0(param_set)
     e_int_i0::FT = e_int_i0(param_set)
-    ϵ_v = 1. / molmass_ratio(param_set)
-    g = FT(grav(param_set))
-    R_d = FT(R_d(param_set))
+    ϵ_v::FT      = 1 / molmass_ratio(param_set)
+    _grav::FT        = grav(param_set)
+    _R_d::FT     = R_d(param_set)
 
     cloudy, dry = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model) # can I call the microphyscis model here?     
-    ∂b∂ρ = - g/gm.ρ
+    ∂b∂ρ = - _grav/gm.ρ
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
-    ∂ρ∂e_int_dry    = - R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*cv_d+dry.q_vap *cv_v)
+    ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)
     #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
-    ∂ρ∂e_int_cloudy = - (R_d*gm_a.p_0/(cloudy.R_m*cloudy.T*cloudy.T)/((1-cloudy.q_tot)*cv_d+cloudy.q_vap *cv_v+cloudy.q_liq*cv_l+ cloudy.q_ice*cv_i)
-                       + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ϵ_v*R_d/(cv_v*(cloudy.T-T0)+e_int_i0) )
+    ∂ρ∂e_int_cloudy = - (_R_d*gm_a.p_0/(cloudy.R_m*cloudy.T*cloudy.T)/((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v+cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i)
+                       + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ϵ_v*_R_d/(_cv_v*(cloudy.T-_T0)+_e_int_i0) )
     #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
 
     ∂ρ∂e_int = (en_a.cld_frac * ∂ρ∂e_int_cloudy + (1-en_a.cld_frac) * ∂ρ∂e_int_dry)
-    ∂ρ∂q_tot = R_d*gm_a.p_0/(R_m*R_m*T)
+    ∂ρ∂q_tot = _R_d*gm_a.p_0/(R_m*R_m*T)
     # apply chain role
     ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
     ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
