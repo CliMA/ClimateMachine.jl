@@ -62,16 +62,6 @@ function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length, a_empirical, b_
     return Pr_z
 end;
 
-function surface_variance(flux1::FT, flux2::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
-  c_star1 = -flux1/ustar
-  c_star2 = -flux2/ustar
-  if oblength < 0
-    return 4 * c_star1 * c_star2 * (1 - 8.3 * zLL/oblength)^(-2/3)
-  else
-    return 4 * c_star1 * c_star2
-  end
-end;
-
 function compute_windspeed(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
@@ -86,7 +76,24 @@ function compute_windspeed(
   return max(hypot(gm.u, gm.v), windspeed_min)
 end;
 
-function compute_MO_len(k_Karman::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
-  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / k_Karman
+function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
+  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / κ
 end;
+
+
+
+function compute_ustar(
+    ss::SingleStack{FT, N},
+    m::MixingLengthModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+    ) where {FT, N}
+
+return ustar
+end;
+
 
