@@ -4,6 +4,8 @@ using Logging
 using Printf
 using LinearAlgebra
 using Test
+import KernelAbstractions: CPU
+
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -48,8 +50,7 @@ function run_test1(mpicomm, dim, Ne, N, FT, ArrayType)
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
     vgeo = grid.vgeo
-    host_array = Array ∈ typeof(vgeo).parameters
-    localvgeo = host_array ? vgeo : Array(vgeo)
+    localvgeo = array_device(vgeo) isa CPU ? vgeo : Array(vgeo)
 
     S = zeros(Nqk)
     S1 = zeros(Nqk)
@@ -113,8 +114,7 @@ function run_test2(mpicomm, dim, Ne, N, FT, ArrayType)
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
     vgeo = grid.vgeo
-    host_array = Array ∈ typeof(vgeo).parameters
-    localvgeo = host_array ? vgeo : Array(vgeo)
+    localvgeo = array_device(vgeo) isa CPU ? vgeo : Array(vgeo)
 
     S = zeros(Nqk)
     S1 = zeros(Nqk)
@@ -175,8 +175,7 @@ function run_test3(mpicomm, dim, Ne, N, FT, ArrayType)
         Nq = N + 1
         Nqk = dimensionality(grid) == 2 ? 1 : Nq
         vgeo = grid.vgeo
-        host_array = Array ∈ typeof(vgeo).parameters
-        localvgeo = host_array ? vgeo : Array(vgeo)
+        localvgeo = array_device(vgeo) isa CPU ? vgeo : Array(vgeo)
 
         topology = grid.topology
         nvertelem = topology.stacksize
@@ -230,8 +229,7 @@ function run_test4(mpicomm, dim, Ne, N, FT, ArrayType)
     nrealelem = length(topl.realelems)
     Nq = N + 1
     vgeo = grid.vgeo
-    host_array = Array ∈ typeof(vgeo).parameters
-    localvgeo = host_array ? vgeo : Array(vgeo)
+    localvgeo = array_device(vgeo) isa CPU ? vgeo : Array(vgeo)
 
     S = zeros(Nq)
 
@@ -280,8 +278,7 @@ function run_test5(mpicomm, dim, Ne, N, FT, ArrayType)
     nrealelem = length(topl.realelems)
     Nq = N + 1
     vgeo = grid.vgeo
-    host_array = Array ∈ typeof(vgeo).parameters
-    localvgeo = host_array ? vgeo : Array(vgeo)
+    localvgeo = array_device(vgeo) isa CPU ? vgeo : Array(vgeo)
 
     S = zeros(Nq)
     J = zeros(Nq)

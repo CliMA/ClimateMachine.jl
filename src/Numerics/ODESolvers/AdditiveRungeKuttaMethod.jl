@@ -225,8 +225,8 @@ function dostep!(
 
         # this kernel also initializes Qstages[istage] with an initial guess
         # for the linear solver
-        event = Event(device(Q))
-        event = stage_update!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = stage_update!(array_device(Q), groupsize)(
             variant,
             rv_Q,
             rv_Qstages,
@@ -243,7 +243,7 @@ function dostep!(
             ndrange = length(rv_Q),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
 
         # solves
         # Qs = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Qs)
@@ -261,8 +261,8 @@ function dostep!(
     end
 
     # compose the final solution
-    event = Event(device(Q))
-    event = solution_update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = solution_update!(array_device(Q), groupsize)(
         variant,
         rv_Q,
         rv_Lstages,
@@ -277,7 +277,7 @@ function dostep!(
         ndrange = length(rv_Q),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
 end
 
 function dostep!(
@@ -320,8 +320,8 @@ function dostep!(
 
 
         # this kernel also initializes Qtt for the linear solver
-        event = Event(device(Q))
-        event = stage_update!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = stage_update!(array_device(Q), groupsize)(
             variant,
             rv_Q,
             rv_Qstages,
@@ -338,7 +338,7 @@ function dostep!(
             ndrange = length(rv_Q),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
 
         # solves
         # Q_tt = Qhat + dt * RKA_implicit[istage, istage] * rhs_implicit!(Q_tt)
@@ -365,8 +365,8 @@ function dostep!(
     end
 
     # compose the final solution
-    event = Event(device(Q))
-    event = solution_update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = solution_update!(array_device(Q), groupsize)(
         variant,
         rv_Q,
         rv_Rstages,
@@ -379,7 +379,7 @@ function dostep!(
         ndrange = length(rv_Q),
         dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
 end
 
 @kernel function stage_update!(

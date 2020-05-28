@@ -235,7 +235,6 @@ end #function run_brick_interpolation_test
 function run_cubed_sphere_interpolation_test()
     for FT in (Float32, Float64) #Float32 #Float64
         DA = ClimateMachine.array_type()
-        device = ClimateMachine.array_type() <: Array ? CPU() : CUDA()
         mpicomm = MPI.COMM_WORLD
         root = 0
         pid = MPI.Comm_rank(mpicomm)
@@ -300,7 +299,6 @@ function run_cubed_sphere_interpolation_test()
 
         Q = init_ode_state(dg, FT(0))
 
-        device = typeof(Q.data) <: Array ? CPU() : CUDA()
         #------------------------------
         x1 = @view grid.vgeo[:, _x, :]
         x2 = @view grid.vgeo[:, _y, :]

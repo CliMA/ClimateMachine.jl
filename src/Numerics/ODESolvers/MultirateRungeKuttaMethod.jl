@@ -111,8 +111,8 @@ function dostep!(
                 slow_scaling = in_slow_scaling
             end
             # update solution and scale RHS
-            event = Event(device(Q))
-            event = update!(device(Q), groupsize)(
+            event = Event(array_device(Q))
+            event = update!(array_device(Q), groupsize)(
                 slow_rv_dQ,
                 in_slow_rv_dQ,
                 in_slow_δ,
@@ -120,7 +120,7 @@ function dostep!(
                 ndrange = length(realview(Q)),
                 dependencies = (event,),
             )
-            wait(device(Q), event)
+            wait(array_device(Q), event)
         end
 
         # Fractional time for slow stage

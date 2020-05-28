@@ -107,8 +107,6 @@ function LS.linearsolve!(
     Qrhs,
     args...,
 )
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
-
     A = clu.A
     Q .= Qrhs
 
@@ -121,7 +119,7 @@ end
 
 """
 function band_lu!(A)
-    device = typeof(A.data) <: Array ? CPU() : CUDA()
+    device = array_device(A.data)
 
     nstate = num_state(A)
     Nq = polynomialorder(A) + 1
@@ -151,7 +149,7 @@ function band_lu!(A)
 end
 
 function band_forward!(Q, A)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     Nq = polynomialorder(A) + 1
     Nqj = dimensionality(A) == 2 ? 1 : Nq
@@ -168,7 +166,7 @@ function band_forward!(Q, A)
 end
 
 function band_back!(Q, A)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     Nq = polynomialorder(A) + 1
     Nqj = dimensionality(A) == 2 ? 1 : Nq
@@ -274,7 +272,7 @@ function banded_matrix(
     @assert typeof(dg.direction) <: VerticalDirection
 
     FT = eltype(Q.data)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     nstate = number_state_conservative(bl, FT)
     N = polynomialorder(grid)
@@ -376,7 +374,7 @@ created using the `banded_matrix` function.
 This function is primarily for testing purposes.
 """
 function banded_matrix_vector_product!(A, dQ::MPIStateArray, Q::MPIStateArray)
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = array_device(Q)
 
     Nq = polynomialorder(A) + 1
     Nqj = dimensionality(A) == 2 ? 1 : Nq

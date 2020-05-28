@@ -160,7 +160,7 @@ function atmos_core_collect(dgngrp::DiagnosticsGroup, currtime)
     nhorzelem = div(nrealelem, nvertelem)
 
     # get needed arrays onto the CPU
-    if Array ∈ typeof(Q).parameters
+    if array_device(Q) isa CPU
         host_state_conservative = Q.realdata
         host_state_auxiliary = dg.state_auxiliary.realdata
         host_vgeo = grid.vgeo

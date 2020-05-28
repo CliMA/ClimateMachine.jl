@@ -179,8 +179,8 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
         if param isa MRIParam
             # fraction of the step slower stage increment we are on
             τ = (ts - param.ts) / param.Δts
-            event = Event(device(Q))
-            event = mri_update_rate!(device(Q), groupsize)(
+            event = Event(array_device(Q))
+            event = mri_update_rate!(array_device(Q), groupsize)(
                 realview(Rs[s]),
                 τ,
                 param.γs,
@@ -188,7 +188,7 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
                 ndrange = length(realview(Rs[s])),
                 dependencies = (event,),
             )
-            wait(device(Q), event)
+            wait(array_device(Q), event)
         end
 
         γs = ntuple(k -> ntuple(j -> Γs[k][s, j], s), NΓ)

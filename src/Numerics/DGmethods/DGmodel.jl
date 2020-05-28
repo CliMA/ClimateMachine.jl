@@ -51,7 +51,7 @@ function (dg::DGModel)(
 )
 
     balance_law = dg.balance_law
-    device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
+    device = array_device(state_conservative)
 
     grid = dg.grid
     topology = grid.topology
@@ -626,7 +626,7 @@ function indefinite_stack_integral!(
     elems::UnitRange = dg.grid.topology.elems,
 )
 
-    device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
+    device = array_device(state_conservative)
 
     grid = dg.grid
     topology = grid.topology
@@ -669,7 +669,7 @@ function reverse_indefinite_stack_integral!(
     elems::UnitRange = dg.grid.topology.elems,
 )
 
-    device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
+    device = array_device(state_auxiliary)
 
     grid = dg.grid
     topology = grid.topology
@@ -710,7 +710,7 @@ function nodal_update_auxiliary_state!(
     elems::UnitRange = dg.grid.topology.realelems;
     diffusive = false,
 )
-    device = typeof(state_conservative.data) <: Array ? CPU() : CUDA()
+    device = array_device(state_conservative)
 
     grid = dg.grid
     topology = grid.topology
@@ -793,7 +793,7 @@ function courant(
         dim = dimensionality(grid)
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
-        device = grid.vgeo isa Array ? CPU() : CUDA()
+        device = array_device(grid.vgeo)
         pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
         event = Event(device)
         event = Grids.kernel_min_neighbor_distance!(
@@ -842,8 +842,7 @@ function copy_stack_field_down!(
     fldout,
     elems = topology.elems,
 )
-
-    device = typeof(state_auxiliary.data) <: Array ? CPU() : CUDA()
+    device = array_device(state_auxiliary)
 
     grid = dg.grid
     topology = grid.topology

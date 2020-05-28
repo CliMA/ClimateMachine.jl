@@ -12,10 +12,10 @@ using ClimateMachine.ColumnwiseLUSolver:
     band_back_kernel!,
     DGColumnBandedMatrix
 
+import ClimateMachine.MPIStateArrays: array_device
 
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
-const device = ArrayType == Array ? CPU() : CUDA()
 
 function band_to_full(B, p, q)
     _, n = size(B)
@@ -70,12 +70,12 @@ let
     groupsize = (Nq, Nq)
     ndrange = (Nq, Nq, nhorzelem)
 
-    event = Event(device)
-    event = band_lu_kernel!(device, groupsize, ndrange)(
+    event = Event(array_device(d_F.data))
+    event = band_lu_kernel!(array_device(d_F.data), groupsize, ndrange)(
         d_F,
         dependencies = (event,),
     )
-    wait(device, event)
+    wait(array_device(d_F.data), event)
 
     F = Array(d_F.data)
 
@@ -96,19 +96,19 @@ let
 
     d_x = ArrayType(b)
 
-    event = Event(device)
-    event = band_forward_kernel!(device, groupsize, ndrange)(
+    event = Event(array_device(d_x))
+    event = band_forward_kernel!(array_device(d_x), groupsize, ndrange)(
         d_x,
         d_F,
         dependencies = (event,),
     )
 
-    event = band_back_kernel!(device, groupsize, ndrange)(
+    event = band_back_kernel!(array_device(d_x), groupsize, ndrange)(
         d_x,
         d_F,
         dependencies = (event,),
     )
-    wait(device, event)
+    wait(array_device(d_x), event)
 
     @test x ≈ Array(d_x)
 end
