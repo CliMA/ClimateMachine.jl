@@ -9,8 +9,6 @@ function compute_buoyancy_gradients(
     aux::Vars,
     t::Real,
     direction,
-    δ::FT,
-    εt::FT,
 ) where {FT, N}
     # think how to call subdomain statistics here to get cloudy and dry values of T if you nee them
     # buoyancy gradients via chain-role
@@ -59,8 +57,7 @@ function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length, a_empirical, b_
     if unstable(obukhov_length)
       Pr_z = Pr_n
     else
-      Pr_z = Pr_n*(2*Grad_Ri/
-                        (1+(a_empirical/b_empirical)*Grad_Ri -sqrt( (1+(a_empirical/c_empirical)*Grad_Ri)^2 - 4*Grad_Ri ) ) )
+      Pr_z = Pr_n*(2*Grad_Ri/(1+(a_empirical/b_empirical)*Grad_Ri -sqrt( (1+(a_empirical/c_empirical)*Grad_Ri)^2 - 4*Grad_Ri)))
     end
     return Pr_z
 end;
@@ -91,9 +88,5 @@ end;
 
 function compute_MO_len(k_Karman::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
   return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / k_Karman
-end;
-
-function compute_blux(g::FT, ϵ_v::FT, bflux::FT) where {FT<:Real, PS}
-  return (g * ((8.0e-3 + (ϵ_v-1)*(299.1 * 5.2e-5  + 22.45e-3 * 8.0e-3)) /(299.1 * (1.0 + (ϵ_v-1) * 22.45e-3))))
 end;
 

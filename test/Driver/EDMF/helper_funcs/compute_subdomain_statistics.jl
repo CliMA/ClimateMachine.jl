@@ -21,11 +21,12 @@ function compute_subdomain_statistics!(
   en = state.edmf.environment
   up = state.edmf.updraft
 
-  ts = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
+  ts = PhaseEquil(param_set ,en.e_int, gm.ρ, en.q_tot)
   T = air_temperature(ts)
   q_liq = PhasePartition(ts).liq
   q_ice = PhasePartition(ts).ice
-  
+  # here cloudy and dry are indetical as only one will be used based on the value of cld_frac,
+  # but I define both as in the  quadratuhre options to come they will differ and both will be used
   if q_liq+q_ice > 0
     en_a.cld_frac = 1
     cloudy.q_tot = en.q_tot
@@ -58,6 +59,7 @@ function compute_subdomain_statistics!(
   return cloudy, dry
 end
 
+## the complete coding of this function can wait for a working model with SubdomainMean
 function compute_subdomain_statistics!(
   m::SingleStack{FT,N},
   state::Vars,

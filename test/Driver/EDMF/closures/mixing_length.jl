@@ -11,8 +11,7 @@ function mixing_length(
     direction,
     δ::FT,
     εt::FT,
-) where {FT, N}
-
+    ) where {FT, N}
 
     # Q - do I need to define L as a vector ?
     # need to code the functions: obukhov_length, ustar, ϕ_m, lamb_smooth_minimum
@@ -27,14 +26,9 @@ function mixing_length(
     en_d = state.edmf.environment.diffusive
 
     z = gm_a.z
-    # Parameters
-    
-    T0::FT = T_0(param_set)
-    e_int_i0::FT = e_int_i0(param_set)
-    ϵ_v::FT = 1 / molmass_ratio(param_set)
-    g = FT(grav(param_set))
-    R_d = FT(R_d(param_set))
-    bflux = 
+    _grav = FT(grav(param_set))
+    bflux = compute_blux(_grav, ϵ_v)
+    # ustar = compute_ustar(??) ustar should be comepute from a function 
     obukhov_length = compute_MO_len(m.κ, m.ustar, bflux)
 
     ρinv = 1/gm.ρ
@@ -43,14 +37,14 @@ function mixing_length(
     b_L = model.b_L(obukhov_length) # these functions are still missing 
 
     # precompute
-    en_area = 1-sum([up[i].ρa for i in 1:N])*ρinv
-    w_env = (gm.ρu[3]-sum([up[i].ρau[3] for i in 1:N]))*ρinv
-    en_e_int = (gm.ρe_int-up[i].ρae_int)/(gm.ρ*up_area)
-    en_q_tot = (gm.ρq_tot-up[i].ρaq_tot)/(gm.ρ*up_area)
-    TKE_Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2
+    en_area  = 1-sum([up[i].ρa for i in 1:N])*ρinv
+    w_env    = (gm.ρu[3]-sum([up[i].ρau[3] for i in 1:N]))*ρinv
+    en_e_int = (gm.ρe_int-sum([up[i].ρae_int for i in 1:N]))*ρinv
+    en_q_tot = (gm.ρq_tot-sum([up[i].ρaq_tot for i in 1:N]))*ρinv
     ∂e_int∂z = en_d.e_int
     ∂q_tot∂z = en_d.q_tot
 
+    TKE_Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2
 
     # Thermodynamic local variables for mixing length
     ts = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
@@ -59,11 +53,6 @@ function mixing_length(
     cp_m_ = cp_m(ts)
     tke = sqrt(en.ρatke, FT(0))*ρinv/en_area
     θ_ρ = virtual_pottemp(ts)
-    R_m = gas_constant_air(ts)
-    T = air_temperature(ts)
-    q_vap = vapor_specific_humidity(ts)
-    q_liq = PhasePartition(ts).liq
-    q_ice = PhasePartition(ts).ice
 
     # compute L1 - static stability
     buoyancy_freq = g*en_d.∇θ_ρ/θ_ρ
@@ -76,7 +65,7 @@ function mixing_length(
     # compute L2 - law of the wall
     if obukhov_length < FT(0) #unstable case
       m.L[2] = (m.κ * z/(sqrt(tke)/m.ustar/m.ustar)* m.c_k) * min(
-         (1 - 100 * z/obukhov_length)^FT(0.2), 1/m.κ))
+         (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ))
     else # neutral or stable cases
       m.L[2] = m.κ * z/(sqrt(max(q[:tke, k_1, en], FT(0))/m.ustar/m.ustar)*m.c_k)
     end
@@ -84,9 +73,9 @@ function mixing_length(
     # compute L3 - entrainment detrainment sources
 
     # buoyancy gradients via chain-role
-    ∂b∂z_e_int, ∂b∂z_q_tot = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction, δ, εt)
-    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, TKE_Shear, ∂b∂z_q_tot, FT(0.25))
-    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length, 53,13,130)
+    ∂b∂z_e_int, ∂b∂z_q_tot = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
+    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, TKE_Shear, ∂b∂z_q_tot, FT(0.25)) # this parameter should be exposed in the model 
+    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length, FT(53),FT(13),FT(130)) # these parameters should be exposed in the model 
 
     # Production/destruction terms
     a = m.c_m*(TKE_Shear - ∂b∂z_e_int/Pr_z - ∂b∂z_q_tot/Pr_z)* sqrt(tke)
@@ -113,6 +102,5 @@ function mixing_length(
     upper_bound = FT(1.5)
 
     l = lamb_smooth_minimum(m.L,lower_bound, upper_bound)
-
     return l
 end;
