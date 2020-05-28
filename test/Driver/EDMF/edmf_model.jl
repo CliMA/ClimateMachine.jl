@@ -29,13 +29,13 @@ Base.@kwdef struct SurfaceModel{FT}
     "Surface total specific humidity [kg/kg]"
     surface_q_tot::FT = 0.0016
     "surface sensible heat flux [w/m^2]"
-    shf::FT = 0.0
+    surface_shf::FT = 0.0
     "surface lantent heat flux [w/m^2]"
-    lhf::FT = 0.0
-    "Top internal energy flux [m^3/s^3]"
-    e_int_top_flux::FT = 0.0
-    "Top total specific humidity flux [m/s*kg/kg]"
-    q_tot_top_flux::FT = 0.0
+    surface_lhf::FT = 0.0
+    "surface sensible heat flux [w/m^2]"
+    surface_shf::FT = 0.0
+    "surface lantent heat flux [w/m^2]"
+    surface_lhf::FT = 0.0
     "Sufcae area"
     a_surf::FT = 0.1
     "Ratio of rms turbulent velocity to friction velocity"
