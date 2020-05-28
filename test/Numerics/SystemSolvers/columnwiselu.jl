@@ -5,8 +5,8 @@ using Random
 using KernelAbstractions, StaticArrays
 
 using ClimateMachine
-using ClimateMachine.LinearSolvers
-using ClimateMachine.ColumnwiseLUSolver:
+using ClimateMachine.SystemSolvers
+using ClimateMachine.SystemSolvers:
     band_lu_kernel!,
     band_forward_kernel!,
     band_back_kernel!,

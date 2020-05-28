@@ -1,5 +1,5 @@
 using ClimateMachine.ODESolvers
-using ClimateMachine.LinearSolvers
+using ClimateMachine.SystemSolvers
 
 const slow_mrrk_methods =
     ((LSRK54CarpenterKennedy, 4), (LSRK144NiegemannDiehlBusch, 4))
@@ -40,15 +40,15 @@ const mrigark_irk_methods = (
 const fast_mrigark_methods =
     ((LSRK54CarpenterKennedy, 4), (LSRK144NiegemannDiehlBusch, 4))
 
-struct DivideLinearSolver <: AbstractLinearSolver end
-function LinearSolvers.prefactorize(
+struct DivideLinearSolver <: AbstractSystemSolver end
+function SystemSolvers.prefactorize(
     linearoperator!,
     ::DivideLinearSolver,
     args...,
 )
     linearoperator!
 end
-function LinearSolvers.linearsolve!(
+function SystemSolvers.linearsolve!(
     linearoperator!,
     ::DivideLinearSolver,
     Qtt,

@@ -4,9 +4,7 @@ using StaticArrays
 using Logging, Printf
 
 using ClimateMachine
-using ClimateMachine.LinearSolvers
-using ClimateMachine.GeneralizedConjugateResidualSolver
-using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGmethods.NumericalFluxes

@@ -16,9 +16,8 @@
 
 # ## Basic Example
 # First we must load a few things
-using ClimateMachine,
-    ClimateMachine.LinearSolvers,
-    ClimateMachine.BatchedGeneralizedMinimalResidualSolver
+using ClimateMachine
+using ClimateMachine.SystemSolvers
 using LinearAlgebra, Random, Plots
 
 # Next we define two linear systems that we would like to solve simultaneously.

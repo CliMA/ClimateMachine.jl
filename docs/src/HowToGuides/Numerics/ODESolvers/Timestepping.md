@@ -90,9 +90,6 @@ For example, consider the following:
 ```julia
 export MyIMEXMethod
 
-using ..LinearSolvers
-const LS = LinearSolvers
-
 struct MyIMEXMethod{T, RT, AT, LT, V, VS, Nstages, Nstages_sq} <: AbstractODESolver
     "time step"
     dt::RT
@@ -142,7 +139,7 @@ function updatedt!(ark::MyIMEXMethod, dt::Real)
 end
 ```
 For information on the function `prefactorize`, see
-the **module** `ClimateMachine.LinearSolvers`.
+the **module** `ClimateMachine.SystemSolvers`.
 
 ## The Struct and its Constructor
 

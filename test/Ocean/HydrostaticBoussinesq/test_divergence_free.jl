@@ -58,7 +58,7 @@ function test_divergence_free(; imex::Bool = false, BC = nothing)
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
             linear_model = LinearHBModel,
-            linear_solver = ClimateMachine.ColumnwiseLUSolver.SingleColumnLU,
+            linear_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
         )
         Courant_number = 0.1
     else

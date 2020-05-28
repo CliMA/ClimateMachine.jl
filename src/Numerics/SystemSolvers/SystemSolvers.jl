@@ -1,12 +1,25 @@
-module LinearSolvers
+module SystemSolvers
 
 using ..MPIStateArrays
+using ..MPIStateArrays: array_device, realview
 
-using StaticArrays, LinearAlgebra
+using ..Mesh.Grids
+import ..Mesh.Grids: polynomialorder, dimensionality
+using ..Mesh.Topologies
+using ..DGmethods
+using ..DGmethods:
+    BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
 
+using Adapt
+using CuArrays
+using LinearAlgebra
+using LazyArrays
+using StaticArrays
 using KernelAbstractions
 
-# just for testing LinearSolvers
+const weighted_norm = false
+
+# just for testing SystemSolvers
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)
@@ -15,17 +28,17 @@ LinearAlgebra.norm(A::AbstractVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
 
 export linearsolve!, settolerance!, prefactorize
-export AbstractLinearSolver, AbstractIterativeLinearSolver
+export AbstractSystemSolver, AbstractIterativeSystemSolver
 
 """
-    AbstractLinearSolver
+    AbstractSystemSolver
 
 This is an abstract type representing a generic linear solver.
 """
-abstract type AbstractLinearSolver end
+abstract type AbstractSystemSolver end
 
 """
-    AbstractIterativeLinearSolver
+    AbstractIterativeSystemSolver
 
 This is an abstract type representing a generic iterative
 linear solver.
@@ -35,16 +48,16 @@ The available concrete implementations are:
   - [`GeneralizedConjugateResidual`](@ref)
   - [`GeneralizedMinimalResidual`](@ref)
 """
-abstract type AbstractIterativeLinearSolver <: AbstractLinearSolver end
+abstract type AbstractIterativeSystemSolver <: AbstractSystemSolver end
 
 """
-    settolerance!(solver::AbstractIterativeLinearSolver, tolerance, relative)
+    settolerance!(solver::AbstractIterativeSystemSolver, tolerance, relative)
 
 Sets the relative or absolute tolerance of the iterative linear solver
 `solver` to `tolerance`.
 """
 settolerance!(
-    solver::AbstractIterativeLinearSolver,
+    solver::AbstractIterativeSystemSolver,
     tolerance,
     relative = true,
 ) = (relative ? (solver.rtol = tolerance) : (solver.atol = tolerance))
@@ -53,7 +66,7 @@ doiteration!(
     linearoperator!,
     Q,
     Qrhs,
-    solver::AbstractIterativeLinearSolver,
+    solver::AbstractIterativeSystemSolver,
     tolerance,
     args...,
 ) = throw(MethodError(
@@ -65,7 +78,7 @@ initialize!(
     linearoperator!,
     Q,
     Qrhs,
-    solver::AbstractIterativeLinearSolver,
+    solver::AbstractIterativeSystemSolver,
     args...,
 ) = throw(MethodError(initialize!, (linearoperator!, Q, Qrhs, solver, args...)))
 
@@ -74,11 +87,11 @@ initialize!(
 
 Prefactorize the in-place linear operator `linop!` for use with `linearsolver`.
 """
-prefactorize(linop!, linearsolver::AbstractIterativeLinearSolver, args...) =
+prefactorize(linop!, linearsolver::AbstractIterativeSystemSolver, args...) =
     linop!
 
 """
-    linearsolve!(linearoperator!, solver::AbstractIterativeLinearSolver, Q, Qrhs, args...)
+    linearsolve!(linearoperator!, solver::AbstractIterativeSystemSolver, Q, Qrhs, args...)
 
 Solves a linear problem defined by the `linearoperator!` function and the state
 `Qrhs`, i.e,
@@ -93,7 +106,7 @@ called.
 """
 function linearsolve!(
     linearoperator!,
-    solver::AbstractIterativeLinearSolver,
+    solver::AbstractIterativeSystemSolver,
     Q,
     Qrhs,
     args...;
@@ -135,5 +148,11 @@ end
         Q[i] += cs[j] * Xs[j][i]
     end
 end
+
+include("generalized_minimal_residual_solver.jl")
+include("generalized_conjugate_residual_solver.jl")
+include("conjugate_gradient_solver.jl")
+include("columnwise_lu_solver.jl")
+include("batched_generalized_minimal_residual_solver.jl")
 
 end

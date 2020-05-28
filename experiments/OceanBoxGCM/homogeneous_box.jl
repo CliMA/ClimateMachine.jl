@@ -59,7 +59,7 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
             linear_model = LinearHBModel,
-            linear_solver = ClimateMachine.ColumnwiseLUSolver.SingleColumnLU,
+            linear_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
         )
         Nᶻ = Int(400)
         Courant_number = 0.1

@@ -17,6 +17,6 @@ how_to_guides = Any[
         ],
         "DG methods" => Any["How to make a balance law" => "HowToGuides/Numerics/DGmethods/how_to_make_a_balance_law.md",],
         "ODE Solvers" => Any["Time-integration" => "HowToGuides/Numerics/ODESolvers/Timestepping.md",],
-        "Linear Solvers" => Any["Iterative Solvers" => "HowToGuides/Numerics/LinearSolvers/IterativeSolvers.md",],
+        "System Solvers" => Any["Iterative Solvers" => "HowToGuides/Numerics/SystemSolvers/IterativeSolvers.md",],
     ],
 ]
