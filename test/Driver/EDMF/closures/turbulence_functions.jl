@@ -76,12 +76,6 @@ function compute_windspeed(
   return max(hypot(gm.u, gm.v), windspeed_min)
 end;
 
-function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
-  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / κ
-end;
-
-
-
 function compute_ustar(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,

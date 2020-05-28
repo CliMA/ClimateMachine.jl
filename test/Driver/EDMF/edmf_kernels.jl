@@ -533,11 +533,16 @@ function boundary_state!(
     up_d = diff⁺.edmf.updraft
     if bctype == 1 # bottom
         # placeholder to add function for surface TKE and covariances
-        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = get_surface_covariance()
+        oblength = ?
+        zLL = ?
+        ustar
+        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(ss, m, edmf, source, state) # I nedd to pass the surface model into BC
         en_d.ρatke = gm.ρ * area_en * tke
         en_d.ρae_int_cv = gm.ρ * area_en * e_int_cv
         en_d.ρaq_tot_cv = gm.ρ * area_en * q_tot_cv
         en_d.ρae_int_q_tot_cv = gm.ρ * area_en * e_int_q_tot_cv
+
+        state⁺.edmf.environment. env_surface_variance(m., flux2, ustar, zLL, oblength)
     elseif bctype == 2 # top
         # for now zero flux at the top
         en_d.ρatke = -n⁻ * 0.0

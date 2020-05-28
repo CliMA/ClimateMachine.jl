@@ -221,12 +221,12 @@ end;
 
 # ### Boundary conditions
 
-# Second-order terms in our equations, ``∇⋅(G)`` where ``G = α∇ρcT``, are
+# Second-order terms in our equations, ``∇⋅(G)`` where ``G = α∇ρe_int``, are
 # internally reformulated to first-order unknowns.
 # Boundary conditions must be specified for all unknowns, both first-order and
 # second-order unknowns which have been reformulated.
 
-# The boundary conditions for `ρcT` (first order unknown)
+# The boundary conditions for `ρe_int` (first order unknown)
 function boundary_state!(
     nf,
     m::SingleStack{FT,N},
@@ -251,7 +251,7 @@ function boundary_state!(
     boundary_state!(nf, m, m.edmf, state⁺, aux⁺, n⁻, state⁻, aux⁻, bctype, t, args...)
 end;
 
-# The boundary conditions for `ρcT` are specified here for second-order
+# The boundary conditions for `ρe_int` are specified here for second-order
 # unknowns
 function boundary_state!(
     nf,

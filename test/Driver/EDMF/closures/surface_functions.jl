@@ -55,23 +55,47 @@ function compute_inversion_height(
   return h
 end
 
-function compute_blux(m::SurfaceModel, _grav::FT, ϵ_v::FT) # pass in: model and param_set, gm ?
+function compute_blux(
+    ss::SingleStack{FT, N},
+    m::SurfaceModel,
+    source::Vars,
+    state::Vars,
+    ) where {FT, N}
+
+    ts = PhaseEquil(param_set ,state.e_int, state.ρ, state.q_tot)
+    ϵ_v::FT       = 1 / molmass_ratio(param_set)
     _T0::FT       = T_0(param_set)
     _e_int_i0::FT = e_int_i0(param_set)
-    ϵ_v::FT       = 1 / molmass_ratio(param_set)
     _grav::FT     = grav(param_set)
-    ts = PhaseEquil(param_set ,gm.e_int, gm.ρ, gm.q_tot)
     _cv_m::FT    = cv_m(ts)
-  return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + gm.e_int - gm.q_tot*_e_int_i0 ) 
-                + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*gm.q_tot)) # this equation should verified in the design docs 
+  return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + state.e_int - state.q_tot*_e_int_i0 ) 
+                + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*state.q_tot)) # this equation should verified in the design docs 
 end;
 
-function surface_variance(flux1::FT, flux2::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
-  c_star1 = -flux1/ustar
-  c_star2 = -flux2/ustar
+function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
+  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / κ
+end;
+
+# function env_surface_covariances(e_int_surface_flux::FT, q_tot_surface_flux::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
+function env_surface_covariances(ss::SingleStack{FT, N},
+    m::SurfaceModel,
+    edmf::EDMF{FT,N},
+    source::Vars,
+    state::Vars,
+    ) where {FT, N}
+  bflux = compute_blux(ss, m, source, state) 
+  oblength = compute_MO_len(m.κ, m.ustar, bflux)
   if oblength < 0
-    return 4 * c_star1 * c_star2 * (1 - 8.3 * zLL/oblength)^(-2/3)
+    e_int_var       = FT(4) * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+    q_tot_var       = FT(4) * (edmf.q_tot_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+    e_int_q_tot_cov = FT(4) * (edmf.e_int_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+    tke             = ((FT(3.75) + cbrt(zLL/obukhov_length * zLL/obukhov_length)) * ustar * ustar)
+    return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   else
-    return 4 * c_star1 * c_star2
+    e_int_var       = FT(4) * (edmf.e_int_surface_flux * edmf.e_int_surface_flux)/(ustar*ustar)
+    q_tot_var       = FT(4) * (edmf.q_tot_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
+    e_int_q_tot_cov = FT(4) * (edmf.e_int_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
+    tke             = (FT(3.75) * ustar * ustar)
+    return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   end
 end;
