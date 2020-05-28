@@ -99,12 +99,12 @@ This document contains the diagnostic variables in CliMA. * denotes variables th
 | v          | meridional velocity (along latitude)                                       |
 | w          | vertical velocity (along altitude)                                         |
 | rho        | density                                                                    |
-|
+|                                                                                         |
 | et         | total specific energy                                                      |
 | ei         | specific internal energy                                                   |
 | ht         | specific enthalpy from total energy                                        |
-| hi         | specific enthalpy from internal energy                                     |                                                                                         |
-|
+| hi         | specific enthalpy from internal energy                                     |                                                                                        
+|                                                                                         |
 | temp       | air temperature                                                            |
 | thd        | dry potential temperature                                                  |
 | pres        | air pressure                                                              |
