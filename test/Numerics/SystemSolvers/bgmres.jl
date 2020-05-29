@@ -4,8 +4,7 @@ using LinearAlgebra
 using Random
 using StaticArrays
 using ClimateMachine
-using ClimateMachine.LinearSolvers
-using ClimateMachine.BatchedGeneralizedMinimalResidualSolver
+using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays
 using CUDAapi
 using Random

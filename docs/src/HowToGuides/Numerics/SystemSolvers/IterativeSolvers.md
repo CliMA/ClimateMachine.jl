@@ -1,36 +1,31 @@
 # Contribution Guide for Abstract Iterative Solvers
 
 ```@meta
-CurrentModule = ClimateMachine
+CurrentModule = ClimateMachine.SystemSolvers
 ```
 
-An abstract iterative solver is a **module** that needs **one struct**,
-**one constructor**, and **two functions** in order to interface with the
-rest of [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl). In
-what follows we will describe in detail the function signatures,
+An abstract iterative solver requires **one struct**, **one constructor**,
+and **two functions** in order to interface with the rest of [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl).
+In what follows we will describe in detail the function signatures,
 return values, and struct properties necessary to build with
 [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl).
 
 We have the following concrete implementations:
-1. [GMRES](@ref GeneralizedMinimalResidualSolver.GeneralizedMinimalResidual)
-2. [Conjugate Residual](@ref GeneralizedConjugateResidualSolver.GeneralizedConjugateResidual)
+1. [GMRES](@ref GeneralizedMinimalResidual)
+2. [Conjugate Residual](@ref GeneralizedConjugateResidual)
 3. [Conjugate Gradient](@ref ConjugateGradientSolver)
-4. [Batched GMRES](@ref BatchedGeneralizedMinimalResidualSolver.BatchedGeneralizedMinimalResidual)
+4. [Batched GMRES](@ref BatchedGeneralizedMinimalResidual)
 
 ## Basic Template for an Iterative Solver
 
 A basic template of an iterative solver could be as follows:
 
 ```julia
-module MyIterativeMethodSolver
 
 export MyIterativeMethod
 
-using ..LinearSolvers
-const LS = LinearSolvers
-
 # struct
-struct MyIterativeMethod{FT} <: LS.AbstractIterativeLinearSolver
+struct MyIterativeMethod{FT} <: AbstractIterativeSystemSolver
     # minimum
     rtol::FT
     atol::FT
@@ -44,18 +39,17 @@ function MyIterativeMethod(args...)
 end
 
 # initialize function (1)
-function LS.initialize!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args...)
+function initialize!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args...)
     # body of initialize function in abstract iterative solver
     return Bool, Int
 end
 
 # iteration function (2)
-function LS.doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, threshold, args...)
+function doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, threshold, args...)
     # body of iteration
     return Bool, Int, Float
 end
 
-end # end of module
 ```
 MyIterativeMethod and function bodies would need to be replaced appropriately
 for a particular implementation. We will describe each component in detail
@@ -63,13 +57,13 @@ in subsequent sections.
 
 ### Struct
 
-A subset of AbstractIterativeLinearSolver needs at least two members:
+A subset of AbstractIterativeSystemSolver needs at least two members:
 atol and rtol. The former represents an absolute tolerance and the latter
 is a relative tolerance. Both can be used to terminate the iteration to
 determine the convergence criteria. An example struct could be
 
 ```julia
-struct MyIterativeMethod{FT} <: LS.AbstractIterativeLinearSolver
+struct MyIterativeMethod{FT} <: AbstractIterativeSystemSolver
     atol::FT
     rtol::FT
 end
@@ -104,7 +98,7 @@ but we could have also used an inner constructor if desired.
 
 The initialize function needs the following signature
 ```julia
-function LS.initialize!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args...)
+function initialize!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args...)
     # body of initialize function in abstract iterative solver
     return Bool, Int
 end
@@ -146,7 +140,7 @@ has converged as well as how many times the linear operator was applied.
 The iteration function needs the following signature
 
 ```julia
-function LS.doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, threshold, args...)
+function doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, threshold, args...)
     # body of iteration
     return Bool, Int, Float
 end
@@ -250,7 +244,6 @@ Timing performance can be done with general CPU/GPU guidelines
 
 ## Conventions
 
-- The name of the module is the name of the struct but with solver appended
 - Q refers to the initial guess for the iterative solver that gets
 overwritten with the final solution
 - Qrhs refers to the right hand side of the linear system

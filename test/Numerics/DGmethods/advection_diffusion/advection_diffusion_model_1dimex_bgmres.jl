@@ -7,8 +7,7 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGmethods
 using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
-using ClimateMachine.BatchedGeneralizedMinimalResidualSolver:
-    BatchedGeneralizedMinimalResidual
+using ClimateMachine.SystemSolvers: BatchedGeneralizedMinimalResidual
 using ClimateMachine.ODESolvers
 using LinearAlgebra
 using Printf

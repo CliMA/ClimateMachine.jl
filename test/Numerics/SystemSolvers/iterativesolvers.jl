@@ -1,14 +1,12 @@
 using Test
 using ClimateMachine
-using ClimateMachine.LinearSolvers
-using ClimateMachine.GeneralizedConjugateResidualSolver
-using ClimateMachine.GeneralizedMinimalResidualSolver
+using ClimateMachine.SystemSolvers
 
 using StaticArrays, LinearAlgebra, Random
 
 # this test setup is partly based on IterativeSolvers.jl, see e.g
 # https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl
-@testset "LinearSolvers small full system" begin
+@testset "SystemSolvers small full system" begin
     n = 10
 
     methods = (
@@ -62,7 +60,7 @@ using StaticArrays, LinearAlgebra, Random
     end
 end
 
-@testset "LinearSolvers large full system" begin
+@testset "SystemSolvers large full system" begin
     n = 1000
 
     methods = (

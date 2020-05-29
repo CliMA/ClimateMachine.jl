@@ -13,8 +13,7 @@ using ClimateMachine.DGmethods:
     vars_state_conservative,
     number_state_conservative,
     init_ode_state
-using ClimateMachine.ColumnwiseLUSolver:
-    banded_matrix, banded_matrix_vector_product!
+using ClimateMachine.SystemSolvers: banded_matrix, banded_matrix_vector_product!
 using ClimateMachine.DGmethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,

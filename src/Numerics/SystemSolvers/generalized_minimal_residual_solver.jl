@@ -1,20 +1,11 @@
-module GeneralizedMinimalResidualSolver
+#### Generalized Minimal Residual Solver
 
 export GeneralizedMinimalResidual
 
-using ..LinearSolvers
-const LS = LinearSolvers
-using ..MPIStateArrays: array_device, realview
-
-using LinearAlgebra
-using LazyArrays
-using StaticArrays
-using KernelAbstractions
-
 """
-# GMRES
     GeneralizedMinimalResidual(Q; M, rtol, atol)
 
+# GMRES
 This is an object for solving linear systems using an iterative Krylov method.
 The constructor parameter `M` is the number of steps after which the algorithm
 is restarted (if it has not converged), `Q` is a reference state used only
@@ -25,7 +16,7 @@ This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
 This uses the restarted Generalized Minimal Residual method of Saad and Schultz (1986).
 
-### References
+## References
     @article{saad1986gmres,
       title={GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems},
       author={Saad, Youcef and Schultz, Martin H},
@@ -38,7 +29,7 @@ This uses the restarted Generalized Minimal Residual method of Saad and Schultz 
     }
 """
 mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <:
-               LS.AbstractIterativeLinearSolver
+               AbstractIterativeSystemSolver
     krylov_basis::NTuple{MP1, AT}
     "Hessenberg matrix"
     H::MArray{Tuple{MP1, M}, T, 2, MMP1}
@@ -67,9 +58,7 @@ mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <:
     end
 end
 
-const weighted = false
-
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -86,8 +75,8 @@ function LS.initialize!(
     linearoperator!(krylov_basis[1], Q, args...)
     @. krylov_basis[1] = Qrhs - krylov_basis[1]
 
-    threshold = rtol * norm(krylov_basis[1], weighted)
-    residual_norm = norm(krylov_basis[1], weighted)
+    threshold = rtol * norm(krylov_basis[1], weighted_norm)
+    residual_norm = norm(krylov_basis[1], weighted_norm)
 
     converged = false
     # FIXME: Should only be true for threshold zero
@@ -103,7 +92,7 @@ function LS.initialize!(
     converged, max(threshold, atol)
 end
 
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -126,10 +115,10 @@ function LS.doiteration!(
         # Arnoldi using the Modified Gram Schmidt orthonormalization
         linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
         for i in 1:j
-            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted)
+            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted_norm)
             @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
         end
-        H[j + 1, j] = norm(krylov_basis[j + 1], weighted)
+        H[j + 1, j] = norm(krylov_basis[j + 1], weighted_norm)
         krylov_basis[j + 1] ./= H[j + 1, j]
 
         # apply the previous Givens rotations to the new column of H
@@ -161,7 +150,7 @@ function LS.doiteration!(
     rv_krylov_basis = realview.(krylov_basis)
     groupsize = 256
     event = Event(array_device(Q))
-    event = LS.linearcombination!(array_device(Q), groupsize)(
+    event = linearcombination!(array_device(Q), groupsize)(
         rv_Q,
         y,
         rv_krylov_basis,
@@ -172,9 +161,7 @@ function LS.doiteration!(
     wait(array_device(Q), event)
 
     # if not converged restart
-    converged || LS.initialize!(linearoperator!, Q, Qrhs, solver, args...)
+    converged || initialize!(linearoperator!, Q, Qrhs, solver, args...)
 
     (converged, j, residual_norm)
-end
-
 end

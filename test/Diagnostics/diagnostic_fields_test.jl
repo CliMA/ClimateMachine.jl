@@ -200,8 +200,8 @@ function run_brick_diagostics_fields_test()
         Q.data[:, _ρw, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         #-----------------------------------------------------------------------
-        vgrad = compute_vec_grad(model, Q, dg)
-        vort = compute_vorticity(dg, vgrad)
+        vgrad = Diagnostics.VectorGradients(dg, Q)
+        vort = Diagnostics.Vorticity(dg, vgrad)
         #----------------------------------------------------------------------------
         Ω₁_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -

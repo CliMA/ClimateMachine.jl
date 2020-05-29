@@ -1,15 +1,6 @@
-module GeneralizedConjugateResidualSolver
+#### Generalized Conjugate Residual Solver
 
 export GeneralizedConjugateResidual
-
-using ..LinearSolvers
-const LS = LinearSolvers
-using ..MPIStateArrays: array_device, realview
-
-using LinearAlgebra
-using LazyArrays
-using StaticArrays
-using KernelAbstractions
 
 """
     GeneralizedConjugateResidual(K, Q; rtol, atol)
@@ -22,7 +13,7 @@ is restarted (if it has not converged), `Q` is a reference state used only
 to allocate the solver internal state, and `tolerance` specifies the convergence
 criterion based on the relative residual norm. The amount of memory
 required by the solver state is roughly `(2K + 2) * size(Q)`.
-This object is intended to be passed to the [`linearsolve!`](@ref LinearSolvers.linearsolve!) command.
+This object is intended to be passed to the [`linearsolve!`](@ref) command.
 
 This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983).
 
@@ -40,7 +31,7 @@ This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983
     }
 """
 mutable struct GeneralizedConjugateResidual{K, T, AT} <:
-               LS.AbstractIterativeLinearSolver
+               AbstractIterativeSystemSolver
     residual::AT
     L_residual::AT
     p::NTuple{K, AT}
@@ -69,9 +60,7 @@ mutable struct GeneralizedConjugateResidual{K, T, AT} <:
     end
 end
 
-const weighted = false
-
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -85,12 +74,12 @@ function LS.initialize!(
     @assert size(Q) == size(residual)
     rtol, atol = solver.rtol, solver.atol
 
-    threshold = rtol * norm(Qrhs, weighted)
+    threshold = rtol * norm(Qrhs, weighted_norm)
     linearoperator!(residual, Q, args...)
     residual .-= Qrhs
 
     converged = false
-    residual_norm = norm(residual, weighted)
+    residual_norm = norm(residual, weighted_norm)
     if residual_norm < threshold
         converged = true
         return converged, threshold
@@ -104,7 +93,7 @@ function LS.initialize!(
     converged, threshold
 end
 
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -122,13 +111,13 @@ function LS.doiteration!(
 
     residual_norm = typemax(eltype(Q))
     for k in 1:K
-        normsq[k] = norm(L_p[k], weighted)^2
-        beta = -dot(residual, L_p[k], weighted) / normsq[k]
+        normsq[k] = norm(L_p[k], weighted_norm)^2
+        beta = -dot(residual, L_p[k], weighted_norm) / normsq[k]
 
         Q .+= beta * p[k]
         residual .+= beta * L_p[k]
 
-        residual_norm = norm(residual, weighted)
+        residual_norm = norm(residual, weighted_norm)
 
         if residual_norm <= threshold
             return (true, k, residual_norm)
@@ -137,7 +126,7 @@ function LS.doiteration!(
         linearoperator!(L_residual, residual, args...)
 
         for l in 1:k
-            alpha[l] = -dot(L_residual, L_p[l], weighted) / normsq[l]
+            alpha[l] = -dot(L_residual, L_p[l], weighted_norm) / normsq[l]
         end
 
         if k < K
@@ -157,7 +146,7 @@ function LS.doiteration!(
         T = eltype(alpha)
 
         event = Event(array_device(Q))
-        event = LS.linearcombination!(array_device(Q), groupsize)(
+        event = linearcombination!(array_device(Q), groupsize)(
             rv_nextp,
             (one(T), alpha[1:k]...),
             (rv_residual, rv_p[1:k]...),
@@ -166,7 +155,7 @@ function LS.doiteration!(
             dependencies = (event,),
         )
 
-        event = LS.linearcombination!(array_device(Q), groupsize)(
+        event = linearcombination!(array_device(Q), groupsize)(
             rv_L_nextp,
             (one(T), alpha[1:k]...),
             (rv_L_residual, rv_L_p[1:k]...),
@@ -178,6 +167,4 @@ function LS.doiteration!(
     end
 
     (false, K, residual_norm)
-end
-
 end

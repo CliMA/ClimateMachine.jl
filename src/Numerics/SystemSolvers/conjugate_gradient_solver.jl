@@ -1,21 +1,9 @@
-"""
-    ConjugateGradientSolver
-
-Conjugate Gradient method solver
-"""
-module ConjugateGradientSolver
+#### Conjugate Gradient solver
 
 export ConjugateGradient
 
-using ..LinearSolvers
-const LS = LinearSolvers
-using ClimateMachine.MPIStateArrays
-using LinearAlgebra
-using LazyArrays
-using StaticArrays
-
 struct ConjugateGradient{AT1, AT2, FT, RD, RT, IT} <:
-       LS.AbstractIterativeLinearSolver
+       AbstractIterativeSystemSolver
     # tolerances (2)
     rtol::FT
     atol::FT
@@ -41,8 +29,16 @@ end
 
 # Define the outer constructor for the ConjugateGradient struct
 """
+    ConjugateGradient(
+        Q::AT;
+        rtol = eps(eltype(Q)),
+        atol = eps(eltype(Q)),
+        max_iter = length(Q),
+        dims = :,
+        reshape_tuple = size(Q),
+    ) where {AT}
+
 # ConjugateGradient
-function ConjugateGradient(Q::AT; rtol = eps(eltype(Q)), atol = eps(eltype(Q)), dims = :) where AT
 
 # Description
 - Outer constructor for the ConjugateGradient struct
@@ -113,7 +109,14 @@ end
 
 # Define the outer constructor for the ConjugateGradient struct
 """
-function ConjugateGradient(Q::MPIStateArray; rtol = eps(eltype(Q)), atol = eps(eltype(Q)), dims = :)
+    ConjugateGradient(
+        Q::MPIStateArray;
+        rtol = eps(eltype(Q)),
+        atol = eps(eltype(Q)),
+        max_iter = length(Q),
+        dims = :,
+        reshape_tuple = size(Q),
+    )
 
 # Description
 Outer constructor for the ConjugateGradient struct with MPIStateArrays. THIS IS A HACK DUE TO RESHAPE FUNCTIONALITY ON MPISTATEARRAYS.
@@ -184,11 +187,17 @@ end
 
 
 """
-LS.initialize!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjugateGradient, args...)
+    initialize!(
+        linearoperator!,
+        Q,
+        Qrhs,
+        solver::ConjugateGradient,
+        args...,
+    )
 
 # Description
 
-- This function initializes the iterative solver. It is called as part of the AbstractIterativeLinearSolver routine. SEE CODEREF for documentation on AbstractIterativeLinearSolver
+- This function initializes the iterative solver. It is called as part of the AbstractIterativeSystemSolver routine. SEE CODEREF for documentation on AbstractIterativeSystemSolver
 
 # Arguments
 
@@ -210,7 +219,7 @@ LS.initialize!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjuga
 - This function does nothing for conjugate gradient
 
 """
-function LS.initialize!(
+function initialize!(
     linearoperator!,
     Q,
     Qrhs,
@@ -223,11 +232,19 @@ end
 
 
 """
-LS.doiteration!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjugateGradient, threshold, args...; applyPC!)
+    doiteration!(
+        linearoperator!,
+        Q,
+        Qrhs,
+        solver::ConjugateGradient,
+        threshold,
+        args...;
+        applyPC! = (x, y) -> x .= y,
+    )
 
 # Description
 
-- This function enacts the iterative solver. It is called as part of the AbstractIterativeLinearSolver routine. SEE CODEREF for documentation on AbstractIterativeLinearSolver
+- This function enacts the iterative solver. It is called as part of the AbstractIterativeSystemSolver routine. SEE CODEREF for documentation on AbstractIterativeSystemSolver
 
 # Arguments
 
@@ -252,7 +269,7 @@ LS.doiteration!(linearoperator!, Q, Qrhs, solver::ColumnwisePreconditionedConjug
 - This function does conjugate gradient
 
 """
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q,
     Qrhs,
@@ -342,11 +359,19 @@ function LS.doiteration!(
 end
 
 """
-LS.doiteration!(linearoperator!, Q::MPIStateArray, Qrhs::MPIStateArray, solver::ColumnwisePreconditionedConjugateGradient, threshold, args...; applyPC!)
+    doiteration!(
+        linearoperator!,
+        Q::MPIStateArray,
+        Qrhs::MPIStateArray,
+        solver::ConjugateGradient,
+        threshold,
+        args...;
+        applyPC! = (x, y) -> x .= y,
+    )
 
 # Description
 
-This function enacts the iterative solver. It is called as part of the AbstractIterativeLinearSolver routine. SEE CODEREF for documentation on AbstractIterativeLinearSolver. THIS IS A HACK TO WORK WITH MPISTATEARRAYS. THE ISSUE IS WITH RESHAPE.
+This function enacts the iterative solver. It is called as part of the AbstractIterativeSystemSolver routine. SEE CODEREF for documentation on AbstractIterativeSystemSolver. THIS IS A HACK TO WORK WITH MPISTATEARRAYS. THE ISSUE IS WITH RESHAPE.
 
 # Arguments
 
@@ -371,7 +396,7 @@ This function enacts the iterative solver. It is called as part of the AbstractI
 - This function does conjugate gradient
 
 """
-function LS.doiteration!(
+function doiteration!(
     linearoperator!,
     Q::MPIStateArray,
     Qrhs::MPIStateArray,
@@ -459,6 +484,3 @@ function LS.doiteration!(
     converged = true
     return converged, max_iter, absolute_residual
 end
-
-
-end #module
