@@ -69,6 +69,7 @@ if generate_tutorials
             "Conjugate Gradient" => "generated/Numerics/SystemSolvers/cg.md",
             "Batched Generalized Minimal Residual" => "generated/Numerics/SystemSolvers/bgmres.md",
         ],],
+        "Diagnostics" => Any["Debug" => Any["State Statistics Regression" => "generated/Diagnostics/Debug/StateCheck.md",],],
         "Contributing" => Any["Notes on Literate" => "generated/literate_markdown.md",],
     ]
 
