@@ -428,7 +428,6 @@ end
 function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Boundary Conditions
     u_star = FT(0.28)
-    zeroflux = FT(0)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -474,7 +473,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         zmax,
         param_set,
         init_cfsites!,
-        solver_type = imex_solver,
+        solver_type = mrrk_solver,
         model = model,
     )
     return config
@@ -564,7 +563,7 @@ function main()
         driver_config,
         splines;
         init_on_cpu = true,
-        Courant_number = CFL_IMEX,
+        Courant_number = CFL,
     )
     # Set up diagnostic configuration
     dgn_config = config_diagnostics(driver_config)
