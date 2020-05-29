@@ -104,24 +104,24 @@ end
 @testset "$(@__FILE__)" begin
     boundary_conditions = [
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
     ]
 
