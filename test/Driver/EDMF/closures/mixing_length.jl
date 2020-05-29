@@ -32,14 +32,14 @@ function mixing_length(
     fill!(m.L, 0)
 
     # precompute
-    en_area  = 1-sum([up[i].ρa for i in 1:N])*ρinv
-    w_env    = (gm.ρu[3]-sum([up[i].ρau[3] for i in 1:N]))*ρinv
-    en_e_int = (gm.ρe_int-sum([up[i].ρae_int for i in 1:N]))*ρinv
-    en_q_tot = (gm.ρq_tot-sum([up[i].ρaq_tot for i in 1:N]))*ρinv
+    en_area  = 1 - sum([up[i].ρa for i in 1:N])*ρinv
+    w_env    = (gm.ρu[3]  - sum([up[i].ρau[3] for i in 1:N]))*ρinv
+    en_e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))*ρinv
+    en_q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
     ∂e_int∂z = en_d.e_int # check if there is a missing ∇
     ∂q_tot∂z = en_d.q_tot # check if there is a missing ∇
 
-    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalr product 
+    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors 
 
     # Thermodynamic local variables for mixing length
     ts::FT    = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)

@@ -36,16 +36,15 @@ end
 # in `vars_state_auxiliary`
 function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
     aux.z = geom.coord[3]
-    aux.T = m.initialT
 
-    # Compute the reference profile ρ_0,p_0 to be stored in grid mean auxiliary vars
+    # Compute the reference profile ρ_0, p_0 
     #       consider a flag for SingleStack setting that assigns gm.ρ = ρ_0; gm.p = p_0
 
     # status:
     # Need to find the right way to integrate the hydrostatic reference profile
     # to obtain both ρ_0 and p_0 by integrating log(p) in z based on dlog(p)/dz = -g/(R_m*T)
     # with constant θ_liq and q_tot
-    # it is not clear to in function dynamically assigns p in LiquidIcePotTempSHumEquil_given_pressure
+    # it is not clear to me if the function dynamically assigns p in LiquidIcePotTempSHumEquil_given_pressure
     # at each level
 
 
