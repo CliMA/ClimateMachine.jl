@@ -2,6 +2,8 @@ using Test
 using ClimateMachine.Mesh.Topologies
 using Combinatorics, MPI
 
+MPI.Initialized() || MPI.Init()
+
 @testset "cubedshellwarp tests" begin
     import ClimateMachine.Mesh.Topologies: cubedshellwarp
 
