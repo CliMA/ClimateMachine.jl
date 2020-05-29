@@ -27,11 +27,9 @@ function mixing_length(
 
     z = gm_a.z
     _grav = FT(grav(param_set))
-    bflux = compute_blux(_grav, ϵ_v)
-    # ustar = compute_ustar(??) ustar should be comepute from a function 
-    obukhov_length = compute_MO_len(m.κ, m.ustar, bflux)
-
     ρinv = 1/gm.ρ
+
+
     fill!(m.L, 0)
 
     # precompute
@@ -39,47 +37,55 @@ function mixing_length(
     w_env    = (gm.ρu[3]-sum([up[i].ρau[3] for i in 1:N]))*ρinv
     en_e_int = (gm.ρe_int-sum([up[i].ρae_int for i in 1:N]))*ρinv
     en_q_tot = (gm.ρq_tot-sum([up[i].ρaq_tot for i in 1:N]))*ρinv
-    ∂e_int∂z = en_d.e_int
-    ∂q_tot∂z = en_d.q_tot
+    ∂e_int∂z = en_d.e_int # check if there is a missing ∇
+    ∂q_tot∂z = en_d.q_tot # check if there is a missing ∇
 
-    TKE_Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2
+    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalr product 
 
     # Thermodynamic local variables for mixing length
-    ts = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
-    Π = exner(ts)
-    lv = latent_heat_vapor(ts)
-    cp_m_ = cp_m(ts)
-    tke = sqrt(en.ρatke, FT(0))*ρinv/en_area
-    θ_ρ = virtual_pottemp(ts)
+    ts::FT    = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
+    Π::FT     = exner(ts)
+    lv::FT    = latent_heat_vapor(ts)
+    cp_m_::FT = cp_m(ts)
+    tke::FT   = sqrt(en.ρatke, FT(0))*ρinv/en_area
+    θ_v::FT   = virtual_pottemp(ts)
+    T::FT     = air_temperature(ts)
+    q         = PhasePartition(ts)
+    ϵ_v::FT   = 1 / molmass_ratio(param_set)
+    bflux     = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, m.T_b, q, ρinv)
+    θ_surf    = m. 
+    ustar = Nishizawa2018.compute_friction_velocity(param_set ,u_ave ,θ_suft ,flux ,Δz ,z_0 ,a ,Ψ_m_tol ,tol_abs ,iter_max)
+    obukhov_length = Nishizawa2018.monin_obukhov_len(param_set, u, θ_surf, flux)
 
-    # compute L1 - static stability
-    buoyancy_freq = g*en_d.∇θ_ρ/θ_ρ
+    # write an ∇θ_v_eff = sgs_buoyancy_freq() that takes  into account the counterpart of 28-29 in Igancio's paper
+    buoyancy_freq = g*en_d.∇θ_v/θ_v
     if buoyancy_freq>FT(0)
       m.L[1] = sqrt(m.c_w*tke)/buoyancy_freq
     else
       m.L[1] = FT(1e-6)
     end
 
-    # compute L2 - law of the wall
+
+    # compute L2 - law of the wall  - YAIR define tke_surf
     if obukhov_length < FT(0) #unstable case
-      m.L[2] = (m.κ * z/(sqrt(tke)/m.ustar/m.ustar)* m.c_k) * min(
+      m.L[2] = (m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)* m.c_k) * min(
          (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ))
     else # neutral or stable cases
-      m.L[2] = m.κ * z/(sqrt(max(q[:tke, k_1, en], FT(0))/m.ustar/m.ustar)*m.c_k)
+      m.L[2] = m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)*m.c_k)
     end
 
     # compute L3 - entrainment detrainment sources
 
     # buoyancy gradients via chain-role
     ∂b∂z_e_int, ∂b∂z_q_tot = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
-    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, TKE_Shear, ∂b∂z_q_tot, FT(0.25)) # this parameter should be exposed in the model 
-    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length, FT(53),FT(13),FT(130)) # these parameters should be exposed in the model 
+    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, FT(0.25)) # this parameter should be exposed in the model 
+    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
 
     # Production/destruction terms
-    a = m.c_m*(TKE_Shear - ∂b∂z_e_int/Pr_z - ∂b∂z_q_tot/Pr_z)* sqrt(tke)
+    a = m.c_m*(Shear - ∂b∂z_e_int/Pr_z - ∂b∂z_q_tot/Pr_z)* sqrt(tke)
     # Dissipation term
     b = FT(0)
-
+    # detrainment and turb_entr should of the i'th updraft 
     for i in 1:N
       a_up = up[i].ρa/gm.ρ
       w_up = up[i].ρau[3]/up[i].ρa
@@ -96,9 +102,8 @@ function mixing_length(
     end
     m.L[3] = l_entdet
 
-    lower_bound = FT(0.1)
-    upper_bound = FT(1.5)
-
-    l = lamb_smooth_minimum(m.L,lower_bound, upper_bound)
+    frac_upper_bound = FT(0.1) # expose these in the model 
+    lower_bound = FT(1.5) # expose these in the model 
+    l = lamb_smooth_minimum(m.L, lower_bound,frac_upper_bound)
     return l
 end;

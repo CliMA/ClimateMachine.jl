@@ -55,22 +55,23 @@ function compute_inversion_height(
   return h
 end
 
-function compute_blux(
-    ss::SingleStack{FT, N},
-    m::SurfaceModel,
-    source::Vars,
-    state::Vars,
-    ) where {FT, N}
+# revert to use compute_buoyancy_flux in SurfaceFluxes.jl
+# function compute_blux(
+#     ss::SingleStack{FT, N},
+#     m::SurfaceModel,
+#     source::Vars,
+#     state::Vars,
+#     ) where {FT, N}
 
-    ts = PhaseEquil(param_set ,state.e_int, state.ρ, state.q_tot)
-    ϵ_v::FT       = 1 / molmass_ratio(param_set)
-    _T0::FT       = T_0(param_set)
-    _e_int_i0::FT = e_int_i0(param_set)
-    _grav::FT     = grav(param_set)
-    _cv_m::FT    = cv_m(ts)
-  return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + state.e_int - state.q_tot*_e_int_i0 ) 
-                + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*state.q_tot)) # this equation should verified in the design docs 
-end;
+#     ts = PhaseEquil(param_set ,state.e_int, state.ρ, state.q_tot)
+#     ϵ_v::FT       = 1 / molmass_ratio(param_set)
+#     _T0::FT       = T_0(param_set)
+#     _e_int_i0::FT = e_int_i0(param_set)
+#     _grav::FT     = grav(param_set)
+#     _cv_m::FT    = cv_m(ts)
+#   return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + state.e_int - state.q_tot*_e_int_i0 ) 
+#                 + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*state.q_tot)) # this equation should verified in the design docs 
+# end;
 
 function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
   return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / κ
@@ -85,19 +86,19 @@ function env_surface_covariances(ss::SingleStack{FT, N},
     ) where {FT, N}
   # yair - I would like to call the surface functions from src/Atmos/Model/SurfaceFluxes.jl
   bflux = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, T_b, q, α_0)
-  oblength = Nishizawa2018.monin_obukhov_len(param_set, ustar, bflux)
-  zLL = FT(20) # how to get the z fir st interior ?
+  oblength = Nishizawa2018.monin_obukhov_len(param_set, u, θ, flux)
+  zLL = FT(20) # how to get the z first interior ?
   if oblength < 0
     e_int_var       = FT(4) * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
     q_tot_var       = FT(4) * (edmf.q_tot_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
     e_int_q_tot_cov = FT(4) * (edmf.e_int_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
-    tke             = ((FT(3.75) + cbrt(zLL/obukhov_length * zLL/obukhov_length)) * ustar * ustar)
+    tke             = ustar * ustar * (FT(3.75) + cbrt(zLL/obukhov_length * zLL/obukhov_length))
     return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   else
     e_int_var       = FT(4) * (edmf.e_int_surface_flux * edmf.e_int_surface_flux)/(ustar*ustar)
     q_tot_var       = FT(4) * (edmf.q_tot_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
     e_int_q_tot_cov = FT(4) * (edmf.e_int_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
-    tke             = (FT(3.75) * ustar * ustar)
+    tke             = ustar * ustar * FT(3.75)
     return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   end
 end;

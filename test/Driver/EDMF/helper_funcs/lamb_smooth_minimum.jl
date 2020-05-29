@@ -2,12 +2,13 @@
 function lamb_smooth_minimum(
     l::AbstractArray,
     lower_bound::FT,
-    upper_bound::FT
+    frac_upper_bound::FT
 ) where {FT}
 
   leng = size(l)
   xmin = minimum(l)
-  lambda0 = max(xmin*lower_bound/real(LambertW.lambertw(FT(2)/MathConstants.e)), upper_bound)
+  # try to find outhow to use dz from the model grid instead of lower_bound
+  lambda0 = max(xmin*frac_upper_bound/real(LambertW.lambertw(FT(2)/MathConstants.e)), lower_bound)
 
   i = 1
   num = 0

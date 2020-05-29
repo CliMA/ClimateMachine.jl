@@ -21,15 +21,15 @@ function compute_buoyancy_gradients(
     up_s = source.edmf.updraft
     en_d = state.edmf.environment.diffusive
 
-    _cv_d::FT    = cv_d(param_set)
-    _cv_v::FT    = cp_v(param_set)
-    _cv_l::FT    = cp_l(param_set)
-    _cv_i::FT    = cp_i(param_set)
-    _T0::FT      = T_0(param_set)
-    e_int_i0::FT = e_int_i0(param_set)
-    ϵ_v::FT      = 1 / molmass_ratio(param_set)
-    _grav::FT        = grav(param_set)
-    _R_d::FT     = R_d(param_set)
+    _cv_d::FT     = cv_d(param_set)
+    _cv_v::FT     = cp_v(param_set)
+    _cv_l::FT     = cp_l(param_set)
+    _cv_i::FT     = cp_i(param_set)
+    _T0::FT       = T_0(param_set)
+    _e_int_i0::FT = e_int_i0(param_set)
+    ϵ_v::FT       = 1 / molmass_ratio(param_set)
+    _grav::FT     = grav(param_set)
+    _R_d::FT      = R_d(param_set)
 
     cloudy, dry = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model) # can I call the microphyscis model here?     
     ∂b∂ρ = - _grav/gm.ρ
@@ -42,24 +42,40 @@ function compute_buoyancy_gradients(
 
     ∂ρ∂e_int = (en_a.cld_frac * ∂ρ∂e_int_cloudy + (1-en_a.cld_frac) * ∂ρ∂e_int_dry)
     ∂ρ∂q_tot = _R_d*gm_a.p_0/(R_m*R_m*T)
-    # apply chain role
+    # apply chain-role
     ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
     ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
+    ∂b∂z_dry    = ∂b∂ρ * 
+    ∂b∂z_cloudy = ∂b∂ρ * ∂ρ∂e_int_cloudy * ∂q_tot∂z
     return ∂b∂z_e_int, ∂b∂z_q_tot
 end;
 
-function gradient_Richardson_number(∂b∂z_e_int, TKE_Shear, ∂b∂z_q_tot, minval)
-    Grad_Ri = min(∂b∂z_e_int/max(TKE_Shear, eps(FT)) + ∂b∂z_q_tot/max(TKE_Shear, eps(FT)) , minval)
+function gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, minval)
+    Grad_Ri = min(∂b∂z_e_int/max(Shear, eps(FT)) + ∂b∂z_q_tot/max(Shear, eps(FT)) , minval)
     return Grad_Ri
 end;
 
-function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length, a_empirical, b_empirical, c_empirical)
+function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length)
     if unstable(obukhov_length)
       Pr_z = Pr_n
     else
-      Pr_z = Pr_n*(2*Grad_Ri/(1+(a_empirical/b_empirical)*Grad_Ri -sqrt( (1+(a_empirical/c_empirical)*Grad_Ri)^2 - 4*Grad_Ri)))
+      Pr_z = Pr_n*(2*Grad_Ri/(1+(FT(53)/FT(13))*Grad_Ri -sqrt( (1+(FT(53)/FT(130))*Grad_Ri)^2 - 4*Grad_Ri)))
     end
     return Pr_z
+end;
+
+function sgs_buoyancy_freq(
+    ss::SingleStack{FT, N},
+    m::MixingLengthModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+    ) where {FT, N}
+    # placeholder for a new buoyancy frequancy function 
+    return 
 end;
 
 function compute_windspeed(
@@ -74,20 +90,6 @@ function compute_windspeed(
     ) where {FT, N}
     windspeed_min = FT(0.01) # does this needs to be exposed ? 
   return max(hypot(gm.u, gm.v), windspeed_min)
-end;
-
-function compute_ustar(
-    ss::SingleStack{FT, N},
-    m::MixingLengthModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-    ) where {FT, N}
-
-return ustar
 end;
 
 

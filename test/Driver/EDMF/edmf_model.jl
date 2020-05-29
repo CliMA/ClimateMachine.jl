@@ -15,27 +15,27 @@ Base.@kwdef struct EntrainmentDetrainment{FT}
     c_t::FT = ?
     "Detrainment RH power"
     β::FT = 2
-    "Logistic function scale"
-    μ_0::FT = 0.0004
+    "Logistic function scale ‵[1/s]‵"
+    μ_0::FT = 0.0004 
     "Updraft mixing fraction"
     χ::FT = 0.25
 end
 
 Base.@kwdef struct SurfaceModel{FT}
-    "Surface pressure [pasc]"
+    "Surface pressure ‵[pasc]‵"
     P_surf::FT = 101300.0
-    "Surface internal energy []"
+    "Surface internal energy ‵[m^2/s^2]‵"
     surface_e_int::FT = 300.0*1004.0
-    "Surface total specific humidity [kg/kg]"
+    "Surface total specific humidity ‵[kg/kg]‵"
     surface_q_tot::FT = 0.0016
-    "surface sensible heat flux [w/m^2]"
+    "surface sensible heat flux ‵[w/m^2]‵"
     surface_shf::FT = 0.0
-    "surface lantent heat flux [w/m^2]"
+    "surface lantent heat flux ‵[w/m^2]‵"
     surface_lhf::FT = 0.0
-    "surface sensible heat flux [w/m^2]"
-    surface_shf::FT = 0.0
-    "surface lantent heat flux [w/m^2]"
-    surface_lhf::FT = 0.0
+    "top sensible heat flux ‵[w/m^2]‵"
+    top_shf::FT = 0.0
+    "top lantent heat flux ‵[w/m^2]‵"
+    top_lhf::FT = 0.0
     "Sufcae area"
     a_surf::FT = 0.1
     "Ratio of rms turbulent velocity to friction velocity"
