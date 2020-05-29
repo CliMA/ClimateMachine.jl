@@ -13,8 +13,7 @@ function mixing_length(
     εt::FT,
     ) where {FT, N}
 
-    # Q - do I need to define L as a vector ?
-    # need to code the functions: obukhov_length, ustar, ϕ_m, lamb_smooth_minimum
+    # need to code / use the functions: obukhov_length, ustar, ϕ_m
 
     # Alias convention:
     gm = state
@@ -53,11 +52,16 @@ function mixing_length(
     q         = PhasePartition(ts)
     ϵ_v::FT   = 1 / molmass_ratio(param_set)
     bflux     = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, m.T_b, q, ρinv)
-    θ_surf    = m. 
+    # θ_surf    = m.surface_temp ? YAIR 
     ustar = Nishizawa2018.compute_friction_velocity(param_set ,u_ave ,θ_suft ,flux ,Δz ,z_0 ,a ,Ψ_m_tol ,tol_abs ,iter_max)
     obukhov_length = Nishizawa2018.monin_obukhov_len(param_set, u, θ_surf, flux)
 
-    # write an ∇θ_v_eff = sgs_buoyancy_freq() that takes  into account the counterpart of 28-29 in Igancio's paper
+    # buoyancy related functions 
+    ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
+    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, FT(0.25)) # this parameter should be exposed in the model 
+    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
+
+    # compute L1 - stability - YAIR missing buoyancy_freq
     buoyancy_freq = g*en_d.∇θ_v/θ_v
     if buoyancy_freq>FT(0)
       m.L[1] = sqrt(m.c_w*tke)/buoyancy_freq
@@ -65,22 +69,15 @@ function mixing_length(
       m.L[1] = FT(1e-6)
     end
 
-
     # compute L2 - law of the wall  - YAIR define tke_surf
-    if obukhov_length < FT(0) #unstable case
+    if obukhov_length < FT(0) 
       m.L[2] = (m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)* m.c_k) * min(
          (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ))
-    else # neutral or stable cases
+    else
       m.L[2] = m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)*m.c_k)
     end
 
     # compute L3 - entrainment detrainment sources
-
-    # buoyancy gradients via chain-role
-    ∂b∂z_e_int, ∂b∂z_q_tot = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
-    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, FT(0.25)) # this parameter should be exposed in the model 
-    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
-
     # Production/destruction terms
     a = m.c_m*(Shear - ∂b∂z_e_int/Pr_z - ∂b∂z_q_tot/Pr_z)* sqrt(tke)
     # Dissipation term

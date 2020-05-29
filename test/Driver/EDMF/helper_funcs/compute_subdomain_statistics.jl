@@ -26,10 +26,10 @@ function compute_subdomain_statistics!(
   q_liq = PhasePartition(ts).liq
   q_ice = PhasePartition(ts).ice
   # here cloudy and dry are indetical as only one will be used based on the value of cld_frac,
-  # but I define both as in the  quadratuhre options to come they will differ and both will be used
+  # but I define both as in the  quadrature options to come they will differ and both will be used
   ## I need to find out how to initiate cloudy and dry structures 
   if q_liq+q_ice > 0
-    en_a.cld_frac = 1
+    cld_frac = 1
     cloudy.q_tot = en.q_tot
     cloudy.T     = air_temperature(ts)
     cloudy.R_m   = gas_constant_air(ts) 
@@ -43,7 +43,7 @@ function compute_subdomain_statistics!(
     dry.q_liq = FT(0)
     dry.q_ice = FT(0)
   else
-    en_a.cld_frac = 0
+    cld_frac = 0
     dry.q_tot = en.q_tot
     dry.T     = air_temperature(ts)
     dry.R_m   = gas_constant_air(ts) 
@@ -57,7 +57,7 @@ function compute_subdomain_statistics!(
     cloudy.q_liq = q_liq
     cloudy.q_ice = q_ice
   end
-  return cloudy, dry
+  return cloudy, dry, cld_frac
 end
 
 ## the complete coding of this function can wait for a working model with SubdomainMean

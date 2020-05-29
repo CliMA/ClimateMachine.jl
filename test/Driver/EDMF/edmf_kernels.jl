@@ -286,9 +286,6 @@ function edmf_stack_nodal_update_aux!(
     end
     up_a[i].buoyancy -= b_gm
 
-    #   -------------  Compute env cld_frac in subdomain statistics 
-    compute_subdomain_statistics!(m, state, aux, t, statistical_model)
-
     #   -------------  Compute upd_top
     for i in 1:N
         # YAIR - check this with Charlie 

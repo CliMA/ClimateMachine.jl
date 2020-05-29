@@ -31,7 +31,7 @@ function compute_buoyancy_gradients(
     _grav::FT     = grav(param_set)
     _R_d::FT      = R_d(param_set)
 
-    cloudy, dry = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model) # can I call the microphyscis model here?     
+    cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
     ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)
@@ -40,14 +40,16 @@ function compute_buoyancy_gradients(
                        + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ϵ_v*_R_d/(_cv_v*(cloudy.T-_T0)+_e_int_i0) )
     #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
 
-    ∂ρ∂e_int = (en_a.cld_frac * ∂ρ∂e_int_cloudy + (1-en_a.cld_frac) * ∂ρ∂e_int_dry)
+    ∂ρ∂e_int = (cld_frac * ∂ρ∂e_int_cloudy + (1-cld_frac) * ∂ρ∂e_int_dry)
     ∂ρ∂q_tot = _R_d*gm_a.p_0/(R_m*R_m*T)
     # apply chain-role
     ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
     ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
-    ∂b∂z_dry    = ∂b∂ρ * 
-    ∂b∂z_cloudy = ∂b∂ρ * ∂ρ∂e_int_cloudy * ∂q_tot∂z
-    return ∂b∂z_e_int, ∂b∂z_q_tot
+    
+    # add here a computation of buoyancy frequeacy based on θ_lv
+    # buoyancy_freq = 
+
+    return ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq
 end;
 
 function gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, minval)
