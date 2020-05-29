@@ -286,12 +286,18 @@ function edmf_stack_nodal_update_aux!(
     end
     up_a[i].buoyancy -= b_gm
 
-    #   -------------  Compute env cld_frac
-    subdomain_statistics()
-    en_a.cld_frac = 0 # here a quadrature model should be called
+    #   -------------  Compute env cld_frac in subdomain statistics 
+    compute_subdomain_statistics!(m, state, aux, t, statistical_model)
+
     #   -------------  Compute upd_top
     for i in 1:N
-        up_a[i].upd_top = 0 # ?? this is a difficult one as we need to find the maximum z in which up[i].a > minval
+        # YAIR - check this with Charlie 
+        J=1
+        for j in length(up[i].ρa)
+            if up[i].ρa*ρinv>FT(0)
+                up[i].updraft_top = aux.z[J]
+            end
+        end
     end
 end;
 

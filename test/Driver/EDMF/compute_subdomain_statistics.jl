@@ -4,7 +4,7 @@ function compute_subdomain_statistics!(
   aux::Vars,
   t::Real,
   statistical_model::SubdomainMean,
-  ) where {FT,IT}
+  ) where {FT,N}
 
   gm_a = aux
   en_a = aux.edmf.environment
