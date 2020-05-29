@@ -269,16 +269,19 @@ function boundary_state!(
     if bctype == 1 # bottom
         diff⁺.ρ∇e_int = state⁺.ρ * m.e_int_surface_flux # e_int_surface_flux has units of w'e_int'
         diff⁺.ρ∇q_tot = state⁺.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
+        # diff⁺.ρ∇u = SVector(...) # probably need one of these...
+        # diff⁺.ρ∇u = SMatrix(...) # probably need one of these...
         diff⁺.ρ∇u[1] = state⁺.ρ * m.u_surface_flux # u_surface_flux has units of w'u'
         diff⁺.ρ∇u[2] = state⁺.ρ * m.v_surface_flux # v_surface_flux has units of w'v'
+
         diff⁺.ρ∇e_int = state⁺.ρ * m.e_int_surface_flux # e_int_surface_flux has units of w'e_int'
         diff⁺.ρ∇q_tot = state⁺.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
 
     elseif bctype == 2 # top
-        diff⁺.ρ∇u[1] = -n⁻ * 0.0
-        diff⁺.ρ∇u[2] = -n⁻ * 0.0
-        diff⁺.ρ∇e_int = -n⁻ * 0.0
-        diff⁺.ρ∇q_tot = -n⁻ * 0.0
+        diff⁺.ρ∇u[1] = -n⁻ * FT(0)
+        diff⁺.ρ∇u[2] = -n⁻ * FT(0)
+        diff⁺.ρ∇e_int = -n⁻ * FT(0)
+        diff⁺.ρ∇q_tot = -n⁻ * FT(0)
     end
     boundary_state!(nf, m, m.edmf, state⁺, diff⁺, aux⁺, n⁻, state⁻, diff⁻, aux⁻, bctype, t, args)
 end;

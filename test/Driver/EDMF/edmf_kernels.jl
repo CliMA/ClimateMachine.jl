@@ -498,6 +498,7 @@ function boundary_state!(
             up[i].ρae_int = upd_e_int_surf
             up[i].ρaq_tot = upd_q_tot_surf
         end
+        # can call `env_surface_covariances` with surface values
 
     elseif bctype == 2 # top
         # if yes not BC on upd are needed at the top (currently set to GM)

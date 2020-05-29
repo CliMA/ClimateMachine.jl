@@ -22,14 +22,14 @@ function compute_buoyancy_gradients(
     en_d = state.edmf.environment.diffusive
 
     _cv_d::FT     = cv_d(param_set)
-    _cv_v::FT     = cp_v(param_set)
-    _cv_l::FT     = cp_l(param_set)
-    _cv_i::FT     = cp_i(param_set)
-    _T0::FT       = T_0(param_set)
+    _cp_v::FT     = cp_v(param_set)
+    _cp_l::FT     = cp_l(param_set)
+    _cp_i::FT     = cp_i(param_set)
+    _T_0::FT      = T_0(param_set)
     _e_int_i0::FT = e_int_i0(param_set)
-    ϵ_v::FT       = 1 / molmass_ratio(param_set)
     _grav::FT     = grav(param_set)
     _R_d::FT      = R_d(param_set)
+    ϵ_v::FT       = 1 / molmass_ratio(param_set)
 
     cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
@@ -45,9 +45,9 @@ function compute_buoyancy_gradients(
     # apply chain-role
     ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
     ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
-    
+
     # add here a computation of buoyancy frequeacy based on θ_lv
-    # buoyancy_freq = 
+    # buoyancy_freq =
 
     return ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq
 end;
@@ -76,8 +76,8 @@ function sgs_buoyancy_freq(
     t::Real,
     direction,
     ) where {FT, N}
-    # placeholder for a new buoyancy frequancy function 
-    return 
+    # placeholder for a new buoyancy frequancy function
+    return
 end;
 
 function compute_windspeed(
@@ -90,7 +90,7 @@ function compute_windspeed(
     t::Real,
     direction,
     ) where {FT, N}
-    windspeed_min = FT(0.01) # does this needs to be exposed ? 
+    windspeed_min = FT(0.01) # does this needs to be exposed ?
   return max(hypot(gm.u, gm.v), windspeed_min)
 end;
 

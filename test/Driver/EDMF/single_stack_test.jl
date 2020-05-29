@@ -196,7 +196,7 @@ include("edmf_model.jl")
 # Model parameters can be stored in the particular [`BalanceLaw`](@ref
 # ClimateMachine.DGMethods.BalanceLaw), in this case, a `SingleStack`:
 
-Base.@kwdef struct SingleStack{FT, N} <: BalanceLaw
+Base.@kwdef struct SingleStack{FT, N, N_quad} <: BalanceLaw
     "Parameters"
     param_set::AbstractParameterSet = param_set
     "Domain height"
@@ -210,14 +210,15 @@ Base.@kwdef struct SingleStack{FT, N} <: BalanceLaw
     # # add reference state
     # ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set))
     "EDMF scheme"
-    edmf::EDMF{FT, N} = EDMF{FT, N}()
+    edmf::EDMF{FT, N, N_quad} = EDMF{FT, N, N_quad}()
 end
 
 include("edmf_kernels.jl")
 
 N = 2
+N_quad = 4
 # Create an instance of the `SingleStack`:
-m = SingleStack{FT, N}();
+m = SingleStack{FT, N, N_quad}();
 
 # This model dictates the flow control, using [Dynamic Multiple
 # Dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch), for which

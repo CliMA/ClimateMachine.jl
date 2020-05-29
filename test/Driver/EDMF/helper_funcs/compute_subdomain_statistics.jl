@@ -1,10 +1,10 @@
 #### Helper kernels
-# these functions should recive as inputs the state vector and provide as outputs  
-# the cloud fraction in the subdomain as well as the values of 
-# T, R_m, q_tot, q_vap ,q_liq, q_ice for the cloudy and dry parts of the subdomain. 
-# I have stored these values in two structures 'dry' and 'cloudy'. 
-# When using SubdomainMean the subdomain is either cloudy or dry and all values are the same 
-# while when using LognormalQuadrature the subdomain can be partially cloudy and partially dry and the cloudy and dry values differ 
+# these functions should recive as inputs the state vector and provide as outputs
+# the cloud fraction in the subdomain as well as the values of
+# T, R_m, q_tot, q_vap ,q_liq, q_ice for the cloudy and dry parts of the subdomain.
+# I have stored these values in two structures 'dry' and 'cloudy'.
+# When using SubdomainMean the subdomain is either cloudy or dry and all values are the same
+# while when using LognormalQuadrature the subdomain can be partially cloudy and partially dry and the cloudy and dry values differ
 
 function compute_subdomain_statistics!(
   m::SingleStack{FT,N},
@@ -12,7 +12,7 @@ function compute_subdomain_statistics!(
   aux::Vars,
   t::Real,
   statistical_model::SubdomainMean, # this need to be a passed argument that determines the type of statistical model to be used
-  ) where {FT,IT} # need to call micophysics model as well to populate cloudy and dry 
+  ) where {FT,IT} # need to call micophysics model as well to populate cloudy and dry
 
   gm_a = aux
   en_a = aux.edmf.environment
@@ -27,12 +27,12 @@ function compute_subdomain_statistics!(
   q_ice = PhasePartition(ts).ice
   # here cloudy and dry are indetical as only one will be used based on the value of cld_frac,
   # but I define both as in the  quadrature options to come they will differ and both will be used
-  ## I need to find out how to initiate cloudy and dry structures 
+  ## I need to find out how to initiate cloudy and dry structures
   if q_liq+q_ice > 0
     cld_frac = 1
     cloudy.q_tot = en.q_tot
     cloudy.T     = air_temperature(ts)
-    cloudy.R_m   = gas_constant_air(ts) 
+    cloudy.R_m   = gas_constant_air(ts)
     cloudy.q_vap = q_vap
     cloudy.q_liq = q_liq
     cloudy.q_ice = q_ice
@@ -46,7 +46,7 @@ function compute_subdomain_statistics!(
     cld_frac = 0
     dry.q_tot = en.q_tot
     dry.T     = air_temperature(ts)
-    dry.R_m   = gas_constant_air(ts) 
+    dry.R_m   = gas_constant_air(ts)
     dry.q_vap = PhasePartition(ts).vap
     dry.q_liq = FT(0)
     dry.q_ice = FT(0)
@@ -62,12 +62,12 @@ end
 
 ## the complete coding of this function can wait for a working model with SubdomainMean
 function compute_subdomain_statistics!(
-  m::SingleStack{FT,N},
+  m::SingleStack{FT, N, N_quad},
   state::Vars,
   aux::Vars,
   t::Real,
   statistical_model::LognormalQuadrature,
-  ) where {FT, N}
+  ) where {FT, N, N_quad}
 
   gm_a = aux
   en_a = aux.edmf.environment
@@ -114,15 +114,15 @@ function compute_subdomain_statistics!(
     outer_src = FT(0)*outer_src
     outer_env = FT(0)*outer_env
 
-    for j_qt in 1:m.quadrature_order
+    for j_qt in 1:N_quad
       qt_hat = exp(μ_q + sqrt2 * σ_q * abscissas[j_q])
       μ_eint_star = μ_θ + sd2_hq/sd_q/sd_q*(log(qt_hat)-μ_q)
       # clean innner vectors
       inner_src = 0.0*inner_src
       inner_env = 0.0*inner_env
-      for j_I in 1:model.quadrature_order
+      for j_I in 1:N_quad
         e_int_hat = exp(μ_eint_star + sqrt2 * σ_cond_θ_q * abscissas[j_I])
-        ts = PhaseEquil(param_set ,en.e_int, gm.ρ, en.q_tot)
+        ts = PhaseEquil(param_set, en.e_int, gm.ρ, en.q_tot)
         T = air_temperature(ts)
         q_liq = PhasePartition(ts).liq
         q_vap = PhasePartition(ts).vap
@@ -178,7 +178,7 @@ function compute_subdomain_statistics!(
     en_a.cld_frac = outer_env[i_cf]
     cloudy.q_tot = outer_env[i_qt_cld]
     cloudy.T     = outer_env[i_T]
-    cloudy.R_m   = gas_constant_air(ts) 
+    cloudy.R_m   = gas_constant_air(ts)
     cloudy.q_vap = q_vap
     cloudy.q_liq = q_liq
     cloudy.q_ice = q_ice
@@ -189,13 +189,13 @@ function compute_subdomain_statistics!(
     dry.q_liq = FT(0)
     dry.q_ice = FT(0)
 
-    en.cld_frac  = 
+    en.cld_frac  =
     t_cloudy     = outer_env[i_T]
     q_tot_cloudy = outer_env[i_qt_cld]
     q_vap_cloudy = outer_env[i_qt_cld] - outer_env[i_ql]
     q_tot_dry    = outer_env[i_qt_dry]
 
-    ts = TemperatureSHumEquil(param_set, t_cloudy, p_0, q_tot_cloudy) # revisit this thermo stats 
+    ts = TemperatureSHumEquil(param_set, t_cloudy, p_0, q_tot_cloudy) # revisit this thermo stats
     θ_cloudy = liquid_ice_pottemp(ts)
     θ_dry    = dry_pottemp(ts)
 

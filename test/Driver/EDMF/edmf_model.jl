@@ -79,17 +79,17 @@ Base.@kwdef struct MicrophysicsModel{FT}
     quadrature_order::FT = 3# yair needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"
 end
 
-Base.@kwdef struct Environment{FT} <: BalanceLaw
+Base.@kwdef struct Environment{FT, N_quad} <: BalanceLaw
 end
 
 Base.@kwdef struct Updraft{FT} <: BalanceLaw
 end
 
-Base.@kwdef struct EDMF{FT, N} <: BalanceLaw
+Base.@kwdef struct EDMF{FT, N, N_quad} <: BalanceLaw
     "Updrafts"
     updraft::NTuple{N,Updraft{FT}} = ntuple(i->Updraft{FT}(), N)
     "Environment"
-    environment::Environment{FT} = Environment{FT}()
+    environment::Environment{FT, N_quad} = Environment{FT, N_quad}()
     "Entrainment-Detrainment model"
     entr_detr::EntrainmentDetrainment{FT} = EntrainmentDetrainment{FT}()
     "Pressure model"

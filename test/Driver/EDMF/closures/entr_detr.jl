@@ -28,9 +28,9 @@ function entr_detr(
     b_up = up[i].buoyancy
     b_en = (gm_a.buoyancy-sum([ρinv*up[j].ρa*up_a[j].buoyancy for j in 1:N]))
     sqrt_tke = sqrt(max(en.tke,0))
-    ts_up = PhaseEquil(param_set ,up[i].e_int, up[i].ρ, up[i].q_tot)
+    ts_up = PhaseEquil(ss.param_set ,up[i].e_int, up[i].ρ, up[i].q_tot)
     RH_up = relative_humidity(ts_up)
-    ts_en = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
+    ts_en = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
     RH_en = relative_humidity(ts_en)
     dw = max(w_up - w_en,FT(1e-4))
     db = b_up - b_en
