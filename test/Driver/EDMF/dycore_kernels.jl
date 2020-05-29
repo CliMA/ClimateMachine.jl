@@ -62,21 +62,40 @@ end;
 # this state integrates upwards the equations d(log(p))/dz = -g/(R_m*T)
 # with q_tot and θ_liq at each z level equal their respective surface values.
 
-function integral_load_auxiliary_state!(
-    m::SingleStack{FT,N},
+function update_auxiliary_state!(
+    dg::DGModel,
+    m::SingleStack,
+    Q::MPIStateArray,
+    t::Real,
+    elems::UnitRange,
+)
+    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+    reverse_indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+
+    return true
+end
+
+@inline function integral_load_auxiliary_state!(
+    m::SingleStack{FT},
     integrand::Vars,
     state::Vars,
     aux::Vars,
-)
-    integral_load_auxiliary_state!(m, m.edmf, integrand, state, aux)
+) where {FT}
+    x, y, z = aux.coord
+    _grav::FT = grav(param_set)
+
+    ρ = air_density(param_set, m.T_g, p?, m.q_pt_g)
+    ts = PhaseEquil(param_set, m.θ_sfc, m.ρ_sfc)
+
+    integrand.p = -_grav/(R_d*virtual_temperature(ts))
 end
 
-function integral_set_auxiliary_state!(
-    m::SingleStack{FT,N},
+@inline function integral_set_auxiliary_state!(
+    m::SingleStack,
     aux::Vars,
     integral::Vars,
 )
-    integral_set_auxiliary_state!(m, m.edmf, aux, integral)
+    aux.int.p = m.edmf.ref_state.p_sfc + exp(integral.p)
 end
 
 # Specify the initial values in `state::Vars`. Note that

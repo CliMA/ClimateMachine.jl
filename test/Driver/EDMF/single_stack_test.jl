@@ -174,6 +174,8 @@ import ClimateMachine.DGmethods:
     nodal_update_auxiliary_state!,
     init_state_auxiliary!,
     init_state_conservative!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
     boundary_state!
 
 # ## Initialization
