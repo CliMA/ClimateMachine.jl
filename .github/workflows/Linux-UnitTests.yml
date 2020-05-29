@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-          test-modules: ["Arrays,Atmos,Common,Diagnostics,Driver,InputOutput,Utilities",
+          test-modules: ["Arrays,Atmos,Common,Diagnostics,Driver,InputOutput,Utilities,Land",
                          "Numerics/DGMethods",
                          "Numerics/Mesh",
                          "Numerics/ODESolvers",

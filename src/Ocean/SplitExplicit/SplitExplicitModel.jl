@@ -3,7 +3,7 @@ module SplitExplicit
 using ..HydrostaticBoussinesq
 using ..ShallowWater
 
-import ..BalanceLaws:
+import ...BalanceLaws:
     initialize_states!,
     tendency_from_slow_to_fast!,
     cummulate_fast_solution!,
