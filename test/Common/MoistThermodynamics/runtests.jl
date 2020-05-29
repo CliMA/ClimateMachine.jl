@@ -164,12 +164,20 @@ end
           _press_triple
     @test saturation_vapor_pressure(param_set, _T_triple, Ice()) ≈ _press_triple
 
-    @test q_vap_saturation(param_set, _T_triple, ρ, PhasePartition(FT(0))) ==
-          ρ_v_triple / ρ
+    phase_type = PhaseDry
     @test q_vap_saturation(
         param_set,
         _T_triple,
         ρ,
+        phase_type,
+        PhasePartition(FT(0)),
+    ) == ρ_v_triple / ρ
+    phase_type = PhaseNonEquil
+    @test q_vap_saturation(
+        param_set,
+        _T_triple,
+        ρ,
+        phase_type,
         PhasePartition(q_tot, q_tot),
     ) == ρ_v_triple / ρ
 
@@ -184,12 +192,19 @@ end
         phase = Liquid(),
     ) >= q_vap_saturation_generic(param_set, _T_triple - 20, ρ; phase = Ice())
 
-    @test saturation_excess(param_set, _T_triple, ρ, PhasePartition(q_tot)) ==
-          q_tot - ρ_v_triple / ρ
+    phase_type = PhaseDry
     @test saturation_excess(
         param_set,
         _T_triple,
         ρ,
+        phase_type,
+        PhasePartition(q_tot),
+    ) == q_tot - ρ_v_triple / ρ
+    @test saturation_excess(
+        param_set,
+        _T_triple,
+        ρ,
+        phase_type,
         PhasePartition(q_tot / 1000),
     ) == 0.0
 
@@ -228,23 +243,33 @@ end
     T = FT(_T_icenuc - 10)
     ρ = FT(1.0)
     q_tot = FT(0.21)
-    @test liquid_fraction(param_set, T) === FT(0)
-    @test liquid_fraction(param_set, T, PhasePartition(q_tot, q_liq, q_liq)) ===
-          FT(0.5)
-    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    phase_type = PhaseDry
+    @test liquid_fraction(param_set, T, phase_type) === FT(0)
+    phase_type = PhaseNonEquil
+    @test liquid_fraction(
+        param_set,
+        T,
+        phase_type,
+        PhasePartition(q_tot, q_liq, q_liq),
+    ) === FT(0.5)
+    phase_type = PhaseDry
+    q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     @test q.liq ≈ FT(0)
     @test 0 < q.ice <= q_tot
 
     T = FT(_T_freeze + 10)
     ρ = FT(0.1)
     q_tot = FT(0.60)
-    @test liquid_fraction(param_set, T) === FT(1)
+    @test liquid_fraction(param_set, T, phase_type) === FT(1)
+    phase_type = PhaseNonEquil
     @test liquid_fraction(
         param_set,
         T,
+        phase_type,
         PhasePartition(q_tot, q_liq, q_liq / 2),
     ) === FT(2 / 3)
-    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    phase_type = PhaseDry
+    q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     @test 0 < q.liq <= q_tot
     @test q.ice ≈ 0
 
@@ -255,18 +280,20 @@ end
     ρ = FT(1)
     @test MT.saturation_adjustment_SecantMethod(
         param_set,
-        internal_energy_sat(param_set, 300.0, ρ, q_tot),
+        internal_energy_sat(param_set, 300.0, ρ, q_tot, phase_type),
         ρ,
         q_tot,
+        phase_type,
         10,
         ResidualTolerance(1e-2),
     ) ≈ 300.0
     @test abs(
         MT.saturation_adjustment(
             param_set,
-            internal_energy_sat(param_set, 300.0, ρ, q_tot),
+            internal_energy_sat(param_set, 300.0, ρ, q_tot, phase_type),
             ρ,
             q_tot,
+            phase_type,
             10,
             ResidualTolerance(1e-2),
         ) - 300.0,
@@ -276,26 +303,28 @@ end
     ρ = FT(0.1)
     @test MT.saturation_adjustment_SecantMethod(
         param_set,
-        internal_energy_sat(param_set, 200.0, ρ, q_tot),
+        internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
         ρ,
         q_tot,
+        phase_type,
         10,
         ResidualTolerance(1e-2),
     ) ≈ 200.0
     @test abs(
         MT.saturation_adjustment(
             param_set,
-            internal_energy_sat(param_set, 200.0, ρ, q_tot),
+            internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
             ρ,
             q_tot,
+            phase_type,
             10,
             ResidualTolerance(1e-2),
         ) - 200.0,
     ) < tol_T
-    q = PhasePartition_equil(param_set, T, ρ, q_tot)
+    q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     @test q.tot - q.liq - q.ice ≈
           vapor_specific_humidity(q) ≈
-          q_vap_saturation(param_set, T, ρ)
+          q_vap_saturation(param_set, T, ρ, phase_type)
 
     ρ = FT(1)
     ρu = FT[1, 2, 3]

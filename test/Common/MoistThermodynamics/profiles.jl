@@ -100,9 +100,10 @@ function tested_profiles(
     relative_sat = RS
 
     # Additional variables
-    q_sat = q_vap_saturation.(Ref(param_set), T, ρ)
+    phase_type = PhaseEquil # TODO: Verify this!
+    q_sat = q_vap_saturation.(Ref(param_set), T, ρ, Ref(phase_type))
     q_tot = min.(relative_sat .* q_sat, FT(1))
-    q_pt = PhasePartition_equil.(Ref(param_set), T, ρ, q_tot)
+    q_pt = PhasePartition_equil.(Ref(param_set), T, ρ, q_tot, Ref(phase_type))
     e_int = internal_energy.(Ref(param_set), T, q_pt)
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
 
