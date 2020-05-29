@@ -52,7 +52,7 @@ function config_solidbody(FT, poly_order, resolution)
         init_state_conservative = init_solidbody!,
     )
 
-    domain_height = FT(30e3)
+    domain_height = FT(45e3)
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
         poly_order,
@@ -109,7 +109,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.1,
+        Courant_number = 0.2,
         CFL_direction = HorizontalDirection(),
         diffdir = EveryDirection(),
     )
@@ -118,7 +118,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 64
+    filterorder = 32
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         @views begin
