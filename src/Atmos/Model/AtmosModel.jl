@@ -17,7 +17,7 @@ using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
 
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -51,7 +51,7 @@ import ClimateMachine.DGmethods:
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
-import ..DGmethods.NumericalFluxes:
+import ..DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
     normal_boundary_flux_second_order!,

@@ -7,11 +7,11 @@ using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
-using ClimateMachine.DGmethods
-import ClimateMachine.DGmethods:
+using ClimateMachine.DGMethods
+import ClimateMachine.DGMethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -28,7 +28,7 @@ import ClimateMachine.DGmethods:
     init_state_conservative!,
     LocalGeometry
 
-import ClimateMachine.DGmethods.NumericalFluxes:
+import ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxSecondOrder, numerical_flux_second_order!
 
 if !@isdefined integration_testing

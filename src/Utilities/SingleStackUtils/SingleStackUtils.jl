@@ -6,8 +6,8 @@ using OrderedCollections
 using StaticArrays
 import KernelAbstractions: CPU
 
-using ..DGmethods
-using ..DGmethods.Grids
+using ..DGMethods
+using ..DGMethods.Grids
 using ..MPIStateArrays
 using ..VariableTemplates
 

@@ -98,21 +98,21 @@ function main()
 
     # Test the courant wrapper
     # by default the CFL should be less than what asked for
-    CFL_nondiff = ClimateMachine.DGmethods.courant(
+    CFL_nondiff = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.nondiffusive_courant,
         solver_config,
     )
     @test CFL_nondiff < CFL
-    CFL_adv = ClimateMachine.DGmethods.courant(
+    CFL_adv = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.advective_courant,
         solver_config,
     )
-    CFL_adv_v = ClimateMachine.DGmethods.courant(
+    CFL_adv_v = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.advective_courant,
         solver_config;
         direction = VerticalDirection(),
     )
-    CFL_adv_h = ClimateMachine.DGmethods.courant(
+    CFL_adv_h = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.advective_courant,
         solver_config;
         direction = HorizontalDirection(),
@@ -150,7 +150,7 @@ function main()
         timeend_dt_adjust = false,
     )
 
-    CFL_nondiff = ClimateMachine.DGmethods.courant(
+    CFL_nondiff = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.nondiffusive_courant,
         solver_config,
     )

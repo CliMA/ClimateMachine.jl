@@ -7,7 +7,7 @@ using ..VariableTemplates
 using LinearAlgebra: I, dot
 using CLIMAParameters.Planet: grav
 
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -25,7 +25,7 @@ import ClimateMachine.DGmethods:
     LocalGeometry,
     compute_gradient_flux!
 
-using ..DGmethods.NumericalFluxes
+using ..DGMethods.NumericalFluxes
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)

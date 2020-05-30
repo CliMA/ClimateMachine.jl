@@ -6,8 +6,8 @@ using ..MPIStateArrays: array_device, realview
 using ..Mesh.Grids
 import ..Mesh.Grids: polynomialorder, dimensionality
 using ..Mesh.Topologies
-using ..DGmethods
-using ..DGmethods:
+using ..DGMethods
+using ..DGMethods:
     BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
 
 using Adapt

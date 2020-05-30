@@ -28,7 +28,7 @@ if !haskey(ENV, "TF_BUILD")
             "..",
             "test",
             "Numerics",
-            "DGmethods",
+            "DGMethods",
             "Euler",
             "isentropicvortex.jl",
         ),

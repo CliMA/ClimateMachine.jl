@@ -100,9 +100,9 @@ ClimateMachine.init()
     end
 end
 
-struct FilterTestModel{N} <: ClimateMachine.DGmethods.BalanceLaw end
-ClimateMachine.DGmethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
-ClimateMachine.DGmethods.init_state_auxiliary!(::FilterTestModel, _...) =
+struct FilterTestModel{N} <: ClimateMachine.DGMethods.BalanceLaw end
+ClimateMachine.DGMethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
+ClimateMachine.DGMethods.init_state_auxiliary!(::FilterTestModel, _...) =
     nothing
 
 # Legendre Polynomials
@@ -121,11 +121,11 @@ filtered(::VerticalDirection, dim, x, y, z) =
 filtered(::HorizontalDirection, dim, x, y, z) =
     (dim == 2) ? l2(x) * l3(y) + l3(x) : l2(x) * l3(y) + l3(x) + l2(y)
 
-ClimateMachine.DGmethods.vars_state_conservative(
+ClimateMachine.DGMethods.vars_state_conservative(
     ::FilterTestModel{4},
     FT,
 ) where {N} = @vars(q1::FT, q2::FT, q3::FT, q4::FT)
-function ClimateMachine.DGmethods.init_state_conservative!(
+function ClimateMachine.DGMethods.init_state_conservative!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
@@ -175,7 +175,7 @@ end
 
                 filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, 2)
 
-                dg = ClimateMachine.DGmethods.DGModel(
+                dg = ClimateMachine.DGMethods.DGModel(
                     FilterTestModel{4}(),
                     grid,
                     nothing,
@@ -184,7 +184,7 @@ end
                     state_gradient_flux = nothing,
                 )
 
-                Q = ClimateMachine.DGmethods.init_ode_state(dg, nothing, dim)
+                Q = ClimateMachine.DGMethods.init_ode_state(dg, nothing, dim)
 
                 ClimateMachine.Mesh.Filters.apply!(
                     Q,
@@ -194,7 +194,7 @@ end
                     direction(),
                 )
 
-                P = ClimateMachine.DGmethods.init_ode_state(
+                P = ClimateMachine.DGMethods.init_ode_state(
                     dg,
                     direction(),
                     dim,
@@ -205,11 +205,11 @@ end
     end
 end
 
-ClimateMachine.DGmethods.vars_state_conservative(
+ClimateMachine.DGMethods.vars_state_conservative(
     ::FilterTestModel{1},
     FT,
 ) where {N} = @vars(q::FT)
-function ClimateMachine.DGmethods.init_state_conservative!(
+function ClimateMachine.DGMethods.init_state_conservative!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,
@@ -240,7 +240,7 @@ end
                 polynomialorder = N,
             )
 
-            dg = ClimateMachine.DGmethods.DGModel(
+            dg = ClimateMachine.DGMethods.DGModel(
                 FilterTestModel{1}(),
                 grid,
                 nothing,
@@ -249,7 +249,7 @@ end
                 state_gradient_flux = nothing,
             )
 
-            Q = ClimateMachine.DGmethods.init_ode_state(dg)
+            Q = ClimateMachine.DGMethods.init_ode_state(dg)
 
             initialsumQ = weightedsum(Q)
             @test minimum(Q.realdata) < 0

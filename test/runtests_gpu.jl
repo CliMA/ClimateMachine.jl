@@ -9,7 +9,7 @@ for submodule in [
     #"Common/SurfaceFluxes",
     "Arrays",
     #"Numerics/Mesh",
-    #"Numerics/DGmethods",
+    #"Numerics/DGMethods",
     "Numerics/ODESolvers",
 ]
     println("Starting tests for $submodule")

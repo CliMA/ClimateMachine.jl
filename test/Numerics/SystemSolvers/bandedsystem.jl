@@ -7,14 +7,14 @@ using Logging
 using LinearAlgebra
 using Random
 using StaticArrays
-using ClimateMachine.DGmethods:
+using ClimateMachine.DGMethods:
     DGModel,
     Vars,
     vars_state_conservative,
     number_state_conservative,
     init_ode_state
 using ClimateMachine.SystemSolvers: banded_matrix, banded_matrix_vector_product!
-using ClimateMachine.DGmethods.NumericalFluxes:
+using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxGradient
@@ -22,7 +22,7 @@ using ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
 
 using Test
 
-include("../DGmethods/advection_diffusion/advection_diffusion_model.jl")
+include("../DGMethods/advection_diffusion/advection_diffusion_model.jl")
 
 struct Pseudo1D{n, α, β, μ, δ} <: AdvectionDiffusionProblem end
 
