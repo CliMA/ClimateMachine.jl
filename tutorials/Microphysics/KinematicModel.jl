@@ -29,7 +29,7 @@ using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Grids
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
@@ -56,7 +56,7 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, cv_v, T_0, e_int_v0, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     BalanceLaw,
     DGModel,
     LocalGeometry,

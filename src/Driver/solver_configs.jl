@@ -23,7 +23,7 @@ struct SolverConfiguration{FT}
 end
 
 """
-    DGmethods.courant(local_cfl, solver_config::SolverConfiguration;
+    DGMethods.courant(local_cfl, solver_config::SolverConfiguration;
                       Q=solver_config.Q, dt=solver_config.dt)
 
 Returns the maximum of the evaluation of the function `local_courant`
@@ -31,14 +31,14 @@ pointwise throughout the domain with the model defined by `solver_config`. The
 keyword arguments `Q` and `dt` can be used to call the courant method with a
 different state `Q` or time step `dt` than are defined in `solver_config`.
 """
-DGmethods.courant(
+DGMethods.courant(
     f,
     sc::SolverConfiguration;
     Q = sc.Q,
     dt = sc.dt,
     simtime = gettime(sc.solver),
     direction = EveryDirection(),
-) = DGmethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
+) = DGMethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
 """
     ClimateMachine.SolverConfiguration(
@@ -159,7 +159,7 @@ function SolverConfiguration(
     # initial Δt specified or computed
     simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
-        ode_dt = ClimateMachine.DGmethods.calculate_dt(
+        ode_dt = ClimateMachine.DGMethods.calculate_dt(
             dg,
             dtmodel,
             Q,

@@ -1,7 +1,7 @@
-using ..DGmethods.NumericalFluxes:
+using ..DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxGradient, NumericalFluxSecondOrder
 
-import ..DGmethods: boundary_state!
+import ..DGMethods: boundary_state!
 
 export OceanBC
 

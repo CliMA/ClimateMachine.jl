@@ -21,8 +21,8 @@ include(joinpath(
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
-include(joinpath("Numerics", "DGmethods", "Courant.jl"))
-include(joinpath("Numerics", "DGmethods", "DGmethods.jl"))
+include(joinpath("Numerics", "DGMethods", "Courant.jl"))
+include(joinpath("Numerics", "DGMethods", "DGMethods.jl"))
 include(joinpath("Utilities", "SingleStackUtils", "SingleStackUtils.jl"))
 include(joinpath("Ocean", "ShallowWater", "ShallowWaterModel.jl"))
 include(joinpath(

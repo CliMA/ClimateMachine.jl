@@ -10,7 +10,7 @@ using ..VariableTemplates
 using ..MPIStateArrays
 using ..Mesh.Filters: apply!
 using ..Mesh.Grids: VerticalDirection
-using ..DGmethods:
+using ..DGMethods:
     BalanceLaw,
     LocalGeometry,
     DGModel,
@@ -18,10 +18,10 @@ using ..DGmethods:
     reverse_indefinite_stack_integral!,
     nodal_update_auxiliary_state!,
     copy_stack_field_down!
-using ..DGmethods.NumericalFluxes: RusanovNumericalFlux
+using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
 
-import ..DGmethods.NumericalFluxes: update_penalty!
-import ..DGmethods:
+import ..DGMethods.NumericalFluxes: update_penalty!
+import ..DGMethods:
 
     vars_state_conservative,
     init_state_conservative!,

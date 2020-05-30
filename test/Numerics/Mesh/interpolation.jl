@@ -15,8 +15,8 @@ ClimateMachine.init()
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Atmos
 using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
