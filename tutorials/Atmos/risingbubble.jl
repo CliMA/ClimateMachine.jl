@@ -291,7 +291,11 @@ end
 # Here we define the diagnostic configuration specific to this problem.
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 

@@ -59,7 +59,6 @@ const param_set = EarthParameterSet()
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Writers
 using ClimateMachine.DGmethods
 using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.DGmethods: BalanceLaw, LocalGeometry
