@@ -34,7 +34,7 @@ using ClimateMachine.Grids
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Topologies
-using ClimateMachine.MoistThermodynamics:
+using ClimateMachine.Thermodynamics:
     gas_constants,
     PhaseEquil,
     PhasePartition_equil,

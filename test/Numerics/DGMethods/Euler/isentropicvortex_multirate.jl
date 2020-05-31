@@ -13,7 +13,7 @@ using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.MPIStateArrays: euclidean_distance
-using ClimateMachine.MoistThermodynamics:
+using ClimateMachine.Thermodynamics:
     air_density, total_energy, internal_energy, soundspeed_air
 using ClimateMachine.Atmos:
     AtmosModel,

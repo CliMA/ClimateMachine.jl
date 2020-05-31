@@ -1,6 +1,6 @@
-# [MoistThermodynamics Module](@id MoistThermodynamics-docs)
+# [Thermodynamics Module](@id Thermodynamics-docs)
 
-MoistThermodynamics.jl provides all thermodynamic functions needed for the
+Thermodynamics.jl provides all thermodynamic functions needed for the
 atmosphere and functions shared across model components. The functions are
 general for a moist atmosphere that includes suspended cloud condensate in
 the working fluid; the special case of a dry atmosphere is obtained for zero
@@ -125,9 +125,9 @@ p = air_pressure(ts);
 
 ## Extending
 
-If MoistThermodynamics.jl does not have a particular thermodynamic
+If Thermodynamics.jl does not have a particular thermodynamic
 constructor that is needed, you can implement a new one in
-`src/Common/MoistThermodynamics/states.jl`. In this constructor, you must
+`src/Common/Thermodynamics/states.jl`. In this constructor, you must
 add whichever arguments you wish to offer as inputs, then translate this
 thermodynamic state into one of:
 

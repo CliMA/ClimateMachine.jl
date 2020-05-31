@@ -1,6 +1,6 @@
 using Test
 using ClimateMachine.Microphysics
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, R_d, molmass_ratio

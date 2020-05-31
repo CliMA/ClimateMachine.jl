@@ -10,7 +10,7 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics:
+using ClimateMachine.Thermodynamics:
     air_temperature, internal_energy, air_pressure
 using ClimateMachine.VariableTemplates
 

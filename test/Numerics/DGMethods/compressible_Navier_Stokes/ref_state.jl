@@ -11,7 +11,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
 using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates

@@ -10,9 +10,9 @@ using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
 using ..VariableTemplates
-using ..MoistThermodynamics
+using ..Thermodynamics
 using ..TemperatureProfiles
-import ..MoistThermodynamics: internal_energy
+import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection

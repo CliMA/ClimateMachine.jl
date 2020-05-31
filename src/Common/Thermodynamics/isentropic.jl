@@ -18,7 +18,7 @@ struct DryAdiabaticProcess end
 
 The air pressure for an isentropic process, where
 
- - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `θ` potential temperature
  - `Φ` gravitational potential
 """
@@ -39,7 +39,7 @@ end
 
 The air pressure for an isentropic process, where
 
- - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `T` temperature
  - `T∞` ambient temperature
  - `p∞` ambient pressure
@@ -60,7 +60,7 @@ end
 
 The air temperature for an isentropic process, where
 
- - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `p` pressure
  - `θ` potential temperature
 """

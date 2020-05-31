@@ -16,7 +16,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
 using ClimateMachine.VariableTemplates
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 
 function run_test1(mpicomm, dim, Ne, N, FT, ArrayType)
     warpfun =

@@ -60,7 +60,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using Distributions

@@ -1,9 +1,9 @@
 using Test
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using NCDatasets
 using Random
 using RootSolvers
-MT = MoistThermodynamics
+MT = Thermodynamics
 using LinearAlgebra
 
 using CLIMAParameters

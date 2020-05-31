@@ -38,7 +38,7 @@ using CLIMAParameters.Planet: kappa_d
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-using ClimateMachine.MoistThermodynamics:
+using ClimateMachine.Thermodynamics:
     air_density, total_energy, internal_energy, soundspeed_air
 
 using ClimateMachine.VariableTemplates: Vars
