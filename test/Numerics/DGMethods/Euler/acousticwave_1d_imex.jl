@@ -15,7 +15,7 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.MoistThermodynamics:
+using ClimateMachine.Thermodynamics:
     air_density,
     soundspeed_air,
     internal_energy,

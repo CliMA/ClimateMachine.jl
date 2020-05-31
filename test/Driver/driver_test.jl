@@ -5,7 +5,7 @@ using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters

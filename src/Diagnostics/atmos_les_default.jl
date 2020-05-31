@@ -2,7 +2,7 @@ using ..Atmos
 using ..Atmos: MoistureModel, thermo_state, turbulence_tensors
 using ..Mesh.Topologies
 using ..Mesh.Grids
-using ..MoistThermodynamics
+using ..Thermodynamics
 using LinearAlgebra
 
 """

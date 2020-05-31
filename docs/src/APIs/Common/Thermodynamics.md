@@ -1,12 +1,12 @@
-# Moist Thermodynamics
+# Thermodynamics
 
 ```@meta
-CurrentModule = ClimateMachine.MoistThermodynamics
+CurrentModule = ClimateMachine.Thermodynamics
 ```
-## Moist Thermodynamics
+## Thermodynamics
 
 ```@docs
-MoistThermodynamics
+Thermodynamics
 ```
 
 ## Thermodynamic State Constructors

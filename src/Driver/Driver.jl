@@ -23,7 +23,7 @@ using ..DGMethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
 using ..Mesh.Topologies
-using ..MoistThermodynamics
+using ..Thermodynamics
 using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc

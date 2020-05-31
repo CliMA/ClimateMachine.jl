@@ -10,7 +10,7 @@ include(joinpath("Utilities", "ArtifactWrappers", "ArtifactWrappers.jl"))
 include(joinpath("InputOutput", "Writers", "Writers.jl"))
 include(joinpath("Common", "ConfigTypes", "ConfigTypes.jl"))
 include(joinpath("Utilities", "VariableTemplates", "VariableTemplates.jl"))
-include(joinpath("Common", "MoistThermodynamics", "MoistThermodynamics.jl"))
+include(joinpath("Common", "Thermodynamics", "Thermodynamics.jl"))
 include(joinpath("Atmos", "TemperatureProfiles", "TemperatureProfiles.jl"))
 include(joinpath(
     "Atmos",

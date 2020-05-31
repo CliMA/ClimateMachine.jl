@@ -2,7 +2,7 @@
 
 #=
 This file contains functions to compute all of the
-thermodynamic _states_ that MoistThermodynamics is
+thermodynamic _states_ that Thermodynamics is
 tested with in runtests.jl
 =#
 
@@ -47,7 +47,7 @@ end
 
 A range of input arguments to thermodynamic state constructors
 
- - `param_set` an `AbstractParameterSet`, see the [`MoistThermodynamics`](@ref) for more details
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `z_all` altitude
  - `e_int` internal energy
  - `ρ` (moist-)air density

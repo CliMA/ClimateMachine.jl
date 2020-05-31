@@ -64,7 +64,7 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
     state::Vars,
     aux::Vars,
 )
-    MoistThermodynamics.internal_energy(
+    Thermodynamics.internal_energy(
         state.ρ,
         state.ρe,
         state.ρu,

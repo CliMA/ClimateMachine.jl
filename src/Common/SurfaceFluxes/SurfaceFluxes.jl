@@ -42,7 +42,7 @@
 module SurfaceFluxes
 
 using RootSolvers
-using ..MoistThermodynamics
+using ..Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet: molmass_ratio, grav
 
@@ -77,7 +77,7 @@ end
 module Byun1990
 
 using RootSolvers
-using ...MoistThermodynamics
+using ...Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.SubgridScale: von_karman_const
 
@@ -237,7 +237,7 @@ end # Byun1990 module
 
 module Nishizawa2018
 using RootSolvers
-using ...MoistThermodynamics
+using ...Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
 using CLIMAParameters.SubgridScale: von_karman_const

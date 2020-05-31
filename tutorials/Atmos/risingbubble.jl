@@ -93,7 +93,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
 # - Required so functions for computation of moist thermodynamic quantities is
 #   enabled.
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 # - Required so we may access our variable arrays by a sensible naming
 #   convention rather than by numerical array indices.
 using ClimateMachine.VariableTemplates
@@ -124,7 +124,7 @@ const param_set = EarthParameterSet()
 # This example of a rising thermal bubble can be classified as an initial value
 # problem. We must (at the very least) assign values for the initial variables
 # in a sensible manner. This example demonstrates the use of functions defined
-# in the [`MoistThermodynamics`](@ref MoistThermodynamics-docs) package to
+# in the [`Thermodynamics`](@ref Thermodynamics-docs) package to
 # generate the appropriate initial state for our problem.
 
 #md # !!! note

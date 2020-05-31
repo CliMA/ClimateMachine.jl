@@ -25,7 +25,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are

@@ -304,7 +304,7 @@ to the empirical rain evaporation rate from Smolarkiewicz and Grabowski 1996.
 
 ```@example rain_evaporation
 using ClimateMachine.Microphysics
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP, molmass_ratio
