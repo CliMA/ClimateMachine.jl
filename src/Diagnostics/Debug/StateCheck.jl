@@ -1,18 +1,18 @@
 """
-    StateCheck  
+    StateCheck
 
-Module with a minimal set of functions for gettings statistics 
-and basic I/O from ClimateMachine DG state arrays (MPIStateArray type). 
+Module with a minimal set of functions for getting statistics
+and basic I/O from ClimateMachine DG state arrays (`MPIStateArray` type).
 Created for regression testing and code change tracking and debugging.
 StateCheck functions iterate over named variables in an `MPIStateArray`,
 calculate and report their statistics and/or write values for all or
 some subset of points at a fixed frequency.
 
 # Functions
-          
-- [`StateCheck.sccreate()`](@ref): - Create a StateCheck call back variable.
-- [`StateCheck.scdocheck()`](@ref):  - Check Statecheck variable values against reference values.
-- [`StateCheck.scprintref()`](@ref): - Print Statecheck variable in format for creating reference values.
+
+ - [`sccreate`](@ref) Create a StateCheck call back variable.
+ - [`scdocheck`](@ref) Check StateCheck variable values against reference values.
+ - [`scprintref`](@ref) Print StateCheck variable in format for creating reference values.
 """
 module StateCheck
 
@@ -24,9 +24,9 @@ using StaticArrays
 using Statistics
 
 # Imports from ClimateMachine core
-import ClimateMachine.GenericCallbacks: EveryXSimulationSteps
-import ClimateMachine.MPIStateArrays: MPIStateArray
-import ClimateMachine.VariableTemplates: flattenednames
+import ..GenericCallbacks: EveryXSimulationSteps
+import ..MPIStateArrays: MPIStateArray
+import ..VariableTemplates: flattenednames
 
 ####
 # For testing put a new function signature here!
@@ -36,7 +36,11 @@ flattenednames(::Type{T}; prefix = "") where {T <: SArray} =
     ntuple(i -> "$prefix[$i]", length(T))
 ####
 
-# VStat - type for returning variable statistics.
+"""
+    VStat
+
+Type for returning variable statistics.
+"""
 struct VStat
     max
     min
@@ -45,20 +49,22 @@ struct VStat
 end
 
 # Global functions to expose
-# sccreate - Create a state checker call back
-export sccreate
+export sccreate # Create a state checker call back
 export scdocheck
 export scprintref
 
-# nt_freq_def:: default frequency (in time steps) for output.
-# prec_def   :: default precision used for formatted output table
-const nt_freq_def = 10
-const prec_def = 15
+const nt_freq_def = 10 # default frequency (in time steps) for output.
+const prec_def = 15    # default precision used for formatted output table
 
 """
-    sccreate (io::IO, fields::Array{<:Tuple{<:MPIStateArray, String}}, nt_freq::Int = $nt_freq_def; prec = $prec_def)
+    sccreate(
+        io::IO,
+        fields::Array{<:Tuple{<:MPIStateArray, String}},
+        nt_freq::Int = $nt_freq_def;
+        prec = $prec_def
+    )
 
-Create a "state check" call-back for one or more `MPIStateArray` variables 
+Create a "state check" call-back for one or more `MPIStateArray` variables
 that will report basic statistics for the fields in the array.
 
   -  `io` an IO stream to use for printed output
@@ -66,7 +72,7 @@ that will report basic statistics for the fields in the array.
                         `MPIStateArray` variable and label string pair tuples.
                         State array statistics will be reported for the named symbols
                         in each `MPIStateArray` labeled with the label string.
-  -  `nt_freq` an optional second argument with default value of 
+  -  `nt_freq` an optional second argument with default value of
                         $nt_freq_def that sets how frequently (in time-step counts) the
                         statistics are reported.
   -  `prec` a named argument that sets number of decimal places to print for
@@ -187,7 +193,7 @@ function sccreate(
         fmt_str = [" min() ", " max() ", " mean() ", " std() "]
         fmt_str = sprintf1.(Ref(h_var_fmt), fmt_str)
         if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-            print(io, "# SC =======|============|==========|")
+            print(io, "# SC -------|------------|----------|")
             println(io, join(fmt_str, "|"), "|")
         end
 
@@ -282,7 +288,7 @@ function scstats(V, ivar, nprec)
     # Std
     phi_loc = (getByField(V, ivar) .- phi_mean) .^ 2
     n_val = length(phi_loc) * 1.0
-    phi_loc = sum(phi_loc)  # Sum local data explcitly since GPU Allreduce
+    phi_loc = sum(phi_loc)  # Sum local data explicitly since GPU Allreduce
     # does not take arrays yet.
     phi_sum = MPI.Allreduce(phi_loc, +, Vmcomm)
     n_val_sum = MPI.Allreduce(n_val, +, Vmcomm)
@@ -306,12 +312,12 @@ end
 
 
 """
-    scprintref( cb )
+    scprintref(cb)
 
 Print out a "state check" call-back table of values in a format
-     suitable for use as a set of reference numbers for CI comparison.
+suitable for use as a set of reference numbers for CI comparison.
 
- -  `cb` callback variable of type ClimateMachine.GenericCallbacks.Every*
+ - `cb` callback variable of type ClimateMachine.GenericCallbacks.Every*
 """
 function scprintref(cb)
     io = cb.func.iosave
@@ -336,7 +342,7 @@ function scprintref(cb)
         fmt1 = @sprintf("%%%d.%ds", a1l, a1l) # Column 1
         fmt2 = @sprintf("%%%d.%ds", a2l, a2l) # Column 2
         fmt3 = @sprintf("%%28.20e")         # All numbers at full precision
-        # Create an string of spaces to be used for fomatting
+        # Create an string of spaces to be used for formatting
         sp = "                                                                           "
 
         # Write header
@@ -357,7 +363,7 @@ function scprintref(cb)
         #
         # Write tables
         #  Reference value and precision match tables are separate since it is more
-        #  common to update reference values occiasionally while precision values are
+        #  common to update reference values occasionally while precision values are
         #  typically changed rarely and the precision values are hand edited from experience.
         #
         # Write table of reference values
@@ -402,7 +408,7 @@ function scprintref(cb)
         println(io, "]")
 
         # Write table of reference match precisions using default precision that
-        # can be hand upadated.
+        # can be hand updated.
         println(io, "parr = [")
         for lv in cb.func.cur_stats_flat
             s1 = lv[1]
@@ -442,11 +448,11 @@ end
 """
     scdocheck(cb, ref_dat)
 
- Compare a current State check call-back set of values with a 
-              reference set and match precision table pair.
-               
- - cb `StateCheck` call-back variables
- - ref_dat an array of reference values and precision to match tables.
+Compare a current State check call-back set of values with a
+reference set and match precision table pair.
+
+ - `cb` `StateCheck` call-back variables
+ - `ref_dat` an array of reference values and precision to match tables.
 """
 function scdocheck(cb, ref_dat)
     io = cb.func.iosave
