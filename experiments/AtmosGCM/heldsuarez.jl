@@ -229,6 +229,9 @@ function main()
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         @views begin
           solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 2, :] .-= solver_config.dg.state_auxiliary.data[:, 9, :]
+          solver_config.Q.data[:, 3, :] .-= solver_config.dg.state_auxiliary.data[:, 10, :]
+          solver_config.Q.data[:, 4, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
           solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
           Filters.apply!(
             solver_config.Q,

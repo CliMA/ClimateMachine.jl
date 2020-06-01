@@ -10,8 +10,7 @@ using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics:
-    air_temperature, internal_energy, air_pressure
+using ClimateMachine.MoistThermodynamics: total_energy
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
@@ -25,11 +24,19 @@ const param_set = EarthParameterSet()
 
 function init_solidbody!(bl, state, aux, coords, t)
     FT = eltype(state)
+    _R_d::FT = R_d(bl.param_set)
 
     # Set initial state to reference state
-    state.ρ = aux.ref_state.ρ
+    z = altitude(bl.orientation, bl.param_set, aux)
+    temp_profile = DecayingTemperatureProfile{FT}(bl.param_set)
+    T, p = temp_profile(bl.param_set, z)
+    ρ = p / (_R_d * T)
+    e_kin = FT(0)
+    e_pot = gravitational_potential(bl.orientation, aux)
+    
+    state.ρ = ρ 
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = aux.ref_state.ρe
+    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
 
     nothing
 end
@@ -99,7 +106,7 @@ function main()
     n_horz = 3                               # horizontal element number
     n_vert = 3                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(365*24*60*60)                     # end time (s)
+    timeend = FT(2*60*60)                     # end time (s)
 
     # Set up driver configuration
     driver_config = config_solidbody(FT, poly_order, (n_horz, n_vert))
@@ -109,7 +116,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = 0.005,
         CFL_direction = HorizontalDirection(),
         diffdir = EveryDirection(),
     )
@@ -118,7 +125,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 32
+    filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         @views begin
