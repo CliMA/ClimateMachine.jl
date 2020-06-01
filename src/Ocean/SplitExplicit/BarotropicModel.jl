@@ -30,6 +30,8 @@ function vars_aux(m::BarotropicModel, T)
         Ū::SVector{2, T}  # running averge of U
         η̄::T              # running averge of η
         Δu::SVector{2, T} # reconciliation adjustment to u, Δu = 1/H * (Ū - ∫u)
+        U°::SVector{2, T} # saved value of U to restart with during next stage
+        η°::SVector{2, T} # saved value of η to restart with during next stage
     end
 end
 

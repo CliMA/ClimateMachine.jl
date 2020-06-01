@@ -153,18 +153,21 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
         end
 
         # Determine number of substeps we need
-        # for ocean split explicit want to go to 1.5 slow_dt
         nsubsteps =
-            fast_dt_in > 0 ? ceil(Int, 1.5 * γ * slow_dt / fast_dt_in) : 1
+            fast_dt_in > 0 ? 2 * ceil(Int, γ * slow_dt / (2 * fast_dt_in)) : 1
         fast_dt = γ * slow_dt / nsubsteps
+
+        # for ocean split explicit want to go to 1.5 * slow_dt
+        nsubsteps_150 = ceil(Int, 1.5 * nsubsteps)
 
         updatedt!(fast, fast_dt)
 
-        for substep in 1:nsubsteps
+        for substep in 1:nsubsteps_150
             fast_time = slow_stage_time + (substep - 1) * fast_dt
             dostep!(Qfast, fast, param, fast_time)
             #  ---> need to cumulate U at this time (and not at each RKB sub-time-step)
-            weight = substep > ceil(Int, nsubsteps / 3) ? 1 : 0
+            weight = substep > ceil(Int, nsubsteps / 2) ? 1 : 0
+            save_state = substep == nsubsteps ? true : false
             cummulate_fast_solution!(
                 fast_bl,
                 fast.rhs!,
@@ -172,6 +175,7 @@ function dostep!(Qvec, msmrrk::MSMRRK{SS}, param, time) where {SS <: LSRK2N}
                 fast_time,
                 fast_dt,
                 weight,
+                save_state,
             )
             total_fast_weight += weight
         end

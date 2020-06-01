@@ -17,20 +17,8 @@ using CLIMA.DGmethods: basic_grid_info
     dgFast.auxstate.η̄ .= 0
     dgFast.auxstate.Ū .= (@SVector [0, 0])'
 
-    # copy η and U from 3D equation
-    # to calculate U we need to do an integral of u from the 3D
-    indefinite_stack_integral!(dgSlow, slow, Qslow, dgSlow.auxstate, 0)
-
-    Nq, Nqk, _, _, nelemv, _, nelemh, _ = basic_grid_info(dgSlow)
-
-    ### copy results of integral to 2D equation
-    boxy_∫u = reshape(dgSlow.auxstate.∫u, Nq^2, Nqk, 2, nelemv, nelemh)
-    flat_∫u = @view boxy_∫u[:, end, :, end, :]
-    Qfast.U .= reshape(flat_∫u, Nq^2, 2, nelemh)
-
-    boxy_η = reshape(Qslow.η, Nq^2, Nqk, nelemv, nelemh)
-    flat_η = @view boxy_η[:, end, end, :]
-    Qfast.η .= reshape(flat_η, Nq^2, 1, nelemh)
+    Qfast.η .= dgFast.auxstate.η°
+    Qfast.U .= dgFast.auxstate.U°
 
     return nothing
 end
@@ -64,6 +52,7 @@ end
     fast_time,
     fast_dt,
     weight,
+    save_state,
 )
     #- might want to use some of the weighting factors: weights_η & weights_U
     #- should account for case where fast_dt < fast.param.dt
@@ -71,6 +60,11 @@ end
     # for now, with our simple weight, we just take the most recent value for the average
     dgFast.auxstate.η̄ .+= weight * Qfast.η
     dgFast.auxstate.Ū .+= weight * Qfast.U
+
+    if save_state
+        dgFast.auxstate.η° .= Qfast.η
+        dgFast.auxstate.U° .= Qfast.U
+    end
 
     return nothing
 end
