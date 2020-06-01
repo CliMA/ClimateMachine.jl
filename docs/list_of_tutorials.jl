@@ -20,6 +20,7 @@ if generate_tutorials
         "heldsuarez.jl",                 # broken
         "risingbubble.jl",               # broken
         "topo.jl",                       # broken
+        "StateCheck.jl",                 # broken
         "dry_rayleigh_benard.jl",        # takes too long
         "nonnegative.jl",                # takes too long
         "ex_2_Kessler.jl",               # takes too long
@@ -43,6 +44,7 @@ if generate_tutorials
     end
 
     for tutorial in tutorials_jl
+        tut = basename(tutorial)
         gen_dir =
             joinpath(generated_dir, relpath(dirname(tutorial), tutorials_dir))
         input = abspath(tutorial)
@@ -51,7 +53,7 @@ if generate_tutorials
         mdpost(str) = replace(str, "@__CODE__" => code)
         Literate.markdown(input, gen_dir, postprocess = mdpost)
         if !any(occursin.(skip_execute, Ref(input)))
-            Literate.notebook(input, gen_dir, execute = true)
+            # Literate.notebook(input, gen_dir, execute = true)
         end
     end
 

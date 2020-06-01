@@ -11,10 +11,10 @@ return values, and struct properties necessary to build with
 [ClimateMachine](https://github.com/CliMA/ClimateMachine.jl).
 
 We have the following concrete implementations:
-1. [GMRES](@ref GeneralizedMinimalResidual)
-2. [Conjugate Residual](@ref GeneralizedConjugateResidual)
-3. [Conjugate Gradient](@ref ConjugateGradientSolver)
-4. [Batched GMRES](@ref BatchedGeneralizedMinimalResidual)
+1. [`GeneralizedMinimalResidual`](@ref)
+2. [`GeneralizedConjugateResidual`](@ref)
+3. [`ConjugateGradient`](@ref)
+4. [`BatchedGeneralizedMinimalResidual`](@ref)
 
 ## Basic Template for an Iterative Solver
 

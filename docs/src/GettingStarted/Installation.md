@@ -33,17 +33,17 @@ julia> ]
 ```
 
 If you are having problems, see the [`MPI.jl`
-documentation](https://juliaparallel.github.io/MPI.jl/stable/configuration)
+documentation](https://juliaparallel.github.io/MPI.jl/stable/configuration/)
 for help.
 
 ## Install the `ClimateMachine`
 
 Download the `ClimateMachine`
-[source](https://github.com/CliMA/ClimateMachine.jl.git) (you will need
+[source](https://github.com/CliMA/ClimateMachine.jl) (you will need
 [`Git`](https://git-scm.com/)):
 
 ```
-$ git clone https://github.com/CliMA/ClimateMachine.jl.git
+$ git clone https://github.com/CliMA/ClimateMachine.jl
 ```
 
 Now change into the `ClimateMachine.jl` directory and install all the packages

@@ -146,7 +146,7 @@ function run(
 
     initialsumQ = weightedsum(Q)
 
-    # We integrate so that the final solution is equal to the initial solution
+    ## We integrate so that the final solution is equal to the initial solution
     Qe = copy(Q)
 
     rhs! = function (dQdt, Q, ::Nothing, t; increment = false)
@@ -160,16 +160,16 @@ function run(
         Filters.apply!(Q, 1, grid, TMARFilter())
     end
 
-    # create output directory on first rank of communicator
+    ## create output directory on first rank of communicator
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
     end
     MPI.Barrier(mpicomm)
 
     vtkstep = 0
-    # output initial step
+    ## output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, "nonnegative")
-    # setup the output callback
+    ## setup the output callback
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
         vtkstep += 1
         minQ, maxQ = minimum(Q), maximum(Q)
