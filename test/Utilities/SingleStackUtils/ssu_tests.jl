@@ -127,7 +127,7 @@ function main()
     dt = 0.1
     # Establish a `ClimateMachine` single stack configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "HstatsTest",
+        "SingleStackUtilsTest",
         N_poly,
         nelem_vert,
         zmax,
@@ -141,17 +141,49 @@ function main()
         ode_dt = dt,
     )
 
-    @testset "horizontal_stats" begin
-        test_hmean(
-            driver_config.grid,
-            solver_config.Q,
-            vars_state_conservative(m, FT),
-        )
-        test_hvar(
-            driver_config.grid,
-            solver_config.Q,
-            vars_state_conservative(m, FT),
-        )
+    # tests
+    test_hmean(
+        driver_config.grid,
+        solver_config.Q,
+        vars_state_conservative(m, FT),
+    )
+    test_hvar(
+        driver_config.grid,
+        solver_config.Q,
+        vars_state_conservative(m, FT),
+    )
+
+    r1, z1 = reduce_nodal_stack(
+        max,
+        solver_config.dg.grid,
+        solver_config.Q,
+        vars_state_conservative(m, FT),
+        "ρ",
+        i = 6,
+        j = 6,
+    )
+    @test r1 ≈ 8.880558532968455e-16 && z1 == 10
+    r2, z2 = reduce_nodal_stack(
+        +,
+        solver_config.dg.grid,
+        solver_config.Q,
+        vars_state_conservative(m, FT),
+        "ρ",
+        i = 3,
+        j = 3,
+    )
+    @test r2 ≈ 102.73283921735293 && z2 == 20
+    ns = reduce_element_stack(
+        +,
+        solver_config.dg.grid,
+        solver_config.Q,
+        vars_state_conservative(m, FT),
+        "ρ",
+    )
+    (r3, z3) = let
+        f(a, b) = (a[1] + b[1], b[2])
+        reduce(f, ns)
     end
+    @test r3 ≈ FT(2877.6) && z3 == 20
 end
 main()
