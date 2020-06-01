@@ -585,14 +585,10 @@ function update_auxiliary_state!(
     if elems == dg.grid.topology.realelems
         # required to ensure that after integration velocity field is divergence free
         vert_filter = MD.vert_filter
-        index_u =
-            tuple(collect(varsindex(vars_state_conservative(m, FT), :u))...)
-        apply!(Q, index_u, dg.grid, vert_filter, VerticalDirection())
+        apply!(Q, (:u,), dg.grid, vert_filter, direction = VerticalDirection())
 
         exp_filter = MD.exp_filter
-        index_θ =
-            tuple(collect(varsindex(vars_state_conservative(m, FT), :θ))...)
-        apply!(Q, index_θ, dg.grid, exp_filter, VerticalDirection())
+        apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
     end
 
     return true

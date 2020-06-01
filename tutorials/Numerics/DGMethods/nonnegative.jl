@@ -150,14 +150,14 @@ function run(
     Qe = copy(Q)
 
     rhs! = function (dQdt, Q, ::Nothing, t; increment = false)
-        Filters.apply!(Q, 1, grid, TMARFilter())
+        Filters.apply!(Q, :, grid, TMARFilter())
         dg(dQdt, Q, nothing, t; increment = false)
     end
 
     odesolver = SSPRK33ShuOsher(rhs!, Q; dt = dt, t0 = 0)
 
     cbTMAR = EveryXSimulationSteps(1) do
-        Filters.apply!(Q, 1, grid, TMARFilter())
+        Filters.apply!(Q, :, grid, TMARFilter())
     end
 
     # create output directory on first rank of communicator

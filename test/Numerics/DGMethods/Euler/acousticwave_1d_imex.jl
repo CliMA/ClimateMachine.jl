@@ -174,7 +174,7 @@ function run(
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
     cbfilter = EveryXSimulationSteps(1) do
-        Filters.apply!(Q, 1:size(Q, 2), grid, filter, VerticalDirection())
+        Filters.apply!(Q, :, grid, filter, direction = VerticalDirection())
         nothing
     end
 
