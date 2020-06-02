@@ -216,7 +216,6 @@ function compute_physical_scale(
            (temp1 + temp2 + temp3 + temp4) * (x_ave - x_s)
 end
 
-<<<<<<< HEAD
 end # Byun1990 module
 
 module Nishizawa2018
@@ -227,9 +226,6 @@ using CLIMAParameters.Planet: grav
 using CLIMAParameters.SubgridScale: von_karman_const
 
 """ Computes `R_z0` expression, defined after Eq. 15 """
-=======
-""" Computes R_z0 expression, defined after Eq. 15 """
->>>>>>> e8fea87ef12dd99e1cdd472b952e487052467003
 compute_R_z0(z_0, Δz) = 1 - z_0 / Δz
 
 """ Computes f_m in Eq. A7 """
