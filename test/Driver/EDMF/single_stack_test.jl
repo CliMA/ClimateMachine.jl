@@ -149,9 +149,9 @@ using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Writers
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
-using ClimateMachine.DGmethods: BalanceLaw, LocalGeometry
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
@@ -162,7 +162,7 @@ using ClimateMachine.TemperatureProfiles
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -191,7 +191,7 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 # Load some helper functions for plotting
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
-# include(joinpath(clima_dir, "src/Atmos/Model/ref_state.jl"));
+include(joinpath(clima_dir, "src/Atmos/Model/ref_state.jl"));
 # # Define the set of Partial Differential Equations (PDEs)
 
 # ## Define the model
@@ -221,7 +221,7 @@ end
 include("edmf_kernels.jl")
 
 N = 2
-N_quad = 4
+N_quad = 3
 # Create an instance of the `SingleStack`:
 m = SingleStack{FT, N, N_quad}();
 

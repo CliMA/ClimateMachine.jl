@@ -34,7 +34,7 @@ end
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state_auxiliary`
-function init_state_auxiliary!(m::SingleStack{FT,N}, state::Vars, aux::Vars, geom::LocalGeometry) where {FT,N}
+function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
     aux.z = geom.coord[3]
     T_profile = DecayingTemperatureProfile{FT}(m.param_set)
     ref_state = HydrostaticState(T_profile)
@@ -43,7 +43,7 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, state::Vars, aux::Vars, geo
     aux.ρ_0 = ref_state.ρ
     aux.p_0 = ref_state.p
 
-    init_state_auxiliary!(m, m.edmf, state, aux, geom)
+    init_state_auxiliary!(m, m.edmf, aux, geom)
 end;
 
 function update_auxiliary_state!(

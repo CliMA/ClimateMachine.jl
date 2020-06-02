@@ -8,7 +8,7 @@ include(joinpath("closures", "pressure.jl"))
 include(joinpath("closures", "mixing_length.jl"))
 # include(joinpath("closures", "micro_phys.jl"))
 
-function vars_state_auxiliary(m::NTuple{N,Updraft}, FT) where {N}
+function vars_state_auxiliary(m::NTuple{N, Updraft}, FT) where {N}
     return Tuple{ntuple(i->vars_state_auxiliary(m[i], FT), N)...}
 end
 
@@ -121,7 +121,6 @@ end
 function init_state_auxiliary!(
         m::SingleStack{FT,N},
         edmf::EDMF{FT,N},
-        state::Vars,
         aux::Vars,
         geom::LocalGeometry
     ) where {FT,N}
@@ -138,9 +137,7 @@ function init_state_auxiliary!(
     # Aliases:
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
-    up = state.edmf.updraft
-    gm = state.edmf.updraft
-
+    
     en_a.buoyancy = 0.0
     en_a.cld_frac = 0.0
 
@@ -148,9 +145,7 @@ function init_state_auxiliary!(
         up_a[i].buoyancy = 0.0
         up_a[i].upd_top = 0.0
     end
-    en_area = (state.ρ-sum([up[i].ρau[3] for i in 1:N]))/state.ρ
-    en_a.buoyancy = (aux.buoyancy - sum([up[i].ρa*up_a[i].buoyancy for i in 1:N])*ρinv)/en_area
-    en_a.cld_frac = m.cf_initial
+    en_a.cld_frac = 0.0
 end;
 
 # The following two functions should compute the hydrostatic and adiabatic reference state

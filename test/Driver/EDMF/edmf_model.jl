@@ -79,8 +79,10 @@ Base.@kwdef struct MicrophysicsModel{FT}
     cf_initial::FT = 0.0 # need to define a function for cf
     "Subdomain statistical mmodel"
     statistical_model::String = "SubdomainMean"
-    "quadrature order" # can we code it that if order is 1 than we get mean ?  do we need the gaussian option?
-    quadrature_order::FT = 3# yair needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"
+    # now N_quad is replacing quadrature order and is passed from single_stack_test.jl
+    
+    # "quadrature order" # can we code it that if order is 1 than we get mean ?  do we need the gaussian option?
+    # quadrature_order::FT = 3# yair needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"
 end
 
 Base.@kwdef struct Environment{FT, N_quad} <: BalanceLaw
