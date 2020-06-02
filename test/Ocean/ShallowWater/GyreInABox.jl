@@ -2,8 +2,8 @@ using MPI
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks

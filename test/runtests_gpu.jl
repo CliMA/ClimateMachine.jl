@@ -5,11 +5,11 @@ ENV["JULIA_LOG_LEVEL"] = "WARN"
 @test CuArrays.functional()
 
 for submodule in [
-    #"Common/MoistThermodynamics",
+    #"Common/Thermodynamics",
     #"Common/SurfaceFluxes",
     "Arrays",
     #"Numerics/Mesh",
-    #"Numerics/DGmethods",
+    #"Numerics/DGMethods",
     "Numerics/ODESolvers",
 ]
     println("Starting tests for $submodule")

@@ -1,21 +1,30 @@
 using NCDatasets
+using OrderedCollections
 
 struct NetCDFWriter <: AbstractWriter end
 
 function write_data(nc::NetCDFWriter, filename, dims, varvals, simtime)
     Dataset(full_name(nc, filename), "c") do ds
-        for (dn, dv) in dims
+        ds.dim["time"] = 1
+        for (dn, (dv, da)) in dims
             ds.dim[dn] = length(dv)
         end
-        ds.dim["t"] = 1
-        for (dn, dv) in dims
-            defVar(ds, dn, dv, (dn,))
+        defVar(
+            ds,
+            "time",
+            [simtime],
+            ("time",),
+            attrib = OrderedDict(
+                "units" => "seconds",
+                "long_name" => "simulation time",
+            ),
+        )
+        for (dn, (dv, da)) in dims
+            defVar(ds, dn, dv, (dn,), attrib = da)
         end
-        defVar(ds, "t", 1, ("t",))
-        for (vn, vv) in varvals
-            defVar(ds, vn, vv[2], vv[1])
+        for (vn, (vd, vv, va)) in varvals
+            defVar(ds, vn, vv, vd, attrib = va)
         end
-        defVar(ds, "simtime", [simtime], ("t",))
     end
     return nothing
 end

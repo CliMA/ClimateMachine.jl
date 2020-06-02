@@ -20,14 +20,10 @@ struct SimpleBox{T, BC} <: AbstractSimpleBoxProblem
     H::T
     boundary_condition::BC
     function SimpleBox{FT}(
-        Lˣ,
-        Lʸ,
-        H;
-        BC = (
-            CoastlineNoSlip(),
-            OceanFloorNoSlip(),
-            OceanSurfaceNoStressNoForcing(),
-        ),
+        Lˣ, # m
+        Lʸ, # m
+        H;  # m
+        BC = OceanBC(Impenetrable(NoSlip()), Insulating()),
     ) where {FT <: AbstractFloat}
         return new{FT, typeof(BC)}(Lˣ, Lʸ, H, BC)
     end
@@ -64,7 +60,7 @@ end
 """
     HomogeneousBox <: AbstractSimpleBoxProblem
 
-Container structure for a simple box problem with wind-stress and coriolis force.
+Container structure for a simple box problem with wind-stress.
 Lˣ = zonal (east-west) length
 Lʸ = meridional (north-south) length
 H  = height of the ocean
@@ -79,14 +75,14 @@ struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
     τₒ::T
     boundary_condition::BC
     function HomogeneousBox{FT}(
-        Lˣ,
-        Lʸ,
-        H;
-        τₒ = FT(1e-1),  # (m/s)^2
+        Lˣ,             # m
+        Lʸ,             # m
+        H;              # m
+        τₒ = FT(1e-1),  # N/m²
         BC = (
-            CoastlineNoSlip(),
-            OceanFloorNoSlip(),
-            OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
     ) where {FT <: AbstractFloat}
         return new{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, BC)
@@ -123,7 +119,7 @@ jet stream like windstress
 - `y`: y-coordinate in the box
 """
 @inline kinematic_stress(p::HomogeneousBox, y, ρ) =
-    (p.τₒ / ρ) * cos(y * π / p.Lʸ)
+    @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
 
 ##########################
 # Homogenous wind stress #
@@ -150,16 +146,16 @@ struct OceanGyre{T, BC} <: AbstractSimpleBoxProblem
     θᴱ::T
     boundary_condition::BC
     function OceanGyre{FT}(
-        Lˣ,
-        Lʸ,
-        H;
-        τₒ = FT(1e-1),       # (m/s)^2
-        λʳ = FT(4 // 86400), # m / s
+        Lˣ,                  # m
+        Lʸ,                  # m
+        H;                   # m
+        τₒ = FT(1e-1),       # N/m²
+        λʳ = FT(4 // 86400), # m/s
         θᴱ = FT(10),         # K
         BC = (
-            CoastlineNoSlip(),
-            OceanFloorNoSlip(),
-            OceanSurfaceStressForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
         ),
     ) where {FT <: AbstractFloat}
         return new{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ, BC)
@@ -199,10 +195,11 @@ jet stream like windstress
 - `p`: problem object to dispatch on and get additional parameters
 - `y`: y-coordinate in the box
 """
-@inline kinematic_stress(p::OceanGyre, y, ρ) = (p.τₒ / ρ) * cos(y * π / p.Lʸ)
+@inline kinematic_stress(p::OceanGyre, y, ρ) =
+    @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
 
 """
-    temperature_flux(::OceanGyre)
+    surface_flux(::OceanGyre)
 
 cool-warm north-south linear temperature gradient
 
@@ -211,7 +208,11 @@ cool-warm north-south linear temperature gradient
 - `y`: y-coordinate in the box
 - `θ`: temperature within element on boundary
 """
-@inline function temperature_flux(p::OceanGyre, y, θ)
-    θʳ = p.θᴱ * (1 - y / p.Lʸ)
-    return p.λʳ * (θ - θʳ)
+@inline function surface_flux(p::OceanGyre, y, θ)
+    Lʸ = p.Lʸ
+    θᴱ = p.θᴱ
+    λʳ = p.λʳ
+
+    θʳ = θᴱ * (1 - y / Lʸ)
+    return λʳ * (θ - θʳ)
 end

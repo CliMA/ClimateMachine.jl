@@ -54,13 +54,13 @@ ClimateMachine.init()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -75,7 +75,7 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGmethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
 import ClimateMachine.Atmos: flux_second_order!, thermo_state
 
@@ -462,9 +462,16 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    default_dgngrp =
-        setup_atmos_default_diagnostics("2500steps", driver_config.name)
-    core_dgngrp = setup_atmos_core_diagnostics("2500steps", driver_config.name)
+    default_dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        "2500steps",
+        driver_config.name,
+    )
+    core_dgngrp = setup_atmos_core_diagnostics(
+        AtmosLESConfigType(),
+        "2500steps",
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([
         default_dgngrp,
         core_dgngrp,

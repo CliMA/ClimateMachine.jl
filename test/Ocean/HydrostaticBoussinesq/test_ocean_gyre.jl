@@ -91,14 +91,14 @@ end
 @testset "$(@__FILE__)" begin
     boundary_conditions = [
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
         ),
     ]
 

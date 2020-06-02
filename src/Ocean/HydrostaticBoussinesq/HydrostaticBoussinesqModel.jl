@@ -10,7 +10,7 @@ using ..VariableTemplates
 using ..MPIStateArrays
 using ..Mesh.Filters: apply!
 using ..Mesh.Grids: VerticalDirection
-using ..DGmethods:
+using ..DGMethods:
     BalanceLaw,
     LocalGeometry,
     DGModel,
@@ -18,10 +18,10 @@ using ..DGmethods:
     reverse_indefinite_stack_integral!,
     nodal_update_auxiliary_state!,
     copy_stack_field_down!
-using ..DGmethods.NumericalFluxes: RusanovNumericalFlux
+using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
 
-import ..DGmethods.NumericalFluxes: update_penalty!
-import ..DGmethods:
+import ..DGMethods.NumericalFluxes: update_penalty!
+import ..DGMethods:
 
     vars_state_conservative,
     init_state_conservative!,
@@ -126,7 +126,6 @@ u = (u,v) = (zonal velocity, meridional velocity)
 η = sea surface height
 θ = temperature
 """
-# If this order is changed check the filter usage!
 function vars_state_conservative(m::HBModel, T)
     @vars begin
         u::SVector{2, T}
@@ -150,24 +149,23 @@ end
     vars_state_auxiliary(::HBModel)
 helper variables for computation
 
-first half is because there is no dedicated integral kernels
+second half is because there is no dedicated integral kernels
 these variables are used to compute vertical integrals
 w = vertical velocity
 wz0 = w at z = 0
 pkin = bulk hydrostatic pressure contribution
 
 
-second half of these are fields that are used for computation
+first half of these are fields that are used for computation
 y = north-south coordinate
 
 """
-# If this order is changed check update_auxiliary_state!
 function vars_state_auxiliary(m::HBModel, T)
     @vars begin
+        y::T     # y-coordinate of the box
         w::T     # ∫(-∇⋅u)
         pkin::T  # ∫(-αᵀθ)
         wz0::T   # w at z=0
-        y::T     # y-coordinate of the box
     end
 end
 
@@ -579,6 +577,7 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
+    FT = eltype(Q)
     MD = dg.modeldata
 
     # `update_aux!` gets called twice, once for the real elements and once for
@@ -586,12 +585,14 @@ function update_auxiliary_state!(
     if elems == dg.grid.topology.realelems
         # required to ensure that after integration velocity field is divergence free
         vert_filter = MD.vert_filter
-        # Q[1] = u[1] = u, Q[2] = u[2] = v
-        apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
+        index_u =
+            tuple(collect(varsindex(vars_state_conservative(m, FT), :u))...)
+        apply!(Q, index_u, dg.grid, vert_filter, VerticalDirection())
 
         exp_filter = MD.exp_filter
-        # Q[4] = θ
-        apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+        index_θ =
+            tuple(collect(varsindex(vars_state_conservative(m, FT), :θ))...)
+        apply!(Q, index_θ, dg.grid, exp_filter, VerticalDirection())
     end
 
     return true
@@ -614,6 +615,7 @@ function update_auxiliary_state_gradient!(
     t::Real,
     elems::UnitRange,
 )
+    FT = eltype(Q)
     A = dg.state_auxiliary
 
     # store ∇ʰu as integrand for w
@@ -633,9 +635,12 @@ function update_auxiliary_state_gradient!(
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
     # project w(z=0) down the stack
-    # Need to be consistent with vars_state_auxiliary
-    # A[1] = w, A[3] = wz0
-    copy_stack_field_down!(dg, m, A, 1, 3, elems)
+    # [1] to convert from range to integer
+    # copy_stack_field_down! doesn't like ranges
+    # eventually replace this with a reshape and broadcast
+    index_w = varsindex(vars_state_auxiliary(m, FT), :w)[1]
+    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)[1]
+    copy_stack_field_down!(dg, m, A, index_w, index_wz0, elems)
 
     return true
 end

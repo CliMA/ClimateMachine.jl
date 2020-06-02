@@ -19,14 +19,14 @@ to one of the temperature profile constructors.
 
 ```@example
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet
 using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 FT = Float64;
-include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "MoistThermodynamics", "profiles.jl"))
+include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
 z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = tested_profiles(param_set, 50, FT);
 
 isothermal = IsothermalProfile(param_set, FT);
@@ -46,14 +46,14 @@ savefig("isothermal.svg")
 
 ```@example
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet
 using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 FT = Float64;
-include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "MoistThermodynamics", "profiles.jl"))
+include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
 z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = tested_profiles(param_set, 50, FT);
 
 decaying = DecayingTemperatureProfile{FT}(param_set);
@@ -72,14 +72,14 @@ savefig("decaying.svg")
 
 ```@example
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet
 using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 FT = Float64;
-include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "MoistThermodynamics", "profiles.jl"))
+include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
 z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = tested_profiles(param_set, 50, FT);
 
 dry_adiabatic = DryAdiabaticProfile{FT}(param_set);

@@ -6,7 +6,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.DGmethods: vars_state_conservative
+using ClimateMachine.DGMethods: vars_state_conservative
 using ClimateMachine.HydrostaticBoussinesq
 
 using CLIMAParameters
@@ -103,14 +103,14 @@ end
 @testset "$(@__FILE__)" begin
     boundary_conditions = [
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
     ]
 

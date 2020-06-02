@@ -13,7 +13,7 @@ using CLIMAParameters.Planet: day
 
 using ..Courant
 using ..Checkpoint
-using ..DGmethods: courant, vars_state_conservative, vars_state_auxiliary
+using ..DGMethods: courant, vars_state_conservative, vars_state_auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays

@@ -20,6 +20,6 @@ apis = Any[
         "Meshes" => "APIs/Numerics/Meshes/Mesh.md",
         "SystemSolvers" => "APIs/Numerics/SystemSolvers/SystemSolvers.md",
         "ODESolvers" => "APIs/Numerics/ODESolvers/ODESolvers.md",
-        "Balance Law" => "APIs/Numerics/DGmethods/BalanceLawOverview.md",
+        "Balance Law" => "APIs/Numerics/DGMethods/BalanceLawOverview.md",
     ],
 ]

@@ -12,7 +12,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
@@ -21,7 +21,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
-import ClimateMachine.DGmethods: vars_state_conservative
+import ClimateMachine.DGMethods: vars_state_conservative
 import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
@@ -120,7 +120,11 @@ end
 
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 #-------------------------------------------------------------------------

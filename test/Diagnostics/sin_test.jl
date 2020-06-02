@@ -9,11 +9,12 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Writers
@@ -102,6 +103,7 @@ end
 function config_diagnostics(driver_config)
     interval = "100steps"
     dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
         interval,
         replace(driver_config.name, " " => "_"),
         writer = JLD2Writer(),

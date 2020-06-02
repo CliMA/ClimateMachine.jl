@@ -59,10 +59,9 @@ const param_set = EarthParameterSet()
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Writers
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
-using ClimateMachine.DGmethods: BalanceLaw, LocalGeometry
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
@@ -71,7 +70,7 @@ using ClimateMachine.SingleStackUtils
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
-import ClimateMachine.DGmethods:
+import ClimateMachine.DGMethods:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,

@@ -16,14 +16,14 @@ using ..Callbacks
 using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
-using ..DGmethods
-using ..DGmethods:
+using ..DGMethods
+using ..DGMethods:
     vars_state_conservative, vars_state_auxiliary, update_auxiliary_state!
-using ..DGmethods.NumericalFluxes
+using ..DGMethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
 using ..Mesh.Topologies
-using ..MoistThermodynamics
+using ..Thermodynamics
 using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
