@@ -55,7 +55,7 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
     dimensions = (Lˣ, Lʸ, H)
 
     timestart = FT(0)    # s
-    timeend = FT(6 * 3600) # s
+    timeend = FT(600000) # s
 
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
@@ -109,25 +109,10 @@ end
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), Insulating()),
-        ),
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), Insulating()),
-        ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), Insulating()),
-        ),
     ]
 
     for BC in boundary_conditions
         run_homogeneous_box(imex = true, BC = BC)
-        run_homogeneous_box(imex = false, BC = BC)
+        #run_homogeneous_box(imex = false, BC = BC)
     end
 end

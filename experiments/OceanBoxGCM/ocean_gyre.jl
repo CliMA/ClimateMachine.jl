@@ -8,6 +8,8 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.HydrostaticBoussinesq
+using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
+using Plots
 
 using Test
 
@@ -15,6 +17,22 @@ using CLIMAParameters
 using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+
+include("ocean_init_state.jl")
+
+function CLIMA_plot(solver_config, filename)
+    Qnd=reshape(solver_config.Q.realdata,(5,5,5,4,20,20,20));
+    Gnd=reshape(solver_config.dg.grid.vgeo,(5,5,5,16,20,20,20));
+    tval=Qnd[1,1,:,4,:,1,1][:];
+    zval=Gnd[1,1,:,15,:,1,1][:]
+    tval_cpu=ones( size(tval) )
+    copyto!(tval_cpu, tval)
+    typeof(tval_cpu)
+    zval_cpu=ones(size(zval))
+    copyto!(zval_cpu, zval)
+    savefig(scatter(tval_cpu,zval_cpu;label="",xlabel="u[1] (m/s)",ylabel="z (m)"),filename) 
+    return nothing
+end
 
 function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
     if BC == nothing
@@ -25,7 +43,7 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
 
     _grav::FT = grav(param_set)
     cʰ = sqrt(_grav * problem.H) # m/s
-    model = HydrostaticBoussinesqModel{FT}(param_set, problem, cʰ = cʰ)
+    model = HydrostaticBoussinesqModel{FT}(param_set, problem, cʰ = 1, αᵀ = 0)
 
     config = ClimateMachine.OceanBoxGCMConfiguration(
         "ocean_gyre",
@@ -56,8 +74,11 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
 
     timestart = FT(0)    # s
     timeout = FT(0.25 * 86400) # s
-    timeend = FT(86400) # s
-    dt = FT(10)    # s
+    #timeend = FT(86400) # s
+    timeend = FT(1000000) # s
+    value = 1
+
+    dt = FT(100)    # s
 
     if imex
         solver_type =
@@ -80,7 +101,7 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
         timeend,
         driver_config,
         init_on_cpu = true,
-        # ode_dt = dt,
+        ode_dt = dt,
         Courant_number = 0.4,
         ode_solver_type = solver_type,
         modeldata = modeldata,
@@ -94,9 +115,21 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
     # diagnostics_interval = ceil(Int64, timeout / solver_config.dt)
     # ClimateMachine.Settings.diagnostics = "$(diagnostics_interval)steps"
 
-    result = ClimateMachine.invoke!(solver_config)
+    plot_callback = EveryXSimulationSteps(1000) do
+        outfile = "out"*lpad(value,5,"0")*".png"
+        println("output filename is: ", outfile)
+        CLIMA_plot(solver_config, outfile)
+        value += 1
+        return nothing
+    end
+
+    callbacks = [plot_callback]
+
+    #result = ClimateMachine.invoke!(solver_config;)
+    result = ClimateMachine.invoke!(solver_config;user_callbacks=callbacks)
 
     @test true
+
 end
 
 @testset "$(@__FILE__)" begin
@@ -106,6 +139,8 @@ end
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
         ),
+    ]
+#=
         (
             OceanBC(Impenetrable(FreeSlip()), Insulating()),
             OceanBC(Impenetrable(NoSlip()), Insulating()),
@@ -142,8 +177,10 @@ end
             OceanBC(Penetrable(FreeSlip()), TemperatureFlux()),
         ),
     ]
+=#
 
     for BC in boundary_conditions
-        run_ocean_gyre(imex = false, BC = BC)
+        run_ocean_gyre(imex = true, BC = BC)
+        #run_ocean_gyre(imex = false, BC = BC)
     end
 end
