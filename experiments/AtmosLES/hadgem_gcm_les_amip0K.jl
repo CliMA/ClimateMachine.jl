@@ -306,7 +306,7 @@ function get_gcm_info(groupid)
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    filename = "/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
+    filename = "/gcp/share1/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
     req_varnames = (
         "zg",
         "ta",
