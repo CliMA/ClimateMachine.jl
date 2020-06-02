@@ -205,12 +205,12 @@ Base.@kwdef struct SingleStack{FT, N, N_quad} <: BalanceLaw
     zmax::FT = 3000
     "subdomain statistics model"
     subdomain_statistics = 'mean' # needs to be define as a string: "mean", "gaussian quadrature", lognormal quadrature"
-    # "Initial density"
-    # ρ_IC::FT = 1
-    # "Initial conditions for temperature"
-    # initialT::FT = 295.15
-    # # add reference state
-    # ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set))
+    "Virtual temperature at surface (K)"
+    T_virt_surf::FT = 300
+    "Minimum virtual temperature at the top of the atmosphere (K)"
+    T_min_ref::FT = 276
+    "Height scale over which virtual temperature drops (m)"
+    H_t::FT = 7000
     "EDMF scheme"
     edmf::EDMF{FT, N, N_quad} = EDMF{FT, N, N_quad}()
 end
