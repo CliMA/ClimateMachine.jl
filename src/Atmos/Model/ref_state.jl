@@ -75,6 +75,7 @@ function atmos_init_aux!(
 
     ρq_tot = ρ * relative_humidity(m) * q_vap_sat
     aux.ref_state.ρq_tot = ρq_tot
+    
 
     q_pt = PhasePartition(ρq_tot)
     R_m = gas_constant_air(atmos.param_set, q_pt)

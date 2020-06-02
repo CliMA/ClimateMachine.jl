@@ -34,27 +34,15 @@ end
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state_auxiliary`
-function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
+function init_state_auxiliary!(ref::HydrostaticState{P, F}, m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
     aux.z = geom.coord[3]
-
-    # Compute the reference profile ρ_0, p_0 
-    #       consider a flag for SingleStack setting that assigns gm.ρ = ρ_0; gm.p = p_0
-
-    # status:
-    # Need to find the right way to integrate the hydrostatic reference profile
-    # to obtain both ρ_0 and p_0 by integrating log(p) in z based on dlog(p)/dz = -g/(R_m*T)
-    # with constant θ_liq and q_tot
-    # it is not clear to me if the function dynamically assigns p in LiquidIcePotTempSHumEquil_given_pressure
-    # at each level
-
-
-    # aux.ref_state.p = p_0
-    # aux.ref_state.ρ = p_0 / (R_m * T)
-    # R_m = R_m()
+    T_profile = DecayingTemperatureProfile{FT}(m.param_set)
+    ref_state = HydrostaticState(T_profile)
 
     aux.buoyancy = 0.0
-    aux.ρ_0 = hydrostatic_ref()  # yair - this needs to be computed consistently by the  functions below
-    aux.p_0 = hydrostatic_ref()  # yair - this needs to be computed consistently by the  functions below
+    aux.ρ_0 = ref_state.ρ
+    aux.p_0 = ref_state.p
+
     init_state_auxiliary!(m, m.edmf, aux, geom)
 end;
 
@@ -69,34 +57,32 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
-    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
-    reverse_indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
 
     return true
 end
 
-@inline function integral_load_auxiliary_state!(
-    m::SingleStack{FT},
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-) where {FT}
-    x, y, z = aux.coord
-    _grav::FT = grav(param_set)
+# @inline function integral_load_auxiliary_state!(
+#     m::SingleStack{FT},
+#     integrand::Vars,
+#     state::Vars,
+#     aux::Vars,
+# ) where {FT}
+#     x, y, z = aux.coord
+#     _grav::FT = grav(param_set)
 
-    ρ = air_density(param_set, m.T_g, p?, m.q_pt_g)
-    ts = PhaseEquil(param_set, m.θ_sfc, m.ρ_sfc)
+#     ρ = air_density(param_set, m.T_g, p?, m.q_pt_g)
+#     ts = PhaseEquil(param_set, m.θ_sfc, m.ρ_sfc)
 
-    integrand.p = -_grav/(R_d*virtual_temperature(ts))
-end
+#     integrand.p = -_grav/(R_d*virtual_temperature(ts))
+# end
 
-@inline function integral_set_auxiliary_state!(
-    m::SingleStack,
-    aux::Vars,
-    integral::Vars,
-)
-    aux.int.p = m.edmf.ref_state.p_sfc + exp(integral.p)
-end
+# @inline function integral_set_auxiliary_state!(
+#     m::SingleStack,
+#     aux::Vars,
+#     integral::Vars,
+# )
+#     aux.int.p = m.edmf.ref_state.p_sfc + exp(integral.p)
+# end
 
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
