@@ -270,7 +270,7 @@ timeend = FT(10)
 Δ = min_node_distance(driver_config.grid)
 
 given_Fourier = FT(0.08);
-Fourier_bound = given_Fourier * Δ^2 ; # YAIR need to divide by eddy diffusivity here 
+Fourier_bound = given_Fourier * Δ^2 ; # YAIR need to divide by eddy diffusivity here
 dt = Fourier_bound
 
 # # Configure a `ClimateMachine` solver.

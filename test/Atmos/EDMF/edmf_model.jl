@@ -16,7 +16,7 @@ Base.@kwdef struct EntrainmentDetrainment{FT}
     "Detrainment RH power"
     β::FT = 2
     "Logistic function scale ‵[1/s]‵"
-    μ_0::FT = 0.0004 
+    μ_0::FT = 0.0004
     "Updraft mixing fraction"
     χ::FT = 0.25
 end
@@ -80,7 +80,7 @@ Base.@kwdef struct MicrophysicsModel{FT}
     "Subdomain statistical mmodel"
     statistical_model::String = "SubdomainMean"
     # now N_quad is replacing quadrature order and is passed from single_stack_test.jl
-    
+
     # "quadrature order" # can we code it that if order is 1 than we get mean ?  do we need the gaussian option?
     # quadrature_order::FT = 3# yair needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"
 end

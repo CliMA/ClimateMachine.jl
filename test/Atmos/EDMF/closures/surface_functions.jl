@@ -25,7 +25,7 @@ function compute_inversion_height(
   ts = PhaseEquil(param_set ,gm.e_int, gm.ρ, gm.q_tot)
   windspeed = compute_windspeed(k_1, gm, FT(0.0))^2
   _grav::FT = grav(param_set)
-  θ_ρ = 
+  θ_ρ =
   θ_ρ_b = virtual_pottemp(ts)
   z = gm_a.z
 
@@ -69,8 +69,8 @@ end
 #     _e_int_i0::FT = e_int_i0(param_set)
 #     _grav::FT     = grav(param_set)
 #     _cv_m::FT    = cv_m(ts)
-#   return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + state.e_int - state.q_tot*_e_int_i0 ) 
-#                 + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*state.q_tot)) # this equation should verified in the design docs 
+#   return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + state.e_int - state.q_tot*_e_int_i0 )
+#                 + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*state.q_tot)) # this equation should verified in the design docs
 # end;
 
 function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}

@@ -137,7 +137,7 @@ function init_state_auxiliary!(
     # Aliases:
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
-    
+
     en_a.buoyancy = 0.0
     en_a.cld_frac = 0.0
 
@@ -285,7 +285,7 @@ function edmf_stack_nodal_update_aux!(
 
     #   -------------  Compute upd_top
     for i in 1:N
-        # YAIR - check this with Charlie 
+        # YAIR - check this with Charlie
         J=1
         for j in length(up[i].ρa)
             if up[i].ρa*ρinv>FT(0)
