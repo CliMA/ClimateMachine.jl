@@ -1,6 +1,6 @@
 function nondimensional_exchange_functions(
     ss::SingleStack{FT, N},
-    m::EntrainmentDetrainmentModel,
+    m::EntrainmentDetrainment,
     state::Vars,
     diffusive::Vars,
     aux::Vars,

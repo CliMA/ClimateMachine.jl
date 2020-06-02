@@ -156,6 +156,8 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TemperatureProfiles
+
 
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
@@ -189,6 +191,7 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 # Load some helper functions for plotting
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
+# include(joinpath(clima_dir, "src/Atmos/Model/ref_state.jl"));
 # # Define the set of Partial Differential Equations (PDEs)
 
 # ## Define the model
@@ -204,7 +207,7 @@ Base.@kwdef struct SingleStack{FT, N, N_quad} <: BalanceLaw
     "Domain height"
     zmax::FT = 3000
     "subdomain statistics model"
-    subdomain_statistics = 'mean' # needs to be define as a string: "mean", "gaussian quadrature", lognormal quadrature"
+    subdomain_statistics::String = "mean" # needs to be define as a string: "mean", "gaussian quadrature", lognormal quadrature"
     "Virtual temperature at surface (K)"
     T_virt_surf::FT = 300
     "Minimum virtual temperature at the top of the atmosphere (K)"
@@ -267,7 +270,7 @@ timeend = FT(10)
 Δ = min_node_distance(driver_config.grid)
 
 given_Fourier = FT(0.08);
-Fourier_bound = given_Fourier * Δ^2 / m.α;
+Fourier_bound = given_Fourier * Δ^2 ; # YAIR need to divide by eddy diffusivity here 
 dt = Fourier_bound
 
 # # Configure a `ClimateMachine` solver.

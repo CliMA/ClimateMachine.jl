@@ -6,8 +6,7 @@ include(joinpath("helper_funcs", "compute_subdomain_statistics.jl"))
 include(joinpath("closures", "entr_detr.jl"))
 include(joinpath("closures", "pressure.jl"))
 include(joinpath("closures", "mixing_length.jl"))
-include(joinpath("closures", "quadrature.jl"))
-include(joinpath("closures", "micro_phys.jl"))
+# include(joinpath("closures", "micro_phys.jl"))
 
 function vars_state_auxiliary(m::NTuple{N,Updraft}, FT) where {N}
     return Tuple{ntuple(i->vars_state_auxiliary(m[i], FT), N)...}
@@ -122,6 +121,7 @@ end
 function init_state_auxiliary!(
         m::SingleStack{FT,N},
         edmf::EDMF{FT,N},
+        state::Vars,
         aux::Vars,
         geom::LocalGeometry
     ) where {FT,N}
@@ -138,6 +138,8 @@ function init_state_auxiliary!(
     # Aliases:
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
+    up = state.edmf.updraft
+    gm = state.edmf.updraft
 
     en_a.buoyancy = 0.0
     en_a.cld_frac = 0.0
@@ -146,8 +148,8 @@ function init_state_auxiliary!(
         up_a[i].buoyancy = 0.0
         up_a[i].upd_top = 0.0
     end
-
-    en_a.T = aux.T
+    en_area = (state.ρ-sum([up[i].ρau[3] for i in 1:N]))/state.ρ
+    en_a.buoyancy = (aux.buoyancy - sum([up[i].ρa*up_a[i].buoyancy for i in 1:N])*ρinv)/en_area
     en_a.cld_frac = m.cf_initial
 end;
 
@@ -155,31 +157,31 @@ end;
 # this state integrates upwards the equations d(log(p))/dz = -g/(R_m*T)
 # with q_tot and θ_liq at each z level equal their respective surface values.
 
-function integral_load_auxiliary_state!(
-    m::SingleStack{FT,N},
-    edmf::EDMF{FT,N},
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
-    # need to define thermo_state with set values of thetali and qt from surface values (moist adiabatic)
-    # something like _p = exp(input_logP) where input_logP is log of the p at the lower pressure  level
-    ts = LiquidIcePotTempSHumEquil_given_pressure(param_set, m.θ_liq_flux_surf, _p, m.q_tot_flux_surf)
-    q = PhasePartition(ts)
-    T = air_temperature(ts)
-    _R_m = gas_constant_air(param_set, q)
-    integrand.a = -g / (Rm * T)
-end
+# function integral_load_auxiliary_state!(
+#     m::SingleStack{FT,N},
+#     edmf::EDMF{FT,N},
+#     integrand::Vars,
+#     state::Vars,
+#     aux::Vars,
+# )
+#     # need to define thermo_state with set values of thetali and qt from surface values (moist adiabatic)
+#     # something like _p = exp(input_logP) where input_logP is log of the p at the lower pressure  level
+#     ts = LiquidIcePotTempSHumEquil_given_pressure(param_set, m.θ_liq_flux_surf, _p, m.q_tot_flux_surf)
+#     q = PhasePartition(ts)
+#     T = air_temperature(ts)
+#     _R_m = gas_constant_air(param_set, q)
+#     integrand.a = -g / (Rm * T)
+# end
 
-function integral_set_auxiliary_state!(
-    m::SingleStack{FT,N},
-    edmf::EDMF{FT,N},
-    aux::Vars,
-    integral::Vars,
-)
-    aux.int.a = integral.a + log(m.P_surf)
-    aux.p_0 = exp(aux.int.a)
-end
+# function integral_set_auxiliary_state!(
+#     m::SingleStack{FT,N},
+#     edmf::EDMF{FT,N},
+#     aux::Vars,
+#     integral::Vars,
+# )
+#     aux.int.a = integral.a + log(m.P_surf)
+#     aux.p_0 = exp(aux.int.a)
+# end
 
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
@@ -219,9 +221,9 @@ function init_state_conservative!(
     end
 
     # initialize environment covariance
-    en.ρae_int_cv =
-    en.ρaq_tot_cv =
-    en.ρae_int_q_tot_cv =
+    en.ρae_int_cv = 0.0
+    en.ρaq_tot_cv = 0.0
+    en.ρae_int_q_tot_cv = 0.0
 
 end;
 
@@ -420,7 +422,7 @@ end;
 
 function flux_first_order!(
     m::SingleStack{FT,N},
-    edmf::EDMF{FT, N}
+    edmf::EDMF{FT, N},
     flux::Grad,
     state::Vars,
     aux::Vars,

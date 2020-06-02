@@ -31,7 +31,7 @@ function compute_buoyancy_gradients(
     _R_d::FT      = R_d(param_set)
     ϵ_v::FT       = 1 / molmass_ratio(param_set)
 
-    cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, m.statistical_model)
+    cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, ss.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
     ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)

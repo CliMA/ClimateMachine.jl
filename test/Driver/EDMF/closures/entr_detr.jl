@@ -2,7 +2,7 @@
 
 function entr_detr(
     ss::SingleStack{FT, N},
-    m::EntrainmentDetrainmentModel,
+    m::EntrainmentDetrainment,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
@@ -41,7 +41,8 @@ function entr_detr(
       c_δ = 0
     end
     # compute dry and moist nondimentional exchange functions
-    D_ϵ ,D_δ ,M_δ ,M_ϵ = nondimensional_exchange_functions(ss ,m,state,diffusive,aux,t,direction,i) # YAIR CHECK THIS LINE WITH CHARLIE
+    D_ϵ ,D_δ ,M_δ ,M_ϵ = nondimensional_exchange_functions(ss ,m, state, diffusive, aux, t, direction , i)
+
     m.Λ[1] = abs(db/dw)
     m.Λ[2] = m.c_λ*abs(db/(sqrt_tke+sqrt(eps(FT))))
     lower_bound = FT(0.1)

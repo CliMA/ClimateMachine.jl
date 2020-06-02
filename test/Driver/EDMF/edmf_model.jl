@@ -12,7 +12,7 @@ Base.@kwdef struct EntrainmentDetrainment{FT}
     "Detrainment factor"
     c_δ::FT = 0.52
     "Trubulent Entrainment factor"
-    c_t::FT = ?
+    c_t::FT = 0.1
     "Detrainment RH power"
     β::FT = 2
     "Logistic function scale ‵[1/s]‵"
@@ -38,6 +38,8 @@ Base.@kwdef struct SurfaceModel{FT}
     top_lhf::FT = 0.0
     "Sufcae area"
     a_surf::FT = 0.1
+    "Sufcae tempearture"
+    T_surf::FT = 300.0
     "Ratio of rms turbulent velocity to friction velocity"
     κ_star ::FT = 1.94
     "fixed ustar" # YAIR - need to change this
@@ -75,6 +77,8 @@ Base.@kwdef struct MicrophysicsModel{FT}
     cloudy::MArray{Tuple{6},FT} = MArray{Tuple{6},FT}([0,0,0,0,0,0])
     "enviromental cloud fraction"
     cf_initial::FT = 0.0 # need to define a function for cf
+    "Subdomain statistical mmodel"
+    statistical_model::String = "SubdomainMean"
     "quadrature order" # can we code it that if order is 1 than we get mean ?  do we need the gaussian option?
     quadrature_order::FT = 3# yair needs to be a string: "mean", "gaussian quadrature", lognormal quadrature"
 end

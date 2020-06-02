@@ -2,7 +2,7 @@
 
 function perturbation_pressure(
     ss::SingleStack{FT, N},
-    m::PerturbationPressureModel,
+    m::PressureModel,
     state::Vars,
     diffusive::Vars,
     aux::Vars,

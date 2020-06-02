@@ -53,7 +53,7 @@ function mixing_length(
     q         = PhasePartition(ts)
     ϵ_v::FT   = 1 / molmass_ratio(param_set)
     bflux     = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, m.T_b, q, ρinv)
-    # θ_surf    = m.surface_temp ? YAIR
+    θ_surf    = ss.SurfaceModel.T_surf
     ustar = Nishizawa2018.compute_friction_velocity(param_set ,u_ave ,θ_suft ,flux ,Δz ,z_0 ,a ,Ψ_m_tol ,tol_abs ,iter_max)
     obukhov_length = Nishizawa2018.monin_obukhov_len(param_set, u, θ_surf, flux)
 
@@ -73,9 +73,9 @@ function mixing_length(
     # compute L2 - law of the wall  - YAIR define tke_surf
     if obukhov_length < FT(0)
       m.L[2] = (m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)* m.c_k) * min(
-         (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ))
+         (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ)
     else
-      m.L[2] = m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)*m.c_k)
+      m.L[2] = m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)*m.c_k
     end
 
     # compute L3 - entrainment detrainment sources

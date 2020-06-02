@@ -34,7 +34,7 @@ end
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state_auxiliary`
-function init_state_auxiliary!(ref::HydrostaticState{P, F}, m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
+function init_state_auxiliary!(m::SingleStack{FT,N}, state::Vars, aux::Vars, geom::LocalGeometry) where {FT,N}
     aux.z = geom.coord[3]
     T_profile = DecayingTemperatureProfile{FT}(m.param_set)
     ref_state = HydrostaticState(T_profile)
@@ -43,12 +43,8 @@ function init_state_auxiliary!(ref::HydrostaticState{P, F}, m::SingleStack{FT,N}
     aux.ρ_0 = ref_state.ρ
     aux.p_0 = ref_state.p
 
-    init_state_auxiliary!(m, m.edmf, aux, geom)
+    init_state_auxiliary!(m, m.edmf, state, aux, geom)
 end;
-
-# The following two functions should compute the hydrostatic and adiabatic reference state
-# this state integrates upwards the equations d(log(p))/dz = -g/(R_m*T)
-# with q_tot and θ_liq at each z level equal their respective surface values.
 
 function update_auxiliary_state!(
     dg::DGModel,
@@ -61,33 +57,6 @@ function update_auxiliary_state!(
     return true
 end
 
-# @inline function integral_load_auxiliary_state!(
-#     m::SingleStack{FT},
-#     integrand::Vars,
-#     state::Vars,
-#     aux::Vars,
-# ) where {FT}
-#     x, y, z = aux.coord
-#     _grav::FT = grav(param_set)
-
-#     ρ = air_density(param_set, m.T_g, p?, m.q_pt_g)
-#     ts = PhaseEquil(param_set, m.θ_sfc, m.ρ_sfc)
-
-#     integrand.p = -_grav/(R_d*virtual_temperature(ts))
-# end
-
-# @inline function integral_set_auxiliary_state!(
-#     m::SingleStack,
-#     aux::Vars,
-#     integral::Vars,
-# )
-#     aux.int.p = m.edmf.ref_state.p_sfc + exp(integral.p)
-# end
-
-# Specify the initial values in `state::Vars`. Note that
-# - this method is only called at `t=0`
-# - `state.ρcT` is available here because we've specified `ρcT` in
-# `vars_state_conservative`
 function init_state_conservative!(
     m::SingleStack{FT,N},
     state::Vars,
@@ -213,7 +182,8 @@ function flux_second_order!(
 
     # compute the mixing length and eddy diffusivity
     # (I am repeating this after doing in sources assuming that it is better to compute this twice than to add mixing length as a aux.variable)
-    l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
+    # l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
+    l=100
     K_eddy = m.c_k*l*sqrt(en.tke)
     # flux_second_order in the grid mean is the environment turbulent diffusion
     en_ρa = state.ρ-sum([up[i].ρa for i in 1:N])
