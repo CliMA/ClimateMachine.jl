@@ -1,5 +1,31 @@
 #### Dynamical core kernels
 
+# Reference state
+abstract type ReferenceState end
+struct HydrostaticState{P, FT} <: ReferenceState
+    virtual_temperature_profile::P
+    relative_humidity::FT
+end
+function HydrostaticState(
+    virtual_temperature_profile::TemperatureProfile{FT},
+) where {FT}
+    return HydrostaticState{typeof(virtual_temperature_profile), FT}(
+        virtual_temperature_profile,
+        FT(0),
+    )
+end
+
+"""
+    relative_humidity(hs::HydrostaticState{P,FT})
+
+Here, we enforce that relative humidity is zero
+for a dry adiabatic profile.
+"""
+relative_humidity(hs::HydrostaticState{P, FT}) where {P, FT} =
+    hs.relative_humidity
+relative_humidity(hs::HydrostaticState{DryAdiabaticProfile, FT}) where {FT} =
+    FT(0)
+
 # Specify auxiliary variables for `SingleStack`
 
 function vars_state_auxiliary(m::SingleStack, FT)
@@ -38,8 +64,31 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     aux.z = geom.coord[3]
     T_profile = DecayingTemperatureProfile{FT}(m.param_set)
     ref_state = HydrostaticState(T_profile)
+    T_virt, p = ref_state.virtual_temperature_profile(m.param_set, aux.z)
 
-    aux.buoyancy = 0.0
+    # -------------------- MoreCode from `atmos_init_aux!` in `ref_state!`
+    # This code is being refactored, so look for updated changes in `ref_state!`
+    # ρ = p / (_R_d * T_virt)
+    # aux.ref_state.ρ = ρ
+    # aux.ref_state.p = p
+    # # We evaluate the saturation vapor pressure, approximating
+    # # temperature by virtual temperature
+    # # ts = TemperatureSHumEquil(m.param_set, T_virt, ρ, FT(0))
+    # ts = PhaseDry_given_ρT(m.param_set, ρ, T_virt)
+    # q_vap_sat = q_vap_saturation(ts)
+
+    # ρq_tot = ρ * relative_humidity(ref_state) * q_vap_sat
+    # aux.ref_state.ρq_tot = ρq_tot
+
+
+    # q_pt = PhasePartition(ρq_tot)
+    # R_m = gas_constant_air(m.param_set, q_pt)
+    # T = T_virt * R_m / _R_d
+    # aux.ref_state.T = T
+    # --------------------
+
+
+    aux.buoyancy = 0
     aux.ρ_0 = ref_state.ρ
     aux.p_0 = ref_state.p
 

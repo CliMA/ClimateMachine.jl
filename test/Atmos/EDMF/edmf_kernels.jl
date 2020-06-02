@@ -138,14 +138,14 @@ function init_state_auxiliary!(
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
 
-    en_a.buoyancy = 0.0
-    en_a.cld_frac = 0.0
+    en_a.buoyancy = 0
+    en_a.cld_frac = 0
 
     for i in 1:N
-        up_a[i].buoyancy = 0.0
-        up_a[i].upd_top = 0.0
+        up_a[i].buoyancy = 0
+        up_a[i].upd_top = 0
     end
-    en_a.cld_frac = 0.0
+    en_a.cld_frac = 0
 end;
 
 # The following two functions should compute the hydrostatic and adiabatic reference state

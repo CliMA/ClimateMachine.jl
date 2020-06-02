@@ -23,7 +23,7 @@ function compute_inversion_height(
 
   # k_1 = first_interior(grid, Zmin()) - how to compute the height of the first grid point
   ts = PhaseEquil(param_set ,gm.e_int, gm.ρ, gm.q_tot)
-  windspeed = compute_windspeed(k_1, gm, FT(0.0))^2
+  windspeed = compute_windspeed(k_1, gm, FT(0))^2
   _grav::FT = grav(param_set)
   θ_ρ =
   θ_ρ_b = virtual_pottemp(ts)
@@ -89,15 +89,15 @@ function env_surface_covariances(ss::SingleStack{FT, N},
   oblength = Nishizawa2018.monin_obukhov_len(param_set, u, θ, flux)
   zLL = FT(20) # how to get the z first interior ?
   if oblength < 0
-    e_int_var       = FT(4) * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
-    q_tot_var       = FT(4) * (edmf.q_tot_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
-    e_int_q_tot_cov = FT(4) * (edmf.e_int_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (FT(1) - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+    e_int_var       = 4 * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+    q_tot_var       = 4 * (edmf.q_tot_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+    e_int_q_tot_cov = 4 * (edmf.e_int_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
     tke             = ustar * ustar * (FT(3.75) + cbrt(zLL/obukhov_length * zLL/obukhov_length))
     return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   else
-    e_int_var       = FT(4) * (edmf.e_int_surface_flux * edmf.e_int_surface_flux)/(ustar*ustar)
-    q_tot_var       = FT(4) * (edmf.q_tot_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
-    e_int_q_tot_cov = FT(4) * (edmf.e_int_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
+    e_int_var       = 4 * (edmf.e_int_surface_flux * edmf.e_int_surface_flux)/(ustar*ustar)
+    q_tot_var       = 4 * (edmf.q_tot_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
+    e_int_q_tot_cov = 4 * (edmf.e_int_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
     tke             = ustar * ustar * FT(3.75)
     return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   end
