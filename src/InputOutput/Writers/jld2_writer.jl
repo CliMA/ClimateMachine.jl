@@ -5,16 +5,15 @@ struct JLD2Writer <: AbstractWriter end
 
 function write_data(jld::JLD2Writer, filename, dims, varvals, simtime)
     jldopen(full_name(jld, filename), "a+") do ds
+        ds["dim_1"] = "time"
         dimnames = collect(keys(dims))
         for di in 1:length(dimnames)
-            ds["dim_$di"] = dimnames[di]
+            ds["dim_$(di + 1)"] = dimnames[di]
         end
-        ds["dim_time"] = "time"
         for (dn, (dv, _)) in dims
             ds[dn] = dv
         end
-        ds["time"] = [1]
-        ds["simtime"] = [simtime]
+        ds["time"] = [simtime]
         for (vn, (_, vv, _)) in varvals
             ds[vn] = vv
         end
