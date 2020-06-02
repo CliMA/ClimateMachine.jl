@@ -446,9 +446,11 @@ end
 end
 
 @testset "DiffEq methods" begin
+    alg = SSPRK73()
+    expected_order = 3
     for (n, dt) in enumerate(dts)
         Q .= Qinit
-        solver = method(rhs!, Q; dt = dt, t0 = t0)
+        solver =  DiffEqJLSolver(rhs!, alg, Q; dt = dt, t0 = t0)
         solve!(Q, solver; timeend = finaltime)
         errors[n] = norm(Q - Qexact)
     end
