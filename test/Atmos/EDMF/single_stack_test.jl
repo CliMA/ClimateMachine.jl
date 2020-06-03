@@ -3,8 +3,8 @@
 # To put this in the form of ClimateMachine's [`BalanceLaw`](@ref
 # ClimateMachine.DGMethods.BalanceLaw), we'll re-write the equation as:
 
-# "tendency"       "second order flux"  "first order flux"    "non-conservative source"
-# \frac{∂ F}{∂ t} =    - ∇ ⋅ ( F1 + F2 )                       + S
+# "tendency"      = - div("second order flux" + "first order flux") + "non-conservative source"
+# \frac{∂ F}{∂ t} = - ∇ ⋅ ( F2 + F1 )                               + S
 
 # where F1 is the flux-componenet that has no gradient term
 # where F2 is the flux-componenet that has a  gradient term

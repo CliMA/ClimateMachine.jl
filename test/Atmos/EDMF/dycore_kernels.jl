@@ -68,29 +68,9 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     _R_d::FT = 287 # YAIR replace this by a call to parm_set
 
     aux.buoyancy = 0
-    aux.ρ_0 = p / (_R_d * T_virt)
-    aux.p_0 = p
+    aux.ρ0 = p / (_R_d * T_virt)
+    aux.p0 = p
 
-    # -------------------- MoreCode from `atmos_init_aux!` in `ref_state!`
-    # This code is being refactored, so look for updated changes in `ref_state!`
-    # ρ = p / (_R_d * T_virt)
-    # aux.ref_state.ρ = ρ
-    # aux.ref_state.p = p
-    # # We evaluate the saturation vapor pressure, approximating
-    # # temperature by virtual temperature
-    # # ts = TemperatureSHumEquil(m.param_set, T_virt, ρ, FT(0))
-    # ts = PhaseDry_given_ρT(m.param_set, ρ, T_virt)
-    # q_vap_sat = q_vap_saturation(ts)
-
-    # ρq_tot = ρ * relative_humidity(ref_state) * q_vap_sat
-    # aux.ref_state.ρq_tot = ρq_tot
-
-
-    # q_pt = PhasePartition(ρq_tot)
-    # R_m = gas_constant_air(m.param_set, q_pt)
-    # T = T_virt * R_m / _R_d
-    # aux.ref_state.T = T
-    # --------------------
     init_state_auxiliary!(m, m.edmf, aux, geom)
 end;
 
@@ -113,10 +93,10 @@ function init_state_conservative!(
     t::Real,
 ) where {FT,N}
 
-    state.ρ = 1
+    state.ρ = aux.ρ
     state.ρu = 0
-    state.ρe_int = 0
-    state.ρq_tot = 0
+    state.ρe_int = aux.ρ # need to add intial state here 
+    state.ρq_tot = aux.ρ # need to add intial state here 
     init_state_conservative!(m, m.edmf, state, aux, coords, t)
 
 end;
@@ -147,7 +127,8 @@ function single_stack_nodal_update_aux!(
     aux::Vars,
     t::Real,
 ) where {FT, N}
-    aux.buoyancy = 0
+    _grav::FT = grav(m.param_set)
+    aux.buoyancy = _grav*(state.ρ-aux.ρ)/state.ρ
 end;
 
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute

@@ -315,20 +315,21 @@ function compute_gradient_argument!(
     up = state.edmf.updraft
     en = state.edmf.environment
 
-    ρ = gm.ρ
-    env_u = (gm.u - up[i].u*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
-    env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
-    env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
-    en_t.u     = env_u
-    en_t.q_tot = env_q_tot
-    en_t.e_int = env_e_int
-
     ts = thermo_state(SingleStack, state, aux)
     en_t.θ_ρ = virtual_pottemp(ts)
 
-    # for i in 1:N
-    #     up_t[i].u = up[i].ρau/up[i].ρa
-    # end
+    ρinv       = 1/gm.ρ
+    en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
+    en_t.u     = (gm.ρu - sum([up[i].ρau for i in 1:N]))/(en_area*gm.ρ)
+    en_t.e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N])//(en_area*gm.ρ)
+    en_t.q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N])//(en_area*gm.ρ)
+
+    en_t.tke            = en.ρatke/(en_area*gm.ρ)    
+    en_t.e_int_cv       = en.ρae_int_cv/(en_area*gm.ρ)
+    en_t.q_tot_cv       = en.ρaq_tot_cv/(en_area*gm.ρ)
+    en_t.e_int_q_tot_cv = en.ρae_int_q_tot_cv/(en_area*gm.ρ)
+
+
 end;
 
 # Specify where in `diffusive::Vars` to store the computed gradient from
@@ -356,14 +357,21 @@ function compute_gradient_flux!(
     gm = state
     up = state.edmf.updraft
     
-    ρinv = 1/gm.ρ
+    ρinv      = 1/gm.ρ
     en_d.∇θ_ρ = en_∇t.θ_ρ
+∂ϕ
+    # negative signs here as we have a '-' sign in BL form leading to + K∂ϕ/∂z on the RHS
     # compute eddy diffusivity 
     l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
     K_eddy = m.c_k*l*sqrt(en.tke)
-    gm_d.k∇ρe_int = - K_eddy * en_∇t.∇ρae_int
-    gm_d.k∇ρe_int = - K_eddy * en_∇t.∇ρae_int
-    gm_d.k∇u      = - K_eddy * en_∇t.∇ρau
+    gm_d.k∇ρe_int = - K_eddy * en_∇t.e_int
+    gm_d.k∇ρe_int = - K_eddy * en_∇t.e_int
+    gm_d.k∇u      = - K_eddy * en_∇t.u
+    # second moment env cov
+    en_d.∇tke            = - K_eddy * en_∇t.tke
+    en_d.∇e_int_cv       = - K_eddy * en_∇t.e_int_cv
+    en_d.∇q_tot_cv       = - K_eddy * en_∇t.q_tot_cv
+    en_d.∇e_int_q_tot_cv = - K_eddy * en_∇t.e_int_q_tot_cv
     
 end;
 
@@ -391,7 +399,7 @@ function source!(
     ρinv = 1/gm.ρ
     for i in 1:N
         # get environment values for e_int, q_tot , u[3]
-        env_u = (gm.u - up[i].u*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+        env_u     = (gm.u - up[i].u*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
         env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
         env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
 
@@ -411,13 +419,18 @@ function source!(
            # perturbation pressure
         up_s[i].ρau[3]  += up[i].ρa * dpdz
 
-        # second moment sources
-        en.ρatke += dpdz_tke_i
+        # second moment sources (+ sign here as we have + S in BL form)
+        Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2  # YAIR check this 
+        en.ρatke            += dpdz_tke_i + gm.ρ*a_env*K_eddy*Shear
+        en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇e_int
+        en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot*en_d.∇q_tot
+        en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇q_tot
 
         # sources  for the grid mean
     end
 end;
 
+# in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts
 function flux_first_order!(
     m::SingleStack{FT,N},
     edmf::EDMF{FT, N},
@@ -428,19 +441,30 @@ function flux_first_order!(
 ) where {FT,N}
 
     # Aliases:
+    gm = state
+    gm_f = flux
     up = state.edmf.updraft
-    up_f = flux.edmf.updraft
+    up_f = flux.edmf.updraft# `vars_state_gradient_flux`
 
-    # up
+    # positive sign here as we have a '-' sign in BL form leading to - ∂ρuϕ/∂z on the RHS
+    # grid mean
+    ρinv = 1/gm.ρ
+    gm_f.ρ = gm.ρu
+    gm_f.ρe_int = gm.ρe_int*gm.ρu*ρinv
+    gm_f.ρq_tot = gm.ρq_tot*gm.ρu*ρinv
+
+    # updrafts 
     for i in 1:N
         up_f[i].ρa = up[i].ρau
         u = up[i].ρau / up[i].ρa
         up_f[i].ρau = up[i].ρau * u'
-        up_f[i].ρacT = u * up[i].ρacT
+        up_f[i].ρae_int = u * up[i].ρae_int
+        up_f[i].ρaq_tot = u * up[i].ρaq_tot
     end
 
 end;
 
+# in the EDMF second order (diffusive) fluxes exist only in the grid mean and the enviroment 
 function flux_second_order!(
     m::SingleStack{FT,N},
     edmf::EDMF{FT,N},
@@ -455,18 +479,31 @@ function flux_second_order!(
     gm   = state
     up   = state.edmf.updraft
     en   = state.edmf.environment
+    gm_f = flux
+    up_f = flux.edmf.updraft
+    gm_d = diffusive
+    en_d = diffusive.edmf.environment
     
     ρinv = FT(1)/gm.ρ
     # flux_second_order in the grid mean is the environment turbulent diffusion
     en_ρa = gm.ρ-sum([up[i].ρa for i in 1:N])
+
+    ## grid mean flux - adding the massflux term here as it is part of the total flux:
     # total flux = diffusive_flux + massflux
     #     <w*ϕ*> = a_0 w'ϕ'       + ∑ a_i(w_i-<w>)(ϕ_i-<ϕ>)
     massflux_term = sum([(gm.ρe_int*ρinv - up[i].ρae_int/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
-    flux.ρe_int  += diffusive.k∇ρe_int + massflux_term
+    gm_f.ρe_int  += gm_d.k∇ρe_int + massflux_term
     massflux_term = sum([(gm.ρq_tot*ρinv - up[i].ρaq_tot/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
-    flux.ρq_tot  += diffusive.k∇ρq_tot + massflux_term
+    gm_f.ρq_tot  += gm_d.k∇ρq_tot + massflux_term
     massflux_term = sum([(gm.ρu*ρinv - up[i].ρau/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
-    flux.ρu      += diffusive.k∇ρu     + massflux_term
+    gm_f.ρu      += gm_d.k∇ρu     + massflux_term
+
+    # enviroment second moment covriance flux
+
+    en_f.ρatke            += en_d.∇tke           
+    en_f.ρae_int_cv       += en_d.∇e_int_cv      
+    en_f.ρaq_tot_cv       += en_d.∇q_tot_cv      
+    en_f.ρae_int_q_tot_cv += en_d.∇e_int_q_tot_cv
 end;
 
 # ### Boundary conditions
