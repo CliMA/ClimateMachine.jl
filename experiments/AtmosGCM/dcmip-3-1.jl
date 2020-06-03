@@ -10,8 +10,7 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics:
-    air_temperature, internal_energy, air_pressure
+using ClimateMachine.Thermodynamics: total_energy
 using ClimateMachine.VariableTemplates
 
 using Distributions: Uniform
@@ -26,12 +25,9 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import CLIMAParameters
-CLIMAParameters.planet.Omega(::EarthParameterSet) = 0.0
-CLIMAParameters.planet.planet_radius(::EarthParameterSet) = 6.371 * 10^6 / 125
+CLIMAParameters.Planet.Omega(::EarthParameterSet) = 0.0
+CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371 * 10^6 / 125
 
-struct dcmip31DataConfig{FT}
-    T_ref::FT
-end
 
 function init_dcmip31!(bl, state, aux, coords, t)
     FT = eltype(state)
@@ -82,17 +78,17 @@ function init_dcmip31!(bl, state, aux, coords, t)
     r = _a * acos(sin(ϕ_c)*sin(ϕ) + cos(ϕ_c)*cos(ϕ)*cos(λ - λ_c))
     s = d^2 / (d^2 + r^2)
     L_z = FT(20000)
-    θ' = Δθ * s * sin(2*FT(π) z / L_z)
+    θ′ = Δθ * s * sin(2*FT(π)*z / L_z)
 
     # Temperature perturbation
-    T' = θ' * (p / p_eq)^(_kappa)
+    T′ = θ′ * (p / p_eq)^(_kappa)
 
     e_pot = gravitational_potential(bl.orientation, aux)
     e_kin = FT(0.5)*u^2
 
     state.ρ = ρ
     state.ρu = ρ * SVector{3, FT}(u, v, w)
-    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T_b + T')
+    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T_b + T′)
 
     nothing
 end
@@ -167,7 +163,7 @@ function main()
     timeend = FT(3600)                       # end time (s)
 
     # Set up driver configuration
-    driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
+    driver_config = config_dcmip31(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
     CFL = FT(0.2)
@@ -185,15 +181,21 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 10
+    filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            1:size(solver_config.Q, 2),
-            solver_config.dg.grid,
-            filter,
-        )
+        @views begin
+          solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
+          Filters.apply!(
+              solver_config.Q,
+              1:size(solver_config.Q, 2),
+              solver_config.dg.grid,
+              filter,
+          )
+          solver_config.Q.data[:, 1, :] .+= solver_config.dg.state_auxiliary.data[:, 8, :]
+          solver_config.Q.data[:, 5, :] .+= solver_config.dg.state_auxiliary.data[:, 11, :]
+        end
         nothing
     end
 
