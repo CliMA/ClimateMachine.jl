@@ -191,7 +191,7 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 # Load some helper functions for plotting
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
-# include(joinpath(clima_dir, "src/Atmos/Model/ref_state.jl"));
+
 # # Define the set of Partial Differential Equations (PDEs)
 
 # ## Define the model

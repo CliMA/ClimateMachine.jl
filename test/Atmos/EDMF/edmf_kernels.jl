@@ -104,7 +104,8 @@ function vars_state_gradient_flux(::Environment, FT)
           ∇q_tot_cv::TF,
           ∇e_int_q_tot_cv::TF,
           ∇θ_ρ::TF, # used in a diagnostic equation for the mixing length
-          )
+          );
+
 end
 
 function vars_state_gradient_flux(m::EDMF, FT)
@@ -354,14 +355,16 @@ function compute_gradient_flux!(
     en_∇t = ∇transform.edmf.environment
     gm = state
     up = state.edmf.updraft
-    # gm_d.α∇ρcT = -m.α * gm_∇t.ρcT
-    # gm_d.μ∇u = -m.μ * gm_∇t.u
+    
     ρinv = 1/gm.ρ
     en_d.∇θ_ρ = en_∇t.θ_ρ
-
-    for i in 1:N
-        up_d[i].∇u = up_∇t[i].u
-    end
+    # compute eddy diffusivity 
+    l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
+    K_eddy = m.c_k*l*sqrt(en.tke)
+    gm_d.k∇ρe_int = - K_eddy * en_∇t.∇ρae_int
+    gm_d.k∇ρe_int = - K_eddy * en_∇t.∇ρae_int
+    gm_d.k∇u      = - K_eddy * en_∇t.∇ρau
+    
 end;
 
 # We have no sources, nor non-diffusive fluxes.
@@ -452,14 +455,18 @@ function flux_second_order!(
     gm   = state
     up   = state.edmf.updraft
     en   = state.edmf.environment
-
-    # compute the mixing length and eddy diffusivity
-    # (I am repeating this after doing in sources assuming that it is
-    # better to compute this twice than to add mixing length as a aux.variable)
-    l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
-    K_eddy = m.c_k*l*sqrt(en.tke)
+    
+    ρinv = FT(1)/gm.ρ
     # flux_second_order in the grid mean is the environment turbulent diffusion
     en_ρa = gm.ρ-sum([up[i].ρa for i in 1:N])
+    # total flux = diffusive_flux + massflux
+    #     <w*ϕ*> = a_0 w'ϕ'       + ∑ a_i(w_i-<w>)(ϕ_i-<ϕ>)
+    massflux_term = sum([(gm.ρe_int*ρinv - up[i].ρae_int/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
+    flux.ρe_int  += diffusive.k∇ρe_int + massflux_term
+    massflux_term = sum([(gm.ρq_tot*ρinv - up[i].ρaq_tot/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
+    flux.ρq_tot  += diffusive.k∇ρq_tot + massflux_term
+    massflux_term = sum([(gm.ρu*ρinv - up[i].ρau/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
+    flux.ρu      += diffusive.k∇ρu     + massflux_term
 end;
 
 # ### Boundary conditions
