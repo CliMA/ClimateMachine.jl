@@ -64,8 +64,8 @@ function main()
     outputtime = 60 * 60
 
     expected_result = Dict()
-    expected_result[Float32] = 9.2987451244544000e+13
-    expected_result[Float64] = 9.2993570967854438e+13
+    expected_result[Float32] = 9.5066030866432000e+13
+    expected_result[Float64] = 9.5073452847149594e+13
 
     for FT in (Float32, Float64)
         result = run(
