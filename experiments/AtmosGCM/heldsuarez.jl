@@ -19,12 +19,40 @@ using StaticArrays
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
+using CLIMAParameters.Planet: MSLP, R_d, day, grav, cp_d, cv_d, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 struct HeldSuarezDataConfig{FT}
     T_ref::FT
+end
+
+struct ReferenceProfile{FT} <: TemperatureProfile{FT}
+    T_ref::FT
+    function ReferenceProfile{FT}(
+        param_set::AbstractParameterSet,
+        T_ref::FT = FT(T_surf_ref(param_set)),
+    ) where {FT <: AbstractFloat}
+        return new{FT}(T_ref)
+    end
+end
+
+function (profile::ReferenceProfile)(
+    param_set::AbstractParameterSet,
+    z::FT,
+) where {FT <: AbstractFloat}
+
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
+
+    # Temperature
+    T = profile.T_ref
+    H_t = _R_d * T / _grav
+
+    # Pressure
+    p = _MSLP * exp(-z/H_t) 
+    return (T, p)
 end
 
 function init_heldsuarez!(bl, state, aux, coords, t)
@@ -112,13 +140,13 @@ end
 
 function config_heldsuarez(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
-    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set)
+    temp_profile_ref = ReferenceProfile{FT}(param_set, FT(290))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up a Rayleigh sponge to dampen flow at the top of the domain
     domain_height = FT(30e3)
     z_sponge::FT = 25e3                    # height at which sponge begins (m)
-    α_relax::FT = 1 / 864              # sponge relaxation rate (1/s)
+    α_relax::FT = 1 / 86400                # sponge relaxation rate (1/s)
     exp_sponge = 2                         # sponge exponent for squared-sinusoid profile
     u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
     sponge = RayleighSponge{FT}(
@@ -130,7 +158,7 @@ function config_heldsuarez(FT, poly_order, resolution)
     )
     
     # Viscous sponge to dampen flow at the top of the domain
-    z_sponge = FT(25e3)
+    z_sponge = FT(30e3)
     dyn_visc_bg = FT(0.0)
     dyn_visc_sp = FT(1e7)
     exp_sponge = FT(2)
@@ -153,8 +181,9 @@ function config_heldsuarez(FT, poly_order, resolution)
         turbulence = ConstantViscosityWithDivergence(FT(0)), 
         #turbulence = visc_sponge, 
         hyperdiffusion = StandardHyperDiffusion(τ_hyper),
+        #hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis()),
+        source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
     )
@@ -182,7 +211,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(5), FT(5), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(5), FT(5), FT(2000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
@@ -205,7 +234,7 @@ function main()
     n_horz = 3                               # horizontal element number
     n_vert = 3                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(36*24*60*60)                     # end time (s)
+    timeend = FT(365*24*60*60)                     # end time (s)
 
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
@@ -215,7 +244,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = 0.1,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
@@ -224,14 +253,11 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 32
+    filterorder = 16
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         @views begin
           solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
-          solver_config.Q.data[:, 2, :] .-= solver_config.dg.state_auxiliary.data[:, 9, :]
-          solver_config.Q.data[:, 3, :] .-= solver_config.dg.state_auxiliary.data[:, 10, :]
-          solver_config.Q.data[:, 4, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
           solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
           Filters.apply!(
             solver_config.Q,

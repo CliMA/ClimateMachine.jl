@@ -18,17 +18,44 @@ using StaticArrays
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
+using CLIMAParameters.Planet: MSLP, R_d, day, grav, cp_d, cv_d, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+
+struct ReferenceProfile{FT} <: TemperatureProfile{FT}
+    T_ref::FT
+    function ReferenceProfile{FT}(
+        param_set::AbstractParameterSet,
+        T_ref::FT = FT(T_surf_ref(param_set)),
+    ) where {FT <: AbstractFloat}
+        return new{FT}(T_ref)
+    end
+end
+
+function (profile::ReferenceProfile)(
+    param_set::AbstractParameterSet,
+    z::FT,
+) where {FT <: AbstractFloat}
+
+    _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
+    _MSLP::FT = MSLP(param_set)
+
+    # Temperature
+    T = profile.T_ref
+    H_t = _R_d * T / _grav
+
+    # Pressure
+    p = _MSLP * exp(-z/H_t) 
+    return (T, p)
+end
 
 function init_solidbody!(bl, state, aux, coords, t)
     FT = eltype(state)
     _R_d::FT = R_d(bl.param_set)
 
-    # Set initial state to reference state
     z = altitude(bl.orientation, bl.param_set, aux)
-    temp_profile = DecayingTemperatureProfile{FT}(bl.param_set)
+    temp_profile = ReferenceProfile{FT}(bl.param_set, FT(280))
     T, p = temp_profile(bl.param_set, z)
     ρ = p / (_R_d * T)
     e_kin = FT(0)
@@ -43,7 +70,7 @@ end
 
 function config_solidbody(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
-    temp_profile_ref = IsothermalProfile(param_set, FT(290))
+    temp_profile_ref = ReferenceProfile{FT}(param_set, FT(290))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
@@ -59,6 +86,10 @@ function config_solidbody(FT, poly_order, resolution)
         init_state_conservative = init_solidbody!,
     )
 
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+
     domain_height = FT(45e3)
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
@@ -67,6 +98,7 @@ function config_solidbody(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_solidbody!;
+        solver_type = ode_solver,
         model = model,
     )
 
@@ -83,7 +115,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(5), FT(5), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(5), FT(5), FT(2000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
@@ -106,7 +138,7 @@ function main()
     n_horz = 3                               # horizontal element number
     n_vert = 3                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(2*60*60)                     # end time (s)
+    timeend = FT(2*60*60)                   # end time (s)
 
     # Set up driver configuration
     driver_config = config_solidbody(FT, poly_order, (n_horz, n_vert))
@@ -116,7 +148,7 @@ function main()
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.005,
+        Courant_number = 0.01,
         CFL_direction = HorizontalDirection(),
         diffdir = EveryDirection(),
     )
