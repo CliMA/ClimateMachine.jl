@@ -9,8 +9,8 @@ function mixing_length(
     aux::Vars,
     t::Real,
     direction,
-    δ::FT,
-    εt::FT,
+    δ::{FT, N},
+    εt::{FT, N},
     ) where {FT, N}
 
     # need to code / use the functions: obukhov_length, ustar, ϕ_m
@@ -87,7 +87,7 @@ function mixing_length(
     for i in 1:N
       a_up = up[i].ρa/gm.ρ
       w_up = up[i].ρau[3]/up[i].ρa
-      b += a_up*w_up*δ/en_area*((w_up-w_env)*(w_up-w_env)/2-tke) - a_up*w_up*(w_up-w_env)*εt*w_env/en_area
+      b += a_up*w_up*δ[i]/en_area*((w_up-w_env)*(w_up-w_env)/2-tke) - a_up*w_up*(w_up-w_env)*εt[i]*w_env/en_area
     end
 
     c_neg = m.c_m*tke*sqrt(tke)
