@@ -515,7 +515,14 @@ function invoke!(
     # diagnostics callback(s)
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
-        Diagnostics.init(mpicomm, dg, Q, dgn_starttime, Settings.output_dir)
+        Diagnostics.init(
+            mpicomm,
+            solver_config.param_set,
+            dg,
+            Q,
+            dgn_starttime,
+            Settings.output_dir,
+        )
 
         dgncbs = Callbacks.diagnostics(
             Settings.diagnostics,

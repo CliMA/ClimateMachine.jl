@@ -1,6 +1,7 @@
 using Dates
 using FileIO
 using MPI
+using NCDatasets
 using Printf
 using Random
 using StaticArrays
@@ -106,7 +107,7 @@ function config_diagnostics(driver_config)
         AtmosLESConfigType(),
         interval,
         replace(driver_config.name, " " => "_"),
-        writer = JLD2Writer(),
+        writer = NetCDFWriter(),
     )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
@@ -151,7 +152,7 @@ function main()
     outdir = mktempdir()
     currtime = ODESolvers.gettime(solver)
     starttime = replace(string(now()), ":" => ".")
-    Diagnostics.init(mpicomm, dg, Q, starttime, outdir)
+    Diagnostics.init(mpicomm, param_set, dg, Q, starttime, outdir)
     dgn_config.groups[1](currtime, init = true)
     dgn_config.groups[1](currtime)
 
@@ -162,22 +163,24 @@ function main()
     if mpirank == 0
         dgngrp = dgn_config.groups[1]
         nm = @sprintf(
-            "%s_%s_%s_num%04d.jld2",
+            "%s_%s_%s.nc",
             replace(dgngrp.out_prefix, " " => "_"),
             dgngrp.name,
             starttime,
-            1,
         )
-        ds = load(joinpath(outdir, nm))
-        N = size(ds["u"], 1)
+        ds = NCDataset(joinpath(outdir, nm), "r")
+        ds_u = ds["u"][:]
+        ds_cov_w_u = ds["cov_w_u"][:]
+        N = size(ds_u, 1)
         err = 0
         err1 = 0
         for i in 1:N
-            u = ds["u"][i]
-            cov_w_u = ds["cov_w_u"][i]
+            u = ds_u[i]
+            cov_w_u = ds_cov_w_u[i]
             err += (cov_w_u - 0.5)^2
             err1 += (u - 5)^2
         end
+        close(ds)
         err = sqrt(err / N)
         @test err1 <= 1e-16
         @test err <= 2e-15

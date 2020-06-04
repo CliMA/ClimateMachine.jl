@@ -5,27 +5,6 @@ using ..Mesh.Grids
 using ..Thermodynamics
 using LinearAlgebra
 
-"""
-    atmos_les_core_init(bl, currtime)
-
-Initialize the 'AtmosLESCore' diagnostics group.
-"""
-function atmos_les_core_init(dgngrp::DiagnosticsGroup, currtime)
-    dg = Settings.dg
-    bl = dg.balance_law
-    # FIXME properly
-    if !isa(bl.moisture, EquilMoist)
-        @warn """
-            Diagnostics $(dgngrp.name): can only be used with the `EquilMoist` moisture model
-            """
-        return nothing
-    end
-
-    atmos_collect_onetime(Settings.mpicomm, Settings.dg, Settings.Q)
-
-    return nothing
-end
-
 # Simple horizontal averages
 function vars_atmos_les_core_simple(m::AtmosModel, FT)
     @vars begin
@@ -130,7 +109,59 @@ function atmos_les_core_ho_sums!(
 end
 
 """
-    atmos_les_core_collect(bl, currtime)
+    atmos_les_core_init(dgngrp, currtime)
+
+Initialize the 'AtmosLESCore' diagnostics group.
+"""
+function atmos_les_core_init(dgngrp::DiagnosticsGroup, currtime)
+    dg = Settings.dg
+    atmos = dg.balance_law
+    # FIXME properly
+    if !isa(atmos.moisture, EquilMoist)
+        @warn """
+            Diagnostics $(dgngrp.name): can only be used with the `EquilMoist` moisture model
+            """
+        return nothing
+    end
+
+    atmos_collect_onetime(Settings.mpicomm, Settings.dg, Settings.Q)
+
+    FT = eltype(Settings.Q)
+
+    dims = OrderedDict("z" => (AtmosCollected.zvals, Dict()))
+
+    # set up the variables we're going to be writing
+    vars = OrderedDict()
+    vars["core_frac"] = (("z",), FT, Dict())
+
+    varnames = map(
+        s -> startswith(s, "moisture.") ? s[10:end] : s,
+        flattenednames(vars_atmos_les_core_simple(atmos, FT)),
+    )
+    ho_varnames = map(
+        s -> startswith(s, "moisture.") ? s[10:end] : s,
+        flattenednames(vars_atmos_les_core_ho(atmos, FT)),
+    )
+    append!(varnames, ho_varnames)
+    for varname in varnames
+        vars[varname] = (("z",), FT, Dict())
+    end
+
+    # create the output file
+    dprefix = @sprintf(
+        "%s_%s_%s",
+        dgngrp.out_prefix,
+        dgngrp.name,
+        Settings.starttime,
+    )
+    dfilename = joinpath(Settings.output_dir, dprefix)
+    init_data(dgngrp.writer, dfilename, dims, vars)
+
+    return nothing
+end
+
+"""
+    atmos_les_core_collect(dgngrp, currtime)
 
 Perform a global grid traversal to compute various diagnostics.
 """
@@ -223,7 +254,7 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
         zeros(FT, num_atmos_les_core_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
-    core_frac = zeros(FT, 1, Nqk * nvertelem)
+    core_frac = zeros(FT, Nqk * nvertelem)
     MPI.Allreduce!(core_repdvsr, +, mpicomm)
     for evk in 1:(Nqk * nvertelem)
         tot_ql_w_gt_0 = MPI.Reduce(sum(ql_w_gt_0[evk]), +, 0, mpicomm)
@@ -291,43 +322,29 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     # complete density averaging and prepare output
     if mpirank == 0
         varvals = OrderedDict()
-        varvals["core_frac"] = (("time", "z"), core_frac, Dict())
+        varvals["core_frac"] = core_frac
 
-        for vari in 1:length(simple_varnames)
-            davg = zeros(FT, 1, Nqk * nvertelem)
+        for (vari, varname) in enumerate(simple_varnames)
+            davg = zeros(FT, Nqk * nvertelem)
             for evk in 1:(Nqk * nvertelem)
                 davg[evk] = simple_avgs[evk][vari]
             end
-            varvals[simple_varnames[vari]] = (("time", "z"), davg, Dict())
+            varvals[varname] = davg
         end
 
         ho_varnames = flattenednames(vars_atmos_les_core_ho(bl, FT))
-        for vari in 1:length(ho_varnames)
-            davg = zeros(FT, 1, Nqk * nvertelem)
+        for (vari, varname) in enumerate(ho_varnames)
+            davg = zeros(FT, Nqk * nvertelem)
             for evk in 1:(Nqk * nvertelem)
                 simple_ha = atmos_les_core_simple_vars(bl, simple_avgs[evk])
                 avg_rho = simple_ha.avg_rho_core
                 davg[evk] = ho_avgs[evk][vari] / avg_rho
             end
-            varvals[ho_varnames[vari]] = (("time", "z"), davg, Dict())
+            varvals[varname] = davg
         end
 
         # write output
-        dprefix = @sprintf(
-            "%s_%s_%s_num%04d",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-            dgngrp.num
-        )
-        dfilename = joinpath(Settings.output_dir, dprefix)
-        write_data(
-            dgngrp.writer,
-            dfilename,
-            OrderedDict("z" => (zvals, Dict())),
-            varvals,
-            currtime,
-        )
+        append_data(dgngrp.writer, varvals, currtime)
     end
 
     MPI.Barrier(mpicomm)

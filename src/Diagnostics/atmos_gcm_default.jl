@@ -26,14 +26,6 @@ using ..Atmos: thermo_state, turbulence_tensors
 
 include("diagnostic_fields.jl")
 
-function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
-    if !(dgngrp.interpol isa InterpolationCubedSphere)
-        @warn """
-            Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
-            """
-    end
-end
-
 # 3D variables
 function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
     @vars begin
@@ -135,6 +127,63 @@ end
 dyn_vars(array) = Vars{vars_dyn(eltype(array))}(array)
 
 """
+    atmos_gcm_default_init(dgngrp, currtime)
+
+Initialize the GCM default diagnostics group, establishing the output file's
+dimensions and variables.
+"""
+function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
+    if !(dgngrp.interpol isa InterpolationCubedSphere)
+        @warn """
+            Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
+            """
+        return nothing
+    end
+
+    FT = eltype(Settings.Q)
+    atmos = Settings.dg.balance_law
+
+    # get dimensions for the interpolated grid
+    dims = dimensions(dgngrp.interpol)
+
+    # adjust the level dimension for `planet_radius`
+    level_val = dims["level"]
+    dims["level"] =
+        (level_val[1] .- FT(planet_radius(Settings.param_set)), level_val[2])
+
+    # set up the variables we're going to be writing
+    vars = OrderedDict()
+    varnames = map(
+        s -> startswith(s, "moisture.") ? s[10:end] : s,
+        flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
+    )
+    for varname in varnames
+        var = Variables[varname]
+        vars[varname] = (
+            tuple(collect(keys(dims))...),
+            FT,
+            OrderedDict(
+                "units" => var.units,
+                "long_name" => var.long,
+                "standard_name" => var.standard,
+            ),
+        )
+    end
+
+    # create the output file
+    dprefix = @sprintf(
+        "%s_%s_%s",
+        dgngrp.out_prefix,
+        dgngrp.name,
+        Settings.starttime,
+    )
+    dfilename = joinpath(Settings.output_dir, dprefix)
+    init_data(dgngrp.writer, dfilename, dims, vars)
+
+    return nothing
+end
+
+"""
     atmos_gcm_default_collect(bl, currtime)
 
     Master function that performs a global grid traversal to compute various
@@ -153,7 +202,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     dg = Settings.dg
     Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
-    bl = dg.balance_law
+    atmos = dg.balance_law
     grid = dg.grid
     topology = grid.topology
     N = polynomialorder(grid)
@@ -184,22 +233,22 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     vort = Vorticity(dg, vgrad)
 
     # Compute thermo variables
-    thermo_array = Array{FT}(undef, npoints, num_thermo(bl, FT), nrealelem)
+    thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         state_conservative = extract_state_conservative(dg, state_data, ijk, e)
         state_auxiliary = extract_state_auxiliary(dg, aux_data, ijk, e)
 
-        thermo = thermo_vars(bl, view(thermo_array, ijk, :, e))
-        compute_thermo!(bl, state_conservative, state_auxiliary, thermo)
+        thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
+        compute_thermo!(atmos, state_conservative, state_auxiliary, thermo)
     end
 
     # Interpolate the state, thermo and dyn vars to sphere (u and vorticity
     # need projection to zonal, merid). All this may happen on the GPU.
     istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_conservative(bl, FT))
+        ArrayType{FT}(undef, interpol.Npl, number_state_conservative(atmos, FT))
     interpolate_local!(interpol, Q.realdata, istate)
 
-    ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(bl, FT))
+    ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
     interpolate_local!(interpol, ArrayType(thermo_array), ithermo)
 
     idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
@@ -220,11 +269,6 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         # get dimensions for the interpolated grid
         dims = dimensions(dgngrp.interpol)
 
-        # adjust the level dimension for `planet_radius`
-        level_val = dims["level"]
-        dims["level"] =
-            (level_val[1] .- FT(planet_radius(param_set)), level_val[2])
-
         # set up the array for the diagnostic variables based on the interpolated grid
         nlong = length(dims["long"][1])
         nlat = length(dims["lat"][1])
@@ -232,30 +276,29 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
         simple_3d_vars_array = Array{FT}(
             undef,
-            1,
             nlong,
             nlat,
             nlevel,
-            num_atmos_gcm_default_simple_3d_vars(bl, FT),
+            num_atmos_gcm_default_simple_3d_vars(atmos, FT),
         )
 
         @visitI nlong nlat nlevel begin
-            statei = Vars{vars_state_conservative(bl, FT)}(view(
+            statei = Vars{vars_state_conservative(atmos, FT)}(view(
                 all_state_data,
                 lo,
                 la,
                 le,
                 :,
             ))
-            thermoi = thermo_vars(bl, view(all_thermo_data, lo, la, le, :))
+            thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
             dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
             simple_3d_vars = atmos_gcm_default_simple_3d_vars(
-                bl,
-                view(simple_3d_vars_array, 1, lo, la, le, :),
+                atmos,
+                view(simple_3d_vars_array, lo, la, le, :),
             )
 
             atmos_gcm_default_simple_3d_vars!(
-                bl,
+                atmos,
                 statei,
                 thermoi,
                 dyni,
@@ -264,35 +307,17 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         end
 
         # assemble the diagnostics for writing
-        dim_names = tuple("time", collect(keys(dims))...)
         varvals = OrderedDict()
         varnames = map(
             s -> startswith(s, "moisture.") ? s[10:end] : s,
-            flattenednames(vars_atmos_gcm_default_simple_3d(bl, FT)),
+            flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
         )
         for (vari, varname) in enumerate(varnames)
-            var = Variables[varname]
-            varvals[varname] = (
-                dim_names,
-                simple_3d_vars_array[:, :, :, :, vari],
-                OrderedDict(
-                    "units" => var.units,
-                    "long_name" => var.long,
-                    "standard_name" => var.standard,
-                ),
-            )
+            varvals[varname] = simple_3d_vars_array[:, :, :, vari]
         end
 
         # write output
-        dprefix = @sprintf(
-            "%s_%s_%s_num%04d",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-            dgngrp.num
-        )
-        dfilename = joinpath(Settings.output_dir, dprefix)
-        write_data(dgngrp.writer, dfilename, dims, varvals, currtime)
+        append_data(dgngrp.writer, varvals, currtime)
     end
 
     MPI.Barrier(mpicomm)
