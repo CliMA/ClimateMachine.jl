@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes

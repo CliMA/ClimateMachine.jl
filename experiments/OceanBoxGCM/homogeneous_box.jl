@@ -1,6 +1,7 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
+
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
