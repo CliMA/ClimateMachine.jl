@@ -248,7 +248,7 @@ function edmf_stack_nodal_update_aux!(
     # YAIR - check this with Charlie
     for i in 1:N
         for j in length(up[i].ρa)
-            if up[i].ρa*ρinv>FT(0)
+            if up[i].ρa*ρinv>FT(eps)
                 up[i].updraft_top = aux.z[j]
             end
         end
