@@ -125,16 +125,6 @@ function init_state_auxiliary!(
         aux::Vars,
         geom::LocalGeometry
     ) where {FT,N}
-    # Compute the reference profile ρ_0,p_0 to be stored in grid mean auxiliary vars
-    #       consider a flag for SingleStack setting that assigns gm.ρ = ρ_0; gm.p = p_0
-
-    # status:
-    # Need to find the right way to integrate the hydrostatic reference profile
-    # to obtain both ρ_0 and p_0 by integrating log(p) in z based on dlog(p)/dz = -g/(R_m*T)
-    # with constant θ_liq and q_tot
-    # it is not clear to in function dynamically assigns p in LiquidIcePotTempSHumEquil_given_pressure
-    # at each level
-
     # Aliases:
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
@@ -149,36 +139,6 @@ function init_state_auxiliary!(
     en_a.cld_frac = FT(0)
 
 end;
-
-# The following two functions should compute the hydrostatic and adiabatic reference state
-# this state integrates upwards the equations d(log(p))/dz = -g/(R_m*T)
-# with q_tot and θ_liq at each z level equal their respective surface values.
-
-# function integral_load_auxiliary_state!(
-#     m::SingleStack{FT,N},
-#     edmf::EDMF{FT,N},
-#     integrand::Vars,
-#     state::Vars,
-#     aux::Vars,
-# )
-#     # need to define thermo_state with set values of thetali and qt from surface values (moist adiabatic)
-#     # something like _p = exp(input_logP) where input_logP is log of the p at the lower pressure  level
-#     ts = LiquidIcePotTempSHumEquil_given_pressure(param_set, m.θ_liq_flux_surf, _p, m.q_tot_flux_surf)
-#     q = PhasePartition(ts)
-#     T = air_temperature(ts)
-#     _R_m = gas_constant_air(param_set, q)
-#     integrand.a = -g / (Rm * T)
-# end
-
-# function integral_set_auxiliary_state!(
-#     m::SingleStack{FT,N},
-#     edmf::EDMF{FT,N},
-#     aux::Vars,
-#     integral::Vars,
-# )
-#     aux.int.a = integral.a + log(m.P_surf)
-#     aux.p_0 = exp(aux.int.a)
-# end
 
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
@@ -198,7 +158,7 @@ function init_state_conservative!(
     en = state.edmf.environment
     up = state.edmf.updraft
 
-    # gm.ρ = aux.ref_state.ρ # quickly added at end
+    # gm.ρ = aux.ref_state.ρ # added at end
 
     # GCM setting - Initialize the grid mean profiles of prognostic variables (ρ,e_int,q_tot,u,v,w)
     z = aux.z
@@ -218,8 +178,8 @@ function init_state_conservative!(
     end
 
     # initialize environment covariance
-    en.ρae_int_cv = FT(0)
-    en.ρaq_tot_cv = FT(0)
+    en.ρae_int_cv       = FT(0)
+    en.ρaq_tot_cv       = FT(0)
     en.ρae_int_q_tot_cv = FT(0)
 
 end;
@@ -259,16 +219,16 @@ function edmf_stack_nodal_update_aux!(
 
     #   -------------  Compute buoyancies of subdomains
     ρinv = 1/gm.ρ
-    b_upds = 0
-    a_upds = 0
+    # b_upds = 0
+    # a_upds = 0
     for i in 1:N
         # computing buoyancy with PhaseEquil (i.e. qv_star) that uses gm.ρ instead of ρ_i that is unknown
         ts = PhaseEquil(param_set ,up[i].e_int, gm.ρ, up[i].q_tot)
 
         ρ_i = air_density(ts)
-        up_a[i].buoyancy = -grav*(ρ_i-aux.ref_state.ρ)*ρinv
-        b_upds += up_a[i].buoyancy
-        a_upds += up_a[i].ρa*ρinv
+        up_a[i].buoyancy = -grav*(ρ_i-aux.ρ0)*ρinv
+        # b_upds += up_a[i].buoyancy
+        # a_upds += up_a[i].ρa*ρinv
     end
     # compute the buoyancy of the environment
     env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
@@ -277,21 +237,18 @@ function edmf_stack_nodal_update_aux!(
     env_ρ = air_density(ts)
     env_q_liq = PhasePartition(ts).liq
     env_q_ice = PhasePartition(ts).ice
-    b_env = -grav*(env_ρ-aux.ref_state.ρ)*ρinv
+    en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
+    b_env = -grav*(env_ρ - aux.ρ0)*ρinv
+    b_gm = en_area*b_env + sum([up_a[i].buoyancy for i in 1:N])
     # subtract the grid mean
-    b_gm = (1 - a_ups)*b_env
-    for i in 1:N
-        b_gm += up_a[i].buoayncy*up_a[i].ρa*ρinv
-    end
     up_a[i].buoyancy -= b_gm
 
     #   -------------  Compute upd_top
+    # YAIR - check this with Charlie
     for i in 1:N
-        # YAIR - check this with Charlie
-        J=1
         for j in length(up[i].ρa)
             if up[i].ρa*ρinv>FT(0)
-                up[i].updraft_top = aux.z[J]
+                up[i].updraft_top = aux.z[j]
             end
         end
     end
@@ -365,14 +322,14 @@ function compute_gradient_flux!(
     # compute eddy diffusivity 
     l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
     K_eddy = m.c_k*l*sqrt(en.tke)
-    gm_d.k∇ρe_int = - K_eddy * en_∇t.e_int
-    gm_d.k∇ρe_int = - K_eddy * en_∇t.e_int
-    gm_d.k∇u      = - K_eddy * en_∇t.u
+    gm_d.k∇ρe_int = K_eddy * en_∇t.e_int
+    gm_d.k∇ρq_tot = K_eddy * en_∇t.q_tot
+    gm_d.k∇u      = K_eddy * en_∇t.u
     # second moment env cov
-    en_d.∇tke            = - K_eddy * en_∇t.tke
-    en_d.∇e_int_cv       = - K_eddy * en_∇t.e_int_cv
-    en_d.∇q_tot_cv       = - K_eddy * en_∇t.q_tot_cv
-    en_d.∇e_int_q_tot_cv = - K_eddy * en_∇t.e_int_q_tot_cv
+    en_d.∇tke            = K_eddy * en_∇t.tke
+    en_d.∇e_int_cv       = K_eddy * en_∇t.e_int_cv
+    en_d.∇q_tot_cv       = K_eddy * en_∇t.q_tot_cv
+    en_d.∇e_int_q_tot_cv = K_eddy * en_∇t.e_int_q_tot_cv
     
 end;
 
@@ -429,37 +386,46 @@ function source!(
         up_s[i].ρae_int += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρae_int - (δ[i]+εt[i])*env_e_int)
         up_s[i].ρaq_tot += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρaq_tot - (δ[i]+εt[i])*env_q_tot)
 
-        # perturbation pressure
+        # perturbation pressure in w equation
         up_s[i].ρau[3] += up[i].ρa * dpdz
+        # microphysics sources should be applied here 
         
-        # sources for second moment in the enviroment 
+        ## environment second moments:
+
+        # pressure tke source from the i'th updraft 
         en.ρatke += up[i].ρa * dpdz_tke_i
-        # covariance entrinament sources from the i'th updraft
-        # Covar_Source += - ρaw⋅ε⋅ϕ'ψ' +  ρaw⋅δ⋅(ϕ_up-ϕ_en)⋅(ψ_up-ψ_en) + ρaw⋅εt⋅[(ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en) + (ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en)]
+
+        # covariances entrinament sources from the i'th updraft
         # -- if ϕ'ψ' is tke and ϕ,ψ are both w than a factor 0.5 appears in the εt and δ terms
-        en.ρatke            += (up[i].ρau[3]*δ[i]*0.5*(up[i].ρau[3]/up[i].ρa - w_env)^2 
-                            +   up[i].ρau[3]*εt[i]*w_env*(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
-                            -   up[i].ρau[3]*ε[i]*en.ρatke)
-        en.ρae_int_cv       += (up[i].ρau[3]*δ[i]*0.5*(up[i].ρae_int/up[i].ρa - e_int_env)*(up[i].ρae_int/up[i].ρa - e_int_env) 
-                            +   up[i].ρau[3]*εt[i]*e_int_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)*2
-                            -   up[i].ρau[3]*ε[i]*en.ρae_int_cv)
-        en.ρaq_tot_cv       += (up[i].ρau[3]*δ[i]*0.5*(up[i].ρaq_tot/up[i].ρa - q_tot_env)*(up[i].ρaq_tot/up[i].ρa - q_tot_env) 
-                            +   up[i].ρau[3]*εt[i]*q_tot_env*(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)*2
-                            -   up[i].ρau[3]*ε[i]*en.ρaq_tot_cv)
-        en.ρae_int_q_tot_cv += (up[i].ρau[3]*δ[i]*0.5*(up[i].ρae_int/up[i].ρa - e_int_env) *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
-                            +   up[i].ρau[3]*εt[i]*e_int_env*(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
-                            +   up[i].ρau[3]*εt[i]*q_tot_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)
-                            -   up[i].ρau[3]*ε[i]*en.ρae_int_q_tot_cv) 
+        # Covar_Source      +=  ρaw⋅δ⋅(ϕ_up-ϕ_en)   ⋅ (ψ_up-ψ_en) + ρaw⋅εt⋅[(ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en) + (ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en)] - ρaw⋅ε⋅ϕ'ψ' 
+        en.ρatke            += (up[i].ρau[3] * δ[i] * (up[i].ρau[3]/up[i].ρa - w_env)*(up[i].ρau[3]/up[i].ρa - w_env)*0.5 
+                            +   up[i].ρau[3] * εt[i]* w_env*(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
+                            -   up[i].ρau[3] * ε[i] * en.ρatke)
+        en.ρae_int_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env)*(up[i].ρae_int/up[i].ρa - e_int_env) 
+                            +   up[i].ρau[3] * εt[i]* e_int_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)*2
+                            -   up[i].ρau[3] * ε[i] * en.ρae_int_cv)
+        en.ρaq_tot_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρaq_tot/up[i].ρa - q_tot_env)*(up[i].ρaq_tot/up[i].ρa - q_tot_env) 
+                            +   up[i].ρau[3] * εt[i]* q_tot_env*(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)*2
+                            -   up[i].ρau[3] * ε[i] * en.ρaq_tot_cv)
+        en.ρae_int_q_tot_cv += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env) *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
+                            +   up[i].ρau[3] * εt[i]* e_int_env*(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
+                            +   up[i].ρau[3] * εt[i]* q_tot_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)
+                            -   up[i].ρau[3] * ε[i] * en.ρae_int_q_tot_cv) 
     end
     l      = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
     K_eddy = m.c_k*l*sqrt(en.tke)
+    Shear  = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2  # YAIR check this 
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
-    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2  # YAIR check this 
-    en.ρatke            += gm.ρ*a_env*K_eddy*Shear
-    en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇e_int
-    en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot*en_d.∇q_tot
-    en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇q_tot
+    #                            production from mean gradient       - Dissipation 
+    en.ρatke            += gm.ρ*a_env*K_eddy*Shear                   - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρatke
+    en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇e_int - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
+    en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot*en_d.∇q_tot - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
+    en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇q_tot - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
+
+    # covariance microphysics sources should be applied here 
+
+
 end;
 
 # in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts
@@ -478,7 +444,7 @@ function flux_first_order!(
     up = state.edmf.updraft
     up_f = flux.edmf.updraft# `vars_state_gradient_flux`
 
-    # positive sign here as we have a '-' sign in BL form leading to - ∂ρuϕ/∂z on the RHS
+    # positive sign here as we have a '-' sign in BL form leading to - ∂ρwϕ/∂z on the RHS
     # grid mean
     ρinv = 1/gm.ρ
     gm_f.ρ = gm.ρu
@@ -517,22 +483,22 @@ function flux_second_order!(
     en_d = diffusive.edmf.environment
     
     ρinv = FT(1)/gm.ρ
-    # flux_second_order in the grid mean is the environment turbulent diffusion
+    # flux_second_order in the grid mean is the environment eddy diffusion
     en_ρa = gm.ρ-sum([up[i].ρa for i in 1:N])
 
-    ## grid mean flux - adding the massflux term here as it is part of the total flux:
-    # total flux = diffusive_flux + massflux
-    #   ⟨w ⃰ ϕ ⃰ ⟩ = a_0 w'ϕ'       + ∑ a_i(w_i-⟨w⟩)(ϕ_i-⟨ϕ⟩)
+    ## we are adding the massflux term here as it is part of the total flux:
+    # total flux  =    diffusive_flux  +        massflux
+    #   ⟨w ⃰ ϕ ⃰ ⟩  = - a_0 K_eddy⋅∂ϕ/∂z + ∑ a_i(w_i-⟨w⟩)(ϕ_i-⟨ϕ⟩)
 
-    massflux_term = sum([(gm.ρe_int*ρinv - up[i].ρae_int/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
-    gm_f.ρe_int  += gm_d.k∇ρe_int + massflux_term
-    massflux_term = sum([(gm.ρq_tot*ρinv - up[i].ρaq_tot/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
-    gm_f.ρq_tot  += gm_d.k∇ρq_tot + massflux_term
-    massflux_term = sum([(gm.ρu*ρinv - up[i].ρau/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa)*up[i].ρa*ρinv for i in 1:N])
-    gm_f.ρu      += gm_d.k∇ρu     + massflux_term
+    e_int_massflux = sum([ up[i].ρa*ρinv*(gm.ρe_int*ρinv - up[i].ρae_int/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa) for i in 1:N])
+    q_tot_massflux = sum([ up[i].ρa*ρinv*(gm.ρq_tot*ρinv - up[i].ρaq_tot/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa) for i in 1:N])
+    u_massflux     = sum([ up[i].ρa*ρinv*(gm.ρu*ρinv - up[i].ρau/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa) for i in 1:N])
+    
+    gm_f.ρe_int  += - gm_d.k∇ρe_int + e_int_massflux
+    gm_f.ρq_tot  += - gm_d.k∇ρq_tot + q_tot_massflux
+    gm_f.ρu      += - gm_d.k∇ρu     + u_massflux
 
-    # enviroment second moment covriance flux
-
+    # enviroment second moment turbulent flux
     en_f.ρatke            += en_d.∇tke           
     en_f.ρae_int_cv       += en_d.∇e_int_cv      
     en_f.ρaq_tot_cv       += en_d.∇q_tot_cv      

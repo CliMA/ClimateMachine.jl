@@ -31,8 +31,8 @@ relative_humidity(hs::HydrostaticState{DryAdiabaticProfile, FT}) where {FT} =
 function vars_state_auxiliary(m::SingleStack, FT)
     @vars(z::FT,
           buoyancy::FT,
-          ρ_0::FT,
-          p_0::FT,
+          ρ0::FT,
+          p0::FT,
           edmf::vars_state_auxiliary(m.edmf, FT),
           # ref_state::vars_state_auxiliary(m.ref_state, FT) # quickly added at end
           );
