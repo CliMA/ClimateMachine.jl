@@ -191,7 +191,7 @@ Exact choice of coefficients from wikipedia page for Heun's method :)
 function SSPRK22Heuns(F, Q::AT; dt = 0, t0 = 0) where {AT <: AbstractArray}
     T = eltype(Q)
     RT = real(T)
-    RKA = [RT(1) RT(0); RT(1//2) RT(1//2)]
+    RKA = [RT(1) RT(0); RT(1 // 2) RT(1 // 2)]
     RKB = [RT(1), RT(1 // 2)]
     RKC = [RT(0), RT(1)]
     StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
