@@ -70,10 +70,10 @@ function vars_state_gradient(::Environment, FT)
     @vars(e_int::FT,
           q_tot::FT,
           u::SVector{3, FT},
-          tke::TF,
-          e_int_cv::TF,
-          q_tot_cv::TF,
-          e_int_q_tot_cv::TF,
+          tke::FT,
+          e_int_cv::FT,
+          q_tot_cv::FT,
+          e_int_q_tot_cv::FT,
           )
 end
 
@@ -89,21 +89,22 @@ function vars_state_gradient(m::EDMF, FT)
           );
 end
 
+vars_state_gradient_flux(::Updraft, FT) = @vars()
+
 function vars_state_gradient_flux(m::NTuple{N,Updraft}, FT) where {N}
     return Tuple{ntuple(i->vars_state_gradient_flux(m[i], FT), N)...}
 end
 
-vars_state_gradient_flux(::Updraft, FT) = @vars()
 
 function vars_state_gradient_flux(::Environment, FT)
     @vars(∇e_int::SVector{3, FT},
           ∇q_tot::SVector{3, FT},
           ∇u::SMatrix{3, 3, FT, 9},
-          ∇tke::TF,
-          ∇e_int_cv::TF,
-          ∇q_tot_cv::TF,
-          ∇e_int_q_tot_cv::TF,
-          ∇θ_ρ::TF, # used in a diagnostic equation for the mixing length
+          ∇tke::FT,
+          ∇e_int_cv::FT,
+          ∇q_tot_cv::FT,
+          ∇e_int_q_tot_cv::FT,
+          ∇θ_ρ::FT, # used in a diagnostic equation for the mixing length
           );
 
 end
@@ -279,8 +280,8 @@ function compute_gradient_argument!(
     ρinv       = 1/gm.ρ
     en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     en_t.u     = (gm.ρu - sum([up[i].ρau for i in 1:N]))/(en_area*gm.ρ)
-    en_t.e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N])//(en_area*gm.ρ)
-    en_t.q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N])//(en_area*gm.ρ)
+    en_t.e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))//(en_area*gm.ρ)
+    en_t.q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))//(en_area*gm.ρ)
 
     en_t.tke            = en.ρatke/(en_area*gm.ρ)    
     en_t.e_int_cv       = en.ρae_int_cv/(en_area*gm.ρ)
@@ -359,9 +360,9 @@ function source!(
     # updraft sources 
 
     # YAIR  - these need to be defined as vectors length N - check with Charlie 
-    εt = SVector{N, FT}
-    ε = SVector{N, FT}
-    δ = SVector{N, FT}
+    εt:: SVector{N, FT}
+    ε::  SVector{N, FT}
+    δ::  SVector{N, FT}
     # should be conditioned on updraft_area > minval
     a_env = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     w_env = (gm.ρu[3] - sum([up[i].ρau[3] for i in 1:N]))*ρinv
