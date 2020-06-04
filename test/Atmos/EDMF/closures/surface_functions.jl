@@ -1,6 +1,7 @@
 #### Surface model kernels
 
 ## --- revert to use compute_buoyancy_flux in SurfaceFluxes.jl ---|
+
 # function compute_blux(
 #     ss::SingleStack{FT, N},
 #     m::SurfaceModel,
@@ -17,10 +18,11 @@
 #   return  _grav*( (m.e_int_surface_flux, -m.q_tot_surface_flux*_e_int_i0 )/(_cv_m*_T0 + state.e_int - state.q_tot*_e_int_i0 )
 #                 + ( (ϵ_v-1)*m.q_tot_surface_flux)/(1+(ϵ_v-1)*state.q_tot)) # this equation should verified in the design docs
 # end;
+# function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
+#   return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / κ
+# end;
 
-function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
-  return abs(bflux) < FT(1e-10) ? FT(0) : -ustar * ustar * ustar / bflux / κ
-end;
+## --- revert to use compute_buoyancy_flux in SurfaceFluxes.jl ---|
 
 function env_surface_covariances(
     ss::SingleStack{FT, N},
@@ -30,8 +32,8 @@ function env_surface_covariances(
     state::Vars,
     ) where {FT, N}
   # yair - I would like to call the surface functions from src/Atmos/Model/SurfaceFluxes.jl
-  bflux = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, T_b, q, α_0)
-  oblength = Nishizawa2018.monin_obukhov_len(ss.param_set, u, θ, flux)
+  bflux = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, T_b, q, α_0) # missing def of m.shf, m.lhf, T_b, q, α_0
+  oblength = Nishizawa2018.monin_obukhov_len(ss.param_set, u, θ, bflux) # missing def of u, θ, 
   zLL = FT(20) # how to get the z first interior ?
   if oblength < 0
     e_int_var       = 4 * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))

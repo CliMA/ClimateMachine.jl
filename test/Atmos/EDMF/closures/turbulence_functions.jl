@@ -46,8 +46,30 @@ function compute_buoyancy_gradients(
     ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
     ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
 
-    # add here a computation of buoyancy frequeacy based on θ_lv
-    # buoyancy_freq =
+    # Computation of buoyancy frequeacy based on θ_lv
+    ts = PhaseEquil(ss.param_set ,en.e_int, gm.ρ, en.q_tot)    
+    θv =  virtual_pottemp(ts)
+    q = PhasePartition(ts)
+    _cp_m = cp_m(param_set, q)
+    lv = latent_heat_vapor(ts)
+    T = air_temperature(ts);
+    ql = PhasePartition(ts).q_liq
+    θvl =  θv*exp(-(lv*ql)/(cpm*T))
+
+    ∂θv∂I   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
+              +cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i))* θv/T*(1-lv*ql/cpm*T)
+    ∂θvl∂I   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
+               +cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i))* θvl/T*(1-lv*ql/cpm*T)
+    ∂θv∂qt   = -θv/Tv*(ϵ_v-1)/I0 
+    ∂θvl∂qt  = -θvl/Tv*(ϵ_v-1)/I0 
+    # apply chain-role
+    ∂θv∂z    = ∂θv∂I*∂I∂z  + ∂θv∂qt*∂qt∂z
+    ∂θvl∂z   = ∂θvl∂I*∂I∂z + ∂θvl∂qt*∂qt∂z
+
+    ∂θv∂vl = exp((lv*ql)/(_cp_m*T))
+    λ_stb = en.cld_frac
+    
+    buoyancy_freq = _grav/gm_θ*( (1-λ_stb)*∂θv∂z + λ_stb*∂θvl∂z*∂θv∂vl)
 
     return ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq
 end;
@@ -64,20 +86,6 @@ function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length)
       Pr_z = Pr_n*(2*Grad_Ri/(1+(FT(53)/FT(13))*Grad_Ri -sqrt( (1+(FT(53)/FT(130))*Grad_Ri)^2 - 4*Grad_Ri)))
     end
     return Pr_z
-end;
-
-function sgs_buoyancy_freq(
-    ss::SingleStack{FT, N},
-    m::MixingLengthModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-    ) where {FT, N}
-    # placeholder for a new buoyancy frequancy function
-    return
 end;
 
 function compute_windspeed(
