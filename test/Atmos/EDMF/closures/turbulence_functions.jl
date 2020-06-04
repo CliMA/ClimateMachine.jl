@@ -48,12 +48,12 @@ function compute_buoyancy_gradients(
 
     # Computation of buoyancy frequeacy based on θ_lv
     ts = PhaseEquil(ss.param_set ,en.e_int, gm.ρ, en.q_tot)    
-    θv =  virtual_pottemp(ts)
     q = PhasePartition(ts)
     _cp_m = cp_m(param_set, q)
     lv = latent_heat_vapor(ts)
     T = air_temperature(ts);
     ql = PhasePartition(ts).q_liq
+    θv =  virtual_pottemp(ts)
     θvl =  θv*exp(-(lv*ql)/(cpm*T))
 
     ∂θv∂I   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
@@ -69,7 +69,7 @@ function compute_buoyancy_gradients(
     ∂θv∂vl = exp((lv*ql)/(_cp_m*T))
     λ_stb = en.cld_frac
     
-    buoyancy_freq = _grav/gm_θ*( (1-λ_stb)*∂θv∂z + λ_stb*∂θvl∂z*∂θv∂vl)
+    buoyancy_freq = _grav/θv*( (1-λ_stb)*∂θv∂z + λ_stb*∂θvl∂z*∂θv∂vl)
 
     return ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq
 end;
