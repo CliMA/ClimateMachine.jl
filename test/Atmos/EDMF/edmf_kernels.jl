@@ -321,6 +321,13 @@ function compute_gradient_flux!(
 
     # negative signs here as we have a '-' sign in BL form leading to + K∂ϕ/∂z on the RHS
     # compute eddy diffusivity 
+    εt:: SVector{N, FT}
+    ε::  SVector{N, FT}
+    δ::  SVector{N, FT}
+    for i in 1:N
+        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
+    end;
+    
     l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
     K_eddy = m.c_k*l*sqrt(en.tke)
     gm_d.k∇ρe_int = K_eddy * en_∇t.e_int
@@ -377,7 +384,7 @@ function source!(
         env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
 
         # first moment sources
-        εt[i], ε[i], δ[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
+        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
         dpdz, dpdz_tke_i = perturbation_pressure(m, m.edmf.pressure, source, state, diffusive, aux, t, direction, i)
 
         # entrainment and detrainment

@@ -53,5 +53,5 @@ function entr_detr(
     εt = 2*up_area*m.c_t*sqrt_tke/(w_up*up_area*up_a[i].cloud.updraft_top)
     ε = λ/w_up*(D_ϵ + M_ϵ)
     δ = λ/w_up*(D_δ + M_δ)
-    return εt, ε, δ
+    return ε, δ, εt
 end;
