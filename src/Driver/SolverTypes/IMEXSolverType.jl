@@ -10,17 +10,28 @@ export IMEXSolverType
         implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
         solver_storage_variant = LowStorageVariant(),
+        split_explicit_implicit = false,
+        discrete_splitting = true,
     )
 
 This solver type constructs a solver for ODEs with the
-additively-partitioned form:
+additively-partitioned form.  When `split_explicit_implicit == false`
+the equation is assumed to be decomposed as
 
 ```math
   \\dot{Q} = [l(Q, t)] + [f(Q, t) - l(Q, t)]
 ```
 
-where `Q` is the state, `f` is the full tendency and `l` is the chosen
-implicit operator.
+where `Q` is the state, `f` is the full tendency and `l` is the chosen implicit
+operator.
+
+When `split_explicit_implicit == true` the assumed decomposition is
+
+```math
+  \\dot{Q} = [l(Q, t)] + [n(Q, t)]
+```
+
+where `n` is now only the nonlinear tendency.
 
 # Arguments
 - `splitting_type` (DiscreteSplittingType): The type of discrete
@@ -42,6 +53,12 @@ implicit operator.
 - `solver_storage_variant` (Type): Storage type for the additive
     Runge-Kutta method.
     Default: `LowStorageVariant()`
+- `split_explicit_implicit` (Boolean): Whether the tendency is split in explicit
+    and implicit parts or not.
+- `discrete_splitting` (Boolean): Boolean denoting whether a PDE level or
+    discretized level splitting should be used. If `true` then the PDE is
+    discretized in such a way that `f_fast + f_slow` is equivalent to
+    discretizing the original PDE directly.
 
 ### References
     @article{giraldo2013implicit,
@@ -69,6 +86,10 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
     solver_method::Function
     # Storage type for the ARK scheme
     solver_storage_variant::ST
+    # Split tendency or not
+    split_explicit_implicit::Bool
+    # Whether to use a PDE level or discrete splitting
+    discrete_splitting::Bool
 
     function IMEXSolverType(;
         splitting_type = HEVISplitting(),
@@ -77,7 +98,10 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
         implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
         solver_storage_variant = LowStorageVariant(),
+        split_explicit_implicit = false,
+        discrete_splitting = true,
     )
+        @assert discrete_splitting || split_explicit_implicit
 
         DS = typeof(splitting_type)
         ST = typeof(solver_storage_variant)
@@ -89,6 +113,8 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
             implicit_solver_adjustable,
             solver_method,
             solver_storage_variant,
+            split_explicit_implicit,
+            discrete_splitting,
         )
     end
 end
@@ -150,23 +176,49 @@ function solversetup(
         direction = VerticalDirection(),
     )
 
-    solver = ode_solver.solver_method(
-        dg,
-        vdg,
-        LinearBackwardEulerSolver(
-            ode_solver.implicit_solver();
-            isadjustable = ode_solver.implicit_solver_adjustable,
-        ),
-        Q;
-        dt = dt,
-        t0 = t0,
-        # NOTE: This needs to be `false` since the ARK method will
-        # evaluate the explicit part using the RemainderModel
-        # (Difference between full DG model (dg) and the
-        # DG model associated with the 1-D implicit problem (vdg))
-        split_explicit_implicit = false,
-        variant = ode_solver.solver_storage_variant,
-    )
+    if ode_solver.split_explicit_implicit
+        remainder_kwargs = (
+            numerical_flux_first_order = (
+                ode_solver.discrete_splitting ?
+                        (
+                    dg.numerical_flux_first_order,
+                    (dg.numerical_flux_first_order,),
+                ) :
+                        dg.numerical_flux_first_order
+            ),
+        )
+        rem_dg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
+        solver = ode_solver.solver_method(
+            rem_dg,
+            vdg,
+            LinearBackwardEulerSolver(
+                ode_solver.implicit_solver();
+                isadjustable = false,
+            ),
+            Q;
+            split_explicit_implicit = true,
+            dt = dt,
+            t0 = t0,
+        )
+    else
+        solver = ode_solver.solver_method(
+            dg,
+            vdg,
+            LinearBackwardEulerSolver(
+                ode_solver.implicit_solver();
+                isadjustable = ode_solver.implicit_solver_adjustable,
+            ),
+            Q;
+            dt = dt,
+            t0 = t0,
+            # NOTE: This needs to be `false` since the ARK method will
+            # evaluate the explicit part using the RemainderModel
+            # (Difference between full DG model (dg) and the
+            # DG model associated with the 1-D implicit problem (vdg))
+            split_explicit_implicit = false,
+            variant = ode_solver.solver_storage_variant,
+        )
+    end
 
     return solver
 end
