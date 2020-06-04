@@ -32,6 +32,7 @@ export air_temperature_from_liquid_ice_pottemp,
     air_temperature_from_liquid_ice_pottemp_given_pressure
 export air_temperature_from_liquid_ice_pottemp_non_linear
 export vapor_specific_humidity
+export condensate, has_condensate
 
 """
     gas_constant_air(param_set, [q::PhasePartition])
@@ -817,6 +818,27 @@ saturation_excess(ts::ThermodynamicState) = saturation_excess(
 )
 
 """
+    condensate(q::PhasePartition{FT})
+    condensate(ts::ThermodynamicState)
+
+Condensate of the phase partition.
+"""
+condensate(q::PhasePartition) = q.liq + q.ice
+condensate(ts::ThermodynamicState) = condensate(PhasePartition(ts))
+
+"""
+    has_condensate(q::PhasePartition{FT})
+    has_condensate(ts::ThermodynamicState)
+
+Bool indicating if condensate exists in the phase
+partition
+"""
+has_condensate(q_c::FT) where {FT} = q_c > eps(FT)
+has_condensate(q::PhasePartition) = has_condensate(condensate(q))
+has_condensate(ts::ThermodynamicState) = has_condensate(PhasePartition(ts))
+
+
+"""
     liquid_fraction(param_set, T, phase_type[, q])
 
 The fraction of condensate that is liquid where
@@ -847,8 +869,8 @@ function liquid_fraction(
     phase_type::Type{<:PhaseNonEquil},
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
-    q_c = q.liq + q.ice     # condensate specific humidity
-    if q_c > eps(FT)
+    q_c = condensate(q)     # condensate specific humidity
+    if has_condensate(q_c)
         return q.liq / q_c
     else
         return liquid_fraction(param_set, T, PhaseEquil, q)

@@ -21,12 +21,6 @@ jobs:
       with:
         version: ${{ matrix.julia-version }}
 
-    - name: Install deps
-      run: |
-        set -o xtrace
-        sudo apt-get update
-        sudo apt-get install mpich libmpich-dev
-
     - name: Test with coverage
       env:
         JULIA_PROJECT: "@."
