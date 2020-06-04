@@ -65,7 +65,6 @@ if generate_tutorials
         "Atmos/dry_rayleigh_benard.jl",               # takes too long
         "Atmos/heldsuarez.jl",                        # broken
         "Atmos/risingbubble.jl",                      # broken
-        "Diagnostics/Debug/StateCheck.jl",            # broken
         "Numerics/DGMethods/nonnegative.jl",          # broken
         "Microphysics/ex_1_saturation_adjustment.jl", # too long
         "Microphysics/ex_2_Kessler.jl",               # too long
@@ -75,7 +74,6 @@ if generate_tutorials
     tutorials_jl = map(x -> joinpath(tutorials_dir, x), tutorials_jl)
 
     for tutorial in tutorials_jl
-        tut = basename(tutorial)
         gen_dir =
             joinpath(generated_dir, relpath(dirname(tutorial), tutorials_dir))
         input = abspath(tutorial)
