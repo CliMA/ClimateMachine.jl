@@ -326,7 +326,7 @@ function compute_gradient_flux!(
     δ::  SVector{N, FT}
     for i in 1:N
         ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
-    end;
+    end
     
     l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
     K_eddy = m.c_k*l*sqrt(en.tke)

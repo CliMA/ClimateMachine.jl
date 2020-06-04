@@ -78,7 +78,8 @@ function compute_MO_len(κ::FT, ustar::FT, bflux::FT) where {FT<:Real, PS}
 end;
 
 # function env_surface_covariances(e_int_surface_flux::FT, q_tot_surface_flux::FT, ustar::FT, zLL::FT, oblength::FT) where FT<:Real
-function env_surface_covariances(ss::SingleStack{FT, N},
+function env_surface_covariances(
+    ss::SingleStack{FT, N},
     m::SurfaceModel,
     edmf::EDMF{FT,N},
     source::Vars,
@@ -102,3 +103,35 @@ function env_surface_covariances(ss::SingleStack{FT, N},
     return e_int_var, q_tot_var, e_int_q_tot_cov, tke
   end
 end;
+
+function compute_updraft_surface_BC(
+    ss::SingleStack{FT, N},
+    m::SurfaceModel,
+    edmf::EDMF{FT,N},
+    source::Vars,
+    state::Vars,
+    i::Int
+    ) where {FT, N}
+  
+  gm = state
+  en = state
+  up = state.edmf.updraft
+  ρinv = 1/gm.ρ
+  
+  tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(ss, m, edmf, source, state)
+  for i in 1:N
+    surface_scalar_coeff = percentile_bounds_mean_norm(1 - m.surface_area+ i * FT(m.surface_area/N),
+                                                        1 - m.surface_area + (i+1)*FT(m.surface_area/N), 1000)
+    up[i].ρa      = gm.ρ * FT(m.surface_area/N)
+    up[i].ρae_int = gm.ρe_int + surface_scalar_coeff*sqrt(e_int_cv)*gm.ρ
+    up[i].ρaq_tot = gm.ρq_tot + surface_scalar_coeff*sqrt(q_tot_cv)*gm.ρ
+    
+  end
+end;
+
+function percentile_bounds_mean_norm(low_percentile::FT, high_percentile::FT, n_samples::I) where {FT<:Real, I}
+    xp_low = quantile(Normal(), low_percentile)
+    xp_high = quantile(Normal(), high_percentile)
+    filter!(y -> xp_low<y<xp_high, x)
+    return Statistics.mean(x)
+end
