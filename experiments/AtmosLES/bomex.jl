@@ -50,7 +50,7 @@ eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1
 =#
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
