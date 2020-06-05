@@ -214,7 +214,11 @@ function flux_first_order!(
         state,
         aux,
     )
-    flux.ρu += pL * I
+    if lm.atmos.ref_state isa HydrostaticState
+        flux.ρu += (pL - aux.ref_state.p) * I
+    else
+        flux.ρu += pL * I
+    end
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
     nothing
 end
@@ -229,7 +233,11 @@ function source!(
 )
     if direction isa VerticalDirection || direction isa EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= state.ρ * ∇Φ
+        if lm.atmos.ref_state isa HydrostaticState
+            source.ρu -= (state.ρ - aux.ref_state.ρ) * ∇Φ
+        else
+            source.ρu -= state.ρ * ∇Φ
+        end
     end
     nothing
 end
