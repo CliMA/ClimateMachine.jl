@@ -1,4 +1,3 @@
-
 export AbstractSolverType
 export DiscreteSplittingType, HEVISplitting
 
@@ -76,6 +75,22 @@ solversetup(
     solversetup,
     (ode_solver, dg, Q, dt, t0, diffusion_direction),
 ))
+
+"""
+    getimplicitmodel(solver::Type{<:AbstractSystemSolver})
+
+A function to return constructed implicit solver method.
+Requires specific dispatching for various solver types.
+"""
+
+function getimplicitmodel(solver, dg, Q)
+    return solver()
+end
+
+function getimplicitmodel(solver::Type{<:BatchedGeneralizedMinimalResidual},
+                          dg, Q)
+    return solver(dg, Q)
+end
 
 include("ExplicitSolverType.jl")
 include("IMEXSolverType.jl")

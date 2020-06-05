@@ -79,16 +79,6 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
         solver_storage_variant = LowStorageVariant(),
     )
 
-    function IMEXSolverType(::Type{<:OceanBoxGCMSpecificInfo};
-        splitting_type = HEVISplitting(),
-        implicit_model = LinearHBModel,
-        implicit_solver = BatchedGeneralizedMinimalResidual,
-        implicit_solver_adjustable = false,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        solver_storage_variant = LowStorageVariant(),
-    )
-    
-
         DS = typeof(splitting_type)
         ST = typeof(solver_storage_variant)
 
@@ -99,6 +89,25 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
             implicit_solver_adjustable,
             solver_method,
             solver_storage_variant,
+        )
+    end
+
+    function IMEXSolverType(::Type{<:OceanBoxGCMSpecificInfo};
+        splitting_type = HEVISplitting(),
+        implicit_model = LinearHBModel,
+        #implicit_solver = ManyColumnLU,
+        implicit_solver = BatchedGeneralizedMinimalResidual,
+        implicit_solver_adjustable = false,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        solver_storage_variant = LowStorageVariant(),
+    )
+        return IMEXSolverType(
+            splitting_type = splitting_type,
+            implicit_model = implicit_model,
+            implicit_solver = implicit_solver,
+            implicit_solver_adjustable = implicit_solver_adjustable,
+            solver_method = solver_method,
+            solver_storage_variant = solver_storage_variant,
         )
     end
 end
@@ -160,11 +169,12 @@ function solversetup(
         direction = VerticalDirection(),
     )
 
+
     solver = ode_solver.solver_method(
         dg,
         vdg,
         LinearBackwardEulerSolver(
-            ode_solver.implicit_solver();
+            getimplicitmodel(ode_solver.implicit_solver, dg, Q);
             isadjustable = ode_solver.implicit_solver_adjustable,
         ),
         Q;

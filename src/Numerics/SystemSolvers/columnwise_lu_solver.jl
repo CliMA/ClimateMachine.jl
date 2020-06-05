@@ -1,6 +1,6 @@
 #### Columnwise LU Solver
 
-export ManyColumnLU, SingleColumnLU
+export ManyColumnLU, SingleColumnLU, AbstractColumnLUSolver
 
 abstract type AbstractColumnLUSolver <: AbstractSystemSolver end
 

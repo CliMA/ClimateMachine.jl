@@ -28,7 +28,6 @@ using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
-using ..LinearSolvers
 
 using CuArrays, CuArrays.CUDAdrv, CuArrays.CUDAnative
 
