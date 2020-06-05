@@ -9,8 +9,8 @@ function mixing_length(
     aux::Vars,
     t::Real,
     direction,
-    δ::{FT, N},
-    εt::{FT, N},
+    δ::FT, # δ::{FT, N},
+    εt::FT, # εt::{FT, N},
     ) where {FT, N}
 
     # need to code / use the functions: obukhov_length, ustar, ϕ_m
