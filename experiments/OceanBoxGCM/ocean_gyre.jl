@@ -82,12 +82,13 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
 
     if imex
         solver_type =
-            ClimateMachine.IMEXSolverType(implicit_model = LinearHBModel)
+            ClimateMachine.IMEXSolverType(ClimateMachine.OceanBoxGCMSpecificInfo)
     else
         solver_type = ClimateMachine.ExplicitSolverType(
             solver_method = LSRK144NiegemannDiehlBusch,
         )
     end
+    println(solver_type)
 
     driver_config = config_simple_box(FT, N, resolution, dimensions; BC = BC)
 
