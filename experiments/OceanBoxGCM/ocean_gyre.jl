@@ -61,7 +61,7 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
 
     if imex
         solver_type =
-            ClimateMachine.IMEXSolverType(linear_model = LinearHBModel)
+            ClimateMachine.IMEXSolverType(implicit_model = LinearHBModel)
     else
         solver_type = ClimateMachine.ExplicitSolverType(
             solver_method = LSRK144NiegemannDiehlBusch,
