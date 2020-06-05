@@ -35,9 +35,10 @@
 module SurfaceFluxes
 
 using RootSolvers
+using NLsolve
+
 using ..Thermodynamics
 using DocStringExtensions
-using NLsolve
 using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet: molmass_ratio, grav
 using CLIMAParameters.SubgridScale: von_karman_const
