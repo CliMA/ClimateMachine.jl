@@ -15,8 +15,8 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://CliMA.github.io/ClimateMachine.jl/latest/
 
-[azure-img]: https://dev.azure.com/climate-machine/ClimateMachine.jl/_apis/build/status/CliMA.ClimateMachine.jl?branchName=master
-[azure-url]: https://dev.azure.com/climate-machine/ClimateMachine.jl/_build/latest?definitionId=5&branchName=master
+[azure-img]: https://dev.azure.com/climate-machine/ClimateMachine.jl/_apis/build/status/azure-ci?branchName=master
+[azure-url]: https://dev.azure.com/climate-machine/ClimateMachine.jl/_build/latest?definitionId=15&branchName=master
 
 [codecov-img]: https://codecov.io/gh/CliMA/ClimateMachine.jl/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/CliMA/ClimateMachine.jl
