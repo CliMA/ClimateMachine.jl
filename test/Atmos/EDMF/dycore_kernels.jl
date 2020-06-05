@@ -93,10 +93,10 @@ function init_state_conservative!(
     t::Real,
 ) where {FT,N}
 
-    state.ρ = aux.ρ
+    state.ρ = 0
     state.ρu = 0
-    state.ρe_int = aux.ρ # need to add intial state here 
-    state.ρq_tot = aux.ρ # need to add intial state here 
+    state.ρe_int = 0 # need to add intial state here 
+    state.ρq_tot = 0 # need to add intial state here 
     init_state_conservative!(m, m.edmf, state, aux, coords, t)
 
 end;
