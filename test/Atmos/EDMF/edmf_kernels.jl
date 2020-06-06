@@ -163,16 +163,15 @@ function init_state_conservative!(
 
     # GCM setting - Initialize the grid mean profiles of prognostic variables (ρ,e_int,q_tot,u,v,w)
     z = aux.z
+    gm.ρ = 0
+    gm.ρu = SVector(0,0,0)
+    gm.ρe_int = gm.ρ * FT(0)
+    gm.ρq_tot = gm.ρ * FT(0)
 
-    # SCM setting - need to have separate cases coded and called from a folder - see what LES does
-    # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
-    ts = LiquidIcePotTempSHumEquil_given_pressure(param_set, θ_liq, P, q_tot)
-    T = air_temperature(ts)
-    ρ = air_density(ts)
-
-    a_up = m.a_updraft_initial/FT(N)
+    # a_up = m.a_updraft_initial/FT(N)
+    a_up = 0.1/FT(N)
     for i in 1:N
-        up[i].ρa = ρ * a_up
+        up[i].ρa = gm.ρ * a_up
         up[i].ρau = gm.ρu * a_up
         up[i].ρae_int = gm.ρe_int * a_up
         up[i].ρaq_tot = gm.ρq_tot * a_up
@@ -224,7 +223,7 @@ function edmf_stack_nodal_update_aux!(
     # a_upds = 0
     for i in 1:N
         # computing buoyancy with PhaseEquil (i.e. qv_star) that uses gm.ρ instead of ρ_i that is unknown
-        ts = PhaseEquil(param_set ,up[i].e_int, gm.ρ, up[i].q_tot)
+        ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
 
         ρ_i = air_density(ts)
         up_a[i].buoyancy = -grav*(ρ_i-aux.ρ0)*ρinv

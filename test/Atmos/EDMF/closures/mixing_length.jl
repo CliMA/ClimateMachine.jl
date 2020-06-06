@@ -43,15 +43,12 @@ function mixing_length(
     Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
 
     # Thermodynamic local variables for mixing length
-    ts::FT    = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
-    Π::FT     = exner(ts)
-    lv::FT    = latent_heat_vapor(ts)
-    cp_m_::FT = cp_m(ts)
-    tke::FT   = sqrt(en.ρatke, FT(0))*ρinv/en_area
-    θ_v::FT   = virtual_pottemp(ts)
-    T::FT     = air_temperature(ts)
-    q         = PhasePartition(ts)
-    ϵ_v::FT   = 1 / molmass_ratio(param_set)
+    ts    = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
+    tke   = sqrt(en.ρatke, FT(0))*ρinv/en_area
+    θ_v   = virtual_pottemp(ts)
+    T     = air_temperature(ts)
+    q     = PhasePartition(ts)
+    ϵ_v   = 1 / molmass_ratio(param_set)
     bflux     = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, m.T_b, q, ρinv)
     θ_surf    = ss.SurfaceModel.T_surf
     ustar = Nishizawa2018.compute_friction_velocity(param_set ,u_ave ,θ_suft ,flux ,Δz ,z_0 ,a ,Ψ_m_tol ,tol_abs ,iter_max)

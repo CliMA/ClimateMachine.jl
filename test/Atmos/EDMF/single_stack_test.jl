@@ -143,6 +143,7 @@ using StaticArrays
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 
 #  - load necessary ClimateMachine modules:
 using ClimateMachine
@@ -157,6 +158,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
+using ClimateMachine.Thermodynamics
 using ClimateMachine.SurfaceFluxes
 using ClimateMachine.SurfaceFluxes.Nishizawa2018
 using ClimateMachine.SurfaceFluxes.Byun1990
