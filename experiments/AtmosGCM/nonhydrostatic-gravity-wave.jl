@@ -46,7 +46,8 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     _kappa::FT = kappa_d(bl.param_set)
 
     N::FT = 0.01
-    u_0::FT = 20
+    #u_0::FT = 20
+    u_0::FT = 0
     G::FT = _grav^2 / N^2 / _cp
     T_eq::FT = 300
     p_eq::FT = 1e5
@@ -71,7 +72,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     p::FT = p_s * (G / T_s * exp( -N^2 / _grav * z ) + 1 - G / T_s)^(1/_kappa)
 
     # background potential temperature
-    θ_b::FT = T_s * (p_eq / p_s)^_kappa * exp( N^2 / _grav * z)
+    θ_b::FT = T_s * (p_eq / p_s)^_kappa * exp( N^2 / _grav * z )
 
     # potential temperature perturbation
     r::FT = _a * acos( sin(φ_c) * sin(φ) + cos(φ_c) * cos(φ) * cos(λ - λ_c) )
@@ -129,7 +130,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_nonhydrostatic_gravity_wave!;
-        solver_type = ode_solver,
+    #    solver_type = ode_solver,
         model = model,
     )
 
@@ -167,8 +168,8 @@ function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 5                               # horizontal element number
-    n_vert = 10                              # vertical element number
+    n_horz = 7                               # horizontal element number
+    n_vert = 5                               # vertical element number
     timestart = FT(0)                        # start time (s)
     timeend = FT(3600)                       # end time (s)
 
@@ -176,13 +177,13 @@ function main()
     driver_config = config_nonhydrostatic_gravity_wave(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
-    CFL = FT(0.8)
+    CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
         Courant_number = CFL,
-        CFL_direction = EveryDirection(),
+        CFL_direction = HorizontalDirection(),
     )
 
     # Set up diagnostics
