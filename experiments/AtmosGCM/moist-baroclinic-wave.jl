@@ -184,8 +184,8 @@ function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 10                               # horizontal element number
-    n_vert = 20                              # vertical element number
+    n_horz = 5                               # horizontal element number
+    n_vert = 5                              # vertical element number
     n_days::FT = 30 
     timestart::FT = 0                        # start time (s)
     #timeend::FT = n_days * day(param_set)   # end time (s)
