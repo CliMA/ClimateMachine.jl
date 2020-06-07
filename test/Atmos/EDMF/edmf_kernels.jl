@@ -219,35 +219,41 @@ function edmf_stack_nodal_update_aux!(
 
     #   -------------  Compute buoyancies of subdomains
     ρinv = 1/gm.ρ
+    _grav::FT = grav(m.param_set)
     # b_upds = 0
     # a_upds = 0
     for i in 1:N
         # computing buoyancy with PhaseEquil (i.e. qv_star) that uses gm.ρ instead of ρ_i that is unknown
-        ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
-
-        ρ_i = air_density(ts)
-        up_a[i].buoyancy = -grav*(ρ_i-aux.ρ0)*ρinv
-        # b_upds += up_a[i].buoyancy
-        # a_upds += up_a[i].ρa*ρinv
+        
+        # YAIR override to aviod satadjust prob 
+        # ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+        # ρ_i = air_density(ts)
+        # up_a[i].buoyancy = -grav*(ρ_i-aux.ρ0)*ρinv
+        up_a[i].buoyancy = aux.buoyancy
+        
     end
     # compute the buoyancy of the environment
-    env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
-    env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+    en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
+    env_e_int = (FT(1) - sum( [up[i].ρae_int*ρinv for i in 1:N] ))/en_area #(gm.e_int - up[i].ρae_int*ρinv)/en_area
+    env_q_tot = (FT(1) - sum( [up[i].ρaq_tot*ρinv for i in 1:N] ))/en_area #(gm.q_tot - up[i].ρaq_tot*ρinv)/en_area
+        # YAIR override to aviod satadjust prob 
+        # env_ρ = FT(1)
     ts = PhaseEquil(param_set ,env_e_int, gm.ρ, env_q_tot)
     env_ρ = air_density(ts)
     env_q_liq = PhasePartition(ts).liq
     env_q_ice = PhasePartition(ts).ice
-    en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
-    b_env = -grav*(env_ρ - aux.ρ0)*ρinv
+    b_env = -_grav*(env_ρ - aux.ρ0)*ρinv
     b_gm = en_area*b_env + sum([up_a[i].buoyancy for i in 1:N])
     # subtract the grid mean
-    up_a[i].buoyancy -= b_gm
+    for i in 1:N 
+        up_a[i].buoyancy -= b_gm
+    end
 
     #   -------------  Compute upd_top
     # YAIR - check this with Charlie
     for i in 1:N
         for j in length(up[i].ρa)
-            if up[i].ρa*ρinv>FT(eps)
+            if up[i].ρa*ρinv>FT(0) # YAIR this - FT(eps) failed 
                 up[i].updraft_top = aux.z[j]
             end
         end
