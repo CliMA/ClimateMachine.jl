@@ -166,7 +166,9 @@ function init_state_conservative!(
 
     # SCM setting - need to have separate cases coded and called from a folder - see what LES does
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
-    ts = LiquidIcePotTempSHumEquil_given_pressure(param_set, θ_liq, P, q_tot)
+    θ_liq = 300
+    q_tot = 0
+    ts = LiquidIcePotTempSHumEquil_given_pressure(m.param_set, θ_liq, aux.p0, q_tot)
     T = air_temperature(ts)
     ρ = air_density(ts)
 
