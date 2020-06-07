@@ -375,7 +375,8 @@ function SingleStackConfiguration(
 Establishing single stack configuration for %s
     precision        = %s
     polynomial order = %d
-    domain           = %.2f m x%.2f m x%.2f m
+    domain_min       = %.2f m x%.2f m x%.2f m
+    domain_max       = %.2f m x%.2f m x%.2f m
     #vert elems      = %d
     MPI ranks        = %d
     min(Δ_horz)      = %.2f m
@@ -383,6 +384,9 @@ Establishing single stack configuration for %s
         name,
         FT,
         N,
+        xmin,
+        ymin,
+        zmin,
         xmax,
         ymax,
         zmax,
