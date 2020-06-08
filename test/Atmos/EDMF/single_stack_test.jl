@@ -316,7 +316,7 @@ aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
     exclude = [z_key]
 );
 all_vars = OrderedDict(state_vars..., aux_vars...);
-@show keys(all_vars)
+
 export_plot_snapshot(
     z,
     all_vars,
