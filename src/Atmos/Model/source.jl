@@ -145,8 +145,8 @@ Assumes laterally periodic boundary conditions for LES flows. Momentum component
 are relaxed to reference values (zero velocities) at the top boundary.
 """
 struct RayleighSponge{FT} <: Source
-    "Maximum domain altitude (m)"
-    z_max::FT
+    "Altitude at with sponge starts (m)"
+    x_sponge::FT
     "Altitude at with sponge starts (m)"
     z_sponge::FT
     "Sponge Strength 0 ⩽ α_max ⩽ 1"
@@ -166,10 +166,27 @@ function atmos_source!(
     t::Real,
     direction,
 )
+    xsl = xmin + x_sponge
+    xsr = xmax - x_sponge
+    ysl = ymin + y_sponge
+    ysr = ymax - y_sponge
+    
     z = altitude(atmos, aux)
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
-        β_sponge = s.α_max * sinpi(r / 2)^s.γ
-        source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        #β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        ctop = s.α_max * sinpi(r / 2)^s.γ
+        #source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
+    
+    if (abs(x) >= 350000)
+        #r = (abs(x) - 350000) / (400000 - 350000)
+        h = 
+        cx = 1 + tanh((abs(x)-400000)/h)#s.α_max * sinpi(r / 2)^s.γ
+        #  source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    end 
+
+    β_sponge = 1.0 - ctop*(1.0 - cx) #*(1.0 - cy) 
+    source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    
 end
