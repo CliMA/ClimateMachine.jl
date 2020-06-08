@@ -70,6 +70,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     restart_from_num::Int = -1
     fix_rng_seed::Bool = false
     log_level::String = "INFO"
+    disable_custom_logger::Bool = false
     output_dir::String = "output"
     integration_testing::Bool = false
     array_type::Type = Array
@@ -219,6 +220,9 @@ function parse_commandline(
         "--fix-rng-seed"
         help = "set RNG seed to a fixed value for reproducibility"
         action = :store_true
+        "--disable-custom-logger"
+        help = "do not use a custom logger"
+        action = :store_true
         "--log-level"
         help = "set the log level to one of debug/info/warn/error"
         metavar = "<level>"
@@ -331,6 +335,8 @@ the process, otherwise the defaulting to `ClimateMachine.Settings`.
         set RNG seed to a fixed value for reproducibility
 - `log_level::String = "INFO"`:
         log level for ClimateMachine global default runtime logger
+- `disable_custom_logger::String = false`:
+        disable using a global custom logger for ClimateMachine
 - `output_dir::String = "output"`: (path)
         absolute or relative path to output data directory
 - `integration_testing::Bool = false`:
@@ -426,9 +432,17 @@ function _init_driver(settings::ClimateMachine_Settings)
     loglevel = log_level_str == "DEBUG" ? Logging.Debug :
         log_level_str == "WARN" ? Logging.Warn :
         log_level_str == "ERROR" ? Logging.Error : Logging.Info
-    # TODO: write a better MPI logging back-end and also integrate Dlog for large scale
-    logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
+    # TODO: write a better MPI logging back-end and also integrate Dlog
+    # for large scale
+    if !settings.disable_custom_logger
+        # cannot use `NullLogger` here because MPI collectives may be
+        # used in logging calls!
+        logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
+        prev_logger = global_logger(ConsoleLogger(logger_stream, loglevel))
+        atexit() do
+            global_logger(prev_logger)
+        end
+    end
     return
 end
 
