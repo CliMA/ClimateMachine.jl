@@ -82,7 +82,7 @@ if generate_tutorials
         mdpost(str) = replace(str, "@__CODE__" => code)
         Literate.markdown(input, gen_dir, postprocess = mdpost)
         if !any(occursin.(skip_execute, Ref(input)))
-            # Literate.notebook(input, gen_dir, execute = true)
+            Literate.notebook(input, gen_dir, execute = true)
         end
     end
 
