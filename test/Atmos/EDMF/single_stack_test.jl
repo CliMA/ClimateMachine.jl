@@ -300,9 +300,9 @@ output_dir = @__DIR__;
 
 mkpath(output_dir);
 
-z_scale = 100 # convert from meters to cm
+z_scale = 1
 z_key = "z"
-z_label = "z [cm]"
+z_label = "z [m]"
 z = get_z(driver_config.grid, z_scale)
 state_vars = SingleStackUtils.get_vars_from_nodal_stack(
     driver_config.grid,
@@ -321,9 +321,12 @@ export_plot_snapshot(
     z,
     all_vars,
     (
-      "ρcT",
-      "edmf.environment.ρacT",
-      "edmf.updraft[1].ρacT"
+      "ρ",
+      "ρe_int",
+      "ρq_tot",
+      "edmf.updraft[1].ρa",
+      "edmf.updraft[1].ρae_int",
+      "edmf.updraft[1].ρaq_tot",
     ),
     joinpath(output_dir, "initial_energy.png"),
     z_label,
@@ -335,13 +338,16 @@ export_plot_snapshot(
     all_vars,
     (
      "ρu[1]",
-     "edmf.environment.ρau[1]",
-     "edmf.updraft.ρau[1]"
+     "ρu[2]",
+     "ρu[3]",
+     "edmf.updraft[1].ρau[1]",
+     "edmf.updraft[1].ρau[2]",
+     "edmf.updraft[1].ρau[3]",
      ),
     joinpath(output_dir, "initial_velocity.png"),
     z_label,
 );
-![](initial_energy.png)
+# ![](initial_velocity.png)
 
 # It matches what we have in `init_state_conservative!(m::SingleStack, ...)`, so
 # let's continue.
