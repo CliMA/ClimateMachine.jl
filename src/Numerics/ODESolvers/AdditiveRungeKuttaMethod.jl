@@ -57,8 +57,17 @@ The available concrete implementations are:
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
-               AbstractAdditiveRungeKutta
+mutable struct AdditiveRungeKutta{
+    T,
+    RT,
+    AT,
+    BE,
+    V,
+    VS,
+    Nstages,
+    Nstages_sq,
+    Nstagesm1,
+} <: AbstractAdditiveRungeKutta
     "time step"
     dt::RT
     "time"
@@ -70,7 +79,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     "backwark Euler solver"
     besolver!::BE
     "Storage for solution during the AdditiveRungeKutta update"
-    Qstages::NTuple{Nstages, AT}
+    Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
     Rstages::NTuple{Nstages, AT}
     "Storage for the linear solver rhs vector"
@@ -111,7 +120,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
 
         Nstages = length(RKB)
 
-        Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
+        Qstages = ntuple(i -> similar(Q), Nstages - 1)
         Rstages = ntuple(i -> similar(Q), Nstages)
         Qhat = similar(Q)
 
@@ -136,7 +145,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
         @assert besolver! isa LinBESolver || variant isa NaiveVariant
         BE = typeof(besolver!)
 
-        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2}(
+        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2, Nstages - 1}(
             RT(dt),
             RT(t0),
             rhs!,
@@ -193,7 +202,7 @@ function dostep!(
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
-    Qstages, Rstages = ark.Qstages, ark.Rstages
+    Qstages, Rstages = (Q, ark.Qstages...), ark.Rstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Lstages = ark.variant_storage.Lstages
@@ -296,7 +305,7 @@ function dostep!(
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
-    Qstages, Rstages = ark.Qstages, ark.Rstages
+    Qstages, Rstages = (Q, ark.Qstages...), ark.Rstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Qtt = ark.variant_storage.Qtt
