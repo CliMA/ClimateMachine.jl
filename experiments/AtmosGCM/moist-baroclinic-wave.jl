@@ -70,7 +70,7 @@ function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
     ρ = air_density(bl.param_set, T, p)
 
     # zonal velocity
-    U::FT = _grav*K/_a * τ_int_2 * (cos(φ)^(K-1) - cos(φ)^(K+1)) * T_v
+    U::FT = _grav*K/_a * τ_int_2 * (cos(φ)^(K-1) - cos(φ)^(K+1)) * T
     u::FT = -_Ω*_a*cos(φ) + sqrt((_Ω*_a*cos(φ))^2 + _a*cos(φ)*U)
 
     # potential & kinetic energy
