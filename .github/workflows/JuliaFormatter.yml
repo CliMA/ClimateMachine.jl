@@ -1,6 +1,13 @@
 name: JuliaFormatter
 
-on: [pull_request]
+on:
+  push:
+    branches:
+      - master
+      - trying
+      - staging
+    tags: '*'
+  pull_request:
 
 jobs:
   format:
