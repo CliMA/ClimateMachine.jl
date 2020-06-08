@@ -36,7 +36,7 @@
 ##     `ClimateMachine` according to the instructions on the landing page.
 ##     We assume the users' familiarity with the conservative form of the
 ##     equations of motion for a compressible fluid (see the
-##     [`AtmosModel`](@ref AtmosModel-docs) page).
+##     [AtmosModel](@ref AtmosModel-docs) page).
 ##
 ##     The following topics are covered in this example
 ##     - Package requirements

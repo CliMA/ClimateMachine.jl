@@ -1,4 +1,4 @@
-# AtmosModel
+# [AtmosModel](@id AtmosModel-docs)
 
 ```@meta
 CurrentModule = ClimateMachine
