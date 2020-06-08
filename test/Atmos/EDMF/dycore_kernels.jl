@@ -65,7 +65,7 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     T_profile = DecayingTemperatureProfile{FT}(m.param_set)
     ref_state = HydrostaticState(T_profile)
     T_virt, p = ref_state.virtual_temperature_profile(m.param_set, aux.z)
-    _R_d::FT = 287 # YAIR replace this by a call to parm_set
+    _R_d = FT(R_d(m.param_set))
 
     aux.buoyancy = 0
     aux.ρ0 = p / (_R_d * T_virt)

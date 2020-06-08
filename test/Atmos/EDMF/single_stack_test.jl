@@ -141,12 +141,14 @@ using StaticArrays
 #  - load CLIMAParameters and set up to use it:
 
 using CLIMAParameters
+using CLIMAParameters.Planet: grav, cp_d, R_d
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 
 #  - load necessary ClimateMachine modules:
 using ClimateMachine
+using ClimateMachine.Thermodynamics
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Writers
