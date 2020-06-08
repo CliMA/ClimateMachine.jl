@@ -223,21 +223,15 @@ function edmf_stack_nodal_update_aux!(
     # b_upds = 0
     # a_upds = 0
     for i in 1:N
-        # computing buoyancy with PhaseEquil (i.e. qv_star) that uses gm.ρ instead of ρ_i that is unknown
-        
-        # YAIR override to aviod satadjust prob 
-        # ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
-        # ρ_i = air_density(ts)
-        # up_a[i].buoyancy = -grav*(ρ_i-aux.ρ0)*ρinv
-        up_a[i].buoyancy = aux.buoyancy
-        
+        ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+        ρ_i = air_density(ts)
+        up_a[i].buoyancy = -_grav*(ρ_i-aux.ρ0)*ρinv
     end
     # compute the buoyancy of the environment
     en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     env_e_int = (gm.ρe_int - sum( [up[i].ρae_int*ρinv for i in 1:N] ))/en_area #(gm.e_int - up[i].ρae_int*ρinv)/en_area
     env_q_tot = (gm.ρq_tot - sum( [up[i].ρaq_tot*ρinv for i in 1:N] ))/en_area #(gm.q_tot - up[i].ρaq_tot*ρinv)/en_area
-        # YAIR override to aviod satadjust prob 
-        # env_ρ = FT(1)
+    
     ts = PhaseEquil(m.param_set ,env_e_int, gm.ρ, env_q_tot)
     env_ρ = air_density(ts)
     env_q_liq = PhasePartition(ts).liq
@@ -292,8 +286,6 @@ function compute_gradient_argument!(
     en_t.e_int_cv       = en.ρae_int_cv/(en_area*gm.ρ)
     en_t.q_tot_cv       = en.ρaq_tot_cv/(en_area*gm.ρ)
     en_t.e_int_q_tot_cv = en.ρae_int_q_tot_cv/(en_area*gm.ρ)
-
-
 end;
 
 # Specify where in `diffusive::Vars` to store the computed gradient from
