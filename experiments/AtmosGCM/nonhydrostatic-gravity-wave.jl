@@ -47,8 +47,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     _kappa::FT = kappa_d(bl.param_set)
 
     N::FT = 0.01
-    #u_0::FT = 20
-    u_0::FT = 0
+    u_0::FT = 20
     G::FT = _grav^2 / N^2 / _cp
     T_eq::FT = 300
     p_eq::FT = 1e5
@@ -96,6 +95,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     state.ρ = ρ
     state.ρu = ρ * u_cart 
     state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
+    aux.θ₀ = θ_b
 
     nothing
 end
@@ -155,7 +155,7 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_atmos_default_diagnostics(
+    dgngrp = setup_dump_state_and_aux_diagnostics(
         AtmosGCMConfigType(),
         interval,
         driver_config.name,
