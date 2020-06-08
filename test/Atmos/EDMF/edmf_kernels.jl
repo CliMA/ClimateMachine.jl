@@ -14,7 +14,7 @@ end
 
 function vars_state_auxiliary(::Updraft, FT)
     @vars(buoyancy::FT,
-          upd_top::FT,
+          updraft_top::FT,
           T::FT
           )
 end
@@ -135,7 +135,7 @@ function init_state_auxiliary!(
 
     for i in 1:N
         up_a[i].buoyancy = FT(0)
-        up_a[i].upd_top  = FT(0)
+        up_a[i].updraft_top  = FT(0)
     end
     en_a.cld_frac = FT(0)
 
@@ -163,9 +163,9 @@ function init_state_conservative!(
 
     # GCM setting - Initialize the grid mean profiles of prognostic variables (ρ,e_int,q_tot,u,v,w)
     z = aux.z
-    gm.ρ = 0
+    gm.ρ = FT(1)
     gm.ρu = SVector(0,0,0)
-    gm.ρe_int = gm.ρ * FT(0)
+    gm.ρe_int = gm.ρ * 300000
     gm.ρq_tot = gm.ρ * FT(0)
 
     # a_up = m.a_updraft_initial/FT(N)
@@ -234,11 +234,11 @@ function edmf_stack_nodal_update_aux!(
     end
     # compute the buoyancy of the environment
     en_area    = 1 - sum([up[i].ρa for i in 1:N])*ρinv
-    env_e_int = (FT(1) - sum( [up[i].ρae_int*ρinv for i in 1:N] ))/en_area #(gm.e_int - up[i].ρae_int*ρinv)/en_area
-    env_q_tot = (FT(1) - sum( [up[i].ρaq_tot*ρinv for i in 1:N] ))/en_area #(gm.q_tot - up[i].ρaq_tot*ρinv)/en_area
+    env_e_int = (gm.ρe_int - sum( [up[i].ρae_int*ρinv for i in 1:N] ))/en_area #(gm.e_int - up[i].ρae_int*ρinv)/en_area
+    env_q_tot = (gm.ρq_tot - sum( [up[i].ρaq_tot*ρinv for i in 1:N] ))/en_area #(gm.q_tot - up[i].ρaq_tot*ρinv)/en_area
         # YAIR override to aviod satadjust prob 
         # env_ρ = FT(1)
-    ts = PhaseEquil(param_set ,env_e_int, gm.ρ, env_q_tot)
+    ts = PhaseEquil(m.param_set ,env_e_int, gm.ρ, env_q_tot)
     env_ρ = air_density(ts)
     env_q_liq = PhasePartition(ts).liq
     env_q_ice = PhasePartition(ts).ice
@@ -254,7 +254,7 @@ function edmf_stack_nodal_update_aux!(
     for i in 1:N
         for j in length(up[i].ρa)
             if up[i].ρa*ρinv>FT(0) # YAIR this - FT(eps) failed 
-                up[i].updraft_top = aux.z[j]
+                up_a[i].updraft_top = aux.z[j]
             end
         end
     end
