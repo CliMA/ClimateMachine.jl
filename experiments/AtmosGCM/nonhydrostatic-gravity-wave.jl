@@ -22,7 +22,8 @@ using Random: rand
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, day, grav, cp_d, planet_radius, Omega, kappa_d
+using CLIMAParameters.Planet:
+    R_d, day, grav, cp_d, planet_radius, Omega, kappa_d
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -53,10 +54,10 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     p_eq::FT = 1e5
     Δθ::FT = 1.0
     d::FT = 5e3
-    λ_c::FT = 2*π/3
+    λ_c::FT = 2 * π / 3
     φ_c::FT = 0
     L_z::FT = 20e3
-    
+
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
     trafo = SMatrix{3, 3, FT, 9}(0, 0, 0, 0, 0, 0, -sin(λ), cos(λ), 0)
@@ -64,24 +65,30 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     u_cart = trafo * u_sphere
 
     # background temperature
-    T_s::FT = G  + (T_eq - G) * exp( -u_0 * N^2 / 4 / _grav^2 * (u_0 + 2 * _Ω *_a) * (cos(2*φ) - 1))
-    T_b::FT = G * (1 - exp( N^2 / _grav * z)) + T_s * exp( N^2 / _grav * z )
+    T_s::FT =
+        G +
+        (T_eq - G) *
+        exp(-u_0 * N^2 / 4 / _grav^2 * (u_0 + 2 * _Ω * _a) * (cos(2 * φ) - 1))
+    T_b::FT = G * (1 - exp(N^2 / _grav * z)) + T_s * exp(N^2 / _grav * z)
 
     # pressure
-    p_s::FT = p_eq * exp( u_0 / 4 / G / _R_d * (u_0 + 2 * _Ω *_a) * (cos(2*φ) - 1) ) * (T_s / T_eq)^(1/_kappa)
-    p::FT = p_s * (G / T_s * exp( -N^2 / _grav * z ) + 1 - G / T_s)^(1/_kappa)
+    p_s::FT =
+        p_eq *
+        exp(u_0 / 4 / G / _R_d * (u_0 + 2 * _Ω * _a) * (cos(2 * φ) - 1)) *
+        (T_s / T_eq)^(1 / _kappa)
+    p::FT = p_s * (G / T_s * exp(-N^2 / _grav * z) + 1 - G / T_s)^(1 / _kappa)
 
     # background potential temperature
-    θ_b::FT = T_s * (p_eq / p_s)^_kappa * exp( N^2 / _grav * z )
+    θ_b::FT = T_s * (p_eq / p_s)^_kappa * exp(N^2 / _grav * z)
 
     # potential temperature perturbation
-    r::FT = _a * acos( sin(φ_c) * sin(φ) + cos(φ_c) * cos(φ) * cos(λ - λ_c) )
+    r::FT = _a * acos(sin(φ_c) * sin(φ) + cos(φ_c) * cos(φ) * cos(λ - λ_c))
     s::FT = d^2 / (d^2 + r^2)
-    θ′::FT = Δθ * s * sin( 2 * π * z / L_z)
-    
+    θ′::FT = Δθ * s * sin(2 * π * z / L_z)
+
     # temperature perturbation
     T′::FT = θ′ * (p / p_eq)^_kappa
-    
+
     # temperature
     T::FT = T_b + T′
 
@@ -93,7 +100,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     e_kin::FT = 0.5 * sum(abs2.(u_cart))
 
     state.ρ = ρ
-    state.ρu = ρ * u_cart 
+    state.ρu = ρ * u_cart
     state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
     aux.θ₀ = θ_b
 
@@ -119,11 +126,11 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         source = (Gravity(),),
         init_state_conservative = init_nonhydrostatic_gravity_wave!,
     )
-    
+
     ode_solver = ClimateMachine.ExplicitSolverType(
-      solver_method = LSRK144NiegemannDiehlBusch,
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
-    
+
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
         poly_order,
@@ -131,7 +138,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_nonhydrostatic_gravity_wave!;
-    #    solver_type = ode_solver,
+        #    solver_type = ode_solver,
         model = model,
     )
 
@@ -175,7 +182,8 @@ function main()
     timeend = FT(3600)                       # end time (s)
 
     # Set up driver configuration
-    driver_config = config_nonhydrostatic_gravity_wave(FT, poly_order, (n_horz, n_vert))
+    driver_config =
+        config_nonhydrostatic_gravity_wave(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
     CFL = FT(0.4)
@@ -195,16 +203,20 @@ function main()
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         @views begin
-          solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
-          solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
-          Filters.apply!(
-              solver_config.Q,
-              1:size(solver_config.Q, 2),
-              solver_config.dg.grid,
-              filter,
-          )
-          solver_config.Q.data[:, 1, :] .+= solver_config.dg.state_auxiliary.data[:, 8, :]
-          solver_config.Q.data[:, 5, :] .+= solver_config.dg.state_auxiliary.data[:, 11, :]
+            solver_config.Q.data[:, 1, :] .-=
+                solver_config.dg.state_auxiliary.data[:, 8, :]
+            solver_config.Q.data[:, 5, :] .-=
+                solver_config.dg.state_auxiliary.data[:, 11, :]
+            Filters.apply!(
+                solver_config.Q,
+                1:size(solver_config.Q, 2),
+                solver_config.dg.grid,
+                filter,
+            )
+            solver_config.Q.data[:, 1, :] .+=
+                solver_config.dg.state_auxiliary.data[:, 8, :]
+            solver_config.Q.data[:, 5, :] .+=
+                solver_config.dg.state_auxiliary.data[:, 11, :]
         end
         nothing
     end
