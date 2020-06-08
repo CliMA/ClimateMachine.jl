@@ -32,8 +32,9 @@ function env_surface_covariances(
     state::Vars,
     ) where {FT, N}
   # yair - I would like to call the surface functions from src/Atmos/Model/SurfaceFluxes.jl
-  bflux = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, T_b, q, α_0) # missing def of m.shf, m.lhf, T_b, q, α_0
-  oblength = Nishizawa2018.monin_obukhov_len(ss.param_set, u, θ, bflux) # missing def of u, θ, 
+  # bflux = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, T_b, q, α_0) # missing def of m.shf, m.lhf, T_b, q, α_0
+  # oblength = Nishizawa2018.monin_obukhov_len(ss.param_set, u, θ, bflux) # missing def of u, θ,
+  # Use fixed values for now
   zLL = FT(20) # how to get the z first interior ?
   if oblength < 0
     e_int_var       = 4 * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))

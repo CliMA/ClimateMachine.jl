@@ -138,7 +138,7 @@ function init_state_auxiliary!(
         up_a[i].updraft_top  = FT(0)
     end
     en_a.cld_frac = FT(0)
-
+    # Need to define K_eddy
 end;
 
 # Specify the initial values in `state::Vars`. Note that
@@ -198,25 +198,29 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 ) where {FT, N}
+
+    # Move to backend (requires `along_stack(max, var_name::Symbol)`):
     state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         dg.grid,
         Q,
-        vars_state_conservative,
+        vars_state_conservative(m, FT),
     )
     aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
         dg.grid,
         Q,
-        vars_state_auxiliary,
+        vars_state_auxiliary(m, FT),
     )
-    @show keys(aux_vars)
+    z = aux_vars["z"]
     for i in 1:N
-    #     for z in aux_vars["z"]
-    #         if up[i].ρa*ρinv>FT(0) # YAIR this - FT(eps) failed
-    #             aux_vars["updraft_top"]up_a[i].updraft_top = aux.z
-    #         end
-    #     end
+        for j in 1:length(z)
+            up_i_ρa = state_vars["edmf.updraft[$i].ρa"][j]
+            ρinv = 1/state_vars["ρ"][j]
+            if up_i_ρa*ρinv>0
+                aux_vars["edmf.updraft[$i].updraft_top"][j] = z[j]
+            end
+        end
         # i_updraft_top = varsindex(vars_state_conservative(m, FT), :updraft_top)
-        # Q[]
+        # Q[ijk, i_updraft_top, elems] = aux_vars["edmf.updraft[$i].updraft_top"][j]
     end
 
     nodal_update_auxiliary_state!(edmf_stack_nodal_update_aux!, dg, m, Q, t, elems)
@@ -339,9 +343,9 @@ function compute_gradient_flux!(
 
     # negative signs here as we have a '-' sign in BL form leading to + K∂ϕ/∂z on the RHS
     # compute eddy diffusivity
-    εt:: SVector{N, FT}
-    ε::  SVector{N, FT}
-    δ::  SVector{N, FT}
+    εt = MArray{Tuple{N}, FT}(zeros(FT, N))
+    ε = MArray{Tuple{N}, FT}(zeros(FT, N))
+    δ = MArray{Tuple{N}, FT}(zeros(FT, N))
     for i in 1:N
         ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
     end
@@ -603,7 +607,7 @@ function boundary_state!(
     up_d = diff⁺.edmf.updraft
     if bctype == 1 # bottom
         # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
-        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(ss, m, edmf, source, state)
+        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, source, state)
         en_d.ρatke = gm.ρ * area_en * tke
         en_d.ρae_int_cv = gm.ρ * area_en * e_int_cv
         en_d.ρaq_tot_cv = gm.ρ * area_en * q_tot_cv

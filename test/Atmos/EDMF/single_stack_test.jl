@@ -307,12 +307,12 @@ z = get_z(driver_config.grid, z_scale)
 state_vars = SingleStackUtils.get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.Q,
-    vars_state_conservative,
+    vars_state_conservative(m, FT),
 );
 aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.dg.state_auxiliary,
-    vars_state_auxiliary;
+    vars_state_auxiliary(m, FT);
     exclude = [z_key]
 );
 all_vars = OrderedDict(state_vars..., aux_vars...);
@@ -375,12 +375,12 @@ callback = GenericCallbacks.EveryXSimulationTime(
     state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         driver_config.grid,
         solver_config.Q,
-        vars_state_conservative,
+        vars_state_conservative(m, FT),
     )
     aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
         driver_config.grid,
         solver_config.dg.state_auxiliary,
-        vars_state_auxiliary;
+        vars_state_auxiliary(m, FT);
         exclude = [z_key],
     )
     all_vars = OrderedDict(state_vars..., aux_vars...)
