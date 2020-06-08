@@ -30,14 +30,13 @@ function atmos_collect_onetime(mpicomm, dg, Q)
             evk = Nqk * (ev - 1) + k
             z = localvgeo[ijk, grid.x3id, e]
             MH = localvgeo[ijk, grid.MHid, e]
-            AtmosCollected.zvals[evk] += MH * z
+            AtmosCollected.zvals[evk] = z
             AtmosCollected.repdvsr[evk] += MH
         end
 
         # compute the full number of points on a slab
         MPI.Allreduce!(AtmosCollected.repdvsr, +, mpicomm)
 
-        AtmosCollected.zvals ./= AtmosCollected.repdvsr
         AtmosCollected.onetime_done = true
     end
 
