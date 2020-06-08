@@ -105,7 +105,7 @@ function sccreate(
     end
 
     ####
-    # Print fields that the call back create by this call will query
+    # Print fields that the call back created by this call will query
     ####
     nr = 0
     for f in fields
@@ -263,6 +263,10 @@ function scstats(V, ivar, nprec)
     getByField(V, ivar) = (V.realdata[:, ivar, :])
     Vmcomm = V.mpicomm
 
+    # Get local and global field sizes (degrees of freedom).
+    n_size_loc = length(getByField(V, ivar))
+    n_size_tot = MPI.Allreduce(n_size_loc, +, Vmcomm)
+
     # Min
     phi_loc = minimum(getByField(V, ivar))
     phi_min = MPI.Allreduce(phi_loc, MPI.MIN, Vmcomm)
@@ -279,19 +283,19 @@ function scstats(V, ivar, nprec)
 
     # Ave
     phi_loc = mean(getByField(V, ivar))
+    phi_loc = phi_loc * n_size_loc / n_size_tot
     phi_sum = MPI.Allreduce(phi_loc, +, Vmcomm)
-    phi_mean = phi_sum / (nproc * 1.0)
+    phi_mean = phi_sum
     phi = phi_mean
     # aveVstr=@sprintf("%23.15e",phi)
     ave_v_str = sprintf1(fmt, phi)
 
     # Std
     phi_loc = (getByField(V, ivar) .- phi_mean) .^ 2
-    n_val = length(phi_loc) * 1.0
     phi_loc = sum(phi_loc)  # Sum local data explicitly since GPU Allreduce
     # does not take arrays yet.
     phi_sum = MPI.Allreduce(phi_loc, +, Vmcomm)
-    n_val_sum = MPI.Allreduce(n_val, +, Vmcomm)
+    n_val_sum = n_size_tot
     phi_std = sqrt(sum(phi_sum) / (n_val_sum - 1))
     phi = phi_std
     # stdVstr=@sprintf("%23.15e",phi)
@@ -559,6 +563,17 @@ function scdocheck(cb, ref_dat)
                             break
                         end
                         imatch = imatch + 1
+                    end
+                end
+                # Check for trailing exact 0s number change numerically
+                if nmatch < pcmp
+                    if rval != 0
+                        e_diffl10 = round(log10(abs((rval - cval) / rval)))
+                    else
+                        e_diffl10 = round(log10(abs(rval - cval)))
+                    end
+                    if e_diffl10 < -pcmp
+                        nmatch = Int(-e_diffl10)
                     end
                 end
                 if nmatch < pcmp
