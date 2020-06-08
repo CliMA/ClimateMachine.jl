@@ -149,6 +149,7 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 #  - load necessary ClimateMachine modules:
 using ClimateMachine
 using ClimateMachine.Thermodynamics
+using ClimateMachine.SingleStackUtils
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Writers
@@ -303,16 +304,14 @@ z_scale = 100 # convert from meters to cm
 z_key = "z"
 z_label = "z [cm]"
 z = get_z(driver_config.grid, z_scale)
-state_vars = get_vars_from_stack(
+state_vars = SingleStackUtils.get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.Q,
-    m,
     vars_state_conservative,
 );
-aux_vars = get_vars_from_stack(
+aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.dg.state_auxiliary,
-    m,
     vars_state_auxiliary;
     exclude = [z_key]
 );
@@ -373,16 +372,14 @@ callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
     solver_config.solver,
 ) do (init = false)
-    state_vars = get_vars_from_stack(
+    state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         driver_config.grid,
         solver_config.Q,
-        m,
         vars_state_conservative,
     )
-    aux_vars = get_vars_from_stack(
+    aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
         driver_config.grid,
         solver_config.dg.state_auxiliary,
-        m,
         vars_state_auxiliary;
         exclude = [z_key],
     )

@@ -192,12 +192,33 @@ end;
 # any other auxiliary methods
 function update_auxiliary_state!(
     dg::DGModel,
-    m::SingleStack,
+    m::SingleStack{FT, N},
     edmf::EDMF,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
-)
+) where {FT, N}
+    state_vars = SingleStackUtils.get_vars_from_nodal_stack(
+        dg.grid,
+        Q,
+        vars_state_conservative,
+    )
+    aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
+        dg.grid,
+        Q,
+        vars_state_auxiliary,
+    )
+    @show keys(aux_vars)
+    for i in 1:N
+    #     for z in aux_vars["z"]
+    #         if up[i].ρa*ρinv>FT(0) # YAIR this - FT(eps) failed
+    #             aux_vars["updraft_top"]up_a[i].updraft_top = aux.z
+    #         end
+    #     end
+        # i_updraft_top = varsindex(vars_state_conservative(m, FT), :updraft_top)
+        # Q[]
+    end
+
     nodal_update_auxiliary_state!(edmf_stack_nodal_update_aux!, dg, m, Q, t, elems)
 end;
 
@@ -248,7 +269,7 @@ function edmf_stack_nodal_update_aux!(
     for i in 1:N
         for j in length(up[i].ρa)
             if up[i].ρa*ρinv>FT(0) # YAIR this - FT(eps) failed
-                up_a[i].updraft_top = aux.z[j]
+                up_a[i].updraft_top = aux.z
             end
         end
     end
