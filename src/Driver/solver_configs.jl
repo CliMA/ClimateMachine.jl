@@ -134,7 +134,6 @@ function SolverConfiguration(
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
     end
-    update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
 
     # default Courant number
     # TODO: Think about revising this or drop it entirely.
