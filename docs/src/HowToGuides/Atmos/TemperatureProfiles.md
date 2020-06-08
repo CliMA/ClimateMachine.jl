@@ -26,8 +26,7 @@ using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 FT = Float64;
-include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
-z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = tested_profiles(param_set, 50, FT);
+z = range(FT(0), stop = FT(2.5e4), length = 50);
 
 isothermal = IsothermalProfile(param_set, FT);
 args = isothermal.(Ref(param_set), z)
@@ -53,8 +52,7 @@ using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 FT = Float64;
-include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
-z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = tested_profiles(param_set, 50, FT);
+z = range(FT(0), stop = FT(2.5e4), length = 50);
 
 decaying = DecayingTemperatureProfile{FT}(param_set);
 args = decaying.(Ref(param_set), z)
@@ -79,8 +77,7 @@ using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 FT = Float64;
-include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
-z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice = tested_profiles(param_set, 50, FT);
+z = range(FT(0), stop = FT(2.5e4), length = 50);
 
 dry_adiabatic = DryAdiabaticProfile{FT}(param_set);
 args = dry_adiabatic.(Ref(param_set), z)

@@ -81,9 +81,9 @@ end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
-    # Choose explicit solver
+    # Choose explicit multirate solver
     ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,

@@ -136,21 +136,18 @@ function SolverConfiguration(
     end
     update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
 
-    # create the linear model for IMEX and Multirate solvers
-    linmodel = nothing
-    if isa(ode_solver_type, ExplicitSolverType)
-        dtmodel = bl
-    else
-        linmodel = ode_solver_type.linear_model(bl)
-        dtmodel = linmodel
-    end
-
     # default Courant number
+    # TODO: Think about revising this or drop it entirely.
+    # This is difficult to determine/approximate
+    # for MIS and general multirate methods.
     if Courant_number === nothing
-        if ode_solver_type.solver_method == LSRK144NiegemannDiehlBusch
-            Courant_number = FT(1.7)
-        elseif ode_solver_type.solver_method == LSRK54CarpenterKennedy
-            Courant_number = FT(0.3)
+        if isa(ode_solver_type, ExplicitSolverType)
+            if ode_solver_type.solver_method == LSRK144NiegemannDiehlBusch
+                Courant_number = FT(1.7)
+            else
+                @assert ode_solver_type.solver_method == LSRK54CarpenterKennedy
+                Courant_number = FT(0.3)
+            end
         else
             Courant_number = FT(0.5)
         end
@@ -159,6 +156,7 @@ function SolverConfiguration(
     # initial Δt specified or computed
     simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
+        dtmodel = getdtmodel(ode_solver_type, bl)
         ode_dt = ClimateMachine.DGMethods.calculate_dt(
             dg,
             dtmodel,
@@ -172,60 +170,7 @@ function SolverConfiguration(
     timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
 
     # create the solver
-    if isa(ode_solver_type, ExplicitSolverType)
-        solver = ode_solver_type.solver_method(dg, Q; dt = ode_dt, t0 = t0)
-    elseif isa(ode_solver_type, MultirateSolverType)
-        fast_dg = DGModel(
-            linmodel,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
-        )
-        slow_model = RemainderModel(bl, (linmodel,))
-        slow_dg = DGModel(
-            slow_model,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
-            diffusion_direction = diffdir,
-        )
-        slow_solver = ode_solver_type.slow_method(slow_dg, Q; dt = ode_dt)
-        fast_dt = ode_dt / ode_solver_type.timestep_ratio
-        fast_solver = ode_solver_type.fast_method(fast_dg, Q; dt = fast_dt)
-        solver =
-            ode_solver_type.solver_method((slow_solver, fast_solver), t0 = t0)
-    else # solver_type === IMEXSolverType
-        vdg = DGModel(
-            linmodel,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient,
-            state_auxiliary = dg.state_auxiliary,
-            state_gradient_flux = dg.state_gradient_flux,
-            states_higher_order = dg.states_higher_order,
-            direction = VerticalDirection(),
-        )
-        solver = ode_solver_type.solver_method(
-            dg,
-            vdg,
-            LinearBackwardEulerSolver(
-                ode_solver_type.linear_solver();
-                isadjustable = false,
-            ),
-            Q;
-            dt = ode_dt,
-            t0 = t0,
-        )
-    end
+    solver = solversetup(ode_solver_type, dg, Q, ode_dt, t0, diffdir)
 
     @toc SolverConfiguration
 

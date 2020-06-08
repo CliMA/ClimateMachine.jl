@@ -213,13 +213,13 @@ let
     expected_result[3, 3, Float64, VerticalDirection] = 1.0132022682813954e-05
     expected_result[2, 1, Float32, EveryDirection] = 5.1570897921919823e-03
     expected_result[2, 2, Float32, EveryDirection] = 6.5653577621560544e-05
-    expected_result[2, 3, Float32, EveryDirection] = 3.2485229439771501e-06
+    expected_result[2, 3, Float32, EveryDirection] = 3.275913f-6
     expected_result[2, 1, Float32, HorizontalDirection] = 2.0514581352472305e-02
     expected_result[2, 2, Float32, HorizontalDirection] = 5.6842499179765582e-04
-    expected_result[2, 3, Float32, HorizontalDirection] = 1.0186861800320912e-05
+    expected_result[2, 3, Float32, HorizontalDirection] = 1.02155445f-5
     expected_result[2, 1, Float32, VerticalDirection] = 2.0514704287052155e-02
     expected_result[2, 2, Float32, VerticalDirection] = 5.6839984608814120e-04
-    expected_result[2, 3, Float32, VerticalDirection] = 1.0241863492410630e-05
+    expected_result[2, 3, Float32, VerticalDirection] = 1.0224043f-5
     expected_result[3, 1, Float32, EveryDirection] = 1.2601461494341493e-03
     expected_result[3, 2, Float32, EveryDirection] = 2.2380427253665403e-05
     expected_result[3, 3, Float32, EveryDirection] = 1.1313175491522998e-05

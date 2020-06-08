@@ -193,12 +193,12 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ## the ode_solver above can be replaced with
     ##
     ## `ode_solver = ClimateMachine.MultirateSolverType(
-    ##    linear_model = AtmosAcousticGravityLinearModel,
+    ##    fast_model = AtmosAcousticGravityLinearModel,
     ##    slow_method = LSRK144NiegemannDiehlBusch,
     ##    fast_method = LSRK144NiegemannDiehlBusch,
     ##    timestep_ratio = 10,
     ## )`
-    ## See [ODESolvers](@ref ODESolvers-docs) for all of the available solvers.
+    ##See [ODESolvers](@ref ODESolvers-docs) for all of the available solvers.
 
 
     ## Since we want four tracers, we specify this and include the appropriate

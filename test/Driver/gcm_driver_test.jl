@@ -4,17 +4,15 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
-using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
 using ClimateMachine.ODESolvers
-using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
-using ClimateMachine.Mesh.Filters
 
 using CLIMAParameters
-using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -84,7 +82,7 @@ function main()
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 180,
@@ -106,26 +104,10 @@ function main()
         ode_dt = dt,
     )
 
-    # Set up the filter callback
-    filterorder = 18
-    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
-    cbfilter = EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            1:size(solver_config.Q, 2),
-            solver_config.dg.grid,
-            filter,
-            VerticalDirection(),
-        )
-        return nothing
-    end
-
     cb_test = 0
     result = ClimateMachine.invoke!(
         solver_config;
-        user_callbacks = (cbfilter,),
         user_info_callback = (init) -> cb_test += 1,
-        check_euclidean_distance = true,
     )
     @test cb_test > 0
 end

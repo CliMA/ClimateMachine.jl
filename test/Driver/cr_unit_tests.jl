@@ -69,6 +69,11 @@ function main()
     # Timestep size (s)
     dt = FT(600)
 
+    ode_solver = ClimateMachine.MISSolverType(;
+        splitting_type = ClimateMachine.SlowFastSplitting(),
+        nsubsteps = 20,
+    )
+
     setup = AcousticWaveSetup{FT}()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
     orientation = SphericalOrientation()
@@ -92,6 +97,7 @@ function main()
         setup.domain_height,
         param_set,
         setup;
+        solver_type = ode_solver,
         model = model,
     )
     solver_config = ClimateMachine.SolverConfiguration(

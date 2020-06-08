@@ -1,5 +1,6 @@
 using Test
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TemperatureProfiles
 using NCDatasets
 using Random
 using RootSolvers
@@ -53,8 +54,8 @@ include("data_tests.jl")
         _kappa_d = FT(kappa_d(param_set))
 
         # for FT in float_types
-        z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            tested_profiles(param_set, 50, FT)
+        profiles = PhaseEquilProfiles(param_set, FT)
+        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH
         Φ = FT(1)
         Random.seed!(15)
         perturbation = FT(0.1) * rand(length(T))
@@ -371,8 +372,8 @@ end
 
     for FT in float_types
         rtol = FT(1e-2)
-        z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            tested_profiles(param_set, 50, FT)
+        profiles = PhaseEquilProfiles(param_set, FT)
+        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH
 
         # PhaseEquil
         ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-3))
@@ -395,6 +396,14 @@ end
             air_temperature.(ts_exact),
             rtol = rtol,
         ))
+
+        dry_mask = abs.(q_tot .- 0) .< eps(FT)
+        q_dry = q_pt[dry_mask]
+        @test all(
+            condensate.(q_pt) .==
+            getproperty.(q_pt, :liq) .+ getproperty.(q_pt, :ice),
+        )
+        @test all(has_condensate.(q_dry) .== false)
 
         # PhaseEquil
         ts_exact =
@@ -501,7 +510,7 @@ end
         @test all(isapprox.(
             internal_energy.(ts),
             internal_energy.(ts_exact),
-            rtol = rtol,
+            rtol = 3rtol,
         ))
         @test all(isapprox.(
             liquid_ice_pottemp.(ts),
@@ -569,8 +578,8 @@ end
 
         _MSLP = FT(MSLP(param_set))
 
-        z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-            tested_profiles(param_set, 50, FT)
+        profiles = PhaseEquilProfiles(param_set, FT)
+        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH
 
         # PhaseDry
         ts = PhaseDry.(Ref(param_set), e_int, ρ)
@@ -754,8 +763,8 @@ end
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
     FT = Float32
-    z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-        tested_profiles(param_set, 50, FT)
+    profiles = PhaseEquilProfiles(param_set, FT)
+    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH
 
     ρu = FT[1.0, 2.0, 3.0]
     e_pot = FT(100.0)
@@ -862,8 +871,8 @@ end
 @testset "moist thermodynamics - dry limit" begin
 
     FT = Float64
-    z, e_int, ρ, q_tot, q_pt, T, p, θ_liq_ice =
-        tested_profiles(param_set, 50, FT)
+    profiles = PhaseEquilProfiles(param_set, FT)
+    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH
 
     # PhasePartition test is noisy, so do this only once:
     ts_dry = PhaseDry(param_set, first(e_int), first(ρ))

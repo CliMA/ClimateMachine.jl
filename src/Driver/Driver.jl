@@ -46,11 +46,12 @@ _init_array(::Type{Array}) = nothing
 
 const cuarray_pkgid =
     Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
-function gpu_allowscalar(val)
+
+function gpu_allowscalar(val::Bool)
     if haskey(Base.loaded_modules, ClimateMachine.cuarray_pkgid)
         Base.loaded_modules[ClimateMachine.cuarray_pkgid].allowscalar(val)
     end
-    return nothing
+    return
 end
 
 # Note that the initial values specified here are overwritten by the
@@ -67,20 +68,80 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     checkpoint_at_end::Bool = false
     checkpoint_dir::String = "checkpoint"
     restart_from_num::Int = -1
+    fix_rng_seed::Bool = false
     log_level::String = "INFO"
+    disable_custom_logger::Bool = false
     output_dir::String = "output"
     integration_testing::Bool = false
-    array_type
+    array_type::Type = Array
 end
-const Settings = ClimateMachine_Settings(array_type = Array)
+
+const Settings = ClimateMachine_Settings()
 
 
 """
-    parse_commandline()
+    ClimateMachine.array_type()
+
+Return the array type used by ClimateMachine. This defaults to (CPU-based) `Array`
+and is only correctly set (based on choice from the command line, from
+an environment variable, or from experiment code) after `ClimateMachine.init()`
+is called.
 """
-function parse_commandline(custom_settings)
-    exc_handler =
-        isinteractive() ? ArgParse.debug_handler : ArgParse.default_handler
+array_type() = Settings.array_type
+
+
+"""
+    get_setting(setting_name::Symbol, settings, defaults)
+
+Define fallback behavior for driver settings, first accessing overloaded `settings`
+if defined, followed by constructed global ENV variable `CLIMATEMACHINE_SETTINGS_<SETTING_NAME>`,
+then (global) defaults.
+
+Returns setting value.
+"""
+function get_setting(setting_name::Symbol, settings, defaults)
+    if !haskey(defaults, setting_name)
+        error("setting $setting_name is not defined in `defaults`")
+    end
+    setting_type = typeof(defaults[setting_name])
+    setting_env = "CLIMATEMACHINE_SETTINGS_" * uppercase(String(setting_name))
+    if haskey(settings, setting_name)
+        return convert(setting_type, settings[setting_name])
+    elseif haskey(ENV, setting_env)
+        env_val = ENV[setting_env]
+        v = tryparse(setting_type, env_val)
+        if isnothing(v)
+            error("Cannot parse ENV $setting_env value $env_val, to setting type $setting_type")
+        end
+        return v
+    elseif haskey(defaults, setting_name)
+        return defaults[setting_name]
+    else
+        error("setting $setting_name is not contained in either settings or defaults")
+    end
+end
+
+"""
+    parse_commandline(defaults::Union{Nothing, Dict{Symbol,Any}),
+                      custom_settings::Union{Nothing,ArgParseSettings}=nothing)
+
+Parse process command line ARGS values.
+If `defaults` is not nothing, override default values for cli argument defaults.
+If `custom_settings` arg is not nothing, add ArgParseSettings to the parsing step.
+
+Returns a `Dict` containing parsed process ARGS values.
+"""
+function parse_commandline(
+    defaults::Union{Nothing, Dict{Symbol, Any}} = nothing,
+    custom_settings::Union{Nothing, ArgParseSettings} = nothing,
+)
+    if isnothing(defaults)
+        defaults = Dict{Symbol, Any}()
+    end
+    exc_handler = ArgParse.default_handler
+    if Base.isinteractive()
+        exc_handler = ArgParse.debug_handler
+    end
     s = ArgParseSettings(
         prog = PROGRAM_FILE,
         description = "Climate Machine: an Earth System Model that automatically learns from data\n",
@@ -96,8 +157,13 @@ function parse_commandline(custom_settings)
         preformatted_epilog = true,
         version = string(CLIMATEMACHINE_VERSION),
         exc_handler = exc_handler,
+        autofix_names = true,  # switches --flag-name to 'flag_name'
     )
     add_arg_group!(s, "ClimateMachine")
+
+    global_defaults = Dict{Symbol, Any}(
+        (n, getproperty(Settings, n)) for n in propertynames(Settings)
+    )
 
     @add_arg_table! s begin
         "--disable-gpu"
@@ -107,32 +173,34 @@ function parse_commandline(custom_settings)
         help = "interval at which to show simulation updates"
         metavar = "<interval>"
         arg_type = String
-        default = "60secs"
+        default = get_setting(:show_updates, defaults, global_defaults)
         "--diagnostics"
         help = "interval at which to collect diagnostics"
         metavar = "<interval>"
         arg_type = String
-        default = "never"
+        default = get_setting(:diagnostics, defaults, global_defaults)
         "--vtk"
         help = "interval at which to output VTK"
         metavar = "<interval>"
         arg_type = String
-        default = "never"
+        default = get_setting(:vtk, defaults, global_defaults)
         "--monitor-timestep-duration"
         help = "interval in time-steps at which to output wall-clock time per time-step"
         metavar = "<interval>"
         arg_type = String
-        default = "never"
+        default =
+            get_setting(:monitor_timestep_duration, defaults, global_defaults)
         "--monitor-courant-numbers"
         help = "interval at which to output acoustic, advective, and diffusive Courant numbers"
         metavar = "<interval>"
         arg_type = String
-        default = "never"
+        default =
+            get_setting(:monitor_courant_numbers, defaults, global_defaults)
         "--checkpoint"
         help = "interval at which to create a checkpoint"
         metavar = "<interval>"
         arg_type = String
-        default = "never"
+        default = get_setting(:checkpoint, defaults, global_defaults)
         "--checkpoint-keep-all"
         help = "keep all checkpoints (instead of just the most recent)"
         action = :store_true
@@ -143,53 +211,85 @@ function parse_commandline(custom_settings)
         help = "the directory in which to store checkpoints"
         metavar = "<path>"
         arg_type = String
-        default = "checkpoint"
+        default = get_setting(:checkpoint_dir, defaults, global_defaults)
         "--restart-from-num"
         help = "checkpoint number from which to restart (in <checkpoint-dir>)"
         metavar = "<number>"
         arg_type = Int
-        default = -1
+        default = get_setting(:restart_from_num, defaults, global_defaults)
         "--fix-rng-seed"
         help = "set RNG seed to a fixed value for reproducibility"
+        action = :store_true
+        "--disable-custom-logger"
+        help = "do not use a custom logger"
         action = :store_true
         "--log-level"
         help = "set the log level to one of debug/info/warn/error"
         metavar = "<level>"
         arg_type = String
-        default = "info"
+        default = uppercase(get_setting(:log_level, defaults, global_defaults))
         "--output-dir"
         help = "directory for output data"
         metavar = "<path>"
         arg_type = String
-        default = get(ENV, "CLIMATEMACHINE_OUTPUT_DIR", "output")
+        default = get(defaults, :output_dir) do
+            get(ENV, "CLIMATEMACHINE_OUTPUT_DIR") do
+                get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", Settings.output_dir)
+            end
+        end
         "--integration-testing"
         help = "enable integration testing"
         action = :store_true
     end
-
+    # add custom cli argparse settings if provided
     if !isnothing(custom_settings)
         import_settings!(s, custom_settings)
     end
-
     return parse_args(s)
 end
 
-"""
-    ClimateMachine.array_type()
-
-Return the array type used by ClimateMachine. This defaults to (CPU-based) `Array`
-and is only correctly set (based on choice from the command line, from
-an environment variable, or from experiment code) after `ClimateMachine.init()`
-is called.
-"""
-array_type() = Settings.array_type
 
 """
-    ClimateMachine.init(
-        ;
-        disable_gpu = false,
-        arg_settings = nothing,
-    )
+    ClimateMachine.cli(;arg_settings=nothing, init_driver=true, kwargs...)
+
+Initialize the ClimateMachine runtime with cli argument parsing.
+
+- Additional `ArgParseSettings` behavior can be injected into the default
+ClimateMachine `ArgParseSettings` cofiguration by setting the `custom_settings`
+keyword value.
+
+- Setting `init_driver = false` will set the `ClimateMachine.Settings` singleton
+values without initializing the ClimateMachine driver runtime.
+
+- ClimateMachine.init key value pairs can be supplied to overload
+default system defaults at runtime, default values will be merged with the
+parsed argument settings, with parsed cli argument values taking precedent
+over runtime defined default values.
+
+
+Returns a `Dict` containing parsed process ARGS values.
+"""
+function cli(;
+    custom_settings::Union{Nothing, ArgParseSettings} = nothing,
+    init_driver::Bool = true,
+    kwargs...,
+)
+    kw_defaults = Dict{Symbol, Any}(kwargs)
+    parsed_args = parse_commandline(kw_defaults, custom_settings)
+    # we need to munge the parsed arg dict a bit as parsed arg keys
+    # and climatemachine initialization keywords are not 1:1
+    parsed_args["checkpoint_keep_one"] = !parsed_args["checkpoint_keep_all"]
+    parsed_kwargs = Dict{Symbol, Any}((Symbol(k), v) for (k, v) in parsed_args)
+    # allow for setting cli arguments as hard defaults that override parsed process ARGS
+    init_kwargs = merge(kw_defaults, parsed_kwargs)
+    # call init with munged kw arguments
+    ClimateMachine.init(; init_driver = init_driver, init_kwargs...)
+    return parsed_args
+end
+
+
+"""
+    ClimateMachine.init(;init_driver::Bool=true, kwargs...)
 
 Perform necessary initializations for ClimateMachine:
 - Initialize MPI.
@@ -200,68 +300,115 @@ it will be imported into ClimateMachine's settings.
 `disable-gpu = true` if not) and set the ClimateMachine array type appropriately.
 - Set up the global logger.
 
-Returns a `Dict` containing non-ClimateMachine command-line arguments.
+Setting `init_driverd = false` will set the `ClimateMachine.Settings` singleton
+values without initializing the ClimateMachine driver runtime.
+
+`ClimateMachine.Settings` values can be overloaded at runtime upon initialization.
+If keyword argument overloads are not supplied, the `init` routine will try and
+fallback on any `CLIMATEMACHINE_SETTINGS_<VALUE>` `ENV` variables defined for
+the process, otherwise the defaulting to `ClimateMachine.Settings`.
+
+# Keyword Arguments
+- `disable_gpu::Bool = false`:
+        do not use the GPU
+- `show_updates::String = "60secs"`:
+        interval at which to show simulation updates
+- `diagnostics::String = "never"`:
+        interval at which to collect diagnostics"
+- `vtk::String = "never"`:
+        inteverval at which to write simulation vtk output
+- `monitor_timestep_duration::String = "never"`:
+        interval in time-steps at which to output wall-clock time per time-step
+- `monitor_courant_numbers::String = "never"`:
+        interval at which to output acoustic, advective, and diffusive Courant numbers"
+- `checkpoint::String = "never"`:
+        interval at which to output a checkpoint
+- `checkpoint_keep_one::Bool = true`: (interval)
+        keep all checkpoints (instead of just the most recent)"
+- `checkpoint_at_end::Bool = false`:
+        create a checkpoint at the end of the simulation"
+- `checkpoint_dir::String = "checkpoint"`:
+        absolute or relative path to checkpoint directory
+- `restart_from_num::Int = -1`:
+        checkpoint number from which to restart (in `checkpoint_dir`)
+- `fix_rng_seed::Bool = false`:
+        set RNG seed to a fixed value for reproducibility
+- `log_level::String = "INFO"`:
+        log level for ClimateMachine global default runtime logger
+- `disable_custom_logger::String = false`:
+        disable using a global custom logger for ClimateMachine
+- `output_dir::String = "output"`: (path)
+        absolute or relative path to output data directory
+- `integration_testing::Bool = false`:
+        enable integration_testing
 """
-function init(; disable_gpu = false, arg_settings = nothing)
+function init(; init_driver::Bool = true, kwargs...)
+    # init global setting values
+    # TODO: add validation for initialization values
+
+    if haskey(kwargs, :disable_gpu)
+        Settings.disable_gpu = kwargs[:disable_gpu]
+    elseif haskey(ENV, "CLIMATEMACHINE_GPU")
+        @warn(
+            "CLIMATEMACHINE_GPU will be deprecated; " *
+            "use CLIMATEMACHINE_SETTINGS_DISABLE_GPU"
+        )
+        Settings.disable_gpu = ENV["CLIMATEMACHINE_GPU"] == "false"
+    elseif haskey(ENV, "CLIMATEMACHINE_SETTINGS_DISABLE_GPU")
+        Settings.disable_gpu =
+            parse(Bool, ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"])
+    end
+
+    if haskey(kwargs, :output_dir)
+        Settings.output_dir = kwargs[:output_dir]
+    elseif haskey(ENV, "CLIMATEMACHINE_OUTPUT_DIR")
+        @warn(
+            "CLIMATEMACHINE_OUTPUT_DIR will be deprecated; " *
+            "use CLIMATEMACHINE_SETTINGS_OUTPUT_DIR"
+        )
+        Settings.output_dir = ENV["CLIMATEMACHINE_OUTPUT_DIR"]
+    elseif haskey(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR")
+        Settings.output_dir = ENV["CLIMATEMACHINE_SETTINGS_OUTPUT_DIR"]
+    end
+
+    global_defaults = Dict{Symbol, Any}(
+        (n, getproperty(Settings, n)) for n in propertynames(Settings)
+    )
+
+    for n in propertynames(Settings)
+        # skip over the special backwards compat cases defined above
+        if n == :disable_gpu || n == :output_dir
+            continue
+        end
+        setproperty!(Settings, n, get_setting(n, kwargs, global_defaults))
+    end
+
+    # set up the array type appropriately depending on whether we're using GPUs
+    if !Settings.disable_gpu && CUDAapi.has_cuda_gpu()
+        Settings.array_type = CuArrays.CuArray
+    end
+
+    if init_driver
+        _init_driver(Settings)
+    end
+    return
+end
+
+
+function _init_driver(settings::ClimateMachine_Settings)
     # set up timing mechanism
     tictoc()
-
-    # parse command line arguments
-    parsed_args = nothing
-    try
-        parsed_args = parse_commandline(arg_settings)
-        Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
-        delete!(parsed_args, "disable-gpu")
-        Settings.show_updates = parsed_args["show-updates"]
-        delete!(parsed_args, "show-updates")
-        Settings.diagnostics = parsed_args["diagnostics"]
-        delete!(parsed_args, "diagnostics")
-        Settings.vtk = parsed_args["vtk"]
-        delete!(parsed_args, "vtk")
-        Settings.monitor_timestep_duration =
-            parsed_args["monitor-timestep-duration"]
-        delete!(parsed_args, "monitor-timestep-duration")
-        Settings.monitor_courant_numbers =
-            parsed_args["monitor-courant-numbers"]
-        delete!(parsed_args, "monitor-courant-numbers")
-        Settings.log_level = uppercase(parsed_args["log-level"])
-        delete!(parsed_args, "log-level")
-        Settings.checkpoint = parsed_args["checkpoint"]
-        delete!(parsed_args, "checkpoint")
-        Settings.checkpoint_keep_one = !parsed_args["checkpoint-keep-all"]
-        delete!(parsed_args, "checkpoint-keep-all")
-        Settings.checkpoint_at_end = parsed_args["checkpoint-at-end"]
-        delete!(parsed_args, "checkpoint-at-end")
-        Settings.checkpoint_dir = parsed_args["checkpoint-dir"]
-        delete!(parsed_args, "checkpoint-dir")
-        Settings.restart_from_num = parsed_args["restart-from-num"]
-        delete!(parsed_args, "restart-from-num")
-        Settings.output_dir = parsed_args["output-dir"]
-        delete!(parsed_args, "output-dir")
-        Settings.integration_testing = parsed_args["integration-testing"]
-        delete!(parsed_args, "integration-testing")
-    catch
-        Settings.disable_gpu = disable_gpu
-    end
 
     # initialize MPI
     if !MPI.Initialized()
         MPI.Init()
     end
 
-    # set up the array type appropriately depending on whether we're using GPUs
-    if get(ENV, "CLIMATEMACHINE_GPU", "") != "false" &&
-       !Settings.disable_gpu &&
-       CUDAapi.has_cuda_gpu()
-        atyp = CuArrays.CuArray
-    else
-        atyp = Array
-    end
-    _init_array(atyp)
-    Settings.array_type = atyp
+    # initialize the array GPU backend if appropriate
+    _init_array(settings.array_type)
 
     # fix the RNG seeds if requested
-    if parsed_args["fix-rng-seed"]
+    if settings.fix_rng_seed
         rank = MPI.Comm_rank(MPI.COMM_WORLD)
         for tid in 1:nthreads()
             s = 1000 * rank + tid
@@ -271,24 +418,32 @@ function init(; disable_gpu = false, arg_settings = nothing)
 
     # create the output directory if needed on delegated rank
     if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-        if Settings.diagnostics != "never" || Settings.vtk != "never"
-            mkpath(Settings.output_dir)
+        if settings.diagnostics != "never" || settings.vtk != "never"
+            mkpath(settings.output_dir)
         end
-        if Settings.checkpoint != "never" || Settings.checkpoint_at_end
-            mkpath(Settings.checkpoint_dir)
+        if settings.checkpoint != "never" || settings.checkpoint_at_end
+            mkpath(settings.checkpoint_dir)
         end
     end
     MPI.Barrier(MPI.COMM_WORLD)
 
     # set up logging
-    loglevel = Settings.log_level == "DEBUG" ? Logging.Debug :
-        Settings.log_level == "WARN" ? Logging.Warn :
-        Settings.log_level == "ERROR" ? Logging.Error : Logging.Info
-    # TODO: write a better MPI logging back-end and also integrate Dlog for large scale
-    logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
-
-    return parsed_args
+    log_level_str = uppercase(settings.log_level)
+    loglevel = log_level_str == "DEBUG" ? Logging.Debug :
+        log_level_str == "WARN" ? Logging.Warn :
+        log_level_str == "ERROR" ? Logging.Error : Logging.Info
+    # TODO: write a better MPI logging back-end and also integrate Dlog
+    # for large scale
+    if !settings.disable_custom_logger
+        # cannot use `NullLogger` here because MPI collectives may be
+        # used in logging calls!
+        logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
+        prev_logger = global_logger(ConsoleLogger(logger_stream, loglevel))
+        atexit() do
+            global_logger(prev_logger)
+        end
+    end
+    return
 end
 
 include("driver_configs.jl")
