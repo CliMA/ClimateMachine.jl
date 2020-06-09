@@ -4,8 +4,6 @@
 CurrentModule = ClimateMachine.Diagnostics
 ```
 
-## Diagnostics
-
 ```@docs
 Diagnostics
 ```
@@ -14,16 +12,9 @@ Diagnostics
 
 Diagnostics computes the physically relevant fields for postprocessing.
 
-### Types
+### Types / Functions
 
 ```@docs
-ClimateMachine.Diagnostics.VecGrad
-ClimateMachine.Diagnostics.Vorticity
-```
-
-### Functions
-
-```@docs
-ClimateMachine.Diagnostics.compute_vec_grad
-ClimateMachine.Diagnostics.compute_vorticity
+Diagnostics.VectorGradients
+Diagnostics.Vorticity
 ```

@@ -103,10 +103,13 @@ All equations are marched simultaneously in time.
 # Reference links
 
 [^1]: [Column Vectors](https://en.wikipedia.org/wiki/Row_and_column_vectors)
+
 [^2]: Note that using non-conservative sources should be a final resort,
 as this can leak conservation of the unknowns and lead to numerical
 instabilities. It is recommended to use either `F_{diffusive}` or
 `F_{non_diffusive}`, as these fluxes are communicated across elements[^3]
+
 [^3]: MPI communication occurs only across elements, not within each element,
 where there may be many [Gauss-Lobatto][^4] points
+
 [^4]: [Gauss-Lobatto](https://en.wikipedia.org/wiki/Gaussian_quadrature#Gauss%E2%80%93Lobatto_rules)
