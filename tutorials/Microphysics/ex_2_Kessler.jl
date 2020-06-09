@@ -1,4 +1,6 @@
-include("KinematicModel.jl")
+using ClimateMachine
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+include(joinpath(clima_dir, "Microphysics", "KinematicModel.jl"))
 
 function vars_state_conservative(m::KinematicModel, FT)
     @vars begin

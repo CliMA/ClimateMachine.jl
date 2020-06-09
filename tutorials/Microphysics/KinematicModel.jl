@@ -144,12 +144,12 @@ function init_state_auxiliary!(
     _cp_d::FT = cp_d(m.param_set)
     _grav::FT = grav(m.param_set)
 
-    # TODO - should R_d and cp_d here be R_m and cp_m?
+    ## TODO - should R_d and cp_d here be R_m and cp_m?
     R_m, cp_m, cv_m, γ = gas_constants(m.param_set, PhasePartition(dc.qt_0))
 
-    # Pressure profile assuming hydrostatic and constant θ and qt profiles.
-    # It is done this way to be consistent with Arabas paper.
-    # It's not necessarily the best way to initialize with our model variables.
+    ## Pressure profile assuming hydrostatic and constant θ and qt profiles.
+    ## It is done this way to be consistent with Arabas paper.
+    ## It's not necessarily the best way to initialize with our model variables.
     p =
         dc.p_1000 *
         (
@@ -234,7 +234,7 @@ function config_kinematic_eddy(
     qt_0,
     z_0,
 )
-    # Choose explicit solver
+    ## Choose explicit solver
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -251,7 +251,7 @@ function config_kinematic_eddy(
         FT(z_0),
     )
 
-    # Set up the model
+    ## Set up the model
     model = KinematicModel{FT}(
         AtmosLESConfigType,
         param_set;
