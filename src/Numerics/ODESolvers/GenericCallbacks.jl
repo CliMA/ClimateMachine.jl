@@ -23,9 +23,11 @@ struct EveryXWallTimeSeconds
     mpicomm
     "function to execute for callback"
     func::Function
-    function EveryXWallTimeSeconds(func, Δtime, mpicomm)
+    "function to initialize"
+    init::Function
+    function EveryXWallTimeSeconds(func, Δtime, mpicomm; init = () -> nothing)
         lastcbtime_ns = [time_ns()]
-        new(lastcbtime_ns, Δtime, mpicomm, func)
+        new(lastcbtime_ns, Δtime, mpicomm, func, init)
     end
 end
 function (cb::EveryXWallTimeSeconds)(initialize::Bool = false)
@@ -33,10 +35,7 @@ function (cb::EveryXWallTimeSeconds)(initialize::Bool = false)
     if initialize
         cb.lastcbtime_ns[1] = time_ns()
         # If this is initialization init the callback too
-        try
-            cb.func(true)
-        catch
-        end
+        cb.init()
         return 0
     end
 
@@ -66,11 +65,13 @@ struct EveryXSimulationTime
     Δtime::Real
     "function to execute for callback"
     func::Function
+    "function to initialize"
+    init::Function
     "timestepper, used to query for time"
     solver
-    function EveryXSimulationTime(func, Δtime, solver)
+    function EveryXSimulationTime(func, Δtime, solver; init = () -> nothing)
         lastcbtime = [ODESolvers.gettime(solver)]
-        new(lastcbtime, Δtime, func, solver)
+        new(lastcbtime, Δtime, func, solver, init)
     end
 end
 function (cb::EveryXSimulationTime)(initialize::Bool = false)
@@ -78,10 +79,7 @@ function (cb::EveryXSimulationTime)(initialize::Bool = false)
     if initialize
         cb.lastcbtime[1] = ODESolvers.gettime(cb.solver)
         # If this is initialization init the callback too
-        try
-            cb.func(true)
-        catch
-        end
+        cb.init()
         return 0
     end
 
@@ -108,9 +106,11 @@ struct EveryXSimulationSteps
     Δsteps::Integer
     "function to execute for callback"
     func::Function
-    function EveryXSimulationSteps(func, Δsteps)
+    "function to initialize"
+    init::Function
+    function EveryXSimulationSteps(func, Δsteps, init = () -> nothing)
         steps = [Int(0)]
-        new(steps, Δsteps, func)
+        new(steps, Δsteps, func, init)
     end
 end
 function (cb::EveryXSimulationSteps)(initialize::Bool = false)
@@ -118,10 +118,7 @@ function (cb::EveryXSimulationSteps)(initialize::Bool = false)
     if initialize
         cb.steps[1] = 0
         # If this is initialization init the callback too
-        try
-            cb.func(true)
-        catch
-        end
+        cb.init()
         return 0
     end
 
