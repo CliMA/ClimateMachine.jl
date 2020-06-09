@@ -21,6 +21,7 @@ function compute_subdomain_statistics!(
   en = state.edmf.environment
   up = state.edmf.updraft
 
+  # YAIR need to compute the env values here or pass them from ml function
   ts = PhaseEquil(param_set ,en.e_int, gm.ρ, en.q_tot)
   T = air_temperature(ts)
   q_liq = PhasePartition(ts).liq

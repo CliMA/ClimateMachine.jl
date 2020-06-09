@@ -7,7 +7,6 @@ function compute_buoyancy_gradients(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction,
 ) where {FT, N}
     # think how to call subdomain statistics here to get cloudy and dry values of T if you nee them
     # buoyancy gradients via chain-role
@@ -29,7 +28,7 @@ function compute_buoyancy_gradients(
     _R_d::FT      = R_d(param_set)
     ε_v::FT       = 1 / molmass_ratio(param_set)
 
-    cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, ss.statistical_model)
+    cloudy, dry, cld_frac = compute_subdomain_statistics!(ss, state, aux ,t, ss.edmf.micro_phys.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
 
     dry.∂e_int∂z

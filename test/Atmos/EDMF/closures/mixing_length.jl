@@ -56,14 +56,14 @@ function mixing_length(
     obukhov_length = FT(-100)
 
     # buoyancy related functions
-    ∂b∂z, N2 = compute_buoyancy_gradients(ss, m, state, diffusive, aux, t, direction)
+    ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(ss, m, state, diffusive, aux, t)
     Grad_Ri = gradient_Richardson_number(∂b∂z, Shear, FT(0.25)) # this parameter should be exposed in the model
     Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
 
-    # compute L1 - stability - YAIR missing N2
-    # N2 = g*en_d.∇θ_v/θ_v
-    if N2>FT(0)
-      m.L[1] = sqrt(m.c_w*tke)/N2
+    # compute L1 - stability - YAIR missing Nˢ
+    # Nˢ = g*en_d.∇θ_v/θ_v
+    if Nˢ_eff>FT(0)
+      m.L[1] = sqrt(m.c_w*tke)/Nˢ_eff
     else
       m.L[1] = FT(1e-6)
     end

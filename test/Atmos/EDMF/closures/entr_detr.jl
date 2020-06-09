@@ -6,7 +6,7 @@ function entr_detr(
     state::Vars,
     aux::Vars,
     t::Real,
-    i::Int
+    i::Int,
 ) where {FT, N}
 
     # Alias convention:
