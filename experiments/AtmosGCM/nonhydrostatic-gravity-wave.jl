@@ -49,7 +49,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     _p_eq::FT = MSLP(bl.param_set)
 
     N::FT = 0.01
-    u_0::FT = 20
+    u_0::FT = 0.0 # 20
     G::FT = _grav^2 / N^2 / _cp
     T_eq::FT = 300
     Δθ::FT = 1.0
@@ -158,7 +158,7 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_dump_state_and_aux_diagnostics(
+    dgngrp = setup_atmos_default_diagnostics(
         AtmosGCMConfigType(),
         interval,
         driver_config.name,
