@@ -52,9 +52,9 @@ function vars_state_gradient(m::SingleStack, FT)
 end
 
 function vars_state_gradient_flux(m::SingleStack, FT)
-    @vars(ρak∇e_int::SVector{3, FT},
-          ρak∇q_tot::SVector{3, FT},
-          ρak∇u::SMatrix{3, 3, FT, 9},
+    @vars(∇e_int::SVector{3, FT},
+          ∇q_tot::SVector{3, FT},
+          ∇u::SMatrix{3, 3, FT, 9},
           ∇p0::SVector{3, FT},
           edmf::vars_state_gradient_flux(m.edmf, FT));
 end
@@ -219,13 +219,20 @@ function flux_second_order!(
     # compute the mixing length and eddy diffusivity
     # (I am repeating this after doing in sources assuming that it is better to compute this twice than to add mixing length as a aux.variable)
     # l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
-    l=100
-    K_eddy = m.c_k*l*sqrt(en.tke)
+    εt = MArray{Tuple{N}, FT}(zeros(FT, N))
+    ε = MArray{Tuple{N}, FT}(zeros(FT, N))
+    δ = MArray{Tuple{N}, FT}(zeros(FT, N))
+    for i in 1:N
+        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
+    end
+    l = mixing_length(m, m.edmf.mix_len, state, diffusive, aux, t, δ, εt)
+    ρa_en = (gm.ρ-sum([up[j].ρa for j in 1:N]))
+    K_eddy = m.edmf.mix_len.c_k*l*sqrt(en.ρatke/ρa_en)
     # flux_second_order in the grid mean is the environment turbulent diffusion
     en_ρa = state.ρ-sum([up[i].ρa for i in 1:N])
-    flux.ρe_int += en_ρa*K_eddy*en_d.∇e_int # check Prantl number here
-    flux.ρq_tot += en_ρa*K_eddy*en_d.∇q_tot # check Prantl number here
-    flux.ρu     += en_ρa*K_eddy*en_d.∇u     # check Prantl number here
+    flux.ρe_int += ρa_en*K_eddy*en_d.∇e_int # check Prantl number here
+    flux.ρq_tot += ρa_en*K_eddy*en_d.∇q_tot # check Prantl number here
+    flux.ρu     += ρa_en*K_eddy*en_d.∇u     # check Prantl number here
     flux_second_order!(m, m.edmf, flux, state, diffusive, hyperdiffusive, aux, t)
 end;
 
@@ -255,7 +262,7 @@ function boundary_state!(
         state⁺.ρe_int = state⁺.ρ #* m.surface_e_int
         state⁺.ρq_tot = state⁺.ρ #* m.surface_q_tot
     elseif bctype == 2 # top
-        state⁺.ρ = # placeholder to find out how density at the top is computed in the LES?
+        state⁺.ρ = FT(1) # placeholder to find out how density at the top is computed in the LES?
         state⁺.ρu = SVector(0,0,0)
     end
     boundary_state!(nf, m, m.edmf, state⁺, aux⁺, n⁻, state⁻, aux⁻, bctype, t, args...)

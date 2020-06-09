@@ -3,7 +3,6 @@
 function compute_buoyancy_gradients(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
-    source::Vars,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
@@ -48,6 +47,7 @@ function compute_buoyancy_gradients(
                             - gm_d.∇p0/gm_a.p0)
     # combine cloudy and dry
     ∂b∂z = (cld_frac*∂b∂z_cloudy + (1-cld_frac)*∂b∂z_dry)
+    
     # keeping the old derivation commented for now 
     # #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
     # ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)

@@ -4,7 +4,7 @@ function mixing_length(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
     state::Vars,
-    ∇transform::Grad,
+    diffusive::Vars,
     aux::Vars,
     t::Real,
     δ::AbstractArray{FT},
@@ -18,7 +18,7 @@ function mixing_length(
     en = state.edmf.environment
     up = state.edmf.updraft
     gm_a = aux
-    en_∇t = ∇transform.edmf.environment
+    en_d = diffusive.edmf.environment
 
     z = gm_a.z
     _grav = FT(grav(ss.param_set))
@@ -32,13 +32,13 @@ function mixing_length(
     w_env    = (gm.ρu[3]  - sum([up[i].ρau[3] for i in 1:N]))*ρinv
     en_e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))*ρinv
     en_q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
-    ∂e_int∂z = en_∇t.e_int
-    ∂q_tot∂z = en_∇t.q_tot
+    ∂e_int∂z = en_d.∇e_int
+    ∂q_tot∂z = en_d.∇q_tot
     
     
 
     # TODO: check rank of `en_d.∇u`
-    Shear = en_∇t.u[1].^2 + en_∇t.u[2].^2 + en_∇t.u[3].^2 # consider scalar product of two vectors
+    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
 
     # Thermodynamic local variables for mixing length
     ts    = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
@@ -56,7 +56,7 @@ function mixing_length(
     obukhov_length = FT(-100)
 
     # buoyancy related functions
-    ∂b∂z, N2 = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
+    ∂b∂z, N2 = compute_buoyancy_gradients(ss, m, state, diffusive, aux, t, direction)
     Grad_Ri = gradient_Richardson_number(∂b∂z, Shear, FT(0.25)) # this parameter should be exposed in the model
     Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
 

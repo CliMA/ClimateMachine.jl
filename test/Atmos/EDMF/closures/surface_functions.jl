@@ -55,9 +55,7 @@ function compute_updraft_surface_BC(
     ss::SingleStack{FT, N},
     m::SurfaceModel,
     edmf::EDMF{FT,N},
-    source::Vars,
     state::Vars,
-    i::Int
     ) where {FT, N}
   
   gm = state
@@ -65,15 +63,19 @@ function compute_updraft_surface_BC(
   up = state.edmf.updraft
   ρinv = 1/gm.ρ
   
-  tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(ss, m, edmf, source, state)
+  tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(ss, m, edmf, state)
+  upd_a_surf::SVector{N, FT}
+  upd_e_int_surf::SVector{N, FT}
+  upd_q_tot_surf::SVector{N, FT}
   for i in 1:N
     surface_scalar_coeff = percentile_bounds_mean_norm(1 - m.surface_area+ i * FT(m.surface_area/N),
                                                         1 - m.surface_area + (i+1)*FT(m.surface_area/N), 1000)
-    up[i].ρa      = gm.ρ * FT(m.surface_area/N)
-    up[i].ρae_int = gm.ρe_int + surface_scalar_coeff*sqrt(e_int_cv)*gm.ρ
-    up[i].ρaq_tot = gm.ρq_tot + surface_scalar_coeff*sqrt(q_tot_cv)*gm.ρ
-    
+    upd_a_surf[i]     = gm.ρ * FT(m.surface_area/N)
+    upd_e_int_surf[i] = gm.ρe_int + surface_scalar_coeff*sqrt(e_int_cv)*gm.ρ
+    upd_q_tot_surf[i] = gm.ρq_tot + surface_scalar_coeff*sqrt(q_tot_cv)*gm.ρ
   end
+
+  return upd_a_surf ,upd_e_int_surf ,upd_q_tot_surf
 end;
 
 function percentile_bounds_mean_norm(low_percentile::FT, high_percentile::FT, n_samples::Int) where {FT<:Real, I}
