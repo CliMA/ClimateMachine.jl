@@ -1,4 +1,6 @@
-include("KinematicModel.jl")
+using ClimateMachine
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+include(joinpath(clima_dir, "tutorials", "Microphysics", "KinematicModel.jl"))
 
 function vars_state_conservative(m::KinematicModel, FT)
     @vars begin
@@ -11,10 +13,10 @@ end
 
 function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
-        # defined in init_state_auxiliary
+        ## defined in init_state_auxiliary
         p::FT
         z::FT
-        # defined in update_aux
+        ## defined in update_aux
         u::FT
         w::FT
         q_tot::FT
@@ -38,17 +40,17 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
 
     dc = eddy_model.data_config
 
-    # density
+    ## density
     q_pt_0 = PhasePartition(dc.qt_0)
     R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
     T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
     ρ::FT = aux.p / R_m / T
     state.ρ = ρ
 
-    # moisture
+    ## moisture
     state.ρq_tot = ρ * dc.qt_0
 
-    # velocity (derivative of streamfunction)
+    ## velocity (derivative of streamfunction)
     ρu::FT =
         dc.wmax * dc.xmax / dc.zmax *
         cos(π * z / dc.zmax) *
@@ -58,7 +60,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     u::FT = ρu / ρ
     w::FT = ρw / ρ
 
-    # energy
+    ## energy
     e_kin::FT = 1 // 2 * (u^2 + w^2)
     e_pot::FT = _grav * z
     e_int::FT = internal_energy(param_set, T, q_pt_0)
@@ -87,7 +89,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
     aux.e_pot = _grav * aux.z
     aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
-    # saturation adjustment happens here
+    ## saturation adjustment happens here
     ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
     pp = PhasePartition(ts)
 
@@ -96,7 +98,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
     aux.q_liq = pp.liq
     aux.q_ice = pp.ice
 
-    # TODO: add super_saturation method in moist thermo
+    ## TODO: add super_saturation method in moist thermo
     aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
     aux.RH = relative_humidity(ts)
 end
@@ -134,38 +136,38 @@ end
 )
     FT = eltype(state)
 
-    # advect moisture ...
+    ## advect moisture ...
     flux.ρq_tot = SVector(
         state.ρu[1] * state.ρq_tot / state.ρ,
         FT(0),
         state.ρu[3] * state.ρq_tot / state.ρ,
     )
-    # ... energy ...
+    ## ... energy ...
     flux.ρe = SVector(
         state.ρu[1] / state.ρ * (state.ρe + aux.p),
         FT(0),
         state.ρu[3] / state.ρ * (state.ρe + aux.p),
     )
-    # ... and don't advect momentum (kinematic setup)
+    ## ... and don't advect momentum (kinematic setup)
 end
 
 source!(::KinematicModel, _...) = nothing
 
 function main()
-    # Working precision
+    ## Working precision
     FT = Float64
-    # DG polynomial order
+    ## DG polynomial order
     N = 4
-    # Domain resolution and size
+    ## Domain resolution and size
     Δx = FT(20)
     Δy = FT(1)
     Δz = FT(20)
     resolution = (Δx, Δy, Δz)
-    # Domain extents
+    ## Domain extents
     xmax = 1500
     ymax = 10
     zmax = 1500
-    # initial configuration
+    ## initial configuration
     wmax = FT(0.6)  # max velocity of the eddy  [m/s]
     θ_0 = FT(289) # init. theta value (const) [K]
     p_0 = FT(101500) # surface pressure [Pa]
@@ -173,7 +175,7 @@ function main()
     qt_0 = FT(7.5 * 1e-3) # init. total water specific humidity (const) [kg/kg]
     z_0 = FT(0) # surface height
 
-    # time stepping
+    ## time stepping
     t_ini = FT(0)
     t_end = FT(60 * 30)
     dt = 40
@@ -199,14 +201,14 @@ function main()
         driver_config;
         ode_dt = dt,
         init_on_cpu = true,
-        #Courant_number = CFL,
+        ##Courant_number = CFL,
     )
 
     mpicomm = MPI.COMM_WORLD
 
-    # output for paraview
+    ## output for paraview
 
-    # initialize base prefix directory from rank 0
+    ## initialize base prefix directory from rank 0
     vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
@@ -236,31 +238,31 @@ function main()
             nothing
         end
 
-    # get aux variables indices for testing
+    ## get aux variables indices for testing
     q_tot_ind = varsindex(vars_state_auxiliary(model, FT), :q_tot)
     q_vap_ind = varsindex(vars_state_auxiliary(model, FT), :q_vap)
     q_liq_ind = varsindex(vars_state_auxiliary(model, FT), :q_liq)
     q_ice_ind = varsindex(vars_state_auxiliary(model, FT), :q_ice)
     S_ind = varsindex(vars_state_auxiliary(model, FT), :S)
 
-    # call solve! function for time-integrator
+    ## call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
         user_callbacks = (cbvtk,),
         check_euclidean_distance = true,
     )
 
-    # no supersaturation
+    ## no supersaturation
     max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
     @test isequal(max_S, FT(0))
 
-    # qt is conserved
+    ## qt is conserved
     max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
     min_q_tot = minimum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))
     @test isapprox(max_q_tot, qt_0; rtol = 1e-3)
     @test isapprox(min_q_tot, qt_0; rtol = 1e-3)
 
-    # q_vap + q_liq = q_tot
+    ## q_vap + q_liq = q_tot
     max_water_diff = maximum(abs.(
         solver_config.dg.state_auxiliary[:, q_tot_ind, :] .-
         solver_config.dg.state_auxiliary[:, q_vap_ind, :] .-
@@ -268,11 +270,11 @@ function main()
     ))
     @test isequal(max_water_diff, FT(0))
 
-    # no ice
+    ## no ice
     max_q_ice = maximum(abs.(solver_config.dg.state_auxiliary[:, q_ice_ind, :]))
     @test isequal(max_q_ice, FT(0))
 
-    # q_liq ∈ reference range
+    ## q_liq ∈ reference range
     max_q_liq = max(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
     min_q_liq = min(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
     @test max_q_liq < FT(1e-3)
