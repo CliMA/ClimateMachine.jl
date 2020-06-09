@@ -5,7 +5,7 @@ using ClimateMachine.Mesh.Topologies:
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, VerticalDirection
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.DGMethods: DGModel, init_ode_state
+using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -68,17 +68,20 @@ function main()
     expected_result[Float64] = 9.5073452847149594e+13
 
     for FT in (Float32, Float64)
-        result = run(
-            mpicomm,
-            polynomialorder,
-            numelem_horz,
-            numelem_vert,
-            timeend,
-            outputtime,
-            ArrayType,
-            FT,
-        )
-        @test result ≈ expected_result[FT]
+        for split_explicit_implicit in (false, true)
+            result = run(
+                mpicomm,
+                polynomialorder,
+                numelem_horz,
+                numelem_vert,
+                timeend,
+                outputtime,
+                ArrayType,
+                FT,
+                split_explicit_implicit,
+            )
+            @test result ≈ expected_result[FT]
+        end
     end
 end
 
@@ -91,6 +94,7 @@ function run(
     outputtime,
     ArrayType,
     FT,
+    split_explicit_implicit,
 )
 
     setup = AcousticWaveSetup{FT}()
@@ -158,14 +162,24 @@ function run(
 
     linearsolver = ManyColumnLU()
 
+    if split_explicit_implicit
+        rem_dg = remainder_DGModel(
+            dg,
+            (lineardg,);
+            numerical_flux_first_order = (
+                dg.numerical_flux_first_order,
+                (lineardg.numerical_flux_first_order,),
+            ),
+        )
+    end
     odesolver = ARK2GiraldoKellyConstantinescu(
-        dg,
+        split_explicit_implicit ? rem_dg : dg,
         lineardg,
         LinearBackwardEulerSolver(linearsolver; isadjustable = false),
         Q;
         dt = dt,
         t0 = 0,
-        split_explicit_implicit = false,
+        split_explicit_implicit = split_explicit_implicit,
     )
 
     filterorder = 18
