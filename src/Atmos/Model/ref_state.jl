@@ -1,13 +1,7 @@
 ### Reference state
 using DocStringExtensions
-export ReferenceState,
-    NoReferenceState,
-    HydrostaticState,
-    IsothermalProfile,
-    LinearTemperatureProfile,
-    DecayingTemperatureProfile,
-    DryAdiabaticProfile
 using ..TemperatureProfiles
+export NoReferenceState, HydrostaticState
 
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
 
