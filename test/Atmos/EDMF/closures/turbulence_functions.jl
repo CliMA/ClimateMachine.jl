@@ -33,6 +33,22 @@ function compute_buoyancy_gradients(
 
     cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, ss.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
+
+    dry.∂e_int∂z
+    dry.∂q_tot∂z
+    cloudy.∂e_int∂z
+    cloudy.∂q_tot∂z
+
+    ρ_i = gm_a.p0/(dry.T*dry.R_m) 
+    ∂b∂z_dry = -∂b∂ρ*ρ_i*( 1/( (1-dry.q_tot)*_cv_d*dry.T + dry.q_vap *_cv_v * dry.T) * dry.∂e_int∂z 
+                       + (_R_d/dry.R_m)*(ϵ_v-1)*dry.∂q_tot∂z - gm_d.p0*gm_a.p0) # missing pressure gradients - maybbe assign hydrostatic for now 
+
+    ρ_i = gm_a.p0/(cloudy.T*cloudy.R_m) 
+    ∂b∂z_cloudy = -∂b∂ρ*ρ_i*(1/((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v+cloudy.q_liq*_cv_l+cloudy.q_ice*_cv_i)/cloudy.T*cloudy.∂e_int∂z  
+                             +(_R_d/dry.R_m)*1/(_cv_v*(cloudy.T-_T0)+_e_int_i0)*cloudy.∂e_int∂z
+                             -1/gm_a.p0* )
+
+
     #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
     ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)
     #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
@@ -56,15 +72,15 @@ function compute_buoyancy_gradients(
     θv =  virtual_pottemp(ts)
     θvl =  θv*exp(-(lv*ql)/(cpm*T))
 
-    ∂θv∂I   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
+    ∂θv∂e_int   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
               +cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i))* θv/T*(1-lv*ql/cpm*T)
-    ∂θvl∂I   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
+    ∂θvl∂e_int   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
                +cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i))* θvl/T*(1-lv*ql/cpm*T)
     ∂θv∂qt   = -θv/Tv*(ϵ_v-1)/I0 
     ∂θvl∂qt  = -θvl/Tv*(ϵ_v-1)/I0 
     # apply chain-role
-    ∂θv∂z    = ∂θv∂I*∂I∂z  + ∂θv∂qt*∂qt∂z
-    ∂θvl∂z   = ∂θvl∂I*∂I∂z + ∂θvl∂qt*∂qt∂z
+    ∂θv∂z    = ∂θv∂e_int*∂I∂z  + ∂θv∂qt*∂qt∂z
+    ∂θvl∂z   = ∂θvl∂e_int*∂I∂z + ∂θvl∂qt*∂qt∂z
 
     ∂θv∂vl = exp((lv*ql)/(_cp_m*T))
     λ_stb = en.cld_frac
