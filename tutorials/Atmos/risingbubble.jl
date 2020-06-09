@@ -93,7 +93,7 @@ using CLIMAParameters
 using CLIMAParameters.Atmos.SubgridScale: C_smag
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+const param_set = EarthParameterSet();
 
 # ## [Initial Conditions](@id init)
 # This example of a rising thermal bubble can be classified as an initial value
@@ -198,7 +198,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ##    fast_method = LSRK144NiegemannDiehlBusch,
     ##    timestep_ratio = 10,
     ## )`
-    ##See [ODESolvers](@ref ODESolvers-docs) for all of the available solvers.
+    ## See [ODESolvers](@ref ODESolvers-docs) for all of the available solvers.
 
 
     ## Since we want four tracers, we specify this and include the appropriate
@@ -207,7 +207,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     ## tracer index identifier)
     ntracers = 4
     δ_χ = SVector{ntracers, FT}(1, 2, 3, 4)
-    # To assemble `AtmosModel` with no tracers, set `tracers = NoTracers()`.
+    ## To assemble `AtmosModel` with no tracers, set `tracers = NoTracers()`.
 
     ## The model coefficient for the turbulence closure is defined via the
     ## [CLIMAParameters

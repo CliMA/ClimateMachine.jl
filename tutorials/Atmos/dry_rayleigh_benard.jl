@@ -7,7 +7,7 @@
 #                 `Top`   : Prescribed temperature, no-slip
 #                 `Bottom`: Prescribed temperature, no-slip
 # 3) Domain - 250m[horizontal] x 250m[horizontal] x 500m[vertical]
-# 4) Timeend - 1000s
+# 4) Timeend - 100s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 6) Random values in initial condition (Requires `init_on_cpu=true` argument)
 # 7) Overrides defaults for
@@ -153,10 +153,10 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         data_config = data_config,
     )
 
-    # Set up the time-integrator, using a multirate infinitesimal step
-    # method. The option `splitting_type = ClimateMachine.SlowFastSplitting()`
-    # separates fast-slow modes by splitting away the acoustic waves and
-    # treating them via a sub-stepped explicit method.
+    ## Set up the time-integrator, using a multirate infinitesimal step
+    ## method. The option `splitting_type = ClimateMachine.SlowFastSplitting()`
+    ## separates fast-slow modes by splitting away the acoustic waves and
+    ## treating them via a sub-stepped explicit method.
     ode_solver = ClimateMachine.MISSolverType(;
         splitting_type = ClimateMachine.SlowFastSplitting(),
         mis_method = MIS2,
@@ -181,7 +181,7 @@ end
 
 # Define diagnostics configuration kernel
 function config_diagnostics(driver_config)
-    interval = "10000steps"
+    interval = "100steps"
     dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         interval,
