@@ -28,6 +28,8 @@ const param_set = EarthParameterSet()
 import CLIMAParameters
 CLIMAParameters.Planet.Omega(::EarthParameterSet) = 0.0
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
+CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
+
 
 function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     FT = eltype(state)
@@ -156,7 +158,7 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_atmos_default_diagnostics(
+    dgngrp = setup_dump_state_and_aux_diagnostics(
         AtmosGCMConfigType(),
         interval,
         driver_config.name,
