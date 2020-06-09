@@ -82,14 +82,15 @@ Users may over-ride prescribed default values for each field.
         source,
         tracers,
         boundarycondition,
-        init_state_conservative
+        init_state_conservative,
+        gcminfo,
     )
 
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
+struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, GI, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -115,6 +116,8 @@ struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
     boundarycondition::BC
     "Initial Condition (Function to assign initial values of state variables)"
     init_state_conservative::IS
+    "GCM information"
+    gcminfo::GI
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -139,8 +142,9 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
     init_state_conservative::IS = nothing,
+    gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC}
+) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, TR, BC, IS, GI, DC}
     @assert param_set ≠ nothing
     @assert init_state_conservative ≠ nothing
 
@@ -157,6 +161,7 @@ function AtmosModel{FT}(
         tracers,
         boundarycondition,
         init_state_conservative,
+        gcminfo,
         data_config,
     )
 
@@ -176,8 +181,9 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
     init_state_conservative::IS = nothing,
+    gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC}
+) where {FT <: AbstractFloat, O, RS, T, HD, M, P, R, S, TR, BC, IS, GI, DC}
     @assert param_set ≠ nothing
     @assert init_state_conservative ≠ nothing
     atmos = (
@@ -193,6 +199,7 @@ function AtmosModel{FT}(
         tracers,
         boundarycondition,
         init_state_conservative,
+        gcminfo,
         data_config,
     )
 
@@ -284,6 +291,7 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         moisture::vars_state_auxiliary(m.moisture, FT)
         tracers::vars_state_auxiliary(m.tracers, FT)
         radiation::vars_state_auxiliary(m.radiation, FT)
+        gcminfo::vars_state_auxiliary(m.gcminfo,FT)
     end
 end
 """
@@ -309,6 +317,7 @@ include("turbulence.jl")
 include("hyperdiffusion.jl")
 include("moisture.jl")
 include("precipitation.jl")
+include("gcminfo.jl")
 include("radiation.jl")
 include("source.jl")
 include("tracers.jl")

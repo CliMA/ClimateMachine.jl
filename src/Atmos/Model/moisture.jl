@@ -205,8 +205,8 @@ function compute_gradient_argument!(
 )
     ρinv = 1 / state.ρ
     transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
-    transform.moisture.T_gcm = aux.ref_state.T
-    transform.moisture.q_tot_gcm = aux.ref_state.ρq_tot
+    transform.moisture.T_gcm = aux.gcminfo.T
+    transform.moisture.q_tot_gcm = aux.gcminfo.ρq_tot
 end
 
 function compute_gradient_flux!(

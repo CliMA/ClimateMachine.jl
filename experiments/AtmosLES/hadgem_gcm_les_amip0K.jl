@@ -48,29 +48,6 @@ DOI = {10.5194/gmd-10-359-2017}
 }
 """
 
-# Reference state setup (GCM reference)
-"""
-GCMReferenceState{FT} <: ReferenceState
-A ReferenceState informed by data from a GCM (Here, HADGEM2)
-"""
-struct GCMReferenceState{FT} <: ReferenceState end
-vars_state_auxiliary(m::GCMReferenceState, FT) = @vars(
-    ρ::FT,
-    p::FT,
-    ta::FT,
-    ρe::FT,
-    ρq_tot::FT,
-    ua::FT,
-    va::FT,
-    tntha::FT,
-    tntva::FT,
-    tntr::FT,
-    tnhusha::FT,
-    tnhusva::FT,
-    wap::FT,
-    T::FT
-)
-
 struct GCMRelaxation{FT} <: Source
     τ_relax::FT
 end
@@ -120,19 +97,19 @@ function atmos_source!(
     # Unpack vertical gradients
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
     ∂T∂z = dot(diffusive.moisture.∇T_gcm, k̂)
-    ρw_adv = -aux.ref_state.wap / _grav
+    ρw_adv = -aux.gcminfo.wap / _grav
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
     # Temperature contribution
-    source.ρe += cvm * aux.ref_state.ρ * aux.ref_state.tntha
-    source.ρe += cvm * aux.ref_state.ρ * aux.ref_state.tntva
-    source.ρe += cvm * aux.ref_state.ρ * aux.ref_state.tntr
+    source.ρe += cvm * aux.gcminfo.ρ * aux.gcminfo.tntha
+    source.ρe += cvm * aux.gcminfo.ρ * aux.gcminfo.tntva
+    source.ρe += cvm * aux.gcminfo.ρ * aux.gcminfo.tntr
     source.ρe += cvm * ∂T∂z * ρw_adv
     # Moisture contribution
-    source.ρe += _e_int_v0 * aux.ref_state.tnhusha * aux.ref_state.ρ
-    source.ρe += _e_int_v0 * aux.ref_state.tnhusva * aux.ref_state.ρ
+    source.ρe += _e_int_v0 * aux.gcminfo.tnhusha * aux.gcminfo.ρ
+    source.ρe += _e_int_v0 * aux.gcminfo.tnhusva * aux.gcminfo.ρ
     source.ρe += _e_int_v0 * ∂qt∂z * ρw_adv
     # GPU-friendly return nothing
     return nothing
@@ -167,13 +144,13 @@ function atmos_source!(
     k̂ = vertical_unit_vector(atmos, aux)
     # Establish vertical orientation
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
-    ρw_adv = -aux.ref_state.wap / _grav
+    ρw_adv = -aux.gcminfo.wap / _grav
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
-    source.moisture.ρq_tot += aux.ref_state.tnhusha * aux.ref_state.ρ
-    source.moisture.ρq_tot += aux.ref_state.tnhusva * aux.ref_state.ρ
+    source.moisture.ρq_tot += aux.gcminfo.tnhusha * aux.gcminfo.ρ
+    source.moisture.ρq_tot += aux.gcminfo.tnhusva * aux.gcminfo.ρ
     source.moisture.ρq_tot += ∂qt∂z * ρw_adv
     # GPU-friendly return nothing
     return nothing
@@ -203,7 +180,7 @@ function atmos_source!(
     # Establish vertical orientation
     k̂ = vertical_unit_vector(atmos, aux)
     # Establish subsidence velocity
-    w_s = -aux.ref_state.wap / aux.ref_state.ρ / _grav
+    w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Compute tendency terms
     source.ρe -= state.ρ * w_s * dot(k̂, diffusive.∇h_tot)
     source.moisture.ρq_tot -= state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
@@ -249,7 +226,7 @@ function atmos_source!(
     α_max = s.α_max
     γ = s.γ
     # Establish sponge relaxation velocity
-    u_geo = SVector(aux.ref_state.ua, aux.ref_state.va, 0)
+    u_geo = SVector(aux.gcminfo.ua, aux.gcminfo.va, 0)
     z = altitude(atmos, aux)
     # Accumulate sources
     if z_sponge <= z
@@ -408,20 +385,20 @@ function init_cfsites!(bl, state, aux, (x, y, z), t, spl)
     end
 
     # Assign and store the ref variable for sources
-    aux.ref_state.ρ = ρ_gcm
-    aux.ref_state.p = P
-    aux.ref_state.ta = ta
-    aux.ref_state.ρe = ρ_gcm * (e_kin + e_pot + e_int)
-    aux.ref_state.ρq_tot = ρ_gcm * q_tot
-    aux.ref_state.tntha = tntha
-    aux.ref_state.tntva = tntva
-    aux.ref_state.ua = ua
-    aux.ref_state.va = va
-    aux.ref_state.tntr = tntr
-    aux.ref_state.tnhusha = tnhusha
-    aux.ref_state.tnhusva = tnhusva
-    aux.ref_state.wap = wap
-    aux.ref_state.T = ta
+    aux.gcminfo.ρ = ρ_gcm
+    aux.gcminfo.p = P
+    aux.gcminfo.ta = ta
+    aux.gcminfo.ρe = ρ_gcm * (e_kin + e_pot + e_int)
+    aux.gcminfo.ρq_tot = ρ_gcm * q_tot
+    aux.gcminfo.tntha = tntha
+    aux.gcminfo.tntva = tntva
+    aux.gcminfo.ua = ua
+    aux.gcminfo.va = va
+    aux.gcminfo.tntr = tntr
+    aux.gcminfo.tnhusha = tnhusha
+    aux.gcminfo.tnhusva = tnhusva
+    aux.gcminfo.wap = wap
+    aux.gcminfo.T = ta
 
 end
 
@@ -432,7 +409,6 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = GCMReferenceState{FT}(),
         turbulence = Vreman{FT}(0.23),
         hyperdiffusion = StandardHyperDiffusion(3600),
         source = (
@@ -457,6 +433,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
         init_state_conservative = init_cfsites!,
+        gcminfo = HadGem2(),
     )
     mrrk_solver = ClimateMachine.MultirateSolverType(
         linear_model = AtmosAcousticGravityLinearModel,
