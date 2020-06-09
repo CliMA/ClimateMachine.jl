@@ -18,12 +18,10 @@ using ClimateMachine.VariableTemplates
 using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
-using Random: rand
-using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet:
-    R_d, day, grav, cp_d, planet_radius, Omega, kappa_d
+    R_d, day, grav, cp_d, planet_radius, Omega, kappa_d, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -46,12 +44,12 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     _a::FT = planet_radius(bl.param_set)
     _R_d::FT = R_d(bl.param_set)
     _kappa::FT = kappa_d(bl.param_set)
+    _p_eq::FT = MSLP(bl.param_set)
 
     N::FT = 0.01
     u_0::FT = 20
     G::FT = _grav^2 / N^2 / _cp
     T_eq::FT = 300
-    p_eq::FT = 1e5
     Δθ::FT = 1.0
     d::FT = 5e3
     λ_c::FT = 2 * π / 3
@@ -73,13 +71,13 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
 
     # pressure
     p_s::FT =
-        p_eq *
+        _p_eq *
         exp(u_0 / 4 / G / _R_d * (u_0 + 2 * _Ω * _a) * (cos(2 * φ) - 1)) *
         (T_s / T_eq)^(1 / _kappa)
     p::FT = p_s * (G / T_s * exp(-N^2 / _grav * z) + 1 - G / T_s)^(1 / _kappa)
 
     # background potential temperature
-    θ_b::FT = T_b * (p_eq / p)^_kappa
+    θ_b::FT = T_b * (_p_eq / p)^_kappa
 
     # potential temperature perturbation
     r::FT = _a * acos(sin(φ_c) * sin(φ) + cos(φ_c) * cos(φ) * cos(λ - λ_c))
@@ -87,7 +85,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     θ′::FT = Δθ * s * sin(2 * π * z / L_z)
 
     # temperature perturbation
-    T′::FT = θ′ * (p / p_eq)^_kappa
+    T′::FT = θ′ * (p / _p_eq)^_kappa
 
     # temperature
     T::FT = T_b + T′
@@ -128,10 +126,6 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         init_state_conservative = init_nonhydrostatic_gravity_wave!,
     )
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
         poly_order,
@@ -139,7 +133,6 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_nonhydrostatic_gravity_wave!;
-        #    solver_type = ode_solver,
         model = model,
     )
 
@@ -163,7 +156,7 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_dump_state_and_aux_diagnostics(
+    dgngrp = setup_atmos_default_diagnostics(
         AtmosGCMConfigType(),
         interval,
         driver_config.name,
