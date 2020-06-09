@@ -28,6 +28,7 @@ using ClimateMachine.Atmos:
     DryModel,
     NoPrecipitation,
     NoRadiation,
+    NTracers,
     ConstantViscosityWithDivergence,
     vars_state_conservative,
     vars_state_auxiliary,
@@ -48,6 +49,8 @@ const param_set = EarthParameterSet()
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 const output_vtk = false
+
+const ntracers = 1
 
 function main()
     ClimateMachine.init()
@@ -112,6 +115,7 @@ function run(
     )
 
     T_profile = IsothermalProfile(param_set, setup.T_ref)
+    δ_χ = @SVector [FT(ii) for ii in 1:ntracers]
 
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -120,6 +124,7 @@ function run(
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
         init_state_conservative = setup,
     )
@@ -273,6 +278,8 @@ function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
     state.ρ = air_density(ts)
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = state.ρ * (e_int + e_pot)
+
+    state.tracers.ρχ = @SVector [FT(ii) for ii in 1:ntracers]
     nothing
 end
 

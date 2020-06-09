@@ -474,7 +474,16 @@ end
 @inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
-    return abs(dot(nM, u)) + soundspeed(m, m.moisture, state, aux)
+    uN = abs(dot(nM, u))
+    ss = soundspeed(m, m.moisture, state, aux)
+
+    FT = typeof(state.ρ)
+    ws = fill(uN + ss, MVector{number_state_conservative(m, FT), FT})
+    vars_ws = Vars{vars_state_conservative(m, FT)}(ws)
+
+    wavespeed_tracers!(m.tracers, vars_ws, nM, state, aux, t)
+
+    return ws
 end
 
 
