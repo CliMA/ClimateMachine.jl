@@ -603,14 +603,14 @@ function interpolate_brick_CUDA!(
 end
 
 function dimensions(interpol::InterpolationBrick)
-    if Array ∈ typeof(dgngrp.interpol.x1g).parameters
-        h_x1g = dgngrp.interpol.x1g
-        h_x2g = dgngrp.interpol.x2g
-        h_x3g = dgngrp.interpol.x3g
+    if Array ∈ typeof(interpol.x1g).parameters
+        h_x1g = interpol.x1g
+        h_x2g = interpol.x2g
+        h_x3g = interpol.x3g
     else
-        h_x1g = Array(dgngrp.interpol.x1g)
-        h_x2g = Array(dgngrp.interpol.x2g)
-        h_x3g = Array(dgngrp.interpol.x3g)
+        h_x1g = Array(interpol.x1g)
+        h_x2g = Array(interpol.x2g)
+        h_x3g = Array(interpol.x3g)
     end
     return OrderedDict(
         "x" => (h_x1g, OrderedDict()),

@@ -2,8 +2,7 @@
 
 ## Install Julia
 
-The Climate Machine (CLIMA) uses the Julia programming language and has been tested for the Julia version 1.4.1, which can be downloaded via your package manager or from the [Julia website](https://julialang.org/downloads/#current_stable_release).
-CLIMA has also been tested for Julia version 1.3, which can be found in [Julia's old releases](https://julialang.org/downloads/oldreleases/).
+The Climate Machine (CLIMA) uses the Julia programming language and has been tested for the latest Julia release version 1.4, which can be downloaded via your package manager or from the [Julia website](https://julialang.org/downloads/#current_stable_release).
 
 ## Install MPI (optional)
 
