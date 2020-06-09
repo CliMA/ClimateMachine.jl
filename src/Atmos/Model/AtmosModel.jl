@@ -316,6 +316,7 @@ include("boundaryconditions.jl")
 include("linear.jl")
 include("remainder.jl")
 include("courant.jl")
+include("filters.jl")
 
 @doc """
     flux_first_order!(

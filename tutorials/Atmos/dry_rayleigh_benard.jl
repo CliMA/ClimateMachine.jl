@@ -213,7 +213,7 @@ function main()
                 GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
                     Filters.apply!(
                         solver_config.Q,
-                        6,
+                        ("moisture.ρq_tot",),
                         solver_config.dg.grid,
                         TMARFilter(),
                     )

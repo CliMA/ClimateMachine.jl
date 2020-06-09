@@ -245,9 +245,10 @@ function main()
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            1:size(solver_config.Q, 2),
+            AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
         )
         nothing
     end

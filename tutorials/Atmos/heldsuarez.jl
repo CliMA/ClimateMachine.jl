@@ -254,7 +254,7 @@ filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
 cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
     Filters.apply!(
         solver_config.Q,
-        1:size(solver_config.Q, 2),
+        AtmosFilterPerturbations(model),
         solver_config.dg.grid,
         filter,
     )
