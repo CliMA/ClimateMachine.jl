@@ -487,7 +487,9 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    core_dgngrp = setup_atmos_core_diagnostics("2500steps", 
+                                               driver_config.name)
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, core_dgngrp])
 end
 
 function main()
@@ -503,8 +505,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(5000)
-    ymax = FT(5000)
+    xmax = FT(7200)
+    ymax = FT(7200)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
