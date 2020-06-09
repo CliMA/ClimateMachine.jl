@@ -4,7 +4,7 @@ function mixing_length(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
     state::Vars,
-    ∇transform::Vars,
+    ∇transform::Grad,
     aux::Vars,
     t::Real,
     δ::AbstractArray{FT},
@@ -15,13 +15,13 @@ function mixing_length(
     ss.edmf.surface
     # Alias convention:
     gm = state
-    en = state
+    en = state.edmf.environment
     up = state.edmf.updraft
     gm_a = aux
     en_∇t = ∇transform.edmf.environment
 
     z = gm_a.z
-    _grav = FT(grav(param_set))
+    _grav = FT(grav(ss.param_set))
     ρinv = 1/gm.ρ
 
 
@@ -41,16 +41,19 @@ function mixing_length(
     Shear = en_∇t.u[1].^2 + en_∇t.u[2].^2 + en_∇t.u[3].^2 # consider scalar product of two vectors
 
     # Thermodynamic local variables for mixing length
-    ts    = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)
-    tke   = sqrt(en.ρatke, FT(0))*ρinv/en_area
+    ts    = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
+    tke   = sqrt(en.ρatke)*ρinv/en_area
     θ_v   = virtual_pottemp(ts)
     T     = air_temperature(ts)
     q     = PhasePartition(ts)
-    ϵ_v   = 1 / molmass_ratio(param_set)
-    bflux     = Nishizawa2018.compute_buoyancy_flux(param_set, m.shf, m.lhf, m.T_b, q, ρinv)
-    θ_surf    = ss.SurfaceModel.T_surf
-    ustar = Nishizawa2018.compute_friction_velocity(param_set ,u_ave ,θ_suft ,flux ,Δz ,z_0 ,a ,Ψ_m_tol ,tol_abs ,iter_max)
-    obukhov_length = Nishizawa2018.monin_obukhov_len(param_set, u, θ_surf, flux)
+    ϵ_v   = 1 / molmass_ratio(ss.param_set)
+    # bflux     = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, m.T_b, q, ρinv)
+    bflux = FT(1)
+    θ_surf    = ss.edmf.surface.T_surf
+    # ustar = Nishizawa2018.compute_friction_velocity(ss.param_set ,u_ave ,θ_suft ,flux ,Δz ,z_0 ,a ,Ψ_m_tol ,tol_abs ,iter_max)
+    ustar = FT(0.28)
+    # obukhov_length = Nishizawa2018.monin_obukhov_len(ss.param_set, u, θ_surf, flux)
+    obukhov_length = FT(-100)
 
     # buoyancy related functions
     ∂b∂z, N2 = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
