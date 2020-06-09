@@ -2,21 +2,25 @@
 #### Defines list of Application Programming Interface (APIs)
 ####
 
-apis = Any[
+apis = [
     "Home" => "APIs/index.md",
-    "Atmos" => Any[
+    "Driver" => "APIs/Driver/index.md",
+    "Atmos" => [
         "AtmosModel" => "APIs/Atmos/AtmosModel.md"
         "Microphysics" => "APIs/Atmos/Microphysics.md"
     ],
-    "Ocean" => Any[],
-    "Land" => Any[],
-    "Common" => Any["Surface Fluxes" => "APIs/Common/SurfaceFluxes.md"],
+    "Ocean" => [],
+    "Land" => [],
+    "Common" => [
+        "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md"
+        "Thermodynamics" => "APIs/Common/Thermodynamics.md"
+    ],
     "Arrays" => "APIs/Arrays/Arrays.md",
-    "Diagnostics" => Any[
+    "Diagnostics" => [
         "List of variables" => "APIs/Diagnostics/Diagnostics.md"
         "Input/Output" => "APIs/Diagnostics/InputOutput.md"
     ],
-    "Numerics" => Any[
+    "Numerics" => [
         "Meshes" => "APIs/Numerics/Meshes/Mesh.md",
         "SystemSolvers" => "APIs/Numerics/SystemSolvers/SystemSolvers.md",
         "ODESolvers" => "APIs/Numerics/ODESolvers/ODESolvers.md",
