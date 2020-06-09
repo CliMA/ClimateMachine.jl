@@ -12,12 +12,17 @@ on:
 jobs:
   format:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v2
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+    - uses: actions/checkout@v2.2.0
       with:
         fetch-depth: 0
     - run: git fetch origin
-    - uses: julia-actions/setup-julia@latest
+    - uses: julia-actions/setup-julia@v1.1.6
       with:
         version: 1.4
     - name: Apply JuliaFormatter

@@ -8,18 +8,15 @@ on:
 
 jobs:
   coverage:
-    runs-on: ubuntu-16.04
-    strategy:
-      matrix:
-        julia-version: ['1.4']
-        project: ['ClimateMachine.jl']
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1.0.0
-    - name: "Set up Julia"
-      uses: julia-actions/setup-julia@v1
+    - uses: actions/checkout@v2.2.0
+
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v1.1.6
       with:
-        version: ${{ matrix.julia-version }}
+        version: 1.4
 
     - name: Test with coverage
       env:
@@ -35,8 +32,9 @@ jobs:
                                   using Coverage;
                                   LCOV.writefile("coverage-lcov.info", Codecov.process_folder())'
       if: success()
+
     - name: Submit coverage
-      uses: codecov/codecov-action@v1.0.2
+      uses: codecov/codecov-action@v1.0.7
       with:
         token: ${{secrets.CODECOV_TOKEN}}
       if: success()

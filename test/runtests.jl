@@ -14,6 +14,14 @@ end
 @testset "ClimateMachine" begin
     all_tests = isempty(ARGS) || "all" in ARGS ? true : false
 
+    function has_submodule(sm)
+        any(ARGS) do a
+            a == sm && return true
+            first(split(a, '/')) == sm && return true
+            return false
+        end
+    end
+
     for submodule in [
         "InputOutput",
         "Utilities",
@@ -25,9 +33,8 @@ end
         "Ocean",
         "Driver",
     ]
-        if all_tests || "$submodule" in ARGS || "ClimateMachine" in ARGS
+        if all_tests || has_submodule(submodule) || "ClimateMachine" in ARGS
             include_test(submodule)
         end
     end
-
 end
