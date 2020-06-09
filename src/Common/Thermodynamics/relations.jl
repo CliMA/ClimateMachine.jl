@@ -572,25 +572,25 @@ Return the saturation vapor pressure over a plane liquid surface given
  - `T` temperature
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
 
-    saturation_vapor_pressure(param_set, T, Ice())
+    `saturation_vapor_pressure(param_set, T, Ice())`
 
 Return the saturation vapor pressure over a plane ice surface given
  - `T` temperature
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
 
-    saturation_vapor_pressure(param_set, T, LH_0, Δcp)
+    `saturation_vapor_pressure(param_set, T, LH_0, Δcp)`
 
 Compute the saturation vapor pressure over a plane surface by integration
 of the Clausius-Clapeyron relation.
 
 The Clausius-Clapeyron relation
 
-    dlog(p_v_sat)/dT = [LH_0 + Δcp * (T-T_0)]/(R_v*T^2)
+    `dlog(p_v_sat)/dT = [LH_0 + Δcp * (T-T_0)]/(R_v*T^2)`
 
 is integrated from the triple point temperature `T_triple`, using
 Kirchhoff's relation
 
-    L = LH_0 + Δcp * (T - T_0)
+    `L = LH_0 + Δcp * (T - T_0)`
 
 for the specific latent heat `L` with constant isobaric specific
 heats of the phases. The linear dependence of the specific latent heat
@@ -985,7 +985,7 @@ Compute the temperature that is consistent with
 
 by finding the root of
 
-``e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0``
+`e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
 
 using Newtons method with analytic gradients.
 
@@ -1068,7 +1068,7 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-``e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0``
+`e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
 
 See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
 """
@@ -1127,9 +1127,7 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-``
-  θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, ρ, phase_type, q_tot) = 0
-``
+`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, ρ, phase_type, q_tot) = 0`
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1197,9 +1195,7 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-``
-  θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, air_density(param_set, T, p, PhasePartition(q_tot)), phase_type, q_tot) = 0
-``
+`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, air_density(param_set, T, p, PhasePartition(q_tot)), phase_type, q_tot) = 0`
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1427,9 +1423,7 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
 
 by finding the root of
-``
-  T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, air_pressure(param_set, T, ρ, q), q) = 0
-``
+`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, air_pressure(param_set, T, ρ, q), q) = 0`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(
     param_set::APS,

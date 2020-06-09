@@ -20,6 +20,8 @@ const explicit_methods = (
 )
 
 const imex_methods = (
+    (ARK1ForwardBackwardEuler, 1),
+    (ARK2ImplicitExplicitMidpoint, 2),
     (ARK2GiraldoKellyConstantinescu, 2),
     (ARK437L2SA1KennedyCarpenter, 4),
     (ARK548L2SA2KennedyCarpenter, 5),

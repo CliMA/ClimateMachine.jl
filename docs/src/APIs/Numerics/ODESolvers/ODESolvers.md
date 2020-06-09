@@ -24,6 +24,8 @@ ODESolvers.SSPRK34SpiteriRuuth
 
 ```@docs
 ODESolvers.AdditiveRungeKutta
+ODESolvers.ARK1ForwardBackwardEuler
+ODESolvers.ARK2ImplicitExplicitMidpoint
 ODESolvers.ARK2GiraldoKellyConstantinescu
 ODESolvers.ARK548L2SA2KennedyCarpenter
 ODESolvers.ARK437L2SA1KennedyCarpenter

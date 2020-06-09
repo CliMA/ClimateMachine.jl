@@ -4,7 +4,7 @@
 
 apis = [
     "Home" => "APIs/index.md",
-    "Driver" => "APIs/index.md",
+    "Driver" => "APIs/Driver/index.md",
     "Atmos" => [
         "AtmosModel" => "APIs/Atmos/AtmosModel.md"
         "Microphysics" => "APIs/Atmos/Microphysics.md"
