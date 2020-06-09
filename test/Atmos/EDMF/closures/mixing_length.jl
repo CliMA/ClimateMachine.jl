@@ -3,12 +3,10 @@
 function mixing_length(
     ss::SingleStack{FT, N},
     m::MixingLengthModel,
-    source::Vars,
     state::Vars,
-    diffusive::Vars,
+    ∇transform::Vars,
     aux::Vars,
     t::Real,
-    direction,
     δ::AbstractArray{FT},
     εt::AbstractArray{FT},
     ) where {FT, N}
@@ -19,10 +17,8 @@ function mixing_length(
     gm = state
     en = state
     up = state.edmf.updraft
-    gm_s = source
-    en_s = source
-    up_s = source.edmf.updraft
-    en_d = state.edmf.environment.diffusive
+    gm_a = aux
+    en_∇t = ∇transform.edmf.environment
 
     z = gm_a.z
     _grav = FT(grav(param_set))
@@ -36,11 +32,13 @@ function mixing_length(
     w_env    = (gm.ρu[3]  - sum([up[i].ρau[3] for i in 1:N]))*ρinv
     en_e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))*ρinv
     en_q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
-    ∂e_int∂z = en_d.e_int # check if there is a missing ∇
-    ∂q_tot∂z = en_d.q_tot # check if there is a missing ∇
+    ∂e_int∂z = en_∇t.e_int
+    ∂q_tot∂z = en_∇t.q_tot
+    
+    
 
     # TODO: check rank of `en_d.∇u`
-    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
+    Shear = en_∇t.u[1].^2 + en_∇t.u[2].^2 + en_∇t.u[3].^2 # consider scalar product of two vectors
 
     # Thermodynamic local variables for mixing length
     ts    = PhaseEquil(param_set ,en_e_int, gm.ρ, en_q_tot)

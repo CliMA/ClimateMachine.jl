@@ -51,7 +51,10 @@ function vars_state_gradient(m::SingleStack, FT)
 end
 
 function vars_state_gradient_flux(m::SingleStack, FT)
-    @vars(edmf::vars_state_gradient_flux(m.edmf, FT));
+    @vars(ρak∇e_int::SVector{3, FT},
+          ρak∇q_tot::SVector{3, FT},
+          ρak∇u::SMatrix{3, 3, FT, 9},
+          edmf::vars_state_gradient_flux(m.edmf, FT));
 end
 # ## Define the compute kernels
 
@@ -243,10 +246,10 @@ function boundary_state!(
     args...,
 ) where {FT,N}
     if bctype == 1 # bottom
-        state⁺.ρ = m.surface_ρ # find out how is the density at the surface computed in the LES?
+        state⁺.ρ = FT(1) # m.surface_ρ # find out how is the density at the surface computed in the LES?
         state⁺.ρu = SVector(0,0,0)
-        state⁺.ρe_int = state⁺.ρ * m.surface_e_int
-        state⁺.ρq_tot = state⁺.ρ * m.surface_q_tot
+        state⁺.ρe_int = state⁺.ρ #* m.surface_e_int
+        state⁺.ρq_tot = state⁺.ρ #* m.surface_q_tot
     elseif bctype == 2 # top
         state⁺.ρ = # placeholder to find out how density at the top is computed in the LES?
         state⁺.ρu = SVector(0,0,0)

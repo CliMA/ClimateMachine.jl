@@ -41,7 +41,7 @@ function vars_state_conservative(::Updraft, FT)
 end
 
 function vars_state_conservative(::Environment, FT)
-    @vars(ρatke::SVector{3, FT},
+    @vars(ρatke::FT,
           ρae_int_cv::FT,
           ρaq_tot_cv::FT,
           ρae_int_q_tot_cv::FT,
@@ -60,10 +60,7 @@ function vars_state_conservative(m::EDMF, FT)
 end
 
 function vars_state_gradient(::Updraft, FT)
-    @vars(u::SVector{3, FT},
-          e_int::FT,
-          e_int::FT,
-          )
+    @vars()
 end
 
 function vars_state_gradient(::Environment, FT)
@@ -74,6 +71,7 @@ function vars_state_gradient(::Environment, FT)
           e_int_cv::FT,
           q_tot_cv::FT,
           e_int_q_tot_cv::FT,
+          θ_ρ::FT,
           )
 end
 
@@ -97,14 +95,11 @@ end
 
 
 function vars_state_gradient_flux(::Environment, FT)
-    @vars(∇e_int::SVector{3, FT},
-          ∇q_tot::SVector{3, FT},
-          ∇u::SMatrix{3, 3, FT, 9},
-          ∇tke::FT,
-          ∇e_int_cv::FT,
-          ∇q_tot_cv::FT,
-          ∇e_int_q_tot_cv::FT,
-          ∇θ_ρ::FT, # used in a diagnostic equation for the mixing length
+    @vars(ρak∇tke::SVector{3, FT},
+          ρak∇e_int_cv::SVector{3, FT},
+          ρak∇q_tot_cv::SVector{3, FT},
+          ρak∇e_int_q_tot_cv::SVector{3, FT},
+          ∇θ_ρ::SVector{3, FT},# used in a diagnostic equation for the mixing length
           );
 
 end
@@ -337,6 +332,7 @@ function compute_gradient_flux!(
     en_∇t = ∇transform.edmf.environment
     gm = state
     up = state.edmf.updraft
+    en = state.edmf.environment
 
     ρinv      = 1/gm.ρ
     en_d.∇θ_ρ = en_∇t.θ_ρ
@@ -347,19 +343,21 @@ function compute_gradient_flux!(
     ε = MArray{Tuple{N}, FT}(zeros(FT, N))
     δ = MArray{Tuple{N}, FT}(zeros(FT, N))
     for i in 1:N
-        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
+        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
     end
 
-    l = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
-    K_eddy = m.c_k*l*sqrt(en.tke)
-    gm_d.k∇ρe_int = K_eddy * en_∇t.e_int
-    gm_d.k∇ρq_tot = K_eddy * en_∇t.q_tot
-    gm_d.k∇u      = K_eddy * en_∇t.u
+    # YAIR - bug 3 
+    l      = mixing_length(m, m.edmf.mix_len, state, ∇transform, aux, t, δ, εt)
+    ρa_en = (gm.ρ-sum([up[j].ρa for j in 1:N]))
+    K_eddy = edmf.mix_len.c_k*l*sqrt(en.ρatke/ρa_en)
+    gm_d.ρak∇e_int = ρa_en*K_eddy*en_∇t.e_int
+    gm_d.ρak∇q_tot = ρa_en*K_eddy*en_∇t.q_tot
+    gm_d.ρak∇u     = ρa_en*K_eddy*en_∇t.u
     # second moment env cov
-    en_d.∇tke            = K_eddy * en_∇t.tke
-    en_d.∇e_int_cv       = K_eddy * en_∇t.e_int_cv
-    en_d.∇q_tot_cv       = K_eddy * en_∇t.q_tot_cv
-    en_d.∇e_int_q_tot_cv = K_eddy * en_∇t.e_int_q_tot_cv
+    en_d.ρak∇tke            = ρa_en*K_eddy*en_∇t.tke
+    en_d.ρak∇e_int_cv       = ρa_en*K_eddy*en_∇t.e_int_cv
+    en_d.ρak∇q_tot_cv       = ρa_en*K_eddy*en_∇t.q_tot_cv
+    en_d.ρak∇e_int_q_tot_cv = ρa_en*K_eddy*en_∇t.e_int_q_tot_cv
 
 end;
 
@@ -369,7 +367,7 @@ function source!(
     edmf::EDMF{FT, N},
     source::Vars,
     state::Vars,
-    diffusive::Vars,
+    ∇transform::Grad,
     aux::Vars,
     t::Real,
     direction,
@@ -406,8 +404,8 @@ function source!(
         env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
 
         # first moment sources
-        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, diffusive, aux, t, direction, i)
-        dpdz, dpdz_tke_i = perturbation_pressure(m, m.edmf.pressure, source, state, diffusive, aux, t, direction, i)
+        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
+        dpdz, dpdz_tke_i = perturbation_pressure(m, m.edmf.pressure, source, state, ∇transform, aux, t, i)
 
         # entrainment and detrainment
         w_i = up[i].ρu[3]*ρinv
@@ -442,9 +440,9 @@ function source!(
                             +   up[i].ρau[3] * εt[i]* q_tot_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)
                             -   up[i].ρau[3] * ε[i] * en.ρae_int_q_tot_cv)
     end
-    l      = mixing_length(m, m.edmf.mix_len, source, state, diffusive, aux, t, direction, δ, εt)
+    l      = mixing_length(m, m.edmf.mix_len, state, ∇transform, aux, t, δ, εt)
     K_eddy = m.c_k*l*sqrt(en.tke)
-    Shear  = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2  # YAIR check this
+    Shear = en_∇t.u[1].^2 + en_∇t.u[2].^2 + en_∇t.u[3].^2 # consider scalar product of two vectors
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
     #                            production from mean gradient       - Dissipation
@@ -529,10 +527,10 @@ function flux_second_order!(
     gm_f.ρu      += - gm_d.k∇ρu     + u_massflux
 
     # enviroment second moment turbulent flux
-    en_f.ρatke            += en_d.∇tke
-    en_f.ρae_int_cv       += en_d.∇e_int_cv
-    en_f.ρaq_tot_cv       += en_d.∇q_tot_cv
-    en_f.ρae_int_q_tot_cv += en_d.∇e_int_q_tot_cv
+    en_f.ρatke            += en_d.k∇tke
+    en_f.ρae_int_cv       += en_d.k∇e_int_cv
+    en_f.ρaq_tot_cv       += en_d.k∇q_tot_cv
+    en_f.ρae_int_q_tot_cv += en_d.k∇e_int_q_tot_cv
 end;
 
 # ### Boundary conditions

@@ -363,9 +363,6 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 # Create a dictionary for `z` coordinate (and convert to cm) NCDatasets IO:
 dims = OrderedDict(z_key => collect(z));
 
-# Create a DataFile, which is callable to get the name of each file given a step
-output_data = DataFile(joinpath(output_dir, "output_data"));
-
 all_data = OrderedDict([k => Dict() for k in 0:n_outputs]...)
 all_data[0] = deepcopy(all_vars)
 

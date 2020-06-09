@@ -1,10 +1,11 @@
+using LambertW
 # TODO: Add documentation
 function lamb_smooth_minimum(
     l::AbstractArray,
     lower_bound::FT,
     frac_upper_bound::FT
 ) where {FT}
-
+  
   leng = size(l)
   xmin = minimum(l)
   # try to find outhow to use dz from the model grid instead of lower_bound
