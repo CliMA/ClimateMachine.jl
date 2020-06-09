@@ -278,6 +278,7 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
         θ₀::FT
+        θ′::FT
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -571,6 +572,7 @@ Store Cartesian coordinate information in `aux.coord`.
 function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
     aux.θ₀ = eltype(aux)(0.0)
+    aux.θ′ = eltype(aux)(0.0)
     atmos_init_aux!(m.orientation, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)
     atmos_init_aux!(m.turbulence, m, aux, geom)
