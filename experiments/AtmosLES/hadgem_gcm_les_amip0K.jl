@@ -306,7 +306,7 @@ function get_gcm_info(groupid)
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    filename = "/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
+    filename = "/gcp/share1/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
     req_varnames = (
         "zg",
         "ta",
@@ -503,8 +503,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(3600)
-    ymax = FT(3600)
+    xmax = FT(5000)
+    ymax = FT(5000)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)

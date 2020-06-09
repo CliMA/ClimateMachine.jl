@@ -287,7 +287,7 @@ For a specific global site, establish and store the GCM state
 for each available vertical level. `groupid` refers to the integer
 index of the specific global site that we are interested in.
 """
-const forcingfile = "HadGEM2-A_amip4K.2004-2008.07"
+const forcingfile = "HadGEM2-A_amip.2004-2008.07"
 function get_gcm_info(groupid)
 
     @printf("--------------------------------------------------\n")
@@ -487,7 +487,9 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    core_dgngrp = setup_atmos_core_diagnostics("2500steps", 
+                                               driver_config.name)
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, core_dgngrp])
 end
 
 function main()
@@ -503,8 +505,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(3600)
-    ymax = FT(3600)
+    xmax = FT(7200)
+    ymax = FT(7200)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
