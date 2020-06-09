@@ -47,13 +47,15 @@ function vars_state_conservative(m::SingleStack, FT)
 end
 
 function vars_state_gradient(m::SingleStack, FT)
-    @vars(edmf::vars_state_gradient(m.edmf, FT));
+    @vars(p0::FT,
+          edmf::vars_state_gradient(m.edmf, FT));
 end
 
 function vars_state_gradient_flux(m::SingleStack, FT)
     @vars(ρak∇e_int::SVector{3, FT},
           ρak∇q_tot::SVector{3, FT},
           ρak∇u::SMatrix{3, 3, FT, 9},
+          ∇p0::SVector{3, FT},
           edmf::vars_state_gradient_flux(m.edmf, FT));
 end
 # ## Define the compute kernels
@@ -145,6 +147,7 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 ) where {FT, N}
+    transform.p0 = aux.p0
     compute_gradient_argument!(m, m.edmf, state, aux, t)
 end;
 
@@ -162,6 +165,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 ) where {FT,N}
+    diffusive.∇p0 = ∇transform.p0
     compute_gradient_flux!(m, m.edmf, diffusive, ∇transform, state, aux, t)
 end;
 

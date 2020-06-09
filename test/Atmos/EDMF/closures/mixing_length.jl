@@ -1,7 +1,7 @@
 #### Mixing length model kernels
 
 function mixing_length(
-    ss::SingleStack{FT, N},
+    ss::SingleStack{FT, N, N_quad},
     m::MixingLengthModel,
     state::Vars,
     ∇transform::Vars,
@@ -53,14 +53,14 @@ function mixing_length(
     obukhov_length = Nishizawa2018.monin_obukhov_len(param_set, u, θ_surf, flux)
 
     # buoyancy related functions
-    ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
-    Grad_Ri = gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, FT(0.25)) # this parameter should be exposed in the model
+    ∂b∂z, N2 = compute_buoyancy_gradients(ss, m,source,state, diffusive, aux, t, direction)
+    Grad_Ri = gradient_Richardson_number(∂b∂z, Shear, FT(0.25)) # this parameter should be exposed in the model
     Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
 
-    # compute L1 - stability - YAIR missing buoyancy_freq
-    buoyancy_freq = g*en_d.∇θ_v/θ_v
-    if buoyancy_freq>FT(0)
-      m.L[1] = sqrt(m.c_w*tke)/buoyancy_freq
+    # compute L1 - stability - YAIR missing N2
+    # N2 = g*en_d.∇θ_v/θ_v
+    if N2>FT(0)
+      m.L[1] = sqrt(m.c_w*tke)/N2
     else
       m.L[1] = FT(1e-6)
     end

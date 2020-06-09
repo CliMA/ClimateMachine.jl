@@ -43,12 +43,12 @@ function entr_detr(
       c_δ = 0
     end
     # compute dry and moist nondimentional exchange functions
-    D_ε ,D_δ ,M_δ ,M_ε = nondimensional_exchange_functions(ss ,m, state, diffusive, aux, t, i)
+    # D_ε ,D_δ ,M_δ ,M_ε = nondimensional_exchange_functions(ss ,m, state, aux, t, i)
     # YAIR - bug 1 
-    # D_ε = FT(1)
-    # D_δ = FT(1)
-    # M_δ = FT(1)
-    # M_ε = FT(1) 
+    D_ε = FT(1)
+    D_δ = FT(1)
+    M_δ = FT(1)
+    M_ε = FT(1) 
 
     m.Λ[1] = abs(db/dw)
     m.Λ[2] = m.c_λ*abs(db/(sqrt_tke+sqrt(eps(FT))))

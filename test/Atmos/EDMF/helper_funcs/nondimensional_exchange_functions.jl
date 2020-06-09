@@ -2,7 +2,6 @@ function nondimensional_exchange_functions(
     ss::SingleStack{FT, N},
     m::EntrainmentDetrainment,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
     i::N
@@ -12,10 +11,7 @@ function nondimensional_exchange_functions(
     gm = state
     en = state
     up = state.edmf.updraft
-    gm_s = source
-    en_s = source
-    up_s = source.edmf.updraft
-
+    
     # precompute vars
     ρinv = 1/gm.ρ
     up_area = up[i].ρa*ρinv

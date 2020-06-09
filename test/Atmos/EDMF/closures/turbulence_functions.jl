@@ -14,12 +14,11 @@ function compute_buoyancy_gradients(
     # buoyancy gradients via chain-role
     # Alias convention:
     gm = state
-    en = state
+    en = state.edmf.environment
     up = state.edmf.updraft
-    gm_s = source
-    en_s = source
-    up_s = source.edmf.updraft
-    en_d = state.edmf.environment.diffusive
+    en_d = diffusive.edmf.environment
+    gm_d = diffusive
+    gm_a = aux
 
     _cv_d::FT     = cv_d(param_set)
     _cp_v::FT     = cp_v(param_set)
@@ -29,7 +28,7 @@ function compute_buoyancy_gradients(
     _e_int_i0::FT = e_int_i0(param_set)
     _grav::FT     = grav(param_set)
     _R_d::FT      = R_d(param_set)
-    ϵ_v::FT       = 1 / molmass_ratio(param_set)
+    ε_v::FT       = 1 / molmass_ratio(param_set)
 
     cloudy, dry, cld_frac = compute_subdomain_statistics!(m, state, aux ,t, ss.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
@@ -40,27 +39,28 @@ function compute_buoyancy_gradients(
     cloudy.∂q_tot∂z
 
     ρ_i = gm_a.p0/(dry.T*dry.R_m) 
-    ∂b∂z_dry = -∂b∂ρ*ρ_i*( 1/( (1-dry.q_tot)*_cv_d*dry.T + dry.q_vap *_cv_v * dry.T) * dry.∂e_int∂z 
-                       + (_R_d/dry.R_m)*(ϵ_v-1)*dry.∂q_tot∂z - gm_d.p0*gm_a.p0) # missing pressure gradients - maybbe assign hydrostatic for now 
+    ∂b∂z_dry = - ∂b∂ρ*ρ_i*( 1/( (1-dry.q_tot)*_cv_d*dry.T + dry.q_vap *_cv_v * dry.T) * dry.∂e_int∂z 
+                        + (_R_d/dry.R_m)*(ε_v-1)*dry.∂q_tot∂z - gm_d.∇p0/gm_a.p0)
 
     ρ_i = gm_a.p0/(cloudy.T*cloudy.R_m) 
-    ∂b∂z_cloudy = -∂b∂ρ*ρ_i*(1/((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v+cloudy.q_liq*_cv_l+cloudy.q_ice*_cv_i)/cloudy.T*cloudy.∂e_int∂z  
-                             +(_R_d/dry.R_m)*1/(_cv_v*(cloudy.T-_T0)+_e_int_i0)*cloudy.∂e_int∂z
-                             -1/gm_a.p0* )
+    ∂b∂z_cloudy = - ∂b∂ρ*ρ_i*(1/( (1-cloudy.q_tot)*_cv_d+cloudy.q_vap*_cv_v + cloudy.q_liq*_cv_l + cloudy.q_ice*_cv_i)/cloudy.T*cloudy.∂e_int∂z  
+                            +(_R_d/dry.R_m) * (1/(_cv_v*(cloudy.T-_T0)+_e_int_i0)*cloudy.∂e_int∂z + (ε_v-1)*cloudy.∂q_tot∂z)
+                            - gm_d.∇p0/gm_a.p0)
+    # combine cloudy and dry
+    ∂b∂z = (cld_frac*∂b∂z_cloudy + (1-cld_frac)*∂b∂z_dry)
+    # keeping the old derivation commented for now 
+    # #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
+    # ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)
+    # #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
+    # ∂ρ∂e_int_cloudy = - (_R_d*gm_a.p_0/(cloudy.R_m*cloudy.T*cloudy.T)/((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v+cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i)
+    #                    + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ε_v*_R_d/(_cv_v*(cloudy.T-_T0)+_e_int_i0) )
+    # #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
 
-
-    #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
-    ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)
-    #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
-    ∂ρ∂e_int_cloudy = - (_R_d*gm_a.p_0/(cloudy.R_m*cloudy.T*cloudy.T)/((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v+cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i)
-                       + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ϵ_v*_R_d/(_cv_v*(cloudy.T-_T0)+_e_int_i0) )
-    #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
-
-    ∂ρ∂e_int = (cld_frac * ∂ρ∂e_int_cloudy + (1-cld_frac) * ∂ρ∂e_int_dry)
-    ∂ρ∂q_tot = _R_d*gm_a.p_0/(R_m*R_m*T)
-    # apply chain-role
-    ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
-    ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
+    # ∂ρ∂e_int = (cld_frac * ∂ρ∂e_int_cloudy + (1-cld_frac) * ∂ρ∂e_int_dry)
+    # ∂ρ∂q_tot = _R_d*gm_a.p_0/(R_m*R_m*T)
+    # # apply chain-role
+    # ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
+    # ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
 
     # Computation of buoyancy frequeacy based on θ_lv
     ts = PhaseEquil(ss.param_set ,en.e_int, gm.ρ, en.q_tot)    
@@ -76,8 +76,8 @@ function compute_buoyancy_gradients(
               +cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i))* θv/T*(1-lv*ql/cpm*T)
     ∂θvl∂e_int   = 1/(((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v
                +cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i))* θvl/T*(1-lv*ql/cpm*T)
-    ∂θv∂qt   = -θv/Tv*(ϵ_v-1)/I0 
-    ∂θvl∂qt  = -θvl/Tv*(ϵ_v-1)/I0 
+    ∂θv∂qt   = -θv/Tv*(ε_v-1)/I0 
+    ∂θvl∂qt  = -θvl/Tv*(ε_v-1)/I0 
     # apply chain-role
     ∂θv∂z    = ∂θv∂e_int*∂I∂z  + ∂θv∂qt*∂qt∂z
     ∂θvl∂z   = ∂θvl∂e_int*∂I∂z + ∂θvl∂qt*∂qt∂z
@@ -85,13 +85,13 @@ function compute_buoyancy_gradients(
     ∂θv∂vl = exp((lv*ql)/(_cp_m*T))
     λ_stb = en.cld_frac
     
-    buoyancy_freq = _grav/θv*( (1-λ_stb)*∂θv∂z + λ_stb*∂θvl∂z*∂θv∂vl)
+    N2 = _grav/θv*( (1-λ_stb)*∂θv∂z + λ_stb*∂θvl∂z*∂θv∂vl)
 
-    return ∂b∂z_e_int, ∂b∂z_q_tot, buoyancy_freq
+    return ∂b∂z, N2
 end;
 
-function gradient_Richardson_number(∂b∂z_e_int, Shear, ∂b∂z_q_tot, minval)
-    Grad_Ri = min(∂b∂z_e_int/max(Shear, eps(FT)) + ∂b∂z_q_tot/max(Shear, eps(FT)) , minval)
+function gradient_Richardson_number(∂b∂z, Shear, minval)
+    Grad_Ri = min(∂b∂z/max(Shear, eps(FT)), minval)
     return Grad_Ri
 end;
 

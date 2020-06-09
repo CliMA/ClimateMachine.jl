@@ -315,14 +315,14 @@ end;
 #  - `∇transform.ρcT` is available here because we've specified `ρcT`  in
 #  `vars_state_gradient`
 function compute_gradient_flux!(
-    m::SingleStack{FT,N},
+    m::SingleStack{FT,N, N_quad},
     edmf::EDMF{FT,N},
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-) where {FT,N}
+) where {FT,N, N_quad}
     # Aliases:
     gm_d = diffusive
     up_d = diffusive.edmf.updraft
@@ -347,7 +347,8 @@ function compute_gradient_flux!(
     end
 
     # YAIR - bug 3 
-    l      = mixing_length(m, m.edmf.mix_len, state, ∇transform, aux, t, δ, εt)
+    l      = mixing_length(m, edmf.mix_len, state, ∇transform, aux, t, δ, εt)
+
     ρa_en = (gm.ρ-sum([up[j].ρa for j in 1:N]))
     K_eddy = edmf.mix_len.c_k*l*sqrt(en.ρatke/ρa_en)
     gm_d.ρak∇e_int = ρa_en*K_eddy*en_∇t.e_int
