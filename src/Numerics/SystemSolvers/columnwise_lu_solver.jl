@@ -278,7 +278,7 @@ function banded_matrix(
     eband = number_state_gradient_flux(bl, FT) == 0 ? 1 : 2
     p = q = nstate * Nq * eband - 1
 
-    nrealelem = length(topology.elems)
+    nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
 
