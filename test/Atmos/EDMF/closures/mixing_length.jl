@@ -1,7 +1,7 @@
 #### Mixing length model kernels
 
 function mixing_length(
-    ss::SingleStack{FT, N, N_quad},
+    ss::SingleStack{FT, N},
     m::MixingLengthModel,
     state::Vars,
     ∇transform::Vars,

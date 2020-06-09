@@ -315,14 +315,14 @@ end;
 #  - `∇transform.ρcT` is available here because we've specified `ρcT`  in
 #  `vars_state_gradient`
 function compute_gradient_flux!(
-    m::SingleStack{FT,N, N_quad},
+    m::SingleStack{FT,N},
     edmf::EDMF{FT,N},
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
-) where {FT,N, N_quad}
+) where {FT,N}
     # Aliases:
     gm_d = diffusive
     up_d = diffusive.edmf.updraft
