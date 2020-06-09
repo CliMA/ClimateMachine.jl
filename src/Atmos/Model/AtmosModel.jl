@@ -308,6 +308,7 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
         θ₀::FT
+        θ′::FT
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -641,6 +642,7 @@ function atmos_nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
+    aux.θ′ = eltype(aux)(0.0)
     aux.θ₀ = eltype(aux)(0.0)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)

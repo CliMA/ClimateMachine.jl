@@ -79,7 +79,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     p::FT = p_s * (G / T_s * exp(-N^2 / _grav * z) + 1 - G / T_s)^(1 / _kappa)
 
     # background potential temperature
-    θ_b::FT = T_s * (p_eq / p_s)^_kappa * exp(N^2 / _grav * z)
+    θ_b::FT = T_b * (p_eq / p)^_kappa
 
     # potential temperature perturbation
     r::FT = _a * acos(sin(φ_c) * sin(φ) + cos(φ_c) * cos(φ) * cos(λ - λ_c))
@@ -93,7 +93,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     T::FT = T_b + T′
 
     # density
-    ρ = air_density(bl.param_set, T, p)
+    ρ = air_density(bl.param_set, T_b, p)
 
     # potential & kinetic energy
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -103,6 +103,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     state.ρu = ρ * u_cart
     state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
     aux.θ₀ = θ_b
+    aux.θ′ = θ′
 
     nothing
 end
