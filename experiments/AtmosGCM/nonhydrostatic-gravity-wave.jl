@@ -49,7 +49,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     _p_eq::FT = MSLP(bl.param_set)
 
     N::FT = 0.01
-    u_0::FT = 0.0 # 20
+    u_0::FT = 20.0
     G::FT = _grav^2 / N^2 / _cp
     T_eq::FT = 300
     Δθ::FT = 1.0
@@ -61,7 +61,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
     trafo = SMatrix{3, 3, FT, 9}(0, 0, 0, 0, 0, 0, -sin(λ), cos(λ), 0)
-    u_sphere = SVector{3, FT}(0, 0, u_0 * cos(φ))
+    u_sphere = SVector{3, FT}(u_0 * cos(φ), 0, 0)
     u_cart = trafo * u_sphere
 
     # background temperature
@@ -198,22 +198,13 @@ function main()
     filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        @views begin
-            solver_config.Q.data[:, 1, :] .-=
-                solver_config.dg.state_auxiliary.data[:, 8, :]
-            solver_config.Q.data[:, 5, :] .-=
-                solver_config.dg.state_auxiliary.data[:, 11, :]
-            Filters.apply!(
-                solver_config.Q,
-                1:size(solver_config.Q, 2),
-                solver_config.dg.grid,
-                filter,
-            )
-            solver_config.Q.data[:, 1, :] .+=
-                solver_config.dg.state_auxiliary.data[:, 8, :]
-            solver_config.Q.data[:, 5, :] .+=
-                solver_config.dg.state_auxiliary.data[:, 11, :]
-        end
+        Filters.apply!(
+            solver_config.Q,
+            AtmosFilterPerturbations(driver_config.bl),
+            solver_config.dg.grid,
+            filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
+        )
         nothing
     end
 
