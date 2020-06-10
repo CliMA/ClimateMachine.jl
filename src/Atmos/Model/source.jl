@@ -187,7 +187,7 @@ function atmos_source!(
 )
     #Top sponge
     z = altitude(atmos, aux)
-    ctop = 1.0
+    ctop = 0.0
     cx   = 0.0
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
@@ -196,7 +196,7 @@ function atmos_source!(
         #source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
     
-    #Lateral sponge
+    #=#Lateral sponge
     x   = aux.coord[1]
     xsl =          s.dsponge_x
     xsr = s.x_max - s.dsponge_x
@@ -206,7 +206,8 @@ function atmos_source!(
 		cx = s.β_max * ( (x - xsr) / (s.x_max - xsr) )^4;
 	end
     β_sponge = 1.0 - ctop*(1.0 - cx) #*(1.0 - cy)
-    #β_sponge = ctop
+    =#
+    β_sponge = ctop
     source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
 
 end

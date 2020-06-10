@@ -169,7 +169,7 @@ function init_agnesi_hs_lin!(bl, state, aux, (x, y, z), t)
     ts = PhaseDry(bl.param_set, e_int, ρ)
 
     #initial velocity
-    u = FT(0) #FT(20.0)
+    u = FT(20.0)
     
     #State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
@@ -209,19 +209,19 @@ end
 # appropriate to the problem being considered.
 function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
 
-    u_relaxation = SVector(FT(0), FT(0), FT(0))
-    sponge_ampz = FT(1.0)
+    u_relaxation = SVector(FT(20), FT(0), FT(0))
+    sponge_ampz = FT(0.5)
     sponge_ampx = FT(0.1)
     xmin = FT(0)
     
     # Rayleigh damping
     depthsponge_x = FT(70000.0)
-    zsponge_base = FT(20000.0)
+    zsponge_base = FT(25000.0)
     
 #=    rayleigh_sponge =
     RayleighSponge{FT}(zmax, zsponge_base, sponge_ampz, u_relaxation, 2)=#
     rayleigh_sponge =
-        RayleighSpongeTopLateral{FT}(xmax, zmax, depthsponge_x, zsponge_base, sponge_ampz, sponge_ampx, u_relaxation, 2)
+        RayleighSpongeTopLateral{FT}(xmax, zmax, depthsponge_x, zsponge_base, sponge_ampz, sponge_ampx, u_relaxation, 4)
     
     ##SR LSRK144
     ode_solver = ClimateMachine.ExplicitSolverType(
@@ -259,7 +259,7 @@ function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
         init_agnesi_hs_lin!,     # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
-        #meshwarp = setmax(warp_agnesi, xmax, ymax, zmax),
+        meshwarp = setmax(warp_agnesi, xmax, ymax, zmax),
     )
 
     return config
@@ -270,16 +270,16 @@ function main()
     FT = Float64
 
     N = 4
-    Δh = FT(750)
+    Δh = FT(1000)
     Δv = FT(240)
     resolution = (Δh, Δh, Δv)
     xmax = FT(244000)
-    ymax = FT(3000)
+    ymax = FT(4000)
     zmax = FT(50000)
     t0 = FT(0)
     timeend =  FT(15000) #FT(hrs * 60 * 60)
 
-    Courant = FT(0.8)
+    Courant = FT(0.5)
 
     # Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
