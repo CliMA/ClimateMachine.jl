@@ -1,5 +1,5 @@
 using CLIMAParameters.Planet: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+export Source, Gravity, RayleighSponge, RayleighSpongeTopLateral, Subsidence, GeostrophicForcing, Coriolis
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -156,8 +156,27 @@ struct RayleighSponge{FT} <: Source
     "Sponge exponent"
     γ::FT
 end
+
+struct RayleighSpongeTopLateral{FT} <: Source
+    "Maximum domain altitude (m)"
+    x_max::FT
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    dsponge_x::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "z-Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "x-Sponge Strength 0 ⩽ α_max ⩽ 1"
+    β_max::FT
+    "Relaxation velocity components"
+    u_relaxation::SVector{3, FT}
+    "Sponge exponent"
+    γ::FT
+end
 function atmos_source!(
-    s::RayleighSponge,
+    s::RayleighSpongeTopLateral,
     atmos::AtmosModel,
     source::Vars,
     state::Vars,
@@ -166,10 +185,28 @@ function atmos_source!(
     t::Real,
     direction,
 )
+    #Top sponge
     z = altitude(atmos, aux)
+    ctop = 1.0
+    cx   = 0.0
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
-        β_sponge = s.α_max * sinpi(r / 2)^s.γ
-        source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        ctop = s.α_max * sinpi(r / 2)^s.γ
+        #β_sponge = ctop
+        #source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
+    
+    #Lateral sponge
+    x   = aux.coord[1]
+    xsl =          s.dsponge_x
+    xsr = s.x_max - s.dsponge_x
+    if (x <= xsl)
+		cx = s.β_max * ( (x - xsl) / (       - xsl) )^4;
+	elseif (x >= xsr)
+		cx = s.β_max * ( (x - xsr) / (s.x_max - xsr) )^4;
+	end
+    β_sponge = 1.0 - ctop*(1.0 - cx) #*(1.0 - cy)
+    #β_sponge = ctop
+    source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+
 end
