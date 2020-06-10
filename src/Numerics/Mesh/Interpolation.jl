@@ -429,8 +429,7 @@ function interpolate_local!(
                 for ik in ikloop
                     vout_ij .= 0.0
                     f2 == 0 ? (ijloop = 1:qm1) : (ijloop = f2:f2)
-                    for ij in ijloop #1:qm1
-
+                    for ij in ijloop
                         vout_ii .= 0.0
 
                         if f1 == 0
@@ -896,7 +895,6 @@ struct InterpolationCubedSphere{
                         push!(longi[el_loc], UInt16(k))
                         offset_d[el_loc + 1] += 1
                     end
-
                 end
             end
         end
@@ -1302,9 +1300,9 @@ function interpolate_local!(
 
         Nel = length(offset) - 1
 
-        vout = zeros(FT, nvars) #FT(0)
-        vout_ii = zeros(FT, nvars) #FT(0)
-        vout_ij = zeros(FT, nvars) #FT(0)
+        vout = zeros(FT, nvars)
+        vout_ii = zeros(FT, nvars)
+        vout_ij = zeros(FT, nvars)
 
 
         for el in 1:Nel # for each element elno
@@ -1547,9 +1545,9 @@ function project_cubed_sphere!(
                 v[i, _ρw] * sind(lat_grd[lati[i]])
 
             @inbounds vlat =
-                -v[i, _ρu] * sind(lat_grd[lati[i]]) * cosd(long_grd[longi[i]])
-            -v[i, _ρv] * sind(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
-            v[i, _ρw] * cosd(lat_grd[lati[i]])
+                -v[i, _ρu] * sind(lat_grd[lati[i]]) * cosd(long_grd[longi[i]]) -
+                v[i, _ρv] * sind(lat_grd[lati[i]]) * sind(long_grd[longi[i]]) +
+                v[i, _ρw] * cosd(lat_grd[lati[i]])
 
             @inbounds vlon =
                 -v[i, _ρu] * sind(long_grd[longi[i]]) +
@@ -1611,11 +1609,11 @@ function project_cubed_sphere_CUDA!(
         vlat =
             -v[idx, _ρu] *
             CUDAnative.sin(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0)
-        -v[idx, _ρv] *
-        CUDAnative.sin(lat_grd[lati[idx]] * pi / 180.0) *
-        CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
-        v[idx, _ρw] * CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0)
+            CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0) -
+            v[idx, _ρv] *
+            CUDAnative.sin(lat_grd[lati[idx]] * pi / 180.0) *
+            CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
+            v[idx, _ρw] * CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0)
 
         vlon =
             -v[idx, _ρu] * CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
