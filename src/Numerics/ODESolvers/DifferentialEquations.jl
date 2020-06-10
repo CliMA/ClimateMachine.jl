@@ -55,7 +55,8 @@ mutable struct DiffEqJLIMEXSolver{I} <: AbstractDiffEqJLSolver
                           (du,u,p,t)->rhs!(du,u,p,t; increment=false),
                            Q, (float(t0),typemax(typeof(float(t0)))),
                            p)
-        integ = DiffEqBase.init(prob,alg,args...;kwargs...)
+        integ = DiffEqBase.init(prob,alg,args...;adaptive = false, save_everystep = false, save_start = false, save_end = false, kwargs...)
+
         new{typeof(integ)}(integ)
     end
 end
