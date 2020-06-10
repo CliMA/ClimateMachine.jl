@@ -63,7 +63,6 @@ if generate_tutorials
 
     skip_execute = [
         "Atmos/dry_rayleigh_benard.jl",               # takes too long
-        "Atmos/heldsuarez.jl",                        # broken
         "Atmos/risingbubble.jl",                      # broken
         "Numerics/DGMethods/nonnegative.jl",          # broken
         "Microphysics/ex_1_saturation_adjustment.jl", # too long
