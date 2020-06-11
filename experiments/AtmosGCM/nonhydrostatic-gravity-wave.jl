@@ -60,8 +60,9 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
 
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
-    u = u_0 * cos(φ)
-    u_init = SVector{3, FT}(-sin(λ) * u, cos(λ) * u, 0)
+    u_sphere = SVector{3, FT}(u_0 * cos(φ), 0, 0)
+    u_init = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
+    #u_init = SVector{3, FT}(-sin(λ) * u, cos(λ) * u, 0)
 
     # background temperature
     T_s::FT =
