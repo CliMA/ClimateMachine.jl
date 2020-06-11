@@ -172,7 +172,6 @@ end;
 # We have no sources, nor non-diffusive fluxes.
 function source!(
     m::SingleStack{FT, N},
-    source::Vars,
     state::Vars,
     diffusive::Vars,
     aux::Vars,

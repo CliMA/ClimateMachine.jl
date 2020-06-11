@@ -354,9 +354,7 @@ end;
 function source!(
     m::SingleStack{FT, N},
     edmf::EDMF{FT, N},
-    source::Vars,
     state::Vars,
-    ∇transform::Grad,
     diffusive::Vars,
     aux::Vars,
     t::Real,
@@ -367,20 +365,17 @@ function source!(
     gm = state
     en = state
     up = state.edmf.updraft
-    gm_s = source
-    en_s = source.edmf.environment
-    up_s = source.edmf.updraft
-
+    
     # grid mean sources - I think that large scale subsidence in
     #            doubly periodic domains should be applied here
-
     # updraft sources
 
     # YAIR  - these need to be defined as vectors length N - check with Charlie
-    εt:: SVector{N, FT}
-    ε::  SVector{N, FT}
-    δ::  SVector{N, FT}
+    εt =  SVector{N, FT}
+    ε =   SVector{N, FT}
+    δ =   SVector{N, FT}
     # should be conditioned on updraft_area > minval
+    ρinv = 1/gm.ρ
     a_env = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     w_env = (gm.ρu[3] - sum([up[i].ρau[3] for i in 1:N]))*ρinv
     e_int_env = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))*ρinv
@@ -389,16 +384,16 @@ function source!(
     ρinv  = 1/gm.ρ
     for i in 1:N
         # get environment values for e_int, q_tot , u[3]
-        env_u     = (gm.u - up[i].u*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
-        env_e_int = (gm.e_int - up[i].e_int*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
-        env_q_tot = (gm.q_tot - up[i].q_tot*up[i].ρa*ρinv)/(1-up[i].ρa*ρinv)
+        env_u     = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
+        env_e_int = (gm.ρe_int - up[i].ρae_int)/(gm.ρ*a_env)
+        env_q_tot = (gm.ρq_tot - up[i].ρaq_tot)/(gm.ρ*a_env)
 
         # first moment sources
-        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
-        dpdz, dpdz_tke_i = perturbation_pressure(m, m.edmf.pressure, state, diffusive, aux, t,direction, i)
+        ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
+        dpdz, dpdz_tke_i  = perturbation_pressure(m, edmf.pressure, state, diffusive, aux, t, direction, i)
 
         # entrainment and detrainment
-        w_i = up[i].ρu[3]*ρinv
+        w_i = up[i].ρau[3]/up[i].ρa
         up_s[i].ρa      += up[i].ρa * w_i * ( ε[i]                        -  δ[i])
         up_s[i].ρau     += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρau     - (δ[i]+εt[i])*env_u)
         up_s[i].ρae_int += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρae_int - (δ[i]+εt[i])*env_e_int)
