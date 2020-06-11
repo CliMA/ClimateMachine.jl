@@ -88,8 +88,8 @@ function getimplicitmodel(solver, dg, Q)
 end
 
 function getimplicitmodel(solver::Type{<:BatchedGeneralizedMinimalResidual},
-                          dg, Q)
-    return solver(dg, Q)
+                          dg, Q; m_input=20)
+    return solver(dg, Q; max_subspace_size=m_input)
 end
 
 include("ExplicitSolverType.jl")

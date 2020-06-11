@@ -62,8 +62,8 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
     N = Int(4)
 
     # Domain resolution and size
-    Nˣ = Int(20)
-    Nʸ = Int(20)
+    Nˣ = Int(2)
+    Nʸ = Int(2)
     Nᶻ = Int(20)
     resolution = (Nˣ, Nʸ, Nᶻ)
 

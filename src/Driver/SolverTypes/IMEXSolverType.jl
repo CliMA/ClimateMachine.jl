@@ -69,6 +69,8 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
     solver_method::Function
     # Storage type for the ARK scheme
     solver_storage_variant::ST
+    # Max subspace size
+    max_subspace_size::Int
 
     function IMEXSolverType(;
         splitting_type = HEVISplitting(),
@@ -77,6 +79,7 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
         implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
         solver_storage_variant = LowStorageVariant(),
+        max_subspace_size = 10
     )
 
         DS = typeof(splitting_type)
@@ -89,6 +92,7 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
             implicit_solver_adjustable,
             solver_method,
             solver_storage_variant,
+            max_subspace_size
         )
     end
 
@@ -100,6 +104,7 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
         implicit_solver_adjustable = false,
         solver_method = ARK2GiraldoKellyConstantinescu,
         solver_storage_variant = LowStorageVariant(),
+        max_subspace_size = 10
     )
         return IMEXSolverType(
             splitting_type = splitting_type,
@@ -108,6 +113,7 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
             implicit_solver_adjustable = implicit_solver_adjustable,
             solver_method = solver_method,
             solver_storage_variant = solver_storage_variant,
+            max_subspace_size = max_subspace_size
         )
     end
 end
@@ -174,7 +180,8 @@ function solversetup(
         dg,
         vdg,
         LinearBackwardEulerSolver(
-            getimplicitmodel(ode_solver.implicit_solver, dg, Q);
+            getimplicitmodel(ode_solver.implicit_solver, dg, Q;
+                             m_input = ode_solver.max_subspace_size);
             isadjustable = ode_solver.implicit_solver_adjustable,
         ),
         Q;
