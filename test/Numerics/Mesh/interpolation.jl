@@ -387,9 +387,9 @@ function run_cubed_sphere_interpolation_test()
                         fex[i, j, k, _ρ] * cosd(long[i])
 
                     fex[i, j, k, _ρv] =
-                        -fex[i, j, k, _ρ] * sind(lat[j]) * cosd(long[i])
-                    -fex[i, j, k, _ρ] * sind(lat[j]) * sind(long[i]) +
-                    fex[i, j, k, _ρ] * cosd(lat[j])
+                        -fex[i, j, k, _ρ] * sind(lat[j]) * cosd(long[i]) -
+                        fex[i, j, k, _ρ] * sind(lat[j]) * sind(long[i]) +
+                        fex[i, j, k, _ρ] * cosd(lat[j])
 
                     fex[i, j, k, _ρw] =
                         fex[i, j, k, _ρ] * cosd(lat[j]) * cosd(long[i]) +
@@ -407,9 +407,9 @@ function run_cubed_sphere_interpolation_test()
         MPI.Bcast!(err_inf_dom, root, mpicomm)
 
         if FT == Float64
-            toler = 1.0E-7
+            toler = 2.0E-7
         elseif FT == Float32
-            toler = 1.0E-6
+            toler = 2.0E-6
         end
 
         if maximum(err_inf_dom) > toler

@@ -341,7 +341,7 @@ function main()
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
                 solver_config.Q,
-                (ρq_liq_ind[1], ρq_ice_ind[1], ρq_rai_ind[1]),
+                (:ρq_liq, :ρq_ice, :ρq_rai),
                 solver_config.dg.grid,
                 TMARFilter(),
             )
