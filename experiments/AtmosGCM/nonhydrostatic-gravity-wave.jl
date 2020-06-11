@@ -60,9 +60,8 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
 
     # initial velocity profile (we need to transform the vector into the Cartesian
     # coordinate system)
-    trafo = SMatrix{3, 3, FT, 9}(0, 0, 0, 0, 0, 0, -sin(λ), cos(λ), 0)
-    u_sphere = SVector{3, FT}(u_0 * cos(φ), 0, 0)
-    u_cart = trafo * u_sphere
+    u = u_0 * cos(φ)
+    u_init = SVector{3, FT}(-sin(λ)*u, cos(λ)*u, 0)
 
     # background temperature
     T_s::FT =
@@ -97,10 +96,10 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
 
     # potential & kinetic energy
     e_pot = gravitational_potential(bl.orientation, aux)
-    e_kin::FT = 0.5 * sum(abs2.(u_cart))
+    e_kin::FT = 0.5 * sum(abs2.(u_init))
 
     state.ρ = ρ
-    state.ρu = ρ * u_cart
+    state.ρu = ρ * u_init
     state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T)
     aux.θ₀ = θ_b
     aux.θ′ = θ′
