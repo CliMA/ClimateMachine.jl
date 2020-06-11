@@ -141,10 +141,9 @@ using StaticArrays
 #  - load CLIMAParameters and set up to use it:
 
 using CLIMAParameters
-using CLIMAParameters.Planet: grav, cp_d, R_d
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, cp_v, cp_l, cp_i, T_0, MSLP, grav, e_int_i0, molmass_ratio
+using CLIMAParameters.Planet: R_d, cv_d, cv_d, cv_v, cv_l, cv_i,T_0, MSLP, grav, e_int_i0, molmass_ratio
 
 #  - load necessary ClimateMachine modules:
 using ClimateMachine
@@ -317,36 +316,36 @@ aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
 );
 all_vars = OrderedDict(state_vars..., aux_vars...);
 
-export_plot_snapshot(
-    z,
-    all_vars,
-    (
-      "ρ",
-      "ρe_int",
-      "ρq_tot",
-      "edmf.updraft[1].ρa",
-      "edmf.updraft[1].ρae_int",
-      "edmf.updraft[1].ρaq_tot",
-    ),
-    joinpath(output_dir, "initial_energy.png"),
-    z_label,
-);
+# export_plot_snapshot(
+#     z,
+#     all_vars,
+#     (
+#       "ρ",
+#       "ρe_int",
+#       "ρq_tot",
+#       "edmf.updraft[1].ρa",
+#       "edmf.updraft[1].ρae_int",
+#       "edmf.updraft[1].ρaq_tot",
+#     ),
+#     joinpath(output_dir, "initial_energy.png"),
+#     z_label,
+# );
 # ![](initial_energy.png)
 
-export_plot_snapshot(
-    z,
-    all_vars,
-    (
-     "ρu[1]",
-     "ρu[2]",
-     "ρu[3]",
-     "edmf.updraft[1].ρau[1]",
-     "edmf.updraft[1].ρau[2]",
-     "edmf.updraft[1].ρau[3]",
-     ),
-    joinpath(output_dir, "initial_velocity.png"),
-    z_label,
-);
+# export_plot_snapshot(
+#     z,
+#     all_vars,
+#     (
+#      "ρu[1]",
+#      "ρu[2]",
+#      "ρu[3]",
+#      "edmf.updraft[1].ρau[1]",
+#      "edmf.updraft[1].ρau[2]",
+#      "edmf.updraft[1].ρau[3]",
+#      ),
+#     joinpath(output_dir, "initial_velocity.png"),
+#     z_label,
+# );
 # ![](initial_velocity.png)
 
 # It matches what we have in `init_state_conservative!(m::SingleStack, ...)`, so

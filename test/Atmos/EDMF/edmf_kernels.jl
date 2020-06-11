@@ -339,9 +339,9 @@ function compute_gradient_flux!(
 
     # negative signs here as we have a '-' sign in BL form leading to + K∂ϕ/∂z on the RHS
     # first moment grid mean comming from enviroment gradients only
-    gm_d.∇e_int = en_∇t.e_int
-    gm_d.∇q_tot = en_∇t.q_tot
-    gm_d.∇u     = en_∇t.u
+    en_d.∇e_int = en_∇t.e_int
+    en_d.∇q_tot = en_∇t.q_tot
+    en_d.∇u     = en_∇t.u
     # second moment env cov
     en_d.∇tke            = en_∇t.tke
     en_d.∇e_int_cv       = en_∇t.e_int_cv
@@ -524,9 +524,9 @@ function flux_second_order!(
 
     # YAIR CHECK THE SIGN of MF 
     # grid mean flux_second_order
-    gm_f.ρe_int += -ρa_en*K_eddy*gm_d.k∇ρe_int + massflux_e_int
-    gm_f.ρq_tot += -ρa_en*K_eddy*gm_d.k∇ρq_tot + massflux_q_tot
-    gm_f.ρu     += -ρa_en*K_eddy*gm_d.k∇ρu     + massflux_u
+    gm_f.ρe_int += -ρa_en*K_eddy*en_d.∇e_int + massflux_e_int
+    gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot + massflux_q_tot
+    gm_f.ρu     += -ρa_en*K_eddy*en_d.∇u     + massflux_u
 
     # env second momment flux_second_order
     en_f.ρatke            += -ρa_en*K_eddy*en_d.∇tke

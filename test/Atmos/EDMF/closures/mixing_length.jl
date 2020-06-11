@@ -58,27 +58,35 @@ function mixing_length(
     # buoyancy related functions
     ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(ss, m, state, diffusive, aux, t)
     Grad_Ri = gradient_Richardson_number(∂b∂z, Shear, FT(0.25)) # this parameter should be exposed in the model
-    Pr_z = turbulent_Prandtl_number(m.Pr_n, Grad_Ri, obukhov_length)
+    Pr_z = turbulent_Prandtl_number(FT(1), Grad_Ri, obukhov_length)
 
     # compute L1 - stability - YAIR missing Nˢ
     # Nˢ = g*en_d.∇θ_v/θ_v
-    if Nˢ_eff>FT(0)
-      m.L[1] = sqrt(m.c_w*tke)/Nˢ_eff
-    else
-      m.L[1] = FT(1e-6)
-    end
+    
+    # @show(Nˢ_eff)
+    m.L[1] = FT(1e-6)
+    # if Nˢ_eff>FT(0)
+    #   m.L[1] = sqrt(m.c_w*tke)/Nˢ_eff
+    # else
+    #   m.L[1] = FT(1e-6)
+    # end
 
     # compute L2 - law of the wall  - YAIR define tke_surf
+    # yair overwride 
+    tke_surf = FT(1)
+    obukhov_length = FT(-100)
     if obukhov_length < FT(0)
-      m.L[2] = (m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)* m.c_k) * min(
+      m.L[2] = (m.κ * z/(sqrt(tke_surf)/ss.edmf.surface.ustar/ss.edmf.surface.ustar)* m.c_k) * min(
          (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ)
     else
-      m.L[2] = m.κ * z/(sqrt(tke_surf)/m.ustar/m.ustar)*m.c_k
+      m.L[2] = m.κ * z/(sqrt(tke_surf)/ss.edmf.surface.ustar/ss.edmf.surface.ustar)*m.c_k
     end
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
-    a = m.c_m*(Shear - ∂b∂z_e_int/Pr_z - ∂b∂z_q_tot/Pr_z)* sqrt(tke)
+    
+    # a = m.c_m*(Shear - ∂b∂z/Pr_z)* sqrt(tke)
+    a = FT(100)
     # Dissipation term
     b = FT(0)
     # detrainment and turb_entr should of the i'th updraft

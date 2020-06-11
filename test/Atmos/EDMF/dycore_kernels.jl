@@ -215,6 +215,7 @@ function flux_second_order!(
     up   = state.edmf.updraft
     en   = state.edmf.environment
     en_d = diffusive.edmf.environment
+    gm = state
 
     # compute the mixing length and eddy diffusivity
     # (I am repeating this after doing in sources assuming that it is better to compute this twice than to add mixing length as a aux.variable)

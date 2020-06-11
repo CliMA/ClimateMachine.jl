@@ -65,9 +65,11 @@ Base.@kwdef struct MixingLengthModel{FT}
     "Static Stability coefficient"
     c_b::FT = 0.63
     "Empirical stability function coefficient"
-    a1 ::FT = -100
+    a1::FT = -100
     "Empirical stability function coefficient"
-    a2 ::FT = -0.2
+    a2::FT = -0.2
+    "Von karmen constant"
+    κ::FT = 0.4
 end
 
 Base.@kwdef struct MicrophysicsModel{FT}
