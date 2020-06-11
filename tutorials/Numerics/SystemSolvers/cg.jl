@@ -56,7 +56,7 @@ linearsolver = ConjugateGradient(b);
 x = ones(typeof(1.0), 3);
 # To solve the linear system we just need to pass to the linearsolve! function
 iters = linearsolve!(linear_operator!, linearsolver, x, b)
-# The variable `x` gets overwitten during the linear solve
+# The variable `x` gets overwritten during the linear solve
 # The norm of the error is
 norm(x - x_exact) / norm(x_exact)
 # The relative norm of the residual is
@@ -136,7 +136,7 @@ function closure_linear_operator!(A, tup)
 end;
 
 # Now that we have this function, we can define a linear system that we will solve columnwise
-# First we define the structure of our array as ```tup``` in a manner that is similar to a stacked brick topology
+# First we define the structure of our array as `tup` in a manner that is similar to a stacked brick topology
 tup = (3, 4, 7, 2, 20, 2);
 # where
 # 1. tup[1] is the number of Gauss–Lobatto points in the x-direction
@@ -191,4 +191,4 @@ iters
 # ## Tips
 # 1. The convergence criteria should be changed, machine precision is too small and the maximum iterations is often too large
 # 2. Use a preconditioner if possible
-# 3. Make sure that the linear system really is symmetric and positive-definite 
+# 3. Make sure that the linear system really is symmetric and positive-definite
