@@ -239,6 +239,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     end
                 end
             end
+            @unroll for s in 1:num_state_auxiliary
+                state_auxiliary[ijk, s, e] = local_state_auxiliary[s] 
+            end
         end
 
         @unroll for k in 1:Nqk
@@ -444,6 +447,9 @@ end
                             MI * s_D[n, j] * shared_flux[i, n, s]
                     end
                 end
+            end
+            @unroll for s in 1:num_state_auxiliary
+                state_auxiliary[ijk, s, e] = local_state_auxiliary[s]
             end
         end
 

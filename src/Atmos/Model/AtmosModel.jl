@@ -277,6 +277,7 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dz::vars_integrals(m, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
+        momentum_advection::SVector{3, FT}
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -346,7 +347,7 @@ equations.
     flux.ρ = ρ * u
     flux.ρu = ρ * u .* u'
     flux.ρe = u * state.ρe
-
+    aux.momentum_advection = ρ * u .* u'
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
     if m.ref_state isa HydrostaticState
