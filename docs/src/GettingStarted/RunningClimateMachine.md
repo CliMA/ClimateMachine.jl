@@ -102,8 +102,8 @@ There may also be driver-specific command line arguments.
 ## Environment variables
 
 Every command line option can be set as an environment variable
-(`CLIMATEMACHINE_SETTINGS_<option-in-upper-case>`). For example to disable gpu
-use set `CLIMATEMACHINE_SETTINGS_DISABLE_GPU=true`.
+(`CLIMATEMACHINE_SETTINGS_<option-in-upper-case>`). For example to disable the
+use of the gpu set `CLIMATEMACHINE_SETTINGS_DISABLE_GPU=true`.
 
 ## Running with MPI
 
