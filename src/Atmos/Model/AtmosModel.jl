@@ -277,7 +277,16 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dz::vars_integrals(m, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
-        momentum_advection::SVector{3, FT}
+        density_advection::SVector{3, FT}
+        momentum_advection::SMatrix{3,3,FT,9}
+        energy_advection::SVector{3, FT}
+        energy_pressure_contribution::SVector{3, FT}
+        momentum_diffusion::SMatrix{3,3,FT,9}
+        energy_diffusion_from_shear_stress::SVector{3, FT}
+        energy_diffusion_total_enthalpy::SVector{3, FT}
+        internal_energy_source::FT
+        subsidence_energy_source::FT
+        geostrophic_source::SVector{3,FT}
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -345,8 +354,10 @@ equations.
 
     # advective terms
     flux.ρ = ρ * u
+    aux.density_advection = ρ * u
     flux.ρu = ρ * u .* u'
     flux.ρe = u * state.ρe
+    aux.energy_advection = u * state.ρe
     aux.momentum_advection = ρ * u .* u'
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
@@ -356,6 +367,7 @@ equations.
         flux.ρu += p * I
     end
     flux.ρe += u * p
+    aux.energy_pressure_contribution = u * p
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
@@ -446,6 +458,9 @@ function. Contributions from subcomponents are then assembled (pointwise).
 )
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     d_h_tot = -D_t .* diffusive.∇h_tot
+    aux.momentum_diffusion = τ * state.ρ
+    aux.energy_diffusion_from_shear_stress = τ * state.ρu
+    aux.energy_diffusion_total_enthalpy =  d_h_tot * state.ρ    
     flux_second_order!(atmos, flux, state, τ, d_h_tot)
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(

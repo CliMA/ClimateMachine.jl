@@ -149,7 +149,8 @@ vars_state_conservative(::EquilMoist, FT) = @vars(ρq_tot::FT)
 vars_state_gradient(::EquilMoist, FT) = @vars(q_tot::FT)
 vars_state_gradient_flux(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state_auxiliary(::EquilMoist, FT) =
-    @vars(temperature::FT, θ_v::FT, q_liq::FT)
+    @vars(temperature::FT, θ_v::FT, q_liq::FT, moisture_advection::SVector{3, FT},density_diffusion_from_moisture::SVector{3, FT},momentum_diffusion_from_moisture::SMatrix{3, 3, FT, 9},
+			   moisture_diffusion::SVector{3, FT},ρ∂qt∂t_source::FT,subsidence_source::FT, pressure::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
@@ -170,6 +171,7 @@ vars_state_auxiliary(::EquilMoist, FT) =
     )
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
+    aux.moisture.pressure = air_pressure(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
     nothing
 end
@@ -227,6 +229,7 @@ function flux_moisture!(
     ρ = state.ρ
     u = state.ρu / ρ
     flux.moisture.ρq_tot += u * state.moisture.ρq_tot
+    aux.moisture.moisture_advection = u * state.moisture.ρq_tot 
 end
 
 function flux_second_order!(
@@ -239,6 +242,9 @@ function flux_second_order!(
     D_t,
 )
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    aux.moisture.density_diffusion_from_moisture += d_q_tot * state.ρ
+    aux.moisture.momentum_diffusion_from_moisture += d_q_tot .* state.ρu'
+    aux.moisture.moisture_diffusion += d_q_tot * state.ρ
     flux_second_order!(moist, flux, state, d_q_tot)
 end
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons

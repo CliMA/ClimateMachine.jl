@@ -115,6 +115,7 @@ function atmos_source!(
     fkvector = f_coriolis * ẑ
     # Accumulate sources
     source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
+    geostrophic_source = - fkvector × (state.ρu .- state.ρ * u_geo)
     return nothing
 end
 
@@ -263,6 +264,10 @@ function atmos_source!(
     source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
     source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
     source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+    aux.moisture.subsidence_source = -ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+    aux.moisture.ρ∂qt∂t_source = ρ∂qt∂t
+    aux.internal_energy_source = cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
+    aux.subsidence_energy_source = -ρ * w_s * dot(k̂, diffusive.∇h_tot)
     return nothing
 end
 
@@ -490,8 +495,8 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(6400)
-    ymax = FT(6400)
+    xmax = FT(4800)
+    ymax = FT(4800)
     zmax = FT(3000)
 
     t0 = FT(0)

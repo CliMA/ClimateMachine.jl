@@ -239,6 +239,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     end
                 end
             end
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_auxiliary
                 state_auxiliary[ijk, s, e] = local_state_auxiliary[s] 
             end
@@ -433,7 +434,7 @@ end
                 t,
                 direction,
             )
-
+            
             @unroll for s in 1:num_state_conservative
                 local_tendency[k, s] += local_source[s]
             end
@@ -448,6 +449,7 @@ end
                     end
                 end
             end
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_auxiliary
                 state_auxiliary[ijk, s, e] = local_state_auxiliary[s]
             end
