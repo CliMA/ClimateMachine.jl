@@ -435,10 +435,7 @@ function source!(
     en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
     en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
     en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
-
     # covariance microphysics sources should be applied here
-
-
 end;
 
 # in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts

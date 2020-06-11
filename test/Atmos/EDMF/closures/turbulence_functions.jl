@@ -69,7 +69,6 @@ function compute_buoyancy_gradients(
     ∂θvl∂qt    = -θvl/Tv*(ε_v-1)/_e_int_i0 
     # apply chain-role
     ∂θv∂z  = ∂θv∂e_int*∂e_int∂z  + ∂θv∂qt*∂q_tot∂z
-    @show(∂θv∂z,∂θv∂e_int,∂e_int∂z , ∂θv∂qt,∂q_tot∂z)
     ∂θvl∂z = ∂θvl∂e_int*∂e_int∂z + ∂θvl∂qt*∂q_tot∂z
 
     ∂θv∂vl = exp((lv*ql)/(_cp_m*T))
