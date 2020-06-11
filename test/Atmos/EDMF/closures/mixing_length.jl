@@ -24,7 +24,6 @@ function mixing_length(
     _grav = FT(grav(ss.param_set))
     ρinv = 1/gm.ρ
 
-
     fill!(m.L, 0)
 
     # precompute
@@ -34,19 +33,11 @@ function mixing_length(
     en_q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
     ∂e_int∂z = en_d.∇e_int
     ∂q_tot∂z = en_d.∇q_tot
-    
-    
 
     # TODO: check rank of `en_d.∇u`
     Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
-
-    # Thermodynamic local variables for mixing length
-    ts    = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
-    tke   = sqrt(en.ρatke)*ρinv/en_area
-    θ_v   = virtual_pottemp(ts)
-    T     = air_temperature(ts)
-    q     = PhasePartition(ts)
-    ϵ_v   = 1 / molmass_ratio(ss.param_set)
+    tke = en.ρatke*ρinv/en_area
+    
     # bflux     = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, m.T_b, q, ρinv)
     bflux = FT(1)
     θ_surf    = ss.edmf.surface.T_surf
@@ -61,20 +52,14 @@ function mixing_length(
     Pr_z = turbulent_Prandtl_number(FT(1), Grad_Ri, obukhov_length)
 
     # compute L1 - stability - YAIR missing Nˢ
-    # Nˢ = g*en_d.∇θ_v/θ_v
-    
     # @show(Nˢ_eff)
-    m.L[1] = FT(1e-6)
-    # if Nˢ_eff>FT(0)
-    #   m.L[1] = sqrt(m.c_w*tke)/Nˢ_eff
-    # else
-    #   m.L[1] = FT(1e-6)
-    # end
+    if Nˢ_eff>FT(0)
+      m.L[1] = sqrt(m.c_w*tke)/Nˢ_eff
+    else
+      m.L[1] = FT(1e-6)
+    end
 
     # compute L2 - law of the wall  - YAIR define tke_surf
-    # yair overwride 
-    tke_surf = FT(1)
-    obukhov_length = FT(-100)
     if obukhov_length < FT(0)
       m.L[2] = (m.κ * z/(sqrt(tke_surf)/ss.edmf.surface.ustar/ss.edmf.surface.ustar)* m.c_k) * min(
          (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ)
@@ -84,9 +69,8 @@ function mixing_length(
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
-    
-    # a = m.c_m*(Shear - ∂b∂z/Pr_z)* sqrt(tke)
-    a = FT(100)
+
+    a = m.c_m*(Shear - ∂b∂z/Pr_z)* sqrt(tke)
     # Dissipation term
     b = FT(0)
     # detrainment and turb_entr should of the i'th updraft
