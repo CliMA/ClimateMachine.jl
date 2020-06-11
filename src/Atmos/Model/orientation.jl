@@ -117,9 +117,9 @@ function sphr_to_cart_vec(
     vec::AbstractVector,
     aux::Vars,
 )
-    FT = eltype(state)
+    FT = eltype(aux)
     lat = latitude(orientation, aux)
-    long = longitute(orientation, aux)
+    lon = longitude(orientation, aux)
 
     slat, clat = sin(lat), cos(lat)
     slon, clon = sin(lon), cos(lon)
@@ -143,9 +143,9 @@ function cart_to_sphr_vec(
     vec::AbstractVector,
     aux::Vars,
 )
-    FT = eltype(state)
+    FT = eltype(aux)
     lat = latitude(orientation, aux)
-    long = longitute(orientation, aux)
+    lon = longitude(orientation, aux)
 
     slat, clat = sin(lat), cos(lat)
     slon, clon = sin(lon), cos(lon)
