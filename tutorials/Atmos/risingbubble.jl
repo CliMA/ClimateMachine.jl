@@ -95,9 +95,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
 # ## [Initial Conditions](@id init)
-# This example of a rising thermal bubble can be classified as an initial value
-# problem. We must (at the very least) assign values for the initial variables
-# in a sensible manner. This example demonstrates the use of functions defined
+# This example demonstrates the use of functions defined
 # in the [`Thermodynamics`](@ref Thermodynamics-docs) package to
 # generate the appropriate initial state for our problem.
 
