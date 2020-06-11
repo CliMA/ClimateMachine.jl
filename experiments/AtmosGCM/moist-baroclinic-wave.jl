@@ -1,6 +1,7 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
+
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
@@ -10,7 +11,7 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics: total_energy, air_density
+using ClimateMachine.Thermodynamics: air_density, total_energy
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
@@ -18,7 +19,7 @@ using StaticArrays
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, day, grav, planet_radius, Omega
+using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -34,14 +35,14 @@ function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
     _R_d::FT = R_d(bl.param_set)
     _Ω::FT = Omega(bl.param_set)
     _a::FT = planet_radius(bl.param_set)
-    
+    _p_0::FT = MSLP(bl.param_set)
+
     T_E::FT = 310
     T_P::FT = 240
     T_0::FT = 0.5 * (T_E + T_P)
     Γ::FT = 0.005
     b::FT = 2
     K::FT = 3
-    p_0::FT = 1e5
     M_v::FT = 0.608
     z_p::FT = 15e3
     λ_p::FT = π/9
@@ -66,9 +67,9 @@ function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
 
     # temperature, pressure, specific humidity, density
     T_v::FT = 1 / (τ_1 - τ_2 * I_T) 
-    p::FT = p_0 * exp(-_grav/_R_d * (τ_int_1 - τ_int_2 * I_T))
-    η::FT = p/p_0
-    #q::FT = q_0 * exp(-(φ/φ_w)^4) * exp(-((η-1)*p_0/p_w)^2)
+    p::FT = _p_0 * exp(-_grav/_R_d * (τ_int_1 - τ_int_2 * I_T))
+    η::FT = p/_p_0
+    #q::FT = q_0 * exp(-(φ/φ_w)^4) * exp(-((η-1)*_p_0/p_w)^2)
     #if η > p_t/p_s
     #  q = q_t
     #end
@@ -105,13 +106,12 @@ end
 
 function config_moist_baroclinic_wave(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
-#    temp_profile_ref = IsothermalProfile(param_set, FT(250.0))
-#    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set)
-#    ref_state = HydrostaticState(temp_profile_ref)
-    ref_state = NoReferenceState()
+    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
+    ref_state = HydrostaticState(temp_profile_ref)
 
     domain_height::FT = 44e3 # distance between surface and top of atmosphere (m)
-
+    τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
+    
     # Set up the atmosphere model
     exp_name = "MoistBaroclinicWave"
 
@@ -120,14 +120,12 @@ function config_moist_baroclinic_wave(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0.0)),
+        hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_moist_baroclinic_wave!,
     )
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
 
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
@@ -136,7 +134,6 @@ function config_moist_baroclinic_wave(FT, poly_order, resolution)
         domain_height,
         param_set,
         init_moist_baroclinic_wave!;
-        solver_type = ode_solver,
         model = model,
     )
 
@@ -144,7 +141,7 @@ function config_moist_baroclinic_wave(FT, poly_order, resolution)
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = "100steps" # chosen to allow a single diagnostics collection
+    interval = "40000steps" # chosen to allow a single diagnostics collection
 
     _planet_radius = FT(planet_radius(param_set))
 
@@ -175,7 +172,7 @@ function main()
     FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
-    n_vert = 10                              # vertical element number
+    n_vert = 20                              # vertical element number
     n_days::FT = 5 / 86400 
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
@@ -183,6 +180,10 @@ function main()
     # Set up driver configuration
     driver_config = config_moist_baroclinic_wave(FT, poly_order, (n_horz, n_vert))
 
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+    
     # Set up experiment
     CFL::FT = 0.8
     solver_config = ClimateMachine.SolverConfiguration(
@@ -190,8 +191,10 @@ function main()
         timeend,
         driver_config,
         Courant_number = CFL,
+        ode_solver_type = ode_solver_type,
 #        CFL_direction = HorizontalDirection(),
         CFL_direction = EveryDirection(),
+        diffdir= HorizontalDirection(),
     )
 
     # Set up diagnostics
@@ -201,18 +204,13 @@ function main()
     filterorder = 64
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        @views begin
-#          solver_config.Q.data[:, 1, :] .-= solver_config.dg.state_auxiliary.data[:, 8, :]
-#          solver_config.Q.data[:, 5, :] .-= solver_config.dg.state_auxiliary.data[:, 11, :]
-          Filters.apply!(
-              solver_config.Q,
-              1:size(solver_config.Q, 2),
-              solver_config.dg.grid,
-              filter,
-          )
-#          solver_config.Q.data[:, 1, :] .+= solver_config.dg.state_auxiliary.data[:, 8, :]
-#          solver_config.Q.data[:, 5, :] .+= solver_config.dg.state_auxiliary.data[:, 11, :]
-        end
+        Filters.apply!(
+            solver_config.Q,
+            AtmosFilterPerturbations(driver_config.bl),
+            solver_config.dg.grid,
+            filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
+        )
         nothing
     end
 
