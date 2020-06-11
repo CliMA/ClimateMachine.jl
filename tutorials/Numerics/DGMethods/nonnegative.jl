@@ -36,11 +36,10 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 
+using ClimateMachine
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(
-    @__DIR__,
-    "..",
-    "..",
-    "..",
+    clima_dir,
     "test",
     "Numerics",
     "DGMethods",
@@ -63,7 +62,7 @@ function initial_condition!(::SwirlingFlow, state, aux, coord, t)
     x0, y0 = FT(1 // 4), FT(1 // 4)
     τ = 4 * hypot(x - x0, y - y0)
     state.ρ = cosbell(τ, 3)
-end
+end;
 
 has_variable_coefficients(::SwirlingFlow) = true
 function update_velocity_diffusion!(
@@ -81,7 +80,7 @@ function update_velocity_diffusion!(
     u = 2 * sx^2 * sy * cy * ct
     v = -2 * sy^2 * sx * cx * ct
     aux.u = SVector(u, v, 0)
-end
+end;
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname)
     ## name of the file that this MPI rank will write
@@ -111,7 +110,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname)
 
         @info "Done writing VTK: $pvtuprefix"
     end
-end
+end;
 
 function run(
     mpicomm,
@@ -146,7 +145,7 @@ function run(
 
     initialsumQ = weightedsum(Q)
 
-    # We integrate so that the final solution is equal to the initial solution
+    ## We integrate so that the final solution is equal to the initial solution
     Qe = copy(Q)
 
     rhs! = function (dQdt, Q, ::Nothing, t; increment = false)
@@ -160,16 +159,16 @@ function run(
         Filters.apply!(Q, :, grid, TMARFilter())
     end
 
-    # create output directory on first rank of communicator
+    ## create output directory on first rank of communicator
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
     end
     MPI.Barrier(mpicomm)
 
     vtkstep = 0
-    # output initial step
+    ## output initial step
     do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, "nonnegative")
-    # setup the output callback
+    ## setup the output callback
     cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
         vtkstep += 1
         minQ, maxQ = minimum(Q), maximum(Q)
@@ -202,7 +201,7 @@ function run(
     L2 error   = %.16e
     sum error  = %.16e
     """ minQ maxQ error sumerror
-end
+end;
 
 let
     ArrayType = ClimateMachine.array_type()
@@ -262,4 +261,4 @@ let
         vtkdir,
         outputtime,
     )
-end
+end;
