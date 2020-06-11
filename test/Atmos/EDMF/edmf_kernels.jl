@@ -528,6 +528,7 @@ function flux_second_order!(
     gm_f.ρe_int += -ρa_en*K_eddy*en_d.∇e_int[3] + massflux_e_int
     gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
     gm_f.ρu     += -ρa_en.*K_eddy.*en_d.∇u
+    # YAIR adding massfluxflux u breaks 
     # gm_f.ρu   += -ρa_en.*K_eddy.*en_d.∇u      + massflux_u
 
     # env second momment flux_second_order
