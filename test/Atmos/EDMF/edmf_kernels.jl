@@ -497,6 +497,7 @@ function flux_second_order!(
     en   = state.edmf.environment
     gm_f = flux
     up_f = flux.edmf.updraft
+    en_f = flux.edmf.environment
     gm_d = diffusive
     en_d = diffusive.edmf.environment
 
@@ -525,10 +526,9 @@ function flux_second_order!(
     # YAIR CHECK THE SIGN of MF 
     # grid mean flux_second_order
     gm_f.ρe_int += -ρa_en*K_eddy*en_d.∇e_int[3] + massflux_e_int
-    @show(size(en_d.∇q_tot), size(gm_f.ρq_tot))
     gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
-    @show(size(en_d.∇u), size(gm_f.ρu))
-    gm_f.ρu     += -ρa_en*K_eddy*en_d.∇u        + massflux_u
+    gm_f.ρu     += -ρa_en.*K_eddy.*en_d.∇u
+    # gm_f.ρu   += -ρa_en.*K_eddy.*en_d.∇u      + massflux_u
 
     # env second momment flux_second_order
     en_f.ρatke            += -ρa_en*K_eddy*en_d.∇tke[3]
