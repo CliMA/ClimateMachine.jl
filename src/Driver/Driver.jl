@@ -266,47 +266,11 @@ default system defaults at runtime, default values will be merged with the
 parsed argument settings, with parsed cli argument values taking precedent
 over runtime defined default values.
 
-
-Returns a `Dict` containing parsed process ARGS values.
-"""
-function cli(;
-    custom_settings::Union{Nothing, ArgParseSettings} = nothing,
-    init_driver::Bool = true,
-    kwargs...,
-)
-    kw_defaults = Dict{Symbol, Any}(kwargs)
-    parsed_args = parse_commandline(kw_defaults, custom_settings)
-    # we need to munge the parsed arg dict a bit as parsed arg keys
-    # and climatemachine initialization keywords are not 1:1
-    parsed_args["checkpoint_keep_one"] = !parsed_args["checkpoint_keep_all"]
-    parsed_kwargs = Dict{Symbol, Any}((Symbol(k), v) for (k, v) in parsed_args)
-    # allow for setting cli arguments as hard defaults that override parsed process ARGS
-    init_kwargs = merge(kw_defaults, parsed_kwargs)
-    # call init with munged kw arguments
-    ClimateMachine.init(; init_driver = init_driver, init_kwargs...)
-    return parsed_args
-end
-
-
-"""
-    ClimateMachine.init(;init_driver::Bool=true, kwargs...)
-
-Perform necessary initializations for ClimateMachine:
-- Initialize MPI.
 - Parse command line arguments. To support experiment-specific arguments,
 `arg_settings` may be specified (it is an `ArgParse.ArgParseSettings`);
 it will be imported into ClimateMachine's settings.
-- Determine whether GPU(s) is available and should be used (pass
-`disable-gpu = true` if not) and set the ClimateMachine array type appropriately.
-- Set up the global logger.
 
-Setting `init_driverd = false` will set the `ClimateMachine.Settings` singleton
-values without initializing the ClimateMachine driver runtime.
-
-`ClimateMachine.Settings` values can be overloaded at runtime upon initialization.
-If keyword argument overloads are not supplied, the `init` routine will try and
-fallback on any `CLIMATEMACHINE_SETTINGS_<VALUE>` `ENV` variables defined for
-the process, otherwise the defaulting to `ClimateMachine.Settings`.
+Returns a `Dict` containing parsed process ARGS values.
 
 # Keyword Arguments
 - `disable_gpu::Bool = false`:
@@ -341,6 +305,42 @@ the process, otherwise the defaulting to `ClimateMachine.Settings`.
         absolute or relative path to output data directory
 - `integration_testing::Bool = false`:
         enable integration_testing
+"""
+function cli(;
+    custom_settings::Union{Nothing, ArgParseSettings} = nothing,
+    init_driver::Bool = true,
+    kwargs...,
+)
+    kw_defaults = Dict{Symbol, Any}(kwargs)
+    parsed_args = parse_commandline(kw_defaults, custom_settings)
+    # we need to munge the parsed arg dict a bit as parsed arg keys
+    # and climatemachine initialization keywords are not 1:1
+    parsed_args["checkpoint_keep_one"] = !parsed_args["checkpoint_keep_all"]
+    parsed_kwargs = Dict{Symbol, Any}((Symbol(k), v) for (k, v) in parsed_args)
+    # allow for setting cli arguments as hard defaults that override parsed process ARGS
+    init_kwargs = merge(kw_defaults, parsed_kwargs)
+    # call init with munged kw arguments
+    ClimateMachine.init(; init_driver = init_driver, init_kwargs...)
+    return parsed_args
+end
+
+
+"""
+    ClimateMachine.init(;init_driver::Bool=true, kwargs...)
+
+Perform necessary initializations for ClimateMachine:
+- Initialize MPI.
+- Determine whether GPU(s) is available and should be used (pass
+`disable_gpu = true` if not) and set the ClimateMachine array type appropriately.
+- Set up the global logger.
+
+Setting `init_driver = false` will set the `ClimateMachine.Settings` singleton
+values without initializing the ClimateMachine driver runtime.
+
+`ClimateMachine.Settings` values can be overloaded at runtime upon initialization.
+If keyword argument overloads are not supplied, the `init` routine will try and
+fallback on any `CLIMATEMACHINE_SETTINGS_<VALUE>` `ENV` variables defined for
+the process, otherwise defaulting to `ClimateMachine.Settings`.
 """
 function init(; init_driver::Bool = true, kwargs...)
     # init global setting values
