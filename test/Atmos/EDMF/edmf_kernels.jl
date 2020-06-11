@@ -130,14 +130,14 @@ function init_state_auxiliary!(
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
 
-    en_a.buoyancy = FT(0)
-    en_a.cld_frac = FT(0)
+    en_a.buoyancy = eps(FT)
+    en_a.cld_frac = eps(FT)
 
     for i in 1:N
-        up_a[i].buoyancy = FT(0)
-        up_a[i].updraft_top  = FT(0)
+        up_a[i].buoyancy = eps(FT)
+        up_a[i].updraft_top  = eps(FT)
     end
-    en_a.cld_frac = FT(0)
+    en_a.cld_frac = eps(FT)
     # Need to define K_eddy
 end;
 
@@ -166,7 +166,7 @@ function init_state_conservative!(
     gm.ρ = FT(1)
     gm.ρu = SVector(0,0,0)
     gm.ρe_int = gm.ρ * 300000
-    gm.ρq_tot = gm.ρ * FT(0)
+    gm.ρq_tot = gm.ρ * eps(FT)
 
     # a_up = m.a_updraft_initial/FT(N)
     a_up = 0.1/FT(N)
@@ -178,9 +178,9 @@ function init_state_conservative!(
     end
 
     # initialize environment covariance
-    en.ρae_int_cv       = FT(0)
-    en.ρaq_tot_cv       = FT(0)
-    en.ρae_int_q_tot_cv = FT(0)
+    en.ρae_int_cv       = eps(FT)
+    en.ρaq_tot_cv       = eps(FT)
+    en.ρae_int_q_tot_cv = eps(FT)
 
 end;
 
@@ -272,7 +272,7 @@ function edmf_stack_nodal_update_aux!(
     # YAIR - check this with Charlie
     for i in 1:N
         for j in length(up[i].ρa)
-            if up[i].ρa*ρinv>FT(0) # YAIR this - FT(eps) failed
+            if up[i].ρa*ρinv>eps(FT)
                 up_a[i].updraft_top = aux.z
             end
         end
@@ -436,10 +436,10 @@ function source!(
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
     #                            production from mean gradient       - Dissipation
-    en.ρatke            += gm.ρ*a_env*K_eddy*Shear                   - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρatke
-    en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇e_int - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
-    en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot*en_d.∇q_tot - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
-    en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int*en_d.∇q_tot - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
+    en.ρatke            += gm.ρ*a_env*K_eddy*Shear                         - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρatke
+    en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
+    en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
+    en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
 
     # covariance microphysics sources should be applied here
 
@@ -524,15 +524,17 @@ function flux_second_order!(
 
     # YAIR CHECK THE SIGN of MF 
     # grid mean flux_second_order
-    gm_f.ρe_int += -ρa_en*K_eddy*en_d.∇e_int + massflux_e_int
-    gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot + massflux_q_tot
-    gm_f.ρu     += -ρa_en*K_eddy*en_d.∇u     + massflux_u
+    gm_f.ρe_int += -ρa_en*K_eddy*en_d.∇e_int[3] + massflux_e_int
+    @show(size(en_d.∇q_tot), size(gm_f.ρq_tot))
+    gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
+    @show(size(en_d.∇u), size(gm_f.ρu))
+    gm_f.ρu     += -ρa_en*K_eddy*en_d.∇u        + massflux_u
 
     # env second momment flux_second_order
-    en_f.ρatke            += -ρa_en*K_eddy*en_d.∇tke
-    en_f.ρae_int_cv       += -ρa_en*K_eddy*en_d.∇e_int_cv
-    en_f.ρaq_tot_cv       += -ρa_en*K_eddy*en_d.∇q_tot_cv
-    en_f.ρae_int_q_tot_cv += -ρa_en*K_eddy*en_d.∇e_int_q_tot_cv
+    en_f.ρatke            += -ρa_en*K_eddy*en_d.∇tke[3]
+    en_f.ρae_int_cv       += -ρa_en*K_eddy*en_d.∇e_int_cv[3]
+    en_f.ρaq_tot_cv       += -ρa_en*K_eddy*en_d.∇q_tot_cv[3]
+    en_f.ρae_int_q_tot_cv += -ρa_en*K_eddy*en_d.∇e_int_q_tot_cv[3]
 end;
 
 # ### Boundary conditions
@@ -569,7 +571,7 @@ function boundary_state!(
             up[i].ρau     = SVector(0,0,0)
             up[i].ρa      = FT(0.1)#upd_a_surf[i]
             up[i].ρae_int = FT(30000)#upd_e_int_surf[i]
-            up[i].ρaq_tot = FT(0)#upd_q_tot_surf[i]
+            up[i].ρaq_tot = eps(FT)#upd_q_tot_surf[i]
         end
         # can call `env_surface_covariances` with surface values
 

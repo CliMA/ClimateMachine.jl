@@ -101,7 +101,7 @@ function init_state_conservative!(
     state.ρ = FT(1) # need to add intial state here 
     state.ρu = SVector(0,0,0)
     state.ρe_int = FT(300000) # need to add intial state here 
-    state.ρq_tot = FT(0) # need to add intial state here 
+    state.ρq_tot = eps(FT) # need to add intial state here 
     init_state_conservative!(m, m.edmf, state, aux, coords, t)
 
 end;
@@ -297,10 +297,10 @@ function boundary_state!(
         diff⁺.ρ∇q_tot = state⁺.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
 
     elseif bctype == 2 # top
-        diff⁺.ρ∇u[1] = -n⁻ * FT(0)
-        diff⁺.ρ∇u[2] = -n⁻ * FT(0)
-        diff⁺.ρ∇e_int = -n⁻ * FT(0)
-        diff⁺.ρ∇q_tot = -n⁻ * FT(0)
+        diff⁺.ρ∇u[1] = -n⁻ * eps(FT)
+        diff⁺.ρ∇u[2] = -n⁻ * eps(FT)
+        diff⁺.ρ∇e_int = -n⁻ * eps(FT)
+        diff⁺.ρ∇q_tot = -n⁻ * eps(FT)
     end
     boundary_state!(nf, m, m.edmf, state⁺, diff⁺, aux⁺, n⁻, state⁻, diff⁻, aux⁻, bctype, t, args)
 end;

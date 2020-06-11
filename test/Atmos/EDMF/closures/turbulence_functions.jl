@@ -31,44 +31,21 @@ function compute_buoyancy_gradients(
     cld_frac ,cloudy_q_tot ,cloudy_T ,cloudy_R_m ,cloudy_q_vap ,cloudy_q_liq ,cloudy_q_ice ,dry_q_tot ,dry_T ,dry_R_m ,dry_q_vap ,dry_q_liq ,dry_q_ice = compute_subdomain_statistics!(ss, state, aux ,t, ss.edmf.micro_phys.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
 
-    dry_∂e_int∂z = en_d.∇e_int
-    dry_∂q_tot∂z = en_d.∇q_tot
-    cloudy_∂e_int∂z = en_d.∇e_int
-    cloudy_∂q_tot∂z = en_d.∇q_tot
+    ∂e_int∂z = en_d.∇e_int[3]
+    ∂q_tot∂z = en_d.∇q_tot[3]
     
+    # dry
     ρ_i = gm_a.p0/(dry_T*dry_R_m) 
-    ∂b∂z_dry = - ∂b∂ρ*ρ_i*( 1/( (1-dry_q_tot)*_cv_d*dry_T + dry_q_vap *_cv_v * dry_T) * dry_∂e_int∂z 
-                        + (_R_d/dry_R_m)*(ε_v-1)*dry_∂q_tot∂z - gm_d.∇p0/gm_a.p0)
-
+    ∂b∂z_dry = - ∂b∂ρ*ρ_i*( 1/( (1-dry_q_tot)*_cv_d*dry_T + dry_q_vap *_cv_v * dry_T) * ∂e_int∂z 
+                        + (_R_d/dry_R_m)*(ε_v-1)*∂q_tot∂z - gm_d.∇p0/gm_a.p0)
+    # cloudy 
     ρ_i = gm_a.p0/(cloudy_T*cloudy_R_m) 
-    ∂b∂z_cloudy = - ∂b∂ρ*ρ_i*(1/( (1-cloudy_q_tot)*_cv_d+cloudy_q_vap*_cv_v + cloudy_q_liq*_cv_l + cloudy_q_ice*_cv_i)/cloudy_T*cloudy_∂e_int∂z  
-                            +(_R_d/dry_R_m) * (1/(_cv_v*(cloudy_T-_T_0)+_e_int_i0)*cloudy_∂e_int∂z + (ε_v-1)*cloudy_∂q_tot∂z)
+    ∂b∂z_cloudy = - ∂b∂ρ*ρ_i*(1/( (1-cloudy_q_tot)*_cv_d+cloudy_q_vap*_cv_v + cloudy_q_liq*_cv_l + cloudy_q_ice*_cv_i)/cloudy_T*∂e_int∂z  
+                            +(_R_d/dry_R_m) * (1/(_cv_v*(cloudy_T-_T_0)+_e_int_i0)*∂e_int∂z + (ε_v-1)*∂q_tot∂z)
                             - gm_d.∇p0/gm_a.p0)
-    # ρ_i = gm_a.p0/(dry.T*dry.R_m) 
-    # ∂b∂z_dry = - ∂b∂ρ*ρ_i*( 1/( (1-dry.q_tot)*_cv_d*dry.T + dry.q_vap *_cv_v * dry.T) * dry.∂e_int∂z 
-    #                     + (_R_d/dry.R_m)*(ε_v-1)*dry.∂q_tot∂z - gm_d.∇p0/gm_a.p0)
-
-    # ρ_i = gm_a.p0/(cloudy.T*cloudy.R_m) 
-    # ∂b∂z_cloudy = - ∂b∂ρ*ρ_i*(1/( (1-cloudy.q_tot)*_cv_d+cloudy.q_vap*_cv_v + cloudy.q_liq*_cv_l + cloudy.q_ice*_cv_i)/cloudy.T*cloudy.∂e_int∂z  
-    #                         +(_R_d/dry.R_m) * (1/(_cv_v*(cloudy.T-_T0)+_e_int_i0)*cloudy.∂e_int∂z + (ε_v-1)*cloudy.∂q_tot∂z)
-    #                         - gm_d.∇p0/gm_a.p0)
     # combine cloudy and dry
     ∂b∂z = (cld_frac*∂b∂z_cloudy + (1-cld_frac)*∂b∂z_dry)
     
-    # keeping the old derivation commented for now 
-    # #                  <-------- ∂ρ∂T -------->*<----- ∂T∂e_int ---------->
-    # ∂ρ∂e_int_dry    = - _R_d*gm_a.p_0/(dry.R_m*dry.T*dry.T)/((1-dry.q_tot)*_cv_d+dry.q_vap *_cv_v)
-    # #                  <-------- ∂ρ∂T --------->*<----- ∂T∂e_int ---------->
-    # ∂ρ∂e_int_cloudy = - (_R_d*gm_a.p_0/(cloudy.R_m*cloudy.T*cloudy.T)/((1-cloudy.q_tot)*_cv_d+cloudy.q_vap *_cv_v+cloudy.q_liq*_cv_l+ cloudy.q_ice*_cv_i)
-    #                    + gm_a.p_0/(cloudy.R_m*cloudy.R_m*cloudy.T)*ε_v*_R_d/(_cv_v*(cloudy.T-_T0)+_e_int_i0) )
-    # #                    <----- ∂ρ∂Rm ------->*<------- ∂Rm∂e_int ---------->
-
-    # ∂ρ∂e_int = (cld_frac * ∂ρ∂e_int_cloudy + (1-cld_frac) * ∂ρ∂e_int_dry)
-    # ∂ρ∂q_tot = _R_d*gm_a.p_0/(R_m*R_m*T)
-    # # apply chain-role
-    # ∂b∂z_e_int = ∂b∂ρ * ∂ρ∂e_int * ∂e_int∂z
-    # ∂b∂z_q_tot = ∂b∂ρ * ∂ρ∂q_tot * ∂q_tot∂z
-
     # Computation of buoyancy frequeacy based on θ_lv
     ρinv = 1/gm.ρ
     en_e_int = (gm.ρe_int-sum([up[j].ρae_int for j in 1:N]))*ρinv
@@ -91,9 +68,9 @@ function compute_buoyancy_gradients(
     ∂θv∂qt     = -θv/Tv*(ε_v-1)/_e_int_i0
     ∂θvl∂qt    = -θvl/Tv*(ε_v-1)/_e_int_i0 
     # apply chain-role
-    ∂θv∂z  = ∂θv∂e_int*dry_∂e_int∂z  + ∂θv∂qt*dry_∂q_tot∂z
-    @show(∂θv∂z,∂θv∂e_int,dry_∂e_int∂z , ∂θv∂qt,dry_∂q_tot∂z)
-    ∂θvl∂z = ∂θvl∂e_int*dry_∂e_int∂z + ∂θvl∂qt*dry_∂q_tot∂z
+    ∂θv∂z  = ∂θv∂e_int*∂e_int∂z  + ∂θv∂qt*∂q_tot∂z
+    @show(∂θv∂z,∂θv∂e_int,∂e_int∂z , ∂θv∂qt,∂q_tot∂z)
+    ∂θvl∂z = ∂θvl∂e_int*∂e_int∂z + ∂θvl∂qt*∂q_tot∂z
 
     ∂θv∂vl = exp((lv*ql)/(_cp_m*T))
     λ_stb = cld_frac

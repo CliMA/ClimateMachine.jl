@@ -31,8 +31,8 @@ function mixing_length(
     w_env    = (gm.ρu[3]  - sum([up[i].ρau[3] for i in 1:N]))*ρinv
     en_e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))*ρinv
     en_q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
-    ∂e_int∂z = en_d.∇e_int
-    ∂q_tot∂z = en_d.∇q_tot
+    ∂e_int∂z = en_d.∇e_int[3]
+    ∂q_tot∂z = en_d.∇q_tot[3]
 
     # TODO: check rank of `en_d.∇u`
     Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
@@ -53,14 +53,15 @@ function mixing_length(
 
     # compute L1 - stability - YAIR missing Nˢ
     # @show(Nˢ_eff)
-    if Nˢ_eff>FT(0)
+    if Nˢ_eff>eps(FT)
       m.L[1] = sqrt(m.c_w*tke)/Nˢ_eff
     else
-      m.L[1] = FT(1e-6)
+      m.L[1] = eps(FT)
     end
 
     # compute L2 - law of the wall  - YAIR define tke_surf
-    if obukhov_length < FT(0)
+    tke_surf = FT(1)
+    if obukhov_length < eps(FT)
       m.L[2] = (m.κ * z/(sqrt(tke_surf)/ss.edmf.surface.ustar/ss.edmf.surface.ustar)* m.c_k) * min(
          (FT(1) - FT(100) * z/obukhov_length)^FT(0.2), 1/m.κ)
     else
@@ -70,7 +71,7 @@ function mixing_length(
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
 
-    a = m.c_m*(Shear - ∂b∂z/Pr_z)* sqrt(tke)
+    a = m.c_m*(Shear - ∂e_int∂z/Pr_z - ∂q_tot∂z/Pr_z)* sqrt(tke)
     # Dissipation term
     b = FT(0)
     # detrainment and turb_entr should of the i'th updraft
