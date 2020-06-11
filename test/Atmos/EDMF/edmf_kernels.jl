@@ -354,6 +354,7 @@ end;
 function source!(
     m::SingleStack{FT, N},
     edmf::EDMF{FT, N},
+    source::Vars,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
@@ -365,6 +366,10 @@ function source!(
     gm = state
     en = state
     up = state.edmf.updraft
+    gm_s = state
+    en_s = state.edmf.environment
+    up_s = state.edmf.updraft
+
     
     # grid mean sources - I think that large scale subsidence in
     #            doubly periodic domains should be applied here
@@ -411,16 +416,16 @@ function source!(
         # covariances entrinament sources from the i'th updraft
         # -- if ϕ'ψ' is tke and ϕ,ψ are both w than a factor 0.5 appears in the εt and δ terms
         # Covar_Source      +=  ρaw⋅δ⋅(ϕ_up-ϕ_en)   ⋅ (ψ_up-ψ_en) + ρaw⋅εt⋅[(ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en) + (ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en)] - ρaw⋅ε⋅ϕ'ψ'
-        en.ρatke            += (up[i].ρau[3] * δ[i] * (up[i].ρau[3]/up[i].ρa - w_env)*(up[i].ρau[3]/up[i].ρa - w_env)*0.5
+        en_s.ρatke            += (up[i].ρau[3] * δ[i] * (up[i].ρau[3]/up[i].ρa - w_env)*(up[i].ρau[3]/up[i].ρa - w_env)*0.5
                             +   up[i].ρau[3] * εt[i]* w_env*(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
                             -   up[i].ρau[3] * ε[i] * en.ρatke)
-        en.ρae_int_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env)*(up[i].ρae_int/up[i].ρa - e_int_env)
+        en_s.ρae_int_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env)*(up[i].ρae_int/up[i].ρa - e_int_env)
                             +   up[i].ρau[3] * εt[i]* e_int_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)*2
                             -   up[i].ρau[3] * ε[i] * en.ρae_int_cv)
-        en.ρaq_tot_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρaq_tot/up[i].ρa - q_tot_env)*(up[i].ρaq_tot/up[i].ρa - q_tot_env)
+        en_s.ρaq_tot_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρaq_tot/up[i].ρa - q_tot_env)*(up[i].ρaq_tot/up[i].ρa - q_tot_env)
                             +   up[i].ρau[3] * εt[i]* q_tot_env*(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)*2
                             -   up[i].ρau[3] * ε[i] * en.ρaq_tot_cv)
-        en.ρae_int_q_tot_cv += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env) *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
+        en_s.ρae_int_q_tot_cv += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env) *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
                             +   up[i].ρau[3] * εt[i]* e_int_env*(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
                             +   up[i].ρau[3] * εt[i]* q_tot_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)
                             -   up[i].ρau[3] * ε[i] * en.ρae_int_q_tot_cv)
@@ -431,10 +436,10 @@ function source!(
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
     #                            production from mean gradient       - Dissipation
-    en.ρatke            += gm.ρ*a_env*K_eddy*Shear                         - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρatke
-    en.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
-    en.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
-    en.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
+    en_s.ρatke            += gm.ρ*a_env*K_eddy*Shear                         - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρatke
+    en_s.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
+    en_s.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
+    en_s.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
     # covariance microphysics sources should be applied here
 end;
 
@@ -490,7 +495,6 @@ function flux_second_order!(
     gm_f = flux
     up_f = flux.edmf.updraft
     en_f = flux.edmf.environment
-    gm_d = diffusive
     en_d = diffusive.edmf.environment
 
     ρinv = FT(1)/gm.ρ

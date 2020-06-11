@@ -153,10 +153,6 @@ end;
 
 # Specify where in `diffusive::Vars` to store the computed gradient from
 # `compute_gradient_argument!`. Note that:
-#  - `diffusive.α∇ρcT` is available here because we've specified `α∇ρcT` in
-#  `vars_state_gradient_flux`
-#  - `∇transform.ρcT` is available here because we've specified `ρcT`  in
-#  `vars_state_gradient`
 function compute_gradient_flux!(
     m::SingleStack{FT,N},
     diffusive::Vars,
@@ -173,12 +169,13 @@ end;
 function source!(
     m::SingleStack{FT, N},
     state::Vars,
+    source::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
     direction,
 ) where {FT, N}
-    source!(m, m.edmf, state, diffusive, aux, t, direction)
+    source!(m, m.edmf, state, source, diffusive, aux, t, direction)
 end;
 
 function flux_first_order!(
