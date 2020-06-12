@@ -62,7 +62,8 @@ function vars_state_conservative(m::EDMF, FT)
 end
 
 function vars_state_gradient(::Updraft, FT)
-    @vars()
+    @vars(u::SVector{3, FT},
+         );
 end
 
 function vars_state_gradient(::Environment, FT)
@@ -74,7 +75,7 @@ function vars_state_gradient(::Environment, FT)
           q_tot_cv::FT,
           e_int_q_tot_cv::FT,
           θ_ρ::FT,
-          )
+          );
 end
 
 
@@ -89,12 +90,15 @@ function vars_state_gradient(m::EDMF, FT)
           );
 end
 
-vars_state_gradient_flux(::Updraft, FT) = @vars()
 
 function vars_state_gradient_flux(m::NTuple{N,Updraft}, FT) where {N}
     return Tuple{ntuple(i->vars_state_gradient_flux(m[i], FT), N)...}
 end
 
+function vars_state_gradient_flux(::Updraft, FT)
+    @vars(∇u::SMatrix{3, 3, FT, 9},
+          );
+end
 
 function vars_state_gradient_flux(::Environment, FT)
     @vars(∇e_int::SVector{3, FT},
@@ -298,6 +302,8 @@ function compute_gradient_argument!(
     up = state.edmf.updraft
     en = state.edmf.environment
 
+    up_t.u = up.ρau/up.ρa
+    
     ts = thermo_state(SingleStack, state, aux)
     en_t.θ_ρ = virtual_pottemp(ts)
 
@@ -329,10 +335,16 @@ function compute_gradient_flux!(
     t::Real,
 ) where {FT,N}
     # Aliases:
+    gm = state
     gm_d = diffusive
+    up_d = diffusive.edmf.updraft
+    up_∇t = ∇transform.edmf.updraft
     en_d = diffusive.edmf.environment
     en_∇t = ∇transform.edmf.environment
-    gm = state
+    
+    for i in 1:N
+        up_d[i].∇u = up_∇t[i].u
+    end
 
     ρinv      = 1/gm.ρ
     en_d.∇θ_ρ = en_∇t.θ_ρ
@@ -364,11 +376,12 @@ function source!(
 
     # Aliases:
     gm = state
-    en = state
+    en = state.edmf.environment
     up = state.edmf.updraft
     gm_s = state
     en_s = state.edmf.environment
     up_s = state.edmf.updraft
+    en_d = diffusive.edmf.environment
 
     
     # grid mean sources - I think that large scale subsidence in
@@ -376,9 +389,9 @@ function source!(
     # updraft sources
 
     # YAIR  - these need to be defined as vectors length N - check with Charlie
-    εt =  SVector{N, FT}
-    ε =   SVector{N, FT}
-    δ =   SVector{N, FT}
+    εt = MArray{Tuple{N}, FT}(zeros(FT, N))
+    ε = MArray{Tuple{N}, FT}(zeros(FT, N))
+    δ = MArray{Tuple{N}, FT}(zeros(FT, N))
     # should be conditioned on updraft_area > minval
     ρinv = 1/gm.ρ
     a_env = 1 - sum([up[i].ρa for i in 1:N])*ρinv
@@ -394,7 +407,10 @@ function source!(
         env_q_tot = (gm.ρq_tot - up[i].ρaq_tot)/(gm.ρ*a_env)
 
         # first moment sources
-        ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
+        # ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
+        ε[i] = 0.0001
+        δ[i] = 0.0001
+        εt[i] = 0.0001
         dpdz, dpdz_tke_i  = perturbation_pressure(m, edmf.pressure, state, diffusive, aux, t, direction, i)
 
         # entrainment and detrainment
@@ -405,20 +421,21 @@ function source!(
         up_s[i].ρaq_tot += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρaq_tot - (δ[i]+εt[i])*env_q_tot)
 
         # perturbation pressure in w equation
-        up_s[i].ρau[3] += up[i].ρa * dpdz
+        up_s[i].ρau += [0,0,up[i].ρa * dpdz] # CHARLIE check me on this one 
+    
         # microphysics sources should be applied here
 
         ## environment second moments:
 
         # pressure tke source from the i'th updraft
-        en.ρatke += up[i].ρa * dpdz_tke_i
+        en_s.ρatke += up[i].ρa * dpdz_tke_i
 
         # covariances entrinament sources from the i'th updraft
         # -- if ϕ'ψ' is tke and ϕ,ψ are both w than a factor 0.5 appears in the εt and δ terms
         # Covar_Source      +=  ρaw⋅δ⋅(ϕ_up-ϕ_en)   ⋅ (ψ_up-ψ_en) + ρaw⋅εt⋅[(ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en) + (ϕ_up-⟨ϕ⟩)⋅(ψ_up-ψ_en)] - ρaw⋅ε⋅ϕ'ψ'
         en_s.ρatke            += (up[i].ρau[3] * δ[i] * (up[i].ρau[3]/up[i].ρa - w_env)*(up[i].ρau[3]/up[i].ρa - w_env)*0.5
-                            +   up[i].ρau[3] * εt[i]* w_env*(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
-                            -   up[i].ρau[3] * ε[i] * en.ρatke)
+                            +     up[i].ρau[3] * εt[i]* w_env*(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
+                            -     up[i].ρau[3] * ε[i] * en.ρatke)
         en_s.ρae_int_cv       += (up[i].ρau[3] * δ[i] * (up[i].ρae_int/up[i].ρa - e_int_env)*(up[i].ρae_int/up[i].ρa - e_int_env)
                             +   up[i].ρau[3] * εt[i]* e_int_env*(up[i].ρae_int/up[i].ρa - gm.ρe_int*ρinv)*2
                             -   up[i].ρau[3] * ε[i] * en.ρae_int_cv)
@@ -431,15 +448,16 @@ function source!(
                             -   up[i].ρau[3] * ε[i] * en.ρae_int_q_tot_cv)
     end
     l      = mixing_length(m, m.edmf.mix_len, state, diffusive, aux, t, δ, εt)
-    K_eddy = m.edmf.mix_len.c_k*l*sqrt(en.tke)
-    Shear = en_∇t.u[1].^2 + en_∇t.u[2].^2 + en_∇t.u[3].^2 # consider scalar product of two vectors
+    en_tke = en.ρatke*ρinv/a_env
+    K_eddy = m.edmf.mix_len.c_k*l*sqrt(en_tke)
+    Shear = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
     #                            production from mean gradient       - Dissipation
-    en_s.ρatke            += gm.ρ*a_env*K_eddy*Shear                         - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρatke
-    en_s.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_cv
-    en_s.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρaq_tot_cv
-    en_s.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] - m.MixingLengthModel.c_m*sqrt(en.ρatke*ρinv/a_env)/l*en.ρae_int_q_tot_cv
+    en_s.ρatke            += gm.ρ*a_env*K_eddy*Shear                         - edmf.mix_len.c_m*sqrt(en_tke)/l*en.ρatke
+    en_s.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] - edmf.mix_len.c_m*sqrt(en_tke)/l*en.ρae_int_cv
+    en_s.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] - edmf.mix_len.c_m*sqrt(en_tke)/l*en.ρaq_tot_cv
+    en_s.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] - edmf.mix_len.c_m*sqrt(en_tke)/l*en.ρae_int_q_tot_cv
     # covariance microphysics sources should be applied here
 end;
 

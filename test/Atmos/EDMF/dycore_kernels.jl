@@ -282,15 +282,15 @@ function boundary_state!(
     args...,
 ) where {FT,N}
     if bctype == 1 # bottom
-        diff⁺.ρ∇e_int = state⁺.ρ * m.e_int_surface_flux # e_int_surface_flux has units of w'e_int'
-        diff⁺.ρ∇q_tot = state⁺.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
+        diff⁺.ρ∇e_int = state⁺.ρ * m.edmf.surface.surface_shf # e_int_surface_flux has units of w'e_int'
+        diff⁺.ρ∇q_tot = state⁺.ρ * m.edmf.surface.surface_lhf # q_tot_surface_flux has units of w'q_tot'
         # diff⁺.ρ∇u = SVector(...) # probably need one of these...
         # diff⁺.ρ∇u = SMatrix(...) # probably need one of these...
-        diff⁺.ρ∇u[1] = state⁺.ρ * m.u_surface_flux # u_surface_flux has units of w'u'
-        diff⁺.ρ∇u[2] = state⁺.ρ * m.v_surface_flux # v_surface_flux has units of w'v'
+        diff⁺.ρ∇u[1] = state⁺.ρ * m.edmf.surface.surface_shf # u_surface_flux has units of w'u'
+        diff⁺.ρ∇u[2] = state⁺.ρ * m.edmf.surface.surface_lhf # v_surface_flux has units of w'v'
 
-        diff⁺.ρ∇e_int = state⁺.ρ * m.e_int_surface_flux # e_int_surface_flux has units of w'e_int'
-        diff⁺.ρ∇q_tot = state⁺.ρ * m.q_tot_surface_flux # q_tot_surface_flux has units of w'q_tot'
+        diff⁺.ρ∇e_int = state⁺.ρ * m.edmf.surface.surface_shf # e_int_surface_flux has units of w'e_int'
+        diff⁺.ρ∇q_tot = state⁺.ρ * m.edmf.surface.surface_lhf # q_tot_surface_flux has units of w'q_tot'
 
     elseif bctype == 2 # top
         diff⁺.ρ∇u[1] = -n⁻ * eps(FT)
