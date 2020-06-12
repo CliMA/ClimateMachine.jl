@@ -262,9 +262,9 @@ function main()
     ## random seeds, spline interpolants and other special functions at the
     ## initialisation step.)
     N = 4
-    Δx = FT(100)
+    Δx = FT(6.25)
     Δy = FT(250)
-    Δv = FT(100)
+    Δv = FT(6.25)
     resolution = (Δx, Δy, Δv)
     xmax = FT(25600)
     ymax = FT(1000)
