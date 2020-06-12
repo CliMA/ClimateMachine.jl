@@ -18,11 +18,14 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+const NE_X = 2
+const NE_Y = 2
+
 include("ocean_init_state.jl")
 
 function CLIMA_plot(solver_config, filename)
-    Qnd=reshape(solver_config.Q.realdata,(5,5,5,4,20,20,20));
-    Gnd=reshape(solver_config.dg.grid.vgeo,(5,5,5,16,20,20,20));
+    Qnd=reshape(solver_config.Q.realdata,(5,5,5,4,20,NE_X ,NE_Y ));
+    Gnd=reshape(solver_config.dg.grid.vgeo,(5,5,5,16,20,NE_X ,NE_Y ));
     tval=Qnd[1,1,:,4,:,1,1][:];
     zval=Gnd[1,1,:,15,:,1,1][:]
     tval_cpu=ones( size(tval) )
@@ -62,8 +65,8 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing)
     N = Int(4)
 
     # Domain resolution and size
-    Nˣ = Int(2)
-    Nʸ = Int(2)
+    Nˣ = Int(NE_X)
+    Nʸ = Int(NE_Y)
     Nᶻ = Int(20)
     resolution = (Nˣ, Nʸ, Nᶻ)
 
@@ -138,7 +141,8 @@ end
         (
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+#           OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
         ),
     ]
 #=
