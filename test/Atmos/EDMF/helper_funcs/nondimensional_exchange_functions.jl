@@ -44,8 +44,8 @@ function nondimensional_exchange_functions(
     # compute dry and moist aux functions
     D_ε = m.c_ε/(1+exp(-db/dw/m.μ_0*(m.χ - up_area/(up_area+en_area))))
     D_δ = m.c_ε/(1+exp( db/dw/m.μ_0*(m.χ - up_area/(up_area+en_area))))
-    M_δ = m.c_δ*( max((RH_up^β-RH_en^m.β),0.0) )^(1/m.β)
-    M_ε = m.c_δ*( max((RH_en^β-RH_up^m.β),0.0) )^(1/m.β)
+    M_δ = m.c_δ*( max((RH_up^m.β-RH_en^m.β),0.0) )^(1/m.β)
+    M_ε = m.c_δ*( max((RH_en^m.β-RH_up^m.β),0.0) )^(1/m.β)
     return D_ε ,D_δ ,M_δ ,M_ε
 end;
 
