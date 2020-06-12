@@ -52,7 +52,7 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     u_0::FT = 20.0
     G::FT = _grav^2 / N^2 / _cp
     T_eq::FT = 300
-    Δθ::FT = 1.0
+    Δθ::FT = 0.0
     d::FT = 5e3
     λ_c::FT = 2 * π / 3
     φ_c::FT = 0
@@ -93,7 +93,8 @@ function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
     T::FT = T_b + T′
 
     # density
-    ρ = air_density(bl.param_set, T_b, p)
+    ρ = p / _R_d / T
+    #ρ = air_density(bl.param_set, T_b, p)
 
     # potential & kinetic energy
     e_pot = gravitational_potential(bl.orientation, aux)
@@ -110,7 +111,7 @@ end
 
 function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
-    temp_profile_ref = IsothermalProfile(param_set, FT(300))
+    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(300), FT(100), FT(27.5e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     domain_height::FT = 10e3               # distance between surface and top of atmosphere (m)
@@ -122,7 +123,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0.0)),
+        turbulence = SmagorinskyLilly(FT(0.0)),
         moisture = DryModel(),
         source = (Gravity(),),
         init_state_conservative = init_nonhydrostatic_gravity_wave!,
@@ -171,11 +172,11 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 5                           # discontinuous Galerkin polynomial order
+    poly_order = 4                           # discontinuous Galerkin polynomial order
     n_horz = 7                               # horizontal element number
     n_vert = 5                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(3600)                       # end time (s)
+    timeend = FT(60)                       # end time (s)
 
     # Set up driver configuration
     driver_config =
@@ -195,24 +196,25 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 64
-    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
-    cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            AtmosFilterPerturbations(driver_config.bl),
-            solver_config.dg.grid,
-            filter,
-            state_auxiliary = solver_config.dg.state_auxiliary,
-        )
-        nothing
-    end
+    #filterorder = 1024
+    #filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
+    #cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+    #    Filters.apply!(
+    #        solver_config.Q,
+    #        AtmosFilterPerturbations(driver_config.bl),
+    #        solver_config.dg.grid,
+    #        filter,
+    #        state_auxiliary = solver_config.dg.state_auxiliary,
+    #    )
+    #    nothing
+    #end
 
     # Run the model
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
+        user_callbacks = (),
         check_euclidean_distance = true,
     )
 end
