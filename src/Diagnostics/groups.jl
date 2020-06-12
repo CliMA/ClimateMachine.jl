@@ -15,7 +15,6 @@ mutable struct DiagnosticsGroup
     out_prefix::String
     writer::AbstractWriter
     interpol::Union{Nothing, InterpolationTopology}
-    num::Int
 
     DiagnosticsGroup(
         name,
@@ -26,17 +25,7 @@ mutable struct DiagnosticsGroup
         out_prefix,
         writer,
         interpol,
-    ) = new(
-        name,
-        init,
-        fini,
-        collect,
-        interval,
-        out_prefix,
-        writer,
-        interpol,
-        0,
-    )
+    ) = new(name, init, fini, collect, interval, out_prefix, writer, interpol)
 end
 
 function (dgngrp::DiagnosticsGroup)(currtime; init = false, fini = false)
@@ -47,7 +36,6 @@ function (dgngrp::DiagnosticsGroup)(currtime; init = false, fini = false)
     if fini
         dgngrp.fini(dgngrp, currtime)
     end
-    dgngrp.num += 1
 end
 
 include("atmos_les_default.jl")
@@ -73,6 +61,9 @@ function setup_atmos_default_diagnostics(
     writer = NetCDFWriter(),
     interpol = nothing,
 )
+    # TODO: remove this
+    @assert isnothing(interpol)
+
     return DiagnosticsGroup(
         "AtmosLESDefault",
         Diagnostics.atmos_les_default_init,
@@ -108,6 +99,7 @@ function setup_atmos_default_diagnostics(
     writer = NetCDFWriter(),
     interpol = nothing,
 )
+    # TODO: remove this
     @assert !isnothing(interpol)
 
     return DiagnosticsGroup(
@@ -145,6 +137,9 @@ function setup_atmos_core_diagnostics(
     writer = NetCDFWriter(),
     interpol = nothing,
 )
+    # TODO: remove this
+    @assert isnothing(interpol)
+
     return DiagnosticsGroup(
         "AtmosLESCore",
         Diagnostics.atmos_les_core_init,
@@ -157,9 +152,9 @@ function setup_atmos_core_diagnostics(
     )
 end
 
-include("dump_state_and_aux.jl")
+include("dump_state.jl")
 """
-    setup_dump_state_and_aux_diagnostics(
+    setup_dump_state_diagnostics(
         ::ClimateMachineConfigType,
         interval::String,
         out_prefix::String;
@@ -168,21 +163,62 @@ include("dump_state_and_aux.jl")
     )
 
 Create and return a `DiagnosticsGroup` containing a diagnostic that
-simply dumps the state and aux variables at the specified `interval`
-after being interpolated, into NetCDF files prefixed by `out_prefix`.
+simply dumps the conservative state variables at the specified
+`interval` after being interpolated, into NetCDF files prefixed by
+`out_prefix`.
 """
-function setup_dump_state_and_aux_diagnostics(
+function setup_dump_state_diagnostics(
     ::ClimateMachineConfigType,
     interval::String,
     out_prefix::String;
     writer = NetCDFWriter(),
     interpol = nothing,
 )
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
     return DiagnosticsGroup(
-        "DumpStateAndAux",
-        Diagnostics.dump_state_and_aux_init,
-        Diagnostics.dump_state_and_aux_fini,
-        Diagnostics.dump_state_and_aux_collect,
+        "DumpState",
+        Diagnostics.dump_state_init,
+        Diagnostics.dump_state_fini,
+        Diagnostics.dump_state_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
+include("dump_aux.jl")
+"""
+    setup_dump_aux_diagnostics(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing a diagnostic that
+simply dumps the auxiliary state variables at the specified
+`interval` after being interpolated, into NetCDF files prefixed by
+`out_prefix`.
+"""
+function setup_dump_aux_diagnostics(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "DumpAux",
+        Diagnostics.dump_aux_init,
+        Diagnostics.dump_aux_fini,
+        Diagnostics.dump_aux_collect,
         interval,
         out_prefix,
         writer,

@@ -11,6 +11,7 @@ Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
+    param_set::AbstractParameterSet
     dg::DGModel
     Q::MPIStateArray
     t0::FT
@@ -177,6 +178,7 @@ function SolverConfiguration(
     return SolverConfiguration(
         driver_config.name,
         driver_config.mpicomm,
+        driver_config.param_set,
         dg,
         Q,
         t0,
