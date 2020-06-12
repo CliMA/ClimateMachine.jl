@@ -37,18 +37,13 @@ function entr_detr(
     dw = max(w_up - w_en,FT(1e-4))
     db = b_up - b_en
 
-    if q_con_up*q_con_en>FT(1e-12)
+    if q_con_up*q_con_en>eps(FT)
       c_δ = m.c_δ
     else
       c_δ = 0
     end
     # compute dry and moist nondimentional exchange functions
-    # D_ε ,D_δ ,M_δ ,M_ε = nondimensional_exchange_functions(ss ,m, state, aux, t, i)
-    # YAIR - bug 1 
-    D_ε = FT(1)
-    D_δ = FT(1)
-    M_δ = FT(1)
-    M_ε = FT(1) 
+    D_ε ,D_δ ,M_δ ,M_ε = nondimensional_exchange_functions(ss ,m, state, aux, t, i)
 
     m.Λ[1] = abs(db/dw)
     m.Λ[2] = m.c_λ*abs(db/(sqrt_tke+sqrt(eps(FT))))

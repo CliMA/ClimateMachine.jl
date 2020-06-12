@@ -71,7 +71,7 @@ function mixing_length(
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
 
-    a = m.c_m*(Shear - ∂e_int∂z/Pr_z - ∂q_tot∂z/Pr_z)* sqrt(tke)
+    a = m.c_m*(Shear - ∂e_int∂z/Pr_z - ∂q_tot∂z/Pr_z)* sqrt(abs(tke))
     # Dissipation term
     b = FT(0)
     # detrainment and turb_entr should of the i'th updraft
