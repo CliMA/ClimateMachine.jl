@@ -13,7 +13,7 @@ function nondimensional_exchange_functions(
     up = state.edmf.updraft
     gm_a = aux
     up_a = aux.edmf.updraft
-    
+
     # precompute vars
     ρinv     = 1/gm.ρ
     up_area  = up[i].ρa*ρinv
@@ -25,8 +25,8 @@ function nondimensional_exchange_functions(
     en_e_int = (gm.ρe_int-sum([up[j].ρae_int for j in 1:N]))*ρinv
     en_q_tot = (gm.ρq_tot-sum([up[j].ρaq_tot for j in 1:N]))*ρinv
     sqrt_tke = sqrt(abs(en.ρatke)*ρinv/en_area)
-    
-    # yair check if I can pass ts_up and ts_en from entr_detr.jl instead of recomputing here 
+
+    # yair check if I can pass ts_up and ts_en from entr_detr.jl instead of recomputing here
     ts_up    = PhaseEquil(ss.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
     q_con_up = condensate(ts_up)
     RH_up    = relative_humidity(ts_up)

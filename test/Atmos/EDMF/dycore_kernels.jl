@@ -15,17 +15,6 @@ function HydrostaticState(
     )
 end
 
-"""
-    relative_humidity(hs::HydrostaticState{P,FT})
-
-Here, we enforce that relative humidity is zero
-for a dry adiabatic profile.
-"""
-relative_humidity(hs::HydrostaticState{P, FT}) where {P, FT} =
-    hs.relative_humidity
-relative_humidity(hs::HydrostaticState{DryAdiabaticProfile, FT}) where {FT} =
-    FT(0)
-
 # Specify auxiliary variables for `SingleStack`
 
 function vars_state_auxiliary(m::SingleStack, FT)
@@ -101,10 +90,10 @@ function init_state_conservative!(
     t::Real,
 ) where {FT,N}
 
-    state.ρ = FT(1) # need to add intial state here 
+    state.ρ = FT(1) # need to add intial state here
     state.ρu = SVector(0,0,0)
-    state.ρe_int = FT(300000) # need to add intial state here 
-    state.ρq_tot = eps(FT) # need to add intial state here 
+    state.ρe_int = FT(300000) # need to add intial state here
+    state.ρq_tot = eps(FT) # need to add intial state here
     init_state_conservative!(m, m.edmf, state, aux, coords, t)
 
 end;

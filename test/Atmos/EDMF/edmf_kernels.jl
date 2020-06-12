@@ -303,7 +303,7 @@ function compute_gradient_argument!(
     en = state.edmf.environment
 
     up_t.u = up.ρau/up.ρa
-    
+
     ts = thermo_state(SingleStack, state, aux)
     en_t.θ_ρ = virtual_pottemp(ts)
 
@@ -341,7 +341,7 @@ function compute_gradient_flux!(
     up_∇t = ∇transform.edmf.updraft
     en_d = diffusive.edmf.environment
     en_∇t = ∇transform.edmf.environment
-    
+
     for i in 1:N
         up_d[i].∇u = up_∇t[i].u
     end
@@ -383,7 +383,7 @@ function source!(
     up_s = state.edmf.updraft
     en_d = diffusive.edmf.environment
 
-    
+
     # grid mean sources - I think that large scale subsidence in
     #            doubly periodic domains should be applied here
     # updraft sources
@@ -421,8 +421,8 @@ function source!(
         up_s[i].ρaq_tot += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρaq_tot - (δ[i]+εt[i])*env_q_tot)
 
         # perturbation pressure in w equation
-        up_s[i].ρau += [0,0,up[i].ρa * dpdz] # CHARLIE check me on this one 
-    
+        up_s[i].ρau += [0,0,up[i].ρa * dpdz] # CHARLIE check me on this one
+
         # microphysics sources should be applied here
 
         ## environment second moments:
@@ -537,12 +537,12 @@ function flux_second_order!(
     massflux_q_tot = sum([ up[i].ρa*ρinv*(gm.ρq_tot*ρinv - up[i].ρaq_tot/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa) for i in 1:N])
     massflux_u     = sum([ up[i].ρa*ρinv*(gm.ρu*ρinv - up[i].ρau/up[i].ρa)*(gm.ρu[3]*ρinv - up[i].ρau[3]/up[i].ρa) for i in 1:N])
 
-    # YAIR CHECK THE SIGN of MF 
+    # YAIR CHECK THE SIGN of MF
     # grid mean flux_second_order
     gm_f.ρe_int += -ρa_en*K_eddy*en_d.∇e_int[3] + massflux_e_int
     gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
     gm_f.ρu     += -ρa_en.*K_eddy.*en_d.∇u
-    # YAIR adding massfluxflux u breaks 
+    # YAIR adding massfluxflux u breaks
     # gm_f.ρu   += -ρa_en.*K_eddy.*en_d.∇u      + massflux_u
 
     # env second momment flux_second_order
@@ -579,7 +579,7 @@ function boundary_state!(
         # placeholder to add a function for updraft surface value
         # this function should use surface covariance in the grid mean from a corresponding function
 
-        # YAIR - questions which state should I use here , state⁺ or state⁻  for computation of surface processes 
+        # YAIR - questions which state should I use here , state⁺ or state⁻  for computation of surface processes
         # upd_a_surf, upd_e_int_surf, upd_q_tot_surf  = compute_updraft_surface_BC(m, m.edmf.surface, edmf, state)
         for i in 1:N
 
