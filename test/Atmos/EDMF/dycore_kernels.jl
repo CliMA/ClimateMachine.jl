@@ -48,6 +48,9 @@ end
 
 function vars_state_gradient(m::SingleStack, FT)
     @vars(p0::FT,
+          e_int::FT,
+          q_tot::FT,
+          u::FT,
           edmf::vars_state_gradient(m.edmf, FT));
 end
 
@@ -282,21 +285,21 @@ function boundary_state!(
     args...,
 ) where {FT,N}
     if bctype == 1 # bottom
-        diff⁺.ρ∇e_int = state⁺.ρ * m.edmf.surface.surface_shf # e_int_surface_flux has units of w'e_int'
-        diff⁺.ρ∇q_tot = state⁺.ρ * m.edmf.surface.surface_lhf # q_tot_surface_flux has units of w'q_tot'
+        diff⁺.∇e_int = state⁺.ρ * m.edmf.surface.surface_shf # e_int_surface_flux has units of w'e_int'
+        diff⁺.∇q_tot = state⁺.ρ * m.edmf.surface.surface_lhf # q_tot_surface_flux has units of w'q_tot'
         # diff⁺.ρ∇u = SVector(...) # probably need one of these...
         # diff⁺.ρ∇u = SMatrix(...) # probably need one of these...
-        diff⁺.ρ∇u[1] = state⁺.ρ * m.edmf.surface.surface_shf # u_surface_flux has units of w'u'
-        diff⁺.ρ∇u[2] = state⁺.ρ * m.edmf.surface.surface_lhf # v_surface_flux has units of w'v'
+        diff⁺.∇u[1] = state⁺.ρ * m.edmf.surface.surface_shf # u_surface_flux has units of w'u'
+        diff⁺.∇u[2] = state⁺.ρ * m.edmf.surface.surface_lhf # v_surface_flux has units of w'v'
 
-        diff⁺.ρ∇e_int = state⁺.ρ * m.edmf.surface.surface_shf # e_int_surface_flux has units of w'e_int'
-        diff⁺.ρ∇q_tot = state⁺.ρ * m.edmf.surface.surface_lhf # q_tot_surface_flux has units of w'q_tot'
+        diff⁺.∇e_int = state⁺.ρ * m.edmf.surface.surface_shf # e_int_surface_flux has units of w'e_int'
+        diff⁺.∇q_tot = state⁺.ρ * m.edmf.surface.surface_lhf # q_tot_surface_flux has units of w'q_tot'
 
     elseif bctype == 2 # top
-        diff⁺.ρ∇u[1] = -n⁻ * eps(FT)
-        diff⁺.ρ∇u[2] = -n⁻ * eps(FT)
-        diff⁺.ρ∇e_int = -n⁻ * eps(FT)
-        diff⁺.ρ∇q_tot = -n⁻ * eps(FT)
+        diff⁺.∇u[1] = -n⁻ * eps(FT)
+        diff⁺.∇u[2] = -n⁻ * eps(FT)
+        diff⁺.∇e_int = -n⁻ * eps(FT)
+        diff⁺.∇q_tot = -n⁻ * eps(FT)
     end
     boundary_state!(nf, m, m.edmf, state⁺, diff⁺, aux⁺, n⁻, state⁻, diff⁻, aux⁻, bctype, t, args)
 end;
