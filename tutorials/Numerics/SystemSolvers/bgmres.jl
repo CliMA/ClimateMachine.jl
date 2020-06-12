@@ -175,9 +175,9 @@ gmres = BatchedGeneralizedMinimalResidual(
     atol = eps(Float64) * 10^2,
     rtol = eps(Float64) * 10^2,
 );
-# ```m``` is the number of gridpoints along a column. As mentioned previously,
-# this is `tup[3]*tup[5]*tup[4]`. The ```n``` term corresponds to the batch size
-# or the number of columns in this case. ```atol``` and ```rtol``` are relative and
+# `m` is the number of gridpoints along a column. As mentioned previously,
+# this is `tup[3]*tup[5]*tup[4]`. The `n` term corresponds to the batch size
+# or the number of columns in this case. `atol` and `rtol` are relative and
 # absolute tolerances
 
 # All the hard work is done, now we just call our linear solver
@@ -197,7 +197,7 @@ columnwise_inverse_linear_operator!(x_exact, b);
 norm(x - x_exact) / norm(x_exact)
 columnwise_linear_operator!(x_exact, x);
 norm(x_exact - b) / norm(b)
-# Which we see are small, given our choice of ```atol``` and ```rtol```.
+# Which we see are small, given our choice of `atol` and `rtol`.
 # The struct also keeps a record of its convergence rate
 # in the residual member. The convergence rate of each column
 # can be visualized via

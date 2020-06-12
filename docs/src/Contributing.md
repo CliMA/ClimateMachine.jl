@@ -48,7 +48,7 @@ GitHub](https://github.com/CliMA/ClimateMachine.jl) and check out your copy:
 ```
 $ git clone https://github.com/<username>/ClimateMachine.jl.git
 $ cd ClimateMachine.jl
-$ git remote add upstream https://github.com/CliMA/ClimateMachine.jl.git
+$ git remote add upstream https://github.com/CliMA/ClimateMachine.jl
 ```
 
 Now you have two remote repositories -- `origin`, which is your fork of the
@@ -63,7 +63,7 @@ $ git checkout -b <branchname>
 
 ## Develop your feature
 
-Follow the [coding style](CodingStyle.md) we use. Make sure you add tests
+Follow the [Coding conventions](@ref) we use. Make sure you add tests
 for your code in `test/` and appropriate documentation in the code and/or
 in `docs/`.
 
