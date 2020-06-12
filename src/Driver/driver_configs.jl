@@ -5,58 +5,12 @@
 # - AtmosLESConfiguration
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
+# - SingleStackConfiguration
 #
 # User-customized configurations can use these as templates.
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
-
-abstract type AbstractSolverType end
-
-struct ExplicitSolverType <: AbstractSolverType
-    solver_method::Function
-    ExplicitSolverType(; solver_method = LSRK54CarpenterKennedy) =
-        new(solver_method)
-end
-
-struct IMEXSolverType <: AbstractSolverType
-    linear_model::Type
-    linear_solver::Type
-    solver_method::Function
-    # FIXME: this is Atmos-specific
-    function IMEXSolverType(;
-        linear_model = AtmosAcousticGravityLinearModel,
-        linear_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-    )
-        return new(linear_model, linear_solver, solver_method)
-    end
-end
-
-struct MultirateSolverType <: AbstractSolverType
-    linear_model::Type
-    solver_method::Type
-    slow_method::Function
-    fast_method::Function
-    timestep_ratio::Int
-    function MultirateSolverType(;
-        linear_model = AtmosAcousticGravityLinearModel,
-        solver_method = MultirateRungeKutta,
-        slow_method = LSRK54CarpenterKennedy,
-        fast_method = LSRK54CarpenterKennedy,
-        timestep_ratio = 100,
-    )
-        return new(
-            linear_model,
-            solver_method,
-            slow_method,
-            fast_method,
-            timestep_ratio,
-        )
-    end
-end
-
-DefaultSolverType = IMEXSolverType
 
 abstract type ConfigSpecificInfo end
 struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
@@ -66,6 +20,9 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_horz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
+struct SingleStackSpecificInfo <: ConfigSpecificInfo end
+
+include("SolverTypes/SolverTypes.jl")
 
 """
     ClimateMachine.DriverConfiguration
@@ -80,7 +37,7 @@ struct DriverConfiguration{FT}
     array_type
     solver_type::AbstractSolverType
     #
-    # AtmosModel details
+    # Model details
     bl::BalanceLaw
     #
     # execution details
@@ -130,7 +87,7 @@ struct DriverConfiguration{FT}
 end
 
 function print_model_info(model)
-    msg = "AtmosModel composition\n"
+    msg = "Model composition\n"
     for key in fieldnames(typeof(model))
         msg =
             msg * @sprintf(
@@ -155,7 +112,10 @@ function AtmosLESConfiguration(
     ymin = zero(FT),
     zmin = zero(FT),
     array_type = ClimateMachine.array_type(),
-    solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
+    solver_type = IMEXSolverType(
+        implicit_solver = SingleColumnLU,
+        implicit_solver_adjustable = false,
+    ),
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -364,5 +324,91 @@ function OceanBoxGCMConfiguration(
         numerical_flux_second_order,
         numerical_flux_gradient,
         OceanBoxGCMSpecificInfo(),
+    )
+end
+
+function SingleStackConfiguration(
+    name::String,
+    N::Int,
+    nelem_vert::Int,
+    zmax::FT,
+    param_set::AbstractParameterSet,
+    model::BalanceLaw;
+    zmin = zero(FT),
+    array_type = ClimateMachine.array_type(),
+    solver_type = ExplicitSolverType(),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = ((0, 0), (0, 0), (1, 2)),
+    periodicity = (true, true, false),
+    meshwarp = (x...) -> identity(x),
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
+
+    print_model_info(model)
+
+    xmin, xmax = zero(FT), one(FT)
+    ymin, ymax = zero(FT), one(FT)
+    brickrange = (
+        grid1d(xmin, xmax, nelem = 1),
+        grid1d(ymin, ymax, nelem = 1),
+        grid1d(zmin, zmax, nelem = nelem_vert),
+    )
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+        meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing single stack configuration for %s
+    precision        = %s
+    polynomial order = %d
+    domain_min       = %.2f m x%.2f m x%.2f m
+    domain_max       = %.2f m x%.2f m x%.2f m
+    #vert elems      = %d
+    MPI ranks        = %d
+    min(Δ_horz)      = %.2f m
+    min(Δ_vert)      = %.2f m""",
+        name,
+        FT,
+        N,
+        xmin,
+        ymin,
+        zmin,
+        xmax,
+        ymax,
+        zmax,
+        nelem_vert,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
+    )
+
+    return DriverConfiguration(
+        SingleStackConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        model,
+        mpicomm,
+        grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        SingleStackSpecificInfo(),
     )
 end

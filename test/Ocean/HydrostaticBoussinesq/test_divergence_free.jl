@@ -6,7 +6,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.DGmethods: vars_state_conservative
+using ClimateMachine.DGMethods: vars_state_conservative
 using ClimateMachine.HydrostaticBoussinesq
 
 using CLIMAParameters
@@ -57,8 +57,8 @@ function test_divergence_free(; imex::Bool = false, BC = nothing)
 
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
-            linear_model = LinearHBModel,
-            linear_solver = ClimateMachine.ColumnwiseLUSolver.SingleColumnLU,
+            implicit_model = LinearHBModel,
+            implicit_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
         )
         Courant_number = 0.1
     else
@@ -103,14 +103,14 @@ end
 @testset "$(@__FILE__)" begin
     boundary_conditions = [
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
     ]
 

@@ -97,3 +97,4 @@ sg = similar(g)
 ]
 
 include("varsindex.jl")
+include("ntuple_type.jl")

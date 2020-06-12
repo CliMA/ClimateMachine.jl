@@ -98,8 +98,8 @@ function dostep!(
             slow_scaling = in_slow_scaling
         end
         # update solution and scale RHS
-        event = Event(device(Q))
-        event = update!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = update!(array_device(Q), groupsize)(
             rv_dQ,
             rv_Q,
             RKA[s % length(RKA) + 1],
@@ -111,7 +111,7 @@ function dostep!(
             ndrange = length(rv_Q),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
     end
 end
 
@@ -158,8 +158,8 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
 
         # update solution and scale RHS
         τ = (stage_time - mrip.ts) / mrip.Δts
-        event = Event(device(Q))
-        event = lsrk_mri_update!(device(Q), groupsize)(
+        event = Event(array_device(Q))
+        event = lsrk_mri_update!(array_device(Q), groupsize)(
             rv_dQ,
             rv_Q,
             RKA[s % length(RKA) + 1],
@@ -171,7 +171,7 @@ function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
             ndrange = length(rv_Q),
             dependencies = (event,),
         )
-        wait(device(Q), event)
+        wait(array_device(Q), event)
     end
 end
 

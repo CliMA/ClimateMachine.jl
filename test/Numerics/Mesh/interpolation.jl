@@ -1,44 +1,37 @@
-using Test, MPI
+using Dates
+using LinearAlgebra
+using Logging
+using MPI
+using Printf
+using StaticArrays
+using Statistics
+using Test
 import GaussQuadrature
+
+using KernelAbstractions: CPU, CUDA
+
 using ClimateMachine
+ClimateMachine.init()
 using ClimateMachine.ConfigTypes
+using ClimateMachine.Atmos
+using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Interpolation
-using ClimateMachine.Writers
-using StaticArrays
-using GPUifyLoops
-
-using ClimateMachine.VariableTemplates
-#------------------------------------------------
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.Thermodynamics
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
-using ClimateMachine.GenericCallbacks
-using ClimateMachine.Atmos
 using ClimateMachine.VariableTemplates
-using ClimateMachine.MoistThermodynamics
-using ClimateMachine.TicToc
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-using ClimateMachine.VTK
-
-using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-
-using Random
-using Statistics
-const seed = MersenneTwister(0)
-
-const ArrayType = ClimateMachine.array_type()
 #-------------------------------------
 function Initialize_Brick_Interpolation_Test!(
     bl,
@@ -90,9 +83,7 @@ function (setup::TestSphereSetup)(bl, state, aux, coords, t)
 end
 #----------------------------------------------------------------------------
 function run_brick_interpolation_test()
-    ClimateMachine.init()
     for FT in (Float32, Float64)
-        ArrayType = ClimateMachine.array_type()
         DA = ClimateMachine.array_type()
         mpicomm = MPI.COMM_WORLD
         root = 0
@@ -242,10 +233,8 @@ end #function run_brick_interpolation_test
 # Cubed sphere, lat/long interpolation test
 #----------------------------------------------------------------------------
 function run_cubed_sphere_interpolation_test()
-    ClimateMachine.init()
     for FT in (Float32, Float64) #Float32 #Float64
         DA = ClimateMachine.array_type()
-        device = ClimateMachine.array_type() <: Array ? CPU() : CUDA()
         mpicomm = MPI.COMM_WORLD
         root = 0
         pid = MPI.Comm_rank(mpicomm)
@@ -310,7 +299,6 @@ function run_cubed_sphere_interpolation_test()
 
         Q = init_ode_state(dg, FT(0))
 
-        device = typeof(Q.data) <: Array ? CPU() : CUDA()
         #------------------------------
         x1 = @view grid.vgeo[:, _x, :]
         x2 = @view grid.vgeo[:, _y, :]
@@ -356,7 +344,7 @@ function run_cubed_sphere_interpolation_test()
         ) # sets up the interpolation structure
         iv = DA(Array{FT}(undef, intrp_cs.Npl, nvars))             # allocating space for the interpolation variable
         if pid == 0
-            fiv = DA(Array{FT}(undef, n_rad, n_lat, n_long, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0
+            fiv = DA(Array{FT}(undef, n_long, n_lat, n_rad, nvars))    # allocating space for the full interpolation variables accumulated on proc# 0
         else
             fiv = DA(Array{FT}(undef, 0, 0, 0, 0))
         end
@@ -379,13 +367,13 @@ function run_cubed_sphere_interpolation_test()
             x2g = similar(x1g)
             x3g = similar(x1g)
 
-            fex = zeros(FT, nrad, nlat, nlong, nvars)
+            fex = zeros(FT, nlong, nlat, nrad, nvars)
 
             for vari in 1:nvars
-                for k in 1:nlong, j in 1:nlat, i in 1:nrad
-                    x1g_ijk = rad[i] * cosd(lat[j]) * cosd(long[k]) # inclination -> latitude; azimuthal -> longitude.
-                    x2g_ijk = rad[i] * cosd(lat[j]) * sind(long[k]) # inclination -> latitude; azimuthal -> longitude.
-                    x3g_ijk = rad[i] * sind(lat[j])
+                for i in 1:nlong, j in 1:nlat, k in 1:nrad
+                    x1g_ijk = rad[k] * cosd(lat[j]) * cosd(long[i]) # inclination -> latitude; azimuthal -> longitude.
+                    x2g_ijk = rad[k] * cosd(lat[j]) * sind(long[i]) # inclination -> latitude; azimuthal -> longitude.
+                    x3g_ijk = rad[k] * sind(lat[j])
 
                     fex[i, j, k, vari] =
                         fcn(x1g_ijk / xmax, x2g_ijk / ymax, x3g_ijk / zmax)
@@ -393,20 +381,20 @@ function run_cubed_sphere_interpolation_test()
             end
 
             if projectv
-                for k in 1:nlong, j in 1:nlat, i in 1:nrad
+                for i in 1:nlong, j in 1:nlat, k in 1:nrad
                     fex[i, j, k, _ρu] =
-                        fex[i, j, k, _ρ] * cosd(lat[j]) * cosd(long[k]) +
-                        fex[i, j, k, _ρ] * cosd(lat[j]) * sind(long[k]) +
-                        fex[i, j, k, _ρ] * sind(lat[j])
+                        -fex[i, j, k, _ρ] * sind(long[i]) +
+                        fex[i, j, k, _ρ] * cosd(long[i])
 
                     fex[i, j, k, _ρv] =
-                        -fex[i, j, k, _ρ] * sind(lat[j]) * cosd(long[k])
-                    -fex[i, j, k, _ρ] * sind(lat[j]) * sind(long[k]) +
-                    fex[i, j, k, _ρ] * cosd(lat[j])
+                        -fex[i, j, k, _ρ] * sind(lat[j]) * cosd(long[i]) -
+                        fex[i, j, k, _ρ] * sind(lat[j]) * sind(long[i]) +
+                        fex[i, j, k, _ρ] * cosd(lat[j])
 
                     fex[i, j, k, _ρw] =
-                        -fex[i, j, k, _ρ] * sind(long[k]) +
-                        fex[i, j, k, _ρ] * cosd(long[k])
+                        fex[i, j, k, _ρ] * cosd(lat[j]) * cosd(long[i]) +
+                        fex[i, j, k, _ρ] * cosd(lat[j]) * sind(long[i]) +
+                        fex[i, j, k, _ρ] * sind(lat[j])
                 end
             end
 
@@ -419,9 +407,9 @@ function run_cubed_sphere_interpolation_test()
         MPI.Bcast!(err_inf_dom, root, mpicomm)
 
         if FT == Float64
-            toler = 1.0E-7
+            toler = 2.0E-7
         elseif FT == Float32
-            toler = 1.0E-6
+            toler = 2.0E-6
         end
 
         if maximum(err_inf_dom) > toler

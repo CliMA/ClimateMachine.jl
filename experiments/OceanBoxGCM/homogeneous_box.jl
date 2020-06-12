@@ -1,12 +1,13 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
+
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.DGmethods: vars_state_conservative
+using ClimateMachine.DGMethods: vars_state_conservative
 using ClimateMachine.HydrostaticBoussinesq
 
 using Test
@@ -58,8 +59,8 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
 
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
-            linear_model = LinearHBModel,
-            linear_solver = ClimateMachine.ColumnwiseLUSolver.SingleColumnLU,
+            implicit_model = LinearHBModel,
+            implicit_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
         )
         Nᶻ = Int(400)
         Courant_number = 0.1
@@ -104,24 +105,24 @@ end
 @testset "$(@__FILE__)" begin
     boundary_conditions = [
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineNoSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(NoSlip()), Insulating()),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
         (
-            ClimateMachine.HydrostaticBoussinesq.CoastlineFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanFloorFreeSlip(),
-            ClimateMachine.HydrostaticBoussinesq.OceanSurfaceStressNoForcing(),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
     ]
 

@@ -1,7 +1,8 @@
 status = [
   "azure-ci",
   "ci/slurmci",
-  "docs-build"
+  "docs-build",
+  "format"
 ]
 delete_merged_branches = true
 timeout_sec = 86400

@@ -8,8 +8,8 @@ module ODESolvers
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
-using ..LinearSolvers
-using ..MPIStateArrays: device, realview
+using ..SystemSolvers
+using ..MPIStateArrays: array_device, realview
 
 export solve!, updatedt!, gettime
 
@@ -88,7 +88,7 @@ Solves an ODE using the `solver` starting from a state `Q`. The state `Q` is
 updated inplace. The final time `timeend` or `numberofsteps` must be specified.
 
 A series of optional callback functions can be specified using the tuple
-`callbacks`; see [`GenericCallbacks`](@ref).
+`callbacks`; see the `GenericCallbacks` module.
 """
 function solve!(
     Q,

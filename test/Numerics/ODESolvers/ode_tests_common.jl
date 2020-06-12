@@ -1,5 +1,5 @@
 using ClimateMachine.ODESolvers
-using ClimateMachine.LinearSolvers
+using ClimateMachine.SystemSolvers
 
 const slow_mrrk_methods =
     ((LSRK54CarpenterKennedy, 4), (LSRK144NiegemannDiehlBusch, 4))
@@ -12,12 +12,16 @@ const fast_mrrk_methods = (
 const explicit_methods = (
     (LSRK54CarpenterKennedy, 4),
     (LSRK144NiegemannDiehlBusch, 4),
+    (SSPRK22Heuns, 2),
+    (SSPRK22Ralstons, 2),
     (SSPRK33ShuOsher, 3),
     (SSPRK34SpiteriRuuth, 3),
     (LSRKEulerMethod, 1),
 )
 
 const imex_methods = (
+    (ARK1ForwardBackwardEuler, 1),
+    (ARK2ImplicitExplicitMidpoint, 2),
     (ARK2GiraldoKellyConstantinescu, 2),
     (ARK437L2SA1KennedyCarpenter, 4),
     (ARK548L2SA2KennedyCarpenter, 5),
@@ -40,15 +44,15 @@ const mrigark_irk_methods = (
 const fast_mrigark_methods =
     ((LSRK54CarpenterKennedy, 4), (LSRK144NiegemannDiehlBusch, 4))
 
-struct DivideLinearSolver <: AbstractLinearSolver end
-function LinearSolvers.prefactorize(
+struct DivideLinearSolver <: AbstractSystemSolver end
+function SystemSolvers.prefactorize(
     linearoperator!,
     ::DivideLinearSolver,
     args...,
 )
     linearoperator!
 end
-function LinearSolvers.linearsolve!(
+function SystemSolvers.linearsolve!(
     linearoperator!,
     ::DivideLinearSolver,
     Qtt,

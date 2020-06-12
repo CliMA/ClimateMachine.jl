@@ -1,21 +1,24 @@
+using MPI
+using Printf
+using StaticArrays
+using Test
+import KernelAbstractions: CPU
+
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.TemperatureProfiles
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
 using ClimateMachine.ODESolvers
+import ClimateMachine.MPIStateArrays: array_device
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-
-using MPI
-using Printf
-using StaticArrays
-using Test
 
 Base.@kwdef struct AcousticWaveSetup{FT}
     domain_height::FT = 10e3
@@ -66,9 +69,15 @@ function main()
     # Timestep size (s)
     dt = FT(600)
 
+    ode_solver = ClimateMachine.MISSolverType(;
+        splitting_type = ClimateMachine.SlowFastSplitting(),
+        nsubsteps = 20,
+    )
+
     setup = AcousticWaveSetup{FT}()
+    T_profile = IsothermalProfile(param_set, setup.T_ref)
     orientation = SphericalOrientation()
-    ref_state = HydrostaticState(IsothermalProfile(setup.T_ref), FT(0))
+    ref_state = HydrostaticState(T_profile)
     turbulence = ConstantViscosityWithDivergence(FT(0))
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -88,6 +97,7 @@ function main()
         setup.domain_height,
         param_set,
         setup;
+        solver_type = ode_solver,
         model = model,
     )
     solver_config = ClimateMachine.SolverConfiguration(
@@ -146,7 +156,7 @@ function main()
 
         dg = solver_config.dg
         Q = solver_config.Q
-        if Array ∈ typeof(Q).parameters
+        if array_device(Q) isa CPU
             h_Q = Q.realdata
             h_aux = dg.state_auxiliary.realdata
         else

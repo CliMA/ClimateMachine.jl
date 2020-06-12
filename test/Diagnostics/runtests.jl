@@ -1,10 +1,8 @@
 using MPI, Test
-include("../testhelpers.jl")
+
+include(joinpath("..", "testhelpers.jl"))
 
 @testset "Diagnostics" begin
-  tests = [
-    (2,"sin_test.jl")
-   ]
-
-  runmpi(tests, @__FILE__)
+    runmpi(joinpath(@__DIR__, "sin_test.jl"), ntasks = 2)
+    runmpi(joinpath(@__DIR__, "Debug/test_statecheck.jl"), ntasks = 2)
 end

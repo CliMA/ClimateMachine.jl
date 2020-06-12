@@ -74,7 +74,7 @@ calls to the solver.
 setup_backward_Euler_solver(solver::AbstractBackwardEulerSolver, _...) = solver
 
 """
-    LinearBackwardEulerSolver(::AbstractLinearSolver; isadjustable = false)
+    LinearBackwardEulerSolver(::AbstractSystemSolver; isadjustable = false)
 
 Helper type for specifying building a backward Euler solver with a linear
 solver.  If `isadjustable == true` then the solver can be updated with a new
@@ -91,7 +91,7 @@ end
     LinBESolver
 
 Concrete implementation of an `AbstractBackwardEulerSolver` to use linear
-solvers of type `AbstractLinearSolver`. See helper type
+solvers of type `AbstractSystemSolver`. See helper type
 [`LinearBackwardEulerSolver`](@ref)
 """
 mutable struct LinBESolver{FT, FAC, LS, F} <: AbstractBackwardEulerSolver

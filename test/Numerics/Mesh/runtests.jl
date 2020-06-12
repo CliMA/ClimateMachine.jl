@@ -1,41 +1,43 @@
 using MPI, Test
 
-include(joinpath("..","..","testhelpers.jl"))
+include(joinpath("..", "..", "testhelpers.jl"))
 
-include("BrickMesh.jl")
-include("Elements.jl")
-include("Metrics.jl")
+@testset "Mesh BrickMesh" begin
+    runmpi(joinpath(@__DIR__, "BrickMesh.jl"))
+end
 
-include("topology.jl")
-include("grid_integral.jl")
-include("filter.jl")
-include("Geometry.jl")
+@testset "Mesh Elements" begin
+    runmpi(joinpath(@__DIR__, "Elements.jl"))
+end
 
+@testset "Mesh Metrics" begin
+    runmpi(joinpath(@__DIR__, "Metrics.jl"))
+end
 
-# runmpi won't work if we do not finalize
-# This is not so nice since other tests that are run direction and call MPI.Init
-# will fail if we do finalize here (since runmpi won't work in an initialized
-# state)
-MPI.Initialized() && MPI.Finalize()
+@testset "Mesh Topology" begin
+    runmpi(joinpath(@__DIR__, "topology.jl"))
+end
 
-# The MPI library doesn't actually call the C library's `MPI_Finalize()` until
-# all of the MPI object have been finalized. So we run the garbage collector to
-# make sure MPI is actually finalized.
-Base.GC.gc()
+@testset "Mesh GridIntegral" begin
+    runmpi(joinpath(@__DIR__, "grid_integral.jl"))
+end
 
-@testset "MPI Jobs" begin
+@testset "Mesh Filter" begin
+    runmpi(joinpath(@__DIR__, "filter.jl"))
+end
 
-    tests = [
-        (3, "mpi_centroid.jl")
-        (2, "mpi_connect_ell.jl")
-        (3, "interpolation.jl")
-        (3, "mpi_connect.jl")
-        (3, "mpi_connect_stacked.jl")
-        (2, "mpi_connect_stacked_3d.jl")
-        (3, "mpi_getpartition.jl")
-        (3, "mpi_partition.jl")
-        (1, "mpi_sortcolumns.jl")
-    ]
+@testset "Mesh Geometry" begin
+    runmpi(joinpath(@__DIR__, ("Geometry.jl")))
+end
 
-    runmpi(tests, @__FILE__)
+@testset "Mesh MPI Jobs" begin
+    runmpi(joinpath(@__DIR__, "mpi_centroid.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect_ell.jl"), ntasks = 2)
+    runmpi(joinpath(@__DIR__, "interpolation.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect_stacked.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_connect_stacked_3d.jl"), ntasks = 2)
+    runmpi(joinpath(@__DIR__, "mpi_getpartition.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_partition.jl"), ntasks = 3)
+    runmpi(joinpath(@__DIR__, "mpi_sortcolumns.jl"), ntasks = 1)
 end

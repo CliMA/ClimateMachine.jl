@@ -100,9 +100,9 @@ ClimateMachine.init()
     end
 end
 
-struct FilterTestModel{N} <: ClimateMachine.DGmethods.BalanceLaw end
-ClimateMachine.DGmethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
-ClimateMachine.DGmethods.init_state_auxiliary!(::FilterTestModel, _...) =
+struct FilterTestModel{N} <: ClimateMachine.DGMethods.BalanceLaw end
+ClimateMachine.DGMethods.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
+ClimateMachine.DGMethods.init_state_auxiliary!(::FilterTestModel, _...) =
     nothing
 
 # Legendre Polynomials
@@ -121,11 +121,9 @@ filtered(::VerticalDirection, dim, x, y, z) =
 filtered(::HorizontalDirection, dim, x, y, z) =
     (dim == 2) ? l2(x) * l3(y) + l3(x) : l2(x) * l3(y) + l3(x) + l2(y)
 
-ClimateMachine.DGmethods.vars_state_conservative(
-    ::FilterTestModel{4},
-    FT,
-) where {N} = @vars(q1::FT, q2::FT, q3::FT, q4::FT)
-function ClimateMachine.DGmethods.init_state_conservative!(
+ClimateMachine.DGMethods.vars_state_conservative(::FilterTestModel{4}, FT) =
+    @vars(q1::FT, q2::FT, q3::FT, q4::FT)
+function ClimateMachine.DGMethods.init_state_conservative!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
@@ -175,8 +173,9 @@ end
 
                 filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, 2)
 
-                dg = ClimateMachine.DGmethods.DGModel(
-                    FilterTestModel{4}(),
+                model = FilterTestModel{4}()
+                dg = ClimateMachine.DGMethods.DGModel(
+                    model,
                     grid,
                     nothing,
                     nothing,
@@ -184,32 +183,37 @@ end
                     state_gradient_flux = nothing,
                 )
 
-                Q = ClimateMachine.DGmethods.init_ode_state(dg, nothing, dim)
+                @testset for target in ((1, 3), (:q1, :q3))
+                    Q = ClimateMachine.DGMethods.init_ode_state(
+                        dg,
+                        nothing,
+                        dim,
+                    )
+                    ClimateMachine.Mesh.Filters.apply!(
+                        Q,
+                        target,
+                        grid,
+                        filter,
+                        direction = direction(),
+                    )
 
-                ClimateMachine.Mesh.Filters.apply!(
-                    Q,
-                    (1, 3),
-                    grid,
-                    filter,
-                    direction(),
-                )
-
-                P = ClimateMachine.DGmethods.init_ode_state(
-                    dg,
-                    direction(),
-                    dim,
-                )
-                @test Array(Q.data) ≈ Array(P.data)
+                    P = ClimateMachine.DGMethods.init_ode_state(
+                        dg,
+                        direction(),
+                        dim,
+                    )
+                    @test Array(Q.data) ≈ Array(P.data)
+                end
             end
         end
     end
 end
 
-ClimateMachine.DGmethods.vars_state_conservative(
+ClimateMachine.DGMethods.vars_state_conservative(
     ::FilterTestModel{1},
     FT,
 ) where {N} = @vars(q::FT)
-function ClimateMachine.DGmethods.init_state_conservative!(
+function ClimateMachine.DGMethods.init_state_conservative!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,
@@ -240,8 +244,9 @@ end
                 polynomialorder = N,
             )
 
-            dg = ClimateMachine.DGmethods.DGModel(
-                FilterTestModel{1}(),
+            model = FilterTestModel{1}()
+            dg = ClimateMachine.DGMethods.DGModel(
+                model,
                 grid,
                 nothing,
                 nothing,
@@ -249,22 +254,24 @@ end
                 state_gradient_flux = nothing,
             )
 
-            Q = ClimateMachine.DGmethods.init_ode_state(dg)
+            @testset for target in ((1,), (:q,), :)
+                Q = ClimateMachine.DGMethods.init_ode_state(dg)
 
-            initialsumQ = weightedsum(Q)
-            @test minimum(Q.realdata) < 0
+                initialsumQ = weightedsum(Q)
+                @test minimum(Q.realdata) < 0
 
-            ClimateMachine.Mesh.Filters.apply!(
-                Q,
-                1,
-                grid,
-                ClimateMachine.Mesh.Filters.TMARFilter(),
-            )
+                ClimateMachine.Mesh.Filters.apply!(
+                    Q,
+                    target,
+                    grid,
+                    ClimateMachine.Mesh.Filters.TMARFilter(),
+                )
 
-            sumQ = weightedsum(Q)
+                sumQ = weightedsum(Q)
 
-            @test minimum(Q.realdata) >= 0
-            @test isapprox(initialsumQ, sumQ; rtol = 10 * eps(FT))
+                @test minimum(Q.realdata) >= 0
+                @test isapprox(initialsumQ, sumQ; rtol = 10 * eps(FT))
+            end
         end
     end
 end

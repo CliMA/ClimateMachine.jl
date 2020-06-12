@@ -21,11 +21,7 @@ function atmos_collect_onetime(mpicomm, dg, Q)
         nvertelem = topology.stacksize
         nhorzelem = div(nrealelem, nvertelem)
 
-        if Array ∈ typeof(Q).parameters
-            localvgeo = grid.vgeo
-        else
-            localvgeo = Array(grid.vgeo)
-        end
+        localvgeo = array_device(Q) isa CPU ? grid.vgeo : Array(grid.vgeo)
 
         AtmosCollected.zvals = zeros(FT, Nqk * nvertelem)
         AtmosCollected.repdvsr = zeros(FT, Nqk * nvertelem)
@@ -34,14 +30,13 @@ function atmos_collect_onetime(mpicomm, dg, Q)
             evk = Nqk * (ev - 1) + k
             z = localvgeo[ijk, grid.x3id, e]
             MH = localvgeo[ijk, grid.MHid, e]
-            AtmosCollected.zvals[evk] += MH * z
+            AtmosCollected.zvals[evk] = z
             AtmosCollected.repdvsr[evk] += MH
         end
 
         # compute the full number of points on a slab
         MPI.Allreduce!(AtmosCollected.repdvsr, +, mpicomm)
 
-        AtmosCollected.zvals ./= AtmosCollected.repdvsr
         AtmosCollected.onetime_done = true
     end
 

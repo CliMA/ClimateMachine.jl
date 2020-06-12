@@ -27,7 +27,7 @@ using .CMBuffers
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
-export MPIStateArray, euclidean_distance, weightedsum
+export MPIStateArray, euclidean_distance, weightedsum, array_device, vars
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
@@ -154,6 +154,7 @@ end
 
 Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
+vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
 function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
     if sym ∈ V.names
         varrange = varsindex(V, sym)
@@ -333,21 +334,6 @@ end
     dest
 end
 
-
-# The following `__no_overlap_*` functions exist to support the old DG balance
-# law where we still use GPUifyLoops.  They should NOT be used in new code.
-function __no_overlap_begin_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = begin_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
-function __no_overlap_end_ghost_exchange!(Q::MPIStateArray)
-    event = Event(device(Q.data))
-    event = end_ghost_exchange!(Q; dependencies = event)
-    wait(device(Q.data), event)
-end
-
 """
     begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 
@@ -475,7 +461,7 @@ function fillsendbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = kernel_fillsendbuf!(device(buf), 256)(
+    event = kernel_fillsendbuf!(array_device(buf), 256)(
         Val(Np),
         Val(nvar),
         sendbuf,
@@ -504,7 +490,7 @@ function transferrecvbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = kernel_transferrecvbuf!(device(buf), 256)(
+    event = kernel_transferrecvbuf!(array_device(buf), 256)(
         Val(Np),
         Val(nvar),
         buf,
@@ -749,20 +735,14 @@ function Base.mapreduce(
     MPI.Allreduce(cpuify(locreduce), max, Q.mpicomm)
 end
 
-
-# `realview` and `device` are helpers that enable
-# testing ODESolvers and LinearSolvers without using MPIStateArrays
-# They could be potentially useful elsewhere and exported but probably need
-# better names, for example `device` is also defined in CUDAdrv
-
-device(::Union{Array, SArray, MArray}) = CPU()
-device(Q::MPIStateArray) = device(Q.data)
+# helpers: `array_device` and `realview`
+array_device(::Union{Array, SArray, MArray}) = CPU()
+array_device(::CuArray) = CUDA()
+array_device(s::SubArray) = array_device(parent(s))
+array_device(Q::MPIStateArray) = array_device(Q.data)
 
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
-
-
-device(::CuArray) = CUDA()
 realview(Q::CuArray) = Q
 
 # transform all arguments of `bc` from MPIStateArrays to CuArrays

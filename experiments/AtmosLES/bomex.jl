@@ -50,16 +50,17 @@ eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1
 =#
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -74,7 +75,7 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGmethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
 import ClimateMachine.Atmos: flux_second_order!, thermo_state
 
@@ -268,7 +269,6 @@ end
 """
   Initial Condition for BOMEX LES
 """
-seed = MersenneTwister(0)
 function init_bomex!(bl, state, aux, (x, y, z), t)
     # This experiment runs the BOMEX LES Configuration
     # (Shallow cumulus cloud regime)
@@ -356,8 +356,8 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     state.moisture.ρq_tot = ρ * q_tot
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand(seed) * ρe_tot / 100
-        state.moisture.ρq_tot += rand(seed) * ρ * q_tot / 100
+        state.ρe += rand() * ρe_tot / 100
+        state.moisture.ρq_tot += rand() * ρ * q_tot / 100
     end
 end
 
@@ -365,7 +365,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 
     ics = init_bomex!     # Initial conditions
 
-    C_smag = FT(0.18)     # Smagorinsky coefficient
+    C_smag = FT(0.23)     # Smagorinsky coefficient
 
     u_star = FT(0.28)     # Friction velocity
 
@@ -418,13 +418,8 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
         BomexGeostrophic{FT}(f_coriolis, u_geostrophic, u_slope, v_geostrophic),
     )
 
-    # Choose multi-rate explicit solver
-    ode_solver_type = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
+    # Choose default IMEX solver
+    ode_solver_type = ClimateMachine.IMEXSolverType()
 
     # Assemble model components
     model = AtmosModel{FT}(
@@ -467,9 +462,16 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
 end
 
 function config_diagnostics(driver_config)
-    default_dgngrp =
-        setup_atmos_default_diagnostics("2500steps", driver_config.name)
-    core_dgngrp = setup_atmos_core_diagnostics("2500steps", driver_config.name)
+    default_dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        "2500steps",
+        driver_config.name,
+    )
+    core_dgngrp = setup_atmos_core_diagnostics(
+        AtmosLESConfigType(),
+        "2500steps",
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([
         default_dgngrp,
         core_dgngrp,
@@ -498,7 +500,7 @@ function main()
     # For the test we set this to == 30 minutes
     timeend = FT(1800)
     #timeend = FT(3600 * 6)
-    CFLmax = FT(8)
+    CFLmax = FT(0.90)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -511,18 +513,44 @@ function main()
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
         nothing
     end
+
+    # State variable
+    Q = solver_config.Q
+    # Volume geometry information
+    vgeo = driver_config.grid.vgeo
+    M = vgeo[:, Grids._M, :]
+    # Unpack prognostic vars
+    ρ₀ = Q.ρ
+    ρe₀ = Q.ρe
+    # DG variable sums
+    Σρ₀ = sum(ρ₀ .* M)
+    Σρe₀ = sum(ρe₀ .* M)
+    cb_check_cons =
+        GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
+            Q = solver_config.Q
+            δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
+            δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
+            @show (abs(δρ))
+            @show (abs(δρe))
+            @test (abs(δρ) <= 0.0001)
+            @test (abs(δρe) <= 0.0025)
+            nothing
+        end
 
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cb_check_cons),
         check_euclidean_distance = true,
     )
-
-    @test isapprox(result, FT(1); atol = 2e-3)
 end
 
 main()

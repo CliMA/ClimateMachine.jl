@@ -6,8 +6,6 @@ using ClimateMachine.Mesh.BrickMesh
 using Pkg
 using KernelAbstractions
 
-device(A) = typeof(A) <: Array ? CPU() : CUDA()
-
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
 const comm = MPI.COMM_WORLD
@@ -145,10 +143,10 @@ function main()
         reshape((crank * 1000) .+ shift .+ (1:(9 * numreal)), 9, numreal)
     copyto!(A.data, Q)
 
-    event = Event(device(A.data))
+    event = Event(array_device(A))
     event = MPIStateArrays.begin_ghost_exchange!(A; dependencies = event)
     event = MPIStateArrays.end_ghost_exchange!(A; dependencies = event)
-    wait(device(A.data), event)
+    wait(array_device(A), event)
 
     Q = Array(A.data)
     @test all(expectedghostdata .== Q[:, 1, :][:][vmaprecv])

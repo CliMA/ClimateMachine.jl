@@ -1,18 +1,18 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
+
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using Distributions
-using Random
 using StaticArrays
 using Test
 using DocStringExtensions
@@ -123,7 +123,11 @@ end
 
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
@@ -151,7 +155,12 @@ function main()
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
         nothing
     end
 
