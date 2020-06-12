@@ -20,7 +20,10 @@ if generate_tutorials
     tutorials_dir = joinpath(@__DIR__, "..", "tutorials")
 
     tutorials = [
-        "Atmos" => ["Dry Idealized GCM" => "Atmos/heldsuarez.jl"],
+        "Atmos" => [
+            "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
+            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
+        ],
         "Ocean" => [],
         "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
         "Numerics" => [
