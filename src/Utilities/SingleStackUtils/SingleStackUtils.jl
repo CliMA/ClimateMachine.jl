@@ -120,8 +120,8 @@ end
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state_conservative()`), and
-whose values are arrays of the horizontal averages for that variable along 
-the vertical dimension in `Q`. Only a single element is expected in the 
+whose values are arrays of the horizontal averages for that variable along
+the vertical dimension in `Q`. Only a single element is expected in the
 horizontal as this is intended for the single stack configuration.
 
 Variables listed in `exclude` are skipped.
@@ -165,8 +165,8 @@ end
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state_conservative()`), and
-whose values are arrays of the horizontal variance for that variable along 
-the vertical dimension in `Q`. Only a single element is expected in the 
+whose values are arrays of the horizontal variance for that variable along
+the vertical dimension in `Q`. Only a single element is expected in the
 horizontal as this is intended for the single stack configuration.
 
 Variables listed in `exclude` are skipped.

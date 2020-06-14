@@ -40,18 +40,15 @@ format = Documenter.HTML(
     prettyurls = get(ENV, "CI", "") == "true",
     mathengine = mathengine,
     collapselevel = 1,
-    # prettyurls = !("local" in ARGS),
-    # canonical = "https://CliMA.github.io/ClimateMachine.jl/stable/",
 )
 
 makedocs(
     sitename = "ClimateMachine",
     doctest = false,
-    strict = false,
+    strict = true,
     linkcheck = true,
     format = format,
     checkdocs = :exports,
-    # checkdocs = :all,
     clean = true,
     modules = [ClimateMachine],
     pages = pages,

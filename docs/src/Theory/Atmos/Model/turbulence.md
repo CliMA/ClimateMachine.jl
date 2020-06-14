@@ -1,7 +1,3 @@
-```@meta
-EditURL = "<unknown>/src/Atmos/Model/turbulence.jl"
-```
-
 ## [Turbulence Closures](@id Turbulence-Closures-docs)
 In `turbulence.jl` we specify turbulence closures. Currently, pointwise
 models of the eddy viscosity/eddy diffusivity type are supported for
@@ -85,10 +81,6 @@ The following function provides an example of a stub for an eddy-viscosity
 model.  Currently, scalar and diagonal tensor viscosities and diffusivities
 are supported.
 
-```@docs
-ClimateMachine.Atmos.turbulence_tensors
-```
-
 Generic math functions for use within the turbulence closures such as
 the [principal tensor invariants](@ref tensor-invariants), [symmetric
 tensors](@ref symmetric-tensors) and [tensor norms](@ref tensor-norms)
@@ -101,27 +93,15 @@ have been included.
 \textit{I}_{3} = \mathrm{det(X)} \\
 ```
 
-```@docs
-ClimateMachine.Atmos.principal_invariants
-```
-
 ### [Symmetrize](@id symmetric-tensors)
 ```math
 \frac{\mathrm{X} + \mathrm{X}^{T}}{2} \\
 ```
-```@docs
-ClimateMachine.Atmos.symmetrize
-```
-
 ### [2-Norm](@id tensor-norms)
 Given a tensor X, return the tensor dot product
 ```math
 \sum_{i,j} S_{ij}^2
 ```
-```@docs
-ClimateMachine.Atmos.norm2
-```
-
 ### [Strain-rate Magnitude](@id strain-rate-magnitude)
 By definition, the strain-rate magnitude, as defined in standard turbulence
 modelling is computed such that
@@ -136,10 +116,6 @@ where
 \mathrm{S} is the rate-of-strain tensor. (Symmetric component of the
 velocity gradient). Note that the skew symmetric component (rate-of-rotation)
 is not currently computed.
-
-```@docs
-ClimateMachine.Atmos.strain_rate_magnitude
-```
 
 ```julia
 """
@@ -159,10 +135,6 @@ Prandtl number for the appropriate problem regime.
 
 ```math
 \tau = - 2 \nu \mathrm{S}
-```
-
-```@docs
-ClimateMachine.Atmos.ConstantViscosityWithDivergence
 ```
 
 ## [Smagorinsky-Lilly](@id smagorinsky-lilly)
@@ -199,10 +171,6 @@ effective resolution (see `src/Mesh/Geometry.jl`), and modify the vertical
 lengthscale by the stratification correction factor $\mathrm{f}_{b}$
 so that $\Delta_{vert} = \Delta z f_b$.
 
-```@docs
-ClimateMachine.Atmos.SmagorinskyLilly
-```
-
 ## [Vreman Model](@id vreman)
 Vreman's turbulence model for anisotropic flows, which provides a less
 dissipative solution (specifically in the near-wall and transitional regions)
@@ -226,10 +194,6 @@ u_{i,j} &= \frac{\partial u_{i}}{\partial x_{j}}.
 \end{align}
 ```
 
-```@docs
-ClimateMachine.Atmos.Vreman
-```
-
 ## [Anisotropic Minimum Dissipation](@id aniso-min-diss)
 This method is based Vreugdenhil and Taylor's minimum-dissipation
 eddy-viscosity model.  The principles of the Rayleigh quotient minimizer
@@ -239,7 +203,4 @@ and eddy diffusivity.
 
 ```math
 \nu_e = (\mathrm{C}\delta)^2  \mathrm{max}\left[0, - \frac{\hat{\partial}_k \hat{u}_{i} \hat{\partial}_k \hat{u}_{j} \mathrm{\hat{S}}_{ij}}{\hat{\partial}_p \hat{u}_{q} \hat{\partial}_p \hat{u}_{q}} \right]
-```
-```@docs
-ClimateMachine.Atmos.AnisoMinDiss
 ```
