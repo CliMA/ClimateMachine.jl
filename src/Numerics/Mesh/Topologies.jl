@@ -918,7 +918,7 @@ end
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-Ronchi, Iacono, Paolucci (1996) <https://doi.org/10.1006/jcph.1996.0047>
+Ronchi, Iacono, Paolucci (1996) https://linkinghub.elsevier.com/retrieve/pii/S0021999196900479
 
 ```
 @article{RonchiIaconoPaolucci1996,

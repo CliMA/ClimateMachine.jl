@@ -1,23 +1,21 @@
 # # Single stack tutorial based on the 3D Burgers + tracer equations
 
-# Equations solved:
+# Equations solved in balance law form:
 
 # ``
-# Balance law form:
 # \frac{∂ ρ}{∂ t} = - ∇ ⋅ (ρu)
 # \frac{∂ ρu}{∂ t} = - ∇ ⋅ (-μ ∇u) - ∇ ⋅ (ρu u') - γ[ (ρu-ρ̄ū) - (ρu-ρ̄ū)⋅ẑ ẑ]
 # \frac{∂ ρcT}{∂ t} = - ∇ ⋅ (-α ∇ρcT) - ∇ ⋅ (u ρcT)
+# ``
 
 # Boundary conditions:
-# z_min: ρ = 1
-# z_min: ρu = 0
-# z_min: ρcT = T=T_fixed
-
-# z_max: ρ = 1
-# z_max: ρu = 0
-# z_max: ρcT = no flux
-
-
+# ``
+# z_{\mathrm{min}}: ρ = 1
+# z_{\mathrm{min}}: ρu = 0
+# z_{\mathrm{min}}: ρcT = T=T_{\mathrm{fixed}}
+# z_{\mathrm{max}}: ρ = 1
+# z_{\mathrm{max}}: ρu = 0
+# z_{\mathrm{max}}: ρcT = \mathrm{no flux}
 # ``
 
 # where
@@ -42,7 +40,7 @@
 
 # # Preliminary configuration
 
-# ## Loading code
+# ## [Loading code](@id Loading-code-burgers)
 
 # First, we'll load our pre-requisites
 #  - load external packages:
@@ -144,9 +142,10 @@ m = BurgersEquation{FT}();
 
 # ## Define the variables
 
-# All of the methods defined in this section were `import`ed in # [Loading
-# code](@ref) to let us provide implementations for our `BurgersEquation` as they
-# will be used by the solver.
+# All of the methods defined in this section were `import`ed in
+# [Loading code](@ref Loading-code-burgers) to let us provide
+# implementations for our `BurgersEquation` as they will be used
+# by the solver.
 
 # Specify auxiliary variables for `BurgersEquation`
 vars_state_auxiliary(::BurgersEquation, FT) = @vars(z::FT, T::FT);
@@ -233,7 +232,7 @@ end;
 
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
 # the gradient of `ρcT` and `u`. Here, we specify how `ρcT`, `u` are computed. Note that
-# `transform.ρcT` and `transform.u` are available here because we've specified `ρcT` 
+# `transform.ρcT` and `transform.u` are available here because we've specified `ρcT`
 # and `u`in `vars_state_gradient`
 function compute_gradient_argument!(
     m::BurgersEquation,
@@ -353,7 +352,7 @@ function boundary_state!(
     end
 end;
 
-# The boundary conditions for `ρ`, `ρu` and `ρcT` are specified here for 
+# The boundary conditions for `ρ`, `ρu` and `ρcT` are specified here for
 # second-order unknowns
 function boundary_state!(
     nf,
@@ -558,7 +557,7 @@ end;
 
 # This is the main `ClimateMachine` solver invocation. While users do not have
 # access to the time-stepping loop, code may be injected via `user_callbacks`,
-# which is a `Tuple` of [`GenericCallbacks`](@ref).
+# which is a `Tuple` of [`GenericCallbacks`](@ref ClimateMachine.GenericCallbacks).
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
 # # Post-processing
@@ -602,7 +601,7 @@ export_plot(
 # ![](solution_vs_time_u.png)
 # ![](variance_vs_time_u.png)
 
-# The results look as we would expect: they Rayleigh friction damps the 
+# The results look as we would expect: they Rayleigh friction damps the
 # horizontal velocity to the objective profile and the horizontal
 # diffusivity damps the horizontal variance. To run this file, and
 # inspect the solution, include this tutorial in the Julia REPL

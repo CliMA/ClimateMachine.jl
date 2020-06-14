@@ -55,7 +55,7 @@
 ##     - Adding diagnostic variables (beyond a standard pre-defined list of
 ##       variables)
 #
-# ## Code loading
+# ## [Loading code](@id Loading-code-rtb)
 #
 # Before setting up our experiment, we recognize that we need to import some
 # pre-defined functions from other packages. Julia allows us to use existing
