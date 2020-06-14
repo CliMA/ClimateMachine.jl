@@ -26,7 +26,7 @@ mutable struct DiffEqJLSolver{I} <: AbstractDiffEqJLSolver
                           (du,u,p,t)->rhs!(du,u,p,t; increment=false),
                            Q, (float(t0),typemax(typeof(float(t0)))),
                            p)
-        integ = DiffEqBase.init(prob,alg,args...;kwargs...)
+        integ = DiffEqBase.init(prob,alg,args...; adaptive = false, save_everystep = false, save_start = false, save_end = false, kwargs...)
         new{typeof(integ)}(integ)
     end
 end
@@ -113,4 +113,9 @@ function dostep!(
 
     DiffEqBase.step!(integ)
     rv_Q .= solver.integ.u
+end
+
+function DiffEqJLConstructor(alg)
+    constructor = (F,Q; dt = 0,t0 = 0,) -> DiffEqJLSolver(F, alg, Q; t0 = t0, dt = dt)
+    return constructor
 end
