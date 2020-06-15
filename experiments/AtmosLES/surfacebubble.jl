@@ -1,6 +1,7 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
+
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
@@ -154,7 +155,12 @@ function main()
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
         nothing
     end
 

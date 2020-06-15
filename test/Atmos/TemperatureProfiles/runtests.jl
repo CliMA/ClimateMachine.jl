@@ -39,6 +39,8 @@ const param_set = EarthParameterSet()
                 T_virt = first.(args)
                 p = last.(args)
 
+                # Test that surface pressure is equal to the
+                # specified boundary condition (MSLP)
                 mask_z_0 = z .≈ 0
                 @test all(p[mask_z_0] .≈ _MSLP)
 
@@ -48,8 +50,10 @@ const param_set = EarthParameterSet()
                 end
                 ∇log_p_over_MSLP =
                     _z -> ForwardDiff.derivative(log_p_over_MSLP, _z)
-                T_rec = -_grav ./ (_R_d .* ∇log_p_over_MSLP.(z))
-                @test all(T_rec .≈ T_virt)
+                # Uses density computed from pressure derivative
+                # and ideal gas law to reconstruct virtual temperature
+                T_virt_rec = -_grav ./ (_R_d .* ∇log_p_over_MSLP.(z))
+                @test all(T_virt_rec .≈ T_virt)
             end
         end
 

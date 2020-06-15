@@ -11,9 +11,9 @@
 ## Interface
   - [`compute_buoyancy_flux`](@ref) computes the buoyancy flux
   - In addition, each sub-module has the following functions:
-    - [`monin_obukhov_len`](@ref) computes the Monin-Obukhov length
-    - [`compute_friction_velocity`](@ref) computes the friction velocity
-    - [`compute_exchange_coefficients`](@ref) computes the exchange coefficients
+    - `monin_obukhov_len` computes the Monin-Obukhov length
+    - `compute_friction_velocity` computes the friction velocity
+    - `compute_exchange_coefficients` computes the exchange coefficients
 
 ## References
 

@@ -29,6 +29,7 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
         "homogeneous_box",
         N,
         resolution,
+        param_set,
         model,
     )
 
@@ -57,8 +58,8 @@ function test_divergence_free(; imex::Bool = false, BC = nothing)
 
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
-            linear_model = LinearHBModel,
-            linear_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
+            implicit_model = LinearHBModel,
+            implicit_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
         )
         Courant_number = 0.1
     else

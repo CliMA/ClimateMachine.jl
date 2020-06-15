@@ -50,7 +50,7 @@ eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1
 =#
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -513,7 +513,12 @@ function main()
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
         nothing
     end
 

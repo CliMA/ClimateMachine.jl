@@ -12,54 +12,6 @@
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
 
-abstract type AbstractSolverType end
-
-struct ExplicitSolverType <: AbstractSolverType
-    solver_method::Function
-    ExplicitSolverType(; solver_method = LSRK54CarpenterKennedy) =
-        new(solver_method)
-end
-
-struct IMEXSolverType <: AbstractSolverType
-    linear_model::Type
-    linear_solver::Type
-    solver_method::Function
-    function IMEXSolverType(;
-        # FIXME: this is Atmos-specific
-        linear_model = AtmosAcousticGravityLinearModel,
-        linear_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-    )
-        return new(linear_model, linear_solver, solver_method)
-    end
-end
-
-struct MultirateSolverType <: AbstractSolverType
-    linear_model::Type
-    solver_method::Type
-    slow_method::Function
-    fast_method::Function
-    timestep_ratio::Int
-    function MultirateSolverType(;
-        # FIXME: this is Atmos-specific
-        linear_model = AtmosAcousticGravityLinearModel,
-        solver_method = MultirateRungeKutta,
-        slow_method = LSRK54CarpenterKennedy,
-        fast_method = LSRK54CarpenterKennedy,
-        timestep_ratio = 100,
-    )
-        return new(
-            linear_model,
-            solver_method,
-            slow_method,
-            fast_method,
-            timestep_ratio,
-        )
-    end
-end
-
-DefaultSolverType = IMEXSolverType
-
 abstract type ConfigSpecificInfo end
 struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
 struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
@@ -69,6 +21,8 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 struct SingleStackSpecificInfo <: ConfigSpecificInfo end
+
+include("SolverTypes/SolverTypes.jl")
 
 """
     ClimateMachine.DriverConfiguration
@@ -84,6 +38,7 @@ struct DriverConfiguration{FT}
     solver_type::AbstractSolverType
     #
     # Model details
+    param_set::AbstractParameterSet
     bl::BalanceLaw
     #
     # execution details
@@ -107,6 +62,7 @@ struct DriverConfiguration{FT}
         FT,
         array_type,
         solver_type::AbstractSolverType,
+        param_set::AbstractParameterSet,
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
         grid::DiscontinuousSpectralElementGrid,
@@ -121,6 +77,7 @@ struct DriverConfiguration{FT}
             N,
             array_type,
             solver_type,
+            param_set,
             bl,
             mpicomm,
             grid,
@@ -158,7 +115,10 @@ function AtmosLESConfiguration(
     ymin = zero(FT),
     zmin = zero(FT),
     array_type = ClimateMachine.array_type(),
-    solver_type = IMEXSolverType(linear_solver = SingleColumnLU),
+    solver_type = IMEXSolverType(
+        implicit_solver = SingleColumnLU,
+        implicit_solver_adjustable = false,
+    ),
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -226,6 +186,7 @@ Establishing Atmos LES configuration for %s
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,
@@ -305,6 +266,7 @@ Establishing Atmos GCM configuration for %s
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,
@@ -319,6 +281,7 @@ function OceanBoxGCMConfiguration(
     name::String,
     N::Int,
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
+    param_set::AbstractParameterSet,
     model::HydrostaticBoussinesqModel;
     FT = Float64,
     array_type = ClimateMachine.array_type(),
@@ -360,6 +323,7 @@ function OceanBoxGCMConfiguration(
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,
@@ -418,7 +382,8 @@ function SingleStackConfiguration(
 Establishing single stack configuration for %s
     precision        = %s
     polynomial order = %d
-    domain           = %.2f m x%.2f m x%.2f m
+    domain_min       = %.2f m x%.2f m x%.2f m
+    domain_max       = %.2f m x%.2f m x%.2f m
     #vert elems      = %d
     MPI ranks        = %d
     min(Δ_horz)      = %.2f m
@@ -426,6 +391,9 @@ Establishing single stack configuration for %s
         name,
         FT,
         N,
+        xmin,
+        ymin,
+        zmin,
         xmax,
         ymax,
         zmax,
@@ -442,6 +410,7 @@ Establishing single stack configuration for %s
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,

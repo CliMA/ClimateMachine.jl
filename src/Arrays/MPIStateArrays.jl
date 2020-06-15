@@ -27,7 +27,7 @@ using .CMBuffers
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
-export MPIStateArray, euclidean_distance, weightedsum, array_device
+export MPIStateArray, euclidean_distance, weightedsum, array_device, vars
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
@@ -154,6 +154,7 @@ end
 
 Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
+vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
 function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
     if sym ∈ V.names
         varrange = varsindex(V, sym)

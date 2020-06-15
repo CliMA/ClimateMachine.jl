@@ -1,6 +1,7 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
+
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
@@ -30,6 +31,7 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
         "homogeneous_box",
         N,
         resolution,
+        param_set,
         model,
     )
 
@@ -58,8 +60,8 @@ function run_homogeneous_box(; imex::Bool = false, BC = nothing)
 
     if imex
         solver_type = ClimateMachine.IMEXSolverType(
-            linear_model = LinearHBModel,
-            linear_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
+            implicit_model = LinearHBModel,
+            implicit_solver = ClimateMachine.SystemSolvers.SingleColumnLU,
         )
         Nᶻ = Int(400)
         Courant_number = 0.1

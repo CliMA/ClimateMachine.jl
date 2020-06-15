@@ -32,6 +32,7 @@ export air_temperature_from_liquid_ice_pottemp,
     air_temperature_from_liquid_ice_pottemp_given_pressure
 export air_temperature_from_liquid_ice_pottemp_non_linear
 export vapor_specific_humidity
+export condensate, has_condensate
 
 """
     gas_constant_air(param_set, [q::PhasePartition])
@@ -571,25 +572,25 @@ Return the saturation vapor pressure over a plane liquid surface given
  - `T` temperature
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
 
-    saturation_vapor_pressure(param_set, T, Ice())
+    `saturation_vapor_pressure(param_set, T, Ice())`
 
 Return the saturation vapor pressure over a plane ice surface given
  - `T` temperature
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
 
-    saturation_vapor_pressure(param_set, T, LH_0, Δcp)
+    `saturation_vapor_pressure(param_set, T, LH_0, Δcp)`
 
 Compute the saturation vapor pressure over a plane surface by integration
 of the Clausius-Clapeyron relation.
 
 The Clausius-Clapeyron relation
 
-    dlog(p_v_sat)/dT = [LH_0 + Δcp * (T-T_0)]/(R_v*T^2)
+    `dlog(p_v_sat)/dT = [LH_0 + Δcp * (T-T_0)]/(R_v*T^2)`
 
 is integrated from the triple point temperature `T_triple`, using
 Kirchhoff's relation
 
-    L = LH_0 + Δcp * (T - T_0)
+    `L = LH_0 + Δcp * (T - T_0)`
 
 for the specific latent heat `L` with constant isobaric specific
 heats of the phases. The linear dependence of the specific latent heat
@@ -817,6 +818,27 @@ saturation_excess(ts::ThermodynamicState) = saturation_excess(
 )
 
 """
+    condensate(q::PhasePartition{FT})
+    condensate(ts::ThermodynamicState)
+
+Condensate of the phase partition.
+"""
+condensate(q::PhasePartition) = q.liq + q.ice
+condensate(ts::ThermodynamicState) = condensate(PhasePartition(ts))
+
+"""
+    has_condensate(q::PhasePartition{FT})
+    has_condensate(ts::ThermodynamicState)
+
+Bool indicating if condensate exists in the phase
+partition
+"""
+has_condensate(q_c::FT) where {FT} = q_c > eps(FT)
+has_condensate(q::PhasePartition) = has_condensate(condensate(q))
+has_condensate(ts::ThermodynamicState) = has_condensate(PhasePartition(ts))
+
+
+"""
     liquid_fraction(param_set, T, phase_type[, q])
 
 The fraction of condensate that is liquid where
@@ -847,8 +869,8 @@ function liquid_fraction(
     phase_type::Type{<:PhaseNonEquil},
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
-    q_c = q.liq + q.ice     # condensate specific humidity
-    if q_c > eps(FT)
+    q_c = condensate(q)     # condensate specific humidity
+    if has_condensate(q_c)
         return q.liq / q_c
     else
         return liquid_fraction(param_set, T, PhaseEquil, q)
@@ -963,7 +985,7 @@ Compute the temperature that is consistent with
 
 by finding the root of
 
-``e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0``
+`e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
 
 using Newtons method with analytic gradients.
 
@@ -1046,7 +1068,7 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-``e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0``
+`e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
 
 See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
 """
@@ -1105,9 +1127,7 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-``
-  θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, ρ, phase_type, q_tot) = 0
-``
+`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, ρ, phase_type, q_tot) = 0`
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1175,9 +1195,7 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-``
-  θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, air_density(param_set, T, p, PhasePartition(q_tot)), phase_type, q_tot) = 0
-``
+`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, air_density(param_set, T, p, PhasePartition(q_tot)), phase_type, q_tot) = 0`
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1405,9 +1423,7 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
 
 by finding the root of
-``
-  T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, air_pressure(param_set, T, ρ, q), q) = 0
-``
+`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, air_pressure(param_set, T, ρ, q), q) = 0`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(
     param_set::APS,

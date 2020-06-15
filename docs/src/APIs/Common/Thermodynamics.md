@@ -3,8 +3,6 @@
 ```@meta
 CurrentModule = ClimateMachine.Thermodynamics
 ```
-## Thermodynamics
-
 ```@docs
 Thermodynamics
 ```
@@ -21,10 +19,12 @@ PhaseDry_given_ρT
 PhaseEquil
 PhaseNonEquil
 TemperatureSHumEquil
+TemperatureSHumNonEquil
 TemperatureSHumEquil_given_pressure
 LiquidIcePotTempSHumEquil
 LiquidIcePotTempSHumNonEquil
 LiquidIcePotTempSHumNonEquil_given_pressure
+LiquidIcePotTempSHumEquil_given_pressure
 ```
 
 ## Thermodynamic state methods
@@ -58,4 +58,22 @@ soundspeed_air
 specific_volume
 total_energy
 virtual_pottemp
+condensate
+latent_heat_liq_ice
+relative_humidity
+vapor_specific_humidity
+has_condensate
+total_specific_humidity
+exner_given_pressure
+dry_pottemp_given_pressure
+liquid_ice_pottemp_given_pressure
+air_pressure_given_θ
+air_temperature_from_liquid_ice_pottemp_given_pressure
+air_temperature_from_liquid_ice_pottemp_non_linear
+```
+
+## Dispatch types
+
+```@docs
+DryAdiabaticProcess
 ```

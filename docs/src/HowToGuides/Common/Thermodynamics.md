@@ -138,3 +138,51 @@ thermodynamic state into one of:
  - `PhaseNonEquil` a moist thermodynamic state in thermodynamic
    non-equilibrium, uniquely determined by four independent thermodynamic
    properties
+
+## Tested Profiles
+
+Thermodynamics.jl is tested using a set of profiles specified in `test/Common/Thermodynamics/profiles.jl`.
+
+### Dry Phase
+
+```@example
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TemperatureProfiles
+using CLIMAParameters
+using CLIMAParameters.Planet
+using Plots
+struct EarthParameterSet <: AbstractEarthParameterSet end;
+const param_set = EarthParameterSet();
+FT = Float64;
+include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
+profiles = PhaseDryProfiles(param_set, FT);
+@unpack_fields profiles T ρ z
+p1 = scatter(ρ, z./10^3, xlabel="Density [kg/m^3]", ylabel="z [km]", title="Density");
+p2 = scatter(T, z./10^3, xlabel="Temperature [K]", ylabel="z [km]", title="Temperature");
+plot(p1, p2, layout=(1,2))
+savefig("tested_profiles_dry.svg");
+```
+![](tested_profiles_dry.svg)
+
+### Moist Phase in thermodynamic equilibrium
+
+```@example
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TemperatureProfiles
+using CLIMAParameters
+using CLIMAParameters.Planet
+using Plots
+struct EarthParameterSet <: AbstractEarthParameterSet end;
+const param_set = EarthParameterSet();
+FT = Float64;
+include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
+profiles = PhaseEquilProfiles(param_set, FT);
+@unpack_fields profiles T ρ q_tot z
+p1 = scatter(ρ, z./10^3, xlabel="Density [kg/m^3]", ylabel="z [km]", title="Density");
+p2 = scatter(T, z./10^3, xlabel="Temperature [K]", ylabel="z [km]", title="Temperature");
+p3 = scatter(q_tot*1000, z./10^3, xlabel="Total specific\nhumidity [g/kg]", ylabel="z [km]", title="Total specific\nhumidity");
+plot(p1, p2, p3, layout=(1,3))
+savefig("tested_profiles_virt_temp.svg")
+```
+![](tested_profiles_virt_temp.svg)
+

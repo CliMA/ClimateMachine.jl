@@ -12,12 +12,16 @@ const fast_mrrk_methods = (
 const explicit_methods = (
     (LSRK54CarpenterKennedy, 4),
     (LSRK144NiegemannDiehlBusch, 4),
+    (SSPRK22Heuns, 2),
+    (SSPRK22Ralstons, 2),
     (SSPRK33ShuOsher, 3),
     (SSPRK34SpiteriRuuth, 3),
     (LSRKEulerMethod, 1),
 )
 
 const imex_methods = (
+    (ARK1ForwardBackwardEuler, 1),
+    (ARK2ImplicitExplicitMidpoint, 2),
     (ARK2GiraldoKellyConstantinescu, 2),
     (ARK437L2SA1KennedyCarpenter, 4),
     (ARK548L2SA2KennedyCarpenter, 5),

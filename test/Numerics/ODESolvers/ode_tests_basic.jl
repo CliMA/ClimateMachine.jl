@@ -97,11 +97,10 @@ Qinit = exactsolution(t0, q0, t0)
 Q = similar(Qinit)
 Qexact = exactsolution(finaltime, q0, t0)
 
-dts = [0.125, 0.0625]
-errors = similar(dts)
-
 @testset "Convergence/limited" begin
     @testset "Explicit methods" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (method, expected_order) in explicit_methods
             for (n, dt) in enumerate(dts)
                 Q .= Qinit
@@ -115,6 +114,8 @@ errors = similar(dts)
     end
 
     @testset "IMEX methods" begin
+        dts = [2.0^(-k) for k in 4:5]
+        errors = similar(dts)
         for (method, order) in imex_methods
             for split_explicit_implicit in (false, true)
                 for variant in (LowStorageVariant(), NaiveVariant())
@@ -140,17 +141,23 @@ errors = similar(dts)
                     end
                     rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                     if variant isa LowStorageVariant && split_explicit_implicit
-                        expected_order = 2
+                        if method === ARK1ForwardBackwardEuler
+                            expected_order = 1
+                        else
+                            expected_order = 2
+                        end
                     else
                         expected_order = order
                     end
-                    @test isapprox(rates[end], expected_order; atol = 0.3)
+                    @test isapprox(rates[end], expected_order; rtol = 0.3)
                 end
             end
         end
     end
 
     @testset "IMEX methods with direct solver" begin
+        dts = [2.0^(-k) for k in 4:5]
+        errors = similar(dts)
         for (method, order) in imex_methods
             for split_explicit_implicit in (false, true)
                 for (n, dt) in enumerate(dts)
@@ -171,12 +178,14 @@ errors = similar(dts)
                 end
                 rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
                 expected_order = order
-                @test isapprox(rates[end], expected_order; atol = 0.3)
+                @test isapprox(rates[end], expected_order; rtol = 0.3)
             end
         end
     end
 
     @testset "MRRK methods with 2 rates" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (slow_method, slow_expected_order) in slow_mrrk_methods
             for (fast_method, fast_expected_order) in fast_mrrk_methods
                 for nsubsteps in (1, 3)
@@ -207,6 +216,8 @@ errors = similar(dts)
     end
 
     @testset "MRRK methods with IMEX" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (slow_method, slow_expected_order) in slow_mrrk_methods
             for (fast_method, fast_expected_order) in imex_methods
                 for (n, dt) in enumerate(dts)
@@ -244,6 +255,8 @@ errors = similar(dts)
     end
 
     @testset "MRRK methods with 3 rates" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (rate3_method, rate3_order) in slow_mrrk_methods
             for (rate2_method, rate2_order) in slow_mrrk_methods
                 for (rate1_method, rate1_order) in fast_mrrk_methods
@@ -275,6 +288,8 @@ errors = similar(dts)
     end
 
     @testset "MIS methods" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (method, expected_order) in mis_methods
             for fast_method in (LSRK54CarpenterKennedy,)
                 for (n, dt) in enumerate(dts)
@@ -298,6 +313,8 @@ errors = similar(dts)
     end
 
     @testset "MRI GARK methods with 2 rates" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (slow_method, expected_order) in mrigark_erk_methods
             for (fast_method, _) in fast_mrigark_methods
                 for nsubsteps in (1, 3)
@@ -326,6 +343,8 @@ errors = similar(dts)
     end
 
     @testset "MRI GARK methods with 3 rates" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (rate3_method, rate3_order) in mrigark_erk_methods
             for (rate2_method, rate2_order) in mrigark_erk_methods
                 for (rate1_method, _) in fast_mrigark_methods
@@ -361,6 +380,8 @@ errors = similar(dts)
     end
 
     @testset "MRI GARK implicit methods with 2 rates and linear solver" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (slow_method, expected_order) in mrigark_irk_methods
             for (fast_method, _) in fast_mrigark_methods
                 for nsubsteps in (1, 3)
@@ -395,6 +416,8 @@ errors = similar(dts)
     end
 
     @testset "MRI GARK implicit methods with 2 rates and custom solver" begin
+        dts = [2.0^(-k) for k in 3:4]
+        errors = similar(dts)
         for (slow_method, expected_order) in mrigark_irk_methods
             for (fast_method, _) in fast_mrigark_methods
                 for nsubsteps in (1, 3)

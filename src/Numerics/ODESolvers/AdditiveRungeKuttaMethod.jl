@@ -1,6 +1,8 @@
 export AbstractAdditiveRungeKutta
 export LowStorageVariant, NaiveVariant
 export AdditiveRungeKutta
+export ARK1ForwardBackwardEuler
+export ARK2ImplicitExplicitMidpoint
 export ARK2GiraldoKellyConstantinescu
 export ARK548L2SA2KennedyCarpenter, ARK437L2SA1KennedyCarpenter
 
@@ -53,12 +55,23 @@ formulations of the scheme is used.
 
 The available concrete implementations are:
 
+  - [`ARK1ForwardBackwardEuler`](@ref)
+  - [`ARK2ImplicitExplicitMidpoint`](@ref)
   - [`ARK2GiraldoKellyConstantinescu`](@ref)
   - [`ARK548L2SA2KennedyCarpenter`](@ref)
   - [`ARK437L2SA1KennedyCarpenter`](@ref)
 """
-mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
-               AbstractAdditiveRungeKutta
+mutable struct AdditiveRungeKutta{
+    T,
+    RT,
+    AT,
+    BE,
+    V,
+    VS,
+    Nstages,
+    Nstages_sq,
+    Nstagesm1,
+} <: AbstractAdditiveRungeKutta
     "time step"
     dt::RT
     "time"
@@ -70,7 +83,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
     "backwark Euler solver"
     besolver!::BE
     "Storage for solution during the AdditiveRungeKutta update"
-    Qstages::NTuple{Nstages, AT}
+    Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
     Rstages::NTuple{Nstages, AT}
     "Storage for the linear solver rhs vector"
@@ -111,7 +124,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
 
         Nstages = length(RKB)
 
-        Qstages = (Q, ntuple(i -> similar(Q), Nstages - 1)...)
+        Qstages = ntuple(i -> similar(Q), Nstages - 1)
         Rstages = ntuple(i -> similar(Q), Nstages)
         Qhat = similar(Q)
 
@@ -136,7 +149,7 @@ mutable struct AdditiveRungeKutta{T, RT, AT, BE, V, VS, Nstages, Nstages_sq} <:
         @assert besolver! isa LinBESolver || variant isa NaiveVariant
         BE = typeof(besolver!)
 
-        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2}(
+        new{T, RT, AT, BE, V, VS, Nstages, Nstages^2, Nstages - 1}(
             RT(dt),
             RT(t0),
             rhs!,
@@ -193,7 +206,7 @@ function dostep!(
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
-    Qstages, Rstages = ark.Qstages, ark.Rstages
+    Qstages, Rstages = (Q, ark.Qstages...), ark.Rstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Lstages = ark.variant_storage.Lstages
@@ -296,7 +309,7 @@ function dostep!(
     RKA_explicit, RKA_implicit = ark.RKA_explicit, ark.RKA_implicit
     RKB, RKC = ark.RKB, ark.RKC
     rhs!, rhs_implicit! = ark.rhs!, ark.rhs_implicit!
-    Qstages, Rstages = ark.Qstages, ark.Rstages
+    Qstages, Rstages = (Q, ark.Qstages...), ark.Rstages
     Qhat = ark.Qhat
     split_explicit_implicit = ark.split_explicit_implicit
     Qtt = ark.variant_storage.Qtt
@@ -520,6 +533,147 @@ end
             Q[i] += RKB[is] * dt * Rstages[is][i]
         end
     end
+end
+
+"""
+    ARK1ForwardBackwardEuler(f, l, backward_euler_solver, Q; dt, t0,
+                             split_explicit_implicit, variant)
+
+This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
+see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+This time stepping object is intended to be passed to the `solve!` command.
+
+This uses a first-order-accurate two-stage additive Runge--Kutta scheme
+by combining a forward Euler explicit step with a backward Euler implicit
+correction.
+
+### References
+    @article{Ascher1997,
+      title = {Implicit-explicit Runge-Kutta methods for time-dependent
+               partial differential equations},
+      author = {Uri M. Ascher and Steven J. Ruuth and Raymond J. Spiteri},
+      volume = {25},
+      number = {2-3},
+      pages = {151--167},
+      year = {1997},
+      journal = {Applied Numerical Mathematics},
+      publisher = {Elsevier {BV}}
+    }
+"""
+function ARK1ForwardBackwardEuler(
+    F,
+    L,
+    backward_euler_solver,
+    Q::AT;
+    dt = nothing,
+    t0 = 0,
+    split_explicit_implicit = false,
+    variant = LowStorageVariant(),
+) where {AT <: AbstractArray}
+
+    @assert dt !== nothing
+
+    T = eltype(Q)
+    RT = real(T)
+
+    RKA_explicit = [
+        RT(0) RT(0)
+        RT(1) RT(0)
+    ]
+    RKA_implicit = [
+        RT(0) RT(0)
+        RT(0) RT(1)
+    ]
+
+    RKB = [RT(0), RT(1)]
+    RKC = [RT(0), RT(1)]
+
+    Nstages = length(RKB)
+
+    AdditiveRungeKutta(
+        F,
+        L,
+        backward_euler_solver,
+        RKA_explicit,
+        RKA_implicit,
+        RKB,
+        RKC,
+        split_explicit_implicit,
+        variant,
+        Q;
+        dt = dt,
+        t0 = t0,
+    )
+end
+
+"""
+    ARK2ImplicitExplicitMidpoint(f, l, backward_euler_solver, Q; dt, t0,
+                                 split_explicit_implicit, variant)
+
+This function returns an [`AdditiveRungeKutta`](@ref) time stepping object,
+see the documentation of [`AdditiveRungeKutta`](@ref) for arguments definitions.
+This time stepping object is intended to be passed to the `solve!` command.
+
+This uses a second-order-accurate two-stage additive Runge--Kutta scheme
+by combining the implicit and explicit midpoint methods.
+
+### References
+    @article{Ascher1997,
+      title = {Implicit-explicit Runge-Kutta methods for time-dependent
+               partial differential equations},
+      author = {Uri M. Ascher and Steven J. Ruuth and Raymond J. Spiteri},
+      volume = {25},
+      number = {2-3},
+      pages = {151--167},
+      year = {1997},
+      journal = {Applied Numerical Mathematics},
+      publisher = {Elsevier {BV}}
+    }
+"""
+function ARK2ImplicitExplicitMidpoint(
+    F,
+    L,
+    backward_euler_solver,
+    Q::AT;
+    dt = nothing,
+    t0 = 0,
+    split_explicit_implicit = false,
+    variant = LowStorageVariant(),
+) where {AT <: AbstractArray}
+
+    @assert dt !== nothing
+
+    T = eltype(Q)
+    RT = real(T)
+
+    RKA_explicit = [
+        RT(0) RT(0)
+        RT(1 / 2) RT(0)
+    ]
+    RKA_implicit = [
+        RT(0) RT(0)
+        RT(0) RT(1 / 2)
+    ]
+
+    RKB = [RT(0), RT(1)]
+    RKC = [RT(0), RT(1 / 2)]
+
+    Nstages = length(RKB)
+
+    AdditiveRungeKutta(
+        F,
+        L,
+        backward_euler_solver,
+        RKA_explicit,
+        RKA_implicit,
+        RKB,
+        RKC,
+        split_explicit_implicit,
+        variant,
+        Q;
+        dt = dt,
+        t0 = t0,
+    )
 end
 
 """

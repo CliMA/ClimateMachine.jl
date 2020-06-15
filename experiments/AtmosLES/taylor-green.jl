@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.cli()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -206,11 +206,6 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
-        nothing
-    end
-    # information.
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,

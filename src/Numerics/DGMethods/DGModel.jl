@@ -68,8 +68,12 @@ function (dg::DGModel)(
     state_auxiliary = dg.state_auxiliary
 
     FT = eltype(state_conservative)
+    num_state_conservative = number_state_conservative(balance_law, FT)
     num_state_gradient_flux = number_state_gradient_flux(balance_law, FT)
     nhyperviscstate = num_hyperdiffusive(balance_law, FT)
+    num_state_tendency = size(tendency, 2)
+
+    @assert num_state_conservative ≤ num_state_tendency
 
     Np = dofs_per_element(grid)
 
@@ -78,6 +82,10 @@ function (dg::DGModel)(
     workgroups_surface = Nfp
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
     ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
+
+    if !increment && num_state_conservative < num_state_tendency
+        tendency .= -zero(FT)
+    end
 
     communicate =
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)

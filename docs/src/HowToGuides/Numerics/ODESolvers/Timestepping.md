@@ -12,10 +12,10 @@ Currently, ClimateMachine supports a variety of time-stepping methods
 within the Runge-Kutta framework. For purely explicit time-integration,
 ClimateMachine supports the following methods:
 
-1. [LSRK54CarpenterKennedy](@ref LSRK54CarpenterKennedy)
-2. [LSRK144NiegemannDiehlBusch](@ref LSRK144NiegemannDiehlBusch)
-3. [SSPRK33ShuOsher](@ref SSPRK33ShuOsher)
-4. [SSPRK34SpiteriRuuth](@ref SSPRK34SpiteriRuuth)
+1. [`LSRK54CarpenterKennedy`](@ref)
+2. [`LSRK144NiegemannDiehlBusch`](@ref)
+3. [`SSPRK33ShuOsher`](@ref)
+4. [`SSPRK34SpiteriRuuth`](@ref)
 
 Methods 1 and 2 are implemented as low-storage Runge-Kutta methods,
 which uses a 2N storage scheme for the coefficient arrays of the given
@@ -81,9 +81,11 @@ Butcher Tableaus: one for each of the partitioned components.  Additionally,
 a linear solver is required.  Currently, ClimateMachine supports the follow
 set of ARK methods for IMEX-based timestepping:
 
-1. [ARK2GiraldoKellyConstantinescu](@ref ARK2GiraldoKellyConstantinescu)
-2. [ARK548L2SA2KennedyCarpenter](@ref ARK548L2SA2KennedyCarpenter)
-3. [ARK437L2SA1KennedyCarpenter](@ref ARK437L2SA1KennedyCarpenter)
+1. [`ARK1ForwardBackwardEuler`](@ref)
+2. [`ARK2ImplicitExplicitMidpoint`](@ref)
+3. [`ARK2GiraldoKellyConstantinescu`](@ref)
+4. [`ARK548L2SA2KennedyCarpenter`](@ref)
+5. [`ARK437L2SA1KennedyCarpenter`](@ref)
 
 For example, consider the following:
 
@@ -227,7 +229,7 @@ different rate (hence the name "Multi-Rate").
 
 There are several different approaches for multirate
 methods. In ClimateMachine, a multirate time-stepper is provided as
-[MultirateRungeKutta](@ref MultirateRungeKutta), which takes a given number
+[`MultirateRungeKutta`](@ref), which takes a given number
 of Runge-Kutta methods (one for each rate).
 
 ### Implementation Considerations

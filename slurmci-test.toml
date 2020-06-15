@@ -2,11 +2,13 @@
 #
 
 cpu = [
+  { file = "test/Numerics/DGMethods/advection_diffusion/advection_diffusion_model_1dimex_bgmres.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion_mrigark_implicit.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGMethods/advection_diffusion/pseudo1D_heat_eqn.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/DGMethods/advection_diffusion/periodic_3D_hyperdiffusion.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Numerics/DGMethods/compressible_Navier_Stokes/ref_state.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Numerics/Mesh/mpi_connect_1d.jl", slurmargs = ["--ntasks=5"], args = [] },
   { file = "test/Numerics/Mesh/mpi_connect_sphere.jl", slurmargs = ["--ntasks=5"], args = [] },
   { file = "test/Numerics/Mesh/mpi_getpartition.jl", slurmargs = ["--ntasks=5"], args = [] },
@@ -38,6 +40,7 @@ cpu_gpu = [
   { file = "test/Numerics/SystemSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/Mesh/interpolation.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Ocean/ShallowWater/GyreDriver.jl", slurmargs = ["--ntasks=1"], args = [] },
+  { file = "experiments/OceanBoxGCM/hydrostatic_spindown.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "tutorials/Numerics/DGMethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 
