@@ -424,13 +424,13 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.IMEXSolverType()
-
+    #ode_solver_type = ClimateMachine.IMEXSolverType()
+    ode_solver_type = ClimateMachine.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch,)
     # Assemble model components
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = Vreman{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         source = source,
         boundarycondition = (
@@ -483,6 +483,41 @@ function config_diagnostics(driver_config)
     ])
 end
 
+function config_diagnostics_dump_all(FT, driver_config)
+    interval = "150ssecs" # chosen to allow a single diagnostics collection
+
+
+    info = driver_config.config_info
+    boundaries = [
+        FT(0.0) FT(0.0) FT(0.0)
+        FT(12800.0) FT(12800.0) FT(3000)
+    ]
+    resolution = (FT(100), FT(100), FT(40)) 
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+
+    dgngrp = setup_dump_state_and_aux_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    default_dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        "150ssecs",
+        driver_config.name,
+    )
+    core_dgngrp = setup_atmos_core_diagnostics(
+        AtmosLESConfigType(),
+        "150ssecs",
+        driver_config.name,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([default_dgngrp])
+end
+
 function main()
     FT = Float32
 
@@ -495,17 +530,17 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(4800)
-    ymax = FT(4800)
+    xmax = FT(12800)
+    ymax = FT(12800)
     zmax = FT(3000)
 
     t0 = FT(0)
 
     # For a full-run, please set the timeend to 3600*6 seconds
     # For the test we set this to == 30 minutes
-    timeend = FT(2)
-    #timeend = FT(3600 * 6)
-    CFLmax = FT(0.90)
+    #timeend = FT(3600)
+    timeend = FT(3600 * 6)
+    CFLmax = FT(1.6)
 
     driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -515,7 +550,7 @@ function main()
         init_on_cpu = true,
         Courant_number = CFLmax,
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics_dump_all(FT, driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(
@@ -553,7 +588,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter, cb_check_cons),
+        user_callbacks = (cbtmarfilter,), #cb_check_cons),
         check_euclidean_distance = true,
     )
 end

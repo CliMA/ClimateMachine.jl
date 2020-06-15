@@ -232,7 +232,7 @@ struct InterpolationBrick{
         wb = Elements.baryweights(m1_r)
 
         Npl = offset[end]
-
+        
         ξ1_d = Array{FT}(undef, Npl)
         ξ2_d = Array{FT}(undef, Npl)
         ξ3_d = Array{FT}(undef, Npl)
