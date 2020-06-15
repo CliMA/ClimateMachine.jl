@@ -100,7 +100,7 @@ include("atmos_gcm_default.jl")
 """
     setup_atmos_default_diagnostics(
         ::AtmosGCMConfigType,
-        interval::Int,
+        interval::String,
         out_prefix::String;
         writer::AbstractWriter,
         interpol = nothing,
@@ -138,7 +138,7 @@ include("atmos_les_core.jl")
 """
     setup_atmos_core_diagnostics(
         ::AtmosLESConfigType,
-        interval::Int,
+        interval::String,
         out_prefix::String;
         writer::AbstractWriter,
         interpol = nothing,
@@ -165,6 +165,43 @@ function setup_atmos_core_diagnostics(
         Diagnostics.atmos_les_core_init,
         Diagnostics.atmos_les_core_fini,
         Diagnostics.atmos_les_core_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
+include("atmos_les_default_perturbations.jl")
+"""
+    setup_atmos_default_perturbations(
+        ::AtmosLESConfigType,
+        interval::String,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the
+"AtmosLESDefaultPerturbations" diagnostics for the LES configuration.
+All the diagnostics in the group will run at the specified `interval`,
+and written to files prefixed by `out_prefix` using `writer`.
+"""
+function setup_atmos_default_perturbations(
+    ::AtmosLESConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosLESDefaultPerturbations",
+        Diagnostics.atmos_les_default_perturbations_init,
+        Diagnostics.atmos_les_default_perturbations_fini,
+        Diagnostics.atmos_les_default_perturbations_collect,
         interval,
         out_prefix,
         writer,
