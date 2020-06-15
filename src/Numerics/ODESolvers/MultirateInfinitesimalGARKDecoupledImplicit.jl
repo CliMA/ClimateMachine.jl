@@ -23,14 +23,14 @@ The fast tendency is integrated using the `fastsolver` and the slow tendency
 using the MRI-GARK scheme. Since this is a decoupled, implicit MRI-GARK there is no implicit coupling between the fast and slow tendencies.
 
 The `backward_euler_solver` should be of type `AbstractBackwardEulerSolver` or
-`LinearBackwardEulerSolver`, and is used to perform the backward Euler solves 
+`LinearBackwardEulerSolver`, and is used to perform the backward Euler solves
 for `y` given the slow tendency function, namely
 
 ```math
    y = z + α f(y, t; p)
 ```
 
-Currently only ['LowStorageRungeKutta2N`](@ref) schemes are supported for
+Currently only [`LowStorageRungeKutta2N`](@ref) schemes are supported for
 `fastsolver`
 
 The coefficients defined by `γ̂s` can be used for an embedded scheme (only the
@@ -339,7 +339,7 @@ function MRIGARKESDIRK46aSandu(
                         -1 // 4                             1 // 4                             0 // 1                              0 // 1                          0 // 1           0 // 1
              1771023115159 // 1929363690800    -1385150376999 // 1929363690800                 0 // 1                              0 // 1                          0 // 1           0 // 1
                     914009 // 345800                 -1000459 // 345800                        1 // 4                              0 // 1                          0 // 1           0 // 1
-            18386293581909 // 36657910125200       5506531089 // 80566835440       -178423463189 // 482340922700                   0 // 1                          0 // 1           0 // 1 
+            18386293581909 // 36657910125200       5506531089 // 80566835440       -178423463189 // 482340922700                   0 // 1                          0 // 1           0 // 1
                   36036097 // 8299200                    4621 // 118560                -38434367 // 8299200                        1 // 4                          0 // 1           0 // 1
           -247809665162987 // 146631640500800  10604946373579 // 14663164050080   10838126175385 // 5865265620032    -24966656214317 // 36657910125200             0 // 1           0 // 1
                   38519701 // 11618880               10517363 // 9682400               -23284701 // 19364800               -10018609 // 2904720                    1 // 4           0 // 1

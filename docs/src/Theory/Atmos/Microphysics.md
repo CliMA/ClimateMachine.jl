@@ -108,7 +108,7 @@ The default value of ``C_{drag}`` is chosen such that the ``v_t`` is
 close to the empirical terminal velocity formulation in Smolarkiewicz
 and Grabowski 1996. Assuming a constant drag coefficient is
 an approximation as it should be size and flow dependent, see
-[drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html).
+[drag coefficient](https://en.wikipedia.org/wiki/Drag_coefficient).
 
 ```@example rain_terminal_velocity
 using ClimateMachine.Microphysics
@@ -194,8 +194,7 @@ Integrating over the distribution and using the RWC to eliminate the ``\lambda_{
 The default value of collision efficiency ``E_{coll}`` is set to
 0.8 so that the resulting accretion rate is close to the empirical
 accretion rate in Smolarkiewicz and Grabowski 1996. Assuming a
-constant ``E_{col}`` is an approximation, see for example [collision
-efficiency](https://journals.ametsoc.org/doi/10.1175/1520-0469%282001%29058%3C0742%3ACEODIA%3E2.0.CO%3B2).
+constant ``E_{col}`` is an approximation, see Pinsky (2001).
 
 ```@example accretion
 using ClimateMachine.Microphysics
@@ -411,3 +410,13 @@ volume={92},
 number={1},
 pages={45--66},
 doi={10.1007/s00703-005-0112-4}}
+
+@article{pinsky2001collision,
+title={Collision efficiency of drops in a wide range of Reynolds numbers: Effects of pressure on spectrum evolution},
+author={Pinsky, M and Khain, A and Shapiro, M},
+journal={Journal of the atmospheric sciences},
+volume={58},
+number={7},
+pages={742--764},
+year={2001}
+}

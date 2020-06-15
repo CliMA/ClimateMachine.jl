@@ -29,6 +29,7 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
         "homogeneous_box",
         N,
         resolution,
+        param_set,
         model,
     )
 

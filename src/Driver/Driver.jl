@@ -121,6 +121,19 @@ function get_setting(setting_name::Symbol, settings, defaults)
     end
 end
 
+function get_gpu_setting(setting_name::Symbol, settings, defaults)
+    # do not override disable_gpu kwargs setting if it exists
+    if !haskey(settings, setting_name)
+        # if old GPU ENV keyword exists, overwrite the settings variable if not defined
+        if haskey(ENV, "CLIMATEMACHINE_GPU")
+            settings[setting_name] = ENV["CLIMATEMACHINE_GPU"] == "false"
+        end
+    end
+    # fallback behavior
+    return get_setting(setting_name, settings, defaults)
+end
+
+
 """
     parse_commandline(defaults::Union{Nothing, Dict{Symbol,Any}),
                       custom_settings::Union{Nothing,ArgParseSettings}=nothing)
@@ -168,7 +181,9 @@ function parse_commandline(
     @add_arg_table! s begin
         "--disable-gpu"
         help = "do not use the GPU"
-        action = :store_true
+        action = :store_const
+        constant = true
+        default = get_gpu_setting(:disable_gpu, defaults, global_defaults)
         "--show-updates"
         help = "interval at which to show simulation updates"
         metavar = "<interval>"
@@ -203,10 +218,14 @@ function parse_commandline(
         default = get_setting(:checkpoint, defaults, global_defaults)
         "--checkpoint-keep-all"
         help = "keep all checkpoints (instead of just the most recent)"
-        action = :store_true
+        action = :store_const
+        constant = true
+        default = !get_setting(:checkpoint_keep_one, defaults, global_defaults)
         "--checkpoint-at-end"
         help = "create a checkpoint at the end of the simulation"
-        action = :store_true
+        action = :store_const
+        constant = true
+        default = get_setting(:checkpoint_at_end, defaults, global_defaults)
         "--checkpoint-dir"
         help = "the directory in which to store checkpoints"
         metavar = "<path>"
@@ -219,10 +238,14 @@ function parse_commandline(
         default = get_setting(:restart_from_num, defaults, global_defaults)
         "--fix-rng-seed"
         help = "set RNG seed to a fixed value for reproducibility"
-        action = :store_true
+        action = :store_const
+        constant = true
+        default = get_setting(:fix_rng_seed, defaults, global_defaults)
         "--disable-custom-logger"
         help = "do not use a custom logger"
-        action = :store_true
+        action = :store_const
+        constant = true
+        default = get_setting(:disable_custom_logger, defaults, global_defaults)
         "--log-level"
         help = "set the log level to one of debug/info/warn/error"
         metavar = "<level>"
@@ -239,7 +262,9 @@ function parse_commandline(
         end
         "--integration-testing"
         help = "enable integration testing"
-        action = :store_true
+        action = :store_const
+        constant = true
+        default = get_setting(:integration_testing, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_settings)
@@ -279,6 +304,7 @@ function cli(;
     # we need to munge the parsed arg dict a bit as parsed arg keys
     # and climatemachine initialization keywords are not 1:1
     parsed_args["checkpoint_keep_one"] = !parsed_args["checkpoint_keep_all"]
+
     parsed_kwargs = Dict{Symbol, Any}((Symbol(k), v) for (k, v) in parsed_args)
     # allow for setting cli arguments as hard defaults that override parsed process ARGS
     init_kwargs = merge(kw_defaults, parsed_kwargs)
@@ -345,7 +371,6 @@ the process, otherwise the defaulting to `ClimateMachine.Settings`.
 function init(; init_driver::Bool = true, kwargs...)
     # init global setting values
     # TODO: add validation for initialization values
-
     if haskey(kwargs, :disable_gpu)
         Settings.disable_gpu = kwargs[:disable_gpu]
     elseif haskey(ENV, "CLIMATEMACHINE_GPU")
@@ -465,21 +490,21 @@ Run the simulation defined by `solver_config`.
 Keyword Arguments:
 
 The `user_callbacks` are passed to the ODE solver as callback functions;
-see [`ODESolvers.solve!]@ref().
+see [`solve!`](@ref ODESolvers.solve!).
 
 If `check_euclidean_distance` is `true, then the Euclidean distance
 between the final solution and initial condition function evaluated with
 `solver_config.timeend` is reported.
 
 The value of 'adjustfinalstep` is passed to the ODE solver; see
-[`ODESolvers.solve!]@ref().
+[`solve!`](@ref ODESolvers.solve!).
 
 The function `user_info_callback` is called after the default info
 callback (which is called every `Settings.show_updates` interval). The
 single input argument `init` is `true` when the callback is called for
 initialization (before time stepping begins) and `false` when called
 during the actual ODE solve; see [`GenericCallbacks`](@ref) and
-[`ODESolvers.solve!]@ref().
+[`solve!`](@ref ODESolvers.solve!).
 """
 function invoke!(
     solver_config::SolverConfiguration;
@@ -515,7 +540,14 @@ function invoke!(
     # diagnostics callback(s)
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         dgn_starttime = replace(string(now()), ":" => ".")
-        Diagnostics.init(mpicomm, dg, Q, dgn_starttime, Settings.output_dir)
+        Diagnostics.init(
+            mpicomm,
+            solver_config.param_set,
+            dg,
+            Q,
+            dgn_starttime,
+            Settings.output_dir,
+        )
 
         dgncbs = Callbacks.diagnostics(
             Settings.diagnostics,

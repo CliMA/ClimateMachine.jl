@@ -4,17 +4,16 @@ For the most part, we follow the
 [YASGuide](https://github.com/jrevels/YASGuide). Some key considerations:
 
 - Limit use of Unicode as described in
-  [AcceptableUnicode](AcceptableUnicode.md).
+  [Acceptable Unicode characters](@ref).
 
 - Modules and struct names should follow TitleCase convention.
 
 - Function names should be lowercase with words separated by underscores as
   necessary to improve readability.
 
-- Variable names follow the format used in the [Variable
-  List](VariableList.md). In addition, follow [CMIP
-  conventions](http://clipc-services.ceda.ac.uk/dreq/) where possible and
-  practicable.
+- Variable names follow the format used in the [ClimateMachine Variable List](@ref).
+  In addition, follow [CMIP conventions](http://clipc-services.ceda.ac.uk/dreq/)
+  where possible and practicable.
 
 - Document design and purpose rather than mechanics and implementation
   (document interfaces and embed documentation in code).

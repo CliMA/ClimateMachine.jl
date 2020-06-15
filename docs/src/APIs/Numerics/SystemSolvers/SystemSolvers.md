@@ -29,6 +29,13 @@ initialize!
 doiteration!
 ```
 
+## LU Decomposition
+
+```@docs
+ManyColumnLU
+SingleColumnLU
+```
+
 ## Shared components
 
 ```@docs

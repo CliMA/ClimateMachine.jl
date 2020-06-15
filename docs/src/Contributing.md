@@ -92,10 +92,22 @@ integration (CI) system.
 
 A `ClimateMachine` developer will look at your PR and provide feedback!
 
-We use [`bors`](https://bors.tech/) to manage the `ClimateMachine` repo.
+Currently a number of checks are run per commit for a given PR:
+
+- `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`
+- `Documentation` rebuilds the documentation for the PR and checks if the docs are consistent and generate valid output.
+- `Unit Tests` run subsets of the unit tests defined in `tests/`, `Pkg.test()`.  The tests are run in parallel to ensure that they finish in a reasonable time.  The tests only run the latest commit for a PR, branch and will kill any stale jobs on push.  These tests are only run on linux (Ubuntu LTS).
+
+We use [`bors`](https://bors.tech/) to manage merging PR's in the the `ClimateMachine` repo.
 If you're a collaborator and have the necessary permissions, you can type
 `bors try` in a comment on a PR to have some additional tests run on that
-PR, or `bors r+` to try and merge the code.
+PR, or `bors r+` to try and merge the code.  Bors ensures that all tests
+for a given PR always pass before merging into `master`.
+
+Bors aggregates and checks the following test outputs:
+- `Documentation` checks that the documentation correctly builds for the merged PR.
+- `OS Unit Tests` checks that ClimateMachine.jl package unit tests can pass on every OS supported (linux, macOS, windows).
+- `slurmci` runs more extensive testing on both CPU and GPU hardware using Caltech HPC cluster resources.
 
 ## Contributing Documentation
 

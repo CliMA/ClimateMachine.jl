@@ -28,6 +28,7 @@ function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
         "ocean_gyre",
         N,
         resolution,
+        param_set,
         model,
     )
 

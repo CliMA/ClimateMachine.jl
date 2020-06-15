@@ -8,7 +8,8 @@ module Diagnostics
 export DiagnosticsGroup,
     setup_atmos_default_diagnostics,
     setup_atmos_core_diagnostics,
-    setup_dump_state_and_aux_diagnostics
+    setup_dump_state_diagnostics,
+    setup_dump_aux_diagnostics
 
 using CuArrays
 using Dates
@@ -37,11 +38,10 @@ using ..Writers
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
 
 Base.@kwdef mutable struct Diagnostic_Settings
     mpicomm::MPI.Comm = MPI.COMM_WORLD
+    param_set::Union{Nothing, AbstractParameterSet} = nothing
     dg::Union{Nothing, DGModel} = nothing
     Q::Union{Nothing, MPIStateArray} = nothing
     starttime::Union{Nothing, String} = nothing
@@ -50,19 +50,21 @@ end
 const Settings = Diagnostic_Settings()
 
 """
-    init(mpicomm, dg, Q, starttime, output_dir)
+    init(mpicomm, param_set, dg, Q, starttime, output_dir)
 
 Initialize the diagnostics collection module -- save the parameters into
 `Settings`.
 """
 function init(
     mpicomm::MPI.Comm,
+    param_set::AbstractParameterSet,
     dg::DGModel,
     Q::MPIStateArray,
     starttime::String,
     output_dir::String,
 )
     Settings.mpicomm = mpicomm
+    Settings.param_set = param_set
     Settings.dg = dg
     Settings.Q = Q
     Settings.starttime = starttime

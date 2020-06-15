@@ -1,7 +1,9 @@
 """
+    Courant
+
 Contains stubs for advective, diffusive, and nondiffusive courant number
-calculations to be used in [`DGMethods.courant`](@ref). Models should provide
-concrete implementations if they wish to use these functions.
+calculations to be used in `ClimateMachine.DGMethods.courant`. Models
+should provide concrete implementations if they wish to use these functions.
 """
 module Courant
 

@@ -41,7 +41,7 @@ etc.), because this can lead to visually ambiguous characters.
 Γ # (Gamma)
 Ω # (Omega)
 Ψ # (Psi)
-<!-- Φ # (Phi) removed in favor of lowercase psi -->
+Φ # (Phi)
 ```
 
 ## Acceptable mathematical symbols
@@ -57,5 +57,4 @@ etc.), because this can lead to visually ambiguous characters.
 ∀ # (forall)
 ≥ # (greater than equal to)
 ≤ # (less than equal to)
-<!-- ∈ # (in) removed in favor of epsilon -->
 ```

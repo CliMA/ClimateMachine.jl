@@ -142,7 +142,7 @@ dispatches to ocean_init_state! which is defined in a problem file such as Simpl
 """
 function ocean_init_state! end
 function init_state_conservative!(m::HBModel, Q::Vars, A::Vars, coords, t)
-    return ocean_init_state!(m.problem, Q, A, coords, t)
+    return ocean_init_state!(m, m.problem, Q, A, coords, t)
 end
 
 """

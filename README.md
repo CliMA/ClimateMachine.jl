@@ -2,12 +2,12 @@
 
 The Climate Machine is a new Earth system model that leverages recent advances in the computational and data sciences to learn directly from a wealth of Earth observations from space and the ground. The Climate Machine will harness more data than ever before, providing a new level of accuracy to predictions of droughts, heat waves, and rainfall extremes.
 
-| **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]    |
-|----------------------|-----------------------------------------------|
-| **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]   |
-| **Azure Build**      | [![azure][azure-img]][azure-url]              |
-| **Code Coverage**    | [![codecov][codecov-img]][codecov-url]        |
-| **Bors**             | [![Bors enabled][bors-img]][bors-url]         |
+| **Documentation**    | [![dev][docs-latest-img]][docs-latest-url]       |
+|----------------------|--------------------------------------------------|
+| **Docs Build**       | [![docs build][docs-bld-img]][docs-bld-url]      |
+| **Unit tests**       | [![unit tests][unit-tests-img]][unit-tests-url]  |
+| **Code Coverage**    | [![codecov][codecov-img]][codecov-url]           |
+| **Bors**             | [![Bors enabled][bors-img]][bors-url]            |
 
 [docs-bld-img]: https://github.com/CliMA/ClimateMachine.jl/workflows/Documentation/badge.svg
 [docs-bld-url]: https://github.com/CliMA/ClimateMachine.jl/actions?query=workflow%3ADocumentation
@@ -15,8 +15,8 @@ The Climate Machine is a new Earth system model that leverages recent advances i
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
 [docs-latest-url]: https://CliMA.github.io/ClimateMachine.jl/latest/
 
-[azure-img]: https://dev.azure.com/climate-machine/ClimateMachine.jl/_apis/build/status/azure-ci?branchName=master
-[azure-url]: https://dev.azure.com/climate-machine/ClimateMachine.jl/_build
+[unit-tests-img]: https://github.com/CliMA/ClimateMachine.jl/workflows/OS%20Unit%20Tests/badge.svg
+[unit-tests-url]: https://github.com/CliMA/ClimateMachine.jl/actions?query=workflow%3A%22OS+Unit+Tests%22
 
 [codecov-img]: https://codecov.io/gh/CliMA/ClimateMachine.jl/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/CliMA/ClimateMachine.jl
