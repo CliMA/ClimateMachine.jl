@@ -81,7 +81,7 @@ function mixing_length(
       b += a_up*w_up*δ[i]/en_area*((w_up-w_env)*(w_up-w_env)/2-tke) - a_up*w_up*(w_up-w_env)*εt[i]*w_env/en_area
     end
 
-    c_neg = m.c_m*tke*sqrt(tke)
+    c_neg = m.c_m*tke*sqrt(abs(tke))
     if abs(a) > eps(FT) && 4*a*c_neg > - b^2
               l_entdet = max( -b/FT(2)/a + sqrt(b^2 + 4*a*c_neg)/2/a, FT(0))
     elseif abs(a) < eps(FT) && abs(b) > eps(FT)

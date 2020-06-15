@@ -28,7 +28,6 @@ function env_surface_covariances(
     ss::SingleStack{FT, N},
     m::SurfaceModel,
     edmf::EDMF{FT,N},
-    source::Vars,
     state::Vars,
     ) where {FT, N}
   # yair - I would like to call the surface functions from src/Atmos/Model/SurfaceFluxes.jl

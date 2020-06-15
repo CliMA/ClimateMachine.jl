@@ -623,20 +623,28 @@ function boundary_state!(
 ) where {FT,N}
     gm = state⁺
     up = state⁺.edmf.updraft
+    en = state⁺.edmf.environment
     gm_d = diff⁺
     up_d = diff⁺.edmf.updraft
+    en_d = diff⁺.edmf.environment
+    # Charlie is the use of state⁺ here consistent for gm.ρ, up[i].ρa ?
     if bctype == 1 # bottom
         # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
-        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, source, state)
-        en_d.ρatke = gm.ρ * area_en * tke
-        en_d.ρae_int_cv = gm.ρ * area_en * e_int_cv
-        en_d.ρaq_tot_cv = gm.ρ * area_en * q_tot_cv
-        en_d.ρae_int_q_tot_cv = gm.ρ * area_en * e_int_q_tot_cv
+        # tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, state)
+        area_en  = 1 - sum([up[i].ρa for i in 1:N])/gm.ρ
+        tke = FT(0)
+        e_int_cv = FT(0)
+        q_tot_cv = FT(0)
+        e_int_q_tot_cv = FT(0)
+        en_d.∇tke = SVector(0,0,gm.ρ * area_en * tke)
+        en_d.∇e_int_cv = SVector(0,0,gm.ρ * area_en * e_int_cv)
+        en_d.∇q_tot_cv = SVector(0,0,gm.ρ * area_en * q_tot_cv)
+        en_d.∇e_int_q_tot_cv = SVector(0,0,gm.ρ * area_en * e_int_q_tot_cv)
     elseif bctype == 2 # top
         # for now zero flux at the top
-        en_d.ρatke = -n⁻ * 0.0
-        en_d.ρae_int_cv = -n⁻ * 0.0
-        en_d.ρaq_tot_cv = -n⁻ * 0.0
-        en_d.ρae_int_q_tot_cv = -n⁻ * 0.0
+        en_d.∇tke = -n⁻ * 0.0
+        en_d.∇e_int_cv = -n⁻ * 0.0
+        en_d.∇q_tot_cv = -n⁻ * 0.0
+        en_d.∇e_int_q_tot_cv = -n⁻ * 0.0
     end
 end;
