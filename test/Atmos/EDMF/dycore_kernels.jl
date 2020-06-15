@@ -30,15 +30,15 @@ end
 function vars_state_conservative(m::SingleStack, FT)
     @vars(ρ::FT,
           ρu::SVector{3, FT},
-          ρe_int::FT,
-          ρq_tot::FT,
+          ρe_int::FT, # Should be `ρe`, not `ρe_int`
+          ρq_tot::FT, # We could add moisture model (similar to atmos model)
           edmf::vars_state_conservative(m.edmf, FT));
 end
 
 function vars_state_gradient(m::SingleStack, FT)
     @vars(p0::FT,
-          e_int::FT,
-          q_tot::FT,
+          e_int::FT,, # May need to update to `ρe`
+          q_tot::FT, # We could add moisture model (similar to atmos model)
           u::FT,
           edmf::vars_state_gradient(m.edmf, FT));
 end
@@ -69,33 +69,6 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     aux.p0 = p
 
     init_state_auxiliary!(m, m.edmf, aux, geom)
-end;
-
-function update_auxiliary_state!(
-    dg::DGModel,
-    m::SingleStack,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-
-    return true
-end
-
-function init_state_conservative!(
-    m::SingleStack{FT,N},
-    state::Vars,
-    aux::Vars,
-    coords,
-    t::Real,
-) where {FT,N}
-
-    state.ρ = FT(1) # need to add intial state here
-    state.ρu = SVector(0,0,0)
-    state.ρe_int = FT(300000) # need to add intial state here
-    state.ρq_tot = eps(FT) # need to add intial state here
-    init_state_conservative!(m, m.edmf, state, aux, coords, t)
-
 end;
 
 # The remaining methods, defined in this section, are called at every

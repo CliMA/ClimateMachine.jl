@@ -211,10 +211,16 @@ function update_auxiliary_state!(
     )
     aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
         dg.grid,
-        Q,
+        dg.state_auxiliary,
         vars_state_auxiliary(m, FT),
     )
     z = aux_vars["z"]
+
+    # Ideally, it looks something like this:
+    # for i in 1:N
+    #     edmf.updraft[i].updraft_top, z_loc = along_stack(max(edmf.updraft[i].ρa/state.ρ, 0), Q, elems)
+    # end
+
     for i in 1:N
         for j in 1:length(z)
             up_i_ρa = state_vars["edmf.updraft[$i].ρa"][j]

@@ -244,6 +244,22 @@ m = SingleStack{FT, N, N_quad}();
 
 include("dycore_kernels.jl")
 
+function init_state_conservative!(
+    m::SingleStack{FT,N},
+    state::Vars,
+    aux::Vars,
+    coords,
+    t::Real,
+) where {FT,N}
+
+    state.ρ = FT(1) # need to add intial state here
+    state.ρu = SVector(0,0,0)
+    state.ρe_int = FT(300000) # need to add intial state here
+    state.ρq_tot = eps(FT) # need to add intial state here
+    init_state_conservative!(m, m.edmf, state, aux, coords, t)
+
+end;
+
 # # Spatial discretization
 
 # Prescribe polynomial order of basis functions in finite elements

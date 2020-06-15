@@ -16,7 +16,7 @@ function entr_detr(
     gm_a = aux
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
-    
+
     fill!(m.Λ, 0)
     # precompute vars
     ρinv = 1/gm.ρ
@@ -29,7 +29,13 @@ function entr_detr(
     en_e_int = (gm.ρe_int-sum([up[j].ρae_int for j in 1:N]))*ρinv
     en_q_tot = (gm.ρq_tot-sum([up[j].ρaq_tot for j in 1:N]))*ρinv
     sqrt_tke = sqrt(abs(en.ρatke)*ρinv/a_en)
-    ts_up = PhaseEquil(ss.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+    local ts_up
+    try
+        ts_up = PhaseEquil(ss.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+    catch
+        @show ss.param_set up[i].ρae_int/up[i].ρa gm.ρ up[i].ρaq_tot/up[i].ρa
+        error("Bad thermo inputs")
+    end
     q_con_up = condensate(ts_up)
     ts_en = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
     q_con_en = condensate(ts_en)
