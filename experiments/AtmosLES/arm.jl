@@ -148,22 +148,6 @@ end
 Moisture, Temperature and Subsidence tendencies
 """
 struct ARMTendencies{FT} <: Source
-    "Advection tendency in total moisture `[s⁻¹]`"
-    ∂qt∂t_peak::FT
-    "Lower extent of piecewise profile (moisture term) `[m]`"
-    zl_moisture::FT
-    "Upper extent of piecewise profile (moisture term) `[m]`"
-    zh_moisture::FT
-    "Cooling rate `[K/s]`"
-    ∂θ∂t_peak::FT
-    "Lower extent of piecewise profile (subsidence term) `[m]`"
-    zl_sub::FT
-    "Upper extent of piecewise profile (subsidence term) `[m]`"
-    zh_sub::FT
-    "Subsidence peak velocity"
-    w_sub::FT
-    "Max height in domain"
-    z_max::FT
 end
 function atmos_source!(
     s::ARMTendencies,
@@ -183,61 +167,50 @@ function atmos_source!(
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
 
-    # Moisture tendencey (sink term)
-    # Temperature tendency (Radiative cooling)
-    # Large scale subsidence
-    # Unpack struct
-    zl_moisture = s.zl_moisture
-    zh_moisture = s.zh_moisture
-    z_max = s.z_max
-    zl_sub = s.zl_sub
-    zh_sub = s.zh_sub
-    zl_temperature = zl_sub
-    w_sub = s.w_sub
-    ∂qt∂t_peak = s.∂qt∂t_peak
-    ∂θ∂t_peak = s.∂θ∂t_peak
+    w_sub = FT(0) # TODO fix value correctly
     k̂ = vertical_unit_vector(atmos, aux)
 
     # Thermodynamic state identification
     q_pt = PhasePartition(TS)
     cvm = cv_m(TS)
 
-    # Piecewise term for moisture tendency
-    linscale_moisture = (z - zl_moisture) / (zh_moisture - zl_moisture)
-    if z <= zl_moisture
-        ρ∂qt∂t = ρ * ∂qt∂t_peak
-    elseif zl_moisture < z <= zh_moisture
-        ρ∂qt∂t = ρ * (∂qt∂t_peak - ∂qt∂t_peak * linscale_moisture)
-    else
-        ρ∂qt∂t = -zero(FT)
-    end
+    # ARM Tendencies Depend on time, but not on the spatial coordinate
+    hours = 3600
 
-    # Piecewise term for internal energy tendency
-    linscale_temp = (z - zl_sub) / (z_max - zl_sub)
-    if z <= zl_sub
-        ρ∂θ∂t = ρ * ∂θ∂t_peak
-    elseif zl_temperature < z <= z_max
-        ρ∂θ∂t = ρ * (∂θ∂t_peak - ∂θ∂t_peak * linscale_temp)
+    if t <= FT(3hours)
+        ∂θ∂t_adv = FT(0)
+        ∂θ∂t_rad = FT(-0.125) + (t - 3hours) * FT(0.125) / FT(3hours)
+        ∂qt∂t = 0.08 + (t/3hours) * FT(0.02 - 0.08)
+    elseif t > FT(3hours) && t <= FT(6hours)
+        ∂θ∂t_adv = FT(0) 
+        ∂θ∂t_rad = FT(0)
+        ∂qt∂t = 0.02 + (t - 3hours) * FT(0.04 - 0.02) / FT(3hours)
+    elseif t > FT(6hours) && z <= FT(9hours)
+        ∂θ∂t_adv = FT(0) + (t - 6hours) * FT(-0.08) / FT(3hours)
+        ∂θ∂t_rad = FT(0)
+        ∂qt∂t = 0.04 + (t - 6hours) * FT(-0.1 - 0.04) / FT(3hours)
+    elseif t > FT(9hours) && t <= FT(12hours)
+        ∂θ∂t_adv = FT(-0.08) + (t - 9hours) * FT(0.064) / FT(3hours)
+        ∂θ∂t_rad = FT(0) 
+        ∂qt∂t = -0.1 + (t - 9hours) * FT(-0.16 + 0.1) / FT(3hours)
     else
-        ρ∂θ∂t = -zero(FT)
+        ∂θ∂t_adv = FT(-0.016) 
+        ∂θ∂t_rad = FT(0) + (t - 6hours) * FT(-0.1) / FT(2.5hours)
+        ∂qt∂t = -0.16 + (t - 12hours) * FT(-0.3 + 0.16) / FT(2.5hours)
     end
+        
+    # Convert to [sec⁻¹] measures
+    ∂θ∂t = (∂θ∂t_adv + ∂θ∂t_rad) ./ 1hours
+    ∂qt∂t = ∂qt∂t ./ (1000 * 1hours)
 
-    # Piecewise terms for subsidence
-    linscale_sub = (z - zl_sub) / (zh_sub - zl_sub)
-    w_s = -zero(FT)
-    if z <= zl_sub
-        w_s = -zero(FT) + z * (w_sub) / (zl_sub)
-    elseif zl_sub < z <= zh_sub
-        w_s = w_sub - (w_sub) * linscale_sub
-    else
-        w_s = -zero(FT)
-    end
-
+    ρ∂θ∂t = state.ρ * ∂θ∂t
+    ρ∂qt∂t = state.ρ * ∂qt∂t
+    
     # Collect Sources
     source.moisture.ρq_tot += ρ∂qt∂t
     source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
-    source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
-    source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+    source.ρe -= ρ * w_sub * dot(k̂, diffusive.∇h_tot)
+    source.moisture.ρq_tot -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
     return nothing
 end
 
@@ -321,11 +294,70 @@ function init_arm!(bl, state, aux, (x, y, z), t, args)
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
 
-    if z <= FT(400) # Add random perturbations to bottom 400m of model
+    if z <= FT(200) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
         state.moisture.ρq_tot += rand() * ρ * q_tot / 100
     end
 end
+
+#SHF = itp(-30, 90, 0, 4hours, t)
+function energy_fluxes(state,aux,t)
+    FT = eltype(state)
+    hours = FT(3600)
+    # Initialise
+    SHF = FT(0)
+    LHF = FT(0)
+    # Time varying boundary condition
+    if t <= FT(4hours)
+        SHF = FT(-30) + FT(120)*t/(4hours)
+        LHF = FT(5) + FT(245)*t/(4hours)
+    elseif t > FT(4hours) && t <= FT(6.5hours)
+        SHF = FT(90) + FT(50)*(t-4hours)/(2.5hours)
+        LHF = FT(250) + FT(200)*(t-4hours)/(2.5hours)
+    elseif t > FT(6.5hours) && t <= FT(7.5hours)
+        SHF = FT(140) 
+        LHF = FT(450) + FT(50)*(t-6.5hours)/(1hours)
+    elseif t > FT(7.5hours) && t <= FT(10hours)
+        SHF = FT(140) + FT(-40)*(t-7.5hours)/(2.5hours)
+        LHF = FT(500) + FT(-80)*(t-7.5hours)/(2.5hours)
+    elseif t > FT(10hours) && t <= FT(12.5hours)
+        SHF = FT(100) + FT(-110)*(t-10hours)/(2.5hours)
+        LHF = FT(420) + FT(-240)*(t-10hours)/(2.5hours)
+    else
+        SHF = FT(-10)
+        LHF = FT(180) + FT(-180)*(t-12.5hours)/(2hours)
+    end
+    energy_flux = FT(LHF) .+ FT(SHF)
+    return energy_flux
+end
+
+
+function moisture_fluxes(state,aux,t)
+    FT = eltype(state)
+    hours = FT(3600)
+    LHF = FT(0)
+    if t <= FT(4hours)
+        LHF = FT(5) + FT(245)*(t-4hours)/(4hours)
+    elseif t > FT(4hours) && t <= FT(6.5hours)
+        LHF = FT(250) + FT(200)*(t-4hours)/(2.5hours)
+    elseif t > FT(6.5hours) && t <= FT(7.5hours)
+        LHF = FT(450) + FT(50)*(t-6.5hours)/(1hours)
+    elseif t > FT(7.5hours) && t <= FT(10hours)
+        LHF = FT(500) + FT(-80)*(t-7.5hours)/(2.5hours)
+    elseif t > FT(10hours) && t <= FT(12.5hours)
+        LHF = FT(420) + FT(-240)*(t-10hours)/(2.5hours)
+    else
+        LHF = FT(180) +  FT(-180)*(t-12.5hours)/(2hours)
+    end
+    T_sfc = FT(299)
+    moisture_flux = LHF / latent_heat_vapor(param_set, T_sfc)
+    return moisture_flux
+end
+
+function itp(y1,y2,x1,x2,x)
+  result = (y1) + (y2-y1)*(x-x1)/(x2-x1)
+end
+
 
 function config_arm(FT, N, resolution, xmax, ymax, zmax)
     
@@ -333,19 +365,14 @@ function config_arm(FT, N, resolution, xmax, ymax, zmax)
 
     C_smag = FT(0.23)     # Smagorinsky coefficient
 
-    u_star = FT(0.28)     # Friction velocity
+    u_star = FT(0.6)     # Friction velocity
 
     T_sfc = FT(299.0)     # Surface temperature `[K]`
     LHF = FT(147.2)       # Latent heat flux `[W/m²]`
     SHF = FT(9.5)         # Sensible heat flux `[W/m²]`
     moisture_flux = LHF / latent_heat_vapor(param_set, T_sfc)
 
-    ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
-    zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
-    zh_moisture = FT(500)     # High altitude limit for piecewise function (moisture source)
-    ∂θ∂t_peak = FT(-2 / FT(day(param_set)))  # Potential temperature tendency (energy source)
-
-    z_sponge = FT(2400)     # Start of sponge layer
+    z_sponge = FT(3500)     # Start of sponge layer
     α_max = FT(0.75)        # Strength of sponge layer (timescale)
     γ = 2                   # Strength of sponge layer (exponent)
 
@@ -353,35 +380,13 @@ function config_arm(FT, N, resolution, xmax, ymax, zmax)
     u_slope = FT(0)             # Slope of altitude-dependent relaxation speed
     v_geostrophic = FT(0)       # Northward relaxation speed
 
-    zl_sub = FT(1500)         # Low altitude for piecewise function (subsidence source)
-    zh_sub = FT(2100)         # High altitude for piecewise function (subsidence source)
-    w_sub = FT(-0.65e-2)     # Subsidence velocity peak value
-
     f_coriolis = FT(8.5e-5) # Coriolis parameter
     
-    #=    
-    t_in = np.array([0.0, 3.0, 6.0, 9.0, 12.0, 14.5]) * 3600.0 #LES time is in sec
-    AT_in = np.array([0.0, 0.0, 0.0, -0.08, -0.016, -0.016])/3600.0 # Advective forcing for theta [K/h] converted to [K/sec]
-    RT_in = np.array([-0.125, 0.0, 0.0, 0.0, 0.0, -0.1])/3600.0  # Radiative forcing for theta [K/h] converted to [K/sec]
-    Rqt_in = np.array([0.08, 0.02, 0.04, -0.1, -0.16, -0.3])/1000.0/3600.0 # Radiative forcing for qt converted to [kg/kg/sec]
-    d\theta_dt = np.interp(TS.t,t_in,AT_in)/exner(p) + np.interp(TS.t,t_in,RT_in)/exner(p)
-    dqtdt =  np.interp(TS.t,t_in,Rqt_in) (edited) 
-    =# 
 
     # Assemble source components
-    #= 
     source = (
         Gravity(),
-        ARMTendencies{FT}(
-            ∂qt∂t_peak,
-            zl_moisture,
-            zh_moisture,
-            ∂θ∂t_peak,
-            zl_sub,
-            zh_sub,
-            w_sub,
-            zmax,
-        ),
+        ARMTendencies{FT}(),
         ARMSponge{FT}(
             zmax,
             z_sponge,
@@ -393,13 +398,9 @@ function config_arm(FT, N, resolution, xmax, ymax, zmax)
         ),
         ARMGeostrophic{FT}(f_coriolis, u_geostrophic, u_slope, v_geostrophic),
     )
-    =# 
-
-    source = (Gravity(),)
 
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
-
     # Assemble model components
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -410,13 +411,11 @@ function config_arm(FT, N, resolution, xmax, ymax, zmax)
         boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
-                energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
+                energy = PrescribedEnergyFlux((state, aux, t) -> energy_fluxes(state,aux,t)),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> moisture_flux,
+                    (state, aux, t) -> moisture_fluxes(state,aux,t),
                 ),
             ),
             AtmosBC(),
@@ -426,7 +425,7 @@ function config_arm(FT, N, resolution, xmax, ymax, zmax)
 
     # Assemble configuration
     config = ClimateMachine.AtmosLESConfiguration(
-        "ARM",
+        "ARM-LES",
         N,
         resolution,
         xmax,
@@ -469,16 +468,16 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(3200)
-    ymax = FT(3200)
-    zmax = FT(5500)
+    xmax = FT(6400)
+    ymax = FT(6400)
+    zmax = FT(4400)
 
     t0 = FT(0)
 
     # For a full-run, please set the timeend to 3600*6 seconds
     # For the test we set this to == 30 minutes
-    timeend = FT(1800)
-    #timeend = FT(52200)
+    #timeend = FT(1800)
+    timeend = FT(52200)
     CFLmax = FT(0.90)
 
     splines = spline_init()
@@ -522,8 +521,6 @@ function main()
             δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
             @show (abs(δρ))
             @show (abs(δρe))
-            @test (abs(δρ) <= 0.0001)
-            @test (abs(δρe) <= 0.0025)
             nothing
         end
 
