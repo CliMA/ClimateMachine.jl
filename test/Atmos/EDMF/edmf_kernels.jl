@@ -252,8 +252,11 @@ function edmf_stack_nodal_update_aux!(
     # b_upds = 0
     # a_upds = 0
     for i in 1:N
-        ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
-        ρ_i = air_density(ts)
+        # override ----------------
+        # ts = PhaseEquil(m.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+        # ρ_i = #air_density(ts)
+        ρ_i = aux.ρ0
+        # override ----------------
         up_a[i].buoyancy = -_grav*(ρ_i-aux.ρ0)*ρinv
     end
     # compute the buoyancy of the environment
@@ -261,10 +264,17 @@ function edmf_stack_nodal_update_aux!(
     env_e_int = (gm.ρe_int - sum( [up[i].ρae_int*ρinv for i in 1:N] ))/en_area #(gm.e_int - up[i].ρae_int*ρinv)/en_area
     env_q_tot = (gm.ρq_tot - sum( [up[i].ρaq_tot*ρinv for i in 1:N] ))/en_area #(gm.q_tot - up[i].ρaq_tot*ρinv)/en_area
 
-    ts = PhaseEquil(m.param_set ,env_e_int, gm.ρ, env_q_tot)
-    env_ρ = air_density(ts)
-    env_q_liq = PhasePartition(ts).liq
-    env_q_ice = PhasePartition(ts).ice
+    # override ----------------
+    # ts = PhaseEquil(m.param_set ,env_e_int, gm.ρ, env_q_tot)
+    # env_ρ = air_density(ts)
+    # env_q_liq = PhasePartition(ts).liq
+    # env_q_ice = PhasePartition(ts).ice
+
+    env_ρ = aux.ρ0
+    env_q_liq = FT(0)
+    env_q_ice = FT(0)
+    # override ----------------
+
     b_env = -_grav*(env_ρ - aux.ρ0)*ρinv
     b_gm = en_area*b_env + sum([up_a[i].buoyancy for i in 1:N])
     # subtract the grid mean
@@ -527,7 +537,7 @@ function flux_second_order!(
     end
     l = mixing_length(m, edmf.mix_len, state, diffusive, aux, t, δ, εt)
     ρa_en = (gm.ρ-sum([up[j].ρa for j in 1:N]))
-    K_eddy = m.edmf.mix_len.c_k*l*sqrt(en.ρatke/ρa_en)
+    K_eddy = m.edmf.mix_len.c_k*l*sqrt(abs(en.ρatke/ρa_en)) # YAIR 
 
     ## we are adding the massflux term here as it is part of the total flux:
     #total flux(ϕ) =   diffusive_flux(ϕ)  +   massflux(ϕ)
@@ -579,8 +589,9 @@ function boundary_state!(
         # placeholder to add a function for updraft surface value
         # this function should use surface covariance in the grid mean from a corresponding function
 
+        # override ------------------
         # YAIR - questions which state should I use here , state⁺ or state⁻  for computation of surface processes
-        # upd_a_surf, upd_e_int_surf, upd_q_tot_surf  = compute_updraft_surface_BC(m, m.edmf.surface, edmf, state)
+        upd_a_surf, upd_e_int_surf, upd_q_tot_surf  = compute_updraft_surface_BC(m, m.edmf.surface, edmf, gm)
         for i in 1:N
 
             up[i].ρau     = SVector(0,0,0)
@@ -629,22 +640,22 @@ function boundary_state!(
     en_d = diff⁺.edmf.environment
     # Charlie is the use of state⁺ here consistent for gm.ρ, up[i].ρa ?
     if bctype == 1 # bottom
-        # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
-        # tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, state)
         area_en  = 1 - sum([up[i].ρa for i in 1:N])/gm.ρ
-        tke = FT(0)
-        e_int_cv = FT(0)
-        q_tot_cv = FT(0)
-        e_int_q_tot_cv = FT(0)
+        # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
+        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, gm)
+        # tke = FT(0)
+        # e_int_cv = FT(0)
+        # q_tot_cv = FT(0)
+        # e_int_q_tot_cv = FT(0)
         en_d.∇tke = SVector(0,0,gm.ρ * area_en * tke)
         en_d.∇e_int_cv = SVector(0,0,gm.ρ * area_en * e_int_cv)
         en_d.∇q_tot_cv = SVector(0,0,gm.ρ * area_en * q_tot_cv)
         en_d.∇e_int_q_tot_cv = SVector(0,0,gm.ρ * area_en * e_int_q_tot_cv)
     elseif bctype == 2 # top
         # for now zero flux at the top
-        en_d.∇tke = -n⁻ * 0.0
-        en_d.∇e_int_cv = -n⁻ * 0.0
-        en_d.∇q_tot_cv = -n⁻ * 0.0
-        en_d.∇e_int_q_tot_cv = -n⁻ * 0.0
+        en_d.∇tke = -n⁻ * FT(0)
+        en_d.∇e_int_cv = -n⁻ * FT(0)
+        en_d.∇q_tot_cv = -n⁻ * FT(0)
+        en_d.∇e_int_q_tot_cv = -n⁻ * FT(0)
     end
 end;

@@ -80,19 +80,21 @@ function compute_buoyancy_gradients(
 end;
 
 function gradient_Richardson_number(∂b∂z, Shear, minval)
-    #Grad_Ri = min(∂b∂z/max(Shear, eps(FT)), minval)  - YAIR problems here 
-    Grad_Ri = FT(0.25)
-    return Grad_Ri
+    # override ------------------
+    # return min(∂b∂z/max(Shear, eps(FT)), minval)
+    return FT(0.25)
+    # override ------------------
 end;
 
 function turbulent_Prandtl_number(Pr_n, Grad_Ri, obukhov_length)
-    Pr_z = Pr_n*(2*Grad_Ri/(1+(FT(53)/FT(13))*Grad_Ri -sqrt( (1+(FT(53)/FT(130))*Grad_Ri)^2 - 4*Grad_Ri)))
-    # overwrite 
+    # override ------------------
     # if unstable(obukhov_length)
     #   Pr_z = Pr_n
     # else
     #   Pr_z = Pr_n*(2*Grad_Ri/(1+(FT(53)/FT(13))*Grad_Ri -sqrt( (1+(FT(53)/FT(130))*Grad_Ri)^2 - 4*Grad_Ri)))
     # end
+    Pr_z = Pr_n*(2*Grad_Ri/(1+(FT(53)/FT(13))*Grad_Ri -sqrt( (1+(FT(53)/FT(130))*Grad_Ri)^2 - 4*Grad_Ri)))
+    # override ------------------
     return Pr_z
 end;
 

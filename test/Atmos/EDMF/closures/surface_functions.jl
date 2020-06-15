@@ -34,20 +34,25 @@ function env_surface_covariances(
   # bflux = Nishizawa2018.compute_buoyancy_flux(ss.param_set, m.shf, m.lhf, T_b, q, α_0) # missing def of m.shf, m.lhf, T_b, q, α_0
   # oblength = Nishizawa2018.monin_obukhov_len(ss.param_set, u, θ, bflux) # missing def of u, θ,
   # Use fixed values for now
-  zLL = FT(20) # how to get the z first interior ?
-  if oblength < 0
-    e_int_var       = 4 * (edmf.e_int_surface_flux*edmf.e_int_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
-    q_tot_var       = 4 * (edmf.q_tot_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
-    e_int_q_tot_cov = 4 * (edmf.e_int_surface_flux*edmf.q_tot_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
-    tke             = ustar * ustar * (FT(3.75) + cbrt(zLL/obukhov_length * zLL/obukhov_length))
-    return e_int_var, q_tot_var, e_int_q_tot_cov, tke
-  else
-    e_int_var       = 4 * (edmf.e_int_surface_flux * edmf.e_int_surface_flux)/(ustar*ustar)
-    q_tot_var       = 4 * (edmf.q_tot_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
-    e_int_q_tot_cov = 4 * (edmf.e_int_surface_flux * edmf.q_tot_surface_flux)/(ustar*ustar)
-    tke             = ustar * ustar * FT(3.75)
-    return e_int_var, q_tot_var, e_int_q_tot_cov, tke
-  end
+  
+  # override ------------------
+  # zLL = FT(20) # how to get the z first interior ?
+  # if oblength < 0
+  #   e_int_var       = 4 * (edmf.surface.e_int_surface_flux*edmf.surface.e_int_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+  #   q_tot_var       = 4 * (edmf.surface.q_tot_surface_flux*edmf.surface.q_tot_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+  #   e_int_q_tot_cov = 4 * (edmf.surface.e_int_surface_flux*edmf.surface.q_tot_surface_flux)/(ustar*ustar) * (1 - FT(8.3) * zLL/oblength)^(-FT(2)/FT(3))
+  #   tke             = ustar * ustar * (FT(3.75) + cbrt(zLL/obukhov_length * zLL/obukhov_length))
+  #   return e_int_var, q_tot_var, e_int_q_tot_cov, tke
+  # else
+  #   e_int_var       = 4 * (edmf.surface.e_int_surface_flux * edmf.surface.e_int_surface_flux)/(ustar*ustar)
+  #   q_tot_var       = 4 * (edmf.surface.q_tot_surface_flux * edmf.surface.q_tot_surface_flux)/(ustar*ustar)
+  #   e_int_q_tot_cov = 4 * (edmf.surface.e_int_surface_flux * edmf.surface.q_tot_surface_flux)/(ustar*ustar)
+  #   tke             = ustar * ustar * FT(3.75)
+  # end
+
+  # return e_int_var, q_tot_var, e_int_q_tot_cov, tke
+  return FT(1),FT(1),FT(1),FT(1)
+  # override ------------------
 end;
 
 function compute_updraft_surface_BC(
@@ -63,15 +68,18 @@ function compute_updraft_surface_BC(
   ρinv = 1/gm.ρ
   
   tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(ss, m, edmf, state)
-  upd_a_surf::SVector{N, FT}
-  upd_e_int_surf::SVector{N, FT}
-  upd_q_tot_surf::SVector{N, FT}
+  upd_a_surf = MArray{Tuple{N}, FT}(zeros(FT, N))
+  upd_e_int_surf = MArray{Tuple{N}, FT}(zeros(FT, N))
+  upd_q_tot_surf = MArray{Tuple{N}, FT}(zeros(FT, N))
   for i in 1:N
-    surface_scalar_coeff = percentile_bounds_mean_norm(1 - m.surface_area+ i * FT(m.surface_area/N),
-                                                        1 - m.surface_area + (i+1)*FT(m.surface_area/N), 1000)
-    upd_a_surf[i]     = gm.ρ * FT(m.surface_area/N)
-    upd_e_int_surf[i] = gm.ρe_int + surface_scalar_coeff*sqrt(e_int_cv)*gm.ρ
-    upd_q_tot_surf[i] = gm.ρq_tot + surface_scalar_coeff*sqrt(q_tot_cv)*gm.ρ
+    # override ------------------
+    # surface_scalar_coeff = percentile_bounds_mean_norm(1 - m.surface_area+ i * FT(m.surface_area/N),
+    #                                                     1 - m.surface_area + (i+1)*FT(m.surface_area/N), 1000)
+    upd_a_surf[i]     = FT(0.1)#gm.ρ * FT(m.surface_area/N)
+    upd_e_int_surf[i] = FT(0.1)#gm.ρe_int + surface_scalar_coeff*sqrt(e_int_cv)*gm.ρ
+    upd_q_tot_surf[i] = FT(0.1)#gm.ρq_tot + surface_scalar_coeff*sqrt(q_tot_cv)*gm.ρ
+    # override ------------------
+
   end
 
   return upd_a_surf ,upd_e_int_surf ,upd_q_tot_surf
