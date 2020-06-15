@@ -490,21 +490,21 @@ Run the simulation defined by `solver_config`.
 Keyword Arguments:
 
 The `user_callbacks` are passed to the ODE solver as callback functions;
-see [`ODESolvers.solve!]@ref().
+see [`solve!`](@ref ODESolvers.solve!).
 
 If `check_euclidean_distance` is `true, then the Euclidean distance
 between the final solution and initial condition function evaluated with
 `solver_config.timeend` is reported.
 
 The value of 'adjustfinalstep` is passed to the ODE solver; see
-[`ODESolvers.solve!]@ref().
+[`solve!`](@ref ODESolvers.solve!).
 
 The function `user_info_callback` is called after the default info
 callback (which is called every `Settings.show_updates` interval). The
 single input argument `init` is `true` when the callback is called for
 initialization (before time stepping begins) and `false` when called
 during the actual ODE solve; see [`GenericCallbacks`](@ref) and
-[`ODESolvers.solve!]@ref().
+[`solve!`](@ref ODESolvers.solve!).
 """
 function invoke!(
     solver_config::SolverConfiguration;

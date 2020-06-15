@@ -4,7 +4,7 @@
 CurrentModule = ClimateMachine.Mesh
 ```
 
-## `Topologies`
+## Topologies
 
 Topologies encode the connectivity of the elements, spatial domain interval and MPI
 communication.
@@ -18,6 +18,7 @@ Topologies.BrickTopology
 Topologies.StackedBrickTopology
 Topologies.CubedShellTopology
 Topologies.StackedCubedSphereTopology
+Topologies.SingleExponentialStretching
 ```
 
 ### Constructors
@@ -35,17 +36,40 @@ Topologies.StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 Topologies.cubedshellmesh
 Topologies.cubedshellwarp
 Topologies.hasboundary
+Topologies.cubedshellunwarp
+Topologies.grid1d
 ```
 
-## `Grids`
+## Geometry
+```@docs
+Geometry.LocalGeometry
+Geometry.lengthscale
+Geometry.resolutionmetric
+```
+
+## Brick Mesh
+
+```@docs
+BrickMesh.partition
+BrickMesh.brickmesh
+BrickMesh.connectmesh
+BrickMesh.mappings
+BrickMesh.commmapping
+BrickMesh.centroidtocode
+```
+
+## Grids
 
 Grids specify the approximation within each element, and any necessary warping.
 
 ```@docs
+Grids.get_z
+Grids.referencepoints
+Grids.min_node_distance
 Grids.DiscontinuousSpectralElementGrid
 ```
 
-## `Filters`
+## Filters
 
 There are methods used to cleanup state vectors.
 
@@ -55,7 +79,7 @@ Filters.ExponentialFilter
 Filters.TMARFilter
 ```
 
-## `Interpolation`
+## Interpolation
 
 ### Types
 

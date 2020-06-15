@@ -72,7 +72,7 @@ increment between stage times. The ODE for ``v(t)`` is solved using the
 Sandu (2019), but ODE for ``v(t)`` is written to go from ``t_s`` to
 ``T_i + c_s * Δt`` as opposed to ``0`` to ``1``.
 
-Currently only ['LowStorageRungeKutta2N`](@ref) schemes are supported for
+Currently only [`LowStorageRungeKutta2N`](@ref) schemes are supported for
 `fastsolver`
 
 The coefficients defined by `γ̂s` can be used for an embedded scheme (only the

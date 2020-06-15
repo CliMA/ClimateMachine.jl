@@ -4,6 +4,10 @@
 CurrentModule = ClimateMachine
 ```
 
+```@docs
+ODESolvers
+```
+
 ## Low Storage Runge Kutta methods
 
 ```@docs
@@ -29,12 +33,36 @@ ODESolvers.ARK2ImplicitExplicitMidpoint
 ODESolvers.ARK2GiraldoKellyConstantinescu
 ODESolvers.ARK548L2SA2KennedyCarpenter
 ODESolvers.ARK437L2SA1KennedyCarpenter
+ODESolvers.SSPRK22Ralstons
+ODESolvers.SSPRK22Heuns
+ODESolvers.LSRKEulerMethod
 ```
 
 ## Multi-rate Runge Kutta Methods
 
 ```@docs
 ODESolvers.MultirateRungeKutta
+```
+
+## GARK methods
+
+```@docs
+ODESolvers.MRIGARKESDIRK46aSandu
+ODESolvers.MRIGARKIRK21aSandu
+ODESolvers.MRIGARKESDIRK24LSA
+ODESolvers.MRIGARKESDIRK34aSandu
+ODESolvers.MRIGARKERK45aSandu
+ODESolvers.MRIGARKExplicit
+ODESolvers.MRIGARKESDIRK23LSA
+ODESolvers.MRIGARKERK33aSandu
+ODESolvers.MRIGARKDecoupledImplicit
+```
+
+## Euler methods
+
+```@docs
+ODESolvers.LinearBackwardEulerSolver
+ODESolvers.AbstractBackwardEulerSolver
 ```
 
 ## Generic Callbacks
