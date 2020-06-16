@@ -145,10 +145,8 @@ end
 
 calculates the wavespeed for rusanov flux
 """
-function wavespeed(lm::LinearHBModel, n⁻, _...)
-    C = abs(SVector(lm.ocean.cʰ, lm.ocean.cʰ, lm.ocean.cᶻ)' * n⁻)
-    return C
-end
+@inline wavespeed(lm::LinearHBModel, n⁻, Q::Vars, A::Vars, t) =
+    @inbounds abs(SVector(Q.u[1], Q.u[2], A.w)' * n⁻)
 
 """
     boundary_state!(nf, ::LinearHBModel, args...)

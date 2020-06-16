@@ -616,7 +616,8 @@ end
 
 calculates the wavespeed for rusanov flux
 """
-@inline wavespeed(m::HBModel, n⁻, _...) = abs(SVector(m.cʰ, m.cʰ, m.cᶻ)' * n⁻)
+@inline wavespeed(m::HBModel, n⁻, Q::Vars, A::Vars, t) =
+    @inbounds abs(SVector(Q.u[1], Q.u[2], A.w)' * n⁻)
 
 """
     update_penalty(::HBModel)
