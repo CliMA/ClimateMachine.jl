@@ -1,8 +1,6 @@
 using Test
 
 using ClimateMachine.SurfaceFluxes
-using ClimateMachine.SurfaceFluxes.Nishizawa2018
-using ClimateMachine.SurfaceFluxes.Byun1990
 using ClimateMachine.Thermodynamics
 using RootSolvers
 using CLIMAParameters: AbstractEarthParameterSet
@@ -28,7 +26,7 @@ const param_set = EarthParameterSet()
     θ_bar              = FT(300.0)
     a                  = FT(4.7)
     pottemp_flux_given = FT(-200.0)
-    args = x_initial,
+    args = (x_initial,
     x_ave,
     x_s,
     z_0,
@@ -38,7 +36,7 @@ const param_set = EarthParameterSet()
     Δz,
     z,
     a,
-    pottemp_flux_given
+    pottemp_flux_given)
     sfc = surface_conditions(param_set, args[1:(end - 1)]...)
     @test sfc.L_MO isa FT
     @test sfc.pottemp_flux_star isa FT
@@ -60,3 +58,5 @@ const param_set = EarthParameterSet()
     @test all(sfc.K_exchange .≈ [6.771981702484999, 0.5591365770421184])
 
 end
+
+include("bomex.jl")
