@@ -18,15 +18,15 @@ function compute_buoyancy_gradients(
     gm_d = diffusive
     gm_a = aux
 
-    _cv_d::FT     = cv_d(param_set) # Charlie is this correct ?
-    _cv_v::FT     = cv_v(param_set)
-    _cv_l::FT     = cv_l(param_set)
-    _cv_i::FT     = cv_i(param_set)
-    _T_0::FT      = T_0(param_set)
-    _e_int_i0::FT = e_int_i0(param_set)
-    _grav::FT     = grav(param_set)
-    _R_d::FT      = R_d(param_set)
-    ε_v::FT       = 1 / molmass_ratio(param_set)
+    _cv_d::FT     = cv_d(ss.param_set) # Charlie is this correct ?
+    _cv_v::FT     = cv_v(ss.param_set)
+    _cv_l::FT     = cv_l(ss.param_set)
+    _cv_i::FT     = cv_i(ss.param_set)
+    _T_0::FT      = T_0(ss.param_set)
+    _e_int_i0::FT = e_int_i0(ss.param_set)
+    _grav::FT     = grav(ss.param_set)
+    _R_d::FT      = R_d(ss.param_set)
+    ε_v::FT       = 1 / molmass_ratio(ss.param_set)
 
     cld_frac ,cloudy_q_tot ,cloudy_T ,cloudy_R_m ,cloudy_q_vap ,cloudy_q_liq ,cloudy_q_ice ,dry_q_tot ,dry_T ,dry_R_m ,dry_q_vap ,dry_q_liq ,dry_q_ice = compute_subdomain_statistics!(ss, state, aux ,t, ss.edmf.micro_phys.statistical_model)
     ∂b∂ρ = - _grav/gm.ρ
@@ -51,8 +51,8 @@ function compute_buoyancy_gradients(
     a_en = (1-sum([up[j].ρa*ρinv for j in 1:N]))
     en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
     en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
-    e_pot = gravitational_potential(orientation, aux)# ask about this 
-    en_e_int = internal_energy(gm.ρ, ρe, en_ρu, e_pot)
+    e_pot = _grav * aux.z
+    en_e_int = internal_energy(gm.ρ, en_ρe, en_ρu, e_pot)
     en_q_tot = (gm.ρq_tot-sum([up[j].ρaq_tot for j in 1:N]))*ρinv
     ts = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
     q = PhasePartition(ts)

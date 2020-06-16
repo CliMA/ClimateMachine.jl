@@ -57,6 +57,9 @@ end
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state_auxiliary`
+
+# Overload `update_auxiliary_state!` to call `single_stack_nodal_update_aux!`, or
+# any other auxiliary methods
 function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeometry) where {FT,N}
     aux.z = geom.coord[3]
     T_profile = DecayingTemperatureProfile{FT}(m.param_set)
@@ -71,8 +74,22 @@ function init_state_auxiliary!(m::SingleStack{FT,N}, aux::Vars, geom::LocalGeome
     init_state_auxiliary!(m, m.edmf, aux, geom)
 end;
 
-# Overload `update_auxiliary_state!` to call `single_stack_nodal_update_aux!`, or
-# any other auxiliary methods
+function init_state_conservative!(
+    m::SingleStack{FT,N},
+    state::Vars,
+    aux::Vars,
+    coords,
+    t::Real,
+) where {FT,N}
+
+    state.ρ = aux.ρ0
+    state.ρu = SVector(0,0,0)
+    state.ρe     = FT(300000) # need to add intial state here
+    state.ρq_tot = eps(FT) # need to add intial state here
+    init_state_conservative!(m, m.edmf, state, aux, coords, t)
+
+end;
+
 function update_auxiliary_state!(
     dg::DGModel,
     m::SingleStack,

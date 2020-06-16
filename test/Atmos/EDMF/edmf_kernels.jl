@@ -133,7 +133,7 @@ function init_state_auxiliary!(
     en_a = aux.edmf.environment
     up_a = aux.edmf.updraft
 
-    en_a.buoyancy = eps(FT)
+    # en_a.buoyancy = eps(FT)
     en_a.cld_frac = eps(FT)
 
     for i in 1:N

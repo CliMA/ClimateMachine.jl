@@ -145,25 +145,25 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 using CLIMAParameters.Planet: R_d, cv_d, cv_d, cv_v, cv_l, cv_i,T_0, MSLP, grav, e_int_i0, molmass_ratio
 
+
 #  - load necessary ClimateMachine modules:
 using ClimateMachine
-using ClimateMachine.Thermodynamics
-using ClimateMachine.SingleStackUtils
-using ClimateMachine.Mesh.Topologies
-using ClimateMachine.Mesh.Grids
-using ClimateMachine.Writers
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
-using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
-using ClimateMachine.VariableTemplates
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics
+using ClimateMachine.SingleStackUtils
 using ClimateMachine.SurfaceFluxes
 using ClimateMachine.SurfaceFluxes.Nishizawa2018
 using ClimateMachine.SurfaceFluxes.Byun1990
+using ClimateMachine.TemperatureProfiles
+using ClimateMachine.Thermodynamics
+using ClimateMachine.VariableTemplates
+using ClimateMachine.Writers
 
 
 
@@ -243,22 +243,6 @@ m = SingleStack{FT, N, N_quad}();
 # will be used by the solver.
 
 include("dycore_kernels.jl")
-
-function init_state_conservative!(
-    m::SingleStack{FT,N},
-    state::Vars,
-    aux::Vars,
-    coords,
-    t::Real,
-) where {FT,N}
-
-    state.ρ = aux.ref_state.ρ
-    state.ρu = SVector(0,0,0)
-    state.ρe_int = FT(300000) # need to add intial state here
-    state.ρq_tot = eps(FT) # need to add intial state here
-    init_state_conservative!(m, m.edmf, state, aux, coords, t)
-
-end;
 
 # # Spatial discretization
 
