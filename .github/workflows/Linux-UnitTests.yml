@@ -33,7 +33,8 @@ jobs:
 
     - name: Install Project Packages
       run: |
-        julia --project=@. -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+        julia --project=@. -e 'using Pkg; Pkg.precompile()'
 
     - name: Run Unit Tests
       env:
