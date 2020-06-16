@@ -326,3 +326,9 @@ num_hyperdiffusive(m::BalanceLaw, FT) = varsize(vars_hyperdiffusive(m, FT))
 num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m, FT))
 num_reverse_integrals(m::BalanceLaw, FT) =
     varsize(vars_reverse_integrals(m, FT))
+
+### split explicit functions
+function initialize_states! end
+function tendency_from_slow_to_fast! end
+function cummulate_fast_solution! end
+function reconcile_from_fast_to_slow! end

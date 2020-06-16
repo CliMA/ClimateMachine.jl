@@ -11,8 +11,11 @@ using ..MPIStateArrays
 using ..Mesh.Filters: apply!
 using ..Mesh.Grids: VerticalDirection
 using ..BalanceLaws: BalanceLaw
-import ..BalanceLaws:
-    nodal_update_auxiliary_state!,
+import ..BalanceLaws: nodal_update_auxiliary_state!
+using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
+
+import ..DGMethods.NumericalFluxes: update_penalty!
+import ..DGMethods:
     vars_state_conservative,
     vars_state_auxiliary,
     vars_state_gradient,
