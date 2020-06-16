@@ -252,7 +252,7 @@ function init_state_conservative!(
     t::Real,
 ) where {FT,N}
 
-    state.ρ = FT(1) # need to add intial state here
+    state.ρ = aux.ref_state.ρ
     state.ρu = SVector(0,0,0)
     state.ρe_int = FT(300000) # need to add intial state here
     state.ρq_tot = eps(FT) # need to add intial state here

@@ -18,7 +18,7 @@ function compute_buoyancy_gradients(
     gm_d = diffusive
     gm_a = aux
 
-    _cv_d::FT     = cv_d(param_set)
+    _cv_d::FT     = cv_d(param_set) # Charlie is this correct ?
     _cv_v::FT     = cv_v(param_set)
     _cv_l::FT     = cv_l(param_set)
     _cv_i::FT     = cv_i(param_set)
@@ -48,7 +48,11 @@ function compute_buoyancy_gradients(
     
     # Computation of buoyancy frequeacy based on θ_lv
     ρinv = 1/gm.ρ
-    en_e_int = (gm.ρe_int-sum([up[j].ρae_int for j in 1:N]))*ρinv
+    a_en = (1-sum([up[j].ρa*ρinv for j in 1:N]))
+    en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
+    en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
+    e_pot = gravitational_potential(orientation, aux)# ask about this 
+    en_e_int = internal_energy(gm.ρ, ρe, en_ρu, e_pot)
     en_q_tot = (gm.ρq_tot-sum([up[j].ρaq_tot for j in 1:N]))*ρinv
     ts = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
     q = PhasePartition(ts)

@@ -29,7 +29,10 @@ function mixing_length(
     # precompute
     en_area  = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     w_env    = (gm.ρu[3]  - sum([up[i].ρau[3] for i in 1:N]))*ρinv
-    en_e_int = (gm.ρe_int - sum([up[i].ρae_int for i in 1:N]))*ρinv
+    en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
+    en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
+    e_pot = gravitational_potential(orientation, aux)# ask about this 
+    en_e_int = internal_energy(gm.ρ, ρe, ρu, e_pot)
     en_q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
     ∂e_int∂z = en_d.∇e_int[3]
     ∂q_tot∂z = en_d.∇q_tot[3]

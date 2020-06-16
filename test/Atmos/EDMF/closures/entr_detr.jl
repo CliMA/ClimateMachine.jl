@@ -21,21 +21,19 @@ function entr_detr(
     # precompute vars
     ρinv = 1/gm.ρ
     up_area = up[i].ρa/gm.ρ
-    w_up = up[i].ρau[3]/up[i].ρa
     a_en = (1-sum([up[j].ρa*ρinv for j in 1:N]))
+    w_up = up[i].ρau[3]/up[i].ρa
     w_en = (gm.ρu[3]-sum([up[j].ρau[3] for j in 1:N]))*ρinv
     b_up = up_a[i].buoyancy
     b_en = (gm_a.buoyancy-sum([ρinv*up[j].ρa/ρinv*up_a[j].buoyancy for j in 1:N]))
-    en_e_int = (gm.ρe_int-sum([up[j].ρae_int for j in 1:N]))*ρinv
+    en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
+    en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
+    e_pot = gravitational_potential(orientation, aux)# ask about this 
+    en_e_int = internal_energy(gm.ρ, en_ρe, en_ρu, e_pot)
     en_q_tot = (gm.ρq_tot-sum([up[j].ρaq_tot for j in 1:N]))*ρinv
+    up_e_int = internal_energy(gm.ρ, up[i].ρae/up_area, up[i].ρau/up_area, e_pot)
     sqrt_tke = sqrt(abs(en.ρatke)*ρinv/a_en)
-    local ts_up
-    try
-        ts_up = PhaseEquil(ss.param_set ,up[i].ρae_int/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
-    catch
-        @show ss.param_set up[i].ρae_int/up[i].ρa gm.ρ up[i].ρaq_tot/up[i].ρa
-        error("Bad thermo inputs")
-    end
+    ts_up = PhaseEquil(ss.param_set ,up_e_int, gm.ρ, up[i].ρaq_tot/up[i].ρa)
     q_con_up = condensate(ts_up)
     ts_en = PhaseEquil(ss.param_set ,en_e_int, gm.ρ, en_q_tot)
     q_con_en = condensate(ts_en)
