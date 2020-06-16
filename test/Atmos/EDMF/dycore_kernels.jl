@@ -157,7 +157,7 @@ function flux_first_order!(
     aux::Vars,
     t::Real,
 )
-
+    # in single column setting ⟨w⟩=0
     ρinv = 1/state.ρ
     flux.ρ = state.ρu
     u = state.ρu * ρinv

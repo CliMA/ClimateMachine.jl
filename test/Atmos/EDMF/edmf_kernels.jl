@@ -41,9 +41,9 @@ end
 
 function vars_state_conservative(::Environment, FT)
     @vars(ρatke::FT,
-          ρae_int_cv::FT,
+          ρae_cv::FT,
           ρaq_tot_cv::FT,
-          ρae_int_q_tot_cv::FT,
+          ρae_q_tot_cv::FT,
           )
 end
 
@@ -69,9 +69,9 @@ function vars_state_gradient(::Environment, FT)
           q_tot::FT,
           u::SVector{3, FT},
           tke::FT,
-          e_int_cv::FT,
+          e_cv::FT,
           q_tot_cv::FT,
-          e_int_q_tot_cv::FT,
+          e_q_tot_cv::FT,
           θ_ρ::FT,
           );
 end
@@ -104,9 +104,9 @@ function vars_state_gradient_flux(::Environment, FT)
           ∇q_tot::SVector{3, FT},
           ∇u::SMatrix{3, 3, FT, 9},
           ∇tke::SVector{3, FT},
-          ∇e_int_cv::SVector{3, FT},
+          ∇e_cv::SVector{3, FT},
           ∇q_tot_cv::SVector{3, FT},
-          ∇e_int_q_tot_cv::SVector{3, FT},
+          ∇e_q_tot_cv::SVector{3, FT},
           ∇θ_ρ::SVector{3, FT},# used in a diagnostic equation for the mixing length
           );
 
@@ -171,9 +171,9 @@ function init_state_conservative!(
     end
 
     # initialize environment covariance
-    en.ρae_int_cv       = eps(FT)
+    en.ρae_cv       = eps(FT)
     en.ρaq_tot_cv       = eps(FT)
-    en.ρae_int_q_tot_cv = eps(FT)
+    en.ρae_q_tot_cv = eps(FT)
 
 end;
 
@@ -248,10 +248,12 @@ function edmf_stack_nodal_update_aux!(
     # a_upds = 0
     for i in 1:N
         # override ----------------
-        # ts = PhaseEquil(m.param_set ,up[i].ρae/up[i].ρa, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+        # e_pot = _grav * gm_a.z
+        # up_e_int = internal_energy(gm.ρ, up[i].ρae/up[i].ρa, up[i].ρau/up[i].ρa, e_pot)
+        # ts = PhaseEquil(m.param_set ,up_e_int, gm.ρ, up[i].ρaq_tot/up[i].ρa)
         # ρ_i = #air_density(ts)
-        ρ_i = aux.ρ0
         # override ----------------
+        ρ_i = aux.ρ0
         up_a[i].buoyancy = -_grav*(ρ_i-aux.ρ0)*ρinv
     end
     # compute the buoyancy of the environment
@@ -325,10 +327,10 @@ function compute_gradient_argument!(
     en_t.q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))/(en_area*gm.ρ)
     en_t.u     = (gm.ρu - sum([up[i].ρau for i in 1:N]))/(en_area*gm.ρ)
 
-    en_t.tke            = en.ρatke/(en_area*gm.ρ)
-    en_t.e_int_cv       = en.ρae_int_cv/(en_area*gm.ρ)
-    en_t.q_tot_cv       = en.ρaq_tot_cv/(en_area*gm.ρ)
-    en_t.e_int_q_tot_cv = en.ρae_int_q_tot_cv/(en_area*gm.ρ)
+    en_t.tke        = en.ρatke/(en_area*gm.ρ)
+    en_t.e_cv       = en.ρae_cv/(en_area*gm.ρ)
+    en_t.q_tot_cv   = en.ρaq_tot_cv/(en_area*gm.ρ)
+    en_t.e_q_tot_cv = en.ρae_q_tot_cv/(en_area*gm.ρ)
 
     en_t.θ_ρ = virtual_pottemp(ts)
 end;
@@ -363,10 +365,10 @@ function compute_gradient_flux!(
     en_d.∇q_tot = en_∇t.q_tot
     en_d.∇u     = en_∇t.u
     # second moment env cov
-    en_d.∇tke            = en_∇t.tke
-    en_d.∇e_int_cv       = en_∇t.e_int_cv
-    en_d.∇q_tot_cv       = en_∇t.q_tot_cv
-    en_d.∇e_int_q_tot_cv = en_∇t.e_int_q_tot_cv
+    en_d.∇tke        = en_∇t.tke
+    en_d.∇e_cv       = en_∇t.e_cv
+    en_d.∇q_tot_cv   = en_∇t.q_tot_cv
+    en_d.∇e_q_tot_cv = en_∇t.e_q_tot_cv
 
     en_d.∇θ_ρ = en_∇t.θ_ρ
 
@@ -403,27 +405,18 @@ function source!(
     ε = MArray{Tuple{N}, FT}(zeros(FT, N))
     δ = MArray{Tuple{N}, FT}(zeros(FT, N))
     # should be conditioned on updraft_area > minval
+    
+    # get environment values for e, q_tot , u[3]
     ρinv = 1/gm.ρ
     a_env = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     w_env = (gm.ρu[3] - sum([up[i].ρau[3] for i in 1:N]))*ρinv
-    e_int_env = (gm.ρe - sum([up[i].ρae for i in 1:N]))*ρinv
+    e_env = (gm.ρe - sum([up[i].ρae for i in 1:N]))*ρinv
     q_tot_env = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
-
-    # get environment values for e, q_tot , u[3]
-    env_u = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
-    env_q_tot = (gm.ρq_tot - up[i].ρaq_tot)/(gm.ρ*a_env)
-    env_e = (gm.ρe - up[i].ρae)/(gm.ρ*a_env)
+    u_env = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
     
-    en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
-    en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
-    e_pot = gravitational_potential(orientation, aux)# ask about this 
-    en_e_int = internal_energy(gm.ρ, gm.ρ*env_e, en_ρu, e_pot)
-    
-    gm_e_int = 
     ρinv  = 1/gm.ρ
     for i in 1:N
         # upd vars
-        up_e_int          = internal_energy(gm.ρ, up[i].ρae, up[i].ρau, e_pot)
         w_i               = up[i].ρau[3]/up[i].ρa
         
         # first moment sources
@@ -434,11 +427,11 @@ function source!(
         up_s[i].ρa      += up[i].ρa * w_i * ( ε[i]                        
                         -  δ[i])
         up_s[i].ρau     += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρau     
-                        - (δ[i]+εt[i])*env_u)
+                        - (δ[i]+εt[i])*u_env)
         up_s[i].ρae     += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρae     
-                        - (δ[i]+εt[i])*env_e)
+                        - (δ[i]+εt[i])*e_env)
         up_s[i].ρaq_tot += up[i].ρa * w_i * ((ε[i]+εt[i])*up_s[i].ρaq_tot 
-                        - (δ[i]+εt[i])*env_q_tot)
+                        - (δ[i]+εt[i])*q_tot_env)
 
         # perturbation pressure in w equation
         up_s[i].ρau += [0,0,up[i].ρa * dpdz] # CHARLIE check me on this one
@@ -459,12 +452,13 @@ function source!(
                             *(up[i].ρau[3]/up[i].ρa - w_env)*0.5
                              +up[i].ρau[3]*εt[i]*w_env
                             *(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
-                             -up[i].ρau[3] * ε[i] * en.ρatke)
+                             -up[i].ρau[3]*ε[i] * en.ρatke)
 
         en_s.ρae_int_cv   += (up[i].ρau[3]*δ[i] 
-                            *(up_e_int - e_int_env)*(up_e_int - e_int_env)
-                             +up[i].ρau[3]*εt[i]*e_int_env*(up_e_int - gm_e_int)*2
-                             -up[i].ρau[3]*ε[i] *en.ρae_cv)
+                            *(up[i].ρae/up[i].ρa - e_env)
+                            *(up[i].ρae/up[i].ρa - e_env)
+                             +up[i].ρau[3]*εt[i]*e_env*(up_e - gm_e)*2
+                             -up[i].ρau[3]*ε[i]*en.ρae_cv)
 
         en_s.ρaq_tot_cv   += (up[i].ρau[3]*δ[i]
                             *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
@@ -474,11 +468,11 @@ function source!(
                             - up[i].ρau[3]*ε[i] *en.ρaq_tot_cv)
 
         en_s.ρae_q_tot_cv += (up[i].ρau[3]*δ[i] 
-                            *(up_e_int - e_int_env)
+                            *(up[i].ρae/up[i].ρa - e_env)
                             *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
-                            + up[i].ρau[3]*εt[i]*e_int_env
+                            + up[i].ρau[3]*εt[i]*e_env
                             *(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
-                            + up[i].ρau[3]*εt[i]*q_tot_env*(up_e_int - gm_e_int)
+                            + up[i].ρau[3]*εt[i]*q_tot_env*(up[i].ρae/up[i].ρa - gm_e)
                             - up[i].ρau[3]*ε[i] *en.ρae_q_tot_cv)
         
         # pressure tke source from the i'th updraft
@@ -514,18 +508,12 @@ function flux_first_order!(
 
     # Aliases:
     gm = state
-    gm_f = flux
     up = state.edmf.updraft
     up_f = flux.edmf.updraft# `vars_state_gradient_flux`
 
     # positive sign here as we have a '-' sign in BL form leading to - ∂ρwϕ/∂z on the RHS
-    # grid mean
-    ρinv = 1/gm.ρ
-    gm_f.ρ = gm.ρu
-    gm_f.ρe = gm.ρe*gm.ρu*ρinv
-    gm_f.ρq_tot = gm.ρq_tot*gm.ρu*ρinv
-
     # updrafts
+    ρinv = 1/gm.ρ
     for i in 1:N
         up_f[i].ρa = up[i].ρau
         u = up[i].ρau / up[i].ρa
@@ -566,7 +554,7 @@ function flux_second_order!(
         ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
     end
     mix_len = mixing_length(m, edmf.mix_len, state, diffusive, aux, t, δ, εt)
-    ρa_en = (gm.ρ-sum([up[j].ρa for j in 1:N]))
+    ρa_env = (gm.ρ-sum([up[j].ρa for j in 1:N]))
     K_eddy = m.edmf.mix_len.c_k*mix_len*sqrt(abs(en.ρatke/ρa_en)) # YAIR 
 
     ## we are adding the massflux term here as it is part of the total flux:
@@ -583,17 +571,17 @@ function flux_second_order!(
         - up[i].ρau[3]/up[i].ρa) for i in 1:N])
 
     # update grid mean flux_second_order
-    gm_f.ρe     += -ρa_en*K_eddy*en_d.∇e[3]     + massflux_e
-    gm_f.ρq_tot += -ρa_en*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
+    gm_f.ρe     += -ρa_env*K_eddy*en_d.∇e[3]     + massflux_e
+    gm_f.ρq_tot += -ρa_env*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
     # override ---------------- adding massflux below u breaks
-    gm_f.ρu     += -ρa_en.*K_eddy.*en_d.∇u
+    gm_f.ρu     += -ρa_env.*K_eddy.*en_d.∇u
     # gm_f.ρu     += -ρa_en.*K_eddy.*en_d.∇u      + massflux_u
 
     # env second momment flux_second_order
-    en_f.ρatke        += -ρa_en*K_eddy*en_d.∇tke[3]
-    en_f.ρae_cv       += -ρa_en*K_eddy*en_d.∇e_cv[3]
-    en_f.ρaq_tot_cv   += -ρa_en*K_eddy*en_d.∇q_tot_cv[3]
-    en_f.ρae_q_tot_cv += -ρa_en*K_eddy*en_d.∇e_q_tot_cv[3]
+    en_f.ρatke        += -ρa_env*K_eddy*en_d.∇tke[3]
+    en_f.ρae_cv       += -ρa_env*K_eddy*en_d.∇e_cv[3]
+    en_f.ρaq_tot_cv   += -ρa_env*K_eddy*en_d.∇q_tot_cv[3]
+    en_f.ρae_q_tot_cv += -ρa_env*K_eddy*en_d.∇e_q_tot_cv[3]
 end;
 
 # ### Boundary conditions
@@ -672,16 +660,16 @@ function boundary_state!(
     if bctype == 1 # bottom
         area_en  = 1 - sum([up[i].ρa for i in 1:N])/gm.ρ
         # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
-        tke, e_int_cv ,q_tot_cv ,e_int_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, gm)
+        tke, e_cv ,q_tot_cv ,e_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, gm)
         en_d.∇tke = SVector(0,0,gm.ρ * area_en * tke)
-        en_d.∇e_int_cv = SVector(0,0,gm.ρ * area_en * e_cv)
+        en_d.∇e_cv = SVector(0,0,gm.ρ * area_en * e_cv)
         en_d.∇q_tot_cv = SVector(0,0,gm.ρ * area_en * q_tot_cv)
-        en_d.∇e_int_q_tot_cv = SVector(0,0,gm.ρ * area_en * e_q_tot_cv)
+        en_d.∇e_q_tot_cv = SVector(0,0,gm.ρ * area_en * e_q_tot_cv)
     elseif bctype == 2 # top
         # for now zero flux at the top
         en_d.∇tke = -n⁻ * FT(0)
-        en_d.∇e_int_cv = -n⁻ * FT(0)
+        en_d.∇e_cv = -n⁻ * FT(0)
         en_d.∇q_tot_cv = -n⁻ * FT(0)
-        en_d.∇e_int_q_tot_cv = -n⁻ * FT(0)
+        en_d.∇e_q_tot_cv = -n⁻ * FT(0)
     end
 end;
