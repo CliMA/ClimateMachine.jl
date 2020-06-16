@@ -29,6 +29,7 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are

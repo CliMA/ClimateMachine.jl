@@ -28,12 +28,12 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     NoRadiation,
     NTracers,
-    ConstantViscosityWithDivergence,
     vars_state_conservative,
     vars_state_auxiliary,
     Gravity,
     HydrostaticState,
     AtmosAcousticGravityLinearModel
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations:
     SphericalOrientation, gravitational_potential, altitude, latitude, longitude
 using ClimateMachine.VariableTemplates: flattenednames

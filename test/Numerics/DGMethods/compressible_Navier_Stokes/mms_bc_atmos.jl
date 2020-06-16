@@ -12,6 +12,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
