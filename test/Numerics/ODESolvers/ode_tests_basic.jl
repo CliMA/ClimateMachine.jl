@@ -1,7 +1,7 @@
 using Test
 using ClimateMachine
 using LinearAlgebra
-using OrdinaryDiffEq
+import OrdinaryDiffEq: SSPRK73
 
 include("ode_tests_common.jl")
 
@@ -471,6 +471,8 @@ end
 @testset "DiffEq methods" begin
     alg = SSPRK73()
     expected_order = 3
+    dts = [2.0^(-k) for k in 3:4]
+    errors = similar(dts)
     for (n, dt) in enumerate(dts)
         Q .= Qinit
         solver =  DiffEqJLSolver(rhs!, alg, Q; dt = dt, t0 = t0)
