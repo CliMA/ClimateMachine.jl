@@ -203,8 +203,8 @@ function boundary_state!(
     if bctype == 1 # bottom
         state⁺.ρ = FT(1) # m.surface_ρ # find out how is the density at the surface computed in the LES?
         state⁺.ρu = SVector(0,0,0)
-        state⁺.ρe = state⁺.ρ #* m.surface_e
-        state⁺.ρq_tot = state⁺.ρ #* m.surface_q_tot
+        state⁺.ρe = state⁺.ρ * FT(300*1000) #* m.surface_e
+        state⁺.ρq_tot = state⁺.ρ * FT(300*1000) #* m.surface_q_tot
     elseif bctype == 2 # top
         state⁺.ρ = FT(1) # placeholder to find out how density at the top is computed in the LES?
         state⁺.ρu = SVector(0,0,0)

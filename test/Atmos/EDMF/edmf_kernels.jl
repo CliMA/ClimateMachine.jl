@@ -248,9 +248,8 @@ function edmf_stack_nodal_update_aux!(
     # a_upds = 0
     for i in 1:N
         # override ----------------
-        # e_pot = _grav * gm_a.z
-        # up_e_int = internal_energy(gm.ρ, up[i].ρae/up[i].ρa, up[i].ρau/up[i].ρa, e_pot)
-        # ts = PhaseEquil(m.param_set ,up_e_int, gm.ρ, up[i].ρaq_tot/up[i].ρa)
+        # e_int_up = internal_energy(gm.ρ, up[i].ρae/up[i].ρa, up[i].ρau/up[i].ρa, _grav * gm_a.z)
+        # ts = PhaseEquil(m.param_set ,e_int_up, gm.ρ, up[i].ρaq_tot/up[i].ρa)
         # ρ_i = #air_density(ts)
         # override ----------------
         ρ_i = aux.ρ0
@@ -412,16 +411,18 @@ function source!(
     w_env = (gm.ρu[3] - sum([up[i].ρau[3] for i in 1:N]))*ρinv
     e_env = (gm.ρe - sum([up[i].ρae for i in 1:N]))*ρinv
     q_tot_env = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
-    u_env = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
     
     ρinv  = 1/gm.ρ
     for i in 1:N
         # upd vars
+        u_env = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
         w_i               = up[i].ρau[3]/up[i].ρa
         
         # first moment sources
-        ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
-        dpdz, dpdz_tke_i  = perturbation_pressure(m, edmf.pressure, state, diffusive, aux, t, direction, i)
+        # ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
+        # dpdz, dpdz_tke_i  = perturbation_pressure(m, edmf.pressure, state, diffusive, aux, t, direction, i)
+        dpdz = FT(0)
+        dpdz_tke_i = FT(0)
 
         # entrainment and detrainment
         up_s[i].ρa      += up[i].ρa * w_i * ( ε[i]                        
@@ -454,10 +455,11 @@ function source!(
                             *(up[i].ρau[3]/up[i].ρa - gm.ρu[i]*ρinv)
                              -up[i].ρau[3]*ε[i] * en.ρatke)
 
-        en_s.ρae_int_cv   += (up[i].ρau[3]*δ[i] 
+        en_s.ρae_cv       += (up[i].ρau[3]*δ[i] 
                             *(up[i].ρae/up[i].ρa - e_env)
                             *(up[i].ρae/up[i].ρa - e_env)
-                             +up[i].ρau[3]*εt[i]*e_env*(up_e - gm_e)*2
+                             +up[i].ρau[3]*εt[i]*e_env
+                             *(up[i].ρae/up[i].ρa - gm.ρe*ρinv)*2
                              -up[i].ρau[3]*ε[i]*en.ρae_cv)
 
         en_s.ρaq_tot_cv   += (up[i].ρau[3]*δ[i]
@@ -472,27 +474,29 @@ function source!(
                             *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
                             + up[i].ρau[3]*εt[i]*e_env
                             *(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
-                            + up[i].ρau[3]*εt[i]*q_tot_env*(up[i].ρae/up[i].ρa - gm_e)
+                            + up[i].ρau[3]*εt[i]
+                            *q_tot_env*(up[i].ρae/up[i].ρa - gm.ρe*ρinv)
                             - up[i].ρau[3]*ε[i] *en.ρae_q_tot_cv)
         
         # pressure tke source from the i'th updraft
         en_s.ρatke += up[i].ρa * dpdz_tke_i
     end
-    mix_len    = mixing_length(m, m.edmf.mix_len, state, diffusive, aux, t, δ, εt)
+    # mix_len    = mixing_length(m, m.edmf.mix_len, state, diffusive, aux, t, δ, εt)
+    mix_len = FT(0)
     en_tke = en.ρatke*ρinv/a_env
-    K_eddy = m.edmf.mix_len.c_k*l*sqrt(en_tke)
+    K_eddy = m.edmf.mix_len.c_k*mix_len*sqrt(en_tke)
     Shear  = en_d.∇u[1].^2 + en_d.∇u[2].^2 + en_d.∇u[3].^2 # consider scalar product of two vectors
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
     #                            production from mean gradient           - Dissipation
-    en_s.ρatke            += gm.ρ*a_env*K_eddy*Shear                         
-                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρatke
-    en_s.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] 
-                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_int_cv
-    en_s.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] 
-                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρaq_tot_cv
-    en_s.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] 
-                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_int_q_tot_cv
+    en_s.ρatke        += gm.ρ*a_env*K_eddy*Shear                         
+                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρatke
+    en_s.ρae_cv       += gm.ρ*a_env*K_eddy*en_d.∇e[3]*en_d.∇e[3] 
+                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_cv
+    en_s.ρaq_tot_cv   += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] 
+                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρaq_tot_cv
+    en_s.ρae_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e[3]*en_d.∇q_tot[3] 
+                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_q_tot_cv
     # covariance microphysics sources should be applied here
 end;
 
@@ -509,7 +513,7 @@ function flux_first_order!(
     # Aliases:
     gm = state
     up = state.edmf.updraft
-    up_f = flux.edmf.updraft# `vars_state_gradient_flux`
+    up_f = flux.edmf.updraft
 
     # positive sign here as we have a '-' sign in BL form leading to - ∂ρwϕ/∂z on the RHS
     # updrafts
@@ -551,11 +555,15 @@ function flux_second_order!(
     ε = MArray{Tuple{N}, FT}(zeros(FT, N))
     δ = MArray{Tuple{N}, FT}(zeros(FT, N))
     for i in 1:N
-        ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
+        # ε[i], δ[i], εt[i] = entr_detr(m, m.edmf.entr_detr, state, aux, t, i)
+        ε[i] = FT(0)
+        δ[i] = FT(0)
+        εt[i] = FT(0)
     end
-    mix_len = mixing_length(m, edmf.mix_len, state, diffusive, aux, t, δ, εt)
+    # mix_len = mixing_length(m, edmf.mix_len, state, diffusive, aux, t, δ, εt)
+    mix_len = FT(0)
     ρa_env = (gm.ρ-sum([up[j].ρa for j in 1:N]))
-    K_eddy = m.edmf.mix_len.c_k*mix_len*sqrt(abs(en.ρatke/ρa_en)) # YAIR 
+    K_eddy = m.edmf.mix_len.c_k*mix_len*sqrt(abs(en.ρatke/ρa_env)) # YAIR 
 
     ## we are adding the massflux term here as it is part of the total flux:
     #total flux(ϕ) =   diffusive_flux(ϕ)  +   massflux(ϕ)
@@ -575,7 +583,7 @@ function flux_second_order!(
     gm_f.ρq_tot += -ρa_env*K_eddy*en_d.∇q_tot[3] + massflux_q_tot
     # override ---------------- adding massflux below u breaks
     gm_f.ρu     += -ρa_env.*K_eddy.*en_d.∇u
-    # gm_f.ρu     += -ρa_en.*K_eddy.*en_d.∇u      + massflux_u
+    # gm_f.ρu     += -ρa_env.*K_eddy.*en_d.∇u      + massflux_u
 
     # env second momment flux_second_order
     en_f.ρatke        += -ρa_env*K_eddy*en_d.∇tke[3]
@@ -610,6 +618,9 @@ function boundary_state!(
     if bctype == 1 # bottom
         # YAIR - questions which state should I use here , state⁺ or state⁻  for computation of surface processes
         upd_a_surf, upd_e_surf, upd_q_tot_surf  = compute_updraft_surface_BC(m, m.edmf.surface, edmf, gm)
+        upd_a_surf = FT(0)
+        upd_e_surf = FT(0)
+        upd_q_tot_surf = FT(0)
         for i in 1:N
 
             up[i].ρau     = SVector(0,0,0)
@@ -625,9 +636,9 @@ function boundary_state!(
         ρinv = 1/gm.ρ
         for i in 1:N
             up[i].ρau = SVector(0,0,0)
-            up[i].ρa = 0.0
-            up[i].ρae = gm.ρe*up[i].ρa*ρinv
-            up[i].ρaq_tot = gm.ρq_tot*up[i].ρa*ρinv
+            up[i].ρa = FT(0)
+            up[i].ρae = FT(0)
+            up[i].ρaq_tot = FT(0)
         end
 
     end
@@ -660,7 +671,11 @@ function boundary_state!(
     if bctype == 1 # bottom
         area_en  = 1 - sum([up[i].ρa for i in 1:N])/gm.ρ
         # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
-        tke, e_cv ,q_tot_cv ,e_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, gm)
+        # tke, e_cv ,q_tot_cv ,e_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, gm)
+        tke = FT(0)
+        e_cv = FT(0)
+        q_tot_cv = FT(0)
+        e_q_tot_cv = FT(0)
         en_d.∇tke = SVector(0,0,gm.ρ * area_en * tke)
         en_d.∇e_cv = SVector(0,0,gm.ρ * area_en * e_cv)
         en_d.∇q_tot_cv = SVector(0,0,gm.ρ * area_en * q_tot_cv)
