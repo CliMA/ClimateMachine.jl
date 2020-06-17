@@ -420,6 +420,9 @@ function source!(
         # first moment sources
         # ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
         # dpdz, dpdz_tke_i  = perturbation_pressure(m, edmf.pressure, state, diffusive, aux, t, direction, i)
+        ε[i] = FT(0)
+        δ[i] = FT(0)
+        εt[i] = FT(0)
         dpdz = FT(0)
         dpdz_tke_i = FT(0)
 
