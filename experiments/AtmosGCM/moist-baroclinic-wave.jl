@@ -26,10 +26,6 @@ const param_set = EarthParameterSet()
 function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
     FT = eltype(state)
 
-    φ = latitude(bl, aux)
-    λ = longitude(bl, aux)
-    z = altitude(bl, aux)
-
     # parameters 
     _grav::FT = grav(bl.param_set)
     _R_d::FT = R_d(bl.param_set)
@@ -37,6 +33,10 @@ function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
     _a::FT = planet_radius(bl.param_set)
     _p_0::FT = MSLP(bl.param_set)
 
+    φ = latitude(bl, aux)
+    λ = longitude(bl, aux)
+    r = altitude(bl, aux) + _a
+    
     T_E::FT = 310
     T_P::FT = 240
     T_0::FT = 0.5 * (T_E + T_P)
@@ -56,7 +56,6 @@ function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
     q_t::FT = 1e-12 
 
     # convenience functions for temperature and pressure
-    I_T::FT = cos(φ)^K - K/(K+2) * cos(φ)^(K+2) 
     τ_z_1::FT = exp(Γ*z/T_0)
     τ_z_2::FT = 1 - 2*(z*_grav/b/_R_d/T_0)^2
     τ_z_3::FT = exp(-(z*_grav/b/_R_d/T_0)^2)
@@ -64,21 +63,22 @@ function init_moist_baroclinic_wave!(bl, state, aux, coords, t)
     τ_2::FT = 0.5 * (K+2) * (T_E-T_P)/T_E/T_P * τ_z_2 * τ_z_3 
     τ_int_1::FT = 1/Γ * (τ_z_1-1) + z * (T_0-T_P)/T_0/T_P * τ_z_3
     τ_int_2::FT = 0.5 * (K+2) * (T_E-T_P)/T_E/T_P * z * τ_z_3
+    I_T::FT = (cos(φ) * r/_a)^K - K/(K+2) * (cos(φ) * r/_a)^(K+2) 
 
     # temperature, pressure, specific humidity, density
-    T_v::FT = 1 / (τ_1 - τ_2 * I_T) 
+    T::FT = (_a / r)^2 * (τ_1 - τ_2 * I_T)^(-1) 
     p::FT = _p_0 * exp(-_grav/_R_d * (τ_int_1 - τ_int_2 * I_T))
-    η::FT = p/_p_0
+    ρ = air_density(bl.param_set, T, p)
+    #η::FT = p/_p_0
     #q::FT = q_0 * exp(-(φ/φ_w)^4) * exp(-((η-1)*_p_0/p_w)^2)
     #if η > p_t/p_s
     #  q = q_t
     #end
-    q::FT = 0
-    T::FT = T_v / (1 + M_v * q)
-    ρ = air_density(bl.param_set, T, p)
+    #q::FT = 0
+    #T::FT = T_v / (1 + M_v * q)
 
     # zonal velocity
-    U::FT = _grav*K/_a * τ_int_2 * (cos(φ)^(K-1) - cos(φ)^(K+1)) * T_v
+    U::FT = _grav*K/_a * τ_int_2 * T * ((cos(φ) * r/_a)^(K-1) - (cos(φ) * r/_a)^(K+1))
     u_ref::FT = -_Ω*_a*cos(φ) + sqrt((_Ω*_a*cos(φ))^2 + _a*cos(φ)*U)
 
     # perturbations to zonal velocity
