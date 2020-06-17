@@ -1,6 +1,6 @@
 module ShallowWater
 
-export SWModel, SWProblem
+export ShallowWaterModel, ShallowWaterProblem
 
 using StaticArrays
 using ..VariableTemplates
@@ -31,7 +31,7 @@ using ..DGMethods.NumericalFluxes
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 ⊗(a::SVector, b::SVector) = a * b'
 
-abstract type SWProblem end
+abstract type ShallowWaterProblem end
 
 abstract type TurbulenceClosure end
 struct LinearDrag{L} <: TurbulenceClosure
@@ -44,13 +44,15 @@ end
 abstract type AdvectionTerm end
 struct NonLinearAdvection <: AdvectionTerm end
 
-struct SWModel{PS, P, T, A, S} <: BalanceLaw
+struct ShallowWaterModel{PS, P, T, A, S} <: BalanceLaw
     param_set::PS
     problem::P
     turbulence::T
     advection::A
     c::S
 end
+
+SWModel = ShallowWaterModel
 
 function vars_state_conservative(m::SWModel, T)
     @vars begin
@@ -68,7 +70,7 @@ end
 
 function vars_state_gradient(m::SWModel, T)
     @vars begin
-        U::SVector{3, T}
+        ∇U::SVector{3, T}
     end
 end
 
@@ -236,7 +238,7 @@ end
 
 function shallow_init_state! end
 function init_state_conservative!(m::SWModel, state::Vars, aux::Vars, coords, t)
-    shallow_init_state!(m.problem, m.turbulence, state, aux, coords, t)
+    shallow_init_state!(m, m.problem, state, aux, coords, t)
 end
 
 function boundary_state!(
@@ -343,7 +345,8 @@ end
     α⁻,
     t,
 )
-    q⁺.U = 0
+    FT = eltype(q⁺)
+    q⁺.U = @SVector zeros(FT, 3)
 
     return nothing
 end
