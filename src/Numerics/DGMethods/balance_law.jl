@@ -44,6 +44,41 @@ function create_conservative_state(balance_law::BalanceLaw, grid)
     return state_conservative
 end
 
+function nodal_init_state_auxiliary!(balance_law, init_f!, state_auxiliary, grid;
+                                     state_init = nothing)
+    topology = grid.topology
+    dim = dimensionality(grid)
+    Np = dofs_per_element(grid)
+    polyorder = polynomialorder(grid)
+    vgeo = grid.vgeo
+    device = array_device(state_auxiliary)
+    nrealelem = length(topology.realelems)
+    event = Event(device)
+    event = kernel_nodal_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
+        balance_law,
+        Val(dim),
+        Val(polyorder),
+        init_f!,
+        state_auxiliary.data,
+        !isnothing(state_init) ? state_init.data : nothing,
+        !isnothing(state_init) ? Val(vars(state_init)) : Val(@vars()),
+        #Val(vars(state_init)),
+        vgeo,
+        topology.realelems,
+        dependencies = (event,),
+    )
+    
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    wait(device, event)
+end
+
 function create_auxiliary_state(balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -72,30 +107,8 @@ function create_auxiliary_state(balance_law, grid)
         weights = weights,
     )
 
-    dim = dimensionality(grid)
-    polyorder = polynomialorder(grid)
-    vgeo = grid.vgeo
-    device = array_device(state_auxiliary)
-    nrealelem = length(topology.realelems)
-    event = Event(device)
-    event = kernel_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
-        balance_law,
-        Val(dim),
-        Val(polyorder),
-        state_auxiliary.data,
-        vgeo,
-        topology.realelems,
-        dependencies = (event,),
-    )
-    event = MPIStateArrays.begin_ghost_exchange!(
-        state_auxiliary;
-        dependencies = event,
-    )
-    event = MPIStateArrays.end_ghost_exchange!(
-        state_auxiliary;
-        dependencies = event,
-    )
-    wait(device, event)
+    init_state_auxiliary!(balance_law, state_auxiliary, grid)
+    #nodal_init_state_auxiliary!(balance_law, init_state_auxiliary!, state_auxiliary, grid)
 
     return state_auxiliary
 end

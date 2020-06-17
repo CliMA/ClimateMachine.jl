@@ -516,6 +516,13 @@ function (dg::DGModel)(
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+    #if size(tendency, 2) == 5
+    #  @show extrema(tendency.data[:, 1, :])
+    #  @show extrema(tendency.data[:, 2, :])
+    #  @show extrema(tendency.data[:, 3, :])
+    #  @show extrema(tendency.data[:, 4, :])
+    #  @show extrema(tendency.data[:, 5, :])
+    #end
 end
 
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
@@ -901,4 +908,75 @@ function create_hypervisc_indexmap(balance_law::BalanceLaw)
     gradlapvars = vars_gradient_laplacian(balance_law, Int)
     indices = Vars{gradvars}(1:varsize(gradvars))
     SVector{varsize(gradlapvars)}(_getvars(indices, gradlapvars))
+end
+
+function contiguous_field_gradient!(
+    m,
+    ∇state::MPIStateArray,
+    state::MPIStateArray,
+    vs,
+    grid;
+    direction = EveryDirection(),
+)
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    device = array_device(state)
+
+    I = varsindices(vars(state), vs)
+    @show I
+
+    event = Event(device)
+
+    #event = kernel_contiguous_field_gradient!(device, (Nq, Nq, Nqk))(
+    #    m,
+    #    Val(dim),
+    #    Val(N),
+    #    direction,
+    #    ∇state.data,
+    #    state.data,
+    #    grid.vgeo,
+    #    grid.D,
+    #    grid.ω,
+    #    Val(I),
+    #    ndrange = (nrealelem * Nq, Nq, Nqk),
+    #    dependencies = (event,),
+    #)
+    #
+    #event = kernel_contiguous_field_gradient_interface!(device, Nfp)(
+    #    m,
+    #    Val(dim),
+    #    Val(N),
+    #    direction,
+    #    ∇state.data,
+    #    state.data,
+    #    grid.vgeo,
+    #    grid.sgeo,
+    #    grid.vmap⁻,
+    #    grid.interiorelems,
+    #    Val(I),
+    #    ndrange = Nfp * length(grid.interiorelems),
+    #    dependencies = (event,),
+    #)
+    
+    event = kernel_contiguous_field_gradient_strong!(device, (Nq, Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        direction,
+        ∇state.data,
+        state.data,
+        grid.vgeo,
+        grid.D,
+        grid.ω,
+        Val(I),
+        ndrange = (nrealelem * Nq, Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end
