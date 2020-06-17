@@ -23,10 +23,17 @@ jobs:
         with:
           version: 1.4
       - name: Install dependencies
+        env:
+          JULIA_PROJECT: "docs/"
         run: |
-          sudo apt install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5
+          sudo apt-get -qq install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5
           julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
+          julia --project=docs/ -e 'using Pkg; Pkg.precompile()'
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: julia --project=docs/ docs/make.jl
+          JULIA_PROJECT: "docs/"
+          CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS: "true"
+          ClIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
+          CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
+        run: julia --procs=auto docs/make.jl

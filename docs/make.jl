@@ -1,18 +1,25 @@
 Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
-using ClimateMachine, Documenter, Literate
-
 # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
 ENV["GKSwstype"] = "100"
+# some of the tutorials cannot be run on the GPU
+ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"] = true
 # avoid problems with Documenter/Literate when using `global_logger()`
 ENV["CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER"] = true
 
-generated_dir = joinpath(@__DIR__, "src", "generated") # generated files directory
-rm(generated_dir, force = true, recursive = true)
-mkpath(generated_dir)
+using Distributed
+
+@everywhere using ClimateMachine
+@everywhere using Documenter, Literate
+
+@everywhere GENERATED_DIR = joinpath(@__DIR__, "src", "generated") # generated files directory
+rm(GENERATED_DIR, force = true, recursive = true)
+mkpath(GENERATED_DIR)
 
 include("list_of_getting_started_docs.jl")      # defines `getting_started_docs`
+
 include("list_of_tutorials.jl")                 # defines `tutorials`
+
 include("list_of_how_to_guides.jl")             # defines `how_to_guides`
 include("list_of_apis.jl")                      # defines `apis`
 include("list_of_theory_docs.jl")               # defines `theory_docs`
