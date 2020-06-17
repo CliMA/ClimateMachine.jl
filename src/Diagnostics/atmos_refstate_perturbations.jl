@@ -3,6 +3,7 @@
 # Computes perturbations from the reference state and outputs them
 # on the specified interpolated grid.
 
+import CUDA
 using ..Atmos
 using ..Mesh.Topologies
 using ..Mesh.Grids
@@ -162,7 +163,7 @@ function atmos_refstate_perturbations_collect(
         state_data = Q.realdata
         aux_data = dg.state_auxiliary.realdata
     else
-        ArrayType = CuArray
+        ArrayType = CUDA.CuArray
         state_data = Array(Q.realdata)
         aux_data = Array(dg.state_auxiliary.realdata)
     end

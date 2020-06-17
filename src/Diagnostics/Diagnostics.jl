@@ -12,7 +12,6 @@ export DiagnosticsGroup,
     setup_dump_state_diagnostics,
     setup_dump_aux_diagnostics
 
-using CuArrays
 using Dates
 using FileIO
 using JLD2

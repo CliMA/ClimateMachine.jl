@@ -1,8 +1,8 @@
-using Test, Pkg, CuArrays
+using Test, Pkg, CUDA
 
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
-@test CuArrays.functional()
+@test CUDA.functional()
 
 for submodule in [
     #"Common/Thermodynamics",

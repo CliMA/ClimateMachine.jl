@@ -12,7 +12,6 @@ using ..BalanceLaws:
     BalanceLaw, number_state_conservative, number_state_gradient_flux
 
 using Adapt
-using CuArrays
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
