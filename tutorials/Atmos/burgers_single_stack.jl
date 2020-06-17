@@ -2,32 +2,37 @@
 
 # Equations solved in balance law form:
 
-# ``
-# \frac{∂ ρ}{∂ t} = - ∇ ⋅ (ρu)
-# \frac{∂ ρu}{∂ t} = - ∇ ⋅ (-μ ∇u) - ∇ ⋅ (ρu u') - γ[ (ρu-ρ̄ū) - (ρu-ρ̄ū)⋅ẑ ẑ]
-# \frac{∂ ρcT}{∂ t} = - ∇ ⋅ (-α ∇ρcT) - ∇ ⋅ (u ρcT)
-# ``
+# ```math
+# \begin{align}
+# \frac{∂ ρ}{∂ t} =& - ∇ ⋅ (ρ\mathbf{u}) \\
+# \frac{∂ ρ\mathbf{u}}{∂ t} =& - ∇ ⋅ (-μ ∇\mathbf{u}) - ∇ ⋅ (ρ\mathbf{u} \mathbf{u}') - γ[ (ρ\mathbf{u}-ρ̄\mathbf{ū}) - (ρ\mathbf{u}-ρ̄\mathbf{ū})⋅ẑ ẑ] \\
+# \frac{∂ ρcT}{∂ t} =& - ∇ ⋅ (-α ∇ρcT) - ∇ ⋅ (\mathbf{u} ρcT)
+# \end{align}
+# ```
 
 # Boundary conditions:
-# ``
-# z_{\mathrm{min}}: ρ = 1
-# z_{\mathrm{min}}: ρu = 0
-# z_{\mathrm{min}}: ρcT = T=T_{\mathrm{fixed}}
-# z_{\mathrm{max}}: ρ = 1
-# z_{\mathrm{max}}: ρu = 0
-# z_{\mathrm{max}}: ρcT = \mathrm{no flux}
-# ``
+# ```math
+# \begin{align}
+# z_{\mathrm{min}}: & ρ = 1 \\
+# z_{\mathrm{min}}: & ρ\mathbf{u} = \mathbf{0} \\
+# z_{\mathrm{min}}: & ρcT = ρc T_{\mathrm{fixed}} \\
+# z_{\mathrm{max}}: & ρ = 1 \\
+# z_{\mathrm{max}}: & ρ\mathbf{u} = \mathbf{0} \\
+# z_{\mathrm{max}}: & -α∇ρcT = 0
+# \end{align}
+# ```
 
 # where
-#  - `t` is time
-#  - `ρ` is the density
-#  - `u` is the velocity vector
-#  - `μ` is the dynamic viscosity tensor
-#  - `γ` is the Rayleigh friction frequency
-#  - `T` is the temperature
-#  - `α` is the thermal diffusivity
-#  - `c` is the heat capacity
-#  - `ρcT` is the thermal energy
+#  - ``t`` is time
+#  - ``ρ`` is the density
+#  - ``\mathbf{u}`` is the velocity (vector)
+#  - ``\mathbf{ū}`` is the horizontally averaged velocity (vector)
+#  - ``μ`` is the dynamic viscosity tensor
+#  - ``γ`` is the Rayleigh friction frequency
+#  - ``T`` is the temperature
+#  - ``α`` is the thermal diffusivity
+#  - ``c`` is the heat capacity
+#  - ``ρcT`` is the thermal energy
 
 # Solving these equations is broken down into the following steps:
 # 1) Preliminary configuration
@@ -305,7 +310,7 @@ function flux_first_order!(
     flux.ρcT = u * state.ρcT
 end;
 
-# Compute diffusive flux (e.g. ``F(μ, u, t) = -μ∇u`` in the original PDE).
+# Compute diffusive flux (e.g. ``F(μ, \mathbf{u}, t) = -μ∇\mathbf{u}`` in the original PDE).
 # Note that:
 # - `diffusive.μ∇u` is available here because we've specified `μ∇u` in
 # `vars_state_gradient_flux`
@@ -324,7 +329,7 @@ end;
 
 # ### Boundary conditions
 
-# Second-order terms in our equations, ``∇⋅(G)`` where ``G = μ∇u``, are
+# Second-order terms in our equations, ``∇⋅(G)`` where ``G = μ∇\mathbf{u}``, are
 # internally reformulated to first-order unknowns.
 # Boundary conditions must be specified for all unknowns, both first-order and
 # second-order unknowns which have been reformulated.
