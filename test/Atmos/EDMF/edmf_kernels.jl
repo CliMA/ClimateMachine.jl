@@ -524,6 +524,7 @@ function flux_first_order!(
         up_f[i].ρae = u * up[i].ρae
         up_f[i].ρaq_tot = u * up[i].ρaq_tot
     end
+    @show(t)
 
 end;
 
