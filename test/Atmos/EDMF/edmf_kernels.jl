@@ -172,7 +172,7 @@ function init_state_conservative!(
 
     # initialize environment covariance
     en.ρae_cv       = eps(FT)
-    en.ρaq_tot_cv       = eps(FT)
+    en.ρaq_tot_cv   = eps(FT)
     en.ρae_q_tot_cv = eps(FT)
 
 end;
