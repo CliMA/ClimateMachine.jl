@@ -430,7 +430,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = Vreman{FT}(C_smag),
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
         source = source,
         boundarycondition = (
@@ -507,15 +507,15 @@ function config_diagnostics_dump_all(FT, driver_config)
     )
     default_dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
-        "150ssecs",
+        "1000steps",
         driver_config.name,
     )
     core_dgngrp = setup_atmos_core_diagnostics(
         AtmosLESConfigType(),
-        "150ssecs",
+        "1000steps",
         driver_config.name,
     )
-    return ClimateMachine.DiagnosticsConfiguration([default_dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([core_dgngrp, default_dgngrp, dgngrp])
 end
 
 function main()
@@ -551,7 +551,7 @@ function main()
         Courant_number = CFLmax,
     )
     dgn_config = config_diagnostics_dump_all(FT, driver_config)
-
+    !dgn_config = config_diagnostics(driver_config)
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(
             solver_config.Q,
