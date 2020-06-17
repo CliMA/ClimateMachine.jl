@@ -1523,23 +1523,28 @@ Computational kernel: Initialize the auxiliary state
 
 See [`BalanceLaw`](@ref) for usage.
 """ kernel_init_state_auxiliary!
-@kernel function kernel_init_state_auxiliary!(
+@kernel function kernel_nodal_init_state_auxiliary!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
+    init_f!,
     state_auxiliary,
+    state_init,
+    ::Val{vars_state_init},
     vgeo,
     elems,
-) where {dim, polyorder}
+   ) where {dim, polyorder, vars_state_init}
     N = polyorder
     FT = eltype(state_auxiliary)
     num_state_auxiliary = number_state_auxiliary(balance_law, FT)
+    num_state_init = varsize(vars_state_init)
 
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
     Np = Nq * Nq * Nqk
 
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+    local_state_init = MArray{Tuple{num_state_init}, FT}(undef)
 
     I = @index(Global, Linear)
     e = (I - 1) ÷ Np + 1
@@ -1549,11 +1554,15 @@ See [`BalanceLaw`](@ref) for usage.
         @unroll for s in 1:num_state_auxiliary
             local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
+        @unroll for s in 1:num_state_init
+            local_state_init[s] = state_init[n, s, e]
+        end
 
-        init_state_auxiliary!(
+        init_f!(
             balance_law,
             Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
             LocalGeometry(Val(polyorder), vgeo, n, e),
+            Vars{vars_state_init}(local_state_init),
         )
 
         @unroll for s in 1:num_state_auxiliary
@@ -2702,5 +2711,277 @@ end
         )
 
         pointwise_courant[n, e] = c
+    end
+end
+
+@kernel function kernel_contiguous_field_gradient!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    direction,
+    ∇state,
+    state,
+    vgeo,
+    D,
+    ω,
+    ::Val{I}
+) where {dim, polyorder, I}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state)
+        ngradstate = length(I)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+        l_grad = MArray{Tuple{3, ngradstate}, FT}(undef)
+    end
+
+    s_state = @localmem FT (Nq, Nq, Nqk, ngradstate)
+    s_D = @localmem FT (Nq, Nq)
+    s_ω = @localmem FT (Nq,)
+
+    e = @index(Group, Linear)
+    ijk = @index(Local, Linear)
+    i, j, k = @index(Local, NTuple)
+
+    @inbounds @views begin
+        s_ω[j] = ω[j]
+        s_D[i, j] = D[i, j]
+
+        @unroll for s in 1:ngradstate
+            s_state[i, j, k, s] = state[ijk, I[s], e]
+        end
+        @synchronize
+
+        ξ1x1, ξ1x2, ξ1x3 =
+            vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+        if dim == 3 || (dim == 2 && direction isa EveryDirection)
+            ξ2x1, ξ2x2, ξ2x3 =
+                vgeo[ijk, _ξ2x1, e], vgeo[ijk, _ξ2x2, e], vgeo[ijk, _ξ2x3, e]
+        end
+        if dim == 3 && direction isa EveryDirection
+            ξ3x1, ξ3x2, ξ3x3 =
+                vgeo[ijk, _ξ3x1, e], vgeo[ijk, _ξ3x2, e], vgeo[ijk, _ξ3x3, e]
+        end
+        @unroll for s in 1:ngradstate
+            lap_ξ1 = lap_ξ2 = lap_ξ3 = zero(FT)
+            @unroll for n in 1:Nq
+                njk = n + Nq * ((j - 1) + Nq * (k - 1))
+                Dni = s_D[n, i] * s_ω[n] / s_ω[i]
+                lap_njk = s_state[n, j, k, s]
+                lap_ξ1 += Dni * lap_njk
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    ink = i + Nq * ((n - 1) + Nq * (k - 1))
+                    Dnj = s_D[n, j] * s_ω[n] / s_ω[j]
+                    lap_ink = s_state[i, n, k, s]
+                    lap_ξ2 += Dnj * lap_ink
+                end
+                if dim == 3 && direction isa EveryDirection
+                    ijn = i + Nq * ((j - 1) + Nq * (n - 1))
+                    Dnk = s_D[n, k] * s_ω[n] / s_ω[k]
+                    lap_ijn = s_state[i, j, n, s]
+                    lap_ξ3 += Dnk * lap_ijn
+                end
+            end
+
+            l_grad[1, s] = -ξ1x1 * lap_ξ1
+            l_grad[2, s] = -ξ1x2 * lap_ξ1
+            l_grad[3, s] = -ξ1x3 * lap_ξ1
+
+            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                l_grad[1, s] -= ξ2x1 * lap_ξ2
+                l_grad[2, s] -= ξ2x2 * lap_ξ2
+                l_grad[3, s] -= ξ2x3 * lap_ξ2
+            end
+
+            if dim == 3 && direction isa EveryDirection
+                l_grad[1, s] -= ξ3x1 * lap_ξ3
+                l_grad[2, s] -= ξ3x2 * lap_ξ3
+                l_grad[3, s] -= ξ3x3 * lap_ξ3
+            end
+        end
+
+        @unroll for s in 1:ngradstate
+            ∇state[ijk, 3(s - 1) + 1, e] = l_grad[1, s]
+            ∇state[ijk, 3(s - 1) + 2, e] = l_grad[2, s]
+            ∇state[ijk, 3(s - 1) + 3, e] = l_grad[3, s]
+        end
+    end
+end
+
+@kernel function kernel_contiguous_field_gradient_interface!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    direction,
+    ∇state,
+    state,
+    vgeo,
+    sgeo,
+    vmap⁻,
+    elems,
+    ::Val{I}
+) where {dim, polyorder, I}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state)
+        ngradstate = length(I)
+
+        if dim == 1
+            Np = (N + 1)
+            Nfp = 1
+            nface = 2
+        elseif dim == 2
+            Np = (N + 1) * (N + 1)
+            Nfp = (N + 1)
+            nface = 4
+        elseif dim == 3
+            Np = (N + 1) * (N + 1) * (N + 1)
+            Nfp = (N + 1) * (N + 1)
+            nface = 6
+        end
+
+        faces = 1:nface
+        if direction isa VerticalDirection
+            faces = (nface - 1):nface
+        elseif direction isa HorizontalDirection
+            faces = 1:(nface - 2)
+        end
+
+        Nqk = dim == 2 ? 1 : N + 1
+    end
+
+    eI = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    e = @private Int (1,)
+    @inbounds e[1] = elems[eI]
+
+    @inbounds for f in faces
+        e⁻ = e[1]
+        normal_vector = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+        id⁻ = vmap⁻[n, f, e⁻]
+        vid⁻ = ((id⁻ - 1) % Np) + 1
+
+        @unroll for s in 1:ngradstate
+          ∇state[vid⁻, 3(s - 1) + 1, e⁻] +=
+            vMI * sM * state[vid⁻, I[s], e⁻] * normal_vector[1]
+          ∇state[vid⁻, 3(s - 1) + 2, e⁻] +=
+            vMI * sM * state[vid⁻, I[s], e⁻] * normal_vector[2]
+          ∇state[vid⁻, 3(s - 1) + 3, e⁻] +=
+            vMI * sM * state[vid⁻, I[s], e⁻] * normal_vector[3]
+        end
+        # Need to wait after even faces to avoid race conditions
+        @synchronize(f % 2 == 0)
+    end
+end
+
+@kernel function kernel_contiguous_field_gradient_strong!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    direction,
+    ∇state,
+    state,
+    vgeo,
+    D,
+    ω,
+    ::Val{I}
+) where {dim, polyorder, I}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state)
+        ngradstate = length(I)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+    end
+
+    shared_transform = @localmem FT (Nq, Nq, ngradstate)
+    s_D = @localmem FT (Nq, Nq)
+
+    local_transform_gradient = @private FT (3, ngradstate, Nqk)
+    Gξ3 = @private FT (ngradstate, Nqk)
+
+    e = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds @views begin
+        s_D[i, j] = D[i, j]
+
+        @unroll for k in 1:Nqk
+            @unroll for s in 1:ngradstate
+                local_transform_gradient[1, s, k] = -zero(FT)
+                local_transform_gradient[2, s, k] = -zero(FT)
+                local_transform_gradient[3, s, k] = -zero(FT)
+                Gξ3[s, k] = -zero(FT)
+            end
+        end
+
+        @unroll for k in 1:Nqk
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
+            @unroll for s in 1:ngradstate
+                shared_transform[i, j, s] = state[ijk, I[s], e]
+            end
+            @synchronize
+            
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            ξ1x1, ξ1x2, ξ1x3 =
+                vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+
+            # Compute gradient of each state
+            @unroll for s in 1:ngradstate
+                Gξ1 = Gξ2 = zero(FT)
+
+                @unroll for n in 1:Nq
+                    Gξ1 += s_D[i, n] * shared_transform[n, j, s]
+                    if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                        Gξ2 += s_D[j, n] * shared_transform[i, n, s]
+                    end
+                    if dim == 3 && direction isa EveryDirection
+                        Gξ3[s, n] += s_D[n, k] * shared_transform[i, j, s]
+                    end
+                end
+
+                local_transform_gradient[1, s, k] += ξ1x1 * Gξ1
+                local_transform_gradient[2, s, k] += ξ1x2 * Gξ1
+                local_transform_gradient[3, s, k] += ξ1x3 * Gξ1
+
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
+                    vgeo[ijk, _ξ2x2, e],
+                    vgeo[ijk, _ξ2x3, e]
+                    local_transform_gradient[1, s, k] += ξ2x1 * Gξ2
+                    local_transform_gradient[2, s, k] += ξ2x2 * Gξ2
+                    local_transform_gradient[3, s, k] += ξ2x3 * Gξ2
+                end
+            end
+            @synchronize
+        end
+
+        @unroll for k in 1:Nqk
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
+            if dim == 3 && direction isa EveryDirection
+                ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
+                vgeo[ijk, _ξ3x2, e],
+                vgeo[ijk, _ξ3x3, e]
+                @unroll for s in 1:ngradstate
+                    local_transform_gradient[1, s, k] += ξ3x1 * Gξ3[s, k]
+                    local_transform_gradient[2, s, k] += ξ3x2 * Gξ3[s, k]
+                    local_transform_gradient[3, s, k] += ξ3x3 * Gξ3[s, k]
+                end
+            end
+
+            @unroll for s in 1:ngradstate
+                ∇state[ijk, 3 * (s - 1) + 1, e] = local_transform_gradient[1, s, k]
+                ∇state[ijk, 3 * (s - 1) + 2, e] = local_transform_gradient[2, s, k]
+                ∇state[ijk, 3 * (s - 1) + 3, e] = local_transform_gradient[3, s, k]
+            end
+          end
     end
 end

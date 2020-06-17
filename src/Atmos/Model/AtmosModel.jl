@@ -26,7 +26,7 @@ using ..TemperatureProfiles
 using ..TurbulenceClosures
 
 import ..Thermodynamics: internal_energy
-using ..MPIStateArrays: MPIStateArray
+using ..MPIStateArrays: MPIStateArray, vars
 using ..Mesh.Grids:
     VerticalDirection,
     HorizontalDirection,
@@ -55,6 +55,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
     init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_conservative!,
     update_auxiliary_state!,
     indefinite_stack_integral!,
@@ -62,14 +63,9 @@ import ClimateMachine.BalanceLaws:
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
-
-import ClimateMachine.DGMethods:
-    LocalGeometry,
-    lengthscale,
-    resolutionmetric,
-    DGModel,
-    nodal_update_auxiliary_state!
+    reverse_integral_set_auxiliary_state!,
+    contiguous_field_gradient!,
+    init_ode_state
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
@@ -78,7 +74,10 @@ import ..DGMethods.NumericalFluxes:
     NumericalFluxGradient,
     NumericalFluxSecondOrder,
     CentralNumericalFluxHigherOrder,
-    CentralNumericalFluxDivergence
+    CentralNumericalFluxDivergence,
+    CentralNumericalFluxFirstOrder,
+    CentralNumericalFluxSecondOrder,
+    CentralNumericalFluxGradient
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
@@ -383,11 +382,12 @@ equations.
 
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
-    if m.ref_state isa HydrostaticState
-        flux.ρu += (p - aux.ref_state.p) * I
-    else
+    #p = aux.ref_state.p
+    #if m.ref_state isa HydrostaticState
+    #    flux.ρu += (p - aux.ref_state.p) * I
+    #else
         flux.ρu += p * I
-    end
+    #end
     flux.ρe += u * p
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)
@@ -608,7 +608,7 @@ end
 Initialise auxiliary variables for each AtmosModel subcomponent.
 Store Cartesian coordinate information in `aux.coord`.
 """ init_state_auxiliary!
-function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+function atmos_nodal_init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry, init::Vars)
     aux.coord = geom.coord
     aux.θ′ = eltype(aux)(0.0)
     aux.θ₀ = eltype(aux)(0.0)
@@ -617,6 +617,112 @@ function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     atmos_init_aux!(m.ref_state, m, aux, geom)
     atmos_init_aux!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
+end
+
+
+struct BalanceTestModel <: BalanceLaw end
+vars_state_auxiliary(::BalanceTestModel, T) = @vars(p::T)
+vars_state_conservative(::BalanceTestModel, T) = @vars(∇p::SVector{3, T})
+vars_state_gradient(::BalanceTestModel, T) = @vars()
+vars_state_gradient_flux(::BalanceTestModel, T) = @vars()
+function init_state_auxiliary!(m::BalanceTestModel, state_auxiliary::MPIStateArray, grid)
+end
+function init_state_conservative!(
+    ::BalanceTestModel,
+    state::Vars,
+    aux::Vars,
+    coord,
+    t,
+)
+end
+function flux_first_order!(
+    ::BalanceTestModel,
+    flux::Grad,
+    state::Vars,
+    auxstate::Vars,
+    t::Real,
+)
+    flux.∇p -= auxstate.p * I
+end
+flux_second_order!(::BalanceTestModel, _...) = nothing
+source!(::BalanceTestModel, _...) = nothing
+boundary_state!(
+    nf,
+    ::BalanceTestModel,
+    _...,
+) = nothing
+
+
+function atmos_enforce_discrete_balance!(atmos::AtmosModel, aux::Vars, geom::LocalGeometry, init::Vars)
+  FT = eltype(aux)
+  k = vertical_unit_vector(atmos, aux)
+  #aux.ref_state.ρ = - k' * init.∇p / FT(grav(m.param_set))
+  aux.ref_state.ρ = - k' * init.∇p / (k' * aux.orientation.∇Φ)
+
+  z = altitude(atmos, aux)
+  FT = eltype(aux)
+  _R_d::FT = R_d(atmos.param_set)
+  ρ = aux.ref_state.ρ 
+  p = aux.ref_state.p
+  T_virt = p / (_R_d * ρ)
+  # We evaluate the saturation vapor pressure, approximating
+  # temperature by virtual temperature
+  # ts = TemperatureSHumEquil(atmos.param_set, T_virt, ρ, FT(0))
+  ts = PhaseDry_given_ρT(atmos.param_set, ρ, T_virt)
+  q_vap_sat = q_vap_saturation(ts)
+  ρq_tot = aux.ref_state.ρq_tot
+
+  q_pt = PhasePartition(ρq_tot)
+  R_m = gas_constant_air(atmos.param_set, q_pt)
+  T = T_virt * R_m / _R_d
+  aux.ref_state.T = T
+  aux.ref_state.ρe = ρ * internal_energy(atmos.param_set, T, q_pt)
+
+  e_kin = FT(0)
+  e_pot = gravitational_potential(atmos.orientation, aux)
+  aux.ref_state.ρe = ρ * total_energy(atmos.param_set, e_kin, e_pot, T, q_pt)
+end
+
+function init_state_auxiliary!(m::AtmosModel, state_auxiliary::MPIStateArray, grid)
+    nodal_init_state_auxiliary!(m,
+                                atmos_nodal_init_state_auxiliary!,
+                                state_auxiliary,
+                                grid)
+    #test = @view state_auxiliary.data[:,
+    #                                   varsindex(vars(state_auxiliary),
+    #                                             :orientation, :∇Φ),
+    #                                   :]
+    #@show extrema(@. sqrt(test[:, 1, :] ^ 2 +
+    #                      test[:, 2, :] ^ 2 +
+    #                      test[:, 3, :] ^ 2))
+    #test = @view state_auxiliary.data[:,
+    #                                   varsindex(vars(state_auxiliary),
+    #                                             :ref_state, :ρ), :]
+    #@show extrema(test)
+
+    FT = eltype(state_auxiliary)
+    vars_init = @vars(∇p::SVector{3, FT})
+    state_init = similar(state_auxiliary; vars=vars_init)
+    
+    contiguous_field_gradient!(m, state_init, state_auxiliary, ("ref_state.p",), grid)
+    @show extrema(state_init.data)
+
+    testmodel = BalanceTestModel()
+    testdg = DGModel(testmodel,
+                     grid,
+                     CentralNumericalFluxFirstOrder(),
+                     CentralNumericalFluxSecondOrder(),
+                     CentralNumericalFluxGradient())
+
+    ix = varsindex(vars(state_auxiliary), :ref_state, :p)
+    testdg.state_auxiliary.data .= state_auxiliary.data[:, ix, :]
+    testQ = init_ode_state(testdg, FT(0))
+    testdg(state_init, testQ, nothing, FT(0))
+    @show extrema(state_init.data)
+    nodal_init_state_auxiliary!(m,
+                                atmos_enforce_discrete_balance!,
+                                state_auxiliary,
+                                grid; state_init = state_init)
 end
 
 @doc """
