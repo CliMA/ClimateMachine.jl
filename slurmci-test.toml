@@ -47,6 +47,9 @@ cpu_gpu = [
   { file = "test/Atmos/Parameterizations/Microphysics/KM_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Atmos/Parameterizations/Microphysics/KM_warm_rain.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Atmos/Parameterizations/Microphysics/KM_ice.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Land/Model/haverkamp_test.jl", slurmargs = ["--ntasks=1'"], args = [] },
+  { file = "test/Land/Model/test_bc.jl", slurmargs = ["--ntasks=1'"], args = [] },
+
 ]
 
 gpu = [

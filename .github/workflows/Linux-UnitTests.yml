@@ -10,12 +10,13 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-          test-modules: ["Arrays,Atmos,Common,Diagnostics,Driver,InputOutput,Utilities,Land",
+          test-modules: ["Arrays,Atmos,Common,Diagnostics,Driver,InputOutput,Utilities",
                          "Numerics/DGMethods",
                          "Numerics/Mesh",
                          "Numerics/ODESolvers",
                          "Numerics/SystemSolvers",
-                         "Ocean"]
+                         "Ocean",
+                         "Land",]
 
     steps:
     - name: Cancel Previous Runs
