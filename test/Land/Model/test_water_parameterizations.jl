@@ -1,3 +1,6 @@
+# Test the branching of the SoilWaterParameterizations functions,
+# test the instantiation of them works as expected, and that they
+# return what we expect.
 using MPI
 using OrderedCollections
 using StaticArrays
@@ -9,6 +12,7 @@ const param_set = EarthParameterSet()
 
 using ClimateMachine
 using ClimateMachine.Land.SoilWaterParameterizations
+
 @testset "Land water parameterizations" begin
     FT = Float64
     test_array = [0.5, 1.0]
@@ -77,4 +81,5 @@ using ClimateMachine.Land.SoilWaterParameterizations
     m = FT(0.5)
     ψb = FT(0.1656)
     @test pressure_head(bc_model, 1.0, 0.001, 0.5) ≈ -ψb * 0.5^(-1 / m)
+    @test volumetric_liquid_fraction.([0.5, 1.5], Ref(0.75)) ≈ [0.5, 0.75]
 end
