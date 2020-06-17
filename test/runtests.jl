@@ -28,6 +28,7 @@ end
         "Common",
         "Arrays",
         "Atmos",
+        "Land",
         "Numerics",
         "Diagnostics",
         "Ocean",
