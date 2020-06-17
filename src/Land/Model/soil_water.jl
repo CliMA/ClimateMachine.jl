@@ -183,7 +183,10 @@ function soil_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    T = get_temperature(land.soil.heat)
+    # When we want to get this form the state, we have to defined a method
+    # get_initial_temperature(land.soil.heat, aux, 0.0) that reads
+    # land.soil.heat.initialT(aux)
+    T = get_initial_temperature(land.soil.heat, aux, 0.0)
     S_l = effective_saturation(
         soil.param_functions.porosity,
         water.initialϑ_l(aux),
@@ -217,7 +220,7 @@ function land_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    T = get_temperature(land.soil.heat)
+    T = get_temperature(land.soil.heat, aux, t, state)
     S_l = effective_saturation(
         soil.param_functions.porosity,
         state.soil.water.ϑ_l,

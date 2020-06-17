@@ -50,7 +50,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
         state.soil.water.θ_ice = myfloat(land.soil.water.initialθ_ice(aux))
     end
 
-    soil_heat_model = PrescribedTemperatureModel{FT}()
+    soil_heat_model = PrescribedTemperatureModel(FT;)
 
     soil_param_functions = SoilParamFunctions{FT}(
         porosity = 0.495,

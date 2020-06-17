@@ -37,7 +37,8 @@ export AbstractImpedanceFactor,
     pressure_head,
     hydraulic_head,
     matric_potential,
-    volumetric_liquid_fraction
+    volumetric_liquid_fraction,
+    heaviside
 
 
 """
@@ -542,5 +543,21 @@ function matric_potential(model::BrooksCorey{FT}, S_l::FT) where {FT}
     ψ_m = -ψb * S_l^(-FT(1) / m)
     return ψ_m
 end
+
+"""
+    function heaviside(x::FT) where {FT}
+
+The Heaviside function is defined as 1.0 when x is positive or 0, and 
+as 0.0 when x is negative. It returns a number of the same type as the input.
+"""
+function heaviside(x::FT) where {FT}
+    myfloat  = typeof(x)
+    if x < 0
+        return myfloat(0.0)
+    else
+         return myfloat(1.0)
+    end
+end
+    
 
 end #Module

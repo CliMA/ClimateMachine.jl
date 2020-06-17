@@ -22,6 +22,8 @@ Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
     Ksat::FT = FT(NaN)
     "Specific storage of the soil"
     S_s::FT = FT(NaN)
+    "Freeze thaw timescale"
+    τft::FT = FT(NaN)
 end
 
 
