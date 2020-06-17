@@ -309,7 +309,7 @@ function compute_gradient_argument!(
     en = state.edmf.environment
 
     up_t.u = up.ρau/up.ρa
-
+    _grav = grav(m.param_set)
     ts = thermo_state(SingleStack, state, aux)
 
     ρinv       = 1/gm.ρ
@@ -317,8 +317,7 @@ function compute_gradient_argument!(
 
     en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
     en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
-    e_pot = gravitational_potential(orientation, aux)# ask about this 
-    en_e_int = internal_energy(gm.ρ, ρe, ρu, e_pot)
+    en_e_int = internal_energy(gm.ρ, en_ρe, en_ρu, _grav * gm_a.z)
     
     # populate gradient arguments
     en_t.e     = en_ρe*ρinv
