@@ -359,11 +359,11 @@ function main()
     FT = Float64
 
     # DG polynomial order
-    N = 4
+    N = 3
 
     # Domain resolution and size
-    Δh = FT(40)
-    Δv = FT(20)
+    Δh = FT(15)
+    Δv = FT(2)
     resolution = (Δh, Δh, Δv)
 
     xmax = FT(1000)
