@@ -77,23 +77,121 @@ const ∇ = Grad()
 (×)(::Grad, operand) = Curl(operand)
 
 # Sum of terms
-struct Sum <: AbstractExpression
+struct Sum <: Operator
     operands
 end
 Base.(:+)(t::AbstractExpression...) = Sum(t)
 
+"""
+Helper function
+"""
+function ∂ₜ(Q)
+    ...
+    return Tendency(Q, args...)
+end
+
+"""
+∂ₜ Q
+"""
+struct Tendency <: AbstractExpression
+    ...
+    ...
+    function Tendency(Q, args...)
+        ...
+        return new(Q, args...)
+    end
+end
+
+struct Source{ST} <: AbstractExpression
+    source_type::ST
+    ...
+    function Source(Q, args...)
+        ...
+        return new(source_type, args...)
+    end
+end
+
+"""
+Helper functions for creating source terms
+"""
+function S(q)
+    ...
+    return Source(q, ...)
+end
+
+"""
+An abstract type describing a system of PDEs of the form:
+
+∂ₜ Q = Σᵢ Tᵢ(Q),
+
+where ∂ₜ Q is the `Tendency` and Σᵢ Tᵢ(Q) denotes a sum of
+terms.
+"""
+abstract type AbstractPDESystem end
+
+struct BalanceLaw{TT <: Tendency, ET <: AbstractExpression} <: AbstractPDESystem
+    tendency::TT
+    termsum::ET
+end
+Base.:(==)(a::BalanceLaw, b::BalanceLaw) = isequal((a.tendency, a.tendency), (b.termsum, b.termsum))
+
+"""
+Allows us to write:
+
+∂ₜ(Q) === S(q) - ∇⋅(F(q)) - ∇⋅(G(q, ∇q))
+
+in code and immediate construct the `AtmosBalanceLaw`.
+
+"""
+Base.:(===)(tendency::Tendency, terms::AbstractExpression) = BalanceLaw(tendency, terms)
+
+# Sketch of search functions for extracting specific terms
+function get_terms!(bl::BalanceLaw, terms, term_type)
+    if term_type == "Tendency"
+        return append!(terms, [bl.tendency])
+    else
+        get_terms!(bl.termsum, terms, term_type)
+    return terms
+end
+function get_terms!(expr::Operator, terms, term_type)
+    if term_type == expr.term_label
+        append!(terms, [expr])
+    end
+    for term ∈ expr.operands
+        get_terms!(term, terms, term_type)
+    end
+    return terms
+end
+# Repeat until reach Terminal nodes
+function get_terms!(expr::Terminal, terms, term_type)
+    if term_type == expr.term_label
+        append!(terms, [expr])
+    end
+    return terms
+end
 
 """
 Sample equation:
 
-∂ₜ q = S(q) - ∇⋅(F_1(q)) - ∇⋅(F_2(q, σ)) + ...,
-   σ = Σ(∇q, ...)
+∂ₜ q = S(q) - ∇⋅(F(q)) - ∇⋅(G(q, ∇q))                                     (eq:foo)
 
 q - state (ρ, ρu, ρe)
-F_1 - First order (advective) flux of q
-F_2 - Second order (diffusive) flux of q
+F - flux of q,
+G - flux of q which also depends on ∇q
 S - source
+
+When we go to DG, (eq:foo) becomes (cell-wise integral):
+
+∫ ϕ ⋅ ∂ₜ q dx = ∫ ϕ ⋅ S(q) dx + ∫ ∇ϕ ⋅ F(q) dx - ∮ ϕ ⋅ H₁(q) ds
+                + ∫ ∇ϕ ⋅ G(q) dx - ∮ ϕ ⋅ H₂(q, σ) ds,             ∀ ϕ,    (eq:DG-1)
+
+∫ ϕ ⋅ σ dx    = -∫ ∇ϕ ⋅ g(q) dx + ∮ ϕ ⋅ H₃(g(q)) ds,              ∀ ϕ,    (eq:DG-2)
+
+where g is some simple map (coefficient scaling) and H₃ is the numerical flux
+for the auxiliary equation. (eq:DG-2) is introduced as an auxiliary variable
+for approximating σ = ∇q.
 """
+
 # Field Signature
 abstract type AbstractSignature end
 struct Signature{𝒮, 𝒯, 𝒰, 𝒱} <: AbstractSignature
@@ -103,55 +201,7 @@ struct Signature{𝒮, 𝒯, 𝒰, 𝒱} <: AbstractSignature
     model::𝒱
 end
 
-# What we want:
-"""
-∂t(Q)
-"""
-function ∂t(Q, ...)
-    return Tendency(Q, ...)
-end
 
-"""
-∂ₜ Q
-"""
-struct Tendency{L} <: AbstractTerm
-    label::L
-    ...
-    ...
-    function Tendency(Q, ...)
-        ...
-    end
-end
-
-function S(Q,...)
-    return SourceTerm(...)
-end
-
-"""
-S(q)
-
-In DG, we only need volume integrals:
-
-ϕS(q)*dx
-
-"""
-struct SourceTerm <: AbstractTerm
-    label
-    evaluation::Function
-    ...
-    function SourceTerm(...)
-        ...
-    end
-end
-
-struct GravitySource <: SourceTerm
-    foo
-    bar
-end
-
-function GravitySource(...)
-    return GravitySource(foo=..., bar=...)
-end
 
 """
 ∇⋅(F_1(q))
