@@ -180,7 +180,6 @@ function main()
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
-        #user_callbacks = (),
         check_euclidean_distance = true,
     )
 end
