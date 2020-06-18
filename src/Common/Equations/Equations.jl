@@ -24,15 +24,17 @@ abstract type Terminal <: AbstractExpression end
 # Different types of `Terminal` quantities
 # PrognosticQuantity like the state is a terminal quantity.
 # What other things could be terminal quantities?
-"""
-Momentum, density, total energy, etc.
-"""
-abstract type PrognosticQuantity <: Terminal end
 
 """
 Q = (Momentum, density, total energy, etc.)
 """
-abstract type MixedPrognosticQuantity <: Terminal end
+abstract type PrognosticQuantity <: Terminal end
+
+"""
+pressure/ Exner function, potential temp / temp.
+vorticity, PV, etc.
+"""
+abstract type DiagnosticQuantity <: Terminal end
 
 # What do we do about arbitrary tracers?
 # People want to be able to look at individual equations
@@ -56,6 +58,8 @@ face AND volume integrals for the DifferentialOperator:
 ϕ ∇⋅(F_1(q)) * dx = -∇ϕ F_1 * dx + ϕ H_1(q) * ds
 """
 abstract type DifferentialOperator <: Operator end
+
+abstract type VerticalIntegralOperator <: Operator end
 
 struct Divergence{T <: AbstractExpression} <: Operator
     operand::T
@@ -140,7 +144,7 @@ Allows us to write:
 
 ∂ₜ(Q) === S(q) - ∇⋅(F(q)) - ∇⋅(G(q, ∇q))
 
-in code and immediate construct the `AtmosBalanceLaw`.
+in code and immediate construct the `BalanceLaw`.
 
 """
 Base.:(===)(tendency::Tendency, terms::AbstractExpression) = BalanceLaw(tendency, terms)
@@ -170,6 +174,10 @@ function get_terms!(expr::Terminal, terms, term_type)
     return terms
 end
 
+∂ₜ q === S(q) - ∇⋅(F(q); rate=...) - ∇⋅(G(q, ∇q); rate=...)
+
+function linearization(tendency) end
+
 """
 Sample equation:
 
@@ -189,8 +197,11 @@ When we go to DG, (eq:foo) becomes (cell-wise integral):
 
 where g is some simple map (coefficient scaling) and H₃ is the numerical flux
 for the auxiliary equation. (eq:DG-2) is introduced as an auxiliary variable
-for approximating σ = ∇q.
+for approximating σ = g(∇q).
 """
+
+
+
 
 # Field Signature
 abstract type AbstractSignature end
