@@ -39,7 +39,7 @@ using NLsolve
 
 using ..Thermodynamics
 using DocStringExtensions
-using CLIMAParameters: AbstractParameterSet
+using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Planet: molmass_ratio, grav
 using CLIMAParameters.SubgridScale: von_karman_const
 
@@ -101,7 +101,7 @@ If `pottemp_flux` is not given, then it is computed by iteration
 of equations 3, 17, and 18 in Nishizawa2018.
 """
 function surface_conditions(
-    param_set::AbstractParameterSet,
+    param_set::AbstractEarthParameterSet,
     x_initial::Vector{FT},
     x_ave::Vector{FT},
     x_s::Vector{FT},
@@ -114,7 +114,7 @@ function surface_conditions(
     z::FT,
     a::FT,
     pottemp_flux_given::Union{Nothing, FT} = nothing,
-) where {FT <: AbstractFloat, AbstractParameterSet}
+) where {FT <: AbstractFloat, AbstractEarthParameterSet}
 
     n_vars = length(x_initial) - 1
     @assert length(x_initial) == n_vars + 1
@@ -131,7 +131,7 @@ function surface_conditions(
             pottemp_flux =
                 pottemp_flux_given == nothing ? -u * θ : pottemp_flux_given
             moisture_flux = -u * qt
-            flux = pottemp_flux + θ * moisture_flux
+            flux = pottemp_flux + θ_bar * moisture_flux
             F[1] = L_MO - monin_obukhov_length(param_set, u, θ_bar, qt, flux)
             for i in 1:n_vars
                 ϕ = x_vec[i]
@@ -145,7 +145,7 @@ function surface_conditions(
                         a,
                         θ_bar,
                         qt_bar,
-                        pottemp_flux,
+                        flux,
                         z_0[i],
                         x_ave[i],
                         x_s[i],
@@ -177,6 +177,7 @@ function surface_conditions(
         a,
         x_star,
         θ_bar,
+        qt_bar,
         dimensionless_number,
         L_MO,
     )
@@ -192,14 +193,14 @@ end
 
 
 function compute_physical_scale(
-    param_set::AbstractParameterSet,
+    param_set::AbstractEarthParameterSet,
     x,
     u,
     Δz,
     a,
     θ_bar,
     qt_bar,
-    pottemp_flux,
+    flux,
     z_0,
     x_ave,
     x_s,
@@ -208,7 +209,7 @@ function compute_physical_scale(
 )
     FT = typeof(u)
     _von_karman_const::FT = 0.4 # von_karman_const(param_set)
-    L = monin_obukhov_length(param_set, u, θ_bar, qt_bar, pottemp_flux)
+    L = monin_obukhov_length(param_set, u, θ_bar, qt_bar, flux)
     R_z0 = compute_R_z0(z_0, Δz)
     temp1 = log(Δz / z_0)
     temp2 = -compute_Psi(Δz / L, L, a, dimensionless_number, transport)
@@ -272,7 +273,7 @@ end
 
 Monin-Obukhov length. Eq. 3
 """
-function monin_obukhov_len(param_set::AbstractParameterSet, u, θ_bar, flux)
+function monin_obukhov_len(param_set::AbstractEarthParameterSet, u, θ_bar, flux)
     FT = typeof(u)
     _grav::FT = grav(param_set)
     _von_karman_const::FT = 0.4 #von_karman_const(param_set)
@@ -284,7 +285,7 @@ end
 
 Monin-Obukhov length. Eq. 3
 """
-function monin_obukhov_length(param_set::AbstractParameterSet, u, θ_bar, qt, flux)
+function monin_obukhov_length(param_set::AbstractEarthParameterSet, u, θ_bar, qt, flux)
     FT = typeof(u)
     _grav::FT = 9.81 #grav(param_set)
     _von_karman_const::FT = 0.4 #von_karman_const(param_set)
@@ -292,7 +293,7 @@ function monin_obukhov_length(param_set::AbstractParameterSet, u, θ_bar, qt, fl
 end
 
 """
-    compute_exchange_coefficients(z, F_exchange, a, x_star, θ_bar, dimensionless_number, L_MO)
+    compute_exchange_coefficients(z, F_exchange, a, x_star, θ_bar, qt_bar, dimensionless_number, L_MO)
 
 Computes exchange transfer coefficients
 
@@ -305,6 +306,7 @@ function compute_exchange_coefficients(
     a,
     x_star,
     θ_bar,
+    qt_bar,
     dimensionless_number,
     L_MO,
 )

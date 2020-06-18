@@ -1,8 +1,8 @@
 using Pkg.Artifacts
-using ClimateMachine.ArtifactWrappers
 using Test
 using ClimateMachine
-using CLIMAParameters
+using ClimateMachine.ArtifactWrappers
+using CLIMAParameters: AbstractEarthParameterSet
 using ClimateMachine.SurfaceFluxes
 
 using NCDatasets
@@ -23,7 +23,7 @@ bomex_dataset_path = get_data_folder(dataset)
 
 
 @testset "SurfaceFluxes - Bomex" begin
-    FT = Float64;
+    FT = Float32;
     data = NCDataset(joinpath(bomex_dataset_path, "BOMEX_surface_fluxes_data_6shrs.nc"))
     # Data at first interior node (x_ave)
     qt_ave = data["qt"][:][2];
@@ -34,7 +34,7 @@ bomex_dataset_path = get_data_folder(dataset)
 
     # Initial guesses for MO parameters
     LMO_init = FT(100);
-    u_star_init = FT(0.3);
+    u_star_init = FT(0.6);
     th_star_init = FT(290);
     qt_star_init = FT(1e-5);
     x_init = [LMO_init, u_star_init, th_star_init, qt_star_init];
@@ -75,5 +75,6 @@ bomex_dataset_path = get_data_folder(dataset)
                 nothing
              );
 
+    @show result
 
 end
