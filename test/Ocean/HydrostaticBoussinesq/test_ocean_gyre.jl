@@ -136,7 +136,7 @@ end
 
 @testset "$(@__FILE__)" begin
 
-    include("test_ocean_gyre_refvals.jl")
+    include("../refvals/test_ocean_gyre_refvals.jl")
 
     nt = 1
     boundary_conditions = [

@@ -40,7 +40,8 @@ cpu_gpu = [
   { file = "test/Numerics/SystemSolvers/bandedsystem.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Numerics/Mesh/interpolation.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Ocean/ShallowWater/GyreDriver.jl", slurmargs = ["--ntasks=1"], args = [] },
-  { file = "experiments/OceanBoxGCM/hydrostatic_spindown.jl", slurmargs = ["--ntasks=3"], args = [] },
+  { file = "test/Ocean/ShallowWater/2D_hydrostatic_spindown.jl", slurmargs = ["--ntasks=1"], args = [] },
+  { file = "test/Ocean/HydrostaticBoussinesq/3D_hydrostatic_spindown.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "tutorials/Numerics/DGMethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
 

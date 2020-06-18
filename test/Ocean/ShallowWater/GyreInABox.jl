@@ -30,7 +30,7 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-struct GyreInABox{T} <: SWProblem
+struct GyreInABox{T} <: ShallowWaterProblem
     τₒ::T
     fₒ::T # value includes τₒ, g, and ρ
     β::T
@@ -58,8 +58,8 @@ u_lsw(x, y, t) = 2^(-0.5) * sin(π * x) * cos(π * y) * sin(√2 * π * t)
 v_lsw(x, y, t) = 2^(-0.5) * cos(π * x) * sin(π * y) * sin(√2 * π * t)
 
 function lsw_init_state!(
+    m::ShallowWaterModel,
     p::GyreInABox,
-    ::TurbulenceClosure,
     state,
     aux,
     coords,
@@ -81,8 +81,8 @@ u_lkw(x, y, t) = exp(-0.5 * y^2) * exp(-0.5 * (x - t + 5)^2)
 η_lkw(x, y, t) = 1 + u_lkw(x, y, t)
 
 function lkw_init_state!(
+    m::ShallowWaterModel,
     p::GyreInABox,
-    ::TurbulenceClosure,
     state,
     aux,
     coords,
