@@ -1,4 +1,6 @@
 """
+    GenericCallbacks
+
 A set of callback functions to be used with an `AbstractODESolver`
 """
 module GenericCallbacks

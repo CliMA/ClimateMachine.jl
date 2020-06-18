@@ -1,5 +1,5 @@
 export StrongStabilityPreservingRungeKutta
-export SSPRK33ShuOsher, SSPRK34SpiteriRuuth
+export SSPRK22Heuns, SSPRK22Ralstons, SSPRK33ShuOsher, SSPRK34SpiteriRuuth
 
 """
     StrongStabilityPreservingRungeKutta(f, RKA, RKB, RKC, Q; dt, t0 = 0)
@@ -147,6 +147,103 @@ end
             slow_dQ[i] *= slow_scaling
         end
     end
+end
+
+"""
+    SSPRK22Heuns(f, Q; dt, t0 = 0)
+
+This function returns a [`StrongStabilityPreservingRungeKutta`](@ref) time stepping object
+for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This uses the second-order, 2-stage, strong-stability-preserving, Runge--Kutta scheme
+of Shu and Osher (1988) (also known as Heun's method.)
+Exact choice of coefficients from wikipedia page for Heun's method :)
+
+### References
+    @article{shu1988efficient,
+      title={Efficient implementation of essentially non-oscillatory shock-capturing schemes},
+      author={Shu, Chi-Wang and Osher, Stanley},
+      journal={Journal of computational physics},
+      volume={77},
+      number={2},
+      pages={439--471},
+      year={1988},
+      publisher={Elsevier}
+    }
+    @article {Heun1900,
+       title = {Neue Methoden zur approximativen Integration der
+       Differentialgleichungen einer unabh\"{a}ngigen Ver\"{a}nderlichen}
+       author = {Heun, Karl},
+       journal = {Z. Math. Phys},
+       volume = {45},
+       pages = {23--38},
+       year = {1900}
+    }
+"""
+function SSPRK22Heuns(F, Q::AT; dt = 0, t0 = 0) where {AT <: AbstractArray}
+    T = eltype(Q)
+    RT = real(T)
+    RKA = [RT(1) RT(0); RT(1 // 2) RT(1 // 2)]
+    RKB = [RT(1), RT(1 // 2)]
+    RKC = [RT(0), RT(1)]
+    StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
+end
+
+"""
+    SSPRK22Ralstons(f, Q; dt, t0 = 0)
+
+This function returns a [`StrongStabilityPreservingRungeKutta`](@ref) time stepping object
+for explicitly time stepping the differential
+equation given by the right-hand-side function `f` with the state `Q`, i.e.,
+
+```math
+  \\dot{Q} = f(Q, t)
+```
+
+with the required time step size `dt` and optional initial time `t0`.  This
+time stepping object is intended to be passed to the `solve!` command.
+
+This uses the second-order, 2-stage, strong-stability-preserving, Runge--Kutta scheme
+of Shu and Osher (1988) (also known as Ralstons's method.)
+Exact choice of coefficients from wikipedia page for Heun's method :)
+
+### References
+    @article{shu1988efficient,
+      title={Efficient implementation of essentially non-oscillatory shock-capturing schemes},
+      author={Shu, Chi-Wang and Osher, Stanley},
+      journal={Journal of computational physics},
+      volume={77},
+      number={2},
+      pages={439--471},
+      year={1988},
+      publisher={Elsevier}
+    }
+    @article{ralston1962runge,
+      title={Runge-Kutta methods with minimum error bounds},
+      author={Ralston, Anthony},
+      journal={Mathematics of computation},
+      volume={16},
+      number={80},
+      pages={431--437},
+      year={1962},
+      doi={10.1090/S0025-5718-1962-0150954-0}
+    }
+"""
+function SSPRK22Ralstons(F, Q::AT; dt = 0, t0 = 0) where {AT <: AbstractArray}
+    T = eltype(Q)
+    RT = real(T)
+    RKA = [RT(1) RT(0); RT(5 // 8) RT(3 // 8)]
+    RKB = [RT(2 // 3), RT(3 // 4)]
+    RKC = [RT(0), RT(2 // 3)]
+    StrongStabilityPreservingRungeKutta(F, RKA, RKB, RKC, Q; dt = dt, t0 = t0)
 end
 
 """

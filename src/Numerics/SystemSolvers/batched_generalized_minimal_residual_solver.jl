@@ -2,7 +2,6 @@
 
 export BatchedGeneralizedMinimalResidual
 
-# struct
 """
     BatchedGeneralizedMinimalResidual
 
@@ -12,24 +11,24 @@ Launches n independent GMRES solves
 
 # Members
 
-- atol::FT (float) absolute tolerance
-- rtol::FT (float) relative tolerance
-- m::IT (int) size of vector in each independent instance
-- n::IT (int) number of independent GMRES
-- k_n::IT (int) Krylov Dimension for each GMRES. It is also the number of GMRES iterations before nuking the subspace
-- residual::VT (vector) residual values for each independent linear solve
-- b::VT (vector) permutation of the rhs. probably can be removed if memory is an issue
-- x::VT (vector) permutation of the initial guess. probably can be removed if memory is an issue
-- sol::VT (vector) solution vector, it is used twice. First to represent Aqⁿ (the latest Krylov vector without being normalized), the second to represent the solution to the linear system
-- rhs::VT (vector) rhs vector.
-- cs::VT (vector) Sequence of Gibbs Rotation matrices in compact form. This is implicitly the Qᵀ of the QR factorization of the upper hessenberg matrix H.
-- H::VT (vector) The latest column of the Upper Hessenberg Matrix. The previous columns are discarded since they are unnecessary
-- Q::AT (array) Orthonormalized Krylov Subspace
-- R::AT (array) The R of the QR factorization of the UpperHessenberg matrix H. A factor of  or so in memory can be saved here
-- reshape_tuple_f::TT1 (tuple), reshapes structure of array that plays nice with the linear operator to a format compatible with struct
-- permute_tuple_f::TT1 (tuple). forward permute tuple. permutes structure of array that plays nice with the linear operator to a format compatible with struct
-- reshape_tuple_b::TT2 (tuple). reshapes structure of array that plays nice with struct to play nice with the linear operator
-- permute_tuple_b::TT2 (tuple). backward permute tuple. permutes structure of array that plays nice with struct to play nice with the linear operator
+- `atol::FT` (float) absolute tolerance
+- `rtol::FT` (float) relative tolerance
+- `m::IT` (int) size of vector in each independent instance
+- `n::IT` (int) number of independent GMRES
+- `k_n::IT` (int) Krylov Dimension for each GMRES. It is also the number of GMRES iterations before nuking the subspace
+- `residual::VT` (vector) residual values for each independent linear solve
+- `b::VT` (vector) permutation of the rhs. probably can be removed if memory is an issue
+- `x::VT` (vector) permutation of the initial guess. probably can be removed if memory is an issue
+- `sol::VT` (vector) solution vector, it is used twice. First to represent Aqⁿ (the latest Krylov vector without being normalized), the second to represent the solution to the linear system
+- `rhs::VT` (vector) rhs vector.
+- `cs::VT` (vector) Sequence of Gibbs Rotation matrices in compact form. This is implicitly the Qᵀ of the QR factorization of the upper hessenberg matrix H.
+- `H::VT` (vector) The latest column of the Upper Hessenberg Matrix. The previous columns are discarded since they are unnecessary
+- `Q::AT` (array) Orthonormalized Krylov Subspace
+- `R::AT` (array) The R of the QR factorization of the UpperHessenberg matrix H. A factor of  or so in memory can be saved here
+- `reshape_tuple_f::TT1` (tuple), reshapes structure of array that plays nice with the linear operator to a format compatible with struct
+- `permute_tuple_f::TT1` (tuple). forward permute tuple. permutes structure of array that plays nice with the linear operator to a format compatible with struct
+- `reshape_tuple_b::TT2` (tuple). reshapes structure of array that plays nice with struct to play nice with the linear operator
+- `permute_tuple_b::TT2` (tuple). backward permute tuple. permutes structure of array that plays nice with struct to play nice with the linear operator
 
 # Intended Use
 Solving n linear systems iteratively
@@ -99,22 +98,22 @@ Adapt.adapt_structure(to, x::BatchedGeneralizedMinimalResidual) =
     )
 
 # Description
-Generic constructor for BatchedGeneralizedMinimalResidual
+Generic constructor for `BatchedGeneralizedMinimalResidual`
 
 # Arguments
-- `Qrhs`: (array) Array structure that linear_operator! acts on
+- `Qrhs`: (array) Array structure that `linear_operator!` acts on
 
 # Keyword Arguments
-- `m`: (int) size of vector space for each independent linear solve. This is assumed to be the same for each and every linear solve. DEFAULT = size(Qrhs)[1]
-- `n`: (int) number of independent linear solves, DEFAULT = size(Qrhs)[end]
-- `atol`: (float) absolute tolerance. DEFAULT = sqrt(eps(eltype(Qrhs)))
-- `rtol`: (float) relative tolerance. DEFAULT = sqrt(eps(eltype(Qrhs)))
-- `ArrayType`: (type). used for either using CuArrays or Arrays. DEFAULT = Array
-- `reshape_tuple_f`: (tuple). used in the wrapper function for flexibility. DEFAULT = size(Qrhs). this means don't do anything
-- `permute_tuple_f`: (tuple). used in the wrapper function for flexibility. DEFAULT = Tuple(1:length(size(Qrhs))). this means, don't do anything.
+- `m`: (int) size of vector space for each independent linear solve. This is assumed to be the same for each and every linear solve. `DEFAULT = size(Qrhs)[1]`
+- `n`: (int) number of independent linear solves, `DEFAULT = size(Qrhs)[end]`
+- `atol`: (float) absolute tolerance. `DEFAULT = sqrt(eps(eltype(Qrhs)))`
+- `rtol`: (float) relative tolerance. `DEFAULT = sqrt(eps(eltype(Qrhs)))`
+- `ArrayType`: (type). used for either using CuArrays or Arrays. `DEFAULT = Array`
+- `reshape_tuple_f`: (tuple). used in the wrapper function for flexibility. `DEFAULT = size(Qrhs)`. this means don't do anything
+- `permute_tuple_f`: (tuple). used in the wrapper function for flexibility. `DEFAULT = Tuple(1:length(size(Qrhs)))`. this means, don't do anything.
 
 # Return
-instance of BatchedGeneralizedMinimalResidual struct
+instance of `BatchedGeneralizedMinimalResidual` struct
 """
 function BatchedGeneralizedMinimalResidual(
     Qrhs;
@@ -176,8 +175,8 @@ end
     )
 
 # Description
-Specialized constructor for BatchedGeneralizedMinimalResidual struct, using
-a `DGModel` to infer state-information and determine appropraite reshaping
+Specialized constructor for `BatchedGeneralizedMinimalResidual` struct, using
+a `DGModel` to infer state-information and determine appropriate reshaping
 and permutations.
 
 # Arguments
@@ -186,16 +185,16 @@ and permutations.
 - `Q` : (MPIStateArray) An `MPIStateArray` containing field information.
 
 # Keyword Arguments
-- `atol`: (float) absolute tolerance. DEFAULT = sqrt(eps(eltype(Q)))
-- `rtol`: (float) relative tolerance. DEFAULT = sqrt(eps(eltype(Q)))
+- `atol`: (float) absolute tolerance. `DEFAULT = sqrt(eps(eltype(Q)))`
+- `rtol`: (float) relative tolerance. `DEFAULT = sqrt(eps(eltype(Q)))`
 - `max_subspace_size` : (Int).    Maximal dimension of each (batched)
                                   Krylov subspace. DEFAULT = nothing
 - `independent_states`: (boolean) An optional flag indicating whether
                                   or not degrees of freedom are coupled
                                   internally (within a column).
-                                  DEFAULT = false
+                                  `DEFAULT = false`
 # Return
-instance of BatchedGeneralizedMinimalResidual struct
+instance of `BatchedGeneralizedMinimalResidual` struct
 """
 function BatchedGeneralizedMinimalResidual(
     dg::DGModel,

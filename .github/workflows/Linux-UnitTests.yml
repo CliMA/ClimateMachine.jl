@@ -1,0 +1,43 @@
+name: Unit Tests
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+          test-modules: ["Arrays,Atmos,Common,Diagnostics,Driver,InputOutput,Utilities",
+                         "Numerics/DGMethods",
+                         "Numerics/Mesh",
+                         "Numerics/ODESolvers",
+                         "Numerics/SystemSolvers",
+                         "Ocean"]
+
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout
+      uses: actions/checkout@v2.2.0
+
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v1.1.6
+      with:
+        version: 1.4
+
+    - name: Install Project Packages
+      run: |
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+        julia --project=@. -e 'using Pkg; Pkg.precompile()'
+
+    - name: Run Unit Tests
+      env:
+        TEST_MODULES: ${{ matrix.test-modules }}
+      run: |
+        julia --project=@. -e 'using Pkg; Pkg.test(test_args=map(String, split(ENV["TEST_MODULES"], ",")))'

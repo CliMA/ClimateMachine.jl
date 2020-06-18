@@ -4,7 +4,7 @@ This document is currently for collaborators within the project with
 access to the Overleaf CliMA-Atmos docs. The purpose of this page is to
 unify the naming conventions used in the Overleaf document in a manner
 useful for coding. This document suggests 'reserved' variable names in
-<property>_<species> format with the default working fluid (no-subscript)
+`<property>_<species>` format with the default working fluid (no-subscript)
 being moist air. Contributors to the CliMA repository are welcome to
 suggest changes when necessary.
 
@@ -14,7 +14,7 @@ The Julia code typically uses `T` as a type parameter, however this
 conflicts with the typical usage for temperature. Instead, good choices are:
 - `FT` for floating point values
 
-### Names reserved for 'use and throw' / debug variables
+### Names reserved for debug variables
 ```
 dummy
 scratch

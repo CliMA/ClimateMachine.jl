@@ -1,0 +1,43 @@
+name: OS Unit Tests
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+
+jobs:
+  test-os:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout
+      uses: actions/checkout@v2.2.0
+
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v1.1.6
+      with:
+        version: 1.4
+
+    - name: Install Project Packages
+      run: |
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+
+    - name: Build System Image
+      run: |
+        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
+
+    - name: Run Unit Tests
+      run: |
+        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'

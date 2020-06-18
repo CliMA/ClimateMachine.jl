@@ -38,6 +38,7 @@ struct DriverConfiguration{FT}
     solver_type::AbstractSolverType
     #
     # Model details
+    param_set::AbstractParameterSet
     bl::BalanceLaw
     #
     # execution details
@@ -61,6 +62,7 @@ struct DriverConfiguration{FT}
         FT,
         array_type,
         solver_type::AbstractSolverType,
+        param_set::AbstractParameterSet,
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
         grid::DiscontinuousSpectralElementGrid,
@@ -75,6 +77,7 @@ struct DriverConfiguration{FT}
             N,
             array_type,
             solver_type,
+            param_set,
             bl,
             mpicomm,
             grid,
@@ -183,6 +186,7 @@ Establishing Atmos LES configuration for %s
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,
@@ -262,6 +266,7 @@ Establishing Atmos GCM configuration for %s
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,
@@ -276,6 +281,7 @@ function OceanBoxGCMConfiguration(
     name::String,
     N::Int,
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
+    param_set::AbstractParameterSet,
     model::HydrostaticBoussinesqModel;
     FT = Float64,
     array_type = ClimateMachine.array_type(),
@@ -317,6 +323,7 @@ function OceanBoxGCMConfiguration(
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,
@@ -375,7 +382,8 @@ function SingleStackConfiguration(
 Establishing single stack configuration for %s
     precision        = %s
     polynomial order = %d
-    domain           = %.2f m x%.2f m x%.2f m
+    domain_min       = %.2f m x%.2f m x%.2f m
+    domain_max       = %.2f m x%.2f m x%.2f m
     #vert elems      = %d
     MPI ranks        = %d
     min(Δ_horz)      = %.2f m
@@ -383,6 +391,9 @@ Establishing single stack configuration for %s
         name,
         FT,
         N,
+        xmin,
+        ymin,
+        zmin,
         xmax,
         ymax,
         zmax,
@@ -399,6 +410,7 @@ Establishing single stack configuration for %s
         FT,
         array_type,
         solver_type,
+        param_set,
         model,
         mpicomm,
         grid,

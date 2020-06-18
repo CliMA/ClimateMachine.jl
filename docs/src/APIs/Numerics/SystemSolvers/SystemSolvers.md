@@ -16,11 +16,24 @@ GeneralizedConjugateResidual
 GeneralizedMinimalResidual
 ```
 
+## Batched Generalized Minimal Residual Method
+
+```@docs
+BatchedGeneralizedMinimalResidual
+```
+
 ## Conjugate Gradient Solver Method
 ```@docs
 ConjugateGradient
 initialize!
 doiteration!
+```
+
+## LU Decomposition
+
+```@docs
+ManyColumnLU
+SingleColumnLU
 ```
 
 ## Shared components

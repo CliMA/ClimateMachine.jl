@@ -1,14 +1,14 @@
 # # State debug statistics
 #
-# This page shows how to use the ```StateCheck``` functions to get basic
-# statistics for nodal values of fields held in ClimateMachine ```MPIStateArray```
-# data structures. The ```StateCheck``` functions can be used to
+# This page shows how to use the `StateCheck` functions to get basic
+# statistics for nodal values of fields held in ClimateMachine `MPIStateArray`
+# data structures. The `StateCheck` functions can be used to
 #
-# 1. Generate statistics on ```MPIStateArray``` holding the state #    of a ClimateMachine experiment.
-# 
+# 1. Generate statistics on `MPIStateArray` holding the state of a ClimateMachine experiment.
+#
 #    and to
 #
-# 2. Compare against saved reference statistics from ClimateMachine ```MPIStateArray```
+# 2. Compare against saved reference statistics from ClimateMachine `MPIStateArray`
 #    variables. This can enable simple automated regression test checks for
 #    detecting unexpected changes introduced into numerical experiments
 #    by code updates.
@@ -22,18 +22,18 @@
 # set of the MPIStateArray type variables of the sort that hold persistent state for
 # ClimateMachine models. We then invoke the call back to show the statistics.
 #
-# In regular use the ```MPIStateArray``` variables will come from model configurations.
-# Here we create a dummy set of ```MPIStateArray``` variables for use in stand alone
+# In regular use the `MPIStateArray` variables will come from model configurations.
+# Here we create a dummy set of `MPIStateArray` variables for use in stand alone
 # examples.
 
 # ### Create a dummy set of MPIStateArrays
 #
-# First we set up two ```MPIStateArray``` variables. This need a few packages to be in placeT,
+# First we set up two `MPIStateArray` variables. This need a few packages to be in placeT,
 # and utilizes some utility functions to create the array and add named
 # persistent state variables.
-# This is usually handled automatically as part of model deefinition in regular
+# This is usually handled automatically as part of model definition in regular
 # ClimateMachine activity.
-# Calling ```ClimateMachine.init()``` includes initializing GPU CUDA and MPI parallel
+# Calling `ClimateMachine.init()` includes initializing GPU CUDA and MPI parallel
 # processing options that match the hardware/software system in use.
 
 # Set up a basic environment
@@ -59,7 +59,7 @@ F2 = @vars begin
 end
 nothing # hide
 
-# Create ```MPIStateArray``` variables with arrays to hold elements of the 
+# Create `MPIStateArray` variables with arrays to hold elements of the
 # vectors and tensors
 Q1 = MPIStateArray{Float32, F1}(
     MPI.COMM_WORLD,
@@ -79,9 +79,9 @@ nothing # hide
 
 # ### Create a call-back
 #
-# Now we can create a ```StateCheck``` call-back, _cb_, tied to the ```MPIStateArray```
-# variables _Q1_ and _Q2_. Each ```MPIStateArray``` in the array
-# of ```MPIStateArray``` variables tracked is paired with a label
+# Now we can create a `StateCheck` call-back, _cb_, tied to the `MPIStateArray`
+# variables _Q1_ and _Q2_. Each `MPIStateArray` in the array
+# of `MPIStateArray` variables tracked is paired with a label
 # to identify it. The call-back is also given a frequency (in time step numbers) and
 # precision for printing summary tables.
 cb = ClimateMachine.StateCheck.sccreate(
@@ -93,13 +93,13 @@ nothing # hide
 
 # ### Invoke the call-back
 #
-# The call-back is of type ```ClimateMachine.GenericCallbacks.EveryXSimulationSteps```
-# and in regular use is designed to be passed to a ClimateMachine timestepping 
+# The call-back is of type `ClimateMachine.GenericCallbacks.EveryXSimulationSteps`
+# and in regular use is designed to be passed to a ClimateMachine timestepping
 # solver e.g.
 typeof(cb)
 
 # Here, for demonstration purposes, we can invoke
-# the call-back after simply initializing the ```MPIStateArray``` fields to a random
+# the call-back after simply initializing the `MPIStateArray` fields to a random
 # set of values e.g.
 Q1.data .= rand(MersenneTwister(0), Float32, size(Q1.data))
 Q2.data .= rand(MersenneTwister(0), Float64, size(Q2.data))
@@ -120,10 +120,10 @@ ClimateMachine.StateCheck.scprintref(cb)
 
 # **Step 2.** Next the array setting program code is executed (see below). At this stage the _parr[]_ array
 # context may be hand edited. The parr[] array sets a target number of decimal places for
-# matching against refence values in _varr[]_. For different experiments and different fields
-# the degree of precision that constitutes failig a regression test may vary. Choosing the
+# matching against reference values in _varr[]_. For different experiments and different fields
+# the degree of precision that constitutes failing a regression test may vary. Choosing the
 # _parr[]_ values requires some sense as to the stability of the particular numerical
-# and physical scenario an experiment represents. In the example below some precision 
+# and physical scenario an experiment represents. In the example below some precision
 # settings have been hand edited from the default of 16 to illustrate the process.
 
 #! format: off
@@ -157,20 +157,20 @@ parr = [
 ]
 #! format: on
 
-# **Step 3.** Finally a call-back stored value can be compared for consistency to with _parr[]_ decimal places 
+# **Step 3.** Finally a call-back stored value can be compared for consistency to with _parr[]_ decimal places
 
 ClimateMachine.StateCheck.scdocheck(cb, (varr, parr))
 nothing # hide
 
 # In this trivial case the match is guaranteed. The function will return _true_ to the calling
-# routine and this can be passed to an ```@test``` block.
+# routine and this can be passed to an `@test` block.
 #
-# However we can modify the refernce test values to
+# However we can modify the reference test values to
 # see the effect of a mismatch e.g.
 varr[1][3] = varr[1][3] * 10.0
 ClimateMachine.StateCheck.scdocheck(cb, (varr, parr))
 nothing # hide
 
 # Here the mis-matching field is highlighted with _N(0)_ indicating that the precision
-# was not met and actual match length was (in this case) 0. If any field fails the test returns false 
-# for use in any egression testing control logic.
+# was not met and actual match length was (in this case) 0. If any field fails the test returns false
+# for use in any regression testing control logic.

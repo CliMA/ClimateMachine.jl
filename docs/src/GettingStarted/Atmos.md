@@ -7,7 +7,7 @@ below. In this implementation of the `AtmosModel` we concern ourselves
 with the conservative form of the compressible equations of moist fluid
 motion given a set of initial, boundary and forcing(source) conditions.
 
-### [LES Configuration](@id LESConfig) (with defaults)
+### LES Configuration (with defaults)
 Default field values for the LES `AtmosModel` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.
@@ -36,7 +36,7 @@ possible options for each subcomponent.
     whether the problem is solved in a `box (LES)` or a `sphere (GCM)`)
 
 
-### [GCM Configuration](@id GCMConfig)(with defaults)
+### GCM Configuration (with defaults)
 Default field values for the GCM `AtmosModel` definition are included
 below. Users are directed to the model subcomponent pages to view the
 possible options for each subcomponent.

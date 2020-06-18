@@ -1,3 +1,5 @@
+using StaticNumbers
+
 """
     RemainderModel(main::BalanceLaw, subcomponents::Tuple)
 
@@ -99,9 +101,21 @@ compute_gradient_flux!(
 ) = compute_gradient_flux!(rem.main, diffusive, ∇transform, state, aux, t)
 
 function wavespeed(rem::RemainderModel, nM, state::Vars, aux::Vars, t::Real)
-    ref = aux.ref_state
-    return wavespeed(rem.main, nM, state, aux, t) -
-           sum(sub -> wavespeed(sub, nM, state, aux, t), rem.subs)
+    FT = eltype(state)
+
+    ws = fill(0, MVector{number_state_conservative(rem.main, FT), FT})
+    rs = fill(0, MVector{number_state_conservative(rem.main, FT), FT})
+
+    ws .= wavespeed(rem.main, nM, state, aux, t)
+
+    for sub in rem.subs
+        num_state = static(number_state_conservative(sub, Float32))
+        @inbounds rs[static(1):num_state] .+= wavespeed(sub, nM, state, aux, t)
+    end
+
+    ws .-= rs
+
+    return ws
 end
 
 boundary_state!(nf, rem::RemainderModel, x...) =

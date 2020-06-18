@@ -25,6 +25,11 @@ function (op::EulerOperator)(LQ, Q, args...)
     @. LQ = Q + op.ϵ * LQ
 end
 
+"""
+    AbstractBackwardEulerSolver
+
+An abstract backward Euler method
+"""
 abstract type AbstractBackwardEulerSolver end
 
 """

@@ -40,7 +40,7 @@
 
 # # Preliminary configuration
 
-# ## Loading code
+# ## [Loading code](@id Loading-code-heat)
 
 # First, we'll load our pre-requisites:
 #  - load external packages:
@@ -129,9 +129,10 @@ m = HeatModel{FT}();
 
 # ## Define the variables
 
-# All of the methods defined in this section were `import`ed in # [Loading
-# code](@ref) to let us provide implementations for our `HeatModel` as they
-# will be used by the solver.
+# All of the methods defined in this section were `import`ed in
+# [Loading code](@ref Loading-code-heat) to let us provide
+# implementations for our `HeatModel` as they will be used by
+# the solver.
 
 # Specify auxiliary variables for `HeatModel`
 vars_state_auxiliary(::HeatModel, FT) = @vars(z::FT, T::FT);
@@ -436,7 +437,7 @@ end;
 
 # This is the main `ClimateMachine` solver invocation. While users do not have
 # access to the time-stepping loop, code may be injected via `user_callbacks`,
-# which is a `Tuple` of [`GenericCallbacks`](@ref).
+# which is a `Tuple` of callbacks in [`GenericCallbacks`](@ref ClimateMachine.GenericCallbacks).
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # # Post-processing

@@ -1,4 +1,4 @@
-export SimpleBoxProblem, HomogeneousBox, OceanGyre
+export SimpleBoxProblem, SimpleBox, HomogeneousBox, OceanGyre
 
 ############################
 # Basic box problem        #
@@ -23,7 +23,10 @@ struct SimpleBox{T, BC} <: AbstractSimpleBoxProblem
         Lˣ, # m
         Lʸ, # m
         H;  # m
-        BC = OceanBC(Impenetrable(NoSlip()), Insulating()),
+        BC = (
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Penetrable(FreeSlip()), Insulating()),
+        ),
     ) where {FT <: AbstractFloat}
         return new{FT, typeof(BC)}(Lˣ, Lʸ, H, BC)
     end
@@ -48,6 +51,38 @@ function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
     A.w = 0
     A.pkin = 0
     A.wz0 = 0
+
+    return nothing
+end
+
+function ocean_init_state!(m::HBModel, p::SimpleBox, Q, A, coords, t)
+    @inbounds x = coords[1]
+    @inbounds y = coords[2]
+    @inbounds z = coords[3]
+
+    Lˣ = p.Lˣ
+    Lʸ = p.Lʸ
+    H = p.H
+
+    kˣ = 2π / Lˣ
+    kʸ = 2π / Lʸ
+    kᶻ = 2π / H
+
+    νʰ = m.νʰ
+    νᶻ = m.νᶻ
+
+    λ = νᶻ * kᶻ^2 + νʰ * kˣ^2
+
+    M = @SMatrix [-νʰ * kˣ^2 grav(m.param_set) * H * kˣ; -kˣ 0]
+    A = exp(M * t) * @SVector [1, 1]
+
+    u° = exp(-λ * t) * cos(kᶻ * z) * sin(kˣ * x)
+    U = A[1] * sin(kˣ * x)
+    u = u° + U / H
+
+    Q.u = @SVector [u, -0]
+    Q.η = A[2] * cos(kˣ * x)
+    Q.θ = -0
 
     return nothing
 end
@@ -101,7 +136,7 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `coords`: the coordidinates, not used
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(p::HomogeneousBox, Q, A, coords, t)
+function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
     Q.u = @SVector [rand(), rand()]
     Q.η = 0
     Q.θ = 20
@@ -174,7 +209,7 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `coords`: the coordidinates
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(p::OceanGyre, Q, A, coords, t)
+function ocean_init_state!(m::HBModel, p::OceanGyre, Q, A, coords, t)
     @inbounds y = coords[2]
     @inbounds z = coords[3]
     @inbounds H = p.H

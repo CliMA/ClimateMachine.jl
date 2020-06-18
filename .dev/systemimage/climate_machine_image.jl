@@ -21,6 +21,8 @@ climatemachine_pkg = get(ARGS, 2, "false") == "true"
 start_time = time()
 
 using Pkg
+Pkg.add("PackageCompiler")
+
 Pkg.activate(joinpath(@__DIR__, "..", ".."))
 Pkg.instantiate(verbose = true)
 
@@ -37,7 +39,6 @@ else
 end
 
 # use package compiler
-Pkg.add("PackageCompiler")
 using PackageCompiler
 PackageCompiler.create_sysimage(
     pkgs,

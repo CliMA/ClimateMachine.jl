@@ -1,10 +1,12 @@
 ####
-#### Defines list of tutorials given `generated_dir`
+#### Defines list of tutorials given `GENERATED_DIR`
 ####
 
-generate_tutorials = true
+generate_tutorials =
+    parse(Bool, get(ENV, "CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS", "true"))
 
 tutorials = []
+
 
 # Allow flag to skip generated
 # tutorials since this is by
@@ -13,22 +15,13 @@ tutorials = []
 if generate_tutorials
 
     # generate tutorials
-    import Literate
 
     include("pages_helper.jl")
 
-    tutorials_dir = joinpath(@__DIR__, "..", "tutorials")
-
     tutorials = [
         "Atmos" => [
-            "Dry Rayleigh Bernard" => "Atmos/dry_rayleigh_benard.jl",
             "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
-            "Rising Thermal Bubble" => "Atmos/risingbubble.jl",
-            "Microphysics" => [
-                "Saturation adjustment" =>
-                    "Microphysics/ex_1_saturation_adjustment.jl",
-                "Kessler" => "Microphysics/ex_2_Kessler.jl",
-            ],
+            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
         ],
         "Ocean" => [],
         "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
@@ -38,10 +31,7 @@ if generate_tutorials
                 "Batched Generalized Minimal Residual" =>
                     "Numerics/SystemSolvers/bgmres.jl",
             ],
-            "DG Methods" => [
-                "Topology" => "topo.jl",
-                "Preserving positivity" => "Numerics/DGMethods/nonnegative.jl",
-            ],
+            "DG Methods" => ["Topology" => "topo.jl"],
         ],
         "Diagnostics" => [
             "Debug" => [
@@ -54,36 +44,24 @@ if generate_tutorials
 
     # Prepend tutorials_dir
     tutorials_jl = flatten_to_array_of_strings(get_second(tutorials))
-    println("Building literate tutorials:")
-    for tutorial in tutorials_jl
-        println("    $(tutorial)")
-    end
-    transform(x) = joinpath(basename(generated_dir), replace(x, ".jl" => ".md"))
-    tutorials = transform_second(x -> transform(x), tutorials)
+    println("Building literate tutorials...")
 
-    skip_execute = [
-        "Atmos/dry_rayleigh_benard.jl",               # takes too long
-        "Atmos/heldsuarez.jl",                        # broken
-        "Atmos/risingbubble.jl",                      # broken
-        "Numerics/DGMethods/nonnegative.jl",          # broken
-        "Microphysics/ex_1_saturation_adjustment.jl", # too long
-        "Microphysics/ex_2_Kessler.jl",               # too long
-        "topo.jl",                                    # broken
-    ]
-
-    tutorials_jl = map(x -> joinpath(tutorials_dir, x), tutorials_jl)
-
-    for tutorial in tutorials_jl
+    @everywhere function generate_tutorial(tutorials_dir, tutorial)
         gen_dir =
-            joinpath(generated_dir, relpath(dirname(tutorial), tutorials_dir))
+            joinpath(GENERATED_DIR, relpath(dirname(tutorial), tutorials_dir))
         input = abspath(tutorial)
         script = Literate.script(input, gen_dir)
         code = strip(read(script, String))
         mdpost(str) = replace(str, "@__CODE__" => code)
         Literate.markdown(input, gen_dir, postprocess = mdpost)
-        if !any(occursin.(skip_execute, Ref(input)))
-            Literate.notebook(input, gen_dir, execute = true)
-        end
+        Literate.notebook(input, gen_dir, execute = true)
     end
 
+    tutorials_dir = joinpath(@__DIR__, "..", "tutorials")
+    tutorials_jl = map(x -> joinpath(tutorials_dir, x), tutorials_jl)
+    pmap(t -> generate_tutorial(tutorials_dir, t), tutorials_jl)
+
+    # update list of rendered markdown tutorial output for mkdocs
+    ext_jl2md(x) = joinpath(basename(GENERATED_DIR), replace(x, ".jl" => ".md"))
+    tutorials = transform_second(x -> ext_jl2md(x), tutorials)
 end
