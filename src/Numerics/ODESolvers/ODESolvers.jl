@@ -56,10 +56,10 @@ function general_dostep!(
     dostep!(Q, solver, p, time)
 
     if !final_step
-        updatetime!(solver,time + dt)
+        updatetime!(solver, time + dt)
     else
         updatedt!(solver, orig_dt)
-        updatetime!(solver,timeend)
+        updatetime!(solver, timeend)
     end
 end
 

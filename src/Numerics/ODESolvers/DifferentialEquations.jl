@@ -19,14 +19,31 @@ for OrdinaryDiffEq.jl, Sundials.jl, and more.
 mutable struct DiffEqJLSolver{I} <: AbstractDiffEqJLSolver
     integ::I
 
-    function DiffEqJLSolver(rhs!,alg,Q,args...;
-                            t0 = 0, p = nothing,
-                            kwargs...)
+    function DiffEqJLSolver(
+        rhs!,
+        alg,
+        Q,
+        args...;
+        t0 = 0,
+        p = nothing,
+        kwargs...,
+    )
         prob = DiffEqBase.ODEProblem(
-                          (du,u,p,t)->rhs!(du,u,p,t; increment=false),
-                           Q, (float(t0),typemax(typeof(float(t0)))),
-                           p)
-        integ = DiffEqBase.init(prob,alg,args...; adaptive = false, save_everystep = false, save_start = false, save_end = false, kwargs...)
+            (du, u, p, t) -> rhs!(du, u, p, t; increment = false),
+            Q,
+            (float(t0), typemax(typeof(float(t0)))),
+            p,
+        )
+        integ = DiffEqBase.init(
+            prob,
+            alg,
+            args...;
+            adaptive = false,
+            save_everystep = false,
+            save_start = false,
+            save_end = false,
+            kwargs...,
+        )
         new{typeof(integ)}(integ)
     end
 end
@@ -47,15 +64,32 @@ for OrdinaryDiffEq.jl, Sundials.jl, and more.
 mutable struct DiffEqJLIMEXSolver{I} <: AbstractDiffEqJLSolver
     integ::I
 
-    function DiffEqJLIMEXSolver(rhs!,rhs_implicit!,alg,Q,args...;
-                            t0 = 0,
-                            kwargs...)
+    function DiffEqJLIMEXSolver(
+        rhs!,
+        rhs_implicit!,
+        alg,
+        Q,
+        args...;
+        t0 = 0,
+        kwargs...,
+    )
         prob = SplitODEProblem(
-                          (du,u,p,t)->rhs_implicit!(du,u,p,t; increment=false),
-                          (du,u,p,t)->rhs!(du,u,p,t; increment=false),
-                           Q, (float(t0),typemax(typeof(float(t0)))),
-                           p)
-        integ = DiffEqBase.init(prob,alg,args...;adaptive = false, save_everystep = false, save_start = false, save_end = false, kwargs...)
+            (du, u, p, t) -> rhs_implicit!(du, u, p, t; increment = false),
+            (du, u, p, t) -> rhs!(du, u, p, t; increment = false),
+            Q,
+            (float(t0), typemax(typeof(float(t0)))),
+            p,
+        )
+        integ = DiffEqBase.init(
+            prob,
+            alg,
+            args...;
+            adaptive = false,
+            save_everystep = false,
+            save_start = false,
+            save_end = false,
+            kwargs...,
+        )
 
         new{typeof(integ)}(integ)
     end
@@ -63,8 +97,10 @@ end
 
 gettime(solver::AbstractDiffEqJLSolver) = solver.integ.t
 getdt(solver::AbstractDiffEqJLSolver) = solver.integ.dt
-updatedt!(solver::AbstractDiffEqJLSolver, dt) = DiffEqBase.set_proposed_dt!(solver.integ,dt)
-updatetime!(solver::AbstractDiffEqJLSolver, t) = DiffEqBase.set_t!(solver.integ,t)
+updatedt!(solver::AbstractDiffEqJLSolver, dt) =
+    DiffEqBase.set_proposed_dt!(solver.integ, dt)
+updatetime!(solver::AbstractDiffEqJLSolver, t) =
+    DiffEqBase.set_t!(solver.integ, t)
 isadjustable(solver::AbstractDiffEqJLSolver) = true # Is this isadaptive? Or something different?
 
 """
@@ -85,7 +121,7 @@ function general_dostep!(
     integ = solver.integ
 
     if DiffEqBase.DataStructures.top(integ.opts.tstops) !== timeend
-        DiffEqBase.add_tstop!(integ,timeend)
+        DiffEqBase.add_tstop!(integ, timeend)
     end
     dostep!(Q, solver, p, time)
     solver.integ.t
@@ -107,7 +143,7 @@ function dostep!(
     rv_Q = realview(Q)
     if integ.u != Q
         integ.u .= Q
-        DiffEqBase.u_modified!(integ,true)
+        DiffEqBase.u_modified!(integ, true)
         # Will time always be correct?
     end
 
@@ -116,6 +152,7 @@ function dostep!(
 end
 
 function DiffEqJLConstructor(alg)
-    constructor = (F,Q; dt = 0,t0 = 0,) -> DiffEqJLSolver(F, alg, Q; t0 = t0, dt = dt)
+    constructor =
+        (F, Q; dt = 0, t0 = 0) -> DiffEqJLSolver(F, alg, Q; t0 = t0, dt = dt)
     return constructor
 end

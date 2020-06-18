@@ -475,7 +475,7 @@ end
     errors = similar(dts)
     for (n, dt) in enumerate(dts)
         Q .= Qinit
-        solver =  DiffEqJLSolver(rhs!, alg, Q; dt = dt, t0 = t0)
+        solver = DiffEqJLSolver(rhs!, alg, Q; dt = dt, t0 = t0)
         solve!(Q, solver; timeend = finaltime)
         errors[n] = norm(Q - Qexact)
     end
