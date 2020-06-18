@@ -12,6 +12,7 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
@@ -99,7 +100,7 @@ function Initialise_Density_Current!(
     U, V, W = FT(0), FT(0), FT(0)  # momentum components
     # energy definitions
     e_kin = (U^2 + V^2 + W^2) / (2 * ρ) / ρ
-    e_pot = gravitational_potential(bl.orientation, aux)
+    e_pot = gravitational_potential(bl, aux)
     e_int = internal_energy(ts)
     E = ρ * (e_int + e_kin + e_pot)  #* total_energy(e_kin, e_pot, T, q_tot, q_liq, q_ice)
     state.ρ = ρ

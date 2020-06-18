@@ -9,6 +9,7 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: SphericalOrientation, latitude, longitude
+using ClimateMachine.Orientations
 using LinearAlgebra
 using Printf
 using Dates

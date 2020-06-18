@@ -24,7 +24,6 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
     AtmosModel,
-    SphericalOrientation,
     DryModel,
     NoPrecipitation,
     NoRadiation,
@@ -34,11 +33,9 @@ using ClimateMachine.Atmos:
     vars_state_auxiliary,
     Gravity,
     HydrostaticState,
-    AtmosAcousticGravityLinearModel,
-    altitude,
-    latitude,
-    longitude,
-    gravitational_potential
+    AtmosAcousticGravityLinearModel
+using ClimateMachine.Orientations:
+    SphericalOrientation, gravitational_potential, altitude, latitude, longitude
 using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters

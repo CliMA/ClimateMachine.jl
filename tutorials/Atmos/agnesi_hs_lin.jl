@@ -78,6 +78,7 @@ using ClimateMachine
 ClimateMachine.cli()
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks

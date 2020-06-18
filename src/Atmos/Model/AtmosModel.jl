@@ -9,6 +9,17 @@ using CLIMAParameters.Atmos.SubgridScale: C_smag
 using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
+using ..Orientations
+import ..Orientations:
+    vertical_unit_vector,
+    altitude,
+    latitude,
+    longitude,
+    projection_normal,
+    gravitational_potential,
+    ∇gravitational_potential,
+    projection_tangential
+
 using ..VariableTemplates
 using ..Thermodynamics
 using ..TemperatureProfiles
@@ -93,7 +104,7 @@ struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
-    "Orientation: [`FlatOrientation`](@ref FlatOrientation)(for LES in a box) or [`SphericalOrientation`](@ref SphericalOrientation) (for GCM)"
+    "An orientation model"
     orientation::O
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
@@ -303,7 +314,22 @@ function vars_reverse_integrals(m::AtmosModel, FT)
     end
 end
 
-include("orientation.jl")
+####
+#### Forward orientation methods
+####
+projection_normal(bl, aux, u⃗) =
+    projection_normal(bl.orientation, bl.param_set, aux, u⃗)
+projection_tangential(bl, aux, u⃗) =
+    projection_tangential(bl.orientation, bl.param_set, aux, u⃗)
+latitude(bl, aux) = latitude(bl.orientation, aux)
+longitude(bl, aux) = longitude(bl.orientation, aux)
+altitude(bl, aux) = altitude(bl.orientation, bl.param_set, aux)
+vertical_unit_vector(bl, aux) =
+    vertical_unit_vector(bl.orientation, bl.param_set, aux)
+gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
+∇gravitational_potential(bl, aux) =
+    ∇gravitational_potential(bl.orientation, aux)
+
 include("ref_state.jl")
 include("turbulence.jl")
 include("hyperdiffusion.jl")
@@ -569,7 +595,7 @@ Store Cartesian coordinate information in `aux.coord`.
 """ init_state_auxiliary!
 function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
-    atmos_init_aux!(m.orientation, m, aux, geom)
+    init_aux!(m.orientation, m.param_set, aux)
     atmos_init_aux!(m.ref_state, m, aux, geom)
     atmos_init_aux!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.hyperdiffusion, m, aux, geom)

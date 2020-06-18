@@ -19,7 +19,6 @@ using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
     RemainderModel,
-    NoOrientation,
     NoReferenceState,
     ReferenceState,
     DryModel,
@@ -27,6 +26,7 @@ using ClimateMachine.Atmos:
     NoRadiation,
     ConstantViscosityWithDivergence,
     vars_state_conservative
+using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.VariableTemplates: @vars, Vars, flattenednames
 import ClimateMachine.Atmos: atmos_init_aux!, vars_state_auxiliary
 

@@ -19,6 +19,7 @@ using StaticArrays
 # spectral filters, etc.).
 using ClimateMachine
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
@@ -64,12 +65,7 @@ function held_suarez_forcing!(
     ρe = state.ρe
 
     coord = aux.coord
-    e_int = internal_energy(
-        balance_law.moisture,
-        balance_law.orientation,
-        state,
-        aux,
-    )
+    e_int = internal_energy(balance_law, state, aux)
     T = air_temperature(balance_law.param_set, e_int)
     _R_d = FT(R_d(balance_law.param_set))
     _day = FT(day(balance_law.param_set))
@@ -88,7 +84,7 @@ function held_suarez_forcing!(
     σ_b = FT(7 / 10)
 
     ## Held-Suarez forcing
-    φ = latitude(balance_law.orientation, aux)
+    φ = latitude(balance_law, aux)
     p = air_pressure(balance_law.param_set, T, ρ)
 
     ##TODO: replace _p0 with dynamic surface pressure in Δσ calculations to

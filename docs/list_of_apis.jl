@@ -14,6 +14,7 @@ apis = [
         ["Hydrostatic Boussinesq" => "APIs/Ocean/HydrostaticBoussinesq.md"],
     "Land" => [],
     "Common" => [
+        "Orientations" => "APIs/Common/Orientations.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
     ],

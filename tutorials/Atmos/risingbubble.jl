@@ -69,6 +69,7 @@
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
@@ -148,7 +149,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     ρu = SVector(FT(0), FT(0), FT(0))                   # momentum
     ## State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
-    e_pot = gravitational_potential(bl.orientation, aux)# potential energy
+    e_pot = gravitational_potential(bl, aux)            # potential energy
     ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
 
     ρχ = FT(0)                                          # tracer
