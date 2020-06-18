@@ -84,7 +84,7 @@ function init_state_conservative!(
 
     state.ρ = aux.ρ0
     state.ρu = SVector(0,0,0)
-    state.ρe     = FT(300000) # need to add intial state here
+    state.ρe     = FT(200000) # need to add intial state here
     state.ρq_tot = eps(FT) # need to add intial state here
     init_state_conservative!(m, m.edmf, state, aux, coords, t)
 
@@ -110,6 +110,7 @@ function single_stack_nodal_update_aux!(
 ) where {FT, N}
     _grav::FT = grav(m.param_set)
     aux.buoyancy = _grav*(state.ρ-aux.ρ0)/state.ρ
+
 end;
 
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute

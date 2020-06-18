@@ -41,9 +41,9 @@ end
 
 function vars_state_conservative(::Environment, FT)
     @vars(ρatke::FT,
-          ρae_cv::FT,
+          ρae_int_cv::FT,
           ρaq_tot_cv::FT,
-          ρae_q_tot_cv::FT,
+          ρae_int_q_tot_cv::FT,
           )
 end
 
@@ -69,9 +69,9 @@ function vars_state_gradient(::Environment, FT)
           q_tot::FT,
           u::SVector{3, FT},
           tke::FT,
-          e_cv::FT,
+          e_int_cv::FT,
           q_tot_cv::FT,
-          e_q_tot_cv::FT,
+          e_int_q_tot_cv::FT,
           θ_ρ::FT,
           );
 end
@@ -104,9 +104,9 @@ function vars_state_gradient_flux(::Environment, FT)
           ∇q_tot::SVector{3, FT},
           ∇u::SMatrix{3, 3, FT, 9},
           ∇tke::SVector{3, FT},
-          ∇e_cv::SVector{3, FT},
+          ∇e_int_cv::SVector{3, FT},
           ∇q_tot_cv::SVector{3, FT},
-          ∇e_q_tot_cv::SVector{3, FT},
+          ∇e_int_q_tot_cv::SVector{3, FT},
           ∇θ_ρ::SVector{3, FT},# used in a diagnostic equation for the mixing length
           );
 
@@ -171,9 +171,9 @@ function init_state_conservative!(
     end
 
     # initialize environment covariance
-    en.ρae_cv       = eps(FT)
-    en.ρaq_tot_cv   = eps(FT)
-    en.ρae_q_tot_cv = eps(FT)
+    en.ρae_int_cv       = eps(FT)
+    en.ρaq_tot_cv       = eps(FT)
+    en.ρae_int_q_tot_cv = eps(FT)
 
 end;
 
@@ -325,10 +325,10 @@ function compute_gradient_argument!(
     en_t.q_tot = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))/(en_area*gm.ρ)
     en_t.u     = (gm.ρu - sum([up[i].ρau for i in 1:N]))/(en_area*gm.ρ)
 
-    en_t.tke        = en.ρatke/(en_area*gm.ρ)
-    en_t.e_cv       = en.ρae_cv/(en_area*gm.ρ)
-    en_t.q_tot_cv   = en.ρaq_tot_cv/(en_area*gm.ρ)
-    en_t.e_q_tot_cv = en.ρae_q_tot_cv/(en_area*gm.ρ)
+    en_t.tke            = en.ρatke/(en_area*gm.ρ)
+    en_t.e_int_cv       = en.ρae_int_cv/(en_area*gm.ρ)
+    en_t.q_tot_cv       = en.ρaq_tot_cv/(en_area*gm.ρ)
+    en_t.e_int_q_tot_cv = en.ρae_int_q_tot_cv/(en_area*gm.ρ)
 
     en_t.θ_ρ = virtual_pottemp(ts)
 end;
@@ -363,10 +363,10 @@ function compute_gradient_flux!(
     en_d.∇q_tot = en_∇t.q_tot
     en_d.∇u     = en_∇t.u
     # second moment env cov
-    en_d.∇tke        = en_∇t.tke
-    en_d.∇e_cv       = en_∇t.e_cv
-    en_d.∇q_tot_cv   = en_∇t.q_tot_cv
-    en_d.∇e_q_tot_cv = en_∇t.e_q_tot_cv
+    en_d.∇tke            = en_∇t.tke
+    en_d.∇e_int_cv       = en_∇t.e_int_cv
+    en_d.∇q_tot_cv       = en_∇t.q_tot_cv
+    en_d.∇e_int_q_tot_cv = en_∇t.e_int_q_tot_cv
 
     en_d.∇θ_ρ = en_∇t.θ_ρ
 
@@ -405,17 +405,24 @@ function source!(
     # should be conditioned on updraft_area > minval
     
     # get environment values for e, q_tot , u[3]
+    _grav::FT = grav(m.param_set)
     ρinv = 1/gm.ρ
     a_env = 1 - sum([up[i].ρa for i in 1:N])*ρinv
     w_env = (gm.ρu[3] - sum([up[i].ρau[3] for i in 1:N]))*ρinv
     e_env = (gm.ρe - sum([up[i].ρae for i in 1:N]))*ρinv
     q_tot_env = (gm.ρq_tot - sum([up[i].ρaq_tot for i in 1:N]))*ρinv
+
+    u_env = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
     
-    ρinv  = 1/gm.ρ
+    en_ρe = (gm.ρe-sum([up[j].ρae for j in 1:N]))/a_en
+    en_ρu = (gm.ρu-sum([up[j].ρae for j in 1:N]))/a_en
+    e_int_env = internal_energy(gm.ρ, en_ρe, en_ρu, _grav * gm_a.z)
+    e_int_gm  = internal_energy(gm.ρ, gm.ρe, gm.ρu, _grav * gm_a.z)
+
     for i in 1:N
         # upd vars
-        u_env = (gm.ρu - up[i].ρau)/(gm.ρ*a_env)
-        w_i               = up[i].ρau[3]/up[i].ρa
+        w_i       = up[i].ρau[3]/up[i].ρa
+        e_int_upd = internal_energy(gm.ρ, up[i].ρae/up[i].ρa, up.ρau/up[i].ρa, _grav * gm_a.z)
         
         # first moment sources
         # ε[i], δ[i], εt[i] = entr_detr(m, edmf.entr_detr, state, aux, t, i)
@@ -458,11 +465,11 @@ function source!(
                              -up[i].ρau[3]*ε[i] * en.ρatke)
 
         en_s.ρae_cv       += (up[i].ρau[3]*δ[i] 
-                            *(up[i].ρae/up[i].ρa - e_env)
-                            *(up[i].ρae/up[i].ρa - e_env)
-                             +up[i].ρau[3]*εt[i]*e_env
-                             *(up[i].ρae/up[i].ρa - gm.ρe*ρinv)*2
-                             -up[i].ρau[3]*ε[i]*en.ρae_cv)
+                            *(e_int_upd - e_int_env)
+                            *(e_int_upd - e_int_env)
+                             +up[i].ρau[3]*εt[i]*e_int_env
+                             *(e_int_upd - e_int_gm)*2
+                             -up[i].ρau[3]*ε[i]*en.ρae_int_cv)
 
         en_s.ρaq_tot_cv   += (up[i].ρau[3]*δ[i]
                             *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
@@ -472,13 +479,13 @@ function source!(
                             - up[i].ρau[3]*ε[i] *en.ρaq_tot_cv)
 
         en_s.ρae_q_tot_cv += (up[i].ρau[3]*δ[i] 
-                            *(up[i].ρae/up[i].ρa - e_env)
+                            *(e_int_upd - e_int_env)
                             *(up[i].ρaq_tot/up[i].ρa - q_tot_env)
-                            + up[i].ρau[3]*εt[i]*e_env
-                            *(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
                             + up[i].ρau[3]*εt[i]
-                            *q_tot_env*(up[i].ρae/up[i].ρa - gm.ρe*ρinv)
-                            - up[i].ρau[3]*ε[i] *en.ρae_q_tot_cv)
+                            *q_tot_env*(e_int_upd - e_int_gm)
+                            + up[i].ρau[3]*εt[i]*e_int_env
+                            *(up[i].ρaq_tot/up[i].ρa - gm.ρq_tot*ρinv)
+                            - up[i].ρau[3]*ε[i] * en.ρae_q_tot_cv)
         
         # pressure tke source from the i'th updraft
         en_s.ρatke += up[i].ρa * dpdz_tke_i
@@ -491,14 +498,14 @@ function source!(
 
     # second moment production from mean gradients (+ sign here as we have + S in BL form)
     #                            production from mean gradient           - Dissipation
-    en_s.ρatke        += gm.ρ*a_env*K_eddy*Shear                         
-                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρatke
-    en_s.ρae_cv       += gm.ρ*a_env*K_eddy*en_d.∇e[3]*en_d.∇e[3] 
-                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_cv
-    en_s.ρaq_tot_cv   += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] 
-                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρaq_tot_cv
-    en_s.ρae_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e[3]*en_d.∇q_tot[3] 
-                       - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_q_tot_cv
+    en_s.ρatke            += gm.ρ*a_env*K_eddy*Shear                         
+                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρatke
+    en_s.ρae_int_cv       += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇e_int[3] 
+                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_int_cv
+    en_s.ρaq_tot_cv       += gm.ρ*a_env*K_eddy*en_d.∇q_tot[3]*en_d.∇q_tot[3] 
+                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρaq_tot_cv
+    en_s.ρae_int_q_tot_cv += gm.ρ*a_env*K_eddy*en_d.∇e_int[3]*en_d.∇q_tot[3] 
+                           - edmf.mix_len.c_m*sqrt(en_tke)/mix_len*en.ρae_int_q_tot_cv
     # covariance microphysics sources should be applied here
 end;
 
@@ -588,10 +595,10 @@ function flux_second_order!(
     # gm_f.ρu     += -ρa_env.*K_eddy.*en_d.∇u      + massflux_u
 
     # env second momment flux_second_order
-    en_f.ρatke        += -ρa_env*K_eddy*en_d.∇tke[3]
-    en_f.ρae_cv       += -ρa_env*K_eddy*en_d.∇e_cv[3]
-    en_f.ρaq_tot_cv   += -ρa_env*K_eddy*en_d.∇q_tot_cv[3]
-    en_f.ρae_q_tot_cv += -ρa_env*K_eddy*en_d.∇e_q_tot_cv[3]
+    en_f.ρatke            += -ρa_env*K_eddy*en_d.∇tke[3]
+    en_f.ρae_int_cv       += -ρa_env*K_eddy*en_d.∇e_int_cv[3]
+    en_f.ρaq_tot_cv       += -ρa_env*K_eddy*en_d.∇q_tot_cv[3]
+    en_f.ρae_int_q_tot_cv += -ρa_env*K_eddy*en_d.∇e_int_q_tot_cv[3]
 end;
 
 # ### Boundary conditions
@@ -675,18 +682,18 @@ function boundary_state!(
         # YAIR - I need to pass the SurfaceModel into BC and into env_surface_covariances
         # tke, e_cv ,q_tot_cv ,e_q_tot_cv = env_surface_covariances(m, edmf.surface, edmf, gm)
         tke = FT(0)
-        e_cv = FT(0)
+        e_int_cv = FT(0)
         q_tot_cv = FT(0)
-        e_q_tot_cv = FT(0)
+        e_int_q_tot_cv = FT(0)
         en_d.∇tke = SVector(0,0,gm.ρ * area_en * tke)
-        en_d.∇e_cv = SVector(0,0,gm.ρ * area_en * e_cv)
+        en_d.∇e_int_cv = SVector(0,0,gm.ρ * area_en * e_cv)
         en_d.∇q_tot_cv = SVector(0,0,gm.ρ * area_en * q_tot_cv)
-        en_d.∇e_q_tot_cv = SVector(0,0,gm.ρ * area_en * e_q_tot_cv)
+        en_d.∇e_int_q_tot_cv = SVector(0,0,gm.ρ * area_en * e_q_tot_cv)
     elseif bctype == 2 # top
         # for now zero flux at the top
         en_d.∇tke = -n⁻ * FT(0)
-        en_d.∇e_cv = -n⁻ * FT(0)
+        en_d.∇e_int_cv = -n⁻ * FT(0)
         en_d.∇q_tot_cv = -n⁻ * FT(0)
-        en_d.∇e_q_tot_cv = -n⁻ * FT(0)
+        en_d.∇e_int_q_tot_cv = -n⁻ * FT(0)
     end
 end;
