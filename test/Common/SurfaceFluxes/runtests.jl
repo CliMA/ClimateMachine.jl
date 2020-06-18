@@ -14,16 +14,17 @@ const param_set = EarthParameterSet()
 @testset "SurfaceFluxes" begin
 
     FT = Float32
-    x_initial = FT[100, 15.0, 350.0]
-    F_exchange = FT[2.0, 3.0]
-    z_0 = FT[1.0, 1.0]
-    dimensionless_number = FT[1.0, 0.74]
-    x_ave = FT[5.0, 350.0]
-    x_s = FT[0.0, 300.0]
+    x_initial = FT[100, 15.0, 350.0, 1e-5]
+    F_exchange = FT[2.0, 3.0, 1.0]
+    z_0 = FT[1.0, 1.0, 1.0]
+    dimensionless_number = FT[1.0, 0.74, 0.75]
+    x_ave = FT[5.0, 350.0, 0.75e-5]
+    x_s = FT[0.0, 300.0, 1e-5]
 
     Δz                 = FT(2.0)
     z                  = FT(0.5)
     θ_bar              = FT(300.0)
+    qt_bar             = FT(1e-5)
     a                  = FT(4.7)
     pottemp_flux_given = FT(-200.0)
     args = (x_initial,
@@ -33,6 +34,7 @@ const param_set = EarthParameterSet()
     F_exchange,
     dimensionless_number,
     θ_bar,
+    qt_bar,
     Δz,
     z,
     a,
