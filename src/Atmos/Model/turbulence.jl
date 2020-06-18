@@ -517,7 +517,7 @@ function turbulence_tensors(
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
     f_b² = sqrt(clamp(1 - Richardson * _inv_Pr_turb, 0, 1))
 
-    β = f_b² * (aux.turbulence.Δ)^2 * (α' * α)
+    β = (aux.turbulence.Δ)^2 * (α' * α)
     Bβ = principal_invariants(β)[2]
 
     ν₀ = m.C_smag^2 * FT(2.5) * sqrt(abs(Bβ / (norm2(α) + eps(FT))))
