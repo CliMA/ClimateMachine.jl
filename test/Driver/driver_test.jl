@@ -2,7 +2,7 @@ using StaticArrays
 using Test
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Thermodynamics

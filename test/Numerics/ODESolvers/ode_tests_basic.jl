@@ -4,7 +4,7 @@ using LinearAlgebra
 
 include("ode_tests_common.jl")
 
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 const ArrayType = ClimateMachine.array_type()
 
 a = 100

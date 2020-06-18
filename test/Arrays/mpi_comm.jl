@@ -6,7 +6,7 @@ using ClimateMachine.Mesh.BrickMesh
 using Pkg
 using KernelAbstractions
 
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 const ArrayType = ClimateMachine.array_type()
 const comm = MPI.COMM_WORLD
 

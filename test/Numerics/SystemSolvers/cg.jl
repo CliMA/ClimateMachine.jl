@@ -12,7 +12,7 @@ using Random
 Random.seed!(1235)
 
 let
-    ClimateMachine.init()
+    ClimateMachine.init(fix_rng_seed=true)
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
     n = 100

@@ -1,6 +1,6 @@
 using Test
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters

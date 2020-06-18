@@ -9,7 +9,7 @@ import GaussQuadrature
 using MPI
 using LinearAlgebra
 
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 
 @testset "Exponential and Cutoff filter matrix" begin
     let

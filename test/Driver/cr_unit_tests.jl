@@ -5,7 +5,7 @@ using Test
 import KernelAbstractions: CPU
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes

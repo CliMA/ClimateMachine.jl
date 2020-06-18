@@ -7,7 +7,7 @@ using ClimateMachine.MPIStateArrays: array_device
 
 include("ode_tests_common.jl")
 
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 const ArrayType = ClimateMachine.array_type()
 
 @testset "ODE Solvers" begin
