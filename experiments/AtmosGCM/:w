@@ -54,7 +54,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     λ = longitude(bl, aux)
     z = altitude(bl, aux)
     r::FT = z+_a
-    γ::FT = 0 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
+    γ::FT = 0
 
     # convenience functions for temperature and pressure
     τ_z_1::FT = exp(Γ*z/T_0)
@@ -94,7 +94,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     w′::FT = 0
     u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
     u_cart = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
-    
+    #u_cart = SVector{3, FT}(-u_sphere[1] * sin(λ) - u_sphere[2] * sin(φ) * cos(λ), u_sphere[1] * cos(λ) - u_sphere[2] *sin(φ) * sin(λ), u_sphere[2] * cos(φ))
     # potential & kinetic energy
     ρ = air_density(bl.param_set, T, p)
     e_pot::FT = gravitational_potential(bl.orientation, aux)
@@ -156,20 +156,20 @@ function main()
     # Set up driver configuration
     driver_config = config_baroclinic_wave(FT, poly_order, (n_horz, n_vert))
 
-    ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
+    #ode_solver_type = ClimateMachine.ExplicitSolverType(
+    #    solver_method = LSRK144NiegemannDiehlBusch,
+    #)
     
     # Set up experiment
-    CFL::FT = 0.8
+    CFL::FT = 0.1
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
         Courant_number = CFL,
-        ode_solver_type = ode_solver_type,
-#        CFL_direction = HorizontalDirection(),
-        CFL_direction = EveryDirection(),
+#        ode_solver_type = ode_solver_type,
+        CFL_direction = HorizontalDirection(),
+#        CFL_direction = EveryDirection(),
 #        diffdir= HorizontalDirection(),
     )
 
