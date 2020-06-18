@@ -21,13 +21,13 @@ if generate_tutorials
     tutorials = [
         "Atmos" => [
             "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
-            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
+            "Flow in Single Element Stack" =>     "Atmos/burgers_single_stack.jl",
         ],
         "Ocean" => [],
-        "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
+        "Land" =>     ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
         "Numerics" => [
             "System Solvers" => [
-                "Conjugate Gradient" => "Numerics/SystemSolvers/cg.jl",
+                "Conjugate Gradient" =>     "Numerics/SystemSolvers/cg.jl",
                 "Batched Generalized Minimal Residual" =>
                     "Numerics/SystemSolvers/bgmres.jl",
             ],
