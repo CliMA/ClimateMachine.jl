@@ -51,6 +51,7 @@ liquid_ice_pottemp_sat
 gas_constants
 saturation_adjustment
 saturation_excess
+supersaturation
 q_vap_saturation
 q_vap_saturation_generic
 saturation_vapor_pressure
