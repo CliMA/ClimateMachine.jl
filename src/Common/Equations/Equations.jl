@@ -176,7 +176,7 @@ end
 
 ∂ₜ q === S(q) - ∇⋅(F(q); rate=...) - ∇⋅(G(q, ∇q); rate=...)
 
-function linearization(tendency) end
+BoundaryCondition(q⋅n === h(x,y), "on_boundary")
 
 """
 Sample equation:
