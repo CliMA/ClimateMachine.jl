@@ -22,6 +22,10 @@ if generate_tutorials
         "Atmos" => [
             "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
             "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
+            "Linear Hydrostatic Mountain (Topography)" =>
+                "Atmos/agnesi_hs_lin.jl",
+            "Linear Non-Hydrostatic Mountain (Topography)" =>
+                "Atmos/agnesi_nh_lin.jl",
         ],
         "Ocean" => [],
         "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
