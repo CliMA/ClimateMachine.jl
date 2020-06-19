@@ -19,6 +19,7 @@ Topologies.StackedBrickTopology
 Topologies.CubedShellTopology
 Topologies.StackedCubedSphereTopology
 Topologies.SingleExponentialStretching
+Topologies.DoubleSidedSingleExponentialStretching
 ```
 
 ### Constructors
