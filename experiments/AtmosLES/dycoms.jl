@@ -253,7 +253,10 @@ end
 
 function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     # Reference state
-    T_profile = DecayingTemperatureProfile{FT}(param_set)
+    #T_profile = DecayingTemperatureProfile{FT}(param_set)
+    T_surface = FT(298)
+    T_min_ref = FT(0)
+    T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = HydrostaticState(T_profile)
 
     # Radiation model
@@ -275,7 +278,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     w_ref = FT(0)
     u_relaxation = SVector(u_geostrophic, v_geostrophic, w_ref)
     # Sponge
-    c_sponge = 1
+    c_sponge = 0.75
     # Rayleigh damping
     zsponge = FT(1000.0)
     rayleigh_sponge =
@@ -286,7 +289,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 
     # Boundary conditions
     # SGS Filter constants
-    C_smag = FT(0.21) # 0.21 for stable testing, 0.18 in practice
+    C_smag = FT(0.23) # 0.21 for stable testing, 0.18 in practice
     C_drag = FT(0.0011)
     LHF = FT(115)
     SHF = FT(15)
@@ -304,8 +307,8 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         ref_state = ref_state,
-        turbulence = Vreman{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 4, tolerance = FT(1)),
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+        moisture = EquilMoist{FT}(maxiter = 10, tolerance = FT(100)),
         radiation = radiation,
         source = source,
         boundarycondition = (
@@ -327,6 +330,16 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
+    #ode_solver = ClimateMachine.IMEXSolverType()
+
+    #=LSRK multi-rate
+    ode_solver = ClimateMachine.MultirateSolverType(
+        fast_model = AtmosAcousticGravityLinearModel,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        timestep_ratio = 12,
+    )=#
+    
     config = ClimateMachine.AtmosLESConfiguration(
         "DYCOMS",
         N,
@@ -361,16 +374,16 @@ function main()
 
     # Domain resolution and size
     Δh = FT(40)
-    Δv = FT(20)
+    Δv = FT(10)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(1000)
-    ymax = FT(1000)
+    xmax = FT(500)
+    ymax = FT(500)
     zmax = FT(1500)
 
     t0 = FT(0)
-    timeend = FT(100)
-    Cmax = FT(1.7)     # use this for single-rate explicit LSRK144
+    timeend = FT(14400)
+    Cmax = FT(1.5)       # use this for single-rate explicit LSRK144
 
     driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
