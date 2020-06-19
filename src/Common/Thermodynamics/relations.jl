@@ -16,7 +16,7 @@ export latent_heat_vapor,
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
 export saturation_vapor_pressure, q_vap_saturation_generic, q_vap_saturation
-export saturation_excess
+export saturation_excess, supersaturation
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
@@ -776,6 +776,45 @@ function q_vap_saturation_from_pressure(
 ) where {FT <: Real}
     _R_v::FT = R_v(param_set)
     return p_v_sat / (ρ * _R_v * T)
+end
+
+"""
+    supersaturation(param_set, q, ρ, T, Liquid())
+    supersaturation(param_set, q, ρ, T, Ice())
+
+ - `param_set` - abstract set with earth parameters
+ - `q` - phase partition
+ - `ρ` - air density,
+ - `T` - air temperature
+ - `Liquid()`, `Ice()` - liquid or ice phase to dispatch over.
+
+Returns supersaturation (qv/qv_sat -1) over water or ice.
+"""
+function supersaturation(
+    param_set::APS,
+    q::PhasePartition{FT},
+    ρ::FT,
+    T::FT,
+    ::Liquid,
+) where {FT <: Real}
+
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Liquid())
+    q_vap::FT = q.tot - q.liq - q.ice
+
+    return q_vap / q_sat - FT(1)
+end
+function supersaturation(
+    param_set::APS,
+    q::PhasePartition{FT},
+    ρ::FT,
+    T::FT,
+    ::Ice,
+) where {FT <: Real}
+
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
+    q_vap::FT = q.tot - q.liq - q.ice
+
+    return q_vap / q_sat - FT(1)
 end
 
 """

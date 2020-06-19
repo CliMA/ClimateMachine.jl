@@ -44,7 +44,9 @@ using ClimateMachine.Thermodynamics:
     relative_humidity,
     TemperatureSHumEquil,
     TemperatureSHumNonEquil,
-    air_temperature
+    air_temperature,
+    latent_heat_fusion
+
 using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
@@ -52,9 +54,36 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.VTK
 
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, cv_v, T_0, e_int_v0, grav
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+using CLIMAParameters.Planet:
+    R_d, cp_d, cv_d, cv_v, cv_l, cv_i, T_0, T_freeze, e_int_v0, e_int_i0, grav
+
+using CLIMAParameters.Atmos.Microphysics
+
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+struct RainParameterSet <: AbstractRainParameterSet end
+struct SnowParameterSet <: AbstractSnowParameterSet end
+struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
+    liquid::L
+    ice::I
+    rain::R
+    snow::S
+end
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+    microphys_param_set::M
+end
+
+const microphys_param_set = MicropysicsParameterSet(
+    LiquidParameterSet(),
+    IceParameterSet(),
+    RainParameterSet(),
+    SnowParameterSet(),
+)
+const param_set = EarthParameterSet(microphys_param_set)
+const liquid_param_set = param_set.microphys_param_set.liquid
+const ice_param_set = param_set.microphys_param_set.ice
+const rain_param_set = param_set.microphys_param_set.rain
+const snow_param_set = param_set.microphys_param_set.snow
 
 import ClimateMachine.DGMethods:
     BalanceLaw,
@@ -84,6 +113,15 @@ struct KinematicModelConfig{FT}
     p_1000::FT
     qt_0::FT
     z_0::FT
+    periodicity_x::Bool
+    periodicity_y::Bool
+    periodicity_z::Bool
+    idx_bc_left::Int
+    idx_bc_right::Int
+    idx_bc_front::Int
+    idx_bc_back::Int
+    idx_bc_bottom::Int
+    idx_bc_top::Int
 end
 
 struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
@@ -135,7 +173,6 @@ function init_state_auxiliary!(
     aux::Vars,
     geom::LocalGeometry,
 )
-
     FT = eltype(aux)
     x, y, z = geom.coord
     dc = m.data_config
@@ -156,8 +193,12 @@ function init_state_auxiliary!(
             (dc.p_0 / dc.p_1000)^(_R_d / _cp_d) -
             _R_d / _cp_d * _grav / dc.θ_0 / R_m * (z - dc.z_0)
         )^(_cp_d / _R_d)
-    aux.p = p
-    aux.z = z
+
+    @inbounds begin
+        aux.p = p
+        aux.x = x
+        aux.z = z
+    end
 end
 
 function init_state_conservative!(
@@ -233,6 +274,15 @@ function config_kinematic_eddy(
     p_1000,
     qt_0,
     z_0,
+    periodicity_x,
+    periodicity_y,
+    periodicity_z,
+    idx_bc_left,
+    idx_bc_right,
+    idx_bc_front,
+    idx_bc_back,
+    idx_bc_bottom,
+    idx_bc_top,
 )
     # Choose explicit solver
     ode_solver = ClimateMachine.ExplicitSolverType(
@@ -249,13 +299,21 @@ function config_kinematic_eddy(
         FT(p_1000),
         FT(qt_0),
         FT(z_0),
+        Bool(periodicity_x),
+        Bool(periodicity_y),
+        Bool(periodicity_z),
+        Int(idx_bc_left),
+        Int(idx_bc_right),
+        Int(idx_bc_front),
+        Int(idx_bc_back),
+        Int(idx_bc_bottom),
+        Int(idx_bc_top),
     )
 
     # Set up the model
     model = KinematicModel{FT}(
         AtmosLESConfigType,
         param_set;
-        boundarycondition = nothing,
         init_state_conservative = init_kinematic_eddy!,
         data_config = kmc,
     )
@@ -268,7 +326,20 @@ function config_kinematic_eddy(
         FT(ymax),
         FT(zmax),
         param_set,
-        init_kinematic_eddy!;
+        init_kinematic_eddy!,
+        boundary = (
+            (Int(idx_bc_left), Int(idx_bc_right)),
+            (Int(idx_bc_front), Int(idx_bc_back)),
+            (Int(idx_bc_bottom), Int(idx_bc_top)),
+        ),
+        periodicity = (
+            Bool(periodicity_x),
+            Bool(periodicity_y),
+            Bool(periodicity_z),
+        ),
+        xmin = FT(0),
+        ymin = FT(0),
+        zmin = FT(0),
         solver_type = ode_solver,
         model = model,
     )

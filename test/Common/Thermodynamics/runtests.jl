@@ -209,6 +209,22 @@ end
         PhasePartition(q_tot / 1000),
     ) == 0.0
 
+    @test supersaturation(
+        param_set,
+        PhasePartition(q_tot, 1e-3 * q_tot, 1e-3 * q_tot),
+        ρ,
+        _T_triple,
+        Liquid(),
+    ) ≈ 0.998 * q_tot / ρ_v_triple / ρ - 1
+
+    @test supersaturation(
+        param_set,
+        PhasePartition(q_tot, 1e-3 * q_tot, 1e-3 * q_tot),
+        ρ,
+        _T_triple,
+        Ice(),
+    ) ≈ 0.998 * q_tot / ρ_v_triple / ρ - 1
+
     # energy functions and inverse (temperature)
     T = FT(300)
     e_kin = FT(11)
