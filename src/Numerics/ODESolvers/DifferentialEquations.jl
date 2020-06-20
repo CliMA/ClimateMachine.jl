@@ -71,9 +71,10 @@ mutable struct DiffEqJLIMEXSolver{I} <: AbstractDiffEqJLSolver
         Q,
         args...;
         t0 = 0,
+        p = nothing,
         kwargs...,
     )
-        prob = SplitODEProblem(
+        prob = DiffEqBase.SplitODEProblem(
             (du, u, p, t) -> rhs_implicit!(du, u, p, t; increment = false),
             (du, u, p, t) -> rhs!(du, u, p, t; increment = false),
             Q,
