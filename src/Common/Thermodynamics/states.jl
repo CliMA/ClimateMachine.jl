@@ -101,7 +101,7 @@ function PhaseEquil(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    maxiter::Int = 6,
+    maxiter::Int = 8,
     temperature_tol::FT = FT(1e-1),
     sat_adjust::Function = saturation_adjustment,
 ) where {FT <: Real}

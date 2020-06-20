@@ -54,7 +54,7 @@ struct ProfileSet{FT}
     q_ice::Array{FT}                    # Ice specific humidity
     q_pt::Array{PhasePartition{FT}}     # Phase partition
     RH::Array{FT}                       # Relative humidity
-    SS::Array{FT}                       # Super saturation
+    phase_type::Type{<:ThermodynamicState}
 end
 
 """
@@ -64,7 +64,7 @@ end
         n_RS1=10,
         n_RS2=20,
         T_min=FT(150),
-        T_surface=FT(350)
+        T_surface=FT(340)
     ) where {FT}
 
 Return input arguments to construct profiles
@@ -74,7 +74,7 @@ function input_config(
     n = 50,
     n_RS1 = 10,
     n_RS2 = 20,
-    T_surface = FT(350),
+    T_surface = FT(340),
     T_min = FT(150),
 )
     n_RS = n_RS1 + n_RS2
@@ -98,7 +98,7 @@ Compute profiles shared across `PhaseDry`,
 `PhaseEquil` and `PhaseNonEquil` thermodynamic
 states, including:
  - `z` altitude
- - `T_virt` virtual temperature
+ - `T` temperature
  - `p` pressure
  - `RS` relative saturation
 """
@@ -111,21 +111,26 @@ function shared_profiles(
 ) where {FT}
     n_RS = length(relative_sat)
     n = length(z_range)
-    T_virt = Array{FT}(undef, n * n_RS)
+    T = Array{FT}(undef, n * n_RS)
     p = Array{FT}(undef, n * n_RS)
     RS = Array{FT}(undef, n * n_RS)
     z = Array{FT}(undef, n * n_RS)
     linear_indices = LinearIndices((1:n, 1:n_RS))
+    # We take the virtual temperature, returned here,
+    # as the temperature, and then compute a thermodynamic
+    # state consistent with that temperature. This profile
+    # will not be in hydrostatic balance, but this does not
+    # matter for the thermodynamic test profiles.
     profile = DecayingTemperatureProfile{FT}(param_set, T_surface, T_min)
     for i in linear_indices.indices[1]
         for j in linear_indices.indices[2]
             k = linear_indices[i, j]
             z[k] = z_range[i]
-            T_virt[k], p[k] = profile(param_set, z[k])
+            T[k], p[k] = profile(param_set, z[k])
             RS[k] = relative_sat[j]
         end
     end
-    return z, T_virt, p, RS
+    return z, T, p, RS
 end
 
 ####
@@ -141,6 +146,7 @@ function PhaseDryProfiles(
     param_set::AbstractParameterSet,
     ::Type{FT},
 ) where {FT}
+    phase_type = PhaseDry
 
     z_range, relative_sat, T_surface, T_min = input_config(FT)
     z, T_virt, p, RS =
@@ -150,18 +156,13 @@ function PhaseDryProfiles(
     ρ = p ./ (_R_d .* T)
 
     # Additional variables
-    phase_type = PhaseDry
     q_tot = zeros(FT, length(RS))
     q_pt = PhasePartition_equil.(Ref(param_set), T, ρ, q_tot, Ref(phase_type))
     e_int = internal_energy.(Ref(param_set), T, q_pt)
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
     q_liq = getproperty.(q_pt, :liq)
     q_ice = getproperty.(q_pt, :ice)
-    RH = relative_humidity.(Ref(param_set), T, p, e_int, Ref(phase_type), q_pt)
-
-    # TODO: Update this once a super saturation method exists
-    # SS = super_saturation.(Ref(param_set), T, p, e_int, Ref(phase_type), q_pt)
-    SS = zeros(FT, length(RH))
+    RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
 
     return ProfileSet(
         z,
@@ -176,7 +177,7 @@ function PhaseDryProfiles(
         q_ice,
         q_pt,
         RH,
-        SS,
+        phase_type,
     )
 end
 
@@ -193,29 +194,32 @@ function PhaseEquilProfiles(
     param_set::AbstractParameterSet,
     ::Type{FT},
 ) where {FT}
-
-    z_range, relative_sat, T_surface, T_min = input_config(FT)
-
-    z, T_virt, p, RS =
-        shared_profiles(param_set, z_range, relative_sat, T_surface, T_min)
-    _R_d::FT = R_d(param_set)
-    T = T_virt
-    ρ = p ./ (_R_d .* T)
-
-    # Additional variables
     phase_type = PhaseEquil
-    q_sat = q_vap_saturation.(Ref(param_set), T, ρ, Ref(phase_type))
-    q_tot = min.(RS .* q_sat, FT(1))
+
+    # Prescribe z_range, relative_sat, T_surface, T_min
+    z_range, relative_sat, T_surface, T_min = input_config(FT)
+    _R_d = FT(R_d(param_set))
+
+    # Compute T, p, from DecayingTemperatureProfile, (reshape RS)
+    z, T, p, RS =
+        shared_profiles(param_set, z_range, relative_sat, T_surface, T_min)
+
+    # Compute total specific humidity from temperature, pressure
+    # and relative saturation, and partition the saturation excess
+    # according to temperature.
+    ρ = p ./ (_R_d .* T)
+    q_tot = RS .* q_vap_saturation.(Ref(param_set), T, ρ, Ref(phase_type))
     q_pt = PhasePartition_equil.(Ref(param_set), T, ρ, q_tot, Ref(phase_type))
-    e_int = internal_energy.(Ref(param_set), T, q_pt)
-    θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
+
+    # Extract phase partitioning and update pressure
+    # to be thermodynamically consistent with T, ρ, q_pt
     q_liq = getproperty.(q_pt, :liq)
     q_ice = getproperty.(q_pt, :ice)
-    RH = relative_humidity.(Ref(param_set), T, p, e_int, Ref(phase_type), q_pt)
+    p = air_pressure.(Ref(param_set), T, ρ, q_pt)
 
-    # TODO: Update this once a super saturation method exists
-    # SS = super_saturation.(Ref(param_set), T, p, e_int, Ref(phase_type), q_pt)
-    SS = zeros(FT, length(RH))
+    e_int = internal_energy.(Ref(param_set), T, q_pt)
+    θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
+    RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
 
     return ProfileSet(
         z,
@@ -230,6 +234,6 @@ function PhaseEquilProfiles(
         q_ice,
         q_pt,
         RH,
-        SS,
+        phase_type,
     )
 end
