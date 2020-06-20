@@ -7,13 +7,11 @@ CurrentModule = ClimateMachine
 ## AtmosModel type
 
 ```@docs
-ClimateMachine.Atmos.NoOrientation
-ClimateMachine.Atmos.FlatOrientation
-ClimateMachine.Atmos.SphericalOrientation
 ClimateMachine.Atmos.AtmosModel
 ```
 
 ## Turbulence / SGS
+
 ```@docs
 ClimateMachine.Atmos.turbulence_tensors
 ClimateMachine.Atmos.principal_invariants
@@ -52,6 +50,7 @@ ClimateMachine.Atmos.StandardHyperDiffusion
 ```
 
 ## BCs
+
 ```@docs
 ClimateMachine.Atmos.AtmosBC
 ClimateMachine.Atmos.DragLaw

@@ -19,7 +19,6 @@ using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
     RemainderModel,
-    FlatOrientation,
     NoReferenceState,
     ReferenceState,
     DryModel,

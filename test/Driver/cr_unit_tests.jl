@@ -7,6 +7,7 @@ import KernelAbstractions: CPU
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
 using ClimateMachine.TemperatureProfiles

@@ -15,6 +15,7 @@ parsed_args = ClimateMachine.cli(custom_settings = s)
 const number_of_tracers = parsed_args["number-of-tracers"]
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
