@@ -246,15 +246,22 @@ function boundary_state! end
 """
     update_auxiliary_state!(
         dg::DGModel,
-        m::HBModel,
+        m::BalanceLaw,
         Q::MPIStateArray,
         t::Real,
         elems::UnitRange,
     )
 
-Update the auxiliary state variables
+Update the auxiliary state variables with global scope.
 """
 function update_auxiliary_state! end
+
+"""
+    nodal_update_auxiliary_state!()
+
+Update the auxiliary state variables at each location in space.
+"""
+function nodal_update_auxiliary_state! end
 
 """
     update_auxiliary_state_gradient!
@@ -279,6 +286,13 @@ Specify which auxiliary variables are used to store the output of the integrals.
 function integral_set_auxiliary_state! end
 
 """
+    indefinite_stack_integral!
+
+Compute indefinite integral along stack.
+"""
+function indefinite_stack_integral! end
+
+"""
     reverse_integral_load_auxiliary_state!
 
 Specify auxiliary variables need their integrals reversed.
@@ -291,6 +305,13 @@ function reverse_integral_load_auxiliary_state! end
 Specify which auxiliary variables are used to store the output of the reversed integrals.
 """
 function reverse_integral_set_auxiliary_state! end
+
+"""
+    reverse_indefinite_stack_integral!
+
+Compute reverse indefinite integral along stack.
+"""
+function reverse_indefinite_stack_integral! end
 
 # Internal methods
 number_state_conservative(m::BalanceLaw, FT) =

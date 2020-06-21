@@ -13,7 +13,7 @@ using ClimateMachine.ShallowWater
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VTK

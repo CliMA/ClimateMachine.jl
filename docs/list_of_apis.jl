@@ -18,6 +18,7 @@ apis = [
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
     ],
+    "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
         "List of variables" => "APIs/Diagnostics/Diagnostics.md",
@@ -33,7 +34,7 @@ apis = [
         "Meshes" => "APIs/Numerics/Meshes/Mesh.md",
         "SystemSolvers" => "APIs/Numerics/SystemSolvers/SystemSolvers.md",
         "ODESolvers" => "APIs/Numerics/ODESolvers/ODESolvers.md",
-        "Balance Law" => "APIs/Numerics/DGMethods/BalanceLawOverview.md",
+        "DG Methods" => "APIs/Numerics/DGMethods/DGMethods.md",
         "Numerical Fluxes" => "APIs/Numerics/DGMethods/NumericalFluxes.md",
     ],
     "Utilities" => [

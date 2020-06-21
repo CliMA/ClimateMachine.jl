@@ -1,7 +1,7 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -15,10 +15,11 @@ import ClimateMachine.DGMethods:
     init_state_conservative!,
     boundary_state!,
     wavespeed,
-    LocalGeometry,
     vars_gradient_laplacian,
     vars_hyperdiffusive,
     transform_post_gradient_laplacian!
+
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 

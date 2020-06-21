@@ -709,6 +709,7 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
+# TODO: Move to BalanceLaws
 function nodal_update_auxiliary_state!(
     f!,
     dg::DGModel,

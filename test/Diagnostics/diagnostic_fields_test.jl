@@ -22,7 +22,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
-import ClimateMachine.DGMethods: vars_state_conservative
+import ClimateMachine.BalanceLaws: vars_state_conservative
 import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #

@@ -1,7 +1,8 @@
 using ClimateMachine.VariableTemplates
 
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -14,9 +15,10 @@ import ClimateMachine.DGMethods:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!,
-    init_ode_state,
-    LocalGeometry
+    init_state_conservative!
+
+import ClimateMachine.DGMethods: init_ode_state
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 
 struct MMSModel{dim} <: BalanceLaw end

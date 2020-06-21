@@ -1,8 +1,9 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods: nodal_update_auxiliary_state!
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -17,9 +18,10 @@ import ClimateMachine.DGMethods:
     init_state_conservative!,
     boundary_state!,
     wavespeed,
-    LocalGeometry,
     number_state_conservative,
     number_state_gradient
+
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
 import ClimateMachine.DGMethods.NumericalFluxes:

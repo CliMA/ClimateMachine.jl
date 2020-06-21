@@ -25,8 +25,9 @@ using Logging, Printf, Dates
 using Random
 
 using ClimateMachine.VariableTemplates
+using ClimateMachine.DGMethods: BalanceLaw
+
 import ClimateMachine.DGMethods:
-    BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -36,9 +37,10 @@ import ClimateMachine.DGMethods:
     source!,
     boundary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
-    init_ode_state,
-    LocalGeometry
+    init_state_conservative!
+
+import ClimateMachine.DGMethods: init_ode_state
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 import ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder,
     numerical_flux_first_order!,
