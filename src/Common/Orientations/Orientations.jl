@@ -38,7 +38,7 @@ export init_aux!,
     projection_normal,
     gravitational_potential,
     ∇gravitational_potential,
-    projection_tangential
+    projection_tangential,
     sphr_to_cart_vec,
     cart_to_sphr_vec
 
