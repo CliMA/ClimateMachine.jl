@@ -54,7 +54,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     λ = longitude(bl, aux)
     z = altitude(bl, aux)
     r::FT = z+_a
-    γ::FT = 0 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
+    γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
 
     # convenience functions for temperature and pressure
     τ_z_1::FT = exp(Γ*z/T_0)
