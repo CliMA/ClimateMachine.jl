@@ -48,7 +48,7 @@ function null_init_state!(
     t,
 )
     T = eltype(state.U)
-    state.U = @SVector zeros(T, 3)
+    state.U = @SVector zeros(T, 2)
     state.η = 0
     return nothing
 end
@@ -68,7 +68,6 @@ function lsw_init_state!(
     state.U = @SVector [
         u_lsw(coords[1], coords[2], t),
         v_lsw(coords[1], coords[2], t),
-        0,
     ]
 
     state.η = η_lsw(coords[1], coords[2], t)
@@ -91,7 +90,6 @@ function lkw_init_state!(
     state.U = @SVector [
         u_lkw(coords[1], coords[2], t),
         v_lkw(coords[1], coords[2], t),
-        0,
     ]
 
     state.η = η_lkw(coords[1], coords[2], t)
@@ -150,7 +148,7 @@ function gyre_init_state!(p::GyreInABox, T::LinearDrag, state, aux, coords, t)
     v = uˢ(ϵ) * 𝒱(coords[1] / Lˣ, coords[2] / Lʸ, ϵ)
     h = hˢ(ϵ) * ℋ(coords[1] / Lˣ, coords[2] / Lʸ, ϵ, βᵖ, fₒ, γ)
 
-    state.U = @SVector [H * u, H * v, 0]
+    state.U = @SVector [H * u, H * v]
 
     state.η = h
 
@@ -188,7 +186,7 @@ function gyre_init_state!(
     C = τₒ / (_grav * H) * (fₒ / β)
 
     state.η = η_munk(coords[1], coords[2], Lˣ, Lʸ, δᵐ, C)
-    state.U = @SVector zeros(T, 3)
+    state.U = @SVector zeros(T, 2)
 
     return nothing
 end
