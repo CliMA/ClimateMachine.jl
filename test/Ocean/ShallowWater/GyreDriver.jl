@@ -84,8 +84,8 @@ function shallow_init_aux!(p::GyreInABox, aux, geom)
     fₒ = p.fₒ
     β = p.β
 
-    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0, 0]
-    aux.f = @SVector [0, 0, fₒ + β * (y - Lʸ / 2)]
+    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
+    aux.f = fₒ + β * (y - Lʸ / 2)
 
     return nothing
 end

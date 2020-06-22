@@ -57,7 +57,7 @@ function shallow_init_state!(
 
     U = A[1] * sin(kˣ * x)
 
-    Q.U = @SVector [U, -0, -0]
+    Q.U = @SVector [U, -0]
     Q.η = A[2] * cos(kˣ * x)
 
     return nothing
@@ -67,8 +67,8 @@ function shallow_init_aux!(p::SimpleBox, A, geom)
     @inbounds y = geom.coord[2]
 
     FT = eltype(A)
-    A.τ = @SVector zeros(FT, 3)
-    A.f = @SVector zeros(FT, 3)
+    A.τ = @SVector zeros(FT, 2)
+    A.f = -0
 
     return nothing
 end
