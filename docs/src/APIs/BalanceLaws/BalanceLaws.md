@@ -1,7 +1,7 @@
-# DG Balance Law Method
+# Balance Laws
 
 ```@meta
-CurrentModule = ClimateMachine.DGMethods
+CurrentModule = ClimateMachine.BalanceLaws
 ```
 
 ## The balance law
@@ -9,22 +9,6 @@ CurrentModule = ClimateMachine.DGMethods
 ```@docs
 BalanceLaw
 ```
-
-## Continuous Balance Law Formulation
-
-to be filled
-
-## Discontinuous Galerkin Method Formulation
-
-to be filled
-
-## Examples
-
-!!! attribution
-    The style of examples we use here is heavily inspired by
-    [`JuAFEM.jl`](https://github.com/KristofferC/JuAFEM.jl)
-
-to be filled
 
 ## Variable specification methods
 
@@ -55,6 +39,8 @@ source!
 ## Integral kernels
 
 ```@docs
+indefinite_stack_integral!
+reverse_indefinite_stack_integral!
 integral_load_auxiliary_state!
 integral_set_auxiliary_state!
 reverse_integral_load_auxiliary_state!

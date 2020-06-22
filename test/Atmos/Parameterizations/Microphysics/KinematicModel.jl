@@ -86,10 +86,9 @@ const ice_param_set = param_set.microphys_param_set.ice
 const rain_param_set = param_set.microphys_param_set.rain
 const snow_param_set = param_set.microphys_param_set.snow
 
-import ClimateMachine.DGMethods:
-    BalanceLaw,
-    DGModel,
-    LocalGeometry,
+using ClimateMachine.BalanceLaws: BalanceLaw
+
+import ClimateMachine.BalanceLaws:
     vars_state_conservative,
     vars_state_auxiliary,
     vars_state_gradient,
@@ -103,6 +102,9 @@ import ClimateMachine.DGMethods:
     wavespeed,
     boundary_state!,
     source!
+
+import ClimateMachine.DGMethods: DGModel
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 struct KinematicModelConfig{FT}
     xmax::FT

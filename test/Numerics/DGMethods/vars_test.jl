@@ -11,8 +11,9 @@ using Printf
 using LinearAlgebra
 using Logging
 
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -25,9 +26,10 @@ import ClimateMachine.DGMethods:
     update_auxiliary_state!,
     boundary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
-    init_ode_state,
-    LocalGeometry
+    init_state_conservative!
+
+import ClimateMachine.DGMethods: init_ode_state
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 
 struct VarsTestModel{dim} <: BalanceLaw end

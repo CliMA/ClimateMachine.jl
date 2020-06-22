@@ -11,8 +11,9 @@ using Printf
 using LinearAlgebra
 using Logging
 
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -21,11 +22,9 @@ import ClimateMachine.DGMethods:
     flux_second_order!,
     source!,
     wavespeed,
-    LocalGeometry,
     boundary_state!,
     init_state_auxiliary!,
     init_state_conservative!,
-    init_ode_state,
     update_auxiliary_state!,
     vars_integrals,
     vars_reverse_integrals,
@@ -35,6 +34,9 @@ import ClimateMachine.DGMethods:
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
+
+import ClimateMachine.DGMethods: init_ode_state
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 
 struct IntegralTestModel{dim} <: BalanceLaw end

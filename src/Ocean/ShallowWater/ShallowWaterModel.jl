@@ -7,7 +7,7 @@ using ..VariableTemplates
 using LinearAlgebra: Diagonal, dot
 using CLIMAParameters.Planet: grav
 
-import ClimateMachine.DGMethods:
+import ..BalanceLaws:
     BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
@@ -22,8 +22,9 @@ import ClimateMachine.DGMethods:
     compute_gradient_argument!,
     init_state_auxiliary!,
     init_state_conservative!,
-    LocalGeometry,
     compute_gradient_flux!
+
+import ...Mesh.Geometry: LocalGeometry
 
 using ..DGMethods.NumericalFluxes
 

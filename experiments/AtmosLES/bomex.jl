@@ -76,7 +76,7 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
 import ClimateMachine.Atmos: flux_second_order!, thermo_state
 

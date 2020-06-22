@@ -24,7 +24,7 @@ using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGMethods:
+import ClimateMachine.BalanceLaws:
     vars_state_conservative,
     vars_state_auxiliary,
     vars_integrals,
@@ -36,7 +36,7 @@ import ClimateMachine.DGMethods:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-import ClimateMachine.DGMethods: boundary_state!
+import ClimateMachine.BalanceLaws: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!
 
 """

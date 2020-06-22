@@ -10,31 +10,25 @@ using ..VariableTemplates
 using ..MPIStateArrays
 using ..Mesh.Filters: apply!
 using ..Mesh.Grids: VerticalDirection
-using ..DGMethods:
-    BalanceLaw,
-    LocalGeometry,
-    DGModel,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
+using ..BalanceLaws: BalanceLaw
+import ..BalanceLaws:
     nodal_update_auxiliary_state!,
-    copy_stack_field_down!
-using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
-
-import ..DGMethods.NumericalFluxes: update_penalty!
-import ..DGMethods:
-
     vars_state_conservative,
-    init_state_conservative!,
     vars_state_auxiliary,
-    init_state_auxiliary!,
     vars_state_gradient,
-    compute_gradient_argument!,
-    vars_state_gradient_flux,
-    compute_gradient_flux!,
     vars_integrals,
+    vars_state_gradient_flux,
+    vars_reverse_integrals,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
-    vars_reverse_integrals,
+    indefinite_stack_integral!,
+    reverse_indefinite_stack_integral!,
+    indefinite_stack_integral!,
+    reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!,
     flux_first_order!,
@@ -43,6 +37,13 @@ import ..DGMethods:
     wavespeed,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!
+
+using ..DGMethods: DGModel, copy_stack_field_down!
+using ..Mesh.Geometry: LocalGeometry
+
+using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
+
+import ..DGMethods.NumericalFluxes: update_penalty!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
