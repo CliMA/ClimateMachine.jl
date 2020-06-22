@@ -33,8 +33,8 @@ include(joinpath(
     "HydrostaticBoussinesqModel.jl",
 ))
 include(joinpath("Numerics", "SystemSolvers", "SystemSolvers.jl"))
-include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
 include(joinpath("Numerics", "ODESolvers", "GenericCallbacks.jl"))
+include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
 include(joinpath("Atmos", "Model", "AtmosModel.jl"))
 include(joinpath("InputOutput", "VTK", "VTK.jl"))
 include(joinpath("Diagnostics", "Diagnostics.jl"))

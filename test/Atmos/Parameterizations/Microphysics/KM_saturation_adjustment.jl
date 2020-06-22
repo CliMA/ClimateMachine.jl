@@ -239,26 +239,25 @@ function main()
 
     model = driver_config.bl
     step = [0]
-    cbvtk =
-        GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
-            out_dirname = @sprintf(
-                "microphysics_test_2_mpirank%04d_step%04d",
-                MPI.Comm_rank(mpicomm),
-                step[1]
-            )
-            out_path_prefix = joinpath(vtkdir, out_dirname)
-            @info "doing VTK output" out_path_prefix
-            writevtk(
-                out_path_prefix,
-                solver_config.Q,
-                solver_config.dg,
-                flattenednames(vars_state_conservative(model, FT)),
-                solver_config.dg.state_auxiliary,
-                flattenednames(vars_state_auxiliary(model, FT)),
-            )
-            step[1] += 1
-            nothing
-        end
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(output_freq) do
+        out_dirname = @sprintf(
+            "new_ex_1_mpirank%04d_step%04d",
+            MPI.Comm_rank(mpicomm),
+            step[1]
+        )
+        out_path_prefix = joinpath(vtkdir, out_dirname)
+        @info "doing VTK output" out_path_prefix
+        writevtk(
+            out_path_prefix,
+            solver_config.Q,
+            solver_config.dg,
+            flattenednames(vars_state_conservative(model, FT)),
+            solver_config.dg.state_auxiliary,
+            flattenednames(vars_state_auxiliary(model, FT)),
+        )
+        step[1] += 1
+        nothing
+    end
 
     # get aux variables indices for testing
     q_tot_ind = varsindex(vars_state_auxiliary(model, FT), :q_tot)

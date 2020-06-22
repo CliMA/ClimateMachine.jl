@@ -252,6 +252,7 @@ cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         filter,
         state_auxiliary = solver_config.dg.state_auxiliary,
     )
+    nothing
 end;
 
 # ## Setup diagnostic output

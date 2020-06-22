@@ -28,15 +28,35 @@ mutable struct DiagnosticsGroup
     ) = new(name, init, fini, collect, interval, out_prefix, writer, interpol)
 end
 
-function (dgngrp::DiagnosticsGroup)(currtime; init = false, fini = false)
-    if init
-        dgngrp.init(dgngrp, currtime)
-    end
-    dgngrp.collect(dgngrp, currtime)
-    if fini
-        dgngrp.fini(dgngrp, currtime)
-    end
+
+function GenericCallbacks.init!(dgngrp::DiagnosticsGroup, solver, Q, param, t0)
+    @info @sprintf(
+        """
+    Diagnostics: %s
+        %s at %8.2f""",
+        dgngrp.name,
+        "initializing",
+        t0,
+    )
+    dgngrp.init(dgngrp, t0)
+    dgngrp.collect(dgngrp, t0)
+    return nothing
 end
+function GenericCallbacks.call!(dgngrp::DiagnosticsGroup, solver, Q, param, t)
+    @tic diagnostics
+    @info @sprintf(
+        """
+    Diagnostics: %s
+        %s at %8.2f""",
+        dgngrp.name,
+        "collecting",
+        t,
+    )
+    dgngrp.collect(dgngrp, t)
+    @toc diagnostics
+    return nothing
+end
+
 
 include("atmos_les_default.jl")
 """

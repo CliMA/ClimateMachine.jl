@@ -65,18 +65,20 @@ ODESolvers.LinearBackwardEulerSolver
 ODESolvers.AbstractBackwardEulerSolver
 ```
 
-## Generic Callbacks
-
-```@docs
-GenericCallbacks
-GenericCallbacks.EveryXWallTimeSeconds
-GenericCallbacks.EveryXSimulationSteps
-```
-
 ## ODE Solvers
 
 ```@docs
 ODESolvers.solve!
 ODESolvers.gettime
 ODESolvers.updatedt!
+```
+
+## Generic Callbacks
+
+```@docs
+GenericCallbacks
+GenericCallbacks.AtStart
+GenericCallbacks.EveryXWallTimeSeconds
+GenericCallbacks.EveryXSimulationTime
+GenericCallbacks.EveryXSimulationSteps
 ```

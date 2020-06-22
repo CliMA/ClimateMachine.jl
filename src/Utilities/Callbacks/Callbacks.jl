@@ -30,6 +30,52 @@ _sync_device(::Type{CuArray}) = synchronize()
 _sync_device(::Type{Array}) = nothing
 
 """
+    SummaryLogCallback([stimeend])
+
+Log a summary of the current run. 
+
+The optional `stimeend` argument is used to print the total simulation time.
+"""
+mutable struct SummaryLogCallback
+    stimeend::Union{Nothing, Real}
+    wtimestart::DateTime # wall time at start of simulation
+    function SummaryLogCallback(stimeend = nothing)
+        new(stimeend, now())
+    end
+end
+
+function GenericCallbacks.init!(cb::SummaryLogCallback, solver, Q, param, t0)
+    cb.wtimestart = now()
+    return nothing
+end
+function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
+    runtime = Dates.format(
+        convert(Dates.DateTime, Dates.now() - cb.wtimestart),
+        Dates.dateformat"HH:MM:SS",
+    )
+    normQ = norm(Q)
+    if cb.stimeend === nothing
+        simtime = @sprintf "%8.2f" t
+    else
+        simtime = @sprintf "%8.2f / %8.2f" t cb.stimeend
+    end
+    @info @sprintf(
+        """
+        Update
+            simtime = %s
+            runtime = %s
+            norm(Q) = %.16e""",
+        simtime,
+        runtime,
+        normQ,
+    )
+    isnan(normQ) && error("norm(Q) is NaN")
+    return nothing
+end
+
+
+
+"""
     show_updates(show_updates_opt, solver_config, user_info_callback)
 
 Return a callback function that shows simulation updates at the specified
@@ -40,37 +86,17 @@ function show_updates(show_updates_opt, solver_config, user_info_callback)
 
     cb_constr = CB_constructor(show_updates_opt, solver_config)
     if cb_constr !== nothing
-        # set up the information callback
-        upd_starttime = Ref(now())
-        cb_updates = cb_constr() do (init = false)
-            if init
-                upd_starttime[] = now()
-            else
-                runtime = Dates.format(
-                    convert(Dates.DateTime, Dates.now() - upd_starttime[]),
-                    Dates.dateformat"HH:MM:SS",
-                )
-                energy = norm(solver_config.Q)
-                @info @sprintf(
-                    """
-Update
-    simtime = %8.2f / %8.2f
-    runtime = %s
-    norm(Q) = %.16e""",
-                    ODESolvers.gettime(solver_config.solver),
-                    solver_config.timeend,
-                    runtime,
-                    energy,
-                )
-                isnan(energy) && error("norm(Q) is NaN")
-            end
-            user_info_callback(init)
-        end
-        return cb_updates
+        return cb_constr((
+            SummaryLogCallback(solver_config.timeend),
+            GenericCallbacks.AtStart(user_info_callback),
+        ))
     else
         return nothing
     end
 end
+
+
+
 
 """
     diagnostics(diagnostics_opt, solver_config, dgn_starttime, diagnostics_config)
@@ -91,22 +117,7 @@ function diagnostics(
             cb_constr =
                 CB_constructor(diagnostics_opt, solver_config, dgngrp.interval)
             cb_constr === nothing && continue
-            fn = cb_constr() do (init = false)
-                @tic diagnostics
-                currtime = ODESolvers.gettime(solver_config.solver)
-                @info @sprintf(
-                    """
-Diagnostics: %s
-    %s at %s""",
-                    dgngrp.name,
-                    init ? "initializing" : "collecting",
-                    string(currtime),
-                )
-                dgngrp(currtime, init = init)
-                @toc diagnostics
-                nothing
-            end
-            dgncbs = (dgncbs..., fn)
+            dgncbs = (dgncbs..., cb_constr(dgngrp))
         end
         return dgncbs
     else
@@ -131,7 +142,8 @@ function vtk(vtk_opt, solver_config, output_dir)
         Q = solver_config.Q
         FT = eltype(Q)
 
-        cb_vtk = cb_constr() do (init = false)
+        cb_vtk = cb_constr() do
+            # TODO: make an object
             @tic vtk
             vprefix = @sprintf(
                 "%s_mpirank%04d_num%04d",
@@ -241,7 +253,7 @@ at `mcn_opt` intervals.
 function monitor_courant_numbers(mcn_opt, solver_config)
     cb_constr = CB_constructor(mcn_opt, solver_config)
     if cb_constr !== nothing
-        cb_cfl = cb_constr() do (init = false)
+        cb_cfl = cb_constr() do
             Δt = solver_config.dt
             c_v = courant(
                 nondiffusive_courant,
@@ -321,7 +333,7 @@ function checkpoint(
     cb_constr = CB_constructor(checkpoint_opt, solver_config)
     if cb_constr !== nothing
         cpnum = Ref(1)
-        cb_checkpoint = cb_constr() do (init = false)
+        cb_checkpoint = cb_constr() do
             write_checkpoint(
                 solver_config,
                 checkpoint_dir,
@@ -359,41 +371,35 @@ function CB_constructor(interval::String, solver_config, default = nothing)
     bl = dg.balance_law
     secs_per_day = day(bl.param_set)
 
-    if endswith(interval, "smonths")
-        ticks = 30.0 * secs_per_day * parse(Float64, interval[1:(end - 7)])
-        return (func) ->
-            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
-    elseif endswith(interval, "sdays")
-        ticks = secs_per_day * parse(Float64, interval[1:(end - 5)])
-        return (func) ->
-            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
-    elseif endswith(interval, "shours")
-        ticks = 60.0 * 60.0 * parse(Float64, interval[1:(end - 6)])
-        return (func) ->
-            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
-    elseif endswith(interval, "smins")
-        ticks = 60.0 * parse(Float64, interval[1:(end - 5)])
-        return (func) ->
-            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
-    elseif endswith(interval, "ssecs")
-        ticks = parse(Float64, interval[1:(end - 5)])
-        return (func) ->
-            GenericCallbacks.EveryXSimulationTime(func, ticks, solver)
-    elseif endswith(interval, "steps")
-        steps = parse(Int, interval[1:(end - 5)])
-        return (func) -> GenericCallbacks.EveryXSimulationSteps(func, steps)
-    elseif endswith(interval, "hours")
-        secs = 60 * 60 * parse(Int, interval[1:(end - 5)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "mins")
-        secs = 60 * parse(Int, interval[1:(end - 4)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
-    elseif endswith(interval, "secs")
-        secs = parse(Int, interval[1:(end - 4)])
-        return (func) ->
-            GenericCallbacks.EveryXWallTimeSeconds(func, secs, mpicomm)
+    if (
+        m = match(r"^([0-9\.]+)(smonths|sdays|shours|smins|ssecs)$", interval)
+    ) !== nothing
+        n = parse(Float64, m[1])
+        if m[2] == "smonths"
+            ssecs = 30 * secs_per_day * n
+        elseif m[2] == "sdays"
+            ssecs = secs_per_day * n
+        elseif m[2] == "shours"
+            ssecs = 60 * 60 * n
+        elseif m[2] == "smins"
+            ssecs = 60 * n
+        elseif m[2] == "ssecs"
+            ssecs = n
+        end
+        return cb -> GenericCallbacks.EveryXSimulationTime(cb, ssecs)
+    elseif (m = match(r"^([0-9]+)(steps)$", interval)) !== nothing
+        steps = parse(Int, m[1])
+        return cb -> GenericCallbacks.EveryXSimulationSteps(cb, steps)
+    elseif (m = match(r"^([0-9\.]+)(hours|mins|secs)$", interval)) !== nothing
+        n = parse(Float64, m[1])
+        if m[2] == "hours"
+            secs = 60 * 60 * n
+        elseif m[2] == "mins"
+            secs = 60 * n
+        elseif m[2] == "secs"
+            secs = n
+        end
+        return cb -> GenericCallbacks.EveryXWallTimeSeconds(cb, secs, mpicomm)
     elseif interval == "default"
         if default === nothing
             @warn "no default available; ignoring"

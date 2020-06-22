@@ -131,7 +131,7 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
         step = [0]
         vtkpath = outname
         mkpath(vtkpath)
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init = false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do
             outprefix = @sprintf(
                 "%s/mpirank%04d_step%04d",
                 vtkpath,
