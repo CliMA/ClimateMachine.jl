@@ -13,7 +13,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
-    air_density, air_temperature, internal_energy 
+    air_density, air_temperature, total_energy 
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
