@@ -3,6 +3,7 @@ using ClimateMachine
 ClimateMachine.cli()
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
@@ -11,7 +12,8 @@ using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics: air_density, total_energy
+using ClimateMachine.Thermodynamics:
+    air_density, air_temperature, internal_energy 
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
@@ -50,9 +52,9 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     V_p::FT = 1
 
     # grid
-    φ = latitude(bl, aux)
-    λ = longitude(bl, aux)
-    z = altitude(bl, aux)
+    φ = latitude(bl.orientation, aux)
+    λ = longitude(bl.orientation, aux)
+    z = altitude(bl.orientation, bl.param_set, aux)
     r::FT = z+_a
     γ::FT = 0 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
 
@@ -124,7 +126,6 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0.0)),
         hyperdiffusion = NoHyperDiffusion(),
-        #hyperdiffusion = StandardHyperDiffusion(FT(4*36000)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_baroclinic_wave!,
@@ -170,7 +171,6 @@ function main()
         ode_solver_type = ode_solver_type,
 #        CFL_direction = HorizontalDirection(),
         CFL_direction = EveryDirection(),
-#        diffdir= HorizontalDirection(),
     )
 
     # Set up diagnostics
