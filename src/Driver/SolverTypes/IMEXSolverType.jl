@@ -167,9 +167,10 @@ function solversetup(
     vdg = DGModel(
         ode_solver.implicit_model(dg.balance_law),
         dg.grid,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        dg.numerical_flux_gradient,
+        # FIXME: hard-code central fluxes to resolve balancing issues
+        CentralNumericalFluxFirstOrder(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
         state_auxiliary = dg.state_auxiliary,
         state_gradient_flux = dg.state_gradient_flux,
         states_higher_order = dg.states_higher_order,
