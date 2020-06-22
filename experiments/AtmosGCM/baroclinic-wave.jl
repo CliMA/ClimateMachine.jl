@@ -149,7 +149,7 @@ function main()
     poly_order = 4                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 10                              # vertical element number
-    n_days::FT = 1000 / 86400 
+    n_days::FT = 3600 / 86400 
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
