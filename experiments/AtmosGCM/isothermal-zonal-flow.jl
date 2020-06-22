@@ -149,12 +149,21 @@ function main()
         config_isothermal_zonal_flow(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = ManyColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = true,
+        discrete_splitting = false,
+    )
     CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
         Courant_number = CFL,
+        init_on_cpu = true,
+        ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
     )
 
