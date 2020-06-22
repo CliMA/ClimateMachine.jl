@@ -5,6 +5,7 @@ ClimateMachine.cli()
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
+using ClimateMachine.Orientations
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers: ManyColumnLU
@@ -33,8 +34,8 @@ CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 function init_isothermal_zonal_flow!(bl, state, aux, coords, t)
     FT = eltype(state)
 
-    φ = latitude(bl, aux)
-    z = altitude(bl, aux)
+    φ = latitude(bl.orientation, aux)
+    z = altitude(bl.orientation, param_set, aux)
 
     _grav::FT = grav(bl.param_set)
     _a::FT = planet_radius(bl.param_set)
