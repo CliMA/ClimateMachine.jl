@@ -113,8 +113,8 @@ init_state_conservative!(rem_balance_law::RemainderModel, args...) =
 function wavespeed(rem::RemainderModel, nM, state::Vars, aux::Vars, t::Real)
     FT = eltype(state)
 
-    ws = fill(0, MVector{number_state_conservative(rem.main, FT), FT})
-    rs = fill(0, MVector{number_state_conservative(rem.main, FT), FT})
+    ws = fill(-zero(FT), MVector{number_state_conservative(rem.main, FT), FT})
+    rs = fill(-zero(FT), MVector{number_state_conservative(rem.main, FT), FT})
 
     ws .= wavespeed(rem.main, nM, state, aux, t)
 
@@ -161,7 +161,7 @@ function flux_first_order!(
     m_s = parent(flux_s)
 
     for sub in rem_balance_law.subs
-        fill!(m_s, 0)
+        fill!(m_s, -zero(eltype(m_s)))
         flux_first_order!(sub, flux_s, state, aux, t)
         m .-= m_s
     end
@@ -184,7 +184,7 @@ function source!(
     m_s = parent(source_s)
 
     for sub in rem_balance_law.subs
-        fill!(m_s, 0)
+        fill!(m_s, -zero(eltype(m_s)))
         source!(sub, source_s, state, diffusive, aux, t, direction)
         m .-= m_s
     end
