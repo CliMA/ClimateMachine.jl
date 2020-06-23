@@ -665,9 +665,7 @@ function atmos_enforce_discrete_balance!(atmos::AtmosModel, aux::Vars, geom::Loc
   ρ = aux.ref_state.ρ 
   p = aux.ref_state.p
   T_virt = p / (_R_d * ρ)
-  # We evaluate the saturation vapor pressure, approximating
-  # temperature by virtual temperature
-  # ts = TemperatureSHumEquil(atmos.param_set, T_virt, ρ, FT(0))
+  
   ts = PhaseDry_given_ρT(atmos.param_set, ρ, T_virt)
   q_vap_sat = q_vap_saturation(ts)
   ρq_tot = aux.ref_state.ρq_tot
@@ -688,37 +686,28 @@ function init_state_auxiliary!(m::AtmosModel, state_auxiliary::MPIStateArray, gr
                                 atmos_nodal_init_state_auxiliary!,
                                 state_auxiliary,
                                 grid)
-    #test = @view state_auxiliary.data[:,
-    #                                   varsindex(vars(state_auxiliary),
-    #                                             :orientation, :∇Φ),
-    #                                   :]
-    #@show extrema(@. sqrt(test[:, 1, :] ^ 2 +
-    #                      test[:, 2, :] ^ 2 +
-    #                      test[:, 3, :] ^ 2))
-    #test = @view state_auxiliary.data[:,
-    #                                   varsindex(vars(state_auxiliary),
-    #                                             :ref_state, :ρ), :]
-    #@show extrema(test)
 
     FT = eltype(state_auxiliary)
     vars_init = @vars(∇p::SVector{3, FT})
     state_init = similar(state_auxiliary; vars=vars_init)
-    
-    contiguous_field_gradient!(m, state_init, state_auxiliary, ("ref_state.p",), grid)
-    @show extrema(state_init.data)
+ 
+    use_grad_kernel = true
+    if use_grad_kernel
+      contiguous_field_gradient!(m, state_init, state_auxiliary, ("ref_state.p",), grid)
+    else
+      grad_model = BalanceTestModel()
+      grad_dg = DGModel(grad_model,
+                        grid,
+                        CentralNumericalFluxFirstOrder(),
+                        CentralNumericalFluxSecondOrder(),
+                        CentralNumericalFluxGradient())
 
-    testmodel = BalanceTestModel()
-    testdg = DGModel(testmodel,
-                     grid,
-                     CentralNumericalFluxFirstOrder(),
-                     CentralNumericalFluxSecondOrder(),
-                     CentralNumericalFluxGradient())
+      ix_p = varsindex(vars(state_auxiliary), :ref_state, :p)
+      grad_dg.state_auxiliary.data .= state_auxiliary.data[:, ix_p, :]
+      gradQ = init_ode_state(grad_dg, FT(0))
+      grad_dg(state_init, gradQ, nothing, FT(0))
+    end
 
-    ix = varsindex(vars(state_auxiliary), :ref_state, :p)
-    testdg.state_auxiliary.data .= state_auxiliary.data[:, ix, :]
-    testQ = init_ode_state(testdg, FT(0))
-    testdg(state_init, testQ, nothing, FT(0))
-    @show extrema(state_init.data)
     nodal_init_state_auxiliary!(m,
                                 atmos_enforce_discrete_balance!,
                                 state_auxiliary,
