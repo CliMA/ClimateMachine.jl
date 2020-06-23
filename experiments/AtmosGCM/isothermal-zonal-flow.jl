@@ -28,7 +28,7 @@ const param_set = EarthParameterSet()
 
 import CLIMAParameters
 CLIMAParameters.Planet.Omega(::EarthParameterSet) = 0.0
-CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
+CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 1.0
 CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 function init_isothermal_zonal_flow!(bl, state, aux, coords, t)
@@ -91,6 +91,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
+        #hyperdiffusion = StandardHyperDiffusion(FT(4*3600)),
         moisture = DryModel(),
         source = (Gravity(),),
         init_state_conservative = init_isothermal_zonal_flow!,
@@ -140,8 +141,8 @@ function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
     poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 7                               # horizontal element number
-    n_vert = 5                               # vertical element number
+    n_horz = 20                              # horizontal element number
+    n_vert = 2                               # vertical element number
     timestart = FT(0)                        # start time (s)
     timeend = FT(3600)                       # end time (s)
 
@@ -157,7 +158,12 @@ function main()
         split_explicit_implicit = true,
         discrete_splitting = false,
     )
-    CFL = FT(0.4)
+
+    #ode_solver_type = ClimateMachine.ExplicitSolverType(
+    #    solver_method = LSRK144NiegemannDiehlBusch,
+    #)
+
+    CFL = FT(0.3)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
@@ -166,13 +172,14 @@ function main()
         init_on_cpu = true,
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
+        diffdir = HorizontalDirection(),
     )
 
     # Set up diagnostics
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 64
+    filterorder = 32
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(

@@ -25,6 +25,9 @@ using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+import CLIMAParameters
+#CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
+
 function init_baroclinic_wave!(bl, state, aux, coords, t)
     FT = eltype(state)
 
@@ -114,6 +117,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
     temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
     ref_state = HydrostaticState(temp_profile_ref)
+#    ref_state = NoReferenceState()
 
     domain_height::FT = 40e3 # distance between surface and top of atmosphere (m)
     
@@ -125,7 +129,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0.0)),
-        hyperdiffusion = NoHyperDiffusion(),
+#        hyperdiffusion = StandardHyperDiffusion(FT(4*3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_baroclinic_wave!,
@@ -147,30 +151,38 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 4                           # discontinuous Galerkin polynomial order
-    n_horz = 5                               # horizontal element number
-    n_vert = 10                              # vertical element number
-    n_days::FT = 1000 / 86400 
+    poly_order = 5                           # discontinuous Galerkin polynomial order
+    n_horz = 10                              # horizontal element number
+    n_vert = 4                               # vertical element number
+    n_days::FT = 3600/86400 
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
     driver_config = config_baroclinic_wave(FT, poly_order, (n_horz, n_vert))
 
+    # Set up experiment
+    #ode_solver_type = ClimateMachine.IMEXSolverType(
+    #    implicit_model = AtmosAcousticGravityLinearModel,
+    #    implicit_solver = ManyColumnLU,
+    #    solver_method = ARK2GiraldoKellyConstantinescu,
+    #    split_explicit_implicit = true,
+    #    discrete_splitting = true,
+    #)
     ode_solver_type = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
-    
-    # Set up experiment
-    CFL::FT = 0.8
+    CFL = FT(0.8)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
         Courant_number = CFL,
+        init_on_cpu = true,
         ode_solver_type = ode_solver_type,
-#        CFL_direction = HorizontalDirection(),
         CFL_direction = EveryDirection(),
+#        CFL_direction = HorizontalDirection(),
+#        diffdir = HorizontalDirection(),
     )
 
     # Set up diagnostics
@@ -182,6 +194,7 @@ function main()
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
+#            1:size(solver_config.Q, 2),
             AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
