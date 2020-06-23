@@ -1441,6 +1441,9 @@ end
         @unroll for s in 1:num_state_conservative
             state[n, s, e] = l_state[s]
         end
+        @unroll for s in 1:num_state_auxiliary
+            state_auxiliary[n, s, e] = local_state_auxiliary[s]
+        end
     end
 end
 
