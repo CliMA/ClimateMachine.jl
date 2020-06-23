@@ -201,7 +201,14 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
     )
 
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    pdgngrp = setup_atmos_refstate_perturbations(
+        AtmosGCMConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, pdgngrp])
 end
 
 function main()

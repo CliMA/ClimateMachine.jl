@@ -124,11 +124,11 @@ include("atmos_les_core.jl")
         interpol = nothing,
     )
 
-Create and return a `DiagnosticsGroup` containing the "AtmosLESCore" diagnostics
-for LES configurations. All the diagnostics in the group will run at the
-specified `interval`, be interpolated to the specified boundaries and
-resolution, and will be written to files prefixed by `out_prefix` using
-`writer`.
+Create and return a `DiagnosticsGroup` containing the "AtmosLESCore"
+diagnostics for LES configurations. All the diagnostics in the group
+will run at the specified `interval`, be interpolated to the specified
+boundaries and resolution, and will be written to files prefixed by
+`out_prefix` using `writer`.
 """
 function setup_atmos_core_diagnostics(
     ::AtmosLESConfigType,
@@ -145,6 +145,45 @@ function setup_atmos_core_diagnostics(
         Diagnostics.atmos_les_core_init,
         Diagnostics.atmos_les_core_fini,
         Diagnostics.atmos_les_core_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
+include("atmos_refstate_perturbations.jl")
+"""
+    setup_atmos_refstate_perturbations(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the
+"AtmosRefStatePerturbations" diagnostics for both LES and GCM
+configurations. All the diagnostics in the group will run at the
+specified `interval`, be interpolated to the specified boundaries
+and resolution, and written to files prefixed by `out_prefix`
+using `writer`.
+"""
+function setup_atmos_refstate_perturbations(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosRefStatePerturbations",
+        Diagnostics.atmos_refstate_perturbations_init,
+        Diagnostics.atmos_refstate_perturbations_fini,
+        Diagnostics.atmos_refstate_perturbations_collect,
         interval,
         out_prefix,
         writer,

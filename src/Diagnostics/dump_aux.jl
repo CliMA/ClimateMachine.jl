@@ -1,25 +1,31 @@
 function dump_aux_init(dgngrp, currtime)
-    bl = Settings.dg.balance_law
     FT = eltype(Settings.Q)
+    bl = Settings.dg.balance_law
+    mpicomm = Settings.mpicomm
+    mpirank = MPI.Comm_rank(mpicomm)
 
-    # get dimensions for the interpolated grid
-    dims = dimensions(dgngrp.interpol)
+    if mpirank == 0
+        # get dimensions for the interpolated grid
+        dims = dimensions(dgngrp.interpol)
 
-    # set up the variables we're going to be writing
-    vars = OrderedDict()
-    auxnames = flattenednames(vars_state_auxiliary(bl, FT))
-    for varname in auxnames
-        vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
+        # set up the variables we're going to be writing
+        vars = OrderedDict()
+        auxnames = flattenednames(vars_state_auxiliary(bl, FT))
+        for varname in auxnames
+            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
+        end
+
+        dprefix = @sprintf(
+            "%s_%s-%s",
+            dgngrp.out_prefix,
+            dgngrp.name,
+            Settings.starttime,
+        )
+        dfilename = joinpath(Settings.output_dir, dprefix)
+        init_data(dgngrp.writer, dfilename, dims, vars)
     end
 
-    dprefix = @sprintf(
-        "%s_%s-%s",
-        dgngrp.out_prefix,
-        dgngrp.name,
-        Settings.starttime,
-    )
-    dfilename = joinpath(Settings.output_dir, dprefix)
-    init_data(dgngrp.writer, dfilename, dims, vars)
+    return nothing
 end
 
 function dump_aux_collect(dgngrp, currtime)
