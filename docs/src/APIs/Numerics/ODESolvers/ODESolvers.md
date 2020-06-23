@@ -44,6 +44,12 @@ ODESolvers.LSRKEulerMethod
 ODESolvers.MultirateRungeKutta
 ```
 
+## Split-explicit methods
+
+```@docs
+ODESolvers.SplitExplicitSolver
+```
+
 ## GARK methods
 
 ```@docs

@@ -32,6 +32,7 @@ include(joinpath(
     "HydrostaticBoussinesq",
     "HydrostaticBoussinesqModel.jl",
 ))
+include(joinpath("Ocean", "SplitExplicit", "SplitExplicitModel.jl"))
 include(joinpath("Numerics", "SystemSolvers", "SystemSolvers.jl"))
 include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
 include(joinpath("Numerics", "ODESolvers", "GenericCallbacks.jl"))

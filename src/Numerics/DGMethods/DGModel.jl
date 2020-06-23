@@ -14,6 +14,7 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     diffusion_direction::DD
     modeldata::MD
 end
+
 function DGModel(
     balance_law,
     grid,

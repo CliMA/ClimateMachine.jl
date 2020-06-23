@@ -165,5 +165,6 @@ include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
+include("SplitExplicitMethod.jl")
 
 end # module
