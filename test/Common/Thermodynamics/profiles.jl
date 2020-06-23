@@ -162,7 +162,7 @@ function PhaseDryProfiles(
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
     q_liq = getproperty.(q_pt, :liq)
     q_ice = getproperty.(q_pt, :ice)
-    RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
+    RH = relative_humidity.(Ref(param_set), T, e_int, p, Ref(phase_type), q_pt)
 
     return ProfileSet(
         z,
@@ -219,7 +219,7 @@ function PhaseEquilProfiles(
 
     e_int = internal_energy.(Ref(param_set), T, q_pt)
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
-    RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
+    RH = relative_humidity.(Ref(param_set), T, e_int, p, Ref(phase_type), q_pt)
 
     return ProfileSet(
         z,
