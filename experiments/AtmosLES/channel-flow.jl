@@ -81,6 +81,8 @@ function config_channelflow(FT, N, resolution, xmax, ymax, zmax)
     C_smag = FT(0.23)
     δ_χ = SVector{2,FT}(5,10)
     T_wall = FT(300)
+    Re_τ = FT(590)
+    ν = FT(1e-5)
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -88,7 +90,7 @@ function config_channelflow(FT, N, resolution, xmax, ymax, zmax)
         AtmosLESConfigType,
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        source = (PressureGradient{FT}(590,1e-5)),
+        source = (PressureGradient{FT}(Re_τ,ν)),
         boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(NoSlip()),
@@ -137,12 +139,12 @@ function main()
     xmax = FT(4π)
     ymax = FT(4π/3)
     zmax = FT(2)
-    Δh₁ = FT(xmax/64)
-    Δh₂ = FT(ymax/32)
-    Δh₃ = FT(zmax/48)
+    Δh₁ = FT(xmax/128)
+    Δh₂ = FT(ymax/64)
+    Δh₃ = FT(zmax/96)
     resolution = (Δh₁, Δh₂, Δh₃)
     t0 = FT(0)
-    timeend = FT(3600)
+    timeend = FT(14400)
 
     driver_config = config_channelflow(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
