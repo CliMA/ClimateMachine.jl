@@ -1,14 +1,13 @@
 module Interpolation
 
-using CuArrays
-using CUDAnative
+using CUDA
 using DocStringExtensions
 using LinearAlgebra
 using MPI
 using OrderedCollections
 using StaticArrays
 import GaussQuadrature
-import KernelAbstractions: CPU, CUDA
+import KernelAbstractions: CPU, CUDADevice
 
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
@@ -30,12 +29,7 @@ abstract type InterpolationTopology end
 
 """
     InterpolationBrick{
-        FT <: AbstractFloat,
-        T <: Int,
-        FTV <: AbstractVector{FT},
-        FTVD <: AbstractVector{FT},
-        TVD <: AbstractVector{T},
-        FTA2 <: Array{FT, 2},
+        FT <: AbstractFloat,CuArrays
         UI8AD <: AbstractArray{UInt8, 2},
         UI16VD <: AbstractVector{UInt16},
         I32V <: AbstractVector{Int32},
@@ -140,7 +134,7 @@ struct InterpolationBrick{
         npr = MPI.Comm_size(mpicomm)
 
         DA = arraytype(grid)                    # device array
-        device = arraytype(grid) <: Array ? CPU() : CUDA()
+        device = arraytype(grid) <: Array ? CPU() : CUDADevice()
 
         poly_order = polynomialorder(grid)
         qm1 = poly_order + 1
@@ -305,7 +299,7 @@ struct InterpolationBrick{
         MPI.Gatherv!(x2i_d, x2i_all, Np_all, root, mpicomm)
         MPI.Gatherv!(x3i_d, x3i_all, Np_all, root, mpicomm)
 
-        if device isa CUDA
+        if device isa CUDADevice
             ξ1_d = DA(ξ1_d)
             ξ2_d = DA(ξ2_d)
             ξ3_d = DA(ξ3_d)
@@ -738,7 +732,7 @@ struct InterpolationCubedSphere{
         npr = MPI.Comm_size(mpicomm)
 
         DA = arraytype(grid)                    # device array
-        device = arraytype(grid) <: Array ? CPU() : CUDA()
+        device = arraytype(grid) <: Array ? CPU() : CUDADevice()
         poly_order = polynomialorder(grid)
         qm1 = poly_order + 1
         toler1 = FT(eps(FT) * vert_range[1] * 2.0) # tolerance for unwarp function
@@ -983,7 +977,7 @@ struct InterpolationCubedSphere{
         MPI.Gatherv!(lat_d, lati_all, Np_all, root, mpicomm)
         MPI.Gatherv!(long_d, longi_all, Np_all, root, mpicomm)
 
-        if device isa CUDA
+        if device isa CUDADevice
             ξ1_d = DA(ξ1_d)
             ξ2_d = DA(ξ2_d)
             ξ3_d = DA(ξ3_d)
@@ -1557,7 +1551,7 @@ function project_cubed_sphere!(
             @inbounds v[i, _ρv] = vlat
             @inbounds v[i, _ρw] = vrad
         end
-    elseif device isa CUDA
+    elseif device isa CUDADevice
         n_threads = 256
         n_blocks = (
             np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
@@ -1599,25 +1593,25 @@ function project_cubed_sphere_CUDA!(
     if idx ≤ np_tot
         vrad =
             v[idx, _ρu] *
-            CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0) +
+            CUDA.cos(lat_grd[lati[idx]] * pi / 180.0) *
+            CUDA.cos(long_grd[longi[idx]] * pi / 180.0) +
             v[idx, _ρv] *
-            CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
-            v[idx, _ρw] * CUDAnative.sin(lat_grd[lati[idx]] * pi / 180.0)
+            CUDA.cos(lat_grd[lati[idx]] * pi / 180.0) *
+            CUDA.sin(long_grd[longi[idx]] * pi / 180.0) +
+            v[idx, _ρw] * CUDA.sin(lat_grd[lati[idx]] * pi / 180.0)
 
         vlat =
             -v[idx, _ρu] *
-            CUDAnative.sin(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0) -
+            CUDA.sin(lat_grd[lati[idx]] * pi / 180.0) *
+            CUDA.cos(long_grd[longi[idx]] * pi / 180.0) -
             v[idx, _ρv] *
-            CUDAnative.sin(lat_grd[lati[idx]] * pi / 180.0) *
-            CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
-            v[idx, _ρw] * CUDAnative.cos(lat_grd[lati[idx]] * pi / 180.0)
+            CUDA.sin(lat_grd[lati[idx]] * pi / 180.0) *
+            CUDA.sin(long_grd[longi[idx]] * pi / 180.0) +
+            v[idx, _ρw] * CUDA.cos(lat_grd[lati[idx]] * pi / 180.0)
 
         vlon =
-            -v[idx, _ρu] * CUDAnative.sin(long_grd[longi[idx]] * pi / 180.0) +
-            v[idx, _ρv] * CUDAnative.cos(long_grd[longi[idx]] * pi / 180.0)
+            -v[idx, _ρu] * CUDA.sin(long_grd[longi[idx]] * pi / 180.0) +
+            v[idx, _ρv] * CUDA.cos(long_grd[longi[idx]] * pi / 180.0)
 
         v[idx, _ρu] = vlon
         v[idx, _ρv] = vlat
@@ -1716,7 +1710,7 @@ function accumulate_interpolated_data!(
                 )
             end
 
-        elseif device isa CUDA
+        elseif device isa CUDADevice
 
             v = Array(iv)
             for vari in 1:nvars
@@ -1731,7 +1725,7 @@ function accumulate_interpolated_data!(
             v_all = CuArray(v_all)
 
         else
-            error("accumulate_interpolate_data: unsupported device, only CPU() and CUDA() supported")
+            error("accumulate_interpolate_data: unsupported device, only CPU() and CUDADevice() supported")
         end
     else
         v_all = iv
@@ -1744,7 +1738,7 @@ function accumulate_interpolated_data!(
                     @inbounds fiv[i1[i], i2[i], i3[i], vari] = v_all[i, vari]
                 end
             end
-        elseif device isa CUDA
+        elseif device isa CUDADevice
             n_threads = 256
             n_blocks = (
                 np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
@@ -1758,7 +1752,7 @@ function accumulate_interpolated_data!(
                 fiv,
             )
         else
-            error("Unsupported device $device; only CUDA() and CPU() supported")
+            error("Unsupported device $device; only CPU() and CUDADevice() supported")
         end
 
     end

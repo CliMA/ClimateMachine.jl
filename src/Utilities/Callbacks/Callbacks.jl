@@ -1,6 +1,6 @@
 module Callbacks
 
-using CUDAapi
+using CUDA
 using Dates
 using KernelAbstractions
 using LinearAlgebra
@@ -23,8 +23,6 @@ using ..TicToc
 using ..VariableTemplates
 using ..VTK
 using ..Mesh.Grids: HorizontalDirection, VerticalDirection
-
-using CuArrays, CuArrays.CUDAdrv, CuArrays.CUDAnative
 
 _sync_device(::Type{CuArray}) = synchronize()
 _sync_device(::Type{Array}) = nothing

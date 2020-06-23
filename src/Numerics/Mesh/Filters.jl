@@ -245,7 +245,7 @@ function apply!(
     N = polynomialorder(grid)
 
     filtermatrix = filter.filter
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     nelem = length(topology.elems)
     Nq = N + 1
@@ -286,7 +286,7 @@ function apply!(
 )
     topology = grid.topology
 
-    device = typeof(Q.data) <: Array ? CPU() : CUDA()
+    device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     dim = dimensionality(grid)
     N = polynomialorder(grid)

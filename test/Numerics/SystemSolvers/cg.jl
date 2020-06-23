@@ -1,14 +1,15 @@
+using CUDA
 using MPI
 using Test
 using LinearAlgebra
 using Random
 using StaticArrays
-using KernelAbstractions: CPU, CUDA
+using KernelAbstractions: CPU, CUDADevice
 using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays
-using CUDAapi
 using Random
+
 Random.seed!(1235)
 
 let
@@ -48,8 +49,8 @@ let
         @test norm(A * x - b) / norm(b) < err_thresh
     end
 
-    # Testing for CuArrays
-    if CUDAapi.has_cuda_gpu()
+    # Testing for CUDA CuArrays
+    if CUDA.has_cuda_gpu()
         at_A = ArrayType(A)
         at_b = ArrayType(b)
         at_x = ArrayType(ones(n) * 1.0)

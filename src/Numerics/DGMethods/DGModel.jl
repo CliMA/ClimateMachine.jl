@@ -520,7 +520,7 @@ function (dg::DGModel)(
 end
 
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid
@@ -590,7 +590,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     state = create_conservative_state(bl, grid)
     state .= state_data
 
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
     event = Event(device)
     event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
     event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)

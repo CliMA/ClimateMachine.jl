@@ -8,7 +8,7 @@ using Statistics
 using Test
 import GaussQuadrature
 
-using KernelAbstractions: CPU, CUDA
+using KernelAbstractions: CPU, CUDADevice
 
 using ClimateMachine
 ClimateMachine.init()
