@@ -1,5 +1,6 @@
 using ClimateMachine
 using ClimateMachine.ConfigTypes
+using ClimateMachine.Orientations
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
@@ -136,7 +137,7 @@ function run(
     )
 
     linearmodel = AtmosAcousticGravityLinearModel(model)
-    nonlinearmodel = RemainderModel(model, (linearmodel,))
+    #nonlinearmodel = RemainderModel(model, (linearmodel,))
 
     lineardg = DGModel(
         linearmodel,
@@ -148,15 +149,16 @@ function run(
         state_auxiliary = dg.state_auxiliary
     )
 
-    nonlineardg = DGModel(
-        nonlinearmodel,
-        grid,
-        RusanovNumericalFlux(),
-        #CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        state_auxiliary = dg.state_auxiliary,
-    )
+    # nonlineardg = DGModel(
+    #     nonlinearmodel,
+    #     grid,
+    #     RusanovNumericalFlux(),
+    #     #CentralNumericalFluxFirstOrder(),
+    #     CentralNumericalFluxSecondOrder(),
+    #     CentralNumericalFluxGradient();
+    #     state_auxiliary = dg.state_auxiliary,
+    # )
+    nonlineardg = remainder_DGModel(dg, (lineardg,))
 
     timeend = FT(100)
 
