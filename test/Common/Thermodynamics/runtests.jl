@@ -27,7 +27,7 @@ float_types = [Float32, Float64]
 include("profiles.jl")
 include("data_tests.jl")
 
-@testset "moist thermodynamics - isentropic processes" begin
+@testset "Thermodynamics - isentropic processes" begin
     for FT in float_types
         _R_d = FT(R_d(param_set))
         _molmass_ratio = FT(molmass_ratio(param_set))
@@ -93,7 +93,7 @@ include("data_tests.jl")
 end
 
 
-@testset "moist thermodynamics - correctness" begin
+@testset "Thermodynamics - correctness" begin
     FT = Float64
     _R_d = FT(R_d(param_set))
     _molmass_ratio = FT(molmass_ratio(param_set))
@@ -391,7 +391,7 @@ end
 end
 
 
-@testset "moist thermodynamics - default behavior accuracy" begin
+@testset "Thermodynamics - default behavior accuracy" begin
     # Input arguments should be accurate within machine precision
     # Temperature is approximated via saturation adjustment, and should be within a physical tolerance
 
@@ -593,7 +593,75 @@ end
 
 end
 
-@testset "moist thermodynamics - constructor consistency" begin
+@testset "Thermodynamics - exceptions on failed convergence" begin
+
+    FT = Float64
+    profiles = PhaseEquilProfiles(param_set, FT)
+    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
+
+    @test_throws ErrorException MT.saturation_adjustment.(
+        Ref(param_set),
+        e_int,
+        ρ,
+        q_tot,
+        Ref(phase_type),
+        2,
+        ResidualTolerance(FT(1e-10)),
+    )
+
+    @test_throws ErrorException MT.saturation_adjustment_SecantMethod.(
+        Ref(param_set),
+        e_int,
+        ρ,
+        q_tot,
+        Ref(phase_type),
+        2,
+        ResidualTolerance(FT(1e-10)),
+    )
+
+    T_virt = T # should not matter: testing for non-convergence
+    @test_throws ErrorException temperature_and_humidity_from_virtual_temperature.(
+        Ref(param_set),
+        T_virt,
+        ρ,
+        RH,
+        Ref(phase_type),
+        2,
+        ResidualTolerance(FT(1e-10)),
+    )
+
+    @test_throws ErrorException air_temperature_from_liquid_ice_pottemp_non_linear.(
+        Ref(param_set),
+        θ_liq_ice,
+        ρ,
+        2,
+        ResidualTolerance(FT(1e-10)),
+        q_pt,
+    )
+
+    @test_throws ErrorException MT.saturation_adjustment_q_tot_θ_liq_ice.(
+        Ref(param_set),
+        θ_liq_ice,
+        ρ,
+        q_tot,
+        Ref(phase_type),
+        2,
+        ResidualTolerance(FT(1e-10)),
+    )
+
+    @test_throws ErrorException MT.saturation_adjustment_q_tot_θ_liq_ice_given_pressure.(
+        Ref(param_set),
+        θ_liq_ice,
+        p,
+        q_tot,
+        Ref(phase_type),
+        2,
+        ResidualTolerance(FT(1e-10)),
+    )
+
+end
+
+@testset "Thermodynamics - constructor consistency" begin
 
     # Make sure `ThermodynamicState` arguments are returned unchanged
 
@@ -883,7 +951,7 @@ end
 end
 
 
-@testset "moist thermodynamics - type-stability" begin
+@testset "Thermodynamics - type-stability" begin
 
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
@@ -993,7 +1061,7 @@ end
 
 end
 
-@testset "moist thermodynamics - dry limit" begin
+@testset "Thermodynamics - dry limit" begin
 
     FT = Float64
     profiles = PhaseEquilProfiles(param_set, FT)
