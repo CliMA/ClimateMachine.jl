@@ -478,7 +478,7 @@ include("diagnostics_configs.jl")
         user_callbacks = (),
         check_euclidean_distance = false,
         adjustfinalstep = false,
-        user_info_callback = (init) -> nothing,
+        user_info_callback = () -> nothing,
     )
 
 Run the simulation defined by `solver_config`.
@@ -508,7 +508,7 @@ function invoke!(
     user_callbacks = (),
     check_euclidean_distance = false,
     adjustfinalstep = false,
-    user_info_callback = (init) -> nothing,
+    user_info_callback = () -> nothing,
 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -632,10 +632,11 @@ Starting %s
     end
 
     # fini diagnostics groups
+    # TODO: come up with a better mechanism
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         currtime = ODESolvers.gettime(solver)
         for dgngrp in diagnostics_config.groups
-            dgngrp(currtime, fini = true)
+            dgngrp.fini(dgngrp, currtime)
         end
     end
 

@@ -136,7 +136,7 @@ function main()
 
     result = ClimateMachine.invoke!(
         solver_config,
-        user_info_callback = (init) -> cb_test += 1,
+        user_info_callback = () -> cb_test += 1,
     )
     # cb_test should be greater than one if the user_info_callback got called
     @test cb_test > 0

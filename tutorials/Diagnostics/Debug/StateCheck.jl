@@ -43,7 +43,9 @@ using Random
 using ClimateMachine
 using ClimateMachine.VariableTemplates
 using ClimateMachine.MPIStateArrays
+using ClimateMachine.GenericCallbacks
 using ClimateMachine.StateCheck
+
 ClimateMachine.init()
 FT = Float64
 
@@ -89,6 +91,7 @@ cb = ClimateMachine.StateCheck.sccreate(
     1;
     prec = 15,
 )
+GenericCallbacks.init!(cb, nothing, nothing, nothing, nothing)
 nothing # hide
 
 # ### Invoke the call-back
@@ -103,7 +106,7 @@ typeof(cb)
 # set of values e.g.
 Q1.data .= rand(MersenneTwister(0), Float32, size(Q1.data))
 Q2.data .= rand(MersenneTwister(0), Float64, size(Q2.data))
-cb()
+GenericCallbacks.call!(cb, nothing, nothing, nothing, nothing)
 
 # ## 2. Comparing to reference values
 

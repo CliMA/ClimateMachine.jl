@@ -108,7 +108,7 @@ function main()
     cb_test = 0
     result = ClimateMachine.invoke!(
         solver_config;
-        user_info_callback = (init) -> cb_test += 1,
+        user_info_callback = () -> cb_test += 1,
     )
     @test cb_test > 0
 end
