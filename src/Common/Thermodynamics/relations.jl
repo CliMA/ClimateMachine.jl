@@ -1913,7 +1913,7 @@ exner(ts::ThermodynamicState) = exner(
 )
 
 """
-    relative_humidity(param_set, T, p, e_int, phase_type, q::PhasePartition)
+    relative_humidity(param_set, T, p, phase_type, q::PhasePartition)
 
 The relative humidity, given
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
@@ -1926,28 +1926,13 @@ function relative_humidity(
     param_set::APS,
     T::FT,
     p::FT,
-    e_int::FT,
     phase_type::Type{<:ThermodynamicState},
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
     _R_v::FT = R_v(param_set)
     q_vap = vapor_specific_humidity(q)
-    # TODO: Change this back to newest version:
-
-    # New version:
-    # p_vap = q_vap * air_density(param_set, T, p, q) * _R_v * T
-    # p_vap_sat = saturation_vapor_pressure(param_set, phase_type, T)
-
-    # Old version:
-    p_vap =
-        q_vap *
-        air_density(param_set, T, p, q) *
-        _R_v *
-        air_temperature(param_set, e_int, q)
-    liq_frac = liquid_fraction(param_set, T, phase_type, q)
-    p_vap_sat =
-        liq_frac * saturation_vapor_pressure(param_set, T, Liquid()) +
-        (1 - liq_frac) * saturation_vapor_pressure(param_set, T, Ice())
+    p_vap = q_vap * air_density(param_set, T, p, q) * _R_v * T
+    p_vap_sat = saturation_vapor_pressure(param_set, phase_type, T)
     return p_vap / p_vap_sat
 end
 
@@ -1961,7 +1946,6 @@ relative_humidity(ts::ThermodynamicState{FT}) where {FT <: Real} =
         ts.param_set,
         air_temperature(ts),
         air_pressure(ts),
-        internal_energy(ts),
         typeof(ts),
         PhasePartition(ts),
     )
