@@ -55,7 +55,6 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
     init_state_auxiliary!,
-    nodal_init_state_auxiliary!,
     init_state_conservative!,
     update_auxiliary_state!,
     indefinite_stack_integral!,
@@ -63,10 +62,19 @@ import ClimateMachine.BalanceLaws:
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
+
+import ClimateMachine.DGMethods:
+    LocalGeometry,
+    lengthscale,
+    resolutionmetric,
+    DGModel,
+    nodal_update_auxiliary_state!,
     contiguous_field_gradient!,
+    nodal_init_state_auxiliary!,
     init_ode_state
-import ..DGMethods.NumericalFluxes:
+
+import ClimateMachine.DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
     normal_boundary_flux_second_order!,
