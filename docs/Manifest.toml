@@ -8,9 +8,9 @@ version = "0.5.0"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "9e31b9f5d3f9b5ec32c1d01fd8c05270bad10dc0"
+git-tree-sha1 = "0fac443759fa829ed8066db6cf1077d888bb6573"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "2.0.0"
+version = "2.0.2"
 
 [[ArgParse]]
 deps = ["Logging", "TextWrap"]
@@ -32,9 +32,9 @@ version = "3.5.0+3"
 
 [[ArrayLayouts]]
 deps = ["FillArrays", "LinearAlgebra"]
-git-tree-sha1 = "89182776a99b69964e995cc2f1e37b5fc3476d56"
+git-tree-sha1 = "a3254b3780a3544838ca0b7e23b1e9b06eb71bd8"
 uuid = "4c555306-a7a7-4459-81d9-ec55ddd5c99a"
-version = "0.3.4"
+version = "0.3.5"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -76,9 +76,9 @@ version = "0.1.6"
 
 [[CUDA]]
 deps = ["AbstractFFTs", "Adapt", "BinaryProvider", "CEnum", "DataStructures", "ExprTools", "GPUArrays", "GPUCompiler", "LLVM", "Libdl", "LinearAlgebra", "Logging", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "TimerOutputs"]
-git-tree-sha1 = "6b1fd23fa4a78d0cc816a50d7fadf4f8b50882a4"
+git-tree-sha1 = "d658b3881a25b317ea7fb128efbd82b5e63396ad"
 uuid = "052768ef-5323-5732-b1bb-66c8b64840ba"
-version = "1.0.1"
+version = "1.0.2"
 
 [[Cassette]]
 git-tree-sha1 = "ff6f5109371926beb67ec3101be17d2c211e497d"
@@ -92,16 +92,10 @@ uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 version = "0.8.1"
 
 [[ClimateMachine]]
-deps = ["Adapt", "ArgParse", "CLIMAParameters", "Combinatorics", "Coverage", "CUDA", "Dates", "DelimitedFiles", "Dierckx", "Distributions", "DocStringExtensions", "DoubleFloats", "FileIO", "Formatting", "ForwardDiff", "GaussQuadrature", "JLD2", "KernelAbstractions", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "OrderedCollections", "Pkg", "Printf", "Random", "RootSolvers", "SpecialFunctions", "StaticArrays", "StaticNumbers", "Statistics", "WriteVTK"]
+deps = ["Adapt", "ArgParse", "CLIMAParameters", "CUDA", "Combinatorics", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "Distributions", "DocStringExtensions", "DoubleFloats", "FileIO", "Formatting", "ForwardDiff", "GaussQuadrature", "JLD2", "KernelAbstractions", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "OrderedCollections", "PackageCompiler", "Pkg", "Printf", "Random", "RootSolvers", "SpecialFunctions", "StaticArrays", "StaticNumbers", "Statistics", "WriteVTK"]
 path = ".."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.2.0-DEV"
-
-[[CodeTracking]]
-deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "9c173f62af93cce8af2bd3527d160b6ddd6eaf81"
-uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "1.0.0"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -180,12 +174,6 @@ git-tree-sha1 = "328154f6062b0053588295df6bffe22e1436597a"
 uuid = "c36e975a-824b-4404-a568-ef97ca766997"
 version = "1.1.0"
 
-[[Cthulhu]]
-deps = ["CodeTracking", "InteractiveUtils", "REPL", "UUIDs", "Unicode"]
-git-tree-sha1 = "3f4601d6ec0e967a24a9926ea7a981c7fe63e9a9"
-uuid = "f68482b8-f384-11e8-15f7-abe071a5a75f"
-version = "1.1.2"
-
 [[DataAPI]]
 git-tree-sha1 = "176e23402d80e7743fc26c19c681bfb11246af32"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
@@ -193,9 +181,9 @@ version = "1.3.0"
 
 [[DataFrames]]
 deps = ["CategoricalArrays", "Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "Missings", "PooledArrays", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "02f08ae77249b7f6d4186b081a016fb7454c616f"
+git-tree-sha1 = "e516e72bfb40809b7709cda7bfb39e82ec492d68"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "0.21.2"
+version = "0.21.3"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
@@ -440,9 +428,9 @@ version = "3.100.0+1"
 
 [[LLVM]]
 deps = ["CEnum", "Libdl", "Printf", "Unicode"]
-git-tree-sha1 = "72fc0a39d5899091ff2d4cdaa64cb5e4862cf813"
+git-tree-sha1 = "0efb86dc7db298459186546bab008f3b53157582"
 uuid = "929cbde3-209d-540e-8aea-75f648917ca0"
-version = "1.5.2"
+version = "1.6.0"
 
 [[LaTeXStrings]]
 git-tree-sha1 = "de44b395389b84fd681394d4e8d39ef14e3a2ea8"
@@ -451,9 +439,9 @@ version = "1.1.0"
 
 [[LazyArrays]]
 deps = ["ArrayLayouts", "FillArrays", "LinearAlgebra", "MacroTools", "MatrixFactorizations", "StaticArrays"]
-git-tree-sha1 = "58f1186d445ac4aed3571d6eb1a79e3361f66cad"
+git-tree-sha1 = "eb02bd7606db9516205b400da8ba01e829ed5f7b"
 uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
-version = "0.16.12"
+version = "0.16.13"
 
 [[LibGit2]]
 deps = ["Printf"]
@@ -470,9 +458,9 @@ uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 
 [[Libiconv_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "18e9398dbdc297d6f31b2a8ba90c3d8d6a244b2f"
+git-tree-sha1 = "a06937d9aa48855f52484c9a77a2670158fa90e2"
 uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
-version = "1.16.0+3"
+version = "1.16.0+4"
 
 [[LightXML]]
 deps = ["Libdl", "XML2_jll"]
@@ -495,9 +483,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MPI]]
 deps = ["Distributed", "DocStringExtensions", "Libdl", "MPICH_jll", "MicrosoftMPI_jll", "OpenMPI_jll", "Pkg", "Random", "Requires", "Serialization", "Sockets"]
-git-tree-sha1 = "0fc37a7feb384b51bd6e841ea6cfc424623aab74"
+git-tree-sha1 = "925f4e00b51d7a68ecb88c1b60d3b7aefb8c8fcb"
 uuid = "da04e1cc-30fd-572f-bb4f-1f8673147195"
-version = "0.14.3"
+version = "0.15.0"
 
 [[MPICH_jll]]
 deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
@@ -565,11 +553,17 @@ git-tree-sha1 = "271e4670a6b30ec1e5daf6ba8b30240b7d85f535"
 uuid = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
 version = "0.10.2"
 
+[[NNPACK_jll]]
+deps = ["Libdl", "Pkg"]
+git-tree-sha1 = "c3d1a616362645754b18e12dbba96ec311b0867f"
+uuid = "a6bfbf70-4841-5cb9-aa18-3a8ad3c413ee"
+version = "2018.6.22+0"
+
 [[NNlib]]
-deps = ["BinaryProvider", "Libdl", "LinearAlgebra", "Requires", "Statistics"]
-git-tree-sha1 = "d9f196d911f55aeaff11b11f681b135980783824"
+deps = ["Libdl", "LinearAlgebra", "NNPACK_jll", "Pkg", "Requires", "Statistics"]
+git-tree-sha1 = "04bae5dcd446ee45d6a3b9e84adca85ee33fb20c"
 uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-version = "0.6.6"
+version = "0.7.0"
 
 [[NaNMath]]
 git-tree-sha1 = "928b8ca9b2791081dc71a51c55347c27c618760f"
@@ -622,6 +616,12 @@ deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
 git-tree-sha1 = "2fc6f50ddd959e462f0a2dbc802ddf2a539c6e35"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
 version = "0.9.12"
+
+[[PackageCompiler]]
+deps = ["Libdl", "Pkg", "UUIDs"]
+git-tree-sha1 = "8989a56e4506b7b6a050f2b912e7856742d6998c"
+uuid = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+version = "1.1.1"
 
 [[Parsers]]
 deps = ["Dates", "Test"]
@@ -777,9 +777,9 @@ version = "0.12.3"
 
 [[StaticNumbers]]
 deps = ["Requires"]
-git-tree-sha1 = "8fedba0c674686bfa52dba5f68acf916b824f53a"
+git-tree-sha1 = "a0df7d5ade3fd0f0e6c93ad63facc05b12c40e6a"
 uuid = "c5e4b96a-f99f-5557-8ed2-dc63ef9b5131"
-version = "0.3.2"
+version = "0.3.3"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -859,10 +859,10 @@ uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
 version = "1.2.0"
 
 [[WriteVTK]]
-deps = ["Base64", "CodecZlib", "LightXML", "Random", "TranscodingStreams"]
-git-tree-sha1 = "46c5cc2f4e094eb57685f5fb0629b7e14b6ad18b"
+deps = ["Base64", "CodecZlib", "FillArrays", "LightXML", "Random", "TranscodingStreams"]
+git-tree-sha1 = "6722390b9e370d26d6fa2aac7c56c35efaa388d1"
 uuid = "64499a7a-5c06-52f2-abe2-ccb03c286192"
-version = "1.6.0"
+version = "1.7.1"
 
 [[XML2_jll]]
 deps = ["Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -872,9 +872,9 @@ version = "2.9.9+5"
 
 [[Zlib_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "64b39656c75e67f85b4ac2b336c54674a39f599d"
+git-tree-sha1 = "4838361eb3ba796a57457bdc183e1a128639d0ec"
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
-version = "1.2.11+11"
+version = "1.2.11+12"
 
 [[libass_jll]]
 deps = ["Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "Libdl", "Pkg", "Zlib_jll"]
