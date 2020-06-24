@@ -109,7 +109,8 @@ function init_state_auxiliary! end
         flux::Grad,
         state_conservative::Vars,
         state_auxiliary::Vars,
-        t::Real
+        t::Real,
+        directions
     )
 
 Compute first-order flux terms in balance law equation
@@ -190,7 +191,8 @@ function transform_post_gradient_laplacian! end
         n⁻,
         state_conservative::Vars,
         state_auxiliary::Vars,
-        t::Real
+        t::Real,
+        direction
     )
 
 wavespeed

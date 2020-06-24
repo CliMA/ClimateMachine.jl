@@ -19,7 +19,6 @@ using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
-    RemainderModel,
     NoReferenceState,
     ReferenceState,
     DryModel,

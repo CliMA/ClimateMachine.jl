@@ -357,6 +357,7 @@ end
     state::Vars,
     aux::Vars,
     t::Real,
+    _...,
 )
     FT = eltype(state)
     @inbounds begin
@@ -379,6 +380,7 @@ end
     state::Vars,
     aux::Vars,
     t::Real,
+    _...,
 )
     FT = eltype(state)
     @inbounds begin

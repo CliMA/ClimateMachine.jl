@@ -22,6 +22,7 @@ using ..BalanceLaws:
     vars_state_conservative,
     vars_state_auxiliary,
     update_auxiliary_state!
+using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
 using ..HydrostaticBoussinesq
 using ..Mesh.Grids
