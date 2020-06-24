@@ -12,6 +12,60 @@ using ..SystemSolvers
 using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
 
+
+# 3 types:
+#  problem: contains rhs!, Q, tspan
+#  algo: just the tableau "DistributedODESolvers"
+#  cache: intermediate storage
+
+# 1. LSRK: define our own IncrementODEProblem (https://github.com/SciML/DifferentialEquations.jl/issues/615)
+# 2. IMEX: use either SplitODEProblem (for linear + remainder) or ODEProblem with `jac` argument (https://docs.sciml.ai/latest/features/performance_overloads/#ode_explicit_jac-1)
+# 3. Provide our own linear solvers via `linsolve` argument to `Solver`
+# 4. Multirate?
+#   - either a tuple or nested problems?
+
+
+import DiffEqBase
+
+abstract type DistributedODEAlgorithm <: DiffEqBase.AbstractODEAlgorithm
+end
+
+abstract type AbstractCache end
+
+struct IncrementODEProblem{uType,tType,P,F,K} <: DiffEqBase.AbstractODEProblem{uType,tType,true}
+    """The ODE is `du/dt = f(u,p,t)`: this must have a method `ODESolvers.afpby` """
+    f::F
+    """The initial condition is `u(tspan[1]) = u0`."""
+    u0::uType
+    """The solution `u(t)` will be computed for `tspan[1] ≤ t ≤ tspan[2]`."""
+    tspan::tType
+    """Constant parameters to be supplied as the second argument of `f`."""
+    p::P
+    """A callback to be applied to every solver which uses the problem."""
+    kwargs::K
+end
+
+"""
+    ODESolvers.afpby(f, y, u, param, t, α, β)
+
+A function stub that can be extended for computing
+
+    y .= α .* f(u, param, t) .+ β .* y
+
+This must be defined on `f` any `IncrementODEProblem(f, ...)`.
+"""
+function afpby end
+
+
+
+
+# we would define
+function DiffEqBase.solve(prob::IncrementODEProblem, solver::DistributedODEAlgorithm, cache=cache(prob, solver))
+end
+function DiffEqBase.solve(prob::ODEProblem, solver::DistributedODEAlgorithm, cache=cache(prob, solver))
+end
+
+
 export solve!, updatedt!, gettime
 
 abstract type AbstractODESolver end
@@ -79,6 +133,9 @@ Change the current time to `time` for the ODE solver `solver`.
 updatetime!(solver::AbstractODESolver, time) = (solver.t = time)
 
 isadjustable(solver::AbstractODESolver) = true
+
+abstract type AbstractODEProblem end
+
 
 # {{{ run!
 """

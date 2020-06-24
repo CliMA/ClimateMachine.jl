@@ -23,6 +23,90 @@ The available concrete implementations are:
   - [`LSRK54CarpenterKennedy`](@ref)
   - [`LSRK144NiegemannDiehlBusch`](@ref)
 """
+
+abstract type LowStorageRungeKutta2N <: DistributedODEAlgorithm end
+
+struct LSRK54CarpenterKennedy <: LowStorageRungeKutta2N end
+
+struct LowStorageRungeKutta2NTableau{Nstages, RT}
+    "low storage RK coefficient vector A (rhs scaling)"
+    RKA::NTuple{Nstages, RT}
+    "low storage RK coefficient vector B (rhs add in scaling)"
+    RKB::NTuple{Nstages, RT}
+    "low storage RK coefficient vector C (time scaling)"
+    RKC::NTuple{Nstages, RT}
+end
+
+
+function tableau(::LSRK54CarpenterKennedy, RT)
+    RKA = (
+        RT(0),
+        RT(-567301805773 // 1357537059087),
+        RT(-2404267990393 // 2016746695238),
+        RT(-3550918686646 // 2091501179385),
+        RT(-1275806237668 // 842570457699),
+    )
+
+    RKB = (
+        RT(1432997174477 // 9575080441755),
+        RT(5161836677717 // 13612068292357),
+        RT(1720146321549 // 2090206949498),
+        RT(3134564353537 // 4481467310338),
+        RT(2277821191437 // 14882151754819),
+    )
+
+    RKC = (
+        RT(0),
+        RT(1432997174477 // 9575080441755),
+        RT(2526269341429 // 6820363962896),
+        RT(2006345519317 // 3224310063776),
+        RT(2802321613138 // 2924317926251),
+    )
+
+    return LowStorageRungeKutta2NTableau(RKA, RKB, RKC)
+end
+
+
+
+
+
+
+mutable struct LowStorageRungeKutta2NCache{T, RT, AT, Nstages} <: AbstractCache
+    "time step"
+    dt::RT
+    # "time"
+    # t::RT
+    # "rhs function"
+    # rhs!
+    # "Storage for RHS during the LowStorageRungeKutta update"
+    # dQ::AT
+    "low storage RK coefficient vector A (rhs scaling)"
+    RKA::NTuple{Nstages, RT}
+    "low storage RK coefficient vector B (rhs add in scaling)"
+    RKB::NTuple{Nstages, RT}
+    "low storage RK coefficient vector C (time scaling)"
+    RKC::NTuple{Nstages, RT}
+
+    function LowStorageRungeKutta2NCache(
+        rhs!,
+        RKA,
+        RKB,
+        RKC,
+        Q::AT;
+        dt = 0,
+        t0 = 0,
+    ) where {AT <: AbstractArray}
+
+        T = eltype(Q)
+        RT = real(T)
+
+        dQ = similar(Q)
+        fill!(dQ, 0)
+
+        new{T, RT, AT, length(RKA)}(RT(dt), RT(t0), rhs!, dQ, RKA, RKB, RKC)
+    end
+end
+
 mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: AbstractODESolver
     "time step"
     dt::RT
