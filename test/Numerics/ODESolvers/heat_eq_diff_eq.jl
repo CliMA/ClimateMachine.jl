@@ -1,6 +1,5 @@
 using MPI
 using OrderedCollections
-using Plots
 using StaticArrays
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -69,7 +68,8 @@ end;
 function init_state_conservative!(m::HeatModel,state::Vars,aux::Vars,coords,t::Real)
     state.ρcT = m.ρc * aux.T
 end;
-function update_auxiliary_state!(dg::DGModel,m::HeatModel,Q::MPIStateArray,t::Real,elems::UnitRange)
+
+function update_auxiliary_state!(dg::DGModel,m::HeatModel,Q,t::Real,elems::UnitRange)
     nodal_update_auxiliary_state!(heat_eq_nodal_update_aux!, dg, m, Q, t, elems)
 end;
 function heat_eq_nodal_update_aux!(m::HeatModel,state::Vars,aux::Vars,t::Real)
@@ -113,31 +113,42 @@ sc = ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)
 
 using DiffEqBase
 
-function DiffEqJLSolverConfiguration(sc, alg, args...; kwargs...)
-    increment = false
-    # (du, u, p, t) -> rhs_implicit!(du, u, p, t; increment = false),
-    # (du, u, p, t) -> rhs!(du, u, p, t; increment = false),
-    rhs_implicit!(du, u, p, t) = sc.dg(sc.solver.dQ, sc.Q, nothing, t, increment)
-    # rhs!(du, u, p, t) = sc.dg(sc.solver.dQ, sc.Q, nothing, t, increment)
-    rhs!(du, u, p, t) = nothing # purely implicit RHS
-    solver = DiffEqJLIMEXSolver(rhs!, rhs_implicit!, alg, sc.Q, args..., sc.t0; kwargs...)
-    return ClimateMachine.SolverConfiguration(sc.name,
-    sc.mpicomm,
-    sc.param_set,
-    sc.dg,
-    sc.Q,
-    sc.t0,
-    sc.timeend,
-    sc.dt,
-    sc.init_on_cpu,
-    sc.numberofsteps,
-    sc.init_args,
-    solver)
-end
+# function DiffEqJLSolverConfiguration(sc, alg, args...; kwargs...)
+#     increment = false
+#     # (du, u, p, t) -> rhs_implicit!(du, u, p, t; increment = false),
+#     # (du, u, p, t) -> rhs!(du, u, p, t; increment = false),
+#     rhs_implicit!(du, u, p, t) = sc.dg(sc.solver.dQ, sc.Q, nothing, t, increment)
+#     # rhs!(du, u, p, t) = sc.dg(sc.solver.dQ, sc.Q, nothing, t, increment)
+#     rhs!(du, u, p, t) = nothing # purely implicit RHS
+#     solver = DiffEqJLIMEXSolver(rhs!, rhs_implicit!, alg, sc.Q, args..., sc.t0; kwargs...)
+#     return ClimateMachine.SolverConfiguration(sc.name,
+#     sc.mpicomm,
+#     sc.param_set,
+#     sc.dg,
+#     sc.Q,
+#     sc.t0,
+#     sc.timeend,
+#     sc.dt,
+#     sc.init_on_cpu,
+#     sc.numberofsteps,
+#     sc.init_args,
+#     solver)
+# end
 
 using OrdinaryDiffEq: Rosenbrock23
-sc = DiffEqJLSolverConfiguration(sc, Rosenbrock23(); dt=sc.dt)
+# sc = DiffEqJLSolverConfiguration(sc, Rosenbrock23(); dt=sc.dt)
 
+sc = ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
+using OrdinaryDiffEq
+prob = ODEProblem(sc.dg, sc.Q, (0.0, sc.timeend),nothing)
+# solve(prob,Rosenbrock23(autodiff=false),
+#             save_everystep = false,
+#             save_start = false,
+#             save_end = false,)
+solve(prob,Kvaerno3(),
+            save_everystep = false,
+            save_start = false,
+            save_end = false,)
 
 # grid = sc.dg.grid;
 # Q = sc.Q;

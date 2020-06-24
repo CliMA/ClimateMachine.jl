@@ -608,7 +608,7 @@ end
 function update_auxiliary_state!(
     dg::DGModel,
     balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_conservative,
     t::Real,
     elems::UnitRange,
 )
@@ -713,7 +713,7 @@ function nodal_update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_conservative,
     t::Real,
     elems::UnitRange = dg.grid.topology.realelems;
     diffusive = false,
