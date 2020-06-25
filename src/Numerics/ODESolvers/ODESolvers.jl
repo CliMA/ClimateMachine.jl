@@ -13,13 +13,63 @@ using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
 
 
-# 3 types:
-#  problem: contains rhs!, Q, tspan
+# Types
+#  `DiffEqBase.AbstractODEProblem`: contains rhs!, Q0, tspan
+#    - reuse `OrdinaryDiffEq.ODEProblem` for explicit
+#    - reuse `OrdinaryDiffEq.ODEProblem` with `jac` arg for linear + full IMEX (https://docs.sciml.ai/latest/features/performance_overloads/#ode_explicit_jac-1)
+#    - reuse `OrdinaryDiffEq.SplitODEProblem` for linear + remainder IMEX
+#    - define new `IncrementODEProblem` for LSRK (https://github.com/SciML/DifferentialEquations.jl/issues/615)
+#    - Multirate: new problem type, or nested problem type?
+#
+#  `DistributedODEAlgorithm <: DiffEqBase.AbstractODEAlgorithm` for indicating which algorithm to use
+#    - singleton type if no options, e.g. LSRK
+#    - fields for options such as "linear solver" for IMEX
+#
+#  `DistributedODEIntegrator <: DiffEqBase.AbstractODEIntegrator{algType,true,uType,tType}` is a stripped down `ODEIntegrator` 
+#  (https://github.com/SciML/OrdinaryDiffEq.jl/blob/6ec5a55bda26efae596bf99bea1a1d729636f412/src/integrators/type.jl#L77-L123)
+#    - capture full state (current time, etc)
+# 
+#  Do we want a `DiffEqBase.AbstractODESolution` object to capture the result?
+# 
+# Linear solvers:
+#   https://docs.sciml.ai/latest/features/linear_nonlinear/#Linear-Solvers:-linsolve-Specification-1
+#   https://docs.sciml.ai/latest/features/linear_nonlinear/#Implementing-Your-Own-LinSolve:-How-LinSolveFactorize-Was-Created-1
+#
+# plan 1: 
+#  - similar to https://github.com/SciML/OrdinaryDiffEq.jl/blob/a9f9a0d07bf34ba567e2ca9dfc826d5c359d5a41/src/solve.jl#L1-L7?
+function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem,
+        alg::DistributedODEAlgorithm, args...;
+        kwargs...)
+    integrator = DiffEqBase.__init(prob, alg, args...; kwargs...)
+    solve!(integrator)
+    return nothing
+end
+
+
+
+#  define `DiffEqBase.__init(prob::AbstractODEProblem, alg::DistributedODEAlgorithm, args...; kwargs...)` which shoudl return `::DistributedODEIntegrator`
+#  define `DiffEqBase.solve!(::DistributedODEIntegrator)`
+#  would we want a 
+
+
+
+
+# usage:
+#
+#   prob = IncrementODEProblem(dg, Q0, (0.0,timeend))
+#   solve(prob, LSRK54CarpenterKennedy())
+#
+#   prob = ODEProblem(dg, Q0, (0.0,timeend); jac=dg1dlinear)
+#   solve(prob, ARK2GiraldoKellyConstantinescu(linsolve=BandedGMRES()))
+#
+
+# 
+
 #  algo: just the tableau "DistributedODESolvers"
 #  cache: intermediate storage
 
-# 1. LSRK: define our own IncrementODEProblem (https://github.com/SciML/DifferentialEquations.jl/issues/615)
-# 2. IMEX: use either SplitODEProblem (for linear + remainder) or ODEProblem with `jac` argument (https://docs.sciml.ai/latest/features/performance_overloads/#ode_explicit_jac-1)
+# 1. LSRK: define our own IncrementODEProblem 
+# 2. IMEX: use either SplitODEProblem (for linear + remainder) or ODEProblem with `jac` argument 
 # 3. Provide our own linear solvers via `linsolve` argument to `Solver`
 # 4. Multirate?
 #   - either a tuple or nested problems?
@@ -30,10 +80,18 @@ import DiffEqBase
 abstract type DistributedODEAlgorithm <: DiffEqBase.AbstractODEAlgorithm
 end
 
+
+
 abstract type AbstractCache end
 
 struct IncrementODEProblem{uType,tType,P,F,K} <: DiffEqBase.AbstractODEProblem{uType,tType,true}
-    """The ODE is `du/dt = f(u,p,t)`: this must have a method `ODESolvers.afpby` """
+    """
+    The ODE is `du/dt = f(u,p,t)`: this should define a method `f(y, u, p, t, α, β)` which computes
+    ```
+    y .= α .* f(u, p, t) .+ β .* y
+    ```
+    for scalar `α` and `β`.
+    """
     f::F
     """The initial condition is `u(tspan[1]) = u0`."""
     u0::uType
@@ -44,18 +102,6 @@ struct IncrementODEProblem{uType,tType,P,F,K} <: DiffEqBase.AbstractODEProblem{u
     """A callback to be applied to every solver which uses the problem."""
     kwargs::K
 end
-
-"""
-    ODESolvers.afpby(f, y, u, param, t, α, β)
-
-A function stub that can be extended for computing
-
-    y .= α .* f(u, param, t) .+ β .* y
-
-This must be defined on `f` any `IncrementODEProblem(f, ...)`.
-"""
-function afpby end
-
 
 
 

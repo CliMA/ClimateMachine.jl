@@ -3,31 +3,24 @@ export LowStorageRungeKutta2N
 export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch, LSRKEulerMethod
 
 """
-    LowStorageRungeKutta2N(f, RKA, RKB, RKC, Q; dt, t0 = 0)
+    abstract type LowStorageRungeKutta2N <: DistributedODEAlgorithm end
 
-This is a time stepping object for explicitly time stepping the differential
-equation given by the right-hand-side function `f` with the state `Q`, i.e.,
-
-```math
-  \\dot{Q} = f(Q, t)
-```
-
-with the required time step size `dt` and optional initial time `t0`.  This
-time stepping object is intended to be passed to the `solve!` command.
-
-The constructor builds a low-storage Runge-Kutta scheme using 2N
-storage based on the provided `RKA`, `RKB` and `RKC` coefficient arrays.
+A class of low-storage Runge-Kutta algorithms. Subtypes `L` should define a
+`tableau(::L, RT)` method which returns an instance of
+`LowStorageRungeKutta2NTableau`
 
 The available concrete implementations are:
-
-  - [`LSRK54CarpenterKennedy`](@ref)
-  - [`LSRK144NiegemannDiehlBusch`](@ref)
+ - [`LSRK54CarpenterKennedy`](@ref)
+ - [`LSRK144NiegemannDiehlBusch`](@ref)
 """
-
 abstract type LowStorageRungeKutta2N <: DistributedODEAlgorithm end
 
-struct LSRK54CarpenterKennedy <: LowStorageRungeKutta2N end
 
+"""
+    LowStorageRungeKutta2NTableau
+
+Storage for the tableau of a [`LowStorageRungeKutta2N`](@ref) algorithm.
+"""
 struct LowStorageRungeKutta2NTableau{Nstages, RT}
     "low storage RK coefficient vector A (rhs scaling)"
     RKA::NTuple{Nstages, RT}
@@ -37,6 +30,30 @@ struct LowStorageRungeKutta2NTableau{Nstages, RT}
     RKC::NTuple{Nstages, RT}
 end
 
+
+struct LowStorageRungeKutta2NCache
+    du::A
+    tableau::LowStorageRungeKutta2NTableau{Nstages, RT}
+end
+
+"""
+    LSRK54CarpenterKennedy()
+
+This uses the fourth-order, low-storage, Runge--Kutta scheme of Carpenter
+and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
+
+### References
+
+    @TECHREPORT{CarpenterKennedy1994,
+      author = {M.~H. Carpenter and C.~A. Kennedy},
+      title = {Fourth-order {2N-storage} {Runge-Kutta} schemes},
+      institution = {National Aeronautics and Space Administration},
+      year = {1994},
+      number = {NASA TM-109112},
+      address = {Langley Research Center, Hampton, VA},
+    }
+"""
+struct LSRK54CarpenterKennedy <: LowStorageRungeKutta2N end
 
 function tableau(::LSRK54CarpenterKennedy, RT)
     RKA = (
@@ -64,6 +81,81 @@ function tableau(::LSRK54CarpenterKennedy, RT)
     )
 
     return LowStorageRungeKutta2NTableau(RKA, RKB, RKC)
+end
+
+"""
+    LSRK144NiegemannDiehlBusch()
+
+The fourth-order, 14-stage, low-storage, Runge--Kutta scheme of
+Niegemann, Diehl, and Busch (2012) with optimized stability region
+
+### References
+
+    @article{niegemann2012efficient,
+      title={Efficient low-storage Runge--Kutta schemes with optimized stability regions},
+      author={Niegemann, Jens and Diehl, Richard and Busch, Kurt},
+      journal={Journal of Computational Physics},
+      volume={231},
+      number={2},
+      pages={364--372},
+      year={2012},
+      publisher={Elsevier}
+    }
+"""
+function tableau(::LSRK144NiegemannDiehlBusch, RT)
+
+    RKA = (
+        RT(0),
+        RT(-0.7188012108672410),
+        RT(-0.7785331173421570),
+        RT(-0.0053282796654044),
+        RT(-0.8552979934029281),
+        RT(-3.9564138245774565),
+        RT(-1.5780575380587385),
+        RT(-2.0837094552574054),
+        RT(-0.7483334182761610),
+        RT(-0.7032861106563359),
+        RT(0.0013917096117681),
+        RT(-0.0932075369637460),
+        RT(-0.9514200470875948),
+        RT(-7.1151571693922548),
+    )
+
+    RKB = (
+        RT(0.0367762454319673),
+        RT(0.3136296607553959),
+        RT(0.1531848691869027),
+        RT(0.0030097086818182),
+        RT(0.3326293790646110),
+        RT(0.2440251405350864),
+        RT(0.3718879239592277),
+        RT(0.6204126221582444),
+        RT(0.1524043173028741),
+        RT(0.0760894927419266),
+        RT(0.0077604214040978),
+        RT(0.0024647284755382),
+        RT(0.0780348340049386),
+        RT(5.5059777270269628),
+    )
+
+    RKC = (
+        RT(0),
+        RT(0.0367762454319673),
+        RT(0.1249685262725025),
+        RT(0.2446177702277698),
+        RT(0.2476149531070420),
+        RT(0.2969311120382472),
+        RT(0.3978149645802642),
+        RT(0.5270854589440328),
+        RT(0.6981269994175695),
+        RT(0.8190890835352128),
+        RT(0.8527059887098624),
+        RT(0.8604711817462826),
+        RT(0.8627060376969976),
+        RT(0.8734213127600976),
+    )
+
+    LowStorageRungeKutta2NTableau(RKA, RKB, RKC)
 end
 
 
