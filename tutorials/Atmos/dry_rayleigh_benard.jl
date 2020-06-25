@@ -40,6 +40,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Thermodynamics:
     TemperatureSHumEquil_given_pressure, internal_energy
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters

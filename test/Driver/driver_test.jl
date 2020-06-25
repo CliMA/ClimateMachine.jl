@@ -4,6 +4,7 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates

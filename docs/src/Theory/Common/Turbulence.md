@@ -1,7 +1,8 @@
 ## [Turbulence Closures](@id Turbulence-Closures-docs)
-In `turbulence.jl` we specify turbulence closures. Currently, pointwise
-models of the eddy viscosity/eddy diffusivity type are supported for
-turbulent shear and tracer diffusivity. Methods currently supported are:\
+Module `TurbulenceClosures.jl` currently supports 
+pointwise models of the eddy viscosity/eddy diffusivity type.
+
+Supported constructors include are:\
 [`ConstantViscosityWithDivergence`](@ref constant-viscosity)\
 [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 [`Vreman`](@ref vreman)\

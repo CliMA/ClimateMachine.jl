@@ -21,10 +21,10 @@ using ClimateMachine.Atmos:
     DryModel,
     NoPrecipitation,
     NoRadiation,
-    ConstantViscosityWithDivergence,
     vars_state_conservative
 using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.TurbulenceClosures
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d

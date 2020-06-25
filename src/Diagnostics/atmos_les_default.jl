@@ -1,8 +1,9 @@
 using ..Atmos
-using ..Atmos: MoistureModel, thermo_state, turbulence_tensors
+using ..Atmos: MoistureModel, thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
+using ..TurbulenceClosures
 using LinearAlgebra
 
 # Simple horizontal averages

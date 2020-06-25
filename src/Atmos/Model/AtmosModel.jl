@@ -22,6 +22,9 @@ import ..Orientations:
 using ..VariableTemplates
 using ..Thermodynamics
 using ..TemperatureProfiles
+
+using ..TurbulenceClosures
+
 import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
@@ -100,7 +103,6 @@ Users may over-ride prescribed default values for each field.
         boundarycondition,
         init_state_conservative
     )
-
 
 # Fields
 $(DocStringExtensions.FIELDS)
@@ -336,7 +338,6 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
     ∇gravitational_potential(bl.orientation, aux)
 
 include("ref_state.jl")
-include("turbulence.jl")
 include("hyperdiffusion.jl")
 include("moisture.jl")
 include("precipitation.jl")
@@ -561,8 +562,8 @@ function atmos_nodal_update_auxiliary_state!(
 )
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
-    atmos_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
+    turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
 end
 
 function integral_load_auxiliary_state!(
@@ -608,8 +609,8 @@ Store Cartesian coordinate information in `aux.coord`.
 function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
     init_aux!(m.orientation, m.param_set, aux)
+    init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)
-    atmos_init_aux!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
 end

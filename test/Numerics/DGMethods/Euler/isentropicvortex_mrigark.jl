@@ -24,8 +24,8 @@ using ClimateMachine.Atmos:
     DryModel,
     NoPrecipitation,
     NoRadiation,
-    ConstantViscosityWithDivergence,
     vars_state_conservative
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.VariableTemplates: @vars, Vars, flattenednames
 import ClimateMachine.Atmos: atmos_init_aux!, vars_state_auxiliary

@@ -17,6 +17,7 @@ apis = [
         "Orientations" => "APIs/Common/Orientations.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
+        "TurbulenceClosures" => "APIs/Common/TurbulenceClosures.md",
     ],
     "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
     "Arrays" => "APIs/Arrays/Arrays.md",

@@ -23,7 +23,8 @@ using Printf
 using Statistics
 
 using ..Atmos
-using ..Atmos: thermo_state, turbulence_tensors
+using ..Atmos: thermo_state
+using ..TurbulenceClosures: turbulence_tensors
 
 include("diagnostic_fields.jl")
 

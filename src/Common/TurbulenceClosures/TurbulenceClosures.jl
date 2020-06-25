@@ -1,3 +1,17 @@
+"""
+    TurbulenceClosures
+
+Functions for turbulence, sub-grid scale modelling. These include
+viscosity terms, diffusivity and stress tensors. 
+
+- [`ConstantViscosityWithDivergence`](@ref)
+- [`SmagorinskyLilly`](@ref)
+- [`Vreman`](@ref)
+- [`AnisoMinDiss`](@ref)
+
+"""
+module TurbulenceClosures
+
 # ## Turbulence Closures
 # In `turbulence.jl` we specify turbulence closures. Currently,
 # pointwise models of the eddy viscosity/eddy diffusivity type are
@@ -10,48 +24,105 @@
 
 #md # !!! note
 #md #     Usage: This is a quick-ref guide to using turbulence models as a subcomponent
-#md #     of `AtmosModel` \
+#md #     of `BalanceLaw` \
 #md #     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
 #md #     `turbulence=ConstantViscosityWithDivergence(ν)`\
 #md #     `turbulence=SmagorinskyLilly(C_smag)`\
 #md #     `turbulence=Vreman(C_smag)`\
 #md #     `turbulence=AnisoMinDiss(C_poincare)`
 
+using ClimateMachine
 using DocStringExtensions
+using LinearAlgebra
+using StaticArrays
+
+import CLIMAParameters: AbstractParameterSet
+import ClimateMachine.Mesh.Geometry:
+    LocalGeometry, resolutionmetric, lengthscale
+
+using ClimateMachine.Orientations
+using ClimateMachine.VariableTemplates
+using ClimateMachine.BalanceLaws
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
-export turbulence_tensors
+
+
+import ClimateMachine.BalanceLaws:
+    vars_state_auxiliary,
+    vars_state_conservative,
+    vars_state_gradient,
+    vars_gradient_laplacian,
+    vars_state_gradient_flux,
+    vars_hyperdiffusive,
+    flux_first_order!,
+    flux_second_order!,
+    source!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    transform_post_gradient_laplacian!,
+    init_state_conservative!,
+    update_auxiliary_state!,
+    nodal_update_auxiliary_state!,
+    number_state_conservative,
+    num_integrals,
+    vars_integrals,
+    vars_reverse_integrals,
+    indefinite_stack_integral!,
+    reverse_indefinite_stack_integral!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
+
+
+export TurbulenceClosureModel,
+    ConstantViscosityWithDivergence,
+    SmagorinskyLilly,
+    Vreman,
+    AnisoMinDiss,
+    turbulence_tensors,
+    init_aux_turbulence!,
+    turbulence_nodal_update_auxiliary_state!
 
 # ### Abstract Type
-# We define a `TurbulenceClosure` abstract type and
+# We define a `TurbulenceClosureModel` abstract type and
 # default functions for the generic turbulence closure
 # which will be overloaded with model specific functions.
-abstract type TurbulenceClosure end
-
-vars_state_conservative(::TurbulenceClosure, FT) = @vars()
-vars_state_auxiliary(::TurbulenceClosure, FT) = @vars()
 
 
 """
-    atmos_init_aux!
+    Abstract type with default do-nothing behaviour for 
+arbitrary turbulence closure models. 
+"""
+abstract type TurbulenceClosureModel end
+
+vars_state_conservative(::TurbulenceClosureModel, FT) = @vars()
+vars_state_auxiliary(::TurbulenceClosureModel, FT) = @vars()
+vars_state_gradient(::TurbulenceClosureModel, FT) = @vars()
+vars_state_gradient_flux(::TurbulenceClosureModel, FT) = @vars()
+vars_gradient_laplacian(::TurbulenceClosureModel, FT) = @vars()
+vars_integrals(::TurbulenceClosureModel, FT) = @vars()
+vars_reverse_integrals(::TurbulenceClosureModel, FT) = @vars()
+
+"""
+    init_aux_turbulence!
 Initialise auxiliary variables for turbulence models.
-Overload for specific type of turbulence closure.
+Overload for specific turbulence closure type.
 """
-function atmos_init_aux!(
-    ::TurbulenceClosure,
-    ::AtmosModel,
+function init_aux_turbulence!(
+    ::TurbulenceClosureModel,
+    ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 ) end
 
 """
-    atmos_nodal_update_auxiliary_state!
+    nodal_update_auxiliary_state!
 Update auxiliary variables for turbulence models.
-Overload for specific turbulence closure type
+Overload for specific turbulence closure type.
 """
-function atmos_nodal_update_auxiliary_state!(
-    ::TurbulenceClosure,
-    ::AtmosModel,
+function turbulence_nodal_update_auxiliary_state!(
+    ::TurbulenceClosureModel,
+    ::BalanceLaw,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -62,18 +133,18 @@ function atmos_nodal_update_auxiliary_state!(
 Assign pre-gradient-transform variables specific to turbulence models.
 """
 function compute_gradient_argument!(
-    ::TurbulenceClosure,
+    ::TurbulenceClosureModel,
     transform::Vars,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
 """
-    compute_gradient_flux!(::TurbulenceClosure, _...)
+    compute_gradient_flux!(::TurbulenceClosureModel, _...)
 Post-gradient-transformed variables specific to turbulence models.
 """
 function compute_gradient_flux!(
-    ::TurbulenceClosure,
+    ::TurbulenceClosureModel,
     ::Orientation,
     diffusive,
     ∇transform,
@@ -84,12 +155,12 @@ function compute_gradient_flux!(
 
 function turbulence_tensors end
 
-turbulence_tensors(atmos::AtmosModel, args...) =
+turbulence_tensors(atmos::BalanceLaw, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
 """
     ν, D_t, τ = turbulence_tensors(
-                    ::TurbulenceClosure,
+                    ::TurbulenceClosureModel,
                     orientation::Orientation,
                     param_set::AbstractParameterSet,
                     state::Vars,
@@ -103,15 +174,15 @@ for the returned quantities.
 
 # Arguments
 
-- `::TurbulenceClosure` = Struct identifier for turbulence closure model
-- `orientation` = `AtmosModel.orientation`
-- `param_set` = `AtmosModel.param_set`
-- `state` = Array of prognostic (state) variables. See `vars_state_conservative` in `AtmosModel`
+- `::TurbulenceClosureModel` = Struct identifier for turbulence closure model
+- `orientation` = `BalanceLaw.orientation`
+- `param_set` = `BalanceLaw.param_set`
+- `state` = Array of prognostic (state) variables. See `vars_state_conservative` in `BalanceLaw`
 - `diffusive` = Array of diffusive variables
 - `aux` = Array of auxiliary variables
 - `t` = time
 """
-turbulence_tensors(m::TurbulenceClosure, atmos::AtmosModel, args...) =
+turbulence_tensors(m::TurbulenceClosureModel, atmos::BalanceLaw, args...) =
     turbulence_tensors(m, atmos.orientation, atmos.param_set, args...)
 
 # We also provide generic math functions for use within the turbulence closures,
@@ -164,7 +235,7 @@ end
 # ```
 """
     norm2(X)
-Given a tensor `X`, computes its tensor dot product.
+Given a tensor `X`, computes X:X.
 """
 function norm2(X::SMatrix{3, 3, FT}) where {FT}
     abs2(X[1, 1]) +
@@ -214,7 +285,7 @@ end
 # \tau = - 2 \nu \mathrm{S}
 # ```
 """
-    ConstantViscosityWithDivergence <: TurbulenceClosure
+    ConstantViscosityWithDivergence <: TurbulenceClosureModel
 
 Turbulence with constant dynamic viscosity (`ρν`).
 Divergence terms are included in the momentum flux tensor.
@@ -223,7 +294,7 @@ Divergence terms are included in the momentum flux tensor.
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosure
+struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosureModel
     "Dynamic Viscosity [kg/m/s]"
     ρν::FT
 end
@@ -294,8 +365,9 @@ end
 # relevant coordinate direction. We use the DG metric terms to determine the
 # local effective resolution (see `src/Mesh/Geometry.jl`), and modify the vertical lengthscale by the
 # stratification correction factor $\mathrm{f}_{b}$ so that $\Delta_{vert} = \Delta z f_b$.
+
 """
-    SmagorinskyLilly <: TurbulenceClosure
+    SmagorinskyLilly <: TurbulenceClosureModel
 
 # Fields
 
@@ -338,7 +410,7 @@ $(DocStringExtensions.FIELDS)
       https://doi.org/10.1175/1520-0469(1982)039<2152:OTEOMO>2.0.CO;2
 
 """
-struct SmagorinskyLilly{FT} <: TurbulenceClosure
+struct SmagorinskyLilly{FT} <: TurbulenceClosureModel
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
@@ -349,9 +421,9 @@ vars_state_gradient_flux(::SmagorinskyLilly, FT) =
     @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
 
 
-function atmos_init_aux!(
+function init_aux_turbulence!(
     ::SmagorinskyLilly,
-    ::AtmosModel,
+    ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 )
@@ -433,8 +505,9 @@ end
 # u_{i,j} &= \frac{\partial u_{i}}{\partial x_{j}}.
 # \end{align}
 # ```
+
 """
-    Vreman{FT} <: TurbulenceClosure
+    Vreman{FT} <: TurbulenceClosureModel
 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Smagorinsky coefficient
 is specified and used to compute the equivalent Vreman coefficient.
@@ -463,7 +536,7 @@ $(DocStringExtensions.FIELDS)
       publisher={AIP}
     }
 """
-struct Vreman{FT} <: TurbulenceClosure
+struct Vreman{FT} <: TurbulenceClosureModel
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
@@ -471,7 +544,12 @@ vars_state_auxiliary(::Vreman, FT) = @vars(Δ::FT)
 vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT)
 vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 
-function atmos_init_aux!(::Vreman, ::AtmosModel, aux::Vars, geom::LocalGeometry)
+function init_aux_turbulence!(
+    ::Vreman,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
     aux.turbulence.Δ = lengthscale(geom)
 end
 function compute_gradient_argument!(
@@ -540,7 +618,7 @@ end
 # \nu_e = (\mathrm{C}\delta)^2  \mathrm{max}\left[0, - \frac{\hat{\partial}_k \hat{u}_{i} \hat{\partial}_k \hat{u}_{j} \mathrm{\hat{S}}_{ij}}{\hat{\partial}_p \hat{u}_{q}} \right]
 # ```
 """
-    AnisoMinDiss{FT} <: TurbulenceClosure
+    AnisoMinDiss{FT} <: TurbulenceClosureModel
 
 Filter width Δ is the local grid resolution calculated from the mesh metric tensor. A Poincare coefficient
 is specified and used to compute the equivalent AnisoMinDiss coefficient (computed as the solution to the
@@ -565,16 +643,16 @@ $(DocStringExtensions.FIELDS)
     }
 
 """
-struct AnisoMinDiss{FT} <: TurbulenceClosure
+struct AnisoMinDiss{FT} <: TurbulenceClosureModel
     C_poincare::FT
 end
 vars_state_auxiliary(::AnisoMinDiss, FT) = @vars(Δ::FT)
 vars_state_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
 vars_state_gradient_flux(::AnisoMinDiss, FT) =
     @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
-function atmos_init_aux!(
+function init_aux_turbulence!(
     ::AnisoMinDiss,
-    ::AtmosModel,
+    ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 )
@@ -641,3 +719,5 @@ function turbulence_tensors(
     τ = -2 * ν * S
     return ν, D_t, τ
 end
+
+end #module TurbulenceClosures.jl

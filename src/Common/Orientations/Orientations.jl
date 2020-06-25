@@ -103,7 +103,6 @@ No gravitational force or potential.
 struct NoOrientation <: Orientation end
 
 init_aux!(::NoOrientation, param_set::APS, aux::Vars) = nothing
-
 vars_state_auxiliary(m::NoOrientation, FT) = @vars()
 
 gravitational_potential(::NoOrientation, aux::Vars) = -zero(eltype(aux))
