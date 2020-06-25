@@ -232,8 +232,8 @@ has_variable_coefficients(::AdvectionDiffusionProblem) = false
 function update_auxiliary_state!(
     dg::DGModel,
     m::AdvectionDiffusion,
-    Q::MPIStateArray,
-    t::Real,
+    Q,
+    t,
     elems::UnitRange,
 )
     if has_variable_coefficients(m.problem)

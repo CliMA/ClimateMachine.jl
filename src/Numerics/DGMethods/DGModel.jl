@@ -15,15 +15,23 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     modeldata::MD
 end
 
+DGModel(args...; kwargs...) = DGModel(MPIStateArray, args...; kwargs...)
+
 function DGModel(
+    ArrayType,
     balance_law,
     grid,
     numerical_flux_first_order,
     numerical_flux_second_order,
-    numerical_flux_gradient;
-    state_auxiliary = create_auxiliary_state(balance_law, grid),
-    state_gradient_flux = create_gradient_state(balance_law, grid),
-    states_higher_order = create_higher_order_states(balance_law, grid),
+    numerical_flux_gradient,
+    ;
+    state_auxiliary = create_auxiliary_state(ArrayType, balance_law, grid),
+    state_gradient_flux = create_gradient_state(ArrayType, balance_law, grid),
+    states_higher_order = create_higher_order_states(
+        ArrayType,
+        balance_law,
+        grid,
+    ),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
@@ -185,10 +193,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            state_conservative.data,
-            state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            state_auxiliary.data,
+            data(state_conservative),
+            data(state_gradient_flux),
+            data(Qhypervisc_grad),
+            data(state_auxiliary),
             grid.vgeo,
             t,
             grid.D,
@@ -204,10 +212,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(N),
             dg.diffusion_direction,
             dg.numerical_flux_gradient,
-            state_conservative.data,
-            state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            state_auxiliary.data,
+            data(state_conservative),
+            data(state_gradient_flux),
+            data(Qhypervisc_grad),
+            data(state_auxiliary),
             grid.vgeo,
             grid.sgeo,
             t,
@@ -245,10 +253,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(N),
             dg.diffusion_direction,
             dg.numerical_flux_gradient,
-            state_conservative.data,
-            state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            state_auxiliary.data,
+            data(state_conservative),
+            data(state_gradient_flux),
+            data(Qhypervisc_grad),
+            data(state_auxiliary),
             grid.vgeo,
             grid.sgeo,
             t,
@@ -303,8 +311,8 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 Val(dim),
                 Val(N),
                 dg.diffusion_direction,
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
+                data(Qhypervisc_grad),
+                data(Qhypervisc_div),
                 grid.vgeo,
                 grid.D,
                 topology.realelems;
@@ -319,8 +327,8 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 Val(N),
                 dg.diffusion_direction,
                 CentralNumericalFluxDivergence(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
+                data(Qhypervisc_grad),
+                data(Qhypervisc_div),
                 grid.vgeo,
                 grid.sgeo,
                 grid.vmap⁻,
@@ -345,8 +353,8 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 Val(N),
                 dg.diffusion_direction,
                 CentralNumericalFluxDivergence(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
+                data(Qhypervisc_grad),
+                data(Qhypervisc_div),
                 grid.vgeo,
                 grid.sgeo,
                 grid.vmap⁻,
@@ -374,10 +382,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 Val(dim),
                 Val(N),
                 dg.diffusion_direction,
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_conservative.data,
-                state_auxiliary.data,
+                data(Qhypervisc_grad),
+                data(Qhypervisc_div),
+                data(state_conservative),
+                data(state_auxiliary),
                 grid.vgeo,
                 grid.ω,
                 grid.D,
@@ -394,10 +402,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 Val(N),
                 dg.diffusion_direction,
                 CentralNumericalFluxHigherOrder(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_conservative.data,
-                state_auxiliary.data,
+                data(Qhypervisc_grad),
+                data(Qhypervisc_div),
+                data(state_conservative),
+                data(state_auxiliary),
                 grid.vgeo,
                 grid.sgeo,
                 grid.vmap⁻,
@@ -423,10 +431,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 Val(N),
                 dg.diffusion_direction,
                 CentralNumericalFluxHigherOrder(),
-                Qhypervisc_grad.data,
-                Qhypervisc_div.data,
-                state_conservative.data,
-                state_auxiliary.data,
+                data(Qhypervisc_grad),
+                data(Qhypervisc_div),
+                data(state_conservative),
+                data(state_auxiliary),
                 grid.vgeo,
                 grid.sgeo,
                 grid.vmap⁻,
@@ -455,11 +463,11 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         Val(dim),
         Val(N),
         dg.direction,
-        tendency.data,
-        state_conservative.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
+        data(tendency),
+        data(state_conservative),
+        data(state_gradient_flux),
+        data(Qhypervisc_grad),
+        data(state_auxiliary),
         grid.vgeo,
         t,
         grid.ω,
@@ -478,11 +486,11 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         dg.direction,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
-        tendency.data,
-        state_conservative.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
+        data(tendency),
+        data(state_conservative),
+        data(state_gradient_flux),
+        data(Qhypervisc_grad),
+        data(state_auxiliary),
         grid.vgeo,
         grid.sgeo,
         t,
@@ -550,11 +558,11 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         dg.direction,
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
-        tendency.data,
-        state_conservative.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
+        data(tendency),
+        data(state_conservative),
+        data(state_gradient_flux),
+        data(Qhypervisc_grad),
+        data(state_auxiliary),
         grid.vgeo,
         grid.sgeo,
         t,
@@ -578,13 +586,15 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     wait(device, comp_stream)
 end
 
-function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
+init_ode_state(dg::DGModel, args...; kwargs...) =
+    init_ode_state(MPIStateArray, dg, args...; kwargs...)
+function init_ode_state(ArrayType, dg::DGModel, args...; init_on_cpu = false)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_conservative = create_conservative_state(balance_law, grid)
+    state_conservative = create_conservative_state(ArrayType, balance_law, grid)
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -600,8 +610,8 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
             balance_law,
             Val(dim),
             Val(N),
-            state_conservative.data,
-            state_auxiliary.data,
+            data(state_conservative),
+            data(state_auxiliary),
             grid.vgeo,
             topology.realelems,
             args...;
@@ -617,8 +627,8 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
             balance_law,
             Val(dim),
             Val(N),
-            h_state_conservative.data,
-            h_state_auxiliary.data,
+            data(h_state_conservative),
+            data(h_state_auxiliary),
             Array(grid.vgeo),
             topology.realelems,
             args...;
@@ -642,11 +652,18 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     return state_conservative
 end
 
-function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
+restart_ode_state(dg::DGModel, args...; kwargs...) =
+    restart_ode_state(MPIStateArray, dg, args...; kwargs...)
+function restart_ode_state(
+    ArrayType,
+    dg::DGModel,
+    state_data;
+    init_on_cpu = false,
+)
     bl = dg.balance_law
     grid = dg.grid
 
-    state = create_conservative_state(bl, grid)
+    state = create_conservative_state(ArrayType, bl, grid)
     state .= state_data
 
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
@@ -658,23 +675,31 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxiliary_state(bl, grid, aux_data)
-    state_auxiliary = create_auxiliary_state(bl, grid)
+restart_auxiliary_state(bl, grid, aux_data) =
+    restart_auxiliary_state(MPIStateArray, bl, grid, aux_data)
+function restart_auxiliary_state(ArrayType, bl, grid, aux_data)
+    state_auxiliary = create_auxiliary_state(ArrayType, bl, grid)
     state_auxiliary .= aux_data
     return state_auxiliary
 end
 
 # fallback
-function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
+function update_auxiliary_state!(
+    dg::DGModel,
+    balance_law::BalanceLaw,
+    state_conservative,
+    t,
+    elems::UnitRange,
+)
     return false
 end
 
 function update_auxiliary_state_gradient!(
     dg::DGModel,
-    balance_law,
-    state_conservative,
-    t,
-    elems,
+    balance_law::BalanceLaw,
+    state_conservative::AbstractArray,
+    t::Real,
+    elems::UnitRange,
 )
     return false
 end
@@ -682,8 +707,8 @@ end
 function indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
-    state_auxiliary::MPIStateArray,
+    state_conservative::AbstractArray,
+    state_auxiliary::AbstractArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems,
 )
@@ -711,8 +736,8 @@ function indefinite_stack_integral!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        state_conservative.data,
-        state_auxiliary.data,
+        data(state_conservative),
+        data(state_auxiliary),
         grid.vgeo,
         grid.Imat,
         horzelems;
@@ -725,8 +750,8 @@ end
 function reverse_indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
-    state_auxiliary::MPIStateArray,
+    state_conservative::AbstractArray,
+    state_auxiliary::AbstractArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems,
 )
@@ -754,8 +779,8 @@ function reverse_indefinite_stack_integral!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        state_conservative.data,
-        state_auxiliary.data,
+        data(state_conservative),
+        data(state_auxiliary),
         horzelems;
         ndrange = (length(horzelems) * Nq, Nqk),
         dependencies = (event,),
@@ -763,12 +788,11 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
-# TODO: Move to BalanceLaws
 function nodal_update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_conservative::AbstractArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.realelems;
     diffusive = false,
@@ -795,9 +819,9 @@ function nodal_update_auxiliary_state!(
             Val(dim),
             Val(N),
             f!,
-            state_conservative.data,
-            dg.state_auxiliary.data,
-            dg.state_gradient_flux.data,
+            data(state_conservative),
+            data(dg.state_auxiliary),
+            data(dg.state_gradient_flux),
             t,
             elems,
             grid.activedofs;
@@ -810,8 +834,8 @@ function nodal_update_auxiliary_state!(
             Val(dim),
             Val(N),
             f!,
-            state_conservative.data,
-            dg.state_auxiliary.data,
+            data(state_conservative),
+            data(dg.state_auxiliary),
             t,
             elems,
             grid.activedofs;
@@ -842,7 +866,7 @@ function courant(
     local_courant::Function,
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_conservative::AbstractArray,
     Δt,
     simtime,
     direction = EveryDirection(),
@@ -878,9 +902,9 @@ function courant(
             Val(N),
             pointwise_courant,
             local_courant,
-            state_conservative.data,
-            dg.state_auxiliary.data,
-            dg.state_gradient_flux.data,
+            data(state_conservative),
+            data(dg.state_auxiliary),
+            data(dg.state_gradient_flux),
             topology.realelems,
             Δt,
             simtime,
@@ -901,7 +925,7 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_conservative = create_conservative_state(balance_law, grid)
+    state_conservative = create_conservative_state(MPIStateArray, balance_law, grid)
 
     return state_conservative
 end

@@ -1,6 +1,10 @@
 #### Create states
 
-function create_conservative_state(balance_law::BalanceLaw, grid)
+function create_conservative_state(
+    ::Type{MPIStateArray},
+    balance_law::BalanceLaw,
+    grid,
+)
     topology = grid.topology
     # FIXME: Remove after updating CUDA
     h_vgeo = Array(grid.vgeo)
@@ -29,8 +33,21 @@ function create_conservative_state(balance_law::BalanceLaw, grid)
     )
     return state_conservative
 end
+function create_conservative_state(::Type{Array}, balance_law::BalanceLaw, grid)
+    topology = grid.topology
+    FT = eltype(grid.vgeo)
+    Np = dofs_per_element(grid)
+    return Array{FT}(
+        undef,
+        (
+            Np,
+            number_state_conservative(balance_law, FT),
+            length(topology.elems),
+        ),
+    )
+end
 
-function create_auxiliary_state(balance_law, grid)
+function create_auxiliary_state(::Type{MPIStateArray}, balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -57,18 +74,35 @@ function create_auxiliary_state(balance_law, grid)
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
     )
+    init_auxiliary_state!(state_auxiliary, balance_law, grid)
+    return state_auxiliary
+end
+function create_auxiliary_state(::Type{Array}, balance_law, grid)
+    topology = grid.topology
+    FT = eltype(grid.vgeo)
+    Np = dofs_per_element(grid)
+    state_auxiliary = Array{FT}(
+        undef,
+        (Np, number_state_auxiliary(balance_law, FT), length(topology.elems)),
+    )
+    init_auxiliary_state!(state_auxiliary, balance_law, grid)
+    return state_auxiliary
+end
 
+function init_auxiliary_state!(state_auxiliary, balance_law, grid)
+    topology = grid.topology
     dim = dimensionality(grid)
     polyorder = polynomialorder(grid)
     vgeo = grid.vgeo
     device = array_device(state_auxiliary)
+    Np = dofs_per_element(grid)
     nrealelem = length(topology.realelems)
     event = Event(device)
     event = kernel_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
         balance_law,
         Val(dim),
         Val(polyorder),
-        state_auxiliary.data,
+        data(state_auxiliary),
         vgeo,
         topology.realelems,
         dependencies = (event,),
@@ -86,7 +120,7 @@ function create_auxiliary_state(balance_law, grid)
     return state_auxiliary
 end
 
-function create_gradient_state(balance_law, grid)
+function create_gradient_state(::Type{MPIStateArray}, balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -118,7 +152,22 @@ function create_gradient_state(balance_law, grid)
     return state_gradient_flux
 end
 
-function create_higher_order_states(balance_law, grid)
+function create_gradient_state(::Type{Array}, balance_law, grid)
+    topology = grid.topology
+    Np = dofs_per_element(grid)
+    FT = eltype(grid.vgeo)
+    state_gradient_flux = Array{FT}(
+        undef,
+        (
+            Np,
+            number_state_gradient_flux(balance_law, FT),
+            length(topology.elems),
+        ),
+    )
+    return state_gradient_flux
+end
+
+function create_higher_order_states(::Type{MPIStateArray}, balance_law, grid)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -164,5 +213,17 @@ function create_higher_order_states(balance_law, grid)
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
     )
+    return Qhypervisc_grad, Qhypervisc_div
+end
+
+function create_higher_order_states(::Type{Array}, balance_law, grid)
+    topology = grid.topology
+    Np = dofs_per_element(grid)
+    FT = eltype(grid.vgeo)
+    ngradlapstate = num_gradient_laplacian(balance_law, FT)
+    Qhypervisc_grad =
+        Array{FT}(undef, (Np, 3ngradlapstate, length(topology.elems)))
+    Qhypervisc_div =
+        Array{FT}(undef, (Np, ngradlapstate, length(topology.elems)))
     return Qhypervisc_grad, Qhypervisc_div
 end

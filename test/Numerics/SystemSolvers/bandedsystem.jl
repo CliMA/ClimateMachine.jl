@@ -168,10 +168,16 @@ let
                         atol = 100 * eps(FT),
                     ))
 
-                    big_Q =
-                        create_conservative_state(BigAdvectionDiffusion(), grid)
-                    big_dQ =
-                        create_conservative_state(BigAdvectionDiffusion(), grid)
+                    big_Q = create_conservative_state(
+                        MPIStateArray,
+                        BigAdvectionDiffusion(),
+                        grid,
+                    )
+                    big_dQ = create_conservative_state(
+                        MPIStateArray,
+                        BigAdvectionDiffusion(),
+                        grid,
+                    )
 
                     big_Q .= NaN
                     big_dQ .= NaN

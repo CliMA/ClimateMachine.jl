@@ -27,7 +27,15 @@ using .CMBuffers
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
-export MPIStateArray, euclidean_distance, weightedsum, array_device, vars
+export MPIStateArray,
+    euclidean_distance,
+    weightedsum,
+    array_device,
+    vars,
+    data,
+    realdata,
+    realelems,
+    ghostelems
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
@@ -283,6 +291,19 @@ Base.eltype(Q::MPIStateArray, x...; kw...) = eltype(Q.data, x...; kw...)
 
 Base.Array(Q::MPIStateArray) = Array(Q.data)
 
+# accessors
+
+data(X::AbstractArray) = X
+data(X::MPIStateArray) = X.data
+realdata(X::AbstractArray) = X
+realdata(X::MPIStateArray) = X.realdata
+
+realelems(X::AbstractArray) = 1:size(X, 3)
+realelems(X::MPIStateArray) = X.realelems
+ghostelems(X::AbstractArray) = 0:0
+ghostelems(X::MPIStateArray) = X.ghostelems
+
+
 # broadcasting stuff
 
 # find the first MPIStateArray among `bc` arguments
@@ -336,6 +357,14 @@ end
     dest
 end
 
+@inline function Base.zero(Q::MPIStateArray{FT}) where {FT}
+    S = similar(Q)
+    fill!(S, 0)
+    return S
+end
+
+begin_ghost_exchange!(Q::AbstractArray; dependencies = nothing) = NoneEvent()
+
 """
     begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 
@@ -374,6 +403,8 @@ function begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
 
     return event
 end
+
+end_ghost_exchange!(Q::AbstractArray; dependencies = nothing) = NoneEvent()
 
 """
     end_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
