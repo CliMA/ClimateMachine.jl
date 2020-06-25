@@ -238,6 +238,7 @@ function vars_state_gradient(m::AtmosModel, FT)
     @vars begin
         u::SVector{3, FT}
         h_tot::FT
+        divergence::FT
         turbulence::vars_state_gradient(m.turbulence, FT)
         hyperdiffusion::vars_state_gradient(m.hyperdiffusion, FT)
         moisture::vars_state_gradient(m.moisture, FT)
@@ -251,6 +252,7 @@ Post-transform gradient variables
 function vars_state_gradient_flux(m::AtmosModel, FT)
     @vars begin
         ∇h_tot::SVector{3, FT}
+        ∇divergence::SVector{3,FT}
         turbulence::vars_state_gradient_flux(m.turbulence, FT)
         hyperdiffusion::vars_state_gradient_flux(m.hyperdiffusion, FT)
         moisture::vars_state_gradient_flux(m.moisture, FT)
@@ -394,10 +396,15 @@ function compute_gradient_argument!(
     state::Vars,
     aux::Vars,
     t::Real,
+    local_div::Real,
 )
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
     transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
+    transform.divergence = local_div
+    if t > eltype(state)(2)
+        @show(transform.divergence)
+    end
 
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
