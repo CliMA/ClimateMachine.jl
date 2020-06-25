@@ -652,7 +652,6 @@ function atmos_nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
-    init_aux!(m.orientation, m.param_set, aux)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
@@ -664,7 +663,7 @@ end
     init_state_auxiliary!(
         m::AtmosModel,
         aux::MPIStateArray,
-        geom::grid,
+        grid,
         )
 Initialise auxiliary variables for each AtmosModel subcomponent.
 Store Cartesian coordinate information in `aux.coord`.
@@ -674,6 +673,8 @@ function init_state_auxiliary!(
     state_auxiliary::MPIStateArray,
     grid,
 )
+    init_aux!(m, m.orientation, state_auxiliary, grid)
+
     nodal_init_state_auxiliary!(
         m,
         atmos_nodal_init_state_auxiliary!,
