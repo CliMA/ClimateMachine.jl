@@ -155,10 +155,27 @@ vars_state_gradient_flux(::HeatModel, FT) = @vars(α∇ρcT::SVector{3, FT});
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state_auxiliary`
-function init_state_auxiliary!(m::HeatModel, aux::Vars, geom::LocalGeometry)
+function heat_eq_nodal_init_state_auxiliary!(
+    m::HeatModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
     aux.z = geom.coord[3]
     aux.T = m.initialT
 end;
+
+function init_state_auxiliary!(
+    m::HeatModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    nodal_init_state_auxiliary!(
+        m,
+        heat_eq_nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
+end
 
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
