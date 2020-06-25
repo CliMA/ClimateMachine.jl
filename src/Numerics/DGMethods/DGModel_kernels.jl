@@ -891,9 +891,18 @@ end
                 local_transform_div[1, 2, k] += ξ3x2 * G2ξ3[1, k]
                 local_transform_div[1, 3, k] += ξ3x3 * G3ξ3[1, k]
             end
-
             ###
             ### Akshay Sridhar End
+            ###
+            
+            ###
+            ### Temporary test via auxiliary array
+            ###
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary[s, k] = state_auxiliary[ijk, s, e]
+            end
+            ###
+            ### End Temporary test via auxiliary array
             ###
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
