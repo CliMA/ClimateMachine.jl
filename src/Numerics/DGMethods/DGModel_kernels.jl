@@ -794,12 +794,17 @@ end
     end
 
     shared_transform = @localmem FT (Nq, Nq, ngradstate)
+    shared_transform_div = @localmem FT (Nq, Nq, 3)
     s_D = @localmem FT (Nq, Nq)
 
     local_state_conservative = @private FT (ngradtransformstate, Nqk)
     local_state_auxiliary = @private FT (num_state_auxiliary, Nqk)
     local_transform_gradient = @private FT (3, ngradstate, Nqk)
+    local_transform_div = @private FT (1, 3, Nqk)
     Gξ3 = @private FT (ngradstate, Nqk)
+    G1ξ3 = @private FT (1, Nqk)
+    G2ξ3 = @private FT (1, Nqk)
+    G3ξ3 = @private FT (1, Nqk)
 
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
@@ -813,7 +818,21 @@ end
                 local_transform_gradient[2, s, k] = -zero(FT)
                 local_transform_gradient[3, s, k] = -zero(FT)
                 Gξ3[s, k] = -zero(FT)
+                ###
+                ###Akshay Sridhar
+                G1ξ3[1, k] = -zero(FT)
+                G2ξ3[1, k] = -zero(FT)
+                G3ξ3[1, k] = -zero(FT)
+                ###Akshay Sridhar
+                ###
             end
+            ###
+            ###Akshay Sridhar
+            local_transform_div[1, 1, k] = -zero(FT)
+            local_transform_div[1, 2, k] = -zero(FT)
+            local_transform_div[1, 3, k] = -zero(FT)
+            ###Akshay Sridhar
+            ###
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:ngradtransformstate
                 local_state_conservative[s, k] = state_conservative[ijk, s, e]
@@ -824,6 +843,58 @@ end
         end
 
         @unroll for k in 1:Nqk
+            ###
+            ### Akshay Sridhar
+            ###
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            ξ1x1, ξ1x2, ξ1x3 =
+                vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+            @unroll for s in 1:3
+                shared_transform_div[i, j, s] = local_state_conservative[s+1,k]
+            end
+            G1ξ1 = G1ξ2 = -zero(FT)
+            G2ξ1 = G2ξ2 = -zero(FT)
+            G3ξ1 = G3ξ2 = -zero(FT)
+            @unroll for n in 1:Nq
+                G1ξ1 += s_D[i, n] * shared_transform_div[n, j, 1]
+                G2ξ1 += s_D[i, n] * shared_transform_div[n, j, 2]
+                G3ξ1 += s_D[i, n] * shared_transform_div[n, j, 3]
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    G1ξ2 += s_D[j, n] * shared_transform_div[i, n, 1]
+                    G2ξ2 += s_D[j, n] * shared_transform_div[i, n, 2]
+                    G3ξ2 += s_D[j, n] * shared_transform_div[i, n, 3]
+                end
+                if dim == 3 && direction isa EveryDirection
+                    G1ξ3[1, n] += s_D[n, k] * shared_transform_div[i, j, 1]
+                    G2ξ3[1, n] += s_D[n, k] * shared_transform_div[i, j, 2]
+                    G3ξ3[1, n] += s_D[n, k] * shared_transform_div[i, j, 3]
+                end
+            end
+            local_transform_div[1, 1, k] += ξ1x1 * G1ξ1
+            local_transform_div[1, 2, k] += ξ1x2 * G2ξ1
+            local_transform_div[1, 3, k] += ξ1x3 * G3ξ1
+            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
+                vgeo[ijk, _ξ2x2, e],
+                vgeo[ijk, _ξ2x3, e]
+                local_transform_div[1, 1, k] += ξ2x1 * G1ξ2
+                local_transform_div[1, 2, k] += ξ2x2 * G2ξ2
+                local_transform_div[1, 3, k] += ξ2x3 * G3ξ2
+            end
+            
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            if dim == 3 && direction isa EveryDirection
+                ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
+                vgeo[ijk, _ξ3x2, e],
+                vgeo[ijk, _ξ3x3, e]
+                local_transform_div[1, 1, k] += ξ3x1 * G1ξ3[1, k]
+                local_transform_div[1, 2, k] += ξ3x2 * G2ξ3[1, k]
+                local_transform_div[1, 3, k] += ξ3x3 * G3ξ3[1, k]
+            end
+
+            ###
+            ### Akshay Sridhar End
+            ###
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
                 balance_law,
@@ -837,7 +908,9 @@ end
                     k,
                 ]),
                 t,
+                sum(local_transform_div[:,:,k])
             )
+
             @unroll for s in 1:ngradstate
                 shared_transform[i, j, s] = local_transform[s]
             end
@@ -876,6 +949,8 @@ end
             end
             @synchronize
         end
+        
+
 
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
