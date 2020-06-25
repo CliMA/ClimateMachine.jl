@@ -2677,3 +2677,113 @@ end
         pointwise_courant[n, e] = c
     end
 end
+
+@kernel function kernel_contiguous_field_gradient!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    direction,
+    ∇state,
+    state,
+    vgeo,
+    D,
+    ω,
+    ::Val{I},
+    ::Val{O},
+) where {dim, polyorder, I, O}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state)
+        ngradstate = length(I)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+    end
+
+    shared_transform = @localmem FT (Nq, Nq, ngradstate)
+    s_D = @localmem FT (Nq, Nq)
+
+    local_transform_gradient = @private FT (3, ngradstate, Nqk)
+    Gξ3 = @private FT (ngradstate, Nqk)
+
+    e = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds @views begin
+        s_D[i, j] = D[i, j]
+
+        @unroll for k in 1:Nqk
+            @unroll for s in 1:ngradstate
+                local_transform_gradient[1, s, k] = -zero(FT)
+                local_transform_gradient[2, s, k] = -zero(FT)
+                local_transform_gradient[3, s, k] = -zero(FT)
+                Gξ3[s, k] = -zero(FT)
+            end
+        end
+
+        @unroll for k in 1:Nqk
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
+            @unroll for s in 1:ngradstate
+                shared_transform[i, j, s] = state[ijk, I[s], e]
+            end
+            @synchronize
+
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            ξ1x1, ξ1x2, ξ1x3 =
+                vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+
+            # Compute gradient of each state
+            @unroll for s in 1:ngradstate
+                Gξ1 = Gξ2 = zero(FT)
+
+                @unroll for n in 1:Nq
+                    Gξ1 += s_D[i, n] * shared_transform[n, j, s]
+                    if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                        Gξ2 += s_D[j, n] * shared_transform[i, n, s]
+                    end
+                    if dim == 3 && direction isa EveryDirection
+                        Gξ3[s, n] += s_D[n, k] * shared_transform[i, j, s]
+                    end
+                end
+
+                local_transform_gradient[1, s, k] += ξ1x1 * Gξ1
+                local_transform_gradient[2, s, k] += ξ1x2 * Gξ1
+                local_transform_gradient[3, s, k] += ξ1x3 * Gξ1
+
+                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
+                    vgeo[ijk, _ξ2x2, e],
+                    vgeo[ijk, _ξ2x3, e]
+                    local_transform_gradient[1, s, k] += ξ2x1 * Gξ2
+                    local_transform_gradient[2, s, k] += ξ2x2 * Gξ2
+                    local_transform_gradient[3, s, k] += ξ2x3 * Gξ2
+                end
+            end
+            @synchronize
+        end
+
+        @unroll for k in 1:Nqk
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
+            if dim == 3 && direction isa EveryDirection
+                ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
+                vgeo[ijk, _ξ3x2, e],
+                vgeo[ijk, _ξ3x3, e]
+                @unroll for s in 1:ngradstate
+                    local_transform_gradient[1, s, k] += ξ3x1 * Gξ3[s, k]
+                    local_transform_gradient[2, s, k] += ξ3x2 * Gξ3[s, k]
+                    local_transform_gradient[3, s, k] += ξ3x3 * Gξ3[s, k]
+                end
+            end
+
+            @unroll for s in 1:ngradstate
+                ∇state[ijk, O[3 * (s - 1) + 1], e] =
+                    local_transform_gradient[1, s, k]
+                ∇state[ijk, O[3 * (s - 1) + 2], e] =
+                    local_transform_gradient[2, s, k]
+                ∇state[ijk, O[3 * (s - 1) + 3], e] =
+                    local_transform_gradient[3, s, k]
+            end
+        end
+    end
+end
