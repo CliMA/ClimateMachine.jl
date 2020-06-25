@@ -46,13 +46,24 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
+"""
+    (dg::DGModel)(tendency, state_conservative, ::Nothing, t, α=1, β=0)
+
+Computes the tendency terms compatible with `IncrementODEProblem`
+
+    tendency .= α .* dQdt(state_conservative, p, t) .+ β .* tendency
+
+The 4-argument form will just compute
+
+    tendency .= dQdt(state_conservative, p, t) 
+
+"""
 function (dg::DGModel)(
     tendency,
     state_conservative,
     ::Nothing,
-    t;
-    increment = false,
-)
+    t, α=1, β=0)
+
 
     balance_law = dg.balance_law
     device = array_device(state_conservative)
@@ -86,10 +97,6 @@ function (dg::DGModel)(
     workgroups_surface = Nfp
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
     ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
-
-    if !increment && num_state_conservative < num_state_tendency
-        tendency .= -zero(FT)
-    end
 
     communicate =
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
@@ -412,7 +419,8 @@ function (dg::DGModel)(
         grid.ω,
         grid.D,
         topology.realelems,
-        increment;
+        α,
+        β;
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
@@ -435,7 +443,8 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.interiorelems;
+        grid.interiorelems,
+        α;
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
@@ -506,7 +515,8 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.exteriorelems;
+        grid.exteriorelems,
+        α;
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,

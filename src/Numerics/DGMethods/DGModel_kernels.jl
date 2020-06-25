@@ -47,7 +47,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     ω,
     D,
     elems,
-    increment,
+    α,
+    β,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -88,8 +89,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                local_tendency[k, s] =
-                    increment ? tendency[ijk, s, e] : zero(FT)
+                local_tendency[k, s] = zero(FT)
             end
             local_MI[k] = vgeo[ijk, _MI, e]
         end
@@ -302,7 +302,12 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                tendency[ijk, s, e] = local_tendency[k, s]
+                if β != 0
+                    T = α * local_tendency[k, s] + β * tendency[ijk, s, e]
+                else
+                    T = α * local_tendency[k, s]
+                end
+                tendency[ijk, s, e] = T
             end
         end
     end
@@ -323,7 +328,8 @@ end
     ω,
     D,
     elems,
-    increment,
+    α,
+    β,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -372,8 +378,7 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                local_tendency[k, s] =
-                    increment ? tendency[ijk, s, e] : zero(FT)
+                local_tendency[k, s] = zero(FT)
             end
             local_MI[k] = vgeo[ijk, _MI, e]
         end
@@ -509,7 +514,12 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                tendency[ijk, s, e] = local_tendency[k, s]
+                if β != 0
+                    T = α * local_tendency[k, s] + β * tendency[ijk, s, e]
+                else
+                    T = α * local_tendency[k, s]
+                end
+                tendency[ijk, s, e] = T
             end
         end
     end
@@ -545,6 +555,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     vmap⁺,
     elemtobndy,
     elems,
+    α,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -818,7 +829,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         #Update RHS
         @unroll for s in 1:num_state_conservative
             # FIXME: Should we pretch these?
-            tendency[vid⁻, s, e⁻] -= vMI * sM * local_flux[s]
+            tendency[vid⁻, s, e⁻] -= α * vMI * sM * local_flux[s]
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
