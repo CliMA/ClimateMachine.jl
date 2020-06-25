@@ -58,30 +58,7 @@ function create_auxiliary_state(balance_law, grid)
         weights = weights,
     )
 
-    dim = dimensionality(grid)
-    polyorder = polynomialorder(grid)
-    vgeo = grid.vgeo
-    device = array_device(state_auxiliary)
-    nrealelem = length(topology.realelems)
-    event = Event(device)
-    event = kernel_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
-        balance_law,
-        Val(dim),
-        Val(polyorder),
-        state_auxiliary.data,
-        vgeo,
-        topology.realelems,
-        dependencies = (event,),
-    )
-    event = MPIStateArrays.begin_ghost_exchange!(
-        state_auxiliary;
-        dependencies = event,
-    )
-    event = MPIStateArrays.end_ghost_exchange!(
-        state_auxiliary;
-        dependencies = event,
-    )
-    wait(device, event)
+    init_state_auxiliary!(balance_law, state_auxiliary, grid)
 
     return state_auxiliary
 end
