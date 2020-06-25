@@ -37,10 +37,27 @@ vars_state_conservative(::EmptyBalLaw, FT) = @vars(ρ::FT)
 vars_state_gradient(::EmptyBalLaw, FT) = @vars()
 vars_state_gradient_flux(::EmptyBalLaw, FT) = @vars()
 
-function init_state_auxiliary!(m::EmptyBalLaw, aux::Vars, geom::LocalGeometry)
+function empty_nodal_init_state_auxiliary!(
+    m::EmptyBalLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
     aux.x = geom.coord[1]
     aux.y = geom.coord[2]
     aux.z = geom.coord[3]
+end
+
+function init_state_auxiliary!(
+    m::EmptyBalLaw,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    nodal_init_state_auxiliary!(
+        m,
+        empty_nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
 end
 
 function init_state_conservative!(
