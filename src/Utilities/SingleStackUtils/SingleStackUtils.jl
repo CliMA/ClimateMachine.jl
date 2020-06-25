@@ -47,8 +47,7 @@ function get_vars_from_nodal_stack(
     FT = eltype(Q)
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
-    nvertelem = grid.topology.stacksize
-    host_Q = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
+    state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
 
     # set up the dictionary to be returned
     var_names = flattenednames(vars)
@@ -62,12 +61,12 @@ function get_vars_from_nodal_stack(
         end
     end
 
-    # extract values from `host_Q`
+    # extract values from `state_data`
     for ev in vrange
         for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             for v in vars_wanted
-                push!(stack_vals[var_names[v]], host_Q[ijk, v, ev])
+                push!(stack_vals[var_names[v]], state_data[ijk, v, ev])
             end
         end
     end
