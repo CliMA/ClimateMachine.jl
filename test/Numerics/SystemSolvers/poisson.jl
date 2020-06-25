@@ -26,7 +26,7 @@ import ClimateMachine.DGMethods:
     init_state_auxiliary!,
     init_state_conservative!
 
-using ClimateMachine.DGMethods: nodal_init_state_auxiliary
+using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 
 import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
