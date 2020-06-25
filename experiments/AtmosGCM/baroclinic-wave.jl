@@ -6,6 +6,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
+using ClimateMachine.Orientations
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
@@ -13,6 +14,7 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics: air_density, total_energy
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TurbulenceClosures
 
 using LinearAlgebra
 using StaticArrays
@@ -86,7 +88,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     s1::FT = sin(π*d/2/d_0)
     if 0 < d < d_0 && d != FT(_a*π)
       u′::FT = -16*V_p/3/sqrt(3) * F_z * c3 * s1 * (-sin(φ_c)*cos(φ) + cos(φ_c)*sin(φ)*cos(λ-λ_c)) / sin(d/_a) 
-      v′::FT = 16*V_p/3/sqrt(3) * F_z * c3 * s1 * cos(φ_c)*sin(λ-λ_c) / sin(d/_a) 
+      v′::FT = 16*V_p/3/sqrt(3) * F_z * c3 * s1 * cos(φ_c)*sin(λ-λ_c) / sin(d/_a)
     else
       u′ = FT(0)
       v′ = FT(0)
@@ -100,9 +102,9 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     e_pot::FT = gravitational_potential(bl.orientation, aux)
     e_kin::FT = 0.5 * u_cart' * u_cart
     e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T)
-    
+
     state.ρ = ρ
-    state.ρu = ρ * u_cart 
+    state.ρu = ρ * u_cart
     state.ρe = ρ * e_tot
     
     nothing
