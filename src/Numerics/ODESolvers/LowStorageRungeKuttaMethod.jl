@@ -36,6 +36,15 @@ struct LowStorageRungeKutta2NCache
     tableau::LowStorageRungeKutta2NTableau{Nstages, RT}
 end
 
+
+
+
+
+
+
+
+
+
 """
     LSRK54CarpenterKennedy()
 
@@ -159,7 +168,43 @@ function tableau(::LSRK144NiegemannDiehlBusch, RT)
 end
 
 
+function step!(int::DistributedODEIntegrator{alg}) where {alg <: LowStorageRungeKutta2N}
+    ...
+    # Function to step the LSRK method
+    u = int.u
+    dt = int.dt
+    RKA, RKB, RKC = alg.RKA, alg.RKB, alg.RKC
+    f = int.prob.f
+    du = int.prob.du
+    rv_u = realview(u)
+    rv_du = realview(du)
 
+    groupsize = 256
+
+    for s in 1:length(RKA)
+        f(du, u, p, time + RKC[s] * dt, increment = true)
+
+        slow_scaling = nothing
+        if s == length(RKA)
+            slow_scaling = in_slow_scaling
+        end
+        # update solution and scale RHS
+        event = Event(array_device(Q))
+        event = update!(array_device(Q), groupsize)(
+            rv_du,
+            rv_u,
+            RKA[s % length(RKA) + 1],
+            RKB[s],
+            dt,
+            slow_δ,
+            slow_rv_dQ,
+            slow_scaling;
+            ndrange = length(rv_u),
+            dependencies = (event,),
+        )
+        wait(array_device(u), event)
+    end
+end
 
 
 

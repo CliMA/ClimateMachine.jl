@@ -29,7 +29,7 @@ using ..GenericCallbacks
 #  (https://github.com/SciML/OrdinaryDiffEq.jl/blob/6ec5a55bda26efae596bf99bea1a1d729636f412/src/integrators/type.jl#L77-L123)
 #    - capture full state (current time, etc)
 # 
-#  Do we want a `DiffEqBase.AbstractODESolution` object to capture the result?
+#  `DiffEqBase.AbstractODESolution` object to capture the result?
 # 
 # Linear solvers:
 #   https://docs.sciml.ai/latest/features/linear_nonlinear/#Linear-Solvers:-linsolve-Specification-1
@@ -37,34 +37,80 @@ using ..GenericCallbacks
 #
 # plan 1: 
 #  - similar to https://github.com/SciML/OrdinaryDiffEq.jl/blob/a9f9a0d07bf34ba567e2ca9dfc826d5c359d5a41/src/solve.jl#L1-L7?
+
+
+#=
+from Chris R:
+> solve just creates an integrator and solves it to the end
+> init gives you the integrator and lets you do step! or iterate, and you can modify things, save what you want, etc.
+=#
+
+# 
+#  - `DiffEqBase.__init(prob::AbstractODEProblem, alg::DistributedODEAlgorithm, args...; kwargs...) :: DistributedODEIntegrator`
+#  - `DiffEqBase.solve!(::DistributedODEIntegrator)` which calls `step!`
+#  - `DiffEqBase.step!(::DistributedODEIntegrator)`
+#  - maybe `DiffEqBase.step!(::DistributedODEIntegrator, dt::Real, stop_at_tdt = false)`?
+#      https://github.com/SciML/DiffEqBase.jl/blob/5242662e75c3dbf537ca56f01949707c3c0f8a67/src/integrator_interface.jl#L565-L574
+
+abstract type AbstractIntegrator end
+mutable struct DistributedODEIntegrator{algType,uType,tType} <: DiffEqBase.AbstractODEIntegrator{algType,true,uType,tType}
+    prob
+    alg::algType
+    u::uType
+    dt::tType
+    t::tType
+    cache
+end
+
+
+function DiffEqBase.__init(prob::AbstractODEProblem, alg::DistributedODEAlgorithm, args...; kwargs...)
+    DistributedODEIntegrator(prob, alg, prob.u, prob.tspan[1], cache(prob, alg))
+end
+
+function solve!(int::DistributedODEIntegrator)
+    
+
+    while int.t < int.prob.tspan[2]
+        step!(int)
+    end
+    
+end
+
+
 function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem,
         alg::DistributedODEAlgorithm, args...;
         kwargs...)
     integrator = DiffEqBase.__init(prob, alg, args...; kwargs...)
     solve!(integrator)
-    return nothing
+    return integrator.u
 end
 
 
 
-#  define `DiffEqBase.__init(prob::AbstractODEProblem, alg::DistributedODEAlgorithm, args...; kwargs...)` which shoudl return `::DistributedODEIntegrator`
-#  define `DiffEqBase.solve!(::DistributedODEIntegrator)`
+
 #  would we want a 
 
 
 
+#=
+#  usage:
 
-# usage:
-#
-#   prob = IncrementODEProblem(dg, Q0, (0.0,timeend))
-#   solve(prob, LSRK54CarpenterKennedy())
-#
-#   prob = ODEProblem(dg, Q0, (0.0,timeend); jac=dg1dlinear)
-#   solve(prob, ARK2GiraldoKellyConstantinescu(linsolve=BandedGMRES()))
-#
+prob = IncrementODEProblem(dg, Q0, (0.0,timeend))
+solve(prob, LSRK54CarpenterKennedy())
 
-# 
+prob = ODEProblem(dg, Q0, (0.0,timeend); jac=dg1dlinear)
+solve(prob, ARK2GiraldoKellyConstantinescu(linsolve=BandedGMRES()); dt=...)
 
+prob_inner = ODEProblem(dg1, Q0, (0.0,timeend); jac=dg1dlinear)
+prob = MultirateODEProblem(prob_inner, dg2; freq=4)  # or recursively?
+mralg = MultiRateAlgorithm(
+    ARK2GiraldoKellyConstantinescu(linsolve=BandedGMRES()),
+    LSRK54CarpenterKennedy(),
+)
+solve(prob , mralg); dt=0.4, rates=(1//4, 1))
+solve(prob , mralg); dt=0.1, rates=(1, 4)) # equivalent to above
+
+=#
 #  algo: just the tableau "DistributedODESolvers"
 #  cache: intermediate storage
 
