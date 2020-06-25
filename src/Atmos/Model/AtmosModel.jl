@@ -239,6 +239,7 @@ function vars_state_gradient(m::AtmosModel, FT)
         u::SVector{3, FT}
         h_tot::FT
         divergence::FT
+        mome::SVector{3,FT}
         turbulence::vars_state_gradient(m.turbulence, FT)
         hyperdiffusion::vars_state_gradient(m.hyperdiffusion, FT)
         moisture::vars_state_gradient(m.moisture, FT)
@@ -253,6 +254,7 @@ function vars_state_gradient_flux(m::AtmosModel, FT)
     @vars begin
         ∇h_tot::SVector{3, FT}
         ∇divergence::SVector{3,FT}
+        ∇mome::SMatrix{3,3,FT,9}
         turbulence::vars_state_gradient_flux(m.turbulence, FT)
         hyperdiffusion::vars_state_gradient_flux(m.hyperdiffusion, FT)
         moisture::vars_state_gradient_flux(m.moisture, FT)
@@ -292,6 +294,7 @@ function vars_state_auxiliary(m::AtmosModel, FT)
         ∫dz::vars_integrals(m, FT)
         ∫dnz::vars_reverse_integrals(m, FT)
         coord::SVector{3, FT}
+        divergence::FT
         orientation::vars_state_auxiliary(m.orientation, FT)
         ref_state::vars_state_auxiliary(m.ref_state, FT)
         turbulence::vars_state_auxiliary(m.turbulence, FT)
@@ -401,10 +404,9 @@ function compute_gradient_argument!(
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
     transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
+    transform.mome = state.ρu
     transform.divergence = local_div
-    if t > eltype(state)(2)
-        @show(transform.divergence)
-    end
+    aux.divergence = local_div
 
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
@@ -421,6 +423,11 @@ function compute_gradient_flux!(
     t::Real,
 )
     diffusive.∇h_tot = ∇transform.h_tot
+
+    diffusive.∇divergence = ∇transform.divergence
+    if t > eltype(state)(2)
+        @show(tr(∇transform.mome) - aux.divergence)
+    end
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
