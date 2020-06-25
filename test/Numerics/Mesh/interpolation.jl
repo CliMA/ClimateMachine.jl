@@ -8,7 +8,7 @@ using Statistics
 using Test
 import GaussQuadrature
 
-using KernelAbstractions: CPU, CUDA
+using KernelAbstractions: CPU, CUDADevice
 
 using ClimateMachine
 ClimateMachine.init()
@@ -23,6 +23,7 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates

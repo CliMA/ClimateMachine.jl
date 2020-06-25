@@ -86,9 +86,10 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 # - Required so functions for computation of temperature profiles.
 using ClimateMachine.TemperatureProfiles
-# - Required so functions for computation of moist thermodynamic quantities is
-#   enabled.
+# - Required so functions for computation of moist thermodynamic quantities and turbulence closures 
+# are available.
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 # - Required so we may access our variable arrays by a sensible naming
 #   convention rather than by numerical array indices.
 using ClimateMachine.VariableTemplates

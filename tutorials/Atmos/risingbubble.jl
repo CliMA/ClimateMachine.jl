@@ -76,6 +76,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 # In ClimateMachine we use `StaticArrays` for our variable arrays.

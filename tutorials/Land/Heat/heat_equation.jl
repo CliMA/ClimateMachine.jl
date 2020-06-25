@@ -236,13 +236,7 @@ end;
 
 # We have no sources, nor non-diffusive fluxes.
 function source!(m::HeatModel, _...) end;
-function flux_first_order!(
-    m::HeatModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end;
+function flux_first_order!(m::HeatModel, _...) end;
 
 # Compute diffusive flux (``F(α, ρcT, t) = -α ∇ρcT`` in the original PDE).
 # Note that:
@@ -404,18 +398,15 @@ const n_outputs = 5;
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
 # Create a nested dictionary to store the solution:
-all_data = Dict([k => Dict() for k in 0:n_outputs]...)
-all_data[0] = all_vars # store initial condition at ``t=0``
+all_data = Dict[Dict([k => Dict() for k in 0:n_outputs]...),]
+all_data[1] = all_vars # store initial condition at ``t=0``
 
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, the state and aux variables are collected, combined into a single
 # `OrderedDict` and written to a NetCDF file (for each output step `step`).
 step = [1];
-callback = GenericCallbacks.EveryXSimulationTime(
-    every_x_simulation_time,
-    solver_config.solver,
-) do (init = false)
+callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         grid,
         Q,
@@ -428,7 +419,7 @@ callback = GenericCallbacks.EveryXSimulationTime(
         exclude = [z_key],
     )
     all_vars = OrderedDict(state_vars..., aux_vars...)
-    all_data[step[1]] = all_vars
+    push!(all_data, all_vars)
 
     step[1] += 1
     nothing
@@ -447,8 +438,8 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 # the output interval. The next level keys are the variable names, and the
 # values are the values along the grid:
 
-# To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[0]["T"][:]`
-@show keys(all_data[0])
+# To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[1]["T"][:]`
+@show keys(all_data[1])
 
 # Let's plot the solution:
 

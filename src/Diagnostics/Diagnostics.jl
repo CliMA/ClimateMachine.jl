@@ -12,7 +12,6 @@ export DiagnosticsGroup,
     setup_dump_state_diagnostics,
     setup_dump_aux_diagnostics
 
-using CuArrays
 using Dates
 using FileIO
 using JLD2
@@ -36,6 +35,9 @@ using ..Mesh.Interpolation
 using ..MPIStateArrays
 using ..VariableTemplates
 using ..Writers
+import ..GenericCallbacks
+using ..TicToc
+
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius

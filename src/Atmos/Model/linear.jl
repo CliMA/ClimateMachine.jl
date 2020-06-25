@@ -129,7 +129,14 @@ flux_second_order!(
     aux::Vars,
     t::Real,
 ) = nothing
-function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(
+    lm::AtmosLinearModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     ref = aux.ref_state
     return soundspeed_air(lm.atmos.param_set, ref.T)
 end
@@ -175,6 +182,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     ref = aux.ref_state
@@ -209,6 +217,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     ref = aux.ref_state
@@ -233,9 +242,9 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction,
-)
-    if direction isa VerticalDirection || direction isa EveryDirection
+    ::NTuple{1, Dir},
+) where {Dir <: Direction}
+    if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
         source.ρu -= state.ρ * ∇Φ
     end

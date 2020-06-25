@@ -62,6 +62,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -513,7 +514,7 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
             ("moisture.ρq_tot",),
@@ -534,17 +535,16 @@ function main()
     # DG variable sums
     Σρ₀ = sum(ρ₀ .* M)
     Σρe₀ = sum(ρe₀ .* M)
-    cb_check_cons =
-        GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
-            Q = solver_config.Q
-            δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-            δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-            @show (abs(δρ))
-            @show (abs(δρe))
-            @test (abs(δρ) <= 0.0001)
-            @test (abs(δρe) <= 0.0025)
-            nothing
-        end
+    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
+        Q = solver_config.Q
+        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
+        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
+        @show (abs(δρ))
+        @show (abs(δρe))
+        @test (abs(δρ) <= 0.0001)
+        @test (abs(δρe) <= 0.0025)
+        nothing
+    end
 
     result = ClimateMachine.invoke!(
         solver_config;

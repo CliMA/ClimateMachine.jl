@@ -1105,9 +1105,25 @@ function saturation_adjustment(
             maxiter,
         )
         if !sol.converged
+            @print("-----------------------------------------\n")
             @print("maxiter reached in saturation_adjustment:\n")
+            @print(
+                "    e_int=",
+                e_int,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
             if error_on_non_convergence()
-                error("Exiting to avoid excessively large output logs")
+                error("Failed to converge with printed set of inputs.")
             end
         end
         return sol.root
@@ -1192,9 +1208,25 @@ function saturation_adjustment_SecantMethod(
             maxiter,
         )
         if !sol.converged
+            @print("-----------------------------------------\n")
             @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
+            @print(
+                "    e_int=",
+                e_int,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
             if error_on_non_convergence()
-                error("Exiting to avoid excessively large output logs")
+                error("Failed to converge with printed set of inputs.")
             end
         end
         return sol.root
@@ -1263,9 +1295,25 @@ function saturation_adjustment_q_tot_θ_liq_ice(
             maxiter,
         )
         if !sol.converged
+            @print("-----------------------------------------\n")
             @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice:\n")
+            @print(
+                "    θ_liq_ice=",
+                θ_liq_ice,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
             if error_on_non_convergence()
-                error("Exiting to avoid excessively large output logs")
+                error("Failed to converge with printed set of inputs.")
             end
         end
         return sol.root
@@ -1337,9 +1385,25 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
             maxiter,
         )
         if !sol.converged
+            @print("-----------------------------------------\n")
             @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice_given_pressure:\n")
+            @print(
+                "    θ_liq_ice=",
+                θ_liq_ice,
+                ", p=",
+                p,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
             if error_on_non_convergence()
-                error("Exiting to avoid excessively large output logs")
+                error("Failed to converge with printed set of inputs.")
             end
         end
         return sol.root
@@ -1493,8 +1557,8 @@ function temperature_and_humidity_from_virtual_temperature(
     ρ::FT,
     RH::FT,
     phase_type::Type{<:ThermodynamicState},
-    tol::AbstractTolerance = ResidualTolerance{FT}(sqrt(eps(FT))),
     maxiter::Int = 100,
+    tol::AbstractTolerance = ResidualTolerance{FT}(sqrt(eps(FT))),
 ) where {FT <: Real}
 
     _T_min::FT = T_min(param_set)
@@ -1513,9 +1577,25 @@ function temperature_and_humidity_from_virtual_temperature(
         maxiter,
     )
     if !sol.converged
+        @print("-----------------------------------------\n")
         @print("maxiter reached in temperature_and_humidity_from_virtual_temperature:\n")
+        @print(
+            "    T_virt=",
+            T_virt,
+            ", RH=",
+            RH,
+            ", ρ=",
+            ρ,
+            ", T = ",
+            sol.root,
+            ", maxiter=",
+            maxiter,
+            ", tol=",
+            tol.tol,
+            "\n"
+        )
         if error_on_non_convergence()
-            error("Exiting to avoid excessively large output logs")
+            error("Failed to converge with printed set of inputs.")
         end
     end
     T = sol.root
@@ -1598,9 +1678,29 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
         maxiter,
     )
     if !sol.converged
+        @print("-----------------------------------------\n")
         @print("maxiter reached in air_temperature_from_liquid_ice_pottemp_non_linear:\n")
+        @print(
+            "    θ_liq_ice=",
+            θ_liq_ice,
+            ", ρ=",
+            ρ,
+            ", q.tot=",
+            q.tot,
+            "q.liq = ",
+            q.liq,
+            "q.ice = ",
+            q.ice,
+            ", T = ",
+            sol.root,
+            ", maxiter=",
+            maxiter,
+            ", tol=",
+            tol.tol,
+            "\n"
+        )
         if error_on_non_convergence()
-            error("Exiting to avoid excessively large output logs")
+            error("Failed to converge with printed set of inputs.")
         end
     end
     return sol.root
@@ -1813,7 +1913,7 @@ exner(ts::ThermodynamicState) = exner(
 )
 
 """
-    relative_humidity(param_set, T, p, e_int, phase_type, q::PhasePartition)
+    relative_humidity(param_set, T, p, phase_type, q::PhasePartition)
 
 The relative humidity, given
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
@@ -1826,28 +1926,13 @@ function relative_humidity(
     param_set::APS,
     T::FT,
     p::FT,
-    e_int::FT,
     phase_type::Type{<:ThermodynamicState},
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
     _R_v::FT = R_v(param_set)
     q_vap = vapor_specific_humidity(q)
-    # TODO: Change this back to newest version:
-
-    # New version:
-    # p_vap = q_vap * air_density(param_set, T, p, q) * _R_v * T
-    # p_vap_sat = saturation_vapor_pressure(param_set, phase_type, T)
-
-    # Old version:
-    p_vap =
-        q_vap *
-        air_density(param_set, T, p, q) *
-        _R_v *
-        air_temperature(param_set, e_int, q)
-    liq_frac = liquid_fraction(param_set, T, phase_type, q)
-    p_vap_sat =
-        liq_frac * saturation_vapor_pressure(param_set, T, Liquid()) +
-        (1 - liq_frac) * saturation_vapor_pressure(param_set, T, Ice())
+    p_vap = q_vap * air_density(param_set, T, p, q) * _R_v * T
+    p_vap_sat = saturation_vapor_pressure(param_set, phase_type, T)
     return p_vap / p_vap_sat
 end
 
@@ -1861,7 +1946,6 @@ relative_humidity(ts::ThermodynamicState{FT}) where {FT <: Real} =
         ts.param_set,
         air_temperature(ts),
         air_pressure(ts),
-        internal_energy(ts),
         typeof(ts),
         PhasePartition(ts),
     )

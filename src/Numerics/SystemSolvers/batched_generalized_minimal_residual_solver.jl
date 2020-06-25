@@ -318,7 +318,7 @@ function doiteration!(
     device = array_device(gmres.b)
     if isa(device, CPU)
         groupsize = Threads.nthreads()
-    else # isa(device, CUDA)
+    else # isa(device, CUDADevice)
         groupsize = 256
     end
 

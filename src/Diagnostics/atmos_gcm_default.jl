@@ -17,12 +17,14 @@
 # - density weighting
 # - maybe change thermo/dyn separation to local/nonlocal vars?
 
+import CUDA
 using LinearAlgebra
 using Printf
 using Statistics
 
 using ..Atmos
-using ..Atmos: thermo_state, turbulence_tensors
+using ..Atmos: thermo_state
+using ..TurbulenceClosures: turbulence_tensors
 
 include("diagnostic_fields.jl")
 
@@ -218,7 +220,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         state_data = Q.realdata
         aux_data = dg.state_auxiliary.realdata
     else
-        ArrayType = CuArray
+        ArrayType = CUDA.CuArray
         state_data = Array(Q.realdata)
         aux_data = Array(dg.state_auxiliary.realdata)
     end

@@ -46,6 +46,37 @@ function export_plot(z, all_data, ϕ_all, filename, ylabel; xlabel = nothing)
 end
 
 """
+    export_plot(z, all_data, ϕ_all, filename, ylabel)
+
+Export plot of all variables, or all
+available time-steps in `all_data`.
+"""
+function export_plot(
+    z,
+    all_data::Array,
+    ϕ_all,
+    filename,
+    ylabel;
+    xlabel = nothing,
+)
+    ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
+    p = plot()
+    for data in all_data
+        for ϕ in ϕ_all
+            ϕ_string = String(ϕ)
+            ϕ_name = plot_friendly_name(ϕ_string)
+            ϕ_data = data[ϕ_string][:]
+            if !isnothing(xlabel)
+                plot!(ϕ_data, z, xlabel = xlabel, ylabel = ylabel)
+            else
+                plot!(ϕ_data, z, xlabel = ϕ_name, ylabel = ylabel)
+            end
+        end
+    end
+    savefig(filename)
+end
+
+"""
     export_plot_snapshot(z, all_data, ϕ_all, filename, ylabel)
 
 Export plot of all variables in `all_data`

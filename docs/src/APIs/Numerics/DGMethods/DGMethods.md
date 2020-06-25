@@ -4,6 +4,10 @@
 CurrentModule = ClimateMachine.DGMethods
 ```
 
+```@docs
+remainder_DGModel
+```
+
 ## Mathematical Formulation
 
 to be filled

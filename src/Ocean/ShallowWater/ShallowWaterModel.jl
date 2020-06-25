@@ -87,6 +87,7 @@ end
     q::Vars,
     α::Vars,
     t::Real,
+    direction,
 )
     U = @SVector [q.U[1], q.U[2], -0]
     η = q.η
@@ -204,7 +205,7 @@ flux_second_order!(::LinearDrag, _...) = nothing
     return nothing
 end
 
-@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
+@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real, direction) = m.c
 
 @inline function source!(
     m::SWModel{P},

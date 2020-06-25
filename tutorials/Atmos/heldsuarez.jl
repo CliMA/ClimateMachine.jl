@@ -29,6 +29,7 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
@@ -252,6 +253,7 @@ cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         filter,
         state_auxiliary = solver_config.dg.state_auxiliary,
     )
+    nothing
 end;
 
 # ## Setup diagnostic output

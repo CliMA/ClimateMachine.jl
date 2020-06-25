@@ -43,6 +43,9 @@ function DGModel(
     )
 end
 
+# Include the remainder model for composing DG models and balance laws
+include("remainder.jl")
+
 function (dg::DGModel)(
     tendency,
     state_conservative,
@@ -520,7 +523,7 @@ function (dg::DGModel)(
 end
 
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid
@@ -590,7 +593,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     state = create_conservative_state(bl, grid)
     state .= state_data
 
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
     event = Event(device)
     event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
     event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)
@@ -606,22 +609,16 @@ function restart_auxiliary_state(bl, grid, aux_data)
 end
 
 # fallback
-function update_auxiliary_state!(
-    dg::DGModel,
-    balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
+function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
     return false
 end
 
 function update_auxiliary_state_gradient!(
     dg::DGModel,
-    balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
+    balance_law,
+    state_conservative,
+    t,
+    elems,
 )
     return false
 end
