@@ -46,13 +46,31 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
+"""
+    (dg::DGModel)(tendency, state_conservative, nothing, t, α, β)
+
+Computes the tendency terms compatible with `IncrementODEProblem`
+
+    tendency .= α .* dQdt(state_conservative, p, t) .+ β .* tendency
+
+The 4-argument form will just compute
+
+    tendency .= dQdt(state_conservative, p, t) 
+
+"""
 function (dg::DGModel)(
     tendency,
     state_conservative,
-    ::Nothing,
+    param,
     t;
     increment = false,
 )
+    # TODO deprecate increment argument
+    dg(tendency, state_conservative, param, t, true, increment)
+end
+
+function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
+
 
     balance_law = dg.balance_law
     device = array_device(state_conservative)
@@ -87,8 +105,10 @@ function (dg::DGModel)(
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
     ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
 
-    if !increment && num_state_conservative < num_state_tendency
-        tendency .= -zero(FT)
+    if num_state_conservative < num_state_tendency && β != 1
+        # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
+        tendency .*= β
+        β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!  
     end
 
     communicate =
@@ -412,7 +432,8 @@ function (dg::DGModel)(
         grid.ω,
         grid.D,
         topology.realelems,
-        increment;
+        α,
+        β;
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
@@ -435,7 +456,8 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.interiorelems;
+        grid.interiorelems,
+        α;
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
@@ -506,7 +528,8 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.exteriorelems;
+        grid.exteriorelems,
+        α;
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,
