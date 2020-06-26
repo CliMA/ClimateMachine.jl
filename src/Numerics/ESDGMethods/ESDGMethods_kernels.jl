@@ -49,8 +49,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
     s_D = @localmem FT (Nq, Nq)
 
-    local_tendency = @private FT (num_state, )
-    local_MI = @private FT (1, )
+    local_tendency = @private FT (num_state,)
+    local_MI = @private FT (1,)
 
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
@@ -115,54 +115,72 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 # ( G_13 (Q_1 ∘ H_3) - (H_3 ∘ Q_1^T) G_13) 1 +
                 # FIXME: We may want to use local arrays here
                 #        (not shared arrays)
-                numerical_volume_fluctuation!(local_H,
-                  shared_state[i, j, :], shared_aux[i, j, :],
-                  shared_state[l, j, :], shared_aux[l, j, :]
+                numerical_volume_fluctuation!(
+                    local_H,
+                    shared_state[i, j, :],
+                    shared_aux[i, j, :],
+                    shared_state[l, j, :],
+                    shared_aux[l, j, :],
                 )
                 for s in 1:num_state
                     # G_11 (Q_1 ∘ H_1) 1 +
                     # G_12 (Q_1 ∘ H_2) 1 +
                     # G_13 (Q_1 ∘ H_3) 1
-                    local_tendency[s] += local_MI[1] * s_D[i, l] * (
-                       G[i, j, 1, 1] * local_H[1, s] +
-                       G[i, j, 1, 2] * local_H[1, s] +
-                       G[i, j, 1, 3] * local_H[3, s]
-                    )
+                    local_tendency[s] +=
+                        local_MI[1] *
+                        s_D[i, l] *
+                        (
+                            G[i, j, 1, 1] * local_H[1, s] +
+                            G[i, j, 1, 2] * local_H[1, s] +
+                            G[i, j, 1, 3] * local_H[3, s]
+                        )
                     #  (H_1 ∘ Q_1^T) G_11 1 +
                     #  (H_2 ∘ Q_1^T) G_12 1 +
                     #  (H_3 ∘ Q_1^T) G_13 1
-                    local_tendency[s] -= local_MI[1] * (
-                       local_H[1, s] * G[l, j, 1, 1] +
-                       local_H[2, s] * G[l, j, 1, 2] +
-                       local_H[3, s] * G[l, j, 1, 3]
-                    ) * s_D[l, i]
+                    local_tendency[s] -=
+                        local_MI[1] *
+                        (
+                            local_H[1, s] * G[l, j, 1, 1] +
+                            local_H[2, s] * G[l, j, 1, 2] +
+                            local_H[3, s] * G[l, j, 1, 3]
+                        ) *
+                        s_D[l, i]
                 end
 
                 # Compute derivatives wrt ξ2
                 # ( G_21 (Q_2 ∘ H_1) - (H_1 ∘ Q_2^T) G_21) 1 +
                 # ( G_22 (Q_2 ∘ H_2) - (H_2 ∘ Q_2^T) G_22) 1 +
                 # ( G_23 (Q_2 ∘ H_3) - (H_3 ∘ Q_2^T) G_23) 1 +
-                numerical_volume_fluctuation!(local_H,
-                 shared_state[i, j, :], shared_aux[i, j, :],
-                 shared_state[i, l, :], shared_aux[i, l, :]
+                numerical_volume_fluctuation!(
+                    local_H,
+                    shared_state[i, j, :],
+                    shared_aux[i, j, :],
+                    shared_state[i, l, :],
+                    shared_aux[i, l, :],
                 )
                 for s in 1:num_state
                     # G_21 (Q_2 ∘ H_1) 1 +
                     # G_22 (Q_2 ∘ H_2) 1 +
                     # G_23 (Q_2 ∘ H_3) 1
-                    local_tendency[s] += local_MI[1] * s_D[i, l] * (
-                       G[i, j, 2, 1] * local_H[1, s] +
-                       G[i, j, 2, 2] * local_H[1, s] +
-                       G[i, j, 2, 3] * local_H[3, s]
-                    )
+                    local_tendency[s] +=
+                        local_MI[1] *
+                        s_D[i, l] *
+                        (
+                            G[i, j, 2, 1] * local_H[1, s] +
+                            G[i, j, 2, 2] * local_H[1, s] +
+                            G[i, j, 2, 3] * local_H[3, s]
+                        )
                     #  (H_1 ∘ Q_2^T) G_21 1 +
                     #  (H_2 ∘ Q_2^T) G_22 1 +
                     #  (H_3 ∘ Q_2^T) G_23 1
-                    local_tendency[s] -= local_MI[1] * (
-                       local_H[1, s] * G[i, l, 2, 1] +
-                       local_H[2, s] * G[i, l, 2, 2] +
-                       local_H[3, s] * G[i, l, 2, 3]
-                    ) * s_D[l, i]
+                    local_tendency[s] -=
+                        local_MI[1] *
+                        (
+                            local_H[1, s] * G[i, l, 2, 1] +
+                            local_H[2, s] * G[i, l, 2, 2] +
+                            local_H[3, s] * G[i, l, 2, 3]
+                        ) *
+                        s_D[l, i]
                 end
 
                 ijk = i + Nq * ((j - 1) + Nq * (k - 1))

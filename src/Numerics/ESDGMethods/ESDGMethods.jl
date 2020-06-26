@@ -20,14 +20,7 @@ function (esdg::DGModel)(
 end
 
 
-function (dg::ESDGModel)(
-    tendency,
-    state_conservative,
-    params::Nothing,
-    t,
-    α,
-    β,
-)
+function (dg::ESDGModel)(tendency, state_conservative, params::Nothing, t, α, β)
 
     balance_law = dg.balance_law
     device = array_device(state_conservative)
@@ -146,10 +139,7 @@ function (dg::ESDGModel)(
         grid.exteriorelems,
         α;
         ndrange = ndrange_exterior_surface,
-        dependencies = (
-            comp_stream,
-            exchange_state_conservative,
-        ),
+        dependencies = (comp_stream, exchange_state_conservative),
     )
 
     # The synchronization here through a device event prevents CuArray based and
