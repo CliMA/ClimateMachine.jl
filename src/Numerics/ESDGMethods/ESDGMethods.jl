@@ -7,12 +7,26 @@ struct ESDGModel{BL, P, G, SA}
     state_auxiliary::SA
 end
 
+function (esdg::DGModel)(
+    tendency,
+    state_conservative,
+    ::Nothing,
+    param,
+    t;
+    increment = false,
+)
+    # TODO deprecate increment argument
+    dg(tendency, state_conservative, param, t, true, increment)
+end
+
+
 function (dg::ESDGModel)(
     tendency,
     state_conservative,
     params::Nothing,
-    t;
-    increment = false
+    t,
+    α,
+    β,
 )
 
     balance_law = dg.balance_law
@@ -71,7 +85,8 @@ function (dg::ESDGModel)(
         grid.ω,
         grid.D,
         topology.realelems,
-        increment;
+        α,
+        β,
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
@@ -90,7 +105,8 @@ function (dg::ESDGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.interiorelems;
+        grid.interiorelems,
+        α;
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
@@ -127,7 +143,8 @@ function (dg::ESDGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.exteriorelems;
+        grid.exteriorelems,
+        α;
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,
