@@ -19,7 +19,7 @@ using DocStringExtensions
 using LinearAlgebra
 
 using CLIMAParameters
-using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -126,13 +126,13 @@ function config_greenvortex(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
-    _C_smag = FT(C_smag(param_set))
+    _C_smag = FT(0.21)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
         orientation = NoOrientation(),
         param_set;                          # Parameter set corresponding to earth parameters
         turbulence = Vreman(_C_smag),       # Turbulence closure model
-        moisture = DryModel(),
+        moisture = DryModel{FT}(),
         source = (),
         init_state_conservative = init_greenvortex!,             # Apply the initial condition
     )
@@ -169,9 +169,9 @@ function main()
 
     FT = Float64
     N = 4
-    Ncellsx = 64
-    Ncellsy = 64
-    Ncellsz = 64
+    Ncellsx = 96
+    Ncellsy = 96
+    Ncellsz = 96
     Δx = FT(2 * pi / Ncellsx)
     Δy = Δx
     Δz = Δx
@@ -183,7 +183,7 @@ function main()
     ymin = FT(-pi)
     zmin = FT(-pi)
     t0 = FT(0)
-    timeend = FT(0.1)
+    timeend = FT(0.6)
     CFL = FT(1.8)
 
     driver_config = config_greenvortex(
@@ -204,11 +204,11 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
-    dgn_config = config_diagnostics(driver_config)
+    #dgn_config = config_diagnostics(driver_config)
 
     result = ClimateMachine.invoke!(
         solver_config;
-        diagnostics_config = dgn_config,
+        #diagnostics_config = dgn_config,
         check_euclidean_distance = true,
     )
 

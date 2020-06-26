@@ -134,7 +134,7 @@ function atmos_energy_boundary_state!(
   #  state⁺.ρe =
    #     E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻) + sum(abs2, state⁻.ρu) / 2
 end
-function atmos_energy_normal_boundary_flux_diffusive!(
+function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::BulkFormulationEnergy,
     atmos,

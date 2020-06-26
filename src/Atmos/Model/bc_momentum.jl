@@ -178,7 +178,7 @@ struct BulkFormulation{FN} <: MomentumDragBC
     fn::FN
 end
 function atmos_momentum_boundary_state!(
-    nf::Union{NumericalFluxNonDiffusive, NumericalFluxGradient},
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc_momentum::Impenetrable{DL},
     atmos,
     state⁺,

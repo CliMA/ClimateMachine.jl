@@ -99,7 +99,7 @@ Assumes the moisture components is in the dry limit.
 """
 struct DryModel{FT} <: MoistureModel end
 
-vars_state_auxiliary(::DryModel, FT) = @vars(θ_v::FT, air_T::FT)
+vars_state_auxiliary(::DryModel, FT) = @vars(θ_v::FT, air_T::FT, enthalpy::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::DryModel,
     atmos::AtmosModel,
@@ -150,7 +150,7 @@ vars_state_conservative(::EquilMoist, FT) = @vars(ρq_tot::FT)
 vars_state_gradient(::EquilMoist, FT) = @vars(q_tot::FT)
 vars_state_gradient_flux(::EquilMoist, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state_auxiliary(::EquilMoist, FT) =
-    @vars(temperature::FT, θ_v::FT, q_liq::FT)
+    @vars(temperature::FT, θ_v::FT, q_liq::FT, pressure::FT, enthalpy::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
