@@ -11,9 +11,10 @@ using ...MPIStateArrays
 using ...Mesh.Filters: apply!
 using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
-using ...DGMethods: DGModel, copy_stack_field_down!
+using ...DGMethods
 using ...DGMethods.NumericalFluxes
 using ...BalanceLaws
+using ...BalanceLaws: number_state_auxiliary
 
 import ...DGMethods.NumericalFluxes: update_penalty!
 import ...BalanceLaws:
@@ -629,13 +630,19 @@ function update_auxiliary_state_gradient!(
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
+    # We are unable to use vars (ie A.w) for this because this operation will
+    # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
+    # has a limited recursion depth for the types allowed.
+    number_auxiliary = number_state_auxiliary(m, FT)
+    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
+    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
+
     # project w(z=0) down the stack
-    # [1] to convert from range to integer
-    # copy_stack_field_down! doesn't like ranges
-    # eventually replace this with a reshape and broadcast
-    index_w = varsindex(vars_state_auxiliary(m, FT), :w)[1]
-    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)[1]
-    copy_stack_field_down!(dg, m, A, index_w, index_wz0, elems)
+    data = reshape(A.data, Nq^2, Nqk, number_auxiliary, nelemv, nelemh)
+    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nhorzrealelem]
+    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nhorzrealelem]
+    boxy_wz0 .= flat_wz0
 
     return true
 end
