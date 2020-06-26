@@ -9,14 +9,23 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 @doc """
-    volume_tendency!(balance_law::BalanceLaw, Val(polyorder),
-                     tendency, state_conservative, state_gradient_flux,
-                     state_auxiliary, vgeo, t, D, elems)
+    horizontal_volume_tendency!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        tendency,
+        state_conservative,
+        state_auxiliary,
+        vgeo,
+        D,
+        α,
+        β,
+    ) where {dim, polyorder}
 
-Computational kernel: Evaluate the volume integrals on right-hand side of a
-`BalanceLaw` semi-discretization.
-""" volume_tendency!
-@kernel function volume_tendency!(
+Computes the reference element horizontal tendency using a two-point flux
+approximation of all derivatives.
+""" horizontal_volume_tendency!
+@kernel function horizontal_volume_tendency!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
@@ -116,6 +125,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 # FIXME: We may want to use local arrays here
                 #        (not shared arrays)
                 numerical_volume_fluctuation!(
+                    balance_law,
                     local_H,
                     shared_state[i, j, :],
                     shared_aux[i, j, :],
@@ -152,6 +162,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 # ( G_22 (Q_2 ∘ H_2) - (H_2 ∘ Q_2^T) G_22) 1 +
                 # ( G_23 (Q_2 ∘ H_3) - (H_3 ∘ Q_2^T) G_23) 1 +
                 numerical_volume_fluctuation!(
+                    balance_law,
                     local_H,
                     shared_state[i, j, :],
                     shared_aux[i, j, :],
@@ -191,3 +202,19 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         end
     end
 end
+
+numerical_volume_fluctuation!(
+    bl::BalanceLaw,
+    H::AbstractArray,
+    state_1::AbstractArray,
+    aux_1::AbstractArray,
+    state_2::AbstractArray,
+    aux_2::AbstractArray,
+) = numerical_volume_fluctuation!(
+    bl,
+    Grad{vars_state_conservative(bl, FT)}(H),
+    Vars{vars_state_conservative(bl, FT)}(state_1),
+    Vars{vars_state_auxiliary(bl, FT)}(aux_1),
+    Vars{vars_state_conservative(bl, FT)}(state_2),
+    Vars{vars_state_auxiliary(bl, FT)}(aux_2),
+)

@@ -45,5 +45,6 @@ include(joinpath("Utilities", "Checkpoint", "Checkpoint.jl"))
 include(joinpath("Utilities", "Callbacks", "Callbacks.jl"))
 include(joinpath("Driver", "Driver.jl"))
 
+include(joinpath("Numerics", "ESDGMethods", "ESDGMethods.jl"))
 
 end

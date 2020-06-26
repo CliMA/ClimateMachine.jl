@@ -1,5 +1,7 @@
 module ESDGMethods
 
+export ESDGModel
+
 struct ESDGModel{BL, P, G, SA}
     balance_law::BL
     problem::P
@@ -16,7 +18,7 @@ function (esdg::DGModel)(
     increment = false,
 )
     # TODO deprecate increment argument
-    dg(tendency, state_conservative, param, t, true, increment)
+    esdg(tendency, state_conservative, param, t, true, increment)
 end
 
 
@@ -146,6 +148,40 @@ function (dg::ESDGModel)(tendency, state_conservative, params::Nothing, t, α, �
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+end
+
+"""
+    ave(a, b)
+
+This computes the mean
+
+    ave(a, b) = (a + b) / 2
+"""
+ave(a, b) = (a + b) / 2
+
+"""
+    logave(a, b)
+
+This computes the logarithmic mean
+
+    logave(a, b) = (a - b) / (log(a) - log(b))
+
+in a numerically stable way using the method in Appendix B. of Ishail and Roe
+<doi:10.1016/j.jcp.2009.04.021>.
+"""
+function logave(a, b)
+    ζ = a / b
+    f = (ζ - 1) / (ζ + 1)
+    u = f^2
+    ϵ = eps(eltype(u))
+
+    if u < ϵ
+        F = @evalpoly(u, one(u), one(u) / 3, one(u) / 5, one(u) / 7, one(u) / 9)
+    else
+        F = log(ζ) / 2f
+    end
+
+    (a + b) / 2F
 end
 
 end
