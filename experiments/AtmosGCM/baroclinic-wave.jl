@@ -126,8 +126,8 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0.0)),
-#        hyperdiffusion = NoHyperDiffusion(),
-        hyperdiffusion = StandardHyperDiffusion(FT(2*3600)),
+        hyperdiffusion = NoHyperDiffusion(),
+        # hyperdiffusion = StandardHyperDiffusion(FT(2*3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_baroclinic_wave!,
@@ -185,7 +185,8 @@ function main()
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            AtmosFilterPerturbations(driver_config.bl),
+            # AtmosFilterPerturbations(driver_config.bl),
+            1:size(solver_config.Q, 2),
             solver_config.dg.grid,
             filter,
             state_auxiliary = solver_config.dg.state_auxiliary,
@@ -197,7 +198,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
- #       user_callbacks = (cbfilter,),
+        user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
 end
