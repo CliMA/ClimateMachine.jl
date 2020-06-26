@@ -112,10 +112,11 @@ end
 
 function config_baroclinic_wave(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
-    temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
-    ref_state = HydrostaticState(temp_profile_ref)
+    #temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
+    #ref_state = HydrostaticState(temp_profile_ref)
+    ref_state = NoReferenceState()
 
-    domain_height::FT = 40e3 # distance between surface and top of atmosphere (m)
+    domain_height::FT = 20e3 # distance between surface and top of atmosphere (m)
     
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
@@ -125,8 +126,8 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0.0)),
-        hyperdiffusion = NoHyperDiffusion(),
-        #hyperdiffusion = StandardHyperDiffusion(FT(4*36000)),
+#        hyperdiffusion = NoHyperDiffusion(),
+        hyperdiffusion = StandardHyperDiffusion(FT(2*3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_baroclinic_wave!,
@@ -149,9 +150,9 @@ function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
     poly_order = 4                           # discontinuous Galerkin polynomial order
-    n_horz = 5                               # horizontal element number
-    n_vert = 10                              # vertical element number
-    n_days::FT = 1000 / 86400 
+    n_horz = 7                               # horizontal element number
+    n_vert = 2                              # vertical element number
+    n_days::FT = 30 
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -172,7 +173,7 @@ function main()
         ode_solver_type = ode_solver_type,
 #        CFL_direction = HorizontalDirection(),
         CFL_direction = EveryDirection(),
-#        diffdir= HorizontalDirection(),
+        diffdir= HorizontalDirection(),
     )
 
     # Set up diagnostics
@@ -196,7 +197,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+ #       user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
 end
