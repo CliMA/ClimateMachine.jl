@@ -202,19 +202,3 @@ approximation of all derivatives.
         end
     end
 end
-
-numerical_volume_fluctuation!(
-    bl::BalanceLaw,
-    H::AbstractArray{FT},
-    state_1::AbstractArray{FT},
-    aux_1::AbstractArray{FT},
-    state_2::AbstractArray{FT},
-    aux_2::AbstractArray{FT},
-) where {FT} = numerical_volume_fluctuation!(
-    bl,
-    Grad{vars_state_conservative(bl, FT)}(H),
-    Vars{vars_state_conservative(bl, FT)}(state_1),
-    Vars{vars_state_auxiliary(bl, FT)}(aux_1),
-    Vars{vars_state_conservative(bl, FT)}(state_2),
-    Vars{vars_state_auxiliary(bl, FT)}(aux_2),
-)

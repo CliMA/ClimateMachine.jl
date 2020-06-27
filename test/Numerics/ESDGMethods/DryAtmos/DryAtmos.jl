@@ -1,4 +1,9 @@
-import ClimateMachine.ESDGMethods: numerical_volume_fluctuation!, logave, ave
+import ClimateMachine.ESDGMethods:
+    numerical_volume_fluctuation!,
+    logave,
+    ave,
+    state_to_entropy_variables,
+    entropy_to_state_variables
 using ClimateMachine: BalanceLaw
 using ClimateMachine.VariableTemplates: Vars, Grad, @vars
 import ClimateMachine.BalanceLaws:
@@ -25,6 +30,15 @@ function vars_state_auxiliary(m::DryAtmosphereModel, FT)
     end
 end
 
+function vars_state_entropy(m::DryAtmosphereModel, FT)
+    @vars begin
+        ρ::FT
+        ρu::SVector{3, FT}
+        ρe::FT
+        Φ::FT
+    end
+end
+
 const _γ = 7 // 5
 function pressure(ρ, ρu, ρe, Φ)
     FT = eltype(ρ)
@@ -42,6 +56,54 @@ function soundspeed(ρ, p)
     FT = eltype(ρ)
     γ = FT(_γ)
     sqrt(γ * p / ρ)
+end
+
+function state_to_entropy_variables(
+    ::DryAtmosphereModel,
+    entropy::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
+
+    FT = eltype(state)
+    γ = FT(_γ)
+
+    p = pressure(ρ, ρu, ρe, Φ)
+    s = log(p / ρ^γ)
+    b = ρ / 2p
+    u = ρu / ρ
+
+    entropy.ρ = (γ - s) / (γ - 1) - (dot(u, u) - 2Φ) * b
+    entropy.ρu = 2b * u
+    entropy.ρe = -2b
+    entropy.Φ = 2ρ * b
+end
+
+function entropy_to_state_variables(
+    ::DryAtmosphereModel,
+    state::Vars,
+    aux::Vars,
+    entropy::Vars,
+)
+    FT = eltype(state)
+    β = entropy
+    γ = FT(_γ)
+
+    b = -β.ρe / 2
+    ρ = β.Φ / (2b)
+    ρu = ρ * β.ρu / (2b)
+
+    p = ρ / (2b)
+    s = log(p / ρ^γ)
+    Φ = ρu^2 / (2 * ρ^2) - ((γ - s) / (γ - 1) - β.ρ) / (2b)
+
+    ρe = p / (γ - 1) + ρu^2 / (2ρ) + ρ * Φ
+
+    state.ρ = ρ
+    state.ρu = ρu
+    state.ρe = ρe
+    aux.Φ = Φ
 end
 
 function numerical_volume_fluctuation!(
@@ -76,9 +138,9 @@ function numerical_volume_fluctuation!(
 
     γ = FT(_γ)
 
-    Fρ = u_avg' * ρ_log
-    Fρu = u_avg * Fρ + ρ_avg / 2b_avg * I
-    Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2 + Φ_avg) * Fρ .+ u_avg' * Fρu
+    Fρ = u_avg * ρ_log
+    Fρu = u_avg * Fρ' + ρ_avg / 2b_avg * I
+    Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2 + Φ_avg) * Fρ + Fρu * u_avg
 
     H.ρ = Fρ
     H.ρu = Fρu - α * (Φ_1 - Φ_2) * I

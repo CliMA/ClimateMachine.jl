@@ -10,6 +10,57 @@ using ..BalanceLaws
 
 export ESDGModel
 
+# Required interface functions:
+abstract type NumericalFluctuation end
+function numerical_volume_fluctuation!(
+    balancelaw::BalanceLaw,
+    numflux::NumericalFluctuation,
+    H::AbstractArray{FT},
+    state_1::AbstractArray{FT},
+    aux_1::AbstractArray{FT},
+    state_2::AbstractArray{FT},
+    aux_2::AbstractArray{FT},
+) where {FT}
+    numerical_volume_fluctuation!(
+        numflux,
+        balancelaw,
+        Grad{vars_state_conservative(balancelaw, FT)}(H),
+        Vars{vars_state_conservative(balancelaw, FT)}(state_1),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_1),
+        Vars{vars_state_conservative(balancelaw, FT)}(state_2),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
+    )
+end
+
+# Optional interface functions:
+function state_to_entropy_variables!(
+    balancelaw::BalanceLaw,
+    entropy::AbstractArray{FT},
+    state::AbstractArray{FT},
+    aux::AbstractArray{FT},
+) where {FT}
+    state_to_entropy_variables!(
+        balancelaw,
+        Vars{vars_state_entropy(balancelaw, FT)}(entropy),
+        Vars{vars_state_conservative(balancelaw, FT)}(state),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux),
+    )
+end
+function entropy_to_state_variables(
+    balancelaw::BalanceLaw,
+    state::AbstractArray{FT},
+    aux::AbstractArray{FT},
+    entropy::AbstractArray{FT},
+) where {FT}
+    state_to_entropy_variables!(
+        balancelaw,
+        Vars{vars_state_conservative(balancelaw, FT)}(state),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux),
+        Vars{vars_state_entropy(balancelaw, FT)}(entropy),
+    )
+end
+
+
 include("ESDGMethods_kernels.jl")
 
 struct ESDGModel{BL, P, G, SA}
