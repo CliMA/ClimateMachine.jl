@@ -33,6 +33,29 @@ function pressure(ρ, ρu, ρe, Φ)
 end
 
 """
+    totalenergy(ρ, ρu, p, Φ)
+
+Compute the total energy given density `ρ`, momentum `ρu`, pressure `p`, and
+gravitational potential `Φ`.
+"""
+function totalenergy(ρ, ρu, p, Φ)
+    FT = eltype(ρ)
+    γ = FT(_γ)
+    return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+end
+
+"""
+    soundspeed(ρ, p)
+
+Compute the speed of sound from the density `ρ` and pressure `p`.
+"""
+function soundspeed(ρ, p)
+    FT = eltype(ρ)
+    γ = FT(_γ)
+    sqrt(γ * p / ρ)
+end
+
+"""
     vars_state_conservative(::DryAtmosModel, FT)
 
 The state variables for the `DryAtmosModel` are density `ρ`, momentum `ρu`,
