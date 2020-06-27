@@ -34,6 +34,13 @@ Auxiliary variables help serve several purposes:
 struct Auxiliary <: AbstractStateType end
 
 """
+    EntropyVariables <: AbstractStateType
+
+Entropy variables for a given balance law
+"""
+struct EntropyVariables <: AbstractStateType end
+
+"""
     Gradient <: AbstractStateType
 
 Variables whose gradients must be computed.
