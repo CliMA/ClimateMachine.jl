@@ -265,6 +265,56 @@ Compute reverse indefinite integral along stack.
 """
 function reverse_indefinite_stack_integral! end
 
+"""
+    function state_to_entropy_variables!(
+        balancelaw::BalanceLaw,
+        state_entropy::Vars,
+        state_conservative::Vars,
+        state_auxiliary::Vars,
+    )
+
+Compute entropy variables `state_entropy` from a given `state_conservative` and
+`state_auxiliary`
+"""
+function state_to_entropy_variables!(
+    balancelaw::BalanceLaw,
+    entropy::AbstractArray{FT},
+    state::AbstractArray{FT},
+    aux::AbstractArray{FT},
+) where {FT}
+    state_to_entropy_variables!(
+        balancelaw,
+        Vars{vars_state_entropy(balancelaw, FT)}(entropy),
+        Vars{vars_state_conservative(balancelaw, FT)}(state),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux),
+    )
+end
+
+"""
+    function entropy_variables_to_state!(
+        balancelaw::BalanceLaw,
+        state_conservative::Vars,
+        state_auxiliary::Vars,
+        state_entropy::Vars,
+    )
+
+Compute `state_conservative` and relevant componennts of `state_auxiliary` from
+the entropy variables `state_entropy`
+"""
+function entropy_variables_to_state!(
+    balancelaw::BalanceLaw,
+    state::AbstractArray{FT},
+    aux::AbstractArray{FT},
+    entropy::AbstractArray{FT},
+) where {FT}
+    entropy_variables_to_state!(
+        balancelaw,
+        Vars{vars_state_conservative(balancelaw, FT)}(state),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux),
+        Vars{vars_state_entropy(balancelaw, FT)}(entropy),
+    )
+end
+
 # Internal methods
 number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))
