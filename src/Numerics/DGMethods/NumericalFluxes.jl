@@ -316,6 +316,144 @@ function numerical_flux_first_order!(
 end
 
 """
+    EntropyConservative
+
+dispatch type for entropy conservative numerical fluxes (these are balance law
+specific)
+"""
+struct EntropyConservative <: NumericalFluxFirstOrder end
+
+"""
+    numerical_volume_conservative_flux_first_order!(
+        numflux::NumericalFluxFirstOrder,
+        balancelaw::BalanceLaw,
+        flux::Grad,
+        state_1::Vars,
+        aux_1::Vars,
+        state_2::Vars,
+        aux_2::Vars,
+    )
+
+Two point flux for use in the volume of entropy stable discretizations. Should
+compute and store the conservative (symmetric) part of an entropy stable
+flux-fluctuation and store the three vector components back to `flux`.
+
+This should be symmetric in the sense that swapping the place of `state_1`,
+`aux_1` with `state_2`, `aux_2` should result in the same flux.
+
+This should be implemented with addition assignment.
+
+Each balance law must implement a concrete implementation of this function.
+"""
+function numerical_volume_conservative_flux_first_order!(
+    numflux::NumericalFluxFirstOrder,
+    balancelaw::BalanceLaw,
+    flux::AbstractArray{FT, 2},
+    state_1::AbstractArray{FT, 1},
+    aux_1::AbstractArray{FT, 1},
+    state_2::AbstractArray{FT, 1},
+    aux_2::AbstractArray{FT, 1},
+) where {FT}
+    numerical_volume_conservative_flux_first_order!(
+        numflux,
+        balancelaw,
+        Grad{vars_state_conservative(balancelaw, FT)}(flux),
+        Vars{vars_state_conservative(balancelaw, FT)}(state_1),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_1),
+        Vars{vars_state_conservative(balancelaw, FT)}(state_2),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
+    )
+end
+
+"""
+    numerical_volume_fluctuation_flux_first_order!(
+        numflux::NumericalFluxFirstOrder,
+        balancelaw::BalanceLaw,
+        flux::Grad,
+        state_1::Vars,
+        aux_1::Vars,
+        state_2::Vars,
+        aux_2::Vars,
+    )
+
+Two point fluctuation flux for use in the volume of entropy stable
+discretizations. Should compute and store the non-conservative (possibly
+non-symmetric) part of an entropy stable flux-fluctuation and store the three
+vector components back to `flux`.
+
+This can be non-symmetric in the sense that swapping the place of `state_1`,
+`aux_1` with `state_2`, `aux_2` can result in a different flux.
+
+This should be implemented with addition assignment.
+
+Each balance law must implement a concrete implementation of this function.
+"""
+function numerical_volume_fluctuation_flux_first_order!(
+    numflux::NumericalFluxFirstOrder,
+    balancelaw::BalanceLaw,
+    fluctuation::AbstractArray{FT, 2},
+    state_1::AbstractArray{FT, 1},
+    aux_1::AbstractArray{FT, 1},
+    state_2::AbstractArray{FT, 1},
+    aux_2::AbstractArray{FT, 1},
+) where {FT}
+    numerical_volume_fluctuation_flux_first_order!(
+        numflux,
+        balancelaw,
+        Grad{vars_state_conservative(balancelaw, FT)}(fluctuation),
+        Vars{vars_state_conservative(balancelaw, FT)}(state_1),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_1),
+        Vars{vars_state_conservative(balancelaw, FT)}(state_2),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
+    )
+end
+
+"""
+    numerical_volume_flux_first_order!(
+        numflux::NumericalFluxFirstOrder,
+        balancelaw::BalanceLaw,
+        flux::AbstractArray{FT, 2},
+        state_1::AbstractArray{FT, 1},
+        aux_1::AbstractArray{FT, 1},
+        state_2::AbstractArray{FT, 1},
+        aux_2::AbstractArray{FT, 1},
+    )
+
+Convenience function which calls
+  `numerical_volume_conservative_flux_first_order!`
+followed by
+  `numerical_volume_fluctuation_flux_first_order!`
+"""
+function numerical_volume_flux_first_order!(
+    numflux::NumericalFluxFirstOrder,
+    balancelaw::BalanceLaw,
+    flux::AbstractArray{FT, 2},
+    state_1::AbstractArray{FT, 1},
+    aux_1::AbstractArray{FT, 1},
+    state_2::AbstractArray{FT, 1},
+    aux_2::AbstractArray{FT, 1},
+) where {FT}
+    numerical_volume_conservative_flux_first_order!(
+        numflux,
+        balancelaw,
+        flux,
+        state_1,
+        aux_1,
+        state_2,
+        aux_2,
+    )
+    numerical_volume_fluctuation_flux_first_order!(
+        numflux,
+        balancelaw,
+        flux,
+        state_1,
+        aux_1,
+        state_2,
+        aux_2,
+    )
+end
+
+"""
     NumericalFluxSecondOrder
 
 Any `N <: NumericalFluxSecondOrder` should define the a method for
