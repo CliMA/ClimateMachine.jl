@@ -316,17 +316,20 @@ Compute reverse indefinite integral along stack.
 function reverse_indefinite_stack_integral! end
 
 # Internal methods
-number_state_conservative(m::BalanceLaw, FT) =
+number_state_conservative(m::BalanceLaw, FT = Int) =
     varsize(vars_state_conservative(m, FT))
-number_state_auxiliary(m::BalanceLaw, FT) = varsize(vars_state_auxiliary(m, FT))
-number_state_gradient(m::BalanceLaw, FT) = varsize(vars_state_gradient(m, FT))
-number_state_gradient_flux(m::BalanceLaw, FT) =
+number_state_auxiliary(m::BalanceLaw, FT = Int) =
+    varsize(vars_state_auxiliary(m, FT))
+number_state_gradient(m::BalanceLaw, FT = Int) =
+    varsize(vars_state_gradient(m, FT))
+number_state_gradient_flux(m::BalanceLaw, FT = Int) =
     varsize(vars_state_gradient_flux(m, FT))
-num_gradient_laplacian(m::BalanceLaw, FT) =
+num_gradient_laplacian(m::BalanceLaw, FT = Int) =
     varsize(vars_gradient_laplacian(m, FT))
-num_hyperdiffusive(m::BalanceLaw, FT) = varsize(vars_hyperdiffusive(m, FT))
-num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m, FT))
-num_reverse_integrals(m::BalanceLaw, FT) =
+num_hyperdiffusive(m::BalanceLaw, FT = Int) =
+    varsize(vars_hyperdiffusive(m, FT))
+num_integrals(m::BalanceLaw, FT = Int) = varsize(vars_integrals(m, FT))
+num_reverse_integrals(m::BalanceLaw, FT = Int) =
     varsize(vars_reverse_integrals(m, FT))
 
 ### split explicit functions
