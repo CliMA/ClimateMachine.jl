@@ -5,7 +5,7 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
 using ClimateMachine.BalanceLaws: nodal_update_auxiliary_state!
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: SphericalOrientation, latitude, longitude

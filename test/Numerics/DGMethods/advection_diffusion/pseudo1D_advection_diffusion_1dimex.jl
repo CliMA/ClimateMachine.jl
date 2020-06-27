@@ -5,7 +5,7 @@ using Test
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers

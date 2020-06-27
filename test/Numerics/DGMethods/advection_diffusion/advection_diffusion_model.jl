@@ -22,9 +22,9 @@ import ClimateMachine.BalanceLaws:
     number_state_gradient
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
-import ClimateMachine.DGMethods.NumericalFluxes:
+import ClimateMachine.NumericalFluxes:
     numerical_flux_first_order!, boundary_flux_second_order!
 
 using CLIMAParameters

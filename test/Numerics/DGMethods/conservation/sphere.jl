@@ -15,7 +15,7 @@ using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
@@ -41,7 +41,7 @@ import ClimateMachine.DGMethods:
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
-import ClimateMachine.DGMethods.NumericalFluxes:
+import ClimateMachine.NumericalFluxes:
     NumericalFluxFirstOrder,
     numerical_flux_first_order!,
     numerical_boundary_flux_first_order!

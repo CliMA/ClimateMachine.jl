@@ -4,7 +4,7 @@ using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder

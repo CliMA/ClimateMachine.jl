@@ -10,7 +10,7 @@ using Printf
 using LinearAlgebra
 using ClimateMachine.DGMethods: DGModel, init_ode_state, courant
 using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder

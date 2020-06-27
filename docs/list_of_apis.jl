@@ -36,7 +36,7 @@ apis = [
         "SystemSolvers" => "APIs/Numerics/SystemSolvers/SystemSolvers.md",
         "ODESolvers" => "APIs/Numerics/ODESolvers/ODESolvers.md",
         "DG Methods" => "APIs/Numerics/DGMethods/DGMethods.md",
-        "Numerical Fluxes" => "APIs/Numerics/DGMethods/NumericalFluxes.md",
+        "Numerical Fluxes" => "APIs/Numerics/NumericalFluxes.md",
     ],
     "Utilities" => [
         "Artifact Wrappers" => "APIs/Utilities/ArtifactWrappers.md",

@@ -4,7 +4,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Thermodynamics

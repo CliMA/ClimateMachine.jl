@@ -1,7 +1,7 @@
 # Numerical Fluxes
 
 ```@meta
-CurrentModule = ClimateMachine.DGMethods.NumericalFluxes
+CurrentModule = ClimateMachine.NumericalFluxes
 ```
 
 ## Types

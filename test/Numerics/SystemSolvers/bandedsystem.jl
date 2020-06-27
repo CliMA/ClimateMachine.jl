@@ -13,7 +13,7 @@ import ClimateMachine.BalanceLaws:
 using ClimateMachine.DGMethods:
     DGModel, init_ode_state, create_conservative_state
 using ClimateMachine.SystemSolvers: banded_matrix, banded_matrix_vector_product!
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxGradient

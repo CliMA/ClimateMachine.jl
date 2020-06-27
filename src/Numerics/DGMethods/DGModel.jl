@@ -1,4 +1,4 @@
-using .NumericalFluxes:
+using ..NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}

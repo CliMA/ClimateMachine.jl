@@ -7,7 +7,7 @@ using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods
@@ -29,7 +29,7 @@ import ClimateMachine.DGMethods:
 import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
-import ClimateMachine.DGMethods.NumericalFluxes:
+import ClimateMachine.NumericalFluxes:
     NumericalFluxSecondOrder, numerical_flux_second_order!
 
 if !@isdefined integration_testing

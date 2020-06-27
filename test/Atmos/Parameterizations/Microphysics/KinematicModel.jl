@@ -30,7 +30,7 @@ ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.Grids
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters

@@ -6,7 +6,7 @@ using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, VerticalDirection
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder

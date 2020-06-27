@@ -4,7 +4,7 @@ using Logging
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using LinearAlgebra
@@ -13,8 +13,7 @@ using Dates
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
-import ClimateMachine.DGMethods.NumericalFluxes:
-    normal_boundary_flux_second_order!
+import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
 
 if !@isdefined integration_testing
     const integration_testing = parse(

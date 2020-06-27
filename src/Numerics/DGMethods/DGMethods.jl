@@ -54,7 +54,6 @@ import ..BalanceLaws:
 
 export DGModel, init_ode_state, restart_ode_state, restart_auxiliary_state
 
-include("NumericalFluxes.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
 include("create_states.jl")

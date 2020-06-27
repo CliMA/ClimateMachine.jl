@@ -12,9 +12,9 @@ using ..Mesh.Filters: apply!
 using ..Mesh.Grids: VerticalDirection
 using ..BalanceLaws: BalanceLaw
 import ..BalanceLaws: nodal_update_auxiliary_state!
-using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
+using ..NumericalFluxes: RusanovNumericalFlux
 
-import ..DGMethods.NumericalFluxes: update_penalty!
+import ..NumericalFluxes: update_penalty!
 import ..DGMethods:
     vars_state_conservative,
     vars_state_auxiliary,
@@ -44,9 +44,9 @@ import ..DGMethods:
 using ..DGMethods: DGModel, copy_stack_field_down!
 using ..Mesh.Geometry: LocalGeometry
 
-using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
+using ..NumericalFluxes: RusanovNumericalFlux
 
-import ..DGMethods.NumericalFluxes: update_penalty!
+import ..NumericalFluxes: update_penalty!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)

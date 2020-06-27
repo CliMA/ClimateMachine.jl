@@ -26,7 +26,7 @@ import ..BalanceLaws:
 
 import ...Mesh.Geometry: LocalGeometry
 
-using ..DGMethods.NumericalFluxes
+using ..NumericalFluxes
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)

@@ -415,7 +415,7 @@ function wavespeed(
 end
 
 # Here the fluxes are pirated to handle the case of tuples of fluxes
-import ..DGMethods.NumericalFluxes:
+import ..NumericalFluxes:
     NumericalFluxFirstOrder,
     numerical_flux_first_order!,
     numerical_boundary_flux_first_order!,

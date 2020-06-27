@@ -1,4 +1,4 @@
-using ..DGMethods.NumericalFluxes:
+using ..NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxGradient, NumericalFluxSecondOrder
 
 import ..BalanceLaws: boundary_state!

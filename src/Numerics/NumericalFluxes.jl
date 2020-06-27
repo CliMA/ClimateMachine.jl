@@ -14,7 +14,7 @@ export NumericalFluxGradient,
 using StaticArrays, LinearAlgebra
 using ClimateMachine.VariableTemplates
 using KernelAbstractions.Extras: @unroll
-import ...BalanceLaws:
+import ..BalanceLaws:
     BalanceLaw,
     vars_state_conservative,
     vars_state_gradient_flux,

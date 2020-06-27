@@ -17,7 +17,7 @@ using ClimateMachine.DGMethods:
     vars_state_conservative,
     vars_state_auxiliary
 using ClimateMachine.VariableTemplates: Vars
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder

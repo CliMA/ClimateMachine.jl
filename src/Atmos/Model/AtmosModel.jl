@@ -70,7 +70,7 @@ import ClimateMachine.DGMethods:
     resolutionmetric,
     DGModel,
     nodal_update_auxiliary_state!
-import ..DGMethods.NumericalFluxes:
+import ..NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
     normal_boundary_flux_second_order!,

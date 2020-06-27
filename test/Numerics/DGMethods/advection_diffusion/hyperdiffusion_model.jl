@@ -20,7 +20,7 @@ import ClimateMachine.BalanceLaws:
     transform_post_gradient_laplacian!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.DGMethods.NumericalFluxes:
+using ClimateMachine.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
 abstract type HyperDiffusionProblem end
