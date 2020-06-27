@@ -24,6 +24,14 @@ given a float type `FT`.
 function vars_state_conservative end
 
 """
+    vars_state_entropy(::L, FT)
+
+a tuple of symbols containing the entropy variables
+given a float type `FT`.
+"""
+function vars_state_entropy end
+
+"""
     vars_state_auxiliary(::L, FT)
 
 a tuple of symbols containing the auxiliary variables
@@ -320,6 +328,8 @@ number_state_conservative(m::BalanceLaw, FT = Int) =
     varsize(vars_state_conservative(m, FT))
 number_state_auxiliary(m::BalanceLaw, FT = Int) =
     varsize(vars_state_auxiliary(m, FT))
+number_state_entropy(m::BalanceLaw, FT = Int) =
+    varsize(vars_state_entropy(m, FT))
 number_state_gradient(m::BalanceLaw, FT = Int) =
     varsize(vars_state_gradient(m, FT))
 number_state_gradient_flux(m::BalanceLaw, FT = Int) =
