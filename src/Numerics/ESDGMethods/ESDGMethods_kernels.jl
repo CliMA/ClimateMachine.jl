@@ -205,12 +205,12 @@ end
 
 numerical_volume_fluctuation!(
     bl::BalanceLaw,
-    H::AbstractArray,
-    state_1::AbstractArray,
-    aux_1::AbstractArray,
-    state_2::AbstractArray,
-    aux_2::AbstractArray,
-) = numerical_volume_fluctuation!(
+    H::AbstractArray{FT},
+    state_1::AbstractArray{FT},
+    aux_1::AbstractArray{FT},
+    state_2::AbstractArray{FT},
+    aux_2::AbstractArray{FT},
+) where {FT} = numerical_volume_fluctuation!(
     bl,
     Grad{vars_state_conservative(bl, FT)}(H),
     Vars{vars_state_conservative(bl, FT)}(state_1),

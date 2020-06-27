@@ -1,6 +1,16 @@
 module ESDGMethods
+using MPI
+using StaticArrays
+using DocStringExtensions
+using KernelAbstractions
+using KernelAbstractions.Extras: @unroll
+using ..Mesh.Grids
+using ..VariableTemplates
+using ..BalanceLaws
 
 export ESDGModel
+
+include("ESDGMethods_kernels.jl")
 
 struct ESDGModel{BL, P, G, SA}
     balance_law::BL
@@ -9,7 +19,7 @@ struct ESDGModel{BL, P, G, SA}
     state_auxiliary::SA
 end
 
-function (esdg::DGModel)(
+function (esdg::ESDGModel)(
     tendency,
     state_conservative,
     ::Nothing,

@@ -1,6 +1,29 @@
 import ClimateMachine.ESDGMethods: numerical_volume_fluctuation!, logave, ave
+using ClimateMachine: BalanceLaw
+using ClimateMachine.VariableTemplates: Vars, Grad, @vars
+import ClimateMachine.BalanceLaws:
+    vars_state_auxiliary,
+    vars_state_conservative,
+    number_state_conservative,
+    number_state_auxiliary
+using StaticArrays: SVector
+using LinearAlgebra: dot, I
 
 struct DryAtmosphereModel <: BalanceLaw end
+
+function vars_state_conservative(m::DryAtmosphereModel, FT)
+    @vars begin
+        ρ::FT
+        ρu::SVector{3, FT}
+        ρe::FT
+    end
+end
+
+function vars_state_auxiliary(m::DryAtmosphereModel, FT)
+    @vars begin
+        Φ::FT
+    end
+end
 
 const _γ = 7 // 5
 function pressure(ρ, ρu, ρe, Φ)
@@ -9,9 +32,21 @@ function pressure(ρ, ρu, ρe, Φ)
     (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
 end
 
+function totalenergy(ρ, ρu, p, Φ)
+    FT = eltype(ρ)
+    γ = FT(_γ)
+    return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
+end
+
+function soundspeed(ρ, p)
+    FT = eltype(ρ)
+    γ = FT(_γ)
+    sqrt(γ * p / ρ)
+end
+
 function numerical_volume_fluctuation!(
     ::DryAtmosphereModel,
-    H,
+    H::Grad,
     state_1::Vars,
     aux_1::Vars,
     state_2::Vars,
@@ -33,19 +68,19 @@ function numerical_volume_fluctuation!(
     b_avg = ave(b_1, b_2)
     Φ_avg = ave(Φ_1, Φ_2)
 
-    α = b_avg * ρ_log / 2b_1
-
     usq_avg = ave(dot(u_1, u_1), dot(u_2, u_2))
 
     ρ_log = logave(ρ_1, ρ_2)
     b_log = logave(b_1, b_2)
+    α = b_avg * ρ_log / 2b_1
+
     γ = FT(_γ)
 
     Fρ = u_avg' * ρ_log
     Fρu = u_avg * Fρ + ρ_avg / 2b_avg * I
     Fρe = (1 / (2 * (γ - 1) * b_log) - usq_avg / 2 + Φ_avg) * Fρ .+ u_avg' * Fρu
 
-    H.ρ .= Fρ
-    H.ρu .= Fρu - α * (Φ_1 - Φ_2)
-    H.ρe .= Fρe
+    H.ρ = Fρ
+    H.ρu = Fρu - α * (Φ_1 - Φ_2) * I
+    H.ρe = Fρe
 end
