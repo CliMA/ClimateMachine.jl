@@ -8,7 +8,8 @@ export AbstractStateType,
     GradientLaplacian,
     Hyperdiffusive,
     UpwardIntegrals,
-    DownwardIntegrals
+    DownwardIntegrals,
+    Entropy
 
 """
     AbstractStateType
@@ -89,3 +90,10 @@ struct UpwardIntegrals <: AbstractStateType end
 Variables computed in downward integrals
 """
 struct DownwardIntegrals <: AbstractStateType end
+
+"""
+    Entropy <: AbstractStateType
+
+Entropy variables
+"""
+struct Entropy <: AbstractStateType end
