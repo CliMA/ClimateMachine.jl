@@ -429,9 +429,6 @@ function compute_gradient_flux!(
     diffusive.∇h_tot = ∇transform.h_tot
 
     diffusive.∇divergence = ∇transform.divergence
-    if t > eltype(state)(2)
-        @show(tr(∇transform.mome) - aux.divergence)
-    end
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(

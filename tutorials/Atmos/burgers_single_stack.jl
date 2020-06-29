@@ -163,11 +163,15 @@ vars_state_conservative(::BurgersEquation, FT) =
     @vars(ρ::FT, ρu::SVector{3, FT}, ρcT::FT);
 
 # Specify state variables whose gradients are needed for `BurgersEquation`
-vars_state_gradient(::BurgersEquation, FT) = @vars(u::SVector{3, FT}, ρcT::FT);
+vars_state_gradient(::BurgersEquation, FT) = @vars(u::SVector{3, FT}, 
+                                                   ρcT::FT,
+                                                   divergence::FT);
 
 # Specify gradient variables for `BurgersEquation`
 vars_state_gradient_flux(::BurgersEquation, FT) =
-    @vars(μ∇u::SMatrix{3, 3, FT, 9}, α∇ρcT::SVector{3, FT});
+    @vars(μ∇u::SMatrix{3, 3, FT, 9}, 
+          α∇ρcT::SVector{3, FT},
+          ∇divergence::SVector{3,FT});
 
 # ## Define the compute kernels
 
@@ -247,9 +251,13 @@ function compute_gradient_argument!(
     state::Vars,
     aux::Vars,
     t::Real,
+    divergence
 )
     transform.ρcT = state.ρcT
     transform.u = state.ρu / state.ρ
+
+    ### Scalar divergence included
+    transform.divergence = divergence ### ∇⋅(ρu⃗)
 end;
 
 # Specify where in `diffusive::Vars` to store the computed gradient from
@@ -269,6 +277,7 @@ function compute_gradient_flux!(
 )
     diffusive.α∇ρcT = m.α * ∇transform.ρcT
     diffusive.μ∇u = Diagonal(SVector(m.μh, m.μh, m.μv)) * ∇transform.u
+    diffusive.∇divergence = SVector(∇transform.divergence)
 end;
 
 # Introduce Rayleigh friction towards a target profile as a source.
@@ -284,6 +293,7 @@ function source!(
     args...,
 ) where {FT}
     ẑ = SVector{3, FT}(0, 0, 1)
+    ν_dd = FT(m.zmax) / 100
     ρ̄ū =
         state.ρ * SVector{3, FT}(
             0.5 - 2 * (aux.z - m.zmax / 2)^2,
@@ -292,7 +302,9 @@ function source!(
         )
     ρu_p = state.ρu - ρ̄ū
     source.ρu -= m.γ * (ρu_p - ẑ' * ρu_p * ẑ)
+    source.ρu += 1/state.ρ * ν_dd * diffusive.∇divergence .* SVector{3,FT}(1,1,0)
 end;
+
 
 # Compute advective flux.
 # Note that:

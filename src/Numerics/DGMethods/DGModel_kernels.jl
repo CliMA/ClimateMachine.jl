@@ -896,9 +896,9 @@ end
             end
             ###
             ###Akshay Sridhar
-            local_transform_div[1, 1, k] = -zero(FT)
-            local_transform_div[1, 2, k] = -zero(FT)
-            local_transform_div[1, 3, k] = -zero(FT)
+            local_transform_div[1, 1, k] = -zero(FT) ### ρu
+            local_transform_div[1, 2, k] = -zero(FT) ### ρv
+            local_transform_div[1, 3, k] = -zero(FT) ### ρv
             ###Akshay Sridhar
             ###
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
@@ -909,7 +909,7 @@ end
                 local_state_auxiliary[s, k] = state_auxiliary[ijk, s, e]
             end
         end
-
+    
         @unroll for k in 1:Nqk
             ###
             ### Akshay Sridhar
@@ -918,6 +918,7 @@ end
             ξ1x1, ξ1x2, ξ1x3 =
                 vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
             @unroll for s in 1:3
+                ### TODO Extend to use vars_state_conservative{}(...)
                 shared_transform_div[i, j, s] = local_state_conservative[s+1,k]
             end
             G1ξ1 = G1ξ2 = -zero(FT)
