@@ -1,5 +1,6 @@
 module Elements
 import GaussQuadrature
+using DoubleFloats: DoubleFloat
 
 """
     lglpoints(::Type{T}, N::Integer) where T <: AbstractFloat
@@ -10,7 +11,12 @@ Gauss-Legendre-Lobatto quadrature rule of type `T`
 """
 function lglpoints(::Type{T}, N::Integer) where {T <: AbstractFloat}
     @assert N ≥ 1
-    GaussQuadrature.legendre(T, N + 1, GaussQuadrature.both)
+    if T <: DoubleFloat
+        (x, w) = GaussQuadrature.legendre(BigFloat, N + 1, GaussQuadrature.both)
+        return (T.(x), T.(w))
+    else
+        return GaussQuadrature.legendre(T, N + 1, GaussQuadrature.both)
+    end
 end
 
 """
@@ -21,7 +27,13 @@ Gauss-Legendre quadrature rule of type `T`
 """
 function lgpoints(::Type{T}, N::Integer) where {T <: AbstractFloat}
     @assert N ≥ 1
-    GaussQuadrature.legendre(T, N + 1, GaussQuadrature.neither)
+    if T <: DoubleFloat
+        (x, w) =
+            GaussQuadrature.legendre(BigFloat, N + 1, GaussQuadrature.neither)
+        return (T.(x), T.(w))
+    else
+        return GaussQuadrature.legendre(T, N + 1, GaussQuadrature.neither)
+    end
 end
 
 """
