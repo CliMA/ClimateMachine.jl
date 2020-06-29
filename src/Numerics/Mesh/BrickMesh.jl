@@ -3,6 +3,7 @@ module BrickMesh
 export brickmesh, centroidtocode, connectmesh, partition, mappings, commmapping
 
 using MPI
+using DoubleFloats: DoubleFloat, HI, LO
 
 """
     linearpartition(n, p, np)
@@ -144,7 +145,17 @@ function centroidtocode(
     code = Array{CT}(undef, d, nelem)
     for e in 1:nelem
         c = (centroids[:, 1, e] .- centroidmin) ./ centroidsize
-        X = CT.(floor.(typemax(CT) .* BigFloat.(c, 16 * sizeof(CT))))
+        if T <: DoubleFloat
+            X =
+                CT.(floor.(
+                    typemax(CT) .* (
+                        BigFloat.(HI.(c), 16 * sizeof(CT)) +
+                        BigFloat.(LO.(c), 16 * sizeof(CT))
+                    ),
+                ))
+        else
+            X = CT.(floor.(typemax(CT) .* BigFloat.(c, 16 * sizeof(CT))))
+        end
         code[:, e] = coortocode(X)
     end
 
