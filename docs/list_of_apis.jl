@@ -26,24 +26,19 @@ apis = [
     "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
-        "List of variables" => "APIs/Diagnostics/Diagnostics.md",
-        "Input/Output" => "APIs/Diagnostics/InputOutput.md",
+        "Diagnostics groups" => "APIs/Diagnostics/Diagnostics.md",
         "State Check" => "APIs/Diagnostics/StateCheck.md",
     ],
-    "Input/Output" => [
-        "List of variables" => "APIs/Diagnostics/Diagnostics.md",
-        "Input/Output" => "APIs/Diagnostics/InputOutput.md",
-        "State Check" => "APIs/Diagnostics/StateCheck.md",
-    ],
+    "Input/Output" => ["Input/Output" => "APIs/InputOutput/index.md"],
     "Numerics" => [
         "Meshes" => "APIs/Numerics/Meshes/Mesh.md",
         "SystemSolvers" => "APIs/Numerics/SystemSolvers/SystemSolvers.md",
         "ODESolvers" => "APIs/Numerics/ODESolvers/ODESolvers.md",
         "DG Methods" => "APIs/Numerics/DGMethods/DGMethods.md",
+        "Courant" => "APIs/Numerics/DGMethods/Courant.md",
         "Numerical Fluxes" => "APIs/Numerics/DGMethods/NumericalFluxes.md",
     ],
     "Utilities" => [
-        "Artifact Wrappers" => "APIs/Utilities/ArtifactWrappers.md",
         "Variable Templates" => "APIs/Utilities/VariableTemplates.md",
         "Single Stack Utilities" => "APIs/Utilities/SingleStackUtils.md",
         "Checkpoint" => "APIs/Utilities/Checkpoint.md",

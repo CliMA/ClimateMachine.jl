@@ -1,7 +1,7 @@
-# Diagnostics
+# [Diagnostics](@id Diagnostics)
 
 ```@meta
-CurrentModule = ClimateMachine
+CurrentModule = ClimateMachine.Diagnostics
 ```
 
 ```@docs
@@ -16,8 +16,6 @@ Diagnostics computes the physically relevant fields for post-processing.
 
 ```@docs
 Diagnostics.DiagnosticsGroup
-Diagnostics.VectorGradients
-Diagnostics.Vorticity
 ```
 
 ### Methods
