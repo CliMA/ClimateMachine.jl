@@ -125,8 +125,8 @@ function centroidtocode(
     centroidmax =
         (nelem > 0) ? maximum(centroids, dims = 3) : fill(typemin(T), d)
 
-    centroidmin = MPI.Allreduce(centroidmin, MPI.MIN, comm)
-    centroidmax = MPI.Allreduce(centroidmax, MPI.MAX, comm)
+    centroidmin = MPI.Allreduce(centroidmin, min, comm)
+    centroidmax = MPI.Allreduce(centroidmax, max, comm)
     centroidsize = centroidmax - centroidmin
 
     # Fix centroidsize to be nonzero.  It can be zero for a couple of reasons.

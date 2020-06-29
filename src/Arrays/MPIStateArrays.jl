@@ -523,7 +523,7 @@ function LinearAlgebra.norm(
         locnorm = norm_impl(Q.realdata, Val(p), dims)
     end
 
-    mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
+    mpiop = isfinite(p) ? (+) : max
     if locnorm isa AbstractArray
         locnorm = convert(Array, locnorm)
     end
@@ -550,7 +550,7 @@ function LinearAlgebra.dot(
     end
 
     @tic mpi_dot
-    r = MPI.Allreduce(locnorm, MPI.SUM, Q1.mpicomm)
+    r = MPI.Allreduce(locnorm, +, Q1.mpicomm)
     @toc mpi_dot
     return r
 end
@@ -568,7 +568,7 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
 
     locnorm = mapreduce(identity, +, E, init = zero(eltype(A)))
     @tic mpi_euclidean_distance
-    r = sqrt(MPI.Allreduce(locnorm, MPI.SUM, A.mpicomm))
+    r = sqrt(MPI.Allreduce(locnorm, +, A.mpicomm))
     @toc mpi_euclidean_distance
     return r
 end
