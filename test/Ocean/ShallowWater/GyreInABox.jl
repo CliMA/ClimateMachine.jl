@@ -8,12 +8,12 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.VariableTemplates: flattenednames
-using ClimateMachine.ShallowWater
+using ClimateMachine.Ocean.ShallowWater
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using ClimateMachine.VTK
-import ClimateMachine.ShallowWater:
+import ClimateMachine.Ocean.ShallowWater:
     shallow_init_state!,
     shallow_init_aux!,
     vars_state_conservative,

@@ -24,7 +24,7 @@ using ..BalanceLaws:
     update_auxiliary_state!
 using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
-using ..HydrostaticBoussinesq
+using ..Ocean.HydrostaticBoussinesq
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..Thermodynamics

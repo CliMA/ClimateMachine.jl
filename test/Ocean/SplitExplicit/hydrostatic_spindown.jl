@@ -7,8 +7,8 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.HydrostaticBoussinesq
-using ClimateMachine.ShallowWater
+using ClimateMachine.Ocean.HydrostaticBoussinesq
+using ClimateMachine.Ocean.ShallowWater
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -23,7 +23,7 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 
-import ClimateMachine.ShallowWater: shallow_init_state!, shallow_init_aux!
+import ClimateMachine.Ocean.ShallowWater: shallow_init_state!, shallow_init_aux!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
