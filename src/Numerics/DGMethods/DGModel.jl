@@ -77,29 +77,6 @@ function basic_grid_info(dg::DGModel)
     )
 end
 
-"""
-    (dg::DGModel)(tendency, state_conservative, nothing, t, α, β)
-
-Computes the tendency terms compatible with `IncrementODEProblem`
-
-    tendency .= α .* dQdt(state_conservative, p, t) .+ β .* tendency
-
-The 4-argument form will just compute
-
-    tendency .= dQdt(state_conservative, p, t)
-
-"""
-function (dg::DGModel)(
-    tendency,
-    state_conservative,
-    param,
-    t;
-    increment = false,
-)
-    # TODO deprecate increment argument
-    dg(tendency, state_conservative, param, t, true, increment)
-end
-
 function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
 
 

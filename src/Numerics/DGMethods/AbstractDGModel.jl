@@ -165,3 +165,47 @@ end
         end
     end
 end
+
+"""
+    (dg::AbstractDGModel)(
+        tendency,
+        state_conservative,
+        ::Nothing,
+        param,
+        t;
+        increment = false,
+    )
+
+Wrapper for `dg(tendency, state_conservative, param, t, true, increment)`
+
+This interface for the `AbstractDGModel` functor will be depreciated.
+"""
+function (dg::AbstractDGModel)(
+    tendency,
+    state_conservative,
+    param,
+    t;
+    increment = false,
+)
+    dg(tendency, state_conservative, param, t, true, increment)
+end
+
+"""
+    (dg::AbstractDGModel)(
+        tendency,
+        state_conservative,
+        param,
+        t,
+        α = true,
+        β = false,
+    )
+
+Each `AbstractDGModel` should implement a functor that computes
+
+    tendency .= α .* dQdt(state_conservative, param, t) .+ β .* tendency
+
+When called in 4-argument form it should compute
+
+    tendency .= dQdt(state_conservative, param, t)
+"""
+function (dg::AbstractDGModel) end
