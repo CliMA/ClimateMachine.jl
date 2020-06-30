@@ -116,6 +116,19 @@ end
 
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
+    balance_law = dg.balance_law
+    device = array_device(state_conservative)
+
+    grid = dg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    nrealelem = length(topology.realelems)
+
     device = array_device(state_prognostic)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
@@ -756,7 +769,6 @@ function courant(
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
-<<<<<<< HEAD
 function MPIStateArrays.MPIStateArray(dg::DGModel)
     balance_law = dg.balance_law
     grid = dg.grid
