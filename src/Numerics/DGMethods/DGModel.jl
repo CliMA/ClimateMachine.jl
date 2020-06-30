@@ -100,11 +100,6 @@ The 4-argument form will just compute
     tendency .= dQdt(state_prognostic, p, t)
 
 """
-function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
-    # TODO deprecate increment argument
-    dg(tendency, state_prognostic, param, t, true, increment)
-end
-
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
     balance_law = dg.balance_law
