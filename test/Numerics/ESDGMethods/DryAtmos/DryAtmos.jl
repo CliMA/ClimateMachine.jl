@@ -5,7 +5,8 @@ import ClimateMachine.BalanceLaws:
     vars_state_conservative,
     vars_state_entropy,
     state_to_entropy_variables!,
-    entropy_variables_to_state!
+    entropy_variables_to_state!,
+    init_state_auxiliary!
 using StaticArrays: SVector
 using LinearAlgebra: dot, I
 import ClimateMachine.DGMethods.NumericalFluxes:
@@ -14,11 +15,48 @@ import ClimateMachine.DGMethods.NumericalFluxes:
     numerical_volume_fluctuation_flux_first_order!,
     ave,
     logave
-
-struct DryAtmosModel <: BalanceLaw end
+using ClimateMachine.Orientations:
+    Orientation, FlatOrientation, SphericalOrientation
 
 # Gas constant
 const _γ = 7 // 5
+const _grav = 981 // 1000
+
+struct DryAtmosModel{D, O} <: BalanceLaw
+    orientation::O
+end
+DryAtmosModel{D}(orientation::O) where {D, O <: Orientation} =
+    DryAtmosModel{D, O}(orientation)
+
+"""
+    init_state_auxiliary!(
+        m::DryAtmosModel,
+        aux::Vars,
+        geom::LocalGeometry
+        )
+
+Initialize geopotential for the `DryAtmosModel`.
+"""
+function init_state_auxiliary!(
+    ::DryAtmosModel{dim, FlatOrientation},
+    state_auxiliary,
+    geom,
+) where {dim}
+    FT = eltype(state_auxiliary)
+    grav = FT(_grav)
+    @inbounds r = geom.coord[dim]
+    state_auxiliary.Φ = grav * r
+end
+function init_state_auxiliary!(
+    ::DryAtmosModel{dim, SphericalOrientation},
+    state_auxiliary,
+    geom,
+) where {dim}
+    FT = eltype(state_auxiliary)
+    grav = FT(_grav)
+    r = norm(geom.coord)
+    state_auxiliary.Φ = grav * r
+end
 
 """
     pressure(ρ, ρu, ρe, Φ)
