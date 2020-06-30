@@ -12,7 +12,7 @@ Random.seed!(7)
 include("DryAtmos.jl")
 
 let
-    model = DryAtmosModel()
+    model = DryAtmosModel{3}(FlatOrientation())
     num_state = number_state_conservative(model)
     num_aux = number_state_auxiliary(model)
     num_entropy = number_state_entropy(model)
