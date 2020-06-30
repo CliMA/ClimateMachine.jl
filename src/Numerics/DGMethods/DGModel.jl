@@ -1,7 +1,8 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <: AbstractDGModel
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
+       AbstractDGModel{BL, G, AS}
     balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
@@ -582,76 +583,6 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     wait(device, comp_stream)
 end
 
-function init_ode_state(
-    dg::DGModel,
-    args...;
-    init_on_cpu = false,
-    fill_nan = false,
-)
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
-
-    balance_law = dg.balance_law
-    grid = dg.grid
-
-    state_prognostic =
-        create_state(balance_law, grid, Prognostic(), fill_nan = fill_nan)
-
-    topology = grid.topology
-    Np = dofs_per_element(grid)
-
-    state_auxiliary = dg.state_auxiliary
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-    nrealelem = length(topology.realelems)
-
-    if !init_on_cpu
-        event = Event(device)
-        event = kernel_init_state_prognostic!(device, min(Np, 1024))(
-            balance_law,
-            Val(dim),
-            Val(N),
-            state_prognostic.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            topology.realelems,
-            args...;
-            ndrange = Np * nrealelem,
-            dependencies = (event,),
-        )
-        wait(device, event)
-    else
-        h_state_prognostic = similar(state_prognostic, Array)
-        h_state_auxiliary = similar(state_auxiliary, Array)
-        h_state_auxiliary .= state_auxiliary
-        event = kernel_init_state_prognostic!(CPU(), Np)(
-            balance_law,
-            Val(dim),
-            Val(N),
-            h_state_prognostic.data,
-            h_state_auxiliary.data,
-            Array(grid.vgeo),
-            topology.realelems,
-            args...;
-            ndrange = Np * nrealelem,
-        )
-        wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
-        state_prognostic .= h_state_prognostic
-    end
-
-    event = Event(device)
-    event = MPIStateArrays.begin_ghost_exchange!(
-        state_prognostic;
-        dependencies = event,
-    )
-    event = MPIStateArrays.end_ghost_exchange!(
-        state_prognostic;
-        dependencies = event,
-    )
-    wait(device, event)
-
-    return state_prognostic
-end
-
 function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     bl = dg.balance_law
     grid = dg.grid
@@ -908,11 +839,16 @@ function courant(
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
-function MPIStateArrays.MPIStateArray(dg::DGModel)
-    balance_law = dg.balance_law
-    grid = dg.grid
+function create_hypervisc_indexmap(balance_law::BalanceLaw)
+    # helper function
+    _getvars(v, ::Type) = v
+    function _getvars(v::Vars, ::Type{T}) where {T <: NamedTuple}
+        fields = getproperty.(Ref(v), fieldnames(T))
+        collect(Iterators.Flatten(_getvars.(fields, fieldtypes(T))))
+    end
 
-    state_prognostic = create_state(balance_law, grid, Prognostic())
-
-    return state_prognostic
+    gradvars = vars_state_gradient(balance_law, Int)
+    gradlapvars = vars_gradient_laplacian(balance_law, Int)
+    indices = Vars{gradvars}(1:varsize(gradvars))
+    SVector{varsize(gradlapvars)}(_getvars(indices, gradlapvars))
 end
