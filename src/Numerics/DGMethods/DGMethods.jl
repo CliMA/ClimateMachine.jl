@@ -53,10 +53,15 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export DGModel,
-    init_ode_state, restart_ode_state, restart_auxiliary_state, basic_grid_info
+    init_ode_state,
+    restart_ode_state,
+    restart_auxiliary_state,
+    basic_grid_info,
+    ESDGModel
 
 include("AbstractDGModel.jl")
 include("NumericalFluxes.jl")
+include("ESDGModel.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
 include("create_states.jl")
