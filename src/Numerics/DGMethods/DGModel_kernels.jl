@@ -1773,54 +1773,6 @@ auxiliary gradient flux, and G* is the associated numerical flux.
     end
 end
 
-@kernel function kernel_init_state_prognostic!(
-    balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
-    state,
-    state_auxiliary,
-    vgeo,
-    elems,
-    args...,
-) where {dim, polyorder}
-    N = polyorder
-    FT = eltype(state_auxiliary)
-    num_state_auxiliary = number_states(balance_law, Auxiliary())
-    num_state_prognostic = number_states(balance_law, Prognostic())
-
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Np = Nq * Nq * Nqk
-
-    l_state = MArray{Tuple{num_state_prognostic}, FT}(undef)
-    local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
-    I = @index(Global, Linear)
-    e = (I - 1) ÷ Np + 1
-    n = (I - 1) % Np + 1
-
-    @inbounds begin
-        @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary[s] = state_auxiliary[n, s, e]
-        end
-        @unroll for s in 1:num_state_prognostic
-            l_state[s] = state[n, s, e]
-        end
-        init_state_prognostic!(
-            balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(l_state),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary,
-            ),
-            LocalGeometry{Np, N}(vgeo, n, e),
-            args...,
-        )
-        @unroll for s in 1:num_state_prognostic
-            state[n, s, e] = l_state[s]
-        end
-    end
-end
-
 
 @doc """
     kernel_nodal_init_state_auxiliary!(balance_law::BalanceLaw, Val(polyorder),
