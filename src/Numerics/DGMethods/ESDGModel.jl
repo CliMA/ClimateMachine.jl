@@ -1,5 +1,7 @@
 using .NumericalFluxes: EntropyConservative
 
+include("ESDGModel_kernels.jl")
+
 """
     ESDGModel
 
@@ -111,6 +113,19 @@ function (esdg::ESDGModel)(
 )
     device = array_device(state_conservative)
 
+    balance_law = esdg.balance_law
+
+    grid = esdg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    Nq = N + 1
+
+    nrealelem = length(topology.realelems)
+
+    state_auxiliary = esdg.state_auxiliary
+
     # XXX: When we do stacked meshes and IMEX this will change
     communicate = true
 
@@ -128,7 +143,22 @@ function (esdg::ESDGModel)(
         )
     end
 
-    # XXX: volume tendency
+    # volume tendency
+    comp_stream = esdg_volume_tendency!(device, (Nq, Nq))(
+        balance_law,
+        Val(dim),
+        Val(N),
+        esdg.volume_numerical_flux_first_order,
+        tendency.data,
+        state_conservative.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.D,
+        α,
+        β,
+        ndrange = (nrealelem * Nq, Nq),
+        dependencies = (comp_stream,),
+    )
 
     # XXX: non-mirror surface tendency
 
