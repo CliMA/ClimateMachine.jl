@@ -894,44 +894,6 @@ function courant(
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
-function copy_stack_field_down!(
-    dg::DGModel,
-    m::BalanceLaw,
-    state_auxiliary::MPIStateArray,
-    fldin,
-    fldout,
-    elems = topology.elems,
-)
-    device = array_device(state_auxiliary)
-
-    grid = dg.grid
-    topology = grid.topology
-
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-
-    # do integrals
-    nelem = length(elems)
-    nvertelem = topology.stacksize
-    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
-
-    event = Event(device)
-    event = kernel_copy_stack_field_down!(device, (Nq, Nqk))(
-        Val(dim),
-        Val(N),
-        Val(nvertelem),
-        state_auxiliary.data,
-        horzelems,
-        Val(fldin),
-        Val(fldout);
-        ndrange = (length(horzelems) * Nq, Nqk),
-        dependencies = (event,),
-    )
-    wait(device, event)
-end
-
 function MPIStateArrays.MPIStateArray(dg::DGModel)
     balance_law = dg.balance_law
     grid = dg.grid
