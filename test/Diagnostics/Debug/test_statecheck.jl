@@ -10,6 +10,7 @@ using ClimateMachine
 using ClimateMachine.VariableTemplates
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.StateCheck
+using ClimateMachine.GenericCallbacks
 
 @testset "$(@__FILE__)" begin
 
@@ -57,7 +58,8 @@ using ClimateMachine.StateCheck
     Q2.data = rand(MersenneTwister(0), Float64, size(Q2.data))
     Q1.realdata .= Q1.data
     Q2.realdata .= Q2.data
-    cb()
+    GenericCallbacks.init!(cb, nothing, nothing, nothing, nothing)
+    GenericCallbacks.call!(cb, nothing, nothing, nothing, nothing)
 
     # ### Check with reference values
     include("test_statecheck_refvals.jl")

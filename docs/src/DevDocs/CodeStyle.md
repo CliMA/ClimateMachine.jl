@@ -12,8 +12,7 @@ For the most part, we follow the
   necessary to improve readability.
 
 - Variable names follow the format used in the [ClimateMachine Variable List](@ref).
-  In addition, follow [CMIP conventions](http://clipc-services.ceda.ac.uk/dreq/)
-  where possible and practicable.
+  In addition, follow CMIP conventions where possible and practicable.
 
 - Document design and purpose rather than mechanics and implementation
   (document interfaces and embed documentation in code).

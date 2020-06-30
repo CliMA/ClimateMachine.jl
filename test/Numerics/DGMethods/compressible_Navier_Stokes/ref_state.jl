@@ -9,6 +9,7 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics

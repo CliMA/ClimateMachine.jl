@@ -37,6 +37,11 @@ fast and slow dynamics respectively, depending on the state `Q`.
 - `nsubsteps` (Int): Integer denoting the total number of times
     to substep the fast process.
     Default: `50`
+- `discrete_splitting` (Boolean): Boolean denoting whether a PDE level or
+    discretized level splitting should be used. If `true` then the PDE is
+    discretized in such a way that `f_fast + f_slow` is equivalent to
+    discretizing the original PDE directly.
+    Default: `false`
 
 ### References
     @article{KnothWensch2014,
@@ -61,6 +66,8 @@ struct MISSolverType{DS} <: AbstractSolverType
     fast_method::Function
     # Substepping parameter for the fast processes
     nsubsteps::Int
+    # Whether to use a PDE level or discrete splitting
+    discrete_splitting::Bool
 
     function MISSolverType(;
         splitting_type = SlowFastSplitting(),
@@ -68,6 +75,7 @@ struct MISSolverType{DS} <: AbstractSolverType
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
         nsubsteps = 50,
+        discrete_splitting = false,
     )
 
         DS = typeof(splitting_type)
@@ -78,6 +86,7 @@ struct MISSolverType{DS} <: AbstractSolverType
             mis_method,
             fast_method,
             nsubsteps,
+            discrete_splitting,
         )
     end
 end
@@ -137,20 +146,17 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    slow_model = RemainderModel(dg.balance_law, (fast_model,))
-    slow_dg = DGModel(
-        slow_model,
-        dg.grid,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        dg.numerical_flux_gradient,
-        state_auxiliary = dg.state_auxiliary,
-        state_gradient_flux = dg.state_gradient_flux,
-        states_higher_order = dg.states_higher_order,
-        # Ensure diffusion direction is passed to the correct
-        # DG model
-        diffusion_direction = diffusion_direction,
+    remainder_kwargs = (
+        numerical_flux_first_order = (
+            ode_solver.discrete_splitting ?
+                    (
+                dg.numerical_flux_first_order,
+                (dg.numerical_flux_first_order,),
+            ) :
+                    dg.numerical_flux_first_order
+        ),
     )
+    slow_dg = remainder_DGModel(dg, (fast_dg,); remainder_kwargs...)
 
     solver = ode_solver.mis_method(
         slow_dg,

@@ -14,6 +14,7 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     diffusion_direction::DD
     modeldata::MD
 end
+
 function DGModel(
     balance_law,
     grid,
@@ -42,13 +43,34 @@ function DGModel(
     )
 end
 
+# Include the remainder model for composing DG models and balance laws
+include("remainder.jl")
+
+"""
+    (dg::DGModel)(tendency, state_conservative, nothing, t, α, β)
+
+Computes the tendency terms compatible with `IncrementODEProblem`
+
+    tendency .= α .* dQdt(state_conservative, p, t) .+ β .* tendency
+
+The 4-argument form will just compute
+
+    tendency .= dQdt(state_conservative, p, t) 
+
+"""
 function (dg::DGModel)(
     tendency,
     state_conservative,
-    ::Nothing,
+    param,
     t;
     increment = false,
 )
+    # TODO deprecate increment argument
+    dg(tendency, state_conservative, param, t, true, increment)
+end
+
+function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
+
 
     balance_law = dg.balance_law
     device = array_device(state_conservative)
@@ -83,8 +105,10 @@ function (dg::DGModel)(
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
     ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
 
-    if !increment && num_state_conservative < num_state_tendency
-        tendency .= -zero(FT)
+    if num_state_conservative < num_state_tendency && β != 1
+        # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
+        tendency .*= β
+        β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!  
     end
 
     communicate =
@@ -408,7 +432,8 @@ function (dg::DGModel)(
         grid.ω,
         grid.D,
         topology.realelems,
-        increment;
+        α,
+        β;
         ndrange = (nrealelem * Nq, Nq),
         dependencies = (comp_stream,),
     )
@@ -431,7 +456,8 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.interiorelems;
+        grid.interiorelems,
+        α;
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
@@ -502,7 +528,8 @@ function (dg::DGModel)(
         grid.vmap⁻,
         grid.vmap⁺,
         grid.elemtobndy,
-        grid.exteriorelems;
+        grid.exteriorelems,
+        α;
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,
@@ -519,7 +546,7 @@ function (dg::DGModel)(
 end
 
 function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid
@@ -589,7 +616,7 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     state = create_conservative_state(bl, grid)
     state .= state_data
 
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
     event = Event(device)
     event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
     event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)
@@ -605,22 +632,16 @@ function restart_auxiliary_state(bl, grid, aux_data)
 end
 
 # fallback
-function update_auxiliary_state!(
-    dg::DGModel,
-    balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
+function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
     return false
 end
 
 function update_auxiliary_state_gradient!(
     dg::DGModel,
-    balance_law::BalanceLaw,
-    state_conservative::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
+    balance_law,
+    state_conservative,
+    t,
+    elems,
 )
     return false
 end
@@ -709,6 +730,7 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
+# TODO: Move to BalanceLaws
 function nodal_update_auxiliary_state!(
     f!,
     dg::DGModel,

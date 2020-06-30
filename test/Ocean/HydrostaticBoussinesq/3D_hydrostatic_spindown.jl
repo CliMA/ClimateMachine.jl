@@ -8,7 +8,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.HydrostaticBoussinesq
+using ClimateMachine.Ocean.HydrostaticBoussinesq
 
 using Test
 
@@ -137,7 +137,7 @@ end
 
 @testset "$(@__FILE__)" begin
 
-    include("refvals/hydrostatic_spindown_refvals.jl")
+    include("../refvals/3D_hydrostatic_spindown_refvals.jl")
 
     run_hydrostatic_test(imex = false, refDat = refVals.explicit) # error = 0.0011289879366523504
     run_hydrostatic_test(imex = true, refDat = refVals.imex)  # error = 0.0033063071773607243

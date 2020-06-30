@@ -10,6 +10,7 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
@@ -19,6 +20,7 @@ using ClimateMachine.Thermodynamics
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Writers
+using ClimateMachine.GenericCallbacks
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, MSLP
@@ -153,8 +155,20 @@ function main()
     currtime = ODESolvers.gettime(solver)
     starttime = replace(string(now()), ":" => ".")
     Diagnostics.init(mpicomm, param_set, dg, Q, starttime, outdir)
-    dgn_config.groups[1](currtime, init = true)
-    dgn_config.groups[1](currtime)
+    GenericCallbacks.init!(
+        dgn_config.groups[1],
+        nothing,
+        nothing,
+        nothing,
+        currtime,
+    )
+    GenericCallbacks.call!(
+        dgn_config.groups[1],
+        nothing,
+        nothing,
+        nothing,
+        currtime,
+    )
 
     ClimateMachine.invoke!(solver_config)
 

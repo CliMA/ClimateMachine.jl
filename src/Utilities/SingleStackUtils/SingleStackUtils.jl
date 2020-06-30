@@ -1,12 +1,17 @@
 module SingleStackUtils
 
-export get_vars_from_nodal_stack, get_vars_from_element_stack
-export get_horizontal_variance, get_horizontal_mean
+export get_vars_from_nodal_stack,
+    get_vars_from_element_stack,
+    get_horizontal_variance,
+    get_horizontal_mean,
+    reduce_nodal_stack,
+    reduce_element_stack
 
 using OrderedCollections
 using StaticArrays
 import KernelAbstractions: CPU
 
+using ..BalanceLaws
 using ..DGMethods
 using ..DGMethods.Grids
 using ..MPIStateArrays
@@ -46,8 +51,7 @@ function get_vars_from_nodal_stack(
     FT = eltype(Q)
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
-    nvertelem = grid.topology.stacksize
-    host_Q = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
+    state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
 
     # set up the dictionary to be returned
     var_names = flattenednames(vars)
@@ -61,12 +65,12 @@ function get_vars_from_nodal_stack(
         end
     end
 
-    # extract values from `host_Q`
+    # extract values from `state_data`
     for ev in vrange
         for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             for v in vars_wanted
-                push!(stack_vals[var_names[v]], host_Q[ijk, v, ev])
+                push!(stack_vals[var_names[v]], state_data[ijk, v, ev])
             end
         end
     end
@@ -202,6 +206,95 @@ function get_horizontal_variance(
     map!(x -> x ./ Nq / Nq, values(vars_sq))
     vars_var = merge(-, vars_sq, vars_avg)
     return vars_var
+end
+
+"""
+    reduce_nodal_stack(
+        op::Function,
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        Q::MPIStateArray,
+        vars::NamedTuple,
+        var::String;
+        vrange::UnitRange = 1:size(Q, 3),
+    ) where {T, dim, N}
+
+Reduce `var` from `vars` within `Q` over all nodal points in the specified
+`vrange` of elements with `op`. Return a tuple `(result, z)` where `result` is
+the final value returned by `op` and `z` is the index within `vrange` where the
+`result` was determined.
+"""
+function reduce_nodal_stack(
+    op::Function,
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    Q::MPIStateArray,
+    vars::Type,
+    var::String;
+    vrange::UnitRange = 1:size(Q, 3),
+    i::Int = 1,
+    j::Int = 1,
+) where {T, dim, N}
+    Nq = N + 1
+    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+
+    var_names = flattenednames(vars)
+    var_ind = findfirst(s -> s == var, var_names)
+    if var_ind === nothing
+        return
+    end
+
+    state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
+    z = vrange.start
+    result = state_data[1, var_ind, z]
+    for ev in vrange
+        for k in 1:Nqk
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            new_result = op(result, state_data[ijk, var_ind, ev])
+            if !isequal(new_result, result)
+                result = new_result
+                z = ev
+            end
+        end
+    end
+
+    return (result, z)
+end
+
+"""
+    reduce_element_stack(
+        op::Function,
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        Q::MPIStateArray,
+        vars::NamedTuple,
+        var::String;
+        vrange::UnitRange = 1:size(Q, 3),
+    ) where {T, dim, N}
+
+Reduce `var` from `vars` within `Q` over all nodal points in the specified
+`vrange` of elements with `op`. Return a tuple `(result, z)` where `result` is
+the final value returned by `op` and `z` is the index within `vrange` where the
+`result` was determined.
+"""
+function reduce_element_stack(
+    op::Function,
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    Q::MPIStateArray,
+    vars::Type,
+    var::String;
+    vrange::UnitRange = 1:size(Q, 3),
+) where {T, dim, N}
+    Nq = N + 1
+    return [
+        reduce_nodal_stack(
+            op,
+            grid,
+            Q,
+            vars,
+            var,
+            vrange = vrange,
+            i = i,
+            j = j,
+        ) for i in 1:Nq, j in 1:Nq
+    ]
 end
 
 end # module

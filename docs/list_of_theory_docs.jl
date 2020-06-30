@@ -4,12 +4,13 @@
 
 theory_docs = Any[
     "Common" => Any["SurfaceFluxes" => "Theory/Common/SurfaceFluxes.md",
-                    "Surface Flux Equations" => "Theory/Common/SurfaceFluxEquations.md"],
+                    "Surface Flux Equations" => "Theory/Common/SurfaceFluxEquations.md",
+                    "Turbulence Closures" => "Theory/Common/Turbulence.md",
+    ],
     "Atmos" => Any[
         "AtmosModel" => "Theory/Atmos/AtmosModel.md",
         "Microphysics" => "Theory/Atmos/Microphysics.md",
         "EDMF equations" => "Theory/Atmos/EDMFEquations.md",
-        "Turbulence" => "Theory/Atmos/Model/turbulence.md",
         "Tracers" => "Theory/Atmos/Model/tracers.md",
     ],
 ]

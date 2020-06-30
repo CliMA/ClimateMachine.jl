@@ -1,37 +1,38 @@
 module ShallowWater
 
-export SWModel, SWProblem
+export ShallowWaterModel, ShallowWaterProblem
 
 using StaticArrays
-using ..VariableTemplates
-using LinearAlgebra: I, dot
+using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
-import ClimateMachine.DGMethods:
-    BalanceLaw,
-    vars_state_auxiliary,
+using ...VariableTemplates
+using ...Mesh.Geometry
+using ...DGMethods
+using ...DGMethods.NumericalFluxes
+using ...BalanceLaws
+
+import ...DGMethods.NumericalFluxes: update_penalty!
+import ...BalanceLaws:
     vars_state_conservative,
+    vars_state_auxiliary,
     vars_state_gradient,
     vars_state_gradient_flux,
-    vars_integrals,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
     flux_first_order!,
     flux_second_order!,
     source!,
     wavespeed,
-    boundary_state!,
-    compute_gradient_argument!,
-    init_state_auxiliary!,
-    init_state_conservative!,
-    LocalGeometry,
-    compute_gradient_flux!
-
-using ..DGMethods.NumericalFluxes
+    boundary_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 ⊗(a::SVector, b::SVector) = a * b'
 
-abstract type SWProblem end
+abstract type ShallowWaterProblem end
 
 abstract type TurbulenceClosure end
 struct LinearDrag{L} <: TurbulenceClosure
@@ -44,7 +45,7 @@ end
 abstract type AdvectionTerm end
 struct NonLinearAdvection <: AdvectionTerm end
 
-struct SWModel{PS, P, T, A, S} <: BalanceLaw
+struct ShallowWaterModel{PS, P, T, A, S} <: BalanceLaw
     param_set::PS
     problem::P
     turbulence::T
@@ -52,29 +53,31 @@ struct SWModel{PS, P, T, A, S} <: BalanceLaw
     c::S
 end
 
+SWModel = ShallowWaterModel
+
 function vars_state_conservative(m::SWModel, T)
     @vars begin
-        U::SVector{3, T}
         η::T
+        U::SVector{2, T}
     end
 end
 
 function vars_state_auxiliary(m::SWModel, T)
     @vars begin
-        f::SVector{3, T}
-        τ::SVector{3, T}  # value includes τₒ, g, and ρ
+        f::T
+        τ::SVector{2, T}  # value includes τₒ, g, and ρ
     end
 end
 
 function vars_state_gradient(m::SWModel, T)
     @vars begin
-        U::SVector{3, T}
+        ∇U::SVector{2, T}
     end
 end
 
 function vars_state_gradient_flux(m::SWModel, T)
     @vars begin
-        ν∇U::SMatrix{3, 3, T, 9}
+        ν∇U::SMatrix{3, 2, T, 6}
     end
 end
 
@@ -84,15 +87,19 @@ end
     q::Vars,
     α::Vars,
     t::Real,
+    direction,
 )
-    FT = eltype(q)
-    _grav::FT = grav(m.param_set)
-    U = q.U
+    U = @SVector [q.U[1], q.U[2], -0]
     η = q.η
     H = m.problem.H
+    Iʰ = @SMatrix [
+        1 -0
+        -0 1
+        -0 -0
+    ]
 
     F.η += U
-    F.U += _grav * H * η * I
+    F.U += grav(m.param_set) * H * η * Iʰ
 
     advective_flux!(m, m.advection, F, q, α, t)
 
@@ -111,8 +118,9 @@ advective_flux!(::SWModel, ::Nothing, _...) = nothing
 )
     U = q.U
     H = m.problem.H
+    V = @SVector [U[1], U[2], -0]
 
-    F.U += 1 / H * U ⊗ U
+    F.U += 1 / H * V ⊗ U
 
     return nothing
 end
@@ -162,10 +170,10 @@ compute_gradient_flux!(::LinearDrag, _...) = nothing
     α::Vars,
     t::Real,
 )
-    ν = T.ν
+    ν = Diagonal(@SVector [T.ν, T.ν, -0])
     ∇U = δ.∇U
 
-    σ.ν∇U = ν * ∇U
+    σ.ν∇U = -ν * ∇U
 
     return nothing
 end
@@ -192,12 +200,12 @@ flux_second_order!(::LinearDrag, _...) = nothing
     α::Vars,
     t::Real,
 )
-    G.U -= σ.ν∇U
+    G.U += σ.ν∇U
 
     return nothing
 end
 
-@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real) = m.c
+@inline wavespeed(m::SWModel, n⁻, q::Vars, α::Vars, t::Real, direction) = m.c
 
 @inline function source!(
     m::SWModel{P},
@@ -208,10 +216,11 @@ end
     t::Real,
     direction,
 ) where {P}
-    τ = α.τ
+    S.U += α.τ
+
     f = α.f
-    U = q.U
-    S.U += τ - f × U
+    U, V = q.U
+    S.U -= @SVector [-f * V, f * U]
 
     linear_drag!(m.turbulence, S, q, α, t)
 
@@ -236,50 +245,40 @@ end
 
 function shallow_init_state! end
 function init_state_conservative!(m::SWModel, state::Vars, aux::Vars, coords, t)
-    shallow_init_state!(m.problem, m.turbulence, state, aux, coords, t)
+    shallow_init_state!(m, m.problem, state, aux, coords, t)
 end
 
 function boundary_state!(
     nf,
     m::SWModel,
-    state⁺::Vars,
-    aux⁺::Vars,
+    q⁺::Vars,
+    a⁺::Vars,
     n⁻,
-    state⁻::Vars,
-    aux⁻::Vars,
+    q⁻::Vars,
+    a⁻::Vars,
     bctype,
     t,
     _...,
 )
-    shallow_boundary_state!(
-        nf,
-        m,
-        m.turbulence,
-        state⁺,
-        aux⁺,
-        n⁻,
-        state⁻,
-        aux⁻,
-        t,
-    )
+    shallow_boundary_state!(nf, m, m.turbulence, q⁺, a⁺, n⁻, q⁻, a⁻, t)
 end
 
 @inline function shallow_boundary_state!(
     ::RusanovNumericalFlux,
     m::SWModel,
     ::LinearDrag,
-    state⁺,
-    aux⁺,
+    q⁺,
+    a⁺,
     n⁻,
-    state⁻,
-    aux⁻,
+    q⁻,
+    a⁻,
     t,
 )
-    U⁻ = state⁻.U
-    n⁻ = SVector(n⁻)
+    q⁺.η = q⁻.η
 
-    state⁺.η = state⁻.η
-    state⁺.U = U⁻ - 2 * (n⁻ ⋅ U⁻) * n⁻
+    V⁻ = @SVector [q⁻.U[1], q⁻.U[2], -0]
+    V⁺ = V⁻ - 2 * n⁻ ⋅ V⁻ .* SVector(n⁻)
+    q⁺.U = @SVector [V⁺[1], V⁺[2]]
 
     return nothing
 end
@@ -343,7 +342,8 @@ end
     α⁻,
     t,
 )
-    q⁺.U = 0
+    FT = eltype(q⁺)
+    q⁺.U = @SVector zeros(FT, 3)
 
     return nothing
 end

@@ -15,6 +15,7 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
 

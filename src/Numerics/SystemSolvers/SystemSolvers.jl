@@ -7,11 +7,11 @@ using ..Mesh.Grids
 import ..Mesh.Grids: polynomialorder, dimensionality
 using ..Mesh.Topologies
 using ..DGMethods
-using ..DGMethods:
-    BalanceLaw, DGModel, number_state_conservative, number_state_gradient_flux
+using ..DGMethods: DGModel
+using ..BalanceLaws:
+    BalanceLaw, number_state_conservative, number_state_gradient_flux
 
 using Adapt
-using CuArrays
 using LinearAlgebra
 using LazyArrays
 using StaticArrays

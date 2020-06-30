@@ -8,12 +8,12 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.VariableTemplates: flattenednames
-using ClimateMachine.ShallowWater
+using ClimateMachine.Ocean.ShallowWater
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using ClimateMachine.VTK
-import ClimateMachine.ShallowWater:
+import ClimateMachine.Ocean.ShallowWater:
     shallow_init_state!,
     shallow_init_aux!,
     vars_state_conservative,
@@ -30,7 +30,7 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-struct GyreInABox{T} <: SWProblem
+struct GyreInABox{T} <: ShallowWaterProblem
     τₒ::T
     fₒ::T # value includes τₒ, g, and ρ
     β::T
@@ -48,7 +48,7 @@ function null_init_state!(
     t,
 )
     T = eltype(state.U)
-    state.U = @SVector zeros(T, 3)
+    state.U = @SVector zeros(T, 2)
     state.η = 0
     return nothing
 end
@@ -58,8 +58,8 @@ u_lsw(x, y, t) = 2^(-0.5) * sin(π * x) * cos(π * y) * sin(√2 * π * t)
 v_lsw(x, y, t) = 2^(-0.5) * cos(π * x) * sin(π * y) * sin(√2 * π * t)
 
 function lsw_init_state!(
+    m::ShallowWaterModel,
     p::GyreInABox,
-    ::TurbulenceClosure,
     state,
     aux,
     coords,
@@ -68,7 +68,6 @@ function lsw_init_state!(
     state.U = @SVector [
         u_lsw(coords[1], coords[2], t),
         v_lsw(coords[1], coords[2], t),
-        0,
     ]
 
     state.η = η_lsw(coords[1], coords[2], t)
@@ -81,8 +80,8 @@ u_lkw(x, y, t) = exp(-0.5 * y^2) * exp(-0.5 * (x - t + 5)^2)
 η_lkw(x, y, t) = 1 + u_lkw(x, y, t)
 
 function lkw_init_state!(
+    m::ShallowWaterModel,
     p::GyreInABox,
-    ::TurbulenceClosure,
     state,
     aux,
     coords,
@@ -91,7 +90,6 @@ function lkw_init_state!(
     state.U = @SVector [
         u_lkw(coords[1], coords[2], t),
         v_lkw(coords[1], coords[2], t),
-        0,
     ]
 
     state.η = η_lkw(coords[1], coords[2], t)
@@ -150,7 +148,7 @@ function gyre_init_state!(p::GyreInABox, T::LinearDrag, state, aux, coords, t)
     v = uˢ(ϵ) * 𝒱(coords[1] / Lˣ, coords[2] / Lʸ, ϵ)
     h = hˢ(ϵ) * ℋ(coords[1] / Lˣ, coords[2] / Lʸ, ϵ, βᵖ, fₒ, γ)
 
-    state.U = @SVector [H * u, H * v, 0]
+    state.U = @SVector [H * u, H * v]
 
     state.η = h
 
@@ -188,7 +186,7 @@ function gyre_init_state!(
     C = τₒ / (_grav * H) * (fₒ / β)
 
     state.η = η_munk(coords[1], coords[2], Lˣ, Lʸ, δᵐ, C)
-    state.U = @SVector zeros(T, 3)
+    state.U = @SVector zeros(T, 2)
 
     return nothing
 end

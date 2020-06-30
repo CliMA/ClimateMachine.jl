@@ -31,6 +31,7 @@ using Printf
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
@@ -39,6 +40,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Thermodynamics:
     TemperatureSHumEquil_given_pressure, internal_energy
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
@@ -218,16 +220,15 @@ function main()
             )
             dgn_config = config_diagnostics(driver_config)
             ## User defined callbacks (TMAR positivity preserving filter)
-            cbtmarfilter =
-                GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-                    Filters.apply!(
-                        solver_config.Q,
-                        ("moisture.ρq_tot",),
-                        solver_config.dg.grid,
-                        TMARFilter(),
-                    )
-                    nothing
-                end
+            cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+                Filters.apply!(
+                    solver_config.Q,
+                    ("moisture.ρq_tot",),
+                    solver_config.dg.grid,
+                    TMARFilter(),
+                )
+                nothing
+            end
             result = ClimateMachine.invoke!(
                 solver_config;
                 diagnostics_config = dgn_config,

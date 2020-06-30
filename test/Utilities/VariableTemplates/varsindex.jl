@@ -2,12 +2,12 @@ using Test, StaticArrays
 using ClimateMachine.VariableTemplates: varsindex, @vars, varsindices
 using StaticArrays
 
-struct MoistureModel{FT} end
-struct AtmosModel{FT}
-    moisture::MoistureModel{FT}
+struct TestMoistureModel{FT} end
+struct TestAtmosModel{FT}
+    moisture::TestMoistureModel{FT}
 end
 
-function vars_state(::MoistureModel, FT)
+function vars_state(::TestMoistureModel, FT)
     @vars begin
         ρq_tot::FT
         ρq_x::SVector{5, FT}
@@ -15,7 +15,7 @@ function vars_state(::MoistureModel, FT)
         ρq_vap::FT
     end
 end
-function vars_state(m::AtmosModel, FT)
+function vars_state(m::TestAtmosModel, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -25,7 +25,7 @@ function vars_state(m::AtmosModel, FT)
 end
 @testset "Varsindex" begin
     FT = Float64
-    m = AtmosModel(MoistureModel{FT}())
+    m = TestAtmosModel(TestMoistureModel{FT}())
 
     @test 1:1 === varsindex(vars_state(m, FT), :ρ)
     @test 2:4 === varsindex(vars_state(m, FT), :ρu)

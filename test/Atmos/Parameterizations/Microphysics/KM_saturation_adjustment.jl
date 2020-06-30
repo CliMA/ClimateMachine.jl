@@ -13,6 +13,7 @@ function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
+        x::FT
         z::FT
         # defined in update_aux
         u::FT
@@ -37,34 +38,35 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     _grav::FT = grav(param_set)
 
     dc = eddy_model.data_config
+    @inbounds begin
+        # density
+        q_pt_0 = PhasePartition(dc.qt_0)
+        R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
+        T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
+        ρ::FT = aux.p / R_m / T
+        state.ρ = ρ
 
-    # density
-    q_pt_0 = PhasePartition(dc.qt_0)
-    R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
-    T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
-    ρ::FT = aux.p / R_m / T
-    state.ρ = ρ
+        # moisture
+        state.ρq_tot = ρ * dc.qt_0
 
-    # moisture
-    state.ρq_tot = ρ * dc.qt_0
+        # velocity (derivative of streamfunction)
+        ρu::FT =
+            dc.wmax * dc.xmax / dc.zmax *
+            cos(FT(π) * z / dc.zmax) *
+            cos(2 * FT(π) * x / dc.xmax)
+        ρw::FT =
+            2 * dc.wmax * sin(FT(π) * z / dc.zmax) * sin(2 * π * x / dc.xmax)
+        state.ρu = SVector(ρu, FT(0), ρw)
+        u::FT = ρu / ρ
+        w::FT = ρw / ρ
 
-    # velocity (derivative of streamfunction)
-    ρu::FT =
-        dc.wmax * dc.xmax / dc.zmax *
-        cos(π * z / dc.zmax) *
-        cos(2 * π * x / dc.xmax)
-    ρw::FT = 2 * dc.wmax * sin(π * z / dc.zmax) * sin(2 * π * x / dc.xmax)
-    state.ρu = SVector(ρu, FT(0), ρw)
-    u::FT = ρu / ρ
-    w::FT = ρw / ρ
-
-    # energy
-    e_kin::FT = 1 // 2 * (u^2 + w^2)
-    e_pot::FT = _grav * z
-    e_int::FT = internal_energy(param_set, T, q_pt_0)
-    e_tot::FT = e_kin + e_pot + e_int
-    state.ρe = ρ * e_tot
-
+        # energy
+        e_kin::FT = 1 // 2 * (u^2 + w^2)
+        e_pot::FT = _grav * z
+        e_int::FT = internal_energy(param_set, T, q_pt_0)
+        e_tot::FT = e_kin + e_pot + e_int
+        state.ρe = ρ * e_tot
+    end
     return nothing
 end
 
@@ -76,29 +78,30 @@ function kinematic_model_nodal_update_auxiliary_state!(
 )
     FT = eltype(state)
     _grav::FT = grav(param_set)
+    @inbounds begin
+        aux.u = state.ρu[1] / state.ρ
+        aux.w = state.ρu[3] / state.ρ
 
-    aux.u = state.ρu[1] / state.ρ
-    aux.w = state.ρu[3] / state.ρ
+        aux.q_tot = state.ρq_tot / state.ρ
 
-    aux.q_tot = state.ρq_tot / state.ρ
+        aux.e_tot = state.ρe / state.ρ
+        aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
+        aux.e_pot = _grav * aux.z
+        aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
-    aux.e_tot = state.ρe / state.ρ
-    aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-    aux.e_pot = _grav * aux.z
-    aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
+        # saturation adjustment happens here
+        ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
+        pp = PhasePartition(ts)
 
-    # saturation adjustment happens here
-    ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
-    pp = PhasePartition(ts)
+        aux.T = ts.T
+        aux.q_vap = aux.q_tot - pp.liq - pp.ice
+        aux.q_liq = pp.liq
+        aux.q_ice = pp.ice
 
-    aux.T = ts.T
-    aux.q_vap = aux.q_tot - pp.liq - pp.ice
-    aux.q_liq = pp.liq
-    aux.q_ice = pp.ice
-
-    # TODO: add super_saturation method in moist thermo
-    aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
-    aux.RH = relative_humidity(ts)
+        # TODO: add super_saturation method in moist thermo
+        aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
+        aux.RH = relative_humidity(ts) * FT(100)
+    end
 end
 
 function boundary_state!(
@@ -120,8 +123,9 @@ function boundary_state!(
     state::Vars,
     aux::Vars,
     t::Real,
+    _...,
 )
-    u = state.ρu / state.ρ
+    @inbounds u = state.ρu / state.ρ
     return abs(dot(nM, u))
 end
 
@@ -131,22 +135,24 @@ end
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
-
-    # advect moisture ...
-    flux.ρq_tot = SVector(
-        state.ρu[1] * state.ρq_tot / state.ρ,
-        FT(0),
-        state.ρu[3] * state.ρq_tot / state.ρ,
-    )
-    # ... energy ...
-    flux.ρe = SVector(
-        state.ρu[1] / state.ρ * (state.ρe + aux.p),
-        FT(0),
-        state.ρu[3] / state.ρ * (state.ρe + aux.p),
-    )
-    # ... and don't advect momentum (kinematic setup)
+    @inbounds begin
+        # advect moisture ...
+        flux.ρq_tot = SVector(
+            state.ρu[1] * state.ρq_tot / state.ρ,
+            FT(0),
+            state.ρu[3] * state.ρq_tot / state.ρ,
+        )
+        # ... energy ...
+        flux.ρe = SVector(
+            state.ρu[1] / state.ρ * (state.ρe + aux.p),
+            FT(0),
+            state.ρu[3] / state.ρ * (state.ρe + aux.p),
+        )
+        # ... and don't advect momentum (kinematic setup)
+    end
 end
 
 source!(::KinematicModel, _...) = nothing
@@ -179,6 +185,17 @@ function main()
     dt = 40
     output_freq = 9
 
+    # periodicity and boundary numbers
+    periodicity_x = true
+    periodicity_y = true
+    periodicity_z = false
+    idx_bc_left = 0
+    idx_bc_right = 0
+    idx_bc_front = 0
+    idx_bc_back = 0
+    idx_bc_bottom = 1
+    idx_bc_top = 2
+
     driver_config = config_kinematic_eddy(
         FT,
         N,
@@ -192,6 +209,15 @@ function main()
         p_1000,
         qt_0,
         z_0,
+        periodicity_x,
+        periodicity_y,
+        periodicity_z,
+        idx_bc_left,
+        idx_bc_right,
+        idx_bc_front,
+        idx_bc_back,
+        idx_bc_bottom,
+        idx_bc_top,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t_ini,
@@ -215,26 +241,25 @@ function main()
 
     model = driver_config.bl
     step = [0]
-    cbvtk =
-        GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
-            out_dirname = @sprintf(
-                "new_ex_1_mpirank%04d_step%04d",
-                MPI.Comm_rank(mpicomm),
-                step[1]
-            )
-            out_path_prefix = joinpath(vtkdir, out_dirname)
-            @info "doing VTK output" out_path_prefix
-            writevtk(
-                out_path_prefix,
-                solver_config.Q,
-                solver_config.dg,
-                flattenednames(vars_state_conservative(model, FT)),
-                solver_config.dg.state_auxiliary,
-                flattenednames(vars_state_auxiliary(model, FT)),
-            )
-            step[1] += 1
-            nothing
-        end
+    cbvtk = GenericCallbacks.EveryXSimulationSteps(output_freq) do
+        out_dirname = @sprintf(
+            "new_ex_1_mpirank%04d_step%04d",
+            MPI.Comm_rank(mpicomm),
+            step[1]
+        )
+        out_path_prefix = joinpath(vtkdir, out_dirname)
+        @info "doing VTK output" out_path_prefix
+        writevtk(
+            out_path_prefix,
+            solver_config.Q,
+            solver_config.dg,
+            flattenednames(vars_state_conservative(model, FT)),
+            solver_config.dg.state_auxiliary,
+            flattenednames(vars_state_auxiliary(model, FT)),
+        )
+        step[1] += 1
+        nothing
+    end
 
     # get aux variables indices for testing
     q_tot_ind = varsindex(vars_state_auxiliary(model, FT), :q_tot)
@@ -273,8 +298,8 @@ function main()
     @test isequal(max_q_ice, FT(0))
 
     # q_liq ∈ reference range
-    max_q_liq = max(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
-    min_q_liq = min(solver_config.dg.state_auxiliary[:, q_liq_ind, :]...)
+    max_q_liq = maximum(solver_config.dg.state_auxiliary[:, q_liq_ind, :])
+    min_q_liq = minimum(solver_config.dg.state_auxiliary[:, q_liq_ind, :])
     @test max_q_liq < FT(1e-3)
     @test isequal(min_q_liq, FT(0))
 end

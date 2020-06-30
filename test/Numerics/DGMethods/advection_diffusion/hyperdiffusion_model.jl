@@ -1,7 +1,7 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -15,10 +15,11 @@ import ClimateMachine.DGMethods:
     init_state_conservative!,
     boundary_state!,
     wavespeed,
-    LocalGeometry,
     vars_gradient_laplacian,
     vars_hyperdiffusive,
     transform_post_gradient_laplacian!
+
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
@@ -46,13 +47,7 @@ vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_hyperdiffusive(::HyperDiffusion, FT) = @vars(σ::SVector{3, FT})
 
-function flux_first_order!(
-    m::HyperDiffusion,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
+function flux_first_order!(m::HyperDiffusion, _...) end
 
 """
     flux_second_order!(m::HyperDiffusion, flux::Grad, state::Vars,

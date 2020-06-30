@@ -1,5 +1,6 @@
 module MPIStateArrays
 
+using CUDA
 using DoubleFloats
 using KernelAbstractions
 using LazyArrays
@@ -17,7 +18,6 @@ using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     similar(Array{FT}, dims...)
 
-using CuArrays
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
     similar(CuArray{FT}, dims...)
 
@@ -116,8 +116,10 @@ mutable struct MPIStateArray{
                 copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
         end
         if typeof(weights).name != typeof(data).name
-            weights =
-                copyto!(similar(DA, eltype(weights), size(weights)), weights)
+            weights = copyto!(
+                similar(DA, eltype(weights), size(weights)),
+                Array(weights),
+            )
         end
 
         DAI1 = typeof(vmaprecv)
@@ -737,7 +739,7 @@ end
 
 # helpers: `array_device` and `realview`
 array_device(::Union{Array, SArray, MArray}) = CPU()
-array_device(::CuArray) = CUDA()
+array_device(::CuArray) = CUDADevice()
 array_device(s::SubArray) = array_device(parent(s))
 array_device(Q::MPIStateArray) = array_device(Q.data)
 
@@ -751,7 +753,7 @@ function transform_broadcasted(bc::Broadcasted, ::CuArray)
     transform_cuarray(bc)
 end
 function transform_cuarray(bc::Broadcasted)
-    Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
+    Broadcasted(CUDA.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
 end
 transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
 transform_cuarray(x) = x

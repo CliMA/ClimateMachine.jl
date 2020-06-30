@@ -3,6 +3,7 @@ using ClimateMachine
 ClimateMachine.cli()
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.DGMethods.NumericalFluxes
@@ -10,6 +11,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -154,7 +156,7 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
             ("moisture.ρq_tot",),

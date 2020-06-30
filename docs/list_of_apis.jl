@@ -12,11 +12,18 @@ apis = [
     ],
     "Ocean" =>
         ["Hydrostatic Boussinesq" => "APIs/Ocean/HydrostaticBoussinesq.md"],
-    "Land" => [],
+    "Land" => [
+        "Land Model" => "APIs/Land/LandModel.md",
+        "Soil Water Parameterizations" =>
+            "APIs/Land/SoilWaterParameterizations.md",
+    ],
     "Common" => [
+        "Orientations" => "APIs/Common/Orientations.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
+        "TurbulenceClosures" => "APIs/Common/TurbulenceClosures.md",
     ],
+    "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
         "List of variables" => "APIs/Diagnostics/Diagnostics.md",
@@ -32,7 +39,7 @@ apis = [
         "Meshes" => "APIs/Numerics/Meshes/Mesh.md",
         "SystemSolvers" => "APIs/Numerics/SystemSolvers/SystemSolvers.md",
         "ODESolvers" => "APIs/Numerics/ODESolvers/ODESolvers.md",
-        "Balance Law" => "APIs/Numerics/DGMethods/BalanceLawOverview.md",
+        "DG Methods" => "APIs/Numerics/DGMethods/DGMethods.md",
         "Numerical Fluxes" => "APIs/Numerics/DGMethods/NumericalFluxes.md",
     ],
     "Utilities" => [

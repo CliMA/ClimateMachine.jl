@@ -109,7 +109,8 @@ function init_state_auxiliary! end
         flux::Grad,
         state_conservative::Vars,
         state_auxiliary::Vars,
-        t::Real
+        t::Real,
+        directions
     )
 
 Compute first-order flux terms in balance law equation
@@ -190,7 +191,8 @@ function transform_post_gradient_laplacian! end
         n⁻,
         state_conservative::Vars,
         state_auxiliary::Vars,
-        t::Real
+        t::Real,
+        direction
     )
 
 wavespeed
@@ -246,15 +248,22 @@ function boundary_state! end
 """
     update_auxiliary_state!(
         dg::DGModel,
-        m::HBModel,
+        m::BalanceLaw,
         Q::MPIStateArray,
         t::Real,
         elems::UnitRange,
     )
 
-Update the auxiliary state variables
+Update the auxiliary state variables with global scope.
 """
 function update_auxiliary_state! end
+
+"""
+    nodal_update_auxiliary_state!()
+
+Update the auxiliary state variables at each location in space.
+"""
+function nodal_update_auxiliary_state! end
 
 """
     update_auxiliary_state_gradient!
@@ -279,6 +288,13 @@ Specify which auxiliary variables are used to store the output of the integrals.
 function integral_set_auxiliary_state! end
 
 """
+    indefinite_stack_integral!
+
+Compute indefinite integral along stack.
+"""
+function indefinite_stack_integral! end
+
+"""
     reverse_integral_load_auxiliary_state!
 
 Specify auxiliary variables need their integrals reversed.
@@ -291,6 +307,13 @@ function reverse_integral_load_auxiliary_state! end
 Specify which auxiliary variables are used to store the output of the reversed integrals.
 """
 function reverse_integral_set_auxiliary_state! end
+
+"""
+    reverse_indefinite_stack_integral!
+
+Compute reverse indefinite integral along stack.
+"""
+function reverse_indefinite_stack_integral! end
 
 # Internal methods
 number_state_conservative(m::BalanceLaw, FT) =
@@ -305,3 +328,9 @@ num_hyperdiffusive(m::BalanceLaw, FT) = varsize(vars_hyperdiffusive(m, FT))
 num_integrals(m::BalanceLaw, FT) = varsize(vars_integrals(m, FT))
 num_reverse_integrals(m::BalanceLaw, FT) =
     varsize(vars_reverse_integrals(m, FT))
+
+### split explicit functions
+function initialize_states! end
+function tendency_from_slow_to_fast! end
+function cummulate_fast_solution! end
+function reconcile_from_fast_to_slow! end

@@ -58,21 +58,21 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
         advection = NonLinearAdvection()
     end
 
-    model = SWModel(param_set, problem, turbulence, advection, c)
+    model = ShallowWaterModel(param_set, problem, turbulence, advection, c)
 end
 
 function shallow_init_state!(
+    m::ShallowWaterModel,
     p::GyreInABox,
-    T::TurbulenceClosure,
     state,
     aux,
     coords,
     t,
 )
     if t == 0
-        null_init_state!(p, T, state, aux, coords, 0)
+        null_init_state!(p, m.turbulence, state, aux, coords, 0)
     else
-        gyre_init_state!(p, T, state, aux, coords, t)
+        gyre_init_state!(p, m.turbulence, state, aux, coords, t)
     end
 end
 
@@ -84,8 +84,8 @@ function shallow_init_aux!(p::GyreInABox, aux, geom)
     fₒ = p.fₒ
     β = p.β
 
-    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0, 0]
-    aux.f = @SVector [0, 0, fₒ + β * (y - Lʸ / 2)]
+    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
+    aux.f = fₒ + β * (y - Lʸ / 2)
 
     return nothing
 end
@@ -131,7 +131,7 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
         step = [0]
         vtkpath = outname
         mkpath(vtkpath)
-        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do (init = false)
+        cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do
             outprefix = @sprintf(
                 "%s/mpirank%04d_step%04d",
                 vtkpath,
@@ -141,8 +141,16 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
             @debug "doing VTK output" outprefix
             statenames =
                 flattenednames(vars_state_conservative(model, eltype(Q)))
-            auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
-            writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
+            auxiliarynames =
+                flattenednames(vars_state_auxiliary(model, eltype(Q)))
+            writevtk(
+                outprefix,
+                Q,
+                dg,
+                statenames,
+                dg.state_auxiliary,
+                auxiliarynames,
+            )
             step[1] += 1
             nothing
         end

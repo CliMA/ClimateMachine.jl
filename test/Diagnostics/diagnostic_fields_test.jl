@@ -6,6 +6,7 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
@@ -13,6 +14,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
@@ -21,7 +23,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
-import ClimateMachine.DGMethods: vars_state_conservative
+import ClimateMachine.BalanceLaws: vars_state_conservative
 import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #

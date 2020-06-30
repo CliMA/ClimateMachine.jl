@@ -1,7 +1,7 @@
 using Base.Threads
 
 using ArgParse
-using CUDAapi
+using CUDA
 using Dates
 using LinearAlgebra
 using Logging
@@ -17,10 +17,14 @@ using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
 using ..DGMethods
-using ..DGMethods:
-    vars_state_conservative, vars_state_auxiliary, update_auxiliary_state!
+using ..BalanceLaws:
+    BalanceLaw,
+    vars_state_conservative,
+    vars_state_auxiliary,
+    update_auxiliary_state!
+using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
-using ..HydrostaticBoussinesq
+using ..Ocean.HydrostaticBoussinesq
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..Thermodynamics
@@ -29,28 +33,21 @@ using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
 
-using CuArrays, CuArrays.CUDAdrv, CuArrays.CUDAnative
-
 function _init_array(::Type{CuArray})
     comm = MPI.COMM_WORLD
     # allocate GPUs among MPI ranks
     local_comm =
         MPI.Comm_split_type(comm, MPI.MPI_COMM_TYPE_SHARED, MPI.Comm_rank(comm))
     # we intentionally oversubscribe GPUs for testing: may want to disable this for production
-    CUDAnative.device!(MPI.Comm_rank(local_comm) % length(devices()))
-    CuArrays.allowscalar(false)
+    CUDA.device!(MPI.Comm_rank(local_comm) % length(devices()))
+    CUDA.allowscalar(false)
     return nothing
 end
 
 _init_array(::Type{Array}) = nothing
 
-const cuarray_pkgid =
-    Base.PkgId(Base.UUID("3a865a2d-5b23-5a0f-bc46-62713ec82fae"), "CuArrays")
-
 function gpu_allowscalar(val::Bool)
-    if haskey(Base.loaded_modules, ClimateMachine.cuarray_pkgid)
-        Base.loaded_modules[ClimateMachine.cuarray_pkgid].allowscalar(val)
-    end
+    CUDA.allowscalar(val)
     return
 end
 
@@ -409,8 +406,8 @@ function init(; init_driver::Bool = true, kwargs...)
     end
 
     # set up the array type appropriately depending on whether we're using GPUs
-    if !Settings.disable_gpu && CUDAapi.has_cuda_gpu()
-        Settings.array_type = CuArrays.CuArray
+    if !Settings.disable_gpu && CUDA.has_cuda_gpu()
+        Settings.array_type = CUDA.CuArray
     end
 
     if init_driver
@@ -482,7 +479,7 @@ include("diagnostics_configs.jl")
         user_callbacks = (),
         check_euclidean_distance = false,
         adjustfinalstep = false,
-        user_info_callback = (init) -> nothing,
+        user_info_callback = () -> nothing,
     )
 
 Run the simulation defined by `solver_config`.
@@ -512,7 +509,7 @@ function invoke!(
     user_callbacks = (),
     check_euclidean_distance = false,
     adjustfinalstep = false,
-    user_info_callback = (init) -> nothing,
+    user_info_callback = () -> nothing,
 )
     mpicomm = solver_config.mpicomm
     dg = solver_config.dg
@@ -636,10 +633,11 @@ Starting %s
     end
 
     # fini diagnostics groups
+    # TODO: come up with a better mechanism
     if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
         currtime = ODESolvers.gettime(solver)
         for dgngrp in diagnostics_config.groups
-            dgngrp(currtime, fini = true)
+            dgngrp.fini(dgngrp, currtime)
         end
     end
 

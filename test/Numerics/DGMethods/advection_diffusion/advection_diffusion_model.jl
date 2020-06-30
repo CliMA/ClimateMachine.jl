@@ -1,8 +1,9 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods: nodal_update_auxiliary_state!
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws: BalanceLaw
+
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -17,9 +18,10 @@ import ClimateMachine.DGMethods:
     init_state_conservative!,
     boundary_state!,
     wavespeed,
-    LocalGeometry,
     number_state_conservative,
     number_state_gradient
+
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
 import ClimateMachine.DGMethods.NumericalFluxes:
@@ -105,6 +107,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
     u = aux.u
@@ -199,7 +202,14 @@ source!(m::AdvectionDiffusion, _...) = nothing
 
 Wavespeed with respect to vector `nM`
 """
-function wavespeed(m::AdvectionDiffusion, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(
+    m::AdvectionDiffusion,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     u = aux.u
     abs(dot(nM, u))
 end
@@ -387,6 +397,7 @@ function numerical_flux_first_order!(
     state⁺::Vars{S},
     aux⁺::Vars{A},
     t,
+    direction,
 ) where {S, A}
     un⁻ = dot(n, aux⁻.u)
     un⁺ = dot(n, aux⁺.u)
