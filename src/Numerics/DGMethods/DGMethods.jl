@@ -55,11 +55,13 @@ export DGModel,
     basic_grid_info,
     init_state_auxiliary!,
     continuous_field_gradient!,
-    courant
+    courant,
+    ESDGModel
 
 include("custom_filter.jl")
 include("AbstractDGModel.jl")
 include("NumericalFluxes.jl")
+include("ESDGModel.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
 include("create_states.jl")
