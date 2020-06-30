@@ -42,7 +42,8 @@ Then for the scheme to be entropy stable it is requires that the numerical flux
 when the equality is satisfied the scheme is called entropy conservative. For
 balance laws without a nonconservative term, `ψj` is the entropy potential.
 """
-struct ESDGModel{BL, SA, VNFFO, SNFFO} <: AbstractDGModel
+struct ESDGModel{BL, SA, VNFFO, SNFFO} <:
+       AbstractDGModel{BL, DiscontinuousSpectralElementGrid, SA}
     "definition of the physics being considered, primary dispatch type"
     balance_law::BL
     "all the grid related information (connectivity, metric terms, etc.)"

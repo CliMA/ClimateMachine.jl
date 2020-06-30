@@ -1476,54 +1476,6 @@ end
     end
 end
 
-@kernel function kernel_init_state_conservative!(
-    balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
-    state,
-    state_auxiliary,
-    vgeo,
-    elems,
-    args...,
-) where {dim, polyorder}
-    N = polyorder
-    FT = eltype(state_auxiliary)
-    num_state_auxiliary = number_state_auxiliary(balance_law, FT)
-    num_state_conservative = number_state_conservative(balance_law, FT)
-
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Np = Nq * Nq * Nqk
-
-    l_state = MArray{Tuple{num_state_conservative}, FT}(undef)
-    local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
-    I = @index(Global, Linear)
-    e = (I - 1) ÷ Np + 1
-    n = (I - 1) % Np + 1
-
-    @inbounds begin
-        coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
-        @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary[s] = state_auxiliary[n, s, e]
-        end
-        @unroll for s in 1:num_state_conservative
-            l_state[s] = state[n, s, e]
-        end
-        init_state_conservative!(
-            balance_law,
-            Vars{vars_state_conservative(balance_law, FT)}(l_state),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
-            coords,
-            args...,
-        )
-        @unroll for s in 1:num_state_conservative
-            state[n, s, e] = l_state[s]
-        end
-    end
-end
-
-
 @doc """
     kernel_init_state_auxiliary!(balance_law::BalanceLaw, Val(polyorder), state_auxiliary, vgeo, elems)
 
