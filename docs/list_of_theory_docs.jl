@@ -4,7 +4,7 @@
 
 theory_docs = Any[
     "Common" => Any["SurfaceFluxes" => "Theory/Common/SurfaceFluxes.md",
-                    "Surface Flux Equations", => Theory/Common/SurfaceFluxEquations.md"],
+                    "Surface Flux Equations" => "Theory/Common/SurfaceFluxEquations.md"],
     "Atmos" => Any[
         "AtmosModel" => "Theory/Atmos/AtmosModel.md",
         "Microphysics" => "Theory/Atmos/Microphysics.md",
