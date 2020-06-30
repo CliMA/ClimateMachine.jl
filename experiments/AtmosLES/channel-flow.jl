@@ -136,12 +136,17 @@ function main()
     # DG polynomial order
     N = 4
     # Domain resolution and size
+    # Assumes half channel height is == 1 
+    # Re = u_τδ/ ν
     xmax = FT(4π)
     ymax = FT(4π/3)
     zmax = FT(2)
-    Δh₁ = FT(xmax/128)
-    Δh₂ = FT(ymax/64)
-    Δh₃ = FT(zmax/96)
+    
+    Npts = 32
+
+    Δh₁ = FT(xmax/4Npts)
+    Δh₂ = FT(ymax/2Npts)
+    Δh₃ = FT(zmax/3Npts)
     resolution = (Δh₁, Δh₂, Δh₃)
     t0 = FT(0)
     timeend = FT(14400)
