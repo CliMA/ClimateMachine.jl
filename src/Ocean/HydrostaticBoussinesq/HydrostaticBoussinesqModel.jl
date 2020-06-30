@@ -81,6 +81,7 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
     νᶻ::T
     κʰ::T
     κᶻ::T
+    κᶜ::T
     fₒ::T
     β::T
     function HydrostaticBoussinesqModel{FT}(
@@ -92,8 +93,9 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
         αᵀ = FT(2e-4),  # (m/s)^2 / K
         νʰ = FT(5e3),   # m^2 / s
         νᶻ = FT(5e-3),  # m^2 / s
-        κʰ = FT(1e3),   # m^2 / s
-        κᶻ = FT(1e-4),  # m^2 / s
+        κʰ = FT(1e3),   # m^2 / s # horizontal diffusivity
+        κᶻ = FT(1e-4),  # m^2 / s # background vertical diffusivity
+        κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
     ) where {FT <: AbstractFloat, PS}
@@ -108,6 +110,7 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
             νᶻ,
             κʰ,
             κᶻ,
+            κᶜ,
             fₒ,
             β,
         )
@@ -276,10 +279,9 @@ applies convective adjustment in the vertical, bump by 1000 if ∂θ∂z < 0
 - `∂θ∂z`: value of the derivative of temperature in the z-direction
 """
 @inline function diffusivity_tensor(m::HBModel, ∂θ∂z)
-    ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ =
-        (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+    ∂θ∂z < 0 ? κ = m.κᶜ : κ = m.κᶻ
 
-    return Diagonal(κ)
+    return Diagonal(@SVector [m.κʰ, m.κʰ, κ])
 end
 
 """
