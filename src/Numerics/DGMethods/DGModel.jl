@@ -1,7 +1,7 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <: AbstractDGModel
     balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
