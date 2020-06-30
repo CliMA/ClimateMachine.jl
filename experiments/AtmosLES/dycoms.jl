@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
