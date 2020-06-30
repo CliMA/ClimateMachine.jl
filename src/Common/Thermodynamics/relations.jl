@@ -16,7 +16,7 @@ export latent_heat_vapor,
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
 export saturation_vapor_pressure, q_vap_saturation_generic, q_vap_saturation
-export saturation_excess
+export saturation_excess, supersaturation
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
@@ -32,6 +32,9 @@ export air_temperature_from_liquid_ice_pottemp,
     air_temperature_from_liquid_ice_pottemp_given_pressure
 export air_temperature_from_liquid_ice_pottemp_non_linear
 export vapor_specific_humidity
+export virtual_temperature
+export temperature_and_humidity_from_virtual_temperature
+export air_temperature_from_ideal_gas_law
 export condensate, has_condensate
 
 """
@@ -142,8 +145,15 @@ specific_volume(ts::ThermodynamicState) = 1 / air_density(ts)
 
 """
     total_specific_humidity(ts::ThermodynamicState)
+    total_specific_humidity(param_set, T, p, relative_humidity)
 
-Total specific humidity, given a thermodynamic state `ts`.
+Total specific humidity given
+ - `ts` a thermodynamic state
+or
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+ - `p` pressure
+ - `relative_humidity` relative humidity (can exceed 1 when there is super saturation/condensate)
 """
 total_specific_humidity(ts::ThermodynamicState) = ts.q_tot
 total_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
@@ -285,6 +295,26 @@ air_temperature(ts::ThermodynamicState) =
     air_temperature(ts.param_set, internal_energy(ts), PhasePartition(ts))
 air_temperature(ts::PhaseEquil) = ts.T
 
+"""
+    air_temperature_from_ideal_gas_law(param_set, p, ρ, q::PhasePartition)
+
+The air temperature, where
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `p` air pressure
+ - `ρ` air density
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
+"""
+function air_temperature_from_ideal_gas_law(
+    param_set::APS,
+    p::FT,
+    ρ::FT,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
+    R_m = gas_constant_air(param_set, q)
+    return p / (R_m * ρ)
+end
 
 """
     internal_energy(param_set, T[, q::PhasePartition])
@@ -654,6 +684,22 @@ end
 
 function saturation_vapor_pressure(
     param_set::APS,
+    phase_type::Type{<:ThermodynamicState},
+    T::FT,
+) where {FT <: Real}
+    _LH_s0 = FT(LH_s0(param_set))
+    _LH_v0 = FT(LH_v0(param_set))
+    _cp_v = FT(cp_v(param_set))
+    _cp_l = FT(cp_l(param_set))
+    _cp_i = FT(cp_i(param_set))
+    liq_frac = liquid_fraction(param_set, T, phase_type, PhasePartition(FT(0)))
+    _LH_0 = liq_frac * _LH_v0 + (1 - liq_frac) * _LH_s0
+    _Δcp = _cp_v - liq_frac * _cp_l - (1 - liq_frac) * _cp_i
+    return saturation_vapor_pressure(param_set, T, _LH_0, _Δcp)
+end
+
+function saturation_vapor_pressure(
+    param_set::APS,
     T::FT,
     LH_0::FT,
     Δcp::FT,
@@ -776,6 +822,45 @@ function q_vap_saturation_from_pressure(
 ) where {FT <: Real}
     _R_v::FT = R_v(param_set)
     return p_v_sat / (ρ * _R_v * T)
+end
+
+"""
+    supersaturation(param_set, q, ρ, T, Liquid())
+    supersaturation(param_set, q, ρ, T, Ice())
+
+ - `param_set` - abstract set with earth parameters
+ - `q` - phase partition
+ - `ρ` - air density,
+ - `T` - air temperature
+ - `Liquid()`, `Ice()` - liquid or ice phase to dispatch over.
+
+Returns supersaturation (qv/qv_sat -1) over water or ice.
+"""
+function supersaturation(
+    param_set::APS,
+    q::PhasePartition{FT},
+    ρ::FT,
+    T::FT,
+    ::Liquid,
+) where {FT <: Real}
+
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Liquid())
+    q_vap::FT = q.tot - q.liq - q.ice
+
+    return q_vap / q_sat - FT(1)
+end
+function supersaturation(
+    param_set::APS,
+    q::PhasePartition{FT},
+    ρ::FT,
+    T::FT,
+    ::Ice,
+) where {FT <: Real}
+
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
+    q_vap::FT = q.tot - q.liq - q.ice
+
+    return q_vap / q_sat - FT(1)
 end
 
 """
@@ -942,7 +1027,7 @@ function ∂e_int_∂T(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    phase_type::Type{<:ThermodynamicState},
+    phase_type::Type{<:PhaseEquil},
 ) where {FT <: Real}
     _LH_v0::FT = LH_v0(param_set)
     _LH_s0::FT = LH_s0(param_set)
@@ -996,7 +1081,7 @@ function saturation_adjustment(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    phase_type::Type{<:ThermodynamicState},
+    phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     tol::AbstractTolerance,
 ) where {FT <: Real}
@@ -1020,7 +1105,26 @@ function saturation_adjustment(
             maxiter,
         )
         if !sol.converged
-            error("saturation_adjustment did not converge")
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in saturation_adjustment:\n")
+            @print(
+                "    e_int=",
+                e_int,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+            if error_on_non_convergence()
+                error("Failed to converge with printed set of inputs.")
+            end
         end
         return sol.root
     end
@@ -1077,7 +1181,7 @@ function saturation_adjustment_SecantMethod(
     e_int::FT,
     ρ::FT,
     q_tot::FT,
-    phase_type::Type{<:ThermodynamicState},
+    phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     tol::AbstractTolerance,
 ) where {FT <: Real}
@@ -1104,7 +1208,26 @@ function saturation_adjustment_SecantMethod(
             maxiter,
         )
         if !sol.converged
-            error("saturation_adjustment_SecantMethod did not converge")
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
+            @print(
+                "    e_int=",
+                e_int,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+            if error_on_non_convergence()
+                error("Failed to converge with printed set of inputs.")
+            end
         end
         return sol.root
     end
@@ -1136,7 +1259,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(
     θ_liq_ice::FT,
     ρ::FT,
     q_tot::FT,
-    phase_type::Type{<:ThermodynamicState},
+    phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     tol::AbstractTolerance,
 ) where {FT <: Real}
@@ -1172,7 +1295,26 @@ function saturation_adjustment_q_tot_θ_liq_ice(
             maxiter,
         )
         if !sol.converged
-            error("saturation_adjustment_q_tot_θ_liq_ice did not converge")
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice:\n")
+            @print(
+                "    θ_liq_ice=",
+                θ_liq_ice,
+                ", ρ=",
+                ρ,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+            if error_on_non_convergence()
+                error("Failed to converge with printed set of inputs.")
+            end
         end
         return sol.root
     end
@@ -1204,7 +1346,7 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
     θ_liq_ice::FT,
     p::FT,
     q_tot::FT,
-    phase_type::Type{<:ThermodynamicState},
+    phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     tol::AbstractTolerance,
 ) where {FT <: Real}
@@ -1243,7 +1385,26 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
             maxiter,
         )
         if !sol.converged
-            error("saturation_adjustment_q_tot_θ_liq_ice_given_pressure did not converge")
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice_given_pressure:\n")
+            @print(
+                "    θ_liq_ice=",
+                θ_liq_ice,
+                ", p=",
+                p,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+            if error_on_non_convergence()
+                error("Failed to converge with printed set of inputs.")
+            end
         end
         return sol.root
     end
@@ -1380,6 +1541,74 @@ dry_pottemp(ts::ThermodynamicState) = dry_pottemp(
 )
 
 """
+    temperature_and_humidity_from_virtual_temperature(param_set, T_virt, ρ, RH)
+
+The air temperature and `q_tot` where
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T_virt` virtual temperature
+ - `ρ` air density
+ - `RH` relative humidity
+ - `phase_type` a thermodynamic state type
+"""
+function temperature_and_humidity_from_virtual_temperature(
+    param_set::APS,
+    T_virt::FT,
+    ρ::FT,
+    RH::FT,
+    phase_type::Type{<:ThermodynamicState},
+    maxiter::Int = 100,
+    tol::AbstractTolerance = ResidualTolerance{FT}(sqrt(eps(FT))),
+) where {FT <: Real}
+
+    _T_min::FT = T_min(param_set)
+    _T_max = T_virt
+    function virt_temp_from_RH(param_set, T, ρ, RH)
+        q_tot = RH * q_vap_saturation(param_set, T, ρ, phase_type)
+        q_pt = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
+        return virtual_temperature(param_set, T, ρ, q_pt)
+    end
+
+    sol = find_zero(
+        T -> T_virt - virt_temp_from_RH(param_set, T, ρ, RH),
+        SecantMethod(_T_min, T_virt),
+        CompactSolution(),
+        tol,
+        maxiter,
+    )
+    if !sol.converged
+        @print("-----------------------------------------\n")
+        @print("maxiter reached in temperature_and_humidity_from_virtual_temperature:\n")
+        @print(
+            "    T_virt=",
+            T_virt,
+            ", RH=",
+            RH,
+            ", ρ=",
+            ρ,
+            ", T = ",
+            sol.root,
+            ", maxiter=",
+            maxiter,
+            ", tol=",
+            tol.tol,
+            "\n"
+        )
+        if error_on_non_convergence()
+            error("Failed to converge with printed set of inputs.")
+        end
+    end
+    T = sol.root
+
+    # Re-compute specific humidity and phase partitioning
+    # given the temperature
+    q_tot = RH * q_vap_saturation(param_set, T, ρ, phase_type)
+    q_pt = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
+    return (T, q_pt)
+
+end
+
+"""
     air_temperature_from_liquid_ice_pottemp(param_set, θ_liq_ice, ρ, q::PhasePartition)
 
 The temperature given
@@ -1449,7 +1678,30 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
         maxiter,
     )
     if !sol.converged
-        error("air_temperature_from_liquid_ice_pottemp_non_linear did not converge")
+        @print("-----------------------------------------\n")
+        @print("maxiter reached in air_temperature_from_liquid_ice_pottemp_non_linear:\n")
+        @print(
+            "    θ_liq_ice=",
+            θ_liq_ice,
+            ", ρ=",
+            ρ,
+            ", q.tot=",
+            q.tot,
+            "q.liq = ",
+            q.liq,
+            "q.ice = ",
+            q.ice,
+            ", T = ",
+            sol.root,
+            ", maxiter=",
+            maxiter,
+            ", tol=",
+            tol.tol,
+            "\n"
+        )
+        if error_on_non_convergence()
+            error("Failed to converge with printed set of inputs.")
+        end
     end
     return sol.root
 end
@@ -1478,7 +1730,7 @@ end
 """
     virtual_pottemp(param_set, T, ρ[, q::PhasePartition])
 
-The virtual temperature where
+The virtual potential temperature where
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `T` temperature
@@ -1509,6 +1761,41 @@ virtual_pottemp(ts::ThermodynamicState) = virtual_pottemp(
     air_density(ts),
     PhasePartition(ts),
 )
+
+"""
+    virtual_temperature(param_set, T, ρ[, q::PhasePartition])
+
+The virtual temperature where
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+ - `ρ` (moist-)air density
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
+"""
+function virtual_temperature(
+    param_set::APS,
+    T::FT,
+    ρ::FT,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
+    _R_d::FT = R_d(param_set)
+    return gas_constant_air(param_set, q) / _R_d * T
+end
+
+"""
+    virtual_temperature(ts::ThermodynamicState)
+
+The virtual temperature,
+given a thermodynamic state `ts`.
+"""
+virtual_temperature(ts::ThermodynamicState) = virtual_temperature(
+    ts.param_set,
+    air_temperature(ts),
+    air_density(ts),
+    PhasePartition(ts),
+)
+
 
 """
     liquid_ice_pottemp_sat(param_set, T, ρ, phase_type[, q::PhasePartition])
@@ -1626,12 +1913,11 @@ exner(ts::ThermodynamicState) = exner(
 )
 
 """
-    relative_humidity(param_set, T, p, e_int, phase_type, q::PhasePartition)
+    relative_humidity(param_set, T, p, phase_type, q::PhasePartition)
 
 The relative humidity, given
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `p` pressure
- - `e_int` internal energy per unit mass
  - `phase_type` a thermodynamic state type
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
@@ -1640,21 +1926,13 @@ function relative_humidity(
     param_set::APS,
     T::FT,
     p::FT,
-    e_int::FT,
     phase_type::Type{<:ThermodynamicState},
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
     _R_v::FT = R_v(param_set)
-    q_vap = q.tot - q.liq - q.ice
-    p_vap =
-        q_vap *
-        air_density(param_set, T, p, q) *
-        _R_v *
-        air_temperature(param_set, e_int, q)
-    liq_frac = liquid_fraction(param_set, T, phase_type, q)
-    p_vap_sat =
-        liq_frac * saturation_vapor_pressure(param_set, T, Liquid()) +
-        (1 - liq_frac) * saturation_vapor_pressure(param_set, T, Ice())
+    q_vap = vapor_specific_humidity(q)
+    p_vap = q_vap * air_density(param_set, T, p, q) * _R_v * T
+    p_vap_sat = saturation_vapor_pressure(param_set, phase_type, T)
     return p_vap / p_vap_sat
 end
 
@@ -1668,7 +1946,6 @@ relative_humidity(ts::ThermodynamicState{FT}) where {FT <: Real} =
         ts.param_set,
         air_temperature(ts),
         air_pressure(ts),
-        internal_energy(ts),
         typeof(ts),
         PhasePartition(ts),
     )

@@ -28,10 +28,22 @@ module Thermodynamics
 using DocStringExtensions
 using RootSolvers
 using RootSolvers: AbstractTolerance
+using KernelAbstractions: @print
 
 using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet
 const APS = AbstractParameterSet
+
+# Allow users to skip error on non-convergence
+# by importing:
+# ```julia
+# import Thermodynamics
+# Thermodynamics.error_on_non_convergence() = false
+# ```
+# Error on convergence must be the default
+# behavior because this can result in printing
+# very large logs resulting in CI to seemingly hang.
+error_on_non_convergence() = true
 
 @inline q_pt_0(::Type{FT}) where {FT} = PhasePartition{FT}(FT(0), FT(0), FT(0))
 

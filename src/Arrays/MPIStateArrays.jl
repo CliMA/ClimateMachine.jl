@@ -1,5 +1,6 @@
 module MPIStateArrays
 
+using CUDA
 using DoubleFloats
 using KernelAbstractions
 using LazyArrays
@@ -17,7 +18,6 @@ using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     similar(Array{FT}, dims...)
 
-using CuArrays
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
     similar(CuArray{FT}, dims...)
 
@@ -116,8 +116,10 @@ mutable struct MPIStateArray{
                 copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
         end
         if typeof(weights).name != typeof(data).name
-            weights =
-                copyto!(similar(DA, eltype(weights), size(weights)), weights)
+            weights = copyto!(
+                similar(DA, eltype(weights), size(weights)),
+                Array(weights),
+            )
         end
 
         DAI1 = typeof(vmaprecv)
@@ -521,7 +523,7 @@ function LinearAlgebra.norm(
         locnorm = norm_impl(Q.realdata, Val(p), dims)
     end
 
-    mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
+    mpiop = isfinite(p) ? (+) : max
     if locnorm isa AbstractArray
         locnorm = convert(Array, locnorm)
     end
@@ -548,7 +550,7 @@ function LinearAlgebra.dot(
     end
 
     @tic mpi_dot
-    r = MPI.Allreduce(locnorm, MPI.SUM, Q1.mpicomm)
+    r = MPI.Allreduce(locnorm, +, Q1.mpicomm)
     @toc mpi_dot
     return r
 end
@@ -566,7 +568,7 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
 
     locnorm = mapreduce(identity, +, E, init = zero(eltype(A)))
     @tic mpi_euclidean_distance
-    r = sqrt(MPI.Allreduce(locnorm, MPI.SUM, A.mpicomm))
+    r = sqrt(MPI.Allreduce(locnorm, +, A.mpicomm))
     @toc mpi_euclidean_distance
     return r
 end
@@ -737,7 +739,7 @@ end
 
 # helpers: `array_device` and `realview`
 array_device(::Union{Array, SArray, MArray}) = CPU()
-array_device(::CuArray) = CUDA()
+array_device(::CuArray) = CUDADevice()
 array_device(s::SubArray) = array_device(parent(s))
 array_device(Q::MPIStateArray) = array_device(Q.data)
 
@@ -751,7 +753,7 @@ function transform_broadcasted(bc::Broadcasted, ::CuArray)
     transform_cuarray(bc)
 end
 function transform_cuarray(bc::Broadcasted)
-    Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
+    Broadcasted(CUDA.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
 end
 transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
 transform_cuarray(x) = x

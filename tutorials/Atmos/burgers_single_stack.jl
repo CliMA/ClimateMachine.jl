@@ -69,7 +69,8 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.Writers
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
+using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
@@ -78,7 +79,8 @@ using ClimateMachine.SingleStackUtils
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
-import ClimateMachine.DGMethods:
+using ClimateMachine.BalanceLaws: BalanceLaw
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -111,7 +113,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 # ## Define the model
 
 # Model parameters can be stored in the particular [`BalanceLaw`](@ref
-# ClimateMachine.DGMethods.BalanceLaw), in this case, the `BurgersEquation`:
+# ClimateMachine.BalanceLaws.BalanceLaw), in this case, the `BurgersEquation`:
 
 Base.@kwdef struct BurgersEquation{FT} <: BalanceLaw
     "Parameters"
@@ -208,7 +210,7 @@ end;
 
 # The remaining methods, defined in this section, are called at every
 # time-step in the solver by the [`BalanceLaw`](@ref
-# ClimateMachine.DGMethods.BalanceLaw) framework.
+# ClimateMachine.BalanceLaws.BalanceLaw) framework.
 
 # Overload `update_auxiliary_state!` to call `heat_eq_nodal_update_aux!`, or
 # any other auxiliary methods
@@ -302,6 +304,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    _...,
 )
     flux.ρ = state.ρu
 
@@ -528,20 +531,17 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 # Create a dictionary for `z` coordinate (and convert to cm) NCDatasets IO:
 dims = OrderedDict(z_key => collect(z));
 
-data_var = Dict([k => Dict() for k in 0:n_outputs]...)
-data_var[0] = deepcopy(state_vars_var)
+data_var = Dict[Dict([k => Dict() for k in 0:n_outputs]...),]
+data_var[1] = state_vars_var
 
-data_avg = Dict([k => Dict() for k in 0:n_outputs]...)
-data_avg[0] = deepcopy(state_vars_avg)
+data_avg = Dict[Dict([k => Dict() for k in 0:n_outputs]...),]
+data_avg[1] = state_vars_avg
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, the state and aux variables are collected, combined into a single
 # `OrderedDict` and written to a NetCDF file (for each output step `step`).
 step = [0];
-callback = GenericCallbacks.EveryXSimulationTime(
-    every_x_simulation_time,
-    solver_config.solver,
-) do (init = false)
+callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars_var = get_horizontal_variance(
         driver_config.grid,
         solver_config.Q,
@@ -553,8 +553,8 @@ callback = GenericCallbacks.EveryXSimulationTime(
         vars_state_conservative(m, FT),
     )
     step[1] += 1
-    data_var[step[1]] = deepcopy(state_vars_var)
-    data_avg[step[1]] = deepcopy(state_vars_avg)
+    push!(data_var, state_vars_var)
+    push!(data_avg, state_vars_avg)
     nothing
 end;
 

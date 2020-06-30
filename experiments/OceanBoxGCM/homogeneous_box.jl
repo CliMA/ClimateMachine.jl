@@ -1,14 +1,14 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.DGMethods: vars_state_conservative
-using ClimateMachine.HydrostaticBoussinesq
+using ClimateMachine.BalanceLaws: vars_state_conservative
+using ClimateMachine.Ocean.HydrostaticBoussinesq
 
 using Test
 using CLIMAParameters

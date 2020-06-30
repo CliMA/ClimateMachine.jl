@@ -50,9 +50,10 @@ eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1
 =#
 
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
@@ -61,6 +62,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -75,7 +77,7 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
 import ClimateMachine.Atmos: flux_second_order!, thermo_state
 
@@ -512,7 +514,7 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
             ("moisture.ρq_tot",),
@@ -533,17 +535,16 @@ function main()
     # DG variable sums
     Σρ₀ = sum(ρ₀ .* M)
     Σρe₀ = sum(ρe₀ .* M)
-    cb_check_cons =
-        GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
-            Q = solver_config.Q
-            δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-            δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-            @show (abs(δρ))
-            @show (abs(δρe))
-            @test (abs(δρ) <= 0.0001)
-            @test (abs(δρe) <= 0.0025)
-            nothing
-        end
+    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
+        Q = solver_config.Q
+        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
+        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
+        @show (abs(δρ))
+        @show (abs(δρe))
+        @test (abs(δρ) <= 0.0001)
+        @test (abs(δρe) <= 0.0025)
+        nothing
+    end
 
     result = ClimateMachine.invoke!(
         solver_config;

@@ -4,18 +4,19 @@ using Logging
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods: nodal_update_auxiliary_state!
+using ClimateMachine.BalanceLaws: nodal_update_auxiliary_state!
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: SphericalOrientation, latitude, longitude
+using ClimateMachine.Orientations
 using LinearAlgebra
 using Printf
 using Dates
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
-import ClimateMachine.DGMethods: boundary_state!
+import ClimateMachine.BalanceLaws: boundary_state!
 
 if !@isdefined integration_testing
     const integration_testing = parse(

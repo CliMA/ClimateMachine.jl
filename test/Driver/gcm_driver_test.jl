@@ -4,10 +4,12 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.Checkpoint
 using ClimateMachine.ConfigTypes
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Grids
 using ClimateMachine.ODESolvers
@@ -107,7 +109,7 @@ function main()
     cb_test = 0
     result = ClimateMachine.invoke!(
         solver_config;
-        user_info_callback = (init) -> cb_test += 1,
+        user_info_callback = () -> cb_test += 1,
     )
     @test cb_test > 0
 end

@@ -56,6 +56,8 @@ export scprintref
 const nt_freq_def = 10 # default frequency (in time steps) for output.
 const prec_def = 15    # default precision used for formatted output table
 
+# TODO: this should use the new callback interface
+
 """
     sccreate(
         io::IO,
@@ -91,7 +93,6 @@ F2=@vars begin; u::SVector{2, FT}; θ::SVector{1, FT}; end
 Q1=MPIStateArray{Float32,F1}(MPI.COMM_WORLD,ClimateMachine.array_type(),4,9,8);
 Q2=MPIStateArray{Float64,F2}(MPI.COMM_WORLD,ClimateMachine.array_type(),4,6,8);
 cb=ClimateMachine.StateCheck.sccreate([(Q1,"My gradients"),(Q2,"My fields")],1; prec=$prec_def);
-cb()
 ```
 """
 function sccreate(
@@ -161,7 +162,7 @@ function sccreate(
     ######
     # Create the callback
     ######
-    cb = EveryXSimulationSteps(nt_freq) do (s = false)
+    cb = EveryXSimulationSteps(nt_freq) do
         # Track which timestep this is
         n_cb_calls = n_cb_calls + 1
         n_step = (n_cb_calls - 1) * nt_freq + 1
@@ -269,14 +270,14 @@ function scstats(V, ivar, nprec)
 
     # Min
     phi_loc = minimum(getByField(V, ivar))
-    phi_min = MPI.Allreduce(phi_loc, MPI.MIN, Vmcomm)
+    phi_min = MPI.Allreduce(phi_loc, min, Vmcomm)
     phi = phi_min
     # minVstr=@sprintf("%23.15e",phi)
     min_v_str = sprintf1(fmt, phi)
 
     # Max
     phi_loc = maximum(getByField(V, ivar))
-    phi_max = MPI.Allreduce(phi_loc, MPI.MAX, Vmcomm)
+    phi_max = MPI.Allreduce(phi_loc, max, Vmcomm)
     phi = phi_max
     # maxVstr=@sprintf("%23.15e",phi)
     max_v_str = sprintf1(fmt, phi)
@@ -324,7 +325,8 @@ suitable for use as a set of reference numbers for CI comparison.
  - `cb` callback variable of type ClimateMachine.GenericCallbacks.Every*
 """
 function scprintref(cb)
-    io = cb.func.iosave
+    sc = cb.callback
+    io = sc.iosave
     # Obscure trick to do with running in cells in notebook
     if !isopen(io)
         io = Base.stdout
@@ -332,7 +334,7 @@ function scprintref(cb)
     if MPI.Comm_rank(MPI.COMM_WORLD) == 0
         # Get print format lengths for cols 1 and 2 so they are aligned
         # for readability.
-        phi = cb.func.cur_stats_flat
+        phi = sc.cur_stats_flat
         f = 1
         a1l = maximum(length.(map(
             i -> (phi[i])[f],
@@ -372,7 +374,7 @@ function scprintref(cb)
         #
         # Write table of reference values
         println(io, "varr = [")
-        for lv in cb.func.cur_stats_flat
+        for lv in sc.cur_stats_flat
             s1 = lv[1]
             l1 = length(s1)
             s1 = sp[1:(a1l - l1)] * "\"" * s1 * "\""
@@ -414,7 +416,7 @@ function scprintref(cb)
         # Write table of reference match precisions using default precision that
         # can be hand updated.
         println(io, "parr = [")
-        for lv in cb.func.cur_stats_flat
+        for lv in sc.cur_stats_flat
             s1 = lv[1]
             l1 = length(s1)
             s1 = sp[1:(a1l - l1)] * "\"" * s1 * "\""
@@ -459,7 +461,8 @@ reference set and match precision table pair.
  - `ref_dat` an array of reference values and precision to match tables.
 """
 function scdocheck(cb, ref_dat)
-    io = cb.func.iosave
+    sc = cb.callback
+    io = sc.iosave
     # Obscure trick to do with running in cells in notebook
     if !isopen(io)
         io = Base.stdout
@@ -486,7 +489,7 @@ function scdocheck(cb, ref_dat)
     i_prec = 2
     all_pass = true
 
-    for row in cb.func.cur_stats_flat
+    for row in sc.cur_stats_flat
         ## Debugging
         # println(row)
         # println(ref_dat[i_val][irow])

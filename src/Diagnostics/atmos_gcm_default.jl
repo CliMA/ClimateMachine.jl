@@ -17,12 +17,14 @@
 # - density weighting
 # - maybe change thermo/dyn separation to local/nonlocal vars?
 
+import CUDA
 using LinearAlgebra
 using Printf
 using Statistics
 
 using ..Atmos
-using ..Atmos: thermo_state, turbulence_tensors
+using ..Atmos: thermo_state
+using ..TurbulenceClosures: turbulence_tensors
 
 include("diagnostic_fields.jl")
 
@@ -133,6 +135,11 @@ Initialize the GCM default diagnostics group, establishing the output file's
 dimensions and variables.
 """
 function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
+    atmos = Settings.dg.balance_law
+    FT = eltype(Settings.Q)
+    mpicomm = Settings.mpicomm
+    mpirank = MPI.Comm_rank(mpicomm)
+
     if !(dgngrp.interpol isa InterpolationCubedSphere)
         @warn """
             Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
@@ -140,45 +147,38 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
         return nothing
     end
 
-    FT = eltype(Settings.Q)
-    atmos = Settings.dg.balance_law
+    if mpirank == 0
+        # get dimensions for the interpolated grid
+        dims = dimensions(dgngrp.interpol)
 
-    # get dimensions for the interpolated grid
-    dims = dimensions(dgngrp.interpol)
-
-    # adjust the level dimension for `planet_radius`
-    level_val = dims["level"]
-    dims["level"] =
-        (level_val[1] .- FT(planet_radius(Settings.param_set)), level_val[2])
-
-    # set up the variables we're going to be writing
-    vars = OrderedDict()
-    varnames = map(
-        s -> startswith(s, "moisture.") ? s[10:end] : s,
-        flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
-    )
-    for varname in varnames
-        var = Variables[varname]
-        vars[varname] = (
-            tuple(collect(keys(dims))...),
-            FT,
-            OrderedDict(
-                "units" => var.units,
-                "long_name" => var.long,
-                "standard_name" => var.standard,
-            ),
+        # adjust the level dimension for `planet_radius`
+        level_val = dims["level"]
+        dims["level"] = (
+            level_val[1] .- FT(planet_radius(Settings.param_set)),
+            level_val[2],
         )
-    end
 
-    # create the output file
-    dprefix = @sprintf(
-        "%s_%s_%s",
-        dgngrp.out_prefix,
-        dgngrp.name,
-        Settings.starttime,
-    )
-    dfilename = joinpath(Settings.output_dir, dprefix)
-    init_data(dgngrp.writer, dfilename, dims, vars)
+        # set up the variables we're going to be writing
+        vars = OrderedDict()
+        varnames = map(
+            s -> startswith(s, "moisture.") ? s[10:end] : s,
+            flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
+        )
+        for varname in varnames
+            var = Variables[varname]
+            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
+        end
+
+        # create the output file
+        dprefix = @sprintf(
+            "%s_%s_%s",
+            dgngrp.out_prefix,
+            dgngrp.name,
+            Settings.starttime,
+        )
+        dfilename = joinpath(Settings.output_dir, dprefix)
+        init_data(dgngrp.writer, dfilename, dims, vars)
+    end
 
     return nothing
 end
@@ -198,11 +198,11 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         return nothing
     end
 
-    mpicomm = Settings.mpicomm
     dg = Settings.dg
-    Q = Settings.Q
-    mpirank = MPI.Comm_rank(mpicomm)
     atmos = dg.balance_law
+    Q = Settings.Q
+    mpicomm = Settings.mpicomm
+    mpirank = MPI.Comm_rank(mpicomm)
     grid = dg.grid
     topology = grid.topology
     N = polynomialorder(grid)
@@ -220,7 +220,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         state_data = Q.realdata
         aux_data = dg.state_auxiliary.realdata
     else
-        ArrayType = CuArray
+        ArrayType = CUDA.CuArray
         state_data = Array(Q.realdata)
         aux_data = Array(dg.state_auxiliary.realdata)
     end
@@ -235,11 +235,11 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state_conservative = extract_state_conservative(dg, state_data, ijk, e)
-        state_auxiliary = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state_conservative(dg, state_data, ijk, e)
+        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
-        compute_thermo!(atmos, state_conservative, state_auxiliary, thermo)
+        compute_thermo!(atmos, state, aux, thermo)
     end
 
     # Interpolate the state, thermo and dyn vars to sphere (u and vorticity

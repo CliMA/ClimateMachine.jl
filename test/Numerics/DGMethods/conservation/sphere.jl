@@ -25,8 +25,9 @@ using Logging, Printf, Dates
 using Random
 
 using ClimateMachine.VariableTemplates
+using ClimateMachine.DGMethods: BalanceLaw
+
 import ClimateMachine.DGMethods:
-    BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -36,9 +37,10 @@ import ClimateMachine.DGMethods:
     source!,
     boundary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
-    init_ode_state,
-    LocalGeometry
+    init_state_conservative!
+
+import ClimateMachine.DGMethods: init_ode_state
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 import ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder,
     numerical_flux_first_order!,
@@ -83,6 +85,7 @@ function flux_first_order!(
     state::Vars,
     auxstate::Vars,
     t::Real,
+    direction,
 )
     vel = auxstate.vel
     flux.q = state.q .* vel
@@ -111,6 +114,7 @@ function numerical_flux_first_order!(
     state⁺::Vars{S},
     aux⁺::Vars{A},
     t,
+    direction,
 ) where {S, A}
     un⁻ = dot(n, aux⁻.vel)
     un⁺ = dot(n, aux⁺.vel)
@@ -136,6 +140,7 @@ function numerical_boundary_flux_first_order!(
     aux⁺::Vars{A},
     bctype,
     t,
+    direction,
     state1⁻::Vars{S},
     aux1⁻::Vars{A},
 ) where {S, A}

@@ -8,7 +8,8 @@ using ClimateMachine.VTK
 using Logging
 using Printf
 using LinearAlgebra
-using ClimateMachine.DGMethods: DGModel, init_ode_state, LocalGeometry, courant
+using ClimateMachine.DGMethods: DGModel, init_ode_state, courant
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
@@ -18,8 +19,6 @@ using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
-    RemainderModel,
-    FlatOrientation,
     NoReferenceState,
     ReferenceState,
     DryModel,
@@ -27,9 +26,10 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     Gravity,
     HydrostaticState,
-    ConstantViscosityWithDivergence,
     vars_state_conservative,
     soundspeed
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.Orientations
 using ClimateMachine.Atmos
 using ClimateMachine.ODESolvers
 

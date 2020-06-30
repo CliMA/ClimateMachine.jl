@@ -6,46 +6,44 @@ using StaticArrays
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
-using ..VariableTemplates
-using ..MPIStateArrays
-using ..Mesh.Filters: apply!
-using ..Mesh.Grids: VerticalDirection
-using ..DGMethods:
-    BalanceLaw,
-    LocalGeometry,
-    DGModel,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    nodal_update_auxiliary_state!,
-    copy_stack_field_down!
-using ..DGMethods.NumericalFluxes: RusanovNumericalFlux
+using ...VariableTemplates
+using ...MPIStateArrays
+using ...Mesh.Filters: apply!
+using ...Mesh.Grids: VerticalDirection
+using ...Mesh.Geometry
+using ...DGMethods: DGModel, copy_stack_field_down!
+using ...DGMethods.NumericalFluxes
+using ...BalanceLaws
 
-import ..DGMethods.NumericalFluxes: update_penalty!
-import ..DGMethods:
-
+import ...DGMethods.NumericalFluxes: update_penalty!
+import ...BalanceLaws:
     vars_state_conservative,
-    init_state_conservative!,
     vars_state_auxiliary,
-    init_state_auxiliary!,
     vars_state_gradient,
-    compute_gradient_argument!,
     vars_state_gradient_flux,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    compute_gradient_argument!,
     compute_gradient_flux!,
-    vars_integrals,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    vars_reverse_integrals,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_state!,
     update_auxiliary_state!,
-    update_auxiliary_state_gradient!
+    update_auxiliary_state_gradient!,
+    vars_integrals,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    indefinite_stack_integral!,
+    vars_reverse_integrals,
+    reverse_indefinite_stack_integral!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
+⊗(a::SVector, b::SVector) = a * b'
 
 abstract type AbstractHydrostaticBoussinesqProblem end
 
@@ -292,7 +290,7 @@ location to store integrands for bottom up integrals
 """
 function vars_integrals(m::HBModel, T)
     @vars begin
-        ∇hu::T
+        ∇ʰu::T
         αᵀθ::T
     end
 end
@@ -315,7 +313,7 @@ A -> array of aux variables
     Q::Vars,
     A::Vars,
 )
-    I.∇hu = A.w # borrow the w value from A...
+    I.∇ʰu = A.w # borrow the w value from A...
     I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
 
     return nothing
@@ -333,7 +331,7 @@ A -> array of aux variables
 I -> array of integrand variables
 """
 @inline function integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
-    A.w = I.∇hu
+    A.w = I.∇ʰu
     A.pkin = I.αᵀθ
 
     return nothing
@@ -417,6 +415,7 @@ t -> time, not used
     Q::Vars,
     A::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(Q)
     _grav::FT = grav(m.param_set)

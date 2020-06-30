@@ -11,8 +11,8 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods
+using ClimateMachine.BalanceLaws: BalanceLaw
 import ClimateMachine.DGMethods:
-    BalanceLaw,
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -21,12 +21,13 @@ import ClimateMachine.DGMethods:
     flux_second_order!,
     source!,
     boundary_state!,
-    numerical_boundary_flux_second_order!,
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!,
-    LocalGeometry
+    init_state_conservative!
+
+import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 import ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxSecondOrder, numerical_flux_second_order!
@@ -47,15 +48,7 @@ vars_state_gradient_flux(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
 
 boundary_state!(nf, bl::PoissonModel, _...) = nothing
 
-function flux_first_order!(
-    ::PoissonModel,
-    flux::Grad,
-    state::Vars,
-    state_auxiliary::Vars,
-    t::Real,
-)
-    nothing
-end
+function flux_first_order!(::PoissonModel, _...) end
 
 function flux_second_order!(
     ::PoissonModel,

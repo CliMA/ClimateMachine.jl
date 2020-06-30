@@ -36,7 +36,7 @@
 ##     `ClimateMachine` according to the instructions on the landing page.
 ##     We assume the users' familiarity with the conservative form of the
 ##     equations of motion for a compressible fluid (see the
-##     [`AtmosModel`](@ref AtmosModel-docs) page).
+##     [AtmosModel](@ref AtmosModel-docs) page).
 ##
 ##     The following topics are covered in this example
 ##     - Package requirements
@@ -69,12 +69,14 @@
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 # In ClimateMachine we use `StaticArrays` for our variable arrays.
@@ -148,7 +150,7 @@ function init_risingbubble!(bl, state, aux, (x, y, z), t)
     ρu = SVector(FT(0), FT(0), FT(0))                   # momentum
     ## State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
-    e_pot = gravitational_potential(bl.orientation, aux)# potential energy
+    e_pot = gravitational_potential(bl, aux)            # potential energy
     ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
 
     ρχ = FT(0)                                          # tracer

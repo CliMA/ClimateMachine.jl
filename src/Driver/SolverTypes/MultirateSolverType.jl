@@ -49,6 +49,10 @@ fast and slow dynamics respectively, depending on the state `Q`.
 - `timestep_ratio` (Int): Integer denoting the ratio between the slow
     and fast time-step sizes.
     Default: `100`
+- `discrete_splitting` (Boolean): Boolean denoting whether a PDE level or
+    discretized level splitting should be used. If `true` then the PDE is
+    discretized in such a way that `f_fast + f_slow` is equivalent to
+    discretizing the original PDE directly.
 
 ### References
     @article{SchlegelKnothArnoldWolke2012,
@@ -78,6 +82,8 @@ struct MultirateSolverType{DS} <: AbstractSolverType
     fast_method::Function
     # The ratio between slow and fast time-step sizes
     timestep_ratio::Int
+    # Whether to use a PDE level or discrete splitting
+    discrete_splitting::Bool
 
     function MultirateSolverType(;
         splitting_type = SlowFastSplitting(),
@@ -87,6 +93,7 @@ struct MultirateSolverType{DS} <: AbstractSolverType
         slow_method = LSRK54CarpenterKennedy,
         fast_method = LSRK54CarpenterKennedy,
         timestep_ratio = 100,
+        discrete_splitting = false,
     )
 
         DS = typeof(splitting_type)
@@ -99,6 +106,7 @@ struct MultirateSolverType{DS} <: AbstractSolverType
             slow_method,
             fast_method,
             timestep_ratio,
+            discrete_splitting,
         )
     end
 end
@@ -186,20 +194,17 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    slow_model = RemainderModel(dg.balance_law, (fast_model,))
-    slow_dg = DGModel(
-        slow_model,
-        dg.grid,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        dg.numerical_flux_gradient,
-        state_auxiliary = dg.state_auxiliary,
-        state_gradient_flux = dg.state_gradient_flux,
-        states_higher_order = dg.states_higher_order,
-        # Ensure diffusion direction is passed to the correct
-        # DG model
-        diffusion_direction = diffusion_direction,
+    remainder_kwargs = (
+        numerical_flux_first_order = (
+            ode_solver.discrete_splitting ?
+                    (
+                dg.numerical_flux_first_order,
+                (dg.numerical_flux_first_order,),
+            ) :
+                    dg.numerical_flux_first_order
+        ),
     )
+    slow_dg = remainder_DGModel(dg, (fast_dg,); remainder_kwargs...)
 
     slow_solver = ode_solver.slow_method(slow_dg, Q; dt = dt)
     fast_dt = dt / ode_solver.timestep_ratio

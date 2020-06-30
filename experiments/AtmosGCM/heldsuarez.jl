@@ -11,10 +11,11 @@ s = ArgParseSettings()
     default = 0
 end
 
-parsed_args = ClimateMachine.cli(custom_settings = s)
+parsed_args = ClimateMachine.init(parse_clargs = true, custom_clargs = s)
 const number_of_tracers = parsed_args["number-of-tracers"]
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
@@ -25,6 +26,7 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
     air_temperature, internal_energy, air_pressure
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using Distributions: Uniform
@@ -200,7 +202,14 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
     )
 
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    pdgngrp = setup_atmos_refstate_perturbations(
+        AtmosGCMConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, pdgngrp])
 end
 
 function main()

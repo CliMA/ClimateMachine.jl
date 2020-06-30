@@ -1,7 +1,4 @@
 using .NumericalFluxes:
-    NumericalFluxGradient,
-    NumericalFluxFirstOrder,
-    NumericalFluxSecondOrder,
     numerical_flux_gradient!,
     numerical_flux_first_order!,
     numerical_flux_second_order!,
@@ -50,7 +47,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     ω,
     D,
     elems,
-    increment,
+    α,
+    β,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -91,8 +89,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                local_tendency[k, s] =
-                    increment ? tendency[ijk, s, e] : zero(FT)
+                local_tendency[k, s] = zero(FT)
             end
             local_MI[k] = vgeo[ijk, _MI, e]
         end
@@ -143,6 +140,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     local_state_auxiliary,
                 ),
                 t,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -193,6 +191,66 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 end
             end
 
+            # In the case of the remainder model we may need to loop through the
+            # models to add in restricted direction componennts
+            if direction isa EveryDirection && balance_law isa RemBL
+                if rembl_has_subs_direction(HorizontalDirection(), balance_law)
+                    fill!(local_flux, -zero(eltype(local_flux)))
+                    flux_first_order!(
+                        balance_law,
+                        Grad{vars_state_conservative(balance_law, FT)}(
+                            local_flux,
+                        ),
+                        Vars{vars_state_conservative(balance_law, FT)}(
+                            local_state_conservative,
+                        ),
+                        Vars{vars_state_auxiliary(balance_law, FT)}(
+                            local_state_auxiliary,
+                        ),
+                        t,
+                        (HorizontalDirection(),),
+                    )
+                    @unroll for s in 1:num_state_conservative
+                        F1, F2, F3 =
+                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
+                        shared_flux[1, i, j, s] +=
+                            M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+                        if dim == 3
+                            shared_flux[2, i, j, s] +=
+                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                        end
+                    end
+                end
+                if rembl_has_subs_direction(VerticalDirection(), balance_law)
+                    fill!(local_flux, -zero(eltype(local_flux)))
+                    flux_first_order!(
+                        balance_law,
+                        Grad{vars_state_conservative(balance_law, FT)}(
+                            local_flux,
+                        ),
+                        Vars{vars_state_conservative(balance_law, FT)}(
+                            local_state_conservative,
+                        ),
+                        Vars{vars_state_auxiliary(balance_law, FT)}(
+                            local_state_auxiliary,
+                        ),
+                        t,
+                        (VerticalDirection(),),
+                    )
+                    @unroll for s in 1:num_state_conservative
+                        F1, F2, F3 =
+                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
+                        if dim == 2
+                            shared_flux[2, i, j, s] +=
+                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                        elseif dim == 3
+                            local_flux_3[s] +=
+                                M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                        end
+                    end
+                end
+            end
+
             if dim == 3 && direction isa EveryDirection
                 @unroll for n in 1:Nqk
                     MI = local_MI[n]
@@ -216,7 +274,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     local_state_auxiliary,
                 ),
                 t,
-                direction,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -244,7 +302,12 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                tendency[ijk, s, e] = local_tendency[k, s]
+                if β != 0
+                    T = α * local_tendency[k, s] + β * tendency[ijk, s, e]
+                else
+                    T = α * local_tendency[k, s]
+                end
+                tendency[ijk, s, e] = T
             end
         end
     end
@@ -265,7 +328,8 @@ end
     ω,
     D,
     elems,
-    increment,
+    α,
+    β,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -314,8 +378,7 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                local_tendency[k, s] =
-                    increment ? tendency[ijk, s, e] : zero(FT)
+                local_tendency[k, s] = zero(FT)
             end
             local_MI[k] = vgeo[ijk, _MI, e]
         end
@@ -358,6 +421,7 @@ end
                     local_state_auxiliary,
                 ),
                 t,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -428,7 +492,7 @@ end
                     local_state_auxiliary,
                 ),
                 t,
-                direction,
+                (direction,),
             )
 
             @unroll for s in 1:num_state_conservative
@@ -450,7 +514,12 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:num_state_conservative
-                tendency[ijk, s, e] = local_tendency[k, s]
+                if β != 0
+                    T = α * local_tendency[k, s] + β * tendency[ijk, s, e]
+                else
+                    T = α * local_tendency[k, s]
+                end
+                tendency[ijk, s, e] = T
             end
         end
     end
@@ -458,8 +527,8 @@ end
 
 @doc """
     interface_tendency!(balance_law::BalanceLaw, Val(polyorder),
-            numerical_flux_first_order::NumericalFluxFirstOrder,
-            numerical_flux_second_order::NumericalFluxSecondOrder,
+            numerical_flux_first_order,
+            numerical_flux_second_order,
             tendency, state_conservative, state_gradient_flux, state_auxiliary,
             vgeo, sgeo, t, vmap⁻, vmap⁺, elemtobndy,
             elems)
@@ -472,8 +541,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     ::Val{dim},
     ::Val{polyorder},
     direction,
-    numerical_flux_first_order::NumericalFluxFirstOrder,
-    numerical_flux_second_order::NumericalFluxSecondOrder,
+    numerical_flux_first_order,
+    numerical_flux_second_order,
     tendency,
     state_conservative,
     state_gradient_flux,
@@ -486,6 +555,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     vmap⁺,
     elemtobndy,
     elems,
+    α,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -560,6 +630,13 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     @inbounds e[1] = elems[eI]
 
     @inbounds for f in faces
+        # The remainder model needs to know which direction of face the model is
+        # being evaluated for. So faces 1:(nface - 2) are flagged as
+        # `HorizontalDirection()` faces and the remaining two faces are
+        # `VerticalDirection()` faces
+        face_direction =
+            f in 1:(nface - 2) ? (EveryDirection(), HorizontalDirection()) :
+            (EveryDirection(), VerticalDirection())
         e⁻ = e[1]
         normal_vector = SVector(
             sgeo[_n1, n, f, e⁻],
@@ -630,6 +707,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                     local_state_auxiliary⁺nondiff,
                 ),
                 t,
+                face_direction,
             )
             numerical_flux_second_order!(
                 numerical_flux_second_order,
@@ -697,6 +775,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 ),
                 bctype,
                 t,
+                face_direction,
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative_bottom1,
                 ),
@@ -750,7 +829,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         #Update RHS
         @unroll for s in 1:num_state_conservative
             # FIXME: Should we pretch these?
-            tendency[vid⁻, s, e⁻] -= vMI * sM * local_flux[s]
+            tendency[vid⁻, s, e⁻] -= α * vMI * sM * local_flux[s]
         end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
@@ -1117,7 +1196,7 @@ end
     ::Val{dim},
     ::Val{polyorder},
     direction,
-    numerical_flux_gradient::NumericalFluxGradient,
+    numerical_flux_gradient,
     state_conservative,
     state_gradient_flux,
     Qhypervisc_grad,

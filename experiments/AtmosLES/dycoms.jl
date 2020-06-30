@@ -1,8 +1,9 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.DGMethods.NumericalFluxes
@@ -11,6 +12,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using Distributions
@@ -25,7 +27,7 @@ using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.DGMethods:
+import ClimateMachine.BalanceLaws:
     vars_state_conservative,
     vars_state_auxiliary,
     vars_integrals,
@@ -37,7 +39,7 @@ import ClimateMachine.DGMethods:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-import ClimateMachine.DGMethods: boundary_state!
+import ClimateMachine.BalanceLaws: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!
 
 # -------------------- Radiation Model -------------------------- #
@@ -382,7 +384,7 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
             ("moisture.ρq_tot",),

@@ -17,14 +17,14 @@ using ClimateMachine.Thermodynamics:
     air_density, total_energy, soundspeed_air, PhaseDry_given_pT
 using ClimateMachine.Atmos:
     AtmosModel,
-    NoOrientation,
     NoReferenceState,
     DryModel,
     NoPrecipitation,
     NoRadiation,
-    ConstantViscosityWithDivergence,
     vars_state_conservative
+using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.TurbulenceClosures
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d

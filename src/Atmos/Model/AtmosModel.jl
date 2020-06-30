@@ -1,7 +1,6 @@
 module Atmos
 
-export AtmosModel,
-    AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel, RemainderModel
+export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
@@ -9,22 +8,44 @@ using CLIMAParameters.Atmos.SubgridScale: C_smag
 using DocStringExtensions
 using LinearAlgebra, StaticArrays
 using ..ConfigTypes
+using ..Orientations
+import ..Orientations:
+    vertical_unit_vector,
+    altitude,
+    latitude,
+    longitude,
+    projection_normal,
+    gravitational_potential,
+    ∇gravitational_potential,
+    projection_tangential
+
 using ..VariableTemplates
 using ..Thermodynamics
 using ..TemperatureProfiles
+
+using ..TurbulenceClosures
+
 import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
-    VerticalDirection, HorizontalDirection, min_node_distance, EveryDirection
+    VerticalDirection,
+    HorizontalDirection,
+    min_node_distance,
+    EveryDirection,
+    Direction
 
-import ClimateMachine.DGMethods:
-    BalanceLaw,
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, number_state_conservative, num_integrals
+
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
     vars_gradient_laplacian,
     vars_state_gradient_flux,
     vars_hyperdiffusive,
+    vars_integrals,
+    vars_reverse_integrals,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -36,21 +57,19 @@ import ClimateMachine.DGMethods:
     init_state_auxiliary!,
     init_state_conservative!,
     update_auxiliary_state!,
-    LocalGeometry,
-    lengthscale,
-    resolutionmetric,
-    DGModel,
-    nodal_update_auxiliary_state!,
-    number_state_conservative,
-    num_integrals,
-    vars_integrals,
-    vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
+
+import ClimateMachine.DGMethods:
+    LocalGeometry,
+    lengthscale,
+    resolutionmetric,
+    DGModel,
+    nodal_update_auxiliary_state!
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
@@ -85,7 +104,6 @@ Users may over-ride prescribed default values for each field.
         init_state_conservative
     )
 
-
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -93,7 +111,7 @@ struct AtmosModel{FT, PS, O, RS, T, HD, M, P, R, S, TR, BC, IS, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
-    "Orientation: [`FlatOrientation`](@ref FlatOrientation)(for LES in a box) or [`SphericalOrientation`](@ref SphericalOrientation) (for GCM)"
+    "An orientation model"
     orientation::O
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
@@ -303,9 +321,23 @@ function vars_reverse_integrals(m::AtmosModel, FT)
     end
 end
 
-include("orientation.jl")
+####
+#### Forward orientation methods
+####
+projection_normal(bl, aux, u⃗) =
+    projection_normal(bl.orientation, bl.param_set, aux, u⃗)
+projection_tangential(bl, aux, u⃗) =
+    projection_tangential(bl.orientation, bl.param_set, aux, u⃗)
+latitude(bl, aux) = latitude(bl.orientation, aux)
+longitude(bl, aux) = longitude(bl.orientation, aux)
+altitude(bl, aux) = altitude(bl.orientation, bl.param_set, aux)
+vertical_unit_vector(bl, aux) =
+    vertical_unit_vector(bl.orientation, bl.param_set, aux)
+gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
+∇gravitational_potential(bl, aux) =
+    ∇gravitational_potential(bl.orientation, aux)
+
 include("ref_state.jl")
-include("turbulence.jl")
 include("hyperdiffusion.jl")
 include("moisture.jl")
 include("precipitation.jl")
@@ -314,7 +346,6 @@ include("source.jl")
 include("tracers.jl")
 include("boundaryconditions.jl")
 include("linear.jl")
-include("remainder.jl")
 include("courant.jl")
 include("filters.jl")
 
@@ -336,6 +367,7 @@ equations.
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     ρ = state.ρ
     ρinv = 1 / ρ
@@ -472,7 +504,14 @@ end
     flux.ρe += d_h_tot * state.ρ
 end
 
-@inline function wavespeed(m::AtmosModel, nM, state::Vars, aux::Vars, t::Real)
+@inline function wavespeed(
+    m::AtmosModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
     uN = abs(dot(nM, u))
@@ -523,8 +562,8 @@ function atmos_nodal_update_auxiliary_state!(
 )
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
-    atmos_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
+    turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
 end
 
 function integral_load_auxiliary_state!(
@@ -569,9 +608,9 @@ Store Cartesian coordinate information in `aux.coord`.
 """ init_state_auxiliary!
 function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     aux.coord = geom.coord
-    atmos_init_aux!(m.orientation, m, aux, geom)
+    init_aux!(m.orientation, m.param_set, aux)
+    init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)
-    atmos_init_aux!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
 end

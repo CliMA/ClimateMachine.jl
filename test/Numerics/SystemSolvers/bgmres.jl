@@ -6,14 +6,13 @@ using StaticArrays
 using ClimateMachine
 using ClimateMachine.SystemSolvers
 using ClimateMachine.MPIStateArrays
-using CUDAapi
+using CUDA
 using Random
 using KernelAbstractions
-using CuArrays
 
 let
     Random.seed!(1235)
-    if CUDAapi.has_cuda_gpu()
+    if CUDA.has_cuda_gpu()
         arrays = [Array, CuArray]
     else
         arrays = [Array]
@@ -49,7 +48,7 @@ let
         if isa(x, Array)
             kernel! = multiply_A_kernel!(CPU(), cpu_threads)
         else
-            kernel! = multiply_A_kernel!(CUDA(), gpu_threads)
+            kernel! = multiply_A_kernel!(CUDAevice(), gpu_threads)
         end
         return kernel!(x, A, y, n1, n2, ndrange = ndrange)
     end
