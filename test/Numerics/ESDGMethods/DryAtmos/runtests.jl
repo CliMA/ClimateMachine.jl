@@ -72,6 +72,18 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
 
     # Create the ES model
     esdg = ESDGModel(model, grid)
+
+    # Make the Geopotential random
+    esdg.state_auxiliary .= ArrayType(rand(FT, size(esdg.state_auxiliary)))
+
+    # Create a random state
+    state_conservative = init_ode_state(esdg; init_on_cpu = true)
+
+    # Storage for the tendency
+    tendency = similar(state_conservative)
+
+    # Compute the tendency function
+    esdg(tendency, state_conservative, nothing, 0)
 end
 
 let
