@@ -86,3 +86,63 @@ function ESDGModel(
         surface_numerical_flux_first_order,
     )
 end
+
+"""
+    (esdg::ESDGModel)(
+        tendency::MPIStateArray,
+        state_conservative::MPIStateArray,
+        param::Nothing,
+        t,
+        α = true,
+        β = false,
+    )
+
+Compute the entropy stable tendency from the model `esdg`.
+
+    tendency .= α .* dQdt(state_conservative, param, t) .+ β .* tendency
+"""
+function (esdg::ESDGModel)(
+    tendency::MPIStateArray,
+    state_conservative::MPIStateArray,
+    ::Nothing,
+    t,
+    α = true,
+    β = false,
+)
+    device = array_device(state_conservative)
+
+    # XXX: When we do stacked meshes and IMEX this will change
+    communicate = true
+
+    exchange_state_conservative = NoneEvent()
+
+    comp_stream = Event(device)
+
+    ########################
+    # tendency Computation #
+    ########################
+    if communicate
+        exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
+            state_conservative;
+            dependencies = comp_stream,
+        )
+    end
+
+    # XXX: volume tendency
+
+    # XXX: non-mirror surface tendency
+
+    if communicate
+        exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
+            state_conservative;
+            dependencies = exchange_state_conservative,
+        )
+    end
+
+    # XXX: mirror surface tendency
+
+    # The synchronization here through a device event prevents CuArray based and
+    # other default stream kernels from launching before the work scheduled in
+    # this function is finished.
+    wait(device, comp_stream)
+end
