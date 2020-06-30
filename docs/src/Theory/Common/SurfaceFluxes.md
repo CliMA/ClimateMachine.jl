@@ -1,7 +1,7 @@
 # Surface Fluxes
 
 ```@meta
-CurrentModule = CLIMA.SurfaceFluxes
+CurrentModule = ClimateMachine.SurfaceFluxes
 ```
 
 This module provides a means to compute surface fluxes given several variables, described in [`surface_conditions`](@ref SurfaceFluxes.surface_conditions).
@@ -22,24 +22,24 @@ This page contains an extension of the Nishizawa surface-flux scheme for use wit
 > Nishizawa, S., & Kitamura, Y. ( 2018). A surface flux scheme based on the Monin‐Obukhov similarity for finite volume models. _Journal of Advances in Modeling Earth Systems_, 10, 3159– 3175. [https://doi.org/10.1029/2018MS001534](https://doi.org/10.1029/2018MS001534)
 > <em>Internally abbreviated as NK</em>	
 
-> Gryanik, V., Lupkes, C., Grachev, A. & Sidorenko, D. (2020). New modified and extended stability functions for the stable boundary layer based on SHEBA and parametrizations of bulk transfer coefficients for climate models. _Journal of the Atmospheric Sciences_, 10.1175/JAS-D-19-0255.1. [https://journals.ametsoc.org/doi/pdf/10.1175/JAS-D-19-0255.1](https://journals.ametsoc.org/doi/pdf/10.1175/JAS-D-19-0255.1). (Early Online Release) 
+> Gryanik, V., Lupkes, C., Grachev, A. & Sidorenko, D. (2020). New modified and extended stability functions for the stable boundary layer based on SHEBA and parametrizations of bulk transfer coefficients for climate models. _Journal of the Atmospheric Sciences_, 10.1175/JAS-D-19-0255.1. [https://doi.org/10.1175/JAS-D-19-0255.1](https://doi.org/10.1175/JAS-D-19-0255.1). (Early Online Release) 
 > _Internally abbreviated as GLGS_
 
 >Hill, R.J., 1989. Implications of Monin–Obukhov Similarity Theory for Scalar Quantities. _J. Atmos. Sci.,_  **46**, 2236–2244, [https://doi.org/10.1175/1520-0469(1989)046<2236:IOMSTF>2.0.CO;2](https://doi.org/10.1175/1520-0469(1989)046%3C2236:IOMSTF%3E2.0.CO;2) 
 
 ### Parameters
 * $L_{MO}$ = Monin-Obukhov length
-* $X_{\star}$ = Scale parameter for variable $X$
-* $X_{sfc}$ = Surface value of variable $X$ 
+* $X__{\star}$ = Scale parameter for variable $X$
+* $X__{sfc}$ = Surface value of variable $X$ 
 * $\kappa$ = von-Karman coefficient (typically $0.4$)
 * $\mathrm{D_T} = \nu/Pr_{T}$ is the diffusivity
-*  $Pr_{T}$ the neutral limit turbulent Prandtl number (typically $\frac{1}{3}$)
+*  $Pr__{T}$ the neutral limit turbulent Prandtl number (typically $\frac{1}{3}$)
 * $\nu$ the kinematic viscosity
 * $w$, the wall normal velocity component
 * $\Delta z$ = Model reference altitude
-* $\delta_{\chi_{i}}$ a measure of mixing efficiency for $i$th tracer 
+* $\delta__{\chi_{i}}$ a measure of mixing efficiency for $i$th tracer 
 * $\zeta = z/L_{MO}$ similarity variable
-* $\nu/u_{\star}$ Viscous lengthscale
+* $\nu/u__{\star}$ Viscous lengthscale
 
 ### Fluxes
 
