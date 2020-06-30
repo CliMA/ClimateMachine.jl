@@ -1,15 +1,78 @@
 using Test
-using ClimateMachine.BalanceLaws:
-    number_state_conservative, number_state_auxiliary, number_state_entropy
+using ClimateMachine
+import ClimateMachine.BalanceLaws:
+    number_state_conservative,
+    number_state_auxiliary,
+    number_state_entropy,
+    init_state_conservative!
+using ClimateMachine.DGMethods: ESDGModel, init_ode_state
 using ClimateMachine.DGMethods.NumericalFluxes:
     numerical_volume_flux_first_order!
-using StaticArrays: MArray
+using ClimateMachine.Mesh.Topologies: BrickTopology
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using StaticArrays: MArray, @SVector
 using Random
 using DoubleFloats
+using MPI
 
 Random.seed!(7)
 
 include("DryAtmos.jl")
+
+# Random initialization function
+function init_state_conservative!(
+    ::DryAtmosModel,
+    state_conservative,
+    state_auxiliary,
+    _...,
+) where {dim}
+    FT = eltype(state_conservative)
+    ρ = state_conservative.ρ = rand(FT) + 1
+    ρu = state_conservative.ρu = 2 * (@SVector rand(FT, 3)) .- 1
+    p = rand(FT) + 1
+    Φ = state_auxiliary.Φ
+    state_conservative.ρe = totalenergy(ρ, ρu, p, Φ)
+end
+
+function check_operators(FT, dim, mpicomm, N, ArrayType)
+    # Create a warped mesh so the metrics are not constant
+    Ne = (8, 9, 10)
+    brickrange = (
+        range(FT(-1); length = Ne[1] + 1, stop = 1),
+        range(FT(-1); length = Ne[2] + 1, stop = 1),
+        range(FT(-1); length = Ne[3] + 1, stop = 1),
+    )
+    topl = BrickTopology(
+        mpicomm,
+        ntuple(k -> brickrange[k], dim);
+        periodicity = ntuple(k -> true, dim),
+    )
+    warpfun =
+        (x1, x2, x3) -> begin
+            α = (4 / π) * (1 - x1^2) * (1 - x2^2) * (1 - x3^2)
+            # Rotate by α with x1 and x2
+            x1, x2 = cos(α) * x1 - sin(α) * x2, sin(α) * x1 + cos(α) * x2
+            # Rotate by α with x1 and x3
+            if dim == 3
+                x1, x3 = cos(α) * x1 - sin(α) * x3, sin(α) * x1 + cos(α) * x3
+            end
+            return (x1, x2, x3)
+        end
+    grid = DiscontinuousSpectralElementGrid(
+        topl,
+        FloatType = FT,
+        DeviceArray = ArrayType,
+        polynomialorder = N,
+        meshwarp = warpfun,
+    )
+
+    # Orientation does not matter since we will be setting the geopotential to a
+    # random field
+    model = DryAtmosModel{dim}(FlatOrientation())
+
+    # Create the ES model
+    esdg = ESDGModel(model, grid)
+end
 
 let
     model = DryAtmosModel{3}(FlatOrientation())
@@ -87,6 +150,18 @@ let
                 H_12 * entropy_1[1:num_state] - H_21 * entropy_2[1:num_state] .≈
                 Ψ_1 - Ψ_2,
             )
+        end
+    end
+
+    @testset "check ESDGMethods relations" begin
+        ClimateMachine.init()
+        ArrayType = ClimateMachine.array_type()
+        mpicomm = MPI.COMM_WORLD
+        polynomialorder = 4
+        for FT in (Float32, Float64, Double64)
+            for dim in 2:3
+                check_operators(FT, dim, mpicomm, polynomialorder, ArrayType)
+            end
         end
     end
 end
