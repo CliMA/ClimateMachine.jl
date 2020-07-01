@@ -5,22 +5,20 @@ export OceanDGModel,
     Continuity3dModel,
     HorizontalModel,
     BarotropicModel,
-#   basic_grid_info,
     AbstractOceanProblem
 
 #using Printf
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal
-#using CLIMAParameters.Planet: grav
 using ..VariableTemplates
 using ..MPIStateArrays
-using ..DGMethods: init_ode_state
+using ..DGMethods: init_ode_state, basic_grid_info
 using ..Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
 using ..Mesh.Grids:
     polynomialorder, dimensionality, dofs_per_element,
     VerticalDirection, HorizontalDirection, min_node_distance
 
-using ..BalanceLaws: BalanceLaw
+using ..BalanceLaws: BalanceLaw, number_state_auxiliary
 import ..BalanceLaws: nodal_update_auxiliary_state!
 
 using ..DGMethods.NumericalFluxes:
@@ -50,8 +48,6 @@ import ..DGMethods:
     LocalGeometry,
     DGModel,
     compute_gradient_flux!,
-    copy_stack_field_down!,
-#   create_state,
     calculate_dt,
     vars_integrals,
     vars_reverse_integrals,
@@ -70,27 +66,6 @@ abstract type AbstractOceanProblem end
 
 function ocean_init_aux! end
 function ocean_init_state! end
-
-function basic_grid_info(dg::DGModel)
-    grid = dg.grid
-    topology = grid.topology
-
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
-    Np = dofs_per_element(grid)
-
-    nelem = length(topology.elems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nelem, nvertelem)
-    nrealelem = length(topology.realelems)
-    nhorzrealelem = div(nrealelem, nvertelem)
-
-    return (Nq, Nqk, Nfp, Np, nvertelem, nhorzelem, nhorzrealelem, nrealelem)
-end
 
 include("OceanModel.jl")
 include("Continuity3dModel.jl")

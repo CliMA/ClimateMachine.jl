@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
 using ClimateMachine.Mesh.Topologies
@@ -135,7 +135,6 @@ function ocean_init_aux!(
 end
 
 function main()
-    ClimateMachine.init()
     mpicomm = MPI.COMM_WORLD
 
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))

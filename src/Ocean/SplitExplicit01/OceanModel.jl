@@ -125,7 +125,6 @@ function OceanDGModel(
     )
 end
 
-# function vars_state_conservative(m::Union{OceanModel, Continuity3dModel}, T)
 function vars_state_conservative(m::OceanModel, T)
     @vars begin
         u::SVector{2, T}
@@ -400,12 +399,13 @@ end
 @inline coriolis_force(m::OceanModel, y) = m.fₒ + m.β * y
 
 function update_auxiliary_state!(
-    dg::DGModel, 
-    m::OceanModel, 
-    Q::MPIStateArray, 
-    t::Real, 
+    dg::DGModel,
+    m::OceanModel,
+    Q::MPIStateArray,
+    t::Real,
     elems::UnitRange,
 )
+    FT = eltype(Q)
     A = dg.state_auxiliary
     MD = dg.modeldata
 
@@ -444,70 +444,45 @@ function update_auxiliary_state!(
     nodal_update_auxiliary_state!(f!, dg, m, ct3d_dQ, t, elems)
 #----------
 
+    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
+
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
     # copy down wz0
-    copy_stack_field_down!(dg, m, A, 1, 3, elems)
+    # We are unable to use vars (ie A.w) for this because this operation will
+    # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
+    # has a limited recursion depth for the types allowed.
+    number_auxiliary = number_state_auxiliary(m, FT)
+    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
+    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
 
-#----------
+    # project w(z=0) down the stack
+    data = reshape(A.data, Nq^2, Nqk, number_auxiliary, nelemv, nelemh)
+    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nrealelemh]
+    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nrealelemh]
+    boxy_wz0 .= flat_wz0
+
     # Compute Horizontal Flow deviation from vertical mean
-
-    Nq, Nqk, _, _, nelemv, _, nelemh, _ = basic_grid_info(dg)
 
     flowintegral_dg = dg.modeldata.flowintegral_dg
     update_auxiliary_state!(flowintegral_dg, flowintegral_dg.balance_law, Q, 0, elems)
 
     ## get top value (=integral over full depth)
-    boxy_∫u = reshape(flowintegral_dg.state_auxiliary.∫u, Nq^2, Nqk, 2, nelemv, nelemh)
+    boxy_∫u = reshape(flowintegral_dg.state_auxiliary.∫u, Nq^2, Nqk, 2, nelemv, nrealelemh)
     flat_∫u = @view boxy_∫u[:, end, :, end, :]
-    boxy_ub = reshape(flat_∫u, Nq^2, 1, 2, 1, nelemh)
+    boxy_ub = reshape(flat_∫u, Nq^2, 1, 2, 1, nrealelemh)
 
     ## make a copy of horizontal velocity
     A.u_d .= Q.u
 
     ## and remove vertical mean velocity
-    boxy_ud = reshape(A.u_d, Nq^2, Nqk, 2, nelemv, nelemh)
+    boxy_ud = reshape(A.u_d, Nq^2, Nqk, 2, nelemv, nrealelemh)
     boxy_ud .-= boxy_ub / m.problem.H
-#----------
 
     return true
 end
-
- #=
-function update_auxiliary_state_gradient!(
-    dg::DGModel,
-    m::OceanModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    A = dg.state_auxiliary
-
-    # store ∇ʰu as integrand for w
-    # update vertical diffusivity for convective adjustment
-    function f!(::OceanModel, Q, A, D, t)
-        @inbounds begin
-            ν = viscosity_tensor(m)
-            ∇u = ν \ D.ν∇u
-            A.w = -(∇u[1, 1] + ∇u[2, 2])
-        end
-
-        return nothing
-    end
-    nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
-
-    # compute integrals for w and pkin
-    indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
-    reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
-
-    # copy down wz0
-    copy_stack_field_down!(dg, m, A, 1, 3, elems)
-
-    return true
-end
- =#
 
 @inline wavespeed(m::OceanModel, n⁻, _...) =
     abs(SVector(m.cʰ, m.cʰ, m.cᶻ)' * n⁻)
