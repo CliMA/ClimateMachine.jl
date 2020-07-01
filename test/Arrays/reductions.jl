@@ -41,6 +41,66 @@ mpirank = MPI.Comm_rank(mpicomm)
     @test isapprox(euclidean_distance(QA, QB), norm(globalA .- globalB))
     @test isapprox(dot(QA, QB), dot(globalA, globalB))
 
+    # Test partial data views with 1 index
+    PA = @view QA.realdata[:, 1, QA.realelems]
+    globalPA = reshape(PA, localsize[1], 1, localsize[3])
+    PB = @view QB.realdata[:, 2, QB.realelems]
+    globalPB = reshape(PB, localsize[1], 1, localsize[3])
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = PA),
+        norm(globalPA .- globalB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; BrealQ = PB),
+        norm(globalA .- globalPB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = PA, BrealQ = PB),
+        norm(globalPA .- globalPB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = globalPA),
+        norm(globalPA .- globalB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; BrealQ = globalPB),
+        norm(globalA .- globalPB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = globalPA, BrealQ = globalPB),
+        norm(globalPA .- globalPB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = PA, BrealQ = globalPB),
+        norm(globalPA .- globalPB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = globalPA, BrealQ = PB),
+        norm(globalPA .- globalPB),
+    )
+    @test norm(QA; realdata = PA) ≈ norm(globalPA)
+    @test norm(QA; realdata = globalPA) ≈ norm(globalPA)
+
+    # Test partial data views with 2 indices and 1 index
+    globalPA = @view QA.realdata[:, 1:2, QA.realelems]
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = globalPA, BrealQ = globalPB),
+        norm(globalPA .- globalPB),
+    )
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = globalPA, BrealQ = PB),
+        norm(globalPA .- globalPB),
+    )
+    @test_throws AssertionError euclidean_distance(QA, QB; ArealQ = globalPA)
+    @test norm(QA; realdata = globalPA) ≈ norm(globalPA)
+
+    # Test partial data views with 2 indices and 2 indices
+    globalPB = @view QB.realdata[:, 3:4, QA.realelems]
+    @test isapprox(
+        euclidean_distance(QA, QB; ArealQ = globalPA, BrealQ = globalPB),
+        norm(globalPA .- globalPB),
+    )
+
     C = fill(Float32(mpirank + 1), localsize)
     globalC = vcat([fill(i, localsize) for i in 1:mpisize]...)
     QC = similar(QA)
