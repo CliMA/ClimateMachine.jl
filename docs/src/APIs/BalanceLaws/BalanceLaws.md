@@ -62,4 +62,5 @@ wavespeed
 boundary_state!
 update_auxiliary_state!
 update_auxiliary_state_gradient!
+nodal_update_auxiliary_state!
 ```

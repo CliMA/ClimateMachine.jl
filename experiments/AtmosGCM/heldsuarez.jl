@@ -11,7 +11,7 @@ s = ArgParseSettings()
     default = 0
 end
 
-parsed_args = ClimateMachine.cli(custom_settings = s)
+parsed_args = ClimateMachine.init(parse_clargs = true, custom_clargs = s)
 const number_of_tracers = parsed_args["number-of-tracers"]
 
 using ClimateMachine.Atmos

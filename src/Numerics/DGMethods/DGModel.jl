@@ -46,6 +46,36 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
+function basic_grid_info(dg::DGModel)
+    grid = dg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    Np = dofs_per_element(grid)
+
+    nelem = length(topology.elems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nelem, nvertelem)
+    nrealelem = length(topology.realelems)
+    nhorzrealelem = div(nrealelem, nvertelem)
+
+    return (
+        Nq = Nq,
+        Nqk = Nqk,
+        Nfp = Nfp,
+        Np = Np,
+        nvertelem = nvertelem,
+        nhorzelem = nhorzelem,
+        nhorzrealelem = nhorzrealelem,
+        nrealelem = nrealelem,
+    )
+end
+
 """
     (dg::DGModel)(tendency, state_conservative, nothing, t, α, β)
 
@@ -55,7 +85,7 @@ Computes the tendency terms compatible with `IncrementODEProblem`
 
 The 4-argument form will just compute
 
-    tendency .= dQdt(state_conservative, p, t) 
+    tendency .= dQdt(state_conservative, p, t)
 
 """
 function (dg::DGModel)(
@@ -108,7 +138,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     if num_state_conservative < num_state_tendency && β != 1
         # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
         tendency .*= β
-        β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!  
+        β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!
     end
 
     communicate =
@@ -862,44 +892,6 @@ function courant(
     end
 
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
-end
-
-function copy_stack_field_down!(
-    dg::DGModel,
-    m::BalanceLaw,
-    state_auxiliary::MPIStateArray,
-    fldin,
-    fldout,
-    elems = topology.elems,
-)
-    device = array_device(state_auxiliary)
-
-    grid = dg.grid
-    topology = grid.topology
-
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-
-    # do integrals
-    nelem = length(elems)
-    nvertelem = topology.stacksize
-    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
-
-    event = Event(device)
-    event = kernel_copy_stack_field_down!(device, (Nq, Nqk))(
-        Val(dim),
-        Val(N),
-        Val(nvertelem),
-        state_auxiliary.data,
-        horzelems,
-        Val(fldin),
-        Val(fldout);
-        ndrange = (length(horzelems) * Nq, Nqk),
-        dependencies = (event,),
-    )
-    wait(device, event)
 end
 
 function MPIStateArrays.MPIStateArray(dg::DGModel)

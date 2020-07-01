@@ -3,30 +3,30 @@ module ShallowWater
 export ShallowWaterModel, ShallowWaterProblem
 
 using StaticArrays
-using ..VariableTemplates
-using LinearAlgebra: Diagonal, dot
+using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
-import ..BalanceLaws:
-    BalanceLaw,
-    vars_state_auxiliary,
+using ...VariableTemplates
+using ...Mesh.Geometry
+using ...DGMethods
+using ...DGMethods.NumericalFluxes
+using ...BalanceLaws
+
+import ...DGMethods.NumericalFluxes: update_penalty!
+import ...BalanceLaws:
     vars_state_conservative,
+    vars_state_auxiliary,
     vars_state_gradient,
     vars_state_gradient_flux,
-    vars_integrals,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
     flux_first_order!,
     flux_second_order!,
     source!,
     wavespeed,
-    boundary_state!,
-    compute_gradient_argument!,
-    init_state_auxiliary!,
-    init_state_conservative!,
-    compute_gradient_flux!
-
-import ...Mesh.Geometry: LocalGeometry
-
-using ..DGMethods.NumericalFluxes
+    boundary_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)

@@ -7,7 +7,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.BalanceLaws: vars_state_conservative
-using ClimateMachine.HydrostaticBoussinesq
+using ClimateMachine.Ocean.HydrostaticBoussinesq
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav

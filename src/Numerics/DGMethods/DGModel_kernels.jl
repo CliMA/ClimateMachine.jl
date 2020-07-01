@@ -1921,44 +1921,6 @@ end
     end
 end
 
-# TODO: Generalize to more than one field?
-@kernel function kernel_copy_stack_field_down!(
-    ::Val{dim},
-    ::Val{N},
-    ::Val{nvertelem},
-    state_auxiliary,
-    elems,
-    ::Val{fldin},
-    ::Val{fldout},
-) where {dim, N, nvertelem, fldin, fldout}
-    DFloat = eltype(state_auxiliary)
-
-    Nq = N + 1
-    Nqj = dim == 2 ? 1 : Nq
-
-    _eh = @index(Group, Linear)
-    i, j = @index(Local, NTuple)
-
-    # note that k is the second not 4th index (since this is scratch memory and k
-    # needs to be persistent across threads)
-    @inbounds begin
-        # Initialize the constant state at zero
-        ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
-        eh = elems[_eh]
-        et = nvertelem + (eh - 1) * nvertelem
-        val = state_auxiliary[ijk, fldin, et]
-
-        # Loop up the stack of elements
-        for ev in 1:nvertelem
-            e = ev + (eh - 1) * nvertelem
-            @unroll for k in 1:Nq
-                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
-                state_auxiliary[ijk, fldout, e] = val
-            end
-        end
-    end
-end
-
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
     ::Val{dim},

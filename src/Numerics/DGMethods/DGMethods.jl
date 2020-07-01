@@ -52,7 +52,8 @@ import ..BalanceLaws:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-export DGModel, init_ode_state, restart_ode_state, restart_auxiliary_state
+export DGModel,
+    init_ode_state, restart_ode_state, restart_auxiliary_state, basic_grid_info
 
 include("NumericalFluxes.jl")
 include("DGModel.jl")
