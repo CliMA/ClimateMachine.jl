@@ -10,6 +10,7 @@ using ClimateMachine.DGMethods.NumericalFluxes:
     numerical_volume_flux_first_order!
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.VariableTemplates: varsindex
 using StaticArrays: MArray, @SVector
 using Random
 using DoubleFloats
@@ -84,6 +85,59 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
 
     # Compute the tendency function
     esdg(tendency, state_conservative, nothing, 0)
+
+    # Check that the volume terms only lead to surface integrals of
+    #    ∑_{j} n_j ψ_j
+    # where Ψ_j = β^T f_j - ζ_j = ρu_j
+    Np, K = (N + 1)^dim, prod(Ne[1:dim])
+
+    # Get the mass matrix on the host
+    _M = ClimateMachine.Grids._M
+    M = Array(grid.vgeo[:, _M:_M, :])
+
+    # Get the state, tendency, and aux on the host
+    Q = Array(state_conservative.data)
+    dQ = Array(tendency.data)
+    A = Array(esdg.state_auxiliary.data)
+
+    # Compute the entropy variables
+    β = similar(Q, Np, number_state_entropy(model), K)
+    @views for e in 1:K
+        for i in 1:Np
+            state_to_entropy_variables!(
+                model,
+                β[i, :, e],
+                Q[i, :, e],
+                A[i, :, e],
+            )
+        end
+    end
+
+    # Get the unit normals and surface mass matrix
+    sgeo = Array(grid.sgeo)
+    n1 = sgeo[ClimateMachine.Grids._n1, :, :, :]
+    n2 = sgeo[ClimateMachine.Grids._n2, :, :, :]
+    n3 = sgeo[ClimateMachine.Grids._n3, :, :, :]
+    sM = sgeo[ClimateMachine.Grids._sM, :, :, :]
+
+    # Get the Ψs
+    fmask = Array(grid.vmap⁻[:, :, 1])
+    _ρu = varsindex(vars_state_conservative(model, FT), :ρu)
+    Ψ1 = Q[fmask, _ρu[1], :]
+    Ψ2 = Q[fmask, _ρu[2], :]
+    Ψ3 = Q[fmask, _ρu[3], :]
+
+    # Compute the surface integral:
+    #    ∫_Ωf ∑_j n_j * Ψ_j
+    surface = sum(sM .* (n1 .* Ψ1 + n2 .* Ψ2 + n3 .* Ψ3), dims = (1, 2))[:]
+
+    # Compute the volume integral:
+    #   -∫_Ω ∑_j β^T (dq/dt)
+    # (tendency is -dq / dt)
+    num_state = number_state_conservative(model)
+    volume = sum(β[:, 1:num_state, :] .* M .* dQ, dims = (1, 2))[:]
+
+    @test all(surface .≈ volume)
 end
 
 let
@@ -165,13 +219,16 @@ let
         end
     end
 
-    @testset "check ESDGMethods relations" begin
-        ClimateMachine.init()
-        ArrayType = ClimateMachine.array_type()
-        mpicomm = MPI.COMM_WORLD
-        polynomialorder = 4
-        for FT in (Float32, Float64, Double64)
-            for dim in 2:3
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
+    mpicomm = MPI.COMM_WORLD
+    polynomialorder = 4
+    # XXX: Unfortunately `Double64` doesn't work completely on the GPU
+    test_types =
+        ArrayType <: Array ? (Float32, Float64, Double64) : (Float32, Float64)
+    for FT in test_types
+        for dim in 2:3
+            @testset "check ESDGMethods relations for dim = $dim and FT = $FT" begin
                 check_operators(FT, dim, mpicomm, polynomialorder, ArrayType)
             end
         end
