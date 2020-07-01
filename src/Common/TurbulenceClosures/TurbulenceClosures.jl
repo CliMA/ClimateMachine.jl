@@ -2,7 +2,7 @@
     TurbulenceClosures
 
 Functions for turbulence, sub-grid scale modelling. These include
-viscosity terms, diffusivity and stress tensors. 
+viscosity terms, diffusivity and stress tensors.
 
 - [`ConstantViscosityWithDivergence`](@ref)
 - [`SmagorinskyLilly`](@ref)
@@ -90,8 +90,8 @@ export TurbulenceClosureModel,
 
 
 """
-    Abstract type with default do-nothing behaviour for 
-arbitrary turbulence closure models. 
+    Abstract type with default do-nothing behaviour for
+arbitrary turbulence closure models.
 """
 abstract type TurbulenceClosureModel end
 
@@ -155,9 +155,6 @@ function compute_gradient_flux!(
 
 function turbulence_tensors end
 
-turbulence_tensors(atmos::BalanceLaw, args...) =
-    turbulence_tensors(atmos.turbulence, atmos, args...)
-
 """
     ν, D_t, τ = turbulence_tensors(
                     ::TurbulenceClosureModel,
@@ -182,8 +179,8 @@ for the returned quantities.
 - `aux` = Array of auxiliary variables
 - `t` = time
 """
-turbulence_tensors(m::TurbulenceClosureModel, atmos::BalanceLaw, args...) =
-    turbulence_tensors(m, atmos.orientation, atmos.param_set, args...)
+turbulence_tensors(m::TurbulenceClosureModel, bl::BalanceLaw, args...) =
+    turbulence_tensors(m, bl.orientation, bl.param_set, args...)
 
 # We also provide generic math functions for use within the turbulence closures,
 # commonly used quantities such as the [principal tensor invariants](@ref tensor-invariants), handling of

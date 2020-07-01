@@ -24,6 +24,7 @@ using ..Thermodynamics
 using ..TemperatureProfiles
 
 using ..TurbulenceClosures
+import ..TurbulenceClosures: turbulence_tensors
 
 import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
@@ -144,7 +145,7 @@ Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`)
 
 """
 function AtmosModel{FT}(
-    ::Type{AtmosLESConfigType},
+    ::Union{Type{AtmosLESConfigType}, Type{SingleStackConfigType}},
     param_set::AbstractParameterSet;
     orientation::O = FlatOrientation(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
@@ -336,6 +337,10 @@ vertical_unit_vector(bl, aux) =
 gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 ∇gravitational_potential(bl, aux) =
     ∇gravitational_potential(bl.orientation, aux)
+
+turbulence_tensors(atmos::AtmosModel, args...) =
+    turbulence_tensors(atmos.turbulence, atmos, args...)
+
 
 include("ref_state.jl")
 include("hyperdiffusion.jl")
