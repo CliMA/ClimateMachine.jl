@@ -1,5 +1,5 @@
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init()
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -8,9 +8,12 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.Orientations
 
 using Distributions
 using Random
@@ -116,6 +119,7 @@ function config_channelflow(FT, N, resolution, xmax, ymax, zmax)
         init_channelflow!,
         solver_type = ode_solver,
         model = model,
+	grid_stretching = SVector{3}(DoubleSidedSingleExponentialStretching(FT(-10)),NoStretching(),NoStretching()),
     )
 
     return config
@@ -149,7 +153,7 @@ function main()
     Δh₃ = FT(zmax/3Npts)
     resolution = (Δh₁, Δh₂, Δh₃)
     t0 = FT(0)
-    timeend = FT(14400)
+    timeend = FT(0.0001)
 
     driver_config = config_channelflow(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(

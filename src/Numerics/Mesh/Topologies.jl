@@ -12,8 +12,8 @@ export AbstractTopology,
     cubedshellwarp,
     cubedshellunwarp
 
-export grid1d, SingleExponentialStretching, InteriorStretching
-
+export grid1d, AbstractGridStretching, SingleExponentialStretching, InteriorStretching, DoubleSidedSingleExponentialStretching
+export NoStretching
 """
     AbstractTopology{dim}
 
@@ -1245,7 +1245,12 @@ will be uniform.
 
 Returns either a range object or a vector containing the element boundaries.
 """
-function grid1d(a, b, stretch = nothing; elemsize = nothing, nelem = nothing)
+# TODO: document these
+abstract type AbstractGridStretching end
+struct NoStretching <: AbstractGridStretching
+end
+
+function grid1d(a, b, stretch :: Any; elemsize = nothing, nelem = nothing)
     xor(nelem === nothing, elemsize === nothing) ||
     error("Either `elemsize` or `nelem` arguments must be provided")
     if elemsize !== nothing
@@ -1253,12 +1258,9 @@ function grid1d(a, b, stretch = nothing; elemsize = nothing, nelem = nothing)
     end
     grid1d(a, b, stretch, nelem)
 end
-function grid1d(a, b, ::Nothing, nelem)
+function grid1d(a, b, ::NoStretching, nelem)
     range(a, stop = b, length = nelem + 1)
 end
-
-# TODO: document these
-abstract type AbstractGridStretching end
 
 """
     SingleExponentialStretching(A)
@@ -1295,7 +1297,7 @@ function grid1d(a::A, b::B, stretch::InteriorStretching, nelem) where {A, B}
     coe .* (stretch.attractor .- (b - a) .* s) .* (1 .- s) .* s
 end
 
-struct DoubleSidedSingleExponentialStretching(A)
+struct DoubleSidedSingleExponentialStretching{T} <: AbstractGridStretching
     A::T
 end
 function grid1d(
@@ -1308,4 +1310,6 @@ function grid1d(
     s = range(zero(F), stop = one(F), length = nelem + 1)
     s_t = (expm1.(stretch.A .* s) .- 1) ./ (expm1(stretch.A) - 1)
     a .+ (b - a) .* (expm1.(-stretch.A .* s_t) .- 1) ./ (expm1(-stretch.A) - 1)
+end
+
 end
