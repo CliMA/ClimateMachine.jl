@@ -537,6 +537,20 @@ function LinearAlgebra.norm(
 )
     if weighted && ~isempty(Q.weights) && isfinite(p)
         W = @view Q.weights[:, :, Q.realelems]
+
+        # Check that the arrays are the right dimensionality
+        @assert ndims(realdata) in (2, 3)
+
+        # Reshape to 3 dimensions is necessary
+        if ndims(realdata) == 2
+            realdata =
+                reshape(realdata, size(realdata, 1), 1, size(realdata, 2))
+        end
+
+        # Check that these are broadcastable
+        @assert size(realdata, 1) == size(W, 1)
+        @assert size(realdata, 3) == size(W, 3)
+
         locnorm = weighted_norm_impl(realdata, W, Val(p), dims)
     else
         locnorm = norm_impl(realdata, Val(p), dims)
@@ -584,6 +598,25 @@ function euclidean_distance(
     ArealQ = A.realdata,
     BrealQ = B.realdata,
 )
+    # Check the the arrays are the right dimensionality
+    @assert ndims(ArealQ) in (2, 3)
+    @assert ndims(BrealQ) in (2, 3)
+
+    # Reshape to 3 dimensions is necessary
+    if ndims(ArealQ) == 2
+        ArealQ = reshape(ArealQ, size(ArealQ, 1), 1, size(ArealQ, 2))
+    end
+    if ndims(BrealQ) == 2
+        BrealQ = reshape(BrealQ, size(BrealQ, 1), 1, size(BrealQ, 2))
+    end
+
+    # Check that these are broadcastable
+    @assert size(ArealQ, 1) == size(BrealQ, 1)
+    @assert size(ArealQ, 3) == size(BrealQ, 3)
+    @assert size(ArealQ, 2) == 1 ||
+            size(BrealQ, 2) == 1 ||
+            size(ArealQ, 2) == size(BrealQ, 2)
+
     # work around https://github.com/JuliaArrays/LazyArrays.jl/issues/66
     E = @~ (ArealQ .- BrealQ) .^ 2
 
