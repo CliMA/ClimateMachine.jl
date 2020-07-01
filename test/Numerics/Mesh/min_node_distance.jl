@@ -10,7 +10,7 @@ using LinearAlgebra
 
 let
     # boiler plate MPI stuff
-    ClimateMachine.init()
+    ClimateMachine.init(fix_rng_seed=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD

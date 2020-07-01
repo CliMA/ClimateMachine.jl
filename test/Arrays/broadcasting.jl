@@ -3,7 +3,7 @@ using Test, MPI
 using ClimateMachine
 using ClimateMachine.MPIStateArrays
 
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 const ArrayType = ClimateMachine.array_type()
 const mpicomm = MPI.COMM_WORLD
 

@@ -14,7 +14,7 @@ using ClimateMachine.SystemSolvers:
 
 import ClimateMachine.MPIStateArrays: array_device
 
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 const ArrayType = ClimateMachine.array_type()
 
 function band_to_full(B, p, q)

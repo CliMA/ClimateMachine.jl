@@ -14,7 +14,7 @@ using ClimateMachine.GenericCallbacks
 
 @testset "$(@__FILE__)" begin
 
-    ClimateMachine.init()
+    ClimateMachine.init(fix_rng_seed=true)
     FT = Float64
 
     # Define some dummy vector and tensor abstract variables with associated types

@@ -18,7 +18,7 @@ let
         arrays = [Array]
     end
     # Initialize
-    ClimateMachine.init()
+    ClimateMachine.init(fix_rng_seed=true)
     T = Float64
     mpicomm = MPI.COMM_WORLD
     # set the error threshold

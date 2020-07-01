@@ -206,7 +206,7 @@ function run(
 end
 
 let
-    ClimateMachine.init()
+    ClimateMachine.init(fix_rng_seed=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD

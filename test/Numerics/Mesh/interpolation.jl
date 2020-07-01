@@ -11,7 +11,7 @@ import GaussQuadrature
 using KernelAbstractions: CPU, CUDADevice
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(fix_rng_seed=true)
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Atmos
 using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary

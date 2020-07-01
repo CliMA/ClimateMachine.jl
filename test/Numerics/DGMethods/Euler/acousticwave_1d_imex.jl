@@ -50,7 +50,7 @@ const output_vtk = false
 const ntracers = 1
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(fix_rng_seed=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
