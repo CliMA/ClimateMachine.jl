@@ -41,46 +41,46 @@ end
 
 A set of profiles used to test Thermodynamics.
 """
-struct ProfileSet{FT}
-    z::Array{FT}                        # Altitude
-    T::Array{FT}                        # Temperature
-    p::Array{FT}                        # Pressure
-    RS::Array{FT}                       # Relative humidity
-    e_int::Array{FT}                    # Internal energy
-    ρ::Array{FT}                        # Density
-    θ_liq_ice::Array{FT}                # Potential temperature
-    q_tot::Array{FT}                    # Total specific humidity
-    q_liq::Array{FT}                    # Liquid specific humidity
-    q_ice::Array{FT}                    # Ice specific humidity
-    q_pt::Array{PhasePartition{FT}}     # Phase partition
-    RH::Array{FT}                       # Relative humidity
-    phase_type::Type{<:ThermodynamicState}
+struct ProfileSet{AFT, QPT, PT}
+    z::AFT          # Altitude
+    T::AFT          # Temperature
+    p::AFT          # Pressure
+    RS::AFT         # Relative saturation
+    e_int::AFT      # Internal energy
+    ρ::AFT          # Density
+    θ_liq_ice::AFT  # Liquid Ice Potential temperature
+    q_tot::AFT      # Total specific humidity
+    q_liq::AFT      # Liquid specific humidity
+    q_ice::AFT      # Ice specific humidity
+    q_pt::QPT       # Phase partition
+    RH::AFT         # Relative humidity
+    phase_type::PT  # Phase type (e.g., `PhaseDry`, `PhaseEquil`)
 end
 
 """
     input_config(
-        FT;
+        ArrayType;
         n=50,
         n_RS1=10,
         n_RS2=20,
-        T_min=FT(150),
-        T_surface=FT(340)
-    ) where {FT}
+        T_min=150,
+        T_surface=340
+    )
 
 Return input arguments to construct profiles
 """
 function input_config(
-    FT;
+    ArrayType;
     n = 50,
     n_RS1 = 10,
     n_RS2 = 20,
-    T_surface = FT(340),
-    T_min = FT(150),
+    T_surface = 340,
+    T_min = 150,
 )
     n_RS = n_RS1 + n_RS2
-    z_range = range(FT(0), stop = FT(2.5e4), length = n)
-    relative_sat1 = range(FT(0), stop = FT(1), length = n_RS1)
-    relative_sat2 = range(FT(1), stop = FT(1.02), length = n_RS2)
+    z_range = ArrayType(range(0, stop = 2.5e4, length = n))
+    relative_sat1 = ArrayType(range(0, stop = 1, length = n_RS1))
+    relative_sat2 = ArrayType(range(1, stop = 1.02, length = n_RS2))
     relative_sat = [relative_sat1..., relative_sat2...]
     return z_range, relative_sat, T_surface, T_min
 end
@@ -90,9 +90,9 @@ end
         param_set::AbstractParameterSet,
         z_range::AbstractArray,
         relative_sat::AbstractArray,
-        T_surface::FT,
-        T_min::FT,
-    ) where {FT}
+        T_surface,
+        T_min,
+    )
 
 Compute profiles shared across `PhaseDry`,
 `PhaseEquil` and `PhaseNonEquil` thermodynamic
@@ -106,22 +106,24 @@ function shared_profiles(
     param_set::AbstractParameterSet,
     z_range::AbstractArray,
     relative_sat::AbstractArray,
-    T_surface::FT,
-    T_min::FT,
-) where {FT}
+    T_surface,
+    T_min,
+)
+    FT = eltype(z_range)
     n_RS = length(relative_sat)
     n = length(z_range)
-    T = Array{FT}(undef, n * n_RS)
-    p = Array{FT}(undef, n * n_RS)
-    RS = Array{FT}(undef, n * n_RS)
-    z = Array{FT}(undef, n * n_RS)
+    T = similar(z_range, n * n_RS)
+    p = similar(z_range, n * n_RS)
+    RS = similar(z_range, n * n_RS)
+    z = similar(z_range, n * n_RS)
     linear_indices = LinearIndices((1:n, 1:n_RS))
     # We take the virtual temperature, returned here,
     # as the temperature, and then compute a thermodynamic
     # state consistent with that temperature. This profile
     # will not be in hydrostatic balance, but this does not
     # matter for the thermodynamic test profiles.
-    profile = DecayingTemperatureProfile{FT}(param_set, T_surface, T_min)
+    profile =
+        DecayingTemperatureProfile{FT}(param_set, FT(T_surface), FT(T_min))
     for i in linear_indices.indices[1]
         for j in linear_indices.indices[2]
             k = linear_indices[i, j]
@@ -138,25 +140,27 @@ end
 ####
 
 """
-    PhaseDryProfiles(param_set, ::Type{FT})
+    PhaseDryProfiles(param_set, ::Type{ArrayType})
 
 Returns a `ProfileSet` used to test dry thermodynamic states.
 """
 function PhaseDryProfiles(
     param_set::AbstractParameterSet,
-    ::Type{FT},
-) where {FT}
+    ::Type{ArrayType},
+) where {ArrayType}
     phase_type = PhaseDry
 
-    z_range, relative_sat, T_surface, T_min = input_config(FT)
+    z_range, relative_sat, T_surface, T_min = input_config(ArrayType)
     z, T_virt, p, RS =
         shared_profiles(param_set, z_range, relative_sat, T_surface, T_min)
-    _R_d::FT = R_d(param_set)
     T = T_virt
+    FT = eltype(T)
+    _R_d::FT = R_d(param_set)
     ρ = p ./ (_R_d .* T)
 
     # Additional variables
-    q_tot = zeros(FT, length(RS))
+    q_tot = similar(T)
+    fill!(q_tot, 0)
     q_pt = PhasePartition_equil.(Ref(param_set), T, ρ, q_tot, Ref(phase_type))
     e_int = internal_energy.(Ref(param_set), T, q_pt)
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
@@ -164,7 +168,7 @@ function PhaseDryProfiles(
     q_ice = getproperty.(q_pt, :ice)
     RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
 
-    return ProfileSet(
+    return ProfileSet{typeof(T), typeof(q_pt), typeof(phase_type)}(
         z,
         T,
         p,
@@ -186,24 +190,26 @@ end
 ####
 
 """
-    PhaseEquilProfiles(param_set, ::Type{FT})
+    PhaseEquilProfiles(param_set, ::Type{ArrayType})
 
 Returns a `ProfileSet` used to test moist states in thermodynamic equilibrium.
 """
 function PhaseEquilProfiles(
     param_set::AbstractParameterSet,
-    ::Type{FT},
-) where {FT}
+    ::Type{ArrayType},
+) where {ArrayType}
     phase_type = PhaseEquil
 
     # Prescribe z_range, relative_sat, T_surface, T_min
-    z_range, relative_sat, T_surface, T_min = input_config(FT)
-    _R_d = FT(R_d(param_set))
+    z_range, relative_sat, T_surface, T_min = input_config(ArrayType)
 
     # Compute T, p, from DecayingTemperatureProfile, (reshape RS)
-    z, T, p, RS =
+    z, T_virt, p, RS =
         shared_profiles(param_set, z_range, relative_sat, T_surface, T_min)
+    T = T_virt
 
+    FT = eltype(T)
+    _R_d = FT(R_d(param_set))
     # Compute total specific humidity from temperature, pressure
     # and relative saturation, and partition the saturation excess
     # according to temperature.
@@ -221,7 +227,7 @@ function PhaseEquilProfiles(
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
     RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
 
-    return ProfileSet(
+    return ProfileSet{typeof(T), typeof(q_pt), typeof(phase_type)}(
         z,
         T,
         p,
