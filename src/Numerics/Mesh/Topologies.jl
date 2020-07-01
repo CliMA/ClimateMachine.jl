@@ -1281,7 +1281,7 @@ function grid1d(
 ) where {A, B}
     F = float(promote_type(A, B))
     s = range(zero(F), stop = one(F), length = nelem + 1)
-    a .+ (b - a) .* expm1.(stretch.A .* s) ./ expm1(stretch.A)
+    a .+ (b - a) .* (expm1.(stretch.A .* s) .- 1) ./ (expm1(stretch.A) - 1)
 end
 
 struct InteriorStretching{T} <: AbstractGridStretching
@@ -1295,4 +1295,17 @@ function grid1d(a::A, b::B, stretch::InteriorStretching, nelem) where {A, B}
     coe .* (stretch.attractor .- (b - a) .* s) .* (1 .- s) .* s
 end
 
+struct DoubleSidedSingleExponentialStretching(A)
+    A::T
+end
+function grid1d(
+    a::A,
+    b::B,
+    stretch::DoubleSidedSingleExponentialStretching,
+    nelem,
+) where {A, B}
+    F = float(promote_type(A, B))
+    s = range(zero(F), stop = one(F), length = nelem + 1)
+    s_t = (expm1.(stretch.A .* s) .- 1) ./ (expm1(stretch.A) - 1)
+    a .+ (b - a) .* (expm1.(-stretch.A .* s_t) .- 1) ./ (expm1(-stretch.A) - 1)
 end
