@@ -59,8 +59,8 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
     aux::Vars,
 )
     Thermodynamics.internal_energy(
-        state.ρ,
-        state.ρe,
+        state.δρ + aux.ref_state.ρ,
+        state.δρe + aux.ref_state.ρe,
         state.ρu,
         gravitational_potential(orientation, aux),
     )
@@ -82,7 +82,9 @@ soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
     phase = thermo_state(atmos, state, aux)
     R_m = gas_constant_air(phase)
     T = air_temperature(phase)
-    e_tot = state.ρe * (1 / state.ρ)
+    ρ = state.δρ + aux.ref_state.ρ
+    ρe = state.δρe + aux.ref_state.ρe
+    e_tot = ρe * (1 / ρ)
     return e_tot + R_m * T
 end
 
@@ -102,7 +104,7 @@ vars_state_auxiliary(::DryModel, FT) = @vars(θ_v::FT, air_T::FT)
     t::Real,
 )
     e_int = internal_energy(atmos, state, aux)
-    ts = PhaseDry(atmos.param_set, e_int, state.ρ)
+    ts = PhaseDry(atmos.param_set, e_int, state.δρ + aux.ref_state.ρ)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
     nothing
@@ -120,7 +122,7 @@ function thermo_state(
     return PhaseDry(
         atmos.param_set,
         internal_energy(atmos, state, aux),
-        state.ρ,
+        state.δρ + aux.ref_state.ρ,
     )
 end
 
@@ -154,11 +156,12 @@ vars_state_auxiliary(::EquilMoist, FT) =
 )
     ps = atmos.param_set
     e_int = internal_energy(atmos, state, aux)
+    ρ = state.δρ + aux.ref_state.ρ
     ts = PhaseEquil(
         ps,
         e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
+        ρ,
+        state.moisture.ρq_tot / ρ,
         moist.maxiter,
         moist.tolerance,
     )
@@ -178,11 +181,12 @@ function thermo_state(
     ps = atmos.param_set
     PS = typeof(ps)
     FT = eltype(state)
+    ρ = state.δρ + aux.ref_state.ρ
     return PhaseEquil{FT, PS}(
         ps,
         e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
+        ρ,
+        state.moisture.ρq_tot / ρ,
         aux.moisture.temperature,
     )
 end
@@ -194,7 +198,8 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    ρinv = 1 / state.ρ
+    ρ = state.δρ + aux.ref_state.ρ
+    ρinv = 1 / ρ
     transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
 end
 
@@ -218,7 +223,7 @@ function flux_moisture!(
     aux::Vars,
     t::Real,
 )
-    ρ = state.ρ
+    ρ = state.δρ + aux.ref_state.ρ
     u = state.ρu / ρ
     flux.moisture.ρq_tot += u * state.moisture.ρq_tot
 end
@@ -233,11 +238,11 @@ function flux_second_order!(
     D_t,
 )
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
-    flux_second_order!(moist, flux, state, d_q_tot)
+    flux_second_order!(moist, flux, state, aux, d_q_tot)
 end
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
-function flux_second_order!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
-    flux.ρ += d_q_tot * state.ρ
+function flux_second_order!(moist::EquilMoist, flux::Grad, state::Vars, aux::Vars, d_q_tot)
+    flux.ρ += d_q_tot * (state.δρ + aux.ref_state.ρ)
     flux.ρu += d_q_tot .* state.ρu'
-    flux.moisture.ρq_tot += d_q_tot * state.ρ
+    flux.moisture.ρq_tot += d_q_tot * (state.δρ + aux.ref_state.ρ)
 end

@@ -224,9 +224,11 @@ Conserved state variables (Prognostic Variables)
 """
 function vars_state_conservative(m::AtmosModel, FT)
     @vars begin
-        ρ::FT
+        # ρ::FT
+        δρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        # ρe::FT
+        δρe::FT
         turbulence::vars_state_conservative(m.turbulence, FT)
         hyperdiffusion::vars_state_conservative(m.hyperdiffusion, FT)
         moisture::vars_state_conservative(m.moisture, FT)
@@ -369,24 +371,25 @@ equations.
     t::Real,
     direction,
 )
-    ρ = state.ρ
+    δρ = state.δρ
+    δρe = state.δρe
+    ρ = aux.ref_state.ρ + δρ
+    ρe = aux.ref_state.ρe + δρe
     ρinv = 1 / ρ
+
     ρu = state.ρu
     u = ρinv * ρu
 
     # advective terms
-    flux.ρ = ρ * u
+    flux.δρ = ρ * u
     flux.ρu = ρ * u .* u'
-    flux.ρe = u * state.ρe
+    flux.δρe = u * ρe
 
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
-    if m.ref_state isa HydrostaticState
-        flux.ρu += (p - aux.ref_state.p) * I
-    else
-        flux.ρu += p * I
-    end
+    flux.ρu += (p - aux.ref_state.p) * I
     flux.ρe += u * p
+
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
