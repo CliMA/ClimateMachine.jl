@@ -1308,8 +1308,14 @@ function grid1d(
 ) where {A, B}
     F = float(promote_type(A, B))
     s = range(zero(F), stop = one(F), length = nelem + 1)
-    s_t = (expm1.(stretch.A .* s) .- 1) ./ (expm1(stretch.A) - 1)
-    a .+ (b - a) .* (expm1.(-stretch.A .* s_t) .- 1) ./ (expm1(-stretch.A) - 1)
+    s_t = (exp.(stretch.A .* s) .- 1) ./ (exp(stretch.A) - 1)
+    s_b = (exp.(-stretch.A .* s) .- 1) ./ (exp(-stretch.A) - 1)
+    t1 = s_t[1:(nelem + 1) ÷ 2]
+    t2 = s_b[(nelem+1) ÷ 2:nelem+1]
+    t = append!(t1,t2)
+    @info a .+ (b - a) .* t
+    a .+ (b - a) .* t
+    #a .+ (b - a) .* (expm1.(-stretch.A .* s_t) .- 1) ./ (expm1(-stretch.A) - 1)
 end
 
 end

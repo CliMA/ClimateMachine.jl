@@ -1,5 +1,5 @@
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -119,7 +119,7 @@ function config_channelflow(FT, N, resolution, xmax, ymax, zmax)
         init_channelflow!,
         solver_type = ode_solver,
         model = model,
-	grid_stretching = SVector{3}(DoubleSidedSingleExponentialStretching(FT(-10)),NoStretching(),NoStretching()),
+	grid_stretching = SVector{3}(DoubleSidedSingleExponentialStretching(FT(2)),NoStretching(),NoStretching()),
     )
 
     return config
