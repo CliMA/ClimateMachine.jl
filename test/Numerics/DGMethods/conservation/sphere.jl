@@ -25,7 +25,7 @@ using Logging, Printf, Dates
 using Random
 
 using ClimateMachine.VariableTemplates
-using ClimateMachine.DGMethods: BalanceLaw
+using ClimateMachine.DGMethods: BalanceLaw, nodal_init_state_auxiliary!
 
 import ClimateMachine.DGMethods:
     vars_state_auxiliary,
@@ -54,7 +54,7 @@ vars_state_conservative(::ConservationTestModel, T) = @vars(q::T, p::T)
 vars_state_gradient(::ConservationTestModel, T) = @vars()
 vars_state_gradient_flux(::ConservationTestModel, T) = @vars()
 
-function init_state_auxiliary!(
+function conservation_nodal_init_state_auxiliary!(
     ::ConservationTestModel,
     aux::Vars,
     g::LocalGeometry,
@@ -65,6 +65,19 @@ function init_state_auxiliary!(
         cos(10 * π * x) * sin(10 * π * y) + cos(20 * π * z),
         exp(sin(π * r)),
         sin(π * (x + y + z)),
+    )
+end
+
+function init_state_auxiliary!(
+    m::ConservationTestModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    nodal_init_state_auxiliary!(
+        m,
+        conservation_nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
     )
 end
 

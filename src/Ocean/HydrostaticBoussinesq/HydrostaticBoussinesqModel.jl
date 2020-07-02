@@ -178,8 +178,13 @@ sets the initial value for auxiliary variables (those that aren't related to ver
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_aux! end
-function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
-    return ocean_init_aux!(m, m.problem, A, geom)
+function init_state_auxiliary!(m::HBModel, state_auxiliary::MPIStateArray, grid)
+    nodal_init_state_auxiliary!(
+        m,
+        (m, A, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        state_auxiliary,
+        grid,
+    )
 end
 
 """
