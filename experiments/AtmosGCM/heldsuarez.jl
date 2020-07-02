@@ -97,7 +97,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly(c_smag),
-        hyperdiffusion = StandardHyperDiffusion(τ_hyper),
+        hyperdiffusion = DryBiharmonic(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
