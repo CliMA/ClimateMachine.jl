@@ -3,8 +3,7 @@ module ShallowWater
 export ShallowWaterModel, ShallowWaterProblem
 
 using StaticArrays
-using ..VariableTemplates
-using ..MPIStateArrays: MPIStateArray
+using ...MPIStateArrays: MPIStateArray
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
@@ -35,10 +34,7 @@ import ...BalanceLaws:
     compute_gradient_flux!
 
 import ...Mesh.Geometry: LocalGeometry
-
-using ..DGMethods.NumericalFluxes
-using ..DGMethods: nodal_init_state_auxiliary!
->>>>>>> 048a84d87... Make auxiliary state initialization global
+using ...DGMethods: nodal_init_state_auxiliary!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
