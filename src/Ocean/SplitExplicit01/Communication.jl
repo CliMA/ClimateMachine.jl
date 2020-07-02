@@ -5,7 +5,6 @@ import ..BalanceLaws:
     cummulate_fast_solution!,
     reconcile_from_fast_to_slow!
 
-#using ..DGMethods: basic_grid_info
 #using Printf
 
 @inline function initialize_fast_state!(
@@ -48,23 +47,6 @@ import ..BalanceLaws:
     Qfast.η .= dgFast.state_auxiliary.η_s
     Qfast.U .= dgFast.state_auxiliary.U_s
 
-  #=
-    # copy η and U from 3D equation
-    # to calculate U we need to do an integral of u from the 3D
-    indefinite_stack_integral!(dgSlow, slow, Qslow, dgSlow.state_auxiliary, 0)
-
-    Nq, Nqk, _, _, nelemv, _, nelemh, _ = basic_grid_info(dgSlow)
-
-    ### copy results of integral to 2D equation
-    boxy_∫u = reshape(dgSlow.state_auxiliary.∫u, Nq^2, Nqk, 2, nelemv, nelemh)
-    flat_∫u = @view boxy_∫u[:, end, :, end, :]
-    Qfast.U .= reshape(flat_∫u, Nq^2, 2, nelemh)
-
-    boxy_η = reshape(Qslow.η, Nq^2, Nqk, nelemv, nelemh)
-    flat_η = @view boxy_η[:, end, end, :]
-    Qfast.η .= reshape(flat_η, Nq^2, 1, nelemh)
-  =#
-
     return nothing
 end
 
@@ -91,26 +73,54 @@ end
     Qfast,
     dQslow2fast,
 )
+    FT = eltype(Qslow)
+
     # integrate the tendency
     tendency_dg = dgSlow.modeldata.tendency_dg
+    tend = tendency_dg.balance_law
     grid = dgSlow.grid
     elems = grid.topology.elems
-    update_auxiliary_state!(tendency_dg, tendency_dg.balance_law, dQslow2fast, 0, elems)
+    update_auxiliary_state!(tendency_dg, tend, dQslow2fast, 0, elems)
 
-    Nq, Nqk, _, _, nelemv, _, nelemh, _ = basic_grid_info(dgSlow)
+    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dgSlow)
 
     ## get top value (=integral over full depth) of ∫du
-    boxy_∫du = reshape(tendency_dg.state_auxiliary.∫du, Nq^2, Nqk, 2, nelemv, nelemh)
-    flat_∫du = @view boxy_∫du[:, end, :, end, :]
+    nb_aux_tm = number_state_auxiliary(tend, FT)
+    index_∫du = varsindex(vars_state_auxiliary(tend, FT), :∫du)
+    data_tm = reshape(tendency_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_tm, nelemv, nelemh)
+    flat_∫du = @view data_tm[:, end, index_∫du, end, 1:nrealelemh]
 
     ## copy into Gᵁ of dgFast
-    dgFast.state_auxiliary.Gᵁ .= reshape(flat_∫du, Nq^2, 2, nelemh)
+    nb_aux_fm = number_state_auxiliary(fast, FT)
+    index_Gᵁ  = varsindex(vars_state_auxiliary(fast, FT), :Gᵁ)
+    data_fm = reshape(dgFast.state_auxiliary.data, Nq^2, nb_aux_fm, nelemh)
+    boxy_Gᵁ = @view data_fm[:, index_Gᵁ, 1:nrealelemh]
+    boxy_Gᵁ .= flat_∫du
 
     ## scale by -1/H and copy back to ΔGu
     # note: since tendency_dg.state_auxiliary.∫du is not used after this, could be
     #   re-used to store a 3-D copy of "-Gu"
-    boxy_∫gu = reshape(dgSlow.state_auxiliary.ΔGu, Nq^2, Nqk, 2, nelemv, nelemh)
-    boxy_∫gu .= -reshape(flat_∫du, Nq^2, 1, 2, 1, nelemh) / slow.problem.H
+    nb_aux_sm = number_state_auxiliary(slow, FT)
+    index_ΔGu = varsindex(vars_state_auxiliary(slow, FT), :ΔGu)
+    data_sm = reshape(dgSlow.state_auxiliary.data, Nq^2, Nqk, nb_aux_sm, nelemv, nelemh)
+    boxy_ΔGu = @view data_sm[:, :, index_ΔGu, :, 1:nrealelemh]
+    boxy_ΔGu .= -reshape(flat_∫du, Nq^2, 1, 2, 1, nrealelemh) / slow.problem.H 
+
+#------ old version:
+#=
+    ## get top value (=integral over full depth) of ∫du
+    boxy_∫du = reshape(tendency_dg.state_auxiliary.∫du, Nq^2, Nqk, 2, nelemv, nrealelemh)
+    flat_∫du = @view boxy_∫du[:, end, :, end, :]
+
+    ## copy into Gᵁ of dgFast
+    dgFast.state_auxiliary.Gᵁ .= reshape(flat_∫du, Nq^2, 2, nrealelemh)
+
+    ## scale by -1/H and copy back to ΔGu
+    # note: since tendency_dg.state_auxiliary.∫du is not used after this, could be
+    #   re-used to store a 3-D copy of "-Gu"
+    boxy_∫gu = reshape(dgSlow.state_auxiliary.ΔGu, Nq^2, Nqk, 2, nelemv, nrealelemh)
+    boxy_∫gu .= -reshape(flat_∫du, Nq^2, 1, 2, 1, nrealelemh) / slow.problem.H
+=#
 
     return nothing
 end
@@ -151,7 +161,7 @@ end
     Qfast,
     fast_time_rec,
 )
-    Nq, Nqk, _, _, nelemv, _, nelemh, _ = basic_grid_info(dgSlow)
+    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dgSlow)
     grid = dgSlow.grid
     elems = grid.topology.elems
 
@@ -166,7 +176,7 @@ end
     update_auxiliary_state!(flowintegral_dg, flowintegral_dg.balance_law, Qslow, 0, elems)
 
     ## get top value (=integral over full depth)
-    boxy_∫u = reshape(flowintegral_dg.state_auxiliary.∫u, Nq^2, Nqk, 2, nelemv, nelemh)
+    boxy_∫u = reshape(flowintegral_dg.state_auxiliary.∫u, Nq^2, Nqk, 2, nelemv, nrealelemh)
     flat_∫u = @view boxy_∫u[:, end, :, end, :]
 
     ## get time weighted averaged out of cumulative arrays
@@ -181,21 +191,21 @@ end
 
     ### copy the 2D contribution down the 3D solution
     ### need to reshape these things for the broadcast
-    boxy_u = reshape(Qslow.u, Nq^2, Nqk, 2, nelemv, nelemh)
-    boxy_Δu = reshape(Δu, Nq^2, 1, 2, 1, nelemh)
+    boxy_u = reshape(Qslow.u, Nq^2, Nqk, 2, nelemv, nrealelemh)
+    boxy_Δu = reshape(Δu, Nq^2, 1, 2, 1, nrealelemh)
     ### this works, we tested it
     boxy_u .+= boxy_Δu
 
     ### save eta from 3D model into η_diag (aux var of 2D model)
     ### and store difference between η from Barotropic Model and η_diag
     η_3D = Qslow.η
-    boxy_η_3D = reshape(η_3D, Nq^2, Nqk, nelemv, nelemh)
+    boxy_η_3D = reshape(η_3D, Nq^2, Nqk, nelemv, nrealelemh)
     flat_η = @view boxy_η_3D[:, end, end, :]
-    dgFast.state_auxiliary.η_diag .= reshape(flat_η, Nq^2, 1, nelemh)
+    dgFast.state_auxiliary.η_diag .= reshape(flat_η, Nq^2, 1, nrealelemh)
     dgFast.state_auxiliary.Δη .= dgFast.state_auxiliary.η_c - dgFast.state_auxiliary.η_diag
 
     ### copy 2D eta over to 3D model
-    boxy_η_2D = reshape(dgFast.state_auxiliary.η_c, Nq^2, 1, 1, nelemh)
+    boxy_η_2D = reshape(dgFast.state_auxiliary.η_c, Nq^2, 1, 1, nrealelemh)
     boxy_η_3D .= boxy_η_2D
 
     return nothing
