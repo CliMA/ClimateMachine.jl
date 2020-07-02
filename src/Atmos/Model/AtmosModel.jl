@@ -71,7 +71,8 @@ import ClimateMachine.DGMethods:
     lengthscale,
     resolutionmetric,
     DGModel,
-    nodal_update_auxiliary_state!
+    nodal_update_auxiliary_state!,
+    nodal_init_state_auxiliary!
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
@@ -645,17 +646,11 @@ function reverse_integral_set_auxiliary_state!(
     reverse_integral_set_auxiliary_state!(m.radiation, aux, integ)
 end
 
-
-@doc """
-    init_state_auxiliary!(
-        m::AtmosModel,
-        aux::Vars,
-        geom::LocalGeometry
-        )
-Initialise auxiliary variables for each AtmosModel subcomponent.
-Store Cartesian coordinate information in `aux.coord`.
-""" init_state_auxiliary!
-function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
+function atmos_nodal_init_state_auxiliary!(
+    m::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
     aux.coord = geom.coord
     init_aux!(m.orientation, m.param_set, aux)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
@@ -663,6 +658,28 @@ function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
+end
+
+@doc """
+    init_state_auxiliary!(
+        m::AtmosModel,
+        aux::MPIStateArray,
+        geom::grid,
+        )
+Initialise auxiliary variables for each AtmosModel subcomponent.
+Store Cartesian coordinate information in `aux.coord`.
+""" init_state_auxiliary!
+function init_state_auxiliary!(
+    m::AtmosModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    nodal_init_state_auxiliary!(
+        m,
+        atmos_nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
 end
 
 @doc """

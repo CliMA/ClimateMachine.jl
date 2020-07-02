@@ -1,6 +1,7 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
-using ClimateMachine.DGMethods: nodal_update_auxiliary_state!
+using ClimateMachine.DGMethods:
+    nodal_update_auxiliary_state!, nodal_init_state_auxiliary!
 using ClimateMachine.BalanceLaws: BalanceLaw
 
 import ClimateMachine.BalanceLaws:
@@ -214,18 +215,31 @@ function wavespeed(
     abs(dot(nM, u))
 end
 
-"""
-    init_state_auxiliary!(m::AdvectionDiffusion, aux::Vars, geom::LocalGeometry)
-
-initialize the auxiliary state
-"""
-function init_state_auxiliary!(
+function advection_diffusion_nodal_init_state_auxiliary!(
     m::AdvectionDiffusion,
     aux::Vars,
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
     init_velocity_diffusion!(m.problem, aux, geom)
+end
+
+"""
+    init_state_auxiliary!(m::AdvectionDiffusion, aux::MPIStateArray, grid)
+
+initialize the auxiliary state
+"""
+function init_state_auxiliary!(
+    m::AdvectionDiffusion,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    nodal_init_state_auxiliary!(
+        m,
+        advection_diffusion_nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
 end
 
 has_variable_coefficients(::AdvectionDiffusionProblem) = false
