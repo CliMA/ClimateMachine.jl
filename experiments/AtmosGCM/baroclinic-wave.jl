@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
@@ -128,7 +128,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
-        hyperdiffusion = StandardHyperDiffusion(FT(16*3600)),
+        hyperdiffusion = StandardHyperDiffusion(FT(8*3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_baroclinic_wave!,
@@ -171,7 +171,8 @@ function main()
 #    ode_solver_type = ClimateMachine.ExplicitSolverType(
 #        solver_method = LSRK144NiegemannDiehlBusch,
 #    )
-    CFL = FT(0.2)
+    CFL = FT(0.2) # target acoustic CFL number
+    # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
@@ -220,7 +221,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(1), FT(1), FT(2000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
