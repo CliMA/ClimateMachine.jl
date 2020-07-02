@@ -79,6 +79,9 @@ export TurbulenceClosureModel,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
+    HyperDiffusion,
+    NoHyperDiffusion,
+    BiharmonicHyperDiffusion,
     turbulence_tensors,
     init_aux_turbulence!,
     turbulence_nodal_update_auxiliary_state!
@@ -717,4 +720,158 @@ function turbulence_tensors(
     return ν, D_t, τ
 end
 
+"""
+    HyperDiffusion
+
+Fallback functions for hyperdiffusion model
+"""
+abstract type HyperDiffusion end
+
+vars_state_conservative(::HyperDiffusion, FT) = @vars()
+vars_state_auxiliary(::HyperDiffusion, FT) = @vars()
+vars_state_gradient(::HyperDiffusion, FT) = @vars()
+vars_gradient_laplacian(::HyperDiffusion, FT) = @vars()
+vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
+vars_hyperdiffusive(::HyperDiffusion, FT) = @vars()
+function atmos_init_aux!(
+    ::HyperDiffusion,
+    ::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+) end
+function atmos_nodal_update_auxiliary_state!(
+    ::HyperDiffusion,
+    ::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_argument!(
+    ::HyperDiffusion,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function transform_post_gradient_laplacian!(
+    h::HyperDiffusion,
+    hyperdiffusive::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function flux_second_order!(
+    h::HyperDiffusion,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_flux!(
+    h::HyperDiffusion,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+
+"""
+  NoHyperDiffusion <: HyperDiffusion
+Defines a default hyperdiffusion model with zero hyperdiffusive fluxes.
+"""
+struct NoHyperDiffusion <: HyperDiffusion end
+
+"""
+  BiharmonicHyperDiffusion{FT} <: HyperDiffusion
+
+Horizontal hyperdiffusion methods for application in GCM and LES settings
+Timescales are prescribed by the user while the diffusion coefficient is
+computed as a function of the grid lengthscale.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct BiharmonicHyperDiffusion{FT} <: HyperDiffusion
+    τ_timescale::FT
+end
+
+vars_state_auxiliary(::BiharmonicHyperDiffusion, FT) = @vars(Δ::FT)
+vars_state_gradient(::BiharmonicHyperDiffusion, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_gradient_laplacian(::BiharmonicHyperDiffusion, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_hyperdiffusive(::BiharmonicHyperDiffusion, FT) =
+    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
+
+function atmos_init_aux!(
+    ::BiharmonicHyperDiffusion,
+    ::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.hyperdiffusion.Δ = lengthscale(geom)
+end
+
+function compute_gradient_argument!(
+    h::BiharmonicHyperDiffusion,
+    bl::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)       
+    ρinv = 1 / state.ρ
+    u = state.ρu * ρinv
+    k̂ = vertical_unit_vector(bl,aux)
+    u_h = (SDiagonal(1,1,1) - k̂*k̂') * u
+    transform.hyperdiffusion.u_h = u_h
+    transform.hyperdiffusion.h_tot = transform.h_tot
+end
+
+
+"""
+    Compute gradient laplacian transform. 
+    ∇³ terms.
+"""
+function transform_post_gradient_laplacian!(
+    h::BiharmonicHyperDiffusion,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    hypertransform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    _inv_Pr_turb::FT = inv_Pr_turb(bl.param_set)
+    ∇Δu_h = hypertransform.hyperdiffusion.u_h
+    ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
+    # Unpack
+    τ_timescale = h.τ_timescale
+    # Compute hyperviscosity coefficient
+    ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
+    hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
+    hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * _inv_Pr_turb * ∇Δh_tot
+end
+
+
+"""
+    Compute second order flux contribution from hyperdiffusive terms
+"""
+function flux_second_order!(
+    h::BiharmonicHyperDiffusion,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
+    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
+    flux.ρe += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³h_tot
+end
 end #module TurbulenceClosures.jl

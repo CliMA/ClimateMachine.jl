@@ -354,7 +354,6 @@ turbulence_tensors(atmos::AtmosModel, args...) =
 
 
 include("ref_state.jl")
-include("hyperdiffusion.jl")
 include("moisture.jl")
 include("precipitation.jl")
 include("radiation.jl")
@@ -422,7 +421,7 @@ function compute_gradient_argument!(
 
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
-    compute_gradient_argument!(atmos.hyperdiffusion, transform, state, aux, t)
+    compute_gradient_argument!(atmos.hyperdiffusion, atmos, transform, state, aux, t)
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbconv, atmos, transform, state, aux, t)
 end
@@ -471,6 +470,7 @@ function transform_post_gradient_laplacian!(
 )
     transform_post_gradient_laplacian!(
         atmos.hyperdiffusion,
+        atmos,
         hyperdiffusive,
         hypertransform,
         state,
