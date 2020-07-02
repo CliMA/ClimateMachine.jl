@@ -804,11 +804,11 @@ end
 
 vars_state_auxiliary(::BiharmonicHyperDiffusion, FT) = @vars(Δ::FT)
 vars_state_gradient(::BiharmonicHyperDiffusion, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT)
+    @vars(u_h::SVector{3, FT})
 vars_gradient_laplacian(::BiharmonicHyperDiffusion, FT) =
-    @vars(u_h::SVector{3, FT}, h_tot::FT)
+    @vars(u_h::SVector{3, FT})
 vars_hyperdiffusive(::BiharmonicHyperDiffusion, FT) =
-    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
+    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9})
 
 function init_aux_hyperdiffusion!(
     ::BiharmonicHyperDiffusion,
@@ -832,7 +832,6 @@ function compute_gradient_argument!(
     k̂ = vertical_unit_vector(bl,aux)
     u_h = (SDiagonal(1,1,1) - k̂*k̂') * u
     transform.hyperdiffusion.u_h = u_h
-    transform.hyperdiffusion.h_tot = transform.h_tot
 end
 
 
@@ -851,13 +850,11 @@ function transform_post_gradient_laplacian!(
 )
     _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
     ∇Δu_h = hypertransform.hyperdiffusion.u_h
-    ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
     # Unpack
     τ_timescale = h.τ_timescale
     # Compute hyperviscosity coefficient
     ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
-    hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * _inv_Pr_turb * ∇Δh_tot
 end
 
 
@@ -875,6 +872,5 @@ function flux_second_order!(
 )
     flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
     flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
-    flux.ρe += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³h_tot
 end
 end #module TurbulenceClosures.jl
