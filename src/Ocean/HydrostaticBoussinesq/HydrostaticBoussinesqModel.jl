@@ -223,6 +223,7 @@ multiplies ∇u by viscosity tensor and ∇θ by the diffusivity tensor
 """
 function vars_state_gradient_flux(m::HBModel, T)
     @vars begin
+        ∇ʰu::T
         ν∇u::SMatrix{3, 2, T, 6}
         κ∇θ::SVector{3, T}
     end
@@ -250,6 +251,9 @@ this computation is done pointwise at each nodal point
     A::Vars,
     t,
 )
+    # store ∇ʰu for continuity equation (convert gradient to divergence)
+    D.∇ʰu = G.∇u[1, 1] + G.∇u[2, 2]
+
     ν = viscosity_tensor(m)
     D.ν∇u = -ν * G.∇u
 
@@ -619,9 +623,8 @@ function update_auxiliary_state_gradient!(
     # store ∇ʰu as integrand for w
     function f!(m::HBModel, Q, A, D, t)
         @inbounds begin
-            ν = viscosity_tensor(m)
-            ∇u = ν \ D.ν∇u # minus sign included in gradient flux
-            A.w = (∇u[1, 1] + ∇u[2, 2])
+            # load -∇ʰu as ∂ᶻw
+            A.w = -D.∇ʰu
         end
 
         return nothing
