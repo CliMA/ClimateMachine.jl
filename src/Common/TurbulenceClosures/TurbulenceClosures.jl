@@ -84,6 +84,7 @@ export TurbulenceClosureModel,
     BiharmonicHyperDiffusion,
     turbulence_tensors,
     init_aux_turbulence!,
+    init_aux_hyperdiffusion!,
     turbulence_nodal_update_auxiliary_state!
 
 # ### Abstract Type
@@ -97,6 +98,7 @@ export TurbulenceClosureModel,
 arbitrary turbulence closure models.
 """
 abstract type TurbulenceClosureModel end
+abstract type HyperDiffusion end
 
 vars_state_conservative(::TurbulenceClosureModel, FT) = @vars()
 vars_state_auxiliary(::TurbulenceClosureModel, FT) = @vars()
@@ -154,6 +156,65 @@ function compute_gradient_flux!(
     state,
     aux,
     t,
+) end
+
+"""
+    HyperDiffusion fallback methods
+Fallback functions for hyperdiffusion model
+"""
+
+vars_state_conservative(::HyperDiffusion, FT) = @vars()
+vars_state_auxiliary(::HyperDiffusion, FT) = @vars()
+vars_state_gradient(::HyperDiffusion, FT) = @vars()
+vars_gradient_laplacian(::HyperDiffusion, FT) = @vars()
+vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
+vars_hyperdiffusive(::HyperDiffusion, FT) = @vars()
+function init_aux_hyperdiffusion!(
+    ::HyperDiffusion,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+) end
+function atmos_nodal_update_auxiliary_state!(
+    ::HyperDiffusion,
+    ::BalanceLaw,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_argument!(
+    ::HyperDiffusion,
+    ::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function transform_post_gradient_laplacian!(
+    h::HyperDiffusion,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function flux_second_order!(
+    h::HyperDiffusion,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_flux!(
+    h::HyperDiffusion,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
 ) end
 
 function turbulence_tensors end
@@ -720,64 +781,6 @@ function turbulence_tensors(
     return ν, D_t, τ
 end
 
-"""
-    HyperDiffusion
-
-Fallback functions for hyperdiffusion model
-"""
-abstract type HyperDiffusion end
-
-vars_state_conservative(::HyperDiffusion, FT) = @vars()
-vars_state_auxiliary(::HyperDiffusion, FT) = @vars()
-vars_state_gradient(::HyperDiffusion, FT) = @vars()
-vars_gradient_laplacian(::HyperDiffusion, FT) = @vars()
-vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
-vars_hyperdiffusive(::HyperDiffusion, FT) = @vars()
-function atmos_init_aux!(
-    ::HyperDiffusion,
-    ::AtmosModel,
-    aux::Vars,
-    geom::LocalGeometry,
-) end
-function atmos_nodal_update_auxiliary_state!(
-    ::HyperDiffusion,
-    ::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-function compute_gradient_argument!(
-    ::HyperDiffusion,
-    transform::Vars,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-function transform_post_gradient_laplacian!(
-    h::HyperDiffusion,
-    hyperdiffusive::Vars,
-    gradvars::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-function flux_second_order!(
-    h::HyperDiffusion,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-) end
-function compute_gradient_flux!(
-    h::HyperDiffusion,
-    diffusive::Vars,
-    ∇transform::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
 
 """
   NoHyperDiffusion <: HyperDiffusion
@@ -807,9 +810,9 @@ vars_gradient_laplacian(::BiharmonicHyperDiffusion, FT) =
 vars_hyperdiffusive(::BiharmonicHyperDiffusion, FT) =
     @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
 
-function atmos_init_aux!(
+function init_aux_hyperdiffusion!(
     ::BiharmonicHyperDiffusion,
-    ::AtmosModel,
+    ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
 )
@@ -846,7 +849,7 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 )
-    _inv_Pr_turb::FT = inv_Pr_turb(bl.param_set)
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
     ∇Δu_h = hypertransform.hyperdiffusion.u_h
     ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
     # Unpack

@@ -648,7 +648,7 @@ function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     init_aux!(m.orientation, m.param_set, aux)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, geom)
-    atmos_init_aux!(m.hyperdiffusion, m, aux, geom)
+    init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
 end
