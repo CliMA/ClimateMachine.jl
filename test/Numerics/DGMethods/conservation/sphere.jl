@@ -141,8 +141,7 @@ function numerical_boundary_flux_first_order!(
     bctype,
     t,
     direction,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
+    args...,
 ) where {S, A}
     un = dot(n, aux⁻.vel)
 
