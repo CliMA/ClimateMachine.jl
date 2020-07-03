@@ -539,13 +539,7 @@ function LinearAlgebra.norm(
         W = @view Q.weights[:, :, Q.realelems]
 
         # Check that the arrays are the right dimensionality
-        @assert ndims(realdata) in (2, 3)
-
-        # Reshape to 3 dimensions is necessary
-        if ndims(realdata) == 2
-            realdata =
-                reshape(realdata, size(realdata, 1), 1, size(realdata, 2))
-        end
+        @assert ndims(realdata) == 3
 
         # Check that these are broadcastable
         @assert size(realdata, 1) == size(W, 1)
@@ -599,16 +593,8 @@ function euclidean_distance(
     BrealQ = B.realdata,
 )
     # Check the the arrays are the right dimensionality
-    @assert ndims(ArealQ) in (2, 3)
-    @assert ndims(BrealQ) in (2, 3)
-
-    # Reshape to 3 dimensions is necessary
-    if ndims(ArealQ) == 2
-        ArealQ = reshape(ArealQ, size(ArealQ, 1), 1, size(ArealQ, 2))
-    end
-    if ndims(BrealQ) == 2
-        BrealQ = reshape(BrealQ, size(BrealQ, 1), 1, size(BrealQ, 2))
-    end
+    @assert ndims(ArealQ) == 3
+    @assert ndims(BrealQ) == 3
 
     # Check that these are broadcastable
     @assert size(ArealQ, 1) == size(BrealQ, 1)
