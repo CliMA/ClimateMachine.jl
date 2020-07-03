@@ -37,6 +37,7 @@ const param_set = EarthParameterSet()
 #       Perturbed potential temperature centered at xc = 10000 zc=2000
 #           with radius rc = 2000m
 # 2) Boundary Conditions:
+#       Rigid wall
 #
 # Configuration defaults are in `src/Driver/Configurations.jl`
 
@@ -59,7 +60,7 @@ function init_drybubble!(bl, state, aux, (x, y, z), t)
     θ_ref::FT = 300
 
     Δθ::FT = 0
-    if L <= rc
+    if L <= 1.0
         Δθ = θamplitude * (cos(L*π/2))^2
     end
 
