@@ -378,7 +378,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 numerical_flux_first_order,
                 balance_law,
                 Vars{vars_state_conservative(balance_law, FT)}(local_flux),
-                SVector(normal_vector),
+                normal_vector,
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
                 ),
@@ -445,7 +445,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 numerical_flux_first_order,
                 balance_law,
                 Vars{vars_state_conservative(balance_law, FT)}(local_flux),
-                SVector(normal_vector),
+                normal_vector,
                 Vars{vars_state_conservative(balance_law, FT)}(
                     local_state_conservative⁻,
                 ),
