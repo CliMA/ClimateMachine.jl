@@ -53,7 +53,7 @@ function vars_state_gradient end
 a tuple of symbols containing the diffusive variables
 given a float type `FT`.
 """
-function vars_state_gradient_flux end
+vars_state_gradient_flux(::BalanceLaw, FT) = @vars()
 
 """
     vars_gradient_laplacian(::L, FT)
