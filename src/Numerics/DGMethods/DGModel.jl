@@ -153,7 +153,10 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     )
 
     if nhyperviscstate > 0
-        hypervisc_indexmap = create_hypervisc_indexmap(balance_law)
+        hypervisc_indexmap = varsindices(
+            vars_state_gradient(balance_law, FT),
+            fieldnames(vars_gradient_laplacian(balance_law, FT)),
+        )
     else
         hypervisc_indexmap = nothing
     end
@@ -901,18 +904,4 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     state_conservative = create_conservative_state(balance_law, grid)
 
     return state_conservative
-end
-
-function create_hypervisc_indexmap(balance_law::BalanceLaw)
-    # helper function
-    _getvars(v, ::Type) = v
-    function _getvars(v::Vars, ::Type{T}) where {T <: NamedTuple}
-        fields = getproperty.(Ref(v), fieldnames(T))
-        collect(Iterators.Flatten(_getvars.(fields, fieldtypes(T))))
-    end
-
-    gradvars = vars_state_gradient(balance_law, Int)
-    gradlapvars = vars_gradient_laplacian(balance_law, Int)
-    indices = Vars{gradvars}(1:varsize(gradvars))
-    SVector{varsize(gradlapvars)}(_getvars(indices, gradlapvars))
 end
