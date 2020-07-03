@@ -84,8 +84,7 @@ function numerical_boundary_flux_gradient!(
     state_auxiliary⁺::Vars{A},
     bctype,
     t,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
+    bc_extra_data,
 ) where {D, T, S, A}
     boundary_state!(
         numerical_flux,
@@ -97,8 +96,7 @@ function numerical_boundary_flux_gradient!(
         state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        aux1⁻,
+        bc_extra_data,
     )
 
     compute_gradient_argument!(
@@ -147,8 +145,7 @@ function numerical_boundary_flux_first_order!(
     bctype,
     t,
     direction,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
+    bc_extra_data,
 ) where {S, A}
 
     boundary_state!(
@@ -161,8 +158,7 @@ function numerical_boundary_flux_first_order!(
         state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        aux1⁻,
+        bc_extra_data,
     )
 
     numerical_flux_first_order!(
@@ -529,9 +525,7 @@ numerical_boundary_flux_second_order!(
     state_auxiliary⁺::Vars{A},
     bctype,
     t,
-    state1⁻::Vars{S},
-    diff1⁻::Vars{D},
-    aux1⁻::Vars{A},
+    bc_extra_data,
 ) where {S, D, HD, A} = normal_boundary_flux_second_order!(
     numerical_flux,
     balance_law,
@@ -547,9 +541,7 @@ numerical_boundary_flux_second_order!(
     state_auxiliary⁺,
     bctype,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    bc_extra_data,
 )
 
 function normal_boundary_flux_second_order!(
@@ -567,9 +559,7 @@ function normal_boundary_flux_second_order!(
     state_auxiliary⁺,
     bctype,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    bc_extra_data,
 ) where {S}
     FT = eltype(fluxᵀn)
     num_state_conservative = number_state_conservative(balance_law, FT)
@@ -592,9 +582,7 @@ function normal_boundary_flux_second_order!(
         state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        diff1⁻,
-        aux1⁻,
+        bc_extra_data,
     )
 
     fluxᵀn .+= flux' * normal_vector
@@ -616,9 +604,7 @@ function boundary_flux_second_order!(
     state_auxiliary⁻,
     bctype,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    bc_extra_data,
 )
     boundary_state!(
         numerical_flux,
@@ -632,9 +618,7 @@ function boundary_flux_second_order!(
         state_auxiliary⁻,
         bctype,
         t,
-        state1⁻,
-        diff1⁻,
-        aux1⁻,
+        bc_extra_data,
     )
     flux_second_order!(
         balance_law,

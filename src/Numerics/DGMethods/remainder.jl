@@ -568,8 +568,7 @@ function numerical_boundary_flux_first_order!(
     bctype,
     t,
     ::Dirs,
-    state_conservative1⁻::Vars{S},
-    state_auxiliary1⁻::Vars{A},
+    bc_extra_data,
 ) where {NumSubFluxes, S, A, Dirs <: NTuple{2, Direction}}
     # Since the fluxes are allowed to modified these we need backups so they can
     # be reset as we go
@@ -594,8 +593,7 @@ function numerical_boundary_flux_first_order!(
             bctype,
             t,
             (rem_balance_law.maindir,),
-            state_conservative1⁻,
-            state_auxiliary1⁻,
+            bc_extra_data,
         )
     end
 
@@ -621,16 +619,11 @@ function numerical_boundary_flux_first_order!(
                 MVector{num_state_conservative, FT}(undef)
             a_sub_state_conservative⁺ =
                 MVector{num_state_conservative, FT}(undef)
-            a_sub_state_conservative1⁻ =
-                MVector{num_state_conservative, FT}(undef)
 
             state_rng = static(1):static(number_state_conservative(sub, FT))
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
             a_sub_state_conservative⁻ .= parent(state_conservative⁻)[state_rng]
             a_sub_state_conservative⁺ .= parent(state_conservative⁺)[state_rng]
-            a_sub_state_conservative1⁻ .=
-                parent(state_conservative1⁻)[state_rng]
-
 
             # compute this submodels flux
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
@@ -650,10 +643,7 @@ function numerical_boundary_flux_first_order!(
                 bctype,
                 t,
                 (rem_balance_law.subsdir[k],),
-                Vars{vars_state_conservative(sub, FT)}(
-                    a_sub_state_conservative1⁻,
-                ),
-                state_auxiliary1⁻,
+                bc_extra_data,
             )
 
             # Subtract off this sub models flux

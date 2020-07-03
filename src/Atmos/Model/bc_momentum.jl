@@ -126,7 +126,7 @@ function atmos_momentum_boundary_state!(
     aux⁻,
     bctype,
     t,
-    args...,
+    bc_extra_data,
 ) where {DL <: DragLaw}
     atmos_momentum_boundary_state!(
         nf,
@@ -139,9 +139,24 @@ function atmos_momentum_boundary_state!(
         aux⁻,
         bctype,
         t,
-        args...,
+        bc_extra_data,
     )
 end
+
+function bottom1_velocity(atmos, bc_extra_data)
+    elem = bc_extra_data.elem
+    face_dof = bc_extra_data.face_dof
+    offset = bc_extra_data.offset
+    state_conservative = bc_extra_data.state_conservative
+    FT = eltype(state_conservative)
+    @inbounds @views begin
+        state = state_conservative[face_dof + offset, :, elem]
+        ρ = Vars{vars_state_conservative(atmos, FT)}(state).ρ
+        ρu = Vars{vars_state_conservative(atmos, FT)}(state).ρu
+    end
+    return ρu / ρ
+end
+
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{DL},
@@ -158,12 +173,10 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     aux⁺,
     bctype,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    bc_extra_data,
 ) where {DL <: DragLaw}
+    u1⁻ = bottom1_velocity(atmos, bc_extra_data)
 
-    u1⁻ = state1⁻.ρu / state1⁻.ρ
     Pu1⁻ = u1⁻ - dot(u1⁻, n) .* SVector(n)
     normPu1⁻ = norm(Pu1⁻)
     # NOTE: difference from design docs since normal points outwards

@@ -613,14 +613,11 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_hyperdiffusion⁺ = MArray{Tuple{nhyperviscstate}, FT}(undef)
 
-        local_state_conservative_bottom1 =
-            MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_gradient_flux_bottom1 =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_auxiliary_bottom1 =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
         local_flux = MArray{Tuple{num_state_conservative}, FT}(undef)
+
+        # This is the number of degrees of freedom to move to get into the next
+        # interior of the element. This is needed for the `bc_extra_data`
+        face_movement_interior = (1, -1, Nq, -Nq, Nq^2, -Nq^2)
     end
 
     eI = @index(Group, Linear)
@@ -741,21 +738,15 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 t,
             )
         else
-            if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Loop up the first element along all horizontal elements
-                @unroll for s in 1:num_state_conservative
-                    local_state_conservative_bottom1[s] =
-                        state_conservative[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_gradient_flux
-                    local_state_gradient_flux_bottom1[s] =
-                        state_gradient_flux[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n + Nqk^2, s, e⁻]
-                end
-            end
+            # This is a catch all to allow some boundary conditions to read
+            # extra data. Currently, only `Impenetrable{DragLaw}` in the
+            # `AtmosModel` requires this functionality.
+            bc_extra_data = (
+                elem = e⁻,
+                face_dof = n,
+                offset = face_movement_interior[f],
+                state_conservative = state_conservative,
+            )
             numerical_boundary_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
@@ -776,12 +767,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 bctype,
                 t,
                 face_direction,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative_bottom1,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
+                bc_extra_data,
             )
             numerical_boundary_flux_second_order!(
                 numerical_flux_second_order,
@@ -814,15 +800,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 ),
                 bctype,
                 t,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative_bottom1,
-                ),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(
-                    local_state_gradient_flux_bottom1,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
+                bc_extra_data,
             )
         end
 
@@ -1262,10 +1240,10 @@ end
         local_state_conservative⁻visc =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
-        local_state_conservative_bottom1 =
-            MArray{Tuple{num_state_conservative}, FT}(undef)
-        local_state_auxiliary_bottom1 =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        # This is the number of degrees of freedom to move to get into the next
+        # interior of the element. This is needed for the `bc_extra_data`
+        Nq = N + 1
+        face_movement_interior = (1, -1, Nq, -Nq, Nq^2, -Nq^2)
     end
 
     eI = @index(Group, Linear)
@@ -1373,17 +1351,15 @@ end
                 )
             end
         else
-            if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Loop up the first element along all horizontal elements
-                @unroll for s in 1:num_state_conservative
-                    local_state_conservative_bottom1[s] =
-                        state_conservative[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n + Nqk^2, s, e⁻]
-                end
-            end
+            # This is a catch all to allow some boundary conditions to read
+            # extra data. Currently, only `Impenetrable{DragLaw}` in the
+            # `AtmosModel` requires this functionality.
+            bc_extra_data = (
+                elem = e⁻,
+                face_dof = n,
+                offset = face_movement_interior[f],
+                state_conservative = state_conservative,
+            )
             numerical_boundary_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
@@ -1405,12 +1381,7 @@ end
                 ),
                 bctype,
                 t,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative_bottom1,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
+                bc_extra_data,
             )
             if num_state_gradient_flux > 0
                 compute_gradient_flux!(
