@@ -384,7 +384,7 @@ fluxes, respectively.
                 numerical_flux_first_order,
                 balance_law,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                SVector(normal_vector),
+                normal_vector,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
                     local_state_prognostic⁻,
                 ),
@@ -457,7 +457,7 @@ fluxes, respectively.
                     bc,
                     balance_law,
                     Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-                    SVector(normal_vector),
+                    normal_vector,
                     Vars{vars_state(balance_law, Prognostic(), FT)}(
                         local_state_prognostic⁻,
                     ),
@@ -521,6 +521,74 @@ fluxes, respectively.
                     ),
                 )
             end d -> throw(BoundsError(bcs, bctag))
+            numerical_boundary_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
+                normal_vector,
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺nondiff,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺nondiff,
+                ),
+                bctype,
+                t,
+                face_direction,
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative_bottom1,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary_bottom1,
+                ),
+            )
+            numerical_boundary_flux_second_order!(
+                numerical_flux_second_order,
+                balance_law,
+                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
+                normal_vector,
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁻,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁻,
+                ),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion⁻,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁻,
+                ),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative⁺diff,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux⁺,
+                ),
+                Vars{vars_hyperdiffusive(balance_law, FT)}(
+                    local_state_hyperdiffusion⁺,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary⁺diff,
+                ),
+                bctype,
+                t,
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    local_state_conservative_bottom1,
+                ),
+                Vars{vars_state_gradient_flux(balance_law, FT)}(
+                    local_state_gradient_flux_bottom1,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    local_state_auxiliary_bottom1,
+                ),
+            )
         end
 
         # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
