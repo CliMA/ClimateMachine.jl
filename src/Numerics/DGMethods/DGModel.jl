@@ -192,7 +192,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             grid.vgeo,
             t,
             grid.D,
-            hypervisc_indexmap,
+            Val(hypervisc_indexmap),
             topology.realelems,
             ndrange = (Nq * nrealelem, Nq),
             dependencies = (comp_stream,),
@@ -214,7 +214,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             grid.vmap⁻,
             grid.vmap⁺,
             grid.elemtobndy,
-            hypervisc_indexmap,
+            Val(hypervisc_indexmap),
             grid.interiorelems;
             ndrange = ndrange_interior_surface,
             dependencies = (comp_stream,),
@@ -255,7 +255,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             grid.vmap⁻,
             grid.vmap⁺,
             grid.elemtobndy,
-            hypervisc_indexmap,
+            Val(hypervisc_indexmap),
             grid.exteriorelems;
             ndrange = ndrange_exterior_surface,
             dependencies = (comp_stream, exchange_state_conservative),
