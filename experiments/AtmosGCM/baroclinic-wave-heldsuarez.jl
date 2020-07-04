@@ -14,7 +14,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
-    air_density, air_temperature, total_energy 
+    air_pressure, air_density, air_temperature, total_energy, internal_energy
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
@@ -22,7 +22,7 @@ using StaticArrays
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
+using CLIMAParameters.Planet: MSLP, R_d, day, cp_d, cv_d, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -115,6 +115,66 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     nothing
 end
 
+function held_suarez_forcing!(
+    bl,
+    source,
+    state,
+    diffusive,
+    aux,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+
+    # Parameters
+    T_ref = FT(255)
+
+    # Extract the state
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+
+    coord = aux.coord
+    e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
+    T = air_temperature(bl.param_set, e_int)
+    _R_d = FT(R_d(bl.param_set))
+    _day = FT(day(bl.param_set))
+    _grav = FT(grav(bl.param_set))
+    _cp_d = FT(cp_d(bl.param_set))
+    _cv_d = FT(cv_d(bl.param_set))
+    _p0 = FT(MSLP(bl.param_set))
+
+    # Held-Suarez parameters
+    k_a = FT(1 / (40 * _day))
+    k_f = FT(1 / _day)
+    k_s = FT(1 / (4 * _day))
+    ΔT_y = FT(60)
+    Δθ_z = FT(10)
+    T_equator = FT(315)
+    T_min = FT(200)
+    σ_b = FT(7 / 10)
+
+    # Held-Suarez forcing
+    φ = latitude(bl.orientation, aux)
+    p = air_pressure(bl.param_set, T, ρ)
+
+    #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
+    #for topography, but leave unchanged for calculations of σ involved in T_equil
+    σ = p / _p0
+    exner_p = σ^(_R_d / _cp_d)
+    Δσ = (σ - σ_b) / (1 - σ_b)
+    height_factor = max(0, Δσ)
+    T_equil = (T_equator - ΔT_y * sin(φ)^2 - Δθ_z * log(σ) * cos(φ)^2) * exner_p
+    T_equil = max(T_min, T_equil)
+    k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
+    k_v = k_f * height_factor
+
+    # Apply Held-Suarez forcing
+    source.ρu -= k_v * ρu
+    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
+    return nothing
+end
+
 function config_baroclinic_wave(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
     temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
@@ -122,15 +182,15 @@ function config_baroclinic_wave(FT, poly_order, resolution)
     
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
-    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    domain_height::FT = 20e3 # distance between surface and top of atmosphere (m)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
-        hyperdiffusion = StandardHyperDiffusion(FT(4*3600)),
+        hyperdiffusion = StandardHyperDiffusion(FT(8*3600)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(),),
+        source = (Gravity(), Coriolis(), held_suarez_forcing!),
         init_state_conservative = init_baroclinic_wave!,
     )
 
@@ -152,8 +212,8 @@ function main()
     FT = Float64                             # floating type precision
     poly_order = 3                           # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
-    n_vert = 6                               # vertical element number
-    n_days::FT = 400
+    n_vert = 5                               # vertical element number
+    n_days::FT = 200
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -171,7 +231,7 @@ function main()
 #    ode_solver_type = ClimateMachine.ExplicitSolverType(
 #        solver_method = LSRK144NiegemannDiehlBusch,
 #    )
-    CFL = FT(0.2) # target acoustic CFL number
+    CFL = FT(0.10) # target acoustic CFL number
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
@@ -179,7 +239,6 @@ function main()
         driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-#        CFL_direction = EveryDirection(),
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
@@ -188,7 +247,7 @@ function main()
     dgn_config = config_diagnostics(FT, driver_config)
 
     # Set up user-defined callbacks
-    filterorder = 20
+    filterorder = 22
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     #filter = CutoffFilter(solver_config.dg.grid)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
