@@ -1,6 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs=true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -14,6 +14,8 @@ using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics: total_energy, air_density
 using ClimateMachine.VariableTemplates
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.Orientations
 
 using Distributions: Uniform
 using LinearAlgebra
