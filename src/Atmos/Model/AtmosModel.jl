@@ -512,6 +512,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
         state,
         diffusive,
         hyperdiffusive,
+        atmost.moisture,
         aux,
         t,
     )

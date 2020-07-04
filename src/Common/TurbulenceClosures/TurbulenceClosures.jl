@@ -860,6 +860,7 @@ end
 
 """
     Compute second order flux contribution from hyperdiffusive terms
+    Assumes EquilMoist
 """
 function flux_second_order!(
     h::BiharmonicHyperDiffusion,
@@ -867,10 +868,31 @@ function flux_second_order!(
     state::Vars,
     diffusive::Vars,
     hyperdiffusive::Vars,
+    moisture::DryModel,
     aux::Vars,
     t::Real,
 )
     flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
     flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
 end
+
+"""
+    Compute second order flux contribution from hyperdiffusive terms
+    Assumes EquilMoist
+"""
+function flux_second_order!(
+    h::BiharmonicHyperDiffusion,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    moisture::EquilMoist,
+    aux::Vars,
+    t::Real,
+)
+    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
+    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
+    flux.moisture.ρq_tot += hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρu
+end
+
 end #module TurbulenceClosures.jl
