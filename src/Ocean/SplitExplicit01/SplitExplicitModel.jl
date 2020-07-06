@@ -18,7 +18,7 @@ using ..Mesh.Grids:
     polynomialorder, dimensionality, dofs_per_element,
     VerticalDirection, HorizontalDirection, min_node_distance
 
-using ..BalanceLaws: BalanceLaw, number_state_auxiliary
+using ..BalanceLaws: BalanceLaw, number_state_conservative, number_state_auxiliary
 import ..BalanceLaws: nodal_update_auxiliary_state!
 
 using ..DGMethods.NumericalFluxes:
