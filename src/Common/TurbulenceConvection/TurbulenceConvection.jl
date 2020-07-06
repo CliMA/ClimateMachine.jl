@@ -22,7 +22,6 @@ import ..BalanceLaws:
     update_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
-    source!,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!
