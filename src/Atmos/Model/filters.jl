@@ -23,6 +23,7 @@ function compute_filter_argument!(
     parent(filter_state) .= parent(state)
     # remove reference state
     filter_state.ρ -= aux.ref_state.ρ
+    filter_state.ρu -= aux.ref_state.ρu
     filter_state.ρe -= aux.ref_state.ρe
 end
 function compute_filter_result!(
@@ -35,5 +36,6 @@ function compute_filter_result!(
     parent(state) .= parent(filter_state)
     # add reference state
     state.ρ += aux.ref_state.ρ
+    state.ρu += aux.ref_state.ρu
     state.ρe += aux.ref_state.ρe
 end
