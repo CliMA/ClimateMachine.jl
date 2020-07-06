@@ -34,7 +34,7 @@
 """
 module SurfaceFluxes
 
-using ..MoistThermodynamics
+using ..Thermodynamics
 using DocStringExtensions
 using NLsolve
 using CLIMAParameters: AbstractParameterSet
