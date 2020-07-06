@@ -79,10 +79,10 @@ const Settings = ClimateMachine_Settings()
 """
     ClimateMachine.array_type()
 
-Return the array type used by ClimateMachine. This defaults to (CPU-based) `Array`
-and is only correctly set (based on choice from the command line, from
-an environment variable, or from experiment code) after `ClimateMachine.init()`
-is called.
+Return the array type used by ClimateMachine. This defaults to (CPU-based)
+`Array` and is only correctly set (based on choice from the command
+line, from an environment variable, or from experiment code) after
+`ClimateMachine.init()` is called.
 """
 array_type() = Settings.array_type
 
@@ -90,9 +90,9 @@ array_type() = Settings.array_type
 """
     get_setting(setting_name::Symbol, settings, defaults)
 
-Define fallback behavior for driver settings, first accessing overloaded `settings`
-if defined, followed by constructed global ENV variable `CLIMATEMACHINE_SETTINGS_<SETTING_NAME>`,
-then (global) defaults.
+Define fallback behavior for driver settings, first accessing overloaded
+`settings` if defined, followed by constructed global ENV variable
+`CLIMATEMACHINE_SETTINGS_<SETTING_NAME>`, then (global) defaults.
 
 Returns setting value.
 """
@@ -108,7 +108,7 @@ function get_setting(setting_name::Symbol, settings, defaults)
         env_val = ENV[setting_env]
         v = tryparse(setting_type, env_val)
         if isnothing(v)
-            error("Cannot parse ENV $setting_env value $env_val, to setting type $setting_type")
+            error("cannot parse ENV $setting_env value $env_val, to setting type $setting_type")
         end
         return v
     elseif haskey(defaults, setting_name)
@@ -119,7 +119,7 @@ function get_setting(setting_name::Symbol, settings, defaults)
 end
 
 function get_gpu_setting(setting_name::Symbol, settings, defaults)
-    # do not override disable_gpu kwargs setting if it exists
+    # do not override disable_gpu keyword argument setting if it exists
     if !haskey(settings, setting_name)
         # if old GPU ENV keyword exists, overwrite the settings variable if not defined
         if haskey(ENV, "CLIMATEMACHINE_GPU")
@@ -132,18 +132,20 @@ end
 
 
 """
-    parse_commandline(defaults::Union{Nothing, Dict{Symbol,Any}),
-                      custom_settings::Union{Nothing,ArgParseSettings}=nothing)
+    parse_commandline(
+        defaults::Union{Nothing, Dict{Symbol,Any}) = nothing,
+        custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
+    )
 
-Parse process command line ARGS values.
-If `defaults` is not nothing, override default values for cli argument defaults.
-If `custom_settings` arg is not nothing, add ArgParseSettings to the parsing step.
+Parse process command line ARGS values. If `defaults` is specified, it
+overrides default values for command line argument defaults. If
+`custom_clargs` is specified, it is added to the parsing step.
 
 Returns a `Dict` containing parsed process ARGS values.
 """
 function parse_commandline(
     defaults::Union{Nothing, Dict{Symbol, Any}} = nothing,
-    custom_settings::Union{Nothing, ArgParseSettings} = nothing,
+    custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
 )
     if isnothing(defaults)
         defaults = Dict{Symbol, Any}()
@@ -264,74 +266,38 @@ function parse_commandline(
         default = get_setting(:integration_testing, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
-    if !isnothing(custom_settings)
-        import_settings!(s, custom_settings)
+    if !isnothing(custom_clargs)
+        import_settings!(s, custom_clargs)
     end
     return parse_args(s)
 end
 
 
 """
-    ClimateMachine.cli(;arg_settings=nothing, init_driver=true, kwargs...)
+    ClimateMachine.init(;
+        parse_clargs::Bool = false,
+        custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
+        init_driver::Bool = true,
+        keyword_args...,
+    )
 
-Initialize the ClimateMachine runtime with cli argument parsing.
+Initialize the ClimateMachine. If `parse_clargs` is set, parse command line
+arguments (additional driver-specific arguments can be added by specifying
+`custom_clargs`).
 
-- Additional `ArgParseSettings` behavior can be injected into the default
-ClimateMachine `ArgParseSettings` cofiguration by setting the `custom_settings`
-keyword value.
+Setting `init_driver = false` will set up the `ClimateMachine.Settings`
+singleton values without initializing the ClimateMachine runtime. Otherwise,
+the runtime will be initialized (see `init_runtime()`).
 
-- Setting `init_driver = false` will set the `ClimateMachine.Settings` singleton
-values without initializing the ClimateMachine driver runtime.
+Finally, key-value pairs can be supplied to `ClimateMachine.init()` to set
+system default settings -- the final settings are decided as follows (in
+order of precedence):
+1. Command line arguments (if `parse_clargs = true`).
+2. Environment variables.
+3. Keyword arguments to `init()`.
+4. Defaults (in `ClimateMachine_Settings`).
 
-- ClimateMachine.init key value pairs can be supplied to overload
-default system defaults at runtime, default values will be merged with the
-parsed argument settings, with parsed cli argument values taking precedent
-over runtime defined default values.
-
-
-Returns a `Dict` containing parsed process ARGS values.
-"""
-function cli(;
-    custom_settings::Union{Nothing, ArgParseSettings} = nothing,
-    init_driver::Bool = true,
-    kwargs...,
-)
-    kw_defaults = Dict{Symbol, Any}(kwargs)
-    parsed_args = parse_commandline(kw_defaults, custom_settings)
-    # we need to munge the parsed arg dict a bit as parsed arg keys
-    # and climatemachine initialization keywords are not 1:1
-    parsed_args["checkpoint_keep_one"] = !parsed_args["checkpoint_keep_all"]
-
-    parsed_kwargs = Dict{Symbol, Any}((Symbol(k), v) for (k, v) in parsed_args)
-    # allow for setting cli arguments as hard defaults that override parsed process ARGS
-    init_kwargs = merge(kw_defaults, parsed_kwargs)
-    # call init with munged kw arguments
-    ClimateMachine.init(; init_driver = init_driver, init_kwargs...)
-    return parsed_args
-end
-
-
-"""
-    ClimateMachine.init(;init_driver::Bool=true, kwargs...)
-
-Perform necessary initializations for ClimateMachine:
-- Initialize MPI.
-- Parse command line arguments. To support experiment-specific arguments,
-`arg_settings` may be specified (it is an `ArgParse.ArgParseSettings`);
-it will be imported into ClimateMachine's settings.
-- Determine whether GPU(s) is available and should be used (pass
-`disable-gpu = true` if not) and set the ClimateMachine array type appropriately.
-- Set up the global logger.
-
-Setting `init_driverd = false` will set the `ClimateMachine.Settings` singleton
-values without initializing the ClimateMachine driver runtime.
-
-`ClimateMachine.Settings` values can be overloaded at runtime upon initialization.
-If keyword argument overloads are not supplied, the `init` routine will try and
-fallback on any `CLIMATEMACHINE_SETTINGS_<VALUE>` `ENV` variables defined for
-the process, otherwise the defaulting to `ClimateMachine.Settings`.
-
-# Keyword Arguments
+Recognized keyword arguments are:
 - `disable_gpu::Bool = false`:
         do not use the GPU
 - `show_updates::String = "60secs"`:
@@ -364,12 +330,40 @@ the process, otherwise the defaulting to `ClimateMachine.Settings`.
         absolute or relative path to output data directory
 - `integration_testing::Bool = false`:
         enable integration_testing
+
+Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
+arguments.
 """
-function init(; init_driver::Bool = true, kwargs...)
-    # init global setting values
+function init(;
+    parse_clargs::Bool = false,
+    custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
+    init_driver::Bool = true,
+    keyword_args...,
+)
+    all_args = Dict{Symbol, Any}(keyword_args)
+    cl_args = nothing
+    if parse_clargs
+        cl_args = parse_commandline(all_args, custom_clargs)
+
+        # We need to munge the parsed arg dict a bit as parsed arg keys
+        # and initialization keywords are not 1:1
+        cl_args["checkpoint_keep_one"] = !cl_args["checkpoint_keep_all"]
+
+        # parsed command line arguments override keyword arguments
+        all_args = merge(
+            all_args,
+            Dict{Symbol, Any}((Symbol(k), v) for (k, v) in cl_args),
+        )
+    end
+
     # TODO: add validation for initialization values
-    if haskey(kwargs, :disable_gpu)
-        Settings.disable_gpu = kwargs[:disable_gpu]
+
+    # Initialize `Settings` from command line arguments/keyword arguments/
+    # default values.
+    #
+    # special cases for backward compatibility
+    if haskey(all_args, :disable_gpu)
+        Settings.disable_gpu = all_args[:disable_gpu]
     elseif haskey(ENV, "CLIMATEMACHINE_GPU")
         @warn(
             "CLIMATEMACHINE_GPU will be deprecated; " *
@@ -381,8 +375,8 @@ function init(; init_driver::Bool = true, kwargs...)
             parse(Bool, ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"])
     end
 
-    if haskey(kwargs, :output_dir)
-        Settings.output_dir = kwargs[:output_dir]
+    if haskey(all_args, :output_dir)
+        Settings.output_dir = all_args[:output_dir]
     elseif haskey(ENV, "CLIMATEMACHINE_OUTPUT_DIR")
         @warn(
             "CLIMATEMACHINE_OUTPUT_DIR will be deprecated; " *
@@ -393,16 +387,16 @@ function init(; init_driver::Bool = true, kwargs...)
         Settings.output_dir = ENV["CLIMATEMACHINE_SETTINGS_OUTPUT_DIR"]
     end
 
+    # all other settings
     global_defaults = Dict{Symbol, Any}(
         (n, getproperty(Settings, n)) for n in propertynames(Settings)
     )
-
     for n in propertynames(Settings)
         # skip over the special backwards compat cases defined above
         if n == :disable_gpu || n == :output_dir
             continue
         end
-        setproperty!(Settings, n, get_setting(n, kwargs, global_defaults))
+        setproperty!(Settings, n, get_setting(n, all_args, global_defaults))
     end
 
     # set up the array type appropriately depending on whether we're using GPUs
@@ -410,14 +404,22 @@ function init(; init_driver::Bool = true, kwargs...)
         Settings.array_type = CUDA.CuArray
     end
 
+    # initialize the runtime
     if init_driver
-        _init_driver(Settings)
+        init_runtime(Settings)
     end
-    return
+    return cl_args
 end
 
 
-function _init_driver(settings::ClimateMachine_Settings)
+"""
+    init_runtime(settings::ClimateMachine_Settings)
+
+Initialize the ClimateMachine runtime: initialize MPI, set the default
+array type, set RNG seeds for all threads, create output directory and
+set up logging.
+"""
+function init_runtime(settings::ClimateMachine_Settings)
     # set up timing mechanism
     tictoc()
 
@@ -449,13 +451,14 @@ function _init_driver(settings::ClimateMachine_Settings)
     end
     MPI.Barrier(MPI.COMM_WORLD)
 
+    # TODO: write a better MPI logging back-end and also integrate Dlog
+    # for large scale
+
     # set up logging
     log_level_str = uppercase(settings.log_level)
     loglevel = log_level_str == "DEBUG" ? Logging.Debug :
         log_level_str == "WARN" ? Logging.Warn :
         log_level_str == "ERROR" ? Logging.Error : Logging.Info
-    # TODO: write a better MPI logging back-end and also integrate Dlog
-    # for large scale
     if !settings.disable_custom_logger
         # cannot use `NullLogger` here because MPI collectives may be
         # used in logging calls!
@@ -468,9 +471,11 @@ function _init_driver(settings::ClimateMachine_Settings)
     return
 end
 
+
 include("driver_configs.jl")
 include("solver_configs.jl")
 include("diagnostics_configs.jl")
+
 
 """
     ClimateMachine.invoke!(
@@ -642,7 +647,8 @@ Starting %s
     end
 
     # fini VTK
-    !isnothing(cb_vtk) && cb_vtk()
+    !isnothing(cb_vtk) &&
+    GenericCallbacks.call!(cb_vtk, nothing, nothing, nothing, nothing)
 
     engf = norm(Q)
     @info @sprintf(

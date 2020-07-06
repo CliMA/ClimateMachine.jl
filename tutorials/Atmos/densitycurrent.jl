@@ -65,7 +65,7 @@
 # ins-and-outs of the contents of each of these we provide brief descriptions
 # of the utility of each of the loaded packages.
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 # - Required so that we inherit the appropriate model types for the large-eddy

@@ -91,10 +91,10 @@ uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 version = "1.0.2"
 
 [[CommonSubexpressions]]
-deps = ["Test"]
-git-tree-sha1 = "34aa50efad19a788db0cb2eb44d149942f64816a"
+deps = ["MacroTools", "Test"]
+git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
 uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
-version = "0.2.1"
+version = "0.3.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Libdl", "Pkg"]
@@ -216,9 +216,9 @@ version = "0.4.1"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "869540e4367122fbffaace383a5bdc34d6e5e5ac"
+git-tree-sha1 = "48ff21740dfadb05eb1233c9fe17c2ad9cde4d45"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.10"
+version = "0.10.11"
 
 [[GPUArrays]]
 deps = ["AbstractFFTs", "Adapt", "LinearAlgebra", "Printf", "Random", "Serialization"]
@@ -308,6 +308,7 @@ uuid = "5078a376-72f3-5289-bfd5-ec5146d43c02"
 version = "0.16.13"
 
 [[LibGit2]]
+deps = ["Printf"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 
 [[Libdl]]
@@ -453,9 +454,9 @@ version = "0.9.12"
 
 [[PackageCompiler]]
 deps = ["Libdl", "Pkg", "UUIDs"]
-git-tree-sha1 = "8989a56e4506b7b6a050f2b912e7856742d6998c"
+git-tree-sha1 = "e6cd48573daf59e14ac1e1cd82a70e6dfd56978d"
 uuid = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
-version = "1.1.1"
+version = "1.2.0"
 
 [[Parsers]]
 deps = ["Dates", "Test"]
@@ -464,7 +465,7 @@ uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
 version = "1.0.6"
 
 [[Pkg]]
-deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Test", "UUIDs"]
+deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "UUIDs"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Polynomials]]

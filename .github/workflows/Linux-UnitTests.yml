@@ -31,6 +31,19 @@ jobs:
       with:
         version: 1.4
 
+    # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
+    - name: Cache artifacts
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-artifacts
+      with:
+        path: ~/.julia/artifacts 
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ env.cache-name }}-
+          ${{ runner.os }}-test-
+          ${{ runner.os }}-
+
     - name: Install Project Packages
       run: |
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'

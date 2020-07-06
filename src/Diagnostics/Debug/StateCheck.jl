@@ -270,14 +270,14 @@ function scstats(V, ivar, nprec)
 
     # Min
     phi_loc = minimum(getByField(V, ivar))
-    phi_min = MPI.Allreduce(phi_loc, MPI.MIN, Vmcomm)
+    phi_min = MPI.Allreduce(phi_loc, min, Vmcomm)
     phi = phi_min
     # minVstr=@sprintf("%23.15e",phi)
     min_v_str = sprintf1(fmt, phi)
 
     # Max
     phi_loc = maximum(getByField(V, ivar))
-    phi_max = MPI.Allreduce(phi_loc, MPI.MAX, Vmcomm)
+    phi_max = MPI.Allreduce(phi_loc, max, Vmcomm)
     phi = phi_max
     # maxVstr=@sprintf("%23.15e",phi)
     max_v_str = sprintf1(fmt, phi)

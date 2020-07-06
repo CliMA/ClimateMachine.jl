@@ -80,7 +80,7 @@
 # },
 #
 using ClimateMachine
-ClimateMachine.cli()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
@@ -282,7 +282,7 @@ function main()
 
     ## Define the max Courant for the time time integrator (ode_solver).
     ## The default value is 1.7 for LSRK144:
-    Courant = FT(1.5)
+    CFL = FT(1.5)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
@@ -291,7 +291,7 @@ function main()
         timeend,
         driver_config,
         init_on_cpu = true,
-        Courant_number = Courant,
+        Courant_number = CFL,
     )
 
     ## Set up the spectral filter to remove the solutions spurious modes

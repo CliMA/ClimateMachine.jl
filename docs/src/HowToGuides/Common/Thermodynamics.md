@@ -153,9 +153,8 @@ using CLIMAParameters.Planet
 using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
-FT = Float64;
 include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
-profiles = PhaseDryProfiles(param_set, FT);
+profiles = PhaseDryProfiles(param_set, Array{Float32});
 @unpack_fields profiles T ρ z
 p1 = scatter(ρ, z./10^3, xlabel="Density [kg/m^3]", ylabel="z [km]", title="Density");
 p2 = scatter(T, z./10^3, xlabel="Temperature [K]", ylabel="z [km]", title="Temperature");
@@ -174,9 +173,8 @@ using CLIMAParameters.Planet
 using Plots
 struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
-FT = Float64;
 include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
-profiles = PhaseEquilProfiles(param_set, FT);
+profiles = PhaseEquilProfiles(param_set, Array{Float32});
 @unpack_fields profiles T ρ q_tot z
 p1 = scatter(ρ, z./10^3, xlabel="Density [kg/m^3]", ylabel="z [km]", title="Density");
 p2 = scatter(T, z./10^3, xlabel="Temperature [K]", ylabel="z [km]", title="Temperature");

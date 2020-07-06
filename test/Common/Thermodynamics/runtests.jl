@@ -22,13 +22,15 @@ rtol_density = rtol_temperature
 rtol_pressure = 1e-1
 rtol_energy = 1e-1
 
-float_types = [Float32, Float64]
+array_types = [Array{Float32}, Array{Float64}]
 
 include("profiles.jl")
 include("data_tests.jl")
 
 @testset "Thermodynamics - isentropic processes" begin
-    for FT in float_types
+    for ArrayType in array_types
+        FT = eltype(ArrayType)
+
         _R_d = FT(R_d(param_set))
         _molmass_ratio = FT(molmass_ratio(param_set))
         _cp_d = FT(cp_d(param_set))
@@ -54,8 +56,7 @@ include("data_tests.jl")
         _T_max = FT(T_max(param_set))
         _kappa_d = FT(kappa_d(param_set))
 
-        # for FT in float_types
-        profiles = PhaseEquilProfiles(param_set, FT)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # Test state for thermodynamic consistency (with ideal gas law)
@@ -395,8 +396,9 @@ end
     # Input arguments should be accurate within machine precision
     # Temperature is approximated via saturation adjustment, and should be within a physical tolerance
 
-    for FT in float_types
-        profiles = PhaseEquilProfiles(param_set, FT)
+    for ArrayType in array_types
+        FT = eltype(ArrayType)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # PhaseEquil
@@ -595,8 +597,9 @@ end
 
 @testset "Thermodynamics - exceptions on failed convergence" begin
 
-    FT = Float64
-    profiles = PhaseEquilProfiles(param_set, FT)
+    ArrayType = Array{Float64}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
     @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
     @test_throws ErrorException MT.saturation_adjustment.(
@@ -665,10 +668,11 @@ end
 
     # Make sure `ThermodynamicState` arguments are returned unchanged
 
-    for FT in float_types
+    for ArrayType in array_types
+        FT = eltype(ArrayType)
         _MSLP = FT(MSLP(param_set))
 
-        profiles = PhaseDryProfiles(param_set, FT)
+        profiles = PhaseDryProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # PhaseDry
@@ -685,7 +689,7 @@ end
         @test all(air_density.(ts_p) .≈ air_density.(ts))
         @test all(internal_energy.(ts_p) .≈ internal_energy.(ts))
 
-        profiles = PhaseEquilProfiles(param_set, FT)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # PhaseEquil
@@ -864,7 +868,7 @@ end
         )
 
 
-        profiles = PhaseEquilProfiles(param_set, FT)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # Test that relative humidity is 1 for saturated conditions
@@ -952,8 +956,9 @@ end
 
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
-    FT = Float32
-    profiles = PhaseEquilProfiles(param_set, FT)
+    ArrayType = Array{Float32}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
     @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
     ρu = FT[1.0, 2.0, 3.0]
@@ -1060,8 +1065,9 @@ end
 
 @testset "Thermodynamics - dry limit" begin
 
-    FT = Float64
-    profiles = PhaseEquilProfiles(param_set, FT)
+    ArrayType = Array{Float64}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
     @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
     # PhasePartition test is noisy, so do this only once:

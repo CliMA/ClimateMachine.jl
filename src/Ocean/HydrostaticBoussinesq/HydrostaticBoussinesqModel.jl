@@ -11,9 +11,10 @@ using ...MPIStateArrays
 using ...Mesh.Filters: apply!
 using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
-using ...DGMethods: DGModel, copy_stack_field_down!
+using ...DGMethods
 using ...DGMethods.NumericalFluxes
 using ...BalanceLaws
+using ...BalanceLaws: number_state_auxiliary
 
 import ...DGMethods.NumericalFluxes: update_penalty!
 import ...BalanceLaws:
@@ -81,6 +82,7 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
     νᶻ::T
     κʰ::T
     κᶻ::T
+    κᶜ::T
     fₒ::T
     β::T
     function HydrostaticBoussinesqModel{FT}(
@@ -92,8 +94,9 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
         αᵀ = FT(2e-4),  # (m/s)^2 / K
         νʰ = FT(5e3),   # m^2 / s
         νᶻ = FT(5e-3),  # m^2 / s
-        κʰ = FT(1e3),   # m^2 / s
-        κᶻ = FT(1e-4),  # m^2 / s
+        κʰ = FT(1e3),   # m^2 / s # horizontal diffusivity
+        κᶻ = FT(1e-4),  # m^2 / s # background vertical diffusivity
+        κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
     ) where {FT <: AbstractFloat, PS}
@@ -108,6 +111,7 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
             νᶻ,
             κʰ,
             κᶻ,
+            κᶜ,
             fₒ,
             β,
         )
@@ -276,10 +280,9 @@ applies convective adjustment in the vertical, bump by 1000 if ∂θ∂z < 0
 - `∂θ∂z`: value of the derivative of temperature in the z-direction
 """
 @inline function diffusivity_tensor(m::HBModel, ∂θ∂z)
-    ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ =
-        (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+    ∂θ∂z < 0 ? κ = m.κᶜ : κ = m.κᶻ
 
-    return Diagonal(κ)
+    return Diagonal(@SVector [m.κʰ, m.κʰ, κ])
 end
 
 """
@@ -629,13 +632,19 @@ function update_auxiliary_state_gradient!(
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
+    # We are unable to use vars (ie A.w) for this because this operation will
+    # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
+    # has a limited recursion depth for the types allowed.
+    number_auxiliary = number_state_auxiliary(m, FT)
+    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
+    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
+
     # project w(z=0) down the stack
-    # [1] to convert from range to integer
-    # copy_stack_field_down! doesn't like ranges
-    # eventually replace this with a reshape and broadcast
-    index_w = varsindex(vars_state_auxiliary(m, FT), :w)[1]
-    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)[1]
-    copy_stack_field_down!(dg, m, A, index_w, index_wz0, elems)
+    data = reshape(A.data, Nq^2, Nqk, number_auxiliary, nelemv, nelemh)
+    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nhorzrealelem]
+    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nhorzrealelem]
+    boxy_wz0 .= flat_wz0
 
     return true
 end

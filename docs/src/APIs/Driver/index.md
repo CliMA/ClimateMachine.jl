@@ -21,14 +21,14 @@ IMEXSolverType
 ```@docs
 DriverConfiguration
 SolverConfiguration
+InterpolationConfiguration
+DiagnosticsConfiguration
 ```
 
-## Initialization / solve
+## Initialize / solve
 
 ```@docs
-parse_commandline
 array_type
 init
-Courant
 invoke!
 ```

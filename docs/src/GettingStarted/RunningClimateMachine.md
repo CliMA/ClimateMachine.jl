@@ -25,9 +25,30 @@ Held-Suarez atmospheric GCM is run with:
 $ julia --project experiments/AtmosGCM/heldsuarez.jl
 ```
 
+## Input and output
+
+The `ClimateMachine` provides the [`ArtifactWrappers`](@ref
+ArtifactWrappers-docs) module to assist a driver in sourcing input data
+for a simulation, but any mechanism may be used.
+
+Output takes the form of various [groups of diagnostic variables](@ref
+Diagnostics) that are written to NetCDF files at specified intervals
+by the `ClimateMachine` when configured to do so by a driver. A
+driver may alternatively (or additionally) configure output of the
+conservative and auxiliary state variables to VTK files. However,
+the default behavior of the `ClimateMachine` is to not generate
+any output, irrespective of driver setup. The user must explicitly
+enable output by using the appropriate [command line argument](@ref
+ClimateMachine-args) (e.g. `--diagnostics default`) or by setting
+the appropriate [environment variable](@ref ClimateMachine-envvars)
+(e.g. `CLIMATEMACHINE_SETTINGS_DIAGNOSTICS=default`).
+
 ## [Command line arguments](@id ClimateMachine-args)
 
-All drivers accept some common command line options. For example:
+The `ClimateMachine` allows some aspects of its behavior to be controlled
+by command line arguments. Many drivers make use of this facility
+(but some do not). The command line options recognized can be examined
+interactively, for example:
 
 ```
 $ julia --project experiments/AtmosGCM/heldsuarez.jl --help
@@ -99,10 +120,11 @@ Any <interval> unless otherwise stated may be specified as:
 
 There may also be driver-specific command line arguments.
 
-## Environment variables
+## [Environment variables](@id ClimateMachine-envvars)
 
-Currently, the `ClimateMachine` only looks at one environment variable --
-`CLIMATEMACHINE_GPU`, which if set to `false`, disables GPU use.
+Every `ClimateMachine` command line argument has an equivalent environment
+variable that takes the form `CLIMATEMACHINE_SETTINGS_<SETTING_NAME>`,
+however command line arguments have higher precedence.
 
 ## Running with MPI
 

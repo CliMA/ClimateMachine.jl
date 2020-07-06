@@ -399,11 +399,11 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     end
     # FIXME properly
     if isa(bl.moisture, EquilMoist)
-        cld_top = MPI.Reduce(cld_top, MPI.MAX, 0, mpicomm)
+        cld_top = MPI.Reduce(cld_top, max, 0, mpicomm)
         if cld_top == FT(-100000)
             cld_top = NaN
         end
-        cld_base = MPI.Reduce(cld_base, MPI.MIN, 0, mpicomm)
+        cld_base = MPI.Reduce(cld_base, min, 0, mpicomm)
         if cld_base == FT(100000)
             cld_base = NaN
         end
