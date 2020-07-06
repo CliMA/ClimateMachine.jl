@@ -14,12 +14,6 @@ TurbulenceConvection
 TurbulenceConvection.NoTurbConv
 ```
 
-## Sources
-
-```@docs
-TurbulenceConvection.TurbConvSource
-```
-
 ## Boundary conditions
 
 ```@docs

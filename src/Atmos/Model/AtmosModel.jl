@@ -158,7 +158,12 @@ function AtmosModel{FT}(
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
-    source::S = (Gravity(), Coriolis(), GeostrophicForcing{FT}(7.62e-5, 0, 0)),
+    source::S = (
+        Gravity(),
+        Coriolis(),
+        GeostrophicForcing{FT}(7.62e-5, 0, 0),
+        turbconv_sources(turbconv)...,
+    ),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
     init_state_conservative::IS = nothing,
@@ -197,7 +202,7 @@ function AtmosModel{FT}(
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
-    source::S = (Gravity(), Coriolis()),
+    source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
     init_state_conservative::IS = nothing,
@@ -680,19 +685,6 @@ function source!(
     direction,
 )
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
-
-    # TODO: can this somehow be incorporated in a single call?
-    turbconv_source!(
-        turbconv_sources(m.turbconv),
-        m.turbconv,
-        m,
-        source,
-        state,
-        diffusive,
-        aux,
-        t,
-        direction,
-    )
 end
 
 @doc """
