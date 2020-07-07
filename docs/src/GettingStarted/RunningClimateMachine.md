@@ -145,4 +145,9 @@ in the example above), the `ClimateMachine` processes will share the
 GPU resources available.
 
 ## Scripts for end-to-end runs, logging and visualization
-Our [Wiki](https://github.com/CliMA/ClimateMachine.jl/wiki/Bash-Run-Scripts) details example sbatch scripts that run ClimateMachine.jl, record specified performance metrics and produce basic visualization output. 
+
+The `ClimateMachine` [wiki](https://github.com/CliMA/ClimateMachine.jl/wiki)
+details example [SLURM
+scripts](https://github.com/CliMA/ClimateMachine.jl/wiki/Bash-Run-Scripts)
+that run the `ClimateMachine`, record specified performance metrics and
+produce basic visualization output. 
