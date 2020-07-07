@@ -4,7 +4,8 @@ import ClimateMachine.BalanceLaws:
     number_state_conservative,
     number_state_auxiliary,
     number_state_entropy,
-    init_state_conservative!
+    init_state_conservative!,
+    boundary_state!
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state
 using ClimateMachine.DGMethods.NumericalFluxes:
     numerical_volume_flux_first_order!
@@ -19,6 +20,8 @@ using MPI
 Random.seed!(7)
 
 include("DryAtmos.jl")
+
+boundary_state!(::EntropyConservative, _...) = nothing
 
 # Random initialization function
 function init_state_conservative!(
@@ -71,8 +74,16 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     # random field
     model = DryAtmosModel{dim}(FlatOrientation())
 
+    ##################################################################
+    # check that the volume terms lead to only surface contributions #
+    ##################################################################
     # Create the ES model
-    esdg = ESDGModel(model, grid)
+    esdg = ESDGModel(
+        model,
+        grid;
+        volume_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = nothing,
+    )
 
     # Make the Geopotential random
     esdg.state_auxiliary .= ArrayType(rand(FT, size(esdg.state_auxiliary)))
@@ -81,10 +92,10 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     state_conservative = init_ode_state(esdg; init_on_cpu = true)
 
     # Storage for the tendency
-    tendency = similar(state_conservative)
+    volume_tendency = similar(state_conservative)
 
     # Compute the tendency function
-    esdg(tendency, state_conservative, nothing, 0)
+    esdg(volume_tendency, state_conservative, nothing, 0)
 
     # Check that the volume terms only lead to surface integrals of
     #    ∑_{j} n_j ψ_j
@@ -97,7 +108,7 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
 
     # Get the state, tendency, and aux on the host
     Q = Array(state_conservative.data)
-    dQ = Array(tendency.data)
+    dQ = Array(volume_tendency.data)
     A = Array(esdg.state_auxiliary.data)
 
     # Compute the entropy variables
@@ -137,7 +148,51 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     num_state = number_state_conservative(model)
     volume = sum(β[:, 1:num_state, :] .* M .* dQ, dims = (1, 2))[:]
 
-    @test all(surface .≈ volume)
+    @test all(isapprox.(surface, volume; atol = 10eps(FT), rtol = sqrt(eps(FT))))
+
+    ###########################################
+    # check that the volume and surface match #
+    ###########################################
+    esdg = ESDGModel(
+        model,
+        grid;
+        state_auxiliary = esdg.state_auxiliary,
+        volume_numerical_flux_first_order = nothing,
+        surface_numerical_flux_first_order = EntropyConservative(),
+    )
+
+    surface_tendency = similar(state_conservative)
+
+    # Compute the tendency function
+    esdg(surface_tendency, state_conservative, nothing, 0)
+
+    # Surface integral should be equal and opposite to the volume integral
+    dQ = Array(surface_tendency.data)
+    @test sum(β[:, 1:num_state, :] .* M .* dQ) ≈ -sum(volume)
+
+    ########################################################
+    # check that the full tendency is entropy conservative #
+    ########################################################
+    esdg = ESDGModel(
+        model,
+        grid;
+        state_auxiliary = esdg.state_auxiliary,
+        volume_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = EntropyConservative(),
+    )
+
+    tendency = similar(state_conservative)
+
+    # Compute the tendency function
+    esdg(tendency, state_conservative, nothing, 0)
+
+    # Check for entropy conservation
+    dQ = Array(tendency.data)
+    @test isapprox(
+        sum(β[:, 1:num_state, :] .* M .* dQ),
+        0,
+        atol = sqrt(eps(sum(volume))),
+    )
 end
 
 let

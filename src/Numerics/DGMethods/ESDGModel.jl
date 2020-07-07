@@ -114,6 +114,7 @@ function (esdg::ESDGModel)(
     device = array_device(state_conservative)
 
     balance_law = esdg.balance_law
+    @assert number_state_gradient_flux(balance_law, Int) == 0
 
     grid = esdg.grid
     topology = grid.topology
@@ -121,6 +122,8 @@ function (esdg::ESDGModel)(
     dim = dimensionality(grid)
     N = polynomialorder(grid)
     Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
 
     nrealelem = length(topology.realelems)
 
@@ -160,7 +163,30 @@ function (esdg::ESDGModel)(
         dependencies = (comp_stream,),
     )
 
-    # XXX: non-mirror surface tendency
+    # non-mirror surface tendency
+    comp_stream = interface_tendency!(device, (Nfp,))(
+        balance_law,
+        Val(dim),
+        Val(N),
+        EveryDirection(),
+        esdg.surface_numerical_flux_first_order,
+        nothing,
+        tendency.data,
+        state_conservative.data,
+        nothing,
+        nothing,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.sgeo,
+        t,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.interiorelems,
+        α;
+        ndrange = Nfp * length(grid.interiorelems),
+        dependencies = (comp_stream,),
+    )
 
     if communicate
         exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
