@@ -4,7 +4,7 @@
 CurrentModule = ClimateMachine.SurfaceFluxes
 ```
 
-This page contains an extension of the Nishizawa surface-flux scheme for use within the ClimateMachine framework. 
+This page contains a description of the SurfaceFluxes module, based on the Nishizawa surface-flux scheme.
 
 > Nishizawa, S., & Kitamura, Y. ( 2018). A surface flux scheme based on the Monin‐Obukhov similarity for finite volume models. _Journal of Advances in Modeling Earth Systems_, 10, 3159– 3175. [https://doi.org/10.1029/2018MS001534](https://doi.org/10.1029/2018MS001534)
 > <em>Internally abbreviated as NK</em>    
