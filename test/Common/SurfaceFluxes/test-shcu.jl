@@ -23,33 +23,35 @@ bomex_dataset_path = get_data_folder(dataset)
 
 
 @testset "SurfaceFluxes - Bomex" begin
+ 
     FT = Float32;
     data = NCDataset(joinpath(bomex_dataset_path, "BOMEX_surface_fluxes_data_6shrs.nc"))
-    # Data at first interior node (x_ave)
+
+    # Data from 1D profiles
     qt_ave = data["qt"][:][2];
     z_ave = data["z"][:][2];
     thv_ave = data["thv"][:][2];
     u_ave = data["u"][:][2];
     x_ave = [u_ave, thv_ave, qt_ave];
 
-    # Initial guesses for MO parameters
-    LMO_init = FT(100);
-    u_star_init = FT(0.6);
-    th_star_init = FT(290);
+    # Initial Guesses
+    LMO_init = FT(10);
+    u_star_init = FT(0.1);
+    th_star_init = FT(100);
     qt_star_init = FT(1e-5);
     x_init = [LMO_init, u_star_init, th_star_init, qt_star_init];
 
-    # Surface values for variables
+    # Surface Variables
     u_sfc = FT(0)
-    thv_sfc = data["thv"][:][1];
+    thl_sfc = data["thl"][:][1];
     qt_sfc = data["qt"][:][1];
     z_sfc = data["z"][:][1];
-    x_s = [u_sfc, thv_sfc, qt_sfc];
+    x_s = [u_sfc, thl_sfc, qt_sfc];
 
-    # Dimensionless numbers
+    # Dimensionless Scaling Factors
     dimless_num = [FT(1), FT(1/3), FT(1/3)];
 
-    # Roughness
+    # Roughness Lengthscales
     z0 = [FT(0.001), FT(0.0001), FT(0.0001)];
 
     # Constants
@@ -74,7 +76,5 @@ bomex_dataset_path = get_data_folder(dataset)
                 a,
                 nothing
              );
-
     @show result
-
 end
