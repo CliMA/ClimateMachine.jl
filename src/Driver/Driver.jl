@@ -603,11 +603,12 @@ function invoke!(
     eng0 = norm(Q)
     @info @sprintf(
         """
-Starting %s
+%s %s
     dt              = %.5e
     timeend         = %8.2f
     number of steps = %d
     norm(Q)         = %.16e""",
+        Settings.restart_from_num > 0 ? "Restarting" : "Starting",
         solver_config.name,
         solver_config.dt,
         solver_config.timeend,
