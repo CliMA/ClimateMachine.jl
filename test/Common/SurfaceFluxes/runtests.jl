@@ -1,8 +1,6 @@
 using Test
 
 using ClimateMachine.SurfaceFluxes
-using ClimateMachine.SurfaceFluxes.Nishizawa2018
-using ClimateMachine.SurfaceFluxes.Byun1990
 using ClimateMachine.Thermodynamics
 using RootSolvers
 using CLIMAParameters

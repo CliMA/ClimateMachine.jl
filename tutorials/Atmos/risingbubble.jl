@@ -74,6 +74,7 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
@@ -313,12 +314,37 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
+    cutoff_filter = CutoffFilter(solver_config.dg.grid, N - 1)
+    cb_cutoff_filter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            AtmosFilterPerturbations(model),
+            solver_config.dg.grid,
+            cutoff_filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
+        )
+        nothing
+    end;
+    
+    filterorder = 2*N
+    exp_filter = ExponentialFilter(solver_config.dg.grid, 1, filterorder)
+    cb_exp_filter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            AtmosFilterPerturbations(model),
+            solver_config.dg.grid,
+            exp_filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
+        )
+        nothing
+    end;
+
     ## Invoke solver (calls `solve!` function for time-integrator), pass the driver,
     ## solver and diagnostic config information.
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (),
+        user_callbacks = (cb_exp_filter),
         check_euclidean_distance = true,
     )
 

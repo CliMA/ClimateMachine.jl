@@ -79,7 +79,6 @@ end
 
 """
     surface_conditions
-
 Surface conditions given
  - `x_initial` initial guess for solution (`L_MO, u_star, θ_star, ϕ_star, ...`)
  - `x_ave` volume-averaged value for variable `x`
@@ -192,6 +191,10 @@ function surface_conditions(
 end
 
 
+
+"""
+    compute_physical_scale
+"""
 function compute_physical_scale(
     param_set::AbstractEarthParameterSet,
     x,
