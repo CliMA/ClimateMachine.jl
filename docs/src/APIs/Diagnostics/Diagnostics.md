@@ -1,4 +1,4 @@
-# [Diagnostics](@id Diagnostics)
+# [Diagnostics](@id Diagnostics-docs)
 
 ```@meta
 CurrentModule = ClimateMachine.Diagnostics
@@ -8,17 +8,17 @@ CurrentModule = ClimateMachine.Diagnostics
 Diagnostics
 ```
 
-## Diagnostic Fields
-
-Diagnostics computes the physically relevant fields for post-processing.
-
-### Types / Functions
+### Types
 
 ```@docs
 Diagnostics.DiagnosticsGroup
 ```
 
-### Methods
+### [Diagnostics groups](@id Diagnostics-groups)
+
+A `ClimateMachine` driver may use any number of the methods described below
+to create `DiagnosticsGroup`s which must be specified to the `ClimateMachine`
+in a `DiagnosticsConfiguration`.
 
 ```@docs
 Diagnostics.setup_atmos_default_diagnostics
