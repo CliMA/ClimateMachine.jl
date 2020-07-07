@@ -454,14 +454,14 @@ function update_auxiliary_state!(
     # We are unable to use vars (ie A.w) for this because this operation will
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
-    number_auxiliary = number_state_auxiliary(m, FT)
-    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
-    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    nb_aux_m = number_state_auxiliary(m, FT)
+    data_m = reshape(A.data, Nq^2, Nqk, nb_aux_m, nelemv, nelemh)
 
     # project w(z=0) down the stack
-    data = reshape(A.data, Nq^2, Nqk, number_auxiliary, nelemv, nelemh)
-    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nrealelemh]
-    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nrealelemh]
+    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
+    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    flat_wz0 = @view data_m[:, end:end, index_w, end:end, 1:nrealelemh]
+    boxy_wz0 = @view data_m[:, :, index_wz0, :, 1:nrealelemh]
     boxy_wz0 .= flat_wz0
 
     # Compute Horizontal Flow deviation from vertical mean
@@ -471,21 +471,18 @@ function update_auxiliary_state!(
     update_auxiliary_state!(flowintegral_dg, flowint, Q, 0, elems)
 
     ## get top value (=integral over full depth)
-    nb_aux_fl = number_state_auxiliary(flowint, FT)
-    data_fl = reshape(flowintegral_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_fl, nelemv, nelemh)
+    nb_aux_flw = number_state_auxiliary(flowint, FT)
+    data_flw = reshape(flowintegral_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_flw, nelemv, nelemh)
     index_∫u = varsindex(vars_state_auxiliary(flowint, FT), :∫u)
-    flat_∫u = @view data_fl[:, end, index_∫u, end, 1:nrealelemh]
-    boxy_ub = reshape(flat_∫u, Nq^2, 1, 2, 1, nrealelemh)
+    flat_∫u = @view data_flw[:, end:end, index_∫u, end:end, 1:nrealelemh]
 
     ## make a copy of horizontal velocity
     A.u_d .= Q.u
 
     ## and remove vertical mean velocity
-    nb_aux_sm = number_state_auxiliary(m, FT)
-    data_sm = reshape(A.data, Nq^2, Nqk, nb_aux_sm, nelemv, nelemh)
     index_ud = varsindex(vars_state_auxiliary(m, FT), :u_d)
-    boxy_ud = @view data_sm[:, :, index_ud, :, 1:nrealelemh]
-    boxy_ud .-= boxy_ub / m.problem.H
+    boxy_ud = @view data_m[:, :, index_ud, :, 1:nrealelemh]
+    boxy_ud .-= flat_∫u / m.problem.H
 
     return true
 end
