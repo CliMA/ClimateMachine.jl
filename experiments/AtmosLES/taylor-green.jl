@@ -167,7 +167,6 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    ClimateMachine.init()
 
     FT = Float64
     N = 4

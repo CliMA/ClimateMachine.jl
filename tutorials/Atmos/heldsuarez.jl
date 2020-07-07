@@ -172,7 +172,7 @@ sponge = RayleighSponge(domain_height, z_sponge, α_relax, u_relax, exponent);
 c_smag = FT(0.21);   # Smagorinsky constant
 τ_hyper = FT(4 * 3600); # hyperdiffusion time scale
 turbulence_model = SmagorinskyLilly(c_smag);
-hyperdiffusion_model = StandardHyperDiffusion(FT(4 * 3600));
+hyperdiffusion_model = DryBiharmonic(FT(4 * 3600));
 
 
 # ## Instantiate the model
