@@ -31,7 +31,8 @@ function vars_state_auxiliary(m::KinematicModel, FT)
         e_pot::FT
         e_int::FT
         T::FT
-        S::FT
+        S_liq::FT
+        S_ice::FT
         RH::FT
         rain_w::FT
         # more diagnostics
@@ -116,10 +117,9 @@ function kinematic_model_nodal_update_auxiliary_state!(
         q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
-        # TODO: add super_saturation method in moist thermo
-        aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
         aux.RH = relative_humidity(ts_neq) * FT(100)
-
+        aux.S_liq = max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
+        # rain terminal velocity
         aux.rain_w =
             terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)
 
@@ -408,7 +408,7 @@ function main()
     q_liq_ind = varsindex(vars_state_auxiliary(model, FT), :q_liq)
     q_ice_ind = varsindex(vars_state_auxiliary(model, FT), :q_ice)
     q_rai_ind = varsindex(vars_state_auxiliary(model, FT), :q_rai)
-    S_ind = varsindex(vars_state_auxiliary(model, FT), :S)
+    S_liq_ind = varsindex(vars_state_auxiliary(model, FT), :S_liq)
     rain_w_ind = varsindex(vars_state_auxiliary(model, FT), :rain_w)
 
     # filter out negative values
@@ -462,7 +462,7 @@ function main()
     )
 
     # supersaturation in the model
-    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
+    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_liq_ind, :]))
     @test max_S < FT(0.25)
     @test max_S > FT(0)
 

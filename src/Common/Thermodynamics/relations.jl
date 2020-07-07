@@ -845,7 +845,7 @@ function supersaturation(
 ) where {FT <: Real}
 
     q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Liquid())
-    q_vap::FT = q.tot - q.liq - q.ice
+    q_vap::FT = max(FT(0), q.tot - q.liq - q.ice)
 
     return q_vap / q_sat - FT(1)
 end
@@ -858,7 +858,7 @@ function supersaturation(
 ) where {FT <: Real}
 
     q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
-    q_vap::FT = q.tot - q.liq - q.ice
+    q_vap::FT = max(FT(0), q.tot - q.liq - q.ice)
 
     return q_vap / q_sat - FT(1)
 end
@@ -908,7 +908,7 @@ saturation_excess(ts::ThermodynamicState) = saturation_excess(
 
 Condensate of the phase partition.
 """
-condensate(q::PhasePartition) = q.liq + q.ice
+condensate(q::PhasePartition) = max(0, q.liq) + max(0, q.ice)
 condensate(ts::ThermodynamicState) = condensate(PhasePartition(ts))
 
 """
@@ -956,7 +956,7 @@ function liquid_fraction(
 ) where {FT <: Real}
     q_c = condensate(q)     # condensate specific humidity
     if has_condensate(q_c)
-        return q.liq / q_c
+        return max(0, q.liq) / q_c
     else
         return liquid_fraction(param_set, T, PhaseEquil, q)
     end

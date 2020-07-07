@@ -46,7 +46,10 @@ using ClimateMachine.Thermodynamics:
     TemperatureSHumEquil,
     TemperatureSHumNonEquil,
     air_temperature,
-    latent_heat_fusion
+    latent_heat_fusion,
+    Liquid,
+    Ice,
+    supersaturation
 
 using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays

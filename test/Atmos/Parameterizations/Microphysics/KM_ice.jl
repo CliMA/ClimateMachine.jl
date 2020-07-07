@@ -35,7 +35,8 @@ function vars_state_auxiliary(m::KinematicModel, FT)
         e_pot::FT
         e_int::FT
         T::FT
-        S::FT
+        S_liq::FT
+        S_ice::FT
         RH::FT
         rain_w::FT
         snow_w::FT
@@ -178,13 +179,13 @@ function kinematic_model_nodal_update_auxiliary_state!(
         aux.e_pot = _grav * aux.z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
-        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        q = PhasePartition(max(FT(0), aux.q_tot), max(FT(0), aux.q_liq), max(FT(0), aux.q_ice))
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
-        # TODO: add super_saturation method in moist thermo
-        aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
         aux.RH = relative_humidity(ts_neq) * FT(100)
-
+        aux.S_liq = max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
+        aux.S_ice = max(0, supersaturation(param_set, q, state.ρ, aux.T, Ice()))
+        # terminal velocities
         aux.rain_w =
             terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)
         aux.snow_w =
@@ -462,9 +463,10 @@ function source!(
         ρ = state.ρ
         e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.z
 
-        q = PhasePartition(q_tot, q_liq, q_ice)
+        q = PhasePartition(max(FT(0), q_tot), max(FT(0), q_liq), max(FT(0), q_ice))
         T = air_temperature(param_set, e_int, q)
         _Lf = latent_heat_fusion(param_set, T)
+
         # equilibrium state at current T
         ts_eq = TemperatureSHumEquil(param_set, T, state.ρ, q_tot)
         q_eq = PhasePartition(ts_eq)
@@ -482,14 +484,14 @@ function source!(
         # vapour -> cloud ice
         source.ρq_ice += ρ * conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q)
 
-        ## cloud liquid water -> rain
+        # cloud liquid water -> rain
         acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
         source.ρq_liq -= acnv
         source.ρq_tot -= acnv
         source.ρq_rai += acnv
         source.ρe -= acnv * (_cv_l - _cv_d) * (T - _T_0)
 
-        ## cloud ice -> snow
+        # cloud ice -> snow
         acnv = ρ * conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, T)
         source.ρq_ice -= acnv
         source.ρq_tot -= acnv
@@ -636,10 +638,10 @@ function source!(
 
         # snow -> rain
         melt = ρ * snow_melt(param_set, snow_param_set, q_sno, state.ρ, T)
-
         source.ρq_sno -= melt
         source.ρq_rai += melt
         source.ρe -= melt * _Lf
+
     end
 end
 
@@ -667,11 +669,11 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(5 * 60) #FT(4 * 60 * 60) #TODO
-    dt = FT(15)
+    t_end = FT(10 * 60) #FT(4 * 60 * 60) #TODO
+    dt = FT(3) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 4
+    output_freq = 20
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -683,7 +685,6 @@ function main()
     idx_bc_back = 4
     idx_bc_bottom = 5
     idx_bc_top = 6
-
 
     #! format: off
     z_range = [
@@ -887,7 +888,8 @@ function main()
     q_ice_ind = varsindex(vars_state_auxiliary(model, FT), :q_ice)
     q_rai_ind = varsindex(vars_state_auxiliary(model, FT), :q_rai)
     q_sno_ind = varsindex(vars_state_auxiliary(model, FT), :q_sno)
-    S_ind = varsindex(vars_state_auxiliary(model, FT), :S)
+    S_liq_ind = varsindex(vars_state_auxiliary(model, FT), :S_liq)
+    S_ice_ind = varsindex(vars_state_auxiliary(model, FT), :S_ice)
     rain_w_ind = varsindex(vars_state_auxiliary(model, FT), :rain_w)
     snow_w_ind = varsindex(vars_state_auxiliary(model, FT), :snow_w)
 
