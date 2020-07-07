@@ -135,6 +135,11 @@ abstract type NumericalFluxFirstOrder end
 
 function numerical_flux_first_order! end
 
+# These allows us to skip defining states for models and tests that do not need
+# these terms
+numerical_flux_first_order!(::Nothing, _...) = nothing
+numerical_boundary_flux_first_order!(::Nothing, _...) = nothing
+
 function numerical_boundary_flux_first_order!(
     numerical_flux::NumericalFluxFirstOrder,
     balance_law::BalanceLaw,
@@ -364,6 +369,7 @@ function numerical_volume_conservative_flux_first_order!(
         Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
     )
 end
+numerical_volume_conservative_flux_first_order!(::Nothing, _...) = nothing
 
 """
     numerical_volume_fluctuation_flux_first_order!(
@@ -407,6 +413,7 @@ function numerical_volume_fluctuation_flux_first_order!(
         Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
     )
 end
+numerical_volume_fluctuation_flux_first_order!(::Nothing, _...) = nothing
 
 """
     numerical_volume_flux_first_order!(
@@ -452,6 +459,7 @@ function numerical_volume_flux_first_order!(
         aux_2,
     )
 end
+numerical_volume_flux_first_order!(::Nothing, _...) = nothing
 
 # Convenience function for entropy stable discretizations
 """
@@ -514,8 +522,12 @@ An optional method can also be defined for
 abstract type NumericalFluxSecondOrder end
 
 function numerical_flux_second_order! end
-
 function numerical_boundary_flux_second_order! end
+
+# These allows us to skip defining states for models and tests that do not need
+# these terms
+numerical_flux_second_order!(::Nothing, _...) = nothing
+numerical_boundary_flux_second_order!(::Nothing, _...) = nothing
 
 """
     CentralNumericalFluxSecondOrder <: NumericalFluxSecondOrder
