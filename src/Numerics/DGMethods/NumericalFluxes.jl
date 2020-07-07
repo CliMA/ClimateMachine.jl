@@ -461,6 +461,46 @@ function numerical_volume_flux_first_order!(
 end
 numerical_volume_flux_first_order!(::Nothing, _...) = nothing
 
+function numerical_flux_first_order!(
+    numerical_flux::EntropyConservative,
+    balance_law::BalanceLaw,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    # Let's just work with straight arrays!
+    fluxᵀn = parent(fluxᵀn)
+    state_1 = parent(state_conservative⁻)
+    aux_1 = parent(state_auxiliary⁻)
+    state_2 = parent(state_conservative⁺)
+    aux_2 = parent(state_auxiliary⁺)
+
+    # create the storage for the volume flux
+    num_state = length(fluxᵀn)
+    FT = eltype(fluxᵀn)
+    H = MArray{Tuple{3, num_state}, FT}(undef)
+    fill!(H, -zero(FT))
+
+    # Compute the volume flux
+    numerical_volume_flux_first_order!(
+        numerical_flux,
+        balance_law,
+        H,
+        state_1,
+        aux_1,
+        state_2,
+        aux_2,
+    )
+
+    # Multiply in the normal
+    fluxᵀn .+= (normal_vector' * H)[:]
+end
+
 # Convenience function for entropy stable discretizations
 """
     ave(a, b)
