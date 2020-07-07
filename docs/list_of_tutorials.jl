@@ -7,6 +7,8 @@ generate_tutorials =
 
 tutorials = []
 
+generate_tutorials =
+    false
 
 # Allow flag to skip generated
 # tutorials since this is by
