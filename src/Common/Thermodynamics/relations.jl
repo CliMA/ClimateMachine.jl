@@ -1105,23 +1105,25 @@ function saturation_adjustment(
             maxiter,
         )
         if !sol.converged
-            @print("-----------------------------------------\n")
-            @print("maxiter reached in saturation_adjustment:\n")
-            @print(
-                "    e_int=",
-                e_int,
-                ", ρ=",
-                ρ,
-                ", q_tot=",
-                q_tot,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            if print_warning()
+                @print("-----------------------------------------\n")
+                @print("maxiter reached in saturation_adjustment:\n")
+                @print(
+                    "    e_int=",
+                    e_int,
+                    ", ρ=",
+                    ρ,
+                    ", q_tot=",
+                    q_tot,
+                    ", T = ",
+                    sol.root,
+                    ", maxiter=",
+                    maxiter,
+                    ", tol=",
+                    tol.tol,
+                    "\n"
+                )
+            end
             if error_on_non_convergence()
                 error("Failed to converge with printed set of inputs.")
             end
@@ -1208,23 +1210,25 @@ function saturation_adjustment_SecantMethod(
             maxiter,
         )
         if !sol.converged
-            @print("-----------------------------------------\n")
-            @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
-            @print(
-                "    e_int=",
-                e_int,
-                ", ρ=",
-                ρ,
-                ", q_tot=",
-                q_tot,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            if print_warning()
+                @print("-----------------------------------------\n")
+                @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
+                @print(
+                    "    e_int=",
+                    e_int,
+                    ", ρ=",
+                    ρ,
+                    ", q_tot=",
+                    q_tot,
+                    ", T = ",
+                    sol.root,
+                    ", maxiter=",
+                    maxiter,
+                    ", tol=",
+                    tol.tol,
+                    "\n"
+                )
+            end
             if error_on_non_convergence()
                 error("Failed to converge with printed set of inputs.")
             end
@@ -1295,23 +1299,25 @@ function saturation_adjustment_q_tot_θ_liq_ice(
             maxiter,
         )
         if !sol.converged
-            @print("-----------------------------------------\n")
-            @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice:\n")
-            @print(
-                "    θ_liq_ice=",
-                θ_liq_ice,
-                ", ρ=",
-                ρ,
-                ", q_tot=",
-                q_tot,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            if print_warning()
+                @print("-----------------------------------------\n")
+                @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice:\n")
+                @print(
+                    "    θ_liq_ice=",
+                    θ_liq_ice,
+                    ", ρ=",
+                    ρ,
+                    ", q_tot=",
+                    q_tot,
+                    ", T = ",
+                    sol.root,
+                    ", maxiter=",
+                    maxiter,
+                    ", tol=",
+                    tol.tol,
+                    "\n"
+                )
+            end
             if error_on_non_convergence()
                 error("Failed to converge with printed set of inputs.")
             end
@@ -1385,23 +1391,25 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
             maxiter,
         )
         if !sol.converged
-            @print("-----------------------------------------\n")
-            @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice_given_pressure:\n")
-            @print(
-                "    θ_liq_ice=",
-                θ_liq_ice,
-                ", p=",
-                p,
-                ", q_tot=",
-                q_tot,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            if print_warning()
+                @print("-----------------------------------------\n")
+                @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice_given_pressure:\n")
+                @print(
+                    "    θ_liq_ice=",
+                    θ_liq_ice,
+                    ", p=",
+                    p,
+                    ", q_tot=",
+                    q_tot,
+                    ", T = ",
+                    sol.root,
+                    ", maxiter=",
+                    maxiter,
+                    ", tol=",
+                    tol.tol,
+                    "\n"
+                )
+            end
             if error_on_non_convergence()
                 error("Failed to converge with printed set of inputs.")
             end
@@ -1583,23 +1591,25 @@ function temperature_and_humidity_from_virtual_temperature(
         maxiter,
     )
     if !sol.converged
-        @print("-----------------------------------------\n")
-        @print("maxiter reached in temperature_and_humidity_from_virtual_temperature:\n")
-        @print(
-            "    T_virt=",
-            T_virt,
-            ", RH=",
-            RH,
-            ", ρ=",
-            ρ,
-            ", T = ",
-            sol.root,
-            ", maxiter=",
-            maxiter,
-            ", tol=",
-            tol.tol,
-            "\n"
-        )
+        if print_warning()
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in temperature_and_humidity_from_virtual_temperature:\n")
+            @print(
+                "    T_virt=",
+                T_virt,
+                ", RH=",
+                RH,
+                ", ρ=",
+                ρ,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+        end
         if error_on_non_convergence()
             error("Failed to converge with printed set of inputs.")
         end
@@ -1684,27 +1694,29 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
         maxiter,
     )
     if !sol.converged
-        @print("-----------------------------------------\n")
-        @print("maxiter reached in air_temperature_from_liquid_ice_pottemp_non_linear:\n")
-        @print(
-            "    θ_liq_ice=",
-            θ_liq_ice,
-            ", ρ=",
-            ρ,
-            ", q.tot=",
-            q.tot,
-            "q.liq = ",
-            q.liq,
-            "q.ice = ",
-            q.ice,
-            ", T = ",
-            sol.root,
-            ", maxiter=",
-            maxiter,
-            ", tol=",
-            tol.tol,
-            "\n"
-        )
+        if print_warning()
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in air_temperature_from_liquid_ice_pottemp_non_linear:\n")
+            @print(
+                "    θ_liq_ice=",
+                θ_liq_ice,
+                ", ρ=",
+                ρ,
+                ", q.tot=",
+                q.tot,
+                "q.liq = ",
+                q.liq,
+                "q.ice = ",
+                q.ice,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+        end
         if error_on_non_convergence()
             error("Failed to converge with printed set of inputs.")
         end
