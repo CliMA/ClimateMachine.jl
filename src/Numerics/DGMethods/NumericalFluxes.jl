@@ -527,7 +527,10 @@ function numerical_flux_first_order!(
     )
 
     # Multiply in the normal
-    fluxᵀn .+= (normal_vector' * H)[:]
+    @inbounds fluxᵀn .+=
+        normal_vector[1] * H[1, :] +
+        normal_vector[2] * H[2, :] +
+        normal_vector[3] * H[3, :]
 end
 
 # Convenience function for entropy stable discretizations
