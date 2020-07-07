@@ -99,6 +99,10 @@ export TurbulenceClosureModel,
 arbitrary turbulence closure models.
 """
 abstract type TurbulenceClosureModel end
+
+"""
+    Abstract type for Hyperdiffusion models
+"""
 abstract type HyperDiffusion end
 
 vars_state_conservative(::TurbulenceClosureModel, FT) = @vars()
