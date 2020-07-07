@@ -147,7 +147,7 @@ GPU resources available.
 ## Scripts for end-to-end runs, logging and visualization
 
 The `ClimateMachine` [wiki](https://github.com/CliMA/ClimateMachine.jl/wiki)
-details example [SLURM
+contains detailed examples of [SLURM
 scripts](https://github.com/CliMA/ClimateMachine.jl/wiki/Bash-Run-Scripts)
 that run the `ClimateMachine`, record specified performance metrics and
 produce basic visualization output. 
