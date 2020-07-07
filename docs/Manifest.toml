@@ -104,7 +104,7 @@ uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "0.9.5"
 
 [[ClimateMachine]]
-deps = ["Adapt", "ArgParse", "CLIMAParameters", "CUDA", "Combinatorics", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DiffEqBase", "Distributions", "DocStringExtensions", "DoubleFloats", "FileIO", "Formatting", "ForwardDiff", "GaussQuadrature", "JLD2", "KernelAbstractions", "LambertW", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "NLsolve", "OrderedCollections", "OrdinaryDiffEq", "PackageCompiler", "Pkg", "Printf", "Random", "RootSolvers", "SpecialFunctions", "StaticArrays", "StaticNumbers", "Statistics", "WriteVTK"]
+deps = ["Adapt", "ArgParse", "CLIMAParameters", "CUDA", "Combinatorics", "Coverage", "Dates", "DelimitedFiles", "Dierckx", "DiffEqBase", "Distributions", "DocStringExtensions", "DoubleFloats", "FileIO", "Formatting", "ForwardDiff", "GaussQuadrature", "JLD2", "KernelAbstractions", "LambertW", "LazyArrays", "LinearAlgebra", "Literate", "Logging", "MPI", "NCDatasets", "NLsolve", "OrderedCollections", "OrdinaryDiffEq", "PackageCompiler", "Pkg", "PrettyTables", "Printf", "Random", "RootSolvers", "SpecialFunctions", "StaticArrays", "StaticNumbers", "Statistics", "WriteVTK"]
 path = ".."
 uuid = "777c4786-024f-11e9-21a3-85d5d4106250"
 version = "0.2.0-DEV"
@@ -197,6 +197,11 @@ deps = ["Markdown", "Test"]
 git-tree-sha1 = "f0464e499ab9973b43c20f8216d088b61fda80c6"
 uuid = "adafc99b-e345-5852-983c-f28acb93d879"
 version = "0.2.2"
+
+[[Crayons]]
+git-tree-sha1 = "c437a9c2114c7ba19322712e58942b383ffbd6c0"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.0.3"
 
 [[DataAPI]]
 git-tree-sha1 = "176e23402d80e7743fc26c19c681bfb11246af32"
@@ -807,6 +812,12 @@ deps = ["DataAPI"]
 git-tree-sha1 = "b1333d4eced1826e15adbdf01a4ecaccca9d353c"
 uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
 version = "0.5.3"
+
+[[PrettyTables]]
+deps = ["Crayons", "Formatting", "Parameters", "Reexport", "Tables"]
+git-tree-sha1 = "8458dc04a493ae5c2fed3796c1d3117972c69694"
+uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+version = "0.9.1"
 
 [[Printf]]
 deps = ["Unicode"]

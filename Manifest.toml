@@ -156,6 +156,11 @@ git-tree-sha1 = "f0464e499ab9973b43c20f8216d088b61fda80c6"
 uuid = "adafc99b-e345-5852-983c-f28acb93d879"
 version = "0.2.2"
 
+[[Crayons]]
+git-tree-sha1 = "9f3adcb26c79d6270eb678f3c61bf44cc6b7077e"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.0.2"
+
 [[DataAPI]]
 git-tree-sha1 = "176e23402d80e7743fc26c19c681bfb11246af32"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
@@ -166,6 +171,11 @@ deps = ["InteractiveUtils", "OrderedCollections"]
 git-tree-sha1 = "edad9434967fdc0a2631a65d902228400642120c"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 version = "0.17.19"
+
+[[DataValueInterfaces]]
+git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
+uuid = "e2d170a0-9d28-54be-80f0-106bbe20a464"
+version = "1.0.0"
 
 [[Dates]]
 deps = ["Printf"]
@@ -613,6 +623,12 @@ git-tree-sha1 = "bae8d8a1e4219bca31c5c3287db6ba5e23b88f50"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 version = "1.1.3"
 
+[[PrettyTables]]
+deps = ["Crayons", "Formatting", "Parameters", "Reexport", "Tables"]
+git-tree-sha1 = "8458dc04a493ae5c2fed3796c1d3117972c69694"
+uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+version = "0.9.1"
+
 [[Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -798,6 +814,12 @@ deps = ["LeftChildRightSiblingTrees", "Logging", "Markdown", "Printf", "Progress
 git-tree-sha1 = "cbea752b5eef52a3e1188fb31580c3e4fa0cbc35"
 uuid = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 version = "0.1.2"
+
+[[Tables]]
+deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
+git-tree-sha1 = "c45dcc27331febabc20d86cb3974ef095257dcf3"
+uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
+version = "1.0.4"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
