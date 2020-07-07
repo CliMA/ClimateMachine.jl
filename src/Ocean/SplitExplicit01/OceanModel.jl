@@ -467,18 +467,24 @@ function update_auxiliary_state!(
     # Compute Horizontal Flow deviation from vertical mean
 
     flowintegral_dg = dg.modeldata.flowintegral_dg
-    update_auxiliary_state!(flowintegral_dg, flowintegral_dg.balance_law, Q, 0, elems)
+    flowint = flowintegral_dg.balance_law
+    update_auxiliary_state!(flowintegral_dg, flowint, Q, 0, elems)
 
     ## get top value (=integral over full depth)
-    boxy_∫u = reshape(flowintegral_dg.state_auxiliary.∫u, Nq^2, Nqk, 2, nelemv, nrealelemh)
-    flat_∫u = @view boxy_∫u[:, end, :, end, :]
+    nb_aux_fl = number_state_auxiliary(flowint, FT)
+    data_fl = reshape(flowintegral_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_fl, nelemv, nelemh)
+    index_∫u = varsindex(vars_state_auxiliary(flowint, FT), :∫u)
+    flat_∫u = @view data_fl[:, end, index_∫u, end, 1:nrealelemh]
     boxy_ub = reshape(flat_∫u, Nq^2, 1, 2, 1, nrealelemh)
 
     ## make a copy of horizontal velocity
     A.u_d .= Q.u
 
     ## and remove vertical mean velocity
-    boxy_ud = reshape(A.u_d, Nq^2, Nqk, 2, nelemv, nrealelemh)
+    nb_aux_sm = number_state_auxiliary(m, FT)
+    data_sm = reshape(A.data, Nq^2, Nqk, nb_aux_sm, nelemv, nelemh)
+    index_ud = varsindex(vars_state_auxiliary(m, FT), :u_d)
+    boxy_ud = @view data_sm[:, :, index_ud, :, 1:nrealelemh]
     boxy_ud .-= boxy_ub / m.problem.H
 
     return true
