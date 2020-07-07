@@ -119,6 +119,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
     temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
     ref_state = HydrostaticState(temp_profile_ref)
+    τ_hyper::FT = 8 * 3600
     
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
@@ -128,7 +129,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
-        hyperdiffusion = StandardHyperDiffusion(FT(8*3600)),
+        hyperdiffusion = StandardHyperDiffusion(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(),),
         init_state_conservative = init_baroclinic_wave!,
@@ -153,9 +154,9 @@ function main()
     poly_order = 3                           # discontinuous Galerkin polynomial order
     n_horz = 20                              # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days::FT = 30
-    timestart::FT = 0                        # start time (s)
-    timeend::FT = n_days * day(param_set)    # end time (s)
+    n_days = 20
+    timestart = FT(0)                        # start time (s)
+    timeend = FT(n_days * day(param_set))    # end time (s)
 
     # Set up driver configuration
     driver_config = config_baroclinic_wave(FT, poly_order, (n_horz, n_vert))
@@ -171,7 +172,7 @@ function main()
 #    ode_solver_type = ClimateMachine.ExplicitSolverType(
 #        solver_method = LSRK144NiegemannDiehlBusch,
 #    )
-    CFL = FT(0.2) # target acoustic CFL number
+    CFL = FT(0.1) # target acoustic CFL number
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
