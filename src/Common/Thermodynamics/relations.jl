@@ -1540,6 +1540,17 @@ dry_pottemp(ts::ThermodynamicState) = dry_pottemp(
     PhasePartition(ts),
 )
 
+function virt_temp_from_RH(
+    param_set::APS,
+    T::FT,
+    ρ::FT,
+    RH::FT,
+    phase_type::Type{<:ThermodynamicState},
+) where {FT <: AbstractFloat}
+    q_tot = RH * q_vap_saturation(param_set, T, ρ, phase_type)
+    q_pt = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
+    return virtual_temperature(param_set, T, ρ, q_pt)
+end
 """
     temperature_and_humidity_from_virtual_temperature(param_set, T_virt, ρ, RH)
 
@@ -1559,19 +1570,14 @@ function temperature_and_humidity_from_virtual_temperature(
     phase_type::Type{<:ThermodynamicState},
     maxiter::Int = 100,
     tol::AbstractTolerance = ResidualTolerance{FT}(sqrt(eps(FT))),
-) where {FT <: Real}
+) where {FT <: AbstractFloat}
 
     _T_min::FT = T_min(param_set)
     _T_max = T_virt
-    function virt_temp_from_RH(param_set, T, ρ, RH)
-        q_tot = RH * q_vap_saturation(param_set, T, ρ, phase_type)
-        q_pt = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
-        return virtual_temperature(param_set, T, ρ, q_pt)
-    end
 
     sol = find_zero(
-        T -> T_virt - virt_temp_from_RH(param_set, T, ρ, RH),
-        SecantMethod(_T_min, T_virt),
+        T -> T_virt - virt_temp_from_RH(param_set, T, ρ, RH, phase_type),
+        SecantMethod(_T_min, _T_max),
         CompactSolution(),
         tol,
         maxiter,

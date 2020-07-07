@@ -8,10 +8,12 @@ module Diagnostics
 export DiagnosticsGroup,
     setup_atmos_default_diagnostics,
     setup_atmos_core_diagnostics,
+    setup_atmos_default_perturbations,
     setup_atmos_refstate_perturbations,
     setup_dump_state_diagnostics,
     setup_dump_aux_diagnostics
 
+using CUDA
 using Dates
 using FileIO
 using JLD2
