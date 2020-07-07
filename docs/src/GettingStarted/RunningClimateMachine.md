@@ -143,3 +143,6 @@ Note that unless GPU use is disabled as above, each `ClimateMachine`
 process will use GPU acceleration. If there are insufficient GPUs (four
 in the example above), the `ClimateMachine` processes will share the
 GPU resources available.
+
+## Scripts for end-to-end runs, logging and vizualisation
+Our [Wiki](https://github.com/CliMA/ClimateMachine.jl/wiki/Bash-Run-Scripts) details example sbatch scripts that run ClimateMachine.jl, record specified performance metrics and produce basic visualization output. 
