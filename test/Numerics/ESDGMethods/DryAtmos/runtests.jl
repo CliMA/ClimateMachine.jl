@@ -13,9 +13,11 @@ using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using ClimateMachine.VariableTemplates: varsindex
 using StaticArrays: MArray, @SVector
+using KernelAbstractions: wait
 using Random
 using DoubleFloats
 using MPI
+using ClimateMachine.MPIStateArrays
 
 Random.seed!(7)
 
@@ -86,7 +88,13 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     )
 
     # Make the Geopotential random
-    esdg.state_auxiliary .= ArrayType(rand(FT, size(esdg.state_auxiliary)))
+    esdg.state_auxiliary .= ArrayType(2rand(FT, size(esdg.state_auxiliary)))
+    start_exchange = MPIStateArrays.begin_ghost_exchange!(esdg.state_auxiliary)
+    end_exchange = MPIStateArrays.end_ghost_exchange!(
+        esdg.state_auxiliary,
+        dependencies = start_exchange,
+    )
+    wait(end_exchange)
 
     # Create a random state
     state_conservative = init_ode_state(esdg; init_on_cpu = true)
@@ -100,16 +108,16 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     # Check that the volume terms only lead to surface integrals of
     #    ∑_{j} n_j ψ_j
     # where Ψ_j = β^T f_j - ζ_j = ρu_j
-    Np, K = (N + 1)^dim, prod(Ne[1:dim])
+    Np, K = (N + 1)^dim, length(esdg.grid.topology.realelems)
 
     # Get the mass matrix on the host
     _M = ClimateMachine.Grids._M
-    M = Array(grid.vgeo[:, _M:_M, :])
+    M = Array(grid.vgeo[:, _M:_M, 1:K])
 
     # Get the state, tendency, and aux on the host
-    Q = Array(state_conservative.data)
-    dQ = Array(volume_tendency.data)
-    A = Array(esdg.state_auxiliary.data)
+    Q = Array(state_conservative.data[:, :, 1:K])
+    dQ = Array(volume_tendency.data[:, :, 1:K])
+    A = Array(esdg.state_auxiliary.data[:, :, 1:K])
 
     # Compute the entropy variables
     β = similar(Q, Np, number_state_entropy(model), K)
@@ -126,17 +134,17 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
 
     # Get the unit normals and surface mass matrix
     sgeo = Array(grid.sgeo)
-    n1 = sgeo[ClimateMachine.Grids._n1, :, :, :]
-    n2 = sgeo[ClimateMachine.Grids._n2, :, :, :]
-    n3 = sgeo[ClimateMachine.Grids._n3, :, :, :]
-    sM = sgeo[ClimateMachine.Grids._sM, :, :, :]
+    n1 = sgeo[ClimateMachine.Grids._n1, :, :, 1:K]
+    n2 = sgeo[ClimateMachine.Grids._n2, :, :, 1:K]
+    n3 = sgeo[ClimateMachine.Grids._n3, :, :, 1:K]
+    sM = sgeo[ClimateMachine.Grids._sM, :, :, 1:K]
 
     # Get the Ψs
     fmask = Array(grid.vmap⁻[:, :, 1])
     _ρu = varsindex(vars_state_conservative(model, FT), :ρu)
-    Ψ1 = Q[fmask, _ρu[1], :]
-    Ψ2 = Q[fmask, _ρu[2], :]
-    Ψ3 = Q[fmask, _ρu[3], :]
+    Ψ1 = Q[fmask, _ρu[1], 1:K]
+    Ψ2 = Q[fmask, _ρu[2], 1:K]
+    Ψ3 = Q[fmask, _ρu[3], 1:K]
 
     # Compute the surface integral:
     #    ∫_Ωf ∑_j n_j * Ψ_j
@@ -167,8 +175,11 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     esdg(surface_tendency, state_conservative, nothing, 0)
 
     # Surface integral should be equal and opposite to the volume integral
-    dQ = Array(surface_tendency.data)
-    @test sum(β[:, 1:num_state, :] .* M .* dQ) ≈ -sum(volume)
+    dQ = Array(surface_tendency.data[:, :, 1:K])
+    volume_integral = MPI.Allreduce(sum(volume), +, mpicomm)
+    surface_integral =
+        MPI.Allreduce(sum(β[:, 1:num_state, :] .* M .* dQ), +, mpicomm)
+    @test volume_integral ≈ -surface_integral
 
     ########################################################
     # check that the full tendency is entropy conservative #
@@ -187,12 +198,9 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
     esdg(tendency, state_conservative, nothing, 0)
 
     # Check for entropy conservation
-    dQ = Array(tendency.data)
-    @test isapprox(
-        sum(β[:, 1:num_state, :] .* M .* dQ),
-        0,
-        atol = sqrt(eps(sum(volume))),
-    )
+    dQ = Array(tendency.data[:, :, 1:K])
+    integral = MPI.Allreduce(sum(β[:, 1:num_state, :] .* M .* dQ), +, mpicomm)
+    @test isapprox(integral, 0, atol = sqrt(eps(sum(volume))))
 end
 
 let
