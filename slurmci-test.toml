@@ -36,6 +36,7 @@ cpu_gpu = [
   { file = "test/Numerics/DGMethods/advection_diffusion/direction_splitting_advection_diffusion.jl", slurmargs = ["--ntasks=3"], args = ["--fix-rng-seed"] },
   { file = "test/Numerics/DGMethods/conservation/sphere.jl", slurmargs = ["--ntasks=3"], args = ["--fix-rng-seed"] },
   { file = "test/Numerics/DGMethods/advection_diffusion/advection_sphere.jl", slurmargs = ["--ntasks=2"], args = [] },
+  { file = "test/Numerics/ESDGMethods/DryAtmos/runtests.jl", slurmargs = ["--ntasks=2"], args = [] },
   { file = "test/Driver/gcm_driver_test.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Numerics/SystemSolvers/poisson.jl", slurmargs = ["--ntasks=2"], args = [] },
   { file = "test/Numerics/SystemSolvers/columnwiselu.jl", slurmargs = ["--ntasks=1"], args = []},
