@@ -6,7 +6,8 @@ import ClimateMachine.BalanceLaws:
     vars_state_entropy,
     state_to_entropy_variables!,
     entropy_variables_to_state!,
-    init_state_auxiliary!
+    init_state_auxiliary!,
+    state_to_entropy
 using StaticArrays: SVector
 using LinearAlgebra: dot, I
 import ClimateMachine.DGMethods.NumericalFluxes:
@@ -202,6 +203,17 @@ function entropy_variables_to_state!(
     state.ρe = ρe
     aux.Φ = Φ
 end
+
+function state_to_entropy(::DryAtmosModel, state::Vars, aux::Vars)
+    FT = eltype(state)
+    ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
+    p = pressure(ρ, ρu, ρe, Φ)
+    γ = FT(_γ)
+    s = log(p * ρ^γ)
+    η = -ρ * s
+    return η
+end
+
 
 function numerical_volume_conservative_flux_first_order!(
     ::EntropyConservative,
