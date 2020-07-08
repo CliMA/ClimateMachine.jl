@@ -102,18 +102,11 @@ function test_divergence_free(; imex::Bool = false, BC = nothing)
 end
 
 @testset "$(@__FILE__)" begin
-    boundary_conditions = [
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), Insulating()),
-        ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), Insulating()),
-        ),
-    ]
+    boundary_conditions = [(
+        OceanBC(Impenetrable(NoSlip()), Insulating()),
+        OceanBC(Impenetrable(NoSlip()), Insulating()),
+        OceanBC(Penetrable(KinematicStress()), Insulating()),
+    )]
 
     for BC in boundary_conditions
         test_divergence_free(imex = false, BC = BC)
