@@ -1,5 +1,6 @@
 module Filters
 
+using SpecialFunctions
 using LinearAlgebra, GaussQuadrature, KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
@@ -125,6 +126,14 @@ function spectral_filter_matrix(r, Nc, σ)
     V * Diagonal(Σ) / V
 end
 
+function χ(x)
+  if (x==0.5)
+    return 1
+  else
+    return sqrt(log(1-4*(abs(x)-0.5)^2)/4*(abs(x)-0.5)^2)
+  end
+end
+
 """
     ExponentialFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
 
@@ -154,6 +163,30 @@ struct ExponentialFilter <: AbstractSpectralFilter
         @assert 0 <= Nc <= N
 
         σ(η) = exp(-α * η^s)
+        filter = spectral_filter_matrix(ξ, Nc, σ)
+
+        new(AT(filter))
+    end
+end
+
+struct Boyd_VandevenFilter <: AbstractSpectralFilter
+    "filter matrix"
+    filter
+
+    function Boyd_VandevenFilter(
+        grid,
+        Nc = 0,
+        s = 32,
+        α = -log(eps(eltype(grid))),
+    )
+        AT = arraytype(grid)
+        N = polynomialorder(grid)
+        ξ = referencepoints(grid)
+
+        @assert iseven(s)
+        @assert 0 <= Nc <= N
+
+        σ(η) = 0.5*erfc(2*sqrt(s)*χ(η)*(abs(η)-0.5))
         filter = spectral_filter_matrix(ξ, Nc, σ)
 
         new(AT(filter))
