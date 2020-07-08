@@ -315,6 +315,27 @@ function entropy_variables_to_state!(
     )
 end
 
+"""
+    function state_to_entropy(
+        balancelaw::BalanceLaw,
+        state_conservative::Vars,
+        state_auxiliary::Vars,
+    )
+
+Compute entropy from a given `state_conservative` and `state_auxiliary`
+"""
+function state_to_entropy(
+    balancelaw::BalanceLaw,
+    state::AbstractArray{FT},
+    aux::AbstractArray{FT},
+) where {FT}
+    state_to_entropy(
+        balancelaw,
+        Vars{vars_state_conservative(balancelaw, FT)}(state),
+        Vars{vars_state_auxiliary(balancelaw, FT)}(aux),
+    )
+end
+
 # Internal methods
 number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))

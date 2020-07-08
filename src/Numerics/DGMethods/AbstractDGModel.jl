@@ -519,3 +519,26 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         @synchronize(f % 2 == 0)
     end
 end
+
+function MPIStateArrays.weightedsum(
+    integrand::Function,
+    dg::AbstractDGModel,
+    state_conservative::MPIStateArray,
+)
+    tmp = similar(
+        state_conservative,
+        size(state_conservative, 1),
+        1,
+        size(state_conservative, 3),
+    )
+end
+
+@kernel function integrand_compute_knl!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    tmp,
+    integrand,
+    state_conservative,
+    state_auxiliary,
+) where {dim, polynomialorder} end
