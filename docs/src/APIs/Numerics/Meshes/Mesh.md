@@ -75,6 +75,7 @@ There are methods used to cleanup state vectors.
 
 ```@docs
 Filters.CutoffFilter
+Filters.BoydVandevenFilter
 Filters.ExponentialFilter
 Filters.TMARFilter
 ```
