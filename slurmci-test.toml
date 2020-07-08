@@ -61,6 +61,7 @@ gpu = [
   { file = "experiments/AtmosLES/surfacebubble.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/AtmosLES/dycoms.jl", slurmargs = ["--ntasks=3"], args = ["--fix-rng-seed"] },
   { file = "experiments/AtmosLES/bomex.jl", slurmargs = ["--ntasks=1"], args = ["--diagnostics=default", "--fix-rng-seed"] },
+  { file = "experiments/AtmosLES/schar_scalar_advection.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "experiments/OceanBoxGCM/homogeneous_box.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "experiments/OceanBoxGCM/ocean_gyre.jl", slurmargs = ["--ntasks=3"], args = [] },
 ]
