@@ -14,11 +14,13 @@ gettime(ps::PseudoSolver) = ps.t
 mutable struct MyCallback
     initialized::Bool
     calls::Int
+    finished::Bool
 end
-MyCallback() = MyCallback(false, 0)
+MyCallback() = MyCallback(false, 0, false)
 
 GenericCallbacks.init!(cb::MyCallback, _...) = cb.initialized = true
 GenericCallbacks.call!(cb::MyCallback, _...) = (cb.calls += 1; nothing)
+GenericCallbacks.fini!(cb::MyCallback, _...) = cb.finished = true
 
 MPI.Init()
 mpicomm = MPI.COMM_WORLD
@@ -33,20 +35,20 @@ fncb = () -> (global fn_calls += 1)
 
 wtfn_calls = 0
 wtfncb = GenericCallbacks.EveryXWallTimeSeconds(
-    AtStart(() -> global wtfn_calls += 1),
+    AtInit(() -> global wtfn_calls += 1),
     2,
     mpicomm,
 )
 
 stfn_calls = 0
 stfncb = GenericCallbacks.EveryXSimulationTime(
-    AtStart(() -> global stfn_calls += 1),
+    AtInitAndFini(() -> global stfn_calls += 1),
     0.5,
 )
 
 ssfn_calls = 0
 ssfncb = GenericCallbacks.EveryXSimulationSteps(
-    AtStart(() -> global ssfn_calls += 1),
+    AtInit(() -> global ssfn_calls += 1),
     5,
 )
 
@@ -114,5 +116,13 @@ callbacks = ((wtcb, stcb, sscb), fncb, (wtfncb, stfncb, ssfncb))
     @test fn_calls == 10
     @test wtfn_calls == 2
     @test stfn_calls == 3
+    @test ssfn_calls == 3
+
+    GenericCallbacks.fini!(callbacks, ps, nothing, nothing, ps.t)
+    @test wtcb.callback.finished
+    @test stcb.callback.finished
+    @test sscb.callback.finished
+    @test wtfn_calls == 2
+    @test stfn_calls == 4
     @test ssfn_calls == 3
 end

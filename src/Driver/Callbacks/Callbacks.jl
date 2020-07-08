@@ -14,7 +14,7 @@ using CLIMAParameters.Planet: day
 using ..Courant
 using ..Checkpoint
 using ..DGMethods: courant
-using ..BalanceLaws: vars_state
+using ..BalanceLaws: vars_state, Prognostic, Auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays
@@ -42,7 +42,7 @@ mutable struct SummaryLogCallback
     end
 end
 
-function GenericCallbacks.init!(cb::SummaryLogCallback, solver, Q, param, t0)
+function GenericCallbacks.init!(cb::SummaryLogCallback, solver, Q, param, t)
     cb.wtimestart = now()
     return nothing
 end
@@ -70,8 +70,9 @@ function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
     isnan(normQ) && error("norm(Q) is NaN")
     return nothing
 end
-
-
+function GenericCallbacks.fini!(cb::SummaryLogCallback, solver, Q, param, t)
+    return nothing
+end
 
 """
     show_updates(show_updates_opt, solver_config, user_info_callback)
@@ -86,15 +87,12 @@ function show_updates(show_updates_opt, solver_config, user_info_callback)
     if cb_constr !== nothing
         return cb_constr((
             SummaryLogCallback(solver_config.timeend),
-            GenericCallbacks.AtStart(user_info_callback),
+            GenericCallbacks.AtInit(user_info_callback),
         ))
     else
         return nothing
     end
 end
-
-
-
 
 """
     diagnostics(diagnostics_opt, solver_config, dgn_starttime, diagnostics_config)
@@ -131,70 +129,67 @@ file.
 """
 function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
     cb_constr = CB_constructor(vtk_opt, solver_config)
-    if cb_constr !== nothing
-        vtknum = Ref(1)
+    cb_constr === nothing && return nothing
 
-        mpicomm = solver_config.mpicomm
-        dg = solver_config.dg
-        bl = dg.balance_law
-        Q = solver_config.Q
-        FT = eltype(Q)
+    vtknum = Ref(1)
 
-        cb_vtk = cb_constr() do
-            # TODO: make an object
-            @tic vtk
-            vprefix = @sprintf(
-                "%s_mpirank%04d_num%04d",
-                solver_config.name,
-                MPI.Comm_rank(mpicomm),
-                vtknum[],
-            )
-            outprefix = joinpath(output_dir, vprefix)
+    mpicomm = solver_config.mpicomm
+    dg = solver_config.dg
+    bl = dg.balance_law
+    Q = solver_config.Q
+    FT = eltype(Q)
 
-            statenames = flattenednames(vars_state(bl, Prognostic(), FT))
-            auxnames = flattenednames(vars_state(bl, Auxiliary(), FT))
+    cb_vtk = GenericCallbacks.AtInitAndFini() do
+        # TODO: make an object
+        vprefix = @sprintf(
+            "%s_mpirank%04d_num%04d",
+            solver_config.name,
+            MPI.Comm_rank(mpicomm),
+            vtknum[],
+        )
+        outprefix = joinpath(output_dir, vprefix)
 
-            writevtk(
-                outprefix,
-                Q,
-                dg,
-                statenames,
-                dg.state_auxiliary,
-                auxnames;
-                number_sample_points = number_sample_points,
-            )
+        statenames = flattenednames(vars_state(bl, Prognostic(), FT))
+        auxnames = flattenednames(vars_state(bl, Auxiliary(), FT))
 
-            # Generate the pvtu file for these vtk files
-            if MPI.Comm_rank(mpicomm) == 0
-                # name of the pvtu file
-                pprefix = @sprintf("%s_num%04d", solver_config.name, vtknum[])
-                pvtuprefix = joinpath(output_dir, pprefix)
+        writevtk(
+            outprefix,
+            Q,
+            dg,
+            statenames,
+            dg.state_auxiliary,
+            auxnames;
+            number_sample_points = number_sample_points,
+        )
 
-                # name of each of the ranks vtk files
-                prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
-                    @sprintf(
-                        "%s_mpirank%04d_num%04d",
-                        solver_config.name,
-                        i - 1,
-                        vtknum[],
-                    )
-                end
-                writepvtu(
-                    pvtuprefix,
-                    prefixes,
-                    (statenames..., auxnames...),
-                    eltype(Q),
+
+        # Generate the pvtu file for these vtk files
+        if MPI.Comm_rank(mpicomm) == 0
+            # name of the pvtu file
+            pprefix = @sprintf("%s_num%04d", solver_config.name, vtknum[])
+            pvtuprefix = joinpath(output_dir, pprefix)
+
+            # name of each of the ranks vtk files
+            prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+                @sprintf(
+                    "%s_mpirank%04d_num%04d",
+                    solver_config.name,
+                    i - 1,
+                    vtknum[],
                 )
             end
-
-            vtknum[] += 1
-            @toc vtk
-            nothing
+            writepvtu(
+                pvtuprefix,
+                prefixes,
+                (statenames..., auxnames...),
+                eltype(Q),
+            )
         end
-        return cb_vtk
-    else
-        return nothing
+
+        vtknum[] += 1
+        nothing
     end
+    return cb_constr(cb_vtk)
 end
 
 """
@@ -263,64 +258,62 @@ at `mcn_opt` intervals.
 """
 function monitor_courant_numbers(mcn_opt, solver_config)
     cb_constr = CB_constructor(mcn_opt, solver_config)
-    if cb_constr !== nothing
-        cb_cfl = cb_constr() do
-            Δt = solver_config.dt
-            c_v = courant(
-                nondiffusive_courant,
-                solver_config,
-                direction = VerticalDirection(),
-            )
-            c_h = courant(
-                nondiffusive_courant,
-                solver_config,
-                direction = HorizontalDirection(),
-            )
-            ca_v = courant(
-                advective_courant,
-                solver_config,
-                direction = VerticalDirection(),
-            )
-            ca_h = courant(
-                advective_courant,
-                solver_config,
-                direction = HorizontalDirection(),
-            )
-            cd_v = courant(
-                diffusive_courant,
-                solver_config,
-                direction = VerticalDirection(),
-            )
-            cd_h = courant(
-                diffusive_courant,
-                solver_config,
-                direction = HorizontalDirection(),
-            )
-            simtime = ODESolvers.gettime(solver_config.solver)
-            @info @sprintf(
-                """
+    cb_constr === nothing && return nothing
+
+    cb_cfl = cb_constr() do
+        Δt = solver_config.dt
+        c_v = courant(
+            nondiffusive_courant,
+            solver_config,
+            direction = VerticalDirection(),
+        )
+        c_h = courant(
+            nondiffusive_courant,
+            solver_config,
+            direction = HorizontalDirection(),
+        )
+        ca_v = courant(
+            advective_courant,
+            solver_config,
+            direction = VerticalDirection(),
+        )
+        ca_h = courant(
+            advective_courant,
+            solver_config,
+            direction = HorizontalDirection(),
+        )
+        cd_v = courant(
+            diffusive_courant,
+            solver_config,
+            direction = VerticalDirection(),
+        )
+        cd_h = courant(
+            diffusive_courant,
+            solver_config,
+            direction = HorizontalDirection(),
+        )
+        simtime = ODESolvers.gettime(solver_config.solver)
+        @info @sprintf(
+            """
 Courant numbers at simtime: %8.2f, Δt = %8.2f s
-    Acoustic (vertical) Courant number    = %.2g
-    Acoustic (horizontal) Courant number  = %.2g
-    Advection (vertical) Courant number   = %.2g
-    Advection (horizontal) Courant number = %.2g
-    Diffusion (vertical) Courant number   = %.2g
-    Diffusion (horizontal) Courant number = %.2g""",
-                simtime,
-                Δt,
-                c_v,
-                c_h,
-                ca_v,
-                ca_h,
-                cd_v,
-                cd_h,
-            )
-            nothing
-        end
-        return cb_cfl
-    else
-        return nothing
+Acoustic (vertical) Courant number    = %.2g
+Acoustic (horizontal) Courant number  = %.2g
+Advection (vertical) Courant number   = %.2g
+Advection (horizontal) Courant number = %.2g
+Diffusion (vertical) Courant number   = %.2g
+Diffusion (horizontal) Courant number = %.2g""",
+            simtime,
+            Δt,
+            c_v,
+            c_h,
+            ca_v,
+            ca_h,
+            cd_v,
+            cd_h,
+        )
+        nothing
     end
+    return cb_cfl
 end
 
 """
@@ -342,31 +335,29 @@ function checkpoint(
     checkpoint_dir,
 )
     cb_constr = CB_constructor(checkpoint_opt, solver_config)
-    if cb_constr !== nothing
-        cpnum = Ref(1)
-        cb_checkpoint = cb_constr() do
-            write_checkpoint(
-                solver_config,
+    cb_constr === nothing && return nothing
+
+    cpnum = Ref(1)
+    cb_checkpoint = cb_constr() do
+        write_checkpoint(
+            solver_config,
+            checkpoint_dir,
+            solver_config.name,
+            solver_config.mpicomm,
+            cpnum[],
+        )
+        if checkpoint_keep_one
+            rm_checkpoint(
                 checkpoint_dir,
                 solver_config.name,
                 solver_config.mpicomm,
-                cpnum[],
+                cpnum[] - 1,
             )
-            if checkpoint_keep_one
-                rm_checkpoint(
-                    checkpoint_dir,
-                    solver_config.name,
-                    solver_config.mpicomm,
-                    cpnum[] - 1,
-                )
-            end
-            cpnum[] += 1
-            nothing
         end
-        return cb_checkpoint
-    else
-        return nothing
+        cpnum[] += 1
+        nothing
     end
+    return cb_checkpoint
 end
 
 """

@@ -28,18 +28,16 @@ mutable struct DiagnosticsGroup
     ) = new(name, init, fini, collect, interval, out_prefix, writer, interpol)
 end
 
-
-function GenericCallbacks.init!(dgngrp::DiagnosticsGroup, solver, Q, param, t0)
+function GenericCallbacks.init!(dgngrp::DiagnosticsGroup, solver, Q, param, t)
     @info @sprintf(
         """
     Diagnostics: %s
-        %s at %8.2f""",
+        initializing at %8.2f""",
         dgngrp.name,
-        "initializing",
-        t0,
+        t,
     )
-    dgngrp.init(dgngrp, t0)
-    dgngrp.collect(dgngrp, t0)
+    dgngrp.init(dgngrp, t)
+    dgngrp.collect(dgngrp, t)
     return nothing
 end
 function GenericCallbacks.call!(dgngrp::DiagnosticsGroup, solver, Q, param, t)
@@ -47,16 +45,26 @@ function GenericCallbacks.call!(dgngrp::DiagnosticsGroup, solver, Q, param, t)
     @info @sprintf(
         """
     Diagnostics: %s
-        %s at %8.2f""",
+        collecting at %8.2f""",
         dgngrp.name,
-        "collecting",
         t,
     )
     dgngrp.collect(dgngrp, t)
     @toc diagnostics
     return nothing
 end
-
+function GenericCallbacks.fini!(dgngrp::DiagnosticsGroup, solver, Q, param, t)
+    @info @sprintf(
+        """
+    Diagnostics: %s
+        finishing at %8.2f""",
+        dgngrp.name,
+        t,
+    )
+    dgngrp.collect(dgngrp, t)
+    dgngrp.fini(dgngrp, t)
+    return nothing
+end
 
 include("atmos_les_default.jl")
 """

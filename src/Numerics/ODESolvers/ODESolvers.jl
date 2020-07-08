@@ -129,11 +129,15 @@ function solve!(
         end
 
         # Figure out if we should stop
-        if numberofsteps == step
-            return gettime(solver)
+        if step == numberofsteps
+            break
         end
     end
-    gettime(solver)
+
+    # Loop through to fini callbacks
+    GenericCallbacks.fini!(callbacks, solver, Q, param, time)
+
+    return gettime(solver)
 end
 # }}}
 
