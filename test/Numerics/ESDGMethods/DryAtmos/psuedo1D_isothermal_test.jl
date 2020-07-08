@@ -14,6 +14,7 @@ import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
 import ClimateMachine.BalanceLaws: init_state_conservative!
 import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
+using LazyArrays
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -190,6 +191,7 @@ function run(
     end
     callbacks = (cbinfo,)
 
+    compute_entropy(esdg, Q)
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 
     # final statistics
