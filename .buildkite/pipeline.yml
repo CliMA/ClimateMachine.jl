@@ -489,6 +489,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_dry_atmos"
+    key: "cpu_dry_atmos"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/ESDGMethods/DryAtmos/runtests.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
   - label: "gpu_varsindex"
     key: "gpu_varsindex"
     command:
@@ -1257,4 +1266,14 @@ steps:
       config: gpu
       queue: central
       slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+  
+  - label: "gpu_dry_atmos"
+    key: "gpu_dry_atmos"
+    command:
+      - "julia --color=yes --project test/Numerics/ESDGMethods/DryAtmos/runtests.jl"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
       slurm_gres: "gpu:1"
