@@ -195,7 +195,31 @@ function (esdg::ESDGModel)(
         )
     end
 
-    # XXX: mirror surface tendency
+    # mirror surface tendency
+    comp_stream = interface_tendency!(device, (Nfp,))(
+        balance_law,
+        Val(dim),
+        Val(N),
+        EveryDirection(),
+        esdg.surface_numerical_flux_first_order,
+        nothing,
+        tendency.data,
+        state_conservative.data,
+        nothing,
+        nothing,
+        state_auxiliary.data,
+        grid.vgeo,
+        grid.sgeo,
+        t,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        grid.exteriorelems,
+        α;
+        ndrange = Nfp * length(grid.exteriorelems),
+        dependencies = (comp_stream, exchange_state_conservative),
+    )
+
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
