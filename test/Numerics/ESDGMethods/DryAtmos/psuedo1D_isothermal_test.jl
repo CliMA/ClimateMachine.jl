@@ -12,7 +12,7 @@ using ClimateMachine.GenericCallbacks:
 using ClimateMachine.VTK: writevtk, writepvtu
 import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
 import ClimateMachine.BalanceLaws: init_state_conservative!
-import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!
+import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 
 if !@isdefined integration_testing
@@ -133,8 +133,8 @@ function run(
     setup = IsothermalPeriodicExample{FT}()
 
     dim = 2
-    Ne = 2^(numelem_vert - 1) * numelem_horz
-    brickrange = ntuple(j -> range(FT(0); length = Ne + 1, stop = 1), dim)
+    Ne = [10, 10, 10]
+    brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 1), dim)
     periodicity = ntuple(j -> true, dim)
 
     topl = BrickTopology(mpicomm, brickrange; periodicity = periodicity)
@@ -154,8 +154,8 @@ function run(
     )
 
     # determine the time step
-    dt = 1 / (Ne * polynomialorder^2)^2
-    timeend = 1 // 4
+    dt = 1 / (Ne[1] * polynomialorder^2)^2
+    timeend = 100dt
     Q = init_ode_state(esdg, FT(0))
     odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
