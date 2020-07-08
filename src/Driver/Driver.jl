@@ -133,7 +133,8 @@ end
 
 """
     parse_commandline(
-        defaults::Union{Nothing, Dict{Symbol,Any}) = nothing,
+        defaults::Dict{Symbol, Any},
+        global_defaults::Dict{Symbol, Any},
         custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
     )
 
@@ -144,12 +145,10 @@ overrides default values for command line argument defaults. If
 Returns a `Dict` containing parsed process ARGS values.
 """
 function parse_commandline(
-    defaults::Union{Nothing, Dict{Symbol, Any}} = nothing,
+    defaults::Dict{Symbol, Any},
+    global_defaults::Dict{Symbol, Any},
     custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
 )
-    if isnothing(defaults)
-        defaults = Dict{Symbol, Any}()
-    end
     exc_handler = ArgParse.default_handler
     if Base.isinteractive()
         exc_handler = ArgParse.debug_handler
@@ -172,10 +171,6 @@ function parse_commandline(
         autofix_names = true,  # switches --flag-name to 'flag_name'
     )
     add_arg_group!(s, "ClimateMachine")
-
-    global_defaults = Dict{Symbol, Any}(
-        (n, getproperty(Settings, n)) for n in propertynames(Settings)
-    )
 
     @add_arg_table! s begin
         "--disable-gpu"
@@ -340,10 +335,24 @@ function init(;
     init_driver::Bool = true,
     keyword_args...,
 )
+    # `Settings` contains global defaults
+    global_defaults = Dict{Symbol, Any}(
+        (n, getproperty(Settings, n)) for n in propertynames(Settings)
+    )
+
+    # keyword arguments must be applicable to `Settings`
     all_args = Dict{Symbol, Any}(keyword_args)
+    for kwarg in keys(all_args)
+        if get(global_defaults, kwarg, nothing) === nothing
+            throw(ArgumentError(string(kwarg)))
+        end
+    end
+
+    # if command line arguments should be processed, do so and override
+    # keyword arguments
     cl_args = nothing
     if parse_clargs
-        cl_args = parse_commandline(all_args, custom_clargs)
+        cl_args = parse_commandline(all_args, global_defaults, custom_clargs)
 
         # We need to munge the parsed arg dict a bit as parsed arg keys
         # and initialization keywords are not 1:1
@@ -356,10 +365,10 @@ function init(;
         )
     end
 
-    # TODO: add validation for initialization values
+    # TODO: also add validation for initialization values
 
-    # Initialize `Settings` from command line arguments/keyword arguments/
-    # default values.
+    # Here, `all_args` contains command line arguments and keyword arguments.
+    # They must be applied to `Settings`.
     #
     # special cases for backward compatibility
     if haskey(all_args, :disable_gpu)
@@ -388,9 +397,6 @@ function init(;
     end
 
     # all other settings
-    global_defaults = Dict{Symbol, Any}(
-        (n, getproperty(Settings, n)) for n in propertynames(Settings)
-    )
     for n in propertynames(Settings)
         # skip over the special backwards compat cases defined above
         if n == :disable_gpu || n == :output_dir
