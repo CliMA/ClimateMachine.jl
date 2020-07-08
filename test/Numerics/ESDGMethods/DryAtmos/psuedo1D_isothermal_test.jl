@@ -1,11 +1,9 @@
 using MPI
 using ClimateMachine
 using Logging
-using ClimateMachine.Mesh.Topologies
-using ClimateMachine.Mesh.Grids
-using ClimateMachine.ESDGMethods
-using ClimateMachine.MPIStateArrays
-using ClimateMachine.ODESolvers
+using ClimateMachine.DGMethods: ESDGModel, init_ode_state
+using ClimateMachine.Mesh.Topologies: BrickTopology
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using LinearAlgebra
 using Printf
 using Dates
@@ -13,6 +11,9 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
+import ClimateMachine.BalanceLaws: init_state_conservative!
+import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!
+using StaticArrays: @SVector
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -25,26 +26,72 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
 
-abstract type AbstractProblem end
-struct PeriodicIsothermalTest <: AbstractProblem end
+function do_output(
+    mpicomm,
+    vtkdir,
+    vtkstep,
+    dg,
+    Q,
+    model,
+    testname = "IsothermalPeriodicExample",
+)
+    ## name of the file that this MPI rank will write
+    filename = @sprintf(
+        "%s/%s_mpirank%04d_step%04d",
+        vtkdir,
+        testname,
+        MPI.Comm_rank(mpicomm),
+        vtkstep
+    )
+
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
+
+    ## Generate the pvtu file for these vtk files
+    if MPI.Comm_rank(mpicomm) == 0
+        ## name of the pvtu file
+        pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
+
+        ## name of each of the ranks vtk files
+        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+            @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
+        end
+
+        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+
+        @info "Done writing VTK: $pvtuprefix"
+    end
+end
+
+struct PeriodicOrientation <: Orientation end
+
+function init_state_auxiliary!(
+    ::DryAtmosModel{dim, PeriodicOrientation},
+    state_auxiliary,
+    geom,
+) where {dim}
+    FT = eltype(state_auxiliary)
+    @inbounds state_auxiliary.Φ = sin(2π * geom.coord[1])
+end
 
 Base.@kwdef struct IsothermalPeriodicExample{FT}
     η::FT = 1 // 10000
 end
 
-function (setup::IsothermalPeriodicExample)(
-    bl::DryAtmosphereModel,
-    state,
-    aux,
+function init_state_conservative!(
+    m::DryAtmosModel,
+    state::Vars,
+    aux::Vars,
     coords,
     t,
+    args...,
 )
     FT = eltype(state)
-    η = setup.η
+    η::FT = 1 // 10000
     @inbounds x = coords[1]
-    aux.Φ = sin(2π * x)
     state.ρ = exp(-aux.Φ)
-    state.ρu = FT(0)
+    state.ρu = @SVector [FT(0), FT(0), FT(0)]
     p = state.ρ + η * exp(-100 * (x - FT(1 // 2))^2)
     state.ρe = totalenergy(state.ρ, state.ρu, p, aux.Φ)
     nothing
@@ -85,13 +132,12 @@ function run(
 
     setup = IsothermalPeriodicExample{FT}()
 
-    model = DryAtmosModel()
-
-    dim = 3
+    dim = 2
+    Ne = 2^(numelem_vert - 1) * numelem_horz
     brickrange = ntuple(j -> range(FT(0); length = Ne + 1, stop = 1), dim)
     periodicity = ntuple(j -> true, dim)
 
-    topl = StackedBrickTopology(mpicomm, brickrange; periodicity = periodicity)
+    topl = BrickTopology(mpicomm, brickrange; periodicity = periodicity)
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
@@ -99,19 +145,17 @@ function run(
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
     )
-
-    problem = PeriodicIsothermalTest()
+    model = DryAtmosModel{dim}(PeriodicOrientation())
     esdg = ESDGModel(
         model,
-        problem,
-        grid,
-        # Need to construct state aux with geopotential
+        grid;
+        volume_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = EntropyConservative(),
     )
 
     # determine the time step
-    Ne = 2^(numelem_vert - 1) * numelem_horz
     dt = 1 / (Ne * polynomialorder^2)^2
-
+    timeend = 1 // 4
     Q = init_ode_state(esdg, FT(0))
     odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
@@ -146,7 +190,7 @@ function run(
     end
     callbacks = (cbinfo,)
 
-    solve!(Q, odesolver; callbacks = callbacks)
+    solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 
     # final statistics
     engf = norm(Q)
