@@ -2,7 +2,6 @@ using StaticArrays
 using Test
 
 using ClimateMachine
-ClimateMachine.init()
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.Mesh.Grids
@@ -60,6 +59,9 @@ function init_test!(bl, state, aux, (x, y, z), t)
 end
 
 function main()
+    @test_throws ArgumentError ClimateMachine.init(dsisable_gpu = true)
+    ClimateMachine.init()
+
     FT = Float64
 
     # DG polynomial order
