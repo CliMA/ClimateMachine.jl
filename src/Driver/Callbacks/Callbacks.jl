@@ -179,7 +179,12 @@ function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
                         vtknum[],
                     )
                 end
-                writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+                writepvtu(
+                    pvtuprefix,
+                    prefixes,
+                    (statenames..., auxnames...),
+                    eltype(Q),
+                )
             end
 
             vtknum[] += 1

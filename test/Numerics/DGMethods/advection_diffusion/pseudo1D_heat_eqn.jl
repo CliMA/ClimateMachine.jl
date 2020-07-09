@@ -12,7 +12,6 @@ using Printf
 using Dates
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.VTK: writevtk, writepvtu
 import ClimateMachine.DGMethods.NumericalFluxes:
     normal_boundary_flux_second_order!
 
