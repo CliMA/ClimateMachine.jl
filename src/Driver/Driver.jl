@@ -58,6 +58,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     show_updates::String = "60secs"
     diagnostics::String = "never"
     vtk::String = "never"
+    vtk_number_sample_points::Int = 0
     monitor_timestep_duration::String = "never"
     monitor_courant_numbers::String = "never"
     checkpoint::String = "never"
@@ -193,6 +194,12 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:vtk, defaults, global_defaults)
+        "--vtk-number-sample-points"
+        help = "The number of sampling points in each element for VTK output"
+        metavar = "<number>"
+        arg_type = Int
+        default =
+            get_setting(:vtk_number_sample_points, defaults, global_defaults)
         "--monitor-timestep-duration"
         help = "interval in time-steps at which to output wall-clock time per time-step"
         metavar = "<interval>"
@@ -301,6 +308,8 @@ Recognized keyword arguments are:
         interval at which to collect diagnostics"
 - `vtk::String = "never"`:
         inteverval at which to write simulation vtk output
+- `vtk-number-sample-points::Int` = 0:
+        the number of sampling points in each element for VTK output
 - `monitor_timestep_duration::String = "never"`:
         interval in time-steps at which to output wall-clock time per time-step
 - `monitor_courant_numbers::String = "never"`:
@@ -567,7 +576,12 @@ function invoke!(
     end
 
     # vtk callback
-    cb_vtk = Callbacks.vtk(Settings.vtk, solver_config, Settings.output_dir)
+    cb_vtk = Callbacks.vtk(
+        Settings.vtk,
+        solver_config,
+        Settings.output_dir,
+        Settings.vtk_number_sample_points,
+    )
     if !isnothing(cb_vtk)
         callbacks = (callbacks..., cb_vtk)
     end
