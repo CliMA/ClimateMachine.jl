@@ -131,3 +131,11 @@ function wavespeed(lm::myLHBModel, n⁻, _...)
     C = abs(SVector(lm.ocean.cʰ, lm.ocean.cʰ, lm.ocean.cᶻ)' * n⁻)
     return C
 end
+
+@inline function boundary_state!(nf, linear::myLHBModel, args...)
+    ocean = linear.ocean
+    boundary_condition = ocean.problem.boundary_condition
+
+    return ocean_boundary_state!(nf, boundary_condition, ocean, args...)
+end
+

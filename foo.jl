@@ -81,7 +81,9 @@ import ...BalanceLaws:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-import ClimateMachine.Ocean.HydrostaticBoussinesq
+import ClimateMachine.Ocean.HydrostaticBoussinesq: diffusivity_tensor
+import ClimateMachine.Ocean.HydrostaticBoussinesq: ocean_boundary_state!
+import ClimateMachine.Ocean.HydrostaticBoussinesq: boundary_state!
 
 
 
@@ -168,11 +170,13 @@ include("mylhbm-repl.jl")
 
          Qin=solver_config.Q;
          dQout=deepcopy(Qin);
-         # Calc d/dt for one step
+
+         # Calc d/dt for one step using LinearHBM
          solver_config.solver.rhs_implicit!(dQout,Qin,nothing,0);
 
          using Plots
          zc=reshape(solver_config.solver.rhs!.grid.vgeo[:,15,:],(Np1*Np1,Np1,Nᶻ,Nˣ*Nʸ) )[1,:,:,1]
+
          # QP=Qin;
          QP=Qin;
          tz=reshape(QP.θ,(Np1*Np1,Np1,Nᶻ,Nˣ*Nʸ) )[1,:,:,1]
@@ -199,7 +203,7 @@ include("mylhbm-repl.jl")
          mylbh_dg=DGModel(mylhb_model,bl.grid,bl.numerical_flux_first_order,bl.numerical_flux_second_order,bl.numerical_flux_gradient; direction=ClimateMachine.Mesh.Grids.VerticalDirection )
          dQout3=deepcopy(Qin);
          mylbh_dg(dQout3,Qin,nothing,0);
-         QP=dQ3out;
+         QP=dQout3;
          tz=reshape(QP.θ,(Np1*Np1,Np1,Nᶻ,Nˣ*Nʸ) )[1,:,:,1]
          savefig( scatter( tz, zc ), "fooMYLHBM.png" )
 
