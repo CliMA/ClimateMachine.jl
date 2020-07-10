@@ -192,7 +192,7 @@ include("mylhbm-repl.jl")
          using ClimateMachine.DGMethods: DGModel, init_ode_state
          ivdc_model=IVDCModel{Float64}(nothing, nothing)
          ivdc_dg=DGModel(ivdc_model,bl.grid,bl.numerical_flux_first_order,bl.numerical_flux_second_order,bl.numerical_flux_gradient; 
-                         direction=ClimateMachine.Mesh.Grids.VerticalDirection )
+                         direction=ClimateMachine.Mesh.Grids.VerticalDirection() )
          dQout2=deepcopy(Qin);
          ivdc_dg(dQout2,Qin,nothing,0);
          QP=dQout2;
@@ -200,7 +200,7 @@ include("mylhbm-repl.jl")
          savefig( scatter( tz, zc ), "fooIVDC.png" )
 
          mylhb_model=myLHBModel(solver_config.solver.rhs!.balance_law)
-         mylbh_dg=DGModel(mylhb_model,bl.grid,bl.numerical_flux_first_order,bl.numerical_flux_second_order,bl.numerical_flux_gradient; direction=ClimateMachine.Mesh.Grids.VerticalDirection )
+         mylbh_dg=DGModel(mylhb_model,bl.grid,bl.numerical_flux_first_order,bl.numerical_flux_second_order,bl.numerical_flux_gradient; direction=ClimateMachine.Mesh.Grids.VerticalDirection() )
          dQout3=deepcopy(Qin);
          mylbh_dg(dQout3,Qin,nothing,0);
          QP=dQout3;
