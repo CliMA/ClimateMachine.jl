@@ -50,7 +50,43 @@ ClimateMachine.init()
 	struct EarthParameterSet <: AbstractEarthParameterSet end
 	const param_set = EarthParameterSet()
 
+using ClimateMachine.BalanceLaws
+using ClimateMachine.VariableTemplates
+
+using LinearAlgebra: dot, Diagonal
+
+
+import ...BalanceLaws:
+    vars_state_conservative,
+    vars_state_auxiliary,
+    vars_state_gradient,
+    vars_state_gradient_flux,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    compute_gradient_argument!,
+    compute_gradient_flux!,
+    flux_first_order!,
+    flux_second_order!,
+    source!,
+    wavespeed,
+    boundary_state!,
+    update_auxiliary_state!,
+    update_auxiliary_state_gradient!,
+    vars_integrals,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    indefinite_stack_integral!,
+    vars_reverse_integrals,
+    reverse_indefinite_stack_integral!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
+
+import ClimateMachine.Ocean.HydrostaticBoussinesq
+
+
+
 include("mymodel-repl.jl")
+include("mylhbm-repl.jl")
 
 	function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
 	    if BC == nothing
@@ -158,3 +194,13 @@ include("mymodel-repl.jl")
          QP=dQout2;
          tz=reshape(QP.θ,(Np1*Np1,Np1,Nᶻ,Nˣ*Nʸ) )[1,:,:,1]
          savefig( scatter( tz, zc ), "fooIVDC.png" )
+
+         mylhb_model=myLHBModel(solver_config.solver.rhs!.balance_law)
+         mylbh_dg=DGModel(mylhb_model,bl.grid,bl.numerical_flux_first_order,bl.numerical_flux_second_order,bl.numerical_flux_gradient; direction=ClimateMachine.Mesh.Grids.VerticalDirection )
+         dQout3=deepcopy(Qin);
+         mylbh_dg(dQout3,Qin,nothing,0);
+         QP=dQ3out;
+         tz=reshape(QP.θ,(Np1*Np1,Np1,Nᶻ,Nˣ*Nʸ) )[1,:,:,1]
+         savefig( scatter( tz, zc ), "fooMYLHBM.png" )
+
+

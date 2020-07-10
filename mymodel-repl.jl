@@ -39,7 +39,7 @@ import ...BalanceLaws:
 
 using StaticArrays
 
-export vars_state_auxiliary
+# export vars_state_auxiliary
 
 struct ImplicitVerticalDiffusionModel{PS, P, T} <: BalanceLaw
     param_set::PS
@@ -129,18 +129,15 @@ vars_state_gradient(m::IVDCModel, FT) = @vars(∇θ::FT)
 
 # @inline function compute_gradient_argument!(
 function compute_gradient_argument!(
-    m::IVDCModel,
-    G::Vars,
-    Q::Vars,
-    A,
-    t,
-)
-    G.∇θ = Q.θ
-    # A.θ_rhs = Q.u[1]
-    A.θ_rhs = 3
-#   G.∇θ = -0
+     m::IVDCModel,
+     G::Vars,
+     Q::Vars,
+     A,
+     t,
+ )
+     G.∇θ = Q.θ
 
-    return nothing
+     return nothing
 end
 
 
@@ -159,7 +156,6 @@ vars_state_gradient_flux(m::IVDCModel, FT) = @vars(κ∇θ::SVector{3, FT})
 
     κ = diffusivity_tensor(m, G.∇θ[3])
     D.κ∇θ = -κ * G.∇θ
-#    D.κ∇θ = -κ * G.∇θ * 0.
 
     return nothing
 end
@@ -187,18 +183,24 @@ end
     direction,
 )
     @inbounds begin
-     # S!.θ=Q.θ/m.parent_om.dt_slow
-     ###   S.θ=Q.θ/5400.0
-     # S.θ=0
-     # S.θ=10
+     # S.θ=Q.θ
     end
 
     return nothing
 end
 
-## Numerical fluxes and boundaries
+## fluxes and boundaries
 
-function flux_first_order!(::IVDCModel, _...) end
+function flux_first_order!(
+    m::IVDCModel,
+    F::Grad,
+    Q::Vars,
+    A::Vars,
+    t::Real,
+    direction,
+)
+end
+
 
 function flux_second_order!(
     ::IVDCModel,
@@ -269,10 +271,6 @@ function boundary_state!(
 )
     Q⁺.θ = Q⁻.θ
     D⁺.κ∇θ = n⁻ * -0
-#   D⁺.κ∇θ
-#   D⁻.κ∇θ = n⁻ * -0 .+ 7000
-#    D⁺.κ∇θ = n⁻ * -0 + 7000
-    # D⁺.κ∇θ = -D⁻.κ∇θ
 
     return nothing
 end
