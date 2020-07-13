@@ -23,11 +23,12 @@ export AtmosBC,
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q, TR}
+Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
     momentum::M = Impenetrable(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
     tracer::TR = ImpermeableTracer()
+    turbconv::TC = NoTurbConvBC()
 end
 
 function boundary_state!(nf, atmos::AtmosModel, args...)
@@ -84,6 +85,7 @@ function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
     atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
     atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
     atmos_tracer_boundary_state!(nf, bc.tracer, atmos, args...)
+    turbconv_boundary_state!(nf, bc.turbconv, atmos, args...)
 end
 
 
@@ -199,6 +201,7 @@ function atmos_normal_boundary_flux_second_order!(
         atmos,
         args...,
     )
+    turbconv_normal_boundary_flux_second_order!(nf, bc.turbconv, atmos, args...)
 end
 
 include("bc_momentum.jl")

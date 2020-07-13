@@ -129,7 +129,7 @@ end
 Return a callback that saves state and auxiliary variables to a VTK
 file.
 """
-function vtk(vtk_opt, solver_config, output_dir)
+function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
     cb_constr = CB_constructor(vtk_opt, solver_config)
     if cb_constr !== nothing
         vtknum = Ref(1)
@@ -154,7 +154,15 @@ function vtk(vtk_opt, solver_config, output_dir)
             statenames = flattenednames(vars_state_conservative(bl, FT))
             auxnames = flattenednames(vars_state_auxiliary(bl, FT))
 
-            writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
+            writevtk(
+                outprefix,
+                Q,
+                dg,
+                statenames,
+                dg.state_auxiliary,
+                auxnames;
+                number_sample_points = number_sample_points,
+            )
 
             # Generate the pvtu file for these vtk files
             if MPI.Comm_rank(mpicomm) == 0
@@ -171,7 +179,12 @@ function vtk(vtk_opt, solver_config, output_dir)
                         vtknum[],
                     )
                 end
-                writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+                writepvtu(
+                    pvtuprefix,
+                    prefixes,
+                    (statenames..., auxnames...),
+                    eltype(Q),
+                )
             end
 
             vtknum[] += 1

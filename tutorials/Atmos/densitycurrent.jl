@@ -201,7 +201,6 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     ##md #     Docs on model subcomponent options can be found here:
     ##md #     - [`param_set`](https://CliMA.github.io/CLIMAParameters.jl/dev/)
     ##md #     - [`turbulence`](@ref Turbulence-Closures-docs)
-    ##md #     - [`hyperdiffusion`](@ref Hyperdiffusion-docs)
     ##md #     - [`source`](@ref atmos-sources)
     ##md #     - [`init_state`](@ref init)
 

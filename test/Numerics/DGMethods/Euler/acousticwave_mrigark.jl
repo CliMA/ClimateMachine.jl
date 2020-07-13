@@ -367,7 +367,7 @@ function do_output(
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
 
-        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...), eltype(Q))
 
         @info "Done writing VTK: $pvtuprefix"
     end

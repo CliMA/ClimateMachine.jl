@@ -56,3 +56,7 @@ jobs:
           ClIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
           CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
         run: xvfb-run -- julia --procs=auto docs/make.jl
+      - name: Help! Documenter Failed
+        run: |
+          cat .github/workflows/doc_build_common_error_messages.md
+        if: failure()

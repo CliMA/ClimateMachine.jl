@@ -53,7 +53,6 @@ makedocs(
     sitename = "ClimateMachine",
     doctest = false,
     strict = true,
-    linkcheck = true,
     format = format,
     checkdocs = :exports,
     clean = true,
