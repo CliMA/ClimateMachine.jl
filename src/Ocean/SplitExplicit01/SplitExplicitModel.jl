@@ -58,6 +58,9 @@ import ..DGMethods:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
+import ..SystemSolvers:
+    BatchedGeneralizedMinimalResidual, linearsolve!
+
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 
@@ -71,6 +74,7 @@ include("OceanModel.jl")
 include("Continuity3dModel.jl")
 include("VerticalIntegralModel.jl")
 include("BarotropicModel.jl")
+include("IVDCModel.jl")
 include("Communication.jl")
 include("OceanBoundaryConditions.jl")
 
