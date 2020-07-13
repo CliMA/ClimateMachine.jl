@@ -10,10 +10,11 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Grids
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-
+using MPI
 using Distributions
 using StaticArrays
 using Test
@@ -171,9 +172,9 @@ function main()
 
     FT = Float64
     N = 4
-    Ncellsx = 96
-    Ncellsy = 96
-    Ncellsz = 96
+    Ncellsx = 192
+    Ncellsy = 192
+    Ncellsz = 192
     Δx = FT(2 * pi / Ncellsx)
     Δy = Δx
     Δz = Δx
@@ -207,10 +208,55 @@ function main()
         Courant_number = CFL,
     )
     #dgn_config = config_diagnostics(driver_config)
+    # State variable
+    Q = solver_config.Q
+    # Volume geometry information
+    vgeo = driver_config.grid.vgeo
+    # Unpack prognostic vars
+    u₀ = Q.ρu ./ Q.ρ
+    u_0 = u₀[:,1,:]./100
+    v_0 = u₀[:,2,:]./100
+    w_0 = u₀[:,3,:]./100
+    mm = size(u_0,2)
+    M = vgeo[:, Grids._M, 1:mm]
+    SM = sum(M)
+    @info size(u_0),size(M)
+    E_k0 = 0.5 * sum((u_0.^2 .+ v_0.^2 .+ w_0.^2).* M) / SM
+    mpicomm = MPI.COMM_WORLD
+    mpirank = MPI.Comm_rank(mpicomm)
+    n = MPI.Comm_size(mpicomm)
+    E_k0 = MPI.Reduce(E_k0,+,0,mpicomm)
+    if mpirank == 0 
+      @info E_k0/n
+    end
+    # DG variable sums
+    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(1) do
+        Q = solver_config.Q
+    # Volume geometry information
+    vgeo = driver_config.grid.vgeo
+    # Unpack prognostic vars
+    u₀ = Q.ρu ./ Q.ρ
+    u_0 = u₀[:,1,:]./100
+    v_0 = u₀[:,2,:]./100
+    w_0 = u₀[:,3,:]./100
+    mm = size(u_0,2)
+    M = vgeo[:, Grids._M, 1:mm]
+    SM = sum(M)
+    @info size(u_0),size(M)
+    E_k0 = 0.5 * sum((u_0.^2 .+ v_0.^2 .+ w_0.^2).* M) / SM
+    mpicomm = MPI.COMM_WORLD
+    mpirank = MPI.Comm_rank(mpicomm)
+    n = MPI.Comm_size(mpicomm)
+    E_k0 = MPI.Reduce(E_k0,+,0,mpicomm)
+    if mpirank == 0
+      @info E_k0/n
+    end
+    end
 
     result = ClimateMachine.invoke!(
         solver_config;
         #diagnostics_config = dgn_config,
+        user_callbacks = (cb_check_cons),
         check_euclidean_distance = true,
     )
 

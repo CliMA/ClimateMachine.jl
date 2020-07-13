@@ -601,18 +601,21 @@ function invoke!(
 
     # initial condition norm
     eng0 = norm(Q)
+    mom0 = norm(Q.ρu ./ Q.ρ)
     @info @sprintf(
         """
 Starting %s
     dt              = %.5e
     timeend         = %8.2f
     number of steps = %d
-    norm(Q)         = %.16e""",
+    norm(Q)         = %.16e
+    total_velocity = %.16e""",
         solver_config.name,
         solver_config.dt,
         solver_config.timeend,
         solver_config.numberofsteps,
-        eng0
+        eng0,
+        mom0
     )
 
     # run the simulation
