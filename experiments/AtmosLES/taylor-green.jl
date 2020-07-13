@@ -20,7 +20,7 @@ using StaticArrays
 using Test
 using DocStringExtensions
 using LinearAlgebra
-
+using DelimitedFiles
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cv_d, cp_d, MSLP, grav, LH_v0
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -208,6 +208,7 @@ function main()
     )
     #dgn_config = config_diagnostics(driver_config)
     # State variable
+    energy_file = "/central/climanfs/home/yassine/Kinetic_energy.txt"
     Q = solver_config.Q
     # Volume geometry information
     vgeo = driver_config.grid.vgeo
@@ -219,43 +220,46 @@ function main()
     mm = size(u_0,2)
     M = vgeo[:, Grids._M, 1:mm]
     SM = sum(M)
-    @info size(u_0),size(M)
     E_k0 = 0.5 * sum((u_0.^2 .+ v_0.^2 .+ w_0.^2).* M) / SM
     mpicomm = MPI.COMM_WORLD
     mpirank = MPI.Comm_rank(mpicomm)
     n = MPI.Comm_size(mpicomm)
     E_k0 = MPI.Reduce(E_k0,+,0,mpicomm)
     if mpirank == 0 
-      @info E_k0/n
+      open(energy_file, "a") do io
+          writedlm(io,E_k0/n)
+      end
     end
     # DG variable sums
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(1) do
-        Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    # Unpack prognostic vars
-    u₀ = Q.ρu ./ Q.ρ
-    u_0 = u₀[:,1,:]./100
-    v_0 = u₀[:,2,:]./100
-    w_0 = u₀[:,3,:]./100
-    mm = size(u_0,2)
-    M = vgeo[:, Grids._M, 1:mm]
-    SM = sum(M)
-    @info size(u_0),size(M)
-    E_k0 = 0.5 * sum((u_0.^2 .+ v_0.^2 .+ w_0.^2).* M) / SM
-    mpicomm = MPI.COMM_WORLD
-    mpirank = MPI.Comm_rank(mpicomm)
-    n = MPI.Comm_size(mpicomm)
-    E_k0 = MPI.Reduce(E_k0,+,0,mpicomm)
-    if mpirank == 0
-      @info E_k0/n
-    end
+    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(10) do
+      Q = solver_config.Q
+      # Volume geometry information
+      vgeo = driver_config.grid.vgeo
+      # Unpack prognostic vars
+      u₀ = Q.ρu ./ Q.ρ
+      u_0 = u₀[:,1,:]./100
+      v_0 = u₀[:,2,:]./100
+      w_0 = u₀[:,3,:]./100
+      mm = size(u_0,2)
+      M = vgeo[:, Grids._M, 1:mm]
+      SM = sum(M)
+      E_k0 = 0.5 * sum((u_0.^2 .+ v_0.^2 .+ w_0.^2).* M) / SM
+      mpicomm = MPI.COMM_WORLD
+      mpirank = MPI.Comm_rank(mpicomm)
+      n = MPI.Comm_size(mpicomm)
+      E_k0 = MPI.Reduce(E_k0,+,0,mpicomm)
+      if mpirank == 0
+        open(energy_file, "a") do io
+          writedlm(io,E_k0/n)
+        end
+      end
+      nothing
     end
 
     result = ClimateMachine.invoke!(
         solver_config;
         #diagnostics_config = dgn_config,
-        user_callbacks = (cb_check_cons),
+        user_callbacks = (cb_check_cons,),
         check_euclidean_distance = true,
     )
 
