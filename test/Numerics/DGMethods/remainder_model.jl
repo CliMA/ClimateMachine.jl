@@ -49,7 +49,7 @@ using Random
 Run this test problem
 """
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(; fix_rng_seed = true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
