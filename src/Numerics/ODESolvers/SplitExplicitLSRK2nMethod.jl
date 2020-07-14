@@ -179,5 +179,23 @@ function dostep!(
     # reset fast time-step to original value
     updatedt!(fast, fast_dt_in)
 
+    # now do implicit mixing step
+    # 1. get implicit mising model, model state variable array and solver handles
+    ivdc_dg=slow.rhs!.modeldata.ivdc_dg
+    ivdc_Q=slow.rhs!.modeldata.ivdc_Q
+    ivdc_solver_dt= ivdc_dg.balance_law.ivdc_dt
+    ivdc_solver=slow.rhs!.modeldata.ivdc_bgm_solver
+    # 2. setup RHS, initial guess and values for computing mixing coeff
+    ivdc_Q.θ   .= Qslow.θ
+    ivdc_RHS    = slow.rhs!.modeldata.ivdc_RHS
+    ivdc_RHS.θ .= ivdc_RHS.θ./ivdc_solver_dt
+    ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
+    # 3. Invoke iterative solver
+    lm!(y,x)=ivdc_dg(y,x,nothing,0;increment=false)
+    solve_time=@elapsed iters = linearsolve!(lm!, ivdc_solver, ivdc_Q, ivdc_RHS);
+    println("solver iters, time: ",iters, ", ", solve_time)
+    # exit()
+
+
     return nothing
 end
