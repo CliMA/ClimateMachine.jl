@@ -669,11 +669,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(10 * 60) #FT(4 * 60 * 60) #TODO
+    t_end = FT(9) #FT(5 * 60) #FT(4 * 60 * 60) #TODO
     dt = FT(3) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 20
+    output_freq = 1
+    interval = "1steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -906,9 +907,8 @@ function main()
         end
 
     # output for paraview
-
     # initialize base output prefix directory from rank 0
-    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    vtkdir  = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
     end
@@ -916,7 +916,7 @@ function main()
 
     step = [0]
     cb_vtk =
-        GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = false)
+        GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = true)
             out_dirname = @sprintf(
                 "microphysics_test_4_mpirank%04d_step%04d",
                 MPI.Comm_rank(mpicomm),
@@ -936,9 +936,39 @@ function main()
             nothing
         end
 
+    # output for netcdf
+    info = driver_config.config_info
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    dgngrps = [
+        setup_dump_state_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            #writer = NetCDFWriter(),
+            interpol = interpol,
+        ),
+        setup_dump_aux_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            #writer = NetCDFWriter(),
+            interpol = interpol,
+        ),
+    ];
+    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps);
+
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
+        diagnostics_config = dgn_config,
         user_callbacks = (cb_tmar_filter, cb_vtk),
         check_euclidean_distance = true,
     )
