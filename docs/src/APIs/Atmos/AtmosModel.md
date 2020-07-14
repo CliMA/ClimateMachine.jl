@@ -32,7 +32,6 @@ ClimateMachine.Atmos.NoReferenceState
 
 ```@docs
 ClimateMachine.Atmos.RayleighSponge
-ClimateMachine.Atmos.StandardHyperDiffusion
 ```
 
 ## BCs
@@ -43,7 +42,6 @@ ClimateMachine.Atmos.DragLaw
 ClimateMachine.Atmos.Impermeable
 ClimateMachine.Atmos.PrescribedMoistureFlux
 ClimateMachine.Atmos.FreeSlip
-ClimateMachine.Atmos.NoHyperDiffusion
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
 ClimateMachine.Atmos.ImpermeableTracer

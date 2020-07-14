@@ -848,9 +848,9 @@ end
     vgeo,
     t,
     D,
-    hypervisc_indexmap,
+    ::Val{hypervisc_indexmap},
     elems,
-) where {dim, polyorder}
+) where {dim, polyorder, hypervisc_indexmap}
     @uniform begin
         N = polyorder
 
@@ -1026,9 +1026,9 @@ end
     vgeo,
     t,
     D,
-    hypervisc_indexmap,
+    ::Val{hypervisc_indexmap},
     elems,
-) where {dim, polyorder}
+) where {dim, polyorder, hypervisc_indexmap}
     @uniform begin
         N = polyorder
 
@@ -1207,9 +1207,9 @@ end
     vmap⁻,
     vmap⁺,
     elemtobndy,
-    hypervisc_indexmap,
+    ::Val{hypervisc_indexmap},
     elems,
-) where {dim, polyorder}
+) where {dim, polyorder, hypervisc_indexmap}
     @uniform begin
         N = polyorder
         FT = eltype(state_conservative)

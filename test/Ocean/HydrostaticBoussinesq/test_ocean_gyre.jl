@@ -145,11 +145,6 @@ end
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
         ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
-        ),
     ]
 
     for BC in boundary_conditions
