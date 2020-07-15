@@ -104,37 +104,19 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 5
-    numelem_horz = 10
-    numelem_vert = 5
+    Ne = 10
 
     timeend = 1
     FT = Float64
-    result = run(
-        mpicomm,
-        polynomialorder,
-        numelem_horz,
-        numelem_vert,
-        timeend,
-        ArrayType,
-        FT,
-    )
+    result = run(mpicomm, polynomialorder, Ne, timeend, ArrayType, FT)
 end
 
-function run(
-    mpicomm,
-    polynomialorder,
-    numelem_horz,
-    numelem_vert,
-    timeend,
-    ArrayType,
-    FT,
-)
+function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
 
     setup = IsothermalPeriodicExample{FT}()
 
     dim = 2
-    Ne = [10, 10, 10]
+    Ne = [Nelem, Nelem, Nelem]
     brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 1), dim)
     periodicity = ntuple(j -> true, dim)
 
