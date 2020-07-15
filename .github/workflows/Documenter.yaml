@@ -18,11 +18,17 @@ jobs:
         uses: styfle/cancel-workflow-action@0.4.0
         with:
           access_token: ${{ github.token }}
-      - uses: actions/checkout@v2.2.0
+
       - name: Install System Dependencies
         run: |
+          sudo apt-get update
           sudo apt-get -qq install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5 xvfb
-      - uses: julia-actions/setup-julia@v1.1.6
+
+      - name: Checkout Source
+        uses: actions/checkout@v2.2.0
+
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v1.1.6
         with:
           version: 1.4
 
@@ -45,6 +51,7 @@ jobs:
         run: |
           julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
           julia --project=docs/ -e 'using Pkg; Pkg.precompile()'
+
       - name: Build and deploy
         # Run with X virtual frame buffer as GR (default backend for Plots.jl) needs
         # an X session to run without warnings
@@ -56,6 +63,7 @@ jobs:
           ClIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
           CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
         run: xvfb-run -- julia --procs=auto docs/make.jl
+
       - name: Help! Documenter Failed
         run: |
           cat .github/workflows/doc_build_common_error_messages.md
