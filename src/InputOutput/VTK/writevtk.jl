@@ -22,7 +22,7 @@ points with 'number_sample_points' in each direction.
 function writevtk(
     prefix,
     Q::MPIStateArray,
-    dg::DGModel,
+    dg::Union{DGModel, ESDGModel},
     fieldnames = nothing;
     number_sample_points = 0,
 )
@@ -63,7 +63,7 @@ points with 'number_sample_points' in each direction.
 function writevtk(
     prefix,
     Q::MPIStateArray,
-    dg::DGModel,
+    dg::Union{DGModel, ESDGModel},
     fieldnames,
     state_auxiliary,
     auxfieldnames;
