@@ -11,7 +11,7 @@ using ...MPIStateArrays
 using ...VariableTemplates: @vars, varsize, Vars, varsindices
 
 export AbstractSpectralFilter, AbstractFilter
-export ExponentialFilter, CutoffFilter, TMARFilter
+export ExponentialFilter, CutoffFilter, TMARFilter, BoydVandevenFilter
 
 abstract type AbstractFilter end
 abstract type AbstractSpectralFilter <: AbstractFilter end
@@ -169,11 +169,34 @@ struct ExponentialFilter <: AbstractSpectralFilter
     end
 end
 
-struct Boyd_VandevenFilter <: AbstractSpectralFilter
+"""
+    BoydVandevenFilter(grid, Nc=0, s=32, α=-log(eps(eltype(grid))))
+
+Returns the spectral filter using the logorithmic error function of
+the form:
+```math
+σ(η) = 1/2 erfc(2*sqrt(s)*χ(η)*(abs(η)-0.5))
+```
+whenever s ≤ i ≤ N, and 1 otherwise. Here, `s` is the filter order,
+the filter starts with polynomial order `Nc`, and `alpha` is a parameter
+controlling the smallest value of the filter function.
+
+### References
+
+    @inproceedings{boyd1996erfc,
+    title={The erfc-log filter and the asymptotics of the Euler and Vandeven sequence accelerations},
+    author={Boyd, JP},
+    booktitle={Proceedings of the Third International Conference on Spectral and High Order Methods},
+    pages={267--276},
+    year={1996},
+    organization={Houston Math. J}
+    }
+"""
+struct BoydVandevenFilter <: AbstractSpectralFilter
     "filter matrix"
     filter
 
-    function Boyd_VandevenFilter(
+    function BoydVandevenFilter(
         grid,
         Nc = 0,
         s = 32,
