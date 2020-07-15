@@ -10,6 +10,7 @@ using Dates
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
+using ClimateMachine.VariableTemplates: flattenednames
 import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
 import ClimateMachine.BalanceLaws: init_state_conservative!
 import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
@@ -26,44 +27,6 @@ end
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
-
-function do_output(
-    mpicomm,
-    vtkdir,
-    vtkstep,
-    dg,
-    Q,
-    model,
-    testname = "IsothermalPeriodicExample",
-)
-    ## name of the file that this MPI rank will write
-    filename = @sprintf(
-        "%s/%s_mpirank%04d_step%04d",
-        vtkdir,
-        testname,
-        MPI.Comm_rank(mpicomm),
-        vtkstep
-    )
-
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
-    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
-
-    ## Generate the pvtu file for these vtk files
-    if MPI.Comm_rank(mpicomm) == 0
-        ## name of the pvtu file
-        pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
-
-        ## name of each of the ranks vtk files
-        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
-            @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
-        end
-
-        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
-
-        @info "Done writing VTK: $pvtuprefix"
-    end
-end
 
 struct PeriodicOrientation <: Orientation end
 
@@ -103,7 +66,7 @@ function main()
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
-
+    polynomialorder = 4
     Ne = 10
 
     timeend = 1
@@ -119,6 +82,23 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
     Ne = [Nelem, Nelem, Nelem]
     brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 1), dim)
     periodicity = ntuple(j -> true, dim)
+    warpfun =
+        (x1, x2, x3) -> begin
+            x1 = 2x1 - 1
+            x2 = 2x2 - 1
+            dim == 3 && (x3 = 2x3 - 1)
+            α = (4 / π) * (1 - x1^2) * (1 - x2^2) * (1 - x3^2)
+            # Rotate by α with x1 and x2
+            x1, x2 = cos(α) * x1 - sin(α) * x2, sin(α) * x1 + cos(α) * x2
+            # Rotate by α with x1 and x3
+            if dim == 3
+                x1, x3 = cos(α) * x1 - sin(α) * x3, sin(α) * x1 + cos(α) * x3
+            end
+            x1 = (x1 + 1) / 2
+            x2 = (x2 + 1) / 2
+            dim == 3 && (x3 = (x3 + 1) / 2)
+            return (x1, x2, x3)
+        end
 
     topl = BrickTopology(mpicomm, brickrange; periodicity = periodicity)
 
@@ -127,6 +107,7 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
+        meshwarp = warpfun,
     )
     model = DryAtmosModel{dim}(PeriodicOrientation())
     esdg = ESDGModel(
@@ -138,7 +119,6 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
 
     # determine the time step
     dt = 1 / (Ne[1] * polynomialorder^2)^2
-    timeend = 100dt
     Q = init_ode_state(esdg, FT(0))
     odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
@@ -147,11 +127,10 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
                       ArrayType       = %s
                       FT              = %s
                       polynomialorder = %d
-                      numelem_horz    = %d
-                      numelem_vert    = %d
+                      numelem         = %d
                       dt              = %.16e
                       norm(Q₀)        = %.16e
-                      """ "$ArrayType" "$FT" polynomialorder numelem_horz numelem_vert dt eng0
+                      """ "$ArrayType" "$FT" polynomialorder Ne[1] dt eng0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -173,7 +152,28 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
     end
     callbacks = (cbinfo,)
 
-    compute_entropy(esdg, Q)
+    output_vtk = true
+    if output_vtk
+        # create vtk dir
+        vtkdir =
+            "psuedo1D_isothermal" *
+            "_poly$(polynomialorder)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
+        mkpath(vtkdir)
+
+        vtkstep = 0
+        # output initial step
+        do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+
+        # setup the output callback
+        outputtime = 1 / 10
+        cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
+            vtkstep += 1
+            Qe = init_ode_state(esdg, gettime(odesolver), setup)
+            do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
+        end
+        callbacks = (callbacks..., cbvtk)
+    end
+
     solve!(Q, odesolver; callbacks = callbacks, timeend = timeend)
 
     # final statistics
@@ -184,6 +184,45 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
     norm(Q) - norm(Q₀)      = %.16e
     """ engf engf / eng0 engf - eng0
     engf
+end
+
+function do_output(
+    mpicomm,
+    vtkdir,
+    vtkstep,
+    esdg,
+    Q,
+    model,
+    testname = "psuedo1D_isothermal",
+)
+    ## name of the file that this MPI rank will write
+    filename = @sprintf(
+        "%s/%s_mpirank%04d_step%04d",
+        vtkdir,
+        testname,
+        MPI.Comm_rank(mpicomm),
+        vtkstep
+    )
+
+    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+
+    writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)#; number_sample_points = 10)
+
+    ## Generate the pvtu file for these vtk files
+    if MPI.Comm_rank(mpicomm) == 0
+        ## name of the pvtu file
+        pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
+
+        ## name of each of the ranks vtk files
+        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+            @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
+        end
+
+        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...), eltype(Q))
+
+        @info "Done writing VTK: $pvtuprefix"
+    end
 end
 
 main()
