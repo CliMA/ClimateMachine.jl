@@ -46,16 +46,13 @@ jobs:
     - name: Install Project Packages
       run: |
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+      env:
+        JULIA_MPI_BINARY: OpenMPI_jll
+
+    - name: Build System Image
+      run: |
+        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
 
     - name: Run Unit Tests
       run: |
-        export MPICH_DBG_IFNAME=TRUE
-        export MPICH_INTERFACE_HOSTNAME=localhost
         julia --project=@. -e 'using Pkg; Pkg.test()'
-
-    - name: Build System Image
-      # force hostname to localhost to workaround gethostbyname OSX github action vm config
-      env:
-        MPICH_INTERFACE_HOSTNAME: localhost
-      run: |
-        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
