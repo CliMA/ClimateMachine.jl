@@ -47,10 +47,16 @@ jobs:
       run: |
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'
 
+    - name: Run Unit Tests
+      env:
+        MPICH_DBG_IFNAME: "1"
+        MPICH_INTERFACE_HOSTNAME: "localhost"
+      run: |
+        julia --project=@. -e 'using Pkg; Pkg.test()'
+
     - name: Build System Image
+      # force hostname to localhost to workaround gethostbyname OSX github action vm config
+      env:
+        MPICH_INTERFACE_HOSTNAME: localhost
       run: |
         julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
-
-    - name: Run Unit Tests
-      run: |
-        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
