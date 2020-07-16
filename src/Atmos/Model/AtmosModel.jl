@@ -677,6 +677,14 @@ function init_state_auxiliary!(
 
     nodal_init_state_auxiliary!(
         m,
+        (m, aux, geom) ->
+            atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
+        state_auxiliary,
+        grid,
+    )
+
+    nodal_init_state_auxiliary!(
+        m,
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,

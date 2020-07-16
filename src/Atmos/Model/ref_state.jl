@@ -56,6 +56,16 @@ end
 vars_state_auxiliary(m::HydrostaticState, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
 
+function atmos_init_ref_state_pressure!(
+    m::HydrostaticState{P, F},
+    atmos::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+) where {P, F}
+    z = altitude(atmos, aux)
+    _, p = m.virtual_temperature_profile(atmos.param_set, z)
+    aux.ref_state.p = p
+end
 
 function atmos_init_aux!(
     m::HydrostaticState{P, F},
@@ -68,11 +78,11 @@ function atmos_init_aux!(
     FT = eltype(aux)
     _R_d::FT = R_d(atmos.param_set)
 
+    p = aux.ref_state.p
     # Replace density by computation from pressure
     # ρ = -1/g*dpdz
     ρ = p / (_R_d * T_virt)
     aux.ref_state.ρ = ρ
-    aux.ref_state.p = p
     RH = m.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = temperature_and_humidity_from_virtual_temperature(
