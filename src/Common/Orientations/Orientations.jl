@@ -97,7 +97,7 @@ end
 function init_aux!(m, ::Orientation, state_auxiliary::MPIStateArray, grid)
     nodal_init_state_auxiliary!(
         m,
-        (m, aux, geom) ->
+        (m, aux, tmp, geom) ->
             orientation_nodal_init_aux!(m.orientation, m.param_set, aux, geom),
         state_auxiliary,
         grid,

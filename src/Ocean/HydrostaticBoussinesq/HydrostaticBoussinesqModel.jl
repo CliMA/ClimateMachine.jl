@@ -181,7 +181,7 @@ function ocean_init_aux! end
 function init_state_auxiliary!(m::HBModel, state_auxiliary::MPIStateArray, grid)
     nodal_init_state_auxiliary!(
         m,
-        (m, A, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
         state_auxiliary,
         grid,
     )

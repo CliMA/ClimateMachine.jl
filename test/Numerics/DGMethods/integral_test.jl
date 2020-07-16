@@ -67,6 +67,7 @@ wavespeed(::IntegralTestModel, _...) = 1
 function integral_nodal_init_state_auxiliary!(
     ::IntegralTestModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     x, y, z = aux.coord = g.coord

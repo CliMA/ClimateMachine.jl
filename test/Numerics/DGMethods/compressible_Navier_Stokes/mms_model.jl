@@ -186,6 +186,7 @@ end
 function mms_nodal_init_state_auxiliary!(
     ::MMSModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
     x1, x2, x3 = g.coord

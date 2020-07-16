@@ -218,6 +218,7 @@ end
 function advection_diffusion_nodal_init_state_auxiliary!(
     m::AdvectionDiffusion,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     aux.coord = geom.coord

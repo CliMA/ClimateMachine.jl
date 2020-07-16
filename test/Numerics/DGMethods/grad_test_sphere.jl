@@ -33,6 +33,7 @@ vars_state_conservative(::GradSphereTestModel, T) = @vars()
 function grad_nodal_init_state_auxiliary!(
     ::GradSphereTestModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
     x, y, z = g.coord

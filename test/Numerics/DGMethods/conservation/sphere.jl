@@ -57,6 +57,7 @@ vars_state_gradient_flux(::ConservationTestModel, T) = @vars()
 function conservation_nodal_init_state_auxiliary!(
     ::ConservationTestModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
     x, y, z = g.coord

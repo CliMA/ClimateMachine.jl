@@ -668,7 +668,8 @@ function nodal_init_state_auxiliary!(
     balance_law,
     init_f!,
     state_auxiliary,
-    grid,
+    grid;
+    state_temporary = nothing,
 )
     topology = grid.topology
     dim = dimensionality(grid)
@@ -689,6 +690,8 @@ function nodal_init_state_auxiliary!(
         Val(polyorder),
         init_f!,
         state_auxiliary.data,
+        isnothing(state_temporary) ? nothing : state_temporary.data,
+        Val(isnothing(state_temporary) ? @vars() : vars(state_temporary)),
         vgeo,
         topology.realelems,
         dependencies = (event,),

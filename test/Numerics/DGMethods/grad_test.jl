@@ -26,6 +26,7 @@ vars_state_conservative(::GradTestModel, T) = @vars()
 function grad_nodal_init_state_auxiliary!(
     ::GradTestModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     x, y, z = g.coord

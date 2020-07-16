@@ -139,6 +139,7 @@ dxx_sol1d(x) =
 function poisson_nodal_init_state_auxiliary!(
     ::PoissonModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     aux.rhs_ϕ = 0

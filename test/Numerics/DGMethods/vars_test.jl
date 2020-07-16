@@ -60,6 +60,7 @@ end
 function vars_nodal_init_state_auxiliary!(
     ::VarsTestModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     x, y, z = aux.coord = g.coord

@@ -128,7 +128,7 @@ function init_state_auxiliary!(
 )
     nodal_init_state_auxiliary!(
         m,
-        (m, aux, geom) -> init_hyperdiffusion_tensor!(m.problem, aux, geom),
+        (m, aux, tmp, geom) -> init_hyperdiffusion_tensor!(m.problem, aux, geom),
         state_auxiliary,
         grid,
     )

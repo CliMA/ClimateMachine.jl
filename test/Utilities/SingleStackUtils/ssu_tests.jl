@@ -40,6 +40,7 @@ vars_state_gradient_flux(::EmptyBalLaw, FT) = @vars()
 function empty_nodal_init_state_auxiliary!(
     m::EmptyBalLaw,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     aux.x = geom.coord[1]

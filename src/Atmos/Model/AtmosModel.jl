@@ -649,6 +649,7 @@ end
 function atmos_nodal_init_state_auxiliary!(
     m::AtmosModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
@@ -677,7 +678,7 @@ function init_state_auxiliary!(
 
     nodal_init_state_auxiliary!(
         m,
-        (m, aux, geom) ->
+        (m, aux, tmp, geom) ->
             atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
         state_auxiliary,
         grid,
