@@ -106,6 +106,7 @@ jobs:
         julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
       env:
         OMPI_MCA_btl: "self,tcp"
+        OMPI_MCA_mpi_abort_print_stack: "1"
 
   test-ubuntu:
     timeout-minutes: 120
