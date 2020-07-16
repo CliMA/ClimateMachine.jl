@@ -104,7 +104,8 @@ jobs:
     - name: Run Unit Tests
       run: |
         julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
-
+      env:
+        OMPI_MCA_btl: "self,tcp"
 
   test-ubuntu:
     timeout-minutes: 120
