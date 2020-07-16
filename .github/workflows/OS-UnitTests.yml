@@ -48,10 +48,9 @@ jobs:
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'
 
     - name: Run Unit Tests
-      env:
-        MPICH_DBG_IFNAME: "1"
-        MPICH_INTERFACE_HOSTNAME: "localhost"
       run: |
+        export MPICH_DBG_IFNAME=TRUE
+        export MPICH_INTERFACE_HOSTNAME=localhost
         julia --project=@. -e 'using Pkg; Pkg.test()'
 
     - name: Build System Image
