@@ -43,11 +43,27 @@ jobs:
           ${{ runner.os }}-test-
           ${{ runner.os }}-
 
+    - name: Select MPI
+      id: select_mpi
+      run: |
+        if [ $CI_OS == 'macOS' ]
+        then
+          echo "::set-output name=mpi_jll::OpenMPI_jll"
+        elif [ $CI_OS == 'Windows' ]
+        then
+          echo "::set-output name=mpi_jll::MicrosoftMPI_jll"
+        else
+          echo "::set-output name=mpi_jll::MPICH_jll"
+        fi
+      env:
+        CI_OS: ${{ runner.os }}
+
     - name: Install Project Packages
       run: |
+        echo "Using MPI Binary: $JULIA_MPI_BINARY"
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       env:
-        JULIA_MPI_BINARY: OpenMPI_jll
+        JULIA_MPI_BINARY: ${{ steps.select_mpi.outputs.mpi_jll }}
 
     - name: Build System Image
       run: |
