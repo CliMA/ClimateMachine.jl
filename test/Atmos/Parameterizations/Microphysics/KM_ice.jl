@@ -19,8 +19,8 @@ function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
-        z::FT
-        x::FT
+        aux_z::FT
+        aux_x::FT
         # defined in update_aux
         u::FT
         w::FT
@@ -176,7 +176,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        aux.e_pot = _grav * aux.z
+        aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
         q = PhasePartition(max(FT(0), aux.q_tot), max(FT(0), aux.q_liq), max(FT(0), aux.q_ice))
@@ -461,7 +461,7 @@ function source!(
         u = state.ρu[1] / state.ρ
         w = state.ρu[3] / state.ρ
         ρ = state.ρ
-        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.z
+        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.aux_z
 
         q = PhasePartition(max(FT(0), q_tot), max(FT(0), q_liq), max(FT(0), q_ice))
         T = air_temperature(param_set, e_int, q)
@@ -658,7 +658,7 @@ function main()
     # Domain extents
     xmax = 90000
     ymax = 10
-    zmax = 16000
+    zmax = 15000 #16000
     # initial configuration
     wmax = FT(0.6)  # max velocity of the eddy  [m/s]
     θ_0 = FT(289) # init. theta value (const) [K]
@@ -669,12 +669,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(9) #FT(5 * 60) #FT(4 * 60 * 60) #TODO
+    t_end = FT(10 * 60) #FT(4 * 60 * 60) #TODO
     dt = FT(3) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 1
-    interval = "1steps"
+    output_freq = 20
+    interval = "20steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -913,7 +913,6 @@ function main()
         mkpath(vtkdir)
     end
     MPI.Barrier(mpicomm)
-
     step = [0]
     cb_vtk =
         GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = true)
@@ -952,14 +951,12 @@ function main()
             AtmosLESConfigType(),
             interval,
             driver_config.name,
-            #writer = NetCDFWriter(),
             interpol = interpol,
         ),
         setup_dump_aux_diagnostics(
             AtmosLESConfigType(),
             interval,
             driver_config.name,
-            #writer = NetCDFWriter(),
             interpol = interpol,
         ),
     ];

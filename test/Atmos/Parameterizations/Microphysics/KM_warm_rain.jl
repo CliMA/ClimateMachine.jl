@@ -16,8 +16,8 @@ function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
-        x::FT
-        z::FT
+        aux_x::FT
+        aux_z::FT
         # defined in update_aux
         u::FT
         w::FT
@@ -111,7 +111,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        aux.e_pot = _grav * aux.z
+        aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
         q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
@@ -271,7 +271,7 @@ function source!(
         q_rai = state.ρq_rai / state.ρ
         u = state.ρu[1] / state.ρ
         w = state.ρu[3] / state.ρ
-        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.z
+        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.aux_z
 
         q = PhasePartition(q_tot, q_liq, q_ice)
         T = air_temperature(param_set, e_int, q)

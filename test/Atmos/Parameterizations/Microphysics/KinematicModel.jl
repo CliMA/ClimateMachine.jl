@@ -26,7 +26,7 @@ using StaticArrays
 using Test
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(diagnostics = "default")
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -204,8 +204,8 @@ function init_state_auxiliary!(
 
     @inbounds begin
         aux.p = p
-        aux.x = x
-        aux.z = z
+        aux.aux_x = x
+        aux.aux_z = z
     end
 end
 

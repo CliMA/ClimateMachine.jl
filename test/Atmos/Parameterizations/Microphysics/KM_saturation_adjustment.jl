@@ -13,8 +13,8 @@ function vars_state_auxiliary(m::KinematicModel, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
-        x::FT
-        z::FT
+        aux_x::FT
+        aux_z::FT
         # defined in update_aux
         u::FT
         w::FT
@@ -86,7 +86,7 @@ function kinematic_model_nodal_update_auxiliary_state!(
 
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        aux.e_pot = _grav * aux.z
+        aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
         # saturation adjustment happens here
