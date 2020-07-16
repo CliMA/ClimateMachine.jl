@@ -7,14 +7,12 @@ on:
       - trying
 
 jobs:
-  test-os:
+  test-windows:
     timeout-minutes: 120
     strategy:
       fail-fast: true
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
 
     steps:
     - name: Cancel Previous Runs
@@ -36,34 +34,19 @@ jobs:
       env:
         cache-name: cache-artifacts
       with:
-        path: ~/.julia/artifacts 
+        path: ~/.julia/artifacts
         key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
         restore-keys: |
           ${{ runner.os }}-test-${{ env.cache-name }}-
           ${{ runner.os }}-test-
           ${{ runner.os }}-
 
-    - name: Select MPI
-      id: select_mpi
-      run: |
-        if [ $CI_OS == 'macOS' ]
-        then
-          echo "::set-output name=mpi_jll::OpenMPI_jll"
-        elif [ $CI_OS == 'Windows' ]
-        then
-          echo "::set-output name=mpi_jll::MicrosoftMPI_jll"
-        else
-          echo "::set-output name=mpi_jll::MPICH_jll"
-        fi
-      env:
-        CI_OS: ${{ runner.os }}
-
     - name: Install Project Packages
       run: |
         echo "Using MPI Binary: $JULIA_MPI_BINARY"
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'
       env:
-        JULIA_MPI_BINARY: ${{ steps.select_mpi.outputs.mpi_jll }}
+        JULIA_MPI_BINARY: MicrosoftMPI_jll
 
     - name: Build System Image
       run: |
@@ -71,4 +54,103 @@ jobs:
 
     - name: Run Unit Tests
       run: |
-        julia --project=@. -e 'using Pkg; Pkg.test()'
+        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
+
+  test-macos:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: true
+
+    runs-on: macos-latest
+
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout
+      uses: actions/checkout@v2.2.0
+
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v1.1.6
+      with:
+        version: 1.4
+
+    # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
+    - name: Cache artifacts
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-artifacts
+      with:
+        path: ~/.julia/artifacts
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ env.cache-name }}-
+          ${{ runner.os }}-test-
+          ${{ runner.os }}-
+
+    - name: Install Project Packages
+      run: |
+        echo "Using MPI Binary: $JULIA_MPI_BINARY"
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+      env:
+        JULIA_MPI_BINARY: OpenMPI_jll
+
+    - name: Build System Image
+      run: |
+        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
+
+    - name: Run Unit Tests
+      run: |
+        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
+
+
+  test-ubuntu:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: true
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout
+      uses: actions/checkout@v2.2.0
+
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v1.1.6
+      with:
+        version: 1.4
+
+    # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
+    - name: Cache artifacts
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-artifacts
+      with:
+        path: ~/.julia/artifacts
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ env.cache-name }}-
+          ${{ runner.os }}-test-
+          ${{ runner.os }}-
+
+    - name: Install Project Packages
+      run: |
+        echo "Using MPI Binary: $JULIA_MPI_BINARY"
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+      env:
+        JULIA_MPI_BINARY: MPICH_jll
+
+    - name: Build System Image
+      run: |
+        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
+
+    - name: Run Unit Tests
+      run: |
+        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'

@@ -1,7 +1,7 @@
 status = [
-  "test-os (ubuntu-latest)",
-  "test-os (windows-latest)",
-  "test-os (macos-latest)",
+  "test-ubuntu",
+  "test-windows",
+  "test-macos",
   "ci/slurmci",
   "docs-build",
   "format"
