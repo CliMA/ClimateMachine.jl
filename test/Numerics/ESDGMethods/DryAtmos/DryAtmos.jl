@@ -21,7 +21,7 @@ using ClimateMachine.Orientations:
 
 # Gas constant
 const _γ = 7 // 5
-const _grav = 981 // 1000
+const _grav = 981 // 100
 
 struct DryAtmosModel{D, O} <: BalanceLaw
     orientation::O
