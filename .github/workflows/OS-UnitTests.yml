@@ -107,6 +107,7 @@ jobs:
       env:
         OMPI_MCA_btl: "self,tcp"
         OMPI_MCA_mpi_abort_print_stack: "1"
+        OMPI_MCA_base_verbose: "level:9"
 
   test-ubuntu:
     timeout-minutes: 120
