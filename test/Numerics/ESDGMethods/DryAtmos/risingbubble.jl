@@ -65,7 +65,7 @@ function init_state_conservative!(bl::DryAtmosModel, state, aux, (x, y, z), t)
     γ::FT = c_p / c_v
 
     ## Define bubble center and background potential temperature
-    xc::FT = 10000
+    xc::FT = 5000
     yc::FT = 1000
     zc::FT = 2000
     r = sqrt((x - xc)^2 + (z - zc)^2)
@@ -92,12 +92,15 @@ function init_state_conservative!(bl::DryAtmosModel, state, aux, (x, y, z), t)
     ## State (prognostic) variable assignment
     e_kin = FT(0)                                       # kinetic energy
     e_pot = aux.Φ                                       # potential energy
-    ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
+    # ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
+    ρe = ρ * (e_kin + e_pot)
+
 
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.ρe = ρe_tot
+    state.ρe = ρe
+    p = pressure(ρ, ρu, ρe, e_pot)
 end
 
 function main()
