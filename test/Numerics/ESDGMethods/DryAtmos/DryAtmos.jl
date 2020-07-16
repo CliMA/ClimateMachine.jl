@@ -29,6 +29,22 @@ end
 DryAtmosModel{D}(orientation::O) where {D, O <: Orientation} =
     DryAtmosModel{D, O}(orientation)
 
+function boundary_state!(
+    ::NumericalFluxFirstOrder,
+    ::DryAtmosModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    _...,
+)
+    state⁺.ρ = state⁻.ρ
+    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
+    state⁺.ρe = state⁻.ρe
+end
+
 """
     init_state_auxiliary!(
         m::DryAtmosModel,

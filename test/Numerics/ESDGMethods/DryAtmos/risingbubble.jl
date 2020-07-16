@@ -11,30 +11,16 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.VariableTemplates: flattenednames
-import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
-import ClimateMachine.BalanceLaws: init_state_conservative!
+import ClimateMachine.BalanceLaws: init_state_conservative!, boundary_state!
 import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 using LazyArrays
 
-# XXX: Hack for Impenetrable
-function boundary_state!(
-    ::NumericalFluxFirstOrder,
-    ::DryAtmosModel,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    bctype,
-    _...,
-)
-    state⁺.ρ = state⁻.ρ
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-    state⁺.ρe = state⁻.ρe
-    aux⁺.Φ = aux⁻.Φ
-end
-
+using CLIMAParameters
+using CLIMAParameters.Atmos.SubgridScale: C_smag
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet();
 
 if !@isdefined integration_testing
     const integration_testing = parse(
@@ -47,37 +33,70 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
 
-struct PeriodicOrientation <: Orientation end
-
-function init_state_auxiliary!(
-    ::DryAtmosModel{dim, PeriodicOrientation},
-    state_auxiliary,
-    geom,
-) where {dim}
-    FT = eltype(state_auxiliary)
-    @inbounds state_auxiliary.Φ = sin(2π * geom.coord[1])
-end
-
-Base.@kwdef struct IsothermalPeriodicExample{FT}
-    η::FT = 1 // 10000
-end
-
-function init_state_conservative!(
-    m::DryAtmosModel,
-    state::Vars,
-    aux::Vars,
-    coords,
-    t,
-    args...,
+# XXX: Hack for Impenetrable.
+#      This is NOT entropy stable / conservative!!!!
+function boundary_state!(
+    ::NumericalFluxFirstOrder,
+    ::DryAtmosModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    _...,
 )
+    state⁺.ρ = state⁻.ρ
+    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
+    state⁺.ρe = state⁻.ρe
+    aux⁺.Φ = aux⁻.Φ
+end
+
+function init_risingbubble!(bl, state, aux, (x, y, z), t)
+    ## Problem float-type
     FT = eltype(state)
-    η::FT = 1 // 10000
-    @inbounds x = coords[1]
-    state.ρ = exp(-aux.Φ)
-    state.ρu = @SVector [FT(0), FT(0), FT(0)]
-    p = state.ρ + η * exp(-100 * (x - FT(1 // 2))^2)
-    state.ρe = totalenergy(state.ρ, state.ρu, p, aux.Φ)
-    nothing
+
+    ## Unpack constant parameters
+    R_gas::FT = R_d(bl.param_set)
+    c_p::FT = cp_d(bl.param_set)
+    c_v::FT = cv_d(bl.param_set)
+    p0::FT = MSLP(bl.param_set)
+    _grav::FT = grav(bl.param_set)
+    γ::FT = c_p / c_v
+
+    ## Define bubble center and background potential temperature
+    xc::FT = 5000
+    yc::FT = 1000
+    zc::FT = 2000
+    r = sqrt((x - xc)^2 + (z - zc)^2)
+    rc::FT = 2000
+    θamplitude::FT = 2
+
+    ## This is configured in the reference hydrostatic state
+    θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
+
+    ## Add the thermal perturbation:
+    Δθ::FT = 0
+    if r <= rc
+        Δθ = θamplitude * (1.0 - r / rc)
+    end
+
+    ## Compute perturbed thermodynamic state:
+    θ = θ_ref + Δθ                                      # potential temperature
+    π_exner = FT(1) - _grav / (c_p * θ) * z             # exner pressure
+    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)      # density
+    T = θ * π_exner
+    e_int = internal_energy(bl.param_set, T)
+    ts = PhaseDry(bl.param_set, e_int, ρ)
+    ρu = SVector(FT(0), FT(0), FT(0))                   # momentum
+    ## State (prognostic) variable assignment
+    e_kin = FT(0)                                       # kinetic energy
+    e_pot = gravitational_potential(bl, aux)            # potential energy
+    ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
+
+    ## Assign State Variables
+    state.ρ = ρ
+    state.ρu = ρu
+    state.ρe = ρe_tot
 end
 
 function main()
@@ -86,49 +105,60 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
     polynomialorder = 4
-    Ne = 10
+    Ne = (100, 1, 100)
+    xmax = FT(10000)
+    ymax = FT(500)
+    zmax = FT(10000)
 
     timeend = 1
     FT = Float64
-    result = run(mpicomm, polynomialorder, Ne, timeend, ArrayType, FT)
+    result = run(
+        mpicomm,
+        polynomialorder,
+        Ne,
+        xmax,
+        ymax,
+        zmax,
+        timeend,
+        ArrayType,
+        FT,
+    )
 end
 
-function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
+function run(
+    mpicomm,
+    polynomialorder,
+    Ne,
+    xmax,
+    ymax,
+    zmax,
+    timeend,
+    ArrayType,
+    FT,
+)
 
-    setup = IsothermalPeriodicExample{FT}()
-
-    dim = 2
-    Ne = [Nelem, Nelem, Nelem]
-    brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 1), dim)
-    periodicity = ntuple(j -> true, dim)
-    warpfun =
-        (x1, x2, x3) -> begin
-            x1 = 2x1 - 1
-            x2 = 2x2 - 1
-            dim == 3 && (x3 = 2x3 - 1)
-            α = (4 / π) * (1 - x1^2) * (1 - x2^2) * (1 - x3^2)
-            # Rotate by α with x1 and x2
-            x1, x2 = cos(α) * x1 - sin(α) * x2, sin(α) * x1 + cos(α) * x2
-            # Rotate by α with x1 and x3
-            if dim == 3
-                x1, x3 = cos(α) * x1 - sin(α) * x3, sin(α) * x1 + cos(α) * x3
-            end
-            x1 = (x1 + 1) / 2
-            x2 = (x2 + 1) / 2
-            dim == 3 && (x3 = (x3 + 1) / 2)
-            return (x1, x2, x3)
-        end
-
-    topl = BrickTopology(mpicomm, brickrange; periodicity = periodicity)
-
+    dim = 3
+    Δx, Δy, Δz = resolution
+    brickrange = (
+        range(FT(0), stop = xmax, length = Ne[1] + 1) *
+        range(FT(0), stop = ymax, length = Ne[2] + 1) *
+        range(FT(0), stop = zmax, length = Ne[3] + 1)
+    )
+    boundary = ((0, 0), (0, 0), (1, 2))
+    periodicity = (true, true, false)
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
     grid = DiscontinuousSpectralElementGrid(
-        topl,
+        topology,
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
-        meshwarp = warpfun,
     )
-    model = DryAtmosModel{dim}(PeriodicOrientation())
+    model = DryAtmosModel{dim}(FlatOrientation())
     esdg = ESDGModel(
         model,
         grid;
@@ -175,7 +205,7 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
     if output_vtk
         # create vtk dir
         vtkdir =
-            "psuedo1D_isothermal" *
+            "RTB" *
             "_poly$(polynomialorder)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
         mkpath(vtkdir)
 
@@ -205,15 +235,7 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
     engf
 end
 
-function do_output(
-    mpicomm,
-    vtkdir,
-    vtkstep,
-    esdg,
-    Q,
-    model,
-    testname = "psuedo1D_isothermal",
-)
+function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "RTB")
     ## name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
