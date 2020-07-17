@@ -12,9 +12,15 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
+
+    # Workaround for OSX MPICH issue:
+    # https://github.com/pmodels/mpich/issues/4710
+    env:
+      MPICH_INTERFACE_HOSTNAME: localhost
+      JULIA_MPIEXEC_ARGS: "-hosts localhost"
 
     steps:
     - name: Cancel Previous Runs
