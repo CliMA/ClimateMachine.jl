@@ -970,7 +970,7 @@ function contiguous_field_gradient!(
     device = array_device(state)
 
     I = varsindices(vars(state), vars_in)
-    O = varsindices(vars(state), vars_out)
+    O = varsindices(vars(∇state), vars_out)
 
     event = Event(device)
 
