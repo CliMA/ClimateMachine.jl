@@ -244,7 +244,7 @@ function Base.similar(
     Q::MPIStateArray,
     ::Type{A},
     ::Type{FT};
-    vars::Type{V} = vars(Q)
+    vars::Type{V} = vars(Q),
 ) where {A <: AbstractArray, FT <: Number, V}
     MPIStateArray{FT, V}(
         Q.mpicomm,
@@ -263,20 +263,22 @@ end
 function Base.similar(
     Q::MPIStateArray{FT},
     ::Type{A};
-    vars::Type{V}=vars(Q)
+    vars::Type{V} = vars(Q),
 ) where {A <: AbstractArray, FT <: Number, V}
     similar(Q, A, FT; vars = V)
 end
-function Base.similar(Q::MPIStateArray,
-                      ::Type{FT};
-                      vars::Type{V}=vars(Q)
-                     ) where {FT <: Number, V}
+function Base.similar(
+    Q::MPIStateArray,
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+) where {FT <: Number, V}
     similar(Q, typeof(Q.data), FT; vars = V)
 end
-function Base.similar(Q::MPIStateArray{FT};
-                      vars::Type{V}=vars(Q)
-                     ) where {FT, V}
-    similar(Q, FT; vars=V)
+function Base.similar(
+    Q::MPIStateArray{FT};
+    vars::Type{V} = vars(Q),
+) where {FT, V}
+    similar(Q, FT; vars = V)
 end
 
 Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)

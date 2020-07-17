@@ -1564,7 +1564,7 @@ See [`BalanceLaw`](@ref) for usage.
         @unroll for s in 1:num_state_auxiliary
             local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
-        
+
         @unroll for s in 1:num_state_temporary
             local_state_temporary[s] = state_temporary[n, s, e]
         end

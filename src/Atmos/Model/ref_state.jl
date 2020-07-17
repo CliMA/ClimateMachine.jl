@@ -120,16 +120,18 @@ vars_state_auxiliary(::PressureGradientModel, T) = @vars(p::T)
 vars_state_conservative(::PressureGradientModel, T) = @vars(∇p::SVector{3, T})
 vars_state_gradient(::PressureGradientModel, T) = @vars()
 vars_state_gradient_flux(::PressureGradientModel, T) = @vars()
-function init_state_auxiliary!(m::PressureGradientModel, state_auxiliary::MPIStateArray, grid)
-end
+function init_state_auxiliary!(
+    m::PressureGradientModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+) end
 function init_state_conservative!(
     ::PressureGradientModel,
     state::Vars,
     aux::Vars,
     coord,
     t,
-)
-end
+) end
 function flux_first_order!(
     ::PressureGradientModel,
     flux::Grad,
@@ -142,27 +144,25 @@ function flux_first_order!(
 end
 flux_second_order!(::PressureGradientModel, _...) = nothing
 source!(::PressureGradientModel, _...) = nothing
-boundary_state!(
-    nf,
-    ::PressureGradientModel,
-    _...,
-) = nothing
+boundary_state!(nf, ::PressureGradientModel, _...) = nothing
 
 function ∇reference_pressure(state_auxiliary, grid)
     FT = eltype(state_auxiliary)
     ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}))
 
     grad_model = PressureGradientModel()
-    grad_dg = DGModel(grad_model,
-                      grid,
-                      CentralNumericalFluxFirstOrder(),
-                      CentralNumericalFluxSecondOrder(),
-                      CentralNumericalFluxGradient())
+    grad_dg = DGModel(
+        grad_model,
+        grid,
+        CentralNumericalFluxFirstOrder(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+    )
 
     ix_p = varsindex(vars(state_auxiliary), :ref_state, :p)
     grad_dg.state_auxiliary.data .= state_auxiliary.data[:, ix_p, :]
     gradQ = init_ode_state(grad_dg, FT(0))
     grad_dg(∇p, gradQ, nothing, FT(0))
-    
+
     return ∇p
 end
