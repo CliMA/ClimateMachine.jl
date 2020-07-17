@@ -664,6 +664,50 @@ function restart_auxiliary_state(bl, grid, aux_data)
     return state_auxiliary
 end
 
+function nodal_init_state_auxiliary!(
+    balance_law,
+    init_f!,
+    state_auxiliary,
+    grid;
+    state_temporary = nothing,
+)
+    topology = grid.topology
+    dim = dimensionality(grid)
+    Np = dofs_per_element(grid)
+    polyorder = polynomialorder(grid)
+    vgeo = grid.vgeo
+    device = array_device(state_auxiliary)
+    nrealelem = length(topology.realelems)
+
+    event = Event(device)
+    event = kernel_nodal_init_state_auxiliary!(
+        device,
+        min(Np, 1024),
+        Np * nrealelem,
+    )(
+        balance_law,
+        Val(dim),
+        Val(polyorder),
+        init_f!,
+        state_auxiliary.data,
+        isnothing(state_temporary) ? nothing : state_temporary.data,
+        Val(isnothing(state_temporary) ? @vars() : vars(state_temporary)),
+        vgeo,
+        topology.realelems,
+        dependencies = (event,),
+    )
+
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    wait(device, event)
+end
+
 # fallback
 function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
     return false
@@ -904,4 +948,46 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     state_conservative = create_conservative_state(balance_law, grid)
 
     return state_conservative
+end
+
+function contiguous_field_gradient!(
+    m,
+    ∇state::MPIStateArray,
+    vars_out,
+    state::MPIStateArray,
+    vars_in,
+    grid;
+    direction = EveryDirection(),
+)
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    device = array_device(state)
+
+    I = varsindices(vars(state), vars_in)
+    O = varsindices(vars(∇state), vars_out)
+
+    event = Event(device)
+
+    event = kernel_contiguous_field_gradient!(device, (Nq, Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        direction,
+        ∇state.data,
+        state.data,
+        grid.vgeo,
+        grid.D,
+        grid.ω,
+        Val(I),
+        Val(O),
+        ndrange = (nrealelem * Nq, Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end
