@@ -654,7 +654,7 @@ function atmos_nodal_init_state_auxiliary!(
 )
     aux.coord = geom.coord
     init_aux_turbulence!(m.turbulence, m, aux, geom)
-    atmos_init_aux!(m.ref_state, m, aux, geom)
+    atmos_init_aux!(m.ref_state, m, aux, tmp, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
@@ -684,11 +684,14 @@ function init_state_auxiliary!(
         grid,
     )
 
+    ∇p = ∇reference_pressure(state_auxiliary, grid)
+
     nodal_init_state_auxiliary!(
         m,
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
+        state_temporary = ∇p,
     )
 end
 
