@@ -680,7 +680,7 @@ function init_state_auxiliary!(
         grid,
     )
 
-    ∇p = ∇reference_pressure(state_auxiliary, grid)
+    ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
 
     nodal_init_state_auxiliary!(
         m,

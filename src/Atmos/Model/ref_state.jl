@@ -57,6 +57,7 @@ end
 vars_state_auxiliary(m::HydrostaticState, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
 
+atmos_init_ref_state_pressure!(m, _...) = nothing
 function atmos_init_ref_state_pressure!(
     m::HydrostaticState{P, F},
     atmos::AtmosModel,
@@ -146,7 +147,8 @@ flux_second_order!(::PressureGradientModel, _...) = nothing
 source!(::PressureGradientModel, _...) = nothing
 boundary_state!(nf, ::PressureGradientModel, _...) = nothing
 
-function ∇reference_pressure(state_auxiliary, grid)
+∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
+function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     FT = eltype(state_auxiliary)
     ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}))
 
