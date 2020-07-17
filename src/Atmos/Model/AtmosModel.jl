@@ -402,11 +402,7 @@ equations.
 
     # pressure terms
     p = pressure(m, m.moisture, state, aux)
-    if m.ref_state isa HydrostaticState
-        flux.ρu += (p - aux.ref_state.p) * I
-    else
-        flux.ρu += p * I
-    end
+    flux.ρu += p * I
     flux.ρe += u * p
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)

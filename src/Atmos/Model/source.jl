@@ -65,11 +65,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    if atmos.ref_state isa HydrostaticState
-        source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
-    else
-        source.ρu -= state.ρ * aux.orientation.∇Φ
-    end
+    source.ρu -= state.ρ * aux.orientation.∇Φ
 end
 
 struct Coriolis <: Source end
