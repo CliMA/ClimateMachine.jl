@@ -12,6 +12,11 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
+using ClimateMachine.Mesh.Geometry: LocalGeometry
+using ClimateMachine.Atmos: ReferenceState
+import ClimateMachine.Atmos:
+    atmos_init_ref_state_pressure!, atmos_init_aux!, vars_state_auxiliary
+
 using LinearAlgebra
 using StaticArrays
 using Test
@@ -19,6 +24,33 @@ using Test
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
+
+# a simple wrapper around a hydrostatic state that
+# prevents factoring out of the state in the
+# momentum equation and lets us test the balance
+struct TestRefState{HS} <: ReferenceState
+    hydrostatic_state::HS
+end
+
+vars_state_auxiliary(m::TestRefState, FT) =
+    vars_state_auxiliary(m.hydrostatic_state, FT)
+function atmos_init_ref_state_pressure!(
+    m::TestRefState,
+    atmos::AtmosModel,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    atmos_init_ref_state_pressure!(m.hydrostatic_state, atmos, aux, geom)
+end
+function atmos_init_aux!(
+    m::TestRefState,
+    atmos::AtmosModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
+    atmos_init_aux!(m.hydrostatic_state, atmos, aux, tmp, geom)
+end
 
 function init_to_ref_state!(bl, state, aux, coords, t)
     FT = eltype(state)
@@ -38,7 +70,7 @@ function config_balanced(
     model = AtmosModel{FT}(
         config_type,
         param_set;
-        ref_state = ref_state,
+        ref_state = TestRefState(ref_state),
         turbulence = ConstantViscosityWithDivergence{FT}(0),
         hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
