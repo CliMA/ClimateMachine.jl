@@ -9,8 +9,6 @@ on:
 jobs:
   test-windows:
     timeout-minutes: 120
-    strategy:
-      fail-fast: true
 
     runs-on: windows-latest
 
@@ -58,8 +56,6 @@ jobs:
 
   test-macos:
     timeout-minutes: 120
-    strategy:
-      fail-fast: true
 
     runs-on: macos-latest
 
@@ -105,14 +101,12 @@ jobs:
       run: |
         julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
       env:
-        OMPI_MCA_btl: "self,tcp"
-        OMPI_MCA_mpi_abort_print_stack: "1"
-        OMPI_MCA_mca_base_verbose: "level:9"
+        # OMPI_MCA_btl: "self,tcp"
+        # OMPI_MCA_mpi_abort_print_stack: "1"
+        OMPI_MCA_mca_base_verbose: "stderr,level:9"
 
   test-ubuntu:
     timeout-minutes: 120
-    strategy:
-      fail-fast: true
 
     runs-on: ubuntu-latest
 
