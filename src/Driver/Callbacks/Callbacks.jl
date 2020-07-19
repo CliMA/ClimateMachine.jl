@@ -198,6 +198,37 @@ function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
 end
 
 """
+    monitor_memory_usage(opt, array_type, comm)
+
+Returns a callback functions that displays the memory usage on each rank in
+the communicator `comm`. The information is collected every `opt` steps.
+"""
+function monitor_memory_usage(opt, array_type::Type{<:CuArray}, comm)
+    if opt == "never"
+        return nothing
+    elseif !endswith(opt, "steps")
+        @warn "monitor-memory-usage must be in 'steps'; $opt unrecognized; disabling"
+        return nothing
+    end
+    steps = parse(Int, opt[1:(end - 5)])
+
+    cb = GenericCallbacks.EveryXSimulationSteps(steps) do
+        io = IOBuffer()
+        CUDA.memory_status(io)
+        @info String(take!(io)) rank = MPI.Comm_rank(comm)
+
+        nothing
+    end
+
+    return cb
+end
+
+function monitor_memory_usage(opt, array_type::Type{<:Array}, comm)
+    @warn "monitor-memory-usage not yet implemented for array type Array"
+    return nothing
+end
+
+"""
     monitor_timestep_duration(mtd_opt, array_type, comm)
 
 Returns a callback function that displays wall-clock time per time-step

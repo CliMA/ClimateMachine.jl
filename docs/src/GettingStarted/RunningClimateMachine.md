@@ -70,6 +70,7 @@ $ julia --project experiments/AtmosGCM/heldsuarez.jl --help
 usage: experiments/AtmosGCM/heldsuarez.jl [--disable-gpu]
                         [--show-updates <interval>]
                         [--diagnostics <interval>] [--vtk <interval>]
+                        [--monitor-memory-usage <interval>]
                         [--monitor-timestep-duration <interval>]
                         [--monitor-courant-numbers <interval>]
                         [--checkpoint <interval>]
@@ -100,6 +101,9 @@ ClimateMachine:
                         (default: "never")
   --vtk <interval>      interval at which to output VTK (default:
                         "never")
+  --monitor-timestep-duration <interval>
+                        interval in time-steps at which to output
+                        the current memory usage (default: "never")
   --monitor-timestep-duration <interval>
                         interval in time-steps at which to output
                         wall-clock time per time-step (default:
