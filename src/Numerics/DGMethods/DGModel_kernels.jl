@@ -1477,7 +1477,7 @@ end
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    state,
+    state_prognostic,
     state_auxiliary,
     vgeo,
     elems,
@@ -1492,7 +1492,7 @@ end
     Nqk = dim == 2 ? 1 : Nq
     Np = Nq * Nq * Nqk
 
-    l_state = MArray{Tuple{num_state_prognostic}, FT}(undef)
+    local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
     I = @index(Global, Linear)
@@ -1505,11 +1505,13 @@ end
             local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
         @unroll for s in 1:num_state_prognostic
-            l_state[s] = state[n, s, e]
+            local_state_prognostic[s] = state_prognostic[n, s, e]
         end
         init_state_prognostic!(
             balance_law,
-            Vars{vars_state(balance_law, Prognostic(), FT)}(l_state),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                local_state_prognostic,
+            ),
             Vars{vars_state(balance_law, Auxiliary(), FT)}(
                 local_state_auxiliary,
             ),
@@ -1517,14 +1519,20 @@ end
             args...,
         )
         @unroll for s in 1:num_state_prognostic
-            state[n, s, e] = l_state[s]
+            state_prognostic[n, s, e] = local_state_prognostic[s]
         end
     end
 end
 
 
 @doc """
-    kernel_init_state_auxiliary!(balance_law::BalanceLaw, Val(polyorder), state_auxiliary, vgeo, elems)
+    kernel_init_state_auxiliary!(
+        balance_law::BalanceLaw,
+        Val(polyorder),
+        state_auxiliary,
+        vgeo,
+        elems,
+    )
 
 Computational kernel: Initialize the auxiliary state
 

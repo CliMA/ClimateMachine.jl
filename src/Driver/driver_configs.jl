@@ -9,6 +9,8 @@
 #
 # User-customized configurations can use these as templates.
 
+using ..Atmos: default_init_state_auxiliary
+
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
 
@@ -110,10 +112,11 @@ function AtmosLESConfiguration(
     ymax::FT,
     zmax::FT,
     param_set::AbstractParameterSet,
-    init_LES!;
+    init_prognostic!;
     xmin = zero(FT),
     ymin = zero(FT),
     zmin = zero(FT),
+    init_auxilary! = default_init_state_auxiliary,
     array_type = ClimateMachine.array_type(),
     solver_type = IMEXSolverType(
         implicit_solver = SingleColumnLU,
@@ -122,7 +125,8 @@ function AtmosLESConfiguration(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_prognostic = init_LES!,
+        init_state_prognostic = init_prognostic!,
+        init_state_auxiliary = init_auxiliary!,
     ),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
@@ -203,13 +207,15 @@ function AtmosGCMConfiguration(
     (nelem_horz, nelem_vert)::NTuple{2, Int},
     domain_height::FT,
     param_set::AbstractParameterSet,
-    init_GCM!;
+    init_prognostic!;
+    init_auxilary! = default_init_state_auxiliary,
     array_type = ClimateMachine.array_type(),
     solver_type = DefaultSolverType(),
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
-        init_state_prognostic = init_GCM!,
+        init_state_prognostic = init_prognostic!,
+        init_state_auxiliary = init_auxiliary!,
     ),
     mpicomm = MPI.COMM_WORLD,
     meshwarp::Function = cubedshellwarp,

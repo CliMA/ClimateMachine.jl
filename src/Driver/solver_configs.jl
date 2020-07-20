@@ -106,7 +106,7 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
+        state_auxiliary = restart_aux_state(bl, grid, s_aux)
 
         dg = DGModel(
             bl,
@@ -135,6 +135,7 @@ function SolverConfiguration(
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
+        init_aux_state(dg)
 
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)

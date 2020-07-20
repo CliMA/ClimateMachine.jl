@@ -75,7 +75,7 @@ end
 """
     vars_state(land::LandModel, st::Gradient, FT)
 
-Names of the gradients of functions of the conservative state
+Names of the gradients of functions of the prognostic state
 variables.
 
 Used to represent values before **and** after differentiation.
@@ -185,7 +185,7 @@ end
         t::Real,
     )
 
-Specify the second order flux for each conservative state variable
+Specify the second order flux for each prognostic state variable
 """
 function flux_second_order!(
     land::LandModel,

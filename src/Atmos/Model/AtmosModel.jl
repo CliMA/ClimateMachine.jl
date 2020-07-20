@@ -95,13 +95,14 @@ Users may over-ride prescribed default values for each field.
         source,
         tracers,
         boundarycondition,
-        init_state_prognostic
+        init_state_prognostic,
+        init_state_auxiliary,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
+struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, ISP, ISA, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -127,8 +128,10 @@ struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
     tracers::TR
     "Boundary condition specification"
     boundarycondition::BC
-    "Initial Condition (Function to assign initial values of state variables)"
-    init_state_prognostic::IS
+    "Initial Condition (Function to assign initial values of prognostic state variables)"
+    init_state_prognostic::ISP
+    "Initial Condition (Function to assign initial values of auxiliary state variables)"
+    init_state_auxiliary::ISA
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -158,9 +161,26 @@ function AtmosModel{FT}(
     ),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state_prognostic::IS = nothing,
+    init_state_prognostic::ISP = nothing,
+    init_state_auxiliary::ISA = default_init_state_auxiliary,
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
+) where {
+    FT <: AbstractFloat,
+    O,
+    RS,
+    T,
+    TC,
+    HD,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    BC,
+    ISP,
+    ISA,
+    DC,
+}
     @assert param_set ≠ nothing
     @assert init_state_prognostic ≠ nothing
 
@@ -178,6 +198,7 @@ function AtmosModel{FT}(
         tracers,
         boundarycondition,
         init_state_prognostic,
+        init_state_auxiliary,
         data_config,
     )
 
@@ -197,11 +218,29 @@ function AtmosModel{FT}(
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state_prognostic::IS = nothing,
+    init_state_prognostic::ISP = nothing,
+    init_state_auxiliary::ISA = default_init_state_auxiliary,
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
+) where {
+    FT <: AbstractFloat,
+    O,
+    RS,
+    T,
+    TC,
+    HD,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    BC,
+    ISP,
+    ISA,
+    DC,
+}
     @assert param_set ≠ nothing
     @assert init_state_prognostic ≠ nothing
+
     atmos = (
         param_set,
         orientation,
@@ -216,6 +255,7 @@ function AtmosModel{FT}(
         tracers,
         boundarycondition,
         init_state_prognostic,
+        init_state_auxiliary,
         data_config,
     )
 
@@ -640,6 +680,8 @@ function reverse_integral_set_auxiliary_state!(
     reverse_integral_set_auxiliary_state!(m.radiation, aux, integ)
 end
 
+default_init_state_auxiliary(m::AtmosModel, aux::Vars, geom::LocalGeometry) =
+    nothing
 
 @doc """
     init_state_auxiliary!(
@@ -658,6 +700,7 @@ function init_state_auxiliary!(m::AtmosModel, aux::Vars, geom::LocalGeometry)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
+    m.init_state_auxiliary(m, aux, geom)
 end
 
 @doc """

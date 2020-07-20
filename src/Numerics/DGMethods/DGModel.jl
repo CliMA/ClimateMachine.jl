@@ -641,6 +641,65 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     return state_prognostic
 end
 
+function init_aux_state(dg::DGModel, args...; init_on_cpu = false)
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
+
+    balance_law = dg.balance_law
+    grid = dg.grid
+
+    topology = grid.topology
+    Np = dofs_per_element(grid)
+
+    state_auxiliary = dg.state_auxiliary
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    nrealelem = length(topology.realelems)
+
+    if !init_on_cpu
+        event = Event(device)
+        event = kernel_init_state_auxiliary!(device, min(Np, 1024))(
+            balance_law,
+            Val(dim),
+            Val(N),
+            state_auxiliary.data,
+            grid.vgeo,
+            topology.realelems,
+            args...;
+            ndrange = Np * nrealelem,
+            dependencies = (event,),
+        )
+        wait(device, event)
+    else
+        h_state_auxiliary = similar(state_auxiliary, Array)
+        h_state_auxiliary .= state_auxiliary
+        event = kernel_init_state_auxiliary!(CPU(), Np)(
+            balance_law,
+            Val(dim),
+            Val(N),
+            h_state_auxiliary.data,
+            Array(grid.vgeo),
+            topology.realelems,
+            args...;
+            ndrange = Np * nrealelem,
+        )
+        wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
+        state_auxiliary .= h_state_auxiliary
+    end
+
+    event = Event(device)
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    wait(device, event)
+
+    return state_auxiliary
+end
+
 function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     bl = dg.balance_law
     grid = dg.grid
