@@ -7,8 +7,8 @@ function writemesh(base_name, x1; fields = (), realelems = 1:size(x1)[end])
     (Nqr, _) = size(x1)
     Nsubcells = (Nqr - 1)
 
-    cells =
-        Array{MeshCell{Array{Int, 1}}, 1}(undef, Nsubcells * length(realelems))
+    M = MeshCell{VTKCellTypes.VTKCellType, Array{Int, 1}}
+    cells = Array{M, 1}(undef, Nsubcells * length(realelems))
     for e in realelems
         offset = (e - 1) * Nqr
         for i in 1:(Nqr - 1)
@@ -39,8 +39,8 @@ function writemesh(
     (Nqr, Nqs, _) = size(x1)
     Nsubcells = (Nqr - 1) * (Nqs - 1)
 
-    cells =
-        Array{MeshCell{Array{Int, 1}}, 1}(undef, Nsubcells * length(realelems))
+    M = MeshCell{VTKCellTypes.VTKCellType, Array{Int, 1}}
+    cells = Array{M, 1}(undef, Nsubcells * length(realelems))
     ind = LinearIndices((1:Nqr, 1:Nqs))
     for e in realelems
         offset = (e - 1) * Nqr * Nqs
@@ -92,8 +92,9 @@ function writemesh(
     (Nqr, Nqs, Nqt, _) = size(x1)
     (Nr, Ns, Nt) = (Nqr - 1, Nqs - 1, Nqt - 1)
     Nsubcells = Nr * Ns * Nt
-    cells =
-        Array{MeshCell{Array{Int, 1}}, 1}(undef, Nsubcells * length(realelems))
+
+    M = MeshCell{VTKCellTypes.VTKCellType, Array{Int, 1}}
+    cells = Array{M, 1}(undef, Nsubcells * length(realelems))
     ind = LinearIndices((1:Nqr, 1:Nqs, 1:Nqt))
     for e in realelems
         offset = (e - 1) * Nqr * Nqs * Nqt
