@@ -144,7 +144,6 @@ struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, GI, DC} <:
     data_config::DC
 end
 
-
 """
     function AtmosModel{FT}()
 Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`)
@@ -172,7 +171,7 @@ function AtmosModel{FT}(
     init_state_conservative::IS = nothing,
     gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
+) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, GI, DC}
     @assert param_set ≠ nothing
     @assert init_state_conservative ≠ nothing
 

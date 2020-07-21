@@ -15,10 +15,11 @@ using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Writers
@@ -28,7 +29,7 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import ClimateMachine.DGmethods: vars_state_conservative, vars_state_auxiliary
+import ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
 import ClimateMachine.Atmos: compute_gradient_flux!, thermo_state
 
@@ -464,7 +465,9 @@ function config_diagnostics(driver_config)
                 interval, driver_config.name; 
                 writer=writer
              )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    core_dgngrp = setup_atmos_core_diagnostics("2500steps", 
+                                               driver_config.name)
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, core_dgngrp])
 end
 
 function main()
@@ -480,8 +483,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(5000)
-    ymax = FT(5000)
+    xmax = FT(1000)
+    ymax = FT(1000)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
