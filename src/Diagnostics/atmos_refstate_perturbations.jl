@@ -107,7 +107,8 @@ function atmos_refstate_perturbations_init(dgngrp::DiagnosticsGroup, currtime)
             flattenednames(vars_atmos_refstate_perturbations(atmos, FT)),
         )
         for varname in varnames
-            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
         end
 
         # create the output file

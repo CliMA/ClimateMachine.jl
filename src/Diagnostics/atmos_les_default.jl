@@ -265,12 +265,13 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         )
         append!(varnames, ho_varnames)
         for varname in varnames
-            vars[varname] = (("z",), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (("z",), FT, var.attrib)
         end
-        vars["cld_frac"] = (("z",), FT, Dict())
-        vars["cld_top"] = ((), FT, Dict())
-        vars["cld_base"] = ((), FT, Dict())
-        vars["cld_cover"] = ((), FT, Dict())
+        vars["cld_frac"] = (("z",), FT, Variables["cld_frac"].attrib)
+        vars["cld_top"] = ((), FT, Variables["cld_top"].attrib)
+        vars["cld_base"] = ((), FT, Variables["cld_base"].attrib)
+        vars["cld_cover"] = ((), FT, Variables["cld_cover"].attrib)
 
         # create the output file
         dprefix = @sprintf(
