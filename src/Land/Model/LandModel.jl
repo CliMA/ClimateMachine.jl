@@ -6,12 +6,10 @@ using LinearAlgebra, StaticArrays
 using ..VariableTemplates
 using ..MPIStateArrays
 
-import ClimateMachine.DGMethods:
+using ..BalanceLaws
+import ..BalanceLaws:
     BalanceLaw,
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -19,12 +17,11 @@ import ClimateMachine.DGMethods:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     update_auxiliary_state!,
-    LocalGeometry,
-    DGModel,
     nodal_update_auxiliary_state!
 
+using ..DGMethods: LocalGeometry, DGModel
 
 export LandModel
 
@@ -51,53 +48,53 @@ struct LandModel{PS, S, SRC} <: BalanceLaw
 end
 
 """
-    vars_state_conservative(land::LandModel, FT)
+    vars_state(land::LandModel, ::Prognostic, FT)
 
 Conserved state variables (Prognostic Variables)
 """
-function vars_state_conservative(land::LandModel, FT)
+function vars_state(land::LandModel, st::Prognostic, FT)
     @vars begin
-        soil::vars_state_conservative(land.soil, FT)
+        soil::vars_state(land.soil, st, FT)
     end
 end
 
 """
-    vars_state_auxiliary(land::LandModel, FT)
+    vars_state(land::LandModel, st::Auxiliary, FT)
 
-Names of variables required for the balance law that aren't related to 
-derivatives of the state variables (e.g. spatial coordinates or various 
-integrals) or those needed to solve expensive auxiliary equations 
+Names of variables required for the balance law that aren't related to
+derivatives of the state variables (e.g. spatial coordinates or various
+integrals) or those needed to solve expensive auxiliary equations
 (e.g., temperature via a non-linear equation solve)
 """
-function vars_state_auxiliary(land::LandModel, FT)
+function vars_state(land::LandModel, st::Auxiliary, FT)
     @vars begin
-        soil::vars_state_auxiliary(land.soil, FT)
+        soil::vars_state(land.soil, st, FT)
     end
 end
 
 """
-    vars_state_gradient(land::LandModel, FT)
+    vars_state(land::LandModel, st::Gradient, FT)
 
-Names of the gradients of functions of the conservative state 
+Names of the gradients of functions of the conservative state
 variables.
 
 Used to represent values before **and** after differentiation.
 """
-function vars_state_gradient(land::LandModel, FT)
+function vars_state(land::LandModel, st::Gradient, FT)
     @vars begin
-        soil::vars_state_gradient(land.soil, FT)
+        soil::vars_state(land.soil, st, FT)
     end
 end
 
 """
-    vars_state_gradient_flux(land::LandModel, FT)
+    vars_state(land::LandModel, st::GradientFlux, FT)
 
-Names of the gradient fluxes necessary to impose Neumann boundary 
+Names of the gradient fluxes necessary to impose Neumann boundary
 conditions.
 """
-function vars_state_gradient_flux(land::LandModel, FT)
+function vars_state(land::LandModel, st::GradientFlux, FT)
     @vars begin
-        soil::vars_state_gradient_flux(land.soil, FT)
+        soil::vars_state(land.soil, st, FT)
     end
 end
 
@@ -221,7 +218,7 @@ end
         elems::UnitRange,
     )
 
-Perform any updates to the auxiliary variables needed at the 
+Perform any updates to the auxiliary variables needed at the
 beginning of each time-step.
 """
 function update_auxiliary_state!(

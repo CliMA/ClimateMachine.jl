@@ -89,7 +89,7 @@ function main()
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
-        init_state_conservative = setup,
+        init_state_prognostic = setup,
     )
 
     driver_config = ClimateMachine.AtmosGCMConfiguration(

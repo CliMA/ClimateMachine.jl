@@ -100,7 +100,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         hyperdiffusion = DryBiharmonic(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
-        init_state_conservative = init_heldsuarez!,
+        init_state_prognostic = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
         tracers = tracers,
     )

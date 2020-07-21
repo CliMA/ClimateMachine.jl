@@ -182,7 +182,7 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
         moisture = DryModel(),
         source = source,
         tracers = NTracers{1, FT}(_δχ),
-        init_state_conservative = init_schar!,
+        init_state_prognostic = init_schar!,
         ref_state = ref_state,
     )
 

@@ -11,7 +11,7 @@ struct AtmosFilterPerturbations{M} <: AbstractFilterTarget
 end
 
 vars_state_filtered(target::AtmosFilterPerturbations, FT) =
-    vars_state_conservative(target.atmos, FT)
+    vars_state(target.atmos, Prognostic(), FT)
 
 function compute_filter_argument!(
     target::AtmosFilterPerturbations,

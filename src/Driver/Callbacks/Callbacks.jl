@@ -14,7 +14,7 @@ using CLIMAParameters.Planet: day
 using ..Courant
 using ..Checkpoint
 using ..DGMethods: courant
-using ..BalanceLaws: vars_state_conservative, vars_state_auxiliary
+using ..BalanceLaws: vars_state
 using ..Diagnostics
 using ..GenericCallbacks
 using ..MPIStateArrays
@@ -151,8 +151,8 @@ function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
             )
             outprefix = joinpath(output_dir, vprefix)
 
-            statenames = flattenednames(vars_state_conservative(bl, FT))
-            auxnames = flattenednames(vars_state_auxiliary(bl, FT))
+            statenames = flattenednames(vars_state(bl, Prognostic(), FT))
+            auxnames = flattenednames(vars_state(bl, Auxiliary(), FT))
 
             writevtk(
                 outprefix,

@@ -47,25 +47,16 @@ using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_gradient_laplacian,
-    vars_state_gradient_flux,
-    vars_hyperdiffusive,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
-    init_state_conservative!,
+    init_state_prognostic!,
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
-    number_state_conservative,
-    num_integrals,
-    vars_integrals,
-    vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -100,18 +91,12 @@ arbitrary turbulence closure models.
 """
 abstract type TurbulenceClosureModel end
 
+vars_state(::TurbulenceClosureModel, ::AbstractStateType, FT) = @vars()
+
 """
     Abstract type for Hyperdiffusion models
 """
 abstract type HyperDiffusion end
-
-vars_state_conservative(::TurbulenceClosureModel, FT) = @vars()
-vars_state_auxiliary(::TurbulenceClosureModel, FT) = @vars()
-vars_state_gradient(::TurbulenceClosureModel, FT) = @vars()
-vars_state_gradient_flux(::TurbulenceClosureModel, FT) = @vars()
-vars_gradient_laplacian(::TurbulenceClosureModel, FT) = @vars()
-vars_integrals(::TurbulenceClosureModel, FT) = @vars()
-vars_reverse_integrals(::TurbulenceClosureModel, FT) = @vars()
 
 """
     init_aux_turbulence!
@@ -163,17 +148,9 @@ function compute_gradient_flux!(
     t,
 ) end
 
-"""
-    HyperDiffusion fallback methods
-Fallback functions for hyperdiffusion model
-"""
+# Fallback functions for hyperdiffusion model
+vars_state(::HyperDiffusion, ::AbstractStateType, FT) = @vars()
 
-vars_state_conservative(::HyperDiffusion, FT) = @vars()
-vars_state_auxiliary(::HyperDiffusion, FT) = @vars()
-vars_state_gradient(::HyperDiffusion, FT) = @vars()
-vars_gradient_laplacian(::HyperDiffusion, FT) = @vars()
-vars_state_gradient_flux(::HyperDiffusion, FT) = @vars()
-vars_hyperdiffusive(::HyperDiffusion, FT) = @vars()
 function init_aux_hyperdiffusion!(
     ::HyperDiffusion,
     ::BalanceLaw,
@@ -243,8 +220,8 @@ for the returned quantities.
 
 - `::TurbulenceClosureModel` = Struct identifier for turbulence closure model
 - `orientation` = `BalanceLaw.orientation`
-- `param_set` = `BalanceLaw.param_set`
-- `state` = Array of prognostic (state) variables. See `vars_state_conservative` in `BalanceLaw`
+- `param_set` parameter set
+- `state` = Array of prognostic (state) variables. See `vars_state` in `BalanceLaw`
 - `diffusive` = Array of diffusive variables
 - `aux` = Array of auxiliary variables
 - `t` = time
@@ -366,8 +343,8 @@ struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosureModel
     ρν::FT
 end
 
-vars_state_gradient(::ConstantViscosityWithDivergence, FT) = @vars()
-vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
+vars_state(::ConstantViscosityWithDivergence, ::Gradient, FT) = @vars()
+vars_state(::ConstantViscosityWithDivergence, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
 function compute_gradient_flux!(
@@ -482,9 +459,9 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosureModel
     C_smag::FT
 end
 
-vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
-vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::SmagorinskyLilly, FT) =
+vars_state(::SmagorinskyLilly, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::SmagorinskyLilly, ::Gradient, FT) = @vars(θ_v::FT)
+vars_state(::SmagorinskyLilly, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
 
 
@@ -607,9 +584,10 @@ struct Vreman{FT} <: TurbulenceClosureModel
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
-vars_state_auxiliary(::Vreman, FT) = @vars(Δ::FT)
-vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+vars_state(::Vreman, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::Vreman, ::Gradient, FT) = @vars(θ_v::FT)
+vars_state(::Vreman, ::GradientFlux, FT) =
+    @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 
 function init_aux_turbulence!(
     ::Vreman,
@@ -713,9 +691,9 @@ $(DocStringExtensions.FIELDS)
 struct AnisoMinDiss{FT} <: TurbulenceClosureModel
     C_poincare::FT
 end
-vars_state_auxiliary(::AnisoMinDiss, FT) = @vars(Δ::FT)
-vars_state_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::AnisoMinDiss, FT) =
+vars_state(::AnisoMinDiss, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::AnisoMinDiss, ::Gradient, FT) = @vars(θ_v::FT)
+vars_state(::AnisoMinDiss, ::GradientFlux, FT) =
     @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 function init_aux_turbulence!(
     ::AnisoMinDiss,
@@ -810,12 +788,12 @@ $(DocStringExtensions.FIELDS)
 struct EquilMoistBiharmonic{FT} <: HyperDiffusion
     τ_timescale::FT
 end
-vars_state_auxiliary(::EquilMoistBiharmonic, FT) = @vars(Δ::FT)
-vars_state_gradient(::EquilMoistBiharmonic, FT) =
+vars_state(::EquilMoistBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::EquilMoistBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
-vars_gradient_laplacian(::EquilMoistBiharmonic, FT) =
+vars_state(::EquilMoistBiharmonic, ::GradientLaplacian, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
-vars_hyperdiffusive(::EquilMoistBiharmonic, FT) = @vars(
+vars_state(::EquilMoistBiharmonic, ::Hyperdiffusive, FT) = @vars(
     ν∇³u_h::SMatrix{3, 3, FT, 9},
     ν∇³h_tot::SVector{3, FT},
     ν∇³q_tot::SVector{3, FT}
@@ -898,11 +876,12 @@ $(DocStringExtensions.FIELDS)
 struct DryBiharmonic{FT} <: HyperDiffusion
     τ_timescale::FT
 end
-vars_state_auxiliary(::DryBiharmonic, FT) = @vars(Δ::FT)
-vars_state_gradient(::DryBiharmonic, FT) = @vars(u_h::SVector{3, FT}, h_tot::FT)
-vars_gradient_laplacian(::DryBiharmonic, FT) =
+vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::DryBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT)
-vars_hyperdiffusive(::DryBiharmonic, FT) =
+vars_state(::DryBiharmonic, ::GradientLaplacian, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_state(::DryBiharmonic, ::Hyperdiffusive, FT) =
     @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
 
 function init_aux_hyperdiffusion!(

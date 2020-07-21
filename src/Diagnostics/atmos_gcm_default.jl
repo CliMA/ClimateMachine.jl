@@ -66,19 +66,19 @@ atmos_gcm_default_simple_3d_vars(m, array) =
 
 function atmos_gcm_default_simple_3d_vars!(
     atmos::AtmosModel,
-    state_conservative,
+    state_prognostic,
     thermo,
     dyni,
     vars,
 )
-    vars.u = state_conservative.ρu[1] / state_conservative.ρ
-    vars.v = state_conservative.ρu[2] / state_conservative.ρ
-    vars.w = state_conservative.ρu[3] / state_conservative.ρ
-    vars.rho = state_conservative.ρ
+    vars.u = state_prognostic.ρu[1] / state_prognostic.ρ
+    vars.v = state_prognostic.ρu[2] / state_prognostic.ρ
+    vars.w = state_prognostic.ρu[3] / state_prognostic.ρ
+    vars.rho = state_prognostic.ρ
     vars.temp = thermo.temp
     vars.pres = thermo.pres
     vars.thd = thermo.θ_dry
-    vars.et = state_conservative.ρe / state_conservative.ρ
+    vars.et = state_prognostic.ρe / state_prognostic.ρ
     vars.ei = thermo.e_int
     vars.ht = thermo.h_tot
     vars.hi = thermo.h_int
@@ -87,7 +87,7 @@ function atmos_gcm_default_simple_3d_vars!(
 
     atmos_gcm_default_simple_3d_vars!(
         atmos.moisture,
-        state_conservative,
+        state_prognostic,
         thermo,
         vars,
     )
@@ -96,7 +96,7 @@ function atmos_gcm_default_simple_3d_vars!(
 end
 function atmos_gcm_default_simple_3d_vars!(
     ::MoistureModel,
-    state_conservative,
+    state_prognostic,
     thermo,
     vars,
 )
@@ -104,11 +104,11 @@ function atmos_gcm_default_simple_3d_vars!(
 end
 function atmos_gcm_default_simple_3d_vars!(
     moist::EquilMoist,
-    state_conservative,
+    state_prognostic,
     thermo,
     vars,
 )
-    vars.moisture.qt = state_conservative.moisture.ρq_tot / state_conservative.ρ
+    vars.moisture.qt = state_prognostic.moisture.ρq_tot / state_prognostic.ρ
     vars.moisture.ql = thermo.moisture.q_liq
     vars.moisture.qv = thermo.moisture.q_vap
     vars.moisture.qi = thermo.moisture.q_ice
@@ -235,8 +235,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state_conservative(dg, state_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
         compute_thermo!(atmos, state, aux, thermo)
@@ -244,8 +244,11 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # Interpolate the state, thermo and dyn vars to sphere (u and vorticity
     # need projection to zonal, merid). All this may happen on the GPU.
-    istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_conservative(atmos, FT))
+    istate = ArrayType{FT}(
+        undef,
+        interpol.Npl,
+        number_states(atmos, Prognostic(), FT),
+    )
     interpolate_local!(interpol, Q.realdata, istate)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
@@ -283,7 +286,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         )
 
         @visitI nlong nlat nlevel begin
-            statei = Vars{vars_state_conservative(atmos, FT)}(view(
+            statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,
                 la,

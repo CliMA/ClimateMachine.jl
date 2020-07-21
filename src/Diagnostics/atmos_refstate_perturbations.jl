@@ -172,8 +172,8 @@ function atmos_refstate_perturbations_collect(
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state_conservative(dg, state_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
         compute_thermo!(atmos, state, aux, thermo)
@@ -181,8 +181,11 @@ function atmos_refstate_perturbations_collect(
 
     # Interpolate the state and thermo variables.
     interpol = dgngrp.interpol
-    istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_conservative(atmos, FT))
+    istate = ArrayType{FT}(
+        undef,
+        interpol.Npl,
+        number_states(atmos, Prognostic(), FT),
+    )
     interpolate_local!(interpol, Q.realdata, istate)
 
     if interpol isa InterpolationCubedSphere
@@ -191,7 +194,11 @@ function atmos_refstate_perturbations_collect(
         project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
     end
 
-    iaux = ArrayType{FT}(undef, interpol.Npl, number_state_auxiliary(atmos, FT))
+    iaux = ArrayType{FT}(
+        undef,
+        interpol.Npl,
+        number_states(atmos, Auxiliary(), FT),
+    )
     interpolate_local!(interpol, dg.state_auxiliary.realdata, iaux)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
@@ -220,14 +227,14 @@ function atmos_refstate_perturbations_collect(
         )
 
         @visitI nlong nlat nlevel begin
-            statei = Vars{vars_state_conservative(atmos, FT)}(view(
+            statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,
                 la,
                 le,
                 :,
             ))
-            auxi = Vars{vars_state_auxiliary(atmos, FT)}(view(
+            auxi = Vars{vars_state(atmos, Auxiliary(), FT)}(view(
                 all_aux_data,
                 lo,
                 la,

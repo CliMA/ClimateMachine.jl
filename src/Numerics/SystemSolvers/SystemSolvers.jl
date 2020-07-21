@@ -8,8 +8,7 @@ import ..Mesh.Grids: polynomialorder, dimensionality
 using ..Mesh.Topologies
 using ..DGMethods
 using ..DGMethods: DGModel
-using ..BalanceLaws:
-    BalanceLaw, number_state_conservative, number_state_gradient_flux
+using ..BalanceLaws
 
 using Adapt
 using LinearAlgebra

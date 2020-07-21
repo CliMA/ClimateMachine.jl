@@ -4,6 +4,7 @@ using ClimateMachine.VariableTemplates: @vars, Vars
 using ClimateMachine.Mesh.Grids:
     EveryDirection, HorizontalDirection, VerticalDirection
 using ClimateMachine.MPIStateArrays: weightedsum
+using ClimateMachine.BalanceLaws
 
 import GaussQuadrature
 using MPI
@@ -101,7 +102,8 @@ ClimateMachine.init()
 end
 
 struct FilterTestModel{N} <: ClimateMachine.BalanceLaws.BalanceLaw end
-ClimateMachine.BalanceLaws.vars_state_auxiliary(::FilterTestModel, FT) = @vars()
+ClimateMachine.BalanceLaws.vars_state(::FilterTestModel, ::Auxiliary, FT) =
+    @vars()
 ClimateMachine.BalanceLaws.init_state_auxiliary!(::FilterTestModel, _...) =
     nothing
 
@@ -121,9 +123,9 @@ filtered(::VerticalDirection, dim, x, y, z) =
 filtered(::HorizontalDirection, dim, x, y, z) =
     (dim == 2) ? l2(x) * l3(y) + l3(x) : l2(x) * l3(y) + l3(x) + l2(y)
 
-ClimateMachine.BalanceLaws.vars_state_conservative(::FilterTestModel{4}, FT) =
+ClimateMachine.BalanceLaws.vars_state(::FilterTestModel{4}, ::Prognostic, FT) =
     @vars(q1::FT, q2::FT, q3::FT, q4::FT)
-function ClimateMachine.BalanceLaws.init_state_conservative!(
+function ClimateMachine.BalanceLaws.init_state_prognostic!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
@@ -209,11 +211,12 @@ end
     end
 end
 
-ClimateMachine.BalanceLaws.vars_state_conservative(
+ClimateMachine.BalanceLaws.vars_state(
     ::FilterTestModel{1},
+    ::Prognostic,
     FT,
 ) where {N} = @vars(q::FT)
-function ClimateMachine.BalanceLaws.init_state_conservative!(
+function ClimateMachine.BalanceLaws.init_state_prognostic!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,

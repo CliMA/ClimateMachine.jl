@@ -231,7 +231,7 @@ function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
         moisture = DryModel(),
         source = source,
         tracers = NoTracers(),
-        init_state_conservative = init_agnesi_hs_lin!,
+        init_state_prognostic = init_agnesi_hs_lin!,
         ref_state = ref_state,
     )
 

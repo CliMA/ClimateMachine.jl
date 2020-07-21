@@ -13,7 +13,7 @@ using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.BalanceLaws: vars_state, Prognostic, Auxiliary
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
@@ -262,8 +262,8 @@ function make_callbacks(
             step
         )
         @info "doing VTK output" outprefix
-        statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
     end
 

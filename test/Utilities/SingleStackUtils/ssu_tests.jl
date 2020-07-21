@@ -12,15 +12,12 @@ using ClimateMachine.DGMethods.Grids
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
-using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
+using ClimateMachine.DGMethods: LocalGeometry
 
-import ClimateMachine.DGMethods:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    init_state_auxiliary!,
-    init_state_conservative!
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Auxiliary, Prognostic, Gradient, GradientFlux
+import ClimateMachine.BalanceLaws:
+    vars_state, init_state_auxiliary!, init_state_prognostic!
 
 struct EmptyBalLaw{FT, PS} <: BalanceLaw
     "Parameters"
@@ -32,10 +29,10 @@ end
 EmptyBalLaw(param_set, zmax) =
     EmptyBalLaw{typeof(zmax), typeof(param_set)}(param_set, zmax)
 
-vars_state_auxiliary(::EmptyBalLaw, FT) = @vars(x::FT, y::FT, z::FT)
-vars_state_conservative(::EmptyBalLaw, FT) = @vars(ρ::FT)
-vars_state_gradient(::EmptyBalLaw, FT) = @vars()
-vars_state_gradient_flux(::EmptyBalLaw, FT) = @vars()
+vars_state(::EmptyBalLaw, ::Auxiliary, FT) = @vars(x::FT, y::FT, z::FT)
+vars_state(::EmptyBalLaw, ::Prognostic, FT) = @vars(ρ::FT)
+vars_state(::EmptyBalLaw, ::Gradient, FT) = @vars()
+vars_state(::EmptyBalLaw, ::GradientFlux, FT) = @vars()
 
 function init_state_auxiliary!(m::EmptyBalLaw, aux::Vars, geom::LocalGeometry)
     aux.x = geom.coord[1]
@@ -43,7 +40,7 @@ function init_state_auxiliary!(m::EmptyBalLaw, aux::Vars, geom::LocalGeometry)
     aux.z = geom.coord[3]
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::EmptyBalLaw,
     state::Vars,
     aux::Vars,
@@ -145,19 +142,19 @@ function main()
     test_hmean(
         driver_config.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
     )
     test_hvar(
         driver_config.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
     )
 
     r1, z1 = reduce_nodal_stack(
         max,
         solver_config.dg.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
         "ρ",
         i = 6,
         j = 6,
@@ -167,7 +164,7 @@ function main()
         +,
         solver_config.dg.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
         "ρ",
         i = 3,
         j = 3,
@@ -177,7 +174,7 @@ function main()
         +,
         solver_config.dg.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
         "ρ",
     )
     (r3, z3) = let

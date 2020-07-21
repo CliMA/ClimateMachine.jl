@@ -119,13 +119,13 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
 
     if test > 2
         outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
-        statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
         outprefix = @sprintf("exact_mpirank%04d", MPI.Comm_rank(mpicomm))
-        statenames = flattenednames(vars_state_conservative(model, eltype(Qe)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Qe)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Qe)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Qe)))
         writevtk(outprefix, Qe, dg, statenames, dg.state_auxiliary, auxnames)
 
         step = [0]
@@ -140,9 +140,9 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
             )
             @debug "doing VTK output" outprefix
             statenames =
-                flattenednames(vars_state_conservative(model, eltype(Q)))
+                flattenednames(vars_state(model, Prognostic(), eltype(Q)))
             auxiliarynames =
-                flattenednames(vars_state_auxiliary(model, eltype(Q)))
+                flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
             writevtk(
                 outprefix,
                 Q,
