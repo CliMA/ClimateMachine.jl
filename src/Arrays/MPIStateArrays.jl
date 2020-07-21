@@ -1,5 +1,6 @@
 module MPIStateArrays
 
+using CUDA
 using DoubleFloats
 using KernelAbstractions
 using LazyArrays
@@ -17,7 +18,6 @@ using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
     similar(Array{FT}, dims...)
 
-using CuArrays
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
     similar(CuArray{FT}, dims...)
 
@@ -27,7 +27,7 @@ using .CMBuffers
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
-export MPIStateArray, euclidean_distance, weightedsum
+export MPIStateArray, euclidean_distance, weightedsum, array_device, vars
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
@@ -116,8 +116,10 @@ mutable struct MPIStateArray{
                 copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
         end
         if typeof(weights).name != typeof(data).name
-            weights =
-                copyto!(similar(DA, eltype(weights), size(weights)), weights)
+            weights = copyto!(
+                similar(DA, eltype(weights), size(weights)),
+                Array(weights),
+            )
         end
 
         DAI1 = typeof(vmaprecv)
@@ -154,6 +156,7 @@ end
 
 Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
 
+vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
 function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
     if sym ∈ V.names
         varrange = varsindex(V, sym)
@@ -460,7 +463,7 @@ function fillsendbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = kernel_fillsendbuf!(device(buf), 256)(
+    event = kernel_fillsendbuf!(array_device(buf), 256)(
         Val(Np),
         Val(nvar),
         sendbuf,
@@ -489,7 +492,7 @@ function transferrecvbuf!(
     Np = size(buf, 1)
     nvar = size(buf, 2)
 
-    event = kernel_transferrecvbuf!(device(buf), 256)(
+    event = kernel_transferrecvbuf!(array_device(buf), 256)(
         Val(Np),
         Val(nvar),
         buf,
@@ -520,7 +523,7 @@ function LinearAlgebra.norm(
         locnorm = norm_impl(Q.realdata, Val(p), dims)
     end
 
-    mpiop = isfinite(p) ? MPI.SUM : MPI.MAX
+    mpiop = isfinite(p) ? (+) : max
     if locnorm isa AbstractArray
         locnorm = convert(Array, locnorm)
     end
@@ -547,7 +550,7 @@ function LinearAlgebra.dot(
     end
 
     @tic mpi_dot
-    r = MPI.Allreduce(locnorm, MPI.SUM, Q1.mpicomm)
+    r = MPI.Allreduce(locnorm, +, Q1.mpicomm)
     @toc mpi_dot
     return r
 end
@@ -565,7 +568,7 @@ function euclidean_distance(A::MPIStateArray, B::MPIStateArray)
 
     locnorm = mapreduce(identity, +, E, init = zero(eltype(A)))
     @tic mpi_euclidean_distance
-    r = sqrt(MPI.Allreduce(locnorm, MPI.SUM, A.mpicomm))
+    r = sqrt(MPI.Allreduce(locnorm, +, A.mpicomm))
     @toc mpi_euclidean_distance
     return r
 end
@@ -734,20 +737,14 @@ function Base.mapreduce(
     MPI.Allreduce(cpuify(locreduce), max, Q.mpicomm)
 end
 
-
-# `realview` and `device` are helpers that enable
-# testing ODESolvers and LinearSolvers without using MPIStateArrays
-# They could be potentially useful elsewhere and exported but probably need
-# better names, for example `device` is also defined in CUDAdrv
-
-device(::Union{Array, SArray, MArray}) = CPU()
-device(Q::MPIStateArray) = device(Q.data)
+# helpers: `array_device` and `realview`
+array_device(::Union{Array, SArray, MArray}) = CPU()
+array_device(::CuArray) = CUDADevice()
+array_device(s::SubArray) = array_device(parent(s))
+array_device(Q::MPIStateArray) = array_device(Q.data)
 
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
-
-
-device(::CuArray) = CUDA()
 realview(Q::CuArray) = Q
 
 # transform all arguments of `bc` from MPIStateArrays to CuArrays
@@ -756,7 +753,7 @@ function transform_broadcasted(bc::Broadcasted, ::CuArray)
     transform_cuarray(bc)
 end
 function transform_cuarray(bc::Broadcasted)
-    Broadcasted(CuArrays.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
+    Broadcasted(CUDA.cufunc(bc.f), transform_cuarray.(bc.args), bc.axes)
 end
 transform_cuarray(mpisa::MPIStateArray) = mpisa.realdata
 transform_cuarray(x) = x

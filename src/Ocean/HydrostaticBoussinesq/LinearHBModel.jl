@@ -95,10 +95,10 @@ this computation is done pointwise at each nodal point
     t,
 )
     ν = viscosity_tensor(lm.ocean)
-    D.ν∇u = ν * G.∇u
+    D.ν∇u = -ν * G.∇u
 
     κ = diffusivity_tensor(lm.ocean, G.∇θ[3])
-    D.κ∇θ = κ * G.∇θ
+    D.κ∇θ = -κ * G.∇θ
 
     return nothing
 end
@@ -130,8 +130,8 @@ this computation is done pointwise at each nodal point
     A::Vars,
     t::Real,
 )
-    F.u -= D.ν∇u
-    F.θ -= D.κ∇θ
+    F.u += D.ν∇u
+    F.θ += D.κ∇θ
 
     return nothing
 end

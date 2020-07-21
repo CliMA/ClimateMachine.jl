@@ -3,7 +3,7 @@ using ClimateMachine
 using StaticArrays
 using LinearAlgebra
 using KernelAbstractions
-using ClimateMachine.MPIStateArrays: device
+using ClimateMachine.MPIStateArrays: array_device
 
 include("ode_tests_common.jl")
 
@@ -24,7 +24,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "Explicit methods" begin
                 finaltime = 20.0
-                dts = [2.0^(-k) for k in 0:7]
+                dts = [2.0^(-k) for k in 6:7]
                 errors = similar(dts)
                 q0 =
                     ArrayType === Array ? [1.0] : range(-1.0, 1.0, length = 303)
@@ -78,7 +78,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "IMEX methods" begin
                 finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:13]
+                dts = [2.0^(-k) for k in 13:14]
                 errors = similar(dts)
 
                 q0 = ArrayType <: Array ? [1.0] : range(-1.0, 1.0, length = 303)
@@ -115,7 +115,7 @@ const ArrayType = ClimateMachine.array_type()
                             @test isapprox(
                                 rates[end],
                                 expected_order;
-                                atol = 0.1,
+                                atol = 0.35,
                             )
                         end
                     end
@@ -124,7 +124,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MRRK methods (no substeps)" begin
                 finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:11]
+                dts = [2.0^(-k) for k in 10:11]
                 errors = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in fast_mrrk_methods
@@ -163,7 +163,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MRRK methods (with substeps)" begin
                 finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:15]
+                dts = [2.0^(-k) for k in 14:15]
                 errors = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in fast_mrrk_methods
@@ -199,7 +199,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MIS methods (with substeps)" begin
                 finaltime = pi / 2
-                dts = [2.0^(-k) for k in 2:11]
+                dts = [2.0^(-k) for k in 8:9]
                 errors = similar(dts)
                 for (mis_method, mis_expected_order) in mis_methods
                     for fast_method in (LSRK54CarpenterKennedy,)
@@ -285,7 +285,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MRRK methods (no substeps)" begin
                 finaltime = 5π / 2
-                dts = [2.0^(-k) for k in 2:8]
+                dts = [2.0^(-k) for k in 7:8]
                 error = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in fast_mrrk_methods
@@ -319,7 +319,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MRRK methods (with substeps)" begin
                 finaltime = 5π / 2
-                dts = [2.0^(-k) for k in 2:9]
+                dts = [2.0^(-k) for k in 8:9]
                 error = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in fast_mrrk_methods
@@ -356,7 +356,7 @@ const ArrayType = ClimateMachine.array_type()
                 end
 
                 finaltime = 5π / 2
-                dts = [2.0^(-k) for k in 2:9]
+                dts = [2.0^(-k) for k in 8:9]
                 error = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in imex_methods
@@ -399,7 +399,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MIS methods (with substeps)" begin
                 finaltime = 5π / 2
-                dts = [2.0^(-k) for k in 2:10]
+                dts = [2.0^(-k) for k in 9:10]
                 error = similar(dts)
                 for (mis_method, mis_expected_order) in mis_methods
                     for fast_method in (LSRK54CarpenterKennedy,)
@@ -509,7 +509,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MRRK methods (no substeps)" begin
                 finaltime = π / 2
-                dts = [2.0^(-k) for k in 2:10]
+                dts = [2.0^(-k) for k in 9:10]
                 error = similar(dts)
                 for (rate3_method, rate3_order) in slow_mrrk_methods
                     for (rate2_method, rate2_order) in slow_mrrk_methods
@@ -542,7 +542,7 @@ const ArrayType = ClimateMachine.array_type()
 
             @testset "MRRK methods (with substeps)" begin
                 finaltime = π / 2
-                dts = [2.0^(-k) for k in 10:17]
+                dts = [2.0^(-k) for k in 16:17]
                 error = similar(dts)
                 for (rate3_method, rate3_order) in slow_mrrk_methods
                     for (rate2_method, rate2_order) in slow_mrrk_methods
@@ -612,8 +612,8 @@ const ArrayType = ClimateMachine.array_type()
                             Ω[1, 1] * gf + Ω[1, 2] * gs - ω * sin(ω * t) / 2yf
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -621,7 +621,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
 
@@ -636,8 +636,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[2] += Ω[2, 1] * gf + Ω[2, 2] * gs - sin(t) / 2ys
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -645,7 +645,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
             struct ODETestConvNonLinBE <: AbstractBackwardEulerSolver end
@@ -666,8 +666,8 @@ const ArrayType = ClimateMachine.array_type()
                         Q[2] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     Q,
                     Qhat,
                     α,
@@ -676,14 +676,14 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
             exactsolution(t) =
                 ArrayType([sqrt(3 + cos(ω * t)); sqrt(2 + cos(t))])
 
             finaltime = 1
-            dts = [2.0^(-k) for k in 2:7]
+            dts = [2.0^(-k) for k in 6:7]
             error = similar(dts)
             @testset "Explicit" begin
                 for (mri_method, mri_expected_order) in mrigark_erk_methods
@@ -807,8 +807,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[1] += Ω[1, :]' * g - ω1 * sin(ω1 * t) / 2y1
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -816,7 +816,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
             function rhs2!(dQ, Q, param, t; increment)
                 @kernel function knl!(dQ, Q, t, increment)
@@ -831,8 +831,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[2] += Ω[2, :]' * g - ω2 * sin(ω2 * t) / 2y2
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -840,7 +840,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
             function rhs3!(dQ, Q, param, t; increment)
                 @kernel function knl!(dQ, Q, t, increment)
@@ -855,8 +855,8 @@ const ArrayType = ClimateMachine.array_type()
                         dQ[3] += Ω[3, :]' * g - ω3 * sin(ω3 * t) / 2y3
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     dQ,
                     Q,
                     t,
@@ -864,7 +864,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
             struct ODETestConvNonLinBE3Rate <: AbstractBackwardEulerSolver end
             ODESolvers.Δt_is_adjustable(::ODETestConvNonLinBE3Rate) = true
@@ -890,8 +890,8 @@ const ArrayType = ClimateMachine.array_type()
                         Q[3] = (-b + sqrt(b^2 - 4 * a * c)) / (2a)
                     end
                 end
-                event = Event(device(Q))
-                event = knl!(device(Q), 1)(
+                event = Event(array_device(Q))
+                event = knl!(array_device(Q), 1)(
                     Q,
                     Qhat,
                     α,
@@ -900,7 +900,7 @@ const ArrayType = ClimateMachine.array_type()
                     ndrange = 1,
                     dependencies = (event,),
                 )
-                wait(device(Q), event)
+                wait(array_device(Q), event)
             end
 
             exactsolution(t) = ArrayType([
@@ -910,7 +910,7 @@ const ArrayType = ClimateMachine.array_type()
             ])
 
             finaltime = 1
-            dts = [2.0^(-k) for k in 1:7]
+            dts = [2.0^(-k) for k in 6:7]
             error = similar(dts)
             @testset "Explicit" begin
                 for (slow_method, slow_order) in mrigark_erk_methods

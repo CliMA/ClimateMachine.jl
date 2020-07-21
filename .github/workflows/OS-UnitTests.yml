@@ -1,0 +1,62 @@
+name: OS Unit Tests
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+
+jobs:
+  test-os:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    # Workaround for OSX MPICH issue:
+    # https://github.com/pmodels/mpich/issues/4710
+    env:
+      MPICH_INTERFACE_HOSTNAME: "localhost"
+      CLIMATEMACHINE_TEST_RUNMPI_LOCALHOST: "true"
+
+    steps:
+    - name: Cancel Previous Runs
+      uses: styfle/cancel-workflow-action@0.4.0
+      with:
+        access_token: ${{ github.token }}
+
+    - name: Checkout
+      uses: actions/checkout@v2.2.0
+
+    - name: Set up Julia
+      uses: julia-actions/setup-julia@v1.1.6
+      with:
+        version: 1.4
+
+    # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
+    - name: Cache artifacts
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-artifacts
+      with:
+        path: ~/.julia/artifacts 
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ env.cache-name }}-
+          ${{ runner.os }}-test-
+          ${{ runner.os }}-
+
+    - name: Install Project Packages
+      run: |
+        julia --project=@. -e 'using Pkg; Pkg.instantiate()'
+
+    - name: Build System Image
+      run: |
+        julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
+
+    - name: Run Unit Tests
+      run: |
+        julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'

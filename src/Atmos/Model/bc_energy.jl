@@ -1,5 +1,7 @@
 abstract type EnergyBC end
 
+using ..TurbulenceClosures
+
 """
     Insulating() :: EnergyBC
 

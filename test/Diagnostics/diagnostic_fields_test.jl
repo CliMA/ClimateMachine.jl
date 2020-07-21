@@ -6,13 +6,15 @@ using Test
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
@@ -21,7 +23,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
-import ClimateMachine.DGmethods: vars_state_conservative
+import ClimateMachine.BalanceLaws: vars_state_conservative
 import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
@@ -81,9 +83,9 @@ end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
-    # Choose explicit solver
+    # Choose explicit multirate solver
     ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
@@ -120,7 +122,11 @@ end
 
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 #-------------------------------------------------------------------------
@@ -200,8 +206,8 @@ function run_brick_diagostics_fields_test()
         Q.data[:, _ρw, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         #-----------------------------------------------------------------------
-        vgrad = compute_vec_grad(model, Q, dg)
-        vort = compute_vorticity(dg, vgrad)
+        vgrad = Diagnostics.VectorGradients(dg, Q)
+        vort = Diagnostics.Vorticity(dg, vgrad)
         #----------------------------------------------------------------------------
         Ω₁_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -

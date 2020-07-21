@@ -1,4 +1,5 @@
 using ..Mesh.Grids: Direction, HorizontalDirection, VerticalDirection
+using ..TurbulenceClosures
 
 advective_courant(m::AtmosLinearModel, a...) = advective_courant(m.atmos, a...)
 

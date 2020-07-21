@@ -3,12 +3,27 @@ using CLIMAParameters.Planet: planet_radius
 using ..Diagnostics
 using ..Mesh.Interpolation
 
+"""
+    DiagnosticsConfiguration
+
+Container for all the `DiagnosticsGroup`s to be used for a simulation.
+"""
 mutable struct DiagnosticsConfiguration
     groups::Array{DiagnosticsGroup, 1}
 
     DiagnosticsConfiguration(groups::Array{DiagnosticsGroup, 1}) = new(groups)
 end
 
+"""
+    InterpolationConfiguration(
+        driver_config::DriverConfiguration,
+        boundaries::Array,
+        resolution::Tuple,
+    )
+
+Creates an `InterpolationTopology` (either an `InterpolationBrick` or an
+`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`.
+"""
 function InterpolationConfiguration(
     driver_config::DriverConfiguration,
     boundaries::Array,

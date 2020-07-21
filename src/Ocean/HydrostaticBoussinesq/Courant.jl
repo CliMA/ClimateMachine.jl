@@ -1,14 +1,14 @@
 using Logging, Printf
 using LinearAlgebra: norm
 
-using ..Mesh.Grids:
+using ...Mesh.Grids:
     VerticalDirection, HorizontalDirection, EveryDirection, min_node_distance
-using ..DGmethods: courant
+using ...DGMethods: courant
 
-import ..Courant:
+import ...Courant:
     advective_courant, nondiffusive_courant, diffusive_courant, viscous_courant
 
-import ..DGmethods: calculate_dt
+import ...DGMethods: calculate_dt
 
 """
     advective_courant(::HBModel)

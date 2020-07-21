@@ -40,13 +40,7 @@ function flux_second_order!(
     t::Real,
     D_t,
 ) end
-function flux_first_order!(
-    ::MoistureModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
+function flux_first_order!(::MoistureModel, _...) end
 function compute_gradient_argument!(
     ::MoistureModel,
     transform::Vars,
@@ -64,7 +58,7 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
     state::Vars,
     aux::Vars,
 )
-    MoistThermodynamics.internal_energy(
+    Thermodynamics.internal_energy(
         state.ρ,
         state.ρe,
         state.ρu,

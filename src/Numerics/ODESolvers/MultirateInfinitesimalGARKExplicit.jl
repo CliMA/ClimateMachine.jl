@@ -72,7 +72,7 @@ increment between stage times. The ODE for ``v(t)`` is solved using the
 Sandu (2019), but ODE for ``v(t)`` is written to go from ``t_s`` to
 ``T_i + c_s * Δt`` as opposed to ``0`` to ``1``.
 
-Currently only ['LowStorageRungeKutta2N`](@ref) schemes are supported for
+Currently only [`LowStorageRungeKutta2N`](@ref) schemes are supported for
 `fastsolver`
 
 The coefficients defined by `γ̂s` can be used for an embedded scheme (only the
@@ -179,8 +179,8 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
         if param isa MRIParam
             # fraction of the step slower stage increment we are on
             τ = (ts - param.ts) / param.Δts
-            event = Event(device(Q))
-            event = mri_update_rate!(device(Q), groupsize)(
+            event = Event(array_device(Q))
+            event = mri_update_rate!(array_device(Q), groupsize)(
                 realview(Rs[s]),
                 τ,
                 param.γs,
@@ -188,7 +188,7 @@ function dostep!(Q, mrigark::MRIGARKExplicit, param, time::Real)
                 ndrange = length(realview(Rs[s])),
                 dependencies = (event,),
             )
-            wait(device(Q), event)
+            wait(array_device(Q), event)
         end
 
         γs = ntuple(k -> ntuple(j -> Γs[k][s, j], s), NΓ)

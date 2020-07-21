@@ -11,9 +11,9 @@
 ## Interface
   - [`compute_buoyancy_flux`](@ref) computes the buoyancy flux
   - In addition, each sub-module has the following functions:
-    - [`monin_obukhov_len`](@ref) computes the Monin-Obukhov length
-    - [`compute_friction_velocity`](@ref) computes the friction velocity
-    - [`compute_exchange_coefficients`](@ref) computes the exchange coefficients
+    - `monin_obukhov_len` computes the Monin-Obukhov length
+    - `compute_friction_velocity` computes the friction velocity
+    - `compute_exchange_coefficients` computes the exchange coefficients
 
 ## References
 
@@ -42,7 +42,7 @@
 module SurfaceFluxes
 
 using RootSolvers
-using ..MoistThermodynamics
+using ..Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet: molmass_ratio, grav
 
@@ -77,7 +77,7 @@ end
 module Byun1990
 
 using RootSolvers
-using ...MoistThermodynamics
+using ...Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.SubgridScale: von_karman_const
 
@@ -237,7 +237,7 @@ end # Byun1990 module
 
 module Nishizawa2018
 using RootSolvers
-using ...MoistThermodynamics
+using ...Thermodynamics
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
 using CLIMAParameters.SubgridScale: von_karman_const

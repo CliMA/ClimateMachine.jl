@@ -15,11 +15,11 @@ Specifies the temperature or virtual temperature profile for a reference state.
 
 Instances of this type are required to be callable objects with the following signature
 
-    T,p = (::TemperatureProfile)(param_set::AbstractParameterSet, z::FT) where {FT<:AbstractFloat}
+    T,p = (::TemperatureProfile)(param_set::AbstractParameterSet, z::FT) where {FT}
 
 where `T` is the temperature or virtual temperature (in K), and `p` is the pressure (in Pa).
 """
-abstract type TemperatureProfile{FT <: AbstractFloat} end
+abstract type TemperatureProfile{FT} end
 
 """
     IsothermalProfile(param_set, T_virt)
@@ -58,7 +58,7 @@ struct DryAdiabaticProfile{FT} <: TemperatureProfile{FT}
         param_set::AbstractParameterSet,
         T_surface::FT = FT(T_surf_ref(param_set)),
         _T_min_ref::FT = FT(T_min_ref(param_set)),
-    ) where {FT <: AbstractFloat}
+    ) where {FT}
         return new{FT}(T_surface, _T_min_ref)
     end
 end
@@ -67,7 +67,7 @@ end
     (profile::DryAdiabaticProfile)(
         param_set::AbstractParameterSet,
         z::FT,
-    ) where {FT<:AbstractFloat}
+    ) where {FT}
 
 Returns dry adiabatic temperature and pressure profiles
 with zero relative humidity. The temperature is truncated
@@ -76,7 +76,7 @@ to be greater than or equal to `profile.T_min_ref`.
 function (profile::DryAdiabaticProfile)(
     param_set::AbstractParameterSet,
     z::FT,
-) where {FT <: AbstractFloat}
+) where {FT}
 
     _R_d::FT = R_d(param_set)
     _cp_d::FT = cp_d(param_set)
@@ -123,9 +123,8 @@ struct DecayingTemperatureProfile{FT} <: TemperatureProfile{FT}
         param_set::AbstractParameterSet,
         _T_virt_surf::FT = FT(T_surf_ref(param_set)),
         _T_min_ref::FT = FT(T_min_ref(param_set)),
-        H_t::FT = FT(R_d(param_set)) * FT(T_surf_ref(param_set)) /
-                  FT(grav(param_set)),
-    ) where {FT <: AbstractFloat}
+        H_t::FT = FT(R_d(param_set)) * _T_virt_surf / FT(grav(param_set)),
+    ) where {FT}
         return new{FT}(_T_virt_surf, _T_min_ref, H_t)
     end
 end
@@ -134,17 +133,23 @@ end
 function (profile::DecayingTemperatureProfile)(
     param_set::AbstractParameterSet,
     z::FT,
-) where {FT <: AbstractFloat}
-
-    ΔTv = profile.T_virt_surf - profile.T_min_ref
-    Tv = profile.T_virt_surf - ΔTv * tanh(z / profile.H_t)
+) where {FT}
     _R_d::FT = R_d(param_set)
     _grav::FT = grav(param_set)
     _MSLP::FT = MSLP(param_set)
 
+    # Scale height for surface temperature
+    H_sfc = _R_d * profile.T_virt_surf / _grav
+    H_t = profile.H_t
+    z′ = z / H_t
+    tanh_z′ = tanh(z′)
+
+    ΔTv = profile.T_virt_surf - profile.T_min_ref
+    Tv = profile.T_virt_surf - ΔTv * tanh_z′
+
     ΔTv′ = ΔTv / profile.T_virt_surf
-    p = -z - profile.H_t * ΔTv′ * log(cosh(z / profile.H_t) - atanh(ΔTv′))
-    p /= profile.H_t * (1 - ΔTv′^2)
+    p = -H_t * (z′ + ΔTv′ * (log(1 - ΔTv′ * tanh_z′) - log(1 + tanh_z′) + z′))
+    p /= H_sfc * (1 - ΔTv′^2)
     p = _MSLP * exp(p)
     return (Tv, p)
 end

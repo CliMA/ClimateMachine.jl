@@ -5,8 +5,10 @@ export write_checkpoint, rm_checkpoint, read_checkpoint
 using JLD2
 using MPI
 using Printf
+import KernelAbstractions: CPU
 
 using ..ODESolvers
+import ..MPIStateArrays: array_device
 
 """
     write_checkpoint(solver_config, checkpoint_dir, name, mpicomm, num)
@@ -38,7 +40,7 @@ Checkpoint
 
     dg = solver_config.dg
     Q = solver_config.Q
-    if Array ∈ typeof(Q).parameters
+    if array_device(Q) isa CPU
         h_Q = Q.realdata
         h_aux = dg.state_auxiliary.realdata
     else

@@ -1,12 +1,13 @@
 using ..TicToc
 
 """
-    writepvtu(pvtuprefix, vtkprefixes, fieldnames)
+    writepvtu(pvtuprefix, vtkprefixes, fieldnames, FT)
 
 Write a pvtu file with the prefix 'pvtuprefix' for the collection of vtk files
-given by 'vtkprefixes' using names  of fields 'fieldnames'
+given by 'vtkprefixes' using names  of fields 'fieldnames'. The data in the
+`vtu` files is of type `FT`.
 """
-function writepvtu(pvtuprefix, vtkprefixes, fieldnames)
+function writepvtu(pvtuprefix, vtkprefixes, fieldnames, FT)
     open(pvtuprefix * ".pvtu", "w") do pvtufile
         write(
             pvtufile,
@@ -15,7 +16,7 @@ function writepvtu(pvtuprefix, vtkprefixes, fieldnames)
             <VTKFile type="PUnstructuredGrid" version="0.1" compressor="vtkZLibDataCompressor" byte_order="LittleEndian">
               <PUnstructuredGrid GhostLevel="0">
                 <PPoints>
-                  <PDataArray type="Float64" Name="Position" NumberOfComponents="3" format="binary"/>
+                  <PDataArray type="$FT" Name="Position" NumberOfComponents="3" format="binary"/>
                 </PPoints>
                 <PPointData>
             """,
@@ -25,7 +26,7 @@ function writepvtu(pvtuprefix, vtkprefixes, fieldnames)
             write(
                 pvtufile,
                 """
-                      <PDataArray type="Float64" Name="$name" format="binary"/>
+                      <PDataArray type="$FT" Name="$name" format="binary"/>
                 """,
             )
         end

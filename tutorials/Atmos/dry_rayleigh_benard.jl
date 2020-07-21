@@ -1,35 +1,13 @@
-using Distributions
-using Random
-using StaticArrays
-using Test
-using DocStringExtensions
-using Printf
+# # Dry Rayleigh Benard
 
-using ClimateMachine
-ClimateMachine.init()
-using ClimateMachine.Atmos
-using ClimateMachine.ConfigTypes
-using ClimateMachine.DGmethods.NumericalFluxes
-using ClimateMachine.Diagnostics
-using ClimateMachine.GenericCallbacks
-using ClimateMachine.ODESolvers
-using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics:
-    TemperatureSHumEquil_given_pressure, internal_energy
-using ClimateMachine.VariableTemplates
-
-using CLIMAParameters
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
-
-# ------------------- Description ---------------------------------------- #
+# ## Problem description
+#
 # 1) Dry Rayleigh Benard Convection (re-entrant channel configuration)
 # 2) Boundaries - `Sides` : Periodic (Default `bctuple` used to identify bot,top walls)
 #                 `Top`   : Prescribed temperature, no-slip
 #                 `Bottom`: Prescribed temperature, no-slip
 # 3) Domain - 250m[horizontal] x 250m[horizontal] x 500m[vertical]
-# 4) Timeend - 1000s
+# 4) Timeend - 100s
 # 5) Mesh Aspect Ratio (Effective resolution) 1:1
 # 6) Random values in initial condition (Requires `init_on_cpu=true` argument)
 # 7) Overrides defaults for
@@ -42,6 +20,35 @@ const param_set = EarthParameterSet()
 #               `sources`
 # 8) Default settings can be found in src/Driver/Configurations.jl
 
+# ## Loading code
+using Distributions
+using Random
+using StaticArrays
+using Test
+using DocStringExtensions
+using Printf
+
+using ClimateMachine
+ClimateMachine.init()
+using ClimateMachine.Atmos
+using ClimateMachine.Orientations
+using ClimateMachine.ConfigTypes
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.Diagnostics
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.ODESolvers
+using ClimateMachine.Mesh.Filters
+using ClimateMachine.Thermodynamics:
+    TemperatureSHumEquil_given_pressure, internal_energy
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.VariableTemplates
+
+using CLIMAParameters
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
+
+# Convenience struct for sharing data between kernels
 struct DryRayleighBenardConvectionDataConfig{FT}
     xmin::FT
     ymin::FT
@@ -54,6 +61,7 @@ struct DryRayleighBenardConvectionDataConfig{FT}
     T_top::FT
 end
 
+# Define initial condition kernel
 function init_problem!(bl, state, aux, (x, y, z), t)
     dc = bl.data_config
     FT = eltype(state)
@@ -97,9 +105,10 @@ function init_problem!(bl, state, aux, (x, y, z), t)
     state.tracers.ρχ = SVector{1, FT}(ρχ)
 end
 
+# Define problem configuration kernel
 function config_problem(FT, N, resolution, xmax, ymax, zmax)
 
-    # Boundary conditions
+    ## Boundary conditions
     T_bot = FT(299)
 
     _cp_d::FT = cp_d(param_set)
@@ -111,7 +120,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
     ntracers = 1
     δ_χ = SVector{ntracers, FT}(1)
 
-    # Turbulence
+    ## Turbulence
     C_smag = FT(0.23)
     data_config = DryRayleighBenardConvectionDataConfig{FT}(
         0,
@@ -125,7 +134,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         FT(T_bot - T_lapse * zmax),
     )
 
-    # Set up the model
+    ## Set up the model
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -146,11 +155,15 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         data_config = data_config,
     )
 
-    ode_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
+    ## Set up the time-integrator, using a multirate infinitesimal step
+    ## method. The option `splitting_type = ClimateMachine.SlowFastSplitting()`
+    ## separates fast-slow modes by splitting away the acoustic waves and
+    ## treating them via a sub-stepped explicit method.
+    ode_solver = ClimateMachine.MISSolverType(;
+        splitting_type = ClimateMachine.SlowFastSplitting(),
+        mis_method = MIS2,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
+        nsubsteps = 10,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(
@@ -168,22 +181,28 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
+# Define diagnostics configuration kernel
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
+# Define main entry point kernel
 function main()
     FT = Float64
-    # DG polynomial order
+    ## DG polynomial order
     N = 4
-    # Domain resolution and size
+    ## Domain resolution and size
     Δh = FT(10)
-    # Time integrator setup
+    ## Time integrator setup
     t0 = FT(0)
-    # Courant number
-    CFLmax = FT(5)
+    ## Courant number
+    CFLmax = FT(20)
     timeend = FT(1000)
     xmax, ymax, zmax = FT(250), FT(250), FT(500)
 
@@ -200,27 +219,27 @@ function main()
                 Courant_number = CFLmax,
             )
             dgn_config = config_diagnostics(driver_config)
-            # User defined callbacks (TMAR positivity preserving filter)
-            cbtmarfilter =
-                GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-                    Filters.apply!(
-                        solver_config.Q,
-                        6,
-                        solver_config.dg.grid,
-                        TMARFilter(),
-                    )
-                    nothing
-                end
+            ## User defined callbacks (TMAR positivity preserving filter)
+            cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+                Filters.apply!(
+                    solver_config.Q,
+                    ("moisture.ρq_tot",),
+                    solver_config.dg.grid,
+                    TMARFilter(),
+                )
+                nothing
+            end
             result = ClimateMachine.invoke!(
                 solver_config;
                 diagnostics_config = dgn_config,
                 user_callbacks = (cbtmarfilter,),
                 check_euclidean_distance = true,
             )
-            # result == engf/eng0
+            ## result == engf/eng0
             @test isapprox(result, FT(1); atol = 1.5e-2)
         end
     end
 end
 
+# Run
 main()

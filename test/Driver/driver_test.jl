@@ -2,10 +2,10 @@ using StaticArrays
 using Test
 
 using ClimateMachine
-ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
@@ -59,6 +59,9 @@ function init_test!(bl, state, aux, (x, y, z), t)
 end
 
 function main()
+    @test_throws ArgumentError ClimateMachine.init(dsisable_gpu = true)
+    ClimateMachine.init()
+
     FT = Float64
 
     # DG polynomial order
@@ -98,21 +101,21 @@ function main()
 
     # Test the courant wrapper
     # by default the CFL should be less than what asked for
-    CFL_nondiff = ClimateMachine.DGmethods.courant(
+    CFL_nondiff = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.nondiffusive_courant,
         solver_config,
     )
     @test CFL_nondiff < CFL
-    CFL_adv = ClimateMachine.DGmethods.courant(
+    CFL_adv = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.advective_courant,
         solver_config,
     )
-    CFL_adv_v = ClimateMachine.DGmethods.courant(
+    CFL_adv_v = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.advective_courant,
         solver_config;
         direction = VerticalDirection(),
     )
-    CFL_adv_h = ClimateMachine.DGmethods.courant(
+    CFL_adv_h = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.advective_courant,
         solver_config;
         direction = HorizontalDirection(),
@@ -136,7 +139,7 @@ function main()
 
     result = ClimateMachine.invoke!(
         solver_config,
-        user_info_callback = (init) -> cb_test += 1,
+        user_info_callback = () -> cb_test += 1,
     )
     # cb_test should be greater than one if the user_info_callback got called
     @test cb_test > 0
@@ -150,7 +153,7 @@ function main()
         timeend_dt_adjust = false,
     )
 
-    CFL_nondiff = ClimateMachine.DGmethods.courant(
+    CFL_nondiff = ClimateMachine.DGMethods.courant(
         ClimateMachine.Courant.nondiffusive_courant,
         solver_config,
     )

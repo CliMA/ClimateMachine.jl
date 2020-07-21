@@ -2,15 +2,7 @@ using MPI
 using ClimateMachine
 using Logging
 using ClimateMachine.Mesh.Topologies
-using ClimateMachine.Mesh.Grids
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
-using ClimateMachine.LowStorageRungeKuttaMethod
-using LinearAlgebra
-using ClimateMachine.GenericCallbacks:
-    EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.ODESolvers
 
 MPI.Initialized() || MPI.Init()
 mpicomm = MPI.COMM_WORLD

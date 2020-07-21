@@ -16,7 +16,7 @@
 #  - `ρcT` is the thermal energy
 
 # To put this in the form of ClimateMachine's [`BalanceLaw`](@ref
-# ClimateMachine.DGMethods.BalanceLaw), we'll re-write the equation as:
+# ClimateMachine.BalanceLaws.BalanceLaw), we'll re-write the equation as:
 
 # ``
 # \frac{∂ ρcT}{∂ t} + ∇ ⋅ (F(α, ρcT, t)) = 0
@@ -40,7 +40,7 @@
 
 # # Preliminary configuration
 
-# ## Loading code
+# ## [Loading code](@id Loading-code-heat)
 
 # First, we'll load our pre-requisites:
 #  - load external packages:
@@ -59,10 +59,10 @@ const param_set = EarthParameterSet()
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.Writers
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
-using ClimateMachine.DGmethods: BalanceLaw, LocalGeometry
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
@@ -71,7 +71,7 @@ using ClimateMachine.SingleStackUtils
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
-import ClimateMachine.DGmethods:
+import ClimateMachine.BalanceLaws:
     vars_state_auxiliary,
     vars_state_conservative,
     vars_state_gradient,
@@ -104,7 +104,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 # ## Define the model
 
 # Model parameters can be stored in the particular [`BalanceLaw`](@ref
-# ClimateMachine.DGMethods.BalanceLaw), in this case, a `HeatModel`:
+# ClimateMachine.BalanceLaws.BalanceLaw), in this case, a `HeatModel`:
 
 Base.@kwdef struct HeatModel{FT} <: BalanceLaw
     "Parameters"
@@ -130,9 +130,10 @@ m = HeatModel{FT}();
 
 # ## Define the variables
 
-# All of the methods defined in this section were `import`ed in # [Loading
-# code](@ref) to let us provide implementations for our `HeatModel` as they
-# will be used by the solver.
+# All of the methods defined in this section were `import`ed in
+# [Loading code](@ref Loading-code-heat) to let us provide
+# implementations for our `HeatModel` as they will be used by
+# the solver.
 
 # Specify auxiliary variables for `HeatModel`
 vars_state_auxiliary(::HeatModel, FT) = @vars(z::FT, T::FT);
@@ -175,7 +176,7 @@ end;
 
 # The remaining methods, defined in this section, are called at every
 # time-step in the solver by the [`BalanceLaw`](@ref
-# ClimateMachine.DGMethods.BalanceLaw) framework.
+# ClimateMachine.BalanceLaws.BalanceLaw) framework.
 
 # Overload `update_auxiliary_state!` to call `heat_eq_nodal_update_aux!`, or
 # any other auxiliary methods
@@ -235,13 +236,7 @@ end;
 
 # We have no sources, nor non-diffusive fluxes.
 function source!(m::HeatModel, _...) end;
-function flux_first_order!(
-    m::HeatModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end;
+function flux_first_order!(m::HeatModel, _...) end;
 
 # Compute diffusive flux (``F(α, ρcT, t) = -α ∇ρcT`` in the original PDE).
 # Note that:
@@ -403,18 +398,15 @@ const n_outputs = 5;
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
 # Create a nested dictionary to store the solution:
-all_data = Dict([k => Dict() for k in 0:n_outputs]...)
-all_data[0] = all_vars # store initial condition at ``t=0``
+all_data = Dict[Dict([k => Dict() for k in 0:n_outputs]...),]
+all_data[1] = all_vars # store initial condition at ``t=0``
 
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, the state and aux variables are collected, combined into a single
 # `OrderedDict` and written to a NetCDF file (for each output step `step`).
 step = [1];
-callback = GenericCallbacks.EveryXSimulationTime(
-    every_x_simulation_time,
-    solver_config.solver,
-) do (init = false)
+callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         grid,
         Q,
@@ -427,7 +419,7 @@ callback = GenericCallbacks.EveryXSimulationTime(
         exclude = [z_key],
     )
     all_vars = OrderedDict(state_vars..., aux_vars...)
-    all_data[step[1]] = all_vars
+    push!(all_data, all_vars)
 
     step[1] += 1
     nothing
@@ -437,7 +429,7 @@ end;
 
 # This is the main `ClimateMachine` solver invocation. While users do not have
 # access to the time-stepping loop, code may be injected via `user_callbacks`,
-# which is a `Tuple` of [`GenericCallbacks`](@ref).
+# which is a `Tuple` of callbacks in [`GenericCallbacks`](@ref ClimateMachine.GenericCallbacks).
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # # Post-processing
@@ -446,8 +438,8 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 # the output interval. The next level keys are the variable names, and the
 # values are the values along the grid:
 
-# To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[0]["T"][:]`
-@show keys(all_data[0])
+# To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[1]["T"][:]`
+@show keys(all_data[1])
 
 # Let's plot the solution:
 

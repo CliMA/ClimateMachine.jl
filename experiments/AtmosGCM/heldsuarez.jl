@@ -1,17 +1,32 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init()
+using ArgParse
+
+s = ArgParseSettings()
+@add_arg_table! s begin
+    "--number-of-tracers"
+    help = "Number of dummy tracers"
+    metavar = "<number>"
+    arg_type = Int
+    default = 0
+end
+
+parsed_args = ClimateMachine.init(parse_clargs = true, custom_clargs = s)
+const number_of_tracers = parsed_args["number-of-tracers"]
+
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.ColumnwiseLUSolver: ManyColumnLU
+using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.MoistThermodynamics:
+using ClimateMachine.Thermodynamics:
     air_temperature, internal_energy, air_pressure
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using Distributions: Uniform
@@ -37,6 +52,10 @@ function init_heldsuarez!(bl, state, aux, coords, t)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
     state.ρe = rnd * aux.ref_state.ρe
+
+    if number_of_tracers > 0
+        state.tracers.ρχ = @SVector [FT(ii) for ii in 1:number_of_tracers]
+    end
 
     nothing
 end
@@ -65,16 +84,25 @@ function config_heldsuarez(FT, poly_order, resolution)
     T_ref::FT = 255        # reference temperature for Held-Suarez forcing (K)
     τ_hyper::FT = 4 * 3600 # hyperdiffusion time scale in (s)
     c_smag::FT = 0.21      # Smagorinsky coefficient
+
+    if number_of_tracers > 0
+        δ_χ = @SVector [FT(ii) for ii in 1:number_of_tracers]
+        tracers = NTracers{number_of_tracers, FT}(δ_χ)
+    else
+        tracers = NoTracers()
+    end
+
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
         turbulence = SmagorinskyLilly(c_smag),
-        hyperdiffusion = StandardHyperDiffusion(τ_hyper),
+        hyperdiffusion = DryBiharmonic(τ_hyper),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
         init_state_conservative = init_heldsuarez!,
         data_config = HeldSuarezDataConfig(T_ref),
+        tracers = tracers,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -134,7 +162,7 @@ function held_suarez_forcing!(
 
     #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
     #for topography, but leave unchanged for calculations of σ involved in T_equil
-    _p0 = 1.01325e5
+    _p0 = FT(1.01325e5)
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
     Δσ = (σ - σ_b) / (1 - σ_b)
@@ -151,7 +179,7 @@ function held_suarez_forcing!(
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = "100000steps" # chosen to allow a single diagnostics collection
+    interval = "40000steps" # chosen to allow a single diagnostics collection
 
     _planet_radius = FT(planet_radius(param_set))
 
@@ -167,13 +195,21 @@ function config_diagnostics(FT, driver_config)
         resolution,
     )
 
-    dgngrp = setup_dump_state_and_aux_diagnostics(
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosGCMConfigType(),
         interval,
         driver_config.name,
         interpol = interpol,
-        project = true,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+
+    pdgngrp = setup_atmos_refstate_perturbations(
+        AtmosGCMConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, pdgngrp])
 end
 
 function main()
@@ -182,20 +218,29 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 5                               # horizontal element number
     n_vert = 5                               # vertical element number
-    n_days = 120                             # experiment day number
+    n_days = 50                              # experiment day number
     timestart = FT(0)                        # start time (s)
     timeend = FT(n_days * day(param_set))    # end time (s)
 
     # Set up driver configuration
     driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
 
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        splitting_type = HEVISplitting(),
+        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = ManyColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+    )
+    CFL = FT(0.2)
+
     # Set up experiment
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
-        Courant_number = 0.2,
+        Courant_number = CFL,
         init_on_cpu = true,
+        ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
@@ -209,9 +254,10 @@ function main()
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            1:size(solver_config.Q, 2),
+            AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
+            state_auxiliary = solver_config.dg.state_auxiliary,
         )
         nothing
     end

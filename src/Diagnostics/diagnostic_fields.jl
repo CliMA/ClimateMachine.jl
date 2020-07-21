@@ -1,17 +1,19 @@
 using DocStringExtensions
 using KernelAbstractions
-using ClimateMachine.Mesh.Geometry
 
-import ClimateMachine.Mesh.Grids:
+using ..Mesh.Geometry
+using ..VariableTemplates
+
+import ..Mesh.Grids:
     _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3
-
-using ClimateMachine.VariableTemplates
-import ClimateMachine.VariableTemplates.varsindex
+import ..MPIStateArrays: array_device
 
 """
-    VecGrad{FT <: AbstractFloat,
-         FTA2D <: AbstractArray{FT, 2},
-         FTA3D <: AbstractArray{FT, 3},}
+    VectorGradients{
+        FT <: AbstractFloat,
+        FTA2D <: AbstractArray{FT, 2},
+        FTA3D <: AbstractArray{FT, 3},
+    }
 
 This data structure stores the spatial gradients of a velocity field.
 
@@ -21,14 +23,13 @@ $(DocStringExtensions.FIELDS)
 
 # Usage
 
-    VecGrad(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
+    VectorGradients(data)
 
 # Arguments for the inner constructor
- - `Npl`: Number of local degrees of freedom in a spectral element
- - `Nel`: Number of spectral elements
- - `FT`: Floating point precision
+ - `data`: 3-dimensional device array containing the spatial gradients
+   (the second dimension must be 9)
 """
-struct VecGrad{
+struct VectorGradients{
     FT <: AbstractFloat,
     FTA2D <: AbstractArray{FT, 2},
     FTA3D <: AbstractArray{FT, 3},
@@ -54,10 +55,9 @@ struct VecGrad{
     "View of ∂u₃/∂x₃"
     ∂₃u₃::FTA2D
 
-    function VecGrad(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
-        DA = ClimateMachine.array_type()
-        data = DA{FT}(undef, Npl, 9, Nel)
-
+    function VectorGradients(
+        data::AbstractArray{FT, 3},
+    ) where {FT <: AbstractFloat}
         ∂₁u₁, ∂₂u₁, ∂₃u₁ =
             view(data, :, 1, :), view(data, :, 2, :), view(data, :, 3, :)
         ∂₁u₂, ∂₂u₂, ∂₃u₂ =
@@ -79,151 +79,57 @@ struct VecGrad{
         )
     end
 end
-#--------------------------------------------------------------------------------------------------
+
 """
-    Vorticity{FT <: AbstractFloat,
-           FTA2D <: AbstractArray{FT, 2},
-           FTA3D <: AbstractArray{FT, 3},}
+    VectorGradients(dg::DGModel, Q::MPIStateArray)
 
-This data structure stores the vorticity of a velocity field.
-
-# Fields
-
-$(DocStringExtensions.FIELDS)
-
-# Usage
-
-    Vorticity(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
-
-# Arguments for the inner constructor
- - `Npl`: Number of local degrees of freedom in a spectral element
- - `Nel`: Number of spectral elements
- - `FT`: Floating point precision
-"""
-struct Vorticity{
-    FT <: AbstractFloat,
-    FTA2D <: AbstractArray{FT, 2},
-    FTA3D <: AbstractArray{FT, 3},
-}
-    "Device array storing the vorticity data"
-    data::FTA3D
-    "View of x1 component of vorticity"
-    Ω₁::FTA2D
-    "View of x2 component of vorticity"
-    Ω₂::FTA2D
-    "View of x3 component of vorticity"
-    Ω₃::FTA2D
-    function Vorticity(Npl, Nel, ::Type{FT}) where {FT <: AbstractFloat}
-        DA = ClimateMachine.array_type()
-        data = DA{FT}(undef, Npl, 3, Nel)
-        Ω₁ = view(data, :, 1, :)
-        Ω₂ = view(data, :, 2, :)
-        Ω₃ = view(data, :, 3, :)
-        return new{FT, typeof(Ω₁), typeof(data)}(data, Ω₁, Ω₂, Ω₃)
-    end
-end
-#--------------------------------------------------------------------------------------------------
-"""
-    compute_vec_grad(model::BalanceLaw,
-                         Q::AbstractArray{FT},
-                        dg::DGModel,
-                     vgrad::VecGrad{FT},) where {FT <: AbstractFloat}
-
-This function computes the spatial gradients of the velocity field.
+This constructor computes the spatial gradients of the velocity field.
 
 # Arguments
- - `model`: BalanceLaw
- - `Q`: State array
- - `dg`: DGmodel
- - `vgrad`: Vector gradients
+ - `dg`: DGModel
+ - `Q`: MPIStateArray containing the conservative state variables
 """
-function compute_vec_grad(
-    model::BalanceLaw,
-    Q::AbstractArray{FT},
-    dg::DGModel,
-) where {FT <: AbstractFloat}
-    Nel = size(Q.realdata, 3) # # of spectral elements
-    Npl = size(Q.realdata, 1) # # of dof per element
-    qm1 = size(dg.grid.D, 2)  # poly order + 1
-    DA = ClimateMachine.array_type()
+function VectorGradients(dg::DGModel, Q::MPIStateArray)
+    bl = dg.balance_law
+    FT = eltype(dg.grid)
+    N = polynomialorder(dg.grid)
+    Nq = N + 1
+    npoints = Nq^3
+    nrealelem = length(dg.grid.topology.realelems)
 
-    vgrad = VecGrad(Npl, Nel, FT)
+    g = similar(Q.realdata, npoints, nrealelem, 3, 3)
+    data = similar(Q.realdata, npoints, 9, nrealelem)
+
     ind = [
-        varsindex(vars_state_conservative(model, FT), :ρ)
-        varsindex(vars_state_conservative(model, FT), :ρu)
+        varsindex(vars_state_conservative(bl, FT), :ρ)
+        varsindex(vars_state_conservative(bl, FT), :ρu)
     ]
     _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
 
-    vgrad_data = vgrad.data
-    vgeo = dg.grid.vgeo
-    D = dg.grid.D
-    sv = Q.data
+    device = array_device(Q)
+    workgroup = (Nq, Nq)
+    ndrange = (nrealelem * Nq, Nq)
 
-    device = DA <: Array ? CPU() : CUDA()
-    g = DA{FT}(undef, Npl, Nel, 3, 3)
-
-    workgroup = (qm1, qm1)
-    ndrange = (Nel * qm1, qm1)
-
-    kernel = compute_vec_grad_kernel!(device, workgroup)
+    kernel = vector_gradients_kernel!(device, workgroup)
     event = kernel(
-        sv,
-        D,
-        vgeo,
+        Q.realdata,
+        dg.grid.D,
+        dg.grid.vgeo,
         g,
-        vgrad_data,
+        data,
         _ρ,
         _ρu,
         _ρv,
         _ρw,
-        Val(qm1),
+        Val(Nq),
         ndrange = ndrange,
     )
     wait(event)
 
-    return vgrad
+    return VectorGradients(data)
 end
-#--------------------------------------------------------------------------------------------------
-"""
-    compute_vorticity(dg::DGModel,
-                   vgrad::VecGrad{FT},
-                    vort::Vorticity{FT},) where {FT <: AbstractFloat}
 
-This function computes the vorticity of the velocity field.
-
-# Arguments
- - `dg`: DGmodel
- - `vgrad`: Velocity gradients
- - `vort`: Vorticity
-"""
-function compute_vorticity(
-    dg::DGModel,
-    vgrad::VecGrad{FT},
-) where {FT <: AbstractFloat}
-    Npl = size(vgrad.∂₁u₁, 1)
-    Nel = size(vgrad.∂₁u₁, 2)
-    qm1 = size(dg.grid.D, 2)  # poly order + 1
-    DA = ClimateMachine.array_type()
-    device = DA <: Array ? CPU() : CUDA()
-
-    vort = Vorticity(Npl, Nel, FT)
-
-    vgrad_data = vgrad.data
-    vort_data = vort.data
-
-    Ω₁, Ω₂, Ω₃ = vort.Ω₁, vort.Ω₂, vort.Ω₃
-
-    workgroup = (qm1, qm1)
-    ndrange = (Nel * qm1, qm1)
-
-    kernel = compute_vorticity_kernel!(device, workgroup)
-    event = kernel(vgrad_data, vort_data, Val(qm1), ndrange = ndrange)
-    wait(event)
-
-    return vort
-end
-#--------------------------------------------------------------------------------------------------
-@kernel function compute_vec_grad_kernel!(
+@kernel function vector_gradients_kernel!(
     sv::AbstractArray{FT},
     D::AbstractArray{FT, 2},
     vgeo::AbstractArray{FT},
@@ -370,8 +276,85 @@ end
             g[ijk, e, 3, 3] * ξ3x3
     end
 end
+
 #--------------------------------------------------------------------------------------------------
-@kernel function compute_vorticity_kernel!(
+
+"""
+    Vorticity{
+        FT <: AbstractFloat,
+        FTA2D <: AbstractArray{FT, 2},
+        FTA3D <: AbstractArray{FT, 3},
+    }
+
+This data structure stores the vorticity of a velocity field.
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+
+# Usage
+
+    Vorticity(data)
+
+# Arguments for the inner constructor
+ - `data`: 3-dimensional device array containing the vorticity data
+   (the second dimension must be 3)
+"""
+struct Vorticity{
+    FT <: AbstractFloat,
+    FTA2D <: AbstractArray{FT, 2},
+    FTA3D <: AbstractArray{FT, 3},
+}
+    "Device array storing the vorticity data"
+    data::FTA3D
+    "View of x1 component of vorticity"
+    Ω₁::FTA2D
+    "View of x2 component of vorticity"
+    Ω₂::FTA2D
+    "View of x3 component of vorticity"
+    Ω₃::FTA2D
+    function Vorticity(data::AbstractArray{FT, 3}) where {FT <: AbstractFloat}
+        Ω₁ = view(data, :, 1, :)
+        Ω₂ = view(data, :, 2, :)
+        Ω₃ = view(data, :, 3, :)
+        return new{FT, typeof(Ω₁), typeof(data)}(data, Ω₁, Ω₂, Ω₃)
+    end
+end
+
+"""
+    Vorticity(
+        dg::DGModel,
+        vgrad::VectorGradients,
+    )
+
+This function computes the vorticity of the velocity field.
+
+# Arguments
+ - `dg`: DGModel
+ - `vgrad`: vector gradients
+"""
+function Vorticity(dg::DGModel, vgrad::VectorGradients)
+    bl = dg.balance_law
+    FT = eltype(dg.grid)
+    N = polynomialorder(dg.grid)
+    Nq = N + 1
+    npoints = Nq^3
+    nrealelem = length(dg.grid.topology.realelems)
+
+    data = similar(vgrad.data, npoints, 3, nrealelem)
+
+    device = array_device(data)
+    workgroup = (Nq, Nq)
+    ndrange = (nrealelem * Nq, Nq)
+
+    kernel = vorticity_kernel!(device, workgroup)
+    event = kernel(vgrad.data, data, Val(Nq), ndrange = ndrange)
+    wait(event)
+
+    return Vorticity(data)
+end
+
+@kernel function vorticity_kernel!(
     vgrad_data::AbstractArray{FT, 3},
     vort_data::AbstractArray{FT, 3},
     ::Val{qm1},
@@ -396,4 +379,3 @@ end
             vgrad_data[ijk, ∂₁u₂, e] - vgrad_data[ijk, ∂₂u₁, e]
     end
 end
-#--------------------------------------------------------------------------------------------------

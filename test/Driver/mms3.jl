@@ -1,12 +1,14 @@
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.ConfigTypes
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Topologies
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
@@ -88,6 +90,7 @@ function mms3_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     x1, x2, x3 = aux.coord
     source.ρ = Sρ_g(t, x1, x2, x3, Val(3))
@@ -162,6 +165,7 @@ function main()
         FT,
         ClimateMachine.array_type(),
         ode_solver,
+        param_set,
         model,
         MPI.COMM_WORLD,
         grid,
@@ -178,6 +182,32 @@ function main()
         ode_solver_type = ode_solver,
         ode_dt = ode_dt,
     )
+    Q₀ = solver_config.Q
+
+    # turn on checkpointing
+    ClimateMachine.Settings.checkpoint = "300steps"
+    ClimateMachine.Settings.checkpoint_keep_one = false
+
+    # run the simulation
+    ClimateMachine.invoke!(solver_config)
+
+    # turn off checkpointing and set up a restart
+    ClimateMachine.Settings.checkpoint = "never"
+    ClimateMachine.Settings.restart_from_num = 2
+
+    # the solver configuration is where the restart is set up
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_solver_type = ode_solver,
+        ode_dt = ode_dt,
+    )
+
+    # run the restarted simulation
+    ClimateMachine.invoke!(solver_config)
+
+    # test correctness
     dg = DGModel(
         model,
         grid,
@@ -185,11 +215,8 @@ function main()
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
-
-    ClimateMachine.invoke!(solver_config)
-
     Qe = init_ode_state(dg, timeend)
-    result = euclidean_distance(solver_config.Q, Qe)
+    result = euclidean_distance(Q₀, Qe)
     @test result ≈ expected_result
 end
 

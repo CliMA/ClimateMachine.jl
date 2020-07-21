@@ -6,46 +6,45 @@ using StaticArrays
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
-using ..VariableTemplates
-using ..MPIStateArrays
-using ..Mesh.Filters: apply!
-using ..Mesh.Grids: VerticalDirection
-using ..DGmethods:
-    BalanceLaw,
-    LocalGeometry,
-    DGModel,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    nodal_update_auxiliary_state!,
-    copy_stack_field_down!
-using ..DGmethods.NumericalFluxes: RusanovNumericalFlux
+using ...VariableTemplates
+using ...MPIStateArrays
+using ...Mesh.Filters: apply!
+using ...Mesh.Grids: VerticalDirection
+using ...Mesh.Geometry
+using ...DGMethods
+using ...DGMethods.NumericalFluxes
+using ...BalanceLaws
+using ...BalanceLaws: number_state_auxiliary
 
-import ..DGmethods.NumericalFluxes: update_penalty!
-import ..DGmethods:
-
+import ...DGMethods.NumericalFluxes: update_penalty!
+import ...BalanceLaws:
     vars_state_conservative,
-    init_state_conservative!,
     vars_state_auxiliary,
-    init_state_auxiliary!,
     vars_state_gradient,
-    compute_gradient_argument!,
     vars_state_gradient_flux,
+    init_state_conservative!,
+    init_state_auxiliary!,
+    compute_gradient_argument!,
     compute_gradient_flux!,
-    vars_integrals,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    vars_reverse_integrals,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_state!,
     update_auxiliary_state!,
-    update_auxiliary_state_gradient!
+    update_auxiliary_state_gradient!,
+    vars_integrals,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    indefinite_stack_integral!,
+    vars_reverse_integrals,
+    reverse_indefinite_stack_integral!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
+⊗(a::SVector, b::SVector) = a * b'
 
 abstract type AbstractHydrostaticBoussinesqProblem end
 
@@ -83,6 +82,7 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
     νᶻ::T
     κʰ::T
     κᶻ::T
+    κᶜ::T
     fₒ::T
     β::T
     function HydrostaticBoussinesqModel{FT}(
@@ -94,8 +94,9 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
         αᵀ = FT(2e-4),  # (m/s)^2 / K
         νʰ = FT(5e3),   # m^2 / s
         νᶻ = FT(5e-3),  # m^2 / s
-        κʰ = FT(1e3),   # m^2 / s
-        κᶻ = FT(1e-4),  # m^2 / s
+        κʰ = FT(1e3),   # m^2 / s # horizontal diffusivity
+        κᶻ = FT(1e-4),  # m^2 / s # background vertical diffusivity
+        κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
     ) where {FT <: AbstractFloat, PS}
@@ -110,6 +111,7 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
             νᶻ,
             κʰ,
             κᶻ,
+            κᶜ,
             fₒ,
             β,
         )
@@ -126,7 +128,6 @@ u = (u,v) = (zonal velocity, meridional velocity)
 η = sea surface height
 θ = temperature
 """
-# If this order is changed check the filter usage!
 function vars_state_conservative(m::HBModel, T)
     @vars begin
         u::SVector{2, T}
@@ -143,31 +144,30 @@ dispatches to ocean_init_state! which is defined in a problem file such as Simpl
 """
 function ocean_init_state! end
 function init_state_conservative!(m::HBModel, Q::Vars, A::Vars, coords, t)
-    return ocean_init_state!(m.problem, Q, A, coords, t)
+    return ocean_init_state!(m, m.problem, Q, A, coords, t)
 end
 
 """
     vars_state_auxiliary(::HBModel)
 helper variables for computation
 
-first half is because there is no dedicated integral kernels
+second half is because there is no dedicated integral kernels
 these variables are used to compute vertical integrals
 w = vertical velocity
 wz0 = w at z = 0
 pkin = bulk hydrostatic pressure contribution
 
 
-second half of these are fields that are used for computation
+first half of these are fields that are used for computation
 y = north-south coordinate
 
 """
-# If this order is changed check update_auxiliary_state!
 function vars_state_auxiliary(m::HBModel, T)
     @vars begin
+        y::T     # y-coordinate of the box
         w::T     # ∫(-∇⋅u)
         pkin::T  # ∫(-αᵀθ)
         wz0::T   # w at z=0
-        y::T     # y-coordinate of the box
     end
 end
 
@@ -251,10 +251,10 @@ this computation is done pointwise at each nodal point
     t,
 )
     ν = viscosity_tensor(m)
-    D.ν∇u = ν * G.∇u
+    D.ν∇u = -ν * G.∇u
 
     κ = diffusivity_tensor(m, G.∇θ[3])
-    D.κ∇θ = κ * G.∇θ
+    D.κ∇θ = -κ * G.∇θ
 
     return nothing
 end
@@ -280,10 +280,9 @@ applies convective adjustment in the vertical, bump by 1000 if ∂θ∂z < 0
 - `∂θ∂z`: value of the derivative of temperature in the z-direction
 """
 @inline function diffusivity_tensor(m::HBModel, ∂θ∂z)
-    ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ =
-        (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+    ∂θ∂z < 0 ? κ = m.κᶜ : κ = m.κᶻ
 
-    return Diagonal(κ)
+    return Diagonal(@SVector [m.κʰ, m.κʰ, κ])
 end
 
 """
@@ -294,7 +293,7 @@ location to store integrands for bottom up integrals
 """
 function vars_integrals(m::HBModel, T)
     @vars begin
-        ∇hu::T
+        ∇ʰu::T
         αᵀθ::T
     end
 end
@@ -317,7 +316,7 @@ A -> array of aux variables
     Q::Vars,
     A::Vars,
 )
-    I.∇hu = A.w # borrow the w value from A...
+    I.∇ʰu = A.w # borrow the w value from A...
     I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
 
     return nothing
@@ -335,7 +334,7 @@ A -> array of aux variables
 I -> array of integrand variables
 """
 @inline function integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
-    A.w = I.∇hu
+    A.w = I.∇ʰu
     A.pkin = I.αᵀθ
 
     return nothing
@@ -419,6 +418,7 @@ t -> time, not used
     Q::Vars,
     A::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(Q)
     _grav::FT = grav(m.param_set)
@@ -479,8 +479,8 @@ this computation is done pointwise at each nodal point
     A::Vars,
     t::Real,
 )
-    F.u -= D.ν∇u
-    F.θ -= D.κ∇θ
+    F.u += D.ν∇u
+    F.θ += D.κ∇θ
 
     return nothing
 end
@@ -579,6 +579,7 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
+    FT = eltype(Q)
     MD = dg.modeldata
 
     # `update_aux!` gets called twice, once for the real elements and once for
@@ -586,12 +587,10 @@ function update_auxiliary_state!(
     if elems == dg.grid.topology.realelems
         # required to ensure that after integration velocity field is divergence free
         vert_filter = MD.vert_filter
-        # Q[1] = u[1] = u, Q[2] = u[2] = v
-        apply!(Q, (1, 2), dg.grid, vert_filter, VerticalDirection())
+        apply!(Q, (:u,), dg.grid, vert_filter, direction = VerticalDirection())
 
         exp_filter = MD.exp_filter
-        # Q[4] = θ
-        apply!(Q, (4,), dg.grid, exp_filter, VerticalDirection())
+        apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
     end
 
     return true
@@ -614,14 +613,15 @@ function update_auxiliary_state_gradient!(
     t::Real,
     elems::UnitRange,
 )
+    FT = eltype(Q)
     A = dg.state_auxiliary
 
     # store ∇ʰu as integrand for w
     function f!(m::HBModel, Q, A, D, t)
         @inbounds begin
             ν = viscosity_tensor(m)
-            ∇u = ν \ D.ν∇u
-            A.w = -(∇u[1, 1] + ∇u[2, 2])
+            ∇u = ν \ D.ν∇u # minus sign included in gradient flux
+            A.w = (∇u[1, 1] + ∇u[2, 2])
         end
 
         return nothing
@@ -632,10 +632,19 @@ function update_auxiliary_state_gradient!(
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
     reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
 
+    # We are unable to use vars (ie A.w) for this because this operation will
+    # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
+    # has a limited recursion depth for the types allowed.
+    number_auxiliary = number_state_auxiliary(m, FT)
+    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
+    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
+
     # project w(z=0) down the stack
-    # Need to be consistent with vars_state_auxiliary
-    # A[1] = w, A[3] = wz0
-    copy_stack_field_down!(dg, m, A, 1, 3, elems)
+    data = reshape(A.data, Nq^2, Nqk, number_auxiliary, nelemv, nelemh)
+    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nhorzrealelem]
+    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nhorzrealelem]
+    boxy_wz0 .= flat_wz0
 
     return true
 end

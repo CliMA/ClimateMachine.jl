@@ -64,8 +64,16 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
-vars_state_conservative(lm::AtmosLinearModel, FT) =
-    vars_state_conservative(lm.atmos, FT)
+function vars_state_conservative(lm::AtmosLinearModel, FT)
+    @vars begin
+        ρ::FT
+        ρu::SVector{3, FT}
+        ρe::FT
+        turbulence::vars_state_conservative(lm.atmos.turbulence, FT)
+        hyperdiffusion::vars_state_conservative(lm.atmos.hyperdiffusion, FT)
+        moisture::vars_state_conservative(lm.atmos.moisture, FT)
+    end
+end
 vars_state_gradient(lm::AtmosLinearModel, FT) = @vars()
 vars_state_gradient_flux(lm::AtmosLinearModel, FT) = @vars()
 vars_state_auxiliary(lm::AtmosLinearModel, FT) =
@@ -121,7 +129,14 @@ flux_second_order!(
     aux::Vars,
     t::Real,
 ) = nothing
-function wavespeed(lm::AtmosLinearModel, nM, state::Vars, aux::Vars, t::Real)
+function wavespeed(
+    lm::AtmosLinearModel,
+    nM,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
     ref = aux.ref_state
     return soundspeed_air(lm.atmos.param_set, ref.T)
 end
@@ -167,6 +182,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     ref = aux.ref_state
@@ -201,6 +217,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     FT = eltype(state)
     ref = aux.ref_state
@@ -225,9 +242,9 @@ function source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction,
-)
-    if direction isa VerticalDirection || direction isa EveryDirection
+    ::NTuple{1, Dir},
+) where {Dir <: Direction}
+    if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
         source.ρu -= state.ρ * ∇Φ
     end

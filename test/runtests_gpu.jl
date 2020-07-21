@@ -1,16 +1,16 @@
-using Test, Pkg, CuArrays
+using Test, Pkg, CUDA
 
 ENV["JULIA_LOG_LEVEL"] = "WARN"
 
-@test CuArrays.functional()
+@test CUDA.functional()
 
-for submodule in [#"Utilities/ParametersType",
-    #"Common/MoistThermodynamics",
-    #"Atmos/Parameterizations/SurfaceFluxes",
-    #"Mesh",
-    #"DGmethods",
-    "ODESolvers",
+for submodule in [
+    #"Common/Thermodynamics",
+    #"Common/SurfaceFluxes",
     "Arrays",
+    #"Numerics/Mesh",
+    #"Numerics/DGMethods",
+    "Numerics/ODESolvers",
 ]
     println("Starting tests for $submodule")
     t = @elapsed include(joinpath(submodule, "runtests.jl"))
