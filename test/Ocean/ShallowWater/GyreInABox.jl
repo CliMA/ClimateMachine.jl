@@ -16,8 +16,7 @@ using ClimateMachine.VTK
 import ClimateMachine.Ocean.ShallowWater:
     shallow_init_state!,
     shallow_init_aux!,
-    vars_state_conservative,
-    vars_state_auxiliary,
+    vars_state,
     shallow_boundary_state!,
     TurbulenceClosure,
     LinearDrag,

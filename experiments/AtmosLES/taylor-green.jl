@@ -26,10 +26,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_integrals,
-    vars_reverse_integrals,
+    vars_state,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,

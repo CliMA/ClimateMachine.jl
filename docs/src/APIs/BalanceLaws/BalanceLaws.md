@@ -10,15 +10,23 @@ CurrentModule = ClimateMachine.BalanceLaws
 BalanceLaw
 ```
 
+## State variable types
+
+```@docs
+Prognostic
+Auxiliary
+Gradient
+GradientFlux
+GradientLaplacian
+Hyperdiffusive
+UpwardIntegrals
+DownwardIntegrals
+```
+
 ## Variable specification methods
 
 ```@docs
-vars_state_conservative
-vars_state_auxiliary
-vars_state_gradient
-vars_integrals
-vars_reverse_integrals
-vars_state_gradient_flux
+vars_state
 ```
 
 ## Initial condition methods

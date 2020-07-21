@@ -26,7 +26,8 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     Gravity,
     HydrostaticState,
-    vars_state_conservative,
+    ConstantViscosityWithDivergence,
+    vars_state,
     soundspeed
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations

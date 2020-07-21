@@ -86,13 +86,11 @@ const ice_param_set = param_set.microphys_param_set.ice
 const rain_param_set = param_set.microphys_param_set.rain
 const snow_param_set = param_set.microphys_param_set.snow
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, Hyperdiffusive
 
 import ClimateMachine.BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     init_state_conservative!,
     init_state_auxiliary!,
     update_auxiliary_state!,
@@ -167,9 +165,9 @@ function KinematicModel{FT}(
     return KinematicModel{FT, typeof.(atmos)...}(atmos...)
 end
 
-vars_state_gradient(m::KinematicModel, FT) = @vars()
+vars_state(m::KinematicModel, ::Gradient, FT) = @vars()
 
-vars_state_gradient_flux(m::KinematicModel, FT) = @vars()
+vars_state(m::KinematicModel, ::GradientFlux, FT) = @vars()
 
 function init_state_auxiliary!(
     m::KinematicModel,

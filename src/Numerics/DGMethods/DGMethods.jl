@@ -12,23 +12,17 @@ using ..VariableTemplates
 using ..Courant
 using ..BalanceLaws:
     BalanceLaw,
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_gradient_laplacian,
-    vars_hyperdiffusive,
-    vars_integrals,
-    vars_reverse_integrals,
-    number_state_conservative,
-    number_state_gradient_flux,
-    number_state_conservative,
-    number_state_auxiliary,
-    number_state_gradient,
-    num_gradient_laplacian,
-    num_hyperdiffusive,
-    num_integrals,
-    num_reverse_integrals
+    AbstractStateType,
+    Prognostic,
+    Auxiliary,
+    Gradient,
+    GradientFlux,
+    GradientLaplacian,
+    Hyperdiffusive,
+    UpwardIntegrals,
+    DownwardIntegrals,
+    vars_state,
+    number_states
 
 import ..BalanceLaws:
     BalanceLaw,

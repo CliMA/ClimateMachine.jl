@@ -210,8 +210,8 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
-        state = extract_state_conservative(dg, state_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
         MH = vgeo[ijk, grid.MHid, e]
 
         thermo = thermo_vars(bl, thermo_array[ijk, e])
@@ -266,7 +266,7 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
-        state = extract_state_conservative(dg, state_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
         thermo = thermo_vars(bl, thermo_array[ijk, e])
         MH = vgeo[ijk, grid.MHid, e]
 

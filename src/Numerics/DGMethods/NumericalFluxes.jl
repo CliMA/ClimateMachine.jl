@@ -14,23 +14,15 @@ export NumericalFluxGradient,
 using StaticArrays, LinearAlgebra
 using ClimateMachine.VariableTemplates
 using KernelAbstractions.Extras: @unroll
+using ...BalanceLaws
 import ...BalanceLaws:
-    BalanceLaw,
-    vars_state_conservative,
-    vars_state_gradient_flux,
-    vars_state_auxiliary,
-    vars_state_gradient,
+    vars_state,
     boundary_state!,
     wavespeed,
     flux_first_order!,
     flux_second_order!,
     compute_gradient_flux!,
-    number_state_conservative,
-    number_state_gradient,
     compute_gradient_argument!,
-    num_gradient_laplacian,
-    vars_gradient_laplacian,
-    vars_hyperdiffusive,
     transform_post_gradient_laplacian!
 
 """
@@ -287,7 +279,7 @@ function numerical_flux_first_order!(
 ) where {S, A}
 
     FT = eltype(fluxᵀn)
-    num_state_conservative = number_state_conservative(balance_law, FT)
+    num_state_conservative = number_states(balance_law, Prognostic(), FT)
     fluxᵀn = parent(fluxᵀn)
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_conservative))
@@ -373,7 +365,7 @@ function numerical_flux_second_order!(
 ) where {S, D, HD, A}
 
     FT = eltype(fluxᵀn)
-    num_state_conservative = number_state_conservative(balance_law, FT)
+    num_state_conservative = number_states(balance_law, Prognostic(), FT)
     fluxᵀn = parent(fluxᵀn)
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_conservative))
@@ -572,7 +564,7 @@ function normal_boundary_flux_second_order!(
     aux1⁻,
 ) where {S}
     FT = eltype(fluxᵀn)
-    num_state_conservative = number_state_conservative(balance_law, FT)
+    num_state_conservative = number_states(balance_law, Prognostic(), FT)
     fluxᵀn = parent(fluxᵀn)
 
     flux = similar(fluxᵀn, Size(3, num_state_conservative))

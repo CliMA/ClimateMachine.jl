@@ -6,7 +6,7 @@ the Eddy-Diffusivity Mass-Flux model
 """
 module TurbulenceConvection
 
-using ..BalanceLaws: BalanceLaw
+using ..BalanceLaws: BalanceLaw, AbstractStateType
 using ..VariableTemplates: @vars, Vars, Grad
 
 export TurbulenceConvectionModel, NoTurbConv
@@ -14,10 +14,7 @@ export TurbulenceConvectionModel, NoTurbConv
 export init_aux_turbconv!, turbconv_nodal_update_auxiliary_state!
 
 import ..BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     init_state_auxiliary!,
     update_auxiliary_state!,
     flux_first_order!,
@@ -40,10 +37,7 @@ pass through and do nothing.
 """
 struct NoTurbConv <: TurbulenceConvectionModel end
 
-vars_state_conservative(m::TurbulenceConvectionModel, FT) = @vars()
-vars_state_auxiliary(m::TurbulenceConvectionModel, FT) = @vars()
-vars_state_gradient(m::TurbulenceConvectionModel, FT) = @vars()
-vars_state_gradient_flux(m::TurbulenceConvectionModel, FT) = @vars()
+vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
 
 function init_aux_turbconv!(
     m::TurbulenceConvectionModel,

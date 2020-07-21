@@ -19,19 +19,19 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
+using ClimateMachine.BalanceLaws:
+    Prognostic, Auxiliary, AbstractStateType, BalanceLaw
+
 using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 using Random
 
 using ClimateMachine.VariableTemplates
-using ClimateMachine.DGMethods: BalanceLaw
+
+import ClimateMachine.BalanceLaws: vars_state
 
 import ClimateMachine.DGMethods:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -48,11 +48,10 @@ import ClimateMachine.DGMethods.NumericalFluxes:
 
 struct ConservationTestModel <: BalanceLaw end
 
-vars_state_auxiliary(::ConservationTestModel, T) = @vars(vel::SVector{3, T})
-vars_state_conservative(::ConservationTestModel, T) = @vars(q::T, p::T)
+vars_state(::ConservationTestModel, ::Auxiliary, T) = @vars(vel::SVector{3, T})
+vars_state(::ConservationTestModel, ::Prognostic, T) = @vars(q::T, p::T)
 
-vars_state_gradient(::ConservationTestModel, T) = @vars()
-vars_state_gradient_flux(::ConservationTestModel, T) = @vars()
+vars_state(::ConservationTestModel, ::AbstractStateType, T) = @vars()
 
 function init_state_auxiliary!(
     ::ConservationTestModel,

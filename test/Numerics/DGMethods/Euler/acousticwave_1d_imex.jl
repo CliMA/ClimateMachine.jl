@@ -28,8 +28,7 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     NoRadiation,
     NTracers,
-    vars_state_conservative,
-    vars_state_auxiliary,
+    vars_state,
     Gravity,
     HydrostaticState,
     AtmosAcousticGravityLinearModel
@@ -312,8 +311,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files

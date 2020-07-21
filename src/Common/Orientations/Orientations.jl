@@ -26,7 +26,8 @@ using StaticArrays
 using LinearAlgebra
 
 using ..VariableTemplates
-import ..BalanceLaws: BalanceLaw, vars_state_auxiliary
+using ..BalanceLaws
+import ..BalanceLaws: vars_state
 
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
@@ -47,7 +48,7 @@ abstract type Orientation <: BalanceLaw end
 ##### Fallbacks
 #####
 
-function vars_state_auxiliary(m::Orientation, FT)
+function vars_state(m::Orientation, ::Auxiliary, FT)
     @vars begin
         Φ::FT # gravitational potential
         ∇Φ::SVector{3, FT}
@@ -103,7 +104,8 @@ No gravitational force or potential.
 struct NoOrientation <: Orientation end
 
 init_aux!(::NoOrientation, param_set::APS, aux::Vars) = nothing
-vars_state_auxiliary(m::NoOrientation, FT) = @vars()
+
+vars_state(m::NoOrientation, ::Auxiliary, FT) = @vars()
 
 gravitational_potential(::NoOrientation, aux::Vars) = -zero(eltype(aux))
 ∇gravitational_potential(::NoOrientation, aux::Vars) =

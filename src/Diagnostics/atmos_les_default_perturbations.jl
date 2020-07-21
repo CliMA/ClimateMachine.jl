@@ -281,7 +281,7 @@ function atmos_les_default_perturbations_collect(
             for _ in 1:nz
         ]
         @visitI nx ny nz begin
-            statei = Vars{vars_state_conservative(atmos, FT)}(view(
+            statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,
                 la,
@@ -331,7 +331,7 @@ function atmos_les_default_perturbations_collect(
             num_atmos_les_default_perturbation_vars(atmos, FT),
         )
         @visitI nx ny nz begin
-            statei = Vars{vars_state_conservative(atmos, FT)}(view(
+            statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,
                 la,

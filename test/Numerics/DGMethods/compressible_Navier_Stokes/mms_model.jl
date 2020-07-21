@@ -1,12 +1,11 @@
 using ClimateMachine.VariableTemplates
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -23,10 +22,11 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 struct MMSModel{dim} <: BalanceLaw end
 
-vars_state_auxiliary(::MMSModel, T) = @vars(x1::T, x2::T, x3::T)
-vars_state_conservative(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
-vars_state_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
-vars_state_gradient_flux(::MMSModel, T) =
+vars_state(::MMSModel, ::Auxiliary, T) = @vars(x1::T, x2::T, x3::T)
+vars_state(::MMSModel, ::Prognostic, T) =
+    @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
+vars_state(::MMSModel, ::Gradient, T) = @vars(u::T, v::T, w::T)
+vars_state(::MMSModel, ::GradientFlux, T) =
     @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
 
 function flux_first_order!(

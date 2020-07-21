@@ -11,13 +11,10 @@ using Printf
 using LinearAlgebra
 using Logging
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -26,8 +23,6 @@ import ClimateMachine.BalanceLaws:
     init_state_auxiliary!,
     init_state_conservative!,
     update_auxiliary_state!,
-    vars_integrals,
-    vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -41,11 +36,11 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 struct IntegralTestModel{dim} <: BalanceLaw end
 
-vars_reverse_integrals(::IntegralTestModel, T) = @vars(a::T, b::T)
-vars_integrals(::IntegralTestModel, T) = @vars(a::T, b::T)
-vars_state_auxiliary(m::IntegralTestModel, T) = @vars(
-    int::vars_integrals(m, T),
-    rev_int::vars_reverse_integrals(m, T),
+vars_state(::IntegralTestModel, ::DownwardIntegrals, T) = @vars(a::T, b::T)
+vars_state(::IntegralTestModel, ::UpwardIntegrals, T) = @vars(a::T, b::T)
+vars_state(m::IntegralTestModel, ::Auxiliary, T) = @vars(
+    int::vars_state(m, UpwardIntegrals(), T),
+    rev_int::vars_state(m, DownwardIntegrals(), T),
     coord::SVector{3, T},
     a::T,
     b::T,
@@ -53,8 +48,7 @@ vars_state_auxiliary(m::IntegralTestModel, T) = @vars(
     rev_b::T
 )
 
-vars_state_conservative(::IntegralTestModel, T) = @vars()
-vars_state_gradient_flux(::IntegralTestModel, T) = @vars()
+vars_state(::IntegralTestModel, ::AbstractStateType, T) = @vars()
 
 flux_first_order!(::IntegralTestModel, _...) = nothing
 flux_second_order!(::IntegralTestModel, _...) = nothing

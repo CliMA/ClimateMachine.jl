@@ -11,13 +11,16 @@ using Printf
 using LinearAlgebra
 using Logging
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw,
+    Prognostic,
+    Auxiliary,
+    GradientFlux,
+    UpwardIntegrals,
+    DownwardIntegrals
+
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_integrals,
+    vars_state,
     integral_load_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
@@ -31,7 +34,6 @@ import ClimateMachine.BalanceLaws:
     init_state_auxiliary!,
     init_state_conservative!,
     integral_set_auxiliary_state!,
-    vars_reverse_integrals,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
@@ -56,13 +58,17 @@ function update_auxiliary_state!(
     return true
 end
 
-vars_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
-vars_reverse_integrals(::IntegralTestSphereModel, T) = @vars(v::T)
-vars_state_auxiliary(m::IntegralTestSphereModel, T) =
-    @vars(int::vars_integrals(m, T), rev_int::vars_integrals(m, T), r::T, a::T)
+vars_state(::IntegralTestSphereModel, ::UpwardIntegrals, T) = @vars(v::T)
+vars_state(::IntegralTestSphereModel, ::DownwardIntegrals, T) = @vars(v::T)
+vars_state(m::IntegralTestSphereModel, ::Auxiliary, T) = @vars(
+    int::vars_state(m, UpwardIntegrals(), T),
+    rev_int::vars_state(m, UpwardIntegrals(), T),
+    r::T,
+    a::T
+)
 
-vars_state_conservative(::IntegralTestSphereModel, T) = @vars()
-vars_state_gradient_flux(::IntegralTestSphereModel, T) = @vars()
+vars_state(::IntegralTestSphereModel, ::Prognostic, T) = @vars()
+vars_state(::IntegralTestSphereModel, ::GradientFlux, T) = @vars()
 
 flux_first_order!(::IntegralTestSphereModel, _...) = nothing
 flux_second_order!(::IntegralTestSphereModel, _...) = nothing

@@ -6,7 +6,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
-using ClimateMachine.BalanceLaws: vars_state_conservative
+using ClimateMachine.BalanceLaws: vars_state, Prognostic
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 
 using CLIMAParameters
@@ -89,11 +89,11 @@ function test_divergence_free(; imex::Bool = false, BC = nothing)
 
     result = ClimateMachine.invoke!(solver_config)
 
-    maxQ = Vars{vars_state_conservative(driver_config.bl, FT)}(maximum(
+    maxQ = Vars{vars_state(driver_config.bl, Prognostic(), FT)}(maximum(
         solver_config.Q,
         dims = (1, 3),
     ))
-    minQ = Vars{vars_state_conservative(driver_config.bl, FT)}(minimum(
+    minQ = Vars{vars_state(driver_config.bl, Prognostic(), FT)}(minimum(
         solver_config.Q,
         dims = (1, 3),
     ))
