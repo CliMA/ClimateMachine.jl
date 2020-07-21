@@ -11,6 +11,7 @@ using ..DGMethods: DGModel
 using ..BalanceLaws
 
 using Adapt
+using CUDA
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
@@ -66,11 +67,10 @@ doiteration!(
     Q,
     Qrhs,
     solver::AbstractIterativeSystemSolver,
-    tolerance,
     args...,
 ) = throw(MethodError(
     doiteration!,
-    (linearoperator!, Q, Qrhs, solver, tolerance, args...),
+    (linearoperator!, Q, Qrhs, solver, args...),
 ))
 
 initialize!(
@@ -115,13 +115,13 @@ function linearsolve!(
     converged = false
     iters = 0
 
-    converged, threshold =
+    converged, residual_norm0 =
         initialize!(linearoperator!, Q, Qrhs, solver, args...)
     converged && return iters
 
     while !converged && iters < max_iters
         converged, inner_iters, residual_norm =
-            doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
+            doiteration!(linearoperator!, Q, Qrhs, solver, args...)
 
         iters += inner_iters
 
@@ -129,7 +129,7 @@ function linearsolve!(
             error("norm of residual is not finite after $iters iterations of `doiteration!`")
         end
 
-        achieved_tolerance = residual_norm / threshold * solver.rtol
+        achieved_tolerance = residual_norm / residual_norm0 * solver.rtol
     end
 
     converged || @warn "Solver did not attain convergence after $iters iterations"
