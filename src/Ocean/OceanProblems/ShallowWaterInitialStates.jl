@@ -1,46 +1,7 @@
-using MPI
-using ClimateMachine
-using ClimateMachine.Mesh.Topologies
-using ClimateMachine.Mesh.Grids
-using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.MPIStateArrays
-using ClimateMachine.ODESolvers
-using ClimateMachine.GenericCallbacks
-using ClimateMachine.VariableTemplates: flattenednames
-using ClimateMachine.Ocean
-using ClimateMachine.Ocean.ShallowWater
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
-using ClimateMachine.VTK
-import ClimateMachine.Ocean.ShallowWater:
-    shallow_init_state!,
-    shallow_init_aux!,
-    vars_state,
-    shallow_boundary_state!,
-    TurbulenceClosure,
-    LinearDrag,
-    ConstantViscosity,
-    AdvectionTerm,
-    NonLinearAdvection
-
-using CLIMAParameters
-using CLIMAParameters.Planet: grav
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
-
-struct GyreInABox{T} <: ShallowWaterProblem
-    τₒ::T
-    fₒ::T # value includes τₒ, g, and ρ
-    β::T
-    Lˣ::T
-    Lʸ::T
-    H::T
-end
+using ..ShallowWater: TurbulenceClosure, LinearDrag, ConstantViscosity
 
 function null_init_state!(
-    ::GyreInABox,
+    ::HomogeneousBox,
     ::TurbulenceClosure,
     state,
     aux,
@@ -59,7 +20,7 @@ v_lsw(x, y, t) = 2^(-0.5) * cos(π * x) * sin(π * y) * sin(√2 * π * t)
 
 function lsw_init_state!(
     m::ShallowWaterModel,
-    p::GyreInABox,
+    p::HomogeneousBox,
     state,
     aux,
     coords,
@@ -81,7 +42,7 @@ u_lkw(x, y, t) = exp(-0.5 * y^2) * exp(-0.5 * (x - t + 5)^2)
 
 function lkw_init_state!(
     m::ShallowWaterModel,
-    p::GyreInABox,
+    p::HomogeneousBox,
     state,
     aux,
     coords,
@@ -125,11 +86,19 @@ R₁(x₁, ϵ) =
     (R₁(x₁, ϵ) / π) *
     (sin(π * y₁) * (1.0 + βᵖ * (y₁ - 0.5)) + (βᵖ / π) * cos(π * y₁))
 
-function gyre_init_state!(p::GyreInABox, T::LinearDrag, state, aux, coords, t)
+function gyre_init_state!(
+    m::SWModel,
+    p::HomogeneousBox,
+    T::LinearDrag,
+    state,
+    aux,
+    coords,
+    t,
+)
     FT = eltype(state)
     τₒ = p.τₒ
-    fₒ = p.fₒ
-    β = p.β
+    fₒ = m.fₒ
+    β = m.β
     Lˣ = p.Lˣ
     Lʸ = p.Lʸ
     H = p.H
@@ -139,7 +108,7 @@ function gyre_init_state!(p::GyreInABox, T::LinearDrag, state, aux, coords, t)
     βᵖ = β * Lʸ / fₒ
     ϵ = γ / (Lˣ * β)
 
-    _grav::FT = grav(param_set)
+    _grav::FT = grav(m.param_set)
 
     uˢ(ϵ) = (τₒ * D(ϵ)) / (H * γ * π)
     hˢ(ϵ) = (fₒ * Lˣ * uˢ(ϵ)) / _grav
@@ -163,19 +132,20 @@ t4(x, Lˣ, C) = C * (1 - x / Lˣ)
 η_munk(x, y, Lˣ, Lʸ, δᵐ, C) = t4(x, Lˣ, C) * t3(y, Lʸ) * t2(x, δᵐ)
 
 function gyre_init_state!(
-    p::GyreInABox,
+    m::SWModel,
+    p::HomogeneousBox,
     V::ConstantViscosity,
     state,
     aux,
     coords,
     t,
 )
-    T = eltype(state.U)
-    _grav::FT = grav(param_set)
+    FT = eltype(state.U)
+    _grav::FT = grav(m.param_set)
 
     τₒ = p.τₒ
-    fₒ = p.fₒ
-    β = p.β
+    fₒ = m.fₒ
+    β = m.β
     Lˣ = p.Lˣ
     Lʸ = p.Lʸ
     H = p.H

@@ -1,6 +1,6 @@
 module HydrostaticBoussinesq
 
-export HydrostaticBoussinesqModel, AbstractHydrostaticBoussinesqProblem
+export HydrostaticBoussinesqModel
 
 using StaticArrays
 using LinearAlgebra: dot, Diagonal
@@ -38,12 +38,11 @@ import ...BalanceLaws:
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
+import ..Ocean: ocean_init_state!, ocean_init_aux!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 ⊗(a::SVector, b::SVector) = a * b'
-
-abstract type AbstractHydrostaticBoussinesqProblem end
 
 """
     HydrostaticBoussinesqModel <: BalanceLaw
@@ -142,7 +141,6 @@ end
 sets the initial value for state variables
 dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function ocean_init_state! end
 function init_state_prognostic!(m::HBModel, Q::Vars, A::Vars, coords, t)
     return ocean_init_state!(m, m.problem, Q, A, coords, t)
 end
@@ -179,7 +177,6 @@ end
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function ocean_init_aux! end
 function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
     return ocean_init_aux!(m, m.problem, A, geom)
 end
@@ -543,6 +540,7 @@ end
     t::Real,
     direction,
 )
+    # explicit forcing for SSH
     wz0 = A.wz0
     S.η += wz0
 
@@ -688,7 +686,6 @@ function update_auxiliary_state_gradient!(
     return true
 end
 
-include("SimpleBoxProblem.jl")
 include("LinearHBModel.jl")
 include("BoundaryConditions.jl")
 include("Courant.jl")
