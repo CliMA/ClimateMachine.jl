@@ -145,11 +145,12 @@ prob = ODEProblem(sc.dg, sc.Q, (0.0, sc.timeend),nothing)
 #             save_everystep = false,
 #             save_start = false,
 #             save_end = false,)
-solve(prob,Kvaerno3(),
+integrator = init(prob,Kvaerno3(autodiff=false),
             save_everystep = false,
             save_start = false,
             save_end = false,)
 
+solve!(integrator)
 # grid = sc.dg.grid;
 # Q = sc.Q;
 # aux = sc.dg.state_auxiliary;
