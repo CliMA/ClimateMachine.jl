@@ -124,7 +124,7 @@ let
                     moisture = DryModel(),
                     source = Gravity(),
                     boundarycondition = (),
-                    init_state_conservative = initialcondition!,
+                    init_state_prognostic = initialcondition!,
                 )
 
                 dg = DGModel(

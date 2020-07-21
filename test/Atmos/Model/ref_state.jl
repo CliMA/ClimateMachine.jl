@@ -55,7 +55,7 @@ using Test
         param_set;
         moisture = DryModel(),
         ref_state = HydrostaticState(profile, RH),
-        init_state_conservative = x -> x,
+        init_state_prognostic = x -> x,
     )
 
     z = collect(range(FT(0), stop = FT(25e3), length = 100))

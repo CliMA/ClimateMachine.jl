@@ -127,7 +127,7 @@ struct NoTracers <: TracerModel end
 # i.e. the user must track each tracer variable based on its
 # numerical index. Sources can be added to each tracer based on the
 # same numerical index. Initial profiles must be specified using the
-# `init_state_conservative!` hook at the experiment level.
+# `init_state_prognostic!` hook at the experiment level.
 
 """
     NTracers{N, FT} <: TracerModel

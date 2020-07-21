@@ -16,7 +16,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!,
     wavespeed,
     transform_post_gradient_laplacian!
@@ -129,7 +129,7 @@ function init_state_auxiliary!(
     init_hyperdiffusion_tensor!(m.problem, aux, geom)
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::HyperDiffusion,
     state::Vars,
     aux::Vars,

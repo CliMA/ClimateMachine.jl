@@ -156,7 +156,7 @@ function run(
         moisture = DryModel(),
         source = nothing,
         boundarycondition = (),
-        init_state_conservative = isentropicvortex_initialcondition!,
+        init_state_prognostic = isentropicvortex_initialcondition!,
     )
     # This is a bad idea; this test is just testing how
     # implicit GARK composes with explicit methods

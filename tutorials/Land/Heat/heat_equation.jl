@@ -83,7 +83,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!
 
 # ## Initialization
@@ -150,7 +150,7 @@ vars_state(::HeatModel, ::GradientFlux, FT) = @vars(α∇ρcT::SVector{3, FT});
 # ## Define the compute kernels
 
 # Specify the initial values in `aux::Vars`, which are available in
-# `init_state_conservative!`. Note that
+# `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state`
@@ -163,7 +163,7 @@ end;
 # - this method is only called at `t=0`
 # - `state.ρcT` is available here because we've specified `ρcT` in
 # `vars_state`
-function init_state_conservative!(
+function init_state_prognostic!(
     m::HeatModel,
     state::Vars,
     aux::Vars,
@@ -385,7 +385,7 @@ export_plot_snapshot(
 );
 # ![](initial_condition.png)
 
-# It matches what we have in `init_state_conservative!(m::HeatModel, ...)`, so
+# It matches what we have in `init_state_prognostic!(m::HeatModel, ...)`, so
 # let's continue.
 
 # # Solver hooks / callbacks

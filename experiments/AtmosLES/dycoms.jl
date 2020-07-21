@@ -320,7 +320,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
             ),
             AtmosBC(),
         ),
-        init_state_conservative = ics,
+        init_state_prognostic = ics,
     )
 
     ode_solver = ClimateMachine.ExplicitSolverType(

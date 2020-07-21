@@ -23,7 +23,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     boundary_state!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -42,7 +42,7 @@ source!(::VarsTestModel, _...) = nothing
 boundary_state!(_, ::VarsTestModel, _...) = nothing
 wavespeed(::VarsTestModel, _...) = 1
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::VarsTestModel,
     state::Vars,
     aux::Vars,

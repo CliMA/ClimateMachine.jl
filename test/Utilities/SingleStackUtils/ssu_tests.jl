@@ -17,7 +17,7 @@ using ClimateMachine.DGMethods: LocalGeometry
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Auxiliary, Prognostic, Gradient, GradientFlux
 import ClimateMachine.BalanceLaws:
-    vars_state, init_state_auxiliary!, init_state_conservative!
+    vars_state, init_state_auxiliary!, init_state_prognostic!
 
 struct EmptyBalLaw{FT, PS} <: BalanceLaw
     "Parameters"
@@ -40,7 +40,7 @@ function init_state_auxiliary!(m::EmptyBalLaw, aux::Vars, geom::LocalGeometry)
     aux.z = geom.coord[3]
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::EmptyBalLaw,
     state::Vars,
     aux::Vars,

@@ -125,7 +125,7 @@ filtered(::HorizontalDirection, dim, x, y, z) =
 
 ClimateMachine.BalanceLaws.vars_state(::FilterTestModel{4}, ::Prognostic, FT) =
     @vars(q1::FT, q2::FT, q3::FT, q4::FT)
-function ClimateMachine.BalanceLaws.init_state_conservative!(
+function ClimateMachine.BalanceLaws.init_state_prognostic!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
@@ -216,7 +216,7 @@ ClimateMachine.BalanceLaws.vars_state(
     ::Prognostic,
     FT,
 ) where {N} = @vars(q::FT)
-function ClimateMachine.BalanceLaws.init_state_conservative!(
+function ClimateMachine.BalanceLaws.init_state_prognostic!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,

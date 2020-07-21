@@ -32,7 +32,7 @@ import ClimateMachine.BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
@@ -74,7 +74,7 @@ flux_first_order!(::IntegralTestSphereModel, _...) = nothing
 flux_second_order!(::IntegralTestSphereModel, _...) = nothing
 source!(::IntegralTestSphereModel, _...) = nothing
 boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
-init_state_conservative!(::IntegralTestSphereModel, _...) = nothing
+init_state_prognostic!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel, _...) = 1
 
 function init_state_auxiliary!(

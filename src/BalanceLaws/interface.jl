@@ -27,16 +27,16 @@ function vars_state end
 vars_state(::BalanceLaw, ::AbstractStateType, FT) = @vars()
 
 """
-    init_state_conservative!(
+    init_state_prognostic!(
       ::L,
-      state_conservative::Vars,
+      state_prognostic::Vars,
       state_auxiliary::Vars,
       coords,
       args...)
 
 Initialize the conservative state variables at ``t = 0``
 """
-function init_state_conservative! end
+function init_state_prognostic! end
 
 """
     init_state_auxiliary!(
@@ -53,7 +53,7 @@ function init_state_auxiliary! end
     flux_first_order!(
         ::L,
         flux::Grad,
-        state_conservative::Vars,
+        state_prognostic::Vars,
         state_auxiliary::Vars,
         t::Real,
         directions
@@ -67,7 +67,7 @@ function flux_first_order! end
     flux_second_order!(
         ::L,
         flux::Grad,
-        state_conservative::Vars,
+        state_prognostic::Vars,
         state_gradient_flux::Vars,
         hyperdiffusive::Vars,
         state_auxiliary::Vars,
@@ -82,7 +82,7 @@ function flux_second_order! end
     source!(
         ::L,
         source::Vars,
-        state_conservative::Vars,
+        state_prognostic::Vars,
         diffusive::Vars,
         state_auxiliary::Vars,
         t::Real
@@ -96,7 +96,7 @@ function source! end
     compute_gradient_argument!(
         ::L,
         transformstate::Vars,
-        state_conservative::Vars,
+        state_prognostic::Vars,
         state_auxiliary::Vars,
         t::Real
     )
@@ -135,7 +135,7 @@ function transform_post_gradient_laplacian! end
     wavespeed(
         ::L,
         n⁻,
-        state_conservative::Vars,
+        state_prognostic::Vars,
         state_auxiliary::Vars,
         t::Real,
         direction
@@ -149,10 +149,10 @@ function wavespeed end
     boundary_state!(
         ::NumericalFluxGradient,
         ::L,
-        state_conservative⁺::Vars,
+        state_prognostic⁺::Vars,
         state_auxiliary⁺::Vars,
         normal⁻,
-        state_conservative⁻::Vars,
+        state_prognostic⁻::Vars,
         state_auxiliary⁻::Vars,
         bctype,
         t
@@ -160,10 +160,10 @@ function wavespeed end
     boundary_state!(
         ::NumericalFluxFirstOrder,
         ::L,
-        state_conservative⁺::Vars,
+        state_prognostic⁺::Vars,
         state_auxiliary⁺::Vars,
         normal⁻,
-        state_conservative⁻::Vars,
+        state_prognostic⁻::Vars,
         state_auxiliary⁻::Vars,
         bctype,
         t
@@ -171,11 +171,11 @@ function wavespeed end
     boundary_state!(
         ::NumericalFluxSecondOrder,
         ::L,
-        state_conservative⁺::Vars,
+        state_prognostic⁺::Vars,
         state_gradient_flux⁺::Vars,
         state_auxiliary⁺:
         Vars, normal⁻,
-        state_conservative⁻::Vars,
+        state_prognostic⁻::Vars,
         state_gradient_flux⁻::Vars,
         state_auxiliary⁻::Vars,
         bctype,

@@ -444,7 +444,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
             ),
             AtmosBC(),
         ),
-        init_state_conservative = ics,
+        init_state_prognostic = ics,
     )
 
     # Assemble configuration

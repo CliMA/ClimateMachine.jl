@@ -137,7 +137,7 @@ function run(
         ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
-        init_state_conservative = Initialise_Density_Current!,
+        init_state_prognostic = Initialise_Density_Current!,
     )
     # -------------- Define DGModel --------------------------- #
     dg = DGModel(

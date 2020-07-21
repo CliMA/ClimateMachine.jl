@@ -32,7 +32,7 @@ vars_state
 ## Initial condition methods
 
 ```@docs
-init_state_conservative!
+init_state_prognostic!
 init_state_auxiliary!
 ```
 

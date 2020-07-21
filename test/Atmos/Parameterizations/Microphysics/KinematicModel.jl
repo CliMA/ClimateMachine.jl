@@ -91,7 +91,7 @@ using ClimateMachine.BalanceLaws:
 
 import ClimateMachine.BalanceLaws:
     vars_state,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
@@ -132,7 +132,7 @@ struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
     precipitation::P
     source::S
     boundarycondition::BC
-    init_state_conservative::IS
+    init_state_prognostic::IS
     data_config::DC
 end
 
@@ -144,12 +144,12 @@ function KinematicModel{FT}(
     precipitation::P = nothing,
     source::S = nothing,
     boundarycondition::BC = nothing,
-    init_state_conservative::IS = nothing,
+    init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, M, P, S, BC, IS, DC}
 
     @assert param_set ≠ nothing
-    @assert init_state_conservative ≠ nothing
+    @assert init_state_prognostic ≠ nothing
 
     atmos = (
         param_set,
@@ -158,7 +158,7 @@ function KinematicModel{FT}(
         precipitation,
         source,
         boundarycondition,
-        init_state_conservative,
+        init_state_prognostic,
         data_config,
     )
 
@@ -202,7 +202,7 @@ function init_state_auxiliary!(
     end
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -210,7 +210,7 @@ function init_state_conservative!(
     t,
     args...,
 )
-    m.init_state_conservative(m, state, aux, coords, t, args...)
+    m.init_state_prognostic(m, state, aux, coords, t, args...)
 end
 
 function update_auxiliary_state!(
@@ -315,7 +315,7 @@ function config_kinematic_eddy(
     model = KinematicModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_conservative = init_kinematic_eddy!,
+        init_state_prognostic = init_kinematic_eddy!,
         data_config = kmc,
     )
 

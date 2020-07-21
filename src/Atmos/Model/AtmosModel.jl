@@ -49,7 +49,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     update_auxiliary_state!,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
@@ -95,7 +95,7 @@ Users may over-ride prescribed default values for each field.
         source,
         tracers,
         boundarycondition,
-        init_state_conservative
+        init_state_prognostic
     )
 
 # Fields
@@ -128,7 +128,7 @@ struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
     "Boundary condition specification"
     boundarycondition::BC
     "Initial Condition (Function to assign initial values of state variables)"
-    init_state_conservative::IS
+    init_state_prognostic::IS
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -158,11 +158,11 @@ function AtmosModel{FT}(
     ),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state_conservative::IS = nothing,
+    init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
     @assert param_set ≠ nothing
-    @assert init_state_conservative ≠ nothing
+    @assert init_state_prognostic ≠ nothing
 
     atmos = (
         param_set,
@@ -177,7 +177,7 @@ function AtmosModel{FT}(
         source,
         tracers,
         boundarycondition,
-        init_state_conservative,
+        init_state_prognostic,
         data_config,
     )
 
@@ -197,11 +197,11 @@ function AtmosModel{FT}(
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
     boundarycondition::BC = AtmosBC(),
-    init_state_conservative::IS = nothing,
+    init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
     @assert param_set ≠ nothing
-    @assert init_state_conservative ≠ nothing
+    @assert init_state_prognostic ≠ nothing
     atmos = (
         param_set,
         orientation,
@@ -215,7 +215,7 @@ function AtmosModel{FT}(
         source,
         tracers,
         boundarycondition,
-        init_state_conservative,
+        init_state_prognostic,
         data_config,
     )
 
@@ -687,7 +687,7 @@ function source!(
 end
 
 @doc """
-    init_state_conservative!(
+    init_state_prognostic!(
         m::AtmosModel,
         state::Vars,
         aux::Vars,
@@ -697,8 +697,8 @@ end
 Initialise state variables.
 `args...` provides an option to include configuration data
 (current use cases include problem constants, spline-interpolants)
-""" init_state_conservative!
-function init_state_conservative!(
+""" init_state_prognostic!
+function init_state_prognostic!(
     m::AtmosModel,
     state::Vars,
     aux::Vars,
@@ -706,6 +706,6 @@ function init_state_conservative!(
     t,
     args...,
 )
-    m.init_state_conservative(m, state, aux, coords, t, args...)
+    m.init_state_prognostic(m, state, aux, coords, t, args...)
 end
 end # module

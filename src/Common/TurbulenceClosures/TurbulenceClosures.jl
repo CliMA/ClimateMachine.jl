@@ -54,7 +54,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
-    init_state_conservative!,
+    init_state_prognostic!,
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
     indefinite_stack_integral!,

@@ -37,7 +37,7 @@ import ClimateMachine.DGMethods:
     source!,
     boundary_state!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -67,7 +67,7 @@ function init_state_auxiliary!(
     )
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     ::ConservationTestModel,
     state::Vars,
     aux::Vars,

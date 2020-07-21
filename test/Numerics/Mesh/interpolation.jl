@@ -127,7 +127,7 @@ function run_brick_interpolation_test()
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             source = (Gravity(),),
-            init_state_conservative = Initialize_Brick_Interpolation_Test!,
+            init_state_prognostic = Initialize_Brick_Interpolation_Test!,
         )
 
         dg = DGModel(
@@ -288,7 +288,7 @@ function run_cubed_sphere_interpolation_test()
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             moisture = DryModel(),
             source = nothing,
-            init_state_conservative = setup,
+            init_state_prognostic = setup,
         )
 
         dg = DGModel(

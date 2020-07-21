@@ -23,7 +23,7 @@ import ClimateMachine.DGMethods:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -148,7 +148,7 @@ function init_state_auxiliary!(
     end
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     ::PoissonModel{dim},
     state::Vars,
     aux::Vars,

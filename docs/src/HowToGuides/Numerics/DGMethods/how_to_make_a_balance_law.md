@@ -71,7 +71,7 @@ the following methods, which are computed locally at each nodal point:
 ## Methods to set initial conditions
 | **Method** | Purpose |
 |:-----|:-----|
-| [`init_state_conservative!`](@ref) | provide initial values for the conservative state as a function of time and space. |
+| [`init_state_prognostic!`](@ref) | provide initial values for the conservative state as a function of time and space. |
 | [`init_state_auxiliary!`](@ref) | provide initial values for the auxiliary variables as a function of the geometry. |
 
 

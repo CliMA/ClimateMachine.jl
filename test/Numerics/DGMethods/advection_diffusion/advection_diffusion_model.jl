@@ -14,7 +14,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     init_state_auxiliary!,
     update_auxiliary_state!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!,
     wavespeed
 
@@ -245,7 +245,7 @@ function update_auxiliary_state!(
     return false
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::AdvectionDiffusion,
     state::Vars,
     aux::Vars,

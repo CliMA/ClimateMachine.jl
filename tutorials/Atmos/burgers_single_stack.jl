@@ -89,7 +89,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!
 
 # ## Initialization
@@ -169,7 +169,7 @@ vars_state(::BurgersEquation, ::GradientFlux, FT) =
 # ## Define the compute kernels
 
 # Specify the initial values in `aux::Vars`, which are available in
-# `init_state_conservative!`. Note that
+# `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state`
@@ -186,7 +186,7 @@ end;
 # - this method is only called at `t=0`
 # - `state.ρ`, `state.ρu` and`state.ρcT` are available here because
 # we've specified `ρ`, `ρu` and `ρcT` in `vars_state`
-function init_state_conservative!(
+function init_state_prognostic!(
     m::BurgersEquation,
     state::Vars,
     aux::Vars,

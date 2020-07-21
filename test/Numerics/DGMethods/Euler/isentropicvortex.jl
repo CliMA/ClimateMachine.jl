@@ -195,7 +195,7 @@ function run(
         moisture = DryModel(),
         source = nothing,
         boundarycondition = (),
-        init_state_conservative = isentropicvortex_initialcondition!,
+        init_state_prognostic = isentropicvortex_initialcondition!,
     )
 
     dg = DGModel(

@@ -14,7 +14,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -159,7 +159,7 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_conservative!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
 # FIXME: This is probably not right....
@@ -179,7 +179,7 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_conservative!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
 function init_state_auxiliary!(::MMSModel, aux::Vars, g::LocalGeometry)
@@ -189,7 +189,7 @@ function init_state_auxiliary!(::MMSModel, aux::Vars, g::LocalGeometry)
     aux.x3 = x3
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     bl::MMSModel{dim},
     state::Vars,
     aux::Vars,

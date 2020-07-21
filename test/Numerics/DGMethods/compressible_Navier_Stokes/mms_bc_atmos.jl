@@ -164,7 +164,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             moisture = MMSDryModel(),
             source = mms2_source!,
             boundarycondition = InitStateBC(),
-            init_state_conservative = mms2_init_state!,
+            init_state_prognostic = mms2_init_state!,
         )
     else
         model = AtmosModel{FT}(
@@ -176,7 +176,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             moisture = MMSDryModel(),
             source = mms3_source!,
             boundarycondition = InitStateBC(),
-            init_state_conservative = mms3_init_state!,
+            init_state_prognostic = mms3_init_state!,
         )
     end
 

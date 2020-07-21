@@ -247,7 +247,7 @@ function atmos_les_default_perturbations_collect(
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state_conservative(dg, state_data, ijk, e)
+        state = extract_state_prognostic(dg, state_data, ijk, e)
         aux = extract_state_auxiliary(dg, aux_data, ijk, e)
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
@@ -257,7 +257,7 @@ function atmos_les_default_perturbations_collect(
     # Interpolate the state and thermo variables.
     interpol = dgngrp.interpol
     istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_conservative(atmos, FT))
+        ArrayType{FT}(undef, interpol.Npl, number_state_prognostic(atmos, FT))
     interpolate_local!(interpol, Q.realdata, istate)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))

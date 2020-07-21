@@ -126,7 +126,7 @@ function run(
         moisture = DryModel(),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_conservative = setup,
+        init_state_prognostic = setup,
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 

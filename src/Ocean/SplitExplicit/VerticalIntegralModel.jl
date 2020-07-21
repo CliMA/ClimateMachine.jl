@@ -1,6 +1,6 @@
 import ...BalanceLaws:
     vars_state,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
     integral_load_auxiliary_state!,

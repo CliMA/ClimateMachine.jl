@@ -102,7 +102,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
         ref_state = ref_state,
-        init_state_conservative = init_risingbubble!,
+        init_state_prognostic = init_risingbubble!,
     )
 
     # Problem configuration

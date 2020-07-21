@@ -14,7 +14,7 @@ using ..Courant
 export BalanceLaw,
     vars_state,
     number_states,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     compute_gradient_flux!,
     compute_gradient_argument!,

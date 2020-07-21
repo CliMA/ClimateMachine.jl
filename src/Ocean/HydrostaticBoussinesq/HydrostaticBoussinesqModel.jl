@@ -20,7 +20,7 @@ using ...BalanceLaws: number_states
 
 import ...BalanceLaws:
     vars_state,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -133,13 +133,13 @@ function vars_state(m::HBModel, ::Prognostic, T)
 end
 
 """
-    init_state_conservative!(::HBModel)
+    init_state_prognostic!(::HBModel)
 
 sets the initial value for state variables
 dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_state! end
-function init_state_conservative!(m::HBModel, Q::Vars, A::Vars, coords, t)
+function init_state_prognostic!(m::HBModel, Q::Vars, A::Vars, coords, t)
     return ocean_init_state!(m, m.problem, Q, A, coords, t)
 end
 

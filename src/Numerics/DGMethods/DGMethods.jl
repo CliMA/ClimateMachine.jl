@@ -26,7 +26,7 @@ using ..BalanceLaws:
 
 import ..BalanceLaws:
     BalanceLaw,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     flux_first_order!,
     flux_second_order!,

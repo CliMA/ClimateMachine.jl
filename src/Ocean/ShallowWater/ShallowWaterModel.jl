@@ -15,7 +15,7 @@ using ...BalanceLaws
 import ...DGMethods.NumericalFluxes: update_penalty!
 import ...BalanceLaws:
     vars_state,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -241,7 +241,7 @@ function init_state_auxiliary!(m::SWModel, aux::Vars, geom::LocalGeometry)
 end
 
 function shallow_init_state! end
-function init_state_conservative!(m::SWModel, state::Vars, aux::Vars, coords, t)
+function init_state_prognostic!(m::SWModel, state::Vars, aux::Vars, coords, t)
     shallow_init_state!(m, m.problem, state, aux, coords, t)
 end
 

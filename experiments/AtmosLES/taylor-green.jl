@@ -133,7 +133,7 @@ function config_greenvortex(
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
         source = (),
-        init_state_conservative = init_greenvortex!,             # Apply the initial condition
+        init_state_prognostic = init_greenvortex!,             # Apply the initial condition
     )
 
     # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.

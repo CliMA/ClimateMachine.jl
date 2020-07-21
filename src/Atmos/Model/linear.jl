@@ -154,7 +154,7 @@ function boundary_state!(
 end
 init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) =
     nothing
-init_state_conservative!(
+init_state_prognostic!(
     lm::AtmosLinearModel,
     state::Vars,
     aux::Vars,

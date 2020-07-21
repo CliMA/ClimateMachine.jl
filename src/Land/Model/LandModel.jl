@@ -17,7 +17,7 @@ import ..BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     update_auxiliary_state!,
     nodal_update_auxiliary_state!
 
