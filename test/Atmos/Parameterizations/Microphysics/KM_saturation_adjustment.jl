@@ -1,6 +1,6 @@
 include("KinematicModel.jl")
 
-function vars_state_conservative(m::KinematicModel, FT)
+function vars_state(m::KinematicModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -9,7 +9,7 @@ function vars_state_conservative(m::KinematicModel, FT)
     end
 end
 
-function vars_state_auxiliary(m::KinematicModel, FT)
+function vars_state(m::KinematicModel, ::Auxiliary, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
@@ -253,20 +253,20 @@ function main()
             out_path_prefix,
             solver_config.Q,
             solver_config.dg,
-            flattenednames(vars_state_conservative(model, FT)),
+            flattenednames(vars_state(model, Prognostic(), FT)),
             solver_config.dg.state_auxiliary,
-            flattenednames(vars_state_auxiliary(model, FT)),
+            flattenednames(vars_state(model, Auxiliary(), FT)),
         )
         step[1] += 1
         nothing
     end
 
     # get aux variables indices for testing
-    q_tot_ind = varsindex(vars_state_auxiliary(model, FT), :q_tot)
-    q_vap_ind = varsindex(vars_state_auxiliary(model, FT), :q_vap)
-    q_liq_ind = varsindex(vars_state_auxiliary(model, FT), :q_liq)
-    q_ice_ind = varsindex(vars_state_auxiliary(model, FT), :q_ice)
-    S_ind = varsindex(vars_state_auxiliary(model, FT), :S)
+    q_tot_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_tot)
+    q_vap_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_vap)
+    q_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_liq)
+    q_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_ice)
+    S_ind = varsindex(vars_state(model, Auxiliary(), FT), :S)
 
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(

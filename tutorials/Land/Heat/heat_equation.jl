@@ -61,7 +61,9 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
@@ -72,10 +74,7 @@ using ClimateMachine.SingleStackUtils
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     source!,
     flux_second_order!,
     flux_first_order!,
@@ -84,7 +83,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!
 
 # ## Initialization
@@ -136,25 +135,25 @@ m = HeatModel{FT}();
 # the solver.
 
 # Specify auxiliary variables for `HeatModel`
-vars_state_auxiliary(::HeatModel, FT) = @vars(z::FT, T::FT);
+vars_state(::HeatModel, ::Auxiliary, FT) = @vars(z::FT, T::FT);
 
 # Specify state variables, the variables solved for in the PDEs, for
 # `HeatModel`
-vars_state_conservative(::HeatModel, FT) = @vars(ρcT::FT);
+vars_state(::HeatModel, ::Prognostic, FT) = @vars(ρcT::FT);
 
 # Specify state variables whose gradients are needed for `HeatModel`
-vars_state_gradient(::HeatModel, FT) = @vars(ρcT::FT);
+vars_state(::HeatModel, ::Gradient, FT) = @vars(ρcT::FT);
 
 # Specify gradient variables for `HeatModel`
-vars_state_gradient_flux(::HeatModel, FT) = @vars(α∇ρcT::SVector{3, FT});
+vars_state(::HeatModel, ::GradientFlux, FT) = @vars(α∇ρcT::SVector{3, FT});
 
 # ## Define the compute kernels
 
 # Specify the initial values in `aux::Vars`, which are available in
-# `init_state_conservative!`. Note that
+# `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
-# in `vars_state_auxiliary`
+# in `vars_state`
 function init_state_auxiliary!(m::HeatModel, aux::Vars, geom::LocalGeometry)
     aux.z = geom.coord[3]
     aux.T = m.initialT
@@ -163,8 +162,8 @@ end;
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
 # - `state.ρcT` is available here because we've specified `ρcT` in
-# `vars_state_conservative`
-function init_state_conservative!(
+# `vars_state`
+function init_state_prognostic!(
     m::HeatModel,
     state::Vars,
     aux::Vars,
@@ -193,7 +192,7 @@ end;
 
 # Compute/update all auxiliary variables at each node. Note that
 # - `aux.T` is available here because we've specified `T` in
-# `vars_state_auxiliary`
+# `vars_state`
 function heat_eq_nodal_update_aux!(
     m::HeatModel,
     state::Vars,
@@ -206,7 +205,7 @@ end;
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
 # the gradient of `ρcT`. Here, we specify how `ρcT` is computed. Note that
 #  - `transform.ρcT` is available here because we've specified `ρcT` in
-#  `vars_state_gradient`
+#  `vars_state`
 function compute_gradient_argument!(
     m::HeatModel,
     transform::Vars,
@@ -220,9 +219,9 @@ end;
 # Specify where in `diffusive::Vars` to store the computed gradient from
 # `compute_gradient_argument!`. Note that:
 #  - `diffusive.α∇ρcT` is available here because we've specified `α∇ρcT` in
-#  `vars_state_gradient_flux`
+#  `vars_state`
 #  - `∇transform.ρcT` is available here because we've specified `ρcT`  in
-#  `vars_state_gradient`
+#  `vars_state`
 function compute_gradient_flux!(
     m::HeatModel,
     diffusive::Vars,
@@ -241,7 +240,7 @@ function flux_first_order!(m::HeatModel, _...) end;
 # Compute diffusive flux (``F(α, ρcT, t) = -α ∇ρcT`` in the original PDE).
 # Note that:
 # - `diffusive.α∇ρcT` is available here because we've specified `α∇ρcT` in
-# `vars_state_gradient_flux`
+# `vars_state`
 function flux_second_order!(
     m::HeatModel,
     flux::Grad,
@@ -369,12 +368,12 @@ z = get_z(grid, z_scale)
 state_vars = SingleStackUtils.get_vars_from_nodal_stack(
     grid,
     Q,
-    vars_state_conservative(m, FT),
+    vars_state(m, Prognostic(), FT),
 )
 aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
     grid,
     aux,
-    vars_state_auxiliary(m, FT),
+    vars_state(m, Auxiliary(), FT),
 )
 all_vars = OrderedDict(state_vars..., aux_vars...);
 export_plot_snapshot(
@@ -386,7 +385,7 @@ export_plot_snapshot(
 );
 # ![](initial_condition.png)
 
-# It matches what we have in `init_state_conservative!(m::HeatModel, ...)`, so
+# It matches what we have in `init_state_prognostic!(m::HeatModel, ...)`, so
 # let's continue.
 
 # # Solver hooks / callbacks
@@ -410,12 +409,12 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars = SingleStackUtils.get_vars_from_nodal_stack(
         grid,
         Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
     )
     aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
         grid,
         aux,
-        vars_state_auxiliary(m, FT);
+        vars_state(m, Auxiliary(), FT);
         exclude = [z_key],
     )
     all_vars = OrderedDict(state_vars..., aux_vars...)

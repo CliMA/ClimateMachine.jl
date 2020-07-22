@@ -130,7 +130,7 @@ function main()
         moisture = MMSDryModel(),
         source = mms3_source!,
         boundarycondition = InitStateBC(),
-        init_state_conservative = mms3_init_state!,
+        init_state_prognostic = mms3_init_state!,
     )
 
     brickrange = (

@@ -497,7 +497,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(10)
+    CFL = FT(3)
 
     # Execute the get_gcm_info function
     (

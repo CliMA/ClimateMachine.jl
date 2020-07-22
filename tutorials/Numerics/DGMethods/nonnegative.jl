@@ -92,7 +92,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname)
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
 
     writevtk(filename, Q, dg, statenames)
 

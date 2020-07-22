@@ -26,7 +26,8 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     Gravity,
     HydrostaticState,
-    vars_state_conservative,
+    ConstantViscosityWithDivergence,
+    vars_state,
     soundspeed
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations
@@ -123,7 +124,7 @@ let
                     moisture = DryModel(),
                     source = Gravity(),
                     boundarycondition = (),
-                    init_state_conservative = initialcondition!,
+                    init_state_prognostic = initialcondition!,
                 )
 
                 dg = DGModel(

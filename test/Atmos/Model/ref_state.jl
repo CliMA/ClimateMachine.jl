@@ -15,36 +15,37 @@ using ClimateMachine.Atmos: atmos_init_aux!
 using ClimateMachine.Orientations: init_aux!
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods: vars_state_auxiliary, number_state_auxiliary
-using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, vars_state, number_states, Auxiliary
+using ClimateMachine.DGMethods: LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
 
 using Test
 
-# We should provide an interface to call all physics
-# kernels in some way similar to this:
-function compute_ref_state(z::FT, atmos) where {FT}
-
-    vgeo = SArray{Tuple{3, 16, 3}, FT}(zeros(3, 16, 3)) # dummy, not used
-    local_geom = LocalGeometry(Val(5), vgeo, 1, 1) # dummy, not used
-    st = vars_state_auxiliary(atmos, FT)
-    nst = number_state_auxiliary(atmos, FT)
-    arr = MArray{Tuple{nst}, FT}(undef)
-    fill!(arr, 0)
-    aux = Vars{st}(arr)
-
-    # Hack: need coord in sync with incoming z, so that
-    # altitude returns correct value.
-    aux.coord = @SArray FT[0, 0, z]
-
-    # Need orientation defined, so that z
-    init_aux!(atmos.orientation, atmos.param_set, aux)
-    atmos_init_aux!(atmos.ref_state, atmos, aux, local_geom)
-    return aux
-end
 
 @testset "Hydrostatic reference states" begin
+    # We should provide an interface to call all physics
+    # kernels in some way similar to this:
+    function compute_ref_state(z::FT, atmos) where {FT}
+
+        vgeo = SArray{Tuple{3, 16, 3}, FT}(zeros(3, 16, 3)) # dummy, not used
+        local_geom = LocalGeometry(Val(5), vgeo, 1, 1) # dummy, not used
+        st = vars_state(atmos, Auxiliary(), FT)
+        nst = number_states(atmos, Auxiliary(), FT)
+        arr = MArray{Tuple{nst}, FT}(undef)
+        fill!(arr, 0)
+        aux = Vars{st}(arr)
+
+        # Hack: need coord in sync with incoming z, so that
+        # altitude returns correct value.
+        aux.coord = @SArray FT[0, 0, z]
+
+        # Need orientation defined, so that z
+        init_aux!(atmos.orientation, atmos.param_set, aux)
+        atmos_init_aux!(atmos.ref_state, atmos, aux, local_geom)
+        return aux
+    end
 
     FT = Float64
     RH = FT(0.5)
@@ -54,7 +55,7 @@ end
         param_set;
         moisture = DryModel(),
         ref_state = HydrostaticState(profile, RH),
-        init_state_conservative = x -> x,
+        init_state_prognostic = x -> x,
     )
 
     z = collect(range(FT(0), stop = FT(25e3), length = 100))

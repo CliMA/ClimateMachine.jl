@@ -35,12 +35,12 @@ the following methods, which are computed locally at each nodal point:
 ## Variable name specification methods
 | **Method** | Necessary | Purpose |
 |:-----|:---|:----|
-| [`vars_state_conservative`](@ref)         | **YES** |  specify the names of the variables in the conservative state vector, typically mass, momentum, and various tracers. |
-| [`vars_state_auxiliary`](@ref)           | **YES** |  specify the names of any variables required for the balance law that aren't related to derivatives of the state variables (e.g. spatial coordinates or various integrals) or those needed to solve expensive auxiliary equations (e.g., temperature via a non-linear equation solve)     |
-| [`vars_state_gradient`](@ref)         | **YES** |  specify the names of the gradients of functions of the conservative state variables. used to represent values before **and** after differentiation |
-| [`vars_state_gradient_flux`](@ref)         | **YES** |  specify the names of the gradient fluxes necessary to impose Neumann boundary conditions. typically the product of a diffusivity tensor with a gradient state variable, potentially equivalent to the second-order flux for a conservative state variable |
-| [`vars_integrals`](@ref)         | **NO** |  specify the names of any one-dimensional vertical integrals from **bottom to top** of the domain required for the balance law. used to represent both the integrand **and** the resulting indefinite integral |
-| [`vars_reverse_integrals`](@ref)         | **NO** |  specify the names of any one-dimensional vertical integral from **top to bottom** of the domain required for the balance law. each variable here must also exist in `vars_integrals` since the reverse integral kernels use subtraction to reverse the integral instead of performing a new integral. use to represent the value before **and** after reversing direction |
+| [`vars_state`](@ref)         | **YES** |  specify the names of the variables in the conservative state vector, typically mass, momentum, and various tracers. |
+| [`vars_state`](@ref)           | **YES** |  specify the names of any variables required for the balance law that aren't related to derivatives of the state variables (e.g. spatial coordinates or various integrals) or those needed to solve expensive auxiliary equations (e.g., temperature via a non-linear equation solve)     |
+| [`vars_state`](@ref)         | **YES** |  specify the names of the gradients of functions of the conservative state variables. used to represent values before **and** after differentiation |
+| [`vars_state`](@ref)         | **YES** |  specify the names of the gradient fluxes necessary to impose Neumann boundary conditions. typically the product of a diffusivity tensor with a gradient state variable, potentially equivalent to the second-order flux for a conservative state variable |
+| [`vars_state`](@ref)         | **NO** |  specify the names of any one-dimensional vertical integrals from **bottom to top** of the domain required for the balance law. used to represent both the integrand **and** the resulting indefinite integral |
+| [`vars_state`](@ref)         | **NO** |  specify the names of any one-dimensional vertical integral from **top to bottom** of the domain required for the balance law. each variable here must also exist in `vars_state` since the reverse integral kernels use subtraction to reverse the integral instead of performing a new integral. use to represent the value before **and** after reversing direction |
 
 ## Methods to compute gradients and integrals
 | **Method** |  Purpose |
@@ -71,7 +71,7 @@ the following methods, which are computed locally at each nodal point:
 ## Methods to set initial conditions
 | **Method** | Purpose |
 |:-----|:-----|
-| [`init_state_conservative!`](@ref) | provide initial values for the conservative state as a function of time and space. |
+| [`init_state_prognostic!`](@ref) | provide initial values for the conservative state as a function of time and space. |
 | [`init_state_auxiliary!`](@ref) | provide initial values for the auxiliary variables as a function of the geometry. |
 
 
@@ -84,7 +84,7 @@ argument inside these methods behave as dictionaries, for example:
 ```julia
 struct MyModel <: BalanceLaw end
 
-function vars_state_conservative(m::MyModel, FT)
+function vars_state(m::MyModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         T::FT

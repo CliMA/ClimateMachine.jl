@@ -24,13 +24,13 @@ end
 """
     Copy over state, aux, and diff variables from HBModel
 """
-vars_state_conservative(lm::LinearHBModel, FT) =
-    vars_state_conservative(lm.ocean, FT)
-vars_state_gradient(lm::LinearHBModel, FT) = vars_state_gradient(lm.ocean, FT)
-vars_state_gradient_flux(lm::LinearHBModel, FT) =
-    vars_state_gradient_flux(lm.ocean, FT)
-vars_state_auxiliary(lm::LinearHBModel, FT) = vars_state_auxiliary(lm.ocean, FT)
-vars_integrals(lm::LinearHBModel, FT) = @vars()
+vars_state(lm::LinearHBModel, ::Prognostic, FT) =
+    vars_state(lm.ocean, Prognostic(), FT)
+vars_state(lm::LinearHBModel, st::Gradient, FT) = vars_state(lm.ocean, st, FT)
+vars_state(lm::LinearHBModel, ::GradientFlux, FT) =
+    vars_state(lm.ocean, GradientFlux(), FT)
+vars_state(lm::LinearHBModel, st::Auxiliary, FT) = vars_state(lm.ocean, st, FT)
+vars_state(lm::LinearHBModel, ::UpwardIntegrals, FT) = @vars()
 
 """
     No integration, hyperbolic flux, or source terms
@@ -43,8 +43,7 @@ vars_integrals(lm::LinearHBModel, FT) = @vars()
     No need to init, initialize by full model
 """
 init_state_auxiliary!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing
-init_state_conservative!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) =
-    nothing
+init_state_prognostic!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
 
 """
     compute_gradient_argument!(::LinearHBModel)

@@ -86,14 +86,12 @@ const ice_param_set = param_set.microphys_param_set.ice
 const rain_param_set = param_set.microphys_param_set.rain
 const snow_param_set = param_set.microphys_param_set.snow
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, Hyperdiffusive
 
 import ClimateMachine.BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    init_state_conservative!,
+    vars_state,
+    init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
@@ -134,7 +132,7 @@ struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
     precipitation::P
     source::S
     boundarycondition::BC
-    init_state_conservative::IS
+    init_state_prognostic::IS
     data_config::DC
 end
 
@@ -146,12 +144,12 @@ function KinematicModel{FT}(
     precipitation::P = nothing,
     source::S = nothing,
     boundarycondition::BC = nothing,
-    init_state_conservative::IS = nothing,
+    init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, O, M, P, S, BC, IS, DC}
 
     @assert param_set ≠ nothing
-    @assert init_state_conservative ≠ nothing
+    @assert init_state_prognostic ≠ nothing
 
     atmos = (
         param_set,
@@ -160,16 +158,16 @@ function KinematicModel{FT}(
         precipitation,
         source,
         boundarycondition,
-        init_state_conservative,
+        init_state_prognostic,
         data_config,
     )
 
     return KinematicModel{FT, typeof.(atmos)...}(atmos...)
 end
 
-vars_state_gradient(m::KinematicModel, FT) = @vars()
+vars_state(m::KinematicModel, ::Gradient, FT) = @vars()
 
-vars_state_gradient_flux(m::KinematicModel, FT) = @vars()
+vars_state(m::KinematicModel, ::GradientFlux, FT) = @vars()
 
 function init_state_auxiliary!(
     m::KinematicModel,
@@ -204,7 +202,7 @@ function init_state_auxiliary!(
     end
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -212,7 +210,7 @@ function init_state_conservative!(
     t,
     args...,
 )
-    m.init_state_conservative(m, state, aux, coords, t, args...)
+    m.init_state_prognostic(m, state, aux, coords, t, args...)
 end
 
 function update_auxiliary_state!(
@@ -317,7 +315,7 @@ function config_kinematic_eddy(
     model = KinematicModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_conservative = init_kinematic_eddy!,
+        init_state_prognostic = init_kinematic_eddy!,
         data_config = kmc,
     )
 

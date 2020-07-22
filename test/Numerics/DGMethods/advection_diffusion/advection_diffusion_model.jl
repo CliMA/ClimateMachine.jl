@@ -1,13 +1,12 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods: nodal_update_auxiliary_state!
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
+    number_states,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -15,11 +14,9 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     init_state_auxiliary!,
     update_auxiliary_state!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!,
-    wavespeed,
-    number_state_conservative,
-    number_state_gradient
+    wavespeed
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
@@ -55,10 +52,11 @@ end
 #   `coord` coordinate points (needed for BCs)
 #   `u` advection velocity
 #   `D` Diffusion tensor
-vars_state_auxiliary(::AdvectionDiffusion, FT) =
+vars_state(::AdvectionDiffusion, ::Auxiliary, FT) =
     @vars(coord::SVector{3, FT}, u::SVector{3, FT}, D::SMatrix{3, 3, FT, 9})
-function vars_state_auxiliary(
+function vars_state(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
+    ::Auxiliary,
     FT,
 ) where {dim, P, fluxBC}
     @vars begin
@@ -68,19 +66,21 @@ function vars_state_auxiliary(
 end
 
 # Density is only state
-vars_state_conservative(::AdvectionDiffusion, FT) = @vars(ρ::FT)
+vars_state(::AdvectionDiffusion, ::Prognostic, FT) = @vars(ρ::FT)
 
 # Take the gradient of density
-vars_state_gradient(::AdvectionDiffusion, FT) = @vars(ρ::FT)
-vars_state_gradient(
+vars_state(::AdvectionDiffusion, ::Gradient, FT) = @vars(ρ::FT)
+vars_state(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
+    ::Gradient,
     FT,
 ) where {dim, P, fluxBC} = @vars()
 
 # The DG auxiliary variable: D ∇ρ
-vars_state_gradient_flux(::AdvectionDiffusion, FT) = @vars(σ::SVector{3, FT})
-vars_state_gradient_flux(
+vars_state(::AdvectionDiffusion, ::GradientFlux, FT) = @vars(σ::SVector{3, FT})
+vars_state(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
+    ::GradientFlux,
     FT,
 ) where {dim, P, fluxBC} = @vars()
 
@@ -245,7 +245,7 @@ function update_auxiliary_state!(
     return false
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::AdvectionDiffusion,
     state::Vars,
     aux::Vars,
@@ -299,8 +299,8 @@ function boundary_state!(
         diff⁺.σ = diff⁻.σ
     elseif bctype == 2 # Neumann with data
         FT = eltype(diff⁺)
-        ngrad = number_state_gradient(m, FT)
-        ∇state = Grad{vars_state_gradient(m, FT)}(similar(
+        ngrad = number_states(m, Gradient(), FT)
+        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
             parent(diff⁺),
             Size(3, ngrad),
         ))
@@ -310,8 +310,8 @@ function boundary_state!(
         # compute the diffusive flux using the boundary state
     elseif bctype == 4 # zero Neumann
         FT = eltype(diff⁺)
-        ngrad = number_state_gradient(m, FT)
-        ∇state = Grad{vars_state_gradient(m, FT)}(similar(
+        ngrad = number_states(m, Gradient(), FT)
+        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
             parent(diff⁺),
             Size(3, ngrad),
         ))
@@ -361,8 +361,8 @@ function boundary_flux_second_order!(
         flux_second_order!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
     elseif bctype == 2 # Neumann data
         FT = eltype(diff⁺)
-        ngrad = number_state_gradient(m, FT)
-        ∇state = Grad{vars_state_gradient(m, FT)}(similar(
+        ngrad = number_states(m, Gradient(), FT)
+        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
             parent(diff⁺),
             Size(3, ngrad),
         ))

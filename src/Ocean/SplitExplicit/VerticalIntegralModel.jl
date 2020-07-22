@@ -1,12 +1,8 @@
 import ...BalanceLaws:
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_state_auxiliary,
-    init_state_conservative!,
+    vars_state,
+    init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
-    vars_integrals,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!
 
@@ -17,13 +13,10 @@ struct VerticalIntegralModel{M} <: BalanceLaw
     end
 end
 
-vars_state_gradient(tm::VerticalIntegralModel, FT) = @vars()
-vars_state_gradient_flux(tm::VerticalIntegralModel, FT) = @vars()
+vars_state(tm::VerticalIntegralModel, st::Prognostic, FT) =
+    vars_state(tm.ocean, st, FT)
 
-vars_state_conservative(tm::VerticalIntegralModel, FT) =
-    vars_state_conservative(tm.ocean, FT)
-
-function vars_state_auxiliary(m::VerticalIntegralModel, T)
+function vars_state(m::VerticalIntegralModel, ::Auxiliary, T)
     @vars begin
         ∫x::SVector{2, T}
     end
@@ -32,7 +25,7 @@ end
 init_state_auxiliary!(tm::VerticalIntegralModel, A::Vars, geom::LocalGeometry) =
     nothing
 
-function vars_integrals(m::VerticalIntegralModel, T)
+function vars_state(m::VerticalIntegralModel, ::UpwardIntegrals, T)
     @vars begin
         ∫x::SVector{2, T}
     end

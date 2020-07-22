@@ -2,10 +2,10 @@ export GCMModel, NoGCM, HadGem2
 
 abstract type GCMModel end
 
-vars_state_conservative(::GCMModel, FT) = @vars()
-vars_state_auxiliary(::GCMModel, FT) = @vars()
-vars_integrals(::GCMModel, FT) = @vars()
-vars_reverse_integrals(::GCMModel, FT) = @vars()
+vars_state(::GCMModel, ::Prognostic, FT) = @vars()
+vars_state(::GCMModel, ::Auxiliary, FT) = @vars()
+vars_state(::GCMModel,::UpwardIntegrals, FT) = @vars()
+vars_state(::GCMModel,::DownwardIntegrals, FT) = @vars()
 
 function atmos_nodal_update_auxiliary_state!(
     ::GCMModel,
@@ -48,7 +48,7 @@ function flux_radiation!(
 struct NoGCM <: GCMModel end
 
 struct HadGem2 <: GCMModel end
-vars_state_auxiliary(m::HadGem2, FT) = @vars(
+vars_state(m::HadGem2, ::Auxiliary, FT) = @vars(
     ρ::FT,
     p::FT,
     ta::FT,

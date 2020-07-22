@@ -11,12 +11,11 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+
 import ClimateMachine.DGMethods:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -24,7 +23,7 @@ import ClimateMachine.DGMethods:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -41,10 +40,10 @@ end
 
 struct PoissonModel{dim} <: BalanceLaw end
 
-vars_state_auxiliary(::PoissonModel, T) = @vars(rhs_ϕ::T)
-vars_state_conservative(::PoissonModel, T) = @vars(ϕ::T)
-vars_state_gradient(::PoissonModel, T) = @vars(ϕ::T)
-vars_state_gradient_flux(::PoissonModel, T) = @vars(∇ϕ::SVector{3, T})
+vars_state(::PoissonModel, ::Auxiliary, T) = @vars(rhs_ϕ::T)
+vars_state(::PoissonModel, ::Prognostic, T) = @vars(ϕ::T)
+vars_state(::PoissonModel, ::Gradient, T) = @vars(ϕ::T)
+vars_state(::PoissonModel, ::GradientFlux, T) = @vars(∇ϕ::SVector{3, T})
 
 boundary_state!(nf, bl::PoissonModel, _...) = nothing
 
@@ -149,7 +148,7 @@ function init_state_auxiliary!(
     end
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     ::PoissonModel{dim},
     state::Vars,
     aux::Vars,

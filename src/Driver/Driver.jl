@@ -17,11 +17,7 @@ using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
 using ..DGMethods
-using ..BalanceLaws:
-    BalanceLaw,
-    vars_state_conservative,
-    vars_state_auxiliary,
-    update_auxiliary_state!
+using ..BalanceLaws: BalanceLaw, vars_state, update_auxiliary_state!
 using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
 using ..Ocean.HydrostaticBoussinesq

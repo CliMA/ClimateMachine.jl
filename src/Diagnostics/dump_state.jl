@@ -1,32 +1,4 @@
-function dump_state_init(dgngrp, currtime)
-    FT = eltype(Settings.Q)
-    bl = Settings.dg.balance_law
-    mpicomm = Settings.mpicomm
-    mpirank = MPI.Comm_rank(mpicomm)
-
-    if mpirank == 0
-        # get dimensions for the interpolated grid
-        dims = dimensions(dgngrp.interpol)
-
-        # set up the variables we're going to be writing
-        vars = OrderedDict()
-        statenames = flattenednames(vars_state_conservative(bl, FT))
-        for varname in statenames
-            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
-        end
-
-        dprefix = @sprintf(
-            "%s_%s-%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
-        dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
-    end
-
-    return nothing
-end
+dump_state_init(dgngrp, currtime) = dump_init(dgngrp, currtime, Prognostic())
 
 function dump_state_collect(dgngrp, currtime)
     interpol = dgngrp.interpol
@@ -37,7 +9,7 @@ function dump_state_collect(dgngrp, currtime)
     bl = dg.balance_law
     mpirank = MPI.Comm_rank(mpicomm)
 
-    istate = similar(Q.data, interpol.Npl, number_state_conservative(bl, FT))
+    istate = similar(Q.data, interpol.Npl, number_states(bl, Prognostic(), FT))
     interpolate_local!(interpol, Q.data, istate)
 
     if interpol isa InterpolationCubedSphere
@@ -49,7 +21,7 @@ function dump_state_collect(dgngrp, currtime)
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
 
     if mpirank == 0
-        statenames = flattenednames(vars_state_conservative(bl, FT))
+        statenames = flattenednames(vars_state(bl, Prognostic(), FT))
         varvals = OrderedDict()
         for (vari, varname) in enumerate(statenames)
             varvals[varname] = all_state_data[:, :, :, vari]

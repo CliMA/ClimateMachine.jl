@@ -1,12 +1,11 @@
 using ClimateMachine.VariableTemplates
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -15,7 +14,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -23,10 +22,11 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 struct MMSModel{dim} <: BalanceLaw end
 
-vars_state_auxiliary(::MMSModel, T) = @vars(x1::T, x2::T, x3::T)
-vars_state_conservative(::MMSModel, T) = @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
-vars_state_gradient(::MMSModel, T) = @vars(u::T, v::T, w::T)
-vars_state_gradient_flux(::MMSModel, T) =
+vars_state(::MMSModel, ::Auxiliary, T) = @vars(x1::T, x2::T, x3::T)
+vars_state(::MMSModel, ::Prognostic, T) =
+    @vars(ρ::T, ρu::T, ρv::T, ρw::T, ρe::T)
+vars_state(::MMSModel, ::Gradient, T) = @vars(u::T, v::T, w::T)
+vars_state(::MMSModel, ::GradientFlux, T) =
     @vars(τ11::T, τ22::T, τ33::T, τ12::T, τ13::T, τ23::T)
 
 function flux_first_order!(
@@ -159,7 +159,7 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_conservative!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
 # FIXME: This is probably not right....
@@ -179,7 +179,7 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_conservative!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
 function init_state_auxiliary!(::MMSModel, aux::Vars, g::LocalGeometry)
@@ -189,7 +189,7 @@ function init_state_auxiliary!(::MMSModel, aux::Vars, g::LocalGeometry)
     aux.x3 = x3
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     bl::MMSModel{dim},
     state::Vars,
     aux::Vars,

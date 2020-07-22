@@ -248,6 +248,7 @@ function setup_atmos_refstate_perturbations(
     )
 end
 
+include("dump_init.jl")
 include("dump_state.jl")
 """
     setup_dump_state_diagnostics(

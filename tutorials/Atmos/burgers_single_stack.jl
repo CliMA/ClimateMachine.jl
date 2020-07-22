@@ -69,7 +69,6 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.Writers
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
-using ClimateMachine.BalanceLaws: BalanceLaw
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
@@ -79,12 +78,9 @@ using ClimateMachine.SingleStackUtils
 
 #  - import necessary ClimateMachine modules: (`import`ing enables us to
 #  provide implementations of these structs/methods)
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     source!,
     flux_second_order!,
     flux_first_order!,
@@ -93,7 +89,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     boundary_state!
 
 # ## Initialization
@@ -155,27 +151,28 @@ m = BurgersEquation{FT}();
 # by the solver.
 
 # Specify auxiliary variables for `BurgersEquation`
-vars_state_auxiliary(::BurgersEquation, FT) = @vars(z::FT, T::FT);
+vars_state(::BurgersEquation, ::Auxiliary, FT) = @vars(z::FT, T::FT);
 
 # Specify state variables, the variables solved for in the PDEs, for
 # `BurgersEquation`
-vars_state_conservative(::BurgersEquation, FT) =
+vars_state(::BurgersEquation, ::Prognostic, FT) =
     @vars(ρ::FT, ρu::SVector{3, FT}, ρcT::FT);
 
 # Specify state variables whose gradients are needed for `BurgersEquation`
-vars_state_gradient(::BurgersEquation, FT) = @vars(u::SVector{3, FT}, ρcT::FT);
+vars_state(::BurgersEquation, ::Gradient, FT) =
+    @vars(u::SVector{3, FT}, ρcT::FT);
 
 # Specify gradient variables for `BurgersEquation`
-vars_state_gradient_flux(::BurgersEquation, FT) =
+vars_state(::BurgersEquation, ::GradientFlux, FT) =
     @vars(μ∇u::SMatrix{3, 3, FT, 9}, α∇ρcT::SVector{3, FT});
 
 # ## Define the compute kernels
 
 # Specify the initial values in `aux::Vars`, which are available in
-# `init_state_conservative!`. Note that
+# `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
-# in `vars_state_auxiliary`
+# in `vars_state`
 function init_state_auxiliary!(
     m::BurgersEquation,
     aux::Vars,
@@ -188,8 +185,8 @@ end;
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
 # - `state.ρ`, `state.ρu` and`state.ρcT` are available here because
-# we've specified `ρ`, `ρu` and `ρcT` in `vars_state_conservative`
-function init_state_conservative!(
+# we've specified `ρ`, `ρu` and `ρcT` in `vars_state`
+function init_state_prognostic!(
     m::BurgersEquation,
     state::Vars,
     aux::Vars,
@@ -227,7 +224,7 @@ end;
 
 # Compute/update all auxiliary variables at each node. Note that
 # - `aux.T` is available here because we've specified `T` in
-# `vars_state_auxiliary`
+# `vars_state`
 function heat_eq_nodal_update_aux!(
     m::BurgersEquation,
     state::Vars,
@@ -240,7 +237,7 @@ end;
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
 # the gradient of `ρcT` and `u`. Here, we specify how `ρcT`, `u` are computed. Note that
 # `transform.ρcT` and `transform.u` are available here because we've specified `ρcT`
-# and `u`in `vars_state_gradient`
+# and `u`in `vars_state`
 function compute_gradient_argument!(
     m::BurgersEquation,
     transform::Vars,
@@ -255,9 +252,9 @@ end;
 # Specify where in `diffusive::Vars` to store the computed gradient from
 # `compute_gradient_argument!`. Note that:
 #  - `diffusive.μ∇u` is available here because we've specified `μ∇u` in
-#  `vars_state_gradient_flux`
+#  `vars_state`
 #  - `∇transform.u` is available here because we've specified `u` in
-#  `vars_state_gradient`
+#  `vars_state`
 #  - `diffusive.μ∇u` is built using an anisotropic diffusivity tensor
 function compute_gradient_flux!(
     m::BurgersEquation,
@@ -297,7 +294,7 @@ end;
 # Compute advective flux.
 # Note that:
 # - `state.ρu` is available here because we've specified `ρu` in
-# `vars_state_conservative`
+# `vars_state`
 function flux_first_order!(
     m::BurgersEquation,
     flux::Grad,
@@ -316,7 +313,7 @@ end;
 # Compute diffusive flux (e.g. ``F(μ, \mathbf{u}, t) = -μ∇\mathbf{u}`` in the original PDE).
 # Note that:
 # - `diffusive.μ∇u` is available here because we've specified `μ∇u` in
-# `vars_state_gradient_flux`
+# `vars_state`
 function flux_second_order!(
     m::BurgersEquation,
     flux::Grad,
@@ -450,14 +447,14 @@ z = get_z(driver_config.grid, z_scale)
 state_vars = get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.Q,
-    vars_state_conservative(m, FT),
+    vars_state(m, Prognostic(), FT),
     i = 1,
     j = 1,
 );
 aux_vars = get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.dg.state_auxiliary,
-    vars_state_auxiliary(m, FT),
+    vars_state(m, Auxiliary(), FT),
     i = 1,
     j = 1,
     exclude = [z_key],
@@ -493,13 +490,13 @@ export_plot_snapshot(
 state_vars_var = get_horizontal_variance(
     driver_config.grid,
     solver_config.Q,
-    vars_state_conservative(m, FT),
+    vars_state(m, Prognostic(), FT),
 );
 
 state_vars_avg = get_horizontal_mean(
     driver_config.grid,
     solver_config.Q,
-    vars_state_conservative(m, FT),
+    vars_state(m, Prognostic(), FT),
 );
 
 export_plot_snapshot(
@@ -545,12 +542,12 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars_var = get_horizontal_variance(
         driver_config.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
     )
     state_vars_avg = get_horizontal_mean(
         driver_config.grid,
         solver_config.Q,
-        vars_state_conservative(m, FT),
+        vars_state(m, Prognostic(), FT),
     )
     step[1] += 1
     push!(data_var, state_vars_var)

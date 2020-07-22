@@ -23,54 +23,54 @@ struct SoilModel{W, H} <: BalanceLaw
 end
 
 """
-    vars_state_conservative(soil::SoilModel, FT)
+    vars_state(soil::SoilModel, st::Prognostic, FT)
 
 Conserved state variables (Prognostic Variables)
 """
-function vars_state_conservative(soil::SoilModel, FT)
+function vars_state(soil::SoilModel, st::Prognostic, FT)
     @vars begin
-        water::vars_state_conservative(soil.water, FT)
-        heat::vars_state_conservative(soil.heat, FT)
+        water::vars_state(soil.water, st, FT)
+        heat::vars_state(soil.heat, st, FT)
     end
 end
 
 """
-    vars_state_auxiliary(soil::SoilModel, FT)
+    vars_state(soil::SoilModel, st::Auxiliary, FT)
 
-Names of variables required for the balance law that aren't related to 
-derivatives of the state variables (e.g. spatial coordinates or various 
-integrals) or those needed to solve expensive auxiliary equations 
+Names of variables required for the balance law that aren't related to
+derivatives of the state variables (e.g. spatial coordinates or various
+integrals) or those needed to solve expensive auxiliary equations
 (e.g., temperature via a non-linear equation solve)
 """
-function vars_state_auxiliary(soil::SoilModel, FT)
+function vars_state(soil::SoilModel, st::Auxiliary, FT)
     @vars begin
-        water::vars_state_auxiliary(soil.water, FT)
-        heat::vars_state_auxiliary(soil.heat, FT)
+        water::vars_state(soil.water, st, FT)
+        heat::vars_state(soil.heat, st, FT)
     end
 end
 
 """
-    vars_state_gradient(soil::SoilModel, FT)
+    vars_state(soil::SoilModel, st::Gradient, FT)
 
-Names of the gradients of functions of the conservative state variables. 
+Names of the gradients of functions of the conservative state variables.
 Used to represent values before **and** after differentiation
 """
-function vars_state_gradient(soil::SoilModel, FT)
+function vars_state(soil::SoilModel, st::Gradient, FT)
     @vars begin
-        water::vars_state_gradient(soil.water, FT)
-        heat::vars_state_gradient(soil.heat, FT)
+        water::vars_state(soil.water, st, FT)
+        heat::vars_state(soil.heat, st, FT)
     end
 end
 
 """
-    vars_state_gradient_flux(soil::SoilModel, FT)
+    vars_state(soil::SoilModel, st::GradientFlux, FT)
 
 Names of the gradient fluxes necessary to impose Neumann boundary conditions
 """
-function vars_state_gradient_flux(soil::SoilModel, FT)
+function vars_state(soil::SoilModel, st::GradientFlux, FT)
     @vars begin
-        water::vars_state_gradient_flux(soil.water, FT)
-        heat::vars_state_gradient_flux(soil.heat, FT)
+        water::vars_state(soil.water, st, FT)
+        heat::vars_state(soil.heat, st, FT)
     end
 end
 

@@ -122,7 +122,7 @@ function AtmosLESConfiguration(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_conservative = init_LES!,
+        init_state_prognostic = init_LES!,
     ),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
@@ -209,7 +209,7 @@ function AtmosGCMConfiguration(
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
-        init_state_conservative = init_GCM!,
+        init_state_prognostic = init_GCM!,
     ),
     mpicomm = MPI.COMM_WORLD,
     meshwarp::Function = cubedshellwarp,
