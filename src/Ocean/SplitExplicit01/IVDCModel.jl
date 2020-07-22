@@ -1,4 +1,4 @@
-# Linear model equations, for split-explicit ocean model implicit vertical diffusion 
+# Linear model equations, for split-explicit ocean model implicit vertical diffusion
 # convective adjustment step.
 #
 # In this version the operator is tweked to be the indentity for testing
@@ -9,8 +9,8 @@ using ClimateMachine.DGMethods.NumericalFluxes:
 """
  IVDCModel{M} <: BalanceLaw
 
- This code defines DG `BalanceLaw` terms for an operator, L, that is evaluated from iterative 
- implicit solver to solve an equation of the form 
+ This code defines DG `BalanceLaw` terms for an operator, L, that is evaluated from iterative
+ implicit solver to solve an equation of the form
 
  (L + 1/Δt) ϕ^{n+1} = ϕ^{n}/Δt
 
@@ -18,7 +18,7 @@ using ClimateMachine.DGMethods.NumericalFluxes:
   coefficient.
 
  # Usage
- 
+
  parent_model  = OceanModel{FT}(prob...)
  linear_model  = IVDCModel( parent_model )
  	
@@ -29,30 +29,19 @@ using ClimateMachine.DGMethods.NumericalFluxes:
 # (Not sure we need parent, but maybe we will get some parameters from it)
 struct IVDCModel{M} <: AbstractOceanModel
   parent_om::M
-  ivdc_dt::Float64
   function IVDCModel(
-     parent_om::M; 
-     ivdc_dt=1080,
+     parent_om::M;
     ) where {M}
-     return new{M}(parent_om, ivdc_dt, )
+     return new{M}(parent_om)
   end
 end
-
-## struct BarotropicModel{M} <: AbstractOceanModel
-##     baroclinic::M
-##     function BarotropicModel(baroclinic::M) where {M}
-##         return new{M}(baroclinic)
-##     end
-## end
-
-
 
 """
  Set model state variables and operators
 """
 
 # State variable and initial value, just one for now, θ
- 
+
 vars_state_conservative(m::IVDCModel,FT) = @vars(θ::FT)
 
 function init_state_conservative!(
@@ -76,7 +65,6 @@ function init_state_auxiliary!(m::IVDCModel,A::Vars, _...)
   return nothing
 end
 
-
 # Variables and operations used in differentiating first derivatives
 
 vars_state_gradient(m::IVDCModel, FT) = @vars(∇θ::FT, ∇θ_init::FT,)
@@ -94,9 +82,8 @@ vars_state_gradient(m::IVDCModel, FT) = @vars(∇θ::FT, ∇θ_init::FT,)
     return nothing
 end
 
-
 # Variables and operations used in differentiating second derivatives
- 
+
 vars_state_gradient_flux(m::IVDCModel, FT) = @vars(κ∇θ::SVector{3, FT})
 
 @inline function compute_gradient_flux!(
@@ -114,18 +101,13 @@ vars_state_gradient_flux(m::IVDCModel, FT) = @vars(κ∇θ::SVector{3, FT})
     return nothing
 end
 
-
 @inline function diffusivity_tensor(m::IVDCModel, ∂θ∂z)
-  # ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ =
-    κᶻ=m.parent_om.κᶻ
-    κᶻ=0.1
-    κᶻ=1
-    s=1.e-4
-    ∂θ∂z <= 0+1e-10 ? κ = (@SVector [0, 0, -1 * κᶻ]) : κ =
-        (@SVector [0, 0, -s * κᶻ])
+    κᶻ = m.parent_om.κᶻ * 0.5
+    κᶜ = m.parent_om.κᶜ
+    ∂θ∂z < 0 ? κ = (@SVector [0, 0, κᶜ]) : κ = (@SVector [0, 0, κᶻ])
+  # ∂θ∂z <= 1e-10 ? κ = (@SVector [0, 0, κᶜ]) : κ = (@SVector [0, 0, κᶻ])
 
-
-    return Diagonal(κ)
+    return Diagonal(-κ)
 end
 
 # Function to apply I to state variable
@@ -139,10 +121,11 @@ end
     t,
     direction,
 )
+   #ivdc_dt = m.ivdc_dt
+    ivdc_dt = m.parent_om.ivdc_dt
     @inbounds begin
-     # S!.θ=Q.θ/m.parent_om.dt_slow
-     S.θ=Q.θ/m.ivdc_dt
-     # S.θ=0
+     S.θ = Q.θ/ivdc_dt
+     # S.θ = 0
     end
 
     return nothing
@@ -176,7 +159,6 @@ function wavespeed(m::IVDCModel, n⁻, _...)
     return C
 end
 
-
 function boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient, CentralNumericalFluxGradient},
     m::IVDCModel,
@@ -208,7 +190,6 @@ end
 ###        state1⁻,
 ###        aux1⁻,
 ###    )
-
 
 function boundary_state!(
     nf::Union{NumericalFluxSecondOrder,CentralNumericalFluxSecondOrder},

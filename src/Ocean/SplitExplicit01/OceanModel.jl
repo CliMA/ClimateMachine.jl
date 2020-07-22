@@ -5,27 +5,33 @@ struct OceanModel{P, T} <: AbstractOceanModel
     cʰ::T
     cᶻ::T
     add_fast_substeps::T
+    numImplSteps::T
+    ivdc_dt::T
     αᵀ::T
     νʰ::T
     νᶻ::T
     κʰ::T
     κᶻ::T
+    κᶜ::T
     fₒ::T
     β::T
     function OceanModel{FT}(
         problem;
         grav = FT(10),  # m/s^2
-        ρₒ = FT(1000),  # kg / m^3
+        ρₒ = FT(1000),  # kg/m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
         add_fast_substeps = 0,
-        αᵀ = FT(2e-4),  # (m/s)^2 / K
-        νʰ = FT(5e3),   # m^2 / s
-        νᶻ = FT(5e-3),  # m^2 / s
-        κʰ = FT(1e3),   # m^2 / s
-        κᶻ = FT(1e-4),  # m^2 / s
+        numImplSteps = 0,
+        ivdc_dt = FT(1),
+        αᵀ = FT(2e-4),  # 1/K
+        νʰ = FT(5e3),   # m^2/s
+        νᶻ = FT(5e-3),  # m^2/s
+        κʰ = FT(1e3),   # m^2/s
+        κᶻ = FT(1e-4),  # vertical diffusivity, m^2/s
+        κᶜ = FT(1e-4),  # convective adjustment vertical diffusivity, m^2/s
         fₒ = FT(1e-4),  # Hz
-        β = FT(1e-11), # Hz / m
+        β = FT(1e-11),  # Hz/m
     ) where {FT <: AbstractFloat}
         return new{typeof(problem), FT}(
             problem,
@@ -34,11 +40,14 @@ struct OceanModel{P, T} <: AbstractOceanModel
             cʰ,
             cᶻ,
             add_fast_substeps,
+            numImplSteps,
+            ivdc_dt,
             αᵀ,
             νʰ,
             νᶻ,
             κʰ,
             κᶻ,
+            κᶜ,
             fₒ,
             β,
         )
@@ -113,13 +122,12 @@ function OceanDGModel(
         gradnumflux;
 	direction=VerticalDirection(),
     )
-    FT = eltype(grid)
-    ivdc_Q = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true) # Not sure this is needed since we set values later, 
+    ivdc_Q = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true) # Not sure this is needed since we set values later,
                                                                 # but we'll do it just in case!
 
-    ivdc_RHS = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true) # Not sure this is needed since we set values later, 
+    ivdc_RHS = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true) # Not sure this is needed since we set values later,
                                                                   # but we'll do it just in case!
- 
+
     ivdc_bgm_solver=BatchedGeneralizedMinimalResidual(
         ivdc_dg,
 	ivdc_Q;
@@ -224,9 +232,12 @@ end
 @inline viscosity_tensor(m::OceanModel) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
 
 @inline function diffusivity_tensor(m::OceanModel, ∂θ∂z)
-  # ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1000 * m.κᶻ]) : κ =
-    ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, 1 * m.κᶻ]) : κ =
-        (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+
+    if m.numImplSteps > 0
+        κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
+    else
+        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ ]) : κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+    end
 
     return Diagonal(κ)
 end

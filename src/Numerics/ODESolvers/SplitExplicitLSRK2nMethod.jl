@@ -180,43 +180,50 @@ function dostep!(
     updatedt!(fast, fast_dt_in)
 
     # now do implicit mixing step
-    # 1. get implicit mising model, model state variable array and solver handles
-    ivdc_dg=slow.rhs!.modeldata.ivdc_dg
-    ivdc_Q=slow.rhs!.modeldata.ivdc_Q
-    ivdc_solver_dt= ivdc_dg.balance_law.ivdc_dt
-    ivdc_solver=slow.rhs!.modeldata.ivdc_bgm_solver
-    # 2. setup start RHS, initial guess and values for computing mixing coeff
-    ivdc_Q.θ   .= Qslow.θ
-    ivdc_RHS    = slow.rhs!.modeldata.ivdc_RHS
-    ivdc_RHS.θ .= Qslow.θ
-    ivdc_RHS.θ .= ivdc_RHS.θ./ivdc_solver_dt
-    ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
-    # 3. Invoke iterative solver
+    nImplSteps = slow_bl.numImplSteps
+    if nImplSteps > 0
+        # 1. get implicit mising model, model state variable array and solver handles
+        ivdc_dg = slow.rhs!.modeldata.ivdc_dg
+        ivdc_bl = ivdc_dg.balance_law
+        ivdc_Q = slow.rhs!.modeldata.ivdc_Q
+        ivdc_solver = slow.rhs!.modeldata.ivdc_bgm_solver
+      # ivdc_solver_dt = getdt(ivdc_solver) # would work if solver time-step was set
+      # FT = typeof(slow_dt)
+      # ivdc_solver_dt = slow_dt / FT(nImplSteps) # just recompute time-step
+        ivdc_solver_dt = ivdc_bl.parent_om.ivdc_dt
+      # println("ivdc_solver_dt = ",ivdc_solver_dt )
+        # 2. setup start RHS, initial guess and values for computing mixing coeff
+        ivdc_Q.θ   .= Qslow.θ
+        ivdc_RHS    = slow.rhs!.modeldata.ivdc_RHS
+        ivdc_RHS.θ .= Qslow.θ
+        ivdc_RHS.θ .= ivdc_RHS.θ./ivdc_solver_dt
+        ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
+        # 3. Invoke iterative solver
 
-    println("BEFORE maximum(ivdc_Q.θ[:]): ",maximum(ivdc_Q.realdata[:]) )
-    println("BEFORE minimum(ivdc_Q.θ[:]): ",minimum(ivdc_Q.realdata[:]) )
+        println("BEFORE maximum(ivdc_Q.θ[:]): ",maximum(ivdc_Q.realdata[:]) )
+        println("BEFORE minimum(ivdc_Q.θ[:]): ",minimum(ivdc_Q.realdata[:]) )
 
-    lm!(y,x)=ivdc_dg(y,x,nothing,0;increment=false)
-    nrep=5
-    solve_tot=0
-    iter_tot=0
-    for i=1:nrep
-     solve_time=@elapsed iters = linearsolve!(lm!, ivdc_solver, ivdc_Q, ivdc_RHS);
-     solve_tot=solve_tot+solve_time
-     iter_tot=iter_tot+iters
-     # Set new RHS and initial values
-     ivdc_RHS.θ .= ivdc_Q.θ./ivdc_solver_dt
-     ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
+        lm!(y,x)=ivdc_dg(y,x,nothing,0;increment=false)
+        solve_tot = 0
+        iter_tot = 0
+        for i = 1:nImplSteps
+         solve_time = @elapsed iters = linearsolve!(lm!, ivdc_solver, ivdc_Q, ivdc_RHS);
+         solve_tot = solve_tot+solve_time
+         iter_tot = iter_tot+iters
+         # Set new RHS and initial values
+         ivdc_RHS.θ .= ivdc_Q.θ./ivdc_solver_dt
+         ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
+        end
+        println("solver iters, time: ",iter_tot, ", ", solve_tot)
+
+        println("AFTER  maximum(ivdc_Q.θ[:]): ",maximum(ivdc_Q.realdata[:]) )
+        println("AFTER  minimum(ivdc_Q.θ[:]): ",minimum(ivdc_Q.realdata[:]) )
+
+        # exit()
+        # Now update
+        Qslow.θ .= ivdc_Q.θ
+
     end
-    println("solver iters, time: ",iter_tot, ", ", solve_tot)
-
-    println("AFTER  maximum(ivdc_Q.θ[:]): ",maximum(ivdc_Q.realdata[:]) )
-    println("AFTER  minimum(ivdc_Q.θ[:]): ",minimum(ivdc_Q.realdata[:]) )
-
-    # exit()
-    # Now update
-    Qslow.θ .= ivdc_Q.θ
-
 
     return nothing
 end
