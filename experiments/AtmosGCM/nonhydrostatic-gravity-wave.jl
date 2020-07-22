@@ -125,7 +125,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
-        init_state_conservative = init_nonhydrostatic_gravity_wave!,
+        init_state_prognostic = init_nonhydrostatic_gravity_wave!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
