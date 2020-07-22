@@ -182,7 +182,8 @@ function atmos_les_default_perturbations_init(
             flattenednames(vars_atmos_les_default_perturbations(atmos, FT)),
         )
         for varname in varnames
-            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
         end
 
         # create the output file

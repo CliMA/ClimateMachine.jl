@@ -129,7 +129,8 @@ function atmos_les_core_init(dgngrp::DiagnosticsGroup, currtime)
         )
         append!(varnames, ho_varnames)
         for varname in varnames
-            vars[varname] = (("z",), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (("z",), FT, var.attrib)
         end
 
         # create the output file
