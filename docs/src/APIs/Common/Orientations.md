@@ -14,4 +14,6 @@ Orientations
 NoOrientation
 FlatOrientation
 SphericalOrientation
+sphr_to_cart_vec
+cart_to_sphr_vec
 ```

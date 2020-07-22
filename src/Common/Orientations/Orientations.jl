@@ -39,7 +39,9 @@ export init_aux!,
     projection_normal,
     gravitational_potential,
     ∇gravitational_potential,
-    projection_tangential
+    projection_tangential,
+    sphr_to_cart_vec,
+    cart_to_sphr_vec
 
 
 abstract type Orientation <: BalanceLaw end
@@ -141,6 +143,57 @@ latitude(orientation::SphericalOrientation, aux::Vars) =
 longitude(orientation::SphericalOrientation, aux::Vars) =
     @inbounds atan(aux.coord[2], aux.coord[1])
 
+"""
+    sphr_to_cart_vec(orientation::SphericalOrientation, state::Vars, aux::Vars)
+
+Projects a vector defined based on unit vectors in spherical coordinates to cartesian unit vectors.
+"""
+function sphr_to_cart_vec(
+    orientation::SphericalOrientation,
+    vec::AbstractVector,
+    aux::Vars,
+)
+    FT = eltype(aux)
+    lat = latitude(orientation, aux)
+    lon = longitude(orientation, aux)
+
+    slat, clat = sin(lat), cos(lat)
+    slon, clon = sin(lon), cos(lon)
+
+    u = MVector{3, FT}(
+        -slon * vec[1] - slat * clon * vec[2] + clat * clon * vec[3],
+        clon * vec[1] - slat * slon * vec[2] + clat * slon * vec[3],
+        clat * vec[2] + slat * vec[3],
+    )
+
+    return u
+end
+
+"""
+    cart_to_sphr_vec(orientation::SphericalOrientation, state::Vars, aux::Vars)
+
+Projects a vector defined based on unit vectors in cartesian coordinates to a spherical unit vectors.
+"""
+function cart_to_sphr_vec(
+    orientation::SphericalOrientation,
+    vec::AbstractVector,
+    aux::Vars,
+)
+    FT = eltype(aux)
+    lat = latitude(orientation, aux)
+    lon = longitude(orientation, aux)
+
+    slat, clat = sin(lat), cos(lat)
+    slon, clon = sin(lon), cos(lon)
+
+    u = MVector{3, FT}(
+        -slon * vec[1] + clon * vec[2],
+        -slat * clon * vec[1] - slat * slon * vec[2] + clat * vec[3],
+        clat * clon * vec[1] + clat * slon * vec[2] + slat * vec[3],
+    )
+
+    return u
+end
 
 #####
 ##### FlatOrientation
