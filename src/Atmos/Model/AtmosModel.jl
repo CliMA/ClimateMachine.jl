@@ -319,6 +319,7 @@ end
 function vars_state(m::AtmosModel, st::UpwardIntegrals, FT)
     @vars begin
         radiation::vars_state(m.radiation, st, FT)
+        turbconv::vars_state(m.turbconv, st, FT)
     end
 end
 """
@@ -614,10 +615,12 @@ function integral_load_auxiliary_state!(
     aux::Vars,
 )
     integral_load_auxiliary_state!(m.radiation, integ, state, aux)
+    integral_load_auxiliary_state!(m.turbconv, m, integ, state, aux)
 end
 
 function integral_set_auxiliary_state!(m::AtmosModel, aux::Vars, integ::Vars)
     integral_set_auxiliary_state!(m.radiation, aux, integ)
+    integral_set_auxiliary_state!(m.turbconv, m, aux, integ)
 end
 
 function reverse_integral_load_auxiliary_state!(

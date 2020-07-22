@@ -21,7 +21,9 @@ import ..BalanceLaws:
     flux_second_order!,
     boundary_state!,
     compute_gradient_argument!,
-    compute_gradient_flux!
+    compute_gradient_flux!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!
 
 using ..MPIStateArrays: MPIStateArray
 using ..DGMethods: nodal_update_auxiliary_state!
@@ -111,6 +113,25 @@ function flux_second_order!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+)
+    return nothing
+end
+
+function integral_load_auxiliary_state!(
+    m::TurbulenceConvectionModel,
+    bl::BalanceLaw,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    return nothing
+end
+
+function integral_set_auxiliary_state!(
+    m::TurbulenceConvectionModel,
+    bl::BalanceLaw,
+    aux::Vars,
+    integ::Vars,
 )
     return nothing
 end
