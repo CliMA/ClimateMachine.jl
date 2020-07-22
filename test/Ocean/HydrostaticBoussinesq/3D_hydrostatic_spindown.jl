@@ -105,11 +105,7 @@ function run_hydrostatic_test(; imex::Bool = false, BC = nothing, refDat = ())
     # ClimateMachine.Settings.diagnostics = "$(output_interval)steps"
 
     cb = ClimateMachine.StateCheck.sccreate(
-        [
-            (solver.Q, "state"),
-            (solver.dg.state_auxiliary, "aux"),
-            (solver.dg.state_gradient_flux, "gradient"),
-        ],
+        [(solver.Q, "state"), (solver.dg.state_auxiliary, "aux")],
         output_interval;
         prec = 12,
     )

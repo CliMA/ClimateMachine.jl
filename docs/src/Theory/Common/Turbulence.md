@@ -34,9 +34,7 @@ be defined for a turbulence model.
 abstract type TurbulenceClosure end
 
 
-vars_state_gradient((::TurbulenceClosure, FT) = @vars()
-vars_state_gradient_flux(::TurbulenceClosure, FT) = @vars()
-vars_state_auxiliary(::TurbulenceClosure, FT) = @vars()
+vars_state(::TurbulenceClosure, ::AbstractStateType, FT) = @vars()
 
 function atmos_init_aux!(
     ::TurbulenceClosure,
@@ -67,7 +65,7 @@ additional state variables or auxiliary variable updates (e.g. TKE based
 models)
 
 ```julia
-vars_state_conservative(::TurbulenceClosure, FT) = @vars()
+vars_state(::TurbulenceClosure, ::Prognostic, FT) = @vars()
 function atmos_nodal_update_auxiliary_state!(
     ::TurbulenceClosure,
     ::AtmosModel,

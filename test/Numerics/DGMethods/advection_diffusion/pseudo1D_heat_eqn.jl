@@ -191,43 +191,43 @@ let
     base_num_elem = 4
 
     expected_result = Dict()
-    expected_result = Dict()
-    expected_result[2, 1, Float64, EveryDirection] = 5.1574832681276104e-03
-    expected_result[2, 2, Float64, EveryDirection] = 6.5687731035740145e-05
-    expected_result[2, 3, Float64, EveryDirection] = 1.6644861275101170e-06
-    expected_result[2, 1, Float64, HorizontalDirection] = 2.0515449798977920e-02
-    expected_result[2, 2, Float64, HorizontalDirection] = 5.6862569422960307e-04
-    expected_result[2, 3, Float64, HorizontalDirection] = 1.0132022682546759e-05
-    expected_result[2, 1, Float64, VerticalDirection] = 2.0515449798977868e-02
-    expected_result[2, 2, Float64, VerticalDirection] = 5.6862569422963256e-04
-    expected_result[2, 3, Float64, VerticalDirection] = 1.0132022682819374e-05
-    expected_result[3, 1, Float64, EveryDirection] = 1.2605810186713056e-03
-    expected_result[3, 2, Float64, EveryDirection] = 2.2149085222010158e-05
-    expected_result[3, 3, Float64, EveryDirection] = 5.9317355941102274e-07
-    expected_result[3, 1, Float64, HorizontalDirection] = 5.1574832681275749e-03
-    expected_result[3, 2, Float64, HorizontalDirection] = 6.5687731035720697e-05
-    expected_result[3, 3, Float64, HorizontalDirection] = 1.6644861273769655e-06
-    expected_result[3, 1, Float64, VerticalDirection] = 2.0515449798978055e-02
-    expected_result[3, 2, Float64, VerticalDirection] = 5.6862569422975464e-04
-    expected_result[3, 3, Float64, VerticalDirection] = 1.0132022682813954e-05
-    expected_result[2, 1, Float32, EveryDirection] = 5.1570897921919823e-03
-    expected_result[2, 2, Float32, EveryDirection] = 6.5653577621560544e-05
-    expected_result[2, 3, Float32, EveryDirection] = 3.275913f-6
-    expected_result[2, 1, Float32, HorizontalDirection] = 2.0514581352472305e-02
-    expected_result[2, 2, Float32, HorizontalDirection] = 5.6842499179765582e-04
-    expected_result[2, 3, Float32, HorizontalDirection] = 1.02155445f-5
-    expected_result[2, 1, Float32, VerticalDirection] = 2.0514704287052155e-02
-    expected_result[2, 2, Float32, VerticalDirection] = 5.6839984608814120e-04
-    expected_result[2, 3, Float32, VerticalDirection] = 1.0224043f-5
-    expected_result[3, 1, Float32, EveryDirection] = 1.2601461494341493e-03
-    expected_result[3, 2, Float32, EveryDirection] = 2.2380427253665403e-05
-    expected_result[3, 3, Float32, EveryDirection] = 1.1313175491522998e-05
-    expected_result[3, 1, Float32, HorizontalDirection] = 5.1570334471762180e-03
-    expected_result[3, 2, Float32, HorizontalDirection] = 6.6673339460976422e-05
-    expected_result[3, 3, Float32, HorizontalDirection] = 9.9301614682190120e-05
-    expected_result[3, 1, Float32, VerticalDirection] = 2.0514605566859245e-02
-    expected_result[3, 2, Float32, VerticalDirection] = 5.6837813463062048e-04
-    expected_result[3, 3, Float32, VerticalDirection] = 3.2253094104817137e-05
+    expected_result[2, 1, Float64, EveryDirection] = 0.005157483268127576
+    expected_result[2, 2, Float64, EveryDirection] = 6.5687731035717e-5
+    expected_result[2, 3, Float64, EveryDirection] = 1.6644861275185443e-6
+    expected_result[2, 1, Float64, HorizontalDirection] = 0.020515449798977983
+    expected_result[2, 2, Float64, HorizontalDirection] = 0.0005686256942296802
+    expected_result[2, 3, Float64, HorizontalDirection] = 1.0132022682547854e-5
+    expected_result[2, 1, Float64, VerticalDirection] = 0.02051544979897792
+    expected_result[2, 2, Float64, VerticalDirection] = 0.0005686256942296017
+    expected_result[2, 3, Float64, VerticalDirection] = 1.0132022682754848e-5
+    expected_result[3, 1, Float64, EveryDirection] = 0.001260581018671256
+    expected_result[3, 2, Float64, EveryDirection] = 2.214908522198975e-5
+    expected_result[3, 3, Float64, EveryDirection] = 5.931735594156876e-7
+    expected_result[3, 1, Float64, HorizontalDirection] = 0.005157483268127569
+    expected_result[3, 2, Float64, HorizontalDirection] = 6.568773103570526e-5
+    expected_result[3, 3, Float64, HorizontalDirection] = 1.6644861273865866e-6
+    expected_result[3, 1, Float64, VerticalDirection] = 0.020515449798978087
+    expected_result[3, 2, Float64, VerticalDirection] = 0.0005686256942297547
+    expected_result[3, 3, Float64, VerticalDirection] = 1.0132022682817856e-5
+
+    expected_result[2, 1, Float32, EveryDirection] = 0.005157135
+    expected_result[2, 2, Float32, EveryDirection] = 6.5721644e-5
+    expected_result[2, 3, Float32, EveryDirection] = 3.280845e-6
+    expected_result[2, 1, Float32, HorizontalDirection] = 0.020514594
+    expected_result[2, 2, Float32, HorizontalDirection] = 0.0005684704
+    expected_result[2, 3, Float32, HorizontalDirection] = 1.02350195e-5
+    expected_result[2, 1, Float32, VerticalDirection] = 0.020514673
+    expected_result[2, 2, Float32, VerticalDirection] = 0.0005684843
+    expected_result[2, 3, Float32, VerticalDirection] = 1.0227403e-5
+    expected_result[3, 1, Float32, EveryDirection] = 0.0012602004
+    expected_result[3, 2, Float32, EveryDirection] = 2.2404534e-5
+    expected_result[3, 3, Float32, EveryDirection] = 1.1309192e-5
+    expected_result[3, 1, Float32, HorizontalDirection] = 0.005157044
+    expected_result[3, 2, Float32, HorizontalDirection] = 6.66792e-5
+    expected_result[3, 3, Float32, HorizontalDirection] = 9.930429e-5
+    expected_result[3, 1, Float32, VerticalDirection] = 0.020514654
+    expected_result[3, 2, Float32, VerticalDirection] = 0.0005684157
+    expected_result[3, 3, Float32, VerticalDirection] = 3.224683e-5
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32)
@@ -284,8 +284,14 @@ let
                             dt,
                             n,
                         )
-                        @test result[l] ≈
-                              FT(expected_result[dim, l, FT, direction])
+
+
+                        @test (
+                            result[l] ≈
+                            FT(expected_result[dim, l, FT, direction]) ||
+                            result[l] <
+                            FT(expected_result[dim, l, FT, direction])
+                        )
                     end
                     @info begin
                         msg = ""

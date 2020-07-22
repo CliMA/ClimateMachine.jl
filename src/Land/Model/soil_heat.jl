@@ -12,10 +12,10 @@ The balance law for internal energy in soil.
 struct SoilHeatModel <: AbstractHeatModel end
 
 """
-    vars_state_conservative(soil::AbstractHeatModel, FT)
+    vars_state(soil::AbstractHeatModel, ::Prognostic, FT)
 
 """
-function vars_state_conservative(soil::AbstractHeatModel, FT)
+function vars_state(soil::AbstractHeatModel, ::Prognostic, FT)
     @vars()
 end
 

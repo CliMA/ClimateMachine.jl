@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v2.2.0
       - name: Install System Dependencies
         run: |
+          sudo apt-get update
           sudo apt-get -qq install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5 xvfb
       - uses: julia-actions/setup-julia@v1.1.6
         with:

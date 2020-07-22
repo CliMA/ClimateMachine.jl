@@ -21,13 +21,18 @@ function DGModel(
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
-    state_auxiliary = create_auxiliary_state(balance_law, grid),
-    state_gradient_flux = create_gradient_state(balance_law, grid),
-    states_higher_order = create_higher_order_states(balance_law, grid),
+    state_auxiliary = create_state(balance_law, grid, Auxiliary()),
+    state_gradient_flux = create_state(balance_law, grid, GradientFlux()),
+    states_higher_order = (
+        create_state(balance_law, grid, GradientLaplacian()),
+        create_state(balance_law, grid, Hyperdiffusive()),
+    ),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
 )
+    state_auxiliary =
+        init_state(state_auxiliary, balance_law, grid, Auxiliary())
     DGModel(
         balance_law,
         grid,
@@ -77,33 +82,27 @@ function basic_grid_info(dg::DGModel)
 end
 
 """
-    (dg::DGModel)(tendency, state_conservative, nothing, t, α, β)
+    (dg::DGModel)(tendency, state_prognostic, nothing, t, α, β)
 
 Computes the tendency terms compatible with `IncrementODEProblem`
 
-    tendency .= α .* dQdt(state_conservative, p, t) .+ β .* tendency
+    tendency .= α .* dQdt(state_prognostic, p, t) .+ β .* tendency
 
 The 4-argument form will just compute
 
-    tendency .= dQdt(state_conservative, p, t)
+    tendency .= dQdt(state_prognostic, p, t)
 
 """
-function (dg::DGModel)(
-    tendency,
-    state_conservative,
-    param,
-    t;
-    increment = false,
-)
+function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
     # TODO deprecate increment argument
-    dg(tendency, state_conservative, param, t, true, increment)
+    dg(tendency, state_prognostic, param, t, true, increment)
 end
 
-function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
+function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
 
     balance_law = dg.balance_law
-    device = array_device(state_conservative)
+    device = array_device(state_prognostic)
 
     grid = dg.grid
     topology = grid.topology
@@ -119,13 +118,13 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
     state_auxiliary = dg.state_auxiliary
 
-    FT = eltype(state_conservative)
-    num_state_conservative = number_state_conservative(balance_law, FT)
-    num_state_gradient_flux = number_state_gradient_flux(balance_law, FT)
-    nhyperviscstate = num_hyperdiffusive(balance_law, FT)
+    FT = eltype(state_prognostic)
+    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
+    num_state_gradient_flux = number_states(balance_law, GradientFlux(), FT)
+    nhyperviscstate = number_states(balance_law, Hyperdiffusive(), FT)
     num_state_tendency = size(tendency, 2)
 
-    @assert num_state_conservative ≤ num_state_tendency
+    @assert num_state_prognostic ≤ num_state_tendency
 
     Np = dofs_per_element(grid)
 
@@ -135,7 +134,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     ndrange_interior_surface = Nfp * length(grid.interiorelems)
     ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
 
-    if num_state_conservative < num_state_tendency && β != 1
+    if num_state_prognostic < num_state_tendency && β != 1
         # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
         tendency .*= β
         β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!
@@ -147,21 +146,21 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     update_auxiliary_state!(
         dg,
         balance_law,
-        state_conservative,
+        state_prognostic,
         t,
         dg.grid.topology.realelems,
     )
 
     if nhyperviscstate > 0
         hypervisc_indexmap = varsindices(
-            vars_state_gradient(balance_law, FT),
-            fieldnames(vars_gradient_laplacian(balance_law, FT)),
+            vars_state(balance_law, Gradient(), FT),
+            fieldnames(vars_state(balance_law, GradientLaplacian(), FT)),
         )
     else
         hypervisc_indexmap = nothing
     end
 
-    exchange_state_conservative = NoneEvent()
+    exchange_state_prognostic = NoneEvent()
     exchange_state_gradient_flux = NoneEvent()
     exchange_Qhypervisc_grad = NoneEvent()
     exchange_Qhypervisc_div = NoneEvent()
@@ -172,8 +171,8 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
     # Gradient Computation #
     ########################
     if communicate
-        exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
-            state_conservative;
+        exchange_state_prognostic = MPIStateArrays.begin_ghost_exchange!(
+            state_prognostic;
             dependencies = comp_stream,
         )
     end
@@ -185,7 +184,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(dim),
             Val(N),
             dg.diffusion_direction,
-            state_conservative.data,
+            state_prognostic.data,
             state_gradient_flux.data,
             Qhypervisc_grad.data,
             state_auxiliary.data,
@@ -204,7 +203,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(N),
             dg.diffusion_direction,
             dg.numerical_flux_gradient,
-            state_conservative.data,
+            state_prognostic.data,
             state_gradient_flux.data,
             Qhypervisc_grad.data,
             state_auxiliary.data,
@@ -221,22 +220,22 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         )
 
         if communicate
-            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
-                state_conservative;
-                dependencies = exchange_state_conservative,
+            exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
+                state_prognostic;
+                dependencies = exchange_state_prognostic,
             )
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_state_conservative)
+            wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
                 dg,
                 balance_law,
-                state_conservative,
+                state_prognostic,
                 t,
                 dg.grid.topology.ghostelems,
             )
-            exchange_state_conservative = Event(device)
+            exchange_state_prognostic = Event(device)
         end
 
         comp_stream = interface_gradients!(device, workgroups_surface)(
@@ -245,7 +244,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(N),
             dg.diffusion_direction,
             dg.numerical_flux_gradient,
-            state_conservative.data,
+            state_prognostic.data,
             state_gradient_flux.data,
             Qhypervisc_grad.data,
             state_auxiliary.data,
@@ -258,7 +257,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             Val(hypervisc_indexmap),
             grid.exteriorelems;
             ndrange = ndrange_exterior_surface,
-            dependencies = (comp_stream, exchange_state_conservative),
+            dependencies = (comp_stream, exchange_state_prognostic),
         )
 
         if communicate
@@ -284,7 +283,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
             update_auxiliary_state_gradient!(
                 dg,
                 balance_law,
-                state_conservative,
+                state_prognostic,
                 t,
                 dg.grid.topology.realelems,
             )
@@ -376,7 +375,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 dg.diffusion_direction,
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
-                state_conservative.data,
+                state_prognostic.data,
                 state_auxiliary.data,
                 grid.vgeo,
                 grid.ω,
@@ -396,7 +395,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
-                state_conservative.data,
+                state_prognostic.data,
                 state_auxiliary.data,
                 grid.vgeo,
                 grid.sgeo,
@@ -425,7 +424,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
-                state_conservative.data,
+                state_prognostic.data,
                 state_auxiliary.data,
                 grid.vgeo,
                 grid.sgeo,
@@ -456,7 +455,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         Val(N),
         dg.direction,
         tendency.data,
-        state_conservative.data,
+        state_prognostic.data,
         state_gradient_flux.data,
         Qhypervisc_grad.data,
         state_auxiliary.data,
@@ -479,7 +478,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
         tendency.data,
-        state_conservative.data,
+        state_prognostic.data,
         state_gradient_flux.data,
         Qhypervisc_grad.data,
         state_auxiliary.data,
@@ -511,7 +510,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 update_auxiliary_state_gradient!(
                     dg,
                     balance_law,
-                    state_conservative,
+                    state_prognostic,
                     t,
                     dg.grid.topology.ghostelems,
                 )
@@ -524,22 +523,22 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
                 )
             end
         else
-            exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
-                state_conservative;
-                dependencies = exchange_state_conservative,
+            exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
+                state_prognostic;
+                dependencies = exchange_state_prognostic,
             )
 
             # update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
-            wait(device, exchange_state_conservative)
+            wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
                 dg,
                 balance_law,
-                state_conservative,
+                state_prognostic,
                 t,
                 dg.grid.topology.ghostelems,
             )
-            exchange_state_conservative = Event(device)
+            exchange_state_prognostic = Event(device)
         end
     end
 
@@ -551,7 +550,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         dg.numerical_flux_first_order,
         dg.numerical_flux_second_order,
         tendency.data,
-        state_conservative.data,
+        state_prognostic.data,
         state_gradient_flux.data,
         Qhypervisc_grad.data,
         state_auxiliary.data,
@@ -566,7 +565,7 @@ function (dg::DGModel)(tendency, state_conservative, _, t, α, β)
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,
-            exchange_state_conservative,
+            exchange_state_prognostic,
             exchange_state_gradient_flux,
             exchange_Qhypervisc_grad,
         ),
@@ -584,7 +583,7 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_conservative = create_conservative_state(balance_law, grid)
+    state_prognostic = create_state(balance_law, grid, Prognostic())
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -596,11 +595,11 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
 
     if !init_on_cpu
         event = Event(device)
-        event = kernel_init_state_conservative!(device, min(Np, 1024))(
+        event = kernel_init_state_prognostic!(device, min(Np, 1024))(
             balance_law,
             Val(dim),
             Val(N),
-            state_conservative.data,
+            state_prognostic.data,
             state_auxiliary.data,
             grid.vgeo,
             topology.realelems,
@@ -610,14 +609,14 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
         )
         wait(device, event)
     else
-        h_state_conservative = similar(state_conservative, Array)
+        h_state_prognostic = similar(state_prognostic, Array)
         h_state_auxiliary = similar(state_auxiliary, Array)
         h_state_auxiliary .= state_auxiliary
-        event = kernel_init_state_conservative!(CPU(), Np)(
+        event = kernel_init_state_prognostic!(CPU(), Np)(
             balance_law,
             Val(dim),
             Val(N),
-            h_state_conservative.data,
+            h_state_prognostic.data,
             h_state_auxiliary.data,
             Array(grid.vgeo),
             topology.realelems,
@@ -625,28 +624,28 @@ function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
             ndrange = Np * nrealelem,
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
-        state_conservative .= h_state_conservative
+        state_prognostic .= h_state_prognostic
     end
 
     event = Event(device)
     event = MPIStateArrays.begin_ghost_exchange!(
-        state_conservative;
+        state_prognostic;
         dependencies = event,
     )
     event = MPIStateArrays.end_ghost_exchange!(
-        state_conservative;
+        state_prognostic;
         dependencies = event,
     )
     wait(device, event)
 
-    return state_conservative
+    return state_prognostic
 end
 
 function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     bl = dg.balance_law
     grid = dg.grid
 
-    state = create_conservative_state(bl, grid)
+    state = create_state(bl, grid, Prognostic())
     state .= state_data
 
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
@@ -659,20 +658,21 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
 end
 
 function restart_auxiliary_state(bl, grid, aux_data)
-    state_auxiliary = create_auxiliary_state(bl, grid)
+    state_auxiliary = create_state(bl, grid, Auxiliary())
+    state_auxiliary = init_state(state_auxiliary, bl, grid, Auxiliary())
     state_auxiliary .= aux_data
     return state_auxiliary
 end
 
 # fallback
-function update_auxiliary_state!(dg, balance_law, state_conservative, t, elems)
+function update_auxiliary_state!(dg, balance_law, state_prognostic, t, elems)
     return false
 end
 
 function update_auxiliary_state_gradient!(
     dg::DGModel,
     balance_law,
-    state_conservative,
+    state_prognostic,
     t,
     elems,
 )
@@ -682,13 +682,13 @@ end
 function indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_prognostic::MPIStateArray,
     state_auxiliary::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems,
 )
 
-    device = array_device(state_conservative)
+    device = array_device(state_prognostic)
 
     grid = dg.grid
     topology = grid.topology
@@ -698,7 +698,7 @@ function indefinite_stack_integral!(
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
 
-    FT = eltype(state_conservative)
+    FT = eltype(state_prognostic)
 
     # do integrals
     nelem = length(elems)
@@ -711,7 +711,7 @@ function indefinite_stack_integral!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        state_conservative.data,
+        state_prognostic.data,
         state_auxiliary.data,
         grid.vgeo,
         grid.Imat,
@@ -725,7 +725,7 @@ end
 function reverse_indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_prognostic::MPIStateArray,
     state_auxiliary::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.elems,
@@ -754,7 +754,7 @@ function reverse_indefinite_stack_integral!(
         Val(dim),
         Val(N),
         Val(nvertelem),
-        state_conservative.data,
+        state_prognostic.data,
         state_auxiliary.data,
         horzelems;
         ndrange = (length(horzelems) * Nq, Nqk),
@@ -768,12 +768,12 @@ function nodal_update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_prognostic::MPIStateArray,
     t::Real,
     elems::UnitRange = dg.grid.topology.realelems;
     diffusive = false,
 )
-    device = array_device(state_conservative)
+    device = array_device(state_prognostic)
 
     grid = dg.grid
     topology = grid.topology
@@ -795,7 +795,7 @@ function nodal_update_auxiliary_state!(
             Val(dim),
             Val(N),
             f!,
-            state_conservative.data,
+            state_prognostic.data,
             dg.state_auxiliary.data,
             dg.state_gradient_flux.data,
             t,
@@ -810,7 +810,7 @@ function nodal_update_auxiliary_state!(
             Val(dim),
             Val(N),
             f!,
-            state_conservative.data,
+            state_prognostic.data,
             dg.state_auxiliary.data,
             t,
             elems,
@@ -824,14 +824,14 @@ end
 
 """
     courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
-            state_conservative::MPIStateArray, direction=EveryDirection())
+            state_prognostic::MPIStateArray, direction=EveryDirection())
 Returns the maximum of the evaluation of the function `local_courant`
 pointwise throughout the domain.  The function `local_courant` is given an
 approximation of the local node distance `Δx`.  The `direction` controls which
 reference directions are considered when computing the minimum node distance
 `Δx`.
 An example `local_courant` function is
-    function local_courant(m::AtmosModel, state_conservative::Vars, state_auxiliary::Vars,
+    function local_courant(m::AtmosModel, state_prognostic::Vars, state_auxiliary::Vars,
                            diffusive::Vars, Δx)
       return Δt * cmax / Δx
     end
@@ -842,7 +842,7 @@ function courant(
     local_courant::Function,
     dg::DGModel,
     m::BalanceLaw,
-    state_conservative::MPIStateArray,
+    state_prognostic::MPIStateArray,
     Δt,
     simtime,
     direction = EveryDirection(),
@@ -878,7 +878,7 @@ function courant(
             Val(N),
             pointwise_courant,
             local_courant,
-            state_conservative.data,
+            state_prognostic.data,
             dg.state_auxiliary.data,
             dg.state_gradient_flux.data,
             topology.realelems,
@@ -891,7 +891,7 @@ function courant(
         wait(device, event)
         rank_courant_max = maximum(pointwise_courant)
     else
-        rank_courant_max = typemin(eltype(state_conservative))
+        rank_courant_max = typemin(eltype(state_prognostic))
     end
 
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
@@ -901,7 +901,7 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_conservative = create_conservative_state(balance_law, grid)
+    state_prognostic = create_state(balance_law, grid, Prognostic())
 
-    return state_conservative
+    return state_prognostic
 end

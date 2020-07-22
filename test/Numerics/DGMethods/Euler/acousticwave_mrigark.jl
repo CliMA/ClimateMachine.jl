@@ -33,8 +33,7 @@ using ClimateMachine.Atmos:
     NoRadiation,
     NTracers,
     ConstantViscosityWithDivergence,
-    vars_state_conservative,
-    vars_state_auxiliary,
+    vars_state,
     Gravity,
     HydrostaticState,
     AtmosAcousticGravityLinearModel,
@@ -136,7 +135,7 @@ function run(
         moisture = DryModel(),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_conservative = setup,
+        init_state_prognostic = setup,
     )
     dg = DGModel(
         fullmodel,
@@ -353,8 +352,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files

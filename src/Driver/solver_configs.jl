@@ -63,8 +63,8 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `t0::FT`: simulation start time.
 # - `timeend::FT`: simulation end time.
 # - `driver_config::DriverConfiguration`: from `AtmosLESConfiguration()`, etc.
-# - `init_args...`: passed through to `init_state_conservative!()`.
-# - `init_on_cpu=false`: run `init_state_conservative!()` on CPU?
+# - `init_args...`: passed through to `init_state_prognostic!()`.
+# - `init_on_cpu=false`: run `init_state_prognostic!()` on CPU?
 # - `ode_solver_type=driver_config.solver_type`: override solver choice.
 # - `ode_dt=nothing`: override timestep computation.
 # - `modeldata=nothing`: passed through to `DGModel`.

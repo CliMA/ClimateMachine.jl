@@ -38,34 +38,13 @@ macro visitI(nlong, nlat, nlevel, expr)
 end
 
 # Helpers to extract data from the various state arrays
-function extract_state_conservative(dg, state_conservative, ijk, e)
+function extract_state(dg, state, ijk, e, st::AbstractStateType)
     bl = dg.balance_law
-    FT = eltype(state_conservative)
-    num_state_conservative = number_state_conservative(bl, FT)
-    local_state_conservative = MArray{Tuple{num_state_conservative}, FT}(undef)
-    for s in 1:num_state_conservative
-        local_state_conservative[s] = state_conservative[ijk, s, e]
+    FT = eltype(state)
+    num_state = number_states(bl, st, FT)
+    local_state = MArray{Tuple{num_state}, FT}(undef)
+    for s in 1:num_state
+        local_state[s] = state[ijk, s, e]
     end
-    return Vars{vars_state_conservative(bl, FT)}(local_state_conservative)
-end
-function extract_state_auxiliary(dg, state_auxiliary, ijk, e)
-    bl = dg.balance_law
-    FT = eltype(state_auxiliary)
-    num_state_auxiliary = number_state_auxiliary(bl, FT)
-    local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-    for s in 1:num_state_auxiliary
-        local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
-    end
-    return Vars{vars_state_auxiliary(bl, FT)}(local_state_auxiliary)
-end
-function extract_state_gradient_flux(dg, state_gradient_flux, ijk, e)
-    bl = dg.balance_law
-    FT = eltype(state_gradient_flux)
-    num_state_gradient_flux = number_state_gradient_flux(bl, FT)
-    local_state_gradient_flux =
-        MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-    for s in 1:num_state_gradient_flux
-        local_state_gradient_flux[s] = state_gradient_flux[ijk, s, e]
-    end
-    return Vars{vars_state_gradient_flux(bl, FT)}(local_state_gradient_flux)
+    return Vars{vars_state(bl, st, FT)}(local_state)
 end

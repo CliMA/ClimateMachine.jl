@@ -94,11 +94,7 @@ function test_ocean_gyre(;
     ## every ntFreq timesteps.
     nt_freq = 30
     cb = ClimateMachine.StateCheck.sccreate(
-        [
-            (solver_config.Q, "Q"),
-            (solver_config.dg.state_auxiliary, "s_aux"),
-            (solver_config.dg.state_gradient_flux, "s_gflux"),
-        ],
+        [(solver_config.Q, "Q"), (solver_config.dg.state_auxiliary, "s_aux")],
         nt_freq;
         prec = 12,
     )

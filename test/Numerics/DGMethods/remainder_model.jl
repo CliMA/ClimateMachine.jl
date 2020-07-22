@@ -12,10 +12,9 @@ using ClimateMachine.DGMethods:
     init_ode_state,
     remainder_DGModel,
     wavespeed,
-    number_state_conservative,
-    number_state_auxiliary,
-    vars_state_conservative,
-    vars_state_auxiliary
+    number_states,
+    vars_state
+using ClimateMachine.BalanceLaws: Prognostic, Auxiliary
 using ClimateMachine.VariableTemplates: Vars
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
@@ -112,7 +111,7 @@ function run(
         turbulence = Vreman(FT(0.23)),
         moisture = DryModel(),
         source = Gravity(),
-        init_state_conservative = setup,
+        init_state_prognostic = setup,
     )
     dg = DGModel(
         fullmodel,
@@ -157,18 +156,18 @@ function run(
     # Create some random data to check the wavespeed function with
     nM = rand(3)
     nM /= norm(nM)
-    state_conservative = Vars{vars_state_conservative(dg.balance_law, FT)}(rand(
+    state_prognostic = Vars{vars_state(dg.balance_law, Prognostic(), FT)}(rand(
         FT,
-        number_state_conservative(dg.balance_law, FT),
+        number_states(dg.balance_law, Prognostic(), FT),
     ))
-    state_auxiliary = Vars{vars_state_auxiliary(dg.balance_law, FT)}(rand(
+    state_auxiliary = Vars{vars_state(dg.balance_law, Auxiliary(), FT)}(rand(
         FT,
-        number_state_auxiliary(dg.balance_law, FT),
+        number_states(dg.balance_law, Auxiliary(), FT),
     ))
     full_wavespeed = wavespeed(
         dg.balance_law,
         nM,
-        state_conservative,
+        state_prognostic,
         state_auxiliary,
         FT(0),
         (EveryDirection(),),
@@ -176,7 +175,7 @@ function run(
     acoustic_wavespeed = wavespeed(
         acoustic_dg.balance_law,
         nM,
-        state_conservative,
+        state_prognostic,
         state_auxiliary,
         FT(0),
         (EveryDirection(),),
@@ -219,7 +218,7 @@ function run(
             every_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(),),
@@ -229,7 +228,7 @@ function run(
             horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (HorizontalDirection(),),
@@ -239,7 +238,7 @@ function run(
             vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (VerticalDirection(),),
@@ -249,7 +248,7 @@ function run(
             every_wavespeed .+ horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), HorizontalDirection()),
@@ -259,7 +258,7 @@ function run(
             every_wavespeed .+ vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), VerticalDirection()),
@@ -301,7 +300,7 @@ function run(
             every_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(),),
@@ -311,7 +310,7 @@ function run(
             horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (HorizontalDirection(),),
@@ -321,7 +320,7 @@ function run(
             vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (VerticalDirection(),),
@@ -331,7 +330,7 @@ function run(
             every_wavespeed .+ horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), HorizontalDirection()),
@@ -341,7 +340,7 @@ function run(
             every_wavespeed .+ vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), VerticalDirection()),
@@ -379,7 +378,7 @@ function run(
             every_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(),),
@@ -389,7 +388,7 @@ function run(
             horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (HorizontalDirection(),),
@@ -399,7 +398,7 @@ function run(
             vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (VerticalDirection(),),
@@ -409,7 +408,7 @@ function run(
             every_wavespeed .+ horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), HorizontalDirection()),
@@ -419,7 +418,7 @@ function run(
             every_wavespeed .+ vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), VerticalDirection()),
@@ -457,7 +456,7 @@ function run(
             every_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(),),
@@ -467,7 +466,7 @@ function run(
             horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (HorizontalDirection(),),
@@ -477,7 +476,7 @@ function run(
             vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (VerticalDirection(),),
@@ -487,7 +486,7 @@ function run(
             every_wavespeed .+ horz_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), HorizontalDirection()),
@@ -497,7 +496,7 @@ function run(
             every_wavespeed .+ vert_wavespeed .≈ wavespeed(
                 rem_dg.balance_law,
                 nM,
-                state_conservative,
+                state_prognostic,
                 state_auxiliary,
                 FT(0),
                 (EveryDirection(), VerticalDirection()),

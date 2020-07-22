@@ -105,7 +105,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(),
-        init_state_conservative = init_surfacebubble!,
+        init_state_prognostic = init_surfacebubble!,
     )
     config = ClimateMachine.AtmosLESConfiguration(
         "SurfaceDrivenBubble",

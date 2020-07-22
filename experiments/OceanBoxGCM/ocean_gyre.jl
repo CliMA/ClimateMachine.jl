@@ -97,11 +97,7 @@ function run_ocean_gyre(; imex::Bool = false, BC = nothing, nt = 0, refDat = ())
 
     nt_freq = 620
     cb = ClimateMachine.StateCheck.sccreate(
-        [
-            (solver_config.Q, "Q"),
-            (solver_config.dg.state_auxiliary, "s_aux"),
-            (solver_config.dg.state_gradient_flux, "s_gflux"),
-        ],
+        [(solver_config.Q, "Q"), (solver_config.dg.state_auxiliary, "s_aux")],
         nt_freq;
         prec = 12,
     )
@@ -146,50 +142,8 @@ end
     #   Ocean floor BCs,
     #   Surface BCc
     # )
-    boundary_conditions = [
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(FreeSlip()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(FreeSlip()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Penetrable(FreeSlip()), TemperatureFlux()),
-        ),
-        (
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Impenetrable(FreeSlip()), Insulating()),
-            OceanBC(Penetrable(FreeSlip()), TemperatureFlux()),
-        ),
-    ]
+
     ## By default test with a couple of standard bc's
-    #  Prior block shows that many other combinations are possible
     #  - noslip on sides and bottom
     #  - freeslip on sides and no-slipt on bottom
     boundary_conditions = [

@@ -9,10 +9,11 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
+using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.BalanceLaws: vars_state, Prognostic, Auxiliary
 using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
@@ -148,7 +149,20 @@ function run_hydrostatic_spindown(; coupled = true, refDat = ())
 
     vert_filter = CutoffFilter(grid_3D, polynomialorder(grid_3D) - 1)
     exp_filter = ExponentialFilter(grid_3D, 1, 8)
-    modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
+
+    integral_model = DGModel(
+        VerticalIntegralModel(model_3D),
+        grid_3D,
+        CentralNumericalFluxFirstOrder(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+    )
+
+    modeldata = (
+        vert_filter = vert_filter,
+        exp_filter = exp_filter,
+        integral_model = integral_model,
+    )
 
     dg_3D = DGModel(
         model_3D,
@@ -248,8 +262,8 @@ function make_callbacks(
             step
         )
         @info "doing VTK output" outprefix
-        statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
     end
 

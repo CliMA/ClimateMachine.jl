@@ -13,16 +13,14 @@ using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
 using ...DGMethods
 using ...DGMethods.NumericalFluxes
-using ...BalanceLaws
-using ...BalanceLaws: number_state_auxiliary
-
 import ...DGMethods.NumericalFluxes: update_penalty!
+using ...DGMethods.NumericalFluxes: RusanovNumericalFlux
+using ...BalanceLaws
+using ...BalanceLaws: number_states
+
 import ...BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    init_state_conservative!,
+    vars_state,
+    init_state_prognostic!,
     init_state_auxiliary!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -33,11 +31,9 @@ import ...BalanceLaws:
     boundary_state!,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,
-    vars_integrals,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     indefinite_stack_integral!,
-    vars_reverse_integrals,
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
@@ -120,7 +116,7 @@ end
 HBModel = HydrostaticBoussinesqModel
 
 """
-    vars_state_conservative(::HBModel)
+    vars_state(::HBModel, ::Prognostic)
 
 prognostic variables evolved forward in time
 
@@ -128,7 +124,7 @@ u = (u,v) = (zonal velocity, meridional velocity)
 η = sea surface height
 θ = temperature
 """
-function vars_state_conservative(m::HBModel, T)
+function vars_state(m::HBModel, ::Prognostic, T)
     @vars begin
         u::SVector{2, T}
         η::T # real a 2-D variable TODO: should be 2D
@@ -137,18 +133,18 @@ function vars_state_conservative(m::HBModel, T)
 end
 
 """
-    init_state_conservative!(::HBModel)
+    init_state_prognostic!(::HBModel)
 
 sets the initial value for state variables
 dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
 """
 function ocean_init_state! end
-function init_state_conservative!(m::HBModel, Q::Vars, A::Vars, coords, t)
+function init_state_prognostic!(m::HBModel, Q::Vars, A::Vars, coords, t)
     return ocean_init_state!(m, m.problem, Q, A, coords, t)
 end
 
 """
-    vars_state_auxiliary(::HBModel)
+    vars_state(::HBModel, ::Auxiliary)
 helper variables for computation
 
 second half is because there is no dedicated integral kernels
@@ -162,7 +158,7 @@ first half of these are fields that are used for computation
 y = north-south coordinate
 
 """
-function vars_state_auxiliary(m::HBModel, T)
+function vars_state(m::HBModel, ::Auxiliary, T)
     @vars begin
         y::T     # y-coordinate of the box
         w::T     # ∫(-∇⋅u)
@@ -183,12 +179,12 @@ function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
 end
 
 """
-    vars_state_gradient(::HBModel)
+    vars_state(::HBModel, ::Gradient)
 
 variables that you want to take a gradient of
 these are just copies in our model
 """
-function vars_state_gradient(m::HBModel, T)
+function vars_state(m::HBModel, ::Gradient, T)
     @vars begin
         ∇u::SVector{2, T}
         ∇θ::T
@@ -216,13 +212,14 @@ this computation is done pointwise at each nodal point
 end
 
 """
-    vars_state_gradient_flux(::HBModel)
+    vars_state(::HBModel, ::GradientFlux, FT)
 
 the output of the gradient computations
 multiplies ∇u by viscosity tensor and ∇θ by the diffusivity tensor
 """
-function vars_state_gradient_flux(m::HBModel, T)
+function vars_state(m::HBModel, ::GradientFlux, T)
     @vars begin
+        ∇ʰu::T
         ν∇u::SMatrix{3, 2, T, 6}
         κ∇θ::SVector{3, T}
     end
@@ -250,6 +247,9 @@ this computation is done pointwise at each nodal point
     A::Vars,
     t,
 )
+    # store ∇ʰu for continuity equation (convert gradient to divergence)
+    D.∇ʰu = G.∇u[1, 1] + G.∇u[2, 2]
+
     ν = viscosity_tensor(m)
     D.ν∇u = -ν * G.∇u
 
@@ -291,7 +291,7 @@ end
 location to store integrands for bottom up integrals
 ∇hu = the horizontal divegence of u, e.g. dw/dz
 """
-function vars_integrals(m::HBModel, T)
+function vars_state(m::HBModel, ::UpwardIntegrals, T)
     @vars begin
         ∇ʰu::T
         αᵀθ::T
@@ -346,7 +346,7 @@ end
 location to store integrands for top down integrals
 αᵀθ = density perturbation
 """
-function vars_reverse_integrals(m::HBModel, T)
+function vars_state(m::HBModel, ::DownwardIntegrals, T)
     @vars begin
         αᵀθ::T
     end
@@ -619,9 +619,8 @@ function update_auxiliary_state_gradient!(
     # store ∇ʰu as integrand for w
     function f!(m::HBModel, Q, A, D, t)
         @inbounds begin
-            ν = viscosity_tensor(m)
-            ∇u = ν \ D.ν∇u # minus sign included in gradient flux
-            A.w = (∇u[1, 1] + ∇u[2, 2])
+            # load -∇ʰu as ∂ᶻw
+            A.w = -D.∇ʰu
         end
 
         return nothing
@@ -635,9 +634,9 @@ function update_auxiliary_state_gradient!(
     # We are unable to use vars (ie A.w) for this because this operation will
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
-    number_auxiliary = number_state_auxiliary(m, FT)
-    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
-    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    number_auxiliary = number_states(m, Auxiliary(), FT)
+    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
+    index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
 
     # project w(z=0) down the stack

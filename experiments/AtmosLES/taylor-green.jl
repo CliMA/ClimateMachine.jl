@@ -26,10 +26,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_integrals,
-    vars_reverse_integrals,
+    vars_state,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -136,7 +133,7 @@ function config_greenvortex(
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
         source = (),
-        init_state_conservative = init_greenvortex!,             # Apply the initial condition
+        init_state_prognostic = init_greenvortex!,             # Apply the initial condition
     )
 
     # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.

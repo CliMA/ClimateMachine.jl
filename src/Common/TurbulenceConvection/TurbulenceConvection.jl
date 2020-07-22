@@ -6,7 +6,7 @@ the Eddy-Diffusivity Mass-Flux model
 """
 module TurbulenceConvection
 
-using ..BalanceLaws: BalanceLaw
+using ..BalanceLaws: BalanceLaw, AbstractStateType
 using ..VariableTemplates: @vars, Vars, Grad
 
 export TurbulenceConvectionModel, NoTurbConv
@@ -14,17 +14,16 @@ export TurbulenceConvectionModel, NoTurbConv
 export init_aux_turbconv!, turbconv_nodal_update_auxiliary_state!
 
 import ..BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     init_state_auxiliary!,
     update_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
     boundary_state!,
     compute_gradient_argument!,
-    compute_gradient_flux!
+    compute_gradient_flux!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!
 
 using ..MPIStateArrays: MPIStateArray
 using ..DGMethods: nodal_update_auxiliary_state!
@@ -40,10 +39,7 @@ pass through and do nothing.
 """
 struct NoTurbConv <: TurbulenceConvectionModel end
 
-vars_state_conservative(m::TurbulenceConvectionModel, FT) = @vars()
-vars_state_auxiliary(m::TurbulenceConvectionModel, FT) = @vars()
-vars_state_gradient(m::TurbulenceConvectionModel, FT) = @vars()
-vars_state_gradient_flux(m::TurbulenceConvectionModel, FT) = @vars()
+vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
 
 function init_aux_turbconv!(
     m::TurbulenceConvectionModel,
@@ -117,6 +113,25 @@ function flux_second_order!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+)
+    return nothing
+end
+
+function integral_load_auxiliary_state!(
+    m::TurbulenceConvectionModel,
+    bl::BalanceLaw,
+    integ::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    return nothing
+end
+
+function integral_set_auxiliary_state!(
+    m::TurbulenceConvectionModel,
+    bl::BalanceLaw,
+    aux::Vars,
+    integ::Vars,
 )
     return nothing
 end

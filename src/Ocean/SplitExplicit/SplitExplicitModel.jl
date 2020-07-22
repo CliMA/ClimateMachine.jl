@@ -1,7 +1,17 @@
 module SplitExplicit
 
+using StaticArrays
+
 using ..HydrostaticBoussinesq
 using ..ShallowWater
+
+using ...VariableTemplates
+using ...MPIStateArrays
+using ...Mesh.Geometry
+using ...DGMethods
+using ...BalanceLaws
+
+include("VerticalIntegralModel.jl")
 
 import ...BalanceLaws:
     initialize_states!,

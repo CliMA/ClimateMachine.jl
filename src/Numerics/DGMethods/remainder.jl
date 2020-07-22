@@ -2,15 +2,8 @@ using StaticNumbers
 export remainder_DGModel
 
 import ..BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_integrals,
-    vars_reverse_integrals,
-    vars_gradient_laplacian,
-    vars_hyperdiffusive,
-    init_state_conservative!,
+    vars_state,
+    init_state_prognostic!,
     init_state_auxiliary!,
     flux_first_order!,
     flux_second_order!,
@@ -113,25 +106,25 @@ function remainder_DGModel(
     # If any of these asserts fail, the remainder model will need to be extended
     # to allow for it; see `flux_first_order!` and `source!` below.
     for subdg in subsdg
-        @assert number_state_conservative(subdg.balance_law, FT) <=
-                number_state_conservative(maindg.balance_law, FT)
+        @assert number_states(subdg.balance_law, Prognostic(), FT) <=
+                number_states(maindg.balance_law, Prognostic(), FT)
 
-        @assert number_state_auxiliary(subdg.balance_law, FT) ==
-                number_state_auxiliary(maindg.balance_law, FT)
+        @assert number_states(subdg.balance_law, Auxiliary(), FT) ==
+                number_states(maindg.balance_law, Auxiliary(), FT)
 
-        @assert number_state_gradient(subdg.balance_law, FT) == 0
-        @assert number_state_gradient_flux(subdg.balance_law, FT) == 0
+        @assert number_states(subdg.balance_law, Gradient(), FT) == 0
+        @assert number_states(subdg.balance_law, GradientFlux(), FT) == 0
 
-        @assert num_gradient_laplacian(subdg.balance_law, FT) == 0
-        @assert num_hyperdiffusive(subdg.balance_law, FT) == 0
+        @assert number_states(subdg.balance_law, GradientLaplacian(), FT) == 0
+        @assert number_states(subdg.balance_law, Hyperdiffusive(), FT) == 0
 
         # Do not currenlty support nested remainder models
         # For this to work the way directions and numerical fluxes are handled
         # would need to be updated.
         @assert !(subdg.balance_law isa RemBL)
 
-        @assert num_integrals(subdg.balance_law, FT) == 0
-        @assert num_reverse_integrals(subdg.balance_law, FT) == 0
+        @assert number_states(subdg.balance_law, UpwardIntegrals(), FT) == 0
+        @assert number_states(subdg.balance_law, DownwardIntegrals(), FT) == 0
 
         # The remainder model requires that the subcomponent direction be
         # included in the main model directions
@@ -164,29 +157,8 @@ function remainder_DGModel(
 end
 
 # Inherit most of the functionality from the main model
-vars_state_conservative(rem_balance_law::RemBL, FT) =
-    vars_state_conservative(rem_balance_law.main, FT)
-
-vars_state_gradient(rem_balance_law::RemBL, FT) =
-    vars_state_gradient(rem_balance_law.main, FT)
-
-vars_state_gradient_flux(rem_balance_law::RemBL, FT) =
-    vars_state_gradient_flux(rem_balance_law.main, FT)
-
-vars_state_auxiliary(rem_balance_law::RemBL, FT) =
-    vars_state_auxiliary(rem_balance_law.main, FT)
-
-vars_integrals(rem_balance_law::RemBL, FT) =
-    vars_integrals(rem_balance_law.main, FT)
-
-vars_reverse_integrals(rem_balance_law::RemBL, FT) =
-    vars_integrals(rem_balance_law.main, FT)
-
-vars_gradient_laplacian(rem_balance_law::RemBL, FT) =
-    vars_gradient_laplacian(rem_balance_law.main, FT)
-
-vars_hyperdiffusive(rem_balance_law::RemBL, FT) =
-    vars_hyperdiffusive(rem_balance_law.main, FT)
+vars_state(rem_balance_law::RemBL, st::AbstractStateType, FT) =
+    vars_state(rem_balance_law.main, st, FT)
 
 update_auxiliary_state!(dg::DGModel, rem_balance_law::RemBL, args...) =
     update_auxiliary_state!(dg, rem_balance_law.main, args...)
@@ -224,8 +196,8 @@ boundary_state!(nf, rem_balance_law::RemBL, args...) =
 init_state_auxiliary!(rem_balance_law::RemBL, args...) =
     init_state_auxiliary!(rem_balance_law.main, args...)
 
-init_state_conservative!(rem_balance_law::RemBL, args...) =
-    init_state_conservative!(rem_balance_law.main, args...)
+init_state_prognostic!(rem_balance_law::RemBL, args...) =
+    init_state_prognostic!(rem_balance_law.main, args...)
 
 """
     function flux_first_order!(
@@ -381,11 +353,11 @@ function wavespeed(
 
     ws = fill(
         -zero(FT),
-        MVector{number_state_conservative(rem_balance_law.main, FT), FT},
+        MVector{number_states(rem_balance_law.main, Prognostic(), FT), FT},
     )
     rs = fill(
         -zero(FT),
-        MVector{number_state_conservative(rem_balance_law.main, FT), FT},
+        MVector{number_states(rem_balance_law.main, Prognostic(), FT), FT},
     )
 
     # Compute the main components wavespeed
@@ -403,7 +375,7 @@ function wavespeed(
     # Compute the sub components wavespeed
     for (sub, subdir) in zip(rem_balance_law.subs, rem_balance_law.subsdir)
         @inbounds if subdir isa Union{Dirs.types...}
-            num_state = static(number_state_conservative(sub, Float32))
+            num_state = static(number_states(sub, Prognostic(), Float32))
             rs[static(1):num_state] .+=
                 wavespeed(sub, nM, state, aux, t, (subdir,))
         end
@@ -430,9 +402,9 @@ import ..DGMethods.NumericalFluxes:
         rem_balance_law::RemBL,
         fluxᵀn::Vars{S},
         normal_vector::SVector,
-        state_conservative⁻::Vars{S},
+        state_prognostic⁻::Vars{S},
         state_auxiliary⁻::Vars{A},
-        state_conservative⁺::Vars{S},
+        state_prognostic⁺::Vars{S},
         state_auxiliary⁺::Vars{A},
         t,
         directions,
@@ -454,9 +426,9 @@ function numerical_flux_first_order!(
     rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     ::Dirs,
@@ -468,9 +440,9 @@ function numerical_flux_first_order!(
             rem_balance_law.main,
             fluxᵀn,
             normal_vector,
-            state_conservative⁻,
+            state_prognostic⁻,
             state_auxiliary⁻,
-            state_conservative⁺,
+            state_prognostic⁺,
             state_auxiliary⁺,
             t,
             (rem_balance_law.maindir,),
@@ -488,32 +460,30 @@ function numerical_flux_first_order!(
             nf = numerical_fluxes[2][k]
 
             FT = eltype(a_fluxᵀn)
-            num_state_conservative = number_state_conservative(sub, FT)
+            num_state_prognostic = number_states(sub, Prognostic(), FT)
 
-            a_sub_fluxᵀn = MVector{num_state_conservative, FT}(undef)
-            a_sub_state_conservative⁻ =
-                MVector{num_state_conservative, FT}(undef)
-            a_sub_state_conservative⁺ =
-                MVector{num_state_conservative, FT}(undef)
+            a_sub_fluxᵀn = MVector{num_state_prognostic, FT}(undef)
+            a_sub_state_prognostic⁻ = MVector{num_state_prognostic, FT}(undef)
+            a_sub_state_prognostic⁺ = MVector{num_state_prognostic, FT}(undef)
 
-            state_rng = static(1):static(number_state_conservative(sub, FT))
+            state_rng = static(1):static(number_states(sub, Prognostic(), FT))
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
-            a_sub_state_conservative⁻ .= parent(state_conservative⁻)[state_rng]
-            a_sub_state_conservative⁺ .= parent(state_conservative⁺)[state_rng]
+            a_sub_state_prognostic⁻ .= parent(state_prognostic⁻)[state_rng]
+            a_sub_state_prognostic⁺ .= parent(state_prognostic⁺)[state_rng]
 
             # compute this submodels flux
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
             numerical_flux_first_order!(
                 nf,
                 sub,
-                Vars{vars_state_conservative(sub, FT)}(a_sub_fluxᵀn),
+                Vars{vars_state(sub, Prognostic(), FT)}(a_sub_fluxᵀn),
                 normal_vector,
-                Vars{vars_state_conservative(sub, FT)}(
-                    a_sub_state_conservative⁻,
+                Vars{vars_state(sub, Prognostic(), FT)}(
+                    a_sub_state_prognostic⁻,
                 ),
                 state_auxiliary⁻,
-                Vars{vars_state_conservative(sub, FT)}(
-                    a_sub_state_conservative⁺,
+                Vars{vars_state(sub, Prognostic(), FT)}(
+                    a_sub_state_prognostic⁺,
                 ),
                 state_auxiliary⁺,
                 t,
@@ -535,9 +505,9 @@ end
         rem_balance_law::RemBL,
         fluxᵀn::Vars{S},
         normal_vector::SVector,
-        state_conservative⁻::Vars{S},
+        state_prognostic⁻::Vars{S},
         state_auxiliary⁻::Vars{A},
-        state_conservative⁺::Vars{S},
+        state_prognostic⁺::Vars{S},
         state_auxiliary⁺::Vars{A},
         bctype,
         t,
@@ -561,22 +531,22 @@ function numerical_boundary_flux_first_order!(
     rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     bctype,
     t,
     ::Dirs,
-    state_conservative1⁻::Vars{S},
+    state_prognostic1⁻::Vars{S},
     state_auxiliary1⁻::Vars{A},
 ) where {NumSubFluxes, S, A, Dirs <: NTuple{2, Direction}}
     # Since the fluxes are allowed to modified these we need backups so they can
     # be reset as we go
-    a_state_conservative⁺ = parent(state_conservative⁺)
+    a_state_prognostic⁺ = parent(state_prognostic⁺)
     a_state_auxiliary⁺ = parent(state_auxiliary⁺)
 
-    a_back_state_conservative⁺ = copy(a_state_conservative⁺)
+    a_back_state_prognostic⁺ = copy(a_state_prognostic⁺)
     a_back_state_auxiliary⁺ = copy(a_state_auxiliary⁺)
 
 
@@ -587,14 +557,14 @@ function numerical_boundary_flux_first_order!(
             rem_balance_law.main,
             fluxᵀn,
             normal_vector,
-            state_conservative⁻,
+            state_prognostic⁻,
             state_auxiliary⁻,
-            state_conservative⁺,
+            state_prognostic⁺,
             state_auxiliary⁺,
             bctype,
             t,
             (rem_balance_law.maindir,),
-            state_conservative1⁻,
+            state_prognostic1⁻,
             state_auxiliary1⁻,
         )
     end
@@ -610,26 +580,22 @@ function numerical_boundary_flux_first_order!(
             nf = numerical_fluxes[2][k]
 
             # reset the plus-side data
-            a_state_conservative⁺ .= a_back_state_conservative⁺
+            a_state_prognostic⁺ .= a_back_state_prognostic⁺
             a_state_auxiliary⁺ .= a_back_state_auxiliary⁺
 
             FT = eltype(a_fluxᵀn)
-            num_state_conservative = number_state_conservative(sub, FT)
+            num_state_prognostic = number_states(sub, Prognostic(), FT)
 
-            a_sub_fluxᵀn = MVector{num_state_conservative, FT}(undef)
-            a_sub_state_conservative⁻ =
-                MVector{num_state_conservative, FT}(undef)
-            a_sub_state_conservative⁺ =
-                MVector{num_state_conservative, FT}(undef)
-            a_sub_state_conservative1⁻ =
-                MVector{num_state_conservative, FT}(undef)
+            a_sub_fluxᵀn = MVector{num_state_prognostic, FT}(undef)
+            a_sub_state_prognostic⁻ = MVector{num_state_prognostic, FT}(undef)
+            a_sub_state_prognostic⁺ = MVector{num_state_prognostic, FT}(undef)
+            a_sub_state_prognostic1⁻ = MVector{num_state_prognostic, FT}(undef)
 
-            state_rng = static(1):static(number_state_conservative(sub, FT))
+            state_rng = static(1):static(number_states(sub, Prognostic(), FT))
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
-            a_sub_state_conservative⁻ .= parent(state_conservative⁻)[state_rng]
-            a_sub_state_conservative⁺ .= parent(state_conservative⁺)[state_rng]
-            a_sub_state_conservative1⁻ .=
-                parent(state_conservative1⁻)[state_rng]
+            a_sub_state_prognostic⁻ .= parent(state_prognostic⁻)[state_rng]
+            a_sub_state_prognostic⁺ .= parent(state_prognostic⁺)[state_rng]
+            a_sub_state_prognostic1⁻ .= parent(state_prognostic1⁻)[state_rng]
 
 
             # compute this submodels flux
@@ -637,21 +603,21 @@ function numerical_boundary_flux_first_order!(
             numerical_boundary_flux_first_order!(
                 nf,
                 sub,
-                Vars{vars_state_conservative(sub, FT)}(a_sub_fluxᵀn),
+                Vars{vars_state(sub, Prognostic(), FT)}(a_sub_fluxᵀn),
                 normal_vector,
-                Vars{vars_state_conservative(sub, FT)}(
-                    a_sub_state_conservative⁻,
+                Vars{vars_state(sub, Prognostic(), FT)}(
+                    a_sub_state_prognostic⁻,
                 ),
                 state_auxiliary⁻,
-                Vars{vars_state_conservative(sub, FT)}(
-                    a_sub_state_conservative⁺,
+                Vars{vars_state(sub, Prognostic(), FT)}(
+                    a_sub_state_prognostic⁺,
                 ),
                 state_auxiliary⁺,
                 bctype,
                 t,
                 (rem_balance_law.subsdir[k],),
-                Vars{vars_state_conservative(sub, FT)}(
-                    a_sub_state_conservative1⁻,
+                Vars{vars_state(sub, Prognostic(), FT)}(
+                    a_sub_state_prognostic1⁻,
                 ),
                 state_auxiliary1⁻,
             )

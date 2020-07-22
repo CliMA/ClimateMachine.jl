@@ -11,14 +11,11 @@ using Printf
 using LinearAlgebra
 using Logging
 
-using ClimateMachine.BalanceLaws: BalanceLaw
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Prognostic, Auxiliary, GradientFlux
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_integrals,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -26,7 +23,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     boundary_state!,
     init_state_auxiliary!,
-    init_state_conservative!
+    init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -34,10 +31,10 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 struct VarsTestModel{dim} <: BalanceLaw end
 
-vars_state_conservative(::VarsTestModel, T) = @vars(x::T, coord::SVector{3, T})
-vars_state_auxiliary(m::VarsTestModel, T) =
+vars_state(::VarsTestModel, ::Prognostic, T) = @vars(x::T, coord::SVector{3, T})
+vars_state(m::VarsTestModel, ::Auxiliary, T) =
     @vars(coord::SVector{3, T}, polynomial::T)
-vars_state_gradient_flux(m::VarsTestModel, T) = @vars()
+vars_state(m::VarsTestModel, ::GradientFlux, T) = @vars()
 
 flux_first_order!(::VarsTestModel, _...) = nothing
 flux_second_order!(::VarsTestModel, _...) = nothing
@@ -45,7 +42,7 @@ source!(::VarsTestModel, _...) = nothing
 boundary_state!(_, ::VarsTestModel, _...) = nothing
 wavespeed(::VarsTestModel, _...) = 1
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::VarsTestModel,
     state::Vars,
     aux::Vars,
