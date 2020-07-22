@@ -8,7 +8,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.Orientations
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.SystemSolvers: ManyColumnLU
+using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Interpolation
@@ -151,14 +151,17 @@ function main()
         config_isothermal_zonal_flow(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
-    )
-    CFL = FT(0.4)
+    ode_solver_type = ClimateMachine.MultirateSolverType(
+        splitting_type = ClimateMachine.HEVISplitting(),
+        fast_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = SingleColumnLU,
+        implicit_solver_adjustable = true,
+        slow_method = LSRK144NiegemannDiehlBusch,
+        fast_method = ARK2ImplicitExplicitMidpoint,
+        timestep_ratio = 10,
+)
+
+    CFL = FT(10)
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
