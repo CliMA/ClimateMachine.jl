@@ -164,6 +164,8 @@ function vars_state(m::HBModel, ::Auxiliary, T)
         w::T     # ∫(-∇⋅u)
         pkin::T  # ∫(-αᵀθ)
         wz0::T   # w at z=0
+        uᵈ::SVector{2, T}    # velocity deviation from vertical mean
+        ΔGᵘ::SVector{2, T}   # vertically averaged tendency
     end
 end
 

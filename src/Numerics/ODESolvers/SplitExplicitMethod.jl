@@ -54,7 +54,9 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
         RT = real(eltype(slow_solver.dQ))
 
         dQ2fast = similar(slow_solver.dQ)
+        dQ2fast .= -0
         MSA = typeof(dQ2fast)
+
         return new{SS, FS, RT, MSA}(
             slow_solver,
             fast_solver,

@@ -67,7 +67,8 @@ function shallow_init_state!(
     return nothing
 end
 
-function shallow_init_aux!(p::GyreInABox, aux, geom)
+function shallow_init_aux!(m::ShallowWaterModel, p::GyreInABox, A, geom)
+    @inbounds x = geom.coord[1]
     @inbounds y = geom.coord[2]
 
     Lʸ = p.Lʸ
@@ -75,8 +76,11 @@ function shallow_init_aux!(p::GyreInABox, aux, geom)
     fₒ = p.fₒ
     β = p.β
 
-    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
-    aux.f = fₒ + β * (y - Lʸ / 2)
+    A.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
+    A.f = fₒ + β * (y - Lʸ / 2)
+
+    A.Gᵁ = @SVector [-0, -0]
+    A.Δu = @SVector [-0, -0]
 
     return nothing
 end
@@ -325,7 +329,7 @@ vtkpath = "vtk_split"
 const timeend = 24 * 3600 # s
 const tout = 2 * 3600 # s
 # const timeend = 1200 # s
-# const tout = 600 # s
+# const tout = 300 # s
 
 const N = 4
 const Nˣ = 5

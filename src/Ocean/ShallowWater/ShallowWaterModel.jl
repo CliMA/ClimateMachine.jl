@@ -63,6 +63,8 @@ function vars_state(m::SWModel, ::Auxiliary, T)
     @vars begin
         f::T
         τ::SVector{2, T}  # value includes τₒ, g, and ρ
+        Gᵁ::SVector{2, T} # integral of baroclinic tendency
+        Δu::SVector{2, T} # reconciliation Δu = 1/H * (Ū - ∫u)
     end
 end
 
@@ -237,7 +239,7 @@ end
 
 function shallow_init_aux! end
 function init_state_auxiliary!(m::SWModel, aux::Vars, geom::LocalGeometry)
-    shallow_init_aux!(m.problem, aux, geom)
+    shallow_init_aux!(m, m.problem, aux, geom)
 end
 
 function shallow_init_state! end

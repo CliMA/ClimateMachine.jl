@@ -76,7 +76,7 @@ function shallow_init_state!(
     end
 end
 
-function shallow_init_aux!(p::GyreInABox, aux, geom)
+function shallow_init_aux!(m::ShallowWaterModel, p::GyreInABox, aux, geom)
     @inbounds y = geom.coord[2]
 
     Lʸ = p.Lʸ

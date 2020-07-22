@@ -62,7 +62,7 @@ function shallow_init_state!(
     return nothing
 end
 
-function shallow_init_aux!(p::SimpleBox, A, geom)
+function shallow_init_aux!(m::ShallowWaterModel, p::SimpleBox, A, geom)
     @inbounds y = geom.coord[2]
 
     FT = eltype(A)
@@ -202,7 +202,7 @@ function make_callbacks(
         if s
             starttime[] = now()
         else
-            energy = norm(Q_slow)
+            energy = norm(Q_fast)
             @info @sprintf(
                 """Update
                 simtime = %8.2f / %8.2f
