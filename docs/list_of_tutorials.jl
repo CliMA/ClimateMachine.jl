@@ -35,7 +35,10 @@ if generate_tutorials
                 "Batched Generalized Minimal Residual" =>
                     "Numerics/SystemSolvers/bgmres.jl",
             ],
-            "DG Methods" => ["Topology" => "topo.jl"],
+            "DG Methods" => [
+                "Topology" => "topo.jl",
+                "Filters" => "Numerics/DGMethods/showcase_filters.jl",
+            ],
         ],
         "Diagnostics" => [
             "Debug" => [

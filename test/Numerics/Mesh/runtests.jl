@@ -26,6 +26,10 @@ end
     runmpi(joinpath(@__DIR__, "filter.jl"))
 end
 
+@testset "Mesh Filter TMAR" begin
+    runmpi(joinpath(@__DIR__, "filter_TMAR.jl"))
+end
+
 @testset "Mesh Geometry" begin
     runmpi(joinpath(@__DIR__, ("Geometry.jl")))
 end

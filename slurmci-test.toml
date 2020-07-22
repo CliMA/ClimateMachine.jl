@@ -49,7 +49,6 @@ cpu_gpu = [
   { file = "test/Ocean/SplitExplicit/test_vertical_integral_model.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Ocean/SplitExplicit/test_spindown_long.jl", slurmargs = ["--ntasks=1"], args = [] },
   { file = "test/Ocean/SplitExplicit/test_restart.jl", slurmargs = ["--ntasks=1"], args = [] },
-  { file = "tutorials/Numerics/DGMethods/nonnegative.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Atmos/Parameterizations/Microphysics/KM_saturation_adjustment.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Atmos/Parameterizations/Microphysics/KM_warm_rain.jl", slurmargs = ["--ntasks=3"], args = [] },
   { file = "test/Atmos/Parameterizations/Microphysics/KM_ice.jl", slurmargs = ["--ntasks=3"], args = [] },
