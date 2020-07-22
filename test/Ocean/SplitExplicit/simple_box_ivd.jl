@@ -181,7 +181,9 @@ function main()
     numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
 
     model = OceanModel{FT}(prob, grav = gravity, cʰ = cʰ,
-            add_fast_substeps = add_fast_substeps )
+            add_fast_substeps = add_fast_substeps,
+            numImplSteps = numImplSteps, ivdc_dt = ivdc_dt,
+            κᶜ = FT(0.1) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(0), fₒ = FT(0), β = FT(0) )
@@ -311,7 +313,7 @@ function main()
     ## Check results against reference if present
     checkRefVals = true
     if checkRefVals
-        include("../refvals/simple_box_2dt_refvals.jl")
+        include("../refvals/simple_box_ivd_refvals.jl")
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
@@ -428,7 +430,7 @@ add_fast_substeps = 2
 
 #- number of Implicit vertical-diffusion sub-time-steps within one model full time-step
 # default = 0 : disable implicit vertical diffusion
-numImplSteps = 0
+numImplSteps = 5
 
 #const τₒ = 2e-1  # (Pa = N/m^2)
 # since we are using old BC (with factor of 2), take only half:
