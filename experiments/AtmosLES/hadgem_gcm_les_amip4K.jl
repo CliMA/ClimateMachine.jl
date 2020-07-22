@@ -12,12 +12,16 @@ using Test
 
 # ClimateMachine Modules
 using ClimateMachine
+
+cl_args = ClimateMachine.init(parse_clargs = true)
+
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.Orientations
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.ODESolvers
@@ -277,8 +281,7 @@ function str2var(str::String, var::Any)
     @eval(($str) = ($var))
 end
 
-parsed_args = parse_commandline(nothing)
-const groupid = parsed_args["group-id"]
+const groupid = cl_args["group_id"]
 
 # Define the get_gcm_info function
 """
@@ -434,7 +437,6 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         AtmosLESConfigType,
         param_set;
         turbulence = Vreman{FT}(0.23),
-        hyperdiffusion = StandardHyperDiffusion(3600),
         source = (
             Gravity(),
             GCMRelaxation{FT}(3600),
@@ -460,7 +462,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         gcminfo = HadGem2()
     )
     mrrk_solver = ClimateMachine.MultirateSolverType(
-        linear_model = AtmosAcousticGravityLinearModel,
+        fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 10,
@@ -482,15 +484,20 @@ end
 
 # Define the diagnostics configuration (Atmos-Default)
 function config_diagnostics(driver_config)
-    interval = ""
-    writer = NetCDFWriter()
-    dgngrp = setup_atmos_default_diagnostics(
-                interval, driver_config.name; 
-                writer=writer
-             )
-    core_dgngrp = setup_atmos_core_diagnostics("2500steps", 
-                                               driver_config.name)
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp, core_dgngrp])
+    default_dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        "2500steps",
+        driver_config.name,
+    )
+    core_dgngrp = setup_atmos_core_diagnostics(
+        AtmosLESConfigType(),
+        "2500steps",
+        driver_config.name,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([
+        default_dgngrp,
+        core_dgngrp,
+    ])
 end
 
 function main()
@@ -506,8 +513,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(3600)
-    ymax = FT(3600)
+    xmax = FT(1000)
+    ymax = FT(1000)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
@@ -567,13 +574,18 @@ function main()
     )
     # Set up diagnostic configuration
     dgn_config = config_diagnostics(driver_config)
-
-    # User defined filter (TMAR positivity preserving filter)
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, 6, solver_config.dg.grid, TMARFilter())
+    
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
         nothing
     end
     
+    #=
     filterorder = N
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -585,6 +597,7 @@ function main()
         )
         nothing
     end
+    =# 
 
     # Invoke solver (calls solve! function for time-integrator)
     result = ClimateMachine.invoke!(

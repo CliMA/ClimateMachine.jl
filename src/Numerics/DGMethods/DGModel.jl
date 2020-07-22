@@ -585,7 +585,7 @@ function init_ode_state(
     init_on_cpu = false,
     commtag = 888,
 )
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDA()
+    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid

@@ -32,9 +32,6 @@ using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
-using ..VTK
-
-export parse_commandline
 
 function _init_array(::Type{CuArray})
     comm = MPI.COMM_WORLD
@@ -73,9 +70,9 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     log_level::String = "INFO"
     disable_custom_logger::Bool = false
     output_dir::String = "output"
-    group_id::String = "site17"
     integration_testing::Bool = false
     array_type::Type = Array
+    group_id::String = "site58"
 end
 
 const Settings = ClimateMachine_Settings()
@@ -267,14 +264,13 @@ function parse_commandline(
         end
         "--integration-testing"
         help = "enable integration testing"
-        action = :store_true
-        "--group-id"
-        help = "Set the group for the CFSite experiment"
-        arg_type = String
-        default = "site17"
         action = :store_const
         constant = true
         default = get_setting(:integration_testing, defaults, global_defaults)
+        "--group-id"
+        help = "Site ID for AMIP GCM driven experiment"
+        arg_type = String
+        default = get_setting(:group_id, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
@@ -446,46 +442,6 @@ set up logging.
 function init_runtime(settings::ClimateMachine_Settings)
     # set up timing mechanism
     tictoc()
-
-    # parse command line arguments
-    parsed_args = nothing
-    try
-        parsed_args = parse_commandline(arg_settings)
-        Settings.disable_gpu = disable_gpu || parsed_args["disable-gpu"]
-#        delete!(parsed_args, "disable-gpu")
-        Settings.show_updates = parsed_args["show-updates"]
-#        delete!(parsed_args, "show-updates")
-        Settings.diagnostics = parsed_args["diagnostics"]
-#        delete!(parsed_args, "diagnostics")
-        Settings.vtk = parsed_args["vtk"]
-#        delete!(parsed_args, "vtk")
-        Settings.monitor_timestep_duration =
-            parsed_args["monitor-timestep-duration"]
-#        delete!(parsed_args, "monitor-timestep-duration")
-        Settings.monitor_courant_numbers =
-            parsed_args["monitor-courant-numbers"]
-#        delete!(parsed_args, "monitor-courant-numbers")
-        Settings.log_level = uppercase(parsed_args["log-level"])
-#        delete!(parsed_args, "log-level")
-        Settings.checkpoint = parsed_args["checkpoint"]
-#        delete!(parsed_args, "checkpoint")
-        Settings.checkpoint_keep_one = !parsed_args["checkpoint-keep-all"]
-#        delete!(parsed_args, "checkpoint-keep-all")
-        Settings.checkpoint_at_end = parsed_args["checkpoint-at-end"]
-#        delete!(parsed_args, "checkpoint-at-end")
-        Settings.checkpoint_dir = parsed_args["checkpoint-dir"]
-#        delete!(parsed_args, "checkpoint-dir")
-        Settings.restart_from_num = parsed_args["restart-from-num"]
-#        delete!(parsed_args, "restart-from-num")
-        Settings.output_dir = parsed_args["output-dir"]
-#        delete!(parsed_args, "output-dir")
-        Settings.integration_testing = parsed_args["integration-testing"]
-#        delete!(parsed_args, "integration-testing")
-        Settings.groupid = parsed_args["group-id"]
-#        delete!(parsed_args, "group-id")
-    catch
-        Settings.disable_gpu = disable_gpu
-    end
 
     # initialize MPI
     if !MPI.Initialized()
