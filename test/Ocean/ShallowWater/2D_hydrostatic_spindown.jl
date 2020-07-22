@@ -116,7 +116,7 @@ function run_hydrostatic_spindown(; refDat = ())
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )

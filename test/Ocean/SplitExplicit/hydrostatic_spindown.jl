@@ -357,31 +357,28 @@ const cᶻ = 0
     include("../refvals/hydrostatic_spindown_refvals.jl")
 
     @testset "Multi-rate" begin
+        @testset "Δt = 30 mins" begin
+            run_hydrostatic_spindown(
+                coupling = Coupled(),
+                dt_slow = 30 * 60,
+                refDat = refVals.thirty_minutes,
+            )
+        end
 
-        @testset "Fully Coupled" begin
-            @testset "Δt = 30 mins" begin
-                run_hydrostatic_spindown(
-                    coupling = Coupled(),
-                    dt_slow = 30 * 60,
-                    refDat = refVals.thirty_minutes,
-                )
-            end
+        @testset "Δt = 60 mins" begin
+            run_hydrostatic_spindown(
+                coupling = Coupled(),
+                dt_slow = 60 * 60,
+                refDat = refVals.sixty_minutes,
+            )
+        end
 
-            @testset "Δt = 60 mins" begin
-                run_hydrostatic_spindown(
-                    coupling = Coupled(),
-                    dt_slow = 60 * 60,
-                    refDat = refVals.sixty_minutes,
-                )
-            end
-
-            @testset "Δt = 90 mins" begin
-                run_hydrostatic_spindown(
-                    coupling = Coupled(),
-                    dt_slow = 90 * 60,
-                    refDat = refVals.ninety_minutes,
-                )
-            end
+        @testset "Δt = 90 mins" begin
+            run_hydrostatic_spindown(
+                coupling = Coupled(),
+                dt_slow = 90 * 60,
+                refDat = refVals.ninety_minutes,
+            )
         end
     end
 
@@ -391,7 +388,7 @@ const cᶻ = 0
                 run_hydrostatic_spindown(
                     coupling = Uncoupled(),
                     dt_slow = 300,
-                    refDat = refVals.not_coupled,
+                    refDat = refVals.uncoupled,
                 )
             end
 
@@ -399,7 +396,7 @@ const cᶻ = 0
                 run_hydrostatic_spindown(
                     coupling = Coupled(),
                     dt_slow = 300,
-                    refDat = refVals.fully_coupled,
+                    refDat = refVals.coupled,
                 )
             end
         end

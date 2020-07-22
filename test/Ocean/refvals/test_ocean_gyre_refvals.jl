@@ -1,45 +1,19 @@
-# Testing reference values and precisions
-# Each test block of varr and parr should be followed by an append to refVals, refPrecs arrays.
-# e.g.
-#   refVals=[]
-#   refPrecs=[]
-#
-#   varr = ..........
-#   par  = ..........
-#
-#   append!(refVals ,[ varr ] )
-#   append!(refPrecs,[ parr ] )
-#
-#   varr = ..........
-#   par  = ..........
-#
-#   append!(refVals ,[ varr ] )
-#   append!(refPrecs,[ parr ] )
-#
-#   varr = ..........
-#   par  = ..........
-#
-#   append!(refVals ,[ varr ] )
-#   append!(refPrecs,[ parr ] )
-#
-#   etc.....
-#
-#   Now for real!
-#
+parr = [
+    ["Q", "u[1]", 12, 12, 12, 12],
+    ["Q", "u[2]", 12, 12, 12, 12],
+    ["Q", :η, 12, 12, 12, 12],
+    ["Q", :θ, 12, 12, 12, 12],
+    ["s_aux", :y, 12, 12, 12, 12],
+    ["s_aux", :w, 12, 12, 12, 12],
+    ["s_aux", :pkin, 12, 12, 12, 12],
+    ["s_aux", :wz0, 12, 12, 12, 12],
+    ["s_aux", "uᵈ[1]", 12, 12, 12, 12],
+    ["s_aux", "uᵈ[2]", 12, 12, 12, 12],
+    ["s_aux", "ΔGᵘ[1]", 12, 12, 12, 12],
+    ["s_aux", "ΔGᵘ[2]", 12, 12, 12, 12],
+]
 
-refVals = []
-refPrecs = []
-# SC ========== Test number 1 reference values and precision match template. =======
-# SC ========== /Users/chrishill/projects/clima/cm/test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl test reference values ======================================
-# BEGIN SCPRINT
-# varr - reference values (from reference run)
-# parr - digits match precision (hand edit as needed)
-#
-# [
-#  [ MPIStateArray Name, Field Name, Maximum, Minimum, Mean, Standard Deviation ],
-#  [         :                :          :        :      :          :           ],
-# ]
-varr = [
+explicit = [
     [
         "Q",
         "u[1]",
@@ -104,33 +78,41 @@ varr = [
         -2.78589672590168561413e-08,
         7.72520757253795920232e-06,
     ],
+    [
+        "s_aux",
+        "uᵈ[1]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
+    [
+        "s_aux",
+        "uᵈ[2]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
+    [
+        "s_aux",
+        "ΔGᵘ[1]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
+    [
+        "s_aux",
+        "ΔGᵘ[2]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
 ]
-parr = [
-    ["Q", "u[1]", 12, 12, 12, 12],
-    ["Q", "u[2]", 12, 12, 12, 12],
-    ["Q", :η, 12, 12, 12, 12],
-    ["Q", :θ, 12, 12, 12, 12],
-    ["s_aux", :y, 12, 12, 12, 12],
-    ["s_aux", :w, 12, 12, 12, 12],
-    ["s_aux", :pkin, 12, 12, 12, 12],
-    ["s_aux", :wz0, 12, 12, 12, 12],
-]
-# END SCPRINT
 
-append!(refVals, [varr])
-append!(refPrecs, [parr])
-
-# SC ========== Test number 2 reference values and precision match template. =======
-# SC ========== /Users/chrishill/projects/clima/cm/test/Ocean/HydrostaticBoussinesq/test_ocean_gyre.jl test reference values ======================================
-# BEGIN SCPRINT
-# varr - reference values (from reference run)
-# parr - digits match precision (hand edit as needed)
-#
-# [
-#  [ MPIStateArray Name, Field Name, Maximum, Minimum, Mean, Standard Deviation ],
-#  [         :                :          :        :      :          :           ],
-# ]
-varr = [
+imex = [
     [
         "Q",
         "u[1]",
@@ -195,17 +177,38 @@ varr = [
         -2.71999565492576589218e-08,
         7.76164707621753630128e-06,
     ],
-]
-parr = [
-    ["Q", "u[1]", 12, 12, 12, 12],
-    ["Q", "u[2]", 12, 12, 12, 12],
-    ["Q", :η, 12, 12, 12, 12],
-    ["Q", :θ, 12, 12, 12, 12],
-    ["s_aux", :y, 12, 12, 12, 12],
-    ["s_aux", :w, 12, 12, 12, 12],
-    ["s_aux", :pkin, 12, 12, 12, 12],
-    ["s_aux", :wz0, 12, 12, 12, 12],
+    [
+        "s_aux",
+        "uᵈ[1]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
+    [
+        "s_aux",
+        "uᵈ[2]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
+    [
+        "s_aux",
+        "ΔGᵘ[1]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
+    [
+        "s_aux",
+        "ΔGᵘ[2]",
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+        0.00000000000000000000e+00,
+    ],
 ]
 
-append!(refVals, [varr])
-append!(refPrecs, [parr])
+refVals = (explicit = (explicit, parr), imex = (imex, parr))

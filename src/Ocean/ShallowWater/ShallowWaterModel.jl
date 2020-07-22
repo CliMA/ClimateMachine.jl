@@ -257,6 +257,7 @@ function init_state_prognostic!(m::SWModel, state::Vars, aux::Vars, coords, t)
     shallow_init_state!(m, m.problem, state, aux, coords, t)
 end
 
+function shallow_boundary_state! end
 function boundary_state!(
     nf,
     m::SWModel,
@@ -271,40 +272,6 @@ function boundary_state!(
 )
     shallow_boundary_state!(nf, m, m.turbulence, q⁺, a⁺, n⁻, q⁻, a⁻, t)
 end
-
-@inline function shallow_boundary_state!(
-    ::RusanovNumericalFlux,
-    m::SWModel,
-    ::LinearDrag,
-    q⁺,
-    a⁺,
-    n⁻,
-    q⁻,
-    a⁻,
-    t,
-)
-    q⁺.η = q⁻.η
-
-    V⁻ = @SVector [q⁻.U[1], q⁻.U[2], -0]
-    V⁺ = V⁻ - 2 * n⁻ ⋅ V⁻ .* SVector(n⁻)
-    q⁺.U = @SVector [V⁺[1], V⁺[2]]
-
-    return nothing
-end
-
-shallow_boundary_state!(
-    ::CentralNumericalFluxGradient,
-    m::SWModel,
-    ::LinearDrag,
-    _...,
-) = nothing
-
-shallow_boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
-    m::SWModel,
-    ::LinearDrag,
-    _...,
-) = nothing
 
 function boundary_state!(
     nf,
@@ -324,7 +291,41 @@ function boundary_state!(
 end
 
 @inline function shallow_boundary_state!(
-    ::RusanovNumericalFlux,
+    ::NumericalFluxFirstOrder,
+    m::SWModel,
+    ::LinearDrag,
+    q⁺,
+    a⁺,
+    n⁻,
+    q⁻,
+    a⁻,
+    t,
+)
+    q⁺.η = q⁻.η
+
+    V⁻ = @SVector [q⁻.U[1], q⁻.U[2], -0]
+    V⁺ = V⁻ - 2 * n⁻ ⋅ V⁻ .* SVector(n⁻)
+    q⁺.U = @SVector [V⁺[1], V⁺[2]]
+
+    return nothing
+end
+
+shallow_boundary_state!(
+    ::NumericalFluxGradient,
+    m::SWModel,
+    ::LinearDrag,
+    _...,
+) = nothing
+
+shallow_boundary_state!(
+    ::NumericalFluxSecondOrder,
+    m::SWModel,
+    ::LinearDrag,
+    _...,
+) = nothing
+
+@inline function shallow_boundary_state!(
+    ::NumericalFluxFirstOrder,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,
@@ -341,7 +342,7 @@ end
 end
 
 @inline function shallow_boundary_state!(
-    ::CentralNumericalFluxGradient,
+    ::NumericalFluxGradient,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,
@@ -358,7 +359,7 @@ end
 end
 
 @inline function shallow_boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::NumericalFluxSecondOrder,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,

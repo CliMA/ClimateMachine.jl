@@ -159,7 +159,7 @@ function test_vertical_integral_model(time; refDat = ())
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
