@@ -7,6 +7,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.ShallowWater
 
 using ClimateMachine.Mesh.Topologies
@@ -102,6 +103,7 @@ function run_hydrostatic_spindown(; refDat = ())
     model_2D = ShallowWaterModel(
         param_set,
         prob_2D,
+        Uncoupled(),
         ShallowWater.ConstantViscosity{FT}(5e3),
         nothing,
         FT(1),

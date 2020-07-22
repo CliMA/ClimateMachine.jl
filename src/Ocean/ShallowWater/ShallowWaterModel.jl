@@ -6,6 +6,7 @@ using StaticArrays
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
+using ..Ocean
 using ...VariableTemplates
 using ...Mesh.Geometry
 using ...DGMethods
@@ -42,9 +43,10 @@ end
 abstract type AdvectionTerm end
 struct NonLinearAdvection <: AdvectionTerm end
 
-struct ShallowWaterModel{PS, P, T, A, S} <: BalanceLaw
+struct ShallowWaterModel{C, PS, P, T, A, S} <: BalanceLaw
     param_set::PS
     problem::P
+    coupling::C
     turbulence::T
     advection::A
     c::S
@@ -156,12 +158,13 @@ function compute_gradient_flux!(
     α::Vars,
     t::Real,
 )
-    compute_gradient_flux!(m.turbulence, σ, δ, q, α, t)
+    compute_gradient_flux!(m, m.turbulence, σ, δ, q, α, t)
 end
 
-compute_gradient_flux!(::LinearDrag, _...) = nothing
+compute_gradient_flux!(::SWModel, ::LinearDrag, _...) = nothing
 
 @inline function compute_gradient_flux!(
+    ::SWModel,
     T::ConstantViscosity,
     σ::Vars,
     δ::Grad,
@@ -186,12 +189,13 @@ function flux_second_order!(
     α::Vars,
     t::Real,
 )
-    flux_second_order!(m.turbulence, G, q, σ, α, t)
+    flux_second_order!(m, m.turbulence, G, q, σ, α, t)
 end
 
-flux_second_order!(::LinearDrag, _...) = nothing
+flux_second_order!(::SWModel, ::LinearDrag, _...) = nothing
 
 @inline function flux_second_order!(
+    ::SWModel,
     ::ConstantViscosity,
     G::Grad,
     q::Vars,
@@ -210,18 +214,24 @@ end
     m::SWModel{P},
     S::Vars,
     q::Vars,
-    diffusive::Vars,
+    d::Vars,
     α::Vars,
     t::Real,
     direction,
 ) where {P}
-    S.U += α.τ
-
+    # f × u
     f = α.f
     U, V = q.U
     S.U -= @SVector [-f * V, f * U]
 
+    forcing_term!(m, m.coupling, S, q, α, t)
     linear_drag!(m.turbulence, S, q, α, t)
+
+    return nothing
+end
+
+@inline function forcing_term!(::SWModel, ::Uncoupled, S, Q, A, t)
+    S.U += A.τ
 
     return nothing
 end

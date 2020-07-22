@@ -8,6 +8,7 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.ShallowWater
 using LinearAlgebra
 using StaticArrays

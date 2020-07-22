@@ -7,6 +7,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
@@ -131,6 +132,7 @@ function test_vertical_integral_model(time; refDat = ())
     model_2D = ShallowWaterModel(
         param_set,
         prob_2D,
+        Uncoupled(),
         ShallowWater.ConstantViscosity{FT}(model_3D.νʰ),
         nothing,
         FT(1),

@@ -1,25 +1,25 @@
 @inline function initialize_states!(
-    baroclinic::HydrostaticBoussinesqModel,
-    barotropic::ShallowWaterModel,
+    baroclinic::HBModel{C},
+    barotropic::SWModel{C},
     model_bc,
     model_bt,
     state_bc,
     state_bt,
-)
+) where {C <: Coupled}
     model_bc.state_auxiliary.ΔGᵘ .= -0
 
     return nothing
 end
 
 @inline function tendency_from_slow_to_fast!(
-    baroclinic::HydrostaticBoussinesqModel,
-    barotropic::ShallowWaterModel,
+    baroclinic::HBModel{C},
+    barotropic::SWModel{C},
     model_bc,
     model_bt,
     state_bc,
     state_bt,
     forcing_tendency,
-)
+) where {C <: Coupled}
     FT = eltype(state_bc)
     Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(model_bc)
 
@@ -65,25 +65,25 @@ end
 end
 
 @inline function cummulate_fast_solution!(
-    baroclinic::HydrostaticBoussinesqModel,
-    barotropic::ShallowWaterModel,
+    baroclinic::HBModel{C},
+    barotropic::SWModel{C},
     model_bt,
     state_bt,
     fast_time,
     fast_dt,
     substep,
-)
+) where {C <: Coupled}
     return nothing
 end
 
 @inline function reconcile_from_fast_to_slow!(
-    baroclinic::HydrostaticBoussinesqModel,
-    barotropic::ShallowWaterModel,
+    baroclinic::HBModel{C},
+    barotropic::SWModel{C},
     model_bc,
     model_bt,
     state_bc,
     state_bt,
-)
+) where {C <: Coupled}
     FT = eltype(state_bc)
     Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(model_bc)
 
