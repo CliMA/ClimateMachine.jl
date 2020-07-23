@@ -194,8 +194,8 @@ end
 FT = Float64
 vtkpath = "vtk_shallow_spindown"
 
-const timeend = 24 * 3600 # s
-const tout = 2 * 3600 # s
+const timeend = FT(24 * 3600) # s
+const tout = FT(2 * 3600) # s
 # const timeend = 1200 # s
 # const tout = 600 # s
 
