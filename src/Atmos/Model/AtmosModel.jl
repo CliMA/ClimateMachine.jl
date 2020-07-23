@@ -318,7 +318,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
-        gcminfo::vars_state_auxiliary(m.gcminfo, st,FT)
+        gcminfo::vars_state(m.gcminfo, st,FT)
     end
 end
 """

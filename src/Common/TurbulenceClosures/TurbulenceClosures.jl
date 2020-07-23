@@ -523,12 +523,13 @@ function turbulence_tensors(
 
     # squared buoyancy correction
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    #f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+    f_b² = FT(1)
     ν₀ = normS * (m.C_smag)^2
     ν = SVector{3, FT}(ν₀, ν₀, ν₀)
     ν_v = k̂ .* dot(ν, k̂)
     ν_h = ν₀ .- ν_v
-    ν = SDiagonal(ν_h .* FT(50.8^2) + ν_v .* f_b² .* FT(13.81^2) .+ FT(1e-5))
+    ν = SDiagonal(ν_h .* FT(50.8^2) + FT(13.81^2) .+ FT(1e-5))
     D_t = diag(ν) * _inv_Pr_turb
     τ = -2 * ν * S
     return ν, D_t, τ
@@ -643,12 +644,14 @@ function turbulence_tensors(
 
     normS = strain_rate_magnitude(S)
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
+    #=
     if aux.coord[3] <= FT(3400)
         f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     else
         f_b² = FT(1)
     end
-
+    =# 
+    f_b² = FT(1) #sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     β = (α' * α) .* (aux.turbulence.Δ)^2
     Bβ = principal_invariants(β)[2]
 

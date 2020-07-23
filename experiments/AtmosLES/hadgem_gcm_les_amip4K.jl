@@ -458,7 +458,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
-        init_state_conservative = init_cfsites!,
+        init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2()
     )
     mrrk_solver = ClimateMachine.MultirateSolverType(

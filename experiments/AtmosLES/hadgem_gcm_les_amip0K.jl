@@ -14,6 +14,7 @@ using Test
 using ClimateMachine
 
 cl_args = ClimateMachine.init(parse_clargs = true)
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -418,7 +419,6 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         turbulence = Vreman{FT}(0.23),
         source = (
             Gravity(),
-            GCMRelaxation{FT}(3600),
             LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
             MoistureTendency(),
             TemperatureTendency(),
@@ -437,15 +437,20 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
-        init_state_conservative = init_cfsites!,
+        init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2(),
     )
+
+    # Timestepper options
     mrrk_solver = ClimateMachine.MultirateSolverType(
         fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
+        timestep_ratio = 4,
+    );
+    imex_solver = ClimateMachine.IMEXSolverType();
+
+    # Configuration
     config = ClimateMachine.AtmosLESConfiguration(
         forcingfile*"_$groupid",
         N,
@@ -497,7 +502,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(3)
+    CFL = FT(5)
 
     # Execute the get_gcm_info function
     (
@@ -562,25 +567,34 @@ function main()
         nothing
     end
     
-    #=
-    filterorder = N
-    filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
+    filterorder = 2*N
+    filter = BoydVandevenFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            1:size(solver_config.Q, 2),
+            AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
         )
         nothing
     end
-    =# 
+    
+    cutoff_filter = CutoffFilter(solver_config.dg.grid, N-1)
+    cbcutoff = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            1:6,
+            solver_config.dg.grid,
+            cutoff_filter,
+        )
+        nothing
+    end
 
     # Invoke solver (calls solve! function for time-integrator)
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter, cbcutoff),
         check_euclidean_distance = true,
     )
 

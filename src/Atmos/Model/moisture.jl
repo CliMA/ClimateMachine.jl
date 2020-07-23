@@ -137,13 +137,13 @@ EquilMoist{FT}(;
 
 
 vars_state(::EquilMoist,::Prognostic, FT) = @vars(ρq_tot::FT)
-vars_state_gradient(::EquilMoist,::Gradient, FT) = @vars(q_tot::FT, T_gcm::FT, q_tot_gcm::FT)
-vars_state_gradient_flux(::EquilMoist, ::GradientFlux, FT) = @vars(
+vars_state(::EquilMoist,::Gradient, FT) = @vars(q_tot::FT, T_gcm::FT, q_tot_gcm::FT)
+vars_state(::EquilMoist, ::GradientFlux, FT) = @vars(
     ∇q_tot::SVector{3, FT},
     ∇T_gcm::SVector{3, FT},
     ∇q_tot_gcm::SVector{3, FT}
 )
-vars_state_auxiliary(::EquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
+vars_state(::EquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT, q_liq::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
