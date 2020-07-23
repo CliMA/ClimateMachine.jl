@@ -95,6 +95,7 @@ varsize(::Type{NamedTuple{(), Tuple{}}}) = 0
 varsize(::Type{SVector{N, T}}) where {N, T <: Real} = N
 
 include("var_names.jl")
+include("flattened_tup_chain.jl")
 
 # TODO: should be possible to get rid of @generated
 @generated function varsize(::Type{S}) where {S}
@@ -135,22 +136,22 @@ struct SetVarError <: Exception
     sym::Symbol
 end
 
+abstract type AbstractVars{S, A, offset} end
 
 """
     Vars{S,A,offset}(array::A)
 
 Defines property overloading for `array` using the type `S` as a template. `offset` is used to shift the starting element of the array.
 """
-struct Vars{S, A, offset}
+struct Vars{S, A, offset} <: AbstractVars{S, A, offset}
     array::A
 end
 Vars{S}(array) where {S} = Vars{S, typeof(array), 0}(array)
 
-Base.parent(v::Vars) = getfield(v, :array)
-Base.eltype(v::Vars) = eltype(parent(v))
-Base.propertynames(::Vars{S}) where {S} = fieldnames(S)
-Base.similar(v::Vars{S, A, offset}) where {S, A, offset} =
-    Vars{S, A, offset}(similar(parent(v)))
+Base.parent(v::AbstractVars) = getfield(v, :array)
+Base.eltype(v::AbstractVars) = eltype(parent(v))
+Base.propertynames(::AbstractVars{S}) where {S} = fieldnames(S)
+Base.similar(v::AbstractVars) = typeof(v)(similar(parent(v)))
 
 @generated function Base.getproperty(
     v::Vars{S, A, offset},
@@ -232,16 +233,10 @@ end
 
 Defines property overloading along slices of the second dimension of `array` using the type `S` as a template. `offset` is used to shift the starting element of the array.
 """
-struct Grad{S, A, offset}
+struct Grad{S, A, offset} <: AbstractVars{S, A, offset}
     array::A
 end
 Grad{S}(array) where {S} = Grad{S, typeof(array), 0}(array)
-
-Base.parent(g::Grad) = getfield(g, :array)
-Base.eltype(g::Grad) = eltype(parent(g))
-Base.propertynames(::Grad{S}) where {S} = fieldnames(S)
-Base.similar(g::Grad{S, A, offset}) where {S, A, offset} =
-    Grad{S, A, offset}(similar(parent(g)))
 
 @generated function Base.getproperty(
     v::Grad{S, A, offset},
@@ -321,21 +316,62 @@ end
 end
 
 
-@inline function Base.getindex(
-    v::Vars{NTuple{N, T}, A, offset},
-    i,
+Base.@propagate_inbounds function Base.getindex(
+    v::AbstractVars{NTuple{N, T}, A, offset},
+    i::Int,
 ) where {N, T, A, offset}
     # 1 <= i <= N
     array = parent(v)
-    return Vars{T, A, offset + (i - 1) * varsize(T)}(array)
+    if v isa Vars
+        return Vars{T, A, offset + (i - 1) * varsize(T)}(array)
+    else
+        return Grad{T, A, offset + (i - 1) * varsize(T)}(array)
+    end
 end
-@inline function Base.getindex(
-    v::Grad{NTuple{N, T}, A, offset},
-    i,
-) where {N, T, A, offset}
-    # 1 <= i <= N
-    array = parent(v)
-    return Grad{T, A, offset + (i - 1) * varsize(T)}(array)
+
+Base.@propagate_inbounds function Base.getproperty(
+    v::AbstractVars,
+    tup_chain::Tuple{S},
+) where {S <: Symbol}
+    return Base.getproperty(v, tup_chain[1])
+end
+
+Base.@propagate_inbounds function Base.getindex(
+    v::AbstractVars,
+    tup_chain::Tuple{S},
+) where {S <: Int}
+    return Base.getindex(v, tup_chain[1])
+end
+
+Base.@propagate_inbounds function Base.getproperty(
+    v::AbstractVars,
+    tup_chain::Tuple,
+)
+    if tup_chain[1] isa Int
+        p = Base.getindex(v, tup_chain[1])
+    else
+        p = Base.getproperty(v, tup_chain[1])
+    end
+    if tup_chain[2] isa Int
+        return Base.getindex(p, tup_chain[2:end])
+    else
+        return Base.getproperty(p, tup_chain[2:end])
+    end
+end
+Base.@propagate_inbounds function Base.getindex(
+    v::AbstractVars,
+    tup_chain::Tuple,
+)
+    if tup_chain[1] isa Int
+        p = Base.getindex(v, tup_chain[1])
+    else
+        p = Base.getproperty(v, tup_chain[1])
+    end
+    if tup_chain[2] isa Int
+        return Base.getindex(p, tup_chain[2:end])
+    else
+        return Base.getproperty(p, tup_chain[2:end])
+    end
 end
 
 end # module
