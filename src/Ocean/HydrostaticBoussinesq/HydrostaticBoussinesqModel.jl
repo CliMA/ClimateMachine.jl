@@ -6,6 +6,7 @@ using StaticArrays
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
+using ..Ocean
 using ...VariableTemplates
 using ...MPIStateArrays
 using ...Mesh.Filters: apply!
@@ -13,11 +14,11 @@ using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
 using ...DGMethods
 using ...DGMethods.NumericalFluxes
-import ...DGMethods.NumericalFluxes: update_penalty!
 using ...DGMethods.NumericalFluxes: RusanovNumericalFlux
 using ...BalanceLaws
-using ...BalanceLaws: number_states
 
+import ..Ocean: coriolis_parameter
+import ...DGMethods.NumericalFluxes: update_penalty!
 import ...BalanceLaws:
     vars_state,
     init_state_prognostic!,
@@ -67,9 +68,10 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
     param_set::PS
     problem::P
+    coupling::C
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -83,7 +85,8 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
     β::T
     function HydrostaticBoussinesqModel{FT}(
         param_set::PS,
-        problem;
+        problem::P;
+        coupling::C = Uncoupled(),
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -95,10 +98,11 @@ struct HydrostaticBoussinesqModel{PS, P, T} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS}
-        return new{PS, typeof(problem), FT}(
+    ) where {FT <: AbstractFloat, PS, P, C}
+        return new{C, PS, P, FT}(
             param_set,
             problem,
+            coupling,
             ρₒ,
             cʰ,
             cᶻ,
@@ -164,6 +168,8 @@ function vars_state(m::HBModel, ::Auxiliary, T)
         w::T     # ∫(-∇⋅u)
         pkin::T  # ∫(-αᵀθ)
         wz0::T   # w at z=0
+        uᵈ::SVector{2, T}    # velocity deviation from vertical mean
+        ΔGᵘ::SVector{2, T}   # vertically averaged tendency
     end
 end
 
@@ -187,6 +193,7 @@ these are just copies in our model
 function vars_state(m::HBModel, ::Gradient, T)
     @vars begin
         ∇u::SVector{2, T}
+        ∇uᵈ::SVector{2, T}
         ∇θ::T
     end
 end
@@ -205,8 +212,22 @@ this computation is done pointwise at each nodal point
 - `t`: time, not used
 """
 @inline function compute_gradient_argument!(m::HBModel, G::Vars, Q::Vars, A, t)
-    G.∇u = Q.u
     G.∇θ = Q.θ
+
+    velocity_gradient_argument!(m, m.coupling, G, Q, A, t)
+
+    return nothing
+end
+
+@inline function velocity_gradient_argument!(
+    m::HBModel,
+    ::Uncoupled,
+    G,
+    Q,
+    A,
+    t,
+)
+    G.∇u = Q.u
 
     return nothing
 end
@@ -250,11 +271,17 @@ this computation is done pointwise at each nodal point
     # store ∇ʰu for continuity equation (convert gradient to divergence)
     D.∇ʰu = G.∇u[1, 1] + G.∇u[2, 2]
 
-    ν = viscosity_tensor(m)
-    D.ν∇u = -ν * G.∇u
+    velocity_gradient_flux!(m, m.coupling, D, G, Q, A, t)
 
     κ = diffusivity_tensor(m, G.∇θ[3])
     D.κ∇θ = -κ * G.∇θ
+
+    return nothing
+end
+
+@inline function velocity_gradient_flux!(m::HBModel, ::Uncoupled, D, G, Q, A, t)
+    ν = viscosity_tensor(m)
+    D.ν∇u = -ν * G.∇u
 
     return nothing
 end
@@ -420,34 +447,40 @@ t -> time, not used
     t::Real,
     direction,
 )
-    FT = eltype(Q)
-    _grav::FT = grav(m.param_set)
     @inbounds begin
-        u = Q.u # Horizontal components of velocity
-        η = Q.η
-        θ = Q.θ
-        w = A.w   # vertical velocity
-        pkin = A.pkin
+        # ∇h • (g η)
+        hydrostatic_pressure!(m, m.coupling, F, Q, A, t)
 
-        v = @SVector [u[1], u[2], w]
+        # ∇h • (- ∫(αᵀ θ))
+        pkin = A.pkin
         Iʰ = @SMatrix [
             1 -0
             -0 1
             -0 -0
         ]
-
-        # ∇h • (g η)
-        F.u += _grav * η * Iʰ
-
-        # ∇h • (- ∫(αᵀ θ))
-        F.u += _grav * pkin * Iʰ
+        F.u += grav(m.param_set) * pkin * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
 
         # ∇ • (u θ)
+        θ = Q.θ
+        v = @SVector [Q.u[1], Q.u[2], A.w]
         F.θ += v * θ
     end
+
+    return nothing
+end
+
+@inline function hydrostatic_pressure!(m::HBModel, ::Uncoupled, F, Q, A, t)
+    η = Q.η
+    Iʰ = @SMatrix [
+        1 -0
+        -0 1
+        -0 -0
+    ]
+
+    F.u += grav(m.param_set) * η * Iʰ
 
     return nothing
 end
@@ -510,22 +543,25 @@ end
     t::Real,
     direction,
 )
-    @inbounds begin
-        u, v = Q.u # Horizontal components of velocity
-        wz0 = A.wz0
+    wz0 = A.wz0
+    S.η += wz0
 
-        # f × u
-        f = coriolis_force(m, A.y)
-        S.u -= @SVector [-f * v, f * u]
+    coriolis_force!(m, m.coupling, S, Q, A, t)
 
-        S.η += wz0
-    end
+    return nothing
+end
+
+@inline function coriolis_force!(m::HBModel, ::Uncoupled, S, Q, A, t)
+    # f × u
+    f = coriolis_parameter(m, A.y)
+    u, v = Q.u # Horizontal components of velocity
+    S.u -= @SVector [-f * v, f * u]
 
     return nothing
 end
 
 """
-    coriolis_force(::HBModel)
+    coriolis_parameter(::HBModel)
 
 northern hemisphere coriolis
 
@@ -533,7 +569,7 @@ northern hemisphere coriolis
 - `m`: model object to dispatch on and get coriolis parameters
 - `y`: y-coordinate in the box
 """
-@inline coriolis_force(m::HBModel, y) = m.fₒ + m.β * y
+@inline coriolis_parameter(m::HBModel, y) = m.fₒ + m.β * y
 
 """
     wavespeed(::HBModel)
@@ -593,8 +629,12 @@ function update_auxiliary_state!(
         apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
     end
 
+    compute_flow_deviation!(dg, m, m.coupling, Q, t)
+
     return true
 end
+
+@inline compute_flow_deviation!(dg, ::HBModel, ::Uncoupled, _...) = nothing
 
 """
     update_auxiliary_state_gradient!(::HBModel)
@@ -634,13 +674,13 @@ function update_auxiliary_state_gradient!(
     # We are unable to use vars (ie A.w) for this because this operation will
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
-    number_auxiliary = number_states(m, Auxiliary(), FT)
+    number_aux = number_states(m, Auxiliary(), FT)
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
 
     # project w(z=0) down the stack
-    data = reshape(A.data, Nq^2, Nqk, number_auxiliary, nelemv, nelemh)
+    data = reshape(A.data, Nq^2, Nqk, number_aux, nelemv, nelemh)
     flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nhorzrealelem]
     boxy_wz0 = @view data[:, :, index_wz0, :, 1:nhorzrealelem]
     boxy_wz0 .= flat_wz0

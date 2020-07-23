@@ -6,6 +6,7 @@ using StaticArrays
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
+using ..Ocean
 using ...VariableTemplates
 using ...Mesh.Geometry
 using ...DGMethods
@@ -42,9 +43,10 @@ end
 abstract type AdvectionTerm end
 struct NonLinearAdvection <: AdvectionTerm end
 
-struct ShallowWaterModel{PS, P, T, A, S} <: BalanceLaw
+struct ShallowWaterModel{C, PS, P, T, A, S} <: BalanceLaw
     param_set::PS
     problem::P
+    coupling::C
     turbulence::T
     advection::A
     c::S
@@ -63,6 +65,8 @@ function vars_state(m::SWModel, ::Auxiliary, T)
     @vars begin
         f::T
         τ::SVector{2, T}  # value includes τₒ, g, and ρ
+        Gᵁ::SVector{2, T} # integral of baroclinic tendency
+        Δu::SVector{2, T} # reconciliation Δu = 1/H * (Ū - ∫u)
     end
 end
 
@@ -154,12 +158,13 @@ function compute_gradient_flux!(
     α::Vars,
     t::Real,
 )
-    compute_gradient_flux!(m.turbulence, σ, δ, q, α, t)
+    compute_gradient_flux!(m, m.turbulence, σ, δ, q, α, t)
 end
 
-compute_gradient_flux!(::LinearDrag, _...) = nothing
+compute_gradient_flux!(::SWModel, ::LinearDrag, _...) = nothing
 
 @inline function compute_gradient_flux!(
+    ::SWModel,
     T::ConstantViscosity,
     σ::Vars,
     δ::Grad,
@@ -184,12 +189,13 @@ function flux_second_order!(
     α::Vars,
     t::Real,
 )
-    flux_second_order!(m.turbulence, G, q, σ, α, t)
+    flux_second_order!(m, m.turbulence, G, q, σ, α, t)
 end
 
-flux_second_order!(::LinearDrag, _...) = nothing
+flux_second_order!(::SWModel, ::LinearDrag, _...) = nothing
 
 @inline function flux_second_order!(
+    ::SWModel,
     ::ConstantViscosity,
     G::Grad,
     q::Vars,
@@ -208,18 +214,24 @@ end
     m::SWModel{P},
     S::Vars,
     q::Vars,
-    diffusive::Vars,
+    d::Vars,
     α::Vars,
     t::Real,
     direction,
 ) where {P}
-    S.U += α.τ
-
+    # f × u
     f = α.f
     U, V = q.U
     S.U -= @SVector [-f * V, f * U]
 
+    forcing_term!(m, m.coupling, S, q, α, t)
     linear_drag!(m.turbulence, S, q, α, t)
+
+    return nothing
+end
+
+@inline function forcing_term!(::SWModel, ::Uncoupled, S, Q, A, t)
+    S.U += A.τ
 
     return nothing
 end
@@ -237,7 +249,7 @@ end
 
 function shallow_init_aux! end
 function init_state_auxiliary!(m::SWModel, aux::Vars, geom::LocalGeometry)
-    shallow_init_aux!(m.problem, aux, geom)
+    shallow_init_aux!(m, m.problem, aux, geom)
 end
 
 function shallow_init_state! end
@@ -245,6 +257,7 @@ function init_state_prognostic!(m::SWModel, state::Vars, aux::Vars, coords, t)
     shallow_init_state!(m, m.problem, state, aux, coords, t)
 end
 
+function shallow_boundary_state! end
 function boundary_state!(
     nf,
     m::SWModel,
@@ -259,40 +272,6 @@ function boundary_state!(
 )
     shallow_boundary_state!(nf, m, m.turbulence, q⁺, a⁺, n⁻, q⁻, a⁻, t)
 end
-
-@inline function shallow_boundary_state!(
-    ::RusanovNumericalFlux,
-    m::SWModel,
-    ::LinearDrag,
-    q⁺,
-    a⁺,
-    n⁻,
-    q⁻,
-    a⁻,
-    t,
-)
-    q⁺.η = q⁻.η
-
-    V⁻ = @SVector [q⁻.U[1], q⁻.U[2], -0]
-    V⁺ = V⁻ - 2 * n⁻ ⋅ V⁻ .* SVector(n⁻)
-    q⁺.U = @SVector [V⁺[1], V⁺[2]]
-
-    return nothing
-end
-
-shallow_boundary_state!(
-    ::CentralNumericalFluxGradient,
-    m::SWModel,
-    ::LinearDrag,
-    _...,
-) = nothing
-
-shallow_boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
-    m::SWModel,
-    ::LinearDrag,
-    _...,
-) = nothing
 
 function boundary_state!(
     nf,
@@ -312,7 +291,41 @@ function boundary_state!(
 end
 
 @inline function shallow_boundary_state!(
-    ::RusanovNumericalFlux,
+    ::NumericalFluxFirstOrder,
+    m::SWModel,
+    ::LinearDrag,
+    q⁺,
+    a⁺,
+    n⁻,
+    q⁻,
+    a⁻,
+    t,
+)
+    q⁺.η = q⁻.η
+
+    V⁻ = @SVector [q⁻.U[1], q⁻.U[2], -0]
+    V⁺ = V⁻ - 2 * n⁻ ⋅ V⁻ .* SVector(n⁻)
+    q⁺.U = @SVector [V⁺[1], V⁺[2]]
+
+    return nothing
+end
+
+shallow_boundary_state!(
+    ::NumericalFluxGradient,
+    m::SWModel,
+    ::LinearDrag,
+    _...,
+) = nothing
+
+shallow_boundary_state!(
+    ::NumericalFluxSecondOrder,
+    m::SWModel,
+    ::LinearDrag,
+    _...,
+) = nothing
+
+@inline function shallow_boundary_state!(
+    ::NumericalFluxFirstOrder,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,
@@ -329,7 +342,7 @@ end
 end
 
 @inline function shallow_boundary_state!(
-    ::CentralNumericalFluxGradient,
+    ::NumericalFluxGradient,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,
@@ -346,7 +359,7 @@ end
 end
 
 @inline function shallow_boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::NumericalFluxSecondOrder,
     m::SWModel,
     ::ConstantViscosity,
     q⁺,

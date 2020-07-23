@@ -52,6 +52,9 @@ function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
     A.pkin = 0
     A.wz0 = 0
 
+    A.uᵈ = @SVector [-0, -0]
+    A.ΔGᵘ = @SVector [-0, -0]
+
     return nothing
 end
 

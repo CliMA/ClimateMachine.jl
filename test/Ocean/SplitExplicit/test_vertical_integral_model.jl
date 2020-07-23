@@ -7,6 +7,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
@@ -67,7 +68,7 @@ function shallow_init_state!(
     return nothing
 end
 
-function shallow_init_aux!(p::GyreInABox, aux, geom)
+function shallow_init_aux!(m::ShallowWaterModel, p::GyreInABox, aux, geom)
     @inbounds y = geom.coord[2]
 
     Lʸ = p.Lʸ
@@ -131,6 +132,7 @@ function test_vertical_integral_model(time; refDat = ())
     model_2D = ShallowWaterModel(
         param_set,
         prob_2D,
+        Uncoupled(),
         ShallowWater.ConstantViscosity{FT}(model_3D.νʰ),
         nothing,
         FT(1),
@@ -157,7 +159,7 @@ function test_vertical_integral_model(time; refDat = ())
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )

@@ -36,8 +36,6 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
     dt::RT
     "time"
     t::RT
-    "flag to couple the models"
-    coupled
     "storage for transfer tendency"
     dQ2fast::MSA
 
@@ -47,20 +45,20 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
         Q = nothing;
         dt = getdt(slow_solver),
         t0 = slow_solver.t,
-        coupled = true,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
         RT = real(eltype(slow_solver.dQ))
 
         dQ2fast = similar(slow_solver.dQ)
+        dQ2fast .= -0
         MSA = typeof(dQ2fast)
+
         return new{SS, FS, RT, MSA}(
             slow_solver,
             fast_solver,
             RT(dt),
             RT(t0),
-            coupled,
             dQ2fast,
         )
     end
@@ -95,52 +93,27 @@ function dostep!(
 
         # Initialize fast model and tendency adjustment
         # before evalution of slow mode
-        if split.coupled
-            initialize_states!(
-                slow_bl,
-                fast_bl,
-                slow.rhs!,
-                fast.rhs!,
-                Qslow,
-                Qfast,
-            )
+        initialize_states!(slow_bl, fast_bl, slow.rhs!, fast.rhs!, Qslow, Qfast)
 
-            # Evaluate the slow mode
-            # --> save tendency for the fast
-            slow.rhs!(dQ2fast, Qslow, param, slow_stage_time, increment = false)
+        # Evaluate the slow mode
+        # --> save tendency for the fast
+        slow.rhs!(dQ2fast, Qslow, param, slow_stage_time, increment = false)
 
-            # vertically integrate slow tendency to advance fast equation
-            # and use vertical mean for slow model (negative source)
-            # ---> work with dQ2fast as input
-            tendency_from_slow_to_fast!(
-                slow_bl,
-                fast_bl,
-                slow.rhs!,
-                fast.rhs!,
-                Qslow,
-                Qfast,
-                dQ2fast,
-            )
-        end
+        # vertically integrate slow tendency to advance fast equation
+        # and use vertical mean for slow model (negative source)
+        # ---> work with dQ2fast as input
+        tendency_from_slow_to_fast!(
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+            dQ2fast,
+        )
 
         # Compute (and RK update) slow tendency
         slow.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
-
-        # Update (RK-stage) slow state
-        event = Event(array_device(Qslow))
-        event = update!(array_device(Qslow), groupsize)(
-            realview(dQslow),
-            realview(Qslow),
-            slow.RKA[slow_s % length(slow.RKA) + 1],
-            slow.RKB[slow_s],
-            slow_dt,
-            nothing,
-            nothing,
-            nothing;
-            ndrange = length(realview(Qslow)),
-            dependencies = (event,),
-        )
-        wait(array_device(Qslow), event)
 
         # Fractional time for slow stage
         if slow_s == length(slow.RKA)
@@ -159,30 +132,42 @@ function dostep!(
         for substep in 1:nsubsteps
             fast_time = slow_stage_time + (substep - 1) * fast_dt
             dostep!(Qfast, fast, param, fast_time)
-            if split.coupled
-                cummulate_fast_solution!(
-                    slow_bl,
-                    fast_bl,
-                    fast.rhs!,
-                    Qfast,
-                    fast_time,
-                    fast_dt,
-                    substep,
-                )
-            end
-        end
-
-        # reconcile slow equation using fast equation
-        if split.coupled
-            reconcile_from_fast_to_slow!(
+            cummulate_fast_solution!(
                 slow_bl,
                 fast_bl,
-                slow.rhs!,
                 fast.rhs!,
-                Qslow,
                 Qfast,
+                fast_time,
+                fast_dt,
+                substep,
             )
         end
+
+        # Update (RK-stage) slow state
+        event = Event(array_device(Qslow))
+        event = update!(array_device(Qslow), groupsize)(
+            realview(dQslow),
+            realview(Qslow),
+            slow.RKA[slow_s % length(slow.RKA) + 1],
+            slow.RKB[slow_s],
+            slow_dt,
+            nothing,
+            nothing,
+            nothing;
+            ndrange = length(realview(Qslow)),
+            dependencies = (event,),
+        )
+        wait(array_device(Qslow), event)
+
+        # reconcile slow equation using fast equation
+        reconcile_from_fast_to_slow!(
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+        )
     end
     updatedt!(fast, fast_dt_in)
 

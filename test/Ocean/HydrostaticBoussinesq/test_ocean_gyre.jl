@@ -39,7 +39,6 @@ function test_ocean_gyre(;
     imex::Bool = false,
     BC = nothing,
     Δt = 60,
-    nt = 0,
     refDat = (),
 )
     FT = Float64
@@ -109,11 +108,7 @@ function test_ocean_gyre(;
     regenRefVals = false
     if regenRefVals
         ## Print state statistics in format for use as reference values
-        println(
-            "# SC ========== Test number ",
-            nt,
-            " reference values and precision match template. =======",
-        )
+        println("# SC ========== Test number reference values and precision match template. =======",)
         println("# SC ========== $(@__FILE__) test reference values ======================================")
         ClimateMachine.StateCheck.scprintref(cb)
         println("# SC ====================================================================================")
@@ -134,31 +129,13 @@ end
 
     include("../refvals/test_ocean_gyre_refvals.jl")
 
-    nt = 1
-    boundary_conditions = [
-        (
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Impenetrable(NoSlip()), Insulating()),
-            OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
-        ),
-    ]
+    BC = (
+        OceanBC(Impenetrable(NoSlip()), Insulating()),
+        OceanBC(Impenetrable(NoSlip()), Insulating()),
+        OceanBC(Penetrable(KinematicStress()), TemperatureFlux()),
+    )
 
-    for BC in boundary_conditions
-        test_ocean_gyre(
-            imex = false,
-            BC = BC,
-            Δt = 600,
-            nt = nt,
-            refDat = (refVals[nt], refPrecs[nt]),
-        )
-        nt = nt + 1
-        test_ocean_gyre(
-            imex = true,
-            BC = BC,
-            Δt = 150,
-            nt = nt,
-            refDat = (refVals[nt], refPrecs[nt]),
-        )
-        nt = nt + 1
-    end
+    test_ocean_gyre(imex = false, BC = BC, Δt = 600, refDat = refVals.explicit)
+
+    test_ocean_gyre(imex = true, BC = BC, Δt = 150, refDat = refVals.imex)
 end

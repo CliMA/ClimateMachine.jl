@@ -58,7 +58,14 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
         advection = NonLinearAdvection()
     end
 
-    model = ShallowWaterModel(param_set, problem, turbulence, advection, c)
+    model = ShallowWaterModel(
+        param_set,
+        problem,
+        Uncoupled(),
+        turbulence,
+        advection,
+        c,
+    )
 end
 
 function shallow_init_state!(
@@ -76,7 +83,7 @@ function shallow_init_state!(
     end
 end
 
-function shallow_init_aux!(p::GyreInABox, aux, geom)
+function shallow_init_aux!(m::ShallowWaterModel, p::GyreInABox, aux, geom)
     @inbounds y = geom.coord[2]
 
     Lʸ = p.Lʸ

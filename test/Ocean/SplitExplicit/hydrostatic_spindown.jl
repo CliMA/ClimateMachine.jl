@@ -7,6 +7,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
@@ -67,7 +68,8 @@ function shallow_init_state!(
     return nothing
 end
 
-function shallow_init_aux!(p::GyreInABox, aux, geom)
+function shallow_init_aux!(m::ShallowWaterModel, p::GyreInABox, A, geom)
+    @inbounds x = geom.coord[1]
     @inbounds y = geom.coord[2]
 
     Lʸ = p.Lʸ
@@ -75,13 +77,20 @@ function shallow_init_aux!(p::GyreInABox, aux, geom)
     fₒ = p.fₒ
     β = p.β
 
-    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
-    aux.f = fₒ + β * (y - Lʸ / 2)
+    A.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
+    A.f = fₒ + β * (y - Lʸ / 2)
+
+    A.Gᵁ = @SVector [-0, -0]
+    A.Δu = @SVector [-0, -0]
 
     return nothing
 end
 
-function run_hydrostatic_spindown(; coupled = true, refDat = ())
+function run_hydrostatic_spindown(;
+    coupling = Uncoupled(),
+    dt_slow = 300,
+    refDat = (),
+)
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
 
@@ -126,6 +135,7 @@ function run_hydrostatic_spindown(; coupled = true, refDat = ())
     model_3D = HydrostaticBoussinesqModel{FT}(
         param_set,
         prob_3D;
+        coupling = coupling,
         cʰ = FT(1),
         αᵀ = FT(0),
         κʰ = FT(0),
@@ -137,13 +147,13 @@ function run_hydrostatic_spindown(; coupled = true, refDat = ())
     model_2D = ShallowWaterModel(
         param_set,
         prob_2D,
+        coupling,
         ShallowWater.ConstantViscosity{FT}(model_3D.νʰ),
         nothing,
         FT(1),
     )
 
     dt_fast = 300
-    dt_slow = 300
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
 
@@ -176,7 +186,7 @@ function run_hydrostatic_spindown(; coupled = true, refDat = ())
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
@@ -186,8 +196,7 @@ function run_hydrostatic_spindown(; coupled = true, refDat = ())
 
     lsrk_3D = LSRK54CarpenterKennedy(dg_3D, Q_3D, dt = dt_slow, t0 = 0)
     lsrk_2D = LSRK54CarpenterKennedy(dg_2D, Q_2D, dt = dt_fast, t0 = 0)
-
-    odesolver = SplitExplicitSolver(lsrk_3D, lsrk_2D; coupled = coupled)
+    odesolver = SplitExplicitSolver(lsrk_3D, lsrk_2D)
 
     step = [0, 0]
     cbvector = make_callbacks(
@@ -308,6 +317,7 @@ function make_callbacks(
             (Q_slow, "3D state"),
             (dg_slow.state_auxiliary, "3D aux"),
             (Q_fast, "2D state"),
+            (dg_fast.state_auxiliary, "2D aux"),
         ],
         nout;
         prec = 12,
@@ -323,9 +333,9 @@ FT = Float64
 vtkpath = "vtk_split"
 
 const timeend = 24 * 3600 # s
-const tout = 2 * 3600 # s
+const tout = 3 * 3600 # s
 # const timeend = 1200 # s
-# const tout = 600 # s
+# const tout = 300 # s
 
 const N = 4
 const Nˣ = 5
@@ -346,5 +356,49 @@ const cᶻ = 0
 @testset "$(@__FILE__)" begin
     include("../refvals/hydrostatic_spindown_refvals.jl")
 
-    run_hydrostatic_spindown(coupled = false, refDat = refVals.uncoupled)
+    @testset "Multi-rate" begin
+        @testset "Δt = 30 mins" begin
+            run_hydrostatic_spindown(
+                coupling = Coupled(),
+                dt_slow = 30 * 60,
+                refDat = refVals.thirty_minutes,
+            )
+        end
+
+        @testset "Δt = 60 mins" begin
+            run_hydrostatic_spindown(
+                coupling = Coupled(),
+                dt_slow = 60 * 60,
+                refDat = refVals.sixty_minutes,
+            )
+        end
+
+        @testset "Δt = 90 mins" begin
+            run_hydrostatic_spindown(
+                coupling = Coupled(),
+                dt_slow = 90 * 60,
+                refDat = refVals.ninety_minutes,
+            )
+        end
+    end
+
+    if ClimateMachine.Settings.integration_testing
+        @testset "Single-Rate" begin
+            @testset "Not Coupled" begin
+                run_hydrostatic_spindown(
+                    coupling = Uncoupled(),
+                    dt_slow = 300,
+                    refDat = refVals.uncoupled,
+                )
+            end
+
+            @testset "Fully Coupled" begin
+                run_hydrostatic_spindown(
+                    coupling = Coupled(),
+                    dt_slow = 300,
+                    refDat = refVals.coupled,
+                )
+            end
+        end
+    end
 end
