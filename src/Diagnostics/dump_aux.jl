@@ -12,7 +12,7 @@ function dump_aux_collect(dgngrp, currtime)
     iaux = similar(
         dg.state_auxiliary.data,
         interpol.Npl,
-        number_states(bl, Auxiliary(), FT),
+        number_states(bl, Auxiliary()),
     )
 
 

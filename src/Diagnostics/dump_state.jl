@@ -9,7 +9,7 @@ function dump_state_collect(dgngrp, currtime)
     bl = dg.balance_law
     mpirank = MPI.Comm_rank(mpicomm)
 
-    istate = similar(Q.data, interpol.Npl, number_states(bl, Prognostic(), FT))
+    istate = similar(Q.data, interpol.Npl, number_states(bl, Prognostic()))
     interpolate_local!(interpol, Q.data, istate)
 
     if interpol isa InterpolationCubedSphere

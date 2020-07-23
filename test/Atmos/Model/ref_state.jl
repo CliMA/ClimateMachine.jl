@@ -32,7 +32,7 @@ using Test
         vgeo = SArray{Tuple{3, 16, 3}, FT}(zeros(3, 16, 3)) # dummy, not used
         local_geom = LocalGeometry(Val(5), vgeo, 1, 1) # dummy, not used
         st = vars_state(atmos, Auxiliary(), FT)
-        nst = number_states(atmos, Auxiliary(), FT)
+        nst = number_states(atmos, Auxiliary())
         arr = MArray{Tuple{nst}, FT}(undef)
         fill!(arr, 0)
         aux = Vars{st}(arr)

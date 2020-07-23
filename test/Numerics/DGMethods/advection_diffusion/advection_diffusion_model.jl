@@ -299,7 +299,7 @@ function boundary_state!(
         diff⁺.σ = diff⁻.σ
     elseif bctype == 2 # Neumann with data
         FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient(), FT)
+        ngrad = number_states(m, Gradient())
         ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
             parent(diff⁺),
             Size(3, ngrad),
@@ -310,7 +310,7 @@ function boundary_state!(
         # compute the diffusive flux using the boundary state
     elseif bctype == 4 # zero Neumann
         FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient(), FT)
+        ngrad = number_states(m, Gradient())
         ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
             parent(diff⁺),
             Size(3, ngrad),
@@ -361,7 +361,7 @@ function boundary_flux_second_order!(
         flux_second_order!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
     elseif bctype == 2 # Neumann data
         FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient(), FT)
+        ngrad = number_states(m, Gradient())
         ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
             parent(diff⁺),
             Size(3, ngrad),

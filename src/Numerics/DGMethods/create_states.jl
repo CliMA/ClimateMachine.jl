@@ -12,7 +12,7 @@ function create_state(balance_law, grid, st::AbstractStateType)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
     # TODO: Clean up this MPIStateArray interface...
-    ns = number_states(balance_law, st, FT)
+    ns = number_states(balance_law, st)
     st isa GradientLaplacian && (ns = 3ns)
     V = vars_state(balance_law, st, FT)
     state = MPIStateArray{FT, V}(

@@ -41,7 +41,7 @@ end
 function extract_state(dg, state, ijk, e, st::AbstractStateType)
     bl = dg.balance_law
     FT = eltype(state)
-    num_state = number_states(bl, st, FT)
+    num_state = number_states(bl, st)
     local_state = MArray{Tuple{num_state}, FT}(undef)
     for s in 1:num_state
         local_state[s] = state[ijk, s, e]
