@@ -654,19 +654,6 @@ function invoke!(
         )
     end
 
-    # fini diagnostics groups
-    # TODO: come up with a better mechanism
-    if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
-        currtime = ODESolvers.gettime(solver)
-        for dgngrp in diagnostics_config.groups
-            dgngrp.fini(dgngrp, currtime)
-        end
-    end
-
-    # fini VTK
-    !isnothing(cb_vtk) &&
-    GenericCallbacks.call!(cb_vtk, nothing, nothing, nothing, nothing)
-
     engf = norm(Q)
     @info @sprintf(
         """

@@ -83,7 +83,8 @@ ODESolvers.updatedt!
 
 ```@docs
 GenericCallbacks
-GenericCallbacks.AtStart
+GenericCallbacks.AtInit
+GenericCallbacks.AtInitAndFini
 GenericCallbacks.EveryXWallTimeSeconds
 GenericCallbacks.EveryXSimulationTime
 GenericCallbacks.EveryXSimulationSteps
