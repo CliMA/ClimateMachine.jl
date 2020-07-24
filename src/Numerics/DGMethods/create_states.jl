@@ -1,6 +1,11 @@
 #### Create states
 
-function create_state(balance_law, grid, st::AbstractStateType)
+function create_state(
+    balance_law,
+    grid,
+    st::AbstractStateType;
+    fill_nan = false,
+)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -30,6 +35,7 @@ function create_state(balance_law, grid, st::AbstractStateType)
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
     )
+    fill_nan && fill!(state, NaN)
     return state
 end
 

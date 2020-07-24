@@ -129,6 +129,8 @@ ClimateMachine:
   --log-level <level>   set the log level to one of
                         debug/info/warn/error (default: "info")
   --output-dir <path>   directory for output data (default: "output")
+  --debug-init          fill state arrays with NaNs and dump them
+                        post-initialization"
   --integration-testing
                         enable integration testing
 

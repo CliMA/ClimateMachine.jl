@@ -15,9 +15,7 @@ function dump_aux_collect(dgngrp, currtime)
         number_states(bl, Auxiliary()),
     )
 
-
     interpolate_local!(interpol, dg.state_auxiliary.data, iaux)
-
 
     all_aux_data = accumulate_interpolated_data(mpicomm, interpol, iaux)
 

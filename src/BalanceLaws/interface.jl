@@ -34,7 +34,7 @@ vars_state(::BalanceLaw, ::AbstractStateType, FT) = @vars()
       coords,
       args...)
 
-Initialize the conservative state variables at ``t = 0``
+Initialize the prognostic state variables at ``t = 0``
 """
 function init_state_prognostic! end
 
@@ -101,7 +101,8 @@ function source! end
         t::Real
     )
 
-transformation of state variables to variables of which gradients are computed
+transformation of state variables to variables of which gradients are
+computed
 """
 compute_gradient_argument!(::BalanceLaw, args...) = nothing
 
@@ -222,14 +223,16 @@ function update_auxiliary_state_gradient! end
 """
     integral_load_auxiliary_state!
 
-Specify how to compute integrands. Can be functions of the conservative state and auxiliary variables.
+Specify how to compute integrands. Can be functions of the prognostic
+state and auxiliary variables.
 """
 function integral_load_auxiliary_state! end
 
 """
     integral_set_auxiliary_state!
 
-Specify which auxiliary variables are used to store the output of the integrals.
+Specify which auxiliary variables are used to store the output of the
+integrals.
 """
 function integral_set_auxiliary_state! end
 
@@ -250,7 +253,8 @@ function reverse_integral_load_auxiliary_state! end
 """
     reverse_integral_set_auxiliary_state!
 
-Specify which auxiliary variables are used to store the output of the reversed integrals.
+Specify which auxiliary variables are used to store the output of the
+reversed integrals.
 """
 function reverse_integral_set_auxiliary_state! end
 

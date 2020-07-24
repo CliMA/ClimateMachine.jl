@@ -132,14 +132,45 @@ function SolverConfiguration(
             numerical_flux_first_order,
             numerical_flux_second_order,
             numerical_flux_gradient,
+            fill_nan = Settings.debug_init,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
 
+        if Settings.debug_init
+            write_debug_init_vtk_and_pvtu(
+                "init_auxiliary",
+                driver_config,
+                dg,
+                dg.state_auxiliary,
+                flattenednames(vars_state(bl, Auxiliary(), FT)),
+            )
+        end
+
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+
+        if Settings.debug_init
+            write_debug_init_vtk_and_pvtu(
+                "init_prognostic",
+                driver_config,
+                dg,
+                Q,
+                flattenednames(vars_state(bl, Prognostic(), FT)),
+            )
+        end
     end
     update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+
+    if Settings.debug_init
+        write_debug_init_vtk_and_pvtu(
+            "first_update_auxiliary",
+            driver_config,
+            dg,
+            dg.state_auxiliary,
+            flattenednames(vars_state(bl, Auxiliary(), FT)),
+        )
+    end
 
     # default Courant number
     # TODO: Think about revising this or drop it entirely.
@@ -192,4 +223,43 @@ function SolverConfiguration(
         init_args,
         solver,
     )
+end
+
+function write_debug_init_vtk_and_pvtu(
+    suffix_name,
+    driver_config,
+    dg,
+    state,
+    state_names,
+)
+    mpicomm = driver_config.mpicomm
+    bl = driver_config.bl
+
+    vprefix = @sprintf(
+        "%s_mpirank%04d_%s",
+        driver_config.name,
+        MPI.Comm_rank(mpicomm),
+        suffix_name,
+    )
+    out_prefix = joinpath(Settings.output_dir, vprefix)
+
+    writevtk(
+        out_prefix,
+        state,
+        dg,
+        state_names;
+        number_sample_points = Settings.vtk_number_sample_points,
+    )
+
+    # Generate the pvtu file for these vtk files
+    if MPI.Comm_rank(mpicomm) == 0
+        pprefix = @sprintf("%s_%s", driver_config.name, suffix_name)
+        pvtuprefix = joinpath(Settings.output_dir, pprefix)
+
+        # name of each of the ranks vtk files
+        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+            @sprintf("%s_mpirank%04d_%s", driver_config.name, i - 1, suffix_name,)
+        end
+        writepvtu(pvtuprefix, prefixes, state_names, eltype(state))
+    end
 end
