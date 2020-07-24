@@ -14,7 +14,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
-    air_density, air_temperature, total_energy 
+    air_density, air_temperature, total_energy
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
@@ -32,13 +32,13 @@ import CLIMAParameters
 function init_baroclinic_wave!(bl, state, aux, coords, t)
     FT = eltype(state)
 
-    # parameters 
+    # parameters
     _grav::FT = grav(bl.param_set)
     _R_d::FT = R_d(bl.param_set)
     _Ω::FT = Omega(bl.param_set)
     _a::FT = planet_radius(bl.param_set)
     _p_0::FT = MSLP(bl.param_set)
-    
+
     k::FT = 3
     T_E::FT = 310
     T_P::FT = 240
@@ -66,17 +66,17 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     τ_z_1::FT = exp(Γ*z/T_0)
     τ_z_2::FT = 1 - 2*(z/b/H)^2
     τ_z_3::FT = exp(-(z/b/H)^2)
-    τ_1::FT = 1/T_0 * τ_z_1 + B * τ_z_2 * τ_z_3 
-    τ_2::FT = C * τ_z_2 * τ_z_3 
+    τ_1::FT = 1/T_0 * τ_z_1 + B * τ_z_2 * τ_z_3
+    τ_2::FT = C * τ_z_2 * τ_z_3
     τ_int_1::FT = A * (τ_z_1-1) + B * z * τ_z_3
     τ_int_2::FT = C * z * τ_z_3
-    I_T::FT = (cos(φ) * (1 + γ*z/_a))^k - k/(k+2) * (cos(φ) * (1 + γ*z/_a))^(k+2) 
+    I_T::FT = (cos(φ) * (1 + γ*z/_a))^k - k/(k+2) * (cos(φ) * (1 + γ*z/_a))^(k+2)
 
     # base state temperature, pressure, specific humidity, density
-    # T::FT = (1/(1 + γ*z/_a))^2 * (τ_1 - τ_2 * I_T)^(-1) 
-    T::FT = (τ_1 - τ_2 * I_T)^(-1) 
+    # T::FT = (1/(1 + γ*z/_a))^2 * (τ_1 - τ_2 * I_T)^(-1)
+    T::FT = (τ_1 - τ_2 * I_T)^(-1)
     p::FT = _p_0 * exp(-_grav/_R_d * (τ_int_1 - τ_int_2 * I_T))
-    
+
     # base state velocity
     U::FT = _grav*k/_a * τ_int_2 * T * ((cos(φ) * (1 + γ*z/_a))^(k-1) - (cos(φ) * (1 + γ*z/_a))^(k+1))
     u_ref::FT = -_Ω*(_a + γ*z)*cos(φ) + sqrt((_Ω*(_a + γ*z)*cos(φ))^2 + (_a + γ*z)*cos(φ)*U)
@@ -84,16 +84,16 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     w_ref::FT = 0
 
     # velocity perturbations
-    F_z::FT = 1 - 3*(z/z_t)^2 + 2*(z/z_t)^3 
+    F_z::FT = 1 - 3*(z/z_t)^2 + 2*(z/z_t)^3
     if z > z_t
       F_z = FT(0)
     end
-    d::FT = _a*acos(sin(φ)*sin(φ_c) + cos(φ)*cos(φ_c)*cos(λ-λ_c)) 
+    d::FT = _a*acos(sin(φ)*sin(φ_c) + cos(φ)*cos(φ_c)*cos(λ-λ_c))
     c3::FT = cos(π*d/2/d_0)^3
     s1::FT = sin(π*d/2/d_0)
     if 0 < d < d_0 && d != FT(_a*π)
-      u′::FT = -16*V_p/3/sqrt(3) * F_z * c3 * s1 * (-sin(φ_c)*cos(φ) + cos(φ_c)*sin(φ)*cos(λ-λ_c)) / sin(d/_a) 
-      v′::FT = 16*V_p/3/sqrt(3) * F_z * c3 * s1 * cos(φ_c)*sin(λ-λ_c) / sin(d/_a) 
+      u′::FT = -16*V_p/3/sqrt(3) * F_z * c3 * s1 * (-sin(φ_c)*cos(φ) + cos(φ_c)*sin(φ)*cos(λ-λ_c)) / sin(d/_a)
+      v′::FT = 16*V_p/3/sqrt(3) * F_z * c3 * s1 * cos(φ_c)*sin(λ-λ_c) / sin(d/_a)
     else
       u′ = FT(0)
       v′ = FT(0)
@@ -101,17 +101,17 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     w′::FT = 0
     u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
     u_cart = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
-    
+
     # potential & kinetic energy
     ρ = air_density(bl.param_set, T, p)
     e_pot::FT = gravitational_potential(bl.orientation, aux)
     e_kin::FT = 0.5 * u_cart' * u_cart
     e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T)
-    
+
     state.ρ = ρ
-    state.ρu = ρ * u_cart 
+    state.ρu = ρ * u_cart
     state.ρe = ρ * e_tot
-    
+
     nothing
 end
 
@@ -120,7 +120,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
     temp_profile_ref = DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
     ref_state = HydrostaticState(temp_profile_ref)
     τ_hyper::FT = 8 * 3600
-    
+
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
@@ -172,7 +172,8 @@ function main()
 #    ode_solver_type = ClimateMachine.ExplicitSolverType(
 #        solver_method = LSRK144NiegemannDiehlBusch,
 #    )
-    CFL = FT(0.1) # target acoustic CFL number
+#    CFL = FT(0.1) # target acoustic CFL number
+    CFL::FT = 0.1 # target acoustic CFL number
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
