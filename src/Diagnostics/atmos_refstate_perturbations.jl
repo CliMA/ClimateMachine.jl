@@ -9,6 +9,44 @@ using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
 
+"""
+    setup_atmos_refstate_perturbations(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the
+"AtmosRefStatePerturbations" diagnostics for both LES and GCM
+configurations. All the diagnostics in the group will run at the
+specified `interval`, be interpolated to the specified boundaries
+and resolution, and written to files prefixed by `out_prefix`
+using `writer`.
+"""
+function setup_atmos_refstate_perturbations(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosRefStatePerturbations",
+        Diagnostics.atmos_refstate_perturbations_init,
+        Diagnostics.atmos_refstate_perturbations_fini,
+        Diagnostics.atmos_refstate_perturbations_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 function vars_atmos_refstate_perturbations(m::AtmosModel, FT)
     @vars begin
         ref_state::vars_atmos_refstate_perturbations(m.ref_state, FT)

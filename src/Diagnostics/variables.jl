@@ -444,4 +444,20 @@ function setup_variables()
             "",
         ),
     )
+    Variables["E_k"] = DiagnosticVariable(
+        "E_k",
+        var_attrib(
+            "",
+            "volumetrically-averaged dimensionless kinetic energy",
+            "",
+        ),
+    )
+    Variables["dE"] = DiagnosticVariable(
+        "dE",
+        var_attrib(
+            "",
+            "volumetrically-averaged kinetic energy dissipation",
+            "",
+        ),
+    )
 end

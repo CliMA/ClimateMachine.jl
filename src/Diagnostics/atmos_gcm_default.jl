@@ -26,6 +26,43 @@ using ..Atmos
 using ..Atmos: thermo_state
 using ..TurbulenceClosures: turbulence_tensors
 
+"""
+    setup_atmos_default_diagnostics(
+        ::AtmosGCMConfigType,
+        interval::String,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
+diagnostics for GCM configurations. All the diagnostics in the group will run
+at the specified `interval`, be interpolated to the specified boundaries and
+resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
+"""
+function setup_atmos_default_diagnostics(
+    ::AtmosGCMConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosGCMDefault",
+        Diagnostics.atmos_gcm_default_init,
+        Diagnostics.atmos_gcm_default_fini,
+        Diagnostics.atmos_gcm_default_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 include("diagnostic_fields.jl")
 
 # 3D variables
