@@ -10,8 +10,7 @@ apis = [
         "Microphysics" => "APIs/Atmos/Microphysics.md",
         "Temperature Profiles" => "APIs/Atmos/TemperatureProfiles.md",
     ],
-    "Ocean" =>
-        ["Hydrostatic Boussinesq" => "APIs/Ocean/HydrostaticBoussinesq.md"],
+    "Ocean" => "APIs/Ocean/Ocean.md",
     "Land" => [
         "Land Model" => "APIs/Land/LandModel.md",
         "Soil Water Parameterizations" =>

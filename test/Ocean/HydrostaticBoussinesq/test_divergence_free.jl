@@ -8,6 +8,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.BalanceLaws: vars_state, Prognostic
 using ClimateMachine.Ocean.HydrostaticBoussinesq
+using ClimateMachine.Ocean.OceanProblems
 
 using CLIMAParameters
 using CLIMAParameters.Planet: grav

@@ -11,6 +11,7 @@ using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
+using ClimateMachine.Ocean.OceanProblems
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -25,69 +26,13 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 
-import ClimateMachine.Ocean.ShallowWater: shallow_init_state!, shallow_init_aux!
-
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-struct GyreInABox{T} <: ShallowWaterProblem
-    τₒ::T
-    fₒ::T # value includes τₒ, g, and ρ
-    β::T
-    Lˣ::T
-    Lʸ::T
-    H::T
-end
-
-function shallow_init_state!(
-    m::ShallowWaterModel,
-    p::GyreInABox,
-    Q,
-    A,
-    coords,
-    t,
-)
-    @inbounds x = coords[1]
-
-    Lˣ = p.Lˣ
-    H = p.H
-
-    kˣ = 2π / Lˣ
-    νʰ = m.turbulence.ν
-
-    M = @SMatrix [-νʰ * kˣ^2 grav(m.param_set) * H * kˣ; -kˣ 0]
-    A = exp(M * t) * @SVector [1, 1]
-
-    U = A[1] * sin(kˣ * x)
-
-    Q.U = @SVector [U, -0]
-    Q.η = A[2] * cos(kˣ * x)
-
-    return nothing
-end
-
-function shallow_init_aux!(m::ShallowWaterModel, p::GyreInABox, A, geom)
-    @inbounds x = geom.coord[1]
-    @inbounds y = geom.coord[2]
-
-    Lʸ = p.Lʸ
-    τₒ = p.τₒ
-    fₒ = p.fₒ
-    β = p.β
-
-    A.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
-    A.f = fₒ + β * (y - Lʸ / 2)
-
-    A.Gᵁ = @SVector [-0, -0]
-    A.Δu = @SVector [-0, -0]
-
-    return nothing
-end
-
 function run_hydrostatic_spindown(;
-    coupling = Uncoupled(),
+    coupling = Coupled(),
     dt_slow = 300,
     refDat = (),
 )
@@ -129,12 +74,11 @@ function run_hydrostatic_spindown(;
         polynomialorder = N,
     )
 
-    prob_3D = SimpleBox{FT}(Lˣ, Lʸ, H)
-    prob_2D = GyreInABox{FT}(-0, -0, -0, Lˣ, Lʸ, H)
+    problem = SimpleBox{FT}(Lˣ, Lʸ, H)
 
     model_3D = HydrostaticBoussinesqModel{FT}(
         param_set,
-        prob_3D;
+        problem;
         coupling = coupling,
         cʰ = FT(1),
         αᵀ = FT(0),
@@ -144,13 +88,15 @@ function run_hydrostatic_spindown(;
         β = FT(0),
     )
 
-    model_2D = ShallowWaterModel(
+    model_2D = ShallowWaterModel{FT}(
         param_set,
-        prob_2D,
-        coupling,
+        problem,
         ShallowWater.ConstantViscosity{FT}(model_3D.νʰ),
-        nothing,
-        FT(1),
+        nothing;
+        coupling = coupling,
+        c = FT(1),
+        fₒ = FT(0),
+        β = FT(0),
     )
 
     dt_fast = 300
