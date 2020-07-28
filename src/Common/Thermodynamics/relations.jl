@@ -1093,42 +1093,61 @@ function saturation_adjustment(
     if unsaturated && T_1 > _T_min
         return T_1
     else
-        sol = find_zero(
-            T ->
-                internal_energy_sat(param_set, T, ρ, q_tot, phase_type) - e_int,
-            NewtonsMethod(
-                T_1,
-                T_ -> ∂e_int_∂T(param_set, T_, e_int, ρ, q_tot, phase_type),
-            ),
-            CompactSolution(),
-            tol,
-            maxiter,
+        _T_freeze::FT = T_freeze(param_set)
+        e_int_upper = internal_energy_sat(
+            param_set,
+            _T_freeze + sqrt(eps(FT)),
+            ρ,
+            q_tot,
+            phase_type,
         )
-        if !sol.converged
-            if print_warning()
-                @print("-----------------------------------------\n")
-                @print("maxiter reached in saturation_adjustment:\n")
-                @print(
-                    "    e_int=",
-                    e_int,
-                    ", ρ=",
-                    ρ,
-                    ", q_tot=",
-                    q_tot,
-                    ", T = ",
-                    sol.root,
-                    ", maxiter=",
-                    maxiter,
-                    ", tol=",
-                    tol.tol,
-                    "\n"
-                )
+        e_int_lower = internal_energy_sat(
+            param_set,
+            _T_freeze - sqrt(eps(FT)),
+            ρ,
+            q_tot,
+            phase_type,
+        )
+        if e_int_lower < e_int < e_int_upper
+            return _T_freeze
+        else
+            sol = find_zero(
+                T ->
+                    internal_energy_sat(param_set, T, ρ, q_tot, phase_type) - e_int,
+                NewtonsMethod(
+                    T_1,
+                    T_ -> ∂e_int_∂T(param_set, T_, e_int, ρ, q_tot, phase_type),
+                ),
+                CompactSolution(),
+                tol,
+                maxiter,
+            )
+            if !sol.converged
+                if print_warning()
+                    @print("-----------------------------------------\n")
+                    @print("maxiter reached in saturation_adjustment:\n")
+                    @print(
+                        "    e_int=",
+                        e_int,
+                        ", ρ=",
+                        ρ,
+                        ", q_tot=",
+                        q_tot,
+                        ", T = ",
+                        sol.root,
+                        ", maxiter=",
+                        maxiter,
+                        ", tol=",
+                        tol.tol,
+                        "\n"
+                    )
+                end
+                if error_on_non_convergence()
+                    error("Failed to converge with printed set of inputs.")
+                end
             end
-            if error_on_non_convergence()
-                error("Failed to converge with printed set of inputs.")
-            end
+            return sol.root
         end
-        return sol.root
     end
 end
 
@@ -1194,46 +1213,66 @@ function saturation_adjustment_SecantMethod(
     if unsaturated && T_1 > _T_min
         return T_1
     else
-        # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
-        T_2 = air_temperature(
+
+        _T_freeze::FT = T_freeze(param_set)
+        e_int_upper = internal_energy_sat(
             param_set,
-            e_int,
-            PhasePartition(q_tot, FT(0), q_tot),
-        ) # Assume all ice
-        T_2 = bound_upper_temperature(T_1, T_2)
-        sol = find_zero(
-            T ->
-                internal_energy_sat(param_set, T, ρ, q_tot, phase_type) - e_int,
-            SecantMethod(T_1, T_2),
-            CompactSolution(),
-            tol,
-            maxiter,
+            _T_freeze + sqrt(eps(FT)),
+            ρ,
+            q_tot,
+            phase_type,
         )
-        if !sol.converged
-            if print_warning()
-                @print("-----------------------------------------\n")
-                @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
-                @print(
-                    "    e_int=",
-                    e_int,
-                    ", ρ=",
-                    ρ,
-                    ", q_tot=",
-                    q_tot,
-                    ", T = ",
-                    sol.root,
-                    ", maxiter=",
-                    maxiter,
-                    ", tol=",
-                    tol.tol,
-                    "\n"
-                )
+        e_int_lower = internal_energy_sat(
+            param_set,
+            _T_freeze - sqrt(eps(FT)),
+            ρ,
+            q_tot,
+            phase_type,
+        )
+        if e_int_lower < e_int < e_int_upper
+            return _T_freeze
+        else
+            # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
+            T_2 = air_temperature(
+                param_set,
+                e_int,
+                PhasePartition(q_tot, FT(0), q_tot),
+            ) # Assume all ice
+            T_2 = bound_upper_temperature(T_1, T_2)
+            sol = find_zero(
+                T ->
+                    internal_energy_sat(param_set, T, ρ, q_tot, phase_type) - e_int,
+                SecantMethod(T_1, T_2),
+                CompactSolution(),
+                tol,
+                maxiter,
+            )
+            if !sol.converged
+                if print_warning()
+                    @print("-----------------------------------------\n")
+                    @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
+                    @print(
+                        "    e_int=",
+                        e_int,
+                        ", ρ=",
+                        ρ,
+                        ", q_tot=",
+                        q_tot,
+                        ", T = ",
+                        sol.root,
+                        ", maxiter=",
+                        maxiter,
+                        ", tol=",
+                        tol.tol,
+                        "\n"
+                    )
+                end
+                if error_on_non_convergence()
+                    error("Failed to converge with printed set of inputs.")
+                end
             end
-            if error_on_non_convergence()
-                error("Failed to converge with printed set of inputs.")
-            end
+            return sol.root
         end
-        return sol.root
     end
 end
 
