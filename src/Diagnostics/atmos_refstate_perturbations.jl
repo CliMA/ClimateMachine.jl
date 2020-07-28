@@ -182,11 +182,8 @@ function atmos_refstate_perturbations_collect(
 
     # Interpolate the state and thermo variables.
     interpol = dgngrp.interpol
-    istate = ArrayType{FT}(
-        undef,
-        interpol.Npl,
-        number_states(atmos, Prognostic(), FT),
-    )
+    istate =
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
     if interpol isa InterpolationCubedSphere
@@ -195,11 +192,7 @@ function atmos_refstate_perturbations_collect(
         project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
     end
 
-    iaux = ArrayType{FT}(
-        undef,
-        interpol.Npl,
-        number_states(atmos, Auxiliary(), FT),
-    )
+    iaux = ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Auxiliary()))
     interpolate_local!(interpol, dg.state_auxiliary.realdata, iaux)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))

@@ -244,11 +244,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # Interpolate the state, thermo and dyn vars to sphere (u and vorticity
     # need projection to zonal, merid). All this may happen on the GPU.
-    istate = ArrayType{FT}(
-        undef,
-        interpol.Npl,
-        number_states(atmos, Prognostic(), FT),
-    )
+    istate =
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))

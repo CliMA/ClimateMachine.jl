@@ -119,9 +119,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     state_auxiliary = dg.state_auxiliary
 
     FT = eltype(state_prognostic)
-    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
-    num_state_gradient_flux = number_states(balance_law, GradientFlux(), FT)
-    nhyperviscstate = number_states(balance_law, Hyperdiffusive(), FT)
+    num_state_prognostic = number_states(balance_law, Prognostic())
+    num_state_gradient_flux = number_states(balance_law, GradientFlux())
+    nhyperviscstate = number_states(balance_law, Hyperdiffusive())
     num_state_tendency = size(tendency, 2)
 
     @assert num_state_prognostic ≤ num_state_tendency

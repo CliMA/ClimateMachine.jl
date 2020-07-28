@@ -672,7 +672,7 @@ function update_auxiliary_state_gradient!(
     # We are unable to use vars (ie A.w) for this because this operation will
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
-    number_aux = number_states(m, Auxiliary(), FT)
+    number_aux = number_states(m, Auxiliary())
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)

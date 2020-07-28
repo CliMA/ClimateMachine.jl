@@ -52,15 +52,15 @@ end
     update_auxiliary_state!(model_int, integral, Q, 0)
 
     ### properly shape MPIStateArrays
-    num_int = number_states(integral, Auxiliary(), FT)
+    num_int = number_states(integral, Auxiliary())
     data_int = model_int.state_auxiliary.data
     data_int = reshape(data_int, Nq^2, Nqk, num_int, nelemv, nelemh)
 
-    num_aux = number_states(m, Auxiliary(), FT)
+    num_aux = number_states(m, Auxiliary())
     data_aux = dg.state_auxiliary.data
     data_aux = reshape(data_aux, Nq^2, Nqk, num_aux, nelemv, nelemh)
 
-    num_state = number_states(m, Prognostic(), FT)
+    num_state = number_states(m, Prognostic())
     data_state = reshape(Q.data, Nq^2, Nqk, num_state, nelemv, nelemh)
 
     ### get vars indices

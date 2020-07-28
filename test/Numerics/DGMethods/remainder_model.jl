@@ -158,11 +158,11 @@ function run(
     nM /= norm(nM)
     state_prognostic = Vars{vars_state(dg.balance_law, Prognostic(), FT)}(rand(
         FT,
-        number_states(dg.balance_law, Prognostic(), FT),
+        number_states(dg.balance_law, Prognostic()),
     ))
     state_auxiliary = Vars{vars_state(dg.balance_law, Auxiliary(), FT)}(rand(
         FT,
-        number_states(dg.balance_law, Auxiliary(), FT),
+        number_states(dg.balance_law, Auxiliary()),
     ))
     full_wavespeed = wavespeed(
         dg.balance_law,

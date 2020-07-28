@@ -106,25 +106,25 @@ function remainder_DGModel(
     # If any of these asserts fail, the remainder model will need to be extended
     # to allow for it; see `flux_first_order!` and `source!` below.
     for subdg in subsdg
-        @assert number_states(subdg.balance_law, Prognostic(), FT) <=
-                number_states(maindg.balance_law, Prognostic(), FT)
+        @assert number_states(subdg.balance_law, Prognostic()) <=
+                number_states(maindg.balance_law, Prognostic())
 
-        @assert number_states(subdg.balance_law, Auxiliary(), FT) ==
-                number_states(maindg.balance_law, Auxiliary(), FT)
+        @assert number_states(subdg.balance_law, Auxiliary()) ==
+                number_states(maindg.balance_law, Auxiliary())
 
-        @assert number_states(subdg.balance_law, Gradient(), FT) == 0
-        @assert number_states(subdg.balance_law, GradientFlux(), FT) == 0
+        @assert number_states(subdg.balance_law, Gradient()) == 0
+        @assert number_states(subdg.balance_law, GradientFlux()) == 0
 
-        @assert number_states(subdg.balance_law, GradientLaplacian(), FT) == 0
-        @assert number_states(subdg.balance_law, Hyperdiffusive(), FT) == 0
+        @assert number_states(subdg.balance_law, GradientLaplacian()) == 0
+        @assert number_states(subdg.balance_law, Hyperdiffusive()) == 0
 
         # Do not currenlty support nested remainder models
         # For this to work the way directions and numerical fluxes are handled
         # would need to be updated.
         @assert !(subdg.balance_law isa RemBL)
 
-        @assert number_states(subdg.balance_law, UpwardIntegrals(), FT) == 0
-        @assert number_states(subdg.balance_law, DownwardIntegrals(), FT) == 0
+        @assert number_states(subdg.balance_law, UpwardIntegrals()) == 0
+        @assert number_states(subdg.balance_law, DownwardIntegrals()) == 0
 
         # The remainder model requires that the subcomponent direction be
         # included in the main model directions
@@ -353,11 +353,11 @@ function wavespeed(
 
     ws = fill(
         -zero(FT),
-        MVector{number_states(rem_balance_law.main, Prognostic(), FT), FT},
+        MVector{number_states(rem_balance_law.main, Prognostic()), FT},
     )
     rs = fill(
         -zero(FT),
-        MVector{number_states(rem_balance_law.main, Prognostic(), FT), FT},
+        MVector{number_states(rem_balance_law.main, Prognostic()), FT},
     )
 
     # Compute the main components wavespeed
@@ -375,7 +375,7 @@ function wavespeed(
     # Compute the sub components wavespeed
     for (sub, subdir) in zip(rem_balance_law.subs, rem_balance_law.subsdir)
         @inbounds if subdir isa Union{Dirs.types...}
-            num_state = static(number_states(sub, Prognostic(), Float32))
+            num_state = static(number_states(sub, Prognostic()))
             rs[static(1):num_state] .+=
                 wavespeed(sub, nM, state, aux, t, (subdir,))
         end
@@ -460,13 +460,13 @@ function numerical_flux_first_order!(
             nf = numerical_fluxes[2][k]
 
             FT = eltype(a_fluxᵀn)
-            num_state_prognostic = number_states(sub, Prognostic(), FT)
+            num_state_prognostic = number_states(sub, Prognostic())
 
             a_sub_fluxᵀn = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic⁻ = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic⁺ = MVector{num_state_prognostic, FT}(undef)
 
-            state_rng = static(1):static(number_states(sub, Prognostic(), FT))
+            state_rng = static(1):static(number_states(sub, Prognostic()))
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
             a_sub_state_prognostic⁻ .= parent(state_prognostic⁻)[state_rng]
             a_sub_state_prognostic⁺ .= parent(state_prognostic⁺)[state_rng]
@@ -584,14 +584,14 @@ function numerical_boundary_flux_first_order!(
             a_state_auxiliary⁺ .= a_back_state_auxiliary⁺
 
             FT = eltype(a_fluxᵀn)
-            num_state_prognostic = number_states(sub, Prognostic(), FT)
+            num_state_prognostic = number_states(sub, Prognostic())
 
             a_sub_fluxᵀn = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic⁻ = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic⁺ = MVector{num_state_prognostic, FT}(undef)
             a_sub_state_prognostic1⁻ = MVector{num_state_prognostic, FT}(undef)
 
-            state_rng = static(1):static(number_states(sub, Prognostic(), FT))
+            state_rng = static(1):static(number_states(sub, Prognostic()))
             a_sub_fluxᵀn .= a_fluxᵀn[state_rng]
             a_sub_state_prognostic⁻ .= parent(state_prognostic⁻)[state_rng]
             a_sub_state_prognostic⁺ .= parent(state_prognostic⁺)[state_rng]

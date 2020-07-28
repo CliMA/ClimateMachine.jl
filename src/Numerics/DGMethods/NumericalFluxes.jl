@@ -278,7 +278,7 @@ function numerical_flux_first_order!(
 ) where {S, A}
 
     FT = eltype(fluxᵀn)
-    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
+    num_state_prognostic = number_states(balance_law, Prognostic())
     fluxᵀn = parent(fluxᵀn)
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_prognostic))
@@ -364,7 +364,7 @@ function numerical_flux_second_order!(
 ) where {S, D, HD, A}
 
     FT = eltype(fluxᵀn)
-    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
+    num_state_prognostic = number_states(balance_law, Prognostic())
     fluxᵀn = parent(fluxᵀn)
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_prognostic))
@@ -563,7 +563,7 @@ function normal_boundary_flux_second_order!(
     aux1⁻,
 ) where {S}
     FT = eltype(fluxᵀn)
-    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
+    num_state_prognostic = number_states(balance_law, Prognostic())
     fluxᵀn = parent(fluxᵀn)
 
     flux = similar(fluxᵀn, Size(3, num_state_prognostic))

@@ -29,15 +29,15 @@ end
     update_auxiliary_state!(model_int, integral, forcing_tendency, 0)
 
     ### properly shape MPIStateArrays
-    num_aux_int = number_states(integral, Auxiliary(), FT)
+    num_aux_int = number_states(integral, Auxiliary())
     data_int = model_int.state_auxiliary.data
     data_int = reshape(data_int, Nq^2, Nqk, num_aux_int, nelemv, nelemh)
 
-    num_aux_bt = number_states(barotropic, Auxiliary(), FT)
+    num_aux_bt = number_states(barotropic, Auxiliary())
     data_bt = model_bt.state_auxiliary.data
     data_bt = reshape(data_bt, Nq^2, num_aux_bt, nelemh)
 
-    num_aux_bc = number_states(baroclinic, Auxiliary(), FT)
+    num_aux_bc = number_states(baroclinic, Auxiliary())
     data_bc = model_bc.state_auxiliary.data
     data_bc = reshape(data_bc, Nq^2, Nqk, num_aux_bc, nelemv, nelemh)
 
@@ -93,19 +93,19 @@ end
     update_auxiliary_state!(model_int, integral, state_bc, 0)
 
     ### properly shape MPIStateArrays
-    num_aux_int = number_states(integral, Auxiliary(), FT)
+    num_aux_int = number_states(integral, Auxiliary())
     data_int = model_int.state_auxiliary.data
     data_int = reshape(data_int, Nq^2, Nqk, num_aux_int, nelemv, nelemh)
 
-    num_aux_bt = number_states(barotropic, Auxiliary(), FT)
+    num_aux_bt = number_states(barotropic, Auxiliary())
     data_bt_aux = model_bt.state_auxiliary.data
     data_bt_aux = reshape(data_bt_aux, Nq^2, num_aux_bt, nelemh)
 
-    num_state_bt = number_states(barotropic, Prognostic(), FT)
+    num_state_bt = number_states(barotropic, Prognostic())
     data_bt_state = state_bt.data
     data_bt_state = reshape(data_bt_state, Nq^2, num_state_bt, nelemh)
 
-    num_state_bc = number_states(baroclinic, Prognostic(), FT)
+    num_state_bc = number_states(baroclinic, Prognostic())
     data_bc_state = state_bc.data
     data_bc_state =
         reshape(data_bc_state, Nq^2, Nqk, num_state_bc, nelemv, nelemh)
