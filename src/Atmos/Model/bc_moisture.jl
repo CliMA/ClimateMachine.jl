@@ -60,3 +60,60 @@ function atmos_moisture_normal_boundary_flux_second_order!(
     # assumes EquilMoist
     fluxᵀn.moisture.ρq_tot += nρd_q_tot
 end
+
+
+
+"""
+    BulkFormulaMoisture(fn) :: MoistureBC
+
+Bulk formula moisture boundary condition calculation using exchange coefficients from the Monin Obukhov 
+Surface Flux parameterisation
+"""
+struct BulkFormulaMoisture{FN} <: MoistureBC
+    fn::FN
+end
+function atmos_momentum_boundary_state!(
+    nf,
+    bc_moisture::BulkFormulaMoisture,
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+) end
+function atmos_momentum_normal_boundary_flux_second_order!(
+    nf,
+    bc_moisture::BulkFormulaMoisture,
+    atmos,
+    fluxᵀn,
+    n,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype,
+    t,
+    state1⁻,
+    diff1⁻,
+    aux1⁻,
+)
+
+#    u1⁻ = state1⁻.ρu / state1⁻.ρ
+#    Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
+#    normPu1⁻ = norm(Pu1⁻)
+#    # DG normal is defined in the outward direction
+#    # we want to prescribe the inward flux
+#    sfc = surfaceconditions(...);
+#    #TODO fill in surface conditions
+#    C_q = sfc.K_exchange[3]; # Exchange coefficient for energy
+#    Δρq_tot = state1⁻.moisture.ρq_tot - state⁻.moisture.ρq_tot 
+#    fluxᵀn.moisture.ρq_tot -= -C_q * normPu1⁻ * Δρq_tot
+end

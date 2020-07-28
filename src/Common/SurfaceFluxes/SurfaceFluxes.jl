@@ -49,7 +49,10 @@ struct Momentum end
 struct Heat end
 
 export surface_conditions, 
+    compute_R_z0,
     compute_exchange_coefficients,
+    compute_f_h,
+    compute_f_m,
     compute_Psi,
     compute_psi,
     Momentum,
@@ -134,8 +137,10 @@ function surface_conditions(
             u, θ, qt = x_vec[1], x_vec[2], x_vec[3]
             pottemp_flux =
                 pottemp_flux_given == nothing ? -u * θ : pottemp_flux_given
+                #@show(θ, θ_bar) 
             moisture_flux = -u * qt
-            flux = pottemp_flux #+ θ_bar * moisture_flux
+            flux = pottemp_flux + θ_bar * moisture_flux
+            #@show(flux)
             F[1] = L_MO - monin_obukhov_length(param_set, u, θ_bar, qt, flux)
             for i in 1:n_vars
                 ϕ = x_vec[i]
@@ -166,7 +171,7 @@ function surface_conditions(
     else
         L_MO, x_star = sol.zero[1], sol.zero[2:end]
         u_star, θ_star, qt_star = x_star[1], x_star[2], x_star[3]
-        println("Unconverged surface fluxes")
+        println("Warning: Unconverged Surface Fluxes")
     end
 
     _grav::FT = grav(param_set)
@@ -176,7 +181,7 @@ function surface_conditions(
     K_exchange = compute_exchange_coefficients(
         param_set,
         z,
-        F_exchange,
+        flux,
         a,
         x_star,
         θ_bar,
@@ -304,7 +309,6 @@ function compute_exchange_coefficients(
     dimensionless_number,
     L_MO,
 )
-
     N = length(F_exchange)
     FT = typeof(z)
     K_exchange = Vector{FT}(undef, N)

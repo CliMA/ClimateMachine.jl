@@ -52,7 +52,7 @@ format = Documenter.HTML(
 makedocs(
     sitename = "ClimateMachine",
     doctest = false,
-    strict = false,
+    strict = true,
     linkcheck = true,
     format = format,
     checkdocs = :exports,

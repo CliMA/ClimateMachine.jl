@@ -90,7 +90,7 @@ L_{MO} = -\frac{(\tau/\rho)^{(3/2)} \overline{\theta}}{\kappa g \frac{J}{(\rho c
 Given the formulation of the compressible flow equations in `ClimateMachine`  we arrive at the following formulation for the Monin-Obukhov similarity length
 
 ```math 
-L_{MO} = - \frac{\overline{\theta} u_{\star}^3}{\kappa g [\overline{w^{\prime}\theta^{\prime}} + \overline{w^{\prime}q_{t}^{\prime}}]} = - \frac{\overline{\theta} u_{\star}^3}{\kappa g [\frac{J}{\rho c_{pm}} + \frac{D}{\rho L_{v}}]}
+L_{MO} = - \frac{\overline{\theta} u_{\star}^3}{\kappa g [\overline{w^{\prime}\theta^{\prime}} + \overline{w^{\prime}q_{t}^{\prime}}]} = - \frac{\overline{\theta} u_{\star}^3}{\kappa g [\frac{J}{\rho c_{pm}} + \theta\frac{D}{\rho L_{v}}]}
 ```
 
 NK use volume-averaged quantities$\langle X \rangle$ such that 

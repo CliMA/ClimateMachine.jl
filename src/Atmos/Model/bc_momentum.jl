@@ -173,3 +173,70 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.ρe += state⁻.ρu' * τn
 end
+
+
+"""
+    BulkFormulaMomentum(fn) :: MomentumDragBC
+
+Bulk Momentum Drag formula
+"""
+struct BulkFormulaMomentum{FN} <: MomentumDragBC
+    fn::FN
+end
+function atmos_momentum_boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    bc_momentum::Impenetrable{BFM},
+    atmos,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+) where {BFM <: BulkFormulaMomentum}
+    atmos_momentum_boundary_state!(
+        nf,
+        Impenetrable(FreeSlip()),
+        atmos,
+        state⁺,
+        aux⁺,
+        n,
+        state⁻,
+        aux⁻,
+        bctype,
+        t,
+        args...,
+    )
+end
+function atmos_momentum_normal_boundary_flux_second_order!(
+    nf,
+    bc_momentum::Impenetrable{BFM},
+    atmos,
+    fluxᵀn,
+    n,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    bctype,
+    t,
+    state1⁻,
+    diff1⁻,
+    aux1⁻,
+) where {BFM <: BulkFormulaMomentum}
+#    u1⁻ = state1⁻.ρu / state1⁻.ρ
+#    Pu1⁻ = u1⁻ - dot(u1⁻, n) .* SVector(n)
+#    normPu1⁻ = norm(Pu1⁻)
+#    # NOTE: difference from design docs since normal points outwards
+#    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normPu1⁻)
+#    τn = C * normPu1⁻ * Pu1⁻
+#    # both sides involve projections of normals, so signs are consistent
+#    fluxᵀn.ρu += state⁻.ρ * τn
+#    fluxᵀn.ρe += state⁻.ρu' * τn
+end
