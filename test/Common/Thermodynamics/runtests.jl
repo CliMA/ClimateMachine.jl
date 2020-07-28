@@ -401,6 +401,41 @@ end
         profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
+        # PhaseEquil (freezing)
+        _T_freeze = FT(T_freeze(param_set))
+        e_int_upper =
+            internal_energy_sat.(
+                Ref(param_set),
+                Ref(_T_freeze + sqrt(eps(FT))),
+                ρ,
+                q_tot,
+                phase_type,
+            )
+        e_int_lower =
+            internal_energy_sat.(
+                Ref(param_set),
+                Ref(_T_freeze - sqrt(eps(FT))),
+                ρ,
+                q_tot,
+                phase_type,
+            )
+        _e_int = (e_int_upper .+ e_int_lower) / 2
+        ts = PhaseEquil.(Ref(param_set), _e_int, ρ, q_tot)
+        @test all(air_temperature.(ts) .== Ref(_T_freeze))
+
+        # Args needs to be in sync with PhaseEquil:
+        ts =
+            PhaseEquil.(
+                Ref(param_set),
+                _e_int,
+                ρ,
+                q_tot,
+                8,
+                FT(1e-1),
+                MT.saturation_adjustment_SecantMethod,
+            )
+        @test all(air_temperature.(ts) .== Ref(_T_freeze))
+
         # PhaseEquil
         ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-3))
         ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
