@@ -55,6 +55,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     diagnostics::String = "never"
     vtk::String = "never"
     vtk_number_sample_points::Int = 0
+    monitor_memory_usage::String = "never"
     monitor_timestep_duration::String = "never"
     monitor_courant_numbers::String = "never"
     checkpoint::String = "never"
@@ -196,6 +197,11 @@ function parse_commandline(
         arg_type = Int
         default =
             get_setting(:vtk_number_sample_points, defaults, global_defaults)
+        "--monitor-memory-usage"
+        help = "interval in time-steps at which to output the current memory usage"
+        metavar = "<interval>"
+        arg_type = String
+        default = get_setting(:monitor_memory_usage, defaults, global_defaults)
         "--monitor-timestep-duration"
         help = "interval in time-steps at which to output wall-clock time per time-step"
         metavar = "<interval>"
@@ -306,6 +312,8 @@ Recognized keyword arguments are:
         inteverval at which to write simulation vtk output
 - `vtk-number-sample-points::Int` = 0:
         the number of sampling points in each element for VTK output
+- `monitor_memory_usage::String = "never"`:
+        interval in time-steps at which to output memory usage
 - `monitor_timestep_duration::String = "never"`:
         interval in time-steps at which to output wall-clock time per time-step
 - `monitor_courant_numbers::String = "never"`:
@@ -580,6 +588,16 @@ function invoke!(
     )
     if !isnothing(cb_vtk)
         callbacks = (callbacks..., cb_vtk)
+    end
+
+    # memory usage monitor
+    cb_mmu = Callbacks.monitor_memory_usage(
+        Settings.monitor_memory_usage,
+        Settings.array_type,
+        mpicomm,
+    )
+    if !isnothing(cb_mmu)
+        callbacks = (callbacks..., cb_mmu)
     end
 
     # timestep duration monitor
