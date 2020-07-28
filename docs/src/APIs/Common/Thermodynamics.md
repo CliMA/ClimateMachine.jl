@@ -60,7 +60,7 @@ liquid_fraction
 liquid_ice_pottemp
 liquid_ice_pottemp_given_pressure
 liquid_ice_pottemp_sat
-supersaturation
+moist_static_energy
 q_vap_saturation
 q_vap_saturation_generic
 relative_humidity
@@ -68,9 +68,12 @@ saturation_adjustment
 saturation_excess
 saturation_vapor_pressure
 soundspeed_air
+specific_enthalpy
 specific_volume
+supersaturation
 temperature_and_humidity_from_virtual_temperature
 total_energy
+total_specific_enthalpy
 total_specific_humidity
 vapor_specific_humidity
 virtual_pottemp

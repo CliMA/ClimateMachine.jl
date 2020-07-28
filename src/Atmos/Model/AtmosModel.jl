@@ -27,7 +27,7 @@ using ..TurbulenceClosures
 import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
-import ..Thermodynamics: internal_energy
+import ..Thermodynamics: internal_energy, total_specific_enthalpy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,

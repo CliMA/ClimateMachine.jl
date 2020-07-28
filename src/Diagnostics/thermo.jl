@@ -40,9 +40,8 @@ function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
     thermo.θ_dry = dry_pottemp(ts)
     thermo.e_int = e_int
 
-    R_m = gas_constant_air(ts)
-    thermo.h_tot = e_tot + R_m * thermo.temp
-    thermo.h_int = e_int + R_m * thermo.temp
+    thermo.h_tot = total_specific_enthalpy(ts, e_tot)
+    thermo.h_int = specific_enthalpy(ts)
 
     compute_thermo!(atmos.moisture, state, aux, ts, thermo)
 
