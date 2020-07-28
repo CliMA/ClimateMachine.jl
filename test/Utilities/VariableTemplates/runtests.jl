@@ -99,4 +99,5 @@ using ClimateMachine.VariableTemplates
 
     include("varsindex.jl")
     include("ntuple_type.jl")
+    include("test_complex_models.jl")
 end

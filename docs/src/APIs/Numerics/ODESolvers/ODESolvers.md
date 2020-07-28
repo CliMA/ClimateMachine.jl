@@ -71,6 +71,13 @@ ODESolvers.LinearBackwardEulerSolver
 ODESolvers.AbstractBackwardEulerSolver
 ```
 
+## Differential Equations
+
+```@docs
+ODESolvers.DiffEqJLIMEXSolver
+ODESolvers.DiffEqJLSolver
+```
+
 ## ODE Solvers
 
 ```@docs
