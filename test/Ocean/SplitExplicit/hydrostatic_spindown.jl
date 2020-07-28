@@ -1,7 +1,5 @@
 #!/usr/bin/env julia --project
-using Test
 using ClimateMachine
-ClimateMachine.init()
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
@@ -31,7 +29,11 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function run_hydrostatic_spindown(;
+function run_hydrostatic_spindown(
+    vtkpath,
+    resolution,
+    dimensions,
+    timespan;
     coupling = Coupled(),
     dt_slow = 300,
     refDat = (),
@@ -39,12 +41,13 @@ function run_hydrostatic_spindown(;
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
 
-    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
-    loglevel = ll == "DEBUG" ? Logging.Debug :
-        ll == "WARN" ? Logging.Warn :
-        ll == "ERROR" ? Logging.Error : Logging.Info
-    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
-    global_logger(ConsoleLogger(logger_stream, loglevel))
+    N, Nˣ, Nʸ, Nᶻ = resolution
+    Lˣ, Lʸ, H = dimensions
+    tout, timeend = timespan
+
+    xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
+    yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
+    zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
 
     brickrange_2D = (xrange, yrange)
     topl_2D = BrickTopology(
@@ -270,81 +273,4 @@ function make_callbacks(
     )
 
     return (cbvtk_slow, cbvtk_fast, cbinfo, cbcs_dg)
-end
-
-#################
-# RUN THE TESTS #
-#################
-FT = Float64
-vtkpath = "vtk_split"
-
-const timeend = 24 * 3600 # s
-const tout = 3 * 3600 # s
-# const timeend = 1200 # s
-# const tout = 300 # s
-
-const N = 4
-const Nˣ = 5
-const Nʸ = 5
-const Nᶻ = 8
-const Lˣ = 1e6  # m
-const Lʸ = 1e6  # m
-const H = 400  # m
-
-xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
-yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
-zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
-
-#const cʰ = sqrt(grav * H)
-const cʰ = 1  # typical of ocean internal-wave speed
-const cᶻ = 0
-
-@testset "$(@__FILE__)" begin
-    include("../refvals/hydrostatic_spindown_refvals.jl")
-
-    @testset "Multi-rate" begin
-        @testset "Δt = 30 mins" begin
-            run_hydrostatic_spindown(
-                coupling = Coupled(),
-                dt_slow = 30 * 60,
-                refDat = refVals.thirty_minutes,
-            )
-        end
-
-        @testset "Δt = 60 mins" begin
-            run_hydrostatic_spindown(
-                coupling = Coupled(),
-                dt_slow = 60 * 60,
-                refDat = refVals.sixty_minutes,
-            )
-        end
-
-        @testset "Δt = 90 mins" begin
-            run_hydrostatic_spindown(
-                coupling = Coupled(),
-                dt_slow = 90 * 60,
-                refDat = refVals.ninety_minutes,
-            )
-        end
-    end
-
-    if ClimateMachine.Settings.integration_testing
-        @testset "Single-Rate" begin
-            @testset "Not Coupled" begin
-                run_hydrostatic_spindown(
-                    coupling = Uncoupled(),
-                    dt_slow = 300,
-                    refDat = refVals.uncoupled,
-                )
-            end
-
-            @testset "Fully Coupled" begin
-                run_hydrostatic_spindown(
-                    coupling = Coupled(),
-                    dt_slow = 300,
-                    refDat = refVals.coupled,
-                )
-            end
-        end
-    end
 end

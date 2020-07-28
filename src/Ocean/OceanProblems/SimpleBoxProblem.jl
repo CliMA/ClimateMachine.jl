@@ -191,7 +191,7 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
-    Q.u = @SVector [rand(), rand()]
+    Q.u = @SVector [0, 0]
     Q.η = 0
     Q.θ = 20
 
