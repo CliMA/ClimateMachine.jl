@@ -112,7 +112,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.moisture.ql = thermo.moisture.q_liq
     vars.moisture.qv = thermo.moisture.q_vap
     vars.moisture.qi = thermo.moisture.q_ice
-    vars.moisture.thv = thermo.moisutre.θ_vir
+    vars.moisture.thv = thermo.moisture.θ_vir
     vars.moisture.thl = thermo.moisture.θ_liq_ice
 
     return nothing
