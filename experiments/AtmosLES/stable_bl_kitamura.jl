@@ -25,7 +25,7 @@ using DocStringExtensions
 using LinearAlgebra
 
 using CLIMAParameters
-using CLIMAParameters.Planet: e_int_v0, grav, day
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -123,149 +123,36 @@ function atmos_source!(
 end
 
 """
-  StableBLTendencies (Source)
-Moisture, Temperature and Subsidence tendencies
-"""
-struct StableBLTendencies{FT} <: Source
-    "Advection tendency in total moisture `[s⁻¹]`"
-    ∂qt∂t_peak::FT
-    "Lower extent of piecewise profile (moisture term) `[m]`"
-    zl_moisture::FT
-    "Upper extent of piecewise profile (moisture term) `[m]`"
-    zh_moisture::FT
-    "Cooling rate `[K/s]`"
-    ∂θ∂t_peak::FT
-    "Lower extent of piecewise profile (subsidence term) `[m]`"
-    zl_sub::FT
-    "Upper extent of piecewise profile (subsidence term) `[m]`"
-    zh_sub::FT
-    "Subsidence peak velocity"
-    w_sub::FT
-    "Max height in domain"
-    z_max::FT
-end
-function atmos_source!(
-    s::StableBLTendencies,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-    ρ = state.ρ
-    z = altitude(atmos, aux)
-    _e_int_v0 = FT(e_int_v0(atmos.param_set))
-
-    # Establish thermodynamic state
-    TS = thermo_state(atmos, state, aux)
-
-    # Moisture tendencey (sink term)
-    # Temperature tendency (Radiative cooling)
-    # Large scale subsidence
-    # Unpack struct
-    zl_moisture = s.zl_moisture
-    zh_moisture = s.zh_moisture
-    z_max = s.z_max
-    zl_sub = s.zl_sub
-    zh_sub = s.zh_sub
-    zl_temperature = zl_sub
-    w_sub = s.w_sub
-    ∂qt∂t_peak = s.∂qt∂t_peak
-    ∂θ∂t_peak = s.∂θ∂t_peak
-    k̂ = vertical_unit_vector(atmos, aux)
-
-    # Thermodynamic state identification
-    q_pt = PhasePartition(TS)
-    cvm = cv_m(TS)
-
-    # Piecewise term for moisture tendency
-    linscale_moisture = (z - zl_moisture) / (zh_moisture - zl_moisture)
-    if z <= zl_moisture
-        ρ∂qt∂t = ρ * ∂qt∂t_peak
-    elseif zl_moisture < z <= zh_moisture
-        ρ∂qt∂t = ρ * (∂qt∂t_peak - ∂qt∂t_peak * linscale_moisture)
-    else
-        ρ∂qt∂t = -zero(FT)
-    end
-
-    # Piecewise term for internal energy tendency
-    linscale_temp = (z - zl_sub) / (z_max - zl_sub)
-    if z <= zl_sub
-        ρ∂θ∂t = ρ * ∂θ∂t_peak
-    elseif zl_temperature < z <= z_max
-        ρ∂θ∂t = ρ * (∂θ∂t_peak - ∂θ∂t_peak * linscale_temp)
-    else
-        ρ∂θ∂t = -zero(FT)
-    end
-
-    # Piecewise terms for subsidence
-    linscale_sub = (z - zl_sub) / (zh_sub - zl_sub)
-    w_s = -zero(FT)
-    if z <= zl_sub
-        w_s = -zero(FT) + z * (w_sub) / (zl_sub)
-    elseif zl_sub < z <= zh_sub
-        w_s = w_sub - (w_sub) * linscale_sub
-    else
-        w_s = -zero(FT)
-    end
-
-    # Collect Sources
-    source.moisture.ρq_tot += ρ∂qt∂t
-    source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
-    source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
-    source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
-    return nothing
-end
-
-"""
-  Initial Condition for BOMEX LES
+  Initial Condition for StableBoundaryLayer LES
 """
 function init_nishizawa_sf!(bl, state, aux, (x, y, z), t)
-    # This experiment runs the BOMEX LES Configuration
-    # (Shallow cumulus cloud regime)
-    # x,y,z imply eastward, northward and altitude coordinates in `[m]`
-
     # Problem floating point precision
     FT = eltype(state)
-
-    P_sfc::FT = 1.015e5 # Surface air pressure
-    qg::FT = 22.45e-3 # Total moisture at surface
-    q_pt_sfc = PhasePartition(qg) # Surface moisture partitioning
-    Rm_sfc = gas_constant_air(bl.param_set, q_pt_sfc) # Moist gas constant
-    θ_liq_sfc = FT(265) # Prescribed θ_liq at surface
-    T_sfc = FT(300.4) # Surface temperature
-    _grav = FT(grav(bl.param_set))
-
+    R_gas::FT = R_d(bl.param_set)
+    c_p::FT = cp_d(bl.param_set)
+    c_v::FT = cv_d(bl.param_set)
+    p0::FT = MSLP(bl.param_set)
+    _grav::FT = grav(bl.param_set)
+    γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
     u::FT = 8
     v::FT = 0
     w::FT = 0
-
     # Assign piecewise quantities to θ_liq and q_tot
     θ_liq::FT = 0
     q_tot::FT = 0
-
     # Piecewise functions for potential temperature and total moisture
     z1 = FT(100)
     if z <= z1
         θ_liq = FT(265)
     else
-        θ_liq = FT(265) + FT(0.01)*(z − z1)
+        θ_liq = FT(265) + FT(0.01)*(z-z1)
     end
-
-    # Scale height based on surface parameters
-    H = Rm_sfc * T_sfc / _grav
-    # Pressure based on scale height
-    P = P_sfc * exp(-z / H)
-
+    θ = θ_liq
+    π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
+    ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, P, q_tot)
-    T = air_temperature(TS)
-    ρ = air_density(TS)
-    q_pt = PhasePartition(TS)
+    TS = LiquidIcePotTempSHumEquil(bl.param_set, θ_liq, ρ, q_tot)
 
     # Compute momentum contributions
     ρu = ρ * u
@@ -285,7 +172,6 @@ function init_nishizawa_sf!(bl, state, aux, (x, y, z), t)
 
     if z <= FT(50) # Add random perturbations to bottom 50m of model
         state.ρe += rand() * ρe_tot / 100
-        state.moisture.ρq_tot += rand() * ρ * q_tot / 100
     end
 end
 
@@ -294,27 +180,12 @@ function config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
     ics = init_nishizawa_sf!     # Initial conditions
 
     C_smag = FT(0.23)     # Smagorinsky coefficient
-
-    u_star = FT(0.28)     # Friction velocity
-
-    T_sfc = FT(300.4)     # Surface temperature `[K]`
-    LHF = FT(147.2)       # Latent heat flux `[W/m²]`
-    SHF = FT(9.5)         # Sensible heat flux `[W/m²]`
-    moisture_flux = LHF / latent_heat_vapor(param_set, T_sfc)
-
-    ∂qt∂t_peak = FT(-1.2e-8)  # Moisture tendency (energy source)
-    zl_moisture = FT(300)     # Low altitude limit for piecewise function (moisture source)
-    zh_moisture = FT(500)     # High altitude limit for piecewise function (moisture source)
-    ∂θ∂t_peak = FT(-2 / FT(day(param_set)))  # Potential temperature tendency (energy source)
-
     z_sponge = FT(300)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
     γ = 2                  # Strength of sponge layer (exponent)
-
     u_geostrophic = FT(8)        # Eastward relaxation speed
     u_slope = FT(0)              # Slope of altitude-dependent relaxation speed
     v_geostrophic = FT(0)        # Northward relaxation speed
-
     f_coriolis = FT(1.39e-4) # Coriolis parameter
 
     # Assemble source components
@@ -334,7 +205,8 @@ function config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
-
+    
+    moisture_flux = FT(0)
     # Assemble model components
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -344,12 +216,10 @@ function config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
         source = source,
         boundarycondition = (
             AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
+                momentum = Impenetrable(BulkFormulaMomentum(
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
-                energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
+                energy = BulkFormulaEnergy((state, aux, t) -> LHF + SHF),
                 moisture = PrescribedMoistureFlux(
                     (state, aux, t) -> moisture_flux,
                 ),
@@ -361,7 +231,7 @@ function config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
 
     # Assemble configuration
     config = ClimateMachine.AtmosLESConfiguration(
-        "BOMEX",
+        "StableBoundaryLayer",
         N,
         resolution,
         xmax,
@@ -413,7 +283,7 @@ function main()
     # For a full-run, please set the timeend to 3600*6 seconds
     # For the test we set this to == 30 minutes
     timeend = FT(3600 * 9)
-    CFLmax = FT(0.90)
+    CFLmax = FT(0.50)
 
     driver_config = config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(

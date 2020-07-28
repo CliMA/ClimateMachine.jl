@@ -13,7 +13,10 @@ export AtmosBC,
     Impermeable,
     ImpermeableTracer,
     PrescribedMoistureFlux,
-    PrescribedTracerFlux
+    PrescribedTracerFlux,
+    BulkFormulaMomentum,
+    BulkFormulaEnergy,
+    BulkFormulaMoisture
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())

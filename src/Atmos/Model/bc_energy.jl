@@ -149,20 +149,21 @@ function atmos_energy_normal_boundary_flux_second_order!(
     t,
     state1⁻,
     diff1⁻,
-    aux1⁻,
+    aux1⁻
 )
-#    u1⁻ = state1⁻.ρu / state1⁻.ρ
-#    Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
-#    normPu1⁻ = norm(Pu1⁻)
-#    # DG normal is defined in the outward direction
-#    # we want to prescribe the inward flux
-#    sfc = surfaceconditions(...);
-#    #TODO fill in surface conditions
-#    C_h = sfc.K_exchange[2]; # Exchange coefficient for energy
-#    h_int = 
-#    h_sfc = 
-#    Φ_int = 
-#    Φ_sfc = 
-#    Δenergy = (h_int - h_sfc + Φ_int - Φ_sfc)  
-#    fluxᵀn.ρe -= -C_h * state⁻.ρ * Δenergy * normPu1-
+    # DG normal is defined in the outward direction
+    # we want to prescribe the inward flux
+    #sfc = surfaceconditions(...);
+    #TODO fill in surface conditions
+    u1⁻ = state1⁻.ρu / state1⁻.ρ
+    Pu1⁻ = u1⁻ - dot(u1⁻, n⁻) .* SVector(n⁻)
+    normPu1⁻ = norm(Pu1⁻)
+    C_h = 0.20 #sfc.K_exchange[2]; # Exchange coefficient for energy
+    # int refers to first interior nodal value
+    h_int = total_specific_enthalpy(atmos,atmos.moisture,state1⁻,aux1⁻)
+    h_sfc = total_specific_enthalpy(atmos,atmos.moisture,state⁻,aux⁻)
+    Φ_int = gravitational_potential(atmos.orientation, aux1⁻)
+    Φ_sfc = gravitational_potential(atmos.orientation, aux⁻)
+    Δenergy = h_int - h_sfc + Φ_int - Φ_sfc  
+    fluxᵀn.ρe -= -C_h * state⁻.ρ * Δenergy * normPu1-
 end
