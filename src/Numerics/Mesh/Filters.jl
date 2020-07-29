@@ -172,7 +172,7 @@ the form:
 whenever s ≤ i ≤ N, and 1 otherwise. The function `χ(η)` is defined
 as
 ```math
-χ(x) = sqrt(-log(1-4*(abs(x)-0.5)^2)/4*(abs(x)-0.5)^2)
+χ(η) = sqrt(-log(1-4*(abs(η)-0.5)^2)/(4*(abs(η)-0.5)^2))
 ```
 if `x != 0.5` and `1` otherwise. Here, `s` is the filter order,
 the filter starts with polynomial order `Nc`, and `alpha` is a parameter
@@ -200,19 +200,14 @@ struct BoydVandevenFilter <: AbstractSpectralFilter
 
         @assert iseven(s)
         @assert 0 <= Nc <= N
-
-        σ(η) = 0.5 * erfc(2 * sqrt(s) * χ(η) * (abs(η) - 0.5))
+        function σ(η)
+            a = 2 * abs(η) - 1
+            χ = iszero(a) ? one(a) : sqrt(-log1p(-a^2) / a^2)
+            return erfc(sqrt(s) * χ * a) / 2
+        end
         filter = spectral_filter_matrix(ξ, Nc, σ)
 
         new(AT(filter))
-    end
-end
-
-function χ(x)
-    if (x == 0.5)
-        return 1
-    else
-        return sqrt(-log(1 - 4 * (abs(x) - 0.5)^2) / 4 * (abs(x) - 0.5)^2)
     end
 end
 

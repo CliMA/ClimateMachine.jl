@@ -399,7 +399,7 @@ end
     for ArrayType in array_types
         FT = eltype(ArrayType)
         profiles = PhaseEquilProfiles(param_set, ArrayType)
-        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
+        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type e_kin e_pot
 
         # PhaseEquil (freezing)
         _T_freeze = FT(T_freeze(param_set))
@@ -439,6 +439,8 @@ end
         # PhaseEquil
         ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-3))
         ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
+        @test all(isapprox.(T, air_temperature.(ts), rtol = rtol_temperature))
+
         # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈
@@ -465,6 +467,23 @@ end
             getproperty.(q_pt, :liq) .+ getproperty.(q_pt, :ice),
         )
         @test all(has_condensate.(q_dry) .== false)
+
+        e_tot = total_energy.(e_kin, e_pot, ts)
+        @test all(
+            specific_enthalpy.(ts) .≈
+            e_int .+ gas_constant_air.(ts) .* air_temperature.(ts),
+        )
+        @test all(
+            total_specific_enthalpy.(ts, e_tot) .≈
+            specific_enthalpy.(ts) .+ e_kin .+ e_pot,
+        )
+        @test all(
+            moist_static_energy.(ts, e_pot) .≈ specific_enthalpy.(ts) .+ e_pot,
+        )
+        @test all(
+            moist_static_energy.(ts, e_pot) .≈
+            total_specific_enthalpy.(ts, e_tot) .- e_kin,
+        )
 
         # PhaseEquil
         ts_exact =
@@ -994,16 +1013,16 @@ end
     ArrayType = Array{Float32}
     FT = eltype(ArrayType)
     profiles = PhaseEquilProfiles(param_set, ArrayType)
-    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
+    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type e_pot e_kin
 
     ρu = FT[1.0, 2.0, 3.0]
-    e_pot = FT(100.0)
-    @test typeof.(internal_energy.(ρ, ρ .* e_int, Ref(ρu), Ref(e_pot))) ==
+    @test typeof.(internal_energy.(ρ, ρ .* e_int, Ref(ρu), e_pot)) ==
           typeof.(e_int)
 
     ts_dry = PhaseDry.(Ref(param_set), e_int, ρ)
     ts_dry_pT = PhaseDry_given_pT.(Ref(param_set), p, T)
     ts_eq = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 15, FT(1e-1))
+    e_tot = total_energy.(e_kin, e_pot, ts_eq)
 
     ts_T =
         TemperatureSHumEquil.(
@@ -1070,6 +1089,7 @@ end
     )
         @test typeof.(soundspeed_air.(ts)) == typeof.(e_int)
         @test typeof.(gas_constant_air.(ts)) == typeof.(e_int)
+        @test typeof.(specific_enthalpy.(ts)) == typeof.(e_int)
         @test typeof.(vapor_specific_humidity.(ts)) == typeof.(e_int)
         @test typeof.(relative_humidity.(ts)) == typeof.(e_int)
         @test typeof.(air_pressure.(ts)) == typeof.(e_int)
@@ -1093,6 +1113,9 @@ end
         @test typeof.(specific_volume.(ts)) == typeof.(e_int)
         @test typeof.(virtual_pottemp.(ts)) == typeof.(e_int)
         @test eltype.(gas_constants.(ts)) == typeof.(e_int)
+
+        @test typeof.(total_specific_enthalpy.(ts, e_tot)) == typeof.(e_int)
+        @test typeof.(moist_static_energy.(ts, e_pot)) == typeof.(e_int)
         @test typeof.(getproperty.(PhasePartition.(ts), :tot)) == typeof.(e_int)
     end
 

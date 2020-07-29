@@ -268,7 +268,7 @@ include("dump_state.jl")
     )
 
 Create and return a `DiagnosticsGroup` containing a diagnostic that
-simply dumps the conservative state variables at the specified
+simply dumps the prognostic state variables at the specified
 `interval` after being interpolated, into NetCDF files prefixed by
 `out_prefix`.
 """

@@ -36,6 +36,8 @@ export virtual_temperature
 export temperature_and_humidity_from_virtual_temperature
 export air_temperature_from_ideal_gas_law
 export condensate, has_condensate
+export specific_enthalpy, total_specific_enthalpy
+export moist_static_energy
 
 """
     gas_constant_air(param_set, [q::PhasePartition])
@@ -2006,3 +2008,69 @@ relative_humidity(ts::ThermodynamicState{FT}) where {FT <: Real} =
         typeof(ts),
         PhasePartition(ts),
     )
+
+"""
+    total_specific_enthalpy(e_tot, R_m, T)
+
+Total specific enthalpy, given
+ - `e_tot` total specific energy
+ - `R_m` [`gas_constant_air`](@ref)
+ - `T` air temperature
+"""
+function total_specific_enthalpy(e_tot::FT, R_m::FT, T::FT) where {FT <: Real}
+    return e_tot + R_m * T
+end
+
+"""
+    total_specific_enthalpy(ts)
+
+Total specific enthalpy, given
+ - `e_tot` total specific energy
+ - `ts` a thermodynamic state
+"""
+function total_specific_enthalpy(
+    ts::ThermodynamicState{FT},
+    e_tot::FT,
+) where {FT <: Real}
+    R_m = gas_constant_air(ts)
+    T = air_temperature(ts)
+    return total_specific_enthalpy(e_tot, R_m, T)
+end
+
+"""
+    specific_enthalpy(e_int, R_m, T)
+
+Specific enthalpy, given
+ - `e_int` internal specific energy
+ - `R_m` [`gas_constant_air`](@ref)
+ - `T` air temperature
+"""
+function specific_enthalpy(e_int::FT, R_m::FT, T::FT) where {FT <: Real}
+    return e_int + R_m * T
+end
+
+"""
+    specific_enthalpy(ts)
+
+Specific enthalpy, given a thermodynamic state `ts`.
+"""
+function specific_enthalpy(ts::ThermodynamicState{FT}) where {FT <: Real}
+    e_int = internal_energy(ts)
+    R_m = gas_constant_air(ts)
+    T = air_temperature(ts)
+    return specific_enthalpy(e_int, R_m, T)
+end
+
+"""
+    moist_static_energy(ts, e_pot)
+
+Moist static energy, given
+ - `ts` a thermodynamic state
+ - `e_pot` potential energy (e.g., gravitational) per unit mass
+"""
+function moist_static_energy(
+    ts::ThermodynamicState{FT},
+    e_pot::FT,
+) where {FT <: Real}
+    return specific_enthalpy(ts) + e_pot
+end

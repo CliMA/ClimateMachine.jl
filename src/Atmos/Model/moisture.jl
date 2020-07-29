@@ -77,10 +77,8 @@ soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
     aux::Vars,
 )
     phase = thermo_state(atmos, state, aux)
-    R_m = gas_constant_air(phase)
-    T = air_temperature(phase)
     e_tot = state.ρe * (1 / state.ρ)
-    return e_tot + R_m * T
+    return total_specific_enthalpy(phase, e_tot)
 end
 
 """

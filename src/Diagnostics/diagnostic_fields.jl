@@ -87,7 +87,7 @@ This constructor computes the spatial gradients of the velocity field.
 
 # Arguments
  - `dg`: DGModel
- - `Q`: MPIStateArray containing the conservative state variables
+ - `Q`: MPIStateArray containing the prognostic state variables
 """
 function VectorGradients(dg::DGModel, Q::MPIStateArray)
     bl = dg.balance_law
