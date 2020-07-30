@@ -10,14 +10,17 @@ mutable struct GMRESCache{M, MP1, MMP1, T, AT} <: AbstractLinearSolverCache
     H::MArray{Tuple{MP1, M}, T, 2, MMP1}
     "rhs of the least squares problem"
     g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
-    "Maximum of Krylov iterations"
+    "Maximum number of Krylov iterations"
     max_iter::Int
+    "Maximum number of restarts"
+    max_restart_iter::Int
 end
 
 function cache(
     ::GeneralizedMinimalResidualMethod,
     Q::AT,
     max_iter,
+    max_restart_iter,
 ) where {AT}
 
     krylov_basis = ntuple(i -> similar(Q), max_iter + 1)
@@ -29,12 +32,13 @@ function cache(
         H,
         g0,
         max_iter,
+        max_restart_iter,
     )
 end
 
 function LSinitialize!(
     ::GeneralizedMinimalResidual,
-    solver::AbstractLinearSolver,
+    solver::LinearSolver,
     linearoperator!,
     Q,
     Qrhs,
@@ -54,12 +58,12 @@ function LSinitialize!(
     linearoperator!(krylov_basis[1], Q, args...)
     @. krylov_basis[1] = Qrhs - krylov_basis[1]
 
-    threshold = rtol * norm(krylov_basis[1], weighted_norm)
+    threshold = solver.rtol * norm(krylov_basis[1], weighted_norm)
     residual_norm = norm(krylov_basis[1], weighted_norm)
 
     converged = false
     # FIXME: Should only be true for threshold zero
-    if threshold < atol
+    if threshold < solver.atol
         converged = true
         return converged, threshold
     end
@@ -69,6 +73,85 @@ function LSinitialize!(
     krylov_basis[1] ./= residual_norm
 
     converged, max(threshold, atol)
+end
+
+function LSsolve!(
+    ::GeneralizedMinimalResidual,
+    solver::LinearSolver,
+    linearoperator!,
+    Q,
+    Qrhs,
+    args...,
+)
+    cache = solver.cache
+    krylov_basis = cache.krylov_basis
+    H = cache.H
+    g0 = cache.g0
+    M = cache.max_iter
+    Mk = cache.max_restart_iter
+
+    converged = false
+    residual_norm = typemax(eltype(Q))
+
+    Ω = LinearAlgebra.Rotation{eltype(Q)}([])
+    j = 1
+    k = 1
+    while !converged && j < M && k < Mk
+
+    for outer j in 1:M
+
+        # Arnoldi using the Modified Gram Schmidt orthonormalization
+        linearoperator!(krylov_basis[j + 1], krylov_basis[j], args...)
+        for i in 1:j
+            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted_norm)
+            @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
+        end
+        H[j + 1, j] = norm(krylov_basis[j + 1], weighted_norm)
+        krylov_basis[j + 1] ./= H[j + 1, j]
+
+        # apply the previous Givens rotations to the new column of H
+        @views H[1:j, j:j] .= Ω * H[1:j, j:j]
+
+        # compute a new Givens rotation to zero out H[j + 1, j]
+        G, _ = givens(H, j, j + 1, j)
+
+        # apply the new rotation to H and the rhs
+        H .= G * H
+        g0 .= G * g0
+
+        # compose the new rotation with the others
+        Ω = lmul!(G, Ω)
+
+        residual_norm = abs(g0[j + 1])
+
+        if residual_norm < threshold
+            converged = true
+            break
+        end
+    end
+
+    # solve the triangular system
+    y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
+
+    ## compose the solution
+    rv_Q = realview(Q)
+    rv_krylov_basis = realview.(krylov_basis)
+    groupsize = 256
+    event = Event(array_device(Q))
+    event = linearcombination!(array_device(Q), groupsize)(
+        rv_Q,
+        y,
+        rv_krylov_basis,
+        true;
+        ndrange = length(rv_Q),
+        dependencies = (event,),
+    )
+    wait(array_device(Q), event)
+
+    # if not converged restart
+    converged || LSinitialize!(linearoperator!, Q, Qrhs, solver, args...)
+
+    (converged, j, residual_norm)
 end
 
 """
