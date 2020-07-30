@@ -114,3 +114,65 @@ function atmos_energy_normal_boundary_flux_second_order!(
     # we want to prescribe the inward flux
     fluxᵀn.ρe -= bc_energy.fn(state⁻, aux⁻, t)
 end
+
+"""
+    BulkFormulaEnergy(fn) :: EnergyBC
+
+Calculate the net inward energy flux across the boundary.
+The drag coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`.
+The surface temp is `T_sfc= fn_T_sfc(state, aux, t)`.
+The surface q_tot is `q_tot_sfc = fn_q_tot_sfc(state, aux, t)`.
+Return the flux (in W m^-2).
+"""
+struct BulkFormulaEnergy{FNX, FNT, FNM} <: EnergyBC
+    fn_C_h::FNX
+    fn_T_sfc::FNT
+    fn_q_tot_sfc::FNM
+end
+function atmos_energy_boundary_state!(
+    nf,
+    bc_energy::BulkFormulaEnergy,
+    atmos,
+    args...,
+) end
+function atmos_energy_normal_boundary_flux_second_order!(
+    nf,
+    bc_energy::BulkFormulaEnergy,
+    atmos,
+    fluxᵀn,
+    n⁻,
+    state_sfc⁻,
+    diff_sfc⁻,
+    hyperdiff_sfc⁻,
+    aux_sfc⁻,
+    state_sfc⁺,
+    diff_sfc⁺,
+    hyperdiff_sfc⁺,
+    aux_sfc⁺,
+    bctype,
+    t,
+    state_int⁻,
+    diff_int⁻,
+    aux_int⁻,
+)
+
+    u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
+    u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
+    normu_int⁻_tan = norm(u_int⁻_tan)
+    C_h = bc_energy.fn_C_h(state_sfc⁻, aux_sfc⁻, t, normu_int⁻_tan)
+    T_sfc = bc_energy.fn_T_sfc(state_sfc⁻, aux_sfc⁻, t)
+    q_tot_sfc = bc_energy.fn_q_tot_sfc(state_sfc⁻, aux_sfc⁻, t)
+
+    # calculate MSE from the states at the surface and at the interior point
+    ts_sfc =
+        TemperatureSHumEquil(atmos.param_set, T_sfc, state_sfc⁻.ρ, q_tot_sfc)
+    ts_int = thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
+    e_pot_sfc = gravitational_potential(atmos.orientation, aux_sfc⁻)
+    e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
+    MSE_sfc = moist_static_energy(ts_sfc, e_pot_sfc)
+    MSE_int = moist_static_energy(ts_int, e_pot_int)
+
+    ρ_avg = average_density_sfc_int(state_sfc⁻.ρ, state_int⁻.ρ)
+    # NOTE: difference from design docs since normal points outwards
+    fluxᵀn.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE_sfc - MSE_int)
+end
