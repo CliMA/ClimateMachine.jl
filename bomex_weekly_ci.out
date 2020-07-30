@@ -1,0 +1,307 @@
++ module purge
+++ /software/Modules/bin/modulecmd sh purge
++ eval LD_LIBRARY_PATH=/central/slurm/install/current/lib/ ';export' 'LD_LIBRARY_PATH;MANPATH=/central/slurm/install/current/share/man/:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man' ';export' 'MANPATH;PATH=/central/slurm/install/current/bin:/central/software/julia/1.4.2/bin:/central/software/OpenMPI/4.0.1_cuda-10.0/bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2:/usr/lpp/mmfs/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;unset' 'CC;unset' 'CLASSPATH;unset' 'CMAKE_HOME;unset' 'CMAKE_VERSION;unset' 'CPATH;unset' 'CUDA_HOME;unset' 'CUDA_VERSION;unset' 'CXX;unset' 'DAALROOT;unset' 'F77;unset' 'F90;unset' 'GDBSERVER_MIC;unset' 'GDB_CROSS;unset' 'INFOPATH;unset' 'INTEL_HOME;unset' 'INTEL_LICENSE_FILE;unset' 'INTEL_PYTHONHOME;unset' 'INTEL_VERSION;unset' 'IPPROOT;unset' 'I_MPI_CC;unset' 'I_MPI_CXX;unset' 'I_MPI_F77;unset' 'I_MPI_F90;unset' 'I_MPI_ROOT;unset' 'LD_RUN_PATH;unset' 'LIBRARY_PATH;unset' 'LOADEDMODULES;unset' 'MKLROOT;unset' 'MPM_LAUNCHER;unset' 'NLSPATH;unset' 'OPENMPI_HOME;unset' 'OPENMPI_VERSION;unset' 'PKG_CONFIG_PATH;unset' 'PSTLROOT;unset' 'TBBROOT;unset' '_LMFILES_;'
+++ LD_LIBRARY_PATH=/central/slurm/install/current/lib/
+++ export LD_LIBRARY_PATH
+++ MANPATH=/central/slurm/install/current/share/man/:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ PATH=/central/slurm/install/current/bin:/central/software/julia/1.4.2/bin:/central/software/OpenMPI/4.0.1_cuda-10.0/bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2:/usr/lpp/mmfs/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ unset CC
+++ unset CLASSPATH
+++ unset CMAKE_HOME
+++ unset CMAKE_VERSION
+++ unset CPATH
+++ unset CUDA_HOME
+++ unset CUDA_VERSION
+++ unset CXX
+++ unset DAALROOT
+++ unset F77
+++ unset F90
+++ unset GDBSERVER_MIC
+++ unset GDB_CROSS
+++ unset INFOPATH
+++ unset INTEL_HOME
+++ unset INTEL_LICENSE_FILE
+++ unset INTEL_PYTHONHOME
+++ unset INTEL_VERSION
+++ unset IPPROOT
+++ unset I_MPI_CC
+++ unset I_MPI_CXX
+++ unset I_MPI_F77
+++ unset I_MPI_F90
+++ unset I_MPI_ROOT
+++ unset LD_RUN_PATH
+++ unset LIBRARY_PATH
+++ unset LOADEDMODULES
+++ unset MKLROOT
+++ unset MPM_LAUNCHER
+++ unset NLSPATH
+++ unset OPENMPI_HOME
+++ unset OPENMPI_VERSION
+++ unset PKG_CONFIG_PATH
+++ unset PSTLROOT
+++ unset TBBROOT
+++ unset _LMFILES_
++ module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 cuda/10.0 openmpi/4.0.3_cuda-10.0
+++ /software/Modules/bin/modulecmd sh load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 cuda/10.0 openmpi/4.0.3_cuda-10.0
++ eval CPATH=/central/software/OpenMPI/4.0.3_cuda-10.0//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include ';export' 'CPATH;CUDA_HOME=/central/software/CUDA/10.0' ';export' 'CUDA_HOME;CUDA_VERSION=10.0' ';export' 'CUDA_VERSION;HDF5_DIR=/software/hdf5/1.10.1' ';export' 'HDF5_DIR;LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//lib:/central/software/CUDA/10.0/lib64:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib:/central/slurm/install/current/lib/' ';export' 'LD_LIBRARY_PATH;LD_RUN_PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//lib:/central/software/CUDA/10.0/lib64:/central/software/netcdf-c/4.6.1//lib' ';export' 'LD_RUN_PATH;LIBRARY_PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//lib:/central/software/CUDA/10.0/lib64:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib' ';export' 'LIBRARY_PATH;LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:cuda/10.0:openmpi/4.0.3_cuda-10.0' ';export' 'LOADEDMODULES;MANPATH=/central/software/OpenMPI/4.0.3_cuda-10.0//share/man:/central/software/CUDA/10.0/doc/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man' ';export' 'MANPATH;OPENMPI_HOME=/central/software/OpenMPI/4.0.3_cuda-10.0/' ';export' 'OPENMPI_HOME;OPENMPI_VERSION=4.0.3' ';export' 'OPENMPI_VERSION;PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//bin:/central/software/CUDA/10.0/bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/central/slurm/install/current/bin:/central/software/julia/1.4.2/bin:/central/software/OpenMPI/4.0.1_cuda-10.0/bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2:/usr/lpp/mmfs/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;_LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/libraries/cuda/10.0:/software/Modules/modulefiles/mpi/openmpi/4.0.3_cuda-10.0' ';export' '_LMFILES_;'
+++ CPATH=/central/software/OpenMPI/4.0.3_cuda-10.0//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include
+++ export CPATH
+++ CUDA_HOME=/central/software/CUDA/10.0
+++ export CUDA_HOME
+++ CUDA_VERSION=10.0
+++ export CUDA_VERSION
+++ HDF5_DIR=/software/hdf5/1.10.1
+++ export HDF5_DIR
+++ LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//lib:/central/software/CUDA/10.0/lib64:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib:/central/slurm/install/current/lib/
+++ export LD_LIBRARY_PATH
+++ LD_RUN_PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//lib:/central/software/CUDA/10.0/lib64:/central/software/netcdf-c/4.6.1//lib
+++ export LD_RUN_PATH
+++ LIBRARY_PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//lib:/central/software/CUDA/10.0/lib64:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib
+++ export LIBRARY_PATH
+++ LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:cuda/10.0:openmpi/4.0.3_cuda-10.0
+++ export LOADEDMODULES
+++ MANPATH=/central/software/OpenMPI/4.0.3_cuda-10.0//share/man:/central/software/CUDA/10.0/doc/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ OPENMPI_HOME=/central/software/OpenMPI/4.0.3_cuda-10.0/
+++ export OPENMPI_HOME
+++ OPENMPI_VERSION=4.0.3
+++ export OPENMPI_VERSION
+++ PATH=/central/software/OpenMPI/4.0.3_cuda-10.0//bin:/central/software/CUDA/10.0/bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/central/slurm/install/current/bin:/central/software/julia/1.4.2/bin:/central/software/OpenMPI/4.0.1_cuda-10.0/bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2:/usr/lpp/mmfs/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ _LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/libraries/cuda/10.0:/software/Modules/modulefiles/mpi/openmpi/4.0.3_cuda-10.0
+++ export _LMFILES_
++ export JULIA_NUM_THREADS=1
++ JULIA_NUM_THREADS=1
++ export JULIA_MPI_BINARY=system
++ JULIA_MPI_BINARY=system
++ export JULIA_CUDA_USE_BINARYBUILDER=false
++ JULIA_CUDA_USE_BINARYBUILDER=false
++ source ./helper_mod.sh
++ RUNNAME=bomex_weekly_ci
++ CLIMA_HOME=/central/groups/esm/lenka/ClimateMachine.jl
++ VIZCLIMA_HOME=/central/groups/esm/lenka/VizCLIMA.jl
++ mkdir -p /central/scratch/elencz/bomex_test
++ CLIMA_OUTPUT=/central/scratch/elencz/output/bomex_weekly_ci
++ EXPERIMENT=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES/
++ VIZCLIMA_SCRIPT=/central/groups/esm/lenka/VizCLIMA.jl/src/scripts/default_moist_les.jl
++ EXP_PARAM_FILE=/central/groups/esm/lenka/ClimateMachine.jl/exp_parameters
++ directory_structure /central/scratch/elencz/output/bomex_weekly_ci
++ CLIMA_RESTART=/central/scratch/elencz/output/bomex_weekly_ci/restart
++ CLIMA_NETCDF=/central/scratch/elencz/output/bomex_weekly_ci/netcdf
++ CLIMA_LOG=/central/scratch/elencz/output/bomex_weekly_ci/log
++ CLIMA_ANALYSIS=/central/scratch/elencz/output/bomex_weekly_ci/analysis
++ mkdir -p /central/scratch/elencz/output/bomex_weekly_ci
++ mkdir -p /central/scratch/elencz/output/bomex_weekly_ci/restart
++ mkdir -p /central/scratch/elencz/output/bomex_weekly_ci/netcdf
++ mkdir -p /central/scratch/elencz/output/bomex_weekly_ci/analysis
++ mkdir -p /central/scratch/elencz/output/bomex_weekly_ci/log
++ PERF_LOGFILE=/central/scratch/elencz/output/bomex_weekly_ci/log/experiments_performance_log
++ printf '%-70s %-20s %-15s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-150s \n' driver sim_date wall_time sim_days res_h res_v dom_height CFL FT GPU Mem solver_details
++ julia --project=/central/groups/esm/lenka/ClimateMachine.jl -e 'using Pkg; Pkg.instantiate()'
++ read -u3 -r line
++ write_into_runfile_from_list 'this_is_ci_test no_param_change' bomex_weekly_ci /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES/ CLIMA_RUNFILE
++ line='this_is_ci_test no_param_change'
++ runname=bomex_weekly_ci
+++ dirname /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES/
++ exp_folder=/central/groups/esm/lenka/ClimateMachine.jl/experiments
+++ basename /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES/
++ default_exp_runfile=AtmosLES
++ pars=(${line// / })
++ inst_name=bomex_weekly_ci
++ (( i=0 ))
++ (( i<2 ))
++ inst_name=bomex_weekly_ci_this_is_ci_test
++ (( i++ ))
++ (( i<2 ))
++ inst_name=bomex_weekly_ci_this_is_ci_test_no_param_change
++ (( i++ ))
++ (( i<2 ))
+++ sed 's/[():]//g'
+++ echo bomex_weekly_ci_this_is_ci_test_no_param_change
++ inst_name_clean=bomex_weekly_ci_this_is_ci_test_no_param_change
++ (( i=0 ))
++ (( i<2 ))
++ par_n[$(( $i / 2 ))]=this_is_ci_test
++ par_v[$(( $i / 2 ))]=no_param_change
++ (( i+=2 ))
++ (( i<2 ))
++ new_exp_runfile=AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ rm -f /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ cp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+cp: omitting directory ‘/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES’
++ (( i=0 ))
++ (( i<1 ))
++ sed 's/this_is_ci_test =.*/this_is_ci_test = no_param_change/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+sed: can't read /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl: No such file or directory
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ (( i++ ))
++ (( i<1 ))
++ sed 's/exp_name =.*/exp_name = "bomex_weekly_ci_this_is_ci_test_no_param_change"/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ new_exp_runfile_path=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ eval CLIMA_RUNFILE=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ CLIMA_RUNFILE=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ date +%m-%d-%y-%T
++ t_date=07-29-20-21:16:48
+++ date +%s
++ t_start=1596082608
++ echo '1596082608: Running /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl, storing output at /central/scratch/elencz/output/bomex_weekly_ci'
+1596082608: Running /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl, storing output at /central/scratch/elencz/output/bomex_weekly_ci
++ julia --project=/central/groups/esm/lenka/ClimateMachine.jl -e 'using Pkg; Pkg.API.precompile()'
+Precompiling project...
++ mpiexec julia --project=/central/groups/esm/lenka/ClimateMachine.jl /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl --diagnostics 10ssecs --monitor-courant-numbers 10ssecs --output-dir /central/scratch/elencz/output/bomex_weekly_ci/netcdf --checkpoint-at-end --checkpoint-dir /central/scratch/elencz/output/bomex_weekly_ci/restart
++ peak_rss='switched off'
+++ date +%s
++ t_end=1596082613
++ t_diff=5
++ write_into_perf_log_file /central/scratch/elencz/output/bomex_weekly_ci/log/experiments_performance_log /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl 07-29-20-21:16:48 5 switched off
++ t_date=07-29-20-21:16:48
++ t_diff=5
++ mem=switched
++++ grep 'n_days =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ sim_time=
++++ grep 'n_horz =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ res_h=
++++ grep 'n_vert =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ res_v=
++++ grep 'domain_height::FT =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ domain_height=
++++ grep 'FT =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ FT=
++++ grep 'CFL =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ CFL=
++++ grep 'solver_method =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ solver_method=
++++ grep 'implicit_solver =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ implicit_solver=
++++ grep 'implicit_model =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ implicit_model=
++++ grep 'splitting_type =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ splitting_type=
++++ grep 'ode_solver_type =' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ sed 's/[():]//g'
+++ echo
++ ode_solver_type=
++ solver_details=////
++ gpu=none
+++ basename /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl
++ printf '%-72s %-20s %-15s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-150s \n' AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl 07-29-20-21:16:48 5 none switched ////
++ sleep 2
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosLES_bomex_weekly_ci_this_is_ci_test_no_param_change.jl /central/scratch/elencz/output/bomex_weekly_ci/log
++ read -u3 -r line
++ export GKSwstype=null
++ GKSwstype=null
++ julia -e 'import Pkg; Pkg.add("IJulia"); Pkg.add("DelimitedFiles"); Pkg.add("PrettyTables"); Pkg.add("PaddedViews"); Pkg.add("Dates"); Pkg.add("GR")'
+   Updating registry at `~/.julia/registries/General`
+   Updating git-repo `https://github.com/JuliaRegistries/General.git`
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+[?25l    Fetching: [>                                        ]  0.0 %[2K[?25h+ julia --project=/central/groups/esm/lenka/VizCLIMA.jl -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
+Precompiling project...
++ VIZCLIMA_LITERATE=/central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl
++ julia --project=/central/groups/esm/lenka/VizCLIMA.jl /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl --input-file /central/scratch/elencz/output/bomex_weekly_ci/analysis/ --output-dir /central/scratch/elencz/output/bomex_weekly_ci/analysis
+ERROR: LoadError: ArgumentError: cannot find inputfile `/central/scratch/elencz/output/bomex_weekly_ci/analysis/`
+Stacktrace:
+ [1] notebook(::String, ::String; config::Dict{Any,Any}, kwargs::Base.Iterators.Pairs{Symbol,Any,Tuple{Symbol,Symbol},NamedTuple{(:outputdir, :execute),Tuple{String,Bool}}}) at /home/elencz/.julia/packages/Literate/5an7K/src/Literate.jl:516
+ [2] main() at /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl:32
+ [3] top-level scope at /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl:36
+ [4] include(::Module, ::String) at ./Base.jl:377
+ [5] exec_options(::Base.JLOptions) at ./client.jl:288
+ [6] _start() at ./client.jl:484
+in expression starting at /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl:36
++ mv .ipynb /central/scratch/elencz/output/bomex_weekly_ci/analysis
+mv: cannot stat ‘.ipynb’: No such file or directory
