@@ -51,7 +51,6 @@
 #  - load external packages:
 using MPI
 using Distributions
-using NCDatasets
 using OrderedCollections
 using Plots
 using StaticArrays
@@ -111,9 +110,9 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 # Model parameters can be stored in the particular [`BalanceLaw`](@ref
 # ClimateMachine.BalanceLaws.BalanceLaw), in this case, the `BurgersEquation`:
 
-Base.@kwdef struct BurgersEquation{FT} <: BalanceLaw
+Base.@kwdef struct BurgersEquation{FT, APS} <: BalanceLaw
     "Parameters"
-    param_set::AbstractParameterSet = param_set
+    param_set::APS
     "Heat capacity"
     c::FT = 1
     "Vertical dynamic viscosity"
@@ -137,7 +136,7 @@ Base.@kwdef struct BurgersEquation{FT} <: BalanceLaw
 end
 
 # Create an instance of the `BurgersEquation`:
-m = BurgersEquation{FT}();
+m = BurgersEquation{FT, typeof(param_set)}(; param_set = param_set);
 
 # This model dictates the flow control, using [Dynamic Multiple
 # Dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch), for which
@@ -153,7 +152,7 @@ m = BurgersEquation{FT}();
 # Specify auxiliary variables for `BurgersEquation`
 vars_state(::BurgersEquation, ::Auxiliary, FT) = @vars(z::FT, T::FT);
 
-# Specify state variables, the variables solved for in the PDEs, for
+# Specify prognostic variables, the variables solved for in the PDEs, for
 # `BurgersEquation`
 vars_state(::BurgersEquation, ::Prognostic, FT) =
     @vars(ρ::FT, ρu::SVector{3, FT}, ρcT::FT);
@@ -172,7 +171,7 @@ vars_state(::BurgersEquation, ::GradientFlux, FT) =
 # `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
-# in `vars_state`
+# in `vars_state` given `Auxiliary`
 function init_state_auxiliary!(
     m::BurgersEquation,
     aux::Vars,
@@ -185,7 +184,7 @@ end;
 # Specify the initial values in `state::Vars`. Note that
 # - this method is only called at `t=0`
 # - `state.ρ`, `state.ρu` and`state.ρcT` are available here because
-# we've specified `ρ`, `ρu` and `ρcT` in `vars_state`
+# we've specified `ρ`, `ρu` and `ρcT` in `vars_state` given `Prognostic`
 function init_state_prognostic!(
     m::BurgersEquation,
     state::Vars,
@@ -224,7 +223,7 @@ end;
 
 # Compute/update all auxiliary variables at each node. Note that
 # - `aux.T` is available here because we've specified `T` in
-# `vars_state`
+# `vars_state` given `Auxiliary`
 function heat_eq_nodal_update_aux!(
     m::BurgersEquation,
     state::Vars,
@@ -237,7 +236,7 @@ end;
 # Since we have second-order fluxes, we must tell `ClimateMachine` to compute
 # the gradient of `ρcT` and `u`. Here, we specify how `ρcT`, `u` are computed. Note that
 # `transform.ρcT` and `transform.u` are available here because we've specified `ρcT`
-# and `u`in `vars_state`
+# and `u`in `vars_state` given `Gradient`
 function compute_gradient_argument!(
     m::BurgersEquation,
     transform::Vars,
@@ -252,9 +251,9 @@ end;
 # Specify where in `diffusive::Vars` to store the computed gradient from
 # `compute_gradient_argument!`. Note that:
 #  - `diffusive.μ∇u` is available here because we've specified `μ∇u` in
-#  `vars_state`
+#  `vars_state` given `GradientFlux`
 #  - `∇transform.u` is available here because we've specified `u` in
-#  `vars_state`
+#  `vars_state` given `Gradient`
 #  - `diffusive.μ∇u` is built using an anisotropic diffusivity tensor
 function compute_gradient_flux!(
     m::BurgersEquation,
@@ -294,7 +293,7 @@ end;
 # Compute advective flux.
 # Note that:
 # - `state.ρu` is available here because we've specified `ρu` in
-# `vars_state`
+# `vars_state` given `Prognostic`
 function flux_first_order!(
     m::BurgersEquation,
     flux::Grad,
@@ -313,7 +312,7 @@ end;
 # Compute diffusive flux (e.g. ``F(μ, \mathbf{u}, t) = -μ∇\mathbf{u}`` in the original PDE).
 # Note that:
 # - `diffusive.μ∇u` is available here because we've specified `μ∇u` in
-# `vars_state`
+# `vars_state` given `GradientFlux`
 function flux_second_order!(
     m::BurgersEquation,
     flux::Grad,
@@ -448,45 +447,49 @@ state_vars = get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.Q,
     vars_state(m, Prognostic(), FT),
-    i = 1,
-    j = 1,
 );
 aux_vars = get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.dg.state_auxiliary,
     vars_state(m, Auxiliary(), FT),
-    i = 1,
-    j = 1,
     exclude = [z_key],
 );
-all_vars = OrderedDict(state_vars..., aux_vars...);
+all_vars = [OrderedDict(state_vars..., aux_vars...)];
+time_data = FT[0]; # store time data
 
 # Generate plots of initial conditions
-export_plot_snapshot(
+export_plot(
     z,
     all_vars,
     ("ρcT",),
-    joinpath(output_dir, "initial_condition_T.png"),
-    z_label,
+    joinpath(output_dir, "initial_condition_T.png");
+    xlabel = "ρcT",
+    ylabel = z_label,
+    time_data = time_data,
 );
-export_plot_snapshot(
+export_plot(
     z,
     all_vars,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_u.png"),
-    z_label,
+    joinpath(output_dir, "initial_condition_u.png");
+    xlabel = "ρu[1]",
+    ylabel = z_label,
+    time_data = time_data,
 );
-export_plot_snapshot(
+export_plot(
     z,
     all_vars,
     ("ρu[2]",),
     joinpath(output_dir, "initial_condition_v.png"),
-    z_label,
+    xlabel = "ρu[2]",
+    ylabel = z_label,
+    time_data = time_data,
 );
 
 # ## Inspect the initial conditions for the horizontal average
 
 # Horizontal statistics of variables
+
 state_vars_var = get_horizontal_variance(
     driver_config.grid,
     solver_config.Q,
@@ -499,19 +502,26 @@ state_vars_avg = get_horizontal_mean(
     vars_state(m, Prognostic(), FT),
 );
 
-export_plot_snapshot(
+data_avg = Dict[state_vars_avg]
+data_var = Dict[state_vars_var]
+
+export_plot(
     z,
-    state_vars_avg,
+    data_avg,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_avg_u.png"),
-    z_label,
+    joinpath(output_dir, "initial_condition_avg_u.png");
+    xlabel = "ρu[1]",
+    ylabel = z_label,
+    time_data = time_data,
 );
-export_plot_snapshot(
+export_plot(
     z,
-    state_vars_var,
+    data_var,
     ("ρu[1]",),
     joinpath(output_dir, "initial_condition_variance_u.png"),
-    z_label,
+    xlabel = "ρu[1]",
+    ylabel = z_label,
+    time_data = time_data,
 );
 
 # ![](initial_condition_avg_u.png)
@@ -525,19 +535,11 @@ const n_outputs = 5;
 # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
-# Create a dictionary for `z` coordinate (and convert to cm) NCDatasets IO:
-dims = OrderedDict(z_key => collect(z));
-
-data_var = Dict[Dict([k => Dict() for k in 0:n_outputs]...),]
-data_var[1] = state_vars_var
-
-data_avg = Dict[Dict([k => Dict() for k in 0:n_outputs]...),]
-data_avg[1] = state_vars_avg
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
-# callback, the state and aux variables are collected, combined into a single
-# `OrderedDict` and written to a NetCDF file (for each output step `step`).
-step = [0];
+# callback, a dictionary of variables are appended to `all_data` for time
+# the callback is executed. In addition, time is collected and appended to
+# `time_data`.
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars_var = get_horizontal_variance(
         driver_config.grid,
@@ -549,9 +551,9 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
         solver_config.Q,
         vars_state(m, Prognostic(), FT),
     )
-    step[1] += 1
     push!(data_var, state_vars_var)
     push!(data_avg, state_vars_avg)
+    push!(time_data, gettime(solver_config.solver))
     nothing
 end;
 
@@ -572,33 +574,37 @@ export_plot(
     z,
     data_avg,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u.png"),
-    z_label,
+    joinpath(output_dir, "solution_vs_time_u.png");
     xlabel = "Horizontal mean rho*u",
+    ylabel = z_label,
+    time_data = time_data,
 );
 export_plot(
     z,
     data_var,
     ("ρu[1]"),
-    joinpath(output_dir, "variance_vs_time_u.png"),
-    z_label,
+    joinpath(output_dir, "variance_vs_time_u.png");
     xlabel = "Horizontal variance rho*u",
+    ylabel = z_label,
+    time_data = time_data,
 );
 export_plot(
     z,
     data_avg,
     ("ρcT"),
-    joinpath(output_dir, "solution_vs_time_T.png"),
-    z_label,
+    joinpath(output_dir, "solution_vs_time_T.png");
     xlabel = "Horizontal mean rho*c*T",
+    ylabel = z_label,
+    time_data = time_data,
 );
 export_plot(
     z,
     data_var,
     ("ρu[3]"),
-    joinpath(output_dir, "variance_vs_time_w.png"),
-    z_label,
+    joinpath(output_dir, "variance_vs_time_w.png");
     xlabel = "Horizontal variance rho*w",
+    ylabel = z_label,
+    time_data = time_data,
 );
 # ![](solution_vs_time_u.png)
 # ![](variance_vs_time_u.png)
