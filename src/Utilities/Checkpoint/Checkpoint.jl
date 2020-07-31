@@ -8,6 +8,8 @@ using Printf
 import KernelAbstractions: CPU
 
 using ..ODESolvers
+using ..ODESolvers: AbstractODESolver
+using ..MPIStateArrays
 import ..MPIStateArrays: array_device
 
 """
@@ -18,6 +20,24 @@ stored in the checkpoint file for `name` and `num`.
 """
 function write_checkpoint(
     solver_config,
+    checkpoint_dir::String,
+    name::String,
+    mpicomm::MPI.Comm,
+    num::Int,
+)
+    Q = solver_config.Q
+    A = solver_config.dg.state_auxiliary
+    odesolver = solver_config.solver
+
+    write_checkpoint(Q, A, odesolver, checkpoint_dir, name, mpicomm, num)
+
+    return nothing
+end
+
+function write_checkpoint(
+    Q::MPIStateArray,
+    A::MPIStateArray,
+    odesolver::AbstractODESolver,
     checkpoint_dir::String,
     name::String,
     mpicomm::MPI.Comm,
@@ -38,16 +58,14 @@ Checkpoint
         cfull
     )
 
-    dg = solver_config.dg
-    Q = solver_config.Q
     if array_device(Q) isa CPU
         h_Q = Q.realdata
-        h_aux = dg.state_auxiliary.realdata
+        h_aux = A.realdata
     else
         h_Q = Array(Q.realdata)
-        h_aux = Array(dg.state_auxiliary.realdata)
+        h_aux = Array(A.realdata)
     end
-    t = ODESolvers.gettime(solver_config.solver)
+    t = ODESolvers.gettime(odesolver)
     @save cfull h_Q h_aux t
 
     return nothing
