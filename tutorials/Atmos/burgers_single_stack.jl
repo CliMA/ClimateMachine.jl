@@ -593,7 +593,7 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     push!(data_var, state_vars_var)
     push!(data_avg, state_vars_avg)
     push!(data_nodal, state_vars)
-    push!(time_data, round(gettime(solver_config.solver), digits = 3))
+    push!(time_data, gettime(solver_config.solver))
     nothing
 end;
 
