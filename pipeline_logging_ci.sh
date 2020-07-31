@@ -54,8 +54,8 @@ do
   t_date=$(date +'%m-%d-%y-%T');
   t_start=$(date +%s);
   echo $t_start': Running '$CLIMA_RUNFILE', storing output at '$CLIMA_OUTPUT
-  #julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.API.precompile()'
-  #julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART 
+  julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.API.precompile()'
+  julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART 
   peak_rss="switched off"
   #julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 100steps --monitor-courant-numbers 100steps --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART &
   # Get peak memory usage
@@ -65,9 +65,9 @@ do
   t_end=$(date +%s);
   t_diff=$((t_end-t_start));
   # Write performance log file
-  #write_into_perf_log_file $PERF_LOGFILE $CLIMA_RUNFILE $t_date $t_diff $peak_rss;
+  write_into_perf_log_file $PERF_LOGFILE $CLIMA_RUNFILE $t_date $t_diff $peak_rss;
   sleep 2
-  #mv $CLIMA_RUNFILE $CLIMA_LOG;
+  mv $CLIMA_RUNFILE $CLIMA_LOG;
 done 3< $EXP_PARAM_FILE;
 
 # This modifies the VIZCLIMA_SCRIPT for this experiment
