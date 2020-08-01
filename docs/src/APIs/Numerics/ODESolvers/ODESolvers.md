@@ -16,6 +16,14 @@ ODESolvers.LSRK54CarpenterKennedy
 ODESolvers.LSRK144NiegemannDiehlBusch
 ```
 
+## Low Storage (3N) Runge Kutta methods
+
+```@docs
+ODESolvers.LowStorageRungeKutta3N
+ODESolvers.LS3NRK44Classic
+ODESolvers.LS3NRK33Heuns
+```
+
 ## Strong Stability Preserving RungeKutta methods
 
 ```@docs
