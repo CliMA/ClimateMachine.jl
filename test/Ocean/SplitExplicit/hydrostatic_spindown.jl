@@ -297,7 +297,6 @@ function make_callbacks(
                 runtime = %s
                 norm(Q) = %.16e""",
                 ODESolvers.gettime(odesolver),
-                timeend,
                 Dates.format(
                     convert(Dates.DateTime, Dates.now() - starttime[]),
                     Dates.dateformat"HH:MM:SS",
