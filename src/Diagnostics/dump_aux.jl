@@ -1,3 +1,39 @@
+"""
+    setup_dump_aux_diagnostics(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing a diagnostic that
+simply dumps the auxiliary state variables at the specified
+`interval` after being interpolated, into NetCDF files prefixed by
+`out_prefix`.
+"""
+function setup_dump_aux_diagnostics(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "DumpAux",
+        Diagnostics.dump_aux_init,
+        Diagnostics.dump_aux_fini,
+        Diagnostics.dump_aux_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 dump_aux_init(dgngrp, currtime) = dump_init(dgngrp, currtime, Auxiliary())
 
 function dump_aux_collect(dgngrp, currtime)

@@ -21,7 +21,8 @@ using DocStringExtensions
 using LinearAlgebra
 
 using CLIMAParameters
-using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
+using CLIMAParameters.Planet: R_d, cv_d, cp_d, MSLP, grav, LH_v0
+using CLIMAParameters.Atmos.SubgridScale: C_smag
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -84,7 +85,7 @@ function init_greenvortex!(bl, state, aux, (x, y, z), t)
     e_pot = FT(0)# potential energy
     Pinf = 101325
     Uzero = FT(100)
-    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y))
+    p = Pinf + (ρ * Uzero^2 / 16) * (2 + cos(z)) * (cos(x) + cos(y))
     u = Uzero * sin(x) * cos(y) * cos(z)
     v = -Uzero * cos(x) * sin(y) * cos(z)
     e_kin = 0.5 * (u^2 + v^2)
@@ -120,7 +121,6 @@ function config_greenvortex(
     ymin,
     zmin,
 )
-
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -156,15 +156,21 @@ function config_greenvortex(
     )
     return config
 end
+
 # Here we define the diagnostic configuration specific to this problem.
-function config_diagnostics(driver_config)
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+function config_diagnostics(driver_config, nor, iter)
+    interval = "360steps"
+    dgngrp = setup_atmos_turbulence_stats(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        nor,
+        iter,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-
     FT = Float64
     N = 4
     Ncellsx = 64
@@ -182,7 +188,7 @@ function main()
     zmin = FT(-pi)
     t0 = FT(0)
     timeend = FT(0.1)
-    CFL = FT(1.8)
+    CFL = FT(0.9)
 
     driver_config = config_greenvortex(
         FT,
@@ -202,7 +208,9 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
-    dgn_config = config_diagnostics(driver_config)
+    nor = FT(100)
+    iter = FT(0.01)
+    dgn_config = config_diagnostics(driver_config, nor, iter)
 
     result = ClimateMachine.invoke!(
         solver_config;
