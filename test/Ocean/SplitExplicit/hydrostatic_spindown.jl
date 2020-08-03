@@ -201,6 +201,7 @@ function run_hydrostatic_spindown(
         dg_2D,
         model_2D,
         Q_2D,
+        timeendlocal,
     )
 
     eng0 = norm(Q_3D)
@@ -246,6 +247,7 @@ function make_callbacks(
     dg_fast,
     model_fast,
     Q_fast,
+    timeend,
 )
     if isdir(vtkpath)
         rm(vtkpath, recursive = true)
