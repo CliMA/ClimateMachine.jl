@@ -38,8 +38,8 @@ function export_plot(
             ϕ_string = String(ϕ)
             ϕ_name = plot_friendly_name(ϕ_string)
             ϕ_data = data[ϕ_string][:]
-            label = single_var ? "t=$(round(t, digits=2))" :
-                "$(ϕ_string), t=$(round(t, digits=2))"
+            label = single_var ? "t=$(round(t, digits=round_digits))" :
+                "$(ϕ_string), t=$(round(t, digits=round_digits))"
             plot!(ϕ_data, z; xlabel = xlabel, ylabel = ylabel, label = label)
         end
     end
