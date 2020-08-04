@@ -1,10 +1,70 @@
-export SimpleBoxProblem, SimpleBox, HomogeneousBox, OceanGyre
+module OceanProblems
+
+export SimpleBox, HomogeneousBox, OceanGyre
+
+using StaticArrays
+using CLIMAParameters.Planet: grav
+
+using ..HydrostaticBoussinesq
+using ..ShallowWater
+
+import ..Ocean:
+    ocean_init_state!,
+    ocean_init_aux!,
+    kinematic_stress,
+    surface_flux,
+    coriolis_parameter
+
+HBModel = HydrostaticBoussinesqModel
+SWModel = ShallowWaterModel
+
+abstract type AbstractOceanProblem end
 
 ############################
 # Basic box problem        #
 # Set up dimensions of box #
 ############################
-abstract type AbstractSimpleBoxProblem <: AbstractHydrostaticBoussinesqProblem end
+abstract type AbstractSimpleBoxProblem <: AbstractOceanProblem end
+
+"""
+    ocean_init_aux!(::HBModel, ::AbstractSimpleBoxProblem)
+
+save y coordinate for computing coriolis, wind stress, and sea surface temperature
+
+# Arguments
+- `m`: model object to dispatch on and get viscosities and diffusivities
+- `p`: problem object to dispatch on and get additional parameters
+- `A`: auxiliary state vector
+- `geom`: geometry stuff
+"""
+function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
+    FT = eltype(A)
+    @inbounds A.y = geom.coord[2]
+
+    # needed for proper CFL condition calculation
+    A.w = 0
+    A.pkin = 0
+    A.wz0 = 0
+
+    A.uᵈ = @SVector [-0, -0]
+    A.ΔGᵘ = @SVector [-0, -0]
+
+    return nothing
+
+    return nothing
+end
+
+function ocean_init_aux!(m::SWModel, p::AbstractSimpleBoxProblem, A, geom)
+    @inbounds A.y = geom.coord[2]
+
+    A.Gᵁ = @SVector [-0, -0]
+    A.Δu = @SVector [-0, -0]
+
+    return nothing
+end
+
+@inline coriolis_parameter(m::SWModel, p::AbstractSimpleBoxProblem, y) =
+    m.fₒ + m.β * y
 
 """
     SimpleBoxProblem <: AbstractSimpleBoxProblem
@@ -32,27 +92,14 @@ struct SimpleBox{T, BC} <: AbstractSimpleBoxProblem
     end
 end
 
-"""
-    ocean_init_aux!(::HBModel, ::AbstractSimpleBoxProblem)
+function barotropic_state!(x, t, νʰ, kˣ, gH)
+    M = @SMatrix [-νʰ * kˣ^2 gH * kˣ; -kˣ 0]
+    A = exp(M * t) * @SVector [1, 1]
 
-save y coordinate for computing coriolis, wind stress, and sea surface temperature
+    U = A[1] * sin(kˣ * x)
+    η = A[2] * cos(kˣ * x)
 
-# Arguments
-- `m`: model object to dispatch on and get viscosities and diffusivities
-- `p`: problem object to dispatch on and get additional parameters
-- `A`: auxiliary state vector
-- `geom`: geometry stuff
-"""
-function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
-    FT = eltype(A)
-    @inbounds A.y = geom.coord[2]
-
-    # needed for proper CFL condition calculation
-    A.w = 0
-    A.pkin = 0
-    A.wz0 = 0
-
-    return nothing
+    return (U = U, η = η)
 end
 
 function ocean_init_state!(m::HBModel, p::SimpleBox, Q, A, coords, t)
@@ -60,32 +107,39 @@ function ocean_init_state!(m::HBModel, p::SimpleBox, Q, A, coords, t)
     @inbounds y = coords[2]
     @inbounds z = coords[3]
 
-    Lˣ = p.Lˣ
-    Lʸ = p.Lʸ
-    H = p.H
+    kˣ = 2π / p.Lˣ
+    kʸ = 2π / p.Lʸ
+    kᶻ = 2π / p.H
 
-    kˣ = 2π / Lˣ
-    kʸ = 2π / Lʸ
-    kᶻ = 2π / H
+    gH = grav(m.param_set) * p.H
+    U, η = barotropic_state!(x, t, m.νʰ, kˣ, gH)
 
-    νʰ = m.νʰ
-    νᶻ = m.νᶻ
-
-    λ = νᶻ * kᶻ^2 + νʰ * kˣ^2
-
-    M = @SMatrix [-νʰ * kˣ^2 grav(m.param_set) * H * kˣ; -kˣ 0]
-    A = exp(M * t) * @SVector [1, 1]
-
+    λ = m.νʰ * kˣ^2 + m.νᶻ * kᶻ^2
     u° = exp(-λ * t) * cos(kᶻ * z) * sin(kˣ * x)
-    U = A[1] * sin(kˣ * x)
-    u = u° + U / H
+    u = u° + U / p.H
 
     Q.u = @SVector [u, -0]
-    Q.η = A[2] * cos(kˣ * x)
+    Q.η = η
     Q.θ = -0
 
     return nothing
 end
+
+function ocean_init_state!(m::SWModel, p::SimpleBox, Q, A, coords, t)
+    @inbounds x = coords[1]
+    kˣ = 2π / p.Lˣ
+    νʰ = m.turbulence.ν
+    gH = grav(m.param_set) * p.H
+
+    U, η = barotropic_state!(x, t, νʰ, kˣ, gH)
+
+    Q.U = @SVector [U, -0]
+    Q.η = η
+
+    return nothing
+end
+
+@inline kinematic_stress(p::SimpleBox, y) = @SVector [-0, -0]
 
 ##########################
 # Homogenous wind stress #
@@ -137,12 +191,25 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
-    Q.u = @SVector [rand(), rand()]
+    Q.u = @SVector [0, 0]
     Q.η = 0
     Q.θ = 20
 
     return nothing
 end
+
+include("ShallowWaterInitialStates.jl")
+
+function ocean_init_state!(m::SWModel, p::HomogeneousBox, Q, A, coords, t)
+    if t == 0
+        null_init_state!(p, m.turbulence, Q, A, coords, 0)
+    else
+        gyre_init_state!(m, p, m.turbulence, Q, A, coords, t)
+    end
+end
+
+@inline coriolis_parameter(m::SWModel, p::HomogeneousBox, y) =
+    m.fₒ + m.β * (y - p.Lʸ / 2)
 
 """
     kinematic_stress(::HomogeneousBox)
@@ -155,6 +222,11 @@ jet stream like windstress
 """
 @inline kinematic_stress(p::HomogeneousBox, y, ρ) =
     @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
+
+@inline kinematic_stress(
+    p::HomogeneousBox,
+    y,
+) = @SVector [-p.τₒ * cos(π * y / p.Lʸ), -0]
 
 ##########################
 # Homogenous wind stress #
@@ -221,6 +293,17 @@ function ocean_init_state!(m::HBModel, p::OceanGyre, Q, A, coords, t)
     return nothing
 end
 
+function ocean_init_state!(m::SWModel, p::OceanGyre, Q, A, coords, t)
+    @inbounds y = coords[2]
+    @inbounds z = coords[3]
+    @inbounds H = p.H
+
+    Q.u = @SVector [0, 0]
+    Q.η = 0
+
+    return nothing
+end
+
 """
     kinematic_stress(::OceanGyre)
 
@@ -232,6 +315,11 @@ jet stream like windstress
 """
 @inline kinematic_stress(p::OceanGyre, y, ρ) =
     @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
+
+@inline kinematic_stress(
+    p::OceanGyre,
+    y,
+) = @SVector [-p.τₒ * cos(π * y / p.Lʸ), -0]
 
 """
     surface_flux(::OceanGyre)
@@ -250,4 +338,6 @@ cool-warm north-south linear temperature gradient
 
     θʳ = θᴱ * (1 - y / Lʸ)
     return λʳ * (θ - θʳ)
+end
+
 end

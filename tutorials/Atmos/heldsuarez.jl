@@ -186,7 +186,7 @@ model = AtmosModel{FT}(
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
     source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
-    init_state_conservative = init_heldsuarez!,
+    init_state_prognostic = init_heldsuarez!,
 );
 
 # This concludes the setup of the physical model!

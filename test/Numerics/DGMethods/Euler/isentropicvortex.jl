@@ -21,10 +21,11 @@ using ClimateMachine.Atmos:
     DryModel,
     NoPrecipitation,
     NoRadiation,
-    vars_state_conservative
+    vars_state
 using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.VariableTemplates: flattenednames
 using ClimateMachine.TurbulenceClosures
+using ClimateMachine.BalanceLaws: Prognostic
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
@@ -194,7 +195,7 @@ function run(
         moisture = DryModel(),
         source = nothing,
         boundarycondition = (),
-        init_state_conservative = isentropicvortex_initialcondition!,
+        init_state_prognostic = isentropicvortex_initialcondition!,
     )
 
     dg = DGModel(
@@ -355,7 +356,7 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)

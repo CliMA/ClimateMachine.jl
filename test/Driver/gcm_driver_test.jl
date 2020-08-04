@@ -80,7 +80,7 @@ function main()
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
-        init_state_conservative = setup,
+        init_state_prognostic = setup,
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(

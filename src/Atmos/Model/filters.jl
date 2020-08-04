@@ -11,10 +11,10 @@ struct AtmosFilterPerturbations{M} <: AbstractFilterTarget
 end
 
 vars_state_filtered(target::AtmosFilterPerturbations, FT) =
-    vars_state_conservative(target.atmos, FT)
+    vars_state(target.atmos, Prognostic(), FT)
 
 function compute_filter_argument!(
-    ::AtmosFilterPerturbations,
+    target::AtmosFilterPerturbations,
     filter_state::Vars,
     state::Vars,
     aux::Vars,
@@ -24,9 +24,12 @@ function compute_filter_argument!(
     # remove reference state
     filter_state.ρ -= aux.ref_state.ρ
     filter_state.ρe -= aux.ref_state.ρe
+    if !(target.atmos.moisture isa DryModel)
+        filter_state.moisture.ρq_tot -= aux.ref_state.ρq_tot
+    end
 end
 function compute_filter_result!(
-    ::AtmosFilterPerturbations,
+    target::AtmosFilterPerturbations,
     state::Vars,
     filter_state::Vars,
     aux::Vars,
@@ -36,4 +39,7 @@ function compute_filter_result!(
     # add reference state
     state.ρ += aux.ref_state.ρ
     state.ρe += aux.ref_state.ρe
+    if !(target.atmos.moisture isa DryModel)
+        state.moisture.ρq_tot += aux.ref_state.ρq_tot
+    end
 end

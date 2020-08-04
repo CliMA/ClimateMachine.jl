@@ -9,6 +9,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.Ocean.HydrostaticBoussinesq
+using ClimateMachine.Ocean.OceanProblems
 
 using Test
 
@@ -105,11 +106,7 @@ function run_hydrostatic_test(; imex::Bool = false, BC = nothing, refDat = ())
     # ClimateMachine.Settings.diagnostics = "$(output_interval)steps"
 
     cb = ClimateMachine.StateCheck.sccreate(
-        [
-            (solver.Q, "state"),
-            (solver.dg.state_auxiliary, "aux"),
-            (solver.dg.state_gradient_flux, "gradient"),
-        ],
+        [(solver.Q, "state"), (solver.dg.state_auxiliary, "aux")],
         output_interval;
         prec = 12,
     )
@@ -140,5 +137,4 @@ end
     include("../refvals/3D_hydrostatic_spindown_refvals.jl")
 
     run_hydrostatic_test(imex = false, refDat = refVals.explicit) # error = 0.0011289879366523504
-    run_hydrostatic_test(imex = true, refDat = refVals.imex)  # error = 0.0033063071773607243
 end

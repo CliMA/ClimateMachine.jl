@@ -1,6 +1,7 @@
 using Test
 using ClimateMachine
 using LinearAlgebra
+import OrdinaryDiffEq: SSPRK73
 
 include("ode_tests_common.jl")
 
@@ -15,14 +16,14 @@ c = 1 / 100
 α1, α2 = 1 / 4, 3 / 4
 β1, β2, β3 = 1 / 3, 3 / 6, 1 / 6
 
-function rhs!(dQ, Q, ::Nothing, t; increment)
+function rhs!(dQ, Q, ::Nothing, t; increment = false)
     if increment
         @. dQ += $cos(t) * (a + b * Q + c * Q^2)
     else
         @. dQ = $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs_linear!(dQ, Q, ::Nothing, t; increment)
+function rhs_linear!(dQ, Q, ::Nothing, t; increment = false)
     if increment
         @. dQ += $cos(t) * b * Q
     else
@@ -32,49 +33,49 @@ end
 struct ODETestBasicLinBE <: AbstractBackwardEulerSolver end
 ODESolvers.Δt_is_adjustable(::ODETestBasicLinBE) = true
 (::ODETestBasicLinBE)(Q, Qhat, α, p, t) = @. Q = Qhat / (1 - α * $cos(t) * b)
-function rhs_nonlinear!(dQ, Q, ::Nothing, t; increment)
+function rhs_nonlinear!(dQ, Q, ::Nothing, t; increment = false)
     if increment
         @. dQ += $cos(t) * (a + c * Q^2)
     else
         @. dQ = $cos(t) * (a + c * Q^2)
     end
 end
-function rhs_fast!(dQ, Q, ::Any, t; increment)
+function rhs_fast!(dQ, Q, ::Any, t; increment = false)
     if increment
         @. dQ += α1 * $cos(t) * (a + b * Q + c * Q^2)
     else
         @. dQ = α1 * $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs_fast_linear!(dQ, Q, ::Nothing, t; increment)
+function rhs_fast_linear!(dQ, Q, ::Nothing, t; increment = false)
     if increment
         @. dQ += α1 * $cos(t) * Q
     else
         @. dQ = α1 * $cos(t) * Q
     end
 end
-function rhs_slow!(dQ, Q, ::Nothing, t; increment)
+function rhs_slow!(dQ, Q, ::Nothing, t; increment = false)
     if increment
         @. dQ += α2 * $cos(t) * (a + b * Q + c * Q^2)
     else
         @. dQ = α2 * $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs1!(dQ, Q, ::Any, t; increment)
+function rhs1!(dQ, Q, ::Any, t; increment = false)
     if increment
         @. dQ += β1 * $cos(t) * (a + b * Q + c * Q^2)
     else
         @. dQ = β1 * $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs2!(dQ, Q, ::Any, t; increment)
+function rhs2!(dQ, Q, ::Any, t; increment = false)
     if increment
         @. dQ += β2 * $cos(t) * (a + b * Q + c * Q^2)
     else
         @. dQ = β2 * $cos(t) * (a + b * Q + c * Q^2)
     end
 end
-function rhs3!(dQ, Q, ::Nothing, t; increment)
+function rhs3!(dQ, Q, ::Nothing, t; increment = false)
     if increment
         @. dQ += β3 * $cos(t) * (a + b * Q + c * Q^2)
     else
@@ -465,4 +466,19 @@ end
 
         @test Q2 == Q
     end
+end
+
+@testset "DiffEq methods" begin
+    alg = SSPRK73()
+    expected_order = 3
+    dts = [2.0^(-k) for k in 3:4]
+    errors = similar(dts)
+    for (n, dt) in enumerate(dts)
+        Q .= Qinit
+        solver = DiffEqJLSolver(rhs!, alg, Q; dt = dt, t0 = t0)
+        solve!(Q, solver; timeend = finaltime)
+        errors[n] = norm(Q - Qexact)
+    end
+    rates = log2.(errors[1:(end - 1)] ./ errors[2:end])
+    @test isapprox(rates[end], expected_order; atol = 0.7)
 end

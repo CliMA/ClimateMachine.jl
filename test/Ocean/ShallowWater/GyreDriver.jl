@@ -1,6 +1,33 @@
-include("GyreInABox.jl")
-
+using MPI
 using Test
+using ClimateMachine
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.BalanceLaws
+using ClimateMachine.Ocean.ShallowWater
+using ClimateMachine.Ocean.ShallowWater:
+    TurbulenceClosure,
+    LinearDrag,
+    ConstantViscosity,
+    AdvectionTerm,
+    NonLinearAdvection
+using ClimateMachine.Ocean.OceanProblems
+
+using LinearAlgebra
+using StaticArrays
+using Logging, Printf, Dates
+using ClimateMachine.VTK
+
+using CLIMAParameters
+using CLIMAParameters.Planet: grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 if !isempty(ARGS)
     stommel = Bool(parse(Int, ARGS[1]))
@@ -44,7 +71,7 @@ end
 outname = "vtk_new_dt_" * gyre * "_" * advec
 
 function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
-    problem = GyreInABox{FT}(τₒ, fₒ, β, Lˣ, Lʸ, H)
+    problem = HomogeneousBox{FT}(Lˣ, Lʸ, H, τₒ = τₒ)
 
     if stommel
         turbulence = LinearDrag{FT}(λ)
@@ -58,36 +85,15 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
         advection = NonLinearAdvection()
     end
 
-    model = ShallowWaterModel(param_set, problem, turbulence, advection, c)
-end
-
-function shallow_init_state!(
-    m::ShallowWaterModel,
-    p::GyreInABox,
-    state,
-    aux,
-    coords,
-    t,
-)
-    if t == 0
-        null_init_state!(p, m.turbulence, state, aux, coords, 0)
-    else
-        gyre_init_state!(p, m.turbulence, state, aux, coords, t)
-    end
-end
-
-function shallow_init_aux!(p::GyreInABox, aux, geom)
-    @inbounds y = geom.coord[2]
-
-    Lʸ = p.Lʸ
-    τₒ = p.τₒ
-    fₒ = p.fₒ
-    β = p.β
-
-    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
-    aux.f = fₒ + β * (y - Lʸ / 2)
-
-    return nothing
+    model = ShallowWaterModel{FT}(
+        param_set,
+        problem,
+        turbulence,
+        advection,
+        c = c,
+        fₒ = fₒ,
+        β = β,
+    )
 end
 
 #########################
@@ -119,13 +125,13 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
 
     if test > 2
         outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
-        statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
         outprefix = @sprintf("exact_mpirank%04d", MPI.Comm_rank(mpicomm))
-        statenames = flattenednames(vars_state_conservative(model, eltype(Qe)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Qe)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Qe)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Qe)))
         writevtk(outprefix, Qe, dg, statenames, dg.state_auxiliary, auxnames)
 
         step = [0]
@@ -140,9 +146,9 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
             )
             @debug "doing VTK output" outprefix
             statenames =
-                flattenednames(vars_state_conservative(model, eltype(Q)))
+                flattenednames(vars_state(model, Prognostic(), eltype(Q)))
             auxiliarynames =
-                flattenednames(vars_state_auxiliary(model, eltype(Q)))
+                flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
             writevtk(
                 outprefix,
                 Q,

@@ -26,7 +26,8 @@ using StaticArrays
 using LinearAlgebra
 
 using ..VariableTemplates
-import ..BalanceLaws: BalanceLaw, vars_state_auxiliary
+using ..BalanceLaws
+import ..BalanceLaws: vars_state
 
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
@@ -38,7 +39,9 @@ export init_aux!,
     projection_normal,
     gravitational_potential,
     ∇gravitational_potential,
-    projection_tangential
+    projection_tangential,
+    sphr_to_cart_vec,
+    cart_to_sphr_vec
 
 
 abstract type Orientation <: BalanceLaw end
@@ -47,7 +50,7 @@ abstract type Orientation <: BalanceLaw end
 ##### Fallbacks
 #####
 
-function vars_state_auxiliary(m::Orientation, FT)
+function vars_state(m::Orientation, ::Auxiliary, FT)
     @vars begin
         Φ::FT # gravitational potential
         ∇Φ::SVector{3, FT}
@@ -103,7 +106,8 @@ No gravitational force or potential.
 struct NoOrientation <: Orientation end
 
 init_aux!(::NoOrientation, param_set::APS, aux::Vars) = nothing
-vars_state_auxiliary(m::NoOrientation, FT) = @vars()
+
+vars_state(m::NoOrientation, ::Auxiliary, FT) = @vars()
 
 gravitational_potential(::NoOrientation, aux::Vars) = -zero(eltype(aux))
 ∇gravitational_potential(::NoOrientation, aux::Vars) =
@@ -139,6 +143,57 @@ latitude(orientation::SphericalOrientation, aux::Vars) =
 longitude(orientation::SphericalOrientation, aux::Vars) =
     @inbounds atan(aux.coord[2], aux.coord[1])
 
+"""
+    sphr_to_cart_vec(orientation::SphericalOrientation, state::Vars, aux::Vars)
+
+Projects a vector defined based on unit vectors in spherical coordinates to cartesian unit vectors.
+"""
+function sphr_to_cart_vec(
+    orientation::SphericalOrientation,
+    vec::AbstractVector,
+    aux::Vars,
+)
+    FT = eltype(aux)
+    lat = latitude(orientation, aux)
+    lon = longitude(orientation, aux)
+
+    slat, clat = sin(lat), cos(lat)
+    slon, clon = sin(lon), cos(lon)
+
+    u = MVector{3, FT}(
+        -slon * vec[1] - slat * clon * vec[2] + clat * clon * vec[3],
+        clon * vec[1] - slat * slon * vec[2] + clat * slon * vec[3],
+        clat * vec[2] + slat * vec[3],
+    )
+
+    return u
+end
+
+"""
+    cart_to_sphr_vec(orientation::SphericalOrientation, state::Vars, aux::Vars)
+
+Projects a vector defined based on unit vectors in cartesian coordinates to a spherical unit vectors.
+"""
+function cart_to_sphr_vec(
+    orientation::SphericalOrientation,
+    vec::AbstractVector,
+    aux::Vars,
+)
+    FT = eltype(aux)
+    lat = latitude(orientation, aux)
+    lon = longitude(orientation, aux)
+
+    slat, clat = sin(lat), cos(lat)
+    slon, clon = sin(lon), cos(lon)
+
+    u = MVector{3, FT}(
+        -slon * vec[1] + clon * vec[2],
+        -slat * clon * vec[1] - slat * slon * vec[2] + clat * vec[3],
+        clat * clon * vec[1] + clat * slon * vec[2] + slat * vec[3],
+    )
+
+    return u
+end
 
 #####
 ##### FlatOrientation

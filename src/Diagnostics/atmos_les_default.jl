@@ -6,6 +6,43 @@ using ..Thermodynamics
 using ..TurbulenceClosures
 using LinearAlgebra
 
+"""
+    setup_atmos_default_diagnostics(
+        ::AtmosLESConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
+diagnostics for LES configurations. All the diagnostics in the group will
+run at the specified `interval`, be interpolated to the specified boundaries
+and resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
+"""
+function setup_atmos_default_diagnostics(
+    ::AtmosLESConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosLESDefault",
+        Diagnostics.atmos_les_default_init,
+        Diagnostics.atmos_les_default_fini,
+        Diagnostics.atmos_les_default_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 # Simple horizontal averages
 function vars_atmos_les_default_simple(m::AtmosModel, FT)
     @vars begin
@@ -265,12 +302,13 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         )
         append!(varnames, ho_varnames)
         for varname in varnames
-            vars[varname] = (("z",), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (("z",), FT, var.attrib)
         end
-        vars["cld_frac"] = (("z",), FT, Dict())
-        vars["cld_top"] = ((), FT, Dict())
-        vars["cld_base"] = ((), FT, Dict())
-        vars["cld_cover"] = ((), FT, Dict())
+        vars["cld_frac"] = (("z",), FT, Variables["cld_frac"].attrib)
+        vars["cld_top"] = ((), FT, Variables["cld_top"].attrib)
+        vars["cld_base"] = ((), FT, Variables["cld_base"].attrib)
+        vars["cld_cover"] = ((), FT, Variables["cld_cover"].attrib)
 
         # create the output file
         dprefix = @sprintf(
@@ -344,9 +382,9 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
-        state = extract_state_conservative(dg, state_data, ijk, e)
-        gradflux = extract_state_gradient_flux(dg, gradflux_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        gradflux = extract_state(dg, gradflux_data, ijk, e, GradientFlux())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
         MH = vgeo[ijk, grid.MHid, e]
 
         thermo = thermo_vars(bl, thermo_array[ijk, e])
@@ -438,7 +476,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     @visitQ nhorzelem nvertelem Nqk Nq begin
         evk = Nqk * (ev - 1) + k
 
-        state = extract_state_conservative(dg, state_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
         thermo = thermo_vars(bl, thermo_array[ijk, e])
         MH = vgeo[ijk, grid.MHid, e]
 

@@ -35,7 +35,7 @@ Output takes the form of various [groups of diagnostic variables](@ref
 Diagnostics-groups) that are written to NetCDF files at user-specified
 intervals by the `ClimateMachine` when configured to do so by a driver.
 
-The `ClimateMachine` can also output conservative and auxiliary state variables
+The `ClimateMachine` can also output prognostic and auxiliary state variables
 to VTK files at specified intervals.
 
 Whether or not output is generated, and if so, at what interval, is a
@@ -129,6 +129,8 @@ ClimateMachine:
   --log-level <level>   set the log level to one of
                         debug/info/warn/error (default: "info")
   --output-dir <path>   directory for output data (default: "output")
+  --debug-init          fill state arrays with NaNs and dump them
+                        post-initialization"
   --integration-testing
                         enable integration testing
 
