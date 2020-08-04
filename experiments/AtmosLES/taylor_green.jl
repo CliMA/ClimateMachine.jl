@@ -29,11 +29,8 @@ const param_set = EarthParameterSet()
 import ClimateMachine.BalanceLaws:
     vars_state,
     indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    integral_set_auxiliary_state!
 
 import ClimateMachine.BalanceLaws: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!

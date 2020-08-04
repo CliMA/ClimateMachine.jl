@@ -34,10 +34,8 @@ import ...BalanceLaws:
     update_auxiliary_state_gradient!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    indefinite_stack_integral!
+
 import ..Ocean: ocean_init_state!, ocean_init_aux!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
@@ -339,6 +337,7 @@ A -> array of aux variables
     I::Vars,
     Q::Vars,
     A::Vars,
+    ::UpwardIntegrals,
 )
     I.∇ʰu = A.w # borrow the w value from A...
     I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
@@ -357,7 +356,12 @@ m -> model in this case HBModel
 A -> array of aux variables
 I -> array of integrand variables
 """
-@inline function integral_set_auxiliary_state!(m::HBModel, A::Vars, I::Vars)
+@inline function integral_set_auxiliary_state!(
+    m::HBModel,
+    A::Vars,
+    I::Vars,
+    ::UpwardIntegrals,
+)
     A.w = I.∇ʰu
     A.pkin = I.αᵀθ
 
@@ -365,7 +369,7 @@ I -> array of integrand variables
 end
 
 """
-    vars_reverse_integral(::HBModel)
+    vars_state(m::HBModel, ::DownwardIntegrals, T)
 
 location to store integrands for top down integrals
 αᵀθ = density perturbation
@@ -377,9 +381,9 @@ function vars_state(m::HBModel, ::DownwardIntegrals, T)
 end
 
 """
-    reverse_integral_load_auxiliary_state!(::HBModel)
+    integral_load_auxiliary_state!(::HBModel, ..., ::DownwardIntegrals)
 
-copy αᵀθ to var_reverse_integral
+copy αᵀθ to vars_state(bl, ::DownwardIntegrals)
 this computation is done pointwise at each nodal point
 
 arguments:
@@ -387,11 +391,12 @@ m -> model in this case HBModel
 I -> array of integrand variables
 A -> array of aux variables
 """
-@inline function reverse_integral_load_auxiliary_state!(
+@inline function integral_load_auxiliary_state!(
     m::HBModel,
     I::Vars,
     Q::Vars,
     A::Vars,
+    ::DownwardIntegrals,
 )
     I.αᵀθ = A.pkin
 
@@ -399,7 +404,7 @@ A -> array of aux variables
 end
 
 """
-    reverse_integral_set_auxiliary_state!(::HBModel)
+    integral_set_auxiliary_state!(::HBModel, ..., ::DownwardIntegrals)
 
 copy reverse integral results back out to aux
 this computation is done pointwise at each nodal point
@@ -409,10 +414,11 @@ m -> model in this case HBModel
 A -> array of aux variables
 I -> array of integrand variables
 """
-@inline function reverse_integral_set_auxiliary_state!(
+@inline function integral_set_auxiliary_state!(
     m::HBModel,
     A::Vars,
     I::Vars,
+    ::DownwardIntegrals,
 )
     A.pkin = I.αᵀθ
 
@@ -666,8 +672,8 @@ function update_auxiliary_state_gradient!(
     nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
 
     # compute integrals for w and pkin
-    indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
-    reverse_indefinite_stack_integral!(dg, m, Q, A, t, elems) # top -> bottom
+    indefinite_stack_integral!(dg, m, Q, A, t, UpwardIntegrals(), elems) # bottom -> top
+    indefinite_stack_integral!(dg, m, Q, A, t, DownwardIntegrals(), elems) # top -> bottom
 
     # We are unable to use vars (ie A.w) for this because this operation will
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)

@@ -21,21 +21,18 @@ using ClimateMachine.BalanceLaws:
 
 import ClimateMachine.BalanceLaws:
     vars_state,
-    integral_load_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
     source!,
     wavespeed,
     update_auxiliary_state!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
     boundary_state!,
     compute_gradient_argument!,
     init_state_auxiliary!,
     init_state_prognostic!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    indefinite_stack_integral!,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -52,8 +49,24 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
-    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
-    reverse_indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+    indefinite_stack_integral!(
+        dg,
+        m,
+        Q,
+        dg.state_auxiliary,
+        t,
+        UpwardIntegrals(),
+        elems,
+    )
+    indefinite_stack_integral!(
+        dg,
+        m,
+        Q,
+        dg.state_auxiliary,
+        t,
+        DownwardIntegrals(),
+        elems,
+    )
 
     return true
 end
@@ -98,6 +111,7 @@ end
     integrand::Vars,
     state::Vars,
     aux::Vars,
+    ::UpwardIntegrals,
 )
     integrand.v = -2 * aux.r * aux.a * exp(-aux.a * aux.r^2)
 end
@@ -106,23 +120,26 @@ end
     m::IntegralTestSphereModel,
     aux::Vars,
     integral::Vars,
+    ::UpwardIntegrals,
 )
     aux.int.v = integral.v
 end
 
-@inline function reverse_integral_load_auxiliary_state!(
+@inline function integral_load_auxiliary_state!(
     m::IntegralTestSphereModel,
     integral::Vars,
     state::Vars,
     aux::Vars,
+    ::DownwardIntegrals,
 )
     integral.v = aux.int.v
 end
 
-@inline function reverse_integral_set_auxiliary_state!(
+@inline function integral_set_auxiliary_state!(
     m::IntegralTestSphereModel,
     aux::Vars,
     integral::Vars,
+    ::DownwardIntegrals,
 )
     aux.rev_int.v = integral.v
 end

@@ -15,9 +15,7 @@ import ..BalanceLaws:
     boundary_state!,
     update_auxiliary_state!,
     integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    integral_set_auxiliary_state!
 
 """
     RemBL(
@@ -171,12 +169,6 @@ integral_load_auxiliary_state!(rem_balance_law::RemBL, args...) =
 
 integral_set_auxiliary_state!(rem_balance_law::RemBL, args...) =
     integral_set_auxiliary_state!(rem_balance_law.main, args...)
-
-reverse_integral_load_auxiliary_state!(rem_balance_law::RemBL, args...) =
-    reverse_integral_load_auxiliary_state!(rem_balance_law.main, args...)
-
-reverse_integral_set_auxiliary_state!(rem_balance_law::RemBL, args...) =
-    reverse_integral_set_auxiliary_state!(rem_balance_law.main, args...)
 
 transform_post_gradient_laplacian!(rem_balance_law::RemBL, args...) =
     transform_post_gradient_laplacian!(rem_balance_law.main, args...)

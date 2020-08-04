@@ -29,10 +29,7 @@ export BalanceLaw,
     nodal_update_auxiliary_state!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    indefinite_stack_integral!
 
 include("state_types.jl")
 include("interface.jl")

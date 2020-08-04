@@ -104,19 +104,13 @@ integral_load_auxiliary_state!(
     integ::Vars,
     state::Vars,
     aux::Vars,
+    ::IntegralType,
 ) = nothing
-integral_set_auxiliary_state!(lm::AtmosLinearModel, aux::Vars, integ::Vars) =
-    nothing
-reverse_integral_load_auxiliary_state!(
-    lm::AtmosLinearModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) = nothing
-reverse_integral_set_auxiliary_state!(
+integral_set_auxiliary_state!(
     lm::AtmosLinearModel,
     aux::Vars,
     integ::Vars,
+    ::IntegralType,
 ) = nothing
 flux_second_order!(
     lm::AtmosLinearModel,

@@ -243,28 +243,6 @@ Compute indefinite integral along stack.
 """
 function indefinite_stack_integral! end
 
-"""
-    reverse_integral_load_auxiliary_state!
-
-Specify auxiliary variables need their integrals reversed.
-"""
-function reverse_integral_load_auxiliary_state! end
-
-"""
-    reverse_integral_set_auxiliary_state!
-
-Specify which auxiliary variables are used to store the output of the
-reversed integrals.
-"""
-function reverse_integral_set_auxiliary_state! end
-
-"""
-    reverse_indefinite_stack_integral!
-
-Compute reverse indefinite integral along stack.
-"""
-function reverse_indefinite_stack_integral! end
-
 # Internal methods
 number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))

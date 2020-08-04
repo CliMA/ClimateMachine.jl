@@ -1791,6 +1791,7 @@ See [`BalanceLaw`](@ref) for usage.
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(
                         local_state_auxiliary,
                     ),
+                    UpwardIntegrals()
                 )
 
                 # multiply in the curve jacobian
@@ -1827,6 +1828,7 @@ See [`BalanceLaw`](@ref) for usage.
                         :,
                         k,
                     )),
+                    UpwardIntegrals()
                 )
                 @unroll for ind_out in 1:nout
                     local_integral[ind_out, k] = local_integral[ind_out, Nq]
@@ -1867,7 +1869,7 @@ end
         # Initialize the constant state at zero
         ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
         et = nvertelem + (eh - 1) * nvertelem
-        reverse_integral_load_auxiliary_state!(
+        integral_load_auxiliary_state!(
             balance_law,
             Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
             Vars{vars_state(balance_law, Prognostic(), FT)}(view(
@@ -1882,6 +1884,7 @@ end
                 :,
                 et,
             )),
+            DownwardIntegrals()
         )
 
         # Loop up the stack of elements
@@ -1889,7 +1892,7 @@ end
             e = ev + (eh - 1) * nvertelem
             @unroll for k in 1:Nq
                 ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
-                reverse_integral_load_auxiliary_state!(
+                integral_load_auxiliary_state!(
                     balance_law,
                     Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
                     Vars{vars_state(balance_law, Prognostic(), FT)}(view(
@@ -1904,9 +1907,10 @@ end
                         :,
                         e,
                     )),
+                    DownwardIntegrals()
                 )
                 l_V .= l_T .- l_V
-                reverse_integral_set_auxiliary_state!(
+                integral_set_auxiliary_state!(
                     balance_law,
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
                         state_auxiliary,
@@ -1915,6 +1919,7 @@ end
                         e,
                     )),
                     Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
+                    DownwardIntegrals(),
                 )
             end
         end

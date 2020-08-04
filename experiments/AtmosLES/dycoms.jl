@@ -32,11 +32,8 @@ const param_set = EarthParameterSet()
 import ClimateMachine.BalanceLaws:
     vars_state,
     indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    integral_set_auxiliary_state!
 
 import ClimateMachine.BalanceLaws: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!
@@ -57,18 +54,13 @@ function integral_load_auxiliary_state!(
     integ::Vars,
     state::Vars,
     aux::Vars,
+    ::IntegralType,
 ) end
-function integral_set_auxiliary_state!(::RadiationModel, aux::Vars, integ::Vars) end
-function reverse_integral_load_auxiliary_state!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function reverse_integral_set_auxiliary_state!(
+function integral_set_auxiliary_state!(
     ::RadiationModel,
     aux::Vars,
     integ::Vars,
+    ::IntegralType,
 ) end
 function flux_radiation!(
     ::RadiationModel,
@@ -113,6 +105,7 @@ function integral_load_auxiliary_state!(
     integrand::Vars,
     state::Vars,
     aux::Vars,
+    ::UpwardIntegrals,
 )
     FT = eltype(state)
     integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
@@ -121,6 +114,7 @@ function integral_set_auxiliary_state!(
     m::DYCOMSRadiation,
     aux::Vars,
     integral::Vars,
+    ::UpwardIntegrals,
 )
     integral = integral.radiation.attenuation_coeff
     aux.∫dz.radiation.attenuation_coeff = integral
@@ -128,19 +122,21 @@ end
 
 vars_state(m::DYCOMSRadiation, ::DownwardIntegrals, FT) =
     @vars(attenuation_coeff::FT)
-function reverse_integral_load_auxiliary_state!(
+function integral_load_auxiliary_state!(
     m::DYCOMSRadiation,
     integrand::Vars,
     state::Vars,
     aux::Vars,
+    ::DownwardIntegrals,
 )
     FT = eltype(state)
     integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
 end
-function reverse_integral_set_auxiliary_state!(
+function integral_set_auxiliary_state!(
     m::DYCOMSRadiation,
     aux::Vars,
     integral::Vars,
+    ::DownwardIntegrals,
 )
     aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
 end

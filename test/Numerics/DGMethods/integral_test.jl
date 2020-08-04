@@ -24,11 +24,8 @@ import ClimateMachine.BalanceLaws:
     init_state_prognostic!,
     update_auxiliary_state!,
     indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    integral_set_auxiliary_state!
 
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
@@ -91,8 +88,24 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
-    indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
-    reverse_indefinite_stack_integral!(dg, m, Q, dg.state_auxiliary, t, elems)
+    indefinite_stack_integral!(
+        dg,
+        m,
+        Q,
+        dg.state_auxiliary,
+        t,
+        UpwardIntegrals(),
+        elems,
+    )
+    indefinite_stack_integral!(
+        dg,
+        m,
+        Q,
+        dg.state_auxiliary,
+        t,
+        DownwardIntegrals(),
+        elems,
+    )
 
     return true
 end
@@ -102,6 +115,7 @@ end
     integrand::Vars,
     state::Vars,
     aux::Vars,
+    ::UpwardIntegrals,
 )
     x, y, z = aux.coord
     integrand.a = x + z
@@ -112,25 +126,28 @@ end
     m::IntegralTestModel,
     aux::Vars,
     integral::Vars,
+    ::UpwardIntegrals,
 )
     aux.int.a = integral.a
     aux.int.b = integral.b
 end
 
-@inline function reverse_integral_load_auxiliary_state!(
+@inline function integral_load_auxiliary_state!(
     m::IntegralTestModel,
     integral::Vars,
     state::Vars,
     aux::Vars,
+    ::DownwardIntegrals,
 )
     integral.a = aux.int.a
     integral.b = aux.int.b
 end
 
-@inline function reverse_integral_set_auxiliary_state!(
+@inline function integral_set_auxiliary_state!(
     m::IntegralTestModel,
     aux::Vars,
     integral::Vars,
+    ::DownwardIntegrals,
 )
     aux.rev_int.a = integral.a
     aux.rev_int.b = integral.b

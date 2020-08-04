@@ -71,7 +71,7 @@ function update_auxiliary_state!(
     nodal_update_auxiliary_state!(f!, dg, tm, x, t)
 
     # compute integral for Gᵁ
-    indefinite_stack_integral!(dg, tm, x, A, t) # bottom -> top
+    indefinite_stack_integral!(dg, tm, x, A, t, UpwardIntegrals()) # bottom -> top
 
     return true
 end

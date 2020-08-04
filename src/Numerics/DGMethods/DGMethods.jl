@@ -41,10 +41,7 @@ import ..BalanceLaws:
     nodal_update_auxiliary_state!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    indefinite_stack_integral!
 
 export DGModel,
     init_ode_state, restart_ode_state, restart_auxiliary_state, basic_grid_info

@@ -58,11 +58,8 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_update_auxiliary_state!,
     indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    integral_set_auxiliary_state!
 
 
 export TurbulenceClosureModel,

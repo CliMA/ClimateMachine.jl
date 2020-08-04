@@ -696,6 +696,7 @@ function indefinite_stack_integral!(
     state_prognostic::MPIStateArray,
     state_auxiliary::MPIStateArray,
     t::Real,
+    ::UpwardIntegrals,
     elems::UnitRange = dg.grid.topology.elems,
 )
 
@@ -733,12 +734,13 @@ function indefinite_stack_integral!(
     wait(device, event)
 end
 
-function reverse_indefinite_stack_integral!(
+function indefinite_stack_integral!(
     dg::DGModel,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     state_auxiliary::MPIStateArray,
     t::Real,
+    ::DownwardIntegrals,
     elems::UnitRange = dg.grid.topology.elems,
 )
 
