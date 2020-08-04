@@ -1,6 +1,11 @@
 #### Create states
 
-function create_state(balance_law, grid, st::AbstractStateType)
+function create_state(
+    balance_law,
+    grid,
+    st::AbstractStateType;
+    fill_nan = false,
+)
     topology = grid.topology
     Np = dofs_per_element(grid)
 
@@ -12,7 +17,7 @@ function create_state(balance_law, grid, st::AbstractStateType)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
     # TODO: Clean up this MPIStateArray interface...
-    ns = number_states(balance_law, st, FT)
+    ns = number_states(balance_law, st)
     st isa GradientLaplacian && (ns = 3ns)
     V = vars_state(balance_law, st, FT)
     state = MPIStateArray{FT, V}(
@@ -30,6 +35,7 @@ function create_state(balance_law, grid, st::AbstractStateType)
         nabrtovmapsend = grid.nabrtovmapsend,
         weights = weights,
     )
+    fill_nan && fill!(state, NaN)
     return state
 end
 

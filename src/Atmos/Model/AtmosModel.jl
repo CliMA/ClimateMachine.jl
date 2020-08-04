@@ -27,7 +27,7 @@ using ..TurbulenceClosures
 import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
-import ..Thermodynamics: internal_energy
+import ..Thermodynamics: internal_energy, total_specific_enthalpy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,
@@ -551,7 +551,7 @@ end
     ss = soundspeed(m, m.moisture, state, aux)
 
     FT = typeof(state.ρ)
-    ws = fill(uN + ss, MVector{number_states(m, Prognostic(), FT), FT})
+    ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)
 
     wavespeed_tracers!(m.tracers, vars_ws, nM, state, aux, t)
@@ -570,7 +570,7 @@ function update_auxiliary_state!(
     FT = eltype(Q)
     state_auxiliary = dg.state_auxiliary
 
-    if number_states(m, UpwardIntegrals(), FT) > 0
+    if number_states(m, UpwardIntegrals()) > 0
         indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
         reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
     end

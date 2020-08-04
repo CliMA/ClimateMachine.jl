@@ -12,6 +12,8 @@ const fast_mrrk_methods = (
 const explicit_methods = (
     (LSRK54CarpenterKennedy, 4),
     (LSRK144NiegemannDiehlBusch, 4),
+    (LS3NRK44Classic, 4),
+    (LS3NRK33Heuns, 3),
     (SSPRK22Heuns, 2),
     (SSPRK22Ralstons, 2),
     (SSPRK33ShuOsher, 3),

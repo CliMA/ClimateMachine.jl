@@ -26,6 +26,43 @@ using ..Atmos
 using ..Atmos: thermo_state
 using ..TurbulenceClosures: turbulence_tensors
 
+"""
+    setup_atmos_default_diagnostics(
+        ::AtmosGCMConfigType,
+        interval::String,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
+diagnostics for GCM configurations. All the diagnostics in the group will run
+at the specified `interval`, be interpolated to the specified boundaries and
+resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
+"""
+function setup_atmos_default_diagnostics(
+    ::AtmosGCMConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosGCMDefault",
+        Diagnostics.atmos_gcm_default_init,
+        Diagnostics.atmos_gcm_default_fini,
+        Diagnostics.atmos_gcm_default_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 include("diagnostic_fields.jl")
 
 # 3D variables
@@ -112,7 +149,7 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.moisture.ql = thermo.moisture.q_liq
     vars.moisture.qv = thermo.moisture.q_vap
     vars.moisture.qi = thermo.moisture.q_ice
-    vars.moisture.thv = thermo.moisutre.θ_vir
+    vars.moisture.thv = thermo.moisture.θ_vir
     vars.moisture.thl = thermo.moisture.θ_liq_ice
 
     return nothing
@@ -244,11 +281,8 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # Interpolate the state, thermo and dyn vars to sphere (u and vorticity
     # need projection to zonal, merid). All this may happen on the GPU.
-    istate = ArrayType{FT}(
-        undef,
-        interpol.Npl,
-        number_states(atmos, Prognostic(), FT),
-    )
+    istate =
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))

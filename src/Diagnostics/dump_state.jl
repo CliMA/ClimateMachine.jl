@@ -1,3 +1,39 @@
+"""
+    setup_dump_state_diagnostics(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing a diagnostic that
+simply dumps the conservative state variables at the specified
+`interval` after being interpolated, into NetCDF files prefixed by
+`out_prefix`.
+"""
+function setup_dump_state_diagnostics(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "DumpState",
+        Diagnostics.dump_state_init,
+        Diagnostics.dump_state_fini,
+        Diagnostics.dump_state_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 dump_state_init(dgngrp, currtime) = dump_init(dgngrp, currtime, Prognostic())
 
 function dump_state_collect(dgngrp, currtime)
@@ -9,7 +45,7 @@ function dump_state_collect(dgngrp, currtime)
     bl = dg.balance_law
     mpirank = MPI.Comm_rank(mpicomm)
 
-    istate = similar(Q.data, interpol.Npl, number_states(bl, Prognostic(), FT))
+    istate = similar(Q.data, interpol.Npl, number_states(bl, Prognostic()))
     interpolate_local!(interpol, Q.data, istate)
 
     if interpol isa InterpolationCubedSphere

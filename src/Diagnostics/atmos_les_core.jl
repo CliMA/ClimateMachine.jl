@@ -5,6 +5,43 @@ using ..Mesh.Grids
 using ..Thermodynamics
 using LinearAlgebra
 
+"""
+    setup_atmos_core_diagnostics(
+        ::AtmosLESConfigType,
+        interval::String,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the "AtmosLESCore"
+diagnostics for LES configurations. All the diagnostics in the group
+will run at the specified `interval`, be interpolated to the specified
+boundaries and resolution, and will be written to files prefixed by
+`out_prefix` using `writer`.
+"""
+function setup_atmos_core_diagnostics(
+    ::AtmosLESConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosLESCore",
+        Diagnostics.atmos_les_core_init,
+        Diagnostics.atmos_les_core_fini,
+        Diagnostics.atmos_les_core_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 # Simple horizontal averages
 function vars_atmos_les_core_simple(m::AtmosModel, FT)
     @vars begin
@@ -129,7 +166,8 @@ function atmos_les_core_init(dgngrp::DiagnosticsGroup, currtime)
         )
         append!(varnames, ho_varnames)
         for varname in varnames
-            vars[varname] = (("z",), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (("z",), FT, var.attrib)
         end
 
         # create the output file

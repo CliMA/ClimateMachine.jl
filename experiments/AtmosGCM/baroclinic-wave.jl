@@ -172,7 +172,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         moisture = DryModel(),
         #moisture = EquilMoist{FT}(),
         source = (Gravity(), Coriolis()),
-        init_state_conservative = init_baroclinic_wave!,
+        init_state_prognostic = init_baroclinic_wave!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -194,7 +194,7 @@ function main()
     poly_order = 3                          # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 20
+    n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 

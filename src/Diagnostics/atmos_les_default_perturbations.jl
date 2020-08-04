@@ -8,6 +8,42 @@ using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
 
+"""
+    setup_atmos_default_perturbations(
+        ::AtmosLESConfigType,
+        interval::String,
+        out_prefix::String;
+        writer::AbstractWriter,
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the
+"AtmosLESDefaultPerturbations" diagnostics for the LES configuration.
+All the diagnostics in the group will run at the specified `interval`,
+and written to files prefixed by `out_prefix` using `writer`.
+"""
+function setup_atmos_default_perturbations(
+    ::AtmosLESConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosLESDefaultPerturbations",
+        Diagnostics.atmos_les_default_perturbations_init,
+        Diagnostics.atmos_les_default_perturbations_fini,
+        Diagnostics.atmos_les_default_perturbations_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 # Compute sums for density-averaged horizontal averages
 #
 # These are trimmed down versions of `atmos_les_default_simple_sums!()`:
@@ -182,7 +218,8 @@ function atmos_les_default_perturbations_init(
             flattenednames(vars_atmos_les_default_perturbations(atmos, FT)),
         )
         for varname in varnames
-            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
         end
 
         # create the output file

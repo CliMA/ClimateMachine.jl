@@ -18,7 +18,7 @@ Runge-Kutta implementation. This solver computes solutions to ODEs with
 the partitioned form:
 
 ```math
-    \\dot{Q} = f_fast(Q, t) + f_slow(Q, t)
+    \\dot{Q} = f_{fast}(Q, t) + f_{slow}(Q, t)
 ```
 
 where the right-hand-side functions `f_fast` and `f_slow` denote

@@ -269,13 +269,13 @@ function banded_matrix(
     FT = eltype(Q.data)
     device = array_device(Q)
 
-    nstate = number_states(bl, Prognostic(), FT)
+    nstate = number_states(bl, Prognostic())
     N = polynomialorder(grid)
     Nq = N + 1
 
     # p is lower bandwidth
     # q is upper bandwidth
-    eband = number_states(bl, GradientFlux(), FT) == 0 ? 1 : 2
+    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
     p = q = nstate * Nq * eband - 1
 
     nrealelem = length(topology.realelems)

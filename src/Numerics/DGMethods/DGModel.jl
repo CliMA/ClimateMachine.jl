@@ -21,7 +21,13 @@ function DGModel(
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
-    state_auxiliary = create_state(balance_law, grid, Auxiliary()),
+    fill_nan = false,
+    state_auxiliary = create_state(
+        balance_law,
+        grid,
+        Auxiliary(),
+        fill_nan = fill_nan,
+    ),
     state_gradient_flux = create_state(balance_law, grid, GradientFlux()),
     states_higher_order = (
         create_state(balance_law, grid, GradientLaplacian()),
@@ -100,7 +106,6 @@ end
 
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
-
     balance_law = dg.balance_law
     device = array_device(state_prognostic)
 
@@ -119,9 +124,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     state_auxiliary = dg.state_auxiliary
 
     FT = eltype(state_prognostic)
-    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
-    num_state_gradient_flux = number_states(balance_law, GradientFlux(), FT)
-    nhyperviscstate = number_states(balance_law, Hyperdiffusive(), FT)
+    num_state_prognostic = number_states(balance_law, Prognostic())
+    num_state_gradient_flux = number_states(balance_law, GradientFlux())
+    nhyperviscstate = number_states(balance_law, Hyperdiffusive())
     num_state_tendency = size(tendency, 2)
 
     @assert num_state_prognostic ≤ num_state_tendency
@@ -577,13 +582,19 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     wait(device, comp_stream)
 end
 
-function init_ode_state(dg::DGModel, args...; init_on_cpu = false)
+function init_ode_state(
+    dg::DGModel,
+    args...;
+    init_on_cpu = false,
+    fill_nan = false,
+)
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_prognostic = create_state(balance_law, grid, Prognostic())
+    state_prognostic =
+        create_state(balance_law, grid, Prognostic(), fill_nan = fill_nan)
 
     topology = grid.topology
     Np = dofs_per_element(grid)

@@ -44,7 +44,7 @@ function general_dostep!(
     timeend::Real;
     adjustfinalstep::Bool,
 )
-    time, dt = solver.t, solver.dt
+    time, dt = gettime(solver), getdt(solver)
     final_step = false
     if adjustfinalstep && time + dt > timeend
         orig_dt = dt
@@ -57,10 +57,10 @@ function general_dostep!(
     dostep!(Q, solver, p, time)
 
     if !final_step
-        solver.t += dt
+        updatetime!(solver, time + dt)
     else
         updatedt!(solver, orig_dt)
-        solver.t = timeend
+        updatetime!(solver, timeend)
     end
 end
 
@@ -129,11 +129,15 @@ function solve!(
         end
 
         # Figure out if we should stop
-        if numberofsteps == step
-            return gettime(solver)
+        if step == numberofsteps
+            break
         end
     end
-    gettime(solver)
+
+    # Loop through to fini callbacks
+    GenericCallbacks.fini!(callbacks, solver, Q, param, time)
+
+    return gettime(solver)
 end
 # }}}
 
@@ -141,10 +145,12 @@ include("BackwardEulerSolvers.jl")
 include("MultirateInfinitesimalGARKExplicit.jl")
 include("MultirateInfinitesimalGARKDecoupledImplicit.jl")
 include("LowStorageRungeKuttaMethod.jl")
+include("LowStorageRungeKutta3NMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
 include("SplitExplicitMethod.jl")
+include("DifferentialEquations.jl")
 
 end # module

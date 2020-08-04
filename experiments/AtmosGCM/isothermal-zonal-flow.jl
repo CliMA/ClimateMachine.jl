@@ -94,7 +94,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
-        init_state_conservative = init_isothermal_zonal_flow!,
+        init_state_prognostic = init_isothermal_zonal_flow!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

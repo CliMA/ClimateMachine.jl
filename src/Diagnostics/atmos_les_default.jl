@@ -6,6 +6,43 @@ using ..Thermodynamics
 using ..TurbulenceClosures
 using LinearAlgebra
 
+"""
+    setup_atmos_default_diagnostics(
+        ::AtmosLESConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
+diagnostics for LES configurations. All the diagnostics in the group will
+run at the specified `interval`, be interpolated to the specified boundaries
+and resolution, and will be written to files prefixed by `out_prefix` using
+`writer`.
+"""
+function setup_atmos_default_diagnostics(
+    ::AtmosLESConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosLESDefault",
+        Diagnostics.atmos_les_default_init,
+        Diagnostics.atmos_les_default_fini,
+        Diagnostics.atmos_les_default_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 # Simple horizontal averages
 function vars_atmos_les_default_simple(m::AtmosModel, FT)
     @vars begin
@@ -265,12 +302,13 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         )
         append!(varnames, ho_varnames)
         for varname in varnames
-            vars[varname] = (("z",), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (("z",), FT, var.attrib)
         end
-        vars["cld_frac"] = (("z",), FT, Dict())
-        vars["cld_top"] = ((), FT, Dict())
-        vars["cld_base"] = ((), FT, Dict())
-        vars["cld_cover"] = ((), FT, Dict())
+        vars["cld_frac"] = (("z",), FT, Variables["cld_frac"].attrib)
+        vars["cld_top"] = ((), FT, Variables["cld_top"].attrib)
+        vars["cld_base"] = ((), FT, Variables["cld_base"].attrib)
+        vars["cld_cover"] = ((), FT, Variables["cld_cover"].attrib)
 
         # create the output file
         dprefix = @sprintf(

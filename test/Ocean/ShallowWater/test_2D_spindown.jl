@@ -8,6 +8,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.Ocean.ShallowWater
+using ClimateMachine.Ocean.OceanProblems
 
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -22,55 +23,10 @@ using LinearAlgebra
 using StaticArrays
 using Logging, Printf, Dates
 
-import ClimateMachine.Ocean.ShallowWater: shallow_init_state!, shallow_init_aux!
-
 using CLIMAParameters
 using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-
-struct SimpleBox{T} <: ShallowWaterProblem
-    Lˣ::T
-    Lʸ::T
-    H::T
-end
-
-function shallow_init_state!(
-    m::ShallowWaterModel,
-    p::SimpleBox,
-    Q,
-    A,
-    coords,
-    t,
-)
-    @inbounds x = coords[1]
-
-    Lˣ = p.Lˣ
-    H = p.H
-
-    kˣ = 2π / Lˣ
-    νʰ = m.turbulence.ν
-
-    M = @SMatrix [-νʰ * kˣ^2 grav(m.param_set) * H * kˣ; -kˣ 0]
-    A = exp(M * t) * @SVector [1, 1]
-
-    U = A[1] * sin(kˣ * x)
-
-    Q.U = @SVector [U, -0]
-    Q.η = A[2] * cos(kˣ * x)
-
-    return nothing
-end
-
-function shallow_init_aux!(p::SimpleBox, A, geom)
-    @inbounds y = geom.coord[2]
-
-    FT = eltype(A)
-    A.τ = @SVector zeros(FT, 2)
-    A.f = -0
-
-    return nothing
-end
 
 function run_hydrostatic_spindown(; refDat = ())
     mpicomm = MPI.COMM_WORLD
@@ -97,14 +53,16 @@ function run_hydrostatic_spindown(; refDat = ())
         polynomialorder = N,
     )
 
-    prob_2D = SimpleBox{FT}(Lˣ, Lʸ, H)
+    problem = SimpleBox{FT}(Lˣ, Lʸ, H)
 
-    model_2D = ShallowWaterModel(
+    model_2D = ShallowWaterModel{FT}(
         param_set,
-        prob_2D,
+        problem,
         ShallowWater.ConstantViscosity{FT}(5e3),
-        nothing,
-        FT(1),
+        nothing;
+        c = FT(1),
+        fₒ = FT(0),
+        β = FT(0),
     )
 
     dt_fast = 300
@@ -114,7 +72,7 @@ function run_hydrostatic_spindown(; refDat = ())
     dg_2D = DGModel(
         model_2D,
         grid_2D,
-        RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
@@ -202,7 +160,7 @@ function make_callbacks(
         if s
             starttime[] = now()
         else
-            energy = norm(Q_slow)
+            energy = norm(Q_fast)
             @info @sprintf(
                 """Update
                 simtime = %8.2f / %8.2f
@@ -236,8 +194,8 @@ end
 FT = Float64
 vtkpath = "vtk_shallow_spindown"
 
-const timeend = 24 * 3600 # s
-const tout = 2 * 3600 # s
+const timeend = FT(24 * 3600) # s
+const tout = FT(2 * 3600) # s
 # const timeend = 1200 # s
 # const tout = 600 # s
 

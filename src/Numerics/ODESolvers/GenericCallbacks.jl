@@ -4,48 +4,57 @@
 This module defines interfaces and wrappers for callbacks to be used with an
 `AbstractODESolver`.
 
-A callback `cb` defines two methods:
+A callback `cb` defines three methods:
 
-- `GenericCallbacks.init!(cb, solver, Q, param, t0)`, to be called at solver
+- `GenericCallbacks.init!(cb, solver, Q, param, t)`, to be called at solver
   initialization.
 
-- `GenericCallbacks.call!(cb, solver, Q, param, t)`, to be called after each time step:
-  the return value dictates what action should be taken:
+- `GenericCallbacks.call!(cb, solver, Q, param, t)`, to be called after each
+  time step: the return value dictates what action should be taken:
 
    * `0` or `nothing`: continue time stepping as usual
    * `1`: stop time stepping after all callbacks have been executed
    * `2`: stop time stepping immediately
 
-Additionally, "wrapper" callbacks can be used to execute the callbacks under certain
-conditions:
+- `GenericCallbacks.fini!(cb, solver, Q, param, t)`, to be called at solver
+  finish.
 
- - [`AtStart`](@ref)
+Additionally, _wrapper_ callbacks can be used to execute the callbacks under
+certain conditions:
+
+ - [`AtInit`](@ref)
+ - [`AtInitAndFini`](@ref)
  - [`EveryXWallTimeSeconds`](@ref)
  - [`EveryXSimulationTime`](@ref)
  - [`EveryXSimulationSteps`](@ref)
 
 For convenience, the following objects can also be used as callbacks:
 
- - a `Function` object `f`, `init!` is a no-op, and `call!` will call `f()`, and ignore the return value.
- - a `Tuple` object will call `init!` and `call!` on each element of the tuple.
-
+- A `Function` object `f`, `init!` and `fini!` are no-ops, and `call!` will
+  call `f()`, and ignore the return value.
+- A `Tuple` object will call `init!`, `call!` and `fini!` on each element
+  of the tuple.
 """
 module GenericCallbacks
 
-export AtStart,
-    EveryXWallTimeSeconds, EveryXSimulationTime, EveryXSimulationSteps
+export AtInit,
+    AtInitAndFini,
+    EveryXWallTimeSeconds,
+    EveryXSimulationTime,
+    EveryXSimulationSteps
 
 using MPI
 
-init!(f::Function, solver, Q, param, t0) = nothing
-function call!(f::Function, solver, Q, param, t0)
+init!(f::Function, solver, Q, param, t) = nothing
+function call!(f::Function, solver, Q, param, t)
     f()
     return nothing
 end
+fini!(f::Function, solver, Q, param, t) = nothing
 
-function init!(callbacks::Tuple, solver, Q, param, t0)
+function init!(callbacks::Tuple, solver, Q, param, t)
     for cb in callbacks
-        GenericCallbacks.init!(cb, solver, Q, param, t0)
+        GenericCallbacks.init!(cb, solver, Q, param, t)
     end
 end
 function call!(callbacks::Tuple, solver, Q, param, t)
@@ -60,24 +69,53 @@ function call!(callbacks::Tuple, solver, Q, param, t)
     end
     return val
 end
+function fini!(callbacks::Tuple, solver, Q, param, t)
+    for cb in callbacks
+        GenericCallbacks.fini!(cb, solver, Q, param, t)
+    end
+end
 
 abstract type AbstractCallback end
 
 """
-    AtStart(callback) <: AbstractCallback
+    AtInit(callback) <: AbstractCallback
 
-A wrapper callback to execute `callback` at initialization, in addition to after each
-timestep.
+A wrapper callback to execute `callback` at initialization as well as
+after each interval.
 """
-struct AtStart <: AbstractCallback
+struct AtInit <: AbstractCallback
     callback
 end
-function init!(cb::AtStart, solver, Q, param, t0)
-    init!(cb.callback, solver, Q, param, t0)
-    call!(cb.callback, solver, Q, param, t0)
-end
-function call!(cb::AtStart, solver, Q, param, t)
+function init!(cb::AtInit, solver, Q, param, t)
+    init!(cb.callback, solver, Q, param, t)
     call!(cb.callback, solver, Q, param, t)
+end
+function call!(cb::AtInit, solver, Q, param, t)
+    call!(cb.callback, solver, Q, param, t)
+end
+function fini!(cb::AtInit, solver, Q, param, t)
+    fini!(cb.callback, solver, Q, param, t)
+end
+
+"""
+    AtInitAndFini(callback) <: AbstractCallback
+
+A wrapper callback to execute `callback` at initialization and at
+finish as well as after each interval.
+"""
+struct AtInitAndFini <: AbstractCallback
+    callback
+end
+function init!(cb::AtInitAndFini, solver, Q, param, t)
+    init!(cb.callback, solver, Q, param, t)
+    call!(cb.callback, solver, Q, param, t)
+end
+function call!(cb::AtInitAndFini, solver, Q, param, t)
+    call!(cb.callback, solver, Q, param, t)
+end
+function fini!(cb::AtInitAndFini, solver, Q, param, t)
+    call!(cb.callback, solver, Q, param, t)
+    fini!(cb.callback, solver, Q, param, t)
 end
 
 """
@@ -101,9 +139,9 @@ mutable struct EveryXWallTimeSeconds <: AbstractCallback
     end
 end
 
-function init!(cb::EveryXWallTimeSeconds, solver, Q, param, t0)
+function init!(cb::EveryXWallTimeSeconds, solver, Q, param, t)
     cb.lastcbtime_ns = time_ns()
-    init!(cb.callback, solver, Q, param, t0)
+    init!(cb.callback, solver, Q, param, t)
 end
 function call!(cb::EveryXWallTimeSeconds, solver, Q, param, t)
     # Check whether we should do a callback
@@ -117,6 +155,9 @@ function call!(cb::EveryXWallTimeSeconds, solver, Q, param, t)
         cb.lastcbtime_ns = currtime_ns
         return call!(cb.callback, solver, Q, param, t)
     end
+end
+function fini!(cb::EveryXWallTimeSeconds, solver, Q, param, t)
+    fini!(cb.callback, solver, Q, param, t)
 end
 
 
@@ -137,9 +178,9 @@ mutable struct EveryXSimulationTime <: AbstractCallback
     end
 end
 
-function init!(cb::EveryXSimulationTime, solver, Q, param, t0)
-    cb.lastcbtime = t0
-    init!(cb.callback, solver, Q, param, t0)
+function init!(cb::EveryXSimulationTime, solver, Q, param, t)
+    cb.lastcbtime = t
+    init!(cb.callback, solver, Q, param, t)
 end
 function call!(cb::EveryXSimulationTime, solver, Q, param, t)
     # Check whether we should do a callback
@@ -150,6 +191,9 @@ function call!(cb::EveryXSimulationTime, solver, Q, param, t)
         cb.lastcbtime = t
         return call!(cb.callback, solver, Q, param, t)
     end
+end
+function fini!(cb::EveryXSimulationTime, solver, Q, param, t)
+    fini!(cb.callback, solver, Q, param, t)
 end
 
 
@@ -170,9 +214,9 @@ mutable struct EveryXSimulationSteps <: AbstractCallback
     end
 end
 
-function init!(cb::EveryXSimulationSteps, solver, Q, param, t0)
+function init!(cb::EveryXSimulationSteps, solver, Q, param, t)
     cb.steps = 0
-    init!(cb.callback, solver, Q, param, t0)
+    init!(cb.callback, solver, Q, param, t)
 end
 function call!(cb::EveryXSimulationSteps, solver, Q, param, t)
     cb.steps += 1
@@ -182,6 +226,9 @@ function call!(cb::EveryXSimulationSteps, solver, Q, param, t)
         cb.steps = 0
         return call!(cb.callback, solver, Q, param, t)
     end
+end
+function fini!(cb::EveryXSimulationSteps, solver, Q, param, t)
+    fini!(cb.callback, solver, Q, param, t)
 end
 
 end

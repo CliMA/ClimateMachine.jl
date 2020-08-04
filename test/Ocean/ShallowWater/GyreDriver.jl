@@ -1,6 +1,33 @@
-include("GyreInABox.jl")
-
+using MPI
 using Test
+using ClimateMachine
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.ODESolvers
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.BalanceLaws
+using ClimateMachine.Ocean.ShallowWater
+using ClimateMachine.Ocean.ShallowWater:
+    TurbulenceClosure,
+    LinearDrag,
+    ConstantViscosity,
+    AdvectionTerm,
+    NonLinearAdvection
+using ClimateMachine.Ocean.OceanProblems
+
+using LinearAlgebra
+using StaticArrays
+using Logging, Printf, Dates
+using ClimateMachine.VTK
+
+using CLIMAParameters
+using CLIMAParameters.Planet: grav
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 if !isempty(ARGS)
     stommel = Bool(parse(Int, ARGS[1]))
@@ -44,7 +71,7 @@ end
 outname = "vtk_new_dt_" * gyre * "_" * advec
 
 function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
-    problem = GyreInABox{FT}(τₒ, fₒ, β, Lˣ, Lʸ, H)
+    problem = HomogeneousBox{FT}(Lˣ, Lʸ, H, τₒ = τₒ)
 
     if stommel
         turbulence = LinearDrag{FT}(λ)
@@ -58,36 +85,15 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
         advection = NonLinearAdvection()
     end
 
-    model = ShallowWaterModel(param_set, problem, turbulence, advection, c)
-end
-
-function shallow_init_state!(
-    m::ShallowWaterModel,
-    p::GyreInABox,
-    state,
-    aux,
-    coords,
-    t,
-)
-    if t == 0
-        null_init_state!(p, m.turbulence, state, aux, coords, 0)
-    else
-        gyre_init_state!(p, m.turbulence, state, aux, coords, t)
-    end
-end
-
-function shallow_init_aux!(p::GyreInABox, aux, geom)
-    @inbounds y = geom.coord[2]
-
-    Lʸ = p.Lʸ
-    τₒ = p.τₒ
-    fₒ = p.fₒ
-    β = p.β
-
-    aux.τ = @SVector [-τₒ * cos(π * y / Lʸ), 0]
-    aux.f = fₒ + β * (y - Lʸ / 2)
-
-    return nothing
+    model = ShallowWaterModel{FT}(
+        param_set,
+        problem,
+        turbulence,
+        advection,
+        c = c,
+        fₒ = fₒ,
+        β = β,
+    )
 end
 
 #########################

@@ -6,6 +6,8 @@ thermodynamic _states_ that Thermodynamics is
 tested with in runtests.jl
 =#
 
+using Random
+
 """
     unpack_fields(_struct, syms...)
 
@@ -54,6 +56,11 @@ struct ProfileSet{AFT, QPT, PT}
     q_ice::AFT      # Ice specific humidity
     q_pt::QPT       # Phase partition
     RH::AFT         # Relative humidity
+    e_pot::AFT      # gravitational potential
+    u::AFT          # velocity (x component)
+    v::AFT          # velocity (y component)
+    w::AFT          # velocity (z component)
+    e_kin::AFT      # kinetic energy
     phase_type::PT  # Phase type (e.g., `PhaseDry`, `PhaseEquil`)
 end
 
@@ -156,6 +163,7 @@ function PhaseDryProfiles(
     T = T_virt
     FT = eltype(T)
     _R_d::FT = R_d(param_set)
+    _grav::FT = grav(param_set)
     ρ = p ./ (_R_d .* T)
 
     # Additional variables
@@ -167,6 +175,13 @@ function PhaseDryProfiles(
     q_liq = getproperty.(q_pt, :liq)
     q_ice = getproperty.(q_pt, :ice)
     RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
+    e_pot = _grav * z
+    Random.seed!(15)
+    u = rand(FT, size(T)) * 50
+    v = rand(FT, size(T)) * 50
+    w = rand(FT, size(T)) * 50
+    e_kin = (u .^ 2 .+ v .^ 2 .+ w .^ 2) / 2
+
 
     return ProfileSet{typeof(T), typeof(q_pt), typeof(phase_type)}(
         z,
@@ -181,6 +196,11 @@ function PhaseDryProfiles(
         q_ice,
         q_pt,
         RH,
+        e_pot,
+        u,
+        v,
+        w,
+        e_kin,
         phase_type,
     )
 end
@@ -210,6 +230,7 @@ function PhaseEquilProfiles(
 
     FT = eltype(T)
     _R_d = FT(R_d(param_set))
+    _grav::FT = grav(param_set)
     # Compute total specific humidity from temperature, pressure
     # and relative saturation, and partition the saturation excess
     # according to temperature.
@@ -226,6 +247,12 @@ function PhaseEquilProfiles(
     e_int = internal_energy.(Ref(param_set), T, q_pt)
     θ_liq_ice = liquid_ice_pottemp.(Ref(param_set), T, ρ, q_pt)
     RH = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
+    e_pot = _grav * z
+    Random.seed!(15)
+    u = rand(FT, size(T)) * 50
+    v = rand(FT, size(T)) * 50
+    w = rand(FT, size(T)) * 50
+    e_kin = (u .^ 2 .+ v .^ 2 .+ w .^ 2) / 2
 
     return ProfileSet{typeof(T), typeof(q_pt), typeof(phase_type)}(
         z,
@@ -240,6 +267,11 @@ function PhaseEquilProfiles(
         q_ice,
         q_pt,
         RH,
+        e_pot,
+        u,
+        v,
+        w,
+        e_kin,
         phase_type,
     )
 end

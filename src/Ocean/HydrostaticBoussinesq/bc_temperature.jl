@@ -1,5 +1,7 @@
 export Insulating, TemperatureFlux
 
+using ..Ocean: surface_flux
+
 abstract type TemperatureBC end
 
 """
