@@ -1,5 +1,5 @@
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -9,6 +9,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
+using ClimateMachine.SystemSolvers: ManyColumnLU, SingleColumnLU
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
@@ -92,8 +93,8 @@ function init_baroclinicwave!(bl, state, aux, (x, y, z), t)
   Lp    = FT(6e5)              ## Perturbation parameter (radius)
   Lp2   = Lp*Lp              
   xc    = FT(2e6)              ## Streamwise center of perturbation
-  yc    = FT(2.5e6)             ## Spanwise center of perturbation
-  gamma_lapse = FT(5/1000)    ## Γ Lapse Rate
+  yc    = FT(2.5e6)            ## Spanwise center of perturbation
+  gamma_lapse = FT(5/1000)     ## Γ Lapse Rate
   Ω     = FT(7.292e-5)         ## Rotation rate [rad/s]
   f0    = 2Ω/sqrt(2)           ## 
   beta0 = f0/_planet_radius    ##  
@@ -159,7 +160,7 @@ end
 function config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
 
     ics = init_baroclinicwave!     # Initial conditions
-    C_smag = FT(0.50)     # Smagorinsky coefficient
+    C_smag = FT(0)     # Smagorinsky coefficient
     
     # Assemble source components
     source = (
@@ -167,21 +168,29 @@ function config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.ExplicitSolverType();
+    #ode_solver_type = ClimateMachine.ExplicitSolverType();
+    # Set up experiment
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = SingleColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = true,
+        discrete_splitting = false,
+    )
 
     # Assemble model components
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        hyperdiffusion = StandardHyperDiffusion{FT}(14400),
+        turbulence = SmagorinskyLilly(C_smag),
+        hyperdiffusion = DryBiharmonic{FT}(0.5*3600),
         moisture = DryModel(),
         source = source,
         boundarycondition = (
             AtmosBC(),
             AtmosBC(),
         ),
-        init_state_conservative = ics,
+        init_state_prognostic= ics,
     )
 
     # Assemble configuration
@@ -200,11 +209,11 @@ function config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
-function config_diagnostics(driver_config, FT)
+function config_diagnostics(driver_config, FT, xmax, ymax, zmax)
     
     boundaries = [
         FT(0.0) FT(0.0) FT(0.0)
-        FT(4e7) FT(6e6) FT(30e3)
+        FT(xmax) FT(ymax) FT(zmax)
     ]
     resolution = (FT(100e3), FT(75e3), FT(1250)) 
     interpol = ClimateMachine.InterpolationConfiguration(
@@ -244,16 +253,16 @@ function main()
     FT = Float64
 
     # DG polynomial order
-    N = 4
+    N = 3
     # Domain resolution and size
-    Δx = FT(2e5) 
+    Δx = FT(40e4) 
     Δy = FT(15e4)
     Δz = FT(1.25e3)
 
     resolution = (Δx, Δy, Δz)
 
     # Prescribe domain parameters
-    xmax = FT(4e7) 
+    xmax = FT(2e7) 
     ymax = FT(6e6)
     zmax = FT(30e3)
 
@@ -263,7 +272,7 @@ function main()
     # For the test we set this to == 30 minutes
     days = FT(86400)
     timeend = FT(15days)
-    CFLmax = FT(1.0)
+    CFLmax = FT(0.05)
 
     driver_config = config_baroclinicwave(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -274,21 +283,11 @@ function main()
         Courant_number = CFLmax,
         ### Diffusion Direction Keyword for Horizontal Dimension
         diffdir=HorizontalDirection(),
-        CFL_direction = VerticalDirection(), 
+        CFL_direction = HorizontalDirection(), 
     )
-    dgn_config = config_diagnostics(driver_config, FT)
+    dgn_config = config_diagnostics(driver_config, FT, xmax, ymax, zmax)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(
-            solver_config.Q,
-            ("moisture.ρq_tot",),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
-        nothing
-    end
-    
-    filterorder = 2*N
+    filterorder = 8
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -298,6 +297,14 @@ function main()
             filter,
             state_auxiliary = solver_config.dg.state_auxiliary,
         )
+        #= 
+        Filters.apply!(Q, 
+                       :,
+                       solver_config.dg.grid, 
+                       CutoffFilter(solver_config.dg.grid, N-1); 
+                       direction=EveryDirection()
+        )
+        =# 
         nothing
     end
 
@@ -313,7 +320,7 @@ function main()
     Σρ₀ = sum(ρ₀ .* M)
     Σρe₀ = sum(ρe₀ .* M)
     cb_check_cons =
-        GenericCallbacks.EveryXSimulationSteps(1000) do (init = false)
+        GenericCallbacks.EveryXSimulationSteps(5000) do (init = false)
             Q = solver_config.Q
             δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
             δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
