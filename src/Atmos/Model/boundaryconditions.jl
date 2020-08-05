@@ -1,6 +1,6 @@
 using CLIMAParameters.Planet: cv_d, T_0
 
-export BoundaryCondition, InitStateBC
+export InitStateBC
 
 export AtmosBC,
     Impenetrable,
@@ -36,7 +36,7 @@ Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
 end
 
 function boundary_state!(nf, atmos::AtmosModel, args...)
-    atmos_boundary_state!(nf, atmos.boundarycondition, atmos, args...)
+    atmos_boundary_state!(nf, atmos.problem.boundarycondition, atmos, args...)
 end
 
 function boundary_state!(
@@ -112,7 +112,7 @@ function normal_boundary_flux_second_order!(
 ) where {S}
     atmos_normal_boundary_flux_second_order!(
         nf,
-        atmos.boundarycondition,
+        atmos.problem.boundarycondition,
         atmos,
         fluxᵀn,
         n⁻,

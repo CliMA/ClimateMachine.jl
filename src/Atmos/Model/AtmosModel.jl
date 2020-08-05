@@ -37,6 +37,7 @@ using ..Mesh.Grids:
     Direction
 
 using ClimateMachine.BalanceLaws
+using ClimateMachine.Problems
 
 import ClimateMachine.BalanceLaws:
     vars_state,
@@ -76,13 +77,14 @@ import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 """
     AtmosModel <: BalanceLaw
 
-A `BalanceLaw` for atmosphere modeling.
-Users may over-ride prescribed default values for each field.
+A `BalanceLaw` for atmosphere modeling. Users may over-ride prescribed
+default values for each field.
 
 # Usage
 
     AtmosModel(
         param_set,
+        problem,
         orientation,
         ref_state,
         turbulence,
@@ -91,17 +93,18 @@ Users may over-ride prescribed default values for each field.
         radiation,
         source,
         tracers,
-        boundarycondition,
-        init_state_prognostic
+        data_config,
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
+struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, M, P, R, S, TR, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
+    "Problem (initial and boundary conditions)"
+    problem::PR
     "An orientation model"
     orientation::O
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
@@ -122,23 +125,21 @@ struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
     source::S
     "Tracer Terms (Equations for dynamics of active and passive tracers)"
     tracers::TR
-    "Boundary condition specification"
-    boundarycondition::BC
-    "Initial Condition (Function to assign initial values of state variables)"
-    init_state_prognostic::IS
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
 
-
 """
-    function AtmosModel{FT}()
-Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`)
+    AtmosModel{FT}()
 
+Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`) for LES
+and single stack configurations.
 """
 function AtmosModel{FT}(
     ::Union{Type{AtmosLESConfigType}, Type{SingleStackConfigType}},
     param_set::AbstractParameterSet;
+    init_state_prognostic::ISP = nothing,
+    problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
     orientation::O = FlatOrientation(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(0.21),
@@ -154,15 +155,12 @@ function AtmosModel{FT}(
         turbconv_sources(turbconv)...,
     ),
     tracers::TR = NoTracers(),
-    boundarycondition::BC = AtmosBC(),
-    init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
-    @assert param_set ≠ nothing
-    @assert init_state_prognostic ≠ nothing
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, M, P, R, S, TR, DC}
 
     atmos = (
         param_set,
+        problem,
         orientation,
         ref_state,
         turbulence,
@@ -173,16 +171,23 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
-        boundarycondition,
-        init_state_prognostic,
         data_config,
     )
 
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
+
+"""
+    AtmosModel{FT}()
+
+Constructor for `AtmosModel` (where `AtmosModel <: BalanceLaw`) for GCM
+configurations.
+"""
 function AtmosModel{FT}(
     ::Type{AtmosGCMConfigType},
     param_set::AbstractParameterSet;
+    init_state_prognostic::ISP = nothing,
+    problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
     orientation::O = SphericalOrientation(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
@@ -193,14 +198,12 @@ function AtmosModel{FT}(
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
-    boundarycondition::BC = AtmosBC(),
-    init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
-    @assert param_set ≠ nothing
-    @assert init_state_prognostic ≠ nothing
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, M, P, R, S, TR, DC}
+
     atmos = (
         param_set,
+        problem,
         orientation,
         ref_state,
         turbulence,
@@ -211,18 +214,16 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
-        boundarycondition,
-        init_state_prognostic,
         data_config,
     )
 
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
 
-
 """
     vars_state(m::AtmosModel, ::Prognostic, FT)
-Conserved state variables (Prognostic Variables)
+
+Conserved state variables (prognostic variables).
 """
 function vars_state(m::AtmosModel, st::Prognostic, FT)
     @vars begin
@@ -240,7 +241,8 @@ end
 
 """
     vars_state(m::AtmosModel, ::Gradient, FT)
-Pre-transform gradient variables
+
+Pre-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
@@ -253,9 +255,11 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
+
 """
     vars_state(m::AtmosModel, ::GradientFlux, FT)
-Post-transform gradient variables
+
+Post-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
@@ -270,7 +274,8 @@ end
 
 """
     vars_state(m::AtmosModel, ::GradientLaplacian, FT)
-Pre-transform hyperdiffusive variables
+
+Pre-transform hyperdiffusive variables.
 """
 function vars_state(m::AtmosModel, st::GradientLaplacian, FT)
     @vars begin
@@ -280,7 +285,8 @@ end
 
 """
     vars_state(m::AtmosModel, ::Hyperdiffusive, FT)
-Post-transform hyperdiffusive variables
+
+Post-transform hyperdiffusive variables.
 """
 function vars_state(m::AtmosModel, st::Hyperdiffusive, FT)
     @vars begin
@@ -290,10 +296,10 @@ end
 
 """
     vars_state(m::AtmosModel, ::Auxiliary, FT)
-Auxiliary variables, such as vertical (stack)
-integrals, coordinates, orientation information,
-reference states, subcomponent auxiliary vars,
-debug variables
+
+Auxiliary variables, such as vertical (stack) integrals, coordinates,
+orientation information, reference states, subcomponent auxiliary vars,
+debug variables.
 """
 function vars_state(m::AtmosModel, st::Auxiliary, FT)
     @vars begin
@@ -310,6 +316,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         radiation::vars_state(m.radiation, st, FT)
     end
 end
+
 """
     vars_state(m::AtmosModel, ::UpwardIntegrals, FT)
 """
@@ -319,6 +326,7 @@ function vars_state(m::AtmosModel, st::UpwardIntegrals, FT)
         turbconv::vars_state(m.turbconv, st, FT)
     end
 end
+
 """
     vars_state(m::AtmosModel, ::DownwardIntegrals, FT)
 """
@@ -348,13 +356,13 @@ turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
 
+include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
 include("precipitation.jl")
 include("radiation.jl")
 include("source.jl")
 include("tracers.jl")
-include("boundaryconditions.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
@@ -642,14 +650,16 @@ function atmos_nodal_init_state_auxiliary!(
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
     atmos_init_aux!(m.tracers, m, aux, geom)
     init_aux_turbconv!(m.turbconv, m, aux, geom)
+    m.problem.init_state_auxiliary(m.problem, m, aux, geom)
 end
 
 @doc """
     init_state_auxiliary!(
         m::AtmosModel,
-        aux::MPIStateArray,
-        grid,
-        )
+        aux::Vars,
+        geom::LocalGeometry,
+    )
+
 Initialise auxiliary variables for each AtmosModel subcomponent.
 Store Cartesian coordinate information in `aux.coord`.
 """ init_state_auxiliary!
@@ -687,8 +697,9 @@ end
         diffusive::Vars,
         aux::Vars,
         t::Real,
-        direction::Direction
+        direction::Direction,
     )
+
 Computes (and assembles) source terms `S(Y)` in:
 ```
 ∂Y
@@ -715,10 +726,12 @@ end
         aux::Vars,
         coords,
         t,
-        args...)
-Initialise state variables.
-`args...` provides an option to include configuration data
-(current use cases include problem constants, spline-interpolants)
+        args...,
+    )
+
+Initialise state variables. `args...` provides an option to include
+configuration data (current use cases include problem constants,
+spline-interpolants).
 """ init_state_prognostic!
 function init_state_prognostic!(
     m::AtmosModel,
@@ -728,6 +741,15 @@ function init_state_prognostic!(
     t,
     args...,
 )
-    m.init_state_prognostic(m, state, aux, coords, t, args...)
+    m.problem.init_state_prognostic(
+        m.problem,
+        m,
+        state,
+        aux,
+        coords,
+        t,
+        args...,
+    )
 end
+
 end # module

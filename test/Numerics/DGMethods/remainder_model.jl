@@ -1,46 +1,26 @@
+using Test
+using LinearAlgebra
+using MPI
+using Random
+using StaticArrays
+
 using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
-using ClimateMachine.Mesh.Topologies:
-    StackedCubedSphereTopology, cubedshellwarp, grid1d
-using ClimateMachine.Mesh.Grids:
-    DiscontinuousSpectralElementGrid,
-    VerticalDirection,
-    HorizontalDirection,
-    EveryDirection
-using ClimateMachine.DGMethods:
-    DGModel,
-    init_ode_state,
-    remainder_DGModel,
-    wavespeed,
-    number_states,
-    vars_state
-using ClimateMachine.BalanceLaws: Prognostic, Auxiliary
-using ClimateMachine.VariableTemplates: Vars
-using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder
-using ClimateMachine.Atmos:
-    AtmosModel,
-    SphericalOrientation,
-    DryModel,
-    Vreman,
-    Gravity,
-    HydrostaticState,
-    IsothermalProfile,
-    AtmosAcousticGravityLinearModel
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.Orientations
+using ClimateMachine.TemperatureProfiles
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
-
-using MPI
-using Test
-using StaticArrays
-using LinearAlgebra
-
-using Random
 
 """
     main()
@@ -106,12 +86,12 @@ function run(
     fullmodel = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = Vreman(FT(0.23)),
         moisture = DryModel(),
         source = Gravity(),
-        init_state_prognostic = setup,
     )
     dg = DGModel(
         fullmodel,
@@ -510,7 +490,7 @@ Base.@kwdef struct RemainderTestSetup{FT}
     T_ref::FT = 300
 end
 
-function (setup::RemainderTestSetup)(bl, state, aux, coords, t)
+function (setup::RemainderTestSetup)(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
     # Vary around the reference state by 10% and a random velocity field

@@ -39,7 +39,7 @@ const param_set = EarthParameterSet()
 """
   Surface Driven Thermal Bubble
 """
-function init_surfacebubble!(bl, state, aux, (x, y, z), t)
+function init_surfacebubble!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -95,17 +95,20 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        source = (Gravity(),),
+    problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(energy = PrescribedEnergyFlux(energyflux)),
             AtmosBC(),
         ),
-        moisture = EquilMoist{FT}(),
         init_state_prognostic = init_surfacebubble!,
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        param_set;
+        problem = problem,
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+        moisture = EquilMoist{FT}(),
+        source = (Gravity(),),
     )
     config = ClimateMachine.AtmosLESConfiguration(
         "SurfaceDrivenBubble",

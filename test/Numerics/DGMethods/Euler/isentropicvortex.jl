@@ -1,31 +1,21 @@
 using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
-using ClimateMachine.Mesh.Topologies: BrickTopology
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.DGMethods: DGModel, init_ode_state
-using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder,
-    CentralNumericalFluxFirstOrder
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
-using ClimateMachine.VTK: writevtk, writepvtu
-using ClimateMachine.GenericCallbacks:
-    EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.MPIStateArrays: euclidean_distance
-using ClimateMachine.Thermodynamics:
-    air_density, total_energy, soundspeed_air, PhaseDry_given_pT
-using ClimateMachine.Atmos:
-    AtmosModel,
-    NoReferenceState,
-    DryModel,
-    NoPrecipitation,
-    NoRadiation,
-    vars_state
-using ClimateMachine.Orientations: NoOrientation
-using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.Orientations
+using ClimateMachine.SystemSolvers
+using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using ClimateMachine.BalanceLaws: Prognostic
+using ClimateMachine.VariableTemplates
+using ClimateMachine.VTK
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
@@ -186,16 +176,20 @@ function run(
         polynomialorder = polynomialorder,
     )
 
+    problem = AtmosProblem(
+        boundarycondition = (),
+        init_state_prognostic = isentropicvortex_initialcondition!,
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        problem = problem,
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = nothing,
-        boundarycondition = (),
-        init_state_prognostic = isentropicvortex_initialcondition!,
     )
 
     dg = DGModel(
@@ -296,7 +290,15 @@ Base.@kwdef struct IsentropicVortexSetup{FT}
     domain_halflength::FT = 1 // 20
 end
 
-function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
+function isentropicvortex_initialcondition!(
+    problem,
+    bl,
+    state,
+    aux,
+    coords,
+    t,
+    args...,
+)
     setup = first(args)
     FT = eltype(state)
     x = MVector(coords)

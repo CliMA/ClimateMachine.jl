@@ -26,7 +26,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -75,12 +75,12 @@ function main()
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
-        init_state_prognostic = setup,
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(
