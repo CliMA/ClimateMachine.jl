@@ -2,18 +2,21 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies: BrickTopology
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.DGmethods
-using ClimateMachine.DGmethods.NumericalFluxes
+using ClimateMachine.DGMethods
+using ClimateMachine.Orientations
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.ODESolvers
-using ClimateMachine.GeneralizedMinimalResidualSolver: GeneralizedMinimalResidual
+using ClimateMachine.SystemSolvers: GeneralizedMinimalResidual
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks: EveryXWallTimeSeconds, EveryXSimulationSteps, EveryXSimulationTime
 using ClimateMachine.MPIStateArrays: euclidean_distance
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Atmos
-using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.Atmos: vars_state
 using ClimateMachine.VariableTemplates: @vars, Vars, flattenednames
+using ClimateMachine.BalanceLaws: Prognostic, Auxiliary
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
@@ -25,7 +28,7 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 const output_vtk = true
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(parse_clargs=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
@@ -106,12 +109,12 @@ function run(
         moisture = DryModel(),
         source = Gravity(),
         #source = (),
-        init_state_conservative = setup,
+        init_state_prognostic = setup,
     )
 
     linear_model = AtmosAcousticLinearModel(model)
     #linear_model = AtmosAcousticLinearModel(model)
-    nonlinear_model = RemainderModel(model, (linear_model,))
+    #nonlinear_model = RemainderModel(model, (linear_model,))
 
 
     dg = DGModel(
@@ -136,21 +139,21 @@ function run(
         schur_complement = schur_complement
     )
 
-    dg_nonlinear = DGModel(
-        nonlinear_model,
-        grid,
-        RusanovNumericalFlux(),
-        #CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        state_auxiliary = dg.state_auxiliary,
-    )
-
-    #dg_nonlinear = remainder_DGModel(dg, (dg_linear,);
-    #        numerical_flux_first_order = RusanovNumericalFlux(),
-    #        numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    #        numerical_flux_gradient = CentralNumericalFluxGradient(),
+    #dg_nonlinear = DGModel(
+    #    nonlinear_model,
+    #    grid,
+    #    RusanovNumericalFlux(),
+    #    #CentralNumericalFluxFirstOrder(),
+    #    CentralNumericalFluxSecondOrder(),
+    #    CentralNumericalFluxGradient();
+    #    state_auxiliary = dg.state_auxiliary,
     #)
+
+    dg_nonlinear = remainder_DGModel(dg, (dg_linear,);
+            numerical_flux_first_order = RusanovNumericalFlux(),
+            numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+            numerical_flux_gradient = CentralNumericalFluxGradient(),
+    )
 
     timeend = FT(350)
 
@@ -336,8 +339,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files
@@ -350,7 +353,7 @@ function do_output(
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
 
-        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...), eltype(Q))
 
         @info "Done writing VTK: $pvtuprefix"
     end
