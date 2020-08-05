@@ -25,6 +25,8 @@ include("list_of_apis.jl")                      # defines `apis`
 include("list_of_theory_docs.jl")               # defines `theory_docs`
 include("list_of_dev_docs.jl")                  # defines `dev_docs`
 
+include("list_of_performance_benchmarks.jl")    # defines `performance_benchmarks`
+
 pages = Any[
     "Home" => "index.md",
     "Getting started" => getting_started_docs,
@@ -34,6 +36,7 @@ pages = Any[
     "Contribution guide" => "Contributing.md",
     "Theory" => theory_docs,
     "Developer docs" => dev_docs,
+    "Performance benchmarks" => performance_benchmarks,
 ]
 
 mathengine = MathJax(Dict(
