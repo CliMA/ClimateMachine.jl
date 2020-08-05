@@ -1,7 +1,7 @@
 export LinearBackwardEulerSolver, AbstractBackwardEulerSolver,
        BackwardEulerODESolver
 using LinearAlgebra
-using ..DGmethods
+using ..DGMethods
 """
     op! = EulerOperator(f!, ϵ)
 

@@ -1,4 +1,4 @@
-import ...DGmethods: SchurComplement,
+import ...DGMethods: SchurComplement,
                         schur_vars_state_auxiliary,
                         schur_vars_gradient_auxiliary,
                         schur_init_aux!,

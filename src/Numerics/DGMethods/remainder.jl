@@ -153,6 +153,8 @@ function remainder_DGModel(
         maindg.direction,
         diffusion_direction,
         modeldata,
+        nothing,
+        nothing,
     )
 end
 

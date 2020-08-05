@@ -44,8 +44,8 @@ const _sM, _vMI = Grids._sM, Grids._vMI
     FT = eltype(schur_state)
     schur_num_state = schur_number_state(schur_complement, FT)
     schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
-    num_state_rhs = number_state_conservative(balance_law, FT)
-    num_state_auxiliary = number_state_auxiliary(balance_law, FT)
+    num_state_rhs = number_states(balance_law, Prognostic(), FT)
+    num_state_auxiliary = number_states(balance_law, Auxiliary(), FT)
 
     local_schur_state = MArray{Tuple{1,}, FT}(undef)
     local_schur_state_auxiliary = MArray{Tuple{schur_num_state_auxiliary}, FT}(undef)
@@ -76,8 +76,8 @@ const _sM, _vMI = Grids._sM, Grids._vMI
             balance_law,
             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
-            Vars{vars_state_auxiliary(balance_law, FT)}(local_state_auxiliary),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary),
         )
 
         schur_state[n, 1, e] = local_schur_state[1]
@@ -96,7 +96,7 @@ end
 ) where {dim, polyorder}
     N = polyorder
     FT = eltype(schur_auxstate)
-    nauxstate = number_state_auxiliary(bl, FT)
+    nauxstate = number_states(bl, Auxiliary(), FT)
     nschurauxstate = schur_number_state_auxiliary(sc, FT)
 
     l_aux = MArray{Tuple{nauxstate}, FT}(undef)
@@ -114,7 +114,7 @@ end
             sc,
             bl,
             Vars{schur_vars_state_auxiliary(sc, FT)}(l_schur_aux),
-            Vars{vars_state_auxiliary(bl, FT)}(l_aux),
+            Vars{vars_state(bl, Auxiliary(), FT)}(l_aux),
             LocalGeometry(Val(polyorder), vgeo, n, e),
         )
 
@@ -885,7 +885,7 @@ end
         N = polyorder
         FT = eltype(state_conservative)
         
-        num_state_conservative = number_state_conservative(balance_law, FT)
+        num_state_conservative = number_states(balance_law, Prognostic(), FT)
         schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
 
         Nq = N + 1
@@ -941,7 +941,7 @@ end
             schur_complement,
             balance_law,
             Grad{schur_vars_state(schur_complement, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
                 local_state_conservative,
             ),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
@@ -972,7 +972,7 @@ end
             schur_complement,
             balance_law,
             Vars{schur_vars_state(schur_complement, FT)}(local_source),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
                 local_state_conservative,
             ),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
@@ -1023,7 +1023,7 @@ end
         N = polyorder
         FT = eltype(state_conservative)
         
-        num_state_conservative = number_state_conservative(balance_law, FT)
+        num_state_conservative = number_states(balance_law, Prognostic(), FT)
         schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
 
         Nq = N + 1
@@ -1075,7 +1075,7 @@ end
             schur_complement,
             balance_law,
             Grad{schur_vars_state(schur_complement, FT)}(local_flux),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
                 local_state_conservative,
             ),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
@@ -1098,7 +1098,7 @@ end
             schur_complement,
             balance_law,
             Vars{schur_vars_state(schur_complement, FT)}(local_source),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
                 local_state_conservative,
             ),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
@@ -1146,7 +1146,7 @@ end
         N = polyorder
         FT = eltype(state_conservative)
 
-        num_state_conservative = number_state_conservative(balance_law, FT)
+        num_state_conservative = number_states(balance_law, Prognostic(), FT)
         schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
 
         if dim == 1
@@ -1226,12 +1226,12 @@ end
            schur_rhs_boundary_state!(
              schur_complement,
              balance_law,
-             Vars{vars_state_conservative(balance_law, FT)}(
+             Vars{vars_state(balance_law, Prognostic(), FT)}(
                  local_state_conservative⁺,
              ),
              Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
              normal_vector,
-             Vars{vars_state_conservative(balance_law, FT)}(
+             Vars{vars_state(balance_law, Prognostic(), FT)}(
                  local_state_conservative⁻,
              ),
              Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
@@ -1243,7 +1243,7 @@ end
             schur_complement,
             balance_law,
             Grad{schur_vars_state(schur_complement, FT)}(local_flux⁻),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
                 local_state_conservative⁻,
             ),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
@@ -1255,7 +1255,7 @@ end
             schur_complement,
             balance_law,
             Grad{schur_vars_state(schur_complement, FT)}(local_flux⁺),
-            Vars{vars_state_conservative(balance_law, FT)}(
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
                 local_state_conservative⁺,
             ),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
@@ -1289,7 +1289,7 @@ end
         N = polyorder
         FT = eltype(schur_state)
         
-        num_state_conservative = number_state_conservative(balance_law, FT)
+        num_state_conservative = number_states(balance_law, Prognostic(), FT)
         schur_num_state_gradient = schur_number_state_gradient(schur_complement, FT)
         schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
 
@@ -1354,11 +1354,11 @@ end
         schur_update_conservative!(
             schur_complement,
             balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state),
             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs),
             α
         )
 
@@ -1389,13 +1389,13 @@ end
         schur_update_nonconservative!(
             schur_complement,
             balance_law,
-            Vars{vars_state_conservative(balance_law, FT)}(local_source),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
             Vars{schur_vars_state(schur_complement, FT)}(
                 local_schur_state,
             ),
             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs),
             α
         )
 
@@ -1451,7 +1451,7 @@ end
         N = polyorder
         FT = eltype(schur_state)
         
-        num_state_conservative = number_state_conservative(balance_law, FT)
+        num_state_conservative = number_states(balance_law, Prognostic(), FT)
         schur_num_state_gradient = schur_number_state_gradient(schur_complement, FT)
         schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
 
@@ -1512,11 +1512,11 @@ end
         schur_update_conservative!(
             schur_complement,
             balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux),
+            Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state),
             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs),
             α
         )
 
@@ -1539,13 +1539,13 @@ end
         schur_update_nonconservative!(
             schur_complement,
             balance_law,
-            Vars{vars_state_conservative(balance_law, FT)}(local_source),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
             Vars{schur_vars_state(schur_complement, FT)}(
                 local_schur_state,
             ),
             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs),
             α
         )
 
@@ -1599,7 +1599,7 @@ end
         N = polyorder
         FT = eltype(schur_state)
 
-        num_state_conservative = number_state_conservative(balance_law, FT)
+        num_state_conservative = number_states(balance_law, Prognostic(), FT)
         schur_num_state_gradient = schur_number_state_gradient(schur_complement, FT)
         schur_num_state_auxiliary = schur_number_state_auxiliary(schur_complement, FT)
 
@@ -1694,12 +1694,12 @@ end
              Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁺),
              Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
              Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
-             Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁺),
+             Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs⁺),
              normal_vector,
              Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁻),
              Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
              Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
-             Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁻),
+             Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs⁻),
              bctype,
            )
         end
@@ -1707,11 +1707,11 @@ end
         schur_update_conservative!(
             schur_complement,
             balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux⁻),
+            Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux⁻),
             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁻),
             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁻),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁻),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁻),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs⁻),
             α
         )
         
@@ -1719,11 +1719,11 @@ end
         schur_update_conservative!(
             schur_complement,
             balance_law,
-            Grad{vars_state_conservative(balance_law, FT)}(local_flux⁺),
+            Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux⁺),
             Vars{schur_vars_state(schur_complement, FT)}(local_schur_state⁺),
             Vars{schur_vars_state_gradient(schur_complement, FT)}(local_schur_state_gradient⁺),
             Vars{schur_vars_state_auxiliary(schur_complement, FT)}(local_schur_state_auxiliary⁺),
-            Vars{vars_state_conservative(balance_law, FT)}(local_state_rhs⁺),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_rhs⁺),
             α
         )
         local_state_lhs .= (local_flux⁻ + local_flux⁺)' * normal_vector / 2

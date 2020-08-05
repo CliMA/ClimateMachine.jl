@@ -123,7 +123,7 @@ function create_schur_auxiliary_state(schur_complement::SchurComplement, balance
 
     polyorder = polynomialorder(grid)
     vgeo = grid.vgeo
-    device = typeof(schur_auxstate.data) <: Array ? CPU() : CUDA()
+    device = typeof(schur_auxstate.data) <: Array ? CPU() : CUDADevice()
     nrealelem = length(topology.realelems)
     event = Event(device)
     event = schur_init_auxiliary_state!(device, Np, Np * nrealelem)(
@@ -199,7 +199,7 @@ function schur_lhs!(
 )
     schur_complement = dg.schur_complement
     balance_law = dg.balance_law
-    device = typeof(schur_state.data) <: Array ? CPU() : CUDA()
+    device = typeof(schur_state.data) <: Array ? CPU() : CUDADevice()
 
     grid = dg.grid
     topology = grid.topology
@@ -376,7 +376,7 @@ end
 
 function init_schur_state(state_lhs, state_rhs, α, dg)
     grid = dg.grid
-    device = arraytype(grid) <: Array ? CPU() : CUDA()
+    device = arraytype(grid) <: Array ? CPU() : CUDADevice()
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -517,7 +517,7 @@ end
 
 function schur_extract_state(state_lhs, state_rhs, α, dg)
     grid = dg.grid
-    device = arraytype(grid) <: Array ? CPU() : CUDA()
+    device = arraytype(grid) <: Array ? CPU() : CUDADevice()
 
     topology = grid.topology
     Np = dofs_per_element(grid)
