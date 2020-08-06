@@ -15,7 +15,8 @@ function plot_friendly_name(ϕ)
 end
 
 """
-    export_plot(z, all_data, ϕ_all, filename, ylabel)
+    export_plot(z, all_data, ϕ_all, filename;
+                xlabel, ylabel, time_data, round_digits, horiz_layout)
 
 Export plot of all variables, or all
 available time-steps in `all_data`.
@@ -29,6 +30,7 @@ function export_plot(
     ylabel,
     time_data,
     round_digits = 2,
+    horiz_layout = false,
 )
     ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
     single_var = ϕ_all[1] == xlabel && length(ϕ_all) == 1
@@ -40,7 +42,23 @@ function export_plot(
             ϕ_data = data[ϕ_string][:]
             label = single_var ? "t=$(round(t, digits=round_digits))" :
                 "$(ϕ_string), t=$(round(t, digits=round_digits))"
-            plot!(ϕ_data, z; xlabel = xlabel, ylabel = ylabel, label = label)
+            if !horiz_layout
+                plot!(
+                    ϕ_data,
+                    z;
+                    xlabel = xlabel,
+                    ylabel = ylabel,
+                    label = label,
+                )
+            else
+                plot!(
+                    z,
+                    ϕ_data;
+                    xlabel = xlabel,
+                    ylabel = ylabel,
+                    label = label,
+                )
+            end
         end
     end
     savefig(filename)
