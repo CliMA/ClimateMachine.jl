@@ -152,6 +152,14 @@ function setup_variables()
             "mass_fraction_of_cloud_ice_in_air",
         ),
     )
+    Variables["qi"] = DiagnosticVariable(
+        "qi",
+        var_attrib(
+            "kg kg^-1",
+            "water vapor specific humidity",
+            "mass_fraction_of_cloud_cloud_ice_in_air",
+        ),
+    )
     Variables["thl"] = DiagnosticVariable(
         "thl",
         var_attrib("K", "liquid-ice potential temperature", ""),
