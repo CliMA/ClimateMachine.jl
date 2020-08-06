@@ -3,7 +3,7 @@ export SoilWaterModel, PrescribedWaterModel
 abstract type AbstractWaterModel <: AbstractSoilComponentModel end
 
 """
-    struct PrescribedWaterModel{FT, F1, F2} <: AbstractWaterModel
+    struct PrescribedWaterModel{F1, F2} <: AbstractWaterModel
 
 Model structure for a prescribed water content model.
 
@@ -14,7 +14,7 @@ The defaults are no moisture anywhere, for all time.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct PrescribedWaterModel{FT, F1, F2} <: AbstractWaterModel
+struct PrescribedWaterModel{F1, F2} <: AbstractWaterModel
     "Augmented liquid fraction"
     ϑ_l::F1
     "Volumetric fraction of ice"
@@ -23,9 +23,8 @@ end
 
 """
     PrescribedWaterModel(
-        ::Type{FT};
-        ϑ_l = (aux,t) -> FT(0.0),
-        θ_ice = (aux,t) -> FT(0.0),
+        ϑ_l::Function = (aux,t) -> eltype(aux)(0.0),
+        θ_ice::Function = (aux,t) -> eltype(aux)(0.0),
     ) where {FT}
 
 Outer constructor for the PrescribedWaterModel defining default values, and
@@ -37,12 +36,11 @@ evaluated in the Balance Law functions (kernels?) compute_gradient_argument,
 needed by the heat model.
 """
 function PrescribedWaterModel(
-    ::Type{FT};
-    ϑ_l = (aux, t) -> FT(0.0),
-    θ_ice = (aux, t) -> FT(0.0),
+    ϑ_l::Function = (aux, t) -> eltype(aux)(0.0),
+    θ_ice::Function = (aux, t) -> eltype(aux)(0.0),
 ) where {FT}
     args = (ϑ_l, θ_ice)
-    return PrescribedWaterModel{FT, typeof.(args)...}(args...)
+    return PrescribedWaterModel{typeof.(args)...}(args...)
 end
 
 
@@ -104,8 +102,8 @@ function SoilWaterModel(
     viscosity_factor::AbstractViscosityFactor{FT} = ConstantViscosity{FT}(),
     moisture_factor::AbstractMoistureFactor{FT} = MoistureIndependent{FT}(),
     hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
-    initialϑ_l = (aux) -> FT(NaN),
-    initialθ_ice = (aux) -> FT(0.0),
+    initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
+    initialθ_ice::Function = (aux) -> eltype(aux)(0.0),
     dirichlet_bc::AbstractBoundaryFunctions = nothing,
     neumann_bc::AbstractBoundaryFunctions = nothing,
 ) where {FT}

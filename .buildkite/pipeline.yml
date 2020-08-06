@@ -111,24 +111,6 @@ steps:
       queue: central
       slurm_ntasks: 1
 
-  - label: "cpu_haverkamp_test"
-    key: "cpu_haverkamp_test"
-    command:
-      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
-
-  - label: "cpu_test_bc"
-    key: "cpu_test_bc"
-    command:
-      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
-
   - label: "cpu_varsindex"
     key: "cpu_varsindex"
     command:
@@ -425,6 +407,24 @@ steps:
       config: cpu
       queue: central
       slurm_ntasks: 3
+
+  - label: "cpu_haverkamp_test"
+    key: "cpu_haverkamp_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "cpu_soil_test_bc"
+    key: "cpu_soil_test_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
 
   - label: "gpu_varsindex"
     key: "gpu_varsindex"
@@ -954,3 +954,24 @@ steps:
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
+
+  - label: "gpu_haverkamp_test"
+    key: "gpu_haverkamp_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_soil_test_bc"
+    key: "gpu_soil_test_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
