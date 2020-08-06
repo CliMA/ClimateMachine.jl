@@ -230,13 +230,13 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     diff1⁻,
     aux1⁻,
 ) where {BFM <: BulkFormulaMomentum}
-#    u1⁻ = state1⁻.ρu / state1⁻.ρ
-#    Pu1⁻ = u1⁻ - dot(u1⁻, n) .* SVector(n)
-#    normPu1⁻ = norm(Pu1⁻)
-#    # NOTE: difference from design docs since normal points outwards
-#    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normPu1⁻)
-#    τn = C * normPu1⁻ * Pu1⁻
-#    # both sides involve projections of normals, so signs are consistent
-#    fluxᵀn.ρu += state⁻.ρ * τn
-#    fluxᵀn.ρe += state⁻.ρu' * τn
+    u1⁻ = state1⁻.ρu / state1⁻.ρ
+    Pu1⁻ = u1⁻ - dot(u1⁻, n) .* SVector(n)
+    normPu1⁻ = norm(Pu1⁻)
+    # NOTE: difference from design docs since normal points outwards
+    C = eltype(state⁻)(0.25)
+    τn = C * normPu1⁻ * Pu1⁻
+    # both sides involve projections of normals, so signs are consistent
+    fluxᵀn.ρu += state⁻.ρ * τn
+    fluxᵀn.ρe += state⁻.ρu' * τn
 end

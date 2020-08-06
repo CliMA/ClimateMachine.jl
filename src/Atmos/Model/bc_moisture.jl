@@ -114,6 +114,6 @@ function atmos_momentum_normal_boundary_flux_second_order!(
 #    sfc = surfaceconditions(...);
 #    #TODO fill in surface conditions
 #    C_q = sfc.K_exchange[3]; # Exchange coefficient for energy
-#    Δρq_tot = state1⁻.moisture.ρq_tot - state⁻.moisture.ρq_tot 
+#    Δρq_tot = state1⁻.moisture.ρq_tot - state⁻.ρ * q_tot 
 #    fluxᵀn.moisture.ρq_tot -= -C_q * normPu1⁻ * Δρq_tot
 end

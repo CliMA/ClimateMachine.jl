@@ -204,7 +204,7 @@ function config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
     )
 
     # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.IMEXSolverType()
+    ode_solver_type = ClimateMachine.ExplicitSolverType()
     
     moisture_flux = FT(0)
     # Assemble model components
@@ -263,7 +263,7 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    FT = Float32
+    FT = Float64
 
     # DG polynomial order
     N = 4
@@ -274,8 +274,8 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(400)
-    ymax = FT(400)
+    xmax = FT(100)
+    ymax = FT(100)
     zmax = FT(400)
 
     t0 = FT(0)
@@ -283,7 +283,7 @@ function main()
     # For a full-run, please set the timeend to 3600*6 seconds
     # For the test we set this to == 30 minutes
     timeend = FT(3600 * 9)
-    CFLmax = FT(0.50)
+    CFLmax = FT(0.4)
 
     driver_config = config_nishizawa_sf(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(

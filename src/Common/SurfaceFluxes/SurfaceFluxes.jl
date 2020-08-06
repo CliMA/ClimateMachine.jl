@@ -22,15 +22,6 @@
   publisher={Wiley Online Library}
 }
 
-@article{byun1990analytical,
-  title={On the analytical solutions of flux-profile relationships for the atmospheric surface layer},
-  author={Byun, Daewon W},
-  journal={Journal of Applied Meteorology},
-  volume={29},
-  number={7},
-  pages={652--657},
-  year={1990}
-}
 """
 module SurfaceFluxes
 
@@ -42,6 +33,7 @@ using DocStringExtensions
 using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Planet: molmass_ratio, grav
 using CLIMAParameters.SubgridScale: von_karman_const
+using StaticArrays
 
 abstract type SurfaceFluxesModel end
 
@@ -70,9 +62,9 @@ $(DocStringExtensions.FIELDS)
 struct SurfaceFluxConditions{FT}
     L_MO::FT
     pottemp_flux_star::FT
-    flux::Vector{FT}
-    x_star::Vector{FT}
-    K_exchange::Vector{FT}
+    flux::Array
+    x_star::Array
+    K_exchange::Array
 end
 
 function Base.show(io::IO, sfc::SurfaceFluxConditions)
@@ -109,12 +101,12 @@ of equations 3, 17, and 18 in Nishizawa2018.
 """
 function surface_conditions(
     param_set::AbstractEarthParameterSet,
-    x_initial::Vector{FT},
-    x_ave::Vector{FT},
-    x_s::Vector{FT},
-    z_0::Vector{FT},
-    F_exchange::Vector{FT},
-    dimensionless_number::Vector{FT},
+    x_initial::MVector,
+    x_ave::MVector,
+    x_s::MVector,
+    z_0::MVector,
+    F_exchange::MVector,
+    dimensionless_number::MVector,
     θ_bar::FT,
     qt_bar::FT,
     Δz::FT,
@@ -131,17 +123,17 @@ function surface_conditions(
     @assert length(F_exchange) == n_vars
     @assert length(dimensionless_number) == n_vars
     local sol
+    u, θ, qt = x_initial[1], x_initial[2], x_initial[3]
     let param_set = param_set
         function f!(F, x_all)
+            @show(x_all)
             L_MO, x_vec = x_all[1], x_all[2:end]
             u, θ, qt = x_vec[1], x_vec[2], x_vec[3]
             pottemp_flux =
                 pottemp_flux_given == nothing ? -u * θ : pottemp_flux_given
-                #@show(θ, θ_bar) 
             moisture_flux = -u * qt
             flux = pottemp_flux + θ_bar * moisture_flux
-            #@show(flux)
-            F[1] = L_MO - monin_obukhov_length(param_set, u, θ_bar, qt, flux)
+            F[1] = L_MO - monin_obukhov_length(param_set, u, θ_bar, flux)
             for i in 1:n_vars
                 ϕ = x_vec[i]
                 transport = i == 1 ? Momentum() : Heat()
@@ -153,7 +145,6 @@ function surface_conditions(
                         Δz,
                         a,
                         θ_bar,
-                        qt_bar,
                         flux,
                         z_0[i],
                         x_ave[i],
@@ -163,13 +154,14 @@ function surface_conditions(
                     )
             end
         end
+        @show(x_initial)
         sol = nlsolve(f!, x_initial, autodiff = :forward)
     end
     if converged(sol)
-        L_MO, x_star = sol.zero[1], sol.zero[2:end]
+        L_MO, x_star = sol.zero[1], collect(sol.zero[2:end])
         u_star, θ_star,qt_star = x_star[1], x_star[2], x_star[3]
     else
-        L_MO, x_star = sol.zero[1], sol.zero[2:end]
+        L_MO, x_star = sol.zero[1], collect(sol.zero[2:end])
         u_star, θ_star, qt_star = x_star[1], x_star[2], x_star[3]
         println("Warning: Unconverged Surface Fluxes")
     end
@@ -185,11 +177,10 @@ function surface_conditions(
         a,
         x_star,
         θ_bar,
-        qt_bar,
         dimensionless_number,
         L_MO,
     )
-
+    @show(L_MO)
     return SurfaceFluxConditions(
         L_MO,
         pottemp_flux_star,
@@ -209,7 +200,6 @@ function compute_physical_scale(
     Δz,
     a,
     θ_bar,
-    qt_bar,
     flux,
     z_0,
     x_ave,
@@ -219,7 +209,7 @@ function compute_physical_scale(
 )
     FT = typeof(u)
     _von_karman_const::FT = von_karman_const(param_set)
-    L = monin_obukhov_length(param_set, u, θ_bar, qt_bar, flux)
+    L = monin_obukhov_length(param_set, u, θ_bar, flux)
     R_z0 = compute_R_z0(z_0, Δz)
     temp1 = log(Δz / z_0)
     temp2 = -compute_Psi(Δz / L, L, a, dimensionless_number, transport)
@@ -240,6 +230,18 @@ compute_f_m(ζ) = sqrt(sqrt(1 - 15 * ζ))
 """ Computes f_h in Eq. A8 """
 compute_f_h(ζ) = sqrt(1 - 9 * ζ)
 
+""" Computes phi_m in Eq. A1 """
+function compute_phi(ζ, L, a, dimensionless_number, ::Momentum)
+    FT = eltype(ζ)
+    return L >= 0 ? a * ζ + 1 : 1/(sqrt(sqrt((1 - 15 * ζ))) + eps(FT))
+end
+
+""" Computes phi_h in Eq. A2 """
+function compute_phi(ζ, L, a, dimensionless_number, ::Heat)
+    FT = eltype(ζ)
+    return L >= 0 ? a * ζ / dimensionless_number + 1 : 1/(sqrt((1 - 9 * ζ)) + eps(FT))
+end
+
 """ Computes psi_m in Eq. A3 """
 function compute_psi(ζ, L, a, dimensionless_number, ::Momentum)
     FT = eltype(L)
@@ -250,7 +252,8 @@ end
 
 """ Computes psi_h in Eq. A4 """
 function compute_psi(ζ, L, a, dimensionless_number, ::Heat)
-    L >= 0 ? -a * ζ / dimensionless_number : 2 * log((1 + compute_f_h(ζ)) / 2)
+    f_h = compute_f_h(ζ)
+    L >= 0 ? -a * ζ / dimensionless_number : 2 * log((1 + f_h) / 2)
 end
 
 """ Computes Psi_m in Eq. A5 """
@@ -264,7 +267,7 @@ function compute_Psi(ζ, L, a, dimensionless_number, ::Momentum)
         # This was confirmed by communication with the author.
         return L >= 0 ? -a * ζ / 2 :
                log((1 + f_m)^2 * (1 + f_m^2) / 8) - 2 * atan(f_m) + FT(π) / 2 - 1 +
-               (1 - f_m^3) / (12 * ζ)
+               (1 - f_m^3) / (12 * ζ + eps(FT))
     end
 end
 
@@ -275,24 +278,24 @@ function compute_Psi(ζ, L, a, dimensionless_number, ::Heat)
     else
         f_h = compute_f_h(ζ)
         return L >= 0 ? -a * ζ / (2 * dimensionless_number) :
-               2 * log((1 + f_h) / 2) + 2 * (1 - f_h) / (9 * ζ)
+               2 * log((1 + f_h) / 2) + 2 * (1 - f_h) / (9 * ζ) - 1
     end
 end
 
 """
-    monin_obukhov_length(param_set, u, θ, qt, flux)
+    monin_obukhov_length(param_set, u, θ, flux)
 
 Monin-Obukhov length. Eq. 3
 """
-function monin_obukhov_length(param_set::AbstractEarthParameterSet, u, θ_bar, qt, flux)
-    FT = typeof(u)
+function monin_obukhov_length(param_set::AbstractEarthParameterSet, u_star, θ_bar, flux)
+    FT = typeof(u_star)
     _grav::FT = grav(param_set)
     _von_karman_const::FT = von_karman_const(param_set)
-    return -u^3 * θ_bar / (_von_karman_const * _grav * flux)
+    return -u_star^3 * θ_bar / (_von_karman_const * _grav * flux + eps(FT))
 end
 
 """
-    compute_exchange_coefficients(z, F_exchange, a, x_star, θ_bar, qt_bar, dimensionless_number, L_MO)
+    compute_exchange_coefficients(z, F_exchange, a, x_star, θ_bar, dimensionless_number, L_MO)
 
 Computes exchange transfer coefficients
 
@@ -305,21 +308,20 @@ function compute_exchange_coefficients(
     a,
     x_star,
     θ_bar,
-    qt_bar,
     dimensionless_number,
     L_MO,
 )
     N = length(F_exchange)
     FT = typeof(z)
-    K_exchange = Vector{FT}(undef, N)
     _von_karman_const::FT = von_karman_const(param_set)
+    K_exchange = zeros(length(x_star))
     for i in 1:N
         transport = i == 1 ? Momentum() : Heat()
-        psi = compute_psi(z / L_MO, L_MO, a, dimensionless_number[i], transport)
+        phi = compute_psi(z / L_MO, L_MO, a, dimensionless_number[i], transport)
+        @show(-F_exchange[i], x_star[i])
         K_exchange[i] =
-            -F_exchange[i] * _von_karman_const * z / (x_star[i] * psi) # Eq. 19 in
+        -F_exchange[i] * _von_karman_const * z / dimensionless_number[i] / (x_star[i] * phi + eps(FT)) # Eq. 19 in
     end
-
     return K_exchange
 end
 
