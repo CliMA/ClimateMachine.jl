@@ -28,6 +28,19 @@ using CLIMAParameters.Planet:
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+# -------------------- Unstable Radiative Equilibrium -----------------
+# 
+# GCM dycore setup with:
+#       - radiation parametrized as Newtonian relaxation (similar to Held-Suarez
+#       but radiative equilibrium is modified to be unstable in the extratropics,
+#       e.g. Schneider, T., 2004: The Tropopause and the Thermal Stratification 
+#       in the Extratropics of a Dry Atmosphere. J. Atmos. Sci., 61, 1317–1340)
+#       - Rayleigh friction
+#       - optional moisture (initial conditions: http://www-personal.umich.edu/
+#       ~cjablono/DCMIP-2016_TestCaseDocument_10June2016.pdf)
+#       - optional initial perturbation (as in the baroclinic_wave.jl)
+#
+
 function init_unstable_rad_equilibrium!(bl, state, aux, coords, t)
     FT = eltype(state)
 
@@ -58,7 +71,7 @@ function init_unstable_rad_equilibrium!(bl, state, aux, coords, t)
     # Moist model params
     M_v::FT = 0.608
     p_w::FT = 34e3             ## Pressure width parameter for specific humidity
-    η_crit::FT = 10 * _p_0 / p_w ## Critical pressure coordinate
+    η_crit::FT = p_w / _p_0     ## Critical pressure coordinate
     q_0::FT = 0.018            ## Maximum specific humidity (default: 0.018)
     q_t::FT = 1e-12            ## Specific humidity above artificial tropopause
     φ_w::FT = 2π / 9           ## Specific humidity latitude wind parameter

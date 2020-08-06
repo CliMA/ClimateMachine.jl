@@ -58,7 +58,7 @@ function init_unstable_rad_equilibrium!(bl, state, aux, coords, t)
     # Moist model params
     M_v::FT = 0.608
     p_w::FT = 34e3             ## Pressure width parameter for specific humidity
-    η_crit::FT = 10 * _p_0 / p_w ## Critical pressure coordinate
+    η_crit::FT = p_w / _p_0     ## Critical pressure coordinate
     q_0::FT = 0.018            ## Maximum specific humidity (default: 0.018)
     q_t::FT = 1e-12            ## Specific humidity above artificial tropopause
     φ_w::FT = 2π / 9           ## Specific humidity latitude wind parameter
