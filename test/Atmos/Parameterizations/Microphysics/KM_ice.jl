@@ -198,91 +198,91 @@ function kinematic_model_nodal_update_auxiliary_state!(
         aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q, slowdown_liq = FT(10))
         aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q, slowdown_ice = FT(10))
 
-        aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
-        aux.src_snow_acnv =
-            conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, aux.T)
+        #aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
+        #aux.src_snow_acnv =
+        #    conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, aux.T)
 
-        aux.src_liq_rain_accr = accretion(
-            param_set,
-            liquid_param_set,
-            rain_param_set,
-            aux.q_liq,
-            aux.q_rai,
-            state.ρ,
-        )
-        aux.src_liq_snow_accr = accretion(
-            param_set,
-            liquid_param_set,
-            snow_param_set,
-            aux.q_liq,
-            aux.q_sno,
-            state.ρ,
-        )
-        aux.src_ice_snow_accr = accretion(
-            param_set,
-            ice_param_set,
-            snow_param_set,
-            aux.q_ice,
-            aux.q_sno,
-            state.ρ,
-        )
-        aux.src_ice_rain_accr = accretion(
-            param_set,
-            ice_param_set,
-            rain_param_set,
-            aux.q_ice,
-            aux.q_rai,
-            state.ρ,
-        )
+        #aux.src_liq_rain_accr = accretion(
+        #    param_set,
+        #    liquid_param_set,
+        #    rain_param_set,
+        #    aux.q_liq,
+        #    aux.q_rai,
+        #    state.ρ,
+        #)
+        #aux.src_liq_snow_accr = accretion(
+        #    param_set,
+        #    liquid_param_set,
+        #    snow_param_set,
+        #    aux.q_liq,
+        #    aux.q_sno,
+        #    state.ρ,
+        #)
+        #aux.src_ice_snow_accr = accretion(
+        #    param_set,
+        #    ice_param_set,
+        #    snow_param_set,
+        #    aux.q_ice,
+        #    aux.q_sno,
+        #    state.ρ,
+        #)
+        #aux.src_ice_rain_accr = accretion(
+        #    param_set,
+        #    ice_param_set,
+        #    rain_param_set,
+        #    aux.q_ice,
+        #    aux.q_rai,
+        #    state.ρ,
+        #)
 
-        aux.src_rain_accr_sink = accretion_rain_sink(
-            param_set,
-            ice_param_set,
-            rain_param_set,
-            aux.q_ice,
-            aux.q_rai,
-            state.ρ,
-        )
+        #aux.src_rain_accr_sink = accretion_rain_sink(
+        #    param_set,
+        #    ice_param_set,
+        #    rain_param_set,
+        #    aux.q_ice,
+        #    aux.q_rai,
+        #    state.ρ,
+        #)
 
-        if aux.T < _T_freeze
-            aux.src_snow_rain_accr = accretion_snow_rain(
-                param_set,
-                snow_param_set,
-                rain_param_set,
-                aux.q_sno,
-                aux.q_rai,
-                state.ρ,
-            )
-        else
-            aux.src_snow_rain_accr = accretion_snow_rain(
-                param_set,
-                rain_param_set,
-                snow_param_set,
-                aux.q_rai,
-                aux.q_sno,
-                state.ρ,
-            )
-        end
+        #if aux.T < _T_freeze
+        #    aux.src_snow_rain_accr = accretion_snow_rain(
+        #        param_set,
+        #        snow_param_set,
+        #        rain_param_set,
+        #        aux.q_sno,
+        #        aux.q_rai,
+        #        state.ρ,
+        #    )
+        #else
+        #    aux.src_snow_rain_accr = accretion_snow_rain(
+        #        param_set,
+        #        rain_param_set,
+        #        snow_param_set,
+        #        aux.q_rai,
+        #        aux.q_sno,
+        #        state.ρ,
+        #    )
+        #end
 
-        aux.src_rain_evap = evaporation_sublimation(
-            param_set,
-            rain_param_set,
-            q,
-            aux.q_rai,
-            state.ρ,
-            aux.T,
-        )
-        aux.src_snow_subl = evaporation_sublimation(
-            param_set,
-            snow_param_set,
-            q,
-            aux.q_sno,
-            state.ρ,
-            aux.T,
-        )
+        #aux.src_rain_evap = evaporation_sublimation(
+        #    param_set,
+        #    rain_param_set,
+        #    q,
+        #    aux.q_rai,
+        #    state.ρ,
+        #    aux.T,
+        #)
+        #aux.src_snow_subl = evaporation_sublimation(
+        #    param_set,
+        #    snow_param_set,
+        #    q,
+        #    aux.q_sno,
+        #    state.ρ,
+        #    aux.T,
+        #)
 
-        aux.src_snow_melt =
-            snow_melt(param_set, snow_param_set, aux.q_sno, state.ρ, aux.T)
+        #aux.src_snow_melt =
+        #    snow_melt(param_set, snow_param_set, aux.q_sno, state.ρ, aux.T)
 
         aux.flag_cloud_liq = FT(0)
         aux.flag_cloud_ice = FT(0)
@@ -342,13 +342,14 @@ function boundary_state!(
     end
     if bctype == 5
         state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-        state⁺.ρe = state⁻.ρe
+        #state⁺.ρe = state⁻.ρe
+        state⁺.ρe = aux⁻.ρe_init
         state⁺.ρq_tot = state⁻.ρq_tot
     end
     if bctype == 6
+        state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
         state⁺.ρe = aux⁻.ρe_init
         state⁺.ρq_tot = aux⁻.ρq_tot_init
-        state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
     end
 end
 
@@ -484,163 +485,163 @@ function source!(
         # vapour -> cloud ice
         source.ρq_ice += ρ * conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q, slowdown_ice = FT(10))
 
-        # cloud liquid water -> rain
-        acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
-        source.ρq_liq -= acnv
-        source.ρq_tot -= acnv
-        source.ρq_rai += acnv
-        source.ρe -= acnv * (_cv_l - _cv_d) * (T - _T_0)
+        ## cloud liquid water -> rain
+        #acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
+        #source.ρq_liq -= acnv
+        #source.ρq_tot -= acnv
+        #source.ρq_rai += acnv
+        #source.ρe -= acnv * (_cv_l - _cv_d) * (T - _T_0)
 
-        # cloud ice -> snow
-        acnv = ρ * conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, T)
-        source.ρq_ice -= acnv
-        source.ρq_tot -= acnv
-        source.ρq_sno += acnv
-        source.ρe -= acnv * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
+        ## cloud ice -> snow
+        #acnv = ρ * conv_q_ice_to_q_sno(param_set, ice_param_set, q, state.ρ, T)
+        #source.ρq_ice -= acnv
+        #source.ρq_tot -= acnv
+        #source.ρq_sno += acnv
+        #source.ρe -= acnv * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
 
-        # cloud liquid water + rain -> rain
-        accr =
-            ρ * accretion(
-                param_set,
-                liquid_param_set,
-                rain_param_set,
-                q_liq,
-                q_rai,
-                state.ρ,
-            )
-        source.ρq_liq -= accr
-        source.ρq_tot -= accr
-        source.ρq_rai += accr
-        source.ρe -= accr * (_cv_l - _cv_d) * (T - _T_0)
+        ## cloud liquid water + rain -> rain
+        #accr =
+        #    ρ * accretion(
+        #        param_set,
+        #        liquid_param_set,
+        #        rain_param_set,
+        #        q_liq,
+        #        q_rai,
+        #        state.ρ,
+        #    )
+        #source.ρq_liq -= accr
+        #source.ρq_tot -= accr
+        #source.ρq_rai += accr
+        #source.ρe -= accr * (_cv_l - _cv_d) * (T - _T_0)
 
-        # cloud ice + snow -> snow
-        accr =
-            ρ * accretion(
-                param_set,
-                ice_param_set,
-                snow_param_set,
-                q_ice,
-                q_sno,
-                state.ρ,
-            )
-        source.ρq_ice -= accr
-        source.ρq_tot -= accr
-        source.ρq_sno += accr
-        source.ρe -= accr * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
+        ## cloud ice + snow -> snow
+        #accr =
+        #    ρ * accretion(
+        #        param_set,
+        #        ice_param_set,
+        #        snow_param_set,
+        #        q_ice,
+        #        q_sno,
+        #        state.ρ,
+        #    )
+        #source.ρq_ice -= accr
+        #source.ρq_tot -= accr
+        #source.ρq_sno += accr
+        #source.ρe -= accr * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
 
-        # cloud liquid water + snow -> snow or rain
-        accr =
-            ρ * accretion(
-                param_set,
-                liquid_param_set,
-                snow_param_set,
-                q_liq,
-                q_sno,
-                state.ρ,
-            )
-        if T < _T_freeze
-            source.ρq_liq -= accr
-            source.ρq_tot -= accr
-            source.ρq_sno += accr
-            source.ρe -= accr * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
-        else
-            source.ρq_liq -= accr
-            source.ρq_tot -= accr
-            source.ρq_sno -= accr * (_cv_l / _Lf * (T - _T_freeze))
-            source.ρq_rai += accr * (FT(1) + _cv_l / _Lf * (T - _T_freeze))
-            source.ρe +=
-                -accr * ((_cv_l - _cv_d) * (T - _T_0) + _cv_l * (T - _T_freeze))
-        end
+        ## cloud liquid water + snow -> snow or rain
+        #accr =
+        #    ρ * accretion(
+        #        param_set,
+        #        liquid_param_set,
+        #        snow_param_set,
+        #        q_liq,
+        #        q_sno,
+        #        state.ρ,
+        #    )
+        #if T < _T_freeze
+        #    source.ρq_liq -= accr
+        #    source.ρq_tot -= accr
+        #    source.ρq_sno += accr
+        #    source.ρe -= accr * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
+        #else
+        #    source.ρq_liq -= accr
+        #    source.ρq_tot -= accr
+        #    source.ρq_sno -= accr * (_cv_l / _Lf * (T - _T_freeze))
+        #    source.ρq_rai += accr * (FT(1) + _cv_l / _Lf * (T - _T_freeze))
+        #    source.ρe +=
+        #        -accr * ((_cv_l - _cv_d) * (T - _T_0) + _cv_l * (T - _T_freeze))
+        #end
 
-        # cloud ice + rain -> snow
-        accr =
-            ρ * accretion(
-                param_set,
-                ice_param_set,
-                rain_param_set,
-                q_ice,
-                q_rai,
-                state.ρ,
-            )
-        accr_rain_sink =
-            ρ * accretion_rain_sink(
-                param_set,
-                ice_param_set,
-                rain_param_set,
-                q_ice,
-                q_rai,
-                state.ρ,
-            )
-        source.ρq_ice -= accr
-        source.ρq_tot -= accr
-        source.ρq_rai -= accr_rain_sink
-        source.ρq_sno += accr + accr_rain_sink
-        source.ρe +=
-            accr_rain_sink * _Lf -
-            accr * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
+        ## cloud ice + rain -> snow
+        #accr =
+        #    ρ * accretion(
+        #        param_set,
+        #        ice_param_set,
+        #        rain_param_set,
+        #        q_ice,
+        #        q_rai,
+        #        state.ρ,
+        #    )
+        #accr_rain_sink =
+        #    ρ * accretion_rain_sink(
+        #        param_set,
+        #        ice_param_set,
+        #        rain_param_set,
+        #        q_ice,
+        #        q_rai,
+        #        state.ρ,
+        #    )
+        #source.ρq_ice -= accr
+        #source.ρq_tot -= accr
+        #source.ρq_rai -= accr_rain_sink
+        #source.ρq_sno += accr + accr_rain_sink
+        #source.ρe +=
+        #    accr_rain_sink * _Lf -
+        #    accr * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
 
-        # rain + snow -> snow or rain
-        if T < _T_freeze
-            accr =
-                ρ * accretion_snow_rain(
-                    param_set,
-                    snow_param_set,
-                    rain_param_set,
-                    q_sno,
-                    q_rai,
-                    state.ρ,
-                )
-            source.ρq_sno += accr
-            source.ρq_rai -= accr
-            source.ρe += accr * _Lf
-        else
-            accr =
-                ρ * accretion_snow_rain(
-                    param_set,
-                    rain_param_set,
-                    snow_param_set,
-                    q_rai,
-                    q_sno,
-                    state.ρ,
-                )
-            source.ρq_rai += accr
-            source.ρq_sno -= accr
-            source.ρe -= accr * _Lf
-        end
+        ## rain + snow -> snow or rain
+        #if T < _T_freeze
+        #    accr =
+        #        ρ * accretion_snow_rain(
+        #            param_set,
+        #            snow_param_set,
+        #            rain_param_set,
+        #            q_sno,
+        #            q_rai,
+        #            state.ρ,
+        #        )
+        #    source.ρq_sno += accr
+        #    source.ρq_rai -= accr
+        #    source.ρe += accr * _Lf
+        #else
+        #    accr =
+        #        ρ * accretion_snow_rain(
+        #            param_set,
+        #            rain_param_set,
+        #            snow_param_set,
+        #            q_rai,
+        #            q_sno,
+        #            state.ρ,
+        #        )
+        #    source.ρq_rai += accr
+        #    source.ρq_sno -= accr
+        #    source.ρe -= accr * _Lf
+        #end
 
-        # rain -> vapour
-        evap =
-            ρ * evaporation_sublimation(
-                param_set,
-                rain_param_set,
-                q,
-                q_rai,
-                state.ρ,
-                T,
-            )
-        source.ρq_rai += evap
-        source.ρq_tot -= evap
-        source.ρe -= evap * (_cv_l - _cv_d) * (T - _T_0)
+        ## rain -> vapour
+        #evap =
+        #    ρ * evaporation_sublimation(
+        #        param_set,
+        #        rain_param_set,
+        #        q,
+        #        q_rai,
+        #        state.ρ,
+        #        T,
+        #    )
+        #source.ρq_rai += evap
+        #source.ρq_tot -= evap
+        #source.ρe -= evap * (_cv_l - _cv_d) * (T - _T_0)
 
-        # snow -> vapour
-        subl =
-            ρ * evaporation_sublimation(
-                param_set,
-                snow_param_set,
-                q,
-                q_sno,
-                state.ρ,
-                T,
-            )
-        source.ρq_sno += subl
-        source.ρq_tot -= subl
-        source.ρe -= subl * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
+        ## snow -> vapour
+        #subl =
+        #    ρ * evaporation_sublimation(
+        #        param_set,
+        #        snow_param_set,
+        #        q,
+        #        q_sno,
+        #        state.ρ,
+        #        T,
+        #    )
+        #source.ρq_sno += subl
+        #source.ρq_tot -= subl
+        #source.ρe -= subl * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)
 
-        # snow -> rain
-        melt = ρ * snow_melt(param_set, snow_param_set, q_sno, state.ρ, T)
-        source.ρq_sno -= melt
-        source.ρq_rai += melt
-        source.ρe -= melt * _Lf
+        ## snow -> rain
+        #melt = ρ * snow_melt(param_set, snow_param_set, q_sno, state.ρ, T)
+        #source.ρq_sno -= melt
+        #source.ρq_rai += melt
+        #source.ρe -= melt * _Lf
 
     end
 end
@@ -669,12 +670,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(10 * 60) #FT(4 * 60 * 60) #TODO
+    t_end = FT(4 * 60 * 60) # FT(10 * 60)
     dt = FT(3) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 20
-    interval = "20steps"
+    output_freq = 20 * 15
+    interval = "300steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -921,7 +922,7 @@ function main()
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
                 solver_config.Q,
-                (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno),
+                (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno, :ρe),
                 solver_config.dg.grid,
                 BoydVandevenFilter(
                     solver_config.dg.grid,
