@@ -748,6 +748,8 @@ array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDADevice()
 array_device(s::SubArray) = array_device(parent(s))
 array_device(Q::MPIStateArray) = array_device(Q.data)
+array_device(ra::Base.ReshapedArray{T, N, A}) where {T, N, A <: MPIStateArray} =
+    array_device(parent(ra))
 
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata
