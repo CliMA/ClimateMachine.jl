@@ -33,7 +33,7 @@ include("init_helper.jl")
 # - follows http://www-personal.umich.edu/~cjablono/DCMIP-2016_TestCaseDocument_10June2016.pdf
 # - initial conditions: bc_wave_init_base_state, bc_wave_init_perturbation
 
-exp_name = "BaroclinicWave_test"
+exp_name = "tf_exp_bulk_tst_n_daysFT_2"
 
 # initial conditions
 function init_baroclinic_wave!(bl, state, aux, coords, t)
@@ -108,7 +108,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
-    exp_name = exp_name
+    exp_name = "tf_exp_bulk_tst_n_daysFT_2"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -145,7 +145,7 @@ function main()
     poly_order = 3                          # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 2
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
