@@ -1,18 +1,6 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-using ArgParse
-
-s = ArgParseSettings()
-@add_arg_table! s begin
-    "--number-of-tracers"
-    help = "Number of dummy tracers"
-    metavar = "<number>"
-    arg_type = Int
-    default = 0
-end
-
-parsed_args = ClimateMachine.init(parse_clargs = true, custom_clargs = s)
-const number_of_tracers = parsed_args["number-of-tracers"]
+ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
@@ -26,7 +14,8 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics:
-    air_pressure, air_density, air_temperature, total_energy, internal_energy
+    air_density, air_temperature, total_energy, internal_energy, PhasePartition
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using LinearAlgebra
@@ -34,156 +23,95 @@ using StaticArrays
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet:
-    MSLP, R_d, day, cp_d, cv_d, grav, Omega, planet_radius
+using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_heldsuarez!(bl, state, aux, coords, t)
+exp_name = "DryHeldSuarez"
+
+# Select/customize setup for this particular experiment
+preset_exp_type = exp_name # options: "DryBaroclinicWave", "MoistBaroclinicWave", "DryHeldSuarez", "MoistHeldSuarez_no_sfcfluxes", "MoistHeldSuarez_bulk_sfcfluxes" or customize your own set of bc's, ic's and sources in preset_experiment_list.jl
+include("preset_experiment_list.jl")
+
+# Read in the funcitons for init conditions and sources
+include("init_helper.jl")
+include("source_helper.jl")
+
+# ~~~~~~~~~~~~~~~ code below should be general to all GCM experiments ~~~~~~~~~~~~
+# (for now running everything withb moist - dry expreiments just have q_tot=0)
+
+# initial conditions
+function init_gcm_experiment!(bl, state, aux, coords, t)
+
+    # general parameters
     FT = eltype(state)
-
-    # parameters 
+    _grav::FT = grav(bl.param_set)
+    _R_d::FT = R_d(bl.param_set)
+    _Ω::FT = Omega(bl.param_set)
     _a::FT = planet_radius(bl.param_set)
-
-    z_t::FT = 15e3
-    λ_c::FT = π / 9
-    φ_c::FT = 2 * π / 9
-    d_0::FT = _a / 6
-    V_p::FT = 10
+    _p_0::FT = MSLP(bl.param_set)
+    M_v::FT = 0.608
 
     # grid
     φ = latitude(bl.orientation, aux)
     λ = longitude(bl.orientation, aux)
     z = altitude(bl.orientation, bl.param_set, aux)
+    r::FT = z + _a
+    γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
 
-    # deterministic velocity perturbation
-    F_z::FT = 1 - 3 * (z / z_t)^2 + 2 * (z / z_t)^3
-    if z > z_t
-        F_z = FT(0)
-    end
-    d::FT = _a * acos(sin(φ) * sin(φ_c) + cos(φ) * cos(φ_c) * cos(λ - λ_c))
-    c3::FT = cos(π * d / 2 / d_0)^3
-    s1::FT = sin(π * d / 2 / d_0)
-    if 0 < d < d_0 && d != FT(_a * π)
-        u′::FT =
-            -16 * V_p / 3 / sqrt(3) *
-            F_z *
-            c3 *
-            s1 *
-            (-sin(φ_c) * cos(φ) + cos(φ_c) * sin(φ) * cos(λ - λ_c)) /
-            sin(d / _a)
-        v′::FT =
-            16 * V_p / 3 / sqrt(3) * F_z * c3 * s1 * cos(φ_c) * sin(λ - λ_c) /
-            sin(d / _a)
-    else
-        u′ = FT(0)
-        v′ = FT(0)
-    end
-    w′::FT = 0
-    u_sphere = SVector{3, FT}(u′, v′, w′)
+    # Select initial wind perturbation
+    u′, v′, w′ = init_wind_perturbation(init_pert_name, FT, z, φ, λ, _a )
+
+    # Select initial base state
+    T_v, p, u_ref, v_ref, w_ref = init_base_state(init_basestate_name, FT, φ, z, γ, _grav, _a, _Ω, _R_d, M_v )
+
+    # Select initial moisture profile
+    q_tot = init_moisture_profile(init_moist_name, FT, _p_0, φ, p )
+
+    # Calculate initial total winds
+    u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
     u_cart = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
 
+    # Calculate initial temperature and density
+    phase_partition = PhasePartition(q_tot)
+    T::FT = T_v / (1 + M_v * q_tot) # this needs to be adaptd for ice and liq
+    ρ::FT = air_density(bl.param_set, T, p, phase_partition)
+
     ## potential & kinetic energy
+    e_pot::FT = gravitational_potential(bl.orientation, aux)
     e_kin::FT = 0.5 * u_cart' * u_cart
+    e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
 
     ## Assign state variables
-    state.ρ = aux.ref_state.ρ
-    state.ρu = state.ρ * u_cart
-    state.ρe = aux.ref_state.ρe + state.ρ * e_kin
-    if number_of_tracers > 0
-        state.tracers.ρχ = @SVector [FT(ii) for ii in 1:number_of_tracers]
-    end
+    state.ρ = ρ
+    state.ρu = ρ * u_cart
+    state.ρe = ρ * e_tot
+    state.moisture.ρq_tot = ρ * q_tot
 
     nothing
 end
 
-function held_suarez_forcing!(
-    bl,
-    source,
-    state,
-    diffusive,
-    aux,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-
-    # Parameters
-    T_ref = FT(255)
-
-    # Extract the state
-    ρ = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
-
-    coord = aux.coord
-    e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
-    T = air_temperature(bl.param_set, e_int)
-    _R_d = FT(R_d(bl.param_set))
-    _day = FT(day(bl.param_set))
-    _grav = FT(grav(bl.param_set))
-    _cp_d = FT(cp_d(bl.param_set))
-    _cv_d = FT(cv_d(bl.param_set))
-    _p0 = FT(MSLP(bl.param_set))
-
-    # Held-Suarez parameters
-    k_a = FT(1 / (40 * _day))
-    k_f = FT(1 / _day)
-    k_s = FT(1 / (4 * _day))
-    ΔT_y = FT(60)
-    Δθ_z = FT(10)
-    T_equator = FT(315)
-    T_min = FT(200)
-    σ_b = FT(7 / 10)
-
-    # Held-Suarez forcing
-    φ = latitude(bl.orientation, aux)
-    p = air_pressure(bl.param_set, T, ρ)
-
-    #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
-    #for topography, but leave unchanged for calculations of σ involved in T_equil
-    σ = p / _p0
-    exner_p = σ^(_R_d / _cp_d)
-    Δσ = (σ - σ_b) / (1 - σ_b)
-    height_factor = max(0, Δσ)
-    T_equil = (T_equator - ΔT_y * sin(φ)^2 - Δθ_z * log(σ) * cos(φ)^2) * exner_p
-    T_equil = max(T_min, T_equil)
-    k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
-    k_v = k_f * height_factor
-
-    # Apply Held-Suarez forcing
-    source.ρu -= k_v * projection_tangential(bl, aux, ρu)
-    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
-    return nothing
-end
-
-function config_heldsuarez(FT, poly_order, resolution)
+function config_gcm_experiment(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
-    exp_name = "HeldSuarez"
+    exp_name = exp_name
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
-
-    if number_of_tracers > 0
-        δ_χ = @SVector [FT(ii) for ii in 1:number_of_tracers]
-        tracers = NTracers{number_of_tracers, FT}(δ_χ)
-    else
-        tracers = NoTracers()
-    end
-
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
-        moisture = DryModel(),
-        source = (Gravity(), Coriolis(), held_suarez_forcing!),
-        init_state_prognostic = init_heldsuarez!,
-        tracers = tracers,
+        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600)),
+        #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
+        #moisture = DryModel(),
+        moisture = EquilMoist{FT}(),
+        source = get_source(),
+        boundarycondition = get_bc(),
+        init_state_prognostic = init_gcm_experiment!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -192,7 +120,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         resolution,
         domain_height,
         param_set,
-        init_heldsuarez!;
+        init_gcm_experiment!;
         model = model,
     )
 
@@ -202,7 +130,7 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 3                           # discontinuous Galerkin polynomial order
+    poly_order = 3                          # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
     n_days::FT = 1
@@ -210,7 +138,7 @@ function main()
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
-    driver_config = config_heldsuarez(FT, poly_order, (n_horz, n_vert))
+    driver_config = config_gcm_experiment(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
@@ -251,11 +179,22 @@ function main()
         nothing
     end
 
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            ("moisture.ρq_tot",),
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
+        nothing
+    end
+
     # Run the model
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
+        #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )
 end
