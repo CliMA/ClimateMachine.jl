@@ -257,7 +257,7 @@ function config_unstable_rad_equilibrium(FT, poly_order, resolution)
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
-    exp_name = "UnstableRE_bulkSFC"
+    exp_name = "tf_exp_bulk_n_daysFT_100"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -309,7 +309,7 @@ function main()
     poly_order = 3                           # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 5
+    n_days::FT = 100
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 

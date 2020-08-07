@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --job-name=tf_exp
+#SBATCH --job-name=tf_exp_b
 #SBARCH --qos=debug
 #SBATCH --time=70:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --tasks-per-node=1
-#SBATCH --output=tf_exp.out
+#SBATCH --output=tf_exp_b.out
 
 # Kill the job if anything fails
 set -euo pipefail
@@ -23,7 +23,7 @@ export JULIA_CUDA_USE_BINARYBUILDER=false
 source ./helper_mod.sh
 
 # User envirnoment setup
-RUNNAME="tf_exp"
+RUNNAME="tf_exp_bulk"
 
 # Change if CLIMA and VizCLIMA not saved in $HOME
 CLIMA_HOME='/central/groups/esm/lenka/ClimateMachine.jl'
@@ -34,7 +34,7 @@ mkdir -p '/central/scratch/elencz/'
 CLIMA_OUTPUT='/central/scratch/elencz/output/'$RUNNAME
 
 # Choose CLIMA experiment script and VizCLIMA script
-EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/unstable_radiative_equilibrium.jl' #also tested in baroclinic_wave.jl, moist_baroclinic_wave.jl and heldsuarez.jl
+EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/unstable_radiative_equilibrium_bulk_sfc_flux.jl' #also tested in baroclinic_wave.jl, moist_baroclinic_wave.jl and heldsuarez.jl
 VIZCLIMA_SCRIPT=$VIZCLIMA_HOME'/src/scripts/ci_analysis_heldsuarez.jl'
 
 # Define a parameter file for experiment 

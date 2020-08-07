@@ -10,10 +10,16 @@ export AtmosBC,
     Insulating,
     PrescribedTemperature,
     PrescribedEnergyFlux,
+    BulkFormulaEnergy,
+    BulkFormulaEnergySpatiallyVarying,
     Impermeable,
     ImpermeableTracer,
     PrescribedMoistureFlux,
+    BulkFormulaMoisture,
+    BulkFormulaMoistureSpatiallyVarying,
     PrescribedTracerFlux
+
+export average_density_sfc_int
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
@@ -202,6 +208,17 @@ function atmos_normal_boundary_flux_second_order!(
         args...,
     )
     turbconv_normal_boundary_flux_second_order!(nf, bc.turbconv, atmos, args...)
+end
+
+"""
+    average_density_sfc_int(ρ_sfc, ρ_int)
+
+Average density between the surface and the interior point, given
+ - `ρ_sfc` density at the surface
+ - `ρ_int` density at the interior point
+"""
+function average_density_sfc_int(ρ_sfc::FT, ρ_int::FT) where {FT <: Real}
+    return FT(0.5) * (ρ_sfc + ρ_int)
 end
 
 include("bc_momentum.jl")
