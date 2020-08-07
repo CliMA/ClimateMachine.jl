@@ -58,7 +58,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     u′, v′, w′ = init_wind_perturbation("deterministic", FT, z, φ, λ, _a )
 
     # Select initial base state
-    T_v, p, u_ref, v_ref, w_ref = init_base_state("bc_wave_state", FT, φ, z, γ, _grav, _a, _Ω, _R_d, M_v )
+    T_v, p, u_ref, v_ref, w_ref = init_base_state("bc_wave_state", FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v )
 
     # Select initial moisture profile
     q_tot = init_moisture_profile("moist_low_tropics", FT, _p_0, φ, p )
@@ -87,13 +87,13 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
 end
 
 # boundary conditions
-function get_bc
+function get_bc()
     bc_list = (AtmosBC(), )
     return bc_list
 end
 
 # sources
-function get_source
+function get_source()
     source_list = (Gravity(), Coriolis(), )
     return source_list
 end
@@ -118,8 +118,8 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         #moisture = DryModel(),
         moisture = EquilMoist{FT}(),
-        source = get_source,
-        boundarycondition = get_bc,
+        source = get_source(),
+        boundarycondition = get_bc(),
         init_state_prognostic = init_baroclinic_wave!,
     )
 

@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --job-name=tf_exp_b
+#SBATCH --job-name=tf_exp_b_tst
 #SBARCH --qos=debug
-#SBATCH --time=70:00:00
+#SBATCH --time=2:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --tasks-per-node=1
-#SBATCH --output=tf_exp_b.out
+#SBATCH --output=tf_exp_b_tst.out
 
 # Kill the job if anything fails
 set -euo pipefail
@@ -23,7 +23,7 @@ export JULIA_CUDA_USE_BINARYBUILDER=false
 source ./helper_mod.sh
 
 # User envirnoment setup
-RUNNAME="tf_exp_bulk"
+RUNNAME="tf_exp_bulk_tst"
 
 # Change if CLIMA and VizCLIMA not saved in $HOME
 CLIMA_HOME='/central/groups/esm/lenka/ClimateMachine.jl'
@@ -34,7 +34,8 @@ mkdir -p '/central/scratch/elencz/'
 CLIMA_OUTPUT='/central/scratch/elencz/output/'$RUNNAME
 
 # Choose CLIMA experiment script and VizCLIMA script
-EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/unstable_radiative_equilibrium_bulk_sfc_flux.jl' #also tested in baroclinic_wave.jl, moist_baroclinic_wave.jl and heldsuarez.jl
+#EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/unstable_radiative_equilibrium_bulk_sfc_flux.jl' #also tested in baroclinic_wave.jl, moist_baroclinic_wave.jl and heldsuarez.jl
+EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/Modularized/baroclinic-wave.jl'
 VIZCLIMA_SCRIPT=$VIZCLIMA_HOME'/src/scripts/ci_analysis_heldsuarez.jl'
 
 # Define a parameter file for experiment 
@@ -55,7 +56,7 @@ do
   t_start=$(date +%s);
   echo $t_start': Running '$CLIMA_RUNFILE', storing output at '$CLIMA_OUTPUT
   julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.API.precompile()'
-  julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART 
+  julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 1shours --monitor-courant-numbers 1shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART 
   peak_rss="switched off"
   #julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 100steps --monitor-courant-numbers 100steps --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART &
   # Get peak memory usage

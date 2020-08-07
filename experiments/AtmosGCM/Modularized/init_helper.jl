@@ -38,10 +38,11 @@ function init_wind_perturbation(which, FT, z, φ, λ, _a )
         w′ = FT(0)
     else
         u′, v′, w′ = (FT(0), FT(0), FT(0))
+    end
     return u′, v′, w′
 end
 
-function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, M_v)
+function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v)
     if which == "bc_wave_state"
         ##########################
         # Initial base state following  Ulrich et al 16 (DCMIP summer school)
@@ -102,6 +103,7 @@ function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, M_v)
     else
         T_v, p, u_ref, v_ref, w_ref = (0,0,0,0,0)
 
+    end
     return T_v, p, u_ref, v_ref, w_ref
 end
 
@@ -128,5 +130,6 @@ function init_moisture_profile(which, FT, _p_0, φ, p )
         else
             q_tot = q_t
         end
+    end
     return q_tot
 end
