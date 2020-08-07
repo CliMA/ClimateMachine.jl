@@ -188,23 +188,7 @@ function run_box1D(
     z_label = "z"
     z = get_z(grid)
 
-    function dict_of_states(solver_config, z_key)
-        FT = eltype(solver_config.Q)
-        state_vars = SingleStackUtils.get_vars_from_nodal_stack(
-            solver_config.dg.grid,
-            solver_config.Q,
-            vars_state(solver_config.dg.balance_law, Prognostic(), FT),
-        )
-        aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
-            solver_config.dg.grid,
-            solver_config.dg.state_auxiliary,
-            vars_state(solver_config.dg.balance_law, Auxiliary(), FT);
-            exclude = [z_key],
-        )
-        return OrderedDict(state_vars..., aux_vars...)
-    end
-
-    all_data = Dict[dict_of_states(solver_config, z_key)]  # store initial condition at ``t=0``
+    all_data = Dict[dict_of_nodal_states(solver_config, [z_key])]  # store initial condition at ``t=0``
     time_data = FT[0]                                      # store time data
 
     # output
@@ -212,7 +196,7 @@ function run_box1D(
     output_freq = floor(Int, timeend / dt) + 10
 
     cb_output = GenericCallbacks.EveryXSimulationSteps(output_freq) do
-        push!(all_data, dict_of_states(solver_config, z_key))
+        push!(all_data, dict_of_nodal_states(solver_config, [z_key]))
         push!(time_data, gettime(solver_config.solver))
         nothing
     end
@@ -288,7 +272,7 @@ function run_box1D(
 
     ClimateMachine.invoke!(solver_config; user_callbacks = (user_cb))
 
-    push!(all_data, dict_of_states(solver_config, z_key))
+    push!(all_data, dict_of_nodal_states(solver_config, [z_key]))
     push!(time_data, gettime(solver_config.solver))
 
     export_plot(

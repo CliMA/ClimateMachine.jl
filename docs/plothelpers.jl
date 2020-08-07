@@ -99,3 +99,47 @@ function save_binned_surface_plots(
     plot(p..., layout = n_plots, legend = false)
     savefig(filename)
 end;
+
+
+"""
+    plot_results(solver_config, all_data, time_data, output_dir)
+
+Exports plots of states given
+ - `solver_config` a `SolverConfiguration`
+ - `all_data` an array of dictionaries, returned from `dict_of_nodal_states`
+ - `time_data` an array of time values
+ - `output_dir` output directory
+"""
+function export_state_plots(solver_config, all_data, time_data, output_dir)
+    FT = eltype(solver_config.Q)
+    z = get_z(solver_config.dg.grid)
+    mkpath(output_dir)
+    vs = vars_state(solver_config.dg.balance_law, Prognostic(), FT)
+    for fn in flattenednames(vs)
+        file_name = "prog_" * replace(fn, "." => "_")
+        export_plot(
+            z,
+            all_data,
+            (fn,),
+            joinpath(output_dir, "$(file_name).png");
+            xlabel = fn,
+            ylabel = "z [m]",
+            time_data = time_data,
+            round_digits = 5,
+        )
+    end
+    vs = vars_state(solver_config.dg.balance_law, Auxiliary(), FT)
+    for fn in flattenednames(vs)
+        file_name = "aux_" * replace(fn, "." => "_")
+        export_plot(
+            z,
+            all_data,
+            (fn,),
+            joinpath(output_dir, "$(file_name).png");
+            xlabel = fn,
+            ylabel = "z [m]",
+            time_data = time_data,
+            round_digits = 5,
+        )
+    end
+end

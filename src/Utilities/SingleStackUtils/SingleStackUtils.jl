@@ -5,7 +5,8 @@ export get_vars_from_nodal_stack,
     get_horizontal_variance,
     get_horizontal_mean,
     reduce_nodal_stack,
-    reduce_element_stack
+    reduce_element_stack,
+    dict_of_nodal_states
 
 using OrderedCollections
 using StaticArrays
@@ -295,6 +296,31 @@ function reduce_element_stack(
             j = j,
         ) for i in 1:Nq, j in 1:Nq
     ]
+end
+
+"""
+    dict_of_nodal_states(solver_config, aux_excludes = [])
+
+A dictionary of single stack prognostic and auxiliary
+variables at the `i=1`,`j=1` node given
+ - `solver_config` a `SolverConfiguration`
+ - `aux_excludes` a vector of strings containing the
+    variables to exclude from the auxiliary state.
+"""
+function dict_of_nodal_states(solver_config, aux_excludes = [])
+    FT = eltype(solver_config.Q)
+    state_vars = get_vars_from_nodal_stack(
+        solver_config.dg.grid,
+        solver_config.Q,
+        vars_state(solver_config.dg.balance_law, Prognostic(), FT),
+    )
+    aux_vars = get_vars_from_nodal_stack(
+        solver_config.dg.grid,
+        solver_config.dg.state_auxiliary,
+        vars_state(solver_config.dg.balance_law, Auxiliary(), FT);
+        exclude = aux_excludes,
+    )
+    return OrderedDict(state_vars..., aux_vars...)
 end
 
 end # module
