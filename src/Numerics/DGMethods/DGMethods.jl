@@ -57,6 +57,7 @@ export DGModel,
 include("NumericalFluxes.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
+include("kernel_vars_wrappers.jl")
 include("create_states.jl")
 
 """

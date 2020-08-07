@@ -638,4 +638,6 @@ function boundary_flux_second_order!(
     )
 end
 
+include("num_flux_vars_wrappers.jl")
+
 end
