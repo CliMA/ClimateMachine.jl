@@ -3,10 +3,10 @@ env:
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
 steps:
-  - label: "gpu_LES_dycoms"
-    key: "gpu_LES_dycoms"
+  - label: "gpu_AtmosLES_dycoms"
+    key: "gpu_AtmosLES_dycoms"
     command:
-      - "mpiexec julia --color=yes --project experiments/LES/dycoms.jl"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl"
     agents:
       config: gpu
       queue: central
