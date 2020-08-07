@@ -27,16 +27,21 @@ using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+exp_name = "DryHeldSuarez"
+
+# Select/customize setup for this particular experiment
+preset_exp_type = exp_name # options: "DryBaroclinicWave", "MoistBaroclinicWave", "DryHeldSuarez", "MoistHeldSuarez_no_sfcfluxes", "MoistHeldSuarez_bulk_sfcfluxes" or customize your own set of bc's, ic's and sources in preset_experiment_list.jl
+include("preset_experiment_list.jl")
+
+# Read in the funcitons for init conditions and sources
 include("init_helper.jl")
+include("source_helper.jl")
 
-# Baroclinic wave experiment
-# - follows http://www-personal.umich.edu/~cjablono/DCMIP-2016_TestCaseDocument_10June2016.pdf
-# - initial conditions: bc_wave_init_base_state, bc_wave_init_perturbation
-
-exp_name = "BaroclinicWave_test"
+# ~~~~~~~~~~~~~~~ code below should be general to all GCM experiments ~~~~~~~~~~~~
+# (for now running everything withb moist - dry expreiments just have q_tot=0)
 
 # initial conditions
-function init_baroclinic_wave!(bl, state, aux, coords, t)
+function init_gcm_experiment!(bl, state, aux, coords, t)
 
     # general parameters
     FT = eltype(state)
@@ -55,13 +60,13 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
 
     # Select initial wind perturbation
-    u′, v′, w′ = init_wind_perturbation("deterministic", FT, z, φ, λ, _a )
+    u′, v′, w′ = init_wind_perturbation(init_pert_name, FT, z, φ, λ, _a )
 
     # Select initial base state
-    T_v, p, u_ref, v_ref, w_ref = init_base_state("bc_wave_state", FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v )
+    T_v, p, u_ref, v_ref, w_ref = init_base_state(init_basestate_name, FT, φ, z, γ, _grav, _a, _Ω, _R_d, M_v )
 
     # Select initial moisture profile
-    q_tot = init_moisture_profile("moist_low_tropics", FT, _p_0, φ, p )
+    q_tot = init_moisture_profile(init_moist_name, FT, _p_0, φ, p )
 
     # Calculate initial total winds
     u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
@@ -69,7 +74,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
 
     # Calculate initial temperature and density
     phase_partition = PhasePartition(q_tot)
-    T::FT = T_v / (1 + M_v * q_tot)
+    T::FT = T_v / (1 + M_v * q_tot) # this needs to be adaptd for ice and liq
     ρ::FT = air_density(bl.param_set, T, p, phase_partition)
 
     ## potential & kinetic energy
@@ -86,21 +91,7 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     nothing
 end
 
-# boundary conditions
-function get_bc()
-    bc_list = (AtmosBC(), )
-    return bc_list
-end
-
-# sources
-function get_source()
-    source_list = (Gravity(), Coriolis(), )
-    return source_list
-end
-
-# ~~~~~~~~~~~~~~~ code below should be general to all GCM experiments ~~~~~~~~~~~~
-# (for now running everything withb moist - dry expreiments just have q_tot=0)
-function config_baroclinic_wave(FT, poly_order, resolution)
+function config_gcm_experiment(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
@@ -120,7 +111,7 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         moisture = EquilMoist{FT}(),
         source = get_source(),
         boundarycondition = get_bc(),
-        init_state_prognostic = init_baroclinic_wave!,
+        init_state_prognostic = init_gcm_experiment!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -129,14 +120,12 @@ function config_baroclinic_wave(FT, poly_order, resolution)
         resolution,
         domain_height,
         param_set,
-        init_baroclinic_wave!;
+        init_gcm_experiment!;
         model = model,
     )
 
     return config
 end
-
-
 
 function main()
     # Driver configuration parameters
@@ -149,7 +138,7 @@ function main()
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
-    driver_config = config_baroclinic_wave(FT, poly_order, (n_horz, n_vert))
+    driver_config = config_gcm_experiment(FT, poly_order, (n_horz, n_vert))
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
