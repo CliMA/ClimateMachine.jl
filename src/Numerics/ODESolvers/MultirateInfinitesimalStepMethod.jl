@@ -60,6 +60,8 @@ mutable struct MultirateInfinitesimalStep{
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "storage for y_n"
     yn::AT
     "Storage for ``Y_nj - y_n``"
@@ -130,6 +132,7 @@ mutable struct MultirateInfinitesimalStep{
         }(
             RT(dt),
             RT(t0),
+            0,
             yn,
             ΔYnj,
             fYnj,

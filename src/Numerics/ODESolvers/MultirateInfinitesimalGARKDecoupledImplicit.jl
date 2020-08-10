@@ -72,6 +72,8 @@ mutable struct MRIGARKDecoupledImplicit{
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "rhs function"
     slowrhs!
     "backwark Euler solver"
@@ -144,6 +146,7 @@ mutable struct MRIGARKDecoupledImplicit{
         new{T, RT, AT, Nstages, NΓ, FS, Nx, Ny, Nx * Ny, BE}(
             RT(dt),
             RT(t0),
+            0,
             slowrhs!,
             besolver!,
             Rstages,

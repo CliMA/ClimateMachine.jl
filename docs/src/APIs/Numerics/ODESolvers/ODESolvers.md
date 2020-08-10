@@ -90,8 +90,9 @@ ODESolvers.DiffEqJLSolver
 
 ```@docs
 ODESolvers.solve!
-ODESolvers.gettime
 ODESolvers.updatedt!
+ODESolvers.gettime
+ODESolvers.getsteps
 ```
 
 ## Generic Callbacks

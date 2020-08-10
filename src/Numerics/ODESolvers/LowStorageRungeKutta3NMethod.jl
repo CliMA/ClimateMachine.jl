@@ -61,6 +61,8 @@ mutable struct LowStorageRungeKutta3N{T, RT, AT, Nstages} <: AbstractODESolver
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "rhs function"
     rhs!
     "Storage for RHS during the `LowStorageRungeKutta3N` update"
@@ -98,6 +100,7 @@ mutable struct LowStorageRungeKutta3N{T, RT, AT, Nstages} <: AbstractODESolver
         new{T, RT, AT, length(RKC)}(
             RT(dt),
             RT(t0),
+            0,
             rhs!,
             dQ,
             dR,
