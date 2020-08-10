@@ -159,6 +159,7 @@ let
                 simtime = FT(0)
 
                 # tests for non diffusive courant number
+                rtol = FT === Float64 ? 1e-4 : 1f-2
                 @test courant(
                     nondiffusive_courant,
                     dg,
@@ -167,7 +168,7 @@ let
                     Δt,
                     simtime,
                     HorizontalDirection(),
-                ) ≈ c_h rtol = 1e-4
+                ) ≈ c_h rtol = rtol
                 @test courant(
                     nondiffusive_courant,
                     dg,
@@ -176,7 +177,7 @@ let
                     Δt,
                     simtime,
                     VerticalDirection(),
-                ) ≈ c_v rtol = 1e-4
+                ) ≈ c_v rtol = rtol
 
                 # tests for diffusive courant number
                 @test courant(

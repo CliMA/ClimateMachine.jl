@@ -3,6 +3,7 @@ module ShallowWater
 export ShallowWaterModel
 
 using StaticArrays
+using ...MPIStateArrays: MPIStateArray
 using LinearAlgebra: dot, Diagonal
 using CLIMAParameters.Planet: grav
 
@@ -27,6 +28,9 @@ import ...BalanceLaws:
     wavespeed,
     boundary_state!
 import ..Ocean: ocean_init_state!, ocean_init_aux!
+
+using ...Mesh.Geometry: LocalGeometry
+using ...DGMethods: nodal_init_state_auxiliary!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -95,7 +99,6 @@ function vars_state(m::SWModel, ::Prognostic, T)
     end
 end
 
-
 function init_state_prognostic!(m::SWModel, state::Vars, aux::Vars, coords, t)
     ocean_init_state!(m, m.problem, state, aux, coords, t)
 end
@@ -108,9 +111,13 @@ function vars_state(m::SWModel, ::Auxiliary, T)
     end
 end
 
-
-function init_state_auxiliary!(m::SWModel, aux::Vars, geom::LocalGeometry)
-    ocean_init_aux!(m, m.problem, aux, geom)
+function init_state_auxiliary!(m::SWModel, state_auxiliary::MPIStateArray, grid)
+    nodal_init_state_auxiliary!(
+        m,
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        state_auxiliary,
+        grid,
+    )
 end
 
 function vars_state(m::SWModel, ::Gradient, T)
@@ -289,6 +296,8 @@ linear_drag!(::ConstantViscosity, _...) = nothing
 
     return nothing
 end
+
+function shallow_boundary_state! end
 
 function boundary_state!(
     nf,

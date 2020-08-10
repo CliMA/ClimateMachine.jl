@@ -11,8 +11,8 @@ using ClimateMachine.Mesh.Geometry
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Atmos: AtmosModel, DryModel, HydrostaticState
-using ClimateMachine.Atmos: atmos_init_aux!
-using ClimateMachine.Orientations: init_aux!
+using ClimateMachine.Atmos: atmos_init_aux!, atmos_init_ref_state_pressure!
+using ClimateMachine.Orientations: orientation_nodal_init_aux!
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
 using ClimateMachine.BalanceLaws:
@@ -23,14 +23,16 @@ using ClimateMachine.VariableTemplates
 
 using Test
 
-
 @testset "Hydrostatic reference states" begin
     # We should provide an interface to call all physics
     # kernels in some way similar to this:
     function compute_ref_state(z::FT, atmos) where {FT}
+        local_geom = LocalGeometry(5, SVector{3, FT}(0, 0, z), @SMatrix zeros(
+            FT,
+            3,
+            3,
+        ))
 
-        vgeo = SArray{Tuple{3, 16, 3}, FT}(zeros(3, 16, 3)) # dummy, not used
-        local_geom = LocalGeometry(Val(5), vgeo, 1, 1) # dummy, not used
         st = vars_state(atmos, Auxiliary(), FT)
         nst = number_states(atmos, Auxiliary())
         arr = MArray{Tuple{nst}, FT}(undef)
@@ -40,10 +42,24 @@ using Test
         # Hack: need coord in sync with incoming z, so that
         # altitude returns correct value.
         aux.coord = @SArray FT[0, 0, z]
-
         # Need orientation defined, so that z
-        init_aux!(atmos.orientation, atmos.param_set, aux)
-        atmos_init_aux!(atmos.ref_state, atmos, aux, local_geom)
+        orientation_nodal_init_aux!(
+            atmos.orientation,
+            atmos.param_set,
+            aux,
+            local_geom,
+        )
+        aux.orientation.∇Φ = @SArray FT[0, 0, grav(param_set)]
+
+        atmos_init_ref_state_pressure!(atmos.ref_state, atmos, aux, local_geom)
+
+        # Mega-hack: define ∇p so that we actually compute ρ based
+        # on the ideal gas law
+        T_virt, p = atmos.ref_state.virtual_temperature_profile(param_set, z)
+        hack_value = FT(-grav(param_set) * p / (R_d(param_set) * T_virt))
+        tmp = Vars{@vars(∇p::SVector{3, FT})}(SVector{3, FT}(0, 0, hack_value))
+
+        atmos_init_aux!(atmos.ref_state, atmos, aux, tmp, local_geom)
         return aux
     end
 
