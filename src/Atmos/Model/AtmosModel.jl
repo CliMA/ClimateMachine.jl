@@ -59,12 +59,8 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 import ClimateMachine.DGMethods:
-    LocalGeometry,
-    lengthscale,
-    resolutionmetric,
-    DGModel,
-    nodal_update_auxiliary_state!,
-    nodal_init_state_auxiliary!
+    LocalGeometry, lengthscale, resolutionmetric, DGModel
+
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
     boundary_flux_second_order!,
@@ -576,14 +572,7 @@ function update_auxiliary_state!(
         reverse_indefinite_stack_integral!(dg, m, Q, state_auxiliary, t, elems)
     end
 
-    nodal_update_auxiliary_state!(
-        atmos_nodal_update_auxiliary_state!,
-        dg,
-        m,
-        Q,
-        t,
-        elems,
-    )
+    update_auxiliary_state!(nodal_update_auxiliary_state!, dg, m, Q, t, elems)
 
     # TODO: Remove this hook. This hook was added for implementing
     # the first draft of EDMF, and should be removed so that we can
@@ -596,7 +585,7 @@ function update_auxiliary_state!(
     return true
 end
 
-function atmos_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     m::AtmosModel,
     state::Vars,
     aux::Vars,
@@ -671,7 +660,7 @@ function init_state_auxiliary!(
 )
     init_aux!(m, m.orientation, state_auxiliary, grid)
 
-    nodal_init_state_auxiliary!(
+    init_state_auxiliary!(
         m,
         (m, aux, tmp, geom) ->
             atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
@@ -681,7 +670,7 @@ function init_state_auxiliary!(
 
     ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
 
-    nodal_init_state_auxiliary!(
+    init_state_auxiliary!(
         m,
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,

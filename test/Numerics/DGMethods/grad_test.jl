@@ -9,7 +9,7 @@ using ClimateMachine.DGMethods
 
 using ClimateMachine.BalanceLaws
 
-import ClimateMachine.BalanceLaws: vars_state, init_state_auxiliary!
+import ClimateMachine.BalanceLaws: vars_state, nodal_init_state_auxiliary!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
@@ -22,7 +22,7 @@ vars_state(m::GradTestModel, ::Auxiliary, T) = @vars begin
 end
 vars_state(::GradTestModel, ::Prognostic, T) = @vars()
 
-function grad_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::GradTestModel{dim},
     aux::Vars,
     tmp::Vars,
@@ -40,19 +40,6 @@ function grad_nodal_init_state_auxiliary!(
             2 * z * y^2 - x * y,
         )
     end
-end
-
-function init_state_auxiliary!(
-    m::GradTestModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        grad_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
 end
 
 using Test
