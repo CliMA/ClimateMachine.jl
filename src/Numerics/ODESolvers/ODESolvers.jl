@@ -12,9 +12,10 @@ using ..SystemSolvers
 using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
 
-export solve!, updatedt!, gettime
+export solve!, updatedt!, gettime, getsteps
 
 abstract type AbstractODESolver end
+
 """
     gettime(solver::AbstractODESolver)
 
@@ -28,6 +29,13 @@ gettime(solver::AbstractODESolver) = solver.t
 Returns the current simulation time step of the ODE solver `solver`
 """
 getdt(solver::AbstractODESolver) = solver.dt
+
+"""
+    getsteps(solver::AbstractODESolver)
+
+Returns the number of completed time steps of the ODE solver `solver`
+"""
+getsteps(solver::AbstractODESolver) = solver.steps
 
 """
     ODESolvers.general_dostep!(Q, solver::AbstractODESolver, p,
@@ -65,6 +73,13 @@ function general_dostep!(
 end
 
 """
+    updatetime!(solver::AbstractODESolver, time)
+
+Change the current time to `time` for the ODE solver `solver`.
+"""
+updatetime!(solver::AbstractODESolver, time) = (solver.t = time)
+
+"""
     updatedt!(solver::AbstractODESolver, dt)
 
 Change the time step size to `dt` for the ODE solver `solver`.
@@ -72,11 +87,11 @@ Change the time step size to `dt` for the ODE solver `solver`.
 updatedt!(solver::AbstractODESolver, dt) = (solver.dt = dt)
 
 """
-    updatetime!(solver::AbstractODESolver, time)
+    updatesteps!(solver::AbstractODESolver, dt)
 
-Change the current time to `time` for the ODE solver `solver`.
+Set the number of elapsed time steps for the ODE solver `solver`.
 """
-updatetime!(solver::AbstractODESolver, time) = (solver.t = time)
+updatesteps!(solver::AbstractODESolver, steps) = (solver.steps = steps)
 
 isadjustable(solver::AbstractODESolver) = true
 
@@ -114,6 +129,7 @@ function solve!(
     time = t0
     while time < timeend
         step += 1
+        updatesteps!(solver, step)
 
         time = general_dostep!(
             Q,

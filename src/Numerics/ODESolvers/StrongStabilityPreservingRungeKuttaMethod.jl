@@ -28,6 +28,8 @@ mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <:
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "rhs function"
     rhs!
     "Storage for RHS during the `StrongStabilityPreservingRungeKutta` update"
@@ -55,6 +57,7 @@ mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <:
         new{T, RT, AT, length(RKB)}(
             RT(dt),
             RT(t0),
+            0,
             rhs!,
             similar(Q),
             similar(Q),
