@@ -6,7 +6,9 @@ steps:
   - label: "gpu_AtmosLES_dycoms"
     key: "gpu_AtmosLES_dycoms"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl"
+      - "mpiexec nvprof --process-name \"MPI Rank %q{OMPI_COMM_WORLD_RANK}\" --context-name \"MPI Rank %q{OMPI_COMM_WORLD_RANK}\" -o timeline.%q{OMPI_COMM_WORLD_RANK}.nvprof julia --color=yes --project experiments/AtmosLES/dycoms.jl"
+    artifacts:
+    
     agents:
       config: gpu
       queue: central
