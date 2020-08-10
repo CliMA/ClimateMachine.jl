@@ -50,5 +50,5 @@ ClimateMachine.Atmos.ImpermeableTracer
 ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
 ClimateMachine.Atmos.NoSlip
-ClimateMachine.Atmos.average_density_sfc_int
+ClimateMachine.Atmos.average_density
 ```
