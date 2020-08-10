@@ -1,6 +1,4 @@
 import ...DGMethods: SchurComplement,
-                        schur_vars_state_auxiliary,
-                        schur_vars_gradient_auxiliary,
                         schur_init_aux!,
                         schur_init_state!,
                         schur_lhs_conservative!,
@@ -14,20 +12,24 @@ import ...DGMethods: SchurComplement,
                         schur_update_boundary_state!,
                         schur_rhs_boundary_state!
 
+using ...DGMethods: SchurAuxiliary, SchurAuxiliaryGradient
+
+import ...BalanceLaws: vars_state
+
 using CLIMAParameters.Planet: kappa_d
 
 export AtmosAcousticLinearSchurComplement 
 
 struct AtmosAcousticLinearSchurComplement <: SchurComplement end
 
-function schur_vars_state_auxiliary(::AtmosAcousticLinearSchurComplement, FT)
+function vars_state(::AtmosAcousticLinearSchurComplement, ::SchurAuxiliary, FT)
   @vars begin
     h0::FT
     Φ::FT # FIXME: get this from aux directly
     ∇h0::SVector{3, FT}
   end
 end
-schur_vars_gradient_auxiliary(::AtmosAcousticLinearSchurComplement, FT) = @vars(h0::FT)
+vars_state(::AtmosAcousticLinearSchurComplement, ::SchurAuxiliaryGradient, FT) = @vars(h0::FT)
 
 function schur_init_aux!(::AtmosAcousticLinearSchurComplement,
                          lm, schur_aux, aux, geom)

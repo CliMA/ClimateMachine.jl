@@ -1,15 +1,16 @@
+using ..BalanceLaws: AbstractStateType
+import ..BalanceLaws: vars_state
+
 abstract type SchurComplement end # PDE part
 
-schur_vars_state(::SchurComplement, FT) = @vars(p::FT)
-schur_vars_state_gradient(::SchurComplement, FT) = @vars(∇p::SVector{3, FT})
+# state types
+struct SchurPrognostic <: AbstractStateType end
+struct SchurAuxiliary <: AbstractStateType end
+struct SchurGradient <: AbstractStateType end
+struct SchurAuxiliaryGradient <: AbstractStateType end
 
-function schur_vars_state_auxiliary end
-function schur_vars_gradient_auxiliary end
-
-schur_number_state(m::SchurComplement, FT) = varsize(schur_vars_state(m, FT))
-schur_number_state_auxiliary(m::SchurComplement, FT) = varsize(schur_vars_state_auxiliary(m, FT))
-schur_number_state_gradient(m::SchurComplement, FT) = varsize(schur_vars_state_gradient(m, FT))
-schur_number_gradient_auxiliary(m::SchurComplement, FT) = varsize(schur_vars_gradient_auxiliary(m, FT))
+vars_state(::SchurComplement, ::SchurPrognostic, FT) = @vars(p::FT)
+vars_state(::SchurComplement, ::SchurGradient, FT) = @vars(∇p::SVector{3, FT})
 
 function schur_init_aux! end
 function schur_init_state! end
@@ -55,12 +56,12 @@ function create_schur_state(schur_complement::SchurComplement, grid)
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    V = schur_vars_state(schur_complement, FT)
+    V = vars_state(schur_complement, SchurPrognostic(), FT)
     schur_state = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
         Np,
-        schur_number_state(schur_complement, FT),
+        number_states(schur_complement, SchurPrognostic()),
         length(topology.elems),
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -83,8 +84,8 @@ function create_schur_indexmap(schur_complement::SchurComplement)
         collect(Iterators.Flatten(_getvars.(fields, fieldtypes(T))))
     end
 
-    auxvars = schur_vars_state_auxiliary(schur_complement, Int)
-    auxgradvars = schur_vars_gradient_auxiliary(schur_complement, Int)
+    auxvars = vars_state(schur_complement, SchurAuxiliary(), Int)
+    auxgradvars = vars_state(schur_complement, SchurAuxiliaryGradient(), Int)
     indices = Vars{auxvars}(1:varsize(auxvars))
     SVector{varsize(auxgradvars)}(_getvars(indices, auxgradvars))
 end
@@ -104,12 +105,12 @@ function create_schur_auxiliary_state(schur_complement::SchurComplement, balance
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    V = schur_vars_state_auxiliary(schur_complement, FT)
+    V = vars_state(schur_complement, SchurAuxiliary(), FT)
     schur_auxstate = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
         Np,
-        schur_number_state_auxiliary(schur_complement, FT),
+        number_states(schur_complement, SchurAuxiliary()),
         length(topology.elems),
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -172,12 +173,12 @@ function create_schur_gradient_state(schur_complement::SchurComplement, grid)
     weights = view(h_vgeo, :, grid.Mid, :)
     weights = reshape(weights, size(weights, 1), 1, size(weights, 2))
 
-    V = schur_vars_state_gradient(schur_complement, FT)
+    V = vars_state(schur_complement, SchurGradient(), FT)
     schur_gradient_state = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,
         Np,
-        schur_number_state_gradient(schur_complement, FT),
+        number_states(schur_complement, SchurGradient()),
         length(topology.elems),
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,

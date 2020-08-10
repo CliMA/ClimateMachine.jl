@@ -266,7 +266,7 @@ Compute reverse indefinite integral along stack.
 function reverse_indefinite_stack_integral! end
 
 # Internal methods
-number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
+number_states(m, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))
 
 ### split explicit functions
