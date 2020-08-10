@@ -41,11 +41,14 @@ ClimateMachine.Atmos.AtmosBC
 ClimateMachine.Atmos.DragLaw
 ClimateMachine.Atmos.Impermeable
 ClimateMachine.Atmos.PrescribedMoistureFlux
+ClimateMachine.Atmos.BulkFormulaMoisture
 ClimateMachine.Atmos.FreeSlip
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
+ClimateMachine.Atmos.BulkFormulaEnergy
 ClimateMachine.Atmos.ImpermeableTracer
 ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
 ClimateMachine.Atmos.NoSlip
+ClimateMachine.Atmos.average_density_sfc_int
 ```

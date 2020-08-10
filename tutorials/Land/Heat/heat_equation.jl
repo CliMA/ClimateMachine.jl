@@ -33,7 +33,7 @@
 # 1) Preliminary configuration
 # 2) PDEs
 # 3) Space discretization
-# 4) Time discretization
+# 4) Time discretization / solver
 # 5) Solver hooks / callbacks
 # 6) Solve
 # 7) Post-processing
@@ -48,6 +48,8 @@ using MPI
 using OrderedCollections
 using Plots
 using StaticArrays
+using OrdinaryDiffEq
+using DiffEqBase
 
 #  - load CLIMAParameters and set up to use it:
 
@@ -85,6 +87,8 @@ import ClimateMachine.BalanceLaws:
     init_state_auxiliary!,
     init_state_prognostic!,
     boundary_state!
+
+import ClimateMachine.DGMethods: calculate_dt
 
 # ## Initialization
 
@@ -326,31 +330,78 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
 );
 
-# # Time discretization
+# # Time discretization / solver
 
 # Specify simulation time (SI units)
 t0 = FT(0)
 timeend = FT(40)
 
-# We'll define the time-step based on the [Fourier
-# number](https://en.wikipedia.org/wiki/Fourier_number)
-Δ = min_node_distance(driver_config.grid)
-
-given_Fourier = FT(0.08);
-Fourier_bound = given_Fourier * Δ^2 / m.α;
-dt = Fourier_bound
-
-# # Configure a solver.
-
-# This initializes the state vector and allocates memory for the solution in
-# space (`dg` has the model `m`, which describes the PDEs as well as the
-# function used for initialization). This additionally initializes the ODE
-# solver, by default an explicit Low-Storage
+# In this section, we initialize the state vector and allocate memory for
+# the solution in space (`dg` has the model `m`, which describes the PDEs
+# as well as the function used for initialization). `SolverConfiguration`
+# initializes the ODE solver, by default an explicit Low-Storage
 # [Runge-Kutta](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods)
-# method.
+# method. In this tutorial, we prescribe an option for an implicit
+# `Kvaerno3` method.
 
-solver_config =
-    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
+# First, let's define how the time-step is computed, based on the
+# [Fourier number](https://en.wikipedia.org/wiki/Fourier_number)
+# (i.e., diffusive Courant number) is defined. Because
+# the `HeatModel` is a custom model, we must define how both are computed.
+# First, we must define our own implementation of `DGMethods.calculate_dt`,
+# (which we imported):
+function calculate_dt(dg, model::HeatModel, Q, Courant_number, t, direction)
+    Δt = one(eltype(Q))
+    CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
+    return Courant_number / CFL
+end
+
+# Next, we'll define our implementation of `diffusive_courant`:
+function diffusive_courant(
+    m::HeatModel,
+    state::Vars,
+    aux::Vars,
+    diffusive::Vars,
+    Δx,
+    Δt,
+    t,
+    direction,
+)
+    return Δt * m.α / (Δx * Δx)
+end
+
+# Finally, we initialize the state vector and solver
+# configuration based on the given Fourier number.
+# Note that, we can use a much larger Fourier number
+# for implicit solvers as compared to explicit solvers.
+use_implicit_solver = false
+if use_implicit_solver
+    given_Fourier = FT(30)
+
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config;
+        ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.Kvaerno3(
+            autodiff = false,
+            linsolve = LinSolveGMRES(),
+        )),
+        Courant_number = given_Fourier,
+        CFL_direction = VerticalDirection(),
+    )
+else
+    given_Fourier = FT(0.7)
+
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config;
+        Courant_number = given_Fourier,
+        CFL_direction = VerticalDirection(),
+    )
+end;
+
+
 grid = solver_config.dg.grid;
 Q = solver_config.Q;
 aux = solver_config.dg.state_auxiliary;
@@ -367,27 +418,8 @@ z_key = "z";
 z_label = "z [cm]";
 z = get_z(grid, z_scale);
 
-# Here, we define a convenience function to
-# collect the prognostic and auxiliary states
-# from the solver configuration.
-function dict_of_states(solver_config, z_key)
-    FT = eltype(solver_config.Q)
-    state_vars = SingleStackUtils.get_vars_from_nodal_stack(
-        solver_config.dg.grid,
-        solver_config.Q,
-        vars_state(solver_config.dg.balance_law, Prognostic(), FT),
-    )
-    aux_vars = SingleStackUtils.get_vars_from_nodal_stack(
-        solver_config.dg.grid,
-        solver_config.dg.state_auxiliary,
-        vars_state(solver_config.dg.balance_law, Auxiliary(), FT);
-        exclude = [z_key],
-    )
-    return OrderedDict(state_vars..., aux_vars...)
-end
-
 # Create an array to store the solution:
-all_data = Dict[dict_of_states(solver_config, z_key)]  # store initial condition at ``t=0``
+all_data = Dict[dict_of_nodal_states(solver_config, [z_key])]  # store initial condition at ``t=0``
 time_data = FT[0]                                      # store time data
 
 export_plot(
@@ -418,7 +450,7 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 # `all_data` for time the callback is executed. In addition, time is collected
 # and appended to `time_data`.
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-    push!(all_data, dict_of_states(solver_config, z_key))
+    push!(all_data, dict_of_nodal_states(solver_config, [z_key]))
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
@@ -431,7 +463,7 @@ end;
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # Append result at the end of the last time step:
-push!(all_data, dict_of_states(solver_config, z_key));
+push!(all_data, dict_of_nodal_states(solver_config, [z_key]));
 push!(time_data, gettime(solver_config.solver));
 
 # # Post-processing
