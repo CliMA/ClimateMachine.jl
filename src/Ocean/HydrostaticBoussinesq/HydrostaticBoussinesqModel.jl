@@ -13,6 +13,7 @@ using ...Mesh.Filters: apply!
 using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
 using ...DGMethods
+using ...DGMethods: nodal_init_state_auxiliary!
 using ...DGMethods.NumericalFluxes
 using ...DGMethods.NumericalFluxes: RusanovNumericalFlux
 using ...BalanceLaws
@@ -171,14 +172,21 @@ function vars_state(m::HBModel, ::Auxiliary, T)
     end
 end
 
+function ocean_init_aux! end
+
 """
     init_state_auxiliary!(::HBModel)
 
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
-    return ocean_init_aux!(m, m.problem, A, geom)
+function init_state_auxiliary!(m::HBModel, state_auxiliary::MPIStateArray, grid)
+    nodal_init_state_auxiliary!(
+        m,
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        state_auxiliary,
+        grid,
+    )
 end
 
 """

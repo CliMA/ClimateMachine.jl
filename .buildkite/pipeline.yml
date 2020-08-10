@@ -936,3 +936,21 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "cpu_discrete_hydrostatic_balance"
+    key: "cpu_discrete_hydrostatic_balance"
+    command:
+     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "gpu_discrete_hydrostatic_balance"
+    key: "gpu_discrete_hydrostatic_balance"
+    command:
+     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"

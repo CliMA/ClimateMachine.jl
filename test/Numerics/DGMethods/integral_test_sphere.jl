@@ -6,6 +6,7 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 using ClimateMachine.DGMethods.NumericalFluxes
 using Printf
 using LinearAlgebra
@@ -77,9 +78,10 @@ boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
 init_state_prognostic!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel, _...) = 1
 
-function init_state_auxiliary!(
+function integral_nodal_init_state_auxiliary!(
     m::IntegralTestSphereModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
 
@@ -91,6 +93,19 @@ function init_state_auxiliary!(
     aux.a = 1 + cos(ϕ)^2 * sin(θ)^2 + sin(ϕ)^2
     aux.int.v = exp(-aux.a * aux.r^2) - exp(-aux.a * m.Rinner^2)
     aux.rev_int.v = exp(-aux.a * m.Router^2) - exp(-aux.a * aux.r^2)
+end
+
+function init_state_auxiliary!(
+    m::IntegralTestSphereModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    nodal_init_state_auxiliary!(
+        m,
+        integral_nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
 end
 
 @inline function integral_load_auxiliary_state!(
