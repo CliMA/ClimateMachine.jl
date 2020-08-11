@@ -152,7 +152,7 @@ end
 """
   Initial Condition for UnstableBoundaryLayer LES
 """
-function init_problem!(problem, bl, state, aux, (x, y, z), t)
+function init_problem!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     # Problem floating point precision
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
@@ -334,7 +334,7 @@ function main()
 
     t0 = FT(0)
 
-    # Full simulation requires 16+ hours of simulated time 
+    # Full simulation requires 16+ hours of simulated time
     timeend = FT(3600 * 0.1)
     CFLmax = FT(0.4)
 

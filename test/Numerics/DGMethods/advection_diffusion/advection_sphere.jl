@@ -60,7 +60,7 @@ function init_velocity_diffusion!(
         +uφ * cos(φ),
     )
 end
-function initial_condition!(::SolidBodyRotation, state, aux, x, t)
+function initial_condition!(::SolidBodyRotation, state, aux, x, xc, t)
     λ = longitude(SphericalOrientation(), aux)
     φ = latitude(SphericalOrientation(), aux)
     state.ρ = exp(-((3λ)^2 + (3φ)^2))
@@ -88,7 +88,7 @@ init_velocity_diffusion!(
     aux::Vars,
     geom::LocalGeometry,
 ) = nothing
-function initial_condition!(::ReversingDeformationalFlow, state, aux, coord, t)
+function initial_condition!(::ReversingDeformationalFlow, state, aux, coord, center_coord, t)
     x, y, z = aux.coord
     r = norm(aux.coord)
     h_max = 0.95

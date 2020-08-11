@@ -147,6 +147,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coord,
+    center_coord,
     t,
 ) end
 function flux_first_order!(

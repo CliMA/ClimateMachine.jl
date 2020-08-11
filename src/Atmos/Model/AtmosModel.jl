@@ -748,6 +748,7 @@ end
         state::Vars,
         aux::Vars,
         coords,
+        center_coords,
         t,
         args...,
     )
@@ -761,6 +762,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t,
     args...,
 )
@@ -770,6 +772,7 @@ function init_state_prognostic!(
         state,
         aux,
         coords,
+        center_coords,
         t,
         args...,
     )

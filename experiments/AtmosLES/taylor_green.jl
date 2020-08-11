@@ -65,7 +65,7 @@ journal = {AIAA Aviation 7th AIAA theoretical fluid mechanics conference},
 year = {2014},
 }
 """
-function init_greenvortex!(problem, bl, state, aux, (x, y, z), t)
+function init_greenvortex!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     # Problem float-type
     FT = eltype(state)
 

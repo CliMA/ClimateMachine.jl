@@ -63,7 +63,15 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
     end
 end
 
-function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
+function init_kinematic_eddy!(
+    eddy_model,
+    state,
+    aux,
+    (x, y, z),
+    (xc, yc, zc),
+    t,
+    spline_fun
+)
     FT = eltype(state)
     _grav::FT = grav(param_set)
 
@@ -97,39 +105,44 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
         _X::FT = FT(10000)
         _xc::FT = FT(30000)
         _A::FT = FT(4.8 * 1e4)
-        _S::FT = FT(2.5 * 1e-2) * FT(1e-2) * FT(0.5) #TODO
+        _S::FT = FT(2.5 * 1e-2) * FT(0.01) #TODO
         _ρ_00::FT = FT(1)
         ρu::FT = FT(0)
         ρw::FT = FT(0)
-        if x >= (_xc + _X)
-            ρu =
-                _S * z -
-                _A / _ρ_00 * (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw = FT(0)
-        elseif x <= (_xc - _X)
-            ρu =
-                _S * z +
-                _A / _ρ_00 * (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw = FT(0)
+        if zc < _Z
+            if x >= (_xc + _X)
+                ρu =
+                    _S * z -
+                    _A / _ρ_00 * (
+                        init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                        init_dρ(z) * sin(FT(π) / _Z * z)
+                    )
+                ρw = FT(0)
+            elseif x <= (_xc - _X)
+                ρu =
+                    _S * z +
+                    _A / _ρ_00 * (
+                        init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                        init_dρ(z) * sin(FT(π) / _Z * z)
+                    )
+                ρw = FT(0)
+            else
+                ρu =
+                    _S * z -
+                    _A / _ρ_00 *
+                    sin(FT(π / 2.0) / _X * (x - _xc)) *
+                    (
+                        init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                        init_dρ(z) * sin(FT(π) / _Z * z)
+                    )
+                ρw =
+                    _A * init_ρ(z) / _ρ_00 * FT(π / 2.0) / _X *
+                    sin(FT(π) / _Z * z) *
+                    cos(FT(π / 2.0) / _X * (x - _xc))
+            end
         else
-            ρu =
-                _S * z -
-                _A / _ρ_00 *
-                sin(FT(π / 2.0) / _X * (x - _xc)) *
-                (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw =
-                _A * init_ρ(z) / _ρ_00 * FT(π / 2.0) / _X *
-                sin(FT(π) / _Z * z) *
-                cos(FT(π / 2.0) / _X * (x - _xc))
+            ρu = _S * z
+            ρw = FT(0)
         end
         state.ρu = SVector(ρu, FT(0), ρw)
         u::FT = ρu / ρ
@@ -667,8 +680,8 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(5 * 60) #FT(4 * 60 * 60) #TODO
-    dt = FT(15)
+    t_end = FT(4 * 60) #FT(4 * 60 * 60) #TODO
+    dt = FT(0.25)
     #CFL = FT(1.75)
     filter_freq = 1
     output_freq = 4

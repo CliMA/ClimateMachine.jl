@@ -121,9 +121,10 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t::Real,
 )
-    initial_condition!(m.problem, state, aux, coords, t)
+    initial_condition!(m.problem, state, aux, coords, center_coords, t)
 end
 
 boundary_state!(nf, ::HyperDiffusion, _...) = nothing

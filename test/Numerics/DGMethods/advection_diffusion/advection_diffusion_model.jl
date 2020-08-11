@@ -245,13 +245,14 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t::Real,
 )
-    initial_condition!(m.problem, state, aux, coords, t)
+    initial_condition!(m.problem, state, aux, coords, center_coords, t)
 end
 
 Neumann_data!(problem, ∇state, aux, x, t) = nothing
-Dirichlet_data!(problem, state, aux, x, t) = nothing
+Dirichlet_data!(problem, state, aux, x, xc, t) = nothing
 
 function boundary_state!(
     nf,
@@ -266,7 +267,7 @@ function boundary_state!(
     _...,
 )
     if bctype == 1 # Dirichlet
-        Dirichlet_data!(m.problem, stateP, auxP, auxP.coord, t)
+        Dirichlet_data!(m.problem, stateP, auxP, auxP.coord, nothing, t)
     elseif bctype ∈ (2, 4) # Neumann
         stateP.ρ = stateM.ρ
     elseif bctype == 3 # zero Dirichlet

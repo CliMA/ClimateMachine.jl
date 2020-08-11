@@ -154,6 +154,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t,
 ) where {dim}
     state.ϕ = prod(sol1d, view(coords, 1:dim))

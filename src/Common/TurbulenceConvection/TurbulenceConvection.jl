@@ -143,6 +143,7 @@ function init_state_prognostic!(
     state,
     aux,
     (x, y, z),
+    center_coord,
     t,
 ) end
 

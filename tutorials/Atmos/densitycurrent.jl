@@ -87,7 +87,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 # - Required so functions for computation of temperature profiles.
 using ClimateMachine.TemperatureProfiles
-# - Required so functions for computation of moist thermodynamic quantities and turbulence closures 
+# - Required so functions for computation of moist thermodynamic quantities and turbulence closures
 # are available.
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
@@ -127,7 +127,15 @@ const param_set = EarthParameterSet()
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualisation
 #md #       purposes)
-function init_densitycurrent!(problem, bl, state, aux, (x, y, z), t)
+function init_densitycurrent!(
+    problem,
+    bl,
+    state,
+    aux,
+    (x, y, z),
+    center_coordinates,
+    t,
+)
     ## Problem float-type
     FT = eltype(state)
 

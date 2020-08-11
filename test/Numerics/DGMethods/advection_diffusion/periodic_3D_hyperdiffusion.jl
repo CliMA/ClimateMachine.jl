@@ -44,6 +44,7 @@ function initial_condition!(
     state,
     aux,
     x,
+    xc,
     t,
 ) where {dim, dir}
     @inbounds begin

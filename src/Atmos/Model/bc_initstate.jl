@@ -21,7 +21,7 @@ function atmos_boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, nothing, t)
 end
 
 function atmos_normal_boundary_flux_second_order!(
@@ -78,5 +78,5 @@ function boundary_state!(
     t,
     args...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, nothing, t)
 end

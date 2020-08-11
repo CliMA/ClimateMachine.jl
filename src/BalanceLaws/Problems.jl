@@ -20,6 +20,7 @@ abstract type AbstractProblem end
         state_prognostic::Vars,
         state_auxiliary::Vars,
         coords,
+        center_coords,
         t,
         args...,
     )

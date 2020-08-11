@@ -28,7 +28,7 @@ const param_set = EarthParameterSet()
 const p∞ = 10^5
 const T∞ = 300.0
 
-function initialcondition!(problem, bl, state, aux, coords, t)
+function initialcondition!(problem, bl, state, aux, coords, center_coords, t)
     FT = eltype(state)
 
     translation_speed::FT = 150

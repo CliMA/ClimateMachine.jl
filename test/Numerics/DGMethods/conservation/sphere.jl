@@ -72,6 +72,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coord,
+    center_coord,
     t,
 )
     state.q = rand()

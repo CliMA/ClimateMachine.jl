@@ -2,7 +2,7 @@
 
 ## @article{10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2,
 ##     author = {Kosović, Branko and Curry, Judith A.},
-##     title = "{A Large Eddy Simulation Study of a Quasi-Steady, 
+##     title = "{A Large Eddy Simulation Study of a Quasi-Steady,
 ##               Stably Stratified Atmospheric Boundary Layer}",
 ##     journal = {Journal of the Atmospheric Sciences},
 ##     volume = {57},
@@ -150,7 +150,7 @@ end
 """
   Initial Condition for StableBoundaryLayer LES
 """
-function init_problem!(problem, bl, state, aux, (x, y, z), t)
+function init_problem!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     # Problem floating point precision
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)

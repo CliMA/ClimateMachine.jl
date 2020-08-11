@@ -39,10 +39,10 @@ using CLIMAParameters.Planet:
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_heldsuarez!(problem, bl, state, aux, coords, t)
+function init_heldsuarez!(problem, bl, state, aux, coords, center_coords, t)
     FT = eltype(state)
 
-    # parameters 
+    # parameters
     _a::FT = planet_radius(bl.param_set)
 
     z_t::FT = 15e3

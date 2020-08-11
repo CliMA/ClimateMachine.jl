@@ -193,7 +193,7 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function init_dycoms!(problem, bl, state, aux, (x, y, z), t)
+function init_dycoms!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     FT = eltype(state)
 
     z = altitude(bl, aux)

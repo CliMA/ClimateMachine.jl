@@ -25,12 +25,12 @@ const param_set = EarthParameterSet()
 
 ### Citation
 #@article{
-#    author = {Schär, Christoph and 
-#              Leuenberger, Daniel and 
-#              Fuhrer, Oliver and 
-#              Lüthi, Daniel and 
+#    author = {Schär, Christoph and
+#              Leuenberger, Daniel and
+#              Fuhrer, Oliver and
+#              Lüthi, Daniel and
 #              Girard, Claude},
-#    title = "{A New Terrain-Following Vertical Coordinate Formulation 
+#    title = "{A New Terrain-Following Vertical Coordinate Formulation
 #              for Atmospheric Prediction Models}",
 #    journal = {Monthly Weather Review},
 #    volume = {130},
@@ -44,7 +44,7 @@ const param_set = EarthParameterSet()
 #}
 
 # ## [Initial Conditions]
-function init_schar!(problem, bl, state, aux, (x, y, z), t)
+function init_schar!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     ## Problem float-type
     FT = eltype(state)
 

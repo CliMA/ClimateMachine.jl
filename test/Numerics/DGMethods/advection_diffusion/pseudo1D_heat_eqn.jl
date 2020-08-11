@@ -48,6 +48,7 @@ function initial_condition!(
     state,
     aux,
     x,
+    xc,
     t,
 ) where {n, κ, A}
     ξn = dot(n, x)

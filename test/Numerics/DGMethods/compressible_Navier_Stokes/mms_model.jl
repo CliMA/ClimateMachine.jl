@@ -159,7 +159,7 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), nothing, t)
 end
 
 # FIXME: This is probably not right....
@@ -179,7 +179,7 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), nothing, t)
 end
 
 function nodal_init_state_auxiliary!(
@@ -199,6 +199,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     (x1, x2, x3),
+    center_coords,
     t,
 ) where {dim}
     state.ρ = ρ_g(t, x1, x2, x3, Val(dim))

@@ -75,6 +75,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t::Real,
 )
     if aux.z_dim >= 75 && aux.z_dim <= 125
