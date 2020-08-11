@@ -1501,6 +1501,18 @@ end
 
     @inbounds begin
         coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
+        V = FT(0)
+        xc = FT(0)
+        yc = FT(0)
+        zc = FT(0)
+        @unroll for i in 1:Np
+            M = vgeo[i, _M, e]
+            V += M
+            xc += M * vgeo[i, _x1, e]
+            yc += M * vgeo[i, _x2, e]
+            zc += M * vgeo[i, _x3, e]
+        end
+        center_coords = SVector(xc / V, yc / V, zc / V)
         @unroll for s in 1:num_state_auxiliary
             local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
@@ -1514,6 +1526,7 @@ end
                 local_state_auxiliary,
             ),
             coords,
+            center_coords,
             args...,
         )
         @unroll for s in 1:num_state_prognostic
