@@ -188,8 +188,10 @@ function atmos_source!(
     FT = eltype(state)
 
     q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
-    source.ρq_tot -= state.ρ * remove_precipitation(atmos.param_set, q)
-    source.ρe -= state.ρ * remove_precipitation(atmos.param_set, q) #TODO - energy source due to mass loss
 
+    source.ρq_tot -= state.ρ * remove_precipitation(atmos.param_set, q)
+
+    source.ρe -= state.ρ * remove_precipitation(atmos.param_set, q) #TODO - energy source due to mass loss
+    source.ρ  -= state.ρ * remove_precipitation(atmos.param_set, q) #TODO - density source due to mass loss
 
 end
