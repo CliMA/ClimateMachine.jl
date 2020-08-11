@@ -25,6 +25,8 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
 
+using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
+
 abstract type HyperDiffusionProblem end
 struct HyperDiffusion{dim, P} <: BalanceLaw
     problem::P
@@ -117,16 +119,22 @@ There is no source in the hyperdiffusion model
 source!(m::HyperDiffusion, _...) = nothing
 
 """
-    init_state_auxiliary!(m::HyperDiffusion, aux::Vars, geom::LocalGeometry)
+    init_state_auxiliary!(m::HyperDiffusion, aux::MPIStateArray, grid)
 
 initialize the auxiliary state
 """
 function init_state_auxiliary!(
     m::HyperDiffusion,
-    aux::Vars,
-    geom::LocalGeometry,
+    state_auxiliary::MPIStateArray,
+    grid,
 )
-    init_hyperdiffusion_tensor!(m.problem, aux, geom)
+    nodal_init_state_auxiliary!(
+        m,
+        (m, aux, tmp, geom) ->
+            init_hyperdiffusion_tensor!(m.problem, aux, geom),
+        state_auxiliary,
+        grid,
+    )
 end
 
 function init_state_prognostic!(

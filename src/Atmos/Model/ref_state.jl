@@ -19,6 +19,7 @@ atmos_init_aux!(
     ::ReferenceState,
     ::AtmosModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 ) = nothing
 
@@ -54,23 +55,35 @@ end
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
 
-
-function atmos_init_aux!(
+atmos_init_ref_state_pressure!(m, _...) = nothing
+function atmos_init_ref_state_pressure!(
     m::HydrostaticState{P, F},
     atmos::AtmosModel,
     aux::Vars,
     geom::LocalGeometry,
 ) where {P, F}
     z = altitude(atmos, aux)
+    _, p = m.virtual_temperature_profile(atmos.param_set, z)
+    aux.ref_state.p = p
+end
+
+function atmos_init_aux!(
+    m::HydrostaticState{P, F},
+    atmos::AtmosModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+) where {P, F}
+    z = altitude(atmos, aux)
     T_virt, p = m.virtual_temperature_profile(atmos.param_set, z)
     FT = eltype(aux)
     _R_d::FT = R_d(atmos.param_set)
+    k = vertical_unit_vector(atmos, aux)
+    ∇Φ = ∇gravitational_potential(atmos, aux)
 
-    # Replace density by computation from pressure
-    # ρ = -1/g*dpdz
-    ρ = p / (_R_d * T_virt)
+    # density computation from pressure ρ = -1/g*dpdz
+    ρ = -k' * tmp.∇p / (k' * ∇Φ)
     aux.ref_state.ρ = ρ
-    aux.ref_state.p = p
     RH = m.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = temperature_and_humidity_from_virtual_temperature(
@@ -92,4 +105,78 @@ function atmos_init_aux!(
     e_kin = F(0)
     e_pot = gravitational_potential(atmos.orientation, aux)
     aux.ref_state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+end
+
+using ..MPIStateArrays: vars
+using ..DGMethods: init_ode_state
+using ..DGMethods.NumericalFluxes:
+    CentralNumericalFluxFirstOrder,
+    CentralNumericalFluxSecondOrder,
+    CentralNumericalFluxGradient
+
+
+"""
+    PressureGradientModel
+
+A mini balance law that is used to take the gradient of reference
+pressure. The gradient is computed as ∇ ⋅(pI) and the calculation
+uses the balance law interface to be numerically consistent with
+the way this gradient is computed in the dynamics.
+"""
+struct PressureGradientModel <: BalanceLaw end
+vars_state(::PressureGradientModel, ::Auxiliary, T) = @vars(p::T)
+vars_state(::PressureGradientModel, ::Prognostic, T) = @vars(∇p::SVector{3, T})
+vars_state(::PressureGradientModel, ::Gradient, T) = @vars()
+vars_state(::PressureGradientModel, ::GradientFlux, T) = @vars()
+function init_state_auxiliary!(
+    m::PressureGradientModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+) end
+function init_state_prognostic!(
+    ::PressureGradientModel,
+    state::Vars,
+    aux::Vars,
+    coord,
+    t,
+) end
+function flux_first_order!(
+    ::PressureGradientModel,
+    flux::Grad,
+    state::Vars,
+    auxstate::Vars,
+    t::Real,
+    direction,
+)
+    flux.∇p -= auxstate.p * I
+end
+flux_second_order!(::PressureGradientModel, _...) = nothing
+source!(::PressureGradientModel, _...) = nothing
+boundary_state!(nf, ::PressureGradientModel, _...) = nothing
+
+∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
+function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
+    FT = eltype(state_auxiliary)
+    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}))
+
+    grad_model = PressureGradientModel()
+    # Note that the choice of numerical fluxes doesn't matter
+    # for taking the gradient of a continuous field
+    grad_dg = DGModel(
+        grad_model,
+        grid,
+        CentralNumericalFluxFirstOrder(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient(),
+    )
+
+    # initialize p
+    ix_p = varsindex(vars(state_auxiliary), :ref_state, :p)
+    grad_dg.state_auxiliary.data .= state_auxiliary.data[:, ix_p, :]
+
+    # FIXME: this isn't used but needs to be passed in
+    gradQ = init_ode_state(grad_dg, FT(0))
+
+    grad_dg(∇p, gradQ, nothing, FT(0))
+    return ∇p
 end

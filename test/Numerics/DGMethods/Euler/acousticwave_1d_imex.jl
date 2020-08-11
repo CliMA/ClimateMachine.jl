@@ -180,6 +180,7 @@ function run(
         t0 = 0,
         split_explicit_implicit = split_explicit_implicit,
     )
+    @test getsteps(odesolver) == 0
 
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
@@ -247,6 +248,8 @@ function run(
         adjustfinalstep = false,
         callbacks = callbacks,
     )
+
+    @test getsteps(odesolver) == nsteps
 
     # final statistics
     engf = norm(Q)

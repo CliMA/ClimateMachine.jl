@@ -22,7 +22,7 @@ function vars_state(m::VerticalIntegralModel, ::Auxiliary, T)
     end
 end
 
-init_state_auxiliary!(tm::VerticalIntegralModel, A::Vars, geom::LocalGeometry) =
+init_state_auxiliary!(tm::VerticalIntegralModel, A::MPIStateArray, grid) =
     nothing
 
 function vars_state(m::VerticalIntegralModel, ::UpwardIntegrals, T)

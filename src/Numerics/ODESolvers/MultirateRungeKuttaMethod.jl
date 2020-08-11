@@ -44,6 +44,8 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
 
     function MultirateRungeKutta(
         slow_solver::LSRK2N,
@@ -55,7 +57,7 @@ mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
         RT = real(eltype(slow_solver.dQ))
-        new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0))
+        new{SS, FS, RT}(slow_solver, fast_solver, RT(dt), RT(t0), 0)
     end
 end
 

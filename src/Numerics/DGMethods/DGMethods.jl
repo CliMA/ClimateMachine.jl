@@ -47,7 +47,12 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export DGModel,
-    init_ode_state, restart_ode_state, restart_auxiliary_state, basic_grid_info
+    init_ode_state,
+    restart_ode_state,
+    restart_auxiliary_state,
+    basic_grid_info,
+    nodal_init_state_auxiliary!,
+    contiguous_field_gradient!
 
 include("NumericalFluxes.jl")
 include("DGModel.jl")

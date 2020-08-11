@@ -293,6 +293,7 @@ function atmos_init_aux!(
     m::IsentropicVortexReferenceState,
     atmos::AtmosModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     setup = m.setup

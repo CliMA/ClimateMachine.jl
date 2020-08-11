@@ -41,9 +41,8 @@ function init_state_prognostic! end
 """
     init_state_auxiliary!(
       ::L,
-      state_auxiliary::Vars,
-      coords,
-      args...)
+      state_auxiliary::MPIStateArray,
+      grid)
 
 Initialize the auxiliary state, at ``t = 0``
 """
