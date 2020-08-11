@@ -12,25 +12,23 @@ This is useful for driving Richard's equation without a back reaction on tempera
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct PrescribedTemperatureModel{FT, F} <: AbstractHeatModel
+struct PrescribedTemperatureModel{F} <: AbstractHeatModel
     "Prescribed function for temperature"
     T::F
 end
 
 """
     PrescribedTemperatureModel(
-        ::Type{FT};
-        T = (aux,t) -> eltype(aux)(288.0),
-    ) where {FT}
+        T::Function = (aux,t) -> eltype(aux)(288.0),
+    )
 
 Outer constructor for the PrescribedTemperatureModel defining default values, and
 making it so changes to those defaults are supplied via keyword args.
 """
 function PrescribedTemperatureModel(
-    ::Type{FT};
-    T = (aux, t) -> eltype(aux)(288.0),
-) where {FT}
-    return PrescribedTemperatureModel{FT, typeof(T)}(T)
+    T::Function = (aux, t) -> eltype(aux)(288.0),
+)
+    return PrescribedTemperatureModel{typeof(T)}(T)
 end
 
 """

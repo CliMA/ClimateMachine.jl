@@ -25,7 +25,7 @@ end
     PrescribedWaterModel(
         ϑ_l::Function = (aux,t) -> eltype(aux)(0.0),
         θ_ice::Function = (aux,t) -> eltype(aux)(0.0),
-    ) where {FT}
+    )
 
 Outer constructor for the PrescribedWaterModel defining default values, and
 making it so changes to those defaults are supplied via keyword args.
@@ -38,7 +38,7 @@ needed by the heat model.
 function PrescribedWaterModel(
     ϑ_l::Function = (aux, t) -> eltype(aux)(0.0),
     θ_ice::Function = (aux, t) -> eltype(aux)(0.0),
-) where {FT}
+)
     args = (ϑ_l, θ_ice)
     return PrescribedWaterModel{typeof.(args)...}(args...)
 end

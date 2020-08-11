@@ -31,8 +31,8 @@ using ClimateMachine.BalanceLaws:
 
     function init_soil_water!(land, state, aux, coordinates, time) end
 
-    soil_water_model = PrescribedWaterModel(FT;)
-    soil_heat_model = PrescribedTemperatureModel(FT;)
+    soil_water_model = PrescribedWaterModel()
+    soil_heat_model = PrescribedTemperatureModel()
     soil_param_functions = nothing
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = ()

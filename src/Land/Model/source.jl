@@ -37,10 +37,14 @@ abstract type Source end
 
 The function which computes the freeze/thaw source term for Richard's equation.
 """
-struct FreezeThaw <: Source end
+Base.@kwdef struct FreezeThaw <: Source
+    "Freeze thaw timescale function"
+    τft::Function = nothing
+end
+
 
 function land_source!(
-    ::FreezeThaw,
+    source_type::FreezeThaw,
     land::LandModel,
     source::Vars,
     state::Vars,
@@ -53,12 +57,11 @@ function land_source!(
     _ρliq = FT(ρ_cloud_liq(land.param_set))
     _ρice = FT(ρ_cloud_ice(land.param_set))
     _Tfreeze = FT(T_freeze(land.param_set))
-    τft = land.soil.param_functions.τft
 
     ϑ_l, θ_ice = get_water_content(aux, state, t, land.soil.water)
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     T = get_temperature(land.soil.heat, aux, t, state)
-
+    τft = source_type.τft(land, state, aux, t)
     freeze_thaw = 1.0/τft *(_ρliq*θ_l*heaviside(_Tfreeze - T) -
                             _ρice*θ_ice*heaviside(T - _Tfreeze))
 

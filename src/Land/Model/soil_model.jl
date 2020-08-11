@@ -22,8 +22,24 @@ Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
     Ksat::FT = FT(NaN)
     "Specific storage of the soil"
     S_s::FT = FT(NaN)
-    "Freeze thaw timescale"
-    τft::FT = FT(NaN)
+    "Volume fraction of gravels. Units of m-3 m-3."
+    ν_gravel::FT = FT(NaN)
+    "Volume fraction of SOM. Units of m-3 m-3."
+    ν_om::FT = FT(NaN)
+    "Volume fraction of sand. Units of m-3 m-3."
+    ν_sand::FT = FT(NaN)
+    "Bulk volumetric heat capacity of dry soil. Units of J m-3 K-1."
+    c_ds::FT = FT(NaN)
+    "Dry thermal conductivity. Units of W m-1 K-1."
+    κ_dry::FT = FT(NaN)
+    "Saturated thermal conductivity for unfrozen soil. Units of W m-1 K-1."
+    κ_sat_unfrozen::FT = FT(NaN)
+    "Saturated thermal conductivity for frozen soil. Units of W m-1 K-1."
+    κ_sat_frozen::FT = FT(NaN)
+    "Adjustable scale parameter for determining Kersten number. Unitless."
+    a::FT = FT(NaN)
+    "Adjustable scale parameter for determining Kersten number. Unitless."
+    b::FT = FT(NaN)
 end
 
 
