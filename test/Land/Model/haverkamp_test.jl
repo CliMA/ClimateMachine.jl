@@ -8,6 +8,7 @@ using Dierckx
 using Test
 using Pkg.Artifacts
 using DelimitedFiles
+using OrdinaryDiffEq
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -29,6 +30,7 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 using ClimateMachine.ArtifactWrappers
+import ClimateMachine.DGMethods: calculate_dt
 
 haverkamp_dataset = ArtifactWrapper(
     joinpath("test", "Land", "Model", "Artifacts.toml"),
@@ -39,6 +41,44 @@ haverkamp_dataset = ArtifactWrapper(
     ),],
 )
 haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
+
+
+function calculate_dt(dg, model::LandModel, Q, Courant_number, t, direction)
+    Δt = one(eltype(Q))
+    CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
+    return Courant_number / CFL
+end
+
+function diffusive_courant(
+    land::LandModel,
+    state::Vars,
+    aux::Vars,
+    diffusive::Vars,
+    Δx,
+    Δt,
+    t,
+    direction,
+)
+    soil = land.soil
+    water = land.soil.water
+    T = get_temperature(land.soil.heat)
+    S_l = effective_saturation(
+        soil.param_functions.porosity,
+        state.soil.water.ϑ_l,
+    )
+    hydraulic_k = soil.param_functions.Ksat * hydraulic_conductivity(
+            water.impedance_factor,
+            water.viscosity_factor,
+            water.moisture_factor,
+            water.hydraulics,
+            state.soil.water.θ_ice,
+            soil.param_functions.porosity,
+            T,
+            S_l,
+        )
+    return Δt * hydraulic_k / (Δx)
+end
+
 
 @testset "Richard's equation - Haverkamp test" begin
     ClimateMachine.init()
@@ -111,14 +151,34 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     t0 = FT(0)
     timeend = FT(60 * 60 * 24)
 
-    dt = FT(6)
+    #dt = FT(6)
 
+    given_Fourier = FT(5e-6)
+  #  solver_config = ClimateMachine.SolverConfiguration(
+  #      t0,
+  #      timeend,
+  #      driver_config;
+  #      Courant_number = given_Fourier,
+  #      CFL_direction = VerticalDirection(),
+  #  )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
-        driver_config,
-        ode_dt = dt,
+        driver_config;
+        ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.Kvaerno3(
+            autodiff = false,
+            linsolve = LinSolveGMRES(),
+        )),
+        Courant_number = given_Fourier,
+        CFL_direction = VerticalDirection(),
     )
+
+#    solver_config = ClimateMachine.SolverConfiguration(
+#        t0,
+#        timeend,
+#        driver_config,
+#        ode_dt = dt,
+#    )
     mygrid = solver_config.dg.grid
     Q = solver_config.Q
     aux = solver_config.dg.state_auxiliary
