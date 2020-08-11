@@ -173,3 +173,23 @@ function atmos_source!(
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
 end
+
+struct RemovePrecipitation <: Source end
+function atmos_source!(
+    ::RemovePrecipitation,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+
+    q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+    source.ρq_tot -= state.ρ * remove_precipitation(atmos.param_set, q)
+    source.ρe -= state.ρ * remove_precipitation(atmos.param_set, q) #TODO - energy source due to mass loss
+
+
+end
