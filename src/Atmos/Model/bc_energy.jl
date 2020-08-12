@@ -35,7 +35,6 @@ function atmos_energy_boundary_state!(
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
@@ -62,7 +61,6 @@ function atmos_energy_normal_boundary_flux_second_order!(
     diff⁺,
     hyperdiff⁺,
     aux⁺,
-    bctype,
     t,
     args...,
 )
@@ -105,7 +103,6 @@ function atmos_energy_normal_boundary_flux_second_order!(
     diff⁺,
     hyperdiff⁺,
     aux⁺,
-    bctype,
     t,
     args...,
 )
@@ -149,7 +146,6 @@ function atmos_energy_normal_boundary_flux_second_order!(
     diff_sfc⁺,
     hyperdiff_sfc⁺,
     aux_sfc⁺,
-    bctype,
     t,
     state_int⁻,
     diff_int⁻,

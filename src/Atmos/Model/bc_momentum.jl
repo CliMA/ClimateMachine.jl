@@ -30,7 +30,6 @@ function atmos_momentum_boundary_state!(
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
@@ -45,7 +44,6 @@ function atmos_momentum_boundary_state!(
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
@@ -76,7 +74,6 @@ function atmos_momentum_boundary_state!(
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
@@ -91,7 +88,6 @@ function atmos_momentum_boundary_state!(
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
@@ -119,26 +115,12 @@ function atmos_momentum_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc_momentum::Impenetrable{DL},
     atmos,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    bctype,
-    t,
     args...,
 ) where {DL <: DragLaw}
     atmos_momentum_boundary_state!(
         nf,
         Impenetrable(FreeSlip()),
         atmos,
-        state⁺,
-        aux⁺,
-        n,
-        state⁻,
-        aux⁻,
-        bctype,
-        t,
         args...,
     )
 end
@@ -156,7 +138,6 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     diff⁺,
     hyperdiff⁺,
     aux⁺,
-    bctype,
     t,
     state1⁻,
     diff1⁻,

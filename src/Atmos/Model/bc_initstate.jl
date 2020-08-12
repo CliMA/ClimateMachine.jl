@@ -7,7 +7,7 @@ mainly useful for cases where the problem has an explicit solution.
 # TODO: This should be fixed later once BCs are figured out (likely want
 # different things here?)
 """
-struct InitStateBC end
+struct InitStateBC <: BoundaryCondition end
 function atmos_boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc::InitStateBC,
@@ -17,7 +17,6 @@ function atmos_boundary_state!(
     n⁻,
     state⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -28,36 +27,13 @@ function atmos_normal_boundary_flux_second_order!(
     nf,
     bc::InitStateBC,
     atmos,
-    fluxᵀn,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    bctype,
-    t,
     args...,
 )
 
     normal_boundary_flux_second_order!(
         nf,
-        atmos,
-        fluxᵀn,
-        n⁻,
-        state⁻,
-        diff⁻,
-        hyperdiff⁻,
-        aux⁻,
-        state⁺,
-        diff⁺,
-        hyperdiff⁺,
-        aux⁺,
         bc,
-        t,
+        atmos,
         args...,
     )
 
@@ -66,6 +42,7 @@ end
 
 function boundary_state!(
     ::NumericalFluxSecondOrder,
+    bc::InitStateBC,
     m::AtmosModel,
     state⁺::Vars,
     diff⁺::Vars,
@@ -74,7 +51,6 @@ function boundary_state!(
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
-    bc::InitStateBC,
     t,
     args...,
 )

@@ -170,8 +170,7 @@ function boundarycondition_precipitation!(
     stateM::Vars,
     diffM::Vars,
     auxM::Vars,
-    bctype::BC,
     t,
-) where {BC}
+)
     stateP.precipitation.ρq_rain = eltype(stateP)(0)
 end

@@ -16,6 +16,13 @@ Subtypes `L` should define the methods below
 abstract type BalanceLaw end # PDE part
 
 """
+    BoundaryCondition
+
+An abstract type representing a boundary condition of a [`BalanceLaw`](@ref).
+"""
+abstract type BoundaryCondition end
+
+"""
     vars_state(::L, ::AbstractStateType, FT)
 
 a tuple of symbols containing the state variables
@@ -144,52 +151,6 @@ function transform_post_gradient_laplacian! end
 wavespeed
 """
 function wavespeed end
-
-"""
-    boundary_state!(
-        ::NumericalFluxGradient,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_auxiliary⁺::Vars,
-        normal⁻,
-        state_prognostic⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-    boundary_state!(
-        ::NumericalFluxFirstOrder,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_auxiliary⁺::Vars,
-        normal⁻,
-        state_prognostic⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-    boundary_state!(
-        ::NumericalFluxSecondOrder,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_gradient_flux⁺::Vars,
-        state_auxiliary⁺:
-        Vars, normal⁻,
-        state_prognostic⁻::Vars,
-        state_gradient_flux⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-
-Apply boundary conditions for
-
- - `NumericalFluxGradient` numerical flux (internal method)
- - `NumericalFluxFirstOrder` first-order unknowns
- - `NumericalFluxSecondOrder` second-order unknowns
-
-"""
-function boundary_state! end
 
 """
     update_auxiliary_state!(

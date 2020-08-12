@@ -12,6 +12,7 @@ using ..VariableTemplates
 using ..Courant
 
 export BalanceLaw,
+    BoundaryCondition,
     vars_state,
     number_states,
     init_state_prognostic!,
@@ -23,6 +24,7 @@ export BalanceLaw,
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,
@@ -36,5 +38,6 @@ export BalanceLaw,
 
 include("state_types.jl")
 include("interface.jl")
+include("BoundaryConditions.jl")
 
 end
