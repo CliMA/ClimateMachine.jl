@@ -70,6 +70,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     debug_init::Bool = false
     integration_testing::Bool = false
     array_type::Type = Array
+    fixed_number_of_steps::Int = -1
 end
 
 const Settings = ClimateMachine_Settings()
@@ -269,6 +270,11 @@ function parse_commandline(
         action = :store_const
         constant = true
         default = get_setting(:integration_testing, defaults, global_defaults)
+        "--fixed-number-of-steps"
+        help = "if `≥0` perform specified number of steps"
+        metavar = "<number>"
+        arg_type = Int
+        default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
