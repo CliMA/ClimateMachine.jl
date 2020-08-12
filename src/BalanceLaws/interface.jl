@@ -16,13 +16,6 @@ Subtypes `L` should define the methods below
 abstract type BalanceLaw end # PDE part
 
 """
-    BoundaryCondition
-
-An abstract type representing a boundary condition of a [`BalanceLaw`](@ref).
-"""
-abstract type BoundaryCondition end
-
-"""
     vars_state(::L, ::AbstractStateType, FT)
 
 a tuple of symbols containing the state variables

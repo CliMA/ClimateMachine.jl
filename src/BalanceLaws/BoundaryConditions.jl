@@ -1,14 +1,16 @@
 """
+    BoundaryCondition
+
+An abstract type representing a boundary condition of a [`BalanceLaw`](@ref).
+"""
+abstract type BoundaryCondition end
+
+"""
     boundary_conditions(::BalanceLaw)::Tuple
 
-Return a tuple of `BoundaryCondition` objects: grid boundaries tagged with integer `i` will use the `i`th entry of the tuple.
-
-Default is an empty tuple `()`.
+A tuple of `BoundaryCondition` objects: grid boundaries tagged with integer `i` will use the `i`th entry of the tuple.
 """
-function boundary_conditions(::BalanceLaw)
-    ()
-end
-
+function boundary_conditions end
 
 """
 boundary_state!(
@@ -91,10 +93,10 @@ dumb hack for now
 """
 function normal_boundary_flux_second_order end
 
-function normal_boundary_flux_second_order!(nf, bctag::Integer, balance_law::BalanceLaw, args...)
+function normal_boundary_flux_second_order!(nf, bctag::Integer, balance_law::BalanceLaw, fluxᵀn::Vars{S}, args...) where {S}
     bcs = boundary_conditions(balance_law)
 
-    _normal_boundary_flux_second_order!(nf, bctag, bcs, balance_law, args...)
+    _normal_boundary_flux_second_order!(nf, bctag, bcs, balance_law, fluxᵀn, args...)
 end
 
 @generated function _normal_boundary_flux_second_order!(
@@ -104,7 +106,7 @@ end
     balance_law::BalanceLaw,
     args...,
 )
-    N = fieldcount(tup)
+    N = fieldcount(bcs)
     return quote
         Base.Cartesian.@nif(
             $(N + 1),

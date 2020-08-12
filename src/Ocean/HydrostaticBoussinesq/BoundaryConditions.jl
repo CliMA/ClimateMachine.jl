@@ -1,6 +1,6 @@
 using ...DGMethods.NumericalFluxes
 
-import ...BalanceLaws: boundary_state!
+import ...BalanceLaws: boundary_conditions, boundary_state!
 
 export OceanBC
 
@@ -10,18 +10,13 @@ export OceanBC
 
 The standard boundary condition for OceanModel. The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct OceanBC{M, T}
+Base.@kwdef struct OceanBC{M, T} <: BoundaryCondition
     velocity::M = Impenetrable(NoSlip())
     temperature::T = Insulating()
 end
 
-@inline function boundary_conditions(ocean::HBModel)
-    return ocean.problem.boundary_condition
-end
-
-@inline function boundary_conditions(linear::LinearHBModel)
-    return linear.ocean.problem.boundary_condition
-end
+boundary_conditions(ocean::HBModel) = ocean.problem.boundary_condition
+boundary_conditions(linear::LinearHBModel) = boundary_conditions(linear.ocean)
 
 """
     ocean_boundary_state!(nf, bc::OceanBC, ::HBModel)
@@ -36,8 +31,7 @@ end
 """
     boundary_state!(nf, ::LinearHBModel, args...)
 
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+applies boundary conditions from main ocean model 
 """
 @inline function boundary_state!(nf, bc::OceanBC, lm::LinearHBModel, args...)
     return boundary_state!(nf, bc, lm.ocean, args...)
