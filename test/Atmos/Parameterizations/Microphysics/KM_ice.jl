@@ -341,24 +341,31 @@ function boundary_state!(
     state⁺.ρ = state⁻.ρ
 
     state⁺.ρe = aux⁻.ρe_init
-    state⁺.ρq_tot = aux⁻.ρq_tot_init
 
+    state⁺.ρq_tot = aux⁻.ρq_tot_init
     state⁺.ρq_liq = FT(0) #state⁻.ρq_liq
     state⁺.ρq_ice = FT(0) #state⁻.ρq_ice
 
     if bctype == 1
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
     end
+
     if bctype == 2
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
+        state⁺.ρe = state⁻.ρe
+        state⁺.ρq_tot = state⁻.ρq_tot
+        state⁺.ρq_liq = state⁻.ρq_liq
+        state⁺.ρq_ice = state⁻.ρq_ice
     end
+
     if bctype == 5
         state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-        #state⁺.ρq_tot = state⁻.ρq_tot
     end
+
     if bctype == 6
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
     end
+
 end
 
 @inline function wavespeed(
@@ -678,12 +685,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(35 * 60) #FT(4 * 60 * 60) # FT(10 * 60)
+    t_end = FT(4 * 60 * 60) #FT(4 * 60 * 60) # FT(10 * 60)
     dt = FT(1) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 60
-    interval = "60steps"
+    output_freq = 60 * 5
+    interval = "300steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
