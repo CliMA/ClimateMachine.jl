@@ -86,6 +86,7 @@ function SolverConfiguration(
     diffdir = EveryDirection(),
     timeend_dt_adjust = true,
     CFL_direction = EveryDirection(),
+    fixed_number_of_steps = Settings.fixed_number_of_steps,
 ) where {FT <: AbstractFloat}
     @tic SolverConfiguration
 
@@ -201,8 +202,13 @@ function SolverConfiguration(
             CFL_direction,
         )
     end
-    numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
-    timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    if fixed_number_of_steps < 0
+        numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
+        timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    else
+        numberofsteps = fixed_number_of_steps
+        timeend = fixed_number_of_steps * ode_dt
+    end
 
     # create the solver
     solver = solversetup(ode_solver_type, dg, Q, ode_dt, t0, diffdir)
