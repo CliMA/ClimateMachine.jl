@@ -1,1 +1,5 @@
-n_days::FT 2
+preset_exp_type "DryHeldSuarez" n_days::FT 100
+preset_exp_type "MoistHeldSuarez_no_sfcfluxes" n_days::FT 100
+preset_exp_type "MoistHeldSuarez_bulk_sfcfluxes" n_days::FT 100
+preset_exp_type "MoistBaroclinicWave" n_days::FT 100
+preset_exp_type "DryBaroclinicWave" n_days::FT 100

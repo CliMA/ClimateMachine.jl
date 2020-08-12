@@ -1,0 +1,1083 @@
++ module purge
+++ /software/Modules/bin/modulecmd bash purge
++ eval MANPATH=/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man ';export' 'MANPATH;PATH=/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;unset' 'CC;unset' 'CLASSPATH;unset' 'CMAKE_HOME;unset' 'CMAKE_VERSION;unset' 'CPATH;unset' 'CUDA_HOME;unset' 'CUDA_VERSION;unset' 'CXX;unset' 'DAALROOT;unset' 'F77;unset' 'F90;unset' 'GDBSERVER_MIC;unset' 'GDB_CROSS;unset' 'INFOPATH;unset' 'INTEL_HOME;unset' 'INTEL_LICENSE_FILE;unset' 'INTEL_PYTHONHOME;unset' 'INTEL_VERSION;unset' 'IPPROOT;unset' 'I_MPI_CC;unset' 'I_MPI_CXX;unset' 'I_MPI_F77;unset' 'I_MPI_F90;unset' 'I_MPI_ROOT;unset' 'LD_LIBRARY_PATH;unset' 'LD_RUN_PATH;unset' 'LIBRARY_PATH;unset' 'LOADEDMODULES;unset' 'MKLROOT;unset' 'MPM_LAUNCHER;unset' 'NLSPATH;unset' 'OPENMPI_HOME;unset' 'OPENMPI_VERSION;unset' 'PKG_CONFIG_PATH;unset' 'PSTLROOT;unset' 'TBBROOT;unset' '_LMFILES_;'
+++ MANPATH=/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ PATH=/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ unset CC
+++ unset CLASSPATH
+++ unset CMAKE_HOME
+++ unset CMAKE_VERSION
+++ unset CPATH
+++ unset CUDA_HOME
+++ unset CUDA_VERSION
+++ unset CXX
+++ unset DAALROOT
+++ unset F77
+++ unset F90
+++ unset GDBSERVER_MIC
+++ unset GDB_CROSS
+++ unset INFOPATH
+++ unset INTEL_HOME
+++ unset INTEL_LICENSE_FILE
+++ unset INTEL_PYTHONHOME
+++ unset INTEL_VERSION
+++ unset IPPROOT
+++ unset I_MPI_CC
+++ unset I_MPI_CXX
+++ unset I_MPI_F77
+++ unset I_MPI_F90
+++ unset I_MPI_ROOT
+++ unset LD_LIBRARY_PATH
+++ unset LD_RUN_PATH
+++ unset LIBRARY_PATH
+++ unset LOADEDMODULES
+++ unset MKLROOT
+++ unset MPM_LAUNCHER
+++ unset NLSPATH
+++ unset OPENMPI_HOME
+++ unset OPENMPI_VERSION
+++ unset PKG_CONFIG_PATH
+++ unset PSTLROOT
+++ unset TBBROOT
+++ unset _LMFILES_
++ module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+++ /software/Modules/bin/modulecmd bash load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
++ eval CPATH=/central/software/OpenMPI/4.0.1//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include ';export' 'CPATH;HDF5_DIR=/software/hdf5/1.10.1' ';export' 'HDF5_DIR;LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib' ';export' 'LD_LIBRARY_PATH;LD_RUN_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib' ';export' 'LD_RUN_PATH;LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib' ';export' 'LIBRARY_PATH;LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:openmpi/4.0.1' ';export' 'LOADEDMODULES;MANPATH=/central/software/OpenMPI/4.0.1//share/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man' ';export' 'MANPATH;OPENMPI_HOME=/central/software/OpenMPI/4.0.1/' ';export' 'OPENMPI_HOME;OPENMPI_VERSION=4.0.1' ';export' 'OPENMPI_VERSION;PATH=/central/software/OpenMPI/4.0.1//bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;_LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/mpi/openmpi/4.0.1' ';export' '_LMFILES_;'
+++ CPATH=/central/software/OpenMPI/4.0.1//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include
+++ export CPATH
+++ HDF5_DIR=/software/hdf5/1.10.1
+++ export HDF5_DIR
+++ LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib
+++ export LD_LIBRARY_PATH
+++ LD_RUN_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib
+++ export LD_RUN_PATH
+++ LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib
+++ export LIBRARY_PATH
+++ LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:openmpi/4.0.1
+++ export LOADEDMODULES
+++ MANPATH=/central/software/OpenMPI/4.0.1//share/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ OPENMPI_HOME=/central/software/OpenMPI/4.0.1/
+++ export OPENMPI_HOME
+++ OPENMPI_VERSION=4.0.1
+++ export OPENMPI_VERSION
+++ PATH=/central/software/OpenMPI/4.0.1//bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ _LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/mpi/openmpi/4.0.1
+++ export _LMFILES_
++ export JULIA_NUM_THREADS=1
++ JULIA_NUM_THREADS=1
++ export JULIA_MPI_BINARY=system
++ JULIA_MPI_BINARY=system
++ export JULIA_CUDA_USE_BINARYBUILDER=false
++ JULIA_CUDA_USE_BINARYBUILDER=false
++ source ./helper_mod.sh
++ RUNNAME=setup_tst_cpu
++ CLIMA_HOME=/central/groups/esm/lenka/ClimateMachine.jl
++ VIZCLIMA_HOME=/central/groups/esm/lenka/VizCLIMA.jl
++ mkdir -p /central/scratch/elencz/
++ CLIMA_OUTPUT=/central/scratch/elencz/output/setup_tst_cpu
++ EXPERIMENT=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl
++ VIZCLIMA_SCRIPT=/central/groups/esm/lenka/VizCLIMA.jl/src/scripts/ci_analysis_heldsuarez.jl
++ EXP_PARAM_FILE=/central/groups/esm/lenka/ClimateMachine.jl/exp_parameters
++ directory_structure /central/scratch/elencz/output/setup_tst_cpu
++ CLIMA_RESTART=/central/scratch/elencz/output/setup_tst_cpu/restart
++ CLIMA_NETCDF=/central/scratch/elencz/output/setup_tst_cpu/netcdf
++ CLIMA_LOG=/central/scratch/elencz/output/setup_tst_cpu/log
++ CLIMA_ANALYSIS=/central/scratch/elencz/output/setup_tst_cpu/analysis
++ mkdir -p /central/scratch/elencz/output/setup_tst_cpu
++ mkdir -p /central/scratch/elencz/output/setup_tst_cpu/restart
++ mkdir -p /central/scratch/elencz/output/setup_tst_cpu/netcdf
++ mkdir -p /central/scratch/elencz/output/setup_tst_cpu/analysis
++ mkdir -p /central/scratch/elencz/output/setup_tst_cpu/log
++ PERF_LOGFILE=/central/scratch/elencz/output/setup_tst_cpu/log/experiments_performance_log
++ julia --project=/central/groups/esm/lenka/ClimateMachine.jl -e 'using Pkg; Pkg.instantiate()'
++ read -u3 -r line
++ write_into_runfile_from_list 'preset_exp_type "DryHeldSuarez" n_days::FT 100' setup_tst_cpu /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl CLIMA_RUNFILE
++ line='preset_exp_type "DryHeldSuarez" n_days::FT 100'
++ runname=setup_tst_cpu
+++ dirname /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl
++ exp_folder=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized
+++ basename /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl
++ default_exp_runfile=gcm_driver.jl
++ pars=(${line// / })
++ inst_name=setup_tst_cpu
++ (( i=0 ))
++ (( i<4 ))
++ inst_name=setup_tst_cpu_preset_exp_type
++ (( i++ ))
++ (( i<4 ))
++ inst_name='setup_tst_cpu_preset_exp_type_"DryHeldSuarez"'
++ (( i++ ))
++ (( i<4 ))
++ inst_name='setup_tst_cpu_preset_exp_type_"DryHeldSuarez"_n_days::FT'
++ (( i++ ))
++ (( i<4 ))
++ inst_name='setup_tst_cpu_preset_exp_type_"DryHeldSuarez"_n_days::FT_100'
++ (( i++ ))
++ (( i<4 ))
+++ sed 's/[():"]//g'
+++ echo 'setup_tst_cpu_preset_exp_type_"DryHeldSuarez"_n_days::FT_100'
++ inst_name_clean=setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100
++ (( i=0 ))
++ (( i<4 ))
++ par_n[$(( $i / 2 ))]=preset_exp_type
++ par_v[$(( $i / 2 ))]='"DryHeldSuarez"'
++ (( i+=2 ))
++ (( i<4 ))
++ par_n[$(( $i / 2 ))]=n_days::FT
++ par_v[$(( $i / 2 ))]=100
++ (( i+=2 ))
++ (( i<4 ))
++ new_exp_runfile=gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ rm -f /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ cp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ (( i=0 ))
++ (( i<2 ))
++ sed 's/preset_exp_type =.*/preset_exp_type = "DryHeldSuarez"/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ (( i++ ))
++ (( i<2 ))
++ sed 's/n_days::FT =.*/n_days::FT = 100/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ (( i++ ))
++ (( i<2 ))
++ sed 's/exp_name =.*/exp_name = "setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100"/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ new_exp_runfile_path=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
++ eval CLIMA_RUNFILE=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
+++ CLIMA_RUNFILE=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl
+++ date +%m-%d-%y-%T
++ t_date=08-11-20-15:46:33
+++ date +%s
++ t_start=1597185993
++ echo '1597185993: Running /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl, storing output at /central/scratch/elencz/output/setup_tst_cpu'
+1597185993: Running /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl, storing output at /central/scratch/elencz/output/setup_tst_cpu
++ julia --project=/central/groups/esm/lenka/ClimateMachine.jl -e 'using Pkg; Pkg.API.precompile()'
+Precompiling project...
++ mpiexec julia --project=/central/groups/esm/lenka/ClimateMachine.jl /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100.jl --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir /central/scratch/elencz/output/setup_tst_cpu/netcdf --checkpoint-at-end --checkpoint-dir /central/scratch/elencz/output/setup_tst_cpu/restart
+┌ Info: Model composition
+│     param_set = EarthParameterSet()
+│     orientation = SphericalOrientation()
+│     ref_state = HydrostaticState{DecayingTemperatureProfile{Float64},Float64}(DecayingTemperatureProfile{Float64}(275.0, 75.0, 45000.0), 0.0)
+│     turbulence = ConstantViscosityWithDivergence{Float64}(0.0)
+│     turbconv = ClimateMachine.TurbulenceConvection.NoTurbConv()
+│     hyperdiffusion = EquilMoistBiharmonic{Float64}(28800.0)
+│     moisture = EquilMoist{Float64}(3, 0.1)
+│     precipitation = NoPrecipitation()
+│     radiation = NoRadiation()
+│     source = (Gravity(), Coriolis(), held_suarez_forcing!)
+│     tracers = NoTracers()
+│     boundarycondition = (AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}(Impenetrable{FreeSlip}(FreeSlip()), Insulating(), Impermeable(), ImpermeableTracer(), ClimateMachine.TurbulenceConvection.NoTurbConvBC()), AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}(Impenetrable{FreeSlip}(FreeSlip()), Insulating(), Impermeable(), ImpermeableTracer(), ClimateMachine.TurbulenceConvection.NoTurbConvBC()))
+│     init_state_prognostic = init_gcm_experiment!
+└     data_config = nothing
+┌ Info: Establishing Atmos GCM configuration for setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100
+│     precision        = Float64
+│     polynomial order = 3
+│     #horiz elems     = 12
+│     #vert elems      = 6
+│     domain height    = 3.00e+04 m
+│     MPI ranks        = 2
+│     min(Δ_horz)      = 163020.23 m
+└     min(Δ_vert)      = 1381.97 m
+[ Info: Initializing setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100
+┌ Info: Starting setup_tst_cpu_preset_exp_type_DryHeldSuarez_n_daysFT_100
+│     dt              = 4.90416e+01
+│     timeend         = 8640000.00
+│     number of steps = 176177
+└     norm(Q)         = 7.1884130933583313e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     initializing at     0.00
+┌ Info: Update
+│     simtime =    49.04 / 8640000.00
+│     runtime = 00:01:27
+└     norm(Q) = 7.1884235460977938e+13
+┌ Info: Update
+│     simtime =  1961.66 / 8640000.00
+│     runtime = 00:02:28
+└     norm(Q) = 7.1889079015282859e+13
+┌ Info: Update
+│     simtime =  3874.29 / 8640000.00
+│     runtime = 00:03:29
+└     norm(Q) = 7.1894045384942281e+13
+┌ Info: Update
+│     simtime =  5786.91 / 8640000.00
+│     runtime = 00:04:30
+└     norm(Q) = 7.1899103006853078e+13
+┌ Info: Update
+│     simtime =  7699.53 / 8640000.00
+│     runtime = 00:05:31
+└     norm(Q) = 7.1904225897639859e+13
+┌ Info: Update
+│     simtime =  9612.15 / 8640000.00
+│     runtime = 00:06:31
+└     norm(Q) = 7.1909395694072906e+13
+┌ Info: Update
+│     simtime = 11524.77 / 8640000.00
+│     runtime = 00:07:32
+└     norm(Q) = 7.1914599279619656e+13
+┌ Info: Update
+│     simtime = 13437.40 / 8640000.00
+│     runtime = 00:08:33
+└     norm(Q) = 7.1919827327307063e+13
+┌ Info: Update
+│     simtime = 15350.02 / 8640000.00
+│     runtime = 00:09:34
+└     norm(Q) = 7.1925073273489609e+13
+┌ Info: Update
+│     simtime = 17262.64 / 8640000.00
+│     runtime = 00:10:35
+└     norm(Q) = 7.1930332650904688e+13
+┌ Info: Update
+│     simtime = 19175.26 / 8640000.00
+│     runtime = 00:11:35
+└     norm(Q) = 7.1935602614958375e+13
+┌ Info: Update
+│     simtime = 21087.88 / 8640000.00
+│     runtime = 00:12:36
+└     norm(Q) = 7.1940881573723797e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 21627.34
+┌ Info: Courant numbers at simtime: 21627.34, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00028
+│ Advection (horizontal) Courant number = 0.00018
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 21970.63 / 8640000.00
+│     runtime = 00:13:37
+└     norm(Q) = 7.1943320841941828e+13
+┌ Info: Update
+│     simtime = 23883.25 / 8640000.00
+│     runtime = 00:14:38
+└     norm(Q) = 7.1948611984868672e+13
+┌ Info: Update
+│     simtime = 25795.88 / 8640000.00
+│     runtime = 00:15:39
+└     norm(Q) = 7.1953911743572875e+13
+┌ Info: Update
+│     simtime = 27708.50 / 8640000.00
+│     runtime = 00:16:40
+└     norm(Q) = 7.1959220822141219e+13
+┌ Info: Update
+│     simtime = 29621.12 / 8640000.00
+│     runtime = 00:17:40
+└     norm(Q) = 7.1964540126733250e+13
+┌ Info: Update
+│     simtime = 31533.74 / 8640000.00
+│     runtime = 00:18:41
+└     norm(Q) = 7.1969870612418656e+13
+┌ Info: Update
+│     simtime = 33446.36 / 8640000.00
+│     runtime = 00:19:42
+└     norm(Q) = 7.1975213143506813e+13
+┌ Info: Update
+│     simtime = 35358.99 / 8640000.00
+│     runtime = 00:20:43
+└     norm(Q) = 7.1980568344697609e+13
+┌ Info: Update
+│     simtime = 37271.61 / 8640000.00
+│     runtime = 00:21:44
+└     norm(Q) = 7.1985936467856344e+13
+┌ Info: Update
+│     simtime = 39184.23 / 8640000.00
+│     runtime = 00:22:44
+└     norm(Q) = 7.1991317292737328e+13
+┌ Info: Update
+│     simtime = 41096.85 / 8640000.00
+│     runtime = 00:23:45
+└     norm(Q) = 7.1996710047347125e+13
+┌ Info: Update
+│     simtime = 43009.47 / 8640000.00
+│     runtime = 00:24:46
+└     norm(Q) = 7.2002113362644328e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 43254.68
+┌ Info: Courant numbers at simtime: 43254.68, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00014
+│ Advection (horizontal) Courant number = 0.00013
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 43941.26 / 8640000.00
+│     runtime = 00:25:46
+└     norm(Q) = 7.2004749018390672e+13
+┌ Info: Update
+│     simtime = 45853.89 / 8640000.00
+│     runtime = 00:26:47
+└     norm(Q) = 7.2010164379788625e+13
+┌ Info: Update
+│     simtime = 47766.51 / 8640000.00
+│     runtime = 00:27:48
+└     norm(Q) = 7.2015584821527531e+13
+┌ Info: Update
+│     simtime = 49679.13 / 8640000.00
+│     runtime = 00:28:49
+└     norm(Q) = 7.2021007715141938e+13
+┌ Info: Update
+│     simtime = 51591.75 / 8640000.00
+│     runtime = 00:29:50
+└     norm(Q) = 7.2026430524719031e+13
+┌ Info: Update
+│     simtime = 53504.37 / 8640000.00
+│     runtime = 00:30:50
+└     norm(Q) = 7.2031851056539453e+13
+┌ Info: Update
+│     simtime = 55417.00 / 8640000.00
+│     runtime = 00:31:51
+└     norm(Q) = 7.2037267679481578e+13
+┌ Info: Update
+│     simtime = 57329.62 / 8640000.00
+│     runtime = 00:32:52
+└     norm(Q) = 7.2042679515599750e+13
+┌ Info: Update
+│     simtime = 59242.24 / 8640000.00
+│     runtime = 00:33:53
+└     norm(Q) = 7.2048086554143953e+13
+┌ Info: Update
+│     simtime = 61154.86 / 8640000.00
+│     runtime = 00:34:53
+└     norm(Q) = 7.2053489679658156e+13
+┌ Info: Update
+│     simtime = 63067.48 / 8640000.00
+│     runtime = 00:35:54
+└     norm(Q) = 7.2058890594670422e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 64882.02
+┌ Info: Courant numbers at simtime: 64882.02, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00012
+│ Advection (horizontal) Courant number = 0.00019
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 64931.06 / 8640000.00
+│     runtime = 00:37:25
+└     norm(Q) = 7.2064153145494078e+13
+┌ Info: Update
+│     simtime = 66843.69 / 8640000.00
+│     runtime = 00:38:25
+└     norm(Q) = 7.2069557081337000e+13
+┌ Info: Update
+│     simtime = 68756.31 / 8640000.00
+│     runtime = 00:39:26
+└     norm(Q) = 7.2074966891772391e+13
+┌ Info: Update
+│     simtime = 70668.93 / 8640000.00
+│     runtime = 00:40:27
+└     norm(Q) = 7.2080385495381516e+13
+┌ Info: Update
+│     simtime = 72581.55 / 8640000.00
+│     runtime = 00:41:28
+└     norm(Q) = 7.2085815464772047e+13
+┌ Info: Update
+│     simtime = 74494.17 / 8640000.00
+│     runtime = 00:42:28
+└     norm(Q) = 7.2091258807447313e+13
+┌ Info: Update
+│     simtime = 76406.80 / 8640000.00
+│     runtime = 00:43:29
+└     norm(Q) = 7.2096716774354609e+13
+┌ Info: Update
+│     simtime = 78319.42 / 8640000.00
+│     runtime = 00:44:30
+└     norm(Q) = 7.2102189687583094e+13
+┌ Info: Update
+│     simtime = 80232.04 / 8640000.00
+│     runtime = 00:45:31
+└     norm(Q) = 7.2107676847781375e+13
+┌ Info: Update
+│     simtime = 82144.66 / 8640000.00
+│     runtime = 00:46:32
+└     norm(Q) = 7.2113176523049766e+13
+┌ Info: Update
+│     simtime = 84057.28 / 8640000.00
+│     runtime = 00:47:32
+└     norm(Q) = 7.2118686038384047e+13
+┌ Info: Update
+│     simtime = 85969.91 / 8640000.00
+│     runtime = 00:48:33
+└     norm(Q) = 7.2124201968966953e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 86509.36
+┌ Info: Courant numbers at simtime: 86509.36, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 8.4e-05
+│ Advection (horizontal) Courant number = 0.00027
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 86901.70 / 8640000.00
+│     runtime = 00:49:34
+└     norm(Q) = 7.2126890385120656e+13
+┌ Info: Update
+│     simtime = 88814.32 / 8640000.00
+│     runtime = 00:50:35
+└     norm(Q) = 7.2132408642434469e+13
+┌ Info: Update
+│     simtime = 90726.94 / 8640000.00
+│     runtime = 00:51:36
+└     norm(Q) = 7.2137923581844047e+13
+┌ Info: Update
+│     simtime = 92639.56 / 8640000.00
+│     runtime = 00:52:36
+└     norm(Q) = 7.2143431722045281e+13
+┌ Info: Update
+│     simtime = 94552.18 / 8640000.00
+│     runtime = 00:53:37
+└     norm(Q) = 7.2148930298988078e+13
+┌ Info: Update
+│     simtime = 96464.81 / 8640000.00
+│     runtime = 00:54:38
+└     norm(Q) = 7.2154417517960969e+13
+┌ Info: Update
+│     simtime = 98377.43 / 8640000.00
+│     runtime = 00:55:39
+└     norm(Q) = 7.2159892720303313e+13
+┌ Info: Update
+│     simtime = 100290.05 / 8640000.00
+│     runtime = 00:56:40
+└     norm(Q) = 7.2165356402747375e+13
+┌ Info: Update
+│     simtime = 102202.67 / 8640000.00
+│     runtime = 00:57:40
+└     norm(Q) = 7.2170810172237922e+13
+┌ Info: Update
+│     simtime = 104115.29 / 8640000.00
+│     runtime = 00:58:41
+└     norm(Q) = 7.2176256597759422e+13
+┌ Info: Update
+│     simtime = 106027.92 / 8640000.00
+│     runtime = 00:59:42
+└     norm(Q) = 7.2181698996696313e+13
+┌ Info: Update
+│     simtime = 107940.54 / 8640000.00
+│     runtime = 01:00:43
+└     norm(Q) = 7.2187141158557281e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 108136.70
+┌ Info: Courant numbers at simtime: 108136.70, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 7.7e-05
+│ Advection (horizontal) Courant number = 0.00035
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 108872.33 / 8640000.00
+│     runtime = 01:01:44
+└     norm(Q) = 7.2189793575953625e+13
+┌ Info: Update
+│     simtime = 110784.95 / 8640000.00
+│     runtime = 01:02:44
+└     norm(Q) = 7.2195242714545703e+13
+┌ Info: Update
+│     simtime = 112697.57 / 8640000.00
+│     runtime = 01:03:45
+└     norm(Q) = 7.2200701235179469e+13
+┌ Info: Update
+│     simtime = 114610.19 / 8640000.00
+│     runtime = 01:04:46
+└     norm(Q) = 7.2206172369785156e+13
+┌ Info: Update
+│     simtime = 116473.77 / 8640000.00
+│     runtime = 01:05:48
+└     norm(Q) = 7.2211517719328391e+13
+┌ Info: Update
+│     simtime = 118337.35 / 8640000.00
+│     runtime = 01:06:49
+└     norm(Q) = 7.2216878787290219e+13
+┌ Info: Update
+│     simtime = 120249.98 / 8640000.00
+│     runtime = 01:07:50
+└     norm(Q) = 7.2222397632191000e+13
+┌ Info: Update
+│     simtime = 122162.60 / 8640000.00
+│     runtime = 01:08:51
+└     norm(Q) = 7.2227932517889078e+13
+┌ Info: Update
+│     simtime = 124075.22 / 8640000.00
+│     runtime = 01:09:52
+└     norm(Q) = 7.2233481296961703e+13
+┌ Info: Update
+│     simtime = 125987.84 / 8640000.00
+│     runtime = 01:10:53
+└     norm(Q) = 7.2239040613277344e+13
+┌ Info: Update
+│     simtime = 127802.38 / 8640000.00
+│     runtime = 01:11:54
+└     norm(Q) = 7.2244320611319719e+13
+┌ Info: Update
+│     simtime = 129518.84 / 8640000.00
+│     runtime = 01:12:55
+└     norm(Q) = 7.2249316405211969e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 129764.04
+┌ Info: Courant numbers at simtime: 129764.04, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 7e-05
+│ Advection (horizontal) Courant number = 0.0004
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 130156.38 / 8640000.00
+│     runtime = 01:13:55
+└     norm(Q) = 7.2251171480768141e+13
+┌ Info: Update
+│     simtime = 131823.79 / 8640000.00
+│     runtime = 01:14:56
+└     norm(Q) = 7.2256019934614438e+13
+┌ Info: Update
+│     simtime = 133589.29 / 8640000.00
+│     runtime = 01:15:56
+└     norm(Q) = 7.2261145416855313e+13
+┌ Info: Update
+│     simtime = 135452.87 / 8640000.00
+│     runtime = 01:16:57
+└     norm(Q) = 7.2266542639214828e+13
+┌ Info: Update
+│     simtime = 137316.45 / 8640000.00
+│     runtime = 01:17:58
+└     norm(Q) = 7.2271923311765547e+13
+┌ Info: Update
+│     simtime = 139229.07 / 8640000.00
+│     runtime = 01:18:59
+└     norm(Q) = 7.2277426356038594e+13
+┌ Info: Update
+│     simtime = 141141.69 / 8640000.00
+│     runtime = 01:20:00
+└     norm(Q) = 7.2282909547730422e+13
+┌ Info: Update
+│     simtime = 143054.31 / 8640000.00
+│     runtime = 01:21:02
+└     norm(Q) = 7.2288374301227469e+13
+┌ Info: Update
+│     simtime = 144966.94 / 8640000.00
+│     runtime = 01:22:03
+└     norm(Q) = 7.2293823699577656e+13
+┌ Info: Update
+│     simtime = 146879.56 / 8640000.00
+│     runtime = 01:23:04
+└     norm(Q) = 7.2299262178911656e+13
+┌ Info: Update
+│     simtime = 148792.18 / 8640000.00
+│     runtime = 01:24:06
+└     norm(Q) = 7.2304695114604109e+13
+┌ Info: Update
+│     simtime = 150704.80 / 8640000.00
+│     runtime = 01:25:07
+└     norm(Q) = 7.2310128342966969e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 151391.38
+┌ Info: Courant numbers at simtime: 151391.38, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 8.3e-05
+│ Advection (horizontal) Courant number = 0.00046
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 151538.51 / 8640000.00
+│     runtime = 01:26:08
+└     norm(Q) = 7.2312498250739859e+13
+┌ Info: Update
+│     simtime = 153451.13 / 8640000.00
+│     runtime = 01:27:09
+└     norm(Q) = 7.2317941906933875e+13
+┌ Info: Update
+│     simtime = 155363.75 / 8640000.00
+│     runtime = 01:28:10
+└     norm(Q) = 7.2323398894492547e+13
+┌ Info: Update
+│     simtime = 157227.33 / 8640000.00
+│     runtime = 01:29:11
+└     norm(Q) = 7.2328732325307516e+13
+┌ Info: Update
+│     simtime = 159090.91 / 8640000.00
+│     runtime = 01:30:12
+└     norm(Q) = 7.2334084050790063e+13
+┌ Info: Update
+│     simtime = 160954.49 / 8640000.00
+│     runtime = 01:31:13
+└     norm(Q) = 7.2339454735914578e+13
+┌ Info: Update
+│     simtime = 162818.08 / 8640000.00
+│     runtime = 01:32:13
+└     norm(Q) = 7.2344843527900563e+13
+┌ Info: Update
+│     simtime = 164681.66 / 8640000.00
+│     runtime = 01:33:14
+└     norm(Q) = 7.2350248098863656e+13
+┌ Info: Update
+│     simtime = 166545.24 / 8640000.00
+│     runtime = 01:34:14
+└     norm(Q) = 7.2355664822549828e+13
+┌ Info: Update
+│     simtime = 168408.82 / 8640000.00
+│     runtime = 01:35:15
+└     norm(Q) = 7.2361089062220141e+13
+┌ Info: Update
+│     simtime = 170272.40 / 8640000.00
+│     runtime = 01:36:16
+└     norm(Q) = 7.2366515497471938e+13
+┌ Info: Update
+│     simtime = 172135.98 / 8640000.00
+│     runtime = 01:37:17
+└     norm(Q) = 7.2371938477980859e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 173018.73
+┌ Info: Courant numbers at simtime: 173018.73, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.0001
+│ Advection (horizontal) Courant number = 0.00051
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 173067.77 / 8640000.00
+│     runtime = 01:38:18
+└     norm(Q) = 7.2374646916208734e+13
+┌ Info: Update
+│     simtime = 174931.35 / 8640000.00
+│     runtime = 01:39:20
+└     norm(Q) = 7.2380054398907703e+13
+┌ Info: Update
+│     simtime = 176696.84 / 8640000.00
+│     runtime = 01:40:20
+└     norm(Q) = 7.2385162256796359e+13
+┌ Info: Update
+│     simtime = 178560.43 / 8640000.00
+│     runtime = 01:41:21
+└     norm(Q) = 7.2390534493158250e+13
+┌ Info: Update
+│     simtime = 180424.01 / 8640000.00
+│     runtime = 01:42:21
+└     norm(Q) = 7.2395884433139109e+13
+┌ Info: Update
+│     simtime = 182287.59 / 8640000.00
+│     runtime = 01:43:22
+└     norm(Q) = 7.2401211128852750e+13
+┌ Info: Update
+│     simtime = 184151.17 / 8640000.00
+│     runtime = 01:44:23
+└     norm(Q) = 7.2406515231020422e+13
+┌ Info: Update
+│     simtime = 186014.75 / 8640000.00
+│     runtime = 01:45:24
+└     norm(Q) = 7.2411798971928547e+13
+┌ Info: Update
+│     simtime = 187878.33 / 8640000.00
+│     runtime = 01:46:25
+└     norm(Q) = 7.2417066018334547e+13
+┌ Info: Update
+│     simtime = 189741.91 / 8640000.00
+│     runtime = 01:47:25
+└     norm(Q) = 7.2422321216197891e+13
+┌ Info: Update
+│     simtime = 191605.49 / 8640000.00
+│     runtime = 01:48:26
+└     norm(Q) = 7.2427570261626078e+13
+┌ Info: Update
+│     simtime = 193469.07 / 8640000.00
+│     runtime = 01:49:27
+└     norm(Q) = 7.2432819296061000e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 194646.07
+┌ Info: Courant numbers at simtime: 194646.07, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.0002
+│ Advection (horizontal) Courant number = 0.00057
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 194695.11 / 8640000.00
+│     runtime = 01:50:39
+└     norm(Q) = 7.2436275581561969e+13
+┌ Info: Update
+│     simtime = 196558.69 / 8640000.00
+│     runtime = 01:51:40
+└     norm(Q) = 7.2441537907545313e+13
+┌ Info: Update
+│     simtime = 198422.27 / 8640000.00
+│     runtime = 01:52:41
+└     norm(Q) = 7.2446815239521781e+13
+┌ Info: Update
+│     simtime = 200285.85 / 8640000.00
+│     runtime = 01:53:42
+└     norm(Q) = 7.2452111432916500e+13
+┌ Info: Update
+│     simtime = 202149.43 / 8640000.00
+│     runtime = 01:54:42
+└     norm(Q) = 7.2457428778453594e+13
+┌ Info: Update
+│     simtime = 204013.01 / 8640000.00
+│     runtime = 01:55:43
+└     norm(Q) = 7.2462767777715891e+13
+┌ Info: Update
+│     simtime = 205876.59 / 8640000.00
+│     runtime = 01:56:43
+└     norm(Q) = 7.2468127059151203e+13
+┌ Info: Update
+│     simtime = 207740.17 / 8640000.00
+│     runtime = 01:57:43
+└     norm(Q) = 7.2473503395521328e+13
+┌ Info: Update
+│     simtime = 209603.75 / 8640000.00
+│     runtime = 01:58:44
+└     norm(Q) = 7.2478891881470422e+13
+┌ Info: Update
+│     simtime = 211467.33 / 8640000.00
+│     runtime = 01:59:45
+└     norm(Q) = 7.2484286282619031e+13
+┌ Info: Update
+│     simtime = 213330.91 / 8640000.00
+│     runtime = 02:00:47
+└     norm(Q) = 7.2489679518958672e+13
+┌ Info: Update
+│     simtime = 215194.49 / 8640000.00
+│     runtime = 02:01:48
+└     norm(Q) = 7.2495064240323484e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 216273.41
+┌ Info: Courant numbers at simtime: 216273.41, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00015
+│ Advection (horizontal) Courant number = 0.00063
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 216322.45 / 8640000.00
+│     runtime = 02:02:56
+└     norm(Q) = 7.2498316287791406e+13
+┌ Info: Update
+│     simtime = 218186.03 / 8640000.00
+│     runtime = 02:03:56
+└     norm(Q) = 7.2503673061272188e+13
+┌ Info: Update
+│     simtime = 220049.61 / 8640000.00
+│     runtime = 02:04:57
+└     norm(Q) = 7.2509005279963531e+13
+┌ Info: Update
+│     simtime = 221913.19 / 8640000.00
+│     runtime = 02:05:57
+└     norm(Q) = 7.2514309503739953e+13
+┌ Info: Update
+│     simtime = 223776.77 / 8640000.00
+│     runtime = 02:06:58
+└     norm(Q) = 7.2519584365281031e+13
+┌ Info: Update
+│     simtime = 225640.35 / 8640000.00
+│     runtime = 02:07:58
+└     norm(Q) = 7.2524830654556906e+13
+┌ Info: Update
+│     simtime = 227503.93 / 8640000.00
+│     runtime = 02:08:59
+└     norm(Q) = 7.2530051208874891e+13
+┌ Info: Update
+│     simtime = 229367.51 / 8640000.00
+│     runtime = 02:09:59
+└     norm(Q) = 7.2535250643713016e+13
+┌ Info: Update
+│     simtime = 231231.09 / 8640000.00
+│     runtime = 02:11:00
+└     norm(Q) = 7.2540434958352859e+13
+┌ Info: Update
+│     simtime = 233094.67 / 8640000.00
+│     runtime = 02:12:01
+└     norm(Q) = 7.2545611022356859e+13
+┌ Info: Update
+│     simtime = 234958.25 / 8640000.00
+│     runtime = 02:13:02
+└     norm(Q) = 7.2550785997345281e+13
+┌ Info: Update
+│     simtime = 236821.83 / 8640000.00
+│     runtime = 02:14:02
+└     norm(Q) = 7.2555966779872391e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 237900.75
+┌ Info: Courant numbers at simtime: 237900.75, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 7.6e-05
+│ Advection (horizontal) Courant number = 0.0007
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 237949.79 / 8640000.00
+│     runtime = 02:15:35
+└     norm(Q) = 7.2559107969167875e+13
+┌ Info: Update
+│     simtime = 239813.37 / 8640000.00
+│     runtime = 02:16:36
+└     norm(Q) = 7.2564310403516969e+13
+┌ Info: Update
+│     simtime = 241676.95 / 8640000.00
+│     runtime = 02:17:37
+└     norm(Q) = 7.2569531969009109e+13
+┌ Info: Update
+│     simtime = 243540.53 / 8640000.00
+│     runtime = 02:18:39
+└     norm(Q) = 7.2574775018816266e+13
+┌ Info: Update
+│     simtime = 245404.11 / 8640000.00
+│     runtime = 02:19:40
+└     norm(Q) = 7.2580040085152625e+13
+┌ Info: Update
+│     simtime = 247267.69 / 8640000.00
+│     runtime = 02:20:41
+└     norm(Q) = 7.2585325864397250e+13
+┌ Info: Update
+│     simtime = 249082.23 / 8640000.00
+│     runtime = 02:21:41
+└     norm(Q) = 7.2590489543589891e+13
+┌ Info: Update
+│     simtime = 250896.77 / 8640000.00
+│     runtime = 02:22:42
+└     norm(Q) = 7.2595665692805672e+13
+┌ Info: Update
+│     simtime = 252760.35 / 8640000.00
+│     runtime = 02:23:43
+└     norm(Q) = 7.2600988965168297e+13
+┌ Info: Update
+│     simtime = 254623.93 / 8640000.00
+│     runtime = 02:24:44
+└     norm(Q) = 7.2606312744617531e+13
+┌ Info: Update
+│     simtime = 256487.51 / 8640000.00
+│     runtime = 02:25:46
+└     norm(Q) = 7.2611629666633813e+13
+┌ Info: Update
+│     simtime = 258351.09 / 8640000.00
+│     runtime = 02:26:47
+└     norm(Q) = 7.2616932394969188e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 259528.09
+┌ Info: Courant numbers at simtime: 259528.09, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 8.8e-05
+│ Advection (horizontal) Courant number = 0.00076
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 259577.13 / 8640000.00
+│     runtime = 02:28:11
+└     norm(Q) = 7.2620409980966219e+13
+┌ Info: Update
+│     simtime = 261440.71 / 8640000.00
+│     runtime = 02:29:13
+└     norm(Q) = 7.2625674769618625e+13
+┌ Info: Update
+│     simtime = 263304.29 / 8640000.00
+│     runtime = 02:30:14
+└     norm(Q) = 7.2630910020447453e+13
+┌ Info: Update
+│     simtime = 265167.87 / 8640000.00
+│     runtime = 02:31:15
+└     norm(Q) = 7.2636112891046469e+13
+┌ Info: Update
+│     simtime = 267031.45 / 8640000.00
+│     runtime = 02:32:17
+└     norm(Q) = 7.2641282683680000e+13
+┌ Info: Update
+│     simtime = 268895.03 / 8640000.00
+│     runtime = 02:33:18
+└     norm(Q) = 7.2646420967919594e+13
+┌ Info: Update
+│     simtime = 270758.61 / 8640000.00
+│     runtime = 02:34:20
+└     norm(Q) = 7.2651531495710313e+13
+┌ Info: Update
+│     simtime = 272622.19 / 8640000.00
+│     runtime = 02:35:21
+└     norm(Q) = 7.2656619954982906e+13
+┌ Info: Update
+│     simtime = 274485.77 / 8640000.00
+│     runtime = 02:36:22
+└     norm(Q) = 7.2661693561724297e+13
+┌ Info: Update
+│     simtime = 276349.35 / 8640000.00
+│     runtime = 02:37:23
+└     norm(Q) = 7.2666760508862906e+13
+┌ Info: Update
+│     simtime = 278212.93 / 8640000.00
+│     runtime = 02:38:25
+└     norm(Q) = 7.2671829298650672e+13
+┌ Info: Update
+│     simtime = 280076.51 / 8640000.00
+│     runtime = 02:39:26
+└     norm(Q) = 7.2676908021471531e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 281155.43
+┌ Info: Courant numbers at simtime: 281155.43, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00011
+│ Advection (horizontal) Courant number = 0.00083
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 281204.47 / 8640000.00
+│     runtime = 02:40:36
+└     norm(Q) = 7.2679989829167328e+13
+┌ Info: Update
+│     simtime = 283068.05 / 8640000.00
+│     runtime = 02:41:37
+└     norm(Q) = 7.2685098471737750e+13
+┌ Info: Update
+│     simtime = 284931.63 / 8640000.00
+│     runtime = 02:42:38
+└     norm(Q) = 7.2690231671749375e+13
+┌ Info: Update
+│     simtime = 286746.17 / 8640000.00
+│     runtime = 02:43:39
+└     norm(Q) = 7.2695255187650469e+13
+┌ Info: Update
+│     simtime = 288560.71 / 8640000.00
+│     runtime = 02:44:39
+└     norm(Q) = 7.2700303272038891e+13
+┌ Info: Update
+│     simtime = 290375.25 / 8640000.00
+│     runtime = 02:45:39
+└     norm(Q) = 7.2705373218907703e+13
+┌ Info: Update
+│     simtime = 292189.79 / 8640000.00
+│     runtime = 02:46:39
+└     norm(Q) = 7.2710460311648875e+13
+┌ Info: Update
+│     simtime = 294004.33 / 8640000.00
+│     runtime = 02:47:40
+└     norm(Q) = 7.2715558185797031e+13
+┌ Info: Update
+│     simtime = 295818.86 / 8640000.00
+│     runtime = 02:48:41
+└     norm(Q) = 7.2720659306197234e+13
+┌ Info: Update
+│     simtime = 297437.24 / 8640000.00
+│     runtime = 02:49:42
+└     norm(Q) = 7.2725205072818047e+13
+┌ Info: Update
+│     simtime = 299104.65 / 8640000.00
+│     runtime = 02:50:44
+└     norm(Q) = 7.2729878404141938e+13
+┌ Info: Update
+│     simtime = 300772.06 / 8640000.00
+│     runtime = 02:51:44
+└     norm(Q) = 7.2734535552988547e+13
+┌ Info: Update
+│     simtime = 302635.64 / 8640000.00
+│     runtime = 02:52:45
+└     norm(Q) = 7.2739715223487844e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 302782.77
+┌ Info: Courant numbers at simtime: 302782.77, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00017
+│ Advection (horizontal) Courant number = 0.00088
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 303518.39 / 8640000.00
+│     runtime = 02:53:46
+└     norm(Q) = 7.2742157843363391e+13
+┌ Info: Update
+│     simtime = 305381.97 / 8640000.00
+│     runtime = 02:54:47
+└     norm(Q) = 7.2747289083080531e+13
+┌ Info: Update
+│     simtime = 307245.55 / 8640000.00
+│     runtime = 02:55:48
+└     norm(Q) = 7.2752384277212047e+13
+┌ Info: Update
+│     simtime = 309109.13 / 8640000.00
+│     runtime = 02:56:49
+└     norm(Q) = 7.2757443601445766e+13
+┌ Info: Update
+│     simtime = 310972.71 / 8640000.00
+│     runtime = 02:57:50
+└     norm(Q) = 7.2762469560382453e+13
+┌ Info: Update
+│     simtime = 312836.30 / 8640000.00
+│     runtime = 02:58:51
+└     norm(Q) = 7.2767466741713500e+13
+┌ Info: Update
+│     simtime = 314650.83 / 8640000.00
+│     runtime = 02:59:51
+└     norm(Q) = 7.2772310734993906e+13
+┌ Info: Update
+│     simtime = 316514.41 / 8640000.00
+│     runtime = 03:00:53
+└     norm(Q) = 7.2777270682080203e+13
+┌ Info: Update
+│     simtime = 318328.95 / 8640000.00
+│     runtime = 03:01:53
+└     norm(Q) = 7.2782093213615516e+13
+┌ Info: Update
+│     simtime = 320192.53 / 8640000.00
+│     runtime = 03:02:54
+└     norm(Q) = 7.2787047074962141e+13
+┌ Info: Update
+│     simtime = 322056.11 / 8640000.00
+│     runtime = 03:03:56
+└     norm(Q) = 7.2792009667010281e+13
+┌ Info: Update
+│     simtime = 323870.65 / 8640000.00
+│     runtime = 03:04:56
+└     norm(Q) = 7.2796856539429594e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 324410.11
+┌ Info: Courant numbers at simtime: 324410.11, Δt =    49.04 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.00016
+│ Advection (horizontal) Courant number = 0.00094
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 324704.36 / 8640000.00
+│     runtime = 03:05:56
+└     norm(Q) = 7.2799089835543688e+13
+┌ Info: Update
+│     simtime = 326567.94 / 8640000.00
+│     runtime = 03:06:58
+└     norm(Q) = 7.2804098751999063e+13
+┌ Info: Update
+│     simtime = 328431.52 / 8640000.00
+│     runtime = 03:07:59
+└     norm(Q) = 7.2809132825917156e+13
+┌ Info: Update
+│     simtime = 330295.10 / 8640000.00
+│     runtime = 03:09:01
+└     norm(Q) = 7.2814192439476781e+13
+┌ Info: Update
+│     simtime = 332158.68 / 8640000.00
+│     runtime = 03:10:02
+└     norm(Q) = 7.2819275650307313e+13
+┌ Info: Update
+│     simtime = 334022.26 / 8640000.00
+│     runtime = 03:11:03
+└     norm(Q) = 7.2824378246164859e+13
+┌ Info: Update
+│     simtime = 335885.84 / 8640000.00
+│     runtime = 03:12:04
+└     norm(Q) = 7.2829493991829250e+13
+┌ Info: Update
+│     simtime = 337749.42 / 8640000.00
+│     runtime = 03:13:04
+└     norm(Q) = 7.2834615046939766e+13
+┌ Info: Update
+│     simtime = 339613.00 / 8640000.00
+│     runtime = 03:14:06
+└     norm(Q) = 7.2839732529228719e+13

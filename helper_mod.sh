@@ -28,29 +28,29 @@ function write_into_runfile_from_list {
   exp_folder=$(dirname "$3")
   default_exp_runfile=$(basename "$3")
 
-	# Get all parameters
-	pars=(${line// / });
+  # Get all parameters
+  pars=(${line// / });
 
-	# Create name for this particular instance of this experiment
-	inst_name=$runname;
-	for ((i=0; i<${#pars[@]}; i++))
+  # Create name for this particular instance of this experiment
+  inst_name=$runname;
+  for ((i=0; i<${#pars[@]}; i++))
 	do
 		inst_name=$inst_name'_'${pars[$i]};
 	done
-  inst_name_clean="$(echo $inst_name | sed "s/[():]//g")"; # remove special chars
-
-	# Save namelist parameter names and values in separate arrays
-	for ((i=0; i<${#pars[@]}; i+=2))
+  # remove special chars from new runfile name
+  inst_name_clean="$(echo $inst_name | sed 's/[():"]//g')"; # remove special chars
+  # Save namelist parameter names and values in separate arrays
+  for ((i=0; i<${#pars[@]}; i+=2))
         do
 		par_n[$(( $i / 2 ))]=${pars[$i]};
 		par_v[$(( $i / 2 ))]=${pars[$(( $i + 1 ))]};
 	done
 
-	# Create a copy of the default run file and change to the specified parameters
+  # Create a copy of the default run file and change to the specified parameters
   new_exp_runfile=${default_exp_runfile%.jl}"_"$inst_name_clean".jl";
   rm -f $exp_folder/$new_exp_runfile;
 
-	# Replace the standard parameters in the run file copy by the modified parameters from $line
+  # Replace the standard parameters in the run file copy by the modified parameters from $line
   cp $exp_folder/$default_exp_runfile $exp_folder/$new_exp_runfile;
   for ((i=0; i<${#par_n[@]}; i++))
 	do

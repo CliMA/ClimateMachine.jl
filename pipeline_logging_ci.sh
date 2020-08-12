@@ -1,19 +1,21 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --job-name=tf_exp_b_tst
-#SBARCH --qos=debug
-#SBATCH --time=2:00:00
-#SBATCH --gres=gpu:1
-#SBATCH --tasks-per-node=1
-#SBATCH --output=tf_exp_b_tst.out
+#SBATCH --job-name=gcm_long_setup
+#SBATCH --time=100:00:00
+#SBATCH --cpus-per-task=1  # number of CPU threads per MPI rank
+#SBATCH --tasks-per-node=2
+#SBATCH --output=gcm_long_setup2.out
+
 
 # Kill the job if anything fails
-set -euo pipefail
+#set -euo pipefail
 set -x # echo script
 
 module purge;
-module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 cuda/10.0 openmpi/4.0.3_cuda-10.0 # CUDA-aware MPI
+#module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 cuda/10.0 openmpi/4.0.3_cuda-10.0 # CUDA-aware MPI
+module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+
 
 export JULIA_NUM_THREADS=${SLURM_CPUS_PER_TASK:=1}
 export JULIA_MPI_BINARY=system
@@ -23,7 +25,7 @@ export JULIA_CUDA_USE_BINARYBUILDER=false
 source ./helper_mod.sh
 
 # User envirnoment setup
-RUNNAME="tf_exp_bulk_tst"
+RUNNAME="setup_tst_cpu"
 
 # Change if CLIMA and VizCLIMA not saved in $HOME
 CLIMA_HOME='/central/groups/esm/lenka/ClimateMachine.jl'
@@ -35,7 +37,7 @@ CLIMA_OUTPUT='/central/scratch/elencz/output/'$RUNNAME
 
 # Choose CLIMA experiment script and VizCLIMA script
 #EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/unstable_radiative_equilibrium_bulk_sfc_flux.jl' #also tested in baroclinic_wave.jl, moist_baroclinic_wave.jl and heldsuarez.jl
-EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/Modularized/baroclinic-wave.jl'
+EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/Modularized/gcm_driver.jl'
 VIZCLIMA_SCRIPT=$VIZCLIMA_HOME'/src/scripts/ci_analysis_heldsuarez.jl'
 
 # Define a parameter file for experiment 
@@ -56,7 +58,7 @@ do
   t_start=$(date +%s);
   echo $t_start': Running '$CLIMA_RUNFILE', storing output at '$CLIMA_OUTPUT
   julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.API.precompile()'
-  julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 1shours --monitor-courant-numbers 1shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART 
+  mpiexec julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART 
   peak_rss="switched off"
   #julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 100steps --monitor-courant-numbers 100steps --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART &
   # Get peak memory usage

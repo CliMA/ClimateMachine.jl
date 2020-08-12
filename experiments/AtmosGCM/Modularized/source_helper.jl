@@ -1,3 +1,7 @@
+using CLIMAParameters.Planet:
+    MSLP, R_d, day, cp_d, cv_d, grav, Omega, planet_radius
+using ClimateMachine.Thermodynamics:
+    air_pressure, air_density, air_temperature, total_energy, internal_energy
 
 function held_suarez_forcing!(
     bl,

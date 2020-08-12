@@ -39,6 +39,8 @@ export condensate, has_condensate
 export specific_enthalpy, total_specific_enthalpy
 export moist_static_energy
 
+using Printf
+
 """
     gas_constant_air(param_set, [q::PhasePartition])
 
@@ -710,7 +712,9 @@ function saturation_vapor_pressure(
     _R_v::FT = R_v(param_set)
     _T_triple::FT = T_triple(param_set)
     _T_0::FT = T_0(param_set)
-
+    
+    #@info @sprintf("""T: %s, _R_v: %s, LH_0: %s, Δcp: %s""",
+    #               T, _R_v, LH_0, Δcp)
     return _press_triple *
            (T / _T_triple)^(Δcp / _R_v) *
            exp((LH_0 - Δcp * _T_0) / _R_v * (1 / _T_triple - 1 / T))

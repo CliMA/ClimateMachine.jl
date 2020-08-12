@@ -1,4 +1,5 @@
-
+using Random: rand
+using Distributions: Uniform
 
 function init_wind_perturbation(which, FT, z, φ, λ, _a )
     if which == "deterministic"
@@ -36,13 +37,15 @@ function init_wind_perturbation(which, FT, z, φ, λ, _a )
             v′ = FT(0)
         end
         w′ = FT(0)
+        rand_pert = FT(1)
     else
         u′, v′, w′ = (FT(0), FT(0), FT(0))
+        rand_pert = FT(1 + rand(Uniform(-1e-3, 1e-3)))
     end
-    return u′, v′, w′
+    return u′, v′, w′, rand_pert
 end
 
-function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v, aux)
+function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v, aux, param_set )
     if which == "bc_wave_initstate"
         ##########################
         # Initial base state following  Ulrich et al 16 (DCMIP summer school)
@@ -103,7 +106,8 @@ function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v, 
     elseif which == "heldsuarez_initstate"
         u_ref, v_ref, w_ref = (0,0,0)
 
-        T_v, p = temp_profile_ref(atmos.param_set, z)
+        T_v = aux.ref_state.T # = T_v is dry ref state
+        p = aux.ref_state.p
 
     else
         T_v, p, u_ref, v_ref, w_ref = (0,0,0,0,0)
@@ -111,22 +115,6 @@ function init_base_state(which, FT, φ, z, γ, _grav, _a, _Ω, _R_d, _p_0, M_v, 
     end
     return T_v, p, u_ref, v_ref, w_ref
 end
-
-
-
-
-
-
-
-
-
-## potential & kinetic energy
-e_kin::FT = 0.5 * u_cart' * u_cart
-
-## Assign state variables
-state.ρ = aux.ref_state.ρ
-state.ρu = state.ρ * u_cart
-state.ρe = aux.ref_state.ρe + state.ρ * e_kin
 
 
 
@@ -152,6 +140,8 @@ function init_moisture_profile(which, FT, _p_0, φ, p )
         else
             q_tot = q_t
         end
+    else
+        error = did_not_define_q_tot
     end
     return q_tot
 end

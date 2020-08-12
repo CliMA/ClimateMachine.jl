@@ -1,0 +1,161 @@
++ module purge
+++ /software/Modules/bin/modulecmd bash purge
++ eval MANPATH=/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man ';export' 'MANPATH;PATH=/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;unset' 'CC;unset' 'CLASSPATH;unset' 'CMAKE_HOME;unset' 'CMAKE_VERSION;unset' 'CPATH;unset' 'CUDA_HOME;unset' 'CUDA_VERSION;unset' 'CXX;unset' 'DAALROOT;unset' 'F77;unset' 'F90;unset' 'GDBSERVER_MIC;unset' 'GDB_CROSS;unset' 'INFOPATH;unset' 'INTEL_HOME;unset' 'INTEL_LICENSE_FILE;unset' 'INTEL_PYTHONHOME;unset' 'INTEL_VERSION;unset' 'IPPROOT;unset' 'I_MPI_CC;unset' 'I_MPI_CXX;unset' 'I_MPI_F77;unset' 'I_MPI_F90;unset' 'I_MPI_ROOT;unset' 'LD_LIBRARY_PATH;unset' 'LD_RUN_PATH;unset' 'LIBRARY_PATH;unset' 'LOADEDMODULES;unset' 'MKLROOT;unset' 'MPM_LAUNCHER;unset' 'NLSPATH;unset' 'OPENMPI_HOME;unset' 'OPENMPI_VERSION;unset' 'PKG_CONFIG_PATH;unset' 'PSTLROOT;unset' 'TBBROOT;unset' '_LMFILES_;'
+++ MANPATH=/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ PATH=/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ unset CC
+++ unset CLASSPATH
+++ unset CMAKE_HOME
+++ unset CMAKE_VERSION
+++ unset CPATH
+++ unset CUDA_HOME
+++ unset CUDA_VERSION
+++ unset CXX
+++ unset DAALROOT
+++ unset F77
+++ unset F90
+++ unset GDBSERVER_MIC
+++ unset GDB_CROSS
+++ unset INFOPATH
+++ unset INTEL_HOME
+++ unset INTEL_LICENSE_FILE
+++ unset INTEL_PYTHONHOME
+++ unset INTEL_VERSION
+++ unset IPPROOT
+++ unset I_MPI_CC
+++ unset I_MPI_CXX
+++ unset I_MPI_F77
+++ unset I_MPI_F90
+++ unset I_MPI_ROOT
+++ unset LD_LIBRARY_PATH
+++ unset LD_RUN_PATH
+++ unset LIBRARY_PATH
+++ unset LOADEDMODULES
+++ unset MKLROOT
+++ unset MPM_LAUNCHER
+++ unset NLSPATH
+++ unset OPENMPI_HOME
+++ unset OPENMPI_VERSION
+++ unset PKG_CONFIG_PATH
+++ unset PSTLROOT
+++ unset TBBROOT
+++ unset _LMFILES_
++ module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+++ /software/Modules/bin/modulecmd bash load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
++ eval CPATH=/central/software/OpenMPI/4.0.1//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include ';export' 'CPATH;HDF5_DIR=/software/hdf5/1.10.1' ';export' 'HDF5_DIR;LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib' ';export' 'LD_LIBRARY_PATH;LD_RUN_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib' ';export' 'LD_RUN_PATH;LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib' ';export' 'LIBRARY_PATH;LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:openmpi/4.0.1' ';export' 'LOADEDMODULES;MANPATH=/central/software/OpenMPI/4.0.1//share/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man' ';export' 'MANPATH;OPENMPI_HOME=/central/software/OpenMPI/4.0.1/' ';export' 'OPENMPI_HOME;OPENMPI_VERSION=4.0.1' ';export' 'OPENMPI_VERSION;PATH=/central/software/OpenMPI/4.0.1//bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;_LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/mpi/openmpi/4.0.1' ';export' '_LMFILES_;'
+++ CPATH=/central/software/OpenMPI/4.0.1//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include
+++ export CPATH
+++ HDF5_DIR=/software/hdf5/1.10.1
+++ export HDF5_DIR
+++ LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib
+++ export LD_LIBRARY_PATH
+++ LD_RUN_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib
+++ export LD_RUN_PATH
+++ LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib
+++ export LIBRARY_PATH
+++ LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:openmpi/4.0.1
+++ export LOADEDMODULES
+++ MANPATH=/central/software/OpenMPI/4.0.1//share/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ OPENMPI_HOME=/central/software/OpenMPI/4.0.1/
+++ export OPENMPI_HOME
+++ OPENMPI_VERSION=4.0.1
+++ export OPENMPI_VERSION
+++ PATH=/central/software/OpenMPI/4.0.1//bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ _LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/mpi/openmpi/4.0.1
+++ export _LMFILES_
++ export JULIA_NUM_THREADS=1
++ JULIA_NUM_THREADS=1
++ export JULIA_MPI_BINARY=system
++ JULIA_MPI_BINARY=system
++ export JULIA_CUDA_USE_BINARYBUILDER=false
++ JULIA_CUDA_USE_BINARYBUILDER=false
++ source ./helper_mod.sh
++ RUNNAME=setup_tst
++ CLIMA_HOME=/central/groups/esm/lenka/ClimateMachine.jl
++ VIZCLIMA_HOME=/central/groups/esm/lenka/VizCLIMA.jl
++ mkdir -p /central/scratch/elencz/
++ CLIMA_OUTPUT=/central/scratch/elencz/output/setup_tst
++ EXPERIMENT=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl
++ VIZCLIMA_SCRIPT=/central/groups/esm/lenka/VizCLIMA.jl/src/scripts/ci_analysis_heldsuarez.jl
++ EXP_PARAM_FILE=/central/groups/esm/lenka/ClimateMachine.jl/exp_parameters
++ directory_structure /central/scratch/elencz/output/setup_tst
++ CLIMA_RESTART=/central/scratch/elencz/output/setup_tst/restart
++ CLIMA_NETCDF=/central/scratch/elencz/output/setup_tst/netcdf
++ CLIMA_LOG=/central/scratch/elencz/output/setup_tst/log
++ CLIMA_ANALYSIS=/central/scratch/elencz/output/setup_tst/analysis
++ mkdir -p /central/scratch/elencz/output/setup_tst
++ mkdir -p /central/scratch/elencz/output/setup_tst/restart
++ mkdir -p /central/scratch/elencz/output/setup_tst/netcdf
++ mkdir -p /central/scratch/elencz/output/setup_tst/analysis
++ mkdir -p /central/scratch/elencz/output/setup_tst/log
++ PERF_LOGFILE=/central/scratch/elencz/output/setup_tst/log/experiments_performance_log
++ julia --project=/central/groups/esm/lenka/ClimateMachine.jl -e 'using Pkg; Pkg.instantiate()'
++ read -u3 -r line
++ write_into_runfile_from_list 'preset_exp_type "MoistHeldSuarez_bulk_sfcfluxes" n_days::FT 100' setup_tst /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl CLIMA_RUNFILE
++ line='preset_exp_type "MoistHeldSuarez_bulk_sfcfluxes" n_days::FT 100'
++ runname=setup_tst
+++ dirname /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl
++ exp_folder=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized
+++ basename /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl
++ default_exp_runfile=gcm_driver.jl
++ pars=(${line// / })
++ inst_name=setup_tst
++ (( i=0 ))
++ (( i<4 ))
++ inst_name=setup_tst_preset_exp_type
++ (( i++ ))
++ (( i<4 ))
++ inst_name='setup_tst_preset_exp_type_"MoistHeldSuarez_bulk_sfcfluxes"'
++ (( i++ ))
++ (( i<4 ))
++ inst_name='setup_tst_preset_exp_type_"MoistHeldSuarez_bulk_sfcfluxes"_n_days::FT'
++ (( i++ ))
++ (( i<4 ))
++ inst_name='setup_tst_preset_exp_type_"MoistHeldSuarez_bulk_sfcfluxes"_n_days::FT_100'
++ (( i++ ))
++ (( i<4 ))
+++ sed 's/[():"]//g'
+++ echo 'setup_tst_preset_exp_type_"MoistHeldSuarez_bulk_sfcfluxes"_n_days::FT_100'
++ inst_name_clean=setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100
++ (( i=0 ))
++ (( i<4 ))
++ par_n[$(( $i / 2 ))]=preset_exp_type
++ par_v[$(( $i / 2 ))]='"MoistHeldSuarez_bulk_sfcfluxes"'
++ (( i+=2 ))
++ (( i<4 ))
++ par_n[$(( $i / 2 ))]=n_days::FT
++ par_v[$(( $i / 2 ))]=100
++ (( i+=2 ))
++ (( i<4 ))
++ new_exp_runfile=gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ rm -f /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ cp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver.jl /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ (( i=0 ))
++ (( i<2 ))
++ sed 's/preset_exp_type =.*/preset_exp_type = "MoistHeldSuarez_bulk_sfcfluxes"/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ (( i++ ))
++ (( i<2 ))
++ sed 's/n_days::FT =.*/n_days::FT = 100/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ (( i++ ))
++ (( i<2 ))
++ sed 's/exp_name =.*/exp_name = "setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100"/' /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ mv /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/run_tmp /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ new_exp_runfile_path=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
++ eval CLIMA_RUNFILE=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
+++ CLIMA_RUNFILE=/central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl
+++ date +%m-%d-%y-%T
++ t_date=08-10-20-18:40:16
+++ date +%s
++ t_start=1597110016
++ echo '1597110016: Running /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl, storing output at /central/scratch/elencz/output/setup_tst'
+1597110016: Running /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl, storing output at /central/scratch/elencz/output/setup_tst
++ julia --project=/central/groups/esm/lenka/ClimateMachine.jl -e 'using Pkg; Pkg.API.precompile()'
+Precompiling project...
++ mpiexec julia --project=/central/groups/esm/lenka/ClimateMachine.jl /central/groups/esm/lenka/ClimateMachine.jl/experiments/AtmosGCM/Modularized/gcm_driver_setup_tst_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100.jl --diagnostics 1shours --monitor-courant-numbers 6shours --output-dir /central/scratch/elencz/output/setup_tst/netcdf --checkpoint-at-end --checkpoint-dir /central/scratch/elencz/output/setup_tst/restart
+slurmstepd: error: *** JOB 10933020 ON hpc-22-07 CANCELLED AT 2020-08-10T18:41:00 ***

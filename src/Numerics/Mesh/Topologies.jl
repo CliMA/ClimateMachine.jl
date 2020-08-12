@@ -1053,7 +1053,7 @@ function StackedCubedSphereTopology(
     mpicomm,
     Nhorz,
     Rrange;
-    boundary = (1, 1),
+    boundary = (1, 2),
     connectivity = :face,
     ghostsize = 1,
 )

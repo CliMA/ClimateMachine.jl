@@ -9,8 +9,8 @@ if preset_exp_type == "MoistBaroclinicWave"
     init_moist_name = "moist_low_tropics" # options: "moist_low_tropics", "zero"
 
     # boundary conditions
-    function get_bc()
-        bc_list = (AtmosBC(), )
+    function get_bc(FT)
+        bc_list = (AtmosBC(), AtmosBC(), )
         return bc_list
     end
 
@@ -26,11 +26,11 @@ elseif preset_exp_type == "DryBaroclinicWave"
 
     init_pert_name = "deterministic"
     init_basestate_name = "bc_wave_initstate"
-    init_moist_name = "none"
+    init_moist_name = "zero"
 
     # boundary conditions
-    function get_bc()
-        bc_list = (AtmosBC(), )
+    function get_bc(FT)
+        bc_list = (AtmosBC(), AtmosBC(), )
         return bc_list
     end
 
@@ -44,13 +44,13 @@ elseif preset_exp_type == "DryHeldSuarez"
     # Dry Moist Baroclinic wave
     # - same as above but with q_tot = 0
 
-    init_pert_name = "deterministic"
+    init_pert_name = "none"
     init_basestate_name = "heldsuarez_initstate"
-    init_moist_name = "none"
+    init_moist_name = "zero"
 
     # boundary conditions
-    function get_bc()
-        bc_list = (AtmosBC(), )
+    function get_bc(FT)
+        bc_list = (AtmosBC(), AtmosBC(), )
         return bc_list
     end
 
@@ -68,8 +68,8 @@ elseif preset_exp_type == "MoistHeldSuarez_no_sfcfluxes"
     init_moist_name = "moist_low_tropics"
 
     # boundary conditions
-    function get_bc()
-        bc_list = (AtmosBC(), )
+    function get_bc(FT)
+        bc_list = (AtmosBC(), AtmosBC(), )
         return bc_list
     end
 
@@ -83,12 +83,12 @@ elseif preset_exp_type == "MoistHeldSuarez_bulk_sfcfluxes"
     # Dry Moist Baroclinic wave
     # - same as above but with q_tot = 0
 
-    init_pert_name = "deterministic"
+    init_pert_name = "none" #"deterministic"
     init_basestate_name = "heldsuarez_initstate"
-    init_moist_name = "none"
+    init_moist_name = "zero"
 
     # boundary conditions
-    function get_bc()
+    function get_bc(FT)
         # Surface flux parameters
         C_drag = FT(0.0044)   # Bulk transfer coefficient
         T_sfc = FT(271)     # Surface temperature `[K]`

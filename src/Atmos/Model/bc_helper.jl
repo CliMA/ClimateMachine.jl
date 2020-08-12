@@ -3,11 +3,11 @@ function get_spatial_SST_idealized( atmos, aux, state, SST_min )
     # following Thatcher and Jablonowski 2016
     #SST_middn = FT(271) # SST at the poles
     φ = latitude( atmos.orientation, aux)
-    Δφ = FT(12) * π / FT(180) # latitudinal width of Gaussian function
+    Δφ = FT(26) * π / FT(180) # latitudinal width of Gaussian function
     ΔSST = FT(29) # Eq-pole SST difference in K
     T_sfc = ΔSST * exp( - φ^2 / ( 2 * Δφ^2  ) ) + SST_min
 
-    eps =  FT(0.662)
+    eps =  FT(0.622)
     ρ = state.ρ
     e_int = internal_energy( atmos.moisture, atmos.orientation, state, aux)
     T = air_temperature( atmos.param_set, e_int)
