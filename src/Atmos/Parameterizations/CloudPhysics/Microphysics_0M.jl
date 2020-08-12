@@ -43,7 +43,7 @@ function remove_precipitation(
     _τ_rain_removal::FT = FT(1000)
     _q_precip_thr::FT = FT(5e-3)
 
-    return max(FT(0), (q.liq + q.ice - _q_precip_thr)) / _τ_rain_removal
+    return -max(FT(0), (q.liq + q.ice - _q_precip_thr)) / _τ_rain_removal
 end
 
 end #module Microphysics_0M.jl

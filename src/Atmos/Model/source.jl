@@ -1,3 +1,4 @@
+using ClimateMachine.Microphysics_0M
 using CLIMAParameters.Planet: Omega
 export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
 
@@ -185,13 +186,26 @@ function atmos_source!(
     t::Real,
     direction,
 )
+    # TODO - should I be using aux here? Or do another saturation adjustement?
     FT = eltype(state)
+    if aux.q_liq + aux.q_ice > eps(FT)
 
-    q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        _e_int_i0::FT = e_int_i0(param_set)
+        _cv_d::FT = cv_d(param_set)
+        _cv_l::FT = cv_l(param_set)
+        _cv_i::FT = cv_i(param_set)
+        _T_0::FT = T_0(param_set)
 
-    source.ρq_tot -= state.ρ * remove_precipitation(atmos.param_set, q)
+        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
 
-    source.ρe -= state.ρ * remove_precipitation(atmos.param_set, q) #TODO - energy source due to mass loss
-    source.ρ  -= state.ρ * remove_precipitation(atmos.param_set, q) #TODO - density source due to mass loss
+        dqt_dt::FT = remove_precipitation(atmos.param_set, q)
 
+        source.ρq_tot += state.ρ * dqt_dt
+
+        source.ρ  += state.ρ / (FT(1) - aux.q_tot) * dqt_dt
+
+        source.ρe += (q.liq / (q.liq + q.ice) * (_cv_l - _cv_d) * (T - _T_0)
+                      +
+                      q_ice / (q.liq + q.ice) * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)) * state.ρ * dqt_dt
+    end
 end
