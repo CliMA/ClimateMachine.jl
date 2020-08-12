@@ -20,7 +20,7 @@ export AtmosBC,
 export average_density_sfc_int
 
 
-boundary_conditions(m::AtmosModel) = m.boundaryconditions
+boundary_conditions(m::AtmosModel) = m.boundarycondition
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
