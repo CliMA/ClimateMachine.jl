@@ -104,8 +104,8 @@ function SoilWaterModel(
     hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
     initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
     initialθ_ice::Function = (aux) -> eltype(aux)(0.0),
-    dirichlet_bc::AbstractBoundaryFunctions = nothing,
-    neumann_bc::AbstractBoundaryFunctions = nothing,
+    dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
+    neumann_bc::AbstractBoundaryFunctions = Neumann(),
 ) where {FT}
     args = (
         impedance_factor,
