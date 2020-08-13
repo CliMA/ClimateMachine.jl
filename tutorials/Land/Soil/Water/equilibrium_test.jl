@@ -8,9 +8,14 @@
 # pressure head is equal and opposite the gradient of the
 # gravitational head.
 
-# Note that by default we only support liquid water in this example.
-# If you would like to include ice in a dynamical water model, phase transitions
-# must be turned on by including freezing and thawing as a source term.
+# A word about ice: the dynamic water model includes as state
+# variables `ϑ_l` and `θ_ice`. However, the right hand side of the ice
+# equation is zero unless freeze/thaw source terms are explicitly turned on.
+# In this case, liquid water and ice can be transformed into each other while
+# conserving the total water mass. If freezing and thawing are not turned on
+# (the default), the amount of ice in the model is zero for all space and time
+# (again by default). *It does not make sense to change this default*, since the
+# liquid water equation would have no knowledge of the amount of ice in the soil.
 
 # # Preliminary setup
 

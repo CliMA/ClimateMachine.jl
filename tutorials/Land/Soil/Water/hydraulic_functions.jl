@@ -234,6 +234,14 @@ plot(
 plot!(S_l, log10.(K_T), label = "Temperature Dependent Viscosity")
 plot!(S_l_accounting_for_ice, log10.(K_ice), label = "Ice Impedance")
 
+# A word about ice - if the user is not considering phase transitions
+# and does not add in Freeze/Thaw source terms, the default is for zero
+# ice in the model, for all time and space. The ice impedance factor is
+# one if the volumetric ice fraction is zero, so even if one chose
+# `IceImpedance{FT}` as the `impedance_factor`, without freezing and thawing,
+# this factor would still be unity. 
+
+
 # We can also look and see how the Brooks and Corey moisture factor differs from the
 # van Genuchten moisture factor by changing the `hydraulics` model passed:
 T = FT(0.0)
