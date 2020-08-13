@@ -1,11 +1,11 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --job-name=gcm_long_setup
+#SBATCH --job-name=gcm_long_setup_micro2
 #SBATCH --time=100:00:00
 #SBATCH --cpus-per-task=1  # number of CPU threads per MPI rank
 #SBATCH --tasks-per-node=2
-#SBATCH --output=gcm_long_setup2.out
+#SBATCH --output=gcm_long_setup_micro2.out
 
 
 # Kill the job if anything fails
@@ -25,10 +25,10 @@ export JULIA_CUDA_USE_BINARYBUILDER=false
 source ./helper_mod.sh
 
 # User envirnoment setup
-RUNNAME="setup_tst_cpu"
+RUNNAME="micro_cpu2"
 
 # Change if CLIMA and VizCLIMA not saved in $HOME
-CLIMA_HOME='/central/groups/esm/lenka/ClimateMachine.jl'
+CLIMA_HOME='/central/groups/esm/lenka/ClimaTests/ClimateMachine.jl'
 VIZCLIMA_HOME='/central/groups/esm/lenka/VizCLIMA.jl'
 
 # Specify output location

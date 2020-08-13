@@ -1,5 +1,9 @@
-using CLIMAParameters.Planet: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+using ClimateMachine.Microphysics_0M
+using CLIMAParameters.Planet: Omega, e_int_i0, cv_d, cv_l, cv_i, T_0
+
+using Printf
+
+export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, RemovePrecipitation
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -171,5 +175,44 @@ function atmos_source!(
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    end
+end
+
+struct RemovePrecipitation <: Source end
+function atmos_source!(
+    ::RemovePrecipitation,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    # TODO - should I be using aux here? Or do another saturation adjustement?
+    FT = eltype(state)
+    #@info @sprintf("""some parameter info: %s""", eps(FT))
+    if aux.moisture.q_liq + aux.moisture.q_ice > eps(FT) #2e-16
+
+        _e_int_i0::FT = e_int_i0(atmos.param_set)
+        _cv_d::FT = cv_d(atmos.param_set)
+        _cv_l::FT = cv_l(atmos.param_set)
+        _cv_i::FT = cv_i(atmos.param_set)
+        _T_0::FT = T_0(atmos.param_set)
+
+        q = PhasePartition(state.moisture.ρq_tot / state.ρ, aux.moisture.q_liq, aux.moisture.q_ice)
+        T::FT = aux.moisture.temperature
+        
+        @info @sprintf("""qliq info: %s""", aux.moisture.q_liq )
+        @info @sprintf("""qice info: %s""", aux.moisture.q_ice )
+        dqt_dt::FT = remove_precipitation(atmos.param_set, q)
+
+        source.moisture.ρq_tot += state.ρ * dqt_dt
+
+        source.ρ  += state.ρ / (FT(1) - q.tot) * dqt_dt
+
+        source.ρe += (q.liq / (q.liq + q.ice) * (_cv_l - _cv_d) * (T - _T_0)
+                      +
+                      q.ice / (q.liq + q.ice) * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)) * state.ρ * dqt_dt
     end
 end

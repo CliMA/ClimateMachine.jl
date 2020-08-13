@@ -111,7 +111,7 @@ elseif preset_exp_type == "MoistHeldSuarez_bulk_sfcfluxes"
 
     # sources
     function get_source()
-        source_list = (Gravity(), Coriolis(), held_suarez_forcing!)
+        source_list = (Gravity(), Coriolis(), RemovePrecipitation(), held_suarez_forcing! )
         return source_list
     end
 else

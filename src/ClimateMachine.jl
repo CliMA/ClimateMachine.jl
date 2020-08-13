@@ -18,6 +18,12 @@ include(joinpath(
     "CloudPhysics",
     "Microphysics.jl",
 ))
+include(joinpath(
+    "Atmos",
+    "Parameterizations",
+    "CloudPhysics",
+    "Microphysics_0M.jl",
+))
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
@@ -40,6 +46,5 @@ include(joinpath("Diagnostics", "Debug", "StateCheck.jl"))
 include(joinpath("Utilities", "Checkpoint", "Checkpoint.jl"))
 include(joinpath("Driver", "Callbacks", "Callbacks.jl"))
 include(joinpath("Driver", "Driver.jl"))
-
 
 end

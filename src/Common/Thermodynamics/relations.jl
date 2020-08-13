@@ -1005,7 +1005,7 @@ function PhasePartition_equil(
     q_c = saturation_excess(param_set, T, ρ, phase_type, PhasePartition(q_tot)) # condensate specific humidity
     q_liq = _liquid_frac * q_c                                                  # liquid specific humidity
     q_ice = (1 - _liquid_frac) * q_c                                            # ice specific humidity
-
+    @info @sprintf("""liq_frac: %s""", _liquid_frac)
     return PhasePartition(q_tot, q_liq, q_ice)
 end
 

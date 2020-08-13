@@ -27,10 +27,10 @@ using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-exp_name = "something"
+exp_name = "micro_cpu2_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100"
 
 # Select/customize setup for this particular experiment
-preset_exp_type = "something"
+preset_exp_type = "MoistHeldSuarez_bulk_sfcfluxes"
 #preset_exp_type = "MoistHeldSuarez_bulk_sfcfluxes"
 # options: "DryBaroclinicWave", "MoistBaroclinicWave", "DryHeldSuarez", "MoistHeldSuarez_no_sfcfluxes", "MoistHeldSuarez_bulk_sfcfluxes" or customize your own set of bc's, ic's and sources in preset_experiment_list.jl
 
@@ -101,7 +101,7 @@ function config_gcm_experiment(FT, poly_order, resolution)
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
-    exp_name = exp_name
+    exp_name = "micro_cpu2_preset_exp_type_MoistHeldSuarez_bulk_sfcfluxes_n_daysFT_100"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -136,7 +136,7 @@ function main()
     poly_order = 3                          # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 100
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 

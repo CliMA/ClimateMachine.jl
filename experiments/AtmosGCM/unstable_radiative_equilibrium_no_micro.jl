@@ -29,11 +29,11 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 # -------------------- Unstable Radiative Equilibrium -----------------
-#
+# 
 # GCM dycore setup with:
 #       - radiation parametrized as Newtonian relaxation (similar to Held-Suarez
 #       but radiative equilibrium is modified to be unstable in the extratropics,
-#       e.g. Schneider, T., 2004: The Tropopause and the Thermal Stratification
+#       e.g. Schneider, T., 2004: The Tropopause and the Thermal Stratification 
 #       in the Extratropics of a Dry Atmosphere. J. Atmos. Sci., 61, 1317–1340)
 #       - Rayleigh friction
 #       - optional moisture (initial conditions: http://www-personal.umich.edu/
@@ -260,7 +260,7 @@ function config_unstable_rad_equilibrium(FT, poly_order, resolution)
         #hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         #moisture = DryModel(),
         moisture = EquilMoist{FT}(),
-        source = (Gravity(), Coriolis(), RemovePrecipitation(), unstable_rad_equilibrium!),
+        source = (Gravity(), Coriolis(), unstable_rad_equilibrium!),
         init_state_prognostic = init_unstable_rad_equilibrium!,
     )
 
