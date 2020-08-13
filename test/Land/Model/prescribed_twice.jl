@@ -4,6 +4,7 @@
 using MPI
 using OrderedCollections
 using StaticArrays
+using Test
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -31,9 +32,8 @@ using ClimateMachine.BalanceLaws:
 
     function init_soil_water!(land, state, aux, coordinates, time) end
 
-    #Eventually, these can be called in the same way.
     soil_water_model = PrescribedWaterModel()
-    soil_heat_model = PrescribedTemperatureModel{FT}()
+    soil_heat_model = PrescribedTemperatureModel()
     soil_param_functions = nothing
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = ()
