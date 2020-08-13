@@ -29,14 +29,13 @@ if generate_tutorials
         ],
         "Ocean" => [],
         "Land" => [
-            "Heat" => [
-                "Heat Equation" => "Land/Heat/heat_equation.jl",
-            ],
+            "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
             "Water" => [
                 "Richard's Equation" => "Land/Soil/Water/equilibrium_test.jl",
-                "Hydraulics Functions" => "Land/Soil/Water/hydraulic_functions.jl",
+                "Hydraulics Functions" =>
+                    "Land/Soil/Water/hydraulic_functions.jl",
                 "Infiltration test" => "Land/Soil/Water/infiltration_test.jl",
-            ]
+            ],
         ],
         "Numerics" => [
             "System Solvers" => [

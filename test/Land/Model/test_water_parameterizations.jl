@@ -80,6 +80,6 @@ using ClimateMachine.Land.SoilWaterParameterizations
 
     m = FT(0.5)
     ψb = FT(0.1656)
-    @test pressure_head(bc_model, 1.0, 0.001, 0.5) ≈ -ψb * 0.5^(-1 / m)
+    @test pressure_head(bc_model, 1.0, 0.001, 0.5) ≈ ψb * 0.5^(-1 / m)
     @test volumetric_liquid_fraction.([0.5, 1.5], Ref(0.75)) ≈ [0.5, 0.75]
 end
