@@ -1,12 +1,8 @@
-# # Hydrostatic Equilibrium test for Richard's Equation
+# # Infiltration of water into sandy loam.
 
 # This tutorial shows how to use ClimateMachine code to solve
-# Richard's equation in a column of soil. We choose boundary
-# conditions of zero flux at the top and bottom of the column,
-# and then run the simulation long enough to see that the system
-# is approach hydrostatic equilibrium, where the gradient of the
-# pressure head is equal and opposite the gradient of the
-# gravitational head.
+# Richard's equation in a column of soil, assuming a specified
+# infiltration flux of water at the surface and free drainage.
 
 # A word about ice: the dynamic water model includes as state
 # variables `ϑ_l` and `θ_ice`. However, the right hand side of the ice
@@ -67,11 +63,10 @@ soil_heat_model = PrescribedTemperatureModel{FT}()
 # Define the porosity, Ksat, and specific storage values for the soil. Note
 # that all values must be given in mks units. The soil parameters chosen
 # roughly correspond to Yolo light clay.
-soil_param_functions = SoilParamFunctions{FT}(
-    porosity = 0.495,
-    Ksat = 0.0443 / (3600 * 100),
-    S_s = 1e-3,
-)
+Ksat = FT(4.42 / 3600 / 100) # m/s
+ν = FT(0.41)
+soil_param_functions =
+    SoilParamFunctions{FT}(porosity = ν, Ksat = Ksat, S_s = 1e-3)
 
 # Define the boundary conditions. The user can specify two conditions,
 # either at the top or at the bottom, and they can either be Dirichlet
@@ -79,14 +74,25 @@ soil_param_functions = SoilParamFunctions{FT}(
 # scalars, inside the code they are multiplied by ẑ. The two conditions
 # not supplied must be set to `nothing`. 
 zero_value = FT(0.0)
-surface_flux = (aux, t) -> zero_value
-bottom_flux = (aux, t) -> zero_value
+# A positive value of `K∇h` implies flux downwards.
+surface_flux = (aux, t) -> Ksat
+# Free drainage implies ∇h = ẑ
+bottom_flux = (aux, t) -> aux.soil.water.K
 surface_state = nothing
 bottom_state = nothing
 
-# Define the initial state function.
-initial_state = FT(0.494)
-ϑ_l0 = (aux) -> initial_state
+# Define the initial state function. Here we show how to make the initial condition
+# a function of space. 
+function ϑ_l0(aux)
+    z = aux.z
+    if z > -0.5
+        output = ν + 1e-3
+    else
+        output = 0.9 * ν
+    end
+
+    return output
+end
 
 # Create the SoilWaterModel. The defaults are a temperature independent
 # viscosity, and no impedance factor due to ice. We choose to make the
@@ -97,7 +103,7 @@ initial_state = FT(0.494)
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
-    hydraulics = vanGenuchten{FT}(n = 2.0),
+    hydraulics = vanGenuchten{FT}(α = 7.5, n = 1.89),
     initialϑ_l = ϑ_l0,
     dirichlet_bc = Dirichlet(
         surface_state = surface_state,
@@ -136,10 +142,10 @@ m = LandModel(
 
 # Specify the polynomial order and vertical resolution.
 N_poly = 5
-nelem_vert = 20
+nelem_vert = 10
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-10)
+zmin = FT(-3)
 # Create the driver configuration.
 driver_config = ClimateMachine.SingleStackConfiguration(
     "LandModel",
@@ -153,8 +159,8 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 )
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 * 60 * 24 * 4)
-dt = FT(5)
+timeend = FT(60 * 60 * 1)
+dt = FT(0.05)
 
 # Create the solver configuration.
 solver_config =
@@ -175,9 +181,6 @@ all_data = Dict([k => Dict() for k in 0:n_outputs]...)
 mygrid = solver_config.dg.grid;
 Q = solver_config.Q;
 aux = solver_config.dg.state_auxiliary;
-grads = solver_config.dg.state_gradient_flux
-
-K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
 
@@ -186,10 +189,8 @@ indices = [i[1] for i in indexin(unique(v), v)]
 
 t = ODESolvers.gettime(solver_config.solver)
 ϑ_l = Q[indices, ϑ_l_ind, :][:]
-# gradients are not defined at t= 0, so initialize with NaNs
-K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
 z = aux[indices, z_ind, :][:]
-all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "K∇h_vert" => K∇h_vert)
+all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l)
 all_data[0] = all_vars
 
 step = [1];
@@ -198,12 +199,7 @@ callback = GenericCallbacks.EveryXSimulationTime(
 ) do (init = false)
     t = ODESolvers.gettime(solver_config.solver)
     ϑ_l = Q[indices, ϑ_l_ind, :][:]
-    K∇h_vert = grads[indices, K∇h_vert_ind, :][:]
-    all_vars = Dict{String, Array}(
-        "t" => [t],
-        "ϑ_l" => ϑ_l,
-        "K∇h_vert" => K∇h_vert,
-    )
+    all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l)
     all_data[step[1]] = all_vars
 
     step[1] += 1
@@ -213,21 +209,26 @@ end;
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
+# Get the final state
+t = ODESolvers.gettime(solver_config.solver)
+ϑ_l = Q[indices, ϑ_l_ind, :][:]
+all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l)
+all_data[n_outputs] = all_vars
+
 # # Make some plots
 
 t = [all_data[k]["t"][1] for k in 0:n_outputs]
-t = ceil.(Int64, t ./ 86400)
+t = ceil.(Int64, t ./ 60)
 
 # The initial state.
 plot(
     all_data[0]["ϑ_l"],
     z,
     label = string("t = ", string(t[1])),
-    xlim = [0.47, 0.501],
+    #xlim = [0.47, 0.501],
     ylabel = "z",
     xlabel = "ϑ_l",
     legend = :bottomleft,
-    title = "Equilibrium test",
 )
 
 # Middle states
@@ -237,48 +238,7 @@ plot!(all_data[3]["ϑ_l"], z, label = string("t = ", string(t[4])))
 # The final state
 plot!(all_data[4]["ϑ_l"], z, label = string("t = ", string(t[5])))
 
-# The expected slope of `ϑ_l` in hydrostatic equilibrium when the soil
-# is saturated:
-slope = -soil_param_functions.S_s
-
-# Plot to see if we are converging to this:
-plot!((z .- zmin) .* slope .+ all_data[4]["ϑ_l"][1], z, label = "expected")
-
-# The porosity of the soil. For `ϑ_l` values above this, the soil is
-# saturated, and the pressure head changes from being equal to the matric
-# potential to the pressure generated by compression of water and the soil
-# matrix. The pressure head is continuous at porosity, but the derivative
-# is not.
-plot!(soil_param_functions.porosity .+ zeros(length(z)), z, label = "porosity")
-
 # save the output:
-savefig("./equilibrium_test_ϑ_l.png")
+savefig("./infiltration_test_ϑ_l.png")
 
-# ![](equilibrium_test_ϑ_l.png)
-
-# We can also look at how the flux changes. Notice that the flux is zero
-# at the top and bottom of the domain, which we specified in our boundary
-# conditions. Over time, the flux is tending towards zero, as the system approaches
-# equilibrium.
-# After 1 day:
-plot(
-    -all_data[1]["K∇h_vert"],
-    z,
-    label = string("t = ", string(t[2])),
-    ylabel = "z",
-    xlabel = "-K∇h",
-    legend = :bottomright,
-    title = "Equilibrium test",
-)
-
-# Middle states
-
-plot!(-all_data[2]["K∇h_vert"], z, label = string("t = ", string(t[3])))
-plot!(-all_data[3]["K∇h_vert"], z, label = string("t = ", string(t[4])))
-# The final state.
-plot!(-all_data[4]["K∇h_vert"], z, label = string("t = ", string(t[5])))
-
-# save the output:
-savefig("./equilibrium_test_flux.png")
-
-# ![](equilibrium_test_flux.png)
+# ![](infiltration_test_ϑ_l.png)

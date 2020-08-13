@@ -134,6 +134,8 @@ plot(
     label = "van Genuchten",
 )
 plot!(S_l, log10.(-ψ_bc), label = "Brooks and Corey")
+savefig("./bc_vg_matric_potential.png")
+# ![](bc_vg_matric_potential.png)
 # The huge range in `ψ` as `S_l` varies, as well as the steep slope in
 # `ψ` near saturation and completely dry soil, are part of the reason
 # why Richard's equation is such a challenging numerical problem.
@@ -185,14 +187,6 @@ K =
         Ref(T),
         S_l,
     )
-plot(
-    S_l,
-    log10.(K),
-    xlabel = "effective saturation",
-    ylabel = "Log10(K)",
-    label = "K",
-)
-
 # Let's see how the curves change when we include the effects of temperature
 # and ice on the hydraulic conductivity.
 viscosity_choice_T = TemperatureDependentViscosity{FT}()
@@ -233,7 +227,8 @@ plot(
 )
 plot!(S_l, log10.(K_T), label = "Temperature Dependent Viscosity")
 plot!(S_l_accounting_for_ice, log10.(K_ice), label = "Ice Impedance")
-
+savefig("./T_ice_K.png")
+# ![](T_ice_K.png)
 # A word about ice - if the user is not considering phase transitions
 # and does not add in Freeze/Thaw source terms, the default is for zero
 # ice in the model, for all time and space. The ice impedance factor is
@@ -273,7 +268,8 @@ plot!(
     ylabel = "Log10(K)",
     label = "Brooks and Corey",
 )
-
+savefig("./bc_vg_k.png")
+# ![](bc_vg_k.png)
 # # Other features
 # The user also has the choice of making the conductivity constant by choosing
 # `MoistureIndependent{FT}()`. This is useful for debugging!

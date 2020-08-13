@@ -35,6 +35,7 @@ if generate_tutorials
             "Water" => [
                 "Richard's Equation" => "Land/Soil/Water/equilibrium_test.jl",
                 "Hydraulics Functions" => "Land/Soil/Water/hydraulic_functions.jl",
+                "Infiltration test" => "Land/Soil/Water/infiltration_test.jl",
             ]
         ],
         "Numerics" => [
