@@ -8,8 +8,9 @@
 # pressure head is equal and opposite the gradient of the
 # gravitational head.
 
-# Note that freezing and thawing are turned off in this example. That
-# means that `θ_ice`, initialized to zero by default, will remain zero.
+# Note that by default we only support liquid water in this example.
+# If you would like to include ice in a dynamical water model, phase transitions
+# must be turned on by including freezing and thawing as a source term.
 
 # # Preliminary setup
 
@@ -45,18 +46,16 @@ using ClimateMachine.BalanceLaws:
 
 
 # - define the float type desired (`Float64` or `Float32`)
-FT = Float64;
-
+FT = Float64
 # - initialize ClimateMachine for CPU
-ClimateMachine.init(; disable_gpu = true);
-
-
+ClimateMachine.init(; disable_gpu = true)
 # # Set up the soil model
 
-# We want to solveRichard's equation alone, i.e. do not solve
-# the heat equation. The default is a constant temperature, but this
-# only affects Richard's equation if one chooses a temperature dependent
-# viscosity of water (see below).
+# We want to solve Richard's equation alone, without simultaneously
+# solving the heat equation. One can choose to essentially ignore temperature
+# (the default), or to choose a prescribed temperature function with which to drive
+# Richard's equation (via the temperature dependence of viscosity, or via freeze/thaw).
+# Here we ignore the effects of temperature and freezing and thawing. 
 
 soil_heat_model = PrescribedTemperatureModel{FT}()
 
@@ -75,13 +74,13 @@ soil_param_functions = SoilParamFunctions{FT}(
 # scalars, inside the code they are multiplied by ẑ. The two conditions
 # not supplied must be set to `nothing`. 
 zero_value = FT(0.0)
-initial_state = FT(0.494)
 surface_flux = (aux, t) -> zero_value
 bottom_flux = (aux, t) -> zero_value
 surface_state = nothing
 bottom_state = nothing
 
 # Define the initial state function.
+initial_state = FT(0.494)
 ϑ_l0 = (aux) -> initial_state
 
 # Create the SoilWaterModel. The defaults are a temperature independent
@@ -113,16 +112,13 @@ sources = ()
 
 # Define the function that initializes the prognostic variables. This
 # in turn calls the functions supplied to soil_water_model. The default
-# initialization for ice is zero volumetric ice fraction. This should not
-# be altered unless freeze thaw is added.
+# initialization for ice is zero volumetric ice fraction. ***This should not
+# be altered unless freeze thaw is added.***
 function init_soil_water!(land, state, aux, coordinates, time)
     FT = eltype(state)
     state.soil.water.ϑ_l = FT(land.soil.water.initialϑ_l(aux))
     state.soil.water.θ_ice = FT(land.soil.water.initialθ_ice(aux))
-end;
-
-
-
+end
 # Create the land model - in this tutorial, it only includes the soil.
 m = LandModel(
     param_set,
@@ -134,13 +130,11 @@ m = LandModel(
 # # Specify the numerical configuration and output data.
 
 # Specify the polynomial order and vertical resolution.
-N_poly = 5;
-nelem_vert = 20;
-
+N_poly = 5
+nelem_vert = 20
 # Specify the domain boundaries.
 zmax = FT(0);
 zmin = FT(-10)
-
 # Create the driver configuration.
 driver_config = ClimateMachine.SingleStackConfiguration(
     "LandModel",
@@ -151,8 +145,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     m;
     zmin = zmin,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
-);
-
+)
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60 * 60 * 24 * 4)
@@ -160,11 +153,11 @@ dt = FT(5)
 
 # Create the solver configuration.
 solver_config =
-    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
+    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt)
 
 # Determine how often you want output.
-const n_outputs = 4;
-const every_x_simulation_time = ceil(Int, timeend / n_outputs);
+const n_outputs = 4
+const every_x_simulation_time = ceil(Int, timeend / n_outputs)
 # Create a place to store this output.
 all_data = Dict([k => Dict() for k in 0:n_outputs]...)
 
@@ -179,24 +172,19 @@ Q = solver_config.Q;
 aux = solver_config.dg.state_auxiliary;
 grads = solver_config.dg.state_gradient_flux
 
-K∇h_vert_ind =
-    varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
+K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
 
-v = round.(Int, aux[:, z_ind, 5]*100)/100
-indices = [i[1] for i in indexin(unique(v),v)]
+v = round.(Int, aux[:, z_ind, 5] * 100) / 100
+indices = [i[1] for i in indexin(unique(v), v)]
 
 t = ODESolvers.gettime(solver_config.solver)
 ϑ_l = Q[indices, ϑ_l_ind, :][:]
 # gradients are not defined at t= 0, so initialize with NaNs
 K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
-z = aux[indices, z_ind,:][:]
-all_vars = Dict{String, Array}(
-        "t" => [t],
-        "ϑ_l" => ϑ_l,
-        "K∇h_vert" => K∇h_vert,
-        )
+z = aux[indices, z_ind, :][:]
+all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "K∇h_vert" => K∇h_vert)
 all_data[0] = all_vars
 
 step = [1];
@@ -210,7 +198,7 @@ callback = GenericCallbacks.EveryXSimulationTime(
         "t" => [t],
         "ϑ_l" => ϑ_l,
         "K∇h_vert" => K∇h_vert,
-        )
+    )
     all_data[step[1]] = all_vars
 
     step[1] += 1
@@ -218,13 +206,13 @@ callback = GenericCallbacks.EveryXSimulationTime(
 end;
 
 # # Run the integration
-ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 
-# # Get the final state back.
+# # Make some plots
 
 t = [all_data[k]["t"][1] for k in 0:n_outputs]
-t = ceil.(Int64,t./86400)
-# # Create some plots. 
+t = ceil.(Int64, t ./ 86400)
+
 # The initial state.
 plot(
     all_data[0]["ϑ_l"],
@@ -238,46 +226,22 @@ plot(
 )
 
 # Middle states
-plot!(
-    all_data[1]["ϑ_l"],
-    z,
-    label = string("t = ", string(t[2])),
-)
-plot!(
-    all_data[2]["ϑ_l"],
-    z,
-    label = string("t = ", string(t[3])),
-)
-plot!(
-    all_data[3]["ϑ_l"],
-    z,
-    label = string("t = ", string(t[4])),
-)
+plot!(all_data[1]["ϑ_l"], z, label = string("t = ", string(t[2])))
+plot!(all_data[2]["ϑ_l"], z, label = string("t = ", string(t[3])))
+plot!(all_data[3]["ϑ_l"], z, label = string("t = ", string(t[4])))
 # The final state
-plot!(
-    all_data[4]["ϑ_l"],
-    z,
-    label = string("t = ", string(t[5])),
-)
+plot!(all_data[4]["ϑ_l"], z, label = string("t = ", string(t[5])))
 # The expected slope in hydrostatic equilibrium.
 slope = -soil_param_functions.S_s
-plot!(
-    (z .- zmin) .* slope .+ all_data[4]["ϑ_l"][1],
-    z,
-    label = "expected",
-)
+plot!((z .- zmin) .* slope .+ all_data[4]["ϑ_l"][1], z, label = "expected")
 
 # The porosity of the soil.
-plot!(
-    soil_param_functions.porosity .+ zeros(length(z)),
-    z,
-    label = "porosity",
-)
+plot!(soil_param_functions.porosity .+ zeros(length(z)), z, label = "porosity")
 # save the output.
 savefig("./equilibrium_test_ϑ_l.png")
 
 
-#Likewhile for the flux
+# Likewhile for the flux
 # after 1 day
 plot(
     -all_data[1]["K∇h_vert"],
@@ -291,31 +255,26 @@ plot(
 
 # Middle states
 
-plot!(
-    -all_data[2]["K∇h_vert"],
-    z,
-    label = string("t = ", string(t[3])),
-)
-plot!(
-    -all_data[3]["K∇h_vert"],
-    z,
-    label = string("t = ", string(t[4])),
-)
+plot!(-all_data[2]["K∇h_vert"], z, label = string("t = ", string(t[3])))
+plot!(-all_data[3]["K∇h_vert"], z, label = string("t = ", string(t[4])))
 # The final state
-plot!(
-    -all_data[4]["K∇h_vert"],
-    z,
-    label = string("t = ", string(t[5])),
-)
+plot!(-all_data[4]["K∇h_vert"], z, label = string("t = ", string(t[5])))
 
 # save the output.
 savefig("./equilibrium_test_flux.png")
 
-#Finally, let's look at the divergence of the flux
+# Finally, let's look at the divergence of the flux
 final_flux = -all_data[4]["K∇h_vert"]
-div_flux = (final_flux[2:end]-final_flux[1:end-1])./(z[2:end]-z[1:end-1])
-zval = (z[2:end] .+ z[1:end-1])./2.0
+div_flux =
+    (final_flux[2:end] - final_flux[1:(end - 1)]) ./ (z[2:end] - z[1:(end - 1)])
+zval = (z[2:end] .+ z[1:(end - 1)]) ./ 2.0
 zval = zval[iszero.(isinf.(div_flux))]
 div_flux = div_flux[iszero.(isinf.(div_flux))]
-plot(log10.(abs.(div_flux)), zval, label  = "t = 4", xlabel ="Log10|∇⋅K∇h|", ylabel= "z")
+plot(
+    log10.(abs.(div_flux)),
+    zval,
+    label = "t = 4",
+    xlabel = "Log10|∇⋅K∇h|",
+    ylabel = "z",
+)
 savefig("./equilibrium_test_div_flux.png")

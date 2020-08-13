@@ -539,7 +539,7 @@ function matric_potential(model::BrooksCorey{FT}, S_l::FT) where {FT}
     ψb = model.ψb
     m = model.m
 
-    ψ_m = -ψb * S_l^(-FT(1) / m)
+    ψ_m = ψb * S_l^(-FT(1) / m)
     return ψ_m
 end
 
