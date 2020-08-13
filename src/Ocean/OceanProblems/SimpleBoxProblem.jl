@@ -7,6 +7,7 @@ using CLIMAParameters.Planet: grav
 
 using ...Problems
 
+using ..Ocean
 using ..HydrostaticBoussinesq
 using ..ShallowWater
 
@@ -80,7 +81,7 @@ struct SimpleBox{T, BC} <: AbstractSimpleBoxProblem
     Lˣ::T
     Lʸ::T
     H::T
-    boundary_condition::BC
+    boundary_conditions::BC
     function SimpleBox{FT}(
         Lˣ, # m
         Lʸ, # m
@@ -164,7 +165,7 @@ struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
     Lʸ::T
     H::T
     τₒ::T
-    boundary_condition::BC
+    boundary_conditions::BC
     function HomogeneousBox{FT}(
         Lˣ,             # m
         Lʸ,             # m
@@ -253,7 +254,7 @@ struct OceanGyre{T, BC} <: AbstractSimpleBoxProblem
     τₒ::T
     λʳ::T
     θᴱ::T
-    boundary_condition::BC
+    boundary_conditions::BC
     function OceanGyre{FT}(
         Lˣ,                  # m
         Lʸ,                  # m
