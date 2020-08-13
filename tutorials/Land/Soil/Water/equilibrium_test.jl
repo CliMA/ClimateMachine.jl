@@ -62,7 +62,7 @@ soil_param_functions = SoilParamFunctions{FT}(
 # Define the boundary conditions. The user can specify two conditions,
 # either at the top or at the bottom, and they can either be Dirichlet
 # (on `ϑ_l`) or Neumann (on `-K∇h`). Note that fluxes are supplied as
-# scalars, inside the code they are multiplied by ẑ. The two conditions
+# scalars, inside the code they are multiplied by ẑ. The two conditions
 # not supplied must be set to `nothing`.
 
 surface_flux = (aux, t) -> eltype(aux)(0.0)

@@ -40,13 +40,13 @@ using ClimateMachine.BalanceLaws:
         SoilParamFunctions{FT}(porosity = 0.75, Ksat = 1e-7, S_s = 1e-3)
     bottom_flux_amplitude = FT(-3.0)
     f = FT(pi * 2.0 / 300.0)
+    # nota bene: the flux is -K∇h
     bottom_flux =
         (aux, t) -> bottom_flux_amplitude * sin(f * t) * aux.soil.water.K
     surface_flux = nothing
-    state_value = FT(0.2)
-    surface_state = (aux, t) -> state_value
+    surface_state = (aux, t) -> eltype(aux)(0.2)
     bottom_state = nothing
-    ϑ_l0 = (aux) -> state_value
+    ϑ_l0 = (aux) -> eltype(aux)(0.2)
     soil_water_model = SoilWaterModel(
         FT;
         initialϑ_l = ϑ_l0,
@@ -144,7 +144,8 @@ using ClimateMachine.BalanceLaws:
 
 
     t = [all_data[k]["t"][1] for k in 1:n_outputs]
-    prescribed_bottom_∇h = t -> FT(-3.0 * sin(pi * 2.0 * t / 300.0))
+    # we need a -1 out in front here because the flux BC is on -K∇h
+    prescribed_bottom_∇h = t -> FT(-1) * FT(-3.0 * sin(pi * 2.0 * t / 300.0))
 
     MSE = mean((prescribed_bottom_∇h.(t) .- computed_bottom_∇h) .^ 2.0)
     @test MSE < 1e-7
