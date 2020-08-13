@@ -28,7 +28,16 @@ if generate_tutorials
                 "Atmos/agnesi_nh_lin.jl",
         ],
         "Ocean" => [],
-        "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
+        "Land" => [
+            "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
+            "Soil" => [
+                "Hydraulic Functions" =>
+                    "Land/Soil/Water/hydraulic_functions.jl",
+                "Soil Heat Equation" => "Land/Soil/Heat/bonan_heat_tutorial.jl",
+                "Coupled Water and Heat" =>
+                    "Land/Soil/Coupled/equilibrium_test.jl",
+            ],
+        ],
         "Numerics" => [
             "System Solvers" => [
                 "Conjugate Gradient" => "Numerics/SystemSolvers/cg.jl",

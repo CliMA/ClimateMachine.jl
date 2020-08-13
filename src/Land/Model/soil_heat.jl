@@ -18,9 +18,7 @@ end
     PrescribedTemperatureModel(
         T::Function = (aux,t) -> eltype(aux)(0.0)
     )
-
 Outer constructor for the PrescribedTemperatureModel defining default values.
-
 The functions supplied by the user are point-wise evaluated and are
 evaluated in the Balance Law functions compute_gradient_argument,
  nodal_update, etc. whenever the prescribed temperature content variables are
@@ -32,9 +30,7 @@ end
 
 """
     SoilHeatModel{FT, FiT, BCD, BCN} <: AbstractHeatModel
-
 The necessary components for the Heat Equation in a soil water matrix.
-
 # Fields
 $(DocStringExtensions.FIELDS)
 """
@@ -51,8 +47,8 @@ end
     SoilHeatModel(
         ::Type{FT};
         initialT::FT = FT(NaN),
-        dirichlet_bc::AbstractBoundaryFunctions = nothing,
-        neumann_bc::AbstractBoundaryFunctions = nothing
+        dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
+        neumann_bc::AbstractBoundaryFunctions = Neumann(),
     ) where {FT}
 
 Constructor for the SoilHeatModel.
@@ -60,8 +56,8 @@ Constructor for the SoilHeatModel.
 function SoilHeatModel(
     ::Type{FT};
     initialT = (aux) -> FT(NaN),
-    dirichlet_bc::AbstractBoundaryFunctions = nothing,
-    neumann_bc::AbstractBoundaryFunctions = nothing,
+    dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
+    neumann_bc::AbstractBoundaryFunctions = Neumann(),
 ) where {FT}
     args = (initialT, dirichlet_bc, neumann_bc)
     return SoilHeatModel{FT, typeof.(args)...}(args...)
@@ -126,6 +122,7 @@ function get_initial_temperature(
     return m.T(aux, t)
 end
 
+
 vars_state(heat::SoilHeatModel, st::Prognostic, FT) = @vars(ρe_int::FT)
 vars_state(heat::SoilHeatModel, st::Auxiliary, FT) = @vars(T::FT)
 vars_state(heat::SoilHeatModel, st::Gradient, FT) = @vars(T::FT)
@@ -154,11 +151,11 @@ function land_nodal_update_auxiliary_state!(
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
     ρc_ds = soil.param_functions.ρc_ds
-    ρcs = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
     aux.soil.heat.T = temperature_from_ρe_int(
         state.soil.heat.ρe_int,
         θ_i,
-        ρcs,
+        ρc_s,
         land.param_set,
     )
 end
@@ -176,11 +173,11 @@ function compute_gradient_argument!(
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
     ρc_ds = soil.param_functions.ρc_ds
-    ρcs = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
     transform.soil.heat.T = temperature_from_ρe_int(
         state.soil.heat.ρe_int,
         θ_i,
-        ρcs,
+        ρc_s,
         land.param_set,
     )
 end
@@ -195,10 +192,9 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
-    κ_dry = soil.param_functions.κ_dry
+    κ_dry = k_dry(land.param_set, soil.param_functions)
     S_r = relative_saturation(θ_l, θ_i, soil.param_functions.porosity)
     kersten = kersten_number(θ_i, S_r, soil.param_functions)
     κ_sat = saturated_thermal_conductivity(
@@ -224,7 +220,8 @@ function flux_second_order!(
 )
     ρe_int_l = volumetric_internal_energy_liq(aux.soil.heat.T, land.param_set)
     diffusive_water_flux =
-        -ρe_int_l .* get_diffusive_water_flux(soil.water, diffusive)
+        -ρe_int_l .* get_diffusive_water_term(soil.water, diffusive)
     diffusive_heat_flux = -diffusive.soil.heat.κ∇T
     flux.soil.heat.ρe_int += diffusive_heat_flux + diffusive_water_flux
+
 end
