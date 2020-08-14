@@ -43,10 +43,11 @@ haverkamp_dataset = ArtifactWrapper(
 )
 haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
 
-
+# calculate_dt is only run once, at the beginning. 
 function calculate_dt(dg, model::LandModel, Q, Courant_number, t, direction)
     Δt = one(eltype(Q))
     CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
+    println("CFL", CFL)
     return Courant_number / CFL
 end
 
@@ -60,43 +61,43 @@ function diffusive_courant(
     t,
     direction,
 )
-    K∇h = norm(diffusive.soil.water.K∇h)
-#    if isnan(K∇h)
-#        myf = eltype(state)
-#        soil = land.soil
-#        water = land.soil.water
-#        ϑ_l = state.soil.water.ϑ_l
-#        T = get_temperature(land.soil.heat)
-#        S_l = effective_saturation(
-#            soil.param_functions.porosity,
-#            ϑ_l,
-#        )
-#        
-#        hydraulic_k = soil.param_functions.Ksat * hydraulic_conductivity(
-#                water.impedance_factor,
-#                water.viscosity_factor,
-#                water.moisture_factor,
-#                water.hydraulics,
-#                state.soil.water.θ_ice,
-#                soil.param_functions.porosity,
-#                T,
-#                S_l,
-#        )
-#        ψ = pressure_head(
-#            water.hydraulics,
-#            soil.param_functions.porosity,
-#            soil.param_functions.S_s,
-#            ϑ_l,
-#        )
-#        K∇h = hydraulic_k  * ψ / Δx
-#        K∇h = soil.param_functions.Ksat
+    #    K∇h = norm(diffusive.soil.water.K∇h)#this runs into lots of issues, but the below
+    #would run into issues as well if e.g. the state started at dry soil.
+#    if isnan(K∇h) | iszero(K∇h) | isinf(K∇h)
+        myf = eltype(state)
+        soil = land.soil
+        water = land.soil.water
+        ϑ_l = state.soil.water.ϑ_l
+        T = get_temperature(land.soil.heat)
+        S_l = effective_saturation(
+            soil.param_functions.porosity,
+            ϑ_l,
+        )
+        
+        hydraulic_k = soil.param_functions.Ksat * hydraulic_conductivity(
+                water.impedance_factor,
+                water.viscosity_factor,
+                water.moisture_factor,
+                water.hydraulics,
+                state.soil.water.θ_ice,
+                soil.param_functions.porosity,
+                T,
+                S_l,
+        )
+        ψ = pressure_head(
+            water.hydraulics,
+            soil.param_functions.porosity,
+            soil.param_functions.S_s,
+            ϑ_l,
+        )
+        K∇h = hydraulic_k  * abs(ψ) / Δx
 #    end
-    println(K∇h)
+    println("v",K∇h)
     return Δt * K∇h  / Δx
 end
 
 
-#@testset "Richard's equation - Haverkamp test" begin
+@testset "Richard's equation - Haverkamp test" begin
     ClimateMachine.init()
     FT = Float64
 
@@ -166,8 +167,8 @@ end
 
     t0 = FT(0)
     timeend = FT(60 * 60 * 24)
-
-    given_Fourier = FT(0.1)
+    dt = FT(6)
+    given_Fourier = FT(1e-5)
   #  solver_config = ClimateMachine.SolverConfiguration(
   #      t0,
   #      timeend,
@@ -181,7 +182,7 @@ end
         driver_config;
         ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.KenCarp4(
             autodiff = false,
-            linsolve = DefaultLinSolve(),
+            linsolve = LinSolveGMRES(),#DefaultLinSolve(),
         )),
         Courant_number = given_Fourier,
         CFL_direction = VerticalDirection(),
@@ -214,5 +215,5 @@ end
     bonan_moisture_continuous = Spline1D(bonan_z, bonan_moisture)
     bonan_at_clima_z = bonan_moisture_continuous.(z)
     MSE = mean((bonan_at_clima_z .- ϑ_l) .^ 2.0)
-#    @test MSE < 1e-5
-#end
+    @test MSE < 1e-5
+end
