@@ -61,34 +61,38 @@ function diffusive_courant(
     direction,
 )
     K∇h = norm(diffusive.soil.water.K∇h)
-    if isnan(K∇h)
-
-        soil = land.soil
-        water = land.soil.water
-        T = get_temperature(land.soil.heat)
-        S_l = effective_saturation(
-            soil.param_functions.porosity,
-            state.soil.water.ϑ_l,
-        )
-        hydraulic_k = soil.param_functions.Ksat * hydraulic_conductivity(
-                water.impedance_factor,
-                water.viscosity_factor,
-                water.moisture_factor,
-                water.hydraulics,
-                state.soil.water.θ_ice,
-                soil.param_functions.porosity,
-                T,
-                S_l,
-        )
-        ψ = pressure_head(
-            water.hydraulics,
-            soil.param_functions.porosity,
-            soil.param_functions.S_s,
-            state.soil.water.ϑ_l,
-        )
-        K∇h = hydraulic_k * ψ/ Δx
-    end
-    return Δt * K∇h / Δx
+#    if isnan(K∇h)
+#        myf = eltype(state)
+#        soil = land.soil
+#        water = land.soil.water
+#        ϑ_l = state.soil.water.ϑ_l
+#        T = get_temperature(land.soil.heat)
+#        S_l = effective_saturation(
+#            soil.param_functions.porosity,
+#            ϑ_l,
+#        )
+#        
+#        hydraulic_k = soil.param_functions.Ksat * hydraulic_conductivity(
+#                water.impedance_factor,
+#                water.viscosity_factor,
+#                water.moisture_factor,
+#                water.hydraulics,
+#                state.soil.water.θ_ice,
+#                soil.param_functions.porosity,
+#                T,
+#                S_l,
+#        )
+#        ψ = pressure_head(
+#            water.hydraulics,
+#            soil.param_functions.porosity,
+#            soil.param_functions.S_s,
+#            ϑ_l,
+#        )
+#        K∇h = hydraulic_k  * ψ / Δx
+#        K∇h = soil.param_functions.Ksat
+#    end
+    println(K∇h)
+    return Δt * K∇h  / Δx
 end
 
 
@@ -177,7 +181,7 @@ end
         driver_config;
         ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.KenCarp4(
             autodiff = false,
-            linsolve = LinSolveGMRES(),
+            linsolve = DefaultLinSolve(),
         )),
         Courant_number = given_Fourier,
         CFL_direction = VerticalDirection(),
