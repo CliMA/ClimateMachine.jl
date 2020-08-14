@@ -102,7 +102,7 @@ Users may over-ride prescribed default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
+struct AtmosModel{FT, PS, O, RS, T, TC, HD, DD, M, P, R, S, TR, BC, IS, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -116,6 +116,8 @@ struct AtmosModel{FT, PS, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC} <:
     turbconv::TC
     "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
     hyperdiffusion::HD
+    "Divergence Damping equations"
+    divergencedamping::DD
     "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
     "Precipitation Model (Equations for dynamics of precipitating species)"
@@ -148,6 +150,7 @@ function AtmosModel{FT}(
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     turbconv::TC = NoTurbConv(),
     hyperdiffusion::HD = NoHyperDiffusion(),
+    divergencedamping::DD = NoDivergenceDamping(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
@@ -161,7 +164,7 @@ function AtmosModel{FT}(
     boundarycondition::BC = AtmosBC(),
     init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
+) where {FT <: AbstractFloat, O, RS, T, TC, HD, DD, M, P, R, S, TR, BC, IS, DC}
     @assert param_set ≠ nothing
     @assert init_state_prognostic ≠ nothing
 
@@ -172,6 +175,7 @@ function AtmosModel{FT}(
         turbulence,
         turbconv,
         hyperdiffusion,
+        divergencedamping,
         moisture,
         precipitation,
         radiation,
@@ -192,6 +196,7 @@ function AtmosModel{FT}(
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     turbconv::TC = NoTurbConv(),
     hyperdiffusion::HD = NoHyperDiffusion(),
+    divergencedamping::DD = NoDivergenceDamping(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
@@ -200,7 +205,7 @@ function AtmosModel{FT}(
     boundarycondition::BC = AtmosBC(),
     init_state_prognostic::IS = nothing,
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, RS, T, TC, HD, M, P, R, S, TR, BC, IS, DC}
+) where {FT <: AbstractFloat, O, RS, T, TC, HD, DD, M, P, R, S, TR, BC, IS, DC}
     @assert param_set ≠ nothing
     @assert init_state_prognostic ≠ nothing
     atmos = (
@@ -210,6 +215,7 @@ function AtmosModel{FT}(
         turbulence,
         turbconv,
         hyperdiffusion,
+        divergencedamping,
         moisture,
         precipitation,
         radiation,
@@ -523,6 +529,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     )
     flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
+    flux_second_order!(atmos.divergencedamping, atmos, flux, state, diffusive, aux, t)
 end
 
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
@@ -648,6 +655,7 @@ function atmos_nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
+    init_aux_divdamping!(m.divergencedamping, m, aux, geom)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, tmp, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
