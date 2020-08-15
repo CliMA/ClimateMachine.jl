@@ -49,6 +49,14 @@ Initialize the auxiliary state, at ``t = 0``
 function init_state_auxiliary! end
 
 """
+    nodal_init_state_auxiliary!()
+
+Nodal initialization the auxiliary state variables at ``t = 0``
+"""
+function nodal_init_state_auxiliary! end
+
+
+"""
     flux_first_order!(
         ::L,
         flux::Grad,

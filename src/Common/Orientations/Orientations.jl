@@ -30,11 +30,12 @@ using ..BalanceLaws
 using ..MPIStateArrays: MPIStateArray
 import ..BalanceLaws: vars_state
 using ..DGMethods:
-    nodal_init_state_auxiliary!, contiguous_field_gradient!, LocalGeometry
+    init_state_auxiliary!, contiguous_field_gradient!, LocalGeometry
 
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
 export init_aux!,
+    orientation_nodal_init_aux!,
     vertical_unit_vector,
     altitude,
     latitude,
@@ -98,7 +99,7 @@ function projection_tangential(
 end
 
 function init_aux!(m, ::Orientation, state_auxiliary::MPIStateArray, grid)
-    nodal_init_state_auxiliary!(
+    init_state_auxiliary!(
         m,
         (m, aux, tmp, geom) ->
             orientation_nodal_init_aux!(m.orientation, m.param_set, aux, geom),

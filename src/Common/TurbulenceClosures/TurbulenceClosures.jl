@@ -56,7 +56,6 @@ import ClimateMachine.BalanceLaws:
     transform_post_gradient_laplacian!,
     init_state_prognostic!,
     update_auxiliary_state!,
-    nodal_update_auxiliary_state!,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -111,7 +110,7 @@ function init_aux_turbulence!(
 ) end
 
 """
-    nodal_update_auxiliary_state!
+    turbulence_nodal_update_auxiliary_state!
 Update auxiliary variables for turbulence models.
 Overload for specific turbulence closure type.
 """
@@ -157,7 +156,7 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 ) end
-function atmos_nodal_update_auxiliary_state!(
+function hyperdiffusion_nodal_update_auxiliary_state!(
     ::HyperDiffusion,
     ::BalanceLaw,
     state::Vars,

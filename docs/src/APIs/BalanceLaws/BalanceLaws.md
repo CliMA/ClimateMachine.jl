@@ -34,6 +34,7 @@ vars_state
 ```@docs
 init_state_prognostic!
 init_state_auxiliary!
+nodal_init_state_auxiliary!
 ```
 
 ## Source term kernels

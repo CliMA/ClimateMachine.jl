@@ -6,7 +6,6 @@ using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.DGMethods
-using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 using ClimateMachine.DGMethods.NumericalFluxes
 using Printf
 using LinearAlgebra
@@ -23,7 +22,7 @@ import ClimateMachine.BalanceLaws:
     wavespeed,
     update_auxiliary_state!,
     boundary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
@@ -54,7 +53,7 @@ function init_state_prognostic!(
     state.coord = coord
 end
 
-function vars_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::VarsTestModel{dim},
     aux::Vars,
     tmp::Vars,
@@ -62,19 +61,6 @@ function vars_nodal_init_state_auxiliary!(
 ) where {dim}
     x, y, z = aux.coord = g.coord
     aux.polynomial = x * y + x * z + y * z
-end
-
-function init_state_auxiliary!(
-    m::VarsTestModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        vars_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
 end
 
 using Test
