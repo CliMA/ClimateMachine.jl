@@ -11,7 +11,7 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates: flattenednames
-using ClimateMachine.SplitExplicit01
+using ClimateMachine.Ocean.SplitExplicit01
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.VTK
 
@@ -25,7 +25,7 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.SplitExplicit01:
+import ClimateMachine.Ocean.SplitExplicit01:
     ocean_init_aux!,
     ocean_init_state!,
     ocean_boundary_state!,

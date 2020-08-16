@@ -1,4 +1,4 @@
-import ..BalanceLaws:
+import ...BalanceLaws:
     initialize_fast_state!,
     initialize_adjustment!,
     tendency_from_slow_to_fast!,
