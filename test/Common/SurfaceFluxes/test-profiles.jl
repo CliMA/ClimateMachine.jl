@@ -81,6 +81,6 @@ const param_set = EarthParameterSet()
                     a,
                  );
         x_star =result.x_star
-        @test (abs((x_star[1] - u_star[ii])/u_star[ii])) ≈ FT(0.15)
+        @test (abs((x_star[1] - u_star[ii])/u_star[ii])) <= FT(0.15)
     end
 end
