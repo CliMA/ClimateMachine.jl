@@ -10,6 +10,9 @@ using Printf
 
 export @tic, @toc, tictoc
 
+# explicitly enable due to issues with pre-compilation
+const tictoc_enabled = false
+
 # disable to reduce overhead
 const tictoc_track_memory = true
 
@@ -49,6 +52,9 @@ const atexit_function_registered = Ref(false)
 
 # `@tic` helper
 function _tic(nm)
+    @static if !tictoc_enabled
+        return quote end
+    end
     exti = Symbol("tictoc__", nm)
     global timing_info_names
     if exti in timing_info_names
@@ -94,6 +100,9 @@ end
 
 # `@toc` helper
 function _toc(nm)
+    @static if !tictoc_enabled
+        return quote end
+    end
     exti = Symbol("tictoc__", nm)
     @static if tictoc_track_memory
         quote
@@ -172,6 +181,9 @@ Call at program start (only once!) to set up the globals used by the
 macros and to register the at-exit callback.
 """
 function tictoc()
+    @static if !tictoc_enabled
+        return 0
+    end
     global timing_info_names
     for nm in timing_info_names
         exti = Symbol(nm)
