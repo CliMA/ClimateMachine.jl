@@ -8,7 +8,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/advection_diffusion_model_1dimex_bgmres.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -17,7 +17,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -26,7 +26,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -35,7 +35,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion_mrigark_implicit.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -44,7 +44,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_heat_eqn.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -53,7 +53,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/periodic_3D_hyperdiffusion.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -62,7 +62,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/ref_state.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -71,7 +71,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/Mesh/mpi_connect_1d.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 5
 
@@ -80,7 +80,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/Mesh/mpi_connect_sphere.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 5
 
@@ -89,7 +89,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/Mesh/mpi_getpartition.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 5
 
@@ -98,7 +98,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/Mesh/mpi_sortcolumns.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 4
 
@@ -107,7 +107,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/ODESolvers/ode_tests_convergence.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -116,7 +116,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Arrays/varsindex.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -125,7 +125,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Diagnostics/diagnostic_fields_test.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -134,7 +134,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/vars_test.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -143,7 +143,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/remainder_model.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 2
 
@@ -152,7 +152,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -161,7 +161,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_imex.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -170,7 +170,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_multirate.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -179,7 +179,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_mrigark.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -188,7 +188,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_mrigark_implicit.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -197,7 +197,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_1d_imex.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -206,7 +206,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_mrigark.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -215,7 +215,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/mms_bc_atmos.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -224,7 +224,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -233,7 +233,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/density_current_model.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -242,7 +242,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/direction_splitting_advection_diffusion.jl --fix-rng-seed"
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -251,7 +251,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/conservation/sphere.jl --fix-rng-seed"
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -260,7 +260,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/advection_sphere.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 2
 
@@ -269,7 +269,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Driver/gcm_driver_test.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -278,7 +278,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/SystemSolvers/poisson.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 2
 
@@ -287,7 +287,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/SystemSolvers/columnwiselu.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -296,7 +296,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/SystemSolvers/bandedsystem.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -305,7 +305,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/Mesh/interpolation.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -314,7 +314,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/ShallowWater/GyreDriver.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -323,7 +323,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_windstress_short.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -332,7 +332,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_ocean_gyre_short.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -341,7 +341,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/ShallowWater/test_2D_spindown.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -350,7 +350,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_3D_spindown.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -359,7 +359,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_vertical_integral_model.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -368,7 +368,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_spindown_long.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -377,7 +377,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_restart.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -386,7 +386,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_saturation_adjustment.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -395,7 +395,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_warm_rain.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -404,7 +404,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_ice.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -413,7 +413,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -422,7 +422,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -431,7 +431,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Arrays/varsindex.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -441,7 +441,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Diagnostics/diagnostic_fields_test.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -451,7 +451,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/vars_test.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -461,7 +461,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/remainder_model.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 2
       slurm_gres: "gpu:1"
@@ -471,7 +471,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -481,7 +481,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_imex.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -491,7 +491,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_multirate.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -501,7 +501,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_mrigark.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -511,7 +511,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/isentropicvortex_mrigark_implicit.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -521,7 +521,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_1d_imex.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -531,7 +531,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_mrigark.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -541,7 +541,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/mms_bc_atmos.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -551,7 +551,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/mms_bc_dgmodel.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -561,7 +561,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/density_current_model.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -571,7 +571,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/direction_splitting_advection_diffusion.jl --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -581,7 +581,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/conservation/sphere.jl --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -591,7 +591,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/advection_sphere.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 2
       slurm_gres: "gpu:1"
@@ -601,7 +601,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Driver/gcm_driver_test.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -611,7 +611,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/SystemSolvers/poisson.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 2
       slurm_gres: "gpu:1"
@@ -621,7 +621,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/SystemSolvers/columnwiselu.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -631,7 +631,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/SystemSolvers/bandedsystem.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -641,7 +641,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/Mesh/interpolation.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -651,7 +651,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/ShallowWater/GyreDriver.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -661,7 +661,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_windstress_short.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -671,7 +671,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_ocean_gyre_short.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -681,7 +681,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/ShallowWater/test_2D_spindown.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -691,7 +691,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_3D_spindown.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -701,7 +701,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_vertical_integral_model.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -711,7 +711,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_spindown_long.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -721,7 +721,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_restart.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -731,7 +731,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_saturation_adjustment.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -741,7 +741,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_warm_rain.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -751,7 +751,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_ice.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -761,7 +761,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion.jl --integration-testing"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -771,7 +771,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion_1dimex.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -781,7 +781,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_advection_diffusion_mrigark_implicit.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -791,7 +791,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/pseudo1D_heat_eqn.jl --integration-testing"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -801,7 +801,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/periodic_3D_hyperdiffusion.jl --integration-testing"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -811,7 +811,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project tutorials/Atmos/dry_rayleigh_benard.jl --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -821,7 +821,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project tutorials/Atmos/risingbubble.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -831,7 +831,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -841,7 +841,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosGCM/baroclinic-wave.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -851,7 +851,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosGCM/nonhydrostatic-gravity-wave.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -861,7 +861,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosGCM/isothermal-zonal-flow.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -871,7 +871,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -881,7 +881,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -891,7 +891,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex.jl --diagnostics=default --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1  
       slurm_gres: "gpu:1"
@@ -901,7 +901,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex.jl --surface-flux=bulk --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -911,7 +911,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/schar_scalar_advection.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -921,7 +921,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_windstress_long.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -931,7 +931,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/HydrostaticBoussinesq/test_ocean_gyre_long.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -941,7 +941,7 @@ steps:
     command:
      - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -950,7 +950,7 @@ steps:
     command:
      - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
@@ -960,7 +960,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -970,7 +970,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
