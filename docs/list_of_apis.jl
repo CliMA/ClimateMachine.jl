@@ -23,7 +23,10 @@ apis = [
         "Turbulence Closures" => "APIs/Common/TurbulenceClosures.md",
         "Turbulence Convection" => "APIs/Common/TurbulenceConvection.md",
     ],
-    "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
+    "Balance Laws" => [
+        "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
+        "Problems" => "APIs/BalanceLaws/Problems.md",
+    ],
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
         "Diagnostics groups" => "APIs/Diagnostics/Diagnostics.md",

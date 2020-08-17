@@ -44,7 +44,7 @@ const param_set = EarthParameterSet()
 #}
 
 # ## [Initial Conditions]
-function init_schar!(bl, state, aux, (x, y, z), t)
+function init_schar!(problem, bl, state, aux, (x, y, z), t)
     ## Problem float-type
     FT = eltype(state)
 
@@ -178,12 +178,12 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = init_schar!,
+        ref_state = ref_state,
         turbulence = Vreman(_C_smag),
         moisture = DryModel(),
         source = source,
         tracers = NTracers{1, FT}(_δχ),
-        init_state_prognostic = init_schar!,
-        ref_state = ref_state,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

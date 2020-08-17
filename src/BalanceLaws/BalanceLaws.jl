@@ -1,15 +1,6 @@
 module BalanceLaws
 
-using MPI
-using StaticArrays
-using DocStringExtensions
-using KernelAbstractions
-using KernelAbstractions.Extras: @unroll
-using ..MPIStateArrays
-using ..Mesh.Grids
-using ..Mesh.Topologies
 using ..VariableTemplates
-using ..Courant
 
 export BalanceLaw,
     vars_state,

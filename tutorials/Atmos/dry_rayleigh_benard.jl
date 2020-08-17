@@ -62,7 +62,7 @@ struct DryRayleighBenardConvectionDataConfig{FT}
 end
 
 # Define initial condition kernel
-function init_problem!(bl, state, aux, (x, y, z), t)
+function init_problem!(problem, bl, state, aux, (x, y, z), t)
     dc = bl.data_config
     FT = eltype(state)
 
@@ -134,12 +134,8 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         FT(T_bot - T_lapse * zmax),
     )
 
-    ## Set up the model
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        turbulence = Vreman(C_smag),
-        source = (Gravity(),),
+    ## Set up the problem
+    problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(NoSlip()),
@@ -150,8 +146,17 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
                 energy = PrescribedTemperature((state, aux, t) -> T_top),
             ),
         ),
-        tracers = NTracers{ntracers, FT}(δ_χ),
         init_state_prognostic = init_problem!,
+    )
+
+    ## Set up the model
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        param_set;
+        problem = problem,
+        turbulence = Vreman(C_smag),
+        source = (Gravity(),),
+        tracers = NTracers{ntracers, FT}(δ_χ),
         data_config = data_config,
     )
 

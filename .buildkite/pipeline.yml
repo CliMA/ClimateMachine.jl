@@ -899,7 +899,7 @@ steps:
   - label: "gpu_bomex_bulk_sfc_flux" 
     key: "gpu_bomex_bulk_sfc_flux"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_bulk_sfc_flux.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex.jl --surface-flux=bulk --fix-rng-seed"
     agents:
       config: gpu
       queue: central

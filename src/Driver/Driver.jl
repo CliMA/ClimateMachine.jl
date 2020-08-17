@@ -168,7 +168,8 @@ function parse_commandline(
         preformatted_epilog = true,
         version = string(CLIMATEMACHINE_VERSION),
         exc_handler = exc_handler,
-        autofix_names = true,  # switches --flag-name to 'flag_name'
+        autofix_names = true,     # switches --flag-name to 'flag_name'
+        error_on_conflict = true, # don't allow custom_clargs' settings to override these
     )
     add_arg_group!(s, "ClimateMachine")
 

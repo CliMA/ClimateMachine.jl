@@ -66,7 +66,7 @@ year = {2014},
 }
 
 """
-function init_greenvortex!(bl, state, aux, (x, y, z), t)
+function init_greenvortex!(problem, bl, state, aux, (x, y, z), t)
     # Problem float-type
     FT = eltype(state)
 
@@ -128,12 +128,12 @@ function config_greenvortex(
     _C_smag = FT(C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
-        orientation = NoOrientation(),
         param_set;                          # Parameter set corresponding to earth parameters
+        init_state_prognostic = init_greenvortex!,             # Apply the initial condition
+        orientation = NoOrientation(),
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
         source = (),
-        init_state_prognostic = init_greenvortex!,             # Apply the initial condition
     )
 
     # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.

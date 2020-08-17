@@ -53,7 +53,8 @@ export DGModel,
     restart_auxiliary_state,
     basic_grid_info,
     init_state_auxiliary!,
-    contiguous_field_gradient!
+    contiguous_field_gradient!,
+    courant
 
 include("NumericalFluxes.jl")
 include("DGModel.jl")
