@@ -70,6 +70,7 @@ abstract type AbstractOceanProblem end
 function ocean_init_aux! end
 function ocean_init_state! end
 
+include("SplitExplicitLSRK2nMethod.jl")
 include("OceanModel.jl")
 include("Continuity3dModel.jl")
 include("VerticalIntegralModel.jl")
