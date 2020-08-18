@@ -644,14 +644,11 @@ function turbulence_tensors(
 
     normS = strain_rate_magnitude(S)
     Richardson = diffusive.turbulence.N² / (normS^2 + eps(normS))
-    #=
     if aux.coord[3] <= FT(3400)
         f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     else
         f_b² = FT(1)
     end
-    =# 
-    f_b² = FT(1) #sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     β = (α' * α) .* (aux.turbulence.Δ)^2
     Bβ = principal_invariants(β)[2]
 

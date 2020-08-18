@@ -180,6 +180,10 @@ function atmos_source!(
     source.moisture.ρq_tot += aux.gcminfo.tnhusha * aux.gcminfo.ρ
     source.moisture.ρq_tot += aux.gcminfo.tnhusva * aux.gcminfo.ρ
     source.moisture.ρq_tot += ∂qt∂z * ρw_adv
+    
+    source.ρ += aux.gcminfo.tnhusha * aux.gcminfo.ρ
+    source.ρ += aux.gcminfo.tnhusva * aux.gcminfo.ρ
+    source.ρ += ∂qt∂z * ρw_adv
     # GPU-friendly return nothing
     return nothing
 end

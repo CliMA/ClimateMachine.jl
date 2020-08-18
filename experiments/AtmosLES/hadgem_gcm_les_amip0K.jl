@@ -158,6 +158,10 @@ function atmos_source!(
     source.moisture.ρq_tot += aux.gcminfo.tnhusha * aux.gcminfo.ρ
     source.moisture.ρq_tot += aux.gcminfo.tnhusva * aux.gcminfo.ρ
     source.moisture.ρq_tot += ∂qt∂z * ρw_adv
+    
+    source.ρ += aux.gcminfo.tnhusha * aux.gcminfo.ρ
+    source.ρ += aux.gcminfo.tnhusva * aux.gcminfo.ρ
+    source.ρ += ∂qt∂z * ρw_adv
     # GPU-friendly return nothing
     return nothing
 end
@@ -437,6 +441,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
+        hyperdiffusion = EquilMoistBiharmonic{FT}(1800),
         init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2(),
     )
@@ -487,7 +492,7 @@ end
 function main()
     
     # Working precision
-    FT = Float32
+    FT = Float64
     # DG polynomial order
     N = 4
     # Domain resolution and size
@@ -502,7 +507,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(5)
+    CFL = FT(3)
 
     # Execute the get_gcm_info function
     (
@@ -594,7 +599,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter, cbcutoff),
+        user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 
