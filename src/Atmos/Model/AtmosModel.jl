@@ -91,6 +91,7 @@ Users may over-ride prescribed default values for each field.
         ref_state,
         turbulence,
         hyperdiffusion,
+        divergencedamping,
         moisture,
         radiation,
         source,
@@ -259,6 +260,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
@@ -273,6 +275,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
@@ -315,6 +318,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
@@ -436,6 +440,7 @@ function compute_gradient_argument!(
     )
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbconv, atmos, transform, state, aux, t)
+    compute_gradient_argument!(atmos.divergencedamping, atmos, transform, state, aux, t)
 end
 
 function compute_gradient_flux!(
@@ -461,6 +466,7 @@ function compute_gradient_flux!(
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(atmos.divergencedamping, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
         atmos.turbconv,
         atmos,

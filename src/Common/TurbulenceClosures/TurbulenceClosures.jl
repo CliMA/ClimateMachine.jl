@@ -64,7 +64,6 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-
 export TurbulenceClosureModel,
     ConstantViscosityWithDivergence,
     SmagorinskyLilly,
@@ -80,13 +79,14 @@ export TurbulenceClosureModel,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
+    init_aux_divdamping!,
+    compute_gradient_flux!,
     turbulence_nodal_update_auxiliary_state!
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
 # default functions for the generic turbulence closure
 # which will be overloaded with model specific functions.
-
 
 """
     Abstract type with default do-nothing behaviour for
@@ -190,7 +190,7 @@ function transform_post_gradient_laplacian!(
     t::Real,
 ) end
 function flux_second_order!(
-    h::HyperDiffusion,
+    ::HyperDiffusion,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -199,7 +199,7 @@ function flux_second_order!(
     t::Real,
 ) end
 function compute_gradient_flux!(
-    h::HyperDiffusion,
+    ::HyperDiffusion,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -229,17 +229,9 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 ) end
-function flux_second_order!(
-    m::DivergenceDampingModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-) end
 function compute_gradient_flux!(
-    h::DivergenceDampingModel,
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -247,11 +239,11 @@ function compute_gradient_flux!(
     t::Real,
 ) end
 function flux_second_order!(
-    bl::BalanceLaw,
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
-    hyperdiffusive::Vars,
     aux::Vars,
     t::Real
 ) end
@@ -1019,7 +1011,10 @@ end
 
 Default do-nothing methods
 """
-struct NoDivergenceDamping <: DivergenceDampingModel
+struct NoDivergenceDamping <: DivergenceDampingModel end
+vars_state(::NoDivergenceDamping, ::Auxiliary, FT) = @vars()
+vars_state(::NoDivergenceDamping, ::Gradient, FT) = @vars()
+vars_state(::NoDivergenceDamping, ::GradientFlux, FT) = @vars()
 
 """
     HorizontalDivergenceDamping{FT} <: DivergenceDampingModel
@@ -1030,14 +1025,15 @@ Computes fluxes for horizontal divergence damping term,
 $(DocStringExtensions.FIELDS)
 
 """
-struct HorizontalDivergenceDamping <: DivergenceDampingModel
-    "Divergence Damping Timescale [hours]"
-    τ_dd::FT
+struct HorizontalDivergenceDamping{FT} <: DivergenceDampingModel
+    "Horizontal Divergence Damping Coefficient"
+    νd_h::FT
+    "Vertical Divergence Damping Coefficient"
+    νd_v::FT
 end
-vars_state(::HorizontalDivergenceDamping, ::Auxiliary, FT) = @vars(Δ::FT)
-vars_state(::HorizontalDivergenceDamping, ::Gradient, FT) = @vars(ρu::FT)
-vars_state(::HorizontalDivergenceDamping, ::GradientFlux, FT) =
-    @vars(νd∇D::SMatrix{3, 3, FT, 9})
+vars_state(::HorizontalDivergenceDamping, ::Auxiliary, FT) = @vars()
+vars_state(::HorizontalDivergenceDamping, ::Gradient, FT) = @vars(ρu::SVector{3,FT})
+vars_state(::HorizontalDivergenceDamping, ::GradientFlux, FT) = @vars(∇ρu::SMatrix{3,3,FT,9})
 
 function init_aux_divdamping!(
     ::HorizontalDivergenceDamping,
@@ -1045,7 +1041,7 @@ function init_aux_divdamping!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    aux.turbulence.Δ = lengthscale(geom)
+    nothing
 end
 function compute_gradient_argument!(
     m::HorizontalDivergenceDamping,
@@ -1055,20 +1051,7 @@ function compute_gradient_argument!(
     aux::Vars,
     t::Real,
 )
-    k̂ = vertical_unit_vector(bl, aux)
-    # Compute horizontal velocity component
-    transform.turbulence.ρu = state.ρu #- dot(state.ρu, k̂)
-end
-function compute_gradient_flux!(
-    ::HorizontalDivergenceDamping,
-    orientation::Orientation,
-    diffusive::Vars,
-    ∇transform::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-)
-    diffusive.divergencedamping.∇ρu = ∇transform.divergencedamping.ρu
+    transform.divergencedamping.ρu = state.ρu
 end
 
 function compute_gradient_flux!(
@@ -1078,26 +1061,29 @@ function compute_gradient_flux!(
     state::Vars,
     aux::Vars,
     t::Real,
-) where {FT}
-    ∇ρu = ∇transform.ρu_h
-    k̂ = vertical_unit_vector(m.orientation, m.param_set, aux)
-    divergence = tr(∇ρu) - k̂' * ∇ρu * k̂
-    νd = #TODO Write function of τ_dd
-    diffusive.νd∇D =
-        Diagonal(SVector(m.νd, m.νd, FT(0))) *
-        Diagonal(SVector(divergence, divergence, FT(0)))
-end;
+)
+    diffusive.divergencedamping.∇ρu = ∇transform.divergencedamping.ρu
+end
 
 function flux_second_order!(
+    m::HorizontalDivergenceDamping,
     bl::BalanceLaw,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
-    hyperdiffusive::Vars,
     aux::Vars,
     t::Real
-)
-    flux.ρu -= diffusive.νd∇D
+)       
+    FT = eltype(state)
+    k̂ = vertical_unit_vector(bl.orientation, bl.param_set, aux)
+    div = tr(diffusive.divergencedamping.∇ρu)
+    
+    νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * SVector{3,FT}(m.νd_h, m.νd_h, m.νd_h)
+    νdd_v = dot(SVector{3,FT}(m.νd_v, m.νd_v, m.νd_v), k̂)
+    
+    a = SDiagonal(div,div,div)
+    ν_dd = νdd_h .+ νdd_v
+    flux.ρu -= SDiagonal(div,div,div) * SDiagonal(ν_dd)
 end
 
 end #module TurbulenceClosures.jl
