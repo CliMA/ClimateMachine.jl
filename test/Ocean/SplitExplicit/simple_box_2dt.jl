@@ -353,6 +353,20 @@ function make_callbacks(
         statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
         auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
+
+        mycomm=Q.mpicomm
+        ## Generate the pvtu file for these vtk files
+        if MPI.Comm_rank(mpicomm) == 0 && MPI.Comm_size(mpicomm) > 1
+            ## name of the pvtu file
+            pvtuprefix = @sprintf("%s/%s/step%04d", vtkpath, span, step)
+            ## name of each of the ranks vtk files
+            prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+                @sprintf("mpirank%04d_step%04d", i - 1, step)
+            end
+            writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+            @info "Done writing VTK: $pvtuprefix"
+        end
+
     end
 
     do_output("slow", step[1], model_slow, dg_slow, Q_slow)
