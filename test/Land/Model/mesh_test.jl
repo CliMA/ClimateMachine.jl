@@ -145,23 +145,72 @@ end
     )
 
 
-    N_poly = 7
+    N_poly = 5
     nelem_vert = 10
 
-    # Specify the domain boundaries
+# Specify the domain boundaries, etc
+    mpicomm = MPI.COMM_WORLD
+    periodicity = (true, true, false)
+    meshwarp = (x...) -> identity(x)
+    numerical_flux_first_order = CentralNumericalFluxFirstOrder()
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder()
+    numerical_flux_gradient = CentralNumericalFluxGradient()
+    solver_type = ExplicitSolverType()
+    boundary = ((0, 0), (0, 0), (1, 2))
+    array_type = ClimateMachine.array_type()
     zmax = FT(0)
     zmin = FT(-1)
+    stretch = SingleExponentialStretching{FT}(-2.0)
+    xmin, xmax = zero(FT), one(FT)
+    ymin, ymax = zero(FT), one(FT)
+    brickrange = (
+        grid1d(xmin, xmax, nelem = 1),
+        grid1d(ymin, ymax, nelem = 1),
+        grid1d(zmin, zmax, stretch, nelem = nelem_vert),
+    )
 
-    driver_config = ClimateMachine.SingleStackConfiguration(
+   topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+   )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N_poly,
+        meshwarp = meshwarp,
+    )
+
+    driver_config = ClimateMachine.DriverConfiguration(
+        ClimateMachine.SingleStackConfigType(),
         "LandModel",
         N_poly,
-        nelem_vert,
-        zmax,
+        FT,
+        array_type,
+        solver_type,
         param_set,
-        m;
-        zmin = zmin,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        m,
+        mpicomm,
+        grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        ClimateMachine.SingleStackSpecificInfo(),
     )
+
+#    driver_config = ClimateMachine.SingleStackConfiguration(
+#        "LandModel",
+#        N_poly,
+#        nelem_vert,
+#        zmax,
+#        param_set,
+#        m;
+#        zmin = zmin,
+#        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+#    )
 
     ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.KenCarp4(
         autodiff = false,
@@ -232,4 +281,4 @@ end
     z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
     z = Array(aux[:, z_ind, :][:])
 
-    plot!(ϑ_l, z,label = "no filter, npoly = 10, nelem = 10")
+    plot!(ϑ_l, z,label = "with stretch", ylim=[-3,0])
