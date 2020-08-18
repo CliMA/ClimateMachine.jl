@@ -75,7 +75,7 @@ export TurbulenceClosureModel,
     EquilMoistBiharmonic,
     DivergenceDampingModel, 
     NoDivergenceDamping, 
-    HorizontalDivergenceDamping,
+    ConstantCoeffDivergenceDamping,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
@@ -1017,7 +1017,7 @@ vars_state(::NoDivergenceDamping, ::Gradient, FT) = @vars()
 vars_state(::NoDivergenceDamping, ::GradientFlux, FT) = @vars()
 
 """
-    HorizontalDivergenceDamping{FT} <: DivergenceDampingModel
+    ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
 
 Computes fluxes for horizontal divergence damping term, 
 # Fields
@@ -1025,18 +1025,18 @@ Computes fluxes for horizontal divergence damping term,
 $(DocStringExtensions.FIELDS)
 
 """
-struct HorizontalDivergenceDamping{FT} <: DivergenceDampingModel
+struct ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
     "Horizontal Divergence Damping Coefficient"
     νd_h::FT
     "Vertical Divergence Damping Coefficient"
     νd_v::FT
 end
-vars_state(::HorizontalDivergenceDamping, ::Auxiliary, FT) = @vars()
-vars_state(::HorizontalDivergenceDamping, ::Gradient, FT) = @vars(ρu::SVector{3,FT})
-vars_state(::HorizontalDivergenceDamping, ::GradientFlux, FT) = @vars(∇ρu::SMatrix{3,3,FT,9})
+vars_state(::ConstantCoeffDivergenceDamping, ::Auxiliary, FT) = @vars()
+vars_state(::ConstantCoeffDivergenceDamping, ::Gradient, FT) = @vars(ρu::SVector{3,FT})
+vars_state(::ConstantCoeffDivergenceDamping, ::GradientFlux, FT) = @vars(∇ρu::SMatrix{3,3,FT,9})
 
 function init_aux_divdamping!(
-    ::HorizontalDivergenceDamping,
+    ::ConstantCoeffDivergenceDamping,
     ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
@@ -1044,7 +1044,7 @@ function init_aux_divdamping!(
     nothing
 end
 function compute_gradient_argument!(
-    m::HorizontalDivergenceDamping,
+    m::ConstantCoeffDivergenceDamping,
     bl::BalanceLaw,
     transform::Vars,
     state::Vars,
@@ -1055,7 +1055,7 @@ function compute_gradient_argument!(
 end
 
 function compute_gradient_flux!(
-    m::HorizontalDivergenceDamping,
+    m::ConstantCoeffDivergenceDamping,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -1066,7 +1066,7 @@ function compute_gradient_flux!(
 end
 
 function flux_second_order!(
-    m::HorizontalDivergenceDamping,
+    m::ConstantCoeffDivergenceDamping,
     bl::BalanceLaw,
     flux::Grad,
     state::Vars,
