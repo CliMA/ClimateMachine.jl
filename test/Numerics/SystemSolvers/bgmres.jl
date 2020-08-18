@@ -48,7 +48,7 @@ let
         if isa(x, Array)
             kernel! = multiply_A_kernel!(CPU(), cpu_threads)
         else
-            kernel! = multiply_A_kernel!(CUDAevice(), gpu_threads)
+            kernel! = multiply_A_kernel!(CUDADevice(), gpu_threads)
         end
         return kernel!(x, A, y, n1, n2, ndrange = ndrange)
     end
