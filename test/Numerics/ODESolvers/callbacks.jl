@@ -5,7 +5,7 @@ using ClimateMachine.GenericCallbacks
 
 mutable struct PseudoSolver <: AbstractODESolver
     t::Float64
-    step::Int
+    steps::Int
     PseudoSolver() = new(42.0, 0)
 end
 gettime(ps::PseudoSolver) = ps.t

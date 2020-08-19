@@ -93,7 +93,7 @@ import ClimateMachine.BalanceLaws:
     vars_state,
     init_state_prognostic!,
     init_state_auxiliary!,
-    update_auxiliary_state!,
+    nodal_init_state_auxiliary!,
     nodal_update_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
@@ -169,9 +169,10 @@ vars_state(m::KinematicModel, ::Gradient, FT) = @vars()
 
 vars_state(m::KinematicModel, ::GradientFlux, FT) = @vars()
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::KinematicModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     FT = eltype(aux)
@@ -211,24 +212,6 @@ function init_state_prognostic!(
     args...,
 )
     m.init_state_prognostic(m, state, aux, coords, t, args...)
-end
-
-function update_auxiliary_state!(
-    dg::DGModel,
-    m::KinematicModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    nodal_update_auxiliary_state!(
-        kinematic_model_nodal_update_auxiliary_state!,
-        dg,
-        m,
-        Q,
-        t,
-        elems,
-    )
-    return true
 end
 
 function boundary_state!(

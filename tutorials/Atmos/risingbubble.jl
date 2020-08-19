@@ -110,7 +110,7 @@ const param_set = EarthParameterSet();
 ##     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 ##       only; we can interpret these as dye injections for visualization
 ##       purposes)
-function init_risingbubble!(bl, state, aux, (x, y, z), t)
+function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     ## Problem float-type
     FT = eltype(state)
 
@@ -230,12 +230,12 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            # Flow in a box, requires the AtmosLESConfigType
         param_set;                                     # Parameter set corresponding to earth parameters
+        init_state_prognostic = init_risingbubble!,    # Apply the initial condition
+        ref_state = ref_state,                         # Reference state
         turbulence = SmagorinskyLilly(_C_smag),        # Turbulence closure model
         moisture = DryModel(),                         # Exclude moisture variables
         source = (Gravity(),),                         # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         # Tracer model with diffusivity coefficients
-        ref_state = ref_state,                         # Reference state
-        init_state_prognostic = init_risingbubble!,  # Apply the initial condition
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the

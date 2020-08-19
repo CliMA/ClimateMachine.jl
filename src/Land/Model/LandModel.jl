@@ -16,9 +16,8 @@ import ..BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    update_auxiliary_state!,
     nodal_update_auxiliary_state!
 
 using ..DGMethods: LocalGeometry, DGModel
@@ -102,12 +101,15 @@ function vars_state(land::LandModel, st::GradientFlux, FT)
     end
 end
 
-
-function init_state_auxiliary!(land::LandModel, aux::Vars, geom::LocalGeometry)
+function nodal_init_state_auxiliary!(
+    land::LandModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
     aux.z = geom.coord[3]
     land_init_aux!(land, land.soil, aux, geom)
 end
-
 
 function flux_first_order!(
     land::LandModel,
@@ -173,26 +175,7 @@ function flux_second_order!(
 
 end
 
-
-function update_auxiliary_state!(
-    dg::DGModel,
-    land::LandModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    nodal_update_auxiliary_state!(
-        land_nodal_update_auxiliary_state!,
-        dg,
-        land,
-        Q,
-        t,
-        elems,
-    )
-end
-
-
-function land_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     land::LandModel,
     state::Vars,
     aux::Vars,

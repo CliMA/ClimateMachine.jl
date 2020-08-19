@@ -22,7 +22,7 @@ function vars_state(m::VerticalIntegralModel, ::Auxiliary, T)
     end
 end
 
-init_state_auxiliary!(tm::VerticalIntegralModel, A::Vars, geom::LocalGeometry) =
+init_state_auxiliary!(tm::VerticalIntegralModel, A::MPIStateArray, grid) =
     nothing
 
 function vars_state(m::VerticalIntegralModel, ::UpwardIntegrals, T)
@@ -68,7 +68,7 @@ function update_auxiliary_state!(
 
         return nothing
     end
-    nodal_update_auxiliary_state!(f!, dg, tm, x, t)
+    update_auxiliary_state!(f!, dg, tm, x, t)
 
     # compute integral for Gᵁ
     indefinite_stack_integral!(dg, tm, x, A, t) # bottom -> top

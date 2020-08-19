@@ -78,6 +78,7 @@ solversetup(
 ))
 
 include("ExplicitSolverType.jl")
+include("ImplicitSolverType.jl")
 include("IMEXSolverType.jl")
 include("MultirateSolverType.jl")
 include("MISSolverType.jl")

@@ -13,6 +13,7 @@ using ...Mesh.Filters: apply!
 using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
 using ...DGMethods
+using ...DGMethods: init_state_auxiliary!
 using ...DGMethods.NumericalFluxes
 using ...DGMethods.NumericalFluxes: RusanovNumericalFlux
 using ...BalanceLaws
@@ -171,14 +172,21 @@ function vars_state(m::HBModel, ::Auxiliary, T)
     end
 end
 
+function ocean_init_aux! end
+
 """
     init_state_auxiliary!(::HBModel)
 
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function init_state_auxiliary!(m::HBModel, A::Vars, geom::LocalGeometry)
-    return ocean_init_aux!(m, m.problem, A, geom)
+function init_state_auxiliary!(m::HBModel, state_auxiliary::MPIStateArray, grid)
+    init_state_auxiliary!(
+        m,
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        state_auxiliary,
+        grid,
+    )
 end
 
 """
@@ -634,6 +642,15 @@ end
 
 @inline compute_flow_deviation!(dg, ::HBModel, ::Uncoupled, _...) = nothing
 
+# store ∇ʰu as integrand for w
+function nodal_update_auxiliary_state!(m::HBModel, Q, A, D, t)
+    @inbounds begin
+        # load -∇ʰu as ∂ᶻw
+        A.w = -D.∇ʰu
+    end
+    return nothing
+end
+
 """
     update_auxiliary_state_gradient!(::HBModel)
 
@@ -654,16 +671,8 @@ function update_auxiliary_state_gradient!(
     FT = eltype(Q)
     A = dg.state_auxiliary
 
-    # store ∇ʰu as integrand for w
-    function f!(m::HBModel, Q, A, D, t)
-        @inbounds begin
-            # load -∇ʰu as ∂ᶻw
-            A.w = -D.∇ʰu
-        end
-
-        return nothing
-    end
-    nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
+    f! = nodal_update_auxiliary_state!
+    update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top

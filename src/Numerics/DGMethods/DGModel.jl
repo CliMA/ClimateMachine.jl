@@ -690,9 +690,66 @@ function restart_auxiliary_state(ArrayType, bl, grid, aux_data)
     return state_auxiliary
 end
 
-# fallback
-function update_auxiliary_state!(dg, balance_law, state_prognostic, t, elems)
-    return false
+@deprecate nodal_init_state_auxiliary! init_state_auxiliary!
+
+# By default, we call init_state_auxiliary!, given
+# nodal_init_state_auxiliary!, defined for the
+# particular balance_law:
+function init_state_auxiliary!(balance_law::BalanceLaw, state_auxiliary, grid)
+    init_state_auxiliary!(
+        balance_law,
+        nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
+end
+
+# Should we provide a fallback implementation here?
+# Maybe better to throw a method error?
+function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom) end
+
+function init_state_auxiliary!(
+    balance_law,
+    init_f!,
+    state_auxiliary,
+    grid;
+    state_temporary = nothing,
+)
+    topology = grid.topology
+    dim = dimensionality(grid)
+    Np = dofs_per_element(grid)
+    polyorder = polynomialorder(grid)
+    vgeo = grid.vgeo
+    device = array_device(state_auxiliary)
+    nrealelem = length(topology.realelems)
+
+    event = Event(device)
+    event = kernel_nodal_init_state_auxiliary!(
+        device,
+        min(Np, 1024),
+        Np * nrealelem,
+    )(
+        balance_law,
+        Val(dim),
+        Val(polyorder),
+        init_f!,
+        data(state_auxiliary),
+        isnothing(state_temporary) ? nothing : data(state_temporary),
+        Val(isnothing(state_temporary) ? @vars() : vars(state_temporary)),
+        vgeo,
+        topology.realelems,
+        dependencies = (event,),
+    )
+
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    wait(device, event)
 end
 
 function update_auxiliary_state_gradient!(
@@ -789,7 +846,33 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
-function nodal_update_auxiliary_state!(
+# By default, we call update_auxiliary_state!, given
+# nodal_update_auxiliary_state!, defined for the
+# particular balance_law:
+function update_auxiliary_state!(
+    dg::DGModel,
+    balance_law::BalanceLaw,
+    state_prognostic,
+    t,
+    elems,
+    diffusive = false,
+)
+    update_auxiliary_state!(
+        nodal_update_auxiliary_state!,
+        dg,
+        balance_law,
+        state_prognostic,
+        t,
+        elems;
+        diffusive = diffusive,
+    )
+end
+
+# Should we provide a fallback implementation here?
+# Maybe better to throw a method error?
+function nodal_update_auxiliary_state!(balance_law, state, aux, t) end
+
+function update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
@@ -810,12 +893,12 @@ function nodal_update_auxiliary_state!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_auxiliary_state! =
+    knl_nodal_update_auxiliary_state! =
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -830,7 +913,7 @@ function nodal_update_auxiliary_state!(
             dependencies = (event,),
         )
     else
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -929,4 +1012,70 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     state_prognostic = create_state(MPIStateArray, balance_law, grid, Prognostic())
 
     return state_prognostic
+end
+
+"""
+    contiguous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
+                               vars_out, state::MPIStateArray, vars_in, grid;
+                               direction = EveryDirection())
+
+Take the gradient of the variables `vars_in` located in the array `state`
+and stores it in the variables `vars_out` of `∇state`. This function computes
+element wise gradient without accounting for numerical fluxes and hence
+its primary purpose is to take the gradient of contiguous reference fields.
+
+## Examples
+```julia
+FT = eltype(state_auxiliary)
+grad_Φ = similar(state_auxiliary, vars=@vars(∇Φ::SVector{3, FT}))
+contiguous_field_gradient!(
+    model,
+    grad_Φ,
+    ("∇Φ",),
+    state_auxiliary,
+    ("orientation.Φ",),
+    grid,
+)
+```
+"""
+function contiguous_field_gradient!(
+    m::BalanceLaw,
+    ∇state::MPIStateArray,
+    vars_out,
+    state::MPIStateArray,
+    vars_in,
+    grid;
+    direction = EveryDirection(),
+)
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    device = array_device(state)
+
+    I = varsindices(vars(state), vars_in)
+    O = varsindices(vars(∇state), vars_out)
+
+    event = Event(device)
+
+    event = kernel_contiguous_field_gradient!(device, (Nq, Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        direction,
+        ∇state.data,
+        state.data,
+        grid.vgeo,
+        grid.D,
+        grid.ω,
+        Val(I),
+        Val(O),
+        ndrange = (nrealelem * Nq, Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end

@@ -129,13 +129,13 @@ function run(
     fullmodel = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
-        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_prognostic = setup,
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     dg = DGModel(
         fullmodel,
@@ -307,7 +307,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 

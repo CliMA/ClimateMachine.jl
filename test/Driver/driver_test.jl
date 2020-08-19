@@ -13,7 +13,7 @@ using CLIMAParameters.Planet: grav, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_test!(bl, state, aux, (x, y, z), t)
+function init_test!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)
@@ -128,7 +128,7 @@ function main()
     ca_h = ugeo_abs * (Δt / Δh) + vgeo_abs * (Δt / Δh)
     # vertical velocity is 0
     caᵥ = FT(0.0)
-    @test isapprox(CFL_adv_v, caᵥ)
+    @test isapprox(CFL_adv_v, caᵥ, atol = 10 * eps(FT))
     @test isapprox(CFL_adv_h, ca_h, atol = 0.0005)
     @test isapprox(CFL_adv, ca_h, atol = 0.0005)
 
@@ -158,6 +158,25 @@ function main()
         solver_config,
     )
     @test CFL_nondiff ≈ CFL
+
+    # Test that if dt is not adjusted based on final time the CFL is correct
+    for fixed_number_of_steps in (-1, 0, 10)
+        solver_config = ClimateMachine.SolverConfiguration(
+            t0,
+            timeend,
+            driver_config,
+            Courant_number = CFL,
+            fixed_number_of_steps = fixed_number_of_steps,
+        )
+
+        if fixed_number_of_steps < 0
+            @test solver_config.timeend == timeend
+        else
+            @test solver_config.timeend ==
+                  solver_config.dt * fixed_number_of_steps
+            @test solver_config.numberofsteps == fixed_number_of_steps
+        end
+    end
 end
 
 main()

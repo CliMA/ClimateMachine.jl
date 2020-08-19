@@ -138,7 +138,7 @@ vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
 vars_state(::EquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::GradientFlux, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state(::EquilMoist, ::Auxiliary, FT) =
-    @vars(temperature::FT, θ_v::FT, q_liq::FT)
+    @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
@@ -160,6 +160,7 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
+    aux.moisture.q_ice = PhasePartition(ts).ice
     nothing
 end
 

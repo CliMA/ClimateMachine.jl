@@ -5,6 +5,8 @@ export SimpleBox, HomogeneousBox, OceanGyre
 using StaticArrays
 using CLIMAParameters.Planet: grav
 
+using ...Problems
+
 using ..HydrostaticBoussinesq
 using ..ShallowWater
 
@@ -18,7 +20,7 @@ import ..Ocean:
 HBModel = HydrostaticBoussinesqModel
 SWModel = ShallowWaterModel
 
-abstract type AbstractOceanProblem end
+abstract type AbstractOceanProblem <: AbstractProblem end
 
 ############################
 # Basic box problem        #

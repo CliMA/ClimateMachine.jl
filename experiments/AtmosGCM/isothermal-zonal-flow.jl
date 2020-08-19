@@ -32,7 +32,7 @@ CLIMAParameters.Planet.Omega(::EarthParameterSet) = 0.0
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
 CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
-function init_isothermal_zonal_flow!(bl, state, aux, coords, t)
+function init_isothermal_zonal_flow!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
     φ = latitude(bl.orientation, aux)
@@ -90,11 +90,11 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = init_isothermal_zonal_flow!,
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
-        init_state_prognostic = init_isothermal_zonal_flow!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

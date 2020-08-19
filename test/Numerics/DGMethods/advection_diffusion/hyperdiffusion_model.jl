@@ -15,7 +15,7 @@ import ClimateMachine.BalanceLaws:
     source!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
     boundary_state!,
     wavespeed,
@@ -115,19 +115,6 @@ end
 There is no source in the hyperdiffusion model
 """
 source!(m::HyperDiffusion, _...) = nothing
-
-"""
-    init_state_auxiliary!(m::HyperDiffusion, aux::Vars, geom::LocalGeometry)
-
-initialize the auxiliary state
-"""
-function init_state_auxiliary!(
-    m::HyperDiffusion,
-    aux::Vars,
-    geom::LocalGeometry,
-)
-    init_hyperdiffusion_tensor!(m.problem, aux, geom)
-end
 
 function init_state_prognostic!(
     m::HyperDiffusion,

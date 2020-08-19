@@ -249,10 +249,11 @@ end
 
 # FIXME: should general cases be handled?
 function Base.similar(
-    Q::MPIStateArray{OLDFT, V},
+    Q::MPIStateArray,
     ::Type{A},
-    ::Type{FT},
-) where {A <: AbstractArray, FT <: Number, OLDFT, V}
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+) where {A <: AbstractArray, FT <: Number, V}
     MPIStateArray{FT, V}(
         Q.mpicomm,
         A,
@@ -269,15 +270,23 @@ function Base.similar(
 end
 function Base.similar(
     Q::MPIStateArray{FT},
-    ::Type{A},
-) where {A <: AbstractArray, FT <: Number}
-    similar(Q, A, FT)
+    ::Type{A};
+    vars::Type{V} = vars(Q),
+) where {A <: AbstractArray, FT <: Number, V}
+    similar(Q, A, FT; vars = V)
 end
-function Base.similar(Q::MPIStateArray, ::Type{FT}) where {FT <: Number}
-    similar(Q, typeof(Q.data), FT)
+function Base.similar(
+    Q::MPIStateArray,
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+) where {FT <: Number, V}
+    similar(Q, typeof(Q.data), FT; vars = V)
 end
-function Base.similar(Q::MPIStateArray{FT}) where {FT}
-    similar(Q, FT)
+function Base.similar(
+    Q::MPIStateArray{FT};
+    vars::Type{V} = vars(Q),
+) where {FT, V}
+    similar(Q, FT; vars = V)
 end
 
 Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
@@ -773,6 +782,8 @@ array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDADevice()
 array_device(s::SubArray) = array_device(parent(s))
 array_device(Q::MPIStateArray) = array_device(Q.data)
+array_device(ra::Base.ReshapedArray{T, N, A}) where {T, N, A <: MPIStateArray} =
+    array_device(parent(ra))
 
 realview(Q::Union{Array, SArray, MArray}) = Q
 realview(Q::MPIStateArray) = Q.realdata

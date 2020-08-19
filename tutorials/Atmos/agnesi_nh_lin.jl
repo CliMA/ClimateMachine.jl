@@ -111,7 +111,7 @@ const param_set = EarthParameterSet()
 #md #     - `state.ρu`= 3-component vector for initial momentum profile
 #md #     - `state.ρe`= Scalar quantity for initial total-energy profile
 #md #       humidity
-function init_agnesi_hs_lin!(bl, state, aux, (x, y, z), t)
+function init_agnesi_hs_lin!(problem, bl, state, aux, (x, y, z), t)
     ## Problem float-type
     FT = eltype(state)
 
@@ -232,12 +232,12 @@ function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = init_agnesi_hs_lin!,
+        ref_state = ref_state,
         turbulence = Vreman(_C_smag),
         moisture = DryModel(),
         source = source,
         tracers = NoTracers(),
-        init_state_prognostic = init_agnesi_hs_lin!,
-        ref_state = ref_state,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

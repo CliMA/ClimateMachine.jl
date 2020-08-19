@@ -112,7 +112,7 @@ end;
 # state of our model run. In our case, we use the reference state of the
 # simulation (defined below) and add a little bit of noise. Note that the
 # initial states includes a zero initial velocity field.
-function init_heldsuarez!(balance_law, state, aux, coordinates, time)
+function init_heldsuarez!(problem, balance_law, state, aux, coordinates, time)
     FT = eltype(state)
 
     ## Set initial state to reference state with random perturbation
@@ -181,12 +181,12 @@ hyperdiffusion_model = DryBiharmonic(FT(4 * 3600));
 model = AtmosModel{FT}(
     AtmosGCMConfigType,
     param_set;
+    init_state_prognostic = init_heldsuarez!,
     ref_state = ref_state,
     turbulence = turbulence_model,
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
     source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
-    init_state_prognostic = init_heldsuarez!,
 );
 
 # This concludes the setup of the physical model!

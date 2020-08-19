@@ -33,7 +33,7 @@ CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
 CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 
-function init_nonhydrostatic_gravity_wave!(bl, state, aux, coords, t)
+function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
     # grid
@@ -121,11 +121,11 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = init_nonhydrostatic_gravity_wave!,
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
-        init_state_prognostic = init_nonhydrostatic_gravity_wave!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

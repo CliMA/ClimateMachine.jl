@@ -152,8 +152,7 @@ function boundary_state!(
 )
     nothing
 end
-init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) =
-    nothing
+init_state_auxiliary!(lm::AtmosLinearModel, aux::MPIStateArray, grid) = nothing
 init_state_prognostic!(
     lm::AtmosLinearModel,
     state::Vars,
