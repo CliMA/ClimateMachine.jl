@@ -1,4 +1,3 @@
-using Printf
 
 export BatchedGeneralizedMinimalResidual
 
@@ -42,23 +41,20 @@ reshaping the work arrays. It would also potentially
 save us some memory.
 """
 mutable struct BatchedGeneralizedMinimalResidual{
-    MP1,
-    Nbatch,
     I,
     T,
     AT,
-    FRS,
-    FPR,
-    BRS,
-    BPR,
     BKT,
     OmT,
     HT,
     gT,
-    yT,
     sT,
     resT,
     res0T,
+    FRS,
+    FPR,
+    BRS,
+    BPR,
 } <: AbstractIterativeSystemSolver
 
     "global Krylov basis at present step"
@@ -73,11 +69,11 @@ mutable struct BatchedGeneralizedMinimalResidual{
     H::HT
     "rhs of the least squares problem in each column"
     g0::gT
-    "solution of the least squares problem in each column"
-    y::yT
     "The GMRES iterate in each batched column"
     sol::sT
+    "Relative tolerance"
     rtol::T
+    "Absolute tolerance"
     atol::T
     "Maximum number of GMRES iterations (global across all columns)"
     max_iter::I
@@ -102,12 +98,6 @@ mutable struct BatchedGeneralizedMinimalResidual{
         forward_reshape = size(Q),
         forward_permute = Tuple(1:length(size(Q))),
     ) where {AT}
-        # Since the application of linearoperator! is not currently batch-able,
-        # we need two temporary work vectors to hold the current and previous Krylov
-        # basis vector
-        krylov_basis = similar(Q)
-        krylov_basis_prev = similar(Q)
-
         # Get ArrayType information
         if isa(array_device(Q), CPU)
             ArrayType = Array
@@ -117,6 +107,11 @@ mutable struct BatchedGeneralizedMinimalResidual{
             ArrayType = CuArray
         end
 
+        # FIXME: If we can batch the application of linearoperator!, then we dont
+        # need these two temporary work vectors (unpermuted/reshaped)
+        krylov_basis = similar(Q)
+        krylov_basis_prev = similar(Q)
+
         # Create storage for holding the batched Krylov basis
         batched_krylov_basis =
             ArrayType(zeros(eltype(AT), M + 1, dofperbatch, Nbatch))
@@ -125,8 +120,9 @@ mutable struct BatchedGeneralizedMinimalResidual{
         Ω = ArrayType(zeros(eltype(AT), Nbatch, 2 * M))
         H = ArrayType(zeros(eltype(AT), Nbatch, M + 1, M))
         g0 = ArrayType(zeros(eltype(AT), Nbatch, M + 1))
-        y = ArrayType(zeros(eltype(AT), Nbatch, M + 1))
 
+        # Create storage for constructing the global gmres iterate
+        # and recording column-norms
         sol = ArrayType(zeros(eltype(AT), dofperbatch, Nbatch))
         resnorms = ArrayType(zeros(eltype(AT), Nbatch))
         resnorms0 = ArrayType(zeros(eltype(AT), Nbatch))
@@ -139,37 +135,34 @@ mutable struct BatchedGeneralizedMinimalResidual{
         permute!(tmp_reshape_tuple_b, [forward_permute...])
         backward_reshape = Tuple(tmp_reshape_tuple_b)
 
-        FRS = typeof(forward_reshape)
-        FPR = typeof(forward_permute)
-        BRS = typeof(backward_reshape)
-        BPR = typeof(backward_permute)
+        # FIXME: Is there a better way of doing this?
         BKT = typeof(batched_krylov_basis)
         OmT = typeof(Ω)
         HT = typeof(H)
         gT = typeof(g0)
-        yT = typeof(y)
         sT = typeof(sol)
         resT = typeof(resnorms)
         res0T = typeof(resnorms0)
+        FRS = typeof(forward_reshape)
+        FPR = typeof(forward_permute)
+        BRS = typeof(backward_reshape)
+        BPR = typeof(backward_permute)
 
         return new{
-            M + 1,
-            Nbatch,
             typeof(Nbatch),
             eltype(Q),
             AT,
-            FRS,
-            FPR,
-            BRS,
-            BPR,
             BKT,
             OmT,
             HT,
             gT,
-            yT,
             sT,
             resT,
             res0T,
+            FRS,
+            FPR,
+            BRS,
+            BPR,
         }(
             krylov_basis,
             krylov_basis_prev,
@@ -177,7 +170,6 @@ mutable struct BatchedGeneralizedMinimalResidual{
             Ω,
             H,
             g0,
-            y,
             sol,
             rtol,
             atol,
@@ -214,15 +206,20 @@ and permutations.
 # Keyword Arguments
 - `atol`: (float) absolute tolerance. `DEFAULT = sqrt(eps(eltype(Q)))`
 - `rtol`: (float) relative tolerance. `DEFAULT = sqrt(eps(eltype(Q)))`
-- `max_iteration` : (Int).    Maximal dimension of each (batched)
-                              Krylov subspace. DEFAULT = nothing
+- `max_subspace_size` : (Int).    Maximal dimension of each (batched)
+                                  Krylov subspace. DEFAULT = nothing
+- `independent_states`: (boolean) An optional flag indicating whether
+                                  or not degrees of freedom are coupled
+                                  internally (within a column).
+                                  `DEFAULT = false`
 """
 function BatchedGeneralizedMinimalResidual(
     dg::DGModel,
     Q::MPIStateArray;
     atol = sqrt(eps(eltype(Q))),
     rtol = sqrt(eps(eltype(Q))),
-    max_iteration = nothing,
+    max_subspace_size = nothing,
+    independent_states = false,
 )
     grid = dg.grid
     topology = grid.topology
@@ -236,7 +233,7 @@ function BatchedGeneralizedMinimalResidual(
 
     # Number of states and elements (in vertical and horizontal directions)
     num_states = size(Q)[2]
-    nelem = length(topology.elems)
+    nelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nelem, nvertelem)
 
@@ -267,11 +264,16 @@ function BatchedGeneralizedMinimalResidual(
     # Q = reshape(Q, reshaping_tup), leads to the column-wise fashion Q
     reshaping_tup = (Np..., num_states, nvertelem, nhorzelem)
 
-    m = Nq * nvertelem * num_states
-    n = (Nq^(dim - 1)) * nhorzelem
+    if independent_states
+        m = Nq * nvertelem
+        n = (Nq^(dim - 1)) * nhorzelem * num_states
+    else
+        m = Nq * nvertelem * num_states
+        n = (Nq^(dim - 1)) * nhorzelem
+    end
 
-    if max_iteration === nothing
-        max_iteration = m
+    if max_subspace_size === nothing
+        max_subspace_size = m
     end
 
     # permute [ni, nj, nk, num_states, nvertelem, nhorzelem] 
@@ -283,7 +285,7 @@ function BatchedGeneralizedMinimalResidual(
         Q,
         m,
         n;
-        M = max_iteration,
+        M = max_subspace_size,
         atol = atol,
         rtol = rtol,
         forward_reshape = reshaping_tup,
@@ -323,6 +325,7 @@ function initialize!(
     krylov_basis .= Qrhs .- krylov_basis
 
     # Convert into a batched Krylov basis vector
+    # REMARK: Ugly hack on the GPU. Can we fix this?
     tmp_array = similar(batched_krylov_basis[1, :, :])
     convert_structure!(
         tmp_array,
@@ -361,6 +364,7 @@ function doiteration!(
     Q,
     Qrhs,
     solver::BatchedGeneralizedMinimalResidual,
+    threshold,
     args...,
 )
     FT = eltype(Q)
@@ -368,7 +372,6 @@ function doiteration!(
     krylov_basis_prev = solver.krylov_basis_prev
     Hs = solver.H
     g0s = solver.g0
-    ys = solver.y
     Ωs = solver.Ω
     sols = solver.sol
     batched_krylov_basis = solver.batched_krylov_basis
@@ -427,7 +430,6 @@ function doiteration!(
         )
         wait(device, event)
 
-
         # Current stopping criteria is based on the maximal column norm
         # TODO: Once we are able to batch the operator application, we
         # should revisit the termination criteria.
@@ -448,7 +450,6 @@ function doiteration!(
         batched_krylov_basis,
         Hs,
         g0s,
-        ys,
         sols,
         j;
         ndrange = solver.batch_size,
@@ -468,24 +469,29 @@ function doiteration!(
 end
 
 @kernel function batched_initialize!(resnorms, g0, batched_krylov_basis)
+    @uniform begin
+        Ndof = size(batched_krylov_basis, 2)
+        Mp1 = size(g0, 2)
+        FT = eltype(batched_krylov_basis)
+    end
     cidx = @index(Global)
-    FT = eltype(batched_krylov_basis)
 
-    # Initialize rhs
-    @inbounds for j in 1:size(g0, 2)
+    # Initialize entire RHS storage
+    @inbounds for j in 1:Mp1
         g0[cidx, j] = FT(0.0)
     end
 
-    # Compute the column norm of the initial residual ∥r0∥_2
-    # and set g0 = βe1, where β = ∥r0∥_2
-    local_res_norm = FT(0.0)
-    @inbounds for j in 1:size(batched_krylov_basis, 2)
-        local_res_norm += batched_krylov_basis[1, j, cidx] * batched_krylov_basis[1, j, cidx]
+    # Now we compute the first element of g0[cidx, :],
+    # which is determined by the column norm of the initial residual ∥r0∥_2:
+    # g0 = ∥r0∥_2 e1
+    @inbounds for j in 1:Ndof
+        g0[cidx, 1] +=
+            batched_krylov_basis[1, j, cidx] * batched_krylov_basis[1, j, cidx]
     end
-    g0[cidx, 1] = sqrt(local_res_norm)
+    g0[cidx, 1] = sqrt(g0[cidx, 1])
 
     # Normalize the batched_krylov_basis by the (local) residual norm
-    @inbounds for j in 1:size(batched_krylov_basis, 2)
+    @inbounds for j in 1:Ndof
         batched_krylov_basis[1, j, cidx] /= g0[cidx, 1]
     end
 
@@ -495,7 +501,6 @@ end
     nothing
 end
 
-
 @kernel function batched_arnoldi_process!(
     resnorms,
     g0,
@@ -504,62 +509,74 @@ end
     batched_krylov_basis,
     j,
 )
+    @uniform begin
+        Ndof = size(batched_krylov_basis, 2)
+        FT = eltype(batched_krylov_basis)
+    end
+
     cidx = @index(Global)
-    FT = eltype(batched_krylov_basis)
 
     #  Arnoldi process in the local column `cidx`
     @inbounds for i in 1:j
         H[cidx, i, j] = FT(0.0)
-        @inbounds for k in 1:size(batched_krylov_basis, 2)
-            H[cidx, i, j] += batched_krylov_basis[j + 1, k, cidx] * batched_krylov_basis[i, k, cidx]
+        # Modified Gram-Schmidt procedure to generate the Hessenberg matrix
+        @inbounds for k in 1:Ndof
+            H[cidx, i, j] +=
+                batched_krylov_basis[j + 1, k, cidx] *
+                batched_krylov_basis[i, k, cidx]
         end
-
         # Orthogonalize new Krylov vector against previous one
-        @inbounds for k in 1:size(batched_krylov_basis, 2)
-            batched_krylov_basis[j + 1, k, cidx] -= H[cidx, i, j] * batched_krylov_basis[i, k, cidx]
+        @inbounds for k in 1:Ndof
+            batched_krylov_basis[j + 1, k, cidx] -=
+                H[cidx, i, j] * batched_krylov_basis[i, k, cidx]
         end
     end
 
+    # And finally, normalize latest Krylov basis vector
     local_norm = FT(0.0)
-    @inbounds for i in 1:size(batched_krylov_basis, 2)
-        local_norm += batched_krylov_basis[j + 1, i, cidx] * batched_krylov_basis[j + 1, i, cidx]
+    @inbounds for i in 1:Ndof
+        local_norm +=
+            batched_krylov_basis[j + 1, i, cidx] *
+            batched_krylov_basis[j + 1, i, cidx]
     end
     H[cidx, j + 1, j] = sqrt(local_norm)
-
-    @inbounds for i in 1:size(batched_krylov_basis, 2)
+    @inbounds for i in 1:Ndof
         batched_krylov_basis[j + 1, i, cidx] /= H[cidx, j + 1, j]
     end
 
-    # loop over previously computed Krylov basis vectors
-    # and apply the givens rotations
-    @inbounds for i in 1:(j - 1)  
-        cos_tmp = Ω[cidx, 2*i - 1]
-        sin_tmp = Ω[cidx, 2*i]
+    # Loop over previously computed Krylov basis vectors
+    # and apply the Givens rotations
+    @inbounds for i in 1:(j - 1)
+        cos_tmp = Ω[cidx, 2 * i - 1]
+        sin_tmp = Ω[cidx, 2 * i]
 
-        #  cos sin   hi
-        # -sin cos   hi+1
-        tmp1              =   cos_tmp * H[cidx, i, j] +  sin_tmp * H[cidx, i + 1, j]
-        H[cidx, i + 1, j] =  -sin_tmp * H[cidx, i, j] +  cos_tmp * H[cidx, i + 1, j]
-        H[cidx, i, j]     = tmp1
+        # Apply the Givens rotations
+        # | cos -sin | | hi   |
+        # | sin  cos | | hi+1 |
+        tmp1 = cos_tmp * H[cidx, i, j] + sin_tmp * H[cidx, i + 1, j]
+        H[cidx, i + 1, j] =
+            -sin_tmp * H[cidx, i, j] + cos_tmp * H[cidx, i + 1, j]
+        H[cidx, i, j] = tmp1
     end
-    
-    #  cos sin   hj        = hj'   
-    # -sin cos   hj+1      = 0
-    # cos, sin = hj+1/sqrt(hj^2 + hj+1^2), hj/sqrt(hj^2 + hj+1^2)
-    Ω[cidx, 2*j - 1] = H[cidx, j, j]
-    Ω[cidx, 2*j]     = H[cidx, j + 1, j]
 
-    # apply the new rotation to H and the rhs
-    H[cidx, j, j] = sqrt(Ω[cidx, 2*j - 1]^2 + Ω[cidx, 2*j]^2)
-    H[cidx, j+1, j] = FT(0.0)
-    Ω[cidx, 2*j - 1] /=  H[cidx, j, j]
-    Ω[cidx, 2*j] /=  H[cidx, j, j]
+    # Eliminate the last element hj+1 and update the rotation matrix
+    # | cos -sin | | hj   |  = | hj'|   
+    # | sin  cos | | hj+1 |  = | 0  |
+    # where cos, sin = hj+1/sqrt(hj^2 + hj+1^2), hj/sqrt(hj^2 + hj+1^2),
+    # and update for next iteration
+    Ω[cidx, 2 * j - 1] = H[cidx, j, j]
+    Ω[cidx, 2 * j] = H[cidx, j + 1, j]
+    H[cidx, j, j] = sqrt(Ω[cidx, 2 * j - 1]^2 + Ω[cidx, 2 * j]^2)
+    H[cidx, j + 1, j] = FT(0.0)
+    Ω[cidx, 2 * j - 1] /= H[cidx, j, j]
+    Ω[cidx, 2 * j] /= H[cidx, j, j]
 
-    cos_tmp = Ω[cidx, 2*j - 1]
-    sin_tmp = Ω[cidx, 2*j]
-    tmp1   =   cos_tmp * g0[cidx, j] +  sin_tmp * g0[cidx, j + 1]
-    g0[cidx, j+1] =  -sin_tmp * g0[cidx, j] +  cos_tmp * g0[cidx, j + 1]
-    g0[cidx, j]   = tmp1
+    # And now to the rhs g0
+    cos_tmp = Ω[cidx, 2 * j - 1]
+    sin_tmp = Ω[cidx, 2 * j]
+    tmp1 = cos_tmp * g0[cidx, j] + sin_tmp * g0[cidx, j + 1]
+    g0[cidx, j + 1] = -sin_tmp * g0[cidx, j] + cos_tmp * g0[cidx, j + 1]
+    g0[cidx, j] = tmp1
 
     # Record estimate for the gmres residual
     resnorms[cidx] = abs(g0[cidx, j + 1])
@@ -571,10 +588,13 @@ end
     batched_krylov_basis,
     Hs,
     g0s,
-    ys,
     sols,
     j,
 )
+    @uniform begin
+        Ndof = size(sols, 1)
+    end
+
     # Solve for the GMRES coefficients (yⱼ) at the `j`-th
     # iteration that minimizes ∥ b - A xⱼ ∥_2, where
     # xⱼ = ∑ᵢ yᵢ Ψᵢ, with Ψᵢ denoting the Krylov basis vectors
@@ -591,7 +611,7 @@ end
     # Having determined yᵢ, we now construct the GMRES solution
     # in each column: xⱼ = ∑ᵢ yᵢ Ψᵢ
     @inbounds for i in 1:j
-        @inbounds for k in 1:size(sols, 1)
+        @inbounds for k in 1:Ndof
             sols[k, cidx] += g0s[cidx, i] * batched_krylov_basis[i, k, cidx]
         end
     end

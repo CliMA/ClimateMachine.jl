@@ -45,7 +45,7 @@ function initialize!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args..
 end
 
 # iteration function (2)
-function doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args...)
+function doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, threshold, args...)
     # body of iteration
     return Bool, Int, Float
 end
@@ -140,7 +140,7 @@ has converged as well as how many times the linear operator was applied.
 The iteration function needs the following signature
 
 ```julia
-function doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, args...)
+function doiteration!(linearoperator!, Q, Qrhs, solver::MyIterativeMethod, threshold, args...)
     # body of iteration
     return Bool, Int, Float
 end
