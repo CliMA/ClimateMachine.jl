@@ -441,7 +441,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
-        hyperdiffusion = EquilMoistBiharmonic{FT}(1800),
+        hyperdiffusion = EquilMoistBiharmonic{FT}(14400),
         init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2(),
     )
@@ -507,7 +507,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(3)
+    CFL = FT(10)
 
     # Execute the get_gcm_info function
     (
