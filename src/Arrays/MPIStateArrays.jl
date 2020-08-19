@@ -154,7 +154,10 @@ mutable struct MPIStateArray{
     end
 end
 
-Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
+function Base.fill!(Q::MPIStateArray, x)
+    fill!(Q.data, x)
+    return Q
+end
 
 vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
 function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
