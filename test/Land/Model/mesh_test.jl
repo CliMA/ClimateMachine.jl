@@ -110,14 +110,14 @@ end
     soil_heat_model = PrescribedTemperatureModel{FT}()
 
     soil_param_functions = SoilParamFunctions{FT}(
-        porosity = 0.495,
-        Ksat = 0.0443 / (3600 * 100),
+        porosity = 0.287,
+        Ksat = 34 / (3600 * 100),
         S_s = 1e-3,
     )
     # Mimics initial rainfall on drier soil.
-    surface_value = FT(0.494)
+    surface_value = FT(0.267)
     bottom_flux_multiplier = FT(1.0)
-    initial_moisture = FT(0.24)
+    initial_moisture = FT(0.1)
 
     surface_state = (aux, t) -> surface_value
     bottom_flux = (aux, t) -> aux.soil.water.K * bottom_flux_multiplier
@@ -126,7 +126,7 @@ end
     soil_water_model = SoilWaterModel(
         FT;
         moisture_factor = MoistureDependent{FT}(),
-        hydraulics = vanGenuchten{FT}(n = 2.0),
+        hydraulics = vanGenuchten{FT}(n = 3.96, α = 2.7, m = 1.0),
         initialϑ_l = ϑ_l0,
         dirichlet_bc = Dirichlet(
             surface_state = surface_state,
@@ -145,7 +145,7 @@ end
     )
 
 
-    N_poly = 5
+    N_poly = 3
     nelem_vert = 10
 
 # Specify the domain boundaries, etc
@@ -160,7 +160,7 @@ end
     array_type = ClimateMachine.array_type()
     zmax = FT(0)
     zmin = FT(-1)
-    stretch = SingleExponentialStretching{FT}(-2.0)
+    stretch = SingleExponentialStretching{FT}(-1.0)
     xmin, xmax = zero(FT), one(FT)
     ymin, ymax = zero(FT), one(FT)
     brickrange = (
@@ -224,7 +224,7 @@ end
                                               
 
     t0 = FT(0)
-    timeend = FT(60 * 60 * 2)
+    timeend = FT(60*60*10)#*5.76)#60 * 60 * 2)
 
     use_implicit_solver = false
     if use_implicit_solver
@@ -239,7 +239,7 @@ end
             CFL_direction = VerticalDirection(),
         )
     else
-        given_Fourier = FT(1e-5)#this being so small - implies our courant calculation is wrong? 
+        given_Fourier = FT(2.7e-3)#this being so small - implies our courant calculation is wrong? 
 
         solver_config = ClimateMachine.SolverConfiguration(
             t0,
@@ -275,10 +275,10 @@ end
         nothing
     end
 
-    ClimateMachine.invoke!(solver_config)#,user_callbacks = (cbfilter,),)
+    @time ClimateMachine.invoke!(solver_config)#,user_callbacks = (cbfilter,),)
     ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
     ϑ_l = Array(Q[:, ϑ_l_ind, :][:])
     z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
     z = Array(aux[:, z_ind, :][:])
 
-    plot!(ϑ_l, z,label = "with stretch", ylim=[-3,0])
+    plot(ϑ_l, z)

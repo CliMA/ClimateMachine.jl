@@ -84,8 +84,8 @@ struct vanGenuchten{FT} <: AbstractHydraulicsModel{FT}
     α::FT
     "Exponent parameter - determined by n, used in hydraulic conductivity"
     m::FT
-    function vanGenuchten{FT}(; n::FT = FT(1.43), α::FT = FT(2.6)) where {FT}
-        new(n, α, FT(1) - FT(1) / FT(n))
+    function vanGenuchten{FT}(; n::FT = FT(1.43), α::FT = FT(2.6),m::FT = FT(1.0)) where {FT}
+        new(n, α, m)#FT(1) - FT(1) / FT(n))
     end
 end
 
