@@ -4,7 +4,7 @@ using StaticArrays
 using Test
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(disable_gpu=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -41,9 +41,7 @@ import ClimateMachine.VariableTemplates.varsindex
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-function init_risingbubble!(problem, bl, state, aux, localgeo, t)
-    (x, y, z) = localgeo.coord
-
+function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -69,7 +67,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     q_tot = FT(0)
-    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
+    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
     q_pt = PhasePartition(ts)
 
     ρu = SVector(FT(0), FT(0), FT(0))
@@ -201,7 +199,7 @@ function run_brick_diagostics_fields_test()
             -sin.(pi * x ./ xmax) .* cos.(pi * y ./ ymax) .*
             sin.(pi * z ./ zmax) .* pi ./ zmax # ∂/∂z
 
-        Q.data[:, _ρ, 1:Nel] .= 1.0 .+ fcn0(x1, x2, x3, xmax, ymax, zmax) * 5.0
+        Q.data[:, _ρ, 1:Nel] .= 1.0
         Q.data[:, _ρu, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         Q.data[:, _ρv, 1:Nel] .=
@@ -209,10 +207,20 @@ function run_brick_diagostics_fields_test()
         Q.data[:, _ρw, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         #-----------------------------------------------------------------------
-        vgrad = Diagnostics.VectorGradients(dg, Q)
-        println(typeof(vgrad))
+        ind = [
+            varsindex(vars_state(model, Prognostic(), FT), :ρ)
+            varsindex(vars_state(model, Prognostic(), FT), :ρu)
+        ]
+        _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
+        Nq = N + 1
+        nrealelem = length(dg.grid.topology.realelems)
+
+        d1 = Diagnostics.VectorGradient(dg.grid, Q, _ρu)
+        d2 = Diagnostics.VectorGradient(dg.grid, Q, _ρv)
+        d3 = Diagnostics.VectorGradient(dg.grid, Q, _ρw)
+        vgrad = Diagnostics.VectorGradients(d1, d2, d3)
         vort = Diagnostics.Vorticity(dg, vgrad)
-        #----------------------------------------------------------------------------
+        #-----------------------------------------------------------------------
         Ω₁_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -
             fcnz(x1, x2, x3, xmax, ymax, zmax)

@@ -18,6 +18,7 @@ struct HorizontalDirection <: Direction end
 struct VerticalDirection <: Direction end
 Base.in(::T, ::S) where {T <: Direction, S <: Direction} = T == S
 
+# TODO: allow for different polynomial orders in different directions (lower in vertical, for example)
 abstract type AbstractGrid{
     FloatType,
     dim,
