@@ -97,8 +97,8 @@ end
 # Create the SoilWaterModel. The defaults are a temperature independent
 # viscosity, and no impedance factor due to ice. We choose to make the
 # hydraulic conductivity a function of the moisture content `ϑ_l`,
-# and employ the vanGenuchten hydraulic model with `n` = 2.0. The van
-# Genuchten parameter `m` is calculated from `n`, and we use the default
+# and employ the vanGenuchten hydraulic model with `n = 1.89` and `α = 7.5`. The van
+# Genuchten parameter `m` is calculated from `n`.
 # value for `α`.
 soil_water_model = SoilWaterModel(
     FT;
