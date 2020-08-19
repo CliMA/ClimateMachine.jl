@@ -647,7 +647,8 @@ function turbulence_tensors(
     if aux.coord[3] <= FT(3400)
         f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
     else
-        f_b² = FT(1)
+        f_b² = sqrt(clamp(FT(1) - Richardson * _inv_Pr_turb, FT(0), FT(1)))
+        #f_b² = FT(1)
     end
     β = (α' * α) .* (aux.turbulence.Δ)^2
     Bβ = principal_invariants(β)[2]

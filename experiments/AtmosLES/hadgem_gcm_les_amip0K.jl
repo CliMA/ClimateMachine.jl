@@ -441,7 +441,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
-        hyperdiffusion = EquilMoistBiharmonic{FT}(14400),
+        hyperdiffusion = DryBiharmonic{FT}(12*3600),
         init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2(),
     )
