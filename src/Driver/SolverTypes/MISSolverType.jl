@@ -146,17 +146,17 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    remainder_kwargs = (
-        numerical_flux_first_order = (
-            ode_solver.discrete_splitting ?
-                    (
-                dg.numerical_flux_first_order,
-                (dg.numerical_flux_first_order,),
-            ) :
-                    dg.numerical_flux_first_order
-        ),
+    if ode_solver.discrete_splitting
+        numerical_flux_first_order =
+            (dg.numerical_flux_first_order, (dg.numerical_flux_first_order,))
+    else
+        numerical_flux_first_order = dg.numerical_flux_first_order
+    end
+    slow_dg = remainder_DGModel(
+        dg,
+        (fast_dg,);
+        numerical_flux_first_order = numerical_flux_first_order,
     )
-    slow_dg = remainder_DGModel(dg, (fast_dg,); remainder_kwargs...)
 
     solver = ode_solver.mis_method(
         slow_dg,
