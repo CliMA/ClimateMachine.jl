@@ -432,8 +432,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
     elseif surface_flux == "bulk"
         energy = BulkFormulaEnergy(
             (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> T_sfc,
-            (state, aux, t) -> q_sfc,
+            (state, aux, t) -> (T_sfc, q_sfc),
         )
         moisture = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
