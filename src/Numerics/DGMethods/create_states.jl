@@ -1,7 +1,7 @@
 #### Create states
 
 function create_state(
-    ArrayType::Type{Union{MPIStateArray,Array}},
+    ArrayType::Union{Type{MPIStateArray}, Type{Array}},
     balance_law,
     grid,
     st::AbstractStateType;
@@ -21,7 +21,7 @@ function create_state(
     ns = number_states(balance_law, st)
     st isa GradientLaplacian && (ns = 3ns)
     V = vars_state(balance_law, st, FT)
-    if ArrayType isa MPIStateArray
+    if ArrayType <: MPIStateArray
         state = MPIStateArray{FT, V}(
             topology.mpicomm,
             DA,
@@ -42,7 +42,7 @@ function create_state(
             undef,
             (
                 Np,
-                number_state(balance_law, st),
+                number_states(balance_law, st),
                 length(topology.elems),
             ),
         )
