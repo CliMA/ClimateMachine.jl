@@ -95,7 +95,7 @@ let
                     x_ref[:, i] = A[:, :, i] \ b[:, i]
                 end
 
-                @test norm(x - x_ref) <  1000ϵ
+                @test norm(x - x_ref) < 1000ϵ
             end
 
             ###
@@ -149,7 +149,8 @@ let
                         nothing
                     end
                 end
-                linear_operator! = closure_linear_operator_mpi!(mpi_A, size(mpi_A)...)
+                linear_operator! =
+                    closure_linear_operator_mpi!(mpi_A, size(mpi_A)...)
 
                 # Now solve
                 linearsolve!(
@@ -163,8 +164,10 @@ let
                 # check all solutions
                 norms = -zeros(n3)
                 for cidx in 1:n3
-                    sol = mpi_A[:, :, cidx] \ mpi_b.data[:, :, cidx][:]
-                    norms[cidx] = norm(sol - mpi_x.data[:, :, cidx][:])
+                    sol =
+                        Array(mpi_A[:, :, cidx]) \
+                        Array(mpi_b.data[:, :, cidx])[:]
+                    norms[cidx] = norm(sol - Array(mpi_x.data[:, :, cidx])[:])
                 end
                 @test maximum(norms) < 3000ϵ
             end
@@ -197,18 +200,25 @@ let
                 tup = (3, 4, 7, 6, 5, 2)
                 B = [
                     randn(tup[3] * tup[5], tup[3] * tup[5])
-                    for i1 in 1:tup[1], i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
+                    for
+                    i1 in 1:tup[1],
+                    i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
                 ]
                 columnwise_A = [
                     B[i1, i2, i4, i6] + 10I
-                    for i1 in 1:tup[1], i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
+                    for
+                    i1 in 1:tup[1],
+                    i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
                 ]
                 # taking the inverse of A isn't great, but it is convenient
                 columnwise_inv_A = [
                     inv(columnwise_A[i1, i2, i4, i6])
-                    for i1 in 1:tup[1], i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
+                    for
+                    i1 in 1:tup[1],
+                    i2 in 1:tup[2], i4 in 1:tup[4], i6 in 1:tup[6]
                 ]
-                columnwise_linear_operator! = closure_linear_operator_columwise!(columnwise_A, tup)
+                columnwise_linear_operator! =
+                    closure_linear_operator_columwise!(columnwise_A, tup)
                 columnwise_inverse_linear_operator! =
                     closure_linear_operator_columwise!(columnwise_inv_A, tup)
 
@@ -216,7 +226,9 @@ let
                 b = randn(mpi_tup)
                 x = copy(b)
                 columnwise_inverse_linear_operator!(x, b)
-                x += randn((tup[1] * tup[2] * tup[3], tup[4], tup[5] * tup[6])) * 0.1
+                x +=
+                    randn((tup[1] * tup[2] * tup[3], tup[4], tup[5] * tup[6])) *
+                    0.1
 
                 reshape_tuple_f = tup
                 permute_tuple = (5, 3, 1, 4, 2, 6)
@@ -228,8 +240,8 @@ let
                     M = tup[3] * tup[5],
                     forward_reshape = tup,
                     forward_permute = permute_tuple,
-                    atol = ϵ,
-                    rtol = ϵ,
+                    atol = 10ϵ,
+                    rtol = 10ϵ,
                 )
 
                 x_exact = copy(x)
