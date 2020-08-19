@@ -70,9 +70,13 @@ import ..DGMethods.NumericalFluxes:
     NumericalFluxGradient,
     NumericalFluxSecondOrder,
     CentralNumericalFluxHigherOrder,
-    CentralNumericalFluxDivergence
+    CentralNumericalFluxDivergence,
+    CentralNumericalFluxFirstOrder,
+    numerical_flux_first_order!
+using ..DGMethods.NumericalFluxes: RoeNumericalFlux
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
+
 
 """
     AtmosModel <: BalanceLaw
@@ -752,4 +756,131 @@ function init_state_prognostic!(
     )
 end
 
+roe_average(ρ⁻, ρ⁺, var⁻, var⁺) =
+    (sqrt(ρ⁻) * var⁻ + sqrt(ρ⁺) * var⁺) / (sqrt(ρ⁻) + sqrt(ρ⁺))
+
+function numerical_flux_first_order!(
+    numerical_flux::RoeNumericalFlux,
+    balance_law::AtmosModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    @assert balance_law.moisture isa DryModel
+
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+    FT = eltype(fluxᵀn)
+    param_set = balance_law.param_set
+    _cv_d::FT = cv_d(param_set)
+    _T_0::FT = T_0(param_set)
+
+    Φ = gravitational_potential(balance_law, state_auxiliary⁻)
+
+    ρ⁻ = state_conservative⁻.ρ
+    ρu⁻ = state_conservative⁻.ρu
+    ρe⁻ = state_conservative⁻.ρe
+    ts⁻ = thermo_state(
+        balance_law,
+        balance_law.moisture,
+        state_conservative⁻,
+        state_auxiliary⁻,
+    )
+
+    u⁻ = ρu⁻ / ρ⁻
+    uᵀn⁻ = u⁻' * normal_vector
+    e⁻ = ρe⁻ / ρ⁻
+    h⁻ = total_specific_enthalpy(ts⁻, e⁻)
+    p⁻ = pressure(
+        balance_law,
+        balance_law.moisture,
+        state_conservative⁻,
+        state_auxiliary⁻,
+    )
+    c⁻ = soundspeed_air(ts⁻)
+
+    ρ⁺ = state_conservative⁺.ρ
+    ρu⁺ = state_conservative⁺.ρu
+    ρe⁺ = state_conservative⁺.ρe
+    ts⁺ = thermo_state(
+        balance_law,
+        balance_law.moisture,
+        state_conservative⁺,
+        state_auxiliary⁺,
+    )
+
+    u⁺ = ρu⁺ / ρ⁺
+    uᵀn⁺ = u⁺' * normal_vector
+    e⁺ = ρe⁺ / ρ⁺
+    h⁺ = total_specific_enthalpy(ts⁺, e⁺)
+    p⁺ = pressure(
+        balance_law,
+        balance_law.moisture,
+        state_conservative⁺,
+        state_auxiliary⁺,
+    )
+    c⁺ = soundspeed_air(ts⁺)
+
+    ρ̃ = sqrt(ρ⁻ * ρ⁺)
+    ũ = roe_average(ρ⁻, ρ⁺, u⁻, u⁺)
+    h̃ = roe_average(ρ⁻, ρ⁺, h⁻, h⁺)
+    c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
+
+    ũᵀn = ũ' * normal_vector
+    ũc̃⁻ = ũ - c̃ * normal_vector
+    ũc̃⁺ = ũ + c̃ * normal_vector
+
+    Δρ = ρ⁺ - ρ⁻
+    Δp = p⁺ - p⁻
+    Δu = u⁺ - u⁻
+    Δuᵀn = Δu' * normal_vector
+
+    w1 = abs(ũᵀn - c̃) * (Δp - ρ̃ * c̃ * Δuᵀn) / (2 * c̃^2)
+    w2 = abs(ũᵀn + c̃) * (Δp + ρ̃ * c̃ * Δuᵀn) / (2 * c̃^2)
+    w3 = abs(ũᵀn) * (Δρ - Δp / c̃^2)
+    w4 = abs(ũᵀn) * ρ̃
+
+    fluxᵀn.ρ -= (w1 + w2 + w3) / 2
+    fluxᵀn.ρu -=
+        (w1 * ũc̃⁻ + w2 * ũc̃⁺ + w3 * ũ + w4 * (Δu - Δuᵀn * normal_vector)) /
+        2
+    fluxᵀn.ρe -=
+        (
+            w1 * (h̃ - c̃ * ũᵀn) +
+            w2 * (h̃ + c̃ * ũᵀn) +
+            w3 * (ũ' * ũ / 2 + Φ - _T_0 * _cv_d) +
+            w4 * (ũ' * Δu - ũᵀn * Δuᵀn)
+        ) / 2
+
+    if !(balance_law.tracers isa NoTracers)
+        ρχ⁻ = state_conservative⁻.tracers.ρχ
+        χ⁻ = ρχ⁻ / ρ⁻
+
+        ρχ⁺ = state_conservative⁺.tracers.ρχ
+        χ⁺ = ρχ⁺ / ρ⁺
+
+        χ̃ = roe_average(ρ⁻, ρ⁺, χ⁻, χ⁺)
+        Δρχ = ρχ⁺ - ρχ⁻
+
+        wt = abs(ũᵀn) * (Δρχ - χ̃ * Δp / c̃^2)
+
+        fluxᵀn.tracers.ρχ -= ((w1 + w2) * χ̃ + wt) / 2
+    end
+end
 end # module

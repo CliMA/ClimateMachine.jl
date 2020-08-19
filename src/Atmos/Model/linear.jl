@@ -246,3 +246,79 @@ function source!(
     end
     nothing
 end
+
+function numerical_flux_first_order!(
+    numerical_flux::RoeNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    @assert balance_law.atmos.moisture isa DryModel
+
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+    atmos = balance_law.atmos
+    param_set = atmos.param_set
+
+    ρu⁻ = state_conservative⁻.ρu
+
+    ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
+    ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
+    ref_T⁻ = state_auxiliary⁻.ref_state.T
+    ref_p⁻ = state_auxiliary⁻.ref_state.p
+    ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
+    ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
+
+    pL⁻ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_conservative⁻,
+        state_auxiliary⁻,
+    )
+
+    ρu⁺ = state_conservative⁺.ρu
+
+    ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
+    ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
+    ref_T⁺ = state_auxiliary⁺.ref_state.T
+    ref_p⁺ = state_auxiliary⁺.ref_state.p
+    ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
+    ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
+
+    pL⁺ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_conservative⁺,
+        state_auxiliary⁺,
+    )
+
+    # not sure if arithmetic averages are a good idea here
+    h̃ = (ref_h⁻ + ref_h⁺) / 2
+    c̃ = (ref_c⁻ + ref_c⁺) / 2
+
+    ΔpL = pL⁺ - pL⁻
+    Δρuᵀn = (ρu⁺ - ρu⁻)' * normal_vector
+
+    fluxᵀn.ρ -= ΔpL / 2c̃
+    fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
+    fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
+end
