@@ -1,0 +1,1230 @@
++ module purge
+++ /software/Modules/bin/modulecmd bash purge
++ eval MANPATH=/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man ';export' 'MANPATH;PATH=/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;unset' 'CC;unset' 'CLASSPATH;unset' 'CMAKE_HOME;unset' 'CMAKE_VERSION;unset' 'CPATH;unset' 'CUDA_HOME;unset' 'CUDA_VERSION;unset' 'CXX;unset' 'DAALROOT;unset' 'F77;unset' 'F90;unset' 'GDBSERVER_MIC;unset' 'GDB_CROSS;unset' 'INFOPATH;unset' 'INTEL_HOME;unset' 'INTEL_LICENSE_FILE;unset' 'INTEL_PYTHONHOME;unset' 'INTEL_VERSION;unset' 'IPPROOT;unset' 'I_MPI_CC;unset' 'I_MPI_CXX;unset' 'I_MPI_F77;unset' 'I_MPI_F90;unset' 'I_MPI_ROOT;unset' 'LD_LIBRARY_PATH;unset' 'LD_RUN_PATH;unset' 'LIBRARY_PATH;unset' 'LOADEDMODULES;unset' 'MKLROOT;unset' 'MPM_LAUNCHER;unset' 'NLSPATH;unset' 'OPENMPI_HOME;unset' 'OPENMPI_VERSION;unset' 'PKG_CONFIG_PATH;unset' 'PSTLROOT;unset' 'TBBROOT;unset' '_LMFILES_;'
+++ MANPATH=/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ PATH=/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ unset CC
+++ unset CLASSPATH
+++ unset CMAKE_HOME
+++ unset CMAKE_VERSION
+++ unset CPATH
+++ unset CUDA_HOME
+++ unset CUDA_VERSION
+++ unset CXX
+++ unset DAALROOT
+++ unset F77
+++ unset F90
+++ unset GDBSERVER_MIC
+++ unset GDB_CROSS
+++ unset INFOPATH
+++ unset INTEL_HOME
+++ unset INTEL_LICENSE_FILE
+++ unset INTEL_PYTHONHOME
+++ unset INTEL_VERSION
+++ unset IPPROOT
+++ unset I_MPI_CC
+++ unset I_MPI_CXX
+++ unset I_MPI_F77
+++ unset I_MPI_F90
+++ unset I_MPI_ROOT
+++ unset LD_LIBRARY_PATH
+++ unset LD_RUN_PATH
+++ unset LIBRARY_PATH
+++ unset LOADEDMODULES
+++ unset MKLROOT
+++ unset MPM_LAUNCHER
+++ unset NLSPATH
+++ unset OPENMPI_HOME
+++ unset OPENMPI_VERSION
+++ unset PKG_CONFIG_PATH
+++ unset PSTLROOT
+++ unset TBBROOT
+++ unset _LMFILES_
++ module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
+++ /software/Modules/bin/modulecmd bash load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
++ eval CPATH=/central/software/OpenMPI/4.0.1//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include ';export' 'CPATH;HDF5_DIR=/software/hdf5/1.10.1' ';export' 'HDF5_DIR;LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib' ';export' 'LD_LIBRARY_PATH;LD_RUN_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib' ';export' 'LD_RUN_PATH;LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib' ';export' 'LIBRARY_PATH;LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:openmpi/4.0.1' ';export' 'LOADEDMODULES;MANPATH=/central/software/OpenMPI/4.0.1//share/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man' ';export' 'MANPATH;OPENMPI_HOME=/central/software/OpenMPI/4.0.1/' ';export' 'OPENMPI_HOME;OPENMPI_VERSION=4.0.1' ';export' 'OPENMPI_VERSION;PATH=/central/software/OpenMPI/4.0.1//bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2' ';export' 'PATH;_LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/mpi/openmpi/4.0.1' ';export' '_LMFILES_;'
+++ CPATH=/central/software/OpenMPI/4.0.1//include:/central/software/netcdf-c/4.6.1//include:/software/hdf5/1.10.1/include:/central/software/julia/1.4.2//include
+++ export CPATH
+++ HDF5_DIR=/software/hdf5/1.10.1
+++ export HDF5_DIR
+++ LD_LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib:/central/software/julia/1.4.2//lib
+++ export LD_LIBRARY_PATH
+++ LD_RUN_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib
+++ export LD_RUN_PATH
+++ LIBRARY_PATH=/central/software/OpenMPI/4.0.1//lib:/central/software/netcdf-c/4.6.1//lib:/software/hdf5/1.10.1/lib
+++ export LIBRARY_PATH
+++ LOADEDMODULES=julia/1.4.2:hdf5/1.10.1:netcdf-c/4.6.1:openmpi/4.0.1
+++ export LOADEDMODULES
+++ MANPATH=/central/software/OpenMPI/4.0.1//share/man:/central/software/netcdf-c/4.6.1//share/man:/software/hdf5/1.10.1/share/man:/central/software/julia/1.4.2//share/man:/central/slurm/install/current/share/man/:/usr/local/share/man:/usr/share/man/overrides:/usr/share/man:/opt/ibutils/share/man:/cm/local/apps/environment-modules/current/share/man
+++ export MANPATH
+++ OPENMPI_HOME=/central/software/OpenMPI/4.0.1/
+++ export OPENMPI_HOME
+++ OPENMPI_VERSION=4.0.1
+++ export OPENMPI_VERSION
+++ PATH=/central/software/OpenMPI/4.0.1//bin:/central/software/netcdf-c/4.6.1//bin:/software/hdf5/1.10.1/bin:/central/software/julia/1.4.2//bin:/home/elencz/anaconda2/bin:/home/elencz/anaconda2/condabin:/central/slurm/install/current/bin:/usr/lib64/qt-3.3/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/opt/dell/srvadmin/bin:/home/elencz/.local/bin:/home/elencz/bin:/home/elencz/anaconda2
+++ export PATH
+++ _LMFILES_=/software/Modules/modulefiles/developement/julia/1.4.2:/software/Modules/modulefiles/data/hdf5/1.10.1:/software/Modules/modulefiles/data/netcdf-c/4.6.1:/software/Modules/modulefiles/mpi/openmpi/4.0.1
+++ export _LMFILES_
++ export JULIA_NUM_THREADS=1
++ JULIA_NUM_THREADS=1
++ export JULIA_MPI_BINARY=system
++ JULIA_MPI_BINARY=system
++ export JULIA_CUDA_USE_BINARYBUILDER=false
++ JULIA_CUDA_USE_BINARYBUILDER=false
++ source ./helper_mod.sh
++ RUNNAME=hier_init_q_passive
++ CLIMA_HOME=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl
++ VIZCLIMA_HOME=/central/groups/esm/lenka/VizCLIMA.jl
++ mkdir -p /central/scratch/elencz/
++ CLIMA_OUTPUT=/central/scratch/elencz/output/hier_init_q_passive
++ EXPERIMENT=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl
++ VIZCLIMA_SCRIPT=/central/groups/esm/lenka/VizCLIMA.jl/src/scripts/hier_analysis_bcwave.jl
++ EXP_PARAM_FILE=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/exp_parameters
++ directory_structure /central/scratch/elencz/output/hier_init_q_passive
++ CLIMA_RESTART=/central/scratch/elencz/output/hier_init_q_passive/restart
++ CLIMA_NETCDF=/central/scratch/elencz/output/hier_init_q_passive/netcdf
++ CLIMA_LOG=/central/scratch/elencz/output/hier_init_q_passive/log
++ CLIMA_ANALYSIS=/central/scratch/elencz/output/hier_init_q_passive/analysis
++ mkdir -p /central/scratch/elencz/output/hier_init_q_passive
++ mkdir -p /central/scratch/elencz/output/hier_init_q_passive/restart
++ mkdir -p /central/scratch/elencz/output/hier_init_q_passive/netcdf
++ mkdir -p /central/scratch/elencz/output/hier_init_q_passive/analysis
++ mkdir -p /central/scratch/elencz/output/hier_init_q_passive/log
++ PERF_LOGFILE=/central/scratch/elencz/output/hier_init_q_passive/log/experiments_performance_log
++ printf '%-70s %-20s %-15s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-150s \n' driver sim_date wall_time sim_days res_h res_v dom_height CFL FT GPU Mem solver_details
++ julia --project=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl -e 'using Pkg; Pkg.instantiate()'
++ read -u3 -r line
++ write_into_runfile_from_list 'remove_q "none"' hier_init_q_passive /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl CLIMA_RUNFILE
++ line='remove_q "none"'
++ runname=hier_init_q_passive
+++ dirname /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl
++ exp_folder=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM
+++ basename /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl
++ default_exp_runfile=moist-baroclinic-wave.jl
++ pars=(${line// / })
++ inst_name=hier_init_q_passive
++ (( i=0 ))
++ (( i<2 ))
++ inst_name=hier_init_q_passive_remove_q
++ (( i++ ))
++ (( i<2 ))
++ inst_name='hier_init_q_passive_remove_q_"none"'
++ (( i++ ))
++ (( i<2 ))
+++ sed 's/[():"]//g'
+++ echo 'hier_init_q_passive_remove_q_"none"'
++ inst_name_clean=hier_init_q_passive_remove_q_none
++ (( i=0 ))
++ (( i<2 ))
++ par_n[$(( $i / 2 ))]=remove_q
++ par_v[$(( $i / 2 ))]='"none"'
++ (( i+=2 ))
++ (( i<2 ))
++ new_exp_runfile=moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ rm -f /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ cp /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ (( i=0 ))
++ (( i<1 ))
++ sed 's/remove_q =.*/remove_q = "none"/' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ mv /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/run_tmp /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ (( i++ ))
++ (( i<1 ))
++ sed 's/exp_name =.*/exp_name = "hier_init_q_passive_remove_q_none"/' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ mv /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/run_tmp /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ new_exp_runfile_path=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ eval CLIMA_RUNFILE=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ CLIMA_RUNFILE=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ date +%m-%d-%y-%T
++ t_date=08-20-20-02:34:49
+++ date +%s
++ t_start=1597916089
++ echo '1597916089: Running /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl, storing output at /central/scratch/elencz/output/hier_init_q_passive'
+1597916089: Running /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl, storing output at /central/scratch/elencz/output/hier_init_q_passive
++ julia --project=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl -e 'using Pkg; Pkg.API.precompile()'
+Precompiling project...
++ mpiexec julia --project=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir /central/scratch/elencz/output/hier_init_q_passive/netcdf --checkpoint-at-end --checkpoint-dir /central/scratch/elencz/output/hier_init_q_passive/restart
+┌ Info: Model composition
+│     param_set = EarthParameterSet()
+│     problem = AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)}((AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}(Impenetrable{FreeSlip}(FreeSlip()), Insulating(), Impermeable(), ImpermeableTracer(), ClimateMachine.TurbulenceConvection.NoTurbConvBC()), AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}(Impenetrable{FreeSlip}(FreeSlip()), Insulating(), Impermeable(), ImpermeableTracer(), ClimateMachine.TurbulenceConvection.NoTurbConvBC())), init_baroclinic_wave!, ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)
+│     orientation = SphericalOrientation()
+│     ref_state = HydrostaticState{DecayingTemperatureProfile{Float64},Float64}(DecayingTemperatureProfile{Float64}(275.0, 75.0, 45000.0), 0.0)
+│     turbulence = ConstantViscosityWithDivergence{Float64}(0.0)
+│     turbconv = ClimateMachine.TurbulenceConvection.NoTurbConv()
+│     hyperdiffusion = DryBiharmonic{Float64}(28800.0)
+│     moisture = EquilMoist{Float64}(3, 0.1)
+│     precipitation = NoPrecipitation()
+│     radiation = NoRadiation()
+│     source = (Gravity(), Coriolis())
+│     tracers = NoTracers()
+└     data_config = nothing
+┌ Info: Establishing Atmos GCM configuration for hier_init_q_passive_remove_q_none
+│     precision        = Float64
+│     polynomial order = 3
+│     #horiz elems     = 12
+│     #vert elems      = 6
+│     domain height    = 3.00e+04 m
+│     MPI ranks        = 2
+│     min(Δ_horz)      = 163020.23 m
+└     min(Δ_vert)      = 1381.97 m
+[ Info: Initializing hier_init_q_passive_remove_q_none
+┌ Info: Starting hier_init_q_passive_remove_q_none
+│     dt              = 4.71513e+01
+│     timeend         = 864000.00
+│     number of steps = 18324
+└     norm(Q)         = 8.1578625810838234e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     initializing at     0.00
+┌ Info: Update
+│     simtime =    47.15 / 864000.00
+│     runtime = 00:01:19
+└     norm(Q) = 8.1576886102460203e+13
+┌ Info: Update
+│     simtime =  2310.41 / 864000.00
+│     runtime = 00:02:19
+└     norm(Q) = 8.1821704192831938e+13
+┌ Info: Update
+│     simtime =  4573.67 / 864000.00
+│     runtime = 00:03:19
+└     norm(Q) = 8.1834779573797469e+13
+┌ Info: Update
+│     simtime =  6836.94 / 864000.00
+│     runtime = 00:04:20
+└     norm(Q) = 8.1819896949883906e+13
+┌ Info: Update
+│     simtime =  9100.20 / 864000.00
+│     runtime = 00:05:21
+└     norm(Q) = 8.1810348235463969e+13
+┌ Info: Update
+│     simtime = 11363.46 / 864000.00
+│     runtime = 00:06:21
+└     norm(Q) = 8.1806649916736422e+13
+┌ Info: Update
+│     simtime = 13626.72 / 864000.00
+│     runtime = 00:07:21
+└     norm(Q) = 8.1806043540378688e+13
+┌ Info: Update
+│     simtime = 15889.98 / 864000.00
+│     runtime = 00:08:22
+└     norm(Q) = 8.1806889883589344e+13
+┌ Info: Update
+│     simtime = 18153.24 / 864000.00
+│     runtime = 00:09:22
+└     norm(Q) = 8.1808653257900516e+13
+┌ Info: Update
+│     simtime = 20416.50 / 864000.00
+│     runtime = 00:10:22
+└     norm(Q) = 8.1810276629044516e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 21642.44
+┌ Info: Courant numbers at simtime: 21642.44, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.099
+│ Advection (vertical) Courant number   = 0.33
+│ Advection (horizontal) Courant number = 0.0082
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 21689.59 / 864000.00
+│     runtime = 00:11:27
+└     norm(Q) = 8.1811924900276391e+13
+┌ Info: Update
+│     simtime = 23952.85 / 864000.00
+│     runtime = 00:12:27
+└     norm(Q) = 8.1811641711416359e+13
+┌ Info: Update
+│     simtime = 26216.11 / 864000.00
+│     runtime = 00:13:27
+└     norm(Q) = 8.1809539398444375e+13
+┌ Info: Update
+│     simtime = 28479.37 / 864000.00
+│     runtime = 00:14:28
+└     norm(Q) = 8.1805743650407375e+13
+┌ Info: Update
+│     simtime = 30742.63 / 864000.00
+│     runtime = 00:15:28
+└     norm(Q) = 8.1800342856921281e+13
+┌ Info: Update
+│     simtime = 33005.89 / 864000.00
+│     runtime = 00:16:29
+└     norm(Q) = 8.1795259598657625e+13
+┌ Info: Update
+│     simtime = 35269.16 / 864000.00
+│     runtime = 00:17:29
+└     norm(Q) = 8.1791116033793375e+13
+┌ Info: Update
+│     simtime = 37532.42 / 864000.00
+│     runtime = 00:18:29
+└     norm(Q) = 8.1788284013852766e+13
+┌ Info: Update
+│     simtime = 39795.68 / 864000.00
+│     runtime = 00:19:29
+└     norm(Q) = 8.1788077796492469e+13
+┌ Info: Update
+│     simtime = 42058.94 / 864000.00
+│     runtime = 00:20:29
+└     norm(Q) = 8.1790826227230891e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 43284.87
+┌ Info: Courant numbers at simtime: 43284.87, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.099
+│ Advection (vertical) Courant number   = 0.36
+│ Advection (horizontal) Courant number = 0.0084
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 43332.02 / 864000.00
+│     runtime = 00:21:32
+└     norm(Q) = 8.1793153323336000e+13
+┌ Info: Update
+│     simtime = 45642.44 / 864000.00
+│     runtime = 00:22:33
+└     norm(Q) = 8.1800709190007266e+13
+┌ Info: Update
+│     simtime = 47905.70 / 864000.00
+│     runtime = 00:23:35
+└     norm(Q) = 8.1808954214536531e+13
+┌ Info: Update
+│     simtime = 49555.99 / 864000.00
+│     runtime = 00:24:35
+└     norm(Q) = 8.1814880157754031e+13
+┌ Info: Update
+│     simtime = 51206.29 / 864000.00
+│     runtime = 00:25:36
+└     norm(Q) = 8.1821433186910875e+13
+┌ Info: Update
+│     simtime = 52856.58 / 864000.00
+│     runtime = 00:26:36
+└     norm(Q) = 8.1826647961162000e+13
+┌ Info: Update
+│     simtime = 54506.88 / 864000.00
+│     runtime = 00:27:36
+└     norm(Q) = 8.1831507470462297e+13
+┌ Info: Update
+│     simtime = 56157.17 / 864000.00
+│     runtime = 00:28:37
+└     norm(Q) = 8.1834627782556656e+13
+┌ Info: Update
+│     simtime = 57807.47 / 864000.00
+│     runtime = 00:29:38
+└     norm(Q) = 8.1837127916724094e+13
+┌ Info: Update
+│     simtime = 59457.76 / 864000.00
+│     runtime = 00:30:39
+└     norm(Q) = 8.1837978751079719e+13
+┌ Info: Update
+│     simtime = 61108.06 / 864000.00
+│     runtime = 00:31:39
+└     norm(Q) = 8.1838317343872719e+13
+┌ Info: Update
+│     simtime = 62758.35 / 864000.00
+│     runtime = 00:32:41
+└     norm(Q) = 8.1837506212929063e+13
+┌ Info: Update
+│     simtime = 64408.64 / 864000.00
+│     runtime = 00:33:42
+└     norm(Q) = 8.1836593338230547e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 64927.31
+ERROR: LoadError: NetCDF error: Opening path /central/scratch/elencz/output/hier_init_q_passive/netcdf/hier_init_q_passive_remove_q_none_AtmosGCMDefault_2020-08-20T02.36.58.275.nc: No such file or directory (NetCDF error code: 2)
+Stacktrace:
+ [1] nc_open(::String, ::UInt16) at /home/elencz/.julia/packages/NCDatasets/KjkFI/src/netcdf_c.jl:281
+ [2] NCDatasets.NCDataset(::String, ::String; format::Symbol, diskless::Bool, persist::Bool, attrib::Array{Any,1}) at /home/elencz/.julia/packages/NCDatasets/KjkFI/src/dataset.jl:213
+ [3] NCDatasets.NCDataset(::String, ::String) at /home/elencz/.julia/packages/NCDatasets/KjkFI/src/dataset.jl:198
+ [4] NCDatasets.NCDataset(::ClimateMachine.Writers.var"#3#5"{OrderedCollections.OrderedDict{Any,Any},Float64}, ::String, ::Vararg{String,N} where N; kwargs::Base.Iterators.Pairs{Union{},Union{},Tuple{},NamedTuple{(),Tuple{}}}) at /home/elencz/.julia/packages/NCDatasets/KjkFI/src/dataset.jl:263
+ [5] NCDataset at /home/elencz/.julia/packages/NCDatasets/KjkFI/src/dataset.jl:263 [inlined]
+ [6] append_data at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/InputOutput/Writers/netcdf_writer.jl:54 [inlined]
+ [7] atmos_gcm_default_collect(::DiagnosticsGroup{Nothing}, ::Float64) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Diagnostics/atmos_gcm_default.jl:357
+ [8] call!(::DiagnosticsGroup{Nothing}, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::Nothing, ::Float64) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Diagnostics/groups.jl:64
+ [9] call!(::EveryXSimulationTime, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::Nothing, ::Float64) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/GenericCallbacks.jl:192
+ [10] call!(::Tuple{EveryXSimulationSteps,EveryXWallTimeSeconds,EveryXSimulationTime,EveryXSimulationTime}, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::Nothing, ::Float64) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/GenericCallbacks.jl:63
+ [11] solve!(::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::Nothing; timeend::Float64, adjustfinalstep::Bool, numberofsteps::Int64, callbacks::Tuple{EveryXSimulationSteps,EveryXWallTimeSeconds,EveryXSimulationTime,EveryXSimulationTime}) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/ODESolvers.jl:142
+ [12] invoke!(::ClimateMachine.SolverConfiguration{Float64}; diagnostics_config::ClimateMachine.DiagnosticsConfiguration, user_callbacks::Tuple{EveryXSimulationSteps}, check_euclidean_distance::Bool, adjustfinalstep::Bool, user_info_callback::Function) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Driver/Driver.jl:653
+ [13] main() at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl:198
+ [14] top-level scope at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl:234
+ [15] include(::Module, ::String) at ./Base.jl:377
+ [16] exec_options(::Base.JLOptions) at ./client.jl:288
+ [17] _start() at ./client.jl:484
+in expression starting at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl:234
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpiexec detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[20516,1],0]
+  Exit code:    1
+--------------------------------------------------------------------------
++ peak_rss='switched off'
+++ date +%s
++ t_end=1597918300
++ t_diff=2211
++ write_into_perf_log_file /central/scratch/elencz/output/hier_init_q_passive/log/experiments_performance_log /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl 08-20-20-02:34:49 2211 switched off
++ t_date=08-20-20-02:34:49
++ t_diff=2211
++ mem=switched
++++ grep 'n_days =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ echo
+++ sed 's/[():]//g'
++ sim_time=
++++ grep 'n_horz =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '    n_horz = 12                              # horizontal element number'
+++ local 'var=    n_horz = 12                              # horizontal element number'
+++ local 'var_=    n_horz = 12                              '
+++ local 'var__= 12                              '
+++ echo 12
+++ sed 's/[():]//g'
++ res_h=12
++++ grep 'n_vert =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '    n_vert = 6                               # vertical element number'
+++ local 'var=    n_vert = 6                               # vertical element number'
+++ local 'var_=    n_vert = 6                               '
+++ local 'var__= 6                               '
+++ echo 6
+++ sed 's/[():]//g'
++ res_v=6
++++ grep 'domain_height::FT =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)'
+++ local 'var=    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)'
+++ local 'var_=    domain_height::FT = 30e3 '
+++ local 'var__= 30e3 '
+++ echo 30e3
+++ sed 's/[():]//g'
++ domain_height=30e3
++++ grep 'FT =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    FT = Float64                             # floating type precision
+    n_days::FT = 10
+    timestart::FT = 0                        # start time (s)
+    timeend::FT = n_days * day(param_set)    # end time (s)'
+++ local 'var=    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    FT = Float64                             # floating type precision
+    n_days::FT = 10
+    timestart::FT = 0                        # start time (s)
+    timeend::FT = n_days * day(param_set)    # end time (s)'
+++ local 'var_=    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    FT = Float64                             # floating type precision
+    n_days::FT = 10
+    timestart::FT = 0                        # start time (s)
+    timeend::FT = n_days * day(param_set)    '
+++ local 'var__= n_days * day(param_set)    '
+++ echo n_days bors.toml docs experiments exp_parameters helper_mod.sh LICENSE.md log_bcwave_hier.out Manifest.toml pipeline_logging_ci_gpu.sh pipeline_logging_ci.sh Project.toml README.md src test tutorials 'day(param_set)'
+++ sed 's/[():]//g'
++ FT='n_days bors.toml docs experiments exp_parameters helper_mod.sh LICENSE.md log_bcwave_hier.out Manifest.toml pipeline_logging_ci_gpu.sh pipeline_logging_ci.sh Project.toml README.md src test tutorials dayparam_set'
++++ grep 'CFL =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '    CFL = FT(0.1) # target acoustic CFL number'
+++ local 'var=    CFL = FT(0.1) # target acoustic CFL number'
+++ local 'var_=    CFL = FT(0.1) '
+++ local 'var__= FT(0.1) '
+++ echo 'FT(0.1)'
+++ sed 's/[():]//g'
++ CFL=FT0.1
++++ grep 'solver_method =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '        solver_method = ARK2GiraldoKellyConstantinescu,'
+++ local 'var=        solver_method = ARK2GiraldoKellyConstantinescu,'
+++ local 'var_=        solver_method = ARK2GiraldoKellyConstantinescu,'
+++ local 'var__= ARK2GiraldoKellyConstantinescu,'
+++ echo ARK2GiraldoKellyConstantinescu,
+++ sed 's/[():]//g'
++ solver_method=ARK2GiraldoKellyConstantinescu,
++++ grep 'implicit_solver =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '        implicit_solver = ManyColumnLU,'
+++ local 'var=        implicit_solver = ManyColumnLU,'
+++ local 'var_=        implicit_solver = ManyColumnLU,'
+++ local 'var__= ManyColumnLU,'
+++ echo ManyColumnLU,
+++ sed 's/[():]//g'
++ implicit_solver=ManyColumnLU,
++++ grep 'implicit_model =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '        implicit_model = AtmosAcousticGravityLinearModel,'
+++ local 'var=        implicit_model = AtmosAcousticGravityLinearModel,'
+++ local 'var_=        implicit_model = AtmosAcousticGravityLinearModel,'
+++ local 'var__= AtmosAcousticGravityLinearModel,'
+++ echo AtmosAcousticGravityLinearModel,
+++ sed 's/[():]//g'
++ implicit_model=AtmosAcousticGravityLinearModel,
++++ grep 'splitting_type =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ echo
+++ sed 's/[():]//g'
++ splitting_type=
++++ grep 'ode_solver_type =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
+++ extract_vals '    ode_solver_type = ClimateMachine.IMEXSolverType(
+        ode_solver_type = ode_solver_type,'
+++ local 'var=    ode_solver_type = ClimateMachine.IMEXSolverType(
+        ode_solver_type = ode_solver_type,'
+++ local 'var_=    ode_solver_type = ClimateMachine.IMEXSolverType(
+        ode_solver_type = ode_solver_type,'
+++ local 'var__= ode_solver_type,'
+++ echo ode_solver_type,
+++ sed 's/[():]//g'
++ ode_solver_type=ode_solver_type,
++ solver_details=ode_solver_type,/ARK2GiraldoKellyConstantinescu,/ManyColumnLU,/AtmosAcousticGravityLinearModel,/
++ gpu=none
+++ basename /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl
++ printf '%-72s %-20s %-15s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-150s \n' moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl 08-20-20-02:34:49 2211 12 6 30e3 FT0.1 n_days bors.toml docs experiments exp_parameters helper_mod.sh LICENSE.md log_bcwave_hier.out Manifest.toml pipeline_logging_ci_gpu.sh pipeline_logging_ci.sh Project.toml README.md src test tutorials dayparam_set none switched ode_solver_type,/ARK2GiraldoKellyConstantinescu,/ManyColumnLU,/AtmosAcousticGravityLinearModel,/
++ sleep 2
++ mv /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_none.jl /central/scratch/elencz/output/hier_init_q_passive/log
++ read -u3 -r line
++ write_into_runfile_from_list 'remove_q "0micro"' hier_init_q_passive /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl CLIMA_RUNFILE
++ line='remove_q "0micro"'
++ runname=hier_init_q_passive
+++ dirname /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl
++ exp_folder=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM
+++ basename /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl
++ default_exp_runfile=moist-baroclinic-wave.jl
++ pars=(${line// / })
++ inst_name=hier_init_q_passive
++ (( i=0 ))
++ (( i<2 ))
++ inst_name=hier_init_q_passive_remove_q
++ (( i++ ))
++ (( i<2 ))
++ inst_name='hier_init_q_passive_remove_q_"0micro"'
++ (( i++ ))
++ (( i<2 ))
+++ echo 'hier_init_q_passive_remove_q_"0micro"'
+++ sed 's/[():"]//g'
++ inst_name_clean=hier_init_q_passive_remove_q_0micro
++ (( i=0 ))
++ (( i<2 ))
++ par_n[$(( $i / 2 ))]=remove_q
++ par_v[$(( $i / 2 ))]='"0micro"'
++ (( i+=2 ))
++ (( i<2 ))
++ new_exp_runfile=moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ rm -f /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ cp /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave.jl /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ (( i=0 ))
++ (( i<1 ))
++ sed 's/remove_q =.*/remove_q = "0micro"/' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ mv /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/run_tmp /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ (( i++ ))
++ (( i<1 ))
++ sed 's/exp_name =.*/exp_name = "hier_init_q_passive_remove_q_0micro"/' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ mv /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/run_tmp /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ new_exp_runfile_path=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ eval CLIMA_RUNFILE=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ CLIMA_RUNFILE=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ date +%m-%d-%y-%T
++ t_date=08-20-20-03:11:43
+++ date +%s
++ t_start=1597918303
++ echo '1597918303: Running /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl, storing output at /central/scratch/elencz/output/hier_init_q_passive'
+1597918303: Running /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl, storing output at /central/scratch/elencz/output/hier_init_q_passive
++ julia --project=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl -e 'using Pkg; Pkg.API.precompile()'
+Precompiling project...
++ mpiexec julia --project=/central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir /central/scratch/elencz/output/hier_init_q_passive/netcdf --checkpoint-at-end --checkpoint-dir /central/scratch/elencz/output/hier_init_q_passive/restart
+┌ Info: Model composition
+│     param_set = EarthParameterSet()
+│     problem = AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)}((AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}(Impenetrable{FreeSlip}(FreeSlip()), Insulating(), Impermeable(), ImpermeableTracer(), ClimateMachine.TurbulenceConvection.NoTurbConvBC()), AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}(Impenetrable{FreeSlip}(FreeSlip()), Insulating(), Impermeable(), ImpermeableTracer(), ClimateMachine.TurbulenceConvection.NoTurbConvBC())), init_baroclinic_wave!, ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)
+│     orientation = SphericalOrientation()
+│     ref_state = HydrostaticState{DecayingTemperatureProfile{Float64},Float64}(DecayingTemperatureProfile{Float64}(275.0, 75.0, 45000.0), 0.0)
+│     turbulence = ConstantViscosityWithDivergence{Float64}(0.0)
+│     turbconv = ClimateMachine.TurbulenceConvection.NoTurbConv()
+│     hyperdiffusion = DryBiharmonic{Float64}(28800.0)
+│     moisture = EquilMoist{Float64}(3, 0.1)
+│     precipitation = NoPrecipitation()
+│     radiation = NoRadiation()
+│     source = (Gravity(), Coriolis(), RemovePrecipitation())
+│     tracers = NoTracers()
+└     data_config = nothing
+┌ Info: Establishing Atmos GCM configuration for hier_init_q_passive_remove_q_0micro
+│     precision        = Float64
+│     polynomial order = 3
+│     #horiz elems     = 12
+│     #vert elems      = 6
+│     domain height    = 3.00e+04 m
+│     MPI ranks        = 2
+│     min(Δ_horz)      = 163020.23 m
+└     min(Δ_vert)      = 1381.97 m
+[ Info: Initializing hier_init_q_passive_remove_q_0micro
+┌ Info: Starting hier_init_q_passive_remove_q_0micro
+│     dt              = 4.71513e+01
+│     timeend         = 864000.00
+│     number of steps = 18324
+└     norm(Q)         = 8.1578625810838234e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     initializing at     0.00
+┌ Info: Update
+│     simtime =    47.15 / 864000.00
+│     runtime = 00:01:48
+└     norm(Q) = 8.1580691328744656e+13
+┌ Info: Update
+│     simtime =  1744.60 / 864000.00
+│     runtime = 00:02:50
+└     norm(Q) = 8.1586846919747250e+13
+┌ Info: Update
+│     simtime =  3394.89 / 864000.00
+│     runtime = 00:03:50
+└     norm(Q) = 8.1571781760242578e+13
+┌ Info: Update
+│     simtime =  5092.34 / 864000.00
+│     runtime = 00:04:51
+└     norm(Q) = 8.1577988403752641e+13
+┌ Info: Update
+│     simtime =  6742.63 / 864000.00
+│     runtime = 00:05:52
+└     norm(Q) = 8.1579102854086250e+13
+┌ Info: Update
+│     simtime =  8392.93 / 864000.00
+│     runtime = 00:06:53
+└     norm(Q) = 8.1577364251783031e+13
+┌ Info: Update
+│     simtime = 10043.22 / 864000.00
+│     runtime = 00:07:53
+└     norm(Q) = 8.1576221806391984e+13
+┌ Info: Update
+│     simtime = 11693.52 / 864000.00
+│     runtime = 00:08:53
+└     norm(Q) = 8.1575442785065469e+13
+┌ Info: Update
+│     simtime = 13390.96 / 864000.00
+│     runtime = 00:09:55
+└     norm(Q) = 8.1573298803926672e+13
+┌ Info: Update
+│     simtime = 15041.26 / 864000.00
+│     runtime = 00:10:56
+└     norm(Q) = 8.1572310940810797e+13
+┌ Info: Update
+│     simtime = 16691.55 / 864000.00
+│     runtime = 00:11:57
+└     norm(Q) = 8.1570824447205625e+13
+┌ Info: Update
+│     simtime = 18389.00 / 864000.00
+│     runtime = 00:12:58
+└     norm(Q) = 8.1569989934385266e+13
+┌ Info: Update
+│     simtime = 20039.29 / 864000.00
+│     runtime = 00:13:58
+└     norm(Q) = 8.1569109067196063e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 21642.44
+┌ Info: Courant numbers at simtime: 21642.44, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.27
+│ Advection (horizontal) Courant number = 0.0084
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 21689.59 / 864000.00
+│     runtime = 00:15:41
+└     norm(Q) = 8.1568532910470406e+13
+┌ Info: Update
+│     simtime = 23339.88 / 864000.00
+│     runtime = 00:16:41
+└     norm(Q) = 8.1568234592863766e+13
+┌ Info: Update
+│     simtime = 24990.18 / 864000.00
+│     runtime = 00:17:42
+└     norm(Q) = 8.1567960588857734e+13
+┌ Info: Update
+│     simtime = 26640.47 / 864000.00
+│     runtime = 00:18:42
+└     norm(Q) = 8.1567721463930328e+13
+┌ Info: Update
+│     simtime = 28290.77 / 864000.00
+│     runtime = 00:19:42
+└     norm(Q) = 8.1567611406878063e+13
+┌ Info: Update
+│     simtime = 29941.06 / 864000.00
+│     runtime = 00:20:43
+└     norm(Q) = 8.1567699337851797e+13
+┌ Info: Update
+│     simtime = 31497.05 / 864000.00
+│     runtime = 00:21:44
+└     norm(Q) = 8.1567807410271781e+13
+┌ Info: Update
+│     simtime = 33147.35 / 864000.00
+│     runtime = 00:22:45
+└     norm(Q) = 8.1567961671881734e+13
+┌ Info: Update
+│     simtime = 34797.64 / 864000.00
+│     runtime = 00:23:45
+└     norm(Q) = 8.1568278141266578e+13
+┌ Info: Update
+│     simtime = 36447.94 / 864000.00
+│     runtime = 00:24:47
+└     norm(Q) = 8.1568614534213891e+13
+┌ Info: Update
+│     simtime = 38098.23 / 864000.00
+│     runtime = 00:25:48
+└     norm(Q) = 8.1569011664167719e+13
+┌ Info: Update
+│     simtime = 39748.53 / 864000.00
+│     runtime = 00:26:49
+└     norm(Q) = 8.1569340783466063e+13
+┌ Info: Update
+│     simtime = 41351.67 / 864000.00
+│     runtime = 00:27:50
+└     norm(Q) = 8.1569672989708734e+13
+┌ Info: Update
+│     simtime = 42907.66 / 864000.00
+│     runtime = 00:28:50
+└     norm(Q) = 8.1569877327781703e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 43284.87
+┌ Info: Courant numbers at simtime: 43284.87, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.23
+│ Advection (horizontal) Courant number = 0.0084
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 43473.48 / 864000.00
+│     runtime = 00:29:51
+└     norm(Q) = 8.1569923557939563e+13
+┌ Info: Update
+│     simtime = 45076.62 / 864000.00
+│     runtime = 00:30:52
+└     norm(Q) = 8.1570047683963125e+13
+┌ Info: Update
+│     simtime = 46632.61 / 864000.00
+│     runtime = 00:31:52
+└     norm(Q) = 8.1569977532731000e+13
+┌ Info: Update
+│     simtime = 48235.76 / 864000.00
+│     runtime = 00:32:53
+└     norm(Q) = 8.1569680690539328e+13
+┌ Info: Update
+│     simtime = 49838.90 / 864000.00
+│     runtime = 00:33:53
+└     norm(Q) = 8.1569224206379734e+13
+┌ Info: Update
+│     simtime = 51394.89 / 864000.00
+│     runtime = 00:34:54
+└     norm(Q) = 8.1568550962734172e+13
+┌ Info: Update
+│     simtime = 53045.19 / 864000.00
+│     runtime = 00:35:55
+└     norm(Q) = 8.1567596339443859e+13
+┌ Info: Update
+│     simtime = 54648.33 / 864000.00
+│     runtime = 00:36:56
+└     norm(Q) = 8.1566503036918000e+13
+┌ Info: Update
+│     simtime = 56251.47 / 864000.00
+│     runtime = 00:37:58
+└     norm(Q) = 8.1565272456323469e+13
+┌ Info: Update
+│     simtime = 57807.47 / 864000.00
+│     runtime = 00:38:58
+└     norm(Q) = 8.1564047324401531e+13
+┌ Info: Update
+│     simtime = 59457.76 / 864000.00
+│     runtime = 00:39:59
+└     norm(Q) = 8.1562771200278734e+13
+┌ Info: Update
+│     simtime = 61108.06 / 864000.00
+│     runtime = 00:40:59
+└     norm(Q) = 8.1561700414976828e+13
+┌ Info: Update
+│     simtime = 62758.35 / 864000.00
+│     runtime = 00:42:01
+└     norm(Q) = 8.1560942391015188e+13
+┌ Info: Update
+│     simtime = 64408.64 / 864000.00
+│     runtime = 00:43:02
+└     norm(Q) = 8.1560578211762172e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 64927.31
+┌ Info: Courant numbers at simtime: 64927.31, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.21
+│ Advection (horizontal) Courant number = 0.0084
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 64974.46 / 864000.00
+│     runtime = 00:44:03
+└     norm(Q) = 8.1560573571314234e+13
+┌ Info: Update
+│     simtime = 66577.60 / 864000.00
+│     runtime = 00:45:04
+└     norm(Q) = 8.1560896483147344e+13
+┌ Info: Update
+│     simtime = 68180.75 / 864000.00
+│     runtime = 00:46:05
+└     norm(Q) = 8.1561646773409516e+13
+┌ Info: Update
+│     simtime = 69783.89 / 864000.00
+│     runtime = 00:47:06
+└     norm(Q) = 8.1562762291597922e+13
+┌ Info: Update
+│     simtime = 71339.88 / 864000.00
+│     runtime = 00:48:06
+└     norm(Q) = 8.1564180354645219e+13
+┌ Info: Update
+│     simtime = 72895.87 / 864000.00
+│     runtime = 00:49:06
+└     norm(Q) = 8.1565749487754406e+13
+┌ Info: Update
+│     simtime = 74499.02 / 864000.00
+│     runtime = 00:50:07
+└     norm(Q) = 8.1567344416841297e+13
+┌ Info: Update
+│     simtime = 76102.16 / 864000.00
+│     runtime = 00:51:08
+└     norm(Q) = 8.1568789407028375e+13
+┌ Info: Update
+│     simtime = 77658.15 / 864000.00
+│     runtime = 00:52:09
+└     norm(Q) = 8.1569995999451516e+13
+┌ Info: Update
+│     simtime = 79308.45 / 864000.00
+│     runtime = 00:53:10
+└     norm(Q) = 8.1570914476584828e+13
+┌ Info: Update
+│     simtime = 80911.59 / 864000.00
+│     runtime = 00:54:11
+└     norm(Q) = 8.1571472585243188e+13
+┌ Info: Update
+│     simtime = 82514.73 / 864000.00
+│     runtime = 00:55:13
+└     norm(Q) = 8.1571696432051625e+13
+┌ Info: Update
+│     simtime = 84070.73 / 864000.00
+│     runtime = 00:56:14
+└     norm(Q) = 8.1571654012340219e+13
+┌ Info: Update
+│     simtime = 85721.02 / 864000.00
+│     runtime = 00:57:15
+└     norm(Q) = 8.1571374871420781e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 86569.74
+┌ Info: Courant numbers at simtime: 86569.74, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.18
+│ Advection (horizontal) Courant number = 0.0083
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 86616.90 / 864000.00
+│     runtime = 00:58:27
+└     norm(Q) = 8.1571157590333078e+13
+┌ Info: Update
+│     simtime = 88267.19 / 864000.00
+│     runtime = 00:59:28
+└     norm(Q) = 8.1570674682958469e+13
+┌ Info: Update
+│     simtime = 89917.49 / 864000.00
+│     runtime = 01:00:30
+└     norm(Q) = 8.1570146906397031e+13
+┌ Info: Update
+│     simtime = 91520.63 / 864000.00
+│     runtime = 01:01:31
+└     norm(Q) = 8.1569607711399172e+13
+┌ Info: Update
+│     simtime = 93076.62 / 864000.00
+│     runtime = 01:02:31
+└     norm(Q) = 8.1569105565023094e+13
+┌ Info: Update
+│     simtime = 94726.92 / 864000.00
+│     runtime = 01:03:32
+└     norm(Q) = 8.1568631189583875e+13
+┌ Info: Update
+│     simtime = 96330.06 / 864000.00
+│     runtime = 01:04:34
+└     norm(Q) = 8.1568261753393250e+13
+┌ Info: Update
+│     simtime = 97933.20 / 864000.00
+│     runtime = 01:05:35
+└     norm(Q) = 8.1567915845055203e+13
+┌ Info: Update
+│     simtime = 99536.35 / 864000.00
+│     runtime = 01:06:36
+└     norm(Q) = 8.1567600623343531e+13
+┌ Info: Update
+│     simtime = 101139.49 / 864000.00
+│     runtime = 01:07:37
+└     norm(Q) = 8.1567369284869969e+13
+┌ Info: Update
+│     simtime = 102742.63 / 864000.00
+│     runtime = 01:08:39
+└     norm(Q) = 8.1567200679615141e+13
+┌ Info: Update
+│     simtime = 104298.62 / 864000.00
+│     runtime = 01:09:39
+└     norm(Q) = 8.1567135328981328e+13
+┌ Info: Update
+│     simtime = 105901.77 / 864000.00
+│     runtime = 01:10:39
+└     norm(Q) = 8.1567156776761906e+13
+┌ Info: Update
+│     simtime = 107504.91 / 864000.00
+│     runtime = 01:11:40
+└     norm(Q) = 8.1567284693696297e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 108212.18
+┌ Info: Courant numbers at simtime: 108212.18, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.16
+│ Advection (horizontal) Courant number = 0.0084
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 108259.33 / 864000.00
+│     runtime = 01:12:51
+└     norm(Q) = 8.1567391474581453e+13
+┌ Info: Update
+│     simtime = 109862.48 / 864000.00
+│     runtime = 01:13:52
+└     norm(Q) = 8.1567733980342422e+13
+┌ Info: Update
+│     simtime = 111512.77 / 864000.00
+│     runtime = 01:14:52
+└     norm(Q) = 8.1568254846142469e+13
+┌ Info: Update
+│     simtime = 113163.06 / 864000.00
+│     runtime = 01:15:54
+└     norm(Q) = 8.1568969006218578e+13
+┌ Info: Update
+│     simtime = 114813.36 / 864000.00
+│     runtime = 01:16:55
+└     norm(Q) = 8.1569844378023547e+13
+┌ Info: Update
+│     simtime = 116416.50 / 864000.00
+│     runtime = 01:17:55
+└     norm(Q) = 8.1570872009805922e+13
+┌ Info: Update
+│     simtime = 118019.65 / 864000.00
+│     runtime = 01:18:56
+└     norm(Q) = 8.1572024976485047e+13
+┌ Info: Update
+│     simtime = 119622.79 / 864000.00
+│     runtime = 01:19:57
+└     norm(Q) = 8.1573261134342531e+13
+┌ Info: Update
+│     simtime = 121131.63 / 864000.00
+│     runtime = 01:20:57
+└     norm(Q) = 8.1574461824225750e+13
+┌ Info: Update
+│     simtime = 122734.77 / 864000.00
+│     runtime = 01:21:58
+└     norm(Q) = 8.1575692038818000e+13
+┌ Info: Update
+│     simtime = 124337.92 / 864000.00
+│     runtime = 01:22:59
+└     norm(Q) = 8.1576817105585188e+13
+┌ Info: Update
+│     simtime = 125893.91 / 864000.00
+│     runtime = 01:23:59
+└     norm(Q) = 8.1577750335984203e+13
+┌ Info: Update
+│     simtime = 127449.90 / 864000.00
+│     runtime = 01:25:00
+└     norm(Q) = 8.1578443725503859e+13
+┌ Info: Update
+│     simtime = 129005.89 / 864000.00
+│     runtime = 01:26:01
+└     norm(Q) = 8.1578824380050688e+13
+┌ Info: Diagnostics: AtmosGCMDefault
+└     collecting at 129854.62
+┌ Info: Courant numbers at simtime: 129854.62, Δt =    47.15 s
+│ Acoustic (vertical) Courant number    = 12
+│ Acoustic (horizontal) Courant number  = 0.1
+│ Advection (vertical) Courant number   = 0.18
+│ Advection (horizontal) Courant number = 0.0083
+│ Diffusion (vertical) Courant number   = 0
+└ Diffusion (horizontal) Courant number = 0
+┌ Info: Update
+│     simtime = 129901.77 / 864000.00
+│     runtime = 01:27:16
+└     norm(Q) = 8.1578884418352172e+13
+┌ Info: Update
+│     simtime = 131410.61 / 864000.00
+│     runtime = 01:28:16
+└     norm(Q) = 8.1578694556164250e+13
+┌ Info: Update
+│     simtime = 133013.75 / 864000.00
+│     runtime = 01:29:18
+└     norm(Q) = 8.1578073935282344e+13
+┌ Info: Update
+│     simtime = 134569.74 / 864000.00
+│     runtime = 01:30:19
+└     norm(Q) = 8.1577151283306203e+13
+-----------------------------------------
+maxiter reached in saturation_adjustment:
+    e_int=-24299.399753434736, ρ=0.486766271049903, q_tot=0.004876101790322659, T = 252.35097897511625, maxiter=3, tol=71.75060234725578
+ERROR: LoadError: TaskFailedException:
+Failed to converge with printed set of inputs.
+Stacktrace:
+ [1] error at ./error.jl:33 [inlined]
+ [2] saturation_adjustment at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Common/Thermodynamics/relations.jl:1148 [inlined]
+ [3] PhaseEquil at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Common/Thermodynamics/states.jl:113 [inlined]
+ [4] PhaseEquil at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Common/Thermodynamics/states.jl:108 [inlined]
+ [5] atmos_nodal_update_auxiliary_state! at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Atmos/Model/moisture.jl:152 [inlined]
+ [6] nodal_update_auxiliary_state! at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Atmos/Model/AtmosModel.jl:602 [inlined]
+ [7] macro expansion at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/DGMethods/DGModel_kernels.jl:1634 [inlined]
+ [8] cpu_kernel_nodal_update_auxiliary_state! at /home/elencz/.julia/packages/KernelAbstractions/yw9SF/src/macros.jl:230 [inlined]
+ [9] __thread_run(::Int64, ::Int64, ::Int64, ::KernelAbstractions.Kernel{KernelAbstractions.CPU,KernelAbstractions.NDIteration.StaticSize{(64,)},KernelAbstractions.NDIteration.DynamicSize,typeof(ClimateMachine.DGMethods.cpu_kernel_nodal_update_auxiliary_state!)}, ::Tuple{Int64}, ::KernelAbstractions.NDIteration.NDRange{1,KernelAbstractions.NDIteration.DynamicSize,KernelAbstractions.NDIteration.StaticSize{(64,)},CartesianIndices{1,Tuple{Base.OneTo{Int64}}},Nothing}, ::Tuple{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing},Val{3},Val{3},typeof(ClimateMachine.Atmos.nodal_update_auxiliary_state!),Array{Float64,3},Array{Float64,3},Float64,UnitRange{Int64},Array{Bool,1}}, ::KernelAbstractions.NDIteration.NoDynamicCheck) at /home/elencz/.julia/packages/KernelAbstractions/yw9SF/src/backends/cpu.jl:150
+ [10] __run(::KernelAbstractions.Kernel{KernelAbstractions.CPU,KernelAbstractions.NDIteration.StaticSize{(64,)},KernelAbstractions.NDIteration.DynamicSize,typeof(ClimateMachine.DGMethods.cpu_kernel_nodal_update_auxiliary_state!)}, ::Tuple{Int64}, ::KernelAbstractions.NDIteration.NDRange{1,KernelAbstractions.NDIteration.DynamicSize,KernelAbstractions.NDIteration.StaticSize{(64,)},CartesianIndices{1,Tuple{Base.OneTo{Int64}}},Nothing}, ::Tuple{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing},Val{3},Val{3},typeof(ClimateMachine.Atmos.nodal_update_auxiliary_state!),Array{Float64,3},Array{Float64,3},Float64,UnitRange{Int64},Array{Bool,1}}, ::KernelAbstractions.NDIteration.NoDynamicCheck) at /home/elencz/.julia/packages/KernelAbstractions/yw9SF/src/backends/cpu.jl:123
+ [11] (::KernelAbstractions.var"#30#31"{Tuple{KernelAbstractions.NoneEvent},Nothing,typeof(KernelAbstractions.__run),Tuple{KernelAbstractions.Kernel{KernelAbstractions.CPU,KernelAbstractions.NDIteration.StaticSize{(64,)},KernelAbstractions.NDIteration.DynamicSize,typeof(ClimateMachine.DGMethods.cpu_kernel_nodal_update_auxiliary_state!)},Tuple{Int64},KernelAbstractions.NDIteration.NDRange{1,KernelAbstractions.NDIteration.DynamicSize,KernelAbstractions.NDIteration.StaticSize{(64,)},CartesianIndices{1,Tuple{Base.OneTo{Int64}}},Nothing},Tuple{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing},Val{3},Val{3},typeof(ClimateMachine.Atmos.nodal_update_auxiliary_state!),Array{Float64,3},Array{Float64,3},Float64,UnitRange{Int64},Array{Bool,1}},KernelAbstractions.NDIteration.NoDynamicCheck}})() at /home/elencz/.julia/packages/KernelAbstractions/yw9SF/src/backends/cpu.jl:22
+Stacktrace:
+ [1] wait at ./task.jl:267 [inlined]
+ [2] wait at /home/elencz/.julia/packages/KernelAbstractions/yw9SF/src/backends/cpu.jl:65 [inlined]
+ [3] wait(::KernelAbstractions.CPU, ::KernelAbstractions.CPUEvent) at /home/elencz/.julia/packages/KernelAbstractions/yw9SF/src/backends/cpu.jl:64
+ [4] update_auxiliary_state!(::Function, ::ClimateMachine.DGMethods.DGModel{ClimateMachine.DGMethods.RemBL{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing},Tuple{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing}}},EveryDirection,Tuple{VerticalDirection}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},EveryDirection,HorizontalDirection,Nothing}, ::AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing}, ::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::Float64, ::UnitRange{Int64}; diffusive::Bool) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/DGMethods/DGModel.jl:915
+ [5] update_auxiliary_state! at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/DGMethods/DGModel.jl:869 [inlined]
+ [6] update_auxiliary_state! at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Atmos/Model/AtmosModel.jl:583 [inlined]
+ [7] update_auxiliary_state! at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/DGMethods/remainder.jl:163 [inlined]
+ [8] (::ClimateMachine.DGMethods.DGModel{ClimateMachine.DGMethods.RemBL{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing},Tuple{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing}}},EveryDirection,Tuple{VerticalDirection}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},EveryDirection,HorizontalDirection,Nothing})(::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::Nothing, ::Float64, ::Bool, ::Bool) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/DGMethods/DGModel.jl:151
+ [9] #_#16 at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/DGMethods/DGModel.jl:104 [inlined]
+ [10] dostep!(::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::LowStorageVariant, ::Nothing, ::Float64, ::Nothing, ::Nothing, ::Nothing) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/AdditiveRungeKuttaMethod.jl:367
+ [11] dostep! at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/AdditiveRungeKuttaMethod.jl:193 [inlined] (repeats 2 times)
+ [12] general_dostep!(::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::Nothing, ::Float64; adjustfinalstep::Bool) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/ODESolvers.jl:65
+ [13] solve!(::ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}, ::AdditiveRungeKutta{Float64,Float64,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.ODESolvers.LinBESolver{Float64,ClimateMachine.SystemSolvers.ColumnwiseLU{ClimateMachine.SystemSolvers.DGColumnBandedMatrix{3,3,6,432,6,1,false,Array{Float64,5}}},ManyColumnLU,ClimateMachine.DGMethods.DGModel{AtmosAcousticGravityLinearModel{AtmosModel{Float64,EarthParameterSet,AtmosProblem{Tuple{AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC},AtmosBC{Impenetrable{FreeSlip},Insulating,Impermeable,ImpermeableTracer,ClimateMachine.TurbulenceConvection.NoTurbConvBC}},typeof(init_baroclinic_wave!),typeof(ClimateMachine.Atmos.atmos_problem_init_state_auxiliary)},SphericalOrientation,HydrostaticState{DecayingTemperatureProfile{Float64},Float64},ConstantViscosityWithDivergence{Float64},ClimateMachine.TurbulenceConvection.NoTurbConv,DryBiharmonic{Float64},EquilMoist{Float64},NoPrecipitation,NoRadiation,Tuple{Gravity,Coriolis,RemovePrecipitation},NoTracers,Nothing}},DiscontinuousSpectralElementGrid{Float64,3,3,64,Array,Array{Float64,1},Array{Float64,2},Array{Float64,3},Array{Float64,4},Array{Int64,1},Array{Int64,2},Array{Int64,3},ClimateMachine.Mesh.Topologies.StackedCubedSphereTopology{Float64}},ClimateMachine.DGMethods.NumericalFluxes.RusanovNumericalFlux,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxSecondOrder,ClimateMachine.DGMethods.NumericalFluxes.CentralNumericalFluxGradient,ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∫dz, :∫dnz, :coord, :orientation, :ref_state, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers, :radiation),Tuple{NamedTuple{(:radiation, :turbconv),Tuple{NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},NamedTuple{(:radiation,),Tuple{NamedTuple{(),Tuple{}}}},SArray{Tuple{3},Float64,1,3},NamedTuple{(:Φ, :∇Φ),Tuple{Float64,SArray{Tuple{3},Float64,1,3}}},NamedTuple{(:ρ, :p, :T, :ρe, :ρq_tot),NTuple{5,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:Δ,),Tuple{Float64}},NamedTuple{(:temperature, :θ_v, :q_liq, :q_ice),NTuple{4,Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:∇h_tot, :turbulence, :turbconv, :hyperdiffusion, :moisture, :tracers),Tuple{SArray{Tuple{3},Float64,1,3},NamedTuple{(:S,),Tuple{SHermitianCompact{3,Float64,6}}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:∇q_tot,),Tuple{SArray{Tuple{3},Float64,1,3}}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:u_h, :h_tot),Tuple{SArray{Tuple{3},Float64,1,3},Float64}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}},ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:hyperdiffusion,),Tuple{NamedTuple{(:ν∇³u_h, :ν∇³h_tot),Tuple{SArray{Tuple{3,3},Float64,2,9},SArray{Tuple{3},Float64,1,3}}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}},VerticalDirection,VerticalDirection,Nothing}},LowStorageVariant,NamedTuple{(:Qtt,),Tuple{ClimateMachine.MPIStateArrays.MPIStateArray{Float64,NamedTuple{(:ρ, :ρu, :ρe, :turbulence, :turbconv, :hyperdiffusion, :moisture, :radiation, :tracers),Tuple{Float64,SArray{Tuple{3},Float64,1,3},Float64,NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}},NamedTuple{(:ρq_tot,),Tuple{Float64}},NamedTuple{(),Tuple{}},NamedTuple{(),Tuple{}}}},Array{Float64,3},Array{Int64,1},SubArray{Float64,3,Array{Float64,3},Tuple{Base.Slice{Base.OneTo{Int64}},Base.Slice{Base.OneTo{Int64}},UnitRange{Int64}},true},ClimateMachine.MPIStateArrays.CMBuffers.CMBuffer{Float64,Array{Float64,2},Nothing}}}},3,9,2}, ::Nothing; timeend::Float64, adjustfinalstep::Bool, numberofsteps::Int64, callbacks::Tuple{EveryXSimulationSteps,EveryXWallTimeSeconds,EveryXSimulationTime,EveryXSimulationTime}) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Numerics/ODESolvers/ODESolvers.jl:134
+ [14] invoke!(::ClimateMachine.SolverConfiguration{Float64}; diagnostics_config::ClimateMachine.DiagnosticsConfiguration, user_callbacks::Tuple{EveryXSimulationSteps}, check_euclidean_distance::Bool, adjustfinalstep::Bool, user_info_callback::Function) at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/src/Driver/Driver.jl:653
+ [15] main() at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl:198
+ [16] top-level scope at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl:234
+ [17] include(::Module, ::String) at ./Base.jl:377
+ [18] exec_options(::Base.JLOptions) at ./client.jl:288
+ [19] _start() at ./client.jl:484
+in expression starting at /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl:234
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpiexec detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[50666,1],1]
+  Exit code:    1
+--------------------------------------------------------------------------
++ peak_rss='switched off'
+++ date +%s
++ t_end=1597923942
++ t_diff=5639
++ write_into_perf_log_file /central/scratch/elencz/output/hier_init_q_passive/log/experiments_performance_log /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl 08-20-20-03:11:43 5639 switched off
++ t_date=08-20-20-03:11:43
++ t_diff=5639
++ mem=switched
++++ grep 'n_days =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ echo
+++ sed 's/[():]//g'
++ sim_time=
++++ grep 'n_horz =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '    n_horz = 12                              # horizontal element number'
+++ local 'var=    n_horz = 12                              # horizontal element number'
+++ local 'var_=    n_horz = 12                              '
+++ local 'var__= 12                              '
+++ echo 12
+++ sed 's/[():]//g'
++ res_h=12
++++ grep 'n_vert =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '    n_vert = 6                               # vertical element number'
+++ local 'var=    n_vert = 6                               # vertical element number'
+++ local 'var_=    n_vert = 6                               '
+++ local 'var__= 6                               '
+++ echo 6
+++ sed 's/[():]//g'
++ res_v=6
++++ grep 'domain_height::FT =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)'
+++ local 'var=    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)'
+++ local 'var_=    domain_height::FT = 30e3 '
+++ local 'var__= 30e3 '
+++ echo 30e3
+++ sed 's/[():]//g'
++ domain_height=30e3
++++ grep 'FT =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    FT = Float64                             # floating type precision
+    n_days::FT = 10
+    timestart::FT = 0                        # start time (s)
+    timeend::FT = n_days * day(param_set)    # end time (s)'
+++ local 'var=    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    FT = Float64                             # floating type precision
+    n_days::FT = 10
+    timestart::FT = 0                        # start time (s)
+    timeend::FT = n_days * day(param_set)    # end time (s)'
+++ local 'var_=    domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    FT = Float64                             # floating type precision
+    n_days::FT = 10
+    timestart::FT = 0                        # start time (s)
+    timeend::FT = n_days * day(param_set)    '
+++ local 'var__= n_days * day(param_set)    '
+++ echo n_days bors.toml docs experiments exp_parameters helper_mod.sh LICENSE.md log_bcwave_hier.out Manifest.toml pipeline_logging_ci_gpu.sh pipeline_logging_ci.sh Project.toml README.md src test tutorials 'day(param_set)'
+++ sed 's/[():]//g'
++ FT='n_days bors.toml docs experiments exp_parameters helper_mod.sh LICENSE.md log_bcwave_hier.out Manifest.toml pipeline_logging_ci_gpu.sh pipeline_logging_ci.sh Project.toml README.md src test tutorials dayparam_set'
++++ grep 'CFL =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '    CFL = FT(0.1) # target acoustic CFL number'
+++ local 'var=    CFL = FT(0.1) # target acoustic CFL number'
+++ local 'var_=    CFL = FT(0.1) '
+++ local 'var__= FT(0.1) '
+++ echo 'FT(0.1)'
+++ sed 's/[():]//g'
++ CFL=FT0.1
++++ grep 'solver_method =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '        solver_method = ARK2GiraldoKellyConstantinescu,'
+++ local 'var=        solver_method = ARK2GiraldoKellyConstantinescu,'
+++ local 'var_=        solver_method = ARK2GiraldoKellyConstantinescu,'
+++ local 'var__= ARK2GiraldoKellyConstantinescu,'
+++ echo ARK2GiraldoKellyConstantinescu,
+++ sed 's/[():]//g'
++ solver_method=ARK2GiraldoKellyConstantinescu,
++++ grep 'implicit_solver =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '        implicit_solver = ManyColumnLU,'
+++ local 'var=        implicit_solver = ManyColumnLU,'
+++ local 'var_=        implicit_solver = ManyColumnLU,'
+++ local 'var__= ManyColumnLU,'
+++ echo ManyColumnLU,
+++ sed 's/[():]//g'
++ implicit_solver=ManyColumnLU,
++++ grep 'implicit_model =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '        implicit_model = AtmosAcousticGravityLinearModel,'
+++ local 'var=        implicit_model = AtmosAcousticGravityLinearModel,'
+++ local 'var_=        implicit_model = AtmosAcousticGravityLinearModel,'
+++ local 'var__= AtmosAcousticGravityLinearModel,'
+++ echo AtmosAcousticGravityLinearModel,
+++ sed 's/[():]//g'
++ implicit_model=AtmosAcousticGravityLinearModel,
++++ grep 'splitting_type =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals ''
+++ local var=
+++ local var_=
+++ local var__=
+++ echo
+++ sed 's/[():]//g'
++ splitting_type=
++++ grep 'ode_solver_type =' /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
+++ extract_vals '    ode_solver_type = ClimateMachine.IMEXSolverType(
+        ode_solver_type = ode_solver_type,'
+++ local 'var=    ode_solver_type = ClimateMachine.IMEXSolverType(
+        ode_solver_type = ode_solver_type,'
+++ local 'var_=    ode_solver_type = ClimateMachine.IMEXSolverType(
+        ode_solver_type = ode_solver_type,'
+++ local 'var__= ode_solver_type,'
+++ echo ode_solver_type,
+++ sed 's/[():]//g'
++ ode_solver_type=ode_solver_type,
++ solver_details=ode_solver_type,/ARK2GiraldoKellyConstantinescu,/ManyColumnLU,/AtmosAcousticGravityLinearModel,/
++ gpu=none
+++ basename /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl
++ printf '%-72s %-20s %-15s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-150s \n' moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl 08-20-20-03:11:43 5639 12 6 30e3 FT0.1 n_days bors.toml docs experiments exp_parameters helper_mod.sh LICENSE.md log_bcwave_hier.out Manifest.toml pipeline_logging_ci_gpu.sh pipeline_logging_ci.sh Project.toml README.md src test tutorials dayparam_set none switched ode_solver_type,/ARK2GiraldoKellyConstantinescu,/ManyColumnLU,/AtmosAcousticGravityLinearModel,/
++ sleep 2
++ mv /central/groups/esm/lenka/ClimaTests2/ClimateMachine_initmoist_passive.jl/experiments/AtmosGCM/moist-baroclinic-wave_hier_init_q_passive_remove_q_0micro.jl /central/scratch/elencz/output/hier_init_q_passive/log
++ read -u3 -r line
+++ basename /central/groups/esm/lenka/VizCLIMA.jl/src/scripts/hier_analysis_bcwave.jl
++ VIZCLIMA_SCRIPT_BN=hier_analysis_bcwave.jl
++ '[' -d /central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl ']'
++ cp /central/groups/esm/lenka/VizCLIMA.jl/src/scripts/hier_analysis_bcwave.jl /central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl
++ sed 's~CLIMA_ANALYSIS =.*~CLIMA_ANALYSIS = "/central/scratch/elencz/output/hier_init_q_passive/analysis"~' /central/groups/esm/lenka/VizCLIMA.jl/src/scripts/hier_analysis_bcwave.jl
++ sed -i 's~CLIMA_NETCDF =.*~CLIMA_NETCDF = "/central/scratch/elencz/output/hier_init_q_passive/netcdf"~' /central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl
++ sed -i 's~RUNNAME =.*~RUNNAME = "hier_init_q_passive"~' /central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl
++ sed -i 's~CLIMA_LOGFILE =.*~CLIMA_LOGFILE = "/central/scratch/elencz/output/hier_init_q_passive/log/experiments_performance_log"~' /central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl
++ rm /central/scratch/elencz/output/hier_init_q_passive/analysis/temp_an
+rm: cannot remove ‘/central/scratch/elencz/output/hier_init_q_passive/analysis/temp_an’: No such file or directory
++ export GKSwstype=null
++ GKSwstype=null
++ julia -e 'import Pkg; Pkg.add("IJulia"); Pkg.add("DelimitedFiles"); Pkg.add("PrettyTables"); Pkg.add("PaddedViews"); Pkg.add("Dates"); Pkg.add("GR")'
+   Updating registry at `~/.julia/registries/General`
+   Updating git-repo `https://github.com/JuliaRegistries/General.git`
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+  Resolving package versions...
+   Updating `/central/home/elencz/.julia/environments/v1.4/Project.toml`
+ [no changes]
+   Updating `/central/home/elencz/.julia/environments/v1.4/Manifest.toml`
+ [no changes]
+[?25l    Fetching: [>                                        ]  0.0 %[2K[?25h+ julia --project=/central/groups/esm/lenka/VizCLIMA.jl -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
+Precompiling project...
++ VIZCLIMA_LITERATE=/central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl
++ julia --project=/central/groups/esm/lenka/VizCLIMA.jl /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl --input-file /central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl --output-dir /central/scratch/elencz/output/hier_init_q_passive/analysis
+[ Info: generating notebook from `/central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl`
+[ Info: executing notebook `hier_analysis_bcwave.ipynb`
+┌ Error: error when executing notebook based on input file: `/central/scratch/elencz/output/hier_init_q_passive/analysis/hier_analysis_bcwave.jl`
+└ @ Literate ~/.julia/packages/Literate/5an7K/src/Literate.jl:594
+ERROR: LoadError: LoadError: MethodError: no method matching layout_args(::Int64, ::Tuple{Tuple{Int64},Tuple{Int64}})
+Closest candidates are:
+  layout_args(::Integer) at /home/elencz/.julia/packages/Plots/rNwM4/src/layouts.jl:480
+  layout_args(::Integer, !Matched::Integer) at /home/elencz/.julia/packages/Plots/rNwM4/src/layouts.jl:489
+  layout_args(::Any) at /home/elencz/.julia/packages/Plots/rNwM4/src/layouts.jl:519
+  ...
+in expression starting at string:20
+when executing the following code block
+
+```julia
+lat, time, dummy= get_timezonal_mean( "$CLIMA_NETCDF/"fnames[1], var_name_list[1], t_spinup, nan_fill_value);
+clims = ( get_min_max(dummy) )
+
+
+plot_array = Any[];
+for i in 1:nexp[1]
+  for n in 1:nvar[1]
+    title = var_name_list[n]
+    lat, z , vs = get_timezonal_mean( "$CLIMA_NETCDF/"fnames[i], var_name_list[n], t_spinup, nan_fill_value);
+    if i ==1
+      title = title*" change" # could add name of commit here
+      lat, z , vs_curr = get_timezonal_mean( "$CLIMA_NETCDF/"fnames[i+1], var_name_list[n], t_spinup, nan_fill_value);
+      vs = vs_curr - vs;
+    end
+    one_plot = contourf( lat, z, vs[1,:,:,1], title = title, ylabel="height (m)", xlabel="latitide (deg N)", clims = clims);
+    push!(plot_array,one_plot); # make a plot and add it to the plot_array
+  end
+end
+
+fig=plot(plot_array... , layout=(nrows,ncols), size=(1000, 400) )
+savefig(fig, string("$CLIMA_ANALYSIS/plot_timezonal_mean.pdf"));
+display(fig)
+```
+
+Stacktrace:
+ [1] error(::String) at ./error.jl:33
+ [2] execute_block(::Module, ::String) at /home/elencz/.julia/packages/Literate/5an7K/src/Literate.jl:676
+ [3] execute_notebook(::Dict{Any,Any}) at /home/elencz/.julia/packages/Literate/5an7K/src/Literate.jl:619
+ [4] (::Literate.var"#22#24")() at /home/elencz/.julia/packages/Literate/5an7K/src/Literate.jl:591
+ [5] cd(::Literate.var"#22#24", ::String) at ./file.jl:104
+ [6] notebook(::String, ::String; config::Dict{Any,Any}, kwargs::Base.Iterators.Pairs{Symbol,Any,Tuple{Symbol,Symbol},NamedTuple{(:outputdir, :execute),Tuple{String,Bool}}}) at /home/elencz/.julia/packages/Literate/5an7K/src/Literate.jl:590
+ [7] main() at /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl:32
+ [8] top-level scope at /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl:36
+ [9] include(::Module, ::String) at ./Base.jl:377
+ [10] exec_options(::Base.JLOptions) at ./client.jl:288
+ [11] _start() at ./client.jl:484
+in expression starting at /central/groups/esm/lenka/VizCLIMA.jl/src/utils/make_literate.jl:36
++ mv hier_analysis_bcwave.ipynb /central/scratch/elencz/output/hier_init_q_passive/analysis
+mv: cannot stat ‘hier_analysis_bcwave.ipynb’: No such file or directory
