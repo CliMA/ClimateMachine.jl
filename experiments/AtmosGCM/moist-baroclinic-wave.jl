@@ -41,7 +41,7 @@ LH_v0(::EarthParameterSet) = 0.0
 # driver-specific parameters added here
 T_sfc_pole(::EarthParameterSet) = 271.0
 
-remove_q = false
+remove_q = "none"
 #    |
 #    |
 #  \ | /
