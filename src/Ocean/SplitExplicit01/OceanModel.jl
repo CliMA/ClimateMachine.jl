@@ -172,7 +172,7 @@ end
 function vars_state_auxiliary(m::OceanModel, T)
     @vars begin
         w::T
-        pkin::T         # ∫(-αᵀ θ)
+        pkin::T         # kinematic pressure: ∫(-g αᵀ θ)
         wz0::T          # w at z=0
         u_d::SVector{2, T}  # velocity deviation from vertical mean
         ΔGu::SVector{2, T}
@@ -251,7 +251,7 @@ location to store integrands for bottom up integrals
 function vars_integrals(m::OceanModel, T)
     @vars begin
         ∇hu::T
-        αᵀθ::T
+        buoy::T
 #       ∫u::SVector{2, T}
     end
 end
@@ -270,7 +270,7 @@ A -> array of aux variables
 """
 @inline function integral_load_auxiliary_state!(m::OceanModel, I::Vars, Q::Vars, A::Vars)
     I.∇hu = A.w # borrow the w value from A...
-    I.αᵀθ = -m.αᵀ * Q.θ # integral will be reversed below
+    I.buoy = m.grav * m.αᵀ * Q.θ # buoyancy to integrate vertically from top (=reverse)
 #   I.∫u = Q.u
 
     return nothing
@@ -289,7 +289,7 @@ I -> array of integrand variables
 """
 @inline function integral_set_auxiliary_state!(m::OceanModel, A::Vars, I::Vars)
     A.w = I.∇hu
-    A.pkin = I.αᵀθ
+    A.pkin = -I.buoy
 #   A.∫u = I.∫u
 
     return nothing
@@ -303,7 +303,7 @@ location to store integrands for top down integrals
 """
 function vars_reverse_integrals(m::OceanModel, T)
     @vars begin
-        αᵀθ::T
+        buoy::T
     end
 end
 
@@ -324,7 +324,7 @@ A -> array of aux variables
     Q::Vars,
     A::Vars,
 )
-    I.αᵀθ = A.pkin
+    I.buoy = A.pkin
 
     return nothing
 end
@@ -341,7 +341,7 @@ A -> array of aux variables
 I -> array of integrand variables
 """
 @inline function reverse_integral_set_auxiliary_state!(m::OceanModel, A::Vars, I::Vars)
-    A.pkin = I.αᵀθ
+    A.pkin = I.buoy
 
     return nothing
 end
@@ -374,8 +374,8 @@ end
         # ∇ • (u θ)
         F.θ += v * θ
 
-        # ∇h • (- ∫(αᵀ θ))
-        F.u += m.grav * pkin * Iʰ
+        # ∇h • pkin
+        F.u += pkin * Iʰ
 
         # ∇h • (v ⊗ u)
         # F.u += v * u'
