@@ -130,6 +130,7 @@ function config_greenvortex(
         AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
         param_set;                          # Parameter set corresponding to earth parameters
         init_state_prognostic = init_greenvortex!,             # Apply the initial condition
+        ref_state = NoReferenceState(),
         orientation = NoOrientation(),
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
