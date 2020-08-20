@@ -28,4 +28,5 @@ Diagnostics.setup_atmos_refstate_perturbations
 Diagnostics.setup_atmos_turbulence_stats
 Diagnostics.setup_dump_state_diagnostics
 Diagnostics.setup_dump_aux_diagnostics
+Diagnostics.setup_dump_spectra_diagnostics
 ```

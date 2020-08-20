@@ -906,6 +906,16 @@ steps:
       slurm_ntasks: 1  
       slurm_gres: "gpu:1"
 
+  - label: "gpu_taylor_green"
+    key: "gpu_taylor_green"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/taylor_green.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1  
+      slurm_gres: "gpu:1"
+
   - label: "gpu_bomex_bulk_sfc_flux" 
     key: "gpu_bomex_bulk_sfc_flux"
     command:
