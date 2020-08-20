@@ -169,7 +169,7 @@ let
                         Array(mpi_b.data[:, :, cidx])[:]
                     norms[cidx] = norm(sol - Array(mpi_x.data[:, :, cidx])[:])
                 end
-                @test maximum(norms) < 3000ϵ
+                @test maximum(norms) < 4000ϵ
             end
 
             ###
