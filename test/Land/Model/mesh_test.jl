@@ -14,7 +14,7 @@ using Statistics
 using Test
 using OrdinaryDiffEq
 using LinearAlgebra: norm
-using Plots
+#using Plots
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -211,10 +211,10 @@ end
 #        zmin = zmin,
 #        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
 #    )
-
+    tol = FT(1)
     ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.KenCarp4(
         autodiff = false,
-        linsolve = LinSolveGMRES(),
+        linsolve = LinSolveGMRES(tol = tol),
     ))
 
 #    odesolver = ClimateMachine.IMEXSolverType(;
@@ -224,11 +224,11 @@ end
                                               
 
     t0 = FT(0)
-    timeend = FT(60*60*10)#*5.76)#60 * 60 * 2)
+    timeend = FT(60)#*5.76)#60 * 60 * 2)
 
-    use_implicit_solver = false
+    use_implicit_solver = true
     if use_implicit_solver
-        given_Fourier = FT(1e-4)
+        given_Fourier = FT(8.1e-3)
 
         solver_config = ClimateMachine.SolverConfiguration(
             t0,
@@ -281,4 +281,4 @@ end
     z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
     z = Array(aux[:, z_ind, :][:])
 
-    plot(ϑ_l, z)
+#    plot(ϑ_l, z)

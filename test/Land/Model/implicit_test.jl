@@ -14,7 +14,7 @@ using Statistics
 using Test
 using OrdinaryDiffEq
 using LinearAlgebra: norm
-using Plots
+
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -38,10 +38,6 @@ using ClimateMachine.BalanceLaws:
 using ClimateMachine.Mesh.Filters
 import ClimateMachine.DGMethods: calculate_dt
 
-
-# calculate_dt is only run once, at the beginning.
-# If we add in a source term... same idea to determine an intrinsic timescale for that term? and then dt is a fraction of the smallest one.
-
 function calculate_dt(dg, model::LandModel, Q, Courant_number, t, direction)
     Δt = one(eltype(Q))
     CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
@@ -59,11 +55,6 @@ function diffusive_courant(
     t,
     direction,
 )
-    #Is K∇h the right thing to use? [NB it has the correct units, or K∂h/∂ϑ does not]
-
-    #    K∇h = norm(diffusive.soil.water.K∇h)#this runs into lots of issues (not initialized yet?), but the below
-    #would run into issues as well if e.g. the state started at dry soil.
-#    if isnan(K∇h) | iszero(K∇h) | isinf(K∇h)
         myf = eltype(state)
         soil = land.soil
         water = land.soil.water
@@ -91,8 +82,6 @@ function diffusive_courant(
             ϑ_l,
         )
         K∇h = hydraulic_k  * abs(ψ) / Δx
-#    end
-#    println("v",K∇h)
     return Δt * K∇h  / Δx
 end
 
@@ -165,19 +154,13 @@ end
 
     ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.KenCarp4(
         autodiff = false,
-        linsolve = LinSolveGMRES(),
+        linsolve = LinSolveGMRES(tol = 1e-6),
     ))
 
-#    odesolver = ClimateMachine.IMEXSolverType(;
-#                                              splitting_type = ClimateMachine.HEVISplitting(),
-#                                              implicit_model = m,
-#                                              implicit_solver = 
-                                              
-
     t0 = FT(0)
-    timeend = FT(60 * 60 * 2)
+    timeend = FT(60)
 
-    use_implicit_solver = false
+    use_implicit_solver = true
     if use_implicit_solver
         given_Fourier = FT(1e-4)
 
@@ -232,4 +215,4 @@ end
     z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
     z = Array(aux[:, z_ind, :][:])
 
-    plot!(ϑ_l, z,label = "no filter, npoly = 10, nelem = 10")
+    #plot!(ϑ_l, z,label = "no filter, npoly = 10, nelem = 10")
