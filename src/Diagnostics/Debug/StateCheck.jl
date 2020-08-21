@@ -19,6 +19,7 @@ module StateCheck
 # Imports from standard Julia packages
 using Formatting
 using MPI
+using PrettyTables
 using Printf
 using StaticArrays
 using Statistics
@@ -332,121 +333,48 @@ function scprintref(cb)
         io = Base.stdout
     end
     if MPI.Comm_rank(MPI.COMM_WORLD) == 0
-        # Get print format lengths for cols 1 and 2 so they are aligned
-        # for readability.
-        phi = sc.cur_stats_flat
-        f = 1
-        a1l = maximum(length.(map(
-            i -> (phi[i])[f],
-            range(1, length = length(phi)),
-        )))
-        f = 2
-        a2l = maximum(length.(String.((map(
-            i -> (phi[i])[f],
-            range(1, length = length(phi)),
-        )))))
-        fmt1 = @sprintf("%%%d.%ds", a1l, a1l) # Column 1
-        fmt2 = @sprintf("%%%d.%ds", a2l, a2l) # Column 2
-        fmt3 = @sprintf("%%28.20e")         # All numbers at full precision
-        # Create an string of spaces to be used for formatting
-        sp = "                                                                           "
+        fmt = @sprintf("%%28.20e") # All numbers at full precision
 
         # Write header
         println(io, "# BEGIN SCPRINT")
         println(io, "# varr - reference values (from reference run)    ")
         println(io, "# parr - digits match precision (hand edit as needed) ")
         println(io, "#")
-        println(io, "# [")
-        println(
-            io,
-            "#  [ MPIStateArray Name, Field Name, Maximum, Minimum, Mean, Standard Deviation ],",
-        )
-        println(
-            io,
-            "#  [         :                :          :        :      :          :           ],",
-        )
-        println(io, "# ]")
+        header = [
+            "MPIStateArray Name",
+            "Field Name",
+            "Maxiumum",
+            "Minimum",
+            "Mean",
+            "Standard Deviation",
+        ]
+
         #
         # Write tables
         #  Reference value and precision match tables are separate since it is more
         #  common to update reference values occasionally while precision values are
         #  typically changed rarely and the precision values are hand edited from experience.
-        #
-        # Write table of reference values
-        println(io, "varr = [")
-        for lv in sc.cur_stats_flat
+        varr = Array{Any}(undef, length(sc.cur_stats_flat), length(header))
+        parr = Array{Any}(undef, length(sc.cur_stats_flat), length(header))
+        for (i, lv) in enumerate(sc.cur_stats_flat)
             s1 = lv[1]
-            l1 = length(s1)
-            s1 = sp[1:(a1l - l1)] * "\"" * s1 * "\""
-            s2 = lv[2]
-            if typeof(s2) == String
-                l2 = length(s2)
-                s2 = sp[1:(a2l - l2)] * "\"" * s2 * "\""
-                s22 = ""
+            s2 = if (typeof(lv[2]) == Symbol)
+                ":" * string(lv[2])
+            else
+                lv[2]
             end
-            if typeof(s2) == Symbol
-                s22 = s2
-                l2 = length(String(s2))
-                s2 = sp[1:(a2l - l2 + 1)] * ":"
-            end
-            s3 = sprintf1(fmt3, lv[3])
-            s4 = sprintf1(fmt3, lv[4])
-            s5 = sprintf1(fmt3, lv[5])
-            s6 = sprintf1(fmt3, lv[6])
-            println(
-                io,
-                " [ ",
-                s1,
-                ", ",
-                s2,
-                s22,
-                ",",
-                s3,
-                ",",
-                s4,
-                ",",
-                s5,
-                ",",
-                s6,
-                " ],",
-            )
+            s3 = sprintf1(fmt, lv[3])
+            s4 = sprintf1(fmt, lv[4])
+            s5 = sprintf1(fmt, lv[5])
+            s6 = sprintf1(fmt, lv[6])
+            varr[i, :] = [s1, s2, s3, s4, s5, s6]
+            parr[i, :] = [s1, s2, 16, 16, 16, 16]
         end
-        println(io, "]")
+        println(io, "varr =")
+        pretty_table(io, varr, header)
 
-        # Write table of reference match precisions using default precision that
-        # can be hand updated.
-        println(io, "parr = [")
-        for lv in sc.cur_stats_flat
-            s1 = lv[1]
-            l1 = length(s1)
-            s1 = sp[1:(a1l - l1)] * "\"" * s1 * "\""
-            s2 = lv[2]
-            if typeof(s2) == String
-                l2 = length(s2)
-                s2 = sp[1:(a2l - l2)] * "\"" * s2 * "\""
-                s22 = ""
-            end
-            if typeof(s2) == Symbol
-                s22 = s2
-                l2 = length(String(s2))
-                s2 = sp[1:(a2l - l2 + 1)] * ":"
-            end
-            s3 = sprintf1(fmt3, lv[3])
-            s4 = sprintf1(fmt3, lv[4])
-            s5 = sprintf1(fmt3, lv[5])
-            s6 = sprintf1(fmt3, lv[6])
-            println(
-                io,
-                " [ ",
-                s1,
-                ", ",
-                s2,
-                s22,
-                ",",
-                "    16,    16,    16,    16 ],",
-            )
-        end
-        println(io, "]")
+        println(io, "parr =")
+        pretty_table(io, parr, header)
         println(io, "# END SCPRINT")
     end
 end
@@ -476,31 +404,24 @@ function scdocheck(cb, ref_dat)
         io,
         "# SC \"N( )\" bracketing indicates field failed to match      ",
     )
-    println(io, "# SC \"P=\"  row pass count      ")
-    println(io, "# SC \"F=\"  row pass count      ")
-    println(io, "# SC \"NA=\" row not checked count      ")
+    println(io, "# SC P: row pass count      ")
+    println(io, "# SC F: row pass count      ")
+    println(io, "# SC NA: row not checked count      ")
     println(io, "# SC ")
-    println(
-        io,
-        "# SC        Label         Field      min()      max()     mean()      std() ",
-    )
-    irow = 1
+
     i_val = 1
     i_prec = 2
     all_pass = true
 
-    for row in sc.cur_stats_flat
-        ## Debugging
-        # println(row)
-        # println(ref_dat[i_val][irow])
-        # println(ref_dat[i_prec][irow])
+    header =
+        ["Label", "Field", "min()", "max()", "mean()", "std()", "P", "F", "NA"]
+    table = Array{Any}(undef, length(sc.cur_stats_flat), length(header))
+
+    for (irow, row) in enumerate(sc.cur_stats_flat)
         row_pass = true
         row_col_pass = 0
         row_col_na = 0
         row_col_fail = 0
-
-        ## Make array copy for reporting
-        res_dat = copy(ref_dat[i_prec][irow])
 
         ## Check MPIStateArrayName
         cval = row[1]
@@ -509,11 +430,10 @@ function scdocheck(cb, ref_dat)
             all_pass = false
             row_pass = false
             row_col_fail += 1
-            res_dat[1] = "N" * "(" * rval * ")"
+            table[irow, 1] = "N" * "(" * rval * ")"
         else
-            res_dat[1] = cval
+            table[irow, 1] = cval
             row_col_pass += 1
-            res_dat[1] = rval
         end
 
         ## Check term name
@@ -523,18 +443,17 @@ function scdocheck(cb, ref_dat)
             all_pass = false
             row_pass = false
             if typeof(rval) == String
-                res_dat[2] = "N" * "(" * rval * ")"
+                table[irow, 2] = "N" * "(" * rval * ")"
             else
-                res_dat[2] = "N" * "(" * string(rval) * ")"
+                table[irow, 2] = "N" * "(" * string(rval) * ")"
             end
             row_col_fail += 1
         else
-            res_dat[2] = cval
+            table[irow, 2] = cval
             row_col_pass += 1
         end
 
         # Check numeric values
-        nv = 3
         for nv in [3, 4, 5, 6]
             fmt = @sprintf("%%28.20e")
             lfld = 28
@@ -582,41 +501,23 @@ function scdocheck(cb, ref_dat)
                 if nmatch < pcmp
                     all_pass = false
                     row_pass = false
-                    res_dat[nv] = "N(" * string(nmatch) * ")"
+                    table[irow, nv] = "N(" * string(nmatch) * ")"
                     row_col_fail += 1
                 else
-                    res_dat[nv] = string(nmatch)
+                    table[irow, nv] = string(nmatch)
                     row_col_pass += 1
                 end
             else
-                res_dat[nv] = "0"
+                table[irow, nv] = "0"
                 row_col_na += 1
             end
         end
 
-
-        #
-        # println(resDat)
-        @printf(
-            io,
-            "# SC %12.12s, %12.12s, %9.9s, %9.9s, %9.9s, %9.9s",
-            res_dat[1],
-            res_dat[2],
-            res_dat[3],
-            res_dat[4],
-            res_dat[5],
-            res_dat[6]
-        )
-        @printf(
-            io,
-            " :: P=%d, F=%d, NA=%d\n",
-            row_col_pass,
-            row_col_fail,
-            row_col_na
-        )
-        # Next row
-        irow = irow + 1
+        table[irow, 7:9] = [row_col_pass, row_col_fail, row_col_na]
     end
+
+    pretty_table(io, table, header)
+
     println(
         io,
         "# SC +++++++++++ClimateMachine StateCheck ref val check end+++++++++++++++++",

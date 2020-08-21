@@ -16,6 +16,12 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    # Workaround for OSX MPICH issue:
+    # https://github.com/pmodels/mpich/issues/4710
+    env:
+      MPICH_INTERFACE_HOSTNAME: "localhost"
+      CLIMATEMACHINE_TEST_RUNMPI_LOCALHOST: "true"
+
     steps:
     - name: Cancel Previous Runs
       uses: styfle/cancel-workflow-action@0.4.0

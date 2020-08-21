@@ -1,4 +1,4 @@
-# Diagnostic Variable List
+# [Diagnostic Variable List](@id Diagnostics-vars)
 
 This is a list of all the diagnostic variables that the `ClimateMachine`
 can produce, partitioned into groups.

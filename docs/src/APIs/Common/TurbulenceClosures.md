@@ -16,6 +16,10 @@ ConstantViscosityWithDivergence
 SmagorinskyLilly
 Vreman
 AnisoMinDiss
+HyperDiffusion
+NoHyperDiffusion
+DryBiharmonic
+EquilMoistBiharmonic
 ```
 
 ## Supporting Methods

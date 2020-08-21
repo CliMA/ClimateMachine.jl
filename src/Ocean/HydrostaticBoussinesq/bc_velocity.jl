@@ -1,5 +1,7 @@
 export Impenetrable, Penetrable, NoSlip, FreeSlip, KinematicStress
 
+using ..Ocean: kinematic_stress
+
 abstract type VelocityBC end
 abstract type VelocityDragBC end
 

@@ -1,32 +1,40 @@
-function dump_aux_init(dgngrp, currtime)
-    FT = eltype(Settings.Q)
-    bl = Settings.dg.balance_law
-    mpicomm = Settings.mpicomm
-    mpirank = MPI.Comm_rank(mpicomm)
+"""
+    setup_dump_aux_diagnostics(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
 
-    if mpirank == 0
-        # get dimensions for the interpolated grid
-        dims = dimensions(dgngrp.interpol)
+Create and return a `DiagnosticsGroup` containing a diagnostic that
+simply dumps the auxiliary state variables at the specified
+`interval` after being interpolated, into NetCDF files prefixed by
+`out_prefix`.
+"""
+function setup_dump_aux_diagnostics(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
 
-        # set up the variables we're going to be writing
-        vars = OrderedDict()
-        auxnames = flattenednames(vars_state_auxiliary(bl, FT))
-        for varname in auxnames
-            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
-        end
-
-        dprefix = @sprintf(
-            "%s_%s-%s",
-            dgngrp.out_prefix,
-            dgngrp.name,
-            Settings.starttime,
-        )
-        dfilename = joinpath(Settings.output_dir, dprefix)
-        init_data(dgngrp.writer, dfilename, dims, vars)
-    end
-
-    return nothing
+    return DiagnosticsGroup(
+        "DumpAux",
+        Diagnostics.dump_aux_init,
+        Diagnostics.dump_aux_fini,
+        Diagnostics.dump_aux_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
 end
+
+dump_aux_init(dgngrp, currtime) = dump_init(dgngrp, currtime, Auxiliary())
 
 function dump_aux_collect(dgngrp, currtime)
     interpol = dgngrp.interpol
@@ -40,14 +48,15 @@ function dump_aux_collect(dgngrp, currtime)
     iaux = similar(
         dg.state_auxiliary.data,
         interpol.Npl,
-        number_state_auxiliary(bl, FT),
+        number_states(bl, Auxiliary()),
     )
+
     interpolate_local!(interpol, dg.state_auxiliary.data, iaux)
 
     all_aux_data = accumulate_interpolated_data(mpicomm, interpol, iaux)
 
     if mpirank == 0
-        auxnames = flattenednames(vars_state_auxiliary(bl, FT))
+        auxnames = flattenednames(vars_state(bl, Auxiliary(), FT))
         varvals = OrderedDict()
         for (vari, varname) in enumerate(auxnames)
             varvals[varname] = all_aux_data[:, :, :, vari]

@@ -1,5 +1,6 @@
 module Filters
 
+using SpecialFunctions
 using LinearAlgebra, GaussQuadrature, KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
@@ -10,7 +11,7 @@ using ...MPIStateArrays
 using ...VariableTemplates: @vars, varsize, Vars, varsindices
 
 export AbstractSpectralFilter, AbstractFilter
-export ExponentialFilter, CutoffFilter, TMARFilter
+export ExponentialFilter, CutoffFilter, TMARFilter, BoydVandevenFilter
 
 abstract type AbstractFilter end
 abstract type AbstractSpectralFilter <: AbstractFilter end
@@ -154,6 +155,56 @@ struct ExponentialFilter <: AbstractSpectralFilter
         @assert 0 <= Nc <= N
 
         σ(η) = exp(-α * η^s)
+        filter = spectral_filter_matrix(ξ, Nc, σ)
+
+        new(AT(filter))
+    end
+end
+
+"""
+    BoydVandevenFilter(grid, Nc=0, s=32)
+
+Returns the spectral filter using the logorithmic error function of
+the form:
+```math
+σ(η) = 1/2 erfc(2*sqrt(s)*χ(η)*(abs(η)-0.5))
+```
+whenever s ≤ i ≤ N, and 1 otherwise. The function `χ(η)` is defined
+as
+```math
+χ(η) = sqrt(-log(1-4*(abs(η)-0.5)^2)/(4*(abs(η)-0.5)^2))
+```
+if `x != 0.5` and `1` otherwise. Here, `s` is the filter order,
+the filter starts with polynomial order `Nc`, and `alpha` is a parameter
+controlling the smallest value of the filter function.
+
+### References
+
+    @inproceedings{boyd1996erfc,
+    title={The erfc-log filter and the asymptotics of the Euler and Vandeven sequence accelerations},
+    author={Boyd, JP},
+    booktitle={Proceedings of the Third International Conference on Spectral and High Order Methods},
+    pages={267--276},
+    year={1996},
+    organization={Houston Math. J}
+    }
+"""
+struct BoydVandevenFilter <: AbstractSpectralFilter
+    "filter matrix"
+    filter
+
+    function BoydVandevenFilter(grid, Nc = 0, s = 32)
+        AT = arraytype(grid)
+        N = polynomialorder(grid)
+        ξ = referencepoints(grid)
+
+        @assert iseven(s)
+        @assert 0 <= Nc <= N
+        function σ(η)
+            a = 2 * abs(η) - 1
+            χ = iszero(a) ? one(a) : sqrt(-log1p(-a^2) / a^2)
+            return erfc(sqrt(s) * χ * a) / 2
+        end
         filter = spectral_filter_matrix(ξ, Nc, σ)
 
         new(AT(filter))

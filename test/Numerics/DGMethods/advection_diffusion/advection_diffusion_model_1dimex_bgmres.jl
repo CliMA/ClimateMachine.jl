@@ -82,7 +82,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)
@@ -97,7 +97,12 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
 
-        writepvtu(pvtuprefix, prefixes, (statenames..., exactnames...))
+        writepvtu(
+            pvtuprefix,
+            prefixes,
+            (statenames..., exactnames...),
+            eltype(Q),
+        )
 
         @info "Done writing VTK: $pvtuprefix"
     end

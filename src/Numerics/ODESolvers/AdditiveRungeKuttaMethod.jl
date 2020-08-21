@@ -76,6 +76,8 @@ mutable struct AdditiveRungeKutta{
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "rhs function"
     rhs!
     "rhs linear operator"
@@ -152,6 +154,7 @@ mutable struct AdditiveRungeKutta{
         new{T, RT, AT, BE, V, VS, Nstages, Nstages^2, Nstages - 1}(
             RT(dt),
             RT(t0),
+            0,
             rhs!,
             rhs_implicit!,
             besolver!,

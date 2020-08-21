@@ -63,8 +63,8 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `t0::FT`: simulation start time.
 # - `timeend::FT`: simulation end time.
 # - `driver_config::DriverConfiguration`: from `AtmosLESConfiguration()`, etc.
-# - `init_args...`: passed through to `init_state_conservative!()`.
-# - `init_on_cpu=false`: run `init_state_conservative!()` on CPU?
+# - `init_args...`: passed through to `init_state_prognostic!()`.
+# - `init_on_cpu=false`: run `init_state_prognostic!()` on CPU?
 # - `ode_solver_type=driver_config.solver_type`: override solver choice.
 # - `ode_dt=nothing`: override timestep computation.
 # - `modeldata=nothing`: passed through to `DGModel`.
@@ -86,6 +86,7 @@ function SolverConfiguration(
     diffdir = EveryDirection(),
     timeend_dt_adjust = true,
     CFL_direction = EveryDirection(),
+    fixed_number_of_steps = Settings.fixed_number_of_steps,
 ) where {FT <: AbstractFloat}
     @tic SolverConfiguration
 
@@ -119,7 +120,11 @@ function SolverConfiguration(
             modeldata = modeldata,
         )
 
-        @info @sprintf("Restarting %s from time %8.2f", driver_config.name, t0)
+        @info @sprintf(
+            "Initializing %s from time %8.2f",
+            driver_config.name,
+            t0
+        )
         Q = restart_ode_state(dg, s_Q; init_on_cpu = init_on_cpu)
     else
         dg = DGModel(
@@ -128,14 +133,45 @@ function SolverConfiguration(
             numerical_flux_first_order,
             numerical_flux_second_order,
             numerical_flux_gradient,
+            fill_nan = Settings.debug_init,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
 
+        if Settings.debug_init
+            write_debug_init_vtk_and_pvtu(
+                "init_auxiliary",
+                driver_config,
+                dg,
+                dg.state_auxiliary,
+                flattenednames(vars_state(bl, Auxiliary(), FT)),
+            )
+        end
+
         @info @sprintf("Initializing %s", driver_config.name,)
         Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+
+        if Settings.debug_init
+            write_debug_init_vtk_and_pvtu(
+                "init_prognostic",
+                driver_config,
+                dg,
+                Q,
+                flattenednames(vars_state(bl, Prognostic(), FT)),
+            )
+        end
     end
     update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+
+    if Settings.debug_init
+        write_debug_init_vtk_and_pvtu(
+            "first_update_auxiliary",
+            driver_config,
+            dg,
+            dg.state_auxiliary,
+            flattenednames(vars_state(bl, Auxiliary(), FT)),
+        )
+    end
 
     # default Courant number
     # TODO: Think about revising this or drop it entirely.
@@ -155,7 +191,6 @@ function SolverConfiguration(
     end
 
     # initial Δt specified or computed
-    simtime = FT(0) # TODO: needs to be more general to account for restart:
     if ode_dt === nothing
         dtmodel = getdtmodel(ode_solver_type, bl)
         ode_dt = ClimateMachine.DGMethods.calculate_dt(
@@ -163,12 +198,17 @@ function SolverConfiguration(
             dtmodel,
             Q,
             Courant_number,
-            simtime,
+            t0,
             CFL_direction,
         )
     end
-    numberofsteps = convert(Int, cld(timeend, ode_dt))
-    timeend_dt_adjust && (ode_dt = timeend / numberofsteps)
+    if fixed_number_of_steps < 0
+        numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
+        timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    else
+        numberofsteps = fixed_number_of_steps
+        timeend = fixed_number_of_steps * ode_dt
+    end
 
     # create the solver
     solver = solversetup(ode_solver_type, dg, Q, ode_dt, t0, diffdir)
@@ -189,4 +229,43 @@ function SolverConfiguration(
         init_args,
         solver,
     )
+end
+
+function write_debug_init_vtk_and_pvtu(
+    suffix_name,
+    driver_config,
+    dg,
+    state,
+    state_names,
+)
+    mpicomm = driver_config.mpicomm
+    bl = driver_config.bl
+
+    vprefix = @sprintf(
+        "%s_mpirank%04d_%s",
+        driver_config.name,
+        MPI.Comm_rank(mpicomm),
+        suffix_name,
+    )
+    out_prefix = joinpath(Settings.output_dir, vprefix)
+
+    writevtk(
+        out_prefix,
+        state,
+        dg,
+        state_names;
+        number_sample_points = Settings.vtk_number_sample_points,
+    )
+
+    # Generate the pvtu file for these vtk files
+    if MPI.Comm_rank(mpicomm) == 0
+        pprefix = @sprintf("%s_%s", driver_config.name, suffix_name)
+        pvtuprefix = joinpath(Settings.output_dir, pprefix)
+
+        # name of each of the ranks vtk files
+        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+            @sprintf("%s_mpirank%04d_%s", driver_config.name, i - 1, suffix_name,)
+        end
+        writepvtu(pvtuprefix, prefixes, state_names, eltype(state))
+    end
 end

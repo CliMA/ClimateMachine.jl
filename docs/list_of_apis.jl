@@ -10,8 +10,7 @@ apis = [
         "Microphysics" => "APIs/Atmos/Microphysics.md",
         "Temperature Profiles" => "APIs/Atmos/TemperatureProfiles.md",
     ],
-    "Ocean" =>
-        ["Hydrostatic Boussinesq" => "APIs/Ocean/HydrostaticBoussinesq.md"],
+    "Ocean" => "APIs/Ocean/Ocean.md",
     "Land" => [
         "Land Model" => "APIs/Land/LandModel.md",
         "Soil Water Parameterizations" =>
@@ -21,9 +20,13 @@ apis = [
         "Orientations" => "APIs/Common/Orientations.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
-        "TurbulenceClosures" => "APIs/Common/TurbulenceClosures.md",
+        "Turbulence Closures" => "APIs/Common/TurbulenceClosures.md",
+        "Turbulence Convection" => "APIs/Common/TurbulenceConvection.md",
     ],
-    "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
+    "Balance Laws" => [
+        "Balance Laws" => "APIs/BalanceLaws/BalanceLaws.md",
+        "Problems" => "APIs/BalanceLaws/Problems.md",
+    ],
     "Arrays" => "APIs/Arrays/Arrays.md",
     "Diagnostics" => [
         "Diagnostics groups" => "APIs/Diagnostics/Diagnostics.md",

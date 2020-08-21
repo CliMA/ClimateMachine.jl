@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v2.2.0
       - name: Install System Dependencies
         run: |
+          sudo apt-get update
           sudo apt-get -qq install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5 xvfb
       - uses: julia-actions/setup-julia@v1.1.6
         with:
@@ -56,3 +57,7 @@ jobs:
           ClIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
           CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
         run: xvfb-run -- julia --procs=auto docs/make.jl
+      - name: Help! Documenter Failed
+        run: |
+          cat .github/workflows/doc_build_common_error_messages.md
+        if: failure()

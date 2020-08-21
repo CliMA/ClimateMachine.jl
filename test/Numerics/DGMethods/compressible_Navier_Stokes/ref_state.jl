@@ -1,5 +1,11 @@
+using Dates
+using LinearAlgebra
 using MPI
+using Printf
+using StaticArrays
+
 using ClimateMachine
+using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -8,14 +14,12 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
+using ClimateMachine.BalanceLaws
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
 using ClimateMachine.VTK
 
 using CLIMAParameters
@@ -29,14 +33,11 @@ if !@isdefined integration_testing
     )
 end
 
-using ClimateMachine.Atmos
-using ClimateMachine.Atmos: internal_energy, thermo_state
-import ClimateMachine.Atmos: MoistureModel, temperature, pressure, soundspeed
 
-init_state_conservative!(bl, state, aux, coords, t) = nothing
+init_state_prognostic!(problem, bl, state, aux, coords, t) = nothing
 
 # initial condition
-using ClimateMachine.Atmos: vars_state_auxiliary
+using ClimateMachine.Atmos: vars_state
 
 function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
 
@@ -52,8 +53,8 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = init_state_prognostic!,
         ref_state = HydrostaticState(T_profile),
-        init_state_conservative = init_state_conservative!,
     )
 
     dg = DGModel(
@@ -72,7 +73,7 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         outprefix,
         dg.state_auxiliary,
         dg,
-        flattenednames(vars_state_auxiliary(model, FT)),
+        flattenednames(vars_state(model, Auxiliary(), FT)),
     )
     return FT(0)
 end
@@ -90,8 +91,8 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = init_state_prognostic!,
         ref_state = HydrostaticState(T_profile),
-        init_state_conservative = init_state_conservative!,
     )
 
     dg = DGModel(
@@ -110,7 +111,7 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
         outprefix,
         dg.state_auxiliary,
         dg,
-        flattenednames(vars_state_auxiliary(model, FT)),
+        flattenednames(vars_state(model, Auxiliary(), FT)),
     )
     return FT(0)
 end

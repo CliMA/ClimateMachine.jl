@@ -12,9 +12,10 @@ using ..SystemSolvers
 using ..MPIStateArrays: array_device, realview
 using ..GenericCallbacks
 
-export solve!, updatedt!, gettime
+export solve!, updatedt!, gettime, getsteps
 
 abstract type AbstractODESolver end
+
 """
     gettime(solver::AbstractODESolver)
 
@@ -28,6 +29,13 @@ gettime(solver::AbstractODESolver) = solver.t
 Returns the current simulation time step of the ODE solver `solver`
 """
 getdt(solver::AbstractODESolver) = solver.dt
+
+"""
+    getsteps(solver::AbstractODESolver)
+
+Returns the number of completed time steps of the ODE solver `solver`
+"""
+getsteps(solver::AbstractODESolver) = solver.steps
 
 """
     ODESolvers.general_dostep!(Q, solver::AbstractODESolver, p,
@@ -44,7 +52,7 @@ function general_dostep!(
     timeend::Real;
     adjustfinalstep::Bool,
 )
-    time, dt = solver.t, solver.dt
+    time, dt = gettime(solver), getdt(solver)
     final_step = false
     if adjustfinalstep && time + dt > timeend
         orig_dt = dt
@@ -57,12 +65,19 @@ function general_dostep!(
     dostep!(Q, solver, p, time)
 
     if !final_step
-        solver.t += dt
+        updatetime!(solver, time + dt)
     else
         updatedt!(solver, orig_dt)
-        solver.t = timeend
+        updatetime!(solver, timeend)
     end
 end
+
+"""
+    updatetime!(solver::AbstractODESolver, time)
+
+Change the current time to `time` for the ODE solver `solver`.
+"""
+updatetime!(solver::AbstractODESolver, time) = (solver.t = time)
 
 """
     updatedt!(solver::AbstractODESolver, dt)
@@ -72,11 +87,11 @@ Change the time step size to `dt` for the ODE solver `solver`.
 updatedt!(solver::AbstractODESolver, dt) = (solver.dt = dt)
 
 """
-    updatetime!(solver::AbstractODESolver, time)
+    updatesteps!(solver::AbstractODESolver, dt)
 
-Change the current time to `time` for the ODE solver `solver`.
+Set the number of elapsed time steps for the ODE solver `solver`.
 """
-updatetime!(solver::AbstractODESolver, time) = (solver.t = time)
+updatesteps!(solver::AbstractODESolver, steps) = (solver.steps = steps)
 
 isadjustable(solver::AbstractODESolver) = true
 
@@ -114,6 +129,7 @@ function solve!(
     time = t0
     while time < timeend
         step += 1
+        updatesteps!(solver, step)
 
         time = general_dostep!(
             Q,
@@ -129,11 +145,15 @@ function solve!(
         end
 
         # Figure out if we should stop
-        if numberofsteps == step
-            return gettime(solver)
+        if step == numberofsteps
+            break
         end
     end
-    gettime(solver)
+
+    # Loop through to fini callbacks
+    GenericCallbacks.fini!(callbacks, solver, Q, param, time)
+
+    return gettime(solver)
 end
 # }}}
 
@@ -141,10 +161,12 @@ include("BackwardEulerSolvers.jl")
 include("MultirateInfinitesimalGARKExplicit.jl")
 include("MultirateInfinitesimalGARKDecoupledImplicit.jl")
 include("LowStorageRungeKuttaMethod.jl")
+include("LowStorageRungeKutta3NMethod.jl")
 include("StrongStabilityPreservingRungeKuttaMethod.jl")
 include("AdditiveRungeKuttaMethod.jl")
 include("MultirateInfinitesimalStepMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
 include("SplitExplicitMethod.jl")
+include("DifferentialEquations.jl")
 
 end # module

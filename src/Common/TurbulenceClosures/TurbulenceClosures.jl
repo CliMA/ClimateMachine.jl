@@ -2,7 +2,7 @@
     TurbulenceClosures
 
 Functions for turbulence, sub-grid scale modelling. These include
-viscosity terms, diffusivity and stress tensors. 
+viscosity terms, diffusivity and stress tensors.
 
 - [`ConstantViscosityWithDivergence`](@ref)
 - [`SmagorinskyLilly`](@ref)
@@ -47,25 +47,15 @@ using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 
 
 import ClimateMachine.BalanceLaws:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_gradient_laplacian,
-    vars_state_gradient_flux,
-    vars_hyperdiffusive,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
-    init_state_conservative!,
+    init_state_prognostic!,
     update_auxiliary_state!,
-    nodal_update_auxiliary_state!,
-    number_state_conservative,
-    num_integrals,
-    vars_integrals,
-    vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -79,8 +69,13 @@ export TurbulenceClosureModel,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
+    HyperDiffusion,
+    NoHyperDiffusion,
+    DryBiharmonic,
+    EquilMoistBiharmonic,
     turbulence_tensors,
     init_aux_turbulence!,
+    init_aux_hyperdiffusion!,
     turbulence_nodal_update_auxiliary_state!
 
 # ### Abstract Type
@@ -90,18 +85,17 @@ export TurbulenceClosureModel,
 
 
 """
-    Abstract type with default do-nothing behaviour for 
-arbitrary turbulence closure models. 
+    Abstract type with default do-nothing behaviour for
+arbitrary turbulence closure models.
 """
 abstract type TurbulenceClosureModel end
 
-vars_state_conservative(::TurbulenceClosureModel, FT) = @vars()
-vars_state_auxiliary(::TurbulenceClosureModel, FT) = @vars()
-vars_state_gradient(::TurbulenceClosureModel, FT) = @vars()
-vars_state_gradient_flux(::TurbulenceClosureModel, FT) = @vars()
-vars_gradient_laplacian(::TurbulenceClosureModel, FT) = @vars()
-vars_integrals(::TurbulenceClosureModel, FT) = @vars()
-vars_reverse_integrals(::TurbulenceClosureModel, FT) = @vars()
+vars_state(::TurbulenceClosureModel, ::AbstractStateType, FT) = @vars()
+
+"""
+    Abstract type for Hyperdiffusion models
+"""
+abstract type HyperDiffusion end
 
 """
     init_aux_turbulence!
@@ -116,7 +110,7 @@ function init_aux_turbulence!(
 ) end
 
 """
-    nodal_update_auxiliary_state!
+    turbulence_nodal_update_auxiliary_state!
 Update auxiliary variables for turbulence models.
 Overload for specific turbulence closure type.
 """
@@ -153,10 +147,59 @@ function compute_gradient_flux!(
     t,
 ) end
 
-function turbulence_tensors end
+# Fallback functions for hyperdiffusion model
+vars_state(::HyperDiffusion, ::AbstractStateType, FT) = @vars()
 
-turbulence_tensors(atmos::BalanceLaw, args...) =
-    turbulence_tensors(atmos.turbulence, atmos, args...)
+function init_aux_hyperdiffusion!(
+    ::HyperDiffusion,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+) end
+function hyperdiffusion_nodal_update_auxiliary_state!(
+    ::HyperDiffusion,
+    ::BalanceLaw,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_argument!(
+    ::HyperDiffusion,
+    ::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function transform_post_gradient_laplacian!(
+    h::HyperDiffusion,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    gradvars::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function flux_second_order!(
+    h::HyperDiffusion,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_flux!(
+    h::HyperDiffusion,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+
+function turbulence_tensors end
+function hyperviscosity_tensors end
 
 """
     ν, D_t, τ = turbulence_tensors(
@@ -176,14 +219,14 @@ for the returned quantities.
 
 - `::TurbulenceClosureModel` = Struct identifier for turbulence closure model
 - `orientation` = `BalanceLaw.orientation`
-- `param_set` = `BalanceLaw.param_set`
-- `state` = Array of prognostic (state) variables. See `vars_state_conservative` in `BalanceLaw`
+- `param_set` parameter set
+- `state` = Array of prognostic (state) variables. See `vars_state` in `BalanceLaw`
 - `diffusive` = Array of diffusive variables
 - `aux` = Array of auxiliary variables
 - `t` = time
 """
-turbulence_tensors(m::TurbulenceClosureModel, atmos::BalanceLaw, args...) =
-    turbulence_tensors(m, atmos.orientation, atmos.param_set, args...)
+turbulence_tensors(m::TurbulenceClosureModel, bl::BalanceLaw, args...) =
+    turbulence_tensors(m, bl.orientation, bl.param_set, args...)
 
 # We also provide generic math functions for use within the turbulence closures,
 # commonly used quantities such as the [principal tensor invariants](@ref tensor-invariants), handling of
@@ -299,8 +342,8 @@ struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosureModel
     ρν::FT
 end
 
-vars_state_gradient(::ConstantViscosityWithDivergence, FT) = @vars()
-vars_state_gradient_flux(::ConstantViscosityWithDivergence, FT) =
+vars_state(::ConstantViscosityWithDivergence, ::Gradient, FT) = @vars()
+vars_state(::ConstantViscosityWithDivergence, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
 function compute_gradient_flux!(
@@ -415,9 +458,9 @@ struct SmagorinskyLilly{FT} <: TurbulenceClosureModel
     C_smag::FT
 end
 
-vars_state_auxiliary(::SmagorinskyLilly, FT) = @vars(Δ::FT)
-vars_state_gradient(::SmagorinskyLilly, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::SmagorinskyLilly, FT) =
+vars_state(::SmagorinskyLilly, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::SmagorinskyLilly, ::Gradient, FT) = @vars(θ_v::FT)
+vars_state(::SmagorinskyLilly, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6}, N²::FT)
 
 
@@ -540,9 +583,10 @@ struct Vreman{FT} <: TurbulenceClosureModel
     "Smagorinsky Coefficient [dimensionless]"
     C_smag::FT
 end
-vars_state_auxiliary(::Vreman, FT) = @vars(Δ::FT)
-vars_state_gradient(::Vreman, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::Vreman, FT) = @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
+vars_state(::Vreman, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::Vreman, ::Gradient, FT) = @vars(θ_v::FT)
+vars_state(::Vreman, ::GradientFlux, FT) =
+    @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 
 function init_aux_turbulence!(
     ::Vreman,
@@ -646,9 +690,9 @@ $(DocStringExtensions.FIELDS)
 struct AnisoMinDiss{FT} <: TurbulenceClosureModel
     C_poincare::FT
 end
-vars_state_auxiliary(::AnisoMinDiss, FT) = @vars(Δ::FT)
-vars_state_gradient(::AnisoMinDiss, FT) = @vars(θ_v::FT)
-vars_state_gradient_flux(::AnisoMinDiss, FT) =
+vars_state(::AnisoMinDiss, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::AnisoMinDiss, ::Gradient, FT) = @vars(θ_v::FT)
+vars_state(::AnisoMinDiss, ::GradientFlux, FT) =
     @vars(∇u::SMatrix{3, 3, FT, 9}, N²::FT)
 function init_aux_turbulence!(
     ::AnisoMinDiss,
@@ -720,4 +764,181 @@ function turbulence_tensors(
     return ν, D_t, τ
 end
 
+"""
+  NoHyperDiffusion <: HyperDiffusion
+Defines a default hyperdiffusion model with zero hyperdiffusive fluxes.
+"""
+struct NoHyperDiffusion <: HyperDiffusion end
+
+hyperviscosity_tensors(m::HyperDiffusion, bl::BalanceLaw, args...) =
+    hyperviscosity_tensors(m, bl.orientation, bl.param_set, args...)
+
+"""
+  EquilMoistBiharmonic{FT} <: HyperDiffusion
+
+Assumes equilibrium thermodynamics in compressible flow.
+Horizontal hyperdiffusion methods for application in GCM and LES settings
+Timescales are prescribed by the user while the diffusion coefficient is
+computed as a function of the grid lengthscale.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct EquilMoistBiharmonic{FT} <: HyperDiffusion
+    τ_timescale::FT
+end
+vars_state(::EquilMoistBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::EquilMoistBiharmonic, ::Gradient, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
+vars_state(::EquilMoistBiharmonic, ::GradientLaplacian, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
+vars_state(::EquilMoistBiharmonic, ::Hyperdiffusive, FT) = @vars(
+    ν∇³u_h::SMatrix{3, 3, FT, 9},
+    ν∇³h_tot::SVector{3, FT},
+    ν∇³q_tot::SVector{3, FT}
+)
+
+function init_aux_hyperdiffusion!(
+    ::EquilMoistBiharmonic,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.hyperdiffusion.Δ = lengthscale(geom)
+end
+
+function compute_gradient_argument!(
+    h::EquilMoistBiharmonic,
+    bl::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ρinv = 1 / state.ρ
+    u = state.ρu * ρinv
+    k̂ = vertical_unit_vector(bl, aux)
+    u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
+    transform.hyperdiffusion.u_h = u_h
+    transform.hyperdiffusion.h_tot = transform.h_tot
+    transform.hyperdiffusion.q_tot = state.moisture.ρq_tot * ρinv
+end
+
+function transform_post_gradient_laplacian!(
+    h::EquilMoistBiharmonic,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    hypertransform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
+    ∇Δu_h = hypertransform.hyperdiffusion.u_h
+    ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
+    ∇Δq_tot = hypertransform.hyperdiffusion.q_tot
+    # Unpack
+    τ_timescale = h.τ_timescale
+    # Compute hyperviscosity coefficient
+    ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
+    hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
+    hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
+    hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄ * ∇Δq_tot
+end
+
+function flux_second_order!(
+    h::EquilMoistBiharmonic,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
+    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
+    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
+    flux.moisture.ρq_tot += hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρ
+end
+
+"""
+  DryBiharmonic{FT} <: HyperDiffusion
+
+Assumes dry compressible flow. 
+Horizontal hyperdiffusion methods for application in GCM and LES settings
+Timescales are prescribed by the user while the diffusion coefficient is
+computed as a function of the grid lengthscale.
+
+# Fields
+$(DocStringExtensions.FIELDS)
+"""
+struct DryBiharmonic{FT} <: HyperDiffusion
+    τ_timescale::FT
+end
+vars_state(::DryBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
+vars_state(::DryBiharmonic, ::Gradient, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_state(::DryBiharmonic, ::GradientLaplacian, FT) =
+    @vars(u_h::SVector{3, FT}, h_tot::FT)
+vars_state(::DryBiharmonic, ::Hyperdiffusive, FT) =
+    @vars(ν∇³u_h::SMatrix{3, 3, FT, 9}, ν∇³h_tot::SVector{3, FT})
+
+function init_aux_hyperdiffusion!(
+    ::DryBiharmonic,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    aux.hyperdiffusion.Δ = lengthscale(geom)
+end
+
+function compute_gradient_argument!(
+    h::DryBiharmonic,
+    bl::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ρinv = 1 / state.ρ
+    u = state.ρu * ρinv
+    k̂ = vertical_unit_vector(bl, aux)
+    u_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * u
+    transform.hyperdiffusion.u_h = u_h
+    transform.hyperdiffusion.h_tot = transform.h_tot
+end
+
+function transform_post_gradient_laplacian!(
+    h::DryBiharmonic,
+    bl::BalanceLaw,
+    hyperdiffusive::Vars,
+    hypertransform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    _inv_Pr_turb = eltype(state)(inv_Pr_turb(bl.param_set))
+    ∇Δu_h = hypertransform.hyperdiffusion.u_h
+    ∇Δh_tot = hypertransform.hyperdiffusion.h_tot
+    # Unpack
+    τ_timescale = h.τ_timescale
+    # Compute hyperviscosity coefficient
+    ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
+    hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
+    hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
+end
+
+function flux_second_order!(
+    h::DryBiharmonic,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
+    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
+    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
+end
 end #module TurbulenceClosures.jl

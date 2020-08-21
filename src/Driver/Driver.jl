@@ -17,11 +17,7 @@ using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
 using ..DGMethods
-using ..BalanceLaws:
-    BalanceLaw,
-    vars_state_conservative,
-    vars_state_auxiliary,
-    update_auxiliary_state!
+using ..BalanceLaws
 using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
 using ..Ocean.HydrostaticBoussinesq
@@ -32,6 +28,7 @@ using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
+using ..VTK
 
 function _init_array(::Type{CuArray})
     comm = MPI.COMM_WORLD
@@ -58,6 +55,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     show_updates::String = "60secs"
     diagnostics::String = "never"
     vtk::String = "never"
+    vtk_number_sample_points::Int = 0
     monitor_timestep_duration::String = "never"
     monitor_courant_numbers::String = "never"
     checkpoint::String = "never"
@@ -69,8 +67,10 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     log_level::String = "INFO"
     disable_custom_logger::Bool = false
     output_dir::String = "output"
+    debug_init::Bool = false
     integration_testing::Bool = false
     array_type::Type = Array
+    fixed_number_of_steps::Int = -1
 end
 
 const Settings = ClimateMachine_Settings()
@@ -133,7 +133,8 @@ end
 
 """
     parse_commandline(
-        defaults::Union{Nothing, Dict{Symbol,Any}) = nothing,
+        defaults::Dict{Symbol, Any},
+        global_defaults::Dict{Symbol, Any},
         custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
     )
 
@@ -144,12 +145,10 @@ overrides default values for command line argument defaults. If
 Returns a `Dict` containing parsed process ARGS values.
 """
 function parse_commandline(
-    defaults::Union{Nothing, Dict{Symbol, Any}} = nothing,
+    defaults::Dict{Symbol, Any},
+    global_defaults::Dict{Symbol, Any},
     custom_clargs::Union{Nothing, ArgParseSettings} = nothing,
 )
-    if isnothing(defaults)
-        defaults = Dict{Symbol, Any}()
-    end
     exc_handler = ArgParse.default_handler
     if Base.isinteractive()
         exc_handler = ArgParse.debug_handler
@@ -169,13 +168,10 @@ function parse_commandline(
         preformatted_epilog = true,
         version = string(CLIMATEMACHINE_VERSION),
         exc_handler = exc_handler,
-        autofix_names = true,  # switches --flag-name to 'flag_name'
+        autofix_names = true,     # switches --flag-name to 'flag_name'
+        error_on_conflict = true, # don't allow custom_clargs' settings to override these
     )
     add_arg_group!(s, "ClimateMachine")
-
-    global_defaults = Dict{Symbol, Any}(
-        (n, getproperty(Settings, n)) for n in propertynames(Settings)
-    )
 
     @add_arg_table! s begin
         "--disable-gpu"
@@ -198,6 +194,12 @@ function parse_commandline(
         metavar = "<interval>"
         arg_type = String
         default = get_setting(:vtk, defaults, global_defaults)
+        "--vtk-number-sample-points"
+        help = "The number of sampling points in each element for VTK output"
+        metavar = "<number>"
+        arg_type = Int
+        default =
+            get_setting(:vtk_number_sample_points, defaults, global_defaults)
         "--monitor-timestep-duration"
         help = "interval in time-steps at which to output wall-clock time per time-step"
         metavar = "<interval>"
@@ -259,11 +261,21 @@ function parse_commandline(
                 get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", Settings.output_dir)
             end
         end
+        "--debug-init"
+        help = "fill state arrays with NaNs and dump them post-initialization"
+        action = :store_const
+        constant = true
+        default = get_setting(:debug_init, defaults, global_defaults)
         "--integration-testing"
         help = "enable integration testing"
         action = :store_const
         constant = true
         default = get_setting(:integration_testing, defaults, global_defaults)
+        "--fixed-number-of-steps"
+        help = "if `≥0` perform specified number of steps"
+        metavar = "<number>"
+        arg_type = Int
+        default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
@@ -306,6 +318,8 @@ Recognized keyword arguments are:
         interval at which to collect diagnostics"
 - `vtk::String = "never"`:
         inteverval at which to write simulation vtk output
+- `vtk-number-sample-points::Int` = 0:
+        the number of sampling points in each element for VTK output
 - `monitor_timestep_duration::String = "never"`:
         interval in time-steps at which to output wall-clock time per time-step
 - `monitor_courant_numbers::String = "never"`:
@@ -328,6 +342,8 @@ Recognized keyword arguments are:
         disable using a global custom logger for ClimateMachine
 - `output_dir::String = "output"`: (path)
         absolute or relative path to output data directory
+- `debug_init::Bool = false`:
+        fill state arrays with NaNs and dump them post-initialization
 - `integration_testing::Bool = false`:
         enable integration_testing
 
@@ -340,10 +356,24 @@ function init(;
     init_driver::Bool = true,
     keyword_args...,
 )
+    # `Settings` contains global defaults
+    global_defaults = Dict{Symbol, Any}(
+        (n, getproperty(Settings, n)) for n in propertynames(Settings)
+    )
+
+    # keyword arguments must be applicable to `Settings`
     all_args = Dict{Symbol, Any}(keyword_args)
+    for kwarg in keys(all_args)
+        if get(global_defaults, kwarg, nothing) === nothing
+            throw(ArgumentError(string(kwarg)))
+        end
+    end
+
+    # if command line arguments should be processed, do so and override
+    # keyword arguments
     cl_args = nothing
     if parse_clargs
-        cl_args = parse_commandline(all_args, custom_clargs)
+        cl_args = parse_commandline(all_args, global_defaults, custom_clargs)
 
         # We need to munge the parsed arg dict a bit as parsed arg keys
         # and initialization keywords are not 1:1
@@ -356,10 +386,10 @@ function init(;
         )
     end
 
-    # TODO: add validation for initialization values
+    # TODO: also add validation for initialization values
 
-    # Initialize `Settings` from command line arguments/keyword arguments/
-    # default values.
+    # Here, `all_args` contains command line arguments and keyword arguments.
+    # They must be applied to `Settings`.
     #
     # special cases for backward compatibility
     if haskey(all_args, :disable_gpu)
@@ -388,9 +418,6 @@ function init(;
     end
 
     # all other settings
-    global_defaults = Dict{Symbol, Any}(
-        (n, getproperty(Settings, n)) for n in propertynames(Settings)
-    )
     for n in propertynames(Settings)
         # skip over the special backwards compat cases defined above
         if n == :disable_gpu || n == :output_dir
@@ -561,7 +588,12 @@ function invoke!(
     end
 
     # vtk callback
-    cb_vtk = Callbacks.vtk(Settings.vtk, solver_config, Settings.output_dir)
+    cb_vtk = Callbacks.vtk(
+        Settings.vtk,
+        solver_config,
+        Settings.output_dir,
+        Settings.vtk_number_sample_points,
+    )
     if !isnothing(cb_vtk)
         callbacks = (callbacks..., cb_vtk)
     end
@@ -603,11 +635,12 @@ function invoke!(
     eng0 = norm(Q)
     @info @sprintf(
         """
-Starting %s
+%s %s
     dt              = %.5e
     timeend         = %8.2f
     number of steps = %d
     norm(Q)         = %.16e""",
+        Settings.restart_from_num > 0 ? "Restarting" : "Starting",
         solver_config.name,
         solver_config.dt,
         solver_config.timeend,
@@ -636,18 +669,6 @@ Starting %s
             solver_config.numberofsteps,
         )
     end
-
-    # fini diagnostics groups
-    # TODO: come up with a better mechanism
-    if Settings.diagnostics != "never" && !isnothing(diagnostics_config)
-        currtime = ODESolvers.gettime(solver)
-        for dgngrp in diagnostics_config.groups
-            dgngrp.fini(dgngrp, currtime)
-        end
-    end
-
-    # fini VTK
-    !isnothing(cb_vtk) && cb_vtk()
 
     engf = norm(Q)
     @info @sprintf(

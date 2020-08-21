@@ -9,6 +9,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
+using ClimateMachine.BalanceLaws
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
@@ -23,7 +24,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Mesh.Grids: _x1, _x2, _x3
-import ClimateMachine.BalanceLaws: vars_state_conservative
+import ClimateMachine.BalanceLaws: vars_state
 import ClimateMachine.VariableTemplates.varsindex
 
 # ------------------------ Description ------------------------- #
@@ -40,7 +41,7 @@ import ClimateMachine.VariableTemplates.varsindex
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-function init_risingbubble!(bl, state, aux, (x, y, z), t)
+function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -98,10 +99,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = init_risingbubble!,
+        ref_state = ref_state,
         turbulence = SmagorinskyLilly{FT}(C_smag),
         source = (Gravity(),),
-        ref_state = ref_state,
-        init_state_conservative = init_risingbubble!,
     )
 
     # Problem configuration
@@ -175,8 +176,8 @@ function run_brick_diagostics_fields_test()
         Npl = size(Q.realdata, 1)
 
         ind = [
-            varsindex(vars_state_conservative(model, FT), :ρ)
-            varsindex(vars_state_conservative(model, FT), :ρu)
+            varsindex(vars_state(model, Prognostic(), FT), :ρ)
+            varsindex(vars_state(model, Prognostic(), FT), :ρu)
         ]
         _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
 

@@ -33,8 +33,7 @@ using ClimateMachine.Atmos:
     NoRadiation,
     NTracers,
     ConstantViscosityWithDivergence,
-    vars_state_conservative,
-    vars_state_auxiliary,
+    vars_state,
     Gravity,
     HydrostaticState,
     AtmosAcousticGravityLinearModel,
@@ -130,13 +129,13 @@ function run(
     fullmodel = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
-        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_conservative = setup,
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     dg = DGModel(
         fullmodel,
@@ -308,7 +307,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -353,8 +352,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files
@@ -367,7 +366,7 @@ function do_output(
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
 
-        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...), eltype(Q))
 
         @info "Done writing VTK: $pvtuprefix"
     end

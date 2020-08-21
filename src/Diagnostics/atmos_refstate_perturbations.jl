@@ -9,6 +9,44 @@ using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
 
+"""
+    setup_atmos_refstate_perturbations(
+        ::ClimateMachineConfigType,
+        interval::String,
+        out_prefix::String;
+        writer = NetCDFWriter(),
+        interpol = nothing,
+    )
+
+Create and return a `DiagnosticsGroup` containing the
+"AtmosRefStatePerturbations" diagnostics for both LES and GCM
+configurations. All the diagnostics in the group will run at the
+specified `interval`, be interpolated to the specified boundaries
+and resolution, and written to files prefixed by `out_prefix`
+using `writer`.
+"""
+function setup_atmos_refstate_perturbations(
+    ::ClimateMachineConfigType,
+    interval::String,
+    out_prefix::String;
+    writer = NetCDFWriter(),
+    interpol = nothing,
+)
+    # TODO: remove this
+    @assert !isnothing(interpol)
+
+    return DiagnosticsGroup(
+        "AtmosRefStatePerturbations",
+        Diagnostics.atmos_refstate_perturbations_init,
+        Diagnostics.atmos_refstate_perturbations_fini,
+        Diagnostics.atmos_refstate_perturbations_collect,
+        interval,
+        out_prefix,
+        writer,
+        interpol,
+    )
+end
+
 function vars_atmos_refstate_perturbations(m::AtmosModel, FT)
     @vars begin
         ref_state::vars_atmos_refstate_perturbations(m.ref_state, FT)
@@ -107,7 +145,8 @@ function atmos_refstate_perturbations_init(dgngrp::DiagnosticsGroup, currtime)
             flattenednames(vars_atmos_refstate_perturbations(atmos, FT)),
         )
         for varname in varnames
-            vars[varname] = (tuple(collect(keys(dims))...), FT, Dict())
+            var = Variables[varname]
+            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
         end
 
         # create the output file
@@ -172,8 +211,8 @@ function atmos_refstate_perturbations_collect(
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state_conservative(dg, state_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
         compute_thermo!(atmos, state, aux, thermo)
@@ -182,7 +221,7 @@ function atmos_refstate_perturbations_collect(
     # Interpolate the state and thermo variables.
     interpol = dgngrp.interpol
     istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_conservative(atmos, FT))
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
     if interpol isa InterpolationCubedSphere
@@ -191,7 +230,7 @@ function atmos_refstate_perturbations_collect(
         project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
     end
 
-    iaux = ArrayType{FT}(undef, interpol.Npl, number_state_auxiliary(atmos, FT))
+    iaux = ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Auxiliary()))
     interpolate_local!(interpol, dg.state_auxiliary.realdata, iaux)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
@@ -220,14 +259,14 @@ function atmos_refstate_perturbations_collect(
         )
 
         @visitI nlong nlat nlevel begin
-            statei = Vars{vars_state_conservative(atmos, FT)}(view(
+            statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,
                 la,
                 le,
                 :,
             ))
-            auxi = Vars{vars_state_auxiliary(atmos, FT)}(view(
+            auxi = Vars{vars_state(atmos, Auxiliary(), FT)}(view(
                 all_aux_data,
                 lo,
                 la,

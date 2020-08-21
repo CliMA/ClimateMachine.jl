@@ -11,7 +11,9 @@ Container for all the `DiagnosticsGroup`s to be used for a simulation.
 mutable struct DiagnosticsConfiguration
     groups::Array{DiagnosticsGroup, 1}
 
-    DiagnosticsConfiguration(groups::Array{DiagnosticsGroup, 1}) = new(groups)
+    DiagnosticsConfiguration(
+        groups::Array{DG, 1},
+    ) where {DG <: DiagnosticsGroup} = new(groups)
 end
 
 """

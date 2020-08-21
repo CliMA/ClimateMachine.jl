@@ -22,13 +22,15 @@ rtol_density = rtol_temperature
 rtol_pressure = 1e-1
 rtol_energy = 1e-1
 
-float_types = [Float32, Float64]
+array_types = [Array{Float32}, Array{Float64}]
 
 include("profiles.jl")
 include("data_tests.jl")
 
 @testset "Thermodynamics - isentropic processes" begin
-    for FT in float_types
+    for ArrayType in array_types
+        FT = eltype(ArrayType)
+
         _R_d = FT(R_d(param_set))
         _molmass_ratio = FT(molmass_ratio(param_set))
         _cp_d = FT(cp_d(param_set))
@@ -54,8 +56,7 @@ include("data_tests.jl")
         _T_max = FT(T_max(param_set))
         _kappa_d = FT(kappa_d(param_set))
 
-        # for FT in float_types
-        profiles = PhaseEquilProfiles(param_set, FT)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # Test state for thermodynamic consistency (with ideal gas law)
@@ -395,13 +396,51 @@ end
     # Input arguments should be accurate within machine precision
     # Temperature is approximated via saturation adjustment, and should be within a physical tolerance
 
-    for FT in float_types
-        profiles = PhaseEquilProfiles(param_set, FT)
-        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
+    for ArrayType in array_types
+        FT = eltype(ArrayType)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
+        @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type e_kin e_pot
+
+        # PhaseEquil (freezing)
+        _T_freeze = FT(T_freeze(param_set))
+        e_int_upper =
+            internal_energy_sat.(
+                Ref(param_set),
+                Ref(_T_freeze + sqrt(eps(FT))),
+                ρ,
+                q_tot,
+                phase_type,
+            )
+        e_int_lower =
+            internal_energy_sat.(
+                Ref(param_set),
+                Ref(_T_freeze - sqrt(eps(FT))),
+                ρ,
+                q_tot,
+                phase_type,
+            )
+        _e_int = (e_int_upper .+ e_int_lower) / 2
+        ts = PhaseEquil.(Ref(param_set), _e_int, ρ, q_tot)
+        @test all(air_temperature.(ts) .== Ref(_T_freeze))
+
+        # Args needs to be in sync with PhaseEquil:
+        ts =
+            PhaseEquil.(
+                Ref(param_set),
+                _e_int,
+                ρ,
+                q_tot,
+                8,
+                FT(1e-1),
+                MT.saturation_adjustment_SecantMethod,
+            )
+        @test all(air_temperature.(ts) .== Ref(_T_freeze))
 
         # PhaseEquil
         ts_exact = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 100, FT(1e-3))
         ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
+        @test all(isapprox.(T, air_temperature.(ts), rtol = rtol_temperature))
+
         # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈
@@ -428,6 +467,23 @@ end
             getproperty.(q_pt, :liq) .+ getproperty.(q_pt, :ice),
         )
         @test all(has_condensate.(q_dry) .== false)
+
+        e_tot = total_energy.(e_kin, e_pot, ts)
+        @test all(
+            specific_enthalpy.(ts) .≈
+            e_int .+ gas_constant_air.(ts) .* air_temperature.(ts),
+        )
+        @test all(
+            total_specific_enthalpy.(ts, e_tot) .≈
+            specific_enthalpy.(ts) .+ e_kin .+ e_pot,
+        )
+        @test all(
+            moist_static_energy.(ts, e_pot) .≈ specific_enthalpy.(ts) .+ e_pot,
+        )
+        @test all(
+            moist_static_energy.(ts, e_pot) .≈
+            total_specific_enthalpy.(ts, e_tot) .- e_kin,
+        )
 
         # PhaseEquil
         ts_exact =
@@ -595,8 +651,9 @@ end
 
 @testset "Thermodynamics - exceptions on failed convergence" begin
 
-    FT = Float64
-    profiles = PhaseEquilProfiles(param_set, FT)
+    ArrayType = Array{Float64}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
     @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
     @test_throws ErrorException MT.saturation_adjustment.(
@@ -665,10 +722,11 @@ end
 
     # Make sure `ThermodynamicState` arguments are returned unchanged
 
-    for FT in float_types
+    for ArrayType in array_types
+        FT = eltype(ArrayType)
         _MSLP = FT(MSLP(param_set))
 
-        profiles = PhaseDryProfiles(param_set, FT)
+        profiles = PhaseDryProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # PhaseDry
@@ -685,7 +743,7 @@ end
         @test all(air_density.(ts_p) .≈ air_density.(ts))
         @test all(internal_energy.(ts_p) .≈ internal_energy.(ts))
 
-        profiles = PhaseEquilProfiles(param_set, FT)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # PhaseEquil
@@ -864,7 +922,7 @@ end
         )
 
 
-        profiles = PhaseEquilProfiles(param_set, FT)
+        profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # Test that relative humidity is 1 for saturated conditions
@@ -952,18 +1010,19 @@ end
 
     # NOTE: `Float32` saturation adjustment tends to have more difficulty
     # with converging to the same tolerances as `Float64`, so they're relaxed here.
-    FT = Float32
-    profiles = PhaseEquilProfiles(param_set, FT)
-    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
+    ArrayType = Array{Float32}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
+    @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type e_pot e_kin
 
     ρu = FT[1.0, 2.0, 3.0]
-    e_pot = FT(100.0)
-    @test typeof.(internal_energy.(ρ, ρ .* e_int, Ref(ρu), Ref(e_pot))) ==
+    @test typeof.(internal_energy.(ρ, ρ .* e_int, Ref(ρu), e_pot)) ==
           typeof.(e_int)
 
     ts_dry = PhaseDry.(Ref(param_set), e_int, ρ)
     ts_dry_pT = PhaseDry_given_pT.(Ref(param_set), p, T)
     ts_eq = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 15, FT(1e-1))
+    e_tot = total_energy.(e_kin, e_pot, ts_eq)
 
     ts_T =
         TemperatureSHumEquil.(
@@ -1030,6 +1089,7 @@ end
     )
         @test typeof.(soundspeed_air.(ts)) == typeof.(e_int)
         @test typeof.(gas_constant_air.(ts)) == typeof.(e_int)
+        @test typeof.(specific_enthalpy.(ts)) == typeof.(e_int)
         @test typeof.(vapor_specific_humidity.(ts)) == typeof.(e_int)
         @test typeof.(relative_humidity.(ts)) == typeof.(e_int)
         @test typeof.(air_pressure.(ts)) == typeof.(e_int)
@@ -1053,6 +1113,9 @@ end
         @test typeof.(specific_volume.(ts)) == typeof.(e_int)
         @test typeof.(virtual_pottemp.(ts)) == typeof.(e_int)
         @test eltype.(gas_constants.(ts)) == typeof.(e_int)
+
+        @test typeof.(total_specific_enthalpy.(ts, e_tot)) == typeof.(e_int)
+        @test typeof.(moist_static_energy.(ts, e_pot)) == typeof.(e_int)
         @test typeof.(getproperty.(PhasePartition.(ts), :tot)) == typeof.(e_int)
     end
 
@@ -1060,8 +1123,9 @@ end
 
 @testset "Thermodynamics - dry limit" begin
 
-    FT = Float64
-    profiles = PhaseEquilProfiles(param_set, FT)
+    ArrayType = Array{Float64}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
     @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
     # PhasePartition test is noisy, so do this only once:

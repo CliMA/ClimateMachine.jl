@@ -12,27 +12,21 @@ using ..VariableTemplates
 using ..Courant
 using ..BalanceLaws:
     BalanceLaw,
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_gradient_laplacian,
-    vars_hyperdiffusive,
-    vars_integrals,
-    vars_reverse_integrals,
-    number_state_conservative,
-    number_state_gradient_flux,
-    number_state_conservative,
-    number_state_auxiliary,
-    number_state_gradient,
-    num_gradient_laplacian,
-    num_hyperdiffusive,
-    num_integrals,
-    num_reverse_integrals
+    AbstractStateType,
+    Prognostic,
+    Auxiliary,
+    Gradient,
+    GradientFlux,
+    GradientLaplacian,
+    Hyperdiffusive,
+    UpwardIntegrals,
+    DownwardIntegrals,
+    vars_state,
+    number_states
 
 import ..BalanceLaws:
     BalanceLaw,
-    init_state_conservative!,
+    init_state_prognostic!,
     init_state_auxiliary!,
     flux_first_order!,
     flux_second_order!,
@@ -45,6 +39,7 @@ import ..BalanceLaws:
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,
     nodal_update_auxiliary_state!,
+    nodal_init_state_auxiliary!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     indefinite_stack_integral!,
@@ -53,7 +48,13 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export DGModel,
-    init_ode_state, restart_ode_state, restart_auxiliary_state, basic_grid_info
+    init_ode_state,
+    restart_ode_state,
+    restart_auxiliary_state,
+    basic_grid_info,
+    init_state_auxiliary!,
+    contiguous_field_gradient!,
+    courant
 
 include("NumericalFluxes.jl")
 include("DGModel.jl")

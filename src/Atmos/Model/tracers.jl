@@ -37,10 +37,7 @@ abstract type TracerModel end
 
 export NoTracers, NTracers
 
-vars_state_conservative(::TracerModel, FT) = @vars()
-vars_state_gradient(::TracerModel, FT) = @vars()
-vars_state_gradient_flux(::TracerModel, FT) = @vars()
-vars_state_auxiliary(::TracerModel, FT) = @vars()
+vars_state(::TracerModel, ::AbstractStateType, FT) = @vars()
 
 function atmos_init_aux!(
     ::TracerModel,
@@ -130,7 +127,7 @@ struct NoTracers <: TracerModel end
 # i.e. the user must track each tracer variable based on its
 # numerical index. Sources can be added to each tracer based on the
 # same numerical index. Initial profiles must be specified using the
-# `init_state_conservative!` hook at the experiment level.
+# `init_state_prognostic!` hook at the experiment level.
 
 """
     NTracers{N, FT} <: TracerModel
@@ -148,11 +145,11 @@ struct NTracers{N, FT} <: TracerModel
     δ_χ::SVector{N, FT}
 end
 
-vars_state_conservative(tr::NTracers, FT) = @vars(ρχ::typeof(tr.δ_χ))
-vars_state_gradient(tr::NTracers, FT) = @vars(χ::typeof(tr.δ_χ))
-vars_state_gradient_flux(tr::NTracers, FT) =
+vars_state(tr::NTracers, ::Prognostic, FT) = @vars(ρχ::typeof(tr.δ_χ))
+vars_state(tr::NTracers, ::Gradient, FT) = @vars(χ::typeof(tr.δ_χ))
+vars_state(tr::NTracers, ::GradientFlux, FT) =
     @vars(∇χ::SMatrix{3, length(tr.δ_χ), FT, 3 * length(tr.δ_χ)})
-vars_state_auxiliary(tr::NTracers, FT) = @vars(δ_χ::typeof(tr.δ_χ))
+vars_state(tr::NTracers, ::Auxiliary, FT) = @vars(δ_χ::typeof(tr.δ_χ))
 
 function atmos_init_aux!(
     tr::NTracers,

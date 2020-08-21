@@ -73,7 +73,7 @@ function soundspeed(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
     sqrt(ρinv * γ * p)
 end
 
-function mms3_init_state!(bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),
@@ -90,6 +90,7 @@ function mms3_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
     x1, x2, x3 = aux.coord
     source.ρ = Sρ_g(t, x1, x2, x3, Val(3))
@@ -120,16 +121,20 @@ function main()
 
     expected_result = FT(3.403104838700577e-02)
 
+    problem = AtmosProblem(
+        boundarycondition = InitStateBC(),
+        init_state_prognostic = mms3_init_state!,
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        problem = problem,
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
         moisture = MMSDryModel(),
         source = mms3_source!,
-        boundarycondition = InitStateBC(),
-        init_state_conservative = mms3_init_state!,
     )
 
     brickrange = (
@@ -164,6 +169,7 @@ function main()
         FT,
         ClimateMachine.array_type(),
         ode_solver,
+        param_set,
         model,
         MPI.COMM_WORLD,
         grid,
@@ -180,6 +186,32 @@ function main()
         ode_solver_type = ode_solver,
         ode_dt = ode_dt,
     )
+    Q₀ = solver_config.Q
+
+    # turn on checkpointing
+    ClimateMachine.Settings.checkpoint = "300steps"
+    ClimateMachine.Settings.checkpoint_keep_one = false
+
+    # run the simulation
+    ClimateMachine.invoke!(solver_config)
+
+    # turn off checkpointing and set up a restart
+    ClimateMachine.Settings.checkpoint = "never"
+    ClimateMachine.Settings.restart_from_num = 2
+
+    # the solver configuration is where the restart is set up
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        ode_solver_type = ode_solver,
+        ode_dt = ode_dt,
+    )
+
+    # run the restarted simulation
+    ClimateMachine.invoke!(solver_config)
+
+    # test correctness
     dg = DGModel(
         model,
         grid,
@@ -187,11 +219,8 @@ function main()
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
-
-    ClimateMachine.invoke!(solver_config)
-
     Qe = init_ode_state(dg, timeend)
-    result = euclidean_distance(solver_config.Q, Qe)
+    result = euclidean_distance(Q₀, Qe)
     @test result ≈ expected_result
 end
 

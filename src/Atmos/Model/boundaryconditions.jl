@@ -1,6 +1,6 @@
 using CLIMAParameters.Planet: cv_d, T_0
 
-export BoundaryCondition, InitStateBC
+export InitStateBC
 
 export AtmosBC,
     Impenetrable,
@@ -10,10 +10,14 @@ export AtmosBC,
     Insulating,
     PrescribedTemperature,
     PrescribedEnergyFlux,
+    BulkFormulaEnergy,
     Impermeable,
     ImpermeableTracer,
     PrescribedMoistureFlux,
+    BulkFormulaMoisture,
     PrescribedTracerFlux
+
+export average_density_sfc_int
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
@@ -23,15 +27,16 @@ export AtmosBC,
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q, TR}
+Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
     momentum::M = Impenetrable(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
     tracer::TR = ImpermeableTracer()
+    turbconv::TC = NoTurbConvBC()
 end
 
 function boundary_state!(nf, atmos::AtmosModel, args...)
-    atmos_boundary_state!(nf, atmos.boundarycondition, atmos, args...)
+    atmos_boundary_state!(nf, atmos.problem.boundarycondition, atmos, args...)
 end
 
 function boundary_state!(
@@ -84,6 +89,7 @@ function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
     atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
     atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
     atmos_tracer_boundary_state!(nf, bc.tracer, atmos, args...)
+    turbconv_boundary_state!(nf, bc.turbconv, atmos, args...)
 end
 
 
@@ -106,7 +112,7 @@ function normal_boundary_flux_second_order!(
 ) where {S}
     atmos_normal_boundary_flux_second_order!(
         nf,
-        atmos.boundarycondition,
+        atmos.problem.boundarycondition,
         atmos,
         fluxᵀn,
         n⁻,
@@ -199,6 +205,18 @@ function atmos_normal_boundary_flux_second_order!(
         atmos,
         args...,
     )
+    turbconv_normal_boundary_flux_second_order!(nf, bc.turbconv, atmos, args...)
+end
+
+"""
+    average_density(ρ_sfc, ρ_int)
+
+Average density between the surface and the interior point, given
+ - `ρ_sfc` density at the surface
+ - `ρ_int` density at the interior point
+"""
+function average_density(ρ_sfc::FT, ρ_int::FT) where {FT <: Real}
+    return FT(0.5) * (ρ_sfc + ρ_int)
 end
 
 include("bc_momentum.jl")

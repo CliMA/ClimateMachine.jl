@@ -28,8 +28,7 @@ using ClimateMachine.Atmos:
     NoPrecipitation,
     NoRadiation,
     NTracers,
-    vars_state_conservative,
-    vars_state_auxiliary,
+    vars_state,
     Gravity,
     HydrostaticState,
     AtmosAcousticGravityLinearModel
@@ -121,13 +120,13 @@ function run(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
-        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_conservative = setup,
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 
@@ -181,6 +180,7 @@ function run(
         t0 = 0,
         split_explicit_implicit = split_explicit_implicit,
     )
+    @test getsteps(odesolver) == 0
 
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
@@ -249,6 +249,8 @@ function run(
         callbacks = callbacks,
     )
 
+    @test getsteps(odesolver) == nsteps
+
     # final statistics
     engf = norm(Q)
     @info @sprintf """Finished
@@ -267,7 +269,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -312,8 +314,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files
@@ -326,7 +328,7 @@ function do_output(
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
 
-        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+        writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...), eltype(Q))
 
         @info "Done writing VTK: $pvtuprefix"
     end

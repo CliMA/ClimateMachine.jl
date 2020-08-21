@@ -64,22 +64,19 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
-function vars_state_conservative(lm::AtmosLinearModel, FT)
+function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
         ρe::FT
-        turbulence::vars_state_conservative(lm.atmos.turbulence, FT)
-        hyperdiffusion::vars_state_conservative(lm.atmos.hyperdiffusion, FT)
-        moisture::vars_state_conservative(lm.atmos.moisture, FT)
+        turbulence::vars_state(lm.atmos.turbulence, st, FT)
+        hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
+        moisture::vars_state(lm.atmos.moisture, st, FT)
     end
 end
-vars_state_gradient(lm::AtmosLinearModel, FT) = @vars()
-vars_state_gradient_flux(lm::AtmosLinearModel, FT) = @vars()
-vars_state_auxiliary(lm::AtmosLinearModel, FT) =
-    vars_state_auxiliary(lm.atmos, FT)
-vars_integrals(lm::AtmosLinearModel, FT) = @vars()
-vars_reverse_integrals(lm::AtmosLinearModel, FT) = @vars()
+vars_state(lm::AtmosLinearModel, ::AbstractStateType, FT) = @vars()
+vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
+    vars_state(lm.atmos, st, FT)
 
 
 function update_auxiliary_state!(
@@ -155,9 +152,8 @@ function boundary_state!(
 )
     nothing
 end
-init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) =
-    nothing
-init_state_conservative!(
+init_state_auxiliary!(lm::AtmosLinearModel, aux::MPIStateArray, grid) = nothing
+init_state_prognostic!(
     lm::AtmosLinearModel,
     state::Vars,
     aux::Vars,
@@ -249,4 +245,80 @@ function source!(
         source.ρu -= state.ρ * ∇Φ
     end
     nothing
+end
+
+function numerical_flux_first_order!(
+    numerical_flux::RoeNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    @assert balance_law.atmos.moisture isa DryModel
+
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+    atmos = balance_law.atmos
+    param_set = atmos.param_set
+
+    ρu⁻ = state_conservative⁻.ρu
+
+    ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
+    ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
+    ref_T⁻ = state_auxiliary⁻.ref_state.T
+    ref_p⁻ = state_auxiliary⁻.ref_state.p
+    ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
+    ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
+
+    pL⁻ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_conservative⁻,
+        state_auxiliary⁻,
+    )
+
+    ρu⁺ = state_conservative⁺.ρu
+
+    ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
+    ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
+    ref_T⁺ = state_auxiliary⁺.ref_state.T
+    ref_p⁺ = state_auxiliary⁺.ref_state.p
+    ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
+    ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
+
+    pL⁺ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_conservative⁺,
+        state_auxiliary⁺,
+    )
+
+    # not sure if arithmetic averages are a good idea here
+    h̃ = (ref_h⁻ + ref_h⁺) / 2
+    c̃ = (ref_c⁻ + ref_c⁺) / 2
+
+    ΔpL = pL⁺ - pL⁻
+    Δρuᵀn = (ρu⁺ - ρu⁻)' * normal_vector
+
+    fluxᵀn.ρ -= ΔpL / 2c̃
+    fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
+    fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
 end

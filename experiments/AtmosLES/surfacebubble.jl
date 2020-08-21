@@ -39,7 +39,7 @@ const param_set = EarthParameterSet()
 """
   Surface Driven Thermal Bubble
 """
-function init_surfacebubble!(bl, state, aux, (x, y, z), t)
+function init_surfacebubble!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -95,17 +95,20 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        source = (Gravity(),),
+    problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(energy = PrescribedEnergyFlux(energyflux)),
             AtmosBC(),
         ),
+        init_state_prognostic = init_surfacebubble!,
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        param_set;
+        problem = problem,
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = EquilMoist{FT}(),
-        init_state_conservative = init_surfacebubble!,
+        source = (Gravity(),),
     )
     config = ClimateMachine.AtmosLESConfiguration(
         "SurfaceDrivenBubble",
@@ -123,14 +126,35 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
     return config
 end
 
-function config_diagnostics(driver_config)
+function config_diagnostics(
+    driver_config,
+    xmax::FT,
+    ymax::FT,
+    zmax::FT,
+    resolution,
+) where {FT}
     interval = "10000steps"
     dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         interval,
         driver_config.name,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    pdgngrp = setup_atmos_default_perturbations(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, pdgngrp])
 end
 
 function main()
@@ -154,7 +178,7 @@ function main()
         driver_config,
         init_on_cpu = true,
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, xmax, ymax, zmax, resolution)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(

@@ -45,6 +45,9 @@ const APS = AbstractParameterSet
 # very large logs resulting in CI to seemingly hang.
 error_on_non_convergence() = true
 
+# Allow users to skip printing warnings on non-convergence
+print_warning() = true
+
 @inline q_pt_0(::Type{FT}) where {FT} = PhasePartition{FT}(FT(0), FT(0), FT(0))
 
 include("states.jl")

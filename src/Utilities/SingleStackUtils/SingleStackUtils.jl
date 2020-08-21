@@ -5,7 +5,8 @@ export get_vars_from_nodal_stack,
     get_horizontal_variance,
     get_horizontal_mean,
     reduce_nodal_stack,
-    reduce_element_stack
+    reduce_element_stack,
+    dict_of_nodal_states
 
 using OrderedCollections
 using StaticArrays
@@ -29,7 +30,7 @@ using ..VariableTemplates
     ) where {T, dim, N}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
-specified in `vars` (as returned by e.g. `vars_state_conservative()`), and
+specified in `vars` (as returned by e.g. `vars_state`), and
 whose values are arrays of the values for that variable along the vertical
 dimension in `Q`. Only a single element is expected in the horizontal as
 this is intended for the single stack configuration and `i` and `j` identify
@@ -123,7 +124,7 @@ end
     ) where {T, dim, N}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
-specified in `vars` (as returned by e.g. `vars_state_conservative()`), and
+specified in `vars` (as returned by e.g. `vars_state`), and
 whose values are arrays of the horizontal averages for that variable along
 the vertical dimension in `Q`. Only a single element is expected in the
 horizontal as this is intended for the single stack configuration.
@@ -168,7 +169,7 @@ end
     ) where {T, dim, N}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
-specified in `vars` (as returned by e.g. `vars_state_conservative()`), and
+specified in `vars` (as returned by e.g. `vars_state`), and
 whose values are arrays of the horizontal variance for that variable along
 the vertical dimension in `Q`. Only a single element is expected in the
 horizontal as this is intended for the single stack configuration.
@@ -295,6 +296,42 @@ function reduce_element_stack(
             j = j,
         ) for i in 1:Nq, j in 1:Nq
     ]
+end
+
+get_data(solver_config, ::Prognostic) = solver_config.Q
+get_data(solver_config, ::Auxiliary) = solver_config.dg.state_auxiliary
+get_data(solver_config, ::GradientFlux) = solver_config.dg.state_gradient_flux
+
+"""
+    dict_of_nodal_states(
+        solver_config,
+        aux_excludes = [],
+        state_types = (Prognostic(), Auxiliary())
+        )
+
+A dictionary of single stack prognostic and auxiliary
+variables at the `i=1`,`j=1` node given
+ - `solver_config` a `SolverConfiguration`
+ - `aux_excludes` a vector of strings containing the
+    variables to exclude from the auxiliary state.
+"""
+function dict_of_nodal_states(
+    solver_config,
+    aux_excludes = String[],
+    state_types = (Prognostic(), Auxiliary()),
+)
+    FT = eltype(solver_config.Q)
+    all_state_vars = []
+    for st in state_types
+        state_vars = get_vars_from_nodal_stack(
+            solver_config.dg.grid,
+            get_data(solver_config, st),
+            vars_state(solver_config.dg.balance_law, st, FT),
+            exclude = st isa Auxiliary ? aux_excludes : String[],
+        )
+        push!(all_state_vars, state_vars...)
+    end
+    return OrderedDict(all_state_vars...)
 end
 
 end # module

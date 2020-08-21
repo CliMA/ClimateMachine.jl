@@ -12,6 +12,7 @@ MultirateSolverType
 AbstractSolverType
 DiscreteSplittingType
 ExplicitSolverType
+ImplicitSolverType
 ConfigTypes
 IMEXSolverType
 ```

@@ -1,34 +1,23 @@
 using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
-using ClimateMachine.Mesh.Topologies: BrickTopology
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
-using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
-using ClimateMachine.SystemSolvers: GeneralizedMinimalResidual
-using ClimateMachine.VTK: writevtk, writepvtu
-using ClimateMachine.GenericCallbacks:
-    EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.MPIStateArrays: euclidean_distance
-using ClimateMachine.Thermodynamics:
-    air_density, total_energy, internal_energy, soundspeed_air
-using ClimateMachine.Atmos:
-    AtmosModel,
-    AtmosAcousticLinearModel,
-    NoReferenceState,
-    ReferenceState,
-    DryModel,
-    NoPrecipitation,
-    NoRadiation,
-    vars_state_conservative
+using ClimateMachine.Orientations
+using ClimateMachine.SystemSolvers
+using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using ClimateMachine.Orientations: NoOrientation
-using ClimateMachine.VariableTemplates: @vars, Vars, flattenednames
-import ClimateMachine.Atmos: atmos_init_aux!, vars_state_auxiliary
+using ClimateMachine.VariableTemplates
+using ClimateMachine.VTK
+
+import ClimateMachine.Atmos: atmos_init_aux!, vars_state
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
@@ -149,16 +138,20 @@ function run(
         polynomialorder = polynomialorder,
     )
 
+    problem = AtmosProblem(
+        boundarycondition = (),
+        init_state_prognostic = isentropicvortex_initialcondition!,
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        problem = problem,
         orientation = NoOrientation(),
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = nothing,
-        boundarycondition = (),
-        init_state_conservative = isentropicvortex_initialcondition!,
     )
     # The linear model has the fast time scales
     fast_model = AtmosAcousticLinearModel(model)
@@ -299,12 +292,13 @@ end
 struct IsentropicVortexReferenceState{FT} <: ReferenceState
     setup::IsentropicVortexSetup{FT}
 end
-vars_state_auxiliary(::IsentropicVortexReferenceState, FT) =
+vars_state(::IsentropicVortexReferenceState, ::Auxiliary, FT) =
     @vars(ρ::FT, ρe::FT, p::FT, T::FT)
 function atmos_init_aux!(
     m::IsentropicVortexReferenceState,
     atmos::AtmosModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     setup = m.setup
@@ -318,7 +312,15 @@ function atmos_init_aux!(
     aux.ref_state.ρe = ρ∞ * internal_energy(atmos.param_set, T∞)
 end
 
-function isentropicvortex_initialcondition!(bl, state, aux, coords, t, setup)
+function isentropicvortex_initialcondition!(
+    problem,
+    bl,
+    state,
+    aux,
+    coords,
+    t,
+    setup,
+)
     FT = eltype(state)
     x = MVector(coords)
 
@@ -375,7 +377,7 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     exactnames = statenames .* "_exact"
 
     writevtk(filename, Q, dg, statenames, Qe, exactnames)
@@ -390,7 +392,12 @@ function do_output(
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
 
-        writepvtu(pvtuprefix, prefixes, (statenames..., exactnames...))
+        writepvtu(
+            pvtuprefix,
+            prefixes,
+            (statenames..., exactnames...),
+            eltype(Q),
+        )
 
         @info "Done writing VTK: $pvtuprefix"
     end

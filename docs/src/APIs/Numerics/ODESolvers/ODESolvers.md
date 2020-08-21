@@ -16,6 +16,14 @@ ODESolvers.LSRK54CarpenterKennedy
 ODESolvers.LSRK144NiegemannDiehlBusch
 ```
 
+## Low Storage (3N) Runge Kutta methods
+
+```@docs
+ODESolvers.LowStorageRungeKutta3N
+ODESolvers.LS3NRK44Classic
+ODESolvers.LS3NRK33Heuns
+```
+
 ## Strong Stability Preserving RungeKutta methods
 
 ```@docs
@@ -71,19 +79,28 @@ ODESolvers.LinearBackwardEulerSolver
 ODESolvers.AbstractBackwardEulerSolver
 ```
 
+## Differential Equations
+
+```@docs
+ODESolvers.DiffEqJLIMEXSolver
+ODESolvers.DiffEqJLSolver
+```
+
 ## ODE Solvers
 
 ```@docs
 ODESolvers.solve!
-ODESolvers.gettime
 ODESolvers.updatedt!
+ODESolvers.gettime
+ODESolvers.getsteps
 ```
 
 ## Generic Callbacks
 
 ```@docs
 GenericCallbacks
-GenericCallbacks.AtStart
+GenericCallbacks.AtInit
+GenericCallbacks.AtInitAndFini
 GenericCallbacks.EveryXWallTimeSeconds
 GenericCallbacks.EveryXSimulationTime
 GenericCallbacks.EveryXSimulationSteps

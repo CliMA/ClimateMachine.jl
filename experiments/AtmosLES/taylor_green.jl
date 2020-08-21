@@ -21,15 +21,13 @@ using DocStringExtensions
 using LinearAlgebra
 
 using CLIMAParameters
-using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
+using CLIMAParameters.Planet: R_d, cv_d, cp_d, MSLP, grav, LH_v0
+using CLIMAParameters.Atmos.SubgridScale: C_smag
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.BalanceLaws:
-    vars_state_conservative,
-    vars_state_auxiliary,
-    vars_integrals,
-    vars_reverse_integrals,
+    vars_state,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -68,7 +66,7 @@ year = {2014},
 }
 
 """
-function init_greenvortex!(bl, state, aux, (x, y, z), t)
+function init_greenvortex!(problem, bl, state, aux, (x, y, z), t)
     # Problem float-type
     FT = eltype(state)
 
@@ -87,7 +85,7 @@ function init_greenvortex!(bl, state, aux, (x, y, z), t)
     e_pot = FT(0)# potential energy
     Pinf = 101325
     Uzero = FT(100)
-    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y))
+    p = Pinf + (ρ * Uzero^2 / 16) * (2 + cos(z)) * (cos(x) + cos(y))
     u = Uzero * sin(x) * cos(y) * cos(z)
     v = -Uzero * cos(x) * sin(y) * cos(z)
     e_kin = 0.5 * (u^2 + v^2)
@@ -123,7 +121,6 @@ function config_greenvortex(
     ymin,
     zmin,
 )
-
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -131,12 +128,13 @@ function config_greenvortex(
     _C_smag = FT(C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
-        orientation = NoOrientation(),
         param_set;                          # Parameter set corresponding to earth parameters
+        init_state_prognostic = init_greenvortex!,             # Apply the initial condition
+        ref_state = NoReferenceState(),
+        orientation = NoOrientation(),
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
         source = (),
-        init_state_conservative = init_greenvortex!,             # Apply the initial condition
     )
 
     # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.
@@ -159,16 +157,21 @@ function config_greenvortex(
     )
     return config
 end
+
 # Here we define the diagnostic configuration specific to this problem.
-function config_diagnostics(driver_config)
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+function config_diagnostics(driver_config, nor, iter)
+    interval = "360steps"
+    dgngrp = setup_atmos_turbulence_stats(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        nor,
+        iter,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 function main()
-    ClimateMachine.init()
-
     FT = Float64
     N = 4
     Ncellsx = 64
@@ -186,7 +189,7 @@ function main()
     zmin = FT(-pi)
     t0 = FT(0)
     timeend = FT(0.1)
-    CFL = FT(1.8)
+    CFL = FT(0.9)
 
     driver_config = config_greenvortex(
         FT,
@@ -206,7 +209,9 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
-    dgn_config = config_diagnostics(driver_config)
+    nor = FT(100)
+    iter = FT(0.01)
+    dgn_config = config_diagnostics(driver_config, nor, iter)
 
     result = ClimateMachine.invoke!(
         solver_config;
