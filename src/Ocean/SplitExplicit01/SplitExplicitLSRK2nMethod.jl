@@ -232,8 +232,8 @@ function dostep!(
         ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
         # 3. Invoke iterative solver
 
-        println("BEFORE maximum(ivdc_Q.θ[:]): ", maximum(ivdc_Q.realdata[:]))
-        println("BEFORE minimum(ivdc_Q.θ[:]): ", minimum(ivdc_Q.realdata[:]))
+        # println("BEFORE maximum(ivdc_Q.θ[:]): ", maximum(ivdc_Q.realdata[:]))
+        # println("BEFORE minimum(ivdc_Q.θ[:]): ", minimum(ivdc_Q.realdata[:]))
 
         lm!(y, x) = ivdc_dg(y, x, nothing, 0; increment = false)
         solve_tot = 0
@@ -247,10 +247,10 @@ function dostep!(
             ivdc_RHS.θ .= ivdc_Q.θ ./ ivdc_solver_dt
             ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
         end
-        println("solver iters, time: ", iter_tot, ", ", solve_tot)
+        # println("solver iters, time: ", iter_tot, ", ", solve_tot)
 
-        println("AFTER  maximum(ivdc_Q.θ[:]): ", maximum(ivdc_Q.realdata[:]))
-        println("AFTER  minimum(ivdc_Q.θ[:]): ", minimum(ivdc_Q.realdata[:]))
+        # println("AFTER  maximum(ivdc_Q.θ[:]): ", maximum(ivdc_Q.realdata[:]))
+        # println("AFTER  minimum(ivdc_Q.θ[:]): ", minimum(ivdc_Q.realdata[:]))
 
         # exit()
         # Now update

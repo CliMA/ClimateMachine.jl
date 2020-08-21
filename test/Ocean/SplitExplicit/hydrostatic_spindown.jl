@@ -138,7 +138,6 @@ function setup_models(
     )
 
     return dg_3D, dg_2D
-
 end
 
 function setup_models(
