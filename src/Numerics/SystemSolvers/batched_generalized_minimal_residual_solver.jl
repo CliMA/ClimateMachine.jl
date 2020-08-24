@@ -51,6 +51,7 @@ mutable struct BatchedGeneralizedMinimalResidual{
     sT,
     resT,
     res0T,
+    iterT,
     FRS,
     FPR,
     BRS,
@@ -83,8 +84,10 @@ mutable struct BatchedGeneralizedMinimalResidual{
     dofperbatch::I
     "residual norm in each column"
     resnorms::resT
-    "initial residual norm in each column"
-    initial_resnorms::res0T
+    "Stopping threshold in each column"
+    thresholds::res0T
+    "An array denoting how many iterations to research convergence"
+    iterconv::iterT
     forward_reshape::FRS
     forward_permute::FPR
     backward_reshape::BRS
@@ -128,7 +131,10 @@ mutable struct BatchedGeneralizedMinimalResidual{
         # and recording column-norms
         sol = fill!(ArrayType{FT}(undef, dofperbatch, Nbatch), 0)
         resnorms = fill!(ArrayType{FT}(undef, Nbatch), 0)
-        initial_resnorms = fill!(ArrayType{FT}(undef, Nbatch), 0)
+        thresholds = fill!(ArrayType{FT}(undef, Nbatch), 0)
+
+        IT = typeof(Nbatch)
+        iterconv = fill!(ArrayType{IT}(undef, Nbatch), -1)
 
         @assert dofperbatch * Nbatch == length(Q)
 
@@ -145,15 +151,16 @@ mutable struct BatchedGeneralizedMinimalResidual{
         gT = typeof(g0)
         sT = typeof(sol)
         resT = typeof(resnorms)
-        res0T = typeof(initial_resnorms)
+        res0T = typeof(thresholds)
+        iterT = typeof(iterconv)
         FRS = typeof(forward_reshape)
         FPR = typeof(forward_permute)
         BRS = typeof(backward_reshape)
         BPR = typeof(backward_permute)
 
         return new{
-            typeof(Nbatch),
-            eltype(Q),
+            IT,
+            FT,
             AT,
             BKT,
             OmT,
@@ -162,6 +169,7 @@ mutable struct BatchedGeneralizedMinimalResidual{
             sT,
             resT,
             res0T,
+            iterT,
             FRS,
             FPR,
             BRS,
@@ -180,7 +188,8 @@ mutable struct BatchedGeneralizedMinimalResidual{
             Nbatch,
             dofperbatch,
             resnorms,
-            initial_resnorms,
+            thresholds,
+            iterconv,
             forward_reshape,
             forward_permute,
             backward_reshape,
@@ -318,8 +327,9 @@ function initialize!(
     forward_reshape = solver.forward_reshape
     forward_permute = solver.forward_permute
     resnorms = solver.resnorms
-    initial_resnorms = solver.initial_resnorms
+    thresholds = solver.thresholds
     max_iter = solver.max_iter
+    iterconv = solver.iterconv
 
     # Device and groupsize information
     device = array_device(Q)
@@ -352,25 +362,21 @@ function initialize!(
         resnorms,
         g0,
         batched_krylov_basis,
+        iterconv,
+        thresholds,
         Ndof,
-        max_iter;
+        max_iter,
+        restart,
+        atol,
+        rtol;
         ndrange = solver.batch_size,
         dependencies = (event,),
     )
     wait(device, event)
 
-    # When restarting, we do not want to overwrite the initial threshold,
-    # otherwise we may not get an accurate indication that we have sufficiently
-    # reduced the GMRES residual.
-    if !restart
-        initial_resnorms .= resnorms
-    end
-    residual_norm = maximum(resnorms)
-    initial_residual_norm = maximum(initial_resnorms)
-    converged =
-        check_convergence(residual_norm, initial_residual_norm, atol, rtol)
+    converged = all(y->y!=-1, iterconv)
 
-    converged, residual_norm
+    converged, maximum(thresholds)
 end
 
 function doiteration!(
@@ -398,8 +404,8 @@ function doiteration!(
     backward_reshape = solver.backward_reshape
     backward_permute = solver.backward_permute
     resnorms = solver.resnorms
-    initial_resnorms = solver.initial_resnorms
-    initial_residual_norm = maximum(initial_resnorms)
+    thresholds = solver.thresholds
+    iterconv = solver.iterconv
 
     # Device and groupsize information
     device = array_device(Q)
@@ -441,6 +447,8 @@ function doiteration!(
             Hs,
             Ωs,
             batched_krylov_basis,
+            thresholds,
+            iterconv,
             j,
             Ndof;
             ndrange = solver.batch_size,
@@ -448,12 +456,7 @@ function doiteration!(
         )
         wait(device, event)
 
-        # Current stopping criteria is based on the maximal column norm
-        # TODO: Once we are able to batch the operator application, we
-        # should revisit the termination criteria.
-        residual_norm = maximum(resnorms)
-        converged =
-            check_convergence(residual_norm, initial_residual_norm, atol, rtol)
+        converged = all(y->y!=-1, iterconv)
         if converged
             break
         end
@@ -470,7 +473,8 @@ function doiteration!(
         Hs,
         g0s,
         sols,
-        j,
+        iterconv,
+        max_iter,
         Ndof;
         ndrange = solver.batch_size,
         dependencies = (event,),
@@ -485,40 +489,72 @@ function doiteration!(
     converged ||
     initialize!(linearoperator!, Q, Qrhs, solver, args...; restart = true)
 
-    (converged, j, residual_norm)
+    # Reset iteration counter for next GMRES cycle
+    fill!(iterconv, -1)
+    iter = maximum(iterconv)
+    residual_norm = maximum(resnorms)
+
+    (converged, iter, residual_norm)
 end
 
 @kernel function batched_initialize!(
     resnorms,
     g0,
     batched_krylov_basis,
+    iterconv,
+    thresholds,
     Ndof,
     M,
+    restart,
+    atol,
+    rtol,
 )
     cidx = @index(Global)
     FT = eltype(batched_krylov_basis)
 
-    # Initialize entire RHS storage
-    @inbounds for j in 1:(M + 1)
-        g0[cidx, j] = FT(0.0)
-    end
+    if iterconv[cidx] == -1
 
-    # Now we compute the first element of g0[cidx, :],
-    # which is determined by the column norm of the initial residual ∥r0∥_2:
-    # g0 = ∥r0∥_2 e1
-    @inbounds for j in 1:Ndof
-        g0[cidx, 1] +=
-            batched_krylov_basis[1, j, cidx] * batched_krylov_basis[1, j, cidx]
-    end
-    @inbounds g0[cidx, 1] = sqrt(g0[cidx, 1])
+        # Initialize entire RHS storage
+        @inbounds for j in 1:(M + 1)
+            g0[cidx, j] = -zero(FT)
+        end
 
-    # Normalize the batched_krylov_basis by the (local) residual norm
-    @inbounds for j in 1:Ndof
-        batched_krylov_basis[1, j, cidx] /= g0[cidx, 1]
-    end
+        # Now we compute the first element of g0[cidx, :],
+        # which is determined by the column norm of the initial residual ∥r0∥_2:
+        # g0 = ∥r0∥_2 e1
+        @inbounds for j in 1:Ndof
+            g0[cidx, 1] +=
+                batched_krylov_basis[1, j, cidx] * batched_krylov_basis[1, j, cidx]
+        end
+        @inbounds g0[cidx, 1] = sqrt(g0[cidx, 1])
 
-    # Record initialize residual norm in the column
-    @inbounds resnorms[cidx] = g0[cidx, 1]
+        # Normalize the batched_krylov_basis by the (local) residual norm
+        @inbounds for j in 1:Ndof
+            batched_krylov_basis[1, j, cidx] /= g0[cidx, 1]
+        end
+
+        @inbounds local_res = g0[cidx, 1]
+        # When restarting, we do not want to overwrite the initial threshold,
+        # otherwise we may not get an accurate indication that we have sufficiently
+        # reduced the GMRES residual.
+        if !restart
+            local_thresh = local_res * rtol
+            # Record initial threshold before any restarting
+            @inbounds thresholds[cidx] = local_thresh
+        else
+            # When checking convergence at restart, just check
+            # using current local residual
+            local_thresh = local_res
+        end
+
+        if local_thresh ≤ atol
+            @inbounds iterconv[cidx] = 0
+        end
+
+        # Record initialize residual norm in the column
+        @inbounds resnorms[cidx] = local_res
+
+    end
 
     nothing
 end
@@ -529,77 +565,91 @@ end
     H,
     Ω,
     batched_krylov_basis,
+    thresholds,
+    iterconv,
     j,
     Ndof,
 )
     cidx = @index(Global)
     FT = eltype(batched_krylov_basis)
 
-    #  Arnoldi process in the local column `cidx`
-    @inbounds for i in 1:j
-        H[cidx, i, j] = FT(0.0)
-        # Modified Gram-Schmidt procedure to generate the Hessenberg matrix
-        for k in 1:Ndof
-            H[cidx, i, j] +=
-                batched_krylov_basis[j + 1, k, cidx] *
-                batched_krylov_basis[i, k, cidx]
+    if iterconv[cidx] == -1
+
+        #  Arnoldi process in the local column `cidx`
+        @inbounds for i in 1:j
+            H[cidx, i, j] = -zero(FT)
+            # Modified Gram-Schmidt procedure to generate the Hessenberg matrix
+            for k in 1:Ndof
+                H[cidx, i, j] +=
+                    batched_krylov_basis[j + 1, k, cidx] *
+                    batched_krylov_basis[i, k, cidx]
+            end
+            # Orthogonalize new Krylov vector against previous one
+            for k in 1:Ndof
+                batched_krylov_basis[j + 1, k, cidx] -=
+                    H[cidx, i, j] * batched_krylov_basis[i, k, cidx]
+            end
         end
-        # Orthogonalize new Krylov vector against previous one
-        for k in 1:Ndof
-            batched_krylov_basis[j + 1, k, cidx] -=
-                H[cidx, i, j] * batched_krylov_basis[i, k, cidx]
+
+        # And finally, normalize latest Krylov basis vector
+        local_norm = -zero(FT)
+        @inbounds for i in 1:Ndof
+            local_norm +=
+                batched_krylov_basis[j + 1, i, cidx] *
+                batched_krylov_basis[j + 1, i, cidx]
         end
-    end
+        @inbounds H[cidx, j + 1, j] = sqrt(local_norm)
+        @inbounds for i in 1:Ndof
+            batched_krylov_basis[j + 1, i, cidx] /= H[cidx, j + 1, j]
+        end
 
-    # And finally, normalize latest Krylov basis vector
-    local_norm = FT(0.0)
-    @inbounds for i in 1:Ndof
-        local_norm +=
-            batched_krylov_basis[j + 1, i, cidx] *
-            batched_krylov_basis[j + 1, i, cidx]
-    end
-    @inbounds H[cidx, j + 1, j] = sqrt(local_norm)
-    @inbounds for i in 1:Ndof
-        batched_krylov_basis[j + 1, i, cidx] /= H[cidx, j + 1, j]
-    end
+        # Loop over previously computed Krylov basis vectors
+        # and apply the Givens rotations
+        @inbounds for i in 1:(j - 1)
+            cos_tmp = Ω[cidx, 2 * i - 1]
+            sin_tmp = Ω[cidx, 2 * i]
 
-    # Loop over previously computed Krylov basis vectors
-    # and apply the Givens rotations
-    @inbounds for i in 1:(j - 1)
-        cos_tmp = Ω[cidx, 2 * i - 1]
-        sin_tmp = Ω[cidx, 2 * i]
+            # Apply the Givens rotations
+            # | cos -sin | | hi   |
+            # | sin  cos | | hi+1 |
+            tmp1 = cos_tmp * H[cidx, i, j] + sin_tmp * H[cidx, i + 1, j]
+            H[cidx, i + 1, j] =
+                -sin_tmp * H[cidx, i, j] + cos_tmp * H[cidx, i + 1, j]
+            H[cidx, i, j] = tmp1
+        end
 
-        # Apply the Givens rotations
-        # | cos -sin | | hi   |
-        # | sin  cos | | hi+1 |
-        tmp1 = cos_tmp * H[cidx, i, j] + sin_tmp * H[cidx, i + 1, j]
-        H[cidx, i + 1, j] =
-            -sin_tmp * H[cidx, i, j] + cos_tmp * H[cidx, i + 1, j]
-        H[cidx, i, j] = tmp1
-    end
+        # Eliminate the last element hj+1 and update the rotation matrix
+        # | cos -sin | | hj   |  = | hj'|   
+        # | sin  cos | | hj+1 |  = | 0  |
+        # where cos, sin = hj+1/sqrt(hj^2 + hj+1^2), hj/sqrt(hj^2 + hj+1^2),
+        # and update for next iteration
+        @inbounds begin
+            Ω[cidx, 2 * j - 1] = H[cidx, j, j]
+            Ω[cidx, 2 * j] = H[cidx, j + 1, j]
+            H[cidx, j, j] = sqrt(Ω[cidx, 2 * j - 1]^2 + Ω[cidx, 2 * j]^2)
+            H[cidx, j + 1, j] = zero(FT)
+            Ω[cidx, 2 * j - 1] /= H[cidx, j, j]
+            Ω[cidx, 2 * j] /= H[cidx, j, j]
 
-    # Eliminate the last element hj+1 and update the rotation matrix
-    # | cos -sin | | hj   |  = | hj'|
-    # | sin  cos | | hj+1 |  = | 0  |
-    # where cos, sin = hj+1/sqrt(hj^2 + hj+1^2), hj/sqrt(hj^2 + hj+1^2),
-    # and update for next iteration
-    @inbounds begin
-        Ω[cidx, 2 * j - 1] = H[cidx, j, j]
-        Ω[cidx, 2 * j] = H[cidx, j + 1, j]
-        H[cidx, j, j] = sqrt(Ω[cidx, 2 * j - 1]^2 + Ω[cidx, 2 * j]^2)
-        H[cidx, j + 1, j] = FT(0.0)
-        Ω[cidx, 2 * j - 1] /= H[cidx, j, j]
-        Ω[cidx, 2 * j] /= H[cidx, j, j]
+            # And now to the rhs g0
+            cos_tmp = Ω[cidx, 2 * j - 1]
+            sin_tmp = Ω[cidx, 2 * j]
+            tmp1 = cos_tmp * g0[cidx, j] + sin_tmp * g0[cidx, j + 1]
+            g0[cidx, j + 1] = -sin_tmp * g0[cidx, j] + cos_tmp * g0[cidx, j + 1]
+            g0[cidx, j] = tmp1
 
-        # And now to the rhs g0
-        cos_tmp = Ω[cidx, 2 * j - 1]
-        sin_tmp = Ω[cidx, 2 * j]
-        tmp1 = cos_tmp * g0[cidx, j] + sin_tmp * g0[cidx, j + 1]
-        g0[cidx, j + 1] = -sin_tmp * g0[cidx, j] + cos_tmp * g0[cidx, j + 1]
-        g0[cidx, j] = tmp1
+            # Record estimate for the gmres residual
+            local_res = abs(g0[cidx, j + 1])
+        end
 
-        # Record estimate for the gmres residual
-        resnorms[cidx] = abs(g0[cidx, j + 1])
+        # Check for convergence
+        @inbounds local_thresh = thresholds[cidx]
+        if local_res ≤ local_thresh
+            @inbounds iterconv[cidx] = j
+        end
+        # Update residual
+        @inbounds resnorms[cidx] = local_res
+
     end
 
     nothing
@@ -610,13 +660,19 @@ end
     Hs,
     g0s,
     sols,
-    j,
+    iterconv,
+    max_iter,
     Ndof,
 )
     # Solve for the GMRES coefficients (yⱼ) at the `j`-th
     # iteration that minimizes ∥ b - A xⱼ ∥_2, where
     # xⱼ = ∑ᵢ yᵢ Ψᵢ, with Ψᵢ denoting the Krylov basis vectors
     cidx = @index(Global)
+    if iterconv[cidx] == -1
+        j = max_iter
+    else
+        j = iterconv[cidx]
+    end
 
     # Do the upper-triangular backsolve
     @inbounds for i in j:-1:1
@@ -663,12 +719,3 @@ end
     convert_structure!(x, y.realdata, reshape_tuple, permute_tuple)
 @inline convert_structure!(x::MPIStateArray, y, reshape_tuple, permute_tuple) =
     convert_structure!(x.realdata, y, reshape_tuple, permute_tuple)
-
-function check_convergence(residual_norm, initial_residual_norm, atol, rtol)
-    relative_residual = residual_norm / initial_residual_norm
-    converged = false
-    if (residual_norm ≤ atol || relative_residual ≤ rtol)
-        converged = true
-    end
-    return converged
-end
