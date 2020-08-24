@@ -671,8 +671,9 @@ function init_state_auxiliary!(
     m::AtmosModel,
     state_auxiliary::MPIStateArray,
     grid,
+    direction,
 )
-    init_aux!(m, m.orientation, state_auxiliary, grid)
+    init_aux!(m, m.orientation, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
         m,
@@ -680,6 +681,7 @@ function init_state_auxiliary!(
             atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
         state_auxiliary,
         grid,
+        direction,
     )
 
     ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
@@ -689,6 +691,7 @@ function init_state_auxiliary!(
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
+        direction;
         state_temporary = ∇p,
     )
 end

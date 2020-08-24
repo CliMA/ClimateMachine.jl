@@ -126,13 +126,14 @@ function run_hydrostatic_spindown(
     )
 
     if restart > 0
+        direction = EveryDirection()
         Q_3D, A_3D, t0 =
             read_checkpoint(vtkpath, "baroclinic", ArrayType, mpicomm, restart)
         Q_2D, A_2D, _ =
             read_checkpoint(vtkpath, "barotropic", ArrayType, mpicomm, restart)
 
-        A_3D = restart_auxiliary_state(model_3D, grid_3D, A_3D)
-        A_2D = restart_auxiliary_state(model_2D, grid_2D, A_2D)
+        A_3D = restart_auxiliary_state(model_3D, grid_3D, A_3D, direction)
+        A_2D = restart_auxiliary_state(model_2D, grid_2D, A_2D, direction)
 
         dg_3D = DGModel(
             model_3D,
