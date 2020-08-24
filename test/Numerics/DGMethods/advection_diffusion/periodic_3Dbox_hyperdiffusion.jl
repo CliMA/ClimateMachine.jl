@@ -103,9 +103,14 @@ model(Q_1, Q_0,  Q_0, nothing, 0)
 
     Q_0 = init_ode_state(dg, FT(0))
     Q_1 = similar(Q_0)
-    dg(Q_1, Q_0,  Q_0, nothing, 0)
+    dg(Q_1, Q_0, nothing, 0)
 
-    return norm(Q_1)
+    norm1 = norm(Q_1)
+    @info @sprintf """Finished
+    norm(Q)                 = %.16e
+    """ norm1
+
+    return norm1
 end
 
 ClimateMachine.init()
@@ -135,4 +140,7 @@ D = 1 // 100 * SMatrix{3, 3, FT}(
         10 // 50,
     )
 
-output = run(mpicomm, ArrayType, dim, topl, polynomialorder, Float64, HorizontalDirection, D)
+outnorm = run(mpicomm, ArrayType, dim, topl, polynomialorder, Float64, HorizontalDirection, D)
+@info @sprintf """Finished
+outnorm(Q)                 = %.16e
+""" outnorm
