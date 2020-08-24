@@ -1,31 +1,21 @@
 using ClimateMachine
+using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
-using ClimateMachine.Mesh.Topologies: BrickTopology
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
-using ClimateMachine.DGMethods: DGModel, init_ode_state
-using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder,
-    CentralNumericalFluxFirstOrder
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.GenericCallbacks
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
+using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
-using ClimateMachine.VTK: writevtk, writepvtu
-using ClimateMachine.GenericCallbacks:
-    EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.MPIStateArrays: euclidean_distance
-using ClimateMachine.Thermodynamics:
-    air_density, total_energy, soundspeed_air, PhaseDry_given_pT
-using ClimateMachine.Atmos:
-    AtmosModel,
-    NoReferenceState,
-    DryModel,
-    NoPrecipitation,
-    NoRadiation,
-    vars_state
-using ClimateMachine.Orientations: NoOrientation
-using ClimateMachine.VariableTemplates: flattenednames
+using ClimateMachine.Orientations
+using ClimateMachine.SystemSolvers
+using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using ClimateMachine.BalanceLaws: Prognostic
+using ClimateMachine.VariableTemplates
+using ClimateMachine.VTK
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
@@ -57,6 +47,7 @@ function main()
     # just to make it shorter and aligning
     Rusanov = RusanovNumericalFlux
     Central = CentralNumericalFluxFirstOrder
+    Roe = RoeNumericalFlux
 
     expected_error[Float64, 2, Rusanov, 1] = 1.1990999506538110e+01
     expected_error[Float64, 2, Rusanov, 2] = 2.0813000228865612e+00
@@ -68,6 +59,11 @@ function main()
     expected_error[Float64, 2, Central, 3] = 3.6935849488949657e-01
     expected_error[Float64, 2, Central, 4] = 8.3528804679907434e-03
 
+    expected_error[Float64, 2, Roe, 1] = 1.2891386634733328e+01
+    expected_error[Float64, 2, Roe, 2] = 1.3895805145495934e+00
+    expected_error[Float64, 2, Roe, 3] = 6.6174934435569849e-02
+    expected_error[Float64, 2, Roe, 4] = 2.1917769287815940e-03
+
     expected_error[Float64, 3, Rusanov, 1] = 3.7918869862613858e+00
     expected_error[Float64, 3, Rusanov, 2] = 6.5816485664822677e-01
     expected_error[Float64, 3, Rusanov, 3] = 2.0160333422867591e-02
@@ -77,6 +73,11 @@ function main()
     expected_error[Float64, 3, Central, 2] = 9.2513872939749997e-01
     expected_error[Float64, 3, Central, 3] = 1.1680141169828175e-01
     expected_error[Float64, 3, Central, 4] = 2.6414127301659534e-03
+
+    expected_error[Float64, 3, Roe, 1] = 4.0766143963611068e+00
+    expected_error[Float64, 3, Roe, 2] = 4.3942394181655547e-01
+    expected_error[Float64, 3, Roe, 3] = 2.0926351682882375e-02
+    expected_error[Float64, 3, Roe, 4] = 6.9310072176312712e-04
 
     expected_error[Float32, 2, Rusanov, 1] = 1.1990781784057617e+01
     expected_error[Float32, 2, Rusanov, 2] = 2.0813269615173340e+00
@@ -88,6 +89,11 @@ function main()
     expected_error[Float32, 2, Central, 3] = 3.7092915177345276e-01
     expected_error[Float32, 2, Central, 4] = 1.1543693393468857e-01
 
+    expected_error[Float32, 2, Roe, 1] = 1.2891359329223633e+01
+    expected_error[Float32, 2, Roe, 2] = 1.3895936012268066e+00
+    expected_error[Float32, 2, Roe, 3] = 6.8037144839763641e-02
+    expected_error[Float32, 2, Roe, 4] = 3.8893952965736389e-02
+
     expected_error[Float32, 3, Rusanov, 1] = 3.7918186187744141e+00
     expected_error[Float32, 3, Rusanov, 2] = 6.5816193819046021e-01
     expected_error[Float32, 3, Rusanov, 3] = 2.0893247798085213e-02
@@ -98,9 +104,14 @@ function main()
     expected_error[Float32, 3, Central, 3] = 1.1707859486341476e-01
     expected_error[Float32, 3, Central, 4] = 2.1001411601901054e-02
 
+    expected_error[Float32, 3, Roe, 1] = 4.0765657424926758e+00
+    expected_error[Float32, 3, Roe, 2] = 4.3941807746887207e-01
+    expected_error[Float32, 3, Roe, 3] = 2.1365188062191010e-02
+    expected_error[Float32, 3, Roe, 4] = 9.3323951587080956e-03
+
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32), dims in (2, 3)
-            for NumericalFlux in (RusanovNumericalFlux, Central)
+            for NumericalFlux in (Roe, Rusanov, Central)
                 @info @sprintf """Configuration
                                   ArrayType     = %s
                                   FT        = %s
@@ -186,16 +197,20 @@ function run(
         polynomialorder = polynomialorder,
     )
 
+    problem = AtmosProblem(
+        boundarycondition = (),
+        init_state_prognostic = isentropicvortex_initialcondition!,
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        problem = problem,
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(0)),
         moisture = DryModel(),
         source = nothing,
-        boundarycondition = (),
-        init_state_prognostic = isentropicvortex_initialcondition!,
     )
 
     dg = DGModel(
@@ -296,7 +311,15 @@ Base.@kwdef struct IsentropicVortexSetup{FT}
     domain_halflength::FT = 1 // 20
 end
 
-function isentropicvortex_initialcondition!(bl, state, aux, coords, t, args...)
+function isentropicvortex_initialcondition!(
+    problem,
+    bl,
+    state,
+    aux,
+    coords,
+    t,
+    args...,
+)
     setup = first(args)
     FT = eltype(state)
     x = MVector(coords)

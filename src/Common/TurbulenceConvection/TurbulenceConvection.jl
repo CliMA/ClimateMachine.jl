@@ -26,7 +26,6 @@ import ..BalanceLaws:
     integral_set_auxiliary_state!
 
 using ..MPIStateArrays: MPIStateArray
-using ..DGMethods: nodal_update_auxiliary_state!
 using ..DGMethods: DGModel, LocalGeometry
 
 abstract type TurbulenceConvectionModel end

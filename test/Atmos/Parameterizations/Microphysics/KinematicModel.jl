@@ -93,7 +93,7 @@ import ClimateMachine.BalanceLaws:
     vars_state,
     init_state_prognostic!,
     init_state_auxiliary!,
-    update_auxiliary_state!,
+    nodal_init_state_auxiliary!,
     nodal_update_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
@@ -101,7 +101,6 @@ import ClimateMachine.BalanceLaws:
     boundary_state!,
     source!
 
-using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 import ClimateMachine.DGMethods: DGModel
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
@@ -170,7 +169,7 @@ vars_state(m::KinematicModel, ::Gradient, FT) = @vars()
 
 vars_state(m::KinematicModel, ::GradientFlux, FT) = @vars()
 
-function kinematic_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::KinematicModel,
     aux::Vars,
     tmp::Vars,
@@ -204,19 +203,6 @@ function kinematic_nodal_init_state_auxiliary!(
     end
 end
 
-function init_state_auxiliary!(
-    m::KinematicModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        kinematic_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
-end
-
 function init_state_prognostic!(
     m::KinematicModel,
     state::Vars,
@@ -226,24 +212,6 @@ function init_state_prognostic!(
     args...,
 )
     m.init_state_prognostic(m, state, aux, coords, t, args...)
-end
-
-function update_auxiliary_state!(
-    dg::DGModel,
-    m::KinematicModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    nodal_update_auxiliary_state!(
-        kinematic_model_nodal_update_auxiliary_state!,
-        dg,
-        m,
-        Q,
-        t,
-        elems,
-    )
-    return true
 end
 
 function boundary_state!(

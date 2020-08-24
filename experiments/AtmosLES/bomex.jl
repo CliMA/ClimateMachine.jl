@@ -49,9 +49,16 @@ URL = {https://journals.ametsoc.org/doi/abs/10.1175/1520-0469%282003%2960%3C1201
 eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1201%3AALESIS%3E2.0.CO%3B2}
 =#
 
-using ClimateMachine
-ClimateMachine.init(parse_clargs = true)
+using ArgParse
+using Distributions
+using DocStringExtensions
+using LinearAlgebra
+using Printf
+using Random
+using StaticArrays
+using Test
 
+using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -64,13 +71,6 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-
-using Distributions
-using Random
-using StaticArrays
-using Test
-using DocStringExtensions
-using LinearAlgebra
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
@@ -271,7 +271,7 @@ end
 """
   Initial Condition for BOMEX LES
 """
-function init_bomex!(bl, state, aux, (x, y, z), t)
+function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     # This experiment runs the BOMEX LES Configuration
     # (Shallow cumulus cloud regime)
     # x,y,z imply eastward, northward and altitude coordinates in `[m]`
@@ -363,15 +363,17 @@ function init_bomex!(bl, state, aux, (x, y, z), t)
     end
 end
 
-function config_bomex(FT, N, resolution, xmax, ymax, zmax)
+function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
 
     ics = init_bomex!     # Initial conditions
 
     C_smag = FT(0.23)     # Smagorinsky coefficient
 
     u_star = FT(0.28)     # Friction velocity
+    C_drag = FT(0.0011)   # Bulk transfer coefficient
 
     T_sfc = FT(300.4)     # Surface temperature `[K]`
+    q_sfc = FT(22.45e-3)  # Surface specific humiity `[kg/kg]`
     LHF = FT(147.2)       # Latent heat flux `[W/m²]`
     SHF = FT(9.5)         # Sensible heat flux `[W/m²]`
     moisture_flux = LHF / latent_heat_vapor(param_set, T_sfc)
@@ -423,13 +425,27 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
 
-    # Assemble model components
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
-        source = source,
+    # Set up problem initial and boundary conditions
+    if surface_flux == "prescribed"
+        energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
+        moisture = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+    elseif surface_flux == "bulk"
+        energy = BulkFormulaEnergy(
+            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t) -> (T_sfc, q_sfc),
+        )
+        moisture = BulkFormulaMoisture(
+            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t) -> q_sfc,
+        )
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized surface flux; using 'prescribed'""",
+            surface_flux,
+        )
+    end
+    problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
@@ -437,14 +453,22 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax)
                     # P represents the projection onto the horizontal
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
-                energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF),
-                moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> moisture_flux,
-                ),
+                energy = energy,
+                moisture = moisture,
             ),
             AtmosBC(),
         ),
         init_state_prognostic = ics,
+    )
+
+    # Assemble model components
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        param_set;
+        problem = problem,
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        source = source,
     )
 
     # Assemble configuration
@@ -481,6 +505,23 @@ function config_diagnostics(driver_config)
 end
 
 function main()
+    # add a command line argument to specify the kind of surface flux
+    # TODO: this will move to the future namelist functionality
+    bomex_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(bomex_args, "BOMEX")
+    @add_arg_table! bomex_args begin
+        "--surface-flux"
+        help = "specify surface flux for energy and moisture"
+        metavar = "prescribed|bulk"
+        arg_type = String
+        default = "prescribed"
+    end
+
+    cl_args =
+        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
+
+    surface_flux = cl_args["surface_flux"]
+
     FT = Float32
 
     # DG polynomial order
@@ -504,7 +545,8 @@ function main()
     #timeend = FT(3600 * 6)
     CFLmax = FT(0.90)
 
-    driver_config = config_bomex(FT, N, resolution, xmax, ymax, zmax)
+    driver_config =
+        config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,

@@ -32,8 +32,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     update_auxiliary_state!,
-    nodal_update_auxiliary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
     boundary_state!
 
@@ -53,22 +52,13 @@ vars_state(::Box1D, ::Prognostic, FT) = @vars(q::FT);
 vars_state(::Box1D, ::Gradient, FT) = @vars();
 vars_state(::Box1D, ::GradientFlux, FT) = @vars();
 
-function box_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::Box1D,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
 )
     aux.z_dim = geom.coord[3]
-end;
-
-function init_state_auxiliary!(m::Box1D, state_auxiliary::MPIStateArray, grid)
-    nodal_init_state_auxiliary!(
-        m,
-        box_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
 end;
 
 function init_state_prognostic!(

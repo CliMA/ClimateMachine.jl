@@ -298,8 +298,16 @@ function reduce_element_stack(
     ]
 end
 
+get_data(solver_config, ::Prognostic) = solver_config.Q
+get_data(solver_config, ::Auxiliary) = solver_config.dg.state_auxiliary
+get_data(solver_config, ::GradientFlux) = solver_config.dg.state_gradient_flux
+
 """
-    dict_of_nodal_states(solver_config, aux_excludes = [])
+    dict_of_nodal_states(
+        solver_config,
+        aux_excludes = [],
+        state_types = (Prognostic(), Auxiliary())
+        )
 
 A dictionary of single stack prognostic and auxiliary
 variables at the `i=1`,`j=1` node given
@@ -307,20 +315,23 @@ variables at the `i=1`,`j=1` node given
  - `aux_excludes` a vector of strings containing the
     variables to exclude from the auxiliary state.
 """
-function dict_of_nodal_states(solver_config, aux_excludes = [])
+function dict_of_nodal_states(
+    solver_config,
+    aux_excludes = String[],
+    state_types = (Prognostic(), Auxiliary()),
+)
     FT = eltype(solver_config.Q)
-    state_vars = get_vars_from_nodal_stack(
-        solver_config.dg.grid,
-        solver_config.Q,
-        vars_state(solver_config.dg.balance_law, Prognostic(), FT),
-    )
-    aux_vars = get_vars_from_nodal_stack(
-        solver_config.dg.grid,
-        solver_config.dg.state_auxiliary,
-        vars_state(solver_config.dg.balance_law, Auxiliary(), FT);
-        exclude = aux_excludes,
-    )
-    return OrderedDict(state_vars..., aux_vars...)
+    all_state_vars = []
+    for st in state_types
+        state_vars = get_vars_from_nodal_stack(
+            solver_config.dg.grid,
+            get_data(solver_config, st),
+            vars_state(solver_config.dg.balance_law, st, FT),
+            exclude = st isa Auxiliary ? aux_excludes : String[],
+        )
+        push!(all_state_vars, state_vars...)
+    end
+    return OrderedDict(all_state_vars...)
 end
 
 end # module

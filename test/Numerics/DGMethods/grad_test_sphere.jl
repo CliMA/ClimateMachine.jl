@@ -10,7 +10,7 @@ using Printf
 
 using ClimateMachine.BalanceLaws
 
-import ClimateMachine.BalanceLaws: vars_state, init_state_auxiliary!
+import ClimateMachine.BalanceLaws: vars_state, nodal_init_state_auxiliary!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
@@ -29,7 +29,7 @@ vars_state(m::GradSphereTestModel, ::Auxiliary, T) = @vars begin
 end
 vars_state(::GradSphereTestModel, ::Prognostic, T) = @vars()
 
-function grad_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::GradSphereTestModel,
     aux::Vars,
     tmp::Vars,
@@ -39,19 +39,6 @@ function grad_nodal_init_state_auxiliary!(
     r = hypot(x, y, z)
     aux.a = r
     aux.∇a = g.coord / r
-end
-
-function init_state_auxiliary!(
-    m::GradSphereTestModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        grad_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
 end
 
 using Test

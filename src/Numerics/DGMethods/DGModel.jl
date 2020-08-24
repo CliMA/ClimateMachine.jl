@@ -675,7 +675,25 @@ function restart_auxiliary_state(bl, grid, aux_data)
     return state_auxiliary
 end
 
-function nodal_init_state_auxiliary!(
+@deprecate nodal_init_state_auxiliary! init_state_auxiliary!
+
+# By default, we call init_state_auxiliary!, given
+# nodal_init_state_auxiliary!, defined for the
+# particular balance_law:
+function init_state_auxiliary!(balance_law::BalanceLaw, state_auxiliary, grid)
+    init_state_auxiliary!(
+        balance_law,
+        nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+    )
+end
+
+# Should we provide a fallback implementation here?
+# Maybe better to throw a method error?
+function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom) end
+
+function init_state_auxiliary!(
     balance_law,
     init_f!,
     state_auxiliary,
@@ -717,11 +735,6 @@ function nodal_init_state_auxiliary!(
         dependencies = event,
     )
     wait(device, event)
-end
-
-# fallback
-function update_auxiliary_state!(dg, balance_law, state_prognostic, t, elems)
-    return false
 end
 
 function update_auxiliary_state_gradient!(
@@ -818,8 +831,33 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
-# TODO: Move to BalanceLaws
-function nodal_update_auxiliary_state!(
+# By default, we call update_auxiliary_state!, given
+# nodal_update_auxiliary_state!, defined for the
+# particular balance_law:
+function update_auxiliary_state!(
+    dg::DGModel,
+    balance_law::BalanceLaw,
+    state_prognostic,
+    t,
+    elems,
+    diffusive = false,
+)
+    update_auxiliary_state!(
+        nodal_update_auxiliary_state!,
+        dg,
+        balance_law,
+        state_prognostic,
+        t,
+        elems;
+        diffusive = diffusive,
+    )
+end
+
+# Should we provide a fallback implementation here?
+# Maybe better to throw a method error?
+function nodal_update_auxiliary_state!(balance_law, state, aux, t) end
+
+function update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
@@ -840,12 +878,12 @@ function nodal_update_auxiliary_state!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_auxiliary_state! =
+    knl_nodal_update_auxiliary_state! =
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -860,7 +898,7 @@ function nodal_update_auxiliary_state!(
             dependencies = (event,),
         )
     else
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),

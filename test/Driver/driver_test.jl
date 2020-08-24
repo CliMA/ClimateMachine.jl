@@ -13,7 +13,7 @@ using CLIMAParameters.Planet: grav, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_test!(bl, state, aux, (x, y, z), t)
+function init_test!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = FT(z)

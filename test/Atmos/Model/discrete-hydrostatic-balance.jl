@@ -6,7 +6,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers: ManyColumnLU
-using ClimateMachine.DGMethods.NumericalFluxes: CentralNumericalFluxFirstOrder
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.TurbulenceClosures
@@ -53,7 +53,7 @@ function atmos_init_aux!(
     atmos_init_aux!(m.hydrostatic_state, atmos, aux, tmp, geom)
 end
 
-function init_to_ref_state!(bl, state, aux, coords, t)
+function init_to_ref_state!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
@@ -64,6 +64,7 @@ function config_balanced(
     FT,
     poly_order,
     temp_profile,
+    numflux,
     (config_type, config_fun, config_args),
 )
     ref_state = HydrostaticState(temp_profile)
@@ -86,7 +87,7 @@ function config_balanced(
         param_set,
         nothing;
         model = model,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        numerical_flux_first_order = numflux,
     )
 
     return config
@@ -126,31 +127,40 @@ function main()
 
     @testset for config in (LES, GCM)
         @testset for ode_solver_type in (explicit_solver_type, imex_solver_type)
-            @testset for temp_profile in (
-                IsothermalProfile(param_set, FT),
-                DecayingTemperatureProfile{FT}(param_set),
-            )
-                driver_config =
-                    config_balanced(FT, poly_order, temp_profile, config)
-
-                solver_config = ClimateMachine.SolverConfiguration(
-                    timestart,
-                    timeend,
-                    driver_config,
-                    Courant_number = FT(0.1),
-                    init_on_cpu = true,
-                    ode_solver_type = ode_solver_type,
-                    CFL_direction = EveryDirection(),
-                    diffdir = HorizontalDirection(),
+            @testset for numflux in
+                         (CentralNumericalFluxFirstOrder(), RoeNumericalFlux())
+                @testset for temp_profile in (
+                    IsothermalProfile(param_set, FT),
+                    DecayingTemperatureProfile{FT}(param_set),
                 )
+                    driver_config = config_balanced(
+                        FT,
+                        poly_order,
+                        temp_profile,
+                        numflux,
+                        config,
+                    )
 
-                Qinit = similar(solver_config.Q)
-                Qinit .= solver_config.Q
+                    solver_config = ClimateMachine.SolverConfiguration(
+                        timestart,
+                        timeend,
+                        driver_config,
+                        Courant_number = FT(0.1),
+                        init_on_cpu = true,
+                        ode_solver_type = ode_solver_type,
+                        CFL_direction = EveryDirection(),
+                        diffdir = HorizontalDirection(),
+                    )
 
-                ClimateMachine.invoke!(solver_config)
+                    Qinit = similar(solver_config.Q)
+                    Qinit .= solver_config.Q
 
-                error = euclidean_distance(solver_config.Q, Qinit) / norm(Qinit)
-                @test error <= 100 * eps(FT)
+                    ClimateMachine.invoke!(solver_config)
+
+                    error =
+                        euclidean_distance(solver_config.Q, Qinit) / norm(Qinit)
+                    @test error <= 100 * eps(FT)
+                end
             end
         end
     end

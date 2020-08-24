@@ -1,7 +1,11 @@
 #!/usr/bin/env julia --project
-using ClimateMachine
-ClimateMachine.init(parse_clargs = true)
 
+using ArgParse
+using LinearAlgebra
+using StaticArrays
+using Test
+
+using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -18,19 +22,15 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
-using LinearAlgebra
-using StaticArrays
-using Test
-
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_baroclinic_wave!(bl, state, aux, coords, t)
+function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
-    # parameters 
+    # parameters
     _grav::FT = grav(bl.param_set)
     _R_d::FT = R_d(bl.param_set)
     _Ω::FT = Omega(bl.param_set)
@@ -148,12 +148,15 @@ function init_baroclinic_wave!(bl, state, aux, coords, t)
     state.ρ = ρ
     state.ρu = ρ * u_cart
     state.ρe = ρ * e_tot
-    #state.moisture.ρq_tot = ρ * q_tot
+
+    if bl.moisture isa EquilMoist
+        state.moisture.ρq_tot = ρ * q_tot
+    end
 
     nothing
 end
 
-function config_baroclinic_wave(FT, poly_order, resolution)
+function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
@@ -162,17 +165,22 @@ function config_baroclinic_wave(FT, poly_order, resolution)
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    if with_moisture
+        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
+        moisture = EquilMoist{FT}()
+    else
+        hyperdiffusion = DryBiharmonic(FT(8 * 3600))
+        moisture = DryModel()
+    end
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantViscosityWithDivergence(FT(0)),
-        #hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600)),
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
-        moisture = DryModel(),
-        #moisture = EquilMoist{FT}(),
+        hyperdiffusion = hyperdiffusion,
+        moisture = moisture,
         source = (Gravity(), Coriolis()),
-        init_state_prognostic = init_baroclinic_wave!,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(
@@ -189,9 +197,24 @@ function config_baroclinic_wave(FT, poly_order, resolution)
 end
 
 function main()
+    # add a command line argument to specify whether to use a moist setup
+    # TODO: this will move to the future namelist functionality
+    bw_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(bw_args, "BaroclinicWave")
+    @add_arg_table! bw_args begin
+        "--with-moisture"
+        help = "use a moist setup"
+        action = :store_const
+        constant = true
+        default = false
+    end
+
+    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = bw_args)
+    with_moisture = cl_args["with_moisture"]
+
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 3                          # discontinuous Galerkin polynomial order
+    poly_order = 3                           # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
     n_days::FT = 1
@@ -199,7 +222,8 @@ function main()
     timeend::FT = n_days * day(param_set)    # end time (s)
 
     # Set up driver configuration
-    driver_config = config_baroclinic_wave(FT, poly_order, (n_horz, n_vert))
+    driver_config =
+        config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
