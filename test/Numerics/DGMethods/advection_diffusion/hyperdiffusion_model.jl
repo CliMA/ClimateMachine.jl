@@ -35,7 +35,7 @@ struct HyperDiffusion{dim, P} <: BalanceLaw
     end
 end
 
-vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9})
+vars_state(::HyperDiffusion, ::Auxiliary, FT) = @vars(D::SMatrix{3, 3, FT, 9}, coord::SVector{3, FT}, c::FT)
 #
 # Density is only state
 vars_state(::HyperDiffusion, ::Prognostic, FT) = @vars(ρ::FT)
@@ -48,6 +48,7 @@ vars_state(::HyperDiffusion, ::GradientLaplacian, FT) = @vars(ρ::FT)
 vars_state(::HyperDiffusion, ::GradientFlux, FT) = @vars()
 # The hyperdiffusion DG auxiliary variable: D ∇ Δρ
 vars_state(::HyperDiffusion, ::Hyperdiffusive, FT) = @vars(σ::SVector{3, FT})
+
 
 function flux_first_order!(m::HyperDiffusion, _...) end
 
