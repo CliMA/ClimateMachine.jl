@@ -1078,7 +1078,7 @@ function flux_second_order!(
     div = tr(diffusive.divergencedamping.∇ρu)
     
     νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * SVector{3,FT}(m.νd_h, m.νd_h, m.νd_h)
-    νdd_v = dot(SVector{3,FT}(m.νd_v, m.νd_v, m.νd_v), k̂)
+    νdd_v = dot(SVector{3,FT}(m.νd_v, m.νd_v, m.νd_v), k̂) * k̂
     
     ν_dd = νdd_h .+ νdd_v
     flux.ρu -= SDiagonal(div,div,div) * SDiagonal(ν_dd)
