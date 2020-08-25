@@ -1,7 +1,10 @@
 """
 the hyperdiffusion model in a 3D periodic box
+∂ρ
+-- = - ∇^4 (ρ) = - ∇ ⋅ (∇Δρ)
+∂t
 test the spatical discretization vs the analytical solution
-init cond:  ρ = sin(kx+ly+mz)
+init cond:  ρ_0 = sin(kx+ly+mz)
 analytical solution:  ∇^4 ρ = (k^2+l^2+m^2)^2 ρ
 """
 
@@ -47,7 +50,7 @@ function nodal_init_state_auxiliary!(
 end
 
 """
-    initial condition is given by ρ = sim(kx+ly+mz)
+    initial condition is given by ρ0 = sin(kx+ly+mz)
 """
 
 function initial_condition!(
@@ -59,7 +62,17 @@ function initial_condition!(
 ) where {dim, dir}
     @inbounds begin
         k = SVector(1, 2, 3)
-        state.ρ = sin(dot(k[SOneTo(dim)], x[SOneTo(dim)])) 
+        kD = k * k' .* problem.D
+        if dir === EveryDirection()
+            c = sum(abs2, k[SOneTo(dim)]) * sum(kD[SOneTo(dim), SOneTo(dim)])
+        elseif dir === HorizontalDirection()
+            c =
+                sum(abs2, k[SOneTo(dim - 1)]) *
+                sum(kD[SOneTo(dim - 1), SOneTo(dim - 1)])
+        elseif dir === VerticalDirection()
+            c = k[dim]^2 * kD[dim, dim]
+        end
+        state.ρ = sin(dot(k[SOneTo(dim)], x[SOneTo(dim)])) * exp(-c * t)
     end
 end
 
@@ -84,7 +97,7 @@ model = DGModel(
     )
 Q_0 = cool_state()
 Q_1 = similar(Q_0)
-model(Q_1, Q_0,  Q_0, nothing, 0)
+model(Q_1, Q_0, nothing, 0)
 """
     grid = DiscontinuousSpectralElementGrid(
             topl,
@@ -99,25 +112,55 @@ model(Q_1, Q_0,  Q_0, nothing, 0)
             CentralNumericalFluxFirstOrder(),
             CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
+            direction = direction(),
         )
 
-    Q_0 = init_ode_state(dg, FT(0))
-    Q_1 = similar(Q_0)
-    dg(Q_1, Q_0, nothing, 0)
+    Q0 = init_ode_state(dg, FT(0))
+    dx = min_node_distance(grid)
+    dt = dx^4 / 25 / sum(D)
+    @info "time step" dt
+    # dt = outputtime / ceil(Int64, outputtime / dt) 
 
-    norm1 = norm(Q_1)
+    rhs_diag = similar(Q0)
+    dg(rhs_diag, Q0, nothing, 0)
+
+    Q1_diag = Q0+dt*rhs_diag
+
+    Q1_lsrk = Q0
+    lsrk = LSRK54CarpenterKennedy(dg, Q1_lsrk; dt = dt, t0 = 0)
+    solve!(Q1_lsrk, lsrk; timeend = FT(dt))
+
+    Q1_form = init_ode_state(dg, FT(dt)) 
+
+    rhs_lsrk = (Q1_lsrk-Q0)/dt
+
+    k = SVector(1, 2, 3)
+    rhs_anal = -(sum(abs2, k)^2).*Q0  
+
+    Q1_lsrk_diag = euclidean_distance(Q1_diag, Q1_lsrk)
+    Q1_form_diag = euclidean_distance(Q1_diag, Q1_form)
+    Q1_form_lsrk = euclidean_distance(Q1_lsrk, Q1_form)
+    rhs_diag_ana = euclidean_distance(rhs_diag,rhs_anal)
+    rhs_lsrk_ana = euclidean_distance(rhs_lsrk,rhs_anal)
+    rhs_lsrk_diag = euclidean_distance(rhs_lsrk,rhs_diag)
+    
     @info @sprintf """Finished
-    norm(Q)                 = %.16e
-    """ norm1
+    norm(Q1_lsrk_diag)                 = %.16e
+    norm(Q1_form_diag)                 = %.16e
+    norm(Q1_form_lsrk)                 = %.16e
+    norm(rhs_diag_ana)                 = %.16e
+    norm(rhs_lsrk_ana)                 = %.16e
+    norm(rhs_lsrk_diag)                = %.16e
+    """ Q1_lsrk_diag Q1_form_diag Q1_form_lsrk rhs_diag_ana rhs_lsrk_ana rhs_lsrk_diag 
 
-    return norm1
+    return Q1_lsrk_diag
 end
 
 ClimateMachine.init()
 ArrayType = ClimateMachine.array_type()
 mpicomm = MPI.COMM_WORLD
 FT = Float64
-dim = 2
+dim = 3
 Ne = 4
 xrange = range(FT(0); length = Ne + 1, stop = FT(2pi))
 brickrange = ntuple(j -> xrange, dim)
@@ -128,19 +171,11 @@ topl = StackedBrickTopology(
     periodicity = periodicity,
 )
 polynomialorder = 4
-D = 1 // 100 * SMatrix{3, 3, FT}(
-        9 // 50,
-        3 // 50,
-        5 // 50,
-        3 // 50,
-        7 // 50,
-        4 // 50,
-        5 // 50,
-        4 // 50,
-        10 // 50,
+D = SMatrix{3, 3, FT}(
+       ones(3,3), 
     )
 
 outnorm = run(mpicomm, ArrayType, dim, topl, polynomialorder, Float64, HorizontalDirection, D)
-@info @sprintf """Finished
-outnorm(Q)                 = %.16e
-""" outnorm
+# @info @sprintf """Finished
+# outnorm(Q)                 = %.16e
+# """ outnorm
