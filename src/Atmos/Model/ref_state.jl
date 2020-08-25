@@ -132,6 +132,7 @@ function init_state_auxiliary!(
     m::PressureGradientModel,
     state_auxiliary::MPIStateArray,
     grid,
+    direction,
 ) end
 function init_state_prognostic!(
     ::PressureGradientModel,
