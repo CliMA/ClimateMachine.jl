@@ -4,6 +4,7 @@ using MPI
 using OrderedCollections
 using Plots
 using StaticArrays
+using Printf
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -274,7 +275,21 @@ function run_box1D(
     end
     user_cb = (user_cb_arr...,)
 
+    initial_mass = weightedsum(solver_config.Q)
     ClimateMachine.invoke!(solver_config; user_callbacks = (user_cb))
+    final_mass = weightedsum(solver_config.Q)
+    @info @sprintf(
+        """
+Mass Conservation:
+    initial mass          = %.16e
+    final mass            = %.16e
+    difference            = %.16e
+    normalized difference = %.16e""",
+        initial_mass,
+        final_mass,
+        final_mass - initial_mass,
+        (final_mass - initial_mass) / initial_mass
+    )
 
     push!(all_data, dict_of_nodal_states(solver_config, [z_key]))
     push!(time_data, gettime(solver_config.solver))

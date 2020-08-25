@@ -16,6 +16,9 @@ run_box1D(4, 0.0, 1.0, 1.0, joinpath(output_dir, "box_1D_4_no_filter.svg"))
 
 # Below we show results for the same box advection test
 # but using different filters.
+#
+# As seen in the results, when the TMAR filter is used mass is not necessarily
+# conserved (mass increases are possible).
 
 # `TMARFilter()`:
 run_box1D(
