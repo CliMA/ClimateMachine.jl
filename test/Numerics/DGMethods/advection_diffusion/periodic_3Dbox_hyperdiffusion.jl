@@ -135,7 +135,17 @@ model(Q_1, Q_0, nothing, 0)
     rhs_lsrk = (Q1_lsrk-Q0)/dt
 
     k = SVector(1, 2, 3)
-    rhs_anal = -(sum(abs2, k)^2).*Q0  
+    kD = k * k' .* D
+        if direction === EveryDirection
+            c = sum(abs2, k[SOneTo(dim)]) * sum(kD[SOneTo(dim), SOneTo(dim)])
+        elseif direction === HorizontalDirection
+            c =
+                sum(abs2, k[SOneTo(dim - 1)]) *
+                sum(kD[SOneTo(dim - 1), SOneTo(dim - 1)])
+        elseif direction === VerticalDirection
+            c = k[dim]^2 * kD[dim, dim]
+        end
+    rhs_anal = -c*Q0  
 
     Q1_lsrk_diag = euclidean_distance(Q1_diag, Q1_lsrk)
     Q1_form_diag = euclidean_distance(Q1_diag, Q1_form)
@@ -175,7 +185,7 @@ D = SMatrix{3, 3, FT}(
        ones(3,3), 
     )
 
-outnorm = run(mpicomm, ArrayType, dim, topl, polynomialorder, Float64, HorizontalDirection, D)
+outnorm = run(mpicomm, ArrayType, dim, topl, polynomialorder, Float64, EveryDirection, D)
 # @info @sprintf """Finished
 # outnorm(Q)                 = %.16e
 # """ outnorm
