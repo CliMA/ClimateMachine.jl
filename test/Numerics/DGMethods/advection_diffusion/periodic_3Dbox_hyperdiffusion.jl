@@ -155,13 +155,14 @@ model(Q_1, Q_0, nothing, 0)
     rhs_lsrk_diag = euclidean_distance(rhs_lsrk,rhs_diag)
     
     @info @sprintf """Finished
+    c ⋅ Δt                             = %.16e
     norm(Q1_lsrk_diag)                 = %.16e
     norm(Q1_form_diag)                 = %.16e
     norm(Q1_form_lsrk)                 = %.16e
     norm(rhs_diag_ana)                 = %.16e
     norm(rhs_lsrk_ana)                 = %.16e
     norm(rhs_lsrk_diag)                = %.16e
-    """ Q1_lsrk_diag Q1_form_diag Q1_form_lsrk rhs_diag_ana rhs_lsrk_ana rhs_lsrk_diag 
+    """ c*dt Q1_lsrk_diag Q1_form_diag Q1_form_lsrk rhs_diag_ana rhs_lsrk_ana rhs_lsrk_diag 
 
     return Q1_lsrk_diag
 end
@@ -181,7 +182,7 @@ topl = StackedBrickTopology(
     periodicity = periodicity,
 )
 polynomialorder = 4
-D = SMatrix{3, 3, FT}(
+D = 1 // 100000 * SMatrix{3, 3, FT}(
        ones(3,3), 
     )
 
