@@ -54,8 +54,8 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 5
-    numelem_horz = 10
+    polynomialorder = 3
+    numelem_horz = 5
     numelem_vert = 5
 
     timeend = 60 * 60
@@ -159,7 +159,12 @@ function run(
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = ManyColumnLU()
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        lineardg,
+        Q;
+        atol = sqrt(eps(FT)),
+        rtol = sqrt(eps(FT)),
+    )
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(

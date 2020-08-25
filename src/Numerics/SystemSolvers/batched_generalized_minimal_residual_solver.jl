@@ -455,6 +455,8 @@ function doiteration!(
             dependencies = (event,),
         )
         wait(device, event)
+        residual_norm = maximum(resnorms)
+        @show residual_norm
 
         converged = all(y->y!=-1, iterconv)
         if converged
@@ -493,7 +495,7 @@ function doiteration!(
     fill!(iterconv, -1)
     iter = maximum(iterconv)
     residual_norm = maximum(resnorms)
-
+    @show iter, residual_norm
     (converged, iter, residual_norm)
 end
 
