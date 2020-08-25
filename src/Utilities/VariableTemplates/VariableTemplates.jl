@@ -315,11 +315,47 @@ end
     expr
 end
 
+export unroll_map, @unroll_map
+"""
+    @unroll_map(f::F, N::Int, args...) where {F}
+    unroll_map(f::F, N::Int, args...) where {F}
+
+Unroll N-expressions and wrap arguments in `Val`.
+"""
+@generated function unroll_map(f::F, ::Val{N}, args...) where {F, N}
+    quote
+        Base.@_inline_meta
+        Base.Cartesian.@nexprs $N i -> f(Val(i), args...)
+    end
+end
+macro unroll_map(func, N, args...)
+    @assert func.head == :(->)
+    body = func.args[2]
+    pushfirst!(body.args, :(Base.@_inline_meta))
+    quote
+        $unroll_map($(esc(func)), Val($(esc(N))), $(esc(args))...)
+    end
+end
+
+export vuntuple
+"""
+    vuntuple(f::F, N::Int)
+
+Val-Unroll ntuple: wrap `ntuple`
+arguments in `Val` for unrolling.
+"""
+vuntuple(f::F, N::Int) where {F} = ntuple(i -> f(Val(i)), Val(N))
+
+# Inside unroll_map expressions, all indexes `i`
+# are wrapped in `Val`, so we must redirect
+# these methods:
+Base.getindex(t::Tuple, ::Val{i}) where {i} = Base.getindex(t, i)
+Base.getindex(a::SArray, ::Val{i}) where {i} = Base.getindex(a, i)
 
 Base.@propagate_inbounds function Base.getindex(
     v::AbstractVars{NTuple{N, T}, A, offset},
-    i::Int,
-) where {N, T, A, offset}
+    ::Val{i},
+) where {N, T, A, offset, i}
     # 1 <= i <= N
     array = parent(v)
     if v isa Vars
@@ -340,7 +376,7 @@ Base.@propagate_inbounds function Base.getindex(
     v::AbstractVars,
     tup_chain::Tuple{S},
 ) where {S <: Int}
-    return Base.getindex(v, tup_chain[1])
+    return Base.getindex(v, Val(tup_chain[1]))
 end
 
 Base.@propagate_inbounds function Base.getproperty(
@@ -348,7 +384,7 @@ Base.@propagate_inbounds function Base.getproperty(
     tup_chain::Tuple,
 )
     if tup_chain[1] isa Int
-        p = Base.getindex(v, tup_chain[1])
+        p = Base.getindex(v, Val(tup_chain[1]))
     else
         p = Base.getproperty(v, tup_chain[1])
     end
@@ -363,7 +399,7 @@ Base.@propagate_inbounds function Base.getindex(
     tup_chain::Tuple,
 )
     if tup_chain[1] isa Int
-        p = Base.getindex(v, tup_chain[1])
+        p = Base.getindex(v, Val(tup_chain[1]))
     else
         p = Base.getproperty(v, tup_chain[1])
     end
