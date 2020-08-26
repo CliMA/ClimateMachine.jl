@@ -775,9 +775,9 @@ function numerical_flux_first_order!(
     balance_law::AtmosModel,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     direction,
@@ -789,9 +789,9 @@ function numerical_flux_first_order!(
         balance_law,
         fluxᵀn,
         normal_vector,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
         t,
         direction,
@@ -804,13 +804,13 @@ function numerical_flux_first_order!(
 
     Φ = gravitational_potential(balance_law, state_auxiliary⁻)
 
-    ρ⁻ = state_conservative⁻.ρ
-    ρu⁻ = state_conservative⁻.ρu
-    ρe⁻ = state_conservative⁻.ρe
+    ρ⁻ = state_prognostic⁻.ρ
+    ρu⁻ = state_prognostic⁻.ρu
+    ρe⁻ = state_prognostic⁻.ρe
     ts⁻ = thermo_state(
         balance_law,
         balance_law.moisture,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
     )
 
@@ -821,18 +821,18 @@ function numerical_flux_first_order!(
     p⁻ = pressure(
         balance_law,
         balance_law.moisture,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
     )
     c⁻ = soundspeed_air(ts⁻)
 
-    ρ⁺ = state_conservative⁺.ρ
-    ρu⁺ = state_conservative⁺.ρu
-    ρe⁺ = state_conservative⁺.ρe
+    ρ⁺ = state_prognostic⁺.ρ
+    ρu⁺ = state_prognostic⁺.ρu
+    ρe⁺ = state_prognostic⁺.ρe
     ts⁺ = thermo_state(
         balance_law,
         balance_law.moisture,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
     )
 
@@ -843,7 +843,7 @@ function numerical_flux_first_order!(
     p⁺ = pressure(
         balance_law,
         balance_law.moisture,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
     )
     c⁺ = soundspeed_air(ts⁺)
@@ -854,8 +854,6 @@ function numerical_flux_first_order!(
     c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
 
     ũᵀn = ũ' * normal_vector
-    ũc̃⁻ = ũ - c̃ * normal_vector
-    ũc̃⁺ = ũ + c̃ * normal_vector
 
     Δρ = ρ⁺ - ρ⁻
     Δp = p⁺ - p⁻
@@ -869,8 +867,12 @@ function numerical_flux_first_order!(
 
     fluxᵀn.ρ -= (w1 + w2 + w3) / 2
     fluxᵀn.ρu -=
-        (w1 * ũc̃⁻ + w2 * ũc̃⁺ + w3 * ũ + w4 * (Δu - Δuᵀn * normal_vector)) /
-        2
+        (
+            w1 * (ũ - c̃ * normal_vector) +
+            w2 * (ũ + c̃ * normal_vector) +
+            w3 * ũ +
+            w4 * (Δu - Δuᵀn * normal_vector)
+        ) / 2
     fluxᵀn.ρe -=
         (
             w1 * (h̃ - c̃ * ũᵀn) +
@@ -880,10 +882,10 @@ function numerical_flux_first_order!(
         ) / 2
 
     if !(balance_law.tracers isa NoTracers)
-        ρχ⁻ = state_conservative⁻.tracers.ρχ
+        ρχ⁻ = state_prognostic⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
 
-        ρχ⁺ = state_conservative⁺.tracers.ρχ
+        ρχ⁺ = state_prognostic⁺.tracers.ρχ
         χ⁺ = ρχ⁺ / ρ⁺
 
         χ̃ = roe_average(ρ⁻, ρ⁺, χ⁻, χ⁺)
