@@ -20,6 +20,7 @@ apis = [
     ],
     "Common" => [
         "Orientations" => "APIs/Common/Orientations.md",
+        "Spectra" => "APIs/Common/Spectra.md",
         "Surface Fluxes" => "APIs/Common/SurfaceFluxes.md",
         "Thermodynamics" => "APIs/Common/Thermodynamics.md",
         "Turbulence Closures" => "APIs/Common/TurbulenceClosures.md",

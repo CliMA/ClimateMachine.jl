@@ -162,7 +162,6 @@ function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
             number_sample_points = number_sample_points,
         )
 
-
         # Generate the pvtu file for these vtk files
         if MPI.Comm_rank(mpicomm) == 0
             # name of the pvtu file

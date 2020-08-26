@@ -12,7 +12,8 @@ export DiagnosticsGroup,
     setup_atmos_refstate_perturbations,
     setup_atmos_turbulence_stats,
     setup_dump_state_diagnostics,
-    setup_dump_aux_diagnostics
+    setup_dump_aux_diagnostics,
+    setup_dump_spectra_diagnostics
 
 using CUDA
 using Dates
@@ -34,7 +35,7 @@ using ..VariableTemplates
 using ..Writers
 import ..GenericCallbacks
 using ..TicToc
-
+using ..Spectra
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
