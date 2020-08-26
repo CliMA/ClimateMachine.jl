@@ -396,10 +396,17 @@ end
     # Input arguments should be accurate within machine precision
     # Temperature is approximated via saturation adjustment, and should be within a physical tolerance
 
+    or(a, b) = a || b
     for ArrayType in array_types
         FT = eltype(ArrayType)
         profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type e_kin e_pot
+
+        RH_sat_mask = or.(RH .> 1, RH .≈ 1)
+        RH_unsat_mask = .!or.(RH .> 1, RH .≈ 1)
+        ts = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot)
+        @test all(saturated.(ts[RH_sat_mask]))
+        @test !any(saturated.(ts[RH_unsat_mask]))
 
         # PhaseEquil (freezing)
         _T_freeze = FT(T_freeze(param_set))
