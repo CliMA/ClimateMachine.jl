@@ -257,9 +257,9 @@ function numerical_flux_first_order!(
     balance_law::AtmosLinearModel,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     direction,
@@ -271,9 +271,9 @@ function numerical_flux_first_order!(
         balance_law,
         fluxᵀn,
         normal_vector,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
         t,
         direction,
@@ -282,7 +282,7 @@ function numerical_flux_first_order!(
     atmos = balance_law.atmos
     param_set = atmos.param_set
 
-    ρu⁻ = state_conservative⁻.ρu
+    ρu⁻ = state_prognostic⁻.ρu
 
     ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
     ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
@@ -295,11 +295,11 @@ function numerical_flux_first_order!(
         atmos.moisture,
         param_set,
         atmos.orientation,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
     )
 
-    ρu⁺ = state_conservative⁺.ρu
+    ρu⁺ = state_prognostic⁺.ρu
 
     ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
     ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
@@ -312,7 +312,7 @@ function numerical_flux_first_order!(
         atmos.moisture,
         param_set,
         atmos.orientation,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
     )
 
