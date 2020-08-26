@@ -5,6 +5,7 @@ export NumericalFluxGradient,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
     RoeNumericalFlux,
+    HLLCNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -319,6 +320,20 @@ A numerical flux based on the approximate Riemann solver of Roe
 Requires a custom implementation for the balance law.
 """
 struct RoeNumericalFlux <: NumericalFluxFirstOrder end
+
+"""
+    HLLCNumericalFlux() <: NumericalFluxFirstOrder
+
+A numerical flux based on the approximate Riemann solver of the
+HLLC method.
+
+# Usage
+
+    HLLCNumericalFlux()
+
+Requires a custom implementation for the balance law.
+"""
+struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder
