@@ -1,13 +1,3 @@
-"""
-the hyperdiffusion model in a 3D periodic box
-∂ρ
--- = - ∇^4 (ρ) = - ∇ ⋅ (∇Δρ)
-∂t
-test the spatical discretization vs the analytical solution
-init cond:  ρ_0 = sin(kx+ly+mz)
-analytical solution:  ∇^4 ρ = (k^2+l^2+m^2)^2 ρ
-"""
-
 using MPI
 using ClimateMachine
 using Logging
@@ -119,20 +109,21 @@ model(Q_1, Q_0, nothing, 0)
     dx = min_node_distance(grid)
     dt = dx^4 / 25 / sum(D)
     @info "time step" dt
+    @info "Δ(horz)" dx
     # dt = outputtime / ceil(Int64, outputtime / dt) 
 
     rhs_diag = similar(Q0)
     dg(rhs_diag, Q0, nothing, 0)
 
-    Q1_diag = Q0+dt*rhs_diag
+    # Q1_diag = Q0+dt*rhs_diag
 
-    Q1_lsrk = Q0
-    lsrk = LSRK54CarpenterKennedy(dg, Q1_lsrk; dt = dt, t0 = 0)
-    solve!(Q1_lsrk, lsrk; timeend = FT(dt))
+    # Q1_lsrk = Q0
+    # lsrk = LSRK54CarpenterKennedy(dg, Q1_lsrk; dt = dt, t0 = 0)
+    # solve!(Q1_lsrk, lsrk; timeend = FT(dt))
 
-    Q1_form = init_ode_state(dg, FT(dt)) 
+    # Q1_form = init_ode_state(dg, FT(dt)) 
 
-    rhs_lsrk = (Q1_lsrk-Q0)/dt
+    # rhs_lsrk = (Q1_lsrk-Q0)/dt
 
     k = SVector(1, 2, 3)
     kD = k * k' .* D
@@ -147,46 +138,64 @@ model(Q_1, Q_0, nothing, 0)
         end
     rhs_anal = -c*Q0  
 
-    Q1_lsrk_diag = euclidean_distance(Q1_diag, Q1_lsrk)
-    Q1_form_diag = euclidean_distance(Q1_diag, Q1_form)
-    Q1_form_lsrk = euclidean_distance(Q1_lsrk, Q1_form)
+    # Q1_lsrk_diag = euclidean_distance(Q1_diag, Q1_lsrk)
+    # Q1_form_diag = euclidean_distance(Q1_diag, Q1_form)
+    # Q1_form_lsrk = euclidean_distance(Q1_lsrk, Q1_form)
     rhs_diag_ana = euclidean_distance(rhs_diag,rhs_anal)
-    rhs_lsrk_ana = euclidean_distance(rhs_lsrk,rhs_anal)
-    rhs_lsrk_diag = euclidean_distance(rhs_lsrk,rhs_diag)
+    # rhs_lsrk_ana = euclidean_distance(rhs_lsrk,rhs_anal)
+    # rhs_lsrk_diag = euclidean_distance(rhs_lsrk,rhs_diag)
     
     @info @sprintf """Finished
     c ⋅ Δt                             = %.16e
-    norm(Q1_lsrk_diag)                 = %.16e
-    norm(Q1_form_diag)                 = %.16e
-    norm(Q1_form_lsrk)                 = %.16e
     norm(rhs_diag_ana)                 = %.16e
-    norm(rhs_lsrk_ana)                 = %.16e
-    norm(rhs_lsrk_diag)                = %.16e
-    """ c*dt Q1_lsrk_diag Q1_form_diag Q1_form_lsrk rhs_diag_ana rhs_lsrk_ana rhs_lsrk_diag 
+    """ c*dt rhs_diag_ana  
 
-    return Q1_lsrk_diag
+    return rhs_diag_ana
 end
 
-ClimateMachine.init()
-ArrayType = ClimateMachine.array_type()
-mpicomm = MPI.COMM_WORLD
-FT = Float64
-dim = 3
-Ne = 4
-xrange = range(FT(0); length = Ne + 1, stop = FT(2pi))
-brickrange = ntuple(j -> xrange, dim)
-periodicity = ntuple(j -> true, dim)
-topl = StackedBrickTopology(
-    mpicomm,
-    brickrange;
-    periodicity = periodicity,
-)
-polynomialorder = 4
-D = 1 // 10000 * SMatrix{3, 3, FT}(
-       ones(3,3), 
-    )
+using Test
+let
+    ClimateMachine.init()
+    ArrayType = ClimateMachine.array_type()
+    mpicomm = MPI.COMM_WORLD
 
-outnorm = run(mpicomm, ArrayType, dim, topl, polynomialorder, Float64, EveryDirection, D)
-# @info @sprintf """Finished
-# outnorm(Q)                 = %.16e
-# """ outnorm
+    numlevels =
+        integration_testing || ClimateMachine.Settings.integration_testing ? 3 :
+        1
+
+    # polynomialorder = 4
+    # base_num_elem = 4
+    direction = HorizontalDirection
+    dim = 3
+
+    @testset "$(@__FILE__)" begin
+        for FT in (Float64, Float32)
+            for base_num_elem in (4,5,6)
+                for polynomialorder in (3,4,5,6)
+
+                    D = 5e-8 * SMatrix{3, 3, FT}(ones(3,3),) 
+                    # estimated as D = (dx/2)^4/2/τ where τ is the hyperdiff time scale 3600sec 
+                    
+                    xrange = range(FT(0); length = base_num_elem + 1, stop = FT(2pi))
+                    brickrange = ntuple(j -> xrange, dim)
+                    periodicity = ntuple(j -> true, dim)
+                    topl = StackedBrickTopology(
+                        mpicomm,
+                        brickrange;
+                        periodicity = periodicity,
+                    )
+                    # timeend = 1
+                    # outputtime = 1
+
+                    @info (ArrayType, FT, base_num_elem, polynomialorder)
+                    result = run(mpicomm, ArrayType, dim, topl, 
+                                polynomialorder, FT, direction, D)
+                        
+                    @test result < 0.01
+            
+                end
+            end
+        end
+    end
+end
+nothing
