@@ -196,7 +196,7 @@ Elements are stored as 'realelems` followed by `ghostelems`.
   * `nabrtorank` is the list of neighboring mpiranks
   * `nabrtovmaprecv` is an `Array` of `UnitRange` that give the ghost data to be
     received from neighboring mpiranks (indexes into `vmaprecv`)
-  * nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
+  * `nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
     which neighboring mpiranks indexing into the `vmapsend`
   * `weights` is an optional array which gives weight for each degree of freedom
     to be used when computing the 2-norm of the array
