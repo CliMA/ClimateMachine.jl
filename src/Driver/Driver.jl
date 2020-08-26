@@ -587,6 +587,10 @@ function invoke!(
         callbacks = (callbacks..., dgncbs...)
     end
 
+
+    #@info @sprintf( """HelloLN3 %s""" , diagnostics_config.groups )
+
+
     # vtk callback
     cb_vtk = Callbacks.vtk(
         Settings.vtk,
@@ -647,29 +651,45 @@ function invoke!(
         solver_config.numberofsteps,
         eng0
     )
+      print("MPI comm first st: ") 
+      rnk_b = MPI.Comm_rank(mpicomm)
+      println("MPIrankBef_$rnk_b")
+      # run the simulation
+    try
+      @tic solve!
+      solve!(
+          Q,
+          solver;
+          timeend = timeend,
+          callbacks = callbacks,
+          adjustfinalstep = adjustfinalstep,
+      )
+      
+      @toc solve!
 
-    # run the simulation
-    @tic solve!
-    solve!(
-        Q,
-        solver;
-        timeend = timeend,
-        callbacks = callbacks,
-        adjustfinalstep = adjustfinalstep,
-    )
-    @toc solve!
-
-    # write end checkpoint if requested
-    if Settings.checkpoint_at_end
-        Callbacks.write_checkpoint(
-            solver_config,
-            Settings.checkpoint_dir,
-            solver_config.name,
-            mpicomm,
-            solver_config.numberofsteps,
-        )
+    finally
+      # <-------------this only works for 1 rank------------------------------
+      print("finally started: ")
+      rnk_a = MPI.Comm_rank(mpicomm)
+      println("MPIrank_inFinally_$rnk_a")
+      for dgngrp in diagnostics_config.groups
+        #MPI.Gather(time_per_timesteps, 0, comm)
+        println("SA runs before init")
+        println(Settings)
+        dgngrp.init(dgngrp, solver_config.timeend , Settings, solver_config)
+        println("SA runs before collect")
+        MPI.Barrier(mpicomm)
+        dgngrp.collect(dgngrp, solver_config.timeend , Settings, solver_config )
+        println("end SA errors")
+      end
+      Callbacks.write_checkpoint(
+          solver_config,
+          Settings.checkpoint_dir,
+          solver_config.name,
+          mpicomm,
+          solver_config.numberofsteps,
+          )
     end
-
     engf = norm(Q)
     @info @sprintf(
         """

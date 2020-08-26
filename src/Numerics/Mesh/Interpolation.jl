@@ -23,7 +23,8 @@ export dimensions,
     InterpolationCubedSphere,
     interpolate_local!,
     project_cubed_sphere!,
-    InterpolationTopology
+    InterpolationTopology,
+    accumulate_interpolated_data60
 
 abstract type InterpolationTopology end
 
@@ -729,6 +730,8 @@ struct InterpolationCubedSphere{
     ) where {FT <: AbstractFloat}
         mpicomm = MPI.COMM_WORLD
         pid = MPI.Comm_rank(mpicomm)
+
+        
         npr = MPI.Comm_size(mpicomm)
 
         DA = arraytype(grid)                    # device array
@@ -1790,6 +1793,7 @@ function accumulate_interpolated_data(
 
     mpirank = MPI.Comm_rank(mpicomm)
     numranks = MPI.Comm_size(mpicomm)
+
     nvars = size(iv, 2)
 
     if intrp isa InterpolationCubedSphere
@@ -1852,5 +1856,89 @@ function accumulate_interpolated_data(
 
     return fiv
 end
+
+
+
+#temporary funct
+function accumulate_interpolated_data60(
+    mpicomm::MPI.Comm,
+    intrp::InterpolationTopology,
+    iv::AbstractArray{FT, 2},
+) where {FT <: AbstractFloat}
+
+    mpirank = MPI.Comm_rank(mpicomm)
+    numranks = MPI.Comm_size(mpicomm)
+
+    nvars = size(iv, 2)
+
+    if intrp isa InterpolationCubedSphere
+        nx1 = length(intrp.long_grd)
+        nx2 = length(intrp.lat_grd)
+        nx3 = length(intrp.rad_grd)
+        np_tot = length(intrp.radi_all)
+        i1 = intrp.longi_all
+        i2 = intrp.lati_all
+        i3 = intrp.radi_all
+    elseif intrp isa InterpolationBrick
+        nx1 = length(intrp.x1g)
+        nx2 = length(intrp.x2g)
+        nx3 = length(intrp.x3g)
+        np_tot = length(intrp.x1i_all)
+        i1 = intrp.x1i_all
+        i2 = intrp.x2i_all
+        i3 = intrp.x3i_all
+    else
+        error("Unsupported topology; only InterpolationCubedSphere and InterpolationBrick supported")
+    end
+
+    if array_device(iv) isa CPU
+        h_iv = iv
+        h_i1 = i1
+        h_i2 = i2
+        h_i3 = i3
+    else
+        h_iv = Array(iv)
+        h_i1 = Array(i1)
+        h_i2 = Array(i2)
+        h_i3 = Array(i3)
+    end
+
+    if numranks == 1
+        v_all = h_iv
+    else
+        println("bef 60")
+        println(mpirank)
+        println(nvars)
+        println(np_tot)
+
+        v_all = Array{FT}(undef, mpirank == 60 ? np_tot : 0, nvars)
+        for vari in 1:nvars
+            MPI.Gatherv!(
+                view(h_iv, :, vari),
+                view(v_all, :, vari),
+                intrp.Np_all,
+                60,
+                mpicomm,
+            )
+        end
+    end
+    
+    println("dur 60")
+    if mpirank == 60
+        fiv = Array{FT}(undef, nx1, nx2, nx3, nvars)
+        for i in 1:np_tot
+            for vari in 1:nvars
+                @inbounds fiv[h_i1[i], h_i2[i], h_i3[i], vari] = v_all[i, vari]
+            end
+        end
+    println("after 60")
+    else
+        fiv = nothing
+    end
+
+    return fiv
+end
+
+
 
 end # module Interpolation

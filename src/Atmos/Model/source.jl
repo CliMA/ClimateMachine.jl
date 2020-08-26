@@ -1,5 +1,9 @@
-using CLIMAParameters.Planet: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+using ClimateMachine.Microphysics_0M
+using CLIMAParameters.Planet: Omega, e_int_i0, cv_d, cv_l, cv_i, T_0
+
+using Printf
+
+export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, RemovePrecipitation, NudgeToSaturation
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -173,3 +177,96 @@ function atmos_source!(
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
 end
+
+struct RemovePrecipitation <: Source end
+function atmos_source!(
+    ::RemovePrecipitation,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    # TODO - should I be using aux here? Or do another saturation adjustement?
+    FT = eltype(state)
+    #@info @sprintf("""some parameter info: %s""", eps(FT))
+    if aux.moisture.q_liq + aux.moisture.q_ice > eps(FT) #2e-16
+
+        _e_int_i0::FT = e_int_i0(atmos.param_set)
+        _cv_d::FT = cv_d(atmos.param_set)
+        _cv_l::FT = cv_l(atmos.param_set)
+        _cv_i::FT = cv_i(atmos.param_set)
+        _T_0::FT = T_0(atmos.param_set)
+
+        q = PhasePartition(state.moisture.ρq_tot / state.ρ, aux.moisture.q_liq, aux.moisture.q_ice)
+        T::FT = aux.moisture.temperature
+        
+        #@info @sprintf("""qliq info: %s""", aux.moisture.q_liq )
+        #@info @sprintf("""qice info: %s""", aux.moisture.q_ice )
+        dqt_dt::FT = remove_precipitation(atmos.param_set, q)
+
+        source.moisture.ρq_tot += state.ρ * dqt_dt
+
+        source.ρ  += state.ρ / (FT(1) - q.tot) * dqt_dt
+
+        source.ρe += (q.liq / (q.liq + q.ice) * (_cv_l - _cv_d) * (T - _T_0)
+                      +
+                      q.ice / (q.liq + q.ice) * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)) * state.ρ * dqt_dt
+    end
+end
+
+"""
+    NudgeToSaturation{FT} <: Source
+
+Linear damping of moisture q_tot to RH = 100% at the surface, where RH = q_vap / q_vap_saturation
+Parametrises bottom surface moisture fluxes. 
+    Following Ming and Held (2018): 
+"""
+struct NudgeToSaturation <: Source end
+function atmos_source!(
+    ::NudgeToSaturation,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    # constants
+    FT = eltype(state)
+    tau_n::FT = 30 * 600 # nudging timescale (default = 30 mins)
+    phase_type = PhaseEquil # this may need to be generalised
+    #H::FT = 2000 # heoght below which this is applied
+    p_nudge::FT = 85000 # pressure (Pa) above which this fuctions in pplied 
+
+    # get relaxation 
+    #z = altitude(atmos, aux)
+    T = aux.moisture.temperature
+    p = air_pressure(atmos.param_set, T, state.ρ)
+    
+    q = PhasePartition(state.moisture.ρq_tot / state.ρ, aux.moisture.q_liq, aux.moisture.q_ice)
+    q_vap = vapor_specific_humidity(q)
+    q_vap_sat = q_vap_saturation(atmos.param_set, T, state.ρ , phase_type)
+    
+    if p >= p_nudge
+      dqt_dt = - ( q_vap - q_vap_sat ) / tau_n 
+    else
+      dqt_dt = FT(0)
+    end
+    # apply the moisture source 
+    source.moisture.ρq_tot += state.ρ * dqt_dt
+
+    ## apply changes to density an energy due to mass addition
+    #@info @sprintf("""some parameter info: %s""", eps(FT))
+    #source.ρ  += state.ρ / (FT(1) - q.tot) * dqt_dt
+    #source.ρe += (q.liq / (q.liq + q.ice) * (_cv_l - _cv_d) * (T - _T_0)
+    #                  +
+    #                  q.ice / (q.liq + q.ice) * ((_cv_i - _cv_d) * (T - _T_0) - _e_int_i0)) * state.ρ * dqt_dt
+end
+
+
+
+
