@@ -18,8 +18,8 @@ using ...Mesh.Grids:
     polynomialorder, dimensionality, dofs_per_element,
     VerticalDirection, HorizontalDirection, min_node_distance
 
-using ...BalanceLaws: BalanceLaw, number_state_conservative, number_state_auxiliary
-import ...BalanceLaws: nodal_update_auxiliary_state!
+using ...BalanceLaws
+#import ...BalanceLaws: nodal_update_auxiliary_state!
 
 using ...DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
@@ -31,10 +31,7 @@ import ...DGMethods.NumericalFluxes:
     update_penalty!, numerical_flux_second_order!, NumericalFluxFirstOrder
 
 import ...DGMethods:
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_gradient,
-    vars_state_gradient_flux,
+    vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
@@ -44,13 +41,11 @@ import ...DGMethods:
     update_auxiliary_state_gradient!,
     compute_gradient_argument!,
     init_state_auxiliary!,
-    init_state_conservative!,
+    init_state_prognostic!,
     LocalGeometry,
     DGModel,
     compute_gradient_flux!,
     calculate_dt,
-    vars_integrals,
-    vars_reverse_integrals,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,

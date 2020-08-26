@@ -5,20 +5,20 @@ struct BarotropicModel{M} <: AbstractOceanModel
     end
 end
 
-function vars_state_conservative(m::BarotropicModel, T)
+function vars_state(m::BarotropicModel, ::Prognostic, T)
     @vars begin
         U::SVector{2, T}
         η::T
     end
 end
 
-function init_state_conservative!(m::BarotropicModel, Q::Vars, A::Vars, coords, t)
+function init_state_prognostic!(m::BarotropicModel, Q::Vars, A::Vars, coords, t)
     Q.U = @SVector [-0, -0]
     Q.η = -0
     return nothing
 end
 
-function vars_state_auxiliary(m::BarotropicModel, T)
+function vars_state(m::BarotropicModel, ::Auxiliary, T)
     @vars begin
         Gᵁ::SVector{2, T}  # integral of baroclinic tendency
         U_c::SVector{2, T} # cumulate U value over fast time-steps
@@ -32,11 +32,16 @@ function vars_state_auxiliary(m::BarotropicModel, T)
     end
 end
 
-function init_state_auxiliary!(m::BarotropicModel, A::Vars, geom::LocalGeometry)
-    return ocean_init_aux!(m, m.baroclinic.problem, A, geom)
+function init_state_auxiliary!(m::BarotropicModel, state_aux::MPIStateArray, grid)
+    init_state_auxiliary!(
+        m,
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.baroclinic.problem, A, geom),
+        state_aux,
+        grid,
+    )
 end
 
-function vars_state_gradient(m::BarotropicModel, T)
+function vars_state(m::BarotropicModel, ::Gradient, T)
     @vars begin
         U::SVector{2, T}
     end
@@ -47,7 +52,7 @@ end
     return nothing
 end
 
-function vars_state_gradient_flux(m::BarotropicModel, T)
+function vars_state(m::BarotropicModel, ::GradientFlux, T)
     @vars begin
         ν∇U::SMatrix{3, 2, T, 6}
     end
@@ -72,8 +77,8 @@ end
     return Diagonal(@SVector [m.νʰ, m.νʰ, 0])
 end
 
-vars_integrals(m::BarotropicModel, T) = @vars()
-vars_reverse_integrals(m::BarotropicModel, T) = @vars()
+vars_state(m::BarotropicModel, ::UpwardIntegrals, T) = @vars()
+vars_state(m::BarotropicModel, ::DownwardIntegrals, T) = @vars()
 
 @inline function flux_first_order!(
     m::BarotropicModel,

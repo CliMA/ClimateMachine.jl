@@ -157,7 +157,7 @@ function OceanDGModel(
     )
 end
 
-function vars_state_conservative(m::OceanModel, T)
+function vars_state(m::OceanModel, ::Prognostic, T)
     @vars begin
         u::SVector{2, T}
         η::T
@@ -165,11 +165,11 @@ function vars_state_conservative(m::OceanModel, T)
     end
 end
 
-function init_state_conservative!(m::OceanModel, Q::Vars, A::Vars, coords, t)
+function init_state_prognostic!(m::OceanModel, Q::Vars, A::Vars, coords, t)
     return ocean_init_state!(m.problem, Q, A, coords, t)
 end
 
-function vars_state_auxiliary(m::OceanModel, T)
+function vars_state(m::OceanModel, ::Auxiliary, T)
     @vars begin
         w::T
         pkin::T         # kinematic pressure: ∫(-g αᵀ θ)
@@ -180,11 +180,16 @@ function vars_state_auxiliary(m::OceanModel, T)
     end
 end
 
-function init_state_auxiliary!(m::OceanModel, A::Vars, geom::LocalGeometry)
-    return ocean_init_aux!(m, m.problem, A, geom)
+function init_state_auxiliary!(m::OceanModel, state_aux::MPIStateArray, grid)
+    init_state_auxiliary!(
+        m,
+        (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
+        state_aux,
+        grid,
+    )
 end
 
-function vars_state_gradient(m::OceanModel, T)
+function vars_state(m::OceanModel, ::Gradient, T)
     @vars begin
         u::SVector{2, T}
         ud::SVector{2, T}
@@ -200,7 +205,7 @@ end
     return nothing
 end
 
-function vars_state_gradient_flux(m::OceanModel, T)
+function vars_state(m::OceanModel, ::GradientFlux, T)
     @vars begin
         ν∇u::SMatrix{3, 2, T, 6}
         κ∇θ::SVector{3, T}
@@ -248,7 +253,7 @@ end
 location to store integrands for bottom up integrals
 ∇hu = the horizontal divegence of u, e.g. dw/dz
 """
-function vars_integrals(m::OceanModel, T)
+function vars_state(m::OceanModel, ::UpwardIntegrals, T)
     @vars begin
         ∇hu::T
         buoy::T
@@ -301,7 +306,7 @@ end
 location to store integrands for top down integrals
 αᵀθ = density perturbation
 """
-function vars_reverse_integrals(m::OceanModel, T)
+function vars_state(m::OceanModel, ::DownwardIntegrals, T)
     @vars begin
         buoy::T
     end
@@ -444,14 +449,18 @@ function update_auxiliary_state!(
     A = dg.state_auxiliary
     MD = dg.modeldata
 
-    # required to ensure that after integration velocity field is divergence free
-    vert_filter = MD.vert_filter
-    # Q[1] = u[1] = u, Q[2] = u[2] = v
-    apply!(Q, (1, 2), dg.grid, vert_filter, direction = VerticalDirection())
+    # `update_auxiliary_state!` gets called twice, once for the real elements
+    # and once for the ghost elements. Only apply the filters to the real elems.
+    if elems == dg.grid.topology.realelems
+        # required to ensure that after integration velocity field is divergence free
+        vert_filter = MD.vert_filter
+        # Q[1] = u[1] = u, Q[2] = u[2] = v
+        apply!(Q, (1, 2), dg.grid, vert_filter, direction = VerticalDirection())
 
-    exp_filter = MD.exp_filter
-    # Q[4] = θ
-    apply!(Q, (4,), dg.grid, exp_filter, direction = VerticalDirection())
+        exp_filter = MD.exp_filter
+        # Q[4] = θ
+        apply!(Q, (4,), dg.grid, exp_filter, direction = VerticalDirection())
+    end
 
 #----------
     # Compute Divergence of Horizontal Flow field using "conti3d_dg" DGmodel
@@ -476,7 +485,7 @@ function update_auxiliary_state!(
            A.w = dQ.θ
         end
     end
-    nodal_update_auxiliary_state!(f!, dg, m, ct3d_dQ, t, elems)
+    update_auxiliary_state!(f!, dg, m, ct3d_dQ, t)
 #----------
 
     Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
@@ -489,12 +498,19 @@ function update_auxiliary_state!(
     # We are unable to use vars (ie A.w) for this because this operation will
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
-    nb_aux_m = number_state_auxiliary(m, FT)
+    nb_aux_m = number_states(m, Auxiliary())
     data_m = reshape(A.data, Nq^2, Nqk, nb_aux_m, nelemv, nelemh)
 
     # project w(z=0) down the stack
-    index_w = varsindex(vars_state_auxiliary(m, FT), :w)
-    index_wz0 = varsindex(vars_state_auxiliary(m, FT), :wz0)
+    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
+    index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
+#-----------
+#       println("OceanModel aux_var: w  = ", index_w)
+#       println("OceanModel aux_var: wz0= ", index_wz0)
+#       println("data_m[:,3,8,1,150] = y :",data_m[:,3,8,1,150])
+#       println("data_m[3,:,8,1,150] = y :",data_m[3,:,8,1,150])
+#       println("data_m[3,:,1,:,150] = w :",data_m[3,:,index_w,:,150])
+#-----------
     flat_wz0 = @view data_m[:, end:end, index_w, end:end, 1:nrealelemh]
     boxy_wz0 = @view data_m[:, :, index_wz0, :, 1:nrealelemh]
     boxy_wz0 .= flat_wz0
@@ -506,16 +522,17 @@ function update_auxiliary_state!(
     update_auxiliary_state!(flowintegral_dg, flowint, Q, 0, elems)
 
     ## get top value (=integral over full depth)
-    nb_aux_flw = number_state_auxiliary(flowint, FT)
+    nb_aux_flw = number_states(flowint, Auxiliary())
     data_flw = reshape(flowintegral_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_flw, nelemv, nelemh)
-    index_∫u = varsindex(vars_state_auxiliary(flowint, FT), :∫u)
+    index_∫u = varsindex(vars_state(flowint, Auxiliary(), FT), :∫u)
+
     flat_∫u = @view data_flw[:, end:end, index_∫u, end:end, 1:nrealelemh]
 
     ## make a copy of horizontal velocity
     A.u_d .= Q.u
 
     ## and remove vertical mean velocity
-    index_ud = varsindex(vars_state_auxiliary(m, FT), :u_d)
+    index_ud = varsindex(vars_state(m, Auxiliary(), FT), :u_d)
     boxy_ud = @view data_m[:, :, index_ud, :, 1:nrealelemh]
     boxy_ud .-= flat_∫u / m.problem.H
 

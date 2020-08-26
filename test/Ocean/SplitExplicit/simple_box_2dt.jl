@@ -2,7 +2,7 @@
 using ClimateMachine
 ClimateMachine.init(parse_clargs = true)
 
-using ClimateMachine.BalanceLaws: vars_state_conservative, vars_state_auxiliary
+using ClimateMachine.BalanceLaws: vars_state, Prognostic, Auxiliary
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
@@ -38,7 +38,7 @@ import ClimateMachine.Ocean.SplitExplicit01:
     OceanSurfaceNoStressForcing,
     OceanSurfaceStressForcing
 import ClimateMachine.DGMethods:
-    update_auxiliary_state!, update_auxiliary_state_gradient!, vars_state_conservative, vars_state_auxiliary, VerticalDirection
+    update_auxiliary_state!, update_auxiliary_state_gradient!, VerticalDirection
 # using GPUifyLoops
 
 const ArrayType = ClimateMachine.array_type()
@@ -350,8 +350,8 @@ function make_callbacks(
             step
         )
         @info "doing VTK output" outprefix
-        statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-        auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+        statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+        auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
         mycomm=Q.mpicomm

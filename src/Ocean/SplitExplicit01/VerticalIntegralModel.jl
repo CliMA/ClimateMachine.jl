@@ -4,16 +4,16 @@ struct TendencyIntegralModel{M} <: AbstractOceanModel
         return new{M}(ocean)
     end
 end
-vars_state_conservative(tm::TendencyIntegralModel, FT) = vars_state_conservative(tm.ocean, FT)
-vars_state_gradient_flux(tm::TendencyIntegralModel, FT) = @vars()
+vars_state(tm::TendencyIntegralModel, ::Prognostic, FT) = vars_state(tm.ocean, Prognostic(), FT)
+vars_state(tm::TendencyIntegralModel, ::GradientFlux, FT) = @vars()
 
-function vars_state_auxiliary(m::TendencyIntegralModel, T)
+function vars_state(m::TendencyIntegralModel, ::Auxiliary, T)
     @vars begin
         ∫du::SVector{2, T}
     end
 end
 
-function vars_integrals(m::TendencyIntegralModel, T)
+function vars_state(m::TendencyIntegralModel, ::UpwardIntegrals, T)
     @vars begin
         ∫du::SVector{2, T}
     end
@@ -36,7 +36,7 @@ end
     return nothing
 end
 
-init_state_auxiliary!(tm::TendencyIntegralModel, A::Vars, geom::LocalGeometry) = nothing
+init_state_auxiliary!(tm::TendencyIntegralModel, A::Vars, _...) = nothing
 
 function update_auxiliary_state!(
     dg::DGModel,
@@ -55,7 +55,7 @@ function update_auxiliary_state!(
 
         return nothing
     end
-    nodal_update_auxiliary_state!(f!, dg, tm, dQ, t, elems)
+    update_auxiliary_state!(f!, dg, tm, dQ, t)
 
     # compute integral for Gᵁ
     indefinite_stack_integral!(dg, tm, dQ, A, t, elems) # bottom -> top
@@ -70,16 +70,16 @@ struct FlowIntegralModel{M} <: AbstractOceanModel
         return new{M}(ocean)
     end
 end
-vars_state_conservative(fm::FlowIntegralModel, FT) = vars_state_conservative(fm.ocean, FT)
-vars_state_gradient_flux(fm::FlowIntegralModel, FT) = @vars()
+vars_state(fm::FlowIntegralModel, ::Prognostic, FT) = vars_state(fm.ocean, Prognostic(), FT)
+vars_state(fm::FlowIntegralModel, ::GradientFlux, FT) = @vars()
 
-function vars_state_auxiliary(m::FlowIntegralModel, T)
+function vars_state(m::FlowIntegralModel, ::Auxiliary, T)
     @vars begin
         ∫u::SVector{2, T}
     end
 end
 
-function vars_integrals(m::FlowIntegralModel, T)
+function vars_state(m::FlowIntegralModel, ::UpwardIntegrals, T)
     @vars begin
         ∫u::SVector{2, T}
     end
@@ -102,7 +102,7 @@ end
     return nothing
 end
 
-init_state_auxiliary!(fm::FlowIntegralModel, A::Vars, geom::LocalGeometry) = nothing
+init_state_auxiliary!(fm::FlowIntegralModel, A::Vars, _...) = nothing
 
 function update_auxiliary_state!(
     dg::DGModel,

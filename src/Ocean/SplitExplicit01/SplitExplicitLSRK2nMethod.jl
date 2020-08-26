@@ -50,6 +50,8 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
 
@@ -65,12 +67,14 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
         RT = real(eltype(slow_solver.dQ))
 
         dQ2fast = similar(slow_solver.dQ)
+        dQ2fast .= -0.
         MSA = typeof(dQ2fast)
         return new{SS, FS, RT, MSA}(
             slow_solver,
             fast_solver,
             RT(dt),
             RT(t0),
+            0,
             dQ2fast,
         )
     end

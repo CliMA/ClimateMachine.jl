@@ -42,9 +42,9 @@ end
 
 # State variable and initial value, just one for now, θ
 
-vars_state_conservative(m::IVDCModel,FT) = @vars(θ::FT)
+vars_state(m::IVDCModel, ::Prognostic, FT) = @vars(θ::FT)
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::IVDCModel,
     Q::Vars,
     A::Vars,
@@ -57,8 +57,8 @@ function init_state_conservative!(
   return nothing
 end
 
-vars_state_auxiliary(m::IVDCModel, FT) = @vars(θ_init::FT)
-function init_state_auxiliary!(m::IVDCModel,A::Vars, _...)
+vars_state(m::IVDCModel, ::Auxiliary, FT) = @vars(θ_init::FT)
+function init_state_auxiliary!(m::IVDCModel, A::Vars, _...)
   @inbounds begin
     A.θ_init = -0
   end
@@ -67,7 +67,7 @@ end
 
 # Variables and operations used in differentiating first derivatives
 
-vars_state_gradient(m::IVDCModel, FT) = @vars(∇θ::FT, ∇θ_init::FT,)
+vars_state(m::IVDCModel, ::Gradient, FT) = @vars(∇θ::FT, ∇θ_init::FT,)
 
 @inline function compute_gradient_argument!(
     m::IVDCModel,
@@ -84,7 +84,7 @@ end
 
 # Variables and operations used in differentiating second derivatives
 
-vars_state_gradient_flux(m::IVDCModel, FT) = @vars(κ∇θ::SVector{3, FT})
+vars_state(m::IVDCModel, ::GradientFlux, FT) = @vars(κ∇θ::SVector{3, FT})
 
 @inline function compute_gradient_flux!(
     m::IVDCModel,

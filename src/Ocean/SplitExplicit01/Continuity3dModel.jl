@@ -4,16 +4,16 @@ struct Continuity3dModel{M} <: AbstractOceanModel
        return new{M}(ocean)
     end
 end
-vars_state_conservative(cm::Continuity3dModel, FT) = vars_state_conservative(cm.ocean, FT)
+vars_state(cm::Continuity3dModel, ::Prognostic, FT) = vars_state(cm.ocean, Prognostic(), FT)
 
 # Continuity3dModel is used to compute the horizontal divergence of u
 
-vars_state_auxiliary(cm::Continuity3dModel, T)  = @vars()
-vars_state_gradient(cm::Continuity3dModel, T)  = @vars()
-vars_state_gradient_flux(cm::Continuity3dModel, T)  = @vars()
-vars_integrals(cm::Continuity3dModel, T)  = @vars()
+vars_state(cm::Continuity3dModel, ::Auxiliary, T) = @vars()
+vars_state(cm::Continuity3dModel, ::Gradient, T) = @vars()
+vars_state(cm::Continuity3dModel, ::GradientFlux, T) = @vars()
+vars_state(cm::Continuity3dModel, ::UpwardIntegrals, T) = @vars()
 init_state_auxiliary!(cm::Continuity3dModel, _...) = nothing
-init_state_conservative!(cm::Continuity3dModel, _...) = nothing
+init_state_prognostic!(cm::Continuity3dModel, _...) = nothing
 @inline flux_second_order!(cm::Continuity3dModel, _...) = nothing
 @inline source!(cm::Continuity3dModel, _...) = nothing
 @inline update_penalty!(
