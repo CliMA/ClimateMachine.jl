@@ -74,27 +74,19 @@ function run(
     N,
     FT,
     direction,
-    D
+    τ
 )
-"""
-balance_law = DivergenceDampingLaw()
-model = DGModel(
-        balance_law,
-        grid,
-        numerical_flux_first_order,
-        numerical_flux_second_order,
-        numerical_flux_gradient
-    )
-Q_0 = cool_state()
-Q_1 = similar(Q_0)
-model(Q_1, Q_0, nothing, 0)
-"""
+
     grid = DiscontinuousSpectralElementGrid(
             topl,
             FloatType = FT,
             DeviceArray = ArrayType,
             polynomialorder = N,
         )
+    dx = min_node_distance(grid)
+
+    D = (dx/2)^4/2/τ * SMatrix{3, 3, FT}(1,0,0,0,1,0,0,0,1,) 
+
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D))
     dg = DGModel(
             model,
@@ -106,7 +98,6 @@ model(Q_1, Q_0, nothing, 0)
         )
 
     Q0 = init_ode_state(dg, FT(0))
-    dx = min_node_distance(grid)
     dt = dx^4 / 25 / sum(D)
     @info "time step" dt
     @info "Δ(horz)" dx
@@ -114,16 +105,6 @@ model(Q_1, Q_0, nothing, 0)
 
     rhs_diag = similar(Q0)
     dg(rhs_diag, Q0, nothing, 0)
-
-    # Q1_diag = Q0+dt*rhs_diag
-
-    # Q1_lsrk = Q0
-    # lsrk = LSRK54CarpenterKennedy(dg, Q1_lsrk; dt = dt, t0 = 0)
-    # solve!(Q1_lsrk, lsrk; timeend = FT(dt))
-
-    # Q1_form = init_ode_state(dg, FT(dt)) 
-
-    # rhs_lsrk = (Q1_lsrk-Q0)/dt
 
     k = SVector(1, 2, 3)
     kD = k * k' .* D
@@ -153,6 +134,9 @@ model(Q_1, Q_0, nothing, 0)
     return rhs_diag_ana
 end
 
+
+
+
 using Test
 let
     ClimateMachine.init()
@@ -173,9 +157,11 @@ let
             for base_num_elem in (4,5,6)
                 for polynomialorder in (3,4,5,6)
 
-                    D = 5e-8 * SMatrix{3, 3, FT}(ones(3,3),) 
-                    # estimated as D = (dx/2)^4/2/τ where τ is the hyperdiff time scale 3600sec 
+                    # D = 5e-8 * SMatrix{3, 3, FT}(1,0,0,0,1,0,0,0,1,) 
+                    # # estimated as D = (dx/2)^4/2/τ where τ is the hyperdiff time scale 3600sec 
                     
+                    τ = 3600 # time scale for hyperdiffusion
+
                     xrange = range(FT(0); length = base_num_elem + 1, stop = FT(2pi))
                     brickrange = ntuple(j -> xrange, dim)
                     periodicity = ntuple(j -> true, dim)
@@ -189,7 +175,7 @@ let
 
                     @info (ArrayType, FT, base_num_elem, polynomialorder)
                     result = run(mpicomm, ArrayType, dim, topl, 
-                                polynomialorder, FT, direction, D)
+                                polynomialorder, FT, direction, τ)
                         
                     @test result < 0.01
             
