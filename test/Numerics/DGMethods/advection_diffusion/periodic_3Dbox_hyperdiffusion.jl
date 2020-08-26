@@ -182,7 +182,7 @@ topl = StackedBrickTopology(
     periodicity = periodicity,
 )
 polynomialorder = 4
-D = 1 // 100000 * SMatrix{3, 3, FT}(
+D = 1 // 10000 * SMatrix{3, 3, FT}(
        ones(3,3), 
     )
 
