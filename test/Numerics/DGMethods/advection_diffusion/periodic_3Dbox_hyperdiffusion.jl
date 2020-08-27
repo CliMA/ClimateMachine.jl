@@ -27,7 +27,8 @@ end
 include("hyperdiffusion_model.jl")
 
 struct ConstantHyperDiffusion{dim, dir, FT} <: HyperDiffusionProblem
-    D::SMatrix{3, 3, FT, 9}
+    D::FT
+    k::SVector{3, FT}
 end
 
 function nodal_init_state_auxiliary!(
@@ -36,7 +37,8 @@ function nodal_init_state_auxiliary!(
     tmp::Vars,
     geom::LocalGeometry,
 )
-    aux.D = balance_law.problem.D
+    FT = eltype(aux)
+    aux.D = balance_law.problem.D * Matrix{FT}(I,3,3)
 end
 
 """
@@ -51,17 +53,10 @@ function initial_condition!(
     t,
 ) where {dim, dir}
     @inbounds begin
-        k = SVector(1, 2, 3)
+        # k = SVector(1, 2, 3)
+        k = problem.k
         kD = k * k' .* problem.D
-        if dir === EveryDirection()
-            c = sum(abs2, k[SOneTo(dim)]) * sum(kD[SOneTo(dim), SOneTo(dim)])
-        elseif dir === HorizontalDirection()
-            c =
-                sum(abs2, k[SOneTo(dim - 1)]) *
-                sum(kD[SOneTo(dim - 1), SOneTo(dim - 1)])
-        elseif dir === VerticalDirection()
-            c = k[dim]^2 * kD[dim, dim]
-        end
+        c = get_c(k, kD, dir, dim)
         state.ρ = sin(dot(k[SOneTo(dim)], x[SOneTo(dim)])) * exp(-c * t)
     end
 end
@@ -74,7 +69,8 @@ function run(
     N,
     FT,
     direction,
-    τ
+    τ,
+    k
 )
 
     grid = DiscontinuousSpectralElementGrid(
@@ -85,9 +81,10 @@ function run(
         )
     dx = min_node_distance(grid)
 
-    D = (dx/2)^4/2/τ * SMatrix{3, 3, FT}(1,0,0,0,1,0,0,0,1,) 
+    D = (dx/2)^4/2/τ 
 
-    model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D))
+    # model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D))
+    model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D, k))
     dg = DGModel(
             model,
             grid,
@@ -98,44 +95,31 @@ function run(
         )
 
     Q0 = init_ode_state(dg, FT(0))
-    dt = dx^4 / 25 / sum(D)
-    @info "time step" dt
     @info "Δ(horz)" dx
-    # dt = outputtime / ceil(Int64, outputtime / dt) 
 
     rhs_diag = similar(Q0)
     dg(rhs_diag, Q0, nothing, 0)
 
-    k = SVector(1, 2, 3)
+    # k = SVector(1, 2, 3)
     kD = k * k' .* D
-        if direction === EveryDirection
-            c = sum(abs2, k[SOneTo(dim)]) * sum(kD[SOneTo(dim), SOneTo(dim)])
-        elseif direction === HorizontalDirection
-            c =
-                sum(abs2, k[SOneTo(dim - 1)]) *
-                sum(kD[SOneTo(dim - 1), SOneTo(dim - 1)])
-        elseif direction === VerticalDirection
-            c = k[dim]^2 * kD[dim, dim]
-        end
+    c = get_c(k, kD, direction(), dim)
     rhs_anal = -c*Q0  
 
-    # Q1_lsrk_diag = euclidean_distance(Q1_diag, Q1_lsrk)
-    # Q1_form_diag = euclidean_distance(Q1_diag, Q1_form)
-    # Q1_form_lsrk = euclidean_distance(Q1_lsrk, Q1_form)
     rhs_diag_ana = euclidean_distance(rhs_diag,rhs_anal)
-    # rhs_lsrk_ana = euclidean_distance(rhs_lsrk,rhs_anal)
-    # rhs_lsrk_diag = euclidean_distance(rhs_lsrk,rhs_diag)
     
     @info @sprintf """Finished
-    c ⋅ Δt                             = %.16e
     norm(rhs_diag_ana)                 = %.16e
-    """ c*dt rhs_diag_ana  
+    """ rhs_diag_ana  
 
     return rhs_diag_ana
 end
 
-
-
+get_c(k, kD, dir::VerticalDirection, dim) =
+    k[dim]^2 * kD[dim, dim]
+get_c(k, kD, dir::EveryDirection, dim) =
+    sum(abs2, k[SOneTo(dim)]) * sum(kD[SOneTo(dim), SOneTo(dim)])
+get_c(k, kD, dir::HorizontalDirection, dim) =
+    sum(abs2, k[SOneTo(dim - 1)]) * sum(kD[SOneTo(dim - 1), SOneTo(dim - 1)])
 
 using Test
 let
@@ -147,38 +131,31 @@ let
         integration_testing || ClimateMachine.Settings.integration_testing ? 3 :
         1
 
-    # polynomialorder = 4
-    # base_num_elem = 4
     direction = HorizontalDirection
     dim = 3
 
     @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32)
-            for base_num_elem in (4,5,6)
-                for polynomialorder in (3,4,5,6)
+        for FT in (Float64, Float32,)
+            for base_num_elem in (4,5,)
+                for polynomialorder in (3,4,5,6,)
 
-                    # D = 5e-8 * SMatrix{3, 3, FT}(1,0,0,0,1,0,0,0,1,) 
-                    # # estimated as D = (dx/2)^4/2/τ where τ is the hyperdiff time scale 3600sec 
+                    for τ in (1,4,8,) # time scale for hyperdiffusion
+                        xrange = range(FT(0); length = base_num_elem + 1, stop = FT(2pi))
+                        brickrange = ntuple(j -> xrange, dim)
+                        periodicity = ntuple(j -> true, dim)
+                        topl = StackedBrickTopology(
+                            mpicomm,
+                            brickrange;
+                            periodicity = periodicity,
+                        )
+
+                        @info (ArrayType, FT, base_num_elem, polynomialorder)
+                        result = run(mpicomm, ArrayType, dim, topl, 
+                                    polynomialorder, FT, direction, τ*3600, SVector(1, 2, 3) )
+                            
+                        @test result < 1e-4
                     
-                    τ = 3600 # time scale for hyperdiffusion
-
-                    xrange = range(FT(0); length = base_num_elem + 1, stop = FT(2pi))
-                    brickrange = ntuple(j -> xrange, dim)
-                    periodicity = ntuple(j -> true, dim)
-                    topl = StackedBrickTopology(
-                        mpicomm,
-                        brickrange;
-                        periodicity = periodicity,
-                    )
-                    # timeend = 1
-                    # outputtime = 1
-
-                    @info (ArrayType, FT, base_num_elem, polynomialorder)
-                    result = run(mpicomm, ArrayType, dim, topl, 
-                                polynomialorder, FT, direction, τ)
-                        
-                    @test result < 0.01
-            
+                    end
                 end
             end
         end
