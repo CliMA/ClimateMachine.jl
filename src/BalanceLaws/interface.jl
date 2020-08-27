@@ -276,8 +276,6 @@ number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))
 
 ### split explicit functions
-function initialize_fast_state! end
-function initialize_adjustment! end
 function initialize_states! end
 function tendency_from_slow_to_fast! end
 function cummulate_fast_solution! end
