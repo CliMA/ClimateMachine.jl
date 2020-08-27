@@ -67,7 +67,7 @@ function initialize!(
     Qrhs,
     solver::GeneralizedMinimalResidual,
     args...;
-    restart = false
+    restart = false,
 )
     g0 = solver.g0
     krylov_basis = solver.krylov_basis
@@ -76,17 +76,18 @@ function initialize!(
 
     @assert size(Q) == size(krylov_basis[1])
 
-    
+
     # store the initial residual in krylov_basis[1]
     linearoperator!(krylov_basis[1], Q, args...)
     @. krylov_basis[1] = Qrhs - krylov_basis[1]
-    
+
     residual_norm = norm(krylov_basis[1], weighted_norm)
 
     if !restart
         solver.residual_norm0 = residual_norm
     end
-    converged,  residual_norm = check_convergence(residual_norm, solver.residual_norm0, atol, rtol)
+    converged, residual_norm =
+        check_convergence(residual_norm, solver.residual_norm0, atol, rtol)
 
     # converged = false
     # # FIXME: Should only be true for threshold zero
@@ -151,8 +152,11 @@ function doiteration!(
 
         #@info "residual at iteration $j: $residual_norm"
 
-        converged, residual_norm = check_convergence(residual_norm, residual_norm0, atol, rtol)
-        if converged; break; end
+        converged, residual_norm =
+            check_convergence(residual_norm, residual_norm0, atol, rtol)
+        if converged
+            break
+        end
 
         # if residual_norm < threshold
         #     converged = true
@@ -179,7 +183,8 @@ function doiteration!(
     wait(array_device(Q), event)
 
     # if not converged restart
-    converged || initialize!(linearoperator!, Q, Qrhs, solver, args...; restart=true)
+    converged ||
+    initialize!(linearoperator!, Q, Qrhs, solver, args...; restart = true)
 
     (converged, j, residual_norm)
 end
@@ -188,9 +193,9 @@ end
 function check_convergence(residual_norm, residual_norm0, atol, rtol)
 
     # Current stopping criteria is based on the maximal column norm
-    
+
     threshold = residual_norm0 * rtol
-    converged  = (residual_norm < threshold || residual_norm < atol)
+    converged = (residual_norm < threshold || residual_norm < atol)
 
     return converged, residual_norm
 end

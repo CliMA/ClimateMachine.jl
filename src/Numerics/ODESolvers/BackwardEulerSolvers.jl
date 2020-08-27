@@ -92,8 +92,11 @@ struct LinearBackwardEulerSolver{LS}
     solver::LS
     isadjustable::Bool
     preconditioner_update_freq::Int64
-    LinearBackwardEulerSolver(solver; isadjustable = false, preconditioner_update_freq = -1) =
-        new{typeof(solver)}(solver, isadjustable, preconditioner_update_freq)
+    LinearBackwardEulerSolver(
+        solver;
+        isadjustable = false,
+        preconditioner_update_freq = -1,
+    ) = new{typeof(solver)}(solver, isadjustable, preconditioner_update_freq)
 end
 
 """
@@ -119,20 +122,39 @@ end
 
 Δt_is_adjustable(lin::LinBESolver) = lin.isadjustable
 
-function setup_backward_Euler_solver(lin::LinearBackwardEulerSolver, Q, α, f_imp!)
+function setup_backward_Euler_solver(
+    lin::LinearBackwardEulerSolver,
+    Q,
+    α,
+    f_imp!,
+)
     FT = eltype(α)
     rhs! = EulerOperator(f_imp!, -α)
 
     factors = prefactorize(rhs!, lin.solver, Q, nothing, FT(NaN))
 
     # when direct solver is applied preconditioner_update_freq <= 0
-    @assert(typeof(lin.solver) <: AbstractIterativeSystemSolver || lin.preconditioner_update_freq <= 0)
+    @assert(
+        typeof(lin.solver) <: AbstractIterativeSystemSolver ||
+        lin.preconditioner_update_freq <= 0
+    )
 
     preconditioner_update_freq = lin.preconditioner_update_freq
     # construct an empty preconditioner
-    preconditioner = (preconditioner_update_freq > 0 ? ColumnwiseLUPreconditioner(f_imp!, Q, preconditioner_update_freq) : nothing)
+    preconditioner = (
+        preconditioner_update_freq > 0 ?
+            ColumnwiseLUPreconditioner(f_imp!, Q, preconditioner_update_freq) :
+            nothing
+    )
 
-    LinBESolver(α, f_imp!, lin.solver, lin.isadjustable, preconditioner, factors)
+    LinBESolver(
+        α,
+        f_imp!,
+        lin.solver,
+        lin.isadjustable,
+        preconditioner,
+        factors,
+    )
 end
 
 function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
@@ -140,7 +162,13 @@ function update_backward_Euler_solver!(lin::LinBESolver, Q, α)
     FT = eltype(Q)
     # for direct solver, update factors
     # for iterative solver, set factors to Nothing (TODO optimize)
-    lin.factors = prefactorize(EulerOperator(lin.f_imp!, -α), lin.solver, Q, nothing, FT(NaN),)
+    lin.factors = prefactorize(
+        EulerOperator(lin.f_imp!, -α),
+        lin.solver,
+        Q,
+        nothing,
+        FT(NaN),
+    )
 end
 
 function (lin::LinBESolver)(Q, Qhat, α, p, t)
@@ -154,7 +182,13 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
     if typeof(lin.solver) <: AbstractIterativeSystemSolver
         FT = eltype(α)
         # preconditioner = ColumnwiseLUPreconditioner(jvp!, rhs!.f!, Q,  nothing, FT(NaN), ) 
-        preconditioner_update!(rhs!, rhs!.f!, lin.preconditioner, nothing, FT(NaN))
+        preconditioner_update!(
+            rhs!,
+            rhs!.f!,
+            lin.preconditioner,
+            nothing,
+            FT(NaN),
+        )
         linearsolve!(rhs!, lin.preconditioner, lin.solver, Q, Qhat, p, t)
         preconditioner_counter_update!(lin.preconditioner)
     else
@@ -187,7 +221,11 @@ struct NonLinearBackwardEulerSolver{NLS}
     isadjustable::Bool
     # preconditioner_update_freq, -1: no preconditioner; positive number, update every freq times
     preconditioner_update_freq::Int64
-    function NonLinearBackwardEulerSolver(nlsolver; isadjustable = false, preconditioner_update_freq = -1)
+    function NonLinearBackwardEulerSolver(
+        nlsolver;
+        isadjustable = false,
+        preconditioner_update_freq = -1,
+    )
         NLS = typeof(nlsolver)
         return new{NLS}(nlsolver, isadjustable, preconditioner_update_freq)
     end
@@ -218,7 +256,7 @@ mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
     isadjustable::Bool
     # preconditioner, approximation of drhs!/dQ
     preconditioner
-    
+
 end
 
 Δt_is_adjustable(nlsolver::NonLinBESolver) = nlsolver.isadjustable
@@ -242,21 +280,25 @@ function setup_backward_Euler_solver(
     Q,
     α,
     f_imp!,
-)   
+)
     # Create an empty JacobianAction (without operator) 
-    jvp! =  JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
+    jvp! = JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
 
     # Create an empty preconditioner if preconditioner_update_freq > 0
     preconditioner_update_freq = nlbesolver.preconditioner_update_freq
     # construct an empty preconditioner
-    preconditioner = (preconditioner_update_freq > 0 ? ColumnwiseLUPreconditioner(f_imp!, Q, preconditioner_update_freq) : nothing)
+    preconditioner = (
+        preconditioner_update_freq > 0 ?
+            ColumnwiseLUPreconditioner(f_imp!, Q, preconditioner_update_freq) :
+            nothing
+    )
     NonLinBESolver(
         α,
         f_imp!,
         jvp!,
         nlbesolver.nlsolver,
         nlbesolver.isadjustable,
-        preconditioner
+        preconditioner,
     )
 end
 
@@ -269,7 +311,7 @@ Update the rhs! in the jacobian action jvp!
 function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
 
     rhs! = EulerOperator(nlbesolver.f_imp!, -α)
-   
+
     nlbesolver.jvp!.rhs! = rhs!
 
     nonlinearsolve!(

@@ -457,7 +457,7 @@ timeend = FT(1);
 given_Fourier = FT(0.5);
 Fourier_bound = given_Fourier * Δ^2 / max(m.αh, m.μh, m.νd);
 Courant_bound = FT(0.5) * Δ;
-dt = FT(50.0)*min(Fourier_bound, Courant_bound)
+dt = FT(50.0) * min(Fourier_bound, Courant_bound)
 
 # # Configure a `ClimateMachine` solver.
 
@@ -471,47 +471,48 @@ dt = FT(50.0)*min(Fourier_bound, Courant_bound)
 solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
 
-    dg = solver_config.dg
-    Q = solver_config.Q
-    
-    vdg = DGModel(
-        driver_config.bl,
-        driver_config.grid,
-        driver_config.numerical_flux_first_order,
-        driver_config.numerical_flux_second_order,
-        driver_config.numerical_flux_gradient,
-        state_auxiliary = dg.state_auxiliary,
-        direction = VerticalDirection(),
-        )
+dg = solver_config.dg
+Q = solver_config.Q
 
-    
-    
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        max_subspace_size = 30,
-        atol = 1e-5,
-        rtol = 1e-5,
-        )
-    
-    nonlinearsolver = BatchedJacobianFreeNewtonKrylovSolver(
-        Q,
-        linearsolver;
-        tol = 1e-4,
-        )
-    
-    ode_solver = ARK548L2SA2KennedyCarpenter(
-        dg,
-        vdg,
-        NonLinearBackwardEulerSolver(nonlinearsolver; isadjustable = true, preconditioner_update_freq=1000),
-        Q;
-        dt = dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-        variant = NaiveVariant(),
-    )
+vdg = DGModel(
+    driver_config.bl,
+    driver_config.grid,
+    driver_config.numerical_flux_first_order,
+    driver_config.numerical_flux_second_order,
+    driver_config.numerical_flux_gradient,
+    state_auxiliary = dg.state_auxiliary,
+    direction = VerticalDirection(),
+)
 
-    solver_config.solver = ode_solver 
+
+
+linearsolver = BatchedGeneralizedMinimalResidual(
+    dg,
+    Q;
+    max_subspace_size = 30,
+    atol = 1e-5,
+    rtol = 1e-5,
+)
+
+nonlinearsolver =
+    BatchedJacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
+
+ode_solver = ARK548L2SA2KennedyCarpenter(
+    dg,
+    vdg,
+    NonLinearBackwardEulerSolver(
+        nonlinearsolver;
+        isadjustable = true,
+        preconditioner_update_freq = 1000,
+    ),
+    Q;
+    dt = dt,
+    t0 = 0,
+    split_explicit_implicit = false,
+    variant = NaiveVariant(),
+)
+
+solver_config.solver = ode_solver
 
 
 # ## Inspect the initial conditions for a single nodal stack
