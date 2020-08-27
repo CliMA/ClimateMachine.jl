@@ -451,7 +451,7 @@ function update_auxiliary_state!(
 
     # `update_auxiliary_state!` gets called twice, once for the real elements
     # and once for the ghost elements. Only apply the filters to the real elems.
-#   if elems == dg.grid.topology.realelems
+    if elems == dg.grid.topology.realelems
         # required to ensure that after integration velocity field is divergence free
         vert_filter = MD.vert_filter
         # Q[1] = u[1] = u, Q[2] = u[2] = v
@@ -460,7 +460,7 @@ function update_auxiliary_state!(
         exp_filter = MD.exp_filter
         # Q[4] = θ
         apply!(Q, (4,), dg.grid, exp_filter, direction = VerticalDirection())
-#   end
+    end
 
 #----------
     # Compute Divergence of Horizontal Flow field using "conti3d_dg" DGmodel
