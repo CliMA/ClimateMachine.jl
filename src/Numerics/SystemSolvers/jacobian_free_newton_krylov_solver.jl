@@ -37,7 +37,14 @@ mutable struct JacobianAction{FT, AT}
 end
 
 function JacobianAction(rhs!, Q, ϵ)
-    return JacobianAction(rhs!, ϵ, similar(Q), similar(Q), similar(Q), similar(Q))
+    return JacobianAction(
+        rhs!,
+        ϵ,
+        similar(Q),
+        similar(Q),
+        similar(Q),
+        similar(Q),
+    )
 end
 
 
@@ -60,13 +67,13 @@ function (op::JacobianAction)(JΔQ, dQ, args...)
     ϵ = op.ϵ
     Fq = op.Fq
     Fqdq = op.Fqdq
-    
+
     FT = eltype(dQ)
     n = length(dQ)
     normdQ = norm(dQ, weighted_norm)
 
     if normdQ > ϵ
-        factor = FT(1 / (n*normdQ))
+        factor = FT(1 / (n * normdQ))
     else
         # initial newton step, ΔQ = 0
         factor = FT(1 / n)
@@ -74,7 +81,7 @@ function (op::JacobianAction)(JΔQ, dQ, args...)
 
     β = √ϵ
     e = factor * β * norm(Q, 1, false) + β
-    
+
     Qdq .= Q .+ e .* dQ
 
     rhs!(Fqdq, Qdq, args...)
@@ -106,7 +113,8 @@ Solve for Frhs = F(Q), by finite difference
 
      set ΔQ = F(Q^n) - Frhs
 """
-mutable struct BatchedJacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
+mutable struct BatchedJacobianFreeNewtonKrylovSolver{FT, AT} <:
+               AbstractNonlinearSolver
     # small number used for finite difference
     ϵ::FT
     # tolerances for convergence
@@ -116,7 +124,7 @@ mutable struct BatchedJacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinea
     # Linear solver for the Jacobian system
     linearsolver
     # container for unknows ΔQ, which is updated for the linear solver
-    ΔQ::AT 
+    ΔQ::AT
     # contrainer for F(Q)
     residual::AT
 end
@@ -133,8 +141,15 @@ function BatchedJacobianFreeNewtonKrylovSolver(
 )
     FT = eltype(Q)
     residual = similar(Q)
-    ΔQ  = similar(Q)
-    return BatchedJacobianFreeNewtonKrylovSolver(FT(ϵ), FT(tol), M, linearsolver, ΔQ, residual)
+    ΔQ = similar(Q)
+    return BatchedJacobianFreeNewtonKrylovSolver(
+        FT(ϵ),
+        FT(tol),
+        M,
+        linearsolver,
+        ΔQ,
+        residual,
+    )
 end
 
 """
@@ -174,8 +189,8 @@ solver: linear solver
 """
 
 function donewtoniteration!(
-    rhs!,   
-    jvp!,                
+    rhs!,
+    jvp!,
     preconditioner,
     Q,
     Qrhs,
@@ -194,18 +209,12 @@ function donewtoniteration!(
     # J(Q)ΔQ = -R
     # where R = Qrhs - F(Q), which is computed at the end of last step or in the initialize function
     R = solver.residual
-    
-        
+
+
     # R = F(Q^n) - Frhs
     # ΔQ = dF/dQ(Q^{n})⁻¹ (Frhs - F(Q^n)) = -dF/dQ(Q^{n})⁻¹ R 
-    iters = linearsolve!(
-        jvp!,
-        preconditioner,
-        solver.linearsolver,
-        ΔQ,
-        -R,
-        args...,
-    )
+    iters =
+        linearsolve!(jvp!, preconditioner, solver.linearsolver, ΔQ, -R, args...)
 
     # Newton correction Q^{n+1} = Q^n + dF/dQ(Q^{n})⁻¹ (Frhs - F(Q^n))
     Q .+= ΔQ
@@ -214,6 +223,6 @@ function donewtoniteration!(
     rhs!(R, Q, args...)
     R .-= Qrhs
     resnorm = norm(R, weighted_norm)
-    
+
     return resnorm, iters
 end

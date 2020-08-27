@@ -1,23 +1,23 @@
-export ColumnwiseLUPreconditioner, preconditioner_update!, preconditioner_solve!, preconditioner_counter_update!
+export ColumnwiseLUPreconditioner,
+    preconditioner_update!,
+    preconditioner_solve!,
+    preconditioner_counter_update!
 
 
 """
 Do nothing, when there is no preconditioner, preconditioner = Nothing
 """
-function preconditioner_update!(op, dg, preconditioner::Nothing, args...)
-end
+function preconditioner_update!(op, dg, preconditioner::Nothing, args...) end
 
 """
 Do nothing, when there is no preconditioner, preconditioner = Nothing
 """
-function preconditioner_solve!(preconditioner::Nothing, Q)
-end
+function preconditioner_solve!(preconditioner::Nothing, Q) end
 
 """
 Do nothing, when there is no preconditioner, preconditioner = Nothing
 """
-function preconditioner_counter_update!(preconditioner::Nothing)
-end
+function preconditioner_counter_update!(preconditioner::Nothing) end
 
 """
 mutable struct ColumnwiseLUPreconditioner{AT}
@@ -55,16 +55,12 @@ counter = -1, which indicates the preconditioner is empty
 update_freq: preconditioner update frequency
 
 """
-function ColumnwiseLUPreconditioner(dg, Q0, update_freq=100)
+function ColumnwiseLUPreconditioner(dg, Q0, update_freq = 100)
     single_column = false
     Q = similar(Q0)
     PQ = similar(Q0)
 
-    A = empty_banded_matrix(
-        dg,
-        Q;
-        single_column = single_column,
-    )
+    A = empty_banded_matrix(dg, Q; single_column = single_column)
 
     # counter = -1, which indicates the preconditioner is empty
     ColumnwiseLUPreconditioner(A, Q, PQ, -1, update_freq)
@@ -76,10 +72,16 @@ update the DGColumnBandedMatrix by the finite difference approximation
 op: operator used to compute the finte difference information
 dg: the DG model, use only the grid information
 """
-function preconditioner_update!(op, dg, preconditioner::ColumnwiseLUPreconditioner, args...)
-    
+function preconditioner_update!(
+    op,
+    dg,
+    preconditioner::ColumnwiseLUPreconditioner,
+    args...,
+)
+
     # preconditioner.counter < 0, means newly constructed empty preconditioner
-    if preconditioner.counter >= 0 && (preconditioner.counter < preconditioner.update_freq)
+    if preconditioner.counter >= 0 &&
+       (preconditioner.counter < preconditioner.update_freq)
         return
     end
 
@@ -87,14 +89,7 @@ function preconditioner_update!(op, dg, preconditioner::ColumnwiseLUPrecondition
     Q = preconditioner.Q
     PQ = preconditioner.PQ
 
-    update_banded_matrix!(
-        A,
-        op,
-        dg,
-        Q,
-        PQ,
-        args...
-    )
+    update_banded_matrix!(A, op, dg, Q, PQ, args...)
     band_lu!(A)
 
     preconditioner.counter = 0
@@ -116,6 +111,8 @@ end
 """
 Update the preconditioner counter, after each Newton iteration
 """
-function preconditioner_counter_update!(preconditioner::ColumnwiseLUPreconditioner)
+function preconditioner_counter_update!(
+    preconditioner::ColumnwiseLUPreconditioner,
+)
     preconditioner.counter += 1
 end

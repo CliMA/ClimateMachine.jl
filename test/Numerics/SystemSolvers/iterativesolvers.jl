@@ -35,7 +35,8 @@ using StaticArrays, LinearAlgebra, Random
 
         x = @MVector rand(T, n)
         x0 = copy(x)
-        iters = linearsolve!(mulbyA!, nothing, linearsolver, x, b; max_iters = Inf)
+        iters =
+            linearsolve!(mulbyA!, nothing, linearsolver, x, b; max_iters = Inf)
 
         @test iters == expected_iters[m][T]
         @test norm(A * x - b) / norm(A * x0 - b) <= tol
@@ -44,10 +45,11 @@ using StaticArrays, LinearAlgebra, Random
         # initializing with the exact solution
         x = A \ b
 
-        iters = linearsolve!(mulbyA!, nothing, linearsolver, x, b; max_iters = Inf)
+        iters =
+            linearsolve!(mulbyA!, nothing, linearsolver, x, b; max_iters = Inf)
         @test iters == 0
         @test norm(A * x - b) <= 100 * eps(T)
-        
+
 
         newtol = 1000tol
         settolerance!(linearsolver, newtol)
@@ -89,7 +91,14 @@ end
 
             x = rand(T, n)
             x0 = copy(x)
-            iters = linearsolve!(mulbyA!, nothing, linearsolver, x, b; max_iters = Inf)
+            iters = linearsolve!(
+                mulbyA!,
+                nothing,
+                linearsolver,
+                x,
+                b;
+                max_iters = Inf,
+            )
 
             @test iters == expected_iters[m][T][i]
             @test norm(A * x - b) / norm(A * x0 - b) <= tol

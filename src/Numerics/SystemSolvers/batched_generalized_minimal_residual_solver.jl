@@ -365,8 +365,12 @@ function initialize!(
     end
     residual_norm = maximum(resnorms)
     initial_residual_norm = maximum(initial_resnorms)
-    converged =
-        batched_check_convergence(residual_norm, initial_residual_norm, atol, rtol)
+    converged = batched_check_convergence(
+        residual_norm,
+        initial_residual_norm,
+        atol,
+        rtol,
+    )
 
     converged, residual_norm
 end
@@ -421,7 +425,7 @@ function doiteration!(
 
         # PRECONDITIONER: batched_krylov_basis[j+1] =  J P^{-1}batched_krylov_basis[j]
         # set krylov_basis_prev = P^{-1}batched_krylov_basis[j]
-        preconditioner_solve!(preconditioner,  krylov_basis_prev)
+        preconditioner_solve!(preconditioner, krylov_basis_prev)
 
         # Global operator application to get new Krylov basis vector
         linearoperator!(krylov_basis, krylov_basis_prev, args...)
@@ -453,8 +457,12 @@ function doiteration!(
         # TODO: Once we are able to batch the operator application, we
         # should revisit the termination criteria.
         residual_norm = maximum(resnorms)
-        converged =
-            batched_check_convergence(residual_norm, initial_residual_norm, atol, rtol)
+        converged = batched_check_convergence(
+            residual_norm,
+            initial_residual_norm,
+            atol,
+            rtol,
+        )
         if converged
             break
         end
@@ -674,7 +682,12 @@ end
 @inline convert_structure!(x::MPIStateArray, y, reshape_tuple, permute_tuple) =
     convert_structure!(x.realdata, y, reshape_tuple, permute_tuple)
 
-function batched_check_convergence(residual_norm, initial_residual_norm, atol, rtol)
-    converged = (residual_norm ≤ rtol*initial_residual_norm)
+function batched_check_convergence(
+    residual_norm,
+    initial_residual_norm,
+    atol,
+    rtol,
+)
+    converged = (residual_norm ≤ rtol * initial_residual_norm)
     return converged
 end

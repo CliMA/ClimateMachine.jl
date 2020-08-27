@@ -490,7 +490,7 @@ function update_banded_matrix!(
     dim = dimensionality(grid)
 
     Nqj = dim == 2 ? 1 : Nq
-    
+
     # TODO ask Lucas!
     # fill!(A, zero(FT))
 

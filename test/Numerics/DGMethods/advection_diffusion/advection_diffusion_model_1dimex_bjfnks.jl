@@ -168,23 +168,20 @@ function run(
     Q = init_ode_state(dg, FT(0))
 
     # linearsolver = GeneralizedMinimalResidual(Q; M = 30, rtol = 1e-5)
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        atol = 1e-5,
-        rtol = 1e-5,
-    )
+    linearsolver =
+        BatchedGeneralizedMinimalResidual(dg, Q; atol = 1e-5, rtol = 1e-5)
 
-    nonlinearsolver = BatchedJacobianFreeNewtonKrylovSolver(
-        Q,
-        linearsolver;
-        tol = 1e-4,
-    )
+    nonlinearsolver =
+        BatchedJacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
 
     ode_solver = ARK548L2SA2KennedyCarpenter(
         dg,
         vdg,
-        NonLinearBackwardEulerSolver(nonlinearsolver; isadjustable = true, preconditioner_update_freq = 1000),
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 1000,
+        ),
         Q;
         dt = dt,
         t0 = 0,
