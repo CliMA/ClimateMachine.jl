@@ -38,6 +38,7 @@ mutable struct GeneralizedConjugateResidual{K, T, AT} <:
     L_p::NTuple{K, AT}
     alpha::MArray{Tuple{K}, T, 1, K}
     normsq::MArray{Tuple{K}, T, 1, K}
+    residual_norm0::T
     rtol::T
     atol::T
 
@@ -55,8 +56,8 @@ mutable struct GeneralizedConjugateResidual{K, T, AT} <:
         L_p = ntuple(i -> similar(Q), K)
         alpha = @MArray zeros(K)
         normsq = @MArray zeros(K)
-
-        new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, rtol, atol)
+        residual_norm0 = zero(T)
+        new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, residual_norm0, rtol, atol)
     end
 end
 
@@ -65,7 +66,8 @@ function initialize!(
     Q,
     Qrhs,
     solver::GeneralizedConjugateResidual,
-    args...,
+    args...;
+    restart = false
 )
     residual = solver.residual
     p = solver.p
@@ -74,31 +76,35 @@ function initialize!(
     @assert size(Q) == size(residual)
     rtol, atol = solver.rtol, solver.atol
 
-    threshold = rtol * norm(Qrhs, weighted_norm)
+    
     linearoperator!(residual, Q, args...)
     residual .-= Qrhs
 
-    converged = false
     residual_norm = norm(residual, weighted_norm)
-    if residual_norm < threshold
-        converged = true
-        return converged, threshold
+    # if residual_norm < threshold
+    #     converged = true
+    #     return converged, threshold
+    # end
+
+    if !restart
+        solver.residual_norm0 = residual_norm
     end
+
+    converged,  residual_norm = check_convergence(residual_norm, solver.residual_norm0, atol, rtol)
 
     p[1] .= residual
     linearoperator!(L_p[1], p[1], args...)
 
-    threshold = max(atol, threshold)
 
-    converged, threshold
+    converged, residual_norm
 end
 
 function doiteration!(
     linearoperator!,
+    factors,
     Q,
     Qrhs,
     solver::GeneralizedConjugateResidual{K},
-    threshold,
     args...,
 ) where {K}
 
@@ -108,6 +114,8 @@ function doiteration!(
     L_p = solver.L_p
     normsq = solver.normsq
     alpha = solver.alpha
+    residual_norm0 = solver.residual_norm0
+    rtol, atol = solver.rtol, solver.atol
 
     residual_norm = typemax(eltype(Q))
     for k in 1:K
@@ -119,8 +127,12 @@ function doiteration!(
 
         residual_norm = norm(residual, weighted_norm)
 
-        if residual_norm <= threshold
-            return (true, k, residual_norm)
+        # if residual_norm <= threshold
+        #     return (true, k, residual_norm)
+        # end
+        converged,  residual_norm = check_convergence(residual_norm, residual_norm0, atol, rtol)
+        if converged
+            return (converged, k, residual_norm)
         end
 
         linearoperator!(L_residual, residual, args...)
