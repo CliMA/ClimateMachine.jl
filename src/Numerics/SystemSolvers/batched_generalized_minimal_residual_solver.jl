@@ -358,7 +358,7 @@ function initialize!(
     # Now we initialize across all columns (solver.batch_size).
     # This function also computes the residual norm in each column
     event = Event(device)
-    event = batched_initialize!(device, groupsize)(
+    event = batched_initialize!(device, Np)(
         resnorms,
         g0,
         batched_krylov_basis,
@@ -369,7 +369,7 @@ function initialize!(
         restart,
         atol,
         rtol;
-        ndrange = solver.batch_size,
+        ndrange = solver.Np * solver.numhorzelemen,
         dependencies = (event,),
     )
     wait(device, event)
@@ -500,6 +500,7 @@ function doiteration!(
 end
 
 @kernel function batched_initialize!(
+    bgmres,
     resnorms,
     g0,
     batched_krylov_basis,
@@ -511,50 +512,83 @@ end
     atol,
     rtol,
 )
-    cidx = @index(Global)
+    @uniform begin
+        FT = eltype(b)
+        nstate = num_state(bgmres)
+        Nq = polynomialorder(bgmres) + 1
+        Nqj = dimensionality(bgmres) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(bgmres)
+    end
+
+    eh = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+    
+    # Thread:
+    # what group is it in:       group id (gx, gy, gz)
+    # What is my id in my group: local id (lx, ly, lz)
+    # how big are the group:     group size
+    # global id = local id + (group id - 1) * group size
+
     FT = eltype(batched_krylov_basis)
 
-    if iterconv[cidx] == -1
+    @inbounds if iterconv[ij, eh] == -1
+        ij = i + (j - 1) * Nqj
 
-        # Initialize entire RHS storage
-        @inbounds for j in 1:(M + 1)
-            g0[cidx, j] = -zero(FT)
-        end
+        l_g0 = -zero(FT)
 
         # Now we compute the first element of g0[cidx, :],
         # which is determined by the column norm of the initial residual ∥r0∥_2:
         # g0 = ∥r0∥_2 e1
-        @inbounds for j in 1:Ndof
-            g0[cidx, 1] +=
-                batched_krylov_basis[1, j, cidx] * batched_krylov_basis[1, j, cidx]
+        # DG data -> (dof, state, element) -> (ij, k, s, ev, eh)
+        # DG data -> (dof, state, element)
+        for ev in 1:nvertelem
+            @unroll for s in 1:nstate
+                @unroll for k in 1:Nq
+                    e = ev + (eh - 1) * num_vert_elem  # element index
+                    ijk = ij + (k - 1) * Nqj * Nq
+                    l_g0 += batched_krylov_basis[ijk, s, e]^2
+                end
+            end
         end
-        @inbounds g0[cidx, 1] = sqrt(g0[cidx, 1])
+        l_g0 = sqrt(l_g0)
 
         # Normalize the batched_krylov_basis by the (local) residual norm
-        @inbounds for j in 1:Ndof
-            batched_krylov_basis[1, j, cidx] /= g0[cidx, 1]
+        for ev in 1:nvertelem
+            @unroll for s in 1:nstate
+                @unroll for k in 1:Nq
+                    e = ev + (eh - 1) * num_vert_elem  # element index
+                    ijk = ij + (k - 1) * Nqj * Nq
+                    batched_krylov_basis[ijk, s, e] /= l_g0
+                end
+            end
         end
 
-        @inbounds local_res = g0[cidx, 1]
+        local_res = l_g0
         # When restarting, we do not want to overwrite the initial threshold,
         # otherwise we may not get an accurate indication that we have sufficiently
         # reduced the GMRES residual.
         if !restart
             local_thresh = local_res * rtol
             # Record initial threshold before any restarting
-            @inbounds thresholds[cidx] = local_thresh
+            thresholds[cidx] = local_thresh
         else
             # When checking convergence at restart, just check
             # using current local residual
             local_thresh = local_res
         end
 
+        # Initialize entire RHS storage
+        g0[ij, 1, eh] = l_g0
+        for iter in 2:(M + 1)
+            g0[ij, mter, eh] = -zero(FT)
+        end
+
         if local_thresh ≤ atol
-            @inbounds iterconv[cidx] = 0
+            iterconv[ij, eh] = 0
         end
 
         # Record initialize residual norm in the column
-        @inbounds resnorms[cidx] = local_res
+        resnorms[ij, eh] = local_res
 
     end
 
