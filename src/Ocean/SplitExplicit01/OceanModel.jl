@@ -451,7 +451,7 @@ function update_auxiliary_state!(
 
     # `update_auxiliary_state!` gets called twice, once for the real elements
     # and once for the ghost elements. Only apply the filters to the real elems.
-    if elems == dg.grid.topology.realelems
+#   if elems == dg.grid.topology.realelems
         # required to ensure that after integration velocity field is divergence free
         vert_filter = MD.vert_filter
         # Q[1] = u[1] = u, Q[2] = u[2] = v
@@ -460,7 +460,7 @@ function update_auxiliary_state!(
         exp_filter = MD.exp_filter
         # Q[4] = θ
         apply!(Q, (4,), dg.grid, exp_filter, direction = VerticalDirection())
-    end
+#   end
 
 #----------
     # Compute Divergence of Horizontal Flow field using "conti3d_dg" DGmodel
@@ -485,7 +485,7 @@ function update_auxiliary_state!(
            A.w = dQ.θ
         end
     end
-    update_auxiliary_state!(f!, dg, m, ct3d_dQ, t)
+    update_auxiliary_state!(f!, dg, m, ct3d_dQ, t, elems)
 #----------
 
     Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
@@ -504,13 +504,6 @@ function update_auxiliary_state!(
     # project w(z=0) down the stack
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
-#-----------
-#       println("OceanModel aux_var: w  = ", index_w)
-#       println("OceanModel aux_var: wz0= ", index_wz0)
-#       println("data_m[:,3,8,1,150] = y :",data_m[:,3,8,1,150])
-#       println("data_m[3,:,8,1,150] = y :",data_m[3,:,8,1,150])
-#       println("data_m[3,:,1,:,150] = w :",data_m[3,:,index_w,:,150])
-#-----------
     flat_wz0 = @view data_m[:, end:end, index_w, end:end, 1:nrealelemh]
     boxy_wz0 = @view data_m[:, :, index_wz0, :, 1:nrealelemh]
     boxy_wz0 .= flat_wz0
