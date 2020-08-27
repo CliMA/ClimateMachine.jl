@@ -69,6 +69,41 @@ Base.@propagate_inbounds function Base.setindex!(
     A.data[I...] = val
 end
 
+
+# # TODO is there the right place to put
+# function construct_preconditioner(op, dg, single_column, Q, args...)
+#     # dg = op.f!
+
+#     # TODO: can we get away with just passing the grid?
+#     A = banded_matrix(
+#         op,
+#         dg,
+#         similar(Q),
+#         similar(Q),
+#         args...;
+#         single_column = single_column,
+#     )
+
+#     band_lu!(A)
+
+#     ColumnwiseLU(A)
+# end
+
+# # Inplace preconditioner solved 
+# # Q = Pinv * Q
+# # temp is just a temporary  variable
+# function preconditioner_solve!(
+#     clu::Union{ColumnwiseLU, Nothing},
+#     Q
+# )
+#     if isnothing(clu); return; end
+#     A = clu.A
+
+#     band_forward!(Q, A)
+#     band_back!(Q, A)
+# end
+
+
 function prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
     dg = op.f!
 
@@ -88,6 +123,7 @@ function prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
 end
 
 function linearsolve!(
+    linop,
     clu::ColumnwiseLU,
     ::AbstractColumnLUSolver,
     Q,
@@ -356,6 +392,153 @@ function banded_matrix(
     end
 
     A
+end
+
+
+# Initialize an empty banded matrix
+function empty_banded_matrix(
+    dg::DGModel,
+    Q::MPIStateArray;
+    single_column = false,
+)
+    bl = dg.balance_law
+    grid = dg.grid
+    topology = grid.topology
+    @assert isstacked(topology)
+    @assert typeof(dg.direction) <: VerticalDirection
+
+    FT = eltype(Q.data)
+    device = array_device(Q)
+
+    nstate = number_states(bl, Prognostic())
+    N = polynomialorder(grid)
+    Nq = N + 1
+
+    # p is lower bandwidth
+    # q is upper bandwidth
+    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+    p = q = nstate * Nq * eband - 1
+
+    nrealelem = length(topology.realelems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nrealelem, nvertelem)
+
+    dim = dimensionality(grid)
+
+    Nqj = dim == 2 ? 1 : Nq
+
+    # first horizontal DOF index
+    # second horizontal DOF index
+    # band index -q:p
+    # vertical DOF index
+    # horizontal element index
+    A = if single_column
+        similar(Q.data, p + q + 1, Nq * nstate * nvertelem)
+    else
+        similar(Q.data, Nq, Nqj, p + q + 1, Nq * nstate * nvertelem, nhorzelem)
+    end
+    fill!(A, zero(FT))
+
+    A = DGColumnBandedMatrix{
+        dim,
+        N,
+        nstate,
+        nhorzelem,
+        nvertelem,
+        eband,
+        single_column,
+        typeof(A),
+    }(
+        A,
+    )
+
+    A
+end
+
+# Update banded matrix
+function update_banded_matrix!(
+    A::DGColumnBandedMatrix,
+    f!,
+    dg::DGModel,
+    Q::MPIStateArray = MPIStateArray(dg),
+    dQ::MPIStateArray = MPIStateArray(dg),
+    args...;
+    single_column = false,
+)
+    bl = dg.balance_law
+    grid = dg.grid
+    topology = grid.topology
+    @assert isstacked(topology)
+    @assert typeof(dg.direction) <: VerticalDirection
+
+    FT = eltype(Q.data)
+    device = array_device(Q)
+
+    nstate = number_states(bl, Prognostic())
+    N = polynomialorder(grid)
+    Nq = N + 1
+
+    # p is lower bandwidth
+    # q is upper bandwidth
+    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+    p = q = nstate * Nq * eband - 1
+
+    nrealelem = length(topology.realelems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nrealelem, nvertelem)
+
+    dim = dimensionality(grid)
+
+    Nqj = dim == 2 ? 1 : Nq
+    
+    # TODO ask Lucas!
+    # fill!(A, zero(FT))
+
+
+    # loop through all DOFs in a column and compute the matrix column
+    for ev in 1:nvertelem
+        for s in 1:nstate
+            for k in 1:Nq
+                # Set a single 1 per column and rest 0
+                event = Event(device)
+                event = kernel_set_banded_data!(device, (Nq, Nqj, Nq))(
+                    bl,
+                    Val(dim),
+                    Val(nstate),
+                    Val(N),
+                    Val(nvertelem),
+                    Q.data,
+                    k,
+                    s,
+                    ev,
+                    1:nhorzelem,
+                    1:nvertelem;
+                    ndrange = (nvertelem * Nq, nhorzelem * Nqj, Nq),
+                    dependencies = (event,),
+                )
+                wait(device, event)
+
+                # Get the matrix column
+                f!(dQ, Q, args...)
+
+                # Store the banded matrix
+                event = Event(device)
+                event = kernel_set_banded_matrix!(device, (Nq, Nqj, Nq))(
+                    A,
+                    dQ.data,
+                    k,
+                    s,
+                    ev,
+                    1:nhorzelem,
+                    (-eband):eband;
+                    ndrange = ((2eband + 1) * Nq, nhorzelem * Nqj, Nq),
+                    dependencies = (event,),
+                )
+                wait(device, event)
+            end
+        end
+    end
+
 end
 
 
