@@ -271,10 +271,10 @@ end
 """
 function doiteration!(
     linearoperator!,
+    factors,
     Q,
     Qrhs,
     solver::ConjugateGradient,
-    threshold,
     args...;
     applyPC! = (x, y) -> x .= y,
 )
@@ -398,10 +398,10 @@ This function enacts the iterative solver. It is called as part of the AbstractI
 """
 function doiteration!(
     linearoperator!,
+    factors,
     Q::MPIStateArray,
     Qrhs::MPIStateArray,
     solver::ConjugateGradient,
-    threshold,
     args...;
     applyPC! = (x, y) -> x .= y,
 )
