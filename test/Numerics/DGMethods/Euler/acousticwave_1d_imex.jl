@@ -65,7 +65,7 @@ function main()
     expected_result = Dict()
     expected_result[Float32] = 9.5066030866432000e+13
     expected_result[Float64] = 9.5073452847149594e+13
- 
+
     for FT in (Float64, Float32)
         for split_explicit_implicit in (false, true)
             result = run(
@@ -167,7 +167,7 @@ function run(
         rtol = 1.0e-8, #sqrt(eps(FT)) * 0.01,
         # Maximum number of Krylov iterations in a column
     )
-   
+
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
@@ -182,7 +182,11 @@ function run(
     odesolver = ARK2GiraldoKellyConstantinescu(
         split_explicit_implicit ? rem_dg : dg,
         lineardg,
-        LinearBackwardEulerSolver(linearsolver; isadjustable = true, preconditioner_update_freq = 100),
+        LinearBackwardEulerSolver(
+            linearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 100,
+        ),
         Q;
         dt = dt,
         t0 = 0,

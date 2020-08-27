@@ -27,7 +27,8 @@ LinearAlgebra.norm(A::AbstractVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::AbstractVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
 
-export linearsolve!, settolerance!, prefactorize, construct_preconditioner, preconditioner_solve!
+export linearsolve!,
+    settolerance!, prefactorize, construct_preconditioner, preconditioner_solve!
 export AbstractSystemSolver, AbstractIterativeSystemSolver
 export nonlinearsolve!
 
@@ -44,7 +45,15 @@ struct LSOnly <: AbstractNonlinearSolver
     linearsolver
 end
 
-function donewtoniteration!(rhs!, linearoperator!, preconditioner, Q, Qrhs, solver::LSOnly, args...)
+function donewtoniteration!(
+    rhs!,
+    linearoperator!,
+    preconditioner,
+    Q,
+    Qrhs,
+    solver::LSOnly,
+    args...,
+)
     @info "donewtoniteration! linearsolve!", args...
     linearsolve!(
         linearoperator!,
@@ -87,8 +96,7 @@ function nonlinearsolve!(
     iters = 0
 
     # Initialize NLSolver, compute initial residual
-    initial_residual_norm =
-        initialize!(rhs!, Q, Qrhs, solver, args...)
+    initial_residual_norm = initialize!(rhs!, Q, Qrhs, solver, args...)
     if initial_residual_norm < tol
         converged = true
     end
@@ -99,13 +107,20 @@ function nonlinearsolve!(
 
         # dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n)), update Q^n in jvp!
         update_Q!(jvp!, Q, args...)
-        
+
         # update preconditioner based on finite difference, with jvp!
         preconditioner_update!(jvp!, rhs!.f!, preconditioner, nothing, FT(NaN))
 
         # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
-        residual_norm, linear_iterations =
-            donewtoniteration!(rhs!, jvp!, preconditioner, Q, Qrhs, solver, args...)
+        residual_norm, linear_iterations = donewtoniteration!(
+            rhs!,
+            jvp!,
+            preconditioner,
+            Q,
+            Qrhs,
+            solver,
+            args...,
+        )
         @info "Linear solver converged in $linear_iterations iterations"
         iters += 1
 
@@ -127,7 +142,8 @@ function nonlinearsolve!(
         end
     end
 
-    converged || @warn "Nonlinear solver did not attain convergence after $iters iterations"
+    converged ||
+    @warn "Nonlinear solver did not attain convergence after $iters iterations"
     cvg[] = converged
 
     iters
@@ -184,7 +200,11 @@ initialize!(
 
 Prefactorize the in-place linear operator `linop!` for use with `linearsolver`.
 """
-function prefactorize(linop!, linearsolver::AbstractIterativeSystemSolver, args...)
+function prefactorize(
+    linop!,
+    linearsolver::AbstractIterativeSystemSolver,
+    args...,
+)
     return nothing
 end
 """
@@ -216,12 +236,19 @@ function linearsolve!(
 )
     converged = false
     iters = 0
-    converged, residual_norm0 = initialize!(linearoperator!, Q, Qrhs, solver, args...)
+    converged, residual_norm0 =
+        initialize!(linearoperator!, Q, Qrhs, solver, args...)
     converged && return iters
 
     while !converged && iters < max_iters
-        converged, inner_iters, residual_norm =
-            doiteration!(linearoperator!, preconditioner, Q, Qrhs, solver, args...)
+        converged, inner_iters, residual_norm = doiteration!(
+            linearoperator!,
+            preconditioner,
+            Q,
+            Qrhs,
+            solver,
+            args...,
+        )
 
         iters += inner_iters
 

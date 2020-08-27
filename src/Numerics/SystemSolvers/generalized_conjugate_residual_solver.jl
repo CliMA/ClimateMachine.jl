@@ -57,7 +57,17 @@ mutable struct GeneralizedConjugateResidual{K, T, AT} <:
         alpha = @MArray zeros(K)
         normsq = @MArray zeros(K)
         residual_norm0 = zero(T)
-        new{K, T, AT}(residual, L_residual, p, L_p, alpha, normsq, residual_norm0, rtol, atol)
+        new{K, T, AT}(
+            residual,
+            L_residual,
+            p,
+            L_p,
+            alpha,
+            normsq,
+            residual_norm0,
+            rtol,
+            atol,
+        )
     end
 end
 
@@ -67,7 +77,7 @@ function initialize!(
     Qrhs,
     solver::GeneralizedConjugateResidual,
     args...;
-    restart = false
+    restart = false,
 )
     residual = solver.residual
     p = solver.p
@@ -76,7 +86,7 @@ function initialize!(
     @assert size(Q) == size(residual)
     rtol, atol = solver.rtol, solver.atol
 
-    
+
     linearoperator!(residual, Q, args...)
     residual .-= Qrhs
 
@@ -90,7 +100,8 @@ function initialize!(
         solver.residual_norm0 = residual_norm
     end
 
-    converged,  residual_norm = check_convergence(residual_norm, solver.residual_norm0, atol, rtol)
+    converged, residual_norm =
+        check_convergence(residual_norm, solver.residual_norm0, atol, rtol)
 
     p[1] .= residual
     linearoperator!(L_p[1], p[1], args...)
@@ -130,7 +141,8 @@ function doiteration!(
         # if residual_norm <= threshold
         #     return (true, k, residual_norm)
         # end
-        converged,  residual_norm = check_convergence(residual_norm, residual_norm0, atol, rtol)
+        converged, residual_norm =
+            check_convergence(residual_norm, residual_norm0, atol, rtol)
         if converged
             return (converged, k, residual_norm)
         end
