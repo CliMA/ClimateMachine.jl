@@ -140,7 +140,7 @@ function config_gcm_experiment(
 ) where {FT}
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Distance between surface and top of atmosphere (m)
