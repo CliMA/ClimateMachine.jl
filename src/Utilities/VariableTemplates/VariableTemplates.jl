@@ -281,7 +281,7 @@ end
 @generated function Base.setproperty!(
     v::Grad{S, A, offset},
     sym::Symbol,
-    val,
+    val::AbstractArray,
 ) where {S, A, offset}
     if A <: SubArray
         M = size(fieldtype(A, 1), 1)
@@ -295,11 +295,11 @@ end
     for k in fieldnames(S)
         T = fieldtype(S, k)
         if T <: Real
-            retexpr = :(array[:, $(offset + 1)] .= val)
+            retexpr = :(array[:, $(offset + 1)] = val)
             offset += 1
         elseif T <: StaticArray
             N = length(T)
-            retexpr = :(array[:, ($(offset + 1)):($(offset + N))] .= val)
+            retexpr = :(array[:, ($(offset + 1)):($(offset + N))] = val)
             offset += N
         else
             offset += varsize(T)
