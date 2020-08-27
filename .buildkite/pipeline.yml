@@ -914,10 +914,30 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
-  - label: "gpu_bomex"
-    key: "gpu_bomex"
+  - label: "gpu_bomex_les"
+    key: "gpu_bomex_les"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_single_stack"
+    key: "gpu_bomex_single_stack"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_bulk_sfc_flux"
+    key: "gpu_bomex_bulk_sfc_flux"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --surface-flux=bulk --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -928,16 +948,6 @@ steps:
     key: "gpu_taylor_green"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/taylor_green.jl --diagnostics=default --fix-rng-seed"
-    agents:
-      config: gpu
-      queue: central
-      slurm_ntasks: 1  
-      slurm_gres: "gpu:1"
-
-  - label: "gpu_bomex_bulk_sfc_flux"
-    key: "gpu_bomex_bulk_sfc_flux"
-    command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex.jl --surface-flux=bulk --fix-rng-seed"
     agents:
       config: gpu
       queue: central
