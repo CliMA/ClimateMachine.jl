@@ -619,6 +619,7 @@ function nodal_update_auxiliary_state!(
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
     turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
+    divdamping_nodal_update_auxiliary_state!(m.divdamping, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
 end
 

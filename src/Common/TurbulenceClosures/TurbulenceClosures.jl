@@ -213,7 +213,7 @@ function init_aux_divdamping!(
     aux::Vars,
     geom::LocalGeometry,
 ) end
-function atmos_nodal_update_auxiliary_state!(
+function divdamping_nodal_update_auxiliary_state!(
     ::DivergenceDampingModel,
     ::BalanceLaw,
     state::Vars,
@@ -1011,9 +1011,6 @@ end
 Default do-nothing methods
 """
 struct NoDivergenceDamping <: DivergenceDampingModel end
-vars_state(::NoDivergenceDamping, ::Auxiliary, FT) = @vars()
-vars_state(::NoDivergenceDamping, ::Gradient, FT) = @vars()
-vars_state(::NoDivergenceDamping, ::GradientFlux, FT) = @vars()
 
 """
     ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
@@ -1030,7 +1027,6 @@ struct ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
     "Vertical Divergence Damping Coefficient"
     νd_v::FT
 end
-vars_state(::ConstantCoeffDivergenceDamping, ::Auxiliary, FT) = @vars()
 vars_state(::ConstantCoeffDivergenceDamping, ::Gradient, FT) = @vars(ρu::SVector{3,FT})
 vars_state(::ConstantCoeffDivergenceDamping, ::GradientFlux, FT) = @vars(∇ρu::SMatrix{3,3,FT,9})
 
