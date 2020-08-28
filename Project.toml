@@ -49,7 +49,7 @@ WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 [compat]
 Adapt = "2.0.2"
 ArgParse = "1.1"
-CLIMAParameters = "= 0.1.6"
+CLIMAParameters = "0.1.6"
 CUDA = "1.2"
 Combinatorics = "1.0"
 Coverage = "1.0"
