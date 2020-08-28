@@ -302,125 +302,113 @@ linear_drag!(::ConstantViscosity, _...) = nothing
     return nothing
 end
 
-function shallow_boundary_state! end
+"""
+    boundary_state!(nf, ::SWModel, args...)
 
-function boundary_state!(
-    nf,
-    m::SWModel,
-    q⁺::Vars,
-    a⁺::Vars,
-    n⁻,
-    q⁻::Vars,
-    a⁻::Vars,
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(nf, shallow::SWModel, args...)
+    boundary_conditions = shallow.problem.boundary_conditions
+    return shallow_boundary_state!(nf, boundary_conditions, shallow, args...)
+end
+
+"""
+    shallow_boundary_state!(nf, bc::OceanBC, ::SWModel)
+
+splits boundary condition application into velocity
+"""
+@inline function shallow_boundary_state!(nf, bc::OceanBC, m::SWModel, args...)
+    return shallow_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
+end
+
+"""
+    shallow_boundary_state!(nf, boundaries::Tuple, ::HBModel,
+                          Q⁺, A⁺, n, Q⁻, A⁻, bctype)
+applies boundary conditions for the first-order and gradient fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@generated function shallow_boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    boundaries::Tuple,
+    shallow,
+    Q⁺,
+    A⁺,
+    n,
+    Q⁻,
+    A⁻,
     bctype,
     t,
-    _...,
+    args...,
 )
-    shallow_boundary_state!(nf, m, m.turbulence, q⁺, a⁺, n⁻, q⁻, a⁻, t)
+    N = fieldcount(boundaries)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> shallow_boundary_state!(
+                nf,
+                boundaries[i],
+                shallow,
+                Q⁺,
+                A⁺,
+                n,
+                Q⁻,
+                A⁻,
+                t,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
 end
 
-function boundary_state!(
-    nf,
-    m::SWModel,
-    q⁺::Vars,
-    σ⁺::Vars,
-    α⁺::Vars,
-    n⁻,
-    q⁻::Vars,
-    σ⁻::Vars,
-    α⁻::Vars,
+"""
+    shallow_boundary_state!(nf, boundaries::Tuple, ::HBModel,
+                          Q⁺, A⁺, D⁺, n, Q⁻, A⁻, D⁻, bctype)
+applies boundary conditions for the second-order fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@generated function shallow_boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    boundaries::Tuple,
+    shallow,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n,
+    Q⁻,
+    D⁻,
+    A⁻,
     bctype,
     t,
-    _...,
+    args...,
 )
-    shallow_boundary_state!(nf, m, m.turbulence, q⁺, σ⁺, α⁺, n⁻, q⁻, σ⁻, α⁻, t)
+    N = fieldcount(boundaries)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> shallow_boundary_state!(
+                nf,
+                boundaries[i],
+                shallow,
+                Q⁺,
+                D⁺,
+                A⁺,
+                n,
+                Q⁻,
+                D⁻,
+                A⁻,
+                t,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
 end
 
-@inline function shallow_boundary_state!(
-    ::NumericalFluxFirstOrder,
-    m::SWModel,
-    ::LinearDrag,
-    q⁺,
-    a⁺,
-    n⁻,
-    q⁻,
-    a⁻,
-    t,
-)
-    q⁺.η = q⁻.η
+include("bc_velocity.jl")
 
-    V⁻ = @SVector [q⁻.U[1], q⁻.U[2], -0]
-    V⁺ = V⁻ - 2 * n⁻ ⋅ V⁻ .* SVector(n⁻)
-    q⁺.U = @SVector [V⁺[1], V⁺[2]]
-
-    return nothing
-end
-
-shallow_boundary_state!(
-    ::NumericalFluxGradient,
-    m::SWModel,
-    ::LinearDrag,
-    _...,
-) = nothing
-
-shallow_boundary_state!(
-    ::NumericalFluxSecondOrder,
-    m::SWModel,
-    ::LinearDrag,
-    _...,
-) = nothing
-
-@inline function shallow_boundary_state!(
-    ::NumericalFluxFirstOrder,
-    m::SWModel,
-    ::ConstantViscosity,
-    q⁺,
-    α⁺,
-    n⁻,
-    q⁻,
-    α⁻,
-    t,
-)
-    q⁺.η = q⁻.η
-    q⁺.U = -q⁻.U
-
-    return nothing
-end
-
-@inline function shallow_boundary_state!(
-    ::NumericalFluxGradient,
-    m::SWModel,
-    ::ConstantViscosity,
-    q⁺,
-    α⁺,
-    n⁻,
-    q⁻,
-    α⁻,
-    t,
-)
-    FT = eltype(q⁺)
-    q⁺.U = @SVector zeros(FT, 3)
-
-    return nothing
-end
-
-@inline function shallow_boundary_state!(
-    ::NumericalFluxSecondOrder,
-    m::SWModel,
-    ::ConstantViscosity,
-    q⁺,
-    σ⁺,
-    α⁺,
-    n⁻,
-    q⁻,
-    σ⁻,
-    α⁻,
-    t,
-)
-    q⁺.U = -q⁻.U
-    σ⁺.ν∇U = σ⁻.ν∇U
-
-    return nothing
-end
 
 end
