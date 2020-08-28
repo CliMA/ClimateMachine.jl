@@ -39,7 +39,7 @@ function create_state(
     return state
 end
 
-function init_state(state, balance_law, grid, ::Auxiliary)
-    init_state_auxiliary!(balance_law, state, grid)
+function init_state(state, balance_law, grid, direction, ::Auxiliary)
+    init_state_auxiliary!(balance_law, state, grid, direction)
     return state
 end

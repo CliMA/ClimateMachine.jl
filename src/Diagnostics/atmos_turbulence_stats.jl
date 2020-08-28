@@ -16,8 +16,8 @@ end
         ::ClimateMachineConfigType,
         interval::String,
         out_prefix::String,
-        nor::Float64;
-        iter::Float64,
+        nor::Float64,
+        iter::Float64;
         writer = NetCDFWriter(),
         interpol = nothing,
     )

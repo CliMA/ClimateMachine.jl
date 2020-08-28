@@ -180,12 +180,18 @@ function ocean_init_aux! end
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function init_state_auxiliary!(m::HBModel, state_auxiliary::MPIStateArray, grid)
+function init_state_auxiliary!(
+    m::HBModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
     init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
         state_auxiliary,
         grid,
+        direction,
     )
 end
 

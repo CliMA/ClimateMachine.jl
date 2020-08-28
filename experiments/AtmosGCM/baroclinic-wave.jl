@@ -149,7 +149,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     state.ρu = ρ * u_cart
     state.ρe = ρ * e_tot
 
-    if state.moisture isa EquilMoist
+    if bl.moisture isa EquilMoist
         state.moisture.ρq_tot = ρ * q_tot
     end
 

@@ -110,12 +110,18 @@ function vars_state(m::SWModel, ::Auxiliary, T)
     end
 end
 
-function init_state_auxiliary!(m::SWModel, state_auxiliary::MPIStateArray, grid)
+function init_state_auxiliary!(
+    m::SWModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
     init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
         state_auxiliary,
         grid,
+        direction,
     )
 end
 

@@ -119,9 +119,8 @@ end
     BulkFormulaEnergy(fn) :: EnergyBC
 
 Calculate the net inward energy flux across the boundary. The drag
-coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`. Temperature
-and moisture at the boundary are `T, q_tot = fn_T_and_q_tot(state,
-aux, t)`. `_int` refers to the first interior node.
+coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`. The surface
+temperature and q_tot are `T, q_tot = fn_T_and_q_tot(state, aux, t)`.
 
 Return the flux (in W m^-2).
 """

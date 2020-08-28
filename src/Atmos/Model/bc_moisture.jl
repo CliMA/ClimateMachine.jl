@@ -64,10 +64,10 @@ end
 """
     BulkFormulaMoisture(fn) :: MoistureBC
 
-Calculate the net inward moisture flux across the boundary using the
-bulk formula. The drag coefficient is `C_q = fn_C_q(state, aux, t,
-normu_int_tan)`. q_tot at the boundary is `q_tot = fn_q_tot(state,
-aux, t)`. `_int` refers to the first interior node.
+Calculate the net inward moisture flux across the boundary using
+the bulk formula. The drag coefficient is `C_q = fn_C_q(state, aux,
+t, normu_int_tan)`. The surface q_tot at the boundary is `q_tot =
+fn_q_tot(state, aux, t)`.
 
 Return the flux (in kg m^-2 s^-1).
 """

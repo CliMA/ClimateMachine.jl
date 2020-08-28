@@ -38,6 +38,7 @@ export air_temperature_from_ideal_gas_law
 export condensate, has_condensate
 export specific_enthalpy, total_specific_enthalpy
 export moist_static_energy
+export saturated
 
 """
     gas_constant_air(param_set, [q::PhasePartition])
@@ -2073,4 +2074,15 @@ function moist_static_energy(
     e_pot::FT,
 ) where {FT <: Real}
     return specific_enthalpy(ts) + e_pot
+end
+
+"""
+    saturated(ts::ThermodynamicState)
+
+Boolean indicating if thermodynamic
+state is saturated.
+"""
+function saturated(ts::ThermodynamicState)
+    RH = relative_humidity(ts)
+    return RH ≈ 1 || RH > 1
 end
