@@ -43,6 +43,7 @@ end
 
 """
     initial condition is given by ρ0 = sin(kx+ly+mz)
+    test: ∇^4_horz ρ0 = (k^2+l^2)^2 ρ0
 """
 
 function initial_condition!(
