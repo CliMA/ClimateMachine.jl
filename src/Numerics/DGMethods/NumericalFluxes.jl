@@ -1,6 +1,7 @@
 module NumericalFluxes
 
-export NumericalFluxGradient,
+export 
+    NumericalFluxGradient,
     NumericalFluxFirstOrder,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
@@ -26,18 +27,67 @@ import ...BalanceLaws:
     transform_post_gradient_laplacian!,
     normal_boundary_flux_second_order! # hack for now
 
+abstract type AbstractNumericalFlux end
+
+for fn! in (
+    :numerical_boundary_flux_gradient!,
+    :numerical_boundary_flux_first_order!,
+    :numerical_boundary_flux_second_order!,
+    :numerical_boundary_flux_divergence!,
+    :numerical_boundary_flux_higher_order!)
+
+    _fn! = Symbol(:_,fn!)
+    @eval begin
+        function $fn!(
+            nf::AbstractNumericalFlux,
+            bctag::Integer,
+            bl::BalanceLaw,
+            args...)
+
+            bc = boundary_condition(nf,bl)
+            $_fn!(nf,bctag,bc,bl,args...)
+        end
+
+        # intermediate function used for dispatch
+        # this shouldn't be extended by users
+
+        # if not a Tuple
+        function $_fn!(nf,bctag,bc,bl,args...)
+            $fn!(nf,bc,bl,args...)
+        end
+        # unroll the sequence of if statements to avoid dynamic dispatch
+        @generated function $_fn!(nf,bctag,bcs::NTuple{N},bl,args...) where {N}
+            quote
+                Base.Cartesian.@nif(
+                    $(N + 1),
+                    i -> bctag == i, # conditionexpr
+                    i -> $fn!(
+                        nf,
+                        bcs[i],
+                        bl,
+                        args...,
+                    ), # expr
+                    i -> error("Invalid boundary tag")
+                ) # elseexpr
+                return nothing
+            end
+        end
+    end
+end
+
+
 """
     NumericalFluxGradient
 
 Any `P <: NumericalFluxGradient` should define methods for:
 
-   numerical_flux_gradient!(gnf::P, balance_law::BalanceLaw, diffF, n⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
+   numerical_flux_gradient!(gnf::P, bl::BalanceLaw, diffF, n⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
                             Qstate_gradient_flux⁺, Qaux⁺, t)
-   numerical_boundary_flux_gradient!(gnf::P, bctag, balance_law::BalanceLaw, local_state_gradient_flux, n⁻, local_transform⁻, local_state_prognostic⁻,
+   numerical_boundary_flux_gradient!(gnf::P, bctag, bl::BalanceLaw, local_state_gradient_flux, n⁻, local_transform⁻, local_state_prognostic⁻,
                                      local_state_auxiliary⁻, local_transform⁺, local_state_prognostic⁺, local_state_auxiliary⁺, t)
 
 """
-abstract type NumericalFluxGradient end
+abstract type NumericalFluxGradient <: AbstractNumericalFlux end
 
 """
     CentralNumericalFluxGradient <: NumericalFluxGradient
@@ -47,7 +97,7 @@ struct CentralNumericalFluxGradient <: NumericalFluxGradient end
 
 function numerical_flux_gradient!(
     ::CentralNumericalFluxGradient,
-    balance_law::BalanceLaw,
+    bl::BalanceLaw,
     transform_gradient::MMatrix,
     normal_vector::SVector,
     state_gradient⁻::Vars{T},
@@ -65,25 +115,25 @@ function numerical_flux_gradient!(
 end
 
 function numerical_boundary_flux_gradient!(
-    numerical_flux::CentralNumericalFluxGradient,
-    bctag,
-    balance_law::BalanceLaw,
-    transform_gradient::MMatrix,
-    normal_vector::SVector,
-    state_gradient⁻::Vars{T},
-    state_prognostic⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_gradient⁺::Vars{T},
-    state_prognostic⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
+    nf::CentralNumericalFluxGradient,
+    bc::BoundaryCondition,
+    bl::BalanceLaw,
+    transform_gradient,
+    normal_vector,
+    state_gradient⁻,
+    state_prognostic⁻,
+    state_auxiliary⁻,
+    state_gradient⁺,
+    state_prognostic⁺,
+    state_auxiliary⁺,
     t,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
-) where {D, T, S, A}
+    state1⁻,
+    aux1⁻,
+)
     boundary_state!(
-        numerical_flux,
-        bctag,
-        balance_law,
+        nf,
+        bc,
+        bl,
         state_prognostic⁺,
         state_auxiliary⁺,
         normal_vector,
@@ -95,7 +145,7 @@ function numerical_boundary_flux_gradient!(
     )
 
     compute_gradient_argument!(
-        balance_law,
+        bl,
         state_gradient⁺,
         state_prognostic⁺,
         state_auxiliary⁺,
@@ -109,7 +159,7 @@ end
 
 Any `N <: NumericalFluxFirstOrder` should define the a method for
 
-    numerical_flux_first_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qaux⁻, Q⁺,
+    numerical_flux_first_order!(numerical_flux::N, bl::BalanceLaw, flux, normal_vector⁻, Q⁻, Qaux⁻, Q⁺,
                                  Qaux⁺, t)
 
 where
@@ -120,34 +170,51 @@ where
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_first_order!(numerical_flux::N, bctag, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻,
+    numerical_boundary_flux_first_order!(numerical_flux::N, bctag, bl::BalanceLaw, flux, normal_vector⁻, Q⁻,
                                           Qaux⁻, Q⁺, Qaux⁺, t)
 
 """
-abstract type NumericalFluxFirstOrder end
+abstract type NumericalFluxFirstOrder <: AbstractNumericalFlux end
 
 function numerical_flux_first_order! end
 
+"""
+    numerical_boundary_flux_first_order!
+
+Boundary flux for first order fluxes. To define, any of the following functions can be used:
+
+- `numerical_boundary_flux_first_order!`, with signature:
+  - `nf::NumericalFluxFirstOrder`
+  - `bc::BC` where `BC<:BoundaryCondition`
+  - `bl::BL` where `BL<:BalanceLaw`
+  - `fluxᵀn::Vars`
+  - `n` normal 
+  - `state⁻`
+  - `state⁺`
+  - `t`
+  - `direction`
+  - `state1⁻`
+"""
 function numerical_boundary_flux_first_order!(
-    numerical_flux::NumericalFluxFirstOrder,
-    bctag,
-    balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
-    normal_vector::SVector,
-    state_prognostic⁻::Vars{S},
-    state_auxiliary⁻::Vars{A},
-    state_prognostic⁺::Vars{S},
-    state_auxiliary⁺::Vars{A},
+    nf::NumericalFluxFirstOrder,
+    bc::BoundaryCondition,
+    bl::BalanceLaw,
+    fluxᵀn::Vars,
+    normal_vector,
+    state_prognostic⁻,
+    state_auxiliary⁻,
+    state_prognostic⁺,
+    state_auxiliary⁺,
     t,
     direction,
-    state1⁻::Vars{S},
-    aux1⁻::Vars{A},
-) where {S, A}
+    state1⁻,
+    aux1⁻,
+)
 
     boundary_state!(
-        numerical_flux,
-        bctag,
-        balance_law,
+        nf,
+        bc,
+        bl,
         state_prognostic⁺,
         state_auxiliary⁺,
         normal_vector,
@@ -159,8 +226,8 @@ function numerical_boundary_flux_first_order!(
     )
 
     numerical_flux_first_order!(
-        numerical_flux,
-        balance_law,
+        nf,
+        bl,
         fluxᵀn,
         normal_vector,
         state_prognostic⁻,
@@ -190,7 +257,7 @@ update_penalty!(::RusanovNumericalFlux, ::BalanceLaw, _...) = nothing
 
 function numerical_flux_first_order!(
     numerical_flux::RusanovNumericalFlux,
-    balance_law::BalanceLaw,
+    bl::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
     state_prognostic⁻::Vars{S},
@@ -203,7 +270,7 @@ function numerical_flux_first_order!(
 
     numerical_flux_first_order!(
         CentralNumericalFluxFirstOrder(),
-        balance_law,
+        bl,
         fluxᵀn,
         normal_vector,
         state_prognostic⁻,
@@ -216,7 +283,7 @@ function numerical_flux_first_order!(
 
     fluxᵀn = parent(fluxᵀn)
     wavespeed⁻ = wavespeed(
-        balance_law,
+        bl,
         normal_vector,
         state_prognostic⁻,
         state_auxiliary⁻,
@@ -224,7 +291,7 @@ function numerical_flux_first_order!(
         direction,
     )
     wavespeed⁺ = wavespeed(
-        balance_law,
+        bl,
         normal_vector,
         state_prognostic⁺,
         state_auxiliary⁺,
@@ -238,7 +305,7 @@ function numerical_flux_first_order!(
     # TODO: should this operate on ΔQ or penalty?
     update_penalty!(
         numerical_flux,
-        balance_law,
+        bl,
         normal_vector,
         max_wavespeed,
         Vars{S}(penalty),
@@ -267,7 +334,7 @@ struct CentralNumericalFluxFirstOrder <: NumericalFluxFirstOrder end
 
 function numerical_flux_first_order!(
     ::CentralNumericalFluxFirstOrder,
-    balance_law::BalanceLaw,
+    bl::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
     state_prognostic⁻::Vars{S},
@@ -279,13 +346,13 @@ function numerical_flux_first_order!(
 ) where {S, A}
 
     FT = eltype(fluxᵀn)
-    num_state_prognostic = number_states(balance_law, Prognostic())
+    num_state_prognostic = number_states(bl, Prognostic())
     fluxᵀn = parent(fluxᵀn)
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_prognostic))
     fill!(flux⁻, -zero(FT))
     flux_first_order!(
-        balance_law,
+        bl,
         Grad{S}(flux⁻),
         state_prognostic⁻,
         state_auxiliary⁻,
@@ -296,7 +363,7 @@ function numerical_flux_first_order!(
     flux⁺ = similar(fluxᵀn, Size(3, num_state_prognostic))
     fill!(flux⁺, -zero(FT))
     flux_first_order!(
-        balance_law,
+        bl,
         Grad{S}(flux⁺),
         state_prognostic⁺,
         state_auxiliary⁺,
@@ -312,7 +379,7 @@ end
 
 Any `N <: NumericalFluxSecondOrder` should define the a method for
 
-    numerical_flux_second_order!(numerical_flux::N, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
+    numerical_flux_second_order!(numerical_flux::N, bl::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻, Qaux⁻, Q⁺,
                               Qstate_gradient_flux⁺, Qaux⁺, t)
 
 where
@@ -325,11 +392,11 @@ where
 
 An optional method can also be defined for
 
-    numerical_boundary_flux_second_order!(numerical_flux::N, bctag, balance_law::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻,
+    numerical_boundary_flux_second_order!(numerical_flux::N, bctag, bl::BalanceLaw, flux, normal_vector⁻, Q⁻, Qstate_gradient_flux⁻,
                                        Qaux⁻, Q⁺, Qstate_gradient_flux⁺, Qaux⁺, t)
 
 """
-abstract type NumericalFluxSecondOrder end
+abstract type NumericalFluxSecondOrder <: AbstractNumericalFlux end
 
 function numerical_flux_second_order! end
 
@@ -350,7 +417,7 @@ struct CentralNumericalFluxSecondOrder <: NumericalFluxSecondOrder end
 
 function numerical_flux_second_order!(
     ::CentralNumericalFluxSecondOrder,
-    balance_law::BalanceLaw,
+    bl::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector⁻::SVector,
     state_prognostic⁻::Vars{S},
@@ -365,13 +432,13 @@ function numerical_flux_second_order!(
 ) where {S, D, HD, A}
 
     FT = eltype(fluxᵀn)
-    num_state_prognostic = number_states(balance_law, Prognostic())
+    num_state_prognostic = number_states(bl, Prognostic())
     fluxᵀn = parent(fluxᵀn)
 
     flux⁻ = similar(fluxᵀn, Size(3, num_state_prognostic))
     fill!(flux⁻, -zero(FT))
     flux_second_order!(
-        balance_law,
+        bl,
         Grad{S}(flux⁻),
         state_prognostic⁻,
         state_gradient_flux⁻,
@@ -383,7 +450,7 @@ function numerical_flux_second_order!(
     flux⁺ = similar(fluxᵀn, Size(3, num_state_prognostic))
     fill!(flux⁺, -zero(FT))
     flux_second_order!(
-        balance_law,
+        bl,
         Grad{S}(flux⁺),
         state_prognostic⁺,
         state_gradient_flux⁺,
@@ -395,12 +462,12 @@ function numerical_flux_second_order!(
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector⁻ / 2)
 end
 
-abstract type DivNumericalPenalty end
+abstract type DivNumericalPenalty <: AbstractNumericalFlux end
 struct CentralNumericalFluxDivergence <: DivNumericalPenalty end
 
 function numerical_flux_divergence!(
     ::CentralNumericalFluxDivergence,
-    balance_law::BalanceLaw,
+    bl::BalanceLaw,
     div_penalty::Vars{GL},
     normal_vector::SVector,
     grad⁻::Grad{GL},
@@ -412,8 +479,8 @@ end
 
 function numerical_boundary_flux_divergence!(
     numerical_flux::CentralNumericalFluxDivergence,
-    bctag,
-    balance_law::BalanceLaw,
+    bc::BoundaryCondition,
+    bl::BalanceLaw,
     div_penalty::Vars{GL},
     normal_vector::SVector,
     grad⁻::Grad{GL},
@@ -421,15 +488,15 @@ function numerical_boundary_flux_divergence!(
 ) where {GL}
     boundary_state!(
         numerical_flux,
-        bctag,
-        balance_law,
+        bc,
+        bl,
         grad⁺,
         normal_vector,
         grad⁻,
     )
     numerical_flux_divergence!(
         numerical_flux,
-        balance_law,
+        bl,
         div_penalty,
         normal_vector,
         grad⁻,
@@ -437,12 +504,12 @@ function numerical_boundary_flux_divergence!(
     )
 end
 
-abstract type GradNumericalFlux end
+abstract type GradNumericalFlux <: AbstractNumericalFlux end
 struct CentralNumericalFluxHigherOrder <: GradNumericalFlux end
 
 function numerical_flux_higher_order!(
     ::CentralNumericalFluxHigherOrder,
-    balance_law::BalanceLaw,
+    bl::BalanceLaw,
     hyperdiff::Vars{HD},
     normal_vector::SVector,
     lap⁻::Vars{GL},
@@ -455,7 +522,7 @@ function numerical_flux_higher_order!(
 ) where {HD, GL, S, A}
     G = normal_vector .* (parent(lap⁻) .+ parent(lap⁺))' ./ 2
     transform_post_gradient_laplacian!(
-        balance_law,
+        bl,
         hyperdiff,
         Grad{GL}(G),
         state_prognostic⁻,
@@ -466,8 +533,8 @@ end
 
 function numerical_boundary_flux_higher_order!(
     numerical_flux::CentralNumericalFluxHigherOrder,
-    bctag,
-    balance_law::BalanceLaw,
+    bc::BoundaryCondition,
+    bl::BalanceLaw,
     hyperdiff::Vars{HD},
     normal_vector::SVector,
     lap⁻::Vars{GL},
@@ -480,8 +547,8 @@ function numerical_boundary_flux_higher_order!(
 ) where {HD, GL, S, A}
     boundary_state!(
         numerical_flux,
-        bctag,
-        balance_law,
+        bc,
+        bl,
         state_prognostic⁺,
         state_auxiliary⁺,
         lap⁺,
@@ -493,7 +560,7 @@ function numerical_boundary_flux_higher_order!(
     )
     numerical_flux_higher_order!(
         numerical_flux,
-        balance_law,
+        bl,
         hyperdiff,
         normal_vector,
         lap⁻,
@@ -506,29 +573,12 @@ function numerical_boundary_flux_higher_order!(
     )
 end
 
-numerical_boundary_flux_second_order!(
+# overload for normal fluxes
+function numerical_boundary_flux_second_order!(
     numerical_flux::CentralNumericalFluxSecondOrder,
-    bctag,
-    balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
-    normal_vector::SVector,
-    state_prognostic⁻::Vars{S},
-    state_gradient_flux⁻::Vars{D},
-    state_hyperdiffusive⁻::Vars{HD},
-    state_auxiliary⁻::Vars{A},
-    state_prognostic⁺::Vars{S},
-    state_gradient_flux⁺::Vars{D},
-    state_hyperdiffusive⁺::Vars{HD},
-    state_auxiliary⁺::Vars{A},
-    t,
-    state1⁻::Vars{S},
-    diff1⁻::Vars{D},
-    aux1⁻::Vars{A},
-) where {S, D, HD, A} = normal_boundary_flux_second_order!(
-    numerical_flux,
-    bctag,
-    balance_law,
-    fluxᵀn,
+    bc::BoundaryCondition,
+    bl::BalanceLaw,
+    fluxᵀn::Vars,
     normal_vector,
     state_prognostic⁻,
     state_gradient_flux⁻,
@@ -544,41 +594,23 @@ numerical_boundary_flux_second_order!(
     aux1⁻,
 )
 
-function normal_boundary_flux_second_order!(
-    numerical_flux,
-    bctag,
-    balance_law::BalanceLaw,
-    fluxᵀn::Vars{S},
-    normal_vector,
-    state_prognostic⁻,
-    state_gradient_flux⁻,
-    state_hyperdiffusive⁻,
-    state_auxiliary⁻,
-    state_prognostic⁺,
-    state_gradient_flux⁺,
-    state_hyperdiffusive⁺,
-    state_auxiliary⁺,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-) where {S}
+    S = template(fluxᵀn)
     FT = eltype(fluxᵀn)
-    num_state_prognostic = number_states(balance_law, Prognostic())
+    num_state_prognostic = number_states(bl, Prognostic())
     fluxᵀn = parent(fluxᵀn)
 
     flux = similar(fluxᵀn, Size(3, num_state_prognostic))
     fill!(flux, -zero(FT))
-    boundary_flux_second_order!(
+    numerical_boundary_flux_second_order!(
         numerical_flux,
-        bctag,
-        balance_law,
+        bc,
+        bl,
         Grad{S}(flux),
+        normal_vector,
         state_prognostic⁺,
         state_gradient_flux⁺,
         state_hyperdiffusive⁺,
         state_auxiliary⁺,
-        normal_vector,
         state_prognostic⁻,
         state_gradient_flux⁻,
         state_hyperdiffusive⁻,
@@ -592,17 +624,17 @@ function normal_boundary_flux_second_order!(
     fluxᵀn .+= flux' * normal_vector
 end
 
-# This is the function that my be overloaded for flux-based BCs
-function boundary_flux_second_order!(
+# overload for full fluxes
+function numerical_boundary_flux_second_order!(
     numerical_flux::NumericalFluxSecondOrder,
-    bctag,
-    balance_law,
-    flux,
+    bc::BoundaryCondition,
+    bl::BalanceLaw,
+    flux::Grad,
+    normal_vector,
     state_prognostic⁺,
     state_gradient_flux⁺,
     state_hyperdiffusive⁺,
     state_auxiliary⁺,
-    normal_vector,
     state_prognostic⁻,
     state_gradient_flux⁻,
     state_hyperdiffusive⁻,
@@ -614,8 +646,8 @@ function boundary_flux_second_order!(
 )
     boundary_state!(
         numerical_flux,
-        bctag,
-        balance_law,
+        bc,
+        bl,
         state_prognostic⁺,
         state_gradient_flux⁺,
         state_auxiliary⁺,
@@ -629,7 +661,7 @@ function boundary_flux_second_order!(
         aux1⁻,
     )
     flux_second_order!(
-        balance_law,
+        bl,
         flux,
         state_prognostic⁺,
         state_gradient_flux⁺,

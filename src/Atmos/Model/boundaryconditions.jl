@@ -1,6 +1,6 @@
 using CLIMAParameters.Planet: cv_d, T_0
 
-export BoundaryCondition, InitStateBC
+export InitStateBC
 
 export AtmosBC,
     Impenetrable,
@@ -49,44 +49,43 @@ end
 
 
 function boundary_state!(nf, bc::AtmosBC, atmos::AtmosModel, args...)
-    atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
-    atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
-    atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
-    atmos_tracer_boundary_state!(nf, bc.tracer, atmos, args...)
-    turbconv_boundary_state!(nf, bc.turbconv, atmos, args...)
+    boundary_state!(nf, bc.momentum, atmos, args...)
+    boundary_state!(nf, bc.energy,   atmos, args...)
+    boundary_state!(nf, bc.moisture, atmos, args...)
+    boundary_state!(nf, bc.tracer,   atmos, args...)
+    boundary_state!(nf, bc.turbconv, atmos, args...)
 end
 
-function atmos_normal_boundary_flux_second_order!(
-    nf,
-    bc::AtmosBC,
-    atmos::AtmosModel,
-    args...,
-)
-    atmos_momentum_normal_boundary_flux_second_order!(
+function numerical_boundary_flux_second_order!(nf, bc::AtmosBC, atmos::AtmosModel, fluxᵀn::Vars, args...)
+    numerical_boundary_flux_second_order!(
         nf,
         bc.momentum,
         atmos,
+        fluxᵀn, 
         args...,
     )
-    atmos_energy_normal_boundary_flux_second_order!(
+    numerical_boundary_flux_second_order!(
         nf,
         bc.energy,
         atmos,
+        fluxᵀn, 
         args...,
     )
-    atmos_moisture_normal_boundary_flux_second_order!(
+    numerical_boundary_flux_second_order!(
         nf,
         bc.moisture,
         atmos,
+        fluxᵀn, 
         args...,
     )
-    atmos_tracer_normal_boundary_flux_second_order!(
+    numerical_boundary_flux_second_order!(
         nf,
         bc.tracer,
         atmos,
+        fluxᵀn, 
         args...,
     )
-    turbconv_normal_boundary_flux_second_order!(nf, bc.turbconv, atmos, args...)
+    numerical_boundary_flux_second_order!(nf, bc.turbconv, atmos, fluxᵀn, args...)
 end
 
 """

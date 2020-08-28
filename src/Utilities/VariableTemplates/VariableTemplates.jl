@@ -1,6 +1,6 @@
 module VariableTemplates
 
-export varsize, Vars, Grad, @vars, varsindex, varsindices
+export varsize, Vars, Grad, @vars, varsindex, varsindices, template
 
 using StaticArrays
 
@@ -137,6 +137,8 @@ struct SetVarError <: Exception
 end
 
 abstract type AbstractVars{S, A, offset} end
+
+template(::AbstractVars{S}) where S = S
 
 """
     Vars{S,A,offset}(array::A)

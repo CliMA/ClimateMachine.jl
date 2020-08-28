@@ -153,6 +153,7 @@ end
 flux_second_order!(::PressureGradientModel, _...) = nothing
 source!(::PressureGradientModel, _...) = nothing
 boundary_state!(nf, ::Integer, ::PressureGradientModel, _...) = nothing
+# TODO: not sure this is right?
 normal_boundary_flux_second_order!(nf, ::Integer, ::PressureGradientModel, fluxᵀn::Vars{S}, args...) where {S} = nothing
 
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing

@@ -6,18 +6,14 @@ abstract type MoistureBC end
 No moisture flux.
 """
 struct Impermeable <: MoistureBC end
-function atmos_moisture_boundary_state!(
+function boundary_state!(
     nf,
     bc_moisture::Impermeable,
-    atmos,
+    atmos::AtmosModel,
     args...,
-) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
-    bc_moisture::Impermeable,
-    atmos,
-    args...,
-) end
+) 
+    nothing
+end
 
 
 """
@@ -73,13 +69,13 @@ struct BulkFormulaMoisture{FNX, FNM} <: MoistureBC
     fn_C_q::FNX
     fn_q_tot_sfc::FNM
 end
-function atmos_moisture_boundary_state!(
+function boundary_state!(
     nf,
     bc_moisture::BulkFormulaMoisture,
     atmos,
     args...,
 ) end
-function atmos_moisture_normal_boundary_flux_second_order!(
+function numerical_boundary_flux_second_order!(
     nf,
     bc_moisture::BulkFormulaMoisture,
     atmos,
