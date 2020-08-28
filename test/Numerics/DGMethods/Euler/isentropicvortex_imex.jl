@@ -7,6 +7,7 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
+    CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers: GeneralizedMinimalResidual
@@ -19,6 +20,8 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.Atmos:
     AtmosModel,
     AtmosAcousticLinearModel,
+    AtmosAcousticLinearSchurComplement,
+    AtmosAcousticGravityLinearSchurComplement,
     NoReferenceState,
     ReferenceState,
     DryModel,
@@ -38,6 +41,7 @@ const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
+const integration_testing = true
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -48,7 +52,7 @@ end
 const output_vtk = false
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(parse_clargs=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
@@ -70,7 +74,7 @@ function main()
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64,), dims in 2
-            for split_explicit_implicit in (false, true)
+            for split_explicit_implicit in (true,)
                 let
                     split = split_explicit_implicit ? "(Nonlinear, Linear)" :
                         "(Full, Linear)"
@@ -174,13 +178,16 @@ function run(
         CentralNumericalFluxGradient(),
     )
 
+    schur_complement = AtmosAcousticGravityLinearSchurComplement()
     dg_linear = DGModel(
         linear_model,
         grid,
-        RusanovNumericalFlux(),
+        #RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         state_auxiliary = dg.state_auxiliary,
+        schur_complement = schur_complement
     )
 
     if split_explicit_implicit
@@ -199,7 +206,12 @@ function run(
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = GeneralizedMinimalResidual(Q; M = 10, rtol = 1e-10)
+    if !isnothing(schur_complement)
+      linearsolver = GeneralizedMinimalResidual(dg_linear.states_schur_complement.state; M = 20, rtol = 1e-8)
+    else
+      linearsolver = GeneralizedMinimalResidual(Q; M = 10, rtol = 1e-10)
+    end
+
     ode_solver = ARK2GiraldoKellyConstantinescu(
         split_explicit_implicit ? dg_nonlinear : dg,
         dg_linear,

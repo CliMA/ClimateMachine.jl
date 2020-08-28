@@ -16,6 +16,8 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 
+
+const integration_testing = true
 if !@isdefined integration_testing
     if length(ARGS) > 0
         const integration_testing = parse(Bool, ARGS[1])
@@ -60,6 +62,7 @@ Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
 function Neumann_data!(
     ::Pseudo1D{n, α, β, μ, δ},
     ∇state,
+    state,
     aux,
     x,
     t,
@@ -67,8 +70,8 @@ function Neumann_data!(
     ξn = dot(n, x)
     ∇state.ρ =
         -(
-            2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *
-            exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
+            2n * (ξn - μ - α * t) / (4 * β * (δ + t)) *  state.ρ
+            #exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
         )
 end
 
@@ -167,6 +170,8 @@ function run(
         t0 = 0,
         split_explicit_implicit = false,
     )
+    #ode_solver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -289,11 +294,11 @@ let
     numlevels = integration_testing ? 4 : 1
 
     @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32)
+        for FT in (Float64,)
             result = zeros(FT, numlevels)
-            for dim in 2:3
-                for fluxBC in (true, false)
-                    for linearsolvertype in (SingleColumnLU, ManyColumnLU)
+            for dim in (3,)
+                for fluxBC in (false,)
+                    for linearsolvertype in (SingleColumnLU,)
                         d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
                         n = SVector{3, FT}(d ./ norm(d))
 
@@ -312,7 +317,7 @@ let
                                     ),
                                     dim - 1,
                                 )...,
-                                range(FT(-5); length = 5Ne + 1, stop = 5),
+                                range(FT(-20); length = 5Ne + 1, stop = 20),
                             )
 
                             periodicity = ntuple(j -> false, dim)

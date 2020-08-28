@@ -13,6 +13,7 @@ vars_state(::SchurComplement, ::SchurPrognostic, FT) = @vars(p::FT)
 vars_state(::SchurComplement, ::SchurGradient, FT) = @vars(∇p::SVector{3, FT})
 
 function schur_init_aux! end
+function schur_update_aux! end
 function schur_init_state! end
 
 function schur_lhs_conservative! end
@@ -420,6 +421,19 @@ function init_schur_state(state_lhs, state_rhs, α, dg)
         schur_state.data,
         schur_state_auxiliary.data,
         state_lhs.data,
+        state_auxiliary.data,
+        grid.vgeo,
+        Val(dim),
+        Val(N);
+        ndrange = Np * nrealelem,
+        dependencies = (comp_stream,),
+    )
+    
+    comp_stream = kernel_update_schur_auxstate!(device, min(Np, 1024))(
+        schur_complement,
+        balance_law,
+        schur_state_auxiliary.data,
+        state_rhs.data,
         state_auxiliary.data,
         grid.vgeo,
         Val(dim),

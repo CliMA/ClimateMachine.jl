@@ -255,7 +255,7 @@ function init_state_prognostic!(
     initial_condition!(m.problem, state, aux, coords, t)
 end
 
-Neumann_data!(problem, ∇state, aux, x, t) = nothing
+Neumann_data!(problem, ∇state, state, aux, x, t) = nothing
 Dirichlet_data!(problem, state, aux, x, t) = nothing
 
 function boundary_state!(
@@ -305,7 +305,7 @@ function boundary_state!(
             Size(3, ngrad),
         ))
         # Get analytic gradient
-        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+        Neumann_data!(m.problem, ∇state, state⁻, aux⁻, aux⁻.coord, t)
         compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
         # compute the diffusive flux using the boundary state
     elseif bctype == 4 # zero Neumann
@@ -367,7 +367,7 @@ function boundary_flux_second_order!(
             Size(3, ngrad),
         ))
         # Get analytic gradient
-        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+        Neumann_data!(m.problem, ∇state, state⁻, aux⁻, aux⁻.coord, t)
         # get the diffusion coefficient
         D = aux⁻.D
         # exact the exact data

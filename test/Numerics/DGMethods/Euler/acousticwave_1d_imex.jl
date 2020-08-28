@@ -9,6 +9,7 @@ using ClimateMachine.DGMethods: DGModel, init_ode_state, remainder_DGModel
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
+    CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
@@ -31,7 +32,10 @@ using ClimateMachine.Atmos:
     vars_state,
     Gravity,
     HydrostaticState,
-    AtmosAcousticGravityLinearModel
+    AtmosAcousticLinearModel,
+    AtmosAcousticGravityLinearModel,
+    AtmosAcousticLinearSchurComplement,
+    AtmosAcousticGravityLinearSchurComplement
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations:
     SphericalOrientation, gravitational_potential, altitude, latitude, longitude
@@ -49,7 +53,7 @@ const output_vtk = false
 const ntracers = 1
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(parse_clargs=true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
@@ -66,8 +70,8 @@ function main()
     expected_result[Float32] = 9.5066030866432000e+13
     expected_result[Float64] = 9.5073452847149594e+13
 
-    for FT in (Float32, Float64)
-        for split_explicit_implicit in (false, true)
+    for FT in (Float64,)
+        for split_explicit_implicit in (true,)
             result = run(
                 mpicomm,
                 polynomialorder,
@@ -128,7 +132,9 @@ function run(
         source = Gravity(),
         init_state_prognostic = setup,
     )
+    
     linearmodel = AtmosAcousticGravityLinearModel(model)
+    #linearmodel = AtmosAcousticLinearModel(model)
 
     dg = DGModel(
         model,
@@ -138,14 +144,18 @@ function run(
         CentralNumericalFluxGradient(),
     )
 
+    schur_complement = AtmosAcousticGravityLinearSchurComplement()
+    #schur_complement = nothing
     lineardg = DGModel(
         linearmodel,
         grid,
-        RusanovNumericalFlux(),
+        #RusanovNumericalFlux(),
+        CentralNumericalFluxFirstOrder(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
         state_auxiliary = dg.state_auxiliary,
+        schur_complement=schur_complement
     )
 
     # determine the time step
@@ -159,7 +169,14 @@ function run(
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = ManyColumnLU()
+
+    if !isnothing(schur_complement)
+      #linearsolver = GeneralizedMinimalResidual(lineardg.states_schur_complement.state; M = 20, rtol = 1e-8)
+      linearsolver = ManyColumnLU()
+    else
+      #linearsolver = GeneralizedMinimalResidual(Q; M = 20, rtol = 1e-8)
+      linearsolver = ManyColumnLU()
+    end
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(

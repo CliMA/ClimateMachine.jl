@@ -73,6 +73,10 @@ function initialize!(
 
     # store the initial residual in krylov_basis[1]
     linearoperator!(krylov_basis[1], Q, args...)
+    @show extrema(krylov_basis[1])
+    @show extrema(Qrhs)
+    #@show krylov_basis[1][:, 1, :]
+    #@show Qrs[1][:, 1, :]
     @. krylov_basis[1] = Qrhs - krylov_basis[1]
 
     threshold = rtol * norm(krylov_basis[1], weighted_norm)
@@ -88,6 +92,7 @@ function initialize!(
     fill!(g0, 0)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
+
 
     converged, max(threshold, atol)
 end

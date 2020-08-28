@@ -130,13 +130,12 @@ function linearsolve!(
         end
 
         achieved_tolerance = residual_norm / threshold * solver.rtol
-        #@show iters, residual_norm, threshold
+        @show iters, residual_norm, threshold
     end
 
     converged || @warn "Solver did not attain convergence after $iters iterations"
     cvg[] = converged
 
-    @show iters
     iters
 end
 

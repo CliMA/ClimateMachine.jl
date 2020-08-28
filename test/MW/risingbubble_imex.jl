@@ -1,6 +1,6 @@
 using ClimateMachine
 using ClimateMachine.ConfigTypes
-using ClimateMachine.Mesh.Topologies: BrickTopology
+using ClimateMachine.Mesh.Topologies: StackedBrickTopology
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.DGMethods
 using ClimateMachine.Orientations
@@ -25,7 +25,7 @@ const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
-const output_vtk = true
+const output_vtk = false
 
 function main()
     ClimateMachine.init(parse_clargs=true)
@@ -86,7 +86,7 @@ function run(
         )
     end
 
-    topology = BrickTopology(
+    topology = StackedBrickTopology(
         mpicomm,
         brickrange;
         periodicity = (true, true, false),
@@ -112,9 +112,6 @@ function run(
         init_state_prognostic = setup,
     )
 
-    linear_model = AtmosAcousticLinearModel(model)
-    #linear_model = AtmosAcousticLinearModel(model)
-    #nonlinear_model = RemainderModel(model, (linear_model,))
 
 
     dg = DGModel(
@@ -126,7 +123,13 @@ function run(
         CentralNumericalFluxGradient();
     )
 
-    schur_complement = AtmosAcousticLinearSchurComplement()
+    #linear_model = AtmosAcousticLinearModel(model)
+    #schur_complement = AtmosAcousticLinearSchurComplement()
+
+    linear_model = AtmosAcousticGravityLinearModel(model)
+    schur_complement = AtmosAcousticGravityLinearSchurComplement()
+
+    #nonlinear_model = RemainderModel(model, (linear_model,))
     #schur_complement = nothing
     dg_linear = DGModel(
         linear_model,
@@ -160,7 +163,7 @@ function run(
     # determine the time step
     dx = min_node_distance(grid)
     wavespeed = soundspeed_air(model.param_set, setup.θ₀)
-    cfl = 20
+    cfl = 10
     dt = cfl * dx / wavespeed
 
     nsteps = ceil(Int, timeend / dt)
@@ -169,7 +172,7 @@ function run(
     Q = init_ode_state(dg, FT(0))
 
     if !isnothing(schur_complement)
-      linearsolver = GeneralizedMinimalResidual(dg_linear.states_schur_complement.state; M = 20, rtol = 1e-4)
+      linearsolver = GeneralizedMinimalResidual(dg_linear.states_schur_complement.state; M = 50, rtol = 1e-3)
     else
       linearsolver = GeneralizedMinimalResidual(Q; M = 20, rtol = 1e-3)
     end
@@ -257,8 +260,8 @@ function run(
         do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
 
         # setup the output callback
-        outputtime = 50
-        #outputtime = dt
+        #outputtime = 50
+        outputtime = dt
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
             do_output(mpicomm, vtkdir, vtkstep, dg, Q, model)
@@ -305,8 +308,8 @@ function (setup::RisingThermalBubbleSetup)(bl, state, aux, (x, y, z), t)
     r = sqrt((x - setup.x_c)^2 + (y - setup.x_c)^2 + (z - setup.z_c)^2)
 
     δθ =  r <= setup.R ? setup.δθ_c / 2 * (1 + cospi(r / setup.R)) : FT(0)
-    θ = setup.θ₀ + δθ
-    #θ = setup.θ₀
+    #θ = setup.θ₀ + δθ
+    θ = setup.θ₀
 
     π_exner = FT(1) - _grav / (c_p * θ) * z
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas)
@@ -316,9 +319,12 @@ function (setup::RisingThermalBubbleSetup)(bl, state, aux, (x, y, z), t)
 
     e_kin = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
-    state.ρ = ρ
+    #state.ρ = ρ
+    #state.ρu = SVector(FT(0), FT(0), FT(0))
+    #state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+    state.ρ = aux.ref_state.ρ
     state.ρu = SVector(FT(0), FT(0), FT(0))
-    state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+    state.ρe = aux.ref_state.ρe
 end
 
 function do_output(

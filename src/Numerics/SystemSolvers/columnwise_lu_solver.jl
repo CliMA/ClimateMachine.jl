@@ -73,6 +73,16 @@ function prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
     dg = op.f!
 
     # TODO: can we get away with just passing the grid?
+
+    if !isnothing(dg.schur_complement)
+      op = schur_lhs!
+      Q1 = similar(dg.states_schur_complement.state)
+      Q2 = similar(dg.states_schur_complement.state)
+    else
+      Q1 = similar(Q)
+      Q2 = similar(Q)
+    end
+
     A = banded_matrix(
         op,
         dg,
@@ -269,13 +279,23 @@ function banded_matrix(
     FT = eltype(Q.data)
     device = array_device(Q)
 
-    nstate = number_states(bl, Prognostic())
+    if isnothing(dg.schur_complement)
+      nstate = number_states(bl, Prognostic())
+    else
+      nstate = 1
+    end
+
     N = polynomialorder(grid)
     Nq = N + 1
 
     # p is lower bandwidth
     # q is upper bandwidth
-    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+    if isnothing(dg.schur_complement)
+      eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+    else
+      eband = 2
+    end
+
     p = q = nstate * Nq * eband - 1
 
     nrealelem = length(topology.realelems)

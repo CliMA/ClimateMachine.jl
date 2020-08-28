@@ -84,6 +84,60 @@ const _sM, _vMI = Grids._sM, Grids._vMI
     end
 end
 
+@kernel function kernel_update_schur_auxstate!(
+    schur_complement::SchurComplement,
+    balance_law::BalanceLaw,
+    schur_state_auxiliary,
+    state_prognostic,
+    state_auxiliary,
+    vgeo,
+    ::Val{dim},
+    ::Val{polyorder}
+) where {dim, polyorder}
+    N = polyorder
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Np = Nq * Nq * Nqk
+    FT = eltype(schur_state_auxiliary)
+    schur_num_state_auxiliary = number_states(schur_complement, SchurAuxiliary())
+    num_state_prognostic = number_states(balance_law, Prognostic(), FT)
+    num_state_auxiliary = number_states(balance_law, Auxiliary(), FT)
+
+    local_schur_state_auxiliary = MArray{Tuple{schur_num_state_auxiliary}, FT}(undef)
+    local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+    local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+    I = @index(Global, Linear)
+    e = (I - 1) ÷ Np + 1
+    n = (I - 1) % Np + 1
+
+    @inbounds begin
+        @unroll for s in 1:schur_num_state_auxiliary
+            local_schur_state_auxiliary[s] = schur_state_auxiliary[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_prognostic
+            local_state_prognostic[s] = state_prognostic[n, s, e]
+        end
+        
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary[s] = state_auxiliary[n, s, e]
+        end
+
+        schur_update_aux!(
+            schur_complement,
+            balance_law,
+            Vars{vars_state(schur_complement, SchurAuxiliary(), FT)}(local_schur_state_auxiliary),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary),
+        )
+
+        @unroll for s in 1:schur_num_state_auxiliary
+          schur_state_auxiliary[n, s, e] = local_schur_state_auxiliary[s]
+        end
+    end
+end
+
 @kernel function schur_init_auxiliary_state!(
     sc::SchurComplement,
     bl::BalanceLaw,

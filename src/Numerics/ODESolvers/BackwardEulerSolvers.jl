@@ -2,6 +2,7 @@ export LinearBackwardEulerSolver, AbstractBackwardEulerSolver,
        BackwardEulerODESolver
 using LinearAlgebra
 using ..DGMethods
+using CLIMAParameters.Planet: kappa_d, R_d, T_0
 """
     op! = EulerOperator(f!, ϵ)
 
@@ -112,8 +113,13 @@ end
 
 function setup_backward_Euler_solver(lin::LinearBackwardEulerSolver, Q, α, rhs!)
     FT = eltype(α)
-    factors =
-        prefactorize(EulerOperator(rhs!, -α), lin.solver, Q, nothing, FT(NaN))
+    if isnothing(rhs!.schur_complement)
+      factors =
+          prefactorize(EulerOperator(rhs!, -α), lin.solver, Q, nothing, FT(NaN))
+    else
+      factors =
+          prefactorize(EulerOperator(rhs!, -α), lin.solver, Q, α, rhs!)
+    end
     LinBESolver(α, factors, lin.solver, lin.isadjustable, rhs!)
 end
 
@@ -137,13 +143,62 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
 
     if lin.rhs! isa Function || isnothing(lin.rhs!.schur_complement)
       linearsolve!(lin.factors, lin.solver, Q, Qhat, p, t)
+      #println("Normal result")
+      #@views begin
+
+      #  param_set = lin.rhs!.balance_law.atmos.param_set
+      #  γ = 1 / (1 - kappa_d(param_set))
+      #  coeff = R_d(param_set) * T_0(param_set) / (γ - 1)
+      #  p = @. (γ - 1) * (Q.ρe - Q.ρ * (lin.rhs!.state_auxiliary.orientation[:, 1, :] - coeff))
+      #  p = extrema(p)
+      #  ρ  = extrema(Q[:, 1, :])
+      #  ρu = extrema(Q[:, 2, :])
+      #  ρv = extrema(Q[:, 3, :])
+      #  ρw = extrema(Q[:, 4, :])
+      #  ρe = extrema(Q[:, 5, :])
+      #  Nq = 5
+      #  Ne = 10
+      #  ρw_sfc = extrema(Q[1:Nq*Nq, 4, 1:Ne:end])
+      #end
+      #@show p
+      #@show ρ
+      #@show ρu
+      #@show ρv
+      #@show ρw, ρw_sfc
+      #@show ρe
+      #error("hi")
     else
       dg = lin.rhs!
       init_schur_state(Q, Qhat, α, dg)
       schur_state = dg.states_schur_complement.state
       schur_rhs = dg.states_schur_complement.rhs
+      
+      p = extrema(dg.states_schur_complement.state[:, 1, :])
+      @show p
       linearsolve!(schur_lhs!, lin.solver, schur_state, schur_rhs, α, dg)
+      p = extrema(dg.states_schur_complement.state[:, 1, :])
+      #linearsolve!(lin.factors, lin.solver, schur_state, schur_rhs, α, dg)
       schur_extract_state(Q, Qhat, α, dg)
+      println("Schur result")
+      @show p
+      @show α
+      @views begin
+        ρ  = extrema(Q[:, 1, :])
+        ρu = extrema(Q[:, 2, :])
+        ρv = extrema(Q[:, 3, :])
+        ρw = extrema(Q[:, 4, :])
+        ρe = extrema(Q[:, 5, :])
+       
+        Nq = 5
+        Ne = 10
+        ρw_sfc = extrema(Q[1:Nq*Nq, 4, 1:Ne:end])
+      end
+      @show ρ
+      @show ρu
+      @show ρv
+      @show ρw, ρw_sfc
+      @show ρe
+      #error("hi")
     end
 end
 
