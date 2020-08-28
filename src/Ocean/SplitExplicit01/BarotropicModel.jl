@@ -32,12 +32,13 @@ function vars_state(m::BarotropicModel, ::Auxiliary, T)
     end
 end
 
-function init_state_auxiliary!(m::BarotropicModel, state_aux::MPIStateArray, grid)
+function init_state_auxiliary!(m::BarotropicModel, state_aux::MPIStateArray, grid, direction)
     init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.baroclinic.problem, A, geom),
         state_aux,
         grid,
+        direction,
     )
 end
 
