@@ -959,7 +959,8 @@ end
 # `ViscousSponge` requires a user to specify a constant viscosity (kinematic), 
 # a sponge start height, the domain height, a sponge strength, and a sponge
 # exponent.
-# It works like `ConstantViscosityWithDivergence` but without divergence and is
+# Given viscosity, diffusivity and stresses from arbitrary turbulence models, 
+# the viscous sponge enhances diffusive terms within a user-specified layer,
 # typically used at the top of the domain to absorb waves. A smooth onset is
 # ensured through a weight function that increases weight height from the sponge
 # onset height.
@@ -977,6 +978,7 @@ function sponge_viscosity_modifier!(
     m::NoViscousSponge,
     ν,
     D_t,
+    τ,
     aux,
 )
     nothing
@@ -1006,6 +1008,7 @@ function sponge_viscosity_modifier!(
     m::UpperAtmosSponge,
     ν,
     D_t,
+    τ,
     aux::Vars,
 )
     z = altitude(bl.orientation, bl.param_set, aux)
@@ -1014,6 +1017,7 @@ function sponge_viscosity_modifier!(
         β_sponge = m.α_max * sinpi(r / 2)^m.γ
         ν += β_sponge * ν
         D_t += β_sponge * D_t
+        τ += β_sponge * τ
     end
 end
 
