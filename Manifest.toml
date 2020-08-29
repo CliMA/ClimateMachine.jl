@@ -70,9 +70,9 @@ version = "0.1.0"
 
 [[CLIMAParameters]]
 deps = ["Test"]
-git-tree-sha1 = "314f0bdd5817abb2df61cc8d3e857c496d421109"
+git-tree-sha1 = "c4bb1cd81ca49233fc7c829357171344b406900a"
 uuid = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
-version = "0.1.6"
+version = "0.1.8"
 
 [[CUDA]]
 deps = ["AbstractFFTs", "Adapt", "BinaryProvider", "CEnum", "DataStructures", "ExprTools", "GPUArrays", "GPUCompiler", "LLVM", "Libdl", "LinearAlgebra", "Logging", "MacroTools", "NNlib", "Pkg", "Printf", "Random", "Reexport", "Requires", "SparseArrays", "Statistics", "TimerOutputs"]
