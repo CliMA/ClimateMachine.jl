@@ -7,9 +7,11 @@ import ClimateMachine.BalanceLaws:
     state_to_entropy_variables!,
     entropy_variables_to_state!,
     init_state_auxiliary!,
-    state_to_entropy
+    state_to_entropy,
+    boundary_state!
 using StaticArrays: SVector
 using LinearAlgebra: dot, I
+using ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxFirstOrder
 import ClimateMachine.DGMethods.NumericalFluxes:
     EntropyConservative,
     numerical_volume_conservative_flux_first_order!,
@@ -29,6 +31,8 @@ end
 DryAtmosModel{D}(orientation::O) where {D, O <: Orientation} =
     DryAtmosModel{D, O}(orientation)
 
+# XXX: Hack for Impenetrable.
+#      This is NOT entropy stable / conservative!!!!
 function boundary_state!(
     ::NumericalFluxFirstOrder,
     ::DryAtmosModel,
@@ -43,6 +47,7 @@ function boundary_state!(
     state⁺.ρ = state⁻.ρ
     state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
     state⁺.ρe = state⁻.ρe
+    aux⁺.Φ = aux⁻.Φ
 end
 
 """

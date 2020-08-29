@@ -17,25 +17,6 @@ import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 using LazyArrays
 
-# XXX: Hack for Impenetrable
-function boundary_state!(
-    ::NumericalFluxFirstOrder,
-    ::DryAtmosModel,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    bctype,
-    _...,
-)
-    state⁺.ρ = state⁻.ρ
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-    state⁺.ρe = state⁻.ρe
-    aux⁺.Φ = aux⁻.Φ
-end
-
-
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
