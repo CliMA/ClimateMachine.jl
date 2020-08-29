@@ -74,8 +74,9 @@ function init_state_conservative!(bl::DryAtmosModel, state, aux, (x, y, z), t)
     e_kin = FT(0)                                       # kinetic energy
     e_pot = aux.Φ                                       # potential energy
     # ρe_tot = ρ * total_energy(e_kin, e_pot, ts)         # total energy
-    ρe = ρ * (e_kin + e_pot)
-
+    _cv_d = cv_d(param_set)
+    e_int = _cv_d * T
+    ρe = ρ * (e_kin + e_pot + e_int)
 
     ## Assign State Variables
     state.ρ = ρ
