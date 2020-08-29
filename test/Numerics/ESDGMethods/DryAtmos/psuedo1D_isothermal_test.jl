@@ -52,11 +52,11 @@ function init_state_conservative!(
     args...,
 )
     FT = eltype(state)
-    η::FT = 1 // 10000
+    η = FT(1 / 10000)
     @inbounds x = coords[1]
     state.ρ = exp(-aux.Φ)
     state.ρu = @SVector [FT(0), FT(0), FT(0)]
-    p = state.ρ + η * exp(-100 * (x - FT(1 // 2))^2)
+    p = state.ρ + η * exp(-100 * (x - FT(1 / 2))^2)
     state.ρe = totalenergy(state.ρ, state.ρu, p, aux.Φ)
     nothing
 end

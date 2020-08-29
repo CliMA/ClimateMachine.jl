@@ -21,9 +21,13 @@ import ClimateMachine.DGMethods.NumericalFluxes:
 using ClimateMachine.Orientations:
     Orientation, FlatOrientation, SphericalOrientation
 
-# Gas constant
-const _γ = 7 // 5
-const _grav = 981 // 100
+using CLIMAParameters: AbstractEarthParameterSet
+using CLIMAParameters.Planet: grav, cp_d, cv_d
+
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
+
+@inline gamma(ps::EarthParameterSet) = cp_d(ps) / cv_d(ps)
 
 struct DryAtmosModel{D, O} <: BalanceLaw
     orientation::O
@@ -65,9 +69,9 @@ function init_state_auxiliary!(
     geom,
 ) where {dim}
     FT = eltype(state_auxiliary)
-    grav = FT(_grav)
+    _grav = FT(grav(param_set))
     @inbounds r = geom.coord[dim]
-    state_auxiliary.Φ = grav * r
+    state_auxiliary.Φ = _grav * r
 end
 function init_state_auxiliary!(
     ::DryAtmosModel{dim, SphericalOrientation},
@@ -75,9 +79,9 @@ function init_state_auxiliary!(
     geom,
 ) where {dim}
     FT = eltype(state_auxiliary)
-    grav = FT(_grav)
+    _grav = FT(grav(param_set))
     r = norm(geom.coord)
-    state_auxiliary.Φ = grav * r
+    state_auxiliary.Φ = _grav * r
 end
 
 """
@@ -88,7 +92,7 @@ gravitational potential `Φ`.
 """
 function pressure(ρ, ρu, ρe, Φ)
     FT = eltype(ρ)
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
     (γ - 1) * (ρe - dot(ρu, ρu) / 2ρ - ρ * Φ)
 end
 
@@ -100,7 +104,7 @@ gravitational potential `Φ`.
 """
 function totalenergy(ρ, ρu, p, Φ)
     FT = eltype(ρ)
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
     return p / (γ - 1) + dot(ρu, ρu) / 2ρ + ρ * Φ
 end
 
@@ -111,7 +115,7 @@ Compute the speed of sound from the density `ρ` and pressure `p`.
 """
 function soundspeed(ρ, p)
     FT = eltype(ρ)
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
     sqrt(γ * p / ρ)
 end
 
@@ -176,7 +180,7 @@ function state_to_entropy_variables!(
     ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
 
     FT = eltype(state)
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
 
     p = pressure(ρ, ρu, ρe, Φ)
     s = log(p / ρ^γ)
@@ -207,7 +211,7 @@ function entropy_variables_to_state!(
 )
     FT = eltype(state)
     β = entropy
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
 
     b = -β.ρe / 2
     ρ = β.Φ / (2b)
@@ -229,7 +233,7 @@ function state_to_entropy(::DryAtmosModel, state::Vars, aux::Vars)
     FT = eltype(state)
     ρ, ρu, ρe, Φ = state.ρ, state.ρu, state.ρe, aux.Φ
     p = pressure(ρ, ρu, ρe, Φ)
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
     s = log(p * ρ^γ)
     η = -ρ * s
     return η
@@ -267,7 +271,7 @@ function numerical_volume_conservative_flux_first_order!(
     b_log = logave(b_1, b_2)
     α = b_avg * ρ_log / 2b_1
 
-    γ = FT(_γ)
+    γ = FT(gamma(param_set))
 
     Fρ = u_avg * ρ_log
     Fρu = u_avg * Fρ' + ρ_avg / 2b_avg * I
