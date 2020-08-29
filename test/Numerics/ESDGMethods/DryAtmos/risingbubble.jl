@@ -2,7 +2,6 @@ using MPI
 using ClimateMachine
 using Logging
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state
-using ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxFirstOrder
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
 using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using ClimateMachine.Thermodynamics
@@ -13,7 +12,7 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.VariableTemplates: flattenednames
-import ClimateMachine.BalanceLaws: init_state_conservative!, boundary_state!
+import ClimateMachine.BalanceLaws: init_state_conservative!
 import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 using LazyArrays
@@ -33,24 +32,6 @@ end
 const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
-
-# XXX: Hack for Impenetrable.
-#      This is NOT entropy stable / conservative!!!!
-function boundary_state!(
-    ::NumericalFluxFirstOrder,
-    ::DryAtmosModel,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    _...,
-)
-    state⁺.ρ = state⁻.ρ
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-    state⁺.ρe = state⁻.ρe
-    aux⁺.Φ = aux⁻.Φ
-end
 
 function init_state_conservative!(bl::DryAtmosModel, state, aux, (x, y, z), t)
     ## Problem float-type

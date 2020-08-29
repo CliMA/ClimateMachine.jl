@@ -23,7 +23,7 @@ Random.seed!(7)
 
 include("DryAtmos.jl")
 
-boundary_state!(::EntropyConservative, _...) = nothing
+boundary_state!(::Nothing, _...) = nothing
 
 # Random initialization function
 function init_state_conservative!(
