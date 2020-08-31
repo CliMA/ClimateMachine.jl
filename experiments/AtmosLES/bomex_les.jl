@@ -80,32 +80,16 @@ function main()
         nothing
     end
 
-    # State variable
-    Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    M = vgeo[:, Grids._M, :]
-    # Unpack prognostic vars
-    ρ₀ = Q.ρ
-    ρe₀ = Q.ρe
-    # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M)
-    Σρe₀ = sum(ρe₀ .* M)
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 0.0001)
-        @test (abs(δρe) <= 0.0025)
-        nothing
-    end
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.0001)),
+        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+    )
 
     result = ClimateMachine.invoke!(
         solver_config;
+        user_callbacks = (cbtmarfilter,),
         diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter, cb_check_cons),
+        check_cons = check_cons,
         check_euclidean_distance = true,
     )
 end

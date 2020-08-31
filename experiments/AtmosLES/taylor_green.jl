@@ -173,7 +173,16 @@ function config_diagnostics(
         interpol = interpol,
         snor,
     )
-    return ClimateMachine.DiagnosticsConfiguration([ts_dgngrp, ds_dgngrp])
+    me_dgngrp = setup_atmos_mass_energy_loss(
+        AtmosLESConfigType(),
+        "0.02ssecs",
+        driver_config.name,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([
+        ts_dgngrp,
+        ds_dgngrp,
+        me_dgngrp,
+    ],)
 end
 
 # Entry point
@@ -226,9 +235,15 @@ function main()
         snor,
     )
 
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "100steps", FT(0.0001)),
+        ClimateMachine.ConservationCheck("ρe", "100steps", FT(0.0025)),
+    )
+
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
+        check_cons = check_cons,
         check_euclidean_distance = true,
     )
 

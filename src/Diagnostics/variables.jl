@@ -460,4 +460,8 @@ function setup_variables()
             "",
         ),
     )
+    Variables["mass_loss"] =
+        DiagnosticVariable("mass_loss", var_attrib("", "", ""))
+    Variables["energy_loss"] =
+        DiagnosticVariable("energy_loss", var_attrib("", "", ""))
 end
