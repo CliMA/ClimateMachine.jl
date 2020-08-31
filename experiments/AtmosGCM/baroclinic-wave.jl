@@ -159,7 +159,7 @@ end
 function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
