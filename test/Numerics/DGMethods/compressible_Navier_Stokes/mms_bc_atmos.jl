@@ -167,7 +167,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             problem = problem,
             orientation = NoOrientation(),
             ref_state = NoReferenceState(),
-            turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
+            turbulence = ConstantDynamicViscosity(
+                FT(μ_exact),
+                WithDivergence(),
+            ),
             moisture = MMSDryModel(),
             source = mms2_source!,
         )
@@ -182,7 +185,10 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
             problem = problem,
             orientation = NoOrientation(),
             ref_state = NoReferenceState(),
-            turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
+            turbulence = ConstantDynamicViscosity(
+                FT(μ_exact),
+                WithDivergence(),
+            ),
             moisture = MMSDryModel(),
             source = mms3_source!,
         )

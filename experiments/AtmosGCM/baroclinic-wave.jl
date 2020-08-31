@@ -182,7 +182,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set;
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,

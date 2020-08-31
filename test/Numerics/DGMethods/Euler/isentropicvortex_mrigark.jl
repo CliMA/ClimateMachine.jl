@@ -145,7 +145,7 @@ function run(
         problem = problem,
         orientation = NoOrientation(),
         ref_state = IsentropicVortexReferenceState{FT}(setup),
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
         source = nothing,
     )

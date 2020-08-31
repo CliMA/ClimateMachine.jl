@@ -105,7 +105,7 @@ let
                     param_set;
                     problem = problem,
                     ref_state = NoReferenceState(),
-                    turbulence = ConstantViscosityWithDivergence(μ),
+                    turbulence = ConstantDynamicViscosity(μ, WithDivergence()),
                     moisture = DryModel(),
                     source = Gravity(),
                 )
