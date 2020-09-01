@@ -377,7 +377,7 @@ end
 
 function doiteration!(
     linearoperator!,
-    preconditioner,
+    preconditioner::AbstractPreconditioner,
     Q,
     Qrhs,
     solver::BatchedGeneralizedMinimalResidual,

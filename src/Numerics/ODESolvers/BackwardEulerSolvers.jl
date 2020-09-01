@@ -115,7 +115,7 @@ mutable struct LinBESolver{FT, F, LS} <: AbstractBackwardEulerSolver
     solver::LS
     isadjustable::Bool
     # used only for iterative solver
-    preconditioner
+    preconditioner::AbstractPreconditioner
     # used only for direct solver
     factors
 end
@@ -144,7 +144,7 @@ function setup_backward_Euler_solver(
     preconditioner = (
         preconditioner_update_freq > 0 ?
             ColumnwiseLUPreconditioner(f_imp!, Q, preconditioner_update_freq) :
-            nothing
+            NoPreconditioner()
     )
 
     LinBESolver(
@@ -255,7 +255,7 @@ mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
     # whether adjust the time step or not, not used
     isadjustable::Bool
     # preconditioner, approximation of drhs!/dQ
-    preconditioner
+    preconditioner::AbstractPreconditioner
 
 end
 
@@ -290,7 +290,7 @@ function setup_backward_Euler_solver(
     preconditioner = (
         preconditioner_update_freq > 0 ?
             ColumnwiseLUPreconditioner(f_imp!, Q, preconditioner_update_freq) :
-            nothing
+            NoPreconditioner()
     )
     NonLinBESolver(
         α,
