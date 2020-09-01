@@ -57,6 +57,8 @@ include("gcm_sources.jl")            # GCM-specific sources and parametrization
 # Set default initial conditions, boundary conditions and sources for each experiment type
 include("baroclinicwave_problem.jl") # initial value problem (no sources to maintain equilibration)
 include("heldsuarez_problem.jl")     # runs to equilibration
+include("baroclinicwavecustom_problem.jl")
+include("heldsuarezcustom_problem.jl")
 
 # Initial conditions (common to all GCM experiments)
 function init_gcm_experiment!(problem, bl, state, aux, coords, t)
@@ -120,7 +122,11 @@ function parse_experiment_arg(arg)
         problem_type = BaroclinicWaveProblem
     elseif arg == "heldsuarez"
         problem_type = HeldSuarezProblem
-    else
+    elseif arg == "baroclinic_wave_custom"
+        problem_type = BaroclinicWaveCustomProblem
+    elseif arg == "heldsuarez_custom"
+        problem_type = HeldSuarezCustomProblem
+      else
         error("unknown experiment: " * arg)
     end
 
@@ -258,7 +264,7 @@ function main()
                 init-base-state: heldsuarez,
                 init-moisture-profile: moist_low_tropics
             """
-        metavar = "baroclinic_wave|heldsuarez"
+        metavar = "baroclinic_wave|heldsuarez|baroclinic_wave_custom|heldsuarez_custom"
         arg_type = String
         required = true
         "--init-perturbation"
@@ -350,8 +356,7 @@ function main()
     end
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
+        Filters.apply!(            solver_config.Q,
             ("moisture.ρq_tot",),
             solver_config.dg.grid,
             TMARFilter(),

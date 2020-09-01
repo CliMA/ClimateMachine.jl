@@ -1089,6 +1089,7 @@ function saturation_adjustment(
     tol::AbstractTolerance,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
+    _cv_d::FT = cv_d(param_set)
 
     T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ, phase_type)
@@ -1099,14 +1100,14 @@ function saturation_adjustment(
         _T_freeze::FT = T_freeze(param_set)
         e_int_upper = internal_energy_sat(
             param_set,
-            _T_freeze + sqrt(eps(FT)),
+            _T_freeze + tol.tol/_cv_d,
             ρ,
             q_tot,
             phase_type,
         )
         e_int_lower = internal_energy_sat(
             param_set,
-            _T_freeze - sqrt(eps(FT)),
+            _T_freeze - tol.tol/_cv_d,
             ρ,
             q_tot,
             phase_type,

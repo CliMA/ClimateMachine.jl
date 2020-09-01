@@ -1,5 +1,6 @@
-using CLIMAParameters.Planet: Omega
-export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis
+using ..Microphysics_0M
+using CLIMAParameters.Planet: Omega, e_int_i0, cv_d, cv_l, cv_i, T_0
+export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, RemovePrecipitation, NudgeToSaturation
 
 # kept for compatibility
 # can be removed if no functions are using this
@@ -172,4 +173,136 @@ function atmos_source!(
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
+end
+
+
+"""
+    RemovePrecipitation{FT} <: Source
+A sink to `q_tot` when cloud condensate is exceeding a threshold.
+The threshold is defined either in terms of condensate or supersaturation.
+The removal rate is implemented as a relaxation term
+in the Microphysics_0M module.
+The default thresholds and timescale are defined in CLIMAParameters.jl.
+"""
+struct RemovePrecipitation <: Source
+    " Set to true if using qc based threshold"
+    use_qc_thr::Bool
+end
+function atmos_source!(
+    s::RemovePrecipitation,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    # TODO - how to assert that it is used with EquilMoist module?
+    #        (if it were to be used with non-EquilMoist model
+    #         q_liq and q_ice would be part of state)
+    FT = eltype(state)
+    if aux.moisture.q_liq + aux.moisture.q_ice > eps(FT)
+
+        q = PhasePartition(
+            state.moisture.ρq_tot / state.ρ,
+            aux.moisture.q_liq,
+            aux.moisture.q_ice,
+        )
+        T::FT = aux.moisture.temperature
+        lf::FT = liquid_fraction(atmos.param_set, T, PhaseEquil, q)
+
+        _e_int_i0::FT = e_int_i0(atmos.param_set)
+        _cv_d::FT = cv_d(atmos.param_set)
+        _cv_l::FT = cv_l(atmos.param_set)
+        _cv_i::FT = cv_i(atmos.param_set)
+        _T_0::FT = T_0(atmos.param_set)
+
+        S_qt::FT = 0
+        if s.use_qc_thr
+            S_qt = remove_precipitation(atmos.param_set, q)
+        else
+            ts_neq = TemperatureSHumNonEquil(atmos.param_set, T, state.ρ, q)
+            q_vap_sat = q_vap_saturation(ts_neq)
+            S_qt = remove_precipitation(atmos.param_set, q, q_vap_sat)
+        end
+
+        source.moisture.ρq_tot += state.ρ * S_qt
+
+        source.ρ += state.ρ * S_qt
+
+        source.ρe +=
+            (
+                lf * _cv_l * (T - _T_0) +
+                (1 - lf) * (_cv_i * (T - _T_0) - _e_int_i0) +
+                gravitational_potential(atmos.orientation, aux)
+            ) *
+            state.ρ *
+            S_qt
+    end
+end
+
+
+"""
+    NudgeToSaturation{FT} <: Source
+
+Linear damping of moisture q_tot to RH = 100% at the surface, where RH = q_vap / q_vap_saturation
+Parametrises bottom surface moisture fluxes.
+    Following Ming and Held (2018):
+"""
+struct NudgeToSaturation <: Source end
+function atmos_source!(
+    ::NudgeToSaturation,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+  )
+
+    # constants
+    FT = eltype(state)
+
+    _e_int_i0::FT = e_int_i0(atmos.param_set)
+    _cv_d::FT = cv_d(atmos.param_set)
+    _cv_l::FT = cv_l(atmos.param_set)
+    _cv_i::FT = cv_i(atmos.param_set)
+    _T_0::FT = T_0(atmos.param_set)
+  
+    tau_n::FT = 30 * 60 * 100 # nudging timescale (default = 30 mins)
+    phase_type = PhaseEquil # this may need to be generalised
+    # H::FT = 2000 # heoght below which this is applied
+    p_nudge::FT = 85000 # pressure (Pa) above which this fuctions in pplied
+
+    # get relaxation
+    # z = altitude(atmos, aux)
+    T::FT = aux.moisture.temperature
+    p::FT = air_pressure(atmos.param_set, T, state.ρ)
+  
+    q = PhasePartition(state.moisture.ρq_tot / state.ρ, aux.moisture.q_liq, aux.moisture.q_ice)
+    q_vap::FT = vapor_specific_humidity(q)
+    q_vap_sat::FT = q_vap_saturation(atmos.param_set, T, state.ρ , phase_type)
+    lf::FT = liquid_fraction(atmos.param_set, T, phase_type, q)
+
+    if p >= p_nudge
+      S_qt = max( FT(0), - ( q_vap - q_vap_sat ) / tau_n )
+      #dqt_dt = - ( q_vap - q_vap_sat ) / tau_n * exp(z/ FT(5000) )
+    else
+      S_qt = FT(0)
+    end
+    # apply the moisture source
+    source.moisture.ρq_tot += state.ρ * S_qt
+    
+    source.ρ += state.ρ * S_qt
+    
+    source.ρe +=
+           (
+              lf * _cv_l * (T - _T_0) +
+              (1 - lf) * (_cv_i * (T - _T_0) - _e_int_i0) +
+              gravitational_potential(atmos.orientation, aux)
+              ) *
+              state.ρ *
+              S_qt
 end
