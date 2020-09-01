@@ -46,6 +46,7 @@ function run_split_explicit(
     timespan;
     dt_fast = 300,
     dt_slow = 300,
+    additional_percent = 0.0,
     refDat = (),
     restart = 0,
     analytic_solution = false,
@@ -62,7 +63,11 @@ function run_split_explicit(
     lsrk_3D = LSRK54CarpenterKennedy(config.dg_3D, Q_3D, dt = dt_slow, t0 = t0)
     lsrk_2D = LSRK54CarpenterKennedy(config.dg_2D, Q_2D, dt = dt_fast, t0 = t0)
 
-    odesolver = config.solver(lsrk_3D, lsrk_2D;)
+    odesolver = config.solver(
+        lsrk_3D,
+        lsrk_2D;
+        additional_percent = additional_percent,
+    )
 
     vtkstep = [restart, restart, restart + 1, restart + 1]
     cbvector = make_callbacks(

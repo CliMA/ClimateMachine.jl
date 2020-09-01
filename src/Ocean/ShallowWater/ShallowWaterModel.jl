@@ -103,6 +103,10 @@ function vars_state(m::SWModel, ::Auxiliary, T)
     @vars begin
         y::T
         Gᵁ::SVector{2, T} # integral of baroclinic tendency
+        η°::T              # stored value to restart at next time step
+        U°::SVector{2, T}  # stored value to restart at next time step
+        η̄::T             # average value of η
+        Ū::SVector{2, T} # average value of U
         Δu::SVector{2, T} # reconciliation Δu = 1/H * (Ū - ∫u)
     end
 end

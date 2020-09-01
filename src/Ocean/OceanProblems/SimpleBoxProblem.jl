@@ -69,6 +69,10 @@ function ocean_init_aux!(::SWModel, ::AbstractSimpleBoxProblem, A, geom)
     @inbounds A.y = geom.coord[2]
 
     A.Gᵁ = @SVector [-0, -0]
+    A.η° = -0
+    A.U° = @SVector [-0, -0]
+    A.η̄ = -0
+    A.Ū = @SVector [-0, -0]
     A.Δu = @SVector [-0, -0]
 
     return nothing

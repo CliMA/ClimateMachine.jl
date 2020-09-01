@@ -7,6 +7,7 @@ using ..BalanceLaws:
     reconcile_from_fast_to_slow!
 
 LSRK2N = LowStorageRungeKutta2N
+LSRK3N = LowStorageRungeKutta3N
 
 @doc """
     SplitExplicitSolver(slow_solver, fast_solver; dt, t0 = 0, coupled = true)
@@ -40,13 +41,16 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
     steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
+    "additional percentage of time to step for the fast solver"
+    additional_percent::RT
 
     function SplitExplicitSolver(
-        slow_solver::LSRK2N,
+        slow_solver::Union{LSRK2N, LSRK3N},
         fast_solver,
         Q = nothing;
         dt = getdt(slow_solver),
         t0 = slow_solver.t,
+        additional_percent = 0,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
@@ -63,6 +67,7 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
             RT(t0),
             0,
             dQ2fast,
+            RT(additional_percent),
         )
     end
 end
@@ -72,7 +77,7 @@ function dostep!(
     split::SplitExplicitSolver{SS},
     param,
     time::Real,
-) where {SS <: LSRK2N}
+) where {SS <: Union{LSRK2N, LSRK3N}}
     slow = split.slow_solver
     fast = split.fast_solver
 
@@ -89,7 +94,7 @@ function dostep!(
     slow_dt = getdt(slow)
     fast_dt_in = getdt(fast)
 
-    for slow_s in 1:length(slow.RKA)
+    for slow_s in 1:length(slow.RKC)
         # Current slow state time
         slow_stage_time = time + slow.RKC[slow_s] * slow_dt
 
@@ -114,11 +119,8 @@ function dostep!(
             dQ2fast,
         )
 
-        # Compute (and RK update) slow tendency
-        slow.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
-
         # Fractional time for slow stage
-        if slow_s == length(slow.RKA)
+        if slow_s == length(slow.RKC)
             γ = 1 - slow.RKC[slow_s]
         else
             γ = slow.RKC[slow_s + 1] - slow.RKC[slow_s]
@@ -126,24 +128,41 @@ function dostep!(
 
         # RKB for the slow with fractional time factor remove (since full
         # integration of fast will result in scaling by γ)
-        nsubsteps = fast_dt_in > 0 ? ceil(Int, γ * slow_dt / fast_dt_in) : 1
-        fast_dt = γ * slow_dt / nsubsteps
+        slow_stage_dt = γ * slow_dt
+        step_ratio = slow_stage_dt / fast_dt_in
+
+        if split.additional_percent == 0
+            midpoint = ceil(Int, step_ratio)
+        else
+            # fast_dt is changed based on how many steps to the midpoint
+            # calculate midpoint in such a way that we always hit
+            # (1 ± perc) * slow_stage_dt and slow_stage_dt
+            # exactly with an integer multiple of the new fast_dt
+            steps = ceil(Int, step_ratio * split.additional_percent)
+            midpoint = round(Int, steps / split.additional_percent)
+        end
+        start = round(Int, midpoint * (1 - split.additional_percent))
+        stop = round(Int, midpoint * (1 + split.additional_percent))
+        fast_dt = slow_stage_dt / midpoint
 
         updatedt!(fast, fast_dt)
 
-        for substep in 1:nsubsteps
+        for substep in 1:stop
             fast_time = slow_stage_time + (substep - 1) * fast_dt
             dostep!(Qfast, fast, param, fast_time)
+
             cummulate_fast_solution!(
                 slow_bl,
                 fast_bl,
                 fast.rhs!,
                 Qfast,
-                fast_time,
-                fast_dt,
                 substep,
+                (start, midpoint, stop),
             )
         end
+
+        # Compute (and RK update) slow tendency
+        slow.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
 
         # Update (RK-stage) slow state
         event = Event(array_device(Qslow))

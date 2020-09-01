@@ -50,7 +50,8 @@ const FT = Float64
         timespan;
         dt_fast = 300, # seconds
         dt_slow = 90 * 60, # seconds
-        refDat = refVals.ninety_minutes,
+        additional_percent = 0.5, # dimensionless
+        # refDat = refVals.ninety_minutes,
         analytic_solution = true,
     )
 end
