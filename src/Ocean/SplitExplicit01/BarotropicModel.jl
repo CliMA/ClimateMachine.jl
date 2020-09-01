@@ -32,7 +32,12 @@ function vars_state(m::BarotropicModel, ::Auxiliary, T)
     end
 end
 
-function init_state_auxiliary!(m::BarotropicModel, state_aux::MPIStateArray, grid, direction)
+function init_state_auxiliary!(
+    m::BarotropicModel,
+    state_aux::MPIStateArray,
+    grid,
+    direction,
+)
     init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.baroclinic.problem, A, geom),
@@ -48,7 +53,13 @@ function vars_state(m::BarotropicModel, ::Gradient, T)
     end
 end
 
-@inline function compute_gradient_argument!(m::BarotropicModel, G::Vars, Q::Vars, A, t)
+@inline function compute_gradient_argument!(
+    m::BarotropicModel,
+    G::Vars,
+    Q::Vars,
+    A,
+    t,
+)
     G.U = Q.U
     return nothing
 end

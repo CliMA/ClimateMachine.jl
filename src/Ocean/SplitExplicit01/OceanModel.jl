@@ -55,16 +55,16 @@ struct OceanModel{P, T} <: AbstractOceanModel
 end
 
 function calculate_dt(grid, model::OceanModel, Courant_number)
-  #=
-    minΔx = min_node_distance(grid, HorizontalDirection())
-    minΔz = min_node_distance(grid, VerticalDirection())
+    #=
+      minΔx = min_node_distance(grid, HorizontalDirection())
+      minΔz = min_node_distance(grid, VerticalDirection())
 
-    CFL_gravity = minΔx / model.cʰ
-    CFL_diffusive = minΔz^2 / (1000 * model.κᶻ)
-    CFL_viscous = minΔz^2 / model.νᶻ
+      CFL_gravity = minΔx / model.cʰ
+      CFL_diffusive = minΔz^2 / (1000 * model.κᶻ)
+      CFL_viscous = minΔz^2 / model.νᶻ
 
-    dt = 1 // 2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
-  =#
+      dt = 1 // 2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
+    =#
     FT = eltype(grid)
     dt = FT(1)
 
@@ -115,23 +115,24 @@ function OceanDGModel(
     conti3d_Q = init_ode_state(conti3d_dg, FT(0); init_on_cpu = true)
 
     ivdc_dg = DGModel(
-	IVDCModel(bl),
-	grid,
+        IVDCModel(bl),
+        grid,
         numfluxnondiff,
         numfluxdiff,
         gradnumflux;
-	direction=VerticalDirection(),
+        direction = VerticalDirection(),
     )
     ivdc_Q = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true) # Not sure this is needed since we set values later,
-                                                                # but we'll do it just in case!
+    # but we'll do it just in case!
 
     ivdc_RHS = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true) # Not sure this is needed since we set values later,
-                                                                  # but we'll do it just in case!
+    # but we'll do it just in case!
 
-    ivdc_bgm_solver=BatchedGeneralizedMinimalResidual(
+    ivdc_bgm_solver = BatchedGeneralizedMinimalResidual(
         ivdc_dg,
-	ivdc_Q;
-	max_subspace_size=10)
+        ivdc_Q;
+        max_subspace_size = 10,
+    )
 
     modeldata = (
         vert_filter = vert_filter,
@@ -140,10 +141,10 @@ function OceanDGModel(
         tendency_dg = tendency_dg,
         conti3d_dg = conti3d_dg,
         conti3d_Q = conti3d_Q,
-	ivdc_dg  = ivdc_dg,
-	ivdc_Q   = ivdc_Q,
-	ivdc_RHS = ivdc_RHS,
-	ivdc_bgm_solver=ivdc_bgm_solver,
+        ivdc_dg = ivdc_dg,
+        ivdc_Q = ivdc_Q,
+        ivdc_RHS = ivdc_RHS,
+        ivdc_bgm_solver = ivdc_bgm_solver,
     )
 
     return DGModel(
@@ -180,7 +181,12 @@ function vars_state(m::OceanModel, ::Auxiliary, T)
     end
 end
 
-function init_state_auxiliary!(m::OceanModel, state_aux::MPIStateArray, grid, direction)
+function init_state_auxiliary!(
+    m::OceanModel,
+    state_aux::MPIStateArray,
+    grid,
+    direction,
+)
     init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
@@ -198,7 +204,13 @@ function vars_state(m::OceanModel, ::Gradient, T)
     end
 end
 
-@inline function compute_gradient_argument!(m::OceanModel, G::Vars, Q::Vars, A, t)
+@inline function compute_gradient_argument!(
+    m::OceanModel,
+    G::Vars,
+    Q::Vars,
+    A,
+    t,
+)
     G.u = Q.u
     G.ud = A.u_d
     G.θ = Q.θ
@@ -222,12 +234,12 @@ end
     t,
 )
     ν = viscosity_tensor(m)
-#   D.ν∇u = ν * G.u
+    #   D.ν∇u = ν * G.u
     D.ν∇u = @SMatrix [
-              m.νʰ * G.ud[1, 1]  m.νʰ * G.ud[1, 2]
-              m.νʰ * G.ud[2, 1]  m.νʰ * G.ud[2, 2]
-              m.νᶻ * G.u[3, 1]   m.νᶻ * G.u[3, 2]
-            ]
+        m.νʰ * G.ud[1, 1] m.νʰ * G.ud[1, 2]
+        m.νʰ * G.ud[2, 1] m.νʰ * G.ud[2, 2]
+        m.νᶻ * G.u[3, 1] m.νᶻ * G.u[3, 2]
+    ]
 
     κ = diffusivity_tensor(m, G.θ[3])
     D.κ∇θ = κ * G.θ
@@ -242,7 +254,11 @@ end
     if m.numImplSteps > 0
         κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
     else
-        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ ]) : κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ])
+        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ]) : κ = (@SVector [
+            m.κʰ,
+            m.κʰ,
+            m.κᶻ,
+        ])
     end
 
     return Diagonal(κ)
@@ -258,7 +274,7 @@ function vars_state(m::OceanModel, ::UpwardIntegrals, T)
     @vars begin
         ∇hu::T
         buoy::T
-#       ∫u::SVector{2, T}
+        #       ∫u::SVector{2, T}
     end
 end
 
@@ -274,10 +290,15 @@ I -> array of integrand variables
 Q -> array of state variables
 A -> array of aux variables
 """
-@inline function integral_load_auxiliary_state!(m::OceanModel, I::Vars, Q::Vars, A::Vars)
+@inline function integral_load_auxiliary_state!(
+    m::OceanModel,
+    I::Vars,
+    Q::Vars,
+    A::Vars,
+)
     I.∇hu = A.w # borrow the w value from A...
     I.buoy = m.grav * m.αᵀ * Q.θ # buoyancy to integrate vertically from top (=reverse)
-#   I.∫u = Q.u
+    #   I.∫u = Q.u
 
     return nothing
 end
@@ -296,7 +317,7 @@ I -> array of integrand variables
 @inline function integral_set_auxiliary_state!(m::OceanModel, A::Vars, I::Vars)
     A.w = I.∇hu
     A.pkin = -I.buoy
-#   A.∫u = I.∫u
+    #   A.∫u = I.∫u
 
     return nothing
 end
@@ -346,7 +367,11 @@ m -> model in this case OceanModel
 A -> array of aux variables
 I -> array of integrand variables
 """
-@inline function reverse_integral_set_auxiliary_state!(m::OceanModel, A::Vars, I::Vars)
+@inline function reverse_integral_set_auxiliary_state!(
+    m::OceanModel,
+    A::Vars,
+    I::Vars,
+)
     A.pkin = I.buoy
 
     return nothing
@@ -373,9 +398,9 @@ end
         ]
 
         # ∇h • (g η)
-#- jmc: put back this term to check
-#       η = Q.η
-#       F.u += m.grav * η * Iʰ
+        #- jmc: put back this term to check
+        #       η = Q.η
+        #       F.u += m.grav * η * Iʰ
 
         # ∇ • (u θ)
         F.θ += v * θ
@@ -400,8 +425,8 @@ end
     t::Real,
 )
     # horizontal viscosity done in horizontal model
-#   F.u -= @SVector([0, 0, 1]) * D.ν∇u[3, :]'
-#- jmc: put back this term to check
+    #   F.u -= @SVector([0, 0, 1]) * D.ν∇u[3, :]'
+    #- jmc: put back this term to check
     F.u -= D.ν∇u
 
     F.θ -= D.κ∇θ
@@ -424,7 +449,7 @@ end
 
         # f × u
         f = coriolis_force(m, A.y)
-      # S.u -= @SVector [-f * u[2], f * u[1]]
+        # S.u -= @SVector [-f * u[2], f * u[1]]
         S.u -= @SVector [-f * ud[2], f * ud[1]]
 
         #- borotropic tendency adjustment
@@ -463,7 +488,7 @@ function update_auxiliary_state!(
         apply!(Q, (4,), dg.grid, exp_filter, direction = VerticalDirection())
     end
 
-#----------
+    #----------
     # Compute Divergence of Horizontal Flow field using "conti3d_dg" DGmodel
 
     conti3d_dg = dg.modeldata.conti3d_dg
@@ -483,11 +508,11 @@ function update_auxiliary_state!(
     # Copy from ct3d_dQ.θ which is realy ∇h•u into A.w (which will be integrated)
     function f!(::OceanModel, dQ, A, t)
         @inbounds begin
-           A.w = dQ.θ
+            A.w = dQ.θ
         end
     end
     update_auxiliary_state!(f!, dg, m, ct3d_dQ, t, elems)
-#----------
+    #----------
 
     Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
 
@@ -517,7 +542,14 @@ function update_auxiliary_state!(
 
     ## get top value (=integral over full depth)
     nb_aux_flw = number_states(flowint, Auxiliary())
-    data_flw = reshape(flowintegral_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_flw, nelemv, nelemh)
+    data_flw = reshape(
+        flowintegral_dg.state_auxiliary.data,
+        Nq^2,
+        Nqk,
+        nb_aux_flw,
+        nelemv,
+        nelemh,
+    )
     index_∫u = varsindex(vars_state(flowint, Auxiliary(), FT), :∫u)
 
     flat_∫u = @view data_flw[:, end:end, index_∫u, end:end, 1:nrealelemh]

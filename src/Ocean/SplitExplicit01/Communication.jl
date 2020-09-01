@@ -12,7 +12,9 @@ import ...BalanceLaws:
     dgFast,
     Qslow,
     Qfast,
-    slow_dt, fast_time_rec, fast_steps
+    slow_dt,
+    fast_time_rec,
+    fast_steps,
 )
 
     #- inverse ratio of additional fast time steps (for weighted average)
@@ -24,19 +26,19 @@ import ...BalanceLaws:
     #  centered on fast_steps[2] which corresponds to advance in time of slow
     fast_dt = fast_time_rec[1]
     if add == 0
-        steps = fast_dt > 0 ? ceil(Int, slow_dt / fast_dt ) : 1
+        steps = fast_dt > 0 ? ceil(Int, slow_dt / fast_dt) : 1
         fast_steps[1:3] = [1 1 1] * steps
     else
-        steps = fast_dt > 0 ? ceil(Int, slow_dt / fast_dt / add ) : 1
+        steps = fast_dt > 0 ? ceil(Int, slow_dt / fast_dt / add) : 1
         fast_steps[2] = add * steps
-        fast_steps[1] = ( add - 1 ) * steps
-        fast_steps[3] = ( add + 1 ) * steps
+        fast_steps[1] = (add - 1) * steps
+        fast_steps[3] = (add + 1) * steps
     end
     fast_time_rec[1] = slow_dt / fast_steps[2]
-    fast_time_rec[2] = 0.
-   # @printf("Update: frac_dt = %.1f , dt_fast = %.1f , nsubsteps= %i\n",
-   #          slow_dt,fast_time_rec[1],fast_steps[3])
-   # println(" fast_steps = ",fast_steps)
+    fast_time_rec[2] = 0.0
+    # @printf("Update: frac_dt = %.1f , dt_fast = %.1f , nsubsteps= %i\n",
+    #          slow_dt,fast_time_rec[1],fast_steps[3])
+    # println(" fast_steps = ",fast_steps)
 
     dgFast.state_auxiliary.η_c .= -0
     dgFast.state_auxiliary.U_c .= (@SVector [-0, -0])'
@@ -84,14 +86,21 @@ end
 
     ## get top value (=integral over full depth) of ∫du
     nb_aux_tnd = number_states(tend, Auxiliary())
-    data_tnd = reshape(tendency_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_tnd, nelemv, nelemh)
+    data_tnd = reshape(
+        tendency_dg.state_auxiliary.data,
+        Nq^2,
+        Nqk,
+        nb_aux_tnd,
+        nelemv,
+        nelemh,
+    )
     index_∫du = varsindex(vars_state(tend, Auxiliary(), FT), :∫du)
     flat_∫du = @view data_tnd[:, end, index_∫du, end, 1:nrealelemh]
 
     ## copy into Gᵁ of dgFast
     nb_aux_fst = number_states(fast, Auxiliary())
     data_fst = reshape(dgFast.state_auxiliary.data, Nq^2, nb_aux_fst, nelemh)
-    index_Gᵁ  = varsindex(vars_state(fast, Auxiliary(), FT), :Gᵁ)
+    index_Gᵁ = varsindex(vars_state(fast, Auxiliary(), FT), :Gᵁ)
     boxy_Gᵁ = @view data_fst[:, index_Gᵁ, 1:nrealelemh]
     boxy_Gᵁ .= flat_∫du
 
@@ -99,7 +108,14 @@ end
     # note: since tendency_dg.state_auxiliary.∫du is not used after this, could be
     #   re-used to store a 3-D copy of "-Gu"
     nb_aux_slw = number_states(slow, Auxiliary())
-    data_slw = reshape(dgSlow.state_auxiliary.data, Nq^2, Nqk, nb_aux_slw, nelemv, nelemh)
+    data_slw = reshape(
+        dgSlow.state_auxiliary.data,
+        Nq^2,
+        Nqk,
+        nb_aux_slw,
+        nelemv,
+        nelemh,
+    )
     index_ΔGu = varsindex(vars_state(slow, Auxiliary(), FT), :ΔGu)
     boxy_ΔGu = @view data_slw[:, :, index_ΔGu, :, 1:nrealelemh]
     boxy_∫du = @view data_tnd[:, end:end, index_∫du, end:end, 1:nrealelemh]
@@ -114,22 +130,24 @@ end
     Qfast,
     fast_time,
     fast_dt,
-    substep, fast_steps, fast_time_rec,
+    substep,
+    fast_steps,
+    fast_time_rec,
 )
     #- might want to use some of the weighting factors: weights_η & weights_U
     #- should account for case where fast_dt < fast.param.dt
 
     # cumulate Fast solution:
     if substep >= fast_steps[1]
-      dgFast.state_auxiliary.U_c .+= Qfast.U
-      dgFast.state_auxiliary.η_c .+= Qfast.η
-      fast_time_rec[2] += 1.
+        dgFast.state_auxiliary.U_c .+= Qfast.U
+        dgFast.state_auxiliary.η_c .+= Qfast.η
+        fast_time_rec[2] += 1.0
     end
 
     # save mid-point solution to start from the next time-step
     if substep == fast_steps[2]
-      dgFast.state_auxiliary.U_s .= Qfast.U
-      dgFast.state_auxiliary.η_s .= Qfast.η
+        dgFast.state_auxiliary.U_s .= Qfast.U
+        dgFast.state_auxiliary.η_s .= Qfast.η
     end
 
     return nothing
@@ -165,7 +183,14 @@ end
 
     # get top value (=integral over full depth)
     nb_aux_flw = number_states(flowint, Auxiliary())
-    data_flw = reshape(flowintegral_dg.state_auxiliary.data, Nq^2, Nqk, nb_aux_flw, nelemv, nelemh)
+    data_flw = reshape(
+        flowintegral_dg.state_auxiliary.data,
+        Nq^2,
+        Nqk,
+        nb_aux_flw,
+        nelemv,
+        nelemh,
+    )
     index_∫u = varsindex(vars_state(flowint, Auxiliary(), FT), :∫u)
     flat_∫u = @view data_flw[:, end, index_∫u, end, 1:nrealelemh]
 
@@ -197,7 +222,8 @@ end
     index_η_diag = varsindex(vars_state(fast, Auxiliary(), FT), :η_diag)
     boxy_η_diag = @view data_fst[:, index_η_diag, 1:nrealelemh]
     boxy_η_diag .= flat_η
-    dgFast.state_auxiliary.Δη .= dgFast.state_auxiliary.η_c - dgFast.state_auxiliary.η_diag
+    dgFast.state_auxiliary.Δη .=
+        dgFast.state_auxiliary.η_c - dgFast.state_auxiliary.η_diag
 
     ## copy 2D model Eta over to 3D model
     index_η_c = varsindex(vars_state(fast, Auxiliary(), FT), :η_c)

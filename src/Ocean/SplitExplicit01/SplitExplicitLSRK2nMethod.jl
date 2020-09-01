@@ -8,10 +8,8 @@ using ...MPIStateArrays: array_device, realview
 using ...GenericCallbacks
 
 using ...ODESolvers:
-    AbstractODESolver,
-    LowStorageRungeKutta2N,
-    update!, updatedt!, getdt
-import  ...ODESolvers: dostep!
+    AbstractODESolver, LowStorageRungeKutta2N, update!, updatedt!, getdt
+import ...ODESolvers: dostep!
 
 using ...BalanceLaws:
 #   initialize_fast_state!,
@@ -67,7 +65,7 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
         RT = real(eltype(slow_solver.dQ))
 
         dQ2fast = similar(slow_solver.dQ)
-        dQ2fast .= -0.
+        dQ2fast .= -0.0
         MSA = typeof(dQ2fast)
         return new{SS, FS, RT, MSA}(
             slow_solver,
@@ -109,19 +107,35 @@ function dostep!(
 
         # Fractional time for slow stage
         if slow_s == length(slow.RKA)
-            fract_dt = ( 1 - slow.RKC[slow_s] ) * slow_dt
+            fract_dt = (1 - slow.RKC[slow_s]) * slow_dt
         else
-            fract_dt = ( slow.RKC[slow_s + 1] - slow.RKC[slow_s] ) * slow_dt
+            fract_dt = (slow.RKC[slow_s + 1] - slow.RKC[slow_s]) * slow_dt
         end
 
         # Initialize fast model and set time-step and number of substeps we need
-        fast_steps=[0 0 0]
+        fast_steps = [0 0 0]
         FT = typeof(slow_dt)
-        fast_time_rec=[fast_dt_in FT(0)]
-        initialize_fast_state!(slow_bl, fast_bl, slow.rhs!, fast.rhs!, Qslow, Qfast,
-                               fract_dt, fast_time_rec, fast_steps )
+        fast_time_rec = [fast_dt_in FT(0)]
+        initialize_fast_state!(
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+            fract_dt,
+            fast_time_rec,
+            fast_steps,
+        )
         # Initialize tentency adjustment before evaluation of slow mode
-        initialize_adjustment!(slow_bl, fast_bl, slow.rhs!, fast.rhs!, Qslow, Qfast)
+        initialize_adjustment!(
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+        )
 
         # Evaluate the slow mode
         # --> save tendency for the fast
@@ -131,14 +145,14 @@ function dostep!(
         # and use vertical mean for slow model (negative source)
         # ---> work with dQ2fast as input
         tendency_from_slow_to_fast!(
-                slow_bl,
-                fast_bl,
-                slow.rhs!,
-                fast.rhs!,
-                Qslow,
-                Qfast,
-                dQ2fast,
-            )
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+            dQ2fast,
+        )
 
         # Compute (and RK update) slow tendency
         slow.rhs!(dQslow, Qslow, param, slow_stage_time, increment = true)
@@ -171,24 +185,26 @@ function dostep!(
 
             # cumulate fast solution
             cummulate_fast_solution!(
-                    fast_bl,
-                    fast.rhs!,
-                    Qfast,
-                    fast_time,
-                    fast_dt,
-                    substep, fast_steps, fast_time_rec,
+                fast_bl,
+                fast.rhs!,
+                Qfast,
+                fast_time,
+                fast_dt,
+                substep,
+                fast_steps,
+                fast_time_rec,
             )
         end
 
         # reconcile slow equation using fast equation
         reconcile_from_fast_to_slow!(
-                slow_bl,
-                fast_bl,
-                slow.rhs!,
-                fast.rhs!,
-                Qslow,
-                Qfast,
-                fast_time_rec,
+            slow_bl,
+            fast_bl,
+            slow.rhs!,
+            fast.rhs!,
+            Qslow,
+            Qfast,
+            fast_time_rec,
         )
 
     end
@@ -204,37 +220,38 @@ function dostep!(
         ivdc_bl = ivdc_dg.balance_law
         ivdc_Q = slow.rhs!.modeldata.ivdc_Q
         ivdc_solver = slow.rhs!.modeldata.ivdc_bgm_solver
-      # ivdc_solver_dt = getdt(ivdc_solver) # would work if solver time-step was set
-      # FT = typeof(slow_dt)
-      # ivdc_solver_dt = slow_dt / FT(nImplSteps) # just recompute time-step
+        # ivdc_solver_dt = getdt(ivdc_solver) # would work if solver time-step was set
+        # FT = typeof(slow_dt)
+        # ivdc_solver_dt = slow_dt / FT(nImplSteps) # just recompute time-step
         ivdc_solver_dt = ivdc_bl.parent_om.ivdc_dt
-      # println("ivdc_solver_dt = ",ivdc_solver_dt )
+        # println("ivdc_solver_dt = ",ivdc_solver_dt )
         # 2. setup start RHS, initial guess and values for computing mixing coeff
-        ivdc_Q.θ   .= Qslow.θ
-        ivdc_RHS    = slow.rhs!.modeldata.ivdc_RHS
+        ivdc_Q.θ .= Qslow.θ
+        ivdc_RHS = slow.rhs!.modeldata.ivdc_RHS
         ivdc_RHS.θ .= Qslow.θ
-        ivdc_RHS.θ .= ivdc_RHS.θ./ivdc_solver_dt
+        ivdc_RHS.θ .= ivdc_RHS.θ ./ ivdc_solver_dt
         ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
         # 3. Invoke iterative solver
 
-        println("BEFORE maximum(ivdc_Q.θ[:]): ",maximum(ivdc_Q.realdata[:]) )
-        println("BEFORE minimum(ivdc_Q.θ[:]): ",minimum(ivdc_Q.realdata[:]) )
+        println("BEFORE maximum(ivdc_Q.θ[:]): ", maximum(ivdc_Q.realdata[:]))
+        println("BEFORE minimum(ivdc_Q.θ[:]): ", minimum(ivdc_Q.realdata[:]))
 
-        lm!(y,x)=ivdc_dg(y,x,nothing,0;increment=false)
+        lm!(y, x) = ivdc_dg(y, x, nothing, 0; increment = false)
         solve_tot = 0
         iter_tot = 0
-        for i = 1:nImplSteps
-         solve_time = @elapsed iters = linearsolve!(lm!, ivdc_solver, ivdc_Q, ivdc_RHS);
-         solve_tot = solve_tot+solve_time
-         iter_tot = iter_tot+iters
-         # Set new RHS and initial values
-         ivdc_RHS.θ .= ivdc_Q.θ./ivdc_solver_dt
-         ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
+        for i in 1:nImplSteps
+            solve_time = @elapsed iters =
+                linearsolve!(lm!, ivdc_solver, ivdc_Q, ivdc_RHS)
+            solve_tot = solve_tot + solve_time
+            iter_tot = iter_tot + iters
+            # Set new RHS and initial values
+            ivdc_RHS.θ .= ivdc_Q.θ ./ ivdc_solver_dt
+            ivdc_dg.state_auxiliary.θ_init .= ivdc_Q.θ
         end
-        println("solver iters, time: ",iter_tot, ", ", solve_tot)
+        println("solver iters, time: ", iter_tot, ", ", solve_tot)
 
-        println("AFTER  maximum(ivdc_Q.θ[:]): ",maximum(ivdc_Q.realdata[:]) )
-        println("AFTER  minimum(ivdc_Q.θ[:]): ",minimum(ivdc_Q.realdata[:]) )
+        println("AFTER  maximum(ivdc_Q.θ[:]): ", maximum(ivdc_Q.realdata[:]))
+        println("AFTER  minimum(ivdc_Q.θ[:]): ", minimum(ivdc_Q.realdata[:]))
 
         # exit()
         # Now update

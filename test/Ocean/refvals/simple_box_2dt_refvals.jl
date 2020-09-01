@@ -1,5 +1,5 @@
-    refVals=[]
-    refPrecs=[]
+refVals = []
+refPrecs = []
 
 #! format: off
 # SC ========== Test number 1 reference values and precision match template. =======

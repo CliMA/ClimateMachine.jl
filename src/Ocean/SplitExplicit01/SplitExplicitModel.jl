@@ -15,8 +15,12 @@ using ...MPIStateArrays
 using ...DGMethods: init_ode_state, basic_grid_info
 using ...Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
 using ...Mesh.Grids:
-    polynomialorder, dimensionality, dofs_per_element,
-    VerticalDirection, HorizontalDirection, min_node_distance
+    polynomialorder,
+    dimensionality,
+    dofs_per_element,
+    VerticalDirection,
+    HorizontalDirection,
+    min_node_distance
 
 using ...BalanceLaws
 #import ...BalanceLaws: nodal_update_auxiliary_state!
@@ -53,8 +57,7 @@ import ...DGMethods:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-import ...SystemSolvers:
-    BatchedGeneralizedMinimalResidual, linearsolve!
+import ...SystemSolvers: BatchedGeneralizedMinimalResidual, linearsolve!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)

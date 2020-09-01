@@ -4,7 +4,8 @@ struct TendencyIntegralModel{M} <: AbstractOceanModel
         return new{M}(ocean)
     end
 end
-vars_state(tm::TendencyIntegralModel, ::Prognostic, FT) = vars_state(tm.ocean, Prognostic(), FT)
+vars_state(tm::TendencyIntegralModel, ::Prognostic, FT) =
+    vars_state(tm.ocean, Prognostic(), FT)
 vars_state(tm::TendencyIntegralModel, ::GradientFlux, FT) = @vars()
 
 function vars_state(m::TendencyIntegralModel, ::Auxiliary, T)
@@ -30,7 +31,11 @@ end
     return nothing
 end
 
-@inline function integral_set_auxiliary_state!(m::TendencyIntegralModel, A::Vars, I::Vars)
+@inline function integral_set_auxiliary_state!(
+    m::TendencyIntegralModel,
+    A::Vars,
+    I::Vars,
+)
     A.∫du = I.∫du
 
     return nothing
@@ -70,7 +75,8 @@ struct FlowIntegralModel{M} <: AbstractOceanModel
         return new{M}(ocean)
     end
 end
-vars_state(fm::FlowIntegralModel, ::Prognostic, FT) = vars_state(fm.ocean, Prognostic(), FT)
+vars_state(fm::FlowIntegralModel, ::Prognostic, FT) =
+    vars_state(fm.ocean, Prognostic(), FT)
 vars_state(fm::FlowIntegralModel, ::GradientFlux, FT) = @vars()
 
 function vars_state(m::FlowIntegralModel, ::Auxiliary, T)
@@ -96,7 +102,11 @@ end
     return nothing
 end
 
-@inline function integral_set_auxiliary_state!(m::FlowIntegralModel, A::Vars, I::Vars)
+@inline function integral_set_auxiliary_state!(
+    m::FlowIntegralModel,
+    A::Vars,
+    I::Vars,
+)
     A.∫u = I.∫u
 
     return nothing
@@ -118,4 +128,3 @@ function update_auxiliary_state!(
 
     return true
 end
-

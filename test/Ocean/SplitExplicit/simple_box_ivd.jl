@@ -73,9 +73,9 @@ end
     bctype,
     x...,
 )
-   #if bctype == 1
-        ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-   #end
+    #if bctype == 1
+    ocean_boundary_state!(m, CoastlineNoSlip(), x...)
+    #end
 end
 
 @inline function ocean_boundary_state!(
@@ -114,12 +114,7 @@ function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
 end
 
 # A is Filled afer the state
-function ocean_init_aux!(
-    m::BarotropicModel,
-    P::SimpleBox,
-    A,
-    geom,
-)
+function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
     @inbounds A.y = geom.coord[2]
 
     A.Gᵁ = @SVector [-0, -0]
@@ -174,16 +169,21 @@ function main()
     #- set model time-step:
     dt_fast = 240
     dt_slow = 5400
-  # dt_fast = 300
-  # dt_slow = 300
+    # dt_fast = 300
+    # dt_slow = 300
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
     numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
 
-    model = OceanModel{FT}(prob, grav = gravity, cʰ = cʰ,
-            add_fast_substeps = add_fast_substeps,
-            numImplSteps = numImplSteps, ivdc_dt = ivdc_dt,
-            κᶜ = FT(0.1) )
+    model = OceanModel{FT}(
+        prob,
+        grav = gravity,
+        cʰ = cʰ,
+        add_fast_substeps = add_fast_substeps,
+        numImplSteps = numImplSteps,
+        ivdc_dt = ivdc_dt,
+        κᶜ = FT(0.1),
+    )
     # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(0), fₒ = FT(0), β = FT(0) )
@@ -193,13 +193,13 @@ function main()
     minΔx = min_node_distance(grid_3D, HorizontalDirection())
     minΔz = min_node_distance(grid_3D, VerticalDirection())
     #- 2 horiz directions
-    gravity_max_dT = 1 / ( 2 * sqrt(gravity * H) / minΔx )
-  # dt_fast = minimum([gravity_max_dT])
+    gravity_max_dT = 1 / (2 * sqrt(gravity * H) / minΔx)
+    # dt_fast = minimum([gravity_max_dT])
 
     #- 2 horiz directions + harmonic visc or diffusion: 2^2 factor in CFL:
-    viscous_max_dT = 1 / ( 2 * model.νʰ / minΔx^2 + model.νᶻ / minΔz^2 )/ 4
-    diffusive_max_dT = 1 / ( 2 * model.κʰ / minΔx^2 + model.κᶻ / minΔz^2 )/ 4
-  # dt_slow = minimum([diffusive_max_dT, viscous_max_dT])
+    viscous_max_dT = 1 / (2 * model.νʰ / minΔx^2 + model.νᶻ / minΔz^2) / 4
+    diffusive_max_dT = 1 / (2 * model.κʰ / minΔx^2 + model.κᶻ / minΔz^2) / 4
+    # dt_slow = minimum([diffusive_max_dT, viscous_max_dT])
 
     @info @sprintf(
         """Update
@@ -222,7 +222,7 @@ function main()
     dg = OceanDGModel(
         model,
         grid_3D,
-    #   CentralNumericalFluxFirstOrder(),
+        # CentralNumericalFluxFirstOrder(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
@@ -231,7 +231,7 @@ function main()
     barotropic_dg = DGModel(
         barotropicmodel,
         grid_2D,
-    #   CentralNumericalFluxFirstOrder(),
+        # CentralNumericalFluxFirstOrder(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
@@ -247,26 +247,26 @@ function main()
     lsrk_barotropic =
         LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
-    odesolver = SplitExplicitLSRK2nSolver(
-        lsrk_ocean,
-        lsrk_barotropic,
-    )
+    odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
 
-   #-- Set up State Check call back for config state arrays, called every ntFreq time steps
-    ntFreq=1
-    cbcs_dg=ClimateMachine.StateCheck.sccreate(
-            [ (Q_3D,"oce Q_3D",),
-              (dg.state_auxiliary,"oce aux",),
-        #     (dg.diffstate,"oce diff",),
-        #     (lsrk_ocean.dQ,"oce_dQ",),
-        #     (dg.modeldata.tendency_dg.state_auxiliary,"tend Int aux",),
-        #     (dg.modeldata.conti3d_Q,"conti3d_Q",),
-              (Q_2D,"baro Q_2D",),
-              (barotropic_dg.state_auxiliary ,"baro aux",)
-            ],
-            ntFreq; prec=12)
-        #    (barotropic_dg.diffstate,"baro diff",),
-        #    (lsrk_barotropic.dQ,"baro_dQ",)
+    #-- Set up State Check call back for config state arrays, called every ntFreq time steps
+    ntFreq = 1
+    cbcs_dg = ClimateMachine.StateCheck.sccreate(
+        [
+            (Q_3D, "oce Q_3D"),
+            (dg.state_auxiliary, "oce aux"),
+            # (dg.diffstate,"oce diff",),
+            # (lsrk_ocean.dQ,"oce_dQ",),
+            # (dg.modeldata.tendency_dg.state_auxiliary,"tend Int aux",),
+            # (dg.modeldata.conti3d_Q,"conti3d_Q",),
+            (Q_2D, "baro Q_2D"),
+            (barotropic_dg.state_auxiliary, "baro aux"),
+        ],
+        ntFreq;
+        prec = 12,
+    )
+    # (barotropic_dg.diffstate,"baro diff",),
+    # (lsrk_barotropic.dQ,"baro_dQ",)
     #--
 
     step = [0, 0]
@@ -291,8 +291,8 @@ function main()
 
     # slow fast state tuple
     Qvec = (slow = Q_3D, fast = Q_2D)
-  # solve!(Qvec, odesolver; timeend = timeend, callbacks = cbvector)
-    cbv=(cbvector...,cbcs_dg)
+    # solve!(Qvec, odesolver; timeend = timeend, callbacks = cbvector)
+    cbv = (cbvector..., cbcs_dg)
     solve!(Qvec, odesolver; timeend = timeend, callbacks = cbv)
 
     ## Enable the code block below to print table for use in reference value code
@@ -302,7 +302,8 @@ function main()
     if regenRefVals
         ## Print state statistics in format for use as reference values
         println(
-            "# SC ========== Test number ", 1,
+            "# SC ========== Test number ",
+            1,
             " reference values and precision match template. =======",
         )
         println("# SC ========== $(@__FILE__) test reference values ======================================")
@@ -317,7 +318,7 @@ function main()
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
-        @info @sprintf("""Compare vs RefVals: %s""", checkRep )
+        @info @sprintf("""Compare vs RefVals: %s""", checkRep)
     end
 
     return nothing
@@ -356,7 +357,7 @@ function make_callbacks(
         auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
-        mycomm=Q.mpicomm
+        mycomm = Q.mpicomm
         ## Generate the pvtu file for these vtk files
         if MPI.Comm_rank(mpicomm) == 0 && MPI.Comm_size(mpicomm) > 1
             ## name of the pvtu file

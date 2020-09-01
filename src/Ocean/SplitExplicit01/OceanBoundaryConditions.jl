@@ -39,7 +39,7 @@ apply no penetration boundary for temperature
     n = @SVector [n⁻[1], n⁻[2]]
 
     # Q⁺.u = u⁻ - 2 * (n⋅u⁻) * n
-    Q⁺.u = u⁻ - 2 * (n∘u⁻) * n
+    Q⁺.u = u⁻ - 2 * (n ∘ u⁻) * n
 
     return nothing
 end
@@ -59,7 +59,7 @@ end
     n = @SVector [n⁻[1], n⁻[2]]
 
     # Q⁺.U = U⁻ - 2 * (n⋅U⁻) * n
-    Q⁺.U = U⁻ - 2 * (n∘U⁻) * n
+    Q⁺.U = U⁻ - 2 * (n ∘ U⁻) * n
 
     return nothing
 end
@@ -86,8 +86,8 @@ apply no penetration boundary for temperature
     n = @SVector [n⁻[1], n⁻[2]]
 
     # Q⁺.u = u⁻ - (n⋅u⁻) * n
-    Q⁺.u = u⁻ - (n∘u⁻) * n
-    A⁺.u_d = ud⁻ - (n∘ud⁻) * n
+    Q⁺.u = u⁻ - (n ∘ u⁻) * n
+    A⁺.u_d = ud⁻ - (n ∘ ud⁻) * n
 
     return nothing
 end
@@ -107,7 +107,7 @@ end
     n = @SVector [n⁻[1], n⁻[2]]
 
     # Q⁺.U = U⁻ - (n⋅U⁻) * n
-    Q⁺.U = U⁻ - (n∘U⁻) * n
+    Q⁺.U = U⁻ - (n ∘ U⁻) * n
 
     return nothing
 end
@@ -457,7 +457,11 @@ applying neumann boundary conditions, so don't need to do anything for these num
         OceanSurfaceNoStressForcing,
         OceanSurfaceStressForcing,
     },
-    ::Union{RusanovNumericalFlux, CentralNumericalFluxFirstOrder, CentralNumericalFluxGradient},
+    ::Union{
+        RusanovNumericalFlux,
+        CentralNumericalFluxFirstOrder,
+        CentralNumericalFluxGradient,
+    },
     Q⁺,
     A⁺,
     n⁻,
