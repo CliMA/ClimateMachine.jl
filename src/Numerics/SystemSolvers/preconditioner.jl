@@ -1,23 +1,42 @@
-export ColumnwiseLUPreconditioner,
+export AbstractPreconditioner,
+    ColumnwiseLUPreconditioner,
+    NoPreconditioner,
     preconditioner_update!,
     preconditioner_solve!,
     preconditioner_counter_update!
 
+abstract type AbstractPreconditioner end
+
+
+
+"""
+mutable struct NoPreconditioner
+end
+
+Do nothing
+"""
+
+mutable struct NoPreconditioner <: AbstractPreconditioner end
 
 """
 Do nothing, when there is no preconditioner, preconditioner = Nothing
 """
-function preconditioner_update!(op, dg, preconditioner::Nothing, args...) end
+function preconditioner_update!(
+    op,
+    dg,
+    preconditioner::NoPreconditioner,
+    args...,
+) end
 
 """
 Do nothing, when there is no preconditioner, preconditioner = Nothing
 """
-function preconditioner_solve!(preconditioner::Nothing, Q) end
+function preconditioner_solve!(preconditioner::NoPreconditioner, Q) end
 
 """
 Do nothing, when there is no preconditioner, preconditioner = Nothing
 """
-function preconditioner_counter_update!(preconditioner::Nothing) end
+function preconditioner_counter_update!(preconditioner::NoPreconditioner) end
 
 """
 mutable struct ColumnwiseLUPreconditioner{AT}
@@ -35,7 +54,7 @@ counter: count the number of Newton, when counter > update_freq or counter < 0, 
 update_freq: preconditioner update frequency
 
 """
-mutable struct ColumnwiseLUPreconditioner{AT}
+mutable struct ColumnwiseLUPreconditioner{AT} <: AbstractPreconditioner
     A::DGColumnBandedMatrix
     Q::AT
     PQ::AT

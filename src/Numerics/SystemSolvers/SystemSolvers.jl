@@ -275,11 +275,12 @@ end
     end
 end
 
-include("jacobian_free_newton_krylov_solver.jl")
+
 include("generalized_minimal_residual_solver.jl")
 include("generalized_conjugate_residual_solver.jl")
 include("conjugate_gradient_solver.jl")
 include("columnwise_lu_solver.jl")
-include("batched_generalized_minimal_residual_solver.jl")
 include("preconditioner.jl")
+include("batched_generalized_minimal_residual_solver.jl")
+include("jacobian_free_newton_krylov_solver.jl")
 end
