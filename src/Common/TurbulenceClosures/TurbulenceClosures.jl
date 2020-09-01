@@ -1071,13 +1071,15 @@ function flux_second_order!(
 )       
     FT = eltype(state)
     k̂ = vertical_unit_vector(bl.orientation, bl.param_set, aux)
-    div = tr(diffusive.divergencedamping.∇ρu)
-    
-    νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * SVector{3,FT}(m.νd_h, m.νd_h, m.νd_h)
-    νdd_v = dot(SVector{3,FT}(m.νd_v, m.νd_v, m.νd_v), k̂) * k̂
-    
+    # Unpack diffusive variables
+    ∇ρu = diffusive.divergencedamping.∇ρu
+    div = tr(∇ρu)
+    # Split viscosity components
+    νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * m.νd_h
+    νdd_v = SDiagonal(m.νdd_v * k̂)
+    # Diagonal viscosity tensor 
     ν_dd = νdd_h .+ νdd_v
-    flux.ρu -= SDiagonal(div,div,div) * SDiagonal(ν_dd)
+    flux.ρu -= SDiagonal(div,div,div) * ν_dd
 end
 
 end #module TurbulenceClosures.jl
