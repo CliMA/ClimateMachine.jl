@@ -13,11 +13,10 @@ import ClimateMachine.BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
-using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 
@@ -183,7 +182,7 @@ function boundary_state!(
     init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
 end
 
-function mms_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::MMSModel,
     aux::Vars,
     tmp::Vars,
@@ -193,19 +192,6 @@ function mms_nodal_init_state_auxiliary!(
     aux.x1 = x1
     aux.x2 = x2
     aux.x3 = x3
-end
-
-function init_state_auxiliary!(
-    m::MMSModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        mms_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
 end
 
 function init_state_prognostic!(

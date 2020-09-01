@@ -13,6 +13,8 @@ function coriolis_parameter end
 function kinematic_stress end
 function surface_flux end
 
+include("OceanBC.jl")
+
 include("HydrostaticBoussinesq/HydrostaticBoussinesqModel.jl")
 include("ShallowWater/ShallowWaterModel.jl")
 include("SplitExplicit/SplitExplicitModel.jl")

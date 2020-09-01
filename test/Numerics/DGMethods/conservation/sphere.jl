@@ -29,14 +29,13 @@ using Random
 
 using ClimateMachine.VariableTemplates
 import ClimateMachine.BalanceLaws: vars_state
-using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 
 import ClimateMachine.DGMethods:
     flux_first_order!,
     flux_second_order!,
     source!,
     boundary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
@@ -53,7 +52,7 @@ vars_state(::ConservationTestModel, ::Prognostic, T) = @vars(q::T, p::T)
 
 vars_state(::ConservationTestModel, ::AbstractStateType, T) = @vars()
 
-function conservation_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::ConservationTestModel,
     aux::Vars,
     tmp::Vars,
@@ -65,19 +64,6 @@ function conservation_nodal_init_state_auxiliary!(
         cos(10 * π * x) * sin(10 * π * y) + cos(20 * π * z),
         exp(sin(π * r)),
         sin(π * (x + y + z)),
-    )
-end
-
-function init_state_auxiliary!(
-    m::ConservationTestModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        conservation_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
     )
 end
 

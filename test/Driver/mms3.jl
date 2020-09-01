@@ -73,7 +73,7 @@ function soundspeed(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
     sqrt(ρinv * γ * p)
 end
 
-function mms3_init_state!(bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),
@@ -121,16 +121,20 @@ function main()
 
     expected_result = FT(3.403104838700577e-02)
 
+    problem = AtmosProblem(
+        boundarycondition = InitStateBC(),
+        init_state_prognostic = mms3_init_state!,
+    )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        problem = problem,
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
         moisture = MMSDryModel(),
         source = mms3_source!,
-        boundarycondition = InitStateBC(),
-        init_state_prognostic = mms3_init_state!,
     )
 
     brickrange = (

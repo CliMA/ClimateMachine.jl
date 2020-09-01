@@ -8,7 +8,7 @@ export SoilModel, SoilParamFunctions
 abstract type AbstractSoilParameterFunctions{FT <: AbstractFloat} end
 
 """
-    struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
+    SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
 
 Necessary parameters for the soil model. These will eventually be prescribed
 functions of space (and time).
@@ -18,9 +18,9 @@ $(DocStringExtensions.FIELDS)
 Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
     "Aggregate porosity of the soil"
     porosity::FT = FT(NaN)
-    "Hydraulic conductivity at saturation"
+    "Hydraulic conductivity at saturation. Units of m s-1."
     Ksat::FT = FT(NaN)
-    "Specific storage of the soil"
+    "Specific storage of the soil. Units of m s-1."
     S_s::FT = FT(NaN)
     "Volume fraction of gravels. Units of m-3 m-3."
     ν_gravel::FT = FT(NaN)
@@ -29,7 +29,7 @@ Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
     "Volume fraction of sand. Units of m-3 m-3."
     ν_sand::FT = FT(NaN)
     "Bulk volumetric heat capacity of dry soil. Units of J m-3 K-1."
-    c_ds::FT = FT(NaN)
+    ρc_ds::FT = FT(NaN)
     "Dry thermal conductivity. Units of W m-1 K-1."
     κ_dry::FT = FT(NaN)
     "Saturated thermal conductivity for unfrozen soil. Units of W m-1 K-1."

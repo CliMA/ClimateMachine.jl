@@ -1,15 +1,4 @@
-export Insulating, TemperatureFlux
-
 using ..Ocean: surface_flux
-
-abstract type TemperatureBC end
-
-"""
-    Insulating() :: TemperatureBC
-
-No temperature flux across the boundary
-"""
-struct Insulating <: TemperatureBC end
 
 """
     ocean_temperature_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Insulating, ::HBModel)
@@ -57,14 +46,6 @@ sets ghost point to have no numerical flux on the boundary for κ∇θ
 
     return nothing
 end
-
-"""
-    TemperatureFlux(flux) :: TemperatureBC
-
-Prescribe the net inward temperature flux across the boundary by `flux`,
-a function with signature `flux(problem, state, aux, t)`, returning the flux (in m⋅K/s).
-"""
-struct TemperatureFlux <: TemperatureBC end
 
 """
     ocean_temperature_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::TemperatureFlux, ::HBModel)

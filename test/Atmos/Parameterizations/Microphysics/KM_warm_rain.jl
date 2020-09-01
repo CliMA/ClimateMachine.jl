@@ -87,7 +87,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     return nothing
 end
 
-function kinematic_model_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,

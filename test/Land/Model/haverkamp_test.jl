@@ -47,7 +47,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     function init_soil_water!(land, state, aux, coordinates, time)
         myfloat = eltype(aux)
         state.soil.water.ϑ_l = myfloat(land.soil.water.initialϑ_l(aux))
-        state.soil.water.θ_ice = myfloat(land.soil.water.initialθ_ice(aux))
+        state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
     soil_heat_model = PrescribedTemperatureModel()

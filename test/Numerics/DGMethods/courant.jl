@@ -1,56 +1,35 @@
 using Test
-using MPI
-using ClimateMachine
-using ClimateMachine.ConfigTypes
-using ClimateMachine.Mesh.Topologies
-using ClimateMachine.Mesh.Grids
-using ClimateMachine.VTK
-using Logging
-using Printf
 using LinearAlgebra
-using ClimateMachine.DGMethods: DGModel, init_ode_state, courant
-using ClimateMachine.Mesh.Geometry: LocalGeometry
-using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder
-using ClimateMachine.Courant
-using ClimateMachine.TemperatureProfiles: IsothermalProfile
-using ClimateMachine.Atmos:
-    AtmosModel,
-    AtmosAcousticLinearModel,
-    NoReferenceState,
-    ReferenceState,
-    DryModel,
-    NoRadiation,
-    NoPrecipitation,
-    Gravity,
-    HydrostaticState,
-    ConstantViscosityWithDivergence,
-    vars_state,
-    soundspeed
-using ClimateMachine.TurbulenceClosures
-using ClimateMachine.Orientations
+using MPI
+using StaticArrays
+
+using ClimateMachine
 using ClimateMachine.Atmos
+using ClimateMachine.ConfigTypes
+using ClimateMachine.Courant
+using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.Mesh.Geometry
+using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.ODESolvers
+using ClimateMachine.Orientations
+using ClimateMachine.TemperatureProfiles
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TurbulenceClosures
+using ClimateMachine.VariableTemplates
+using ClimateMachine.VTK
 
 using CLIMAParameters
 using CLIMAParameters.Planet: kappa_d
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-using ClimateMachine.Thermodynamics:
-    air_density, total_energy, internal_energy, soundspeed_air
-
-using ClimateMachine.VariableTemplates: Vars
-using StaticArrays
-
 const p∞ = 10^5
 const T∞ = 300.0
 
-function initialcondition!(bl, state, aux, coords, t)
+function initialcondition!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
-
 
     translation_speed::FT = 150
     translation_angle::FT = pi / 4
@@ -116,15 +95,19 @@ let
                     polynomialorder = N,
                 )
 
+                problem = AtmosProblem(
+                    boundarycondition = (),
+                    init_state_prognostic = initialcondition!,
+                )
+
                 model = AtmosModel{FT}(
                     AtmosLESConfigType,
                     param_set;
+                    problem = problem,
                     ref_state = NoReferenceState(),
                     turbulence = ConstantViscosityWithDivergence(μ),
                     moisture = DryModel(),
                     source = Gravity(),
-                    boundarycondition = (),
-                    init_state_prognostic = initialcondition!,
                 )
 
                 dg = DGModel(

@@ -26,7 +26,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
@@ -63,9 +63,9 @@ function main()
     resolution = (nelem_horz, nelem_vert)
 
     t0 = FT(0)
-    timeend = FT(1800)
+    timeend = FT(3600)
     # Timestep size (s)
-    dt = FT(600)
+    dt = FT(1800)
 
     setup = AcousticWaveSetup{FT}()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
@@ -75,19 +75,21 @@ function main()
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = orientation,
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),
         source = Gravity(),
-        init_state_prognostic = setup,
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(
+        splitting_type = ClimateMachine.HEVISplitting(),
         fast_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 180,
+        implicit_solver_adjustable = true,
+        slow_method = LSRK54CarpenterKennedy,
+        fast_method = ARK2ImplicitExplicitMidpoint,
+        timestep_ratio = 300,
     )
     driver_config = ClimateMachine.AtmosGCMConfiguration(
         "GCM Driver test",

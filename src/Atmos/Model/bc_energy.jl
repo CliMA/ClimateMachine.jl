@@ -55,12 +55,12 @@ function atmos_energy_normal_boundary_flux_second_order!(
     fluxᵀn,
     n⁻,
     state⁻,
-    diff⁻,
-    hyperdiff⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
     aux⁻,
     state⁺,
-    diff⁺,
-    hyperdiff⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
     aux⁺,
     bctype,
     t,
@@ -68,8 +68,8 @@ function atmos_energy_normal_boundary_flux_second_order!(
 )
 
     # TODO: figure out a better way...
-    ν, D_t, _ = turbulence_tensors(atmos, state⁻, diff⁻, aux⁻, t)
-    d_h_tot = -D_t .* diff⁻.∇h_tot
+    ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
+    d_h_tot = -D_t .* diffusive⁻.∇h_tot
     nd_h_tot = dot(n⁻, d_h_tot)
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρe += nd_h_tot * state⁻.ρ
@@ -98,12 +98,12 @@ function atmos_energy_normal_boundary_flux_second_order!(
     fluxᵀn,
     n⁻,
     state⁻,
-    diff⁻,
-    hyperdiff⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
     aux⁻,
     state⁺,
-    diff⁺,
-    hyperdiff⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
     aux⁺,
     bctype,
     t,
@@ -118,16 +118,15 @@ end
 """
     BulkFormulaEnergy(fn) :: EnergyBC
 
-Calculate the net inward energy flux across the boundary.
-The drag coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`.
-The surface temp is `T_sfc= fn_T_sfc(state, aux, t)`.
-The surface q_tot is `q_tot_sfc = fn_q_tot_sfc(state, aux, t)`.
+Calculate the net inward energy flux across the boundary. The drag
+coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`. The surface
+temperature and q_tot are `T, q_tot = fn_T_and_q_tot(state, aux, t)`.
+
 Return the flux (in W m^-2).
 """
-struct BulkFormulaEnergy{FNX, FNT, FNM} <: EnergyBC
+struct BulkFormulaEnergy{FNX, FNTM} <: EnergyBC
     fn_C_h::FNX
-    fn_T_sfc::FNT
-    fn_q_tot_sfc::FNM
+    fn_T_and_q_tot::FNTM
 end
 function atmos_energy_boundary_state!(
     nf,
@@ -141,38 +140,37 @@ function atmos_energy_normal_boundary_flux_second_order!(
     atmos,
     fluxᵀn,
     n⁻,
-    state_sfc⁻,
-    diff_sfc⁻,
-    hyperdiff_sfc⁻,
-    aux_sfc⁻,
-    state_sfc⁺,
-    diff_sfc⁺,
-    hyperdiff_sfc⁺,
-    aux_sfc⁺,
+    state⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
+    aux⁻,
+    state⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
+    aux⁺,
     bctype,
     t,
     state_int⁻,
-    diff_int⁻,
+    diffusive_int⁻,
     aux_int⁻,
 )
 
     u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
     u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
     normu_int⁻_tan = norm(u_int⁻_tan)
-    C_h = bc_energy.fn_C_h(state_sfc⁻, aux_sfc⁻, t, normu_int⁻_tan)
-    T_sfc = bc_energy.fn_T_sfc(state_sfc⁻, aux_sfc⁻, t)
-    q_tot_sfc = bc_energy.fn_q_tot_sfc(state_sfc⁻, aux_sfc⁻, t)
+    C_h = bc_energy.fn_C_h(state⁻, aux⁻, t, normu_int⁻_tan)
+    T, q_tot = bc_energy.fn_T_and_q_tot(state⁻, aux⁻, t)
 
-    # calculate MSE from the states at the surface and at the interior point
-    ts_sfc =
-        TemperatureSHumEquil(atmos.param_set, T_sfc, state_sfc⁻.ρ, q_tot_sfc)
+    # calculate MSE from the states at the boundary and at the interior point
+    ts = TemperatureSHumEquil(atmos.param_set, T, state⁻.ρ, q_tot)
     ts_int = thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
-    e_pot_sfc = gravitational_potential(atmos.orientation, aux_sfc⁻)
+    e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
-    MSE_sfc = moist_static_energy(ts_sfc, e_pot_sfc)
+    MSE = moist_static_energy(ts, e_pot)
     MSE_int = moist_static_energy(ts_int, e_pot_int)
 
-    ρ_avg = average_density_sfc_int(state_sfc⁻.ρ, state_int⁻.ρ)
+    # TODO: use the correct density at the surface
+    ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards
-    fluxᵀn.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE_sfc - MSE_int)
+    fluxᵀn.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
 end

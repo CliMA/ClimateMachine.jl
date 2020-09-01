@@ -4,6 +4,7 @@
 using MPI
 using OrderedCollections
 using StaticArrays
+using Test
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end

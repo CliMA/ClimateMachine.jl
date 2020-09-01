@@ -36,6 +36,7 @@ const param_set = EarthParameterSet()
 
 #-------------------------------------
 function Initialize_Brick_Interpolation_Test!(
+    problem,
     bl,
     state::Vars,
     aux::Vars,
@@ -64,7 +65,7 @@ struct TestSphereSetup{DT}
     end
 end
 #----------------------------------------------------------------------------
-function (setup::TestSphereSetup)(bl, state, aux, coords, t)
+function (setup::TestSphereSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
     _grav::FT = grav(param_set)
@@ -124,10 +125,10 @@ function run_brick_interpolation_test()
         model = AtmosModel{FT}(
             AtmosLESConfigType,
             param_set;
+            init_state_prognostic = Initialize_Brick_Interpolation_Test!,
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             source = (Gravity(),),
-            init_state_prognostic = Initialize_Brick_Interpolation_Test!,
         )
 
         dg = DGModel(
@@ -283,12 +284,12 @@ function run_cubed_sphere_interpolation_test()
         model = AtmosModel{FT}(
             AtmosLESConfigType,
             param_set;
+            init_state_prognostic = setup,
             orientation = SphericalOrientation(),
             ref_state = NoReferenceState(),
             turbulence = ConstantViscosityWithDivergence(FT(0)),
             moisture = DryModel(),
             source = nothing,
-            init_state_prognostic = setup,
         )
 
         dg = DGModel(

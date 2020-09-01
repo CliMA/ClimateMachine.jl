@@ -69,9 +69,9 @@ using Test
     m = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        moisture = DryModel(),
-        ref_state = HydrostaticState(profile, RH),
         init_state_prognostic = x -> x,
+        ref_state = HydrostaticState(profile, RH),
+        moisture = DryModel(),
     )
 
     z = collect(range(FT(0), stop = FT(25e3), length = 100))

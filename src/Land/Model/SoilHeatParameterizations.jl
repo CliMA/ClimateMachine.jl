@@ -1,162 +1,168 @@
 """
     SoilHeatParameterizations
-Functions for volumetric heat capacity, internal energy as function of temperature,
-saturated thermal conductivity, thermal conductivty, the Kersten number, and relative
-saturation are included.
-"""
 
+Functions for volumetric heat capacity, temperature as a function
+of volumetric internal energy, saturated thermal conductivity, thermal
+conductivity, relative saturation and the Kersten number are included.
+Heat capacities denoted by `ρc_` are volumetric, while `cp_` denotes an isobaric
+specific heat capacity.
+"""
 module SoilHeatParameterizations
 
+using CLIMAParameters
+using CLIMAParameters.Planet: ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0
 using DocStringExtensions
 
 export volumetric_heat_capacity,
-    internal_energy,
+    volumetric_internal_energy,
     saturated_thermal_conductivity,
     thermal_conductivity,
     relative_saturation,
     kersten_number,
-    internal_energy_liquid_water,
-    temperature_from_I
+    volumetric_internal_energy_liq,
+    temperature_from_ρe_int
 
 
 """
-    function temperature_from_I(
-        T_ref::FT,
-        I::FT,
-        θ_ice::FT,
-        ρ_ice::FT,
-        LH_f_0::FT,
-        cs::FT
+    function temperature_from_ρe_int(
+        ρe_int::FT,
+        θ_i::FT,
+        ρcs::FT,
+        param_set::AbstractParameterSet
     ) where {FT}
-Computes the temperature given I and `θ_ice`.
+
+Computes the temperature of soil given `θ_i` and volumetric
+internal energy `ρe_int`.
 """
-function temperature_from_I(
-    T_ref::FT,
-    I::FT,
-    θ_ice::FT,
-    ρ_ice::FT,
-    LH_f0::FT,
-    cs::FT
+function temperature_from_ρe_int(
+    ρe_int::FT,
+    θ_i::FT,
+    ρcs::FT,
+    param_set::AbstractParameterSet,
 ) where {FT}
-    T = T_ref + (I + θ_ice*ρ_ice*LH_f0)/cs
+
+    _ρ_i = FT(ρ_cloud_ice(param_set))
+    _T_ref = FT(T_0(param_set))
+    _LH_f0 = FT(LH_f0(param_set))
+    T = _T_ref + (ρe_int + θ_i * _ρ_i * _LH_f0) / ρcs
     return T
 end
 
-
 """
     volumetric_heat_capacity(
-        ϴ_l::FT,
-        ϴ_i::FT,
-        c_ds::FT,
-        cp_l::FT,
-        cp_i::FT
+        θ_l::FT,
+        θ_i::FT,
+        ρc_ds::FT,
+        param_set::AbstractParameterSet
     ) where {FT}
+
 Compute the expression for volumetric heat capacity.
 """
 function volumetric_heat_capacity(
-    ϴ_l::FT,
-    ϴ_i::FT,
-    c_ds::FT,
-    cp_l::FT,
-    cp_i::FT
+    θ_l::FT,
+    θ_i::FT,
+    ρc_ds::FT,
+    param_set::AbstractParameterSet,
 ) where {FT}
 
-    c_s = c_ds + ϴ_l *cp_l + ϴ_i * cp_i
-    return c_s
+    _ρ_i = FT(ρ_cloud_ice(param_set))
+    ρcp_i = FT(cp_i(param_set) * _ρ_i)
+
+    _ρ_l = FT(ρ_cloud_liq(param_set))
+    ρcp_l = FT(cp_l(param_set) * _ρ_l)
+
+    ρc_s = ρc_ds + θ_l * ρcp_l + θ_i * ρcp_i
+    return ρc_s
 end
 
 """
-    internal_energy(
-        ϴ_i::FT,
-        c_s::FT,
+    volumetric_internal_energy(
+        θ_i::FT,
+        ρc_s::FT,
         T::FT,
-        T_ref::FT,
-        ρ_i::FT,
-        LH_f_0::FT
+        param_set::AbstractParameterSet
     ) where {FT}
-Compute the expression for internal energy.
+Compute the expression for volumetric internal energy.
 """
-function internal_energy(
-    ϴ_i::FT,
-    c_s::FT,
+function volumetric_internal_energy(
+    θ_i::FT,
+    ρc_s::FT,
     T::FT,
-    T_ref::FT,
-    ρ_i::FT,
-    LH_f_0::FT
+    param_set::AbstractParameterSet,
 ) where {FT}
-    I = c_s * (T - T_ref) - ϴ_i * ρ_i * LH_f_0
-    return I
+
+    _ρ_i = FT(ρ_cloud_ice(param_set))
+    _LH_f0 = FT(LH_f0(param_set))
+    _T_ref = FT(T_0(param_set))
+    ρe_int = ρc_s * (T - _T_ref) - θ_i * _ρ_i * _LH_f0
+    return ρe_int
 end
 
 """
     saturated_thermal_conductivity(
-        ϴ_l::FT,
-        ϴ_i::FT,
-        porosity::FT,
+        θ_l::FT,
+        θ_i::FT,
         κ_sat_unfrozen::FT,
         κ_sat_frozen::FT
     ) where {FT}
 Compute the expression for saturated thermal conductivity of soil matrix.
 """
 function saturated_thermal_conductivity(
-    ϴ_l::FT,
-    ϴ_i::FT,
+    θ_l::FT,
+    θ_i::FT,
     κ_sat_unfrozen::FT,
-    κ_sat_frozen::FT
+    κ_sat_frozen::FT,
 ) where {FT}
-    #TBD: can we get rid of this branch? if not: create test for it.
-    θ_w = ϴ_l + ϴ_i
+
+    θ_w = θ_l + θ_i
     if θ_w < eps(FT)
         κ_sat = FT(0.0)
     else
-        κ_sat = FT(κ_sat_unfrozen^(ϴ_l / ϴ_w) * κ_sat_frozen^(ϴ_i / ϴ_w))
+        κ_sat = FT(κ_sat_unfrozen^(θ_l / θ_w) * κ_sat_frozen^(θ_i / θ_w))
     end
-    
+
     return κ_sat
 end
 
 """
     relative_saturation(
-            ϑ_l::FT,
-            ϴ_i::FT,
+            θ_l::FT,
+            θ_i::FT,
             porosity::FT
     ) where {FT}
 Compute the expression for relative saturation.
 """
-function relative_saturation(
-    θ_l::FT,
-    ϴ_i::FT,
-    porosity::FT
-) where {FT}
-
-    S_r=(θ_l + ϴ_i) / porosity
+function relative_saturation(θ_l::FT, θ_i::FT, porosity::FT) where {FT}
+    S_r = (θ_l + θ_i) / porosity
     return S_r
 end
-
 """
     kersten_number(
-        ϴ_i::FT,
+        θ_i::FT,
         S_r::FT,
-        a::FT,
-        b::FT,
-        ν_om::FT,
-        ν_sand::FT,
-        ν_gravel::FT
-    ) where {FT}
+        soil_param_functions::PS
+    ) where {FT, PS}
+
 Compute the expression for the Kersten number.
 """
 function kersten_number(
-    ϴ_i::FT,
+    θ_i::FT,
     S_r::FT,
-    a::FT,
-    b::FT,
-    ν_om::FT,
-    ν_sand::FT,
-    ν_gravel::FT
-) where {FT}
+    soil_param_functions::PS,
+) where {FT, PS}
+    a = soil_param_functions.a
+    b = soil_param_functions.b
+    ν_om = soil_param_functions.ν_om
+    ν_sand = soil_param_functions.ν_sand
+    ν_gravel = soil_param_functions.ν_gravel
 
-    if ϴ_i < eps(FT) # This might give an error due to it not being exactly equal to 0?
-        K_e = S_r^((FT(1) + ν_om - a * ν_sand - ν_gravel) / FT(2)) * ((FT(1) + exp(-b * S_r))^(-FT(3)) - ((FT(1) - S_r) / FT(2))^FT(3))^(FT(1) - ν_om)
+    if θ_i < eps(FT)
+        K_e =
+            S_r^((FT(1) + ν_om - a * ν_sand - ν_gravel) / FT(2)) *
+            (
+                (FT(1) + exp(-b * S_r))^(-FT(3)) -
+                ((FT(1) - S_r) / FT(2))^FT(3)
+            )^(FT(1) - ν_om)
     else
         K_e = S_r^(FT(1) + ν_om)
     end
@@ -171,34 +177,30 @@ end
     ) where {FT}
 Compute the expression for thermal conductivity of soil matrix.
 """
-function thermal_conductivity(
-    κ_dry::FT,
-    K_e::FT,
-    κ_sat::FT
-) where {FT}
-
+function thermal_conductivity(κ_dry::FT, K_e::FT, κ_sat::FT) where {FT}
     κ = K_e * κ_sat + (FT(1) - K_e) * κ_dry
     return κ
 end
 
 """
-    internal_energy_liquid_water(
+    volumetric_internal_energy_liq(
         cp_l::FT,
         T::FT,
         T_ref::FT,
-        ρ_l::FT
     ) where {FT}
-Compute the expression for the internal energy of liquid water.
+Compute the expression for the volumetric internal energy of liquid water.
+Here, cp_l is the volumetric heat capacity of liquid water.
 """
-function internal_energy_liquid_water(
-    cp_l::FT,
+function volumetric_internal_energy_liq(
     T::FT,
-    T_ref::FT,
-    ρ_l::FT
+    param_set::AbstractParameterSet,
 ) where {FT}
 
-    I_l = ρ_l * cp_l * (T - T_ref)
-    return I_l
+    _T_ref = FT(T_0(param_set))
+    _ρ_l = FT(ρ_cloud_liq(param_set))
+    ρcp_l = FT(cp_l(param_set) * _ρ_l)
+    ρe_int_l = ρcp_l * (T - _T_ref)
+    return ρe_int_l
 end
 
 end # Module

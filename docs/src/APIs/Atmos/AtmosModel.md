@@ -4,19 +4,16 @@
 CurrentModule = ClimateMachine
 ```
 
-## AtmosModel type
+## AtmosProblem
+
+```@docs
+ClimateMachine.Atmos.AtmosProblem
+```
+
+## AtmosModel balance law
 
 ```@docs
 ClimateMachine.Atmos.AtmosModel
-```
-
-## Moisture
-
-```@docs
-ClimateMachine.Atmos.NoPrecipitation
-ClimateMachine.Atmos.DryModel
-ClimateMachine.Atmos.EquilMoist
-ClimateMachine.Atmos.Rain
 ```
 
 ## Reference states
@@ -26,6 +23,15 @@ ClimateMachine.Atmos.HydrostaticState
 ClimateMachine.Atmos.InitStateBC
 ClimateMachine.Atmos.ReferenceState
 ClimateMachine.Atmos.NoReferenceState
+```
+
+## Moisture
+
+```@docs
+ClimateMachine.Atmos.NoPrecipitation
+ClimateMachine.Atmos.DryModel
+ClimateMachine.Atmos.EquilMoist
+ClimateMachine.Atmos.Rain
 ```
 
 ## Stabilization
@@ -50,5 +56,5 @@ ClimateMachine.Atmos.ImpermeableTracer
 ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
 ClimateMachine.Atmos.NoSlip
-ClimateMachine.Atmos.average_density_sfc_int
+ClimateMachine.Atmos.average_density
 ```

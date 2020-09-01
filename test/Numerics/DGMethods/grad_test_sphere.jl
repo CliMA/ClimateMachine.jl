@@ -1,5 +1,6 @@
 using MPI
 using StaticArrays
+using LinearAlgebra
 using ClimateMachine
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Topologies
@@ -10,7 +11,7 @@ using Printf
 
 using ClimateMachine.BalanceLaws
 
-import ClimateMachine.BalanceLaws: vars_state, init_state_auxiliary!
+import ClimateMachine.BalanceLaws: vars_state, nodal_init_state_auxiliary!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
@@ -21,7 +22,7 @@ if !@isdefined integration_testing
     )
 end
 
-struct GradSphereTestModel <: BalanceLaw end
+struct GradSphereTestModel{dir} <: BalanceLaw end
 
 vars_state(m::GradSphereTestModel, ::Auxiliary, T) = @vars begin
     a::T
@@ -29,33 +30,24 @@ vars_state(m::GradSphereTestModel, ::Auxiliary, T) = @vars begin
 end
 vars_state(::GradSphereTestModel, ::Prognostic, T) = @vars()
 
-function grad_nodal_init_state_auxiliary!(
-    ::GradSphereTestModel,
+function nodal_init_state_auxiliary!(
+    ::GradSphereTestModel{dir},
     aux::Vars,
     tmp::Vars,
     g::LocalGeometry,
-)
+) where {dir}
     x, y, z = g.coord
     r = hypot(x, y, z)
     aux.a = r
-    aux.∇a = g.coord / r
-end
-
-function init_state_auxiliary!(
-    m::GradSphereTestModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        grad_nodal_init_state_auxiliary!,
-        state_auxiliary,
-        grid,
-    )
+    if !(dir isa HorizontalDirection)
+        aux.∇a = g.coord / r
+    else
+        aux.∇a = SVector(0, 0, 0)
+    end
 end
 
 using Test
-function run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType)
+function run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
 
     Rrange = range(FT(1 // 2); length = Ne_vert + 1, stop = FT(1))
     topl = StackedCubedSphereTopology(mpicomm, Ne_horz, Rrange)
@@ -68,7 +60,7 @@ function run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType)
         meshwarp = Topologies.cubedshellwarp,
     )
 
-    model = GradSphereTestModel()
+    model = GradSphereTestModel{direction}()
     dg = DGModel(
         model,
         grid,
@@ -80,13 +72,14 @@ function run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType)
 
     exact_aux = copy(dg.state_auxiliary)
 
-    contiguous_field_gradient!(
+    continuous_field_gradient!(
         model,
         dg.state_auxiliary,
         (:∇a,),
         dg.state_auxiliary,
         (:a,),
         grid,
+        direction,
     )
 
     err = euclidean_distance(exact_aux, dg.state_auxiliary)
@@ -114,22 +107,39 @@ let
         length(expected_result) : 1
 
     @testset for FT in (Float64,)
-        err = zeros(FT, lvls)
-        @testset for l in 1:lvls
-            Ne_horz = 2^(l - 1) * base_Nhorz
-            Ne_vert = 2^(l - 1) * base_Nvert
+        @testset for direction in (
+            EveryDirection(),
+            HorizontalDirection(),
+            VerticalDirection(),
+        )
+            err = zeros(FT, lvls)
+            @testset for l in 1:lvls
+                Ne_horz = 2^(l - 1) * base_Nhorz
+                Ne_vert = 2^(l - 1) * base_Nvert
 
-            err[l] =
-                run(mpicomm, Ne_horz, Ne_vert, polynomialorder, FT, ArrayType)
-            @test err[l] ≈ expected_result[l]
-        end
-        @info begin
-            msg = ""
-            for l in 1:(lvls - 1)
-                rate = log2(err[l]) - log2(err[l + 1])
-                msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                err[l] = run(
+                    mpicomm,
+                    Ne_horz,
+                    Ne_vert,
+                    polynomialorder,
+                    FT,
+                    ArrayType,
+                    direction,
+                )
+                if !(direction isa HorizontalDirection)
+                    @test err[l] ≈ expected_result[l]
+                else
+                    @test abs(err[l]) < FT(1e-13)
+                end
             end
-            msg
+            @info begin
+                msg = ""
+                for l in 1:(lvls - 1)
+                    rate = log2(err[l]) - log2(err[l + 1])
+                    msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                end
+                msg
+            end
         end
     end
 end

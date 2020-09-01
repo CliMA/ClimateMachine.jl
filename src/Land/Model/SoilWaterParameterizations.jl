@@ -344,7 +344,7 @@ end
 """
     impedance_factor(
         imp::NoImpedance{FT},
-        θ_ice::FT,
+        θ_i::FT,
         porosity::FT,
     ) where {FT}
 
@@ -355,7 +355,7 @@ The other arguments are included to unify the function call.
 """
 function impedance_factor(
     imp::NoImpedance{FT},
-    θ_ice::FT,
+    θ_i::FT,
     porosity::FT,
 ) where {FT}
     gamma = FT(1.0)
@@ -365,7 +365,7 @@ end
 """
     impedance_factor(
         imp::IceImpedance{FT},
-        θ_ice::FT,
+        θ_i::FT,
         porosity::FT,
     ) where {FT}
 
@@ -374,11 +374,11 @@ ice is desired.
 """
 function impedance_factor(
     imp::IceImpedance{FT},
-    θ_ice::FT,
+    θ_i::FT,
     porosity::FT,
 ) where {FT}
     Ω = imp.Ω
-    S_ice = θ_ice / porosity
+    S_ice = θ_i / porosity
     gamma = FT(10.0^(-Ω * S_ice))
     return gamma
 end
@@ -389,7 +389,7 @@ end
         viscosity::AbstractViscosityFactor{FT},
         moisture::AbstractMoistureFactor{FT},
         hydraulics::AbstractHydraulicsModel{FT},
-        θ_ice::FT,
+        θ_i::FT,
         porosity::FT,
         T::FT,
         S_l::FT,
@@ -402,14 +402,14 @@ function hydraulic_conductivity(
     viscosity::AbstractViscosityFactor{FT},
     moisture::AbstractMoistureFactor{FT},
     hydraulics::AbstractHydraulicsModel{FT},
-    θ_ice::FT,
+    θ_i::FT,
     porosity::FT,
     T::FT,
     S_l::FT,
 ) where {FT}
     K = FT(
         viscosity_factor(viscosity, T) *
-        impedance_factor(impedance, θ_ice, porosity) *
+        impedance_factor(impedance, θ_i, porosity) *
         moisture_factor(moisture, hydraulics, S_l),
     )
     return K
