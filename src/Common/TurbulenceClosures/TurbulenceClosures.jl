@@ -5,6 +5,7 @@ Functions for turbulence, sub-grid scale modelling. These include
 viscosity terms, diffusivity and stress tensors.
 
 - [`ConstantViscosityWithDivergence`](@ref)
+- [`ViscousSponge`](@ref)
 - [`SmagorinskyLilly`](@ref)
 - [`Vreman`](@ref)
 - [`AnisoMinDiss`](@ref)
@@ -18,6 +19,7 @@ module TurbulenceClosures
 # supported for turbulent shear and tracer diffusivity. Methods currently supported
 # are:\
 # [`ConstantViscosityWithDivergence`](@ref constant-viscosity)\
+# [`ViscousSponge`](@ref viscous-sponge)\
 # [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 # [`Vreman`](@ref vreman)\
 # [`AnisoMinDiss`](@ref aniso-min-diss)\
@@ -27,6 +29,7 @@ module TurbulenceClosures
 #md #     of `BalanceLaw` \
 #md #     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
 #md #     `turbulence=ConstantViscosityWithDivergence(ν)`\
+#md #     `turbulence=ViscousSponge(ν, z_max, z_sponge, α, γ)`\
 #md #     `turbulence=SmagorinskyLilly(C_smag)`\
 #md #     `turbulence=Vreman(C_smag)`\
 #md #     `turbulence=AnisoMinDiss(C_poincare)`
@@ -81,6 +84,10 @@ export TurbulenceClosureModel,
     init_aux_divdamping!,
     compute_gradient_flux!,
     turbulence_nodal_update_auxiliary_state!
+    NoViscousSponge,
+    UpperAtmosSponge,
+    turbulence_tensors,
+    sponge_viscosity_modifier!
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
@@ -104,6 +111,13 @@ abstract type HyperDiffusion end
     Abstract type for divergence damping models
 """
 abstract type DivergenceDampingModel end
+
+"""
+    Abstract type for viscous sponge layers. 
+Modifier for viscosity computed from existing turbulence closures.
+"""
+abstract type ViscousSponge end
+
 
 """
     init_aux_turbulence!
@@ -1080,6 +1094,73 @@ function flux_second_order!(
     # Diagonal viscosity tensor 
     ν_dd = νdd_h .+ νdd_v
     flux.ρu -= SDiagonal(div,div,div) * ν_dd
+end
+
+
+# ### [Viscous Sponge](@id viscous-sponge)
+# `ViscousSponge` requires a user to specify a constant viscosity (kinematic), 
+# a sponge start height, the domain height, a sponge strength, and a sponge
+# exponent.
+# Given viscosity, diffusivity and stresses from arbitrary turbulence models, 
+# the viscous sponge enhances diffusive terms within a user-specified layer,
+# typically used at the top of the domain to absorb waves. A smooth onset is
+# ensured through a weight function that increases weight height from the sponge
+# onset height.
+# ```
+"""
+    NoViscousSponge 
+No modifiers applied to viscosity/diffusivity in sponge layer
+# Fields 
+#
+$(DocStringExtensions.FIELDS)
+"""
+struct NoViscousSponge <: ViscousSponge end
+function sponge_viscosity_modifier!(
+    bl::BalanceLaw,
+    m::NoViscousSponge,
+    ν,
+    D_t,
+    τ,
+    aux,
+)
+    nothing
+end
+
+""" 
+    Upper domain viscous relaxation 
+Applies modifier to viscosity and diffusivity terms
+in a user-specified upper domain sponge region
+# Fields 
+#
+$(DocStringExtensions.FIELDS)
+"""
+struct UpperAtmosSponge{FT} <: ViscousSponge
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "Sponge exponent"
+    γ::FT
+end
+
+function sponge_viscosity_modifier!(
+    bl::BalanceLaw,
+    m::UpperAtmosSponge,
+    ν,
+    D_t,
+    τ,
+    aux::Vars,
+)
+    z = altitude(bl.orientation, bl.param_set, aux)
+    if z >= m.sponge
+        r = (z - m.z_sponge) / (m.z_max - m.z_sponge)
+        β_sponge = m.α_max * sinpi(r / 2)^m.γ
+        ν += β_sponge * ν
+        D_t += β_sponge * D_t
+        τ += β_sponge * τ
+    end
 end
 
 end #module TurbulenceClosures.jl

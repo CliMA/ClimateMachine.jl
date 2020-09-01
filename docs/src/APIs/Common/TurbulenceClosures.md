@@ -20,6 +20,9 @@ HyperDiffusion
 NoHyperDiffusion
 DryBiharmonic
 EquilMoistBiharmonic
+ViscousSponge
+NoViscousSponge
+UpperAtmosSponge
 ```
 
 ## Supporting Methods

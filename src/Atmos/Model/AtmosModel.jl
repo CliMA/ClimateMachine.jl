@@ -94,6 +94,7 @@ default values for each field.
         turbulence,
         hyperdiffusion,
         divergencedamping,
+        spongelayer,
         moisture,
         radiation,
         source,
@@ -104,7 +105,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, DD, M, P, R, S, TR, DC} <:
+struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, DD, VS, M, P, R, S, TR, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -122,6 +123,8 @@ struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, DD, M, P, R, S, TR, DC} <:
     hyperdiffusion::HD
     "Divergence Damping equations"
     divergencedamping::DD
+    "Viscous sponge layers"
+    viscoussponge::VS
     "Moisture Model (Equations for dynamics of moist variables)"
     moisture::M
     "Precipitation Model (Equations for dynamics of precipitating species)"
@@ -153,6 +156,7 @@ function AtmosModel{FT}(
     turbconv::TC = NoTurbConv(),
     hyperdiffusion::HD = NoHyperDiffusion(),
     divergencedamping::DD = NoDivergenceDamping(),
+    viscoussponge::VS = NoViscousSponge(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
@@ -164,7 +168,7 @@ function AtmosModel{FT}(
     ),
     tracers::TR = NoTracers(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, DD, M, P, R, S, TR, DC}
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, DD, VS, M, P, R, S, TR, DC}
 
     atmos = (
         param_set,
@@ -175,6 +179,7 @@ function AtmosModel{FT}(
         turbconv,
         hyperdiffusion,
         divergencedamping,
+        viscoussponge,
         moisture,
         precipitation,
         radiation,
@@ -203,13 +208,15 @@ function AtmosModel{FT}(
     turbconv::TC = NoTurbConv(),
     hyperdiffusion::HD = NoHyperDiffusion(),
     divergencedamping::DD = NoDivergenceDamping(),
+    viscoussponge::VS = NoViscousSponge(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, DD, M, P, R, S, TR, DC}
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, DD, VS, M, P, R, S, TR, DC}
+
     atmos = (
         param_set,
         problem,
@@ -219,6 +226,7 @@ function AtmosModel{FT}(
         turbconv,
         hyperdiffusion,
         divergencedamping,
+        viscoussponge,
         moisture,
         precipitation,
         radiation,
@@ -528,6 +536,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     t::Real,
 )
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    sponge_viscosity_modifier!(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_second_order!(atmos, flux, state, τ, d_h_tot)
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
@@ -685,8 +694,9 @@ function init_state_auxiliary!(
     m::AtmosModel,
     state_auxiliary::MPIStateArray,
     grid,
+    direction,
 )
-    init_aux!(m, m.orientation, state_auxiliary, grid)
+    init_aux!(m, m.orientation, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
         m,
@@ -694,6 +704,7 @@ function init_state_auxiliary!(
             atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
         state_auxiliary,
         grid,
+        direction,
     )
 
     ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
@@ -703,6 +714,7 @@ function init_state_auxiliary!(
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
+        direction;
         state_temporary = ∇p,
     )
 end
@@ -778,9 +790,9 @@ function numerical_flux_first_order!(
     balance_law::AtmosModel,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     direction,
@@ -792,9 +804,9 @@ function numerical_flux_first_order!(
         balance_law,
         fluxᵀn,
         normal_vector,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
         t,
         direction,
@@ -807,13 +819,13 @@ function numerical_flux_first_order!(
 
     Φ = gravitational_potential(balance_law, state_auxiliary⁻)
 
-    ρ⁻ = state_conservative⁻.ρ
-    ρu⁻ = state_conservative⁻.ρu
-    ρe⁻ = state_conservative⁻.ρe
+    ρ⁻ = state_prognostic⁻.ρ
+    ρu⁻ = state_prognostic⁻.ρu
+    ρe⁻ = state_prognostic⁻.ρe
     ts⁻ = thermo_state(
         balance_law,
         balance_law.moisture,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
     )
 
@@ -824,18 +836,18 @@ function numerical_flux_first_order!(
     p⁻ = pressure(
         balance_law,
         balance_law.moisture,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
     )
     c⁻ = soundspeed_air(ts⁻)
 
-    ρ⁺ = state_conservative⁺.ρ
-    ρu⁺ = state_conservative⁺.ρu
-    ρe⁺ = state_conservative⁺.ρe
+    ρ⁺ = state_prognostic⁺.ρ
+    ρu⁺ = state_prognostic⁺.ρu
+    ρe⁺ = state_prognostic⁺.ρe
     ts⁺ = thermo_state(
         balance_law,
         balance_law.moisture,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
     )
 
@@ -846,7 +858,7 @@ function numerical_flux_first_order!(
     p⁺ = pressure(
         balance_law,
         balance_law.moisture,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
     )
     c⁺ = soundspeed_air(ts⁺)
@@ -857,8 +869,6 @@ function numerical_flux_first_order!(
     c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
 
     ũᵀn = ũ' * normal_vector
-    ũc̃⁻ = ũ - c̃ * normal_vector
-    ũc̃⁺ = ũ + c̃ * normal_vector
 
     Δρ = ρ⁺ - ρ⁻
     Δp = p⁺ - p⁻
@@ -872,8 +882,12 @@ function numerical_flux_first_order!(
 
     fluxᵀn.ρ -= (w1 + w2 + w3) / 2
     fluxᵀn.ρu -=
-        (w1 * ũc̃⁻ + w2 * ũc̃⁺ + w3 * ũ + w4 * (Δu - Δuᵀn * normal_vector)) /
-        2
+        (
+            w1 * (ũ - c̃ * normal_vector) +
+            w2 * (ũ + c̃ * normal_vector) +
+            w3 * ũ +
+            w4 * (Δu - Δuᵀn * normal_vector)
+        ) / 2
     fluxᵀn.ρe -=
         (
             w1 * (h̃ - c̃ * ũᵀn) +
@@ -883,10 +897,10 @@ function numerical_flux_first_order!(
         ) / 2
 
     if !(balance_law.tracers isa NoTracers)
-        ρχ⁻ = state_conservative⁻.tracers.ρχ
+        ρχ⁻ = state_prognostic⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
 
-        ρχ⁺ = state_conservative⁺.tracers.ρχ
+        ρχ⁺ = state_prognostic⁺.tracers.ρχ
         χ⁺ = ρχ⁺ / ρ⁺
 
         χ̃ = roe_average(ρ⁻, ρ⁺, χ⁻, χ⁺)

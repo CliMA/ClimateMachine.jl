@@ -1,38 +1,4 @@
-export Impenetrable, Penetrable, NoSlip, FreeSlip, KinematicStress
-
 using ..Ocean: kinematic_stress
-
-abstract type VelocityBC end
-abstract type VelocityDragBC end
-
-"""
-    Impenetrable(drag::VelocityDragBC) :: VelocityBC
-
-Defines an impenetrable wall model for velocity. This implies:
-  - no flow in the direction normal to the boundary, and
-  - flow parallel to the boundary is subject to the `drag` condition.
-"""
-struct Impenetrable{D <: VelocityDragBC} <: VelocityBC
-    drag::D
-end
-
-"""
-    Penetrable(drag::VelocityDragBC) :: VelocityBC
-
-Defines an penetrable wall model for velocity. This implies:
-  - no constraint on flow in the direction normal to the boundary, and
-  - flow parallel to the boundary is subject to the `drag` condition.
-"""
-struct Penetrable{D <: VelocityDragBC} <: VelocityBC
-    drag::D
-end
-
-"""
-    NoSlip() :: VelocityDragBC
-
-Zero velocity at the boundary.
-"""
-struct NoSlip <: VelocityDragBC end
 
 """
     ocean_velocity_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::HBModel)
@@ -106,13 +72,6 @@ sets ghost point to have no numerical flux on the boundary for u
 
     return nothing
 end
-
-"""
-    FreeSlip() :: VelocityDragBC
-
-No surface drag on velocity parallel to the boundary.
-"""
-struct FreeSlip <: VelocityDragBC end
 
 """
     ocean_velocity_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::HBModel)
@@ -230,15 +189,6 @@ function ocean_velocity_boundary_state!(
 
     return nothing
 end
-
-"""
-    KinematicStress(stress) :: VelocityDragBC
-
-Applies the specified kinematic stress on velocity normal to the boundary.
-Prescribe the net inward kinematic stress across the boundary by `stress`,
-a function with signature `stress(problem, state, aux, t)`, returning the flux (in m²/s²).
-"""
-struct KinematicStress <: VelocityDragBC end
 
 """
     ocean_velocity_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{KinematicStress}, ::HBModel)

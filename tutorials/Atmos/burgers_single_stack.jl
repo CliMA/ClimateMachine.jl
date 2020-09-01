@@ -225,10 +225,17 @@ function init_state_auxiliary!(
     m::BurgersEquation,
     state_auxiliary::MPIStateArray,
     grid,
+    direction,
 )
-    init_aux!(m, m.orientation, state_auxiliary, grid)
+    init_aux!(m, m.orientation, state_auxiliary, grid, direction)
 
-    init_state_auxiliary!(m, nodal_init_state_auxiliary!, state_auxiliary, grid)
+    init_state_auxiliary!(
+        m,
+        nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
 end;
 
 # Specify the initial values in `state::Vars`. Note that

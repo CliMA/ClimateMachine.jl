@@ -76,7 +76,7 @@ x_exact = [x1_exact x2_exact];
 #     For BatchedGeneralizedMinimalResidual the assumption is that each column of b is independent and corresponds to a batch. This will come back later.
 
 # We now use an instance of the solver
-linearsolver = BatchedGeneralizedMinimalResidual(b);
+linearsolver = BatchedGeneralizedMinimalResidual(b, size(A1, 1), 2);
 # As well as an initial guess, denoted by the variable x
 x1 = ones(typeof(1.0), 3);
 x2 = ones(typeof(1.0), 3);
@@ -167,13 +167,12 @@ ArrayType = Array;
 # of keyword arguments
 gmres = BatchedGeneralizedMinimalResidual(
     b,
-    ArrayType = ArrayType,
-    m = tup[3] * tup[5] * tup[4],
-    n = tup[1] * tup[2] * tup[6],
-    reshape_tuple_f = reshape_tuple_f,
-    permute_tuple_f = permute_tuple_f,
-    atol = eps(Float64) * 10^2,
-    rtol = eps(Float64) * 10^2,
+    tup[3] * tup[5] * tup[4],
+    tup[1] * tup[2] * tup[6];
+    atol = eps(Float64) * 100,
+    rtol = eps(Float64) * 100,
+    forward_reshape = reshape_tuple_f,
+    forward_permute = permute_tuple_f,
 );
 # `m` is the number of gridpoints along a column. As mentioned previously,
 # this is `tup[3]*tup[5]*tup[4]`. The `n` term corresponds to the batch size
@@ -199,8 +198,8 @@ columnwise_linear_operator!(x_exact, x);
 norm(x_exact - b) / norm(b)
 # Which we see are small, given our choice of `atol` and `rtol`.
 # The struct also keeps a record of its convergence rate
-# in the residual member. The convergence rate of each column
-# can be visualized via
-plot(log.(gmres.residual[1:iters, :]) / log(10));
+# in the residual member (max over all batched solvers).
+# The can be visualized via
+plot(log.(gmres.resnorms[:]) / log(10));
 plot!(legend = false, xlims = (1, iters), ylims = (-15, 2));
 plot!(ylabel = "log10 residual", xlabel = "iterations")

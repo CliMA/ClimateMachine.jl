@@ -38,7 +38,7 @@ function DGModel(
     modeldata = nothing,
 )
     state_auxiliary =
-        init_state(state_auxiliary, balance_law, grid, Auxiliary())
+        init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
     DGModel(
         balance_law,
         grid,
@@ -668,9 +668,10 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxiliary_state(bl, grid, aux_data)
+function restart_auxiliary_state(bl, grid, aux_data, direction)
     state_auxiliary = create_state(bl, grid, Auxiliary())
-    state_auxiliary = init_state(state_auxiliary, bl, grid, Auxiliary())
+    state_auxiliary =
+        init_state(state_auxiliary, bl, grid, direction, Auxiliary())
     state_auxiliary .= aux_data
     return state_auxiliary
 end
@@ -680,12 +681,18 @@ end
 # By default, we call init_state_auxiliary!, given
 # nodal_init_state_auxiliary!, defined for the
 # particular balance_law:
-function init_state_auxiliary!(balance_law::BalanceLaw, state_auxiliary, grid)
+function init_state_auxiliary!(
+    balance_law::BalanceLaw,
+    state_auxiliary,
+    grid,
+    direction,
+)
     init_state_auxiliary!(
         balance_law,
         nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
+        direction,
     )
 end
 
@@ -697,7 +704,8 @@ function init_state_auxiliary!(
     balance_law,
     init_f!,
     state_auxiliary,
-    grid;
+    grid,
+    direction;
     state_temporary = nothing,
 )
     topology = grid.topology
@@ -1000,20 +1008,20 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
 end
 
 """
-    contiguous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
+    continuous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
                                vars_out, state::MPIStateArray, vars_in, grid;
                                direction = EveryDirection())
 
 Take the gradient of the variables `vars_in` located in the array `state`
 and stores it in the variables `vars_out` of `∇state`. This function computes
 element wise gradient without accounting for numerical fluxes and hence
-its primary purpose is to take the gradient of contiguous reference fields.
+its primary purpose is to take the gradient of continuous reference fields.
 
 ## Examples
 ```julia
 FT = eltype(state_auxiliary)
 grad_Φ = similar(state_auxiliary, vars=@vars(∇Φ::SVector{3, FT}))
-contiguous_field_gradient!(
+continuous_field_gradient!(
     model,
     grad_Φ,
     ("∇Φ",),
@@ -1023,13 +1031,13 @@ contiguous_field_gradient!(
 )
 ```
 """
-function contiguous_field_gradient!(
+function continuous_field_gradient!(
     m::BalanceLaw,
     ∇state::MPIStateArray,
     vars_out,
     state::MPIStateArray,
     vars_in,
-    grid;
+    grid,
     direction = EveryDirection(),
 )
     topology = grid.topology
@@ -1047,7 +1055,7 @@ function contiguous_field_gradient!(
 
     event = Event(device)
 
-    event = kernel_contiguous_field_gradient!(device, (Nq, Nq, Nqk))(
+    event = kernel_continuous_field_gradient!(device, (Nq, Nq, Nqk))(
         m,
         Val(dim),
         Val(N),
