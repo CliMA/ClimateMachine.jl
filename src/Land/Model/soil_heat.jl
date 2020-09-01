@@ -126,6 +126,7 @@ function get_initial_temperature(
     return m.T(aux, t)
 end
 
+
 vars_state(heat::SoilHeatModel, st::Prognostic, FT) = @vars(ρe_int::FT)
 vars_state(heat::SoilHeatModel, st::Auxiliary, FT) = @vars(T::FT)
 vars_state(heat::SoilHeatModel, st::Gradient, FT) = @vars(T::FT)

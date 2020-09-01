@@ -59,7 +59,7 @@ using ClimateMachine.BalanceLaws:
     function init_soil_water!(land, state, aux, coordinates, time)
         myf = eltype(state)
         state.soil.water.ϑ_l = myf(land.soil.water.initialϑ_l(aux))
-        state.soil.water.θ_ice = myf(land.soil.water.initialθ_ice(aux))
+        state.soil.water.θ_i = myf(land.soil.water.initialθ_i(aux))
     end
 
     ClimateMachine.init()
@@ -139,8 +139,8 @@ using ClimateMachine.BalanceLaws:
     Q = solver_config.Q
 
     ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
-    θ_ice_ind =
-        varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :θ_ice)
+    θ_i_ind =
+        varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :θ_i)
 
     all_data = Dict([k => Dict() for k in 1:n_outputs]...)
     step = [1]
@@ -149,9 +149,9 @@ using ClimateMachine.BalanceLaws:
     ) do (init = false)
         t = ODESolvers.gettime(solver_config.solver)
         ϑ_l = Q[:, ϑ_l_ind, :]
-        θ_ice = Q[:, θ_ice_ind, :]
+        θ_i = Q[:, θ_i_ind, :]
         all_vars =
-            Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_ice" => θ_ice)
+            Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i)
         all_data[step[1]] = all_vars
         step[1] += 1
         nothing
@@ -161,15 +161,15 @@ using ClimateMachine.BalanceLaws:
 
     t = ODESolvers.gettime(solver_config.solver)
     ϑ_l = Q[:, ϑ_l_ind, :]
-    θ_ice = Q[:, θ_ice_ind, :]
-    all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_ice" => θ_ice)
+    θ_i = Q[:, θ_i_ind, :]
+    all_vars = Dict{String, Array}("t" => [t], "ϑ_l" => ϑ_l, "θ_i" => θ_i)
 
     all_data[n_outputs] = all_vars
 
     m_liq =
         [ρ_cloud_liq(param_set) * mean(all_data[k]["ϑ_l"]) for k in 1:n_outputs]
     m_ice = [
-        ρ_cloud_ice(param_set) * mean(all_data[k]["θ_ice"])
+        ρ_cloud_ice(param_set) * mean(all_data[k]["θ_i"])
         for k in 1:n_outputs
     ]
     t = [all_data[k]["t"][1] for k in 1:n_outputs]
@@ -181,27 +181,3 @@ using ClimateMachine.BalanceLaws:
     @test mean(abs.(m_liq .- m_liq_of_t)) < 1e-9
     @test mean(abs.(m_ice .- m_ice_of_t)) < 1e-9
 end
-
-
-#    function determine_τft(land, state, aux, t, spacing)
-#        soil = land.soil
-#        water = soil.water
-#        heat = soil.heat
-#        myf = eltype(state)
-#        T = get_temperature(heat,aux,t)
-#        ϑ_l, θ_ice = get_water_content(soil.water, aux, state, t)
-#        θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
-#        ρc_ds = soil.param_functions.ρc_ds
-#        ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
-#        κ_dry = soil.param_functions.κ_dry
-#        S_r = relative_saturation(θ_l, θ_ice, soil.param_functions.porosity)
-#        kersten  =  kersten_number(θ_i, S_r, soil.param_functions)
-#        κ_sat = saturated_thermal_conductivity(θ_l, θ_ice, soil.param_functions.κ_sat_unfrozen,
-#                                   soil.param_functions.κ_sat_frozen)
-#        κ = thermal_conductivity(κ_dry, kersten, κ_sat)
-#        τLTE = cs * spacing^2.0 / κ
-#        m_water = _ρliq*θ_l*heaviside(_T_ref - T) +_ρice*θ_ice*heaviside(T - _T_ref)
-#        div_flux = get_divergence_of_flux(land, state, aux, t)
-#        τPT = m_water*_LH_f0/div_flux
-#        τft = max(τLTE, τPR)
-#        return τft
