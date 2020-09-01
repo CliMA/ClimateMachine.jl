@@ -12,11 +12,7 @@ using ClimateMachine.VariableTemplates: flattenednames
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.ShallowWater:
-    TurbulenceClosure,
-    LinearDrag,
-    ConstantViscosity,
-    AdvectionTerm,
-    NonLinearAdvection
+    TurbulenceClosure, LinearDrag, ConstantViscosity
 using ClimateMachine.Ocean
 using ClimateMachine.Ocean.OceanProblems
 
@@ -90,7 +86,7 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
     if linear
         advection = nothing
     else
-        advection = NonLinearAdvection()
+        advection = NonLinearAdvectionTerm()
     end
 
     model = ShallowWaterModel{FT}(

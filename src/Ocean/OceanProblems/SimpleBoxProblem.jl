@@ -301,7 +301,7 @@ function ocean_init_state!(m::SWModel, p::OceanGyre, Q, A, coords, t)
     @inbounds z = coords[3]
     @inbounds H = p.H
 
-    Q.u = @SVector [0, 0]
+    Q.U = @SVector [0, 0]
     Q.η = 0
 
     return nothing

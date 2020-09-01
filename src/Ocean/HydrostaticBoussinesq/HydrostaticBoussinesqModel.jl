@@ -68,10 +68,12 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
+    momentum_advection::MA
+    tracer_advection::TA
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -87,6 +89,8 @@ struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
         param_set::PS,
         problem::P;
         coupling::C = Uncoupled(),
+        momentum_advection::MA = nothing,
+        tracer_advection::TA = NonLinearAdvectionTerm(),
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -98,11 +102,13 @@ struct HydrostaticBoussinesqModel{C, PS, P, T} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS, P, C}
-        return new{C, PS, P, FT}(
+    ) where {FT <: AbstractFloat, PS, P, C, MA, TA}
+        return new{C, PS, P, MA, TA, FT}(
             param_set,
             problem,
             coupling,
+            momentum_advection,
+            tracer_advection,
             ρₒ,
             cʰ,
             cᶻ,
@@ -458,27 +464,17 @@ t -> time, not used
     t::Real,
     direction,
 )
-    @inbounds begin
-        # ∇h • (g η)
-        hydrostatic_pressure!(m, m.coupling, F, Q, A, t)
+    # ∇ʰ • (g η)
+    hydrostatic_pressure!(m, m.coupling, F, Q, A, t)
 
-        # ∇h • (- ∫(αᵀ θ))
-        pkin = A.pkin
-        Iʰ = @SMatrix [
-            1 -0
-            -0 1
-            -0 -0
-        ]
-        F.u += grav(m.param_set) * pkin * Iʰ
+    # ∇ʰ • (- ∫(αᵀ θ))
+    kinematic_pressure!(m, F, Q, A, t)
 
-        # ∇h • (v ⊗ u)
-        # F.u += v * u'
+    # ∇ʰ • (v ⊗ u)
+    momentum_advection!(m, m.momentum_advection, F, Q, A, t)
 
-        # ∇ • (u θ)
-        θ = Q.θ
-        v = @SVector [Q.u[1], Q.u[2], A.w]
-        F.θ += v * θ
-    end
+    # ∇ • (u θ)
+    tracer_advection!(m, m.tracer_advection, F, Q, A, t)
 
     return nothing
 end
@@ -492,6 +488,52 @@ end
     ]
 
     F.u += grav(m.param_set) * η * Iʰ
+
+    return nothing
+end
+
+@inline function kinematic_pressure!(m::HBModel, F, Q, A, t)
+    pkin = A.pkin
+    Iʰ = @SMatrix [
+        1 -0
+        -0 1
+        -0 -0
+    ]
+    F.u += grav(m.param_set) * pkin * Iʰ
+
+    return nothing
+end
+
+momentum_advection!(::HBModel, ::Nothing, _...) = nothing
+@inline function momentum_advection!(
+    ::HBModel,
+    ::NonLinearAdvectionTerm,
+    F,
+    Q,
+    A,
+    t,
+)
+    u = Q.u
+    @inbounds v = @SVector [Q.u[1], Q.u[2], A.w]
+
+    F.u += v * u'
+
+    return nothing
+end
+
+tracer_advection!(::HBModel, ::Nothing, _...) = nothing
+@inline function tracer_advection!(
+    ::HBModel,
+    ::NonLinearAdvectionTerm,
+    F,
+    Q,
+    A,
+    t,
+)
+    θ = Q.θ
+    @inbounds v = @SVector [Q.u[1], Q.u[2], A.w]
+
+    F.θ += v * θ
 
     return nothing
 end
