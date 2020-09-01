@@ -33,7 +33,6 @@ using ClimateMachine.BalanceLaws:
 
 @testset "Freeze thaw alone" begin
     FT = Float64
-    #This shouldnt be defined in multiple places, but is hacky anyways?
     struct tmp_model <: BalanceLaw end
     struct tmp_param_set <: AbstractParameterSet end
 
@@ -62,7 +61,6 @@ using ClimateMachine.BalanceLaws:
         state.soil.water.ϑ_l = myf(land.soil.water.initialϑ_l(aux))
         state.soil.water.θ_ice = myf(land.soil.water.initialθ_ice(aux))
     end
-
 
     ClimateMachine.init()
 
@@ -190,33 +188,20 @@ end
 #        water = soil.water
 #        heat = soil.heat
 #        myf = eltype(state)
-#        _T_ref = myf(T_0(land.param_set))
-#        _LH_f0 = myf(LH_f0(land.param_set))#
-#
-#        _ρ_i = myf(ρ_cloud_ice(land.param_set))
-#        _cp_i = myf(cp_i(land.param_set) * _ρ_i)
-# 
-#        _ρ_l = myf(ρ_cloud_liq(land.param_set))
-#        _cp_l = myf(cp_l(land.param_set) * _ρ_l)##
-
-#        T = get_temperature(heat,aux,t,state)
+#        T = get_temperature(heat,aux,t)
 #        ϑ_l, θ_ice = get_water_content(soil.water, aux, state, t)
 #        θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
-#c_ds = soil.param_functions.c_ds
-#cs = volumetric_heat_capacity(θ_l, θ_ice, c_ds, _cp_l, _cp_i)
-#        cs = myf(3e6)
-#κ_dry = soil.param_functions.κ_dry
-#S_r = relative_saturation(θ_l, θ_ice, soil.param_functions.porosity)
-#kersten  = kersten_number(θ_ice, S_r, soil.param_functions.a, soil.param_functions.b,
-#                      soil.param_functions.ν_om, soil.param_functions.ν_sand,
-#                      soil.param_functions.ν_gravel)
-#κ_sat = saturated_thermal_conductivity(θ_l, θ_ice, soil.param_functions.κ_sat_unfrozen,
+#        ρc_ds = soil.param_functions.ρc_ds
+#        ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+#        κ_dry = soil.param_functions.κ_dry
+#        S_r = relative_saturation(θ_l, θ_ice, soil.param_functions.porosity)
+#        kersten  =  kersten_number(θ_i, S_r, soil.param_functions)
+#        κ_sat = saturated_thermal_conductivity(θ_l, θ_ice, soil.param_functions.κ_sat_unfrozen,
 #                                   soil.param_functions.κ_sat_frozen)
-#κ = thermal_conductivity(κ_dry, kersten, κ_sat)
-#       κ = myf(1.5)
-#       τLTE = cs * spacing^2.0 / κ
-#       m_water = _ρliq*θ_l*heaviside(_T_ref - T) +_ρice*θ_ice*heaviside(T - _T_ref)
-#       div_flux = get_divergence_of_flux(land, state, aux, t)
-#       τPT = m_water*_LH_f0/div_flux
-#       τft = max(τLTE, τPR)
-#       return τft
+#        κ = thermal_conductivity(κ_dry, kersten, κ_sat)
+#        τLTE = cs * spacing^2.0 / κ
+#        m_water = _ρliq*θ_l*heaviside(_T_ref - T) +_ρice*θ_ice*heaviside(T - _T_ref)
+#        div_flux = get_divergence_of_flux(land, state, aux, t)
+#        τPT = m_water*_LH_f0/div_flux
+#        τft = max(τLTE, τPR)
+#        return τft
