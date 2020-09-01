@@ -381,6 +381,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_test_coriolis"
+    key: "cpu_test_coriolis"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_coriolis.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "cpu_KM_saturation_adjustment"
     key: "cpu_KM_saturation_adjustment"
     command:
@@ -748,6 +757,16 @@ steps:
     key: "gpu_test_restart"
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_restart.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_test_coriolis"
+    key: "gpu_test_coriolis"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_coriolis.jl "
     agents:
       config: gpu
       queue: central
