@@ -8,7 +8,9 @@ struct HeldSuarezBaseState <: AbstractBaseState end
 
 # Helper for parsing `--init-base-state`` command line argument
 function parse_base_state_arg(arg)
-    if arg === nothing || arg == "bc_wave"
+    if arg === nothing
+        base_state = nothing
+    elseif arg == "bc_wave"
         base_state = BCWaveBaseState()
     elseif arg == "heldsuarez"
         base_state = HeldSuarezBaseState()

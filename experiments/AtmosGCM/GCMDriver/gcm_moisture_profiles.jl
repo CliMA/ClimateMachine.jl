@@ -8,7 +8,9 @@ struct MoistLowTropicsMoistureProfile <: AbstractMoistureProfile end
 
 # Helper for parsing `--init-moisture-profile` command line argument
 function parse_moisture_profile_arg(arg)
-    if arg === nothing || arg == "moist_low_tropics"
+    if arg === nothing
+        moisture_profile = nothing
+    elseif arg == "moist_low_tropics"
         moisture_profile = MoistLowTropicsMoistureProfile()
     elseif arg == "zero"
         moisture_profile = ZeroMoistureProfile()

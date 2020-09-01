@@ -24,10 +24,21 @@ struct HeldSuarezProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
 end
 function HeldSuarezProblem(;
     boundarycondition = (AtmosBC(), AtmosBC()),
-    perturbation = DeterministicPerturbation(),
-    base_state = HeldSuarezBaseState(),
-    moisture_profile = MoistLowTropicsMoistureProfile(),
+    perturbation = nothing,
+    base_state = nothing,
+    moisture_profile = nothing,
 )
+    # Set up defaults
+    if isnothing(perturbation)
+        perturbation = DeterministicPerturbation()
+    end
+    if isnothing(base_state)
+        base_state = HeldSuarezBaseState()
+    end
+    if isnothing(moisture_profile)
+        moisture_profile = MoistLowTropicsMoistureProfile()
+    end
+
     problem = (
         boundarycondition,
         init_gcm_experiment!,
