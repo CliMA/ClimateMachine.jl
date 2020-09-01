@@ -191,7 +191,7 @@ solver: linear solver
 function donewtoniteration!(
     rhs!,
     jvp!,
-    preconditioner,
+    preconditioner::AbstractPreconditioner,
     Q,
     Qrhs,
     solver::BatchedJacobianFreeNewtonKrylovSolver,
