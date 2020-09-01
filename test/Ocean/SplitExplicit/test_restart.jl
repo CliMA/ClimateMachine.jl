@@ -33,15 +33,15 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
+    config = SplitConfig("test_restart", resolution, dimensions, Coupled())
+
     @testset "single run" begin
-        run_hydrostatic_spindown(
-            "vtk_split",
-            resolution,
-            dimensions,
-            timespan,
-            coupling = Coupled(),
+        run_split_explicit(
+            config,
+            timespan;
             dt_slow = 90 * 60,
             refDat = refVals.ninety_minutes,
+            analytic_solution = true,
         )
     end
 
@@ -49,25 +49,15 @@ const FT = Float64
         midpoint = timeend / 2
         timespan = (tout, midpoint)
 
-        run_hydrostatic_spindown(
-            "vtk_split",
-            resolution,
-            dimensions,
-            timespan,
-            coupling = Coupled(),
-            dt_slow = 90 * 60,
-        )
+        run_split_explicit(config, timespan; dt_slow = 90 * 60)
 
-        run_hydrostatic_spindown(
-            "vtk_split",
-            resolution,
-            dimensions,
-            timespan,
-            coupling = Coupled(),
+        run_split_explicit(
+            config,
+            timespan;
             dt_slow = 90 * 60,
             refDat = refVals.ninety_minutes,
+            analytic_solution = true,
             restart = Int(midpoint / tout) - 1,
         )
     end
-
 end
