@@ -1,4 +1,6 @@
 using Plots
+using KernelAbstractions: CPU
+using ClimateMachine.MPIStateArrays: array_device
 using ClimateMachine.BalanceLaws: Prognostic, Auxiliary, GradientFlux
 
 """
@@ -124,6 +126,7 @@ function export_state_plots(
 )
     FT = eltype(solver_config.Q)
     z = get_z(solver_config.dg.grid)
+    z = array_device(solver_config.Q) isa CPU ? z : Array(z)
     mkpath(output_dir)
     for st in state_types
         vs = vars_state(solver_config.dg.balance_law, st, FT)
