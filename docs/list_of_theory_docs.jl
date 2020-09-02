@@ -9,6 +9,7 @@ theory_docs = Any[
     ],
     "Atmos" => Any[
         "AtmosModel" => "Theory/Atmos/AtmosModel.md",
+        "Microphysics_0M" => "Theory/Atmos/Microphysics_0M.md",
         "Microphysics" => "Theory/Atmos/Microphysics.md",
         "EDMF equations" => "Theory/Atmos/EDMFEquations.md",
         "Tracers" => "Theory/Atmos/Model/tracers.md",
