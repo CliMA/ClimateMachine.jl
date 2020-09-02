@@ -3,7 +3,7 @@ Module `TurbulenceClosures.jl` currently supports
 pointwise models of the eddy viscosity/eddy diffusivity type.
 
 Supported constructors include are:\
-[`ConstantViscosityWithDivergence`](@ref constant-viscosity)\
+[`ConstantDynamicViscosity`](@ref constant-viscosity)\
 [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 [`Vreman`](@ref vreman)\
 [`AnisoMinDiss`](@ref aniso-min-diss)\
@@ -12,7 +12,7 @@ Supported constructors include are:\
     Usage: This is a quick-ref guide to using turbulence models as a
     subcomponent of `AtmosModel` \
     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
-    - `turbulence=ConstantViscosityWithDivergence(ν)`\
+    - `turbulence=ConstantDynamicViscosity(ν)`\
     - `turbulence=SmagorinskyLilly(C_smag)`\
     - `turbulence=Vreman(C_smag)`\
     - `turbulence=AnisoMinDiss(C_poincare)`
@@ -20,7 +20,7 @@ Supported constructors include are:\
 ```julia
 using DocStringExtensions
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
-export ConstantViscosityWithDivergence, SmagorinskyLilly, Vreman, AnisoMinDiss
+export ConstantDynamicViscosity, SmagorinskyLilly, Vreman, AnisoMinDiss
 export turbulence_tensors
 ```
 
@@ -127,13 +127,17 @@ end
 ```
 
 ### [Constant Viscosity Model](@id constant-viscosity)
-`ConstantViscosityWithDivergence` requires a user to specify the constant
+`ConstantDynamicViscosity` requires a user to specify the constant
 viscosity (kinematic) and appropriately computes the turbulent stress
 tensor based on this term. Diffusivity can be computed using the turbulent
 Prandtl number for the appropriate problem regime.
 
 ```math
-\tau = - 2 \nu \mathrm{S}
+\tau =
+    \begin{cases}
+    - 2 \nu \mathrm{S} & \mathrm{WithoutDivergence},\\
+    - 2 \nu \mathrm{S} + \frac{2}{3} \nu \mathrm{tr(S)} I_3 & \mathrm{WithDivergence}.
+    \end{cases}
 ```
 
 ## [Smagorinsky-Lilly](@id smagorinsky-lilly)

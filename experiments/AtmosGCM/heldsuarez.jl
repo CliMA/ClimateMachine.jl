@@ -179,7 +179,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         param_set;
         init_state_prognostic = init_heldsuarez!,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!),

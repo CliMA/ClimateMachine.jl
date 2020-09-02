@@ -4,7 +4,7 @@
 Functions for turbulence, sub-grid scale modelling. These include
 viscosity terms, diffusivity and stress tensors.
 
-- [`ConstantViscosityWithDivergence`](@ref)
+- [`ConstantViscosity`](@ref)
 - [`ViscousSponge`](@ref)
 - [`SmagorinskyLilly`](@ref)
 - [`Vreman`](@ref)
@@ -18,7 +18,7 @@ module TurbulenceClosures
 # pointwise models of the eddy viscosity/eddy diffusivity type are
 # supported for turbulent shear and tracer diffusivity. Methods currently supported
 # are:\
-# [`ConstantViscosityWithDivergence`](@ref constant-viscosity)\
+# [`ConstantViscosity`](@ref constant-viscosity)\
 # [`ViscousSponge`](@ref viscous-sponge)\
 # [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 # [`Vreman`](@ref vreman)\
@@ -28,7 +28,8 @@ module TurbulenceClosures
 #md #     Usage: This is a quick-ref guide to using turbulence models as a subcomponent
 #md #     of `BalanceLaw` \
 #md #     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
-#md #     `turbulence=ConstantViscosityWithDivergence(ν)`\
+#md #     `turbulence=ConstantDynamicViscosity(ρν)`\
+#md #     `turbulence=ConstantKinematicViscosity(ν)`\
 #md #     `turbulence=ViscousSponge(ν, z_max, z_sponge, α, γ)`\
 #md #     `turbulence=SmagorinskyLilly(C_smag)`\
 #md #     `turbulence=Vreman(C_smag)`\
@@ -68,7 +69,9 @@ import ClimateMachine.BalanceLaws:
 
 
 export TurbulenceClosureModel,
-    ConstantViscosityWithDivergence,
+    ConstantViscosity,
+    ConstantDynamicViscosity,
+    ConstantKinematicViscosity,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
@@ -97,6 +100,12 @@ arbitrary turbulence closure models.
 abstract type TurbulenceClosureModel end
 
 vars_state(::TurbulenceClosureModel, ::AbstractStateType, FT) = @vars()
+
+"""
+    ConstantViscosity <: TurbulenceClosureModel
+Abstract type for constant viscosity models
+"""
+abstract type ConstantViscosity <: TurbulenceClosureModel end
 
 """
     Abstract type for Hyperdiffusion models
@@ -333,34 +342,82 @@ function strain_rate_magnitude(S::SHermitianCompact{3, FT, 6}) where {FT}
     return sqrt(2 * norm2(S))
 end
 
+"""
+    WithDivergence
+A divergence type which includes the divergence term in the momentum flux tensor
+"""
+struct WithDivergence end
+export WithDivergence
+"""
+    WithoutDivergence
+A divergence type which does not include the divergence term in the momentum flux tensor
+"""
+struct WithoutDivergence end
+export WithoutDivergence
+
 # ### [Constant Viscosity Model](@id constant-viscosity)
-# `ConstantViscosityWithDivergence` requires a user to specify the constant viscosity (kinematic)
+# `ConstantViscosity` requires a user to specify the constant viscosity (dynamic or kinematic)
 # and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
 # computed using the turbulent Prandtl number for the appropriate problem regime.
 # ```math
-# \tau = - 2 \nu \mathrm{S}
+# \tau = 
+#     \begin{cases}
+#     - 2 \nu \mathrm{S} & \mathrm{WithoutDivergence},\\
+#     - 2 \nu \mathrm{S} + \frac{2}{3} \nu \mathrm{tr(S)} I_3 & \mathrm{WithDivergence}. 
+#     \end{cases}
 # ```
+
+
 """
-    ConstantViscosityWithDivergence <: TurbulenceClosureModel
+    ConstantDynamicViscosity <: ConstantViscosity
 
 Turbulence with constant dynamic viscosity (`ρν`).
-Divergence terms are included in the momentum flux tensor.
+Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosureModel
+struct ConstantDynamicViscosity{FT, DT} <: ConstantViscosity
     "Dynamic Viscosity [kg/m/s]"
     ρν::FT
+    divergence_type::DT
+    function ConstantDynamicViscosity(
+        ρν::FT,
+        divergence_type::Union{WithDivergence, WithoutDivergence} = WithoutDivergence(),
+    ) where {FT}
+        return new{FT, typeof(divergence_type)}(ρν, divergence_type)
+    end
 end
 
-vars_state(::ConstantViscosityWithDivergence, ::Gradient, FT) = @vars()
-vars_state(::ConstantViscosityWithDivergence, ::GradientFlux, FT) =
+"""
+    ConstantKinematicViscosity <: ConstantViscosity
+
+Turbulence with constant kinematic viscosity (`ν`).
+Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct ConstantKinematicViscosity{FT, DT} <: ConstantViscosity
+    "Kinematic Viscosity [m2/s]"
+    ν::FT
+    divergence_type::DT
+    function ConstantKinematicViscosity(
+        ν::FT,
+        divergence_type::Union{WithDivergence, WithoutDivergence} = WithoutDivergence(),
+    ) where {FT}
+        return new{FT, typeof(divergence_type)}(ν, divergence_type)
+    end
+end
+
+vars_state(::ConstantViscosity, ::Gradient, FT) = @vars()
+vars_state(::ConstantViscosity, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
 function compute_gradient_flux!(
-    ::ConstantViscosityWithDivergence,
+    ::ConstantViscosity,
     ::Orientation,
     diffusive::Vars,
     ∇transform::Grad,
@@ -372,8 +429,12 @@ function compute_gradient_flux!(
     diffusive.turbulence.S = symmetrize(∇transform.u)
 end
 
+compute_stress(div_type::WithoutDivergence, ν, S) = (-2 * ν) * S
+compute_stress(div_type::WithDivergence, ν, S) =
+    (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
+
 function turbulence_tensors(
-    m::ConstantViscosityWithDivergence,
+    m::ConstantDynamicViscosity,
     orientation::Orientation,
     param_set::AbstractParameterSet,
     state::Vars,
@@ -387,7 +448,26 @@ function turbulence_tensors(
     S = diffusive.turbulence.S
     ν = m.ρν / state.ρ
     D_t = ν * _inv_Pr_turb
-    τ = (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
+    τ = compute_stress(m.divergence_type, ν, S)
+    return ν, D_t, τ
+end
+
+function turbulence_tensors(
+    m::ConstantKinematicViscosity,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+
+    FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
+    S = diffusive.turbulence.S
+    ν = m.ν
+    D_t = ν * _inv_Pr_turb
+    τ = compute_stress(m.divergence_type, ν, S)
     return ν, D_t, τ
 end
 

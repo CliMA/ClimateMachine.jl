@@ -123,7 +123,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         param_set;
         init_state_prognostic = init_nonhydrostatic_gravity_wave!,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
     )
