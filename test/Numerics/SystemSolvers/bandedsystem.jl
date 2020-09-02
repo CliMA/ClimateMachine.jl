@@ -50,7 +50,7 @@ function initial_condition!(::Pseudo1D{n}, state, aux, x, _) where {n}
     ξn = dot(n, x)
     # ξT = SVector(x) - ξn * n
 
-    state.ρ = sin(ξn / 2)
+    state.ρ = sin(ξn)
 end
 
 let
@@ -70,7 +70,7 @@ let
     @testset "$(@__FILE__) DGModel matrix" begin
         for FT in (Float64, Float32)
             for dim in (2, 3)
-                for single_column in (false, true)
+                for single_column in (true,)# false)
                     for no_diffusion in (true, false)
                         @show FT, dim, single_column, no_diffusion
                         # Setup the topology
@@ -221,7 +221,7 @@ let
                         ))
 
                         # Make the system better conditioned for Float32!
-                        α = FT == Float64 ? FT(-1 // 10) : FT(-1 // 40)
+                        α = FT == Float64 ? FT(-1 // 10) : FT(-1 // 100)
                         function op!(LQ, Q)
                             vdg(LQ, Q, nothing, 0; increment = false)
                             @. LQ = Q + α * LQ
@@ -268,6 +268,8 @@ let
                         big_Q.data[:, 1:size(Q, 2), :] .= Q.data
                         banded_matrix_vector_product!(big_A, big_dQ, big_Q)
 
+                        # Need to test LU down here since advection will be
+                        # singular without diffusion
                         band_lu!(big_A)
                         band_forward!(big_dQ, big_A)
                         band_back!(big_dQ, big_A)
