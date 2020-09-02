@@ -1,5 +1,5 @@
 using ..Microphysics_0M
-using CLIMAParameters.Planet: Omega, e_int_i0, cv_d, cv_l, cv_i, T_0
+using CLIMAParameters.Planet: Omega, e_int_i0, cv_d, cv_l, cv_i, cv_v, T_0
 export Source, Gravity, RayleighSponge, Subsidence, GeostrophicForcing, Coriolis, RemovePrecipitation, NudgeToSaturation
 
 # kept for compatibility
@@ -267,8 +267,7 @@ function atmos_source!(
 
     _e_int_i0::FT = e_int_i0(atmos.param_set)
     _cv_d::FT = cv_d(atmos.param_set)
-    _cv_l::FT = cv_l(atmos.param_set)
-    _cv_i::FT = cv_i(atmos.param_set)
+    _cv_v::FT = cv_v(atmos.param_set)
     _T_0::FT = T_0(atmos.param_set)
   
     tau_n::FT = 30 * 60 * 100 # nudging timescale (default = 30 mins)
@@ -297,10 +296,8 @@ function atmos_source!(
     
     source.ρ += state.ρ * S_qt
     
-    source.ρe +=
-           (
-              lf * _cv_l * (T - _T_0) +
-              (1 - lf) * (_cv_i * (T - _T_0) - _e_int_i0) +
+    source.ρe += (
+                  _cv_v * (T - _T_0) +  _e_int_i0 +
               gravitational_potential(atmos.orientation, aux)
               ) *
               state.ρ *

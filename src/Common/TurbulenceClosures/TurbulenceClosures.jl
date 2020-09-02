@@ -333,26 +333,42 @@ function strain_rate_magnitude(S::SHermitianCompact{3, FT, 6}) where {FT}
     return sqrt(2 * norm2(S))
 end
 
+struct WithDivergence end
+export WithDivergence
+struct WithoutDivergence end
+export WithoutDivergence
+
 # ### [Constant Viscosity Model](@id constant-viscosity)
 # `ConstantViscosityWithDivergence` requires a user to specify the constant viscosity (kinematic)
 # and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
 # computed using the turbulent Prandtl number for the appropriate problem regime.
 # ```math
-# \tau = - 2 \nu \mathrm{S}
+# \tau = 
+#     \begin{cases}
+#     - 2 \nu \mathrm{S} & \mathrm{WithoutDivergence},\\
+#     - 2 \nu \mathrm{S} + \frac{2}{3} \nu \mathrm{tr(S)} I_3 & \mathrm{WithDivergence}. 
+#     \end{cases}
 # ```
 """
     ConstantViscosityWithDivergence <: TurbulenceClosureModel
 
-Turbulence with constant dynamic viscosity (`ρν`).
-Divergence terms are included in the momentum flux tensor.
+Turbulence with constant kinematic viscosity (`ν`).
+Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosureModel
-    "Dynamic Viscosity [kg/m/s]"
-    ρν::FT
+struct ConstantViscosityWithDivergence{FT, DT} <: TurbulenceClosureModel
+    "Kinematic Viscosity [m2/s]"
+    ν::FT
+    divergence_type::DT
+    function ConstantViscosityWithDivergence(
+        ν::FT,
+        divergence_type::Union{WithDivergence, WithoutDivergence} = WithDivergence(),
+    ) where {FT}
+        return new{FT, typeof(divergence_type)}(ν, divergence_type)
+    end
 end
 
 vars_state(::ConstantViscosityWithDivergence, ::Gradient, FT) = @vars()
@@ -385,9 +401,15 @@ function turbulence_tensors(
     FT = eltype(state)
     _inv_Pr_turb::FT = inv_Pr_turb(param_set)
     S = diffusive.turbulence.S
-    ν = m.ρν / state.ρ
+    ν = m.ν
     D_t = ν * _inv_Pr_turb
-    τ = (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
+    if m.divergence_type isa WithDivergence
+        τ = (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
+    elseif m.divergence_type isa WithoutDivergence
+        τ = (-2 * ν) * S
+    else
+        error("divergence_type can only be WithDivergence or WithoutDivergence")
+    end
     return ν, D_t, τ
 end
 

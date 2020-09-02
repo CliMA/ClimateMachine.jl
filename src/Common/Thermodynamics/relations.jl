@@ -1,3 +1,4 @@
+using KernelAbstractions: @print
 # Atmospheric equation of state
 export air_pressure,
     air_temperature, air_density, specific_volume, soundspeed_air
@@ -712,9 +713,28 @@ function saturation_vapor_pressure(
     _T_triple::FT = T_triple(param_set)
     _T_0::FT = T_0(param_set)
 
-    return _press_triple *
+    try
+       interim = _press_triple *
            (T / _T_triple)^(Δcp / _R_v) *
            exp((LH_0 - Δcp * _T_0) / _R_v * (1 / _T_triple - 1 / T))
+    catch
+        @print("************************************* saturation_vapor_pressure failed\n")
+        # print debug info here:
+        @show LH_0
+        @show Δcp
+        @show _T_0
+        @show _press_triple
+        @show T
+        @show _R_v
+        interim = _press_triple *
+            (T / _T_triple)^(Δcp / _R_v) *
+            exp((LH_0 - Δcp * _T_0) / _R_v * (1 / _T_triple - 1 / T))
+    end
+    interim = _press_triple *
+            (T / _T_triple)^(Δcp / _R_v) *
+            exp((LH_0 - Δcp * _T_0) / _R_v * (1 / _T_triple - 1 / T))
+
+    return interim
 
 end
 
@@ -1958,7 +1978,19 @@ function exner(
     ρ::FT,
     q::PhasePartition{FT} = q_pt_0(FT),
 ) where {FT <: Real}
-    return exner_given_pressure(param_set, air_pressure(param_set, T, ρ, q), q)
+    try
+        interim = exner_given_pressure(param_set, air_pressure(param_set, T, ρ, q), q)
+    catch
+        @print("************************************* exner failed\n")
+        # print debug info here:
+        @show T
+        @show ρ
+        @show q
+        interim = exner_given_pressure(param_set, air_pressure(param_set, T, ρ, q), q)
+    end
+    interim = exner_given_pressure(param_set, air_pressure(param_set, T, ρ, q), q)
+    return interim
+    #return exner_given_pressure(param_set, air_pressure(param_set, T, ρ, q), q)
 end
 
 """

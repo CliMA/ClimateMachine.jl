@@ -12,6 +12,8 @@ TurbulenceClosures
 
 ```@docs
 TurbulenceClosureModel
+WithDivergence
+WithoutDivergence
 ConstantViscosityWithDivergence
 SmagorinskyLilly
 Vreman

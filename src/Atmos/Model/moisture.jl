@@ -1,4 +1,6 @@
 export DryModel, EquilMoist
+using Printf
+using KernelAbstractions: @print
 
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
@@ -149,14 +151,42 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
 )
     ps = atmos.param_set
     e_int = internal_energy(atmos, state, aux)
+    
+    try
+      ts = PhaseEquil(
+          ps,
+          e_int,
+          state.ρ,
+          state.moisture.ρq_tot / state.ρ,
+          moist.maxiter,
+          moist.tolerance,
+      )
+    catch
+      @print("************************************* PhaseEquil failed\n")
+      @show e_int
+      @show state.ρ
+      @print("************************************* At this gridpoint:\n")
+      @show altitude(atmos, aux)
+      @show latitude(atmos, aux)
+      @show longitude(atmos, aux)
+      
+      ts = PhaseEquil(
+          ps,
+          e_int,
+          state.ρ,
+          state.moisture.ρq_tot / state.ρ,
+          moist.maxiter,
+          moist.tolerance,
+      )
+    end
     ts = PhaseEquil(
-        ps,
-        e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
-        moist.maxiter,
-        moist.tolerance,
-    )
+          ps,
+          e_int,
+          state.ρ,
+          state.moisture.ρq_tot / state.ρ,
+          moist.maxiter,
+          moist.tolerance,
+     )
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq

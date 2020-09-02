@@ -23,10 +23,10 @@ export JULIA_CUDA_USE_BINARYBUILDER=false
 source ./helper_mod.sh
 
 # User envirnoment setup
-RUNNAME="hier_gcmdriver_RH100-3000_micro0_maxiter10_hsua"
+RUNNAME="hier_gcmdriver_bulksfcflux_micro0-200s_maxiter10_hsua_diff"
 
 # Change if CLIMA and VizCLIMA not saved in $HOME
-CLIMA_HOME='/central/groups/esm/lenka/ClimaTests4/ClimateMachine_copy5.jl'
+CLIMA_HOME='/central/groups/esm/lenka/ClimaTests4/ClimateMachine_copy8_debugvals.jl'
 VIZCLIMA_HOME='/central/groups/esm/lenka/VizCLIMA.jl'
 
 # Specify output location
@@ -58,7 +58,7 @@ do
   t_start=$(date +%s);
   echo $t_start': Running '$CLIMA_RUNFILE', storing output at '$CLIMA_OUTPUT
   #julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.API.precompile()'
-  mpiexec julia --project=$CLIMA_HOME $CLIMA_RUNFILE --experiment=heldsuarez_custom --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART --init-moisture-profile zero --init-base-state heldsuarez
+  mpiexec julia --project=$CLIMA_HOME $CLIMA_RUNFILE --experiment=heldsuarez_custom --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART --init-moisture-profile zero --init-base-state heldsuarez --surface-flux bulk --checkpoint 6shours 
   peak_rss="switched off"
   #~~~~~~
   #julia --project=$CLIMA_HOME $CLIMA_RUNFILE --diagnostics 100steps --monitor-courant-numbers 100steps --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART &
@@ -90,7 +90,7 @@ export GKSwstype=null
 julia -e 'import Pkg; Pkg.add("IJulia"); Pkg.add("DelimitedFiles"); Pkg.add("PrettyTables"); Pkg.add("PaddedViews"); Pkg.add("Dates"); Pkg.add("GR")'
 julia --project=$VIZCLIMA_HOME -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 VIZCLIMA_LITERATE=$VIZCLIMA_HOME'/src/utils/make_literate.jl'
-julia --project=$VIZCLIMA_HOME $VIZCLIMA_LITERATE --input-file $CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN --output-dir $CLIMA_ANALYSIS
+julia --project=$VIZCLIMA_HOME $VIZCLIMA_LITERATE --input-file $CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN --output-dir $CLIMA_ANALYSIS 
 
 mv ${VIZCLIMA_SCRIPT_BN%.jl}.ipynb $CLIMA_ANALYSIS
 

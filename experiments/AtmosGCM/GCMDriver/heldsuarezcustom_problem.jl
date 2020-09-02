@@ -42,4 +42,4 @@ end
 problem_name(::HeldSuarezCustomProblem) = "HeldSuarezCustom"
 
 setup_source(::HeldSuarezCustomProblem) =
-    (Gravity(), Coriolis(), held_suarez_forcing!, NudgeToSaturation(), RemovePrecipitation(true))
+(Gravity(), Coriolis(), held_suarez_forcing!, RemovePrecipitation(true)) #NudgeToSaturation(), RemovePrecipitation(true))

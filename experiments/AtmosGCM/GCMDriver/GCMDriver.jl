@@ -168,7 +168,7 @@ function config_gcm_experiment(
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
     else
-        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
+        hyperdiffusion = EquilMoistBiharmonic(FT(10000000 * 3600))
         moisture = EquilMoist{FT}()
     end
 
@@ -196,7 +196,7 @@ function config_gcm_experiment(
         problem = problem,
         orientation = orientation,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantViscosityWithDivergence(FT(10), WithoutDivergence() ),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = setup_source(problem),
@@ -335,7 +335,7 @@ function main()
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
-        diffdir = HorizontalDirection(),
+        diffdir = VerticalDirection(),
     )
 
     # Set up diagnostics

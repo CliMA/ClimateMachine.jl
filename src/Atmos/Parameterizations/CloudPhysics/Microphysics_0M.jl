@@ -48,7 +48,8 @@ function remove_precipitation(
     q_vap_sat::FT,
 ) where {FT <: Real}
 
-    _τ_precip::FT = τ_precip(param_set)
+    #_τ_precip::FT = τ_precip(param_set)
+    _τ_precip::FT = 200
     _S_0::FT = S_0(param_set)
 
     return -max(0, (q.liq + q.ice - _S_0 * q_vap_sat)) / _τ_precip
