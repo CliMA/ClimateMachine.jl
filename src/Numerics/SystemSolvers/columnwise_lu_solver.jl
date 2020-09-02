@@ -408,16 +408,19 @@ function update_banded_matrix!(
                 f!(dQ, Q, args...)
 
                 # Store the banded matrix
+                vertelems = ev:(2eband + 1):nvertelem
                 event = Event(device)
                 event = kernel_set_banded_matrix!(device, (Nq, Nqj, Nq))(
                     A,
                     dQ.data,
                     k,
                     s,
-                    ev,
-                    1:nhorzelem,
-                    (-eband):eband;
-                    ndrange = ((2eband + 1) * Nq, nhorzelem * Nqj, Nq),
+                    vertelems;
+                    ndrange = (
+                        (2eband + 1) * length(vertelems) * Nq,
+                        nhorzelem * Nqj,
+                        Nq,
+                    ),
                     dependencies = (event,),
                 )
                 wait(device, event)
@@ -773,15 +776,7 @@ end
     end
 end
 
-@kernel function kernel_set_banded_matrix!(
-    A,
-    dQ,
-    kin,
-    sin,
-    evin0,
-    helems,
-    vpelems,
-)
+@kernel function kernel_set_banded_matrix!(A, dQ, kin, sin, vertelems)
     @uniform begin
         FT = eltype(A)
         nstate = num_state(A)
@@ -796,36 +791,36 @@ end
     end
 
     ep, eh = @index(Group, NTuple)
-    ep = ep - eshift
     i, j, k = @index(Local, NTuple)
 
-    for evin in evin0:(2eband + 1):nvertelem
-        # sin, kin, evin are the state, vertical fod, and vert element we are
-        # handling
-        # column index of matrix
-        jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
+    @inbounds begin
+        # Get the vertical element index of the matrix column we are updating
+        # (e.g, the element that had a 1 set)
+        evin = vertelems[cld(ep, 2eband + 1)]
 
-        # one thread is launch for dof that might contribute to column jj's band
-        @inbounds begin
-            # ep is the shift we need to add to evin to get the element we need to
-            # consider
-            ev = ep + evin
-            if 1 ≤ ev ≤ nvertelem
-                e = ev + (eh - 1) * nvertelem
-                ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
-                @unroll for s in 1:nstate
-                    # row index of matrix
-                    ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
-                    # row band index
-                    bb = ii - jj
-                    # make sure we're in the bandwidth
-                    if -q ≤ bb ≤ p
-                        if !single_column(A)
-                            A[i, j, bb + q + 1, jj, eh] = dQ[ijk, s, e]
-                        else
-                            if (i, j, eh) == (1, 1, 1)
-                                A[bb + q + 1, jj] = dQ[ijk, s, e]
-                            end
+        # sin, kin, evin are the state, vertical dof, and vert element for the
+        # matrix column we are working on (e.g., the dof that had a 1 set)
+        jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
+        # one thread is launched for each dof that jj might contribute to
+
+        # Get the element index for the element that jj can influence
+        ev = evin + mod1(ep, 2eband + 1) - eshift
+        if 1 ≤ ev ≤ nvertelem
+            # e, ijk, and s define the rows of the matrix we need to update
+            e = ev + (eh - 1) * nvertelem
+            ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
+            @unroll for s in 1:nstate
+                # dof row index of matrix
+                ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
+                # dof row band index
+                bb = ii - jj
+                # make sure we're in the bandwidth
+                if -q ≤ bb ≤ p
+                    if !single_column(A)
+                        A[i, j, bb + q + 1, jj, eh] = dQ[ijk, s, e]
+                    else
+                        if (i, j, eh) == (1, 1, 1)
+                            A[bb + q + 1, jj] = dQ[ijk, s, e]
                         end
                     end
                 end
