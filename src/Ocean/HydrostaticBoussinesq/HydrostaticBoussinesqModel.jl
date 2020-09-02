@@ -648,14 +648,6 @@ end
 
 @inline compute_flow_deviation!(dg, ::HBModel, ::Uncoupled, _...) = nothing
 
-# store ∇ʰu as integrand for w
-function nodal_update_auxiliary_state!(m::HBModel, Q, A, D, t)
-    @inbounds begin
-        # load -∇ʰu as ∂ᶻw
-        A.w = -D.∇ʰu
-    end
-    return nothing
-end
 
 """
     update_auxiliary_state_gradient!(::HBModel)
@@ -663,9 +655,6 @@ end
     ∇hu to w for integration
     performs integration for w and pkin (should be moved to its own integral kernels)
     copies down w and wz0 because we don't have 2D structures
-
-    now for actual update aux stuff
-    implements convective adjustment by bumping the vertical diffusivity up by a factor of 1000 if dθdz < 0
 """
 function update_auxiliary_state_gradient!(
     dg::DGModel,
@@ -676,9 +665,12 @@ function update_auxiliary_state_gradient!(
 )
     FT = eltype(Q)
     A = dg.state_auxiliary
+    D = dg.state_gradient_flux
 
-    f! = nodal_update_auxiliary_state!
-    update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
+    # load -∇ʰu as ∂ᶻw
+    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
+    index_∇ʰu = varsindex(vars_state(m, GradientFlux(), FT), :∇ʰu)
+    @views @. A.data[:, index_w, elems] = -D.data[:, index_∇ʰu, elems]
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
@@ -688,7 +680,6 @@ function update_auxiliary_state_gradient!(
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
     number_aux = number_states(m, Auxiliary())
-    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
 
