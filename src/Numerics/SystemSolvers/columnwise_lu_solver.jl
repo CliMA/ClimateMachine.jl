@@ -785,15 +785,23 @@ end
         e = ev + nvertelem * (eh - 1)
         @unroll for s in 1:nstate
             Ax = -zero(FT)
+            # Vertical linear index for state s, of dof k, of vertical element ev
+            # (row index)
             ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
 
             # banded matrix column loops
             @unroll for evv in max(1, ev - elo):min(nvertelem, ev + eup)
+                # Processor local element number
                 ee = evv + nvertelem * (eh - 1)
+                # Loop over vertical degrees of freedom in ee
                 @unroll for kk in 1:Nq
+                    # linear degree freedom index in element ee
                     ijk = i + Nqj * (j - 1) + Nq * Nqj * (kk - 1)
                     @unroll for ss in 1:nstate
+                        # Vertical linear index for state ss, of dof kk, of vertical element evv
+                        # (column index)
                         jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq
+                        # Shift the row index to a band index
                         bb = ii - jj
                         if -q ≤ bb ≤ p
                             if !single_column(A)
