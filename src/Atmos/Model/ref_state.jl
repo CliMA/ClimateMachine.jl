@@ -53,7 +53,7 @@ function HydrostaticState(
 end
 
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
-    @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT)
+    @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 
 atmos_init_ref_state_pressure!(m, _...) = nothing
 function atmos_init_ref_state_pressure!(
@@ -98,9 +98,13 @@ function atmos_init_aux!(
     # p, ρ, and q_pt
     T = air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
     q_tot = q_pt.tot
+    q_liq = q_pt.liq
+    q_ice = q_pt.ice
     ts = TemperatureSHumEquil(atmos.param_set, T, ρ, q_tot)
 
     aux.ref_state.ρq_tot = ρ * q_tot
+    aux.ref_state.ρq_liq = ρ * q_liq
+    aux.ref_state.ρq_ice = ρ * q_ice
     aux.ref_state.T = T
     e_kin = F(0)
     e_pot = gravitational_potential(atmos.orientation, aux)
