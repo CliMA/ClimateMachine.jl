@@ -35,9 +35,10 @@ ClimateMachine.Atmos.new_thermo_state
 ## Moisture
 
 ```@docs
-ClimateMachine.Atmos.NoPrecipitation
 ClimateMachine.Atmos.DryModel
 ClimateMachine.Atmos.EquilMoist
+ClimateMachine.Atmos.NonEquilMoist
+ClimateMachine.Atmos.NoPrecipitation
 ClimateMachine.Atmos.Rain
 ```
 
@@ -70,4 +71,5 @@ ClimateMachine.Atmos.average_density
 
 ```@docs
 ClimateMachine.Atmos.RemovePrecipitation
+ClimateMachine.Atmos.CreateClouds
 ```
