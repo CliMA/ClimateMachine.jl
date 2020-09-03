@@ -20,6 +20,7 @@ import ClimateMachine.DGMethods.NumericalFluxes:
     logave
 using ClimateMachine.Orientations:
     Orientation, FlatOrientation, SphericalOrientation
+using ClimateMachine.Atmos: NoReferenceState
 
 using CLIMAParameters: AbstractEarthParameterSet
 using CLIMAParameters.Planet: grav, cp_d, cv_d
@@ -29,11 +30,16 @@ const param_set = EarthParameterSet()
 
 @inline gamma(ps::EarthParameterSet) = cp_d(ps) / cv_d(ps)
 
-struct DryAtmosModel{D, O} <: BalanceLaw
+struct DryAtmosModel{D, O, RS} <: BalanceLaw
     orientation::O
+    ref_state::RS
 end
-DryAtmosModel{D}(orientation::O) where {D, O <: Orientation} =
-    DryAtmosModel{D, O}(orientation)
+function DryAtmosModel{D}(orientation;
+                          ref_state=NoReferenceState()) where {D}
+    O = typeof(orientation)
+    RS = typeof(ref_state)
+    DryAtmosModel{D, O, RS}(orientation, ref_state)
+end
 
 # XXX: Hack for Impenetrable.
 #      This is NOT entropy stable / conservative!!!!
@@ -54,6 +60,27 @@ function boundary_state!(
     aux⁺.Φ = aux⁻.Φ
 end
 
+function init_state_auxiliary!(
+    m::DryAtmosModel,
+    state_auxiliary,
+    geom,
+)
+  init_state_auxiliary!(m, m.orientation, state_auxiliary, geom)
+  init_state_auxiliary!(m, m.ref_state, state_auxiliary, geom)
+end
+
+function altitude(::DryAtmosModel{dim},
+                  ::FlatOrientation,
+                  geom) where {dim}
+  @inbounds geom.coord[dim]
+end
+
+function altitude(::DryAtmosModel,
+                  ::SphericalOrientation,
+                  geom)
+  norm(geom.coord)
+end
+
 """
     init_state_auxiliary!(
         m::DryAtmosModel,
@@ -64,7 +91,8 @@ end
 Initialize geopotential for the `DryAtmosModel`.
 """
 function init_state_auxiliary!(
-    ::DryAtmosModel{dim, FlatOrientation},
+    ::DryAtmosModel{dim},
+    ::FlatOrientation,
     state_auxiliary,
     geom,
 ) where {dim}
@@ -74,14 +102,48 @@ function init_state_auxiliary!(
     state_auxiliary.Φ = _grav * r
 end
 function init_state_auxiliary!(
-    ::DryAtmosModel{dim, SphericalOrientation},
+    ::DryAtmosModel,
+    ::SphericalOrientation,
     state_auxiliary,
     geom,
-) where {dim}
+)
     FT = eltype(state_auxiliary)
     _grav = FT(grav(param_set))
     r = norm(geom.coord)
     state_auxiliary.Φ = _grav * r
+end
+
+function init_state_auxiliary!(
+    ::DryAtmosModel,
+    ::NoReferenceState,
+    state_auxiliary,
+    geom,
+)
+end
+
+struct DryReferenceState{TP}
+  temperature_profile::TP
+end
+vars_state_auxiliary(::DryAtmosModel, ::DryReferenceState, FT) = @vars(ρ::FT, ρe::FT)
+vars_state_auxiliary(::DryAtmosModel, ::NoReferenceState, FT) = @vars()
+
+function init_state_auxiliary!(
+    m::DryAtmosModel,
+    ref_state::DryReferenceState,
+    state_auxiliary,
+    geom,
+)
+    FT = eltype(state_auxiliary)
+    z = altitude(m, m.orientation, geom)
+    T, p = ref_state.temperature_profile(param_set, z)
+
+    _R_d::FT = R_d(param_set)
+    ρ = p / (_R_d * T)
+    Φ = state_auxiliary.Φ
+    ρu = SVector{3, FT}(0, 0, 0)
+
+    state_auxiliary.ref_state.ρ = ρ
+    state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ)
 end
 
 """
@@ -139,9 +201,10 @@ end
 The auxiliary variables for the `DryAtmosModel` is gravitational potential
 `Φ`
 """
-function vars_state_auxiliary(::DryAtmosModel, FT)
+function vars_state_auxiliary(m::DryAtmosModel, FT)
     @vars begin
         Φ::FT
+        ref_state::vars_state_auxiliary(m, m.ref_state, FT)
     end
 end
 
