@@ -3,7 +3,7 @@ using ClimateMachine
 using Logging
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid, min_node_distance
 using ClimateMachine.Thermodynamics
 using LinearAlgebra
 using Printf
@@ -91,13 +91,13 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
     polynomialorder = 4
-    Ne = (100, 1, 100)
+    Ne = (10, 1, 10)
     FT = Float64
     xmax = FT(10000)
     ymax = FT(500)
     zmax = FT(10000)
 
-    timeend = 1
+    timeend = 5000
     FT = Float64
     result = run(
         mpicomm,
@@ -160,7 +160,9 @@ function run(
     )
 
     # determine the time step
-    dt = 1 / (Ne[1] * polynomialorder^2)^2 / 300
+    dx = min_node_distance(grid)
+    cfl = FT(1.7)
+    dt = cfl * dx / 330
     Q = init_ode_state(esdg, FT(0))
     odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
@@ -176,7 +178,7 @@ function run(
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = EveryXSimulationSteps(1) do (s = false)
+    cbinfo = EveryXSimulationSteps(100) do (s = false)
         if s
             starttime[] = now()
         else
@@ -194,7 +196,7 @@ function run(
     end
     callbacks = (cbinfo,)
 
-    output_vtk = true
+    output_vtk = false
     if output_vtk
         # create vtk dir
         Nelem = Ne[1]
@@ -208,10 +210,9 @@ function run(
         do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
 
         # setup the output callback
-        outputtime = 1 / 10
+        outputtime = 50
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            Qe = init_ode_state(esdg, gettime(odesolver), setup)
             do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
         end
         callbacks = (callbacks..., cbvtk)
