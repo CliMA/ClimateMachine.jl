@@ -366,7 +366,12 @@ function make_callbacks(
             prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
                 @sprintf("mpirank%04d_step%04d", i - 1, step)
             end
-            writepvtu(pvtuprefix, prefixes, (statenames..., auxnames...))
+            writepvtu(
+                pvtuprefix,
+                prefixes,
+                (statenames..., auxnames...),
+                eltype(Q),
+            )
             @info "Done writing VTK: $pvtuprefix"
         end
 
