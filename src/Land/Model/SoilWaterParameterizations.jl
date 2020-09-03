@@ -456,7 +456,7 @@ hydraulic functions that take it as an argument will return
 imaginary numbers, resulting in domain errors. Exit in this 
 case with an error.
 """
-function effective_saturation(porosity::FT, ϑ_l::FT) where {FT}
+function effective_saturation(porosity, ϑ_l)
 
     if ϑ_l < 0
         throw(DomainError(ϑ_l, "Effective saturation is negative."))

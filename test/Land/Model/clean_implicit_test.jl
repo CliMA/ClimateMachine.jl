@@ -176,7 +176,48 @@ else
     )
 end;
 
+Q = solver_config.Q   # state variable
+dQ = similar(Q)       # result of f
+dg = solver_config.dg # f
+t = solver_config.t0
+dg(dQ, Q, nothing, t) # compute f(Q) and store in dQ
 
+D = ForwardDiff.Dual{Nothing,Float64,1}
+R = similar(Q, Array, D)
+R .= Q
+dR = similar(R)
+dg(dR,R, nothing, t)
+
+# dQ/dt = f(Q,t)
+# explicit Euler
+#   Q_t+1 = Q_t + δt * f(Q_t)
+# implicit Euler
+#   Q_t+1 = Q_t + δt * f(Q_t+1)
+#   need to solve:
+#      Q_t+1 - δt * f(Q_t+1) = Q_t 
+#   if f(Q) = LQ
+#      (I - δt L) Q_t+1 = Q_t
+
+# f : ℝⁿ → ℝⁿ
+# ∇f : ℝⁿ → ℝⁿˣⁿ (Jacobian)
+# ∇f ⋅ v = d/dϵ f(Q + ϵv) (Jacobian action / Gateaux derivative)
+
+# e.g. if f(x) = Lx => ∇f(x) = L => ∇f(x) ⋅v = Lv
+
+
+# how to do this?
+#  - symbolic : what is the expression that gives the Jacobian
+#  - numeric/finite differencing :
+#     for each i = 1:n
+#       (f(Q + ϵ_i v) - f(Q)) / ϵ where ϵ_i[j] = ϵ if i==j ; 0 otherwise
+#     need to evaluate f n+1 times
+#  - automatic differentiation
+#     forward vs reverse
+#     d = x + ϵ * y
+#     i * i = -1
+#     ϵ * ϵ =  0
+
+# https://github.com/JuliaDiff/ForwardDiff.jl/issues/319#issuecomment-685006123
 
 #Do the integration
-@time ClimateMachine.invoke!(solver_config)
+# @time ClimateMachine.invoke!(solver_config)
