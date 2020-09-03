@@ -176,6 +176,8 @@ else
     )
 end;
 
+using ForwardDiff
+
 Q = solver_config.Q   # state variable
 dQ = similar(Q)       # result of f
 dg = solver_config.dg # f
