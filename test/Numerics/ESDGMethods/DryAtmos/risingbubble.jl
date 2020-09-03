@@ -17,6 +17,8 @@ import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 using LazyArrays
 
+using ClimateMachine.TemperatureProfiles: DryAdiabaticProfile
+
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -145,12 +147,12 @@ function run(
         polynomialorder = polynomialorder,
     )
 
-    # T_surface = FT(300)
-    # T_min_ref = FT(0)
-    # T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
-    # ref_state = HydrostaticState(T_profile)
+    T_surface = FT(300)
+    T_min_ref = FT(0)
+    T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
+    ref_state = DryReferenceState(T_profile)
 
-    model = DryAtmosModel{dim}(FlatOrientation())
+    model = DryAtmosModel{dim}(FlatOrientation(); ref_state=ref_state)
 
     esdg = ESDGModel(
         model,
@@ -196,7 +198,7 @@ function run(
     end
     callbacks = (cbinfo,)
 
-    output_vtk = false
+    output_vtk = true
     if output_vtk
         # create vtk dir
         Nelem = Ne[1]
