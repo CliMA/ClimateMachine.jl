@@ -32,7 +32,7 @@ function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
     # the reference state.
     temp_profile_init =
         DecayingTemperatureProfile{FT}(param_set, FT(300), FT(210), FT(9e3))
-    init_state = HydrostaticState(temp_profile_ref)
+    init_state = HydrostaticState(temp_profile_init)
     
     # Assign state variables
     state.ρ = init_state.ρ
