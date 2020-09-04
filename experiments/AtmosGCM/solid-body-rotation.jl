@@ -28,10 +28,16 @@ const param_set = EarthParameterSet()
 function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
-    ## Assign state variables
-    state.ρ = aux.ref_state.ρ
+    # The initial state is chosen to be in hydrostatic balance, but differs from
+    # the reference state.
+    temp_profile_ref =
+        DecayingTemperatureProfile{FT}(param_set, FT(300), FT(210), FT(9e3))
+    ref_state = HydrostaticState(temp_profile_ref)
+    
+    # Assign state variables
+    state.ρ = ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = aux.ref_state.ρe
+    state.ρe = ref_state.ρe
 
     nothing
 end
