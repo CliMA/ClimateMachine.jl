@@ -30,11 +30,12 @@ using ..BalanceLaws
 using ..MPIStateArrays: MPIStateArray
 import ..BalanceLaws: vars_state
 using ..DGMethods:
-    nodal_init_state_auxiliary!, contiguous_field_gradient!, LocalGeometry
+    init_state_auxiliary!, continuous_field_gradient!, LocalGeometry
 
 export Orientation, NoOrientation, FlatOrientation, SphericalOrientation
 
 export init_aux!,
+    orientation_nodal_init_aux!,
     vertical_unit_vector,
     altitude,
     latitude,
@@ -97,22 +98,30 @@ function projection_tangential(
     return u⃗ .- projection_normal(orientation, param_set, aux, u⃗)
 end
 
-function init_aux!(m, ::Orientation, state_auxiliary::MPIStateArray, grid)
-    nodal_init_state_auxiliary!(
+function init_aux!(
+    m,
+    ::Orientation,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
+    init_state_auxiliary!(
         m,
         (m, aux, tmp, geom) ->
             orientation_nodal_init_aux!(m.orientation, m.param_set, aux, geom),
         state_auxiliary,
         grid,
+        direction,
     )
 
-    contiguous_field_gradient!(
+    continuous_field_gradient!(
         m,
         state_auxiliary,
         ("orientation.∇Φ",),
         state_auxiliary,
         ("orientation.Φ",),
         grid,
+        direction,
     )
 end
 
@@ -127,7 +136,8 @@ No gravitational force or potential.
 """
 struct NoOrientation <: Orientation end
 
-init_aux!(m, ::NoOrientation, state_auxiliary::MPIStateArray, grid) = nothing
+init_aux!(m, ::NoOrientation, state_auxiliary::MPIStateArray, grid, direction) =
+    nothing
 
 vars_state(m::NoOrientation, ::Auxiliary, FT) = @vars()
 

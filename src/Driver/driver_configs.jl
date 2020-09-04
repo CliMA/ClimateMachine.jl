@@ -227,7 +227,12 @@ function AtmosGCMConfiguration(
         nelem = nelem_vert,
     )
 
-    topology = StackedCubedSphereTopology(mpicomm, nelem_horz, vert_range)
+    topology = StackedCubedSphereTopology(
+        mpicomm,
+        nelem_horz,
+        vert_range;
+        boundary = (1, 2),
+    )
 
     grid = DiscontinuousSpectralElementGrid(
         topology,

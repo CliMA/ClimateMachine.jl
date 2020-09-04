@@ -211,7 +211,7 @@ vars_state(::BurgersEquation, ::GradientFlux, FT) = @vars(
 # `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`.
 # - `aux.coord` is available here because we've specified `coord` in `vars_state(m, aux, FT)`.
-function burgers_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::BurgersEquation,
     aux::Vars,
     tmp::Vars,
@@ -225,14 +225,16 @@ function init_state_auxiliary!(
     m::BurgersEquation,
     state_auxiliary::MPIStateArray,
     grid,
+    direction,
 )
-    init_aux!(m, m.orientation, state_auxiliary, grid)
+    init_aux!(m, m.orientation, state_auxiliary, grid, direction)
 
-    nodal_init_state_auxiliary!(
+    init_state_auxiliary!(
         m,
-        burgers_nodal_init_state_auxiliary!,
+        nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
+        direction,
     )
 end;
 

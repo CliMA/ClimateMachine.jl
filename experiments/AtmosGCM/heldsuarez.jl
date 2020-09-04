@@ -39,7 +39,7 @@ using CLIMAParameters.Planet:
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_heldsuarez!(bl, state, aux, coords, t)
+function init_heldsuarez!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
     # parameters 
@@ -160,7 +160,7 @@ end
 function config_heldsuarez(FT, poly_order, resolution)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
@@ -177,12 +177,12 @@ function config_heldsuarez(FT, poly_order, resolution)
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
+        init_state_prognostic = init_heldsuarez!,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
         source = (Gravity(), Coriolis(), held_suarez_forcing!),
-        init_state_prognostic = init_heldsuarez!,
         tracers = tracers,
     )
 

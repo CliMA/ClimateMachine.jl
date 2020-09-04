@@ -5,6 +5,7 @@ export
     NumericalFluxFirstOrder,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
+    RoeNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -373,6 +374,19 @@ function numerical_flux_first_order!(
 
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2)
 end
+
+"""
+    RoeNumericalFlux() <: NumericalFluxFirstOrder
+
+A numerical flux based on the approximate Riemann solver of Roe
+
+# Usage
+
+    RoeNumericalFlux()
+
+Requires a custom implementation for the balance law.
+"""
+struct RoeNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder

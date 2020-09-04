@@ -7,7 +7,8 @@ CurrentModule = ClimateMachine.DGMethods
 ```@docs
 DGModel
 remainder_DGModel
-contiguous_field_gradient!
+continuous_field_gradient!
+courant
 ```
 
 ## Mathematical Formulation

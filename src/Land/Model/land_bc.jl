@@ -15,8 +15,8 @@ function boundary_state!(
     _...,
 )
     args = (state⁺, diff⁺, aux⁺, n̂, state⁻, diff⁻, aux⁻, bctype, t)
-    soil_boundary_state!(nf, land.soil.water, args...)
-    soil_boundary_state!(nf, land.soil.heat, args...)
+    soil_boundary_state!(nf, land, land.soil, land.soil.water, args...)
+    soil_boundary_state!(nf, land, land.soil, land.soil.heat, args...)
 end
 
 
@@ -33,8 +33,8 @@ function boundary_state!(
     _...,
 )
     args = (state⁺, aux⁺, n̂, state⁻, aux⁻, bctype, t)
-    soil_boundary_state!(nf, land.soil.water, args...)
-    soil_boundary_state!(nf, land.soil.heat, args...)
+    soil_boundary_state!(nf, land, land.soil, land.soil.water, args...)
+    soil_boundary_state!(nf, land, land.soil, land.soil.heat, args...)
 end
 
 abstract type AbstractBoundaryFunctions end

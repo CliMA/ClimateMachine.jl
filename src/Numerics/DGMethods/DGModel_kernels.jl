@@ -2686,7 +2686,7 @@ end
     end
 end
 
-@kernel function kernel_contiguous_field_gradient!(
+@kernel function kernel_continuous_field_gradient!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
@@ -2746,19 +2746,20 @@ end
 
                 @unroll for n in 1:Nq
                     Gξ1 += s_D[i, n] * shared_state[n, j, s]
-                    if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                        Gξ2 += s_D[j, n] * shared_state[i, n, s]
-                    end
-                    if dim == 3 && direction isa EveryDirection
+                    Gξ2 += s_D[j, n] * shared_state[i, n, s]
+                    if dim == 3
                         Gξ3[s, n] += s_D[n, k] * shared_state[i, j, s]
                     end
                 end
 
-                local_gradient[1, s, k] += ξ1x1 * Gξ1
-                local_gradient[2, s, k] += ξ1x2 * Gξ1
-                local_gradient[3, s, k] += ξ1x3 * Gξ1
+                if !(direction isa VerticalDirection)
+                    local_gradient[1, s, k] += ξ1x1 * Gξ1
+                    local_gradient[2, s, k] += ξ1x2 * Gξ1
+                    local_gradient[3, s, k] += ξ1x3 * Gξ1
+                end
 
-                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                if (dim == 3 && !(direction isa VerticalDirection)) ||
+                   (dim == 2 && !(direction isa HorizontalDirection))
                     ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                     vgeo[ijk, _ξ2x2, e],
                     vgeo[ijk, _ξ2x3, e]
@@ -2773,7 +2774,7 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
-            if dim == 3 && direction isa EveryDirection
+            if dim == 3 && !(direction isa HorizontalDirection)
                 ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
                 vgeo[ijk, _ξ3x2, e],
                 vgeo[ijk, _ξ3x3, e]

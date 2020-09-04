@@ -1,11 +1,13 @@
 module Land
 
-using CLIMAParameters
 using DocStringExtensions
 using LinearAlgebra, StaticArrays
+
+using CLIMAParameters
+using CLIMAParameters.Planet: ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0
+
 using ..VariableTemplates
 using ..MPIStateArrays
-
 using ..BalanceLaws
 import ..BalanceLaws:
     BalanceLaw,
@@ -16,13 +18,10 @@ import ..BalanceLaws:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    update_auxiliary_state!,
     nodal_update_auxiliary_state!
-
-using ..DGMethods: LocalGeometry, DGModel, nodal_init_state_auxiliary!
-
+using ..DGMethods: LocalGeometry, DGModel
 export LandModel
 
 """
@@ -102,23 +101,10 @@ function vars_state(land::LandModel, st::GradientFlux, FT)
     end
 end
 
-function init_state_auxiliary!(
-    m::LandModel,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-
-    nodal_init_state_auxiliary!(
-        m,
-        (m, aux, tmp, geom) -> land_nodal_init_state_auxiliary!(m, aux, geom),
-        state_auxiliary,
-        grid,
-    )
-end
-
-function land_nodal_init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     land::LandModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     aux.z = geom.coord[3]
@@ -189,26 +175,7 @@ function flux_second_order!(
 
 end
 
-
-function update_auxiliary_state!(
-    dg::DGModel,
-    land::LandModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    nodal_update_auxiliary_state!(
-        land_nodal_update_auxiliary_state!,
-        dg,
-        land,
-        Q,
-        t,
-        elems,
-    )
-end
-
-
-function land_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     land::LandModel,
     state::Vars,
     aux::Vars,
@@ -245,6 +212,8 @@ end
 include("land_bc.jl")
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
+include("SoilHeatParameterizations.jl")
+using .SoilHeatParameterizations
 include("soil_model.jl")
 include("soil_water.jl")
 include("soil_heat.jl")

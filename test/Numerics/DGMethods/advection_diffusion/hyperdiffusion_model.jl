@@ -15,7 +15,7 @@ import ClimateMachine.BalanceLaws:
     source!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
     boundary_state!,
     wavespeed,
@@ -24,8 +24,6 @@ import ClimateMachine.BalanceLaws:
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder
-
-using ClimateMachine.DGMethods: nodal_init_state_auxiliary!
 
 abstract type HyperDiffusionProblem end
 struct HyperDiffusion{dim, P} <: BalanceLaw
@@ -117,25 +115,6 @@ end
 There is no source in the hyperdiffusion model
 """
 source!(m::HyperDiffusion, _...) = nothing
-
-"""
-    init_state_auxiliary!(m::HyperDiffusion, aux::MPIStateArray, grid)
-
-initialize the auxiliary state
-"""
-function init_state_auxiliary!(
-    m::HyperDiffusion,
-    state_auxiliary::MPIStateArray,
-    grid,
-)
-    nodal_init_state_auxiliary!(
-        m,
-        (m, aux, tmp, geom) ->
-            init_hyperdiffusion_tensor!(m.problem, aux, geom),
-        state_auxiliary,
-        grid,
-    )
-end
 
 function init_state_prognostic!(
     m::HyperDiffusion,

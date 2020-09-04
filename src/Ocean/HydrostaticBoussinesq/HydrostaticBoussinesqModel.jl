@@ -13,7 +13,7 @@ using ...Mesh.Filters: apply!
 using ...Mesh.Grids: VerticalDirection
 using ...Mesh.Geometry
 using ...DGMethods
-using ...DGMethods: nodal_init_state_auxiliary!
+using ...DGMethods: init_state_auxiliary!
 using ...DGMethods.NumericalFluxes
 using ...DGMethods.NumericalFluxes: RusanovNumericalFlux
 using ...BalanceLaws
@@ -180,12 +180,18 @@ function ocean_init_aux! end
 sets the initial value for auxiliary variables (those that aren't related to vertical integrals)
 dispatches to ocean_init_aux! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function init_state_auxiliary!(m::HBModel, state_auxiliary::MPIStateArray, grid)
-    nodal_init_state_auxiliary!(
+function init_state_auxiliary!(
+    m::HBModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
+    init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
         state_auxiliary,
         grid,
+        direction,
     )
 end
 
@@ -642,15 +648,13 @@ end
 
 @inline compute_flow_deviation!(dg, ::HBModel, ::Uncoupled, _...) = nothing
 
+
 """
     update_auxiliary_state_gradient!(::HBModel)
 
     ∇hu to w for integration
     performs integration for w and pkin (should be moved to its own integral kernels)
     copies down w and wz0 because we don't have 2D structures
-
-    now for actual update aux stuff
-    implements convective adjustment by bumping the vertical diffusivity up by a factor of 1000 if dθdz < 0
 """
 function update_auxiliary_state_gradient!(
     dg::DGModel,
@@ -661,17 +665,12 @@ function update_auxiliary_state_gradient!(
 )
     FT = eltype(Q)
     A = dg.state_auxiliary
+    D = dg.state_gradient_flux
 
-    # store ∇ʰu as integrand for w
-    function f!(m::HBModel, Q, A, D, t)
-        @inbounds begin
-            # load -∇ʰu as ∂ᶻw
-            A.w = -D.∇ʰu
-        end
-
-        return nothing
-    end
-    nodal_update_auxiliary_state!(f!, dg, m, Q, t, elems; diffusive = true)
+    # load -∇ʰu as ∂ᶻw
+    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
+    index_∇ʰu = varsindex(vars_state(m, GradientFlux(), FT), :∇ʰu)
+    @views @. A.data[:, index_w, elems] = -D.data[:, index_∇ʰu, elems]
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top
@@ -681,7 +680,6 @@ function update_auxiliary_state_gradient!(
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
     number_aux = number_states(m, Auxiliary())
-    index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
 
@@ -694,8 +692,118 @@ function update_auxiliary_state_gradient!(
     return true
 end
 
+"""
+    boundary_state!(nf, ::HBModel, args...)
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(nf, ocean::HBModel, args...)
+    boundary_conditions = ocean.problem.boundary_conditions
+    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
+end
+
+"""
+    ocean_boundary_state!(nf, bc::OceanBC, ::HBModel)
+
+splits boundary condition application into velocity and temperature conditions
+"""
+@inline function ocean_boundary_state!(nf, bc::OceanBC, ocean::HBModel, args...)
+    ocean_velocity_boundary_state!(nf, bc.velocity, ocean, args...)
+    ocean_temperature_boundary_state!(nf, bc.temperature, ocean, args...)
+
+    return nothing
+end
+
+"""
+    ocean_boundary_state!(nf, boundaries::Tuple, ::HBModel,
+                          Q⁺, A⁺, n, Q⁻, A⁻, bctype)
+applies boundary conditions for the first-order and gradient fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@generated function ocean_boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    boundaries::Tuple,
+    ocean,
+    Q⁺,
+    A⁺,
+    n,
+    Q⁻,
+    A⁻,
+    bctype,
+    t,
+    args...,
+)
+    N = fieldcount(boundaries)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> ocean_boundary_state!(
+                nf,
+                boundaries[i],
+                ocean,
+                Q⁺,
+                A⁺,
+                n,
+                Q⁻,
+                A⁻,
+                t,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
+end
+
+"""
+    ocean_boundary_state!(nf, boundaries::Tuple, ::HBModel,
+                          Q⁺, A⁺, D⁺, n, Q⁻, A⁻, D⁻, bctype)
+applies boundary conditions for the second-order fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@generated function ocean_boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    boundaries::Tuple,
+    ocean,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n,
+    Q⁻,
+    D⁻,
+    A⁻,
+    bctype,
+    t,
+    args...,
+)
+    N = fieldcount(boundaries)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> ocean_boundary_state!(
+                nf,
+                boundaries[i],
+                ocean,
+                Q⁺,
+                D⁺,
+                A⁺,
+                n,
+                Q⁻,
+                D⁻,
+                A⁻,
+                t,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
+end
+
+include("bc_velocity.jl")
+include("bc_temperature.jl")
 include("LinearHBModel.jl")
-include("BoundaryConditions.jl")
 include("Courant.jl")
 
 end

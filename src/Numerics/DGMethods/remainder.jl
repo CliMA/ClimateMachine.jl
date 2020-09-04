@@ -163,6 +163,9 @@ vars_state(rem_balance_law::RemBL, st::AbstractStateType, FT) =
 update_auxiliary_state!(dg::DGModel, rem_balance_law::RemBL, args...) =
     update_auxiliary_state!(dg, rem_balance_law.main, args...)
 
+nodal_update_auxiliary_state!(dg::DGModel, rem_balance_law::RemBL, args...) =
+    nodal_update_auxiliary_state!(dg, rem_balance_law.main, args...)
+
 update_auxiliary_state_gradient!(dg::DGModel, rem_balance_law::RemBL, args...) =
     update_auxiliary_state_gradient!(dg, rem_balance_law.main, args...)
 
@@ -195,6 +198,9 @@ boundary_state!(nf, rem_balance_law::RemBL, args...) =
 
 init_state_auxiliary!(rem_balance_law::RemBL, args...) =
     init_state_auxiliary!(rem_balance_law.main, args...)
+
+nodal_init_state_auxiliary!(rem_balance_law::RemBL, args...) =
+    nodal_init_state_auxiliary!(rem_balance_law.main, args...)
 
 init_state_prognostic!(rem_balance_law::RemBL, args...) =
     init_state_prognostic!(rem_balance_law.main, args...)

@@ -111,8 +111,9 @@ end
     DragLaw(fn) :: MomentumDragBC
 
 Drag law for momentum parallel to the boundary. The drag coefficient is
-`C = fn(state, aux, t, normPu_int)`, where `normPu_int⁻` is the internal speed
+`C = fn(state, aux, t, normu_int_tan)`, where `normu_int_tan` is the internal speed
 parallel to the boundary.
+`_int` refers to the first interior node.
 """
 struct DragLaw{FN} <: MomentumDragBC
     fn::FN
@@ -137,25 +138,25 @@ function numerical_boundary_flux_second_order!(
     fluxᵀn::Vars,
     n,
     state⁻,
-    diff⁻,
-    hyperdiff⁻,
+    diffusive⁻,
+    hyperdiffusive⁻,
     aux⁻,
     state⁺,
-    diff⁺,
-    hyperdiff⁺,
+    diffusive⁺,
+    hyperdiffusive⁺,
     aux⁺,
     t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
+    state_int⁻,
+    diffusive_int⁻,
+    aux_int⁻,
 ) where {DL <: DragLaw}
 
-    u1⁻ = state1⁻.ρu / state1⁻.ρ
-    Pu1⁻ = u1⁻ - dot(u1⁻, n) .* SVector(n)
-    normPu1⁻ = norm(Pu1⁻)
+    u1⁻ = state_int⁻.ρu / state_int⁻.ρ
+    u_int⁻_tan = u1⁻ - dot(u1⁻, n) .* SVector(n)
+    normu_int⁻_tan = norm(u_int⁻_tan)
     # NOTE: difference from design docs since normal points outwards
-    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normPu1⁻)
-    τn = C * normPu1⁻ * Pu1⁻
+    C = bc_momentum.drag.fn(state⁻, aux⁻, t, normu_int⁻_tan)
+    τn = C * normu_int⁻_tan * u_int⁻_tan
     # both sides involve projections of normals, so signs are consistent
     fluxᵀn.ρu += state⁻.ρ * τn
     fluxᵀn.ρe += state⁻.ρu' * τn

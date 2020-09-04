@@ -11,6 +11,7 @@ using ..DGMethods: DGModel
 using ..BalanceLaws
 
 using Adapt
+using CUDA
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
@@ -66,11 +67,11 @@ doiteration!(
     Q,
     Qrhs,
     solver::AbstractIterativeSystemSolver,
-    tolerance,
+    threshold,
     args...,
 ) = throw(MethodError(
     doiteration!,
-    (linearoperator!, Q, Qrhs, solver, tolerance, args...),
+    (linearoperator!, Q, Qrhs, solver, threshold, args...),
 ))
 
 initialize!(
