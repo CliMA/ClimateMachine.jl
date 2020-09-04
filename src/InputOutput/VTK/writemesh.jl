@@ -171,7 +171,7 @@ function writemesh(
         )
     end
     for (name, v) in fields
-        vtk_cell_data(vtkfile, v, name)
+        vtk_point_data(vtkfile, v, name)
     end
     outfiles = vtk_save(vtkfile)
 end
