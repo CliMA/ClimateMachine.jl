@@ -30,14 +30,14 @@ function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
 
     # The initial state is chosen to be in hydrostatic balance, but differs from
     # the reference state.
-    temp_profile_ref =
+    temp_profile_init =
         DecayingTemperatureProfile{FT}(param_set, FT(300), FT(210), FT(9e3))
-    ref_state = HydrostaticState(temp_profile_ref)
+    init_state = HydrostaticState(temp_profile_ref)
     
     # Assign state variables
-    state.ρ = ref_state.ρ
+    state.ρ = init_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = ref_state.ρe
+    state.ρe = init_state.ρe
 
     nothing
 end
