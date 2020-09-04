@@ -7,4 +7,5 @@ dev_docs = Any[
     "Acceptable Unicode" => "DevDocs/AcceptableUnicode.md",
     "Variable list" => "DevDocs/VariableList.md",
     "Diagnostic variable list" => "DevDocs/DiagnosticVariables.md",
+    "Custom System Image" => "DevDocs/SystemImage.md",
 ]
