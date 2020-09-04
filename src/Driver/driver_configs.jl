@@ -351,7 +351,7 @@ function SingleStackConfiguration(
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
-) where {FT <: AbstractFloat}
+) where {FT}
 
     print_model_info(model)
 

@@ -17,6 +17,7 @@ using Statistics
 using Test
 using OrdinaryDiffEq
 using LinearAlgebra: norm
+using ForwardDiff
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -88,7 +89,7 @@ end
 
 
 ClimateMachine.init()
-FT = Float64
+FT = ForwardDiff.Dual{Nothing,Float64,1}
 
 # in the full model, we couple heat and water equations. but right now we are just
 # testing water, the one that has the numerical issues, and setting T = constant for all time

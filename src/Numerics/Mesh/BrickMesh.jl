@@ -144,7 +144,11 @@ function centroidtocode(
     code = Array{CT}(undef, d, nelem)
     for e in 1:nelem
         c = (centroids[:, 1, e] .- centroidmin) ./ centroidsize
-        X = CT.(floor.(typemax(CT) .* BigFloat.(c, 16 * sizeof(CT))))
+        if eltype(c) <: AbstractFloat
+            X = CT.(floor.(typemax(CT) .* BigFloat.(c, 16 * sizeof(CT))))
+        else
+            X = CT.(floor.(typemax(CT) .* BigFloat.(map(x -> x.value, c), 16 * sizeof(CT))))
+        end
         code[:, e] = coortocode(X)
     end
 

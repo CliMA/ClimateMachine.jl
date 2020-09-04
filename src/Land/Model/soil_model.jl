@@ -3,9 +3,9 @@
 export SoilModel, SoilParamFunctions
 
 """
-    AbstractSoilParameterFunctions{FT <: AbstractFloat}
+    AbstractSoilParameterFunctions{FT}
 """
-abstract type AbstractSoilParameterFunctions{FT <: AbstractFloat} end
+abstract type AbstractSoilParameterFunctions{FT} end
 
 """
     struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}

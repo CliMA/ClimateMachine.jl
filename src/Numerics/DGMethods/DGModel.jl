@@ -844,6 +844,9 @@ function nodal_update_auxiliary_state!(
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
+
+    @show typeof(state_prognostic.data) typeof(dg.state_auxiliary.data) typeof(dg.state_gradient_flux.data)
+
     if diffusive
         event = nodal_update_auxiliary_state!(
             m,

@@ -2,13 +2,13 @@ module Elements
 import GaussQuadrature
 
 """
-    lglpoints(::Type{T}, N::Integer) where T <: AbstractFloat
+    lglpoints(::Type{T}, N::Integer) where T
 
 returns the points `r` and weights `w` associated with the `N+1`-point
 Gauss-Legendre-Lobatto quadrature rule of type `T`
 
 """
-function lglpoints(::Type{T}, N::Integer) where {T <: AbstractFloat}
+function lglpoints(::Type{T}, N::Integer) where {T}
     @assert N ≥ 1
     GaussQuadrature.legendre(T, N + 1, GaussQuadrature.both)
 end
