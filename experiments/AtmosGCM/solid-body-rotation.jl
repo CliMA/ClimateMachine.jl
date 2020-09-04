@@ -14,6 +14,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
+using ClimateMachine.Thermodynamics: air_density, total_energyy
 
 using LinearAlgebra
 using StaticArrays
@@ -30,14 +31,19 @@ function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
 
     # The initial state is chosen to be in hydrostatic balance, but differs from
     # the reference state.
-    temp_profile_init =
-        DecayingTemperatureProfile{FT}(param_set, FT(300), FT(210), FT(9e3))
-    init_state = HydrostaticState(temp_profile_init)
+    temp_profile = DecayingTemperatureProfile{FT}(param_set, FT(300), FT(210), FT(9e3))
     
+    # Useful variables
+    z = altitude(bl.orientation, bl.param_set, aux)
+    T₀, p = temperature_profile(bl.param_set, z)
+    ρ = air_density(bl.param_set, T₀, p)
+    e_pot = gravitational_potential(bl.orientation, aux)
+    e_kin = FT(0)
+
     # Assign state variables
-    state.ρ = init_state.ρ
+    state.ρ = ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = init_state.ρe
+    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 
     nothing
 end
