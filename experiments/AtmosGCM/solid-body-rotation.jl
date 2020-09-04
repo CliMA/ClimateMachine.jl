@@ -14,38 +14,36 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Thermodynamics: air_density, total_energyy
+using ClimateMachine.Thermodynamics: air_density, total_energy
 
 using LinearAlgebra
 using StaticArrays
 using Test
 
 using CLIMAParameters
-using CLIMAParameters.Planet:
-    day, planet_radius
+using CLIMAParameters.Planet: day, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
 
-    # ATTENTION!: Below section is to change initial condition from reference state
-    ## The initial state is chosen to be in hydrostatic balance, but differs from
-    ## the reference state.
-    #temp_profile = DecayingTemperatureProfile{FT}(param_set, FT(300), FT(210), FT(9e3))
-    #
-    ## Useful variables
-    #z = altitude(bl.orientation, bl.param_set, aux)
-    #T₀, p = temperature_profile(bl.param_set, z)
-    #ρ = air_density(bl.param_set, T₀, p)
-    #e_pot = gravitational_potential(bl.orientation, aux)
-    #e_kin = FT(0)
+    # The initial state is in hydrostatic balance
+    # It is chosen to be the same as reference state
+    # But we should expect the flow to stay at rest
+    # with any hydrostatic initial state
+    temp_profile_init =
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+    z = altitude(bl.orientation, bl.param_set, aux)
+    T₀, p = temp_profile_init(bl.param_set, z)
+    ρ = air_density(bl.param_set, T₀, p)
+    e_pot = gravitational_potential(bl.orientation, aux)
+    e_kin = FT(0)
 
     # Assign state variables
-    state.ρ = aux.ref_state.ρ
+    state.ρ = ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    #state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
-    state.ρe = aux.ref_state.ρe 
+    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 
     nothing
 end
@@ -155,7 +153,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(1), FT(1), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
