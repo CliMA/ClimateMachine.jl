@@ -53,11 +53,13 @@ function mem_copy!(m::NTupleContainingModel{N}, dst::Vars, src::Vars) where {N}
     dst.scalar_model.x = src.scalar_model.x
 
     up = vuntuple(i -> src.ntuple_model[i].scalar_model.x, N)
+    up_v = vuntuple(i -> src.ntuple_model[i].vector_model.x, N)
     up_sv = SVector(up...)
 
     @unroll_map(N) do i
         dst.ntuple_model[i].scalar_model.x = up[i]    # index into tuple
         dst.ntuple_model[i].scalar_model.x = up_sv[i] # index into SArray
+        dst.ntuple_model[i].vector_model.x = up_v[i]
     end
 end
 
