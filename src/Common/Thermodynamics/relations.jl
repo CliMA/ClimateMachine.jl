@@ -1,7 +1,8 @@
 # Atmospheric equation of state
 export air_pressure,
     air_temperature, air_density, specific_volume, soundspeed_air
-export total_specific_humidity
+export total_specific_humidity,
+    liquid_specific_humidity, ice_specific_humidity, vapor_specific_humidity
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -31,7 +32,6 @@ export liquid_ice_pottemp,
 export air_temperature_from_liquid_ice_pottemp,
     air_temperature_from_liquid_ice_pottemp_given_pressure
 export air_temperature_from_liquid_ice_pottemp_non_linear
-export vapor_specific_humidity
 export virtual_temperature
 export temperature_and_humidity_from_virtual_temperature
 export air_temperature_from_ideal_gas_law
@@ -67,14 +67,6 @@ gas_constant_air(ts::ThermodynamicState) =
     gas_constant_air(ts.param_set, PhasePartition(ts))
 gas_constant_air(ts::PhaseDry{FT}) where {FT <: Real} = FT(R_d(ts.param_set))
 
-"""
-    vapor_specific_humidity(q::PhasePartition{FT})
-
-The vapor specific humidity, given a `PhasePartition` `q`.
-"""
-vapor_specific_humidity(q::PhasePartition) = q.tot - q.liq - q.ice
-vapor_specific_humidity(ts::ThermodynamicState) =
-    vapor_specific_humidity(PhasePartition(ts))
 
 """
     air_pressure(param_set, T, ρ[, q::PhasePartition])
@@ -161,6 +153,43 @@ or
 total_specific_humidity(ts::ThermodynamicState) = ts.q_tot
 total_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
 total_specific_humidity(ts::PhaseNonEquil) = ts.q.tot
+
+"""
+    liquid_specific_humidity(ts::ThermodynamicState)
+    liquid_specific_humidity(q::PhasePartition)
+
+Liquid specific humidity given
+ - `ts` a thermodynamic state
+or
+ - `q` a `PhasePartition`
+"""
+liquid_specific_humidity(q::PhasePartition) = q.liq
+liquid_specific_humidity(ts::ThermodynamicState) = PhasePartition(ts).liq
+liquid_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
+liquid_specific_humidity(ts::PhaseNonEquil) = ts.q.liq
+
+"""
+    ice_specific_humidity(ts::ThermodynamicState)
+    ice_specific_humidity(q::PhasePartition)
+
+Ice specific humidity given
+ - `ts` a thermodynamic state
+or
+ - `q` a `PhasePartition`
+"""
+ice_specific_humidity(q::PhasePartition) = q.ice
+ice_specific_humidity(ts::ThermodynamicState) = PhasePartition(ts).ice
+ice_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
+ice_specific_humidity(ts::PhaseNonEquil) = ts.q.ice
+
+"""
+    vapor_specific_humidity(q::PhasePartition{FT})
+
+The vapor specific humidity, given a `PhasePartition` `q`.
+"""
+vapor_specific_humidity(q::PhasePartition) = q.tot - q.liq - q.ice
+vapor_specific_humidity(ts::ThermodynamicState) =
+    vapor_specific_humidity(PhasePartition(ts))
 
 """
     cp_m(param_set, [q::PhasePartition])
