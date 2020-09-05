@@ -103,20 +103,20 @@ function atmos_source!(
     # Unpack vertical gradients
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
     ∂T∂z = dot(diffusive.moisture.∇T_gcm, k̂)
-    ρw_adv = -aux.gcminfo.wap / _grav
+    w_adv = -aux.gcminfo.wap / (aux.gcminfo.ρ * _grav)
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
     # Temperature contribution
-    source.ρe += cvm * aux.gcminfo.ρ * aux.gcminfo.tntha
-    source.ρe += cvm * aux.gcminfo.ρ * aux.gcminfo.tntva
-    source.ρe += cvm * aux.gcminfo.ρ * aux.gcminfo.tntr
-    source.ρe += cvm * ∂T∂z * ρw_adv
+    source.ρe += cvm * state.ρ * aux.gcminfo.tntha
+    source.ρe += cvm * state.ρ * aux.gcminfo.tntva
+    source.ρe += cvm * state.ρ * aux.gcminfo.tntr
+    source.ρe += cvm * state.ρ * ∂T∂z * w_adv
     # Moisture contribution
-    source.ρe += _e_int_v0 * aux.gcminfo.tnhusha * aux.gcminfo.ρ
-    source.ρe += _e_int_v0 * aux.gcminfo.tnhusva * aux.gcminfo.ρ
-    source.ρe += _e_int_v0 * ∂qt∂z * ρw_adv
+    source.ρe += _e_int_v0 * state.ρ * aux.gcminfo.tnhusha
+    source.ρe += _e_int_v0 * state.ρ * aux.gcminfo.tnhusva
+    source.ρe += _e_int_v0 * state.ρ * ∂qt∂z * w_adv
     # GPU-friendly return nothing
     return nothing
 end
@@ -150,18 +150,18 @@ function atmos_source!(
     k̂ = vertical_unit_vector(atmos, aux)
     # Establish vertical orientation
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
-    ρw_adv = -aux.gcminfo.wap / _grav
+    w_adv = -aux.gcminfo.wap / (aux.gcminfo.ρ * _grav)
     # Establish thermodynamic state
     TS = thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
-    source.moisture.ρq_tot += aux.gcminfo.tnhusha * aux.gcminfo.ρ
-    source.moisture.ρq_tot += aux.gcminfo.tnhusva * aux.gcminfo.ρ
-    source.moisture.ρq_tot += ∂qt∂z * ρw_adv
+    source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusha
+    source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusva
+    source.moisture.ρq_tot += state.ρ * ∂qt∂z * w_adv
     
-    source.ρ += aux.gcminfo.tnhusha * aux.gcminfo.ρ
-    source.ρ += aux.gcminfo.tnhusva * aux.gcminfo.ρ
-    source.ρ += ∂qt∂z * ρw_adv
+    source.ρ += state.ρ * aux.gcminfo.tnhusha
+    source.ρ += state.ρ * aux.gcminfo.tnhusva
+    source.ρ += state.ρ * ∂qt∂z * w_adv
     # GPU-friendly return nothing
     return nothing
 end
