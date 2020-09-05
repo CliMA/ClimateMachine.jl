@@ -6,7 +6,7 @@ the Eddy-Diffusivity Mass-Flux model
 """
 module TurbulenceConvection
 
-using ..BalanceLaws: BalanceLaw, AbstractStateType
+using ..BalanceLaws: BalanceLaw, AbstractStateType, BoundaryCondition
 using ..VariableTemplates: @vars, Vars, Grad
 
 export TurbulenceConvectionModel, NoTurbConv

@@ -396,8 +396,7 @@ end
 import ..DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder,
     numerical_flux_first_order!,
-    numerical_boundary_flux_first_order!,
-    normal_boundary_flux_second_order!
+    numerical_boundary_flux_first_order!
 
 """
     function numerical_flux_first_order!(
@@ -633,23 +632,3 @@ function numerical_boundary_flux_first_order!(
         end
     end
 end
-
-"""
-    normal_boundary_flux_second_order!(nf, rem_balance_law::RemBL, args...)
-
-Currently the main models `normal_boundary_flux_second_order!` is called. If the
-subcomponents models have second order terms this would need to be updated.
-"""
-normal_boundary_flux_second_order!(
-    nf,
-    bctag,
-    rem_balance_law::RemBL,
-    fluxᵀn::Vars{S},
-    args...,
-) where {S} = normal_boundary_flux_second_order!(
-    nf,
-    bctag,
-    rem_balance_law.main,
-    fluxᵀn,
-    args...,
-)

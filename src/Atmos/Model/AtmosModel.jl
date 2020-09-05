@@ -45,7 +45,7 @@ import ClimateMachine.BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
-    boundary_conditions,
+    boundary_condition,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -65,8 +65,7 @@ import ClimateMachine.DGMethods:
 
 import ..DGMethods.NumericalFluxes:
     boundary_state!,
-    boundary_flux_second_order!,
-    normal_boundary_flux_second_order!,
+    numerical_boundary_flux_second_order!,
     NumericalFluxFirstOrder,
     NumericalFluxGradient,
     NumericalFluxSecondOrder,

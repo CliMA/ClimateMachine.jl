@@ -1,4 +1,4 @@
-abstract type MoistureBC end
+abstract type MoistureBC <: BoundaryCondition end
 
 """
     Impermeable() :: MoistureBC
@@ -25,17 +25,19 @@ with signature `fn(state, aux, t)`, returning the flux (in kg/m^2).
 struct PrescribedMoistureFlux{FN} <: MoistureBC
     fn::FN
 end
-function atmos_moisture_boundary_state!(
+function boundary_state!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
-    atmos,
+    atmos::AtmosModel,
     args...,
-) end
-function atmos_moisture_normal_boundary_flux_second_order!(
+) 
+    nothing
+end
+function numerical_boundary_flux_second_order!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n⁻,
     state⁻,
     diffusive⁻,
@@ -73,14 +75,14 @@ end
 function boundary_state!(
     nf,
     bc_moisture::BulkFormulaMoisture,
-    atmos,
+    atmos::AtmosModel,
     args...,
 ) end
 function numerical_boundary_flux_second_order!(
     nf,
     bc_moisture::BulkFormulaMoisture,
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n⁻,
     state_sfc⁻,
     diff_sfc⁻,

@@ -1,4 +1,4 @@
-abstract type EnergyBC end
+abstract type EnergyBC <: BoundaryCondition end
 
 using ..TurbulenceClosures
 

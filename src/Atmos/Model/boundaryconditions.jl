@@ -20,7 +20,7 @@ export AtmosBC,
 export average_density_sfc_int
 
 
-boundary_conditions(m::AtmosModel) = m.boundarycondition
+boundary_condition(m::AtmosModel) = m.problem.boundarycondition
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
@@ -38,13 +38,6 @@ Base.@kwdef struct AtmosBC{M, E, Q, TR, TC} <: BoundaryCondition
     turbconv::TC = NoTurbConvBC()
 end
 
-<<<<<<< HEAD
-=======
-function boundary_state!(nf, atmos::AtmosModel, args...)
-    atmos_boundary_state!(nf, atmos.problem.boundarycondition, atmos, args...)
-end
-
->>>>>>> master
 function boundary_state!(
     nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
     bc,
@@ -63,101 +56,8 @@ function boundary_state!(nf, bc::AtmosBC, atmos::AtmosModel, args...)
     boundary_state!(nf, bc.turbconv, atmos, args...)
 end
 
-<<<<<<< HEAD
 function numerical_boundary_flux_second_order!(nf, bc::AtmosBC, atmos::AtmosModel, fluxᵀn::Vars, args...)
     numerical_boundary_flux_second_order!(
-=======
-
-function normal_boundary_flux_second_order!(
-    nf,
-    atmos::AtmosModel,
-    fluxᵀn::Vars{S},
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    bctype::Integer,
-    t,
-    args...,
-) where {S}
-    atmos_normal_boundary_flux_second_order!(
-        nf,
-        atmos.problem.boundarycondition,
-        atmos,
-        fluxᵀn,
-        n⁻,
-        state⁻,
-        diff⁻,
-        hyperdiff⁻,
-        aux⁻,
-        state⁺,
-        diff⁺,
-        hyperdiff⁺,
-        aux⁺,
-        bctype,
-        t,
-        args...,
-    )
-end
-@generated function atmos_normal_boundary_flux_second_order!(
-    nf,
-    tup::Tuple,
-    atmos::AtmosModel,
-    fluxᵀn,
-    n⁻,
-    state⁻,
-    diff⁻,
-    hyperdiff⁻,
-    aux⁻,
-    state⁺,
-    diff⁺,
-    hyperdiff⁺,
-    aux⁺,
-    bctype,
-    t,
-    args...,
-)
-    N = fieldcount(tup)
-    return quote
-        Base.Cartesian.@nif(
-            $(N + 1),
-            i -> bctype == i, # conditionexpr
-            i -> atmos_normal_boundary_flux_second_order!(
-                nf,
-                tup[i],
-                atmos,
-                fluxᵀn,
-                n⁻,
-                state⁻,
-                diff⁻,
-                hyperdiff⁻,
-                aux⁻,
-                state⁺,
-                diff⁺,
-                hyperdiff⁺,
-                aux⁺,
-                bctype,
-                t,
-                args...,
-            ), #expr
-            i -> error("Invalid boundary tag")
-        ) # elseexpr
-        return nothing
-    end
-end
-function atmos_normal_boundary_flux_second_order!(
-    nf,
-    bc::AtmosBC,
-    atmos::AtmosModel,
-    args...,
-)
-    atmos_momentum_normal_boundary_flux_second_order!(
->>>>>>> master
         nf,
         bc.momentum,
         atmos,

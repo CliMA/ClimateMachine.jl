@@ -1,4 +1,4 @@
-abstract type TracerBC end
+abstract type TracerBC <: BoundaryCondition end
 
 """
     ImpermeableTracer() :: TracerBC
