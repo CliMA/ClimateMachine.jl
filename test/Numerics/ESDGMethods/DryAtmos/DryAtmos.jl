@@ -23,7 +23,7 @@ using ClimateMachine.Orientations:
 using ClimateMachine.Atmos: NoReferenceState
 
 using CLIMAParameters: AbstractEarthParameterSet
-using CLIMAParameters.Planet: grav, cp_d, cv_d
+using CLIMAParameters.Planet: grav, cp_d, cv_d, planet_radius
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
@@ -78,7 +78,9 @@ end
 function altitude(::DryAtmosModel,
                   ::SphericalOrientation,
                   geom)
-  norm(geom.coord)
+  FT = eltype(geom)
+  _planet_radius::FT = planet_radius(param_set)
+  norm(geom.coord) - _planet_radius
 end
 
 """
@@ -124,7 +126,7 @@ end
 struct DryReferenceState{TP}
   temperature_profile::TP
 end
-vars_state_auxiliary(::DryAtmosModel, ::DryReferenceState, FT) = @vars(ρ::FT, ρe::FT)
+vars_state_auxiliary(::DryAtmosModel, ::DryReferenceState, FT) = @vars(p::FT, ρ::FT, ρe::FT)
 vars_state_auxiliary(::DryAtmosModel, ::NoReferenceState, FT) = @vars()
 
 function init_state_auxiliary!(
@@ -142,6 +144,8 @@ function init_state_auxiliary!(
     Φ = state_auxiliary.Φ
     ρu = SVector{3, FT}(0, 0, 0)
 
+
+    state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
     state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ)
 end
