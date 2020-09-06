@@ -53,6 +53,8 @@ approximation of all derivatives.
         state_2 = MArray{Tuple{num_state}, FT}(undef)
         aux_2 = MArray{Tuple{num_aux}, FT}(undef)
 
+        local_source = MArray{Tuple{num_state}, FT}(undef)
+
         Nq = N + 1
 
         Nqk = dim == 2 ? 1 : Nq
@@ -163,6 +165,23 @@ approximation of all derivatives.
             @unroll for s in 1:num_aux
                 aux_1[s] = shared_aux[i, j, s]
             end
+
+            fill!(local_source, -zero(eltype(local_source)))
+            source!(
+                balance_law,
+                Vars{vars_state_conservative(balance_law, FT)}(local_source),
+                Vars{vars_state_conservative(balance_law, FT)}(
+                    state_1,
+                ),
+                Vars{vars_state_auxiliary(balance_law, FT)}(
+                    aux_1,
+                ),
+            )
+
+            @unroll for s in 1:num_state
+                local_tendency[s] += α * local_source[s]
+            end
+
             for l in 1:Nq
                 # Compute derivatives wrt ξ1
                 # ( G_11 (Q_1 ∘ H_1) - (H_1 ∘ Q_1^T) G_11) 1 +
