@@ -24,22 +24,25 @@ using ClimateMachine.Orientations:
 using ClimateMachine.Atmos: NoReferenceState
 
 using CLIMAParameters: AbstractEarthParameterSet
-using CLIMAParameters.Planet: grav, cp_d, cv_d, planet_radius
+using CLIMAParameters.Planet: grav, cp_d, cv_d, planet_radius, Omega
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 @inline gamma(ps::EarthParameterSet) = cp_d(ps) / cv_d(ps)
 
-struct DryAtmosModel{D, O, RS} <: BalanceLaw
+struct DryAtmosModel{D, O, RS, S} <: BalanceLaw
     orientation::O
     ref_state::RS
+    sources::S
 end
 function DryAtmosModel{D}(orientation;
-                          ref_state=NoReferenceState()) where {D}
+                          ref_state=NoReferenceState(),
+                          sources=()) where {D}
     O = typeof(orientation)
     RS = typeof(ref_state)
-    DryAtmosModel{D, O, RS}(orientation, ref_state)
+    S = typeof(sources)
+    DryAtmosModel{D, O, RS, S}(orientation, ref_state, sources)
 end
 
 # XXX: Hack for Impenetrable.
@@ -375,10 +378,29 @@ function numerical_volume_fluctuation_flux_first_order!(
     D.ρu -= α * (Φ_1 - Φ_2) * I
 end
 
+struct Coriolis end
+
+function source!(
+    m::DryAtmosModel,
+    ::Coriolis,
+    source,
+    state_conservative,
+    state_auxiliary,
+)
+    FT = eltype(state_conservative)
+    _Omega::FT = Omega(param_set)
+    # note: this assumes a SphericalOrientation
+    source.ρu -= SVector(0, 0, 2 * _Omega) × state_conservative.ρu
+end
+
 function source!(
     m::DryAtmosModel,
     source,
     state_conservative,
     state_auxiliary,
 )
+  ntuple(Val(length(m.sources))) do s
+    Base.@_inline_meta
+    source!(m, m.sources[s], source, state_conservative, state_auxiliary)
+  end
 end
