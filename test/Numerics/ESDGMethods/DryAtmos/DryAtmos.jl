@@ -8,7 +8,8 @@ import ClimateMachine.BalanceLaws:
     entropy_variables_to_state!,
     init_state_auxiliary!,
     state_to_entropy,
-    boundary_state!
+    boundary_state!,
+    source!
 using StaticArrays: SVector
 using LinearAlgebra: dot, I
 using ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxFirstOrder
@@ -372,4 +373,12 @@ function numerical_volume_fluctuation_flux_first_order!(
     α = b_avg * ρ_log / 2b_1
 
     D.ρu -= α * (Φ_1 - Φ_2) * I
+end
+
+function source!(
+    m::DryAtmosModel,
+    source,
+    state_conservative,
+    state_auxiliary,
+)
 end
