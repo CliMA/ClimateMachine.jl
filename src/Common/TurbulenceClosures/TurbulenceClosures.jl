@@ -879,7 +879,12 @@ $(DocStringExtensions.FIELDS)
 """
 struct EquilMoistBiharmonic{FT} <: HyperDiffusion
     τ_timescale::FT
+    τ_timescale_q_tot::FT
 end
+
+EquilMoistBiharmonic(τ_timescale::FT) where {FT} =
+    EquilMoistBiharmonic(τ_timescale, τ_timescale)
+
 vars_state(::EquilMoistBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
 vars_state(::EquilMoistBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
@@ -932,11 +937,13 @@ function transform_post_gradient_laplacian!(
     ∇Δq_tot = hypertransform.hyperdiffusion.q_tot
     # Unpack
     τ_timescale = h.τ_timescale
+    τ_timescale_q_tot = h.τ_timescale_q_tot
     # Compute hyperviscosity coefficient
     ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
+    ν₄_q_tot = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale_q_tot
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
-    hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄ * ∇Δq_tot
+    hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄_q_tot * ∇Δq_tot
 end
 
 function flux_second_order!(

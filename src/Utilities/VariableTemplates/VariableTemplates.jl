@@ -47,12 +47,22 @@ function varsindex(::Type{S}, insym::Symbol) where {S <: NamedTuple}
     end
     error("symbol '$insym' not found")
 end
+unval(::Val{i}) where {i} = i
 Base.@propagate_inbounds function varsindex(
     ::Type{S},
-    sym::Symbol,
-    rest::Symbol...,
-) where {S <: NamedTuple}
-    varsindex(S, sym)[varsindex(fieldtype(S, sym), rest...)]
+    sym,
+    rest...,
+) where {S <: Union{NamedTuple, Tuple}}
+    if sym isa Symbol
+        vi = varsindex(fieldtype(S, sym), rest...)
+        return varsindex(S, sym)[vi]
+    else
+        i = unval(sym)
+        et = eltype(S)
+        offset = (i - 1) * varsize(et)
+        vi = varsindex(et, rest...)
+        return (vi.start + offset):(vi.stop + offset)
+    end
 end
 
 """
