@@ -37,7 +37,9 @@ const output_vtk = false
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
-#CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 120.0
+const X = 20
+CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / X
+CLIMAParameters.Planet.Omega(::EarthParameterSet) = 7.2921159e-5 * X
 
 include("DryAtmos.jl")
 
@@ -180,9 +182,9 @@ function main()
     numelem_horz = 5
     numelem_vert = 5
 
-    timeend = 10 * 24 * 60 * 60
+    timeend = 5 * 43200
     # timeend = 33 * 60 * 60 # Full simulation
-    outputtime = 12 * 60 * 60
+    outputtime = 600
 
 
     FT = Float64
@@ -293,7 +295,7 @@ function run(
     if output_vtk
         # create vtk dir
         vtkdir =
-            "vtk_esdg_acousticwave" *
+            "vtk_esdg_baroclinic" *
             "_poly$(polynomialorder)_horz$(numelem_horz)_vert$(numelem_vert)" *
             "_$(ArrayType)_$(FT)"
         mkpath(vtkdir)
@@ -336,7 +338,7 @@ function do_output(
     dg,
     Q,
     model,
-    testname = "ESDG_baroclinicwave",
+    testname = "baroclinicwave",
 )
     ## name of the file that this MPI rank will write
     filename = @sprintf(
