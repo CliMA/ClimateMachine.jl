@@ -5,6 +5,7 @@ ClimateMachine.init(parse_clargs = true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
@@ -27,32 +28,15 @@ const param_set = EarthParameterSet()
 
 function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
-
-    # The initial state is in hydrostatic balance
-    # It is chosen to be the same as reference state
-    # But we should expect the flow to stay at rest
-    # with any hydrostatic initial state
-    temp_profile_init =
-        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
-    z = altitude(bl.orientation, bl.param_set, aux)
-    T₀, p = temp_profile_init(bl.param_set, z)
-    ρ = air_density(bl.param_set, T₀, p)
-    e_pot = gravitational_potential(bl.orientation, aux)
-    e_kin = FT(0)
-
     # Assign state variables
-    state.ρ = ρ
+    state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
+    state.ρe = aux.ref_state.ρe
 
     nothing
 end
 
-function config_solid_body_rotation(FT, poly_order, resolution)
-    # Set up a reference state for linearization of equations
-    temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
-    ref_state = HydrostaticState(temp_profile_ref)
+function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
 
     # Set up the atmosphere model
     exp_name = "SolidBodyRotation"
@@ -77,6 +61,7 @@ function config_solid_body_rotation(FT, poly_order, resolution)
         param_set,
         init_solid_body_rotation!;
         model = model,
+        numerical_flux_first_order=CentralNumericalFluxFirstOrder()
     )
 
     return config
@@ -92,8 +77,13 @@ function main()
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
+    # Set up a reference state for linearization of equations
+    temp_profile_ref =
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+    ref_state = HydrostaticState(temp_profile_ref)
+
     # Set up driver configuration
-    driver_config = config_solid_body_rotation(FT, poly_order, (n_horz, n_vert))
+    driver_config = config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), ref_state)
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
@@ -116,6 +106,25 @@ function main()
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
+  
+    # initialize using a different ref state (mega-hack)
+    temp_profile_init =
+        DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
+    init_ref_state = HydrostaticState(temp_profile_init)
+
+    init_driver_config = config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), init_ref_state)
+    init_solver_config = ClimateMachine.SolverConfiguration(
+        timestart,
+        timeend,
+        init_driver_config,
+        Courant_number = CFL,
+        ode_solver_type = ode_solver_type,
+        CFL_direction = HorizontalDirection(),
+        diffdir = HorizontalDirection(),
+    )
+
+    # initialization
+    solver_config.Q .= init_solver_config.Q
 
     # Set up diagnostics
     dgn_config = config_diagnostics(FT, driver_config)
@@ -129,7 +138,8 @@ function main()
             AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
-            state_auxiliary = solver_config.dg.state_auxiliary,
+            # filter perturbations from the initial state
+            state_auxiliary = init_solver_config.dg.state_auxiliary,
         )
         nothing
     end
@@ -139,8 +149,11 @@ function main()
         solver_config;
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
+
+    relative_error = norm(solver_config.Q .- init_solver_config.Q) / norm(init_solver_config.Q)
+    @info "Relative error = $relative_error"
 end
 
 function config_diagnostics(FT, driver_config)
