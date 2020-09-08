@@ -43,9 +43,6 @@ struct ConstantViscosity{L} <: TurbulenceClosure
     ν::L
 end
 
-abstract type AdvectionTerm end
-struct NonLinearAdvection <: AdvectionTerm end
-
 """
     ShallowWaterModel <: BalanceLaw
 
@@ -220,7 +217,7 @@ advective_flux!(::SWModel, ::Nothing, _...) = nothing
 
 @inline function advective_flux!(
     m::SWModel,
-    A::NonLinearAdvection,
+    ::NonLinearAdvectionTerm,
     F::Grad,
     q::Vars,
     α::Vars,

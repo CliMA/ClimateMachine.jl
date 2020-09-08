@@ -366,7 +366,13 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, (x, y, z), t)
 end
 
-function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
+function bomex_model(
+    ::Type{FT},
+    config_type,
+    zmax,
+    surface_flux;
+    turbconv = NoTurbConv(),
+) where {FT}
 
     ics = init_bomex!     # Initial conditions
 
@@ -400,7 +406,6 @@ function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
 
     f_coriolis = FT(0.376e-4) # Coriolis parameter
 
-    turbconv = NoTurbConv()
     # Assemble source components
     source = (
         Gravity(),
