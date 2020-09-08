@@ -208,3 +208,100 @@ function shallow_boundary_state!(
 
     return nothing
 end
+
+"""
+    shallow_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{KinematicStress}, ::HBModel)
+
+apply kinematic stress boundary condition for velocity
+applies free slip conditions for first-order and gradient fluxes
+"""
+function shallow_boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    ::Impenetrable{KinematicStress},
+    shallow::SWModel,
+    turb::TurbulenceClosure,
+    args...,
+)
+    return shallow_boundary_state!(
+        nf,
+        Impenetrable(FreeSlip()),
+        shallow,
+        turb,
+        args...,
+    )
+end
+
+"""
+    shallow_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{KinematicStress}, ::HBModel)
+
+apply kinematic stress boundary condition for velocity
+sets ghost point to have specified flux on the boundary for ν∇u
+"""
+@inline function shallow_boundary_state!(
+    ::NumericalFluxSecondOrder,
+    ::Impenetrable{KinematicStress},
+    shallow::SWModel,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    Q⁺.U = Q⁻.U
+    D⁺.ν∇U = n⁻ * kinematic_stress(shallow.problem, A⁻.y, 1000)'
+    # applies windstress for now, will be fixed in a later PR
+
+    return nothing
+end
+
+"""
+    shallow_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{KinematicStress}, ::HBModel)
+
+apply kinematic stress boundary condition for velocity
+applies free slip conditions for first-order and gradient fluxes
+"""
+function shallow_boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    ::Penetrable{KinematicStress},
+    shallow::SWModel,
+    turb::TurbulenceClosure,
+    args...,
+)
+    return shallow_boundary_state!(
+        nf,
+        Penetrable(FreeSlip()),
+        shallow,
+        turb,
+        args...,
+    )
+end
+
+"""
+    shallow_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{KinematicStress}, ::HBModel)
+
+apply kinematic stress boundary condition for velocity
+sets ghost point to have specified flux on the boundary for ν∇u
+"""
+@inline function shallow_boundary_state!(
+    ::NumericalFluxSecondOrder,
+    ::Penetrable{KinematicStress},
+    shallow::SWModel,
+    ::TurbulenceClosure,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n⁻,
+    Q⁻,
+    D⁻,
+    A⁻,
+    t,
+)
+    Q⁺.u = Q⁻.u
+    D⁺.ν∇u = n⁻ * kinematic_stress(shallow.problem, A⁻.y, 1000)'
+    # applies windstress for now, will be fixed in a later PR
+
+    return nothing
+end

@@ -11,6 +11,7 @@ export DiagnosticsGroup,
     setup_atmos_default_perturbations,
     setup_atmos_refstate_perturbations,
     setup_atmos_turbulence_stats,
+    setup_atmos_mass_energy_loss,
     setup_dump_state_diagnostics,
     setup_dump_aux_diagnostics,
     setup_dump_spectra_diagnostics

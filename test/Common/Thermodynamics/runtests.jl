@@ -1102,6 +1102,8 @@ end
         @test typeof.(air_pressure.(ts)) == typeof.(e_int)
         @test typeof.(air_density.(ts)) == typeof.(e_int)
         @test typeof.(total_specific_humidity.(ts)) == typeof.(e_int)
+        @test typeof.(liquid_specific_humidity.(ts)) == typeof.(e_int)
+        @test typeof.(ice_specific_humidity.(ts)) == typeof.(e_int)
         @test typeof.(cp_m.(ts)) == typeof.(e_int)
         @test typeof.(cv_m.(ts)) == typeof.(e_int)
         @test typeof.(air_temperature.(ts)) == typeof.(e_int)
@@ -1153,6 +1155,10 @@ end
     @test all(
         total_specific_humidity.(ts_eq) .≈ total_specific_humidity.(ts_dry),
     )
+    @test all(
+        liquid_specific_humidity.(ts_eq) .≈ liquid_specific_humidity.(ts_dry),
+    )
+    @test all(ice_specific_humidity.(ts_eq) .≈ ice_specific_humidity.(ts_dry))
     @test all(cp_m.(ts_eq) .≈ cp_m.(ts_dry))
     @test all(cv_m.(ts_eq) .≈ cv_m.(ts_dry))
     @test all(air_temperature.(ts_eq) .≈ air_temperature.(ts_dry))

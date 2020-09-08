@@ -190,7 +190,7 @@ function config_gcm_experiment(
         problem = problem,
         orientation = orientation,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = setup_source(problem),

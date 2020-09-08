@@ -263,7 +263,7 @@ function config_baroclinic_wave(
         param_set;
         problem = problem,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = (Gravity(), Coriolis()),
