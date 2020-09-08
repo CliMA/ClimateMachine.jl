@@ -2,6 +2,7 @@
 # for liquid water content, ice content, and total water conserved
 
 #To be fixed - the grid spacing part, there is some onus on the user to define the τft function appropriately in the PrescribedTemperatureCase. We will define it in the SoilHeatModel case.
+# another issue - passing spacing?
 using MPI
 using OrderedCollections
 using StaticArrays

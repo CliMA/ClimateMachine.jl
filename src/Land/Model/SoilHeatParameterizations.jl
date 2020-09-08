@@ -1,6 +1,5 @@
 """
     SoilHeatParameterizations
-
 Functions for volumetric heat capacity, temperature as a function
 of volumetric internal energy, saturated thermal conductivity, thermal
 conductivity, relative saturation and the Kersten number are included.
@@ -20,14 +19,18 @@ export volumetric_heat_capacity,
     relative_saturation,
     kersten_number,
     volumetric_internal_energy_liq,
-    temperature_from_ρe_int
+    temperature_from_ρe_int,
+    k_solid,
+    k_dry,
+    ksat_unfrozen,
+    ksat_frozen
 
 
 """
     function temperature_from_ρe_int(
         ρe_int::FT,
         θ_i::FT,
-        ρcs::FT,
+        ρc_s::FT,
         param_set::AbstractParameterSet
     ) where {FT}
 
@@ -37,14 +40,14 @@ internal energy `ρe_int`.
 function temperature_from_ρe_int(
     ρe_int::FT,
     θ_i::FT,
-    ρcs::FT,
+    ρc_s::FT,
     param_set::AbstractParameterSet,
 ) where {FT}
 
     _ρ_i = FT(ρ_cloud_ice(param_set))
     _T_ref = FT(T_0(param_set))
     _LH_f0 = FT(LH_f0(param_set))
-    T = _T_ref + (ρe_int + θ_i * _ρ_i * _LH_f0) / ρcs
+    T = _T_ref + (ρe_int + θ_i * _ρ_i * _LH_f0) / ρc_s
     return T
 end
 
@@ -152,19 +155,19 @@ function kersten_number(
 ) where {FT, PS}
     a = soil_param_functions.a
     b = soil_param_functions.b
-    ν_om = soil_param_functions.ν_om
-    ν_sand = soil_param_functions.ν_sand
-    ν_gravel = soil_param_functions.ν_gravel
+    ν_ss_om = soil_param_functions.ν_ss_om
+    ν_ss_quartz = soil_param_functions.ν_ss_quartz
+    ν_ss_gravel = soil_param_functions.ν_ss_gravel
 
     if θ_i < eps(FT)
         K_e =
-            S_r^((FT(1) + ν_om - a * ν_sand - ν_gravel) / FT(2)) *
+            S_r^((FT(1) + ν_ss_om - a * ν_ss_quartz - ν_ss_gravel) / FT(2)) *
             (
                 (FT(1) + exp(-b * S_r))^(-FT(3)) -
                 ((FT(1) - S_r) / FT(2))^FT(3)
-            )^(FT(1) - ν_om)
+            )^(FT(1) - ν_ss_om)
     else
-        K_e = S_r^(FT(1) + ν_om)
+        K_e = S_r^(FT(1) + ν_ss_om)
     end
     return K_e
 end
@@ -201,6 +204,84 @@ function volumetric_internal_energy_liq(
     ρcp_l = FT(cp_l(param_set) * _ρ_l)
     ρe_int_l = ρcp_l * (T - _T_ref)
     return ρe_int_l
+end
+
+"""
+    function k_solid(
+        ν_ss_om::FT,
+        ν_ss_quartz::FT,
+        ν_ss_minerals::FT,
+        κ_quartz::FT,
+        κ_minerals::FT,
+        κ_om::FT,
+    ) where {FT}
+Computes the thermal conductivity of the solid material in soil.
+The `_ss_` subscript denotes that the volumetric fractions of the soil
+components are referred to the soil solid components, not including the pore
+space.
+"""
+function k_solid(
+    ν_ss_om::FT,
+    ν_ss_quartz::FT,
+    ν_ss_minerals::FT,
+    κ_quartz::FT,
+    κ_minerals::FT,
+    κ_om::FT,
+) where {FT}
+    return κ_om^ν_ss_om *
+           κ_quartz^ν_ss_quartz *
+           κ_minerals^(1 - ν_ss_om - ν_ss_quartz)
+end
+
+
+"""
+    function ksat_frozen(
+        κ_solid::FT,
+        porosity::FT,
+        κ_ice::FT
+    ) where {FT}
+Computes the thermal conductivity for saturated frozen soil.
+"""
+function ksat_frozen(κ_solid::FT, porosity::FT, κ_ice::FT) where {FT}
+    return κ_solid^(FT(1.0) - porosity) * κ_ice^(porosity)
+end
+
+"""
+    function ksat_unfrozen(
+        κ_solid::FT,
+        porosity::FT,
+        κ_l::FT
+    ) where {FT}
+Computes the thermal conductivity for saturated unfrozen soil.
+"""
+function ksat_unfrozen(κ_solid::FT, porosity::FT, κ_l::FT) where {FT}
+    return κ_solid^(FT(1.0) - porosity) * κ_l^porosity
+end
+
+"""
+    function ρb_ss(porosity::FT, ρp::FT) where {FT}
+Computes the dry soil bulk density from the dry soil particle
+density.
+"""
+function ρb_ss(porosity::FT, ρp::FT) where {FT}
+    return FT((1.0 - porosity) * ρp)
+end
+
+"""
+    function k_dry(
+        κ_solid::FT,
+        porosity::FT,
+        κ_air::FT,
+        ρp::FT
+    ) where {FT}
+Computes the thermal conductivity of dry soil.
+"""
+function k_dry(κ_solid::FT, porosity::FT, κ_air::FT, ρp::FT) where {FT}
+    a = FT(0.053)
+    ρb_val = ρb_ss(porosity, ρp)
+    numerator = (a * κ_solid - κ_air) * ρb_val + κ_air * ρp
+    denom = ρp - (FT(1.0) - a) * ρb_val
+    return numerator / denom
 end
 
 end # Module

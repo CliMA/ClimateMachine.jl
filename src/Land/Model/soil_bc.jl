@@ -454,7 +454,7 @@ function top_boundary_conditions!(
             bc.surface_state(aux⁻, t),
             land.param_set,
         )
-
+        aux⁺.soil.heat.T = bc.surface_state(aux⁻, t)
         state⁺.soil.heat.ρe_int = ρe_int_bc
     else
         nothing
@@ -544,7 +544,7 @@ function bottom_boundary_conditions!(
             bc.bottom_state(aux⁻, t),
             land.param_set,
         )
-
+        aux⁺.soil.heat.T = bc.bottom_state(aux⁻, t)
         state⁺.soil.heat.ρe_int = ρe_int_bc
     else
         nothing

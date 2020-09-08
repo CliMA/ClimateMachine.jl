@@ -1,6 +1,6 @@
 ### Soil heat model
 
-export SoilHeatModel, PrescribedTemperatureModel
+export SoilHeatModel, PrescribedTemperatureModel, get_temperature
 
 abstract type AbstractHeatModel <: AbstractSoilComponentModel end
 
@@ -128,10 +128,10 @@ end
 
 
 vars_state(heat::SoilHeatModel, st::Prognostic, FT) = @vars(ρe_int::FT)
-vars_state(heat::SoilHeatModel, st::Auxiliary, FT) = @vars(T::FT)
-vars_state(heat::SoilHeatModel, st::Gradient, FT) = @vars(T::FT)
+vars_state(heat::SoilHeatModel, st::Auxiliary, FT) = @vars(T::FT, κ∇T::SVector{3,FT})
+vars_state(heat::SoilHeatModel, st::Gradient, FT) = @vars(T::FT, κ∇T::SVector{3,FT})
 vars_state(heat::SoilHeatModel, st::GradientFlux, FT) =
-    @vars(κ∇T::SVector{3, FT})
+    @vars(κ∇T::SVector{3, FT},∇κ∇T::FT)
 
 function soil_init_aux!(
     land::LandModel,
@@ -142,6 +142,7 @@ function soil_init_aux!(
 )
     aux.soil.heat.T = heat.initialT(aux)
 end
+
 
 function land_nodal_update_auxiliary_state!(
     land::LandModel,
@@ -155,13 +156,14 @@ function land_nodal_update_auxiliary_state!(
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
     θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
     ρc_ds = soil.param_functions.ρc_ds
-    ρcs = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
     aux.soil.heat.T = temperature_from_ρe_int(
         state.soil.heat.ρe_int,
         θ_i,
-        ρcs,
+        ρc_s,
         land.param_set,
     )
+    
 end
 
 function compute_gradient_argument!(
@@ -174,16 +176,18 @@ function compute_gradient_argument!(
     t::Real,
 )
 
-    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
-    θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
-    ρc_ds = soil.param_functions.ρc_ds
-    ρcs = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
-    transform.soil.heat.T = temperature_from_ρe_int(
-        state.soil.heat.ρe_int,
-        θ_i,
-        ρcs,
-        land.param_set,
-    )
+#    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, t)
+#    θ_l = volumetric_liquid_fraction(ϑ_l, soil.param_functions.porosity)
+#    ρc_ds = soil.param_functions.ρc_ds
+#    ρc_s = volumetric_heat_capacity(θ_l, θ_i, ρc_ds, land.param_set)
+#    T1 = temperature_from_ρe_int(
+#        state.soil.heat.ρe_int,
+#        θ_i,
+#        ρc_s,
+#        land.param_set,
+#    )
+    transform.soil.heat.T = aux.soil.heat.T
+    transform.soil.heat.κ∇T = aux.soil.heat.κ∇T
 end
 
 function compute_gradient_flux!(
@@ -210,6 +214,9 @@ function compute_gradient_flux!(
     )
     diffusive.soil.heat.κ∇T =
         thermal_conductivity(κ_dry, kersten, κ_sat) * ∇transform.soil.heat.T
+    diffusive.soil.heat.∇κ∇T = ∇transform.soil.heat.κ∇T[3, 3]# +
+    #here is where we update that
+    aux.soil.heat.κ∇T  = thermal_conductivity(κ_dry, kersten, κ_sat) * ∇transform.soil.heat.T
 end
 
 function flux_second_order!(
