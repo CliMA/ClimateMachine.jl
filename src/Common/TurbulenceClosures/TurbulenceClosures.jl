@@ -1037,9 +1037,9 @@ $(DocStringExtensions.FIELDS)
 """
 struct ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
     "Horizontal Divergence Damping Coefficient"
-    νd_h::FT
+    νdd_h::FT
     "Vertical Divergence Damping Coefficient"
-    νd_v::FT
+    νdd_v::FT
 end
 vars_state(::ConstantCoeffDivergenceDamping, ::Gradient, FT) = @vars(ρu::SVector{3,FT})
 vars_state(::ConstantCoeffDivergenceDamping, ::GradientFlux, FT) = @vars(∇ρu::SMatrix{3,3,FT,9})
@@ -1089,7 +1089,7 @@ function flux_second_order!(
     ∇ρu = diffusive.divergencedamping.∇ρu
     div = tr(∇ρu)
     # Split viscosity components
-    νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * m.νd_h
+    νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * m.νdd_h
     νdd_v = SDiagonal(m.νdd_v * k̂)
     # Diagonal viscosity tensor 
     ν_dd = νdd_h .+ νdd_v
