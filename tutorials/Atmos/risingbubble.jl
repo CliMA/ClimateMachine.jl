@@ -67,7 +67,7 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -233,6 +233,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         init_state_prognostic = init_risingbubble!,    # Apply the initial condition
         ref_state = ref_state,                         # Reference state
         turbulence = SmagorinskyLilly(_C_smag),        # Turbulence closure model
+        divergencedamping = ConstantCoeffDivergenceDamping(FT(90),FT(0)),
         moisture = DryModel(),                         # Exclude moisture variables
         source = (Gravity(),),                         # Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         # Tracer model with diffusivity coefficients

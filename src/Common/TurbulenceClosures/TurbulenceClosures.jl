@@ -67,7 +67,6 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
 
-
 export TurbulenceClosureModel,
     ConstantViscosity,
     ConstantDynamicViscosity,
@@ -79,19 +78,24 @@ export TurbulenceClosureModel,
     NoHyperDiffusion,
     DryBiharmonic,
     EquilMoistBiharmonic,
-    NoViscousSponge,
-    UpperAtmosSponge,
+    DivergenceDampingModel, 
+    NoDivergenceDamping, 
+    ConstantCoeffDivergenceDamping,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
-    turbulence_nodal_update_auxiliary_state!,
+    init_aux_divdamping!,
+    compute_gradient_flux!,
+    turbulence_nodal_update_auxiliary_state!
+    NoViscousSponge,
+    UpperAtmosSponge,
+    turbulence_tensors,
     sponge_viscosity_modifier!
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
 # default functions for the generic turbulence closure
 # which will be overloaded with model specific functions.
-
 
 """
     Abstract type with default do-nothing behaviour for
@@ -111,6 +115,11 @@ abstract type ConstantViscosity <: TurbulenceClosureModel end
     Abstract type for Hyperdiffusion models
 """
 abstract type HyperDiffusion end
+
+"""
+    Abstract type for divergence damping models
+"""
+abstract type DivergenceDampingModel end
 
 """
     Abstract type for viscous sponge layers. 
@@ -203,7 +212,7 @@ function transform_post_gradient_laplacian!(
     t::Real,
 ) end
 function flux_second_order!(
-    h::HyperDiffusion,
+    ::HyperDiffusion,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -212,13 +221,55 @@ function flux_second_order!(
     t::Real,
 ) end
 function compute_gradient_flux!(
-    h::HyperDiffusion,
+    ::HyperDiffusion,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
 ) end
+
+## Default methods for divergence damping models
+function init_aux_divdamping!(
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+) end
+function divdamping_nodal_update_auxiliary_state!(
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_argument!(
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function compute_gradient_flux!(
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+) end
+function flux_second_order!(
+    ::DivergenceDampingModel,
+    ::BalanceLaw,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real
+) end
+
 
 function turbulence_tensors end
 function hyperviscosity_tensors end
@@ -341,6 +392,10 @@ Given the rate-of-strain tensor `S`, computes its magnitude.
 function strain_rate_magnitude(S::SHermitianCompact{3, FT, 6}) where {FT}
     return sqrt(2 * norm2(S))
 end
+
+###
+### Turbulence closures 
+###
 
 """
     WithDivergence
@@ -857,6 +912,10 @@ function turbulence_tensors(
     return ν, D_t, τ
 end
 
+###
+### Hyperdiffusion Models
+###
+
 """
   NoHyperDiffusion <: HyperDiffusion
 Defines a default hyperdiffusion model with zero hyperdiffusive fluxes.
@@ -1041,6 +1100,88 @@ function flux_second_order!(
     flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
     flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
 end
+
+###
+### Divergence Damping Models
+###
+
+""" 
+    NoDivergenceDamping <: DivergenceDampingModel 
+
+Default do-nothing methods
+"""
+struct NoDivergenceDamping <: DivergenceDampingModel end
+
+"""
+    ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
+
+Computes fluxes for horizontal divergence damping term, 
+# Fields
+
+$(DocStringExtensions.FIELDS)
+
+"""
+struct ConstantCoeffDivergenceDamping{FT} <: DivergenceDampingModel
+    "Horizontal Divergence Damping Coefficient"
+    νdd_h::FT
+    "Vertical Divergence Damping Coefficient"
+    νdd_v::FT
+end
+vars_state(::ConstantCoeffDivergenceDamping, ::Gradient, FT) = @vars(ρu::SVector{3,FT})
+vars_state(::ConstantCoeffDivergenceDamping, ::GradientFlux, FT) = @vars(∇ρu::SMatrix{3,3,FT,9})
+
+function init_aux_divdamping!(
+    ::ConstantCoeffDivergenceDamping,
+    ::BalanceLaw,
+    aux::Vars,
+    geom::LocalGeometry,
+)
+    nothing
+end
+function compute_gradient_argument!(
+    m::ConstantCoeffDivergenceDamping,
+    bl::BalanceLaw,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    transform.divergencedamping.ρu = state.ρu
+end
+
+function compute_gradient_flux!(
+    m::ConstantCoeffDivergenceDamping,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    diffusive.divergencedamping.∇ρu = ∇transform.divergencedamping.ρu
+end
+
+function flux_second_order!(
+    m::ConstantCoeffDivergenceDamping,
+    bl::BalanceLaw,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real
+)       
+    FT = eltype(state)
+    k̂ = vertical_unit_vector(bl.orientation, bl.param_set, aux)
+    # Unpack diffusive variables
+    ∇ρu = diffusive.divergencedamping.∇ρu
+    div = tr(∇ρu)
+    # Split viscosity components
+    νdd_h = (SDiagonal(1, 1, 1) - k̂ * k̂') * m.νdd_h
+    νdd_v = SDiagonal(m.νdd_v * k̂)
+    # Diagonal viscosity tensor 
+    ν_dd = νdd_h .+ νdd_v
+    flux.ρu -= SDiagonal(div,div,div) * ν_dd
+end
+
 
 # ### [Viscous Sponge](@id viscous-sponge)
 # `ViscousSponge` requires a user to specify a constant viscosity (kinematic), 
