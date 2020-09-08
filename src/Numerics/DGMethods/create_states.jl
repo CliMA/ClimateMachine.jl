@@ -5,12 +5,13 @@ function create_state(
     grid,
     st::AbstractStateType;
     fill_nan = false,
+    datatype = eltype(grid.vgeo)
 )
     topology = grid.topology
     Np = dofs_per_element(grid)
 
     h_vgeo = Array(grid.vgeo)
-    FT = eltype(h_vgeo)
+    FT = datatype
     DA = arraytype(grid)
 
     weights = view(h_vgeo, :, grid.Mid, :)

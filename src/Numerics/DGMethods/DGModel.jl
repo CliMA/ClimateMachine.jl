@@ -21,17 +21,20 @@ function DGModel(
     numerical_flux_first_order,
     numerical_flux_second_order,
     numerical_flux_gradient;
+    datatype = eltype(grid.vgeo),
     fill_nan = false,
     state_auxiliary = create_state(
         balance_law,
         grid,
         Auxiliary(),
         fill_nan = fill_nan,
+        datatype = datatype,
     ),
-    state_gradient_flux = create_state(balance_law, grid, GradientFlux()),
+    state_gradient_flux = create_state(
+        balance_law, grid, GradientFlux(), datatype = datatype),
     states_higher_order = (
-        create_state(balance_law, grid, GradientLaplacian()),
-        create_state(balance_law, grid, Hyperdiffusive()),
+        create_state(balance_law, grid, GradientLaplacian(), datatype = datatype),
+        create_state(balance_law, grid, Hyperdiffusive(), datatype = datatype),
     ),
     direction = EveryDirection(),
     diffusion_direction = direction,
@@ -50,7 +53,7 @@ function DGModel(
         states_higher_order,
         direction,
         diffusion_direction,
-        modeldata,
+        modeldata
     )
 end
 
@@ -587,6 +590,7 @@ function init_ode_state(
     args...;
     init_on_cpu = false,
     fill_nan = false,
+    datatype = datatype
 )
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
 
@@ -594,7 +598,7 @@ function init_ode_state(
     grid = dg.grid
 
     state_prognostic =
-        create_state(balance_law, grid, Prognostic(), fill_nan = fill_nan)
+        create_state(balance_law, grid, Prognostic(); fill_nan = fill_nan, datatype = datatype)
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -652,11 +656,11 @@ function init_ode_state(
     return state_prognostic
 end
 
-function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
+function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false, datatype = datatype)
     bl = dg.balance_law
     grid = dg.grid
 
-    state = create_state(bl, grid, Prognostic())
+    state = create_state(bl, grid, Prognostic(); datatype = datatype)
     state .= state_data
 
     device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
@@ -668,8 +672,8 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxiliary_state(bl, grid, aux_data)
-    state_auxiliary = create_state(bl, grid, Auxiliary())
+function restart_auxiliary_state(bl, grid, aux_data; datatype = datatype)
+    state_auxiliary = create_state(bl, grid, Auxiliary(); datatype = datatype)
     state_auxiliary = init_state(state_auxiliary, bl, grid, Auxiliary())
     state_auxiliary .= aux_data
     return state_auxiliary

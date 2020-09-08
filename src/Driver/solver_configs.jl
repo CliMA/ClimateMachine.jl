@@ -86,6 +86,7 @@ function SolverConfiguration(
     diffdir = EveryDirection(),
     timeend_dt_adjust = true,
     CFL_direction = EveryDirection(),
+    datatype = FT,
 ) where {FT <: AbstractFloat}
     @tic SolverConfiguration
 
@@ -106,7 +107,7 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
+        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux; datatype = datatype)
 
         dg = DGModel(
             bl,
@@ -117,6 +118,7 @@ function SolverConfiguration(
             state_auxiliary = state_auxiliary,
             diffusion_direction = diffdir,
             modeldata = modeldata,
+            datatype = datatype,
         )
 
         @info @sprintf(
@@ -124,7 +126,8 @@ function SolverConfiguration(
             driver_config.name,
             t0
         )
-        Q = restart_ode_state(dg, s_Q; init_on_cpu = init_on_cpu)
+        Q = restart_ode_state(dg, s_Q; init_on_cpu = init_on_cpu,
+            datatype = datatype)
     else
         dg = DGModel(
             bl,
@@ -135,6 +138,7 @@ function SolverConfiguration(
             fill_nan = Settings.debug_init,
             diffusion_direction = diffdir,
             modeldata = modeldata,
+            datatype = datatype,
         )
 
         if Settings.debug_init
@@ -148,7 +152,8 @@ function SolverConfiguration(
         end
 
         @info @sprintf("Initializing %s", driver_config.name,)
-        Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+        Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu,
+            datatype = datatype)
 
         if Settings.debug_init
             write_debug_init_vtk_and_pvtu(

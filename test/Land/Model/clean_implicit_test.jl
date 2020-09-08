@@ -149,8 +149,8 @@ ode_solver_type = ImplicitSolverType(OrdinaryDiffEq.KenCarp4(
     linsolve = GMRES(; verbose = true),
 ))
 
-t0 = FT(0)
-timeend = FT(60)
+t0 = Float64(0)
+timeend = Float64(60)
 
 ## Time solver choices
 use_implicit_solver = true
@@ -164,6 +164,7 @@ if use_implicit_solver
         ode_solver_type = ode_solver_type,
         Courant_number = given_Fourier,
         CFL_direction = VerticalDirection(),
+        datatype = FT,
     )
 else
     given_Fourier = FT(9e-2) # this is where the explicit solver breaks too; domain errors
@@ -174,6 +175,7 @@ else
         driver_config;
         Courant_number = given_Fourier,
         CFL_direction = VerticalDirection(),
+        datatype = FT,
     )
 end;
 

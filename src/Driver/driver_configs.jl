@@ -355,12 +355,12 @@ function SingleStackConfiguration(
 
     print_model_info(model)
 
-    xmin, xmax = zero(FT), one(FT)
-    ymin, ymax = zero(FT), one(FT)
+    xmin, xmax = zero(Float64), one(Float64)
+    ymin, ymax = zero(Float64), one(Float64)
     brickrange = (
         grid1d(xmin, xmax, nelem = 1),
         grid1d(ymin, ymax, nelem = 1),
-        grid1d(zmin, zmax, nelem = nelem_vert),
+        grid1d(zmin.value, zmax.value, nelem = nelem_vert),
     )
     topology = StackedBrickTopology(
         mpicomm,
@@ -368,10 +368,9 @@ function SingleStackConfiguration(
         periodicity = periodicity,
         boundary = boundary,
     )
-
     grid = DiscontinuousSpectralElementGrid(
         topology,
-        FloatType = FT,
+        FloatType = Float64,
         DeviceArray = array_type,
         polynomialorder = N,
         meshwarp = meshwarp,
