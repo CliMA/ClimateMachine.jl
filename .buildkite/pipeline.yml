@@ -897,14 +897,54 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_risingbubble"
-    key: "gpu_risingbubble"
+  - label: "gpu_dry_risingbubble"
+    key: "gpu_dry_risingbubble"
     command:
-      - "mpiexec julia --color=yes --project tutorials/Atmos/risingbubble.jl "
+      - "mpiexec julia --color=yes --project experiments/TestCase/risingbubble.jl "
     agents:
       config: gpu
       queue: central
-      slurm_ntasks: 3
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_moist_risingbubble"
+    key: "gpu_moist_risingbubble"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/risingbubble.jl --with-moisture "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_solid_body_rotation"
+    key: "gpu_solid_body_rotation"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_dry_baroclinic_wave"
+    key: "gpu_dry_baroclinic_wave"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/baroclinic_wave.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_moist_baroclinic_wave"
+    key: "gpu_moist_baroclinic_wave"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/baroclinic_wave.jl --with-moisture "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
   - label: "gpu_heldsuarez"
@@ -916,17 +956,7 @@ steps:
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
-
-  - label: "gpu_baroclinic_wave"
-    key: "gpu_baroclinic_wave"
-    command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/baroclinic_wave.jl "
-    agents:
-      config: gpu
-      queue: central
-      slurm_ntasks: 1
-      slurm_gres: "gpu:1"
-
+  
   - label: "gpu_nonhydrostatic_gravity_wave"
     key: "gpu_nonhydrostatic_gravity_wave"
     command:
