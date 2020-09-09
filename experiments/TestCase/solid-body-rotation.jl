@@ -83,7 +83,8 @@ function main()
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up driver configuration
-    driver_config = config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), ref_state)
+    driver_config =
+        config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), ref_state)
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
@@ -106,13 +107,18 @@ function main()
         CFL_direction = HorizontalDirection(),
         diffdir = HorizontalDirection(),
     )
-  
+
     # initialize using a different ref state (mega-hack)
     temp_profile_init =
         DecayingTemperatureProfile{FT}(param_set, FT(280), FT(230), FT(9e3))
     init_ref_state = HydrostaticState(temp_profile_init)
 
-    init_driver_config = config_solid_body_rotation(FT, poly_order, (n_horz, n_vert), init_ref_state)
+    init_driver_config = config_solid_body_rotation(
+        FT,
+        poly_order,
+        (n_horz, n_vert),
+        init_ref_state,
+    )
     init_solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
@@ -152,7 +158,9 @@ function main()
         check_euclidean_distance = false,
     )
 
-    relative_error = norm(solver_config.Q .- init_solver_config.Q) / norm(init_solver_config.Q)
+    relative_error =
+        norm(solver_config.Q .- init_solver_config.Q) /
+        norm(init_solver_config.Q)
     @info "Relative error = $relative_error"
 end
 
