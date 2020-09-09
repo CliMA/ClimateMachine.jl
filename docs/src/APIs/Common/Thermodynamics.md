@@ -49,6 +49,7 @@ gas_constant_air
 gas_constants
 has_condensate
 Ice
+ice_specific_humidity
 internal_energy
 internal_energy_sat
 latent_heat_fusion
@@ -60,6 +61,7 @@ liquid_fraction
 liquid_ice_pottemp
 liquid_ice_pottemp_given_pressure
 liquid_ice_pottemp_sat
+liquid_specific_humidity
 moist_static_energy
 q_vap_saturation
 q_vap_saturation_generic

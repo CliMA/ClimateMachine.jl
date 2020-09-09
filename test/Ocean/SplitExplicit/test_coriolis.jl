@@ -14,8 +14,8 @@ const FT = Float64
     include("../refvals/hydrostatic_spindown_refvals.jl")
 
     # simulation time
-    timeend = FT(24 * 3600) # s
-    tout = FT(1.5 * 3600) # s
+    timeend = FT(15 * 24 * 3600) # s
+    tout = FT(24 * 3600) # s
     timespan = (tout, timeend)
 
     # DG polynomial order
@@ -33,14 +33,15 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    config = SplitConfig("spindown_short", resolution, dimensions, Coupled())
+    config =
+        SplitConfig("rotating", resolution, dimensions, Coupled(), Rotating())
 
     run_split_explicit(
         config,
-        timespan;
-        dt_fast = 300, # seconds
-        dt_slow = 90 * 60, # seconds
-        refDat = refVals.ninety_minutes,
+        timespan,
+        dt_fast = 300,
+        dt_slow = 300,
+        # refDat = refVals.ninety_minutes,
         analytic_solution = true,
     )
 end

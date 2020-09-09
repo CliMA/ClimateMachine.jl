@@ -7,6 +7,7 @@ apis = [
     "Driver" => "APIs/Driver/index.md",
     "Atmos" => [
         "AtmosModel" => "APIs/Atmos/AtmosModel.md",
+        "Microphysics_0M" => "APIs/Atmos/Microphysics_0M.md",
         "Microphysics" => "APIs/Atmos/Microphysics.md",
         "Temperature Profiles" => "APIs/Atmos/TemperatureProfiles.md",
     ],

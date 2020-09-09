@@ -73,7 +73,7 @@ function config_balanced(
         config_type,
         param_set;
         ref_state = TestRefState(ref_state),
-        turbulence = ConstantViscosityWithDivergence{FT}(0),
+        turbulence = ConstantDynamicViscosity(FT(0)),
         hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
         source = Gravity(),

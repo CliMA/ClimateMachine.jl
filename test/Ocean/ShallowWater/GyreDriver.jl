@@ -12,11 +12,8 @@ using ClimateMachine.VariableTemplates: flattenednames
 using ClimateMachine.BalanceLaws
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.ShallowWater:
-    TurbulenceClosure,
-    LinearDrag,
-    ConstantViscosity,
-    AdvectionTerm,
-    NonLinearAdvection
+    TurbulenceClosure, LinearDrag, ConstantViscosity
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.OceanProblems
 
 using LinearAlgebra
@@ -71,7 +68,14 @@ end
 outname = "vtk_new_dt_" * gyre * "_" * advec
 
 function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
-    problem = HomogeneousBox{FT}(Lˣ, Lʸ, H, τₒ = τₒ)
+    problem = HomogeneousBox{FT}(
+        Lˣ,
+        Lʸ,
+        H,
+        τₒ = τₒ,
+        BC = OceanBC(Impenetrable(FreeSlip()), Insulating()),
+    )
+
 
     if stommel
         turbulence = LinearDrag{FT}(λ)
@@ -82,7 +86,7 @@ function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
     if linear
         advection = nothing
     else
-        advection = NonLinearAdvection()
+        advection = NonLinearAdvectionTerm()
     end
 
     model = ShallowWaterModel{FT}(
@@ -121,7 +125,15 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
 
     lsrk = LSRK144NiegemannDiehlBusch(dg, Q; dt = dt, t0 = 0)
 
-    cb = ()
+    nt_freq = floor(Int, 1 // 10 * timeend / dt)
+
+    cbcs_dg = ClimateMachine.StateCheck.sccreate(
+        [(Q, "2D state")],
+        nt_freq;
+        prec = 12,
+    )
+
+    cb = (cbcs_dg,)
 
     if test > 2
         outprefix = @sprintf("ic_mpirank%04d_ic", MPI.Comm_rank(mpicomm))
@@ -206,7 +218,12 @@ let
             range(FT(0); length = Ne + 1, stop = Lˣ),
             range(FT(0); length = Ne + 1, stop = Lʸ),
         )
-        topl = BrickTopology(mpicomm, brickrange, periodicity = (false, false))
+        topl = BrickTopology(
+            mpicomm,
+            brickrange,
+            periodicity = (false, false),
+            boundary = ((1, 1), (1, 1)),
+        )
 
         for (j, N) in enumerate(orderrange)
             @info "running Ne $Ne and N $N with"

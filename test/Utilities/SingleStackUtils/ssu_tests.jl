@@ -78,6 +78,20 @@ function test_hvar(
     @test state_vars_var["ρ"] ≈ target
 end
 
+function test_horizontally_ave(
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    Q_in::MPIStateArray,
+    vars,
+) where {T, dim, N}
+    Q = deepcopy(Q_in)
+    state_vars_var = get_horizontal_variance(grid, Q, vars)
+    i_vars = varsindex(vars, :ρ)
+    horizontally_average!(grid, Q, i_vars)
+    FT = eltype(Q)
+    state_vars_var = get_horizontal_variance(grid, Q, vars)
+    @test all(isapprox.(state_vars_var["ρ"], 0, atol = 10 * eps(FT)))
+end
+
 function target_meanprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, N},
 ) where {T, dim, N}
@@ -187,5 +201,12 @@ function main()
         reduce(f, ns)
     end
     @test r3 ≈ FT(2877.6) && z3 == 20
+
+    test_horizontally_ave(
+        driver_config.grid,
+        solver_config.Q,
+        vars_state(m, Prognostic(), FT),
+    )
+
 end
 main()

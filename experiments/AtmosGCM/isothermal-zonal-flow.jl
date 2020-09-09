@@ -92,7 +92,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
         param_set;
         init_state_prognostic = init_isothermal_zonal_flow!,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
     )

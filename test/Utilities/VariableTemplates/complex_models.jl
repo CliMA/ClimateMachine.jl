@@ -48,13 +48,23 @@ function state(m::CompositModel, T)
     end
 end
 
-Base.@kwdef struct NTupleModel{S} <: OneLayerModel
+Base.@kwdef struct NTupleModel{S, V, Nv} <: OneLayerModel
     scalar_model::S = ScalarModel()
+    vector_model::V = VectorModel{Nv}()
+end
+
+function NTupleModel(
+    Nv;
+    scalar_model::S = ScalarModel(),
+    vector_model::V = VectorModel{Nv}(),
+) where {S, V}
+    return NTupleModel{S, V, Nv}(scalar_model, vector_model)
 end
 
 function state(m::NTupleModel, T)
     @vars begin
         scalar_model::state(m.scalar_model, T)
+        vector_model::state(m.vector_model, T)
     end
 end
 
@@ -69,7 +79,7 @@ end
 function NTupleContainingModel(
     N,
     Nv;
-    ntuple_model = ntuple(i -> NTupleModel(), N),
+    ntuple_model = ntuple(i -> NTupleModel(Nv), N),
     vector_model = VectorModel{Nv}(),
     scalar_model = ScalarModel(),
 )

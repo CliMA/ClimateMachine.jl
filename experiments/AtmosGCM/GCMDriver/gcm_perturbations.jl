@@ -13,7 +13,9 @@ struct RandomPerturbation <: AbstractPerturbation end
 
 # Helper for parsing `--init-perturbation` command line argument
 function parse_perturbation_arg(arg)
-    if arg === nothing || arg == "deterministic"
+    if arg === nothing
+        perturbation = nothing
+    elseif arg == "deterministic"
         perturbation = DeterministicPerturbation()
     elseif arg == "zero"
         perturbation = NoPerturbation()

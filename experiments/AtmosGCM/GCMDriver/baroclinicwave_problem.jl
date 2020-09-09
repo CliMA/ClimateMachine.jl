@@ -18,10 +18,21 @@ struct BaroclinicWaveProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
 end
 function BaroclinicWaveProblem(;
     boundarycondition = (AtmosBC(), AtmosBC()),
-    perturbation = DeterministicPerturbation(),
-    base_state = BCWaveBaseState(),
-    moisture_profile = MoistLowTropicsMoistureProfile(),
+    perturbation = nothing,
+    base_state = nothing,
+    moisture_profile = nothing,
 )
+    # Set up defaults
+    if isnothing(perturbation)
+        perturbation = DeterministicPerturbation()
+    end
+    if isnothing(base_state)
+        base_state = BCWaveBaseState()
+    end
+    if isnothing(moisture_profile)
+        moisture_profile = MoistLowTropicsMoistureProfile()
+    end
+
     problem = (
         boundarycondition,
         init_gcm_experiment!,
