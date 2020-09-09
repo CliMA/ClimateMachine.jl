@@ -607,23 +607,12 @@ end
 
 @inline function coriolis_force!(m::HBModel, ::Uncoupled, S, Q, A, t)
     # f × u
-    f = coriolis_parameter(m, A.y)
+    f = coriolis_parameter(m, m.problem, A.y)
     u, v = Q.u # Horizontal components of velocity
     S.u -= @SVector [-f * v, f * u]
 
     return nothing
 end
-
-"""
-    coriolis_parameter(::HBModel)
-
-northern hemisphere coriolis
-
-# Arguments
-- `m`: model object to dispatch on and get coriolis parameters
-- `y`: y-coordinate in the box
-"""
-@inline coriolis_parameter(m::HBModel, y) = m.fₒ + m.β * y
 
 """
     wavespeed(::HBModel)
