@@ -61,7 +61,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         param_set,
         init_solid_body_rotation!;
         model = model,
-        numerical_flux_first_order=CentralNumericalFluxFirstOrder()
+        #numerical_flux_first_order=CentralNumericalFluxFirstOrder()
     )
 
     return config
