@@ -85,7 +85,7 @@ function test_horizontally_ave(
 ) where {T, dim, N}
     Q = deepcopy(Q_in)
     state_vars_var = get_horizontal_variance(grid, Q, vars)
-    i_vars = (varsindex(vars, :ρ),)
+    i_vars = varsindex(vars, :ρ)
     horizontally_average!(grid, Q, i_vars)
     FT = eltype(Q)
     state_vars_var = get_horizontal_variance(grid, Q, vars)
