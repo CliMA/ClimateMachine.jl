@@ -1,7 +1,7 @@
 using StaticArrays
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, BoundaryCondition
 
 import ClimateMachine.BalanceLaws:
     vars_state,
@@ -15,13 +15,14 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     init_state_prognostic!,
     boundary_state!,
+    boundary_condition,
     wavespeed
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
 import ClimateMachine.DGMethods.NumericalFluxes:
-    numerical_flux_first_order!, boundary_flux_second_order!
+    numerical_flux_first_order!, numerical_boundary_flux_second_order!
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -250,92 +251,93 @@ function init_state_prognostic!(
     initial_condition!(m.problem, state, aux, coords, t)
 end
 
-Neumann_data!(problem, ∇state, aux, x, t) = nothing
-Dirichlet_data!(problem, state, aux, x, t) = nothing
-
-function boundary_state!(
-    nf,
-    m::AdvectionDiffusion,
-    stateP::Vars,
-    auxP::Vars,
-    nM,
-    stateM::Vars,
-    auxM::Vars,
-    bctype,
-    t,
-    _...,
-)
-    if bctype == 1 # Dirichlet
-        Dirichlet_data!(m.problem, stateP, auxP, auxP.coord, t)
-    elseif bctype ∈ (2, 4) # Neumann
-        stateP.ρ = stateM.ρ
-    elseif bctype == 3 # zero Dirichlet
-        stateP.ρ = 0
-    end
+abstract type Dirichlet <: BoundaryCondition
+end
+abstract type Neumann <: BoundaryCondition
 end
 
-function boundary_state!(
-    nf::CentralNumericalFluxSecondOrder,
-    m::AdvectionDiffusion,
-    state⁺::Vars,
-    diff⁺::Vars,
-    aux⁺::Vars,
-    n⁻::SVector,
-    state⁻::Vars,
-    diff⁻::Vars,
-    aux⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
+struct DirichletZero <: Dirichlet # 1
+end
+struct DirichletData <: Dirichlet # 3
+end
+struct NeumannZero <: Neumann # 4
+end
+struct NeumannData <: Neumann # 2
+end
 
-    if bctype ∈ (1, 3) # Dirchlet
-        # Just use the minus side values since Dirchlet
-        diff⁺.σ = diff⁻.σ
-    elseif bctype == 2 # Neumann with data
-        FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient())
-        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
-            parent(diff⁺),
-            Size(3, ngrad),
-        ))
-        # Get analytic gradient
-        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
-        compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
-        # compute the diffusive flux using the boundary state
-    elseif bctype == 4 # zero Neumann
-        FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient())
-        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
-            parent(diff⁺),
-            Size(3, ngrad),
-        ))
-        # Get analytic gradient
-        ∇state.ρ = SVector{3, FT}(0, 0, 0)
-        # convert to auxDG variables
-        compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
-    end
+boundary_condition(::AdvectionDiffusion) = (DirichletZero(), NeumannData(), DirichletData(), NeumannData())
+
+function boundary_state!(nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, bc::Neumann,  m::AdvectionDiffusion, state⁺, args...)
     nothing
 end
+function boundary_state!(nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, bc::DirichletZero,  m::AdvectionDiffusion, state⁺, args...)
+    state⁺.ρ = 0
+end
+function boundary_state!(nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, bc::DirichletData,  m::AdvectionDiffusion, 
+    state⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    aux⁻,
+    t, args...)
+
+    Dirichlet_data!(m.problem, state⁺, aux⁺, aux⁺.coord, t)
+end
+
+
+function boundary_state!(nf::NumericalFluxSecondOrder, bc::Dirichlet, m::AdvectionDiffusion, args...)
+    nothing
+end
+function boundary_state!(nf::NumericalFluxSecondOrder, bc::Neumann, m::AdvectionDiffusion, 
+    state⁺,
+    diff⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    diff⁻,
+    aux⁻,
+    t,
+    _...,
+)
+
+    FT = eltype(diff⁺)
+    ngrad = number_states(m, Gradient())
+    ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
+        parent(diff⁺),
+        Size(3, ngrad),
+    ))
+    if bc isa NeumannZero
+        # Get analytic gradient
+        ∇state.ρ = SVector{3, FT}(0, 0, 0)
+    else
+        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    end
+    # convert to auxDG variables
+    compute_gradient_flux!(m, diff⁺, ∇state, aux⁻)
+    return nothing
+end
+
+
 boundary_state!(
-    nf::CentralNumericalFluxSecondOrder,
+    nf::NumericalFluxSecondOrder,
+    bc::Neumann,
     m::AdvectionDiffusion{dim, P, fluxBC, true},
-    state⁺::Vars,
-    diff⁺::Vars,
-    aux⁺::Vars,
-    n⁻::SVector,
-    state⁻::Vars,
-    diff⁻::Vars,
-    aux⁻::Vars,
-    bctype,
+    state⁺,
+    diff⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    diff⁻,
+    aux⁻,
     t,
     _...,
 ) where {dim, P, fluxBC} = nothing
 
-function boundary_flux_second_order!(
-    nf::CentralNumericalFluxSecondOrder,
+function numerical_boundary_flux_second_order!(
+    nf::NumericalFluxSecondOrder,
+    bc::Dirichlet,
     m::AdvectionDiffusion{dim, P, true},
-    F,
+    F::Grad,
     state⁺,
     diff⁺,
     hyperdiff⁺,
@@ -345,41 +347,73 @@ function boundary_flux_second_order!(
     diff⁻,
     hyperdiff⁻,
     aux⁻,
-    bctype,
     t,
     _...,
 ) where {dim, P}
 
-    # Default initialize flux to minus side
-    if bctype ∈ (1, 3) # Dirchlet
-        # Just use the minus side values since Dirchlet
-        flux_second_order!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
-    elseif bctype == 2 # Neumann data
-        FT = eltype(diff⁺)
-        ngrad = number_states(m, Gradient())
-        ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
-            parent(diff⁺),
-            Size(3, ngrad),
-        ))
-        # Get analytic gradient
-        Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
-        # get the diffusion coefficient
-        D = aux⁻.D
-        # exact the exact data
-        ∇ρ = ∇state.ρ
-        # set the flux
-        F.ρ = -D * ∇ρ
-    elseif bctype == 4 # Zero Neumann
-        FT = eltype(diff⁺)
-        F.ρ = SVector{3, FT}(0, 0, 0)
-    end
+    # Just use the minus side values since Dirichlet
+    flux_second_order!(m, F, state⁻, diff⁻, hyperdiff⁻, aux⁻, t)
+end
+
+function numerical_boundary_flux_second_order!(
+    nf::NumericalFluxSecondOrder,
+    bc::NeumannData,
+    m::AdvectionDiffusion{dim, P, true},
+    F::Grad,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    t,
+    _...,
+) where {dim, P}
+
+    FT = eltype(diff⁺)
+    ngrad = number_states(m, Gradient())
+    ∇state = Grad{vars_state(m, Gradient(), FT)}(similar(
+        parent(diff⁺),
+        Size(3, ngrad),
+    ))
+    # Get analytic gradient
+    Neumann_data!(m.problem, ∇state, aux⁻, aux⁻.coord, t)
+    # get the diffusion coefficient
+    D = aux⁻.D
+    # exact the exact data
+    ∇ρ = ∇state.ρ
+    # set the flux
+    F.ρ = -D * ∇ρ
+    return nothing
+end
+
+function numerical_boundary_flux_second_order!(
+    nf::NumericalFluxSecondOrder,
+    bc::NeumannZero,
+    m::AdvectionDiffusion{dim, P, true},
+    F::Grad,
+    state⁺,
+    diff⁺,
+    hyperdiff⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    diff⁻,
+    hyperdiff⁻,
+    aux⁻,
+    t,
+    _...,
+) where {dim, P}
+
+    FT = eltype(diff⁺)
+    F.ρ = SVector{3, FT}(0, 0, 0)
     nothing
 end
-boundary_flux_second_order!(
-    ::CentralNumericalFluxSecondOrder,
-    ::AdvectionDiffusion{dim, P, true, true},
-    _...,
-) where {dim, P} = nothing
+
+
 
 struct UpwindNumericalFlux <: NumericalFluxFirstOrder end
 function numerical_flux_first_order!(
