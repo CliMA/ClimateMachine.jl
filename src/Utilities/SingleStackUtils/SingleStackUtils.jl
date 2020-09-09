@@ -324,8 +324,9 @@ function horizontally_average!(
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
     for ev in 1:size(state_data, 3), k in 1:Nqk, i_v in i_vars
-        Q_sum = sum((1:Nq, 1:Nq)) do ij
-            state_data[ij[1] + Nq * ((ij[2] - 1) + Nq * (k - 1)), i_v, ev]
+        Q_sum = 0
+        for i in 1:Nq, j in 1:Nq
+            Q_sum += state_data[i + Nq * ((j - 1) + Nq * (k - 1)), i_v, ev]
         end
         Q_ave = Q_sum / (Nq * Nq)
         for i in 1:Nq, j in 1:Nq
