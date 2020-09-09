@@ -287,7 +287,7 @@ function main()
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = "6shours" # chosen to allow a single diagnostics collection
+    interval = "12shours" # chosen to allow a single diagnostics collection
 
     _planet_radius = FT(planet_radius(param_set))
 
@@ -296,7 +296,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(1), FT(1), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
