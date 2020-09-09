@@ -1,5 +1,4 @@
-# # [Rising Thermal Bubble]
-
+#!/usr/bin/env julia --project
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
