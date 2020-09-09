@@ -72,7 +72,7 @@ function main()
     FT = Float64                             # floating type precision
     poly_order = 3                           # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
-    n_vert = 6                               # vertical element number
+    n_vert = 8                               # vertical element number
     n_days::FT = 0.5
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
