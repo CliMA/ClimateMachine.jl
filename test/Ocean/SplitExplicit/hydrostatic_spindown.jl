@@ -1,6 +1,6 @@
 include("split_explicit.jl")
 
-function SplitConfig(name, resolution, dimensions, coupling)
+function SplitConfig(name, resolution, dimensions, coupling, rotation = Fixed())
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
 
@@ -39,7 +39,7 @@ function SplitConfig(name, resolution, dimensions, coupling)
         polynomialorder = N,
     )
 
-    problem = SimpleBox{FT}(Lˣ, Lʸ, H)
+    problem = SimpleBox{FT}(Lˣ, Lʸ, H; rotation = rotation)
 
     model_3D = HydrostaticBoussinesqModel{FT}(
         param_set,
@@ -49,8 +49,6 @@ function SplitConfig(name, resolution, dimensions, coupling)
         αᵀ = FT(0),
         κʰ = FT(0),
         κᶻ = FT(0),
-        fₒ = FT(0),
-        β = FT(0),
     )
 
     model_2D = ShallowWaterModel{FT}(
@@ -60,8 +58,6 @@ function SplitConfig(name, resolution, dimensions, coupling)
         nothing;
         coupling = coupling,
         c = FT(1),
-        fₒ = FT(0),
-        β = FT(0),
     )
 
     return SplitConfig(
