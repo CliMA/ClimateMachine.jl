@@ -309,7 +309,14 @@ end
             offset += 1
         elseif T <: StaticArray
             N = length(T)
-            retexpr = :(array[:, ($(offset + 1)):($(offset + N))] = val)
+            retexpr = :(
+                array[
+                    :,
+                    # static range is used here to force dispatch to
+                    # StaticArrays setindex! because generic setindex! is slow
+                    StaticArrays.SUnitRange($(offset + 1), $(offset + N)),
+                ] = val
+            )
             offset += N
         else
             offset += varsize(T)
