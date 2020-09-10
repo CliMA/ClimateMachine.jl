@@ -64,6 +64,8 @@ liquid_ice_pottemp_sat
 liquid_specific_humidity
 moist_static_energy
 q_vap_saturation
+q_vap_saturation_liquid
+q_vap_saturation_ice
 q_vap_saturation_generic
 relative_humidity
 saturated
