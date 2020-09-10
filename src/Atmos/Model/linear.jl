@@ -42,8 +42,8 @@ end
     state::Vars,
     aux::Vars,
 )
-    ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
+    ρe_pot = state.δρ * gravitational_potential(orientation, aux)
+    return linearized_air_pressure(param_set, state.δρ, state.δρe, ρe_pot)
 end
 @inline function linearized_pressure(
     ::EquilMoist,
@@ -52,11 +52,11 @@ end
     state::Vars,
     aux::Vars,
 )
-    ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    linearized_air_pressure(
+    ρe_pot = state.δρ * gravitational_potential(orientation, aux)
+    return linearized_air_pressure(
         param_set,
-        state.ρ,
-        state.ρe,
+        state.δρ,
+        state.δρe,
         ρe_pot,
         state.moisture.ρq_tot,
     )
@@ -66,9 +66,9 @@ abstract type AtmosLinearModel <: BalanceLaw end
 
 function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
     @vars begin
-        ρ::FT
+        δρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        δρe::FT
         turbulence::vars_state(lm.atmos.turbulence, st, FT)
         hyperdiffusion::vars_state(lm.atmos.hyperdiffusion, st, FT)
         moisture::vars_state(lm.atmos.moisture, st, FT)
@@ -189,16 +189,16 @@ function flux_first_order!(
     ref = aux.ref_state
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(
+    flux.δρ = state.ρu
+    δp = linearized_pressure(
         lm.atmos.moisture,
         lm.atmos.param_set,
         lm.atmos.orientation,
         state,
         aux,
     )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+    flux.ρu += δp * I
+    flux.δρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
 end
 source!(::AtmosAcousticLinearModel, _...) = nothing
@@ -224,16 +224,16 @@ function flux_first_order!(
     ref = aux.ref_state
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
-    pL = linearized_pressure(
+    flux.δρ = state.ρu
+    δp = linearized_pressure(
         lm.atmos.moisture,
         lm.atmos.param_set,
         lm.atmos.orientation,
         state,
         aux,
     )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    flux.ρu += δp * I
+    flux.δρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
     nothing
 end
 function source!(
@@ -247,7 +247,7 @@ function source!(
 ) where {Dir <: Direction}
     if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= state.ρ * ∇Φ
+        source.ρu -= state.δρ * ∇Φ
     end
     nothing
 end

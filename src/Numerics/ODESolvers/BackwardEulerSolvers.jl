@@ -132,5 +132,32 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
         @assert lin.isadjustable
         update_backward_Euler_solver!(lin, Q, α)
     end
+    # Q_tt = Qhat + α * rhs_implicit!(Q_tt)
+    # (I - α * rhs_implicit!) δQ_tt  + (I - α * rhs_implicit!)Q_ref = Qhat
+    # Q_tt = Q_ref +  δQ_tt 
+    # (I - α * rhs_implicit!) δQ_tt  = Qhat - (I - α * rhs_implicit!)Q_ref
+    # Subtract out reference state
+    
+    LQref = similar(Q)
+    Qref = similar(Q)
+
+    dg = lin.rhs!
+    aux = dg.state_auxiliary
+
+    Qref[:, 1, :] .= aux.ref_state[:, 1, :]
+    Qref[:, 2:4, :] .= 0
+    Qref[:, 5, :] .= aux.ref_state[:, 4, :]
+
+    dg(LQref, Qref, p, t)
+
+    Q[:, 1, :] .-= aux.ref_state[:, 1, :]   # density
+    Q[:, 5, :] .-= aux.ref_state[:, 4, :]   # energy
+    Qhat[:, 1, :] .-= @views Qref[:, 1, :] .- α.*LQref[:, 1, :]   # density
+    Qhat[:, 5, :] .-= @views Qref[:, 5, :] .- α.*LQref[:, 5, :]   # energy
+
     linearsolve!(lin.factors, lin.solver, Q, Qhat, p, t)
+
+    # Add reference back in
+    Q[:, 1, :] .+= aux.ref_state[:, 1, :]   # density
+    Q[:, 5, :] .+= aux.ref_state[:, 4, :]   # energy
 end
