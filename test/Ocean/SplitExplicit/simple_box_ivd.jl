@@ -15,6 +15,7 @@ using ClimateMachine.Ocean.SplitExplicit01
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.VTK
 
+using Test
 using MPI
 using LinearAlgebra
 using StaticArrays
@@ -318,6 +319,7 @@ function main()
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
+        @test checkPass
         @info @sprintf("""Compare vs RefVals: %s""", checkRep)
     end
 
@@ -458,4 +460,6 @@ const τₒ = 1e-1
 const λʳ = 10 // 86400 # m/s
 const θᴱ = 10    # deg.C
 
-main()
+@testset "$(@__FILE__)" begin
+    main()
+end
