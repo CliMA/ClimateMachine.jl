@@ -903,6 +903,32 @@ function numerical_flux_first_order!(
     end
 end
 
+"""
+    NumericalFluxFirstOrder()
+        ::HLLCNumericalFlux,
+        balance_law::AtmosModel,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+An implementation of the numerical flux based on the HLLC method for
+the AtmosModel. For more information on this particular implementation,
+see Chapter 10.4 in the provided reference below.
+
+## References
+    @book{toro2013riemann,
+        title={Riemann solvers and numerical methods for fluid dynamics: a practical introduction},
+        author={Toro, Eleuterio F},
+        year={2013},
+        publisher={Springer Science & Business Media}
+    }
+"""
 function numerical_flux_first_order!(
     ::HLLCNumericalFlux,
     balance_law::AtmosModel,
@@ -919,6 +945,9 @@ function numerical_flux_first_order!(
     num_state_prognostic = number_states(balance_law, Prognostic())
     param_set = balance_law.param_set
 
+    # Extract the first-order fluxes from the AtmosModel (underlying BalanceLaw)
+    # and compute normals on the positive + and negative - sides of the
+    # interior facets
     flux⁻ = similar(parent(fluxᵀn), Size(3, num_state_prognostic))
     fill!(flux⁻, -zero(FT))
     flux_first_order!(
@@ -943,6 +972,8 @@ function numerical_flux_first_order!(
     )
     fluxᵀn⁺ = flux⁺' * normal_vector
 
+    # Extract relevant fields and thermodynamic variables defined on
+    # the positive + and negative - sides of the interior facets
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.ρe
@@ -975,10 +1006,12 @@ function numerical_flux_first_order!(
     e⁺ = ρe⁺ / ρ⁺
     p⁺ = air_pressure(ts⁺)
     c⁺ = soundspeed_air(ts⁺)
+
+    # Wave speeds estimates S⁻ and S⁺
     S⁻ = min(uᵀn⁻ - c⁻, uᵀn⁺ - c⁺)
     S⁺ = max(uᵀn⁻ + c⁻, uᵀn⁺ + c⁺)
 
-    # Compute the middle wave speed S⁰
+    # Compute the middle wave speed S⁰ in the contact/star region
     S⁰ =
         (p⁺ - p⁻ + ρ⁻ * uᵀn⁻ * (S⁻ - uᵀn⁻) - ρ⁺ * uᵀn⁺ * (S⁺ - uᵀn⁺)) /
         (ρ⁻ * (S⁻ - uᵀn⁻) - ρ⁺ * (S⁺ - uᵀn⁺))
@@ -1009,7 +1042,7 @@ function numerical_flux_first_order!(
     pD[4] = momentum_p * normal_vector[3]
     pD[5] = p⁰ * S⁰
 
-    # Computes both +/- sides of intermediate flux term F⁰
+    # Computes both +/- sides of intermediate flux term flux⁰
     flux⁰⁻ =
         (S⁰ * (S⁻ * parent(state_prognostic⁻) - fluxᵀn⁻) + S⁻ * pD) / (S⁻ - S⁰)
     flux⁰⁺ =
