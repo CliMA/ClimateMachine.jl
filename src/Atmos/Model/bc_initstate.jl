@@ -11,7 +11,22 @@ struct InitStateBC <: BoundaryCondition end
 
 
 function boundary_state!(
-    _,
+    ::Union{NumericalFluxFirstOrder,NumericalFluxGradient},
+    bc::InitStateBC,
+    m::AtmosModel,
+    state⁺,
+    aux⁺,
+    n⁻,
+    state⁻,
+    aux⁻,
+    t,
+    args...,
+)
+    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+end
+
+function boundary_state!(
+    ::NumericalFluxSecondOrder,
     bc::InitStateBC,
     m::AtmosModel,
     state⁺,
