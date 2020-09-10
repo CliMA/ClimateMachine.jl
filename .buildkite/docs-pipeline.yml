@@ -1,0 +1,18 @@
+env:
+  OPENBLAS_NUM_THREADS: 1
+  CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
+  CLIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
+  CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
+
+steps:
+  - label: "Build docs"
+    command:
+      - "julia -e 'using Pkg; Pkg.instantiate()'"
+      - "julia -e 'using Pkg; Pkg.precompile()'"
+      - "julia --procs=1 docs/make.jl"
+    env:
+      JULIA_PROJECT: "docs/" 
+    agents:
+      config: cpu
+      queue: central
+      slurm_nodes: 1
