@@ -20,7 +20,7 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.BalanceLaws:
-    Prognostic, Auxiliary, AbstractStateType, BalanceLaw
+    Prognostic, Auxiliary, AbstractStateType, BalanceLaw, BoundaryCondition
 
 using LinearAlgebra
 using StaticArrays
@@ -34,6 +34,7 @@ import ClimateMachine.DGMethods:
     flux_first_order!,
     flux_second_order!,
     source!,
+    boundary_condition,
     boundary_state!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!
@@ -46,6 +47,8 @@ import ClimateMachine.DGMethods.NumericalFluxes:
     numerical_boundary_flux_first_order!
 
 struct ConservationTestModel <: BalanceLaw end
+struct ConservationTestBC <: BoundaryCondition end
+boundary_condition(::ConservationTestModel) = ConservationTestBC()
 
 vars_state(::ConservationTestModel, ::Auxiliary, T) = @vars(vel::SVector{3, T})
 vars_state(::ConservationTestModel, ::Prognostic, T) = @vars(q::T, p::T)
@@ -99,6 +102,7 @@ struct ConservationTestModelNumFlux <: NumericalFluxFirstOrder end
 
 boundary_state!(
     ::CentralNumericalFluxSecondOrder,
+    ::ConservationTestBC,
     ::ConservationTestModel,
     _...,
 ) = nothing
@@ -130,6 +134,7 @@ end
 
 function numerical_boundary_flux_first_order!(
     ::ConservationTestModelNumFlux,
+    ::ConservationTestBC,
     bl::BalanceLaw,
     fluxᵀn::Vars{S},
     n::SVector,
@@ -137,7 +142,6 @@ function numerical_boundary_flux_first_order!(
     aux⁻::Vars{A},
     state⁺::Vars{S},
     aux⁺::Vars{A},
-    bctype,
     t,
     direction,
     state1⁻::Vars{S},
