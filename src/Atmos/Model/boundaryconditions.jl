@@ -35,8 +35,34 @@ Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
     turbconv::TC = NoTurbConvBC()
 end
 
-function boundary_state!(nf, atmos::AtmosModel, args...)
-    atmos_boundary_state!(nf, atmos.problem.boundarycondition, atmos, args...)
+function boundary_state!(
+    nf,
+    atmos::AtmosModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+)
+    atmos_boundary_state!(
+        nf,
+        atmos.problem.boundarycondition,
+        atmos,
+        state⁺,
+        aux⁺,
+        n,
+        state⁻,
+        aux⁻,
+        bctype,
+        t,
+        args...,
+    )
+    # update moisture auxiliary variables (perform saturation adjustment, if necessary)
+    # to make thermodynamic quantities consistent with the boundary state
+    atmos_nodal_update_auxiliary_state!(atmos.moisture, atmos, state⁺, aux⁺, t)
 end
 
 function boundary_state!(
