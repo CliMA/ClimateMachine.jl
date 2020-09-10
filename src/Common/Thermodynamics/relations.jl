@@ -791,8 +791,8 @@ and `q.ice/(q.liq + q.ice)` that are liquid and ice, respectively.
 
 If the `PhasePartition` `q` is not given, or has zero liquid and ice specific humidities,
 the saturation specific humidity is that over a mixture of liquid and ice, with the
-fraction of liquid given by temperature dependent `liquid_fraction(param_set, T, phase_type)` and the
-fraction of ice by the complement `1 - liquid_fraction(param_set, T, phase_type)`.
+fraction of liquid given by temperature dependent `liquid_fraction(param_set, T, phase_type)`
+and the fraction of ice by the complement `1 - liquid_fraction(param_set, T, phase_type)`.
 """
 function q_vap_saturation(
     param_set::APS,
@@ -1086,7 +1086,15 @@ function ∂e_int_∂T(
 end
 
 """
-    saturation_adjustment(param_set, e_int, ρ, q_tot)
+    saturation_adjustment(
+        param_set,
+        e_int,
+        ρ,
+        q_tot,
+        phase_type,
+        maxiter,
+        temperature_tol
+    )
 
 Compute the temperature that is consistent with
 
@@ -1095,10 +1103,8 @@ Compute the temperature that is consistent with
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
  - `phase_type` a thermodynamic state type
- - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
-    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
-    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
+ - `temperature_tol` temperature tolerance
 
 by finding the root of
 
@@ -1115,9 +1121,12 @@ function saturation_adjustment(
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
-    tol::AbstractTolerance,
+    temperature_tol::FT,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
+    _cv_d = FT(cv_d(param_set))
+    # Convert temperature tolerance to a convergence criterion on internal energy residuals
+    tol = ResidualTolerance(temperature_tol * _cv_d)
 
     T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ, phase_type)
@@ -1128,14 +1137,14 @@ function saturation_adjustment(
         _T_freeze::FT = T_freeze(param_set)
         e_int_upper = internal_energy_sat(
             param_set,
-            _T_freeze + sqrt(eps(FT)),
+            _T_freeze + temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
         )
         e_int_lower = internal_energy_sat(
             param_set,
-            _T_freeze - sqrt(eps(FT)),
+            _T_freeze - temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
@@ -1209,7 +1218,15 @@ saturation adjustment using Secant method
 end
 
 """
-    saturation_adjustment_SecantMethod(param_set, e_int, ρ, q_tot)
+    saturation_adjustment_SecantMethod(
+        param_set,
+        e_int,
+        ρ,
+        q_tot,
+        phase_type,
+        maxiter,
+        temperature_tol
+    )
 
 Compute the temperature `T` that is consistent with
 
@@ -1218,10 +1235,8 @@ Compute the temperature `T` that is consistent with
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
  - `phase_type` a thermodynamic state type
- - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
-    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
-    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
+ - `temperature_tol` temperature tolerance
 
 by finding the root of
 
@@ -1236,9 +1251,13 @@ function saturation_adjustment_SecantMethod(
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
-    tol::AbstractTolerance,
+    temperature_tol::FT,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
+    _cv_d = FT(cv_d(param_set))
+    # Convert temperature tolerance to a convergence criterion on internal energy residuals
+    tol = ResidualTolerance(temperature_tol * _cv_d)
+
     T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ, phase_type)
     unsaturated = q_tot <= q_v_sat
@@ -1249,14 +1268,14 @@ function saturation_adjustment_SecantMethod(
         _T_freeze::FT = T_freeze(param_set)
         e_int_upper = internal_energy_sat(
             param_set,
-            _T_freeze + sqrt(eps(FT)),
+            _T_freeze + temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
         )
         e_int_lower = internal_energy_sat(
             param_set,
-            _T_freeze - sqrt(eps(FT)),
+            _T_freeze - temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
@@ -1309,7 +1328,15 @@ function saturation_adjustment_SecantMethod(
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice(param_set, θ_liq_ice, ρ, q_tot)
+    saturation_adjustment_q_tot_θ_liq_ice(
+        param_set,
+        θ_liq_ice,
+        ρ,
+        q_tot,
+        phase_type,
+        maxiter,
+        tol
+    )
 
 Compute the temperature `T` that is consistent with
 
@@ -1398,7 +1425,15 @@ function saturation_adjustment_q_tot_θ_liq_ice(
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(param_set, θ_liq_ice, p, q_tot, phase_type, tol, maxiter)
+    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
+        param_set,
+        θ_liq_ice,
+        p,
+        q_tot,
+        phase_type,
+        tol,
+        maxiter
+    )
 
 Compute the temperature `T` that is consistent with
 
@@ -1414,7 +1449,11 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, air_density(param_set, T, p, PhasePartition(q_tot)), phase_type, q_tot) = 0`
+`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set,
+                                      T,
+                                      air_density(param_set, T, p, PhasePartition(q_tot)),
+                                      phase_type,
+                                      q_tot) = 0`
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1739,7 +1778,10 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
 
 by finding the root of
-`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, air_pressure(param_set, T, ρ, q), q) = 0`
+`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set,
+                                                            θ_liq_ice,
+                                                            air_pressure(param_set, T, ρ, q),
+                                                            q) = 0`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(
     param_set::APS,
@@ -1796,7 +1838,11 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
 end
 
 """
-    air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, p[, q::PhasePartition])
+    air_temperature_from_liquid_ice_pottemp_given_pressure(
+        param_set,
+        θ_liq_ice,
+        p[, q::PhasePartition]
+    )
 
 The air temperature where
 
