@@ -13,6 +13,7 @@ import ..BalanceLaws:
     transform_post_gradient_laplacian!,
     wavespeed,
     boundary_state!,
+    boundary_condition,
     update_auxiliary_state!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
@@ -193,8 +194,12 @@ compute_gradient_argument!(rem_balance_law::RemBL, args...) =
 compute_gradient_flux!(rem_balance_law::RemBL, args...) =
     compute_gradient_flux!(rem_balance_law.main, args...)
 
-boundary_state!(nf, rem_balance_law::RemBL, args...) =
-    boundary_state!(nf, rem_balance_law.main, args...)
+boundary_condition(nf, rem_balance_law::RemBL) =
+    boundary_condition(nf, rem_balance_law.main)
+
+# TODO: this doesn't work for functions that intercept further up the chain (e.g. numerical_boundary_flux_second_order)
+boundary_state!(nf, bc, rem_balance_law::RemBL, args...) =
+    boundary_state!(nf, bc, rem_balance_law.main, args...)
 
 init_state_auxiliary!(rem_balance_law::RemBL, args...) =
     init_state_auxiliary!(rem_balance_law.main, args...)
@@ -204,6 +209,7 @@ nodal_init_state_auxiliary!(rem_balance_law::RemBL, args...) =
 
 init_state_prognostic!(rem_balance_law::RemBL, args...) =
     init_state_prognostic!(rem_balance_law.main, args...)
+
 
 """
     function flux_first_order!(
@@ -632,3 +638,15 @@ function numerical_boundary_flux_first_order!(
         end
     end
 end
+
+
+
+function NumericalFluxes.numerical_boundary_flux_second_order!(
+    nf,
+    bc::BoundaryCondition,
+    rembl::RemBL,
+    fluxᵀn::Vars,
+    args...)
+    numerical_boundary_flux_second_order!(nf,bc,rembl.main,fluxᵀn,args...)
+end
+

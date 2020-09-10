@@ -12,6 +12,7 @@ using ..VariableTemplates
 using ..Courant
 using ..BalanceLaws:
     BalanceLaw,
+    BoundaryCondition,
     AbstractStateType,
     Prognostic,
     Auxiliary,
