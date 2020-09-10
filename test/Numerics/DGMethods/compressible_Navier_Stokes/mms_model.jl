@@ -1,7 +1,7 @@
 using ClimateMachine.VariableTemplates
 
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux
+    BalanceLaw, BoundaryCondition, Prognostic, Auxiliary, Gradient, GradientFlux
 
 
 import ClimateMachine.BalanceLaws:
@@ -10,6 +10,7 @@ import ClimateMachine.BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_condition,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -19,8 +20,12 @@ import ClimateMachine.BalanceLaws:
 import ClimateMachine.DGMethods: init_ode_state
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
+using ClimateMachine.DGMethods.NumericalFluxes
 
 struct MMSModel{dim} <: BalanceLaw end
+
+struct InitStateBC <: BoundaryCondition end
+boundary_condition(::MMSModel) = InitStateBC()
 
 vars_state(::MMSModel, ::Auxiliary, T) = @vars(x1::T, x2::T, x3::T)
 vars_state(::MMSModel, ::Prognostic, T) =
@@ -148,14 +153,14 @@ function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real, direction)
 end
 
 function boundary_state!(
-    ::RusanovNumericalFlux,
+    ::NumericalFluxFirstOrder,
+    ::InitStateBC,
     bl::MMSModel,
     stateP::Vars,
     auxP::Vars,
     nM,
     stateM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 )
@@ -163,10 +168,11 @@ function boundary_state!(
 end
 
 # FIXME: This is probably not right....
-boundary_state!(::CentralNumericalFluxGradient, bl::MMSModel, _...) = nothing
+boundary_state!(::NumericalFluxGradient, ::InitStateBC, bl::MMSModel, _...) = nothing
 
 function boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
+    ::NumericalFluxSecondOrder,
+    ::InitStateBC,
     bl::MMSModel,
     stateP::Vars,
     diffP::Vars,
@@ -175,7 +181,6 @@ function boundary_state!(
     stateM::Vars,
     diffM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 )
