@@ -1,12 +1,6 @@
 name: Documentation
 
 on:
-  push:
-    branches:
-      - master
-      - trying
-      - staging
-    tags: '*'
   pull_request:
 
 jobs:
@@ -53,10 +47,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           XDG_RUNTIME_DIR: "/home/runner"
           JULIA_PROJECT: "docs/"
-          CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS: "true"
+          CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS: "false"
           ClIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
           CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
-        run: xvfb-run -- julia --procs=auto docs/make.jl
+          CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
+        run: xvfb-run -- julia --project=docs/ --color=yes docs/make.jl
       - name: Help! Documenter Failed
         run: |
           cat .github/workflows/doc_build_common_error_messages.md
