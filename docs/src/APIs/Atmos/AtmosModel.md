@@ -25,6 +25,13 @@ ClimateMachine.Atmos.ReferenceState
 ClimateMachine.Atmos.NoReferenceState
 ```
 
+## Thermodynamics
+
+```@docs
+ClimateMachine.Atmos.recover_thermo_state
+ClimateMachine.Atmos.new_thermo_state
+```
+
 ## Moisture
 
 ```@docs

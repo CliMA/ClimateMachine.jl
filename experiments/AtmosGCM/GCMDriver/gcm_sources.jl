@@ -25,7 +25,7 @@ function held_suarez_forcing!(
     ρu = state.ρu
     ρe = state.ρe
 
-    ts = thermo_state(bl, state, aux)
+    ts = recover_thermo_state(bl, state, aux)
     e_int = internal_energy(ts)
     T = air_temperature(ts)
     _R_d = FT(R_d(bl.param_set))
