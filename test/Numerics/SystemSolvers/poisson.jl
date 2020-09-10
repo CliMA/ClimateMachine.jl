@@ -19,13 +19,11 @@ import ClimateMachine.DGMethods:
     flux_first_order!,
     flux_second_order!,
     source!,
-    boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!
 
-import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
 import ClimateMachine.DGMethods.NumericalFluxes:
@@ -45,8 +43,6 @@ vars_state(::PoissonModel, ::Prognostic, T) = @vars(ϕ::T)
 vars_state(::PoissonModel, ::Gradient, T) = @vars(ϕ::T)
 vars_state(::PoissonModel, ::GradientFlux, T) = @vars(∇ϕ::SVector{3, T})
 
-boundary_state!(nf, bl::PoissonModel, _...) = nothing
-
 function flux_first_order!(::PoissonModel, _...) end
 
 function flux_second_order!(
@@ -62,10 +58,6 @@ function flux_second_order!(
 end
 
 struct PenaltyNumFluxDiffusive <: NumericalFluxSecondOrder end
-
-# There is no boundary since we are periodic
-numerical_boundary_flux_second_order!(nf::PenaltyNumFluxDiffusive, _...) =
-    nothing
 
 function numerical_flux_second_order!(
     ::PenaltyNumFluxDiffusive,
