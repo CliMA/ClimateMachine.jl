@@ -57,6 +57,18 @@ function DGModel(
     )
 end
 
+DGModel(dg::DGModel; datatype) = 
+    DGModel(
+        dg.balance_law,
+        dg.grid,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        dg.numerical_flux_gradient;
+        direction=dg.direction,
+        diffusion_direction=dg.diffusion_direction,
+        modeldata=dg.modeldata,
+        datatype=datatype)
+
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 

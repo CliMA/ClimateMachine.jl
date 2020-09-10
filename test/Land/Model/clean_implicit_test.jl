@@ -50,9 +50,10 @@ function GMRES(;mainkwargs...)
 end
 
 function calculate_dt(dg, model::LandModel, Q, Courant_number, t, direction)
-    Δt = one(eltype(Q))
-    CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
-    return Courant_number / CFL
+    # Δt = one(eltype(Q))
+    # CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
+    # return Courant_number / CFL
+    return 1.0 # ;)
 end
 
 function diffusive_courant(
@@ -89,7 +90,7 @@ end
 
 
 ClimateMachine.init()
-FT = ForwardDiff.Dual{Nothing,Float64,1}
+FT = Float64 # ForwardDiff.Dual{Nothing,Float64,1}
 
 # in the full model, we couple heat and water equations. but right now we are just
 # testing water, the one that has the numerical issues, and setting T = constant for all time
@@ -188,41 +189,58 @@ t = solver_config.t0
 dg(dQ, Q, nothing, t) # compute f(Q) and store in dQ
 
 D = ForwardDiff.Dual{Nothing,Float64,1}
+
+dgd = DGModel(dg, datatype=D)
+
+#  TODO: eventually have a way so that we can use the same auxiliary array storage 
+
+# 2) a function that will take a state vector + perturbation vector and compute the Jacobian at the state wrt to the perturbation vector.
+#  (Q, δQ) => (F(Q), J(Q)*δQ)
+# where J(Q) = ∇F(Q) 
+# or equivalently, J(Q)*δQ = d/dϵ F(Q+ϵ*δQ)
+# can we reuse the idea from https://github.com/JuliaDiff/ForwardDiff.jl/issues/319#issuecomment-685006123?
+
+using StructArrays
+function ForwardDiff.value(dx::StructArray{D}) where {D<:ForwardDiff.Dual}
+    dx.value
+end
+function ForwardDiff.partials(dx::StructArray{D}, i) where {D<:ForwardDiff.Dual}
+    getproperty(dx.partials.values,i)
+end
+
+function StructDual(x::AbstractVector{T}, w::AbstractVector{T}) where {T}
+    @assert length(x) == length(w)
+    partials = StructArray{ForwardDiff.Partials{1,T}}(
+        (StructArray{Tuple{T}}(
+            (w,)
+        ),)
+    )
+    duals = StructArray{ForwardDiff.Dual{Nothing,T,1}}(
+        (x, partials)
+    )
+    return duals
+end
+
+# Can we construct an MPIStateArray backed by a StructArray
+
+
 R = similar(Q, Array, D)
 R .= Q
 dR = similar(R)
-dg(dR,R, nothing, t)
+dgd(dR,R, nothing, t)
 
-# dQ/dt = f(Q,t)
-# explicit Euler
-#   Q_t+1 = Q_t + δt * f(Q_t)
-# implicit Euler
-#   Q_t+1 = Q_t + δt * f(Q_t+1)
-#   need to solve:
-#      Q_t+1 - δt * f(Q_t+1) = Q_t 
-#   if f(Q) = LQ
-#      (I - δt L) Q_t+1 = Q_t
+R[1] = ForwardDiff.Dual(R[1].value,1)
+dgd(dR,R, nothing, t);
+dR[1:10]
+map(d -> d.partials[1], dR[1:10])
 
-# f : ℝⁿ → ℝⁿ
-# ∇f : ℝⁿ → ℝⁿˣⁿ (Jacobian)
-# ∇f ⋅ v = d/dϵ f(Q + ϵv) (Jacobian action / Gateaux derivative)
-
-# e.g. if f(x) = Lx => ∇f(x) = L => ∇f(x) ⋅v = Lv
+ϵ = 1e-8
+dg(dQ, Q, nothing, t)
+Qp = copy(Q)
+Qp[1] = Q[1] + ϵ
+dQp = similar(Qp)
+dg(dQp, Qp, nothing, t)
+(dQp[1:10] .- dQ[1:10])/ϵ
 
 
-# how to do this?
-#  - symbolic : what is the expression that gives the Jacobian
-#  - numeric/finite differencing :
-#     for each i = 1:n
-#       (f(Q + ϵ_i v) - f(Q)) / ϵ where ϵ_i[j] = ϵ if i==j ; 0 otherwise
-#     need to evaluate f n+1 times
-#  - automatic differentiation
-#     forward vs reverse
-#     d = x + ϵ * y
-#     i * i = -1
-#     ϵ * ϵ =  0
 
-# https://github.com/JuliaDiff/ForwardDiff.jl/issues/319#issuecomment-685006123
-
-#Do the integration
-# @time ClimateMachine.invoke!(solver_config)

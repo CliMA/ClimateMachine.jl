@@ -11,6 +11,7 @@
 
 using CLIMAParameters
 using CLIMAParameters.Planet: planet_radius
+using ForwardDiff
 
 abstract type ConfigSpecificInfo end
 struct AtmosLESSpecificInfo <: ConfigSpecificInfo end
@@ -360,7 +361,7 @@ function SingleStackConfiguration(
     brickrange = (
         grid1d(xmin, xmax, nelem = 1),
         grid1d(ymin, ymax, nelem = 1),
-        grid1d(zmin.value, zmax.value, nelem = nelem_vert),
+        grid1d(ForwardDiff.value(zmin), ForwardDiff.value(zmax), nelem = nelem_vert),
     )
     topology = StackedBrickTopology(
         mpicomm,
