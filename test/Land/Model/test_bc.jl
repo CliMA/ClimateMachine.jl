@@ -114,7 +114,7 @@ using ClimateMachine.BalanceLaws:
 
     all_data = Dict([k => Dict() for k in 1:n_outputs]...)
 
-    step = [1]
+    iostep = [1]
     callback = GenericCallbacks.EveryXSimulationTime(
         every_x_simulation_time,
     ) do (init = false)
@@ -126,8 +126,8 @@ using ClimateMachine.BalanceLaws:
             "K" => K,
             "K∇h_vert" => K∇h_vert,
         )
-        all_data[step[1]] = all_vars
-        step[1] += 1
+        all_data[iostep[1]] = all_vars
+        iostep[1] += 1
         nothing
     end
 

@@ -146,7 +146,7 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
         auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Qe)))
         writevtk(outprefix, Qe, dg, statenames, dg.state_auxiliary, auxnames)
 
-        step = [0]
+        vtkstep = [0]
         vtkpath = outname
         mkpath(vtkpath)
         cbvtk = GenericCallbacks.EveryXSimulationSteps(1000) do
@@ -154,7 +154,7 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
                 "%s/mpirank%04d_step%04d",
                 vtkpath,
                 MPI.Comm_rank(mpicomm),
-                step[1]
+                vtkstep[1]
             )
             @debug "doing VTK output" outprefix
             statenames =
@@ -169,7 +169,7 @@ function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
                 dg.state_auxiliary,
                 auxiliarynames,
             )
-            step[1] += 1
+            vtkstep[1] += 1
             nothing
         end
         cb = (cb..., cbvtk)

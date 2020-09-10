@@ -83,10 +83,10 @@ function run_hydrostatic_spindown(; refDat = ())
 
     odesolver = lsrk_2D
 
-    step = [0, 0]
+    vtkstep = [0, 0]
     cbvector = make_callbacks(
         vtkpath,
-        step,
+        vtkstep,
         nout,
         mpicomm,
         odesolver,
@@ -120,7 +120,7 @@ end
 
 function make_callbacks(
     vtkpath,
-    step,
+    vtkstep,
     nout,
     mpicomm,
     odesolver,
@@ -134,13 +134,13 @@ function make_callbacks(
     mkpath(vtkpath)
     mkpath(vtkpath * "/fast")
 
-    function do_output(span, step, model, dg, Q)
+    function do_output(span, vtkstep, model, dg, Q)
         outprefix = @sprintf(
             "%s/%s/mpirank%04d_step%04d",
             vtkpath,
             span,
             MPI.Comm_rank(mpicomm),
-            step
+            vtkstep
         )
         @info "doing VTK output" outprefix
         statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
@@ -148,10 +148,10 @@ function make_callbacks(
         writevtk(outprefix, Q, dg, statenames, dg.state_auxiliary, auxnames)
     end
 
-    do_output("fast", step[2], model_fast, dg_fast, Q_fast)
+    do_output("fast", vtkstep[2], model_fast, dg_fast, Q_fast)
     cbvtk_fast = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("fast", step[2], model_fast, dg_fast, Q_fast)
-        step[2] += 1
+        do_output("fast", vtkstep[2], model_fast, dg_fast, Q_fast)
+        vtkstep[2] += 1
         nothing
     end
 

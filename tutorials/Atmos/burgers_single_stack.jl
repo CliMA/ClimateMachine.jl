@@ -586,8 +586,7 @@ data_nodal[1] = state_vars
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, the state variables are collected, combined into a single
-# `OrderedDict` and written to a NetCDF file (for each output step `step`).
-step = [0];
+# `OrderedDict` and written to a NetCDF file (for each output step).
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars_var = get_horizontal_variance(
         driver_config.grid,
@@ -606,7 +605,6 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
         i = 1,
         j = 1,
     )
-    step[1] += 1
     push!(data_var, state_vars_var)
     push!(data_avg, state_vars_avg)
     push!(data_nodal, state_vars)

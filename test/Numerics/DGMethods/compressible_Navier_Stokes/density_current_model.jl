@@ -182,14 +182,14 @@ function run(
         end
     end
 
-    step = [0]
+    vtkstep = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
         mkpath("./vtk-dc/")
         outprefix = @sprintf(
             "./vtk-dc/DC_%dD_mpirank%04d_step%04d",
             dim,
             MPI.Comm_rank(mpicomm),
-            step[1]
+            vtkstep[1]
         )
         @debug "doing VTK output" outprefix
         writevtk(
@@ -200,7 +200,7 @@ function run(
             dg.state_auxiliary,
             flattenednames(vars_state(model, Auxiliary(), FT)),
         )
-        step[1] += 1
+        vtkstep[1] += 1
         nothing
     end
 
