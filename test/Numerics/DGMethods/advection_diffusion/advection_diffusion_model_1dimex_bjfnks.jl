@@ -172,7 +172,7 @@ function run(
         BatchedGeneralizedMinimalResidual(dg, Q; atol = 1e-5, rtol = 1e-5)
 
     nonlinearsolver =
-        BatchedJacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
 
     ode_solver = ARK548L2SA2KennedyCarpenter(
         dg,

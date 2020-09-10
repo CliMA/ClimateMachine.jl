@@ -196,11 +196,6 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
     end
 end
 
-
-########################################################################
-
-
-
 """
 struct NonLinearBackwardEulerSolver{NLS}
     nlsolver::NLS
@@ -219,7 +214,8 @@ preconditioner_update_freq:  relavent to Jacobian free -1: no preconditioner;
 struct NonLinearBackwardEulerSolver{NLS}
     nlsolver::NLS
     isadjustable::Bool
-    # preconditioner_update_freq, -1: no preconditioner; positive number, update every freq times
+    # preconditioner_update_freq, -1: no preconditioner;
+    # positive number, update every freq times
     preconditioner_update_freq::Int64
     function NonLinearBackwardEulerSolver(
         nlsolver;
@@ -242,7 +238,6 @@ solvers of type `NLS`. See helper type
     Q = Qhat + α f_imp(Q, param, time)
 ```
 """
-
 mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
     # Solve Q - α f_imp(Q) = Qrhs, not used 
     α::FT
@@ -261,8 +256,6 @@ end
 
 Δt_is_adjustable(nlsolver::NonLinBESolver) = nlsolver.isadjustable
 
-
-
 """
     setup_backward_Euler_solver(solver::NonLinearBackwardEulerSolver, Q, α, tendency!)
 
@@ -274,7 +267,6 @@ solve for `Q` in nonlinear systems of the form of
 Create an empty JacobianAction 
 Create an empty preconditioner if preconditioner_update_freq > 0
 """
-
 function setup_backward_Euler_solver(
     nlbesolver::NonLinearBackwardEulerSolver,
     Q,
@@ -301,7 +293,6 @@ function setup_backward_Euler_solver(
         preconditioner,
     )
 end
-
 
 """
 Nonlinear solve

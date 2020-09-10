@@ -7,15 +7,12 @@ export AbstractPreconditioner,
 
 abstract type AbstractPreconditioner end
 
-
-
 """
 mutable struct NoPreconditioner
 end
 
 Do nothing
 """
-
 mutable struct NoPreconditioner <: AbstractPreconditioner end
 
 """
@@ -61,8 +58,6 @@ mutable struct ColumnwiseLUPreconditioner{AT} <: AbstractPreconditioner
     counter::Int64
     update_freq::Int64
 end
-
-
 
 """
 ColumnwiseLUPreconditioner constructor
@@ -125,7 +120,6 @@ function preconditioner_solve!(preconditioner::ColumnwiseLUPreconditioner, Q)
     band_back!(Q, A)
 
 end
-
 
 """
 Update the preconditioner counter, after each Newton iteration

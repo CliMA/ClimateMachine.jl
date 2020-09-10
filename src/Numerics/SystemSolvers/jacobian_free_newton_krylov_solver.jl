@@ -1,6 +1,6 @@
 using Printf
 
-export BatchedJacobianFreeNewtonKrylovSolver, JacobianAction
+export JacobianFreeNewtonKrylovSolver, JacobianAction
 
 """
 mutable struct JacobianAction{FT, AT}
@@ -26,7 +26,6 @@ Qdq::AT        : container for Q + ϵΔQ
 Fq::AT         : cache for F(Q) 
 Fqdq::AT       : container for F(Q + ϵΔQ)
 """
-
 mutable struct JacobianAction{FT, AT}
     rhs!
     ϵ::FT
@@ -47,7 +46,6 @@ function JacobianAction(rhs!, Q, ϵ)
     )
 end
 
-
 """
 Approximations the action of the Jacobian of a nonlinear
 form on a vector `ΔQ` using the difference quotient:
@@ -59,7 +57,6 @@ JΔQ = ---- ΔQ ≈ -------------------
 
 Compute  JΔQ with cached Q and F(Q), and the direction  dQ
 """
-
 function (op::JacobianAction)(JΔQ, dQ, args...)
     rhs! = op.rhs!
     Q = op.Q
@@ -100,8 +97,6 @@ function update_Q!(op::JacobianAction, Q, args...)
     op.rhs!(Fq, Q, args...)
 end
 
-
-
 """
 Solve for Frhs = F(Q), by finite difference
 
@@ -113,8 +108,7 @@ Solve for Frhs = F(Q), by finite difference
 
      set ΔQ = F(Q^n) - Frhs
 """
-mutable struct BatchedJacobianFreeNewtonKrylovSolver{FT, AT} <:
-               AbstractNonlinearSolver
+mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
     # small number used for finite difference
     ϵ::FT
     # tolerances for convergence
@@ -130,9 +124,9 @@ mutable struct BatchedJacobianFreeNewtonKrylovSolver{FT, AT} <:
 end
 
 """
-BatchedJacobianFreeNewtonKrylovSolver constructor
+JacobianFreeNewtonKrylovSolver constructor
 """
-function BatchedJacobianFreeNewtonKrylovSolver(
+function JacobianFreeNewtonKrylovSolver(
     Q,
     linearsolver;
     ϵ = 1.e-8,
@@ -142,7 +136,7 @@ function BatchedJacobianFreeNewtonKrylovSolver(
     FT = eltype(Q)
     residual = similar(Q)
     ΔQ = similar(Q)
-    return BatchedJacobianFreeNewtonKrylovSolver(
+    return JacobianFreeNewtonKrylovSolver(
         FT(ϵ),
         FT(tol),
         M,
@@ -153,13 +147,13 @@ function BatchedJacobianFreeNewtonKrylovSolver(
 end
 
 """
-BatchedJacobianFreeNewtonKrylovSolver initialize the residual
+JacobianFreeNewtonKrylovSolver initialize the residual
 """
 function initialize!(
     rhs!,
     Q,
     Qrhs,
-    solver::BatchedJacobianFreeNewtonKrylovSolver,
+    solver::JacobianFreeNewtonKrylovSolver,
     args...,
 )
     # where R = Qrhs - F(Q)
@@ -187,14 +181,13 @@ Q : Q^n
 Qrhs : Frhs
 solver: linear solver
 """
-
 function donewtoniteration!(
     rhs!,
     jvp!,
     preconditioner::AbstractPreconditioner,
     Q,
     Qrhs,
-    solver::BatchedJacobianFreeNewtonKrylovSolver,
+    solver::JacobianFreeNewtonKrylovSolver,
     args...,
 )
 
@@ -202,14 +195,11 @@ function donewtoniteration!(
     ΔQ = solver.ΔQ
     ΔQ .= FT(0.0)
 
-
-
     # R(Q) == 0, R = F(Q) - Qrhs, where F = rhs!
     # Compute right-hand side for Jacobian system:
     # J(Q)ΔQ = -R
     # where R = Qrhs - F(Q), which is computed at the end of last step or in the initialize function
     R = solver.residual
-
 
     # R = F(Q^n) - Frhs
     # ΔQ = dF/dQ(Q^{n})⁻¹ (Frhs - F(Q^n)) = -dF/dQ(Q^{n})⁻¹ R 
