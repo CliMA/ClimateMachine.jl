@@ -17,6 +17,7 @@ export latent_heat_vapor,
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
 export saturation_vapor_pressure, q_vap_saturation_generic, q_vap_saturation
+export q_vap_saturation_liquid, q_vap_saturation_ice
 export saturation_excess, supersaturation
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
@@ -748,7 +749,7 @@ function saturation_vapor_pressure(
 end
 
 """
-    q_vap_saturation_generic(param_set, T, ρ[; phase=Liquid()])
+    q_vap_saturation_generic(param_set, T, ρ[, phase=Liquid()])
 
 Compute the saturation specific humidity over a plane surface of condensate, given
 
@@ -762,8 +763,8 @@ and, optionally,
 function q_vap_saturation_generic(
     param_set::APS,
     T::FT,
-    ρ::FT;
-    phase::Phase = Liquid(),
+    ρ::FT,
+    phase::Phase,
 ) where {FT <: Real}
     p_v_sat = saturation_vapor_pressure(param_set, T, phase)
     return q_vap_saturation_from_pressure(param_set, T, ρ, p_v_sat)
@@ -837,6 +838,32 @@ q_vap_saturation(ts::ThermodynamicState) = q_vap_saturation(
 )
 
 """
+    q_vap_saturation_liquid(ts::ThermodynamicState)
+
+Compute the saturation specific humidity over liquid,
+given a thermodynamic state `ts`.
+"""
+q_vap_saturation_liquid(ts::ThermodynamicState) = q_vap_saturation_generic(
+    ts.param_set,
+    air_temperature(ts),
+    air_density(ts),
+    Liquid(),
+)
+
+"""
+    q_vap_saturation_ice(ts::ThermodynamicState)
+
+Compute the saturation specific humidity over ice,
+given a thermodynamic state `ts`.
+"""
+q_vap_saturation_ice(ts::ThermodynamicState) = q_vap_saturation_generic(
+    ts.param_set,
+    air_temperature(ts),
+    air_density(ts),
+    Ice(),
+)
+
+"""
     q_vap_saturation_from_pressure(param_set, T, ρ, p_v_sat)
 
 Compute the saturation specific humidity, given
@@ -876,7 +903,7 @@ function supersaturation(
     ::Liquid,
 ) where {FT <: Real}
 
-    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Liquid())
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Liquid())
     q_vap::FT = q.tot - q.liq - q.ice
 
     return q_vap / q_sat - FT(1)
@@ -889,7 +916,7 @@ function supersaturation(
     ::Ice,
 ) where {FT <: Real}
 
-    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Ice())
     q_vap::FT = q.tot - q.liq - q.ice
 
     return q_vap / q_sat - FT(1)
