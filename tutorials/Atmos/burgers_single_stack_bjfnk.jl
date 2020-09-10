@@ -494,8 +494,7 @@ linearsolver = BatchedGeneralizedMinimalResidual(
     rtol = 1e-5,
 )
 
-nonlinearsolver =
-    BatchedJacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
+nonlinearsolver = JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
 
 ode_solver = ARK548L2SA2KennedyCarpenter(
     dg,
