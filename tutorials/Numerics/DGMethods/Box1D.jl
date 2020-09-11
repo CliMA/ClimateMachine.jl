@@ -206,7 +206,6 @@ function run_box1D(
     time_data = FT[0]                                      # store time data
 
     # output
-    step = [1]
     output_freq = floor(Int, timeend / dt) + 10
 
     cb_output = GenericCallbacks.EveryXSimulationSteps(output_freq) do
