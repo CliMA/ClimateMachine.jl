@@ -181,7 +181,6 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
 
     if typeof(lin.solver) <: AbstractIterativeSystemSolver
         FT = eltype(α)
-        # preconditioner = ColumnwiseLUPreconditioner(jvp!, rhs!.f!, Q,  nothing, FT(NaN), ) 
         preconditioner_update!(
             rhs!,
             rhs!.f!,
@@ -204,11 +203,11 @@ struct NonLinearBackwardEulerSolver{NLS}
 end
 
 Helper type for specifying building a nonlinear backward Euler solver with a nonlinear
-solver.  
+solver.
 
 nlsolver: iterative nonlinear solver, i.e., JacobianFreeNewtonKrylovSolver
 isadjustable: TODO not used, might use for updating preconditioner
-preconditioner_update_freq:  relavent to Jacobian free -1: no preconditioner; 
+preconditioner_update_freq:  relavent to Jacobian free -1: no preconditioner;
                              positive number, update every freq times
 """
 struct NonLinearBackwardEulerSolver{NLS}
@@ -239,11 +238,11 @@ solvers of type `NLS`. See helper type
 ```
 """
 mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
-    # Solve Q - α f_imp(Q) = Qrhs, not used 
+    # Solve Q - α f_imp(Q) = Qrhs, not used
     α::FT
-    # implcit operator 
+    # implcit operator
     f_imp!::F
-    # jacobian action, which approximates drhs!/dQ⋅ΔQ , here rhs!(Q) = Q - α f_imp(Q) 
+    # jacobian action, which approximates drhs!/dQ⋅ΔQ , here rhs!(Q) = Q - α f_imp(Q)
     jvp!::JacobianAction
     # nonlinear solver
     nlsolver::NLS
@@ -264,7 +263,7 @@ solve for `Q` in nonlinear systems of the form of
 ```
     Q = Qhat + α f(Q, param, time)
 ```
-Create an empty JacobianAction 
+Create an empty JacobianAction
 Create an empty preconditioner if preconditioner_update_freq > 0
 """
 function setup_backward_Euler_solver(
@@ -273,7 +272,7 @@ function setup_backward_Euler_solver(
     α,
     f_imp!,
 )
-    # Create an empty JacobianAction (without operator) 
+    # Create an empty JacobianAction (without operator)
     jvp! = JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
 
     # Create an empty preconditioner if preconditioner_update_freq > 0

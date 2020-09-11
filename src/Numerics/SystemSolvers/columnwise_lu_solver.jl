@@ -375,7 +375,7 @@ function update_banded_matrix!(
 
     Nqj = dim == 2 ? 1 : Nq
 
-    # TODO 
+    # TODO
     # fill!(A, zero(FT))
 
 

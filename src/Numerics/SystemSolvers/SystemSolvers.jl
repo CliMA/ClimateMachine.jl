@@ -29,7 +29,8 @@ LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
 
 export linearsolve!,
     settolerance!, prefactorize, construct_preconditioner, preconditioner_solve!
-export AbstractSystemSolver, AbstractIterativeSystemSolver
+export AbstractSystemSolver,
+    AbstractIterativeSystemSolver, AbstractNonlinearSolver
 export nonlinearsolve!
 
 """
@@ -39,8 +40,18 @@ This is an abstract type representing a generic linear solver.
 """
 abstract type AbstractSystemSolver end
 
+"""
+    AbstractNonlinearSolver
+
+This is an abstract type representing a generic nonlinear solver.
+"""
 abstract type AbstractNonlinearSolver <: AbstractSystemSolver end
 
+"""
+    LSOnly
+
+Only applies the linear solver (no Newton solver)
+"""
 struct LSOnly <: AbstractNonlinearSolver
     linearsolver
 end
@@ -95,6 +106,10 @@ function nonlinearsolve!(
     converged = false
     iters = 0
 
+    if preconditioner === nothing
+        preconditioner = NoPreconditioner()
+    end
+
     # Initialize NLSolver, compute initial residual
     initial_residual_norm = initialize!(rhs!, Q, Qrhs, solver, args...)
     if initial_residual_norm < tol
@@ -135,7 +150,6 @@ function nonlinearsolve!(
         # Comment: Should we check "correction" magitude?
         # ||Delta Q|| / ||Q|| ?
         relresidual = residual_norm / initial_residual_norm
-        # @info "Relative residual, current residual, initial residual: $relresidual, $residual_norm, $initial_residual_norm" 
         if relresidual < tol || residual_norm < tol
             @info "Newton converged in $iters iterations!"
             converged = true
@@ -207,6 +221,7 @@ function prefactorize(
 )
     return nothing
 end
+
 """
     linearsolve!(linearoperator!, solver::AbstractIterativeSystemSolver, Q, Qrhs, args...)
 
@@ -220,10 +235,7 @@ L(Q) = Q_{rhs}
 using the `solver` and the initial guess `Q`. After the call `Q` contains the
 solution.  The arguments `args` is passed to `linearoperator!` when it is
 called.
-
-jvp! = (ΔQ) -> F(Q + ΔQ)
 """
-
 function linearsolve!(
     linearoperator!,
     preconditioner,
@@ -236,7 +248,12 @@ function linearsolve!(
 )
     converged = false
     iters = 0
-    converged, residual_norm0 =
+
+    if preconditioner === nothing
+        preconditioner = NoPreconditioner()
+    end
+
+    converged, threshold =
         initialize!(linearoperator!, Q, Qrhs, solver, args...)
     converged && return iters
 
@@ -247,6 +264,7 @@ function linearsolve!(
             Q,
             Qrhs,
             solver,
+            threshold,
             args...,
         )
 
@@ -256,7 +274,7 @@ function linearsolve!(
             error("norm of residual is not finite after $iters iterations of `doiteration!`")
         end
 
-        achieved_tolerance = residual_norm / residual_norm0 * solver.rtol
+        achieved_tolerance = residual_norm / threshold * solver.rtol
     end
 
     converged || @warn "Solver did not attain convergence after $iters iterations"
@@ -275,12 +293,12 @@ end
     end
 end
 
-
 include("generalized_minimal_residual_solver.jl")
 include("generalized_conjugate_residual_solver.jl")
 include("conjugate_gradient_solver.jl")
 include("columnwise_lu_solver.jl")
-include("preconditioner.jl")
+include("preconditioners.jl")
 include("batched_generalized_minimal_residual_solver.jl")
 include("jacobian_free_newton_krylov_solver.jl")
+
 end

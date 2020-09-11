@@ -5,6 +5,9 @@ export AbstractPreconditioner,
     preconditioner_solve!,
     preconditioner_counter_update!
 
+"""
+    Abstract base type for all preconditioners.
+"""
 abstract type AbstractPreconditioner end
 
 """
@@ -45,8 +48,8 @@ mutable struct ColumnwiseLUPreconditioner{AT}
 end
 
 A: the lu factor of the precondition (approximated Jacobian), in the DGColumnBandedMatrix format
-Q: MPIArray container, used to update A 
-PQ: MPIArray container, used to update A 
+Q: MPIArray container, used to update A
+PQ: MPIArray container, used to update A
 counter: count the number of Newton, when counter > update_freq or counter < 0, update precondition
 update_freq: preconditioner update frequency
 
@@ -110,7 +113,7 @@ function preconditioner_update!(
 end
 
 """
-Inplace applying the preconditioner 
+Inplace applying the preconditioner
 
 Q = P⁻¹ * Q
 """
