@@ -13,6 +13,7 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics: air_density, total_energy
@@ -28,10 +29,18 @@ const param_set = EarthParameterSet()
 
 function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
     FT = eltype(state)
+
+    # initial velocity profile (we need to transform the vector into the Cartesian
+    # coordinate system)
+    u_0::FT = 0
+    u_sphere = SVector{3, FT}(u_0, 0, 0)
+    u_init = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
+    e_kin::FT = 0.5 * sum(abs2.(u_init))
+
     # Assign state variables
     state.ρ = aux.ref_state.ρ
-    state.ρu = SVector{3, FT}(0, 0, 0)
-    state.ρe = aux.ref_state.ρe
+    state.ρu = u_init
+    state.ρe = aux.ref_state.ρe + state.ρ * e_kin
 
     nothing
 end
@@ -61,7 +70,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         param_set,
         init_solid_body_rotation!;
         model = model,
-        #numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     )
 
     return config
@@ -95,7 +104,7 @@ function main()
         discrete_splitting = false,
     )
 
-    CFL = FT(0.1) # target acoustic CFL number
+    CFL = FT(0.2) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -144,6 +153,7 @@ function main()
             AtmosFilterPerturbations(driver_config.bl),
             solver_config.dg.grid,
             filter,
+            #state_auxiliary = solver_config.dg.state_auxiliary,
             # filter perturbations from the initial state
             state_auxiliary = init_solver_config.dg.state_auxiliary,
         )
