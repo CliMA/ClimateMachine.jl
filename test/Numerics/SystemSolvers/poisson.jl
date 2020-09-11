@@ -22,7 +22,7 @@ import ClimateMachine.DGMethods:
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: numerical_boundary_flux_second_order!
@@ -133,9 +133,10 @@ sol1d(x) = sin(2pi * x)^4 - 3 / 8
 dxx_sol1d(x) =
     -16 * pi^2 * sin(2pi * x)^2 * (sin(2pi * x)^2 - 3 * cos(2pi * x)^2)
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::PoissonModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     aux.rhs_ϕ = 0

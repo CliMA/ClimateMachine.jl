@@ -1,5 +1,11 @@
+using Dates
+using LinearAlgebra
 using MPI
+using Printf
+using StaticArrays
+
 using ClimateMachine
+using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -14,9 +20,6 @@ using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
 using ClimateMachine.VTK
 
 using CLIMAParameters
@@ -30,11 +33,8 @@ if !@isdefined integration_testing
     )
 end
 
-using ClimateMachine.Atmos
-using ClimateMachine.Atmos: internal_energy, thermo_state
-import ClimateMachine.Atmos: MoistureModel, temperature, pressure, soundspeed
 
-init_state_prognostic!(bl, state, aux, coords, t) = nothing
+init_state_prognostic!(problem, bl, state, aux, coords, t) = nothing
 
 # initial condition
 using ClimateMachine.Atmos: vars_state
@@ -53,8 +53,8 @@ function run1(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(T_profile),
         init_state_prognostic = init_state_prognostic!,
+        ref_state = HydrostaticState(T_profile),
     )
 
     dg = DGModel(
@@ -91,8 +91,8 @@ function run2(mpicomm, ArrayType, dim, topl, N, timeend, FT, dt)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        ref_state = HydrostaticState(T_profile),
         init_state_prognostic = init_state_prognostic!,
+        ref_state = HydrostaticState(T_profile),
     )
 
     dg = DGModel(

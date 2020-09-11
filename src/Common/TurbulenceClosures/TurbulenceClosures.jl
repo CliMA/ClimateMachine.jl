@@ -4,7 +4,8 @@
 Functions for turbulence, sub-grid scale modelling. These include
 viscosity terms, diffusivity and stress tensors.
 
-- [`ConstantViscosityWithDivergence`](@ref)
+- [`ConstantViscosity`](@ref)
+- [`ViscousSponge`](@ref)
 - [`SmagorinskyLilly`](@ref)
 - [`Vreman`](@ref)
 - [`AnisoMinDiss`](@ref)
@@ -17,7 +18,8 @@ module TurbulenceClosures
 # pointwise models of the eddy viscosity/eddy diffusivity type are
 # supported for turbulent shear and tracer diffusivity. Methods currently supported
 # are:\
-# [`ConstantViscosityWithDivergence`](@ref constant-viscosity)\
+# [`ConstantViscosity`](@ref constant-viscosity)\
+# [`ViscousSponge`](@ref viscous-sponge)\
 # [`SmagorinskyLilly`](@ref smagorinsky-lilly)\
 # [`Vreman`](@ref vreman)\
 # [`AnisoMinDiss`](@ref aniso-min-diss)\
@@ -26,7 +28,9 @@ module TurbulenceClosures
 #md #     Usage: This is a quick-ref guide to using turbulence models as a subcomponent
 #md #     of `BalanceLaw` \
 #md #     $\nu$ is the kinematic viscosity, $C_smag$ is the Smagorinsky Model coefficient,
-#md #     `turbulence=ConstantViscosityWithDivergence(ν)`\
+#md #     `turbulence=ConstantDynamicViscosity(ρν)`\
+#md #     `turbulence=ConstantKinematicViscosity(ν)`\
+#md #     `turbulence=ViscousSponge(ν, z_max, z_sponge, α, γ)`\
 #md #     `turbulence=SmagorinskyLilly(C_smag)`\
 #md #     `turbulence=Vreman(C_smag)`\
 #md #     `turbulence=AnisoMinDiss(C_poincare)`
@@ -56,7 +60,6 @@ import ClimateMachine.BalanceLaws:
     transform_post_gradient_laplacian!,
     init_state_prognostic!,
     update_auxiliary_state!,
-    nodal_update_auxiliary_state!,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     integral_load_auxiliary_state!,
@@ -66,7 +69,9 @@ import ClimateMachine.BalanceLaws:
 
 
 export TurbulenceClosureModel,
-    ConstantViscosityWithDivergence,
+    ConstantViscosity,
+    ConstantDynamicViscosity,
+    ConstantKinematicViscosity,
     SmagorinskyLilly,
     Vreman,
     AnisoMinDiss,
@@ -74,10 +79,13 @@ export TurbulenceClosureModel,
     NoHyperDiffusion,
     DryBiharmonic,
     EquilMoistBiharmonic,
+    NoViscousSponge,
+    UpperAtmosSponge,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
-    turbulence_nodal_update_auxiliary_state!
+    turbulence_nodal_update_auxiliary_state!,
+    sponge_viscosity_modifier!
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
@@ -94,9 +102,22 @@ abstract type TurbulenceClosureModel end
 vars_state(::TurbulenceClosureModel, ::AbstractStateType, FT) = @vars()
 
 """
+    ConstantViscosity <: TurbulenceClosureModel
+Abstract type for constant viscosity models
+"""
+abstract type ConstantViscosity <: TurbulenceClosureModel end
+
+"""
     Abstract type for Hyperdiffusion models
 """
 abstract type HyperDiffusion end
+
+"""
+    Abstract type for viscous sponge layers. 
+Modifier for viscosity computed from existing turbulence closures.
+"""
+abstract type ViscousSponge end
+
 
 """
     init_aux_turbulence!
@@ -111,7 +132,7 @@ function init_aux_turbulence!(
 ) end
 
 """
-    nodal_update_auxiliary_state!
+    turbulence_nodal_update_auxiliary_state!
 Update auxiliary variables for turbulence models.
 Overload for specific turbulence closure type.
 """
@@ -157,7 +178,7 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 ) end
-function atmos_nodal_update_auxiliary_state!(
+function hyperdiffusion_nodal_update_auxiliary_state!(
     ::HyperDiffusion,
     ::BalanceLaw,
     state::Vars,
@@ -321,34 +342,82 @@ function strain_rate_magnitude(S::SHermitianCompact{3, FT, 6}) where {FT}
     return sqrt(2 * norm2(S))
 end
 
+"""
+    WithDivergence
+A divergence type which includes the divergence term in the momentum flux tensor
+"""
+struct WithDivergence end
+export WithDivergence
+"""
+    WithoutDivergence
+A divergence type which does not include the divergence term in the momentum flux tensor
+"""
+struct WithoutDivergence end
+export WithoutDivergence
+
 # ### [Constant Viscosity Model](@id constant-viscosity)
-# `ConstantViscosityWithDivergence` requires a user to specify the constant viscosity (kinematic)
+# `ConstantViscosity` requires a user to specify the constant viscosity (dynamic or kinematic)
 # and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
 # computed using the turbulent Prandtl number for the appropriate problem regime.
 # ```math
-# \tau = - 2 \nu \mathrm{S}
+# \tau = 
+#     \begin{cases}
+#     - 2 \nu \mathrm{S} & \mathrm{WithoutDivergence},\\
+#     - 2 \nu \mathrm{S} + \frac{2}{3} \nu \mathrm{tr(S)} I_3 & \mathrm{WithDivergence}. 
+#     \end{cases}
 # ```
+
+
 """
-    ConstantViscosityWithDivergence <: TurbulenceClosureModel
+    ConstantDynamicViscosity <: ConstantViscosity
 
 Turbulence with constant dynamic viscosity (`ρν`).
-Divergence terms are included in the momentum flux tensor.
+Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
 
 # Fields
 
 $(DocStringExtensions.FIELDS)
 """
-struct ConstantViscosityWithDivergence{FT} <: TurbulenceClosureModel
+struct ConstantDynamicViscosity{FT, DT} <: ConstantViscosity
     "Dynamic Viscosity [kg/m/s]"
     ρν::FT
+    divergence_type::DT
+    function ConstantDynamicViscosity(
+        ρν::FT,
+        divergence_type::Union{WithDivergence, WithoutDivergence} = WithoutDivergence(),
+    ) where {FT}
+        return new{FT, typeof(divergence_type)}(ρν, divergence_type)
+    end
 end
 
-vars_state(::ConstantViscosityWithDivergence, ::Gradient, FT) = @vars()
-vars_state(::ConstantViscosityWithDivergence, ::GradientFlux, FT) =
+"""
+    ConstantKinematicViscosity <: ConstantViscosity
+
+Turbulence with constant kinematic viscosity (`ν`).
+Divergence terms are included in the momentum flux tensor if divergence_type is WithDivergence.
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct ConstantKinematicViscosity{FT, DT} <: ConstantViscosity
+    "Kinematic Viscosity [m2/s]"
+    ν::FT
+    divergence_type::DT
+    function ConstantKinematicViscosity(
+        ν::FT,
+        divergence_type::Union{WithDivergence, WithoutDivergence} = WithoutDivergence(),
+    ) where {FT}
+        return new{FT, typeof(divergence_type)}(ν, divergence_type)
+    end
+end
+
+vars_state(::ConstantViscosity, ::Gradient, FT) = @vars()
+vars_state(::ConstantViscosity, ::GradientFlux, FT) =
     @vars(S::SHermitianCompact{3, FT, 6})
 
 function compute_gradient_flux!(
-    ::ConstantViscosityWithDivergence,
+    ::ConstantViscosity,
     ::Orientation,
     diffusive::Vars,
     ∇transform::Grad,
@@ -360,8 +429,12 @@ function compute_gradient_flux!(
     diffusive.turbulence.S = symmetrize(∇transform.u)
 end
 
+compute_stress(div_type::WithoutDivergence, ν, S) = (-2 * ν) * S
+compute_stress(div_type::WithDivergence, ν, S) =
+    (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
+
 function turbulence_tensors(
-    m::ConstantViscosityWithDivergence,
+    m::ConstantDynamicViscosity,
     orientation::Orientation,
     param_set::AbstractParameterSet,
     state::Vars,
@@ -375,7 +448,26 @@ function turbulence_tensors(
     S = diffusive.turbulence.S
     ν = m.ρν / state.ρ
     D_t = ν * _inv_Pr_turb
-    τ = (-2 * ν) * S + (2 * ν / 3) * tr(S) * I
+    τ = compute_stress(m.divergence_type, ν, S)
+    return ν, D_t, τ
+end
+
+function turbulence_tensors(
+    m::ConstantKinematicViscosity,
+    orientation::Orientation,
+    param_set::AbstractParameterSet,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+
+    FT = eltype(state)
+    _inv_Pr_turb::FT = inv_Pr_turb(param_set)
+    S = diffusive.turbulence.S
+    ν = m.ν
+    D_t = ν * _inv_Pr_turb
+    τ = compute_stress(m.divergence_type, ν, S)
     return ν, D_t, τ
 end
 
@@ -787,7 +879,12 @@ $(DocStringExtensions.FIELDS)
 """
 struct EquilMoistBiharmonic{FT} <: HyperDiffusion
     τ_timescale::FT
+    τ_timescale_q_tot::FT
 end
+
+EquilMoistBiharmonic(τ_timescale::FT) where {FT} =
+    EquilMoistBiharmonic(τ_timescale, τ_timescale)
+
 vars_state(::EquilMoistBiharmonic, ::Auxiliary, FT) = @vars(Δ::FT)
 vars_state(::EquilMoistBiharmonic, ::Gradient, FT) =
     @vars(u_h::SVector{3, FT}, h_tot::FT, q_tot::FT)
@@ -840,11 +937,13 @@ function transform_post_gradient_laplacian!(
     ∇Δq_tot = hypertransform.hyperdiffusion.q_tot
     # Unpack
     τ_timescale = h.τ_timescale
+    τ_timescale_q_tot = h.τ_timescale_q_tot
     # Compute hyperviscosity coefficient
     ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
+    ν₄_q_tot = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale_q_tot
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
-    hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄ * ∇Δq_tot
+    hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄_q_tot * ∇Δq_tot
 end
 
 function flux_second_order!(
@@ -942,4 +1041,71 @@ function flux_second_order!(
     flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
     flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
 end
+
+# ### [Viscous Sponge](@id viscous-sponge)
+# `ViscousSponge` requires a user to specify a constant viscosity (kinematic), 
+# a sponge start height, the domain height, a sponge strength, and a sponge
+# exponent.
+# Given viscosity, diffusivity and stresses from arbitrary turbulence models, 
+# the viscous sponge enhances diffusive terms within a user-specified layer,
+# typically used at the top of the domain to absorb waves. A smooth onset is
+# ensured through a weight function that increases weight height from the sponge
+# onset height.
+# ```
+"""
+    NoViscousSponge 
+No modifiers applied to viscosity/diffusivity in sponge layer
+# Fields 
+#
+$(DocStringExtensions.FIELDS)
+"""
+struct NoViscousSponge <: ViscousSponge end
+function sponge_viscosity_modifier!(
+    bl::BalanceLaw,
+    m::NoViscousSponge,
+    ν,
+    D_t,
+    τ,
+    aux,
+)
+    nothing
+end
+
+""" 
+    Upper domain viscous relaxation 
+Applies modifier to viscosity and diffusivity terms
+in a user-specified upper domain sponge region
+# Fields 
+#
+$(DocStringExtensions.FIELDS)
+"""
+struct UpperAtmosSponge{FT} <: ViscousSponge
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "Sponge exponent"
+    γ::FT
+end
+
+function sponge_viscosity_modifier!(
+    bl::BalanceLaw,
+    m::UpperAtmosSponge,
+    ν,
+    D_t,
+    τ,
+    aux::Vars,
+)
+    z = altitude(bl.orientation, bl.param_set, aux)
+    if z >= m.sponge
+        r = (z - m.z_sponge) / (m.z_max - m.z_sponge)
+        β_sponge = m.α_max * sinpi(r / 2)^m.γ
+        ν += β_sponge * ν
+        D_t += β_sponge * D_t
+        τ += β_sponge * τ
+    end
+end
+
 end #module TurbulenceClosures.jl

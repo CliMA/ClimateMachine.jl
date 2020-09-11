@@ -1,6 +1,6 @@
 using CLIMAParameters.Planet: cv_d, T_0
 
-export BoundaryCondition, InitStateBC
+export InitStateBC
 
 export AtmosBC,
     Impenetrable,
@@ -10,10 +10,14 @@ export AtmosBC,
     Insulating,
     PrescribedTemperature,
     PrescribedEnergyFlux,
+    BulkFormulaEnergy,
     Impermeable,
     ImpermeableTracer,
     PrescribedMoistureFlux,
+    BulkFormulaMoisture,
     PrescribedTracerFlux
+
+export average_density_sfc_int
 
 """
     AtmosBC(momentum = Impenetrable(FreeSlip())
@@ -32,7 +36,7 @@ Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
 end
 
 function boundary_state!(nf, atmos::AtmosModel, args...)
-    atmos_boundary_state!(nf, atmos.boundarycondition, atmos, args...)
+    atmos_boundary_state!(nf, atmos.problem.boundarycondition, atmos, args...)
 end
 
 function boundary_state!(
@@ -108,7 +112,7 @@ function normal_boundary_flux_second_order!(
 ) where {S}
     atmos_normal_boundary_flux_second_order!(
         nf,
-        atmos.boundarycondition,
+        atmos.problem.boundarycondition,
         atmos,
         fluxᵀn,
         n⁻,
@@ -202,6 +206,17 @@ function atmos_normal_boundary_flux_second_order!(
         args...,
     )
     turbconv_normal_boundary_flux_second_order!(nf, bc.turbconv, atmos, args...)
+end
+
+"""
+    average_density(ρ_sfc, ρ_int)
+
+Average density between the surface and the interior point, given
+ - `ρ_sfc` density at the surface
+ - `ρ_int` density at the interior point
+"""
+function average_density(ρ_sfc::FT, ρ_int::FT) where {FT <: Real}
+    return FT(0.5) * (ρ_sfc + ρ_int)
 end
 
 include("bc_momentum.jl")

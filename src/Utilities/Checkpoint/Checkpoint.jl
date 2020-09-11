@@ -116,7 +116,7 @@ function read_checkpoint(
     )
     cfull = joinpath(checkpoint_dir, cname)
     if !isfile(cfull)
-        error("Cannot restore from checkpoint in %s, file not found")
+        error("Cannot restore from checkpoint in $(cfull), file not found")
     end
 
     @load cfull h_Q h_aux t

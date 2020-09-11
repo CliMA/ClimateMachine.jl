@@ -34,7 +34,7 @@ end
 
 @inline function coriolis_force!(m::HBModel, ::Coupled, S, Q, A, t)
     # f × u
-    f = coriolis_parameter(m, A.y)
+    f = coriolis_parameter(m, m.problem, A.y)
     uᵈ, vᵈ = A.uᵈ # Horizontal components of velocity
     S.u -= @SVector [-f * vᵈ, f * uᵈ]
 

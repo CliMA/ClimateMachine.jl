@@ -28,7 +28,6 @@ using Logging, Printf, Dates
 using Random
 
 using ClimateMachine.VariableTemplates
-
 import ClimateMachine.BalanceLaws: vars_state
 
 import ClimateMachine.DGMethods:
@@ -36,7 +35,7 @@ import ClimateMachine.DGMethods:
     flux_second_order!,
     source!,
     boundary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!
 
 import ClimateMachine.DGMethods: init_ode_state
@@ -53,9 +52,10 @@ vars_state(::ConservationTestModel, ::Prognostic, T) = @vars(q::T, p::T)
 
 vars_state(::ConservationTestModel, ::AbstractStateType, T) = @vars()
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::ConservationTestModel,
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 )
     x, y, z = g.coord

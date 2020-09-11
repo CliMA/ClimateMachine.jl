@@ -17,7 +17,7 @@ using ClimateMachine.DGMethods: LocalGeometry
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Auxiliary, Prognostic, Gradient, GradientFlux
 import ClimateMachine.BalanceLaws:
-    vars_state, init_state_auxiliary!, init_state_prognostic!
+    vars_state, nodal_init_state_auxiliary!, init_state_prognostic!
 
 struct EmptyBalLaw{FT, PS} <: BalanceLaw
     "Parameters"
@@ -34,7 +34,12 @@ vars_state(::EmptyBalLaw, ::Prognostic, FT) = @vars(ρ::FT)
 vars_state(::EmptyBalLaw, ::Gradient, FT) = @vars()
 vars_state(::EmptyBalLaw, ::GradientFlux, FT) = @vars()
 
-function init_state_auxiliary!(m::EmptyBalLaw, aux::Vars, geom::LocalGeometry)
+function nodal_init_state_auxiliary!(
+    m::EmptyBalLaw,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
     aux.x = geom.coord[1]
     aux.y = geom.coord[2]
     aux.z = geom.coord[3]
@@ -71,6 +76,20 @@ function test_hvar(
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     target = target_varprof(grid)
     @test state_vars_var["ρ"] ≈ target
+end
+
+function test_horizontally_ave(
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    Q_in::MPIStateArray,
+    vars,
+) where {T, dim, N}
+    Q = deepcopy(Q_in)
+    state_vars_var = get_horizontal_variance(grid, Q, vars)
+    i_vars = varsindex(vars, :ρ)
+    horizontally_average!(grid, Q, i_vars)
+    FT = eltype(Q)
+    state_vars_var = get_horizontal_variance(grid, Q, vars)
+    @test all(isapprox.(state_vars_var["ρ"], 0, atol = 10 * eps(FT)))
 end
 
 function target_meanprof(
@@ -182,5 +201,12 @@ function main()
         reduce(f, ns)
     end
     @test r3 ≈ FT(2877.6) && z3 == 20
+
+    test_horizontally_ave(
+        driver_config.grid,
+        solver_config.Q,
+        vars_state(m, Prognostic(), FT),
+    )
+
 end
 main()

@@ -42,7 +42,12 @@ vars_state(lm::LinearHBModel, ::UpwardIntegrals, FT) = @vars()
 """
     No need to init, initialize by full model
 """
-init_state_auxiliary!(lm::LinearHBModel, A::Vars, geom::LocalGeometry) = nothing
+init_state_auxiliary!(
+    lm::LinearHBModel,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+) = nothing
 init_state_prognostic!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
 
 """
@@ -143,4 +148,17 @@ calculates the wavespeed for rusanov flux
 function wavespeed(lm::LinearHBModel, n⁻, _...)
     C = abs(SVector(lm.ocean.cʰ, lm.ocean.cʰ, lm.ocean.cᶻ)' * n⁻)
     return C
+end
+
+"""
+    boundary_state!(nf, ::LinearHBModel, args...)
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline function boundary_state!(nf, linear::LinearHBModel, args...)
+    ocean = linear.ocean
+    boundary_conditions = ocean.problem.boundary_conditions
+
+    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
 end

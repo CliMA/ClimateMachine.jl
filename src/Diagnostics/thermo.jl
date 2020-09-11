@@ -32,7 +32,7 @@ thermo_vars(bl, array) = Vars{vars_thermo(bl, eltype(array))}(array)
 # compute thermodynamic variables visitor function, to use with `@visitQ`
 function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
     e_tot = state.ρe / state.ρ
-    ts = thermo_state(atmos, state, aux)
+    ts = recover_thermo_state(atmos, state, aux)
     e_int = internal_energy(ts)
 
     thermo.temp = air_temperature(ts)

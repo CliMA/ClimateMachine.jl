@@ -41,6 +41,9 @@ DGMethods.courant(
     direction = EveryDirection(),
 ) = DGMethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
+get_direction(::ClimateMachineConfigType) = EveryDirection()
+get_direction(::SingleStackConfigType) = VerticalDirection()
+
 """
     ClimateMachine.SolverConfiguration(
         t0::FT,
@@ -70,8 +73,12 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `modeldata=nothing`: passed through to `DGModel`.
 # - `Courant_number=0.4`: for the simulation.
 # - `diffdir=EveryDirection()`: restrict diffusivity direction.
+# - `direction=EveryDirection()`: restrict diffusivity direction.
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
+
+Note that `diffdir`, `direction`, and `CFL_direction` are `VerticalDirection()`
+when `driver_config.config_type isa SingleStackConfigType`.
 """
 function SolverConfiguration(
     t0::FT,
@@ -83,9 +90,11 @@ function SolverConfiguration(
     ode_dt = nothing,
     modeldata = nothing,
     Courant_number = nothing,
-    diffdir = EveryDirection(),
+    diffdir = get_direction(driver_config.config_type),
+    direction = get_direction(driver_config.config_type),
     timeend_dt_adjust = true,
-    CFL_direction = EveryDirection(),
+    CFL_direction = get_direction(driver_config.config_type),
+    fixed_number_of_steps = Settings.fixed_number_of_steps,
 ) where {FT <: AbstractFloat}
     @tic SolverConfiguration
 
@@ -106,15 +115,16 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
+        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux, direction)
 
         dg = DGModel(
             bl,
             grid,
             numerical_flux_first_order,
             numerical_flux_second_order,
-            numerical_flux_gradient,
+            numerical_flux_gradient;
             state_auxiliary = state_auxiliary,
+            direction = direction,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
@@ -131,8 +141,9 @@ function SolverConfiguration(
             grid,
             numerical_flux_first_order,
             numerical_flux_second_order,
-            numerical_flux_gradient,
+            numerical_flux_gradient;
             fill_nan = Settings.debug_init,
+            direction = direction,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
@@ -201,8 +212,13 @@ function SolverConfiguration(
             CFL_direction,
         )
     end
-    numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
-    timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    if fixed_number_of_steps < 0
+        numberofsteps = convert(Int, cld(timeend - t0, ode_dt))
+        timeend_dt_adjust && (ode_dt = (timeend - t0) / numberofsteps)
+    else
+        numberofsteps = fixed_number_of_steps
+        timeend = fixed_number_of_steps * ode_dt
+    end
 
     # create the solver
     solver = solversetup(ode_solver_type, dg, Q, ode_dt, t0, diffdir)

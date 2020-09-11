@@ -103,6 +103,8 @@ mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
     dt::RT
     "time"
     t::RT
+    "elapsed time steps"
+    steps::Int
     "rhs function"
     slowrhs!
     "Storage for RHS during the `MRIGARKExplicit` update"
@@ -147,6 +149,7 @@ mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
         new{T, RT, AT, Nstages, NΓ, FS, Nstages^2}(
             RT(dt),
             RT(t0),
+            0,
             slowrhs!,
             Rstages,
             Γs,

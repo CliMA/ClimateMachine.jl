@@ -194,17 +194,17 @@ function solversetup(
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    remainder_kwargs = (
-        numerical_flux_first_order = (
-            ode_solver.discrete_splitting ?
-                    (
-                dg.numerical_flux_first_order,
-                (dg.numerical_flux_first_order,),
-            ) :
-                    dg.numerical_flux_first_order
-        ),
+    if ode_solver.discrete_splitting
+        numerical_flux_first_order =
+            (dg.numerical_flux_first_order, (dg.numerical_flux_first_order,))
+    else
+        numerical_flux_first_order = dg.numerical_flux_first_order
+    end
+    slow_dg = remainder_DGModel(
+        dg,
+        (fast_dg,);
+        numerical_flux_first_order = numerical_flux_first_order,
     )
-    slow_dg = remainder_DGModel(dg, (fast_dg,); remainder_kwargs...)
 
     slow_solver = ode_solver.slow_method(slow_dg, Q; dt = dt)
     fast_dt = dt / ode_solver.timestep_ratio
@@ -333,19 +333,16 @@ function solversetup(
     # Finally, we subtract away the
     # fast processes and define a DG model for the
     # slower processes (advection and diffusion)
-    slow_model = RemainderModel(dg.balance_law, (fast_model,))
-    slow_dg = DGModel(
-        slow_model,
-        dg.grid,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        dg.numerical_flux_gradient,
-        state_auxiliary = dg.state_auxiliary,
-        state_gradient_flux = dg.state_gradient_flux,
-        states_higher_order = dg.states_higher_order,
-        # Ensure diffusion direction is passed to the correct
-        # DG model
-        diffusion_direction = diffusion_direction,
+    if ode_solver.discrete_splitting
+        numerical_flux_first_order =
+            (dg.numerical_flux_first_order, (dg.numerical_flux_first_order,))
+    else
+        numerical_flux_first_order = dg.numerical_flux_first_order
+    end
+    slow_dg = remainder_DGModel(
+        dg,
+        (acoustic_dg_full,);
+        numerical_flux_first_order = numerical_flux_first_order,
     )
 
     slow_solver = ode_solver.slow_method(slow_dg, Q; dt = dt, t0 = t0)

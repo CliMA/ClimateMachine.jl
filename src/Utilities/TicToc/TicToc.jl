@@ -52,17 +52,23 @@ function _tic(nm)
     exti = Symbol("tictoc__", nm)
     global timing_info_names
     if exti in timing_info_names
-        throw(ArgumentError("$(nm) already used in @tic"))
+        err_ex = quote
+            throw(ArgumentError("$(nm) already used in @tic"))
+        end
+    else
+        err_ex = quote end
     end
     push!(timing_info_names, exti)
     @static if tictoc_track_memory
         quote
+            $(err_ex)
             global $(exti)
             $(exti).curr = time_ns()
             $(exti).mem = Base.gc_num()
         end
     else
         quote
+            $(err_ex)
             global $(exti)
             $(exti).curr = time_ns()
         end

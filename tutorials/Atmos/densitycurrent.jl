@@ -126,7 +126,7 @@ const param_set = EarthParameterSet()
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualisation
 #md #       purposes)
-function init_densitycurrent!(bl, state, aux, (x, y, z), t)
+function init_densitycurrent!(problem, bl, state, aux, (x, y, z), t)
     ## Problem float-type
     FT = eltype(state)
 
@@ -208,12 +208,12 @@ function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                             # Flow in a box, requires the AtmosLESConfigType
         param_set;                                      # Parameter set corresponding to earth parameters
+        init_state_prognostic = init_densitycurrent!,   # Apply the initial condition
+        ref_state = ref_state,                          # Reference state
         turbulence = Vreman(_C_smag),                   # Turbulence closure model
         moisture = DryModel(),                          # Exclude moisture variables
         source = (Gravity(),),                          # Gravity is the only source term here
         tracers = NoTracers(),                          # Tracer model with diffusivity coefficients
-        ref_state = ref_state,                          # Reference state
-        init_state_prognostic = init_densitycurrent!, # Apply the initial condition
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the

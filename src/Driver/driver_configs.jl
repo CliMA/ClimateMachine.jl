@@ -227,7 +227,12 @@ function AtmosGCMConfiguration(
         nelem = nelem_vert,
     )
 
-    topology = StackedCubedSphereTopology(mpicomm, nelem_horz, vert_range)
+    topology = StackedCubedSphereTopology(
+        mpicomm,
+        nelem_horz,
+        vert_range;
+        boundary = (1, 2),
+    )
 
     grid = DiscontinuousSpectralElementGrid(
         topology,
@@ -342,6 +347,7 @@ function SingleStackConfiguration(
     param_set::AbstractParameterSet,
     model::BalanceLaw;
     zmin = zero(FT),
+    hmax = one(FT),
     array_type = ClimateMachine.array_type(),
     solver_type = ExplicitSolverType(),
     mpicomm = MPI.COMM_WORLD,
@@ -355,8 +361,8 @@ function SingleStackConfiguration(
 
     print_model_info(model)
 
-    xmin, xmax = zero(FT), one(FT)
-    ymin, ymax = zero(FT), one(FT)
+    xmin, xmax = zero(FT), hmax
+    ymin, ymax = zero(FT), hmax
     brickrange = (
         grid1d(xmin, xmax, nelem = 1),
         grid1d(ymin, ymax, nelem = 1),

@@ -1,15 +1,6 @@
 module BalanceLaws
 
-using MPI
-using StaticArrays
-using DocStringExtensions
-using KernelAbstractions
-using KernelAbstractions.Extras: @unroll
-using ..MPIStateArrays
-using ..Mesh.Grids
-using ..Mesh.Topologies
 using ..VariableTemplates
-using ..Courant
 
 export BalanceLaw,
     vars_state,
@@ -26,6 +17,7 @@ export BalanceLaw,
     boundary_state!,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,
+    nodal_init_state_auxiliary!,
     nodal_update_auxiliary_state!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,

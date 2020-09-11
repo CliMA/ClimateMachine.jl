@@ -64,11 +64,11 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
 end
 
 temperature(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    air_temperature(thermo_state(atmos, state, aux))
+    air_temperature(recover_thermo_state(atmos, state, aux))
 pressure(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    air_pressure(thermo_state(atmos, state, aux))
+    air_pressure(recover_thermo_state(atmos, state, aux))
 soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    soundspeed_air(thermo_state(atmos, state, aux))
+    soundspeed_air(recover_thermo_state(atmos, state, aux))
 
 @inline function total_specific_enthalpy(
     atmos::AtmosModel,
@@ -76,7 +76,7 @@ soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
     state::Vars,
     aux::Vars,
 )
-    phase = thermo_state(atmos, state, aux)
+    phase = recover_thermo_state(atmos, state, aux)
     e_tot = state.ρe * (1 / state.ρ)
     return total_specific_enthalpy(phase, e_tot)
 end
@@ -96,27 +96,10 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     aux::Vars,
     t::Real,
 )
-    e_int = internal_energy(atmos, state, aux)
-    ts = PhaseDry(atmos.param_set, e_int, state.ρ)
+    ts = new_thermo_state(atmos, state, aux)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
     nothing
-end
-
-thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    thermo_state(atmos, atmos.moisture, state, aux)
-
-function thermo_state(
-    atmos::AtmosModel,
-    moist::DryModel,
-    state::Vars,
-    aux::Vars,
-)
-    return PhaseDry(
-        atmos.param_set,
-        internal_energy(atmos, state, aux),
-        state.ρ,
-    )
 end
 
 """
@@ -138,7 +121,7 @@ vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
 vars_state(::EquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::GradientFlux, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state(::EquilMoist, ::Auxiliary, FT) =
-    @vars(temperature::FT, θ_v::FT, q_liq::FT)
+    @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::EquilMoist,
@@ -147,39 +130,13 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
     aux::Vars,
     t::Real,
 )
-    ps = atmos.param_set
     e_int = internal_energy(atmos, state, aux)
-    ts = PhaseEquil(
-        ps,
-        e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
-        moist.maxiter,
-        moist.tolerance,
-    )
+    ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
+    aux.moisture.q_ice = PhasePartition(ts).ice
     nothing
-end
-
-function thermo_state(
-    atmos::AtmosModel,
-    moist::EquilMoist,
-    state::Vars,
-    aux::Vars,
-)
-    e_int = internal_energy(atmos, state, aux)
-    ps = atmos.param_set
-    PS = typeof(ps)
-    FT = eltype(state)
-    return PhaseEquil{FT, PS}(
-        ps,
-        e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
-        aux.moisture.temperature,
-    )
 end
 
 function compute_gradient_argument!(

@@ -18,6 +18,7 @@ for OrdinaryDiffEq.jl, Sundials.jl, and more.
 """
 mutable struct DiffEqJLSolver{I} <: AbstractDiffEqJLSolver
     integ::I
+    steps::Int
 
     function DiffEqJLSolver(
         rhs!,
@@ -44,7 +45,7 @@ mutable struct DiffEqJLSolver{I} <: AbstractDiffEqJLSolver
             save_end = false,
             kwargs...,
         )
-        new{typeof(integ)}(integ)
+        new{typeof(integ)}(integ, 0)
     end
 end
 
@@ -63,6 +64,7 @@ for OrdinaryDiffEq.jl, Sundials.jl, and more.
 """
 mutable struct DiffEqJLIMEXSolver{I} <: AbstractDiffEqJLSolver
     integ::I
+    steps::Int
 
     function DiffEqJLIMEXSolver(
         rhs!,
@@ -92,7 +94,7 @@ mutable struct DiffEqJLIMEXSolver{I} <: AbstractDiffEqJLSolver
             kwargs...,
         )
 
-        new{typeof(integ)}(integ)
+        new{typeof(integ)}(integ, 0)
     end
 end
 

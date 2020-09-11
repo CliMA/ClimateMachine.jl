@@ -1,4 +1,5 @@
 [deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 CLIMAParameters = "6eacf6c3-8458-43b9-ae03-caf5306d3d53"
 ClimateMachine = "777c4786-024f-11e9-21a3-85d5d4106250"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -14,6 +15,7 @@ GR = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+LambertW = "984bce1d-4616-540c-a9ee-88d1112d94c9"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"

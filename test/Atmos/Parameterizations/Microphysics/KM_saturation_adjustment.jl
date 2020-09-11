@@ -70,7 +70,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     return nothing
 end
 
-function kinematic_model_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -240,12 +240,12 @@ function main()
     MPI.Barrier(mpicomm)
 
     model = driver_config.bl
-    step = [0]
+    vtkstep = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(output_freq) do
         out_dirname = @sprintf(
             "new_ex_1_mpirank%04d_step%04d",
             MPI.Comm_rank(mpicomm),
-            step[1]
+            vtkstep[1]
         )
         out_path_prefix = joinpath(vtkdir, out_dirname)
         @info "doing VTK output" out_path_prefix
@@ -257,7 +257,7 @@ function main()
             solver_config.dg.state_auxiliary,
             flattenednames(vars_state(model, Auxiliary(), FT)),
         )
-        step[1] += 1
+        vtkstep[1] += 1
         nothing
     end
 
