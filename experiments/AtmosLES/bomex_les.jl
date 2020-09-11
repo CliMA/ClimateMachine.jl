@@ -11,12 +11,18 @@ function main()
         metavar = "prescribed|bulk"
         arg_type = String
         default = "prescribed"
+        "--moisture-model"
+        help = "specify cloud condensate model"
+        metavar = "equilibrium|nonequilibrium"
+        arg_type = String
+        default = "equilibrium"
     end
 
     cl_args =
         ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
 
     surface_flux = cl_args["surface_flux"]
+    moisture_model = cl_args["moisture_model"]
 
     FT = Float32
     config_type = AtmosLESConfigType
@@ -45,7 +51,13 @@ function main()
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
 
-    model = bomex_model(FT, config_type, zmax, surface_flux)
+    model = bomex_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux,
+        moisture_model = moisture_model,
+    )
     ics = model.problem.init_state_prognostic
     # Assemble configuration
     driver_config = ClimateMachine.AtmosLESConfiguration(
@@ -70,10 +82,16 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
+    if moisture_model == "equilibrium"
+        filter_vars = ("moisture.ρq_tot",)
+    elseif moisture_model == "nonequilibrium"
+        filter_vars = ("moisture.ρq_tot", "moisture.ρq_liq", "moisture.ρq_ice")
+    end
+
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("moisture.ρq_tot",),
+            filter_vars,
             solver_config.dg.grid,
             TMARFilter(),
         )
