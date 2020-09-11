@@ -224,6 +224,14 @@ function setup_variables()
             "",
         ),
     )
+    Variables["cov_w_qi"] = DiagnosticVariable(
+        "cov_w_qi",
+        var_attrib(
+            "kg kg^-1 m s^-1",
+            "vertical eddy flux of cloud ice specific humidity",
+            "",
+        ),
+    )
     Variables["cov_w_qv"] = DiagnosticVariable(
         "cov_w_qv",
         var_attrib(

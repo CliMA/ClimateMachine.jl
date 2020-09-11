@@ -42,6 +42,27 @@ function new_thermo_state(
     )
 end
 
+function new_thermo_state(
+    atmos::AtmosModel,
+    moist::NonEquilMoist,
+    state::Vars,
+    aux::Vars,
+)
+    e_int = internal_energy(atmos, state, aux)
+    q = PhasePartition(
+        state.moisture.ρq_tot / state.ρ,
+        state.moisture.ρq_liq / state.ρ,
+        state.moisture.ρq_ice / state.ρ,
+    )
+
+    return PhaseNonEquil{eltype(state), typeof(atmos.param_set)}(
+        atmos.param_set,
+        e_int,
+        state.ρ,
+        q,
+    )
+end
+
 """
     recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars)
 
@@ -78,5 +99,26 @@ function recover_thermo_state(
         state.ρ,
         state.moisture.ρq_tot / state.ρ,
         aux.moisture.temperature,
+    )
+end
+
+function recover_thermo_state(
+    atmos::AtmosModel,
+    moist::NonEquilMoist,
+    state::Vars,
+    aux::Vars,
+)
+    e_int = internal_energy(atmos, state, aux)
+    q = PhasePartition(
+        state.moisture.ρq_tot / state.ρ,
+        state.moisture.ρq_liq / state.ρ,
+        state.moisture.ρq_ice / state.ρ,
+    )
+
+    return PhaseNonEquil{eltype(state), typeof(atmos.param_set)}(
+        atmos.param_set,
+        e_int,
+        state.ρ,
+        q,
     )
 end

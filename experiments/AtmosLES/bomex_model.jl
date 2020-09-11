@@ -77,8 +77,23 @@ using ClimateMachine.BalanceLaws:
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+using CLIMAParameters.Atmos.Microphysics
+
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+
+struct MicropysicsParameterSet{L, I} <: AbstractMicrophysicsParameterSet
+    liq::L
+    ice::I
+end
+
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+    microphys::M
+end
+
+microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
+
+const param_set = EarthParameterSet(microphys)
 
 import ClimateMachine.Atmos: atmos_source!
 using ClimateMachine.Atmos: altitude, recover_thermo_state
@@ -358,6 +373,10 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
+    if bl.moisture isa NonEquilMoist
+        state.moisture.ρq_liq = FT(0)
+        state.moisture.ρq_ice = FT(0)
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
@@ -372,6 +391,7 @@ function bomex_model(
     zmax,
     surface_flux;
     turbconv = NoTurbConv(),
+    moisture_model = "equilibrium",
 ) where {FT}
 
     ics = init_bomex!     # Initial conditions
@@ -407,7 +427,7 @@ function bomex_model(
     f_coriolis = FT(0.376e-4) # Coriolis parameter
 
     # Assemble source components
-    source = (
+    source_default = (
         Gravity(),
         BomexTendencies{FT}(
             ∂qt∂t_peak,
@@ -431,17 +451,31 @@ function bomex_model(
         BomexGeostrophic{FT}(f_coriolis, u_geostrophic, u_slope, v_geostrophic),
         turbconv_sources(turbconv)...,
     )
+    if moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
 
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
-        energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
-        moisture = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+        energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
-        energy = BulkFormulaEnergy(
+        energy_bc = BulkFormulaEnergy(
             (state, aux, t, normPu_int) -> C_drag,
             (state, aux, t) -> (T_sfc, q_sfc),
         )
-        moisture = BulkFormulaMoisture(
+        moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
             (state, aux, t) -> q_sfc,
         )
@@ -452,6 +486,7 @@ function bomex_model(
             surface_flux,
         )
     end
+
     problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
@@ -460,8 +495,8 @@ function bomex_model(
                     # P represents the projection onto the horizontal
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
-                energy = energy,
-                moisture = moisture,
+                energy = energy_bc,
+                moisture = moisture_bc,
                 turbconv = turbconv_bcs(turbconv),
             ),
             AtmosBC(),
@@ -475,10 +510,11 @@ function bomex_model(
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = moisture,
         source = source,
         turbconv = turbconv,
     )
+
     return model
 end
 
