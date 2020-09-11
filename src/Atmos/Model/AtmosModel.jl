@@ -370,6 +370,7 @@ turbulence_tensors(atmos::AtmosModel, args...) =
 include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
+include("thermodynamics.jl")
 include("precipitation.jl")
 include("radiation.jl")
 include("source.jl")
@@ -807,7 +808,7 @@ function numerical_flux_first_order!(
     ρ⁻ = state_prognostic⁻.ρ
     ρu⁻ = state_prognostic⁻.ρu
     ρe⁻ = state_prognostic⁻.ρe
-    ts⁻ = thermo_state(
+    ts⁻ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
         state_prognostic⁻,
@@ -829,7 +830,10 @@ function numerical_flux_first_order!(
     ρ⁺ = state_prognostic⁺.ρ
     ρu⁺ = state_prognostic⁺.ρu
     ρe⁺ = state_prognostic⁺.ρe
-    ts⁺ = thermo_state(
+
+    # TODO: state_auxiliary⁺ is not up-to-date
+    # with state_prognostic⁺ on the boundaries
+    ts⁺ = recover_thermo_state(
         balance_law,
         balance_law.moisture,
         state_prognostic⁺,

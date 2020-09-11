@@ -26,7 +26,7 @@ using Test
 
 using ClimateMachine
 using ClimateMachine.Atmos
-using ClimateMachine.Atmos: thermo_state
+using ClimateMachine.Atmos: recover_thermo_state
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks

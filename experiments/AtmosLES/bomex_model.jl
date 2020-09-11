@@ -81,7 +81,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Atmos: atmos_source!
-using ClimateMachine.Atmos: altitude, thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state
 
 """
   Bomex Geostrophic Forcing (Source)
@@ -210,7 +210,7 @@ function atmos_source!(
     _e_int_v0 = FT(e_int_v0(atmos.param_set))
 
     # Establish thermodynamic state
-    TS = thermo_state(atmos, state, aux)
+    TS = recover_thermo_state(atmos, state, aux)
 
     # Moisture tendencey (sink term)
     # Temperature tendency (Radiative cooling)

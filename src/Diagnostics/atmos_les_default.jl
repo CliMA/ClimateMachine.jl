@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel, thermo_state
+using ..Atmos: MoistureModel, recover_thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics

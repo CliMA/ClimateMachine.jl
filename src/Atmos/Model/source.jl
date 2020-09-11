@@ -206,7 +206,7 @@ function atmos_source!(
     direction,
 )
     FT = eltype(state)
-    ts = thermo_state(atmos, state, aux)
+    ts = recover_thermo_state(atmos, state, aux)
     if has_condensate(ts)
 
         q = PhasePartition(ts)

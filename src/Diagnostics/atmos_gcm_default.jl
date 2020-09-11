@@ -23,7 +23,7 @@ using Printf
 using Statistics
 
 using ..Atmos
-using ..Atmos: thermo_state
+using ..Atmos: recover_thermo_state
 using ..TurbulenceClosures: turbulence_tensors
 
 """

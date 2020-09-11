@@ -41,7 +41,7 @@ import ClimateMachine.Atmos:
     pressure,
     soundspeed,
     total_specific_enthalpy,
-    thermo_state
+    recover_thermo_state
 
 """
     MMSDryModel
@@ -58,7 +58,7 @@ function total_specific_enthalpy(
 )
     zero(eltype(state))
 end
-function thermo_state(
+function recover_thermo_state(
     bl::AtmosModel,
     moist::MMSDryModel,
     state::Vars,
