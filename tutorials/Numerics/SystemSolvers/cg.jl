@@ -55,7 +55,7 @@ linearsolver = ConjugateGradient(b);
 # and an initial guess for the iterative solver.
 x = ones(typeof(1.0), 3);
 # To solve the linear system we just need to pass to the linearsolve! function
-iters = linearsolve!(linear_operator!, linearsolver, x, b)
+iters = linearsolve!(linear_operator!, nothing, linearsolver, x, b)
 # The variable `x` gets overwritten during the linear solve
 # The norm of the error is
 norm(x - x_exact) / norm(x_exact)
@@ -102,7 +102,7 @@ linearsolver = ConjugateGradient(b, max_iter = 100);
 # As before we need to define an initial guess
 x = ones(typeof(1.0), 3);
 # To (not) solve the linear system we just need to pass to the linearsolve! function
-iters = linearsolve!(linear_operator!, linearsolver, x, b)
+iters = linearsolve!(linear_operator!, nothing, linearsolver, x, b)
 # The variable `x` gets overwitten during the linear solve
 # The norm of the error is
 norm(x - x_exact) / norm(x_exact)
@@ -179,7 +179,7 @@ linearsolver = ConjugateGradient(
 # The keyword arguments dims is the reduction dimension for the linear solver. In this case dims = (3,5) are the ones associated with a column. The reshape_tuple argument is to convert the shapes of the array `x` in the a form that is more easily usable for reductions in the linear solver
 
 # Now we can solve it
-iters = linearsolve!(columnwise_linear_operator!, linearsolver, x, b);
+iters = linearsolve!(columnwise_linear_operator!, nothing, linearsolver, x, b);
 x_exact = copy(x);
 columnwise_inverse_linear_operator!(x_exact, b);
 # The norm of the error is
