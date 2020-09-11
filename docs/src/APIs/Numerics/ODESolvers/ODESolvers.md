@@ -77,6 +77,7 @@ ODESolvers.MRIGARKDecoupledImplicit
 ```@docs
 ODESolvers.LinearBackwardEulerSolver
 ODESolvers.AbstractBackwardEulerSolver
+ODESolvers.NonLinearBackwardEulerSolver
 ```
 
 ## Differential Equations

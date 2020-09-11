@@ -365,22 +365,19 @@ function initialize!(
     end
     residual_norm = maximum(resnorms)
     initial_residual_norm = maximum(initial_resnorms)
-    converged = batched_check_convergence(
-        residual_norm,
-        initial_residual_norm,
-        atol,
-        rtol,
-    )
+    converged =
+        check_convergence(residual_norm, initial_residual_norm, atol, rtol)
 
     converged, residual_norm
 end
 
 function doiteration!(
     linearoperator!,
-    preconditioner::AbstractPreconditioner,
+    preconditioner,
     Q,
     Qrhs,
     solver::BatchedGeneralizedMinimalResidual,
+    threshold,
     args...,
 )
     FT = eltype(Q)
@@ -412,9 +409,8 @@ function doiteration!(
     residual_norm = typemax(FT)
     j = 1
     for outer j in 1:max_iter
-        # FIXME: To make this a truly batched method, we need to be able
-        # to make operator application batch-able. That way, we don't have
-        # to do this back-and-forth reshaping
+        # FIXME: Remove this back-and-forth reshaping by exploiting the
+        # data layout in a similar way that the ColumnwiseLU solver does
 
         convert_structure!(
             krylov_basis_prev,
@@ -422,10 +418,6 @@ function doiteration!(
             backward_reshape,
             backward_permute,
         )
-
-        # PRECONDITIONER: batched_krylov_basis[j+1] =  J P^{-1}batched_krylov_basis[j]
-        # set krylov_basis_prev = P^{-1}batched_krylov_basis[j]
-        preconditioner_solve!(preconditioner, krylov_basis_prev)
 
         # Global operator application to get new Krylov basis vector
         linearoperator!(krylov_basis, krylov_basis_prev, args...)
@@ -457,24 +449,17 @@ function doiteration!(
         # TODO: Once we are able to batch the operator application, we
         # should revisit the termination criteria.
         residual_norm = maximum(resnorms)
-        converged = batched_check_convergence(
-            residual_norm,
-            initial_residual_norm,
-            atol,
-            rtol,
-        )
+        converged =
+            check_convergence(residual_norm, initial_residual_norm, atol, rtol)
         if converged
             break
         end
     end
 
     # Reshape the solution vector to construct the new GMRES iterate
-    # PRECONDITIONER Q =  Q0 + Pinv PΔQ = Q0 + Pinv (Kry * y) 
+    # PRECONDITIONER Q =  Q0 + Pinv PΔQ = Q0 + Pinv (Kry * y)
     # sol = PΔQ = Kry * y
     sols .= 0
-    # Reshape the solution vector to construct the new GMRES iterate
-    # convert_structure!(sols, Q, forward_reshape, forward_permute)
-
 
     # Solve the triangular system (minimization problem for optimal linear coefficients
     # in the GMRES iterate) and construct the current iterate in each column
@@ -682,12 +667,11 @@ end
 @inline convert_structure!(x::MPIStateArray, y, reshape_tuple, permute_tuple) =
     convert_structure!(x.realdata, y, reshape_tuple, permute_tuple)
 
-function batched_check_convergence(
-    residual_norm,
-    initial_residual_norm,
-    atol,
-    rtol,
-)
-    converged = (residual_norm ≤ rtol * initial_residual_norm)
+function check_convergence(residual_norm, initial_residual_norm, atol, rtol)
+    relative_residual = residual_norm / initial_residual_norm
+    converged = false
+    if (residual_norm ≤ atol || relative_residual ≤ rtol)
+        converged = true
+    end
     return converged
 end

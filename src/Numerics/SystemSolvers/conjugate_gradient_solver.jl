@@ -234,6 +234,7 @@ end
 """
     doiteration!(
         linearoperator!,
+        preconditioner,
         Q,
         Qrhs,
         solver::ConjugateGradient,
@@ -271,10 +272,11 @@ end
 """
 function doiteration!(
     linearoperator!,
-    factors,
+    preconditioner,
     Q,
     Qrhs,
     solver::ConjugateGradient,
+    threshold,
     args...;
     applyPC! = (x, y) -> x .= y,
 )
@@ -361,6 +363,7 @@ end
 """
     doiteration!(
         linearoperator!,
+        preconditioner,
         Q::MPIStateArray,
         Qrhs::MPIStateArray,
         solver::ConjugateGradient,
@@ -398,10 +401,11 @@ This function enacts the iterative solver. It is called as part of the AbstractI
 """
 function doiteration!(
     linearoperator!,
-    factors,
+    preconditioner,
     Q::MPIStateArray,
     Qrhs::MPIStateArray,
     solver::ConjugateGradient,
+    threshold,
     args...;
     applyPC! = (x, y) -> x .= y,
 )

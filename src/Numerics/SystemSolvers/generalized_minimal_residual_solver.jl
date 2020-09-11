@@ -1,6 +1,5 @@
 #### Generalized Minimal Residual Solver
 
-using Printf
 export GeneralizedMinimalResidual
 
 """
@@ -36,25 +35,23 @@ mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <:
     H::MArray{Tuple{MP1, M}, T, 2, MMP1}
     "rhs of the least squares problem"
     g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
-    residual_norm0::T
     rtol::T
     atol::T
 
     function GeneralizedMinimalResidual(
         Q::AT;
-        M = min(20, length(Q)),
+        M = min(20, eltype(Q)),
         rtol = √eps(eltype(AT)),
         atol = eps(eltype(AT)),
     ) where {AT}
         krylov_basis = ntuple(i -> similar(Q), M + 1)
         H = @MArray zeros(M + 1, M)
         g0 = @MArray zeros(M + 1)
-        residual_norm0 = zero(eltype(AT))
+
         new{M, M + 1, M * (M + 1), eltype(Q), AT}(
             krylov_basis,
             H,
             g0,
-            residual_norm0,
             rtol,
             atol,
         )
@@ -66,58 +63,48 @@ function initialize!(
     Q,
     Qrhs,
     solver::GeneralizedMinimalResidual,
-    args...;
-    restart = false,
+    args...,
 )
     g0 = solver.g0
     krylov_basis = solver.krylov_basis
     rtol, atol = solver.rtol, solver.atol
-    residual_norm0 = solver.residual_norm0
 
     @assert size(Q) == size(krylov_basis[1])
-
 
     # store the initial residual in krylov_basis[1]
     linearoperator!(krylov_basis[1], Q, args...)
     @. krylov_basis[1] = Qrhs - krylov_basis[1]
 
+    threshold = rtol * norm(krylov_basis[1], weighted_norm)
     residual_norm = norm(krylov_basis[1], weighted_norm)
 
-    if !restart
-        solver.residual_norm0 = residual_norm
+    converged = false
+    # FIXME: Should only be true for threshold zero
+    if threshold < atol
+        converged = true
+        return converged, threshold
     end
-    converged, residual_norm =
-        check_convergence(residual_norm, solver.residual_norm0, atol, rtol)
-
-    # converged = false
-    # # FIXME: Should only be true for threshold zero
-    # if threshold < atol
-    #     converged = true
-    #     return converged, threshold
-    # end
-
 
     fill!(g0, 0)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
 
-    converged, residual_norm
+    converged, max(threshold, atol)
 end
 
 function doiteration!(
     linearoperator!,
-    factors,
+    preconditioner,
     Q,
     Qrhs,
     solver::GeneralizedMinimalResidual{M},
+    threshold,
     args...,
 ) where {M}
 
     krylov_basis = solver.krylov_basis
     H = solver.H
     g0 = solver.g0
-    residual_norm0 = solver.residual_norm0
-    rtol, atol = solver.rtol, solver.atol
 
     converged = false
     residual_norm = typemax(eltype(Q))
@@ -150,18 +137,10 @@ function doiteration!(
 
         residual_norm = abs(g0[j + 1])
 
-        #@info "residual at iteration $j: $residual_norm"
-
-        converged, residual_norm =
-            check_convergence(residual_norm, residual_norm0, atol, rtol)
-        if converged
+        if residual_norm < threshold
+            converged = true
             break
         end
-
-        # if residual_norm < threshold
-        #     converged = true
-        #     break
-        # end
     end
 
     # solve the triangular system
@@ -183,19 +162,7 @@ function doiteration!(
     wait(array_device(Q), event)
 
     # if not converged restart
-    converged ||
-    initialize!(linearoperator!, Q, Qrhs, solver, args...; restart = true)
+    converged || initialize!(linearoperator!, Q, Qrhs, solver, args...)
 
     (converged, j, residual_norm)
-end
-
-
-function check_convergence(residual_norm, residual_norm0, atol, rtol)
-
-    # Current stopping criteria is based on the maximal column norm
-
-    threshold = residual_norm0 * rtol
-    converged = (residual_norm < threshold || residual_norm < atol)
-
-    return converged, residual_norm
 end
