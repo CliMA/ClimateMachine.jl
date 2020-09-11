@@ -156,10 +156,10 @@ function run_split_explicit(
 
     odesolver = SplitExplicitSolver(lsrk_3D, lsrk_2D;)
 
-    step = [restart, restart, restart, restart]
+    vtkstep = [restart, restart, restart, restart]
     cbvector = make_callbacks(
         config.name,
-        step,
+        vtkstep,
         nout,
         config.mpicomm,
         odesolver,
@@ -206,7 +206,7 @@ end
 
 function make_callbacks(
     vtkpath,
-    step,
+    vtkstep,
     nout,
     mpicomm,
     odesolver,
@@ -228,13 +228,13 @@ function make_callbacks(
     A_slow = dg_slow.state_auxiliary
     A_fast = dg_fast.state_auxiliary
 
-    function do_output(span, step, model, dg, Q, A)
+    function do_output(span, vtkstep, model, dg, Q, A)
         outprefix = @sprintf(
             "%s/%s/mpirank%04d_step%04d",
             vtkpath,
             span,
             MPI.Comm_rank(mpicomm),
-            step
+            vtkstep
         )
         @info "doing VTK output" outprefix
         statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
@@ -242,17 +242,17 @@ function make_callbacks(
         writevtk(outprefix, Q, dg, statenames, A, auxnames)
     end
 
-    do_output("slow", step[1], model_slow, dg_slow, Q_slow, A_slow)
+    do_output("slow", vtkstep[1], model_slow, dg_slow, Q_slow, A_slow)
     cbvtk_slow = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("slow", step[1], model_slow, dg_slow, Q_slow, A_slow)
-        step[1] += 1
+        do_output("slow", vtkstep[1], model_slow, dg_slow, Q_slow, A_slow)
+        vtkstep[1] += 1
         nothing
     end
 
-    do_output("fast", step[2], model_fast, dg_fast, Q_fast, A_fast)
+    do_output("fast", vtkstep[2], model_fast, dg_fast, Q_fast, A_fast)
     cbvtk_fast = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("fast", step[2], model_fast, dg_fast, Q_fast, A_fast)
-        step[2] += 1
+        do_output("fast", vtkstep[2], model_fast, dg_fast, Q_fast, A_fast)
+        vtkstep[2] += 1
         nothing
     end
 
@@ -297,7 +297,7 @@ function make_callbacks(
             vtkpath,
             "baroclinic",
             mpicomm,
-            step[3],
+            vtkstep[3],
         )
 
         write_checkpoint(
@@ -307,15 +307,15 @@ function make_callbacks(
             vtkpath,
             "barotropic",
             mpicomm,
-            step[4],
+            vtkstep[4],
         )
 
-        rm_checkpoint(vtkpath, "baroclinic", mpicomm, step[3] - 1)
+        rm_checkpoint(vtkpath, "baroclinic", mpicomm, vtkstep[3] - 1)
 
-        rm_checkpoint(vtkpath, "barotropic", mpicomm, step[4] - 1)
+        rm_checkpoint(vtkpath, "barotropic", mpicomm, vtkstep[4] - 1)
 
-        step[3] += 1
-        step[4] += 1
+        vtkstep[3] += 1
+        vtkstep[4] += 1
         nothing
     end
 

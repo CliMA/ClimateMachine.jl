@@ -191,16 +191,30 @@ end
         PhasePartition(q_tot, q_tot),
     ) == ρ_v_triple / ρ
 
-    @test q_vap_saturation_generic(param_set, _T_triple, ρ; phase = Liquid()) ==
+    @test q_vap_saturation_generic(param_set, _T_triple, ρ, Liquid()) ==
           ρ_v_triple / ρ
-    @test q_vap_saturation_generic(param_set, _T_triple, ρ; phase = Ice()) ==
+    @test q_vap_saturation_generic(param_set, _T_triple, ρ, Ice()) ==
           ρ_v_triple / ρ
+    @test q_vap_saturation_generic(param_set, _T_triple - 20, ρ, Liquid()) >=
+          q_vap_saturation_generic(param_set, _T_triple - 20, ρ, Ice())
+
+    # test the wrapper for q_vap_saturation over liquid water and ice
+    ρ = FT(1)
+    ρu = FT[1, 2, 3]
+    ρe = FT(1100)
+    e_pot = FT(93)
+    e_int = internal_energy(ρ, ρe, ρu, e_pot)
+    q_pt = PhasePartition(FT(0.02), FT(0.002), FT(0.002))
+    ts = PhaseNonEquil(param_set, e_int, ρ, q_pt)
     @test q_vap_saturation_generic(
         param_set,
-        _T_triple - 20,
-        ρ;
-        phase = Liquid(),
-    ) >= q_vap_saturation_generic(param_set, _T_triple - 20, ρ; phase = Ice())
+        air_temperature(ts),
+        ρ,
+        Liquid(),
+    ) ≈ q_vap_saturation_liquid(ts)
+    @test q_vap_saturation_generic(param_set, air_temperature(ts), ρ, Ice()) ≈
+          q_vap_saturation_ice(ts)
+    @test q_vap_saturation_ice(ts) <= q_vap_saturation_liquid(ts)
 
     phase_type = PhaseDry
     @test saturation_excess(
@@ -301,7 +315,6 @@ end
 
     # saturation adjustment in equilibrium (i.e., given the thermodynamic
     # variables E_int, p, q_tot, compute the temperature and partitioning of the phases
-    tol_T = 1e-1
     q_tot = FT(0)
     ρ = FT(1)
     phase_type = PhaseEquil
@@ -312,7 +325,7 @@ end
         q_tot,
         phase_type,
         10,
-        ResidualTolerance(1e-2),
+        rtol_temperature,
     ) ≈ 300.0
     @test abs(
         MT.saturation_adjustment(
@@ -322,21 +335,25 @@ end
             q_tot,
             phase_type,
             10,
-            ResidualTolerance(1e-2),
+            rtol_temperature,
         ) - 300.0,
-    ) < tol_T
+    ) < rtol_temperature
 
     q_tot = FT(0.21)
     ρ = FT(0.1)
-    @test MT.saturation_adjustment_SecantMethod(
-        param_set,
-        internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
-        ρ,
-        q_tot,
-        phase_type,
-        10,
-        ResidualTolerance(1e-2),
-    ) ≈ 200.0
+    @test isapprox(
+        MT.saturation_adjustment_SecantMethod(
+            param_set,
+            internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
+            ρ,
+            q_tot,
+            phase_type,
+            10,
+            rtol_temperature,
+        ),
+        200.0,
+        rtol = rtol_temperature,
+    )
     @test abs(
         MT.saturation_adjustment(
             param_set,
@@ -345,9 +362,9 @@ end
             q_tot,
             phase_type,
             10,
-            ResidualTolerance(1e-2),
+            rtol_temperature,
         ) - 200.0,
-    ) < tol_T
+    ) < rtol_temperature
     q = PhasePartition_equil(param_set, T, ρ, q_tot, phase_type)
     @test q.tot - q.liq - q.ice ≈
           vapor_specific_humidity(q) ≈
@@ -670,7 +687,7 @@ end
         q_tot,
         Ref(phase_type),
         2,
-        ResidualTolerance(FT(1e-10)),
+        FT(1e-10),
     )
 
     @test_throws ErrorException MT.saturation_adjustment_SecantMethod.(
@@ -680,7 +697,7 @@ end
         q_tot,
         Ref(phase_type),
         2,
-        ResidualTolerance(FT(1e-10)),
+        FT(1e-10),
     )
 
     T_virt = T # should not matter: testing for non-convergence
@@ -1113,6 +1130,8 @@ end
         @test typeof.(latent_heat_sublim.(ts)) == typeof.(e_int)
         @test typeof.(latent_heat_fusion.(ts)) == typeof.(e_int)
         @test typeof.(q_vap_saturation.(ts)) == typeof.(e_int)
+        @test typeof.(q_vap_saturation_liquid.(ts)) == typeof.(e_int)
+        @test typeof.(q_vap_saturation_ice.(ts)) == typeof.(e_int)
         @test typeof.(saturation_excess.(ts)) == typeof.(e_int)
         @test typeof.(liquid_fraction.(ts)) == typeof.(e_int)
         @test typeof.(liquid_ice_pottemp.(ts)) == typeof.(e_int)
@@ -1169,6 +1188,10 @@ end
     @test all(latent_heat_sublim.(ts_eq) .≈ latent_heat_sublim.(ts_dry))
     @test all(latent_heat_fusion.(ts_eq) .≈ latent_heat_fusion.(ts_dry))
     @test all(q_vap_saturation.(ts_eq) .≈ q_vap_saturation.(ts_dry))
+    @test all(
+        q_vap_saturation_liquid.(ts_eq) .≈ q_vap_saturation_liquid.(ts_dry),
+    )
+    @test all(q_vap_saturation_ice.(ts_eq) .≈ q_vap_saturation_ice.(ts_dry))
     @test all(saturation_excess.(ts_eq) .≈ saturation_excess.(ts_dry))
     @test all(liquid_fraction.(ts_eq) .≈ liquid_fraction.(ts_dry))
     @test all(liquid_ice_pottemp.(ts_eq) .≈ liquid_ice_pottemp.(ts_dry))

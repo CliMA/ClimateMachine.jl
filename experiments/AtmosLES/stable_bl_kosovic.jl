@@ -56,7 +56,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 import ClimateMachine.Atmos: atmos_source!, flux_second_order!
-using ClimateMachine.Atmos: altitude, thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state
 
 """
   StableBL Geostrophic Forcing (Source)

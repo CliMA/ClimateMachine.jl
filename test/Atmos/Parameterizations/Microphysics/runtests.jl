@@ -174,14 +174,14 @@ end
 
     # no supersaturation -> no snow
     T = 273.15 - 5
-    q_sat_ice = q_vap_saturation_generic(prs, T, ρ; phase = Ice())
+    q_sat_ice = q_vap_saturation_generic(prs, T, ρ, Ice())
     q = PhasePartition(q_sat_ice, 2e-3, 3e-3)
     @test conv_q_ice_to_q_sno(prs, ice_prs, q, ρ, T) == 0.0
 
     # TODO - coudnt find a plot of what it should be from the original paper
     # just chacking if the number stays the same
     T = 273.15 - 10
-    q_vap = 1.02 * q_vap_saturation_generic(prs, T, ρ; phase = Ice())
+    q_vap = 1.02 * q_vap_saturation_generic(prs, T, ρ, Ice())
     q_liq = 0.0
     q_ice = 0.03 * q_vap
     q = PhasePartition(q_vap + q_liq + q_ice, q_liq, q_ice)
@@ -253,7 +253,7 @@ end
         ρ::FT,
     ) where {FT <: Real}
 
-        q_sat = q_vap_saturation_generic(prs, T, ρ; phase = Liquid())
+        q_sat = q_vap_saturation_generic(prs, T, ρ, Liquid())
         q_vap = q.tot - q.liq
         rr = q_rai / (1 - q.tot)
         rv_sat = q_sat / (1 - q.tot)

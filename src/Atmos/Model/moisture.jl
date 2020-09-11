@@ -1,4 +1,4 @@
-export DryModel, EquilMoist
+export DryModel, EquilMoist, NonEquilMoist
 
 #### Moisture component in atmosphere model
 abstract type MoistureModel end
@@ -64,11 +64,11 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
 end
 
 temperature(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    air_temperature(thermo_state(atmos, state, aux))
+    air_temperature(recover_thermo_state(atmos, state, aux))
 pressure(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    air_pressure(thermo_state(atmos, state, aux))
+    air_pressure(recover_thermo_state(atmos, state, aux))
 soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    soundspeed_air(thermo_state(atmos, state, aux))
+    soundspeed_air(recover_thermo_state(atmos, state, aux))
 
 @inline function total_specific_enthalpy(
     atmos::AtmosModel,
@@ -76,7 +76,7 @@ soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
     state::Vars,
     aux::Vars,
 )
-    phase = thermo_state(atmos, state, aux)
+    phase = recover_thermo_state(atmos, state, aux)
     e_tot = state.ρe * (1 / state.ρ)
     return total_specific_enthalpy(phase, e_tot)
 end
@@ -96,27 +96,10 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     aux::Vars,
     t::Real,
 )
-    e_int = internal_energy(atmos, state, aux)
-    ts = PhaseDry(atmos.param_set, e_int, state.ρ)
+    ts = new_thermo_state(atmos, state, aux)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
     nothing
-end
-
-thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    thermo_state(atmos, atmos.moisture, state, aux)
-
-function thermo_state(
-    atmos::AtmosModel,
-    moist::DryModel,
-    state::Vars,
-    aux::Vars,
-)
-    return PhaseDry(
-        atmos.param_set,
-        internal_energy(atmos, state, aux),
-        state.ρ,
-    )
 end
 
 """
@@ -147,40 +130,12 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
     aux::Vars,
     t::Real,
 )
-    ps = atmos.param_set
-    e_int = internal_energy(atmos, state, aux)
-    ts = PhaseEquil(
-        ps,
-        e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
-        moist.maxiter,
-        moist.tolerance,
-    )
+    ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
     aux.moisture.q_ice = PhasePartition(ts).ice
     nothing
-end
-
-function thermo_state(
-    atmos::AtmosModel,
-    moist::EquilMoist,
-    state::Vars,
-    aux::Vars,
-)
-    e_int = internal_energy(atmos, state, aux)
-    ps = atmos.param_set
-    PS = typeof(ps)
-    FT = eltype(state)
-    return PhaseEquil{FT, PS}(
-        ps,
-        e_int,
-        state.ρ,
-        state.moisture.ρq_tot / state.ρ,
-        aux.moisture.temperature,
-    )
 end
 
 function compute_gradient_argument!(
@@ -236,4 +191,108 @@ function flux_second_order!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
     flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
+end
+
+"""
+    NonEquilMoist
+
+Does not assume that the moisture components are in equilibrium.
+"""
+struct NonEquilMoist <: MoistureModel end
+
+vars_state(::NonEquilMoist, ::Prognostic, FT) =
+    @vars(ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
+vars_state(::NonEquilMoist, ::Gradient, FT) =
+    @vars(q_tot::FT, q_liq::FT, q_ice::FT)
+vars_state(::NonEquilMoist, ::GradientFlux, FT) = @vars(
+    ∇q_tot::SVector{3, FT},
+    ∇q_liq::SVector{3, FT},
+    ∇q_ice::SVector{3, FT}
+)
+vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
+
+@inline function atmos_nodal_update_auxiliary_state!(
+    moist::NonEquilMoist,
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ts = new_thermo_state(atmos, state, aux)
+    aux.moisture.temperature = air_temperature(ts)
+    aux.moisture.θ_v = virtual_pottemp(ts)
+    nothing
+end
+
+function compute_gradient_argument!(
+    moist::NonEquilMoist,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ρinv = 1 / state.ρ
+    transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
+    transform.moisture.q_liq = state.moisture.ρq_liq * ρinv
+    transform.moisture.q_ice = state.moisture.ρq_ice * ρinv
+end
+
+function compute_gradient_flux!(
+    moist::NonEquilMoist,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    # diffusive fluxes of moisture variables
+    diffusive.moisture.∇q_tot = ∇transform.moisture.q_tot
+    diffusive.moisture.∇q_liq = ∇transform.moisture.q_liq
+    diffusive.moisture.∇q_ice = ∇transform.moisture.q_ice
+end
+
+function flux_moisture!(
+    moist::NonEquilMoist,
+    atmos::AtmosModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    ρ = state.ρ
+    u = state.ρu / ρ
+    flux.moisture.ρq_tot += u * state.moisture.ρq_tot
+    flux.moisture.ρq_liq += u * state.moisture.ρq_liq
+    flux.moisture.ρq_ice += u * state.moisture.ρq_ice
+end
+
+function flux_second_order!(
+    moist::NonEquilMoist,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    D_t,
+)
+    d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    d_q_liq = (-D_t) .* diffusive.moisture.∇q_liq
+    d_q_ice = (-D_t) .* diffusive.moisture.∇q_ice
+
+    flux_second_order!(moist, flux, state, d_q_tot, d_q_liq, d_q_ice)
+end
+
+function flux_second_order!(
+    moist::NonEquilMoist,
+    flux::Grad,
+    state::Vars,
+    d_q_tot,
+    d_q_liq,
+    d_q_ice,
+)
+    flux.ρ += d_q_tot * state.ρ
+    flux.ρu += d_q_tot .* state.ρu'
+    flux.moisture.ρq_tot += d_q_tot * state.ρ
+    flux.moisture.ρq_liq += d_q_liq * state.ρ
+    flux.moisture.ρq_ice += d_q_ice * state.ρ
 end

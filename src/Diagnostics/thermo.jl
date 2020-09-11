@@ -2,7 +2,6 @@ using ..Atmos
 using ..Atmos: MoistureModel
 
 # Helpers to gather the thermodynamic variables across the DG grid
-#
 
 function vars_thermo(atmos::AtmosModel, FT)
     @vars begin
@@ -24,6 +23,17 @@ function vars_thermo(m::EquilMoist, FT)
         q_vap::FT
         θ_vir::FT
         θ_liq_ice::FT
+        has_condensate::Bool
+    end
+end
+function vars_thermo(m::NonEquilMoist, FT)
+    @vars begin
+        q_liq::FT
+        q_ice::FT
+        q_vap::FT
+        θ_vir::FT
+        θ_liq_ice::FT
+        has_condensate::Bool
     end
 end
 num_thermo(bl, FT) = varsize(vars_thermo(bl, FT))
@@ -32,7 +42,7 @@ thermo_vars(bl, array) = Vars{vars_thermo(bl, eltype(array))}(array)
 # compute thermodynamic variables visitor function, to use with `@visitQ`
 function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
     e_tot = state.ρe / state.ρ
-    ts = thermo_state(atmos, state, aux)
+    ts = recover_thermo_state(atmos, state, aux)
     e_int = internal_energy(ts)
 
     thermo.temp = air_temperature(ts)
@@ -53,8 +63,20 @@ end
 function compute_thermo!(moist::EquilMoist, state, aux, ts, thermo)
     Phpart = PhasePartition(ts)
 
+    thermo.moisture.has_condensate = has_condensate(ts)
     thermo.moisture.q_liq = Phpart.liq
     thermo.moisture.q_ice = Phpart.ice
+    thermo.moisture.q_vap = vapor_specific_humidity(ts)
+    thermo.moisture.θ_vir = virtual_pottemp(ts)
+    thermo.moisture.θ_liq_ice = liquid_ice_pottemp(ts)
+
+    return nothing
+end
+function compute_thermo!(moist::NonEquilMoist, state, aux, ts, thermo)
+
+    thermo.moisture.has_condensate = has_condensate(ts)
+    thermo.moisture.q_liq = liquid_specific_humidity(ts)
+    thermo.moisture.q_ice = ice_specific_humidity(ts)
     thermo.moisture.q_vap = vapor_specific_humidity(ts)
     thermo.moisture.θ_vir = virtual_pottemp(ts)
     thermo.moisture.θ_liq_ice = liquid_ice_pottemp(ts)
