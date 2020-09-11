@@ -82,7 +82,7 @@ x1 = ones(typeof(1.0), 3);
 x2 = ones(typeof(1.0), 3);
 x = [x1 x2];
 # To solve the linear system, we just need to pass to the linearsolve! function
-iters = linearsolve!(linear_operator!, linearsolver, x, b)
+iters = linearsolve!(linear_operator!, nothing, linearsolver, x, b)
 # which is guaranteed to converge in 3 iterations since `length(b1)=length(b2)=3`
 # We can now check that the solution that we computed, x
 x
@@ -182,6 +182,7 @@ gmres = BatchedGeneralizedMinimalResidual(
 # All the hard work is done, now we just call our linear solver
 iters = linearsolve!(
     columnwise_linear_operator!,
+    nothing,
     gmres,
     x,
     b,
