@@ -904,7 +904,7 @@ function supersaturation(
 ) where {FT <: Real}
 
     q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Liquid())
-    q_vap::FT = max(FT(0), q.tot - q.liq - q.ice)
+    q_vap::FT = vapor_specific_humidity(q)
 
     return q_vap / q_sat - FT(1)
 end
@@ -917,7 +917,7 @@ function supersaturation(
 ) where {FT <: Real}
 
     q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Ice())
-    q_vap::FT = max(FT(0), q.tot - q.liq - q.ice)
+    q_vap::FT = vapor_specific_humidity(q)
 
     return q_vap / q_sat - FT(1)
 end
