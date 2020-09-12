@@ -419,7 +419,7 @@ function make_callbacks(
     end
 
     # return (cbvtk_slow, cbvtk_fast, cbinfo)
-    return (cbinfo)
+    return (cbinfo,)
 end
 
 #################
