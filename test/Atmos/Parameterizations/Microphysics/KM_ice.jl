@@ -172,14 +172,14 @@ function nodal_update_auxiliary_state!(
         aux.q_ice = state.ρq_ice / state.ρ
         aux.q_rai = state.ρq_rai / state.ρ
         aux.q_sno = state.ρq_sno / state.ρ
-        aux.q_vap = aux.q_tot - aux.q_liq - aux.q_ice
+        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        aux.q_vap = vapor_specific_humidity(q)
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
         aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
-        q = PhasePartition(max(FT(0), aux.q_tot), max(FT(0), aux.q_liq), max(FT(0), aux.q_ice))
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
         aux.RH = relative_humidity(ts_neq) * FT(100)
@@ -463,7 +463,7 @@ function source!(
         ρ = state.ρ
         e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.aux_z
 
-        q = PhasePartition(max(FT(0), q_tot), max(FT(0), q_liq), max(FT(0), q_ice))
+        q = PhasePartition(q_tot, q_liq, q_ice)
         T = air_temperature(param_set, e_int, q)
         _Lf = latent_heat_fusion(param_set, T)
 

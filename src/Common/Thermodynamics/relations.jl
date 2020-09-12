@@ -188,7 +188,7 @@ ice_specific_humidity(ts::PhaseNonEquil) = ts.q.ice
 
 The vapor specific humidity, given a `PhasePartition` `q`.
 """
-vapor_specific_humidity(q::PhasePartition) = q.tot - q.liq - q.ice
+vapor_specific_humidity(q::PhasePartition) = max(0, q.tot - q.liq - q.ice)
 vapor_specific_humidity(ts::ThermodynamicState) =
     vapor_specific_humidity(PhasePartition(ts))
 
@@ -967,7 +967,7 @@ saturation_excess(ts::ThermodynamicState) = saturation_excess(
 
 Condensate of the phase partition.
 """
-condensate(q::PhasePartition) = max(0, q.liq) + max(0, q.ice)
+condensate(q::PhasePartition) = max(0, q.liq + q.ice)
 condensate(ts::ThermodynamicState) = condensate(PhasePartition(ts))
 
 """

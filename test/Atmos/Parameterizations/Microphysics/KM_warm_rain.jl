@@ -32,7 +32,6 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_int::FT
         T::FT
         S_liq::FT
-        S_ice::FT
         RH::FT
         rain_w::FT
         # more diagnostics
@@ -107,18 +106,21 @@ function nodal_update_auxiliary_state!(
         aux.q_liq = state.ρq_liq / state.ρ
         aux.q_ice = state.ρq_ice / state.ρ
         aux.q_rai = state.ρq_rai / state.ρ
-        aux.q_vap = aux.q_tot - aux.q_liq - aux.q_ice
+        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        aux.q_vap = vapor_specific_humidity(q)
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
         aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
-        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
         aux.RH = relative_humidity(ts_neq) * FT(100)
-        aux.S_liq = max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
+        aux.S_liq = max(
+            0,
+            supersaturation(param_set, q, state.ρ, aux.T, Liquid())
+        )
         # rain terminal velocity
         aux.rain_w =
             terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)
