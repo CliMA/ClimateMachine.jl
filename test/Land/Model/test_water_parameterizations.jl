@@ -61,7 +61,7 @@ using ClimateMachine.Land.SoilWaterParameterizations
         1.0,
     ) == FT(0.1)
 
-    @test_throws DomainError effective_saturation(0.5, -1.0)
+    @test_throws Exception effective_saturation(0.5, -1.0)
     @test effective_saturation(0.5, 0.25) == 0.5
 
     test_array = [0.5, 1.0]
