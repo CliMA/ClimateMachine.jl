@@ -117,10 +117,8 @@ function nodal_update_auxiliary_state!(
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
         aux.RH = relative_humidity(ts_neq) * FT(100)
-        aux.S_liq = max(
-            0,
-            supersaturation(param_set, q, state.ρ, aux.T, Liquid())
-        )
+        aux.S_liq =
+            max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
         # rain terminal velocity
         aux.rain_w =
             terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)

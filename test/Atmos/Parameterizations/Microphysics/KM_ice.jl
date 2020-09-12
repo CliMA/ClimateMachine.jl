@@ -183,7 +183,8 @@ function nodal_update_auxiliary_state!(
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
         aux.RH = relative_humidity(ts_neq) * FT(100)
-        aux.S_liq = max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
+        aux.S_liq =
+            max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
         aux.S_ice = max(0, supersaturation(param_set, q, state.ρ, aux.T, Ice()))
         # terminal velocities
         aux.rain_w =
@@ -195,8 +196,18 @@ function nodal_update_auxiliary_state!(
         ts_eq = TemperatureSHumEquil(param_set, aux.T, state.ρ, aux.q_tot)
         q_eq = PhasePartition(ts_eq)
 
-        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q, slowdown_liq = FT(10))
-        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q, slowdown_ice = FT(10))
+        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(
+            liquid_param_set,
+            q_eq,
+            q,
+            slowdown_liq = FT(10),
+        )
+        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(
+            ice_param_set,
+            q_eq,
+            q,
+            slowdown_ice = FT(10),
+        )
 
         aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
         aux.src_snow_acnv =
@@ -480,9 +491,21 @@ function source!(
         source.ρe = FT(0)
 
         # vapour -> cloud liquid water
-        source.ρq_liq += ρ * conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q, slowdown_liq = FT(10))
+        source.ρq_liq +=
+            ρ * conv_q_vap_to_q_liq_ice(
+                liquid_param_set,
+                q_eq,
+                q,
+                slowdown_liq = FT(10),
+            )
         # vapour -> cloud ice
-        source.ρq_ice += ρ * conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q, slowdown_ice = FT(10))
+        source.ρq_ice +=
+            ρ * conv_q_vap_to_q_liq_ice(
+                ice_param_set,
+                q_eq,
+                q,
+                slowdown_ice = FT(10),
+            )
 
         # cloud liquid water -> rain
         acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
@@ -923,18 +946,14 @@ function main()
                 solver_config.Q,
                 (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno),
                 solver_config.dg.grid,
-                BoydVandevenFilter(
-                    solver_config.dg.grid,
-                    1,
-                    8,
-                ),
+                BoydVandevenFilter(solver_config.dg.grid, 1, 8),
             )
             nothing
         end
 
     # output for paraview
     # initialize base output prefix directory from rank 0
-    vtkdir  = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
     end
@@ -986,8 +1005,8 @@ function main()
             driver_config.name,
             interpol = interpol,
         ),
-    ];
-    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps);
+    ]
+    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
 
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
