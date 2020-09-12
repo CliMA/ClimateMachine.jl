@@ -367,7 +367,7 @@ function conv_q_liq_to_q_rai(rain_param_set::ARPS, q_liq::FT) where {FT <: Real}
     _τ_acnv::FT = τ_acnv(rain_param_set)
     _q_liq_threshold::FT = q_liq_threshold(rain_param_set)
 
-    return max(FT(0), q_liq - _q_liq_threshold) / _τ_acnv
+    return max(0, q_liq - _q_liq_threshold) / _τ_acnv
 end
 
 """

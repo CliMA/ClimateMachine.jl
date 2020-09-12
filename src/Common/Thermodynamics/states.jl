@@ -37,13 +37,18 @@ struct PhasePartition{FT <: Real}
     liq::FT
     "ice specific humidity (default: `0`)"
     ice::FT
+    function PhasePartition(tot::FT, liq::FT, ice::FT) where {FT}
+        q_tot_safe = max(tot, 0)
+        q_liq_safe = max(liq, 0)
+        q_ice_safe = max(ice, 0)
+        return new{FT}(q_tot_safe, q_liq_safe, q_ice_safe)
+    end
 end
 
 PhasePartition(q_tot::FT, q_liq::FT) where {FT <: Real} =
     PhasePartition(q_tot, q_liq, zero(FT))
 PhasePartition(q_tot::FT) where {FT <: Real} =
     PhasePartition(q_tot, zero(FT), zero(FT))
-
 
 """
     ThermodynamicState{FT}
