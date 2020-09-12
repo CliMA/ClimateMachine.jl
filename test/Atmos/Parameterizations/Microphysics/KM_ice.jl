@@ -94,43 +94,48 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
         # This is actually different than what comes out from taking a
         # derivative of Ψ from the paper. I have sin(π/2/X(x-xc)).
         # This setup makes more sense to me though.
-        _Z::FT = FT(15000)
+        _Z::FT = FT(15000.0 - 0.1)
         _X::FT = FT(10000)
         _xc::FT = FT(30000)
         _A::FT = FT(4.8 * 1e4)
-        _S::FT = FT(2.5 * 1e-2) * FT(1e-2) * FT(0.5) #TODO
+        _S::FT = FT(2.5 * 1e-2) * FT(1e-2) * FT(2) #TODO
         _ρ_00::FT = FT(1)
         ρu::FT = FT(0)
         ρw::FT = FT(0)
-        if x >= (_xc + _X)
-            ρu =
-                _S * z -
-                _A / _ρ_00 * (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw = FT(0)
-        elseif x <= (_xc - _X)
-            ρu =
-                _S * z +
-                _A / _ρ_00 * (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw = FT(0)
+        if z < _Z
+            if x >= (_xc + _X)
+                ρu =
+                    _S * z -
+                    _A / _ρ_00 * (
+                        init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                        init_dρ(z) * sin(FT(π) / _Z * z)
+                    )
+                ρw = FT(0)
+            elseif x <= (_xc - _X)
+                ρu =
+                    _S * z +
+                    _A / _ρ_00 * (
+                        init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                        init_dρ(z) * sin(FT(π) / _Z * z)
+                    )
+                ρw = FT(0)
+            else
+                ρu =
+                    _S * z -
+                    _A / _ρ_00 *
+                    sin(FT(π / 2.0) / _X * (x - _xc)) *
+                    (
+                        init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                        init_dρ(z) * sin(FT(π) / _Z * z)
+                    )
+                ρw =
+                    _A * init_ρ(z) / _ρ_00 * FT(π / 2.0) / _X *
+                    sin(FT(π) / _Z * z) *
+                    cos(FT(π / 2.0) / _X * (x - _xc))
+            end
         else
-            ρu =
-                _S * z -
-                _A / _ρ_00 *
-                sin(FT(π / 2.0) / _X * (x - _xc)) *
-                (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw =
-                _A * init_ρ(z) / _ρ_00 * FT(π / 2.0) / _X *
-                sin(FT(π) / _Z * z) *
-                cos(FT(π / 2.0) / _X * (x - _xc))
+            ρu = _S * z
+            ρw = FT(0)
         end
         state.ρu = SVector(ρu, FT(0), ρw)
         u::FT = ρu / ρ
@@ -336,29 +341,25 @@ function boundary_state!(
     # 5 - bottom   (x = ..., z = 0)
     # 6 - top      (x = ..., z = -1)
 
-    state⁺.ρq_tot = state⁻.ρq_tot
-    state⁺.ρq_liq = state⁻.ρq_liq
-    state⁺.ρq_ice = state⁻.ρq_ice
     state⁺.ρ = state⁻.ρ
+
+    state⁺.ρe = aux⁻.ρe_init
+    state⁺.ρq_tot = aux⁻.ρq_tot_init
+
+    state⁺.ρq_liq = FT(0) #state⁻.ρq_liq
+    state⁺.ρq_ice = FT(0) #state⁻.ρq_ice
 
     if bctype == 1
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
-        state⁺.ρe = aux⁻.ρe_init
-        state⁺.ρq_tot = aux⁻.ρq_tot_init
     end
     if bctype == 2
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
-        state⁺.ρe = aux⁻.ρe_init
-        state⁺.ρq_tot = aux⁻.ρq_tot_init
     end
     if bctype == 5
         state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-        state⁺.ρe = state⁻.ρe
-        state⁺.ρq_tot = state⁻.ρq_tot
+        #state⁺.ρq_tot = state⁻.ρq_tot
     end
     if bctype == 6
-        state⁺.ρe = aux⁻.ρe_init
-        state⁺.ρq_tot = aux⁻.ρq_tot_init
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
     end
 end
@@ -681,7 +682,7 @@ function main()
     # Domain extents
     xmax = 90000
     ymax = 10
-    zmax = 15000 #16000
+    zmax = 16000
     # initial configuration
     wmax = FT(0.6)  # max velocity of the eddy  [m/s]
     θ_0 = FT(289) # init. theta value (const) [K]
@@ -692,12 +693,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(10 * 60) #FT(4 * 60 * 60) #TODO
-    dt = FT(3) #FT(15)
+    t_end = FT(35 * 60) #FT(4 * 60 * 60) # FT(10 * 60)
+    dt = FT(1) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 20
-    interval = "20steps"
+    output_freq = 60
+    interval = "60steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -944,7 +945,7 @@ function main()
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
                 solver_config.Q,
-                (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno),
+                (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno, :ρe),
                 solver_config.dg.grid,
                 BoydVandevenFilter(solver_config.dg.grid, 1, 8),
             )

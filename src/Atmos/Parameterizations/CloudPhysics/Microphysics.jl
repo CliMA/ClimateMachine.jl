@@ -689,7 +689,7 @@ function evaporation_sublimation(
                 gamma((_ve + _Δv + FT(5)) / FT(2))
             )
     end
-    return evap_subl_rate
+    return min(FT(0), evap_subl_rate)
 end
 function evaporation_sublimation(
     param_set::APS,
