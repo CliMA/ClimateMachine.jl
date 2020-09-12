@@ -111,24 +111,6 @@ steps:
       queue: central
       slurm_ntasks: 1
 
-  - label: "cpu_haverkamp_test"
-    key: "cpu_haverkamp_test"
-    command:
-      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
-
-  - label: "cpu_test_bc"
-    key: "cpu_test_bc"
-    command:
-      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
-
   - label: "cpu_varsindex"
     key: "cpu_varsindex"
     command:
@@ -399,6 +381,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_test_coriolis"
+    key: "cpu_test_coriolis"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_coriolis.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "cpu_KM_saturation_adjustment"
     key: "cpu_KM_saturation_adjustment"
     command:
@@ -426,10 +417,56 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_haverkamp_test"
+    key: "cpu_haverkamp_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "cpu_heat_analytic_unit_test"
+    key: "cpu_heat_analytic_unit_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/heat_analytic_unit_test.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "cpu_discrete_hydrostatic_balance"
+    key: "cpu_discrete_hydrostatic_balance"
+    command:
+     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_soil_test_bc"
+    key: "cpu_soil_test_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "gpu_varsindex"
     key: "gpu_varsindex"
     command:
       - "mpiexec julia --color=yes --project test/Arrays/varsindex.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_variable_templates"
+    key: "gpu_variable_templates"
+    command:
+      - "mpiexec julia --color=yes --project test/Utilities/VariableTemplates/runtests_gpu.jl "
     agents:
       config: gpu
       queue: central
@@ -726,6 +763,16 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
+  - label: "gpu_test_coriolis"
+    key: "gpu_test_coriolis"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_coriolis.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
   - label: "gpu_KM_saturation_adjustment"
     key: "gpu_KM_saturation_adjustment"
     command:
@@ -886,20 +933,40 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
-  - label: "gpu_bomex"
-    key: "gpu_bomex"
+  - label: "gpu_bomex_les"
+    key: "gpu_bomex_les"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
-      slurm_ntasks: 1  
+      slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_bomex_bulk_sfc_flux" 
+  - label: "gpu_bomex_single_stack"
+    key: "gpu_bomex_single_stack"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_bulk_sfc_flux"
     key: "gpu_bomex_bulk_sfc_flux"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_bulk_sfc_flux.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --surface-flux=bulk --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_taylor_green"
+    key: "gpu_taylor_green"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/taylor_green.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -936,3 +1003,52 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_discrete_hydrostatic_balance"
+    key: "gpu_discrete_hydrostatic_balance"
+    command:
+     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_haverkamp_test"
+    key: "gpu_haverkamp_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_heat_analytic_unit_test"
+    key: "gpu_heat_analytic_unit_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/heat_analytic_unit_test.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_soil_test_bc"
+    key: "gpu_soil_test_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_unittests"
+    key: "gpu_unittests"
+    command:
+      - "julia --color=yes --project test/runtests_gpu.jl"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"

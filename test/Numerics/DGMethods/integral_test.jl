@@ -20,7 +20,7 @@ import ClimateMachine.BalanceLaws:
     source!,
     wavespeed,
     boundary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
     update_auxiliary_state!,
     indefinite_stack_integral!,
@@ -57,9 +57,10 @@ boundary_state!(_, ::IntegralTestModel, _...) = nothing
 init_state_prognostic!(::IntegralTestModel, _...) = nothing
 wavespeed(::IntegralTestModel, _...) = 1
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     ::IntegralTestModel{dim},
     aux::Vars,
+    tmp::Vars,
     g::LocalGeometry,
 ) where {dim}
     x, y, z = aux.coord = g.coord

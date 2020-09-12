@@ -211,14 +211,31 @@ vars_state(::BurgersEquation, ::GradientFlux, FT) = @vars(
 # `init_state_prognostic!`. Note that
 # - this method is only called at `t=0`.
 # - `aux.coord` is available here because we've specified `coord` in `vars_state(m, aux, FT)`.
-# - `init_aux!` initializes the auxiliary gravitational potential field needed for vertical projections.
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::BurgersEquation,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
-    init_aux!(m.orientation, m.param_set, aux)
+end;
+
+# `init_aux!` initializes the auxiliary gravitational potential field needed for vertical projections
+function init_state_auxiliary!(
+    m::BurgersEquation,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
+    init_aux!(m, m.orientation, state_auxiliary, grid, direction)
+
+    init_state_auxiliary!(
+        m,
+        nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
 end;
 
 # Specify the initial values in `state::Vars`. Note that
@@ -569,8 +586,7 @@ data_nodal[1] = state_vars
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, the state variables are collected, combined into a single
-# `OrderedDict` and written to a NetCDF file (for each output step `step`).
-step = [0];
+# `OrderedDict` and written to a NetCDF file (for each output step).
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     state_vars_var = get_horizontal_variance(
         driver_config.grid,
@@ -589,7 +605,6 @@ callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
         i = 1,
         j = 1,
     )
-    step[1] += 1
     push!(data_var, state_vars_var)
     push!(data_avg, state_vars_avg)
     push!(data_nodal, state_vars)

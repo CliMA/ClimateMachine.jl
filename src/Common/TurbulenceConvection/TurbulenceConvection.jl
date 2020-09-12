@@ -11,10 +11,12 @@ using ..VariableTemplates: @vars, Vars, Grad
 
 export TurbulenceConvectionModel, NoTurbConv
 
-export init_aux_turbconv!, turbconv_nodal_update_auxiliary_state!
+export init_state_prognostic!,
+    init_aux_turbconv!, turbconv_nodal_update_auxiliary_state!
 
 import ..BalanceLaws:
     vars_state,
+    init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
     flux_first_order!,
@@ -26,7 +28,6 @@ import ..BalanceLaws:
     integral_set_auxiliary_state!
 
 using ..MPIStateArrays: MPIStateArray
-using ..DGMethods: nodal_update_auxiliary_state!
 using ..DGMethods: DGModel, LocalGeometry
 
 abstract type TurbulenceConvectionModel end
@@ -135,6 +136,15 @@ function integral_set_auxiliary_state!(
 )
     return nothing
 end
+
+function init_state_prognostic!(
+    m::NoTurbConv,
+    bl::BalanceLaw,
+    state,
+    aux,
+    (x, y, z),
+    t,
+) end
 
 include("boundary_conditions.jl")
 include("source.jl")

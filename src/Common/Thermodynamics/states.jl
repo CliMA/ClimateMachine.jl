@@ -106,11 +106,16 @@ function PhaseEquil(
     sat_adjust::Function = saturation_adjustment,
 ) where {FT <: Real}
     phase_type = PhaseEquil
-    _cv_d = FT(cv_d(param_set))
-    # Convert temperature tolerance to a convergence criterion on internal energy residuals
-    tol = ResidualTolerance(temperature_tol * _cv_d)
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
-    T = sat_adjust(param_set, e_int, ρ, q_tot_safe, phase_type, maxiter, tol)
+    T = sat_adjust(
+        param_set,
+        e_int,
+        ρ,
+        q_tot_safe,
+        phase_type,
+        maxiter,
+        temperature_tol,
+    )
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot_safe, T)
 end
 

@@ -39,27 +39,7 @@ function create_state(
     return state
 end
 
-function init_state(state, balance_law, grid, ::Auxiliary)
-    topology = grid.topology
-    Np = dofs_per_element(grid)
-    dim = dimensionality(grid)
-    polyorder = polynomialorder(grid)
-    vgeo = grid.vgeo
-    device = array_device(state)
-    nrealelem = length(topology.realelems)
-    event = Event(device)
-    event = kernel_init_state_auxiliary!(device, min(Np, 1024), Np * nrealelem)(
-        balance_law,
-        Val(dim),
-        Val(polyorder),
-        state.data,
-        vgeo,
-        topology.realelems,
-        dependencies = (event,),
-    )
-    event = MPIStateArrays.begin_ghost_exchange!(state; dependencies = event)
-    event = MPIStateArrays.end_ghost_exchange!(state; dependencies = event)
-    wait(device, event)
-
+function init_state(state, balance_law, grid, direction, ::Auxiliary)
+    init_state_auxiliary!(balance_law, state, grid, direction)
     return state
 end

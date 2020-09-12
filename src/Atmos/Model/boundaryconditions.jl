@@ -1,6 +1,6 @@
 using CLIMAParameters.Planet: cv_d, T_0
 
-export BoundaryCondition, InitStateBC
+export InitStateBC
 
 export AtmosBC,
     Impenetrable,
@@ -35,8 +35,34 @@ Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
     turbconv::TC = NoTurbConvBC()
 end
 
-function boundary_state!(nf, atmos::AtmosModel, args...)
-    atmos_boundary_state!(nf, atmos.boundarycondition, atmos, args...)
+function boundary_state!(
+    nf,
+    atmos::AtmosModel,
+    state⁺,
+    aux⁺,
+    n,
+    state⁻,
+    aux⁻,
+    bctype,
+    t,
+    args...,
+)
+    atmos_boundary_state!(
+        nf,
+        atmos.problem.boundarycondition,
+        atmos,
+        state⁺,
+        aux⁺,
+        n,
+        state⁻,
+        aux⁻,
+        bctype,
+        t,
+        args...,
+    )
+    # update moisture auxiliary variables (perform saturation adjustment, if necessary)
+    # to make thermodynamic quantities consistent with the boundary state
+    atmos_nodal_update_auxiliary_state!(atmos.moisture, atmos, state⁺, aux⁺, t)
 end
 
 function boundary_state!(
@@ -112,7 +138,7 @@ function normal_boundary_flux_second_order!(
 ) where {S}
     atmos_normal_boundary_flux_second_order!(
         nf,
-        atmos.boundarycondition,
+        atmos.problem.boundarycondition,
         atmos,
         fluxᵀn,
         n⁻,
@@ -209,13 +235,13 @@ function atmos_normal_boundary_flux_second_order!(
 end
 
 """
-    average_density_sfc_int(ρ_sfc, ρ_int)
+    average_density(ρ_sfc, ρ_int)
 
 Average density between the surface and the interior point, given
  - `ρ_sfc` density at the surface
  - `ρ_int` density at the interior point
 """
-function average_density_sfc_int(ρ_sfc::FT, ρ_int::FT) where {FT <: Real}
+function average_density(ρ_sfc::FT, ρ_int::FT) where {FT <: Real}
     return FT(0.5) * (ρ_sfc + ρ_int)
 end
 

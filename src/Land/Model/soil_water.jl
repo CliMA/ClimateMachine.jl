@@ -1,50 +1,48 @@
-export SoilWaterModel, PrescribedWaterModel
+export SoilWaterModel, PrescribedWaterModel, get_water_content
 
 abstract type AbstractWaterModel <: AbstractSoilComponentModel end
 
 """
-    struct PrescribedWaterModel{FT, F1, F2} <: AbstractWaterModel
+    PrescribedWaterModel{F1, F2} <: AbstractWaterModel
 
 Model structure for a prescribed water content model.
 
 The user supplies functions of space and time for both `ϑ_l` and
-`θ_ice`. No auxiliary or state variables are added, no PDE is solved. 
+`θ_i`. No auxiliary or state variables are added, no PDE is solved. 
 The defaults are no moisture anywhere, for all time. 
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct PrescribedWaterModel{FT, F1, F2} <: AbstractWaterModel
+struct PrescribedWaterModel{FN1, FN2} <: AbstractWaterModel
     "Augmented liquid fraction"
-    ϑ_l::F1
+    ϑ_l::FN1
     "Volumetric fraction of ice"
-    θ_ice::F2
+    θ_i::FN2
 end
 
 """
-    PrescribedWaterModel(
-        ::Type{FT};
-        ϑ_l = (aux,t) -> FT(0.0),
-        θ_ice = (aux,t) -> FT(0.0),
-    ) where {FT}
-
-Outer constructor for the PrescribedWaterModel defining default values, and
-making it so changes to those defaults are supplied via keyword args.
+    function PrescribedWaterModel(
+        ϑ_l::Function = (aux, t) -> eltype(aux)(0.0),
+        θ_i::Function = (aux, t) -> eltype(aux)(0.0),
+    )
+        args = (ϑ_l, θ_i)
+        return PrescribedWaterModel{typeof.(args)...}(args...)
+    end
+Outer constructor for the PrescribedWaterModel defining default values.
 
 The functions supplied by the user are point-wise evaluated and are 
-evaluated in the Balance Law functions (kernels?) compute_gradient_argument,
- nodal_update, etc. whenever the prescribed water content variables are 
+evaluated in the Balance Law functions compute_gradient_argument,
+nodal_update, etc. whenever the prescribed water content variables are 
 needed by the heat model.
 """
 function PrescribedWaterModel(
-    ::Type{FT};
-    ϑ_l = (aux, t) -> FT(0.0),
-    θ_ice = (aux, t) -> FT(0.0),
-) where {FT}
-    args = (ϑ_l, θ_ice)
-    return PrescribedWaterModel{FT, typeof.(args)...}(args...)
+    ϑ_l::Function = (aux, t) -> eltype(aux)(0.0),
+    θ_i::Function = (aux, t) -> eltype(aux)(0.0),
+)
+    args = (ϑ_l, θ_i)
+    return PrescribedWaterModel{typeof.(args)...}(args...)
 end
-
 
 """
     SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCD, BCN} <: AbstractWaterModel
@@ -52,7 +50,7 @@ end
 The necessary components for solving the equations for water (liquid or ice) in soil. 
 
 Without freeze/thaw source terms added (separately), this model reduces to
-Richard's equation for liquid water. Note that the default for `θ_ice` is zero. 
+Richard's equation for liquid water. Note that the default for `θ_i` is zero. 
 Without freeze/thaw source terms added to both the liquid and ice equations, 
 the default should never be changed, because we do not enforce that the total 
 volumetric water fraction is less than or equal to porosity otherwise.
@@ -76,7 +74,7 @@ struct SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCD, BCN} <:
     "Initial condition: augmented liquid fraction"
     initialϑ_l::Fiϑl
     "Initial condition: volumetric ice fraction"
-    initialθ_ice::Fiθi
+    initialθ_i::Fiθi
     "Dirichlet boundary condition structure"
     dirichlet_bc::BCD
     "Neumann boundary condition  structure"
@@ -91,7 +89,7 @@ end
         moisture_factor::AbstractMoistureFactor{FT} = MoistureIndependent{FT}(),
         hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
         initialϑ_l = (aux) -> FT(NaN),
-        initialθ_ice = (aux) -> FT(NaN),
+        initialθ_i = (aux) -> FT(0.0),
         dirichlet_bc::AbstractBoundaryFunctions = nothing,
         neumann_bc::AbstractBoundaryFunctions = nothing,
     ) where {FT}
@@ -104,8 +102,8 @@ function SoilWaterModel(
     viscosity_factor::AbstractViscosityFactor{FT} = ConstantViscosity{FT}(),
     moisture_factor::AbstractMoistureFactor{FT} = MoistureIndependent{FT}(),
     hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
-    initialϑ_l = (aux) -> FT(NaN),
-    initialθ_ice = (aux) -> FT(0.0),
+    initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
+    initialθ_i::Function = (aux) -> eltype(aux)(0.0),
     dirichlet_bc::AbstractBoundaryFunctions = nothing,
     neumann_bc::AbstractBoundaryFunctions = nothing,
 ) where {FT}
@@ -115,7 +113,7 @@ function SoilWaterModel(
         moisture_factor,
         hydraulics,
         initialϑ_l,
-        initialθ_ice,
+        initialθ_i,
         dirichlet_bc,
         neumann_bc,
     )
@@ -125,49 +123,76 @@ end
 
 """
     get_water_content(
+        water::SoilWaterModel,
         aux::Vars,
         state::Vars,
-        t::Real,
-        water::SoilWaterModel,
+        t::Real
     )
 
 Return the moisture variables for the balance law soil water model.
 """
 function get_water_content(
+    water::SoilWaterModel,
     aux::Vars,
     state::Vars,
     t::Real,
-    water::SoilWaterModel,
 )
-    return state.soil.water.ϑ_l, state.soil.water.θ_ice
+    FT = eltype(state)
+    return FT(state.soil.water.ϑ_l), FT(state.soil.water.θ_i)
 end
 
 
 
 """
     get_water_content(
+        water::PrescribedWaterModel,
         aux::Vars,
         state::Vars,
-        t::Real,
-        water::PrescribedWaterModel,
+        t::Real
     )
 
 Return the moisture variables for the prescribed soil water model.
 """
 function get_water_content(
+    water::PrescribedWaterModel,
     aux::Vars,
     state::Vars,
     t::Real,
-    water::PrescribedWaterModel,
 )
+    FT = eltype(aux)
     ϑ_l = water.ϑ_l(aux, t)
-    θ_ice = water.θ_ice(aux, t)
-    return ϑ_l, θ_ice
+    θ_i = water.θ_i(aux, t)
+    return FT(ϑ_l), FT(θ_i)
 end
 
 
-vars_state(water::SoilWaterModel, st::Prognostic, FT) =
-    @vars(ϑ_l::FT, θ_ice::FT)
+"""
+    function get_diffusive_water_flux(
+        water::SoilWaterModel,
+        diffusive::Vars
+    )
+
+Returns the diffusive water flux from the `diffusive` vector.
+"""
+function get_diffusive_water_flux(water::SoilWaterModel, diffusive::Vars)
+    return diffusive.soil.water.K∇h
+end
+
+"""
+    function get_diffusive_water_flux(
+        water::PrescribedWaterModel,
+        diffusive::Vars
+    )
+
+Returns zero diffusive water flux under the PrescribedWaterModel.
+"""
+function get_diffusive_water_flux(water::PrescribedWaterModel, diffusive::Vars)
+    FT = eltype(diffusive)
+    return SVector{3, FT}(0, 0, 0)
+end
+
+
+vars_state(water::SoilWaterModel, st::Prognostic, FT) = @vars(ϑ_l::FT, θ_i::FT)
 
 
 vars_state(water::SoilWaterModel, st::Auxiliary, FT) = @vars(h::FT, K::FT)
@@ -185,7 +210,9 @@ function soil_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 )
-    T = get_temperature(land.soil.heat)
+
+    FT = eltype(aux)
+    T = get_initial_temperature(land.soil.heat, aux, FT(0.0))
     S_l = effective_saturation(
         soil.param_functions.porosity,
         water.initialϑ_l(aux),
@@ -203,7 +230,7 @@ function soil_init_aux!(
             water.viscosity_factor,
             water.moisture_factor,
             water.hydraulics,
-            water.initialθ_ice(aux),
+            water.initialθ_i(aux),
             soil.param_functions.porosity,
             T,
             S_l,
@@ -219,7 +246,7 @@ function land_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    T = get_temperature(land.soil.heat)
+    T = get_temperature(land.soil.heat, aux, t)
     S_l = effective_saturation(
         soil.param_functions.porosity,
         state.soil.water.ϑ_l,
@@ -237,7 +264,7 @@ function land_nodal_update_auxiliary_state!(
             water.viscosity_factor,
             water.moisture_factor,
             water.hydraulics,
-            state.soil.water.θ_ice,
+            state.soil.water.θ_i,
             soil.param_functions.porosity,
             T,
             S_l,

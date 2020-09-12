@@ -193,7 +193,7 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function init_dycoms!(bl, state, aux, (x, y, z), t)
+function init_dycoms!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
 
     z = altitude(bl, aux)
@@ -290,7 +290,6 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     C_drag = FT(0.0011)
     LHF = FT(115)
     SHF = FT(15)
-    ics = init_dycoms!
     moisture_flux = LHF / FT(LH_v0(param_set))
 
     source = (
@@ -300,14 +299,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         geostrophic_forcing,
     )
 
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        ref_state = ref_state,
-        turbulence = Vreman{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 4, tolerance = FT(1)),
-        radiation = radiation,
-        source = source,
+    problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
@@ -320,7 +312,17 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
             ),
             AtmosBC(),
         ),
-        init_state_prognostic = ics,
+        init_state_prognostic = init_dycoms!,
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        param_set;
+        problem = problem,
+        ref_state = ref_state,
+        turbulence = Vreman{FT}(C_smag),
+        moisture = EquilMoist{FT}(maxiter = 4, tolerance = FT(1)),
+        radiation = radiation,
+        source = source,
     )
 
     ode_solver = ClimateMachine.ExplicitSolverType(

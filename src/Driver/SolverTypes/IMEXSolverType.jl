@@ -177,17 +177,19 @@ function solversetup(
     )
 
     if ode_solver.split_explicit_implicit
-        remainder_kwargs = (
+        if ode_solver.discrete_splitting
             numerical_flux_first_order = (
-                ode_solver.discrete_splitting ?
-                        (
-                    dg.numerical_flux_first_order,
-                    (dg.numerical_flux_first_order,),
-                ) :
-                        dg.numerical_flux_first_order
-            ),
+                dg.numerical_flux_first_order,
+                (dg.numerical_flux_first_order,),
+            )
+        else
+            numerical_flux_first_order = dg.numerical_flux_first_order
+        end
+        rem_dg = remainder_DGModel(
+            dg,
+            (vdg,);
+            numerical_flux_first_order = numerical_flux_first_order,
         )
-        rem_dg = remainder_DGModel(dg, (vdg,); remainder_kwargs...)
         solver = ode_solver.solver_method(
             rem_dg,
             vdg,

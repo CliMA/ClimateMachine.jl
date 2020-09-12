@@ -39,6 +39,7 @@ import ..BalanceLaws:
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,
     nodal_update_auxiliary_state!,
+    nodal_init_state_auxiliary!,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     indefinite_stack_integral!,
@@ -47,7 +48,13 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export DGModel,
-    init_ode_state, restart_ode_state, restart_auxiliary_state, basic_grid_info
+    init_ode_state,
+    restart_ode_state,
+    restart_auxiliary_state,
+    basic_grid_info,
+    init_state_auxiliary!,
+    continuous_field_gradient!,
+    courant
 
 include("NumericalFluxes.jl")
 include("DGModel.jl")

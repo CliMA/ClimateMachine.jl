@@ -154,7 +154,10 @@ mutable struct MPIStateArray{
     end
 end
 
-Base.fill!(Q::MPIStateArray, x) = fill!(Q.data, x)
+function Base.fill!(Q::MPIStateArray, x)
+    fill!(Q.data, x)
+    return Q
+end
 
 vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
 function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
@@ -193,7 +196,7 @@ Elements are stored as 'realelems` followed by `ghostelems`.
   * `nabrtorank` is the list of neighboring mpiranks
   * `nabrtovmaprecv` is an `Array` of `UnitRange` that give the ghost data to be
     received from neighboring mpiranks (indexes into `vmaprecv`)
-  * nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
+  * `nabrtovmapsend` is an `Array` of `UnitRange` for which elements to send to
     which neighboring mpiranks indexing into the `vmapsend`
   * `weights` is an optional array which gives weight for each degree of freedom
     to be used when computing the 2-norm of the array
@@ -241,10 +244,11 @@ end
 
 # FIXME: should general cases be handled?
 function Base.similar(
-    Q::MPIStateArray{OLDFT, V},
+    Q::MPIStateArray,
     ::Type{A},
-    ::Type{FT},
-) where {A <: AbstractArray, FT <: Number, OLDFT, V}
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+) where {A <: AbstractArray, FT <: Number, V}
     MPIStateArray{FT, V}(
         Q.mpicomm,
         A,
@@ -261,15 +265,23 @@ function Base.similar(
 end
 function Base.similar(
     Q::MPIStateArray{FT},
-    ::Type{A},
-) where {A <: AbstractArray, FT <: Number}
-    similar(Q, A, FT)
+    ::Type{A};
+    vars::Type{V} = vars(Q),
+) where {A <: AbstractArray, FT <: Number, V}
+    similar(Q, A, FT; vars = V)
 end
-function Base.similar(Q::MPIStateArray, ::Type{FT}) where {FT <: Number}
-    similar(Q, typeof(Q.data), FT)
+function Base.similar(
+    Q::MPIStateArray,
+    ::Type{FT};
+    vars::Type{V} = vars(Q),
+) where {FT <: Number, V}
+    similar(Q, typeof(Q.data), FT; vars = V)
 end
-function Base.similar(Q::MPIStateArray{FT}) where {FT}
-    similar(Q, FT)
+function Base.similar(
+    Q::MPIStateArray{FT};
+    vars::Type{V} = vars(Q),
+) where {FT, V}
+    similar(Q, FT; vars = V)
 end
 
 Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)

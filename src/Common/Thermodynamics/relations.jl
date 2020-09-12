@@ -1,7 +1,8 @@
 # Atmospheric equation of state
 export air_pressure,
     air_temperature, air_density, specific_volume, soundspeed_air
-export total_specific_humidity
+export total_specific_humidity,
+    liquid_specific_humidity, ice_specific_humidity, vapor_specific_humidity
 
 # Energies
 export total_energy, internal_energy, internal_energy_sat
@@ -16,6 +17,7 @@ export latent_heat_vapor,
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
 export saturation_vapor_pressure, q_vap_saturation_generic, q_vap_saturation
+export q_vap_saturation_liquid, q_vap_saturation_ice
 export saturation_excess, supersaturation
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
@@ -31,13 +33,13 @@ export liquid_ice_pottemp,
 export air_temperature_from_liquid_ice_pottemp,
     air_temperature_from_liquid_ice_pottemp_given_pressure
 export air_temperature_from_liquid_ice_pottemp_non_linear
-export vapor_specific_humidity
 export virtual_temperature
 export temperature_and_humidity_from_virtual_temperature
 export air_temperature_from_ideal_gas_law
 export condensate, has_condensate
 export specific_enthalpy, total_specific_enthalpy
 export moist_static_energy
+export saturated
 
 """
     gas_constant_air(param_set, [q::PhasePartition])
@@ -66,14 +68,6 @@ gas_constant_air(ts::ThermodynamicState) =
     gas_constant_air(ts.param_set, PhasePartition(ts))
 gas_constant_air(ts::PhaseDry{FT}) where {FT <: Real} = FT(R_d(ts.param_set))
 
-"""
-    vapor_specific_humidity(q::PhasePartition{FT})
-
-The vapor specific humidity, given a `PhasePartition` `q`.
-"""
-vapor_specific_humidity(q::PhasePartition) = q.tot - q.liq - q.ice
-vapor_specific_humidity(ts::ThermodynamicState) =
-    vapor_specific_humidity(PhasePartition(ts))
 
 """
     air_pressure(param_set, T, ρ[, q::PhasePartition])
@@ -160,6 +154,43 @@ or
 total_specific_humidity(ts::ThermodynamicState) = ts.q_tot
 total_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
 total_specific_humidity(ts::PhaseNonEquil) = ts.q.tot
+
+"""
+    liquid_specific_humidity(ts::ThermodynamicState)
+    liquid_specific_humidity(q::PhasePartition)
+
+Liquid specific humidity given
+ - `ts` a thermodynamic state
+or
+ - `q` a `PhasePartition`
+"""
+liquid_specific_humidity(q::PhasePartition) = q.liq
+liquid_specific_humidity(ts::ThermodynamicState) = PhasePartition(ts).liq
+liquid_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
+liquid_specific_humidity(ts::PhaseNonEquil) = ts.q.liq
+
+"""
+    ice_specific_humidity(ts::ThermodynamicState)
+    ice_specific_humidity(q::PhasePartition)
+
+Ice specific humidity given
+ - `ts` a thermodynamic state
+or
+ - `q` a `PhasePartition`
+"""
+ice_specific_humidity(q::PhasePartition) = q.ice
+ice_specific_humidity(ts::ThermodynamicState) = PhasePartition(ts).ice
+ice_specific_humidity(ts::PhaseDry{FT}) where {FT} = FT(0)
+ice_specific_humidity(ts::PhaseNonEquil) = ts.q.ice
+
+"""
+    vapor_specific_humidity(q::PhasePartition{FT})
+
+The vapor specific humidity, given a `PhasePartition` `q`.
+"""
+vapor_specific_humidity(q::PhasePartition) = max(0, q.tot - q.liq - q.ice)
+vapor_specific_humidity(ts::ThermodynamicState) =
+    vapor_specific_humidity(PhasePartition(ts))
 
 """
     cp_m(param_set, [q::PhasePartition])
@@ -718,7 +749,7 @@ function saturation_vapor_pressure(
 end
 
 """
-    q_vap_saturation_generic(param_set, T, ρ[; phase=Liquid()])
+    q_vap_saturation_generic(param_set, T, ρ[, phase=Liquid()])
 
 Compute the saturation specific humidity over a plane surface of condensate, given
 
@@ -732,8 +763,8 @@ and, optionally,
 function q_vap_saturation_generic(
     param_set::APS,
     T::FT,
-    ρ::FT;
-    phase::Phase = Liquid(),
+    ρ::FT,
+    phase::Phase,
 ) where {FT <: Real}
     p_v_sat = saturation_vapor_pressure(param_set, T, phase)
     return q_vap_saturation_from_pressure(param_set, T, ρ, p_v_sat)
@@ -761,8 +792,8 @@ and `q.ice/(q.liq + q.ice)` that are liquid and ice, respectively.
 
 If the `PhasePartition` `q` is not given, or has zero liquid and ice specific humidities,
 the saturation specific humidity is that over a mixture of liquid and ice, with the
-fraction of liquid given by temperature dependent `liquid_fraction(param_set, T, phase_type)` and the
-fraction of ice by the complement `1 - liquid_fraction(param_set, T, phase_type)`.
+fraction of liquid given by temperature dependent `liquid_fraction(param_set, T, phase_type)`
+and the fraction of ice by the complement `1 - liquid_fraction(param_set, T, phase_type)`.
 """
 function q_vap_saturation(
     param_set::APS,
@@ -807,6 +838,32 @@ q_vap_saturation(ts::ThermodynamicState) = q_vap_saturation(
 )
 
 """
+    q_vap_saturation_liquid(ts::ThermodynamicState)
+
+Compute the saturation specific humidity over liquid,
+given a thermodynamic state `ts`.
+"""
+q_vap_saturation_liquid(ts::ThermodynamicState) = q_vap_saturation_generic(
+    ts.param_set,
+    air_temperature(ts),
+    air_density(ts),
+    Liquid(),
+)
+
+"""
+    q_vap_saturation_ice(ts::ThermodynamicState)
+
+Compute the saturation specific humidity over ice,
+given a thermodynamic state `ts`.
+"""
+q_vap_saturation_ice(ts::ThermodynamicState) = q_vap_saturation_generic(
+    ts.param_set,
+    air_temperature(ts),
+    air_density(ts),
+    Ice(),
+)
+
+"""
     q_vap_saturation_from_pressure(param_set, T, ρ, p_v_sat)
 
 Compute the saturation specific humidity, given
@@ -846,7 +903,7 @@ function supersaturation(
     ::Liquid,
 ) where {FT <: Real}
 
-    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Liquid())
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Liquid())
     q_vap::FT = max(FT(0), q.tot - q.liq - q.ice)
 
     return q_vap / q_sat - FT(1)
@@ -859,7 +916,7 @@ function supersaturation(
     ::Ice,
 ) where {FT <: Real}
 
-    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ; phase = Ice())
+    q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Ice())
     q_vap::FT = max(FT(0), q.tot - q.liq - q.ice)
 
     return q_vap / q_sat - FT(1)
@@ -910,7 +967,7 @@ saturation_excess(ts::ThermodynamicState) = saturation_excess(
 
 Condensate of the phase partition.
 """
-condensate(q::PhasePartition) = max(0, q.liq) + max(0, q.ice)
+condensate(q::PhasePartition) = max(0, q.liq + q.ice)
 condensate(ts::ThermodynamicState) = condensate(PhasePartition(ts))
 
 """
@@ -1056,7 +1113,15 @@ function ∂e_int_∂T(
 end
 
 """
-    saturation_adjustment(param_set, e_int, ρ, q_tot)
+    saturation_adjustment(
+        param_set,
+        e_int,
+        ρ,
+        q_tot,
+        phase_type,
+        maxiter,
+        temperature_tol
+    )
 
 Compute the temperature that is consistent with
 
@@ -1065,10 +1130,8 @@ Compute the temperature that is consistent with
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
  - `phase_type` a thermodynamic state type
- - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
-    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
-    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
+ - `temperature_tol` temperature tolerance
 
 by finding the root of
 
@@ -1085,9 +1148,12 @@ function saturation_adjustment(
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
-    tol::AbstractTolerance,
+    temperature_tol::FT,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
+    _cv_d = FT(cv_d(param_set))
+    # Convert temperature tolerance to a convergence criterion on internal energy residuals
+    tol = ResidualTolerance(temperature_tol * _cv_d)
 
     T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ, phase_type)
@@ -1098,14 +1164,14 @@ function saturation_adjustment(
         _T_freeze::FT = T_freeze(param_set)
         e_int_upper = internal_energy_sat(
             param_set,
-            _T_freeze + sqrt(eps(FT)),
+            _T_freeze + temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
         )
         e_int_lower = internal_energy_sat(
             param_set,
-            _T_freeze - sqrt(eps(FT)),
+            _T_freeze - temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
@@ -1179,7 +1245,15 @@ saturation adjustment using Secant method
 end
 
 """
-    saturation_adjustment_SecantMethod(param_set, e_int, ρ, q_tot)
+    saturation_adjustment_SecantMethod(
+        param_set,
+        e_int,
+        ρ,
+        q_tot,
+        phase_type,
+        maxiter,
+        temperature_tol
+    )
 
 Compute the temperature `T` that is consistent with
 
@@ -1188,10 +1262,8 @@ Compute the temperature `T` that is consistent with
  - `ρ` (moist-)air density
  - `q_tot` total specific humidity
  - `phase_type` a thermodynamic state type
- - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
-    - `SolutionTolerance()` to stop when `|x_2 - x_1| < tol`
-    - `ResidualTolerance()` to stop when `|f(x)| < tol`
  - `maxiter` maximum iterations for non-linear equation solve
+ - `temperature_tol` temperature tolerance
 
 by finding the root of
 
@@ -1206,9 +1278,13 @@ function saturation_adjustment_SecantMethod(
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
-    tol::AbstractTolerance,
+    temperature_tol::FT,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
+    _cv_d = FT(cv_d(param_set))
+    # Convert temperature tolerance to a convergence criterion on internal energy residuals
+    tol = ResidualTolerance(temperature_tol * _cv_d)
+
     T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
     q_v_sat = q_vap_saturation(param_set, T_1, ρ, phase_type)
     unsaturated = q_tot <= q_v_sat
@@ -1219,14 +1295,14 @@ function saturation_adjustment_SecantMethod(
         _T_freeze::FT = T_freeze(param_set)
         e_int_upper = internal_energy_sat(
             param_set,
-            _T_freeze + sqrt(eps(FT)),
+            _T_freeze + temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
         )
         e_int_lower = internal_energy_sat(
             param_set,
-            _T_freeze - sqrt(eps(FT)),
+            _T_freeze - temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
             ρ,
             q_tot,
             phase_type,
@@ -1279,7 +1355,15 @@ function saturation_adjustment_SecantMethod(
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice(param_set, θ_liq_ice, ρ, q_tot)
+    saturation_adjustment_q_tot_θ_liq_ice(
+        param_set,
+        θ_liq_ice,
+        ρ,
+        q_tot,
+        phase_type,
+        maxiter,
+        tol
+    )
 
 Compute the temperature `T` that is consistent with
 
@@ -1368,7 +1452,15 @@ function saturation_adjustment_q_tot_θ_liq_ice(
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(param_set, θ_liq_ice, p, q_tot, phase_type, tol, maxiter)
+    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
+        param_set,
+        θ_liq_ice,
+        p,
+        q_tot,
+        phase_type,
+        tol,
+        maxiter
+    )
 
 Compute the temperature `T` that is consistent with
 
@@ -1384,7 +1476,11 @@ Compute the temperature `T` that is consistent with
 
 by finding the root of
 
-`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set, T, air_density(param_set, T, p, PhasePartition(q_tot)), phase_type, q_tot) = 0`
+`θ_{liq_ice} - liquid_ice_pottemp_sat(param_set,
+                                      T,
+                                      air_density(param_set, T, p, PhasePartition(q_tot)),
+                                      phase_type,
+                                      q_tot) = 0`
 
 See also [`saturation_adjustment`](@ref).
 """
@@ -1709,7 +1805,10 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
 
 by finding the root of
-`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, air_pressure(param_set, T, ρ, q), q) = 0`
+`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set,
+                                                            θ_liq_ice,
+                                                            air_pressure(param_set, T, ρ, q),
+                                                            q) = 0`
 """
 function air_temperature_from_liquid_ice_pottemp_non_linear(
     param_set::APS,
@@ -1766,7 +1865,11 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
 end
 
 """
-    air_temperature_from_liquid_ice_pottemp_given_pressure(param_set, θ_liq_ice, p[, q::PhasePartition])
+    air_temperature_from_liquid_ice_pottemp_given_pressure(
+        param_set,
+        θ_liq_ice,
+        p[, q::PhasePartition]
+    )
 
 The air temperature where
 
@@ -2073,4 +2176,15 @@ function moist_static_energy(
     e_pot::FT,
 ) where {FT <: Real}
     return specific_enthalpy(ts) + e_pot
+end
+
+"""
+    saturated(ts::ThermodynamicState)
+
+Boolean indicating if thermodynamic
+state is saturated.
+"""
+function saturated(ts::ThermodynamicState)
+    RH = relative_humidity(ts)
+    return RH ≈ 1 || RH > 1
 end

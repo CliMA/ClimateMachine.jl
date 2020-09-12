@@ -1,15 +1,6 @@
-# # Hydrostatic Equilibirum test for Richard's Equation
-
-# This tutorial shows how to use ClimateMachine code to solve
-# Richard's equation in a column of soil. We choose boundary
-# conditions of zero flux at the top and bottom of the column,
-# and then run the simulation long enough to see that the system
-# is approach hydrostatic equilibrium, where the gradient of the
-# pressure head is equal and opposite the gradient of the
-# gravitational head.
-
+# # Hydrostatic Equilibrium test for Richard's Equation
 # Note that freezing and thawing are turned off in this example. That
-# means that `θ_ice`, initialized to zero by default, will remain zero.
+# means that `θ_i`, initialized to zero by default, will remain zero.
 
 # # Preliminary setup
 
@@ -45,7 +36,7 @@ using ClimateMachine.BalanceLaws:
 
 
 # - define the float type desired (`Float64` or `Float32`)
-FT = Float64;
+const FT = Float64;
 
 # - initialize ClimateMachine for CPU
 ClimateMachine.init(; disable_gpu = true);
@@ -53,16 +44,16 @@ ClimateMachine.init(; disable_gpu = true);
 
 # # Set up the soil model
 
-# We want to solveRichard's equation alone, i.e. do not solve
+# We want to solve Richard's equation alone, i.e. do not solve
 # the heat equation. The default is a constant temperature, but this
 # only affects Richard's equation if one chooses a temperature dependent
 # viscosity of water (see below).
 
-soil_heat_model = PrescribedTemperatureModel{FT}()
+soil_heat_model = PrescribedTemperatureModel()
 
 # Define the porosity, Ksat, and specific storage values for the soil. Note
 # that all values must be givne in mks.
-soil_param_functions = SoilParamFunctions(
+soil_param_functions = SoilParamFunctions{FT}(
     porosity = 0.495,
     Ksat = 0.0443 / (3600 * 100),
     S_s = 1e-3,
@@ -74,13 +65,13 @@ soil_param_functions = SoilParamFunctions(
 # scalars, inside the code they are multiplied by ẑ. The two conditions
 # not supplied must be set to `nothing`.
 
-surface_flux = (aux, t) -> FT(0.0)
-bottom_flux = (aux, t) -> FT(0.0)
+surface_flux = (aux, t) -> eltype(aux)(0.0)
+bottom_flux = (aux, t) -> eltype(aux)(0.0)
 surface_state = nothing
 bottom_state = nothing
 
 # Define the initial state function.
-ϑ_l0 = (aux) -> FT(0.494)
+ϑ_l0 = (aux) -> eltype(aux)(0.494)
 
 # Create the SoilWaterModel. The defaults are a temperature independent
 # viscosity, and no impedance factor due to ice. We choose to make the
@@ -116,9 +107,8 @@ sources = ()
 function init_soil_water!(land, state, aux, coordinates, time)
     FT = eltype(state)
     state.soil.water.ϑ_l = FT(land.soil.water.initialϑ_l(aux))
-    state.soil.water.θ_ice = FT(land.soil.water.initialθ_ice(aux))
-end;
-
+    state.soil.water.θ_i = FT(land.soil.water.initialθ_i(aux))
+end
 
 
 # Create the land model - in this tutorial, it only includes the soil.
@@ -194,7 +184,7 @@ all_vars = OrderedDict(state_vars..., aux_vars..., grads...);
 all_vars["t"] = [t]
 all_data[0] = all_vars
 
-step = [1];
+iostep = [1];
 callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
 ) do (init = false)
@@ -216,9 +206,9 @@ callback = GenericCallbacks.EveryXSimulationTime(
     )
     all_vars = OrderedDict(state_vars..., aux_vars..., grads...)
     all_vars["t"] = [t]
-    all_data[step[1]] = all_vars
+    all_data[iostep[1]] = all_vars
 
-    step[1] += 1
+    iostep[1] += 1
     nothing
 end;
 
@@ -290,4 +280,4 @@ plot!(
     label = "porosity",
 )
 # save the output.
-savefig("./equilibrium_test_ϑ_l_vG.png")
+savefig("equilibrium_test_ϑ_l_vG.png")

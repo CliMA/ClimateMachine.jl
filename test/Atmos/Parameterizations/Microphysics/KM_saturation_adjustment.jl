@@ -27,7 +27,7 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_pot::FT
         e_int::FT
         T::FT
-        S::FT
+        S_liq::FT
         RH::FT
     end
 end
@@ -70,7 +70,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
     return nothing
 end
 
-function kinematic_model_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -91,16 +91,15 @@ function kinematic_model_nodal_update_auxiliary_state!(
 
         # saturation adjustment happens here
         ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
-        pp = PhasePartition(ts)
+        q = PhasePartition(ts)
 
         aux.T = ts.T
-        aux.q_vap = aux.q_tot - pp.liq - pp.ice
-        aux.q_liq = pp.liq
-        aux.q_ice = pp.ice
+        aux.q_vap = vapor_specific_humidity(q)
+        aux.q_liq = q.liq
+        aux.q_ice = q.ice
 
-        # TODO: add super_saturation method in moist thermo
-        aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
-        aux.RH = relative_humidity(ts) * FT(100)
+        aux.S_liq = supersaturation(param_set, q, state.ρ, aux.T, Liquid())
+        aux.RH = relative_humidity(ts)
     end
 end
 
@@ -240,12 +239,12 @@ function main()
     MPI.Barrier(mpicomm)
 
     model = driver_config.bl
-    step = [0]
+    vtkstep = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(output_freq) do
         out_dirname = @sprintf(
             "new_ex_1_mpirank%04d_step%04d",
             MPI.Comm_rank(mpicomm),
-            step[1]
+            vtkstep[1]
         )
         out_path_prefix = joinpath(vtkdir, out_dirname)
         @info "doing VTK output" out_path_prefix
@@ -257,7 +256,7 @@ function main()
             solver_config.dg.state_auxiliary,
             flattenednames(vars_state(model, Auxiliary(), FT)),
         )
-        step[1] += 1
+        vtkstep[1] += 1
         nothing
     end
 
@@ -266,7 +265,7 @@ function main()
     q_vap_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_vap)
     q_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_liq)
     q_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_ice)
-    S_ind = varsindex(vars_state(model, Auxiliary(), FT), :S)
+    S_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :S_liq)
 
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
@@ -276,8 +275,8 @@ function main()
     )
 
     # no supersaturation
-    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
-    @test isequal(max_S, FT(0))
+    max_S_liq = maximum(abs.(solver_config.dg.state_auxiliary[:, S_liq_ind, :]))
+    @test isequal(max_S_liq, FT(0))
 
     # qt is conserved
     max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))

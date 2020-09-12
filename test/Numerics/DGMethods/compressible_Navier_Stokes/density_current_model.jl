@@ -1,7 +1,13 @@
-
-# Load Packages
+using Test
+using Dates
+using LinearAlgebra
 using MPI
+using Printf
+using Random
+using StaticArrays
+
 using ClimateMachine
+using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
@@ -17,12 +23,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
 using ClimateMachine.VTK
-using Random
-using ClimateMachine.Atmos: vars_state
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, grav, MSLP
@@ -62,6 +63,7 @@ year = {1993}
 }
 """
 function Initialise_Density_Current!(
+    problem,
     bl,
     state::Vars,
     aux::Vars,
@@ -134,10 +136,10 @@ function run(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = Initialise_Density_Current!,
         ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
         source = source,
-        init_state_prognostic = Initialise_Density_Current!,
     )
     # -------------- Define DGModel --------------------------- #
     dg = DGModel(
@@ -180,14 +182,14 @@ function run(
         end
     end
 
-    step = [0]
+    vtkstep = [0]
     cbvtk = GenericCallbacks.EveryXSimulationSteps(3000) do (init = false)
         mkpath("./vtk-dc/")
         outprefix = @sprintf(
             "./vtk-dc/DC_%dD_mpirank%04d_step%04d",
             dim,
             MPI.Comm_rank(mpicomm),
-            step[1]
+            vtkstep[1]
         )
         @debug "doing VTK output" outprefix
         writevtk(
@@ -198,7 +200,7 @@ function run(
             dg.state_auxiliary,
             flattenednames(vars_state(model, Auxiliary(), FT)),
         )
-        step[1] += 1
+        vtkstep[1] += 1
         nothing
     end
 

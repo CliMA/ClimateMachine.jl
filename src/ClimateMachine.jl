@@ -18,10 +18,17 @@ include(joinpath(
     "CloudPhysics",
     "Microphysics.jl",
 ))
+include(joinpath(
+    "Atmos",
+    "Parameterizations",
+    "CloudPhysics",
+    "Microphysics_0M.jl",
+))
 include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGMethods", "Courant.jl"))
+include(joinpath("BalanceLaws", "Problems.jl"))
 include(joinpath("BalanceLaws", "BalanceLaws.jl"))
 include(joinpath("Numerics", "DGMethods", "DGMethods.jl"))
 include(joinpath("Common", "Orientations", "Orientations.jl"))
@@ -35,6 +42,7 @@ include(joinpath("InputOutput", "VTK", "VTK.jl"))
 include(joinpath("Common", "TurbulenceClosures", "TurbulenceClosures.jl"))
 include(joinpath("Common", "TurbulenceConvection", "TurbulenceConvection.jl"))
 include(joinpath("Atmos", "Model", "AtmosModel.jl"))
+include(joinpath("Common", "Spectra", "Spectra.jl"))
 include(joinpath("Diagnostics", "Diagnostics.jl"))
 include(joinpath("Diagnostics", "Debug", "StateCheck.jl"))
 include(joinpath("Utilities", "Checkpoint", "Checkpoint.jl"))

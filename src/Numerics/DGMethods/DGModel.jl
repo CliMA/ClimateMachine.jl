@@ -38,7 +38,7 @@ function DGModel(
     modeldata = nothing,
 )
     state_auxiliary =
-        init_state(state_auxiliary, balance_law, grid, Auxiliary())
+        init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
     DGModel(
         balance_law,
         grid,
@@ -668,16 +668,81 @@ function restart_ode_state(dg::DGModel, state_data; init_on_cpu = false)
     return state
 end
 
-function restart_auxiliary_state(bl, grid, aux_data)
+function restart_auxiliary_state(bl, grid, aux_data, direction)
     state_auxiliary = create_state(bl, grid, Auxiliary())
-    state_auxiliary = init_state(state_auxiliary, bl, grid, Auxiliary())
+    state_auxiliary =
+        init_state(state_auxiliary, bl, grid, direction, Auxiliary())
     state_auxiliary .= aux_data
     return state_auxiliary
 end
 
-# fallback
-function update_auxiliary_state!(dg, balance_law, state_prognostic, t, elems)
-    return false
+@deprecate nodal_init_state_auxiliary! init_state_auxiliary!
+
+# By default, we call init_state_auxiliary!, given
+# nodal_init_state_auxiliary!, defined for the
+# particular balance_law:
+function init_state_auxiliary!(
+    balance_law::BalanceLaw,
+    state_auxiliary,
+    grid,
+    direction,
+)
+    init_state_auxiliary!(
+        balance_law,
+        nodal_init_state_auxiliary!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
+end
+
+# Should we provide a fallback implementation here?
+# Maybe better to throw a method error?
+function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom) end
+
+function init_state_auxiliary!(
+    balance_law,
+    init_f!,
+    state_auxiliary,
+    grid,
+    direction;
+    state_temporary = nothing,
+)
+    topology = grid.topology
+    dim = dimensionality(grid)
+    Np = dofs_per_element(grid)
+    polyorder = polynomialorder(grid)
+    vgeo = grid.vgeo
+    device = array_device(state_auxiliary)
+    nrealelem = length(topology.realelems)
+
+    event = Event(device)
+    event = kernel_nodal_init_state_auxiliary!(
+        device,
+        min(Np, 1024),
+        Np * nrealelem,
+    )(
+        balance_law,
+        Val(dim),
+        Val(polyorder),
+        init_f!,
+        state_auxiliary.data,
+        isnothing(state_temporary) ? nothing : state_temporary.data,
+        Val(isnothing(state_temporary) ? @vars() : vars(state_temporary)),
+        vgeo,
+        topology.realelems,
+        dependencies = (event,),
+    )
+
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    wait(device, event)
 end
 
 function update_auxiliary_state_gradient!(
@@ -774,8 +839,33 @@ function reverse_indefinite_stack_integral!(
     wait(device, event)
 end
 
-# TODO: Move to BalanceLaws
-function nodal_update_auxiliary_state!(
+# By default, we call update_auxiliary_state!, given
+# nodal_update_auxiliary_state!, defined for the
+# particular balance_law:
+function update_auxiliary_state!(
+    dg::DGModel,
+    balance_law::BalanceLaw,
+    state_prognostic,
+    t,
+    elems,
+    diffusive = false,
+)
+    update_auxiliary_state!(
+        nodal_update_auxiliary_state!,
+        dg,
+        balance_law,
+        state_prognostic,
+        t,
+        elems;
+        diffusive = diffusive,
+    )
+end
+
+# Should we provide a fallback implementation here?
+# Maybe better to throw a method error?
+function nodal_update_auxiliary_state!(balance_law, state, aux, t) end
+
+function update_auxiliary_state!(
     f!,
     dg::DGModel,
     m::BalanceLaw,
@@ -796,12 +886,12 @@ function nodal_update_auxiliary_state!(
 
     Np = dofs_per_element(grid)
 
-    nodal_update_auxiliary_state! =
+    knl_nodal_update_auxiliary_state! =
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
     ### update state_auxiliary variables
     event = Event(device)
     if diffusive
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -816,7 +906,7 @@ function nodal_update_auxiliary_state!(
             dependencies = (event,),
         )
     else
-        event = nodal_update_auxiliary_state!(
+        event = knl_nodal_update_auxiliary_state!(
             m,
             Val(dim),
             Val(N),
@@ -915,4 +1005,70 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     state_prognostic = create_state(balance_law, grid, Prognostic())
 
     return state_prognostic
+end
+
+"""
+    continuous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
+                               vars_out, state::MPIStateArray, vars_in, grid;
+                               direction = EveryDirection())
+
+Take the gradient of the variables `vars_in` located in the array `state`
+and stores it in the variables `vars_out` of `∇state`. This function computes
+element wise gradient without accounting for numerical fluxes and hence
+its primary purpose is to take the gradient of continuous reference fields.
+
+## Examples
+```julia
+FT = eltype(state_auxiliary)
+grad_Φ = similar(state_auxiliary, vars=@vars(∇Φ::SVector{3, FT}))
+continuous_field_gradient!(
+    model,
+    grad_Φ,
+    ("∇Φ",),
+    state_auxiliary,
+    ("orientation.Φ",),
+    grid,
+)
+```
+"""
+function continuous_field_gradient!(
+    m::BalanceLaw,
+    ∇state::MPIStateArray,
+    vars_out,
+    state::MPIStateArray,
+    vars_in,
+    grid,
+    direction = EveryDirection(),
+)
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    N = polynomialorder(grid)
+    dim = dimensionality(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    Nfp = Nq * Nqk
+    device = array_device(state)
+
+    I = varsindices(vars(state), vars_in)
+    O = varsindices(vars(∇state), vars_out)
+
+    event = Event(device)
+
+    event = kernel_continuous_field_gradient!(device, (Nq, Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        direction,
+        ∇state.data,
+        state.data,
+        grid.vgeo,
+        grid.D,
+        grid.ω,
+        Val(I),
+        Val(O),
+        ndrange = (nrealelem * Nq, Nq, Nqk),
+        dependencies = (event,),
+    )
+    wait(device, event)
 end

@@ -1,4 +1,10 @@
+using Test
+using Dates
+using LinearAlgebra
 using MPI
+using Printf
+using StaticArrays
+
 using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies
@@ -13,11 +19,7 @@ using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
-using LinearAlgebra
-using StaticArrays
-using Logging, Printf, Dates
 using ClimateMachine.VTK
-using Test
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -39,7 +41,7 @@ import ClimateMachine.Atmos:
     pressure,
     soundspeed,
     total_specific_enthalpy,
-    thermo_state
+    recover_thermo_state
 
 """
     MMSDryModel
@@ -56,7 +58,7 @@ function total_specific_enthalpy(
 )
     zero(eltype(state))
 end
-function thermo_state(
+function recover_thermo_state(
     bl::AtmosModel,
     moist::MMSDryModel,
     state::Vars,
@@ -84,7 +86,7 @@ function soundspeed(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
     sqrt(ρinv * γ * p)
 end
 
-function mms2_init_state!(bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms2_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρ = ρ_g(t, x1, x2, x3, Val(2))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(2)),
@@ -113,7 +115,7 @@ function mms2_source!(
     source.ρe = SE_g(t, x1, x2, x3, Val(2))
 end
 
-function mms3_init_state!(bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),
@@ -155,28 +157,40 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
     )
 
     if dim == 2
-        model = AtmosModel{FT}(
-            AtmosLESConfigType,
-            param_set;
-            orientation = NoOrientation(),
-            ref_state = NoReferenceState(),
-            turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
-            moisture = MMSDryModel(),
-            source = mms2_source!,
+        problem = AtmosProblem(
             boundarycondition = InitStateBC(),
             init_state_prognostic = mms2_init_state!,
         )
-    else
         model = AtmosModel{FT}(
             AtmosLESConfigType,
             param_set;
+            problem = problem,
             orientation = NoOrientation(),
             ref_state = NoReferenceState(),
-            turbulence = ConstantViscosityWithDivergence(FT(μ_exact)),
+            turbulence = ConstantDynamicViscosity(
+                FT(μ_exact),
+                WithDivergence(),
+            ),
             moisture = MMSDryModel(),
-            source = mms3_source!,
+            source = mms2_source!,
+        )
+    else
+        problem = AtmosProblem(
             boundarycondition = InitStateBC(),
             init_state_prognostic = mms3_init_state!,
+        )
+        model = AtmosModel{FT}(
+            AtmosLESConfigType,
+            param_set;
+            problem = problem,
+            orientation = NoOrientation(),
+            ref_state = NoReferenceState(),
+            turbulence = ConstantDynamicViscosity(
+                FT(μ_exact),
+                WithDivergence(),
+            ),
+            moisture = MMSDryModel(),
+            source = mms3_source!,
         )
     end
 

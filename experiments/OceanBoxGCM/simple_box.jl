@@ -6,6 +6,7 @@ using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Mesh.Grids: polynomialorder
 using ClimateMachine.BalanceLaws
+using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.OceanProblems
 

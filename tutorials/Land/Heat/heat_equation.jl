@@ -82,9 +82,8 @@ import ClimateMachine.BalanceLaws:
     flux_first_order!,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    update_auxiliary_state!,
     nodal_update_auxiliary_state!,
-    init_state_auxiliary!,
+    nodal_init_state_auxiliary!,
     init_state_prognostic!,
     boundary_state!
 
@@ -158,7 +157,13 @@ vars_state(::HeatModel, ::GradientFlux, FT) = @vars(α∇ρcT::SVector{3, FT});
 # - this method is only called at `t=0`
 # - `aux.z` and `aux.T` are available here because we've specified `z` and `T`
 # in `vars_state` given `Auxiliary`
-function init_state_auxiliary!(m::HeatModel, aux::Vars, geom::LocalGeometry)
+# in `vars_state`
+function nodal_init_state_auxiliary!(
+    m::HeatModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
     aux.z = geom.coord[3]
     aux.T = m.initialT
 end;
@@ -181,22 +186,10 @@ end;
 # time-step in the solver by the [`BalanceLaw`](@ref
 # ClimateMachine.BalanceLaws.BalanceLaw) framework.
 
-# Overload `update_auxiliary_state!` to call `heat_eq_nodal_update_aux!`, or
-# any other auxiliary methods
-function update_auxiliary_state!(
-    dg::DGModel,
-    m::HeatModel,
-    Q::MPIStateArray,
-    t::Real,
-    elems::UnitRange,
-)
-    nodal_update_auxiliary_state!(heat_eq_nodal_update_aux!, dg, m, Q, t, elems)
-end;
-
 # Compute/update all auxiliary variables at each node. Note that
 # - `aux.T` is available here because we've specified `T` in
 # `vars_state` given `Auxiliary`
-function heat_eq_nodal_update_aux!(
+function nodal_update_auxiliary_state!(
     m::HeatModel,
     state::Vars,
     aux::Vars,

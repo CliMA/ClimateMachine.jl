@@ -15,7 +15,7 @@ const FT = Float64
 
     # simulation time
     timeend = FT(24 * 3600) # s
-    tout = FT(3 * 3600) # s
+    tout = FT(1.5 * 3600) # s
     timespan = (tout, timeend)
 
     # DG polynomial order
@@ -33,41 +33,14 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    @testset "Multi-rate" begin
-        @testset "Δt = 30 mins" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
-                timespan,
-                coupling = Coupled(),
-                dt_slow = 30 * 60,
-                refDat = refVals.thirty_minutes,
-            )
-        end
+    config = SplitConfig("spindown_short", resolution, dimensions, Coupled())
 
-        @testset "Δt = 60 mins" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
-                timespan,
-                coupling = Coupled(),
-                dt_slow = 60 * 60,
-                refDat = refVals.sixty_minutes,
-            )
-        end
-
-        @testset "Δt = 90 mins" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
-                timespan,
-                coupling = Coupled(),
-                dt_slow = 90 * 60,
-                refDat = refVals.ninety_minutes,
-            )
-        end
-    end
+    run_split_explicit(
+        config,
+        timespan;
+        dt_fast = 300, # seconds
+        dt_slow = 90 * 60, # seconds
+        refDat = refVals.ninety_minutes,
+        analytic_solution = true,
+    )
 end

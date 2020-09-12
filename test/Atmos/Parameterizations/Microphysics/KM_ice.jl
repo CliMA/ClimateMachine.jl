@@ -159,7 +159,7 @@ function init_kinematic_eddy!(
     return nothing
 end
 
-function kinematic_model_nodal_update_auxiliary_state!(
+function nodal_update_auxiliary_state!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
@@ -185,18 +185,19 @@ function kinematic_model_nodal_update_auxiliary_state!(
         aux.q_ice = state.ρq_ice / state.ρ
         aux.q_rai = state.ρq_rai / state.ρ
         aux.q_sno = state.ρq_sno / state.ρ
-        aux.q_vap = aux.q_tot - aux.q_liq - aux.q_ice
+        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        aux.q_vap = vapor_specific_humidity(q)
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
         aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
-        q = PhasePartition(max(FT(0), aux.q_tot), max(FT(0), aux.q_liq), max(FT(0), aux.q_ice))
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
         aux.RH = relative_humidity(ts_neq) * FT(100)
-        aux.S_liq = max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
+        aux.S_liq =
+            max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
         aux.S_ice = max(0, supersaturation(param_set, q, state.ρ, aux.T, Ice()))
         # terminal velocities
         aux.rain_w =
@@ -208,8 +209,18 @@ function kinematic_model_nodal_update_auxiliary_state!(
         ts_eq = TemperatureSHumEquil(param_set, aux.T, state.ρ, aux.q_tot)
         q_eq = PhasePartition(ts_eq)
 
-        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q, slowdown_liq = FT(10))
-        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q, slowdown_ice = FT(10))
+        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(
+            liquid_param_set,
+            q_eq,
+            q,
+            slowdown_liq = FT(10),
+        )
+        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(
+            ice_param_set,
+            q_eq,
+            q,
+            slowdown_ice = FT(10),
+        )
 
         aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
         aux.src_snow_acnv =
@@ -479,7 +490,7 @@ function source!(
         ρ = state.ρ
         e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.aux_z
 
-        q = PhasePartition(max(FT(0), q_tot), max(FT(0), q_liq), max(FT(0), q_ice))
+        q = PhasePartition(q_tot, q_liq, q_ice)
         T = air_temperature(param_set, e_int, q)
         _Lf = latent_heat_fusion(param_set, T)
 
@@ -496,9 +507,21 @@ function source!(
         source.ρe = FT(0)
 
         # vapour -> cloud liquid water
-        source.ρq_liq += ρ * conv_q_vap_to_q_liq_ice(liquid_param_set, q_eq, q, slowdown_liq = FT(10))
+        source.ρq_liq +=
+            ρ * conv_q_vap_to_q_liq_ice(
+                liquid_param_set,
+                q_eq,
+                q,
+                slowdown_liq = FT(10),
+            )
         # vapour -> cloud ice
-        source.ρq_ice += ρ * conv_q_vap_to_q_liq_ice(ice_param_set, q_eq, q, slowdown_ice = FT(10))
+        source.ρq_ice +=
+            ρ * conv_q_vap_to_q_liq_ice(
+                ice_param_set,
+                q_eq,
+                q,
+                slowdown_ice = FT(10),
+            )
 
         # cloud liquid water -> rain
         acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
@@ -939,29 +962,26 @@ function main()
                 solver_config.Q,
                 (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno, :ρe),
                 solver_config.dg.grid,
-                BoydVandevenFilter(
-                    solver_config.dg.grid,
-                    1,
-                    8,
-                ),
+                BoydVandevenFilter(solver_config.dg.grid, 1, 8),
             )
             nothing
         end
 
     # output for paraview
     # initialize base output prefix directory from rank 0
-    vtkdir  = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
         mkpath(vtkdir)
     end
     MPI.Barrier(mpicomm)
-    step = [0]
+
+    vtkstep = [0]
     cb_vtk =
         GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = true)
             out_dirname = @sprintf(
                 "microphysics_test_4_mpirank%04d_step%04d",
                 MPI.Comm_rank(mpicomm),
-                step[1]
+                vtkstep[1]
             )
             out_path_prefix = joinpath(vtkdir, out_dirname)
             @info "doing VTK output" out_path_prefix
@@ -973,7 +993,7 @@ function main()
                 solver_config.dg.state_auxiliary,
                 flattenednames(vars_state(model, Auxiliary(), FT)),
             )
-            step[1] += 1
+            vtkstep[1] += 1
             nothing
         end
 
@@ -1001,8 +1021,8 @@ function main()
             driver_config.name,
             interpol = interpol,
         ),
-    ];
-    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps);
+    ]
+    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
 
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(

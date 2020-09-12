@@ -61,6 +61,24 @@ end
         state.moisture.ρq_tot,
     )
 end
+@inline function linearized_pressure(
+    ::NonEquilMoist,
+    param_set::AbstractParameterSet,
+    orientation::Orientation,
+    state::Vars,
+    aux::Vars,
+)
+    ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+    linearized_air_pressure(
+        param_set,
+        state.ρ,
+        state.ρe,
+        ρe_pot,
+        state.moisture.ρq_tot,
+        state.moisture.ρq_liq,
+        state.moisture.ρq_ice,
+    )
+end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
@@ -152,8 +170,12 @@ function boundary_state!(
 )
     nothing
 end
-init_state_auxiliary!(lm::AtmosLinearModel, aux::Vars, geom::LocalGeometry) =
-    nothing
+init_state_auxiliary!(
+    lm::AtmosLinearModel,
+    aux::MPIStateArray,
+    grid,
+    direction,
+) = nothing
 init_state_prognostic!(
     lm::AtmosLinearModel,
     state::Vars,
@@ -246,4 +268,80 @@ function source!(
         source.ρu -= state.ρ * ∇Φ
     end
     nothing
+end
+
+function numerical_flux_first_order!(
+    numerical_flux::RoeNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+    @assert balance_law.atmos.moisture isa DryModel
+
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+    atmos = balance_law.atmos
+    param_set = atmos.param_set
+
+    ρu⁻ = state_prognostic⁻.ρu
+
+    ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
+    ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
+    ref_T⁻ = state_auxiliary⁻.ref_state.T
+    ref_p⁻ = state_auxiliary⁻.ref_state.p
+    ref_h⁻ = (ref_ρe⁻ + ref_p⁻) / ref_ρ⁻
+    ref_c⁻ = soundspeed_air(param_set, ref_T⁻)
+
+    pL⁻ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+    )
+
+    ρu⁺ = state_prognostic⁺.ρu
+
+    ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
+    ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
+    ref_T⁺ = state_auxiliary⁺.ref_state.T
+    ref_p⁺ = state_auxiliary⁺.ref_state.p
+    ref_h⁺ = (ref_ρe⁺ + ref_p⁺) / ref_ρ⁺
+    ref_c⁺ = soundspeed_air(param_set, ref_T⁺)
+
+    pL⁺ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+    )
+
+    # not sure if arithmetic averages are a good idea here
+    h̃ = (ref_h⁻ + ref_h⁺) / 2
+    c̃ = (ref_c⁻ + ref_c⁺) / 2
+
+    ΔpL = pL⁺ - pL⁻
+    Δρuᵀn = (ρu⁺ - ρu⁻)' * normal_vector
+
+    fluxᵀn.ρ -= ΔpL / 2c̃
+    fluxᵀn.ρu -= c̃ * Δρuᵀn * normal_vector / 2
+    fluxᵀn.ρe -= h̃ * ΔpL / 2c̃
 end

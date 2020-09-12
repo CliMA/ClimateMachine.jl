@@ -120,13 +120,13 @@ function run(
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
+        init_state_prognostic = setup,
         orientation = SphericalOrientation(),
         ref_state = HydrostaticState(T_profile),
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        tracers = NTracers{length(δ_χ), FT}(δ_χ),
         source = Gravity(),
-        init_state_prognostic = setup,
+        tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     linearmodel = AtmosAcousticGravityLinearModel(model)
 
@@ -180,6 +180,7 @@ function run(
         t0 = 0,
         split_explicit_implicit = split_explicit_implicit,
     )
+    @test getsteps(odesolver) == 0
 
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
@@ -248,6 +249,8 @@ function run(
         callbacks = callbacks,
     )
 
+    @test getsteps(odesolver) == nsteps
+
     # final statistics
     engf = norm(Q)
     @info @sprintf """Finished
@@ -266,7 +269,7 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function (setup::AcousticWaveSetup)(bl, state, aux, coords, t)
+function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
 
