@@ -213,10 +213,11 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t,
     args...,
 )
-    m.init_state_prognostic(m, state, aux, coords, t, args...)
+    m.init_state_prognostic(m, state, aux, coords, center_coords, t, args...)
 end
 
 function boundary_state!(

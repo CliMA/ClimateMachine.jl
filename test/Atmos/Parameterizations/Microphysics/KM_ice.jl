@@ -64,7 +64,15 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
     end
 end
 
-function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
+function init_kinematic_eddy!(
+    eddy_model,
+    state,
+    aux,
+    (x, y, z),
+    (xc, yc, zc),
+    t,
+    spline_fun,
+)
     FT = eltype(state)
     _grav::FT = grav(param_set)
 
@@ -94,7 +102,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
         # This is actually different than what comes out from taking a
         # derivative of Ψ from the paper. I have sin(π/2/X(x-xc)).
         # This setup makes more sense to me though.
-        _Z::FT = FT(15000.0 - 0.1)
+        _Z::FT = FT(15000.0)
         _X::FT = FT(10000)
         _xc::FT = FT(30000)
         _A::FT = FT(4.8 * 1e4)
@@ -102,7 +110,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
         _ρ_00::FT = FT(1)
         ρu::FT = FT(0)
         ρw::FT = FT(0)
-        if z < _Z
+        if zc < _Z
             if x >= (_xc + _X)
                 ρu =
                     _S * z -
@@ -344,24 +352,31 @@ function boundary_state!(
     state⁺.ρ = state⁻.ρ
 
     state⁺.ρe = aux⁻.ρe_init
-    state⁺.ρq_tot = aux⁻.ρq_tot_init
 
+    state⁺.ρq_tot = aux⁻.ρq_tot_init
     state⁺.ρq_liq = FT(0) #state⁻.ρq_liq
     state⁺.ρq_ice = FT(0) #state⁻.ρq_ice
 
     if bctype == 1
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
     end
+
     if bctype == 2
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
+        state⁺.ρe = state⁻.ρe
+        state⁺.ρq_tot = state⁻.ρq_tot
+        state⁺.ρq_liq = state⁻.ρq_liq
+        state⁺.ρq_ice = state⁻.ρq_ice
     end
+
     if bctype == 5
         state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-        #state⁺.ρq_tot = state⁻.ρq_tot
     end
+
     if bctype == 6
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
     end
+
 end
 
 @inline function wavespeed(
@@ -693,12 +708,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(35 * 60) #FT(4 * 60 * 60) # FT(10 * 60)
+    t_end = FT(4 * 60 * 60) #FT(4 * 60 * 60) # FT(10 * 60)
     dt = FT(1) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 60
-    interval = "60steps"
+    output_freq = 60 * 5
+    interval = "300steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
