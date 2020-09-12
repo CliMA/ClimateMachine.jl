@@ -339,6 +339,8 @@ function make_callbacks(
     model_fast,
     Q_fast,
 )
+
+    #=
     if isdir(vtkpath)
         rm(vtkpath, recursive = true)
     end
@@ -392,6 +394,7 @@ function make_callbacks(
         step[2] += 1
         nothing
     end
+    =#
 
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
@@ -415,7 +418,8 @@ function make_callbacks(
         end
     end
 
-    return (cbvtk_slow, cbvtk_fast, cbinfo)
+    # return (cbvtk_slow, cbvtk_fast, cbinfo)
+    return (cbinfo)
 end
 
 #################
