@@ -14,9 +14,9 @@ jobs:
     - uses: actions/checkout@v2.2.0
 
     - name: Set up Julia
-      uses: julia-actions/setup-julia@v1.1.6
+      uses: julia-actions/setup-julia@latest
       with:
-        version: 1.4
+        version: 1.5
 
     - name: Test with coverage
       env:
