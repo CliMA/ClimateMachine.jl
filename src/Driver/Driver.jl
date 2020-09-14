@@ -71,7 +71,6 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     integration_testing::Bool = false
     array_type::Type = Array
     fixed_number_of_steps::Int = -1
-    group_id::String = "site58"
 end
 
 const Settings = ClimateMachine_Settings()
@@ -277,10 +276,6 @@ function parse_commandline(
         metavar = "<number>"
         arg_type = Int
         default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
-	"--group-id"
-	help = "Site ID for GCM forced LES at cfSites"
-	arg_type = String
-	default = get_setting(:group_id, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
