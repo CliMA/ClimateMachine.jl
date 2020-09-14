@@ -19,10 +19,15 @@ Solve for Frhs = F(q), the Jacobian action is computed
 
 
 rhs!           : nonlinear operator F(Q)
+
 ϵ::FT          : ϵ used for finite difference, e = e(Q, ϵ)
+
 Q::AT          : cache for Q
+
 Qdq::AT        : container for Q + ϵΔQ
+
 Fq::AT         : cache for F(Q)
+
 Fqdq::AT       : container for F(Q + ϵΔQ)
 """
 mutable struct JacobianAction{FT, AT}
@@ -172,11 +177,15 @@ Q^n+1 = Q^n - dF/dQ(Q^{n})⁻¹ (F(Q^n) - Frhs)
 set ΔQ = F(Q^n) - Frhs
 
 rhs!:  functor rhs!(Q) =  F(Q)
+
 jvp!:  Jacobian action jvp!(ΔQ)  = dF/dQ(Q) ⋅ ΔQ
+
 preconditioner: approximation of dF/dQ(Q)
 
 Q : Q^n
+
 Qrhs : Frhs
+
 solver: linear solver
 """
 function donewtoniteration!(
