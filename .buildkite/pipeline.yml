@@ -386,7 +386,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_coriolis.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -431,7 +431,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/heat_analytic_unit_test.jl "
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 1
 
@@ -440,7 +440,7 @@ steps:
     command:
      - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
     agents:
-      config: cpu
+      config: cpu-test
       queue: central
       slurm_ntasks: 3
 
@@ -468,7 +468,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Utilities/VariableTemplates/runtests_gpu.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -768,7 +768,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_coriolis.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -948,7 +948,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -956,9 +956,9 @@ steps:
   - label: "gpu_bomex_edmf"
     key: "gpu_bomex_edmf"
     command:
-      - "mpiexec julia --color=yes --project=docs/ test/Atmos/EDMF/bomex_edmf.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/bomex_edmf.jl --diagnostics=default --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -968,7 +968,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --surface-flux=bulk --fix-rng-seed"
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
@@ -1038,7 +1038,7 @@ steps:
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/heat_analytic_unit_test.jl "
     agents:
-      config: gpu
+      config: gpu-test
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
