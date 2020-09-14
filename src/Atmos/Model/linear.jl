@@ -269,7 +269,7 @@ function update_auxiliary_state!(
     grid = dg.grid
     Filters.apply!(
         state_auxiliary,
-        (:projected_ρ,),
+        (:projected_δρ,),
         grid,
         Filters.CutoffFilter(grid),
         state_auxiliary = state_auxiliary,
@@ -285,7 +285,7 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    aux.projected_ρ = state.ρ
+    aux.projected_δρ = state.ρ - aux.ref_state.ρ
 end
 
 
@@ -300,7 +300,7 @@ function source!(
 ) where {Dir <: Direction}
     if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= aux.projected_ρ * ∇Φ
+        source.ρu -= aux.projected_δρ * ∇Φ
     end
     nothing
 end

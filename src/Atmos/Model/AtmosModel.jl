@@ -315,7 +315,7 @@ debug variables.
 """
 function vars_state(m::AtmosModel, st::Auxiliary, FT)
     @vars begin
-        projected_ρ::FT
+        projected_δρ::FT
         ∫dz::vars_state(m, UpwardIntegrals(), FT)
         ∫dnz::vars_state(m, DownwardIntegrals(), FT)
         coord::SVector{3, FT}
@@ -602,7 +602,7 @@ function update_auxiliary_state!(
     if m.ref_state isa HydrostaticState
         target = AtmosFilterDensityPerturbation(m)
     else
-        target = (:projected_ρ,)
+        target = (:projected_δρ,)
     end
     Filters.apply!(
         state_auxiliary,
@@ -630,7 +630,11 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    aux.projected_ρ = state.ρ
+    if m.ref_state isa HydrostaticState
+        aux.projected_δρ = state.ρ - aux.ref_state.ρ
+    else
+        aux.projected_δρ = state.ρ
+    end
 
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)

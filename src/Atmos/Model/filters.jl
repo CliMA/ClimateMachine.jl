@@ -58,7 +58,7 @@ struct AtmosFilterDensityPerturbation{M} <: AbstractFilterTarget
 end
 
 vars_state_filtered(target::AtmosFilterDensityPerturbation, FT) =
-    @vars(projected_ρ::FT)
+    @vars(projected_δρ::FT)
 
 function compute_filter_argument!(
     target::AtmosFilterDensityPerturbation,
@@ -66,7 +66,7 @@ function compute_filter_argument!(
     state::Vars,
     aux::Vars,
 )
-    filter_state.projected_ρ = aux.projected_ρ - aux.ref_state.ρ
+    filter_state.projected_δρ = aux.projected_δρ
 end
 function compute_filter_result!(
     target::AtmosFilterDensityPerturbation,
@@ -74,5 +74,5 @@ function compute_filter_result!(
     filter_state::Vars,
     aux::Vars,
 )
-    state.projected_ρ = filter_state.projected_ρ + aux.ref_state.ρ
+    state.projected_δρ = filter_state.projected_δρ
 end
