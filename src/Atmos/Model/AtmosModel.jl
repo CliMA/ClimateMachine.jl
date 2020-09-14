@@ -104,7 +104,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC} <:
+struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, GI, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -132,6 +132,8 @@ struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC} <:
     source::S
     "Tracer Terms (Equations for dynamics of active and passive tracers)"
     tracers::TR
+    "GCM Information"
+    gcminfo::GI
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -163,8 +165,9 @@ function AtmosModel{FT}(
         turbconv_sources(turbconv)...,
     ),
     tracers::TR = NoTracers(),
+    gcminfo::GI = NoGCM()
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, GI, DC}
 
     atmos = (
         param_set,
@@ -180,6 +183,7 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
+	gcminfo,
         data_config,
     )
 
@@ -208,8 +212,9 @@ function AtmosModel{FT}(
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
+    gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, GI, DC}
 
     atmos = (
         param_set,
@@ -225,6 +230,7 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
+	gcminfo,
         data_config,
     )
 
@@ -247,6 +253,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         moisture::vars_state(m.moisture, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
+        gcminfo::vars_state(m.gcminfo, st, FT)
     end
 end
 
@@ -375,6 +382,7 @@ include("precipitation.jl")
 include("radiation.jl")
 include("source.jl")
 include("tracers.jl")
+include("gcminfo.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
