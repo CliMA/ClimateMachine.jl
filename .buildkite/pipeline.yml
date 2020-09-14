@@ -916,7 +916,7 @@ steps:
   - label: "gpu_surfacebubble"
     key: "gpu_surfacebubble"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl "
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl --diagnostics=default"
     agents:
       config: gpu
       queue: central
