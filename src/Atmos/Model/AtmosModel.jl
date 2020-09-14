@@ -165,7 +165,7 @@ function AtmosModel{FT}(
         turbconv_sources(turbconv)...,
     ),
     tracers::TR = NoTracers(),
-    gcminfo::GI = NoGCM()
+    gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, GI, DC}
 
