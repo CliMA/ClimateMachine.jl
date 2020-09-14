@@ -77,11 +77,26 @@ using ClimateMachine.BalanceLaws:
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+using CLIMAParameters.Atmos.Microphysics
+
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+
+struct MicropysicsParameterSet{L, I} <: AbstractMicrophysicsParameterSet
+    liq::L
+    ice::I
+end
+
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+    microphys::M
+end
+
+microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
+
+const param_set = EarthParameterSet(microphys)
 
 import ClimateMachine.Atmos: atmos_source!
-using ClimateMachine.Atmos: altitude, thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state
 
 """
   Bomex Geostrophic Forcing (Source)
@@ -210,7 +225,7 @@ function atmos_source!(
     _e_int_v0 = FT(e_int_v0(atmos.param_set))
 
     # Establish thermodynamic state
-    TS = thermo_state(atmos, state, aux)
+    TS = recover_thermo_state(atmos, state, aux)
 
     # Moisture tendencey (sink term)
     # Temperature tendency (Radiative cooling)
@@ -358,6 +373,10 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
+    if bl.moisture isa NonEquilMoist
+        state.moisture.ρq_liq = FT(0)
+        state.moisture.ρq_ice = FT(0)
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
@@ -366,7 +385,14 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, (x, y, z), t)
 end
 
-function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
+function bomex_model(
+    ::Type{FT},
+    config_type,
+    zmax,
+    surface_flux;
+    turbconv = NoTurbConv(),
+    moisture_model = "equilibrium",
+) where {FT}
 
     ics = init_bomex!     # Initial conditions
 
@@ -400,9 +426,8 @@ function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
 
     f_coriolis = FT(0.376e-4) # Coriolis parameter
 
-    turbconv = NoTurbConv()
     # Assemble source components
-    source = (
+    source_default = (
         Gravity(),
         BomexTendencies{FT}(
             ∂qt∂t_peak,
@@ -426,17 +451,31 @@ function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
         BomexGeostrophic{FT}(f_coriolis, u_geostrophic, u_slope, v_geostrophic),
         turbconv_sources(turbconv)...,
     )
+    if moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
 
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
-        energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
-        moisture = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+        energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
-        energy = BulkFormulaEnergy(
+        energy_bc = BulkFormulaEnergy(
             (state, aux, t, normPu_int) -> C_drag,
             (state, aux, t) -> (T_sfc, q_sfc),
         )
-        moisture = BulkFormulaMoisture(
+        moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
             (state, aux, t) -> q_sfc,
         )
@@ -447,6 +486,7 @@ function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
             surface_flux,
         )
     end
+
     problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
@@ -455,8 +495,8 @@ function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
                     # P represents the projection onto the horizontal
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
-                energy = energy,
-                moisture = moisture,
+                energy = energy_bc,
+                moisture = moisture_bc,
                 turbconv = turbconv_bcs(turbconv),
             ),
             AtmosBC(),
@@ -470,10 +510,11 @@ function bomex_model(::Type{FT}, config_type, zmax, surface_flux) where {FT}
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = moisture,
         source = source,
         turbconv = turbconv,
     )
+
     return model
 end
 

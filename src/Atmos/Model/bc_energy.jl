@@ -131,7 +131,7 @@ function numerical_boundary_flux_second_order!(
 
     # calculate MSE from the states at the boundary and at the interior point
     ts = TemperatureSHumEquil(atmos.param_set, T, state⁻.ρ, q_tot)
-    ts_int = thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
+    ts_int = recover_thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
     e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
     MSE = moist_static_energy(ts, e_pot)

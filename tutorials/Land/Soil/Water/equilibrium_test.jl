@@ -184,7 +184,7 @@ all_vars = OrderedDict(state_vars..., aux_vars..., grads...);
 all_vars["t"] = [t]
 all_data[0] = all_vars
 
-step = [1];
+iostep = [1];
 callback = GenericCallbacks.EveryXSimulationTime(
     every_x_simulation_time,
 ) do (init = false)
@@ -206,9 +206,9 @@ callback = GenericCallbacks.EveryXSimulationTime(
     )
     all_vars = OrderedDict(state_vars..., aux_vars..., grads...)
     all_vars["t"] = [t]
-    all_data[step[1]] = all_vars
+    all_data[iostep[1]] = all_vars
 
-    step[1] += 1
+    iostep[1] += 1
     nothing
 end;
 

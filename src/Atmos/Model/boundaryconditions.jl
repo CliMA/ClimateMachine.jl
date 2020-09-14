@@ -48,12 +48,16 @@ function boundary_state!(
 end
 
 
-function boundary_state!(nf, bc::AtmosBC, atmos::AtmosModel, args...)
-    boundary_state!(nf, bc.momentum, atmos, args...)
-    boundary_state!(nf, bc.energy,   atmos, args...)
-    boundary_state!(nf, bc.moisture, atmos, args...)
-    boundary_state!(nf, bc.tracer,   atmos, args...)
-    boundary_state!(nf, bc.turbconv, atmos, args...)
+function boundary_state!(nf, bc::AtmosBC, atmos::AtmosModel, state⁺,
+    aux⁺, args...)
+    # update moisture auxiliary variables (perform saturation adjustment, if necessary)
+    # to make thermodynamic quantities consistent with the boundary state
+    atmos_nodal_update_auxiliary_state!(atmos.moisture, atmos, state⁺, aux⁺, t)
+    boundary_state!(nf, bc.momentum, atmos, state⁺, aux⁺, args...)
+    boundary_state!(nf, bc.energy,   atmos, state⁺, aux⁺, args...)
+    boundary_state!(nf, bc.moisture, atmos, state⁺, aux⁺, args...)
+    boundary_state!(nf, bc.tracer,   atmos, state⁺, aux⁺, args...)
+    boundary_state!(nf, bc.turbconv, atmos, state⁺, aux⁺, args...)
 end
 
 function numerical_boundary_flux_second_order!(nf, bc::AtmosBC, atmos::AtmosModel, fluxᵀn::Vars, args...)

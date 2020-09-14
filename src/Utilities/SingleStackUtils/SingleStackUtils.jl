@@ -6,6 +6,7 @@ export get_vars_from_nodal_stack,
     get_horizontal_mean,
     reduce_nodal_stack,
     reduce_element_stack,
+    horizontally_average!,
     dict_of_nodal_states
 
 using OrderedCollections
@@ -296,6 +297,44 @@ function reduce_element_stack(
             j = j,
         ) for i in 1:Nq, j in 1:Nq
     ]
+end
+
+"""
+    horizontally_average!(
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        Q::MPIStateArray,
+        i_vars,
+    ) where {T, dim, N}
+
+Horizontally average variables, from variable
+indexes `i_vars`, in `MPIStateArray` `Q`.
+
+!!! note
+    These are not proper horizontal averages-- the main
+    purpose of this method is to ensure that there are
+    no horizontal fluxes for a single stack configuration.
+"""
+function horizontally_average!(
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    Q::MPIStateArray,
+    i_vars,
+) where {T, dim, N}
+    Nq = N + 1
+    ArrType = typeof(Q.data)
+    state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
+    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    for ev in 1:size(state_data, 3), k in 1:Nqk, i_v in i_vars
+        Q_sum = 0
+        for i in 1:Nq, j in 1:Nq
+            Q_sum += state_data[i + Nq * ((j - 1) + Nq * (k - 1)), i_v, ev]
+        end
+        Q_ave = Q_sum / (Nq * Nq)
+        for i in 1:Nq, j in 1:Nq
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            state_data[ijk, i_v, ev] = Q_ave
+        end
+    end
+    Q.realdata .= ArrType(state_data)
 end
 
 get_data(solver_config, ::Prognostic) = solver_config.Q

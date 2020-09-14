@@ -92,7 +92,7 @@ function atmos_nodal_update_auxiliary_state!(
     q_rai = max(FT(0), state.ρq_rain * ρinv)
 
     # current state
-    ts = thermo_state(rain, state, aux)
+    ts = recover_thermo_state(rain, state, aux)
     # q     = PhasePartition(q_tot, q_liq, q_ice)
     q = PhasePartition(ts)
     # T     = air_temperature(e_int, q)
