@@ -188,7 +188,7 @@ ice_specific_humidity(ts::PhaseNonEquil) = ts.q.ice
 
 The vapor specific humidity, given a `PhasePartition` `q`.
 """
-vapor_specific_humidity(q::PhasePartition) = q.tot - q.liq - q.ice
+vapor_specific_humidity(q::PhasePartition) = max(0, q.tot - q.liq - q.ice)
 vapor_specific_humidity(ts::ThermodynamicState) =
     vapor_specific_humidity(PhasePartition(ts))
 
@@ -904,7 +904,7 @@ function supersaturation(
 ) where {FT <: Real}
 
     q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Liquid())
-    q_vap::FT = q.tot - q.liq - q.ice
+    q_vap::FT = vapor_specific_humidity(q)
 
     return q_vap / q_sat - FT(1)
 end
@@ -917,7 +917,7 @@ function supersaturation(
 ) where {FT <: Real}
 
     q_sat::FT = q_vap_saturation_generic(param_set, T, ρ, Ice())
-    q_vap::FT = q.tot - q.liq - q.ice
+    q_vap::FT = vapor_specific_humidity(q)
 
     return q_vap / q_sat - FT(1)
 end

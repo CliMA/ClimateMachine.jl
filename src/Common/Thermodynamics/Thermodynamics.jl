@@ -48,7 +48,7 @@ error_on_non_convergence() = true
 # Allow users to skip printing warnings on non-convergence
 print_warning() = true
 
-@inline q_pt_0(::Type{FT}) where {FT} = PhasePartition{FT}(FT(0), FT(0), FT(0))
+@inline q_pt_0(::Type{FT}) where {FT} = PhasePartition(FT(0), FT(0), FT(0))
 
 include("states.jl")
 include("relations.jl")
