@@ -123,7 +123,7 @@ function general_dostep!(
 )
     integ = solver.integ
 
-    if DiffEqBase.DataStructures.top(integ.opts.tstops) !== timeend
+    if first(integ.opts.tstops) !== timeend
         DiffEqBase.add_tstop!(integ, timeend)
     end
     dostep!(Q, solver, p, time)
