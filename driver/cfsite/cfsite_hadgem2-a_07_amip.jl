@@ -295,7 +295,7 @@ function get_gcm_info(groupid)
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
    # filename = "/gcp/share1/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
-    filename = "/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
+    filename = "/central/groups/esm/zhaoyi/GCMForcedLES/forcing/clima/"*forcingfile*".nc"
 
     req_varnames = (
         "zg",
@@ -362,7 +362,7 @@ end
 
 # Initialise the CFSite experiment :D! 
 const seed = MersenneTwister(0)
-function init_cfsites!(bl, state, aux, (x, y, z), t, spl)
+function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     FT = eltype(state)
     _grav = grav(bl.param_set)
 
@@ -413,22 +413,14 @@ function init_cfsites!(bl, state, aux, (x, y, z), t, spl)
     aux.gcminfo.wap = wap
     aux.gcminfo.T = ta
 
+    return nothing
 end
 
 function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     # Boundary Conditions
     u_star = FT(0.28)
-    model = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        turbulence = Vreman{FT}(0.23),
-        source = (
-            Gravity(),
-            LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
-            MoistureTendency(),
-            TemperatureTendency(),
-            SubsidenceTendency(),
-        ),
+
+    problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
@@ -441,10 +433,23 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
             ),
             AtmosBC(),
         ),
+        init_state_prognostic = init_cfsites!,
+    )
+    model = AtmosModel{FT}(
+        AtmosLESConfigType,
+        param_set;
+	problem = problem,
+        turbulence = Vreman{FT}(0.23),
+        source = (
+            Gravity(),
+            LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
+            MoistureTendency(),
+            TemperatureTendency(),
+            SubsidenceTendency(),
+        ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
 	#ZS: hyperdiffusion?
         hyperdiffusion = DryBiharmonic{FT}(12*3600),
-        init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2(),
     )
 
@@ -503,8 +508,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(2000)
-    ymax = FT(2000)
+    xmax = FT(1800)
+    ymax = FT(1800)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
