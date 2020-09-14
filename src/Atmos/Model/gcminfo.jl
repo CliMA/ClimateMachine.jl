@@ -53,7 +53,7 @@ vars_state(m::HadGem2, ::Auxiliary, FT) = @vars(
     p::FT,
     ta::FT,
     ρe::FT,
-    ρq_tot::FT,
+    q_tot::FT,
     ua::FT,
     va::FT,
     tntha::FT,

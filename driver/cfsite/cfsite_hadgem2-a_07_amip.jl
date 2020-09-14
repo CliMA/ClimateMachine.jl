@@ -13,9 +13,6 @@ using Test
 # ClimateMachine Modules
 using ClimateMachine
 
-cl_args = ClimateMachine.init(parse_clargs = true)
-#ClimateMachine.init(parse_clargs = true)
-
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
 using ClimateMachine.GenericCallbacks
@@ -29,13 +26,14 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Writers
 
+# Planet parameters 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
-import ClimateMachine.Atmos: compute_gradient_flux!, thermo_state
+import ClimateMachine.Atmos: compute_gradient_flux!, new_thermo_state, recover_thermo_state
 
 # Citation for problem setup
 """
@@ -104,7 +102,7 @@ function atmos_source!(
     ∂T∂z = dot(diffusive.moisture.∇T_gcm, k̂)
     w_adv = -aux.gcminfo.wap / (aux.gcminfo.ρ * _grav)
     # Establish thermodynamic state
-    TS = thermo_state(atmos, state, aux)
+    TS = recover_thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
     # Temperature contribution
@@ -151,7 +149,7 @@ function atmos_source!(
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
     w_adv = -aux.gcminfo.wap / (aux.gcminfo.ρ * _grav)
     # Establish thermodynamic state
-    TS = thermo_state(atmos, state, aux)
+    TS = recover_thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
     source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusha
@@ -263,9 +261,6 @@ function str2var(str::String, var::Any)
     @eval(($str) = ($var))
 end
 
-@show(cl_args)
-const groupid = cl_args["group_id"]
-
 # Define the get_gcm_info function
 """
     get_gcm_info(groupid)
@@ -279,21 +274,12 @@ function get_gcm_info(groupid)
 
     @printf("--------------------------------------------------\n")
     @info @sprintf("""\n
-       ____ _     ___ __  __    _                                  
-      / ___| |   |_ _|  \\/  |  / \\                                 
-     | |   | |    | || |\\/| | / _ \\                                
-     | |___| |___ | || |  | |/ ___ \\                               
-      \\____|_____|___|_| _|_/_/___\\_\\_  __       _     _____ ____  
-     | | | | __ _  __| |/ ___| ____|  \\/  |     | |   | ____/ ___| 
-     | |_| |/ _` |/ _` | |  _|  _| | |\\/| |_____| |   |  _| \\___ \\ 
-     |  _  | (_| | (_| | |_| | |___| |  | |_____| |___| |___ ___) |
-     |_| |_|\\__,_|\\__,_|\\____|_____|_|  |_|     |_____|_____|____/ 
+     Experiment: GCM(HadGEM-2a) driven LES(ClimateMachine)
      """)
 
     @printf("\n")
     @printf("Had_GCM_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-   # filename = "/gcp/share1/home/asridhar/CLIMA/datasets/"*forcingfile*".nc"
     filename = "/central/groups/esm/zhaoyi/GCMForcedLES/forcing/clima/"*forcingfile*".nc"
 
     req_varnames = (
@@ -401,7 +387,7 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     aux.gcminfo.p = P
     aux.gcminfo.ta = ta
     aux.gcminfo.ρe = ρ_gcm * (e_kin + e_pot + e_int)
-    aux.gcminfo.ρq_tot = ρ_gcm * q_tot
+    aux.gcminfo.q_tot = q_tot
     aux.gcminfo.tntha = tntha
     aux.gcminfo.tntva = tntva
     aux.gcminfo.ua = ua
@@ -415,7 +401,7 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     return nothing
 end
 
-function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
+function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, groupid)
     # Boundary Conditions
     u_star = FT(0.28)
 
@@ -453,12 +439,19 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
     )
 
     # Timestepper options
+    
+    # Explicit Solver
+    ex_solver = ClimateMachine.ExplicitSolverType(),
+    
+    # Multirate Explicit Solver
     mrrk_solver = ClimateMachine.MultirateSolverType(
         fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 4,
     );
+
+    # IMEX Solver Type
     imex_solver = ClimateMachine.IMEXSolverType();
 
     # Configuration
@@ -472,7 +465,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         param_set,
         init_cfsites!,
 	#ZS: multi-rate?
-        solver_type = mrrk_solver,
+        solver_type = imex_solver,
         model = model,
     )
     return config
@@ -497,7 +490,22 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    
+
+    # Provision for custom command line arguments
+    # Convenience args for slurm-array launches
+    cfsite_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(cfsite_args, "HadGEM_SiteInfo")
+    @add_arg_table! cfsite_args begin
+        "--group-id"
+        help = "Specify CFSite-ID for GCM data"
+        metavar = "site<number>"
+        arg_type = String
+        default = "site17"
+    end
+    cl_args =
+        ClimateMachine.init(parse_clargs = true, custom_clargs = cfsite_args)
+    groupid = cl_args["group_id"]
+
     # Working precision
     FT = Float64
     # DG polynomial order
@@ -514,7 +522,7 @@ function main()
     t0 = FT(0)
     timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(10)
+    CFL = FT(0.5)
 
     # Execute the get_gcm_info function
     (
@@ -556,7 +564,7 @@ function main()
 
     # Set up driver configuration
     driver_config =
-        config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
+        config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, groupid)
     # Set up solver configuration
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
