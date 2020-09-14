@@ -119,7 +119,8 @@ EquilMoist{FT}(;
 
 vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
 vars_state(::EquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
-vars_state(::EquilMoist, ::GradientFlux, FT) = @vars(∇q_tot::SVector{3, FT})
+vars_state(::EquilMoist, ::GradientFlux, FT) = 
+    @vars(∇q_tot::SVector{3, FT}, ∇T_gcm::SVector{3, FT}, ∇q_tot_gcm::SVector{3, FT})
 vars_state(::EquilMoist, ::Auxiliary, FT) =
     @vars(temperature::FT, θ_v::FT, q_liq::FT, q_ice::FT)
 
@@ -147,6 +148,8 @@ function compute_gradient_argument!(
 )
     ρinv = 1 / state.ρ
     transform.moisture.q_tot = state.moisture.ρq_tot * ρinv
+    transform.moisture.T_gcm = aux.gcminfo.T
+    transform.moisture.q_tot_gcm = aux.gcminfo.q_tot
 end
 
 function compute_gradient_flux!(
@@ -159,6 +162,8 @@ function compute_gradient_flux!(
 )
     # diffusive flux of q_tot
     diffusive.moisture.∇q_tot = ∇transform.moisture.q_tot
+    diffusive.moisture.∇T_gcm = ∇transform.moisture.T_gcm
+    diffusive.moisture.∇q_tot_gcm = ∇transform.moisture.q_tot_gcm
 end
 
 function flux_moisture!(

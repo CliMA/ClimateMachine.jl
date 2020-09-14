@@ -14,7 +14,7 @@ using Test
 using ClimateMachine
 
 cl_args = ClimateMachine.init(parse_clargs = true)
-ClimateMachine.init(parse_clargs = true)
+#ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
@@ -34,7 +34,6 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import ClimateMachine.DGMethods: vars_state_conservative, vars_state_auxiliary
 import ClimateMachine.Atmos: source!, atmos_source!, altitude
 import ClimateMachine.Atmos: compute_gradient_flux!, thermo_state
 
