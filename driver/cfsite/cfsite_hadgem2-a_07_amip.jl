@@ -227,7 +227,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction
+    direction,
 )
     #Unpack sponge parameters
     FT = eltype(state)
@@ -241,6 +241,7 @@ function atmos_source!(
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
+	#ZS: different sponge formulation?
         β_sponge = α_max .* sinpi(r/FT(2)) * sinpi(r/FT(2)) * sinpi(r/ FT(2)) * sinpi(r/FT(2))#.^ γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * u_geo)
     end
@@ -435,12 +436,13 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> hfls + hfss),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> hfls / latent_heat_vapor(param_set,T_sfc),
+                    (state, aux, t) -> hfls / latent_heat_vapor(param_set, T_sfc),
                 ),
             ),
             AtmosBC(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
+	#ZS: hyperdiffusion?
         hyperdiffusion = DryBiharmonic{FT}(12*3600),
         init_state_prognostic = init_cfsites!,
         gcminfo = HadGem2(),
@@ -465,6 +467,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc)
         zmax,
         param_set,
         init_cfsites!,
+	#ZS: multi-rate?
         solver_type = mrrk_solver,
         model = model,
     )
@@ -500,8 +503,8 @@ function main()
     Δv = FT(20)
     resolution = (Δh, Δh, Δv)
     # Domain extents
-    xmax = FT(1000)
-    ymax = FT(1000)
+    xmax = FT(2000)
+    ymax = FT(2000)
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
@@ -572,6 +575,7 @@ function main()
         nothing
     end
     
+    #ZS: cutoff filter?
     filterorder = 2*N
     filter = BoydVandevenFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -599,6 +603,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
+	#ZS: only tmar?
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
