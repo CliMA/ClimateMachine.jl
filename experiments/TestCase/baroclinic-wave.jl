@@ -180,7 +180,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
-        #hyperdiffusion = hyperdiffusion,
+        hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
     )
@@ -280,7 +280,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
         #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )

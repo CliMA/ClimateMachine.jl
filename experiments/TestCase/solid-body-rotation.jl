@@ -70,7 +70,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         param_set,
         init_solid_body_rotation!;
         model = model,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        #numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     )
 
     return config
@@ -164,7 +164,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
         check_euclidean_distance = false,
     )
 
