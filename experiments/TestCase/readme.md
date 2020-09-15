@@ -46,6 +46,9 @@ To make the aspect ratio of rising thermal bubble similar to that of the GCM
 To make the domain height of rising thermal bubble similar to that of the GCM,
 set `zmax = FT(30000)`.
 
+## Numerical Flux
+Rusanov flux is used by default. To use other numerical fluxes, specify `numerical_flux_first_order`.
+
 ## Filter
 The default filters are:
 - No filter or hyperdiffusion for rising thermal bubble
