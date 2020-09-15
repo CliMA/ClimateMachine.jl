@@ -53,11 +53,11 @@ function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     d_0::FT = _a / 6
     V_p::FT = 1
     M_v::FT = 0.608
-    p_w::FT = 34e3             ## Pressure width parameter for specific humidity
-    η_crit::FT = 10 * _p_0 / p_w ## Critical pressure coordinate
-    q_0::FT = 0                ## Maximum specific humidity (default: 0.018)
-    q_t::FT = 1e-12            ## Specific humidity above artificial tropopause
-    φ_w::FT = 2π / 9           ## Specific humidity latitude wind parameter
+    p_w::FT = 34e3                 # Pressure width parameter for specific humidity
+    η_crit::FT = p_w / _p_0        # Critical pressure coordinate
+    q_0::FT = 0.018                # Maximum specific humidity (default: 0.018)
+    q_t::FT = 1e-12                # Specific humidity above artificial tropopause
+    φ_w::FT = 2π / 9               # Specific humidity latitude wind parameter
 
     # grid
     φ = latitude(bl.orientation, aux)
@@ -287,7 +287,7 @@ function main()
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = "12shours" # chosen to allow a single diagnostics collection
+    interval = "12shours" # chosen to allow diagnostics every 12 simulated hours
 
     _planet_radius = FT(planet_radius(param_set))
 

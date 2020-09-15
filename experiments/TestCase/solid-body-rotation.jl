@@ -175,7 +175,7 @@ function main()
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = "0.5shours" # chosen to allow a single diagnostics collection
+    interval = "0.5shours" # chosen to allow diagnostics every 30 simulated minutes
 
     _planet_radius = FT(planet_radius(param_set))
 
