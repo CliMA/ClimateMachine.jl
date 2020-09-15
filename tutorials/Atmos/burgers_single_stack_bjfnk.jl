@@ -490,7 +490,7 @@ linearsolver = BatchedGeneralizedMinimalResidual(
     dg,
     Q;
     max_subspace_size = 30,
-    atol = 1e-5,
+    atol = -1.0,
     rtol = 1e-5,
 )
 

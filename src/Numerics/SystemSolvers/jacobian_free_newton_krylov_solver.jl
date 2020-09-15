@@ -79,7 +79,7 @@ function (op::JacobianAction)(JΔQ, dQ, args...)
     end
 
     β = √ϵ
-    e = factor * (β * norm(Q, 1, false) + β)
+    e = factor * β * norm(Q, 1, false) + β
 
     Qdq .= Q .+ e .* dQ
 
