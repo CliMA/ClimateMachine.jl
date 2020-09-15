@@ -47,12 +47,14 @@ mutable struct ColumnwiseLUPreconditioner{AT}
     update_freq::Int
 end
 
-A: the lu factor of the precondition (approximated Jacobian), in the DGColumnBandedMatrix format
-Q: MPIArray container, used to update A
-PQ: MPIArray container, used to update A
-counter: count the number of Newton, when counter > update_freq or counter < 0, update precondition
-update_freq: preconditioner update frequency
-
+...
+# Arguments
+- `A`: the lu factor of the precondition (approximated Jacobian), in the DGColumnBandedMatrix format
+- `Q`: MPIArray container, used to update A
+- `PQ`: MPIArray container, used to update A
+- `counter`: count the number of Newton, when counter > update_freq or counter < 0, update precondition
+- `update_freq`: preconditioner update frequency
+...
 """
 mutable struct ColumnwiseLUPreconditioner{AT} <: AbstractPreconditioner
     A::DGColumnBandedMatrix
@@ -66,11 +68,13 @@ end
 ColumnwiseLUPreconditioner constructor
 build an empty ColumnwiseLUPreconditioner
 
-dg: DG model, use only the grid information
-Q0: MPIArray, use only its size
-counter = -1, which indicates the preconditioner is empty
-update_freq: preconditioner update frequency
-
+...
+# Arguments
+- `dg`: DG model, use only the grid information
+- `Q0`: MPIArray, use only its size
+- `counter`: = -1, which indicates the preconditioner is empty
+- `update_freq`: preconditioner update frequency
+...
 """
 function ColumnwiseLUPreconditioner(dg, Q0, update_freq = 100)
     single_column = false
@@ -85,9 +89,11 @@ end
 
 """
 update the DGColumnBandedMatrix by the finite difference approximation
-
-op: operator used to compute the finte difference information
-dg: the DG model, use only the grid information
+...
+# Arguments
+- `op`: operator used to compute the finte difference information
+- `dg`: the DG model, use only the grid information
+...
 """
 function preconditioner_update!(
     op,

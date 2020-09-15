@@ -285,7 +285,7 @@ end
         single_column = false,
     )
 
-Initializes a banded matrix stored in the LAPACK band storage format
+Initializes an empty banded matrix stored in the LAPACK band storage format
 <https://www.netlib.org/lapack/lug/node124.html>.
 """
 function empty_banded_matrix(
