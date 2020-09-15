@@ -369,6 +369,10 @@ vuntuple(f::F, N::Int) where {F} = ntuple(i -> f(Val(i)), Val(N))
 Base.getindex(t::Tuple, ::Val{i}) where {i} = Base.getindex(t, i)
 Base.getindex(a::SArray, ::Val{i}) where {i} = Base.getindex(a, i)
 
+# Somehow needed for GPU...
+Base.@propagate_inbounds Base.getindex(v::AbstractVars, i::Int) =
+    Base.getindex(v, Val(i))
+
 Base.@propagate_inbounds function Base.getindex(
     v::AbstractVars{NTuple{N, T}, A, offset},
     ::Val{i},
