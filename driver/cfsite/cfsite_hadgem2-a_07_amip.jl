@@ -441,7 +441,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, 
     # Timestepper options
     
     # Explicit Solver
-    ex_solver = ClimateMachine.ExplicitSolverType(),
+    ex_solver = ClimateMachine.ExplicitSolverType();
     
     # Multirate Explicit Solver
     mrrk_solver = ClimateMachine.MultirateSolverType(
