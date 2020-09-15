@@ -419,6 +419,10 @@ function doiteration!(
             backward_permute,
         )
 
+        # PRECONDITIONER: batched_krylov_basis[j+1] =  J P^{-1}batched_krylov_basis[j]
+        # set krylov_basis_prev = P^{-1}batched_krylov_basis[j]
+        preconditioner_solve!(preconditioner, krylov_basis_prev)
+
         # Global operator application to get new Krylov basis vector
         linearoperator!(krylov_basis, krylov_basis_prev, args...)
 

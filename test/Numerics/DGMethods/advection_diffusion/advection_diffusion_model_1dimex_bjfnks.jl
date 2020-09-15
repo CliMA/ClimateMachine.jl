@@ -169,7 +169,7 @@ function run(
 
     # linearsolver = GeneralizedMinimalResidual(Q; M = 30, rtol = 1e-5)
     linearsolver =
-        BatchedGeneralizedMinimalResidual(dg, Q; atol = 1e-5, rtol = 1e-5)
+        BatchedGeneralizedMinimalResidual(dg, Q; atol = -1.0, rtol = 1e-5)
 
     nonlinearsolver =
         JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4)
