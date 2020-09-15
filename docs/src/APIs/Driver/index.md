@@ -14,6 +14,7 @@ AbstractSolverType
 DiscreteSplittingType
 ExplicitSolverType
 ImplicitSolverType
+SplitExplicitSolverType
 ConfigTypes
 IMEXSolverType
 ```

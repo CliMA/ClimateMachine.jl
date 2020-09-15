@@ -20,6 +20,11 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_horz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
+struct OceanSplitExplicitSpecificInfo <: ConfigSpecificInfo
+    model_2D::BalanceLaw
+    grid_2D::DiscontinuousSpectralElementGrid
+    dg::DGModel
+end
 struct SingleStackSpecificInfo <: ConfigSpecificInfo end
 
 include("SolverTypes/SolverTypes.jl")
@@ -336,6 +341,158 @@ function OceanBoxGCMConfiguration(
         numerical_flux_second_order,
         numerical_flux_gradient,
         OceanBoxGCMSpecificInfo(),
+    )
+end
+
+function OceanSplitExplicitConfiguration(
+    name::String,
+    N::Int,
+    (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
+    param_set::AbstractParameterSet,
+    model_3D::OceanModel;
+    FT = Float64,
+    array_type = ClimateMachine.array_type(),
+    solver_type = SplitExplicitSolverType{FT}(90.0 * 60.0, 240.0),
+    mpicomm = MPI.COMM_WORLD,
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
+    periodicity = (false, false, false),
+    boundary = ((1, 1), (1, 1), (2, 3)),
+)
+
+    xrange = range(FT(0); length = Nˣ + 1, stop = model_3D.problem.Lˣ)
+    yrange = range(FT(0); length = Nʸ + 1, stop = model_3D.problem.Lʸ)
+    zrange = range(FT(-model_3D.problem.H); length = Nᶻ + 1, stop = 0)
+
+    brickrange_2D = (xrange, yrange)
+    brickrange_3D = (xrange, yrange, zrange)
+
+    topology_2D = BrickTopology(
+        mpicomm,
+        brickrange_2D;
+        periodicity = (periodicity[1], periodicity[2]),
+        boundary = (boundary[1], boundary[2]),
+    )
+    topology_3D = StackedBrickTopology(
+        mpicomm,
+        brickrange_3D;
+        periodicity = periodicity,
+        boundary = boundary,
+    )
+
+    grid_2D = DiscontinuousSpectralElementGrid(
+        topology_2D,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+    )
+    grid_3D = DiscontinuousSpectralElementGrid(
+        topology_3D,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+    )
+
+    model_2D = BarotropicModel(model_3D)
+
+    dg_2D = DGModel(
+        model_2D,
+        grid_2D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+    )
+
+    Q_2D = init_ode_state(dg_2D, FT(0); init_on_cpu = true)
+
+    vert_filter = CutoffFilter(grid_3D, polynomialorder(grid_3D) - 1)
+    exp_filter = ExponentialFilter(grid_3D, 1, 8)
+
+    flowintegral_dg = DGModel(
+        ClimateMachine.Ocean.SplitExplicit01.FlowIntegralModel(model_3D),
+        grid_3D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+    )
+
+    tendency_dg = DGModel(
+        ClimateMachine.Ocean.SplitExplicit01.TendencyIntegralModel(model_3D),
+        grid_3D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+    )
+
+    conti3d_dg = DGModel(
+        ClimateMachine.Ocean.SplitExplicit01.Continuity3dModel(model_3D),
+        grid_3D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+    )
+    conti3d_Q = init_ode_state(conti3d_dg, FT(0); init_on_cpu = true)
+
+    ivdc_dg = DGModel(
+        ClimateMachine.Ocean.SplitExplicit01.IVDCModel(model_3D),
+        grid_3D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient;
+        direction = VerticalDirection(),
+    )
+    # Not sure this is needed since we set values later,
+    # but we'll do it just in case!
+    ivdc_Q = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true)
+    ivdc_RHS = init_ode_state(ivdc_dg, FT(0); init_on_cpu = true)
+
+    ivdc_bgm_solver = BatchedGeneralizedMinimalResidual(
+        ivdc_dg,
+        ivdc_Q;
+        max_subspace_size = 10,
+    )
+
+    modeldata = (
+        dg_2D = dg_2D,
+        Q_2D = Q_2D,
+        vert_filter = vert_filter,
+        exp_filter = exp_filter,
+        flowintegral_dg = flowintegral_dg,
+        tendency_dg = tendency_dg,
+        conti3d_dg = conti3d_dg,
+        conti3d_Q = conti3d_Q,
+        ivdc_dg = ivdc_dg,
+        ivdc_Q = ivdc_Q,
+        ivdc_RHS = ivdc_RHS,
+        ivdc_bgm_solver = ivdc_bgm_solver,
+    )
+
+    dg_3D = DGModel(
+        model_3D,
+        grid_3D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient;
+        modeldata = modeldata,
+    )
+
+
+    return DriverConfiguration(
+        OceanSplitExplicitConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        param_set,
+        model_3D,
+        mpicomm,
+        grid_3D,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        OceanSplitExplicitSpecificInfo(model_2D, grid_2D, dg_3D),
     )
 end
 
