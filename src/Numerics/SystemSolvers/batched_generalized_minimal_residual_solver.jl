@@ -1,4 +1,6 @@
 
+using CUDA
+
 export BatchedGeneralizedMinimalResidual
 
 """
