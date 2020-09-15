@@ -51,7 +51,7 @@ function JacobianAction(rhs!, Q, ϵ)
 end
 
 """
-Approximations the action of the Jacobian of a nonlinear
+Approximates the action of the Jacobian of a nonlinear
 form on a vector `ΔQ` using the difference quotient:
 
       ∂F(Q)      F(Q + e ΔQ) - F(Q)

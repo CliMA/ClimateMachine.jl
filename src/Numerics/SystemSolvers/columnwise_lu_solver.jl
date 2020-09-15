@@ -261,10 +261,10 @@ function banded_matrix(
     args...;
     single_column = false,
 )
-
-
+    # Initialize banded matrix data structure
     A = empty_banded_matrix(dg, Q; single_column = single_column)
 
+    # Populate matrix with data
     update_banded_matrix!(
         A,
         f!,
@@ -278,8 +278,16 @@ function banded_matrix(
     A
 end
 
+"""
+    empty_banded_matrix(
+        dg::DGModel,
+        Q::MPIStateArray;
+        single_column = false,
+    )
 
-# Initialize an empty banded matrix
+Initializes a banded matrix stored in the LAPACK band storage format
+<https://www.netlib.org/lapack/lug/node124.html>.
+"""
 function empty_banded_matrix(
     dg::DGModel,
     Q::MPIStateArray;
@@ -339,7 +347,27 @@ function empty_banded_matrix(
     A
 end
 
-# Update banded matrix
+"""
+    update_banded_matrix!(
+        A::DGColumnBandedMatrix,
+        f!,
+        dg::DGModel,
+        Q::MPIStateArray = MPIStateArray(dg),
+        dQ::MPIStateArray = MPIStateArray(dg),
+        args...;
+        single_column = false,
+    )
+
+Updates the banded matrices for each the column operator defined by the linear
+operator `f!` which is assumed to have the same banded structure as the
+`DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
+column and if `single_column=true` only the banded matrix associated with the
+first column of the first element is stored. The bandwidth of the DG column
+banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
+`p` and `q` being the upper and lower bandwidths.
+
+Here `args` are passed to `f!`.
+"""
 function update_banded_matrix!(
     A::DGColumnBandedMatrix,
     f!,
@@ -375,13 +403,10 @@ function update_banded_matrix!(
 
     Nqj = dim == 2 ? 1 : Nq
 
-    # TODO
-    # fill!(A, zero(FT))
-
-
     # loop through all DOFs in a column and compute the matrix column
     # loop only the first min(nvertelem, 2eband+1) elements
-    # in each element loop, updating these columns correspond to elements (ev :2eband+1 : nvertelem)
+    # in each element loop, updating these columns correspond
+    # to elements (ev :2eband+1 : nvertelem)
     for ev in 1:min(nvertelem, 2eband + 1)
         for s in 1:nstate
             for k in 1:Nq
@@ -424,7 +449,6 @@ function update_banded_matrix!(
             end
         end
     end
-
 end
 
 """

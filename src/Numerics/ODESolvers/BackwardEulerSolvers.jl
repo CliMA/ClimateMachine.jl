@@ -91,7 +91,7 @@ time step size.
 struct LinearBackwardEulerSolver{LS}
     solver::LS
     isadjustable::Bool
-    preconditioner_update_freq::Int64
+    preconditioner_update_freq::Int
     LinearBackwardEulerSolver(
         solver;
         isadjustable = false,
@@ -196,11 +196,11 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
 end
 
 """
-struct NonLinearBackwardEulerSolver{NLS}
-    nlsolver::NLS
-    isadjustable::Bool
-    preconditioner_update_freq::Int64
-end
+    struct NonLinearBackwardEulerSolver{NLS}
+        nlsolver::NLS
+        isadjustable::Bool
+        preconditioner_update_freq::Int64
+    end
 
 Helper type for specifying building a nonlinear backward Euler solver with a nonlinear
 solver.
@@ -215,7 +215,7 @@ struct NonLinearBackwardEulerSolver{NLS}
     isadjustable::Bool
     # preconditioner_update_freq, -1: no preconditioner;
     # positive number, update every freq times
-    preconditioner_update_freq::Int64
+    preconditioner_update_freq::Int
     function NonLinearBackwardEulerSolver(
         nlsolver;
         isadjustable = false,

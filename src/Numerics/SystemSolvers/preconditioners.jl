@@ -43,8 +43,8 @@ mutable struct ColumnwiseLUPreconditioner{AT}
     A::DGColumnBandedMatrix
     Q::AT
     PQ::AT
-    counter::Int64
-    update_freq::Int64
+    counter::Int
+    update_freq::Int
 end
 
 A: the lu factor of the precondition (approximated Jacobian), in the DGColumnBandedMatrix format
@@ -58,8 +58,8 @@ mutable struct ColumnwiseLUPreconditioner{AT} <: AbstractPreconditioner
     A::DGColumnBandedMatrix
     Q::AT
     PQ::AT
-    counter::Int64
-    update_freq::Int64
+    counter::Int
+    update_freq::Int
 end
 
 """
