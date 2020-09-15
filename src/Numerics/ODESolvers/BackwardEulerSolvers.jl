@@ -205,9 +205,10 @@ end
 Helper type for specifying building a nonlinear backward Euler solver with a nonlinear
 solver.
 
-nlsolver: iterative nonlinear solver, i.e., JacobianFreeNewtonKrylovSolver
-isadjustable: TODO not used, might use for updating preconditioner
-preconditioner_update_freq:  relavent to Jacobian free -1: no preconditioner;
+# Arguments
+- `nlsolver`: iterative nonlinear solver, i.e., JacobianFreeNewtonKrylovSolver
+- `isadjustable`: TODO not used, might use for updating preconditioner
+- `preconditioner_update_freq`:  relavent to Jacobian free -1: no preconditioner;
                              positive number, update every freq times
 """
 struct NonLinearBackwardEulerSolver{NLS}
@@ -264,6 +265,7 @@ solve for `Q` in nonlinear systems of the form of
     Q = Qhat + α f(Q, param, time)
 ```
 Create an empty JacobianAction
+
 Create an empty preconditioner if preconditioner_update_freq > 0
 """
 function setup_backward_Euler_solver(
@@ -295,7 +297,9 @@ end
 
 """
 Nonlinear solve
+
 Update rhs! with α
+
 Update the rhs! in the jacobian action jvp!
 """
 function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
