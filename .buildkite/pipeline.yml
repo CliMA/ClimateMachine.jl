@@ -57,15 +57,6 @@ steps:
       queue: central
       slurm_ntasks: 3
 
-  - label: "cpu_ref_state"
-    key: "cpu_ref_state"
-    command:
-      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/ref_state.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
-
   - label: "cpu_mpi_connect_1d"
     key: "cpu_mpi_connect_1d"
     command:
