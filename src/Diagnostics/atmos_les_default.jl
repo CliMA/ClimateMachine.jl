@@ -597,7 +597,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals[varname] = davg
         end
 
-        if isa(bl.moisture, EquilMoist) || isa(bl.moisture.NonEquilMoist)
+        if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
             varvals["cld_frac"] = cld_frac
             varvals["cld_top"] = cld_top
             varvals["cld_base"] = cld_base
