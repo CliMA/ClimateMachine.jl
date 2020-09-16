@@ -16,17 +16,7 @@ function vars_thermo(atmos::AtmosModel, FT)
     end
 end
 vars_thermo(::MoistureModel, FT) = @vars()
-function vars_thermo(m::EquilMoist, FT)
-    @vars begin
-        q_liq::FT
-        q_ice::FT
-        q_vap::FT
-        θ_vir::FT
-        θ_liq_ice::FT
-        has_condensate::Bool
-    end
-end
-function vars_thermo(m::NonEquilMoist, FT)
+function vars_thermo(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         q_liq::FT
         q_ice::FT
@@ -60,20 +50,13 @@ end
 function compute_thermo!(::MoistureModel, state, aux, ts, thermo)
     return nothing
 end
-function compute_thermo!(moist::EquilMoist, state, aux, ts, thermo)
-    Phpart = PhasePartition(ts)
-
-    thermo.moisture.has_condensate = has_condensate(ts)
-    thermo.moisture.q_liq = Phpart.liq
-    thermo.moisture.q_ice = Phpart.ice
-    thermo.moisture.q_vap = vapor_specific_humidity(ts)
-    thermo.moisture.θ_vir = virtual_pottemp(ts)
-    thermo.moisture.θ_liq_ice = liquid_ice_pottemp(ts)
-
-    return nothing
-end
-function compute_thermo!(moist::NonEquilMoist, state, aux, ts, thermo)
-
+function compute_thermo!(
+    moist::Union{EquilMoist, NonEquilMoist},
+    state,
+    aux,
+    ts,
+    thermo,
+)
     thermo.moisture.has_condensate = has_condensate(ts)
     thermo.moisture.q_liq = liquid_specific_humidity(ts)
     thermo.moisture.q_ice = ice_specific_humidity(ts)

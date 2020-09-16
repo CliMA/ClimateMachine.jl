@@ -132,3 +132,10 @@ julia --project=docs docs/make.jl
 The makefile script will generate the appropriate markdown files and
 static html from both the `docs/src` and `tutorials/` directories,
 saving the output in `docs/src/generated`.
+
+### Speeding up the documentation build process
+Building the tutorials can take a long time so there is an environment variable switch to toggle on / off building the tutorials (`true` deafult):
+
+```
+CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS=false julia --project=docs/ docs/make.jl
+```
