@@ -150,17 +150,21 @@ function config_diagnostics(driver_config)
     )
     state_dgngrp = setup_dump_state_diagnostics(
         AtmosLESConfigType(),
-        "50ssecs",
+        interval,
         driver_config.name,
         interpol = interpol,
     )
     aux_dgngrp = setup_dump_aux_diagnostics(
         AtmosLESConfigType(),
-        "50ssecs",
+        interval,
         driver_config.name,
         interpol = interpol,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp, state_dgngrp, aux_dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([
+        dgngrp,
+        state_dgngrp,
+        aux_dgngrp,
+    ])
 end
 
 function main()
