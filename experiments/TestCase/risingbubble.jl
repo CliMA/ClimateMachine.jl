@@ -131,13 +131,36 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
 end
 
 function config_diagnostics(driver_config)
+    FT = Float64
     interval = "50ssecs"
+    boundaries = [
+        FT(0.0) FT(0.0) FT(0.0)
+        FT(10000) FT(500) FT(10000)
+    ]
+    resolution = (FT(100), FT(100), FT(100))
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
     dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         interval,
         driver_config.name,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    state_dgngrp = setup_dump_state_diagnostics(
+        AtmosLESConfigType(),
+        "50ssecs",
+        driver_config.name,
+        interpol = interpol,
+    )
+    aux_dgngrp = setup_dump_aux_diagnostics(
+        AtmosLESConfigType(),
+        "50ssecs",
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, state_dgngrp, aux_dgngrp])
 end
 
 function main()
