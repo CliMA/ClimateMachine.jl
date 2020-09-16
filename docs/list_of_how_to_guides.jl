@@ -18,7 +18,10 @@ how_to_guides = Any[
         "Meshes" => Any[
         # "Home" => "HowToGuides/Numerics/Meshes/index.md",
         ],
-        "DG methods" => Any["How to make a balance law" => "HowToGuides/Numerics/DGMethods/how_to_make_a_balance_law.md",],
+        "DG methods" => Any[
+            "How to make a balance law" => "HowToGuides/Numerics/DGMethods/how_to_make_a_balance_law.md",
+            "RHS evaluation sequence" => "HowToGuides/Numerics/DGMethods/rhs_sequence.md",
+        ],
         "ODE Solvers" => Any["Time-integration" => "HowToGuides/Numerics/ODESolvers/Timestepping.md",],
         "System Solvers" => Any["Iterative Solvers" => "HowToGuides/Numerics/SystemSolvers/IterativeSolvers.md",],
     ],
