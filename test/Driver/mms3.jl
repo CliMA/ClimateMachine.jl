@@ -12,13 +12,11 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
-import ClimateMachine.Atmos:
-    MoistureModel,
-    temperature,
-    pressure,
-    soundspeed,
-    total_specific_enthalpy,
-    recover_thermo_state
+
+import ClimateMachine.Thermodynamics:
+    total_specific_enthalpy, air_pressure, soundspeed_air
+
+import ClimateMachine.Atmos: MoistureModel, recover_thermo_state
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -38,13 +36,8 @@ Assumes the moisture components is in the dry limit.
 """
 struct MMSDryModel <: MoistureModel end
 
-function total_specific_enthalpy(
-    bl::AtmosModel,
-    moist::MMSDryModel,
-    state::Vars,
-    aux::Vars,
-)
-    zero(eltype(state))
+function total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real}
+    return zero(FT)
 end
 function recover_thermo_state(
     bl::AtmosModel,
@@ -59,18 +52,18 @@ function recover_thermo_state(
         state.ρ,
     )
 end
-function pressure(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
-    T = eltype(state)
-    γ = T(7) / T(5)
-    ρinv = 1 / state.ρ
-    return (γ - 1) * (state.ρe - ρinv / 2 * sum(abs2, state.ρu))
+function air_pressure(ts::PhaseDry{FT}) where {FT <: Real}
+    γ = FT(7) / FT(5)
+    ρ = air_density(ts)
+    ρe_int = ρ * internal_energy(ts)
+    return (γ - 1) * ρe_int
 end
-function soundspeed(bl::AtmosModel, moist::MMSDryModel, state::Vars, aux::Vars)
-    T = eltype(state)
-    γ = T(7) / T(5)
-    ρinv = 1 / state.ρ
-    p = pressure(bl, bl.moisture, state, aux)
-    sqrt(ρinv * γ * p)
+function soundspeed_air(ts::PhaseDry{FT}) where {FT <: Real}
+    γ = FT(7) / FT(5)
+    ρ = air_density(ts)
+    ρinv = 1 / ρ
+    p = air_pressure(ts)
+    return sqrt(ρinv * γ * p)
 end
 
 function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
