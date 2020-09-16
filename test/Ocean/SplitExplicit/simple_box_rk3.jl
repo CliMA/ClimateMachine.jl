@@ -146,10 +146,10 @@ function main(; restart = 0)
     gravity::FT = grav(param_set)
 
     #- set model time-step:
-    dt_fast = 240
-    dt_slow = 5400
-    # dt_fast = 300
-    # dt_slow = 300
+    dt_fast = 120
+    dt_slow = 2400
+    # dt_fast = 240
+    # dt_slow = 5400
     if t_chkp > 0
         n_chkp = ceil(Int64, t_chkp / dt_slow)
         dt_slow = t_chkp / n_chkp
@@ -266,11 +266,10 @@ function main(; restart = 0)
     end
     timeend = runTime + t0
 
-    lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = t0)
-    lsrk_barotropic =
-        LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
+    lsrk_ocean = LS3NRK33Heuns(dg, Q_3D, dt = dt_slow, t0 = t0)
+    lsrk_barotropic = LS3NRK33Heuns(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
 
-    odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
+    odesolver = SplitExplicitLSRK3nSolver(lsrk_ocean, lsrk_barotropic)
 
     #-- Set up State Check call back for config state arrays, called every ntFrq_SC time steps
     cbcs_dg = ClimateMachine.StateCheck.sccreate(
@@ -339,7 +338,7 @@ function main(; restart = 0)
     ## Check results against reference if present
     checkRefVals = true
     if checkRefVals
-        include("../refvals/simple_box_ivd_refvals.jl")
+        include("../refvals/simple_box_rk3_refvals.jl")
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
@@ -482,7 +481,7 @@ end
 FT = Float64
 vtkpath = "vtk_split"
 
-const runTime = 5 * 24 * 3600 # s
+const runTime = 3 * 24 * 3600 # s
 const t_outp = 24 * 3600 # s
 const t_chkp = runTime  # s
 #const runTime = 6 * 3600 # s
@@ -509,7 +508,7 @@ const cᶻ = 0
 #- inverse ratio of additional fast time steps (for weighted average)
 #  --> do 1/add more time-steps and average from: 1 - 1/add up to: 1 + 1/add
 # e.g., = 1 --> 100% more ; = 2 --> 50% more ; = 3 --> 33% more ...
-add_fast_substeps = 2
+add_fast_substeps = 3
 
 #- number of Implicit vertical-diffusion sub-time-steps within one model full time-step
 # default = 0 : disable implicit vertical diffusion

@@ -1,4 +1,4 @@
-export SplitExplicitLSRK2nSolver
+export SplitExplicitLSRK3nSolver
 
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
@@ -6,22 +6,21 @@ using StaticArrays
 using ...SystemSolvers
 using ...MPIStateArrays: array_device, realview
 using ...GenericCallbacks
+#using Printf
 
 using ...ODESolvers:
-    AbstractODESolver, LowStorageRungeKutta2N, update!, updatedt!, getdt
+    AbstractODESolver, LowStorageRungeKutta3N, update!, updatedt!, getdt
 import ...ODESolvers: dostep!
 
 using ...BalanceLaws:
-    #   initialize_fast_state!,
-    #   initialize_adjustment!,
     tendency_from_slow_to_fast!,
     cummulate_fast_solution!,
     reconcile_from_fast_to_slow!
 
-LSRK2N = LowStorageRungeKutta2N
+LSRK3N = LowStorageRungeKutta3N
 
 @doc """
-    SplitExplicitLSRK2nSolver(slow_solver, fast_solver; dt, t0 = 0, coupled = true)
+    SplitExplicitLSRK3nSolver(slow_solver, fast_solver; dt, t0 = 0, coupled = true)
 
 This is a time stepping object for explicitly time stepping the differential
 equation given by the right-hand-side function `f` with the state `Q`, i.e.,
@@ -36,10 +35,11 @@ time stepping object is intended to be passed to the `solve!` command.
 
 This method performs an operator splitting to timestep the Sea-Surface elevation
 and vertically averaged horizontal velocity of the model at a faster rate than
-the full model, using LowStorageRungeKutta2N time-stepping.
+the full model, using LowStorageRungeKutta3N time-stepping.
 
-""" SplitExplicitLSRK2nSolver
-mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
+""" SplitExplicitLSRK3nSolver
+mutable struct SplitExplicitLSRK3nSolver{SS, FS, RT, MSA, MSB} <:
+               AbstractODESolver
     "slow solver"
     slow_solver::SS
     "fast solver"
@@ -52,9 +52,11 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
     steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
+    "saving original fast state"
+    S_fast::MSB
 
-    function SplitExplicitLSRK2nSolver(
-        slow_solver::LSRK2N,
+    function SplitExplicitLSRK3nSolver(
+        slow_solver::LSRK3N,
         fast_solver,
         Q = nothing;
         dt = getdt(slow_solver),
@@ -66,24 +68,32 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
 
         dQ2fast = similar(slow_solver.dQ)
         dQ2fast .= -0.0
+        #- Warning: Number of fast-solution to save (here only 1, in S_fast) should be as
+        #   large as number of non zero Butcher Coeff (including Weight "b") below 2 diagonal,
+        #   i.e., with ns= Number of Stages and a(ns+1,:) = b(:), all non zero a(i,j)|_{i > j+1}.
+        #  Saving only 1 fast-solution workd for LS3NRK33Heuns.
+        S_fast = similar(fast_solver.dQ)
+        S_fast .= -0.0
         MSA = typeof(dQ2fast)
-        return new{SS, FS, RT, MSA}(
+        MSB = typeof(S_fast)
+        return new{SS, FS, RT, MSA, MSB}(
             slow_solver,
             fast_solver,
             RT(dt),
             RT(t0),
             0,
             dQ2fast,
+            S_fast,
         )
     end
 end
 
 function dostep!(
     Qvec,
-    split::SplitExplicitLSRK2nSolver{SS},
+    split::SplitExplicitLSRK3nSolver{SS},
     param,
     time::Real,
-) where {SS <: LSRK2N}
+) where {SS <: LSRK3N}
     slow = split.slow_solver
     fast = split.fast_solver
 
@@ -91,43 +101,49 @@ function dostep!(
     Qfast = Qvec.fast
 
     dQslow = slow.dQ
+    dRslow = slow.dR
     dQ2fast = split.dQ2fast
+    S_fast = split.S_fast
 
     slow_bl = slow.rhs!.balance_law
     fast_bl = fast.rhs!.balance_law
 
+    rv_Q = realview(Qslow)
+    rv_dQ = realview(dQslow)
+    rv_dR = realview(dRslow)
     groupsize = 256
 
     slow_dt = getdt(slow)
     fast_dt_in = getdt(fast)
+    rkA = slow.RKA
+    rkB = slow.RKB
+    rkC = slow.RKC
+    rkW = slow.RKW
+    nStages = length(rkC)
 
-    for slow_s in 1:length(slow.RKA)
+    rv_dR .= -0
+    for s in 1:nStages
         # Current slow state time
-        slow_stage_time = time + slow.RKC[slow_s] * slow_dt
-
-        # Fractional time for slow stage
-        if slow_s == length(slow.RKA)
-            fract_dt = (1 - slow.RKC[slow_s]) * slow_dt
-        else
-            fract_dt = (slow.RKC[slow_s + 1] - slow.RKC[slow_s]) * slow_dt
-        end
+        slow_stage_time = time + rkC[s] * slow_dt
+        # @printf("-- main dostep! stage s=%3i , t= %10.2f\n",s,slow_stage_time)
 
         # Initialize fast model and set time-step and number of substeps we need
-        # Note: to reproduce previous Fast output, 1) remove "firstStage = ..." line
         fast_steps = [0 0 0]
         FT = typeof(slow_dt)
-        fast_time_rec = [fast_dt_in FT(0)]
-        initialize_fast_state!(
+        fast_time_rec = [fast_dt_in FT(0) FT(0)]
+        set_fast_for_stepping!(
             slow_bl,
             fast_bl,
-            slow.rhs!,
             fast.rhs!,
-            Qslow,
             Qfast,
-            fract_dt,
+            S_fast,
+            slow_dt,
+            rkC,
+            rkW,
+            s,
+            nStages,
             fast_time_rec,
-            fast_steps;
-            firstStage = (slow_s == 1),
+            fast_steps,
         )
         # Initialize tentency adjustment before evaluation of slow mode
         initialize_adjustment!(
@@ -162,15 +178,18 @@ function dostep!(
         # Update (RK-stage) slow state
         event = Event(array_device(Qslow))
         event = update!(array_device(Qslow), groupsize)(
-            realview(dQslow),
-            realview(Qslow),
-            slow.RKA[slow_s % length(slow.RKA) + 1],
-            slow.RKB[slow_s],
+            rv_dQ,
+            rv_dR,
+            rv_Q,
+            rkA[s % nStages + 1, 1],
+            rkA[s % nStages + 1, 2],
+            rkB[s, 1],
+            rkB[s, 2],
             slow_dt,
             nothing,
             nothing,
             nothing;
-            ndrange = length(realview(Qslow)),
+            ndrange = length(rv_Q),
             dependencies = (event,),
         )
         wait(array_device(Qslow), event)
@@ -182,7 +201,8 @@ function dostep!(
         updatedt!(fast, fast_dt)
 
         for substep in 1:nsubsteps
-            fast_time = slow_stage_time + (substep - 1) * fast_dt
+            fast_time = time + fast_time_rec[3] + (substep - 1) * fast_dt
+            # @printf("-- main dostep! substep=%3i , t= %10.2f\n",substep,fast_time)
             dostep!(Qfast, fast, param, fast_time)
 
             # cumulate fast solution
@@ -198,8 +218,7 @@ function dostep!(
             )
         end
 
-        # Reconcile slow equation using fast equation
-        # Note: to reproduce previous Fast output, 2) remove "lastStage = ..." line
+        # reconcile slow equation using fast equation
         reconcile_from_fast_to_slow!(
             slow_bl,
             fast_bl,
@@ -208,7 +227,7 @@ function dostep!(
             Qslow,
             Qfast,
             fast_time_rec;
-            lastStage = (slow_s == length(slow.RKA)),
+            lastStage = (s == nStages),
         )
 
     end

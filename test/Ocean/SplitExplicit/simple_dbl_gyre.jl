@@ -37,14 +37,16 @@ import ClimateMachine.Ocean.SplitExplicit01:
     OceanSurfaceNoStressNoForcing,
     OceanSurfaceStressNoForcing,
     OceanSurfaceNoStressForcing,
-    OceanSurfaceStressForcing
+    OceanSurfaceStressForcing,
+    velocity_flux,
+    temperature_flux
 import ClimateMachine.DGMethods:
     update_auxiliary_state!, update_auxiliary_state_gradient!, VerticalDirection
 # using GPUifyLoops
 
 const ArrayType = ClimateMachine.array_type()
 
-struct SimpleBox{T, BC} <: AbstractOceanProblem
+struct DoubleGyreBox{T, BC} <: AbstractOceanProblem
     Lˣ::T
     Lʸ::T
     H::T
@@ -54,7 +56,15 @@ struct SimpleBox{T, BC} <: AbstractOceanProblem
     boundary_conditions::BC
 end
 
-function ocean_init_state!(p::SimpleBox, Q, A, localgeo, t)
+@inline velocity_flux(p::DoubleGyreBox, y, ρ) =
+    -(p.τₒ / ρ) * cos(2 * π * y / p.Lʸ)
+
+@inline function temperature_flux(p::DoubleGyreBox, y, θ)
+    θʳ = p.θᴱ * (1 - y / p.Lʸ)
+    return p.λʳ * (θʳ - θ)
+end
+
+function ocean_init_state!(p::DoubleGyreBox, Q, A, localgeo, t)
     coords = localgeo.coord
     @inbounds y = coords[2]
     @inbounds z = coords[3]
@@ -62,12 +72,12 @@ function ocean_init_state!(p::SimpleBox, Q, A, localgeo, t)
 
     Q.u = @SVector [-0, -0]
     Q.η = -0
-    Q.θ = (5 + 4 * cos(y * π / p.Lʸ)) * (1 + z / H)
+    Q.θ = (12 + 10 * cos(π * y / p.Lʸ)) * (1 + z / H)
 
     return nothing
 end
 
-function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
+function ocean_init_aux!(m::OceanModel, p::DoubleGyreBox, A, geom)
     FT = eltype(A)
     @inbounds A.y = geom.coord[2]
 
@@ -82,7 +92,7 @@ function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
 end
 
 # A is Filled afer the state
-function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
+function ocean_init_aux!(m::BarotropicModel, P::DoubleGyreBox, A, geom)
     @inbounds A.y = geom.coord[2]
 
     A.Gᵁ = @SVector [-0, -0]
@@ -142,14 +152,12 @@ function main(; restart = 0)
         ClimateMachine.Ocean.SplitExplicit01.OceanFloorNoSlip(),
         ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceStressForcing(),
     )
-    prob = SimpleBox{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ, BC)
+    prob = DoubleGyreBox{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ, BC)
     gravity::FT = grav(param_set)
 
     #- set model time-step:
-    dt_fast = 240
-    dt_slow = 5400
-    # dt_fast = 300
-    # dt_slow = 300
+    dt_fast = 96
+    dt_slow = 3456
     if t_chkp > 0
         n_chkp = ceil(Int64, t_chkp / dt_slow)
         dt_slow = t_chkp / n_chkp
@@ -170,7 +178,11 @@ function main(; restart = 0)
         add_fast_substeps = add_fast_substeps,
         numImplSteps = numImplSteps,
         ivdc_dt = ivdc_dt,
-        κᶜ = FT(0.1),
+        νʰ = FT(15e3),
+        νᶻ = FT(5e-3),
+        κᶜ = FT(1.0),
+        fₒ = FT(3.8e-5),
+        β = FT(1.7e-11),
     )
     # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )
@@ -266,11 +278,10 @@ function main(; restart = 0)
     end
     timeend = runTime + t0
 
-    lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = t0)
-    lsrk_barotropic =
-        LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
+    lsrk_ocean = LS3NRK33Heuns(dg, Q_3D, dt = dt_slow, t0 = t0)
+    lsrk_barotropic = LS3NRK33Heuns(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
 
-    odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
+    odesolver = SplitExplicitLSRK3nSolver(lsrk_ocean, lsrk_barotropic)
 
     #-- Set up State Check call back for config state arrays, called every ntFrq_SC time steps
     cbcs_dg = ClimateMachine.StateCheck.sccreate(
@@ -339,7 +350,7 @@ function main(; restart = 0)
     ## Check results against reference if present
     checkRefVals = true
     if checkRefVals
-        include("../refvals/simple_box_ivd_refvals.jl")
+        include("../refvals/simple_dbl_gyre_refvals.jl")
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
@@ -482,7 +493,7 @@ end
 FT = Float64
 vtkpath = "vtk_split"
 
-const runTime = 5 * 24 * 3600 # s
+const runTime = 3 * 24 * 3600 # s
 const t_outp = 24 * 3600 # s
 const t_chkp = runTime  # s
 #const runTime = 6 * 3600 # s
@@ -492,15 +503,19 @@ const ntFrq_SC = 1 # frequency (in time-step) for State-Check output
 
 const N = 4
 const Nˣ = 20
-const Nʸ = 20
-const Nᶻ = 20
+const Nʸ = 30
+const Nᶻ = 15
 const Lˣ = 4e6  # m
-const Lʸ = 4e6  # m
-const H = 1000  # m
+const Lʸ = 6e6  # m
+const H = 3000  # m
 
 xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
 yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
 zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
+# dz = [576, 540, 433, 339, 266, 208, 162, 128, 99, 75, 58, 43, 31, 22, 20]
+# zrange = zeros(FT, Nᶻ + 1)
+# zrange[2:(Nᶻ + 1)] .= cumsum(dz)
+# zrange .-= H
 
 #const cʰ = sqrt(gravity * H)
 const cʰ = 1  # typical of ocean internal-wave speed
@@ -509,17 +524,17 @@ const cᶻ = 0
 #- inverse ratio of additional fast time steps (for weighted average)
 #  --> do 1/add more time-steps and average from: 1 - 1/add up to: 1 + 1/add
 # e.g., = 1 --> 100% more ; = 2 --> 50% more ; = 3 --> 33% more ...
-add_fast_substeps = 2
+add_fast_substeps = 3
 
 #- number of Implicit vertical-diffusion sub-time-steps within one model full time-step
 # default = 0 : disable implicit vertical diffusion
 numImplSteps = 5
 
-const τₒ = 2e-1  # (Pa = N/m^2)
+const τₒ = 1e-1  # (Pa = N/m^2)
 const λʳ = 20 // 86400 # m/s
 #- since we are using old BC (with factor of 2), take only half:
-#const τₒ = 1e-1
+#const τₒ = 5e-2
 #const λʳ = 10 // 86400
-const θᴱ = 10    # deg.C
+const θᴱ = 25    # deg.C
 
 main(restart = 0)

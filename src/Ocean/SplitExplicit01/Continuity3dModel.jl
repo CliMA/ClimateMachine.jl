@@ -46,46 +46,31 @@ end
 # on θ and want to ensure we do not use it's jump
 @inline wavespeed(cm::Continuity3dModel, n⁻, _...) = -zero(eltype(n⁻))
 
-boundary_state!(
-    ::CentralNumericalFluxSecondOrder,
-    bc,
-    cm::Continuity3dModel,
-    _...,
-) = nothing
-
-"""
-    boundary_state!(nf, ::Continuity3dModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-
-# hack for handling multiple boundaries for now
-# will fix with a future update
 boundary_conditions(cm::Continuity3dModel) = (
     cm.ocean.problem.boundary_conditions[1],
     cm.ocean.problem.boundary_conditions[1],
     cm.ocean.problem.boundary_conditions[1],
 )
 
-@inline function boundary_state!(nf, bc, cm::Continuity3dModel, args...)
-    return _ocean_boundary_state!(nf, bc, cm, args...)
-end
-#=
+boundary_state!(
+    ::Union{NumericalFluxGradient, NumericalFluxSecondOrder},
+    bc,
+    cm::Continuity3dModel,
+    _...,
+) = nothing
+
+"""
+    boundary_state!(nf, bc, ::Continuity3dModel, args...)
+
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on BC type defined by a problem such as SimpleBoxProblem.jl
+"""
+
 @inline function boundary_state!(
-    ::NumericalFluxFirstOrder,
-    ::Continuity3dModel,
-    Q⁺,
-    A⁺,
-    n⁻,
-    Q⁻,
-    A⁻,
-    bctype,
-    t,
+    nf::NumericalFluxFirstOrder,
+    bc,
+    cm::Continuity3dModel,
     args...,
 )
-    Q⁺.u = Q⁻.u
-
-    return nothing
+    return ocean_model_boundary!(cm, bc, nf, args...)
 end
-=#

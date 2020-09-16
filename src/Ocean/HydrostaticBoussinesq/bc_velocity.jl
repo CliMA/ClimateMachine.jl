@@ -198,7 +198,7 @@ applies free slip conditions for first-order and gradient fluxes
 """
 function ocean_velocity_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    bc_velocity::Impenetrable{KinematicStress},
+    bc_velocity::Impenetrable{<:KinematicStress},
     ocean,
     args...,
 )
@@ -218,7 +218,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
 """
 @inline function ocean_velocity_boundary_state!(
     nf::NumericalFluxSecondOrder,
-    bc_velocity::Impenetrable{KinematicStress},
+    bc_velocity::Impenetrable{<:KinematicStress},
     ocean,
     Q⁺,
     D⁺,
@@ -230,7 +230,8 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     Q⁺.u = Q⁻.u
-    D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ)'
+    D⁺.ν∇u =
+        n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ, bc_velocity.drag)'
 
     return nothing
 end
@@ -243,7 +244,7 @@ applies free slip conditions for first-order and gradient fluxes
 """
 function ocean_velocity_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    bc_velocity::Penetrable{KinematicStress},
+    bc_velocity::Penetrable{<:KinematicStress},
     ocean,
     args...,
 )
@@ -263,7 +264,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
 """
 @inline function ocean_velocity_boundary_state!(
     nf::NumericalFluxSecondOrder,
-    bc_velocity::Penetrable{KinematicStress},
+    bc_velocity::Penetrable{<:KinematicStress},
     ocean,
     Q⁺,
     D⁺,
@@ -275,7 +276,14 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     Q⁺.u = Q⁻.u
-    D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ)'
+    D⁺.ν∇u =
+        n⁻ *
+        kinematic_stress(
+            ocean.problem,
+            A⁻.y,
+            ocean.ρₒ,
+            bc_velocity.drag.stress,
+        )'
 
     return nothing
 end

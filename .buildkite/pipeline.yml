@@ -1276,16 +1276,6 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
-  - label: "gpu_test_simple_box"
-    key: "gpu_test_simple_box"
-    command:
-      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_simple_box.jl "
-    agents:
-      config: gpu
-      queue: central
-      slurm_ntasks: 1
-      slurm_gres: "gpu:1"
-
   - label: "gpu_simple_box_ivd"
     key: "gpu_simple_box_ivd"
     command:

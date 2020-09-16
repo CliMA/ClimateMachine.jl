@@ -9,7 +9,8 @@ export AbstractOceanModel,
     Uncoupled,
     Coupled,
     AdvectionTerm,
-    NonLinearAdvectionTerm
+    NonLinearAdvectionTerm,
+    InitialConditions
 
 abstract type AbstractOceanModel <: BalanceLaw end
 abstract type AbstractOceanProblem <: AbstractProblem end
@@ -29,13 +30,28 @@ function coriolis_parameter end
 function kinematic_stress end
 function surface_flux end
 
+include(joinpath("Domains", "Domains.jl"))
+include(joinpath("Fields", "Fields.jl"))
+
 include("OceanBC.jl")
 
-include("HydrostaticBoussinesq/HydrostaticBoussinesqModel.jl")
+include("HydrostaticBoussinesq/HydrostaticBoussinesq.jl")
+
+using .HydrostaticBoussinesq: HydrostaticBoussinesqModel, Forcing
+
 include("ShallowWater/ShallowWaterModel.jl")
 include("SplitExplicit/SplitExplicitModel.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")
-include("OceanProblems/SimpleBoxProblem.jl")
+include("OceanProblems/OceanProblems.jl")
 
+include("SuperModels.jl")
+
+using .OceanProblems: InitialConditions
+using .SuperModels:
+    HydrostaticBoussinesqSuperModel, current_time, current_step, Δt
+
+include("JLD2Writer.jl")
+
+using .JLD2Writers: JLD2Writer, OutputTimeSeries, write!
 
 end

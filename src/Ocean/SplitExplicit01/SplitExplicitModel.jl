@@ -10,7 +10,6 @@ export OceanDGModel,
 #using Printf
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal
-using CLIMAParameters.Planet: grav
 
 using ...VariableTemplates
 using ...MPIStateArrays
@@ -28,18 +27,15 @@ using ...BalanceLaws
 #import ...BalanceLaws: nodal_update_auxiliary_state!
 
 using ...DGMethods.NumericalFluxes:
+    NumericalFluxFirstOrder,
+    NumericalFluxGradient,
+    NumericalFluxSecondOrder,
     RusanovNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxFirstOrder
 
-using ..Ocean
-
-import ..Ocean:
-    ocean_init_aux!,
-    ocean_init_state!,
-    ocean_boundary_state!,
-    _ocean_boundary_state!
+using ..Ocean: AbstractOceanProblem
 
 import ...DGMethods.NumericalFluxes:
     update_penalty!, numerical_flux_second_order!, NumericalFluxFirstOrder
@@ -73,10 +69,17 @@ import ...SystemSolvers: BatchedGeneralizedMinimalResidual, linearsolve!
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 
+abstract type AbstractOceanModel <: BalanceLaw end
+
+function ocean_init_aux! end
+function ocean_init_state! end
+function ocean_model_boundary! end
+function set_fast_for_stepping! end
 function initialize_fast_state! end
 function initialize_adjustment! end
 
 include("SplitExplicitLSRK2nMethod.jl")
+include("SplitExplicitLSRK3nMethod.jl")
 include("OceanModel.jl")
 include("Continuity3dModel.jl")
 include("VerticalIntegralModel.jl")
