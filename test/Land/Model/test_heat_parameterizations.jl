@@ -5,6 +5,7 @@ using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0
+using CLIMAParameters.Atmos.Microphysics: K_therm
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
@@ -26,6 +27,8 @@ using ClimateMachine.Land
     _T_ref = FT(T_0(param_set))
     # Latent heat of fusion at ``T_0`` (J/kg)
     _LH_f0 = FT(LH_f0(param_set))
+    # Thermal conductivity of dry air
+    κ_air = FT(K_therm(param_set))
 
     @test temperature_from_ρe_int(5.4e7, 0.05, 2.1415e6, param_set) ==
           FT(_T_ref + (5.4e7 + 0.05 * _ρ_i * _LH_f0) / 2.1415e6)
@@ -45,11 +48,12 @@ using ClimateMachine.Land
 
     # Test branching in kersten_number
     soil_param_functions = SoilParamFunctions{FT}(
-        ν_gravel = 0.1,
-        ν_om = 0.1,
-        ν_sand = 0.1,
-        a = 0.24,
-        b = 18.1,
+        porosity = 0.2,
+        ν_ss_gravel = 0.1,
+        ν_ss_om = 0.1,
+        ν_ss_quartz = 0.1,
+        κ_solid = 0.1,
+        ρp = 1,
     )
     # ice fraction = 0
     @test kersten_number(0.0, 0.75, soil_param_functions) == FT(
@@ -69,4 +73,17 @@ using ClimateMachine.Land
 
     @test volumetric_internal_energy_liq(300.0, param_set) ==
           FT(_ρcp_l * (300.0 - _T_ref))
+
+    @test k_solid(FT(0.5), FT(0.25), FT(2.0), FT(3.0), FT(2.0)) ==
+          FT(2)^FT(0.5) * FT(2)^FT(0.25) * FT(3.0)^FT(0.25)
+
+    @test ksat_frozen(FT(0.5), FT(0.1), FT(0.4)) ==
+          FT(0.5)^FT(0.9) * FT(0.4)^FT(0.1)
+
+    @test ksat_unfrozen(FT(0.5), FT(0.1), FT(0.4)) ==
+          FT(0.5)^FT(0.9) * FT(0.4)^FT(0.1)
+
+    @test k_dry(param_set, soil_param_functions) ==
+          ((FT(0.053) * FT(0.1) - κ_air) * FT(0.8) + κ_air * FT(1.0)) /
+          (FT(1.0) - (FT(1.0) - FT(0.053)) * FT(0.8))
 end
