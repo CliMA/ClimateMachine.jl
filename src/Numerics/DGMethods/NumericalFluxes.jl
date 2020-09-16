@@ -5,6 +5,7 @@ export NumericalFluxGradient,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
     RoeNumericalFlux,
+    HLLCNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -319,6 +320,31 @@ A numerical flux based on the approximate Riemann solver of Roe
 Requires a custom implementation for the balance law.
 """
 struct RoeNumericalFlux <: NumericalFluxFirstOrder end
+
+"""
+    HLLCNumericalFlux() <: NumericalFluxFirstOrder
+
+A numerical flux based on the approximate Riemann solver of the
+HLLC method. The HLLC flux is a modification of the Harten, Lax, van-Leer
+(HLL) flux, where an additional contact property is introduced in order
+to restore missing rarefraction waves. The HLLC flux requires
+model-specific information, hence it requires a custom implementation
+based on the underlying balance law.
+
+# Usage
+
+    HLLCNumericalFlux()
+
+Requires a custom implementation for the balance law.
+
+    @book{toro2013riemann,
+        title={Riemann solvers and numerical methods for fluid dynamics: a practical introduction},
+        author={Toro, Eleuterio F},
+        year={2013},
+        publisher={Springer Science & Business Media}
+    }
+"""
+struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder

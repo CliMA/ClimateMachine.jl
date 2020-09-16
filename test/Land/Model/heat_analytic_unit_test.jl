@@ -26,25 +26,6 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-import ClimateMachine.DGMethods: calculate_dt
-
-function calculate_dt(dg, model::LandModel, Q, Courant_number, t, direction)
-    Δt = one(eltype(Q))
-    CFL = DGMethods.courant(diffusive_courant, dg, model, Q, Δt, t, direction)
-    return Courant_number / CFL
-end
-function diffusive_courant(
-    m::LandModel,
-    state::Vars,
-    aux::Vars,
-    diffusive::Vars,
-    Δx,
-    Δt,
-    t,
-    direction,
-)
-    return Δt * m.soil.param_functions.κ_dry / (Δx * Δx)
-end
 
 @testset "Heat analytic unit test" begin
     ClimateMachine.init()
@@ -52,7 +33,6 @@ end
 
     function init_soil!(land, state, aux, coordinates, time)
         myFT = eltype(state)
-
         ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, time)
         θ_l =
             volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
@@ -73,21 +53,20 @@ end
 
     soil_param_functions = SoilParamFunctions{FT}(
         porosity = 0.495,
-        ν_gravel = 0.1,
-        ν_om = 0.1,
-        ν_sand = 0.1,
-        ρc_ds = 1,
-        κ_dry = 1,
+        ν_ss_gravel = 0.1,
+        ν_ss_om = 0.1,
+        ν_ss_quartz = 0.1,
+        ρc_ds = 0.43314518988433487,
+        κ_solid = 8,
+        ρp = 2700,
         κ_sat_unfrozen = 0.57,
         κ_sat_frozen = 2.29,
-        a = 0.24,
-        b = 18.1,
     )
 
     heat_surface_state = (aux, t) -> eltype(aux)(0.0)
 
     tau = FT(1) # period (sec)
-    A = FT(5) # ampltitude (T)
+    A = FT(5) # amplitude (K)
     ω = FT(2 * pi / tau)
     heat_bottom_state = (aux, t) -> A * cos(ω * t)
     T_init = (aux) -> eltype(aux)(0.0)
@@ -135,18 +114,16 @@ end
     )
 
     t0 = FT(0)
-    timeend = FT(5)
-
+    timeend = FT(2)
+    dt = FT(1e-4)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
-        driver_config;
-        Courant_number = FT(0.7),
-        CFL_direction = VerticalDirection(),
+        driver_config,
+        ode_dt = dt,
     )
     mygrid = solver_config.dg.grid
     aux = solver_config.dg.state_auxiliary
-
     ClimateMachine.invoke!(solver_config)
     t = ODESolvers.gettime(solver_config.solver)
 

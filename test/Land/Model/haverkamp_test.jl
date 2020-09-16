@@ -57,16 +57,16 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
         Ksat = 0.0443 / (3600 * 100),
         S_s = 1e-3,
     )
-    # Keep in mind that what is passed is aux⁻
+    # Keep in mind that what is passed is aux⁻.
     # Fluxes are multiplied by ẑ (normal to the surface, -normal to the bottom,
     # where normal point outs of the domain.)
-    surface_value = FT(0.494)
-    bottom_flux_multiplier = FT(1.0)
-    initial_moisture = FT(0.24)
 
-    surface_state = (aux, t) -> surface_value
-    bottom_flux = (aux, t) -> aux.soil.water.K * bottom_flux_multiplier
-    ϑ_l0 = (aux) -> initial_moisture
+
+    surface_state = (aux, t) -> eltype(aux)(0.494)
+    # The goal here is to have ∇h = ẑ enforced by the BC
+    # the BC is on K∇h, and multiplied by ẑ internally.
+    bottom_flux = (aux, t) -> aux.soil.water.K * eltype(aux)(-1)
+    ϑ_l0 = (aux) -> eltype(aux)(0.24)
 
     soil_water_model = SoilWaterModel(
         FT;

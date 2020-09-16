@@ -916,7 +916,7 @@ steps:
   - label: "gpu_surfacebubble"
     key: "gpu_surfacebubble"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl "
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl --diagnostics=default"
     agents:
       config: gpu
       queue: central
@@ -947,6 +947,16 @@ steps:
     key: "gpu_bomex_single_stack"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_edmf"
+    key: "gpu_bomex_edmf"
+    command:
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/bomex_edmf.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1001,6 +1011,16 @@ steps:
       config: gpu
       queue: central
       slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_simple_box_ivd"
+    key: "gpu_simple_box_ivd"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/simple_box_ivd.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
   - label: "gpu_discrete_hydrostatic_balance"
