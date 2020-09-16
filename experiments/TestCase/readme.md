@@ -2,14 +2,19 @@
 
 ## Test cases
 Currently we have the following test cases:
-- Dry and moist rising thermal bubble (rising-bubble.jl)
+- Dry and moist rising thermal bubble (risingbubble.jl)
 - Solid body rotation without flow (solid-body-rotation.jl)
 - Dry and moist baroclinic wave (baroclinic-wave.jl)
+
+Note: With the default setup, solid body rotation will
+become numerically unstable after ~2 simulated hours. Moist
+baroclinic wave will become numerically unstable after ~5
+simulated days.
 
 ## Running the tests
 For example, the dry rising thermal bubble is run with:
 ```
-$ julia --project experiments/TestCase/rising-bubble.jl
+$ julia --project experiments/TestCase/rising-bubble.jl --diagnostic=default
 ``` 
 Please see [RunningClimateMachine](https://clima.github.io/ClimateMachine.jl/latest/GettingStarted/RunningClimateMachine/)
 for available command line arguments. To run the moist rising thermal bubble or baroclinic wave, add `--with-moisture`
