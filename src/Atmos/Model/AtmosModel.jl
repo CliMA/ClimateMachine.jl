@@ -327,6 +327,9 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
+        ρ_exact::FT
+        ρu_exact::SVector{3, FT}
+        ρe_exact::FT
     end
 end
 
