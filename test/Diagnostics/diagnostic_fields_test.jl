@@ -201,7 +201,7 @@ function run_brick_diagostics_fields_test()
             -sin.(pi * x ./ xmax) .* cos.(pi * y ./ ymax) .*
             sin.(pi * z ./ zmax) .* pi ./ zmax # ∂/∂z
 
-        Q.data[:, _ρ, 1:Nel] .= 1.0 .+ fcn0(x1, x2, x3, xmax, ymax, zmax) * 5.0
+        Q.data[:, _ρ, 1:Nel] .= 1.0
         Q.data[:, _ρu, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         Q.data[:, _ρv, 1:Nel] .=
@@ -209,8 +209,18 @@ function run_brick_diagostics_fields_test()
         Q.data[:, _ρw, 1:Nel] .=
             Q.data[:, _ρ, 1:Nel] .* fcn0(x1, x2, x3, xmax, ymax, zmax)
         #-----------------------------------------------------------------------
-        vgrad = Diagnostics.VectorGradients(dg, Q)
-        vort = Diagnostics.Vorticity(dg, vgrad)
+        ind = [
+            varsindex(vars_state(model, Prognostic(), FT), :ρ)
+            varsindex(vars_state(model, Prognostic(), FT), :ρu)
+        ]
+        _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
+        Nq = N + 1
+        nrealelem = length(dg.grid.topology.realelems)
+        vgrad = similar(Q.realdata, Nq^3, nrealelem, 3, 3)
+        vgrad[:,:,:,1,:] .= Diagnostics.VectorGradient(dg, Q, _ρu)
+        vgrad[:,:,:,2,:] .= Diagnostics.VectorGradient(dg, Q, _ρv)
+        vgrad[:,:,:,3,:] .= Diagnostics.VectorGradient(dg, Q, _ρw)
+        vort = Diagnostics.Vorticity(dg, vgrad_u)
         #----------------------------------------------------------------------------
         Ω₁_exact =
             fcny(x1, x2, x3, xmax, ymax, zmax) -

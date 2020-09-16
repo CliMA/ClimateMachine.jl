@@ -134,6 +134,7 @@ function VectorGradients(dg::DGModel, Q::MPIStateArray)
     return VectorGradients(data)
 end
 
+
 @kernel function vector_gradients_kernel!(
     sv::AbstractArray{FT},
     D::AbstractArray{FT, 2},
@@ -279,6 +280,148 @@ end
             g[ijk, e, 3, 1] * ξ1x3 +
             g[ijk, e, 3, 2] * ξ2x3 +
             g[ijk, e, 3, 3] * ξ3x3
+    end
+end
+
+#--------------------------------------------------------------------------------------------------
+"""
+    VectorGradient(dg::DGModel, Q::MPIStateArray, _v::Int)
+
+This constructor computes the spatial gradients of the velocity field.
+
+# Arguments
+ - `dg`: DGModel
+ - `Q`: MPIStateArray containing the prognostic state variables
+"""
+function VectorGradient(dg::DGModel, Q::MPIStateArray, _v::Int)
+    bl = dg.balance_law
+    FT = eltype(dg.grid)
+    N = polynomialorder(dg.grid)
+    Nq = N + 1
+    npoints = Nq^3
+    nrealelem = length(dg.grid.topology.realelems)
+
+    g = similar(Q.realdata, npoints, nrealelem, 1, 3)
+    data = similar(Q.realdata, npoints, 3, nrealelem)
+
+    device = array_device(Q)
+    workgroup = (Nq, Nq)
+    ndrange = (nrealelem * Nq, Nq)
+
+    kernel = vector_gradients_kernel!(device, workgroup)
+    event = kernel(
+        Q.realdata,
+        dg.grid.D,
+        dg.grid.vgeo,
+        g,
+        data,
+        _v,
+        Val(Nq),
+        ndrange = ndrange,
+    )
+    wait(event)
+
+    return VectorGradients(data)
+end
+
+@kernel function vector_gradients_kernel!(
+    sv::AbstractArray{FT},
+    D::AbstractArray{FT, 2},
+    vgeo::AbstractArray{FT},
+    g::AbstractArray{FT, 4},
+    vgrad_data::AbstractArray{FT, 3},
+    _v::Int,
+    ::Val{qm1},
+) where {qm1, FT <: AbstractFloat}
+
+    e = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    # polynomial block
+    s_D = @localmem FT (qm1, qm1)
+    s_V = @localmem FT (qm1, qm1)
+
+    s_D[i, j] = D[i, j]
+    @synchronize
+    # computing derivatives with respect to ξ1
+    for t in 1:qm1, s in 1:qm1
+        ijk = j + ((s - 1) + (t - 1) * qm1) * qm1
+        s_V[i, j] = s_D[i, j] * sv[ijk, _v, e]
+        @synchronize
+
+        # Naive sum within rows a polynomial block,
+        if j == 1
+            for r in 2:qm1
+                s_V[i, 1] += s_V[i, r]
+            end
+        end
+        @synchronize
+        if j == 1
+            g[i + ((s - 1) + (t - 1) * qm1) * qm1, e, 1, 1] = s_V[i, 1] # ∂u₂∂ξ₁
+        end
+    end
+    @synchronize
+    # computing derivatives with respect to ξ2
+    for t in 1:qm1, r in 1:qm1
+        ijk = r + ((j - 1) + (t - 1) * qm1) * qm1
+        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+        @synchronize
+        if j == 1
+            for s in 2:qm1
+                s_V[i, 1] += s_V[i, s]
+            end
+        end
+        @synchronize
+        if j == 1
+            g[r + ((i - 1) + (t - 1) * qm1) * qm1, e, 1, 2] = s_V[i, 1] # ∂u₂∂ξ₂
+        end
+    end
+    @synchronize
+    # computing derivatives with respect to ξ3
+    for s in 1:qm1, r in 1:qm1
+        ijk = r + ((s - 1) + (j - 1) * qm1) * qm1
+        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+        @synchronize
+        if j == 1
+            for t in 2:qm1
+                s_V[i, 1] += s_V[i, t]
+            end
+        end
+        @synchronize
+        if j == 1
+            g[r + ((s - 1) + (i - 1) * qm1) * qm1, e, 1, 3] = s_V[i, 1] # ∂u₂∂ξ₃
+        end
+    end
+    @synchronize
+
+    ∂₁u₁, ∂₂u₁, ∂₃u₁ = 1, 2, 3
+
+    for k in 1:qm1
+        ijk = i + ((j - 1) + (k - 1) * qm1) * qm1
+
+        ξ1x1 = vgeo[ijk, _ξ1x1, e]
+        ξ1x2 = vgeo[ijk, _ξ1x2, e]
+        ξ1x3 = vgeo[ijk, _ξ1x3, e]
+        ξ2x1 = vgeo[ijk, _ξ2x1, e]
+        ξ2x2 = vgeo[ijk, _ξ2x2, e]
+        ξ2x3 = vgeo[ijk, _ξ2x3, e]
+        ξ3x1 = vgeo[ijk, _ξ3x1, e]
+        ξ3x2 = vgeo[ijk, _ξ3x2, e]
+        ξ3x3 = vgeo[ijk, _ξ3x3, e]
+
+        vgrad_data[ijk, ∂₁u₁, e] =
+            g[ijk, e, 1, 1] * ξ1x1 +
+            g[ijk, e, 1, 2] * ξ2x1 +
+            g[ijk, e, 1, 3] * ξ3x1
+        vgrad_data[ijk, ∂₂u₁, e] =
+            g[ijk, e, 1, 1] * ξ1x2 +
+            g[ijk, e, 1, 2] * ξ2x2 +
+            g[ijk, e, 1, 3] * ξ3x2
+        vgrad_data[ijk, ∂₃u₁, e] =
+            g[ijk, e, 1, 1] * ξ1x3 +
+            g[ijk, e, 1, 2] * ξ2x3 +
+            g[ijk, e, 1, 3] * ξ3x3
+
     end
 end
 
