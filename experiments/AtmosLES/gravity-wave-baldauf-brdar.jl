@@ -143,7 +143,7 @@ function (setup::GravityWaveSetup{FT})(problem, bl, state, aux, (x, y, z), t) wh
     else
       xp = x - u_0 * t
 
-      δρ_b, u_b, v_b, w_b, δp_b = zeros(SVector{5, Complex{FT}})
+      δρ_b, δu_b, δv_b, δw_b, δp_b = zeros(SVector{5, Complex{FT}})
       for m in (-1, 1)
         for n in -100:100
           k_x = 2π * n / L
