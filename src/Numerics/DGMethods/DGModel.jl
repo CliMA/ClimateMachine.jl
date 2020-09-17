@@ -650,17 +650,6 @@ function init_ode_state(
     )
     wait(device, event)
 
-    event = Event(device)
-    event = MPIStateArrays.begin_ghost_exchange!(
-        state_auxiliary;
-        dependencies = event,
-    )
-    event = MPIStateArrays.end_ghost_exchange!(
-        state_auxiliary;
-        dependencies = event,
-    )
-    wait(device, event)
-
     return state_prognostic
 end
 
