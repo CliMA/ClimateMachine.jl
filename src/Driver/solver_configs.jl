@@ -8,7 +8,7 @@
 
 Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 """
-struct SolverConfiguration{FT}
+mutable struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
     param_set::AbstractParameterSet
