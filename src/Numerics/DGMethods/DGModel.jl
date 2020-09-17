@@ -636,6 +636,7 @@ function init_ode_state(
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
         state_prognostic .= h_state_prognostic
+        state_auxiliary .= h_state_auxiliary
     end
 
     event = Event(device)
@@ -645,6 +646,17 @@ function init_ode_state(
     )
     event = MPIStateArrays.end_ghost_exchange!(
         state_prognostic;
+        dependencies = event,
+    )
+    wait(device, event)
+
+    event = Event(device)
+    event = MPIStateArrays.begin_ghost_exchange!(
+        state_auxiliary;
+        dependencies = event,
+    )
+    event = MPIStateArrays.end_ghost_exchange!(
+        state_auxiliary;
         dependencies = event,
     )
     wait(device, event)
