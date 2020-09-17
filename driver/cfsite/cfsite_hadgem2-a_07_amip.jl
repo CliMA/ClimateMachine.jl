@@ -98,8 +98,8 @@ function atmos_source!(
     k̂ = vertical_unit_vector(atmos, aux)
     _e_int_v0 = e_int_v0(atmos.param_set)
     # Unpack vertical gradients
-    ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
-    ∂T∂z = dot(diffusive.moisture.∇T_gcm, k̂)
+    ∂qt∂z = dot(diffusive.moisture.∇hus, k̂)
+    ∂T∂z = dot(diffusive.moisture.∇ta, k̂)
     w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Establish thermodynamic state
     TS = recover_thermo_state(atmos, state, aux)
@@ -146,7 +146,7 @@ function atmos_source!(
     _grav = grav(atmos.param_set)
     k̂ = vertical_unit_vector(atmos, aux)
     # Establish vertical orientation
-    ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
+    ∂qt∂z = dot(diffusive.moisture.∇hus, k̂)
     w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Establish thermodynamic state
     TS = recover_thermo_state(atmos, state, aux)
@@ -354,10 +354,10 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     # Unpack splines, interpolate to z coordinate at 
     # present grid index. (Functions are all pointwise)
     ta = FT(spl.spl_ta(z))
-    q_tot = FT(spl.spl_hus(z))
+    hus = FT(spl.spl_hus(z))
     ua = FT(spl.spl_ua(z))
     va = FT(spl.spl_va(z))
-    P = FT(spl.spl_pfull(z))
+    pfull = FT(spl.spl_pfull(z))
     tntha = FT(spl.spl_tntha(z))
     tntva = FT(spl.spl_tntva(z))
     tntr = FT(spl.spl_tntr(z))
@@ -367,15 +367,15 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     ρ_gcm = FT(1 / spl.spl_alpha(z))
 
     # Compute field properties based on interpolated data
-    ρ = air_density(bl.param_set, ta, P, PhasePartition(q_tot))
-    e_int = internal_energy(bl.param_set, ta, PhasePartition(q_tot))
+    ρ = air_density(bl.param_set, ta, pfull, PhasePartition(hus))
+    e_int = internal_energy(bl.param_set, ta, PhasePartition(hus))
     e_kin = (ua^2 + va^2) / 2
     e_pot = _grav * z
     # Assignment of state variables
     state.ρ = ρ
     state.ρu = ρ * SVector(ua, va, 0)
     state.ρe = ρ * (e_kin + e_pot + e_int)
-    state.moisture.ρq_tot = ρ * q_tot
+    state.moisture.ρq_tot = ρ * hus
     if z <= FT(400)
         state.ρe += rand(seed) * FT(1 / 100) * (state.ρe)
         state.moisture.ρq_tot +=
@@ -384,10 +384,9 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
 
     # Assign and store the ref variable for sources
     aux.gcminfo.ρ = ρ_gcm
-    aux.gcminfo.p = P
+    aux.gcminfo.pfull = pfull
     aux.gcminfo.ta = ta
-    aux.gcminfo.ρe = ρ_gcm * (e_kin + e_pot + e_int)
-    aux.gcminfo.q_tot = q_tot
+    aux.gcminfo.hus = hus
     aux.gcminfo.tntha = tntha
     aux.gcminfo.tntva = tntva
     aux.gcminfo.ua = ua
@@ -396,7 +395,6 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     aux.gcminfo.tnhusha = tnhusha
     aux.gcminfo.tnhusva = tnhusva
     aux.gcminfo.wap = wap
-    aux.gcminfo.T = ta
 
     return nothing
 end
@@ -465,7 +463,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, 
         param_set,
         init_cfsites!,
 	#ZS: multi-rate?
-        solver_type = imex_solver,
+        solver_type = mrrk_solver,
         model = model,
     )
     return config
@@ -520,7 +518,8 @@ function main()
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(3600 * 6)
+    timeend = FT(600)
+    #timeend = FT(3600 * 6)
     # Courant number
     CFL = FT(0.7)
 

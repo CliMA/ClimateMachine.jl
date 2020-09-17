@@ -50,10 +50,9 @@ struct NoGCM <: GCMModel end
 struct HadGem2 <: GCMModel end
 vars_state(m::HadGem2, ::Auxiliary, FT) = @vars(
     ρ::FT,
-    p::FT,
+    pfull::FT,
     ta::FT,
-    ρe::FT,
-    q_tot::FT,
+    hus::FT,
     ua::FT,
     va::FT,
     tntha::FT,
@@ -62,5 +61,4 @@ vars_state(m::HadGem2, ::Auxiliary, FT) = @vars(
     tnhusha::FT,
     tnhusva::FT,
     wap::FT,
-    T::FT
 )
