@@ -105,14 +105,18 @@ CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 Base.@kwdef struct GravityWaveSetup{FT}
   T_ref::FT = 250
-  ΔT::FT = 0.01
+  #ΔT::FT = 0.01
+  ΔT::FT = 0.0001
   H::FT = 10e3
-  L::FT = 300e3
-  d::FT = 5e3
-  x_c::FT = 100e3
   u_0::FT = 20
   f::FT = 0
+  L::FT
+  d::FT
+  x_c::FT
+  timeend::FT
 end
+gw_small_setup(FT) = GravityWaveSetup{FT}(L=300e3, d=5e3, x_c=100e3, timeend=30*60)
+gw_large_setup(FT) = GravityWaveSetup{FT}(L=24000e3, d=400e3, x_c=8000e3, timeend=3000*60)
 
 function (setup::GravityWaveSetup{FT})(problem, bl, state, aux, (x, y, z), t) where {FT}
     _R_d::FT = R_d(bl.param_set)
@@ -203,7 +207,8 @@ function (setup::GravityWaveSetup{FT})(problem, bl, state, aux, (x, y, z), t) wh
       δT = exp(δ * z / 2) * real(δT_b)
     end
    
-    ρ = aux.ref_state.ρ + δρ
+    ρ = ρ_s * exp(-δ * z) + δρ
+
     T = T_ref + δT
 
     u = SVector{3, FT}(u_0 + δu, δv, δw) 
@@ -217,9 +222,7 @@ function (setup::GravityWaveSetup{FT})(problem, bl, state, aux, (x, y, z), t) wh
     state.ρe = ρe_tot
 end
 
-function config_gravitywave(FT, N, resolution)
-    setup = GravityWaveSetup{FT}()
-
+function config_gravitywave(FT, N, resolution, setup)
     ## Define the time integrator:
     ## We chose an explicit single-rate LSRK144 for this problem
     ode_solver = ClimateMachine.ExplicitSolverType(
@@ -261,24 +264,29 @@ end
 # Define a `main` method (entry point)
 function main()
     FT = Float64
+    setup = gw_small_setup(FT)
 
     ## Define the polynomial order and effective grid spacings:
-    N = 4
+    N = 3
 
-    Δx = FT(250)
-    Δy = FT(250)
-    Δz = FT(125)
+    r = 1
+    numelem_x = r * 64
+    numelem_z = r * 8
+
+    Δx = FT(setup.L / numelem_x / N)
+    Δy = FT(Δx)
+    Δz = FT(setup.H / numelem_z / N)
     resolution = (Δx, Δy, Δz)
 
     t0 = FT(0)
-    timeend = FT(30 * 60)
+    timeend = FT(setup.timeend)
 
     ## Define the max Courant for the time time integrator (ode_solver).
     ## The default value is 1.7 for LSRK144:
-    CFL = FT(1.5)
+    CFL = FT(0.5)
 
     ## Assign configurations so they can be passed to the `invoke!` function
-    driver_config = config_gravitywave(FT, N, resolution)
+    driver_config = config_gravitywave(FT, N, resolution, setup)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
