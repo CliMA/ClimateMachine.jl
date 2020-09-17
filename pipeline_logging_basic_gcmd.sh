@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --ntasks=128
+#SBATCH --ntasks=32
 #SBATCH --job-name=gcmdriver
-#SBATCH --time=100:00:00
+#SBATCH --time=20:00:00
 #SBATCH --output=model_log_err.out
 
 set -euo pipefail # kill the job if anything fails
@@ -23,13 +23,13 @@ source ./helper_mod.sh
 RUNNAME="demo-gcm-run"
 
 # Specify your home directories and output location on scratch
-CLIMA_HOME='/central/groups/esm/lenka/ClimaTests5/ClimateMachine_optimise11.jl'
+CLIMA_HOME='/central/groups/esm/lenka/ClimateMachine.jl'
 VIZCLIMA_HOME='/central/groups/esm/lenka/VizCLIMA.jl'
 SCRATCH_HOME='/central/scratch/elencz/output'
 
 # Choose the ClimateMachine.jl experiment script and VizCLIMA script
-EXPERIMENT=$CLIMA_HOME'/experiments/AtmosGCM/GCMDriver/GCMDriver.jl'
-VIZCLIMA_SCRIPT=$VIZCLIMA_HOME'/src/scripts/general-gcm-notebook-setup.jl'
+EXPERIMENT_FILE=$CLIMA_HOME'/experiments/AtmosGCM/GCMDriver/GCMDriver.jl'
+VIZCLIMA_FILE=$VIZCLIMA_HOME'/src/scripts/general-gcm-notebook-setup.jl'
 
 # ------------ No need to change anything below this for the demo ------------
 # Setup directory structure
@@ -48,24 +48,28 @@ mkdir -p $CLIMA_LOG
 julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.instantiate()'
 julia --project=$CLIMA_HOME -e 'using Pkg; Pkg.precompile()'
 
-mpiexec julia --project=$CLIMA_HOME $CLIMA_RUNFILE --experiment=heldsuarez --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART --init-moisture-profile dry --checkpoint 6shours
-
-# Move log/error file to the experiment's output location
-mv model_log_err.out $CLIMA_LOG
+mpiexec julia --project=$CLIMA_HOME $EXPERIMENT_FILE --experiment=heldsuarez --diagnostics 0.5shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-at-end --checkpoint-dir $CLIMA_RESTART --init-moisture-profile zero --checkpoint 6shours
 
 # Move VizCLIMA script to the experiment's output location
-VIZCLIMA_SCRIPT_BN=$(basename "$VIZCLIMA_SCRIPT")
+VIZCLIMA_SCRIPT_BN=$(basename "$VIZCLIMA_FILE")
 if [ -d "$CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN" ]; then rm $CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN; fi
-cp $VIZCLIMA_SCRIPT $CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN;
+cp $VIZCLIMA_FILE $CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN;
 
 # Post-process output data from ClimateMachine using VizCLIMA
 export GKSwstype=null
 julia -e 'import Pkg; Pkg.add("IJulia"); Pkg.add("DelimitedFiles"); Pkg.add("PrettyTables"); Pkg.add("PaddedViews"); Pkg.add("Dates"); Pkg.add("GR")'
 julia --project=$VIZCLIMA_HOME -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 VIZCLIMA_LITERATE=$VIZCLIMA_HOME'/src/utils/make_literate.jl'
+
+cd $CLIMA_ANALYSIS
 julia --project=$VIZCLIMA_HOME $VIZCLIMA_LITERATE --input-file $CLIMA_ANALYSIS/$VIZCLIMA_SCRIPT_BN --output-dir $CLIMA_ANALYSIS
 
-mv ${VIZCLIMA_SCRIPT_BN%.jl}.ipynb $CLIMA_ANALYSIS
+# setup jupyter notebook (optional)
+#jupyter notebook --no-browser --port=9999 &
+
+cd $CLIMA_HOME
+# Move log/error file to the experiment's output location
+mv model_log_err.out $CLIMA_LOG
 
 # View your notebook on a local machine
 # on remote terminal (e.g. login2): jupyter notebook --no-browser --port=9999
