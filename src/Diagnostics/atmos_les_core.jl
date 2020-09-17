@@ -237,7 +237,7 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     #   - count the point's weighting towards averaging for that z, and
     #   - accumulate the simple horizontal sums
     #
-    core_repdvsr = zeros(FT, Nqk * nvertelem)
+    core_MH_z = zeros(FT, Nqk * nvertelem)
     thermo_array =
         [zeros(FT, num_thermo(bl, FT)) for _ in 1:npoints, _ in 1:nrealelem]
     simple_sums = [
@@ -258,7 +258,7 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
         if thermo.moisture.q_liq > 0 && state.ρu[3] > 0
             idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
             ql_w_gt_0[evk][idx] = one(FT)
-            core_repdvsr[evk] += MH
+            core_MH_z[evk] += MH
 
             simple = atmos_les_core_simple_vars(bl, simple_sums[evk])
             atmos_les_core_simple_sums!(bl, state, thermo, MH, simple)
@@ -271,13 +271,13 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
         for _ in 1:(Nqk * nvertelem)
     ]
     core_frac = zeros(FT, Nqk * nvertelem)
-    MPI.Allreduce!(core_repdvsr, +, mpicomm)
+    MPI.Allreduce!(core_MH_z, +, mpicomm)
     for evk in 1:(Nqk * nvertelem)
         tot_ql_w_gt_0 = MPI.Reduce(sum(ql_w_gt_0[evk]), +, 0, mpicomm)
         tot_horz = MPI.Reduce(length(ql_w_gt_0[evk]), +, 0, mpicomm)
 
         MPI.Allreduce!(simple_sums[evk], simple_avgs[evk], +, mpicomm)
-        simple_avgs[evk] .= simple_avgs[evk] ./ core_repdvsr[evk]
+        simple_avgs[evk] .= simple_avgs[evk] ./ core_MH_z[evk]
 
         if mpirank == 0
             core_frac[evk] = tot_ql_w_gt_0 / tot_horz
@@ -323,7 +323,7 @@ function atmos_les_core_collect(dgngrp::DiagnosticsGroup, currtime)
     for evk in 1:(Nqk * nvertelem)
         MPI.Reduce!(ho_sums[evk], ho_avgs[evk], +, 0, mpicomm)
         if mpirank == 0
-            ho_avgs[evk] .= ho_avgs[evk] ./ core_repdvsr[evk]
+            ho_avgs[evk] .= ho_avgs[evk] ./ core_MH_z[evk]
         end
     end
 

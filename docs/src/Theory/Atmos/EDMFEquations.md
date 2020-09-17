@@ -143,29 +143,40 @@
 \newcommand{\LatentHeatF}[1]{L_{fus}(#1)}
 ```
 
-# Eddy-Diffusivity Mass-Flux (EDMF) equations
+# Eddy-Diffusivity Mass-Flux (EDMF) parameterization
 
-This document is concerned with defining the set of equations solved in the atmospheric turbulence convection model: the EDMF equations. Color-coding is used to indicate:
+This document describes the Eddy-Diffusivity Mass-Flux (EDMF)
+parameterization for subgrid-scale (SGS) turbulence and convection.
+The model equations and rationale are based on:
+Tan et al. (2018); Cohen et al. (2020); Lopez-Gomez et al. (2020).
+The key predictands of the EDMF parameterization are the SGS vertical fluxes of heat, moisture
+and momentum, and the cloud fraction in the host model grid.
+The EDMF parameterization divides the host model's grid into $N \ge 2$ subdomains
+that represent an isotropic turbulent enviroment and coherent updraft(s)
+and or downdraft(s). The parameterization solves prognostic equations
+for first and second moments in the subdomains to provide both the
+abovementioned SGS vertical fluxes and cloud fraction in the host model grid.
 
+In this document, color-coding is used to indicate:
  - $\paramT{Constant parameters that are fixed in space and time (e.g., those defined in CLIMAParameters.jl)}$
 
  - $\simparamT{Single column (SC) inputs (e.g., variables that are fed into the SC model from the dynamical core (e.g., horizontal velocity))}$
 
  - $\hyperparamT{Tunable hyper-parameters that will need to be changeable, but will only include single numbers (e.g., Float64)}$
 
-## Domain decomposition
+## Subdomain decomposition
 
-While our model is 1D along $z$ and there is no spatial discretization in the horizontal directions ($x$ and $y$), the horizontal space is broken into $\Nsd$ ($\sim$ 5-10) "bins", or "subdomains" (SDs), denoted by subscript $i$, where $1 \le i \le \Nsd$. One of the subdomains, the "environment", is treated different compared to others, termed "updrafts". This environment subdomain is denoted with a special index $\iEnv{}$ (which we usually set to 1). For dummy variables $\phi$ and $\psi$, we use several domain and SD representations of interest:
+The EDMF is 1D model in $z$ that solves for the statistical distribution in the grid box of the host model. As such in the EDMF there is no spatial discretization in the horizontal directions ($x$ and $y$), the horizontal space is broken into $\Nsd$ ($\sim$ 1-5) "subdomains" (SDs), denoted by subscript $i$, where $1 \le i \le \Nsd$. One of the subdomains, the "environment", is treated different compared to others, termed "updrafts" (and or "downdrafts"). This environment subdomain is denoted with a special index $\iEnv{}$ (which we usually set to 0). For dummy variables $\phi$ and $\psi$, we use several domain and SD representations of interest:
 
 ```math
 \begin{align}
-  \SDi{\phi}                                                                                   \quad & \text{horizontal mean of variable $\phi$ over SD $i$}, \\
-  \SDi{\phi}' = \phi_i - \SDi{\phi}                                                            \quad & \text{fluctuations of $\phi$ about the SD mean}, \\
+  \SDi{\phi}                                                                                   \quad & \text{horizontal mean of variable $\phi$ over subdomain $i$}, \\
+  \SDi{\phi}' = \phi_i - \SDi{\phi}                                                            \quad & \text{fluctuations of $\phi$ about the subdomain mean}, \\
   \IntraCVSDi{\phi}{\psi}                                                                      \quad & \text{intra subdomain covariance}, \\
   \DM{\phi} = \sum_i \aSDi{a} \SDi{\phi}                                                       \quad & \text{horizontal mean of $\phi$ over the total domain}, \\
-  \SDi{\phi}^* = \SDi{\phi} - \DM{\phi}                                                        \quad & \text{difference between SD & domain means}, \\
-  \InterCVSDi{\phi}{\psi}                                                                      \quad & \text{inter subdomain covariance among SD means}, \\
-  \phi^* = \phi - \DM{\phi}                                                                    \quad & \text{difference between SD & domain means}, \\
+  \SDi{\phi}^* = \SDi{\phi} - \DM{\phi}                                                        \quad & \text{difference between subdomain & domain means}, \\
+  \InterCVSDi{\phi}{\psi}                                                                      \quad & \text{inter subdomain covariance among subdomain means}, \\
+  \phi^* = \phi - \DM{\phi}                                                                    \quad & \text{difference between subdomain & domain means}, \\
   \TCV{\phi}{\psi} = \sum_{\forall i} a_i \IntraCVSDi{\phi}{\psi} +
   \sum_{\forall i} \sum_{\forall j}  \aSDi{a} \aSDj{a} \SDi{\phi}(\SDi{\psi} - \SDj{\psi})     \quad & \text{total covariance}.
 \end{align}
@@ -184,10 +195,10 @@ Here, $\SDi{\phi}$ and $\SDi{\psi}$ are a dummy variables for the following 7 un
 \end{align}
 ```
 
-From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid-scale (GS) mean, and $\TCV{\phi}{\psi}$ represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations in the following sections, \eqref{eq:AreaFracGov}, \eqref{eq:1stMoment} and \eqref{eq:2ndMoment}, are solved on $z_{min} \le z \le z_{max}$ and $t \ge 0$. There are $8 \Nsd$ equations in total.
+From the large-scale model perspective, $\DM{\phi}$ represents the resolved grid mean, and $\TCV{\phi}{\psi}$ represents the SGS fluxes and (co)-variances of scalars that need to be parameterized. Equations in the following sections, \eqref{eq:AreaFracGov}, \eqref{eq:1stMoment} and \eqref{eq:2ndMoment}, are solved on $z_{min} \le z \le z_{max}$ and $t \ge 0$. There are $8 \Nsd$ equations in total.
 
 ## Domain averaged equations
-The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on domain-averaged variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the SD equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).
+The EDMF model can be used in the context of a stand-alone single column, or integrated with a dynamical core. Either way, the EDMF model relies on grid mean variables, which may be prescribed or solved for. Taking an area fraction-weighted average of the subdomain equations yields the domain-averaged equations (which should be consistent with variables in the dynamical core).
 
 The domain-averaged equations for $\DM{\phi} \in [w, \qt, \eint, \uH]$ are:
 
@@ -216,7 +227,7 @@ where
 
 ## Sub-domain equations: Area fraction
 
-The EDMF equations take the form of advection-diffusion equations. The size of these SDs are tracked by solving an equation governing the area fraction in the $i$th SD ($\aSDi{a}$), given by:
+The EDMF equations take the form of advection-diffusion equations. The subdomain area fraction is given by the mass continuity equation in the $i$th subdomain ($\aSDi{a}$):
 
 ```math
 \begin{gather}
