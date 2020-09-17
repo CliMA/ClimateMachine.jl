@@ -4,7 +4,10 @@
 
 apis = [
     "Home" => "APIs/index.md",
-    "Driver" => "APIs/Driver/index.md",
+    "Driver" => [
+        "Top level interface" => "APIs/Driver/index.md",
+        "Checkpoint" => "APIs/Driver/Checkpoint.md",
+    ],
     "Atmos" => [
         "AtmosModel" => "APIs/Atmos/AtmosModel.md",
         "Microphysics_0M" => "APIs/Atmos/Microphysics_0M.md",
@@ -48,7 +51,6 @@ apis = [
     "Utilities" => [
         "Variable Templates" => "APIs/Utilities/VariableTemplates.md",
         "Single Stack Utilities" => "APIs/Utilities/SingleStackUtils.md",
-        "Checkpoint" => "APIs/Utilities/Checkpoint.md",
         "Tic Toc" => "APIs/Utilities/TicToc.md",
     ],
 ]
