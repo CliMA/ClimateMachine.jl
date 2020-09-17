@@ -16,9 +16,6 @@ module load julia/1.4.2 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 export JULIA_MPI_BINARY=system
 export JULIA_CUDA_USE_BINARYBUILDER=false
 
-# Import helper functions for this script
-source ./helper_mod.sh
-
 # User envirnoment setup
 RUNNAME="demo-gcm-run"
 
