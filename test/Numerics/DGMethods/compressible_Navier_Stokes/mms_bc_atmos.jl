@@ -25,6 +25,10 @@ using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+import CLIMAParameters
+# Assume zero reference temperature
+CLIMAParameters.Planet.T_0(::EarthParameterSet) = 0
+
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -34,47 +38,11 @@ end
 
 include("mms_solution_generated.jl")
 
-import ClimateMachine.Thermodynamics:
-    total_specific_enthalpy, air_pressure, soundspeed_air
+import ClimateMachine.Thermodynamics: total_specific_enthalpy
 using ClimateMachine.Atmos
-import ClimateMachine.Atmos: MoistureModel, recover_thermo_state
 
-"""
-    MMSDryModel
-
-Assumes the moisture components is in the dry limit.
-"""
-struct MMSDryModel <: MoistureModel end
-
-function total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real}
-    return zero(FT)
-end
-function recover_thermo_state(
-    bl::AtmosModel,
-    moist::MMSDryModel,
-    state::Vars,
-    aux::Vars,
-)
-    PS = typeof(bl.param_set)
-    return PhaseDry{eltype(state), PS}(
-        bl.param_set,
-        internal_energy(bl, state, aux),
-        state.ρ,
-    )
-end
-function air_pressure(ts::PhaseDry{FT}) where {FT <: Real}
-    γ = FT(7) / FT(5)
-    ρ = air_density(ts)
-    ρe_int = ρ * internal_energy(ts)
-    return (γ - 1) * ρe_int
-end
-function soundspeed_air(ts::PhaseDry{FT}) where {FT <: Real}
-    γ = FT(7) / FT(5)
-    ρ = air_density(ts)
-    ρinv = 1 / ρ
-    p = air_pressure(ts)
-    return sqrt(ρinv * γ * p)
-end
+total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
+    zero(FT)
 
 function mms2_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρ = ρ_g(t, x1, x2, x3, Val(2))
@@ -161,7 +129,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 FT(μ_exact),
                 WithDivergence(),
             ),
-            moisture = MMSDryModel(),
+            moisture = DryModel(),
             source = mms2_source!,
         )
     else
@@ -179,7 +147,7 @@ function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 FT(μ_exact),
                 WithDivergence(),
             ),
-            moisture = MMSDryModel(),
+            moisture = DryModel(),
             source = mms3_source!,
         )
     end
