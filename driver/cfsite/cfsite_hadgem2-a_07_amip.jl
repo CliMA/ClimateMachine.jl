@@ -32,8 +32,8 @@ using CLIMAParameters.Planet: e_int_v0, grav, day
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports 
-import ClimateMachine.Atmos: source!, atmos_source!, altitude
-import ClimateMachine.Atmos: compute_gradient_flux!, new_thermo_state, recover_thermo_state
+using ClimateMachine.Atmos: altitude, recover_thermo_state
+import ClimateMachine.Atmos: source!, atmos_source!
 
 # Citation for problem setup
 """
@@ -100,7 +100,7 @@ function atmos_source!(
     # Unpack vertical gradients
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
     ∂T∂z = dot(diffusive.moisture.∇T_gcm, k̂)
-    w_adv = -aux.gcminfo.wap / (aux.gcminfo.ρ * _grav)
+    w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Establish thermodynamic state
     TS = recover_thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
@@ -109,11 +109,11 @@ function atmos_source!(
     source.ρe += cvm * state.ρ * aux.gcminfo.tntha
     source.ρe += cvm * state.ρ * aux.gcminfo.tntva
     source.ρe += cvm * state.ρ * aux.gcminfo.tntr
-    source.ρe += cvm * state.ρ * ∂T∂z * w_adv
+    source.ρe += cvm * state.ρ * ∂T∂z * w_s
     # Moisture contribution
     source.ρe += _e_int_v0 * state.ρ * aux.gcminfo.tnhusha
     source.ρe += _e_int_v0 * state.ρ * aux.gcminfo.tnhusva
-    source.ρe += _e_int_v0 * state.ρ * ∂qt∂z * w_adv
+    source.ρe += _e_int_v0 * state.ρ * ∂qt∂z * w_s
     # GPU-friendly return nothing
     return nothing
 end
@@ -147,18 +147,18 @@ function atmos_source!(
     k̂ = vertical_unit_vector(atmos, aux)
     # Establish vertical orientation
     ∂qt∂z = dot(diffusive.moisture.∇q_tot_gcm, k̂)
-    w_adv = -aux.gcminfo.wap / (aux.gcminfo.ρ * _grav)
+    w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Establish thermodynamic state
     TS = recover_thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
     source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusha
     source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusva
-    source.moisture.ρq_tot += state.ρ * ∂qt∂z * w_adv
+    source.moisture.ρq_tot += state.ρ * ∂qt∂z * w_s
     
     source.ρ += state.ρ * aux.gcminfo.tnhusha
     source.ρ += state.ρ * aux.gcminfo.tnhusva
-    source.ρ += state.ρ * ∂qt∂z * w_adv
+    source.ρ += state.ρ * ∂qt∂z * w_s
     # GPU-friendly return nothing
     return nothing
 end
@@ -434,7 +434,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, 
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
 	#ZS: hyperdiffusion?
-        hyperdiffusion = DryBiharmonic{FT}(12*3600),
+        #hyperdiffusion = DryBiharmonic{FT}(12*3600),
         gcminfo = HadGem2(),
     )
 
