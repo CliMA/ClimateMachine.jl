@@ -13,6 +13,7 @@ using CLIMAParameters
 
 using ..Atmos
 using ..Callbacks
+using ..Checkpoint
 using ..SystemSolvers
 using ..ConfigTypes
 using ..Diagnostics
