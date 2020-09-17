@@ -50,7 +50,8 @@ using ClimateMachine.Thermodynamics:
     latent_heat_fusion,
     Liquid,
     Ice,
-    supersaturation
+    supersaturation,
+    vapor_specific_humidity
 
 using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
