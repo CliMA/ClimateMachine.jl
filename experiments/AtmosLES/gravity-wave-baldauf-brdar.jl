@@ -259,7 +259,7 @@ function config_gravitywave(FT, N, resolution, setup)
         setup,             # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
-        numerical_flux_first_order=RoeNumericalFlux
+        numerical_flux_first_order=RoeNumericalFlux()
     )
 
     return config
