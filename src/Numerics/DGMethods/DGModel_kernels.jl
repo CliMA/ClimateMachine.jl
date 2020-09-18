@@ -19,6 +19,7 @@ const _ξ1x3, _ξ2x3, _ξ3x3 = Grids._ξ1x3, Grids._ξ2x3, Grids._ξ3x3
 const _M, _MI = Grids._M, Grids._MI
 const _x1, _x2, _x3 = Grids._x1, Grids._x2, Grids._x3
 const _JcV = Grids._JcV
+const _J = Grids._J
 
 const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
@@ -2690,7 +2691,7 @@ end
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    direction,
+    direction::Union{HorizontalDirection, VerticalDirection},
     ∇state,
     state,
     vgeo,
@@ -2789,6 +2790,163 @@ end
                 ∇state[ijk, O[3 * (s - 1) + 1], e] = local_gradient[1, s, k]
                 ∇state[ijk, O[3 * (s - 1) + 2], e] = local_gradient[2, s, k]
                 ∇state[ijk, O[3 * (s - 1) + 3], e] = local_gradient[3, s, k]
+            end
+        end
+    end
+end
+
+@kernel function kernel_continuous_field_gradient!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{polyorder},
+    direction::EveryDirection,
+    ∇state,
+    state,
+    vgeo,
+    D,
+    ω,
+    ::Val{I},
+    ::Val{O},
+) where {dim, polyorder, I, O}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state)
+        ngradstate = length(I)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+        u_state = MArray{Tuple{ngradstate}, FT}(undef)
+    end
+
+    s_D = @localmem FT (Nq, Nq)
+    s_Jξx = @localmem FT (2, 3, Nq, Nq)
+    s_state = @localmem FT (Nq, Nq, ngradstate)
+
+    p_J∇state = @private FT (3, ngradstate, Nqk)
+    p_JI = @private FT (Nqk,)
+
+    e = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+
+    @inbounds begin
+        s_D[i, j] = D[i, j]
+
+        @unroll for k in 1:Nqk
+            @unroll for s in 1:ngradstate
+                p_J∇state[1, s, k] = -zero(FT)
+                p_J∇state[2, s, k] = -zero(FT)
+                p_J∇state[3, s, k] = -zero(FT)
+            end
+        end
+
+        # The gradient is computed by looping up the ξ3-direction (with index k)
+        #
+        # The horizontal derivatives (ξ1- and ξ2-directions) are computed at the
+        # degree of freedom (i, j, k) by loading the slab of data (:, :, k) into
+        # local (shared) memory 
+        #
+        # The vertical derivatives (ξ3-direction) is computed by using uniform
+        # memory and computing the contribution of degree of freedom (i, j, k)
+        # to all the other degrees of freedom in the pencil (i, j, :)
+        #
+        # The gradient is computed using the "inside" metric terms so as to be
+        # consistent with the way the `volume_tendency!` computes derivatives,
+        # namely:
+        #
+        #    ∂_{x_l} f = J^{-1} ∑_{m = 1}^{3} ∂_{ξ_m} (J (∂_{x_l} ξ_k) f)
+        #
+        # this is as opposed to the "outside" metrics choice of
+        #
+        #    ∂_{x_l} f = ∑_{m = 1}^{3} (∂_{x_l} ξ_k) (∂_{ξ_m} f)
+        @unroll for k in 1:Nqk
+            @synchronize
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+
+            # Load in the metric terms
+            J = vgeo[ijk, _J, e]
+
+            ξ1x1 = vgeo[ijk, _ξ1x1, e]
+            ξ1x2 = vgeo[ijk, _ξ1x2, e]
+            ξ1x3 = vgeo[ijk, _ξ1x3, e]
+
+            ξ2x1 = vgeo[ijk, _ξ2x1, e]
+            ξ2x2 = vgeo[ijk, _ξ2x2, e]
+            ξ2x3 = vgeo[ijk, _ξ2x3, e]
+
+            if dim == 3
+                ξ3x1 = vgeo[ijk, _ξ3x1, e]
+                ξ3x2 = vgeo[ijk, _ξ3x2, e]
+                ξ3x3 = vgeo[ijk, _ξ3x3, e]
+            end
+
+            # Load in the state into uniform and shared memory
+            @unroll for s in 1:ngradstate
+                s_state[i, j, s] = u_state[s] = state[ijk, I[s], e]
+            end
+
+            # Store the horizontal metric in shared memory
+            s_Jξx[1, 1, i, j] = J * ξ1x1
+            s_Jξx[1, 2, i, j] = J * ξ1x2
+            s_Jξx[1, 3, i, j] = J * ξ1x3
+
+            s_Jξx[2, 1, i, j] = J * ξ2x1
+            s_Jξx[2, 2, i, j] = J * ξ2x2
+            s_Jξx[2, 3, i, j] = J * ξ2x3
+
+            # Store the inverse Jacobian
+            p_JI[k] = 1 / J
+
+            # Compute the derivative of the 3D vertical
+            if dim == 3
+                @unroll for n in 1:Nqk
+                    # here the dof (i, j, k) is multiplying the column of D
+                    # (outer product matrix multiplication formula)
+                    # (hence the row index varies, and column index is fixed)
+                    Dnk = s_D[n, k]
+                    @unroll for s in 1:ngradstate
+                        fld = u_state[s]
+                        p_J∇state[1, s, n] += Dnk * J * ξ3x1 * fld
+                        p_J∇state[2, s, n] += Dnk * J * ξ3x2 * fld
+                        p_J∇state[3, s, n] += Dnk * J * ξ3x3 * fld
+                    end
+                end
+            end
+
+            @synchronize
+
+            # Compute the horizontal derivative
+            @unroll for n in 1:Nq
+                # here the row D is multiplied by a column of dofs
+                # (inner product matrix multiplication formula)
+                # (hence the row index is fixed, and column index varies)
+                Din, Djn = s_D[i, n], s_D[j, n]
+
+                Jξ1x1, Jξ1x2, Jξ1x3 = s_Jξx[1, :, n, j]
+                Jξ2x1, Jξ2x2, Jξ2x3 = s_Jξx[2, :, i, n]
+
+                @unroll for s in 1:ngradstate
+                    # ξ1-grid lines
+                    fld = s_state[n, j, s]
+                    p_J∇state[1, s, k] += Din * Jξ1x1 * fld
+                    p_J∇state[2, s, k] += Din * Jξ1x2 * fld
+                    p_J∇state[3, s, k] += Din * Jξ1x3 * fld
+
+                    # ξ2-grid lines
+                    fld = s_state[i, n, s]
+                    p_J∇state[1, s, k] += Djn * Jξ2x1 * fld
+                    p_J∇state[2, s, k] += Djn * Jξ2x2 * fld
+                    p_J∇state[3, s, k] += Djn * Jξ2x3 * fld
+                end
+            end
+        end
+
+        @unroll for k in 1:Nqk
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            JI = p_JI[k]
+            @unroll for s in 1:ngradstate
+                ∇state[ijk, O[3 * (s - 1) + 1], e] = JI * p_J∇state[1, s, k]
+                ∇state[ijk, O[3 * (s - 1) + 2], e] = JI * p_J∇state[2, s, k]
+                ∇state[ijk, O[3 * (s - 1) + 3], e] = JI * p_J∇state[3, s, k]
             end
         end
     end
