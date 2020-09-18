@@ -234,10 +234,7 @@ function atmos_source!(
         r = (z - z_sponge) / (z_max - z_sponge)
         #ZS: different sponge formulation?
         β_sponge =
-            α_max .* sinpi(r / FT(2)) *
-            sinpi(r / FT(2)) *
-            sinpi(r / FT(2)) *
-            sinpi(r / FT(2))#.^ γ
+            α_max .* sinpi(r / FT(2)) .^ γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * u_geo)
     end
     # GPU-friendly return nothing
@@ -459,7 +456,7 @@ function config_cfsites(
         fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 4,
+        timestep_ratio = 10,
     )
 
     # IMEX Solver Type
@@ -476,7 +473,7 @@ function config_cfsites(
         param_set,
         init_cfsites!,
         #ZS: multi-rate?
-        solver_type = mrrk_solver,
+        solver_type = imex_solver,
         model = model,
     )
     return config
@@ -531,10 +528,10 @@ function main()
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
-    #timeend = FT(600)
-    timeend = FT(3600 * 6)
+    timeend = FT(1800)
+    #timeend = FT(3600 * 6)
     # Courant number
-    CFL = FT(0.7)
+    CFL = FT(0.8)
 
     # Execute the get_gcm_info function
     (
