@@ -169,7 +169,24 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, GI, DC}
+) where {
+    FT <: AbstractFloat,
+    ISP,
+    PR,
+    O,
+    RS,
+    T,
+    TC,
+    HD,
+    VS,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    GI,
+    DC,
+}
 
     atmos = (
         param_set,
@@ -185,7 +202,7 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
-	gcminfo,
+        gcminfo,
         data_config,
     )
 
@@ -216,7 +233,24 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     gcminfo::GI = NoGCM(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, GI, DC}
+) where {
+    FT <: AbstractFloat,
+    ISP,
+    PR,
+    O,
+    RS,
+    T,
+    TC,
+    HD,
+    VS,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    GI,
+    DC,
+}
 
     atmos = (
         param_set,
@@ -232,7 +266,7 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
-	gcminfo,
+        gcminfo,
         data_config,
     )
 

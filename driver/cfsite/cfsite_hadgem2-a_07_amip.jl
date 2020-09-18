@@ -69,7 +69,7 @@ end
 
 # Temperature tendency term, ∂T∂t
 """
-    TemperatureTendency <: Source
+    EnergyTendency <: Source
 
 Temperature tendency for the LES configuration based on quantities 
 from a GCM. Quantities are included in standard CMIP naming format. 
@@ -80,16 +80,16 @@ Tendencies included here are
     tntr = temperature tendency due to radiation fluxes
     ∂T∂z = temperature vertical gradient from GCM values
 """
-struct TemperatureTendency <: Source end
+struct EnergyTendency <: Source end
 function atmos_source!(
-    s::TemperatureTendency,
+    s::EnergyTendency,
     atmos::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction
+    direction,
 )
     # Establish problem float-type
     FT = eltype(state)
@@ -106,14 +106,12 @@ function atmos_source!(
     cvm = cv_m(TS)
     # Compute tendency terms
     # Temperature contribution
-    source.ρe += cvm * state.ρ * aux.gcminfo.tntha
-    source.ρe += cvm * state.ρ * aux.gcminfo.tntva
-    source.ρe += cvm * state.ρ * aux.gcminfo.tntr
-    source.ρe += cvm * state.ρ * ∂T∂z * w_s
+    T_tendency =
+        aux.gcminfo.tntha + aux.gcminfo.tntva + aux.gcminfo.tntr + ∂T∂z * w_s
     # Moisture contribution
-    source.ρe += _e_int_v0 * state.ρ * aux.gcminfo.tnhusha
-    source.ρe += _e_int_v0 * state.ρ * aux.gcminfo.tnhusva
-    source.ρe += _e_int_v0 * state.ρ * ∂qt∂z * w_s
+    q_tot_tendency = aux.gcminfo.tnhusha + aux.gcminfo.tnhusva + ∂qt∂z * w_s
+    source.ρe += cvm * state.ρ * T_tendency
+    source.ρe += _e_int_v0 * state.ρ * q_tot_tendency
     # GPU-friendly return nothing
     return nothing
 end
@@ -139,7 +137,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction
+    direction,
 )
     # Establish problem float-type
     FT = eltype(state)
@@ -152,13 +150,9 @@ function atmos_source!(
     TS = recover_thermo_state(atmos, state, aux)
     cvm = cv_m(TS)
     # Compute tendency terms
-    source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusha
-    source.moisture.ρq_tot += state.ρ * aux.gcminfo.tnhusva
-    source.moisture.ρq_tot += state.ρ * ∂qt∂z * w_s
-    
-    source.ρ += state.ρ * aux.gcminfo.tnhusha
-    source.ρ += state.ρ * aux.gcminfo.tnhusva
-    source.ρ += state.ρ * ∂qt∂z * w_s
+    q_tot_tendency = aux.gcminfo.tnhusha + aux.gcminfo.tnhusva + ∂qt∂z * w_s
+    source.moisture.ρq_tot += state.ρ * q_tot_tendency
+    source.ρ += state.ρ * q_tot_tendency
     # GPU-friendly return nothing
     return nothing
 end
@@ -181,7 +175,7 @@ function atmos_source!(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    direction
+    direction,
 )
     _grav = grav(atmos.param_set)
     # Establish vertical orientation
@@ -238,8 +232,12 @@ function atmos_source!(
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
-	#ZS: different sponge formulation?
-        β_sponge = α_max .* sinpi(r/FT(2)) * sinpi(r/FT(2)) * sinpi(r/ FT(2)) * sinpi(r/FT(2))#.^ γ
+        #ZS: different sponge formulation?
+        β_sponge =
+            α_max .* sinpi(r / FT(2)) *
+            sinpi(r / FT(2)) *
+            sinpi(r / FT(2)) *
+            sinpi(r / FT(2))#.^ γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * u_geo)
     end
     # GPU-friendly return nothing
@@ -274,13 +272,16 @@ function get_gcm_info(groupid)
 
     @printf("--------------------------------------------------\n")
     @info @sprintf("""\n
-     Experiment: GCM(HadGEM-2a) driven LES(ClimateMachine)
+     Experiment: GCM(HadGEM2-A) driven LES(ClimateMachine)
      """)
 
     @printf("\n")
-    @printf("Had_GCM_LES = %s\n", groupid)
+    @printf("HadGEM2-A_LES = %s\n", groupid)
     @printf("--------------------------------------------------\n")
-    filename = "/central/groups/esm/zhaoyi/GCMForcedLES/forcing/clima/"*forcingfile*".nc"
+    filename =
+        "/central/groups/esm/zhaoyi/GCMForcedLES/forcing/clima/" *
+        forcingfile *
+        ".nc"
 
     req_varnames = (
         "zg",
@@ -299,7 +300,7 @@ function get_gcm_info(groupid)
         "hfss",
         "alpha",
     )
-    # Load NETCDF dataset (HadGEM information)
+    # Load NETCDF dataset (HadGEM2-A information)
     # Load the NCDataset (currently we assume all time-stamps are 
     # in the same NCData file). We store this information in `data`. 
     data = NCDataset(filename)
@@ -399,7 +400,18 @@ function init_cfsites!(problem, bl, state, aux, (x, y, z), t, spl)
     return nothing
 end
 
-function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, groupid)
+function config_cfsites(
+    FT,
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+    hfls,
+    hfss,
+    T_sfc,
+    groupid,
+)
     # Boundary Conditions
     u_star = FT(0.28)
 
@@ -411,7 +423,8 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, 
                 )),
                 energy = PrescribedEnergyFlux((state, aux, t) -> hfls + hfss),
                 moisture = PrescribedMoistureFlux(
-                    (state, aux, t) -> hfls / latent_heat_vapor(param_set, T_sfc),
+                    (state, aux, t) ->
+                        hfls / latent_heat_vapor(param_set, T_sfc),
                 ),
             ),
             AtmosBC(),
@@ -421,40 +434,40 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, 
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-	problem = problem,
+        problem = problem,
         turbulence = Vreman{FT}(0.23),
         source = (
             Gravity(),
             LinearSponge{FT}(zmax, zmax * 0.85, 1, 4),
             MoistureTendency(),
-            TemperatureTendency(),
+            EnergyTendency(),
             SubsidenceTendency(),
         ),
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(2)),
-	#ZS: hyperdiffusion?
+        #ZS: hyperdiffusion?
         #hyperdiffusion = DryBiharmonic{FT}(12*3600),
-        gcminfo = HadGem2(),
+        gcminfo = HadGEM(),
     )
 
     # Timestepper options
-    
+
     # Explicit Solver
-    ex_solver = ClimateMachine.ExplicitSolverType();
-    
+    ex_solver = ClimateMachine.ExplicitSolverType()
+
     # Multirate Explicit Solver
     mrrk_solver = ClimateMachine.MultirateSolverType(
         fast_model = AtmosAcousticGravityLinearModel,
         slow_method = LSRK144NiegemannDiehlBusch,
         fast_method = LSRK144NiegemannDiehlBusch,
         timestep_ratio = 4,
-    );
+    )
 
     # IMEX Solver Type
-    imex_solver = ClimateMachine.IMEXSolverType();
+    imex_solver = ClimateMachine.IMEXSolverType()
 
     # Configuration
     config = ClimateMachine.AtmosLESConfiguration(
-        forcingfile*"_$groupid",
+        forcingfile * "_$groupid",
         N,
         resolution,
         xmax,
@@ -462,7 +475,7 @@ function config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, 
         zmax,
         param_set,
         init_cfsites!,
-	#ZS: multi-rate?
+        #ZS: multi-rate?
         solver_type = mrrk_solver,
         model = model,
     )
@@ -492,7 +505,7 @@ function main()
     # Provision for custom command line arguments
     # Convenience args for slurm-array launches
     cfsite_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(cfsite_args, "HadGEM_SiteInfo")
+    add_arg_group!(cfsite_args, "HadGEM2-A_SiteInfo")
     @add_arg_table! cfsite_args begin
         "--group-id"
         help = "Specify CFSite-ID for GCM data"
@@ -562,8 +575,18 @@ function main()
     )
 
     # Set up driver configuration
-    driver_config =
-        config_cfsites(FT, N, resolution, xmax, ymax, zmax, hfls, hfss, T_sfc, groupid)
+    driver_config = config_cfsites(
+        FT,
+        N,
+        resolution,
+        xmax,
+        ymax,
+        zmax,
+        hfls,
+        hfss,
+        T_sfc,
+        groupid,
+    )
     # Set up solver configuration
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -585,9 +608,9 @@ function main()
         )
         nothing
     end
-    
+
     #ZS: cutoff filter?
-    filterorder = 2*N
+    filterorder = 2 * N
     filter = BoydVandevenFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -598,15 +621,10 @@ function main()
         )
         nothing
     end
-    
-    cutoff_filter = CutoffFilter(solver_config.dg.grid, N-1)
+
+    cutoff_filter = CutoffFilter(solver_config.dg.grid, N - 1)
     cbcutoff = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            1:6,
-            solver_config.dg.grid,
-            cutoff_filter,
-        )
+        Filters.apply!(solver_config.Q, 1:6, solver_config.dg.grid, cutoff_filter)
         nothing
     end
 
@@ -614,7 +632,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-	#ZS: only tmar?
+        #ZS: only tmar?
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
