@@ -6,11 +6,3 @@ abstract type TracerBC <: BoundaryCondition end
 No tracer diffusion across boundary
 """
 struct ImpermeableTracer <: TracerBC end
-function boundary_state!(
-    nf,
-    bc_tracer::ImpermeableTracer,
-    atmos::AtmosModel,
-    args...,
-)
-    nothing
-end

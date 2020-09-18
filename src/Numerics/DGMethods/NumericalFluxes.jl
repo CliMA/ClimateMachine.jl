@@ -1,6 +1,7 @@
 module NumericalFluxes
 
 export 
+    AbstractNumericalFlux,
     NumericalFluxGradient,
     NumericalFluxFirstOrder,
     NumericalFluxSecondOrder,
@@ -26,7 +27,8 @@ import ...BalanceLaws:
     compute_gradient_flux!,
     compute_gradient_argument!,
     transform_post_gradient_laplacian!,
-    boundary_condition
+    boundary_condition,
+    boundary_flux_second_order!
     
 abstract type AbstractNumericalFlux end
 
@@ -252,6 +254,7 @@ function numerical_boundary_flux_first_order!(
         t,
         direction,
     )
+
 end
 
 
@@ -526,49 +529,8 @@ function numerical_boundary_flux_second_order!(
 
     flux = similar(fluxᵀn, Size(3, num_state_prognostic))
     fill!(flux, -zero(FT))
-    numerical_boundary_flux_second_order!(
-        numerical_flux,
-        bc,
-        bl,
-        Grad{S}(flux),
-        normal_vector,
-        state_prognostic⁺,
-        state_gradient_flux⁺,
-        state_hyperdiffusive⁺,
-        state_auxiliary⁺,
-        state_prognostic⁻,
-        state_gradient_flux⁻,
-        state_hyperdiffusive⁻,
-        state_auxiliary⁻,
-        t,
-        state1⁻,
-        diff1⁻,
-        aux1⁻,
-    )
 
-    fluxᵀn .+= flux' * normal_vector
-end
 
-# overload for full fluxes
-function numerical_boundary_flux_second_order!(
-    numerical_flux,
-    bc::BoundaryCondition,
-    bl::BalanceLaw,
-    flux::Grad,
-    normal_vector,
-    state_prognostic⁺,
-    state_gradient_flux⁺,
-    state_hyperdiffusive⁺,
-    state_auxiliary⁺,
-    state_prognostic⁻,
-    state_gradient_flux⁻,
-    state_hyperdiffusive⁻,
-    state_auxiliary⁻,
-    t,
-    state1⁻,
-    diff1⁻,
-    aux1⁻,
-)
     boundary_state!(
         numerical_flux,
         bc,
@@ -587,13 +549,34 @@ function numerical_boundary_flux_second_order!(
     )
     flux_second_order!(
         bl,
-        flux,
+        Grad{S}(flux),
         state_prognostic⁺,
         state_gradient_flux⁺,
         state_hyperdiffusive⁺,
         state_auxiliary⁺,
         t,
     )
+
+    # additional boundary flux
+    boundary_flux_second_order!(numerical_flux,
+        bc,
+        bl,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_gradient_flux⁻,
+        state_hyperdiffusive⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_gradient_flux⁺,
+        state_hyperdiffusive⁺,
+        state_auxiliary⁺,
+        t,
+        state1⁻,
+        diff1⁻,
+        aux1⁻,)
+
+    fluxᵀn .+= flux' * normal_vector
 end
 
 

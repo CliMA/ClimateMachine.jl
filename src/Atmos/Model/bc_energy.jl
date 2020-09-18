@@ -8,7 +8,6 @@ using ..TurbulenceClosures
 No energy flux across the boundary.
 """
 struct Insulating <: EnergyBC end
-function boundary_state!(nf, bc_energy::Insulating, atmos::AtmosModel, args...) end
 
 
 """
@@ -52,15 +51,8 @@ with signature `fn(state, aux, t)`, returning the flux (in W/m^2).
 struct PrescribedEnergyFlux{FN} <: EnergyBC
     fn::FN
 end
-function boundary_state!(
-    nf,
-    bc_energy::PrescribedEnergyFlux,
-    atmos::AtmosModel,
-    args...,
-)
-    nothing
-end
-function numerical_boundary_flux_second_order!(
+
+function boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedEnergyFlux,
     atmos::AtmosModel,
@@ -102,7 +94,7 @@ function boundary_state!(
     atmos,
     args...,
 ) end
-function numerical_boundary_flux_second_order!(
+function boundary_flux_second_order!(
     nf,
     bc_energy::BulkFormulaEnergy,
     atmos::AtmosModel,

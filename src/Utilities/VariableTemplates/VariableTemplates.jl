@@ -150,6 +150,22 @@ abstract type AbstractVars{S, A, offset} end
 
 template(::AbstractVars{S}) where S = S
 
+function Base.show(io::IO, vars::AbstractVars)
+    #print(io, typeof(vars))
+    _show(io, vars)
+end
+
+_show(io, x) = show(io, x)
+function _show(io, vars::AbstractVars)
+    print(io, '(')
+    for p in propertynames(vars)
+        print(io, p, '=')
+        _show(io, getproperty(vars,p))
+        print(io, ", ")
+    end
+    print(io, ')')
+end
+
 """
     Vars{S,A,offset}(array::A)
 

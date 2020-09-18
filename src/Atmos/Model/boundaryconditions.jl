@@ -39,58 +39,41 @@ Base.@kwdef struct AtmosBC{M, E, Q, TR, TC} <: BoundaryCondition
 end
 
 function boundary_state!(
-    nf::Union{CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence},
-    bc,
-    m::AtmosModel,
-    x...,
+    nf::Union{DivNumericalPenalty, GradNumericalFlux},
+    bc::AtmosBC,
+    atmos::AtmosModel,
+    args...,
 )
     nothing
 end
 
-
-function boundary_state!(nf, bc::AtmosBC, atmos::AtmosModel, state⁺,
-    aux⁺, args...)
-    # update moisture auxiliary variables (perform saturation adjustment, if necessary)
-    # to make thermodynamic quantities consistent with the boundary state
-    atmos_nodal_update_auxiliary_state!(atmos.moisture, atmos, state⁺, aux⁺, t)
-    boundary_state!(nf, bc.momentum, atmos, state⁺, aux⁺, args...)
-    boundary_state!(nf, bc.energy,   atmos, state⁺, aux⁺, args...)
-    boundary_state!(nf, bc.moisture, atmos, state⁺, aux⁺, args...)
-    boundary_state!(nf, bc.tracer,   atmos, state⁺, aux⁺, args...)
-    boundary_state!(nf, bc.turbconv, atmos, state⁺, aux⁺, args...)
+function boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient},
+    bc::AtmosBC,
+    atmos::AtmosModel,
+    args...,
+)
+    boundary_state!(nf,bc.momentum, atmos, args...)
+    boundary_state!(nf,bc.energy, atmos, args...)
+    boundary_state!(nf,bc.moisture, atmos, args...)
+    boundary_state!(nf,bc.tracer, atmos, args...)
+    boundary_state!(nf,bc.turbconv, atmos, args...)
 end
 
-function numerical_boundary_flux_second_order!(nf, bc::AtmosBC, atmos::AtmosModel, fluxᵀn::Vars, args...)
-    numerical_boundary_flux_second_order!(
-        nf,
-        bc.momentum,
-        atmos,
-        fluxᵀn, 
-        args...,
-    )
-    numerical_boundary_flux_second_order!(
-        nf,
-        bc.energy,
-        atmos,
-        fluxᵀn, 
-        args...,
-    )
-    numerical_boundary_flux_second_order!(
-        nf,
-        bc.moisture,
-        atmos,
-        fluxᵀn, 
-        args...,
-    )
-    numerical_boundary_flux_second_order!(
-        nf,
-        bc.tracer,
-        atmos,
-        fluxᵀn, 
-        args...,
-    )
-    numerical_boundary_flux_second_order!(nf, bc.turbconv, atmos, fluxᵀn, args...)
+
+function boundary_flux_second_order!(
+    nf::NumericalFluxSecondOrder,
+    bc::AtmosBC,
+    atmos::AtmosModel,
+    args...,
+)
+    boundary_flux_second_order!(nf,bc.momentum, atmos, args...)
+    boundary_flux_second_order!(nf,bc.energy, atmos, args...)
+    boundary_flux_second_order!(nf,bc.moisture, atmos, args...)
+    boundary_flux_second_order!(nf,bc.tracer, atmos, args...)
+    boundary_flux_second_order!(nf,bc.turbconv, atmos, args...)
 end
+
 
 """
     average_density(ρ_sfc, ρ_int)
