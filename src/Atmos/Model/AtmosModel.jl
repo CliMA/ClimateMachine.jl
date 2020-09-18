@@ -27,7 +27,7 @@ using ..TurbulenceClosures
 import ..TurbulenceClosures: turbulence_tensors
 using ..TurbulenceConvection
 
-import ..Thermodynamics: internal_energy, total_specific_enthalpy
+import ..Thermodynamics: internal_energy
 using ..MPIStateArrays: MPIStateArray
 using ..Mesh.Grids:
     VerticalDirection,
@@ -372,7 +372,7 @@ turbulence_tensors(atmos::AtmosModel, args...) =
 include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
-include("thermodynamics.jl")
+include("thermo_states.jl")
 include("precipitation.jl")
 include("radiation.jl")
 include("source.jl")
@@ -412,7 +412,8 @@ equations.
     flux.ρe = u * state.ρe
 
     # pressure terms
-    p = pressure(m, m.moisture, state, aux)
+    ts = recover_thermo_state(m, state, aux)
+    p = air_pressure(ts)
     if m.ref_state isa HydrostaticState
         flux.ρu += (p - aux.ref_state.p) * I
     else
@@ -434,7 +435,9 @@ function compute_gradient_argument!(
 )
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
-    transform.h_tot = total_specific_enthalpy(atmos, atmos.moisture, state, aux)
+    ts = recover_thermo_state(atmos, state, aux)
+    e_tot = state.ρe * (1 / state.ρ)
+    transform.h_tot = total_specific_enthalpy(ts, e_tot)
 
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
@@ -568,7 +571,8 @@ end
     ρinv = 1 / state.ρ
     u = ρinv * state.ρu
     uN = abs(dot(nM, u))
-    ss = soundspeed(m, m.moisture, state, aux)
+    ts = recover_thermo_state(m, state, aux)
+    ss = soundspeed_air(ts)
 
     FT = typeof(state.ρ)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
@@ -821,12 +825,7 @@ function numerical_flux_first_order!(
     uᵀn⁻ = u⁻' * normal_vector
     e⁻ = ρe⁻ / ρ⁻
     h⁻ = total_specific_enthalpy(ts⁻, e⁻)
-    p⁻ = pressure(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁻,
-        state_auxiliary⁻,
-    )
+    p⁻ = air_pressure(ts⁻)
     c⁻ = soundspeed_air(ts⁻)
 
     ρ⁺ = state_prognostic⁺.ρ
@@ -846,12 +845,7 @@ function numerical_flux_first_order!(
     uᵀn⁺ = u⁺' * normal_vector
     e⁺ = ρe⁺ / ρ⁺
     h⁺ = total_specific_enthalpy(ts⁺, e⁺)
-    p⁺ = pressure(
-        balance_law,
-        balance_law.moisture,
-        state_prognostic⁺,
-        state_auxiliary⁺,
-    )
+    p⁺ = air_pressure(ts⁺)
     c⁺ = soundspeed_air(ts⁺)
 
     ρ̃ = sqrt(ρ⁻ * ρ⁺)

@@ -94,6 +94,7 @@ end
 
 function doiteration!(
     linearoperator!,
+    preconditioner,
     Q,
     Qrhs,
     solver::GeneralizedMinimalResidual{M},

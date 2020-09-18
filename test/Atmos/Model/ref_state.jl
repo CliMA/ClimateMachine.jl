@@ -1,99 +1,59 @@
-using CLIMAParameters
-using CLIMAParameters.Planet: R_d, grav, MSLP
-using StaticArrays
+include("get_atmos_ref_states.jl")
+using JLD2
+using Pkg.Artifacts
+using ClimateMachine.ArtifactWrappers
 
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+@testset "Hydrostatic reference states - regression test" begin
+    ref_state_dataset = ArtifactWrapper(
+        joinpath(@__DIR__, "Artifacts.toml"),
+        "ref_state",
+        ArtifactFile[ArtifactFile(
+            url = "https://caltech.box.com/shared/static/gyq292ns79wm9xpmy1sse3qtnpcxw54q.jld2",
+            filename = "ref_state.jld2",
+        ),],
+    )
+    ref_state_dataset_path = get_data_folder(ref_state_dataset)
+    data_file = joinpath(ref_state_dataset_path, "ref_state.jld2")
 
-using ClimateMachine
-using ClimateMachine.Mesh.Grids
-using ClimateMachine.Mesh.Geometry
-using ClimateMachine.Thermodynamics
-using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Atmos: AtmosModel, DryModel, HydrostaticState
-using ClimateMachine.Atmos: atmos_init_aux!, atmos_init_ref_state_pressure!
-using ClimateMachine.Orientations: orientation_nodal_init_aux!
-using ClimateMachine.ConfigTypes
-using ClimateMachine.DGMethods
-using ClimateMachine.BalanceLaws:
-    BalanceLaw, vars_state, number_states, Auxiliary
-using ClimateMachine.DGMethods: LocalGeometry
-using ClimateMachine.MPIStateArrays
-using ClimateMachine.VariableTemplates
+    RH = 0.5
+    (nelem_vert, N_poly) = (20, 4)
+    solver_config = get_atmos_ref_states(nelem_vert, N_poly, RH)
+    all_data = dict_of_nodal_states(solver_config, ["z"], (Auxiliary(),))
+    T = all_data["ref_state.T"]
+    p = all_data["ref_state.p"]
+    ρ = all_data["ref_state.ρ"]
 
-using Test
+    @load "$data_file" T_ref p_ref ρ_ref
+    @test all(T .≈ T_ref)
+    @test all(p .≈ p_ref)
+    @test all(ρ .≈ ρ_ref)
+end
 
-@testset "Hydrostatic reference states" begin
-    # We should provide an interface to call all physics
-    # kernels in some way similar to this:
-    function compute_ref_state(z::FT, atmos) where {FT}
-        local_geom = LocalGeometry(5, SVector{3, FT}(0, 0, z), @SMatrix zeros(
-            FT,
-            3,
-            3,
-        ))
+@testset "Hydrostatic reference states - correctness" begin
 
-        st = vars_state(atmos, Auxiliary(), FT)
-        nst = number_states(atmos, Auxiliary())
-        arr = MArray{Tuple{nst}, FT}(undef)
-        fill!(arr, 0)
-        aux = Vars{st}(arr)
+    RH = 0.5
+    # Fails on (80, 1)
+    for (nelem_vert, N_poly) in [(40, 2), (20, 4)]
+        solver_config = get_atmos_ref_states(nelem_vert, N_poly, RH)
+        all_data = dict_of_nodal_states(solver_config, ["z"])
+        phase_type = PhaseEquil
+        T = all_data["ref_state.T"]
+        p = all_data["ref_state.p"]
+        ρ = all_data["ref_state.ρ"]
+        q_tot = all_data["ref_state.ρq_tot"] ./ ρ
+        q_pt = PhasePartition.(q_tot)
 
-        # Hack: need coord in sync with incoming z, so that
-        # altitude returns correct value.
-        aux.coord = @SArray FT[0, 0, z]
-        # Need orientation defined, so that z
-        orientation_nodal_init_aux!(
-            atmos.orientation,
-            atmos.param_set,
-            aux,
-            local_geom,
-        )
-        aux.orientation.∇Φ = @SArray FT[0, 0, grav(param_set)]
+        # TODO: test that ρ and p are in discrete hydrostatic balance
 
-        atmos_init_ref_state_pressure!(atmos.ref_state, atmos, aux, local_geom)
+        # Test state for thermodynamic consistency (with ideal gas law)
+        T_igl = air_temperature_from_ideal_gas_law.(Ref(param_set), p, ρ, q_pt)
+        @test all(T .≈ T_igl)
 
-        # Mega-hack: define ∇p so that we actually compute ρ based
-        # on the ideal gas law
-        T_virt, p = atmos.ref_state.virtual_temperature_profile(param_set, z)
-        hack_value = FT(-grav(param_set) * p / (R_d(param_set) * T_virt))
-        tmp = Vars{@vars(∇p::SVector{3, FT})}(SVector{3, FT}(0, 0, hack_value))
-
-        atmos_init_aux!(atmos.ref_state, atmos, aux, tmp, local_geom)
-        return aux
+        # Test that relative humidity in reference state is approximately
+        # input relative humidity
+        RH_ref = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
+        @show max(abs.(RH .- RH_ref)...)
+        @test all(isapprox.(RH, RH_ref, atol = 0.05))
     end
-
-    FT = Float64
-    RH = FT(0.5)
-    profile = DecayingTemperatureProfile{FT}(param_set)
-    m = AtmosModel{FT}(
-        AtmosLESConfigType,
-        param_set;
-        init_state_prognostic = x -> x,
-        ref_state = HydrostaticState(profile, RH),
-        moisture = DryModel(),
-    )
-
-    z = collect(range(FT(0), stop = FT(25e3), length = 100))
-    phase_type = PhaseEquil
-
-    aux_arr = compute_ref_state.(z, Ref(m))
-    T = map(x -> x.ref_state.T, aux_arr)
-    p = map(x -> x.ref_state.p, aux_arr)
-    ρ = map(x -> x.ref_state.ρ, aux_arr)
-    q_tot = map(x -> x.ref_state.ρq_tot, aux_arr) ./ ρ
-    q_pt = PhasePartition.(q_tot)
-
-    # TODO: test that ρ and p are in discrete hydrostatic balance
-
-    # Test state for thermodynamic consistency (with ideal gas law)
-    @test all(
-        T .≈ air_temperature_from_ideal_gas_law.(Ref(param_set), p, ρ, q_pt),
-    )
-
-    # Test that relative humidity in reference state is approximately
-    # input relative humidity
-    RH_ref = relative_humidity.(Ref(param_set), T, p, Ref(phase_type), q_pt)
-    @test all(isapprox.(RH, RH_ref, atol = 0.05))
 
 end

@@ -54,3 +54,14 @@ SimpleBox
 HomogeneousBox
 OceanGyre
 ```
+
+## Other (development)
+
+```@meta
+CurrentModule = ClimateMachine.Ocean.SplitExplicit01
+```
+
+```@docs
+SplitExplicitLSRK2nSolver
+OceanDGModel
+```

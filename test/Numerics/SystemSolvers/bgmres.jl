@@ -88,7 +88,14 @@ let
                 linear_operator! = closure_linear_operator_multi!(A, size(A)...)
 
                 # Now solve
-                linearsolve!(linear_operator!, bgmres, x, b; max_iters = Inf)
+                linearsolve!(
+                    linear_operator!,
+                    nothing,
+                    bgmres,
+                    x,
+                    b;
+                    max_iters = Inf,
+                )
 
                 # reference solution
                 for i in 1:ni
@@ -155,6 +162,7 @@ let
                 # Now solve
                 linearsolve!(
                     linear_operator!,
+                    nothing,
                     bgmres,
                     mpi_x,
                     mpi_b;
@@ -247,6 +255,7 @@ let
                 x_exact = copy(x)
                 linearsolve!(
                     columnwise_linear_operator!,
+                    nothing,
                     bgmres,
                     x,
                     b,

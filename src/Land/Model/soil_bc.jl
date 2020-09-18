@@ -259,7 +259,8 @@ function top_boundary_conditions!(
     t,
 )
     if bc.surface_flux != nothing
-        diff⁺.soil.water.K∇h = n̂ * bc.surface_flux(aux⁻, t)
+        # Note that -K∇h is the flux, so we need a minus sign here.
+        diff⁺.soil.water.K∇h = n̂ * (-bc.surface_flux(aux⁻, t))
     else
         nothing
     end
@@ -331,7 +332,10 @@ function bottom_boundary_conditions!(
     t,
 )
     if bc.bottom_flux != nothing
-        diff⁺.soil.water.K∇h = -n̂ * bc.bottom_flux(aux⁻, t)
+        # Note that -K∇h is the flux, so we add in a minus sign
+        # we add a second minus sign because we choose to specify a BC
+        # in terms of ẑ, not n̂, as then it doesnt change directions.
+        diff⁺.soil.water.K∇h = -n̂ * (-bc.bottom_flux(aux⁻, t))
     else
         nothing
     end
@@ -405,7 +409,8 @@ function top_boundary_conditions!(
     t,
 )
     if bc.surface_flux != nothing
-        diff⁺.soil.heat.κ∇T = n̂ * bc.surface_flux(aux⁻, t)
+        # Again, the flux is -κ∇T
+        diff⁺.soil.heat.κ∇T = n̂ * (-bc.surface_flux(aux⁻, t))
     else
         nothing
     end
@@ -494,7 +499,9 @@ function bottom_boundary_conditions!(
     t,
 )
     if bc.bottom_flux != nothing
-        diff⁺.soil.heat.κ∇T = -n̂ * bc.bottom_flux(aux⁻, t)
+        # two minus signs - the flux is minus κ∇T, and n̂ is -ẑ at the
+        # bottom of the domain.
+        diff⁺.soil.heat.κ∇T = -n̂ * (-bc.bottom_flux(aux⁻, t))
     else
         nothing
     end
