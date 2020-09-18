@@ -2,7 +2,7 @@
 
 The `ClimateMachine` is composed of three models for the Earth system, a
 dynamical core, and a number of other components. These are put together to
-set up a simulation by a _driver_, for example the Held-Suarez atmospheric
+set up a simulation by a [_driver_](./Terminology.md), for example the Held-Suarez atmospheric
 GCM, or the Rising Bubble atmospheric LES. The driver specifies:
 - the dimensions and resolution of the simulation domain,
 - the duration of the simulation,
@@ -25,6 +25,8 @@ Held-Suarez atmospheric GCM is run with:
 $ julia --project experiments/AtmosGCM/heldsuarez.jl
 ```
 
+Simpler examples of driver files can be found in the tutorials.
+Driver files in experiments show more complex examples.
 ## Input and output
 
 The `ClimateMachine` provides the [`ArtifactWrappers`](@ref
@@ -35,7 +37,8 @@ Output takes the form of various [groups of diagnostic variables](@ref
 Diagnostics-groups) that are written to NetCDF files at user-specified
 intervals by the `ClimateMachine` when configured to do so by a driver.
 
-The `ClimateMachine` can also output prognostic and auxiliary state variables
+The `ClimateMachine` can also output [prognostic](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.Prognostic)
+ and [auxiliary](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.Auxiliary) state variables
 to VTK files at specified intervals.
 
 Whether or not output is generated, and if so, at what interval, is a
