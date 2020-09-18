@@ -67,5 +67,6 @@ RESTART_RANK=-1 #-1 if no restart
 mpiexec -np 1 julia --project=$CLIMA_HOME assemble_checkpoints.jl $CLIMA_RESTART 'HeldSuarezCustom' 128 $RESTART_RANK && mpiexec -np 1 julia --project=$CLIMA_HOME $CLIMA_RUNFILE --experiment=heldsuarez_custom --diagnostics 6shours --monitor-courant-numbers 6shours --output-dir $CLIMA_NETCDF --checkpoint-dir $CLIMA_RESTART --init-moisture-profile zero --init-base-state heldsuarez --surface-flux bulk --restart-from-num 9999
 }  
 
-
+# Move log/error file to the experiment's output location
+mv model_log_err.out $CLIMA_LOG
 
