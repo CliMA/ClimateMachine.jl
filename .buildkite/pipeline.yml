@@ -3,6 +3,33 @@ env:
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
 steps:
+  - label: "init cpu env"
+    key: "init_cpu_env"
+    command:
+      - "echo $JULIA_DEPOT_PATH"
+      - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
+      - "julia --project -e 'using Pkg; Pkg.precompile()'"
+      - "julia --project -e 'using Pkg; Pkg.status()'"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "init gpu env"
+    key: "init_gpu_env"
+    command:
+      - "echo $JULIA_DEPOT_PATH"
+      - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
+      - "julia --project -e 'using Pkg; Pkg.precompile()'"
+      - "julia --project -e 'using Pkg; Pkg.status()'"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - wait
+
   - label: "cpu_advection_diffusion_model_1dimex_bgmres"
     key: "cpu_advection_diffusion_model_1dimex_bgmres"
     command:
