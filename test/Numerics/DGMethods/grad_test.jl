@@ -58,7 +58,7 @@ end
 using Test
 function run(mpicomm, dim, direction, Ne, N, FT, ArrayType)
 
-    brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 3), dim)
+    brickrange = ntuple(j -> range(FT(-1); length = Ne[j] + 1, stop = 1), dim)
     topl = StackedBrickTopology(
         mpicomm,
         brickrange,
@@ -93,7 +93,11 @@ function run(mpicomm, dim, direction, Ne, N, FT, ArrayType)
     )
 
     # Wrapping in Array ensure both GPU and CPU code use same approx
-    @test Array(dg.state_auxiliary.∇a) ≈ Array(dg.state_auxiliary.∇a_exact)
+    @test all(isapprox.(
+        Array(dg.state_auxiliary.∇a),
+        Array(dg.state_auxiliary.∇a_exact);
+        rtol = sqrt(eps(FT)), atol = sqrt(eps(FT)),
+    ))
 end
 
 let
