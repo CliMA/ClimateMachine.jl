@@ -1,3 +1,7 @@
+using Plots
+using KernelAbstractions: CPU
+using ClimateMachine.MPIStateArrays: array_device
+using ClimateMachine.BalanceLaws: Prognostic, Auxiliary, GradientFlux
 
 """
     plot_friendly_name(ϕ)
@@ -100,6 +104,9 @@ function save_binned_surface_plots(
     savefig(filename)
 end;
 
+state_prefix(::Prognostic) = "prog_"
+state_prefix(::Auxiliary) = "aux_"
+state_prefix(::GradientFlux) = "grad_flux_"
 
 """
     plot_results(solver_config, all_data, time_data, output_dir)
@@ -110,36 +117,31 @@ Exports plots of states given
  - `time_data` an array of time values
  - `output_dir` output directory
 """
-function export_state_plots(solver_config, all_data, time_data, output_dir)
+function export_state_plots(
+    solver_config,
+    all_data,
+    time_data,
+    output_dir;
+    state_types = (Prognostic(), Auxiliary()),
+)
     FT = eltype(solver_config.Q)
     z = get_z(solver_config.dg.grid)
+    z = array_device(solver_config.Q) isa CPU ? z : Array(z)
     mkpath(output_dir)
-    vs = vars_state(solver_config.dg.balance_law, Prognostic(), FT)
-    for fn in flattenednames(vs)
-        file_name = "prog_" * replace(fn, "." => "_")
-        export_plot(
-            z,
-            all_data,
-            (fn,),
-            joinpath(output_dir, "$(file_name).png");
-            xlabel = fn,
-            ylabel = "z [m]",
-            time_data = time_data,
-            round_digits = 5,
-        )
-    end
-    vs = vars_state(solver_config.dg.balance_law, Auxiliary(), FT)
-    for fn in flattenednames(vs)
-        file_name = "aux_" * replace(fn, "." => "_")
-        export_plot(
-            z,
-            all_data,
-            (fn,),
-            joinpath(output_dir, "$(file_name).png");
-            xlabel = fn,
-            ylabel = "z [m]",
-            time_data = time_data,
-            round_digits = 5,
-        )
+    for st in state_types
+        vs = vars_state(solver_config.dg.balance_law, st, FT)
+        for fn in flattenednames(vs)
+            file_name = state_prefix(st) * replace(fn, "." => "_")
+            export_plot(
+                z,
+                all_data,
+                (fn,),
+                joinpath(output_dir, "$(file_name).png");
+                xlabel = fn,
+                ylabel = "z [m]",
+                time_data = time_data,
+                round_digits = 5,
+            )
+        end
     end
 end

@@ -194,7 +194,7 @@ function run(
 
     linearsolver = linmethod(Q)
 
-    iters = linearsolve!(linearoperator!, linearsolver, Q, Qrhs)
+    iters = linearsolve!(linearoperator!, nothing, linearsolver, Q, Qrhs)
 
     error = euclidean_distance(Q, Qexact)
 

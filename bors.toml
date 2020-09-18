@@ -10,3 +10,4 @@ delete_merged_branches = true
 timeout_sec = 10800
 block_labels = [ "do-not-merge-yet" ]
 cut_body_after = "<!--"
+required_approvals = 1

@@ -1,11 +1,13 @@
 module Land
 
-using CLIMAParameters
 using DocStringExtensions
 using LinearAlgebra, StaticArrays
+
+using CLIMAParameters
+using CLIMAParameters.Planet: ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0
+
 using ..VariableTemplates
 using ..MPIStateArrays
-
 using ..BalanceLaws
 import ..BalanceLaws:
     BalanceLaw,
@@ -19,9 +21,7 @@ import ..BalanceLaws:
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
     nodal_update_auxiliary_state!
-
 using ..DGMethods: LocalGeometry, DGModel
-
 export LandModel
 
 """
@@ -212,6 +212,8 @@ end
 include("land_bc.jl")
 include("SoilWaterParameterizations.jl")
 using .SoilWaterParameterizations
+include("SoilHeatParameterizations.jl")
+using .SoilHeatParameterizations
 include("soil_model.jl")
 include("soil_water.jl")
 include("soil_heat.jl")

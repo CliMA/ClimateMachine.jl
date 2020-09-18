@@ -65,10 +65,10 @@ end
     BulkFormulaMoisture(fn) :: MoistureBC
 
 Calculate the net inward moisture flux across the boundary using
-the bulk formula.
-The drag coefficient is `C_q = fn_C_q(state, aux, t, normu_int_tan)`.
-q_tot at the boundary is `q_tot = fn_q_tot(state, aux, t)`.
-`_int` refers to the first interior node.
+the bulk formula. The drag coefficient is `C_q = fn_C_q(state, aux,
+t, normu_int_tan)`. The surface q_tot at the boundary is `q_tot =
+fn_q_tot(state, aux, t)`.
+
 Return the flux (in kg m^-2 s^-1).
 """
 struct BulkFormulaMoisture{FNX, FNM} <: MoistureBC
@@ -108,6 +108,7 @@ function atmos_moisture_normal_boundary_flux_second_order!(
     C_q = bc_moisture.fn_C_q(state⁻, aux⁻, t, normu_int⁻_tan)
     q_tot = bc_moisture.fn_q_tot(state⁻, aux⁻, t)
     q_tot_int = state_int⁻.moisture.ρq_tot / state_int⁻.ρ
+
     # TODO: use the correct density at the surface
     ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards

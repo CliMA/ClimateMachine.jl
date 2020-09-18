@@ -148,7 +148,6 @@ mutable struct AdditiveRungeKutta{
             rhs_implicit!,
         )
         @assert besolver! isa AbstractBackwardEulerSolver
-        @assert besolver! isa LinBESolver || variant isa NaiveVariant
         BE = typeof(besolver!)
 
         new{T, RT, AT, BE, V, VS, Nstages, Nstages^2, Nstages - 1}(

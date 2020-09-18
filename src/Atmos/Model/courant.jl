@@ -47,7 +47,12 @@ function nondiffusive_courant(
 )
     k̂ = vertical_unit_vector(m, aux)
     normu = norm_u(state, k̂, direction)
-    return Δt * (normu + soundspeed(m, m.moisture, state, aux)) / Δx
+    # TODO: Change this to new_thermo_state
+    # so that Courant computations do not depend
+    # on the aux state.
+    ts = recover_thermo_state(m, state, aux)
+    ss = soundspeed_air(ts)
+    return Δt * (normu + ss) / Δx
 end
 
 function diffusive_courant(

@@ -1,10 +1,12 @@
 using Test
+using ClimateMachine.Microphysics_0M
 using ClimateMachine.Microphysics
 using ClimateMachine.Thermodynamics
 
 using CLIMAParameters
 using CLIMAParameters.Planet: ρ_cloud_liq, R_v, grav, R_d, molmass_ratio
 using CLIMAParameters.Atmos.Microphysics
+using CLIMAParameters.Atmos.Microphysics_0M
 
 struct LiquidParameterSet <: AbstractLiquidParameterSet end
 struct IceParameterSet <: AbstractIceParameterSet end
@@ -40,6 +42,45 @@ sno_prs = prs.microphys_param_set.snow
     @test τ_relax(liq_prs) ≈ 10
     @test τ_relax(ice_prs) ≈ 10
 
+end
+
+@testset "0M_microphysics" begin
+
+    _τ_precip = τ_precip(prs)
+    _qc_0 = qc_0(prs)
+    _S_0 = S_0(prs)
+
+    q_vap_sat = 10e-3
+    qc = 3e-3
+    q_tot = 13e-3
+    frac = [0.0, 0.5, 1.0]
+
+    # no rain if no cloud
+    q = PhasePartition(q_tot, 0.0, 0.0)
+    @test remove_precipitation(prs, q) ≈ 0
+    @test remove_precipitation(prs, q, q_vap_sat) ≈ 0
+
+    # rain based on qc threshold
+    for lf in frac
+        q_liq = qc * lf
+        q_ice = (1 - lf) * qc
+
+        q = PhasePartition(q_tot, q_liq, q_ice)
+
+        @test remove_precipitation(prs, q) ≈
+              -max(0, q_liq + q_ice - _qc_0) / _τ_precip
+    end
+
+    # rain based on supersaturation threshold
+    for lf in frac
+        q_liq = qc * lf
+        q_ice = (1 - lf) * qc
+
+        q = PhasePartition(q_tot, q_liq, q_ice)
+
+        @test remove_precipitation(prs, q, q_vap_sat) ≈
+              -max(0, q_liq + q_ice - _S_0 * q_vap_sat) / _τ_precip
+    end
 end
 
 @testset "RainFallSpeed" begin
@@ -133,14 +174,14 @@ end
 
     # no supersaturation -> no snow
     T = 273.15 - 5
-    q_sat_ice = q_vap_saturation_generic(prs, T, ρ; phase = Ice())
+    q_sat_ice = q_vap_saturation_generic(prs, T, ρ, Ice())
     q = PhasePartition(q_sat_ice, 2e-3, 3e-3)
     @test conv_q_ice_to_q_sno(prs, ice_prs, q, ρ, T) == 0.0
 
     # TODO - coudnt find a plot of what it should be from the original paper
     # just chacking if the number stays the same
     T = 273.15 - 10
-    q_vap = 1.02 * q_vap_saturation_generic(prs, T, ρ; phase = Ice())
+    q_vap = 1.02 * q_vap_saturation_generic(prs, T, ρ, Ice())
     q_liq = 0.0
     q_ice = 0.03 * q_vap
     q = PhasePartition(q_vap + q_liq + q_ice, q_liq, q_ice)
@@ -212,7 +253,7 @@ end
         ρ::FT,
     ) where {FT <: Real}
 
-        q_sat = q_vap_saturation_generic(prs, T, ρ; phase = Liquid())
+        q_sat = q_vap_saturation_generic(prs, T, ρ, Liquid())
         q_vap = q.tot - q.liq
         rr = q_rai / (1 - q.tot)
         rv_sat = q_sat / (1 - q.tot)

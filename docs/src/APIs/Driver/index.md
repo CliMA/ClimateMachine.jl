@@ -3,6 +3,7 @@
 ```@meta
 CurrentModule = ClimateMachine
 ```
+
 ## Solver types
 
 ```@docs
@@ -24,6 +25,7 @@ DriverConfiguration
 SolverConfiguration
 InterpolationConfiguration
 DiagnosticsConfiguration
+ConservationCheck
 ```
 
 ## Initialize / solve

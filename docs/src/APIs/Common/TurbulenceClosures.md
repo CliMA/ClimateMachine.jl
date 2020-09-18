@@ -12,7 +12,11 @@ TurbulenceClosures
 
 ```@docs
 TurbulenceClosureModel
-ConstantViscosityWithDivergence
+WithDivergence
+WithoutDivergence
+ConstantViscosity
+ConstantDynamicViscosity
+ConstantKinematicViscosity
 SmagorinskyLilly
 Vreman
 AnisoMinDiss
@@ -20,6 +24,9 @@ HyperDiffusion
 NoHyperDiffusion
 DryBiharmonic
 EquilMoistBiharmonic
+ViscousSponge
+NoViscousSponge
+UpperAtmosSponge
 ```
 
 ## Supporting Methods

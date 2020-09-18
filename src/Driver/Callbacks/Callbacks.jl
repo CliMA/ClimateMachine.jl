@@ -11,18 +11,19 @@ using Statistics
 using CLIMAParameters
 using CLIMAParameters.Planet: day
 
+using ..BalanceLaws
 using ..Courant
 using ..Checkpoint
-using ..DGMethods: courant
+using ..DGMethods
 using ..BalanceLaws: vars_state, Prognostic, Auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
+using ..Mesh.Grids: HorizontalDirection, VerticalDirection
 using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
 using ..VariableTemplates
 using ..VTK
-using ..Mesh.Grids: HorizontalDirection, VerticalDirection
 
 _sync_device(::Type{CuArray}) = synchronize()
 _sync_device(::Type{Array}) = nothing
@@ -162,7 +163,6 @@ function vtk(vtk_opt, solver_config, output_dir, number_sample_points)
             number_sample_points = number_sample_points,
         )
 
-
         # Generate the pvtu file for these vtk files
         if MPI.Comm_rank(mpicomm) == 0
             # name of the pvtu file
@@ -206,7 +206,7 @@ function monitor_timestep_duration(mtd_opt, array_type, comm)
     elseif !endswith(mtd_opt, "steps")
         @warn @sprintf(
             """
-monitor-timestep-duration must be in 'steps'; %s unrecognized; disabling""",
+            monitor-timestep-duration must be in 'steps'; %s unrecognized; disabling""",
             mtd_opt,
         )
         return nothing
@@ -228,12 +228,12 @@ monitor-timestep-duration must be in 'steps'; %s unrecognized; disabling""",
             times = times ./ ns_per_s ./ steps
 
             @info @sprintf(
-                """Wall-clock time per time-step (statistics across MPI ranks)
+                """
+                Wall-clock time per time-step (statistics across MPI ranks)
                    maximum (s) = %25.16e
                    minimum (s) = %25.16e
                    median  (s) = %25.16e
-                   std     (s) = %25.16e
-                """,
+                   std     (s) = %25.16e""",
                 maximum(times),
                 minimum(times),
                 median(times),
@@ -295,13 +295,13 @@ function monitor_courant_numbers(mcn_opt, solver_config)
         simtime = ODESolvers.gettime(solver_config.solver)
         @info @sprintf(
             """
-Courant numbers at simtime: %8.2f, Δt = %8.2f s
-Acoustic (vertical) Courant number    = %.2g
-Acoustic (horizontal) Courant number  = %.2g
-Advection (vertical) Courant number   = %.2g
-Advection (horizontal) Courant number = %.2g
-Diffusion (vertical) Courant number   = %.2g
-Diffusion (horizontal) Courant number = %.2g""",
+            Courant numbers at simtime: %8.2f, Δt = %8.2f s
+                Acoustic (vertical) Courant number    = %.2g
+                Acoustic (horizontal) Courant number  = %.2g
+                Advection (vertical) Courant number   = %.2g
+                Advection (horizontal) Courant number = %.2g
+                Diffusion (vertical) Courant number   = %.2g
+                Diffusion (horizontal) Courant number = %.2g""",
             simtime,
             Δt,
             c_v,
@@ -358,6 +358,83 @@ function checkpoint(
         nothing
     end
     return cb_checkpoint
+end
+
+"""
+    ConsCallback(dg, mass, energy, show_cons)
+
+Check mass and energy conservation against specified tolerances.
+"""
+mutable struct ConsCallback{FT}
+    bl::BalanceLaw
+    varname::String
+    error_threshold::FT
+    show::Bool
+    Σvar₀::FT
+end
+
+function GenericCallbacks.init!(cb::ConsCallback, solver, Q, param, t)
+    FT = eltype(Q)
+    idx = varsindices(vars_state(cb.bl, Prognostic(), FT), cb.varname)
+    cb.Σvar₀ = weightedsum(Q, idx)
+    return nothing
+end
+function GenericCallbacks.call!(cb::ConsCallback, solver, Q, param, t)
+    FT = eltype(Q)
+    idx = varsindices(vars_state(cb.bl, Prognostic(), FT), cb.varname)
+    Σvar = weightedsum(Q, idx)
+    δvar = (Σvar - cb.Σvar₀) / cb.Σvar₀
+
+    if abs(δvar) > cb.error_threshold
+        error("abs(δ$(cb.varname)) > $(cb.error_threshold)")
+    end
+
+    if cb.show
+        simtime = @sprintf "%8.2f" t
+        @info @sprintf(
+            """
+            Conservation
+                simtime = %s
+                abs(δ%s) = %.5e""",
+            simtime,
+            cb.varname,
+            abs(δvar),
+        )
+    end
+    return nothing
+end
+function GenericCallbacks.fini!(cb::ConsCallback, solver, Q, param, t)
+    return nothing
+end
+
+"""
+    check_cons(
+        check_cons,
+        solver_config,
+    )
+
+Return a callback function for each element of `check_cons`, which must be
+a tuple of [`ConservationCheck`s](@ref ClimateMachine.ConservationCheck).
+"""
+function check_cons(check_cons, solver_config)
+    cbs = ()
+    for cc in check_cons
+        cb_constr = CB_constructor(cc.interval, solver_config)
+        cb_constr === nothing && continue
+
+        FT = eltype(solver_config.Q)
+        cb = cb_constr((ConsCallback(
+            solver_config.dg.balance_law,
+            cc.varname,
+            FT(cc.error_threshold),
+            cc.show,
+            FT(0),
+        ),))
+
+        cbs = (cbs..., cb)
+    end
+
+    return cbs
 end
 
 """

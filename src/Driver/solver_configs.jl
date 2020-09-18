@@ -8,7 +8,7 @@
 
 Parameters needed by `ClimateMachine.solve!()` to run a simulation.
 """
-struct SolverConfiguration{FT}
+mutable struct SolverConfiguration{FT}
     name::String
     mpicomm::MPI.Comm
     param_set::AbstractParameterSet
@@ -41,6 +41,9 @@ DGMethods.courant(
     direction = EveryDirection(),
 ) = DGMethods.courant(f, sc.dg, sc.dg.balance_law, Q, dt, simtime, direction)
 
+get_direction(::ClimateMachineConfigType) = EveryDirection()
+get_direction(::SingleStackConfigType) = VerticalDirection()
+
 """
     ClimateMachine.SolverConfiguration(
         t0::FT,
@@ -70,8 +73,12 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `modeldata=nothing`: passed through to `DGModel`.
 # - `Courant_number=0.4`: for the simulation.
 # - `diffdir=EveryDirection()`: restrict diffusivity direction.
+# - `direction=EveryDirection()`: restrict diffusivity direction.
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
+
+Note that `diffdir`, `direction`, and `CFL_direction` are `VerticalDirection()`
+when `driver_config.config_type isa SingleStackConfigType`.
 """
 function SolverConfiguration(
     t0::FT,
@@ -83,10 +90,12 @@ function SolverConfiguration(
     ode_dt = nothing,
     modeldata = nothing,
     Courant_number = nothing,
-    diffdir = EveryDirection(),
+    diffdir = get_direction(driver_config.config_type),
+    direction = get_direction(driver_config.config_type),
     timeend_dt_adjust = true,
-    CFL_direction = EveryDirection(),
+    CFL_direction = get_direction(driver_config.config_type),
     fixed_number_of_steps = Settings.fixed_number_of_steps,
+    skip_update_aux = false,
 ) where {FT <: AbstractFloat}
     @tic SolverConfiguration
 
@@ -99,7 +108,7 @@ function SolverConfiguration(
     # Create the DG model and initialize the ODE state. If we're restarting,
     # use state data from the checkpoint.
     if Settings.restart_from_num > 0
-        s_Q, s_aux, t0 = Callbacks.read_checkpoint(
+        s_Q, s_aux, t0 = read_checkpoint(
             Settings.checkpoint_dir,
             driver_config.name,
             driver_config.array_type,
@@ -107,15 +116,16 @@ function SolverConfiguration(
             Settings.restart_from_num,
         )
 
-        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux)
+        state_auxiliary = restart_auxiliary_state(bl, grid, s_aux, direction)
 
         dg = DGModel(
             bl,
             grid,
             numerical_flux_first_order,
             numerical_flux_second_order,
-            numerical_flux_gradient,
+            numerical_flux_gradient;
             state_auxiliary = state_auxiliary,
+            direction = direction,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
@@ -132,8 +142,9 @@ function SolverConfiguration(
             grid,
             numerical_flux_first_order,
             numerical_flux_second_order,
-            numerical_flux_gradient,
+            numerical_flux_gradient;
             fill_nan = Settings.debug_init,
+            direction = direction,
             diffusion_direction = diffdir,
             modeldata = modeldata,
         )
@@ -161,7 +172,9 @@ function SolverConfiguration(
             )
         end
     end
-    update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+    if !skip_update_aux
+        update_auxiliary_state!(dg, bl, Q, FT(0), dg.grid.topology.realelems)
+    end
 
     if Settings.debug_init
         write_debug_init_vtk_and_pvtu(

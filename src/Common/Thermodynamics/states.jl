@@ -37,13 +37,18 @@ struct PhasePartition{FT <: Real}
     liq::FT
     "ice specific humidity (default: `0`)"
     ice::FT
+    function PhasePartition(tot::FT, liq::FT, ice::FT) where {FT}
+        q_tot_safe = max(tot, 0)
+        q_liq_safe = max(liq, 0)
+        q_ice_safe = max(ice, 0)
+        return new{FT}(q_tot_safe, q_liq_safe, q_ice_safe)
+    end
 end
 
 PhasePartition(q_tot::FT, q_liq::FT) where {FT <: Real} =
     PhasePartition(q_tot, q_liq, zero(FT))
 PhasePartition(q_tot::FT) where {FT <: Real} =
     PhasePartition(q_tot, zero(FT), zero(FT))
-
 
 """
     ThermodynamicState{FT}
@@ -106,11 +111,16 @@ function PhaseEquil(
     sat_adjust::Function = saturation_adjustment,
 ) where {FT <: Real}
     phase_type = PhaseEquil
-    _cv_d = FT(cv_d(param_set))
-    # Convert temperature tolerance to a convergence criterion on internal energy residuals
-    tol = ResidualTolerance(temperature_tol * _cv_d)
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
-    T = sat_adjust(param_set, e_int, ρ, q_tot_safe, phase_type, maxiter, tol)
+    T = sat_adjust(
+        param_set,
+        e_int,
+        ρ,
+        q_tot_safe,
+        phase_type,
+        maxiter,
+        temperature_tol,
+    )
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot_safe, T)
 end
 

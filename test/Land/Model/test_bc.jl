@@ -33,20 +33,20 @@ using ClimateMachine.BalanceLaws:
     function init_soil_water!(land, state, aux, coordinates, time)
         myfloat = eltype(state)
         state.soil.water.ϑ_l = myfloat(land.soil.water.initialϑ_l(aux))
-        state.soil.water.θ_ice = myfloat(land.soil.water.initialθ_ice(aux))
+        state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
     end
 
     soil_param_functions =
         SoilParamFunctions{FT}(porosity = 0.75, Ksat = 1e-7, S_s = 1e-3)
     bottom_flux_amplitude = FT(-3.0)
     f = FT(pi * 2.0 / 300.0)
+    # nota bene: the flux is -K∇h
     bottom_flux =
         (aux, t) -> bottom_flux_amplitude * sin(f * t) * aux.soil.water.K
     surface_flux = nothing
-    state_value = FT(0.2)
-    surface_state = (aux, t) -> state_value
+    surface_state = (aux, t) -> eltype(aux)(0.2)
     bottom_state = nothing
-    ϑ_l0 = (aux) -> state_value
+    ϑ_l0 = (aux) -> eltype(aux)(0.2)
     soil_water_model = SoilWaterModel(
         FT;
         initialϑ_l = ϑ_l0,
@@ -59,8 +59,7 @@ using ClimateMachine.BalanceLaws:
             bottom_flux = bottom_flux,
         ),
     )
-
-    soil_heat_model = PrescribedTemperatureModel{FT}()
+    soil_heat_model = PrescribedTemperatureModel()
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = ()
@@ -115,7 +114,7 @@ using ClimateMachine.BalanceLaws:
 
     all_data = Dict([k => Dict() for k in 1:n_outputs]...)
 
-    step = [1]
+    iostep = [1]
     callback = GenericCallbacks.EveryXSimulationTime(
         every_x_simulation_time,
     ) do (init = false)
@@ -127,8 +126,8 @@ using ClimateMachine.BalanceLaws:
             "K" => K,
             "K∇h_vert" => K∇h_vert,
         )
-        all_data[step[1]] = all_vars
-        step[1] += 1
+        all_data[iostep[1]] = all_vars
+        iostep[1] += 1
         nothing
     end
 
@@ -145,7 +144,8 @@ using ClimateMachine.BalanceLaws:
 
 
     t = [all_data[k]["t"][1] for k in 1:n_outputs]
-    prescribed_bottom_∇h = t -> FT(-3.0 * sin(pi * 2.0 * t / 300.0))
+    # we need a -1 out in front here because the flux BC is on -K∇h
+    prescribed_bottom_∇h = t -> FT(-1) * FT(-3.0 * sin(pi * 2.0 * t / 300.0))
 
     MSE = mean((prescribed_bottom_∇h.(t) .- computed_bottom_∇h) .^ 2.0)
     @test MSE < 1e-7

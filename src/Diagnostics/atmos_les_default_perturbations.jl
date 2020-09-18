@@ -218,8 +218,7 @@ function atmos_les_default_perturbations_init(
             flattenednames(vars_atmos_les_default_perturbations(atmos, FT)),
         )
         for varname in varnames
-            var = Variables[varname]
-            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
+            vars[varname] = (tuple(collect(keys(dims))...), FT, OrderedDict())
         end
 
         # create the output file
@@ -284,8 +283,8 @@ function atmos_les_default_perturbations_collect(
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
     @visitQ nhorzelem nvertelem Nqk Nq begin
-        state = extract_state_prognostic(dg, state_data, ijk, e)
-        aux = extract_state_auxiliary(dg, aux_data, ijk, e)
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
         thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
         compute_thermo!(atmos, state, aux, thermo)
@@ -294,7 +293,7 @@ function atmos_les_default_perturbations_collect(
     # Interpolate the state and thermo variables.
     interpol = dgngrp.interpol
     istate =
-        ArrayType{FT}(undef, interpol.Npl, number_state_prognostic(atmos, FT))
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
     interpolate_local!(interpol, Q.realdata, istate)
 
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))

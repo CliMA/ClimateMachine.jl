@@ -149,7 +149,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     state.ρu = ρ * u_cart
     state.ρe = ρ * e_tot
 
-    if state.moisture isa EquilMoist
+    if bl.moisture isa EquilMoist
         state.moisture.ρq_tot = ρ * q_tot
     end
 
@@ -159,7 +159,7 @@ end
 function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(275), FT(75), FT(45e3))
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
@@ -168,19 +168,24 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
+        # TODO - switch to line below if you want to start removing q_tot
+        #        due to precipitation
+        source = (Gravity(), Coriolis())
+        #source = (Gravity(), Coriolis(), RemovePrecipitation(true))
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
+        source = (Gravity(), Coriolis())
     end
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
-        turbulence = ConstantViscosityWithDivergence(FT(0)),
+        turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
-        source = (Gravity(), Coriolis()),
+        source = source,
     )
 
     config = ClimateMachine.AtmosGCMConfiguration(

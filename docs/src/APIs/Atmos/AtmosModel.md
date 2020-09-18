@@ -25,12 +25,20 @@ ClimateMachine.Atmos.ReferenceState
 ClimateMachine.Atmos.NoReferenceState
 ```
 
+## Thermodynamics
+
+```@docs
+ClimateMachine.Atmos.recover_thermo_state
+ClimateMachine.Atmos.new_thermo_state
+```
+
 ## Moisture
 
 ```@docs
-ClimateMachine.Atmos.NoPrecipitation
 ClimateMachine.Atmos.DryModel
 ClimateMachine.Atmos.EquilMoist
+ClimateMachine.Atmos.NonEquilMoist
+ClimateMachine.Atmos.NoPrecipitation
 ClimateMachine.Atmos.Rain
 ```
 
@@ -57,4 +65,11 @@ ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
 ClimateMachine.Atmos.NoSlip
 ClimateMachine.Atmos.average_density
+```
+
+## Sources
+
+```@docs
+ClimateMachine.Atmos.RemovePrecipitation
+ClimateMachine.Atmos.CreateClouds
 ```

@@ -1,5 +1,5 @@
 using ..Atmos
-using ..Atmos: MoistureModel, thermo_state
+using ..Atmos: MoistureModel, recover_thermo_state
 using ..Mesh.Topologies
 using ..Mesh.Grids
 using ..Thermodynamics
@@ -64,10 +64,11 @@ function vars_atmos_les_default_simple(m::AtmosModel, FT)
     end
 end
 vars_atmos_les_default_simple(::MoistureModel, FT) = @vars()
-function vars_atmos_les_default_simple(m::EquilMoist, FT)
+function vars_atmos_les_default_simple(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         qt::FT                  # q_tot
         ql::FT                  # q_liq
+        qi::FT                  # q_ice
         qv::FT                  # q_vap
         thv::FT                 # θ_vir
         thl::FT                 # θ_liq
@@ -130,7 +131,7 @@ function atmos_les_default_simple_sums!(
     return nothing
 end
 function atmos_les_default_simple_sums!(
-    moist::EquilMoist,
+    moist::Union{EquilMoist, NonEquilMoist},
     state,
     gradflux,
     thermo,
@@ -140,6 +141,7 @@ function atmos_les_default_simple_sums!(
 )
     sums.moisture.qt += MH * state.moisture.ρq_tot
     sums.moisture.ql += MH * thermo.moisture.q_liq * state.ρ
+    sums.moisture.qi += MH * thermo.moisture.q_ice * state.ρ
     sums.moisture.qv += MH * thermo.moisture.q_vap * state.ρ
     sums.moisture.thv += MH * thermo.moisture.θ_vir * state.ρ
     sums.moisture.thl += MH * thermo.moisture.θ_liq_ice * state.ρ
@@ -147,6 +149,39 @@ function atmos_les_default_simple_sums!(
     sums.moisture.w_qt_sgs += MH * d_q_tot[end] * state.ρ
 
     return nothing
+end
+
+function atmos_les_default_clouds(
+    ::MoistureModel,
+    thermo,
+    idx,
+    qc_gt_0_z,
+    qc_gt_0_full,
+    z,
+    cld_top,
+    cld_base,
+)
+    return cld_top, cld_base
+end
+function atmos_les_default_clouds(
+    moist::Union{EquilMoist, NonEquilMoist},
+    thermo,
+    idx,
+    qc_gt_0_z,
+    qc_gt_0_full,
+    z,
+    cld_top,
+    cld_base,
+)
+    if thermo.moisture.has_condensate
+        FT = eltype(qc_gt_0_z)
+        qc_gt_0_z[idx] = one(FT)
+        qc_gt_0_full[idx] = one(FT)
+
+        cld_top = max(cld_top, z)
+        cld_base = min(cld_base, z)
+    end
+    return cld_top, cld_base
 end
 
 # Variances and covariances
@@ -169,13 +204,14 @@ function vars_atmos_les_default_ho(m::AtmosModel, FT)
     end
 end
 vars_atmos_les_default_ho(::MoistureModel, FT) = @vars()
-function vars_atmos_les_default_ho(m::EquilMoist, FT)
+function vars_atmos_les_default_ho(m::Union{EquilMoist, NonEquilMoist}, FT)
     @vars begin
         var_qt::FT              # q_tot′q_tot′
         var_thl::FT             # θ_liq_ice′θ_liq_ice′
 
         cov_w_qt::FT            # w′q_tot′
         cov_w_ql::FT            # w′q_liq′
+        cov_w_qi::FT            # w′q_ice′
         cov_w_qv::FT            # w′q_vap′
         cov_w_thv::FT           # w′θ_v′
         cov_w_thl::FT           # w′θ_liq_ice′
@@ -244,7 +280,7 @@ function atmos_les_default_ho_sums!(
     return nothing
 end
 function atmos_les_default_ho_sums!(
-    moist::EquilMoist,
+    moist::Union{EquilMoist, NonEquilMoist},
     state,
     thermo,
     MH,
@@ -256,6 +292,7 @@ function atmos_les_default_ho_sums!(
     q_tot = state.moisture.ρq_tot / state.ρ
     q_tot′ = q_tot - ha.moisture.qt
     q_liq′ = thermo.moisture.q_liq - ha.moisture.ql
+    q_ice′ = thermo.moisture.q_ice - ha.moisture.qi
     q_vap′ = thermo.moisture.q_vap - ha.moisture.qv
     θ_vir′ = thermo.moisture.θ_vir - ha.moisture.thv
     θ_liq_ice′ = thermo.moisture.θ_liq_ice - ha.moisture.thl
@@ -265,6 +302,7 @@ function atmos_les_default_ho_sums!(
 
     sums.moisture.cov_w_qt += MH * w′ * q_tot′ * state.ρ
     sums.moisture.cov_w_ql += MH * w′ * q_liq′ * state.ρ
+    sums.moisture.cov_w_qi += MH * w′ * q_ice′ * state.ρ
     sums.moisture.cov_w_qv += MH * w′ * q_vap′ * state.ρ
     sums.moisture.cov_w_thv += MH * w′ * θ_vir′ * state.ρ
     sums.moisture.cov_w_thl += MH * w′ * θ_liq_ice′ * state.ρ
@@ -309,6 +347,7 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         vars["cld_top"] = ((), FT, Variables["cld_top"].attrib)
         vars["cld_base"] = ((), FT, Variables["cld_base"].attrib)
         vars["cld_cover"] = ((), FT, Variables["cld_cover"].attrib)
+        vars["lwp"] = ((), FT, Variables["lwp"].attrib)
 
         # create the output file
         dprefix = @sprintf(
@@ -351,17 +390,19 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         state_data = Q.realdata
         aux_data = dg.state_auxiliary.realdata
         vgeo = grid.vgeo
+        ω = grid.ω
         gradflux_data = dg.state_gradient_flux.realdata
     else
         state_data = Array(Q.realdata)
         aux_data = Array(dg.state_auxiliary.realdata)
         vgeo = Array(grid.vgeo)
+        ω = Array(grid.ω)
         gradflux_data = Array(dg.state_gradient_flux.realdata)
     end
     FT = eltype(state_data)
 
     zvals = AtmosCollected.zvals
-    repdvsr = AtmosCollected.repdvsr
+    MH_z = AtmosCollected.MH_z
 
     # Visit each node of the state variables array and:
     # - generate and store the thermo variables,
@@ -374,8 +415,11 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         zeros(FT, num_atmos_les_default_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
-    ql_gt_0_z = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
-    ql_gt_0_full = zeros(FT, (Nq * Nq * nhorzelem))
+    # for LWP
+    ρq_liq_z = [zero(FT) for _ in 1:(Nqk * nvertelem)]
+    # for cld*
+    qc_gt_0_z = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
+    qc_gt_0_full = zeros(FT, (Nq * Nq * nhorzelem))
     # In honor of PyCLES!
     cld_top = FT(-100000)
     cld_base = FT(100000)
@@ -402,17 +446,22 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             simple,
         )
 
-        # FIXME properly
-        if isa(bl.moisture, EquilMoist)
-            if !iszero(thermo.moisture.q_liq)
-                idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
-                ql_gt_0_z[evk][idx] = one(FT)
-                ql_gt_0_full[idx] = one(FT)
+        idx = (Nq * Nq * (eh - 1)) + (Nq * (j - 1)) + i
+        cld_top, cld_base = atmos_les_default_clouds(
+            bl.moisture,
+            thermo,
+            idx,
+            qc_gt_0_z[evk],
+            qc_gt_0_full,
+            zvals[evk],
+            cld_top,
+            cld_base,
+        )
 
-                z = zvals[evk]
-                cld_top = max(cld_top, z)
-                cld_base = min(cld_base, z)
-            end
+        # FIXME properly
+        if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
+            # for LWP
+            ρq_liq_z[evk] += MH * thermo.moisture.q_liq * state.ρ * state.ρ
         end
     end
 
@@ -424,19 +473,25 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     cld_frac = zeros(FT, Nqk * nvertelem)
     for evk in 1:(Nqk * nvertelem)
         MPI.Allreduce!(simple_sums[evk], simple_avgs[evk], +, mpicomm)
-        simple_avgs[evk] .= simple_avgs[evk] ./ repdvsr[evk]
+        simple_avgs[evk] .= simple_avgs[evk] ./ MH_z[evk]
 
         # FIXME properly
-        if isa(bl.moisture, EquilMoist)
-            tot_ql_gt_0_z = MPI.Reduce(sum(ql_gt_0_z[evk]), +, 0, mpicomm)
-            tot_horz_z = MPI.Reduce(length(ql_gt_0_z[evk]), +, 0, mpicomm)
+        if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
+            tot_qc_gt_0_z = MPI.Reduce(sum(qc_gt_0_z[evk]), +, 0, mpicomm)
+            tot_horz_z = MPI.Reduce(length(qc_gt_0_z[evk]), +, 0, mpicomm)
             if mpirank == 0
-                cld_frac[evk] = tot_ql_gt_0_z / tot_horz_z
+                cld_frac[evk] = tot_qc_gt_0_z / tot_horz_z
+            end
+
+            # for LWP
+            tot_ρq_liq_z = MPI.Reduce(ρq_liq_z[evk], +, 0, mpicomm)
+            if mpirank == 0
+                ρq_liq_z[evk] = tot_ρq_liq_z / MH_z[evk]
             end
         end
     end
     # FIXME properly
-    if isa(bl.moisture, EquilMoist)
+    if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
         cld_top = MPI.Reduce(cld_top, max, 0, mpicomm)
         if cld_top == FT(-100000)
             cld_top = NaN
@@ -445,11 +500,11 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         if cld_base == FT(100000)
             cld_base = NaN
         end
-        tot_ql_gt_0_full = MPI.Reduce(sum(ql_gt_0_full), +, 0, mpicomm)
-        tot_horz_full = MPI.Reduce(length(ql_gt_0_full), +, 0, mpicomm)
+        tot_qc_gt_0_full = MPI.Reduce(sum(qc_gt_0_full), +, 0, mpicomm)
+        tot_horz_full = MPI.Reduce(length(qc_gt_0_full), +, 0, mpicomm)
         cld_cover = zero(FT)
         if mpirank == 0
-            cld_cover = tot_ql_gt_0_full / tot_horz_full
+            cld_cover = tot_qc_gt_0_full / tot_horz_full
         end
     end
 
@@ -458,14 +513,34 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         s -> startswith(s, "moisture.") ? s[10:end] : s,
         flattenednames(vars_atmos_les_default_simple(bl, FT)),
     )
-    for vari in 1:length(simple_varnames)
-        for evk in 1:(Nqk * nvertelem)
-            simple_ha = atmos_les_default_simple_vars(bl, simple_avgs[evk])
-            avg_rho = simple_ha.avg_rho
+    for evk in 1:(Nqk * nvertelem)
+        simple_ha = atmos_les_default_simple_vars(bl, simple_avgs[evk])
+        avg_rho = simple_ha.avg_rho
+        for vari in 1:length(simple_varnames)
             if simple_varnames[vari] != "avg_rho"
                 simple_avgs[evk][vari] /= avg_rho
             end
         end
+
+        # for LWP
+        # FIXME properly
+        if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
+            ρq_liq_z[evk] /= avg_rho
+        end
+    end
+
+    # compute LWP
+    lwp = NaN
+    if mpirank == 0
+        JcV = reshape(
+            view(vgeo, :, grid.JcVid, topology.realelems),
+            Nq^2,
+            Nqk,
+            nvertelem,
+            nhorzelem,
+        )
+        Mvert = (ω .* JcV[1, :, :, 1])[:]
+        lwp = FT(sum(ρq_liq_z .* Mvert))
     end
 
     # compute the variances and covariances
@@ -493,7 +568,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     for evk in 1:(Nqk * nvertelem)
         MPI.Reduce!(ho_sums[evk], ho_avgs[evk], +, 0, mpicomm)
         if mpirank == 0
-            ho_avgs[evk] .= ho_avgs[evk] ./ repdvsr[evk]
+            ho_avgs[evk] .= ho_avgs[evk] ./ MH_z[evk]
         end
     end
 
@@ -522,11 +597,12 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals[varname] = davg
         end
 
-        if isa(bl.moisture, EquilMoist)
+        if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
             varvals["cld_frac"] = cld_frac
             varvals["cld_top"] = cld_top
             varvals["cld_base"] = cld_base
             varvals["cld_cover"] = cld_cover
+            varvals["lwp"] = lwp
         end
 
         # write output

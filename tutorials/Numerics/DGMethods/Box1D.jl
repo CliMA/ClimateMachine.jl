@@ -4,6 +4,7 @@ using MPI
 using OrderedCollections
 using Plots
 using StaticArrays
+using Printf
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -34,7 +35,8 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    boundary_state!
+    boundary_state!,
+    wavespeed
 
 ClimateMachine.init(; disable_gpu = true, log_level = "warn");
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
@@ -51,6 +53,13 @@ vars_state(::Box1D, ::Auxiliary, FT) = @vars(z_dim::FT);
 vars_state(::Box1D, ::Prognostic, FT) = @vars(q::FT);
 vars_state(::Box1D, ::Gradient, FT) = @vars();
 vars_state(::Box1D, ::GradientFlux, FT) = @vars();
+
+function wavespeed(
+    ::Box1D{FT, _init_q, _amplitude, _velo},
+    _...,
+) where {FT, _init_q, _amplitude, _velo}
+    return _velo
+end
 
 function nodal_init_state_auxiliary!(
     m::Box1D,
@@ -149,6 +158,7 @@ function run_box1D(
     exp_param_2::Int = 32,
     boyd_param_1::Int = 0,
     boyd_param_2::Int = 32,
+    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
 )
     N_poly = N_poly
     nelem = 128
@@ -163,7 +173,7 @@ function run_box1D(
         zmax,
         param_set,
         m,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+        numerical_flux_first_order = numerical_flux_first_order,
         boundary = ((0, 0), (0, 0), (0, 0)),
         periodicity = (true, true, true),
     )
@@ -196,7 +206,6 @@ function run_box1D(
     time_data = FT[0]                                      # store time data
 
     # output
-    step = [1]
     output_freq = floor(Int, timeend / dt) + 10
 
     cb_output = GenericCallbacks.EveryXSimulationSteps(output_freq) do
@@ -274,7 +283,21 @@ function run_box1D(
     end
     user_cb = (user_cb_arr...,)
 
+    initial_mass = weightedsum(solver_config.Q)
     ClimateMachine.invoke!(solver_config; user_callbacks = (user_cb))
+    final_mass = weightedsum(solver_config.Q)
+    @info @sprintf(
+        """
+Mass Conservation:
+    initial mass          = %.16e
+    final mass            = %.16e
+    difference            = %.16e
+    normalized difference = %.16e""",
+        initial_mass,
+        final_mass,
+        final_mass - initial_mass,
+        (final_mass - initial_mass) / initial_mass
+    )
 
     push!(all_data, dict_of_nodal_states(solver_config, [z_key]))
     push!(time_data, gettime(solver_config.solver))

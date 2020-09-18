@@ -1,4 +1,5 @@
 #!/usr/bin/env julia --project
+
 using ClimateMachine
 ClimateMachine.init(parse_clargs = true)
 
@@ -39,7 +40,8 @@ import ClimateMachine.BalanceLaws: boundary_state!
 import ClimateMachine.Atmos: flux_second_order!
 
 """
-  Initial Condition for Taylor-Green vortex (LES)
+    Initial Condition for Taylor-Green vortex (LES)
+
 @article{taylorGreen1937,
 author = {Taylor, G. I. and Green, A. E.},
 title = {Mechanisms of production of small eddies from large ones},
@@ -49,14 +51,12 @@ number = {895},
 year = {1937},
 doi={doi.org/10.1098/rspa.1937.0036},
 }
-
 @article{rafeiEtAl2018,
 author = {Rafei, M.E. and K\"on\"oszy, L. and Rana, Z.},
 title = {Investigation of Numerical Dissipation in Classicaland Implicit Large Eddy Simulations,
 journal = {Aerospace},
 year = {2018},
 }
-
 @article{bullJameson2014,
 author = {Bull, J.R. and Jameson, A.},
 title = {Simulation of the Compressible {Taylor Green} Vortex
@@ -64,7 +64,6 @@ using High-Order Flux Reconstruction Schemes},
 journal = {AIAA Aviation 7th AIAA theoretical fluid mechanics conference},
 year = {2014},
 }
-
 """
 function init_greenvortex!(problem, bl, state, aux, (x, y, z), t)
     # Problem float-type
@@ -85,7 +84,7 @@ function init_greenvortex!(problem, bl, state, aux, (x, y, z), t)
     e_pot = FT(0)# potential energy
     Pinf = 101325
     Uzero = FT(100)
-    p = Pinf + (ρ * Uzero^2 / 16) * (2 + cos(z)) * (cos(x) + cos(y))
+    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y))
     u = Uzero * sin(x) * cos(y) * cos(z)
     v = -Uzero * cos(x) * sin(y) * cos(z)
     e_kin = 0.5 * (u^2 + v^2)
@@ -98,29 +97,13 @@ function init_greenvortex!(problem, bl, state, aux, (x, y, z), t)
     state.ρe = ρe_tot
 end
 
-"""
-    config_greenvortex(FT, N, resolution, xmax, ymax, zmax)
-
-Arguments
-- FT = Floating-point type. Currently `Float64` or `Float32`
-- N  = DG Polynomial order
-- resolution = 3-component Tuple (Δx, Δy, Δz) with effective resolutions for Cartesian directions
-- xmax, ymax, zmax = Domain maximum extents. Assumes (0,0,0) to be the domain minimum extents unless otherwise specified.
-
-Returns
-- `config` = Object using the constructor for the `AtmosLESConfiguration`
-"""
+# Set up AtmosLESConfiguration for the experiment
 function config_greenvortex(
-    FT,
+    ::Type{FT},
     N,
+    (xmin, xmax, ymin, ymax, zmin, zmax),
     resolution,
-    xmax,
-    ymax,
-    zmax,
-    xmin,
-    ymin,
-    zmin,
-)
+) where {FT}
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
@@ -129,50 +112,85 @@ function config_greenvortex(
     model = AtmosModel{FT}(
         AtmosLESConfigType,                 # Flow in a box, requires the AtmosLESConfigType
         param_set;                          # Parameter set corresponding to earth parameters
-        init_state_prognostic = init_greenvortex!,             # Apply the initial condition
+        init_state_prognostic = init_greenvortex!,
+        ref_state = NoReferenceState(),
         orientation = NoOrientation(),
         turbulence = Vreman(_C_smag),       # Turbulence closure model
         moisture = DryModel(),
         source = (),
     )
 
-    # Finally,  we pass a `Problem Name` string, the mesh information, and the model type to  the [`AtmosLESConfiguration`] object.
     config = ClimateMachine.AtmosLESConfiguration(
-        "GreenVortex",       # Problem title [String]
-        N,                       # Polynomial order [Int]
-        resolution,              # (Δx, Δy, Δz) effective resolution [m]
-        xmax,                    # Domain maximum size [m]
-        ymax,                    # Domain maximum size [m]
-        zmax,                    # Domain maximum size [m]
-        param_set,               # Parameter set.
+        "GreenVortex",          # Problem title [String]
+        N,                      # Polynomial order [Int]
+        resolution,             # (Δx, Δy, Δz) effective resolution [m]
+        xmax,                   # Domain maximum size [m]
+        ymax,                   # Domain maximum size [m]
+        zmax,                   # Domain maximum size [m]
+        param_set,              # Parameter set.
         init_greenvortex!,      # Function specifying initial condition
         boundary = ((0, 0), (0, 0), (0, 0)),
         periodicity = (true, true, true),
         xmin = xmin,
         ymin = ymin,
         zmin = zmin,
-        solver_type = ode_solver,# Time-integrator type
-        model = model,           # Model type
+        solver_type = ode_solver,       # Time-integrator type
+        model = model,                  # Model type
     )
     return config
 end
 
-# Here we define the diagnostic configuration specific to this problem.
-function config_diagnostics(driver_config, nor, iter)
-    interval = "360steps"
-    dgngrp = setup_atmos_turbulence_stats(
+# Define the diagnostics configuration for this experiment
+function config_diagnostics(
+    driver_config,
+    (xmin, xmax, ymin, ymax, zmin, zmax),
+    resolution,
+    tnor,
+    titer,
+    snor,
+)
+    ts_dgngrp = setup_atmos_turbulence_stats(
         AtmosLESConfigType(),
-        interval,
+        "360steps",
         driver_config.name,
-        nor,
-        iter,
+        tnor,
+        titer,
     )
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+
+    boundaries = [
+        xmin ymin zmin
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    ds_dgngrp = setup_dump_spectra_diagnostics(
+        AtmosLESConfigType(),
+        "0.06ssecs",
+        driver_config.name,
+        interpol = interpol,
+        snor,
+    )
+    me_dgngrp = setup_atmos_mass_energy_loss(
+        AtmosLESConfigType(),
+        "0.02ssecs",
+        driver_config.name,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([
+        ts_dgngrp,
+        ds_dgngrp,
+        me_dgngrp,
+    ],)
 end
 
+# Entry point
 function main()
     FT = Float64
+    # DG polynomial order
     N = 4
+    # Domain resolution and size
     Ncellsx = 64
     Ncellsy = 64
     Ncellsz = 64
@@ -180,26 +198,22 @@ function main()
     Δy = Δx
     Δz = Δx
     resolution = (Δx, Δy, Δz)
-    xmax = FT(pi)
-    ymax = FT(pi)
-    zmax = FT(pi)
     xmin = FT(-pi)
+    xmax = FT(pi)
     ymin = FT(-pi)
+    ymax = FT(pi)
     zmin = FT(-pi)
+    zmax = FT(pi)
+    # Simulation time
     t0 = FT(0)
     timeend = FT(0.1)
-    CFL = FT(0.9)
+    CFL = FT(1.8)
 
     driver_config = config_greenvortex(
         FT,
         N,
+        (xmin, xmax, ymin, ymax, zmin, zmax),
         resolution,
-        xmax,
-        ymax,
-        zmax,
-        xmin,
-        ymin,
-        zmin,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -208,13 +222,28 @@ function main()
         init_on_cpu = true,
         Courant_number = CFL,
     )
-    nor = FT(100)
-    iter = FT(0.01)
-    dgn_config = config_diagnostics(driver_config, nor, iter)
+
+    tnor = FT(100)
+    titer = FT(0.01)
+    snor = FT(10000.0)
+    dgn_config = config_diagnostics(
+        driver_config,
+        (xmin, xmax, ymin, ymax, zmin, zmax),
+        resolution,
+        tnor,
+        titer,
+        snor,
+    )
+
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "100steps", FT(0.0001)),
+        ClimateMachine.ConservationCheck("ρe", "100steps", FT(0.0025)),
+    )
 
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
+        check_cons = check_cons,
         check_euclidean_distance = true,
     )
 

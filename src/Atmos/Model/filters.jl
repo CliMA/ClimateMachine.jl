@@ -27,6 +27,10 @@ function compute_filter_argument!(
     if !(target.atmos.moisture isa DryModel)
         filter_state.moisture.ρq_tot -= aux.ref_state.ρq_tot
     end
+    if (target.atmos.moisture isa NonEquilMoist)
+        filter_state.moisture.ρq_liq -= aux.ref_state.ρq_liq
+        filter_state.moisture.ρq_ice -= aux.ref_state.ρq_ice
+    end
 end
 function compute_filter_result!(
     target::AtmosFilterPerturbations,
@@ -41,5 +45,9 @@ function compute_filter_result!(
     state.ρe += aux.ref_state.ρe
     if !(target.atmos.moisture isa DryModel)
         state.moisture.ρq_tot += aux.ref_state.ρq_tot
+    end
+    if (target.atmos.moisture isa NonEquilMoist)
+        filter_state.moisture.ρq_liq += aux.ref_state.ρq_liq
+        filter_state.moisture.ρq_ice += aux.ref_state.ρq_ice
     end
 end

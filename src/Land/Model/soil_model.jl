@@ -8,7 +8,7 @@ export SoilModel, SoilParamFunctions
 abstract type AbstractSoilParameterFunctions{FT <: AbstractFloat} end
 
 """
-    struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
+    SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
 
 Necessary parameters for the soil model. These will eventually be prescribed
 functions of space (and time).
@@ -18,10 +18,33 @@ $(DocStringExtensions.FIELDS)
 Base.@kwdef struct SoilParamFunctions{FT} <: AbstractSoilParameterFunctions{FT}
     "Aggregate porosity of the soil"
     porosity::FT = FT(NaN)
-    "Hydraulic conductivity at saturation"
+    "Hydraulic conductivity at saturation. Units of m s-1."
     Ksat::FT = FT(NaN)
-    "Specific storage of the soil"
+    "Specific storage of the soil. Units of m s-1."
     S_s::FT = FT(NaN)
+    "Volume fraction of gravels, relative to soil solids only. Units of m-3 m-3."
+    ν_ss_gravel::FT = FT(NaN)
+    "Volume fraction of SOM, relative to soil solids only. Units of m-3 m-3."
+    ν_ss_om::FT = FT(NaN)
+    "Volume fraction of quartz, relative to soil solids only. Units of m-3 m-3."
+    ν_ss_quartz::FT = FT(NaN)
+    "Bulk volumetric heat capacity of dry soil. Units of J m-3 K-1."
+    ρc_ds::FT = FT(NaN)
+    "Particle density for soil solids. Units of kg/m^3"
+    ρp::FT = FT(NaN)
+    "Thermal conductivity of the soil solids. Units of W m-1 K-1."
+    κ_solid::FT = FT(NaN)
+    "Saturated thermal conductivity for unfrozen soil. Units of W m-1 K-1."
+    κ_sat_unfrozen::FT = FT(NaN)
+    "Saturated thermal conductivity for frozen soil. Units of W m-1 K-1."
+    κ_sat_frozen::FT = FT(NaN)
+    "Adjustable scale parameter for determining Kersten number in the Balland and Arp formulation; unitless."
+    a::FT = FT(0.24)
+    "Adjustable scale parameter for determining Kersten number in the Balland and Arp formulation; unitless."
+    b::FT = FT(18.1)
+    "Parameter used in the Balland and Arp formulation for κ_dry; unitless"
+    κ_dry_parameter::FT = FT(0.053)
+
 end
 
 

@@ -70,16 +70,33 @@ using ClimateMachine.Mesh.Grids
 using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
+using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Auxiliary, Gradient, GradientFlux, Prognostic
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+using CLIMAParameters.Atmos.Microphysics
 
-import ClimateMachine.BalanceLaws: vars_state
-import ClimateMachine.Atmos: source!, atmos_source!, altitude
-import ClimateMachine.Atmos: flux_second_order!, thermo_state
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+
+struct MicropysicsParameterSet{L, I} <: AbstractMicrophysicsParameterSet
+    liq::L
+    ice::I
+end
+
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+    microphys::M
+end
+
+microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
+
+const param_set = EarthParameterSet(microphys)
+
+import ClimateMachine.Atmos: atmos_source!
+using ClimateMachine.Atmos: altitude, recover_thermo_state
 
 """
   Bomex Geostrophic Forcing (Source)
@@ -208,7 +225,7 @@ function atmos_source!(
     _e_int_v0 = FT(e_int_v0(atmos.param_set))
 
     # Establish thermodynamic state
-    TS = thermo_state(atmos, state, aux)
+    TS = recover_thermo_state(atmos, state, aux)
 
     # Moisture tendencey (sink term)
     # Temperature tendency (Radiative cooling)
@@ -356,14 +373,26 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
+    if bl.moisture isa NonEquilMoist
+        state.moisture.ρq_liq = FT(0)
+        state.moisture.ρq_ice = FT(0)
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
         state.moisture.ρq_tot += rand() * ρ * q_tot / 100
     end
+    init_state_prognostic!(bl.turbconv, bl, state, aux, (x, y, z), t)
 end
 
-function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
+function bomex_model(
+    ::Type{FT},
+    config_type,
+    zmax,
+    surface_flux;
+    turbconv = NoTurbConv(),
+    moisture_model = "equilibrium",
+) where {FT}
 
     ics = init_bomex!     # Initial conditions
 
@@ -398,7 +427,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
     f_coriolis = FT(0.376e-4) # Coriolis parameter
 
     # Assemble source components
-    source = (
+    source_default = (
         Gravity(),
         BomexTendencies{FT}(
             ∂qt∂t_peak,
@@ -420,22 +449,33 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
             v_geostrophic,
         ),
         BomexGeostrophic{FT}(f_coriolis, u_geostrophic, u_slope, v_geostrophic),
+        turbconv_sources(turbconv)...,
     )
-
-    # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.IMEXSolverType()
+    if moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
 
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
-        energy = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
-        moisture = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+        energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
-        energy = BulkFormulaEnergy(
+        energy_bc = BulkFormulaEnergy(
             (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> T_sfc,
-            (state, aux, t) -> q_sfc,
+            (state, aux, t) -> (T_sfc, q_sfc),
         )
-        moisture = BulkFormulaMoisture(
+        moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
             (state, aux, t) -> q_sfc,
         )
@@ -446,6 +486,7 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
             surface_flux,
         )
     end
+
     problem = AtmosProblem(
         boundarycondition = (
             AtmosBC(
@@ -454,8 +495,9 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
                     # P represents the projection onto the horizontal
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
-                energy = energy,
-                moisture = moisture,
+                energy = energy_bc,
+                moisture = moisture_bc,
+                turbconv = turbconv_bcs(turbconv),
             ),
             AtmosBC(),
         ),
@@ -464,28 +506,16 @@ function config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
 
     # Assemble model components
     model = AtmosModel{FT}(
-        AtmosLESConfigType,
+        config_type,
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = moisture,
         source = source,
+        turbconv = turbconv,
     )
 
-    # Assemble configuration
-    config = ClimateMachine.AtmosLESConfiguration(
-        "BOMEX",
-        N,
-        resolution,
-        xmax,
-        ymax,
-        zmax,
-        param_set,
-        init_bomex!,
-        solver_type = ode_solver_type,
-        model = model,
-    )
-    return config
+    return model
 end
 
 function config_diagnostics(driver_config)
@@ -504,97 +534,3 @@ function config_diagnostics(driver_config)
         core_dgngrp,
     ])
 end
-
-function main()
-    # add a command line argument to specify the kind of surface flux
-    # TODO: this will move to the future namelist functionality
-    bomex_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(bomex_args, "BOMEX")
-    @add_arg_table! bomex_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
-        arg_type = String
-        default = "prescribed"
-    end
-
-    cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
-
-    surface_flux = cl_args["surface_flux"]
-
-    FT = Float32
-
-    # DG polynomial order
-    N = 4
-    # Domain resolution and size
-    Δh = FT(100)
-    Δv = FT(40)
-
-    resolution = (Δh, Δh, Δv)
-
-    # Prescribe domain parameters
-    xmax = FT(6400)
-    ymax = FT(6400)
-    zmax = FT(3000)
-
-    t0 = FT(0)
-
-    # For a full-run, please set the timeend to 3600*6 seconds
-    # For the test we set this to == 30 minutes
-    timeend = FT(1800)
-    #timeend = FT(3600 * 6)
-    CFLmax = FT(0.90)
-
-    driver_config =
-        config_bomex(FT, N, resolution, xmax, ymax, zmax, surface_flux)
-    solver_config = ClimateMachine.SolverConfiguration(
-        t0,
-        timeend,
-        driver_config,
-        init_on_cpu = true,
-        Courant_number = CFLmax,
-    )
-    dgn_config = config_diagnostics(driver_config)
-
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            ("moisture.ρq_tot",),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
-        nothing
-    end
-
-    # State variable
-    Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    M = vgeo[:, Grids._M, :]
-    # Unpack prognostic vars
-    ρ₀ = Q.ρ
-    ρe₀ = Q.ρe
-    # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M)
-    Σρe₀ = sum(ρe₀ .* M)
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 0.0001)
-        @test (abs(δρe) <= 0.0025)
-        nothing
-    end
-
-    result = ClimateMachine.invoke!(
-        solver_config;
-        diagnostics_config = dgn_config,
-        user_callbacks = (cbtmarfilter, cb_check_cons),
-        check_euclidean_distance = true,
-    )
-end
-
-main()

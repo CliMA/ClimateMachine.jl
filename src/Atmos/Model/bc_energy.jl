@@ -118,17 +118,15 @@ end
 """
     BulkFormulaEnergy(fn) :: EnergyBC
 
-Calculate the net inward energy flux across the boundary.
-The drag coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`.
-temperature at the boundary is `T= fn_T(state, aux, t)`.
-q_tot at the boundary is `q_tot = fn_q_tot(state, aux, t)`.
-`_int` refers to the first interior node.
+Calculate the net inward energy flux across the boundary. The drag
+coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`. The surface
+temperature and q_tot are `T, q_tot = fn_T_and_q_tot(state, aux, t)`.
+
 Return the flux (in W m^-2).
 """
-struct BulkFormulaEnergy{FNX, FNT, FNM} <: EnergyBC
+struct BulkFormulaEnergy{FNX, FNTM} <: EnergyBC
     fn_C_h::FNX
-    fn_T::FNT
-    fn_q_tot::FNM
+    fn_T_and_q_tot::FNTM
 end
 function atmos_energy_boundary_state!(
     nf,
@@ -161,12 +159,11 @@ function atmos_energy_normal_boundary_flux_second_order!(
     u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
     normu_int⁻_tan = norm(u_int⁻_tan)
     C_h = bc_energy.fn_C_h(state⁻, aux⁻, t, normu_int⁻_tan)
-    T = bc_energy.fn_T(state⁻, aux⁻, t)
-    q_tot = bc_energy.fn_q_tot(state⁻, aux⁻, t)
+    T, q_tot = bc_energy.fn_T_and_q_tot(state⁻, aux⁻, t)
 
     # calculate MSE from the states at the boundary and at the interior point
     ts = TemperatureSHumEquil(atmos.param_set, T, state⁻.ρ, q_tot)
-    ts_int = thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
+    ts_int = recover_thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
     e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)
     MSE = moist_static_energy(ts, e_pot)

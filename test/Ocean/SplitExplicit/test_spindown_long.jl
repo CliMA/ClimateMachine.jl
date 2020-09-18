@@ -35,64 +35,59 @@ const FT = Float64
 
     @testset "Single-Rate" begin
         @testset "Not Coupled" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
+            config =
+                SplitConfig("uncoupled", resolution, dimensions, Uncoupled())
+
+            run_split_explicit(
+                config,
                 timespan,
-                coupling = Uncoupled(),
-                dt_slow = 300,
                 refDat = refVals.uncoupled,
+                analytic_solution = true,
             )
         end
 
         @testset "Fully Coupled" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
+            config = SplitConfig("coupled", resolution, dimensions, Coupled())
+
+            run_split_explicit(
+                config,
                 timespan,
-                coupling = Coupled(),
-                dt_slow = 300,
                 refDat = refVals.coupled,
+                analytic_solution = true,
             )
         end
     end
 
+    config = SplitConfig("multirate", resolution, dimensions, Coupled())
+
     @testset "Multi-rate" begin
         @testset "Δt = 30 mins" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
+            run_split_explicit(
+                config,
                 timespan,
-                coupling = Coupled(),
                 dt_slow = 30 * 60,
                 refDat = refVals.thirty_minutes,
+                analytic_solution = true,
             )
         end
 
         @testset "Δt = 60 mins" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
+            run_split_explicit(
+                config,
                 timespan,
-                coupling = Coupled(),
                 dt_slow = 60 * 60,
                 refDat = refVals.sixty_minutes,
+                analytic_solution = true,
             )
         end
 
         @testset "Δt = 90 mins" begin
-            run_hydrostatic_spindown(
-                "vtk_split",
-                resolution,
-                dimensions,
+            run_split_explicit(
+                config,
                 timespan,
-                coupling = Coupled(),
                 dt_slow = 90 * 60,
                 refDat = refVals.ninety_minutes,
+                analytic_solution = true,
             )
         end
     end

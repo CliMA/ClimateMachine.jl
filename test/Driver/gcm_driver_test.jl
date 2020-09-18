@@ -63,15 +63,15 @@ function main()
     resolution = (nelem_horz, nelem_vert)
 
     t0 = FT(0)
-    timeend = FT(1800)
+    timeend = FT(3600)
     # Timestep size (s)
-    dt = FT(600)
+    dt = FT(1800)
 
     setup = AcousticWaveSetup{FT}()
     T_profile = IsothermalProfile(param_set, setup.T_ref)
     orientation = SphericalOrientation()
     ref_state = HydrostaticState(T_profile)
-    turbulence = ConstantViscosityWithDivergence(FT(0))
+    turbulence = ConstantDynamicViscosity(FT(0))
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
@@ -84,10 +84,12 @@ function main()
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(
+        splitting_type = ClimateMachine.HEVISplitting(),
         fast_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 180,
+        implicit_solver_adjustable = true,
+        slow_method = LSRK54CarpenterKennedy,
+        fast_method = ARK2ImplicitExplicitMidpoint,
+        timestep_ratio = 300,
     )
     driver_config = ClimateMachine.AtmosGCMConfiguration(
         "GCM Driver test",
