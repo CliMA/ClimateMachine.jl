@@ -176,9 +176,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     #######################################
 
     mygrid = solver_config.dg.grid
-    Q = solver_config.Q
     aux = solver_config.dg.state_auxiliary
-
     ClimateMachine.invoke!(solver_config)
     ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
     ϑ_l = Array(Q[:, ϑ_l_ind, :][:])
