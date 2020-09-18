@@ -7,7 +7,7 @@ steps:
     key: "init_cpu_env"
     command:
       - "echo $JULIA_DEPOT_PATH"
-      - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=True)'"
+      - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project -e 'using Pkg; Pkg.precompile()'"
       - "julia --project -e 'using Pkg; Pkg.status()'"
     agents:
