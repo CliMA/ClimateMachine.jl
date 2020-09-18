@@ -362,3 +362,202 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 end # function collect
 
 function atmos_gcm_default_fini(dgngrp::DiagnosticsGroup, currtime) end
+
+# below is additional code for debugging (to save crashed timestep)
+function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime, Settings, solver_config )
+    println("start collect") 
+    interpol = dgngrp.interpol
+    #println(dgngrp.interpol)
+    if !(interpol isa InterpolationCubedSphere)
+        @warn """
+            Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
+            """
+        return nothing
+    end
+    println("hey from inside gcm diag collect :)")
+    dg = solver_config.dg
+    atmos = dg.balance_law
+    Q = solver_config.Q
+    mpicomm = solver_config.mpicomm
+    mpirank = MPI.Comm_rank(mpicomm)
+    grid = dg.grid
+    topology = grid.topology
+    N = polynomialorder(grid)
+    Nq = N + 1
+    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    npoints = Nq * Nq * Nqk
+    nrealelem = length(topology.realelems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nrealelem, nvertelem)
+    println("hey from inside gcm diag collect :)2") ################
+    # get needed arrays onto the CPU
+    device = array_device(Q)
+    if device isa CPU
+        ArrayType = Array
+        state_data = Q.realdata
+        aux_data = dg.state_auxiliary.realdata
+    else
+        ArrayType = CUDA.CuArray
+        state_data = Array(Q.realdata)
+        aux_data = Array(dg.state_auxiliary.realdata)
+    end
+    FT = eltype(state_data)
+    println("hey from inside gcm diag collect :)3") ################
+    # TODO: can this be done in one pass?
+    #
+    # Non-local vars, e.g. relative vorticity
+    vgrad = VectorGradients(dg, Q)
+    vort = Vorticity(dg, vgrad)
+
+    # Compute thermo variables
+    thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
+    @visitQ nhorzelem nvertelem Nqk Nq begin
+        state = extract_state(dg, state_data, ijk, e, Prognostic())
+        aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
+
+        thermo = thermo_vars(atmos, view(thermo_array, ijk, :, e))
+        compute_thermo!(atmos, state, aux, thermo)
+    end
+    println("hey from inside gcm diag collect :)4") ################
+    # Interpolate the state, thermo and dyn vars to sphere (u and vorticity
+    # need projection to zonal, merid). All this may happen on the GPU.
+    istate =
+        ArrayType{FT}(undef, interpol.Npl, number_states(atmos, Prognostic()))
+    interpolate_local!(interpol, Q.realdata, istate)
+
+    ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
+    interpolate_local!(interpol, ArrayType(thermo_array), ithermo)
+
+    idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
+    interpolate_local!(interpol, vort.data, idyn)
+    println("hey from inside gcm diag collect :)5") ################
+    # TODO: get indices here without hard-coding them
+    
+    
+    _ρu, _ρv, _ρw = 2, 3, 4
+    project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
+    _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
+    project_cubed_sphere!(interpol, idyn, (_Ω₁, _Ω₂, _Ω₃))
+    println("hey from inside gcm diag collect :)5.5") ################
+    # FIXME: accumulating to rank 0 is not scalable
+    all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
+    all_thermo_data = accumulate_interpolated_data(mpicomm, interpol, ithermo)
+    all_dyn_data = accumulate_interpolated_data(mpicomm, interpol, idyn)
+    println("hey from inside gcm diag collect :)6") ################
+    if mpirank == 0
+        # get dimensions for the interpolated grid
+        dims = dimensions(dgngrp.interpol)
+
+        # set up the array for the diagnostic variables based on the interpolated grid
+        nlong = length(dims["long"][1])
+        nlat = length(dims["lat"][1])
+        nlevel = length(dims["level"][1])
+
+        simple_3d_vars_array = Array{FT}(
+            undef,
+            nlong,
+            nlat,
+            nlevel,
+            num_atmos_gcm_default_simple_3d_vars(atmos, FT),
+        )
+
+        @visitI nlong nlat nlevel begin
+            statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
+                all_state_data,
+                lo,
+                la,
+                le,
+                :,
+            ))
+            thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
+            dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
+            simple_3d_vars = atmos_gcm_default_simple_3d_vars(
+                atmos,
+                view(simple_3d_vars_array, lo, la, le, :),
+            )
+
+            atmos_gcm_default_simple_3d_vars!(
+                atmos,
+                statei,
+                thermoi,
+                dyni,
+                simple_3d_vars,
+            )
+        end
+        println("hey from inside gcm diag collect :)7") ################
+        println(dgngrp.writer)
+        # assemble the diagnostics for writing
+        varvals = OrderedDict()
+        varnames = map(
+            s -> startswith(s, "moisture.") ? s[10:end] : s,
+            flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
+        )
+        for (vari, varname) in enumerate(varnames)
+            varvals[varname] = simple_3d_vars_array[:, :, :, vari]
+        end
+
+        # write output
+        append_data(dgngrp.writer, varvals, currtime)
+    end
+    println("hey from inside gcm diag collect :)END")
+    return nothing
+end # function collect
+
+
+
+function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime, Settings, solver_config )
+    println("hey from inside gcm diag init :)0")
+    atmos = solver_config.dg.balance_law
+    FT = eltype(solver_config.Q)
+    mpicomm = solver_config.mpicomm
+    mpirank = MPI.Comm_rank(mpicomm)
+    println("hey from inside gcm diag init :)")
+    if !(dgngrp.interpol isa InterpolationCubedSphere)
+        @warn """
+            Diagnostics ($dgngrp.name): currently requires `InterpolationCubedSphere`!
+            """
+        return nothing
+    end
+    println("hey from inside gcm diag init :)2")
+    println("MPIrank: $mpirank")
+
+    if mpirank == 0
+        println("PRINTING ROOT RANK!!!")
+        # get dimensions for the interpolated grid
+        dims = dimensions(dgngrp.interpol)
+        println("hey from inside gcm diag init :)3mpi")
+        # adjust the level dimension for `planet_radius`
+        level_val = dims["level"]
+        dims["level"] = (
+            level_val[1] .- FT(planet_radius(solver_config.param_set)),
+            level_val[2],
+        )
+
+        # set up the variables we're going to be writing
+        vars = OrderedDict()
+        varnames = map(
+            s -> startswith(s, "moisture.") ? s[10:end] : s,
+            flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
+        )
+        for varname in varnames
+            var = Variables[varname]
+            vars[varname] = (tuple(collect(keys(dims))...), FT, var.attrib)
+        end
+        println("hey from inside gcm diag init :)4")
+        
+        # create the output file
+        dprefix = @sprintf(
+            "last_crash_%s_%s_%s",
+            dgngrp.out_prefix,
+            dgngrp.name,
+            replace(string(now()), ":" => "."),
+        )
+        dfilename = joinpath(Settings.output_dir, dprefix)
+        println(dfilename)
+        init_data(dgngrp.writer, dfilename, dims, vars)
+        println("hey from inside gcm diag init :)END")
+    end
+
+    return
+end
+

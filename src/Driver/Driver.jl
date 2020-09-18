@@ -649,15 +649,35 @@ function invoke!(
     )
 
     # run the simulation
-    @tic solve!
-    solve!(
-        Q,
-        solver;
-        timeend = timeend,
-        callbacks = callbacks,
-        adjustfinalstep = adjustfinalstep,
-    )
-    @toc solve!
+    try
+      @tic solve!
+      solve!(
+          Q,
+          solver;
+          timeend = timeend,
+          callbacks = callbacks,
+          adjustfinalstep = adjustfinalstep,
+      )
+      @toc solve!
+    finally
+      numranks = MPI.Comm_size(mpicomm)
+      if numranks == 1
+        # <-------------this only works for 1 rank------------------------------
+        print("finally started: ")
+        rnk_a = MPI.Comm_rank(mpicomm)
+        println("MPIrank_inFinally_$rnk_a")
+        for dgngrp in diagnostics_config.groups
+          println("SA runs before init")
+          println(Settings)
+          dgngrp.init(dgngrp, solver_config.timeend , Settings, solver_config)
+          println("SA runs before collect")
+          #MPI.Barrier(mpicomm)
+          dgngrp.collect(dgngrp, solver_config.timeend , Settings, solver_config )
+          println("end SA errors")
+        end
+      end
+    end
+
 
     # write end checkpoint if requested
     if Settings.checkpoint_at_end

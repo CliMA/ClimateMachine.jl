@@ -47,6 +47,8 @@ using CLIMAParameters.Atmos.SubgridScale
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+#CLIMAParameters.Planet.T_freeze(::EarthParameterSet) = 50.0
+
 # Menu for initial conditions, boundary conditions and sources
 include("gcm_bcs.jl")                # Boundary conditions
 include("gcm_perturbations.jl")      # Initial perturbation
