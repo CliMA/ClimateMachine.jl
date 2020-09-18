@@ -1,1 +1,3 @@
-n_days::FT 100
+ΔT_y FT(60) n_days::FT 0.5
+ΔT_y FT(30) n_days::FT 0.5
+ΔT_y FT(90) n_days::FT 0.5
