@@ -26,6 +26,7 @@ if generate_tutorials
                 "Atmos/agnesi_hs_lin.jl",
             "Linear Non-Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_nh_lin.jl",
+            "Rising Thermal Bubble (LES Experiment)" => "Atmos/risingbubble.jl",
         ],
         "Ocean" => [],
         "Land" => [
