@@ -241,7 +241,7 @@ function dostep!(
         iter_tot = 0
         for i in 1:nImplSteps
             solve_time = @elapsed iters =
-                linearsolve!(lm!, ivdc_solver, ivdc_Q, ivdc_RHS)
+                linearsolve!(lm!, nothing, ivdc_solver, ivdc_Q, ivdc_RHS)
             solve_tot = solve_tot + solve_time
             iter_tot = iter_tot + iters
             # Set new RHS and initial values
