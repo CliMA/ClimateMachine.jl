@@ -185,7 +185,7 @@ struct DiscontinuousSpectralElementGrid{
     ) where {dim}
 
         N = polynomialorder
-        (ξ, ω) = Elements.lglpoints(FloatType, N)
+        (ξ, ω) = Elements.lglpoints(promote_type(Float64, FloatType), N)
         Imat = indefinite_integral_interpolation_matrix(ξ, ω)
         D = Elements.spectralderivative(ξ)
 
@@ -218,17 +218,17 @@ struct DiscontinuousSpectralElementGrid{
         activedofs[vmaprecv] .= true
 
         # Create arrays on the device
-        vgeo = DeviceArray(vgeo)
-        sgeo = DeviceArray(sgeo)
+        vgeo = DeviceArray(FloatType.(vgeo))
+        sgeo = DeviceArray(FloatType.(sgeo))
         elemtobndy = DeviceArray(topology.elemtobndy)
         vmap⁻ = DeviceArray(vmap⁻)
         vmap⁺ = DeviceArray(vmap⁺)
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
-        ω = DeviceArray(ω)
-        D = DeviceArray(D)
-        Imat = DeviceArray(Imat)
+        ω = DeviceArray(FloatType.(ω))
+        D = DeviceArray(FloatType.(D))
+        Imat = DeviceArray(FloatType.(Imat))
 
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
