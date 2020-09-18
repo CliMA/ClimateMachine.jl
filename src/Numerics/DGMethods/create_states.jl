@@ -40,11 +40,7 @@ function create_state(
     else
         state = Array{FT}(
             undef,
-            (
-                Np,
-                number_states(balance_law, st),
-                length(topology.elems),
-            ),
+            (Np, number_states(balance_law, st), length(topology.elems)),
         )
     end
     fill_nan && fill!(state, NaN)

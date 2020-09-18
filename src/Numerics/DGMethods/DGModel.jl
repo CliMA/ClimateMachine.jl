@@ -32,7 +32,12 @@ function DGModel(
         Auxiliary(),
         fill_nan = fill_nan,
     ),
-    state_gradient_flux = create_state(ArrayType, balance_law, grid, GradientFlux()),
+    state_gradient_flux = create_state(
+        ArrayType,
+        balance_law,
+        grid,
+        GradientFlux(),
+    ),
     states_higher_order = (
         create_state(ArrayType, balance_law, grid, GradientLaplacian()),
         create_state(ArrayType, balance_law, grid, Hyperdiffusive()),
@@ -601,8 +606,13 @@ function init_ode_state(
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_prognostic =
-        create_state(ArrayType, balance_law, grid, Prognostic(), fill_nan = fill_nan)
+    state_prognostic = create_state(
+        ArrayType,
+        balance_law,
+        grid,
+        Prognostic(),
+        fill_nan = fill_nan,
+    )
 
     topology = grid.topology
     Np = dofs_per_element(grid)
@@ -688,7 +698,8 @@ restart_auxiliary_state(bl, grid, aux_data, direction) =
 
 function restart_auxiliary_state(ArrayType, bl, grid, aux_data, direction)
     state_auxiliary = create_state(ArrayType, bl, grid, Auxiliary())
-    state_auxiliary = init_state(state_auxiliary, bl, grid, direction, Auxiliary())
+    state_auxiliary =
+        init_state(state_auxiliary, bl, grid, direction, Auxiliary())
     state_auxiliary .= aux_data
     return state_auxiliary
 end
@@ -1019,7 +1030,8 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_prognostic = create_state(MPIStateArray, balance_law, grid, Prognostic())
+    state_prognostic =
+        create_state(MPIStateArray, balance_law, grid, Prognostic())
 
     return state_prognostic
 end
