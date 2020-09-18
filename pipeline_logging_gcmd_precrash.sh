@@ -3,7 +3,7 @@
 #SBATCH --ntasks=128
 #SBATCH --job-name=gcmdriver
 #SBATCH --time=100:00:00
-#SBATCH --output=hier_gcmdriver.out
+#SBATCH --output=model_log_err.out
 
 
 # Kill the job if anything fails
