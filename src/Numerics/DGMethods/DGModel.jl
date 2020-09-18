@@ -586,6 +586,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     wait(device, comp_stream)
 end
 
+init_ode_state(dg::DGModel, args...; kwargs...) =
+    init_ode_state(MPIStateArray, dg, args...; kwargs...)
+
 function init_ode_state(
     ArrayType,
     dg::DGModel,
@@ -1074,8 +1077,8 @@ function continuous_field_gradient!(
         Val(dim),
         Val(N),
         direction,
-        ∇state.data,
-        state.data,
+        data(∇state),
+        data(state),
         grid.vgeo,
         grid.D,
         grid.ω,
