@@ -56,7 +56,7 @@ function min_node_distance(
 end
 
 # {{{
-const _nvgeo = 16
+const _nvgeo = 17
 const _ξ1x1,
 _ξ2x1,
 _ξ3x1,
@@ -66,6 +66,7 @@ _ξ3x2,
 _ξ1x3,
 _ξ2x3,
 _ξ3x3,
+_J,
 _M,
 _MI,
 _MH,
@@ -83,6 +84,7 @@ const vgeoid = (
     ξ1x3id = _ξ1x3,
     ξ2x3id = _ξ2x3,
     ξ3x3id = _ξ3x3,
+    Jid = _J,
     Mid = _M,
     MIid = _MI,
     MHid = _MH,
@@ -448,6 +450,7 @@ function computegeometry(
         ξ1x3,
         ξ2x3,
         ξ3x3,
+        J,
         MJ,
         MJI,
         MHJH,
@@ -456,7 +459,6 @@ function computegeometry(
         x3,
         JcV,
     ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
-    J = similar(x1)
     (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
     sJ = similar(sMJ)
 
