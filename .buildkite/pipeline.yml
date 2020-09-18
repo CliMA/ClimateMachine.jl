@@ -3,6 +3,8 @@ env:
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
 steps:
+  - wait
+
   - label: "Init CPU"
     key: "cpu_init"
     command:
