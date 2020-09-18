@@ -531,8 +531,8 @@ function main()
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(600)
-    #timeend = FT(3600 * 6)
+    #timeend = FT(600)
+    timeend = FT(3600 * 6)
     # Courant number
     CFL = FT(0.7)
 
