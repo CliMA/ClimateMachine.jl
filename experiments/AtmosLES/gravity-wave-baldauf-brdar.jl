@@ -15,6 +15,7 @@ using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.DGMethods
+using ClimateMachine.NumericalFluxes
 using StaticArrays
 using Test
 
@@ -207,9 +208,11 @@ function (setup::GravityWaveSetup{FT})(problem, bl, state, aux, (x, y, z), t) wh
       δT = exp(δ * z / 2) * real(δT_b)
     end
    
-    ρ = ρ_s * exp(-δ * z) + δρ
-
-    T = T_ref + δT
+    #ρ = ρ_s * exp(-δ * z) + δρ
+    #T = T_ref + δT
+    
+    ρ = aux.ref_state.ρ + δρ
+    T = aux.ref_state.T + δT
 
     u = SVector{3, FT}(u_0 + δu, δv, δw) 
     e_kin = u' * u / 2
@@ -256,6 +259,7 @@ function config_gravitywave(FT, N, resolution, setup)
         setup,             # Function specifying initial condition
         solver_type = ode_solver,# Time-integrator type
         model = model,           # Model type
+        numerical_flux_first_order=RoeNumericalFlux
     )
 
     return config
