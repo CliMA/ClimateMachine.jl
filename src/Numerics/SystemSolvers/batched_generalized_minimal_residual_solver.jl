@@ -1,4 +1,6 @@
 
+using CUDA
+
 export BatchedGeneralizedMinimalResidual
 
 """
@@ -287,7 +289,7 @@ function BatchedGeneralizedMinimalResidual(
     # permute [ni, nj, nk, num_states, nvertelem, nhorzelem]
     # to      [nvertelem, nk, num_states, ni, nj, nhorzelem]
     permute_size = length(reshaping_tup)
-    permute_tuple_f = (dim + 2, dim, dim + 1, (1:(dim - 1))..., permute_size)
+    permute_tuple_f = (dim + 1, dim, dim + 2, (1:(dim - 1))..., permute_size)
 
     return BatchedGeneralizedMinimalResidual(
         Q,
@@ -327,10 +329,8 @@ function initialize!(
 
     @assert size(Q) == size(krylov_basis)
 
-    # FIXME: Can we make linearoperator! batch-able?
-    # store the initial (global) residual in krylov_basis = r0/|r0|
-    # solve for w then apply
-    # PRECONDITIONER: Q ->  P^{-1}Q
+    # PRECONDITIONER:  PQ0 ->  P*Q0,
+    # the first basis is (J Pinv)PQ0 = b, kry1 = b - J Q0
     linearoperator!(krylov_basis, Q, args...)
     krylov_basis .= Qrhs .- krylov_basis
 
@@ -375,6 +375,7 @@ end
 
 function doiteration!(
     linearoperator!,
+    preconditioner,
     Q,
     Qrhs,
     solver::BatchedGeneralizedMinimalResidual,
@@ -410,17 +411,19 @@ function doiteration!(
     residual_norm = typemax(FT)
     j = 1
     for outer j in 1:max_iter
-        # FIXME: To make this a truly batched method, we need to be able
-        # to make operator application batch-able. That way, we don't have
-        # to do this back-and-forth reshaping
+        # FIXME: Remove this back-and-forth reshaping by exploiting the
+        # data layout in a similar way that the ColumnwiseLU solver does
 
-        # PRECONDITIONER: batched_krylov_basis[j] ->  P^{-1}batched_krylov_basis[j]
         convert_structure!(
             krylov_basis_prev,
             view(batched_krylov_basis, j, :, :),
             backward_reshape,
             backward_permute,
         )
+
+        # PRECONDITIONER: batched_krylov_basis[j+1] =  J P^{-1}batched_krylov_basis[j]
+        # set krylov_basis_prev = P^{-1}batched_krylov_basis[j]
+        preconditioner_solve!(preconditioner, krylov_basis_prev)
 
         # Global operator application to get new Krylov basis vector
         linearoperator!(krylov_basis, krylov_basis_prev, args...)
@@ -460,7 +463,9 @@ function doiteration!(
     end
 
     # Reshape the solution vector to construct the new GMRES iterate
-    convert_structure!(sols, Q, forward_reshape, forward_permute)
+    # PRECONDITIONER Q =  Q0 + Pinv PΔQ = Q0 + Pinv (Kry * y)
+    # sol = PΔQ = Kry * y
+    sols .= 0
 
     # Solve the triangular system (minimization problem for optimal linear coefficients
     # in the GMRES iterate) and construct the current iterate in each column
@@ -477,9 +482,13 @@ function doiteration!(
     )
     wait(device, event)
 
-    # PRECONDITIONER: sols ->  P sols
+    # Use krylov_basis_prev as container for ΔQ
+    ΔQ = krylov_basis_prev
     # Unwind reshaping and return solution in standard format
-    convert_structure!(Q, sols, backward_reshape, backward_permute)
+    convert_structure!(ΔQ, sols, backward_reshape, backward_permute)
+    # PRECONDITIONER: Q ->  Pinv Q
+    preconditioner_solve!(preconditioner, ΔQ)
+    Q .+= ΔQ
 
     # if not converged, then restart
     converged ||

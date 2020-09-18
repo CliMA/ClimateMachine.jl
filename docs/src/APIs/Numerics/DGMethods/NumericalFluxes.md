@@ -10,6 +10,7 @@ CurrentModule = ClimateMachine.DGMethods.NumericalFluxes
 NumericalFluxGradient
 RusanovNumericalFlux
 RoeNumericalFlux
+HLLCNumericalFlux
 NumericalFluxFirstOrder
 NumericalFluxSecondOrder
 CentralNumericalFluxSecondOrder

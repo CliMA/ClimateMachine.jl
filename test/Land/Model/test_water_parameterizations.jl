@@ -35,7 +35,7 @@ using ClimateMachine.Land.SoilWaterParameterizations
     viscosity_model = TemperatureDependentViscosity{FT}(; T_ref = FT(1.0))
     @test viscosity_factor(viscosity_model, FT(1.0)) == 1
     impedance_model = IceImpedance{FT}(; Ω = 2.0)
-    @test impedance_factor(impedance_model, 0.2, 0.4) == FT(0.1)
+    @test impedance_factor(impedance_model, 0.2, 0.2) == FT(0.1)
 
 
     @test moisture_factor(mm, vg_model, FT(1)) == 1
@@ -56,7 +56,7 @@ using ClimateMachine.Land.SoilWaterParameterizations
         MoistureDependent{FT}(),
         vanGenuchten{FT}(),
         0.5,
-        1.0,
+        0.5,
         1.0,
         1.0,
     ) == FT(0.1)

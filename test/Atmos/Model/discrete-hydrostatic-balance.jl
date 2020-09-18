@@ -127,8 +127,11 @@ function main()
 
     @testset for config in (LES, GCM)
         @testset for ode_solver_type in (explicit_solver_type, imex_solver_type)
-            @testset for numflux in
-                         (CentralNumericalFluxFirstOrder(), RoeNumericalFlux())
+            @testset for numflux in (
+                CentralNumericalFluxFirstOrder(),
+                RoeNumericalFlux(),
+                HLLCNumericalFlux(),
+            )
                 @testset for temp_profile in (
                     IsothermalProfile(param_set, FT),
                     DecayingTemperatureProfile{FT}(param_set),

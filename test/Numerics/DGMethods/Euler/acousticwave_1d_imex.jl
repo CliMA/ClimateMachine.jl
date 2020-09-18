@@ -66,7 +66,7 @@ function main()
     expected_result[Float32] = 9.5066030866432000e+13
     expected_result[Float64] = 9.5073452847149594e+13
 
-    for FT in (Float32, Float64)
+    for FT in (Float64, Float32)
         for split_explicit_implicit in (false, true)
             result = run(
                 mpicomm,
@@ -118,7 +118,7 @@ function run(
     δ_χ = @SVector [FT(ii) for ii in 1:ntracers]
 
     model = AtmosModel{FT}(
-        AtmosLESConfigType,
+        AtmosGCMConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = SphericalOrientation(),
@@ -160,6 +160,14 @@ function run(
     Q = init_ode_state(dg, FT(0))
 
     linearsolver = ManyColumnLU()
+    # linearsolver = BatchedGeneralizedMinimalResidual(
+    #    lineardg,
+    #    Q;
+    #    atol = 1.0e-6, #sqrt(eps(FT)) * 0.01,
+    #    rtol = 1.0e-8, #sqrt(eps(FT)) * 0.01,
+    #    # Maximum number of Krylov iterations in a column
+    #)
+
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
@@ -174,7 +182,11 @@ function run(
     odesolver = ARK2GiraldoKellyConstantinescu(
         split_explicit_implicit ? rem_dg : dg,
         lineardg,
-        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
+        LinearBackwardEulerSolver(
+            linearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = -1,
+        ),
         Q;
         dt = dt,
         t0 = 0,

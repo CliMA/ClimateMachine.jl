@@ -27,8 +27,11 @@ LinearAlgebra.norm(A::AbstractVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::AbstractVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::AbstractVector, B::AbstractVector, weighted) = dot(A, B)
 
-export linearsolve!, settolerance!, prefactorize
-export AbstractSystemSolver, AbstractIterativeSystemSolver
+export linearsolve!,
+    settolerance!, prefactorize, construct_preconditioner, preconditioner_solve!
+export AbstractSystemSolver,
+    AbstractIterativeSystemSolver, AbstractNonlinearSolver
+export nonlinearsolve!
 
 """
     AbstractSystemSolver
@@ -36,6 +39,128 @@ export AbstractSystemSolver, AbstractIterativeSystemSolver
 This is an abstract type representing a generic linear solver.
 """
 abstract type AbstractSystemSolver end
+
+"""
+    AbstractNonlinearSolver
+
+This is an abstract type representing a generic nonlinear solver.
+"""
+abstract type AbstractNonlinearSolver <: AbstractSystemSolver end
+
+"""
+    LSOnly
+
+Only applies the linear solver (no Newton solver)
+"""
+struct LSOnly <: AbstractNonlinearSolver
+    linearsolver
+end
+
+function donewtoniteration!(
+    rhs!,
+    linearoperator!,
+    preconditioner,
+    Q,
+    Qrhs,
+    solver::LSOnly,
+    args...,
+)
+    @info "donewtoniteration! linearsolve!", args...
+    linearsolve!(
+        linearoperator!,
+        preconditioner,
+        solver.linearsolver,
+        Q,
+        Qrhs,
+        args...;
+        max_iters = getmaxiterations(solver.linearsolver),
+    )
+end
+
+
+"""
+
+Solving rhs!(Q) = Qrhs via Newton,
+
+where `F = rhs!(Q) - Qrhs`
+
+dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n))
+
+preconditioner ≈ dF/dQ(Q)
+
+"""
+function nonlinearsolve!(
+    rhs!,
+    jvp!,
+    preconditioner,
+    solver::AbstractNonlinearSolver,
+    Q::AT,
+    Qrhs,
+    args...;
+    max_newton_iters = 10,
+    cvg = Ref{Bool}(),
+) where {AT}
+
+    FT = eltype(Q)
+    tol = solver.tol
+    converged = false
+    iters = 0
+
+    if preconditioner === nothing
+        preconditioner = NoPreconditioner()
+    end
+
+    # Initialize NLSolver, compute initial residual
+    initial_residual_norm = initialize!(rhs!, Q, Qrhs, solver, args...)
+    if initial_residual_norm < tol
+        converged = true
+    end
+    converged && return iters
+
+
+    while !converged && iters < max_newton_iters
+
+        # dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n)), update Q^n in jvp!
+        update_Q!(jvp!, Q, args...)
+
+        # update preconditioner based on finite difference, with jvp!
+        preconditioner_update!(jvp!, rhs!.f!, preconditioner, nothing, FT(NaN))
+
+        # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
+        residual_norm, linear_iterations = donewtoniteration!(
+            rhs!,
+            jvp!,
+            preconditioner,
+            Q,
+            Qrhs,
+            solver,
+            args...,
+        )
+        @info "Linear solver converged in $linear_iterations iterations"
+        iters += 1
+
+        preconditioner_counter_update!(preconditioner)
+
+
+        if !isfinite(residual_norm)
+            error("norm of residual is not finite after $iters iterations of `donewtoniteration!`")
+        end
+
+        # Check residual_norm / norm(R0)
+        # Comment: Should we check "correction" magitude?
+        # ||Delta Q|| / ||Q|| ?
+        relresidual = residual_norm / initial_residual_norm
+        if relresidual < tol || residual_norm < tol
+            @info "Newton converged in $iters iterations!"
+            converged = true
+        end
+    end
+
+    converged || @warn "Nonlinear solver did not converge after $iters iterations"
+    cvg[] = converged
+
+    iters
+end
 
 """
     AbstractIterativeSystemSolver
@@ -64,6 +189,7 @@ settolerance!(
 
 doiteration!(
     linearoperator!,
+    preconditioner,
     Q,
     Qrhs,
     solver::AbstractIterativeSystemSolver,
@@ -71,7 +197,7 @@ doiteration!(
     args...,
 ) = throw(MethodError(
     doiteration!,
-    (linearoperator!, Q, Qrhs, solver, threshold, args...),
+    (linearoperator!, preconditioner, Q, Qrhs, solver, tolerance, args...),
 ))
 
 initialize!(
@@ -87,8 +213,13 @@ initialize!(
 
 Prefactorize the in-place linear operator `linop!` for use with `linearsolver`.
 """
-prefactorize(linop!, linearsolver::AbstractIterativeSystemSolver, args...) =
-    linop!
+function prefactorize(
+    linop!,
+    linearsolver::AbstractIterativeSystemSolver,
+    args...,
+)
+    return nothing
+end
 
 """
     linearsolve!(linearoperator!, solver::AbstractIterativeSystemSolver, Q, Qrhs, args...)
@@ -106,6 +237,7 @@ called.
 """
 function linearsolve!(
     linearoperator!,
+    preconditioner,
     solver::AbstractIterativeSystemSolver,
     Q,
     Qrhs,
@@ -116,13 +248,24 @@ function linearsolve!(
     converged = false
     iters = 0
 
+    if preconditioner === nothing
+        preconditioner = NoPreconditioner()
+    end
+
     converged, threshold =
         initialize!(linearoperator!, Q, Qrhs, solver, args...)
     converged && return iters
 
     while !converged && iters < max_iters
-        converged, inner_iters, residual_norm =
-            doiteration!(linearoperator!, Q, Qrhs, solver, threshold, args...)
+        converged, inner_iters, residual_norm = doiteration!(
+            linearoperator!,
+            preconditioner,
+            Q,
+            Qrhs,
+            solver,
+            threshold,
+            args...,
+        )
 
         iters += inner_iters
 
@@ -153,6 +296,8 @@ include("generalized_minimal_residual_solver.jl")
 include("generalized_conjugate_residual_solver.jl")
 include("conjugate_gradient_solver.jl")
 include("columnwise_lu_solver.jl")
+include("preconditioners.jl")
 include("batched_generalized_minimal_residual_solver.jl")
+include("jacobian_free_newton_krylov_solver.jl")
 
 end
