@@ -132,13 +132,15 @@ let
                     @test abs(err[l]) < FT(1e-13)
                 end
             end
-            @info begin
-                msg = ""
-                for l in 1:(lvls - 1)
-                    rate = log2(err[l]) - log2(err[l + 1])
-                    msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+            if lvls > 1
+                @info begin
+                    msg = ""
+                    for l in 1:(lvls - 1)
+                        rate = log2(err[l]) - log2(err[l + 1])
+                        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                    end
+                    msg
                 end
-                msg
             end
         end
     end
