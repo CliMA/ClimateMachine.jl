@@ -24,8 +24,6 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.VariableTemplates: flattenednames
 
-import ClimateMachine.BalanceLaws: init_state_conservative!
-
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cv_d, Omega, planet_radius, MSLP
 import CLIMAParameters
@@ -57,7 +55,11 @@ function sphr_to_cart_vec(
     return u
 end
 
-function init_state_conservative!(bl::DryAtmosModel, state, aux, coords, t)
+struct BaroclinicWave <: AbstractDryAtmosProblem end
+
+function init_state_conservative!(bl::DryAtmosModel,
+                                  ::BaroclinicWave,
+                                  state, aux, coords, t)
     FT = eltype(state)
 
     # parameters
@@ -186,7 +188,6 @@ function main()
     # timeend = 33 * 60 * 60 # Full simulation
     outputtime = 600
 
-
     FT = Float64
     result = run(
         mpicomm,
@@ -229,9 +230,11 @@ function run(
 
     #T_profile = IsothermalProfile(param_set, setup.T_ref)
 
+    problem = BaroclinicWave()
     model = DryAtmosModel{FT}(SphericalOrientation(),
+                              problem,
         #ref_state = DryReferenceState(T_profile),
-        sources = (Coriolis(),)
+                              sources = (Coriolis(),)
     )
 
     esdg = ESDGModel(

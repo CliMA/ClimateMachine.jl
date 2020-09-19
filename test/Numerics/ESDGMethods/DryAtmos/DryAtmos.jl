@@ -7,6 +7,7 @@ import ClimateMachine.BalanceLaws:
     state_to_entropy_variables!,
     entropy_variables_to_state!,
     init_state_auxiliary!,
+    init_state_conservative!,
     state_to_entropy,
     boundary_state!,
     source!
@@ -31,18 +32,23 @@ const param_set = EarthParameterSet()
 
 @inline gamma(ps::EarthParameterSet) = cp_d(ps) / cv_d(ps)
 
-struct DryAtmosModel{D, O, RS, S} <: BalanceLaw
+abstract type AbstractDryAtmosProblem end
+
+struct DryAtmosModel{D, O, P, RS, S} <: BalanceLaw
     orientation::O
+    problem::P
     ref_state::RS
     sources::S
 end
-function DryAtmosModel{D}(orientation;
+function DryAtmosModel{D}(orientation,
+                          problem::AbstractDryAtmosProblem;
                           ref_state=NoReferenceState(),
                           sources=()) where {D}
     O = typeof(orientation)
+    P = typeof(problem)
     RS = typeof(ref_state)
     S = typeof(sources)
-    DryAtmosModel{D, O, RS, S}(orientation, ref_state, sources)
+    DryAtmosModel{D, O, P, RS, S}(orientation, problem, ref_state, sources)
 end
 
 # XXX: Hack for Impenetrable.
@@ -64,6 +70,13 @@ function boundary_state!(
     aux⁺.Φ = aux⁻.Φ
 end
 
+function init_state_conservative!(
+    m::DryAtmosModel,
+    args...,
+)
+  init_state_conservative!(m, m.problem, args...)
+end
+
 function init_state_auxiliary!(
     m::DryAtmosModel,
     state_auxiliary,
@@ -71,6 +84,7 @@ function init_state_auxiliary!(
 )
   init_state_auxiliary!(m, m.orientation, state_auxiliary, geom)
   init_state_auxiliary!(m, m.ref_state, state_auxiliary, geom)
+  init_state_auxiliary!(m, m.problem, state_auxiliary, geom)
 end
 
 function altitude(::DryAtmosModel{dim},
@@ -122,6 +136,14 @@ end
 function init_state_auxiliary!(
     ::DryAtmosModel,
     ::NoReferenceState,
+    state_auxiliary,
+    geom,
+)
+end
+
+function init_state_auxiliary!(
+    ::DryAtmosModel,
+    ::AbstractDryAtmosProblem,
     state_auxiliary,
     geom,
 )
@@ -213,8 +235,10 @@ function vars_state_auxiliary(m::DryAtmosModel, FT)
     @vars begin
         Φ::FT
         ref_state::vars_state_auxiliary(m, m.ref_state, FT)
+        problem::vars_state_auxiliary(m, m.problem, FT)
     end
 end
+vars_state_auxiliary(::DryAtmosModel, ::AbstractDryAtmosProblem, FT) = @vars()
 
 """
     vars_state_entropy(::DryAtmosModel, FT)
