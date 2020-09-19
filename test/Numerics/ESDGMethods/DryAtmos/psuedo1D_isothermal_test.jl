@@ -12,7 +12,6 @@ using ClimateMachine.GenericCallbacks:
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.VariableTemplates: flattenednames
 import ClimateMachine.NumericalFluxes: normal_boundary_flux_second_order!
-import ClimateMachine.BalanceLaws: init_state_conservative!
 import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 using LazyArrays
@@ -39,12 +38,13 @@ function init_state_auxiliary!(
     @inbounds state_auxiliary.Φ = sin(2π * geom.coord[1])
 end
 
-Base.@kwdef struct IsothermalPeriodicExample{FT}
+Base.@kwdef struct IsothermalPeriodicExample{FT} <: AbstractDryAtmosProblem
     η::FT = 1 // 10000
 end
 
 function init_state_conservative!(
     m::DryAtmosModel,
+    problem::IsothermalPeriodicExample,
     state::Vars,
     aux::Vars,
     coords,
@@ -52,11 +52,10 @@ function init_state_conservative!(
     args...,
 )
     FT = eltype(state)
-    η = FT(1 / 10000)
     @inbounds x = coords[1]
     state.ρ = exp(-aux.Φ)
     state.ρu = @SVector [FT(0), FT(0), FT(0)]
-    p = state.ρ + η * exp(-100 * (x - FT(1 / 2))^2)
+    p = state.ρ + problem.η * exp(-100 * (x - FT(1 / 2))^2)
     state.ρe = totalenergy(state.ρ, state.ρu, p, aux.Φ)
     nothing
 end
@@ -76,7 +75,7 @@ end
 
 function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
 
-    setup = IsothermalPeriodicExample{FT}()
+    problem = IsothermalPeriodicExample{FT}()
 
     dim = 2
     Ne = [Nelem, Nelem, Nelem]
@@ -109,7 +108,7 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
         polynomialorder = polynomialorder,
         meshwarp = warpfun,
     )
-    model = DryAtmosModel{dim}(PeriodicOrientation())
+    model = DryAtmosModel{dim}(PeriodicOrientation(), problem)
     esdg = ESDGModel(
         model,
         grid;
@@ -168,7 +167,7 @@ function run(mpicomm, polynomialorder, Nelem, timeend, ArrayType, FT)
         outputtime = 1 / 10
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            Qe = init_ode_state(esdg, gettime(odesolver), setup)
+            Qe = init_ode_state(esdg, gettime(odesolver))
             do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model)
         end
         callbacks = (callbacks..., cbvtk)

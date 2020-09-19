@@ -12,7 +12,6 @@ using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.VariableTemplates: flattenednames
-import ClimateMachine.BalanceLaws: init_state_conservative!
 import ClimateMachine.ODESolvers: LSRK144NiegemannDiehlBusch, solve!, gettime
 using StaticArrays: @SVector
 using LazyArrays
@@ -35,7 +34,11 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("DryAtmos.jl")
 
-function init_state_conservative!(bl::DryAtmosModel, state, aux, (x, y, z), t)
+struct RisingBubble <: AbstractDryAtmosProblem end
+
+function init_state_conservative!(bl::DryAtmosModel, 
+                                  ::RisingBubble,
+                                  state, aux, (x, y, z), t)
     ## Problem float-type
     FT = eltype(state)
 
@@ -152,7 +155,10 @@ function run(
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
     ref_state = DryReferenceState(T_profile)
 
-    model = DryAtmosModel{dim}(FlatOrientation(); ref_state=ref_state)
+    problem = RisingBubble()
+    model = DryAtmosModel{dim}(FlatOrientation(),
+                               problem;
+                               ref_state=ref_state)
 
     esdg = ESDGModel(
         model,

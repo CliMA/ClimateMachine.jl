@@ -24,8 +24,6 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.VariableTemplates: flattenednames
 
-import ClimateMachine.BalanceLaws: init_state_conservative!
-
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cv_d
 import CLIMAParameters
@@ -37,7 +35,7 @@ include("DryAtmos.jl")
 const output_vtk = false
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 120.0
 
-Base.@kwdef struct AcousticWaveSetup{FT}
+Base.@kwdef struct AcousticWave{FT} <: AbstractDryAtmosProblem
     domain_height::FT = 10e3
     T_ref::FT = 300
     α::FT = 3
@@ -45,10 +43,11 @@ Base.@kwdef struct AcousticWaveSetup{FT}
     nv::Int = 1
 end
 
-function init_state_conservative!(bl::DryAtmosModel, state, aux, coords, t)
+function init_state_conservative!(bl::DryAtmosModel,
+                                  problem::AcousticWave,
+                                  state, aux, coords, t)
     # callable to set initial conditions
     FT = eltype(state)
-    setup = AcousticWaveSetup{FT}()
 
     λ = @inbounds atan(coords[2], coords[1])
     φ =  @inbounds asin(coords[3] / norm(coords, 2))
@@ -56,15 +55,15 @@ function init_state_conservative!(bl::DryAtmosModel, state, aux, coords, t)
     _planet_radius::FT = planet_radius(param_set)
     z =  norm(coords) - _planet_radius
 
-    β = min(FT(1), setup.α * acos(cos(φ) * cos(λ)))
+    β = min(FT(1), problem.α * acos(cos(φ) * cos(λ)))
     f = (1 + cos(FT(π) * β)) / 2
-    g = sin(setup.nv * FT(π) * z / setup.domain_height)
-    Δp = setup.γ * f * g
+    g = sin(problem.nv * FT(π) * z / problem.domain_height)
+    Δp = problem.γ * f * g
     p = aux.ref_state.p + Δp
 
     _cv_d::FT = cv_d(param_set)
     _R_d::FT = R_d(param_set)
-    T = setup.T_ref
+    T = problem.T_ref
     ρ = p / (_R_d * T)
     e_pot = aux.Φ
     e_int = _cv_d * T
@@ -115,12 +114,12 @@ function run(
     FT,
 )
 
-    setup = AcousticWaveSetup{FT}()
+    problem = AcousticWave{FT}()
 
     _planet_radius::FT = planet_radius(param_set)
     vert_range = grid1d(
         _planet_radius,
-        FT(_planet_radius + setup.domain_height),
+        FT(_planet_radius + problem.domain_height),
         nelem = numelem_vert,
     )
     topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
@@ -133,11 +132,12 @@ function run(
         meshwarp = cubedshellwarp,
     )
 
-    T_profile = IsothermalProfile(param_set, setup.T_ref)
+    T_profile = IsothermalProfile(param_set, problem.T_ref)
 
     model = DryAtmosModel{FT}(SphericalOrientation(),
-        ref_state = DryReferenceState(T_profile),
-    )
+                              problem,
+                              ref_state = DryReferenceState(T_profile),
+                             )
 
     esdg = ESDGModel(
         model,
@@ -147,8 +147,8 @@ function run(
     )
 
     # determine the time step
-    element_size = (setup.domain_height / numelem_vert)
-    acoustic_speed = soundspeed_air(param_set, FT(setup.T_ref))
+    element_size = (problem.domain_height / numelem_vert)
+    acoustic_speed = soundspeed_air(param_set, FT(problem.T_ref))
     #dt_factor = 1
     #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
     dx = min_node_distance(grid)

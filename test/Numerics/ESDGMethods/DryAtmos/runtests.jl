@@ -4,7 +4,6 @@ import ClimateMachine.BalanceLaws:
     number_state_conservative,
     number_state_auxiliary,
     number_state_entropy,
-    init_state_conservative!,
     boundary_state!
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state
 using ClimateMachine.DGMethods.NumericalFluxes:
@@ -25,9 +24,12 @@ include("DryAtmos.jl")
 
 boundary_state!(::Nothing, _...) = nothing
 
+struct TestProblem <: AbstractDryAtmosProblem end
+
 # Random initialization function
 function init_state_conservative!(
     ::DryAtmosModel,
+    ::TestProblem,
     state_conservative,
     state_auxiliary,
     _...,
@@ -74,7 +76,7 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
 
     # Orientation does not matter since we will be setting the geopotential to a
     # random field
-    model = DryAtmosModel{dim}(FlatOrientation())
+    model = DryAtmosModel{dim}(FlatOrientation(), TestProblem())
 
     ##################################################################
     # check that the volume terms lead to only surface contributions #
@@ -204,7 +206,7 @@ function check_operators(FT, dim, mpicomm, N, ArrayType)
 end
 
 let
-    model = DryAtmosModel{3}(FlatOrientation())
+    model = DryAtmosModel{3}(FlatOrientation(), TestProblem())
     num_state = number_state_conservative(model)
     num_aux = number_state_auxiliary(model)
     num_entropy = number_state_entropy(model)
