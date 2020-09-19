@@ -107,7 +107,7 @@ function get_setting(setting_name::Symbol, settings, defaults)
         return convert(setting_type, settings[setting_name])
     elseif haskey(ENV, setting_env)
         env_val = ENV[setting_env]
-        v = tryparse(setting_type, env_val)
+        v = setting_type == String ? env_val : tryparse(setting_type, env_val)
         if isnothing(v)
             error("cannot parse ENV $setting_env value $env_val, to setting type $setting_type")
         end
