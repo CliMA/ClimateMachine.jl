@@ -21,13 +21,11 @@ using ClimateMachine.Thermodynamics:
     internal_energy,
     PhaseDry_given_pT,
     PhasePartition
-using ClimateMachine.TemperatureProfiles: IsothermalProfile
+using ClimateMachine.TemperatureProfiles: DecayingTemperatureProfile
 using ClimateMachine.VariableTemplates: flattenednames
 
-import ClimateMachine.BalanceLaws: init_state_conservative!
-
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, cv_d, Omega, planet_radius, MSLP
+using CLIMAParameters.Planet: day, grav, R_d, cp_d, cv_d, Omega, planet_radius, MSLP
 import CLIMAParameters
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
@@ -57,7 +55,22 @@ function sphr_to_cart_vec(
     return u
 end
 
-function init_state_conservative!(bl::DryAtmosModel, state, aux, coords, t)
+struct HeldSuarez <: AbstractDryAtmosProblem end
+
+# Held Suarez needs coordinates
+vars_state_auxiliary(::DryAtmosModel, ::HeldSuarez, FT) = @vars(coord::SVector{3, FT})
+function init_state_auxiliary!(
+    m::DryAtmosModel,
+    ::HeldSuarez,
+    state_auxiliary,
+    geom,
+)
+  state_auxiliary.problem.coord = geom.coord
+end
+
+function init_state_conservative!(bl::DryAtmosModel,
+                                  ::HeldSuarez,
+                                  state, aux, coord, t)
     FT = eltype(state)
 
     # parameters 
@@ -70,9 +83,9 @@ function init_state_conservative!(bl::DryAtmosModel, state, aux, coords, t)
     V_p::FT = 10
 
     # grid
-    λ = @inbounds atan(coords[2], coords[1])
-    φ =  @inbounds asin(coords[3] / norm(coords, 2))
-    z =  norm(coords) - _a
+    λ = @inbounds atan(coord[2], coord[1])
+    φ =  @inbounds asin(coord[3] / norm(coord, 2))
+    z =  norm(coord) - _a
 
     # deterministic velocity perturbation
     F_z::FT = 1 - 3 * (z / z_t)^2 + 2 * (z / z_t)^3
@@ -121,6 +134,13 @@ function source!(
     aux,
 )
     FT = eltype(state)
+    
+    _R_d = FT(R_d(param_set))
+    _day = FT(day(param_set))
+    _grav = FT(grav(param_set))
+    _cp_d = FT(cp_d(param_set))
+    _cv_d = FT(cv_d(param_set))
+    _p0 = FT(MSLP(param_set))
 
     # Parameters
     T_ref = FT(255)
@@ -129,18 +149,12 @@ function source!(
     ρ = state.ρ
     ρu = state.ρu
     ρe = state.ρe
+    Φ = aux.Φ
 
-    coord = aux.coord
+    coord = aux.problem.coord
     
-    p = pressure(ρ, ρu, ρ, Φ)
+    p = pressure(ρ, ρu, ρe, Φ)
     T = p / (ρ * _R_d)
-
-    _R_d = FT(R_d(param_set))
-    _day = FT(day(param_set))
-    _grav = FT(grav(param_set))
-    _cp_d = FT(cp_d(param_set))
-    _cv_d = FT(cv_d(param_set))
-    _p0 = FT(MSLP(param_set))
 
     # Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
@@ -153,7 +167,7 @@ function source!(
     σ_b = FT(7 / 10)
 
     # Held-Suarez forcing
-    φ = @inbounds asin(coords[3] / norm(coords, 2))
+    φ = @inbounds asin(coord[3] / norm(coord, 2))
 
     #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
     #for topography, but leave unchanged for calculations of σ involved in T_equil
@@ -166,8 +180,12 @@ function source!(
     k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
     k_v = k_f * height_factor
 
+    # horizontal projection
+    k = coord / norm(coord)
+    P = I - k * k'
+
     # Apply Held-Suarez forcing
-    source.ρu -= k_v * projection_tangential(bl, aux, ρu)
+    source.ρu -= k_v * P * ρu
     source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
     return nothing
 end
@@ -230,9 +248,11 @@ function run(
 
     T_profile = DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
 
-    model = DryAtmosModel{FT}(SphericalOrientation(),
-        ref_state = DryReferenceState(T_profile),
-        sources = (Coriolis(),)
+    model = DryAtmosModel{FT}(
+      SphericalOrientation(),
+      HeldSuarez(),
+      ref_state = DryReferenceState(T_profile),
+      sources = (HeldSuarezForcing(), Coriolis(),)
     )
 
     esdg = ESDGModel(
