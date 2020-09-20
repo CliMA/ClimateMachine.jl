@@ -295,6 +295,7 @@ function get_gcm_info(groupid)
         "wap",
         "hfls",
         "hfss",
+	"ts",
         "alpha",
     )
     # Load NETCDF dataset (HadGEM2-A information)
@@ -310,7 +311,7 @@ function get_gcm_info(groupid)
             if reqvar == varname
                 # Get average over time dimension
                 var = mean(var, dims = 2)
-                if varname == "hfls" || varname == "hfss"
+                if varname == "hfls" || varname == "hfss" || varname == "ts"
                     var = mean(var, dims = 1)[1]
                 end
                 # Assign the variable values to the appropriate converted string
@@ -337,7 +338,7 @@ function get_gcm_info(groupid)
         wap,
         hfls,
         hfss,
-        ta[1],
+        ts,
         alpha,
     )
 
@@ -406,7 +407,7 @@ function config_cfsites(
     zmax,
     hfls,
     hfss,
-    T_sfc,
+    ts,
     groupid,
 )
     # Boundary Conditions
@@ -421,7 +422,7 @@ function config_cfsites(
                 energy = PrescribedEnergyFlux((state, aux, t) -> hfls + hfss),
                 moisture = PrescribedMoistureFlux(
                     (state, aux, t) ->
-                        hfls / latent_heat_vapor(param_set, T_sfc),
+                        hfls / latent_heat_vapor(param_set, ts),
                 ),
             ),
             AtmosBC(),
@@ -528,7 +529,7 @@ function main()
     zmax = FT(4000)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(1800)
+    timeend = FT(600)
     #timeend = FT(3600 * 6)
     # Courant number
     CFL = FT(0.8)
@@ -549,7 +550,7 @@ function main()
         wap,
         hfls,
         hfss,
-        T_sfc,
+        ts,
         alpha,
     ) = get_gcm_info(groupid)
 
@@ -581,7 +582,7 @@ function main()
         zmax,
         hfls,
         hfss,
-        T_sfc,
+        ts,
         groupid,
     )
     # Set up solver configuration
