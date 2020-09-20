@@ -152,7 +152,7 @@ end
 struct DryReferenceState{TP}
   temperature_profile::TP
 end
-vars_state_auxiliary(::DryAtmosModel, ::DryReferenceState, FT) = @vars(p::FT, ρ::FT, ρe::FT)
+vars_state_auxiliary(::DryAtmosModel, ::DryReferenceState, FT) = @vars(T::FT, p::FT, ρ::FT, ρe::FT)
 vars_state_auxiliary(::DryAtmosModel, ::NoReferenceState, FT) = @vars()
 
 function init_state_auxiliary!(
@@ -171,6 +171,7 @@ function init_state_auxiliary!(
     ρu = SVector{3, FT}(0, 0, 0)
 
 
+    state_auxiliary.ref_state.T = T
     state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
     state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ)
