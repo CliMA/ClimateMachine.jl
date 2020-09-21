@@ -1,5 +1,9 @@
+using ForwardDiff
+export JacobianFreeNewtonKrylovSolver, JacobianAction, AutoDiffMode, FiniteDiffMode
 
-export JacobianFreeNewtonKrylovSolver, JacobianAction
+abstract type DiffMode end
+struct AutoDiffMode <: DiffMode end
+struct FiniteDiffMode <: DiffMode end
 
 """
 mutable struct JacobianAction{FT, AT}
@@ -28,7 +32,7 @@ Solve for Frhs = F(q), the Jacobian action is computed
 - `Fqdq::AT`       : container for F(Q + ϵΔQ)
 ...
 """
-mutable struct JacobianAction{FT, AT}
+mutable struct JacobianAction{MT, FT, AT}
     rhs!
     ϵ::FT
     Q::AT
@@ -37,8 +41,18 @@ mutable struct JacobianAction{FT, AT}
     Fqdq::AT
 end
 
-function JacobianAction(rhs!, Q, ϵ)
-    return JacobianAction(
+function JacobianAction(rhs!, Q, ϵ, mode::DiffMode)
+    if mode isa AutoDiffMode
+        return JacobianAction{typeof(mode), typeof(ϵ), typeof(ForwardDiff.Dual(Q))}(
+            rhs!,
+            ϵ,
+            ForwardDiff.Dual(similar(Q)),
+            ForwardDiff.Dual(similar(Q)),
+            ForwardDiff.Dual(similar(Q)),
+            ForwardDiff.Dual(similar(Q)),
+        )
+    end
+    return JacobianAction{typeof(mode), typeof(ϵ), typeof(Q)}(
         rhs!,
         ϵ,
         similar(Q),
@@ -59,7 +73,7 @@ JΔQ = ---- ΔQ ≈ -------------------
 
 Compute  JΔQ with cached Q and F(Q), and the direction  dQ
 """
-function (op::JacobianAction)(JΔQ, dQ, args...)
+function (op::JacobianAction{FiniteDiffMode})(JΔQ, dQ, args...)
     rhs! = op.rhs!
     Q = op.Q
     Qdq = op.Qdq
@@ -89,14 +103,27 @@ function (op::JacobianAction)(JΔQ, dQ, args...)
 
 end
 
+function (op::JacobianAction{AutoDiffMode})(JΔQ, dQ, args...)
+    Q = op.Q
+    Fq = op.Fq
+
+    ForwardDiff.partials(Q) .= dQ
+    op.rhs!(Fq, Q, args...)
+    JΔQ .= ForwardDiff.partials(Fq)
+end
+
 """
 update cached Q and F(Q) before each Newton iteration
 """
-function update_Q!(op::JacobianAction, Q, args...)
+function update_Q!(op::JacobianAction{FiniteDiffMode}, Q, args...)
     op.Q .= Q
     Fq = op.Fq
 
     op.rhs!(Fq, Q, args...)
+end
+
+function update_Q!(op::JacobianAction{AutoDiffMode}, Q, args...)
+    op.Q .= Q
 end
 
 """
@@ -121,8 +148,10 @@ mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
     linearsolver
     # container for unknows ΔQ, which is updated for the linear solver
     ΔQ::AT
-    # contrainer for F(Q)
+    # container for F(Q)
     residual::AT
+    # Method for computing Jacobian action
+    mode::DiffMode
 end
 
 """
@@ -134,10 +163,15 @@ function JacobianFreeNewtonKrylovSolver(
     ϵ = 1.e-8,
     tol = 1.e-6,
     M = 30,
+    mode = FiniteDiffMode(),
 )
     FT = eltype(Q)
     residual = similar(Q)
     ΔQ = similar(Q)
+    if mode isa AutoDiffMode
+        residual = ForwardDiff.Dual(residual)
+        ΔQ = ForwardDiff.Dual(ΔQ)
+    end
     return JacobianFreeNewtonKrylovSolver(
         FT(ϵ),
         FT(tol),
@@ -145,6 +179,7 @@ function JacobianFreeNewtonKrylovSolver(
         linearsolver,
         ΔQ,
         residual,
+        mode,
     )
 end
 

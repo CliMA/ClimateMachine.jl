@@ -40,6 +40,7 @@ mutable struct MPIStateArray{
     DAI1,
     DAV,
     Buf <: CMBuffer,
+    DATW
 } <: AbstractArray{FT, 3}
     mpicomm::MPI.Comm
     data::DATN
@@ -61,7 +62,43 @@ mutable struct MPIStateArray{
     nabrtovmaprecv::Array{UnitRange{Int64}, 1}
     nabrtovmapsend::Array{UnitRange{Int64}, 1}
 
-    weights::DATN
+    weights::DATW
+
+    function MPIStateArray{FT, V, DATN, DAI1, DAV, Buf, DATW}(
+        mpicomm::MPI.Comm,
+        data::DATN,
+        realdata::DAV,
+        realelems::UnitRange{Int64},
+        ghostelems::UnitRange{Int64},
+        vmaprecv::DAI1,
+        vmapsend::DAI1,
+        sendreq::Array{MPI.Request, 1},
+        recvreq::Array{MPI.Request, 1},
+        send_buffer::Buf,
+        recv_buffer::Buf,
+        nabrtorank::Array{Int64, 1},
+        nabrtovmaprecv::Array{UnitRange{Int64}, 1},
+        nabrtovmapsend::Array{UnitRange{Int64}, 1},
+        weights::DATW,
+    ) where {FT, V, DATN <: AbstractArray{FT, 3}, DAI1, DAV, Buf <: CMBuffer, DATW}
+        new{FT, V, DATN, DAI1, DAV, Buf, DATW}(
+            mpicomm,
+            data,
+            realdata,
+            realelems,
+            ghostelems,
+            vmaprecv,
+            vmapsend,
+            sendreq,
+            recvreq,
+            send_buffer,
+            recv_buffer,
+            nabrtorank,
+            nabrtovmaprecv,
+            nabrtovmapsend,
+            weights,
+        )
+    end
 
     function MPIStateArray{FT, V}(
         mpicomm,
@@ -107,24 +144,27 @@ mutable struct MPIStateArray{
         #
         # Better way than checking the type names?
         # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
-        if typeof(vmaprecv).name != typeof(data).name
-            vmaprecv =
-                copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)), vmaprecv)
-        end
-        if typeof(vmapsend).name != typeof(data).name
-            vmapsend =
-                copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
-        end
-        if typeof(weights).name != typeof(data).name
-            weights = copyto!(
-                similar(DA, eltype(weights), size(weights)),
-                Array(weights),
-            )
+        if data isa CuArray 
+            if !(vmaprecv isa CuArray)
+                vmaprecv =
+                    copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)), vmaprecv)
+            end 
+            if !(vmapsend isa CuArray)
+                vmapsend =
+                    copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
+            end
+            if !(weights isa CuArray)
+                weights = copyto!(
+                    similar(DA, eltype(weights), size(weights)),
+                    Array(weights),
+                )
+            end
         end
 
         DAI1 = typeof(vmaprecv)
         Buf = typeof(send_buffer)
-        Q = new{FT, V, typeof(data), DAI1, DAV, Buf}(
+        DATW = typeof(weights)
+        Q = new{FT, V, typeof(data), DAI1, DAV, Buf, DATW}(
             # Make sure that each MPIStateArray has its own MPI context.  This
             # allows multiple MPIStateArrays to be communicating asynchronously
             # at the same time without having to explicitly manage tags.
@@ -816,6 +856,89 @@ end
             buf[n, s, e] = recvbuf[s, i]
         end
     end
+end
+
+using StructArrays, ForwardDiff
+
+# Assumes that different parts of the StructArray can't be on different devices.
+array_device(s::StructArray) = array_device(StructArrays.fieldarrays(s)[1])
+
+function transform_broadcasted(bc::Broadcasted, ::StructArray)
+    transform_structarray(bc)
+end
+function transform_structarray(bc::Broadcasted)
+    Broadcasted(bc.f, transform_structarray.(bc.args), bc.axes)
+end
+transform_structarray(mpisa::MPIStateArray) = mpisa.realdata
+transform_structarray(x) = x
+
+# Assumes that the default number of partials should be 1, while the ForwardDiff
+# API assumes that it should be 0.
+ForwardDiff.Dual(Q::MPIStateArray) = ForwardDiff.Dual{nothing}(Q)
+ForwardDiff.Dual{Tag}(Q::MPIStateArray{FT}) where {Tag, FT} =
+    ForwardDiff.Dual{Tag, FT}(Q)
+ForwardDiff.Dual{Tag, FT}(Q::MPIStateArray) where {Tag, FT} =
+    ForwardDiff.Dual{Tag, FT, 1}(Q)
+
+ForwardDiff.Dual{Tag}(Q::MPIStateArray{FT}) where
+    {Tag, FT <: ForwardDiff.Dual{Tag}} = Q
+
+function Base.similar(::Type{A}, ::Type{DT}, dims...) where
+    {Tag, FT, N, DT <: ForwardDiff.Dual{Tag, FT, N}, A <: StructArray{DT}}
+    partials = StructArray{ForwardDiff.Partials{N, FT}}(
+        (StructArray{NTuple{N, FT}}(
+            ntuple(i-> similar(Array, FT, dims...), N)
+        ),)
+    )
+    data = StructArray{ForwardDiff.Dual{Tag, FT, N}}(
+        (similar(Array, FT, dims...), partials)
+    )
+    return data
+end
+
+# Assumes that two MPIStateArrays can have the same mpicomm.
+function ForwardDiff.Dual{Tag, FT, N}(
+    Q::MPIStateArray{FT, V, DATN, DAI1, DAV, Buf, DATW}
+) where {Tag, FT, N, V, DATN, DAI1, DAV, Buf, DATW}
+    partials = StructArray{ForwardDiff.Partials{N, FT}}(
+        (StructArray{NTuple{N, FT}}(
+            ntuple(i-> similar(typeof(Q.data), FT, size(Q.data)...), N)
+        ),)
+    )
+    data = StructArray{ForwardDiff.Dual{Tag, FT, N}}(
+        (Q.data, partials)
+    )
+    realdata = view(data, ntuple(i -> Colon(), ndims(data) - 1)..., Q.realelems)
+    DT = ForwardDiff.Dual{Tag, FT, N}
+    return MPIStateArray{DT, V, typeof(data), DAI1, typeof(realdata), Buf, DATW}(
+        Q.mpicomm,
+        data,
+        realdata,
+        Q.realelems,
+        Q.ghostelems,
+        Q.vmaprecv,
+        Q.vmapsend,
+        Q.sendreq,
+        Q.recvreq,
+        Q.send_buffer,
+        Q.recv_buffer,
+        Q.nabrtorank,
+        Q.nabrtovmaprecv,
+        Q.nabrtovmapsend,
+        Q.weights,
+    )
+end
+
+# These return pointers to the actual data, rather than new MPIStateArrays.
+# The second function adds a default partial index of 1, which the ForwardDiff
+# API does not do. Might want to implement dot syntax for these functions?
+function ForwardDiff.value(Q::MPIStateArray{DT, V, DATN}) where
+    {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
+    return Q.data.value
+end
+function ForwardDiff.partials(Q::MPIStateArray{DT, V, DATN}, i = 1) where
+    {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
+    return Q.data.partials.values.:($i)
 end
 
 end

@@ -1,3 +1,4 @@
+using ForwardDiff, ..DGMethods
 export LinearBackwardEulerSolver, AbstractBackwardEulerSolver
 export NonLinearBackwardEulerSolver
 
@@ -275,7 +276,8 @@ function setup_backward_Euler_solver(
     f_imp!,
 )
     # Create an empty JacobianAction (without operator)
-    jvp! = JacobianAction(nothing, Q, nlbesolver.nlsolver.ϵ)
+    nlsolver = nlbesolver.nlsolver
+    jvp! = JacobianAction(nothing, Q, nlsolver.ϵ, nlsolver.mode)
 
     # Create an empty preconditioner if preconditioner_update_freq > 0
     preconditioner_update_freq = nlbesolver.preconditioner_update_freq
@@ -307,6 +309,29 @@ function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
     rhs! = EulerOperator(nlbesolver.f_imp!, -α)
 
     nlbesolver.jvp!.rhs! = rhs!
+
+    if nlbesolver.nlsolver.mode isa AutoDiffMode
+        Q = ForwardDiff.Dual(Q)
+        Qhat = ForwardDiff.Dual(Qhat)
+
+        # Temporary workaround for state_auxiliary not handling Duals.
+        rhs! = EulerOperator(DGModel(
+            rhs!.f!.balance_law,
+            rhs!.f!.grid,
+            rhs!.f!.numerical_flux_first_order,
+            rhs!.f!.numerical_flux_second_order,
+            rhs!.f!.numerical_flux_gradient;
+            state_auxiliary = ForwardDiff.Dual(rhs!.f!.state_auxiliary),
+            state_gradient_flux = ForwardDiff.Dual(rhs!.f!.state_gradient_flux),
+            states_higher_order = (
+                ForwardDiff.Dual(rhs!.f!.states_higher_order[1]),
+                ForwardDiff.Dual(rhs!.f!.states_higher_order[2]),
+            ),
+            direction = rhs!.f!.direction,
+            diffusion_direction = rhs!.f!.diffusion_direction,
+            modeldata = rhs!.f!.modeldata,
+        ), rhs!.ϵ)
+    end
 
     nonlinearsolve!(
         rhs!,
