@@ -2,6 +2,8 @@
 export LowStorageRungeKutta2N
 export LSRK54CarpenterKennedy, LSRK144NiegemannDiehlBusch, LSRKEulerMethod
 
+using ..MPIStateArrays
+using LinearAlgebra
 """
     LowStorageRungeKutta2N(f, RKA, RKB, RKC, Q; dt, t0 = 0)
 
@@ -93,7 +95,9 @@ function dostep!(
     groupsize = 256
 
     for s in 1:length(RKA)
+        @info "=====START======== norm(dQ) = ", norm(dQ, false)
         rhs!(dQ, Q, p, time + RKC[s] * dt, increment = true)
+        @info "=====FINISH========s : ", s, " norm(dQ) = ", norm(dQ, false)
 
         slow_scaling = nothing
         if s == length(RKA)
