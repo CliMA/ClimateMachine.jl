@@ -141,9 +141,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 t,
                 (direction,),
             )
-            if (number_states(balance_law, Prognostic()) == 5)
-                local_flux .= 0.0
-            end
+            #if (number_states(balance_law, Prognostic()) == 5)
+            #    local_flux .= 0.0
+            #end
 
             @unroll for s in 1:num_state_prognostic
                 shared_flux[1, i, j, s] = local_flux[1, s]
@@ -240,9 +240,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                         (VerticalDirection(),),
                     )
 
-                    if (number_states(balance_law, Prognostic()) == 5)
-                        local_flux .= 0.0
-                    end
+                    #if (number_states(balance_law, Prognostic()) == 5)
+                    #    local_flux .= 0.0
+                    #end
 
                     @unroll for s in 1:num_state_prognostic
                         F1, F2, F3 =
