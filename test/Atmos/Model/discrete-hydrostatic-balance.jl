@@ -72,7 +72,7 @@ function config_balanced(
     model = AtmosModel{FT}(
         config_type,
         param_set;
-        ref_state = TestRefState(ref_state),
+        ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
@@ -98,11 +98,11 @@ function main()
     poly_order = 4
 
     timestart = FT(0)
-    timeend = FT(100)
-    domain_height = FT(50e3)
+    timeend = FT(1000000)
+    domain_height = FT(30e3)
 
     LES_params = let
-        LES_resolution = ntuple(_ -> domain_height / 3poly_order, 3)
+        LES_resolution = ntuple(_ -> domain_height / 10poly_order, 3)
         LES_domain = ntuple(_ -> domain_height, 3)
         (LES_resolution, LES_domain...)
     end
@@ -125,16 +125,17 @@ function main()
         solver_method = LSRK54CarpenterKennedy,
     )
 
-    @testset for config in (LES, GCM)
-        @testset for ode_solver_type in (explicit_solver_type, imex_solver_type)
+    @testset for config in (LES,)
+        @testset for ode_solver_type in (explicit_solver_type,)
             @testset for numflux in (
-                CentralNumericalFluxFirstOrder(),
+                #CentralNumericalFluxFirstOrder(),
                 RoeNumericalFlux(),
-                HLLCNumericalFlux(),
+                #RusanovNumericalFlux(),
+                #HLLCNumericalFlux(),
             )
                 @testset for temp_profile in (
-                    IsothermalProfile(param_set, FT),
-                    DecayingTemperatureProfile{FT}(param_set),
+                    IsothermalProfile(param_set, FT(300)),
+                    #DecayingTemperatureProfile{FT}(param_set),
                 )
                     driver_config = config_balanced(
                         FT,
@@ -162,7 +163,8 @@ function main()
 
                     error =
                         euclidean_distance(solver_config.Q, Qinit) / norm(Qinit)
-                    @test error <= 100 * eps(FT)
+                    @show error
+                    #@test error <= 100 * eps(FT)
                 end
             end
         end
