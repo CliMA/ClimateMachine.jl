@@ -308,14 +308,9 @@ function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
 
     rhs! = EulerOperator(nlbesolver.f_imp!, -α)
 
-    nlbesolver.jvp!.rhs! = rhs!
-
+    # Temporary workaround for state_auxiliary not handling Duals.
     if nlbesolver.nlsolver.mode isa AutoDiffMode
-        Q = ForwardDiff.Dual(Q)
-        Qhat = ForwardDiff.Dual(Qhat)
-
-        # Temporary workaround for state_auxiliary not handling Duals.
-        rhs! = EulerOperator(DGModel(
+        nlbesolver.jvp!.rhs! = EulerOperator(DGModel(
             rhs!.f!.balance_law,
             rhs!.f!.grid,
             rhs!.f!.numerical_flux_first_order,
@@ -331,6 +326,8 @@ function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
             diffusion_direction = rhs!.f!.diffusion_direction,
             modeldata = rhs!.f!.modeldata,
         ), rhs!.ϵ)
+    else
+        nlbesolver.jvp!.rhs! = rhs!
     end
 
     nonlinearsolve!(

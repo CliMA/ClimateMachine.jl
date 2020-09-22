@@ -8,7 +8,6 @@ using Dierckx
 using Test
 using Pkg.Artifacts
 using DelimitedFiles
-using ForwardDiff
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end

@@ -123,7 +123,7 @@ function update_Q!(op::JacobianAction{FiniteDiffMode}, Q, args...)
 end
 
 function update_Q!(op::JacobianAction{AutoDiffMode}, Q, args...)
-    op.Q .= Q
+    ForwardDiff.value(op.Q) .= Q
 end
 
 """
@@ -146,7 +146,7 @@ mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
     M::Int
     # Linear solver for the Jacobian system
     linearsolver
-    # container for unknows ΔQ, which is updated for the linear solver
+    # container for unknowns ΔQ, which is updated for the linear solver
     ΔQ::AT
     # container for F(Q)
     residual::AT
@@ -168,10 +168,6 @@ function JacobianFreeNewtonKrylovSolver(
     FT = eltype(Q)
     residual = similar(Q)
     ΔQ = similar(Q)
-    if mode isa AutoDiffMode
-        residual = ForwardDiff.Dual(residual)
-        ΔQ = ForwardDiff.Dual(ΔQ)
-    end
     return JacobianFreeNewtonKrylovSolver(
         FT(ϵ),
         FT(tol),

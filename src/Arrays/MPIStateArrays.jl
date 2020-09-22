@@ -864,13 +864,8 @@ using StructArrays, ForwardDiff
 array_device(s::StructArray) = array_device(StructArrays.fieldarrays(s)[1])
 
 function transform_broadcasted(bc::Broadcasted, ::StructArray)
-    transform_structarray(bc)
+    transform_array(bc)
 end
-function transform_structarray(bc::Broadcasted)
-    Broadcasted(bc.f, transform_structarray.(bc.args), bc.axes)
-end
-transform_structarray(mpisa::MPIStateArray) = mpisa.realdata
-transform_structarray(x) = x
 
 # Assumes that the default number of partials should be 1, while the ForwardDiff
 # API assumes that it should be 0.
