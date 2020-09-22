@@ -42,6 +42,7 @@ using ClimateMachine.Problems
 import ClimateMachine.BalanceLaws:
     vars_state,
     flux_first_order!,
+    compute_face_normal_velocity!,
     flux_second_order!,
     source!,
     wavespeed,
@@ -425,6 +426,22 @@ equations.
     flux_tracers!(m.tracers, m, flux, state, aux, t)
     flux_first_order!(m.turbconv, m, flux, state, aux, t)
 end
+
+function compute_face_normal_velocity!(
+    ::AtmosModel,
+    velᵀn,
+    n,
+    state,
+    aux,
+    t::Real,
+)
+    ρ = state.ρ
+    ρinv = 1 / ρ
+    ρu = state.ρu
+    u = ρinv * ρu
+    @inbounds velᵀn[1] = u' * n
+end
+
 
 function compute_gradient_argument!(
     atmos::AtmosModel,
