@@ -466,7 +466,7 @@ end
                 F1, F2, F3 = local_flux_total[1, s],
                 local_flux_total[2, s],
                 local_flux_total[3, s]
-                Fv = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+                Fv = (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
                 if dim == 2
                     shared_flux[i, j, s] = Fv
                 else
@@ -479,7 +479,7 @@ end
                     MI = local_MI[n]
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[n, s] +=
-                            MI * s_D[k, n] * local_flux_total[1, s]
+                            (MI * M) * s_D[k, n] * local_flux_total[1, s]
                     end
                 end
             end
@@ -511,7 +511,7 @@ end
                 @unroll for n in 1:Nq
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[k, s] +=
-                            MI * s_D[n, j] * shared_flux[i, n, s]
+                            (MI * M) * s_D[n, j] * shared_flux[i, n, s]
                     end
                 end
             end
