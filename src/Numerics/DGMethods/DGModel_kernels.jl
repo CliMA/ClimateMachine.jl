@@ -79,8 +79,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
     local_tendency = @private FT (Nqk, num_state_prognostic)
     local_MI = @private FT (Nqk,)
-
+    # element number 
     e = @index(Group, Linear)
+    # Gassian point number
     i, j = @index(Local, NTuple)
 
     @inbounds begin
@@ -183,13 +184,13 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 local_flux_3[s]
 
                 shared_flux[1, i, j, s] =
-                    M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+                    (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
                 if dim == 3 || (dim == 2 && direction isa EveryDirection)
                     shared_flux[2, i, j, s] =
-                        M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                        (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
                 end
                 if dim == 3 && direction isa EveryDirection
-                    local_flux_3[s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                    local_flux_3[s] = (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
                 end
             end
 
@@ -216,10 +217,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                         F1, F2, F3 =
                             local_flux[1, s], local_flux[2, s], local_flux[3, s]
                         shared_flux[1, i, j, s] +=
-                            M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+                            (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
                         if dim == 3
                             shared_flux[2, i, j, s] +=
-                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                                (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
                         end
                     end
                 end
@@ -249,10 +250,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                             local_flux[1, s], local_flux[2, s], local_flux[3, s]
                         if dim == 2
                             shared_flux[2, i, j, s] +=
-                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+                                (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
                         elseif dim == 3
                             local_flux_3[s] +=
-                                M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+                                (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
                         end
                     end
                 end
@@ -262,7 +263,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 @unroll for n in 1:Nqk
                     MI = local_MI[n]
                     @unroll for s in 1:num_state_prognostic
-                        local_tendency[n, s] += MI * s_D[k, n] * local_flux_3[s]
+                        local_tendency[n, s] += (MI * M) * s_D[k, n] * local_flux_3[s]
                     end
                 end
             end
@@ -295,12 +296,12 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 @unroll for n in 1:Nq
                     # ξ1-grid lines
                     local_tendency[k, s] +=
-                        MI * s_D[n, i] * shared_flux[1, n, j, s]
+                        (MI * M) * s_D[n, i] * shared_flux[1, n, j, s]
 
                     # ξ2-grid lines
                     if dim == 3 || (dim == 2 && direction isa EveryDirection)
                         local_tendency[k, s] +=
-                            MI * s_D[n, j] * shared_flux[2, i, n, s]
+                            (MI * M) * s_D[n, j] * shared_flux[2, i, n, s]
                     end
                 end
             end
