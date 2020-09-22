@@ -10,6 +10,8 @@ export OceanDGModel,
 #using Printf
 using StaticArrays
 using LinearAlgebra: I, dot, Diagonal
+using CLIMAParameters.Planet: grav
+
 using ...VariableTemplates
 using ...MPIStateArrays
 using ...DGMethods: init_ode_state, basic_grid_info

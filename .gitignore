@@ -25,6 +25,7 @@ src/**/Manifest.toml
 *.vtu
 *.pvtu
 *.nc
+*.jld2
 
 # Figs
 *.png

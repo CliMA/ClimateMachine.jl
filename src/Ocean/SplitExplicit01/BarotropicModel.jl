@@ -104,7 +104,7 @@ vars_state(m::BarotropicModel, ::DownwardIntegrals, T) = @vars()
         U = @SVector [Q.U[1], Q.U[2], 0]
         η = Q.η
         H = m.baroclinic.problem.H
-        g = m.baroclinic.grav
+        g = grav(m.baroclinic.param_set)
         Iʰ = @SMatrix [
             1 0
             0 1

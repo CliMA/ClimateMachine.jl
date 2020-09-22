@@ -118,17 +118,23 @@ function SolverConfiguration(
 
         state_auxiliary = restart_auxiliary_state(bl, grid, s_aux, direction)
 
-        dg = DGModel(
-            bl,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient;
-            state_auxiliary = state_auxiliary,
-            direction = direction,
-            diffusion_direction = diffdir,
-            modeldata = modeldata,
-        )
+        if hasproperty(driver_config.config_info, :dg)
+            dg = driver_config.config_info.dg
+
+            dg.state_auxiliary .= state_auxiliary
+        else
+            dg = DGModel(
+                bl,
+                grid,
+                numerical_flux_first_order,
+                numerical_flux_second_order,
+                numerical_flux_gradient;
+                state_auxiliary = state_auxiliary,
+                direction = direction,
+                diffusion_direction = diffdir,
+                modeldata = modeldata,
+            )
+        end
 
         @info @sprintf(
             "Initializing %s from time %8.2f",
@@ -137,17 +143,21 @@ function SolverConfiguration(
         )
         Q = restart_ode_state(dg, s_Q; init_on_cpu = init_on_cpu)
     else
-        dg = DGModel(
-            bl,
-            grid,
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            numerical_flux_gradient;
-            fill_nan = Settings.debug_init,
-            direction = direction,
-            diffusion_direction = diffdir,
-            modeldata = modeldata,
-        )
+        if hasproperty(driver_config.config_info, :dg)
+            dg = driver_config.config_info.dg
+        else
+            dg = DGModel(
+                bl,
+                grid,
+                numerical_flux_first_order,
+                numerical_flux_second_order,
+                numerical_flux_gradient;
+                fill_nan = Settings.debug_init,
+                direction = direction,
+                diffusion_direction = diffdir,
+                modeldata = modeldata,
+            )
+        end
 
         if Settings.debug_init
             write_debug_init_vtk_and_pvtu(
