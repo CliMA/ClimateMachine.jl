@@ -55,7 +55,6 @@ if generate_tutorials
                     "Diagnostics/Debug/StateCheck.jl",
             ],
         ],
-        "Contributing" => ["Notes on Literate" => "literate_markdown.jl"],
     ]
 
     # Prepend tutorials_dir
