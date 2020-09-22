@@ -1,4 +1,8 @@
-using ForwardDiff, ..DGMethods
+using ..DGMethods: DGModel
+using ..SystemSolvers: DiffMode, AutoDiffMode, FiniteDiffMode
+
+using ForwardDiff
+
 export LinearBackwardEulerSolver, AbstractBackwardEulerSolver
 export NonLinearBackwardEulerSolver
 
@@ -197,7 +201,7 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
 end
 
 """
-    struct NonLinearBackwardEulerSolver{NLS}
+    struct NonLinearBackwardEulerSolver{NLS, MT}
         nlsolver::NLS
         isadjustable::Bool
         preconditioner_update_freq::Int64
@@ -211,8 +215,9 @@ solver.
 - `isadjustable`: TODO not used, might use for updating preconditioner
 - `preconditioner_update_freq`:  relavent to Jacobian free -1: no preconditioner;
                              positive number, update every freq times
+- `mode`: mode of derivative calculation
 """
-struct NonLinearBackwardEulerSolver{NLS}
+struct NonLinearBackwardEulerSolver{NLS, MT <: DiffMode}
     nlsolver::NLS
     isadjustable::Bool
     # preconditioner_update_freq, -1: no preconditioner;
@@ -222,15 +227,20 @@ struct NonLinearBackwardEulerSolver{NLS}
         nlsolver;
         isadjustable = false,
         preconditioner_update_freq = -1,
-    )
+        mode::MT = FiniteDiffMode(),
+    ) where {MT <: DiffMode}
         NLS = typeof(nlsolver)
-        return new{NLS}(nlsolver, isadjustable, preconditioner_update_freq)
+        return new{NLS, MT}(
+            nlsolver,
+            isadjustable,
+            preconditioner_update_freq,
+        )
     end
 end
 
 
 """
-    LinBESolver
+    NonLinBESolver
 
 Concrete implementation of an `AbstractBackwardEulerSolver` to use nonlinear
 solvers of type `NLS`. See helper type
@@ -239,11 +249,13 @@ solvers of type `NLS`. See helper type
     Q = Qhat + α f_imp(Q, param, time)
 ```
 """
-mutable struct NonLinBESolver{FT, F, NLS} <: AbstractBackwardEulerSolver
+mutable struct NonLinBESolver{FT, F, FJVP, NLS} <: AbstractBackwardEulerSolver
     # Solve Q - α f_imp(Q) = Qrhs, not used
     α::FT
-    # implcit operator
+    # implicit operator
     f_imp!::F
+    # implicit operator used by Jacobian action (differs from f_imp! in AutoDiffMode)
+    f_imp_jvp!::FJVP
     # jacobian action, which approximates drhs!/dQ⋅ΔQ , here rhs!(Q) = Q - α f_imp(Q)
     jvp!::JacobianAction
     # nonlinear solver
@@ -270,14 +282,36 @@ Create an empty JacobianAction
 Create an empty preconditioner if preconditioner_update_freq > 0
 """
 function setup_backward_Euler_solver(
-    nlbesolver::NonLinearBackwardEulerSolver,
+    nlbesolver::NonLinearBackwardEulerSolver{NLS, MT},
     Q,
     α,
     f_imp!,
-)
+) where {NLS, MT}
+    # Temporary workaround for state_auxiliary not handling Duals.
+    if MT == AutoDiffMode
+        f_imp_jvp! = DGModel(
+            f_imp!.balance_law,
+            f_imp!.grid,
+            f_imp!.numerical_flux_first_order,
+            f_imp!.numerical_flux_second_order,
+            f_imp!.numerical_flux_gradient;
+            state_auxiliary = ForwardDiff.Dual(f_imp!.state_auxiliary),
+            state_gradient_flux = ForwardDiff.Dual(f_imp!.state_gradient_flux),
+            states_higher_order = (
+                ForwardDiff.Dual(f_imp!.states_higher_order[1]),
+                ForwardDiff.Dual(f_imp!.states_higher_order[2]),
+            ),
+            direction = f_imp!.direction,
+            diffusion_direction = f_imp!.diffusion_direction,
+            modeldata = f_imp!.modeldata,
+        )
+    else
+        f_imp_jvp! = f_imp!
+    end
+
     # Create an empty JacobianAction (without operator)
     nlsolver = nlbesolver.nlsolver
-    jvp! = JacobianAction(nothing, Q, nlsolver.ϵ, nlsolver.mode)
+    jvp! = JacobianAction(nothing, Q, nlsolver.ϵ, MT)
 
     # Create an empty preconditioner if preconditioner_update_freq > 0
     preconditioner_update_freq = nlbesolver.preconditioner_update_freq
@@ -290,6 +324,7 @@ function setup_backward_Euler_solver(
     NonLinBESolver(
         α,
         f_imp!,
+        f_imp_jvp!,
         jvp!,
         nlbesolver.nlsolver,
         nlbesolver.isadjustable,
@@ -308,24 +343,8 @@ function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
 
     rhs! = EulerOperator(nlbesolver.f_imp!, -α)
 
-    # Temporary workaround for state_auxiliary not handling Duals.
-    if nlbesolver.nlsolver.mode isa AutoDiffMode
-        nlbesolver.jvp!.rhs! = EulerOperator(DGModel(
-            rhs!.f!.balance_law,
-            rhs!.f!.grid,
-            rhs!.f!.numerical_flux_first_order,
-            rhs!.f!.numerical_flux_second_order,
-            rhs!.f!.numerical_flux_gradient;
-            state_auxiliary = ForwardDiff.Dual(rhs!.f!.state_auxiliary),
-            state_gradient_flux = ForwardDiff.Dual(rhs!.f!.state_gradient_flux),
-            states_higher_order = (
-                ForwardDiff.Dual(rhs!.f!.states_higher_order[1]),
-                ForwardDiff.Dual(rhs!.f!.states_higher_order[2]),
-            ),
-            direction = rhs!.f!.direction,
-            diffusion_direction = rhs!.f!.diffusion_direction,
-            modeldata = rhs!.f!.modeldata,
-        ), rhs!.ϵ)
+    if typeof(nlbesolver.jvp!).parameters[1] == AutoDiffMode
+        nlbesolver.jvp!.rhs! = EulerOperator(nlbesolver.f_imp_jvp!, -α)
     else
         nlbesolver.jvp!.rhs! = rhs!
     end

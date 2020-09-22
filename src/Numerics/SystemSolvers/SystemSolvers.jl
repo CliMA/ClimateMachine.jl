@@ -117,7 +117,7 @@ function nonlinearsolve!(
     end
     converged && return iters
 
-
+  
     while !converged && iters < max_newton_iters
 
         # dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n)), update Q^n in jvp!

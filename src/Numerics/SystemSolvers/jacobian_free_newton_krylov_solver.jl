@@ -41,9 +41,9 @@ mutable struct JacobianAction{MT, FT, AT}
     Fqdq::AT
 end
 
-function JacobianAction(rhs!, Q, ϵ, mode::DiffMode)
-    if mode isa AutoDiffMode
-        return JacobianAction{typeof(mode), typeof(ϵ), typeof(ForwardDiff.Dual(Q))}(
+function JacobianAction(rhs!, Q, ϵ, MT::Type{<:DiffMode})
+    if MT == AutoDiffMode
+        return JacobianAction{MT, typeof(ϵ), typeof(ForwardDiff.Dual(Q))}(
             rhs!,
             ϵ,
             ForwardDiff.Dual(similar(Q)),
@@ -52,7 +52,7 @@ function JacobianAction(rhs!, Q, ϵ, mode::DiffMode)
             ForwardDiff.Dual(similar(Q)),
         )
     end
-    return JacobianAction{typeof(mode), typeof(ϵ), typeof(Q)}(
+    return JacobianAction{MT, typeof(ϵ), typeof(Q)}(
         rhs!,
         ϵ,
         similar(Q),
@@ -150,8 +150,6 @@ mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
     ΔQ::AT
     # container for F(Q)
     residual::AT
-    # Method for computing Jacobian action
-    mode::DiffMode
 end
 
 """
@@ -175,7 +173,6 @@ function JacobianFreeNewtonKrylovSolver(
         linearsolver,
         ΔQ,
         residual,
-        mode,
     )
 end
 
