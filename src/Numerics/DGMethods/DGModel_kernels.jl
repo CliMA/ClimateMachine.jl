@@ -290,6 +290,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             end
             @synchronize
 
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            M = vgeo[ijk, _M, e]
+
             # Weak "inside metrics" derivative
             MI = local_MI[k]
             @unroll for s in 1:num_state_prognostic
@@ -506,6 +509,10 @@ end
             end
 
             @synchronize(dim == 2)
+
+            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            M = vgeo[ijk, _M, e]
+
             if dim == 2
                 MI = local_MI[k]
                 @unroll for n in 1:Nq
