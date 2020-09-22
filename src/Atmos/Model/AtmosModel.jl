@@ -306,6 +306,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        gcminfo::vars_state(m.gcminfo, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
@@ -322,6 +323,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        gcminfo::vars_state(m.gcminfo, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
@@ -465,6 +467,7 @@ equations.
     flux.ρe += u * p
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)
+    flux_first_order_gcm!(m.gcminfo, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
     flux_first_order!(m.turbconv, m, flux, state, aux, t)
 end
@@ -493,6 +496,7 @@ function compute_gradient_argument!(
         t,
     )
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
+    compute_gradient_argument!(atmos.gcminfo, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbconv, atmos, transform, state, aux, t)
 end
 
@@ -518,6 +522,7 @@ function compute_gradient_flux!(
     )
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(atmos.gcminfo, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
         atmos.turbconv,
@@ -577,6 +582,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_second_order!(atmos, flux, state, τ, d_h_tot)
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.gcminfo, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(
         atmos.hyperdiffusion,
         flux,

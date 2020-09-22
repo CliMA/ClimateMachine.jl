@@ -98,8 +98,8 @@ function atmos_source!(
     k̂ = vertical_unit_vector(atmos, aux)
     _e_int_v0 = e_int_v0(atmos.param_set)
     # Unpack vertical gradients
-    ∂qt∂z = dot(diffusive.moisture.∇hus, k̂)
-    ∂T∂z = dot(diffusive.moisture.∇ta, k̂)
+    ∂qt∂z = dot(diffusive.gcminfo.∇hus, k̂)
+    ∂T∂z = dot(diffusive.gcminfo.∇ta, k̂)
     w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Establish thermodynamic state
     TS = recover_thermo_state(atmos, state, aux)
@@ -144,7 +144,7 @@ function atmos_source!(
     _grav = grav(atmos.param_set)
     k̂ = vertical_unit_vector(atmos, aux)
     # Establish vertical orientation
-    ∂qt∂z = dot(diffusive.moisture.∇hus, k̂)
+    ∂qt∂z = dot(diffusive.gcminfo.∇hus, k̂)
     w_s = -aux.gcminfo.wap / aux.gcminfo.ρ / _grav
     # Establish thermodynamic state
     TS = recover_thermo_state(atmos, state, aux)
