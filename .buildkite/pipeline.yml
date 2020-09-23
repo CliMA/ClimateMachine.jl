@@ -444,6 +444,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_haverkamp_implicit_test"
+    key: "cpu_haverkamp_implicit_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_implicit_test.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "cpu_heat_analytic_unit_test"
     key: "cpu_heat_analytic_unit_test"
     command:
@@ -1065,6 +1074,16 @@ steps:
     key: "gpu_haverkamp_test"
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_haverkamp_implicit_test"
+    key: "gpu_haverkamp_implicit_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_implicit_test.jl "
     agents:
       config: gpu
       queue: central
