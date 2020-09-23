@@ -1,5 +1,6 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
+using ..Mesh.Filters: FilterIndices, number_state_filtered
 
 struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     balance_law::BL
@@ -99,12 +100,49 @@ The 4-argument form will just compute
     tendency .= dQdt(state_prognostic, p, t)
 
 """
-function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
+function (dg::DGModel)(
+    tendency,
+    state_prognostic,
+    param,
+    t;
+    increment = false,
+    kwargs...,
+)
     # TODO deprecate increment argument
-    dg(tendency, state_prognostic, param, t, true, increment)
+    dg(tendency, state_prognostic, param, t, true, increment; kwargs...)
 end
 
-function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
+function (dg::DGModel)(
+    tendency::NamedTuple,
+    Q::NamedTuple,
+    param,
+    args...;
+    kwargs...,
+)
+    # TODO: namedtuple tendency and Q to the DGModel functor
+    dg(
+        tendency.dg_state,
+        Q.dg_state,
+        param.orig_p,
+        args...;
+        ∫dg_flux = (
+            tendency = tendency.∫dg_flux,
+            state = Q.∫dg_flux,
+            mpptargets = param.mpptargets,
+        ),
+        kwargs...,
+    )
+end
+
+function (dg::DGModel)(
+    tendency,
+    state_prognostic,
+    p,
+    t,
+    α,
+    β;
+    ∫dg_flux = nothing,
+)
 
     balance_law = dg.balance_law
     device = array_device(state_prognostic)
@@ -142,6 +180,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     if num_state_prognostic < num_state_tendency && β != 1
         # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
         tendency .*= β
+        isnothing(∫dg_flux) || (∫dg_flux.tendency .* β)
         β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!
     end
 
@@ -475,6 +514,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         dependencies = (comp_stream,),
     )
 
+    mpptargets = isnothing(∫dg_flux) ? nothing : ∫dg_flux.mpptargets
+
+    nreduce = 2^ceil(Int, log2(Nfp))
     comp_stream = interface_tendency!(device, workgroups_surface)(
         balance_law,
         Val(dim),
@@ -494,7 +536,11 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         grid.vmap⁺,
         grid.elemtobndy,
         grid.interiorelems,
-        α;
+        α,
+        Val(nreduce),
+        mpptargets,
+        isnothing(∫dg_flux) ? nothing : ∫dg_flux.tendency.data,
+        β;
         ndrange = ndrange_interior_surface,
         dependencies = (comp_stream,),
     )
@@ -566,7 +612,11 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         grid.vmap⁺,
         grid.elemtobndy,
         grid.exteriorelems,
-        α;
+        α,
+        Val(nreduce),
+        mpptargets,
+        isnothing(∫dg_flux) ? nothing : ∫dg_flux.tendency.data,
+        β;
         ndrange = ndrange_exterior_surface,
         dependencies = (
             comp_stream,

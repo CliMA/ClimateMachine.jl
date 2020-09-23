@@ -15,7 +15,8 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     init_state_prognostic!,
     boundary_state!,
-    wavespeed
+    wavespeed,
+    compute_face_normal_velocity!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
@@ -28,24 +29,35 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 abstract type AdvectionDiffusionProblem end
-struct AdvectionDiffusion{dim, P, fluxBC, no_diffusion} <: BalanceLaw
+# the purpose of multistate is to allow the replication of states with the same
+# velocity field which are accessed with ρ[k].val
+struct AdvectionDiffusion{dim, P, fluxBC, no_diffusion, multistate} <:
+       BalanceLaw
     problem::P
     function AdvectionDiffusion{dim}(
         problem::P,
     ) where {dim, P <: AdvectionDiffusionProblem}
-        new{dim, P, false, false}(problem)
+        multistate = number_multistates(problem)
+        new{dim, P, false, false, multistate}(problem)
     end
     function AdvectionDiffusion{dim, fluxBC}(
         problem::P,
     ) where {dim, P <: AdvectionDiffusionProblem, fluxBC}
-        new{dim, P, fluxBC, false}(problem)
+        multistate = number_multistates(problem)
+        new{dim, P, fluxBC, false, multistate}(problem)
     end
     function AdvectionDiffusion{dim, fluxBC, no_diffusion}(
         problem::P,
     ) where {dim, P <: AdvectionDiffusionProblem, fluxBC, no_diffusion}
-        new{dim, P, fluxBC, no_diffusion}(problem)
+        multistate = number_multistates(problem)
+        new{dim, P, fluxBC, no_diffusion, multistate}(problem)
     end
 end
+
+number_multistates(::AdvectionDiffusionProblem) = 0
+number_multistates(
+    ::AdvectionDiffusion{dim, P, fluxBC, no_diffusion, multistate},
+) where {dim, P, fluxBC, no_diffusion, multistate} = multistate
 
 # Stored in the aux state are:
 #   `coord` coordinate points (needed for BCs)
@@ -65,10 +77,21 @@ function vars_state(
 end
 
 # Density is only state
-vars_state(::AdvectionDiffusion, ::Prognostic, FT) = @vars(ρ::FT)
+function vars_state(m::AdvectionDiffusion, ::Prognostic, FT)
+    num_ms = number_multistates(m)
+    if num_ms == 0
+        return @vars(ρ::FT)
+    else
+        return @vars(ρ::Tuple{ntuple(i -> @vars(val::FT), num_ms)...})
+    end
+end
 
 # Take the gradient of density
-vars_state(::AdvectionDiffusion, ::Gradient, FT) = @vars(ρ::FT)
+vars_state(
+    ::AdvectionDiffusion{dim, P, fluxBC, false, 1},
+    ::Gradient,
+    FT,
+) where {dim, P, fluxBC} = @vars(ρ::FT)
 vars_state(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
     ::Gradient,
@@ -76,12 +99,27 @@ vars_state(
 ) where {dim, P, fluxBC} = @vars()
 
 # The DG auxiliary variable: D ∇ρ
-vars_state(::AdvectionDiffusion, ::GradientFlux, FT) = @vars(σ::SVector{3, FT})
+vars_state(
+    ::AdvectionDiffusion{dim, P, fluxBC, false, 1},
+    ::GradientFlux,
+    FT,
+) where {dim, P, fluxBC} = @vars(σ::SVector{3, FT})
 vars_state(
     ::AdvectionDiffusion{dim, P, fluxBC, true},
     ::GradientFlux,
     FT,
 ) where {dim, P, fluxBC} = @vars()
+
+function compute_face_normal_velocity!(
+    ::AdvectionDiffusion,
+    velᵀn,
+    n,
+    state,
+    aux,
+    t::Real,
+)
+    @inbounds velᵀn[1] = aux.u' * n
+end
 
 """
     flux_first_order!(m::AdvectionDiffusion, flux::Grad, state::Vars,
@@ -101,7 +139,7 @@ Where
  - `σ` is DG auxiliary variable (`σ = D ∇ ρ` with D being the diffusion tensor)
 """
 function flux_first_order!(
-    ::AdvectionDiffusion,
+    m::AdvectionDiffusion,
     flux::Grad,
     state::Vars,
     aux::Vars,
@@ -110,7 +148,14 @@ function flux_first_order!(
 )
     ρ = state.ρ
     u = aux.u
-    flux.ρ += u * ρ
+    num_ms = number_multistates(m)
+    if num_ms == 0
+        flux.ρ += u * ρ
+    else
+        @unroll_map(num_ms) do k
+            flux.ρ[k].val += u * ρ[k].val
+        end
+    end
 end
 
 """
@@ -270,7 +315,14 @@ function boundary_state!(
     elseif bctype ∈ (2, 4) # Neumann
         stateP.ρ = stateM.ρ
     elseif bctype == 3 # zero Dirichlet
-        stateP.ρ = 0
+        num_ms = number_multistates(m)
+        if num_ms == 0
+            stateP.ρ = 0
+        else
+            @unroll_map(num_ms) do k
+                stateP.ρ[k].val = 0
+            end
+        end
     end
 end
 
