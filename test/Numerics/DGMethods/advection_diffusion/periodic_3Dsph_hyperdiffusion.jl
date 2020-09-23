@@ -145,17 +145,17 @@ function run(
 
     # analycal vs analycal
     # analytical solution for Y_{l,m}
-    rhs_anal = .- dg.state_auxiliary.c * D .* Q0.ρ
+    rhs_anal = .- dg.state_auxiliary.c * D .* Q0
 
     # ana ρ(t) + finite diff in time
     rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ 
 
     @show "ANA" norm(rhs_anal)
-    @show "FD" norm(rhs_FD.ρ)
-    @show "DG" norm(rhs_DGsource.ρ)
-    @show "ANA vs FD" norm(rhs_anal .- rhs_FD.ρ)/norm(rhs_anal)
-    @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource.ρ) / norm(rhs_anal)
-    @show "FD vs DG" norm(rhs_FD.ρ .- rhs_DGsource.ρ) / norm(rhs_FD.ρ)
+    @show "FD" norm(rhs_FD)
+    @show "DG" norm(rhs_DGsource)
+    @show "ANA vs FD" norm(rhs_anal .- rhs_FD)/norm(rhs_anal)
+    @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+    @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
 
     # @show rhs_anal[1:3,1,1]
     # @show rhs_DGsource[1:3,1,1]
