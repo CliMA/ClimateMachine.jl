@@ -71,7 +71,7 @@ function solversetup(ode_solver::SplitExplicitSolverType, dg_3D, Q_3D, _, t0, _)
     fast_solver =
         ode_solver.fast_method(dg_2D, Q_2D, dt = ode_solver.dt_fast, t0 = t0)
     slow_solver =
-        ode_solver.fast_method(dg_3D, Q_3D, dt = ode_solver.dt_slow, t0 = t0)
+        ode_solver.slow_method(dg_3D, Q_3D, dt = ode_solver.dt_slow, t0 = t0)
 
     solver = SplitExplicitLSRK2nSolver(slow_solver, fast_solver)
 
