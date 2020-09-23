@@ -167,11 +167,13 @@ let
                     ))
 
                     big_Q = create_state(
+                        MPIStateArray,
                         BigAdvectionDiffusion(),
                         grid,
                         Prognostic(),
                     )
                     big_dQ = create_state(
+                        MPIStateArray,
                         BigAdvectionDiffusion(),
                         grid,
                         Prognostic(),

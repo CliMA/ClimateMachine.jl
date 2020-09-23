@@ -170,7 +170,13 @@ function SolverConfiguration(
         end
 
         @info @sprintf("Initializing %s", driver_config.name,)
-        Q = init_ode_state(dg, FT(0), init_args...; init_on_cpu = init_on_cpu)
+        Q = init_ode_state(
+            MPIStateArray,
+            dg,
+            FT(0),
+            init_args...;
+            init_on_cpu = init_on_cpu,
+        )
 
         if Settings.debug_init
             write_debug_init_vtk_and_pvtu(
