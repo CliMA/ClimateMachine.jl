@@ -116,6 +116,24 @@ function init_state_auxiliary!(
 end
 
 """
+    compute_face_normal_velocity!(
+        balance_law::BalanceLaw,
+        velᵀn::AbstractArray,
+        normal_vector::SVector,
+        state_prognostic::Vars,
+        state_auxiliary::Vars,
+        t::Real,
+        [bctype::Int,]
+    )
+
+Compute the normal componennt of velocity given the current state.
+
+If `bctype` is passed then this is a plus side face.
+If `bctype != 0` then this is a boundary face.
+"""
+function compute_face_normal_velocity! end
+
+"""
     flux_first_order!(
         ::BL,
         flux::Grad,

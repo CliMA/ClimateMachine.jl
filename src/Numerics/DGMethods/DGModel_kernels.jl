@@ -553,7 +553,11 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     elemtobndy,
     elems,
     α,
-) where {dim, polyorder}
+    ::Val{nreduce},
+    mpp_target::Union{Nothing, FilterIndices{I}},
+    ∫dg_flux_tendency,
+    β,
+) where {nreduce, dim, polyorder, I}
     @uniform begin
         N = polyorder
         FT = eltype(state_prognostic)
@@ -562,6 +566,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
+        num_state_mpp =
+            isnothing(mpp_target) ? 0 : number_state_filtered(mpp_target, FT)
 
         if dim == 1
             Np = (N + 1)
@@ -618,6 +624,9 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
 
         local_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
     end
+
+    # Shared for the reduction of the dgflux
+    s_flux = @localmem FT (Nfp, num_state_mpp)
 
     eI = @index(Group, Linear)
     n = @index(Local, Linear)
@@ -827,8 +836,41 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             # FIXME: Should we pretch these?
             tendency[vid⁻, s, e⁻] -= α * vMI * sM * local_flux[s]
         end
+
+        @unroll for s in 1:num_state_mpp
+            s_flux[n, s] = sM * local_flux[I[s]]
+        end
+
+        # If doing mpp, compute the integral of the flux along the face and
+        # store as tendency update for face integral
+        if num_state_mpp > 0
+            # Store local flux to shared memory
+            @synchronize
+
+            # Sum up fluxes along the face (e.g., surface integral)
+            @unroll for m in 11:-1:1
+                if nreduce ≥ 2^m
+                    nshift = n + 2^(m - 1)
+                    if n ≤ 2^(m - 1) && nshift ≤ Nfp
+                        @unroll for s in 1:num_state_mpp
+                            s_flux[n, s] += s_flux[nshift, s]
+                        end
+                    end
+                    @synchronize
+                end
+            end
+
+            # Update face tendency
+            if n == 1
+                @unroll for s in 1:num_state_mpp
+                    df = ∫dg_flux_tendency[f, s, e[1]]
+                    ∫dg_flux_tendency[f, s, e[1]] = β * df + α * s_flux[n, s]
+                end
+            end
+        end
         # Need to wait after even faces to avoid race conditions
         @synchronize(f % 2 == 0)
+
     end
 end
 

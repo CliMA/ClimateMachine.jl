@@ -41,22 +41,22 @@ mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: AbstractODESolver
     "low storage RK coefficient vector C (time scaling)"
     RKC::NTuple{Nstages, RT}
 
-    function LowStorageRungeKutta2N(
-        rhs!,
-        RKA,
-        RKB,
-        RKC,
-        Q::AT;
-        dt = 0,
-        t0 = 0,
-    ) where {AT <: AbstractArray}
+    function LowStorageRungeKutta2N(rhs!, RKA, RKB, RKC, Q; dt = 0, t0 = 0)
 
-        T = eltype(Q)
+        T = Q isa AbstractArray ? eltype(Q) : eltype(Q[1])
         RT = real(T)
 
-        dQ = similar(Q)
-        fill!(dQ, 0)
+        if Q isa AbstractArray
+            dQ = similar(Q)
+            fill!(dQ, 0)
+        elseif Q isa NamedTuple
+            dQ = NamedTuple{keys(Q)}(ntuple(
+                i -> fill!(similar(Q[i]), 0),
+                length(Q),
+            ))
+        end
 
+        AT = typeof(dQ)
         new{T, RT, AT, length(RKA)}(RT(dt), RT(t0), 0, rhs!, dQ, RKA, RKB, RKC)
     end
 end
@@ -87,8 +87,13 @@ function dostep!(
     RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
     rhs!, dQ = lsrk.rhs!, lsrk.dQ
 
-    rv_Q = realview(Q)
-    rv_dQ = realview(dQ)
+    if Q isa AbstractArray
+        rv_Q = (realview(Q),)
+        rv_dQ = (realview(dQ),)
+    elseif Q isa Union{NamedTuple, Tuple}
+        rv_Q = ntuple(i -> realview(Q[i]), length(Q))
+        rv_dQ = ntuple(i -> realview(dQ[i]), length(dQ))
+    end
 
     groupsize = 256
 
@@ -100,20 +105,24 @@ function dostep!(
             slow_scaling = in_slow_scaling
         end
         # update solution and scale RHS
-        event = Event(array_device(Q))
-        event = update!(array_device(Q), groupsize)(
-            rv_dQ,
-            rv_Q,
-            RKA[s % length(RKA) + 1],
-            RKB[s],
-            dt,
-            slow_δ,
-            slow_rv_dQ,
-            slow_scaling;
-            ndrange = length(rv_Q),
-            dependencies = (event,),
-        )
-        wait(array_device(Q), event)
+        device = array_device(rv_Q[1])
+        event = Event(device)
+        for k in 1:length(rv_Q)
+            @assert device == array_device(rv_Q[k])
+            event = update!(device, groupsize)(
+                rv_dQ[k],
+                rv_Q[k],
+                RKA[s % length(RKA) + 1],
+                RKB[s],
+                dt,
+                slow_δ,
+                slow_rv_dQ,
+                slow_scaling;
+                ndrange = length(rv_Q[k]),
+                dependencies = (event,),
+            )
+        end
+        wait(device, event)
     end
 end
 
@@ -218,13 +227,8 @@ This method uses the LSRK2N framework to implement a simple Eulerian forward tim
 ### References
 
 """
-function LSRKEulerMethod(
-    F,
-    Q::AT;
-    dt = nothing,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    T = eltype(Q)
+function LSRKEulerMethod(F, Q; dt = nothing, t0 = 0)
+    T = Q isa AbstractArray ? eltype(Q) : eltype(Q[1])
     RT = real(T)
 
     RKA = (RT(0),)
@@ -264,13 +268,8 @@ and Kennedy (1994) (in their notation (5,4) 2N-Storage RK scheme).
       address = {Langley Research Center, Hampton, VA},
     }
 """
-function LSRK54CarpenterKennedy(
-    F,
-    Q::AT;
-    dt = 0,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    T = eltype(Q)
+function LSRK54CarpenterKennedy(F, Q; dt = 0, t0 = 0)
+    T = Q isa AbstractArray ? eltype(Q) : eltype(Q[1])
     RT = real(T)
 
     RKA = (
@@ -330,13 +329,8 @@ Niegemann, Diehl, and Busch (2012) with optimized stability region
       publisher={Elsevier}
     }
 """
-function LSRK144NiegemannDiehlBusch(
-    F,
-    Q::AT;
-    dt = 0,
-    t0 = 0,
-) where {AT <: AbstractArray}
-    T = eltype(Q)
+function LSRK144NiegemannDiehlBusch(F, Q; dt = 0, t0 = 0)
+    T = Q isa AbstractArray ? eltype(Q) : eltype(Q[1])
     RT = real(T)
 
     RKA = (
