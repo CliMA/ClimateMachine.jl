@@ -206,7 +206,7 @@ let
 
                     for τ in (1,)#4,8,) # time scale for hyperdiffusion
 
-                        vert_num_elem = 10
+                        vert_num_elem = 1
                         
                         topl = StackedCubedSphereTopology(
                             mpicomm,
