@@ -12,7 +12,7 @@ using KernelAbstractions
 
 import ClimateMachine.MPIStateArrays: array_device
 
-ClimateMachine.init(;fix_rng_seed=true)
+ClimateMachine.init(; fix_rng_seed = true)
 
 @kernel function multiply_by_A!(x, A, y, n1, n2)
     I = @index(Global)
@@ -109,7 +109,7 @@ let
             # Test 2: MPI State Array
             ###
             @testset "($ArrayType, $T) MPIStateArray Test" begin
-                Random.seed!(4242)
+                Random.seed!(43)
 
                 n1 = 8
                 n2 = 3

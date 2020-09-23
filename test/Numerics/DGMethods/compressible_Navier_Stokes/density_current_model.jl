@@ -112,7 +112,7 @@ function Initialise_Density_Current!(
     state.moisture.ρq_tot = ρ * q_pt.tot
 end
 # --------------- Driver definition ------------------ #
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     topl,
@@ -238,7 +238,7 @@ let
             brickrange,
             periodicity = (false, true, false),
         )
-        engf_eng0 = run(
+        engf_eng0 = test_run(
             mpicomm,
             ArrayType,
             topl,

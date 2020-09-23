@@ -103,7 +103,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     dim,
@@ -335,7 +335,7 @@ let
                             "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
                             "_level$(l)" :
                                 nothing
-                            result[l] = run(
+                            result[l] = test_run(
                                 mpicomm,
                                 ArrayType,
                                 dim,

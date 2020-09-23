@@ -104,7 +104,7 @@ end
 # Timestepping function #
 #########################
 
-function run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
+function test_run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
@@ -229,7 +229,8 @@ let
             @info "running Ne $Ne and N $N with"
             dt = (Lˣ / c) / Ne / N^2
             @info @sprintf("\n dt = %f", dt)
-            errors[i, j] = run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
+            errors[i, j] =
+                test_run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
         end
     end
 

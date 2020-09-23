@@ -74,7 +74,7 @@ function main()
     @testset "acoustic wave" begin
         for FT in (Float64,)# Float32)
             for explicit in (true, false)
-                result = run(
+                result = test_run(
                     mpicomm,
                     polynomialorder,
                     numelem_horz,
@@ -91,7 +91,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     polynomialorder,
     numelem_horz,

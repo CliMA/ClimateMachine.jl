@@ -19,7 +19,7 @@ jobs:
                          "Land",]
 
     env:
-        CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
+      CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
     steps:
     - name: Cancel Previous Runs
