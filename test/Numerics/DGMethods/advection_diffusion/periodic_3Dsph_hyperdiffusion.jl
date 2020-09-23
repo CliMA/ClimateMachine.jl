@@ -201,7 +201,7 @@ let
 
     # @testset "$(@__FILE__)" begin
         for FT in (Float64, )#Float32,)
-            for base_num_elem in (4,)#8,)
+            for base_num_elem in (4,8,16)
                 for polynomialorder in (4,)#4,5,6,)
 
                     for τ in (1,)#4,8,) # time scale for hyperdiffusion
