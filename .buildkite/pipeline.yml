@@ -1,4 +1,5 @@
 env:
+  JULIA_VERSION: "1.5.1"
   OPENBLAS_NUM_THREADS: 1
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
@@ -21,6 +22,9 @@ steps:
       - "echo $JULIA_DEPOT_PATH"
       - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
       - "julia --project -e 'using Pkg; Pkg.precompile()'"
+      # force the initialization of the CUDA runtime
+      # as it is lazily loaded by default
+      - "julia --project -e 'using CUDA; CUDA.versioninfo()'"
       - "julia --project -e 'using Pkg; Pkg.status()'"
     agents:
       config: gpu

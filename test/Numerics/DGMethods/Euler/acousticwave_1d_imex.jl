@@ -68,7 +68,7 @@ function main()
 
     for FT in (Float64, Float32)
         for split_explicit_implicit in (false, true)
-            result = run(
+            result = test_run(
                 mpicomm,
                 polynomialorder,
                 numelem_horz,
@@ -84,7 +84,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     polynomialorder,
     numelem_horz,
