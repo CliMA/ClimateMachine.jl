@@ -10,6 +10,7 @@ using ...Problems
 using ..Ocean
 using ..HydrostaticBoussinesq
 using ..ShallowWater
+using ..SplitExplicit01
 
 import ..Ocean:
     ocean_init_state!,
@@ -20,8 +21,6 @@ import ..Ocean:
 
 HBModel = HydrostaticBoussinesqModel
 SWModel = ShallowWaterModel
-
-abstract type AbstractOceanProblem <: AbstractProblem end
 
 abstract type AbstractSimpleBoxProblem <: AbstractOceanProblem end
 
@@ -36,14 +35,14 @@ save y coordinate for computing coriolis, wind stress, and sea surface temperatu
 - `A`: auxiliary state vector
 - `geom`: geometry stuff
 """
-function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
+function ocean_init_aux!(::HBModel, ::AbstractSimpleBoxProblem, A, geom)
     FT = eltype(A)
     @inbounds A.y = geom.coord[2]
 
     # needed for proper CFL condition calculation
-    A.w = 0
-    A.pkin = 0
-    A.wz0 = 0
+    A.w = -0
+    A.pkin = -0
+    A.wz0 = -0
 
     A.uᵈ = @SVector [-0, -0]
     A.ΔGᵘ = @SVector [-0, -0]
@@ -51,11 +50,41 @@ function ocean_init_aux!(m::HBModel, p::AbstractSimpleBoxProblem, A, geom)
     return nothing
 end
 
-function ocean_init_aux!(m::SWModel, p::AbstractSimpleBoxProblem, A, geom)
+function ocean_init_aux!(::OceanModel, ::AbstractSimpleBoxProblem, A, geom)
+    FT = eltype(A)
+    @inbounds A.y = geom.coord[2]
+
+    # needed for proper CFL condition calculation
+    A.w = -0
+    A.pkin = -0
+    A.wz0 = -0
+
+    A.u_d = @SVector [-0, -0]
+    A.ΔGu = @SVector [-0, -0]
+
+    return nothing
+end
+
+function ocean_init_aux!(::SWModel, ::AbstractSimpleBoxProblem, A, geom)
     @inbounds A.y = geom.coord[2]
 
     A.Gᵁ = @SVector [-0, -0]
     A.Δu = @SVector [-0, -0]
+
+    return nothing
+end
+
+function ocean_init_aux!(::BarotropicModel, ::AbstractSimpleBoxProblem, A, geom)
+    @inbounds A.y = geom.coord[2]
+
+    A.Gᵁ = @SVector [-0, -0]
+    A.U_c = @SVector [-0, -0]
+    A.η_c = -0
+    A.U_s = @SVector [-0, -0]
+    A.η_s = -0
+    A.Δu = @SVector [-0, -0]
+    A.η_diag = -0
+    A.Δη = -0
 
     return nothing
 end
@@ -69,10 +98,16 @@ northern hemisphere coriolis
 - `m`: model object to dispatch on and get coriolis parameters
 - `y`: y-coordinate in the box
 """
-@inline coriolis_parameter(m::HBModel, p::AbstractSimpleBoxProblem, y) =
-    m.fₒ + m.β * y
-@inline coriolis_parameter(m::SWModel, p::AbstractSimpleBoxProblem, y) =
-    m.fₒ + m.β * y
+@inline coriolis_parameter(
+    m::Union{HBModel, OceanModel},
+    ::AbstractSimpleBoxProblem,
+    y,
+) = m.fₒ + m.β * y
+@inline coriolis_parameter(
+    m::Union{SWModel, BarotropicModel},
+    ::AbstractSimpleBoxProblem,
+    y,
+) = m.fₒ + m.β * y
 
 ############################
 # Basic box problem        #
@@ -111,27 +146,40 @@ struct SimpleBox{R, T, BC} <: AbstractSimpleBoxProblem
     end
 end
 
-@inline coriolis_parameter(m::HBModel, ::SimpleBox{R}, y) where {R <: Fixed} =
-    -0
-@inline coriolis_parameter(m::SWModel, ::SimpleBox{R}, y) where {R <: Fixed} =
-    -0
+@inline coriolis_parameter(
+    m::Union{HBModel, OceanModel},
+    ::SimpleBox{R},
+    y,
+) where {R <: Fixed} = -0
+@inline coriolis_parameter(
+    m::Union{SWModel, BarotropicModel},
+    ::SimpleBox{R},
+    y,
+) where {R <: Fixed} = -0
 
 @inline coriolis_parameter(
-    m::HBModel,
+    m::Union{HBModel, OceanModel},
     ::SimpleBox{R},
     y,
 ) where {R <: Rotating} = m.fₒ
 @inline coriolis_parameter(
-    m::SWModel,
+    m::Union{SWModel, BarotropicModel},
     ::SimpleBox{R},
     y,
 ) where {R <: Rotating} = m.fₒ
 
-function ocean_init_state!(m::SWModel, p::SimpleBox, Q, A, coords, t)
+function ocean_init_state!(
+    m::Union{SWModel, BarotropicModel},
+    p::SimpleBox,
+    Q,
+    A,
+    coords,
+    t,
+)
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
-    ν = (m.turbulence.ν, m.turbulence.ν, -0)
+    ν = viscosity(m)
 
-    gH = grav(m.param_set) * p.H
+    gH = gravity_speed(m)
     @inbounds f = coriolis_parameter(m, p, coords[2])
 
     U, V, η = barotropic_state!(p.rotation, (coords..., t), ν, k, (gH, f))
@@ -142,7 +190,21 @@ function ocean_init_state!(m::SWModel, p::SimpleBox, Q, A, coords, t)
     return nothing
 end
 
-function ocean_init_state!(m::HBModel, p::SimpleBox, Q, A, coords, t)
+viscosity(m::SWModel) = (m.turbulence.ν, m.turbulence.ν, -0)
+viscosity(m::BarotropicModel) = (m.baroclinic.νʰ, m.baroclinic.νʰ, -0)
+
+gravity_speed(m::SWModel) = grav(m.param_set) * m.problem.H
+gravity_speed(m::BarotropicModel) =
+    grav(m.baroclinic.param_set) * m.baroclinic.problem.H
+
+function ocean_init_state!(
+    m::Union{HBModel, OceanModel},
+    p::SimpleBox,
+    Q,
+    A,
+    coords,
+    t,
+)
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
     ν = (m.νʰ, m.νʰ, m.νᶻ)
 
@@ -373,25 +435,35 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `coords`: the coordidinates
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(m::HBModel, p::OceanGyre, Q, A, coords, t)
+function ocean_init_state!(
+    ::Union{HBModel, OceanModel},
+    p::OceanGyre,
+    Q,
+    A,
+    coords,
+    t,
+)
     @inbounds y = coords[2]
     @inbounds z = coords[3]
     @inbounds H = p.H
 
-    Q.u = @SVector [0, 0]
-    Q.η = 0
+    Q.u = @SVector [-0, -0]
+    Q.η = -0
     Q.θ = (5 + 4 * cos(y * π / p.Lʸ)) * (1 + z / H)
 
     return nothing
 end
 
-function ocean_init_state!(m::SWModel, p::OceanGyre, Q, A, coords, t)
-    @inbounds y = coords[2]
-    @inbounds z = coords[3]
-    @inbounds H = p.H
-
-    Q.U = @SVector [0, 0]
-    Q.η = 0
+function ocean_init_state!(
+    ::Union{SWModel, BarotropicModel},
+    ::OceanGyre,
+    Q,
+    A,
+    coords,
+    t,
+)
+    Q.U = @SVector [-0, -0]
+    Q.η = -0
 
     return nothing
 end
