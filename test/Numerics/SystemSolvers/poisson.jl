@@ -159,7 +159,7 @@ function init_state_prognostic!(
     state.ϕ = prod(sol1d, view(coords, 1:dim))
 end
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     FT,
@@ -250,7 +250,7 @@ let
                 periodicity = ntuple(d -> true, dim)
 
                 @info (ArrayType, FT, m, dim)
-                result[l] = run(
+                result[l] = test_run(
                     mpicomm,
                     ArrayType,
                     FT,

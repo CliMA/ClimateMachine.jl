@@ -162,13 +162,6 @@ function main()
         nothing,
         currtime,
     )
-    GenericCallbacks.call!(
-        dgn_config.groups[1],
-        nothing,
-        nothing,
-        nothing,
-        currtime,
-    )
 
     ClimateMachine.invoke!(solver_config)
 

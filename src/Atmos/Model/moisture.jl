@@ -63,24 +63,6 @@ internal_energy(atmos::AtmosModel, state::Vars, aux::Vars) =
     )
 end
 
-temperature(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    air_temperature(recover_thermo_state(atmos, state, aux))
-pressure(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    air_pressure(recover_thermo_state(atmos, state, aux))
-soundspeed(atmos::AtmosModel, ::MoistureModel, state::Vars, aux::Vars) =
-    soundspeed_air(recover_thermo_state(atmos, state, aux))
-
-@inline function total_specific_enthalpy(
-    atmos::AtmosModel,
-    moist::MoistureModel,
-    state::Vars,
-    aux::Vars,
-)
-    phase = recover_thermo_state(atmos, state, aux)
-    e_tot = state.ρe * (1 / state.ρ)
-    return total_specific_enthalpy(phase, e_tot)
-end
-
 """
     DryModel
 

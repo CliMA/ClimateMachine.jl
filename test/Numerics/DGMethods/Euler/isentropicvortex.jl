@@ -48,6 +48,7 @@ function main()
     Rusanov = RusanovNumericalFlux
     Central = CentralNumericalFluxFirstOrder
     Roe = RoeNumericalFlux
+    HLLC = HLLCNumericalFlux
 
     expected_error[Float64, 2, Rusanov, 1] = 1.1990999506538110e+01
     expected_error[Float64, 2, Rusanov, 2] = 2.0813000228865612e+00
@@ -64,6 +65,11 @@ function main()
     expected_error[Float64, 2, Roe, 3] = 6.6174934435569849e-02
     expected_error[Float64, 2, Roe, 4] = 2.1917769287815940e-03
 
+    expected_error[Float64, 2, HLLC, 1] = 1.2889756097329746e+01
+    expected_error[Float64, 2, HLLC, 2] = 1.3895808565455936e+00
+    expected_error[Float64, 2, HLLC, 3] = 6.6175116756217900e-02
+    expected_error[Float64, 2, HLLC, 4] = 2.1917772135679118e-03
+
     expected_error[Float64, 3, Rusanov, 1] = 3.7918869862613858e+00
     expected_error[Float64, 3, Rusanov, 2] = 6.5816485664822677e-01
     expected_error[Float64, 3, Rusanov, 3] = 2.0160333422867591e-02
@@ -78,6 +84,11 @@ function main()
     expected_error[Float64, 3, Roe, 2] = 4.3942394181655547e-01
     expected_error[Float64, 3, Roe, 3] = 2.0926351682882375e-02
     expected_error[Float64, 3, Roe, 4] = 6.9310072176312712e-04
+
+    expected_error[Float64, 3, HLLC, 1] = 4.0760987751605402e+00
+    expected_error[Float64, 3, HLLC, 2] = 4.3942404996518236e-01
+    expected_error[Float64, 3, HLLC, 3] = 2.0926409337758904e-02
+    expected_error[Float64, 3, HLLC, 4] = 6.9310081182571569e-04
 
     expected_error[Float32, 2, Rusanov, 1] = 1.1990781784057617e+01
     expected_error[Float32, 2, Rusanov, 2] = 2.0813269615173340e+00
@@ -94,6 +105,11 @@ function main()
     expected_error[Float32, 2, Roe, 3] = 6.8037144839763641e-02
     expected_error[Float32, 2, Roe, 4] = 3.8893952965736389e-02
 
+    expected_error[Float32, 2, HLLC, 1] = 1.2889801025390625e+01
+    expected_error[Float32, 2, HLLC, 2] = 1.3895059823989868e+00
+    expected_error[Float32, 2, HLLC, 3] = 6.8006515502929688e-02
+    expected_error[Float32, 2, HLLC, 4] = 3.8637656718492508e-02
+
     expected_error[Float32, 3, Rusanov, 1] = 3.7918186187744141e+00
     expected_error[Float32, 3, Rusanov, 2] = 6.5816193819046021e-01
     expected_error[Float32, 3, Rusanov, 3] = 2.0893247798085213e-02
@@ -109,9 +125,14 @@ function main()
     expected_error[Float32, 3, Roe, 3] = 2.1365188062191010e-02
     expected_error[Float32, 3, Roe, 4] = 9.3323951587080956e-03
 
+    expected_error[Float32, 3, HLLC, 1] = 4.0760631561279297e+00
+    expected_error[Float32, 3, HLLC, 2] = 4.3940672278404236e-01
+    expected_error[Float32, 3, HLLC, 3] = 2.1352596580982208e-02
+    expected_error[Float32, 3, HLLC, 4] = 9.2315869405865669e-03
+
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32), dims in (2, 3)
-            for NumericalFlux in (Roe, Rusanov, Central)
+            for NumericalFlux in (Rusanov, Central, Roe, HLLC)
                 @info @sprintf """Configuration
                                   ArrayType     = %s
                                   FT        = %s
@@ -125,7 +146,7 @@ function main()
                 for level in 1:numlevels
                     numelems =
                         ntuple(dim -> dim == 3 ? 1 : 2^(level - 1) * 5, dims)
-                    errors[level] = run(
+                    errors[level] = test_run(
                         mpicomm,
                         ArrayType,
                         polynomialorder,
@@ -165,7 +186,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     polynomialorder,

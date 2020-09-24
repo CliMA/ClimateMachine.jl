@@ -26,8 +26,11 @@ function runmpi(file; ntasks = 1, localhost = false)
     # Running this way prevents:
     #   Balance Law Solver | No tests
     # since external tests are not returned as passed/fail
-    @time @test mpiexec() do cmd
-        run(`$cmd $localhostonly $oversubscribe -np $ntasks $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) $file`)
+    @time @test MPI.mpiexec() do cmd
+        Base.run(
+            `$cmd $localhostonly $oversubscribe -np $ntasks $(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) $file`;
+            wait = true,
+        )
         true
     end
 end

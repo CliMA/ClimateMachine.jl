@@ -1,9 +1,13 @@
 # This file generates the solution used in method of manufactured solutions
 using LinearAlgebra, SymPy, Printf
+using CLIMAParameters
+using CLIMAParameters.Planet
+struct EarthParameterSet <: AbstractEarthParameterSet end
+const param_set = EarthParameterSet()
 
 @syms x y z t real = true
 μ = 1 // 100
-γ = 7 // 5
+γ = cp_d(param_set) / cv_d(param_set)
 
 output = open("mms_solution_generated.jl", "w")
 
