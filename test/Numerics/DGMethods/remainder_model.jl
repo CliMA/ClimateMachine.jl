@@ -39,7 +39,7 @@ function main()
 
     @testset "remainder model" begin
         for FT in (Float64,)# Float32)
-            result = run(
+            result = test_run(
                 mpicomm,
                 polynomialorder,
                 numelem_horz,
@@ -51,7 +51,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     polynomialorder,
     numelem_horz,

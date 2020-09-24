@@ -1,5 +1,4 @@
 #!/usr/bin/env julia --project
-using Test
 
 include("hydrostatic_spindown.jl")
 ClimateMachine.init()

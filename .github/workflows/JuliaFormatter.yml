@@ -22,9 +22,9 @@ jobs:
       with:
         fetch-depth: 0
     - run: git fetch origin
-    - uses: julia-actions/setup-julia@v1.1.6
+    - uses: julia-actions/setup-julia@latest
       with:
-        version: 1.4
+        version: 1.5
     - name: Apply JuliaFormatter
       run: |
         julia --project=.dev .dev/climaformat.jl .

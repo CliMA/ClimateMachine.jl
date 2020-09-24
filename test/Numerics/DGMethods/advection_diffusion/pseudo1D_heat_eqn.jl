@@ -90,7 +90,7 @@ function normal_boundary_flux_second_order!(
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     dim,
@@ -272,7 +272,7 @@ let
                         timeend = 0.01
 
                         @info (ArrayType, FT, dim, direction)
-                        result[l] = run(
+                        result[l] = test_run(
                             mpicomm,
                             ArrayType,
                             dim,

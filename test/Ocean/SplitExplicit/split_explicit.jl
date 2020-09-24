@@ -1,4 +1,5 @@
 #!/usr/bin/env julia --project
+using Test
 using ClimateMachine
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers

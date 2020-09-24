@@ -75,7 +75,7 @@ function main()
                 for level in 1:numlevels
                     numelems =
                         ntuple(dim -> dim == 3 ? 1 : 2^(level - 1) * 5, dims)
-                    errors[level] = run(
+                    errors[level] = test_run(
                         mpicomm,
                         ArrayType,
                         polynomialorder,
@@ -106,7 +106,7 @@ function main()
     end
 end
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     polynomialorder,
