@@ -192,7 +192,10 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_shallow_spindown"
+vtkpath = abspath(joinpath(
+    ClimateMachine.Settings.output_dir,
+    "vtk_shallow_spindown",
+))
 
 const timeend = FT(24 * 3600) # s
 const tout = FT(2 * 3600) # s
