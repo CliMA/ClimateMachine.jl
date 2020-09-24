@@ -434,6 +434,8 @@ function init(;
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu && CUDA.has_cuda_gpu()
         Settings.array_type = CUDA.CuArray
+    else
+        Settings.array_type = Array
     end
 
     # initialize the runtime
