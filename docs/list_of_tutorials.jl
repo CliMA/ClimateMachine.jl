@@ -32,6 +32,7 @@ if generate_tutorials
         "Land" => [
             "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
             "Soil" => [
+                "Richards Equation" => "Land/Soil/Water/equilibrium_test.jl",
                 "Hydraulic Functions" =>
                     "Land/Soil/Water/hydraulic_functions.jl",
                 "Soil Heat Equation" => "Land/Soil/Heat/bonan_heat_tutorial.jl",

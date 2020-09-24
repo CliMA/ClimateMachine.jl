@@ -1,7 +1,8 @@
 # # Coupled heat and water equations tending towards equilibrium
 
 # Other tutorials, such as the [soil heat tutorial](../Heat/bonan_heat_tutorial.md)
-# and -link water tutorial here- demonstrate how to solve the heat
+# and [soil water tutorial](../Water/equilibrium_test.md),
+# demonstrate how to solve the heat
 # equation or Richard's equation without considering
 # dynamic interactions between the two. As an example, the user could
 # prescribe a fixed function of space and time for the liquid water content,
@@ -18,7 +19,7 @@
 # are:
 
 # ``
-# \frac{∂ ρe_{int}}{∂ t} =  ∇ ⋅ κ(θ_l, θ_i; ν, ...) ∇T + ∇ ⋅ ρe_{int_{liq}} K (T,θ_l, θ_i; ν, ...) \nabla h( ϑ_l, z; ν, ...)
+# \frac{∂ ρe_{int}}{∂ t} =  ∇ ⋅ κ(θ_l, θ_i; ν, ...) ∇T + ∇ ⋅ ρe_{int_{liq}} K (T,θ_l, θ_i; ν, ...) ∇ h( ϑ_l, z; ν, ...)
 # ``
 
 # ``
