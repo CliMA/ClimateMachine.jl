@@ -5,7 +5,7 @@
 Base.@kwdef mutable struct AtmosCollectedDiagnostics
     onetime_done::Bool = false
     zvals::Union{Nothing, Array} = nothing
-    repdvsr::Union{Nothing, Array} = nothing
+    MH_z::Union{Nothing, Array} = nothing
 end
 const AtmosCollected = AtmosCollectedDiagnostics()
 
@@ -24,18 +24,18 @@ function atmos_collect_onetime(mpicomm, dg, Q)
         localvgeo = array_device(Q) isa CPU ? grid.vgeo : Array(grid.vgeo)
 
         AtmosCollected.zvals = zeros(FT, Nqk * nvertelem)
-        AtmosCollected.repdvsr = zeros(FT, Nqk * nvertelem)
+        AtmosCollected.MH_z = zeros(FT, Nqk * nvertelem)
 
         @visitQ nhorzelem nvertelem Nqk Nq begin
             evk = Nqk * (ev - 1) + k
             z = localvgeo[ijk, grid.x3id, e]
             MH = localvgeo[ijk, grid.MHid, e]
             AtmosCollected.zvals[evk] = z
-            AtmosCollected.repdvsr[evk] += MH
+            AtmosCollected.MH_z[evk] += MH
         end
 
         # compute the full number of points on a slab
-        MPI.Allreduce!(AtmosCollected.repdvsr, +, mpicomm)
+        MPI.Allreduce!(AtmosCollected.MH_z, +, mpicomm)
 
         AtmosCollected.onetime_done = true
     end

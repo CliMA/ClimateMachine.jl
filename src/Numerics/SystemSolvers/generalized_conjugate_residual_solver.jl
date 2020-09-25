@@ -95,6 +95,7 @@ end
 
 function doiteration!(
     linearoperator!,
+    preconditioner,
     Q,
     Qrhs,
     solver::GeneralizedConjugateResidual{K},

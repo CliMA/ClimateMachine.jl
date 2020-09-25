@@ -40,7 +40,7 @@ let
 
     x = ones(n) * 1.0
     x0 = copy(x)
-    iters = linearsolve!(mulbyA!, linearsolver, x, b; max_iters = Inf)
+    iters = linearsolve!(mulbyA!, nothing, linearsolver, x, b; max_iters = Inf)
     exact = A \ b
     x0 = copy(x)
 
@@ -57,8 +57,14 @@ let
         mulbyat_A!(y, x) = (y .= at_A * x)
         at_method(b, tol) = ConjugateGradient(b, max_iter = n)
         linearsolver = at_method(at_b, tol)
-        iters =
-            linearsolve!(mulbyat_A!, linearsolver, at_x, at_b; max_iters = n)
+        iters = linearsolve!(
+            mulbyat_A!,
+            nothing,
+            linearsolver,
+            at_x,
+            at_b;
+            max_iters = n,
+        )
         exact = at_A \ at_b
 
         @testset "CuArray test" begin
@@ -84,7 +90,14 @@ let
 
     mpi_method(mpi_b, tol) = ConjugateGradient(mpi_b, max_iter = n)
     linearsolver = mpi_method(mpi_b, tol)
-    iters = linearsolve!(mpi_mulby!, linearsolver, mpi_x, mpi_b; max_iters = n)
+    iters = linearsolve!(
+        mpi_mulby!,
+        nothing,
+        linearsolver,
+        mpi_x,
+        mpi_b;
+        max_iters = n,
+    )
 
     exact = mpi_A \ mpi_b[:]
 
@@ -144,7 +157,8 @@ let
         reshape_tuple = tup,
     )
 
-    iters = linearsolve!(columnwise_linear_operator!, linearsolver, x, b)
+    iters =
+        linearsolve!(columnwise_linear_operator!, nothing, linearsolver, x, b)
     x_exact = copy(x)
     columnwise_inverse_linear_operator!(x_exact, b)
 

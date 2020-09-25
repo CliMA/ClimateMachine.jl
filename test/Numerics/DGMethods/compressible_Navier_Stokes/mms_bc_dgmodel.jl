@@ -25,7 +25,7 @@ include("mms_model.jl")
 
 # initial condition
 
-function run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
+function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
@@ -165,7 +165,7 @@ let
                     dt = timeend / nsteps
 
                     @info (ArrayType, FT, dim)
-                    result[l] = run(
+                    result[l] = test_run(
                         mpicomm,
                         ArrayType,
                         dim,

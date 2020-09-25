@@ -47,7 +47,7 @@ function nodal_init_state_auxiliary!(
 end
 
 using Test
-function run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
+function test_run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
 
     Rrange = range(FT(1 // 2); length = Ne_vert + 1, stop = FT(1))
     topl = StackedCubedSphereTopology(mpicomm, Ne_horz, Rrange)
@@ -117,7 +117,7 @@ let
                 Ne_horz = 2^(l - 1) * base_Nhorz
                 Ne_vert = 2^(l - 1) * base_Nvert
 
-                err[l] = run(
+                err[l] = test_run(
                     mpicomm,
                     Ne_horz,
                     Ne_vert,

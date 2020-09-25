@@ -154,7 +154,7 @@ function numerical_boundary_flux_first_order!(
     end
 end
 
-function run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
+function test_run(mpicomm, ArrayType, N, Nhorz, Rrange, timeend, FT, dt)
 
     topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
 
@@ -224,7 +224,7 @@ let
         Rrange = range(FT(1), stop = FT(2), step = FT(1 // 4))
 
         @info (ArrayType, FT)
-        delta_mass = run(
+        delta_mass = test_run(
             mpicomm,
             ArrayType,
             polynomialorder,
