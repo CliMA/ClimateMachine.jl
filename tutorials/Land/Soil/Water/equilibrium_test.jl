@@ -333,7 +333,6 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 # matrix. The pressure head is continuous at porosity, but the derivative
 # is not.
 
-iz = iaux[:, z_ind, :][:]
 t = [all_data[k]["t"][1] for k in 0:n_outputs]
 t = ceil.(Int64, t ./ 86400)
 
