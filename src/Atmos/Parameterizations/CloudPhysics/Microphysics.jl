@@ -76,6 +76,9 @@ function n0_sno(snow_param_set::ASPS, q_sno::FT, ρ::FT) where {FT <: Real}
     _ν_sno::FT = ν_sno(snow_param_set)
     _μ_sno::FT = μ_sno(snow_param_set)
 
+    # TODO               this max should be replaced by
+    #                    limiting inside a PhasePartition struct for
+    #                    precipitation (once it is implemented)
     return _μ_sno * (ρ * max(FT(0), q_sno))^_ν_sno
 end
 
@@ -343,7 +346,7 @@ function conv_q_vap_to_q_liq_ice(
 
     _τ_cond_evap::FT = τ_relax(liquid_param_set)
 
-    return (q_sat.liq - max(FT(0), q.liq)) / _τ_cond_evap / slowdown_liq
+    return (q_sat.liq - q.liq) / _τ_cond_evap / slowdown_liq
 end
 function conv_q_vap_to_q_liq_ice(
     ice_param_set::AIPS,
@@ -354,7 +357,7 @@ function conv_q_vap_to_q_liq_ice(
 
     _τ_sub_dep::FT = τ_relax(ice_param_set)
 
-    return (q_sat.ice - max(FT(0), q.ice)) / _τ_sub_dep / slowdown_ice
+    return (q_sat.ice - q.ice) / _τ_sub_dep / slowdown_ice
 end
 
 """
