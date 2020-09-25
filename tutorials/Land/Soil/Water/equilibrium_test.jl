@@ -336,6 +336,10 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 t = [all_data[k]["t"][1] for k in 0:n_outputs]
 t = ceil.(Int64, t ./ 86400)
 
+iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+iz = iaux[:, z_ind, :][:]
+
+
 plot(
     all_data[0]["ϑ_l"],
     z,
