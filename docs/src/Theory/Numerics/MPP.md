@@ -1,6 +1,6 @@
 # Positivity Preservation
 
-It is important to conserve mass and perserve positive sign of active tracers,
+It is important to conserve mass and preserve positive sign of active tracers,
   such as suspended or precipitating water.
 The tracer concentrations may turn negative because of the
   numerical errors caused either by the advection scheme,
@@ -32,20 +32,56 @@ Because of the efficiency concerns, the correction is applied only
   at the last stage of RK algorithm.
 As a result the positivity is preserved only at the final stage
   and not at all the intermediate RK stages.
-
 The correction is obtained with the help of a finite volume scheme
-  (i.e. low order sheme) running in parallel with the DG scheme
+  (i.e. low order scheme) running in parallel with the DG scheme
   (i.e. high order scheme).
-Let ``H^{rk}_{j+1/2}`` and ``h_{j+1/2}`` denote the high order and low order
-  schme fluxes through element face ``j+1/2``.
+
+For the one dimensional case,
+  let ``H^{rk}_{j+1/2}`` and ``h_{j+1/2}`` denote the high order and low order
+  scheme fluxes through element face ``j+1/2``.
 The corrected ``\hat{H}^{rk}_{j+1/2}`` is computed
   with the help of limiter ``\theta_{j+1/2}``:
 ```math
 \hat{H}^{rk}_{j+1/2} = \theta_{j+1/2} H^{rk}_{j+1/2} + (1 - \theta_{j+1/2}) h_{j+1/2}
 ```
 If ``H^{rk}_{j+1/2}`` does not cause negative numbers,
-  ``\theta_{j+1/2} is set to 1.
+  ``\theta_{j+1/2}`` is set to 1.
 Otherwise
+```math
+\theta_{j+1/2} = min(\Lambda_{j+1/2}, \Lambda_{j+1-1/2})
+```
+where ``\Lambda_{j+1/2}``
+  is the limiter concerned with the flux out of element ``j`` through face ``j+1/2``
+  and ``\Lambda_{j+1-1/2}`` is concerned with the flux into element ``j`` through face ``j+1/2``.
+
+
+[comment]: # ( I was trying to neatly summarize the code below, without having to write down the whole page of equations)
+[comment]: # ( Failed at it right now, will come back tomorrow)
+[comment]: # (      # Loop through faces and add flux)
+[comment]: # (       @unroll for f in faces)
+[comment]: # (           fv = dt * fvm_flux[f, s, e])
+[comment]: # (           dg = ∫dg_flux[f, s, e])
+[comment]: # ( )
+[comment]: # (           fv_fld -= fv / elem_vol)
+[comment]: # (           dg_fld -= dg / elem_vol)
+[comment]: # ( )
+[comment]: # (            l_Δflx[f] = [dg - fv] / elem_vol)
+[comment]: # (           l_Λ[f] = 1 )
+[comment]: # ( )
+[comment]: # (           ΔF_outflow += l_Δflx[f] > 0 ? l_Δflx[f] : 0)
+[comment]: # (       end)
+[comment]: # ( )
+[comment]: # (       fld_min = 0 # TODO: should be the lower bound)
+[comment]: # (       if dg_fld < fld_min)
+[comment]: # (           @unroll for f in faces)
+[comment]: # (                if l_Δflx[f] > 0)
+[comment]: # (                    # XXX: max needed for case when fv_fld ≈ fld_min and)
+[comment]: # (                    # fv_fld - fld_min < 0)
+[comment]: # (                    l_Λ[f] = max[0, fv_fld - fld_min] / ΔF_outflow)
+[comment]: # (                    # @assert 0 ≤ l_Λ[f] ≤ 1)
+[comment]: # (                end)
+[comment]: # (            end)
+[comment]: # (        end)
 
 
 ## Rescaling
@@ -69,9 +105,10 @@ The rescaling factor is computed as:
 r_i = \frac{\overline{\phi_i}}{\overline{\phi_i^+}}
 ```
 where:
- - ``\overline{\phi_i}`` and ``\overline{\phi_i^+}`` denote the average
+ - ``\overline{\phi_{i}}`` and ``\overline{\phi_i^+}`` denote the average
    element value before and after the truncation.
-Finally the rescaled nodal points ``\phi_{i,k}^{*}`` are defined as:
+Finally the rescaled nodal points
+``\phi_{i,k}^{*}`` are defined as:
 ```math
 \phi_{i,k}^{*} = \left\{
     \begin{array}{ll}
@@ -90,4 +127,4 @@ Finally the rescaled nodal points ``\phi_{i,k}^{*}`` are defined as:
   - This approach could potentailly be extended to offer a local limiter.
     (This is not described in the literature. Not sure how effective).
 
-## Results (?)
+## Results (TODO - box test?)
