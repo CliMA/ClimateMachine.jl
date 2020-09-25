@@ -18,16 +18,31 @@ jobs:
       uses: styfle/cancel-workflow-action@0.4.0
       with:
         access_token: ${{ github.token }}
+
     - uses: actions/checkout@v2.2.0
       with:
         fetch-depth: 0
+
     - run: git fetch origin
-    - uses: julia-actions/setup-julia@v1.1.6
+    
+    - uses: dorny/paths-filter@v2
+      id: filter
       with:
-        version: 1.4
+        filters: |
+          julia_file_change:
+            - added|modified: '**.jl'
+ 
+    - uses: julia-actions/setup-julia@latest
+      if: steps.filter.outputs.julia_file_change == 'true'
+      with:
+        version: 1.5
+
     - name: Apply JuliaFormatter
+      if: steps.filter.outputs.julia_file_change == 'true'
       run: |
         julia --project=.dev .dev/climaformat.jl .
+
     - name: Check formatting diff
+      if: steps.filter.outputs.julia_file_change == 'true'
       run: |
         git diff --color=always --exit-code
