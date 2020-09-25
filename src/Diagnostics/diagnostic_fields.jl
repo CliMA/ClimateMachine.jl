@@ -146,6 +146,13 @@ has already been constructed for d1, d2, d3
  - `d3`: Data for vector gradient object 3
 """
 function VectorGradients(d1, d2, d3)
+
+    data = zeros(size(d1)[1], 9, size(d1)[3])
+    data[:,1:3,:] .= d1
+    data[:,4:6,:] .= d2
+    data[:,7:9,:] .= d3
+
+    return VectorGradients(data)
 end
 
 
@@ -334,11 +341,8 @@ function VectorGradient(grid::G, Q::MPIStateArray, _v::Int) where G <: AbstractG
         Val(Nq),
         ndrange = ndrange,
     )
-    # TODO: Errors for some reason
-    #wait(event)
+    wait(event)
 
-    # TODO: data returns type of improper dimensions
-    #return VectorGradient(data)
     return data
 end
 
@@ -382,7 +386,7 @@ end
     # computing derivatives with respect to ξ2
     for t in 1:qm1, r in 1:qm1
         ijk = r + ((j - 1) + (t - 1) * qm1) * qm1
-        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+        s_V[i, j] = s_D[i, j] * sv[ijk, _v, e]
         @synchronize
         if j == 1
             for s in 2:qm1
@@ -398,7 +402,7 @@ end
     # computing derivatives with respect to ξ3
     for s in 1:qm1, r in 1:qm1
         ijk = r + ((s - 1) + (j - 1) * qm1) * qm1
-        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+        s_V[i, j] = s_D[i, j] * sv[ijk, _v, e]
         @synchronize
         if j == 1
             for t in 2:qm1

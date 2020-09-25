@@ -215,19 +215,10 @@ function run_brick_diagostics_fields_test()
         Nq = N + 1
         nrealelem = length(dg.grid.topology.realelems)
 
-        # TODO: cast onto proper vgad type for vorticity kernel
-	vgrad = similar(Q.realdata, Nq^3, nrealelem, 3, 3)
-        tmp1 = Diagnostics.VectorGradient(dg.grid, Q, _ρu)
-        tmp2 = Diagnostics.VectorGradient(dg.grid, Q, _ρv)
-        tmp3 = Diagnostics.VectorGradient(dg.grid, Q, _ρw)
-        println("sizes are:")
-        println(size(tmp1), '\n', size(tmp2), '\n', size(tmp3))
-        vgrad[:,:,:,1,:] .= tmp2
-        vgrad[:,:,:,2,:] .= tmp2
-        vgrad[:,:,:,3,:] .= tmp3
-        #vgrad[:,:,:,1,:] .= Diagnostics.VectorGradient(dg.grid, Q, _ρu)
-        #vgrad[:,:,:,2,:] .= Diagnostics.VectorGradient(dg.grid, Q, _ρv)
-        #vgrad[:,:,:,3,:] .= Diagnostics.VectorGradient(dg.grid, Q, _ρw)
+        d1 = Diagnostics.VectorGradient(dg.grid, Q, _ρu)
+        d2 = Diagnostics.VectorGradient(dg.grid, Q, _ρv)
+        d3 = Diagnostics.VectorGradient(dg.grid, Q, _ρw)
+        vgrad = Diagnostics.VectorGradients(d1, d2, d3)
         vort = Diagnostics.Vorticity(dg, vgrad)
         #-----------------------------------------------------------------------
         Ω₁_exact =
