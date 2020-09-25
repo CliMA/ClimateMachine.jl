@@ -14,4 +14,7 @@ theory_docs = Any[
         "EDMF equations" => "Theory/Atmos/EDMFEquations.md",
         "Tracers" => "Theory/Atmos/Model/tracers.md",
     ],
+    "Numerics" => Any[
+        "Positivity Preservation" => "Theory/Numerics/MPP.md",
+    ],
 ]
