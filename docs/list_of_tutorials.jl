@@ -26,6 +26,7 @@ if generate_tutorials
                 "Atmos/agnesi_hs_lin.jl",
             "Linear Non-Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_nh_lin.jl",
+            "Rising Thermal Bubble (LES Experiment)" => "Atmos/risingbubble.jl",
         ],
         "Ocean" => [],
         "Land" => [
@@ -55,7 +56,6 @@ if generate_tutorials
                     "Diagnostics/Debug/StateCheck.jl",
             ],
         ],
-        "Contributing" => ["Notes on Literate" => "literate_markdown.jl"],
     ]
 
     # Prepend tutorials_dir

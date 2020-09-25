@@ -74,15 +74,17 @@ function run_split_explicit(
     )
 
     if restart > 0
+        checkpoint_path =
+            abspath(joinpath(ClimateMachine.Settings.output_dir, config.name))
         Q_3D, A_3D, t0 = read_checkpoint(
-            config.name,
+            checkpoint_path,
             "baroclinic",
             config.ArrayType,
             config.mpicomm,
             restart,
         )
         Q_2D, A_2D, _ = read_checkpoint(
-            config.name,
+            checkpoint_path,
             "barotropic",
             config.ArrayType,
             config.mpicomm,
@@ -159,7 +161,7 @@ function run_split_explicit(
 
     vtkstep = [restart, restart, restart, restart]
     cbvector = make_callbacks(
-        config.name,
+        abspath(joinpath(ClimateMachine.Settings.output_dir, config.name)),
         vtkstep,
         nout,
         config.mpicomm,

@@ -2,38 +2,41 @@
 #
 # ## Description of experiment
 # 1) Dry linear Hydrostatic Mountain Waves
-# The atmosphere is dry and the flow impinges against a witch of Agnesi mountain of heigh `hm=1 m`
-# and base parameter `a=10,000` m and centered in `xc = 120 km` in a 2D domain
-# `\Omega = 240 km\times 50 km`. The mountain is defined as
+# The atmosphere is dry and the flow impinges against a witch of Agnesi mountain of heigh $h_{m}=1$m
+# and base parameter $a=10000m$ and centered on $x_{c} = 120km$ in a 2D domain
+# $\Omega = 240km \times 50km$. The mountain is defined as
 #
-# ``
-#  z = \frac{hm}{1 + \frac{x - xc}{a}}
-# ``
+# ```math
+# z = \frac{h_m}{1 + \frac{x - x_c}{a}}
+# ```
+#
 # The 2D problem is setup in 3D by using 1 element in the y direction.
-# To damp the upward moving gravity waves, a Reyleigh absorbing layer is added at `z = 15,000 m`.
+# To damp the upward moving gravity waves, a Reyleigh absorbing layer is added at $z = 15000 m$.
 #
-# The initial atmosphere is defined such that it has a stability frequency `N=g/\sqrt{c_p T_0}`, where
+# The initial atmosphere is defined such that it has a stability frequency $N=g/\sqrt{c_p T_0}$, where
 #
-# ``T_0 = 250 K``
+# $T_0 = 250 K$
 # so that
 #
-# ``
+# ```math
 # \theta = \theta_0 = T_0
-# ``
-# ``
+# ```
+# 
+# ```math
 # \pi = 1 + \frac{g^2}{c_p \theta_0 N^2}\left(\exp\left(\frac{-N^2 z}{g} \right)\right)
+# ```
 #
-# where `theta_0 = T_0 K`.
+# where $\theta_0 = T_0 K$.
 # ``
 # so that
 #
-# ``
-# ρ = \frac{p_{sfc}}{R_{gas}\theta}pi^{c_v/R_{gas}}
-# ``
+# ```math
+# ρ = \frac{p_{sfc}}{R_{gas}\theta}\pi^{c_v/R_{gas}}
+# ```
 # and
-# ``
-# \theta \pi
-# ``
+# ```math
+# T = \theta \pi
+# ```
 #
 # 2) Boundaries
 #    - `Impenetrable(FreeSlip())` - Top and bottom: no momentum flux, no mass flux through
@@ -42,7 +45,7 @@
 #       walls.
 #    - Agnesi topography built via meshwarp.
 #    - Laterally periodic
-# 3) Domain - 240,000 m (horizontal) x 4000 m (horizontal) x 30,000m (vertical) (infinite domain in y)
+# 3) Domain - 240,000 m (horizontal) x 4000 m (horizontal) x 30,000m (vertical)
 # 4) Resolution - 1000m X 240 m effective resolution
 # 5) Total simulation time - 15,000 s
 # 6) Overrides defaults for
@@ -76,6 +79,8 @@
 #
 using ClimateMachine
 ClimateMachine.init(parse_clargs = true)
+# Setting `parse_clargs=true` allows the use of command-line arguments (see API > Driver docs)
+# to control simulation update and output intervals.
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations

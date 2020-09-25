@@ -5,40 +5,36 @@
 # This example of a non-linear hydrostatic mountain wave can be classified as an initial value
 # problem.
 #
-# The atmosphere is dry and the flow impinges against a witch of Agnesi mountain of heigh `hm=1 m`
-# and base parameter `a=1,000` m and centered in `xc = 72 km` in a 2D domain
-# `\Omega = 144 km\times 30 km`. The mountain is defined as
+# The atmosphere is dry and the flow impinges against a witch of Agnesi mountain of heigh $h_m=1m$
+# and base parameter $a=1000$m and centered in $x_c = 72km$ in a 2D domain
+# $\Omega = 144km \times 30 km$. The mountain is defined as
 #
-# ``
-#  z = \frac{hm}{1 + \frac{x - xc}{a}}
-# ``
+# ```math
+#  z = \frac{h_m}{1 + \frac{x - x_c}{a}}
+# ```
 # The 2D problem is setup in 3D by using 1 element in the y direction.
-# To damp the upward moving gravity waves, a Reyleigh absorbing layer is added at `z = 10,000 m`.
+# To damp the upward moving gravity waves, a Reyleigh absorbing layer is added at $z = 10,000m$.
 #
-# The initial atmosphere is defined such that it has a stability frequency `N=0.01 1/s`, where
+# The initial atmosphere is defined such that it has a stability frequency $N=0.01 s^{-1}$, where
 #
-# ``
+# ```math
 #  N^2 = g\frac{\rm d \ln \theta}{ \rm dz}
-# ``
+# ```
 # so that
 #
-# ``
+# ```math
 # \theta = \theta_0 \exp\left(\frac{N^2 z}{g} \right),
-# ``
-# ``
+# ```
+# ```math
 # \pi = 1 + \frac{g^2}{c_p \theta_0 N^2}\left(\exp\left(\frac{-N^2 z}{g} \right)\right)
+# ```
 #
-# where `theta_0 = T_0 = 280 K`.
+# where $\theta_0 = 280K$.
 # ``
 # so that
 #
-# ``
-# ρ = \frac{p_{sfc}}{R_{gas}\theta}pi^{c_v/R_{gas}}
-# ``
-# and
-# ``
-# \theta \pi
-# ``
+# $ρ = \frac{p_{sfc}}{R_{gas}\theta}pi^{c_v/R_{gas}}$
+# and $T = \theta \pi$
 #
 # 2) Boundaries
 #    - `Impenetrable(FreeSlip())` - Top and bottom: no momentum flux, no mass flux through
@@ -326,4 +322,4 @@ function main()
 end
 
 # Call `main`
-main()
+main();
