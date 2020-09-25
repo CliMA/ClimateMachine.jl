@@ -5,7 +5,7 @@ using ..Mesh.Geometry
 using ..VariableTemplates
 
 import ..Mesh.Grids:
-    _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3
+    _ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3, AbstractGrid
 import ..MPIStateArrays: array_device
 
 """
@@ -132,6 +132,20 @@ function VectorGradients(dg::DGModel, Q::MPIStateArray)
     wait(event)
 
     return VectorGradients(data)
+end
+
+"""
+    VectorGradients(d1, d2, d3)
+
+This constructor computes the spatial gradients of the velocity field, assuming the vector gradient
+has already been constructed for d1, d2, d3
+
+# Arguments
+ - `d1`: Data for vector gradient object 1
+ - `d2`: Data for vector gradient object 2
+ - `d3`: Data for vector gradient object 3
+"""
+function VectorGradients(d1, d2, d3)
 end
 
 
@@ -293,13 +307,14 @@ This constructor computes the spatial gradients of the velocity field.
  - `dg`: DGModel
  - `Q`: MPIStateArray containing the prognostic state variables
 """
-function VectorGradient(dg::DGModel, Q::MPIStateArray, _v::Int)
-    bl = dg.balance_law
-    FT = eltype(dg.grid)
-    N = polynomialorder(dg.grid)
+# TODO: make this work for Abstract Arrays
+# To take gradient, we need a grid (D, vgeo, data), not `dg`.
+function VectorGradient(grid::G, Q::MPIStateArray, _v::Int) where G <: AbstractGrid
+    FT = eltype(grid)
+    N = polynomialorder(grid)
     Nq = N + 1
     npoints = Nq^3
-    nrealelem = length(dg.grid.topology.realelems)
+    nrealelem = length(grid.topology.realelems)
 
     g = similar(Q.realdata, npoints, nrealelem, 1, 3)
     data = similar(Q.realdata, npoints, 3, nrealelem)
@@ -308,23 +323,26 @@ function VectorGradient(dg::DGModel, Q::MPIStateArray, _v::Int)
     workgroup = (Nq, Nq)
     ndrange = (nrealelem * Nq, Nq)
 
-    kernel = vector_gradients_kernel!(device, workgroup)
+    kernel = vector_gradient_kernel!(device, workgroup)
     event = kernel(
         Q.realdata,
-        dg.grid.D,
-        dg.grid.vgeo,
+        grid.D,
+        grid.vgeo,
         g,
         data,
         _v,
         Val(Nq),
         ndrange = ndrange,
     )
-    wait(event)
+    # TODO: Errors for some reason
+    #wait(event)
 
-    return VectorGradients(data)
+    # TODO: data returns type of improper dimensions
+    #return VectorGradient(data)
+    return data
 end
 
-@kernel function vector_gradients_kernel!(
+@kernel function vector_gradient_kernel!(
     sv::AbstractArray{FT},
     D::AbstractArray{FT, 2},
     vgeo::AbstractArray{FT},
