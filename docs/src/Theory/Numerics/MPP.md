@@ -5,10 +5,11 @@ It is important to preserve positive sign of active tracers,
 The tracer mass may unphysically turn negative because of the
   numerical errors caused either by the advection scheme,
   or by time integration of source terms.
-The algorithm described here ensures positivity when solving the
-  advection-(TODO: diffusion) problem and falls under the
-  Maximum Principle Preserving (MPP) category.
-Ensuring positivity while integrating source terms is left as future work.
+The scheme described here ensures positivity when solving
+  advection problems and falls under the category
+  of Maximum Principle Preserving (MPP) algorithms.
+The algorithm is easily extended to include diffusion, and
+ensuring positivity with source terms is left as future work.
 
 The implementation follows
 [Light\_and\_Durran\_2016](https://journals.ametsoc.org/mwr/article/144/12/4771/70817/Preserving-Nonnegativity-in-Discontinuous-Galerkin)
@@ -23,7 +24,9 @@ Positivity preservation is done in two steps:
     and adjusts the values of the remaining points
     to preserve the element average.
 
-The MPP algorithm can be applied to a user-defined sub-set of state variables.
+The implemented MPP algorithm can be applied to a user-defined sub-set
+of state variables, and there are several known limitations at this
+time:
 
 
 ## Flux correction
