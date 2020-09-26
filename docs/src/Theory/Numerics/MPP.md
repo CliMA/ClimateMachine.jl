@@ -28,6 +28,29 @@ The implemented MPP algorithm can be applied to a user-defined sub-set
 of state variables, and there are several known limitations at this
 time:
 
+## Limitations
+
+ - Positivity is ensured only at the last RK stage (stage values maybe
+   negative)
+
+ - The current implementation only supports use with the [2N
+   low-storage Runge-Kutta methods](@ref LowStorageRungeKutta2N). The
+   method is easily extended to other explicit Runge-Kutta methods,
+   extension to the implicit methods (included the implicit part of
+   implicit-explicit methods), is possible but requires more code
+   development.
+
+ - The current implementation assumes that each of the fields which
+   the MPP algorithm is applied to is advected with the same velocity
+   field.
+
+ - It is assumed that the finite volume method is positivity
+   preserving with a forward Euler step with the given time step; the
+   finite volume cells are the same as the elements used for the
+   discontinuous Galerkin method.
+
+ - Currently only periodic and zero Dirchlet boundary conditions are
+   supported
 
 ## Flux correction
 
@@ -135,14 +158,7 @@ The flux correction guarantees that the average element value is non-negative.
 Because of this, the above truncation and mass adjustment, will not introduce
   any additional mass into the system.
 
-
-## Limitations
-
- - Positivity is ensured only at the last RK stage.
-
- - The MPP algorithm is implemented with LSRK explicit timestepper.
-   Adding it to a different timestepper, would require coding FV scheme
-   to work in tandem with it.
+## Possible Extensions
 
  - This approach could potentially be extended to offer a local limiter,
    along the lines of limiters for finite volume schemes in
