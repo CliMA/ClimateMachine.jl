@@ -8,8 +8,8 @@ function vars_state(m::KinematicModel, ::Prognostic, FT)
         ρu::SVector{3, FT}
         ρe::FT
         ρq_tot::FT
-        #ρq_liq::FT
-        #ρq_ice::FT
+        ρq_liq::FT
+        ρq_ice::FT
         #ρq_rai::FT
         #ρq_sno::FT
     end
@@ -41,8 +41,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         #rain_w::FT
         #snow_w::FT
         ## more diagnostics
-        #src_cloud_liq::FT
-        #src_cloud_ice::FT
+        src_cloud_liq::FT
+        src_cloud_ice::FT
         #src_rain_acnv::FT
         #src_snow_acnv::FT
         #src_liq_rain_accr::FT
@@ -92,8 +92,8 @@ function init_kinematic_eddy!(
 
         # moisture
         state.ρq_tot = ρ * init_qt(z)
-        #state.ρq_liq = ρ * q_pt_0.liq
-        #state.ρq_ice = ρ * q_pt_0.ice
+        state.ρq_liq = ρ * q_pt_0.liq
+        state.ρq_ice = ρ * q_pt_0.ice
         #state.ρq_rai = ρ * FT(0)
         #state.ρq_sno = ρ * FT(0)
 
@@ -176,53 +176,29 @@ function nodal_update_auxiliary_state!(
             aux.ρq_tot_init = state.ρq_tot
         end
 
+        # velocity
         aux.u = state.ρu[1] / state.ρ
         aux.w = state.ρu[3] / state.ρ
-
+        # water
         aux.q_tot = state.ρq_tot / state.ρ
-
+        aux.q_liq = state.ρq_liq / state.ρ
+        aux.q_ice = state.ρq_ice / state.ρ
+        #aux.q_rai = state.ρq_rai / state.ρ
+        #aux.q_sno = state.ρq_sno / state.ρ
+        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        aux.q_vap = vapor_specific_humidity(q)
+        # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
         aux.e_pot = _grav * aux.aux_z
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
-
-        # saturation adjustment happens here
-        ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
-        q = PhasePartition(ts)
-
-        aux.T = ts.T
-        aux.q_vap = vapor_specific_humidity(q)
-        aux.q_liq = q.liq
-        aux.q_ice = q.ice
-
-        aux.RH = relative_humidity(ts) * FT(100)
-
-        aux.S_liq = max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
+        # supersaturation
+        aux.T = air_temperature(param_set, aux.e_int, q)
+        ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
+        aux.RH = relative_humidity(ts_neq) * FT(100)
+        aux.S_liq =
+            max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
         aux.S_ice = max(0, supersaturation(param_set, q, state.ρ, aux.T, Ice()))
-
-        ## velocity
-        #aux.u = state.ρu[1] / state.ρ
-        #aux.w = state.ρu[3] / state.ρ
-        ## water
-        #aux.q_tot = state.ρq_tot / state.ρ
-        #aux.q_liq = state.ρq_liq / state.ρ
-        #aux.q_ice = state.ρq_ice / state.ρ
-        #aux.q_rai = state.ρq_rai / state.ρ
-        #aux.q_sno = state.ρq_sno / state.ρ
-        #q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
-        #aux.q_vap = vapor_specific_humidity(q)
-        ## energy
-        #aux.e_tot = state.ρe / state.ρ
-        #aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        #aux.e_pot = _grav * aux.aux_z
-        #aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
-        ## supersaturation
-        #aux.T = air_temperature(param_set, aux.e_int, q)
-        #ts_neq = TemperatureSHumNonEquil(param_set, aux.T, state.ρ, q)
-        #aux.RH = relative_humidity(ts_neq) * FT(100)
-        #aux.S_liq =
-        #    max(0, supersaturation(param_set, q, state.ρ, aux.T, Liquid()))
-        #aux.S_ice = max(0, supersaturation(param_set, q, state.ρ, aux.T, Ice()))
         # terminal velocities
         #aux.rain_w =
         #    terminal_velocity(param_set, rain_param_set, state.ρ, aux.q_rai)
@@ -230,21 +206,21 @@ function nodal_update_auxiliary_state!(
         #    terminal_velocity(param_set, snow_param_set, state.ρ, aux.q_sno)
 
         # more diagnostics
-        #ts_eq = TemperatureSHumEquil(param_set, aux.T, state.ρ, aux.q_tot)
-        #q_eq = PhasePartition(ts_eq)
+        ts_eq = TemperatureSHumEquil(param_set, aux.T, state.ρ, aux.q_tot)
+        q_eq = PhasePartition(ts_eq)
 
-        #aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(
-        #    liquid_param_set,
-        #    q_eq,
-        #    q,
-        #    slowdown_liq = FT(0.1),
-        #)
-        #aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(
-        #    ice_param_set,
-        #    q_eq,
-        #    q,
-        #    slowdown_ice = FT(0.1),
-        #)
+        aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(
+            liquid_param_set,
+            q_eq,
+            q,
+            slowdown_liq = FT(0.1),
+        )
+        aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(
+            ice_param_set,
+            q_eq,
+            q,
+            slowdown_ice = FT(0.1),
+        )
 
         #aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
         #aux.src_snow_acnv =
@@ -364,8 +340,8 @@ function boundary_state!(
     args...,
 )
     FT = eltype(state⁻)
-    @inbounds state⁺.ρq_rai = FT(0)
-    @inbounds state⁺.ρq_sno = FT(0)
+    #@inbounds state⁺.ρq_rai = FT(0)
+    #@inbounds state⁺.ρq_sno = FT(0)
 
     # 1 - left     (x = 0,   z = ...)
     # 2 - right    (x = -1,  z = ...)
@@ -378,8 +354,8 @@ function boundary_state!(
     state⁺.ρe = aux⁻.ρe_init
 
     state⁺.ρq_tot = aux⁻.ρq_tot_init
-    #state⁺.ρq_liq = FT(0) #state⁻.ρq_liq
-    #state⁺.ρq_ice = FT(0) #state⁻.ρq_ice
+    state⁺.ρq_liq = FT(0) #state⁻.ρq_liq
+    state⁺.ρq_ice = FT(0) #state⁻.ρq_ice
 
     if bctype == 1
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
@@ -389,8 +365,8 @@ function boundary_state!(
         state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
         state⁺.ρe = state⁻.ρe
         state⁺.ρq_tot = state⁻.ρq_tot
-        #state⁺.ρq_liq = state⁻.ρq_liq
-        #state⁺.ρq_ice = state⁻.ρq_ice
+        state⁺.ρq_liq = state⁻.ρq_liq
+        state⁺.ρq_ice = state⁻.ρq_ice
     end
 
     if bctype == 5
@@ -448,16 +424,16 @@ end
             FT(0),
             state.ρu[3] * state.ρq_tot / state.ρ,
         )
-        #flux.ρq_liq = SVector(
-        #    state.ρu[1] * state.ρq_liq / state.ρ,
-        #    FT(0),
-        #    state.ρu[3] * state.ρq_liq / state.ρ,
-        #)
-        #flux.ρq_ice = SVector(
-        #    state.ρu[1] * state.ρq_ice / state.ρ,
-        #    FT(0),
-        #    state.ρu[3] * state.ρq_ice / state.ρ,
-        #)
+        flux.ρq_liq = SVector(
+            state.ρu[1] * state.ρq_liq / state.ρ,
+            FT(0),
+            state.ρu[3] * state.ρq_liq / state.ρ,
+        )
+        flux.ρq_ice = SVector(
+            state.ρu[1] * state.ρq_ice / state.ρ,
+            FT(0),
+            state.ρu[3] * state.ρq_ice / state.ρ,
+        )
         #flux.ρq_rai = SVector(
         #    state.ρu[1] * state.ρq_rai / state.ρ,
         #    FT(0),
@@ -502,50 +478,65 @@ function source!(
     _T_0::FT = T_0(param_set)
     _T_freeze = T_freeze(param_set)
 
-    #@inbounds begin
-    #    e_tot = state.ρe / state.ρ
-    #    q_tot = state.ρq_tot / state.ρ
-    #    q_liq = state.ρq_liq / state.ρ
-    #    q_ice = state.ρq_ice / state.ρ
-    #    q_rai = state.ρq_rai / state.ρ
-    #    q_sno = state.ρq_sno / state.ρ
-    #    u = state.ρu[1] / state.ρ
-    #    w = state.ρu[3] / state.ρ
-    #    ρ = state.ρ
-    #    e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.aux_z
+    @inbounds begin
+        e_tot = state.ρe / state.ρ
+        q_tot = state.ρq_tot / state.ρ
+        q_liq = state.ρq_liq / state.ρ
+        q_ice = state.ρq_ice / state.ρ
+        #q_rai = state.ρq_rai / state.ρ
+        #q_sno = state.ρq_sno / state.ρ
+        u = state.ρu[1] / state.ρ
+        w = state.ρu[3] / state.ρ
+        ρ = state.ρ
+        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.aux_z
 
-    #    q = PhasePartition(q_tot, q_liq, q_ice)
-    #    T = air_temperature(param_set, e_int, q)
-    #    _Lf = latent_heat_fusion(param_set, T)
+        q = PhasePartition(q_tot, q_liq, q_ice)
+        T = air_temperature(param_set, e_int, q)
+        _Lf = latent_heat_fusion(param_set, T)
 
-    #    # equilibrium state at current T
-    #    ts_eq = TemperatureSHumEquil(param_set, T, state.ρ, q_tot)
-    #    q_eq = PhasePartition(ts_eq)
+        # equilibrium state at current T
+        ts_eq = TemperatureSHumEquil(param_set, T, state.ρ, q_tot)
+        q_eq = PhasePartition(ts_eq)
 
-    #    # zero out the source terms
-    #    source.ρq_tot = FT(0)
-    #    source.ρq_liq = FT(0)
-    #    source.ρq_ice = FT(0)
-    #    source.ρq_rai = FT(0)
-    #    source.ρq_sno = FT(0)
-    #    source.ρe = FT(0)
+        # zero out the source terms
+        source.ρq_tot = FT(0)
+        source.ρq_liq = FT(0)
+        source.ρq_ice = FT(0)
+        #source.ρq_rai = FT(0)
+        #source.ρq_sno = FT(0)
+        source.ρe = FT(0)
 
-    #    # vapour -> cloud liquid water
-    #    source.ρq_liq +=
-    #        ρ * conv_q_vap_to_q_liq_ice(
-    #            liquid_param_set,
-    #            q_eq,
-    #            q,
-    #            slowdown_liq = FT(10),
-    #        )
-    #    # vapour -> cloud ice
-    #    source.ρq_ice +=
-    #        ρ * conv_q_vap_to_q_liq_ice(
-    #            ice_param_set,
-    #            q_eq,
-    #            q,
-    #            slowdown_ice = FT(10),
-    #        )
+        ## vapour -> cloud liquid water
+        #source.ρq_liq +=
+        #    ρ * conv_q_vap_to_q_liq_ice(
+        #        liquid_param_set,
+        #        q_eq,
+        #        q,
+        #        slowdown_liq = FT(0.1),
+        #    )
+        ## vapour -> cloud ice
+        #source.ρq_ice +=
+        #    ρ * conv_q_vap_to_q_liq_ice(
+        #        ice_param_set,
+        #        q_eq,
+        #        q,
+        #        slowdown_ice = FT(0.1),
+        #    )
+       ssss
+
+        tmp_1 = ρ * conv_q_vap_to_q_liq_ice(
+                liquid_param_set,
+                q_eq,
+                q,
+                slowdown_liq = FT(0.1),
+            )
+
+        #    ρ * conv_q_vap_to_q_liq_ice(
+        #        ice_param_set,
+        #        q_eq,
+        #        q,
+        #        slowdown_ice = FT(0.1),
+        #    )
 
     #    # cloud liquid water -> rain
     #    acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
@@ -705,7 +696,7 @@ function source!(
     #    source.ρq_rai += melt
     #    source.ρe -= melt * _Lf
 
-    #end
+    end
 end
 
 function main()
@@ -733,11 +724,11 @@ function main()
     # time stepping
     t_ini = FT(0)
     t_end = FT(4200) #FT(4 * 60 * 60) #FT(4 * 60 * 60) # FT(10 * 60)
-    dt = FT(1.) #FT(15)
+    dt = FT(0.25) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 60 * 5
-    interval = "50steps"
+    output_freq = 60 * 5 * 2 * 2 * 2
+    interval = "400steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -941,8 +932,8 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     # get state variables indices for filtering
-    #ρq_liq_ind = varsindex(vars_state(model, Prognostic(), FT), :ρq_liq)
-    #ρq_ice_ind = varsindex(vars_state(model, Prognostic(), FT), :ρq_ice)
+    ρq_liq_ind = varsindex(vars_state(model, Prognostic(), FT), :ρq_liq)
+    ρq_ice_ind = varsindex(vars_state(model, Prognostic(), FT), :ρq_ice)
     #ρq_rai_ind = varsindex(vars_state(model, Prognostic(), FT), :ρq_rai)
     #ρq_sno_ind = varsindex(vars_state(model, Prognostic(), FT), :ρq_sno)
     # get aux variables indices for testing
@@ -973,7 +964,7 @@ function main()
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
                 solver_config.Q,
-                (:ρq_tot,),
+                (:ρq_tot, :ρq_liq, :ρq_ice),
                 solver_config.dg.grid,
                 TMARFilter(),
             )
@@ -986,7 +977,7 @@ function main()
         GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
             Filters.apply!(
                 solver_config.Q,
-                (:ρ, :ρe, :ρq_tot),
+                (:ρ, :ρe, :ρq_tot, :ρq_liq, :ρq_ice),
                 solver_config.dg.grid,
                 ExponentialFilter(solver_config.dg.grid, 1, 8)
             )
@@ -1015,35 +1006,35 @@ function main()
     #        nothing
     #    end
 
-    # output for paraview
-    # initialize base output prefix directory from rank 0
-    vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
-    if MPI.Comm_rank(mpicomm) == 0
-        mkpath(vtkdir)
-    end
-    MPI.Barrier(mpicomm)
+    ## output for paraview
+    ## initialize base output prefix directory from rank 0
+    #vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
+    #if MPI.Comm_rank(mpicomm) == 0
+    #    mkpath(vtkdir)
+    #end
+    #MPI.Barrier(mpicomm)
 
-    vtkstep = [0]
-    cb_vtk =
-        GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = true)
-            out_dirname = @sprintf(
-                "microphysics_test_4_mpirank%04d_step%04d",
-                MPI.Comm_rank(mpicomm),
-                vtkstep[1]
-            )
-            out_path_prefix = joinpath(vtkdir, out_dirname)
-            @info "doing VTK output" out_path_prefix
-            writevtk(
-                out_path_prefix,
-                solver_config.Q,
-                solver_config.dg,
-                flattenednames(vars_state(model, Prognostic(), FT)),
-                solver_config.dg.state_auxiliary,
-                flattenednames(vars_state(model, Auxiliary(), FT)),
-            )
-            vtkstep[1] += 1
-            nothing
-        end
+    #vtkstep = [0]
+    #cb_vtk =
+    #    GenericCallbacks.EveryXSimulationSteps(output_freq) do (init = true)
+    #        out_dirname = @sprintf(
+    #            "microphysics_test_4_mpirank%04d_step%04d",
+    #            MPI.Comm_rank(mpicomm),
+    #            vtkstep[1]
+    #        )
+    #        out_path_prefix = joinpath(vtkdir, out_dirname)
+    #        @info "doing VTK output" out_path_prefix
+    #        writevtk(
+    #            out_path_prefix,
+    #            solver_config.Q,
+    #            solver_config.dg,
+    #            flattenednames(vars_state(model, Prognostic(), FT)),
+    #            solver_config.dg.state_auxiliary,
+    #            flattenednames(vars_state(model, Auxiliary(), FT)),
+    #        )
+    #        vtkstep[1] += 1
+    #        nothing
+    #    end
 
     # output for netcdf
     info = driver_config.config_info
@@ -1076,7 +1067,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cb_exp_filter, cb_tmar_filter, cb_vtk),
+        user_callbacks = (cb_exp_filter, cb_tmar_filter),
         check_euclidean_distance = true,
     )
 
