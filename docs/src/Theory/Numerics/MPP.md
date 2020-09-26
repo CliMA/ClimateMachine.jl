@@ -7,7 +7,7 @@ The tracer mass may unphysically turn negative because of the
   or by time integration of source terms.
 The algorithm described here ensures positivity when solving the
   advection-(TODO: diffusion) problem and falls under the
-  Maximum Principle Preserving (MPP) algorithm category.
+  Maximum Principle Preserving (MPP) category.
 Ensuring positivity while integrating source terms is left as future work.
 
 The implementation follows
@@ -37,7 +37,7 @@ As a result the positivity is preserved only at the final timestepping stage
 The correction is obtained with the help of a finite volume (FV) scheme
   (i.e. low order scheme) running in parallel with the DG scheme
   (i.e. high order scheme).
-A low order FV scheme perserves the minima/maxima
+A low order FV scheme preserves the minima/maxima
   and provides a bound on how big a DG flux through an element face can be
   to preserve positivity.
 Below we show the algorithm for the 1-dimensional case.
@@ -45,7 +45,7 @@ Below we show the algorithm for the 1-dimensional case.
 Let ``H_{j+\frac{1}{2}}`` and ``h_{j+\frac{1}{2}}`` denote
   the high order and low order scheme fluxes
   through element face ``j+\frac{1}{2}`` of the DG element ``j``.
-Additionally let ``F_{j+\{1}{2}}`` denote the difference
+Additionally, let ``F_{j+\frac{1}{2}}`` denote the difference
   between the high and low order scheme fluxes
   through element face ``j+\frac{1}{2}``:
 ```math
@@ -60,7 +60,7 @@ The corrected ``\hat{H}_{j+\frac{1}{2}}`` flux through
 If ``H_{j+\frac{1}{2}}`` does not cause negative numbers,
   ``\theta_{j+\frac{1}{2}}`` is set to 1
   and the final DG solution is not changed.
-Otherwise
+Otherwise:
 ```math
 \theta_{j+\frac{1}{2}} = min(\Lambda_{j+\frac{1}{2}}, \Lambda_{j+1-\frac{1}{2}})
 ```
@@ -135,11 +135,13 @@ Because of this, the above truncation and mass adjustment, will not introduce
 
 ## Limitations
 
- - The MPP algorithm is only tested with LSRK explicit timesteppers.
-
  - Positivity is ensured only at the last RK stage.
 
- - This approach could potentailly be extended to offer a local limiter,
+ - The MPP algorithm is implemented with LSRK explicit timestepper.
+   Adding it to a different timestepper, would require coding FV scheme
+   to work in tandem with it.
+
+ - This approach could potentially be extended to offer a local limiter,
    along the lines of limiters for finite volume schemes in
    [Smolarkiewicz\_1989](https://journals.ametsoc.org/mwr/article/117/11/2626/64201/Comment-on-A-Positive-Definite-Advection-Scheme).
    Such application for DG is not described in the literature.
@@ -149,7 +151,7 @@ Because of this, the above truncation and mass adjustment, will not introduce
 
 ## Results
 
-TODO - Once the interface with Clima is implemented I'll add here a
+TODO - Once the interface with CliMA is implemented I'll add here a
   test/usage example.
 It will either be the 1D-box filter showcase
   or the cone test from Light and Durran 2016.
