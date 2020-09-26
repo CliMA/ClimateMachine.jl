@@ -1015,7 +1015,7 @@ function liquid_fraction(
 ) where {FT <: Real}
     q_c = condensate(q)     # condensate specific humidity
     if has_condensate(q_c)
-        return max(0, q.liq) / q_c
+        return q.liq / q_c
     else
         return liquid_fraction(param_set, T, PhaseEquil, q)
     end

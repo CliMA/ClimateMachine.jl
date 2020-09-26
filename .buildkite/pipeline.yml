@@ -1,8 +1,39 @@
 env:
+  JULIA_VERSION: "1.5.1"
   OPENBLAS_NUM_THREADS: 1
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
 steps:
+  - label: "init cpu env"
+    key: "init_cpu_env"
+    command:
+      - "echo $JULIA_DEPOT_PATH"
+      - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
+      - "julia --project -e 'using Pkg; Pkg.precompile()'"
+      - "julia --project -e 'using Pkg; Pkg.status()'"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "init gpu env"
+    key: "init_gpu_env"
+    command:
+      - "echo $JULIA_DEPOT_PATH"
+      - "julia --project -e 'using Pkg; Pkg.instantiate(;verbose=true)'"
+      - "julia --project -e 'using Pkg; Pkg.precompile()'"
+      # force the initialization of the CUDA runtime
+      # as it is lazily loaded by default
+      - "julia --project -e 'using CUDA; CUDA.versioninfo()'"
+      - "julia --project -e 'using Pkg; Pkg.status()'"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - wait
+
   - label: "cpu_advection_diffusion_model_1dimex_bgmres"
     key: "cpu_advection_diffusion_model_1dimex_bgmres"
     command:
@@ -56,15 +87,6 @@ steps:
       config: cpu
       queue: central
       slurm_ntasks: 3
-
-  - label: "cpu_ref_state"
-    key: "cpu_ref_state"
-    command:
-      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/compressible_Navier_Stokes/ref_state.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 1
 
   - label: "cpu_mpi_connect_1d"
     key: "cpu_mpi_connect_1d"
@@ -421,6 +443,15 @@ steps:
     key: "cpu_haverkamp_test"
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "cpu_haverkamp_implicit_test"
+    key: "cpu_haverkamp_implicit_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_implicit_test.jl "
     agents:
       config: cpu
       queue: central
@@ -916,7 +947,7 @@ steps:
   - label: "gpu_surfacebubble"
     key: "gpu_surfacebubble"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl "
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/surfacebubble.jl --diagnostics=default"
     agents:
       config: gpu
       queue: central
@@ -947,6 +978,16 @@ steps:
     key: "gpu_bomex_single_stack"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_single_stack.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_edmf"
+    key: "gpu_bomex_edmf"
+    command:
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/bomex_edmf.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1003,6 +1044,26 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_test_simple_box"
+    key: "gpu_test_simple_box"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_simple_box.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_simple_box_ivd"
+    key: "gpu_simple_box_ivd"
+    command:
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/simple_box_ivd.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
   - label: "gpu_discrete_hydrostatic_balance"
     key: "gpu_discrete_hydrostatic_balance"
     command:
@@ -1017,6 +1078,16 @@ steps:
     key: "gpu_haverkamp_test"
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_test.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_haverkamp_implicit_test"
+    key: "gpu_haverkamp_implicit_test"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/haverkamp_implicit_test.jl "
     agents:
       config: gpu
       queue: central

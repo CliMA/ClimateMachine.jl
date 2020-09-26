@@ -19,26 +19,37 @@ if generate_tutorials
     include("pages_helper.jl")
 
     tutorials = [
+        "Home" => "TutorialList.jl",
+        "Balance Law" => "how_to_make_a_balance_law.jl",
         "Atmos" => [
-            "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
-            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
+            "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
+            "Single Element Stack Experiment (Burgers Equation)" =>
+                "Atmos/burgers_single_stack.jl",
+            "LES Experiment (Rising Thermal Bubble)" => "Atmos/risingbubble.jl",
             "Linear Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_hs_lin.jl",
             "Linear Non-Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_nh_lin.jl",
         ],
         "Ocean" => [],
-        "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
+        "Land" => [
+            "Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"],
+            "Soil" => [
+                "Hydraulic Functions" =>
+                    "Land/Soil/Water/hydraulic_functions.jl",
+                "Soil Heat Equation" => "Land/Soil/Heat/bonan_heat_tutorial.jl",
+                "Coupled Water and Heat" =>
+                    "Land/Soil/Coupled/equilibrium_test.jl",
+            ],
+        ],
         "Numerics" => [
             "System Solvers" => [
                 "Conjugate Gradient" => "Numerics/SystemSolvers/cg.jl",
                 "Batched Generalized Minimal Residual" =>
                     "Numerics/SystemSolvers/bgmres.jl",
             ],
-            "DG Methods" => [
-                "Topology" => "topo.jl",
-                "Filters" => "Numerics/DGMethods/showcase_filters.jl",
-            ],
+            "DG Methods" =>
+                ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
         ],
         "Diagnostics" => [
             "Debug" => [
@@ -46,7 +57,6 @@ if generate_tutorials
                     "Diagnostics/Debug/StateCheck.jl",
             ],
         ],
-        "Contributing" => ["Notes on Literate" => "literate_markdown.jl"],
     ]
 
     # Prepend tutorials_dir

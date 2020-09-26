@@ -88,6 +88,7 @@ function prefactorize(op, solver::AbstractColumnLUSolver, Q, args...)
 end
 
 function linearsolve!(
+    linop,
     clu::ColumnwiseLU,
     ::AbstractColumnLUSolver,
     Q,
@@ -260,6 +261,38 @@ function banded_matrix(
     args...;
     single_column = false,
 )
+    # Initialize banded matrix data structure
+    A = empty_banded_matrix(dg, Q; single_column = single_column)
+
+    # Populate matrix with data
+    update_banded_matrix!(
+        A,
+        f!,
+        dg,
+        Q,
+        dQ,
+        args...;
+        single_column = single_column,
+    )
+
+    A
+end
+
+"""
+    empty_banded_matrix(
+        dg::DGModel,
+        Q::MPIStateArray;
+        single_column = false,
+    )
+
+Initializes an empty banded matrix stored in the LAPACK band storage format
+<https://www.netlib.org/lapack/lug/node124.html>.
+"""
+function empty_banded_matrix(
+    dg::DGModel,
+    Q::MPIStateArray;
+    single_column = false,
+)
     bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
@@ -311,8 +344,70 @@ function banded_matrix(
         A,
     )
 
+    A
+end
+
+"""
+    update_banded_matrix!(
+        A::DGColumnBandedMatrix,
+        f!,
+        dg::DGModel,
+        Q::MPIStateArray = MPIStateArray(dg),
+        dQ::MPIStateArray = MPIStateArray(dg),
+        args...;
+        single_column = false,
+    )
+
+Updates the banded matrices for each the column operator defined by the linear
+operator `f!` which is assumed to have the same banded structure as the
+`DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
+column and if `single_column=true` only the banded matrix associated with the
+first column of the first element is stored. The bandwidth of the DG column
+banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
+`p` and `q` being the upper and lower bandwidths.
+
+Here `args` are passed to `f!`.
+"""
+function update_banded_matrix!(
+    A::DGColumnBandedMatrix,
+    f!,
+    dg::DGModel,
+    Q::MPIStateArray = MPIStateArray(dg),
+    dQ::MPIStateArray = MPIStateArray(dg),
+    args...;
+    single_column = false,
+)
+    bl = dg.balance_law
+    grid = dg.grid
+    topology = grid.topology
+    @assert isstacked(topology)
+    @assert typeof(dg.direction) <: VerticalDirection
+
+    FT = eltype(Q.data)
+    device = array_device(Q)
+
+    nstate = number_states(bl, Prognostic())
+    N = polynomialorder(grid)
+    Nq = N + 1
+
+    # p is lower bandwidth
+    # q is upper bandwidth
+    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+    p = q = nstate * Nq * eband - 1
+
+    nrealelem = length(topology.realelems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nrealelem, nvertelem)
+
+    dim = dimensionality(grid)
+
+    Nqj = dim == 2 ? 1 : Nq
+
     # loop through all DOFs in a column and compute the matrix column
-    for ev in 1:nvertelem
+    # loop only the first min(nvertelem, 2eband+1) elements
+    # in each element loop, updating these columns correspond
+    # to elements (ev :2eband+1 : nvertelem)
+    for ev in 1:min(nvertelem, 2eband + 1)
         for s in 1:nstate
             for k in 1:Nq
                 # Set a single 1 per column and rest 0
@@ -354,10 +449,7 @@ function banded_matrix(
             end
         end
     end
-
-    A
 end
-
 
 """
     banded_matrix_vector_product!(
@@ -676,7 +768,7 @@ end
     Q,
     kin,
     sin,
-    evin,
+    evin0,
     helems,
     velems,
 ) where {dim, N, nstate, nvertelem}
@@ -685,6 +777,8 @@ end
 
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
+
+        eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
     end
 
     ev, eh = @index(Group, NTuple)
@@ -694,7 +788,7 @@ end
         e = ev + (eh - 1) * nvertelem
         ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
         @unroll for s in 1:nstate
-            if k == kin && s == sin && evin == ev
+            if k == kin && s == sin && ((ev - evin0) % (2eband + 1) == 0)
                 Q[ijk, s, e] = 1
             else
                 Q[ijk, s, e] = 0
@@ -708,7 +802,7 @@ end
     dQ,
     kin,
     sin,
-    evin,
+    evin0,
     helems,
     vpelems,
 )
@@ -720,39 +814,42 @@ end
         nvertelem = num_vert_elem(A)
         p = lower_bandwidth(A)
         q = upper_bandwidth(A)
+
+        eband = elem_band(A)
         eshift = elem_band(A) + 1
-
-        # sin, kin, evin are the state, vertical fod, and vert element we are
-        # handling
-
-        # column index of matrix
-        jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
     end
 
     ep, eh = @index(Group, NTuple)
     ep = ep - eshift
     i, j, k = @index(Local, NTuple)
 
-    # one thread is launch for dof that might contribute to column jj's band
-    @inbounds begin
-        # ep is the shift we need to add to evin to get the element we need to
-        # consider
-        ev = ep + evin
-        if 1 ≤ ev ≤ nvertelem
-            e = ev + (eh - 1) * nvertelem
-            ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
-            @unroll for s in 1:nstate
-                # row index of matrix
-                ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
-                # row band index
-                bb = ii - jj
-                # make sure we're in the bandwidth
-                if -q ≤ bb ≤ p
-                    if !single_column(A)
-                        A[i, j, bb + q + 1, jj, eh] = dQ[ijk, s, e]
-                    else
-                        if (i, j, eh) == (1, 1, 1)
-                            A[bb + q + 1, jj] = dQ[ijk, s, e]
+    for evin in evin0:(2eband + 1):nvertelem
+        # sin, kin, evin are the state, vertical fod, and vert element we are
+        # handling
+        # column index of matrix
+        jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq
+
+        # one thread is launch for dof that might contribute to column jj's band
+        @inbounds begin
+            # ep is the shift we need to add to evin to get the element we need to
+            # consider
+            ev = ep + evin
+            if 1 ≤ ev ≤ nvertelem
+                e = ev + (eh - 1) * nvertelem
+                ijk = i + Nqj * (j - 1) + Nq * Nqj * (k - 1)
+                @unroll for s in 1:nstate
+                    # row index of matrix
+                    ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq
+                    # row band index
+                    bb = ii - jj
+                    # make sure we're in the bandwidth
+                    if -q ≤ bb ≤ p
+                        if !single_column(A)
+                            A[i, j, bb + q + 1, jj, eh] = dQ[ijk, s, e]
+                        else
+                            if (i, j, eh) == (1, 1, 1)
+                                A[bb + q + 1, jj] = dQ[ijk, s, e]
+                            end
                         end
                     end
                 end

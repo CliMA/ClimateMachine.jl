@@ -39,6 +39,19 @@ A dynamical core based on discontinuous Galerkin numerical methods is
 used to discretize the physical conservation laws that underlie each of
 the `ClimateMachine`'s subcomponents.
 
+## How to use the documentation
+
+| If you want to...                     | Look here                   |
+| :-------------------------------------|  -------------------------: |
+| install `ClimateMachine.jl`           | Getting started |
+| learn about default configurations | Getting started |
+| look up common terminology | Getting started |
+| run simple `Atmos`, `Ocean`, or `Land` models | Tutorials |
+| run code fragments detailing numerical methods | Tutorials |
+| get more detail about a model subcomponent or a numerical method |  How-to-guides|
+| learn how to call functions in source code | APIs |
+| help develop `ClimateMachine.jl` software | Contribution guide |
+
 ## Authors
 
 The `ClimateMachine` is being developed by [the Climate Modeling

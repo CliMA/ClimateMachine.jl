@@ -90,8 +90,8 @@ end
         hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
         initialϑ_l = (aux) -> FT(NaN),
         initialθ_i = (aux) -> FT(0.0),
-        dirichlet_bc::AbstractBoundaryFunctions = nothing,
-        neumann_bc::AbstractBoundaryFunctions = nothing,
+        dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
+        neumann_bc::AbstractBoundaryFunctions = Neumann(),
     ) where {FT}
 
 Constructor for the SoilWaterModel. Defaults imply a constant K = K_sat model.
@@ -104,8 +104,8 @@ function SoilWaterModel(
     hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
     initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
     initialθ_i::Function = (aux) -> eltype(aux)(0.0),
-    dirichlet_bc::AbstractBoundaryFunctions = nothing,
-    neumann_bc::AbstractBoundaryFunctions = nothing,
+    dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
+    neumann_bc::AbstractBoundaryFunctions = Neumann(),
 ) where {FT}
     args = (
         impedance_factor,
@@ -167,33 +167,32 @@ end
 
 
 """
-    function get_diffusive_water_flux(
+    function get_diffusive_water_term(
         water::SoilWaterModel,
         diffusive::Vars
     )
 
-Returns the diffusive water flux from the `diffusive` vector.
+Returns the diffusive water term from the `diffusive` vector.
 """
-function get_diffusive_water_flux(water::SoilWaterModel, diffusive::Vars)
+function get_diffusive_water_term(water::SoilWaterModel, diffusive::Vars)
     return diffusive.soil.water.K∇h
 end
 
 """
-    function get_diffusive_water_flux(
+    function get_diffusive_water_term(
         water::PrescribedWaterModel,
         diffusive::Vars
     )
 
-Returns zero diffusive water flux under the PrescribedWaterModel.
+Returns zero for the diffusive water term, under the PrescribedWaterModel.
 """
-function get_diffusive_water_flux(water::PrescribedWaterModel, diffusive::Vars)
+function get_diffusive_water_term(water::PrescribedWaterModel, diffusive::Vars)
     FT = eltype(diffusive)
     return SVector{3, FT}(0, 0, 0)
 end
 
 
 vars_state(water::SoilWaterModel, st::Prognostic, FT) = @vars(ϑ_l::FT, θ_i::FT)
-
 
 vars_state(water::SoilWaterModel, st::Auxiliary, FT) = @vars(h::FT, K::FT)
 
@@ -210,7 +209,6 @@ function soil_init_aux!(
     aux::Vars,
     geom::LocalGeometry,
 )
-
     FT = eltype(aux)
     T = get_initial_temperature(land.soil.heat, aux, FT(0.0))
     S_l = effective_saturation(

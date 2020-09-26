@@ -30,12 +30,10 @@ pkgs = Symbol[]
 if climatemachine_pkg
     push!(pkgs, :ClimateMachine)
 else
-    # TODO: reorg project structure (Project.toml) to use
-    # Pkg.dependencies() with PackageCompiler
-    #if VERSION >= v"1.4"
-    #    append!(pkgs, [Symbol(v.name) for v in values(Pkg.dependencies())])
-    #end
-    append!(pkgs, [Symbol(name) for name in keys(Pkg.installed())])
+    append!(
+        pkgs,
+        [Symbol(v.name) for v in values(Pkg.dependencies()) if v.is_direct_dep],
+    )
 end
 
 # use package compiler
