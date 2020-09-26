@@ -12,8 +12,6 @@ using ...ODESolvers:
 import ...ODESolvers: dostep!
 
 using ...BalanceLaws:
-#   initialize_fast_state!,
-#   initialize_adjustment!,
     tendency_from_slow_to_fast!,
     cummulate_fast_solution!,
     reconcile_from_fast_to_slow!
@@ -113,6 +111,7 @@ function dostep!(
         end
 
         # Initialize fast model and set time-step and number of substeps we need
+        # Note: to reproduce previous Fast output, 1) remove "firstStage = ..." line
         fast_steps = [0 0 0]
         FT = typeof(slow_dt)
         fast_time_rec = [fast_dt_in FT(0)]
@@ -125,7 +124,8 @@ function dostep!(
             Qfast,
             fract_dt,
             fast_time_rec,
-            fast_steps,
+            fast_steps;
+            firstStage = (slow_s == 1),
         )
         # Initialize tentency adjustment before evaluation of slow mode
         initialize_adjustment!(
@@ -196,7 +196,8 @@ function dostep!(
             )
         end
 
-        # reconcile slow equation using fast equation
+        # Reconcile slow equation using fast equation
+        # Note: to reproduce previous Fast output, 2) remove "lastStage = ..." line
         reconcile_from_fast_to_slow!(
             slow_bl,
             fast_bl,
@@ -204,7 +205,8 @@ function dostep!(
             fast.rhs!,
             Qslow,
             Qfast,
-            fast_time_rec,
+            fast_time_rec;
+            lastStage = (slow_s == length(slow.RKA)),
         )
 
     end
