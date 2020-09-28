@@ -30,14 +30,14 @@ function main()
     # DG polynomial order
     N = 4
     # Domain resolution and size
-    Δh = FT(100)
-    Δv = FT(40)
+    Δh = FT(50)
+    Δv = FT(20)
 
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(6400)
-    ymax = FT(6400)
+    xmax = FT(23000)
+    ymax = FT(23000)
     zmax = FT(3000)
 
     t0 = FT(0)
