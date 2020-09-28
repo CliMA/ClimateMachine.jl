@@ -4,6 +4,7 @@
 
 getting_started_docs = Any[
     "Installation" => "GettingStarted/Installation.md",
+    "Terminology" => "GettingStarted/Terminology.md",
     "Running" => "GettingStarted/RunningClimateMachine.md",
     "Defaults" => Any["Atmosphere model configurations" => "GettingStarted/Atmos.md",],
 ]

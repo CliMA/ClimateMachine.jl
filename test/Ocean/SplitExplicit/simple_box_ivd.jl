@@ -342,7 +342,6 @@ function make_callbacks(
     Q_fast,
 )
 
-    #=
     if isdir(vtkpath)
         rm(vtkpath, recursive = true)
     end
@@ -396,7 +395,6 @@ function make_callbacks(
         step[2] += 1
         nothing
     end
-    =#
 
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
@@ -428,7 +426,7 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_split"
+vtkpath = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_split"))
 
 const timeend = 5 * 24 * 3600 # s
 const tout = 24 * 3600 # s
