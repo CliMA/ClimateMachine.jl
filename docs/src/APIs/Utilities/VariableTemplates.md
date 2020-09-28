@@ -14,6 +14,7 @@ Vars
 ## Index methods
 
 ```@docs
+@vars
 vuntuple
 unroll_map
 flattened_tup_chain

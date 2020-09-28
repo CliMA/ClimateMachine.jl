@@ -10,13 +10,28 @@ export AbstractStateType,
     UpwardIntegrals,
     DownwardIntegrals
 
+"""
+    AbstractStateType
+
+Subtypes of this describe the variables used by different parts of a [`BalanceLaw`](@ref):
+- [`Prognostic`](@ref)
+- [`Auxiliary`](@ref)
+- [`Gradient`](@ref)
+- [`GradientFlux`](@ref)
+- [`GradientLaplacian`](@ref)
+- [`Hyperdiffusive`](@ref)
+- [`UpwardIntegrals`](@ref)
+- [`DownwardIntegrals`](@ref)
+
+See also [`vars_state`](@ref).
+"""
 abstract type AbstractStateType end
 
 """
     Prognostic <: AbstractStateType
 
 Prognostic variables in the PDE system,
-which are specified by the `BalanceLaw`, and
+which are specified by the [`BalanceLaw`](@ref), and
 solved for by the ODE solver.
 """
 struct Prognostic <: AbstractStateType end

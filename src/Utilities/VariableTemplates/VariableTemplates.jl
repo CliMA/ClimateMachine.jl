@@ -130,6 +130,17 @@ function process_vars!(syms, typs, expr)
     end
 end
 
+"""
+    @vars(var1::Type1, var2::Type2)
+
+A convenient syntax for describing a `NamedTuple` type.
+
+# Example
+```julia
+julia> @vars(a::Float64, b::Float64)
+NamedTuple{(:a, :b),Tuple{Float64,Float64}}
+```
+"""
 macro vars(args...)
     syms = Any[]
     typs = Any[]
