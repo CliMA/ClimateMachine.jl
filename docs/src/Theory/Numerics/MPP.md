@@ -105,18 +105,18 @@ where ``\Lambda_{j}`` and ``\Lambda_{j+1}`` roughly correspond to the
   be used for elements ``j`` and ``j+1``, respectively.
 These helper limiters are defined as
 ```math
-\Lambda_{j} = \frac{\phi^{t+1}_{j, FV} - \phi_{min}}{\frac{\Delta t}{\Delta x} \Delta F_{j, out}}
+\Lambda_{j} = \frac{\phi^{t+1}_{j, FV} - \phi_{min}}{\Delta t \Delta F_{j, out}}
 ```
 where:
  - ``\phi_{min} = 0`` is the minimum allowed value
- - ``\phi^{n+1}_{j, FV} = \phi^{n}_{j, FV} - \frac{\Delta t}{\Delta x} (h_{j+\frac{1}{2}} - h_{j-\frac{1}{2}})``
-     is the advection diffusion solution of the FV scheme
+ - ``\phi^{n+1}_{j, FV} = \phi^{n}_{j} - \Delta t (h_{j+\frac{1}{2}} - h_{j-\frac{1}{2}})``
+     is finite volume update for element ``j`` for the total mass
+     ``\phi^{n}_{j}``
  - ``\Delta F_{j, out} = max(0, F_{j+\frac{1}{2}}) - min(0, F_{j-\frac{1}{2}})``
      is the sum of the flux differences between the DG and FV schemes
      for element ``j``, but only those contributions where DG overestimates
      the flux compared to FV
  - ``\Delta t`` is the model time step
- - ``\Delta x_j`` is the FV grid resolution.
 The numerator represents the maximum scalar concentration that can be
   moved out of the DG element in a given time step, based on the FV
   scheme.
