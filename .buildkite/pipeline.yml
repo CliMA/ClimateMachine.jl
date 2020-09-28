@@ -469,7 +469,7 @@ steps:
   - label: "cpu_discrete_hydrostatic_balance"
     key: "cpu_discrete_hydrostatic_balance"
     command:
-     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
+     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete_hydrostatic_balance.jl"
     agents:
       config: cpu
       queue: central
@@ -914,30 +914,30 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_baroclinic-wave"
-    key: "gpu_baroclinic-wave"
+  - label: "gpu_baroclinic_wave"
+    key: "gpu_baroclinic_wave"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/baroclinic-wave.jl "
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/baroclinic_wave.jl "
     agents:
       config: gpu
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_nonhydrostatic-gravity-wave"
-    key: "gpu_nonhydrostatic-gravity-wave"
+  - label: "gpu_nonhydrostatic_gravity_wave"
+    key: "gpu_nonhydrostatic_gravity_wave"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/nonhydrostatic-gravity-wave.jl "
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/nonhydrostatic_gravity_wave.jl "
     agents:
       config: gpu
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_isothermal-zonal-flow"
-    key: "gpu_isothermal-zonal-flow"
+  - label: "gpu_isothermal_zonal_flow"
+    key: "gpu_isothermal_zonal_flow"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/isothermal-zonal-flow.jl "
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/isothermal_zonal_flow.jl "
     agents:
       config: gpu
       queue: central
@@ -1067,7 +1067,7 @@ steps:
   - label: "gpu_discrete_hydrostatic_balance"
     key: "gpu_discrete_hydrostatic_balance"
     command:
-     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete-hydrostatic-balance.jl"
+     - "mpiexec julia --color=yes --project test/Atmos/Model/discrete_hydrostatic_balance.jl"
     agents:
       config: gpu
       queue: central
