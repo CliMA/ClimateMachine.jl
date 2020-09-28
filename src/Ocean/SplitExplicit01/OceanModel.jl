@@ -1,6 +1,6 @@
-struct OceanModel{P, T} <: AbstractOceanModel
+struct OceanModel{PS, P, T} <: AbstractOceanModel
+    param_set::PS
     problem::P
-    grav::T
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -16,8 +16,8 @@ struct OceanModel{P, T} <: AbstractOceanModel
     fₒ::T
     β::T
     function OceanModel{FT}(
+        param_set,
         problem;
-        grav = FT(10),  # m/s^2
         ρₒ = FT(1000),  # kg/m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -33,9 +33,9 @@ struct OceanModel{P, T} <: AbstractOceanModel
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11),  # Hz/m
     ) where {FT <: AbstractFloat}
-        return new{typeof(problem), FT}(
+        return new{typeof(param_set), typeof(problem), FT}(
+            param_set,
             problem,
-            grav,
             ρₒ,
             cʰ,
             cᶻ,
@@ -54,7 +54,7 @@ struct OceanModel{P, T} <: AbstractOceanModel
     end
 end
 
-function calculate_dt(grid, model::OceanModel, Courant_number)
+function calculate_dt(grid, ::OceanModel, _...)
     #=
       minΔx = min_node_distance(grid, HorizontalDirection())
       minΔz = min_node_distance(grid, VerticalDirection())
@@ -65,10 +65,10 @@ function calculate_dt(grid, model::OceanModel, Courant_number)
 
       dt = 1 // 2 * minimum([CFL_gravity, CFL_diffusive, CFL_viscous])
     =#
-    FT = eltype(grid)
-    dt = FT(1)
+    # FT = eltype(grid)
+    # dt = FT(1)
 
-    return dt
+    return nothing
 end
 
 """
@@ -135,6 +135,8 @@ function OceanDGModel(
     )
 
     modeldata = (
+        dg_2D = kwargs[1][1],
+        Q_2D = kwargs[1][2],
         vert_filter = vert_filter,
         exp_filter = exp_filter,
         flowintegral_dg = flowintegral_dg,
@@ -297,7 +299,7 @@ A -> array of aux variables
     A::Vars,
 )
     I.∇hu = A.w # borrow the w value from A...
-    I.buoy = m.grav * m.αᵀ * Q.θ # buoyancy to integrate vertically from top (=reverse)
+    I.buoy = grav(m.param_set) * m.αᵀ * Q.θ # buoyancy to integrate vertically from top (=reverse)
     #   I.∫u = Q.u
 
     return nothing
@@ -400,7 +402,7 @@ end
         # ∇h • (g η)
         #- jmc: put back this term to check
         #       η = Q.η
-        #       F.u += m.grav * η * Iʰ
+        #       F.u += grav(m.param_set) * η * Iʰ
 
         # ∇ • (u θ)
         F.θ += v * θ

@@ -64,7 +64,7 @@ function nodal_init_state_auxiliary!(
 end
 
 using Test
-function run(mpicomm, dim, Ne, N, FT, ArrayType)
+function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
 
     brickrange = ntuple(j -> range(FT(0); length = Ne[j] + 1, stop = 3), dim)
     topl = StackedBrickTopology(
@@ -113,7 +113,7 @@ let
             err = zeros(FT, lvls)
             for l in 1:lvls
                 @info (ArrayType, FT, dim)
-                run(
+                test_run(
                     mpicomm,
                     dim,
                     ntuple(j -> 2^(l - 1) * numelem[j], dim),

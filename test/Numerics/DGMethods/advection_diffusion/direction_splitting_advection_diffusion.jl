@@ -69,7 +69,7 @@ create_dg(model, grid, direction) = DGModel(
     direction = direction,
 )
 
-function run(
+function test_run(
     adv,
     diff,
     topo,
@@ -158,7 +158,7 @@ let
             )
                 @testset for level in 1:numlevels
                     Ne = 2^(level - 1) * base_num_elem
-                    run(
+                    test_run(
                         adv,
                         diff,
                         topo,

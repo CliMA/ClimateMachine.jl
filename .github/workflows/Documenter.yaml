@@ -8,11 +8,17 @@ on:
       - staging
     tags: '*'
   pull_request:
+    paths:
+      - 'docs/**'
+      - 'tutorials/**'
+      - 'src/**'
+      - 'Project.toml'
+      - 'Manifest.toml'
 
 jobs:
   docs-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.4.0
@@ -23,9 +29,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get -qq install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5 xvfb
-      - uses: julia-actions/setup-julia@v1.1.6
+
+      - uses: julia-actions/setup-julia@latest
         with:
-          version: 1.4
+          version: 1.5
 
       # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
       - name: Cache artifacts
@@ -33,7 +40,7 @@ jobs:
         env:
           cache-name: cache-artifacts
         with:
-          path: ~/.julia/artifacts 
+          path: ~/.julia/artifacts
           key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
           restore-keys: |
             ${{ runner.os }}-test-${{ env.cache-name }}-
@@ -56,6 +63,7 @@ jobs:
           CLIMATEMACHINE_DOCS_GENERATE_TUTORIALS: "true"
           ClIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
           CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
+          CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
         run: xvfb-run -- julia --procs=auto docs/make.jl
       - name: Help! Documenter Failed
         run: |

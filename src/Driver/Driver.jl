@@ -12,6 +12,8 @@ using Random
 using CLIMAParameters
 
 using ..Atmos
+using ..Ocean.HydrostaticBoussinesq
+using ..Ocean.SplitExplicit01
 using ..Callbacks
 using ..Checkpoint
 using ..SystemSolvers
@@ -21,9 +23,11 @@ using ..DGMethods
 using ..BalanceLaws
 using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
-using ..Ocean.HydrostaticBoussinesq
+
+
 using ..Mesh.Grids
 using ..Mesh.Topologies
+using ..Mesh.Filters
 using ..Thermodynamics
 using ..MPIStateArrays
 using ..ODESolvers
@@ -107,7 +111,7 @@ function get_setting(setting_name::Symbol, settings, defaults)
         return convert(setting_type, settings[setting_name])
     elseif haskey(ENV, setting_env)
         env_val = ENV[setting_env]
-        v = tryparse(setting_type, env_val)
+        v = setting_type == String ? env_val : tryparse(setting_type, env_val)
         if isnothing(v)
             error("cannot parse ENV $setting_env value $env_val, to setting type $setting_type")
         end
@@ -430,6 +434,8 @@ function init(;
     # set up the array type appropriately depending on whether we're using GPUs
     if !Settings.disable_gpu && CUDA.has_cuda_gpu()
         Settings.array_type = CUDA.CuArray
+    else
+        Settings.array_type = Array
     end
 
     # initialize the runtime

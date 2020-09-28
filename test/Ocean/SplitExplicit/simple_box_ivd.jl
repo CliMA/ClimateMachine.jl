@@ -177,8 +177,8 @@ function main()
     numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
 
     model = OceanModel{FT}(
+        param_set,
         prob,
-        grav = gravity,
         cʰ = cʰ,
         add_fast_substeps = add_fast_substeps,
         numImplSteps = numImplSteps,
@@ -220,14 +220,6 @@ function main()
         dt_slow
     )
 
-    dg = OceanDGModel(
-        model,
-        grid_3D,
-        # CentralNumericalFluxFirstOrder(),
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-    )
 
     barotropic_dg = DGModel(
         barotropicmodel,
@@ -238,11 +230,21 @@ function main()
         CentralNumericalFluxGradient(),
     )
 
+    Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
+
+    dg = OceanDGModel(
+        model,
+        grid_3D,
+        # CentralNumericalFluxFirstOrder(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();
+        modeldata = (barotropic_dg, Q_2D),
+    )
+
     Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
     # update_auxiliary_state!(dg, model, Q_3D, FT(0))
     # update_auxiliary_state_gradient!(dg, model, Q_3D, FT(0))
-
-    Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
 
     lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = 0)
     lsrk_barotropic =
@@ -294,7 +296,7 @@ function main()
     Qvec = (slow = Q_3D, fast = Q_2D)
     # solve!(Qvec, odesolver; timeend = timeend, callbacks = cbvector)
     cbv = (cbvector..., cbcs_dg)
-    solve!(Qvec, odesolver; timeend = timeend, callbacks = cbv)
+    solve!(Q_3D, odesolver; timeend = timeend, callbacks = cbv)
 
     ## Enable the code block below to print table for use in reference value code
     ## reference value code sits in a file named $(@__FILE__)_refvals.jl. It is hand
@@ -340,7 +342,6 @@ function make_callbacks(
     Q_fast,
 )
 
-    #=
     if isdir(vtkpath)
         rm(vtkpath, recursive = true)
     end
@@ -394,7 +395,6 @@ function make_callbacks(
         step[2] += 1
         nothing
     end
-    =#
 
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
@@ -426,7 +426,7 @@ end
 # RUN THE TESTS #
 #################
 FT = Float64
-vtkpath = "vtk_split"
+vtkpath = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_split"))
 
 const timeend = 5 * 24 * 3600 # s
 const tout = 24 * 3600 # s

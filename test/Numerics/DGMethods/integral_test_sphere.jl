@@ -136,7 +136,7 @@ if !@isdefined integration_testing
 end
 
 using Test
-function run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
+function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
@@ -191,7 +191,7 @@ let
             Nvert = 2^(l - 1) * base_Nvert
             Rrange = grid1d(FT(Rinner), FT(Router); nelem = Nvert)
             topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-            err[l] = run(
+            err[l] = test_run(
                 mpicomm,
                 topl,
                 ArrayType,

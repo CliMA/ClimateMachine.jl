@@ -1,7 +1,7 @@
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
-    output_dir = "output",
+    output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
     fix_rng_seed = true,
 )
 using ClimateMachine.SingleStackUtils

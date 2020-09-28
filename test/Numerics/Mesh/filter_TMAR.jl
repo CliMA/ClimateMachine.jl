@@ -112,7 +112,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname)
     end
 end;
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     topl,
@@ -249,7 +249,7 @@ let
     time step        = %.16e
     """ FT dim Ne polynomialorder timeend dt
 
-    run(
+    test_run(
         mpicomm,
         ArrayType,
         topology,

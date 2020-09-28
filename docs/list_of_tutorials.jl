@@ -19,9 +19,15 @@ if generate_tutorials
     include("pages_helper.jl")
 
     tutorials = [
+        "Home" => "TutorialList.jl",
+        "Balance Law" => "how_to_make_a_balance_law.jl",
         "Atmos" => [
-            "Dry Idealized GCM" => "Atmos/heldsuarez.jl",
-            "Flow in Single Element Stack" => "Atmos/burgers_single_stack.jl",
+            "Dry Idealized GCM (Held-Suarez)" => "Atmos/heldsuarez.jl",
+            "Single Element Stack Experiment (Burgers Equation)" =>
+                "Atmos/burgers_single_stack.jl",
+            "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
+            "LES Experiment (Rising Thermal Bubble)" => "Atmos/risingbubble.jl",
+            "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
             "Linear Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_hs_lin.jl",
             "Linear Non-Hydrostatic Mountain (Topography)" =>
@@ -44,10 +50,8 @@ if generate_tutorials
                 "Batched Generalized Minimal Residual" =>
                     "Numerics/SystemSolvers/bgmres.jl",
             ],
-            "DG Methods" => [
-                "Topology" => "topo.jl",
-                "Filters" => "Numerics/DGMethods/showcase_filters.jl",
-            ],
+            "DG Methods" =>
+                ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
         ],
         "Diagnostics" => [
             "Debug" => [
@@ -55,7 +59,6 @@ if generate_tutorials
                     "Diagnostics/Debug/StateCheck.jl",
             ],
         ],
-        "Contributing" => ["Notes on Literate" => "literate_markdown.jl"],
     ]
 
     # Prepend tutorials_dir

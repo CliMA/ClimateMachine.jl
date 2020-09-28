@@ -99,7 +99,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
 end
 
 
-function run(
+function test_run(
     mpicomm,
     ArrayType,
     dim,
@@ -263,83 +263,65 @@ let
     expected_result[3, 3, Float64, VerticalDirection] = 9.0891011404938341e-04
 
     numlevels = integration_testing ? 3 : 1
-    @testset "$(@__FILE__)" begin
-        for FT in (Float64,)
-            D =
-                1 // 100 * SMatrix{3, 3, FT}(
-                    9 // 50,
-                    3 // 50,
-                    5 // 50,
-                    3 // 50,
-                    7 // 50,
-                    4 // 50,
-                    5 // 50,
-                    4 // 50,
-                    10 // 50,
-                )
-            
-            # D =
-            # 1 // 100 * SMatrix{3, 3, FT}(
-            #     1 // 50,
-            #     0 // 50,
-            #     0 // 50,
-            #     0 // 50,
-            #     1 // 50,
-            #     0 // 50,
-            #     0 // 50,
-            #     0 // 50,
-            #     1 // 50,
-            # )
-            
-            result = zeros(FT, numlevels)
-            # for dim in (2, 3)
-            for dim in (3,)
-                # for direction in
-                for direction in (HorizontalDirection,)
-                    # (EveryDirection, HorizontalDirection, VerticalDirection)
-                    for l in 1:numlevels
-                        Ne = 2^(l - 1) * base_num_elem
-                        xrange = range(FT(0); length = Ne + 1, stop = FT(2pi))
-                        brickrange = ntuple(j -> xrange, dim)
-                        periodicity = ntuple(j -> true, dim)
-                        topl = StackedBrickTopology(
-                            mpicomm,
-                            brickrange;
-                            periodicity = periodicity,
-                        )
-                        timeend = 1
-                        outputtime = 1
+    for FT in (Float64,)
+        D =
+            1 // 100 * SMatrix{3, 3, FT}(
+                9 // 50,
+                3 // 50,
+                5 // 50,
+                3 // 50,
+                7 // 50,
+                4 // 50,
+                5 // 50,
+                4 // 50,
+                10 // 50,
+            )
 
-                        @info (ArrayType, FT, dim, direction)
-                        vtkdir = output ?
-                            "vtk_hyperdiffusion" *
-                        "_poly$(polynomialorder)" *
-                        "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
-                        "_level$(l)" :
-                            nothing
-                        result[l] = run(
-                            mpicomm,
-                            ArrayType,
-                            dim,
-                            topl,
-                            polynomialorder,
-                            timeend,
-                            FT,
-                            direction,
-                            D,
-                            vtkdir,
-                            outputtime,
-                        )
+        result = zeros(FT, numlevels)
+        for dim in (2, 3)
+            for direction in
+                (EveryDirection, HorizontalDirection, VerticalDirection)
+                for l in 1:numlevels
+                    Ne = 2^(l - 1) * base_num_elem
+                    xrange = range(FT(0); length = Ne + 1, stop = FT(2pi))
+                    brickrange = ntuple(j -> xrange, dim)
+                    periodicity = ntuple(j -> true, dim)
+                    topl = StackedBrickTopology(
+                        mpicomm,
+                        brickrange;
+                        periodicity = periodicity,
+                    )
+                    timeend = 1
+                    outputtime = 1
 
-                        @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
-                    end
-                    @info begin
-                        msg = ""
-                        for l in 1:(numlevels - 1)
-                            rate = log2(result[l]) - log2(result[l + 1])
-                            msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-                        end
-                        msg
+                    @info (ArrayType, FT, dim, direction)
+                    vtkdir = output ?
+                        "vtk_hyperdiffusion" *
+                    "_poly$(polynomialorder)" *
+                    "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
+                    "_level$(l)" :
+                        nothing
+                    result[l] = test_run(
+                        mpicomm,
+                        ArrayType,
+                        dim,
+                        topl,
+                        polynomialorder,
+                        timeend,
+                        FT,
+                        direction,
+                        D,
+                        vtkdir,
+                        outputtime,
+                    )
+
+                    @test result[l] ≈ FT(expected_result[dim, l, FT, direction])
+                end
+                @info begin
+                    msg = ""
+                    for l in 1:(numlevels - 1)
+                        rate = log2(result[l]) - log2(result[l + 1])
+                        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
                     end
                 end
             end

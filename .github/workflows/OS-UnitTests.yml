@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-os:
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: true
       matrix:
@@ -21,6 +21,7 @@ jobs:
     env:
       MPICH_INTERFACE_HOSTNAME: "localhost"
       CLIMATEMACHINE_TEST_RUNMPI_LOCALHOST: "true"
+      CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
     steps:
     - name: Cancel Previous Runs
@@ -30,15 +31,30 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v2.2.0
+    
+    # Setup a filter and only run if src/ test/ folder content changes
+    # or project depedencies
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          run_test:
+            - 'src/**'
+            - 'test/**'
+            - 'Project.toml'
+            - 'Manifest.toml'
+
 
     - name: Set up Julia
-      uses: julia-actions/setup-julia@v1.1.6
+      uses: julia-actions/setup-julia@latest
+      if: steps.filter.outputs.run_test == 'true'
       with:
-        version: 1.4
+        version: 1.5
 
     # https://discourse.julialang.org/t/recommendation-cache-julia-artifacts-in-ci-services/35484
     - name: Cache artifacts
       uses: actions/cache@v1
+      if: steps.filter.outputs.run_test == 'true'
       env:
         cache-name: cache-artifacts
       with:
@@ -50,13 +66,16 @@ jobs:
           ${{ runner.os }}-
 
     - name: Install Project Packages
+      if: steps.filter.outputs.run_test == 'true'
       run: |
         julia --project=@. -e 'using Pkg; Pkg.instantiate()'
 
     - name: Build System Image
+      if: steps.filter.outputs.run_test == 'true'
       run: |
         julia --project=@. .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
 
     - name: Run Unit Tests
+      if: steps.filter.outputs.run_test == 'true'
       run: |
         julia --project=@. -J ClimateMachine.so -e 'using Pkg; Pkg.test()'
