@@ -100,11 +100,10 @@ If either of these elements would be negative then
 ```math
 \theta_{j+\frac{1}{2}} = min(\Lambda_{j}, \Lambda_{j+1})
 ```
-where ``\Lambda_{j}`` is the helper limiter concerned with
-  the flux out of element ``j``
-  and ``\Lambda_{j+1}`` is the helper limiter concerned with
-  the flux out of element ``j+1``.
-The helper limiter is defined as
+where ``\Lambda_{j}`` and ``\Lambda_{j+1}`` roughly correspond to the
+  fraction of the discontinuous Galerkin flux that can be allowed to
+  be used for elements ``j`` and ``j+1``, respectively.
+These helper limiters are defined as
 ```math
 \Lambda_{j} = \frac{\phi^{t+1}_{j, FV} - \phi_{min}}{\frac{\Delta t}{\Delta x} \Delta F_{j, out}}
 ```
@@ -112,17 +111,18 @@ where:
  - ``\phi_{min} = 0`` is the minimum allowed value
  - ``\phi^{n+1}_{j, FV} = \phi^{n}_{j, FV} - \frac{\Delta t}{\Delta x} (h_{j+\frac{1}{2}} - h_{j-\frac{1}{2}})``
      is the advection diffusion solution of the FV scheme
- - ``\Delta F_{j, out} = max(0, F_{j+\frac{1}{2}}) + max(0, F_{j-\frac{1}{2}})``
+ - ``\Delta F_{j, out} = max(0, F_{j+\frac{1}{2}}) - min(0, F_{j-\frac{1}{2}})``
      is the sum of the flux differences between the DG and FV schemes
      for element ``j``, but only those contributions where DG overestimates
      the flux compared to FV
  - ``\Delta t`` is the model time step
  - ``\Delta x_j`` is the FV grid resolution.
-The nominator represents the maximum scalar concentration
-  that can be moved out of the DG element in a given time step,
-  based on the FV scheme.
+The numerator represents the maximum scalar concentration that can be
+  moved out of the DG element in a given time step, based on the FV
+  scheme.
 The denominator sums the "overshoots" from the DG scheme
-  compared to the FV scheme that would result in negative average element value.
+  compared to the FV scheme that would result in negative average
+  element value.
 Notice that the limiter on the ``j+\frac{1}{2}`` face potentially depends
   on all the fluxes going in/out of the element ``j``.
 The MPP implementation requires additional memory allocated to store the
@@ -130,7 +130,6 @@ The MPP implementation requires additional memory allocated to store the
 See [Xiong\_et\_al\_2015](https://epubs.siam.org/doi/10.1137/140965326)
   for the full derivation
   (eq. 2.12 and above define the limiters in a more detailed way).
-
 
 ## Rescaling
 
