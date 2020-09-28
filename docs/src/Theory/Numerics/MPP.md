@@ -55,7 +55,16 @@ time:
 ## Flux correction
 
 The flux correction is implemented following
-  [Xiong\_et\_al\_2015](https://epubs.siam.org/doi/10.1137/140965326).
+  [Xiong\_et\_al\_2015](https://epubs.siam.org/doi/10.1137/140965326)
+  which ensures positivity of the total mass in a cell.
+The basic idea of the algorithm is advance the solution one full time
+  step using the high order discontinuous Galerkin method and then, if
+  necessary, correct the element average value using a low order (MPP)
+  finite volume method.  Galerkin.
+Importantly, the flux correction technique only ensures that the
+  average value is within the bounds and the nodal values are
+  corrected using rescaling approach described below.
+
 Because of the efficiency concerns, the correction is applied only
   at the last stage of the Runge-Kutta (RK) algorithm.
 As a result the positivity is preserved only at the final timestepping stage
