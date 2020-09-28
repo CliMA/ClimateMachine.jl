@@ -24,6 +24,36 @@ const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
+dofs_per_elem_per_direction(N::Int) = (N + 1) # better name for this method?
+
+dofs_per_elem(N::Int, dim::Int) = (N + 1)^dim
+
+get_Nqk(N::Int, dim::Int) = dim == 2 ? 1 : N + 1 # better name for this method?
+
+n_faces(dim::Int) = 2 * dim
+
+get_faces(dim::Int, direction) = 1:n_faces(dim)
+
+get_faces(dim::Int, ::VerticalDirection) = (n_faces(dim) - 1):n_faces(dim)
+
+get_faces(dim::Int, ::HorizontalDirection) = 1:(n_faces(dim) - 2)
+
+"""
+    get_face_direction(face, dim)
+
+The remainder model needs to know which direction of face the model is
+being evaluated for. So faces 1:(n_faces(dim) - 2) are flagged as
+`HorizontalDirection()` faces and the remaining two faces are
+`VerticalDirection()` faces
+"""
+function get_face_direction(face::Int, dim::Int)
+    if face in 1:(n_faces(dim) - 2)
+        return (EveryDirection(), HorizontalDirection())
+    else
+        return (EveryDirection(), VerticalDirection())
+    end
+end
+
 @doc """
     volume_tendency!(balance_law::BalanceLaw, Val(polyorder),
                      tendency, state_prognostic, state_gradient_flux,
@@ -60,9 +90,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -340,9 +369,8 @@ end
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -563,29 +591,11 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
-
-        faces = 1:nface
-        if direction isa VerticalDirection
-            faces = (nface - 1):nface
-        elseif direction isa HorizontalDirection
-            faces = 1:(nface - 2)
-        end
-
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Np = dofs_per_elem(N, dim)
+        nface = n_faces(dim)
+        faces = get_faces(dim, direction)
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_gradient_flux⁻ =
@@ -626,13 +636,8 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     @inbounds e[1] = elems[eI]
 
     @inbounds for f in faces
-        # The remainder model needs to know which direction of face the model is
-        # being evaluated for. So faces 1:(nface - 2) are flagged as
-        # `HorizontalDirection()` faces and the remaining two faces are
-        # `VerticalDirection()` faces
-        face_direction =
-            f in 1:(nface - 2) ? (EveryDirection(), HorizontalDirection()) :
-            (EveryDirection(), VerticalDirection())
+        face_direction = get_face_direction(f, dim)
+
         e⁻ = e[1]
         normal_vector = SVector(
             sgeo[_n1, n, f, e⁻],
@@ -857,9 +862,8 @@ end
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         ngradtransformstate = num_state_prognostic
 
@@ -1035,9 +1039,8 @@ end
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         ngradtransformstate = num_state_prognostic
 
@@ -1215,28 +1218,10 @@ end
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
-
-        faces = 1:nface
-        if direction isa VerticalDirection
-            faces = (nface - 1):nface
-        elseif direction isa HorizontalDirection
-            faces = 1:(nface - 2)
-        end
-
-        Nqk = dim == 2 ? 1 : N + 1
+        Np = dofs_per_elem(N, dim)
+        nface = n_faces(dim)
+        faces = get_faces(dim, direction)
+        Nqk = get_Nqk(N, dim)
 
         ngradtransformstate = num_state_prognostic
 
@@ -1488,8 +1473,8 @@ end
     num_state_auxiliary = number_states(balance_law, Auxiliary())
     num_state_prognostic = number_states(balance_law, Prognostic())
 
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    Nq = dofs_per_elem_per_direction(N)
+    Nqk = get_Nqk(N, dim)
     Np = Nq * Nq * Nqk
 
     l_state = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -1548,8 +1533,8 @@ See [`BalanceLaw`](@ref) for usage.
     num_state_auxiliary = number_states(balance_law, Auxiliary())
     num_state_temporary = varsize(vars_state_temporary)
 
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    Nq = dofs_per_elem_per_direction(N)
+    Nqk = get_Nqk(N, dim)
     Np = Nq * Nq * Nqk
 
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -1604,10 +1589,8 @@ Update the auxiliary state array
     num_state_prognostic = number_states(balance_law, Prognostic())
     num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-    Nq = N + 1
-
-    Nqk = dim == 2 ? 1 : Nq
-
+    Nq = dofs_per_elem_per_direction(N)
+    Nqk = get_Nqk(N, dim)
     Np = Nq * Nq * Nqk
 
     local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -1666,10 +1649,8 @@ end
     num_state_gradient_flux = number_states(balance_law, GradientFlux())
     num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-    Nq = N + 1
-
-    Nqk = dim == 2 ? 1 : Nq
-
+    Nq = dofs_per_elem_per_direction(N)
+    Nqk = get_Nqk(N, dim)
     Np = Nq * Nq * Nqk
 
     local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -1744,7 +1725,7 @@ See [`BalanceLaw`](@ref) for usage.
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         nout = number_states(balance_law, UpwardIntegrals())
 
-        Nq = N + 1
+        Nq = dofs_per_elem_per_direction(N)
         Nqj = dim == 2 ? 1 : Nq
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -1860,7 +1841,7 @@ end
     @uniform begin
         FT = eltype(state_auxiliary)
 
-        Nq = N + 1
+        Nq = dofs_per_elem_per_direction(N)
         Nqj = dim == 2 ? 1 : Nq
         nout = number_states(balance_law, DownwardIntegrals())
 
@@ -1949,9 +1930,9 @@ end
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        Nq = N + 1
+        Nq = dofs_per_elem_per_direction(N)
 
-        Nqk = dim == 2 ? 1 : Nq
+        Nqk = get_Nqk(N, dim)
 
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
     end
@@ -2040,9 +2021,9 @@ end
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        Nq = N + 1
+        Nq = dofs_per_elem_per_direction(N)
 
-        Nqk = dim == 2 ? 1 : Nq
+        Nqk = get_Nqk(N, dim)
 
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
     end
@@ -2121,28 +2102,10 @@ end
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
-
-        faces = 1:nface
-        if direction isa VerticalDirection
-            faces = (nface - 1):nface
-        elseif direction isa HorizontalDirection
-            faces = 1:(nface - 2)
-        end
-
-        Nqk = dim == 2 ? 1 : N + 1
+        Np = dofs_per_elem(N, dim)
+        nface = n_faces(dim)
+        faces = get_faces(dim, direction)
+        Nqk = get_Nqk(N, dim)
 
         l_grad⁻ = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         l_grad⁺ = MArray{Tuple{3, ngradlapstate}, FT}(undef)
@@ -2237,8 +2200,8 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         l_grad_lap = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -2365,8 +2328,8 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
 
         l_grad_lap = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -2475,28 +2438,10 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
-
-        faces = 1:nface
-        if direction isa VerticalDirection
-            faces = (nface - 1):nface
-        elseif direction isa HorizontalDirection
-            faces = 1:(nface - 2)
-        end
-
-        Nqk = dim == 2 ? 1 : N + 1
+        Np = dofs_per_elem(N, dim)
+        nface = n_faces(dim)
+        faces = get_faces(dim, direction)
+        Nqk = get_Nqk(N, dim)
 
         l_lap⁻ = MArray{Tuple{ngradlapstate}, FT}(undef)
         l_lap⁺ = MArray{Tuple{ngradlapstate}, FT}(undef)
@@ -2635,10 +2580,8 @@ end
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
-
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
         Np = Nq * Nq * Nqk
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -2703,8 +2646,8 @@ end
         N = polyorder
         FT = eltype(state)
         ngradstate = length(I)
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = dofs_per_elem_per_direction(N)
+        Nqk = get_Nqk(N, dim)
     end
 
     shared_state = @localmem FT (Nq, Nq, ngradstate)
