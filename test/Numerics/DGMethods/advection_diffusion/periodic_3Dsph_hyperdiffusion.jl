@@ -76,16 +76,10 @@ function initial_condition!(
         φ = latitude(SphericalOrientation(), aux)
         λ = longitude(SphericalOrientation(), aux)
         r = norm(aux.coord)
-        # z = altitude(SphericalOrientation(), param_set, aux)
-
-        # @info "_a" _a
-        # @info "r" r
-        # @info "z" z
-
+        
         l = Int64(problem.l)
         m = Int64(problem.m)
 
-        # c = get_c(l, _a)
         c = get_c(l, r)
         state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t) 
     end
@@ -115,7 +109,6 @@ function run(
     dz = min_node_distance(grid, VerticalDirection())
 
     D = (dx/2)^4/2/τ 
-    # D = 1
 
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D, l, m))
     dg = DGModel(
