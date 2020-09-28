@@ -33,8 +33,8 @@ time:
  - Positivity is ensured only at the last RK stage (stage values maybe
    negative)
 
- - The current implementation only supports use with the [2N
-   low-storage Runge-Kutta methods](@ref LowStorageRungeKutta2N). The
+ - The current implementation only supports use with the 2N
+   low-storage Runge-Kutta methods (HOW TO ADD LINK?). The
    method is easily extended to other explicit Runge-Kutta methods,
    extension to the implicit methods (included the implicit part of
    implicit-explicit methods), is possible but requires more code
