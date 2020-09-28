@@ -676,30 +676,21 @@ function restart_auxiliary_state(bl, grid, aux_data, direction)
     return state_auxiliary
 end
 
-@deprecate nodal_init_state_auxiliary! init_state_auxiliary!
-
-# By default, we call init_state_auxiliary!, given
-# nodal_init_state_auxiliary!, defined for the
-# particular balance_law:
-function init_state_auxiliary!(
-    balance_law::BalanceLaw,
-    state_auxiliary,
-    grid,
-    direction,
-)
+# TODO: this should really be a separate function
+"""
     init_state_auxiliary!(
-        balance_law,
-        nodal_init_state_auxiliary!,
-        state_auxiliary,
+        bl::BalanceLaw,
+        f!, 
+        statearray_auxiliary,
         grid,
-        direction,
+        direction;
+        state_temporary = nothing
     )
-end
 
-# Should we provide a fallback implementation here?
-# Maybe better to throw a method error?
-function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom) end
-
+Apply `f!(bl, state_auxiliary, tmp, geom)` at each node, storing the result in
+`statearray_auxiliary`, where `tmp` are the values at the corresponding node in
+`state_temporary` and `geom` contains the geometry information.
+"""
 function init_state_auxiliary!(
     balance_law,
     init_f!,
@@ -842,29 +833,9 @@ end
 # By default, we call update_auxiliary_state!, given
 # nodal_update_auxiliary_state!, defined for the
 # particular balance_law:
-function update_auxiliary_state!(
-    dg::DGModel,
-    balance_law::BalanceLaw,
-    state_prognostic,
-    t,
-    elems,
-    diffusive = false,
-)
-    update_auxiliary_state!(
-        nodal_update_auxiliary_state!,
-        dg,
-        balance_law,
-        state_prognostic,
-        t,
-        elems;
-        diffusive = diffusive,
-    )
-end
 
-# Should we provide a fallback implementation here?
-# Maybe better to throw a method error?
-function nodal_update_auxiliary_state!(balance_law, state, aux, t) end
 
+# TODO: this should really be a separate function
 function update_auxiliary_state!(
     f!,
     dg::DGModel,

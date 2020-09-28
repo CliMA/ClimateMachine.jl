@@ -381,7 +381,7 @@ include("linear.jl")
 include("courant.jl")
 include("filters.jl")
 
-@doc """
+"""
     flux_first_order!(
         m::AtmosModel,
         flux::Grad,
@@ -392,7 +392,7 @@ include("filters.jl")
 
 Computes and assembles non-diffusive fluxes in the model
 equations.
-""" flux_first_order!
+"""
 @inline function flux_first_order!(
     m::AtmosModel,
     flux::Grad,
@@ -506,7 +506,7 @@ function transform_post_gradient_laplacian!(
     )
 end
 
-@doc """
+"""
     flux_second_order!(
         atmos::AtmosModel,
         flux::Grad,
@@ -519,7 +519,7 @@ end
 Diffusive fluxes in AtmosModel. Viscosity, diffusivity are calculated
 in the turbulence subcomponent and accessed within the diffusive flux
 function. Contributions from subcomponents are then assembled (pointwise).
-""" flux_second_order!
+"""
 @inline function flux_second_order!(
     atmos::AtmosModel,
     flux::Grad,
@@ -672,16 +672,17 @@ function atmos_nodal_init_state_auxiliary!(
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
 end
 
-@doc """
+"""
     init_state_auxiliary!(
         m::AtmosModel,
         aux::Vars,
-        geom::LocalGeometry,
+        grid,
+        direction
     )
 
 Initialise auxiliary variables for each AtmosModel subcomponent.
 Store Cartesian coordinate information in `aux.coord`.
-""" init_state_auxiliary!
+"""
 function init_state_auxiliary!(
     m::AtmosModel,
     state_auxiliary::MPIStateArray,
@@ -711,7 +712,7 @@ function init_state_auxiliary!(
     )
 end
 
-@doc """
+"""
     source!(
         m::AtmosModel,
         source::Vars,
@@ -728,7 +729,7 @@ Computes (and assembles) source terms `S(Y)` in:
 -- = - ∇ • F + S(Y)
 ∂t
 ```
-""" source!
+"""
 function source!(
     m::AtmosModel,
     source::Vars,
@@ -741,7 +742,7 @@ function source!(
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
 
-@doc """
+"""
     init_state_prognostic!(
         m::AtmosModel,
         state::Vars,
@@ -754,7 +755,7 @@ end
 Initialise state variables. `args...` provides an option to include
 configuration data (current use cases include problem constants,
 spline-interpolants).
-""" init_state_prognostic!
+"""
 function init_state_prognostic!(
     m::AtmosModel,
     state::Vars,
