@@ -212,14 +212,12 @@ function nodal_update_auxiliary_state!(
         aux.src_cloud_liq = conv_q_vap_to_q_liq_ice(
             liquid_param_set,
             q_eq,
-            q,
-            slowdown_liq = FT(0.1),
+            q
         )
         aux.src_cloud_ice = conv_q_vap_to_q_liq_ice(
             ice_param_set,
             q_eq,
-            q,
-            slowdown_ice = FT(0.1),
+            q
         )
 
         #aux.src_rain_acnv = conv_q_liq_to_q_rai(rain_param_set, aux.q_liq)
@@ -511,32 +509,31 @@ function source!(
         #    ρ * conv_q_vap_to_q_liq_ice(
         #        liquid_param_set,
         #        q_eq,
-        #        q,
-        #        slowdown_liq = FT(0.1),
+        #        q
         #    )
         ## vapour -> cloud ice
         #source.ρq_ice +=
         #    ρ * conv_q_vap_to_q_liq_ice(
         #        ice_param_set,
         #        q_eq,
-        #        q,
-        #        slowdown_ice = FT(0.1),
+        #        q
         #    )
-       ssss
 
-        tmp_1 = ρ * conv_q_vap_to_q_liq_ice(
-                liquid_param_set,
-                q_eq,
-                q,
-                slowdown_liq = FT(0.1),
-            )
+        tmp_src_liq = ρ * conv_q_vap_to_q_liq_ice(
+            liquid_param_set,
+            q_eq,
+            q
+        )
 
-        #    ρ * conv_q_vap_to_q_liq_ice(
-        #        ice_param_set,
-        #        q_eq,
-        #        q,
-        #        slowdown_ice = FT(0.1),
-        #    )
+        tmp_src_ice = ρ * conv_q_vap_to_q_liq_ice(
+            ice_param_set,
+            q_eq,
+            q
+        )
+
+        source.ρq_liq += tmp_src_liq * FT(20)
+
+        source.ρq_ice += tmp_src_ice * FT(20)
 
     #    # cloud liquid water -> rain
     #    acnv = ρ * conv_q_liq_to_q_rai(rain_param_set, q_liq)
@@ -707,7 +704,7 @@ function main()
     # Domain resolution and size
     Δx = FT(500)
     Δy = FT(1)
-    Δz = FT(250)
+    Δz = FT(250) #250
     resolution = (Δx, Δy, Δz)
     # Domain extents
     xmax = 90000
