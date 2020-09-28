@@ -344,7 +344,7 @@ end
     impedance_factor(
         imp::NoImpedance{FT},
         θ_i,
-        θ_l::FT,
+        θ_l,
     ) where {FT}
 
 Returns the impedance factor when no effect due to ice is desired. 
@@ -352,7 +352,7 @@ Returns 1.
 
 The other arguments are included to unify the function call.
 """
-function impedance_factor(imp::NoImpedance{FT}, θ_i, θ_l::FT) where {FT}
+function impedance_factor(imp::NoImpedance{FT}, θ_i, θ_l) where {FT}
     gamma = FT(1.0)
     return gamma
 end
@@ -361,13 +361,13 @@ end
     impedance_factor(
         imp::IceImpedance{FT},
         θ_i,
-        θ_l::FT,
+        θ_l,
     ) where {FT}
 
 Returns the impedance factor when an effect due to the fraction of 
 ice is desired. 
 """
-function impedance_factor(imp::IceImpedance{FT}, θ_i, θ_l::FT) where {FT}
+function impedance_factor(imp::IceImpedance{FT}, θ_i, θ_l) where {FT}
     Ω = imp.Ω
     f_ice = θ_i / (θ_i + θ_l)
     gamma = FT(10.0^(-Ω * f_ice))
