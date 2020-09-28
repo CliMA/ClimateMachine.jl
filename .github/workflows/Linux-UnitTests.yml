@@ -2,6 +2,11 @@ name: Unit Tests
 
 on:
   pull_request:
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'Project.toml'
+      - 'Manifest.toml'
 
 jobs:
   test:
