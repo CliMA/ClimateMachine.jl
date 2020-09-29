@@ -70,42 +70,53 @@ hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
 # Float division takes two numbers as input, and returns a floating point number, including the decimal.
 # In Julia, we might write these as:
 
-#     function division(a::Int, b::Int)
-#          return floor(Int, a/b)
-#     end
-#
-#     function division(a::Float64, b::Float64)
-#          return a/b
-#     end
+# ```julia
+# function division(a::Int, b::Int)
+#      return floor(Int, a/b)
+# end
+# ```
+# ```julia
+# function division(a::Float64, b::Float64)
+#      return a/b
+# end
+# ```
 
 
 # We can see that `division` is now a function with two methods.
 
-#     julia> division
-#     division (generic function with 2 methods)
+# ```julia
+# julia> division
+# division (generic function with 2 methods)
+# ```
 
 # Now, using the same function signature, we can carry out integer
 # division or floating point division, depending on the types of the
 # arguments:
 
-#     julia> division(1,2)
-#     0
+# ```julia
+# julia> division(1,2)
+# 0
 #
-#     julia> division(1.0,2.0)
-#     0.5
+# julia> division(1.0,2.0)
+# 0.5
+# ```
 
 
 # Here is a more pertinent example:
 # `hydraulics` is of type `vanGenuchten{Float32}` based on our choice of `FT`:
 
-#     julia> typeof(hydraulics)
-#     vanGenuchten{Float32}
+# ```julia
+# julia> typeof(hydraulics)
+# vanGenuchten{Float32}
+# ```
 
 
 # but meanwhile,
 
-#     julia> typeof(hydraulics_bc)
-#     BrooksCorey{Float32}
+# ```julia
+# julia> typeof(hydraulics_bc)
+# BrooksCorey{Float32}
+# ```
 
 
 # The function `matric_potential` will execute different methods
@@ -114,7 +125,7 @@ hydraulics_bc = BrooksCorey{FT}(ψb = ψ_sat, m = Mval);
 # for `ψ`.
 
 # Let's plot the matric potential as a function of the effective saturation `S_l = θ_l/ν`,
-# which can range from zero to one. 
+# which can range from zero to one.
 S_l = FT.(0.01:0.01:0.99)
 ψ = matric_potential.(Ref(hydraulics), S_l)
 ψ_bc = matric_potential.(Ref(hydraulics_bc), S_l)
@@ -163,7 +174,7 @@ impedance_choice = NoImpedance{FT}();
 
 # Like we defined new type
 # classes for `vanGenuchten{FT}` and `BrooksCorey{FT}`, we also created new type classes
-# for the impedance choice, the viscosity choice, and the moisture choice. 
+# for the impedance choice, the viscosity choice, and the moisture choice.
 #  For example, the function
 # called `viscosity_factor`, when passed an object of type `ConstantViscosity{FT}`, executes a method that always
 # returns 1. The same is true for the function `impedance_factor`, using the type
@@ -251,7 +262,7 @@ ice_impedance_I = IceImpedance{FT}()
 S_i = θ_i / ν;
 # The total volumetric water fraction cannot
 # exceed unity, so the effective liquid water saturation
-# should have a max of 1-S_i. 
+# should have a max of 1-S_i.
 S_l_accounting_for_ice = FT.(0.01:0.01:(0.99 - S_i))
 K_i =
     Ksat .*
@@ -338,10 +349,10 @@ K_constant =
         Ref(T),
         S_l,
     );
-# ```
-#     julia> unique(K_constant)
-#     1-element Array{Float32,1}:
-#      1.2277777f-5
+# ```julia
+# julia> unique(K_constant)
+# 1-element Array{Float32,1}:
+#  1.2277777f-5
 # ```
 
 # Note that choosing this option does not mean the matric potential

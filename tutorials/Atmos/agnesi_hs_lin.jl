@@ -21,13 +21,13 @@
 # ```math
 # \theta = \theta_0 = T_0
 # ```
-# 
+#
 # ```math
 # \pi = 1 + \frac{g^2}{c_p \theta_0 N^2}\left(\exp\left(\frac{-N^2 z}{g} \right)\right)
 # ```
 #
 # where $\theta_0 = T_0 K$.
-# ``
+#
 # so that
 #
 # ```math

@@ -71,7 +71,7 @@
 
 # If we evolve this system for times long compared to the dynamical timescales
 # of the system, we expect it to reach an equilibrium where
-# the LHS of these equations tends to zero. 
+# the LHS of these equations tends to zero.
 # Assuming zero fluxes at the boundaries, the resulting equilibrium state
 # should satisfy ``∂h/∂z = 0`` and ``∂T/∂z = 0``. Physically, this means that
 # the water settles into a vertical profile in which
@@ -130,7 +130,7 @@ include(joinpath(
     "Soil",
     "interpolation_helper.jl",
 ));
-# Set soil parameters to be consistent with sand. 
+# Set soil parameters to be consistent with sand.
 # Please see e.g. the [soil heat tutorial](../Heat/bonan_heat_tutorial.md)
 # for other soil type parameters, or [2].
 
