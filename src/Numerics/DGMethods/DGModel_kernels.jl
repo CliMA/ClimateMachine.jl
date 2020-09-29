@@ -25,17 +25,46 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 # }}}
 
 @doc """
-    volume_tendency!(balance_law::BalanceLaw, Val(polyorder),
-                     tendency, state_prognostic, state_gradient_flux,
-                     state_auxiliary, vgeo, t, D, elems)
+    function volume_tendency!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        model_direction,
+        direction,
+        tendency,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        t,
+        ω,
+        D,
+        elems,
+        α,
+        β,
+        add_source = false,
+    )
 
-Computational kernel: Evaluate the volume integrals on right-hand side of a
-`BalanceLaw` semi-discretization.
+Compute kernel for evaluating the volume tendencies for the
+DG form:
+
+∫ₑ ψ⋅ ∂q/∂t dx - ∫ₑ ∇ψ⋅(Fⁱⁿᵛ + Fᵛⁱˢᶜ) dx + ∮ₑ n̂ ψ⋅(Fⁱⁿᵛ* + Fᵛⁱˢᶜ*) dS,
+
+or equivalently in matrix form:
+
+dQ/dt = M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ) + ∑ᶠ LᵀMf(Fⁱⁿᵛ* + Fᵛⁱˢᶜ*)).
+
+This kernel computes the volume terms: M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ)),
+where M is the mass matrix and D is the differentiation matrix,
+S is the source, and Fⁱⁿᵛ, Fᵛⁱˢᶜ are the inviscid and viscous
+fluxes, respectively.
 """ volume_tendency!
 @kernel function volume_tendency!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
+    model_direction,
     direction,
     tendency,
     state_prognostic,
@@ -49,6 +78,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     elems,
     α,
     β,
+    add_source = false,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -74,22 +104,31 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         local_flux_3 = MArray{Tuple{num_state_prognostic}, FT}(undef)
     end
 
+    # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT (2, Nq, Nq, num_state_prognostic)
     s_D = @localmem FT (Nq, Nq)
 
+    # Storage for tendency and mass inverse M⁻¹
     local_tendency = @private FT (Nqk, num_state_prognostic)
     local_MI = @private FT (Nqk,)
 
+    # Grab the index associated with the current element `e` and the
+    # horizontal quadrature indices `i` (in the ξ1-direction),
+    # `j` (in the ξ2-direction) [directions on the reference element].
+    # Parallelize over elements, then over columns
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
+        # load differentiation matrix into local memory
         s_D[i, j] = D[i, j]
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            # initialize local tendency
             @unroll for s in 1:num_state_prognostic
                 local_tendency[k, s] = zero(FT)
             end
+            # read in mass matrix inverse for element `e`
             local_MI[k] = vgeo[ijk, _MI, e]
         end
 
@@ -98,6 +137,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
             M = vgeo[ijk, _M, e]
+
+            # Extract Jacobian terms ∂ξᵢ/∂xⱼ
             ξ1x1 = vgeo[ijk, _ξ1x1, e]
             ξ1x2 = vgeo[ijk, _ξ1x2, e]
             ξ1x3 = vgeo[ijk, _ξ1x3, e]
@@ -112,6 +153,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 ξ3x3 = vgeo[ijk, _ξ3x3, e]
             end
 
+            # Read fields into registers (hopefully)
             @unroll for s in 1:num_state_prognostic
                 local_state_prognostic[s] = state_prognostic[ijk, s, e]
             end
@@ -128,6 +170,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
             end
 
+            # Computes the local inviscid fluxes Fⁱⁿᵛ
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_first_order!(
                 balance_law,
@@ -139,7 +182,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                     local_state_auxiliary,
                 ),
                 t,
-                (direction,),
+                (model_direction,),
             )
 
             @unroll for s in 1:num_state_prognostic
@@ -148,6 +191,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 local_flux_3[s] = local_flux[3, s]
             end
 
+            # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
                 balance_law,
@@ -191,8 +235,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             end
 
             # In the case of the remainder model we may need to loop through the
-            # models to add in restricted direction componennts
-            if direction isa EveryDirection && balance_law isa RemBL
+            # models to add in restricted direction components
+            if model_direction isa EveryDirection && balance_law isa RemBL
                 if rembl_has_subs_direction(HorizontalDirection(), balance_law)
                     fill!(local_flux, -zero(eltype(local_flux)))
                     flux_first_order!(
@@ -209,6 +253,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                         t,
                         (HorizontalDirection(),),
                     )
+
+                    # Precomputing J ∇ξⁱ⋅ F
                     @unroll for s in 1:num_state_prognostic
                         F1, F2, F3 =
                             local_flux[1, s], local_flux[2, s], local_flux[3, s]
@@ -217,34 +263,6 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                         if dim == 3
                             shared_flux[2, i, j, s] +=
                                 M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
-                        end
-                    end
-                end
-                if rembl_has_subs_direction(VerticalDirection(), balance_law)
-                    fill!(local_flux, -zero(eltype(local_flux)))
-                    flux_first_order!(
-                        balance_law,
-                        Grad{vars_state(balance_law, Prognostic(), FT)}(
-                            local_flux,
-                        ),
-                        Vars{vars_state(balance_law, Prognostic(), FT)}(
-                            local_state_prognostic,
-                        ),
-                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                            local_state_auxiliary,
-                        ),
-                        t,
-                        (VerticalDirection(),),
-                    )
-                    @unroll for s in 1:num_state_prognostic
-                        F1, F2, F3 =
-                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
-                        if dim == 2
-                            shared_flux[2, i, j, s] +=
-                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
-                        elseif dim == 3
-                            local_flux_3[s] +=
-                                M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
                         end
                     end
                 end
@@ -259,29 +277,36 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 end
             end
 
-            fill!(local_source, -zero(eltype(local_source)))
-            source!(
-                balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
-                t,
-                (direction,),
-            )
+            # Computes the contribution due to the source term S
+            if add_source
+                fill!(local_source, -zero(eltype(local_source)))
+                source!(
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_source,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary,
+                    ),
+                    t,
+                    (model_direction,),
+                )
 
-            @unroll for s in 1:num_state_prognostic
-                local_tendency[k, s] += local_source[s]
+                @unroll for s in 1:num_state_prognostic
+                    local_tendency[k, s] += local_source[s]
+                end
+
             end
             @synchronize
 
-            # Weak "inside metrics" derivative
+            # Weak "inside metrics" derivative.
+            # Computes the rest of the volume term: M⁻¹DᵀF
             MI = local_MI[k]
             @unroll for s in 1:num_state_prognostic
                 @unroll for n in 1:Nq
@@ -312,11 +337,50 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     end
 end
 
+"""
+    function volume_tendency!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        model_direction,
+        ::VerticalDirection,
+        tendency,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        t,
+        ω,
+        D,
+        elems,
+        α,
+        β,
+        add_source = false,
+    )
+
+Compute kernel for evaluating the volume tendencies for the
+DG form:
+
+∫ₑ ψ⋅ ∂q/∂t dx - ∫ₑ ∇ψ⋅(Fⁱⁿᵛ + Fᵛⁱˢᶜ) dx + ∮ₑ n̂ ψ⋅(Fⁱⁿᵛ* + Fᵛⁱˢᶜ*) dS,
+
+or equivalently in matrix form:
+
+dQ/dt = M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ) + ∑ᶠ LᵀMf(Fⁱⁿᵛ* + Fᵛⁱˢᶜ*)).
+
+This kernel computes the vertical componets of the
+volume terms: M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ)),
+where M is the mass matrix and D is the
+differentiation matrix, S is the source, and Fⁱⁿᵛ, Fᵛⁱˢᶜ are the
+inviscid and viscous fluxes, respectively.
+"""
+volume_tendency!
 @kernel function volume_tendency!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    direction::VerticalDirection,
+    model_direction,
+    ::VerticalDirection,
     tendency,
     state_prognostic,
     state_gradient_flux,
@@ -329,6 +393,7 @@ end
     elems,
     α,
     β,
+    add_source = false,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -360,23 +425,31 @@ end
         shared_flux_size = dim == 2 ? (Nq, Nq, num_state_prognostic) : (0, 0, 0)
     end
 
-    local_tendency = @private FT (Nqk, num_state_prognostic)
-    local_MI = @private FT (Nqk,)
-
+    # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT shared_flux_size
     s_D = @localmem FT (Nq, Nq)
 
+    # Storage for tendency and mass inverse M⁻¹
+    local_tendency = @private FT (Nqk, num_state_prognostic)
+    local_MI = @private FT (Nqk,)
+
+    # Grab the index associated with the current element `e` and the
+    # horizontal quadrature indices `i` (in the ξ1-direction),
+    # `j` (in the ξ2-direction) [directions on the reference element].
+    # Parallelize over elements, then over columns
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
+        # load differentiation matrix into local memory
         s_D[i, j] = D[i, j]
-
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            # initialize local tendency
             @unroll for s in 1:num_state_prognostic
                 local_tendency[k, s] = zero(FT)
             end
+            # read in mass matrix inverse for element `e`
             local_MI[k] = vgeo[ijk, _MI, e]
         end
 
@@ -387,10 +460,13 @@ end
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
             M = vgeo[ijk, _M, e]
+
+            # Extract vertical Jacobian terms ∂ζ/∂xⱼ
             ζx1 = vgeo[ijk, _ζx1, e]
             ζx2 = vgeo[ijk, _ζx2, e]
             ζx3 = vgeo[ijk, _ζx3, e]
 
+            # Read fields into registers (hopefully)
             @unroll for s in 1:num_state_prognostic
                 local_state_prognostic[s] = state_prognostic[ijk, s, e]
             end
@@ -407,6 +483,7 @@ end
                 local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
             end
 
+            # Computes the local inviscid fluxes Fⁱⁿᵛ
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_first_order!(
                 balance_law,
@@ -418,7 +495,7 @@ end
                     local_state_auxiliary,
                 ),
                 t,
-                (direction,),
+                (model_direction,),
             )
 
             @unroll for s in 1:num_state_prognostic
@@ -427,6 +504,7 @@ end
                 local_flux_total[3, s] = local_flux[3, s]
             end
 
+            # Computes the local viscous fluxes Fᵛⁱˢᶜ
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_second_order!(
                 balance_law,
@@ -465,6 +543,40 @@ end
                 end
             end
 
+            # In the case of the remainder model we may need to loop through the
+            # models to add in restricted direction components
+            if model_direction isa EveryDirection && balance_law isa RemBL
+                if rembl_has_subs_direction(VerticalDirection(), balance_law)
+                    fill!(local_flux, -zero(eltype(local_flux)))
+                    flux_first_order!(
+                        balance_law,
+                        Grad{vars_state(balance_law, Prognostic(), FT)}(
+                            local_flux,
+                        ),
+                        Vars{vars_state(balance_law, Prognostic(), FT)}(
+                            local_state_prognostic,
+                        ),
+                        Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                            local_state_auxiliary,
+                        ),
+                        t,
+                        (VerticalDirection(),),
+                    )
+
+                    # Precomputing J ∇ζ⋅ F
+                    @unroll for s in 1:num_state_prognostic
+                        F1, F2, F3 =
+                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
+                        Fv = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+                        if dim == 2
+                            shared_flux[i, j, s] += Fv
+                        else
+                            local_flux_total[1, s] += Fv
+                        end
+                    end
+                end
+            end
+
             if dim == 3
                 @unroll for n in 1:Nqk
                     MI = local_MI[n]
@@ -475,28 +587,35 @@ end
                 end
             end
 
-            fill!(local_source, -zero(eltype(local_source)))
-            source!(
-                balance_law,
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(
-                    local_state_prognostic,
-                ),
-                Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                    local_state_gradient_flux,
-                ),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary,
-                ),
-                t,
-                (direction,),
-            )
+            # Computes the contribution due to the source term S
+            if add_source
+                fill!(local_source, -zero(eltype(local_source)))
+                source!(
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_source,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic,
+                    ),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                        local_state_gradient_flux,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary,
+                    ),
+                    t,
+                    (model_direction,),
+                )
 
-            @unroll for s in 1:num_state_prognostic
-                local_tendency[k, s] += local_source[s]
+                @unroll for s in 1:num_state_prognostic
+                    local_tendency[k, s] += local_source[s]
+                end
             end
-
             @synchronize(dim == 2)
+
+            # Weak "inside metrics" derivative.
+            # Computes the rest of the volume term: M⁻¹DᵀMF
             if dim == 2
                 MI = local_MI[k]
                 @unroll for n in 1:Nq
@@ -523,15 +642,42 @@ end
 end
 
 @doc """
-    interface_tendency!(balance_law::BalanceLaw, Val(polyorder),
-            numerical_flux_first_order,
-            numerical_flux_second_order,
-            tendency, state_prognostic, state_gradient_flux, state_auxiliary,
-            vgeo, sgeo, t, vmap⁻, vmap⁺, elemtobndy,
-            elems)
+    function interface_tendency!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        direction,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        tendency,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        sgeo,
+        t,
+        vmap⁻,
+        vmap⁺,
+        elemtobndy,
+        elems,
+        α,
+    )
 
-Computational kernel: Evaluate the surface integrals on right-hand side of a
-`BalanceLaw` semi-discretization.
+Compute kernel for evaluating the interface tendencies for the
+DG form:
+
+∫ₑ ψ⋅ ∂q/∂t dx - ∫ₑ ∇ψ⋅(Fⁱⁿᵛ + Fᵛⁱˢᶜ) dx + ∮ₑ n̂ ψ⋅(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆) dS,
+
+or equivalently in matrix form:
+
+dQ/dt = M⁻¹(MS + DᵀM(Fⁱⁿᵛ + Fᵛⁱˢᶜ) + ∑ᶠ LᵀMf(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆)).
+
+This kernel computes the surface terms: M⁻¹ ∑ᶠ LᵀMf(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆)),
+where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
+from volume to face, and Fⁱⁿᵛ⋆, Fᵛⁱˢᶜ⋆
+are the numerical fluxes for the inviscid and viscous
+fluxes, respectively.
 """ interface_tendency!
 @kernel function interface_tendency!(
     balance_law::BalanceLaw,
@@ -639,6 +785,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        # Get surface mass, volume mass inverse
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
@@ -682,6 +829,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 local_state_auxiliary⁺nondiff[s] = state_auxiliary[vid⁺, s, e⁺]
         end
 
+        # Oh dang, it's boundary conditions
         bctype = elemtobndy[f, e⁻]
         fill!(local_flux, -zero(eltype(local_flux)))
         if bctype == 0
@@ -822,7 +970,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             )
         end
 
-        #Update RHS
+        # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
         @unroll for s in 1:num_state_prognostic
             # FIXME: Should we pretch these?
             tendency[vid⁻, s, e⁻] -= α * vMI * sM * local_flux[s]
@@ -832,6 +980,37 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
     end
 end
 
+@doc """
+    function volume_gradients!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        direction,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        t,
+        D,
+        ::Val{hypervisc_indexmap},
+        elems,
+        increment = false,
+    )
+
+Computes the volume integral for the auxiliary equation
+(in DG strong form):
+
+∫ₑ ψI⋅Σ dx = ∫ₑ ψI⋅∇G dx + ∮ₑ nψI⋅(G* - G) dS,
+
+or equivalently in matrix notation:
+
+Σ = M⁻¹ LᵀMf(G* - G) + D G
+
+This kernel computes the volume gradient: D * G, where
+D is the differentiation matrix and G is the auxiliary
+gradient flux.
+""" volume_gradients!
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
     ::Val{dim},
@@ -846,6 +1025,7 @@ end
     D,
     ::Val{hypervisc_indexmap},
     elems,
+    increment = false,
 ) where {dim, polyorder, hypervisc_indexmap}
     @uniform begin
         N = polyorder
@@ -868,6 +1048,8 @@ end
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
     end
 
+    # Transformation from conservative variables to
+    # primitive variables (i.e. ρu → u)
     shared_transform = @localmem FT (Nq, Nq, ngradstate)
     s_D = @localmem FT (Nq, Nq)
 
@@ -876,19 +1058,28 @@ end
     local_transform_gradient = @private FT (3, ngradstate, Nqk)
     Gξ3 = @private FT (ngradstate, Nqk)
 
+    # Grab the index associated with the current element `e` and the
+    # horizontal quadrature indices `i` (in the ξ1-direction),
+    # `j` (in the ξ2-direction) [directions on the reference element].
+    # Parallelize over elements, then over columns
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds @views begin
+        # Load horizontal differentiation matrix into shared memory
+        # (shared across threads in an element)
         s_D[i, j] = D[i, j]
 
         @unroll for k in 1:Nqk
+            # Initialize local gradient variables
             @unroll for s in 1:ngradstate
                 local_transform_gradient[1, s, k] = -zero(FT)
                 local_transform_gradient[2, s, k] = -zero(FT)
                 local_transform_gradient[3, s, k] = -zero(FT)
                 Gξ3[s, k] = -zero(FT)
             end
+
+            # Load prognostic and auxiliary variables
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:ngradtransformstate
                 local_state_prognostic[s, k] = state_prognostic[ijk, s, e]
@@ -898,6 +1089,7 @@ end
             end
         end
 
+        # Compute G(q) and write the result into shared memory
         @unroll for k in 1:Nqk
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
@@ -913,9 +1105,12 @@ end
                 ]),
                 t,
             )
+
             @unroll for s in 1:ngradstate
                 shared_transform[i, j, s] = local_transform[s]
             end
+
+            # Synchronize threads on the device
             @synchronize
 
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
@@ -927,15 +1122,20 @@ end
                 Gξ1 = Gξ2 = zero(FT)
 
                 @unroll for n in 1:Nq
+                    # Smack G with the differentiation matrix
                     Gξ1 += s_D[i, n] * shared_transform[n, j, s]
                     if dim == 3 || (dim == 2 && direction isa EveryDirection)
                         Gξ2 += s_D[j, n] * shared_transform[i, n, s]
                     end
+                    # Compute the gradient of G over the entire column
                     if dim == 3 && direction isa EveryDirection
                         Gξ3[s, n] += s_D[n, k] * shared_transform[i, j, s]
                     end
                 end
 
+                # Application of chain-rule in ξ1 and ξ2 directions,
+                # ∂G/∂xi = ∂ξ1/∂xi * ∂G/∂ξ1, ∂G/∂xi = ∂ξ2/∂xi * ∂G/∂ξ2
+                # to get a physical gradient
                 local_transform_gradient[1, s, k] += ξ1x1 * Gξ1
                 local_transform_gradient[2, s, k] += ξ1x2 * Gξ1
                 local_transform_gradient[3, s, k] += ξ1x3 * Gξ1
@@ -949,12 +1149,15 @@ end
                     local_transform_gradient[3, s, k] += ξ2x3 * Gξ2
                 end
             end
+
+            # Synchronize threads on the device
             @synchronize
         end
 
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
+            # Application of chain-rule in ξ3-direction: ∂G/∂xi = ∂ξ3/∂xi * ∂G/∂ξ3
             if dim == 3 && direction isa EveryDirection
                 ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
                 vgeo[ijk, _ξ3x2, e],
@@ -966,13 +1169,24 @@ end
                 end
             end
 
+            # Hyperdiffusion (avoid recomputing gradients of the state since
+            # these are needed for the hyperdiffusion kernels)
             @unroll for s in 1:ngradlapstate
-                Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                    local_transform_gradient[1, hypervisc_indexmap[s], k]
-                Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                    local_transform_gradient[2, hypervisc_indexmap[s], k]
-                Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                    local_transform_gradient[3, hypervisc_indexmap[s], k]
+                if increment
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] +=
+                        local_transform_gradient[1, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] +=
+                        local_transform_gradient[2, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] +=
+                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+                else
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
+                        local_transform_gradient[1, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
+                        local_transform_gradient[2, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
+                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+                end
             end
 
             if num_state_gradient_flux > 0
@@ -980,6 +1194,8 @@ end
                     local_state_gradient_flux,
                     -zero(eltype(local_state_gradient_flux)),
                 )
+
+                # Applies a linear transformation of gradients to the diffusive variables
                 compute_gradient_flux!(
                     balance_law,
                     Vars{vars_state(balance_law, GradientFlux(), FT)}(
@@ -1001,15 +1217,52 @@ end
                     t,
                 )
 
+                # Write out the result of the kernel to global memory
                 @unroll for s in 1:num_state_gradient_flux
-                    state_gradient_flux[ijk, s, e] =
-                        local_state_gradient_flux[s]
+                    if increment
+                        state_gradient_flux[ijk, s, e] +=
+                            local_state_gradient_flux[s]
+                    else
+                        state_gradient_flux[ijk, s, e] =
+                            local_state_gradient_flux[s]
+                    end
                 end
             end
         end
     end
 end
 
+@doc """
+    function volume_gradients!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        direction,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        t,
+        D,
+        ::Val{hypervisc_indexmap},
+        elems,
+        increment = false,
+    )
+
+Computes the volume integral for the auxiliary equation
+(in DG strong form):
+
+∫ₑ ψI⋅Σ dx = ∫ₑ ψI⋅∇G dx + ∮ₑ nψI⋅(G* - G) dS,
+
+or equivalently in matrix notation:
+
+Σ = M⁻¹ LᵀMf(G* - G) + D G
+
+This kernel computes the volume gradient D * G in the
+vertical direction, where D is the differentiation
+matrix and G is the auxiliary gradient flux.
+""" volume_gradients!
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
     ::Val{dim},
@@ -1024,6 +1277,7 @@ end
     D,
     ::Val{hypervisc_indexmap},
     elems,
+    increment = false,
 ) where {dim, polyorder, hypervisc_indexmap}
     @uniform begin
         N = polyorder
@@ -1052,6 +1306,8 @@ end
         Gζ_size = dim == 3 ? (ngradstate, Nqk) : (0, 0)
     end
 
+    # Transformation from conservative variables to
+    # primitive variables (i.e. ρu → u)
     shared_transform = @localmem FT (Nq, Nq, ngradstate)
     s_D = @localmem FT (Nq, Nq)
 
@@ -1063,13 +1319,20 @@ end
 
     Gζ = @private FT Gζ_size
 
+    # Grab the index associated with the current element `e` and the
+    # horizontal quadrature indices `i` (in the ξ1-direction),
+    # `j` (in the ξ2-direction) [directions on the reference element].
+    # Parallelize over elements, then over columns
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds @views begin
+        # Load horizontal differentiation matrix into shared memory
+        # (shared across threads in an element)
         s_D[i, j] = D[i, j]
 
         @unroll for k in 1:Nqk
+            # Initialize local gradient variables
             @unroll for s in 1:ngradstate
                 local_transform_gradient[1, s, k] = -zero(FT)
                 local_transform_gradient[2, s, k] = -zero(FT)
@@ -1078,6 +1341,8 @@ end
                     Gζ[s, k] = -zero(FT)
                 end
             end
+
+            # Load prognostic and auxiliary variables
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             @unroll for s in 1:ngradtransformstate
                 local_state_prognostic[s, k] = state_prognostic[ijk, s, e]
@@ -1085,11 +1350,14 @@ end
             @unroll for s in 1:num_state_auxiliary
                 local_state_auxiliary[s, k] = state_auxiliary[ijk, s, e]
             end
+
+            # Load geometry terms for the Jacobian: ∂ζ/∂xⱼ
             local_ζ[1, k] = vgeo[ijk, _ζx1, e]
             local_ζ[2, k] = vgeo[ijk, _ζx2, e]
             local_ζ[3, k] = vgeo[ijk, _ζx3, e]
         end
 
+        # Compute G(q) and write the result into shared memory
         @unroll for k in 1:Nqk
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
@@ -1105,13 +1373,18 @@ end
                 ]),
                 t,
             )
+
             @unroll for s in 1:ngradstate
                 shared_transform[i, j, s] = local_transform[s]
             end
+
+            # Synchronize threads on the device
             @synchronize
 
             # Compute gradient of each state
             @unroll for s in 1:ngradstate
+                # Compute the gradient of G using the chain-rule:
+                # ∂G/∂xi = ∂ζ/∂xi * ∂G/∂ζ to get a physical gradient
                 if dim == 2
                     Gζ = zero(FT)
                     @unroll for n in 1:Nq
@@ -1132,6 +1405,7 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
+            # Application of chain-rule: ∂G/∂xi = ∂ζ/∂xi * ∂G/∂ζ
             if dim == 3
                 @unroll for s in 1:ngradstate
                     local_transform_gradient[1, s, k] +=
@@ -1143,13 +1417,24 @@ end
                 end
             end
 
+            # Hyperdiffusion (avoid recomputing gradients of the state since
+            # these are needed for the hyperdiffusion kernels)
             @unroll for s in 1:ngradlapstate
-                Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                    local_transform_gradient[1, hypervisc_indexmap[s], k]
-                Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                    local_transform_gradient[2, hypervisc_indexmap[s], k]
-                Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                    local_transform_gradient[3, hypervisc_indexmap[s], k]
+                if increment
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] +=
+                        local_transform_gradient[1, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] +=
+                        local_transform_gradient[2, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] +=
+                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+                else
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
+                        local_transform_gradient[1, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
+                        local_transform_gradient[2, hypervisc_indexmap[s], k]
+                    Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
+                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+                end
             end
 
             if num_state_gradient_flux > 0
@@ -1157,6 +1442,8 @@ end
                     local_state_gradient_flux,
                     -zero(eltype(local_state_gradient_flux)),
                 )
+
+                # Applies a linear transformation of gradients to the diffusive variables
                 compute_gradient_flux!(
                     balance_law,
                     Vars{vars_state(balance_law, GradientFlux(), FT)}(
@@ -1178,15 +1465,56 @@ end
                     t,
                 )
 
+                # Write out the result of the kernel to global memory
                 @unroll for s in 1:num_state_gradient_flux
-                    state_gradient_flux[ijk, s, e] =
-                        local_state_gradient_flux[s]
+                    if increment
+                        state_gradient_flux[ijk, s, e] +=
+                            local_state_gradient_flux[s]
+                    else
+                        state_gradient_flux[ijk, s, e] =
+                            local_state_gradient_flux[s]
+                    end
                 end
             end
         end
     end
 end
 
+@doc """
+    function interface_gradients!(
+        balance_law::BalanceLaw,
+        ::Val{dim},
+        ::Val{polyorder},
+        direction,
+        numerical_flux_gradient,
+        state_prognostic,
+        state_gradient_flux,
+        Qhypervisc_grad,
+        state_auxiliary,
+        vgeo,
+        sgeo,
+        t,
+        vmap⁻,
+        vmap⁺,
+        elemtobndy,
+        ::Val{hypervisc_indexmap},
+        elems,
+    )
+
+Computes the surface integral for the auxiliary equation
+(in DG strong form):
+
+∫ₑ ψI⋅Σ dx = ∫ₑ ψI⋅∇G dx + ∮ₑ nψI⋅(G* - G) dS,
+
+or equivalently in matrix notation:
+
+Σ = M⁻¹ LᵀMf(G* - G) + D G
+
+This kernel computes the interface gradient term: M⁻¹ LᵀMf(G* - G),
+where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
+from volume to face, G is the
+auxiliary gradient flux, and G* is the associated numerical flux.
+""" interface_gradients!
 @kernel function interface_gradients!(
     balance_law::BalanceLaw,
     ::Val{dim},
@@ -1229,6 +1557,8 @@ end
             nface = 6
         end
 
+        # Determines the number of faces depending on
+        # the direction argument
         faces = 1:nface
         if direction isa VerticalDirection
             faces = (nface - 1):nface
@@ -1240,11 +1570,13 @@ end
 
         ngradtransformstate = num_state_prognostic
 
+        # Create local arrays for states inside the element, wrt to a particular face (-)
         local_state_prognostic⁻ = MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_transform⁻ = MArray{Tuple{ngradstate}, FT}(undef)
         l_nG⁻ = MArray{Tuple{3, ngradstate}, FT}(undef)
 
+        # Create local arrays for states outside the element, wrt to a particular face (+)
         local_state_prognostic⁺ = MArray{Tuple{ngradtransformstate}, FT}(undef)
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_transform⁺ = MArray{Tuple{ngradstate}, FT}(undef)
@@ -1262,12 +1594,15 @@ end
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
     end
 
+    # Element index
     eI = @index(Group, Linear)
+    # Index of a quadrature point on a face
     n = @index(Local, Linear)
 
     e = @private Int (1,)
     @inbounds e[1] = elems[eI]
 
+    # Spin over the faces of the element `e`
     @inbounds for f in faces
         e⁻ = e[1]
         normal_vector = SVector(
@@ -1275,6 +1610,8 @@ end
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+
+        # Extract surface mass operator `sM` and volumne mass inverse `vMI`
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
@@ -1290,6 +1627,7 @@ end
             local_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
         end
 
+        # Compute G(q) on the minus side write the result into registers
         fill!(local_transform⁻, -zero(eltype(local_transform⁻)))
         compute_gradient_argument!(
             balance_law,
@@ -1312,6 +1650,7 @@ end
             local_state_auxiliary⁺[s] = state_auxiliary[vid⁺, s, e⁺]
         end
 
+        # Compute G(q) on the plus side and write the result into registers
         fill!(local_transform⁺, -zero(eltype(local_transform⁺)))
         compute_gradient_argument!(
             balance_law,
@@ -1325,12 +1664,14 @@ end
             t,
         )
 
+        # Oh drat, it's boundary conditions
         bctype = elemtobndy[f, e⁻]
         fill!(
             local_state_gradient_flux,
             -zero(eltype(local_state_gradient_flux)),
         )
-        if bctype == 0
+        if bctype == 0  # Periodic boundary condition (boundary-less)
+            # Computes G* on the minus side
             numerical_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
@@ -1353,6 +1694,8 @@ end
                 t,
             )
             if num_state_gradient_flux > 0
+                # Applies linear transformation of gradients to the diffusive variables
+                # on the minus side
                 compute_gradient_flux!(
                     balance_law,
                     Vars{vars_state(balance_law, GradientFlux(), FT)}(
@@ -1371,6 +1714,8 @@ end
                 )
             end
         else
+            # NOTE: Used for boundary conditions related to the energy
+            # variables (see `BulkFormulaEnergy`)
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
                 # Loop up the first element along all horizontal elements
                 @unroll for s in 1:num_state_prognostic
@@ -1382,6 +1727,7 @@ end
                         state_auxiliary[n + Nqk^2, s, e⁻]
                 end
             end
+            # Computes G* incorporating boundary conditions
             numerical_boundary_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
@@ -1411,6 +1757,8 @@ end
                 ),
             )
             if num_state_gradient_flux > 0
+                # Applies linear transformation of gradients to the diffusive variables
+                # on the minus side
                 compute_gradient_flux!(
                     balance_law,
                     Vars{vars_state(balance_law, GradientFlux(), FT)}(
@@ -1430,12 +1778,14 @@ end
             end
         end
 
+        # Compute n*G, where n is the face normal
         @unroll for j in 1:ngradstate
             @unroll for i in 1:3
                 l_nG⁻[i, j] = normal_vector[i] * local_transform⁻[j]
             end
         end
 
+        # Storing gradients for applying hyperdiffusion
         @unroll for s in 1:ngradlapstate
             j = hypervisc_indexmap[s]
             Qhypervisc_grad[vid⁻, 3 * (s - 1) + 1, e⁻] +=
@@ -1446,6 +1796,8 @@ end
                 vMI * sM * (local_transform_gradient[3, j] - l_nG⁻[3, j])
         end
 
+        # Applies linear transformation of gradients to the diffusive variables
+        # on the minus side
         compute_gradient_flux!(
             balance_law,
             Vars{vars_state(balance_law, GradientFlux(), FT)}(
@@ -1461,7 +1813,8 @@ end
             t,
         )
 
-
+        # This is the surface integral evaluated discretely
+        # M^(-1) Mf(G* - G)
         @unroll for s in 1:num_state_gradient_flux
             state_gradient_flux[vid⁻, s, e⁻] +=
                 vMI *
@@ -1942,6 +2295,7 @@ end
     vgeo,
     D,
     elems,
+    increment = false,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -2017,8 +2371,13 @@ end
         end
 
         @unroll for s in 1:ngradlapstate
-            Qhypervisc_div[ijk, s, e] = l_div[s]
+            if increment
+                Qhypervisc_div[ijk, s, e] += l_div[s]
+            else
+                Qhypervisc_div[ijk, s, e] = l_div[s]
+            end
         end
+
         @synchronize
     end
 end
@@ -2033,6 +2392,7 @@ end
     vgeo,
     D,
     elems,
+    increment = false,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -2094,8 +2454,13 @@ end
         end
 
         @unroll for s in 1:ngradlapstate
-            Qhypervisc_div[ijk, s, e] = l_div[s]
+            if increment
+                Qhypervisc_div[ijk, s, e] += l_div[s]
+            else
+                Qhypervisc_div[ijk, s, e] = l_div[s]
+            end
         end
+
         @synchronize
     end
 end
@@ -2225,6 +2590,7 @@ end
     D,
     elems,
     t,
+    increment = false,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -2333,7 +2699,11 @@ end
             t,
         )
         @unroll for s in 1:nhyperviscstate
-            Qhypervisc_grad[ijk, s, e] = local_state_hyperdiffusion[s]
+            if increment
+                Qhypervisc_grad[ijk, s, e] += local_state_hyperdiffusion[s]
+            else
+                Qhypervisc_grad[ijk, s, e] = local_state_hyperdiffusion[s]
+            end
         end
         @synchronize
     end
@@ -2353,6 +2723,7 @@ end
     D,
     elems,
     t,
+    increment = false,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -2441,7 +2812,11 @@ end
             t,
         )
         @unroll for s in 1:nhyperviscstate
-            Qhypervisc_grad[ijk, s, e] = local_state_hyperdiffusion[s]
+            if increment
+                Qhypervisc_grad[ijk, s, e] += local_state_hyperdiffusion[s]
+            else
+                Qhypervisc_grad[ijk, s, e] = local_state_hyperdiffusion[s]
+            end
         end
         @synchronize
     end

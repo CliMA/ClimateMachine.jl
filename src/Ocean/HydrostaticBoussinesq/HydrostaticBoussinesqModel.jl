@@ -709,12 +709,15 @@ function update_auxiliary_state_gradient!(
     # has a limited recursion depth for the types allowed.
     number_aux = number_states(m, Auxiliary())
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
-    Nq, Nqk, _, _, nelemv, nelemh, nhorzrealelem, _ = basic_grid_info(dg)
+    info = basic_grid_info(dg)
+    Nq, Nqk = info.Nq, info.Nqk
+    nelemv, nelemh = info.nvertelem, info.nhorzelem
+    nrealelemh = info.nhorzrealelem
 
     # project w(z=0) down the stack
     data = reshape(A.data, Nq^2, Nqk, number_aux, nelemv, nelemh)
-    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nhorzrealelem]
-    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nhorzrealelem]
+    flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nrealelemh]
+    boxy_wz0 = @view data[:, :, index_wz0, :, 1:nrealelemh]
     boxy_wz0 .= flat_wz0
 
     return true

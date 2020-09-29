@@ -82,7 +82,10 @@ end
     elems = grid.topology.elems
     update_auxiliary_state!(tendency_dg, tend, dQslow2fast, 0, elems)
 
-    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dgSlow)
+    info = basic_grid_info(dgSlow)
+    Nq, Nqk = info.Nq, info.Nqk
+    nelemv, nelemh = info.nvertelem, info.nhorzelem
+    nrealelemh = info.nhorzrealelem
 
     ## get top value (=integral over full depth) of ∫du
     nb_aux_tnd = number_states(tend, Auxiliary())
@@ -163,7 +166,10 @@ end
     fast_time_rec,
 )
     FT = eltype(Qslow)
-    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dgSlow)
+    info = basic_grid_info(dgSlow)
+    Nq, Nqk = info.Nq, info.Nqk
+    nelemv, nelemh = info.nvertelem, info.nhorzelem
+    nrealelemh = info.nhorzrealelem
     grid = dgSlow.grid
     elems = grid.topology.elems
 
