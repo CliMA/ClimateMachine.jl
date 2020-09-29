@@ -104,6 +104,49 @@ function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
     dg(tendency, state_prognostic, param, t, true, increment)
 end
 
+function hyperdiff_indexmap(balance_law, ::Type{FT}) where {FT}
+    ns_hyperdiff = number_states(balance_law, Hyperdiffusive())
+    if ns_hyperdiff > 0
+        return varsindices(
+            vars_state(balance_law, Gradient(), FT),
+            fieldnames(vars_state(balance_law, GradientLaplacian(), FT)),
+        )
+    else
+        return nothing
+    end
+end
+
+function compute_volume_gradients!(event, dg, state_prognostic, t)
+    ns_grad_flux = number_states(dg.balance_law, GradientFlux())
+    ns_hyperdiff = number_states(dg.balance_law, Hyperdiffusive())
+    Qhypervisc_grad, _ = dg.states_higher_order
+    if ns_grad_flux > 0 || ns_hyperdiff > 0
+        device = array_device(state_prognostic)
+        dim = dimensionality(dg.grid)
+        N = polynomialorder(dg.grid)
+        Nq = N + 1
+        nrealelem = length(dg.grid.topology.realelems)
+        event = volume_gradients!(device, (Nq, Nq))(
+            balance_law,
+            Val(dim),
+            Val(N),
+            dg.diffusion_direction,
+            state_prognostic.data,
+            dg.state_gradient_flux.data,
+            Qhypervisc_grad.data,
+            dg.state_auxiliary.data,
+            dg.grid.vgeo,
+            t,
+            dg.grid.D,
+            Val(hyperdiff_indexmap(balance_law, FT)),
+            dg.grid.topology.realelems,
+            ndrange = (Nq * nrealelem, Nq),
+            dependencies = (event,),
+        )
+    end
+    return nothing
+end
+
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
     balance_law = dg.balance_law
@@ -182,25 +225,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         )
     end
 
-    if num_state_gradient_flux > 0 || nhyperviscstate > 0
+    compute_volume_gradients!(comp_stream, dg, state_prognostic, t)
 
-        comp_stream = volume_gradients!(device, (Nq, Nq))(
-            balance_law,
-            Val(dim),
-            Val(N),
-            dg.diffusion_direction,
-            state_prognostic.data,
-            state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            state_auxiliary.data,
-            grid.vgeo,
-            t,
-            grid.D,
-            Val(hypervisc_indexmap),
-            topology.realelems,
-            ndrange = (Nq * nrealelem, Nq),
-            dependencies = (comp_stream,),
-        )
+    if num_state_gradient_flux > 0 || nhyperviscstate > 0
 
         comp_stream = interface_gradients!(device, workgroups_surface)(
             balance_law,
