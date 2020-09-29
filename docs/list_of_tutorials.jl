@@ -27,7 +27,6 @@ if generate_tutorials
                 "Atmos/burgers_single_stack.jl",
             "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
             "LES Experiment (Rising Thermal Bubble)" => "Atmos/risingbubble.jl",
-            "LES Experiment (Density Current)" => "Atmos/densitycurrent.jl",
             "Linear Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_hs_lin.jl",
             "Linear Non-Hydrostatic Mountain (Topography)" =>

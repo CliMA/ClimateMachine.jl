@@ -30,7 +30,7 @@
 # ```
 #
 # where $\theta_0 = 280K$.
-# ``
+#
 # so that
 #
 # $ρ = \frac{p_{sfc}}{R_{gas}\theta}pi^{c_v/R_{gas}}$
