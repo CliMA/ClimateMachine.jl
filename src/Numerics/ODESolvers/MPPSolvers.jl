@@ -1,5 +1,6 @@
 export MPPSolver
 using ..DGMethods: DGModel, mpp_step_initialize!, mpp_update!, mpp_initialize
+import ..Mesh.Filters
 
 mutable struct MPPSolver{RT, DGS, MPP} <: AbstractODESolver
     "time step"
@@ -64,4 +65,12 @@ function dostep!(state_prognostic, mppsolver::MPPSolver, p, time)
 
     # Correct the DG solution based on MPP
     mpp_update!(dg, state_prognostic, mppdata, dt)
+
+    Filters.apply!(
+        state_prognostic,
+        mppdata.target,
+        dg.grid,
+        Filters.TMARFilter(),
+    )
+
 end

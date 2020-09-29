@@ -129,6 +129,7 @@ function AtmosLESConfiguration(
         param_set;
         init_state_prognostic = init_LES!,
     ),
+    positive_variables = nothing,
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
     periodicity = (true, true, false),
@@ -139,6 +140,25 @@ function AtmosLESConfiguration(
 ) where {FT <: AbstractFloat}
 
     print_model_info(model)
+
+    if model.moisture isa EquilMoist && isnothing(positive_variables)
+        if solver_type isa ExplicitSolverType &&
+           solver_type.solver_method(() -> nothing, [1.0]) isa
+           LowStorageRungeKutta2N
+            positive_variables = ("moisture.ρq_tot",)
+        else
+            @warn """
+            Running equilibrium moisture without positivity preserving.
+            Currently only `LowStorageRungeKutta2N` support mass and positivity
+            preserving.
+            """
+        end
+    end
+
+    if !isnothing(positive_variables) && !isempty(positive_variables)
+        solver_type =
+            MPPSolverType(solver_type.solver_method, positive_variables)
+    end
 
     brickrange = (
         grid1d(xmin, xmax, elemsize = Δx * N),
