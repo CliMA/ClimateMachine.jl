@@ -69,6 +69,8 @@ struct MISSolverType{DS} <: AbstractSolverType
     # Whether to use a PDE level or discrete splitting
     discrete_splitting::Bool
     hivi_splitting::Bool
+    numerical_flux_first_order_fast::NumericalFluxFirstOrder
+    numerical_flux_first_order_slow::NumericalFluxFirstOrder
 
     function MISSolverType(;
         splitting_type = SlowFastSplitting(),
@@ -78,6 +80,8 @@ struct MISSolverType{DS} <: AbstractSolverType
         nsubsteps = (50,),
         discrete_splitting = false,
         hivi_splitting = false,
+        numerical_flux_first_order_fast = RusanovNumericalFlux(),
+        numerical_flux_first_order_slow = RusanovNumericalFlux(),
     )
 
         DS = typeof(splitting_type)
@@ -90,6 +94,9 @@ struct MISSolverType{DS} <: AbstractSolverType
             fast_type,
             nsubsteps,
             discrete_splitting,
+            hivi_splitting,
+            numerical_flux_first_order_fast,
+            numerical_flux_first_order_slow,
         )
     end
 end
@@ -139,7 +146,7 @@ function solversetup(
         fast_dg_momentum = DGModel(
             fast_model.momentum,
             dg.grid,
-            dg.numerical_flux_first_order,
+            ode_solver_type.numerical_flux_first_order_fast,
             dg.numerical_flux_second_order,
             dg.numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
@@ -150,7 +157,7 @@ function solversetup(
         fast_dg_thermo = DGModel(
             fast_model.thermo,
             dg.grid,
-            dg.numerical_flux_first_order,
+            ode_solver_type.numerical_flux_first_order_fast,
             dg.numerical_flux_second_order,
             dg.numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
@@ -165,7 +172,7 @@ function solversetup(
             fast_dg_h = DGModel(
                 fast_model,
                 dg.grid,
-                dg.numerical_flux_first_order,
+                ode_solver_type.numerical_flux_first_order_fast,
                 dg.numerical_flux_second_order,
                 dg.numerical_flux_gradient,
                 state_auxiliary = dg.state_auxiliary,
@@ -176,7 +183,7 @@ function solversetup(
             fast_dg_v = DGModel(
                 fast_model,
                 dg.grid,
-                dg.numerical_flux_first_order,
+                ode_solver_type.numerical_flux_first_order_fast,
                 dg.numerical_flux_second_order,
                 dg.numerical_flux_gradient,
                 state_auxiliary = dg.state_auxiliary,
@@ -208,7 +215,7 @@ function solversetup(
             fast_dg = DGModel(
                 fast_model,
                 dg.grid,
-                dg.numerical_flux_first_order,
+                ode_solver_type.numerical_flux_first_order_fast,
                 dg.numerical_flux_second_order,
                 dg.numerical_flux_gradient,
                 state_auxiliary = dg.state_auxiliary,
@@ -230,7 +237,7 @@ function solversetup(
     slow_dg = remainder_DGModel(
         dg,
         (fast_dg,);
-        numerical_flux_first_order = numerical_flux_first_order,
+        numerical_flux_first_order = ode_solver_type.numerical_flux_first_order_slow,
     )
 
     solver = ode_solver.mis_method(
