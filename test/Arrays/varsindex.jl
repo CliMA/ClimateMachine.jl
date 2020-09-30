@@ -23,6 +23,15 @@ const V = @vars begin
 end
 
 @testset "MPIStateArray varsindex" begin
+    # check with invalid vars size
+    @test_throws ErrorException MPIStateArray{Float32, V}(
+        mpicomm,
+        ArrayType,
+        4,
+        1,
+        8,
+    )
+
     Q = MPIStateArray{Float32, V}(mpicomm, ArrayType, 4, 34, 8)
     @test Q.a === view(MPIStateArrays.realview(Q), :, 1:1, :)
     @test Q.b === view(MPIStateArrays.realview(Q), :, 2:4, :)

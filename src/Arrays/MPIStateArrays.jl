@@ -9,7 +9,7 @@ using MPI
 using StaticArrays
 
 using ..TicToc
-using ..VariableTemplates: @vars, varsindex, varsindices
+using ..VariableTemplates: @vars, varsindex, varsindices, varsize
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
@@ -80,6 +80,11 @@ mutable struct MPIStateArray{
         mpi_knows_cuda = nothing,
     ) where {FT, V}
         data = similar(DA, FT, Np, nstate, numelem)
+
+
+        if varsize(V) > 0 && varsize(V) != nstate
+            error("var sizes and numbers of states do not match")
+        end
 
         if isnothing(mpi_knows_cuda)
             mpi_knows_cuda = MPI.has_cuda()
