@@ -12,6 +12,7 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.MPIStateArrays
 using StaticArrays
 using Test
 using CLIMAParameters
@@ -211,6 +212,11 @@ function main()
         user_callbacks = (),
         check_euclidean_distance = true,
     )
+
+    if with_moisture
+        ρq_tot = MPIStateArrays.getstateview(solver_config.Q, "moisture.ρq_tot")
+        @test minimum(Array(ρq_tot)) >= 0
+    end
 
     @test isapprox(result, FT(1); atol = 1.5e-3)
 end
