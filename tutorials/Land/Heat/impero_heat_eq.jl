@@ -1,83 +1,73 @@
+using Impero
+include("test_utils.jl")
 include("boiler_plate.jl")
 
-using Impero
-
-# ``
-# \frac{∂ T}{∂ t} + ∇ ⋅ (F(α, T, t)) = 0
-# ``
-
-# where
-#  - ``F(α, T, t) = -α ∇T`` is the second-order flux
-###################
-
-# TODO: Sort out field abstractions...
-# Does `Field` _need_ to know about the mesh?
-
-T   = Field(Dict("field_type" => Prognostic(), "name" = "T"))    # Prognostic quantity
-α∇T = Field(Dict("field_type" => Auxiliary(), "name" = "α∇T"))   # Diagnostic/auxiliary quantity
-
-pde_equation = [
-    α∇T   == α * ∇(T), ## auxiliary equation
-    ## RHS argument is gradient state
-    ## LHS is gradient flux state
-    ∂t(T) == ∇⋅(α∇T), ##  Actual PDE / "Balance law"
+@wrapper α=0.1 ρ=10 T=1 ∇T=1
+@pde_system heat_equation = [
+    ∇T = ∂x(T),
+    ∂t(T) = ∂x(α*∇T),
 ]
 
-domain = ... # for LocalGeometry / meshes
-pde_system = PDESystem(pde_equation,
-                       domain;
-                       initial_condition=...,
-                       bcs=...,
-                       metadata=...)
-# vars_state = to_balance_law(model, pde_system, FT)
+#=
 
-# Define the float type (`Float64` or `Float32`)
-FT = Float64;
-# Initialize ClimateMachine for CPU.
-ClimateMachine.init(; disable_gpu = true);
+typeof_balance_law = HeatModel <: BalanceLaw
 
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-
-
-# Create an instance of the `HeatModel`:
-model = HeatModel{FT, typeof(param_set)}(; param_set = param_set);
-# # Spatial discretization
-# Prescribe polynomial order of basis functions in finite elements
-N_poly = 5;
-# Specify the number of vertical elements
-nelem_vert = 10;
-# Specify the domain height
-zmax = FT(1);
-
-# Establish a `ClimateMachine` single stack configuration
-# this can be a from the domain and the pde_system
-driver_config = ClimateMachine.SingleStackConfiguration(
-    "HeatEquation",
-    N_poly,
-    nelem_vert,
-    zmax,
-    param_set,
-    model,
-    periodic = (true, true, true), # move out
-    boundary = ((0,0), (0,0), (0,0)), # move out
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(), # move out
-);
-
-# # Time discretization / solver
-
-# Specify simulation time (SI units)
-t0 = FT(0)
-timeend = FT(40)
-
-given_Fourier = FT(0.7)
-
-solver_config = ClimateMachine.SolverConfiguration(
-    t0,
-    timeend,
-    driver_config;
-    Courant_number = given_Fourier,
-    CFL_direction = VerticalDirection(),
+# ∇T = α * ∂x(sin(T))) pull out the thing in the derivative
+function compute_gradient_argument!(
+    m::typeof_balance_law,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
 )
+    transform.T = sin(state.T)
+end;
 
-# # Solve
-ClimateMachine.invoke!(solver_config);
+# ∇T = α * ∂x(sin(T))) pull out the thing outside the derivative
+function compute_gradient_flux!(
+    m::typeof_balance_law,
+    diffusive::Vars,
+    ∇G::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    diffusive.α∇T = - m.α * ∇G.T
+end;
+
+# ∂t(T) = ∂x(0 + ∇T) + 0 
+# pull out the term with a derivative inside ∂x
+function flux_second_order!(
+    m::typeof_balance_law,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
+    aux::Vars,
+    t::Real,
+)
+    flux.T += diffusive.α∇T
+end;
+
+# ∂t(T) = ∂x(0 + ∇T) + 0 
+# pull out terms outside ∂x
+function source!(m::typeof_balance_law, _...) end;
+# pull out the first order term inside ∂x
+function flux_first_order!(m::typeof_balance_law, _...) end;
+# return nothing now
+function nodal_update_auxiliary_state!(
+    m::typeof_balance_law,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    return nothing
+end;
+=#
+
+expr = heat_equation
+macro my_wonky_macro(expr)
+    prog_symbols = prog_function() # T
+    grad_symbols = grad_function() # prognostic_state.T
+    flux_symbols = flux_function() # α*∇T
+end

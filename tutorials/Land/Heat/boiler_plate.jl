@@ -1,4 +1,5 @@
 using MPI
+using Impero
 using OrderedCollections
 using StaticArrays
 using OrdinaryDiffEq
@@ -77,6 +78,7 @@ vars_state(::HeatModel, ::Gradient, FT) = @vars(∇T::FT);
 # Specify gradient variables for `HeatModel`
 vars_state(::HeatModel, ::GradientFlux, FT) = @vars(α∇T::SVector{3, FT});
 
+=#
 # this part
     α∇T   == α * ∇(T)
 # maps to 
@@ -128,6 +130,7 @@ function nodal_update_auxiliary_state!(
     return nothing
 end;
 
+#=
 ##
 # diffusive courant boiler plate
 # Next, we'll define our implementation of `diffusive_courant`:
