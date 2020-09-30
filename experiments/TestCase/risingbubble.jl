@@ -179,7 +179,7 @@ function main()
         default = false
     end
     cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = rb_args)
-    with_moisture = cl_args["with_moisture"]
+    with_moisture = true#cl_args["with_moisture"]
 
     FT = Float64
     N = 4
