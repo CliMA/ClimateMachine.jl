@@ -104,9 +104,9 @@ version = "0.3.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "043647e66a6effa7473e98a5370faa4deb6dce90"
+git-tree-sha1 = "8cd7b7d1c7f6fcbe7e8743a58adf57788ec7f787"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.17.0"
+version = "3.18.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Libdl", "Pkg"]
@@ -381,10 +381,10 @@ uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.1"
 
 [[KernelAbstractions]]
-deps = ["Adapt", "CUDA", "Cassette", "MacroTools", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "f6cb6b364616117921e3ae84a929e85d23f89145"
+deps = ["Adapt", "CUDA", "Cassette", "InteractiveUtils", "MacroTools", "SpecialFunctions", "StaticArrays"]
+git-tree-sha1 = "e72704468819e9c2759946025373a876b553524c"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.4.1"
+version = "0.4.2"
 
 [[LLVM]]
 deps = ["CEnum", "Libdl", "Printf", "Unicode"]
@@ -489,9 +489,9 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MatrixFactorizations]]
 deps = ["ArrayLayouts", "LinearAlgebra", "Random"]
-git-tree-sha1 = "f609fbed57eede4fd9c8529f59b3d30454f9e5ca"
+git-tree-sha1 = "cf040e1d053a83cde01ea964232e0c35a3dbed54"
 uuid = "a3b82374-2e81-5b9e-98ce-41277c0e4c87"
-version = "0.5.2"
+version = "0.6.0"
 
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
