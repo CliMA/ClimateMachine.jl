@@ -7,4 +7,5 @@ include(joinpath("..", "testhelpers.jl"))
     runmpi(joinpath(@__DIR__, "reductions.jl"))
     runmpi(joinpath(@__DIR__, "reductions.jl"), ntasks = 3)
     runmpi(joinpath(@__DIR__, "varsindex.jl"))
+    runmpi(joinpath(@__DIR__, "reshape.jl"))
 end

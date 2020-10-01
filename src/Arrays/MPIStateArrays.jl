@@ -7,9 +7,13 @@ using LazyArrays
 using LinearAlgebra
 using MPI
 using StaticArrays
+using Adapt
 
 using ..TicToc
 using ..VariableTemplates: @vars, varsindex
+
+include("CMBuffers.jl")
+using .CMBuffers
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
@@ -21,8 +25,6 @@ Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: Array, FT} =
 Base.similar(::Type{A}, ::Type{FT}, dims...) where {A <: CuArray, FT} =
     similar(CuArray{FT}, dims...)
 
-include("CMBuffers.jl")
-using .CMBuffers
 
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
@@ -101,9 +103,9 @@ mutable struct MPIStateArray{
         sendreq = fill(MPI.REQUEST_NULL, nnabr)
         recvreq = fill(MPI.REQUEST_NULL, nnabr)
 
-        # If vmap is not on the device we need to copy it up (we also do not want to
-        # put it up everytime, so if it's already on the device then we do not do
-        # anything).
+        # If vmap is not on the device we need to copy it up (we also do not
+        # want to put it up everytime, so if it's already on the device then we
+        # do not do anything).
         #
         # Better way than checking the type names?
         # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
@@ -242,6 +244,27 @@ function MPIStateArray{FT, V}(
     )
 end
 
+# MPIDestArray is a union of MPIStateArray and all possible wrappers
+@eval const MPIDestArray = Union{
+    MPIStateArray,
+    $(
+        (
+            :($W where {T, N, Dst, Src <: MPIStateArray}) for
+            (W, _) in Adapt._wrappers
+        )...
+    ),
+}
+
+# This creates 2 adaptors for finding the realdata (RealviewAdaptor) and
+# data (RawAdaptor) of an adapted MPIStateArray
+struct RealviewAdaptor end
+Adapt.adapt_storage(to::RealviewAdaptor, arr::MPIStateArray) = arr.realdata
+realview(Q) = adapt(RealviewAdaptor(), Q)
+
+struct RawAdaptor end
+Adapt.adapt_storage(to::RawAdaptor, arr::MPIStateArray) = arr.data
+rawview(Q) = adapt(RawAdaptor(), Q)
+
 # FIXME: should general cases be handled?
 function Base.similar(
     Q::MPIStateArray,
@@ -293,9 +316,17 @@ Base.setindex!(Q::MPIStateArray, x...; kw...) =
 
 Base.eltype(Q::MPIStateArray, x...; kw...) = eltype(Q.data, x...; kw...)
 
-Base.Array(Q::MPIStateArray) = Array(Q.data)
+Base.Array(Q::MPIDestArray) = Array(rawview(Q))
 
-# broadcasting stuff
+Base.fill!(Q::MPIDestArray, x) = fill!(parent(Q), x)
+
+for (W, ctor) in Adapt._wrappers
+    @eval begin
+        BroadcastStyle(::Type{<:$W}) where {T, N, Dst, Src <: MPIDestArray} =
+            BroadcastStyle(Dst)
+    end
+end
+
 
 # find the first MPIStateArray among `bc` arguments
 # based on https://docs.julialang.org/en/v1/manual/interfaces/#Selecting-an-appropriate-output-array-1
@@ -314,37 +345,30 @@ function Base.similar(
 end
 
 # transform all arguments of `bc` from MPIStateArrays to Arrays
+function transform_broadcasted(bc::Broadcasted, dest)
+    transform_broadcasted(bc, rawview(dest))
+end
+
 function transform_broadcasted(bc::Broadcasted, ::Array)
     transform_array(bc)
 end
+
 function transform_array(bc::Broadcasted)
     Broadcasted(bc.f, transform_array.(bc.args), bc.axes)
 end
-transform_array(mpisa::MPIStateArray) = mpisa.realdata
-transform_array(x) = x
+
+transform_array(x) = realview(x)
 
 Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.data)
+Base.copyto!(dest::MPIStateArray, src::Array) = copyto!(dest.data, src)
 
-function Base.copyto!(dest::MPIStateArray, src::MPIStateArray)
-    copyto!(dest.realdata, src.realdata)
+function Base.copyto!(dest::MPIDestArray, src::AbstractArray)
+    copyto!(rawview(dest), src)
     dest
 end
 
-@inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
-    # check for the case a .= b, where b is an array
-    if bc.f === identity && bc.args isa Tuple{AbstractArray}
-        if bc.args isa Tuple{MPIStateArray}
-            realindices = CartesianIndices((
-                axes(dest.data)[1:(end - 1)]...,
-                dest.realelems,
-            ))
-            copyto!(dest.data, realindices, bc.args[1].data, realindices)
-        else
-            copyto!(dest.data, bc.args[1])
-        end
-    else
-        copyto!(dest.realdata, transform_broadcasted(bc, dest.data))
-    end
+function Base.copyto!(dest::MPIDestArray, src::MPIDestArray)
+    copyto!(rawview(dest), rawview(src))
     dest
 end
 
@@ -353,6 +377,16 @@ end
     fill!(S, 0)
     return S
 end
+
+@inline function Base.copyto!(dest::MPIDestArray, bc::Broadcasted{Nothing})
+    copyto!(realview(dest), transform_broadcasted(bc, dest))
+    dest
+end
+
+@inline Base.copyto!(
+    dest::MPIDestArray,
+    bc::Broadcasted{<:Broadcast.AbstractArrayStyle{0}},
+) = copyto!(dest, convert(Broadcasted{Nothing}, bc))
 
 """
     begin_ghost_exchange!(Q::MPIStateArray; dependencies = nothing)
@@ -755,17 +789,21 @@ function Base.mapreduce(
     MPI.Allreduce(cpuify(locreduce), max, Q.mpicomm)
 end
 
-# helpers: `array_device` and `realview`
+# `array_device` is a helper that enable
+# testing ODESolvers and LinearSolvers without using MPIStateArrays
+# They could be potentially useful elsewhere and exported but probably need
+# better names, for example `array_device` is also defined in CUDAdrv
+
 array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDADevice()
-array_device(s::SubArray) = array_device(parent(s))
 array_device(Q::MPIStateArray) = array_device(Q.data)
 array_device(ra::Base.ReshapedArray{T, N, A}) where {T, N, A <: MPIStateArray} =
     array_device(parent(ra))
 
-realview(Q::Union{Array, SArray, MArray}) = Q
-realview(Q::MPIStateArray) = Q.realdata
-realview(Q::CuArray) = Q
+for (W, _) in Adapt._wrappers
+    @eval array_device(wrapper::$W where {T, N, Dst, Src}) =
+        array_device(parent(wrapper))
+end
 
 # transform all arguments of `bc` from MPIStateArrays to CuArrays
 # and replace CPU function with GPU variants
