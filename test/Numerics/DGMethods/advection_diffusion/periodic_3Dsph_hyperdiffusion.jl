@@ -121,20 +121,12 @@ function run(
         )
 
     Q0 = init_ode_state(dg, FT(0))
-    @info "Δ(horz)" dx
-    @info "Δ(vert)" dz
+    @info "Δ(horz) Δ(vert)" (dx, dz)
 
     ϵ = 1e-3
 
     rhs_DGsource = similar(Q0)
     dg(rhs_DGsource, Q0, nothing, 0)
-    # Q_frhs = Q0 .+ ϵ*rhs_DGsource
-    # # timestepper for 1 step
-    # Q_DGlsrk = Q0
-    # dg1 = dg 
-    # lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = ϵ, t0 = 0)
-    # solve!(Q_DGlsrk, lsrk; timeend = ϵ)
-    # @info "DG stepper vs rhs: " norm(Q_frhs-Q_DGlsrk)/norm(Q_frhs) 
 
     # analycal vs analycal
     # analytical solution for Y_{l,m}
@@ -143,18 +135,14 @@ function run(
     # ana ρ(t) + finite diff in time
     rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ 
 
-    @show "ANA" norm(rhs_anal)
-    @show "FD" norm(rhs_FD)
-    @show "DG" norm(rhs_DGsource)
-    @show "ANA vs FD" norm(rhs_anal .- rhs_FD)/norm(rhs_anal)
+    # @show "ANA" norm(rhs_anal)
+    # @show "FD" norm(rhs_FD)
+    # @show "DG" norm(rhs_DGsource)
+    # @show "ANA vs FD" norm(rhs_anal .- rhs_FD)/norm(rhs_anal)
     @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
-    @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
+    # @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
 
-    # @show rhs_anal[1:3,1,1]
-    # @show rhs_DGsource[1:3,1,1]
-
-    # return norm(rhs_DGsource.-rhs_anal)/norm(rhs_anal)
-    return norm(Q0) 
+    return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
 end
 
 get_c(l,r) = l^2*(l+1)^2/r^4
@@ -189,42 +177,33 @@ let
     _a = planet_radius(param_set)
     @info _a
 
-    height = _a * 0.01
-    # height = 30.0e3
+    # height = _a * 0.01
+    height = 30.0e3
 
-    # @testset "$(@__FILE__)" begin
-        for FT in (Float64, )#Float32,)
-            for base_num_elem in (4,8,16)
-                for polynomialorder in (5,)#4,5,6,)
+    @testset "$(@__FILE__)" begin
+        for FT in (Float64, Float32,)
+            for base_num_elem in (8, 12, 15,)
+                # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
+                for (polynomialorder, vert_num_elem) in ((3,8), (4,5), (5,3), (6,2), )
 
-                    for τ in (1,)#4,8,) # time scale for hyperdiffusion
-
-                        vert_num_elem = 1
-                        
+                    for τ in (0.0001,)#4,8,) # time scale for hyperdiffusion
+                 
                         topl = StackedCubedSphereTopology(
                             mpicomm,
                             base_num_elem,
                             grid1d(_a, _a + height, nelem = vert_num_elem)
                         )
 
-                        """ resolution
-                        ┌ Info: Δ(horz)
-                        └   dx = 305681.04904949875
-                        ┌ Info: Δ(vert)
-                        └   dz = 1100.100731955939
-                        """
-
-                        @info (ArrayType, FT, base_num_elem, polynomialorder)
+                        @info "Array FT nhorz nvert poly τ" (ArrayType, FT, base_num_elem, vert_num_elem, polynomialorder, τ)
                         result = run(mpicomm, ArrayType, dim, topl, 
                                     polynomialorder, FT, direction, τ*3600, 5,4 )
-                        # @info "results" result
                             
-                        # @test result < 1e-4
+                        @test result < 5e-2
                     
                     end
                 end
             end
         end
-    # end
+    end
 end
 nothing
