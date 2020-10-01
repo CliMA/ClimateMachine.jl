@@ -84,8 +84,8 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
 
 
   groupsize = 256
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
          offset1,
          Val(iStage),
          map(realview, fYnj[1:iStage]),
@@ -95,11 +95,11 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          ndrange = length(offset1),
          dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
 
   rhs!(dQ, Q, p, time, increment = false)
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
          dQa,
          Qa,
          dτ/2,
@@ -108,7 +108,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          ndrange = length(Qa),
          dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
   Q.realdata[:,sv.mask_a,:].=Qa
 
   τ += dτ/dTime;
@@ -119,8 +119,8 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
     offset0a = realview(offset0[:,sv.mask_a,:]);
     offset0b = realview(offset0[:,sv.mask_b,:]);
 
-    event = Event(device(Q))
-    event = update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = update!(array_device(Q), groupsize)(
            offset1,
            Val(iStage),
            map(realview, fYnj[1:iStage]),
@@ -130,11 +130,11 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
            ndrange = length(offset1),
            dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
 
     rhs!(dQ, Q, p, time, increment = false)
-    event = Event(device(Q))
-    event = update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = update!(array_device(Q), groupsize)(
            dQb,
            Qb,
            dτ,
@@ -143,12 +143,12 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
            ndrange = length(Qb),
            dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
     Q.realdata[:,sv.mask_b,:].=Qb
 
     rhs!(dQ, Q, p, time, increment = false) #increment = true? damit auf dQ draufaddiert
-    event = Event(device(Q))
-    event = update!(device(Q), groupsize)(
+    event = Event(array_device(Q))
+    event = update!(array_device(Q), groupsize)(
            dQa,
            Qa,
            dτ,
@@ -157,7 +157,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
            ndrange = length(Qa),
            dependencies = (event,),
     )
-    wait(device(Q), event)
+    wait(array_device(Q), event)
     Q.realdata[:,sv.mask_a,:].=Qa
 
     τ += dτ/dTime
@@ -171,8 +171,8 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
   offset0a = realview(offset0[:,sv.mask_a,:]);
   offset0b = realview(offset0[:,sv.mask_b,:]);
 
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
          offset1,
          Val(iStage),
          map(realview, fYnj[1:iStage]),
@@ -182,11 +182,11 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          ndrange = length(offset1),
          dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
 
   rhs!(dQ, Q, p, time, increment = false)
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
          dQb,
          Qb,
          dτ,
@@ -195,12 +195,12 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          ndrange = length(Qb),
          dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
   Q.realdata[:,sv.mask_b,:].=Qb
 
   rhs!(dQ, Q, p, time, increment = false)
-  event = Event(device(Q))
-  event = update!(device(Q), groupsize)(
+  event = Event(array_device(Q))
+  event = update!(array_device(Q), groupsize)(
          dQa,
          Qa,
          dτ/2,
@@ -209,7 +209,7 @@ function dostep!(Q, sv::StormerVerletETD, p, time::Real,
          ndrange = length(Qa),
          dependencies = (event,),
   )
-  wait(device(Q), event)
+  wait(array_device(Q), event)
   Q.realdata[:,sv.mask_a,:].=Qa
 
   if slow_rka !== nothing
