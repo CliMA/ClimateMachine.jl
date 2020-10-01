@@ -6,6 +6,7 @@ using StaticArrays
 using ...SystemSolvers
 using ...MPIStateArrays: array_device, realview
 using ...GenericCallbacks
+#using Printf
 
 using ...ODESolvers:
     AbstractODESolver, LowStorageRungeKutta3N, update!, updatedt!, getdt
@@ -122,6 +123,7 @@ function dostep!(
     for s in 1:nStages
         # Current slow state time
         slow_stage_time = time + rkC[s] * slow_dt
+        # @printf("-- main dostep! stage s=%3i , t= %10.2f\n",s,slow_stage_time)
 
         # Initialize fast model and set time-step and number of substeps we need
         fast_steps = [0 0 0]
@@ -195,6 +197,7 @@ function dostep!(
 
         for substep in 1:nsubsteps
             fast_time = time + fast_time_rec[3] + (substep - 1) * fast_dt
+            # @printf("-- main dostep! substep=%3i , t= %10.2f\n",substep,fast_time)
             dostep!(Qfast, fast, param, fast_time)
 
             # cumulate fast solution
