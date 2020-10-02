@@ -125,17 +125,17 @@ Base.@kwdef struct CarbonModel{FT, APS} <: BalanceLaw
     "Initial passive SOC (soil) (g carbon/m^2)"
     PSOC_init::FT = 71000.0
     "Net primary production (g carbon/m^2/yr)"
-    NPP::FT = 295.15/(365*24*3600/100)
+    NPP::FT = 295.15#/(365*3600/100)
     "k_1 (g C/yr)"
-    k_1::FT = (1/0.2)/(365*24*3600/100)#0.28 0.32
+    k_1::FT = (1/0.2)#/(365*3600/100)#0.28 0.32
     "k_2 (g C/yr)"
-    k_2::FT = (1/3.9)/(365*24*3600/100)#15.0 3.9
+    k_2::FT = (1/3.9)#/(365*3600/100)#15.0 3.9
     "k_3 (g C/yr)"
-    k_3::FT = (1/0.42)/(365*24*3600/100)#0.48 0.42
+    k_3::FT = (1/0.42)#/(365*3600/100)#0.48 0.42
     "k_4 (g C/yr)"
-    k_4::FT = (1/70.5)/(365*24*3600/100)#500  70.5
+    k_4::FT = (1/70.5)#/(365*3600/100)#500  70.5
     "k_5 (g C/yr)"
-    k_5::FT = (1/1200)/(365*24*3600/100)#7200
+    k_5::FT = (1/1200)#/(365*3600/100)#7200
     "carbon flow from fine litter to fast SOC (1/yr)"
     a_31::FT = 0.55
     "carbon flow from structural litter to fast SOC (1/yr)"
@@ -408,7 +408,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Specify simulation time (SI units)
 t0 = FT(0)
-timeend = FT(1000)
+timeend = FT(10000)
 #dt = FT(10)
 
 # In this section, we initialize the state vector and allocate memory for
