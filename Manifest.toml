@@ -81,9 +81,9 @@ version = "0.3.3"
 
 [[ChainRulesCore]]
 deps = ["LinearAlgebra", "MuladdMacro"]
-git-tree-sha1 = "ac64a416997ae87eb86550020d0607ff608253d1"
+git-tree-sha1 = "9abb94a911c36efeca17b7255f63160787d8822e"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "0.9.10"
+version = "0.9.11"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -199,9 +199,9 @@ version = "1.0.1"
 
 [[Distances]]
 deps = ["LinearAlgebra", "Statistics"]
-git-tree-sha1 = "bed62cc5afcff16de797a9f38fb358b74071f785"
+git-tree-sha1 = "ac95c9cb69a901e8cedcfe736f792eb06240771a"
 uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.9.0"
+version = "0.9.1"
 
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -370,9 +370,9 @@ version = "1.0.0"
 
 [[JLD2]]
 deps = ["CodecZlib", "DataStructures", "MacroTools", "Mmap", "Pkg", "Printf", "Requires", "UUIDs"]
-git-tree-sha1 = "7c0ca2c795e5f641f3ef90d57be300cf6ec2b893"
+git-tree-sha1 = "d71a4c4adfc1ec8e2b988b19d5800668b038aa89"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.2.1"
+version = "0.2.2"
 
 [[JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
@@ -798,9 +798,9 @@ version = "1.0.0"
 
 [[Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
-git-tree-sha1 = "b7f762e9820b7fab47544c36f26f54ac59cf8abf"
+git-tree-sha1 = "24a584cf65e2cfabdadc21694fb69d2e74c82b44"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.0.5"
+version = "1.1.0"
 
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
