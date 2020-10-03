@@ -120,6 +120,7 @@ function dostep!(
     rkW = slow.RKW
     nStages = length(rkC)
 
+    rv_dR .= -0
     for s in 1:nStages
         # Current slow state time
         slow_stage_time = time + rkC[s] * slow_dt
