@@ -1,9 +1,9 @@
 # # Solving the heat equation in soil
 
 # This tutorial shows how to use CliMA code to solve the heat
-# equation in soil. 
+# equation in soil.
 # For background on the heat equation in general,
-# and how to solve it using CliMA code, please see the 
+# and how to solve it using CliMA code, please see the
 # [`heat_equation.jl`](../../Heat/heat_equation.md)
 # tutorial.
 
@@ -298,7 +298,7 @@ function init_soil!(land, state, aux, coordinates, time)
 end;
 
 
-# # Create the model structure                                        
+# # Create the model structure
 soil_water_model = PrescribedWaterModel(
     (aux, t) -> prescribed_augmented_liquid_fraction,
     (aux, t) -> prescribed_volumetric_ice_fraction,
@@ -438,7 +438,7 @@ ClimateMachine.invoke!(solver_config);
 aux = solver_config.dg.state_auxiliary;
 
 
-# Specify interpolation grid: 
+# Specify interpolation grid:
 zres = FT(0.02)
 boundaries = [
     FT(0) FT(0) zmin

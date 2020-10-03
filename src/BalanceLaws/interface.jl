@@ -1,22 +1,62 @@
 #### Balance Law Interface
-
 """
-    BalanceLaw
+    abstract type BalanceLaw end
 
 An abstract type representing a PDE balance law of the form:
 
 ```math
-q_{,t} + Σ_{i=1,...d} F_{i,i} = s
+\\frac{dq}{dt} = \\nabla \\cdot F_1(q, a, t) + \\nabla \\cdot F_2(q, \\nabla g, h, a, t) + S(q, \\nabla g, a, t)
 ```
+where:
+- ``q`` is the prognostic state,
+- ``a`` is the auxiliary state,
+- ``g = G(q, a, t)`` is the gradient state (variables of which we compute the
+  gradient),
+- ``h`` is the hyperdiffusive state.
 
-Subtypes `L` should define the methods below.
+Subtypes of `BalanceLaw` should define the following interfaces:
+- [`vars_state`](@ref) to define the prognostic, auxiliary and intermediate
+  variables.
+- [`flux_first_order!`](@ref) to compute ``F_1``
+- [`flux_second_order!`](@ref) to compute ``F_2``
+- [`source!`](@ref) to compute ``S``
+
+If `vars(bl, ::GradientFlux, FT)` is non-empty, then the following should be
+defined:
+- [`compute_gradient_argument!`](@ref) to compute ``G``
+- [`compute_gradient_flux!`](@ref) is a linear transformation of ``\\nabla g``
+
+If `vars(bl, ::Hyperdiffusive, FT)` is non-empty, then the following should be
+defined:
+- [`transform_post_gradient_laplacian!`](@ref)
+
+Additional functions:
+- [`wavespeed`](@ref) if using the Rusanov numerical flux.
+- [`boundary_state!`](@ref) if using non-periodic boundary conditions.
 """
-abstract type BalanceLaw end # PDE part
+abstract type BalanceLaw end
 
 """
-    vars_state(::L, ::AbstractStateType, FT)
+    BalanceLaws.vars_state(::BL, ::AbstractStateType, FT)
 
-A tuple of symbols containing the state variables given a float type `FT`.
+Defines the state variables of a [`BalanceLaw`](@ref) subtype `BL` with floating
+point type `FT`.
+
+For each [`AbstractStateType`](@ref), this should return a `NamedTuple` type,
+with element type either `FT`, an `SArray` with element type `FT` or another
+`NamedTuple` satisfying the same property.
+
+For convenience, we recommend using the [`VariableTemplates.@vars`](@ref) macro.
+
+# Example
+```julia
+struct MyBalanceLaw <: BalanceLaw end
+
+BalanceLaws.vars_state(::MyBalanceLaw, ::Prognostic, FT) =
+    @vars(x::FT, y::SVector{3, FT})
+BalanceLaws.vars_state(::MyBalanceLaw, ::Auxiliary, FT) =
+    @vars(components::@vars(a::FT, b::FT))
+```
 """
 function vars_state end
 
@@ -25,53 +65,74 @@ vars_state(::BalanceLaw, ::AbstractStateType, FT) = @vars()
 
 """
     init_state_prognostic!(
-        ::L,
+        ::BL,
         state_prognostic::Vars,
         state_auxiliary::Vars,
         coords,
         args...,
     )
 
-Initialize the prognostic state variables at ``t = 0``.
+Sets the initial state of the prognostic variables `state_prognostic` at each
+node for a [`BalanceLaw`](@ref) subtype `BL`.
 """
 function init_state_prognostic! end
 
+# TODO: make these functions consistent with init_state_prognostic!
+"""
+    nodal_init_state_auxiliary!(::BL, state_auxiliary, state_temporary, geom)
+
+Sets the initial state of the auxiliary variables `state_auxiliary` at each
+node for a [`BalanceLaw`](@ref) subtype `BL`.
+
+See also [`init_state_auxiliary!`](@ref).
+"""
+function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom)
+end
+
+
 """
     init_state_auxiliary!(
-        ::L,
-        state_auxiliary::Vars,
+        ::BL,
+        statearray_auxiliary,
         geom::LocalGeometry,
     )
 
-Initialize the auxiliary state, at ``t = 0``.
+Sets the initial state of the auxiliary variables `state_auxiliary` at each node
+for a [`BalanceLaw`](@ref) subtype `BL`. By default this calls
+[`nodal_init_state_auxiliary!`](@ref).
 """
-function init_state_auxiliary! end
-
-"""
-    nodal_init_state_auxiliary!()
-
-Nodal initialization the auxiliary state variables at ``t = 0``
-"""
-function nodal_init_state_auxiliary! end
-
+function init_state_auxiliary!(
+    balance_law::BalanceLaw,
+    statearray_auxiliary,
+    grid,
+    direction,
+)
+    init_state_auxiliary!(
+        balance_law,
+        nodal_init_state_auxiliary!,
+        statearray_auxiliary,
+        grid,
+        direction,
+    )
+end
 
 """
     flux_first_order!(
-        ::L,
+        ::BL,
         flux::Grad,
         state_prognostic::Vars,
         state_auxiliary::Vars,
         t::Real,
-        directions
+        direction
     )
 
-Compute first-order flux terms in balance law equation.
+Sets the first-order (hyperbolic) `flux` terms for a [`BalanceLaw`](@ref) subtype `BL`.
 """
 function flux_first_order! end
 
 """
     flux_second_order!(
-        ::L,
+        ::BL,
         flux::Grad,
         state_prognostic::Vars,
         state_gradient_flux::Vars,
@@ -80,13 +141,13 @@ function flux_first_order! end
         t::Real
     )
 
-Compute second-order flux terms in balance law equation.
+Sets second-order (parabolic) `flux` terms for a [`BalanceLaw`](@ref) subtype `BL`.
 """
 function flux_second_order! end
 
 """
     source!(
-        ::L,
+        ::BL,
         source::Vars,
         state_prognostic::Vars,
         diffusive::Vars,
@@ -94,53 +155,57 @@ function flux_second_order! end
         t::Real
     )
 
-Compute non-conservative source terms in balance law equation.
+Compute non-conservative source terms for a [`BalanceLaw`](@ref) subtype `BL`.
 """
 function source! end
 
 """
     compute_gradient_argument!(
-        ::L,
+        ::BL,
         transformstate::Vars,
         state_prognostic::Vars,
         state_auxiliary::Vars,
         t::Real
     )
 
-Transformation of state variables to variables of which gradients are
-computed.
+Transformation of state variables `state_prognostic` to variables
+`transformstate` of which gradients are computed for a [`BalanceLaw`](@ref)
+subtype `BL`.
 """
-compute_gradient_argument!(::BalanceLaw, args...) = nothing
+function compute_gradient_argument! end
 
 """
     compute_gradient_flux!(
-        ::L,
+        ::BL,
         state_gradient_flux::Vars,
         ∇transformstate::Grad,
         state_auxiliary::Vars,
         t::Real
     )
 
-Transformation of gradients to the diffusive variables.
+Transformation of gradients to the diffusive variables for a
+[`BalanceLaw`](@ref) subtype `BL`. This should be a linear function of
+`∇transformstate`
 """
-compute_gradient_flux!(::BalanceLaw, args...) = nothing
+function compute_gradient_flux! end
 
 """
     transform_post_gradient_laplacian!(
-        ::L,
+        ::BL,
         Qhypervisc_div::Vars,
         ∇Δtransformstate::Grad,
         state_auxiliary::Vars,
         t::Real
     )
 
-Transformation of Laplacian gradients to the hyperdiffusive variables.
+Transformation of Laplacian gradients to the hyperdiffusive variables for a
+[`BalanceLaw`](@ref) subtype `BL`.
 """
 function transform_post_gradient_laplacian! end
 
 """
     wavespeed(
-        ::L,
+        ::BL,
         n⁻,
         state_prognostic::Vars,
         state_auxiliary::Vars,
@@ -148,7 +213,8 @@ function transform_post_gradient_laplacian! end
         direction
     )
 
-Wavespeed.
+Wavespeed in the direction `n⁻` for a [`BalanceLaw`](@ref) subtype `BL`. This is
+required to be defined if using a `RusanovNumericalFlux` numerical flux.
 """
 function wavespeed end
 
@@ -202,43 +268,84 @@ function boundary_state! end
     update_auxiliary_state!(
         dg::DGModel,
         m::BalanceLaw,
-        Q::MPIStateArray,
+        statearray_aux,
         t::Real,
         elems::UnitRange,
+        [diffusive=false]
     )
 
-Update the auxiliary state variables with global scope.
+Hook to update the auxiliary state variables before calling any other functions.
+
+By default, this calls [`nodal_update_auxiliary_state!`](@ref) at each node.
+
+If `diffusive=true`, then `state_gradflux` is also passed to
+`nodal_update_auxiliary_state!`.
 """
-function update_auxiliary_state! end
+function update_auxiliary_state!(
+    dg,
+    balance_law::BalanceLaw,
+    state_prognostic,
+    t,
+    elems,
+    diffusive = false,
+)
+    update_auxiliary_state!(
+        nodal_update_auxiliary_state!,
+        dg,
+        balance_law,
+        state_prognostic,
+        t,
+        elems;
+        diffusive = diffusive,
+    )
+end
 
 """
-    nodal_update_auxiliary_state!()
+    nodal_update_auxiliary_state!(::BL, state_prognostic, state_auxiliary, [state_gradflux,] t)
 
-Update the auxiliary state variables at each location in space.
+Update the auxiliary state variables at each node for a [`BalanceLaw`](@ref)
+subtype `BL`. By default it does nothing.
+
+Called by [`update_auxiliary_state!`](@ref).
 """
-function nodal_update_auxiliary_state! end
+function nodal_update_auxiliary_state!(args...)
+    nothing
+end
 
 """
-    update_auxiliary_state_gradient!
+    update_auxiliary_state_gradient!(
+        dg::DGModel,
+        m::BalanceLaw,
+        statearray_aux,
+        t::Real,
+        elems::UnitRange,
+        [diffusive=false]
+    )
 
+Hook to update the auxiliary state variables after the gradient computation.
 
-Update the auxiliary state gradient variables.
+By default, this calls nothing.
+
+If `diffusive=true`, then `state_gradflux` is also passed to
+`nodal_update_auxiliary_state!`.
 """
 function update_auxiliary_state_gradient! end
 
+# upward integrals
 """
-    integral_load_auxiliary_state!
+    integral_load_auxiliary_state!(::BL, integrand, state_prognostic, state_aux)
 
-Specify how to compute integrands. Can be functions of the prognostic
-state and auxiliary variables.
+Specify variables `integrand` which will have their upward integrals computed.
+
+See also [`UpwardIntegrals`](@ref)
 """
 function integral_load_auxiliary_state! end
 
 """
-    integral_set_auxiliary_state!
+    integral_set_auxiliary_state!(::BL, state_aux, integral)
 
-Specify which auxiliary variables are used to store the output of the
-integrals.
+Update auxiliary variables based on the upward integral `integral` defined in
+[`integral_load_auxiliary_state!`](@ref).
 """
 function integral_set_auxiliary_state! end
 
@@ -249,18 +356,21 @@ Compute indefinite integral along stack.
 """
 function indefinite_stack_integral! end
 
+# downward integrals
 """
-    reverse_integral_load_auxiliary_state!
+    reverse_integral_load_auxiliary_state!(::BL, integrand, state_prognostic, state_aux)
 
-Specify auxiliary variables need their integrals reversed.
+Specify variables `integrand` which will have their downward integrals computed.
+
+See also [`DownwardIntegrals`](@ref)
 """
 function reverse_integral_load_auxiliary_state! end
 
 """
-    reverse_integral_set_auxiliary_state!
+    reverse_integral_set_auxiliary_state!(::BL, state_aux, integral)
 
-Specify which auxiliary variables are used to store the output of the
-reversed integrals.
+Update auxiliary variables based on the downward integral `integral` defined in
+[`reverse_integral_load_auxiliary_state!`](@ref).
 """
 function reverse_integral_set_auxiliary_state! end
 

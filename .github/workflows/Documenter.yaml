@@ -8,6 +8,12 @@ on:
       - staging
     tags: '*'
   pull_request:
+    paths:
+      - 'docs/**'
+      - 'tutorials/**'
+      - 'src/**'
+      - 'Project.toml'
+      - 'Manifest.toml'
 
 jobs:
   docs-build:

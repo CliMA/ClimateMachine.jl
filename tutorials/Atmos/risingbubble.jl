@@ -94,7 +94,7 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
-# ## [Initial Conditions](@id init)
+# ## [Initial Conditions](@id init-rtb)
 # This example demonstrates the use of functions defined
 # in the [`Thermodynamics`](@ref ClimateMachine.Thermodynamics) package to
 # generate the appropriate initial state for our problem.

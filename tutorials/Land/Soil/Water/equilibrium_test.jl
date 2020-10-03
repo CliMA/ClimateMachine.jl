@@ -239,7 +239,7 @@ all_data[n_outputs] = all_vars
 t = [all_data[k]["t"] for k in 0:n_outputs]
 
 
-# # Create some plots. 
+# # Create some plots.
 slope = -1e-3
 
 # The initial state.
