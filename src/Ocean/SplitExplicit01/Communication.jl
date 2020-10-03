@@ -57,10 +57,10 @@ using Printf
     #  Warning: only works with few RK-scheme such as LS3NRK33Heuns 
     fast_steps[2] *= steps
     if s == 1 ; fast_steps[2] = round(Int, ntsFull*rkW[1] ) ; end
-      @printf("Update @ s= %i : frac_dt = %.6f , dt_fast = %.1f , steps= %i , add= %i\n",
-               s, fract_dt, fast_time_rec[1], steps, add)
-      println(" fast_time_rec = ",fast_time_rec)
-      println(" fast_steps = ",fast_steps)
+    # @printf("Update @ s= %i : frac_dt = %.6f , dt_fast = %.1f , steps= %i , add= %i\n",
+    #          s, fract_dt, fast_time_rec[1], steps, add)
+    # println(" fast_time_rec = ",fast_time_rec)
+    # println(" fast_steps = ",fast_steps)
 
     # set starting point for fast-state solution
     #  Warning: only works with few RK-scheme such as LS3NRK33Heuns 
@@ -255,9 +255,9 @@ end
     ## get time weighted averaged out of cumulative arrays
     dgFast.state_auxiliary.U_c .*= 1 / fast_time_rec[2]
     dgFast.state_auxiliary.η_c .*= 1 / fast_time_rec[2]
-      @printf(" reconcile_from_fast_to_slow! @ s= %i : time_Count = %6.3f\n",
-               0, fast_time_rec[2])
-    #          s, fast_time_rec[2])
+    # @printf(" reconcile_from_fast_to_slow! @ s= %i : time_Count = %6.3f\n",
+    #          0, fast_time_rec[2])
+    #   #      s, fast_time_rec[2])
 
     ## Compute: \int_{-H}^{0} u_slow
 
