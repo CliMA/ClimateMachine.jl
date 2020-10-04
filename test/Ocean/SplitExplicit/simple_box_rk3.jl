@@ -37,9 +37,7 @@ import ClimateMachine.Ocean.SplitExplicit01:
     OceanSurfaceNoStressNoForcing,
     OceanSurfaceStressNoForcing,
     OceanSurfaceNoStressForcing,
-    OceanSurfaceStressForcing,
-    velocity_flux,
-    temperature_flux
+    OceanSurfaceStressForcing
 import ClimateMachine.DGMethods:
     update_auxiliary_state!, update_auxiliary_state_gradient!, VerticalDirection
 # using GPUifyLoops
@@ -88,14 +86,6 @@ end
     x...,
 )
     return ocean_boundary_state!(m, CoastlineNoSlip(), x...)
-end
-
-@inline velocity_flux(p::AbstractOceanProblem, y, ρ) =
-    -(p.τₒ / ρ) * cos(y * π / p.Lʸ)
-
-@inline function temperature_flux(p::AbstractOceanProblem, y, θ)
-    θʳ = p.θᴱ * (1 - y / p.Lʸ)
-    return p.λʳ * (θʳ - θ)
 end
 
 function ocean_init_state!(p::SimpleBox, Q, A, coords, t)
@@ -365,10 +355,9 @@ function main(; restart = 0)
     end
 
     ## Check results against reference if present
-#   checkRefVals = true
-    checkRefVals = false
+    checkRefVals = true
     if checkRefVals
-        include("../refvals/simple_3it_ivd_refvals.jl")
+        include("../refvals/simple_box_rk3_refvals.jl")
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
@@ -513,12 +502,12 @@ end
 FT = Float64
 vtkpath = "vtk_split"
 
-#const runTime = 5 * 24 * 3600 # s
-#const t_outp = 2  * 3600 # s
-#const t_chkp = runTime  # s
- const runTime = 2 * 3600 # s
- const t_outp = 2 * 3600 # s
- const t_chkp = 0
+const runTime = 3 * 24 * 3600 # s
+const t_outp = 24 * 3600 # s
+const t_chkp = runTime  # s
+#const runTime = 6 * 3600 # s
+#const t_outp = 6 * 3600 # s
+#const t_chkp = 0
 const ntFrq_SC = 1 # frequency (in time-step) for State-Check output
 
 const N = 4
@@ -547,9 +536,10 @@ add_fast_substeps = 3
 numImplSteps = 5
 
 #const τₒ = 2e-1  # (Pa = N/m^2)
+#const λʳ = 20 // 86400 # m/s
 # since we are using old BC (with factor of 2), take only half:
 const τₒ = 1e-1
-const λʳ = 10 // 86400 # m/s
+const λʳ = 10 // 86400
 const θᴱ = 10    # deg.C
 
 main(restart = 0)
