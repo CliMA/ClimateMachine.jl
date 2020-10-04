@@ -45,7 +45,9 @@ import ClimateMachine.BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_condition,
     boundary_state!,
+    boundary_flux_second_order!,
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
@@ -63,19 +65,14 @@ import ClimateMachine.DGMethods:
     LocalGeometry, lengthscale, resolutionmetric, DGModel
 
 import ..DGMethods.NumericalFluxes:
-    boundary_state!,
-    boundary_flux_second_order!,
-    normal_boundary_flux_second_order!,
     NumericalFluxFirstOrder,
     NumericalFluxGradient,
     NumericalFluxSecondOrder,
-    CentralNumericalFluxHigherOrder,
-    CentralNumericalFluxDivergence,
-    CentralNumericalFluxFirstOrder,
-    numerical_flux_first_order!,
-    NumericalFluxFirstOrder
-using ..DGMethods.NumericalFluxes:
-    RoeNumericalFlux, HLLCNumericalFlux, RusanovNumericalFlux
+    DivNumericalPenalty,
+    GradNumericalFlux,
+    RoeNumericalFlux,
+    HLLCNumericalFlux,
+    RusanovNumericalFlux
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
@@ -618,11 +615,19 @@ function nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 )
-    atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
-    atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
-    atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
-    turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
-    turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
+    try
+        atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
+        atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
+        atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
+        turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
+        turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
+    catch e
+        @show aux.coord
+        @show state
+        @show aux
+        @show t
+        rethrow(e)
+    end
 end
 
 function integral_load_auxiliary_state!(

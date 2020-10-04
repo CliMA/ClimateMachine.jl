@@ -1,5 +1,5 @@
-abstract type MomentumBC end
-abstract type MomentumDragBC end
+abstract type MomentumBC <: BoundaryCondition end
+abstract type MomentumDragBC <: BoundaryCondition end
 
 """
     Impenetrable(drag::MomentumDragBC) :: MomentumBC
@@ -19,45 +19,34 @@ No surface drag on momentum parallel to the boundary.
 """
 struct FreeSlip <: MomentumDragBC end
 
-
-
-function atmos_momentum_boundary_state!(
+function boundary_state!(
     nf::NumericalFluxFirstOrder,
     bc_momentum::Impenetrable{FreeSlip},
-    atmos,
+    atmos::AtmosModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
     state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
 end
-function atmos_momentum_boundary_state!(
+function boundary_state!(
     nf::NumericalFluxGradient,
     bc_momentum::Impenetrable{FreeSlip},
-    atmos,
+    atmos::AtmosModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
     state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
 end
-function atmos_momentum_normal_boundary_flux_second_order!(
-    nf,
-    bc_momentum::Impenetrable{FreeSlip},
-    atmos,
-    args...,
-) end
-
 
 
 """
@@ -67,42 +56,34 @@ Zero momentum at the boundary.
 """
 struct NoSlip <: MomentumDragBC end
 
-function atmos_momentum_boundary_state!(
+function boundary_state!(
     nf::NumericalFluxFirstOrder,
     bc_momentum::Impenetrable{NoSlip},
-    atmos,
+    atmos::AtmosModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
     state⁺.ρu = -state⁻.ρu
 end
-function atmos_momentum_boundary_state!(
+function boundary_state!(
     nf::NumericalFluxGradient,
     bc_momentum::Impenetrable{NoSlip},
-    atmos,
+    atmos::AtmosModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
     state⁺.ρu = zero(state⁺.ρu)
 end
-function atmos_momentum_normal_boundary_flux_second_order!(
-    nf,
-    bc_momentum::Impenetrable{NoSlip},
-    atmos,
-    args...,
-) end
 
 
 """
@@ -116,38 +97,24 @@ parallel to the boundary.
 struct DragLaw{FN} <: MomentumDragBC
     fn::FN
 end
-function atmos_momentum_boundary_state!(
+function boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     bc_momentum::Impenetrable{DL},
-    atmos,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    bctype,
-    t,
+    atmos::AtmosModel,
     args...,
 ) where {DL <: DragLaw}
-    atmos_momentum_boundary_state!(
+    boundary_state!(
         nf,
         Impenetrable(FreeSlip()),
         atmos,
-        state⁺,
-        aux⁺,
-        n,
-        state⁻,
-        aux⁻,
-        bctype,
-        t,
         args...,
     )
 end
-function atmos_momentum_normal_boundary_flux_second_order!(
+function boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{DL},
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n,
     state⁻,
     diffusive⁻,
@@ -157,7 +124,6 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     diffusive⁺,
     hyperdiffusive⁺,
     aux⁺,
-    bctype,
     t,
     state_int⁻,
     diffusive_int⁻,

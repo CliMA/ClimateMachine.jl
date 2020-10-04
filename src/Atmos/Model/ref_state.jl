@@ -161,7 +161,12 @@ function flux_first_order!(
 end
 flux_second_order!(::PressureGradientModel, _...) = nothing
 source!(::PressureGradientModel, _...) = nothing
-boundary_state!(nf, ::PressureGradientModel, _...) = nothing
+
+struct PressureGradientBC <: BoundaryCondition
+end
+
+boundary_condition(::PressureGradientModel) = PressureGradientBC()
+boundary_state!(nf, ::PressureGradientBC, ::PressureGradientModel, _...) = nothing
 
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
 function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)

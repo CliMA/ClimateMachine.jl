@@ -1,4 +1,4 @@
-abstract type MoistureBC end
+abstract type MoistureBC <: BoundaryCondition end
 
 """
     Impermeable() :: MoistureBC
@@ -6,19 +6,6 @@ abstract type MoistureBC end
 No moisture flux.
 """
 struct Impermeable <: MoistureBC end
-function atmos_moisture_boundary_state!(
-    nf,
-    bc_moisture::Impermeable,
-    atmos,
-    args...,
-) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
-    bc_moisture::Impermeable,
-    atmos,
-    args...,
-) end
-
 
 """
     PrescribedMoistureFlux(fn) :: MoistureBC
@@ -29,17 +16,12 @@ with signature `fn(state, aux, t)`, returning the flux (in kg/m^2).
 struct PrescribedMoistureFlux{FN} <: MoistureBC
     fn::FN
 end
-function atmos_moisture_boundary_state!(
+
+function boundary_flux_second_order!(
     nf,
     bc_moisture::PrescribedMoistureFlux,
-    atmos,
-    args...,
-) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
-    bc_moisture::PrescribedMoistureFlux,
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n⁻,
     state⁻,
     diffusive⁻,
@@ -49,7 +31,6 @@ function atmos_moisture_normal_boundary_flux_second_order!(
     diffusive⁺,
     hyperdiffusive⁺,
     aux⁺,
-    bctype,
     t,
     args...,
 )
@@ -75,27 +56,21 @@ struct BulkFormulaMoisture{FNX, FNM} <: MoistureBC
     fn_C_q::FNX
     fn_q_tot::FNM
 end
-function atmos_moisture_boundary_state!(
+
+function boundary_flux_second_order!(
     nf,
     bc_moisture::BulkFormulaMoisture,
-    atmos,
-    args...,
-) end
-function atmos_moisture_normal_boundary_flux_second_order!(
-    nf,
-    bc_moisture::BulkFormulaMoisture,
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    bctype,
+    state_sfc⁻,
+    diff_sfc⁻,
+    hyperdiff_sfc⁻,
+    aux_sfc⁻,
+    state_sfc⁺,
+    diff_sfc⁺,
+    hyperdiff_sfc⁺,
+    aux_sfc⁺,
     t,
     state_int⁻,
     diffusive_int⁻,
@@ -112,7 +87,8 @@ function atmos_moisture_normal_boundary_flux_second_order!(
     # TODO: use the correct density at the surface
     ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards
-    fluxᵀn.moisture.ρq_tot -= C_q * ρ_avg * normu_int⁻_tan * (q_tot - q_tot_int)
-    fluxᵀn.ρ -= C_q * ρ_avg * normu_int⁻_tan * (q_tot - q_tot_int)
-    fluxᵀn.ρu -= C_q * normu_int⁻_tan * (q_tot - q_tot_int) .* state_int⁻.ρu
+    D = C_q * normu_int⁻_tan * (q_tot - q_tot_int)
+    fluxᵀn.moisture.ρq_tot -= ρ_avg * D
+    fluxᵀn.ρ -= ρ_avg * D
+    fluxᵀn.ρu -= D .* state_int⁻.ρu
 end

@@ -1,4 +1,4 @@
-abstract type EnergyBC end
+abstract type EnergyBC <: BoundaryCondition end
 
 using ..TurbulenceClosures
 
@@ -8,13 +8,6 @@ using ..TurbulenceClosures
 No energy flux across the boundary.
 """
 struct Insulating <: EnergyBC end
-function atmos_energy_boundary_state!(nf, bc_energy::Insulating, atmos, args...) end
-function atmos_energy_normal_boundary_flux_second_order!(
-    nf,
-    bc_energy::Insulating,
-    atmos,
-    args...,
-) end
 
 
 """
@@ -26,16 +19,15 @@ Prescribe the temperature at the boundary by `fn`, a function with signature
 struct PrescribedTemperature{FN} <: EnergyBC
     fn::FN
 end
-function atmos_energy_boundary_state!(
+function boundary_state!(
     nf,
     bc_energy::PrescribedTemperature,
-    atmos,
+    atmos::AtmosModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )
@@ -48,32 +40,6 @@ function atmos_energy_boundary_state!(
     state⁺.ρe =
         E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
 end
-function atmos_energy_normal_boundary_flux_second_order!(
-    nf,
-    bc_energy::PrescribedTemperature,
-    atmos,
-    fluxᵀn,
-    n⁻,
-    state⁻,
-    diffusive⁻,
-    hyperdiffusive⁻,
-    aux⁻,
-    state⁺,
-    diffusive⁺,
-    hyperdiffusive⁺,
-    aux⁺,
-    bctype,
-    t,
-    args...,
-)
-
-    # TODO: figure out a better way...
-    ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
-    d_h_tot = -D_t .* diffusive⁻.∇h_tot
-    nd_h_tot = dot(n⁻, d_h_tot)
-    # both sides involve projections of normals, so signs are consistent
-    fluxᵀn.ρe += nd_h_tot * state⁻.ρ
-end
 
 
 """
@@ -85,17 +51,12 @@ with signature `fn(state, aux, t)`, returning the flux (in W/m^2).
 struct PrescribedEnergyFlux{FN} <: EnergyBC
     fn::FN
 end
-function atmos_energy_boundary_state!(
+
+function boundary_flux_second_order!(
     nf,
     bc_energy::PrescribedEnergyFlux,
-    atmos,
-    args...,
-) end
-function atmos_energy_normal_boundary_flux_second_order!(
-    nf,
-    bc_energy::PrescribedEnergyFlux,
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n⁻,
     state⁻,
     diffusive⁻,
@@ -105,7 +66,6 @@ function atmos_energy_normal_boundary_flux_second_order!(
     diffusive⁺,
     hyperdiffusive⁺,
     aux⁺,
-    bctype,
     t,
     args...,
 )
@@ -128,17 +88,17 @@ struct BulkFormulaEnergy{FNX, FNTM} <: EnergyBC
     fn_C_h::FNX
     fn_T_and_q_tot::FNTM
 end
-function atmos_energy_boundary_state!(
+function boundary_state!(
     nf,
     bc_energy::BulkFormulaEnergy,
     atmos,
     args...,
 ) end
-function atmos_energy_normal_boundary_flux_second_order!(
+function boundary_flux_second_order!(
     nf,
     bc_energy::BulkFormulaEnergy,
-    atmos,
-    fluxᵀn,
+    atmos::AtmosModel,
+    fluxᵀn::Vars,
     n⁻,
     state⁻,
     diffusive⁻,

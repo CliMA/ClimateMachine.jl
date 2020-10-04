@@ -16,6 +16,7 @@ function ocean_temperature_boundary_state!(
     Q⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.θ = Q⁻.θ
 
@@ -40,6 +41,7 @@ sets ghost point to have no numerical flux on the boundary for κ∇θ
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.θ = Q⁻.θ
     D⁺.κ∇θ = n⁻ * -0
@@ -80,6 +82,7 @@ sets ghost point to have specified flux on the boundary for κ∇θ
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.θ = Q⁻.θ
     D⁺.κ∇θ = n⁻ * surface_flux(ocean.problem, A⁻.y, Q⁻.θ)

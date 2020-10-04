@@ -16,6 +16,7 @@ function ocean_velocity_boundary_state!(
     Q⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.u = -Q⁻.u
     A⁺.w = -A⁻.w
@@ -39,6 +40,7 @@ function ocean_velocity_boundary_state!(
     Q⁻,
     A⁻,
     t,
+    args...,
 )
     FT = eltype(Q⁺)
     Q⁺.u = SVector(-zero(FT), -zero(FT))
@@ -65,6 +67,7 @@ sets ghost point to have no numerical flux on the boundary for u
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.u = -Q⁻.u
     A⁺.w = -A⁻.w
@@ -89,6 +92,7 @@ function ocean_velocity_boundary_state!(
     Q⁻,
     A⁻,
     t,
+    args...,
 )
     v⁻ = @SVector [Q⁻.u[1], Q⁻.u[2], A⁻.w]
     v⁺ = v⁻ - 2 * n⁻ ⋅ v⁻ .* SVector(n⁻)
@@ -114,6 +118,7 @@ function ocean_velocity_boundary_state!(
     Q⁻,
     A⁻,
     t,
+    args...,
 )
     v⁻ = @SVector [Q⁻.u[1], Q⁻.u[2], A⁻.w]
     v⁺ = v⁻ - n⁻ ⋅ v⁻ .* SVector(n⁻)
@@ -141,6 +146,7 @@ function ocean_velocity_boundary_state!(
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.u = Q⁻.u
     A⁺.w = A⁻.w
@@ -182,6 +188,7 @@ function ocean_velocity_boundary_state!(
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.u = Q⁻.u
     A⁺.w = A⁻.w
@@ -228,6 +235,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.u = Q⁻.u
     D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ)'
@@ -273,6 +281,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     D⁻,
     A⁻,
     t,
+    args...,
 )
     Q⁺.u = Q⁻.u
     D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ)'

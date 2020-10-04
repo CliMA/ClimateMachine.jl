@@ -219,52 +219,6 @@ required to be defined if using a `RusanovNumericalFlux` numerical flux.
 function wavespeed end
 
 """
-    boundary_state!(
-        ::NumericalFluxGradient,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_auxiliary⁺::Vars,
-        normal⁻,
-        state_prognostic⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-    boundary_state!(
-        ::NumericalFluxFirstOrder,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_auxiliary⁺::Vars,
-        normal⁻,
-        state_prognostic⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-    boundary_state!(
-        ::NumericalFluxSecondOrder,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_gradient_flux⁺::Vars,
-        state_auxiliary⁺:
-        Vars, normal⁻,
-        state_prognostic⁻::Vars,
-        state_gradient_flux⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-
-Apply boundary conditions for
-
- - `NumericalFluxGradient` numerical flux (internal method)
- - `NumericalFluxFirstOrder` first-order unknowns
- - `NumericalFluxSecondOrder` second-order unknowns
-
-"""
-function boundary_state! end
-
-"""
     update_auxiliary_state!(
         dg::DGModel,
         m::BalanceLaw,
@@ -390,3 +344,10 @@ function initialize_states! end
 function tendency_from_slow_to_fast! end
 function cummulate_fast_solution! end
 function reconcile_from_fast_to_slow! end
+
+function boundary_state!(args...)
+    nothing
+end
+function boundary_flux_second_order!(args...)
+    nothing
+end

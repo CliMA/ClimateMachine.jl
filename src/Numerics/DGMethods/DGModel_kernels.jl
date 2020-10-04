@@ -682,9 +682,9 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 local_state_auxiliary⁺nondiff[s] = state_auxiliary[vid⁺, s, e⁺]
         end
 
-        bctype = elemtobndy[f, e⁻]
+        bctag = elemtobndy[f, e⁻]
         fill!(local_flux, -zero(eltype(local_flux)))
-        if bctype == 0
+        if bctag == 0
             numerical_flux_first_order!(
                 numerical_flux_first_order,
                 balance_law,
@@ -754,6 +754,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             end
             numerical_boundary_flux_first_order!(
                 numerical_flux_first_order,
+                bctag,
                 balance_law,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
                 SVector(normal_vector),
@@ -769,7 +770,6 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary⁺nondiff,
                 ),
-                bctype,
                 t,
                 face_direction,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
@@ -781,6 +781,7 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
             )
             numerical_boundary_flux_second_order!(
                 numerical_flux_second_order,
+                bctag,
                 balance_law,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_flux),
                 normal_vector,
@@ -808,7 +809,6 @@ Computational kernel: Evaluate the surface integrals on right-hand side of a
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary⁺diff,
                 ),
-                bctype,
                 t,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
                     local_state_prognostic_bottom1,
@@ -1325,12 +1325,12 @@ end
             t,
         )
 
-        bctype = elemtobndy[f, e⁻]
+        bctag = elemtobndy[f, e⁻]
         fill!(
             local_state_gradient_flux,
             -zero(eltype(local_state_gradient_flux)),
         )
-        if bctype == 0
+        if bctag == 0
             numerical_flux_gradient!(
                 numerical_flux_gradient,
                 balance_law,
@@ -1384,6 +1384,7 @@ end
             end
             numerical_boundary_flux_gradient!(
                 numerical_flux_gradient,
+                bctag,
                 balance_law,
                 local_transform_gradient,
                 SVector(normal_vector),
@@ -1401,7 +1402,6 @@ end
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary⁺,
                 ),
-                bctype,
                 t,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
                     local_state_prognostic_bottom1,
@@ -2182,8 +2182,8 @@ end
             l_grad⁺[3, s] = Qhypervisc_grad[vid⁺, 3 * (s - 1) + 3, e⁺]
         end
 
-        bctype = elemtobndy[f, e⁻]
-        if bctype == 0
+        bctag = elemtobndy[f, e⁻]
+        if bctag == 0
             numerical_flux_divergence!(
                 divgradnumpenalty,
                 balance_law,
@@ -2195,12 +2195,12 @@ end
         else
             numerical_boundary_flux_divergence!(
                 divgradnumpenalty,
+                bctag,
                 balance_law,
                 Vars{vars_state(balance_law, GradientLaplacian(), FT)}(l_div),
                 normal_vector,
                 Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁻),
                 Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad⁺),
-                bctype,
             )
         end
 
@@ -2554,8 +2554,8 @@ end
             l_lap⁺[s] = Qhypervisc_div[vid⁺, s, e⁺]
         end
 
-        bctype = elemtobndy[f, e⁻]
-        if bctype == 0
+        bctag = elemtobndy[f, e⁻]
+        if bctag == 0
             numerical_flux_higher_order!(
                 hyperviscnumflux,
                 balance_law,
@@ -2582,6 +2582,7 @@ end
         else
             numerical_boundary_flux_higher_order!(
                 hyperviscnumflux,
+                bctag,
                 balance_law,
                 Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
                     local_state_hyperdiffusion,
@@ -2601,7 +2602,6 @@ end
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary⁺,
                 ),
-                bctype,
                 t,
             )
         end
