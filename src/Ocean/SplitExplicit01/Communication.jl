@@ -11,7 +11,7 @@ using Printf
     dgFast,
     Qfast,
     S_fast,
-    slow_dt, rkC, rkW, 
+    slow_dt, rkC, rkW,
     s, nStages,
     fast_time_rec,
     fast_steps,
@@ -23,7 +23,7 @@ using Printf
     add = slow.add_fast_substeps
 
     #- set time-step
-    #  Warning: only make sense for LS3NRK33Heuns 
+    #  Warning: only make sense for LS3NRK33Heuns
     #  where 12 is lowest common mutiple (LCM) of all RK-Coeff inverse
     fast_dt = fast_time_rec[1]
     steps = fast_dt > 0 ? ceil(Int, slow_dt / fast_dt / FT(12)) : 1
@@ -32,29 +32,29 @@ using Printf
     add = add > 0 ? floor(Int, ntsFull/add ) : 0
 
     #- time to start fast time-stepping (fast_time_rec[3]) for this stage:
-    if s == nStages 
-        #  Warning: only works with few RK-scheme such as LS3NRK33Heuns 
-        fast_time_rec[3] = rkW[1] 
+    if s == nStages
+        #  Warning: only works with few RK-scheme such as LS3NRK33Heuns
+        fast_time_rec[3] = rkW[1]
         fract_dt =  (1 - fast_time_rec[3])
-        fast_time_rec[3] *= slow_dt 
+        fast_time_rec[3] *= slow_dt
         fast_steps[2] = 1
     else
         fast_time_rec[3] = 0.
         fract_dt =  rkC[s+1] - fast_time_rec[3]
         fast_steps[2] = 0
     end
-    
+
     #- set number of sub-steps we need
     #  will time-average fast over: fast_steps[1] , fast_steps[3]
     #  centered on fract_dt*slow_dt which corresponds to advance in time of slow
     steps = ceil(Int, fract_dt * slow_dt / fast_dt )
     add = min(add, steps - 1)
-    fast_steps[1] = steps - add 
-    fast_steps[3] = steps + add 
+    fast_steps[1] = steps - add
+    fast_steps[3] = steps + add
     fast_time_rec[1] = fract_dt * slow_dt / steps
 
     #- select which fast time-step (fast_steps[2]) solution to save for next time-step
-    #  Warning: only works with few RK-scheme such as LS3NRK33Heuns 
+    #  Warning: only works with few RK-scheme such as LS3NRK33Heuns
     fast_steps[2] *= steps
     if s == 1 ; fast_steps[2] = round(Int, ntsFull*rkW[1] ) ; end
     # @printf("Update @ s= %i : frac_dt = %.6f , dt_fast = %.1f , steps= %i , add= %i\n",
@@ -63,11 +63,11 @@ using Printf
     # println(" fast_steps = ",fast_steps)
 
     # set starting point for fast-state solution
-    #  Warning: only works with few RK-scheme such as LS3NRK33Heuns 
+    #  Warning: only works with few RK-scheme such as LS3NRK33Heuns
     if s == 1
         S_fast.η .= Qfast.η
         S_fast.U .= Qfast.U
-    elseif s == nStages 
+    elseif s == nStages
         Qfast.η .= dgFast.state_auxiliary.η_s
         Qfast.U .= dgFast.state_auxiliary.U_s
     else
@@ -301,24 +301,26 @@ end
 
     ## save Eta from 3D model into η_diag (aux var of 2D model)
     ## and store difference between η from Barotropic Model and η_diag
-    index_η = varsindex(vars_state(slow, Prognostic(), FT), :η)
-    boxy_η_3D = @view data_slw[:, :, index_η, :, 1:nrealelemh]
-    flat_η = @view data_slw[:, end, index_η, end, 1:nrealelemh]
-    index_η_diag = varsindex(vars_state(fast, Auxiliary(), FT), :η_diag)
-    boxy_η_diag = @view data_fst[:, index_η_diag, 1:nrealelemh]
-    boxy_η_diag .= flat_η
-    dgFast.state_auxiliary.Δη .=
-        dgFast.state_auxiliary.η_c - dgFast.state_auxiliary.η_diag
-
-    ## copy 2D model Eta over to 3D model
-    index_η_c = varsindex(vars_state(fast, Auxiliary(), FT), :η_c)
-    boxy_η_2D = @view data_fst[:, index_η_c, 1:nrealelemh]
-    boxy_η_3D .= reshape(boxy_η_2D, Nq^2, 1, 1, 1, nrealelemh)
-
-    # reset fast-state to end of time-step value
+    ## Note: since 3D η is not used (just in output), only do this at last stage
+    ##       (save computation and get Δη diagnose over full time-step)
     if lastStage
-      Qfast.η .= dgFast.state_auxiliary.η_s
-      Qfast.U .= dgFast.state_auxiliary.U_s
+        index_η = varsindex(vars_state(slow, Prognostic(), FT), :η)
+        boxy_η_3D = @view data_slw[:, :, index_η, :, 1:nrealelemh]
+        flat_η = @view data_slw[:, end, index_η, end, 1:nrealelemh]
+        index_η_diag = varsindex(vars_state(fast, Auxiliary(), FT), :η_diag)
+        boxy_η_diag = @view data_fst[:, index_η_diag, 1:nrealelemh]
+        boxy_η_diag .= flat_η
+        dgFast.state_auxiliary.Δη .=
+            dgFast.state_auxiliary.η_c - dgFast.state_auxiliary.η_diag
+
+        ## copy 2D model Eta over to 3D model
+        index_η_c = varsindex(vars_state(fast, Auxiliary(), FT), :η_c)
+        boxy_η_2D = @view data_fst[:, index_η_c, 1:nrealelemh]
+        boxy_η_3D .= reshape(boxy_η_2D, Nq^2, 1, 1, 1, nrealelemh)
+
+        # reset fast-state to end of time-step value
+        Qfast.η .= dgFast.state_auxiliary.η_s
+        Qfast.U .= dgFast.state_auxiliary.U_s
     end
 
     return nothing
