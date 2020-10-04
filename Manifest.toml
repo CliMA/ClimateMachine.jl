@@ -174,16 +174,22 @@ deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[Dierckx]]
-deps = ["BinaryProvider", "Libdl", "Random", "Test"]
-git-tree-sha1 = "956bfe5c4f9b794545f6527424fc0294cc5decbe"
+deps = ["Dierckx_jll"]
+git-tree-sha1 = "1fa89a5c6836f3fc2d1008c2314b5649db336a83"
 uuid = "39dd38d3-220a-591b-8e3c-4c3a8c710a94"
-version = "0.4.2"
+version = "0.5.0"
+
+[[Dierckx_jll]]
+deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
+git-tree-sha1 = "a580560f526f6fc6973e8bad2b036514a4e3b013"
+uuid = "cd4c43a9-7502-52ba-aa6d-59fb2a88580b"
+version = "0.0.1+0"
 
 [[DiffEqBase]]
 deps = ["ArrayInterface", "ChainRulesCore", "DataStructures", "Distributed", "DocStringExtensions", "FunctionWrappers", "IterativeSolvers", "IteratorInterfaceExtensions", "LabelledArrays", "LinearAlgebra", "Logging", "MuladdMacro", "Parameters", "Printf", "RecipesBase", "RecursiveArrayTools", "RecursiveFactorization", "Requires", "Roots", "SparseArrays", "StaticArrays", "Statistics", "SuiteSparse", "TableTraits", "Tables", "TreeViews", "ZygoteRules"]
-git-tree-sha1 = "949596defa7b0e24a35037253c8e8e87bd7a6c2c"
+git-tree-sha1 = "2457d3b710e2767a8eab5d4d7983ae6a902e9335"
 uuid = "2b5f629d-d688-5b77-993f-72d75c75574e"
-version = "6.47.1"
+version = "6.48.0"
 
 [[DiffResults]]
 deps = ["StaticArrays"]
@@ -382,9 +388,9 @@ version = "0.21.1"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "CUDA", "Cassette", "InteractiveUtils", "MacroTools", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "e72704468819e9c2759946025373a876b553524c"
+git-tree-sha1 = "9262c704a2897c7e4837e75638ec4fc522a0cc19"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-version = "0.4.2"
+version = "0.4.3"
 
 [[LLVM]]
 deps = ["CEnum", "Libdl", "Printf", "Unicode"]
@@ -539,9 +545,9 @@ version = "0.10.4"
 
 [[NLSolversBase]]
 deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
-git-tree-sha1 = "db63edd0199a4813a1fa117e3c840a4528b59d72"
+git-tree-sha1 = "39d6bc45e99c96e6995cbddac02877f9b61a1dd1"
 uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
-version = "7.7.0"
+version = "7.7.1"
 
 [[NLsolve]]
 deps = ["Distances", "LineSearches", "LinearAlgebra", "NLSolversBase", "Printf", "Reexport"]
