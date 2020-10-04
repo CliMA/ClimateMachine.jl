@@ -180,8 +180,8 @@ function main(; restart = 0)
         dt_slow = runTime / n_chkp
         n_chkp = 0
     end
-    t_outp > 0 ? n_outp = floor(Int64, t_outp / dt_slow ) : n_outp = ceil(Int64, runTime / dt_slow )
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
+    n_outp = t_outp > 0 ? floor(Int64, t_outp / dt_slow ) : ceil(Int64, runTime / dt_slow )
+    ivdc_dt = numImplSteps > 0 ? dt_slow / FT(numImplSteps) : dt_slow
 
     model = OceanModel{FT}(
         prob,
@@ -254,12 +254,8 @@ function main(; restart = 0)
         Q_3D = restart_ode_state(dg, Q_3D; init_on_cpu = true)
         Q_2D = restart_ode_state(barotropic_dg, Q_2D; init_on_cpu = true)
 
-        lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = t0)
-        lsrk_barotropic =
-            LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
-
-        timeend = runTime + t0
     else
+        t0 = 0
         dg = OceanDGModel(
             model,
             grid_3D,
@@ -283,12 +279,12 @@ function main(; restart = 0)
 
         Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
 
-        lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = 0)
-        lsrk_barotropic =
-            LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
-
-        timeend = runTime
     end
+    timeend = runTime + t0
+
+    lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = t0)
+    lsrk_barotropic =
+        LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
 
     odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
 
@@ -538,9 +534,10 @@ add_fast_substeps = 2
 numImplSteps = 0
 
 #const τₒ = 2e-1  # (Pa = N/m^2)
+#const λʳ = 20 // 86400 # m/s
 # since we are using old BC (with factor of 2), take only half:
 const τₒ = 1e-1
-const λʳ = 10 // 86400 # m/s
+const λʳ = 10 // 86400
 const θᴱ = 10    # deg.C
 
 main(restart = 0)
