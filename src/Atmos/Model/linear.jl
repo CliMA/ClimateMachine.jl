@@ -271,44 +271,6 @@ function source!(
 end
 
 
-abstract type AtmosLinearModelSplit <: AtmosLinearModel end
-
-struct AtmosAcousticLinearModelSplit{M} <: AtmosLinearModelSplit
-    atmos::M,
-    linear::AtmosAcousticLinearModel{M}
-    momentum::AtmosAcousticLinearModelMomentum{M}
-    thermo::AtmosAcousticLinearModelThermo{M}
-    function AtmosAcousticLinearModelSplit(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
-            error("AtmosAcousticLinearModelSplit needs a model with a reference state")
-        end
-        new{M}(
-            atmos,
-            AtmosAcousticLinearModel(atmos),
-            AtmosAcousticLinearModelMomentum(atmos),
-            AtmosAcousticLinearModelThermo(atmos),
-        )
-    end
-end
-
-struct AtmosAcousticGravityLinearModelSplit{M} <: AtmosLinearModelSplit
-    atmos::M,
-    linear::AtmosAcousticGravityLinearModel{M}
-    momentum::AtmosAcousticGravityLinearModelMomentum{M}
-    thermo::AtmosAcousticGravityLinearModelThermo{M}
-    function AtmosAcousticGravityLinearModelSplit(atmos::M) where {M}
-        if atmos.ref_state === NoReferenceState()
-            error("AtmosAcousticGravityLinearModelSplit needs a model with a reference state")
-        end
-        new{M}(
-        atmos,
-            AtmosAcousticGravityLinearModel(atmos),
-            AtmosAcousticGravityLinearModelMomentum(atmos),
-            AtmosAcousticGravityLinearModelThermo(atmos),
-        )
-    end
-end
-
 struct AtmosAcousticLinearModelMomentum{M} <: AtmosLinearModel
     atmos::M
     function AtmosAcousticLinearModelMomentum(atmos::M) where {M}
@@ -446,6 +408,44 @@ function flux_first_order!(
 end
 source!(::AtmosAcousticGravityLinearModelThermo, _...) = nothing
 
+
+abstract type AtmosLinearModelSplit <: AtmosLinearModel end
+
+struct AtmosAcousticLinearModelSplit{M} <: AtmosLinearModelSplit
+    atmos::M
+    linear::AtmosAcousticLinearModel{M}
+    momentum::AtmosAcousticLinearModelMomentum{M}
+    thermo::AtmosAcousticLinearModelThermo{M}
+    function AtmosAcousticLinearModelSplit(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticLinearModelSplit needs a model with a reference state")
+        end
+        new{M}(
+            atmos,
+            AtmosAcousticLinearModel(atmos),
+            AtmosAcousticLinearModelMomentum(atmos),
+            AtmosAcousticLinearModelThermo(atmos),
+        )
+    end
+end
+
+struct AtmosAcousticGravityLinearModelSplit{M} <: AtmosLinearModelSplit
+    atmos::M
+    linear::AtmosAcousticGravityLinearModel{M}
+    momentum::AtmosAcousticGravityLinearModelMomentum{M}
+    thermo::AtmosAcousticGravityLinearModelThermo{M}
+    function AtmosAcousticGravityLinearModelSplit(atmos::M) where {M}
+        if atmos.ref_state === NoReferenceState()
+            error("AtmosAcousticGravityLinearModelSplit needs a model with a reference state")
+        end
+        new{M}(
+        atmos,
+            AtmosAcousticGravityLinearModel(atmos),
+            AtmosAcousticGravityLinearModelMomentum(atmos),
+            AtmosAcousticGravityLinearModelThermo(atmos),
+        )
+    end
+end
 
 
 function numerical_flux_first_order!(
