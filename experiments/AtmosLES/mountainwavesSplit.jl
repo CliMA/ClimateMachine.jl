@@ -95,12 +95,12 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
+                fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
                     :MISKWRK43,
                     dg,
                     (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),
                     Q,
-                    nsteps = nsteps,
+                    nsubsteps = nsubsteps,
                 ),
                 nsubsteps = (45,7),
                 hivi_splitting = true
@@ -109,10 +109,10 @@ function config_gravitywave(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg,Q,nsteps) -> MultirateRungeKutta(
+                fast_method = (dg,Q,nsubsteps) -> MultirateRungeKutta(
                     :LSRK144NiegemannDiehlBusch,
                     dg,
-                    Q, nsteps=nsteps,
+                    Q, nsubsteps=nsubsteps,
                 ),
                 nsubsteps = (45,15),
                 hivi_splitting = true,

@@ -102,12 +102,12 @@ function config_risingbubble(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
             ode_solver = CLIMA.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
+                fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
                     :MISKWRK43,
                     dg,
                     (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),
                     Q,
-                    nsteps = nsteps,
+                    nsubsteps = nsubsteps,
                 ),
                 nsubsteps = (12,2),
                 hivi_splitting = true
@@ -116,12 +116,12 @@ function config_risingbubble(FT, N, resolution, xmin, xmax, ymax, zmax, hm, a)
             ode_solver = CLIMA.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg,Q,nsteps) -> MultirateRungeKutta(
+                fast_method = (dg,Q,nsubsteps) -> MultirateRungeKutta(
                     :LSRK144NiegemannDiehlBusch,
                     dg,
-                    Q, nsteps=nsteps,
+                    Q, nsubsteps=nsubsteps,
                 ),
-                nsubsteps = (12,4),
+                steps = (12,4),
                 hivi_splitting = true,
             )
         end

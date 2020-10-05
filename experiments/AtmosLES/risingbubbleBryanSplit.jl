@@ -1,18 +1,22 @@
 using ClimateMachine
-ClimateMachine.init()
+#ClimateMachine.init(parse_clargs = true)
+ClimateMachine.init(vtk = "25steps")
 
 using ClimateMachine.Atmos
+using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
-using ClimateMachine.ColumnwiseLUSolver
+using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.MoistThermodynamics
+using ClimateMachine.Thermodynamics
+using ClimateMachine.TemperatureProfiles
+using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.NumericalFluxes
 using ClimateMachine.VTK
-using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
+#using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
 
 using StaticArrays
 using Test
@@ -39,7 +43,7 @@ const param_set = EarthParameterSet()
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-function init_risingbubble!(bl, state, aux, (x, y, z), t)
+function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -88,8 +92,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==StormerVerlet
             ode_solver = ClimateMachine.MISSolverType(
-                fast_model = AtmosAcousticGravityLinearModelSplit,
-                #fast_model = AtmosAcousticGravityLinearModel,
+                #fast_model = AtmosAcousticGravityLinearModelSplit,
+                fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = (dg,Q) -> StormerVerlet(dg, [1,5], 2:4, Q),
                 nsubsteps = (15,),
@@ -105,12 +109,12 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg, Q, nsteps) -> MultirateInfinitesimalStep(
+                fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
                     :MISKWRK43,
                     dg,
                     (dgi,Qi) -> StormerVerlet(dgi, [1,5], 2:4, Qi),
                     Q,
-                    nsteps = nsteps,
+                    nsubsteps = nsubsteps,
                 ),
                 nsubsteps = (12,2),
                 hivi_splitting = true
@@ -119,11 +123,11 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg,Q,nsteps) -> MultirateRungeKutta(
+                fast_method = (dg,Q,nsubsteps) -> MultirateRungeKutta(
                     :LSRK144NiegemannDiehlBusch,
                     dg,
                     Q,
-                    nsteps=nsteps,
+                    steps=nsubsteps,
                 ),
                 nsubsteps = (12,4),
                 hivi_splitting = true,
@@ -132,13 +136,13 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MISRK3,
-                fast_method = (dg, Q, dt, nsteps) -> AdditiveRungeKutta(
+                fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
                     :ARK548L2SA2KennedyCarpenter,
                     dg,
                     LinearBackwardEulerSolver(ManyColumnLU(), isadjustable=true),
                     Q,
                     dt = dt,
-                    nsteps = nsteps,
+                    nsubsteps = nsubsteps,
                 ),
                 nsubsteps = (12,),
                 hivi_splitting = true,
@@ -161,21 +165,21 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Set up the model
     C_smag = FT(0.23)
-    ref_state = HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+    ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set, FT(300), FT(0)))
         #HydrostaticState(IsothermalProfile(FT(T_0)),FT(0))
-        #HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300)), FT(0))
+        #HydrostaticState(DryAdiabaticProfile(typemin(FT), FT(300), FT(0))
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag), #AnisoMinDiss{FT}(1),
         source = (Gravity(),),
         ref_state = ref_state,
-        init_state_conservative = init_risingbubble!,
+        init_state_prognostic = init_risingbubble!,
     )
 
     # Problem configuration
     config = ClimateMachine.AtmosLESConfiguration(
-        "DryRisingBubble",
+        "DryRisingBubbleMIS",
         N,
         resolution,
         xmax,
@@ -193,7 +197,11 @@ end
 
 function config_diagnostics(driver_config)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
+    dgngrp = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
@@ -237,25 +245,11 @@ function main()
         nothing
     end
 
-    nvtk=timeend/(Δt*100)
-    vtk_step = 0
-    cbvtk = GenericCallbacks.EveryXSimulationSteps(nvtk)  do (init=false)
-        mkpath("./vtk-rtb/")
-        outprefix = @sprintf("./vtk-rtb/risingBubbleBryanSplit_mpirank%04d_step%04d",
-                         MPI.Comm_rank(driver_config.mpicomm), vtk_step)
-        writevtk(outprefix, solver_config.Q, solver_config.dg,
-            flattenednames(vars_state_conservative(driver_config.bl,FT)),
-            solver_config.dg.state_auxiliary,
-            flattenednames(vars_state_auxiliary(driver_config.bl,FT)))
-        vtk_step += 1
-        nothing
-     end
-
     # Invoke solver (calls solve! function for time-integrator)
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbvtk,),
+        #user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 
