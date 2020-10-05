@@ -40,6 +40,8 @@ mutable struct ETDStep{
   dt::RT
   "time"
   t::RT
+  "elapsed time steps"
+  steps::Int
   "storage for y_n"
   yn::AT
   "Storage for ``f(Y_nj)``"
@@ -112,6 +114,7 @@ mutable struct ETDStep{
     }(
       RT(dt),
       RT(t0),
+      0,
       yn,
       fYnj,
       offset,
