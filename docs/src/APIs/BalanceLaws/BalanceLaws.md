@@ -13,6 +13,7 @@ BalanceLaw
 ## State variable types
 
 ```@docs
+AbstractStateType
 Prognostic
 Auxiliary
 Gradient

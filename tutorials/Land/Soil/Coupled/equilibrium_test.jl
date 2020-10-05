@@ -71,7 +71,7 @@
 
 # If we evolve this system for times long compared to the dynamical timescales
 # of the system, we expect it to reach an equilibrium where
-# the LHS of these equations tends to zero. 
+# the LHS of these equations tends to zero.
 # Assuming zero fluxes at the boundaries, the resulting equilibrium state
 # should satisfy ``∂h/∂z = 0`` and ``∂T/∂z = 0``. Physically, this means that
 # the water settles into a vertical profile in which
@@ -130,7 +130,7 @@ include(joinpath(
     "Soil",
     "interpolation_helper.jl",
 ));
-# Set soil parameters to be consistent with sand. 
+# Set soil parameters to be consistent with sand.
 # Please see e.g. the [soil heat tutorial](../Heat/bonan_heat_tutorial.md)
 # for other soil type parameters, or [2].
 
@@ -487,7 +487,6 @@ K∇h_z_plot = plot(
     all_data[1]["K∇h_vert"],
     iz,
     label = "0.75 days",
-    ytickfontcolor = "white",
     xlabel = "K∇h_z (m/s)",
 )
 plot!(all_data[2]["K∇h_vert"], iz, label = "1.5 days")
@@ -510,7 +509,6 @@ plot!(legend = :bottomright)
     all_data[1]["κ∇T_vert"],
     iz,
     label = "0.75 days",
-    ytickfontcolor = "white",
     xlabel = "κ∇T_z (W/m^2)",
 )
 plot!(all_data[2]["κ∇T_vert"], iz, label = "1.5 days")
