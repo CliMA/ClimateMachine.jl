@@ -27,6 +27,23 @@ struct Diffusion end
 
 struct TestProblem{adv, diff, dir, topo} <: AdvectionDiffusionProblem end
 
+initial_ρ(::Box, x) = prod(sin.(π * x))
+function initial_ρ(::Sphere, x)
+    r = norm(x)
+    φ = atan(x[2], x[1])
+    θ = atan(sqrt(x[1]^2 + x[2]^2), x[3])
+    return sin(π * (r - 1)) * sin(φ) * sin(θ)
+end
+
+velocity(::Box, x) = sin.(π * x)
+function velocity(::Sphere, x)
+    r = norm(x)
+    φ = atan(x[2], x[1])
+    θ = atan(sqrt(x[1]^2 + x[2]^2), x[3])
+    return sin(π * (r - 1)) .*
+           SVector(cos(φ) * cos(θ), sin(φ) * cos(θ), cos(φ) * sin(θ))
+end
+
 function init_velocity_diffusion!(
     ::TestProblem{adv, diff, dir, topo},
     aux::Vars,
@@ -34,13 +51,18 @@ function init_velocity_diffusion!(
 ) where {adv, diff, dir, topo}
     k = vertical_unit_vector(topo, geom.coord)
     P = projection(dir, k)
-    aux.u = !isnothing(adv) ? P * sin.(geom.coord) : zeros(SVector{3})
+    aux.u = !isnothing(adv) ? P * velocity(topo, geom.coord) : zeros(SVector{3})
     aux.D = !isnothing(diff) ? SMatrix{3, 3}(P) / 200 : zeros(SMatrix{3, 3})
 end
 
-function initial_condition!(::AdvectionDiffusionProblem, state, aux, x, t)
-    # random perturbation to trigger numerical fluxes
-    state.ρ = prod(sin.(x)) + rand() / 10
+function initial_condition!(
+    ::TestProblem{adv, diff, dir, topo},
+    state,
+    aux,
+    x,
+    t,
+) where {adv, diff, dir, topo}
+    state.ρ = initial_ρ(topo, x)
 end
 
 function create_topology(::Box{dim}, mpicomm, Ne, FT) where {dim}
@@ -106,6 +128,13 @@ function test_run(
     end
 
     Q = init_ode_state(dgmodels.p.dg, FT(0), init_on_cpu = true)
+    # do one Euler step to trigger numerical fluxes in subsequent evaluations
+    let
+        dt = 1e-3
+        dQ = similar(Q)
+        dgmodels.p.dg(dQ, Q, nothing, FT(0))
+        Q .+= dt .* dQ
+    end
 
     # evaluate all combinations
     dQ = map(
@@ -115,8 +144,8 @@ function test_run(
 
     # set up tolerances
     atolm = 6e-13
-    atolv = 5e-5 / 5^(level - 1)
-    atolh = 0.0002 / 5^(level - 1)
+    atolv = 3e-4 / 5^(level - 1)
+    atolh = 0.0003 / 5^(level - 1)
 
     @testset "total" begin
         atol = topo <: Box || diff == nothing ? atolm : atolh
