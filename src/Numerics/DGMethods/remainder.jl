@@ -58,6 +58,31 @@ in the direction `direction`
     end
 end
 
+function remainder_DGModel(
+    maindg::DGModel,
+    subsdg::DGModel;
+    numerical_flux_first_order = maindg.numerical_flux_first_order,
+    numerical_flux_second_order = maindg.numerical_flux_second_order,
+    numerical_flux_gradient = maindg.numerical_flux_gradient,
+    state_auxiliary = maindg.state_auxiliary,
+    state_gradient_flux = maindg.state_gradient_flux,
+    states_higher_order = maindg.states_higher_order,
+    diffusion_direction = maindg.diffusion_direction,
+    modeldata = maindg.modeldata,
+)
+     return remainder_DGModel(
+         maindg,
+         (subsdg,);
+         numerical_flux_first_order = numerical_flux_first_order,
+         numerical_flux_second_order = numerical_flux_second_order,
+         numerical_flux_gradient = numerical_flux_gradient,
+         state_auxiliary = state_auxiliary,
+         state_gradient_flux = state_gradient_flux,
+         states_higher_order = states_higher_order,
+         diffusion_direction = diffusion_direction,
+         modeldata = modeldata,
+     )
+end
 
 """
     remainder_DGModel(
