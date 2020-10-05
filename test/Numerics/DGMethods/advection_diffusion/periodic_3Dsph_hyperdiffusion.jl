@@ -72,16 +72,16 @@ function initial_condition!(
         FT = eltype(state)
         # import planet paraset
         _a::FT = planet_radius(param_set)
-        
+
         φ = latitude(SphericalOrientation(), aux)
         λ = longitude(SphericalOrientation(), aux)
         r = norm(aux.coord)
-        
+
         l = Int64(problem.l)
         m = Int64(problem.m)
 
         c = get_c(l, r)
-        state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t) 
+        state.ρ = calc_Ylm(φ, λ, l, m) * exp(-problem.D*c*t)
     end
 end
 
@@ -108,7 +108,7 @@ function run(
     dx = min_node_distance(grid, HorizontalDirection())
     dz = min_node_distance(grid, VerticalDirection())
 
-    D = (dx/2)^4/2/τ 
+    D = (dx/2)^4/2/τ
 
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D, l, m))
     dg = DGModel(
@@ -133,7 +133,7 @@ function run(
     rhs_anal = .- dg.state_auxiliary.c * D .* Q0
 
     # ana ρ(t) + finite diff in time
-    rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ 
+    rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ
 
     # @show "ANA" norm(rhs_anal)
     # @show "FD" norm(rhs_FD)
@@ -182,12 +182,12 @@ let
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32,)
-            for base_num_elem in (8, 12, 15,)
+		for base_num_elem in (12,) #(8, 12, 15,)
                 # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
-                for (polynomialorder, vert_num_elem) in ((3,8), (4,5), (5,3), (6,2), )
+		for (polynomialorder, vert_num_elem) in ((3,6),) #((3,8), (4,5), (5,3), (6,2), )
 
                     for τ in (0.0001,)#4,8,) # time scale for hyperdiffusion
-                 
+
                         topl = StackedCubedSphereTopology(
                             mpicomm,
                             base_num_elem,
@@ -195,11 +195,11 @@ let
                         )
 
                         @info "Array FT nhorz nvert poly τ" (ArrayType, FT, base_num_elem, vert_num_elem, polynomialorder, τ)
-                        result = run(mpicomm, ArrayType, dim, topl, 
+                        result = run(mpicomm, ArrayType, dim, topl,
                                     polynomialorder, FT, direction, τ*3600, 5,4 )
-                            
+
                         @test result < 5e-2
-                    
+
                     end
                 end
             end
