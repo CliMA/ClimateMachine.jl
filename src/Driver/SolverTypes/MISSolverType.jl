@@ -91,7 +91,6 @@ struct MISSolverType{DS} <: AbstractSolverType
             fast_model,
             mis_method,
             fast_method,
-            fast_type,
             nsubsteps,
             discrete_splitting,
             hivi_splitting,
@@ -146,7 +145,7 @@ function solversetup(
         fast_dg_momentum = DGModel(
             fast_model.momentum,
             dg.grid,
-            ode_solver_type.numerical_flux_first_order_fast,
+            ode_solver.numerical_flux_first_order_fast,
             dg.numerical_flux_second_order,
             dg.numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
@@ -157,7 +156,7 @@ function solversetup(
         fast_dg_thermo = DGModel(
             fast_model.thermo,
             dg.grid,
-            ode_solver_type.numerical_flux_first_order_fast,
+            ode_solver.numerical_flux_first_order_fast,
             dg.numerical_flux_second_order,
             dg.numerical_flux_gradient,
             state_auxiliary = dg.state_auxiliary,
@@ -172,7 +171,7 @@ function solversetup(
             fast_dg_h = DGModel(
                 fast_model,
                 dg.grid,
-                ode_solver_type.numerical_flux_first_order_fast,
+                ode_solver.numerical_flux_first_order_fast,
                 dg.numerical_flux_second_order,
                 dg.numerical_flux_gradient,
                 state_auxiliary = dg.state_auxiliary,
@@ -183,7 +182,7 @@ function solversetup(
             fast_dg_v = DGModel(
                 fast_model,
                 dg.grid,
-                ode_solver_type.numerical_flux_first_order_fast,
+                ode_solver.numerical_flux_first_order_fast,
                 dg.numerical_flux_second_order,
                 dg.numerical_flux_gradient,
                 state_auxiliary = dg.state_auxiliary,
@@ -193,7 +192,7 @@ function solversetup(
             )
             fast_dg = (fast_dg_h, fast_dg_v)
             if length(ode_solver.nsubsteps) == 1
-                nsteps = getnsteps(
+                nsubsteps = getnsubsteps(
                     Symbol(ode_solver.mis_method),
                     ode_solver.nsubsteps[1],
                     real(eltype(Q)),
@@ -201,8 +200,8 @@ function solversetup(
                 fast_method = (dg, Q) -> ode_solver.fast_method(
                         dg,
                         Q,
-                        ode_dt / ode_solver.nsubsteps[1],
-                        nsteps,
+                        dt / ode_solver.nsubsteps[1],
+                        nsubsteps,
                 )
             elseif length(ode_solver.nsubsteps) == 2
                 fast_method = (dg, Q) -> ode_solver.fast_method(
@@ -215,13 +214,14 @@ function solversetup(
             fast_dg = DGModel(
                 fast_model,
                 dg.grid,
-                ode_solver_type.numerical_flux_first_order_fast,
+                ode_solver.numerical_flux_first_order_fast,
                 dg.numerical_flux_second_order,
                 dg.numerical_flux_gradient,
                 state_auxiliary = dg.state_auxiliary,
                 state_gradient_flux = dg.state_gradient_flux,
                 states_higher_order = dg.states_higher_order,
                 direction = EveryDirection(),
+            )
         end
     end
 
@@ -236,15 +236,15 @@ function solversetup(
     end
     slow_dg = remainder_DGModel(
         dg,
-        (fast_dg,);
-        numerical_flux_first_order = ode_solver_type.numerical_flux_first_order_slow,
+        fast_dg;
+        numerical_flux_first_order = ode_solver.numerical_flux_first_order_slow,
     )
 
     solver = ode_solver.mis_method(
         slow_dg,
         fast_dg,
         fast_method,
-        ode_solver.nsubsteps,
+        ode_solver.nsubsteps[1],
         Q;
         dt = dt,
         t0 = t0,
