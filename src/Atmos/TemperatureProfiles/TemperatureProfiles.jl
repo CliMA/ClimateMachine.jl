@@ -172,22 +172,28 @@ where the increase is determined by Brunt–Väisälä frequency `N2/g`
 
 $(DocStringExtensions.FIELDS)
 """
-struct StableTemperatureProfile{FT} <: TemperatureProfile
+
+struct StableTemperatureProfile{FT} <: TemperatureProfile{FT}
     "surface potential temperature (K)"
     θ_surface::FT
-    " Brunt–Väisälä frequency(1/s)"
+    "Brunt–Väisälä frequency (1/s)"
     N::FT
+    #=
+    function StableTemperatureProfile{FT}(
+        param_set::AbstractParameterSet,
+        θ_surface::FT,
+        N::FT,
+    ) where {FT}
+        return new{FT}(θ_surface, N)
+    end
+    =#
 end
 
 function (profile::StableTemperatureProfile)(
-    orientation::Orientation,
-    param_set::PS,
-    aux::Vars,
-) where {PS}
+    param_set::AbstractParameterSet,
+    z::FT,
+) where {FT}
 
-    z = altitude(orientation, param_set, aux)
-    
-    FT = typeof(z)
     _R_d::FT = R_d(param_set)
     _cp_d::FT = cp_d(param_set)
     _grav::FT = grav(param_set)
