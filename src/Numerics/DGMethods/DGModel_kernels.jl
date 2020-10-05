@@ -29,6 +29,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
     ::Val{dim},
     ::Val{polyorder},
     direction::EveryDirection,
+    #direction,
     tendency,
     state_prognostic,
     state_gradient_flux,
@@ -131,7 +132,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
                 local_flux_3[s] = local_flux[3, s]
             end
             
-            if dim == 3
+            if dim == 3 && direction == EveryDirection
                 @unroll for n in 1:Nqk
                     @unroll for s in 1:num_state_prognostic
                         Dkn = s_D[k, n] * s_ω[k] / s_ω[n]
@@ -175,6 +176,12 @@ const _sM, _vMI = Grids._sM, Grids._vMI
               F1ξ1 = F1ξ2 = -zero(FT)
               F2ξ1 = F2ξ2 = -zero(FT)
               F3ξ1 = F3ξ2 = -zero(FT)
+
+              if dim == 3 && direction isa HorizontalDirection
+                Jξ1x1xξ1 = Jξ1x2xξ1 = Jξ1x3xξ1 = -zero(FT)
+                Jξ2x1xξ2 = Jξ2x2xξ2 = Jξ2x3xξ2 = -zero(FT)
+              end
+
               @unroll for n in 1:Nq
                 Dni = s_D[n, i] * s_ω[n] / s_ω[i]
                 F1ξ1 += Dni * shared_flux[1, n, j, s]
@@ -185,10 +192,35 @@ const _sM, _vMI = Grids._sM, Grids._vMI
                 F1ξ2 += Dnj * shared_flux[1, i, n, s]
                 F2ξ2 += Dnj * shared_flux[2, i, n, s]
                 F3ξ2 += Dnj * shared_flux[3, i, n, s]
+
+                if dim == 3 && direction isa HorizontalDirection
+                  njk = n + Nq * ((j - 1) + Nq * (k - 1))
+
+                  Jξ1x1xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x1, e]
+                  Jξ1x2xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x2, e] 
+                  Jξ1x3xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x3, e] 
+                  
+                  ink = i + Nq * ((n - 1) + Nq * (k - 1))
+                  Jξ2x1xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x1, e]
+                  Jξ2x2xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x2, e] 
+                  Jξ2x3xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x3, e] 
+                end                                     
               end
+
               local_tendency[k, s] += ξ1x1 * F1ξ1 + ξ2x1 * F1ξ2 +
                                       ξ1x2 * F2ξ1 + ξ2x2 * F2ξ2 +
                                       ξ1x3 * F3ξ1 + ξ2x3 * F3ξ2
+
+              if dim == 3 && direction isa HorizontalDirection
+                    F1 = shared_flux[1, i, j, s]
+                    F2 = shared_flux[2, i, j, s]
+                    F3 = shared_flux[3, i, j, s]
+                    
+                    c1 = F1 * (Jξ1x1xξ1 + Jξ2x1xξ2)
+                    c2 = F2 * (Jξ1x2xξ1 + Jξ2x2xξ2)
+                    c3 = F3 * (Jξ1x3xξ1 + Jξ2x3xξ2)
+                    local_tendency[k, s] += (c1 + c2 + c3) * vgeo[ijk, _MI, e] 
+              end
             end
             
 
@@ -385,7 +417,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
-    direction,
+    direction::HorizontalDirection,
     tendency,
     state_prognostic,
     state_gradient_flux,
