@@ -7,6 +7,7 @@ ClimateMachine.init(;
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
+using ClimateMachine.SystemSolvers
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "bomex_model.jl"))
@@ -138,6 +139,54 @@ function main(::Type{FT}) where {FT}
         fixed_number_of_steps = 1000,
         # fixed_number_of_steps=1082 # last timestep before crash
     )
+
+    ##########
+    dg = solver_config.dg
+    Q = solver_config.Q
+    
+    vdg = DGModel(
+        driver_config.bl,
+        driver_config.grid,
+        driver_config.numerical_flux_first_order,
+        driver_config.numerical_flux_second_order,
+        driver_config.numerical_flux_gradient,
+        state_auxiliary = dg.state_auxiliary,
+        direction = VerticalDirection(),
+    )
+    
+    
+    
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        dg,
+        Q;
+        max_subspace_size = 30,
+        atol = -1.0,
+        rtol = 1e-8,
+    )
+    
+    nonlinearsolver = JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-8)
+    
+    ode_solver = ARK548L2SA2KennedyCarpenter(
+        dg,
+        vdg,
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 1000,
+        ),
+        Q;
+        dt = solver_config.dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+        variant = NaiveVariant(),
+    )
+    
+    solver_config.solver = ode_solver
+
+    ###########
+
+
+
 
     # --- Zero-out horizontal variations:
     vsp = vars_state(model, Prognostic(), FT)
