@@ -65,7 +65,7 @@ struct MISSolverType{DS} <: AbstractSolverType
     # Fast RK solver
     fast_method::Function
     # Substepping parameter for the fast processes
-    nsubsteps::Tuple
+    nsubsteps #::Tuple
     # Whether to use a PDE level or discrete splitting
     discrete_splitting::Bool
     hivi_splitting::Bool
