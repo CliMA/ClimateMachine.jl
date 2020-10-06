@@ -61,6 +61,29 @@ mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: AbstractODESolver
     end
 end
 
+#Wrapper for MIS
+function dostep!(
+    Q,
+    lsrk::LowStorageRungeKutta2N,
+    p,
+    time::Real,
+    dt::Real,
+    nsubsteps::Int,
+    iStage::Int,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+)
+    lsrk.dt = dt
+    for i = 1:nsubsteps
+        #println("QLSRKa")
+        #println(sqrt(sum(Q.^2)))
+        dostep!(Q, lsrk, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        #println("QLSRKb")
+        #println(sqrt(sum(Q.^2)))
+    end
+end
+
 """
     dostep!(Q, lsrk::LowStorageRungeKutta2N, p, time::Real,
             [slow_δ, slow_rv_dQ, slow_scaling])
