@@ -169,7 +169,6 @@ const _sM, _vMI = Grids._sM, Grids._vMI
                 ξ3x3 = vgeo[ijk, _ξ3x3, e]
             end
 
-
             # weak outside metrics derivatives
             @unroll for s in 1:num_state_prognostic
               F1ξ1 = F1ξ2 = -zero(FT)
@@ -194,15 +193,14 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 
                 if dim == 3 && direction isa HorizontalDirection
                   njk = n + Nq * ((j - 1) + Nq * (k - 1))
-
-                  Jξ1x1xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x1, e]
-                  Jξ1x2xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x2, e] 
-                  Jξ1x3xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x3, e] 
+                  Jξ1x1xξ1 += s_D[i, n] * ω[i] / ω[n] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x1, e]
+                  Jξ1x2xξ1 += s_D[i, n] * ω[i] / ω[n] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x2, e] 
+                  Jξ1x3xξ1 += s_D[i, n] * ω[i] / ω[n] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x3, e] 
                   
                   ink = i + Nq * ((n - 1) + Nq * (k - 1))
-                  Jξ2x1xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x1, e]
-                  Jξ2x2xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x2, e] 
-                  Jξ2x3xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x3, e] 
+                  Jξ2x1xξ2 += s_D[j, n] * ω[j] / ω[n] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x1, e]
+                  Jξ2x2xξ2 += s_D[j, n] * ω[j] / ω[n] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x2, e] 
+                  Jξ2x3xξ2 += s_D[j, n] * ω[j] / ω[n] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x3, e] 
                 end                                     
               end
 
@@ -218,7 +216,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
                     c1 = F1 * (Jξ1x1xξ1 + Jξ2x1xξ2)
                     c2 = F2 * (Jξ1x2xξ1 + Jξ2x2xξ2)
                     c3 = F3 * (Jξ1x3xξ1 + Jξ2x3xξ2)
-                    local_tendency[k, s] += (c1 + c2 + c3) * vgeo[ijk, _MI, e] 
+                    local_tendency[k, s] -= (c1 + c2 + c3) * vgeo[ijk, _MI, e] 
               end
             end
 
@@ -539,16 +537,15 @@ end
                 Jξ1x1xξ1 = Jξ1x2xξ1 = Jξ1x3xξ1 = -zero(FT)
                 Jξ2x1xξ2 = Jξ2x2xξ2 = Jξ2x3xξ2 = -zero(FT)
                 @unroll for n in 1:Nq
-                    njk = n + Nq * ((j - 1) + Nq * (k - 1))
-
-                    Jξ1x1xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x1, e]
-                    Jξ1x2xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x2, e] 
-                    Jξ1x3xξ1 += s_D[n, i] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x3, e] 
-                    
-                    ink = i + Nq * ((n - 1) + Nq * (k - 1))
-                    Jξ2x1xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x1, e]
-                    Jξ2x2xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x2, e] 
-                    Jξ2x3xξ2 += s_D[n, j] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x3, e] 
+                  njk = n + Nq * ((j - 1) + Nq * (k - 1))
+                  Jξ1x1xξ1 += s_D[i, n] * ω[i] / ω[n] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x1, e]
+                  Jξ1x2xξ1 += s_D[i, n] * ω[i] / ω[n] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x2, e] 
+                  Jξ1x3xξ1 += s_D[i, n] * ω[i] / ω[n] * vgeo[njk, _M, e] * vgeo[njk, _ξ1x3, e] 
+                  
+                  ink = i + Nq * ((n - 1) + Nq * (k - 1))
+                  Jξ2x1xξ2 += s_D[j, n] * ω[j] / ω[n] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x1, e]
+                  Jξ2x2xξ2 += s_D[j, n] * ω[j] / ω[n] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x2, e] 
+                  Jξ2x3xξ2 += s_D[j, n] * ω[j] / ω[n] * vgeo[ink, _M, e] * vgeo[ink, _ξ2x3, e] 
                 end                                     
                 F1 = shared_flux[1, i, j, s]
                 F2 = shared_flux[2, i, j, s]
@@ -557,7 +554,7 @@ end
                 c1 = F1 * (Jξ1x1xξ1 + Jξ2x1xξ2)
                 c2 = F2 * (Jξ1x2xξ1 + Jξ2x2xξ2)
                 c3 = F3 * (Jξ1x3xξ1 + Jξ2x3xξ2)
-                local_tendency[k, s] -= (c1 + c2 + c3) * vgeo[ijk, _MI, e] 
+                local_tendency[k, s] += (c1 + c2 + c3) * vgeo[ijk, _MI, e] 
               end
             end
 
