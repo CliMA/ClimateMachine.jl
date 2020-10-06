@@ -620,6 +620,8 @@ function flux_second_order!(
 
     massflux_e = sum(
         vuntuple(N_up) do i
+            up[i].ρa *
+            ρ_inv *
             (gm.ρe * ρ_inv - e_tot_up[i]) *
             (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
         end,
