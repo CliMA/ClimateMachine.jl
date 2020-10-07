@@ -1,4 +1,4 @@
-export GCMModel, NoGCM, HadGEM
+export GCMModel, NoGCM, HadGEM, HadGEMVertical
 
 abstract type GCMModel end
 
@@ -184,5 +184,86 @@ function flux_second_order!(
     nothing
 end
 function flux_second_order!(gcminfo::HadGEM, flux::Grad, state::Vars, d_q_tot)
+    nothing
+end
+
+"""
+    Container for GCM variables from HadGEMVertical2-A forcing,
+used in the AMIP(0-4K) experiments
+"""
+struct HadGEMVertical <: GCMModel end
+
+vars_state(m::HadGEMVertical, ::Auxiliary, FT) = @vars(
+    ta::FT,
+    hus::FT,
+    ua::FT,
+    va::FT,
+    tntΣhava::FT,
+    Σtemp_tendency::FT,
+    Σqt_tendency::FT,
+    w_s::FT,
+)
+
+vars_state(::HadGEMVertical, ::Prognostic, FT) = @vars()
+vars_state(::HadGEMVertical, ::Gradient, FT) = @vars(ta::FT, hus::FT)
+vars_state(::HadGEMVertical, ::GradientFlux, FT) =
+    @vars(∇ᵥta::FT, ∇ᵥhus::FT)
+
+@inline function atmos_nodal_update_auxiliary_state!(
+    gcminfo::HadGEMVertical,
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    nothing
+end
+
+function compute_gradient_argument!(
+    gcminfo::HadGEMVertical,
+    transform::Vars,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    transform.gcminfo.ta = aux.gcminfo.ta
+    transform.gcminfo.hus = aux.gcminfo.hus
+end
+
+function compute_gradient_flux!(
+    gcminfo::HadGEMVertical,
+    diffusive::Vars,
+    ∇transform::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    diffusive.gcminfo.∇ᵥta = ∇transform.gcminfo.ta[3]
+    diffusive.gcminfo.∇ᵥhus = ∇transform.gcminfo.hus[3]
+end
+
+function flux_first_order_gcm!(
+    gcminfo::HadGEMVertical,
+    atmos::AtmosModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+    nothing
+end
+
+function flux_second_order!(
+    gcminfo::HadGEMVertical,
+    flux::Grad,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    D_t,
+)
+    nothing
+end
+function flux_second_order!(gcminfo::HadGEMVertical, flux::Grad, state::Vars, d_q_tot)
     nothing
 end
