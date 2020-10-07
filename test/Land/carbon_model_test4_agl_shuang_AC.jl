@@ -408,7 +408,7 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Specify simulation time (SI units)
 t0 = FT(0)
-timeend = FT(10000)
+timeend = FT(1000)
 #dt = FT(10)
 
 # In this section, we initialize the state vector and allocate memory for
@@ -564,7 +564,7 @@ plot!(ylims=(0,500))
 
 plot(time_data, SSOC_vs_t, label = "SSOC")
 plot!(time_data, PSOC_vs_t, label = "PSOC")
-plot!(ylims=(70000,90000))
+
 savefig(joinpath(output_dir, "sol_vs_time.png"))
 # ![](solution_vs_time.png)
 
