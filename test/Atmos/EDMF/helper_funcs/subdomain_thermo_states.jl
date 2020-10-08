@@ -133,7 +133,7 @@ function new_thermo_state_up(
         θ_liq_up = ρaθ_liq_up / ρa_up
         q_tot_up = ρaq_tot_up / ρa_up
 
-        @show "θ_liq_up, p, q_tot_up ", θ_liq_up, p, q_tot_up
+        # @show "θ_liq_up, p, q_tot_up ", θ_liq_up, p, q_tot_up
 
         LiquidIcePotTempSHumEquil_given_pressure(
             m.param_set,

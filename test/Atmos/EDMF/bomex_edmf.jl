@@ -103,7 +103,9 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(400)
-    CFLmax = FT(0.90)
+    # CFLmax = FT(0.90)
+
+    CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
 
@@ -136,6 +138,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        CFL_direction = HorizontalDirection(),
         fixed_number_of_steps = 1000,
         # fixed_number_of_steps=1082 # last timestep before crash
     )
@@ -161,12 +164,12 @@ function main(::Type{FT}) where {FT}
         Q;
         max_subspace_size = 30,
         atol = -1.0,
-        rtol = 1e-8,
+        rtol = 1e-4,
     )
     
-    nonlinearsolver = JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-8)
+    nonlinearsolver = JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-3, ϵ = 1.e-12)
     
-    ode_solver = ARK548L2SA2KennedyCarpenter(
+    ode_solver = ARK1ForwardBackwardEuler(
         dg,
         vdg,
         NonLinearBackwardEulerSolver(
