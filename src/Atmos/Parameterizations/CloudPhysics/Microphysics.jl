@@ -322,15 +322,13 @@ function terminal_velocity(
 end
 
 """
-    conv_q_vap_to_q_liq_ice(liquid_param_set::ALPS, q_sat, q, slowdown_liq)
-    conv_q_vap_to_q_liq_ice(ice_param_set::AIPS, q_sat, q, slowdown_ice)
+    conv_q_vap_to_q_liq_ice(liquid_param_set::ALPS, q_sat, q)
+    conv_q_vap_to_q_liq_ice(ice_param_set::AIPS, q_sat, q)
 
  - `liquid_param_set` - abstract set with cloud water parameters
  - `ice_param_set` - abstract set with cloud ice parameters
  - `q_sat` - PhasePartition at equilibrium
  - `q` - current PhasePartition
- - `slowdown_liq`, `slowdown_ice` - artificially slow down relaxation timescale
-   (temporarily added for testing)
 
 Returns the cloud water tendency due to condensation and evaporation
 or cloud ice tendency due to sublimation and vapor deposition.
@@ -340,24 +338,22 @@ a constant timescale.
 function conv_q_vap_to_q_liq_ice(
     liquid_param_set::ALPS,
     q_sat::PhasePartition{FT},
-    q::PhasePartition{FT};
-    slowdown_liq::FT = FT(1),
+    q::PhasePartition{FT}
 ) where {FT <: Real}
 
     _τ_cond_evap::FT = τ_relax(liquid_param_set)
 
-    return (q_sat.liq - q.liq) / _τ_cond_evap / slowdown_liq
+    return (q_sat.liq - q.liq) / _τ_cond_evap
 end
 function conv_q_vap_to_q_liq_ice(
     ice_param_set::AIPS,
     q_sat::PhasePartition{FT},
-    q::PhasePartition{FT};
-    slowdown_ice::FT = FT(1),
+    q::PhasePartition{FT}
 ) where {FT <: Real}
 
     _τ_sub_dep::FT = τ_relax(ice_param_set)
 
-    return (q_sat.ice - q.ice) / _τ_sub_dep / slowdown_ice
+    return (q_sat.ice - q.ice) / _τ_sub_dep
 end
 
 """
