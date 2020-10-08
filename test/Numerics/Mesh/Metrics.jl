@@ -333,8 +333,8 @@ end
             Cx1[:, n] += D * (J[:, n, e] .* ξ1x1[:, n, e])
             Cx1[n, :] += D * (J[n, :, e] .* ξ2x1[n, :, e])
 
-            Cx2[:, n] += D * (J[:, n, e] .* ξ1x1[:, n, e])
-            Cx2[n, :] += D * (J[n, :, e] .* ξ2x1[n, :, e])
+            Cx2[:, n] += D * (J[:, n, e] .* ξ1x2[:, n, e])
+            Cx2[n, :] += D * (J[n, :, e] .* ξ2x2[n, :, e])
         end
         @test maximum(abs.(Cx1)) ≤ 1000 * eps(T)
         @test maximum(abs.(Cx2)) ≤ 1000 * eps(T)
@@ -989,13 +989,13 @@ end
                     Cx1[n, :, m] += D * (J[n, :, m, e] .* ξ2x1[n, :, m, e])
                     Cx1[n, m, :] += D * (J[n, m, :, e] .* ξ3x1[n, m, :, e])
 
-                    Cx2[:, n, m] += D * (J[:, n, m, e] .* ξ1x1[:, n, m, e])
-                    Cx2[n, :, m] += D * (J[n, :, m, e] .* ξ2x1[n, :, m, e])
-                    Cx2[n, m, :] += D * (J[n, m, :, e] .* ξ3x1[n, m, :, e])
+                    Cx2[:, n, m] += D * (J[:, n, m, e] .* ξ1x2[:, n, m, e])
+                    Cx2[n, :, m] += D * (J[n, :, m, e] .* ξ2x2[n, :, m, e])
+                    Cx2[n, m, :] += D * (J[n, m, :, e] .* ξ3x2[n, m, :, e])
 
-                    Cx3[:, n, m] += D * (J[:, n, m, e] .* ξ1x1[:, n, m, e])
-                    Cx3[n, :, m] += D * (J[n, :, m, e] .* ξ2x1[n, :, m, e])
-                    Cx3[n, m, :] += D * (J[n, m, :, e] .* ξ3x1[n, m, :, e])
+                    Cx3[:, n, m] += D * (J[:, n, m, e] .* ξ1x3[:, n, m, e])
+                    Cx3[n, :, m] += D * (J[n, :, m, e] .* ξ2x3[n, :, m, e])
+                    Cx3[n, m, :] += D * (J[n, m, :, e] .* ξ3x3[n, m, :, e])
                 end
             end
             @test maximum(abs.(Cx1)) ≤ 1000 * eps(T)
