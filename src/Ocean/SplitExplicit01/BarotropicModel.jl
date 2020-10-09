@@ -13,9 +13,7 @@ function vars_state(m::BarotropicModel, ::Prognostic, T)
 end
 
 function init_state_prognostic!(m::BarotropicModel, Q::Vars, A::Vars, coords, t)
-    Q.U = @SVector [-0, -0]
-    Q.η = -0
-    return nothing
+    return ocean_init_state!(m, m.baroclinic.problem, Q, A, coords, t)
 end
 
 function vars_state(m::BarotropicModel, ::Auxiliary, T)
@@ -174,70 +172,13 @@ function update_penalty!(
     return nothing
 end
 
-"""
-    boundary_state!(nf, ::BarotropicModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::BarotropicModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.baroclinic.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
+@inline function boundary_state!(nf, bm::BarotropicModel, args...)
+    # hack for handling multiple boundaries for now
+    # will fix with a future update
+    boundary_conditions = (
+        bm.baroclinic.problem.boundary_conditions[1],
+        bm.baroclinic.problem.boundary_conditions[1],
+        bm.baroclinic.problem.boundary_conditions[1],
     )
-end
-
-"""
-    boundary_state!(nf, ::BarotropicModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-
-applies boundary conditions for the parabolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::BarotropicModel,
-    Q⁺::Vars,
-    D⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    D⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.baroclinic.problem,
-        bctype,
-        nf,
-        Q⁺,
-        D⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        D⁻,
-        A⁻,
-        t,
-    )
+    return ocean_boundary_state!(nf, boundary_conditions, bm, args...)
 end

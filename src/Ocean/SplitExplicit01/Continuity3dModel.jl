@@ -58,28 +58,13 @@ boundary_state!(
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(
-    nf,
-    cm::Continuity3dModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        cm,
-        cm.ocean.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
+@inline function boundary_state!(nf, cm::Continuity3dModel, args...)
+    # hack for handling multiple boundaries for now
+    # will fix with a future update
+    boundary_conditions = (
+        cm.ocean.problem.boundary_conditions[1],
+        cm.ocean.problem.boundary_conditions[1],
+        cm.ocean.problem.boundary_conditions[1],
     )
+    return ocean_boundary_state!(nf, boundary_conditions, cm, args...)
 end

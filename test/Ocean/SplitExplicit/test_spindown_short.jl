@@ -32,7 +32,18 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    config = SplitConfig("spindown_short", resolution, dimensions, Coupled())
+    BC = (
+        OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        OceanBC(Penetrable(FreeSlip()), Insulating()),
+    )
+
+    config = SplitConfig(
+        "spindown_short",
+        resolution,
+        dimensions,
+        Coupled();
+        boundary_conditions = BC,
+    )
 
     run_split_explicit(
         config,
