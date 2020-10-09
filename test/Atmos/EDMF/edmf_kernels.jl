@@ -398,20 +398,17 @@ function turbconv_source!(
         )
 
         # entrainment and detrainment
-        up_src[i].ρa += up[i].ρaw * (ε_dyn[i] - δ_dyn[i])
+        up_src[i].ρa += (ε_dyn[i] - δ_dyn[i])
         up_src[i].ρaw +=
-            up[i].ρaw *
             ((ε_dyn[i] + ε_trb[i]) * env.w - (δ_dyn[i] + ε_trb[i]) * w_up_i)
         up_src[i].ρaθ_liq +=
-            up[i].ρaw * (
-                (ε_dyn[i] + ε_trb[i]) * θ_liq_en -
-                (δ_dyn[i] + ε_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
-            )
+                ((ε_dyn[i] + ε_trb[i]) * θ_liq_en -
+                 (δ_dyn[i] + ε_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
+                )
         up_src[i].ρaq_tot +=
-            up[i].ρaw * (
-                (ε_dyn[i] + ε_trb[i]) * q_tot_en -
-                (δ_dyn[i] + ε_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
-            )
+                ((ε_dyn[i] + ε_trb[i]) * q_tot_en -
+                 (δ_dyn[i] + ε_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
+                )
 
         # add buoyancy and perturbation pressure in subdomain w equation
         up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz)
@@ -419,63 +416,52 @@ function turbconv_source!(
 
         # environment second moments:
         en_src.ρatke += (
-            up[i].ρaw *
             δ_dyn[i] *
             (w_up_i - env.w) *
             (w_up_i - env.w) *
             FT(0.5) +
-            up[i].ρaw *
             ε_trb[i] *
             (env.w - gm.ρu[3] * ρ_inv) *
-            (env.w - w_up_i) - up[i].ρaw * (ε_dyn[i] + ε_trb[i]) * tke_en
+            (env.w - w_up_i) - (ε_dyn[i] + ε_trb[i]) * tke_en
         )
 
         en_src.ρaθ_liq_cv += (
-            up[i].ρaw *
             δ_dyn[i] *
             (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
             (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) +
-            up[i].ρaw *
             ε_trb[i] *
             (θ_liq_en - θ_liq) *
             (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) +
-            up[i].ρaw *
             ε_trb[i] *
             (θ_liq_en - θ_liq) *
             (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
-            up[i].ρaw * (ε_dyn[i] + ε_trb[i]) * en.ρaθ_liq_cv
+            (ε_dyn[i] + ε_trb[i]) * en.ρaθ_liq_cv
         )
 
         en_src.ρaq_tot_cv += (
-            up[i].ρaw *
             δ_dyn[i] *
             (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) *
             (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
-            up[i].ρaw *
             ε_trb[i] *
             (q_tot_en - gm.moisture.ρq_tot * ρ_inv) *
             (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
-            up[i].ρaw *
             ε_trb[i] *
             (q_tot_en - gm.moisture.ρq_tot * ρ_inv) *
             (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) -
-            up[i].ρaw * (ε_dyn[i] + ε_trb[i]) * en.ρaq_tot_cv
+            (ε_dyn[i] + ε_trb[i]) * en.ρaq_tot_cv
         )
 
         en_src.ρaθ_liq_q_tot_cv += (
-            up[i].ρaw *
             δ_dyn[i] *
             (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
             (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
-            up[i].ρaw *
             ε_trb[i] *
             (θ_liq_en - θ_liq) *
             (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
-            up[i].ρaw *
             ε_trb[i] *
             (q_tot_en - gm.moisture.ρq_tot * ρ_inv) *
             (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
-            up[i].ρaw * (ε_dyn[i] + ε_trb[i]) * en.ρaθ_liq_q_tot_cv
+            (ε_dyn[i] + ε_trb[i]) * en.ρaθ_liq_q_tot_cv
         )
 
         # pressure tke source from the i'th updraft
