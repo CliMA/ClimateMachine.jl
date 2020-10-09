@@ -200,12 +200,21 @@ function Base.fill!(Q::MPIStateArray, x)
 end
 
 vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
-function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
-    if sym ∈ V.names
+# function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
+#     if sym ∈ V.names
+#         varrange = varsindex(V, sym)
+#         return view(realview(Q), :, varrange, :)
+#     else
+#         return getfield(Q, sym)
+#     end
+# end
+@inline function Base.getproperty(Q::M, sym::Symbol) where
+    {FT, V, M <: MPIStateArray{FT, V}}
+    if hasfield(M, sym)
+        return getfield(Q, sym)
+    else
         varrange = varsindex(V, sym)
         return view(realview(Q), :, varrange, :)
-    else
-        return getfield(Q, sym)
     end
 end
 
@@ -324,14 +333,18 @@ function Base.similar(
     similar(Q, FT; vars = V)
 end
 
-Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
+Base.size(Q::MPIStateArray) = size(Q.realdata)
 
-Base.getindex(Q::MPIStateArray, x...; kw...) = getindex(Q.realdata, x...; kw...)
+Base.axes(Q::MPIStateArray) = axes(Q.realdata)
 
-Base.setindex!(Q::MPIStateArray, x...; kw...) =
-    setindex!(Q.realdata, x...; kw...)
+Base.@propagate_inbounds Base.getindex(Q::MPIStateArray, x...) =
+    getindex(Q.realdata, x...)
 
-Base.eltype(Q::MPIStateArray, x...; kw...) = eltype(Q.data, x...; kw...)
+Base.@propagate_inbounds Base.setindex!(Q::MPIStateArray, x...) =
+    setindex!(Q.realdata, x...)
+
+Base.IndexStyle(::Type{<:MPIStateArray{FT, V, DATN, DAI1, DAV}}) where
+    {FT, V, DATN, DAI1, DAV} = IndexStyle(DAV)
 
 Base.Array(Q::MPIStateArray) = Array(Q.data)
 
@@ -929,11 +942,55 @@ end
 # API does not do. Might want to implement dot syntax for these functions?
 function ForwardDiff.value(Q::MPIStateArray{DT, V, DATN}) where
     {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
-    return Q.data.value
+    return Q.realdata.value
 end
 function ForwardDiff.partials(Q::MPIStateArray{DT, V, DATN}, i = 1) where
     {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
-    return Q.data.partials.values.:($i)
+    return Q.realdata.partials.values.:($i)
+end
+
+numlineardualbroadcasts(::Any) = 0
+numlineardualbroadcasts(::MPIStateArray{<:ForwardDiff.Dual}) = 1
+# A sum must contain 1 or more linear dual broadcasts in order to be one.
+numlineardualbroadcasts(bc::Broadcasted{S, A, typeof(+)}) where {S, A} =
+    min(1, sum(numlineardualbroadcasts.(bc.args)))
+# A product must contain exactly 1 linear dual broadcast in order to be one.
+# If it contains more than 1 linear dual broadcast, signal that it can't be
+# included in a linear dual broadcast by returning NaN.
+function numlineardualbroadcasts(bc::Broadcasted{S, A, typeof(*)}) where {S, A}
+    s = sum(numlineardualbroadcasts.(bc.args))
+    s > 1 ? NaN : s
+end
+# Any broadcast that is neither a sum nor a product can never be included in a
+# linear dual broadcast.
+numlineardualbroadcasts(::Broadcasted{S, A, F}) where {S, A, F} = NaN
+
+tovaluebroadcast(bc::Broadcasted) =
+    Broadcasted(bc.f, tovaluebroadcast.(bc.args), bc.axes)
+tovaluebroadcast(x::MPIStateArray{<:ForwardDiff.Dual}) = ForwardDiff.value(x)
+tovaluebroadcast(x::MPIStateArray) = x.realdata
+tovaluebroadcast(x::Any) = x
+
+topartialbroadcast(bc::Broadcasted, i) =
+    Broadcasted(bc.f, topartialbroadcast.(bc.args, i), bc.axes)
+topartialbroadcast(x::MPIStateArray{<:ForwardDiff.Dual}, i) =
+    ForwardDiff.partials(x, i)
+topartialbroadcast(x::MPIStateArray, ::Any) = x.realdata
+topartialbroadcast(x::Any, ::Any) = x
+
+@inline function Base.copyto!(
+    dest::MPIStateArray{<:ForwardDiff.Dual{Tag, FT, N}},
+    bc::Broadcasted{Nothing},
+) where {Tag, FT, N}
+    if numlineardualbroadcasts(bc) == 1
+        copyto!(ForwardDiff.value(dest), tovaluebroadcast(bc))
+        for i in 1:N
+            copyto!(ForwardDiff.partials(dest, i), topartialbroadcast(bc, i))
+        end
+    else
+        copyto!(dest.realdata, transform_array(bc))
+    end
+    return dest
 end
 
 end
