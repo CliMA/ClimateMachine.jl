@@ -183,10 +183,8 @@ function main(; restart = 0)
     gravity::FT = grav(param_set)
 
     #- set model time-step:
-    dt_fast = 180
-    dt_slow = 2160
-    # dt_fast = 200
-    # dt_slow = 200
+    dt_fast = 96
+    dt_slow = 3456
     if t_chkp > 0
         n_chkp = ceil(Int64, t_chkp / dt_slow)
         dt_slow = t_chkp / n_chkp
@@ -207,7 +205,7 @@ function main(; restart = 0)
         ivdc_dt = ivdc_dt,
         νʰ = FT(5e3),
         νᶻ = FT(5e-3),
-        κᶜ = FT(0.1),
+        κᶜ = FT(1.0),
         fₒ = FT(3.8e-5),
         β = FT(1.7e-11),
     )
@@ -304,11 +302,10 @@ function main(; restart = 0)
     end
     timeend = runTime + t0
 
-    lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = t0)
-    lsrk_barotropic =
-        LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
+    lsrk_ocean = LS3NRK33Heuns(dg, Q_3D, dt = dt_slow, t0 = t0)
+    lsrk_barotropic = LS3NRK33Heuns(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
 
-    odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
+    odesolver = SplitExplicitLSRK3nSolver(lsrk_ocean, lsrk_barotropic)
 
     #-- Set up State Check call back for config state arrays, called every ntFrq_SC time steps
     cbcs_dg = ClimateMachine.StateCheck.sccreate(
@@ -536,11 +533,11 @@ const H = 3000  # m
 
 xrange = range(FT(0); length = Nˣ + 1, stop = Lˣ)
 yrange = range(FT(0); length = Nʸ + 1, stop = Lʸ)
-#zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
-dz = [576, 540, 433, 339, 266, 208, 162, 128, 99, 75, 58, 43, 31, 22, 20]
-zrange = zeros(FT, Nᶻ + 1)
-zrange[2:(Nᶻ + 1)] .= cumsum(dz)
-zrange .-= H
+zrange = range(FT(-H); length = Nᶻ + 1, stop = 0)
+# dz = [576, 540, 433, 339, 266, 208, 162, 128, 99, 75, 58, 43, 31, 22, 20]
+# zrange = zeros(FT, Nᶻ + 1)
+# zrange[2:(Nᶻ + 1)] .= cumsum(dz)
+# zrange .-= H
 
 #const cʰ = sqrt(gravity * H)
 const cʰ = 1  # typical of ocean internal-wave speed
@@ -549,7 +546,7 @@ const cᶻ = 0
 #- inverse ratio of additional fast time steps (for weighted average)
 #  --> do 1/add more time-steps and average from: 1 - 1/add up to: 1 + 1/add
 # e.g., = 1 --> 100% more ; = 2 --> 50% more ; = 3 --> 33% more ...
-add_fast_substeps = 2
+add_fast_substeps = 3
 
 #- number of Implicit vertical-diffusion sub-time-steps within one model full time-step
 # default = 0 : disable implicit vertical diffusion
@@ -558,8 +555,8 @@ numImplSteps = 5
 #const τₒ = 1e-1  # (Pa = N/m^2)
 #const λʳ = 20 // 86400 # m/s
 # since we are using old BC (with factor of 2), take only half:
-const τₒ = 5e-2
-const λʳ = 10 // 86400
+ const τₒ = 5e-2
+ const λʳ = 10 // 86400
 const θᴱ = 25    # deg.C
 
 main(restart = 0)
