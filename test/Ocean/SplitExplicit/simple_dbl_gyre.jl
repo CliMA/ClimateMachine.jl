@@ -150,6 +150,11 @@ function main(; restart = 0)
     logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
+    if restart == 0 && MPI.Comm_rank(mpicomm) == 0 && isdir(vtkpath)
+        @info @sprintf("""Remove old dir: %s and make new one""", vtkpath )
+        rm(vtkpath, recursive = true)
+    end
+
     brickrange_2D = (xrange, yrange)
     topl_2D =
         BrickTopology(mpicomm, brickrange_2D, periodicity = (false, false))
@@ -398,10 +403,6 @@ function make_callbacks(
 )
     n_outp = ntFrq[1]
     n_chkp = ntFrq[2]
-    if step[3] == 1 && isdir(vtkpath)
-        @info @sprintf("""Remove old dir: %s and make new one""", vtkpath )
-        rm(vtkpath, recursive = true)
-    end
     mkpath(vtkpath)
     mkpath(vtkpath * "/slow")
     mkpath(vtkpath * "/fast")
