@@ -454,26 +454,73 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     ###################
     # RHS Computation #
     ###################
-    comp_stream = volume_tendency!(device, (Nq, Nq))(
-        balance_law,
-        Val(dim),
-        Val(N),
-        dg.direction,
-        tendency.data,
-        state_prognostic.data,
-        state_gradient_flux.data,
-        Qhypervisc_grad.data,
-        state_auxiliary.data,
-        grid.vgeo,
-        t,
-        grid.ω,
-        grid.D,
-        topology.realelems,
-        α,
-        β;
-        ndrange = (nrealelem * Nq, Nq),
-        dependencies = (comp_stream,),
-    )
+    if dg.direction isa EveryDirection
+      comp_stream = volume_tendency!(device, (Nq, Nq, Nq))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          dg.direction,
+          HorizontalDirection(),
+          tendency.data,
+          state_prognostic.data,
+          state_gradient_flux.data,
+          Qhypervisc_grad.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          t,
+          grid.ω,
+          grid.D,
+          topology.realelems,
+          α,
+          β,
+          false;
+          ndrange = (nrealelem * Nq, Nq, Nq),
+          dependencies = (comp_stream,),
+      )
+      comp_stream = volume_tendency!(device, (Nq, Nq, Nq))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          dg.direction,
+          VerticalDirection(),
+          tendency.data,
+          state_prognostic.data,
+          state_gradient_flux.data,
+          Qhypervisc_grad.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          t,
+          grid.ω,
+          grid.D,
+          topology.realelems,
+          α,
+          FT(1);
+          ndrange = (nrealelem * Nq, Nq, Nq),
+          dependencies = (comp_stream,),
+      )
+    else
+      comp_stream = volume_tendency!(device, (Nq, Nq, Nq))(
+          balance_law,
+          Val(dim),
+          Val(N),
+          dg.direction,
+          dg.direction,
+          tendency.data,
+          state_prognostic.data,
+          state_gradient_flux.data,
+          Qhypervisc_grad.data,
+          state_auxiliary.data,
+          grid.vgeo,
+          t,
+          grid.ω,
+          grid.D,
+          topology.realelems,
+          α,
+          β;
+          ndrange = (nrealelem * Nq, Nq, Nq),
+          dependencies = (comp_stream,),
+      )
+    end
 
     comp_stream = interface_tendency!(device, workgroups_surface)(
         balance_law,
