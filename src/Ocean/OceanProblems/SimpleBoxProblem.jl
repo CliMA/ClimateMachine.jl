@@ -127,7 +127,7 @@ end
     y,
 ) where {R <: Rotating} = m.fₒ
 
-function ocean_init_state!(m::SWModel, p::SimpleBox, Q, A, coords, t)
+function ocean_init_state!(m::SWModel, p::SimpleBox, Q, A, coords, center_coords, t)
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
     ν = (m.turbulence.ν, m.turbulence.ν, -0)
 
@@ -142,7 +142,7 @@ function ocean_init_state!(m::SWModel, p::SimpleBox, Q, A, coords, t)
     return nothing
 end
 
-function ocean_init_state!(m::HBModel, p::SimpleBox, Q, A, coords, t)
+function ocean_init_state!(m::HBModel, p::SimpleBox, Q, A, coords, center_coords, t)
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
     ν = (m.νʰ, m.νʰ, m.νᶻ)
 
@@ -280,9 +280,10 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
 - `coords`: the coordidinates, not used
+- `center_coords`: coordinates of element centers, not used
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
+function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, center_coords, t)
     Q.u = @SVector [0, 0]
     Q.η = 0
     Q.θ = 20
@@ -292,11 +293,11 @@ end
 
 include("ShallowWaterInitialStates.jl")
 
-function ocean_init_state!(m::SWModel, p::HomogeneousBox, Q, A, coords, t)
+function ocean_init_state!(m::SWModel, p::HomogeneousBox, Q, A, coords, center_coords, t)
     if t == 0
-        null_init_state!(p, m.turbulence, Q, A, coords, 0)
+        null_init_state!(p, m.turbulence, Q, A, coords, center_coords, 0)
     else
-        gyre_init_state!(m, p, m.turbulence, Q, A, coords, t)
+        gyre_init_state!(m, p, m.turbulence, Q, A, coords, center_coords, t)
     end
 end
 
@@ -371,9 +372,10 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
 - `coords`: the coordidinates
+- `center_coords`: element center coordinates, not used
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(m::HBModel, p::OceanGyre, Q, A, coords, t)
+function ocean_init_state!(m::HBModel, p::OceanGyre, Q, A, coords, center_coords, t)
     @inbounds y = coords[2]
     @inbounds z = coords[3]
     @inbounds H = p.H
@@ -385,7 +387,7 @@ function ocean_init_state!(m::HBModel, p::OceanGyre, Q, A, coords, t)
     return nothing
 end
 
-function ocean_init_state!(m::SWModel, p::OceanGyre, Q, A, coords, t)
+function ocean_init_state!(m::SWModel, p::OceanGyre, Q, A, coords, center_coords, t)
     @inbounds y = coords[2]
     @inbounds z = coords[3]
     @inbounds H = p.H

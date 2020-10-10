@@ -181,6 +181,7 @@ init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t,
 ) = nothing
 

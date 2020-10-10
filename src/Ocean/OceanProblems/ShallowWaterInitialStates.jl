@@ -6,6 +6,7 @@ function null_init_state!(
     state,
     aux,
     coord,
+    center_coord,
     t,
 )
     T = eltype(state.U)
@@ -24,6 +25,7 @@ function lsw_init_state!(
     state,
     aux,
     coords,
+    center_coords,
     t,
 )
     state.U = @SVector [
@@ -46,6 +48,7 @@ function lkw_init_state!(
     state,
     aux,
     coords,
+    center_coords,
     t,
 )
     state.U = @SVector [
@@ -93,6 +96,7 @@ function gyre_init_state!(
     state,
     aux,
     coords,
+    center_coords,
     t,
 )
     FT = eltype(state)
@@ -138,6 +142,7 @@ function gyre_init_state!(
     state,
     aux,
     coords,
+    center_coords,
     t,
 )
     FT = eltype(state.U)
