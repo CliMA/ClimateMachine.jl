@@ -40,6 +40,7 @@ function Initialize_Brick_Interpolation_Test!(
     state::Vars,
     aux::Vars,
     (x, y, z),
+    (xc, yc, zc),
     t,
 )
     FT = eltype(state)
@@ -64,7 +65,7 @@ struct TestSphereSetup{DT}
     end
 end
 #----------------------------------------------------------------------------
-function (setup::TestSphereSetup)(problem, bl, state, aux, coords, t)
+function (setup::TestSphereSetup)(problem, bl, state, aux, coords, center_coords, t)
     # callable to set initial conditions
     FT = eltype(state)
     _grav::FT = grav(param_set)

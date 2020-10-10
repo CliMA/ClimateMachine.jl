@@ -47,6 +47,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coord,
+    center_coord,
     t::Real,
 )
     @inbounds state.x = coord[1]

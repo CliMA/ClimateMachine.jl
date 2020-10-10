@@ -68,6 +68,7 @@ function Initialise_Density_Current!(
     state::Vars,
     aux::Vars,
     (x1, x2, x3),
+    (xc1, xc2, xc3),
     t,
 )
     FT = eltype(state)

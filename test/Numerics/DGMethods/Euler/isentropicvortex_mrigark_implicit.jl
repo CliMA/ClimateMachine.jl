@@ -305,6 +305,7 @@ function isentropicvortex_initialcondition!(
     state,
     aux,
     coords,
+    center_coords,
     t,
     args...,
 )

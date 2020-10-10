@@ -20,6 +20,7 @@ include("edmf_kernels.jl")
             state::Vars,
             aux::Vars,
             coords,
+            center_coords,
             t::Real,
         ) where {FT}
 
@@ -32,6 +33,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t::Real,
 ) where {FT}
     # Aliases:

@@ -41,7 +41,7 @@ import ClimateMachine.VariableTemplates.varsindex
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
+function init_risingbubble!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -50,10 +50,10 @@ function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
 
-    xc::FT = 1250
-    yc::FT = 1250
-    zc::FT = 1000
-    r = sqrt((x - xc)^2 + (y - yc)^2 + (z - zc)^2)
+    _xc::FT = 1250
+    _yc::FT = 1250
+    _zc::FT = 1000
+    r = sqrt((x - _xc)^2 + (y - _yc)^2 + (z - _zc)^2)
     rc::FT = 500
     θ_ref::FT = 300
     Δθ::FT = 0

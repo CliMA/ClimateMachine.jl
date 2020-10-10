@@ -130,6 +130,7 @@ function ClimateMachine.BalanceLaws.init_state_prognostic!(
     state::Vars,
     aux::Vars,
     (x, y, z),
+    (xc, yc, zc),
     filter_direction,
     dim,
 )
@@ -221,6 +222,7 @@ function ClimateMachine.BalanceLaws.init_state_prognostic!(
     state::Vars,
     aux::Vars,
     (x, y, z),
+    (xc, yc, zc)
 )
     state.q = abs(x) - 0.1
 end

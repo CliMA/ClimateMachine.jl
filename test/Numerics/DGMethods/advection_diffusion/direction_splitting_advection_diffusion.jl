@@ -60,6 +60,7 @@ function initial_condition!(
     state,
     aux,
     x,
+    xc,
     t,
 ) where {adv, diff, dir, topo}
     state.ρ = initial_ρ(topo, x)
