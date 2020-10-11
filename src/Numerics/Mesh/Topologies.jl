@@ -12,8 +12,12 @@ export AbstractTopology,
     cubedshellwarp,
     cubedshellunwarp
 
-export grid1d, SingleExponentialStretching, InteriorStretching
-
+export grid1d,
+    AbstractGridStretching,
+    SingleExponentialStretching,
+    InteriorStretching,
+    DoubleSidedSingleExponentialStretching,
+    NoStretching
 """
     AbstractTopology{dim}
 
@@ -1231,6 +1235,9 @@ function StackedCubedSphereTopology(
     )
 end
 
+# TODO: document these
+abstract type AbstractGridStretching end
+struct NoStretching <: AbstractGridStretching end
 
 """
     grid1d(a, b[, stretch::AbstractGridStretching]; elemsize, nelem)
@@ -1245,7 +1252,13 @@ will be uniform.
 
 Returns either a range object or a vector containing the element boundaries.
 """
-function grid1d(a, b, stretch = nothing; elemsize = nothing, nelem = nothing)
+function grid1d(
+    a,
+    b,
+    stretch = NoStretching();
+    elemsize = nothing,
+    nelem = nothing,
+)
     xor(nelem === nothing, elemsize === nothing) ||
     error("Either `elemsize` or `nelem` arguments must be provided")
     if elemsize !== nothing
@@ -1253,12 +1266,9 @@ function grid1d(a, b, stretch = nothing; elemsize = nothing, nelem = nothing)
     end
     grid1d(a, b, stretch, nelem)
 end
-function grid1d(a, b, ::Nothing, nelem)
+function grid1d(a, b, ::NoStretching, nelem)
     range(a, stop = b, length = nelem + 1)
 end
-
-# TODO: document these
-abstract type AbstractGridStretching end
 
 """
     SingleExponentialStretching(A)
@@ -1281,7 +1291,7 @@ function grid1d(
 ) where {A, B}
     F = float(promote_type(A, B))
     s = range(zero(F), stop = one(F), length = nelem + 1)
-    a .+ (b - a) .* expm1.(stretch.A .* s) ./ expm1(stretch.A)
+    a .+ (b - a) .* (exp.(stretch.A .* s) .- 1) ./ (exp(stretch.A) - 1)
 end
 
 struct InteriorStretching{T} <: AbstractGridStretching
@@ -1293,6 +1303,33 @@ function grid1d(a::A, b::B, stretch::InteriorStretching, nelem) where {A, B}
     s = range(zero(F), stop = one(F), length = nelem + 1)
     range(a, stop = b, length = nelem + 1) .+
     coe .* (stretch.attractor .- (b - a) .* s) .* (1 .- s) .* s
+end
+
+"""
+    DoubleSidedSingleExponentialStretching(A)
+
+Apply single-exponential stretching to both both boundaries
+
+This results in increased point density near two opposite boundaries
+
+"""
+struct DoubleSidedSingleExponentialStretching{T} <: AbstractGridStretching
+    A::T
+end
+function grid1d(
+    a::A,
+    b::B,
+    stretch::DoubleSidedSingleExponentialStretching,
+    nelem,
+) where {A, B}
+    F = float(promote_type(A, B))
+    s = range(zero(F), stop = one(F), length = nelem + 1)
+    s_t = (exp.(stretch.A .* s) .- 1) ./ (exp(stretch.A) - 1)
+    s_b = (exp.(-stretch.A .* s) .- 1) ./ (exp(-stretch.A) - 1)
+    t1 = s_t[1:((nelem + 1) ÷ 2)]
+    t2 = s_b[(((nelem + 1) ÷ 2) + 1):(nelem + 1)]
+    t = append!(t1, t2)
+    a .+ (b - a) .* t
 end
 
 end
