@@ -50,7 +50,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
     elems,
     α,
     β,
-    add_source = true
+    add_source = true,
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
@@ -84,7 +84,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
     @inbounds @views begin
         s_D[i, j] = D[i, j]
-        
+
         if (j == 1)
             s_ω[i] = ω[i]
         end
@@ -114,12 +114,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         flux_first_order!(
             balance_law,
             Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                            local_state_prognostic[:],
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                           local_state_auxiliary[:],
-            ),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
             t,
             (model_direction,),
         )
@@ -132,96 +128,96 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
         # In the case of the remainder model we may need to loop through the
         # models to add in restricted direction componennts
-        if model_direction isa EveryDirection && balance_law isa RemBL && rembl_has_subs_direction(HorizontalDirection(), balance_law)
-                fill!(local_flux, -zero(eltype(local_flux)))
-                flux_first_order!(
-                    balance_law,
-                    Grad{vars_state(balance_law, Prognostic(), FT)}(
-                        local_flux,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                                    local_state_prognostic[:],
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                                   local_state_auxiliary[:],
-                    ),
-                    t,
-                    (HorizontalDirection(),),
-                )
-                @unroll for s in 1:num_state_prognostic
-                    shared_flux[1, i, j, k, s] += local_flux[1, s]
-                    shared_flux[2, i, j, k, s] += local_flux[2, s]
-                    shared_flux[3, i, j, k, s] += local_flux[3, s]
-                end
+        if model_direction isa EveryDirection &&
+           balance_law isa RemBL &&
+           rembl_has_subs_direction(HorizontalDirection(), balance_law)
+            fill!(local_flux, -zero(eltype(local_flux)))
+            flux_first_order!(
+                balance_law,
+                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
+                t,
+                (HorizontalDirection(),),
+            )
+            @unroll for s in 1:num_state_prognostic
+                shared_flux[1, i, j, k, s] += local_flux[1, s]
+                shared_flux[2, i, j, k, s] += local_flux[2, s]
+                shared_flux[3, i, j, k, s] += local_flux[3, s]
+            end
         end
 
         @synchronize
-        
+
         ijk = i + Nq * ((j - 1) + Nq * (k - 1))
         if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-          ξ1x1 = vgeo[ijk, _ξ1x1, e]
-          ξ1x2 = vgeo[ijk, _ξ1x2, e]
-          ξ1x3 = vgeo[ijk, _ξ1x3, e]
+            ξ1x1 = vgeo[ijk, _ξ1x1, e]
+            ξ1x2 = vgeo[ijk, _ξ1x2, e]
+            ξ1x3 = vgeo[ijk, _ξ1x3, e]
         end
         if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
             ξ2x2 = vgeo[ijk, _ξ2x2, e]
             ξ2x3 = vgeo[ijk, _ξ2x3, e]
         end
-        
-        if model_direction isa HorizontalDirection
-          GCLH1 = GCLH2 = GCLH3 = -zero(FT)
-          @unroll for n in 1:Nq
-                  njk = n + Nq * ((j - 1) + Nq * (k - 1))
-                  GCLH1 +=
-                      s_D[i, n] * s_ω[i] / s_ω[n] *
-                      vgeo[njk, _M, e] *
-                      vgeo[njk, _ξ1x1, e]
-                  GCLH2 +=
-                      s_D[i, n] * s_ω[i] / s_ω[n] *
-                      vgeo[njk, _M, e] *
-                      vgeo[njk, _ξ1x2, e]
-                  GCLH3 +=
-                      s_D[i, n] * s_ω[i] / s_ω[n] *
-                      vgeo[njk, _M, e] *
-                      vgeo[njk, _ξ1x3, e]
 
-                  if dim == 3
-                      ink = i + Nq * ((n - 1) + Nq * (k - 1))
-                      GCLH1 +=
-                          s_D[j, n] * s_ω[j] / s_ω[n] *
-                          vgeo[ink, _M, e] *
-                          vgeo[ink, _ξ2x1, e]
-                      GCLH2 +=
-                          s_D[j, n] * s_ω[j] / s_ω[n] *
-                          vgeo[ink, _M, e] *
-                          vgeo[ink, _ξ2x2, e]
-                      GCLH3 +=
-                          s_D[j, n] * s_ω[j] / s_ω[n] *
-                          vgeo[ink, _M, e] *
-                          vgeo[ink, _ξ2x3, e]
-                  end
-          end
+        if model_direction isa HorizontalDirection
+            GCLH1 = GCLH2 = GCLH3 = -zero(FT)
+            @unroll for n in 1:Nq
+                njk = n + Nq * ((j - 1) + Nq * (k - 1))
+                GCLH1 +=
+                    s_D[i, n] * s_ω[i] / s_ω[n] *
+                    vgeo[njk, _M, e] *
+                    vgeo[njk, _ξ1x1, e]
+                GCLH2 +=
+                    s_D[i, n] * s_ω[i] / s_ω[n] *
+                    vgeo[njk, _M, e] *
+                    vgeo[njk, _ξ1x2, e]
+                GCLH3 +=
+                    s_D[i, n] * s_ω[i] / s_ω[n] *
+                    vgeo[njk, _M, e] *
+                    vgeo[njk, _ξ1x3, e]
+
+                if dim == 3
+                    ink = i + Nq * ((n - 1) + Nq * (k - 1))
+                    GCLH1 +=
+                        s_D[j, n] * s_ω[j] / s_ω[n] *
+                        vgeo[ink, _M, e] *
+                        vgeo[ink, _ξ2x1, e]
+                    GCLH2 +=
+                        s_D[j, n] * s_ω[j] / s_ω[n] *
+                        vgeo[ink, _M, e] *
+                        vgeo[ink, _ξ2x2, e]
+                    GCLH3 +=
+                        s_D[j, n] * s_ω[j] / s_ω[n] *
+                        vgeo[ink, _M, e] *
+                        vgeo[ink, _ξ2x3, e]
+                end
+            end
         end
 
         # weak outside metrics derivative
         @unroll for s in 1:num_state_prognostic
-            if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-              F1ξ1 = F2ξ1 = F3ξ1 = -zero(FT)
+            if dim == 3 ||
+               (dim == 2 && !(model_direction isa VerticalDirection))
+                F1ξ1 = F2ξ1 = F3ξ1 = -zero(FT)
             end
-            if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
+            if dim == 3 ||
+               (dim == 2 && !(model_direction isa HorizontalDirection))
                 F1ξ2 = F2ξ2 = F3ξ2 = -zero(FT)
             end
 
             @unroll for n in 1:Nq
-                if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-                  Dni = s_D[n, i] * s_ω[n] / s_ω[i]
-                  F1ξ1 += Dni * shared_flux[1, n, j, k, s]
-                  F2ξ1 += Dni * shared_flux[2, n, j, k, s]
-                  F3ξ1 += Dni * shared_flux[3, n, j, k, s]
+                if dim == 3 ||
+                   (dim == 2 && !(model_direction isa VerticalDirection))
+                    Dni = s_D[n, i] * s_ω[n] / s_ω[i]
+                    F1ξ1 += Dni * shared_flux[1, n, j, k, s]
+                    F2ξ1 += Dni * shared_flux[2, n, j, k, s]
+                    F3ξ1 += Dni * shared_flux[3, n, j, k, s]
                 end
 
-                if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
+                if dim == 3 ||
+                   (dim == 2 && !(model_direction isa HorizontalDirection))
                     Dnj = s_D[n, j] * s_ω[n] / s_ω[j]
                     F1ξ2 += Dnj * shared_flux[1, i, n, k, s]
                     F2ξ2 += Dnj * shared_flux[2, i, n, k, s]
@@ -229,12 +225,13 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 end
             end
 
-            if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-              local_tendency[s] += ξ1x1 * F1ξ1 + ξ1x2 * F2ξ1 + ξ1x3 * F3ξ1
+            if dim == 3 ||
+               (dim == 2 && !(model_direction isa VerticalDirection))
+                local_tendency[s] += ξ1x1 * F1ξ1 + ξ1x2 * F2ξ1 + ξ1x3 * F3ξ1
             end
-            if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
-                local_tendency[s] +=
-                    ξ2x1 * F1ξ2 + ξ2x2 * F2ξ2 + ξ2x3 * F3ξ2
+            if dim == 3 ||
+               (dim == 2 && !(model_direction isa HorizontalDirection))
+                local_tendency[s] += ξ2x1 * F1ξ2 + ξ2x2 * F2ξ2 + ξ2x3 * F3ξ2
             end
 
             F1 = shared_flux[1, i, j, k, s]
@@ -242,9 +239,8 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             F3 = shared_flux[3, i, j, k, s]
 
             if model_direction isa HorizontalDirection
-              local_tendency[s] -=
-                  (GCLH1 * F1 + GCLH2 * F2 + GCLH3 * F3) *
-                  vgeo[ijk, _MI, e]
+                local_tendency[s] -=
+                    (GCLH1 * F1 + GCLH2 * F2 + GCLH3 * F3) * vgeo[ijk, _MI, e]
             end
         end
 
@@ -253,9 +249,9 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
 
         M = vgeo[ijk, _M, e]
         if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-          ξ1x1 = vgeo[ijk, _ξ1x1, e]
-          ξ1x2 = vgeo[ijk, _ξ1x2, e]
-          ξ1x3 = vgeo[ijk, _ξ1x3, e]
+            ξ1x1 = vgeo[ijk, _ξ1x1, e]
+            ξ1x2 = vgeo[ijk, _ξ1x2, e]
+            ξ1x3 = vgeo[ijk, _ξ1x3, e]
         end
         if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
@@ -267,18 +263,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         flux_second_order!(
             balance_law,
             Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                            local_state_prognostic[:],
-            ),
-            Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                                                              local_state_gradient_flux[:],
-            ),
-            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                                                                local_state_hyperdiffusion[:],
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                           local_state_auxiliary[:],
-            ),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[:],),
+            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(local_state_hyperdiffusion[:],),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
             t,
         )
 
@@ -294,37 +282,33 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             shared_flux[2, i, j, k, s],
             local_flux_3[s]
 
-            if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-              shared_flux[1, i, j, k, s] =
-                  M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+            if dim == 3 ||
+               (dim == 2 && !(model_direction isa VerticalDirection))
+                shared_flux[1, i, j, k, s] =
+                    M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
             end
-            if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
+            if dim == 3 ||
+               (dim == 2 && !(model_direction isa HorizontalDirection))
                 shared_flux[2, i, j, k, s] =
                     M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
             end
         end
 
         if add_source
-          fill!(local_source, -zero(eltype(local_source)))
-          source!(
-              balance_law,
-              Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
-              Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                              local_state_prognostic[:],
-              ),
-              Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                                                                local_state_gradient_flux[:],
-              ),
-              Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                             local_state_auxiliary[:],
-              ),
-              t,
-              (model_direction,),
-          )
+            fill!(local_source, -zero(eltype(local_source)))
+            source!(
+                balance_law,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+                Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[:],),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
+                t,
+                (model_direction,),
+            )
 
-          @unroll for s in 1:num_state_prognostic
-              local_tendency[s] += local_source[s]
-          end
+            @unroll for s in 1:num_state_prognostic
+                local_tendency[s] += local_source[s]
+            end
         end
         @synchronize
 
@@ -334,19 +318,21 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @unroll for s in 1:num_state_prognostic
             @unroll for n in 1:Nq
                 # ξ1-grid lines
-                if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
-                local_tendency[s] +=
-                    MI * s_D[n, i] * shared_flux[1, n, j, k, s]
+                if dim == 3 ||
+                   (dim == 2 && !(model_direction isa VerticalDirection))
+                    local_tendency[s] +=
+                        MI * s_D[n, i] * shared_flux[1, n, j, k, s]
                 end
 
                 # ξ2-grid lines
-                if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
+                if dim == 3 ||
+                   (dim == 2 && !(model_direction isa HorizontalDirection))
                     local_tendency[s] +=
                         MI * s_D[n, j] * shared_flux[2, i, n, k, s]
                 end
             end
         end
-        
+
         ijk = i + Nq * ((j - 1) + Nq * (k - 1))
         @unroll for s in 1:num_state_prognostic
             if β != 0
@@ -412,7 +398,7 @@ end
 
     @inbounds @views begin
         s_D[i, j] = D[i, j]
-        
+
         if (j == 1)
             s_ω[i] = ω[i]
         end
@@ -442,12 +428,8 @@ end
         flux_first_order!(
             balance_law,
             Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                            local_state_prognostic[:],
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                           local_state_auxiliary[:],
-            ),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
             t,
             (model_direction,),
         )
@@ -460,27 +442,23 @@ end
 
         # In the case of the remainder model we may need to loop through the
         # models to add in restricted direction componennts
-        if model_direction isa EveryDirection && balance_law isa RemBL && rembl_has_subs_direction(VerticalDirection(), balance_law)
-                fill!(local_flux, -zero(eltype(local_flux)))
-                flux_first_order!(
-                    balance_law,
-                    Grad{vars_state(balance_law, Prognostic(), FT)}(
-                        local_flux,
-                    ),
-                    Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                                    local_state_prognostic[:],
-                    ),
-                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                                   local_state_auxiliary[:],
-                    ),
-                    t,
-                    (VerticalDirection(),),
-                )
-                @unroll for s in 1:num_state_prognostic
-                    shared_flux[1, k, i, j, s] += local_flux[1, s]
-                    shared_flux[2, k, i, j, s] += local_flux[2, s]
-                    shared_flux[3, k, i, j, s] += local_flux[3, s]
-                end
+        if model_direction isa EveryDirection &&
+           balance_law isa RemBL &&
+           rembl_has_subs_direction(VerticalDirection(), balance_law)
+            fill!(local_flux, -zero(eltype(local_flux)))
+            flux_first_order!(
+                balance_law,
+                Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
+                t,
+                (VerticalDirection(),),
+            )
+            @unroll for s in 1:num_state_prognostic
+                shared_flux[1, k, i, j, s] += local_flux[1, s]
+                shared_flux[2, k, i, j, s] += local_flux[2, s]
+                shared_flux[3, k, i, j, s] += local_flux[3, s]
+            end
         end
         @synchronize
 
@@ -488,24 +466,24 @@ end
         ξ3x1 = vgeo[ijk, _ξ3x1, e]
         ξ3x2 = vgeo[ijk, _ξ3x2, e]
         ξ3x3 = vgeo[ijk, _ξ3x3, e]
-       
+
         if model_direction isa VerticalDirection
-          GCLV1 = GCLV2 = GCLV3 = -zero(FT)
-          @unroll for n in 1:Nq
-                  ijn = i + Nq * ((j - 1) + Nq * (n - 1))
-                  GCLV1 +=
-                      s_D[k, n] * s_ω[k] / s_ω[n] *
-                      vgeo[ijn, _M, e] *
-                      vgeo[ijn, _ξ3x1, e]
-                  GCLV2 +=
-                      s_D[k, n] * s_ω[k] / s_ω[n] *
-                      vgeo[ijn, _M, e] *
-                      vgeo[ijn, _ξ3x2, e]
-                  GCLV3 +=
-                      s_D[k, n] * s_ω[k] / s_ω[n] *
-                      vgeo[ijn, _M, e] *
-                      vgeo[ijn, _ξ3x3, e]
-          end
+            GCLV1 = GCLV2 = GCLV3 = -zero(FT)
+            @unroll for n in 1:Nq
+                ijn = i + Nq * ((j - 1) + Nq * (n - 1))
+                GCLV1 +=
+                    s_D[k, n] * s_ω[k] / s_ω[n] *
+                    vgeo[ijn, _M, e] *
+                    vgeo[ijn, _ξ3x1, e]
+                GCLV2 +=
+                    s_D[k, n] * s_ω[k] / s_ω[n] *
+                    vgeo[ijn, _M, e] *
+                    vgeo[ijn, _ξ3x2, e]
+                GCLV3 +=
+                    s_D[k, n] * s_ω[k] / s_ω[n] *
+                    vgeo[ijn, _M, e] *
+                    vgeo[ijn, _ξ3x3, e]
+            end
         end
 
         # weak outside metrics derivative
@@ -525,9 +503,8 @@ end
             F3 = shared_flux[3, k, i, j, s]
 
             if model_direction isa VerticalDirection
-              local_tendency[s] -=
-                  (GCLV1 * F1 + GCLV2 * F2 + GCLV3 * F3) *
-                  vgeo[ijk, _MI, e]
+                local_tendency[s] -=
+                    (GCLV1 * F1 + GCLV2 * F2 + GCLV3 * F3) * vgeo[ijk, _MI, e]
             end
         end
 
@@ -542,49 +519,34 @@ end
         flux_second_order!(
             balance_law,
             Grad{vars_state(balance_law, Prognostic(), FT)}(local_flux),
-            Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                            local_state_prognostic[:],
-            ),
-            Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                                                              local_state_gradient_flux[:],
-            ),
-            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(
-                                                                local_state_hyperdiffusion[:],
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                           local_state_auxiliary[:],
-            ),
+            Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[:],),
+            Vars{vars_state(balance_law, Hyperdiffusive(), FT)}(local_state_hyperdiffusion[:],),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
             t,
         )
 
         # Build "inside metrics" flux
         @unroll for s in 1:num_state_prognostic
             F1, F2, F3 = local_flux[1, s], local_flux[2, s], local_flux[3, s]
-            shared_flux[1, k, i, j, s] =
-                M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+            shared_flux[1, k, i, j, s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
         end
 
         if add_source
-          fill!(local_source, -zero(eltype(local_source)))
-          source!(
-              balance_law,
-              Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
-              Vars{vars_state(balance_law, Prognostic(), FT)}(
-                                                              local_state_prognostic[:],
-              ),
-              Vars{vars_state(balance_law, GradientFlux(), FT)}(
-                                                                local_state_gradient_flux[:],
-              ),
-              Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                                                             local_state_auxiliary[:],
-              ),
-              t,
-              (model_direction,),
-          )
+            fill!(local_source, -zero(eltype(local_source)))
+            source!(
+                balance_law,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:],),
+                Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[:],),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:],),
+                t,
+                (model_direction,),
+            )
 
-          @unroll for s in 1:num_state_prognostic
-              local_tendency[s] += local_source[s]
-          end
+            @unroll for s in 1:num_state_prognostic
+                local_tendency[s] += local_source[s]
+            end
         end
         @synchronize
 
@@ -594,11 +556,10 @@ end
         @unroll for s in 1:num_state_prognostic
             @unroll for n in 1:Nq
                 # ξ3-grid lines
-                local_tendency[s] +=
-                    MI * s_D[n, k] * shared_flux[1, n, i, j, s]
+                local_tendency[s] += MI * s_D[n, k] * shared_flux[1, n, i, j, s]
             end
         end
-        
+
         @unroll for s in 1:num_state_prognostic
             if β != 0
                 T = α * local_tendency[s] + β * tendency[ijk, s, e]
