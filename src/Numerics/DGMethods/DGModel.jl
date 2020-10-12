@@ -473,7 +473,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             topology.realelems,
             α,
             β,
-            false;
+            true;
             ndrange = (nrealelem * Nq, Nq, Nqk),
             dependencies = (comp_stream,),
         )
