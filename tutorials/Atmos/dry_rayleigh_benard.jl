@@ -168,7 +168,7 @@ function config_problem(FT, N, resolution, xmax, ymax, zmax)
         splitting_type = ClimateMachine.SlowFastSplitting(),
         mis_method = MIS2,
         fast_method = LSRK144NiegemannDiehlBusch,
-        nsubsteps = 10,
+        nsubsteps = 12,
     )
 
     config = ClimateMachine.AtmosLESConfiguration(
