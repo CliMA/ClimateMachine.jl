@@ -134,10 +134,11 @@ function init_densitycurrent!(
     aux,
     (x, y, z),
     (xc, yc, zc),
-    t,
-)
+    t::FT
+) where FT
+    #TODO - whyyy?!!! Ask Jeremy
     ## Problem float-type
-    FT = eltype(state)
+    #FT = eltype(state)
 
     ## Unpack constant parameters
     R_gas::FT = R_d(bl.param_set)
