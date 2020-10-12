@@ -231,6 +231,13 @@ function main()
         config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
+    ode_solver_type = ClimateMachine.MISSolverType(;
+        splitting_type = ClimateMachine.SlowFastSplitting(),
+        mis_method = MIS2,
+        fast_method = LSRK144NiegemannDiehlBusch,
+        nsubsteps = 12,
+    )
+    #=
     ode_solver_type = ClimateMachine.IMEXSolverType(
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
@@ -238,6 +245,7 @@ function main()
         split_explicit_implicit = true,
         discrete_splitting = false,
     )
+    =#
 
     CFL = FT(0.1) # target acoustic CFL number
 
