@@ -58,10 +58,10 @@ const FT = Float64
         end
     end
 
-    config = SplitConfig("multirate", resolution, dimensions, Coupled())
-
     @testset "Multi-rate" begin
         @testset "Δt = 30 mins" begin
+            config = SplitConfig("multirate", resolution, dimensions, Coupled())
+
             run_split_explicit(
                 config,
                 timespan,
@@ -72,6 +72,8 @@ const FT = Float64
         end
 
         @testset "Δt = 60 mins" begin
+            config = SplitConfig("multirate", resolution, dimensions, Coupled())
+
             run_split_explicit(
                 config,
                 timespan,
@@ -82,6 +84,8 @@ const FT = Float64
         end
 
         @testset "Δt = 90 mins" begin
+            config = SplitConfig("multirate", resolution, dimensions, Coupled())
+
             run_split_explicit(
                 config,
                 timespan,

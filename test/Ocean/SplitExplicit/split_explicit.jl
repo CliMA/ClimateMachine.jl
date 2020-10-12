@@ -10,6 +10,7 @@ using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
 using ClimateMachine.Ocean.SplitExplicit: VerticalIntegralModel
+using ClimateMachine.Ocean.SplitExplicit01
 using ClimateMachine.Ocean.OceanProblems
 
 using ClimateMachine.Mesh.Topologies
@@ -31,12 +32,11 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-struct SplitConfig{N, M3, M2, G3, G2, M, AT}
+struct SplitConfig{N, D3, D2, S, M, AT}
     name::N
-    model_3D::M3
-    model_2D::M2
-    grid_3D::G3
-    grid_2D::G2
+    dg_3D::D3
+    dg_2D::D2
+    solver::S
     mpicomm::M
     ArrayType::AT
 end
@@ -50,127 +50,32 @@ function run_split_explicit(
     restart = 0,
     analytic_solution = false,
 )
+    Q_3D, Q_2D, t0 = init_states(config, Val(restart))
+
     tout, timeend = timespan
 
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
 
-    vert_filter =
-        CutoffFilter(config.grid_3D, polynomialorder(config.grid_3D) - 1)
-    exp_filter = ExponentialFilter(config.grid_3D, 1, 8)
+    timeendlocal = timeend + t0
 
-    integral_model = DGModel(
-        VerticalIntegralModel(config.model_3D),
-        config.grid_3D,
-        CentralNumericalFluxFirstOrder(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-    )
+    lsrk_3D = LSRK54CarpenterKennedy(config.dg_3D, Q_3D, dt = dt_slow, t0 = t0)
+    lsrk_2D = LSRK54CarpenterKennedy(config.dg_2D, Q_2D, dt = dt_fast, t0 = t0)
 
-    modeldata = (
-        vert_filter = vert_filter,
-        exp_filter = exp_filter,
-        integral_model = integral_model,
-    )
+    odesolver = config.solver(lsrk_3D, lsrk_2D;)
 
-    if restart > 0
-        checkpoint_path =
-            abspath(joinpath(ClimateMachine.Settings.output_dir, config.name))
-        Q_3D, A_3D, t0 = read_checkpoint(
-            checkpoint_path,
-            "baroclinic",
-            config.ArrayType,
-            config.mpicomm,
-            restart,
-        )
-        Q_2D, A_2D, _ = read_checkpoint(
-            checkpoint_path,
-            "barotropic",
-            config.ArrayType,
-            config.mpicomm,
-            restart,
-        )
-
-        direction = EveryDirection()
-        A_3D = restart_auxiliary_state(
-            config.model_3D,
-            config.grid_3D,
-            A_3D,
-            direction,
-        )
-        A_2D = restart_auxiliary_state(
-            config.model_2D,
-            config.grid_2D,
-            A_2D,
-            direction,
-        )
-
-        dg_3D = DGModel(
-            config.model_3D,
-            config.grid_3D,
-            RusanovNumericalFlux(),
-            CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient();
-            state_auxiliary = A_3D,
-            modeldata = modeldata,
-        )
-        dg_2D = DGModel(
-            config.model_2D,
-            config.grid_2D,
-            CentralNumericalFluxFirstOrder(),
-            CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient(),
-            state_auxiliary = A_2D,
-        )
-
-        Q_3D = restart_ode_state(dg_3D, Q_3D; init_on_cpu = true)
-        Q_2D = restart_ode_state(dg_2D, Q_2D; init_on_cpu = true)
-
-        lsrk_3D = LSRK54CarpenterKennedy(dg_3D, Q_3D, dt = dt_slow, t0 = t0)
-        lsrk_2D = LSRK54CarpenterKennedy(dg_2D, Q_2D, dt = dt_fast, t0 = t0)
-
-        timeendlocal = timeend + t0
-    else
-        dg_3D = DGModel(
-            config.model_3D,
-            config.grid_3D,
-            RusanovNumericalFlux(),
-            CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient();
-            modeldata = modeldata,
-        )
-
-        dg_2D = DGModel(
-            config.model_2D,
-            config.grid_2D,
-            CentralNumericalFluxFirstOrder(),
-            CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient(),
-        )
-
-        Q_3D = init_ode_state(dg_3D, FT(0); init_on_cpu = true)
-        Q_2D = init_ode_state(dg_2D, FT(0); init_on_cpu = true)
-
-        lsrk_3D = LSRK54CarpenterKennedy(dg_3D, Q_3D, dt = dt_slow, t0 = 0)
-        lsrk_2D = LSRK54CarpenterKennedy(dg_2D, Q_2D, dt = dt_fast, t0 = 0)
-
-        timeendlocal = timeend
-    end
-
-    odesolver = SplitExplicitSolver(lsrk_3D, lsrk_2D;)
-
-    vtkstep = [restart, restart, restart, restart]
+    vtkstep = [restart, restart, restart + 1, restart + 1]
     cbvector = make_callbacks(
         abspath(joinpath(ClimateMachine.Settings.output_dir, config.name)),
         vtkstep,
         nout,
         config.mpicomm,
         odesolver,
-        dg_3D,
-        config.model_3D,
+        config.dg_3D,
+        config.dg_3D.balance_law,
         Q_3D,
-        dg_2D,
-        config.model_2D,
+        config.dg_2D,
+        config.dg_2D.balance_law,
         Q_2D,
         timeendlocal,
     )
@@ -182,11 +87,11 @@ function run_split_explicit(
 
     # slow fast state tuple
     Qvec = (slow = Q_3D, fast = Q_2D)
-    solve!(Qvec, odesolver; timeend = timeendlocal, callbacks = cbvector)
+    solve!(Q_3D, odesolver; timeend = timeendlocal, callbacks = cbvector)
 
     if analytic_solution
-        Qe_3D = init_ode_state(dg_3D, timeendlocal, init_on_cpu = true)
-        Qe_2D = init_ode_state(dg_2D, timeendlocal, init_on_cpu = true)
+        Qe_3D = init_ode_state(config.dg_3D, timeendlocal, init_on_cpu = true)
+        Qe_2D = init_ode_state(config.dg_2D, timeendlocal, init_on_cpu = true)
 
         error_3D = euclidean_distance(Q_3D, Qe_3D) / norm(Qe_3D)
         error_2D = euclidean_distance(Q_2D, Qe_2D) / norm(Qe_2D)
@@ -206,6 +111,52 @@ function run_split_explicit(
     return nothing
 end
 
+function init_states(config, ::Val{0})
+    Q_3D = init_ode_state(config.dg_3D, FT(0); init_on_cpu = true)
+    Q_2D = config.dg_3D.modeldata.Q_2D
+
+    return Q_3D, Q_2D, 0
+end
+
+function init_states(config, ::Val{restart}) where {restart}
+    Q_3D, A_3D, t0 = read_checkpoint(
+        abspath(joinpath(ClimateMachine.Settings.output_dir, config.name)),
+        "baroclinic",
+        config.ArrayType,
+        config.mpicomm,
+        restart,
+    )
+    Q_2D_restart, A_2D, _ = read_checkpoint(
+        abspath(joinpath(ClimateMachine.Settings.output_dir, config.name)),
+        "barotropic",
+        config.ArrayType,
+        config.mpicomm,
+        restart,
+    )
+
+    direction = EveryDirection()
+    A_3D = restart_auxiliary_state(
+        config.dg_3D.balance_law,
+        config.dg_3D.grid,
+        A_3D,
+        direction,
+    )
+    A_2D = restart_auxiliary_state(
+        config.dg_2D.balance_law,
+        config.dg_2D.grid,
+        A_2D,
+        direction,
+    )
+
+    config.dg_3D.state_auxiliary .= A_3D
+    config.dg_2D.state_auxiliary .= A_2D
+
+    Q_3D = restart_ode_state(config.dg_3D, Q_3D; init_on_cpu = true)
+    Q_2D = config.dg_3D.modeldata.Q_2D
+    Q_2D .= Q_2D_restart
+
+    return Q_3D, Q_2D, t0
+end
 
 function make_callbacks(
     vtkpath,
@@ -221,9 +172,6 @@ function make_callbacks(
     Q_fast,
     timeend,
 )
-    if isdir(vtkpath)
-        rm(vtkpath, recursive = true)
-    end
     mkpath(vtkpath)
     mkpath(vtkpath * "/slow")
     mkpath(vtkpath * "/fast")
@@ -246,6 +194,7 @@ function make_callbacks(
     end
 
     do_output("slow", vtkstep[1], model_slow, dg_slow, Q_slow, A_slow)
+    vtkstep[1] += 1
     cbvtk_slow = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
         do_output("slow", vtkstep[1], model_slow, dg_slow, Q_slow, A_slow)
         vtkstep[1] += 1
@@ -253,6 +202,7 @@ function make_callbacks(
     end
 
     do_output("fast", vtkstep[2], model_fast, dg_fast, Q_fast, A_fast)
+    vtkstep[2] += 1
     cbvtk_fast = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
         do_output("fast", vtkstep[2], model_fast, dg_fast, Q_fast, A_fast)
         vtkstep[2] += 1

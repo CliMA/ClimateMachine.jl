@@ -1,10 +1,10 @@
 """
-    shallow_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::SWModel)
+    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{FreeSlip}, ::SWModel)
 
 apply free slip boundary condition for velocity
 sets reflective ghost point
 """
-@inline function shallow_boundary_state!(
+@inline function ocean_boundary_state!(
     ::NumericalFluxFirstOrder,
     ::Impenetrable{FreeSlip},
     ::SWModel,
@@ -27,11 +27,11 @@ sets reflective ghost point
 end
 
 """
-    shallow_boundary_state!(::Union{NumericalFluxGradient, NumericalFluxSecondOrder}, ::Impenetrable{FreeSlip}, ::SWModel)
+    ocean_boundary_state!(::Union{NumericalFluxGradient, NumericalFluxSecondOrder}, ::Impenetrable{FreeSlip}, ::SWModel)
 
 no second order flux computed for linear drag
 """
-shallow_boundary_state!(
+ocean_boundary_state!(
     ::Union{NumericalFluxGradient, NumericalFluxSecondOrder},
     ::VelocityBC,
     ::SWModel,
@@ -40,12 +40,12 @@ shallow_boundary_state!(
 ) = nothing
 
 """
-    shallow_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::SWModel)
+    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{FreeSlip}, ::SWModel)
 
 apply free slip boundary condition for velocity
 sets non-reflective ghost point
 """
-function shallow_boundary_state!(
+function ocean_boundary_state!(
     ::NumericalFluxGradient,
     ::Impenetrable{FreeSlip},
     ::SWModel,
@@ -71,7 +71,7 @@ end
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
 """
-function shallow_boundary_state!(
+function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{FreeSlip},
     ::SWModel,
@@ -93,12 +93,12 @@ function shallow_boundary_state!(
 end
 
 """
-    shallow_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::SWModel)
+    ocean_boundary_state!(::NumericalFluxFirstOrder, ::Impenetrable{NoSlip}, ::SWModel)
 
 apply no slip boundary condition for velocity
 sets reflective ghost point
 """
-@inline function shallow_boundary_state!(
+@inline function ocean_boundary_state!(
     ::NumericalFluxFirstOrder,
     ::Impenetrable{NoSlip},
     ::SWModel,
@@ -118,12 +118,12 @@ sets reflective ghost point
 end
 
 """
-    shallow_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::SWModel)
+    ocean_boundary_state!(::NumericalFluxGradient, ::Impenetrable{NoSlip}, ::SWModel)
 
 apply no slip boundary condition for velocity
 set numerical flux to zero for U
 """
-@inline function shallow_boundary_state!(
+@inline function ocean_boundary_state!(
     ::NumericalFluxGradient,
     ::Impenetrable{NoSlip},
     ::SWModel,
@@ -143,12 +143,12 @@ set numerical flux to zero for U
 end
 
 """
-    shallow_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::SWModel)
+    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{NoSlip}, ::SWModel)
 
 apply no slip boundary condition for velocity
 sets ghost point to have no numerical flux on the boundary for U
 """
-@inline function shallow_boundary_state!(
+@inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{NoSlip},
     ::SWModel,
@@ -170,11 +170,11 @@ sets ghost point to have no numerical flux on the boundary for U
 end
 
 """
-    shallow_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::SWModel)
+    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{FreeSlip}, ::SWModel)
 
 no mass boundary condition for penetrable
 """
-shallow_boundary_state!(
+ocean_boundary_state!(
     ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Penetrable{FreeSlip},
     ::SWModel,
@@ -183,12 +183,12 @@ shallow_boundary_state!(
 ) = nothing
 
 """
-    shallow_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::SWModel)
+    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{FreeSlip}, ::SWModel)
 
 apply free slip boundary condition for velocity
 apply zero numerical flux in the normal direction
 """
-function shallow_boundary_state!(
+function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Penetrable{FreeSlip},
     ::SWModel,
@@ -210,19 +210,19 @@ function shallow_boundary_state!(
 end
 
 """
-    shallow_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{KinematicStress}, ::HBModel)
+    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Impenetrable{KinematicStress}, ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 applies free slip conditions for first-order and gradient fluxes
 """
-function shallow_boundary_state!(
+function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Impenetrable{KinematicStress},
     shallow::SWModel,
     turb::TurbulenceClosure,
     args...,
 )
-    return shallow_boundary_state!(
+    return ocean_boundary_state!(
         nf,
         Impenetrable(FreeSlip()),
         shallow,
@@ -232,12 +232,12 @@ function shallow_boundary_state!(
 end
 
 """
-    shallow_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{KinematicStress}, ::HBModel)
+    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Impenetrable{KinematicStress}, ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 sets ghost point to have specified flux on the boundary for ν∇u
 """
-@inline function shallow_boundary_state!(
+@inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Impenetrable{KinematicStress},
     shallow::SWModel,
@@ -258,19 +258,19 @@ sets ghost point to have specified flux on the boundary for ν∇u
 end
 
 """
-    shallow_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{KinematicStress}, ::HBModel)
+    ocean_boundary_state!(::Union{NumericalFluxFirstOrder, NumericalFluxGradient}, ::Penetrable{KinematicStress}, ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 applies free slip conditions for first-order and gradient fluxes
 """
-function shallow_boundary_state!(
+function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
     ::Penetrable{KinematicStress},
     shallow::SWModel,
     turb::TurbulenceClosure,
     args...,
 )
-    return shallow_boundary_state!(
+    return ocean_boundary_state!(
         nf,
         Penetrable(FreeSlip()),
         shallow,
@@ -280,12 +280,12 @@ function shallow_boundary_state!(
 end
 
 """
-    shallow_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{KinematicStress}, ::HBModel)
+    ocean_boundary_state!(::NumericalFluxSecondOrder, ::Penetrable{KinematicStress}, ::HBModel)
 
 apply kinematic stress boundary condition for velocity
 sets ghost point to have specified flux on the boundary for ν∇u
 """
-@inline function shallow_boundary_state!(
+@inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
     ::Penetrable{KinematicStress},
     shallow::SWModel,
