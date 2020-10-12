@@ -158,63 +158,70 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @synchronize
         
         ijk = i + Nq * ((j - 1) + Nq * (k - 1))
-        ξ1x1 = vgeo[ijk, _ξ1x1, e]
-        ξ1x2 = vgeo[ijk, _ξ1x2, e]
-        ξ1x3 = vgeo[ijk, _ξ1x3, e]
-        if dim == 3 || (dim == 2 && direction isa EveryDirection)
+        if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
+          ξ1x1 = vgeo[ijk, _ξ1x1, e]
+          ξ1x2 = vgeo[ijk, _ξ1x2, e]
+          ξ1x3 = vgeo[ijk, _ξ1x3, e]
+        end
+        if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
             ξ2x2 = vgeo[ijk, _ξ2x2, e]
             ξ2x3 = vgeo[ijk, _ξ2x3, e]
         end
         
-        GCLH1 = GCLH2 = GCLH3 = -zero(FT)
-        @unroll for n in 1:Nq
-                njk = n + Nq * ((j - 1) + Nq * (k - 1))
-                GCLH1 +=
-                    s_D[i, n] * s_ω[i] / s_ω[n] *
-                    vgeo[njk, _M, e] *
-                    vgeo[njk, _ξ1x1, e]
-                GCLH2 +=
-                    s_D[i, n] * s_ω[i] / s_ω[n] *
-                    vgeo[njk, _M, e] *
-                    vgeo[njk, _ξ1x2, e]
-                GCLH3 +=
-                    s_D[i, n] * s_ω[i] / s_ω[n] *
-                    vgeo[njk, _M, e] *
-                    vgeo[njk, _ξ1x3, e]
+        if model_direction isa HorizontalDirection
+          GCLH1 = GCLH2 = GCLH3 = -zero(FT)
+          @unroll for n in 1:Nq
+                  njk = n + Nq * ((j - 1) + Nq * (k - 1))
+                  GCLH1 +=
+                      s_D[i, n] * s_ω[i] / s_ω[n] *
+                      vgeo[njk, _M, e] *
+                      vgeo[njk, _ξ1x1, e]
+                  GCLH2 +=
+                      s_D[i, n] * s_ω[i] / s_ω[n] *
+                      vgeo[njk, _M, e] *
+                      vgeo[njk, _ξ1x2, e]
+                  GCLH3 +=
+                      s_D[i, n] * s_ω[i] / s_ω[n] *
+                      vgeo[njk, _M, e] *
+                      vgeo[njk, _ξ1x3, e]
 
-                if dim == 3
-                    ink = i + Nq * ((n - 1) + Nq * (k - 1))
-                    GCLH1 +=
-                        s_D[j, n] * s_ω[j] / s_ω[n] *
-                        vgeo[ink, _M, e] *
-                        vgeo[ink, _ξ2x1, e]
-                    GCLH2 +=
-                        s_D[j, n] * s_ω[j] / s_ω[n] *
-                        vgeo[ink, _M, e] *
-                        vgeo[ink, _ξ2x2, e]
-                    GCLH3 +=
-                        s_D[j, n] * s_ω[j] / s_ω[n] *
-                        vgeo[ink, _M, e] *
-                        vgeo[ink, _ξ2x3, e]
-                end
+                  if dim == 3
+                      ink = i + Nq * ((n - 1) + Nq * (k - 1))
+                      GCLH1 +=
+                          s_D[j, n] * s_ω[j] / s_ω[n] *
+                          vgeo[ink, _M, e] *
+                          vgeo[ink, _ξ2x1, e]
+                      GCLH2 +=
+                          s_D[j, n] * s_ω[j] / s_ω[n] *
+                          vgeo[ink, _M, e] *
+                          vgeo[ink, _ξ2x2, e]
+                      GCLH3 +=
+                          s_D[j, n] * s_ω[j] / s_ω[n] *
+                          vgeo[ink, _M, e] *
+                          vgeo[ink, _ξ2x3, e]
+                  end
+          end
         end
-        
 
         # weak outside metrics derivative
         @unroll for s in 1:num_state_prognostic
-            F1ξ1 = F2ξ1 = F3ξ1 = -zero(FT)
-            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+            if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
+              F1ξ1 = F2ξ1 = F3ξ1 = -zero(FT)
+            end
+            if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
                 F1ξ2 = F2ξ2 = F3ξ2 = -zero(FT)
             end
 
             @unroll for n in 1:Nq
-                Dni = s_D[n, i] * s_ω[n] / s_ω[i]
-                F1ξ1 += Dni * shared_flux[1, n, j, k, s]
-                F2ξ1 += Dni * shared_flux[2, n, j, k, s]
-                F3ξ1 += Dni * shared_flux[3, n, j, k, s]
+                if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
+                  Dni = s_D[n, i] * s_ω[n] / s_ω[i]
+                  F1ξ1 += Dni * shared_flux[1, n, j, k, s]
+                  F2ξ1 += Dni * shared_flux[2, n, j, k, s]
+                  F3ξ1 += Dni * shared_flux[3, n, j, k, s]
+                end
 
-                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
                     Dnj = s_D[n, j] * s_ω[n] / s_ω[j]
                     F1ξ2 += Dnj * shared_flux[1, i, n, k, s]
                     F2ξ2 += Dnj * shared_flux[2, i, n, k, s]
@@ -222,8 +229,10 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
                 end
             end
 
-            local_tendency[s] += ξ1x1 * F1ξ1 + ξ1x2 * F2ξ1 + ξ1x3 * F3ξ1
-            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+            if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
+              local_tendency[s] += ξ1x1 * F1ξ1 + ξ1x2 * F2ξ1 + ξ1x3 * F3ξ1
+            end
+            if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
                 local_tendency[s] +=
                     ξ2x1 * F1ξ2 + ξ2x2 * F2ξ2 + ξ2x3 * F3ξ2
             end
@@ -232,19 +241,23 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             F2 = shared_flux[2, i, j, k, s]
             F3 = shared_flux[3, i, j, k, s]
 
-            local_tendency[s] -=
-                (GCLH1 * F1 + GCLH2 * F2 + GCLH3 * F3) *
-                vgeo[ijk, _MI, e]
+            if model_direction isa HorizontalDirection
+              local_tendency[s] -=
+                  (GCLH1 * F1 + GCLH2 * F2 + GCLH3 * F3) *
+                  vgeo[ijk, _MI, e]
+            end
         end
 
         @synchronize
         ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
         M = vgeo[ijk, _M, e]
-        ξ1x1 = vgeo[ijk, _ξ1x1, e]
-        ξ1x2 = vgeo[ijk, _ξ1x2, e]
-        ξ1x3 = vgeo[ijk, _ξ1x3, e]
-        if dim == 3 || (dim == 2 && direction isa EveryDirection)
+        if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
+          ξ1x1 = vgeo[ijk, _ξ1x1, e]
+          ξ1x2 = vgeo[ijk, _ξ1x2, e]
+          ξ1x3 = vgeo[ijk, _ξ1x3, e]
+        end
+        if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
             ξ2x2 = vgeo[ijk, _ξ2x2, e]
             ξ2x3 = vgeo[ijk, _ξ2x3, e]
@@ -281,9 +294,11 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             shared_flux[2, i, j, k, s],
             local_flux_3[s]
 
-            shared_flux[1, i, j, k, s] =
-                M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
-            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+            if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
+              shared_flux[1, i, j, k, s] =
+                  M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+            end
+            if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
                 shared_flux[2, i, j, k, s] =
                     M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
             end
@@ -319,11 +334,13 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         @unroll for s in 1:num_state_prognostic
             @unroll for n in 1:Nq
                 # ξ1-grid lines
+                if dim == 3 || (dim == 2 && !(model_direction isa VerticalDirection))
                 local_tendency[s] +=
                     MI * s_D[n, i] * shared_flux[1, n, j, k, s]
+                end
 
                 # ξ2-grid lines
-                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                if dim == 3 || (dim == 2 && !(model_direction isa HorizontalDirection))
                     local_tendency[s] +=
                         MI * s_D[n, j] * shared_flux[2, i, n, k, s]
                 end
@@ -471,22 +488,24 @@ end
         ξ3x1 = vgeo[ijk, _ξ3x1, e]
         ξ3x2 = vgeo[ijk, _ξ3x2, e]
         ξ3x3 = vgeo[ijk, _ξ3x3, e]
-        
-        GCLV1 = GCLV2 = GCLV3 = -zero(FT)
-        @unroll for n in 1:Nq
-                ijn = i + Nq * ((j - 1) + Nq * (n - 1))
-                GCLV1 +=
-                    s_D[k, n] * s_ω[k] / s_ω[n] *
-                    vgeo[ijn, _M, e] *
-                    vgeo[ijn, _ξ3x1, e]
-                GCLV2 +=
-                    s_D[k, n] * s_ω[k] / s_ω[n] *
-                    vgeo[ijn, _M, e] *
-                    vgeo[ijn, _ξ3x2, e]
-                GCLV3 +=
-                    s_D[k, n] * s_ω[k] / s_ω[n] *
-                    vgeo[ijn, _M, e] *
-                    vgeo[ijn, _ξ3x3, e]
+       
+        if model_direction isa VerticalDirection
+          GCLV1 = GCLV2 = GCLV3 = -zero(FT)
+          @unroll for n in 1:Nq
+                  ijn = i + Nq * ((j - 1) + Nq * (n - 1))
+                  GCLV1 +=
+                      s_D[k, n] * s_ω[k] / s_ω[n] *
+                      vgeo[ijn, _M, e] *
+                      vgeo[ijn, _ξ3x1, e]
+                  GCLV2 +=
+                      s_D[k, n] * s_ω[k] / s_ω[n] *
+                      vgeo[ijn, _M, e] *
+                      vgeo[ijn, _ξ3x2, e]
+                  GCLV3 +=
+                      s_D[k, n] * s_ω[k] / s_ω[n] *
+                      vgeo[ijn, _M, e] *
+                      vgeo[ijn, _ξ3x3, e]
+          end
         end
 
         # weak outside metrics derivative
@@ -505,9 +524,11 @@ end
             F2 = shared_flux[2, k, i, j, s]
             F3 = shared_flux[3, k, i, j, s]
 
-            local_tendency[s] -=
-                (GCLV1 * F1 + GCLV2 * F2 + GCLV3 * F3) *
-                vgeo[ijk, _MI, e]
+            if model_direction isa VerticalDirection
+              local_tendency[s] -=
+                  (GCLV1 * F1 + GCLV2 * F2 + GCLV3 * F3) *
+                  vgeo[ijk, _MI, e]
+            end
         end
 
         @synchronize
