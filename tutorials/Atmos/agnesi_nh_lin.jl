@@ -107,7 +107,15 @@ const param_set = EarthParameterSet()
 #md #     - `state.ρu`= 3-component vector for initial momentum profile
 #md #     - `state.ρe`= Scalar quantity for initial total-energy profile
 #md #       humidity
-function init_agnesi_hs_lin!(problem, bl, state, aux, (x, y, z), t)
+function init_agnesi_hs_lin!(
+    problem,
+    bl,
+    state,
+    aux,
+    (x, y, z),
+    (xc, yc, zc),
+    t,
+)
     ## Problem float-type
     FT = eltype(state)
 

@@ -62,7 +62,7 @@ struct DryRayleighBenardConvectionDataConfig{FT}
 end
 
 # Define initial condition kernel
-function init_problem!(problem, bl, state, aux, (x, y, z), t)
+function init_problem!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
     dc = bl.data_config
     FT = eltype(state)
 

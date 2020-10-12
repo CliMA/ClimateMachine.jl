@@ -177,6 +177,7 @@ function init_state_prognostic!(
     state::Vars,
     aux::Vars,
     coords,
+    center_coords,
     t::Real,
 )
     state.ρcT = m.ρc * aux.T
