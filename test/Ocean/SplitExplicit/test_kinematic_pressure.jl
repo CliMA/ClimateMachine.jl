@@ -1,8 +1,8 @@
 #!/usr/bin/env julia --project
 using Test
 
-include("hydrostatic_spindown.jl")
-ClimateMachine.init()
+include("ocean_gyre.jl")
+ClimateMachine.init(disable_gpu = true)
 
 const FT = Float64
 
@@ -11,11 +11,11 @@ const FT = Float64
 #################
 @testset "$(@__FILE__)" begin
 
-    include("../refvals/hydrostatic_spindown_refvals.jl")
+    # include("../refvals/hydrostatic_spindown_refvals.jl")
 
     # simulation time
     timeend = FT(15 * 24 * 3600) # s
-    tout = FT(24 * 3600) # s
+    tout = FT(16 * 90 * 60) # s
     timespan = (tout, timeend)
 
     # DG polynomial order
@@ -33,16 +33,25 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    config =
-        SplitConfig("rotating", resolution, dimensions, Coupled(), Rotating())
+    problem = OceanGyre{FT}(Lˣ, Lʸ, H; λʳ = 0)
+
+    model_3D = HydrostaticBoussinesqModel{FT}(
+        param_set,
+        problem;
+        coupling = Coupled(),
+        tracer_advection = nothing,
+        cʰ = FT(1),
+        κᶜ = FT(1e-4),
+    )
+
+    config = SplitConfig("test_pkin", resolution, dimensions, model_3D)
 
     run_split_explicit(
         config,
-        timespan,
+        timespan;
         dt_fast = 300,
         dt_slow = 90 * 60,
         additional_percent = 0.5,
         # refDat = refVals.ninety_minutes,
-        analytic_solution = true,
     )
 end

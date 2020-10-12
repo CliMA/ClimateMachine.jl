@@ -6,7 +6,12 @@
     state_bc,
     state_bt,
 ) where {C <: Coupled}
+    # zero out vertically averaged tendency
     model_bc.state_auxiliary.ΔGᵘ .= -0
+
+    # reset average for barotropic states
+    model_bt.state_auxiliary.η̄ .= -0
+    model_bt.state_auxiliary.Ū .= (@SVector [-0, -0])'
 
     return nothing
 end
@@ -69,10 +74,23 @@ end
     barotropic::SWModel{C},
     model_bt,
     state_bt,
-    fast_time,
-    fast_dt,
-    substep,
+    step,
+    (start, midpoint, stop),
 ) where {C <: Coupled}
+    # save mid-point solution for next timestep
+    if step == midpoint
+        model_bt.state_auxiliary.η° .= state_bt.η
+        model_bt.state_auxiliary.U° .= state_bt.U
+    end
+
+    ### weight for computing average state
+    FT = eltype(model_bt.state_auxiliary)
+    step >= start ? weight = FT(1) / (stop - start + 1) : weight = FT(0)
+
+    # cummulate states for averaging
+    model_bt.state_auxiliary.η̄ .+= weight * state_bt.η
+    model_bt.state_auxiliary.Ū .+= weight * state_bt.U
+
     return nothing
 end
 
@@ -86,6 +104,12 @@ end
 ) where {C <: Coupled}
     FT = eltype(state_bc)
     Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(model_bc)
+
+    # reset barotropic state to match Δt_slow
+    # done here instead of initialize_states! so we don't overwrite 
+    # initial state during first time step
+    state_bt.η .= model_bt.state_auxiliary.η°
+    state_bt.U .= model_bt.state_auxiliary.U°
 
     ### integrate the horizontal velocity
     model_int = model_bc.modeldata.integral_model
@@ -113,18 +137,18 @@ end
     ### get vars indices
     index_∫u = varsindex(vars_state(integral, Auxiliary(), FT), :(∫x))
     index_Δu = varsindex(vars_state(barotropic, Auxiliary(), FT), :Δu)
-    index_U = varsindex(vars_state(barotropic, Prognostic(), FT), :U)
     index_u = varsindex(vars_state(baroclinic, Prognostic(), FT), :u)
+    index_Ū = varsindex(vars_state(barotropic, Auxiliary(), FT), :Ū)
     index_η_3D = varsindex(vars_state(baroclinic, Prognostic(), FT), :η)
-    index_η_2D = varsindex(vars_state(barotropic, Prognostic(), FT), :η)
+    index_η_2D = varsindex(vars_state(barotropic, Auxiliary(), FT), :η̄)
 
     ### get top value (=integral over full depth)
     ∫u = @view data_int[:, end, index_∫u, end, 1:nrealelemh]
 
     ### Δu is a place holder for 1/H * (Ū - ∫u)
     Δu = @view data_bt_aux[:, index_Δu, 1:nrealelemh]
-    U = @view data_bt_state[:, index_U, 1:nrealelemh]
-    Δu .= 1 / baroclinic.problem.H * (U - ∫u)
+    Ū = @view data_bt_aux[:, index_Ū, 1:nrealelemh]
+    Δu .= 1 / baroclinic.problem.H * (Ū - ∫u)
 
     ### copy the 2D contribution down the 3D solution
     ### need to reshape for the broadcast
@@ -136,7 +160,7 @@ end
     ### copy η from barotropic mode to baroclinic mode
     ### need to reshape for the broadcast
     data_bt_state = reshape(data_bt_state, Nq^2, 1, num_state_bt, 1, nelemh)
-    η_2D = @view data_bt_state[:, :, index_η_2D, :, 1:nrealelemh]
+    η_2D = @view data_bt_aux[:, :, index_η_2D, :, 1:nrealelemh]
     η_3D = @view data_bc_state[:, :, index_η_3D, :, 1:nrealelemh]
     η_3D .= η_2D
 
