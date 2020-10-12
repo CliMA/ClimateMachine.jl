@@ -18,10 +18,11 @@ using ClimateMachine.NumericalFluxes
 using ClimateMachine.VTK
 #using ClimateMachine.Atmos: vars_state_conservative, vars_state_auxiliary
 
+using Distributions
 using StaticArrays
 using Test
-using Printf
-using MPI
+using DocStringExtensions
+using LinearAlgebra
 
 using CLIMAParameters
 using CLIMAParameters.Atmos.SubgridScale: C_smag
