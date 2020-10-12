@@ -449,9 +449,7 @@ add_fast_substeps = 2
 # default = 0 : disable implicit vertical diffusion
 numImplSteps = 0
 
-#const τₒ = 2e-1  # (Pa = N/m^2)
-# since we are using old BC (with factor of 2), take only half:
-const τₒ = 1e-1
+const τₒ = 2e-1  # (Pa = N/m^2)
 const λʳ = 10 // 86400 # m/s
 const θᴱ = 10    # deg.C
 

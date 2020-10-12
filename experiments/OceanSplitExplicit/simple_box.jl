@@ -26,7 +26,7 @@ function config_simple_box(
 
     problem = OceanGyre{FT}(
         dimensions...;
-        τₒ = 0.1,
+        τₒ = 0.2,
         λʳ = 10 // 86400,
         θᴱ = 10,
         BC = boundary_conditions,
