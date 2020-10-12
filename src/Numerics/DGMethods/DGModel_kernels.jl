@@ -161,7 +161,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             ξ2x3 = vgeo[ijk, _ξ2x3, e]
         end
 
-        if model_direction isa HorizontalDirection
+        if model_direction isa HorizontalDirection || balance_law isa RemBL
             GCLH1 = GCLH2 = GCLH3 = -zero(FT)
             @unroll for n in 1:Nq
                 njk = n + Nq * ((j - 1) + Nq * (k - 1))
@@ -238,7 +238,7 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             F2 = shared_flux[2, i, j, k, s]
             F3 = shared_flux[3, i, j, k, s]
 
-            if model_direction isa HorizontalDirection
+            if model_direction isa HorizontalDirection || balance_law isa RemBL 
                 local_tendency[s] -=
                     (GCLH1 * F1 + GCLH2 * F2 + GCLH3 * F3) * vgeo[ijk, _MI, e]
             end
@@ -467,7 +467,7 @@ end
         ξ3x2 = vgeo[ijk, _ξ3x2, e]
         ξ3x3 = vgeo[ijk, _ξ3x3, e]
 
-        if model_direction isa VerticalDirection
+        if model_direction isa VerticalDirection || balance_law isa RemBL 
             GCLV1 = GCLV2 = GCLV3 = -zero(FT)
             @unroll for n in 1:Nq
                 ijn = i + Nq * ((j - 1) + Nq * (n - 1))
@@ -502,7 +502,7 @@ end
             F2 = shared_flux[2, k, i, j, s]
             F3 = shared_flux[3, k, i, j, s]
 
-            if model_direction isa VerticalDirection
+            if model_direction isa VerticalDirection || balance_law isa RemBL 
                 local_tendency[s] -=
                     (GCLV1 * F1 + GCLV2 * F2 + GCLV3 * F3) * vgeo[ijk, _MI, e]
             end
