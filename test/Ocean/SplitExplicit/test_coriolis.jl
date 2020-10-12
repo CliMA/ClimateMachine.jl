@@ -33,14 +33,42 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    config =
-        SplitConfig("rotating", resolution, dimensions, Coupled(), Rotating())
+    BC = (
+        OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        OceanBC(Penetrable(FreeSlip()), Insulating()),
+    )
+    config = SplitConfig(
+        "rotating_bla",
+        resolution,
+        dimensions,
+        Coupled(),
+        Rotating();
+        solver = SplitExplicitSolver,
+        boundary_conditions = BC,
+    )
+
+    #=
+    BC = (
+        ClimateMachine.Ocean.SplitExplicit01.OceanFloorFreeSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceNoStressNoForcing(),
+    )
+
+    config = SplitConfig(
+        "rotating_jmc",
+        resolution,
+        dimensions,
+        Coupled(),
+        Rotating();
+        solver = SplitExplicitLSRK2nSolver,
+        boundary_conditions = BC,
+    )
+    =#
 
     run_split_explicit(
         config,
         timespan,
         dt_fast = 300,
-        dt_slow = 300,
+        dt_slow = 300, # 90 * 60,
         # refDat = refVals.ninety_minutes,
         analytic_solution = true,
     )

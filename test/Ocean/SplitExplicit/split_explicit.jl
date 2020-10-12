@@ -21,6 +21,7 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.VTK
 using ClimateMachine.Checkpoint
+using ClimateMachine.SystemSolvers
 
 using MPI
 using LinearAlgebra
@@ -53,6 +54,9 @@ function run_split_explicit(
     Q_3D, Q_2D, t0 = init_states(config, Val(restart))
 
     tout, timeend = timespan
+
+    # @show dt_fast = floor(Int, 1 / (2 * sqrt(gravity * H) / minΔx)) # / 4
+    # @show dt_slow = floor(Int, minΔx / 15) # / 4
 
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
