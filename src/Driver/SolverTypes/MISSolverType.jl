@@ -141,6 +141,17 @@ function solversetup(
     # in all spatial directions)
     fast_model = ode_solver.fast_model(dg.balance_law)
     fast_method = ode_solver.fast_method
+    fast_dg_s = DGModel(
+        fast_model,
+        dg.grid,
+        ode_solver.numerical_flux_first_order_fast,
+        dg.numerical_flux_second_order,
+        dg.numerical_flux_gradient,
+        state_auxiliary = dg.state_auxiliary,
+        state_gradient_flux = dg.state_gradient_flux,
+        states_higher_order = dg.states_higher_order,
+        direction = EveryDirection(),
+    )
     if isa(fast_model,AtmosLinearModelSplit)
         fast_dg_momentum = DGModel(
             fast_model.momentum,
@@ -211,17 +222,7 @@ function solversetup(
                 )
             end
         else
-            fast_dg = DGModel(
-                fast_model,
-                dg.grid,
-                ode_solver.numerical_flux_first_order_fast,
-                dg.numerical_flux_second_order,
-                dg.numerical_flux_gradient,
-                state_auxiliary = dg.state_auxiliary,
-                state_gradient_flux = dg.state_gradient_flux,
-                states_higher_order = dg.states_higher_order,
-                direction = EveryDirection(),
-            )
+            fast_dg = fast_dg_s
         end
     end
 
@@ -236,7 +237,7 @@ function solversetup(
     end
     slow_dg = remainder_DGModel(
         dg,
-        fast_dg;
+        fast_dg_s;
         numerical_flux_first_order = ode_solver.numerical_flux_first_order_slow,
     )
 
