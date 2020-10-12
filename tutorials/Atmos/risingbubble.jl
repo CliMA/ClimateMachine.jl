@@ -108,9 +108,17 @@ const param_set = EarthParameterSet();
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualization
 #md #       purposes)
-function init_risingbubble!(problem, bl, state, aux, (x, y, z), (xc, yc, zc), t)
+function init_risingbubble!(
+    problem,
+    bl,
+    state,
+    aux,
+    (x, y, z),
+    (xc, yc, zc),
+    t::FT
+) where FT
     ## Problem float-type
-    FT = eltype(state)
+    #FT = eltype(state) - TODO - why
 
     ## Unpack constant parameters
     R_gas::FT = R_d(bl.param_set)
