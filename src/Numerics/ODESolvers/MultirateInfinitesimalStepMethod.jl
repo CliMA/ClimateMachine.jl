@@ -1,5 +1,5 @@
 
-export MIS2, MIS3C, MIS4, MIS4a, TVDMISA, TVDMISB
+export MultirateInfinitesimalStep, MIS2, MIS3C, MIS4, MIS4a, TVDMISA, TVDMISB
 
 """
     TimeScaledRHS(a, b, rhs!)
@@ -167,6 +167,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
     slowrhs! = mis.slowrhs!
     fastsolver = mis.fastsolver
     fastrhs! = mis.tsfastrhs!
+    nsubsteps = mis.nsubsteps
 
     nstages = size(α, 1)
 
@@ -197,17 +198,14 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
         fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
         τ = zero(FT)
-        dτ = d[i] * dt / mis.nsubsteps
+        nsubstepsLoc=ceil(Int,nsubsteps*d[i]);
+        dτ = d[i] * dt / nsubstepsLoc
         updatetime!(fastsolver, τ)
         updatedt!(fastsolver, dτ)
         # TODO: we want to be able to write
         #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
         # especially if we want to use StormerVerlet, but need some way to pass in `offset`
-        updatedt!(fastsolver, dτ)
-        for k in 1:(mis.nsubsteps)
-            dostep!(Q, fastsolver, p, τ, FT(1), realview(offset))  #(1c)
-            τ += dτ
-        end
+        dostep!(Q, fastsolver, p, τ, nsubstepsLoc, i, FT(1), realview(offset), nothing)  #(1c)
     end
 end
 
