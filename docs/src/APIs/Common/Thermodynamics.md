@@ -15,6 +15,7 @@ PhasePartition_equil
 ThermodynamicState
 PhaseDry
 PhaseDry_given_pT
+PhaseDry_given_pθ
 PhaseDry_given_ρT
 PhaseEquil
 PhaseNonEquil
