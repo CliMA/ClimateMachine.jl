@@ -6,14 +6,26 @@ export MultirateInfinitesimalStep, MIS2, MIS3C, MIS4, MIS4a, TVDMISA, TVDMISB
 
 When evaluate at time `t`, evaluates `rhs!` at time `a + bt`.
 """
-mutable struct TimeScaledRHS{RT}
+mutable struct TimeScaledRHS{N,RT}
     a::RT
     b::RT
     rhs!
+    function TimeScaledRHS(a,b,rhs!)
+    RT = typeof(a)
+    if isa(rhs!, Tuple)
+      N=length(rhs!)
+    else
+      N=1
+    end
+    new{N,RT}(a, b, rhs!)
+    end
 end
 
-function (o::TimeScaledRHS)(dQ, Q, params, tau; increment)
-    o.rhs!(dQ, Q, params, o.a + o.b * tau; increment = increment)
+function (o::TimeScaledRHS{1,RT} where {RT})(dQ, Q, params, tau; increment)
+  o.rhs!(dQ, Q, params, o.a + o.b * tau; increment = increment)
+end
+function (o::TimeScaledRHS{2,RT} where {RT})(dQ, Q, params, tau, i; increment)
+  o.rhs![i](dQ, Q, params, o.a + o.b * tau; increment = increment)
 end
 
 """
@@ -73,7 +85,7 @@ mutable struct MultirateInfinitesimalStep{
     "slow rhs function"
     slowrhs!
     "RHS for fast solver"
-    tsfastrhs!::TimeScaledRHS{RT}
+    tsfastrhs!::TimeScaledRHS{N,RT} where N
     "fast rhs method"
     fastsolver::FS
     "number of substeps per stage"
