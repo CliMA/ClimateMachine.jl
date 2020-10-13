@@ -64,14 +64,14 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
         Nq = N + 1
-        Nkwork = div(Nq, Nslice)
+        Nwork = div(Nq, Nslice)
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_flux = MArray{Tuple{3, num_state_prognostic}, FT}(undef)
         local_flux_3 = MArray{Tuple{num_state_prognostic}, FT}(undef)
     end
 
-    shared_flux = @localmem FT (3, Nq, Nq, Nkwork, num_state_prognostic)
+    shared_flux = @localmem FT (3, Nq, Nq, Nwork, num_state_prognostic)
     s_D = @localmem FT (Nq, Nq)
     s_ω = @localmem FT (Nq,)
 

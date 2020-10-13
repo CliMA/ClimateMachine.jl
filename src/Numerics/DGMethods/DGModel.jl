@@ -481,7 +481,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             dependencies = (comp_stream,),
         )
     else
-        Nslice = Nq
+        Nslice = N <= 5 ? 1 : Nq
         Nwork = div(Nq, Nslice)
         if dg.direction isa EveryDirection
             comp_stream = volume_tendency!(device, (Nq, Nq, Nwork))(
