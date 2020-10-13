@@ -8,6 +8,7 @@ using Logging
 using MPI
 using Printf
 using Random
+using TerminalLoggers
 
 using CLIMAParameters
 
@@ -497,7 +498,8 @@ function init_runtime(settings::ClimateMachine_Settings)
         # cannot use `NullLogger` here because MPI collectives may be
         # used in logging calls!
         logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
-        prev_logger = global_logger(ConsoleLogger(logger_stream, loglevel))
+        println(log_level_str, loglevel, ":) :) *****")
+        prev_logger = global_logger(TerminalLogger(logger_stream, LogLevel(0); right_justify=120))
         atexit() do
             global_logger(prev_logger)
         end

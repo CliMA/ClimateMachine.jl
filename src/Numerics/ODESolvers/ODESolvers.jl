@@ -5,6 +5,7 @@ Ordinary differential equation solvers
 """
 module ODESolvers
 
+using ProgressLogging
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using StaticArrays
@@ -127,26 +128,34 @@ function solve!(
 
     step = 0
     time = t0
-    while time < timeend
-        step += 1
-        updatesteps!(solver, step)
+    @withprogress name="ODEsolve" begin
+        lastfrac = 0.0
+        while time < timeend
+            step += 1
+            updatesteps!(solver, step)
 
-        time = general_dostep!(
-            Q,
-            solver,
-            param,
-            timeend;
-            adjustfinalstep = adjustfinalstep,
-        )
+            time = general_dostep!(
+                Q,
+                solver,
+                param,
+                timeend;
+                adjustfinalstep = adjustfinalstep,
+            )
 
-        val = GenericCallbacks.call!(callbacks, solver, Q, param, time)
-        if val !== nothing && val > 0
-            return gettime(solver)
-        end
+            val = GenericCallbacks.call!(callbacks, solver, Q, param, time)
+            if val !== nothing && val > 0
+                return gettime(solver)
+            end
 
-        # Figure out if we should stop
-        if step == numberofsteps
-            break
+            # Figure out if we should stop
+            if step == numberofsteps
+                break
+            end
+            frac = time / timeend
+            if frac - lastfrac >= 0.005
+                @logprogress frac
+                lastfrac = frac
+            end
         end
     end
 
