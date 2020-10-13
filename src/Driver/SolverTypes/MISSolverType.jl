@@ -42,6 +42,11 @@ fast and slow dynamics respectively, depending on the state `Q`.
     discretized in such a way that `f_fast + f_slow` is equivalent to
     discretizing the original PDE directly.
     Default: `false`
+- `numerical_flux_first_order_fast` (NumericalFluxFirstOrder): The type of
+    numerical flux of first order to be used for the fast processes.
+- `numerical_flux_first_order_slow` (NumericalFluxFirstOrder): The type of
+    numerical flux of first order to be used for the slow processes.
+    Default: `RusanovNumericalFlux()`
 
 ### References
     @article{KnothWensch2014,
@@ -68,6 +73,10 @@ struct MISSolverType{DS} <: AbstractSolverType
     nsubsteps::Int
     # Whether to use a PDE level or discrete splitting
     discrete_splitting::Bool
+    # Numerical flux of first order for the fast processes
+    numerical_flux_first_order_fast::NumericalFluxFirstOrder
+    # Numerical flux of first order for the slow processes
+    numerical_flux_first_order_slow::NumericalFluxFirstOrder
 
     function MISSolverType(;
         splitting_type = SlowFastSplitting(),
@@ -76,6 +85,8 @@ struct MISSolverType{DS} <: AbstractSolverType
         fast_method = LSRK54CarpenterKennedy,
         nsubsteps = 50,
         discrete_splitting = false,
+        numerical_flux_first_order_fast = RusanovNumericalFlux(),
+        numerical_flux_first_order_slow = RusanovNumericalFlux(),
     )
 
         DS = typeof(splitting_type)
@@ -87,6 +98,8 @@ struct MISSolverType{DS} <: AbstractSolverType
             fast_method,
             nsubsteps,
             discrete_splitting,
+            numerical_flux_first_order_fast,
+            numerical_flux_first_order_slow,
         )
     end
 end
@@ -134,7 +147,7 @@ function solversetup(
     fast_dg = DGModel(
         fast_model,
         dg.grid,
-        dg.numerical_flux_first_order,
+        ode_solver.numerical_flux_first_order_fast,
         dg.numerical_flux_second_order,
         dg.numerical_flux_gradient,
         state_auxiliary = dg.state_auxiliary,
@@ -148,9 +161,9 @@ function solversetup(
     # slower processes (advection and diffusion)
     if ode_solver.discrete_splitting
         numerical_flux_first_order =
-            (dg.numerical_flux_first_order, (dg.numerical_flux_first_order,))
+            (ode_solver.numerical_flux_first_order_slow, (ode_solver.numerical_flux_first_order_slow,))
     else
-        numerical_flux_first_order = dg.numerical_flux_first_order
+        numerical_flux_first_order = ode_solver.numerical_flux_first_order_slow
     end
     slow_dg = remainder_DGModel(
         dg,
