@@ -102,6 +102,20 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_method = SSPRK33ShuOsher,
                 nsubsteps = 12,
             )
+        elseif fast_solver_type==MultirateInfinitesimalStep
+            ode_solver = ClimateMachine.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MIS2,
+                fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
+                    :MISKWRK43,
+                    dg,
+                    (dgi,Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
+                    Q,
+                    nsubsteps = nsubsteps,
+                ),
+                nsubsteps = (12,2),
+                hivi_splitting = true
+            )
         elseif fast_solver_type==MultirateRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,

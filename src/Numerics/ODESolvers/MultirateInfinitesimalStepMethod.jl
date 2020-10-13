@@ -29,6 +29,20 @@ function (o::TimeScaledRHS{2,RT} where {RT})(dQ, Q, params, tau, i; increment)
   o.rhs![i](dQ, Q, params, o.a + o.b * tau; increment = increment)
 end
 
+mutable struct OffsetRHS{AT}
+    offset::AT
+    rhs!
+    function OffsetRHS(offset, rhs!)
+        AT = typeof(offset)
+        new{AT}(offset, rhs!)
+    end
+end
+
+function (o::OffsetRHS{AT} where {AT})(dQ, Q, params, tau; increment)
+    o.rhs!(dQ, Q, params, tau; increment = increment)
+    dQ .+= o.offset
+end
+
 """
 MultirateInfinitesimalStep(slowrhs!, fastrhs!, fastmethod,
                            α, β, γ,
@@ -164,6 +178,48 @@ mutable struct MultirateInfinitesimalStep{
     end
 end
 
+function MultirateInfinitesimalStep(
+    method::Symbol,
+    op::TimeScaledRHS{2,RT} where {RT},
+    fastmethod,
+    Q = nothing;
+    dt = 0,
+    t0 = 0,
+    nsubsteps = 1,
+) where {AT<:AbstractArray}
+
+    return getfield(ODESolvers, method)(
+        op.rhs![1],
+        op.rhs![2],
+        fastmethod,
+        nsubsteps,
+        Q;
+        dt = dt,
+        t0 = t0,
+    )
+end
+
+function dostep!(
+    Q,
+    mis::MultirateInfinitesimalStep,
+    p,
+    time::Real,
+    nsubsteps::Int,
+    iStage::Int,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+)
+    if isa(mis.slowrhs!, OffsetRHS{AT} where {AT})
+        mis.slowrhs!.offset = slow_rv_dQ
+    else
+        mis.slowrhs! = OffsetRHS(slow_rv_dQ, mis.slowrhs!)
+    end
+    for i = 1:nsubsteps
+        dostep!(Q, mis, p, time)
+    end
+end
+
 function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
     dt = mis.dt
     FT = eltype(dt)
@@ -190,35 +246,82 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
 
         groupsize = 256
         event = Event(array_device(Q))
-        event = update!(array_device(Q), groupsize)(
-            realview(Q),
-            realview(offset),
-            Val(i),
-            realview(yn),
-            map(realview, ΔYnj[1:(i - 2)]),
-            map(realview, fYnj[1:(i - 1)]),
-            α[i, :],
-            β[i, :],
-            γ[i, :],
-            d[i],
-            dt;
-            ndrange = length(realview(Q)),
-            dependencies = (event,),
-        )
-        wait(array_device(Q), event)
+        if abs(d[i]) < 1.e-10
+            event = update!(array_device(Q), groupsize)(
+                realview(Q),
+                realview(offset),
+                Val(i),
+                realview(yn),
+                map(realview, ΔYnj[1:(i - 2)]),
+                map(realview, fYnj[1:(i - 1)]),
+                α[i, :],
+                β[i, :],
+                γ[i, :],
+                dt;
+                ndrange = length(realview(Q)),
+                dependencies = (event,),
+            )
+            wait(array_device(Q), event)
+            Q .+= dt.*offset
+        else
+            event = update!(array_device(Q), groupsize)(
+                realview(Q),
+                realview(offset),
+                Val(i),
+                realview(yn),
+                map(realview, ΔYnj[1:(i - 2)]),
+                map(realview, fYnj[1:(i - 1)]),
+                α[i, :],
+                β[i, :],
+                γ[i, :],
+                d[i],
+                dt;
+                ndrange = length(realview(Q)),
+                dependencies = (event,),
+            )
+            wait(array_device(Q), event)
 
-        fastrhs!.a = time + c̃[i] * dt
-        fastrhs!.b = (c[i] - c̃[i]) / d[i]
+            fastrhs!.a = time + c̃[i] * dt
+            fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
-        τ = zero(FT)
-        nsubstepsLoc=ceil(Int,nsubsteps*d[i]);
-        dτ = d[i] * dt / nsubstepsLoc
-        updatetime!(fastsolver, τ)
-        updatedt!(fastsolver, dτ)
-        # TODO: we want to be able to write
-        #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
-        # especially if we want to use StormerVerlet, but need some way to pass in `offset`
-        dostep!(Q, fastsolver, p, τ, nsubstepsLoc, i, FT(1), realview(offset), nothing)  #(1c)
+            τ = zero(FT)
+            nsubstepsLoc=ceil(Int,nsubsteps*d[i]);
+            dτ = d[i] * dt / nsubstepsLoc
+            updatetime!(fastsolver, τ)
+            updatedt!(fastsolver, dτ)
+            # TODO: we want to be able to write
+            #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
+            # especially if we want to use StormerVerlet, but need some way to pass in `offset`
+            dostep!(Q, fastsolver, p, τ, nsubstepsLoc, i, FT(1), realview(offset), nothing)  #(1c)
+        end
+    end
+end
+
+@kernel function update!(
+    Q,
+    offset,
+    ::Val{i},
+    yn,
+    ΔYnj,
+    fYnj,
+    αi,
+    βi,
+    γi,
+    dt,
+) where {i}
+    e = @index(Global, Linear)
+    @inbounds begin
+        if i > 2
+            ΔYnj[i - 2][e] = Q[e] - yn[e] # is 0 for i == 2
+        end
+        Q[e] = yn[e] # (1a)
+        offset[e] = (βi[1]) .* fYnj[1][e] # (1b)
+        @unroll for j in 2:(i - 1)
+            Q[e] += αi[j] .* ΔYnj[j - 1][e] # (1a cont.)
+            offset[e] +=
+                (γi[j] / dt) * ΔYnj[j - 1][e] +
+                βi[j] * fYnj[j][e] # (1b cont.)
+        end
     end
 end
 
