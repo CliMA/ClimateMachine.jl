@@ -137,7 +137,7 @@ set numerical flux to zero for U
     args...,
 )
     FT = eltype(q⁺)
-    q⁺.U = @SVector zeros(FT, 3)
+    q⁺.U = @SVector zeros(FT, 2)
 
     return nothing
 end
