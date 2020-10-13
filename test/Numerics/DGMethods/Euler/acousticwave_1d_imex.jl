@@ -54,8 +54,8 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 5
-    numelem_horz = 10
+    polynomialorder = 3
+    numelem_horz = 5
     numelem_vert = 5
 
     timeend = 60 * 60
@@ -66,8 +66,8 @@ function main()
     expected_result[Float32] = 9.5066030866432000e+13
     expected_result[Float64] = 9.5073452847149594e+13
 
-    for FT in (Float64, Float32)
-        for split_explicit_implicit in (false, true)
+    for FT in (Float64,)
+        for split_explicit_implicit in (true,)
             result = test_run(
                 mpicomm,
                 polynomialorder,
@@ -128,7 +128,6 @@ function test_run(
         source = Gravity(),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
-    linearmodel = AtmosAcousticGravityLinearModel(model)
 
     dg = DGModel(
         model,
@@ -138,14 +137,13 @@ function test_run(
         CentralNumericalFluxGradient(),
     )
 
-    lineardg = DGModel(
-        linearmodel,
+    vdg = DGModel(
+        model,
         grid,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
-        state_auxiliary = dg.state_auxiliary,
     )
 
     # determine the time step
@@ -159,33 +157,36 @@ function test_run(
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = ManyColumnLU()
-    # linearsolver = BatchedGeneralizedMinimalResidual(
-    #    lineardg,
-    #    Q;
-    #    atol = 1.0e-6, #sqrt(eps(FT)) * 0.01,
-    #    rtol = 1.0e-8, #sqrt(eps(FT)) * 0.01,
-    #    # Maximum number of Krylov iterations in a column
-    #)
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        dg,
+        Q;
+        max_subspace_size = 10,
+        atol = FT(-1),
+        rtol = FT(1e-9),
+    )
 
+    nonlinearsolver =
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = FT(1e-9))
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
             dg,
-            (lineardg,);
+            (vdg,);
             numerical_flux_first_order = (
                 dg.numerical_flux_first_order,
-                (lineardg.numerical_flux_first_order,),
+                (vdg.numerical_flux_first_order,),
             ),
         )
     end
+
     odesolver = ARK2GiraldoKellyConstantinescu(
         split_explicit_implicit ? rem_dg : dg,
-        lineardg,
-        LinearBackwardEulerSolver(
-            linearsolver;
+        vdg,
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
             isadjustable = true,
             preconditioner_update_freq = -1,
+            #mode = AutoDiffMode(),
         ),
         Q;
         dt = dt,
