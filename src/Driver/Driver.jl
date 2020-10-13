@@ -493,13 +493,12 @@ function init_runtime(settings::ClimateMachine_Settings)
     log_level_str = uppercase(settings.log_level)
     loglevel = log_level_str == "DEBUG" ? Logging.Debug :
         log_level_str == "WARN" ? Logging.Warn :
-        log_level_str == "ERROR" ? Logging.Error : Logging.Info
+        log_level_str == "ERROR" ? Logging.Error : Logging.LogLevel(-1)
     if !settings.disable_custom_logger
         # cannot use `NullLogger` here because MPI collectives may be
         # used in logging calls!
         logger_stream = MPI.Comm_rank(MPI.COMM_WORLD) == 0 ? stderr : devnull
-        println(log_level_str, loglevel, ":) :) *****")
-        prev_logger = global_logger(TerminalLogger(logger_stream, LogLevel(0); right_justify=120))
+        prev_logger = global_logger(TerminalLogger(logger_stream, loglevel))
         atexit() do
             global_logger(prev_logger)
         end
