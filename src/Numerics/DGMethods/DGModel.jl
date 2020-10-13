@@ -455,10 +455,13 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     # RHS Computation #
     ###################
     if dim == 2
-        comp_stream = volume_tendency!(device, (Nq, Nq, Nqk))(
+        Nslice = 1
+        Nwork = 1
+        comp_stream = volume_tendency!(device, (Nq, Nq, Nwork))(
             balance_law,
             Val(dim),
             Val(N),
+            Val(Nslice),
             dg.direction,
             HorizontalDirection(),
             tendency.data,
@@ -474,15 +477,18 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             α,
             β,
             true;
-            ndrange = (nrealelem * Nq, Nq, Nqk),
+            ndrange = (nrealelem * Nq, Nq, Nwork),
             dependencies = (comp_stream,),
         )
     else
+        Nslice = Nq
+        Nwork = div(Nq, Nslice)
         if dg.direction isa EveryDirection
-            comp_stream = volume_tendency!(device, (Nq, Nq, Nq))(
+            comp_stream = volume_tendency!(device, (Nq, Nq, Nwork))(
                 balance_law,
                 Val(dim),
                 Val(N),
+                Val(Nslice),
                 dg.direction,
                 HorizontalDirection(),
                 tendency.data,
@@ -498,13 +504,14 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 α,
                 β,
                 false;
-                ndrange = (nrealelem * Nq, Nq, Nq),
+                ndrange = (nrealelem * Nq, Nq, Nwork),
                 dependencies = (comp_stream,),
             )
-            comp_stream = volume_tendency!(device, (Nq, Nq, Nq))(
+            comp_stream = volume_tendency!(device, (Nq, Nq, Nwork))(
                 balance_law,
                 Val(dim),
                 Val(N),
+                Val(Nslice),
                 dg.direction,
                 VerticalDirection(),
                 tendency.data,
@@ -519,14 +526,15 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 topology.realelems,
                 α,
                 FT(1);
-                ndrange = (nrealelem * Nq, Nq, Nq),
+                ndrange = (nrealelem * Nq, Nq, Nwork),
                 dependencies = (comp_stream,),
             )
         else
-            comp_stream = volume_tendency!(device, (Nq, Nq, Nq))(
+            comp_stream = volume_tendency!(device, (Nq, Nq, Nwork))(
                 balance_law,
                 Val(dim),
                 Val(N),
+                Val(Nslice),
                 dg.direction,
                 dg.direction,
                 tendency.data,
@@ -541,7 +549,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 topology.realelems,
                 α,
                 β;
-                ndrange = (nrealelem * Nq, Nq, Nq),
+                ndrange = (nrealelem * Nq, Nq, Nwork),
                 dependencies = (comp_stream,),
             )
         end
