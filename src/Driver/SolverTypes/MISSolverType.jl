@@ -242,7 +242,7 @@ function solversetup(
     )
 
     solver = ode_solver.mis_method(
-        slow_dg,
+        dg,
         fast_dg,
         fast_method,
         ode_solver.nsubsteps[1],

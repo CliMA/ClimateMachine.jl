@@ -213,7 +213,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time::Real, dt::Real, ns
     dostep!(Q, mis, p, time)
   end
 end
-
+#=
 function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
     dt = mis.dt
     FT = eltype(dt)
@@ -236,11 +236,13 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
 
     copyto!(yn, Q) # first stage
     for i in 2:nstages
+        println("Stage: $i")
         slowrhs!(fYnj[i - 1], Q, p, time + c[i - 1] * dt, increment = false)
 
         groupsize = 256
         event = Event(array_device(Q))
         if abs(d[i]) < 1.e-10
+        println("a")
             event = update!(array_device(Q), groupsize)(
                 realview(Q),
                 realview(offset),
@@ -259,6 +261,8 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
 
             Q .+= dt.*offset
         else
+            println("Q-1")
+            println(sqrt(sum(Q.^2)))
             event = update!(array_device(Q), groupsize)(
                 realview(Q),
                 realview(offset),
@@ -286,7 +290,171 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
 
             #updatetime!(fastsolver, τ)
             #updatedt!(fastsolver, dτ)
+            println("Q0")
+            println(sqrt(sum(Q.^2)))
             dostep!(Q, fastsolver, p, τ, dτ, nsubstepsLoc, i, FT(1), realview(offset), nothing)  #(1c)
+
+            println("Q1")
+            println(sqrt(sum(Q.^2)))
+        end
+    end
+end
+=#
+
+function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
+    dt = mis.dt
+    FT = eltype(dt)
+    α = mis.α
+    β = mis.β
+    γ = mis.γ
+    yn = mis.yn
+    ΔYnj = mis.ΔYnj
+    fYnj = mis.fYnj
+    offset = mis.offset
+    d = mis.d
+    c = mis.c
+    c̃ = mis.c̃
+    rhs! = mis.slowrhs!
+    fastsolver = mis.fastsolver
+    fastrhs! = mis.tsfastrhs!
+    nsubsteps = mis.nsubsteps
+
+    nstages = size(α, 1)
+
+    copyto!(yn, Q) # first stage
+    for i in 2:nstages
+        #println("Stage: $i")
+        rhs!(fYnj[i - 1], Q, p, time + c[i - 1] * dt, increment = false)
+
+        groupsize = 256
+        event = Event(array_device(Q))
+        if abs(d[i]) < 1.e-10
+            event = update!(array_device(Q), groupsize)(
+                realview(Q),
+                realview(offset),
+                Val(i),
+                realview(yn),
+                map(realview, ΔYnj[1:(i - 2)]),
+                map(realview, fYnj[1:(i - 1)]),
+                α[i, :],
+                β[i, :],
+                γ[i, :],
+                dt;
+                ndrange = length(realview(Q)),
+                dependencies = (event,),
+            )
+            wait(array_device(Q), event)
+
+            Q .+= dt.*offset
+        else
+            #println("Q-1")
+            #println(sqrt(sum(Q.^2)))
+            event = update!(array_device(Q), groupsize)(
+                realview(Q),
+                realview(offset),
+                Val(i),
+                realview(yn),
+                map(realview, ΔYnj[1:(i - 2)]),
+                map(realview, fYnj[1:(i - 1)]),
+                α[i, :],
+                β[i, :],
+                γ[i, :],
+                d[i],
+                dt;
+                ndrange = length(realview(Q)),
+                dependencies = (event,),
+            )
+            wait(array_device(Q), event)
+
+            fastrhs!.a = time + c̃[i] * dt
+            fastrhs!.b = (c[i] - c̃[i]) / d[i]
+
+            τ = zero(FT) #time struct mit Wert für tau und für a und b, direkt in SV aufrufen und im Wrapper von ARK
+
+            nsubstepsLoc=ceil(Int,nsubsteps*d[i]);
+            dτ = d[i] * dt / nsubstepsLoc
+            #updatetime!(fastsolver, τ)
+            #updatedt!(fastsolver, dτ)
+
+            #println("Q0")
+            #println(sqrt(sum(Q.^2)))
+            dostep!(Q, fastsolver, p, τ, dτ, nsubstepsLoc, i, FT(1), realview(offset), nothing)  #(1c)
+
+            #println("Q1")
+            #println(sqrt(sum(Q.^2)))
+
+            event = Event(array_device(Q))
+            event = update!(array_device(Q), groupsize)(
+                realview(Q),
+                Val(i),
+                realview(yn),
+                map(realview, ΔYnj[1:(i - 2)]),
+                β[i, :];
+                ndrange = length(realview(Q)),
+                dependencies = (event,),
+            )
+            wait(array_device(Q), event)
+
+            #println("Q2")
+            #println(sqrt(sum(Q.^2)))
+        end
+    end
+end
+
+
+@kernel function update!(
+    Q,
+    offset,
+    ::Val{i},
+    yn,
+    ΔYnj,
+    fYnj,
+    αi,
+    βi,
+    γi,
+    dt,
+) where {i}
+    e = @index(Global, Linear)
+    @inbounds begin
+        if i > 2
+            ΔYnj[i - 2][e] = Q[e] - yn[e] # is 0 for i == 2
+        end
+        Q[e] = yn[e] # (1a)
+        offset[e] = (βi[1]) .* fYnj[1][e] # (1b)
+        @unroll for j in 2:(i - 1)
+            Q[e] += αi[j] .* ΔYnj[j - 1][e] # (1a cont.)
+            offset[e] +=
+                (γi[j] / dt) * ΔYnj[j - 1][e] +
+                βi[j] * fYnj[j][e] # (1b cont.)
+        end
+    end
+end
+#=
+@kernel function update!(
+    Q,
+    offset,
+    ::Val{i},
+    yn,
+    ΔYnj,
+    fYnj,
+    αi,
+    βi,
+    γi,
+    dt,
+) where {i}
+    e = @index(Global, Linear)
+    @inbounds begin
+        if i > 2
+            ΔYnj[i - 2][e] = Q[e] - yn[e] # is 0 for i == 2
+        end
+        Q[e] = yn[e] # (1a)
+        offset[e] = (βi[1]) .* fYnj[1][e] # (1b)
+        @unroll for j in 2:(i - 1)
+            #Q[e] += (αi[j] + βi[j]) .* ΔYnj[j - 1][e] # (1a cont.)
+            Q[e] += αi[j] .* ΔYnj[j - 1][e] - βi[j] .* (ΔYnj[j - 1][e] + yn[e]) # (1a cont.)
+            offset[e] +=
+                (γi[j] / dt) * ΔYnj[j - 1][e] +
+                βi[j] * fYnj[j][e] # (1b cont.)
         end
     end
 end
@@ -319,6 +487,7 @@ end
         end
     end
 end
+=#
 
 @kernel function update!(
     Q,
@@ -330,6 +499,7 @@ end
     αi,
     βi,
     γi,
+    d_i,
     dt,
 ) where {i}
     e = @index(Global, Linear)
@@ -338,12 +508,27 @@ end
             ΔYnj[i - 2][e] = Q[e] - yn[e] # is 0 for i == 2
         end
         Q[e] = yn[e] # (1a)
-        offset[e] = (βi[1]) .* fYnj[1][e] # (1b)
+        offset[e] = (βi[1] / d_i) .* fYnj[1][e] # (1b)
         @unroll for j in 2:(i - 1)
-            Q[e] += αi[j] .* ΔYnj[j - 1][e] # (1a cont.)
+            Q[e] += αi[j] .* ΔYnj[j - 1][e] - βi[j] .* (ΔYnj[j - 1][e] + yn[e]) # (1a cont.)
             offset[e] +=
-                (γi[j] / dt) * ΔYnj[j - 1][e] +
-                βi[j] * fYnj[j][e] # (1b cont.)
+                (γi[j] / (d_i * dt)) * ΔYnj[j - 1][e] +
+                (βi[j] / d_i) * fYnj[j][e] # (1b cont.)
+        end
+    end
+end
+
+@kernel function update!(
+    Q,
+    ::Val{i},
+    yn,
+    ΔYnj,
+    βi,
+) where {i}
+    e = @index(Global, Linear)
+    @inbounds begin
+        @unroll for j in 2:(i - 1)
+            Q[e] += βi[j] .* (ΔYnj[j - 1][e] + yn[e])
         end
     end
 end

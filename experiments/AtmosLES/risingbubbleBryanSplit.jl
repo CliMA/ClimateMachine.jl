@@ -180,7 +180,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Problem configuration
     config = ClimateMachine.AtmosLESConfiguration(
-        "DryRisingBubbleMIS",
+        "DryRisingBubbleMISSVNoR",
         N,
         resolution,
         xmax,
