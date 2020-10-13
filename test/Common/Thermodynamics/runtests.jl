@@ -762,6 +762,11 @@ end
         @test all(internal_energy.(ts_p) .≈ internal_energy.(Ref(param_set), T))
         @test all(air_density.(ts_p) .≈ ρ)
 
+        θ_dry = dry_pottemp.(Ref(param_set), T, ρ)
+        ts_p = PhaseDry_given_pθ.(Ref(param_set), p, θ_dry)
+        @test all(internal_energy.(ts_p) .≈ internal_energy.(Ref(param_set), T))
+        @test all(air_density.(ts_p) .≈ ρ)
+
         ts = PhaseDry_given_ρT.(Ref(param_set), ρ, T)
 
         @test all(air_density.(ts_p) .≈ air_density.(ts))
@@ -1043,8 +1048,10 @@ end
     @test typeof.(internal_energy.(ρ, ρ .* e_int, Ref(ρu), e_pot)) ==
           typeof.(e_int)
 
+    θ_dry = dry_pottemp.(Ref(param_set), T, ρ)
     ts_dry = PhaseDry.(Ref(param_set), e_int, ρ)
     ts_dry_pT = PhaseDry_given_pT.(Ref(param_set), p, T)
+    ts_dry_pθ = PhaseDry_given_pθ.(Ref(param_set), p, θ_dry)
     ts_eq = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 15, FT(1e-1))
     e_tot = total_energy.(e_kin, e_pot, ts_eq)
 
@@ -1101,6 +1108,7 @@ end
     for ts in (
         ts_dry,
         ts_dry_pT,
+        ts_dry_pθ,
         ts_eq,
         ts_T,
         ts_Tp,
