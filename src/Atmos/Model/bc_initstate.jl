@@ -79,6 +79,5 @@ function boundary_state!(
     t,
     args...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, aux⁺.coord, t)
-                                                       #TODO - hack, ask Jeremy
+    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, nothing, t)
 end

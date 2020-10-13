@@ -114,11 +114,11 @@ function init_risingbubble!(
     state,
     aux,
     (x, y, z),
-    (xc, yc, zc),
-    t::FT
-) where FT
+    center_coordinates,
+    t,
+)
     ## Problem float-type
-    #FT = eltype(state) - TODO - why
+    FT = eltype(state)
 
     ## Unpack constant parameters
     R_gas::FT = R_d(bl.param_set)
