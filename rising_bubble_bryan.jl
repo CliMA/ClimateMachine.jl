@@ -85,7 +85,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
     solver_type = MultirateInfinitesimalStep
-    fast_solver_type = LowStorageRungeKutta2N
+    fast_solver_type = AdditiveRungeKutta
 
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==LowStorageRungeKutta2N
@@ -127,6 +127,21 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                     steps=nsubsteps,
                 ),
                 nsubsteps = (12,4),
+                hivi_splitting = true,
+            )
+        elseif fast_solver_type==AdditiveRungeKutta
+            ode_solver = ClimateMachine.MISSolverType(
+                fast_model = AtmosAcousticGravityLinearModel,
+                mis_method = MISRK3,
+                fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
+                    :ARK548L2SA2KennedyCarpenter,
+                    dg,
+                    LinearBackwardEulerSolver(ManyColumnLU(), isadjustable=true),
+                    Q,
+                    dt = dt,
+                    nsubsteps = nsubsteps,
+                ),
+                nsubsteps = (12,),
                 hivi_splitting = true,
             )
         end

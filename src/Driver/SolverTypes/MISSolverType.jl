@@ -204,11 +204,25 @@ function solversetup(
             direction = VerticalDirection(),
         )
         fast_dg = (fast_dg_h, fast_dg_v)
-        fast_method = (dg, Q) -> ode_solver.fast_method(
-            dg,
-            Q,
-            ode_solver.nsubsteps[2]
-        )
+        if length(ode_solver.nsubsteps) == 1
+            nsubsteps = getnsubsteps(
+                Symbol(ode_solver.mis_method),
+                ode_solver.nsubsteps[1],
+                real(eltype(Q)),
+            )
+            fast_method = (dg, Q) -> ode_solver.fast_method(
+                    dg,
+                    Q,
+                    dt / ode_solver.nsubsteps[1],
+                    nsubsteps,
+            )
+        elseif length(ode_solver.nsubsteps) == 2
+            fast_method = (dg, Q) -> ode_solver.fast_method(
+                dg,
+                Q,
+                ode_solver.nsubsteps[2]
+            )
+        end
     end
 
     solver = ode_solver.mis_method(
