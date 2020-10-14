@@ -27,10 +27,11 @@ using ClimateMachine.DGMethods.NumericalFluxes:
 # Create a new child linear model instance, attached to whatever parent
 # BalanceLaw instantiates this.
 # (Not sure we need parent, but maybe we will get some parameters from it)
-struct IVDCModel{M} <: AbstractOceanModel
+struct IVDCModel{M, FT} <: AbstractOceanModel
     parent_om::M
-    function IVDCModel(parent_om::M;) where {M}
-        return new{M}(parent_om)
+    ivdc_dt::FT
+    function IVDCModel{FT}(parent_om::M, ivdc_dt) where {FT <: AbstractFloat, M}
+        return new{M, FT}(parent_om, ivdc_dt)
     end
 end
 
@@ -113,11 +114,10 @@ end
     t,
     direction,
 )
-    #ivdc_dt = m.ivdc_dt
-    ivdc_dt = m.parent_om.ivdc_dt
+    ivdc_dt = m.ivdc_dt
     @inbounds begin
         S.θ = Q.θ / ivdc_dt
-        # S.θ = 0
+
     end
 
     return nothing

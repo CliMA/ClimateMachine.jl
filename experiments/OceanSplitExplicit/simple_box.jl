@@ -32,18 +32,7 @@ function config_simple_box(
         BC = boundary_conditions,
     )
 
-    add_fast_substeps = 2
-    numImplSteps = 5
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
-    model_3D = OceanModel{FT}(
-        param_set,
-        problem;
-        cʰ = 1,
-        κᶜ = FT(0.1),
-        add_fast_substeps = add_fast_substeps,
-        numImplSteps = numImplSteps,
-        ivdc_dt = ivdc_dt,
-    )
+    model_3D = OceanModel{FT}(param_set, problem; cʰ = 1, κᶜ = FT(0.1))
 
     N, Nˣ, Nʸ, Nᶻ = resolution
     resolution = (Nˣ, Nʸ, Nᶻ)

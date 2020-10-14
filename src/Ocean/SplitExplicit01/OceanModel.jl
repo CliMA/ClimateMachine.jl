@@ -4,9 +4,6 @@ struct OceanModel{PS, P, T} <: AbstractOceanModel
     ρₒ::T
     cʰ::T
     cᶻ::T
-    add_fast_substeps::T
-    numImplSteps::T
-    ivdc_dt::T
     αᵀ::T
     νʰ::T
     νᶻ::T
@@ -21,9 +18,6 @@ struct OceanModel{PS, P, T} <: AbstractOceanModel
         ρₒ = FT(1000),  # kg/m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
-        add_fast_substeps = 0,
-        numImplSteps = 0,
-        ivdc_dt = FT(1),
         αᵀ = FT(2e-4),  # 1/K
         νʰ = FT(5e3),   # m^2/s
         νᶻ = FT(5e-3),  # m^2/s
@@ -39,9 +33,6 @@ struct OceanModel{PS, P, T} <: AbstractOceanModel
             ρₒ,
             cʰ,
             cᶻ,
-            add_fast_substeps,
-            numImplSteps,
-            ivdc_dt,
             αᵀ,
             νʰ,
             νᶻ,
@@ -252,16 +243,7 @@ end
 @inline viscosity_tensor(m::OceanModel) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
 
 @inline function diffusivity_tensor(m::OceanModel, ∂θ∂z)
-
-    if m.numImplSteps > 0
-        κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
-    else
-        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ]) : κ = (@SVector [
-            m.κʰ,
-            m.κʰ,
-            m.κᶻ,
-        ])
-    end
+    κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
 
     return Diagonal(κ)
 end

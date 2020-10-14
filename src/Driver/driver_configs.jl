@@ -434,8 +434,15 @@ function OceanSplitExplicitConfiguration(
     )
     conti3d_Q = init_ode_state(conti3d_dg, FT(0); init_on_cpu = true)
 
+    solver_type.numImplSteps > 0 ?
+    ivdc_dt = solver_type.dt_slow / solver_type.numImplSteps :
+    ivdc_dt = solver_type.dt_slow
+
+    ivdc_model =
+        ClimateMachine.Ocean.SplitExplicit01.IVDCModel{FT}(model_3D, ivdc_dt)
+
     ivdc_dg = DGModel(
-        ClimateMachine.Ocean.SplitExplicit01.IVDCModel(model_3D),
+        ivdc_model,
         grid_3D,
         numerical_flux_first_order,
         numerical_flux_second_order,
