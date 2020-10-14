@@ -41,7 +41,7 @@ using ClimateMachine.GenericCallbacks
         MPI.COMM_WORLD,
         ClimateMachine.array_type(),
         4,
-        6,
+        3,
         8,
     )
 
