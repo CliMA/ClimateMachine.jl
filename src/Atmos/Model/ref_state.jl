@@ -167,7 +167,7 @@ boundary_state!(nf, ::PressureGradientModel, _...) = nothing
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
 function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     FT = eltype(state_auxiliary)
-    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}))
+    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}), nstate = 3)
 
     grad_model = PressureGradientModel()
     # Note that the choice of numerical fluxes doesn't matter

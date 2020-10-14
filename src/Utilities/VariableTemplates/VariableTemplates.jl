@@ -102,7 +102,7 @@ The number of elements specified by the template type `S`.
 varsize(::Type{T}) where {T <: Real} = 1
 varsize(::Type{Tuple{}}) = 0
 varsize(::Type{NamedTuple{(), Tuple{}}}) = 0
-varsize(::Type{SVector{N, T}}) where {N, T <: Real} = N
+varsize(::Type{SArray{S, T, N} where L}) where {S, T, N} = prod(S.parameters)
 
 include("var_names.jl")
 include("flattened_tup_chain.jl")

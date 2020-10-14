@@ -196,13 +196,13 @@ struct DiscontinuousSpectralElementGrid{
             topology.elemtoordr,
         )
 
-        (vmaprecv, nabrtovmaprecv) = BrickMesh.commmapping(
+        (vmaprecv, nabrtovmaprecv) = commmapping(
             N,
             topology.ghostelems,
             topology.ghostfaces,
             topology.nabrtorecv,
         )
-        (vmapsend, nabrtovmapsend) = BrickMesh.commmapping(
+        (vmapsend, nabrtovmapsend) = commmapping(
             N,
             topology.sendelems,
             topology.sendfaces,
@@ -417,6 +417,71 @@ function mappings(N, elemtoelem, elemtoface, elemtoordr)
     (vmap⁻, vmap⁺)
 end
 # }}}
+
+"""
+   commmapping(N, commelems, commfaces, nabrtocomm)
+
+This function takes in a polynomial order `N` and parts of a mesh (as returned
+from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`) and
+returns index mappings for the element surface flux parallel communcation.
+The returned `Tuple` contains:
+
+ - `vmapC` an array of linear indices into the volume degrees of freedom to be
+   communicated.
+
+ - `nabrtovmapC` a range in `vmapC` to communicate with each neighbor.
+"""
+function commmapping(N, commelems, commfaces, nabrtocomm)
+    nface, nelem = size(commfaces)
+
+    @assert nelem == length(commelems)
+
+    d = div(nface, 2)
+    Nq = N + 1
+    Np = (N + 1)^d
+
+    vmapC = similar(commelems, nelem * Np)
+    nabrtovmapC = similar(nabrtocomm)
+
+    i = 1
+    e = 1
+    for neighbor in 1:length(nabrtocomm)
+        rbegin = i
+        for ne in nabrtocomm[neighbor]
+            ce = commelems[ne]
+
+            # Whole element sending
+            # for n = 1:Np
+            #   vmapC[i] = (ce-1)*Np + n
+            #   i += 1
+            # end
+
+            CI = CartesianIndices(ntuple(_ -> 1:Nq, d))
+            for (ci, li) in zip(CI, LinearIndices(CI))
+                addpoint = false
+                for j in 1:d
+                    addpoint |=
+                        (commfaces[2 * (j - 1) + 1, e] && ci[j] == 1) ||
+                        (commfaces[2 * (j - 1) + 2, e] && ci[j] == Nq)
+                end
+
+                if addpoint
+                    vmapC[i] = (ce - 1) * Np + li
+                    i += 1
+                end
+            end
+
+            e += 1
+        end
+        rend = i - 1
+
+        nabrtovmapC[neighbor] = rbegin:rend
+    end
+
+    resize!(vmapC, i - 1)
+
+    (vmapC, nabrtovmapC)
+end
 
 # {{{ compute geometry
 function computegeometry(
