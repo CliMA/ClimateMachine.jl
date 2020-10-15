@@ -371,7 +371,7 @@ function isentropicvortex_initialcondition!(
     T = T∞ * (1 - _kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
     # adiabatic/isentropic relation
     p = p∞ * (T / T∞)^(FT(1) / _kappa_d)
-    ts = PhaseDry_given_pT(bl.param_set, p, T)
+    ts = PhaseDry_pT(bl.param_set, p, T)
     ρ = air_density(ts)
 
     e_pot = FT(0)

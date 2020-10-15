@@ -549,17 +549,17 @@ end
             rtol = rtol_temperature,
         ))
 
-        # LiquidIcePotTempSHumEquil
+        # PhaseEquil_ρθq
         ts_exact =
-            LiquidIcePotTempSHumEquil.(
+            PhaseEquil_ρθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 ρ,
+                θ_liq_ice,
                 q_tot,
                 45,
                 FT(1e-3),
             )
-        ts = LiquidIcePotTempSHumEquil.(Ref(param_set), θ_liq_ice, ρ, q_tot)
+        ts = PhaseEquil_ρθq.(Ref(param_set), ρ, θ_liq_ice, q_tot)
         # Should be machine accurate:
         @test all(air_density.(ts) .≈ air_density.(ts_exact))
         @test all(
@@ -583,21 +583,21 @@ end
             rtol = rtol_temperature,
         ))
 
-        # LiquidIcePotTempSHumEquil_given_pressure
+        # PhaseEquil_pθq
         ts_exact =
-            LiquidIcePotTempSHumEquil_given_pressure.(
+            PhaseEquil_pθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 p,
+                θ_liq_ice,
                 q_tot,
                 40,
                 FT(1e-3),
             )
         ts =
-            LiquidIcePotTempSHumEquil_given_pressure.(
+            PhaseEquil_pθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 p,
+                θ_liq_ice,
                 q_tot,
             )
         # Should be machine accurate:
@@ -627,17 +627,17 @@ end
             rtol = rtol_temperature,
         ))
 
-        # LiquidIcePotTempSHumNonEquil
+        # PhaseNonEquil_ρθq
         ts_exact =
-            LiquidIcePotTempSHumNonEquil.(
+            PhaseNonEquil_ρθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 ρ,
+                θ_liq_ice,
                 q_pt,
                 40,
                 FT(1e-3),
             )
-        ts = LiquidIcePotTempSHumNonEquil.(Ref(param_set), θ_liq_ice, ρ, q_pt)
+        ts = PhaseNonEquil_ρθq.(Ref(param_set), ρ, θ_liq_ice, q_pt)
         # Should be machine accurate:
         @test all(
             getproperty.(PhasePartition.(ts), :tot) .≈
@@ -758,16 +758,16 @@ end
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(air_density.(ts) .≈ ρ)
 
-        ts_p = PhaseDry_given_pT.(Ref(param_set), p, T)
+        ts_p = PhaseDry_pT.(Ref(param_set), p, T)
         @test all(internal_energy.(ts_p) .≈ internal_energy.(Ref(param_set), T))
         @test all(air_density.(ts_p) .≈ ρ)
 
         θ_dry = dry_pottemp.(Ref(param_set), T, ρ)
-        ts_p = PhaseDry_given_pθ.(Ref(param_set), p, θ_dry)
+        ts_p = PhaseDry_pθ.(Ref(param_set), p, θ_dry)
         @test all(internal_energy.(ts_p) .≈ internal_energy.(Ref(param_set), T))
         @test all(air_density.(ts_p) .≈ ρ)
 
-        ts = PhaseDry_given_ρT.(Ref(param_set), ρ, T)
+        ts = PhaseDry_ρT.(Ref(param_set), ρ, T)
 
         @test all(air_density.(ts_p) .≈ air_density.(ts))
         @test all(internal_energy.(ts_p) .≈ internal_energy.(ts))
@@ -834,7 +834,7 @@ end
             θ_liq_ice,
         )
 
-        # Accurate but expensive `LiquidIcePotTempSHumNonEquil` constructor (Non-linear temperature from θ_liq_ice)
+        # Accurate but expensive `PhaseNonEquil_ρθq` constructor (Non-linear temperature from θ_liq_ice)
         T_non_linear =
             air_temperature_from_liquid_ice_pottemp_non_linear.(
                 Ref(param_set),
@@ -861,12 +861,12 @@ end
             rtol = rtol_temperature,
         ))
 
-        # LiquidIcePotTempSHumEquil
+        # PhaseEquil_ρθq
         ts =
-            LiquidIcePotTempSHumEquil.(
+            PhaseEquil_ρθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 ρ,
+                θ_liq_ice,
                 q_tot,
                 45,
                 FT(1e-3),
@@ -879,17 +879,17 @@ end
         @test all(isapprox.(air_density.(ts), ρ, rtol = rtol_density))
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
 
-        # The LiquidIcePotTempSHumEquil_given_pressure constructor
+        # The PhaseEquil_pθq constructor
         # passes the consistency test within sufficient physical precision,
         # however, it fails to satisfy the consistency test within machine
         # precision for the input pressure.
 
-        # LiquidIcePotTempSHumEquil_given_pressure
+        # PhaseEquil_pθq
         ts =
-            LiquidIcePotTempSHumEquil_given_pressure.(
+            PhaseEquil_pθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 p,
+                θ_liq_ice,
                 q_tot,
                 35,
                 FT(1e-3),
@@ -904,12 +904,12 @@ end
         )
         @test all(isapprox.(air_pressure.(ts), p, atol = atol_pressure))
 
-        # LiquidIcePotTempSHumNonEquil_given_pressure
+        # PhaseNonEquil_pθq
         ts =
-            LiquidIcePotTempSHumNonEquil_given_pressure.(
+            PhaseNonEquil_pθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 p,
+                θ_liq_ice,
                 q_pt,
             )
         @test all(liquid_ice_pottemp.(ts) .≈ θ_liq_ice)
@@ -924,12 +924,12 @@ end
             getproperty.(PhasePartition.(ts), :ice) .≈ getproperty.(q_pt, :ice),
         )
 
-        # LiquidIcePotTempSHumNonEquil
+        # PhaseNonEquil_ρθq
         ts =
-            LiquidIcePotTempSHumNonEquil.(
+            PhaseNonEquil_ρθq.(
                 Ref(param_set),
-                θ_liq_ice,
                 ρ,
+                θ_liq_ice,
                 q_pt,
                 5,
                 FT(1e-3),
@@ -1050,23 +1050,23 @@ end
 
     θ_dry = dry_pottemp.(Ref(param_set), T, ρ)
     ts_dry = PhaseDry.(Ref(param_set), e_int, ρ)
-    ts_dry_pT = PhaseDry_given_pT.(Ref(param_set), p, T)
-    ts_dry_pθ = PhaseDry_given_pθ.(Ref(param_set), p, θ_dry)
+    ts_dry_pT = PhaseDry_pT.(Ref(param_set), p, T)
+    ts_dry_pθ = PhaseDry_pθ.(Ref(param_set), p, θ_dry)
     ts_eq = PhaseEquil.(Ref(param_set), e_int, ρ, q_tot, 15, FT(1e-1))
     e_tot = total_energy.(e_kin, e_pot, ts_eq)
 
     ts_T =
-        TemperatureSHumEquil.(
+        PhaseEquil_ρTq.(
             Ref(param_set),
-            air_temperature.(ts_dry),
             air_density.(ts_dry),
+            air_temperature.(ts_dry),
             q_tot,
         )
     ts_Tp =
-        TemperatureSHumEquil_given_pressure.(
+        PhaseEquil_pTq.(
             Ref(param_set),
-            air_temperature.(ts_dry),
             air_pressure.(ts_dry),
+            air_temperature.(ts_dry),
             q_tot,
         )
 
@@ -1075,33 +1075,33 @@ end
     @test all(total_specific_humidity.(ts_T) .≈ total_specific_humidity.(ts_Tp))
 
     ts_neq = PhaseNonEquil.(Ref(param_set), e_int, ρ, q_pt)
-    ts_T_neq = TemperatureSHumNonEquil.(Ref(param_set), T, ρ, q_pt)
+    ts_T_neq = PhaseNonEquil_ρTq.(Ref(param_set), ρ, T, q_pt)
 
     ts_θ_liq_ice_eq =
-        LiquidIcePotTempSHumEquil.(
+        PhaseEquil_ρθq.(
             Ref(param_set),
-            θ_liq_ice,
             ρ,
+            θ_liq_ice,
             q_tot,
             45,
             FT(1e-3),
         )
     ts_θ_liq_ice_eq_p =
-        LiquidIcePotTempSHumEquil_given_pressure.(
+        PhaseEquil_pθq.(
             Ref(param_set),
-            θ_liq_ice,
             p,
+            θ_liq_ice,
             q_tot,
             40,
             FT(1e-3),
         )
     ts_θ_liq_ice_neq =
-        LiquidIcePotTempSHumNonEquil.(Ref(param_set), θ_liq_ice, ρ, q_pt)
+        PhaseNonEquil_ρθq.(Ref(param_set), ρ, θ_liq_ice, q_pt)
     ts_θ_liq_ice_neq_p =
-        LiquidIcePotTempSHumNonEquil_given_pressure.(
+        PhaseNonEquil_pθq.(
             Ref(param_set),
-            θ_liq_ice,
             p,
+            θ_liq_ice,
             q_pt,
         )
 

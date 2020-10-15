@@ -43,7 +43,7 @@ function init_test!(problem, bl, state, aux, (x, y, z), t)
     p = P_sfc * exp(-z / H)
 
     # Density, Temperature
-    ts = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, p, q_tot)
+    ts = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))

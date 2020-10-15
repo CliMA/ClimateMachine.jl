@@ -719,7 +719,7 @@ end
 # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
 function rain_evap_empirical(q_rai::DT, q::PhasePartition, T::DT, p::DT, ρ::DT) where {DT<:Real}
 
-    ts_neq = TemperatureSHumNonEquil(param_set, T, ρ, q)
+    ts_neq = PhaseNonEquil_ρTq(param_set, ρ, T, q)
     q_sat  = q_vap_saturation(ts_neq)
     q_vap  = q.tot - q.liq
     rr     = q_rai / (DT(1) - q.tot)

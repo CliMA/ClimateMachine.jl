@@ -209,7 +209,7 @@ function atmos_source!(
 
     # phase partition corresponding to the current T and q.tot
     # (this is not the same as phase partition from saturation adjustment)
-    ts_eq = TemperatureSHumEquil(atmos.param_set, T, state.ρ, q.tot)
+    ts_eq = PhaseEquil_ρTq(atmos.param_set, state.ρ, T, q.tot)
     q_eq = PhasePartition(ts_eq)
 
     # cloud condensate as relaxation source terms
