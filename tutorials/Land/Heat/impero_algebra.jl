@@ -1,7 +1,7 @@
 using Test, MPI, Impero
 import Impero: compute
 include(pwd() * "/tutorials/Land/Heat/wrapper_functions.jl")
-include(pwd() * "/src/Diagnostics/diagnostic_fields.jl")
+#include(pwd() * "/src/Diagnostics/diagnostic_fields.jl")
 
 using ClimateMachine
 using ClimateMachine.MPIStateArrays
@@ -18,6 +18,3 @@ compute(Q::MPIStateArray) = Q.realdata
 
 # compute(q::Field{S,T}) where {S <: Number, T} = q.data
 compute(2*q)
-
-
-##
