@@ -9,8 +9,8 @@ using ClimateMachine.Mesh.Topologies
 dim = 2
 FT = Float64
 Ne = 2
+# Ω =  Circle(0,2pi) × Circle(0,2π)
 periodicity = ntuple(j -> false, dim)
-# Ω = Circle(0, 2π) × Circle(0, 2π)
 # ImperoGrid(Ω, numberofelements = (Ne,Ne), poloynomialorder = (Np1, Np2), floatype=, ...)
 brickrange = (
     ntuple(
@@ -37,3 +37,6 @@ grid = DiscontinuousSpectralElementGrid(
     DeviceArray = ArrayType,
     polynomialorder = N,
 )
+
+# ∇ = Operator(nothing, GradientMetaData("name"))
+# curl()
