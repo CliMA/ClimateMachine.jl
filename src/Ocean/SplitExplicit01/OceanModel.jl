@@ -180,6 +180,7 @@ function vars_state(m::OceanModel, ::Auxiliary, T)
         u_d::SVector{2, T}  # velocity deviation from vertical mean
         ΔGu::SVector{2, T}
         y::T     # y-coordinate of the box
+        z::T     # z-coordinate of the box
     end
 end
 
@@ -236,7 +237,6 @@ end
     t,
 )
     ν = viscosity_tensor(m)
-    #   D.ν∇u = ν * G.u
     D.ν∇u = @SMatrix [
         m.νʰ * G.ud[1, 1] m.νʰ * G.ud[1, 2]
         m.νʰ * G.ud[2, 1] m.νʰ * G.ud[2, 2]
@@ -461,8 +461,12 @@ end
         S.η += A.wz0
     end
 
+    sponge_relaxation(m, m.problem, S, Q, A)
+
     return nothing
 end
+
+sponge_relaxation(::OceanModel, ::AbstractOceanProblem, _...) = nothing
 
 @inline coriolis_force(m::OceanModel, y) = m.fₒ + m.β * y
 

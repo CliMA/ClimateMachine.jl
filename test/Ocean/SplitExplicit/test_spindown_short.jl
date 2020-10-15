@@ -36,6 +36,7 @@ const FT = Float64
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     )
+
     config = SplitConfig(
         "spindown_bla",
         resolution,
