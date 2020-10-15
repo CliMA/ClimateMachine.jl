@@ -1574,7 +1574,7 @@ See [`BalanceLaw`](@ref) for usage.
                 local_state_auxiliary,
             ),
             Vars{vars_state_temporary}(local_state_temporary),
-            LocalGeometry(Val(polyorder), vgeo, n, e),
+            LocalGeometry{Np, N}(vgeo, n, e),
         )
 
         @unroll for s in 1:num_state_auxiliary
