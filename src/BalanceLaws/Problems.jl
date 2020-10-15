@@ -19,7 +19,7 @@ abstract type AbstractProblem end
         ::BalanceLaw,
         state_prognostic::Vars,
         state_auxiliary::Vars,
-        coords,
+        localgeo,
         t,
         args...,
     )

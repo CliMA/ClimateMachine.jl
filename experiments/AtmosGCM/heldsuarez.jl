@@ -39,7 +39,7 @@ using CLIMAParameters.Planet:
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_heldsuarez!(problem, bl, state, aux, coords, t)
+function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # parameters 

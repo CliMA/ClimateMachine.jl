@@ -246,7 +246,7 @@ function init_state_prognostic!(
     m::BurgersEquation,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 )
     z = aux.coord[3]

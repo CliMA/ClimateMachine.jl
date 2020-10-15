@@ -20,9 +20,11 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
-function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
+function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Problem float-type
     FT = eltype(state)
+
+    (x, y, z) = localgeo.coord
 
     ## Unpack constant parameters
     R_gas::FT = R_d(bl.param_set)

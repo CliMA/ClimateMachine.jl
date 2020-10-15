@@ -112,7 +112,7 @@ end;
 # state of our model run. In our case, we use the reference state of the
 # simulation (defined below) and add a little bit of noise. Note that the
 # initial states includes a zero initial velocity field.
-function init_heldsuarez!(problem, balance_law, state, aux, coordinates, time)
+function init_heldsuarez!(problem, balance_law, state, aux, localgeo, time)
     FT = eltype(state)
 
     ## Set initial state to reference state with random perturbation

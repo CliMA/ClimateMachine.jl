@@ -41,7 +41,8 @@ include(joinpath(
 total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
     zero(FT)
 
-function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
+    (x1, x2, x3) = localgeo.coord
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),

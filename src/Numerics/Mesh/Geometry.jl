@@ -62,15 +62,18 @@ struct LocalGeometry{Np, N, AT, IT}
         new{Np, N, AT, IT}(vgeo, n, e)
 end
 
-function Base.getproperty(geo::LocalGeometry{Np, N}, sym::Symbol) where {Np, N}
+@inline function Base.getproperty(
+    geo::LocalGeometry{Np, N},
+    sym::Symbol,
+) where {Np, N}
     if sym === :polyorder
         return N
     elseif sym === :coord
-        vgeo, n, e = geo.vgeo, geo.n, geo.e
+        vgeo, n, e = getfield(geo, :vgeo), getfield(geo, :n), getfield(geo, :e)
         FT = eltype(vgeo)
         return @SVector FT[vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e]]
     elseif sym === :invJ
-        vgeo, n, e = geo.vgeo, geo.n, geo.e
+        vgeo, n, e = getfield(geo, :vgeo), getfield(geo, :n), getfield(geo, :e)
         FT = eltype(vgeo)
         return @SMatrix FT[
             vgeo[n, _ξ1x1, e] vgeo[n, _ξ1x2, e] vgeo[n, _ξ1x3, e]
@@ -78,7 +81,7 @@ function Base.getproperty(geo::LocalGeometry{Np, N}, sym::Symbol) where {Np, N}
             vgeo[n, _ξ3x1, e] vgeo[n, _ξ3x2, e] vgeo[n, _ξ3x3, e]
         ]
     elseif sym === :center_coord
-        vgeo, n, e = geo.vgeo, geo.n, geo.e
+        vgeo, n, e = getfield(geo, :vgeo), getfield(geo, :n), getfield(geo, :e)
         FT = eltype(vgeo)
         coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
         V = FT(0)

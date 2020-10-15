@@ -33,7 +33,7 @@ CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
 CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
 
-function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, coords, t)
+function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # grid

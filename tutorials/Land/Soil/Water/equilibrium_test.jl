@@ -104,7 +104,7 @@ sources = ()
 # in turn calls the functions supplied to soil_water_model. The default
 # initialization for ice is zero volumetric ice fraction. This should not
 # be altered unless freeze thaw is added.
-function init_soil_water!(land, state, aux, coordinates, time)
+function init_soil_water!(land, state, aux, localgeo, time)
     FT = eltype(state)
     state.soil.water.ϑ_l = FT(land.soil.water.initialϑ_l(aux))
     state.soil.water.θ_i = FT(land.soil.water.initialθ_i(aux))

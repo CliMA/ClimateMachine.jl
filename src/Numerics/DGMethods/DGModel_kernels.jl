@@ -1500,7 +1500,6 @@ end
     n = (I - 1) % Np + 1
 
     @inbounds begin
-        coords = SVector(vgeo[n, _x1, e], vgeo[n, _x2, e], vgeo[n, _x3, e])
         @unroll for s in 1:num_state_auxiliary
             local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
@@ -1513,7 +1512,7 @@ end
             Vars{vars_state(balance_law, Auxiliary(), FT)}(
                 local_state_auxiliary,
             ),
-            coords,
+            LocalGeometry{Np, N}(vgeo, n, e),
             args...,
         )
         @unroll for s in 1:num_state_prognostic

@@ -259,7 +259,7 @@ bottom_heat_state = nothing;
 # specified functions of space for `T_init` and `ϑ_l0` and initializes the state
 # variables of volumetric internal energy and augmented liquid fraction. This requires
 # a conversion from `T` to `ρe_int`.
-function init_soil!(land, state, aux, coordinates, time)
+function init_soil!(land, state, aux, localgeo, time)
     myFT = eltype(state)
     ϑ_l = myFT(land.soil.water.initialϑ_l(aux))
     θ_i = myFT(land.soil.water.initialθ_i(aux))

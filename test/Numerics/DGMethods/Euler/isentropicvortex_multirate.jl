@@ -317,12 +317,12 @@ function isentropicvortex_initialcondition!(
     bl,
     state,
     aux,
-    coords,
+    localgeo,
     t,
     setup,
 )
     FT = eltype(state)
-    x = MVector(coords)
+    x = MVector(localgeo.coord)
 
     ρ∞ = setup.ρ∞
     p∞ = setup.p∞

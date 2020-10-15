@@ -59,10 +59,10 @@ function initial_condition!(
     ::TestProblem{adv, diff, dir, topo},
     state,
     aux,
-    x,
+    localgeo,
     t,
 ) where {adv, diff, dir, topo}
-    state.ρ = initial_ρ(topo, x)
+    state.ρ = initial_ρ(topo, localgeo.coord)
 end
 
 function create_topology(::Box{dim}, mpicomm, Ne, FT) where {dim}

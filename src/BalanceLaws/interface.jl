@@ -68,7 +68,7 @@ vars_state(::BalanceLaw, ::AbstractStateType, FT) = @vars()
         ::BL,
         state_prognostic::Vars,
         state_auxiliary::Vars,
-        coords,
+        localgeo,
         args...,
     )
 

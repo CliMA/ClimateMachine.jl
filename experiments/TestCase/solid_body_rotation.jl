@@ -27,7 +27,7 @@ using CLIMAParameters.Planet: day, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function init_solid_body_rotation!(problem, bl, state, aux, coords, t)
+function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # initial velocity profile (we need to transform the vector into the Cartesian

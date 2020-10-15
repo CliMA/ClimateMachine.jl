@@ -32,7 +32,7 @@ CLIMAParameters.Planet.Omega(::EarthParameterSet) = 0.0
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
 CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
-function init_isothermal_zonal_flow!(problem, bl, state, aux, coords, t)
+function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     φ = latitude(bl.orientation, aux)

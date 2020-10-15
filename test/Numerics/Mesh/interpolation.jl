@@ -39,7 +39,7 @@ function Initialize_Brick_Interpolation_Test!(
     bl,
     state::Vars,
     aux::Vars,
-    (x, y, z),
+    localgeo,
     t,
 )
     FT = eltype(state)

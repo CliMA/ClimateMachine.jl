@@ -152,7 +152,9 @@ end
 """
   Initial Condition for UnstableBoundaryLayer LES
 """
-function init_problem!(problem, bl, state, aux, (x, y, z), t)
+function init_problem!(problem, bl, state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
+
     # Problem floating point precision
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)

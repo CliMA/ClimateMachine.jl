@@ -127,7 +127,9 @@ const param_set = EarthParameterSet()
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualisation
 #md #       purposes)
-function init_densitycurrent!(problem, bl, state, aux, (x, y, z), t)
+function init_densitycurrent!(problem, bl, state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
+
     ## Problem float-type
     FT = eltype(state)
 

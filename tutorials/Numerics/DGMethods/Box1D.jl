@@ -74,7 +74,7 @@ function init_state_prognostic!(
     m::Box1D,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 )
     if aux.z_dim >= 75 && aux.z_dim <= 125

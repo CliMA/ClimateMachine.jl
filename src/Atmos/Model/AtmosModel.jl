@@ -747,7 +747,7 @@ end
         m::AtmosModel,
         state::Vars,
         aux::Vars,
-        coords,
+        localgeo,
         t,
         args...,
     )
@@ -760,7 +760,7 @@ function init_state_prognostic!(
     m::AtmosModel,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t,
     args...,
 )
@@ -769,7 +769,7 @@ function init_state_prognostic!(
         m,
         state,
         aux,
-        coords,
+        localgeo,
         t,
         args...,
     )

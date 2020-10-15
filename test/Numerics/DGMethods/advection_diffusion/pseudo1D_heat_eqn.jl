@@ -47,10 +47,10 @@ function initial_condition!(
     ::HeatEqn{n, κ, A},
     state,
     aux,
-    x,
+    localgeo,
     t,
 ) where {n, κ, A}
-    ξn = dot(n, x)
+    ξn = dot(n, localgeo.coord)
     state.ρ = ξn + sum(A .* cos.(κ * ξn) .* exp.(-κ .^ 2 * t))
 end
 Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)

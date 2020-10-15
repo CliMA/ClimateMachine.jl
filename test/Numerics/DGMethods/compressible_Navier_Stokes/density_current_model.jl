@@ -67,9 +67,10 @@ function Initialise_Density_Current!(
     bl,
     state::Vars,
     aux::Vars,
-    (x1, x2, x3),
+    localgeo,
     t,
 )
+    (x1, x2, x3) = localgeo.coord
     FT = eltype(state)
     _R_d::FT = R_d(param_set)
     _grav::FT = grav(param_set)
