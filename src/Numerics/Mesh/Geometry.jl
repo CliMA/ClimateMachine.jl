@@ -101,9 +101,9 @@ end
 """
     resolutionmetric(g::LocalGeometry)
 
-The metric tensor of the discretisation resolution. Given a unit vector `u` in Cartesian
-coordinates and `M = resolutionmetric(g)`, `sqrt(u'*M*u)` is the degree-of-freedom density
-in the direction of `u`.
+The metric tensor of the discretisation resolution. Given a unit vector `u` in
+Cartesian coordinates and `M = resolutionmetric(g)`, `sqrt(u'*M*u)` is the
+degree-of-freedom density in the direction of `u`.
 """
 function resolutionmetric(g::LocalGeometry)
     S = g.polyorder * g.invJ / 2
