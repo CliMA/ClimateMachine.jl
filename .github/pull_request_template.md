@@ -1,20 +1,10 @@
-# Description
+### Description
 
-A clear and concise description of the code with usage.
+<!-- Provide a clear description of the content -->
 
-<!--- Please fill out the following section --->
+<!-- Check all the boxes below before taking the PR out of draft -->
 
-I have
-
-- [ ] Written and run all necessary tests with CLIMA by including `tests/runtests.jl`
-- [ ] Followed all necessary [style guidelines](https://clima.github.io/ClimateMachine.jl/latest/DevDocs/CodeStyle/) and run `julia .dev/climaformat.jl .`
-- [ ] Updated the documentation to reflect changes from this PR.
-
-<!--- Please leave the following section --->
-
-# For review by CLIMA developers
-
-- [ ] There are no open pull requests for this already
-- [ ] CLIMA developers with relevant expertise have been assigned to review this submission
-- [ ] The code conforms to the [style guidelines](https://clima.github.io/ClimateMachine.jl/latest/DevDocs/CodeStyle/) and has consistent naming conventions. `julia .dev/format.jl` has been run in a separate commit.
-- [ ] This code does what it is technically intended to do (all numerics make sense physically and/or computationally)
+- [ ] Code follows the [style guidelines](https://clima.github.io/ClimateMachine.jl/latest/DevDocs/CodeStyle/) OR N/A.
+- [ ] Unit tests are included OR N/A.
+- [ ] Code is exercised in an integration test OR N/A.
+- [ ] Documentation has been added/updated OR N/A.
