@@ -93,14 +93,14 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = LSRK54CarpenterKennedy,
-                nsubsteps = 50,
+                nsubsteps = (50,),
             )
         elseif fast_solver_type==StrongStabilityPreservingRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = SSPRK33ShuOsher,
-                nsubsteps = 12,
+                nsubsteps = (12,),
             )
         elseif fast_solver_type==MultirateInfinitesimalStep
             ode_solver = ClimateMachine.MISSolverType(
