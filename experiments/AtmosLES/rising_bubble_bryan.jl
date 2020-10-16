@@ -85,7 +85,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
     # Choose explicit solver
     solver_type = MultirateInfinitesimalStep
-    fast_solver_type = AdditiveRungeKutta
+    fast_solver_type = LowStorageRungeKutta2N
 
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==LowStorageRungeKutta2N
