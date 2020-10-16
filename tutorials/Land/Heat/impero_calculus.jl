@@ -1,7 +1,7 @@
 using ClimateMachine
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.Diagnostics
-
+# include(pwd() * "/tutorials/Land/Heat/impero_calculus.jl")
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
 const mpicomm = MPI.COMM_WORLD
@@ -42,9 +42,26 @@ grid = DiscontinuousSpectralElementGrid(
 )
 numelem = length(grid.topology.realelems)
 
-Q = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 3, numelem)
-d1 = Diagnostics.VectorGradient(grid, Q, 1)
+u = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 1, numelem)
+v = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 1, numelem)
+w = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 1, numelem)
+T = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 1, numelem)
+∇u = Diagnostics.VectorGradient(grid, u, 1)
+∇v = Diagnostics.VectorGradient(grid, v, 1)
+∇w = Diagnostics.VectorGradient(grid, w, 1)
+∇T = Diagnostics.VectorGradient(grid, T, 1)
+Q = [u,v,w]
 
+function curl(grid, Q)
+    d1 = Diagnostics.VectorGradient(grid, Q[1], 1)
+    d2 = Diagnostics.VectorGradient(grid, Q[2], 1)
+    d3 = Diagnostics.VectorGradient(grid, Q[3], 1)
+    vgrad = Diagnostics.VectorGradients(d1, d2, d3)
+    vort = Diagnostics.Vorticity(grid, vgrad)
+    return vort
+end
+
+curl(grid, Q)
 
 # ∇ = Operator(nothing, GradientMetaData("name"))
 # curl()

@@ -500,20 +500,23 @@ end
 This function computes the vorticity of the velocity field.
 
 # Arguments
- - `dg`: DGModel
+ - `grid`: DiscontinuousSpectralElementGrid
  - `vgrad`: vector gradients
 """
-function Vorticity(dg::DGModel, vgrad::VectorGradients)
-    bl = dg.balance_law
-    FT = eltype(dg.grid)
+Vorticity(dg::DGModel, vgrad::VectorGradients) = Vorticity(dg.grid, vgrad)
+
+function Vorticity(grid::DiscontinuousSpectralElementGrid, vgrad::VectorGradients)
+    FT = eltype(grid)
+
     # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(dg.grid)
+    N = polynomialorder(grid)
+
     # Currently only support single polynomial order
     @assert all(N[1] .== N)
     N = N[1]
     Nq = N + 1
     npoints = Nq^3
-    nrealelem = length(dg.grid.topology.realelems)
+    nrealelem = length(grid.topology.realelems)
 
     data = similar(vgrad.data, npoints, 3, nrealelem)
 
