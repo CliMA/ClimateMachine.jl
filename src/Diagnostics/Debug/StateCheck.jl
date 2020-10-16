@@ -478,7 +478,7 @@ function scdocheck(cb, ref_dat)
         "# SC \"N( )\" bracketing indicates field failed to match      ",
     )
     println(io, "# SC \"P=\"  row pass count      ")
-    println(io, "# SC \"F=\"  row pass count      ")
+    println(io, "# SC \"F=\"  row failure count   ")
     println(io, "# SC \"NA=\" row not checked count      ")
     println(io, "# SC ")
     println(
