@@ -97,7 +97,7 @@ function Initialise_Density_Current!(
     π_exner = FT(1) - _grav / (_cp_d * θ) * x3 # exner pressure
     ρ = _MSLP / (_R_d * θ) * (π_exner)^(_cv_d / _R_d) # density
 
-    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
+    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
     q_pt = PhasePartition(ts)
 
     U, V, W = FT(0), FT(0), FT(0)  # momentum components

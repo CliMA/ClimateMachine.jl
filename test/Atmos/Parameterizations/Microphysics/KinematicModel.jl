@@ -43,8 +43,8 @@ using ClimateMachine.Thermodynamics:
     internal_energy,
     q_vap_saturation,
     relative_humidity,
-    TemperatureSHumEquil,
-    TemperatureSHumNonEquil,
+    PhaseEquil_ρTq,
+    PhaseNonEquil_ρTq,
     air_temperature,
     latent_heat_fusion
 

@@ -2,18 +2,28 @@ export PhasePartition
 # Thermodynamic states
 export ThermodynamicState,
     PhaseDry,
-    PhaseDry_given_ρT,
-    PhaseDry_given_pT,
-    PhaseDry_given_pθ,
+    PhaseDry_ρT,
+    PhaseDry_pT,
+    PhaseDry_pθ,
     PhaseEquil,
+    PhaseEquil_ρTq,
+    PhaseEquil_pTq,
+    PhaseEquil_ρθq,
+    PhaseEquil_pθq,
     PhaseNonEquil,
-    TemperatureSHumEquil,
-    TemperatureSHumEquil_given_pressure,
-    TemperatureSHumNonEquil,
-    LiquidIcePotTempSHumEquil,
-    LiquidIcePotTempSHumEquil_given_pressure,
-    LiquidIcePotTempSHumNonEquil,
-    LiquidIcePotTempSHumNonEquil_given_pressure
+    PhaseNonEquil_ρTq,
+    PhaseNonEquil_ρθq,
+    PhaseNonEquil_pθq
+
+"""
+    ThermodynamicState{FT}
+
+A thermodynamic state, which can be initialized for
+various thermodynamic formulations (via its sub-types).
+All `ThermodynamicState`'s have access to functions to
+compute all other thermodynamic properties.
+"""
+abstract type ThermodynamicState{FT} end
 
 """
     PhasePartition
@@ -51,15 +61,82 @@ PhasePartition(q_tot::FT, q_liq::FT) where {FT <: Real} =
 PhasePartition(q_tot::FT) where {FT <: Real} =
     PhasePartition(q_tot, zero(FT), zero(FT))
 
-"""
-    ThermodynamicState{FT}
+#####
+##### Dry states
+#####
 
-A thermodynamic state, which can be initialized for
-various thermodynamic formulations (via its sub-types).
-All `ThermodynamicState`'s have access to functions to
-compute all other thermodynamic properties.
 """
-abstract type ThermodynamicState{FT} end
+    PhaseDry{FT} <: ThermodynamicState
+
+A dry thermodynamic state (`q_tot = 0`).
+
+# Constructors
+
+    PhaseDry(param_set, e_int, ρ)
+
+# Fields
+
+$(DocStringExtensions.FIELDS)
+"""
+struct PhaseDry{FT, PS} <: ThermodynamicState{FT}
+    "parameter set, used to dispatch planet parameter function calls"
+    param_set::PS
+    "internal energy"
+    e_int::FT
+    "density of dry air"
+    ρ::FT
+end
+PhaseDry(param_set::APS, e_int::FT, ρ::FT) where {FT} =
+    PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+
+"""
+    PhaseDry_pT(param_set, p, T)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `p` pressure
+ - `T` temperature
+"""
+function PhaseDry_pT(param_set::APS, p::FT, T::FT) where {FT <: Real}
+    e_int = internal_energy(param_set, T)
+    ρ = air_density(param_set, T, p)
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+end
+
+"""
+    PhaseDry_pθ(param_set, p, θ_dry)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `p` pressure
+ - `θ_dry` dry potential temperature
+"""
+function PhaseDry_pθ(param_set::APS, p::FT, θ_dry::FT) where {FT <: Real}
+    T = exner_given_pressure(param_set, p) * θ_dry
+    e_int = internal_energy(param_set, T)
+    ρ = air_density(param_set, T, p)
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+end
+
+"""
+    PhaseDry_ρT(param_set, ρ, T)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `ρ` density
+ - `T` temperature
+"""
+function PhaseDry_ρT(param_set::APS, ρ::FT, T::FT) where {FT <: Real}
+    e_int = internal_energy(param_set, T)
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+end
+
+#####
+##### Equilibrium states
+#####
 
 """
     PhaseEquil{FT} <: ThermodynamicState
@@ -126,91 +203,21 @@ function PhaseEquil(
 end
 
 """
-    PhaseDry{FT} <: ThermodynamicState
-
-A dry thermodynamic state (`q_tot = 0`).
-
-# Constructors
-
-    PhaseDry(param_set, e_int, ρ)
-
-# Fields
-
-$(DocStringExtensions.FIELDS)
-"""
-struct PhaseDry{FT, PS} <: ThermodynamicState{FT}
-    "parameter set, used to dispatch planet parameter function calls"
-    param_set::PS
-    "internal energy"
-    e_int::FT
-    "density of dry air"
-    ρ::FT
-end
-PhaseDry(param_set::APS, e_int::FT, ρ::FT) where {FT} =
-    PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
-
-"""
-    PhaseDry_given_pT(param_set, p, T)
-
-Constructs a [`PhaseDry`](@ref) thermodynamic state from:
-
- - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `p` pressure
- - `T` temperature
-"""
-function PhaseDry_given_pT(param_set::APS, p::FT, T::FT) where {FT <: Real}
-    e_int = internal_energy(param_set, T)
-    ρ = air_density(param_set, T, p)
-    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
-end
-
-"""
-    PhaseDry_given_pθ(param_set, p, θ_dry)
-
-Constructs a [`PhaseDry`](@ref) thermodynamic state from:
-
- - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `p` pressure
- - `θ_dry` dry potential temperature
-"""
-function PhaseDry_given_pθ(param_set::APS, p::FT, θ_dry::FT) where {FT <: Real}
-    T = exner_given_pressure(param_set, p) * θ_dry
-    e_int = internal_energy(param_set, T)
-    ρ = air_density(param_set, T, p)
-    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
-end
-
-"""
-    PhaseDry_given_ρT(param_set, ρ, T)
-
-Constructs a [`PhaseDry`](@ref) thermodynamic state from:
-
- - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `ρ` density
- - `T` temperature
-"""
-function PhaseDry_given_ρT(param_set::APS, ρ::FT, T::FT) where {FT <: Real}
-    e_int = internal_energy(param_set, T)
-    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
-end
-
-
-"""
-    LiquidIcePotTempSHumEquil(param_set, θ_liq_ice, ρ, q_tot)
+    PhaseEquil_ρθq(param_set, ρ, θ_liq_ice, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
+ - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `temperature_tol` temperature tolerance for saturation adjustment
  - `maxiter` maximum iterations for saturation adjustment
 """
-function LiquidIcePotTempSHumEquil(
+function PhaseEquil_ρθq(
     param_set::APS,
-    θ_liq_ice::FT,
     ρ::FT,
+    θ_liq_ice::FT,
     q_tot::FT,
     maxiter::Int = 36,
     temperature_tol::FT = FT(1e-1),
@@ -232,21 +239,21 @@ function LiquidIcePotTempSHumEquil(
 end
 
 """
-    LiquidIcePotTempSHumEquil_given_pressure(param_set, θ_liq_ice, p, q_tot)
+    PhaseEquil_pθq(param_set, p, θ_liq_ice, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from:
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `θ_liq_ice` liquid-ice potential temperature
  - `p` pressure
+ - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `temperature_tol` temperature tolerance for saturation adjustment
  - `maxiter` maximum iterations for saturation adjustment
 """
-function LiquidIcePotTempSHumEquil_given_pressure(
+function PhaseEquil_pθq(
     param_set::APS,
-    θ_liq_ice::FT,
     p::FT,
+    θ_liq_ice::FT,
     q_tot::FT,
     maxiter::Int = 30,
     temperature_tol::FT = FT(1e-1),
@@ -269,19 +276,19 @@ function LiquidIcePotTempSHumEquil_given_pressure(
 end
 
 """
-    TemperatureSHumEquil(param_set, T, ρ, q_tot)
+    PhaseEquil_ρTq(param_set, ρ, T, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `T` temperature
  - `ρ` density
+ - `T` temperature
  - `q_tot` total specific humidity
 """
-function TemperatureSHumEquil(
+function PhaseEquil_ρTq(
     param_set::APS,
-    T::FT,
     ρ::FT,
+    T::FT,
     q_tot::FT,
 ) where {FT <: Real}
     phase_type = PhaseEquil
@@ -291,19 +298,19 @@ function TemperatureSHumEquil(
 end
 
 """
-    TemperatureSHumEquil_given_pressure(param_set, T, p, q_tot)
+    PhaseEquil_pTq(param_set, p, T, q_tot)
 
 Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `T` temperature
  - `p` pressure
+ - `T` temperature
  - `q_tot` total specific humidity
 """
-function TemperatureSHumEquil_given_pressure(
+function PhaseEquil_pTq(
     param_set::APS,
-    T::FT,
     p::FT,
+    T::FT,
     q_tot::FT,
 ) where {FT <: Real}
     phase_type = PhaseEquil
@@ -312,6 +319,10 @@ function TemperatureSHumEquil_given_pressure(
     e_int = internal_energy(param_set, T, q)
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot, T)
 end
+
+#####
+##### Non-equilibrium states
+#####
 
 """
    	 PhaseNonEquil{FT} <: ThermodynamicState
@@ -348,19 +359,19 @@ function PhaseNonEquil(
 end
 
 """
-    TemperatureSHumNonEquil(param_set, T, ρ, q_pt)
+    PhaseNonEquil_ρTq(param_set, ρ, T, q_pt)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `T` temperature
  - `ρ` (moist-)air density
+ - `T` temperature
  - `q_pt` phase partition
 """
-function TemperatureSHumNonEquil(
+function PhaseNonEquil_ρTq(
     param_set::APS,
-    T::FT,
     ρ::FT,
+    T::FT,
     q_pt::PhasePartition{FT},
 ) where {FT <: Real}
     e_int = internal_energy(param_set, T, q_pt)
@@ -368,22 +379,22 @@ function TemperatureSHumNonEquil(
 end
 
 """
-    LiquidIcePotTempSHumNonEquil(param_set, θ_liq_ice, ρ, q_pt)
+    PhaseNonEquil_ρθq(param_set, ρ, θ_liq_ice, q_pt)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
+ - `θ_liq_ice` liquid-ice potential temperature
  - `q_pt` phase partition
 and, optionally
  - `potential_temperature_tol` potential temperature for non-linear equation solve
  - `maxiter` maximum iterations for non-linear equation solve
 """
-function LiquidIcePotTempSHumNonEquil(
+function PhaseNonEquil_ρθq(
     param_set::APS,
-    θ_liq_ice::FT,
     ρ::FT,
+    θ_liq_ice::FT,
     q_pt::PhasePartition{FT},
     maxiter::Int = 10,
     potential_temperature_tol::FT = FT(1e-2),
@@ -403,19 +414,19 @@ function LiquidIcePotTempSHumNonEquil(
 end
 
 """
-    LiquidIcePotTempSHumNonEquil_given_pressure(param_set, θ_liq_ice, p, q_pt)
+    PhaseNonEquil_pθq(param_set, p, θ_liq_ice, q_pt)
 
 Constructs a [`PhaseNonEquil`](@ref) thermodynamic state from:
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `θ_liq_ice` liquid-ice potential temperature
  - `p` pressure
+ - `θ_liq_ice` liquid-ice potential temperature
  - `q_pt` phase partition
 """
-function LiquidIcePotTempSHumNonEquil_given_pressure(
+function PhaseNonEquil_pθq(
     param_set::APS,
-    θ_liq_ice::FT,
     p::FT,
+    θ_liq_ice::FT,
     q_pt::PhasePartition{FT},
 ) where {FT <: Real}
     T = air_temperature_from_liquid_ice_pottemp_given_pressure(

@@ -101,9 +101,9 @@ function atmos_init_aux!(
     q_liq = q_pt.liq
     q_ice = q_pt.ice
     if atmos.moisture isa DryModel
-        ts = PhaseDry_given_ρT(atmos.param_set, ρ, T)
+        ts = PhaseDry_ρT(atmos.param_set, ρ, T)
     else
-        ts = TemperatureSHumEquil(atmos.param_set, T, ρ, q_tot)
+        ts = PhaseEquil_ρTq(atmos.param_set, ρ, T, q_tot)
     end
 
     aux.ref_state.ρq_tot = ρ * q_tot
