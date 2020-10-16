@@ -34,6 +34,8 @@ using CLIMAParameters: AbstractParameterSet
 using CLIMAParameters.Planet
 const APS = AbstractParameterSet
 
+Base.broadcastable(param_set::APS) = Ref(param_set)
+
 # Allow users to skip error on non-convergence
 # by importing:
 # ```julia
@@ -53,5 +55,7 @@ print_warning() = true
 include("states.jl")
 include("relations.jl")
 include("isentropic.jl")
+
+Base.broadcastable(dap::DryAdiabaticProcess) = Ref(dap)
 
 end #module Thermodynamics.jl
