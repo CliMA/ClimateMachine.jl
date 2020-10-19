@@ -41,6 +41,10 @@ struct LocalGeometry{T, P}
     coord::SVector{3, T}
     "Jacobian from Cartesian to element coordinates: `invJ[i,j]` is ``∂ξ_i/∂x_j``"
     invJ::SMatrix{3, 3, T, 9}
+    "element local node index"
+    n::Integer
+    "process local element index"
+    e::Integer
 end
 
 function LocalGeometry(
@@ -56,7 +60,7 @@ function LocalGeometry(
         vgeo[n, _ξ3x1, e] vgeo[n, _ξ3x2, e] vgeo[n, _ξ3x3, e]
     ]
 
-    LocalGeometry(polynomial, coord, invJ)
+    LocalGeometry(polynomial, coord, invJ, n, e)
 end
 
 """
