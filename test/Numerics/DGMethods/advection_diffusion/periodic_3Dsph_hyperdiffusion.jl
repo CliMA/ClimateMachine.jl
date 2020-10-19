@@ -182,11 +182,11 @@ let
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32,)
-		for base_num_elem in (12,) #(8, 12, 15,)
+		    for base_num_elem in (8, 12, 15,)
                 # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
-		for (polynomialorder, vert_num_elem) in ((3,6),) #((3,8), (4,5), (5,3), (6,2), )
+		        for (polynomialorder, vert_num_elem) in ((3,8), (4,5), (5,3), (6,2), )
 
-                    for τ in (0.0001,)#4,8,) # time scale for hyperdiffusion
+                    for τ in (1,)#4,8,) # time scale for hyperdiffusion
 
                         topl = StackedCubedSphereTopology(
                             mpicomm,
