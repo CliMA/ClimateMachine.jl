@@ -85,7 +85,7 @@ export TurbulenceClosureModel,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
     turbulence_nodal_update_auxiliary_state!,
-    sponge_viscosity_modifier!
+    sponge_viscosity_modifier
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
@@ -1060,7 +1060,7 @@ No modifiers applied to viscosity/diffusivity in sponge layer
 $(DocStringExtensions.FIELDS)
 """
 struct NoViscousSponge <: ViscousSponge end
-function sponge_viscosity_modifier!(
+function sponge_viscosity_modifier(
     bl::BalanceLaw,
     m::NoViscousSponge,
     ν,
@@ -1068,7 +1068,7 @@ function sponge_viscosity_modifier!(
     τ,
     aux,
 )
-    nothing
+    return (ν, D_t, τ)
 end
 
 """ 
@@ -1090,7 +1090,7 @@ struct UpperAtmosSponge{FT} <: ViscousSponge
     γ::FT
 end
 
-function sponge_viscosity_modifier!(
+function sponge_viscosity_modifier(
     bl::BalanceLaw,
     m::UpperAtmosSponge,
     ν,
@@ -1106,6 +1106,7 @@ function sponge_viscosity_modifier!(
         D_t += β_sponge * D_t
         τ += β_sponge * τ
     end
+    return (ν, D_t, τ)
 end
 
 end #module TurbulenceClosures.jl
