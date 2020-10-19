@@ -33,6 +33,10 @@ using ...DGMethods.NumericalFluxes:
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxFirstOrder
 
+using ..Ocean
+
+import ..Ocean: ocean_init_aux!, ocean_init_state!, ocean_boundary_state!
+
 import ...DGMethods.NumericalFluxes:
     update_penalty!, numerical_flux_second_order!, NumericalFluxFirstOrder
 
@@ -64,11 +68,6 @@ import ...SystemSolvers: BatchedGeneralizedMinimalResidual, linearsolve!
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ∘(a::SVector, b::SVector) = StaticArrays.dot(a, b)
 
-abstract type AbstractOceanModel <: BalanceLaw end
-abstract type AbstractOceanProblem end
-
-function ocean_init_aux! end
-function ocean_init_state! end
 function initialize_fast_state! end
 function initialize_adjustment! end
 

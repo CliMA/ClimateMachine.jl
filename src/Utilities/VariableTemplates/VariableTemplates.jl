@@ -102,7 +102,7 @@ The number of elements specified by the template type `S`.
 varsize(::Type{T}) where {T <: Real} = 1
 varsize(::Type{Tuple{}}) = 0
 varsize(::Type{NamedTuple{(), Tuple{}}}) = 0
-varsize(::Type{SVector{N, T}}) where {N, T <: Real} = N
+varsize(::Type{SArray{S, T, N} where L}) where {S, T, N} = prod(S.parameters)
 
 include("var_names.jl")
 include("flattened_tup_chain.jl")
@@ -130,6 +130,17 @@ function process_vars!(syms, typs, expr)
     end
 end
 
+"""
+    @vars(var1::Type1, var2::Type2)
+
+A convenient syntax for describing a `NamedTuple` type.
+
+# Example
+```julia
+julia> @vars(a::Float64, b::Float64)
+NamedTuple{(:a, :b),Tuple{Float64,Float64}}
+```
+"""
 macro vars(args...)
     syms = Any[]
     typs = Any[]

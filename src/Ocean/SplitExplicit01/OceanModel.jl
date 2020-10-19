@@ -169,7 +169,7 @@ function vars_state(m::OceanModel, ::Prognostic, T)
 end
 
 function init_state_prognostic!(m::OceanModel, Q::Vars, A::Vars, coords, t)
-    return ocean_init_state!(m.problem, Q, A, coords, t)
+    return ocean_init_state!(m, m.problem, Q, A, coords, t)
 end
 
 function vars_state(m::OceanModel, ::Auxiliary, T)
@@ -590,70 +590,7 @@ function update_penalty!(
     return nothing
 end
 
-"""
-    boundary_state!(nf, ::OceanModel, Q⁺, A⁺, Q⁻, A⁻, bctype)
-
-applies boundary conditions for the hyperbolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::OceanModel,
-    Q⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.problem,
-        bctype,
-        nf,
-        Q⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        A⁻,
-        t,
-    )
-end
-
-"""
-    boundary_state!(nf, ::OceanModel, Q⁺, D⁺, A⁺, Q⁻, D⁻, A⁻, bctype)
-
-applies boundary conditions for the parabolic fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@inline function boundary_state!(
-    nf,
-    m::OceanModel,
-    Q⁺::Vars,
-    D⁺::Vars,
-    A⁺::Vars,
-    n⁻,
-    Q⁻::Vars,
-    D⁻::Vars,
-    A⁻::Vars,
-    bctype,
-    t,
-    _...,
-)
-    return ocean_boundary_state!(
-        m,
-        m.problem,
-        bctype,
-        nf,
-        Q⁺,
-        D⁺,
-        A⁺,
-        n⁻,
-        Q⁻,
-        D⁻,
-        A⁻,
-        t,
-    )
+@inline function boundary_state!(nf, ocean::OceanModel, args...)
+    boundary_conditions = ocean.problem.boundary_conditions
+    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
 end

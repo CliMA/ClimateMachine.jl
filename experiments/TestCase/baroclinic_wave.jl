@@ -53,11 +53,11 @@ function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     d_0::FT = _a / 6
     V_p::FT = 1
     M_v::FT = 0.608
-    p_w::FT = 34e3             ## Pressure width parameter for specific humidity
-    η_crit::FT = 10 * _p_0 / p_w ## Critical pressure coordinate
-    q_0::FT = 0                ## Maximum specific humidity (default: 0.018)
-    q_t::FT = 1e-12            ## Specific humidity above artificial tropopause
-    φ_w::FT = 2π / 9           ## Specific humidity latitude wind parameter
+    p_w::FT = 34e3                 # Pressure width parameter for specific humidity
+    η_crit::FT = p_w / _p_0        # Critical pressure coordinate
+    q_0::FT = 0.018                # Maximum specific humidity (default: 0.018)
+    q_t::FT = 1e-12                # Specific humidity above artificial tropopause
+    φ_w::FT = 2π / 9               # Specific humidity latitude wind parameter
 
     # grid
     φ = latitude(bl.orientation, aux)
@@ -124,14 +124,18 @@ function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     u_sphere = SVector{3, FT}(u_ref + u′, v_ref + v′, w_ref + w′)
     u_cart = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
 
-    ## Compute moisture profile
-    ## Pressure coordinate η
-    ## η_crit = p_t / p_w ; p_t = 10000 hPa, p_w = 340 hPa
-    η = p / _p_0
-    if η > η_crit
-        q_tot = q_0 * exp(-(φ / φ_w)^4) * exp(-((η - 1) * _p_0 / p_w)^2)
+    if bl.moisture isa DryModel
+        q_tot = FT(0)
     else
-        q_tot = q_t
+        ## Compute moisture profile
+        ## Pressure coordinate η
+        ## η_crit = p_t / p_w ; p_t = 10000 hPa, p_w = 340 hPa
+        η = p / _p_0
+        if η > η_crit
+            q_tot = q_0 * exp(-(φ / φ_w)^4) * exp(-((η - 1) * _p_0 / p_w)^2)
+        else
+            q_tot = q_t
+        end
     end
     phase_partition = PhasePartition(q_tot)
 
@@ -149,7 +153,7 @@ function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
     state.ρu = ρ * u_cart
     state.ρe = ρ * e_tot
 
-    if bl.moisture isa EquilMoist
+    if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
 
@@ -168,10 +172,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
-        # TODO - switch to line below if you want to start removing q_tot
-        #        due to precipitation
         source = (Gravity(), Coriolis())
-        #source = (Gravity(), Coriolis(), RemovePrecipitation(true))
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
@@ -290,7 +291,7 @@ function main()
 end
 
 function config_diagnostics(FT, driver_config)
-    interval = "40000steps" # chosen to allow a single diagnostics collection
+    interval = "12shours" # chosen to allow diagnostics every 12 simulated hours
 
     _planet_radius = FT(planet_radius(param_set))
 
@@ -299,7 +300,7 @@ function config_diagnostics(FT, driver_config)
         FT(-90.0) FT(-180.0) _planet_radius
         FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(1), FT(1), FT(1000)) # in (deg, deg, m)
+    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,

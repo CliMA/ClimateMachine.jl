@@ -1,4 +1,5 @@
 using ClimateMachine.Mesh.BrickMesh
+using ClimateMachine.Mesh.Grids: mappings, commmapping
 using Test
 using MPI
 

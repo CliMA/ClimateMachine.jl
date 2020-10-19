@@ -101,9 +101,9 @@ function atmos_init_aux!(
     q_liq = q_pt.liq
     q_ice = q_pt.ice
     if atmos.moisture isa DryModel
-        ts = PhaseDry_given_ρT(atmos.param_set, ρ, T)
+        ts = PhaseDry_ρT(atmos.param_set, ρ, T)
     else
-        ts = TemperatureSHumEquil(atmos.param_set, T, ρ, q_tot)
+        ts = PhaseEquil_ρTq(atmos.param_set, ρ, T, q_tot)
     end
 
     aux.ref_state.ρq_tot = ρ * q_tot
@@ -166,7 +166,7 @@ boundary_state!(nf, ::PressureGradientModel, _...) = nothing
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
 function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     FT = eltype(state_auxiliary)
-    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}))
+    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}), nstate = 3)
 
     grad_model = PressureGradientModel()
     # Note that the choice of numerical fluxes doesn't matter

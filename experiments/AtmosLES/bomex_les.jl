@@ -43,10 +43,11 @@ function main()
     t0 = FT(0)
 
     # For a full-run, please set the timeend to 3600*6 seconds
+    # and change the values in ConservationCheck
     # For the test we set this to == 30 minutes
     timeend = FT(1800)
     #timeend = FT(3600 * 6)
-    CFLmax = FT(0.90)
+    CFLmax = FT(0.35)
 
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
@@ -79,6 +80,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        CFL_direction = HorizontalDirection(),
     )
     dgn_config = config_diagnostics(driver_config)
 

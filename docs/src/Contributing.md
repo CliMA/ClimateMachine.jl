@@ -92,22 +92,71 @@ integration (CI) system.
 
 A `ClimateMachine` developer will look at your PR and provide feedback!
 
-Currently a number of checks are run per commit for a given PR:
+### Unit testing
 
-- `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`
+Currently a number of checks are run per commit for a given PR.
+
+- `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`.
 - `Documentation` rebuilds the documentation for the PR and checks if the docs are consistent and generate valid output.
-- `Unit Tests` run subsets of the unit tests defined in `tests/`, `Pkg.test()`.  The tests are run in parallel to ensure that they finish in a reasonable time.  The tests only run the latest commit for a PR, branch and will kill any stale jobs on push.  These tests are only run on linux (Ubuntu LTS).
+- `Unit Tests` run subsets of the unit tests defined in `tests/`, using `Pkg.test()`.
+   The tests are run in parallel to ensure that they finish in a reasonable time.
+   The tests only run the latest commit for a PR, branch and will kill any stale jobs on push.
+   These tests are only run on linux (Ubuntu LTS).
+
+Unit tests are run against every new commit for a given PR,
+the status of the unit-tests are not checked during the merge
+process but act as a sanity check for developers and reviewers.
+Depending on the content changed in the PR, some CI checks that
+are not necessary will be skipped.  For example doc only changes
+do not require the unit tests to be run.
+
+### The merge process
 
 We use [`bors`](https://bors.tech/) to manage merging PR's in the the `ClimateMachine` repo.
 If you're a collaborator and have the necessary permissions, you can type
-`bors try` in a comment on a PR to have some additional tests run on that
-PR, or `bors r+` to try and merge the code.  Bors ensures that all tests
+`bors try` in a comment on a PR to have integration test suite run on that
+PR, or `bors r+` to try and merge the code.  Bors ensures that all integration tests
 for a given PR always pass before merging into `master`.
 
-Bors aggregates and checks the following test outputs:
+### Integration testing
+
+Currently a number of checks are run during integration testing before being merged into master.
+
+- `JuliaFormatter` checks if the PR is formatted with `.dev/climaformat.jl`.
 - `Documentation` checks that the documentation correctly builds for the merged PR.
-- `OS Unit Tests` checks that ClimateMachine.jl package unit tests can pass on every OS supported (linux, macOS, windows).
-- `slurmci` runs more extensive testing on both CPU and GPU hardware using Caltech HPC cluster resources.
+- `OS Unit Tests` checks that ClimateMachine.jl package unit tests can pass
+   on every OS supported with a pre-compiled system image (Linux, macOS, Windows).
+- `ClimateMachine-CI` computationally expensive integration testing on CPU and GPU hardware using HPC cluster resources.
+
+Integration tests are run when triggered by a reviewer through `bors`.
+Integration tests are more computationally heavyweight than unit-tests and can exercise tests using accelerator hardware (GPUs).
+
+Currently HPC cluster integration tests are run using the [Buildkite CI service](https://buildkite.com/clima/climatemachine-ci).
+Tests are parallelized and run as individual [Slurm](https://slurm.schedmd.com/documentation.html)
+batch jobs on the HPC cluster and defined in `.buildkite/pipeline.yml`.
+
+An example integration test definition is outlined below:
+```
+  - label: "gpu_soil_test_bc"
+    key: "gpu_soil_test_bc"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+```
+
+* label / key: unique test defintion strings
+* command(s): list of one or more bash commands to run.
+* agent block:
+    - `config`: Defines `cpu` or `gpu` test environments.
+    - `queue`: HPC queue to submit the job (default `central`).
+    - `slurm_`: All `slurm_` definitions are passed through as
+       [slurm batch job cli options](https://slurm.schedmd.com/sbatch.html).
+       Ex. for the above the `slurm_ntasks: 1` is eqv. to `--ntasks=1`.
+       Flags are defined with an empty value.
 
 ## Contributing Documentation
 

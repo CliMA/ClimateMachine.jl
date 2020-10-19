@@ -41,6 +41,8 @@ export specific_enthalpy, total_specific_enthalpy
 export moist_static_energy
 export saturated
 
+heavisided(x) = (x > 0) * x
+
 """
     gas_constant_air(param_set, [q::PhasePartition])
 
@@ -1181,10 +1183,23 @@ function saturation_adjustment(
         else
             sol = find_zero(
                 T ->
-                    internal_energy_sat(param_set, T, ρ, q_tot, phase_type) - e_int,
+                    internal_energy_sat(
+                        param_set,
+                        heavisided(T),
+                        ρ,
+                        q_tot,
+                        phase_type,
+                    ) - e_int,
                 NewtonsMethod(
                     T_1,
-                    T_ -> ∂e_int_∂T(param_set, T_, e_int, ρ, q_tot, phase_type),
+                    T_ -> ∂e_int_∂T(
+                        param_set,
+                        heavisided(T_),
+                        e_int,
+                        ρ,
+                        q_tot,
+                        phase_type,
+                    ),
                 ),
                 CompactSolution(),
                 tol,
@@ -1319,7 +1334,13 @@ function saturation_adjustment_SecantMethod(
             T_2 = bound_upper_temperature(T_1, T_2)
             sol = find_zero(
                 T ->
-                    internal_energy_sat(param_set, T, ρ, q_tot, phase_type) - e_int,
+                    internal_energy_sat(
+                        param_set,
+                        heavisided(T),
+                        ρ,
+                        q_tot,
+                        phase_type,
+                    ) - e_int,
                 SecantMethod(T_1, T_2),
                 CompactSolution(),
                 tol,
@@ -1416,8 +1437,13 @@ function saturation_adjustment_q_tot_θ_liq_ice(
         T_2 = bound_upper_temperature(T_1, T_2)
         sol = find_zero(
             T ->
-                liquid_ice_pottemp_sat(param_set, T, ρ, phase_type, q_tot) -
-                θ_liq_ice,
+                liquid_ice_pottemp_sat(
+                    param_set,
+                    heavisided(T),
+                    ρ,
+                    phase_type,
+                    q_tot,
+                ) - θ_liq_ice,
             SecantMethod(T_1, T_2),
             CompactSolution(),
             tol,
@@ -1517,8 +1543,13 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
             T ->
                 liquid_ice_pottemp_sat(
                     param_set,
-                    T,
-                    air_density(param_set, T, p, PhasePartition(q_tot)),
+                    heavisided(T),
+                    air_density(
+                        param_set,
+                        heavisided(T),
+                        p,
+                        PhasePartition(q_tot),
+                    ),
                     phase_type,
                     q_tot,
                 ) - θ_liq_ice,
@@ -1721,7 +1752,9 @@ function temperature_and_humidity_from_virtual_temperature(
     _T_max = T_virt
 
     sol = find_zero(
-        T -> T_virt - virt_temp_from_RH(param_set, T, ρ, RH, phase_type),
+        T ->
+            T_virt -
+            virt_temp_from_RH(param_set, heavisided(T), ρ, RH, phase_type),
         SecantMethod(_T_min, _T_max),
         CompactSolution(),
         tol,
@@ -1825,7 +1858,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
             T - air_temperature_from_liquid_ice_pottemp_given_pressure(
                 param_set,
                 θ_liq_ice,
-                air_pressure(param_set, T, ρ, q),
+                air_pressure(param_set, heavisided(T), ρ, q),
                 q,
             ),
         SecantMethod(_T_min, _T_max),

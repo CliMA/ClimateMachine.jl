@@ -17,7 +17,7 @@ const param_set = EarthParameterSet()
 
 function config_simple_box(name, resolution, dimensions, problem; BC = nothing)
     if BC == nothing
-        problem = problem{FT}(dimensions...)
+        problem = problem{FT}(dimensions..., τₒ = 0.2)
     else
         problem = problem{FT}(dimensions...; BC = BC)
     end

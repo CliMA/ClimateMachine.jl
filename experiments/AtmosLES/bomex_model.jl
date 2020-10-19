@@ -353,7 +353,7 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, P, q_tot)
+    TS = PhaseEquil_pθq(bl.param_set, P, θ_liq, q_tot)
     T = air_temperature(TS)
     ρ = air_density(TS)
     q_pt = PhasePartition(TS)
