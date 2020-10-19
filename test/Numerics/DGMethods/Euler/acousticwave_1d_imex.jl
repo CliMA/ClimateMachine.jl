@@ -19,7 +19,7 @@ using ClimateMachine.Thermodynamics:
     air_density,
     soundspeed_air,
     internal_energy,
-    PhaseDry_given_pT,
+    PhaseDry_pT,
     PhasePartition
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.Atmos:
@@ -295,7 +295,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, coords, t)
     Δp = setup.γ * f * g
     p = aux.ref_state.p + Δp
 
-    ts = PhaseDry_given_pT(bl.param_set, p, setup.T_ref)
+    ts = PhaseDry_pT(bl.param_set, p, setup.T_ref)
     q_pt = PhasePartition(ts)
     e_pot = gravitational_potential(bl.orientation, aux)
     e_int = internal_energy(ts)

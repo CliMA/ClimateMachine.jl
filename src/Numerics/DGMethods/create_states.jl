@@ -18,8 +18,12 @@ function create_state(
 
     # TODO: Clean up this MPIStateArray interface...
     ns = number_states(balance_law, st)
-    st isa GradientLaplacian && (ns = 3ns)
     V = vars_state(balance_law, st, FT)
+    if st isa GradientLaplacian
+        ns = 3ns
+        # Since the names do not match the storage we do not set them
+        V = @vars()
+    end
     state = MPIStateArray{FT, V}(
         topology.mpicomm,
         DA,

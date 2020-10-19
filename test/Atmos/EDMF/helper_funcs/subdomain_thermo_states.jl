@@ -133,10 +133,10 @@ function new_thermo_state_up(
         θ_liq_up = ρaθ_liq_up / ρa_up
         q_tot_up = ρaq_tot_up / ρa_up
 
-        LiquidIcePotTempSHumEquil_given_pressure(
+        PhaseEquil_pθq(
             m.param_set,
-            θ_liq_up,
             p,
+            θ_liq_up,
             q_tot_up,
         )
     end
@@ -171,10 +171,10 @@ function new_thermo_state_en(
         @print("q_tot_en = ", q_tot_en, "\n")
         error("Environment q_tot_en out-of-bounds in new_thermo_state_en")
     end
-    ts_en = LiquidIcePotTempSHumEquil_given_pressure(
+    ts_en = PhaseEquil_pθq(
         m.param_set,
-        θ_liq_en,
         p,
+        θ_liq_en,
         q_tot_en,
     )
     return ts_en

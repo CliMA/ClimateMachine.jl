@@ -162,7 +162,7 @@ function atmos_energy_normal_boundary_flux_second_order!(
     T, q_tot = bc_energy.fn_T_and_q_tot(state⁻, aux⁻, t)
 
     # calculate MSE from the states at the boundary and at the interior point
-    ts = TemperatureSHumEquil(atmos.param_set, T, state⁻.ρ, q_tot)
+    ts = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
     ts_int = recover_thermo_state(atmos, atmos.moisture, state_int⁻, aux_int⁻)
     e_pot = gravitational_potential(atmos.orientation, aux⁻)
     e_pot_int = gravitational_potential(atmos.orientation, aux_int⁻)

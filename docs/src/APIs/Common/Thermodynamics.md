@@ -14,17 +14,18 @@ PhasePartition
 PhasePartition_equil
 ThermodynamicState
 PhaseDry
-PhaseDry_given_pT
-PhaseDry_given_ρT
+PhaseDry_pT
+PhaseDry_pθ
+PhaseDry_ρT
 PhaseEquil
+PhaseEquil_ρTq
+PhaseEquil_pTq
+PhaseEquil_pθq
+PhaseEquil_ρθq
 PhaseNonEquil
-TemperatureSHumEquil
-TemperatureSHumNonEquil
-TemperatureSHumEquil_given_pressure
-LiquidIcePotTempSHumEquil
-LiquidIcePotTempSHumNonEquil
-LiquidIcePotTempSHumNonEquil_given_pressure
-LiquidIcePotTempSHumEquil_given_pressure
+PhaseNonEquil_ρTq
+PhaseNonEquil_ρθq
+PhaseNonEquil_pθq
 ```
 
 ## Thermodynamic state methods

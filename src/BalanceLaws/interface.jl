@@ -86,8 +86,7 @@ node for a [`BalanceLaw`](@ref) subtype `BL`.
 
 See also [`init_state_auxiliary!`](@ref).
 """
-function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom)
-end
+function nodal_init_state_auxiliary!(m::BalanceLaw, aux, tmp, geom) end
 
 
 """

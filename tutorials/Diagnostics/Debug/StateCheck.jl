@@ -74,7 +74,7 @@ Q2 = MPIStateArray{Float64, F2}(
     MPI.COMM_WORLD,
     ClimateMachine.array_type(),
     4,
-    6,
+    3,
     8,
 )
 nothing # hide
