@@ -90,6 +90,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     if solver_type==MultirateInfinitesimalStep
         if fast_solver_type==LowStorageRungeKutta2N
             ode_solver = ClimateMachine.MISSolverType(
+                splitting_type = ClimateMachine.SlowFastSplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = LSRK54CarpenterKennedy,
@@ -97,6 +98,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
             )
         elseif fast_solver_type==StrongStabilityPreservingRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
+                splitting_type = ClimateMachine.SlowFastSplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = SSPRK33ShuOsher,
@@ -104,6 +106,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
             )
         elseif fast_solver_type==MultirateInfinitesimalStep
             ode_solver = ClimateMachine.MISSolverType(
+                splitting_type = ClimateMachine.HEVISplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
@@ -114,10 +117,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                     nsubsteps = nsubsteps,
                 ),
                 nsubsteps = (12,2),
-                hivi_splitting = true
             )
         elseif fast_solver_type==MultirateRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
+                splitting_type = ClimateMachine.HEVISplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = (dg,Q,nsubsteps) -> MultirateRungeKutta(
@@ -127,10 +130,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                     steps=nsubsteps,
                 ),
                 nsubsteps = (12,4),
-                hivi_splitting = true,
             )
         elseif fast_solver_type==AdditiveRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
+                splitting_type = ClimateMachine.HEVISplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MISRK3,
                 fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
@@ -142,7 +145,6 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                     nsubsteps = nsubsteps,
                 ),
                 nsubsteps = (12,),
-                hivi_splitting = true,
             )
         end
         Δt = FT(0.4)
