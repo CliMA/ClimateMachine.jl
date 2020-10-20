@@ -12,6 +12,7 @@ steps:
       - "singularity run $$SINGULARITY_CONTAINER julia --procs=auto docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
+      JULIA_MPI_BINARY: ""
       CLIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
       CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
       CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
