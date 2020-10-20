@@ -2,7 +2,7 @@
 using DocStringExtensions
 using ..TemperatureProfiles
 export ReferenceState, NoReferenceState, HydrostaticState
-
+const TD = Thermodynamics
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
 
 """
@@ -86,7 +86,7 @@ function atmos_init_aux!(
     aux.ref_state.ρ = ρ
     RH = m.relative_humidity
     phase_type = PhaseEquil
-    (T, q_pt) = temperature_and_humidity_from_virtual_temperature(
+    (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
         atmos.param_set,
         T_virt,
         ρ,
@@ -96,7 +96,7 @@ function atmos_init_aux!(
 
     # Update temperature to be exactly consistent with
     # p, ρ, and q_pt
-    T = air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
+    T = TD.air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
     q_tot = q_pt.tot
     q_liq = q_pt.liq
     q_ice = q_pt.ice

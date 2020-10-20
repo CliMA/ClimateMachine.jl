@@ -4,7 +4,7 @@ using ClimateMachine.TemperatureProfiles
 using NCDatasets
 using Random
 using RootSolvers
-MT = Thermodynamics
+const TD = Thermodynamics
 using LinearAlgebra
 
 using CLIMAParameters
@@ -60,7 +60,7 @@ include("data_tests.jl")
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
         # Test state for thermodynamic consistency (with ideal gas law)
-        T_idgl = air_temperature_from_ideal_gas_law.(param_set, p, ρ, q_pt)
+        T_idgl = TD.air_temperature_from_ideal_gas_law.(param_set, p, ρ, q_pt)
         @test all(T .≈ T_idgl)
 
         Φ = FT(1)
@@ -71,7 +71,7 @@ include("data_tests.jl")
         T∞, p∞ = T .* perturbation, p .* perturbation
         @test air_temperature.(param_set, p, θ_liq_ice, DryAdiabaticProcess()) ≈
               (p ./ _MSLP) .^ (_R_d / _cp_d) .* θ_liq_ice
-        @test air_pressure_given_θ.(
+        @test TD.air_pressure_given_θ.(
             param_set,
             θ_liq_ice,
             Φ,
@@ -307,7 +307,7 @@ end
     q_tot = FT(0)
     ρ = FT(1)
     phase_type = PhaseEquil
-    @test MT.saturation_adjustment_SecantMethod(
+    @test TD.saturation_adjustment_SecantMethod(
         param_set,
         internal_energy_sat(param_set, 300.0, ρ, q_tot, phase_type),
         ρ,
@@ -317,7 +317,7 @@ end
         rtol_temperature,
     ) ≈ 300.0
     @test abs(
-        MT.saturation_adjustment(
+        TD.saturation_adjustment(
             param_set,
             internal_energy_sat(param_set, 300.0, ρ, q_tot, phase_type),
             ρ,
@@ -331,7 +331,7 @@ end
     q_tot = FT(0.21)
     ρ = FT(0.1)
     @test isapprox(
-        MT.saturation_adjustment_SecantMethod(
+        TD.saturation_adjustment_SecantMethod(
             param_set,
             internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
             ρ,
@@ -344,7 +344,7 @@ end
         rtol = rtol_temperature,
     )
     @test abs(
-        MT.saturation_adjustment(
+        TD.saturation_adjustment(
             param_set,
             internal_energy_sat(param_set, 200.0, ρ, q_tot, phase_type),
             ρ,
@@ -367,10 +367,10 @@ end
 
     # potential temperatures
     T = FT(300)
-    @test liquid_ice_pottemp_given_pressure(param_set, T, _MSLP) === T
-    @test liquid_ice_pottemp_given_pressure(param_set, T, _MSLP / 10) ≈
+    @test TD.liquid_ice_pottemp_given_pressure(param_set, T, _MSLP) === T
+    @test TD.liquid_ice_pottemp_given_pressure(param_set, T, _MSLP / 10) ≈
           T * 10^(_R_d / _cp_d)
-    @test liquid_ice_pottemp_given_pressure(
+    @test TD.liquid_ice_pottemp_given_pressure(
         param_set,
         T,
         _MSLP / 10,
@@ -381,11 +381,15 @@ end
     T = FT(300)
     p = FT(1.e5)
     q_tot = FT(0.23)
-    @test dry_pottemp_given_pressure(param_set, T, p, PhasePartition(q_tot)) isa
-          typeof(p)
-    @test air_temperature_from_liquid_ice_pottemp_given_pressure(
+    @test TD.dry_pottemp_given_pressure(
         param_set,
-        dry_pottemp_given_pressure(param_set, T, p, PhasePartition(q_tot)),
+        T,
+        p,
+        PhasePartition(q_tot),
+    ) isa typeof(p)
+    @test TD.air_temperature_given_θpq(
+        param_set,
+        TD.dry_pottemp_given_pressure(param_set, T, p, PhasePartition(q_tot)),
         p,
         PhasePartition(q_tot),
     ) ≈ T
@@ -393,7 +397,7 @@ end
     # Exner function. FIXME: add correctness tests
     p = FT(1.e5)
     q_tot = FT(0.23)
-    @test exner_given_pressure(param_set, p, PhasePartition(q_tot)) isa
+    @test TD.exner_given_pressure(param_set, p, PhasePartition(q_tot)) isa
           typeof(p)
 end
 
@@ -445,7 +449,7 @@ end
                 q_tot,
                 8,
                 FT(1e-1),
-                MT.saturation_adjustment_SecantMethod,
+                TD.saturation_adjustment_SecantMethod,
             )
         @test all(air_temperature.(ts) .== Ref(_T_freeze))
 
@@ -507,7 +511,7 @@ end
                 q_tot,
                 100,
                 FT(1e-3),
-                MT.saturation_adjustment_SecantMethod,
+                TD.saturation_adjustment_SecantMethod,
             )
         ts =
             PhaseEquil.(
@@ -517,7 +521,7 @@ end
                 q_tot,
                 35,
                 FT(1e-1),
-                MT.saturation_adjustment_SecantMethod,
+                TD.saturation_adjustment_SecantMethod,
             ) # Needs to be in sync with default
         # Should be machine accurate (because ts contains `e_int`,`ρ`,`q_tot`):
         @test all(
@@ -640,7 +644,7 @@ end
     profiles = PhaseEquilProfiles(param_set, ArrayType)
     @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
 
-    @test_throws ErrorException MT.saturation_adjustment.(
+    @test_throws ErrorException TD.saturation_adjustment.(
         param_set,
         e_int,
         ρ,
@@ -650,7 +654,7 @@ end
         FT(1e-10),
     )
 
-    @test_throws ErrorException MT.saturation_adjustment_SecantMethod.(
+    @test_throws ErrorException TD.saturation_adjustment_SecantMethod.(
         param_set,
         e_int,
         ρ,
@@ -661,7 +665,7 @@ end
     )
 
     T_virt = T # should not matter: testing for non-convergence
-    @test_throws ErrorException temperature_and_humidity_from_virtual_temperature.(
+    @test_throws ErrorException TD.temperature_and_humidity_given_TᵥρRH.(
         param_set,
         T_virt,
         ρ,
@@ -671,7 +675,7 @@ end
         ResidualTolerance(FT(1e-10)),
     )
 
-    @test_throws ErrorException air_temperature_from_liquid_ice_pottemp_non_linear.(
+    @test_throws ErrorException TD.air_temperature_given_θρq_nonlinear.(
         param_set,
         θ_liq_ice,
         ρ,
@@ -680,20 +684,20 @@ end
         q_pt,
     )
 
-    @test_throws ErrorException MT.saturation_adjustment_q_tot_θ_liq_ice.(
+    @test_throws ErrorException TD.saturation_adjustment_given_ρθq.(
         param_set,
-        θ_liq_ice,
         ρ,
+        θ_liq_ice,
         q_tot,
         Ref(phase_type),
         2,
         ResidualTolerance(FT(1e-10)),
     )
 
-    @test_throws ErrorException MT.saturation_adjustment_q_tot_θ_liq_ice_given_pressure.(
+    @test_throws ErrorException TD.saturation_adjustment_given_pθq.(
         param_set,
-        θ_liq_ice,
         p,
+        θ_liq_ice,
         q_tot,
         Ref(phase_type),
         2,
@@ -744,7 +748,7 @@ end
                 q_tot,
                 40,
                 FT(1e-1),
-                Ref(MT.saturation_adjustment_SecantMethod),
+                Ref(TD.saturation_adjustment_SecantMethod),
             )
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(getproperty.(PhasePartition.(ts), :tot) .≈ q_tot)
@@ -769,33 +773,23 @@ end
         )
         @test all(air_density.(ts) .≈ ρ)
 
-        # air_temperature_from_liquid_ice_pottemp_given_pressure-liquid_ice_pottemp inverse
-        θ_liq_ice_ = liquid_ice_pottemp_given_pressure.(param_set, T, p, q_pt)
+        # TD.air_temperature_given_θpq-liquid_ice_pottemp inverse
+        θ_liq_ice_ =
+            TD.liquid_ice_pottemp_given_pressure.(param_set, T, p, q_pt)
         @test all(
-            air_temperature_from_liquid_ice_pottemp_given_pressure.(
-                param_set,
-                θ_liq_ice_,
-                p,
-                q_pt,
-            ) .≈ T,
+            TD.air_temperature_given_θpq.(param_set, θ_liq_ice_, p, q_pt) .≈ T,
         )
 
-        # liquid_ice_pottemp-air_temperature_from_liquid_ice_pottemp_given_pressure inverse
-        T =
-            air_temperature_from_liquid_ice_pottemp_given_pressure.(
-                param_set,
-                θ_liq_ice,
-                p,
-                q_pt,
-            )
+        # liquid_ice_pottemp-TD.air_temperature_given_θpq inverse
+        T = TD.air_temperature_given_θpq.(param_set, θ_liq_ice, p, q_pt)
         @test all(
-            liquid_ice_pottemp_given_pressure.(param_set, T, p, q_pt) .≈
+            TD.liquid_ice_pottemp_given_pressure.(param_set, T, p, q_pt) .≈
             θ_liq_ice,
         )
 
         # Accurate but expensive `PhaseNonEquil_ρθq` constructor (Non-linear temperature from θ_liq_ice)
         T_non_linear =
-            air_temperature_from_liquid_ice_pottemp_non_linear.(
+            TD.air_temperature_given_θρq_nonlinear.(
                 param_set,
                 θ_liq_ice,
                 ρ,
@@ -804,12 +798,7 @@ end
                 q_pt,
             )
         T_expansion =
-            air_temperature_from_liquid_ice_pottemp.(
-                param_set,
-                θ_liq_ice,
-                ρ,
-                q_pt,
-            )
+            TD.air_temperature_given_θρq.(param_set, θ_liq_ice, ρ, q_pt)
         @test all(isapprox.(T_non_linear, T_expansion, rtol = rtol_temperature))
         e_int_ = internal_energy.(param_set, T_non_linear, q_pt)
         ts = PhaseNonEquil.(param_set, e_int_, ρ, q_pt)
@@ -918,7 +907,7 @@ end
         @test all(T_virt ≈ gas_constant_air.(param_set, q_pt) ./ _R_d .* T)
 
         T_rec_qpt_rec =
-            temperature_and_humidity_from_virtual_temperature.(
+            TD.temperature_and_humidity_given_TᵥρRH.(
                 param_set,
                 T_virt,
                 ρ,
@@ -944,7 +933,8 @@ end
 
         # Update temperature to be exactly consistent with
         # p, ρ, q_pt_rec; test that this is equal to T_rec
-        T_local = air_temperature_from_ideal_gas_law.(param_set, p, ρ, q_pt_rec)
+        T_local =
+            TD.air_temperature_from_ideal_gas_law.(param_set, p, ρ, q_pt_rec)
         @test all(isapprox.(T_local, T_rec, atol = sqrt(eps(FT))))
     end
 
