@@ -4,9 +4,9 @@ env:
 steps:
   - label: "Build docs"
     command:
-      - "echo $JULIA_DEPOT_PATH"
+      - "echo \$JULIA_DEPOT_PATH"
       - "singularity pull $SINGULARITY_CONTAINER"
-      - "SINGULARITY_BIND=\"/data/depot:$JULIA_DEPOT_PATH\""
+      - "SINGULARITY_BIND=\"/data/depot:\$JULIA_DEPOT_PATH\""
       - "singularity run $SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.instantiate()'"
       - "singularity run $SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.precompile()'"
       - "singularity run $SINGULARITY_CONTAINER julia --procs=auto docs/make.jl"
