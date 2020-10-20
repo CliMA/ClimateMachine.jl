@@ -39,6 +39,7 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.Spectra: compute_gaussian!
 
 using CLIMAParameters
 using CLIMAParameters.Planet
@@ -217,17 +218,32 @@ function config_diagnostics(::Type{FT}, driver_config) where {FT}
     _planet_radius = planet_radius(param_set)::FT
 
     info = driver_config.config_info
+
+    # Setup diagnostic grid(s)
+    nlats = 32
+
+    sinθ, wts = compute_gaussian!(nlats)
+    lats = asin.(sinθ) .* 180 / π
+    lons = 180.0 ./ nlats * collect(FT, 1:1:(2nlats))[:] .- 180.0
+
     boundaries = [
-        FT(-90.0) FT(-180.0) _planet_radius
-        FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
+        FT(lats[1]) FT(lons[1]) _planet_radius
+        FT(lats[end]) FT(lons[end]) FT(_planet_radius + info.domain_height)
     ]
-    resolution = (FT(1), FT(1), FT(1000)) # in (deg, deg, m)
+
+    lvls = collect(range(
+        boundaries[1, 3],
+        boundaries[2, 3],
+        step = FT(1000), # in m
+    ))
+
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
-        resolution,
+        [lats, lons, lvls],
     )
 
+    # Setup diagnostics group(s)
     dgngrp = setup_atmos_default_diagnostics(
         AtmosGCMConfigType(),
         interval,
@@ -235,7 +251,14 @@ function config_diagnostics(::Type{FT}, driver_config) where {FT}
         interpol = interpol,
     )
 
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+    ds_dgngrp = setup_atmos_spectra_diagnostics(
+        AtmosGCMConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp, ds_dgngrp])
 end
 
 # Entry point
@@ -359,10 +382,16 @@ function main()
         nothing
     end
 
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "100steps", FT(0.0001)),
+        ClimateMachine.ConservationCheck("ρe", "100steps", FT(0.0025)),
+    )
+
     # Run the model
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
+        check_cons = check_cons,
         user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )

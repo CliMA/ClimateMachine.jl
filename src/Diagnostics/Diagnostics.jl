@@ -12,9 +12,9 @@ export DiagnosticsGroup,
     setup_atmos_refstate_perturbations,
     setup_atmos_turbulence_stats,
     setup_atmos_mass_energy_loss,
+    setup_atmos_spectra_diagnostics,
     setup_dump_state_diagnostics,
-    setup_dump_aux_diagnostics,
-    setup_dump_spectra_diagnostics
+    setup_dump_aux_diagnostics
 
 using CUDA
 using Dates

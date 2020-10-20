@@ -27,7 +27,7 @@ Diagnostics.setup_atmos_default_perturbations
 Diagnostics.setup_atmos_refstate_perturbations
 Diagnostics.setup_atmos_turbulence_stats
 Diagnostics.setup_atmos_mass_energy_loss
+Diagnostics.setup_atmos_spectra_diagnostics
 Diagnostics.setup_dump_state_diagnostics
 Diagnostics.setup_dump_aux_diagnostics
-Diagnostics.setup_dump_spectra_diagnostics
 ```
