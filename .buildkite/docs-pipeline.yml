@@ -5,7 +5,7 @@ steps:
   - label: "Build docs"
     command:
       - "singularity pull $$SINGULARITY_CONTAINER"
-      - "export SINGULARITY_BIND=\"/data/depot:$$JULIA_DEPOT_PATH\""
+      - "export SINGULARITY_BIND=\"/data:$$JULIA_DEPOT_PATH\""
       - "singularity run $$SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.instantiate()'"
       - "singularity run $$SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.precompile()'"
       - "singularity run $$SINGULARITY_CONTAINER julia --procs=auto docs/make.jl"
