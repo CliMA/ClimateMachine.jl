@@ -7,10 +7,10 @@ steps:
       - "mkdir -p $$JULIA_DEPOT_PATH" 
       - "export JULIA_MPI_BINARY=\"\""
       - "export SINGULARITY_BIND=\"$$JULIA_DEPOT_PATH:/data\""
-      - "singularity pull $$SINGULARITY_CONTAINER"
+      - "singularity pull --force $$SINGULARITY_CONTAINER"
       - "singularity run $$SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.instantiate()'"
       - "singularity run $$SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.precompile()'"
-      - "singularity run $$SINGULARITY_CONTAINER julia --procs=auto docs/make.jl"
+      - "singularity run $$SINGULARITY_CONTAINER julia --procs=16 docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
       CLIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
