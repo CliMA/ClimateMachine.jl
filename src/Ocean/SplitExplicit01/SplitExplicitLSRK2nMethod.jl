@@ -67,7 +67,7 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
         t0 = slow_solver.t,
         add_fast_steps = 0,
         numImplSteps = 0,
-        ivdc_dt = FT(1),
+        ivdc_dt = 1,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)

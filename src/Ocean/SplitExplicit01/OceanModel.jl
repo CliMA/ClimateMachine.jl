@@ -74,6 +74,7 @@ function OceanDGModel(
     numfluxnondiff,
     numfluxdiff,
     gradnumflux;
+    ivdc_dt = -1,
     kwargs...,
 )
     vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1)
@@ -106,7 +107,7 @@ function OceanDGModel(
     conti3d_Q = init_ode_state(conti3d_dg, FT(0); init_on_cpu = true)
 
     ivdc_dg = DGModel(
-        IVDCModel(bl),
+        IVDCModel{FT}(bl, ivdc_dt),
         grid,
         numfluxnondiff,
         numfluxdiff,
