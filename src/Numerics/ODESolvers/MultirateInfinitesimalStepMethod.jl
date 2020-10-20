@@ -24,19 +24,20 @@ mutable struct TimeScaledRHS{N,RT}
     b::RT
     rhs!
     function TimeScaledRHS(a,b,rhs!)
-    RT = typeof(a)
-    if isa(rhs!, Tuple)
-      N=length(rhs!)
-    else
-      N=1
-    end
-    new{N,RT}(a, b, rhs!)
+        RT = typeof(a)
+        if isa(rhs!, Tuple)
+            N=length(rhs!)
+        else
+            N=1
+        end
+        new{N,RT}(a, b, rhs!)
     end
 end
 
 function (o::TimeScaledRHS{1,RT} where {RT})(dQ, Q, params, tau; increment)
   o.rhs!(dQ, Q, params, o.a + o.b * tau; increment = increment)
 end
+
 function (o::TimeScaledRHS{2,RT} where {RT})(dQ, Q, params, tau, i; increment)
   o.rhs![i](dQ, Q, params, o.a + o.b * tau; increment = increment)
 end

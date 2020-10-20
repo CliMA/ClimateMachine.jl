@@ -162,7 +162,7 @@ function solversetup(
         slow_dg,
         fast_dg,
         ode_solver.fast_method,
-        ode_solver.nsubsteps,
+        ode_solver.nsubsteps[1],
         Q;
         dt = dt,
         t0 = t0,
