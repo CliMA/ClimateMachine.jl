@@ -19,8 +19,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
-        z::FT
-        x::FT
+        z_coord::FT
+        x_coord::FT
         # defined in update_aux
         u::FT
         w::FT
@@ -177,7 +177,7 @@ function nodal_update_auxiliary_state!(
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        aux.e_pot = _grav * aux.z
+        aux.e_pot = _grav * aux.z_coord
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
         # supersaturation
         q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
@@ -462,7 +462,7 @@ function source!(
         u = state.ρu[1] / state.ρ
         w = state.ρu[3] / state.ρ
         ρ = state.ρ
-        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.z
+        e_int = e_tot - 1 // 2 * (u^2 + w^2) - _grav * aux.z_coord
 
         q = PhasePartition(q_tot, q_liq, q_ice)
         T = air_temperature(param_set, e_int, q)
@@ -674,6 +674,7 @@ function main()
     #CFL = FT(1.75)
     filter_freq = 1
     output_freq = 4
+    interval = "4steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -936,9 +937,36 @@ function main()
             nothing
         end
 
+    # output for netcdf
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    dgngrps = [
+        setup_dump_state_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            interpol = interpol,
+        ),
+        setup_dump_aux_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            interpol = interpol,
+        ),
+    ]
+    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
+
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
+        diagnostics_config = dgn_config,
         user_callbacks = (cb_tmar_filter, cb_vtk),
         check_euclidean_distance = true,
     )

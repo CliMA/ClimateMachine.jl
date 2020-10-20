@@ -13,8 +13,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
-        x::FT
-        z::FT
+        x_coord::FT
+        z_coord::FT
         # defined in update_aux
         u::FT
         w::FT
@@ -88,7 +88,7 @@ function nodal_update_auxiliary_state!(
 
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        aux.e_pot = _grav * aux.z
+        aux.e_pot = _grav * aux.z_coord
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
         # saturation adjustment happens here
@@ -186,6 +186,7 @@ function main()
     t_end = FT(60 * 30)
     dt = 40
     output_freq = 9
+    interval = "9steps"
 
     # periodicity and boundary numbers
     periodicity_x = true
@@ -233,7 +234,6 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     # output for paraview
-
     # initialize base prefix directory from rank 0
     vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
@@ -263,6 +263,32 @@ function main()
         nothing
     end
 
+    # output for netcdf
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    dgngrps = [
+        setup_dump_state_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            interpol = interpol,
+        ),
+        setup_dump_aux_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            interpol = interpol,
+        ),
+    ]
+    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
+
     # get aux variables indices for testing
     q_tot_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_tot)
     q_vap_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_vap)
@@ -273,6 +299,7 @@ function main()
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
+        diagnostics_config = dgn_config,
         user_callbacks = (cbvtk,),
         check_euclidean_distance = true,
     )
