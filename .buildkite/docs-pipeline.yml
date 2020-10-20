@@ -6,9 +6,9 @@ steps:
   - label: "Build docs"
     command:
       - "singularity pull ${SINGULARITY_CONTAINER}"
-      - "singularity run ${SINGULARITY_CONTAINER} -B /data/depot:${JULIA_DEPOT} julia -e 'using Pkg; Pkg.instantiate()'"
-      - "singularity run ${SINGULARITY_CONTAINER} -B /data/depot:${JULIA_DEPOT} julia -e 'using Pkg; Pkg.precompile()'"
-      - "singularity run ${SINGULARITY_CONTAINER} -B /data/depot:${JULIA_DEPOT} julia --procs=auto docs/make.jl"
+      - "singularity run -B /data/depot:${JULIA_DEPOT} ${SINGULARITY_CONTAINER} julia -e 'using Pkg; Pkg.instantiate()'"
+      - "singularity run -B /data/depot:${JULIA_DEPOT} ${SINGULARITY_CONTAINER} julia -e 'using Pkg; Pkg.precompile()'"
+      - "singularity run -B /data/depot:${JULIA_DEPOT} ${SINGULARITY_CONTAINER} julia --procs=auto docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
       CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
