@@ -63,7 +63,5 @@ function solversetup(
     diffusion_direction,
 )
 
-    solver = ode_solver.solver_method(dg, Q; dt = dt, t0 = t0)
-
     return solver
 end

@@ -35,6 +35,17 @@ using ..TicToc
 using ..VariableTemplates
 using ..VTK
 
+import DiffEqBase, TimeMachine # avoid confliciting names
+
+#=
+
+AbstractSolverType = ode solver + linear/non-linear solver
+
+DriverConfiguration = model + AbstractSolverType + name + domain () + param_set + initializer +
+
+SolverConfiguration = DriverConfiguration + t0 + timeend + Courant +
+
+=#
 function _init_array(::Type{CuArray})
     comm = MPI.COMM_WORLD
     # allocate GPUs among MPI ranks
@@ -689,13 +700,20 @@ function invoke!(
 
     # run the simulation
     @tic solve!
-    solve!(
-        Q,
-        solver;
-        timeend = timeend,
-        callbacks = callbacks,
-        adjustfinalstep = adjustfinalstep,
-    )
+    if solver isa TimeMachine.DistributedODEIntegrator
+        integrator = solver
+        integrator.tstop = timeend
+        integrator.adjustfinal = adjustfinalstep
+        DiffEqBase.solve!(integrator)
+    else
+        solve!(
+            Q,
+            solver;
+            timeend = timeend,
+            callbacks = callbacks,
+            adjustfinalstep = adjustfinalstep,
+        )
+    end
     @toc solve!
 
     # write end checkpoint if requested

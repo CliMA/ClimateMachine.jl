@@ -65,17 +65,7 @@ getdtmodel(ode_solver::AbstractSolverType, bl) =
 
 A function which returns a configured ODE solver.
 """
-solversetup(
-    ode_solver::AbstractSolverType,
-    dg,
-    Q,
-    dt,
-    t0,
-    diffusion_direction,
-) = throw(MethodError(
-    solversetup,
-    (ode_solver, dg, Q, dt, t0, diffusion_direction),
-))
+function solversetup end
 
 include("ExplicitSolverType.jl")
 include("ImplicitSolverType.jl")
@@ -86,3 +76,21 @@ include("SplitExplicitSolverType.jl")
 
 DefaultSolverType = IMEXSolverType
 export DefaultSolverType
+
+
+# TimeMachine
+# explicit only for now
+function solversetup(
+    alg::TimeMachine.DistributedODEAlgorithm,
+    dg,
+    Q,
+    dt,
+    t0,
+    diffusion_direction,
+)
+    # TODO: pass timeend?
+    prob = DiffEqBase.ODEProblem(dg, Q, (t0, oftype(t0, Inf)))
+    return DiffEqBase.init(prob, alg, dt=dt)
+end
+
+getdtmodel(::TimeMachine.DistributedODEAlgorithm, bl) = bl

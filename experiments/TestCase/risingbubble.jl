@@ -12,6 +12,7 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using TimeMachine
 using StaticArrays
 using Test
 using CLIMAParameters
@@ -88,9 +89,7 @@ end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
+    ode_solver = TimeMachine.LSRK144NiegemannDiehlBusch()
 
     T_surface = FT(300)
     T_min_ref = FT(0)
