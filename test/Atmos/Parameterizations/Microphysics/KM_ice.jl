@@ -704,12 +704,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(60 * 60) #FT(4 * 60 * 60)
+    t_end = FT(2000) #FT(60 * 60) #FT(4 * 60 * 60)
     dt = FT(0.25) #FT(15)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 1200
-    interval = "1200steps"
+    output_freq = 80#1200
+    interval = "80steps"#"1200steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
