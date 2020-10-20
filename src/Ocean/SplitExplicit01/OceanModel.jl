@@ -168,8 +168,8 @@ function vars_state(m::OceanModel, ::Prognostic, T)
     end
 end
 
-function init_state_prognostic!(m::OceanModel, Q::Vars, A::Vars, coords, t)
-    return ocean_init_state!(m, m.problem, Q, A, coords, t)
+function init_state_prognostic!(m::OceanModel, Q::Vars, A::Vars, localgeo, t)
+    return ocean_init_state!(m, m.problem, Q, A, localgeo, t)
 end
 
 function vars_state(m::OceanModel, ::Auxiliary, T)

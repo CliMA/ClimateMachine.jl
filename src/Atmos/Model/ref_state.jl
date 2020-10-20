@@ -146,7 +146,7 @@ function init_state_prognostic!(
     ::PressureGradientModel,
     state::Vars,
     aux::Vars,
-    coord,
+    localgeo,
     t,
 ) end
 function flux_first_order!(

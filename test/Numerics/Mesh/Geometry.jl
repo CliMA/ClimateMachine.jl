@@ -47,9 +47,11 @@ MPI.Initialized() || MPI.Init()
     Savg = cbrt(prod(S))
     M = SDiagonal(S .^ -2)
 
+    N = polynomialorder
+    Np = (N + 1)^3
     for e in 1:size(grid.vgeo, 3)
         for n in 1:size(grid.vgeo, 1)
-            g = LocalGeometry(Val(polynomialorder), grid.vgeo, n, e)
+            g = LocalGeometry{Np, N}(grid.vgeo, n, e)
             @test lengthscale(g) ≈ Savg
             @test Geometry.resolutionmetric(g) ≈ M
         end

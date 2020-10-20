@@ -40,7 +40,7 @@ CLIMAParameters.Planet.press_triple(::EarthParameterSet) = 610.78
 # driver-specific parameters added here
 T_sfc_pole(::EarthParameterSet) = 271.0
 
-function init_baroclinic_wave!(problem, bl, state, aux, coords, t)
+function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # parameters

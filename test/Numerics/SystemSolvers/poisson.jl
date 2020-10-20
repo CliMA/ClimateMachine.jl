@@ -153,9 +153,10 @@ function init_state_prognostic!(
     ::PoissonModel{dim},
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t,
 ) where {dim}
+    coords = localgeo.coord
     state.ϕ = prod(sol1d, view(coords, 1:dim))
 end
 

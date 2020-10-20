@@ -159,7 +159,13 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(
+        bl,
+        stateP,
+        auxP,
+        (coord = (auxM.x1, auxM.x2, auxM.x3),),
+        t,
+    )
 end
 
 # FIXME: This is probably not right....
@@ -179,7 +185,13 @@ function boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(bl, stateP, auxP, (auxM.x1, auxM.x2, auxM.x3), t)
+    init_state_prognostic!(
+        bl,
+        stateP,
+        auxP,
+        (coord = (auxM.x1, auxM.x2, auxM.x3),),
+        t,
+    )
 end
 
 function nodal_init_state_auxiliary!(
@@ -198,9 +210,10 @@ function init_state_prognostic!(
     bl::MMSModel{dim},
     state::Vars,
     aux::Vars,
-    (x1, x2, x3),
+    localgeo,
     t,
 ) where {dim}
+    (x1, x2, x3) = localgeo.coord
     state.ρ = ρ_g(t, x1, x2, x3, Val(dim))
     state.ρu = U_g(t, x1, x2, x3, Val(dim))
     state.ρv = V_g(t, x1, x2, x3, Val(dim))

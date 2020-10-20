@@ -173,9 +173,10 @@ function ocean_init_state!(
     p::SimpleBox,
     Q,
     A,
-    coords,
+    localgeo,
     t,
 )
+    coords = localgeo.coord
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
     ν = viscosity(m)
 
@@ -202,9 +203,10 @@ function ocean_init_state!(
     p::SimpleBox,
     Q,
     A,
-    coords,
+    localgeo,
     t,
 )
+    coords = localgeo.coord
     k = (2π / p.Lˣ, 2π / p.Lʸ, 2π / p.H)
     ν = (m.νʰ, m.νʰ, m.νᶻ)
 
@@ -341,10 +343,10 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `p`: HomogeneousBox problem object, used to dispatch on
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
-- `coords`: the coordidinates, not used
+- `localgeo`: the local geometry, not used
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
+function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, localgeo, t)
     Q.u = @SVector [0, 0]
     Q.η = 0
     Q.θ = 20
@@ -354,7 +356,8 @@ end
 
 include("ShallowWaterInitialStates.jl")
 
-function ocean_init_state!(m::SWModel, p::HomogeneousBox, Q, A, coords, t)
+function ocean_init_state!(m::SWModel, p::HomogeneousBox, Q, A, localgeo, t)
+    coords = localgeo.coord
     if t == 0
         null_init_state!(p, m.turbulence, Q, A, coords, 0)
     else
@@ -432,7 +435,7 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `p`: OceanGyre problem object, used to dispatch on and obtain ocean height H
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
-- `coords`: the coordidinates
+- `localgeo`: the local geometry information
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(
@@ -440,9 +443,10 @@ function ocean_init_state!(
     p::OceanGyre,
     Q,
     A,
-    coords,
+    localgeo,
     t,
 )
+    coords = localgeo.coord
     @inbounds y = coords[2]
     @inbounds z = coords[3]
     @inbounds H = p.H
@@ -459,7 +463,7 @@ function ocean_init_state!(
     ::OceanGyre,
     Q,
     A,
-    coords,
+    localgeo,
     t,
 )
     Q.U = @SVector [-0, -0]

@@ -43,7 +43,7 @@ function initial_condition!(
     problem::ConstantHyperDiffusion{dim, dir},
     state,
     aux,
-    x,
+    localgeo,
     t,
 ) where {dim, dir}
     @inbounds begin
@@ -58,6 +58,7 @@ function initial_condition!(
         elseif dir === VerticalDirection()
             c = k[dim]^2 * kD[dim, dim]
         end
+        x = localgeo.coord
         state.ρ = sin(dot(k[SOneTo(dim)], x[SOneTo(dim)])) * exp(-c * t)
     end
 end

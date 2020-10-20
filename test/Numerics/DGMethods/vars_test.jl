@@ -46,11 +46,11 @@ function init_state_prognostic!(
     m::VarsTestModel,
     state::Vars,
     aux::Vars,
-    coord,
+    localgeo,
     t::Real,
 )
-    @inbounds state.x = coord[1]
-    state.coord = coord
+    @inbounds state.x = localgeo.coord[1]
+    state.coord = localgeo.coord
 end
 
 function nodal_init_state_auxiliary!(

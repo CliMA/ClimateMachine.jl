@@ -44,7 +44,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     ClimateMachine.init()
     FT = Float64
 
-    function init_soil_water!(land, state, aux, coordinates, time)
+    function init_soil_water!(land, state, aux, localgeo, time)
         myfloat = eltype(aux)
         state.soil.water.ϑ_l = myfloat(land.soil.water.initialϑ_l(aux))
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))

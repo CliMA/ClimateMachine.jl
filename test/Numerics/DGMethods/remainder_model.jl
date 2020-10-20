@@ -490,7 +490,7 @@ Base.@kwdef struct RemainderTestSetup{FT}
     T_ref::FT = 300
 end
 
-function (setup::RemainderTestSetup)(problem, bl, state, aux, coords, t)
+function (setup::RemainderTestSetup)(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
     # Vary around the reference state by 10% and a random velocity field

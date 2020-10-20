@@ -28,15 +28,17 @@ const param_set = EarthParameterSet()
 const p∞ = 10^5
 const T∞ = 300.0
 
-function initialcondition!(problem, bl, state, aux, coords, t)
+function initialcondition!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
+
+    coord = localgeo.coord
 
     translation_speed::FT = 150
     translation_angle::FT = pi / 4
     α = translation_angle
     u∞ = SVector(
-        FT(translation_speed * coords[1]),
-        FT(translation_speed * coords[1]),
+        FT(translation_speed * coord[1]),
+        FT(translation_speed * coord[1]),
         FT(0),
     )
     _kappa_d::FT = kappa_d(param_set)

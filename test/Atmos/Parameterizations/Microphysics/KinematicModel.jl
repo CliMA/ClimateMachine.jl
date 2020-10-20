@@ -207,11 +207,11 @@ function init_state_prognostic!(
     m::KinematicModel,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t,
     args...,
 )
-    m.init_state_prognostic(m, state, aux, coords, t, args...)
+    m.init_state_prognostic(m, state, aux, localgeo, t, args...)
 end
 
 function boundary_state!(

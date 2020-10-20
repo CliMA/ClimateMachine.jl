@@ -142,7 +142,7 @@ function init_state_prognostic!(
     bl::BalanceLaw,
     state,
     aux,
-    (x, y, z),
+    localgeo,
     t,
 ) end
 

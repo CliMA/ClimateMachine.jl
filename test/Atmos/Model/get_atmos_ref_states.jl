@@ -26,7 +26,7 @@ function get_atmos_ref_states(nelem_vert, N_poly, RH)
             DecayingTemperatureProfile{FT}(param_set),
             RH,
         ),
-        init_state_prognostic = (problem, bl, state, aux, (x, y, z), t) ->
+        init_state_prognostic = (problem, bl, state, aux, localgeo, t) ->
             nothing,
     )
     driver_config = ClimateMachine.SingleStackConfiguration(

@@ -44,9 +44,11 @@ const param_set = EarthParameterSet()
 #}
 
 # ## [Initial Conditions]
-function init_schar!(problem, bl, state, aux, (x, y, z), t)
+function init_schar!(problem, bl, state, aux, localgeo, t)
     ## Problem float-type
     FT = eltype(state)
+
+    (x, y, z) = localgeo.coord
 
     ## Unpack constant parameters
     R_gas::FT = R_d(bl.param_set)

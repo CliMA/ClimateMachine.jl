@@ -12,8 +12,14 @@ function vars_state(m::BarotropicModel, ::Prognostic, T)
     end
 end
 
-function init_state_prognostic!(m::BarotropicModel, Q::Vars, A::Vars, coords, t)
-    return ocean_init_state!(m, m.baroclinic.problem, Q, A, coords, t)
+function init_state_prognostic!(
+    m::BarotropicModel,
+    Q::Vars,
+    A::Vars,
+    localgeo,
+    t,
+)
+    return ocean_init_state!(m, m.baroclinic.problem, Q, A, localgeo, t)
 end
 
 function vars_state(m::BarotropicModel, ::Auxiliary, T)

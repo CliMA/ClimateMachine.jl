@@ -19,7 +19,7 @@ include("edmf_kernels.jl")
             m::AtmosModel{FT},
             state::Vars,
             aux::Vars,
-            coords,
+            localgeo,
             t::Real,
         ) where {FT}
 
@@ -31,7 +31,7 @@ function init_state_prognostic!(
     m::AtmosModel{FT},
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 ) where {FT}
     # Aliases:

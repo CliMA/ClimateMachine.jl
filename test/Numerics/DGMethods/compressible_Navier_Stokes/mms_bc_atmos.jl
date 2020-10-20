@@ -44,7 +44,8 @@ using ClimateMachine.Atmos
 total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
     zero(FT)
 
-function mms2_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms2_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
+    (x1, x2, x3) = localgeo.coord
     state.ρ = ρ_g(t, x1, x2, x3, Val(2))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(2)),
@@ -73,7 +74,8 @@ function mms2_source!(
     source.ρe = SE_g(t, x1, x2, x3, Val(2))
 end
 
-function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
+    (x1, x2, x3) = localgeo.coord
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),

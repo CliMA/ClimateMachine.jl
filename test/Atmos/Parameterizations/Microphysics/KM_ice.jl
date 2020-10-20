@@ -63,7 +63,9 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
     end
 end
 
-function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t, spline_fun)
+function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t, spline_fun)
+    (x, y, z) = localgeo.coord
+
     FT = eltype(state)
     _grav::FT = grav(param_set)
 

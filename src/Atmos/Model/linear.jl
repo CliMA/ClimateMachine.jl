@@ -180,7 +180,7 @@ init_state_prognostic!(
     lm::AtmosLinearModel,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t,
 ) = nothing
 
