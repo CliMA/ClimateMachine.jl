@@ -28,7 +28,6 @@ include(joinpath("Common", "SurfaceFluxes", "SurfaceFluxes.jl"))
 include(joinpath("Arrays", "MPIStateArrays.jl"))
 include(joinpath("Numerics", "Mesh", "Mesh.jl"))
 include(joinpath("Numerics", "DGMethods", "Courant.jl"))
-include(joinpath("Numerics", "Abstractions", "Abstractions.jl"))
 include(joinpath("BalanceLaws", "Problems.jl"))
 include(joinpath("BalanceLaws", "BalanceLaws.jl"))
 include(joinpath("Numerics", "DGMethods", "DGMethods.jl"))
@@ -50,4 +49,5 @@ include(joinpath("Driver", "Checkpoint", "Checkpoint.jl"))
 include(joinpath("Driver", "Callbacks", "Callbacks.jl"))
 include(joinpath("Driver", "Driver.jl"))
 
+include(joinpath("Numerics", "Abstractions", "Abstractions.jl"))
 end
