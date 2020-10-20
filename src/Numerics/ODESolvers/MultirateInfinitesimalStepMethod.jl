@@ -191,7 +191,7 @@ mutable struct MultirateInfinitesimalStep{
 end
 
 function MultirateInfinitesimalStep(
-    method::Symbol,
+    mis,
     op::TimeScaledRHS{2,RT} where {RT},
     fastmethod,
     Q = nothing;
@@ -200,7 +200,7 @@ function MultirateInfinitesimalStep(
     nsubsteps = 1,
 ) where {AT<:AbstractArray}
 
-    return getfield(ODESolvers, method)(
+    return mis(
         op.rhs![1],
         op.rhs![2],
         fastmethod,

@@ -190,7 +190,7 @@ besolvers!
 end
 
 function AdditiveRungeKutta(
-    method::Symbol,
+    ark,
     op::TimeScaledRHS{2,RT} where {RT},
     backward_euler_solver,
     Q::AT;
@@ -200,7 +200,7 @@ function AdditiveRungeKutta(
     split_explicit_implicit = true,
     variant = NaiveVariant(),
 ) where {AT<:AbstractArray}
-    return getfield(ODESolvers, method)(
+    return ark(
         op.rhs![1],
         op.rhs![2],
         backward_euler_solver,
