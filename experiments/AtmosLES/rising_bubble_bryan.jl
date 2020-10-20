@@ -107,7 +107,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
-                    :MISKWRK43,
+                    MISKWRK43,
                     dg,
                     (dgi,Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
                     Q,
@@ -121,7 +121,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
                 fast_method = (dg,Q,nsubsteps) -> MultirateRungeKutta(
-                    :LSRK144NiegemannDiehlBusch,
+                    LSRK144NiegemannDiehlBusch,
                     dg,
                     Q,
                     steps=nsubsteps,
@@ -134,7 +134,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MISRK3,
                 fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
-                    :ARK548L2SA2KennedyCarpenter,
+                    ARK548L2SA2KennedyCarpenter,
                     dg,
                     LinearBackwardEulerSolver(ManyColumnLU(), isadjustable=true),
                     Q,
