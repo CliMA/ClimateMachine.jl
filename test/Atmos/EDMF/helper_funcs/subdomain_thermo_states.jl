@@ -133,12 +133,7 @@ function new_thermo_state_up(
         θ_liq_up = ρaθ_liq_up / ρa_up
         q_tot_up = ρaq_tot_up / ρa_up
 
-        PhaseEquil_pθq(
-            m.param_set,
-            p,
-            θ_liq_up,
-            q_tot_up,
-        )
+        PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
     end
     return ts_up
 end
@@ -171,12 +166,7 @@ function new_thermo_state_en(
         @print("q_tot_en = ", q_tot_en, "\n")
         error("Environment q_tot_en out-of-bounds in new_thermo_state_en")
     end
-    ts_en = PhaseEquil_pθq(
-        m.param_set,
-        p,
-        θ_liq_en,
-        q_tot_en,
-    )
+    ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
     return ts_en
 end
 
