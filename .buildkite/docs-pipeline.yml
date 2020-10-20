@@ -1,6 +1,5 @@
 env:
   OPENBLAS_NUM_THREADS: 1
-  SINGULARITY_CONTAINER: "library://jakebolewski/clima/documenter.sif:1.0.0" 
 
 steps:
   - label: "Build docs"
@@ -11,9 +10,10 @@ steps:
       - "singularity run -B /data/depot:${JULIA_DEPOT_PATH} ${SINGULARITY_CONTAINER} julia --procs=auto docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
-      CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
       CLIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
+      CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
       CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
+      SINGULARITY_CONTAINER: "library://jakebolewski/clima/documenter.sif:1.0.0" 
     agents:
       config: cpu
       queue: central
