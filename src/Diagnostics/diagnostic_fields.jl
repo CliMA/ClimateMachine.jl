@@ -146,8 +146,11 @@ has already been constructed for d1, d2, d3
  - `d3`: Data for vector gradient object 3
 """
 function VectorGradients(d1, d2, d3)
-
-    data = zeros(size(d1)[1], 9, size(d1)[3])
+    ArrayType = Array
+    if typeof(d1) <: CuArray
+        ArrayType = CuArray
+    end
+    data = ArrayType(zeros(size(d1)[1], 9, size(d1)[3]))
     data[:,1:3,:] .= d1
     data[:,4:6,:] .= d2
     data[:,7:9,:] .= d3
