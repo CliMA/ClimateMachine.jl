@@ -10,7 +10,7 @@ steps:
       - "singularity pull --force $$SINGULARITY_CONTAINER"
       - "singularity run $$SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.instantiate()'"
       - "singularity run $$SINGULARITY_CONTAINER julia -e 'using Pkg; Pkg.precompile()'"
-      - "singularity run $$SINGULARITY_CONTAINER julia --procs=16 docs/make.jl"
+      - "singularity run $$SINGULARITY_CONTAINER julia docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"
       CLIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
