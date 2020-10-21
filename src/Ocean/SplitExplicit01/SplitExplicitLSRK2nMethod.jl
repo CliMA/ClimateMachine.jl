@@ -56,8 +56,6 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
     add_fast_steps::RT
     "number of implicit solves per step"
     numImplSteps::RT
-    "timestep for implicit solve"
-    ivdc_dt::RT
 
     function SplitExplicitLSRK2nSolver(
         slow_solver::LSRK2N,
@@ -67,7 +65,6 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
         t0 = slow_solver.t,
         add_fast_steps = 0,
         numImplSteps = 0,
-        ivdc_dt = 1,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
@@ -83,9 +80,8 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
             RT(t0),
             0,
             dQ2fast,
-            add_fast_steps,
-            numImplSteps,
-            ivdc_dt,
+            RT(add_fast_steps),
+            RT(numImplSteps),
         )
     end
 end
@@ -237,7 +233,7 @@ function dostep!(
         # ivdc_solver_dt = getdt(ivdc_solver) # would work if solver time-step was set
         # FT = typeof(slow_dt)
         # ivdc_solver_dt = slow_dt / FT(nImplSteps) # just recompute time-step
-        ivdc_solver_dt = split.ivdc_dt
+        ivdc_solver_dt = ivdc_bl.ivdc_dt
         # println("ivdc_solver_dt = ",ivdc_solver_dt )
         # 2. setup start RHS, initial guess and values for computing mixing coeff
         ivdc_Q.θ .= Qslow.θ

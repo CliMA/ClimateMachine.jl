@@ -85,7 +85,6 @@ Creates an explicit ODE solver.
 function solversetup(ode_solver::SplitExplicitSolverType, dg_3D, Q_3D, _, t0, _)
     dg_2D = dg_3D.modeldata.dg_2D
     Q_2D = dg_3D.modeldata.Q_2D
-    ivdc_model = dg_3D.modeldata.ivdc_dg.balance_law
 
     fast_solver =
         ode_solver.fast_method(dg_2D, Q_2D, dt = ode_solver.dt_fast, t0 = t0)
@@ -97,7 +96,6 @@ function solversetup(ode_solver::SplitExplicitSolverType, dg_3D, Q_3D, _, t0, _)
         fast_solver;
         add_fast_steps = ode_solver.add_fast_steps,
         numImplSteps = ode_solver.numImplSteps,
-        ivdc_dt = ivdc_model.ivdc_dt,
     )
 
     return solver

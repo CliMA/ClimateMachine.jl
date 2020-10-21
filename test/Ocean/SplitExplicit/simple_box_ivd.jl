@@ -136,7 +136,6 @@ function main(BC)
         lsrk_barotropic;
         add_fast_steps = add_fast_substeps,
         numImplSteps = numImplSteps,
-        ivdc_dt = ivdc_dt,
     )
 
     #-- Set up State Check call back for config state arrays, called every ntFreq time steps

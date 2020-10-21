@@ -40,6 +40,10 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
     steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
+    "parameter for super timestepping"
+    add_fast_steps::RT
+    "number of implicit solves per step"
+    numImplSteps::RT
 
     function SplitExplicitSolver(
         slow_solver::LSRK2N,
@@ -47,6 +51,8 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
         Q = nothing;
         dt = getdt(slow_solver),
         t0 = slow_solver.t,
+        add_fast_steps = 0,
+        numImplSteps = 0,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
@@ -63,6 +69,8 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
             RT(t0),
             0,
             dQ2fast,
+            RT(add_fast_steps),
+            RT(numImplSteps),
         )
     end
 end
