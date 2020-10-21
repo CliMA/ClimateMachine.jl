@@ -47,7 +47,11 @@ using ClimateMachine.Thermodynamics:
     PhaseEquil_ρTq,
     PhaseNonEquil_ρTq,
     air_temperature,
-    latent_heat_fusion
+    latent_heat_fusion,
+    Liquid,
+    Ice,
+    supersaturation,
+    vapor_specific_humidity
 
 using ClimateMachine.Microphysics
 using ClimateMachine.MPIStateArrays
