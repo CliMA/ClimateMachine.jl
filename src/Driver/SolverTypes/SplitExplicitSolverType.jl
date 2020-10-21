@@ -33,24 +33,17 @@ struct SplitExplicitSolverType{SEM, SM, FM, FT} <: AbstractSolverType
     numImplSteps::FT
 
     function SplitExplicitSolverType{FT}(
+        split_explicit_method,
         dt_slow,
         dt_fast;
         add_fast_steps = 2,
         numImplSteps = 5,
         slow_method = LSRK54CarpenterKennedy,
         fast_method = LSRK54CarpenterKennedy,
-        split_explicit_method = SetupSplitExplicitLSRK2nSolver,
     ) where {FT <: AbstractFloat}
         SEM = typeof(split_explicit_method)
         SM = typeof(slow_method)
         FM = typeof(fast_method)
-
-        println(split_explicit_method)
-        println(SEM)
-        println(slow_method)
-        println(SM)
-        println(fast_method)
-        println(FM)
 
         return new{SEM, SM, FM, FT}(
             split_explicit_method,

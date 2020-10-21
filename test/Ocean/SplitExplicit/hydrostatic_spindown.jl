@@ -70,14 +70,21 @@ function SplitConfig(
     return SplitConfig(name, dg_3D, dg_2D, solver, mpicomm, ArrayType)
 end
 
+function setup_models(solver::SplitExplicitSolverType, args...)
+    dispatcher = solver.split_explicit_method
+
+    return setup_models(dispatcher, solver, args...)
+end
+
 function setup_models(
     ::Type{SplitExplicitSolver},
+    ::SplitExplicitSolverType,
     problem,
     grid_3D,
     grid_2D,
     param_set,
     coupling,
-    _,
+    dt_slow,
 )
 
     model_3D = HydrostaticBoussinesqModel{FT}(
@@ -142,17 +149,15 @@ function setup_models(
 end
 
 function setup_models(
-    solver::SplitExplicitSolverType{SEM},
+    ::Type{SplitExplicitLSRK2nSolver},
+    solver::SplitExplicitSolverType,
     problem,
     grid_3D,
     grid_2D,
     param_set,
-    _,
+    coupling,
     dt_slow,
-) where {SEM <: typeof(SetupSplitExplicitLSRK2nSolver)}
-
-    @show SEM
-
+)
     model_3D = OceanModel{FT}(
         param_set,
         problem,

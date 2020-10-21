@@ -66,11 +66,11 @@ const FT = Float64
     )
 
     solver = SplitExplicitSolverType{FT}(
+        SplitExplicitLSRK2nSolver,
         dt_fast,
         dt_slow;
         add_fast_steps = 2,
         numImplSteps = 5,
-        split_explicit_method = SetupSplitExplicitLSRK2nSolver,
     )
 
     println("yo")
