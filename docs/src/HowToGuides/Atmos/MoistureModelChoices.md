@@ -48,6 +48,12 @@ Because the assumed relaxation timescale for condensation/evaporation and
 
 ## Implementation notes
 
+!!! warn
+    While `recover_thermo_state` is an ideal long-term solution,
+    right now we are directly calling new_thermo_state to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
+
 The moisture models rely on the
   [new\_thermo\_state](https://clima.github.io/ClimateMachine.jl/latest/APIs/Atmos/AtmosModel/#ClimateMachine.Atmos.new_thermo_state)
   and

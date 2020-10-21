@@ -66,15 +66,20 @@ end
 """
     recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars)
 
-Recover the thermodynamic state, based on the `state` _and_
-the `aux` state, based on the existing temperature.
+An atmospheric thermodynamic state.
 
-!!! note
-    This method does _not_ call the iterative saturation adjustment
-    procedure.
+!!! warn
+    While recover_thermo_state is an ideal long-term solution,
+    right now we are directly calling new_thermo_state to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
+
+# TODO:
+    - Allow a safe way to call
+    `recover_thermo_state(state, moist::EquilMoist, ...)`
 """
 recover_thermo_state(atmos::AtmosModel, state::Vars, aux::Vars) =
-    recover_thermo_state(atmos, atmos.moisture, state, aux)
+    new_thermo_state(atmos, atmos.moisture, state, aux)
 
 function recover_thermo_state(
     atmos::AtmosModel,
