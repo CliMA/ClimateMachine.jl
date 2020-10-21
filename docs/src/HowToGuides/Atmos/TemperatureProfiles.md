@@ -83,7 +83,7 @@ dry_adiabatic = DryAdiabaticProfile{FT}(param_set);
 args = dry_adiabatic.(Ref(param_set), z)
 T = first.(args)
 p = last.(args)
-θ_dry = dry_pottemp_given_pressure.(Ref(param_set), T, p)
+θ_dry = Thermodynamics.dry_pottemp_given_pressure.(Ref(param_set), T, p)
 
 p1 = plot(T, z./10^3, xlabel="Temperature [K]");
 p2 = plot(p./10^3, z./10^3, xlabel="Pressure [kPa]");

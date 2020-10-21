@@ -2,6 +2,8 @@ include("get_atmos_ref_states.jl")
 using JLD2
 using Pkg.Artifacts
 using ClimateMachine.ArtifactWrappers
+using ClimateMachine.Thermodynamics
+const TD = Thermodynamics
 
 @testset "Hydrostatic reference states - regression test" begin
     ref_state_dataset = ArtifactWrapper(
@@ -46,7 +48,8 @@ end
         # TODO: test that ρ and p are in discrete hydrostatic balance
 
         # Test state for thermodynamic consistency (with ideal gas law)
-        T_igl = air_temperature_from_ideal_gas_law.(Ref(param_set), p, ρ, q_pt)
+        T_igl =
+            TD.air_temperature_from_ideal_gas_law.(Ref(param_set), p, ρ, q_pt)
         @test all(T .≈ T_igl)
 
         # Test that relative humidity in reference state is approximately

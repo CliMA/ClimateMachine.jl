@@ -1,43 +1,54 @@
 # Atmospheric equation of state
-export air_pressure,
-    air_temperature, air_density, specific_volume, soundspeed_air
-export total_specific_humidity,
-    liquid_specific_humidity, ice_specific_humidity, vapor_specific_humidity
+export air_pressure
+export air_temperature
+export air_density
+export specific_volume
+export soundspeed_air
+export total_specific_humidity
+export liquid_specific_humidity
+export ice_specific_humidity
+export vapor_specific_humidity
 
 # Energies
-export total_energy, internal_energy, internal_energy_sat
+export total_energy
+export internal_energy
+export internal_energy_sat
 
 # Specific heats and gas constants of moist air
 export cp_m, cv_m, gas_constant_air, gas_constants
 
 # Latent heats
-export latent_heat_vapor,
-    latent_heat_sublim, latent_heat_fusion, latent_heat_liq_ice
+export latent_heat_vapor
+export latent_heat_sublim
+export latent_heat_fusion
+export latent_heat_liq_ice
 
 # Saturation vapor pressures and specific humidities over liquid and ice
 export Liquid, Ice
-export saturation_vapor_pressure, q_vap_saturation_generic, q_vap_saturation
-export q_vap_saturation_liquid, q_vap_saturation_ice
-export saturation_excess, supersaturation
+export saturation_vapor_pressure
+export q_vap_saturation_generic
+export q_vap_saturation
+export q_vap_saturation_liquid
+export q_vap_saturation_ice
+export saturation_excess
+export supersaturation
 
 # Functions used in thermodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
-
 export liquid_fraction, PhasePartition_equil
 
 # Auxiliary functions, e.g., for diagnostic purposes
-export dry_pottemp,
-    dry_pottemp_given_pressure, virtual_pottemp, exner, exner_given_pressure
-export liquid_ice_pottemp,
-    liquid_ice_pottemp_given_pressure, liquid_ice_pottemp_sat, relative_humidity
-export air_temperature_from_liquid_ice_pottemp,
-    air_temperature_from_liquid_ice_pottemp_given_pressure
-export air_temperature_from_liquid_ice_pottemp_non_linear
+export dry_pottemp
+export virtual_pottemp
+export exner
+export liquid_ice_pottemp
+export liquid_ice_pottemp_sat
+export relative_humidity
 export virtual_temperature
-export temperature_and_humidity_from_virtual_temperature
-export air_temperature_from_ideal_gas_law
-export condensate, has_condensate
-export specific_enthalpy, total_specific_enthalpy
+export condensate
+export has_condensate
+export specific_enthalpy
+export total_specific_enthalpy
 export moist_static_energy
 export saturated
 
@@ -1284,7 +1295,7 @@ by finding the root of
 
 `e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
 
-See also [`saturation_adjustment_q_tot_θ_liq_ice`](@ref).
+See also [`saturation_adjustment_given_ρθq`](@ref).
 """
 function saturation_adjustment_SecantMethod(
     param_set::APS,
@@ -1376,10 +1387,10 @@ function saturation_adjustment_SecantMethod(
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice(
+    saturation_adjustment_given_ρθq(
         param_set,
-        θ_liq_ice,
         ρ,
+        θ_liq_ice,
         q_tot,
         phase_type,
         maxiter,
@@ -1389,8 +1400,8 @@ end
 Compute the temperature `T` that is consistent with
 
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `θ_liq_ice` liquid-ice potential temperature
  - `ρ` (moist-)air density
+ - `θ_liq_ice` liquid-ice potential temperature
  - `q_tot` total specific humidity
  - `phase_type` a thermodynamic state type
  - `tol` absolute tolerance for saturation adjustment iterations. Can be one of:
@@ -1404,10 +1415,10 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice(
+function saturation_adjustment_given_ρθq(
     param_set::APS,
-    θ_liq_ice::FT,
     ρ::FT,
+    θ_liq_ice::FT,
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
@@ -1416,7 +1427,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(
     _T_min::FT = T_min(param_set)
     T_1 = max(
         _T_min,
-        air_temperature_from_liquid_ice_pottemp(
+        air_temperature_given_θρq(
             param_set,
             θ_liq_ice,
             ρ,
@@ -1428,7 +1439,7 @@ function saturation_adjustment_q_tot_θ_liq_ice(
     if unsaturated && T_1 > _T_min
         return T_1
     else
-        T_2 = air_temperature_from_liquid_ice_pottemp(
+        T_2 = air_temperature_given_θρq(
             param_set,
             θ_liq_ice,
             ρ,
@@ -1452,12 +1463,12 @@ function saturation_adjustment_q_tot_θ_liq_ice(
         if !sol.converged
             if print_warning()
                 @print("-----------------------------------------\n")
-                @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice:\n")
+                @print("maxiter reached in saturation_adjustment_given_ρθq:\n")
                 @print(
-                    "    θ_liq_ice=",
-                    θ_liq_ice,
                     ", ρ=",
                     ρ,
+                    "    θ_liq_ice=",
+                    θ_liq_ice,
                     ", q_tot=",
                     q_tot,
                     ", T = ",
@@ -1478,10 +1489,10 @@ function saturation_adjustment_q_tot_θ_liq_ice(
 end
 
 """
-    saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
+    saturation_adjustment_given_pθq(
         param_set,
-        θ_liq_ice,
         p,
+        θ_liq_ice,
         q_tot,
         phase_type,
         tol,
@@ -1510,17 +1521,17 @@ by finding the root of
 
 See also [`saturation_adjustment`](@ref).
 """
-function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
+function saturation_adjustment_given_pθq(
     param_set::APS,
-    θ_liq_ice::FT,
     p::FT,
+    θ_liq_ice::FT,
     q_tot::FT,
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     tol::AbstractTolerance,
 ) where {FT <: Real}
     _T_min::FT = T_min(param_set)
-    T_1 = air_temperature_from_liquid_ice_pottemp_given_pressure(
+    T_1 = air_temperature_given_θpq(
         param_set,
         θ_liq_ice,
         p,
@@ -1532,7 +1543,7 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
     if unsaturated && T_1 > _T_min
         return T_1
     else
-        T_2 = air_temperature_from_liquid_ice_pottemp(
+        T_2 = air_temperature_given_θpq(
             param_set,
             θ_liq_ice,
             p,
@@ -1561,12 +1572,12 @@ function saturation_adjustment_q_tot_θ_liq_ice_given_pressure(
         if !sol.converged
             if print_warning()
                 @print("-----------------------------------------\n")
-                @print("maxiter reached in saturation_adjustment_q_tot_θ_liq_ice_given_pressure:\n")
+                @print("maxiter reached in saturation_adjustment_given_pθq:\n")
                 @print(
-                    "    θ_liq_ice=",
-                    θ_liq_ice,
                     ", p=",
                     p,
+                    "    θ_liq_ice=",
+                    θ_liq_ice,
                     ", q_tot=",
                     q_tot,
                     ", T = ",
@@ -1728,7 +1739,7 @@ function virt_temp_from_RH(
     return virtual_temperature(param_set, T, ρ, q_pt)
 end
 """
-    temperature_and_humidity_from_virtual_temperature(param_set, T_virt, ρ, RH)
+    temperature_and_humidity_given_TᵥρRH(param_set, T_virt, ρ, RH)
 
 The air temperature and `q_tot` where
 
@@ -1738,7 +1749,7 @@ The air temperature and `q_tot` where
  - `RH` relative humidity
  - `phase_type` a thermodynamic state type
 """
-function temperature_and_humidity_from_virtual_temperature(
+function temperature_and_humidity_given_TᵥρRH(
     param_set::APS,
     T_virt::FT,
     ρ::FT,
@@ -1763,7 +1774,7 @@ function temperature_and_humidity_from_virtual_temperature(
     if !sol.converged
         if print_warning()
             @print("-----------------------------------------\n")
-            @print("maxiter reached in temperature_and_humidity_from_virtual_temperature:\n")
+            @print("maxiter reached in temperature_and_humidity_given_TᵥρRH:\n")
             @print(
                 "    T_virt=",
                 T_virt,
@@ -1795,7 +1806,7 @@ function temperature_and_humidity_from_virtual_temperature(
 end
 
 """
-    air_temperature_from_liquid_ice_pottemp(param_set, θ_liq_ice, ρ, q::PhasePartition)
+    air_temperature_given_θρq(param_set, θ_liq_ice, ρ, q::PhasePartition)
 
 The temperature given
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
@@ -1804,7 +1815,7 @@ The temperature given
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-function air_temperature_from_liquid_ice_pottemp(
+function air_temperature_given_θρq(
     param_set::APS,
     θ_liq_ice::FT,
     ρ::FT,
@@ -1823,7 +1834,7 @@ function air_temperature_from_liquid_ice_pottemp(
 end
 
 """
-    air_temperature_from_liquid_ice_pottemp_non_linear(param_set, θ_liq_ice, ρ, q::PhasePartition)
+    air_temperature_given_θρq_nonlinear(param_set, θ_liq_ice, ρ, q::PhasePartition)
 
 Computes temperature `T` given
 
@@ -1838,12 +1849,12 @@ and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air,
 
 by finding the root of
-`T - air_temperature_from_liquid_ice_pottemp_given_pressure(param_set,
-                                                            θ_liq_ice,
-                                                            air_pressure(param_set, T, ρ, q),
-                                                            q) = 0`
+`T - air_temperature_given_θpq(param_set,
+                               θ_liq_ice,
+                               air_pressure(param_set, T, ρ, q),
+                               q) = 0`
 """
-function air_temperature_from_liquid_ice_pottemp_non_linear(
+function air_temperature_given_θρq_nonlinear(
     param_set::APS,
     θ_liq_ice::FT,
     ρ::FT,
@@ -1855,7 +1866,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
     _T_max::FT = T_max(param_set)
     sol = find_zero(
         T ->
-            T - air_temperature_from_liquid_ice_pottemp_given_pressure(
+            T - air_temperature_given_θpq(
                 param_set,
                 θ_liq_ice,
                 air_pressure(param_set, heavisided(T), ρ, q),
@@ -1869,7 +1880,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
     if !sol.converged
         if print_warning()
             @print("-----------------------------------------\n")
-            @print("maxiter reached in air_temperature_from_liquid_ice_pottemp_non_linear:\n")
+            @print("maxiter reached in air_temperature_given_θρq_nonlinear:\n")
             @print(
                 "    θ_liq_ice=",
                 θ_liq_ice,
@@ -1898,7 +1909,7 @@ function air_temperature_from_liquid_ice_pottemp_non_linear(
 end
 
 """
-    air_temperature_from_liquid_ice_pottemp_given_pressure(
+    air_temperature_given_θpq(
         param_set,
         θ_liq_ice,
         p[, q::PhasePartition]
@@ -1912,7 +1923,7 @@ The air temperature where
 and, optionally,
  - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
 """
-function air_temperature_from_liquid_ice_pottemp_given_pressure(
+function air_temperature_given_θpq(
     param_set::APS,
     θ_liq_ice::FT,
     p::FT,
