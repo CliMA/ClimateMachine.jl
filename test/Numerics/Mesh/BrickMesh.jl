@@ -388,13 +388,18 @@ end
         nface = 2d
         Nfp = (N + 1)^(d - 1)
 
-        vmap⁻, vmap⁺ =
-            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+        vmap⁻, vmap⁺ = mappings(
+            ntuple(j -> N, d),
+            mesh[:elemtoelem],
+            mesh[:elemtoface],
+            mesh[:elemtoordr],
+        )
 
         @test vmap⁻ == reshape([1, 4, 5, 8, 9, 12, 13, 16], Nfp, nface, nelem)
         @test vmap⁺ == reshape([16, 5, 4, 9, 8, 13, 12, 1], Nfp, nface, nelem)
     end
 
+    # Single polynomial order
     let
         comm = MPI.COMM_SELF
         x = (-1:1, 0:1)
@@ -407,36 +412,25 @@ end
         nface = 2d
         Nfp = (N + 1)^(d - 1)
 
-        vmap⁻, vmap⁺ =
-            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+        vmap⁻, vmap⁺ = mappings(
+            ntuple(j -> N, d),
+            mesh[:elemtoelem],
+            mesh[:elemtoface],
+            mesh[:elemtoordr],
+        )
 
+        #! format: off
         @test vmap⁻ == reshape(
             [
-                1,
-                4,
-                7,  # f=1 e=1
-                3,
-                6,
-                9,  # f=2 e=1
-                1,
-                2,
-                3,  # f=3 e=1
-                7,
-                8,
-                9,  # f=4 e=1
-                10,
-                13,
-                16,  # f=1 e=2
-                12,
-                15,
-                18,  # f=2 e=2
-                10,
-                11,
-                12,  # f=3 e=2
-                16,
-                17,
-                18,
-            ], # f=4 e=2
+                 1,  4,  7,  # f=1 e=1
+                 3,  6,  9,  # f=2 e=1
+                 1,  2,  3,  # f=3 e=1
+                 7,  8,  9,  # f=4 e=1
+                10, 13, 16,  # f=1 e=2
+                12, 15, 18,  # f=2 e=2
+                10, 11, 12,  # f=3 e=2
+                16, 17, 18,  # f=4 e=2
+            ],
             Nfp,
             nface,
             nelem,
@@ -444,37 +438,74 @@ end
 
         @test vmap⁺ == reshape(
             [
-                1,
-                4,
-                7,  # f=1 e=1
-                10,
-                13,
-                16,  # f=1 e=2
-                7,
-                8,
-                9,  # f=4 e=1
-                1,
-                2,
-                3,  # f=3 e=1
-                3,
-                6,
-                9,  # f=2 e=1
-                12,
-                15,
-                18,  # f=2 e=2
-                16,
-                17,
-                18,  # f=4 e=2
-                10,
-                11,
-                12,
-            ], # f=3 e=2
+                 1,  4,  7,  # f=1 e=1
+                10, 13, 16,  # f=1 e=2
+                 7,  8,  9,  # f=4 e=1
+                 1,  2,  3,  # f=3 e=1
+                 3,  6,  9,  # f=2 e=1
+                12, 15, 18,  # f=2 e=2
+                16, 17, 18,  # f=4 e=2
+                10, 11, 12,  # f=3 e=2
+            ],
             Nfp,
             nface,
             nelem,
         )
+        #! format: on
     end
 
+    # Two polynomial orders
+    let
+        comm = MPI.COMM_SELF
+        x = (-1:1, 0:1)
+        p = (false, true)
+        mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)[1:4]...)
+
+        N = (2, 3)
+        d = length(x)
+        nelem = prod(length.(x) .- 1)
+        nface = 2d
+        Nfp = div.(prod(N .+ 1), ((N .+ 1) .^ (d - 1)))
+
+        vmap⁻, vmap⁺ =
+            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+
+        #! format: off
+        @test vmap⁻ == reshape(
+            [
+                 1,  4,  7, 10,  # f=1 e=1
+                 3,  6,  9, 12,  # f=2 e=1
+                 1,  2,  3,  0,  # f=3 e=1
+                10, 11, 12,  0,  # f=4 e=1
+                13, 16, 19, 22,  # f=1 e=2
+                15, 18, 21, 24,  # f=2 e=2
+                13, 14, 15,  0,  # f=3 e=2
+                22, 23, 24,  0,  # f=4 e=2
+            ],
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+
+        @test vmap⁺ == reshape(
+            [
+                 1,  4,  7, 10,  # f=1 e=1
+                13, 16, 19, 22,  # f=2 e=1
+                10, 11, 12,  0,  # f=3 e=1
+                 1,  2,  3,  0,  # f=4 e=1
+                 3,  6,  9, 12,  # f=1 e=2
+                15, 18, 21, 24,  # f=2 e=2
+                22, 23, 24,  0,  # f=3 e=2
+                13, 14, 15,  0,  # f=4 e=2
+            ],
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+        #! format: on
+    end
+
+    # Single polynomial order
     let
         comm = MPI.COMM_SELF
         x = (0:1, 0:1, -1:1)
@@ -488,13 +519,18 @@ end
         Np = (N + 1)^d
         Nfp = (N + 1)^(d - 1)
 
-        vmap⁻, vmap⁺ =
-            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+        vmap⁻, vmap⁺ = mappings(
+            ntuple(j -> N, d),
+            mesh[:elemtoelem],
+            mesh[:elemtoface],
+            mesh[:elemtoordr],
+        )
 
+        #! format: off
         fmask = [
-            1 3 1 7 1 19
-            4 6 2 8 2 20
-            7 9 3 9 3 21
+             1  3  1  7 1 19
+             4  6  2  8 2 20
+             7  9  3  9 3 21
             10 12 10 16 4 22
             13 15 11 17 5 23
             16 18 12 18 6 24
@@ -502,7 +538,7 @@ end
             22 24 20 26 8 26
             25 27 21 27 9 27
         ]
-
+        #! format: on
 
         @test vmap⁻ == reshape([fmask[:]; fmask[:] .+ Np], Nfp, nface, nelem)
 
@@ -522,6 +558,76 @@ end
                 fmask[:, 6] .+ Np
             ],
             Nfp,
+            nface,
+            nelem,
+        )
+    end
+
+    # Multiple polynomial orders
+    let
+        comm = MPI.COMM_SELF
+        x = (0:1, 0:1, -1:1)
+        p = (false, true, false)
+        mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)[1:4]...)
+
+        N = (1, 2, 3)
+        d = length(x)
+        nelem = prod(length.(x) .- 1)
+        nface = 2d
+        Np = prod(N .+ 1)
+        Nfp = div.(Np, N .+ 1)
+
+        vmap⁻, vmap⁺ =
+            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+
+        #! format: off
+        fmask = 
+        (
+         [ 1  3  5  7  9 11 13 15 17 19 21 23],
+         [ 2  4  6  8 10 12 14 16 18 20 22 24],
+         [ 1  2  7  8 13 14 19 20  0  0  0  0],
+         [ 5  6 11 12 17 18 23 24  0  0  0  0],
+         [ 1  2  3  4  5  6  0  0  0  0  0  0],
+         [19 20 21 22 23 24  0  0  0  0  0  0],
+        )
+        #! format: on
+
+        @test vmap⁻ == reshape(
+            [
+                fmask[1]
+                fmask[2]
+                fmask[3]
+                fmask[4]
+                fmask[5]
+                fmask[6]
+                fmask[1] .+ Np .* (fmask[1] .> 0)
+                fmask[2] .+ Np .* (fmask[2] .> 0)
+                fmask[3] .+ Np .* (fmask[3] .> 0)
+                fmask[4] .+ Np .* (fmask[4] .> 0)
+                fmask[5] .+ Np .* (fmask[5] .> 0)
+                fmask[6] .+ Np .* (fmask[6] .> 0)
+            ]',
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+
+        @test vmap⁺ == reshape(
+            [
+                vmap⁻[:, 1, 1]
+                vmap⁻[:, 2, 1]
+                vmap⁻[:, 4, 1]
+                vmap⁻[:, 3, 1]
+                vmap⁻[:, 5, 1]
+                vmap⁻[:, 5, 2]
+                vmap⁻[:, 1, 2]
+                vmap⁻[:, 2, 2]
+                vmap⁻[:, 4, 2]
+                vmap⁻[:, 3, 2]
+                vmap⁻[:, 6, 1]
+                vmap⁻[:, 6, 2]
+            ],
+            maximum(Nfp),
             nface,
             nelem,
         )
