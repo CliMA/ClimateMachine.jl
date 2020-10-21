@@ -379,27 +379,28 @@ function computemetric!(
         end
 
         for j in 1:Nq, i in 1:Nq
-            n1[i, j, 1, e] = -J[ 1, i, j, e] * ξ1x1[ 1, i, j, e]
-            n1[i, j, 2, e] =  J[Nq, i, j, e] * ξ1x1[Nq, i, j, e]
-            n1[i, j, 3, e] = -J[ i, 1, j, e] * ξ2x1[ i, 1, j, e]
-            n1[i, j, 4, e] =  J[ i,Nq, j, e] * ξ2x1[ i,Nq, j, e]
-            n1[i, j, 5, e] = -J[ i, j, 1, e] * ξ3x1[ i, j, 1, e]
-            n1[i, j, 6, e] =  J[ i, j,Nq, e] * ξ3x1[ i, j,Nq, e]
-            n2[i, j, 1, e] = -J[ 1, i, j, e] * ξ1x2[ 1, i, j, e]
-            n2[i, j, 2, e] =  J[Nq, i, j, e] * ξ1x2[Nq, i, j, e]
-            n2[i, j, 3, e] = -J[ i, 1, j, e] * ξ2x2[ i, 1, j, e]
-            n2[i, j, 4, e] =  J[ i,Nq, j, e] * ξ2x2[ i,Nq, j, e]
-            n2[i, j, 5, e] = -J[ i, j, 1, e] * ξ3x2[ i, j, 1, e]
-            n2[i, j, 6, e] =  J[ i, j,Nq, e] * ξ3x2[ i, j,Nq, e]
-            n3[i, j, 1, e] = -J[ 1, i, j, e] * ξ1x3[ 1, i, j, e]
-            n3[i, j, 2, e] =  J[Nq, i, j, e] * ξ1x3[Nq, i, j, e]
-            n3[i, j, 3, e] = -J[ i, 1, j, e] * ξ2x3[ i, 1, j, e]
-            n3[i, j, 4, e] =  J[ i,Nq, j, e] * ξ2x3[ i,Nq, j, e]
-            n3[i, j, 5, e] = -J[ i, j, 1, e] * ξ3x3[ i, j, 1, e]
-            n3[i, j, 6, e] =  J[ i, j,Nq, e] * ξ3x3[ i, j,Nq, e]
+            n1[i, j, 1, e] = -J[1, i, j, e] * ξ1x1[1, i, j, e]
+            n1[i, j, 2, e] = J[Nq, i, j, e] * ξ1x1[Nq, i, j, e]
+            n1[i, j, 3, e] = -J[i, 1, j, e] * ξ2x1[i, 1, j, e]
+            n1[i, j, 4, e] = J[i, Nq, j, e] * ξ2x1[i, Nq, j, e]
+            n1[i, j, 5, e] = -J[i, j, 1, e] * ξ3x1[i, j, 1, e]
+            n1[i, j, 6, e] = J[i, j, Nq, e] * ξ3x1[i, j, Nq, e]
+            n2[i, j, 1, e] = -J[1, i, j, e] * ξ1x2[1, i, j, e]
+            n2[i, j, 2, e] = J[Nq, i, j, e] * ξ1x2[Nq, i, j, e]
+            n2[i, j, 3, e] = -J[i, 1, j, e] * ξ2x2[i, 1, j, e]
+            n2[i, j, 4, e] = J[i, Nq, j, e] * ξ2x2[i, Nq, j, e]
+            n2[i, j, 5, e] = -J[i, j, 1, e] * ξ3x2[i, j, 1, e]
+            n2[i, j, 6, e] = J[i, j, Nq, e] * ξ3x2[i, j, Nq, e]
+            n3[i, j, 1, e] = -J[1, i, j, e] * ξ1x3[1, i, j, e]
+            n3[i, j, 2, e] = J[Nq, i, j, e] * ξ1x3[Nq, i, j, e]
+            n3[i, j, 3, e] = -J[i, 1, j, e] * ξ2x3[i, 1, j, e]
+            n3[i, j, 4, e] = J[i, Nq, j, e] * ξ2x3[i, Nq, j, e]
+            n3[i, j, 5, e] = -J[i, j, 1, e] * ξ3x3[i, j, 1, e]
+            n3[i, j, 6, e] = J[i, j, Nq, e] * ξ3x3[i, j, Nq, e]
 
-            for n = 1:nface
-                sJ[i, j, n, e] = hypot(n1[i, j, n, e], n2[i, j, n, e], n3[i, j, n, e])
+            for n in 1:nface
+                sJ[i, j, n, e] =
+                    hypot(n1[i, j, n, e], n2[i, j, n, e], n3[i, j, n, e])
                 n1[i, j, n, e] /= sJ[i, j, n, e]
                 n2[i, j, n, e] /= sJ[i, j, n, e]
                 n3[i, j, n, e] /= sJ[i, j, n, e]

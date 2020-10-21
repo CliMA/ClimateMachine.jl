@@ -168,7 +168,7 @@ function config_diagnostics(
         boundaries,
         resolution,
     )
-    ds_dgngrp = setup_dump_spectra_diagnostics(
+    ds_dgngrp = setup_atmos_spectra_diagnostics(
         AtmosLESConfigType(),
         "0.06ssecs",
         driver_config.name,

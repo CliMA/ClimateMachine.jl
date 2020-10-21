@@ -530,7 +530,8 @@ function. Contributions from subcomponents are then assembled (pointwise).
     t::Real,
 )
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
-    ν, D_t, τ = sponge_viscosity_modifier(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
+    ν, D_t, τ =
+        sponge_viscosity_modifier(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_second_order!(atmos, flux, state, τ, d_h_tot)
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
