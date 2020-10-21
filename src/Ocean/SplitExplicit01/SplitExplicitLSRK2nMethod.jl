@@ -1,4 +1,4 @@
-export SplitExplicitLSRK2nSolver
+export SplitExplicitLSRK2nSolver, SetupSplitExplicitLSRK2nSolver
 
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
@@ -58,36 +58,36 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
     numImplSteps::RT
     "timestep for implicit solve"
     ivdc_dt::RT
+end
 
-    function SplitExplicitLSRK2nSolver(
-        slow_solver::LSRK2N,
+function SetupSplitExplicitLSRK2nSolver(
+    slow_solver::LSRK2N,
+    fast_solver,
+    Q = nothing;
+    dt = getdt(slow_solver),
+    t0 = slow_solver.t,
+    add_fast_steps = 0,
+    numImplSteps = 0,
+    ivdc_dt = 1,
+) where {AT <: AbstractArray}
+    SS = typeof(slow_solver)
+    FS = typeof(fast_solver)
+    RT = real(eltype(slow_solver.dQ))
+
+    dQ2fast = similar(slow_solver.dQ)
+    dQ2fast .= -0.0
+    MSA = typeof(dQ2fast)
+    return SplitExplicitLSRK2nSolver{SS, FS, RT, MSA}(
+        slow_solver,
         fast_solver,
-        Q = nothing;
-        dt = getdt(slow_solver),
-        t0 = slow_solver.t,
-        add_fast_steps = 0,
-        numImplSteps = 0,
-        ivdc_dt = 1,
-    ) where {AT <: AbstractArray}
-        SS = typeof(slow_solver)
-        FS = typeof(fast_solver)
-        RT = real(eltype(slow_solver.dQ))
-
-        dQ2fast = similar(slow_solver.dQ)
-        dQ2fast .= -0.0
-        MSA = typeof(dQ2fast)
-        return new{SS, FS, RT, MSA}(
-            slow_solver,
-            fast_solver,
-            RT(dt),
-            RT(t0),
-            0,
-            dQ2fast,
-            add_fast_steps,
-            numImplSteps,
-            ivdc_dt,
-        )
-    end
+        RT(dt),
+        RT(t0),
+        0,
+        dQ2fast,
+        add_fast_steps,
+        numImplSteps,
+        ivdc_dt,
+    )
 end
 
 function dostep!(

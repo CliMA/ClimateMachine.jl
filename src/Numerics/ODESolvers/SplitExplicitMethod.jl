@@ -40,31 +40,31 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
     steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
+end
 
-    function SplitExplicitSolver(
-        slow_solver::LSRK2N,
+function SplitExplicitSolver(
+    slow_solver::LSRK2N,
+    fast_solver,
+    Q = nothing;
+    dt = getdt(slow_solver),
+    t0 = slow_solver.t,
+) where {AT <: AbstractArray}
+    SS = typeof(slow_solver)
+    FS = typeof(fast_solver)
+    RT = real(eltype(slow_solver.dQ))
+
+    dQ2fast = similar(slow_solver.dQ)
+    dQ2fast .= -0
+    MSA = typeof(dQ2fast)
+
+    return new{SS, FS, RT, MSA}(
+        slow_solver,
         fast_solver,
-        Q = nothing;
-        dt = getdt(slow_solver),
-        t0 = slow_solver.t,
-    ) where {AT <: AbstractArray}
-        SS = typeof(slow_solver)
-        FS = typeof(fast_solver)
-        RT = real(eltype(slow_solver.dQ))
-
-        dQ2fast = similar(slow_solver.dQ)
-        dQ2fast .= -0
-        MSA = typeof(dQ2fast)
-
-        return new{SS, FS, RT, MSA}(
-            slow_solver,
-            fast_solver,
-            RT(dt),
-            RT(t0),
-            0,
-            dQ2fast,
-        )
-    end
+        RT(dt),
+        RT(t0),
+        0,
+        dQ2fast,
+    )
 end
 
 function dostep!(

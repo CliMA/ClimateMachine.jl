@@ -16,7 +16,9 @@ This solver type constructs an ODE solver using the SplitExplicitLSRK2nSolver.
     Runge-Kutta solver for the fast model.
     Default: `LSRK54CarpenterKennedy`
 """
-struct SplitExplicitSolverType{SM, FM, FT} <: AbstractSolverType
+struct SplitExplicitSolverType{SEM, SM, FM, FT} <: AbstractSolverType
+    # Function for a split explicit method
+    split_explicit_method::SEM
     # Function for an explicit Runge-Kutta method
     slow_method::SM
     # Function for an explicit Runge-Kutta method
@@ -37,11 +39,21 @@ struct SplitExplicitSolverType{SM, FM, FT} <: AbstractSolverType
         numImplSteps = 5,
         slow_method = LSRK54CarpenterKennedy,
         fast_method = LSRK54CarpenterKennedy,
+        split_explicit_method = SetupSplitExplicitLSRK2nSolver,
     ) where {FT <: AbstractFloat}
+        SEM = typeof(split_explicit_method)
         SM = typeof(slow_method)
         FM = typeof(fast_method)
 
-        return new{SM, FM, FT}(
+        println(split_explicit_method)
+        println(SEM)
+        println(slow_method)
+        println(SM)
+        println(fast_method)
+        println(FM)
+
+        return new{SEM, SM, FM, FT}(
+            split_explicit_method,
             slow_method,
             fast_method,
             dt_slow,
@@ -87,7 +99,7 @@ function solversetup(ode_solver::SplitExplicitSolverType, dg_3D, Q_3D, _, t0, _)
     slow_solver =
         ode_solver.slow_method(dg_3D, Q_3D, dt = ode_solver.dt_slow, t0 = t0)
 
-    solver = SplitExplicitLSRK2nSolver(
+    solver = ode_solver.split_explicit_method(
         slow_solver,
         fast_solver;
         add_fast_steps = ode_solver.add_fast_steps,

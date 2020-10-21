@@ -17,6 +17,9 @@ const FT = Float64
     tout = FT(1.5 * 3600) # s
     timespan = (tout, timeend)
 
+    dt_fast = 300 # seconds
+    dt_slow = 90 * 60 # seconds
+
     # DG polynomial order
     N = Int(4)
 
@@ -32,10 +35,12 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
+    #=
     BC = (
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     )
+
     config = SplitConfig(
         "spindown_bla",
         resolution,
@@ -45,22 +50,6 @@ const FT = Float64
         boundary_conditions = BC,
     )
 
-    #=
-    BC = (
-        ClimateMachine.Ocean.SplitExplicit01.OceanFloorFreeSlip(),
-        ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceNoStressNoForcing(),
-    )
-
-    config = SplitConfig(
-        "spindown_jmc",
-        resolution,
-        dimensions,
-        Coupled();
-        solver = SplitExplicitLSRK2nSolver,
-        boundary_conditions = BC,
-    )
-    =#
-
     run_split_explicit(
         config,
         timespan;
@@ -68,5 +57,41 @@ const FT = Float64
         dt_slow = 90 * 60, # seconds
         # refDat = refVals.ninety_minutes,
         analytic_solution = true,
+    )
+    =#
+
+    BC = (
+        ClimateMachine.Ocean.SplitExplicit01.OceanFloorFreeSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceNoStressNoForcing(),
+    )
+
+    solver = SplitExplicitSolverType{FT}(
+        dt_fast,
+        dt_slow;
+        add_fast_steps = 2,
+        numImplSteps = 5,
+        split_explicit_method = SetupSplitExplicitLSRK2nSolver,
+    )
+
+    println("yo")
+
+    config = SplitConfig(
+        "spindown_jmc",
+        resolution,
+        dimensions,
+        Coupled();
+        solver = solver,
+        boundary_conditions = BC,
+    )
+
+    println("yo")
+
+    run_split_explicit(
+        config,
+        timespan;
+        dt_fast = dt_fast,
+        dt_slow = dt_slow,
+        # refDat = refVals.ninety_minutes,
+        analytic_solution = false,
     )
 end

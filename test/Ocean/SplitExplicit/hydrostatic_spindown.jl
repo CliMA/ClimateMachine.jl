@@ -142,17 +142,17 @@ function setup_models(
 end
 
 function setup_models(
-    ::Type{SplitExplicitLSRK2nSolver},
+    solver::SplitExplicitSolverType{SEM},
     problem,
     grid_3D,
     grid_2D,
     param_set,
     _,
     dt_slow,
-)
-    add_fast_substeps = 2
-    numImplSteps = 5
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
+) where {SEM <: typeof(SetupSplitExplicitLSRK2nSolver)}
+
+    @show SEM
+
     model_3D = OceanModel{FT}(
         param_set,
         problem,
@@ -160,9 +160,6 @@ function setup_models(
         αᵀ = FT(0),
         κʰ = FT(0),
         κᶻ = FT(0),
-        add_fast_substeps = add_fast_substeps,
-        numImplSteps = numImplSteps,
-        ivdc_dt = ivdc_dt,
     )
 
     model_2D = BarotropicModel(model_3D)
@@ -177,6 +174,9 @@ function setup_models(
 
     Q_2D = init_ode_state(dg_2D, FT(0); init_on_cpu = true)
 
+    solver.numImplSteps > 0 ? ivdc_dt = solver.dt_slow / solver.numImplSteps :
+    ivdc_dt = solver.dt_slow
+
     dg_3D = OceanDGModel(
         model_3D,
         grid_3D,
@@ -184,6 +184,7 @@ function setup_models(
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         modeldata = (dg_2D, Q_2D),
+        ivdc_dt = ivdc_dt,
     )
 
     return dg_3D, dg_2D

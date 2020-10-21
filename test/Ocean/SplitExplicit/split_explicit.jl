@@ -63,10 +63,27 @@ function run_split_explicit(
 
     timeendlocal = timeend + t0
 
+    #=
     lsrk_3D = LSRK54CarpenterKennedy(config.dg_3D, Q_3D, dt = dt_slow, t0 = t0)
     lsrk_2D = LSRK54CarpenterKennedy(config.dg_2D, Q_2D, dt = dt_fast, t0 = t0)
 
-    odesolver = config.solver(lsrk_3D, lsrk_2D;)
+    odesolver = config.solver(
+        lsrk_3D, 
+        lsrk_2D;
+        add_fast_substeps = add_fast_substeps,
+        numImplSteps = numImplSteps,
+        ivdc_dt = ivdc_dt,
+    )
+    =#
+
+    odesolver = ClimateMachine.solversetup(
+        config.solver,
+        config.dg_3D,
+        Q_3D,
+        dt_slow,
+        t0,
+        nout,
+    )
 
     vtkstep = [restart, restart, restart + 1, restart + 1]
     cbvector = make_callbacks(
@@ -89,8 +106,6 @@ function run_split_explicit(
     norm(Q₀) = %.16e
     ArrayType = %s""" eng0 config.ArrayType
 
-    # slow fast state tuple
-    Qvec = (slow = Q_3D, fast = Q_2D)
     solve!(Q_3D, odesolver; timeend = timeendlocal, callbacks = cbvector)
 
     if analytic_solution
