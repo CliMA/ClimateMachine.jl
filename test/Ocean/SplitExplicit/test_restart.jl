@@ -16,7 +16,8 @@ const FT = Float64
     # simulation time
     timeend = FT(24 * 3600) # s
     tout = FT(3 * 3600) # s
-    timespan = (tout, timeend)
+    dt_fast = 300 # seconds
+    dt_slow = 90 * 60 # seconds
 
     # DG polynomial order
     N = Int(4)
@@ -33,17 +34,25 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    config = SplitConfig("test_restart", resolution, dimensions, Coupled())
+    solver = SplitExplicitSolverType{FT}(
+        SplitExplicitSolver,
+        dt_fast,
+        dt_slow;
+        add_fast_steps = 0,
+        numImplSteps = 0,
+    )
+
+    config = SplitConfig("test_restart", resolution, dimensions, solver)
 
     midpoint = timeend / 2
     timespan = (tout, midpoint)
 
-    run_split_explicit(config, timespan; dt_slow = 90 * 60)
+    run_split_explicit(config, midpoint, tout)
 
     run_split_explicit(
         config,
-        timespan;
-        dt_slow = 90 * 60,
+        midpoint,
+        tout;
         refDat = refVals.ninety_minutes,
         analytic_solution = true,
         restart = Int(midpoint / tout),

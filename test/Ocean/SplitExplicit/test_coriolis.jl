@@ -16,7 +16,8 @@ const FT = Float64
     # simulation time
     timeend = FT(15 * 24 * 3600) # s
     tout = FT(24 * 3600) # s
-    timespan = (tout, timeend)
+    dt_fast = 300 # seconds
+    dt_slow = 300 # seconds
 
     # DG polynomial order
     N = Int(4)
@@ -37,13 +38,21 @@ const FT = Float64
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     )
+
+    solver = SplitExplicitSolverType{FT}(
+        SplitExplicitSolver,
+        dt_fast,
+        dt_slow;
+        add_fast_steps = 0,
+        numImplSteps = 0,
+    )
+
     config = SplitConfig(
         "rotating_bla",
         resolution,
         dimensions,
-        Coupled(),
-        Rotating();
-        solver = SplitExplicitSolver,
+        solver;
+        rotation = Rotating(),
         boundary_conditions = BC,
     )
 
@@ -66,9 +75,8 @@ const FT = Float64
 
     run_split_explicit(
         config,
-        timespan,
-        dt_fast = 300,
-        dt_slow = 300, # 90 * 60,
+        timeend,
+        tout;
         # refDat = refVals.ninety_minutes,
         analytic_solution = true,
     )

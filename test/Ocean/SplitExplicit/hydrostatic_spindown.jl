@@ -4,14 +4,13 @@ function SplitConfig(
     name,
     resolution,
     dimensions,
-    coupling,
-    rotation = Fixed();
+    solver;
+    coupling = Coupled(),
+    rotation = Fixed(),
     boundary_conditions = (
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     ),
-    solver = SplitExplicitSolver,
-    dt_slow = 90 * 60,
 )
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
@@ -57,15 +56,8 @@ function SplitConfig(
         rotation = rotation,
     )
 
-    dg_3D, dg_2D = setup_models(
-        solver,
-        problem,
-        grid_3D,
-        grid_2D,
-        param_set,
-        coupling,
-        dt_slow,
-    )
+    dg_3D, dg_2D =
+        setup_models(solver, problem, grid_3D, grid_2D, param_set, coupling)
 
     return SplitConfig(name, dg_3D, dg_2D, solver, mpicomm, ArrayType)
 end
@@ -84,7 +76,6 @@ function setup_models(
     grid_2D,
     param_set,
     coupling,
-    dt_slow,
 )
 
     model_3D = HydrostaticBoussinesqModel{FT}(
@@ -156,7 +147,6 @@ function setup_models(
     grid_2D,
     param_set,
     coupling,
-    dt_slow,
 )
     model_3D = OceanModel{FT}(
         param_set,

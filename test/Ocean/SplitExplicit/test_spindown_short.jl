@@ -15,8 +15,6 @@ const FT = Float64
     # simulation time
     timeend = FT(24 * 3600) # s
     tout = FT(1.5 * 3600) # s
-    timespan = (tout, timeend)
-
     dt_fast = 300 # seconds
     dt_slow = 90 * 60 # seconds
 
@@ -52,8 +50,7 @@ const FT = Float64
         "spindown_bla",
         resolution,
         dimensions,
-        Coupled();
-        solver = solver,
+        solver;
         boundary_conditions = BC,
     )
 

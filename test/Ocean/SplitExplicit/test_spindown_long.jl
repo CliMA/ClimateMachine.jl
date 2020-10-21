@@ -16,7 +16,6 @@ const FT = Float64
     # simulation time
     timeend = FT(24 * 3600) # s
     tout = FT(3 * 3600) # s
-    timespan = (tout, timeend)
 
     # DG polynomial order
     N = Int(4)
@@ -34,24 +33,39 @@ const FT = Float64
     dimensions = (Lˣ, Lʸ, H)
 
     @testset "Single-Rate" begin
+        solver = SplitExplicitSolverType{FT}(
+            SplitExplicitSolver,
+            300,
+            300;
+            add_fast_steps = 0,
+            numImplSteps = 0,
+        )
+
         @testset "Not Coupled" begin
-            config =
-                SplitConfig("uncoupled", resolution, dimensions, Uncoupled())
+            config = SplitConfig(
+                "uncoupled",
+                resolution,
+                dimensions,
+                solver;
+                coupling = Uncoupled(),
+            )
 
             run_split_explicit(
                 config,
-                timespan,
+                timeend,
+                tout;
                 refDat = refVals.uncoupled,
                 analytic_solution = true,
             )
         end
 
         @testset "Fully Coupled" begin
-            config = SplitConfig("coupled", resolution, dimensions, Coupled())
+            config = SplitConfig("coupled", resolution, dimensions, solver)
 
             run_split_explicit(
                 config,
-                timespan,
+                timeend,
+                tout;
                 refDat = refVals.coupled,
                 analytic_solution = true,
             )
@@ -60,36 +74,63 @@ const FT = Float64
 
     @testset "Multi-rate" begin
         @testset "Δt = 30 mins" begin
-            config = SplitConfig("multirate", resolution, dimensions, Coupled())
+            solver = SplitExplicitSolverType{FT}(
+                SplitExplicitSolver,
+                300,
+                30 * 60;
+                add_fast_steps = 0,
+                numImplSteps = 0,
+            )
+
+            config =
+                SplitConfig("thirty_minutes", resolution, dimensions, solver)
 
             run_split_explicit(
                 config,
-                timespan,
-                dt_slow = 30 * 60,
+                timeend,
+                tout;
                 refDat = refVals.thirty_minutes,
                 analytic_solution = true,
             )
         end
 
         @testset "Δt = 60 mins" begin
-            config = SplitConfig("multirate", resolution, dimensions, Coupled())
+            solver = SplitExplicitSolverType{FT}(
+                SplitExplicitSolver,
+                300,
+                60 * 60;
+                add_fast_steps = 0,
+                numImplSteps = 0,
+            )
+
+            config =
+                SplitConfig("sixty_minutes", resolution, dimensions, solver)
 
             run_split_explicit(
                 config,
-                timespan,
-                dt_slow = 60 * 60,
+                timeend,
+                tout;
                 refDat = refVals.sixty_minutes,
                 analytic_solution = true,
             )
         end
 
         @testset "Δt = 90 mins" begin
-            config = SplitConfig("multirate", resolution, dimensions, Coupled())
+            solver = SplitExplicitSolverType{FT}(
+                SplitExplicitSolver,
+                300,
+                90 * 60;
+                add_fast_steps = 0,
+                numImplSteps = 0,
+            )
+
+            config =
+                SplitConfig("ninety_minutes", resolution, dimensions, solver)
 
             run_split_explicit(
                 config,
-                timespan,
-                dt_slow = 90 * 60,
+                timeend,
+                tout;
                 refDat = refVals.ninety_minutes,
                 analytic_solution = true,
             )
