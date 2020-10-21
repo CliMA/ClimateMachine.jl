@@ -590,6 +590,16 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
+  - label: "gpu_surface_fluxes"
+    key: "gpu_surface_fluxes"
+    command:
+      - "mpiexec julia --color=yes --project test/Common/SurfaceFluxes/runtests.jl --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
   - label: "gpu_thermodynamics"
     key: "gpu_thermodynamics"
     command:
