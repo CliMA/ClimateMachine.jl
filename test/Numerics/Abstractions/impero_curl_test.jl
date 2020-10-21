@@ -1,11 +1,14 @@
 using MPI
 using Test
+using LinearAlgebra
 using ClimateMachine
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.Diagnostics
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Abstractions
+
+import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 
 ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
@@ -53,6 +56,19 @@ let
     w = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 1, numelem)
     T = MPIStateArray{Float64}(mpicomm, ArrayType, Np^dim, 1, numelem)
 
+    # the i stands for "impero"
+    # TODO: move to Abstractions directory
+    @wrapper iu=u iv=v iw=w ivelocity=(u,v,w)
+    ∇op = vector_grad_closure(grid)
+    ∇ = Operator(nothing, OperatorMetaData(∇op, "∇"))
+    curlop = curl_closure(grid)
+    curl = Operator(nothing, OperatorMetaData(curlop, "∇×"))
+    divop = div_closure(grid)
+    div = Operator(nothing, OperatorMetaData(divop, "∇⋅"))
+    ×(o::Operator, a::AbstractExpression) = curl(a)
+    ⋅(o::Operator, a::AbstractExpression) = div(a)
+
+
     ∇u = Diagnostics.VectorGradient(grid, u, 1)
     ∇v = Diagnostics.VectorGradient(grid, v, 1)
     ∇w = Diagnostics.VectorGradient(grid, w, 1)
@@ -67,7 +83,22 @@ let
     vort = Diagnostics.Vorticity(grid, vgrad)
 
     @testset "curl check" begin
-        @test vort == Abstractions.curl(grid, Q)
+        @test isapprox(norm(vort.data),
+                       norm(Abstractions.curl(grid, Q)))
     end
+
+    norm(compute(∇(iu)) - ∇u)
+    curl(ivelocity)
+    norm(compute(curl(ivelocity)).data - vort.data)
+
+    # div grad curl
+    ∇⋅ivelocity
+    ∇(ivelocity)
+    ∇×ivelocity
+
+    # check that norms are zero in this case
+    norm(compute(∇⋅ivelocity))
+    norm(compute(∇×ivelocity).data - compute(curl(ivelocity)).data)
+    computed_grad = compute(∇(ivelocity))
 
 end
