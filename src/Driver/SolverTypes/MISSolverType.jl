@@ -206,7 +206,7 @@ function solversetup(
         fast_dg = (fast_dg_h, fast_dg_v)
         if length(ode_solver.nsubsteps) == 1
             nsubsteps = getnsubsteps(
-                Symbol(ode_solver.mis_method),
+                ode_solver.mis_method,
                 ode_solver.nsubsteps[1],
                 real(eltype(Q)),
             )
