@@ -157,6 +157,8 @@ mutable struct MultirateInfinitesimalStep{
             if i > 1
                 c[i] += sum(j -> (α[i, j] + γ[i, j]) * c[j], 1:(i - 1))
             end
+            β[i,:] ./= d[i]
+            γ[i,:] ./= d[i]
         end
         c̃ = α * c
 
@@ -357,12 +359,12 @@ end
             ΔYnj[i - 2][e] = Q[e] - yn[e] # is 0 for i == 2
         end
         Q[e] = yn[e] # (1a)
-        offset[e] = (βi[1] / d_i) .* fYnj[1][e] # (1b)
+        offset[e] = βi[1] .* fYnj[1][e] # (1b)
         @unroll for j in 2:(i - 1)
             Q[e] += αi[j] .* ΔYnj[j - 1][e] # (1a cont.)
             offset[e] +=
-                (γi[j] / (d_i * dt)) * ΔYnj[j - 1][e] +
-                (βi[j] / d_i) * fYnj[j][e] # (1b cont.)
+                (γi[j] / dt) * ΔYnj[j - 1][e] +
+                βi[j] * fYnj[j][e] # (1b cont.)
         end
     end
 end
