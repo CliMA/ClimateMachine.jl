@@ -899,12 +899,15 @@ end
 """
     supersaturation(param_set, q, ρ, T, Liquid())
     supersaturation(param_set, q, ρ, T, Ice())
+    supersaturation(ts, Ice())
+    supersaturation(ts, Liquid())
 
  - `param_set` - abstract set with earth parameters
  - `q` - phase partition
  - `ρ` - air density,
  - `T` - air temperature
  - `Liquid()`, `Ice()` - liquid or ice phase to dispatch over.
+ - `ts` thermodynamic state
 
 Returns supersaturation (qv/qv_sat -1) over water or ice.
 """
@@ -934,6 +937,13 @@ function supersaturation(
 
     return q_vap / q_sat - FT(1)
 end
+supersaturation(ts::ThermodynamicState, phase::Phase) = supersaturation(
+    ts.param_set,
+    PhasePartition(ts),
+    air_density(ts),
+    air_temperature(ts),
+    phase,
+)
 
 """
     saturation_excess(param_set, T, ρ, phase_type, q::PhasePartition)
