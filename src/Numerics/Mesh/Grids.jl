@@ -222,16 +222,27 @@ struct DiscontinuousSpectralElementGrid{
             topology.nabrtosend,
         )
 
+        Np = prod(N .+ 1)
+
+        # Create element operators for each polynomial order
+        ξω = ntuple(j -> Elements.lglpoints(FloatType, N[j]), dim)
+        ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+
+        Imat = ntuple(
+            j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
+            dim,
+        )
+        D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+
+        (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
+
         # temporarily make single polynomial order
         @assert all(N[1] .== N)
         N = N[1]
+        D = D[1]
+        ω = ω[1]
+        Imat = Imat[1]
 
-        (ξ, ω) = Elements.lglpoints(FloatType, N)
-        Imat = indefinite_integral_interpolation_matrix(ξ, ω)
-        D = Elements.spectralderivative(ξ)
-
-        (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
-        Np = (N + 1)^dim
         @assert Np == size(vgeo, 1)
 
         activedofs = zeros(Bool, Np * length(topology.elems))
@@ -565,15 +576,16 @@ function computegeometry(
     vmap⁻,
 ) where {dim}
     # Compute metric terms
-    Nq = size(D, 1)
-    FT = eltype(D)
+    Nq = ntuple(j -> size(D[j], 1), dim)
+    Np = prod(Nq)
+    Nfp = div.(Np, Nq)
+
+    FT = eltype(D[1])
 
     (nface, nelem) = size(topology.elemtoelem)
 
-    # crd = creategrid(Val(dim), elemtocoord(topology), ξ)
-
-    vgeo = zeros(FT, Nq^dim, _nvgeo, nelem)
-    sgeo = zeros(FT, _nsgeo, Nq^(dim - 1), nface, nelem)
+    vgeo = zeros(FT, Np, _nvgeo, nelem)
+    sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
 
     (
         ξ1x1,
@@ -598,7 +610,7 @@ function computegeometry(
     sJ = similar(sMJ)
 
     X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-    Metrics.creategrid!(X..., topology.elemtocoord, ξ)
+    Metrics.creategrid!(X..., topology.elemtocoord, ξ...)
 
     @inbounds for j in 1:length(x1)
         (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
@@ -606,9 +618,21 @@ function computegeometry(
 
     # Compute the metric terms
     if dim == 1
-        Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D)
+        Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D...)
     elseif dim == 2
-        Metrics.computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
+        Metrics.computemetric!(
+            x1,
+            x2,
+            J,
+            ξ1x1,
+            ξ2x1,
+            ξ1x2,
+            ξ2x2,
+            sJ,
+            n1,
+            n2,
+            D...,
+        )
     elseif dim == 3
         Metrics.computemetric!(
             x1,
@@ -628,18 +652,24 @@ function computegeometry(
             n1,
             n2,
             n3,
-            D,
+            D...,
         )
     end
 
-    M = kron(1, ntuple(j -> ω, dim)...)
+    M = kron(1, ntuple(j -> ω[j], dim)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
     vMJI .= MJI[vmap⁻]
 
-    MH = kron(ones(FT, Nq), ntuple(j -> ω, dim - 1)...)
+    MH = kron(ones(FT, Nq[dim]), ntuple(j -> ω[j], dim - 1)...)
 
-    sM = dim > 1 ? kron(1, ntuple(j -> ω, dim - 1)...) : one(FT)
+    sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
+    for d in 1:dim
+        for f in (2d - 1):(2d)
+            sM[1:Nfp[d], f] = dim > 1 ?
+                kron(1, ntuple(j -> ω[mod1(d + j, dim)], dim - 1)...) : one(FT)
+        end
+    end
     sMJ .= sM .* sJ
 
     # Compute |r'(ξ3)| for vertical line integrals
