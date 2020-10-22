@@ -43,7 +43,7 @@ function DiscontinuousSpectralElementGrid(Ω::ProductDomain; elements = nothing,
     end
 
     if !prod([polynomialorder[i]==polynomialorder[1] for i in eachindex(polynomialorder)])
-        error_message = "The polynomial order must be the same in each dimension, e.g., (3,3,3)."
+        error_message = "The polynomial order must be the same in each dimension, e.g., (2,2,2) for 3 dimensions."
         @error(error_message)
         return nothing
     end
