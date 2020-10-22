@@ -583,3 +583,21 @@ Establishing single stack configuration for %s
         SingleStackSpecificInfo(),
     )
 end
+
+import ..DGMethods: DGModel
+
+"""
+    DGModel(driver_config; kwargs...)
+
+Initialize a [`DGModel`](@ref) given a
+[`DriverConfiguration`](@ref) and keyword
+arguments supported by [`DGModel`](@ref).
+"""
+DGModel(driver_config; kwargs...) = DGModel(
+    driver_config.bl,
+    driver_config.grid,
+    driver_config.numerical_flux_first_order,
+    driver_config.numerical_flux_second_order,
+    driver_config.numerical_flux_gradient;
+    kwargs...,
+)

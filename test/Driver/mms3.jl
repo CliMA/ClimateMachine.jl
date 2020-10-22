@@ -181,13 +181,7 @@ function main()
     ClimateMachine.invoke!(solver_config)
 
     # test correctness
-    dg = DGModel(
-        model,
-        grid,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-    )
+    dg = DGModel(driver_config)
     Qe = init_ode_state(dg, timeend)
     result = euclidean_distance(Q₀, Qe)
     @test result ≈ expected_result

@@ -101,9 +101,6 @@ function SolverConfiguration(
 
     bl = driver_config.bl
     grid = driver_config.grid
-    numerical_flux_first_order = driver_config.numerical_flux_first_order
-    numerical_flux_second_order = driver_config.numerical_flux_second_order
-    numerical_flux_gradient = driver_config.numerical_flux_gradient
 
     # Create the DG model and initialize the ODE state. If we're restarting,
     # use state data from the checkpoint.
@@ -124,11 +121,7 @@ function SolverConfiguration(
             dg.state_auxiliary .= state_auxiliary
         else
             dg = DGModel(
-                bl,
-                grid,
-                numerical_flux_first_order,
-                numerical_flux_second_order,
-                numerical_flux_gradient;
+                driver_config;
                 state_auxiliary = state_auxiliary,
                 direction = direction,
                 diffusion_direction = diffdir,
@@ -147,11 +140,7 @@ function SolverConfiguration(
             dg = driver_config.config_info.dg
         else
             dg = DGModel(
-                bl,
-                grid,
-                numerical_flux_first_order,
-                numerical_flux_second_order,
-                numerical_flux_gradient;
+                driver_config;
                 fill_nan = Settings.debug_init,
                 direction = direction,
                 diffusion_direction = diffdir,
