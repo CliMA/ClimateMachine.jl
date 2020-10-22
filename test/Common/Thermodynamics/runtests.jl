@@ -1032,6 +1032,8 @@ end
         @test typeof.(exner.(ts)) == typeof.(e_int)
         @test typeof.(liquid_ice_pottemp_sat.(ts)) == typeof.(e_int)
         @test typeof.(specific_volume.(ts)) == typeof.(e_int)
+        @test typeof.(supersaturation.(ts, Ice())) == typeof.(e_int)
+        @test typeof.(supersaturation.(ts, Liquid())) == typeof.(e_int)
         @test typeof.(virtual_pottemp.(ts)) == typeof.(e_int)
         @test eltype.(gas_constants.(ts)) == typeof.(e_int)
 
@@ -1077,6 +1079,10 @@ end
     @test all(internal_energy.(ts_eq) .≈ internal_energy.(ts_dry))
     @test all(internal_energy_sat.(ts_eq) .≈ internal_energy_sat.(ts_dry))
     @test all(soundspeed_air.(ts_eq) .≈ soundspeed_air.(ts_dry))
+    @test all(supersaturation.(ts_eq, Ice()) .≈ supersaturation.(ts_dry, Ice()))
+    @test all(
+        supersaturation.(ts_eq, Liquid()) .≈ supersaturation.(ts_dry, Liquid()),
+    )
     @test all(latent_heat_vapor.(ts_eq) .≈ latent_heat_vapor.(ts_dry))
     @test all(latent_heat_sublim.(ts_eq) .≈ latent_heat_sublim.(ts_dry))
     @test all(latent_heat_fusion.(ts_eq) .≈ latent_heat_fusion.(ts_dry))
@@ -1094,12 +1100,12 @@ end
     @test all(exner.(ts_eq) .≈ exner.(ts_dry))
 
     @test all(
-        saturation_vapor_pressure.(ts_eq, Ref(Ice())) .≈
-        saturation_vapor_pressure.(ts_dry, Ref(Ice())),
+        saturation_vapor_pressure.(ts_eq, Ice()) .≈
+        saturation_vapor_pressure.(ts_dry, Ice()),
     )
     @test all(
-        saturation_vapor_pressure.(ts_eq, Ref(Liquid())) .≈
-        saturation_vapor_pressure.(ts_dry, Ref(Liquid())),
+        saturation_vapor_pressure.(ts_eq, Liquid()) .≈
+        saturation_vapor_pressure.(ts_dry, Liquid()),
     )
     @test all(first.(gas_constants.(ts_eq)) ≈ first.(gas_constants.(ts_dry)))
     @test all(last.(gas_constants.(ts_eq)) ≈ last.(gas_constants.(ts_dry)))

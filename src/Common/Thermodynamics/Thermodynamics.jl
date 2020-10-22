@@ -57,5 +57,6 @@ include("relations.jl")
 include("isentropic.jl")
 
 Base.broadcastable(dap::DryAdiabaticProcess) = Ref(dap)
+Base.broadcastable(phase::Phase) = Ref(phase)
 
 end #module Thermodynamics.jl
