@@ -674,7 +674,8 @@ end
         commfaces .= false
         nabrtocomm = [1:2, 3:3]
 
-        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+        vmapC, nabrtovmapC =
+            commmapping(ntuple(j -> N, d), commelems, commfaces, nabrtocomm)
 
         @test vmapC == Int[]
         @test nabrtovmapC == UnitRange{Int64}[1:0, 1:0]
@@ -694,12 +695,14 @@ end
         ])
         nabrtocomm = [1:2, 3:3]
 
-        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+        vmapC, nabrtovmapC =
+            commmapping(ntuple(j -> N, d), commelems, commfaces, nabrtocomm)
 
         @test vmapC == [5, 6, 8, 19, 20]
         @test nabrtovmapC == UnitRange{Int64}[1:3, 4:5]
     end
 
+    # 2D, single polynomial order
     let
         N = 2
         d = 2
@@ -714,12 +717,55 @@ end
         ])
         nabrtocomm = [1:1, 2:3]
 
-        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+        vmapC, nabrtovmapC =
+            commmapping(ntuple(j -> N, d), commelems, commfaces, nabrtocomm)
 
         @test vmapC == [10, 13, 16, 28, 29, 30, 31, 34, 37, 38, 39, 43, 44, 45]
         @test nabrtovmapC == UnitRange{Int64}[1:3, 4:14]
     end
 
+    # 2D, multiple polynomial orders
+    let
+        N = (2, 3)
+        Np = prod(N .+ 1)
+        d = length(N)
+        nface = 2d
+
+        commelems = [2, 4, 5]
+        #! format: off
+        commfaces = BitArray([
+             true  true false false # faces of commelems[1] to send
+            false false false  true # faces of commelems[2] to send
+             true false false  true # faces of commelems[3] to send
+        ]')
+        #! format: on
+        nabrtocomm = [1:1, 2:3]
+        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+        @test vmapC == [
+            (commelems[1] - 1) * Np + 1
+            (commelems[1] - 1) * Np + 3
+            (commelems[1] - 1) * Np + 4
+            (commelems[1] - 1) * Np + 6
+            (commelems[1] - 1) * Np + 7
+            (commelems[1] - 1) * Np + 9
+            (commelems[1] - 1) * Np + 10
+            (commelems[1] - 1) * Np + 12
+            (commelems[2] - 1) * Np + 10
+            (commelems[2] - 1) * Np + 11
+            (commelems[2] - 1) * Np + 12
+            (commelems[3] - 1) * Np + 1
+            (commelems[3] - 1) * Np + 4
+            (commelems[3] - 1) * Np + 7
+            (commelems[3] - 1) * Np + 10
+            (commelems[3] - 1) * Np + 11
+            (commelems[3] - 1) * Np + 12
+        ]
+
+        @test nabrtovmapC == UnitRange{Int64}[1:8, 9:17]
+    end
+
+    # 3D, single polynomial order
     let
         N = 2
         d = 3
@@ -736,79 +782,64 @@ end
         ])
         nabrtocomm = [1:1, 2:4]
 
+        vmapC, nabrtovmapC =
+            commmapping(ntuple(j -> N, d), commelems, commfaces, nabrtocomm)
+
+        #! format: off
+        @test vmapC == [
+            55, 58, 61, 64, 67, 70, 73, 76, 79, 82, 83, 84, 85, 86, 87, 88, 89,
+            90, 91, 92, 93, 94, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105,
+            106, 107, 108, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172,
+            175, 178, 181, 184, 187, 217, 218, 219, 220, 221, 222, 223, 224,
+            225, 235, 236, 237, 238, 239, 240, 241, 242, 243,
+        ]
+        #! format: on
+        @test nabrtovmapC == UnitRange{Int64}[1:9, 10:68]
+    end
+
+    # 3D, multiple polynomial order
+    let
+        N = (2, 3, 4)
+        Nq = N .+ 1
+        Np = prod(Nq)
+        d = length(N)
+        nface = 2d
+
+        commelems = [3, 4, 7, 9]
+        commfaces = BitArray([
+            true true true false
+            false true false false
+            false true false false
+            false true false false
+            false true true true
+            false true false true
+        ])
+
+        p = reshape(1:Np, ntuple(j -> Nq[j], d))
+        fmask = (
+            p[1, :, :][:],     # Face 1
+            p[Nq[1], :, :][:], # Face 2
+            p[:, 1, :][:],     # Face 3
+            p[:, Nq[2], :][:], # Face 4
+            p[:, :, 1][:],     # Face 5
+            p[:, :, Nq[3]][:], # Face 6
+        )
+
+        nabrtocomm = [1:1, 2:4]
+
         vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
 
-        @test vmapC == [
-            55,
-            58,
-            61,
-            64,
-            67,
-            70,
-            73,
-            76,
-            79,
-            82,
-            83,
-            84,
-            85,
-            86,
-            87,
-            88,
-            89,
-            90,
-            91,
-            92,
-            93,
-            94,
-            96,
-            97,
-            98,
-            99,
-            100,
-            101,
-            102,
-            103,
-            104,
-            105,
-            106,
-            107,
-            108,
-            163,
-            164,
-            165,
-            166,
-            167,
-            168,
-            169,
-            170,
-            171,
-            172,
-            175,
-            178,
-            181,
-            184,
-            187,
-            217,
-            218,
-            219,
-            220,
-            221,
-            222,
-            223,
-            224,
-            225,
-            235,
-            236,
-            237,
-            238,
-            239,
-            240,
-            241,
-            242,
-            243,
+        #! format: off
+        @test vmapC == 
+        [
+         sort(unique(vcat(fmask[commfaces[:, 1]]...))) .+ (commelems[1] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 2]]...))) .+ (commelems[2] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 3]]...))) .+ (commelems[3] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 4]]...))) .+ (commelems[4] - 1) *Np
         ]
-        @test nabrtovmapC == UnitRange{Int64}[1:9, 10:68]
+        #! format: on
+
+        @test nabrtovmapC == UnitRange{Int64}[1:20, 21:126]
     end
 
 end

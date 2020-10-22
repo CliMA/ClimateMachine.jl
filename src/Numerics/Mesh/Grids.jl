@@ -209,10 +209,6 @@ struct DiscontinuousSpectralElementGrid{
             topology.elemtoordr,
         )
 
-        # temporarily make single polynomial order
-        @assert all(N[1] .== N)
-        N = N[1]
-
         (vmaprecv, nabrtovmaprecv) = commmapping(
             N,
             topology.ghostelems,
@@ -225,6 +221,10 @@ struct DiscontinuousSpectralElementGrid{
             topology.sendfaces,
             topology.nabrtosend,
         )
+
+        # temporarily make single polynomial order
+        @assert all(N[1] .== N)
+        N = N[1]
 
         (ξ, ω) = Elements.lglpoints(FloatType, N)
         Imat = indefinite_integral_interpolation_matrix(ξ, ω)
@@ -493,9 +493,9 @@ end
 """
    commmapping(N, commelems, commfaces, nabrtocomm)
 
-This function takes in a polynomial order `N` and parts of a mesh (as returned
-from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`) and
-returns index mappings for the element surface flux parallel communcation.
+This function takes in a tuple of polynomial orders `N` and parts of a mesh (as
+returned from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`)
+and returns index mappings for the element surface flux parallel communcation.
 The returned `Tuple` contains:
 
  - `vmapC` an array of linear indices into the volume degrees of freedom to be
@@ -509,8 +509,8 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
     @assert nelem == length(commelems)
 
     d = div(nface, 2)
-    Nq = N + 1
-    Np = (N + 1)^d
+    Nq = N .+ 1
+    Np = prod(Nq)
 
     vmapC = similar(commelems, nelem * Np)
     nabrtovmapC = similar(nabrtocomm)
@@ -528,13 +528,13 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
             #   i += 1
             # end
 
-            CI = CartesianIndices(ntuple(_ -> 1:Nq, d))
+            CI = CartesianIndices(ntuple(j -> 1:Nq[j], d))
             for (ci, li) in zip(CI, LinearIndices(CI))
                 addpoint = false
                 for j in 1:d
                     addpoint |=
                         (commfaces[2 * (j - 1) + 1, e] && ci[j] == 1) ||
-                        (commfaces[2 * (j - 1) + 2, e] && ci[j] == Nq)
+                        (commfaces[2 * (j - 1) + 2, e] && ci[j] == Nq[j])
                 end
 
                 if addpoint
