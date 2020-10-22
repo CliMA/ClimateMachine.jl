@@ -1,10 +1,10 @@
 # This file is machine-generated - editing it directly is not advised
 
 [[AbstractAlgebra]]
-deps = ["InteractiveUtils", "LinearAlgebra", "Markdown", "Random", "SparseArrays", "Test"]
-git-tree-sha1 = "8fa03ecf25341ff3e8fb301dba3f41c6fe09952e"
+deps = ["InteractiveUtils", "LinearAlgebra", "Markdown", "Random", "RandomExtensions", "SparseArrays", "Test"]
+git-tree-sha1 = "b861cb913bc7e2e52e93bb9ad3def00bbd658889"
 uuid = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
-version = "0.10.0"
+version = "0.11.0"
 
 [[AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -305,9 +305,9 @@ version = "0.25.2"
 
 [[DocumenterTools]]
 deps = ["Base64", "DocStringExtensions", "Documenter", "FileWatching", "LibGit2", "Sass"]
-git-tree-sha1 = "6fa30234228d9020cbe31e393e9d183e944845bb"
+git-tree-sha1 = "58952158c0fda2241761abd96a039ca13aa83c82"
 uuid = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
-version = "0.1.7"
+version = "0.1.8"
 
 [[DoubleFloats]]
 deps = ["GenericSVD", "GenericSchur", "LinearAlgebra", "Polynomials", "Printf", "Quadmath", "Random", "Requires", "SpecialFunctions"]
@@ -489,8 +489,8 @@ uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 version = "0.8.19"
 
 [[Impero]]
-deps = ["BenchmarkTools", "Documenter", "DocumenterTools", "GraphRecipes", "LinearAlgebra", "Plots", "Revise", "SymbolicUtils"]
-git-tree-sha1 = "5fcb6ff01f01a04e2b5a689ae78554963216d573"
+deps = ["BenchmarkTools", "Documenter", "DocumenterTools", "GraphRecipes", "LinearAlgebra", "Plots", "Printf", "Revise", "SymbolicUtils"]
+git-tree-sha1 = "4a83e5ff32d8a2e211e04f0db31e4a95feb425c7"
 repo-rev = "master"
 repo-url = "https://github.com/CliMA/Impero.jl.git"
 uuid = "6b9fe585-d366-4829-9dfa-295221ce217c"
@@ -569,9 +569,9 @@ version = "0.21.1"
 
 [[JuliaInterpreter]]
 deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "5b9b328eeea7bb85caca1576c15041e8faeb9041"
+git-tree-sha1 = "8f1c59bbca30b0d293f4b2436af49ef4c9c4d601"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.8.1"
+version = "0.8.2"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "CUDA", "Cassette", "InteractiveUtils", "MacroTools", "SpecialFunctions", "StaticArrays", "UUIDs"]
@@ -921,6 +921,12 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[[RandomExtensions]]
+deps = ["Random", "SparseArrays", "Test"]
+git-tree-sha1 = "a1f5f900aaf39849bd59efcf751df79f1179bb73"
+uuid = "fb686558-2515-59ef-acaa-46db3789a887"
+version = "0.4.2"
+
 [[Ratios]]
 git-tree-sha1 = "37d210f612d70f3f7d57d488cb3b6eff56ad4e41"
 uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
@@ -963,9 +969,9 @@ version = "1.1.0"
 
 [[Revise]]
 deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "f0ba1f1f62dccae6e69f2ff99cba667ff1f0a410"
+git-tree-sha1 = "bfe3d98de018f96d472029b00f6a14478a042171"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.1.5"
+version = "3.1.6"
 
 [[Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -1096,9 +1102,9 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[SymbolicUtils]]
 deps = ["AbstractAlgebra", "Combinatorics", "DataStructures", "NaNMath", "SpecialFunctions", "TimerOutputs"]
-git-tree-sha1 = "3cd0b83054bd456ac5c8740900ef4d1f830462c0"
+git-tree-sha1 = "4003d7cd9e785a3f15f36acdbf63ad75bb80d4e8"
 uuid = "d1185830-fcd6-423d-90d6-eec64667417b"
-version = "0.5.1"
+version = "0.6.0"
 
 [[TableTraits]]
 deps = ["IteratorInterfaceExtensions"]
