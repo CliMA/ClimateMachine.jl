@@ -1,4 +1,5 @@
 using ClimateMachine.VariableTemplates: Vars, Grad, @vars
+using ClimateMachine.BalanceLaws: number_state_conservative
 import ClimateMachine.BalanceLaws:
     BalanceLaw,
     vars_state_auxiliary,
@@ -10,8 +11,10 @@ import ClimateMachine.BalanceLaws:
     init_state_conservative!,
     state_to_entropy,
     boundary_state!,
+    wavespeed,
+    flux_first_order!,
     source!
-using StaticArrays: SVector
+using StaticArrays
 using LinearAlgebra: dot, I
 using ClimateMachine.DGMethods.NumericalFluxes: NumericalFluxFirstOrder
 import ClimateMachine.DGMethods.NumericalFluxes:
@@ -19,7 +22,8 @@ import ClimateMachine.DGMethods.NumericalFluxes:
     numerical_volume_conservative_flux_first_order!,
     numerical_volume_fluctuation_flux_first_order!,
     ave,
-    logave
+    logave,
+    numerical_flux_first_order!
 using ClimateMachine.Orientations:
     Orientation, FlatOrientation, SphericalOrientation
 using ClimateMachine.Atmos: NoReferenceState
@@ -175,6 +179,45 @@ function init_state_auxiliary!(
     state_auxiliary.ref_state.p = p
     state_auxiliary.ref_state.ρ = ρ
     state_auxiliary.ref_state.ρe = totalenergy(ρ, ρu, p, Φ)
+end
+
+@inline function flux_first_order!(
+    m::DryAtmosModel,
+    flux::Grad,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    ρ = state.ρ
+    ρinv = 1 / ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    u = ρinv * ρu
+    Φ = aux.Φ
+    
+    p = pressure(ρ, ρu, ρe, Φ)
+
+    flux.ρ = ρ * u
+    flux.ρu = p * I + ρ * u .* u'
+    flux.ρe = u * (state.ρe + p)
+end
+
+function wavespeed(::DryAtmosModel,
+                   nM,
+                   state::Vars,
+                   aux::Vars,
+                   t::Real,
+                   direction)
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  Φ = aux.Φ
+  p = pressure(ρ, ρu, ρe, Φ)
+
+  u = ρu / ρ
+  uN = abs(dot(nM, u))
+  return uN + soundspeed(ρ, p)
 end
 
 """
@@ -428,4 +471,71 @@ function source!(
     Base.@_inline_meta
     source!(m, m.sources[s], source, state_conservative, state_auxiliary)
   end
+end
+
+
+struct EntropyConservativeWithPenalty <: NumericalFluxFirstOrder end
+function numerical_flux_first_order!(
+    numerical_flux::EntropyConservativeWithPenalty,
+    balance_law::BalanceLaw,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    FT = eltype(fluxᵀn)
+    #num_state_conservative = number_state_conservative(balance_law, FT)
+    #flux = similar(fluxᵀn, Size(3, num_state_conservative))
+    #numerical_volume_conservative_flux_first_order!(
+    #    EntropyConservative(),
+    #    balance_law,
+    #    Grad{S}(flux),
+    #    state_conservative⁻,
+    #    state_auxiliary⁻,
+    #    state_conservative⁺,
+    #    state_auxiliary⁺,
+    #)
+    #fluxᵀn .= flux' * normal_vector
+
+    numerical_flux_first_order!(
+        EntropyConservative(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+    fluxᵀn = parent(fluxᵀn)
+
+    wavespeed⁻ = wavespeed(
+        balance_law,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        t,
+        direction,
+    )
+    wavespeed⁺ = wavespeed(
+        balance_law,
+        normal_vector,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+    max_wavespeed = max.(wavespeed⁻, wavespeed⁺)
+    penalty =
+        max_wavespeed .*
+        (parent(state_conservative⁻) - parent(state_conservative⁺))
+
+    fluxᵀn .+= penalty / 2
 end
