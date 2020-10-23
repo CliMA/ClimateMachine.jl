@@ -77,7 +77,7 @@ if haskey(opts, :help)
     exit(0)
 end
 if isempty(ARGS)
-    filenames = readlines(`git diff --name-only --diff-filter=AM master`)
+    filenames = readlines(`git diff --name-only --diff-filter=AMRC master`)
     filter!(f -> endswith(f, ".jl"), filenames)
 else
     filenames = ARGS
