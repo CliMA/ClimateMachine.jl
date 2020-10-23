@@ -44,8 +44,13 @@ Download the `ClimateMachine`
 $ git clone https://github.com/CliMA/ClimateMachine.jl
 ```
 
-Now change into the `ClimateMachine.jl` directory and install all the packages
-required with:
+Now change into the `ClimateMachine.jl` directory with 
+
+```
+$ cd ClimateMachine.jl
+```
+
+and install all the required packages with:
 
 ```
 $ julia --project -e 'using Pkg; pkg"instantiate"; pkg"build MPI"'
