@@ -27,13 +27,13 @@ result (a KernelAbstraction's `Event`).
 """
 function traverse_mesh end
 
-traverse_mesh(f!::F!, tp::Pointwise, m, Q, dg; execute = true) where {F!} =
-    traverse_mesh(f!, tp, dg.grid, m,
-        (
-            (Q, Prognostic()),
-            (dg.state_auxiliary.data, Auxiliary()),
-            (dg.state_gradient_flux.data, GradientFlux()),
-        ); execute = execute)
+# traverse_mesh(f!::F!, tp::Pointwise, m, Q, dg; execute = true) where {F!} =
+#     traverse_mesh(f!, tp, dg.grid, m,
+#         (
+#             (Q, Prognostic()),
+#             (dg.state_auxiliary.data, Auxiliary()),
+#             (dg.state_gradient_flux.data, GradientFlux()),
+#         ); execute = execute)
 
 """
 # Example: state manipulation (for example, non-conserving filters)

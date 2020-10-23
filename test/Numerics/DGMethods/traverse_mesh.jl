@@ -18,6 +18,10 @@ using ClimateMachine.BalanceLaws:
     BalanceLaw, Auxiliary, Prognostic, Gradient, GradientFlux
 import ClimateMachine.BalanceLaws: vars_state, init_state_prognostic!
 
+const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+include(joinpath(clima_dir, "src", "Numerics", "DGMethods", "traverse_mesh.jl"))
+include(joinpath(clima_dir, "src", "Numerics", "DGMethods", "traverse_mesh_kernels.jl"))
+
 struct EmptyBalLaw{FT, PS} <: BalanceLaw
     "Parameters"
     param_set::PS
@@ -47,7 +51,6 @@ function traverse_mesh_kernel!(bl, state, aux)
     aux.y = 1
     aux.z = 1
     state.ρ = 1
-    @show state.ρ
 end
 
 function main()
@@ -94,7 +97,6 @@ function main()
     vs = vars_state(m, Prognostic(), FT)
     i_ρ = varsindex(vs, :ρ)
     @show [Q[:,i_ρ,:]...]
-    @show [dg.state_auxiliary...]
     @show BalanceLaws.number_states(m, Auxiliary())
     @show BalanceLaws.number_states(m, Prognostic())
     @test all(Q[:,i_ρ,:] .≈ 1)

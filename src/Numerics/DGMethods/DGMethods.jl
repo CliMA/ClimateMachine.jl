@@ -60,8 +60,8 @@ include("NumericalFluxes.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
 include("create_states.jl")
-include("traverse_mesh.jl")
-include("traverse_mesh_kernels.jl")
+# include("traverse_mesh.jl")
+# include("traverse_mesh_kernels.jl")
 
 """
     calculate_dt(dg, model, Q, Courant_number, direction, t)
