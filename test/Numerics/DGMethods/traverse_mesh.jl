@@ -93,13 +93,24 @@ function main()
         (Prognostic(), Q.data),
         (Auxiliary(), dg.state_auxiliary.data),
         )
-    traverse_mesh(traverse_mesh_kernel!, Pointwise(), driver_config.grid, m, states...)
+    grid = driver_config.grid
+
+    traverse_mesh(traverse_mesh_kernel!, Pointwise(), grid, m, states...)
+
+    # traverse_mesh(Pointwise(), grid, m, states...) do bl, state, aux
+    #     aux.x = 1
+    #     aux.y = 1
+    #     aux.z = 1
+    #     state.ρ = 1
+    # end
+
     vs = vars_state(m, Prognostic(), FT)
     i_ρ = varsindex(vs, :ρ)
-    @show [Q[:,i_ρ,:]...]
+    Q_a = Array(Q)
+    @show [Q_a[:,i_ρ,:]...]
     @show BalanceLaws.number_states(m, Auxiliary())
     @show BalanceLaws.number_states(m, Prognostic())
-    @test all(Q[:,i_ρ,:] .≈ 1)
+    @test all(Q_a[:,i_ρ,:] .≈ 1)
 
 end
 main()
