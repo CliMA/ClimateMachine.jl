@@ -196,7 +196,7 @@ let
 
                         @info "Array FT nhorz nvert poly τ" (ArrayType, FT, base_num_elem, vert_num_elem, polynomialorder, τ)
                         result = run(mpicomm, ArrayType, dim, topl,
-                                    polynomialorder, FT, direction, τ*3600, 5,4 )
+                                    polynomialorder, FT, direction, τ*3600, 24, 21 )
 
                         @test result < 5e-2
 
