@@ -53,7 +53,15 @@ function get_spectrum(mpicomm, mpirank, Q, bl, interpol, nor)
         w = all_state_data[:, :, :, 4] ./ all_state_data[:, :, :, 1]
         x1 = Array(interpol.x1g)
         d = length(x1)
-        s, k = power_spectrum_3d(AtmosLESConfigType(), u, v, w, x1[d] - x1[1], d, nor)
+        s, k = power_spectrum_3d(
+            AtmosLESConfigType(),
+            u,
+            v,
+            w,
+            x1[d] - x1[1],
+            d,
+            nor,
+        )
         return s, k
     end
     return nothing, nothing
