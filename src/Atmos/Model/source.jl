@@ -95,6 +95,7 @@ function atmos_source!(
 
     source.ρe -= ρ * w_sub * dot(k̂, diffusive.∇h_tot)
     source.moisture.ρq_tot -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
+    source.ρ -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
 end
 
 subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} =
