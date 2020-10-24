@@ -193,7 +193,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, ["z"], state_types)]
+    all_data = [dict_of_nodal_states(solver_config, state_types)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -203,10 +203,7 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(
-                all_data,
-                dict_of_nodal_states(solver_config, ["z"], state_types),
-            )
+            push!(all_data, dict_of_nodal_states(solver_config, state_types))
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
@@ -239,7 +236,8 @@ function main(::Type{FT}) where {FT}
         check_euclidean_distance = true,
     )
 
-    push!(all_data, dict_of_nodal_states(solver_config, ["z"], state_types))
+    dons = dict_of_nodal_states(solver_config, state_types)
+    push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
 
     return solver_config, all_data, time_data, state_types

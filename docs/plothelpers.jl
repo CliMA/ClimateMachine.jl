@@ -39,29 +39,40 @@ function export_plot(
     ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
     single_var = ϕ_all[1] == xlabel && length(ϕ_all) == 1
     p = plot()
+    # Lims hack
+    # See https://github.com/JuliaPlots/Plots.jl/issues/3100
+    ε = sqrt(eps(eltype(time_data)))
+    zero_variance = all(
+        all(abs.(diff(data[String(ϕ)][:])) .< ε)
+        for ϕ in ϕ_all, data in all_data
+    )
+    non_zero_data =
+        all(maximum(data[String(ϕ)][:]) > ε for ϕ in ϕ_all, data in all_data)
+    prescribe_lims = zero_variance && non_zero_data
+    prescribe_lims && @warn "Plot Limits have been manually adjusted"
+
     for (t, data) in zip(time_data, all_data)
         for ϕ in ϕ_all
             ϕ_string = String(ϕ)
             ϕ_name = plot_friendly_name(ϕ_string)
             ϕ_data = data[ϕ_string][:]
-            label = single_var ? "t=$(round(t, digits=round_digits))" :
-                "$(ϕ_string), t=$(round(t, digits=round_digits))"
-            if !horiz_layout
+            t_label = "t=$(round(t, digits=round_digits))"
+            label = single_var ? t_label : "$ϕ_string, $t_label"
+            args = horiz_layout ? (z, ϕ_data) : (ϕ_data, z)
+            if prescribe_lims && !horiz_layout
+                Δϕ_max = maximum(ϕ_data) - minimum(ϕ_data)
+                ϕ_mean = sum(ϕ_data) / length(ϕ_data)
+                xlims_min = ϕ_mean - ϕ_mean * 0.01
+                xlims_max = ϕ_mean + ϕ_mean * 0.01
                 plot!(
-                    ϕ_data,
-                    z;
+                    args...;
                     xlabel = xlabel,
                     ylabel = ylabel,
                     label = label,
+                    xlims = (xlims_min, xlims_max),
                 )
             else
-                plot!(
-                    z,
-                    ϕ_data;
-                    xlabel = xlabel,
-                    ylabel = ylabel,
-                    label = label,
-                )
+                plot!(args...; xlabel = xlabel, ylabel = ylabel, label = label)
             end
         end
     end
@@ -123,9 +134,9 @@ function export_state_plots(
     time_data,
     output_dir;
     state_types = (Prognostic(), Auxiliary()),
+    z = get_z(solver_config.dg.grid),
 )
     FT = eltype(solver_config.Q)
-    z = get_z(solver_config.dg.grid)
     z = array_device(solver_config.Q) isa CPU ? z : Array(z)
     mkpath(output_dir)
     for st in state_types

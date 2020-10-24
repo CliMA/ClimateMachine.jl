@@ -328,18 +328,28 @@ function min_node_distance(
 end
 
 """
-    get_z(grid, z_scale = 1)
+    get_z(grid; z_scale = 1, rm_dupes = false)
 
 Get the Gauss-Lobatto points along the Z-coordinate.
 
  - `grid`: DG grid
  - `z_scale`: multiplies `z-coordinate`
+ - `rm_dupes`: removes duplicate Gauss-Lobatto points
 """
 function get_z(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N};
     z_scale = 1,
+    rm_dupes = false,
 ) where {T, dim, N}
-    return reshape(grid.vgeo[(1:((N + 1)^2):((N + 1)^3)), _x3, :], :) * z_scale
+    if rm_dupes
+        ijk_range = (1:((N + 1)^2):(((N + 1)^3) - (N + 1)^2))
+        z = reshape(grid.vgeo[ijk_range, _x3, :], :)
+        z = [z..., grid.vgeo[(N + 1)^3, _x3, end]]
+        return z * z_scale
+    else
+        ijk_range = (1:((N + 1)^2):((N + 1)^3))
+        return reshape(grid.vgeo[ijk_range, _x3, :], :) * z_scale
+    end
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)

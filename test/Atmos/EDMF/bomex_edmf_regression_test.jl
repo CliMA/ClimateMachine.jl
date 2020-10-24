@@ -41,8 +41,7 @@ vars_to_compare(N_up) = Dict(
 compare = Dict()
 @testset "Regression Test" begin
     N_up = n_updrafts(solver_config.dg.balance_law.turbconv)
-    numerical_data =
-        dict_of_nodal_states(solver_config, ["z"], (Prognostic(), Auxiliary()))
+    numerical_data = dict_of_nodal_states(solver_config)
     data_to_compare = Dict()
     for (ftc, v) in vars_to_compare(N_up)
         data_to_compare[ftc] = numerical_data[ftc]
