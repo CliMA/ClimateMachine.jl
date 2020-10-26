@@ -31,7 +31,7 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_pot::FT
         e_int::FT
         T::FT
-        S::FT
+        S_liq::FT
         RH::FT
         rain_w::FT
         # more diagnostics
@@ -108,7 +108,8 @@ function nodal_update_auxiliary_state!(
         aux.q_liq = state.ρq_liq / state.ρ
         aux.q_ice = state.ρq_ice / state.ρ
         aux.q_rai = state.ρq_rai / state.ρ
-        aux.q_vap = aux.q_tot - aux.q_liq - aux.q_ice
+        q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
+        aux.q_vap = vapor_specific_humidity(q)
         # energy
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
@@ -118,8 +119,7 @@ function nodal_update_auxiliary_state!(
         q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = PhaseNonEquil_ρTq(param_set, state.ρ, aux.T, q)
-        # TODO: add super_saturation method in moist thermo
-        aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
+        aux.S_liq = max(0, supersaturation(ts_neq, Liquid()))
         aux.RH = relative_humidity(ts_neq) * FT(100)
 
         aux.rain_w =
@@ -411,7 +411,7 @@ function main()
     q_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_liq)
     q_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_ice)
     q_rai_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_rai)
-    S_ind = varsindex(vars_state(model, Auxiliary(), FT), :S)
+    S_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :S_liq)
     rain_w_ind = varsindex(vars_state(model, Auxiliary(), FT), :rain_w)
 
     # filter out negative values
@@ -493,9 +493,9 @@ function main()
     )
 
     # supersaturation in the model
-    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
-    @test max_S < FT(0.25)
-    @test max_S > FT(0)
+    max_S_liq = maximum(abs.(solver_config.dg.state_auxiliary[:, S_liq_ind, :]))
+    @test max_S_liq < FT(0.25)
+    @test max_S_liq > FT(0)
 
     # qt < reference number
     max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))

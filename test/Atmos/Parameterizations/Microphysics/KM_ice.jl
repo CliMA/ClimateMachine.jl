@@ -2,6 +2,11 @@ using Dierckx
 
 include("KinematicModel.jl")
 
+# speed up the relaxation timescales for cloud water and cloud ice
+CLIMAParameters.Atmos.Microphysics.τ_cond_evap(::AbstractLiquidParameterSet) =
+    0.5
+CLIMAParameters.Atmos.Microphysics.τ_sub_dep(::AbstractIceParameterSet) = 0.5
+
 function vars_state(m::KinematicModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
@@ -35,7 +40,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_pot::FT
         e_int::FT
         T::FT
-        S::FT
+        S_liq::FT
+        S_ice::FT
         RH::FT
         rain_w::FT
         snow_w::FT
@@ -64,12 +70,14 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
 end
 
 function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t, spline_fun)
-    (x, y, z) = localgeo.coord
 
     FT = eltype(state)
     _grav::FT = grav(param_set)
 
     dc = eddy_model.data_config
+
+    (x, y, z) = localgeo.coord
+    (xc, yc, zc) = localgeo.center_coord
 
     @inbounds begin
 
@@ -99,39 +107,33 @@ function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t, spline_fun)
         _X::FT = FT(10000)
         _xc::FT = FT(30000)
         _A::FT = FT(4.8 * 1e4)
-        _S::FT = FT(2.5 * 1e-2) * FT(1e-2) * FT(0.5) #TODO
+        _S::FT = FT(2.5 * 1e-2) * FT(0.01) #TODO
         _ρ_00::FT = FT(1)
         ρu::FT = FT(0)
         ρw::FT = FT(0)
-        if x >= (_xc + _X)
-            ρu =
-                _S * z -
-                _A / _ρ_00 * (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw = FT(0)
-        elseif x <= (_xc - _X)
-            ρu =
-                _S * z +
-                _A / _ρ_00 * (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw = FT(0)
+        fact =
+            _A / _ρ_00 * (
+                init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
+                init_dρ(z) * sin(FT(π) / _Z * z)
+            )
+
+        if zc < _Z
+            if x >= (_xc + _X)
+                ρu = _S * z - fact
+                ρw = FT(0)
+            elseif x <= (_xc - _X)
+                ρu = _S * z + fact
+                ρw = FT(0)
+            else
+                ρu = _S * z - fact * sin(FT(π / 2.0) / _X * (x - _xc))
+                ρw =
+                    _A * init_ρ(z) / _ρ_00 * FT(π / 2.0) / _X *
+                    sin(FT(π) / _Z * z) *
+                    cos(FT(π / 2.0) / _X * (x - _xc))
+            end
         else
-            ρu =
-                _S * z -
-                _A / _ρ_00 *
-                sin(FT(π / 2.0) / _X * (x - _xc)) *
-                (
-                    init_ρ(z) * FT(π) / _Z * cos(FT(π) / _Z * z) +
-                    init_dρ(z) * sin(FT(π) / _Z * z)
-                )
-            ρw =
-                _A * init_ρ(z) / _ρ_00 * FT(π / 2.0) / _X *
-                sin(FT(π) / _Z * z) *
-                cos(FT(π / 2.0) / _X * (x - _xc))
+            ρu = _S * z
+            ρw = FT(0)
         end
         state.ρu = SVector(ρu, FT(0), ρw)
         u::FT = ρu / ρ
@@ -183,8 +185,8 @@ function nodal_update_auxiliary_state!(
         q = PhasePartition(aux.q_tot, aux.q_liq, aux.q_ice)
         aux.T = air_temperature(param_set, aux.e_int, q)
         ts_neq = PhaseNonEquil_ρTq(param_set, state.ρ, aux.T, q)
-        # TODO: add super_saturation method in moist thermo
-        aux.S = max(0, aux.q_vap / q_vap_saturation(ts_neq) - FT(1)) * FT(100)
+        aux.S_liq = max(0, supersaturation(ts_neq, Liquid()))
+        aux.S_ice = max(0, supersaturation(ts_neq, Ice()))
         aux.RH = relative_humidity(ts_neq) * FT(100)
 
         aux.rain_w =
@@ -316,40 +318,36 @@ function boundary_state!(
     t,
     args...,
 )
-    FT = eltype(state⁻)
-    @inbounds state⁺.ρq_rai = FT(0)
-    @inbounds state⁺.ρq_sno = FT(0)
-
     # 1 - left     (x = 0,   z = ...)
     # 2 - right    (x = -1,  z = ...)
     # 3,4 - y boundary (periodic)
     # 5 - bottom   (x = ..., z = 0)
     # 6 - top      (x = ..., z = -1)
 
-    state⁺.ρq_tot = state⁻.ρq_tot
-    state⁺.ρq_liq = state⁻.ρq_liq
-    state⁺.ρq_ice = state⁻.ρq_ice
-    state⁺.ρ = state⁻.ρ
+    FT = eltype(state⁻)
+    @inbounds state⁺.ρ = state⁻.ρ
+    @inbounds state⁺.ρe = aux⁻.ρe_init
+    @inbounds state⁺.ρq_tot = aux⁻.ρq_tot_init
+    @inbounds state⁺.ρq_liq = FT(0) #state⁻.ρq_liq
+    @inbounds state⁺.ρq_ice = FT(0) #state⁻.ρq_ice
+    @inbounds state⁺.ρq_rai = FT(0)
+    @inbounds state⁺.ρq_sno = FT(0)
 
     if bctype == 1
-        state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
-        state⁺.ρe = aux⁻.ρe_init
-        state⁺.ρq_tot = aux⁻.ρq_tot_init
+        @inbounds state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
     end
     if bctype == 2
-        state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
-        state⁺.ρe = aux⁻.ρe_init
-        state⁺.ρq_tot = aux⁻.ρq_tot_init
+        @inbounds state⁺.ρu = SVector(state⁻.ρu[1], FT(0), FT(0))
+        @inbounds state⁺.ρe = state⁻.ρe
+        @inbounds state⁺.ρq_tot = state⁻.ρq_tot
+        @inbounds state⁺.ρq_liq = state⁻.ρq_liq
+        @inbounds state⁺.ρq_ice = state⁻.ρq_ice
     end
     if bctype == 5
-        state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
-        state⁺.ρe = state⁻.ρe
-        state⁺.ρq_tot = state⁻.ρq_tot
+        @inbounds state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
     end
     if bctype == 6
-        state⁺.ρe = aux⁻.ρe_init
-        state⁺.ρq_tot = aux⁻.ρq_tot_init
-        state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
+        @inbounds state⁺.ρu = SVector(state⁻.ρu[1], FT(0), state⁻.ρu[3])
     end
 end
 
@@ -669,12 +667,12 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(5 * 60) #FT(4 * 60 * 60) #TODO
-    dt = FT(15)
+    t_end = FT(60 * 60) #FT(4 * 60 * 60) #TODO
+    dt = FT(0.25)
     #CFL = FT(1.75)
     filter_freq = 1
-    output_freq = 4
-    interval = "4steps"
+    output_freq = 1200
+    interval = "1200steps"
 
     # periodicity and boundary numbers
     periodicity_x = false
@@ -890,7 +888,8 @@ function main()
     q_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_ice)
     q_rai_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_rai)
     q_sno_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_sno)
-    S_ind = varsindex(vars_state(model, Auxiliary(), FT), :S)
+    S_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :S_liq)
+    S_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :S_ice)
     rain_w_ind = varsindex(vars_state(model, Auxiliary(), FT), :rain_w)
     snow_w_ind = varsindex(vars_state(model, Auxiliary(), FT), :snow_w)
 
@@ -904,6 +903,15 @@ function main()
                 TMARFilter(),
             )
             nothing
+        end
+    cb_boyd_filter =
+        GenericCallbacks.EveryXSimulationSteps(filter_freq) do (init = false)
+            Filters.apply!(
+                solver_config.Q,
+                (:ρq_tot, :ρq_liq, :ρq_ice, :ρq_rai, :ρq_sno, :ρe, :ρ),
+                solver_config.dg.grid,
+                BoydVandevenFilter(solver_config.dg.grid, 1, 8),
+            )
         end
 
     # output for paraview
@@ -967,7 +975,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cb_tmar_filter, cb_vtk),
+        user_callbacks = (cb_boyd_filter, cb_tmar_filter),
         check_euclidean_distance = true,
     )
 
