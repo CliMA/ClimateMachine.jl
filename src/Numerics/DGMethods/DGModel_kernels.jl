@@ -127,7 +127,6 @@ Computational kernel: Evaluate the volume integrals on right-hand side of a
             @unroll for s in 1:nhyperviscstate
                 local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
             end
-
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_first_order!(
                 balance_law,
@@ -406,7 +405,6 @@ end
             @unroll for s in 1:nhyperviscstate
                 local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
             end
-
             fill!(local_flux, -zero(eltype(local_flux)))
             flux_first_order!(
                 balance_law,

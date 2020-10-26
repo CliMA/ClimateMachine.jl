@@ -22,6 +22,7 @@ using ClimateMachine.VariableTemplates
 using CLIMAParameters
 using CLIMAParameters.Planet
 struct EarthParameterSet <: AbstractEarthParameterSet end
+
 const param_set = EarthParameterSet()
 using Dierckx
 ClimateMachine.init(parse_clargs = true)
@@ -51,16 +52,16 @@ function init_tc!(problem, bl, state, aux, (x, y, z), t, args...)
         bl.param_set,
         θ_liq,
         pres,
-        PhasePartition(FT(0)),
+        PhasePartition(FT(data_q)),
     )
     ρ = air_density(bl.param_set,T, pres)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(0)))
+    E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(data_q)))
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
-    #state.moisture.ρq_tot = ρ * data_q
+    state.moisture.ρq_tot = ρ * data_q
     #state.moisture.ρq_liq = FT(0)
     #state.moisture.ρq_ice = FT(0)
     return nothing
@@ -273,10 +274,10 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
                 momentum = (Impenetrable(DragLaw(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ))),
-                energy = BulkFormulaEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu, (state, aux, t) ->((T_s), 0)),
-                #moisture = BulkFormulationMoisture(
-                #    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
-                #),
+                energy = BulkFormulaEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu, (state, aux, t) ->((T_s), state.moisture.ρq_tot / state.ρ)),
+                moisture = BulkFormulaMoisture(
+                    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu, (state, aux, t) -> state.moisture.ρq_tot / state.ρ,
+                ),
             ),
             AtmosBC(),
             #AtmosBC(energy = PrescribedTemperature((state⁻, aux⁻, t)-> 218),)
@@ -290,15 +291,15 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
 	param_set;
 	problem = problem,
 	ref_state = ref_state,
-        moisture = DryModel(),
-        turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
+        moisture = EquilMoist{FT}(;maxiter = 10),
+        turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantDynamicViscosity(FT(200)),
         source = source,
     )
 
     ode_solver = ClimateMachine.IMEXSolverType()
 
     config = ClimateMachine.AtmosLESConfiguration(
-        "CYCLONE_WALLS_30",
+        "CYCLONE_WALLS_30_moist_Equil",
         N,
         resolution,
         xmax,
@@ -330,15 +331,15 @@ function main()
     N = 4
 
     # Domain resolution and size
-    Δh = FT(8000)
-    Δv = FT(200)
+    Δh = FT(10000)
+    Δv = FT(400)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(400000)
-    ymax = FT(400000)
-    zmax = FT(20000)
-    xmin = FT(-400000)
-    ymin = FT(-400000)
+    xmax = FT(500000)
+    ymax = FT(500000)
+    zmax = FT(25000)
+    xmin = FT(-500000)
+    ymin = FT(-500000)
 
     t0 = FT(0)
     timeend = FT(86400)
@@ -355,11 +356,10 @@ function main()
 	Courant_number = Cmax
     )
     #dgn_config = config_diagnostics(driver_config)
-
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(
-            solver_config.Q,
-            (6),
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+            Filters.apply!(
+	    solver_config.Q,
+            (6,),
             solver_config.dg.grid,
             TMARFilter(),
         )
@@ -390,7 +390,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         #diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 end

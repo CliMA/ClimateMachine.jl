@@ -21,8 +21,29 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using CLIMAParameters
 using CLIMAParameters.Planet
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+using CLIMAParameters.Atmos.Microphysics
+
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+struct RainParameterSet <: AbstractRainParameterSet end
+struct SnowParameterSet <: AbstractSnowParameterSet end
+struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
+    liq::L
+    ice::I
+    rain::R
+    snow::S
+end
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+    microphys::M
+end
+
+const microphys = MicropysicsParameterSet(
+						        LiquidParameterSet(),
+							    IceParameterSet(),
+							        RainParameterSet(),
+								    SnowParameterSet(),
+								    )
+const param_set = EarthParameterSet(microphys)
 using Dierckx
 ClimateMachine.init(parse_clargs = true)
 
@@ -51,18 +72,18 @@ function init_tc!(problem, bl, state, aux, (x, y, z), t, args...)
         bl.param_set,
         θ_liq,
         pres,
-        PhasePartition(FT(0)),
+        PhasePartition(FT(data_q)),
     )
     ρ = air_density(bl.param_set,T, pres)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(0)))
+    E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(data_q)))
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
-    #state.moisture.ρq_tot = ρ * data_q
-    #state.moisture.ρq_liq = FT(0)
-    #state.moisture.ρq_ice = FT(0)
+    state.moisture.ρq_tot = ρ * data_q
+    state.moisture.ρq_liq = FT(0)
+    state.moisture.ρq_ice = FT(0)
     return nothing
 end
 
@@ -264,7 +285,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_tc!
 
-    source = (Gravity(),rayleigh_sponge, Coriolis())
+    source = (Gravity(),rayleigh_sponge, Coriolis(), CreateClouds())
     
     
     problem = AtmosProblem(
@@ -273,10 +294,10 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
                 momentum = (Impenetrable(DragLaw(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ))),
-                energy = BulkFormulaEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu, (state, aux, t) ->((T_s), 0)),
-                #moisture = BulkFormulationMoisture(
-                #    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
-                #),
+                energy = BulkFormulaEnergy((state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu, (state, aux, t) ->((T_s), state.moisture.ρq_tot)),
+                moisture = BulkFormulaMoisture(
+                    (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu, (state, aux, t) -> state.moisture.ρq_tot,
+                ),
             ),
             AtmosBC(),
             #AtmosBC(energy = PrescribedTemperature((state⁻, aux⁻, t)-> 218),)
@@ -290,7 +311,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
 	param_set;
 	problem = problem,
 	ref_state = ref_state,
-        moisture = DryModel(),
+        moisture = NonEquilMoist(),
         turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
         source = source,
     )
@@ -298,7 +319,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     ode_solver = ClimateMachine.IMEXSolverType()
 
     config = ClimateMachine.AtmosLESConfiguration(
-        "CYCLONE_WALLS_30",
+        "CYCLONE_WALLS_30_moist",
         N,
         resolution,
         xmax,
@@ -330,7 +351,7 @@ function main()
     N = 4
 
     # Domain resolution and size
-    Δh = FT(8000)
+    Δh = FT(10000)
     Δv = FT(200)
     resolution = (Δh, Δh, Δv)
 
@@ -359,7 +380,7 @@ function main()
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
         Filters.apply!(
             solver_config.Q,
-            (6),
+            (6,7,8),
             solver_config.dg.grid,
             TMARFilter(),
         )
@@ -390,7 +411,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         #diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
 end

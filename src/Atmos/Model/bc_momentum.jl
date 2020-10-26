@@ -34,7 +34,11 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n)
+    #state⁺.ρ = state⁻.ρ
+    #u⁺ = state⁺.ρu / state⁺.ρ
+    #u⁻ = state⁻.ρu / state⁻.ρ
+    #state⁺.ρu = state⁺.ρ * (u⁻ - 2 * dot(u⁻, n) .* SVector(n))
+    state⁺.ρu -= 2 * dot(state⁻.ρu, n) .* SVector(n) 
 end
 function atmos_momentum_boundary_state!(
     nf::NumericalFluxGradient,
@@ -49,14 +53,26 @@ function atmos_momentum_boundary_state!(
     t,
     args...,
 )
-    state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
+  #u⁺ = state⁺.ρu / state⁺.ρ
+  #u⁻ = state⁻.ρu / state⁻.ρ
+  #state⁺.ρu = state⁺.ρ * (u⁻ - dot(u⁻, n) .* SVector(n))
+  state⁺.ρu -= dot(state⁻.ρu, n) .* SVector(n)
 end
 function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
     args...,
-) end
+)
+@show("Coordinates = ", aux⁻.coord) ;                                                                                                                                                                      
+@show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_geopot=", aux⁻.orientation.∇Φ, "TW_Momentum=", fluxᵀn.ρu) : nothing ; 
+  if atmos.moisture isa EquilMoist
+  @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot);
+  elseif atmos.moisture isa NonEquilMoist
+  @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot, fluxᵀn.moisture.ρq_ice, fluxᵀn.moisture.ρq_liq) ; 
+  end 
+  @show(".......");
+end
 
 
 

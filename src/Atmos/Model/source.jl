@@ -165,7 +165,7 @@ struct RayleighSponge{FT} <: Source
     "Sponge exponent"
     γ::FT
 end
-function atmos_source!(
+#=function atmos_source!(
     s::RayleighSponge,
     atmos::AtmosModel,
     source::Vars,
@@ -181,6 +181,47 @@ function atmos_source!(
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
+end=#
+
+function atmos_source!(
+    s::RayleighSponge,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    FT = eltype(state)
+    x = aux.coord[1]
+    y = aux.coord[2]
+    z = altitude(atmos, aux)
+    ctop = 1.0
+    cx = 1.0
+    cy = 1.0
+    if z >= s.z_sponge
+        r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
+        #h = s.z_max / 12
+        ctop = s.α_max * sinpi((1-r) / 2)^s.γ #1 + tanh((z-s.z_max)/h)
+
+
+       #source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    end
+    if (abs(x) >= 350000)
+           r = (abs(x) - 350000) / (500000 - 350000)
+           #h = 500000/23
+          cx = s.α_max * sinpi((1-r) / 2)^s.γ#1 + tanh((abs(x)-500000)/h)
+       #  source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    end
+    if (abs(y) >= 350000)
+           r = (abs(y) - 350000) / (500000 - 350000)
+          #h = 500000/23
+          cy  = s.α_max * sinpi((1-r) / 2)^s.γ#1 + tanh((abs(y)-500000)/h)
+    end
+    β_sponge = 1.0 - ctop * cx * cy
+    source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        #source.ρu -= β_sponge * (dot(state.ρu, SVector(FT(0),FT(0),FT(1))) * SVector(FT(0),FT(0),FT(1)) - state.ρ * s.u_relaxation)
 end
 
 """
