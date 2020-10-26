@@ -105,7 +105,11 @@ function writevtk_helper(
     @assert number_sample_points >= 0
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
 
     nelem = size(Q)[end]
@@ -124,7 +128,8 @@ function writevtk_helper(
     # Interpolate to an equally spaced grid if necessary
     if number_sample_points > 0
         FT = eltype(Q)
-        ξsrc = referencepoints(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        ξsrc = referencepoints(grid)[1]
         ξdst = range(FT(-1); length = number_sample_points, stop = 1)
         I1d = interpolationmatrix(ξsrc, ξdst)
         I = kron(ntuple(i -> I1d, dim)...)
@@ -174,7 +179,11 @@ may also contain a directory path.
 """
 function writevtk(prefix, grid::DiscontinuousSpectralElementGrid)
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(dg.grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
 
     vgeo = grid.vgeo isa Array ? grid.vgeo : Array(grid.vgeo)

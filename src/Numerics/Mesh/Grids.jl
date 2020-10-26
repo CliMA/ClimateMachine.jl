@@ -8,7 +8,7 @@ using LinearAlgebra
 using KernelAbstractions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
-export dofs_per_element, arraytype, dimensionality, polynomialorder
+export dofs_per_element, arraytype, dimensionality, polynomialorders
 export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
 
@@ -28,7 +28,7 @@ abstract type AbstractGrid{
 
 dofs_per_element(::AbstractGrid{T, D, N, Np}) where {T, D, N, Np} = Np
 
-polynomialorder(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
+polynomialorders(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
 
 dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 
@@ -173,13 +173,13 @@ struct DiscontinuousSpectralElementGrid{
     "Array indicating if a degree of freedom (real or ghost) is active"
     activedofs
 
-    "1-D lvl weights on the device"
+    "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
 
-    "1-D derivative operator on the device"
+    "1-D derivative operator on the device (one for each dimension)"
     D::DAT2
 
-    "1-D indefinite integral operator on the device"
+    "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
 
     # Constructor for a tuple of polynomial orders
@@ -236,13 +236,6 @@ struct DiscontinuousSpectralElementGrid{
 
         (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
 
-        # temporarily make single polynomial order
-        @assert all(N[1] .== N)
-        N = N[1]
-        D = D[1]
-        ω = ω[1]
-        Imat = Imat[1]
-
         @assert Np == size(vgeo, 1)
 
         activedofs = zeros(Bool, Np * length(topology.elems))
@@ -258,9 +251,9 @@ struct DiscontinuousSpectralElementGrid{
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
-        ω = DeviceArray(ω)
-        D = DeviceArray(D)
-        Imat = DeviceArray(Imat)
+        ω = DeviceArray.(ω)
+        D = DeviceArray.(D)
+        Imat = DeviceArray.(Imat)
 
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
@@ -313,10 +306,11 @@ end
 Returns the 1D interpolation points used for the reference element.
 """
 function referencepoints(
-    ::DiscontinuousSpectralElementGrid{T, dim, N},
-) where {T, dim, N}
-    ξ, _ = Elements.lglpoints(T, N)
-    ξ
+    ::DiscontinuousSpectralElementGrid{FT, dim, N},
+) where {FT, dim, N}
+    ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
+    ξ, _ = ntuple(j -> map(x -> x[j], ξω), 2)
+    return ξ
 end
 
 """
@@ -328,13 +322,17 @@ the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
 function min_node_distance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     direction::Direction = EveryDirection(),
-) where {T, dim, N}
+) where {T, dim, Ns}
     topology = grid.topology
     nrealelem = length(topology.realelems)
 
     if nrealelem > 0
+        # XXX: Needs updating for multiple polynomial orders
+        # Currently only support single polynomial order
+        @assert all(Ns[1] .== Ns)
+        N = Ns[1]
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
         device = grid.vgeo isa Array ? CPU() : CUDADevice()
@@ -369,10 +367,14 @@ Get the Gauss-Lobatto points along the Z-coordinate.
  - `rm_dupes`: removes duplicate Gauss-Lobatto points
 """
 function get_z(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N};
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns};
     z_scale = 1,
     rm_dupes = false,
-) where {T, dim, N}
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     if rm_dupes
         ijk_range = (1:((N + 1)^2):(((N + 1)^3) - (N + 1)^2))
         vgeo = Array(grid.vgeo)
@@ -384,6 +386,7 @@ function get_z(
         z = Array(reshape(grid.vgeo[ijk_range, _x3, :], :))
         return z * z_scale
     end
+    return reshape(grid.vgeo[(1:((N + 1)^2):((N + 1)^3)), _x3, :], :) * z_scale
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
@@ -794,6 +797,7 @@ neighbors.
 
     @uniform begin
         FT = eltype(min_neighbor_distance)
+        # XXX: Needs updating for multiple polynomial orders
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
         Np = Nq * Nq * Nqk

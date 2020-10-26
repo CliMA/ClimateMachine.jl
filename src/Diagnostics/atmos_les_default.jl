@@ -377,7 +377,11 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
     bl = dg.balance_law
     grid = dg.grid
     topology = grid.topology
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(dg.grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
     npoints = Nq * Nq * Nqk
@@ -390,13 +394,17 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         state_data = Q.realdata
         aux_data = dg.state_auxiliary.realdata
         vgeo = grid.vgeo
-        ω = grid.ω
+        # Currently only support single polynomial order
+        # XXX: Needs updating for multiple polynomial orders
+        ω = grid.ω[1]
         gradflux_data = dg.state_gradient_flux.realdata
     else
         state_data = Array(Q.realdata)
         aux_data = Array(dg.state_auxiliary.realdata)
         vgeo = Array(grid.vgeo)
-        ω = Array(grid.ω)
+        # Currently only support single polynomial order
+        # XXX: Needs updating for multiple polynomial orders
+        ω = Array(grid.ω[1])
         gradflux_data = Array(dg.state_gradient_flux.realdata)
     end
     FT = eltype(state_data)

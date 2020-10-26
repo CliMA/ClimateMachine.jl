@@ -242,7 +242,11 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     mpirank = MPI.Comm_rank(mpicomm)
     grid = dg.grid
     topology = grid.topology
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(dg.grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
     npoints = Nq * Nq * Nqk

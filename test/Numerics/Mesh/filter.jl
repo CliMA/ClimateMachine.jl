@@ -87,7 +87,8 @@ ClimateMachine.init()
             DeviceArray = Array,
         )
 
-        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)[1]
         a, b = GaussQuadrature.legendre_coefs(T, N)
         V = GaussQuadrature.orthonormal_poly(ξ, a, b)
 

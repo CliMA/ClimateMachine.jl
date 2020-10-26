@@ -235,8 +235,13 @@ function BatchedGeneralizedMinimalResidual(
     topology = grid.topology
     dim = dimensionality(grid)
 
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     # Number of Gauss-Lobatto quadrature points in 1D
-    Nq = polynomialorder(grid) + 1
+    Nq = N + 1
 
     # Assumes same number of quadrature points in all spatial directions
     Np = Tuple([Nq for i in 1:dim])

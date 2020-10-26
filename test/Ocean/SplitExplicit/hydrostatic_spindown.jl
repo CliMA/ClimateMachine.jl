@@ -99,7 +99,12 @@ function setup_models(
         c = FT(1),
     )
 
-    vert_filter = CutoffFilter(grid_3D, polynomialorder(grid_3D) - 1)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid_3D)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
+    vert_filter = CutoffFilter(grid_3D, N - 1)
     exp_filter = ExponentialFilter(grid_3D, 1, 8)
 
     integral_model = DGModel(
