@@ -667,7 +667,7 @@ function main()
 
     # time stepping
     t_ini = FT(0)
-    t_end = FT(60 * 60) #FT(4 * 60 * 60) #TODO
+    t_end = FT(5 * 60) #FT(4 * 60 * 60) #TODO
     dt = FT(0.25)
     #CFL = FT(1.75)
     filter_freq = 1
