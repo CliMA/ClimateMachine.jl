@@ -541,11 +541,11 @@ add_fast_substeps = 2
 # default = 0 : disable implicit vertical diffusion
 numImplSteps = 5
 
-#const τₒ = 2e-1  # (Pa = N/m^2)
-#const λʳ = 20 // 86400 # m/s
-# since we are using old BC (with factor of 2), take only half:
-const τₒ = 1e-1
-const λʳ = 10 // 86400
+const τₒ = 2e-1  # (Pa = N/m^2)
+const λʳ = 20 // 86400 # m/s
+#- since we are using old BC (with factor of 2), take only half:
+#const τₒ = 1e-1
+#const λʳ = 10 // 86400
 const θᴱ = 10    # deg.C
 
 # @testset "$(@__FILE__)" begin

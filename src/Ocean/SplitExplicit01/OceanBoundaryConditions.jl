@@ -131,8 +131,15 @@ apply no penetration boundary for temperature
     A⁻,
     t,
 )
-    D⁺.ν∇u = -D⁻.ν∇u
-    D⁺.κ∇θ = -D⁻.κ∇θ
+#   D⁺.ν∇u = -D⁻.ν∇u
+#   D⁺.κ∇θ = -D⁻.κ∇θ
+#-  new diffusive flux BC:
+    Q⁺.u = Q⁻.u
+    A⁺.u_d = A⁻.u_d
+    A⁺.w = A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = n⁻ * (@SVector [-0, -0])'
+    D⁺.κ∇θ = n⁻ * -0
 
     return nothing
 end
@@ -150,7 +157,10 @@ end
     A⁻,
     t,
 )
-    D⁺.ν∇U = -D⁻.ν∇U
+#   D⁺.ν∇U = -D⁻.ν∇U
+#-  new diffusive flux BC:
+    Q⁺.U = Q⁻.U
+    D⁺.ν∇U = n⁻ * (@SVector [-0, -0])'
 
     return nothing
 end
@@ -262,7 +272,14 @@ apply no penetration boundary for temperature
     Q⁺.u = -Q⁻.u
     A⁺.u_d = -A⁻.u_d
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+#   D⁺.κ∇θ = -D⁻.κ∇θ
+
+#-  new diffusive flux BC:
+#   Q⁺.u = -Q⁻.u
+#   A⁺.w = -A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = D⁻.ν∇u
+    D⁺.κ∇θ = n⁻ * -0
 
     return nothing
 end
@@ -281,6 +298,8 @@ end
     t,
 )
     Q⁺.U = -Q⁻.U
+#-  new diffusive flux BC:
+    D⁺.ν∇U = D⁻.ν∇U
 
     return nothing
 end
@@ -355,10 +374,18 @@ apply no penetration boundary for temperature
     A⁻,
     t,
 )
-    A⁺.w = -A⁻.w
-    D⁺.ν∇u = -D⁻.ν∇u
+#   A⁺.w = -A⁻.w
+#   D⁺.ν∇u = -D⁻.ν∇u
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+#   D⁺.κ∇θ = -D⁻.κ∇θ
+
+#-  new diffusive flux BC:
+    Q⁺.u = Q⁻.u
+    A⁺.u_d = A⁻.u_d
+    A⁺.w = A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = n⁻ * (@SVector [-0, -0])'
+    D⁺.κ∇θ = n⁻ * -0
 
     return nothing
 end
@@ -439,7 +466,14 @@ apply no penetration boundary for temperature
     Q⁺.u = -Q⁻.u
     A⁺.w = -A⁻.w
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+#   D⁺.κ∇θ = -D⁻.κ∇θ
+
+#-  new diffusive flux BC:
+#   Q⁺.u = -Q⁻.u
+#   A⁺.w = -A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = D⁻.ν∇u
+    D⁺.κ∇θ = n⁻ * -0
 
     return nothing
 end
@@ -491,9 +525,17 @@ apply no flux boundary condition for temperature
     A⁻,
     t,
 )
-    D⁺.ν∇u = -D⁻.ν∇u
+#   D⁺.ν∇u = -D⁻.ν∇u
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+#   D⁺.κ∇θ = -D⁻.κ∇θ
+
+#-  new diffusive flux BC:
+    Q⁺.u = Q⁻.u
+    A⁺.u_d = A⁻.u_d
+    A⁺.w = A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = n⁻ * (@SVector [-0, -0])'
+    D⁺.κ∇θ = n⁻ * -0
 
     return nothing
 end
@@ -518,10 +560,18 @@ apply no flux boundary condition for temperature
     t,
 )
     τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
-    τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
-    D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
+#   τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
+#   D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
-    D⁺.κ∇θ = -D⁻.κ∇θ
+#   D⁺.κ∇θ = -D⁻.κ∇θ
+
+#-  new diffusive flux BC:
+    Q⁺.u = Q⁻.u
+    A⁺.u_d = A⁻.u_d
+    A⁺.w = A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = n⁻ * (@SVector [τᶻ, -0])'
+    D⁺.κ∇θ = n⁻ * -0
 
     return nothing
 end
@@ -545,11 +595,19 @@ apply forcing boundary condition for temperature
     A⁻,
     t,
 )
-    D⁺.ν∇u = -D⁻.ν∇u
+#   D⁺.ν∇u = -D⁻.ν∇u
 
     σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
-    σ = @SVector [-0, -0, σᶻ]
-    D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+#   σ = @SVector [-0, -0, σᶻ]
+#   D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+
+#-  new diffusive flux BC:
+    Q⁺.u = Q⁻.u
+    A⁺.u_d = A⁻.u_d
+    A⁺.w = A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = n⁻ * (@SVector [-0, -0])'
+    D⁺.κ∇θ = n⁻ * σᶻ
 
     return nothing
 end
@@ -574,12 +632,20 @@ apply forcing boundary condition for temperature
     t,
 )
     τᶻ = velocity_flux(m.problem, A⁻.y, m.ρₒ)
-    τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
-    D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
+#   τ = @SMatrix [-0 -0; -0 -0; τᶻ -0]
+#   D⁺.ν∇u = -D⁻.ν∇u + 2 * τ
 
     σᶻ = temperature_flux(m.problem, A⁻.y, Q⁻.θ)
-    σ = @SVector [-0, -0, σᶻ]
-    D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+#   σ = @SVector [-0, -0, σᶻ]
+#   D⁺.κ∇θ = -D⁻.κ∇θ + 2 * σ
+
+#-  new diffusive flux BC:
+    Q⁺.u = Q⁻.u
+    A⁺.u_d = A⁻.u_d
+    A⁺.w = A⁻.w
+    Q⁺.θ = Q⁻.θ
+    D⁺.ν∇u = n⁻ * (@SVector [τᶻ, -0])'
+    D⁺.κ∇θ = n⁻ * σᶻ
 
     return nothing
 end
