@@ -203,7 +203,7 @@ function main(; restart = 0)
         add_fast_substeps = add_fast_substeps,
         numImplSteps = numImplSteps,
         ivdc_dt = ivdc_dt,
-        νʰ = FT(5e3),
+        νʰ = FT(15e3),
         νᶻ = FT(5e-3),
         κᶜ = FT(1.0),
         fₒ = FT(3.8e-5),
@@ -552,11 +552,11 @@ add_fast_substeps = 3
 # default = 0 : disable implicit vertical diffusion
 numImplSteps = 5
 
-#const τₒ = 1e-1  # (Pa = N/m^2)
-#const λʳ = 20 // 86400 # m/s
-# since we are using old BC (with factor of 2), take only half:
- const τₒ = 5e-2
- const λʳ = 10 // 86400
+const τₒ = 1e-1  # (Pa = N/m^2)
+const λʳ = 20 // 86400 # m/s
+#- since we are using old BC (with factor of 2), take only half:
+#const τₒ = 5e-2
+#const λʳ = 10 // 86400
 const θᴱ = 25    # deg.C
 
 main(restart = 0)
