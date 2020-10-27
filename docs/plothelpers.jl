@@ -79,6 +79,51 @@ function export_plot(
     savefig(filename)
 end
 
+"""
+    export_contour(
+        z,
+        time_data,
+        all_data::Array,
+        ϕ,
+        filename;
+        xlabel = "time [s]",
+        ylabel = "z [m]",
+        label = String(ϕ)
+    )
+
+Export contour plots given
+ - `z` Array of altitude. Note: this must not include duplicate nodal points.
+ - `time_data` array of time data
+ - `all_data` an array whose elements are populated by `dict_of_nodal_states`
+ - `ϕ` variable to contour
+ - `filename` file name to export to.
+ - `xlabel` x-label
+ - `ylabel` y-label
+ - `label` contour labels
+"""
+function export_contour(
+    z,
+    time_data,
+    all_data::Array,
+    ϕ,
+    filename;
+    xlabel = "time [s]",
+    ylabel = "z [m]",
+    label = String(ϕ),
+)
+    ϕ_string = String(ϕ)
+    ϕ_data = hcat([data[ϕ_string][:] for data in all_data]...)
+    args = (time_data, z, ϕ_data)
+    contourf(
+        args...;
+        xlabel = xlabel,
+        ylabel = ylabel,
+        label = label,
+        c = :viridis,
+    )
+    savefig(filename)
+end
+
 function save_binned_surface_plots(
     x,
     y,
@@ -120,9 +165,16 @@ state_prefix(::Auxiliary) = "aux_"
 state_prefix(::GradientFlux) = "grad_flux_"
 
 """
-    plot_results(solver_config, all_data, time_data, output_dir)
+    export_state_plots(
+        solver_config,
+        all_data,
+        time_data,
+        output_dir;
+        state_types = (Prognostic(), Auxiliary()),
+        z = Array(get_z(solver_config.dg.grid)),
+    )
 
-Exports plots of states given
+Export line plots of states given
  - `solver_config` a `SolverConfiguration`
  - `all_data` an array of dictionaries, returned from `dict_of_nodal_states`
  - `time_data` an array of time values
@@ -134,24 +186,68 @@ function export_state_plots(
     time_data,
     output_dir;
     state_types = (Prognostic(), Auxiliary()),
-    z = get_z(solver_config.dg.grid),
+    z = Array(get_z(solver_config.dg.grid)),
 )
     FT = eltype(solver_config.Q)
-    z = array_device(solver_config.Q) isa CPU ? z : Array(z)
     mkpath(output_dir)
     for st in state_types
         vs = vars_state(solver_config.dg.balance_law, st, FT)
         for fn in flattenednames(vs)
-            file_name = state_prefix(st) * replace(fn, "." => "_")
+            base_name = state_prefix(st) * replace(fn, "." => "_")
+            file_name = joinpath(output_dir, "$(base_name).png")
             export_plot(
                 z,
                 all_data,
                 (fn,),
-                joinpath(output_dir, "$(file_name).png");
+                file_name;
                 xlabel = fn,
                 ylabel = "z [m]",
                 time_data = time_data,
                 round_digits = 5,
+            )
+        end
+    end
+end
+
+"""
+    export_state_contours(
+        solver_config,
+        all_data,
+        time_data,
+        output_dir;
+        state_types = (Prognostic(),),
+        xlabel = "time [s]",
+        ylabel = "z [m]",
+        z = Array(get_z(solver_config.dg.grid; rm_dupes=true)),
+    )
+
+Call `export_contour` for every
+state variable given `state_types`.
+"""
+function export_state_contours(
+    solver_config,
+    all_data,
+    time_data,
+    output_dir;
+    state_types = (Prognostic(),),
+    xlabel = "time [s]",
+    ylabel = "z [m]",
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
+    FT = eltype(solver_config.Q)
+    mkpath(output_dir)
+    for st in state_types
+        vs = vars_state(solver_config.dg.balance_law, st, FT)
+        for fn in flattenednames(vs)
+            base_name = state_prefix(st) * replace(fn, "." => "_")
+            filename = joinpath(output_dir, "cnt_$(base_name).png")
+            label = string(replace(fn, "." => "_"))
+            args = (z, time_data, all_data, fn, filename)
+            export_contour(
+                args...;
+                xlabel = xlabel,
+                ylabel = ylabel,
+                label = label,
             )
         end
     end

@@ -481,6 +481,16 @@ export_plot(
 );
 # ![](solution_vs_time.png)
 
+export_contour(
+    z,
+    time_data,
+    all_data,
+    "ρcT",
+    joinpath(output_dir, "solution_contour.png");
+    ylabel = "z [cm]",
+)
+# ![](solution_contour.png)
+
 # The results look as we would expect: a fixed temperature at the bottom is
 # resulting in heat flux that propagates up the domain. To run this file, and
 # inspect the solution in `all_data`, include this tutorial in the Julia REPL
