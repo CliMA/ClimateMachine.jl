@@ -343,12 +343,14 @@ function get_z(
 ) where {T, dim, N}
     if rm_dupes
         ijk_range = (1:((N + 1)^2):(((N + 1)^3) - (N + 1)^2))
-        z = reshape(grid.vgeo[ijk_range, _x3, :], :)
-        z = [z..., grid.vgeo[(N + 1)^3, _x3, end]]
+        vgeo = Array(grid.vgeo)
+        z = reshape(vgeo[ijk_range, _x3, :], :)
+        z = [z..., vgeo[(N + 1)^3, _x3, end]]
         return z * z_scale
     else
         ijk_range = (1:((N + 1)^2):((N + 1)^3))
-        return reshape(grid.vgeo[ijk_range, _x3, :], :) * z_scale
+        z = Array(reshape(grid.vgeo[ijk_range, _x3, :], :))
+        return z * z_scale
     end
 end
 
