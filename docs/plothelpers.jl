@@ -19,61 +19,53 @@ function plot_friendly_name(ϕ)
 end
 
 """
-    export_plot(z, all_data, ϕ_all, filename;
-                xlabel, ylabel, time_data, round_digits, horiz_layout)
+    export_plot(
+        z,
+        time_data,
+        all_data::Array,
+        ϕ_all,
+        filename;
+        xlabel,
+        ylabel,
+        time_units = "[s]",
+        round_digits = 2,
+        horiz_layout = false,
+        xlims = (:auto, :auto),
+    )
 
 Export plot of all variables, or all
 available time-steps in `all_data`.
 """
 function export_plot(
     z,
+    time_data,
     all_data::Array,
     ϕ_all,
     filename;
     xlabel,
     ylabel,
-    time_data,
+    time_units = "[s]",
     round_digits = 2,
     horiz_layout = false,
+    xlims = (:auto, :auto),
 )
     ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
-    single_var = ϕ_all[1] == xlabel && length(ϕ_all) == 1
+    single_var = ϕ_all[1] == xlabel || length(ϕ_all) == 1
     p = plot()
-    # Lims hack
-    # See https://github.com/JuliaPlots/Plots.jl/issues/3100
-    ε = sqrt(eps(eltype(time_data)))
-    zero_variance = all(
-        all(abs.(diff(data[String(ϕ)][:])) .< ε)
-        for ϕ in ϕ_all, data in all_data
-    )
-    non_zero_data =
-        all(maximum(data[String(ϕ)][:]) > ε for ϕ in ϕ_all, data in all_data)
-    prescribe_lims = zero_variance && non_zero_data
-    prescribe_lims && @warn "Plot Limits have been manually adjusted"
-
     for (t, data) in zip(time_data, all_data)
         for ϕ in ϕ_all
             ϕ_string = String(ϕ)
-            ϕ_name = plot_friendly_name(ϕ_string)
             ϕ_data = data[ϕ_string][:]
-            t_label = "t=$(round(t, digits=round_digits))"
+            t_label = "t=$(round(t, digits=round_digits)) $time_units"
             label = single_var ? t_label : "$ϕ_string, $t_label"
             args = horiz_layout ? (z, ϕ_data) : (ϕ_data, z)
-            if prescribe_lims && !horiz_layout
-                Δϕ_max = maximum(ϕ_data) - minimum(ϕ_data)
-                ϕ_mean = sum(ϕ_data) / length(ϕ_data)
-                xlims_min = ϕ_mean - ϕ_mean * 0.01
-                xlims_max = ϕ_mean + ϕ_mean * 0.01
-                plot!(
-                    args...;
-                    xlabel = xlabel,
-                    ylabel = ylabel,
-                    label = label,
-                    xlims = (xlims_min, xlims_max),
-                )
-            else
-                plot!(args...; xlabel = xlabel, ylabel = ylabel, label = label)
-            end
+            plot!(
+                args...;
+                xlabel = xlabel,
+                ylabel = ylabel,
+                label = label,
+                xlims = xlims,
+            )
         end
     end
     savefig(filename)
@@ -172,6 +164,7 @@ state_prefix(::GradientFlux) = "grad_flux_"
         output_dir;
         state_types = (Prognostic(), Auxiliary()),
         z = Array(get_z(solver_config.dg.grid)),
+        xlims = (:auto, :auto),
     )
 
 Export line plots of states given
@@ -187,6 +180,9 @@ function export_state_plots(
     output_dir;
     state_types = (Prognostic(), Auxiliary()),
     z = Array(get_z(solver_config.dg.grid)),
+    xlims = (:auto, :auto),
+    time_units = "[s]",
+    ylabel = "z [m]",
 )
     FT = eltype(solver_config.Q)
     mkpath(output_dir)
@@ -197,13 +193,15 @@ function export_state_plots(
             file_name = joinpath(output_dir, "$(base_name).png")
             export_plot(
                 z,
+                time_data,
                 all_data,
                 (fn,),
                 file_name;
                 xlabel = fn,
-                ylabel = "z [m]",
-                time_data = time_data,
+                ylabel = ylabel,
+                time_units = time_units,
                 round_digits = 5,
+                xlims = xlims,
             )
         end
     end
