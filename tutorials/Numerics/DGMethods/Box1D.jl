@@ -304,12 +304,12 @@ Mass Conservation:
 
     export_plot(
         z,
+        time_data,
         all_data,
         ("q",),
         joinpath(output_dir, plot_name);
         xlabel = "x",
         ylabel = "q",
-        time_data = time_data,
         horiz_layout = true,
     )
 

@@ -417,12 +417,13 @@ time_data = FT[0]                                      # store time data
 
 export_plot(
     z,
+    time_data,
     all_data,
     ("ρcT",),
     joinpath(output_dir, "initial_condition.png");
     xlabel = "ρcT",
     ylabel = z_label,
-    time_data = time_data,
+    xlims = (m.initialT - 1, m.T_bottom + 1),
 );
 # ![](initial_condition.png)
 
@@ -472,12 +473,12 @@ push!(time_data, gettime(solver_config.solver));
 
 export_plot(
     z,
+    time_data,
     all_data,
     ("ρcT",),
     joinpath(output_dir, "solution_vs_time.png");
     xlabel = "ρcT",
     ylabel = z_label,
-    time_data = time_data,
 );
 # ![](solution_vs_time.png)
 
