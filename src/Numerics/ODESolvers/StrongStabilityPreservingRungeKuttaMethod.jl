@@ -90,6 +90,7 @@ function dostep!(
 )
     for i = 1:nsteps
         dostep!(Q, ssp, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += ssp.dt
     end
 end
 

@@ -237,6 +237,7 @@ function dostep!(
     end
     for i = 1:nsubsteps
         dostep!(Q, mis, p, time)
+        time += mis.fastsolver.dt
     end
 end
 
@@ -291,7 +292,7 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
             fastrhs!.b = (c[i] - c̃[i]) / d[i]
 
             τ = zero(FT)
-            nsubstepsLoc=ceil(Int,nsubsteps*d[i]);
+            nsubstepsLoc = ceil(Int, nsubsteps * d[i])
             dτ = d[i] * dt / nsubstepsLoc
             updatetime!(fastsolver, τ)
             updatedt!(fastsolver, dτ)

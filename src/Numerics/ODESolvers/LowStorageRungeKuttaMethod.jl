@@ -83,6 +83,7 @@ function dostep!(
 )
     for i = 1:nsubsteps
         dostep!(Q, lsrk, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += lsrk.dt
     end
 end
 

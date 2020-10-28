@@ -108,6 +108,7 @@ function dostep!(
 ) where {SS<:LSRK2N}
     for i = 1:nsteps
         dostep!(Q, mrrk, param, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += mrrk.fast_solver.dt
     end
 end
 

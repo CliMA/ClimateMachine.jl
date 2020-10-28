@@ -85,7 +85,7 @@ mutable struct AdditiveRungeKutta{
     "backward Euler solver"
     besolver!::BE
     "backward Euler solvers, pre-factorized, for MIS"
-besolvers!
+    besolvers!
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
@@ -245,9 +245,10 @@ function dostep!(
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
 )
-    ark.besolver! = ark.besolvers![iStage];
+    ark.besolver! = ark.besolvers![iStage]
     for i = 1:nsubsteps
         dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += ark.dt
     end
 end
 
