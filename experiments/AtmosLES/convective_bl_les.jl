@@ -5,17 +5,12 @@ function main()
     cbl_args = ArgParseSettings(autofix_names = true)
     add_arg_group!(cbl_args, "ConvectiveBoundaryLayer")
     @add_arg_table! cbl_args begin
-        "--surface-flux"
-        help = "specify surface flux for energy and moisture"
-        metavar = "prescribed|bulk"
-        arg_type = String
-        default = "prescribed"
-        "--moisture-model"
-        help = "specify cloud condensate model"
-        metavar = "equilibrium|nonequilibrium"
-        arg_type = String
-        default = "equilibrium"
-    end
+         "--surface-flux"
+         help = "specify surface flux for energy and moisture"
+         metavar = "prescribed|bulk"
+         arg_type = String
+         default = "bulk"
+     end
 
     cl_args =
         ClimateMachine.init(parse_clargs = true, custom_clargs = cbl_args)
@@ -59,7 +54,7 @@ function main()
          ymax,
          zmax,
          param_set,
-         ics!,
+         ics,
          solver_type = ode_solver_type,
          model = model,
      )

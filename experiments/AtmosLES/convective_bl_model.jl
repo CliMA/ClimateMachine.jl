@@ -200,7 +200,7 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(state, aux, t)
+function surface_temperature_variation(state, t)
     FT = eltype(state)
     ρ = state.ρ
     q_tot = state.moisture.ρq_tot / ρ
