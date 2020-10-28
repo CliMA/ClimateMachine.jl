@@ -69,9 +69,9 @@ function get_vars_from_nodal_stack(
             push!(vars_wanted, vi)
         end
     end
-    vmap⁻ = grid.vmap⁻
-    vmap⁺ = grid.vmap⁺
-    vgeo = grid.vgeo
+    vmap⁻ = array_device(Q) isa CPU ? grid.vmap⁻ : Array(grid.vmap⁻)
+    vmap⁺ = array_device(Q) isa CPU ? grid.vmap⁺ : Array(grid.vmap⁺)
+    vgeo = array_device(Q) isa CPU ? grid.vgeo : Array(grid.vgeo)
     # extract values from `state_data`
     @inbounds for ev in vrange, k in 1:Nqk, v in vars_wanted
         if interp && k == 1
