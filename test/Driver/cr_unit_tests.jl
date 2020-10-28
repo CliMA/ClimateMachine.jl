@@ -73,7 +73,7 @@ function main()
 
     ode_solver = ClimateMachine.MISSolverType(;
         splitting_type = ClimateMachine.SlowFastSplitting(),
-        nsubsteps = 20,
+        nsubsteps = (20,),
     )
 
     setup = AcousticWaveSetup{FT}()
