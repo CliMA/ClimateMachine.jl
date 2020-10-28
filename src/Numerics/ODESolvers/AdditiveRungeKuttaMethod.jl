@@ -191,7 +191,7 @@ end
 
 function AdditiveRungeKutta(
     ark,
-    op::TimeScaledRHS{2,RT} where {RT},
+    op::TimeScaledRHS{2, RT} where {RT},
     backward_euler_solver,
     Q::AT;
     dt = 0,
@@ -199,7 +199,7 @@ function AdditiveRungeKutta(
     nsubsteps = [],
     split_explicit_implicit = true,
     variant = NaiveVariant(),
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
     return ark(
         op.rhs![1],
         op.rhs![2],
@@ -246,7 +246,7 @@ function dostep!(
     slow_scaling = nothing,
 )
     ark.besolver! = ark.besolvers![iStage]
-    for i = 1:nsubsteps
+    for i in 1:nsubsteps
         dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
         time += ark.dt
     end

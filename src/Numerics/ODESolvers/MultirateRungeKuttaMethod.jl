@@ -82,12 +82,12 @@ end
 
 function MultirateRungeKutta(
     mrk,
-    op::TimeScaledRHS{2,RT} where {RT},
+    op::TimeScaledRHS{2, RT} where {RT},
     Q = nothing;
     dt = 0,
     t0 = 0,
     steps = 0,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
 
     slow_solver = mrk(op.rhs![1], Q, dt = dt, t0 = t0)
     fast_solver = mrk(op.rhs![2], Q, dt = dt, t0 = t0)
@@ -105,8 +105,8 @@ function dostep!(
     slow_δ = nothing,
     slow_rv_dQ = nothing,
     slow_scaling = nothing,
-) where {SS<:LSRK2N}
-    for i = 1:nsteps
+) where {SS <: LSRK2N}
+    for i in 1:nsteps
         dostep!(Q, mrrk, param, time, slow_δ, slow_rv_dQ, slow_scaling)
         time += mrrk.fast_solver.dt
     end

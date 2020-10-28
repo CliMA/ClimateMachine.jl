@@ -19,27 +19,27 @@ export MultirateInfinitesimalStep,
 
 When evaluate at time `t`, evaluates `rhs!` at time `a + bt`.
 """
-mutable struct TimeScaledRHS{N,RT}
+mutable struct TimeScaledRHS{N, RT}
     a::RT
     b::RT
     rhs!
-    function TimeScaledRHS(a,b,rhs!)
+    function TimeScaledRHS(a, b, rhs!)
         RT = typeof(a)
         if isa(rhs!, Tuple)
-            N=length(rhs!)
+            N = length(rhs!)
         else
-            N=1
+            N = 1
         end
-        new{N,RT}(a, b, rhs!)
+        new{N, RT}(a, b, rhs!)
     end
 end
 
-function (o::TimeScaledRHS{1,RT} where {RT})(dQ, Q, params, tau; increment)
-  o.rhs!(dQ, Q, params, o.a + o.b * tau; increment = increment)
+function (o::TimeScaledRHS{1, RT} where {RT})(dQ, Q, params, tau; increment)
+    o.rhs!(dQ, Q, params, o.a + o.b * tau; increment = increment)
 end
 
-function (o::TimeScaledRHS{2,RT} where {RT})(dQ, Q, params, tau, i; increment)
-  o.rhs![i](dQ, Q, params, o.a + o.b * tau; increment = increment)
+function (o::TimeScaledRHS{2, RT} where {RT})(dQ, Q, params, tau, i; increment)
+    o.rhs![i](dQ, Q, params, o.a + o.b * tau; increment = increment)
 end
 
 mutable struct OffsetRHS{AT}
@@ -113,7 +113,7 @@ mutable struct MultirateInfinitesimalStep{
     "slow rhs function"
     slowrhs!
     "RHS for fast solver"
-    tsfastrhs!::TimeScaledRHS{N,RT} where N
+    tsfastrhs!::TimeScaledRHS{N, RT} where {N}
     "fast rhs method"
     fastsolver::FS
     "number of substeps per stage"
@@ -161,8 +161,8 @@ mutable struct MultirateInfinitesimalStep{
             # When d[i] = 0, we do not perform fast substepping, therefore
             # we do not need to scale the β, γ coefficients
             if !(abs(d[i]) < 1.e-10)
-                β[i,:] ./= d[i]
-                γ[i,:] ./= d[i]
+                β[i, :] ./= d[i]
+                γ[i, :] ./= d[i]
             end
         end
         c̃ = α * c
@@ -200,13 +200,13 @@ end
 
 function MultirateInfinitesimalStep(
     mis,
-    op::TimeScaledRHS{2,RT} where {RT},
+    op::TimeScaledRHS{2, RT} where {RT},
     fastmethod,
     Q = nothing;
     dt = 0,
     t0 = 0,
     nsubsteps = 1,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
 
     return mis(
         op.rhs![1],
@@ -235,7 +235,7 @@ function dostep!(
     else
         mis.slowrhs! = OffsetRHS(slow_rv_dQ, mis.slowrhs!)
     end
-    for i = 1:nsubsteps
+    for i in 1:nsubsteps
         dostep!(Q, mis, p, time)
         time += mis.fastsolver.dt
     end
@@ -268,25 +268,25 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
         groupsize = 256
         event = Event(array_device(Q))
         event = update!(array_device(Q), groupsize)(
-                realview(Q),
-                realview(offset),
-                Val(i),
-                realview(yn),
-                map(realview, ΔYnj[1:(i - 2)]),
-                map(realview, fYnj[1:(i - 1)]),
-                α[i, :],
-                β[i, :],
-                γ[i, :],
-                dt;
-                ndrange = length(realview(Q)),
-                dependencies = (event,),
-            )
+            realview(Q),
+            realview(offset),
+            Val(i),
+            realview(yn),
+            map(realview, ΔYnj[1:(i - 2)]),
+            map(realview, fYnj[1:(i - 1)]),
+            α[i, :],
+            β[i, :],
+            γ[i, :],
+            dt;
+            ndrange = length(realview(Q)),
+            dependencies = (event,),
+        )
         wait(array_device(Q), event)
 
         # When d[i] = 0, we do not perform fast substepping;
         # instead we just update the slow tendency
         if abs(d[i]) < 1.e-10
-            Q .+= dt.*offset
+            Q .+= dt .* offset
         else
             fastrhs!.a = time + c̃[i] * dt
             fastrhs!.b = (c[i] - c̃[i]) / d[i]
@@ -299,7 +299,17 @@ function dostep!(Q, mis::MultirateInfinitesimalStep, p, time)
             # TODO: we want to be able to write
             #   solve!(Q, fastsolver, p; numberofsteps = mis.nsubsteps)  #(1c)
             # especially if we want to use StormerVerlet, but need some way to pass in `offset`
-            dostep!(Q, fastsolver, p, τ, nsubstepsLoc, i, FT(1), realview(offset), nothing)  #(1c)
+            dostep!(
+                Q,
+                fastsolver,
+                p,
+                τ,
+                nsubstepsLoc,
+                i,
+                FT(1),
+                realview(offset),
+                nothing,
+            )  #(1c)
         end
     end
 end
@@ -325,9 +335,7 @@ end
         offset[e] = (βi[1]) .* fYnj[1][e] # (1b)
         @unroll for j in 2:(i - 1)
             Q[e] += αi[j] .* ΔYnj[j - 1][e] # (1a cont.)
-            offset[e] +=
-                (γi[j] / dt) * ΔYnj[j - 1][e] +
-                βi[j] * fYnj[j][e] # (1b cont.)
+            offset[e] += (γi[j] / dt) * ΔYnj[j - 1][e] + βi[j] * fYnj[j][e] # (1b cont.)
         end
     end
 end
@@ -340,7 +348,7 @@ function MISRK1(
     Q::AT;
     dt = 0,
     t0 = 0,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
     FT = eltype(Q)
     RT = real(FT)
     α = zeros(2, 2)
@@ -426,7 +434,7 @@ function MISRK2a(
     Q::AT;
     dt = 0,
     t0 = 0,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
     FT = eltype(Q)
     RT = real(FT)
 
@@ -470,7 +478,7 @@ function MISRK2b(
     Q::AT;
     dt = 0,
     t0 = 0,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
     FT = eltype(Q)
     RT = real(FT)
 
@@ -565,7 +573,7 @@ function MISRK3(
     Q::AT;
     dt = 0,
     t0 = 0,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
     FT = eltype(Q)
     RT = real(FT)
     α = zeros(4, 4)
@@ -712,7 +720,7 @@ function MISKWRK43(
     Q::AT;
     dt = 0,
     t0 = 0,
-) where {AT<:AbstractArray}
+) where {AT <: AbstractArray}
     FT = eltype(Q)
     RT = real(FT)
 
@@ -855,6 +863,6 @@ function beta(::typeof(TVDMISB), RT::DataType)
 end
 
 function getnsubsteps(mis, ns::Int, RT::DataType)
-  d = sum(beta(mis, RT), dims = 2)
-  return d ./ ns
+    d = sum(beta(mis, RT), dims = 2)
+    return d ./ ns
 end

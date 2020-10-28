@@ -244,18 +244,16 @@ function solversetup(
             ode_solver.nsubsteps[1],
             real(eltype(Q)),
         )
-        fast_method = (dg, Q) -> ode_solver.fast_method(
+        fast_method =
+            (dg, Q) -> ode_solver.fast_method(
                 dg,
                 Q,
                 dt / ode_solver.nsubsteps[1],
                 nsubsteps,
-        )
+            )
     elseif length(ode_solver.nsubsteps) == 2
-        fast_method = (dg, Q) -> ode_solver.fast_method(
-            dg,
-            Q,
-            ode_solver.nsubsteps[2]
-        )
+        fast_method =
+            (dg, Q) -> ode_solver.fast_method(dg, Q, ode_solver.nsubsteps[2])
     end
 
     solver = ode_solver.mis_method(
