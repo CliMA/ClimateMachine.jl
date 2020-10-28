@@ -39,6 +39,7 @@ if generate_tutorials
                 "Hydraulic Functions" =>
                     "Land/Soil/Water/hydraulic_functions.jl",
                 "Soil Heat Equation" => "Land/Soil/Heat/bonan_heat_tutorial.jl",
+                "Richards Equation" => "Land/Soil/Water/equilibrium_test.jl",
                 "Coupled Water and Heat" =>
                     "Land/Soil/Coupled/equilibrium_test.jl",
             ],
