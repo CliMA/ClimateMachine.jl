@@ -58,7 +58,7 @@ function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     Δθ::FT = 0
 
     if r <= rc
-        Δθ = FT(2) * cospi(0.5*r/rc)^2
+        Δθ = FT(2) * cospi(0.5 * r / rc)^2
     end
 
     #Perturbed state:
@@ -87,8 +87,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_type = MultirateInfinitesimalStep
     fast_solver_type = LowStorageRungeKutta2N
 
-    if solver_type==MultirateInfinitesimalStep
-        if fast_solver_type==LowStorageRungeKutta2N
+    if solver_type == MultirateInfinitesimalStep
+        if fast_solver_type == LowStorageRungeKutta2N
             ode_solver = ClimateMachine.MISSolverType(
                 splitting_type = ClimateMachine.SlowFastSplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
@@ -96,7 +96,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_method = LSRK54CarpenterKennedy,
                 nsubsteps = (50,),
             )
-        elseif fast_solver_type==StrongStabilityPreservingRungeKutta
+        elseif fast_solver_type == StrongStabilityPreservingRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
                 splitting_type = ClimateMachine.SlowFastSplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
@@ -104,34 +104,35 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_method = SSPRK33ShuOsher,
                 nsubsteps = (12,),
             )
-        elseif fast_solver_type==MultirateInfinitesimalStep
+        elseif fast_solver_type == MultirateInfinitesimalStep
             ode_solver = ClimateMachine.MISSolverType(
                 splitting_type = ClimateMachine.HEVISplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
-                    MISKWRK43,
-                    dg,
-                    (dgi,Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
-                    Q,
-                    nsubsteps = nsubsteps,
-                ),
-                nsubsteps = (12,2),
+                fast_method = (dg, Q, nsubsteps) ->
+                    MultirateInfinitesimalStep(
+                        MISKWRK43,
+                        dg,
+                        (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
+                        Q,
+                        nsubsteps = nsubsteps,
+                    ),
+                nsubsteps = (12, 2),
             )
-        elseif fast_solver_type==MultirateRungeKutta
+        elseif fast_solver_type == MultirateRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
                 splitting_type = ClimateMachine.HEVISplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
                 mis_method = MIS2,
-                fast_method = (dg,Q,nsubsteps) -> MultirateRungeKutta(
+                fast_method = (dg, Q, nsubsteps) -> MultirateRungeKutta(
                     LSRK144NiegemannDiehlBusch,
                     dg,
                     Q,
-                    steps=nsubsteps,
+                    steps = nsubsteps,
                 ),
-                nsubsteps = (12,4),
+                nsubsteps = (12, 4),
             )
-        elseif fast_solver_type==AdditiveRungeKutta
+        elseif fast_solver_type == AdditiveRungeKutta
             ode_solver = ClimateMachine.MISSolverType(
                 splitting_type = ClimateMachine.HEVISplitting(),
                 fast_model = AtmosAcousticGravityLinearModel,
@@ -139,7 +140,10 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
                 fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
                     ARK548L2SA2KennedyCarpenter,
                     dg,
-                    LinearBackwardEulerSolver(ManyColumnLU(), isadjustable=true),
+                    LinearBackwardEulerSolver(
+                        ManyColumnLU(),
+                        isadjustable = true,
+                    ),
                     Q,
                     dt = dt,
                     nsubsteps = nsubsteps,
@@ -148,14 +152,16 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
             )
         end
         Δt = FT(0.4)
-    elseif solver_type==StrongStabilityPreservingRungeKutta
-        ode_solver = ClimateMachine.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
+    elseif solver_type == StrongStabilityPreservingRungeKutta
+        ode_solver =
+            ClimateMachine.ExplicitSolverType(solver_method = SSPRK33ShuOsher)
         Δt = FT(0.1)
     end
 
     # Set up the model
     C_smag = FT(0.23)
-    ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set, FT(300), FT(0)))
+    ref_state =
+        HydrostaticState(DryAdiabaticProfile{FT}(param_set, FT(300), FT(0)))
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
