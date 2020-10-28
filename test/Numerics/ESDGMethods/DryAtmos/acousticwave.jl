@@ -33,7 +33,7 @@ using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 include("DryAtmos.jl")
 
 const output_vtk = false
-CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 120.0
+#CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 120.0
 
 Base.@kwdef struct AcousticWave{FT} <: AbstractDryAtmosProblem
     domain_height::FT = 10e3
@@ -82,11 +82,11 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     polynomialorder = 5
-    numelem_horz = 5
+    numelem_horz = 10
     numelem_vert = 5
 
-    timeend = 5 * 60 * 60
-    # timeend = 33 * 60 * 60 # Full simulation
+    #timeend = 5 * 60 * 60
+    timeend = 33 * 60 * 60 # Full simulation
     outputtime = 60
 
 
@@ -143,17 +143,31 @@ function run(
         model,
         grid,
         volume_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = EntropyConservative(),
+        #surface_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = RusanovNumericalFlux(),
+    )
+
+    linearmodel = DryAtmosAcousticGravityLinearModel(model)
+    lineardg = DGModel(
+        linearmodel,
+        grid,
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();
+        direction = VerticalDirection(),
+        state_auxiliary = esdg.state_auxiliary,
     )
 
     # determine the time step
     element_size = (problem.domain_height / numelem_vert)
     acoustic_speed = soundspeed_air(param_set, FT(problem.T_ref))
-    #dt_factor = 1
-    #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
-    dx = min_node_distance(grid)
-    cfl = 1.0
-    dt = cfl * dx / acoustic_speed
+    #dt_factor = 445
+    dt_factor = 100
+    #dt_factor = 100
+    dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
+    #dx = min_node_distance(grid)
+    #cfl = 1.0
+    #dt = cfl * dx / acoustic_speed
 
     # Adjust the time step so we exactly hit 1 hour for VTK output
     dt = 60 * 60 / ceil(60 * 60 / dt)
@@ -161,7 +175,17 @@ function run(
 
     Q = init_ode_state(esdg, FT(0))
 
-    odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    linearsolver = ManyColumnLU()
+    odesolver = ARK2GiraldoKellyConstantinescu(
+        esdg,
+        lineardg,
+        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
+        Q;
+        dt = dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+    )
 
     #filterorder = 18
     #filter = ExponentialFilter(grid, 0, filterorder)

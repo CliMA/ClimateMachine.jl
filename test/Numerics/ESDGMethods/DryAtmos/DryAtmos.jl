@@ -124,6 +124,7 @@ function init_state_auxiliary!(
     _grav = FT(grav(param_set))
     @inbounds r = geom.coord[dim]
     state_auxiliary.Φ = _grav * r
+    state_auxiliary.∇Φ = SVector{3, FT}(0, 0, _grav)
 end
 function init_state_auxiliary!(
     ::DryAtmosModel,
@@ -135,6 +136,7 @@ function init_state_auxiliary!(
     _grav = FT(grav(param_set))
     r = norm(geom.coord)
     state_auxiliary.Φ = _grav * r
+    state_auxiliary.∇Φ = _grav * geom.coord / r 
 end
 
 function init_state_auxiliary!(
@@ -278,6 +280,7 @@ The auxiliary variables for the `DryAtmosModel` is gravitational potential
 function vars_state_auxiliary(m::DryAtmosModel, FT)
     @vars begin
         Φ::FT
+        ∇Φ::SVector{3, FT} # TODO: only needed for the linear model
         ref_state::vars_state_auxiliary(m, m.ref_state, FT)
         problem::vars_state_auxiliary(m, m.problem, FT)
     end
@@ -539,3 +542,5 @@ function numerical_flux_first_order!(
 
     fluxᵀn .+= penalty / 2
 end
+
+include("linear.jl")
