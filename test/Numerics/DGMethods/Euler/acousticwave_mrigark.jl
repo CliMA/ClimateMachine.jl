@@ -130,7 +130,7 @@ function test_run(
         ref_state = HydrostaticState(T_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = Gravity(),
+        source = (Gravity(),),
         tracers = NTracers{length(δ_χ), FT}(δ_χ),
     )
     dg = DGModel(

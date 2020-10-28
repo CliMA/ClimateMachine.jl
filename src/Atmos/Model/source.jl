@@ -24,16 +24,7 @@ function atmos_source!(
 )
     f(atmos, source, state, diffusive, aux, t, direction)
 end
-function atmos_source!(
-    ::Nothing,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-) end
+
 # sources are applied additively
 @generated function atmos_source!(
     stuple::Tuple,

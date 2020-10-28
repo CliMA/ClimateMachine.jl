@@ -148,7 +148,7 @@ function test_run(
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = nothing,
+        source = (),
     )
     # This is a bad idea; this test is just testing how
     # implicit GARK composes with explicit methods

@@ -109,7 +109,7 @@ let
                     ref_state = NoReferenceState(),
                     turbulence = ConstantDynamicViscosity(μ, WithDivergence()),
                     moisture = DryModel(),
-                    source = Gravity(),
+                    source = (Gravity(),),
                 )
 
                 dg = DGModel(

@@ -91,7 +91,7 @@ function test_run(
         ref_state = HydrostaticState(T_profile),
         turbulence = Vreman(FT(0.23)),
         moisture = DryModel(),
-        source = Gravity(),
+        source = (Gravity(),),
     )
     dg = DGModel(
         fullmodel,

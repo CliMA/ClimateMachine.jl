@@ -24,7 +24,7 @@ function main()
     surface_flux = cl_args["surface_flux"]
     moisture_model = cl_args["moisture_model"]
 
-    FT = Float32
+    FT = Float64
     config_type = AtmosLESConfigType
 
     # DG polynomial order

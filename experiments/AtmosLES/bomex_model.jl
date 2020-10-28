@@ -9,8 +9,6 @@
 # `src/Driver/solver_configs.jl` while the `AtmosModel` defaults can be found in
 # `src/Atmos/Model/AtmosModel.jl` and `src/Driver/driver_configs.jl`
 #
-# This setup works in both Float32 and Float64 precision. `FT`
-#
 # To simulate the full 6 hour experiment, change `timeend` to (3600*6) and type in
 #
 # julia --project experiments/AtmosLES/bomex.jl
