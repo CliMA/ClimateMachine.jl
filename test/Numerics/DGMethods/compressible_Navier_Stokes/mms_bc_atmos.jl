@@ -40,6 +40,7 @@ include("mms_solution_generated.jl")
 
 import ClimateMachine.Thermodynamics: total_specific_enthalpy
 using ClimateMachine.Atmos
+import ClimateMachine.Atmos: atmos_source!
 
 total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
     zero(FT)
@@ -55,8 +56,10 @@ function mms2_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(2))
 end
 
-function mms2_source!(
-    bl,
+struct MMS2Source <: Source end
+function atmos_source!(
+    ::MMS2Source,
+    ::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -85,8 +88,10 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
-function mms3_source!(
-    bl,
+struct MMS3Source <: Source end
+function atmos_source!(
+    ::MMS3Source,
+    ::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -132,7 +137,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 WithDivergence(),
             ),
             moisture = DryModel(),
-            source = mms2_source!,
+            source = (MMS2Source(),),
         )
     else
         problem = AtmosProblem(
@@ -150,7 +155,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 WithDivergence(),
             ),
             moisture = DryModel(),
-            source = mms3_source!,
+            source = (MMS3Source(),),
         )
     end
 

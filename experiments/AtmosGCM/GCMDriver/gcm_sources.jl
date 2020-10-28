@@ -2,16 +2,23 @@
 # This file contains helpers and lists currently available options
 
 # Current options for GCM-specific sources:
+import ClimateMachine.Atmos: atmos_source!
+
 """
+    HeldSuarezForcing <: Source
+
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-function held_suarez_forcing!(
-    bl,
-    source,
-    state,
-    diffusive,
-    aux,
+struct HeldSuarezForcing <: Source end
+
+function atmos_source!(
+    ::HeldSuarezForcing,
+    bl::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
     t::Real,
     direction,
 )

@@ -14,6 +14,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 
 import ClimateMachine.Thermodynamics: total_specific_enthalpy
+import ClimateMachine.Atmos: atmos_source!
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -52,8 +53,10 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
-function mms3_source!(
-    bl,
+struct MMS3Source <: Source end
+function atmos_source!(
+    ::MMS3Source,
+    ::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -103,7 +106,7 @@ function main()
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(μ_exact), WithDivergence()),
         moisture = DryModel(),
-        source = mms3_source!,
+        source = (MMS3Source(),),
     )
 
     brickrange = (
