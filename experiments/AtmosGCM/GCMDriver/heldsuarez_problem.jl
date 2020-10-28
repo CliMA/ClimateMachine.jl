@@ -52,5 +52,4 @@ end
 
 problem_name(::HeldSuarezProblem) = "HeldSuarez"
 
-setup_source(::HeldSuarezProblem) =
-    (Gravity(), Coriolis(), held_suarez_forcing!)
+setup_source(::HeldSuarezProblem) = (Gravity(), Coriolis(), HeldSuarezForcing())

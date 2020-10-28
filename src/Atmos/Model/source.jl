@@ -10,21 +10,6 @@ export Source,
     RemovePrecipitation,
     CreateClouds
 
-# kept for compatibility
-# can be removed if no functions are using this
-function atmos_source!(
-    f::Function,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    f(atmos, source, state, diffusive, aux, t, direction)
-end
-
 # sources are applied additively
 @generated function atmos_source!(
     stuple::Tuple,

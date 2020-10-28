@@ -15,6 +15,7 @@ parsed_args = ClimateMachine.init(parse_clargs = true, custom_clargs = s)
 const number_of_tracers = parsed_args["number-of-tracers"]
 
 using ClimateMachine.Atmos
+import ClimateMachine.Atmos: atmos_source!
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
@@ -42,7 +43,7 @@ const param_set = EarthParameterSet()
 function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
-    # parameters 
+    # parameters
     _a::FT = planet_radius(bl.param_set)
 
     z_t::FT = 15e3
@@ -97,12 +98,21 @@ function init_heldsuarez!(problem, bl, state, aux, localgeo, t)
     nothing
 end
 
-function held_suarez_forcing!(
-    bl,
-    source,
-    state,
-    diffusive,
-    aux,
+"""
+    HeldSuarezForcing <: Source
+
+Defines a forcing that parametrises radiative and frictional effects using
+Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
+"""
+struct HeldSuarezForcing <: Source end
+
+function atmos_source!(
+    ::HeldSuarezForcing,
+    bl::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
     t::Real,
     direction,
 )
@@ -116,9 +126,9 @@ function held_suarez_forcing!(
     ρu = state.ρu
     ρe = state.ρe
 
-    coord = aux.coord
-    e_int = internal_energy(bl.moisture, bl.orientation, state, aux)
-    T = air_temperature(bl.param_set, e_int)
+    ts = recover_thermo_state(bl, state, aux)
+    e_int = internal_energy(ts)
+    T = air_temperature(ts)
     _R_d = FT(R_d(bl.param_set))
     _day = FT(day(bl.param_set))
     _grav = FT(grav(bl.param_set))
@@ -137,10 +147,10 @@ function held_suarez_forcing!(
     σ_b = FT(7 / 10)
 
     # Held-Suarez forcing
-    φ = latitude(bl.orientation, aux)
-    p = air_pressure(bl.param_set, T, ρ)
+    φ = latitude(bl, aux)
+    p = air_pressure(ts)
 
-    #TODO: replace _p0 with dynamic surfce pressure in Δσ calculations to account
+    #TODO: replace _p0 with dynamic surface pressure in Δσ calculations to account
     #for topography, but leave unchanged for calculations of σ involved in T_equil
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
@@ -154,6 +164,7 @@ function held_suarez_forcing!(
     # Apply Held-Suarez forcing
     source.ρu -= k_v * projection_tangential(bl, aux, ρu)
     source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
+
     return nothing
 end
 
@@ -182,7 +193,7 @@ function config_heldsuarez(FT, poly_order, resolution)
         turbulence = ConstantKinematicViscosity(FT(0)),
         hyperdiffusion = DryBiharmonic(FT(8 * 3600)),
         moisture = DryModel(),
-        source = (Gravity(), Coriolis(), held_suarez_forcing!),
+        source = (Gravity(), Coriolis(), HeldSuarezForcing()),
         tracers = tracers,
     )
 
