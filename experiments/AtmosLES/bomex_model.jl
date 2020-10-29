@@ -276,10 +276,12 @@ function atmos_source!(
     end
 
     # Collect Sources
-    source.moisture.ρq_tot += ρ∂qt∂t
     source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
     source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
+    source.moisture.ρq_tot += ρ∂qt∂t
     source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+    source.ρ += ρ∂qt∂t
+    source.ρ -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
     return nothing
 end
 

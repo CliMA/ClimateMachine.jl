@@ -70,7 +70,7 @@ compare = Dict()
         T2 = isapprox(maximum(absΔdata), 0, atol = tol * 0.01) # max of local
         compare[k] = (norm(absΔdata), maximum(absΔdata), tol)
         (!T1 || !T2) && @show k, norm(absΔdata), maximum(absΔdata), tol
-        @test isapprox(norm(absΔdata), 0, atol = tol * 0.01 * s) # norm
+        @test isapprox(norm(absΔdata), 0, atol = tol * 0.015 * s) # norm
         @test isapprox(maximum(absΔdata), 0, atol = tol * 0.01) # max of local
     end
 end
