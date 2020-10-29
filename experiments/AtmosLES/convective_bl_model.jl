@@ -215,7 +215,7 @@ function convective_bl_model(
     zmax,
     surface_flux;
     turbconv = NoTurbConv(),
- ) where {FT}
+) where {FT}
 
     ics = init_convective_bl!     # Initial conditions
 
@@ -252,25 +252,25 @@ function convective_bl_model(
     )
 
     # Set up problem initial and boundary conditions
-     if surface_flux == "prescribed"
-         energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
-         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
-     elseif surface_flux == "bulk"
-         energy_bc = BulkFormulaEnergy(
-             (state, aux, t, normPu_int) -> C_drag,
-             (state, aux, t) -> (surface_temperature_variation(state, t), q_sfc),
-         )
-         moisture_bc = BulkFormulaMoisture(
-             (state, aux, t, normPu_int) -> C_drag,
-             (state, aux, t) -> q_sfc,
-         )
-     else
-         @warn @sprintf(
-             """
- %s: unrecognized surface flux; using 'prescribed'""",
-             surface_flux,
-         )
-     end
+    if surface_flux == "prescribed"
+        energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
+        moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
+    elseif surface_flux == "bulk"
+        energy_bc = BulkFormulaEnergy(
+            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t) -> (surface_temperature_variation(state, t), q_sfc),
+        )
+        moisture_bc = BulkFormulaMoisture(
+            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t) -> q_sfc,
+        )
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized surface flux; using 'prescribed'""",
+            surface_flux,
+        )
+    end
 
     # Set up problem initial and boundary conditions
     moisture_flux = FT(0)
