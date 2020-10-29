@@ -722,19 +722,22 @@ end
         @test all(internal_energy.(ts) .≈ e_int)
         @test all(air_density.(ts) .≈ ρ)
 
-        ts_p = PhaseDry_pT.(param_set, p, T)
-        @test all(internal_energy.(ts_p) .≈ internal_energy.(param_set, T))
-        @test all(air_density.(ts_p) .≈ ρ)
+        ts_pT = PhaseDry_pT.(param_set, p, T)
+        @test all(internal_energy.(ts_pT) .≈ internal_energy.(param_set, T))
+        @test all(air_density.(ts_pT) .≈ ρ)
 
         θ_dry = dry_pottemp.(param_set, T, ρ)
-        ts_p = PhaseDry_pθ.(param_set, p, θ_dry)
-        @test all(internal_energy.(ts_p) .≈ internal_energy.(param_set, T))
-        @test all(air_density.(ts_p) .≈ ρ)
+        ts_pθ = PhaseDry_pθ.(param_set, p, θ_dry)
+        @test all(internal_energy.(ts_pθ) .≈ internal_energy.(param_set, T))
+        @test all(air_density.(ts_pθ) .≈ ρ)
 
-        ts = PhaseDry_ρT.(param_set, ρ, T)
+        ts_ρθ = PhaseDry_ρθ.(param_set, ρ, θ_dry)
+        @test all(internal_energy.(ts_ρθ) .≈ internal_energy.(param_set, T))
+        @test all(air_density.(ts_ρθ) .≈ ρ)
 
-        @test all(air_density.(ts_p) .≈ air_density.(ts))
-        @test all(internal_energy.(ts_p) .≈ internal_energy.(ts))
+        ts_ρT = PhaseDry_ρT.(param_set, ρ, T)
+        @test all(air_density.(ts_ρT) .≈ air_density.(ts))
+        @test all(internal_energy.(ts_ρT) .≈ internal_energy.(ts))
 
         profiles = PhaseEquilProfiles(param_set, ArrayType)
         @unpack_fields profiles T p RS e_int ρ θ_liq_ice q_tot q_liq q_ice q_pt RH phase_type
@@ -957,6 +960,7 @@ end
     θ_dry = dry_pottemp.(param_set, T, ρ)
     ts_dry = PhaseDry.(param_set, e_int, ρ)
     ts_dry_pT = PhaseDry_pT.(param_set, p, T)
+    ts_dry_ρθ = PhaseDry_ρθ.(param_set, ρ, θ_dry)
     ts_dry_pθ = PhaseDry_pθ.(param_set, p, θ_dry)
     ts_eq = PhaseEquil.(param_set, e_int, ρ, q_tot, 15, FT(1e-1))
     e_tot = total_energy.(e_kin, e_pot, ts_eq)
@@ -993,6 +997,7 @@ end
     for ts in (
         ts_dry,
         ts_dry_pT,
+        ts_dry_ρθ,
         ts_dry_pθ,
         ts_eq,
         ts_T,
