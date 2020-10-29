@@ -142,7 +142,52 @@ function run(
     @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
     # @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
 
+    do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+
     return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+end
+
+function do_output(
+    mpicomm,
+    vtkdir,
+    dg,
+    rhs_DGsource,
+    rhs_analytical,
+    model,
+)
+    mkpath(vtkdir)
+
+    ## name of the file that this MPI rank will write
+    filename = @sprintf(
+        "%s/compare_mpirank%04d",
+        vtkdir,
+        MPI.Comm_rank(mpicomm),
+    )
+
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(rhs_DGsource)))
+    analytical_names = statenames .* "_analytical"
+
+    writevtk(filename, rhs_DGsource, dg, statenames, rhs_analytical, analytical_names)
+
+    ## Generate the pvtu file for these vtk files
+    if MPI.Comm_rank(mpicomm) == 0
+        ## name of the pvtu file
+        pvtuprefix = @sprintf("%s/compare", vtkdir)
+
+        ## name of each of the ranks vtk files
+        prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
+            @sprintf("compare_mpirank%04d", i - 1)
+        end
+
+        writepvtu(
+            pvtuprefix,
+            prefixes,
+            (statenames..., analytical_names...),
+            eltype(rhs_DGsource),
+        )
+
+        @info "Done writing VTK: $pvtuprefix"
+    end
 end
 
 get_c(l,r) = l^2*(l+1)^2/r^4
@@ -180,11 +225,11 @@ let
     # height = _a * 0.01
     height = 30.0e3
 
-    @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32,)
-		    for base_num_elem in (8, 12, 15,)
+    # @testset "$(@__FILE__)" begin
+        for FT in (Float64, )# Float32,)
+		    for base_num_elem in (8, )# 12, 15,)
                 # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
-		        for (polynomialorder, vert_num_elem) in ((3,8), (4,5), (5,3), (6,2), )
+		        for (polynomialorder, vert_num_elem) in ((6,8),)# ((3,8), )#(4,5), (5,3), (6,2), )
 
                     for τ in (1,)#4,8,) # time scale for hyperdiffusion
 
@@ -196,7 +241,7 @@ let
 
                         @info "Array FT nhorz nvert poly τ" (ArrayType, FT, base_num_elem, vert_num_elem, polynomialorder, τ)
                         result = run(mpicomm, ArrayType, dim, topl,
-                                    polynomialorder, FT, direction, τ*3600, 24, 21 )
+                                    polynomialorder, FT, direction, τ*3600, 7, 4 )
 
                         @test result < 5e-2
 
@@ -204,6 +249,6 @@ let
                 end
             end
         end
-    end
+    # end
 end
 nothing
