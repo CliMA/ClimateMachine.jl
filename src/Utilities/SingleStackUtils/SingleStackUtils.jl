@@ -289,7 +289,7 @@ function reduce_nodal_stack(
 
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
     z = vrange.start
-    result = state_data[1, var_ind, z]
+    result = state_data[i + Nq * (j - 1), var_ind, z]
     for ev in vrange
         for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
