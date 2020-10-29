@@ -34,12 +34,12 @@ function main()
 
     t0 = FT(0)
 
-    # Full simulation requires 16+ hours of simulated time 
+    # Full simulation requires 16+ hours of simulated time
     timeend = FT(3600 * 0.1)
     CFLmax = FT(0.4)
 
     # Choose default IMEX solver
-    ode_solver_type = ClimateMachine.IMEXSolverType()
+    ode_solver_type = ClimateMachine.ExplicitSolverType()
 
     model = convective_bl_model(FT, config_type, zmax, surface_flux)
     ics = model.problem.init_state_prognostic
