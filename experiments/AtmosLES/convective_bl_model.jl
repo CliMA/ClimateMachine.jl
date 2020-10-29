@@ -1,28 +1,24 @@
 #!/usr/bin/env julia --project
 # This experiment file establishes the initial conditions, boundary conditions,
 # source terms and simulation parameters (domain size + resolution) for the
-# GABLS LES case (Beare et al, 2006; Kosovic and Curry, 2000).
+# Convective Boundary Layer LES case (Kitamura et al, 2016).
 
 ## ### Convective Boundary Layer LES
-## @article{Kitamura2016,
-## author={Kitamura, Yuji
-## and Ito, Junshi},
-## title={Revisiting the Bulk Relation for Heat Flux in the Free Convection Limit},
-## journal={Boundary-Layer Meteorology},
-## year={2016},
-## month={Jan},
-## day={01},
-## volume={158},
-## number={1},
-## pages={93-103},
-## issn={1573-1472},
-## doi={10.1007/s10546-015-0075-z},
-## url={https://doi.org/10.1007/s10546-015-0075-z}
+## @article{Nishizawa2018,
+## author={Nishizawa, S and Kitamura, Y},
+## title={A Surface Flux Scheme Based on the Monin-Obukhov Similarity for Finite Volume Models},
+## journal={Journal of Advances in Modeling Earth Systems},
+## year={2018},
+## volume={10},
+## number={12},
+## pages={3159-3175},
+## doi={10.1029/2018MS001534},
+## url={https://doi.org/10.1029/2018MS001534}
 ## }
 #
 # To simulate the experiment, type in
 #
-# julia --project experiments/AtmosLES/stable_bl_les.jl
+# julia --project experiments/AtmosLES/convective_bl_les.jl
 
 using ArgParse
 using Distributions
@@ -163,7 +159,7 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     _grav::FT = grav(bl.param_set)
     γ::FT = c_p / c_v
     # Initialise speeds [u = Eastward, v = Northward, w = Vertical]
-    u::FT = 8
+    u::FT = 4
     v::FT = 0
     w::FT = 0
     # Assign piecewise quantities to θ_liq and q_tot
@@ -194,7 +190,7 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     state.ρe = ρe_tot
     state.moisture.ρq_tot = ρ * q_tot
 
-    if z <= FT(400) # Add random perturbations to bottom 50m of model
+    if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
     end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
