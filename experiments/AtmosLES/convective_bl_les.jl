@@ -38,7 +38,7 @@ function main()
     timeend = FT(3600 * 0.1)
     CFLmax = FT(0.4)
 
-    # Choose default IMEX solver
+    # Choose default Explicit solver
     ode_solver_type = ClimateMachine.ExplicitSolverType()
 
     model = convective_bl_model(FT, config_type, zmax, surface_flux)
