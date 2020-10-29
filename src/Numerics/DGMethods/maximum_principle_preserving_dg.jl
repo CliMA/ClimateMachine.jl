@@ -59,7 +59,6 @@ function mpp_initialize(dg, state_prognostic, vs::Tuple)
     )
 end
 
-vars_state_mpp_aux(FT) = @vars(velᵀn::SVector{6, FT}, vol::FT)
 function mpp_initialize(
     dg,
     state_prognostic,
@@ -76,6 +75,8 @@ function mpp_initialize(
     dim = dimensionality(grid)
     Nq = N + 1
     Nqj = dim == 2 ? 1 : Nq
+
+    num_state_prognostic = number_states(balance_law, Prognostic())
 
     # Compute the targets for MPP
     num_state_mpp = varsize(vars_target)
@@ -94,29 +95,19 @@ function mpp_initialize(
         topology.nabrtosend,
     )
 
-    # Create storage for the auxiliary data for the MPP scheme
-    vars_mpp_aux = vars_state_mpp_aux(FT)
-    mpp_aux = MPIStateArray{FT, vars_mpp_aux}(
-        topology.mpicomm,
-        DA,
-        1,
-        varsize(vars_mpp_aux),
-        length(topology.elems);
-        realelems = topology.realelems,
-        ghostelems = topology.ghostelems,
-        vmaprecv = fvm_vmaprecv,
-        vmapsend = fvm_vmapsend,
-        nabrtorank = topology.nabrtorank,
-        nabrtovmaprecv = fvm_nabrtovmaprecv,
-        nabrtovmapsend = fvm_nabrtovmapsend,
-    )
+    # Create storage for the geometry terms
+    mpp_sgeo =
+        DA{FT, 4}(undef, Grids._nsgeo, 1, 2dim, length(topology.realelems))
+    mpp_vol = DA{FT, 1}(undef, length(topology.realelems))
+    # because MPIStateArray needs a 3D array
+    weights_reshape = reshape(mpp_vol, 1, 1, length(topology.realelems))
 
     # Create storage for the average state
-    mpp_avg = MPIStateArray{FT, vars_target}(
+    mpp_avg = MPIStateArray{FT, vars_state(balance_law, Prognostic(), FT)}(
         topology.mpicomm,
         DA,
         1,
-        num_state_mpp,
+        num_state_prognostic,
         length(topology.elems);
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -125,7 +116,7 @@ function mpp_initialize(
         nabrtorank = topology.nabrtorank,
         nabrtovmaprecv = fvm_nabrtovmaprecv,
         nabrtovmapsend = fvm_nabrtovmapsend,
-        weights = mpp_aux.vol,
+        weights = weights_reshape,
     )
 
     # Create storage for the FVM flux
@@ -142,15 +133,15 @@ function mpp_initialize(
         nabrtorank = topology.nabrtorank,
         nabrtovmaprecv = fvm_nabrtovmaprecv,
         nabrtovmapsend = fvm_nabrtovmapsend,
-        weights = mpp_aux.vol,
+        weights = weights_reshape,
     )
 
     # Create storage for the DG flux
-    ∫dg_flux = MPIStateArray{FT, vars_target}(
+    ∫dg_flux = MPIStateArray{FT, vars_state(balance_law, Prognostic(), FT)}(
         topology.mpicomm,
         DA,
         2 * dim, # number of faces
-        num_state_mpp,
+        num_state_prognostic,
         length(topology.elems);
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -159,7 +150,7 @@ function mpp_initialize(
         nabrtorank = topology.nabrtorank,
         nabrtovmaprecv = fvm_nabrtovmaprecv,
         nabrtovmapsend = fvm_nabrtovmapsend,
-        weights = mpp_aux.vol,
+        weights = weights_reshape,
     )
     fill!(∫dg_flux, 0)
 
@@ -177,7 +168,7 @@ function mpp_initialize(
         nabrtorank = topology.nabrtorank,
         nabrtovmaprecv = fvm_nabrtovmaprecv,
         nabrtovmapsend = fvm_nabrtovmapsend,
-        weights = mpp_aux.vol,
+        weights = weights_reshape,
     )
 
     # Initialize the averages and volumes of the elements
@@ -186,13 +177,13 @@ function mpp_initialize(
     nrealelem = length(topology.realelems)
     event = Event(device)
     event = knl_mpp_initialize!(device, (Nq, Nqj))(
+        balance_law,
         Val(nreduce),
         Val(dim),
         Val(N),
         mpp_avg.data,
-        mpp_aux.data,
+        mpp_vol,
         state_prognostic.data,
-        mpp_target,
         grid.vgeo,
         dependencies = (event,);
         ndrange = (nrealelem * Nq, Nqj),
@@ -204,24 +195,19 @@ function mpp_initialize(
     avg_exchange =
         MPIStateArrays.end_ghost_exchange!(mpp_avg; dependencies = avg_exchange)
 
-    aux_exchange =
-        MPIStateArrays.begin_ghost_exchange!(mpp_aux, dependencies = event)
-    aux_exchange =
-        MPIStateArrays.end_ghost_exchange!(mpp_aux; dependencies = aux_exchange)
-
-    wait(device, MultiEvent((avg_exchange, aux_exchange)))
+    wait(device, MultiEvent((avg_exchange,)))
 
     # Since the weights were not right when the MPIStateArray was created we
     # reset them with the right volume averages
-    copyto!(mpp_avg.weights, mpp_aux.vol)
-    copyto!(fvm_flux.weights, mpp_aux.vol)
+    copyto!(mpp_avg.weights, mpp_vol)
+    copyto!(fvm_flux.weights, mpp_vol)
 
     return (
         state = mpp_avg,
         fvm_flux = fvm_flux,
         ∫dg_flux = ∫dg_flux,
         Λ_min = Λ_min,
-        aux = mpp_aux,
+        vol = mpp_vol,
         target = mpp_target,
         elemtoelem = DA(topology.elemtoelem),
         elemtoface = DA(topology.elemtoface),
@@ -273,17 +259,13 @@ function mpp_step_initialize!(
     int_comp = knl_fvmflux!(device, workgroups_surface)(
         balance_law,
         Val(dim),
-        Val(N),
-        Val(nreduce),
         mppdata.target,
         mppdata.fvm_flux.data,
         mppdata.state.data,
-        state_prognostic.data,
-        dg.state_auxiliary.data,
-        grid.sgeo,
+        mppdata.aux.data,
+        mppdata.sgeo,
         t,
-        grid.vmap⁻,
-        grid.vmap⁺,
+        mppdata.vmap⁺,
         grid.elemtobndy,
         grid.interiorelems;
         ndrange = ndrange_interior_surface,
@@ -296,17 +278,13 @@ function mpp_step_initialize!(
     ext_comp = knl_fvmflux!(device, workgroups_surface)(
         balance_law,
         Val(dim),
-        Val(N),
-        Val(nreduce),
         mppdata.target,
         mppdata.fvm_flux.data,
         mppdata.state.data,
-        state_prognostic.data,
-        dg.state_auxiliary.data,
-        grid.sgeo,
+        mppdata.aux.data,
+        mppdata.sgeo,
         t,
-        grid.vmap⁻,
-        grid.vmap⁺,
+        mppdata.vmap⁺,
         grid.elemtobndy,
         grid.exteriorelems;
         ndrange = ndrange_exterior_surface,
@@ -445,13 +423,13 @@ end
 end
 
 @kernel function knl_mpp_initialize!(
+    balance_law,
     ::Val{nreduce},
     ::Val{dim},
     ::Val{N},
     mpp_avg,
-    mpp_aux,
+    mpp_vol,
     state_prognostic,
-    mpp_target::FilterIndices{I},
     vgeo,
 ) where {nreduce, dim, N, I}
     @uniform begin
@@ -460,7 +438,7 @@ end
         Nq = N + 1
         Nqj = dim == 2 ? 1 : Nq
 
-        num_state_mpp = number_state_filtered(mpp_target, FT)
+        num_state_prognostic = number_states(balance_law, Prognostic())
     end
 
     # For the pencil mass matrix
@@ -511,27 +489,24 @@ end
         # Save the volume for this element to use below
         l_vol[1] = s_reduce[1]
 
-        # Store the volume in the mpp_aux
+        # Store the volume
         if i == 1 && j == 1
-            Vars{vars_state_mpp_aux(FT)}(view(mpp_aux, 1, :, e)).vol = l_vol[1]
+            mpp_vol[e] = l_vol[1]
         end
 
         ###############################
         # Compute the element average #
         ###############################
 
-        # loop over the filtered states and compute the total mass for the
+        # loop over the prognostic states and compute the total mass for the
         # filtered states
-        @unroll for s in 1:num_state_mpp
-            # Get the prognostic state to apply mpp to
-            s_prognostic = I[s]
-
+        @unroll for s in 1:num_state_prognostic
             # compute the mass in the pencil
             MJ_state_prognostic = -zero(FT)
             @unroll for k in 1:Nq
                 ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
                 MJ = l_MJ[k]
-                Qs = state_prognostic[ijk, s_prognostic, e]
+                Qs = state_prognostic[ijk, s, e]
 
                 MJ_state_prognostic += MJ * Qs
             end
@@ -562,107 +537,84 @@ end
 @kernel function knl_fvmflux!(
     balance_law::BalanceLaw,
     ::Val{dim},
-    ::Val{polyorder},
-    ::Val{nreduce},
     mpp_target::FilterIndices{I},
     fvm_flux,
-    mpp_avg,
-    state_prognostic,
-    state_auxiliary,
+    mpp_state_prognostic,
+    mpp_state_auxiliary,
     sgeo,
     t,
-    vmap⁻,
     vmap⁺,
     elemtobndy,
     elems,
-) where {dim, polyorder, I, nreduce}
+) where {dim, I}
     @uniform begin
-        N = polyorder
-        FT = eltype(mpp_avg)
+        FT = eltype(mpp_state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         num_state_mpp = number_state_filtered(mpp_target, FT)
 
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
+        nface = 2dim
 
         faces = 1:nface
-
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
 
         local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
-        local_velocity⁻ = MArray{Tuple{1}, FT}(undef)
-        local_velocity⁺ = MArray{Tuple{1}, FT}(undef)
+        local_fvm_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
     end
 
     # Read the global thread ID
     grp_id = @index(Group, Linear)
 
     # Get the element we are working on
-    e = @private Int (1,)
-    @inbounds e[1] = elems[grp_id]
-    n = @index(Local, Linear)
-    p_sM = @private FT (1,)
-
-    s_flux = @localmem FT (Nfp, num_state_mpp)
+    @inbounds e = elems[gid]
 
     # Loop over neighbors and compute flux
     @inbounds for f in faces
-        e⁻ = e[1]
-        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
-        e⁺ = ((id⁺ - 1) ÷ Np) + 1
+        face_direction =
+            f in 1:(nface - 2) ? (EveryDirection(), HorizontalDirection()) :
+            (EveryDirection(), VerticalDirection())
 
-        vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        e⁻ = e
+        e⁺ = vmap⁺[1, f, e⁻]
 
         normal_vector = SVector(
-            sgeo[_n1, n, f, e⁻],
-            sgeo[_n2, n, f, e⁻],
-            sgeo[_n3, n, f, e⁻],
+            sgeo[_n1, 1, f, e⁻],
+            sgeo[_n2, 1, f, e⁻],
+            sgeo[_n3, 1, f, e⁻],
         )
 
-        p_sM[1] = sgeo[_sM, n, f, e⁻]
+        sM = sgeo[_sM, 1, f, e⁻]
 
         # Load minus side data
+        # TODO: Move outside the face loop
         @unroll for s in 1:num_state_prognostic
-            local_state_prognostic⁻[s] = state_prognostic[vid⁻, s, e⁻]
+            local_state_prognostic⁻[s] = state_prognostic[1, s, e⁻]
         end
 
+        # TODO: Move outside the face loop
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁻[s] = state_auxiliary[vid⁻, s, e⁻]
+            local_state_auxiliary⁻[s] = state_auxiliary[1, s, e⁻]
         end
 
         # Load neighboring data
         @unroll for s in 1:num_state_prognostic
-            local_state_prognostic⁺[s] = state_prognostic[vid⁺, s, e⁺]
+            local_state_prognostic⁺[s] = state_prognostic[1, s, e⁺]
         end
 
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁺[s] = state_auxiliary[vid⁺, s, e⁺]
+            local_state_auxiliary⁺[s] = state_auxiliary[1, s, e⁺]
         end
 
         # FIXME: Do we need to handle diffusion?
         bctype = elemtobndy[f, e⁻]
         if bctype == 0
-            # Get the normal velocity on both sides of the face
-            compute_face_normal_velocity!(
+            numerical_flux_first_order!(
+                FirstOrderFVM(),
                 balance_law,
-                local_velocity⁻,
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_fvm_flux),
                 normal_vector,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
                     local_state_prognostic⁻,
@@ -670,13 +622,6 @@ end
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary⁻,
                 ),
-                t,
-            )
-
-            compute_face_normal_velocity!(
-                balance_law,
-                local_velocity⁺,
-                normal_vector,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(
                     local_state_prognostic⁺,
                 ),
@@ -684,43 +629,24 @@ end
                     local_state_auxiliary⁺,
                 ),
                 t,
+                face_direction,
             )
 
-            # FIXME: use proper upwind flux for discontinuous velocity field?
-            vel = (local_velocity⁻[1] + local_velocity⁺[1]) / 2
-
-            # Compute the contribution of this face point to the total flux
-            @unroll for s in 1:num_state_mpp
-                up_state = vel > 0 ? mpp_avg[1, s, e⁻] : mpp_avg[1, s, e⁺]
-
-                s_flux[n, s] = p_sM[1] * vel * up_state
-            end
+            # FIXME: HOW TO HANDLE 2nd order flux FVM????
 
         else
             # FIXME: we assume that the flux is zero at the boundary. Need to
             # figure out how to handle more general BCs
-            @unroll for s in 1:num_state_mpp
-                s_flux[n, s] = 0
-            end
-        end
-
-        # Sum up fluxes along the face (e.g., surface integral)
-        @unroll for m in 11:-1:1
-            if nreduce ≥ 2^m
-                nshift = n + 2^(m - 1)
-                if n ≤ 2^(m - 1) && nshift ≤ Nfp
-                    @unroll for s in 1:num_state_mpp
-                        s_flux[n, s] += s_flux[nshift, s]
-                    end
-                end
-                @synchronize
+            @unroll for s in 1:num_state_prognostic
+                local_fvm_flux[s] = 0
             end
         end
 
         # Store the total fluxes for this face
         if n == 1
             @unroll for s in 1:num_state_mpp
-                fvm_flux[f, s, e[1]] = s_flux[n, s]
+                s_prognostic = I[s]
+                fvm_flux[f, s_prognostic, e⁻] = sM * local_fvm_flux[s]
             end
         end
     end
