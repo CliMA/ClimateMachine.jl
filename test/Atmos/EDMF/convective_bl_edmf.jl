@@ -60,6 +60,15 @@ function init_state_prognostic!(
         up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
         up[i].ρaq_tot = gm.moisture.ρq_tot * a_min
     end
+    # initialize environment covariance with zero for now
+    if z <= FT(2500)
+        en.ρatke = gm.ρ * (FT(1) - z / FT(3000))
+    else
+        en.ρatke = FT(0)
+    end
+    en.ρaθ_liq_cv = FT(1e-5) / max(z, FT(10))
+    en.ρaq_tot_cv = FT(1e-5) / max(z, FT(10))
+    en.ρaθ_liq_q_tot_cv = FT(1e-7) / max(z, FT(10))
     return nothing
 end;
 
@@ -73,11 +82,11 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
     cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = convective_bl_args)
+        ClimateMachine.init(parse_clargs = true, custom_clargs = cbl_args)
 
     surface_flux = cl_args["surface_flux"]
 
@@ -160,7 +169,7 @@ function main(::Type{FT}) where {FT}
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("moisture.ρq_tot", turbconv_filters(turbconv)...),
+            (turbconv_filters(turbconv)...),
             solver_config.dg.grid,
             TMARFilter(),
         )

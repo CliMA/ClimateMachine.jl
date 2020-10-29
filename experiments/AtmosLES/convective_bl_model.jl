@@ -172,7 +172,11 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
-    TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
+    else
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    end
 
     # Compute momentum contributions
     ρu = ρ * u
@@ -188,7 +192,9 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_tot
+    if !(bl.moisture isa DryModel)
+        state.moisture.ρq_tot = ρ * q_tot
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
