@@ -176,7 +176,7 @@ function mpp_initialize(
     nreduce = 2^ceil(Int, log2(Nq * Nqj))
     nrealelem = length(topology.realelems)
     event = Event(device)
-    event = knl_mpp_initialize!(device, (Nq, Nqj))(
+    event = knl_mpp_vol_initialize!(device, (Nq, Nqj))(
         balance_law,
         Val(nreduce),
         Val(dim),
@@ -185,6 +185,15 @@ function mpp_initialize(
         mpp_vol,
         state_prognostic.data,
         grid.vgeo,
+        dependencies = (event,);
+        ndrange = (nrealelem * Nq, Nqj),
+    )
+    event = knl_mpp_surf_initialize!(device, (Nq, Nqj))(
+        Val(nreduce),
+        Val(dim),
+        Val(N),
+        mpp_sgeo,
+        grid.sgeo,
         dependencies = (event,);
         ndrange = (nrealelem * Nq, Nqj),
     )
@@ -208,6 +217,7 @@ function mpp_initialize(
         ∫dg_flux = ∫dg_flux,
         Λ_min = Λ_min,
         vol = mpp_vol,
+        sgeo = mpp_sgeo,
         target = mpp_target,
         elemtoelem = DA(topology.elemtoelem),
         elemtoface = DA(topology.elemtoface),
@@ -422,7 +432,7 @@ end
     end
 end
 
-@kernel function knl_mpp_initialize!(
+@kernel function knl_mpp_vol_initialize!(
     balance_law,
     ::Val{nreduce},
     ::Val{dim},
@@ -529,6 +539,96 @@ end
             # Save the average value for the element
             if i == 1 && j == 1
                 mpp_avg[1, s, e] = s_reduce[1] / l_vol[1]
+            end
+        end
+    end
+end
+
+@kernel function knl_mpp_surf_initialize!(
+    ::Val{nreduce},
+    ::Val{dim},
+    ::Val{N},
+    mpp_sgeo,
+    sgeo,
+) where {nreduce, dim, N}
+    @uniform begin
+        FT = eltype(mpp_sgeo)
+
+        Nq = N + 1
+        Nqj = dim == 2 ? 1 : Nq
+
+        nface = 2dim
+    end
+
+    # Storage for surface mass matrix
+    l_sM = @private FT (1,)
+
+    l_area = @private FT (1,)
+
+    # Shared memory for the reduction
+    s_reduce = @localmem FT (Nq * Nqj,)
+
+    e = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds begin
+        # loop over faces of the elements
+        @unroll for f in 1:nface
+            n = i + (j - 1) * Nq
+
+            # load the dof local surface mass
+            s_reduce[n] = l_sM[1] = sgeo[_sM, n, f, e]
+
+            @synchronize
+
+            #
+            # Compute the face surface area
+            #
+
+            # Reduce thread block to get total surface area
+            @unroll for n in 11:-1:1
+                if nreduce ≥ 2^n
+                    ij = i + Nq * (j - 1)
+                    ijshift = ij + 2^(n - 1)
+                    if ij ≤ 2^(n - 1) && ijshift ≤ Nq * Nqj
+                        s_reduce[ij] += s_reduce[ijshift]
+                    end
+                    @synchronize
+                end
+            end
+
+            # Save the volume for this element to use below
+
+            # Store the volume
+            if i == 1 && j == 1
+                mpp_sgeo[_sM, 1, f, e] = l_area[1] = s_reduce[1]
+            end
+
+            #
+            # Compute the element average #
+            #
+
+            for _n in (_n1, _n2, _n3)
+                n = i + (j - 1) * Nq
+                s_reduce[n] = l_sM[1] * sgeo[_n, n, f, e]
+
+                @synchronize
+
+                # Reduce thread block to get total surface area
+                @unroll for n in 11:-1:1
+                    if nreduce ≥ 2^n
+                        ij = i + Nq * (j - 1)
+                        ijshift = ij + 2^(n - 1)
+                        if ij ≤ 2^(n - 1) && ijshift ≤ Nq * Nqj
+                            s_reduce[ij] += s_reduce[ijshift]
+                        end
+                        @synchronize
+                    end
+                end
+
+                if i == 1 && j == 1
+                    mpp_sgeo[_n, 1, f, e] = s_reduce[1] / l_area[1]
+                end
             end
         end
     end

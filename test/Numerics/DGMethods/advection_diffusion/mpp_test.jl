@@ -234,6 +234,8 @@ function run(
     @test mpp_mass ≈ ρ_mass
     @test mpp_vol ≈ dg_vol
 
+    # TODO: Add test to make sure normals are unit vectors
+
     odesolver =
         MPPSolver(mpp_vars, explicit_method, dg, state_prognostic; dt = dt)
     test_output(vtkstep) = do_output(
