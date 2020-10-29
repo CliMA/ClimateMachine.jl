@@ -66,7 +66,7 @@ end
     geo::LocalGeometry{Np, N},
     sym::Symbol,
 ) where {Np, N}
-    if sym === :polyorder
+    @inbounds if sym === :polyorder
         return N
     elseif sym === :coord
         vgeo, n, e = getfield(geo, :vgeo), getfield(geo, :n), getfield(geo, :e)

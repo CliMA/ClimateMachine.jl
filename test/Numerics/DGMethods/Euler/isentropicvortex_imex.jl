@@ -153,7 +153,7 @@ function test_run(
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = nothing,
+        source = (),
     )
 
     linear_model = AtmosAcousticLinearModel(model)

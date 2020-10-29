@@ -76,7 +76,7 @@ function config_balanced(
         turbulence = ConstantDynamicViscosity(FT(0)),
         hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
-        source = Gravity(),
+        source = (Gravity(),),
         init_state_prognostic = init_to_ref_state!,
     )
 

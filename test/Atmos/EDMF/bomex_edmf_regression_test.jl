@@ -41,8 +41,7 @@ vars_to_compare(N_up) = Dict(
 compare = Dict()
 @testset "Regression Test" begin
     N_up = n_updrafts(solver_config.dg.balance_law.turbconv)
-    numerical_data =
-        dict_of_nodal_states(solver_config, ["z"], (Prognostic(), Auxiliary()))
+    numerical_data = dict_of_nodal_states(solver_config)
     data_to_compare = Dict()
     for (ftc, v) in vars_to_compare(N_up)
         data_to_compare[ftc] = numerical_data[ftc]
@@ -71,7 +70,7 @@ compare = Dict()
         T2 = isapprox(maximum(absΔdata), 0, atol = tol * 0.01) # max of local
         compare[k] = (norm(absΔdata), maximum(absΔdata), tol)
         (!T1 || !T2) && @show k, norm(absΔdata), maximum(absΔdata), tol
-        @test isapprox(norm(absΔdata), 0, atol = tol * 0.01 * s) # norm
+        @test isapprox(norm(absΔdata), 0, atol = tol * 0.015 * s) # norm
         @test isapprox(maximum(absΔdata), 0, atol = tol * 0.01) # max of local
     end
 end

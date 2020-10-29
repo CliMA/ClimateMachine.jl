@@ -91,7 +91,7 @@ function test_run(
         ref_state = HydrostaticState(T_profile),
         turbulence = Vreman(FT(0.23)),
         moisture = DryModel(),
-        source = Gravity(),
+        source = (Gravity(),),
     )
     dg = DGModel(
         fullmodel,
@@ -191,7 +191,7 @@ function test_run(
         ))
 
         # Test that wavespeeds are split by direction
-        every_wavespeed = full_wavespeed - acoustic_wavespeed
+        every_wavespeed = full_wavespeed .- acoustic_wavespeed
         horz_wavespeed = -zero(FT)
         vert_wavespeed = -zero(FT)
         @test all(

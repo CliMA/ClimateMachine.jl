@@ -132,7 +132,6 @@ function test_run(
         polynomialorder = polynomialorder,
     )
     # -------------- Define model ---------------------------------- #
-    source = Gravity()
     T_profile = DryAdiabaticProfile{FT}(param_set)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -140,7 +139,7 @@ function test_run(
         init_state_prognostic = Initialise_Density_Current!,
         ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
-        source = source,
+        source = (Gravity(),),
     )
     # -------------- Define DGModel --------------------------- #
     dg = DGModel(

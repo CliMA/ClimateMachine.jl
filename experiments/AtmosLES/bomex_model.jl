@@ -9,8 +9,6 @@
 # `src/Driver/solver_configs.jl` while the `AtmosModel` defaults can be found in
 # `src/Atmos/Model/AtmosModel.jl` and `src/Driver/driver_configs.jl`
 #
-# This setup works in both Float32 and Float64 precision. `FT`
-#
 # To simulate the full 6 hour experiment, change `timeend` to (3600*6) and type in
 #
 # julia --project experiments/AtmosLES/bomex.jl
@@ -278,10 +276,12 @@ function atmos_source!(
     end
 
     # Collect Sources
-    source.moisture.ρq_tot += ρ∂qt∂t
     source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
     source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
+    source.moisture.ρq_tot += ρ∂qt∂t
     source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+    source.ρ += ρ∂qt∂t
+    source.ρ -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
     return nothing
 end
 

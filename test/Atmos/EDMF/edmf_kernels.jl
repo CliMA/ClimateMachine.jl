@@ -9,6 +9,8 @@ using ClimateMachine.BalanceLaws: number_states
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ClimateMachine.DGMethods: LocalGeometry, DGModel
 
+import ClimateMachine.Atmos: atmos_source!
+
 import ClimateMachine.BalanceLaws:
     vars_state,
     update_auxiliary_state!,
@@ -332,8 +334,10 @@ function compute_gradient_flux!(
     tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2
 end;
 
+struct TurbconvSource <: Source end
 
-function turbconv_source!(
+function atmos_source!(
+    ::TurbconvSource,
     m::AtmosModel{FT},
     source::Vars,
     state::Vars,

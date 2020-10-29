@@ -80,7 +80,7 @@ function main()
         ref_state = ref_state,
         turbulence = turbulence,
         moisture = DryModel(),
-        source = Gravity(),
+        source = (Gravity(),),
     )
 
     ode_solver = ClimateMachine.MultirateSolverType(

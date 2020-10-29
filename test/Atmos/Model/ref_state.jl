@@ -20,7 +20,7 @@ const TD = Thermodynamics
     RH = 0.5
     (nelem_vert, N_poly) = (20, 4)
     solver_config = get_atmos_ref_states(nelem_vert, N_poly, RH)
-    all_data = dict_of_nodal_states(solver_config, ["z"], (Auxiliary(),))
+    all_data = dict_of_nodal_states(solver_config, (Auxiliary(),))
     T = all_data["ref_state.T"]
     p = all_data["ref_state.p"]
     ρ = all_data["ref_state.ρ"]
@@ -37,7 +37,7 @@ end
     # Fails on (80, 1)
     for (nelem_vert, N_poly) in [(40, 2), (20, 4)]
         solver_config = get_atmos_ref_states(nelem_vert, N_poly, RH)
-        all_data = dict_of_nodal_states(solver_config, ["z"])
+        all_data = dict_of_nodal_states(solver_config)
         phase_type = PhaseEquil
         T = all_data["ref_state.T"]
         p = all_data["ref_state.p"]
