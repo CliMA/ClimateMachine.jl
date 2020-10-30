@@ -4,6 +4,7 @@ export ThermodynamicState,
     PhaseDry,
     PhaseDry_ρT,
     PhaseDry_pT,
+    PhaseDry_ρθ,
     PhaseDry_pθ,
     PhaseEquil,
     PhaseEquil_ρTq,
@@ -101,6 +102,21 @@ Constructs a [`PhaseDry`](@ref) thermodynamic state from:
 function PhaseDry_pT(param_set::APS, p::FT, T::FT) where {FT <: Real}
     e_int = internal_energy(param_set, T)
     ρ = air_density(param_set, T, p)
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
+end
+
+"""
+    PhaseDry_ρθ(param_set, ρ, θ_dry)
+
+Constructs a [`PhaseDry`](@ref) thermodynamic state from:
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `ρ` density
+ - `θ_dry` dry potential temperature
+"""
+function PhaseDry_ρθ(param_set::APS, ρ::FT, θ_dry::FT) where {FT <: Real}
+    T = air_temperature_given_θρq(param_set, θ_dry, ρ)
+    e_int = internal_energy(param_set, T)
     return PhaseDry{FT, typeof(param_set)}(param_set, e_int, ρ)
 end
 

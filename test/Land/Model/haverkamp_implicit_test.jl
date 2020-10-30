@@ -127,11 +127,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     Q = solver_config.Q
 
     vdg = DGModel(
-        driver_config.bl,
-        driver_config.grid,
-        driver_config.numerical_flux_first_order,
-        driver_config.numerical_flux_second_order,
-        driver_config.numerical_flux_gradient,
+        driver_config;
         state_auxiliary = dg.state_auxiliary,
         direction = VerticalDirection(),
     )
