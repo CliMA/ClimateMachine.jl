@@ -58,16 +58,10 @@ let
 
     # the i stands for "impero"
     # TODO: move to Abstractions directory
-    @wrapper iu=u iv=v iw=w ivelocity=(u,v,w)
-    ∇op = vector_grad_closure(grid)
-    ∇ = Operator(nothing, OperatorMetaData(∇op, "∇"))
-    curlop = curl_closure(grid)
-    curl = Operator(nothing, OperatorMetaData(curlop, "∇×"))
-    divop = div_closure(grid)
-    div = Operator(nothing, OperatorMetaData(divop, "∇⋅"))
-    ×(o::Operator, a::AbstractExpression) = curl(a)
-    ⋅(o::Operator, a::AbstractExpression) = div(a)
 
+    @wrapper iu=u iv=v iw=w ivelocity=(u,v,w)
+
+    div, ∇, curl, ×, ⋅ = impero_operators(grid)
 
     ∇u = Diagnostics.VectorGradient(grid, u, 1)
     ∇v = Diagnostics.VectorGradient(grid, v, 1)

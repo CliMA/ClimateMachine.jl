@@ -2,9 +2,22 @@ using MPI
 using ClimateMachine.MPIStateArrays
 
 export curl
-export vector_grad_closure, curl_closure, div_closure
-#export ∇op, ∇, curlop, curl, divop, div, ×, ⋅
-#export ×, ⋅
+export vector_grad_closure, curl_closure, div_closure, impero_operators
+
+function impero_operators(grid)
+    ∇op = vector_grad_closure(grid)
+    ∇ = Operator(nothing, OperatorMetaData(∇op, "∇"))
+    curlop = curl_closure(grid)
+    curl = Operator(nothing, OperatorMetaData(curlop, "∇×"))
+    divop = div_closure(grid)
+    div = Operator(nothing, OperatorMetaData(divop, "∇⋅"))
+
+    ×(o::Operator, a::AbstractExpression) = curl(a)
+    ⋅(o::Operator, a::AbstractExpression) = div(a)
+
+    return div, ∇, curl, ×, ⋅
+end
+
 
 function curl(grid, Q)
     d1 = Diagnostics.VectorGradient(grid, Q[1], 1)
