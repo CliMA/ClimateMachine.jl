@@ -1,4 +1,4 @@
-Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
+push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 
 # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
 ENV["GKSwstype"] = "100"
