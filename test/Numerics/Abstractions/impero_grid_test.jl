@@ -67,7 +67,10 @@ grid = DiscontinuousSpectralElementGrid(Ω, elements = (2,2,2), polynomialorder 
     @test norm(grid.D - igrid.D) ≈ 0.0
     @test norm(grid.vgeo - igrid.vgeo) ≈ 0.0
     @test norm(grid.sgeo - igrid.sgeo) ≈ 0.0
-    @test norm(grid.elemtobndy - igrid.elemtobndy) ≈ 0.0
+
+    # Multiplying by 1.0 because norm(CuArray{Int}) gives error
+    # TODO: update packages to fix this error
+    @test norm((grid.elemtobndy - igrid.elemtobndy)*1.0) ≈ 0.0
     # Previous
     dim = 3
     FT = Float64
@@ -110,5 +113,8 @@ grid = DiscontinuousSpectralElementGrid(Ω, elements = (2,2,2), polynomialorder 
     @test norm(grid.D - igrid.D) ≈ 0.0
     @test norm(grid.vgeo - igrid.vgeo) ≈ 0.0
     @test norm(grid.sgeo - igrid.sgeo) ≈ 0.0
-    @test norm(grid.elemtobndy - igrid.elemtobndy) ≈ 0.0
+
+    # Multiplying by 1.0 because norm(CuArray{Int}) gives error
+    # TODO: update packages to fix this error
+    @test norm((grid.elemtobndy - igrid.elemtobndy)*1.0) ≈ 0.0
 end
