@@ -46,8 +46,7 @@ function init_state_prognostic!(
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
     e_int = internal_energy(m, state, aux)
 
-    q_tot = state.moisture.ρq_tot / state.ρ
-    ts = PhaseEquil(m.param_set, e_int, state.ρ, q_tot)
+    ts = PhaseDry(m.param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -58,7 +57,7 @@ function init_state_prognostic!(
         up[i].ρa = gm.ρ * a_min
         up[i].ρaw = gm.ρu[3] * a_min
         up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
-        up[i].ρaq_tot = gm.moisture.ρq_tot * a_min
+        up[i].ρaq_tot = FT(0)
     end
     # initialize environment covariance with zero for now
     if z <= FT(2500)
