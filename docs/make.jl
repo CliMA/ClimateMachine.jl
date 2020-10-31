@@ -1,4 +1,3 @@
-push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 
 # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
 ENV["GKSwstype"] = "100"
@@ -11,6 +10,7 @@ using Distributed
 using DocumenterCitations
 bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 
+@everywhere push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 @everywhere using ClimateMachine
 @everywhere using Documenter, Literate
 
