@@ -9,4 +9,5 @@ include(joinpath("..", "..", "testhelpers.jl"))
     runmpi(joinpath(@__DIR__, "integral_test.jl"))
     runmpi(joinpath(@__DIR__, "integral_test_sphere.jl"))
     runmpi(joinpath(@__DIR__, "vars_test.jl"))
+    runmpi(joinpath(@__DIR__, "custom_filter.jl"))
 end
