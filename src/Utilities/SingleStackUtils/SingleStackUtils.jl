@@ -419,4 +419,6 @@ function dict_of_nodal_states(
     return OrderedDict(all_state_vars...)
 end
 
+include("continuous_data.jl")
+
 end # module

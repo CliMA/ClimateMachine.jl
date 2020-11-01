@@ -208,5 +208,13 @@ function main()
         vars_state(m, Prognostic(), FT),
     )
 
+    FT = Float64
+    data_discrete = FT[1, 2, 3, 4]
+    coordinate_discrete = FT[0, 10, 20, 30]
+    data_continuous = ContinuousData(coordinate_discrete, data_discrete)
+    @test data_continuous(-1.0) ≈ 1.0
+    @test data_continuous(25.0) ≈ 3.5
+    @test data_continuous(40.0) ≈ 4
+
 end
 main()
