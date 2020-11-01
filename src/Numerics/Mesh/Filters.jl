@@ -183,15 +183,7 @@ the filter starts with polynomial order `Nc`, and `alpha` is a parameter
 controlling the smallest value of the filter function.
 
 ### References
-
-    @inproceedings{boyd1996erfc,
-    title={The erfc-log filter and the asymptotics of the Euler and Vandeven sequence accelerations},
-    author={Boyd, JP},
-    booktitle={Proceedings of the Third International Conference on Spectral and High Order Methods},
-    pages={267--276},
-    year={1996},
-    organization={Houston Math. J}
-    }
+ - [Boyd1996](@cite)
 """
 struct BoydVandevenFilter <: AbstractSpectralFilter
     "filter matrix"
@@ -248,20 +240,7 @@ end
     TMARFilter()
 
 Returns the truncation and mass aware rescaling nonnegativity preservation
-filter.  The details of this filter are described in
-
-    @article{doi:10.1175/MWR-D-16-0220.1,
-      author = {Light, Devin and Durran, Dale},
-      title = {Preserving Nonnegativity in Discontinuous Galerkin
-               Approximations to Scalar Transport via Truncation and Mass
-               Aware Rescaling (TMAR)},
-      journal = {Monthly Weather Review},
-      volume = {144},
-      number = {12},
-      pages = {4771-4786},
-      year = {2016},
-      doi = {10.1175/MWR-D-16-0220.1},
-    }
+filter.  The details of this filter are described in [Light2016](@cite)
 
 Note this needs to be used with a restrictive time step or a flux correction
 to ensure that grid integral is conserved.

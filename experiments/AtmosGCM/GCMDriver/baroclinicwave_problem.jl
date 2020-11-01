@@ -1,9 +1,5 @@
 # This file establishes the default initial conditions, boundary conditions and sources
-# for the baroclinicwave_problem experiment, following
-#
-# Ullrich, P. A., Melvin, T., Jablonowski, C., and Staniforth, A.:
-# A proposed baroclinic wave test case for deep- and shallow atmosphere
-# dynamical cores, Q. J. Roy. Meteor. Soc., 140, 1590-1602, doi:10.1002/qj.2241, 2014.
+# for the baroclinicwave_problem experiment, following [Ullrich2014](@cite)
 
 # Override default CLIMAParameters for consistency with literature on this case
 CLIMAParameters.Planet.press_triple(::EarthParameterSet) = 610.78

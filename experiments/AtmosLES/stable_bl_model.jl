@@ -2,22 +2,9 @@
 #=
 # This experiment file establishes the initial conditions, boundary conditions,
 # source terms and simulation parameters (domain size + resolution) for the
-# GABLS LES case (Beare et al, 2006; Kosovic and Curry, 2000).
+# GABLS LES case ([Beare2006](@cite); [Kosovic2000](@cite)).
 #
-## @article{10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2,
-##     author = {Kosović, Branko and Curry, Judith A.},
-##     title = "{A Large Eddy Simulation Study of a Quasi-Steady,
-##               Stably Stratified Atmospheric Boundary Layer}",
-##     journal = {Journal of the Atmospheric Sciences},
-##     volume = {57},
-##     number = {8},
-##     pages = {1052-1068},
-##     year = {2000},
-##     month = {04},
-##     issn = {0022-4928},
-##     doi = {10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2},
-##     url = {https://doi.org/10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2},
-## }
+## [Kosovic2000](@cite)
 #
 # To simulate the experiment, type in
 #

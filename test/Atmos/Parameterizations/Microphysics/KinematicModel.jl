@@ -1,20 +1,8 @@
 # The set-up was designed for the
 # 8th International Cloud Modelling Workshop
-# (ICMW, Muhlbauer et al., 2013, case 1, doi:10.1175/BAMS-D-12-00188.1)
+# ([Muhlbauer2013](@cite))
 #
-# See chapter 2 in Arabas et al 2015 for setup details:
-#@Article{gmd-8-1677-2015,
-#AUTHOR = {Arabas, S. and Jaruga, A. and Pawlowska, H. and Grabowski, W. W.},
-#TITLE = {libcloudph++ 1.0: a single-moment bulk, double-moment bulk,
-#         and particle-based warm-rain microphysics library in C++},
-#JOURNAL = {Geoscientific Model Development},
-#VOLUME = {8},
-#YEAR = {2015},
-#NUMBER = {6},
-#PAGES = {1677--1707},
-#URL = {https://www.geosci-model-dev.net/8/1677/2015/},
-#DOI = {10.5194/gmd-8-1677-2015}
-#}
+# See chapter 2 in [Arabas2015](@cite) for setup details:
 
 using Dates
 using DocStringExtensions

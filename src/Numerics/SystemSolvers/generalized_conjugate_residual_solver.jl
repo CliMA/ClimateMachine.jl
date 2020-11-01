@@ -19,16 +19,7 @@ This uses the restarted Generalized Conjugate Residual method of Eisenstat (1983
 
 ## References
 
-    @article{eisenstat1983variational,
-      title={Variational iterative methods for nonsymmetric systems of linear equations},
-      author={Eisenstat, Stanley C and Elman, Howard C and Schultz, Martin H},
-      journal={SIAM Journal on Numerical Analysis},
-      volume={20},
-      number={2},
-      pages={345--357},
-      year={1983},
-      publisher={SIAM}
-    }
+ - [Eisenstat1983](@cite)
 """
 mutable struct GeneralizedConjugateResidual{K, T, AT} <:
                AbstractIterativeSystemSolver

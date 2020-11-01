@@ -5,17 +5,7 @@
 # Convective Boundary Layer LES case (Kitamura et al, 2016).
 
 ## ### Convective Boundary Layer LES
-## @article{Nishizawa2018,
-## author={Nishizawa, S and Kitamura, Y},
-## title={A Surface Flux Scheme Based on the Monin-Obukhov Similarity for Finite Volume Models},
-## journal={Journal of Advances in Modeling Earth Systems},
-## year={2018},
-## volume={10},
-## number={12},
-## pages={3159-3175},
-## doi={10.1029/2018MS001534},
-## url={https://doi.org/10.1029/2018MS001534},
-## }
+## [Nishizawa2018](@cite)
 #
 # To simulate the experiment, type in
 #

@@ -109,10 +109,8 @@ function flux_radiation!(
 """
   DYCOMSRadiation <: RadiationModel
 
-Stevens et. al (2005) approximation of longwave radiative fluxes in DYCOMS.
-Analytical description as a function of the liquid water path and inversion height zᵢ
-
-* Stevens, B. et. al. (2005) "Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus". Mon. Wea. Rev., 133, 1443–1462, https://doi.org/10.1175/MWR2930.1
+## References
+ - [Stevens2005](@cite)
 """
 struct DYCOMSRadiation{FT} <: RadiationModel
     "mass absorption coefficient `[m^2/kg]`"
@@ -210,23 +208,9 @@ end
 
 """
   Initial Condition for DYCOMS_RF01 LES
-@article{doi:10.1175/MWR2930.1,
-author = {Stevens, Bjorn and Moeng, Chin-Hoh and Ackerman,
-          Andrew S. and Bretherton, Christopher S. and Chlond,
-          Andreas and de Roode, Stephan and Edwards, James and Golaz,
-          Jean-Christophe and Jiang, Hongli and Khairoutdinov,
-          Marat and Kirkpatrick, Michael P. and Lewellen, David C. and Lock, Adrian and
-          Maeller, Frank and Stevens, David E. and Whelan, Eoin and Zhu, Ping},
-title = {Evaluation of Large-Eddy Simulations via Observations of Nocturnal Marine Stratocumulus},
-journal = {Monthly Weather Review},
-volume = {133},
-number = {6},
-pages = {1443-1462},
-year = {2005},
-doi = {10.1175/MWR2930.1},
-URL = {https://doi.org/10.1175/MWR2930.1},
-eprint = {https://doi.org/10.1175/MWR2930.1}
-}
+
+## References
+ - [Stevens2005](@cite)
 """
 function init_dycoms!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)

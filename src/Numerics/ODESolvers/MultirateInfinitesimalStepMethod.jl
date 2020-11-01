@@ -76,15 +76,7 @@ based on the provided `α`, `β` and `γ` tableaux and `fastmethod` for solving
 the fast modes.
 
 ### References
-    @article{KnothWensch2014,
-      title={Generalized split-explicit Runge--Kutta methods for the compressible Euler equations},
-      author={Knoth, Oswald and Wensch, Joerg},
-      journal={Monthly Weather Review},
-      volume={142},
-      number={5},
-      pages={2067--2081},
-      year={2014}
-    }
+ - [KnothWensch2014](@cite)
 """
 mutable struct MultirateInfinitesimalStep{
     T,

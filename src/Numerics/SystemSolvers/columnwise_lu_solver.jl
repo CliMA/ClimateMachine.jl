@@ -525,16 +525,7 @@ is stored as
 
 ### Reference
 
-    @book{GolubVanLoan,
-      title = {Matrix Computations},
-      author = {Gene H. Golub and Charles F. Van Loan},
-      edition = {4th},
-      isbn = {9781421407944},
-      publisher = {Johns Hopkins University Press},
-      address = {Baltimore, MD, USA},
-      url = {http://www.cs.cornell.edu/cv/GVL4/golubandvanloan.htm},
-      year = 2013
-    }
+ - [GolubVanLoan2013](@cite)
 
 """ band_lu_kernel!
 @kernel function band_lu_kernel!(A)
@@ -592,16 +583,7 @@ eband - 1`.
 
 ### Reference
 
-    @book{GolubVanLoan,
-      title = {Matrix Computations},
-      author = {Gene H. Golub and Charles F. Van Loan},
-      edition = {4th},
-      isbn = {9781421407944},
-      publisher = {Johns Hopkins University Press},
-      address = {Baltimore, MD, USA},
-      url = {http://www.cs.cornell.edu/cv/GVL4/golubandvanloan.htm},
-      year = 2013
-    }
+ - [GolubVanLoan2013](@cite)
 
 """ band_forward_kernel!
 @kernel function band_forward_kernel!(b, LU)
@@ -686,16 +668,7 @@ eband - 1`.
 
 ### Reference
 
-    @book{GolubVanLoan,
-      title = {Matrix Computations},
-      author = {Gene H. Golub and Charles F. Van Loan},
-      edition = {4th},
-      isbn = {9781421407944},
-      publisher = {Johns Hopkins University Press},
-      address = {Baltimore, MD, USA},
-      url = {http://www.cs.cornell.edu/cv/GVL4/golubandvanloan.htm},
-      year = 2013
-    }
+ - [GolubVanLoan2013](@cite)
 
 """ band_back_kernel!
 @kernel function band_back_kernel!(b, LU)

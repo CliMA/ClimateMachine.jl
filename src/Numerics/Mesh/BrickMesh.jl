@@ -35,7 +35,7 @@ where the 15-bit Hilbert integer = `A B C D E F G H I J K L M N O` is stored
 in `H`
 
 This function is based on public domain code from John Skilling which can be
-found in <https://doi.org/10.1063/1.1751381>.
+found in [Skilling2004](@cite).
 """
 function hilbertcode(Y::AbstractArray{T}; bits = 8 * sizeof(T)) where {T}
     # Below is Skilling's AxestoTranspose

@@ -337,12 +337,7 @@ based on the underlying balance law.
 
 Requires a custom implementation for the balance law.
 
-    @book{toro2013riemann,
-        title={Riemann solvers and numerical methods for fluid dynamics: a practical introduction},
-        author={Toro, Eleuterio F},
-        year={2013},
-        publisher={Springer Science & Business Media}
-    }
+ - [Toro2013](@cite)
 """
 struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
 
