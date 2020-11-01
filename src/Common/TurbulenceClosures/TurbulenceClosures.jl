@@ -510,18 +510,8 @@ end
 $(DocStringExtensions.FIELDS)
 
 # Smagorinsky Model Reference
-    article{doi:10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2,
-      author = {Smagorinksy, J.},
-      title = {General circulation experiments with the primitive equations},
-      journal = {Monthly Weather Review},
-      volume = {91},
-      number = {3},
-      pages = {99-164},
-      year = {1963},
-      doi = {10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
-      URL = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
-      eprint = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
-      }
+
+See [smagorinsky1963](@cite)
 
 # Lilly Model Reference
     article{doi:10.1111/j.2153-3490.1962.tb00128.x,
