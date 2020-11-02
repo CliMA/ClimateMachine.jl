@@ -4,7 +4,7 @@ using ..MPIStateArrays
 using ..MPIStateArrays: array_device, realview
 
 using ..Mesh.Grids
-import ..Mesh.Grids: polynomialorder, dimensionality
+import ..Mesh.Grids: polynomialorders, dimensionality
 using ..Mesh.Topologies
 using ..DGMethods
 using ..DGMethods: DGModel

@@ -303,7 +303,11 @@ function empty_banded_matrix(
     device = array_device(Q)
 
     nstate = number_states(bl, Prognostic())
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
 
     # p is lower bandwidth
@@ -387,7 +391,11 @@ function update_banded_matrix!(
     device = array_device(Q)
 
     nstate = number_states(bl, Prognostic())
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
 
     # p is lower bandwidth

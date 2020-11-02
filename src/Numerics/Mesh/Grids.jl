@@ -8,7 +8,7 @@ using LinearAlgebra
 using KernelAbstractions
 
 export DiscontinuousSpectralElementGrid, AbstractGrid
-export dofs_per_element, arraytype, dimensionality, polynomialorder
+export dofs_per_element, arraytype, dimensionality, polynomialorders
 export referencepoints, min_node_distance, get_z
 export EveryDirection, HorizontalDirection, VerticalDirection, Direction
 
@@ -28,7 +28,7 @@ abstract type AbstractGrid{
 
 dofs_per_element(::AbstractGrid{T, D, N, Np}) where {T, D, N, Np} = Np
 
-polynomialorder(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
+polynomialorders(::AbstractGrid{T, dim, N}) where {T, dim, N} = N
 
 dimensionality(::AbstractGrid{T, dim}) where {T, dim} = dim
 
@@ -109,6 +109,12 @@ elements is given by `polynomialorder`. `DeviceArray` gives the array type used
 to store the data (`CuArray` or `Array`), and the coordinate points will be of
 `FloatType`.
 
+The polynomial order can be different in each direction (specified as a
+`NTuple`). If only a single integer is specified, then each dimension will use
+the same order. If the topology dimension is 3 and the `polynomialorder` has
+dimension 2, then the first value will be used for horizontal and the second for
+the vertical.
+
 The optional `meshwarp` function allows the coordinate points to be warped after
 the mesh is created; the mesh degrees of freedom are orginally assigned using a
 trilinear blend of the element corner locations.
@@ -167,27 +173,34 @@ struct DiscontinuousSpectralElementGrid{
     "Array indicating if a degree of freedom (real or ghost) is active"
     activedofs
 
-    "1-D lvl weights on the device"
+    "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
 
-    "1-D derivative operator on the device"
+    "1-D derivative operator on the device (one for each dimension)"
     D::DAT2
 
-    "1-D indefinite integral operator on the device"
+    "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
 
+    # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
         topology::AbstractTopology{dim};
+        polynomialorder,
         FloatType,
         DeviceArray,
-        polynomialorder,
         meshwarp::Function = (x...) -> identity(x),
     ) where {dim}
 
+        if polynomialorder isa Integer
+            polynomialorder = ntuple(j -> polynomialorder, dim)
+        elseif polynomialorder isa NTuple{2} && dim == 3
+            polynomialorder =
+                (polynomialorder[1], polynomialorder[1], polynomialorder[2])
+        end
+
+        @assert dim == length(polynomialorder)
+
         N = polynomialorder
-        (ξ, ω) = Elements.lglpoints(FloatType, N)
-        Imat = indefinite_integral_interpolation_matrix(ξ, ω)
-        D = Elements.spectralderivative(ξ)
 
         (vmap⁻, vmap⁺) = mappings(
             N,
@@ -209,8 +222,20 @@ struct DiscontinuousSpectralElementGrid{
             topology.nabrtosend,
         )
 
+        Np = prod(N .+ 1)
+
+        # Create element operators for each polynomial order
+        ξω = ntuple(j -> Elements.lglpoints(FloatType, N[j]), dim)
+        ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+
+        Imat = ntuple(
+            j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
+            dim,
+        )
+        D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+
         (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
-        Np = (N + 1)^dim
+
         @assert Np == size(vgeo, 1)
 
         activedofs = zeros(Bool, Np * length(topology.elems))
@@ -226,9 +251,9 @@ struct DiscontinuousSpectralElementGrid{
         vmapsend = DeviceArray(vmapsend)
         vmaprecv = DeviceArray(vmaprecv)
         activedofs = DeviceArray(activedofs)
-        ω = DeviceArray(ω)
-        D = DeviceArray(D)
-        Imat = DeviceArray(Imat)
+        ω = DeviceArray.(ω)
+        D = DeviceArray.(D)
+        Imat = DeviceArray.(Imat)
 
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
@@ -281,10 +306,11 @@ end
 Returns the 1D interpolation points used for the reference element.
 """
 function referencepoints(
-    ::DiscontinuousSpectralElementGrid{T, dim, N},
-) where {T, dim, N}
-    ξ, _ = Elements.lglpoints(T, N)
-    ξ
+    ::DiscontinuousSpectralElementGrid{FT, dim, N},
+) where {FT, dim, N}
+    ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
+    ξ, _ = ntuple(j -> map(x -> x[j], ξω), 2)
+    return ξ
 end
 
 """
@@ -296,13 +322,17 @@ the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
 function min_node_distance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     direction::Direction = EveryDirection(),
-) where {T, dim, N}
+) where {T, dim, Ns}
     topology = grid.topology
     nrealelem = length(topology.realelems)
 
     if nrealelem > 0
+        # XXX: Needs updating for multiple polynomial orders
+        # Currently only support single polynomial order
+        @assert all(Ns[1] .== Ns)
+        N = Ns[1]
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
         device = grid.vgeo isa Array ? CPU() : CUDADevice()
@@ -337,10 +367,14 @@ Get the Gauss-Lobatto points along the Z-coordinate.
  - `rm_dupes`: removes duplicate Gauss-Lobatto points
 """
 function get_z(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N};
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns};
     z_scale = 1,
     rm_dupes = false,
-) where {T, dim, N}
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     if rm_dupes
         ijk_range = (1:((N + 1)^2):(((N + 1)^3) - (N + 1)^2))
         vgeo = Array(grid.vgeo)
@@ -352,6 +386,7 @@ function get_z(
         z = Array(reshape(grid.vgeo[ijk_range, _x3, :], :))
         return z * z_scale
     end
+    return reshape(grid.vgeo[(1:((N + 1)^2):((N + 1)^3)), _x3, :], :) * z_scale
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
@@ -376,9 +411,9 @@ end
 """
     mappings(N, elemtoelem, elemtoface, elemtoordr)
 
-This function takes in a polynomial order `N` and parts of a topology (as
-returned from `connectmesh`) and returns index mappings for the element surface
-flux computation.  The returned `Tuple` contains:
+This function takes in a tuple of polynomial orders `N` and parts of a topology
+(as returned from `connectmesh`) and returns index mappings for the element
+surface flux computation. The returned `Tuple` contains:
 
  - `vmap⁻` an array of linear indices into the volume degrees of freedom where
    `vmap⁻[:,f,e]` are the degrees of freedom indices for face `f` of element
@@ -389,38 +424,77 @@ flux computation.  The returned `Tuple` contains:
    face `f` of element `e`.
 """
 function mappings(N, elemtoelem, elemtoface, elemtoordr)
-    nface, nelem = size(elemtoelem)
+    nfaces, nelem = size(elemtoelem)
 
-    d = div(nface, 2)
-    Np, Nfp = (N + 1)^d, (N + 1)^(d - 1)
+    d = div(nfaces, 2)
+    Nq = N .+ 1
+    # number of points in the element
+    Np = prod(Nq)
 
-    p = reshape(1:Np, ntuple(j -> N + 1, d))
-    fd(f) = div(f - 1, 2) + 1
-    fe(f) = N * mod(f - 1, 2) + 1
-    fmask = hcat((
-        p[ntuple(j -> (j == fd(f)) ? (fe(f):fe(f)) : (:), d)...][:] for
-        f in 1:nface
-    )...)
-    inds = LinearIndices(ntuple(j -> N + 1, d - 1))
+    # Compute the maximum number of points on a face
+    Nfp = div.(Np, Nq)
 
-    vmap⁻ = similar(elemtoelem, Nfp, nface, nelem)
-    vmap⁺ = similar(elemtoelem, Nfp, nface, nelem)
+    # linear index for each direction, e.g., (i, j, k) -> n
+    p = reshape(1:Np, ntuple(j -> Nq[j], d))
 
-    for e1 in 1:nelem, f1 in 1:nface
+    # fmask[f] -> returns an array of all degrees of freedom on face f
+    fmask = if d == 1
+        (
+            p[1:1],    # Face 1
+            p[Nq[1]:Nq[1]], # Face 2
+        )
+    elseif d == 2
+        (
+            p[1, :][:],     # Face 1
+            p[Nq[1], :][:], # Face 2
+            p[:, 1][:],     # Face 3
+            p[:, Nq[2]][:], # Face 4
+        )
+    elseif d == 3
+        (
+            p[1, :, :][:],     # Face 1
+            p[Nq[1], :, :][:], # Face 2
+            p[:, 1, :][:],     # Face 3
+            p[:, Nq[2], :][:], # Face 4
+            p[:, :, 1][:],     # Face 5
+            p[:, :, Nq[3]][:], # Face 6
+        )
+    else
+        error("unknown dimensionality")
+    end
+
+    # Create a map from Cartesian face dof number to linear face dof numbering
+    # inds[face][i, j] -> n
+    inds = ntuple(
+        f -> dropdims(
+            LinearIndices(ntuple(j -> j == cld(f, 2) ? 1 : Nq[j], d));
+            dims = cld(f, 2),
+        ),
+        nfaces,
+    )
+
+    # Use the largest possible storage
+    vmap⁻ = fill!(similar(elemtoelem, maximum(Nfp), nfaces, nelem), 0)
+    vmap⁺ = fill!(similar(elemtoelem, maximum(Nfp), nfaces, nelem), 0)
+
+    for e1 in 1:nelem, f1 in 1:nfaces
         e2 = elemtoelem[f1, e1]
         f2 = elemtoface[f1, e1]
         o2 = elemtoordr[f1, e1]
+        d1, d2 = cld(f1, 2), cld(f2, 2)
 
-        vmap⁻[:, f1, e1] .= Np * (e1 - 1) .+ fmask[:, f1]
+        # Check to make sure the dof grid is conforming
+        @assert Nfp[d1] == Nfp[d2]
 
-        if o2 == 1
-            vmap⁺[:, f1, e1] .= Np * (e2 - 1) .+ fmask[:, f2]
-        elseif d == 3 && o2 == 3
-            n = 1
-            @inbounds for j in 1:(N + 1), i in (N + 1):-1:1
-                vmap⁺[n, f1, e1] = Np * (e2 - 1) + fmask[inds[i, j], f2]
-                n += 1
-            end
+        # Always pull out minus side without any flips / rotations
+        vmap⁻[1:Nfp[d1], f1, e1] .= Np * (e1 - 1) .+ fmask[f1][1:Nfp[d1]][:]
+
+        # Orientation codes defined in BrickMesh.jl (arbitrary numbers in 3D)
+        if o2 == 1 # Neighbor oriented same as minus
+            vmap⁺[1:Nfp[d1], f1, e1] .= Np * (e2 - 1) .+ fmask[f2][1:Nfp[d1]][:]
+        elseif d == 3 && o2 == 3 # Neighbor fliped in first index
+            vmap⁺[1:Nfp[d1], f1, e1] =
+                Np * (e2 - 1) .+ fmask[f2][inds[f2][end:-1:1, :]][:]
         else
             error("Orientation '$o2' with dim '$d' not supported yet")
         end
@@ -433,9 +507,9 @@ end
 """
    commmapping(N, commelems, commfaces, nabrtocomm)
 
-This function takes in a polynomial order `N` and parts of a mesh (as returned
-from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`) and
-returns index mappings for the element surface flux parallel communcation.
+This function takes in a tuple of polynomial orders `N` and parts of a mesh (as
+returned from `connectmesh` such as `sendelems`, `sendfaces`, and `nabrtosend`)
+and returns index mappings for the element surface flux parallel communcation.
 The returned `Tuple` contains:
 
  - `vmapC` an array of linear indices into the volume degrees of freedom to be
@@ -449,8 +523,8 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
     @assert nelem == length(commelems)
 
     d = div(nface, 2)
-    Nq = N + 1
-    Np = (N + 1)^d
+    Nq = N .+ 1
+    Np = prod(Nq)
 
     vmapC = similar(commelems, nelem * Np)
     nabrtovmapC = similar(nabrtocomm)
@@ -468,13 +542,13 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
             #   i += 1
             # end
 
-            CI = CartesianIndices(ntuple(_ -> 1:Nq, d))
+            CI = CartesianIndices(ntuple(j -> 1:Nq[j], d))
             for (ci, li) in zip(CI, LinearIndices(CI))
                 addpoint = false
                 for j in 1:d
                     addpoint |=
                         (commfaces[2 * (j - 1) + 1, e] && ci[j] == 1) ||
-                        (commfaces[2 * (j - 1) + 2, e] && ci[j] == Nq)
+                        (commfaces[2 * (j - 1) + 2, e] && ci[j] == Nq[j])
                 end
 
                 if addpoint
@@ -505,15 +579,16 @@ function computegeometry(
     vmap⁻,
 ) where {dim}
     # Compute metric terms
-    Nq = size(D, 1)
-    FT = eltype(D)
+    Nq = ntuple(j -> size(D[j], 1), dim)
+    Np = prod(Nq)
+    Nfp = div.(Np, Nq)
+
+    FT = eltype(D[1])
 
     (nface, nelem) = size(topology.elemtoelem)
 
-    # crd = creategrid(Val(dim), elemtocoord(topology), ξ)
-
-    vgeo = zeros(FT, Nq^dim, _nvgeo, nelem)
-    sgeo = zeros(FT, _nsgeo, Nq^(dim - 1), nface, nelem)
+    vgeo = zeros(FT, Np, _nvgeo, nelem)
+    sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
 
     (
         ξ1x1,
@@ -538,7 +613,7 @@ function computegeometry(
     sJ = similar(sMJ)
 
     X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-    Metrics.creategrid!(X..., topology.elemtocoord, ξ)
+    Metrics.creategrid!(X..., topology.elemtocoord, ξ...)
 
     @inbounds for j in 1:length(x1)
         (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
@@ -546,9 +621,21 @@ function computegeometry(
 
     # Compute the metric terms
     if dim == 1
-        Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D)
+        Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D...)
     elseif dim == 2
-        Metrics.computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
+        Metrics.computemetric!(
+            x1,
+            x2,
+            J,
+            ξ1x1,
+            ξ2x1,
+            ξ1x2,
+            ξ2x2,
+            sJ,
+            n1,
+            n2,
+            D...,
+        )
     elseif dim == 3
         Metrics.computemetric!(
             x1,
@@ -568,18 +655,24 @@ function computegeometry(
             n1,
             n2,
             n3,
-            D,
+            D...,
         )
     end
 
-    M = kron(1, ntuple(j -> ω, dim)...)
+    M = kron(1, ntuple(j -> ω[j], dim)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
     vMJI .= MJI[vmap⁻]
 
-    MH = kron(ones(FT, Nq), ntuple(j -> ω, dim - 1)...)
+    MH = kron(ones(FT, Nq[dim]), ntuple(j -> ω[j], dim - 1)...)
 
-    sM = dim > 1 ? kron(1, ntuple(j -> ω, dim - 1)...) : one(FT)
+    sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
+    for d in 1:dim
+        for f in (2d - 1):(2d)
+            sM[1:Nfp[d], f] = dim > 1 ?
+                kron(1, ntuple(j -> ω[mod1(d + j, dim)], dim - 1)...) : one(FT)
+        end
+    end
     sMJ .= sM .* sJ
 
     # Compute |r'(ξ3)| for vertical line integrals
@@ -704,6 +797,7 @@ neighbors.
 
     @uniform begin
         FT = eltype(min_neighbor_distance)
+        # XXX: Needs updating for multiple polynomial orders
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
         Np = Nq * Nq * Nqk

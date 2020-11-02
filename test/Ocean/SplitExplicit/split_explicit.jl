@@ -5,7 +5,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.Mesh.Grids: polynomialorders
 using ClimateMachine.Ocean
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.ShallowWater
