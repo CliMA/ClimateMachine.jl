@@ -132,19 +132,34 @@ function run(
     # analytical solution for Y_{l,m}
     rhs_anal = .- dg.state_auxiliary.c * D .* Q0
 
+    # timestepper for 1 step
+    Q_DGlsrk = Q0
+    dg1 = dg
+    
+    dt = dx^4 / 25 / sum(D)
+    @info dt
+
+    Q_anal = init_ode_state(dg1, dt)
+
+    lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
+    solve!(Q_DGlsrk, lsrk; timeend = dt)
+    @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
+
     # ana ρ(t) + finite diff in time
-    rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ
+    # rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ
 
     # @show "ANA" norm(rhs_anal)
     # @show "FD" norm(rhs_FD)
     # @show "DG" norm(rhs_DGsource)
     # @show "ANA vs FD" norm(rhs_anal .- rhs_FD)/norm(rhs_anal)
-    @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+    # @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
     # @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
 
-    do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+    # do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+    do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
 
-    return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+    # return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+    return norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
 end
 
 function do_output(
@@ -225,11 +240,11 @@ let
     # height = _a * 0.01
     height = 30.0e3
 
-    # @testset "$(@__FILE__)" begin
+    @testset "$(@__FILE__)" begin
         for FT in (Float64, )# Float32,)
 		    for base_num_elem in (8, )# 12, 15,)
                 # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
-		        for (polynomialorder, vert_num_elem) in ((6,8),)# ((3,8), )#(4,5), (5,3), (6,2), )
+		        for (polynomialorder, vert_num_elem) in ((3,8), )#(4,5), (5,3), (6,2), )
 
                     for τ in (1,)#4,8,) # time scale for hyperdiffusion
 
@@ -249,6 +264,6 @@ let
                 end
             end
         end
-    # end
+    end
 end
 nothing

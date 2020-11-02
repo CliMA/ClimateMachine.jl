@@ -96,24 +96,34 @@ function run(
     Q0 = init_ode_state(dg, FT(0))
     # @info "Δ(horz)" dx
 
-    ϵ = 1e-6 
+    ϵ = 1e-3 
 
     # Model vs Model
     # collect rhs from DG
     rhs_DGsource = similar(Q0)
     dg(rhs_DGsource, Q0, nothing, 0)
-    Q_frhs = Q0 .+ ϵ*rhs_DGsource
+
+    # Q_frhs = Q0 .+ ϵ*rhs_DGsource
+
     # # timestepper for 1 step
     # Q_DGlsrk = Q0
     # dg1 = dg
-    # lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = ϵ, t0 = 0)
-    # solve!(Q_DGlsrk, lsrk; timeend = ϵ)
-    # @info "DG stepper vs rhs: " norm(Q_frhs-Q_DGlsrk)/norm(Q_frhs) 
+    
+    dt = dx^4 / 25 / sum(D)
+    @info dt
+
+    # Q_anal = init_ode_state(dg1, dt)
+
+    # lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
+    # solve!(Q_DGlsrk, lsrk; timeend = dt)
+    # @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
 
     # analytical vs analytical
     # ana rhs
     c = get_eigenvalue(k, direction(), dim)
-    rhs_anal = -c*D*Q0  
+    rhs_anal = -c*D*Q0 
+    rhs_analXdt = rhs_anal * dt
+    rhs_dgXdt = rhs_DGsource * dt 
 
     # ana ρ(t) + finite diff in time
     # rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ 
@@ -121,11 +131,16 @@ function run(
 
     # Model vs analytical
     # @info "DG vs FD" norm(rhs_DGsource.ρ .- rhs_FD.̢)/norm(rhs_FD.ρ)
-    @info "DG vs ANA" norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
+    # @info "DG vs ANA" norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
 
-    do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+    # do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+    # do_output(mpicomm, "output", dg, Q0, rhs_anal, model)
+    # do_output(mpicomm, "output", dg, Q0, rhs_analXdt, model)
+    do_output(mpicomm, "output", dg, Q0, rhs_dgXdt, model)
+    # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
 
     return norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
+    # return norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
 end
 
 get_eigenvalue(k, dir::HorizontalDirection, dim) = 
@@ -194,8 +209,8 @@ let
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, )# Float32,)
-            for base_num_elem in (8, )#8,12,) 
-                for polynomialorder in (3,) #(4,5,6,7,8,12)
+            for base_num_elem in (4, )# 8,12,) 
+                for polynomialorder in (3, )#4,5,6,7,8,12)
 
                     for τ in (1, )#4,8,) # time scale for hyperdiffusion
                         xrange = range(FT(0); length = base_num_elem + 1, stop = FT(2pi))
