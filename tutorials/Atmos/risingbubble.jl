@@ -3,7 +3,7 @@
 # In this example, we demonstrate the usage of the `ClimateMachine`
 # [AtmosModel](@ref AtmosModel-docs) machinery to solve the fluid
 # dynamics of a thermal perturbation in a neutrally stratified background state
-# defined by its uniform potential temperature. We solve a flow in a box configuration - 
+# defined by its uniform potential temperature. We solve a flow in a box configuration -
 # this is representative of a large-eddy simulation. Several versions of the problem
 # setup may be found in literature, but the general idea is to examine the
 # vertical ascent of a thermal bubble (we can interpret these as simple
@@ -177,9 +177,16 @@ end
 # model. The purpose of this is to populate the
 # `ClimateMachine.AtmosLESConfiguration` with arguments
 # appropriate to the problem being considered.
-function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
+function config_risingbubble(
+    ::Type{FT},
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+) where {FT}
 
-    ## Choose an Explicit Single-rate Solver from the existing [`ODESolvers`](@ref ClimateMachine.ODESolvers) options. 
+    ## Choose an Explicit Single-rate Solver from the existing [`ODESolvers`](@ref ClimateMachine.ODESolvers) options.
     ## Apply the outer constructor to define the `ode_solver`.
     ## The 1D-IMEX method is less appropriate for the problem given the current
     ## mesh aspect ratio (1:1).
@@ -318,19 +325,19 @@ end
 # `julia --project tutorials/Atmos/risingbubble.jl` will run the
 # experiment from the main ClimateMachine.jl directory, with diagnostics output
 # at the intervals specified in [`config_diagnostics`](@ref
-# config_diagnostics).  You can also prescribe command line arguments for 
+# config_diagnostics).  You can also prescribe command line arguments for
 # simulation update and output specifications.  For
 # rapid turnaround, we recommend that you run this experiment on a GPU.
 
-# VTK output can be controlled via command line by 
+# VTK output can be controlled via command line by
 # setting `parse_clargs=true` in the `ClimateMachine.init`
-# arguments, and then using `--vtk=<interval>`. 
+# arguments, and then using `--vtk=<interval>`.
 
 # ## [Output Visualisation](@id output-viz)
 # See the `ClimateMachine` API interface documentation
 # for generating output.
-# 
-# 
+#
+#
 # - [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/)
 # - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)
 # are two commonly used programs for `.vtu` files.

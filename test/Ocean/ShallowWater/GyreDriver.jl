@@ -67,7 +67,19 @@ end
 
 outname = "vtk_new_dt_" * gyre * "_" * advec
 
-function setup_model(FT, stommel, linear, τₒ, fₒ, β, γ, ν, Lˣ, Lʸ, H)
+function setup_model(
+    ::Type{FT},
+    stommel,
+    linear,
+    τₒ,
+    fₒ,
+    β,
+    γ,
+    ν,
+    Lˣ,
+    Lʸ,
+    H,
+) where {FT}
     problem = HomogeneousBox{FT}(
         Lˣ,
         Lʸ,
@@ -104,7 +116,16 @@ end
 # Timestepping function #
 #########################
 
-function test_run(mpicomm, topl, ArrayType, N, dt, FT, model, test)
+function test_run(
+    mpicomm,
+    topl,
+    ArrayType,
+    N,
+    dt,
+    ::Type{FT},
+    model,
+    test,
+) where {FT}
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,

@@ -186,7 +186,14 @@ end
 # model. The purpose of this is to populate the
 # `AtmosLESConfiguration` with arguments
 # appropriate to the problem being considered.
-function config_agnesi_hs_lin(FT, N, resolution, xmax, ymax, zmax)
+function config_agnesi_hs_lin(
+    ::Type{FT},
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+) where {FT}
     ##
     ## Explicit Rayleigh damping:
     ##

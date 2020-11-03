@@ -27,29 +27,29 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 
+function init_soil!(land, state, aux, localgeo, time)
+    FT = eltype(state)
+    ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, time)
+    θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
+    ρc_s = volumetric_heat_capacity(
+        θ_l,
+        θ_i,
+        land.soil.param_functions.ρc_ds,
+        land.param_set,
+    )
+
+    state.soil.heat.ρe_int = FT(volumetric_internal_energy(
+        θ_i,
+        ρc_s,
+        land.soil.heat.initialT(aux),
+        land.param_set,
+    ))
+end
+
+const FT = Float32
+
 @testset "Heat analytic unit test" begin
     ClimateMachine.init()
-    FT = Float32
-
-    function init_soil!(land, state, aux, localgeo, time)
-        myFT = eltype(state)
-        ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, time)
-        θ_l =
-            volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
-        ρc_s = volumetric_heat_capacity(
-            θ_l,
-            θ_i,
-            land.soil.param_functions.ρc_ds,
-            land.param_set,
-        )
-
-        state.soil.heat.ρe_int = myFT(volumetric_internal_energy(
-            θ_i,
-            ρc_s,
-            land.soil.heat.initialT(aux),
-            land.param_set,
-        ))
-    end
 
     soil_param_functions = SoilParamFunctions{FT}(
         porosity = 0.495,

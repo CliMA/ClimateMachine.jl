@@ -23,7 +23,7 @@ using ClimateMachine
 using ClimateMachine.Land
 using ClimateMachine.Land.SoilWaterParameterizations
 
-FT = Float32;
+const FT = Float32;
 # # Specifying a  `hydraulics` model
 # The van Genuchten model requires two free parameters, `α` and `n`.
 # A third parameter, `m`, is computed from `n`. Of these, only `α` carries
