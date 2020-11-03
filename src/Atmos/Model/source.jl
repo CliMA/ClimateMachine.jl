@@ -1,7 +1,7 @@
 using ..Microphysics_0M
 using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
 
-export Source,
+export AbstractSource,
     Gravity,
     RayleighSponge,
     Subsidence,
@@ -37,9 +37,9 @@ export Source,
     end
 end
 
-abstract type Source end
+abstract type AbstractSource end
 
-struct Gravity <: Source end
+struct Gravity <: AbstractSource end
 function atmos_source!(
     ::Gravity,
     atmos::AtmosModel,
@@ -57,7 +57,7 @@ function atmos_source!(
     end
 end
 
-struct Coriolis <: Source end
+struct Coriolis <: AbstractSource end
 function atmos_source!(
     ::Coriolis,
     atmos::AtmosModel,
@@ -74,7 +74,7 @@ function atmos_source!(
     source.ρu -= SVector(0, 0, 2 * _Omega) × state.ρu
 end
 
-struct Subsidence{FT} <: Source
+struct Subsidence{FT} <: AbstractSource
     D::FT
 end
 
@@ -102,7 +102,7 @@ subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} =
     -subsidence.D * z
 
 
-struct GeostrophicForcing{FT} <: Source
+struct GeostrophicForcing{FT} <: AbstractSource
     f_coriolis::FT
     u_geostrophic::FT
     v_geostrophic::FT
@@ -124,13 +124,13 @@ function atmos_source!(
 end
 
 """
-    RayleighSponge{FT} <: Source
+    RayleighSponge{FT} <: AbstractSource
 
 Rayleigh Damping (Linear Relaxation) for top wall momentum components
 Assumes laterally periodic boundary conditions for LES flows. Momentum components
 are relaxed to reference values (zero velocities) at the top boundary.
 """
-struct RayleighSponge{FT} <: Source
+struct RayleighSponge{FT} <: AbstractSource
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -161,13 +161,13 @@ function atmos_source!(
 end
 
 """
-    CreateClouds{FT} <: Source
+    CreateClouds{FT} <: AbstractSource
 
 A source/sink to `q_liq` and `q_ice` implemented as a relaxation towards
 equilibrium in the Microphysics module.
 The default relaxation timescales are defined in CLIMAParameters.jl.
 """
-struct CreateClouds <: Source end
+struct CreateClouds <: AbstractSource end
 function atmos_source!(
     ::CreateClouds,
     atmos::AtmosModel,
@@ -198,7 +198,7 @@ function atmos_source!(
 end
 
 """
-    RemovePrecipitation{FT} <: Source
+    RemovePrecipitation{FT} <: AbstractSource
 
 A sink to `q_tot` when cloud condensate is exceeding a threshold.
 The threshold is defined either in terms of condensate or supersaturation.
@@ -206,7 +206,7 @@ The removal rate is implemented as a relaxation term
 in the Microphysics_0M module.
 The default thresholds and timescale are defined in CLIMAParameters.jl.
 """
-struct RemovePrecipitation <: Source
+struct RemovePrecipitation <: AbstractSource
     " Set to true if using qc based threshold"
     use_qc_thr::Bool
 end

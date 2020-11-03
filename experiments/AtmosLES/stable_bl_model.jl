@@ -59,7 +59,7 @@ using ClimateMachine.Atmos: altitude, recover_thermo_state
 """
   StableBL Geostrophic Forcing (Source)
 """
-struct StableBLGeostrophic{FT} <: Source
+struct StableBLGeostrophic{FT} <: AbstractSource
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -98,7 +98,7 @@ end
 """
   StableBL Sponge (Source)
 """
-struct StableBLSponge{FT} <: Source
+struct StableBLSponge{FT} <: AbstractSource
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"

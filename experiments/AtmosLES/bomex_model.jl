@@ -99,7 +99,7 @@ using ClimateMachine.Atmos: altitude, recover_thermo_state
 """
   Bomex Geostrophic Forcing (Source)
 """
-struct BomexGeostrophic{FT} <: Source
+struct BomexGeostrophic{FT} <: AbstractSource
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -138,7 +138,7 @@ end
 """
   Bomex Sponge (Source)
 """
-struct BomexSponge{FT} <: Source
+struct BomexSponge{FT} <: AbstractSource
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -189,7 +189,7 @@ end
   BomexTendencies (Source)
 Moisture, Temperature and Subsidence tendencies
 """
-struct BomexTendencies{FT} <: Source
+struct BomexTendencies{FT} <: AbstractSource
     "Advection tendency in total moisture `[s⁻¹]`"
     ∂qt∂t_peak::FT
     "Lower extent of piecewise profile (moisture term) `[m]`"

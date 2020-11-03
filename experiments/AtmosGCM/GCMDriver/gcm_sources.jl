@@ -5,12 +5,12 @@
 import ClimateMachine.Atmos: atmos_source!
 
 """
-    HeldSuarezForcing <: Source
+    HeldSuarezForcing <: AbstractSource
 
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-struct HeldSuarezForcing <: Source end
+struct HeldSuarezForcing <: AbstractSource end
 
 function atmos_source!(
     ::HeldSuarezForcing,
