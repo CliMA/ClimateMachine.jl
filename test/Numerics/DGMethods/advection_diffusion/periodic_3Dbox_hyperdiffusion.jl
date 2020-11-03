@@ -93,6 +93,7 @@ function run(
             direction = direction(),
         )
 
+    dg1 = dg
     Q0 = init_ode_state(dg, FT(0))
     # @info "Δ(horz)" dx
 
@@ -105,25 +106,28 @@ function run(
 
     # Q_frhs = Q0 .+ ϵ*rhs_DGsource
 
-    # # timestepper for 1 step
-    # Q_DGlsrk = Q0
-    # dg1 = dg
+    # timestepper for 1 step
+    Q_DGlsrk = Q0
     
     dt = dx^4 / 25 / sum(D)
     @info dt
 
-    # Q_anal = init_ode_state(dg1, dt)
+    Q_anal = init_ode_state(dg1, dt)
 
-    # lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
-    # solve!(Q_DGlsrk, lsrk; timeend = dt)
-    # @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
+    lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
+    solve!(Q_DGlsrk, lsrk; timeend = 100)
+    @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
+    
+    rhs_DGlsrk = Q0 - Q_DGlsrk
+    @info rhs_DGlsrk.ρ 
+    rhs_Qanal = Q0 - Q_anal 
 
-    # analytical vs analytical
-    # ana rhs
-    c = get_eigenvalue(k, direction(), dim)
-    rhs_anal = -c*D*Q0 
-    rhs_analXdt = rhs_anal * dt
-    rhs_dgXdt = rhs_DGsource * dt 
+    # # analytical vs analytical
+    # # ana rhs
+    # c = get_eigenvalue(k, direction(), dim)
+    # rhs_anal = -c*D*Q0 
+    # rhs_analXdt = rhs_anal * dt
+    # rhs_dgXdt = rhs_DGsource * dt 
 
     # ana ρ(t) + finite diff in time
     # rhs_FD = (init_ode_state(dg, FT(ϵ)) .- Q0) ./ ϵ 
@@ -136,11 +140,13 @@ function run(
     # do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
     # do_output(mpicomm, "output", dg, Q0, rhs_anal, model)
     # do_output(mpicomm, "output", dg, Q0, rhs_analXdt, model)
-    do_output(mpicomm, "output", dg, Q0, rhs_dgXdt, model)
+    # do_output(mpicomm, "output", dg, Q0, rhs_dgXdt, model)
     # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
+    do_output(mpicomm, "output", dg, rhs_DGlsrk, rhs_Qanal, model)
 
-    return norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
+    # return norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
     # return norm(Q_anal-Q_DGlsrk)/norm(Q_anal) 
+    return norm(rhs_Qanal-rhs_DGlsrk)/norm(rhs_Qanal) 
 end
 
 get_eigenvalue(k, dir::HorizontalDirection, dim) = 
