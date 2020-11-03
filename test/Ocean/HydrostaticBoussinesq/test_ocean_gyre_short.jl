@@ -48,8 +48,6 @@ const FT = Float64
         BC = BC,
         Δt = 120,
         refDat = refVals.short,
-        mymodeldata = ( my_component_tag = "oceanExp2Lal0",
-                        ny_name = "chris" 
-                      ),
+        mymodeldata = (my_component_tag = "oceanExp2Lal0", ny_name = "chris"),
     )
 end
