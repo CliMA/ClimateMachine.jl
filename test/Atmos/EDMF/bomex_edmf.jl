@@ -19,7 +19,7 @@ include("edmf_kernels.jl")
             m::AtmosModel{FT},
             state::Vars,
             aux::Vars,
-            coords,
+            localgeo,
             t::Real,
         ) where {FT}
 
@@ -31,7 +31,7 @@ function init_state_prognostic!(
     m::AtmosModel{FT},
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 ) where {FT}
     # Aliases:
@@ -46,8 +46,13 @@ function init_state_prognostic!(
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
     e_int = internal_energy(m, state, aux)
 
-    q_tot = state.moisture.ρq_tot / state.ρ
-    ts = PhaseEquil(m.param_set, e_int, state.ρ, q_tot)
+    if m.moisture isa DryModel
+        ρq_tot = FT(0)
+        ts = PhaseDry(m.param_set, e_int, state.ρ)
+    else
+        ρq_tot = gm.moisture.ρq_tot
+        ts = PhaseEquil(m.param_set, e_int, state.ρ, ρq_tot / state.ρ)
+    end
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -58,7 +63,7 @@ function init_state_prognostic!(
         up[i].ρa = gm.ρ * a_min
         up[i].ρaw = gm.ρu[3] * a_min
         up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
-        up[i].ρaq_tot = gm.moisture.ρq_tot * a_min
+        up[i].ρaq_tot = ρq_tot * a_min
     end
 
     # initialize environment covariance with zero for now
@@ -193,7 +198,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, ["z"], state_types)]
+    all_data = [dict_of_nodal_states(solver_config, state_types)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -203,10 +208,7 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(
-                all_data,
-                dict_of_nodal_states(solver_config, ["z"], state_types),
-            )
+            push!(all_data, dict_of_nodal_states(solver_config, state_types))
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
@@ -239,7 +241,8 @@ function main(::Type{FT}) where {FT}
         check_euclidean_distance = true,
     )
 
-    push!(all_data, dict_of_nodal_states(solver_config, ["z"], state_types))
+    dons = dict_of_nodal_states(solver_config, state_types)
+    push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
 
     return solver_config, all_data, time_data, state_types

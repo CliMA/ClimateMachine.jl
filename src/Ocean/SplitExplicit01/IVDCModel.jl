@@ -42,7 +42,7 @@ end
 
 vars_state(m::IVDCModel, ::Prognostic, FT) = @vars(θ::FT)
 
-function init_state_prognostic!(m::IVDCModel, Q::Vars, A::Vars, coords, t)
+function init_state_prognostic!(m::IVDCModel, Q::Vars, A::Vars, localgeo, t)
     @inbounds begin
         Q.θ = -0
     end

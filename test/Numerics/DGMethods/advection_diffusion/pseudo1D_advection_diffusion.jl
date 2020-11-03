@@ -43,11 +43,11 @@ function initial_condition!(
     ::Pseudo1D{n, α, β, μ, δ},
     state,
     aux,
-    x,
+    localgeo,
     t,
 ) where {n, α, β, μ, δ}
-    ξn = dot(n, x)
-    # ξT = SVector(x) - ξn * n
+    ξn = dot(n, localgeo.coord)
+    # ξT = SVector(localgeo.coord) - ξn * n
     state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
 Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)

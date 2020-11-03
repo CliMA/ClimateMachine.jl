@@ -87,7 +87,8 @@ ClimateMachine.init()
             DeviceArray = Array,
         )
 
-        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)[1]
         a, b = GaussQuadrature.legendre_coefs(T, N)
         V = GaussQuadrature.orthonormal_poly(ξ, a, b)
 
@@ -129,10 +130,11 @@ function ClimateMachine.BalanceLaws.init_state_prognostic!(
     ::FilterTestModel{4},
     state::Vars,
     aux::Vars,
-    (x, y, z),
+    localgeo,
     filter_direction,
     dim,
 )
+    (x, y, z) = localgeo.coord
     state.q1 = low(x, y, z) + high(x, y, z)
     state.q2 = low(x, y, z) + high(x, y, z)
     state.q3 = low(x, y, z) + high(x, y, z)
@@ -220,8 +222,9 @@ function ClimateMachine.BalanceLaws.init_state_prognostic!(
     ::FilterTestModel{1},
     state::Vars,
     aux::Vars,
-    (x, y, z),
+    localgeo,
 )
+    (x, y, z) = localgeo.coord
     state.q = abs(x) - 0.1
 end
 

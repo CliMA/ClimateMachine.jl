@@ -71,7 +71,7 @@ function init_state_prognostic!(
     ::ConservationTestModel,
     state::Vars,
     aux::Vars,
-    coord,
+    localgeo,
     t,
 )
     state.q = rand()

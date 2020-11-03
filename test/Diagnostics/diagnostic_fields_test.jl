@@ -41,7 +41,9 @@ import ClimateMachine.VariableTemplates.varsindex
 #               `C_smag`
 # 8) Default settings can be found in `src/Driver/Configurations.jl`
 # ------------------------ Description ------------------------- #
-function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
+function init_risingbubble!(problem, bl, state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
+
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
@@ -67,7 +69,7 @@ function init_risingbubble!(problem, bl, state, aux, (x, y, z), t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     q_tot = FT(0)
-    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
+    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
     q_pt = PhasePartition(ts)
 
     ρu = SVector(FT(0), FT(0), FT(0))

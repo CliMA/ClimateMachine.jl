@@ -24,7 +24,8 @@ end
     )
 
 Creates an `InterpolationTopology` (either an `InterpolationBrick` or an
-`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`.
+`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`. The axes
+are set up based on `boundaries` and `resolution`.
 """
 function InterpolationConfiguration(
     driver_config::DriverConfiguration,
@@ -64,7 +65,6 @@ function InterpolationConfiguration(
             FT(_planet_radius + info.domain_height),
             nelem = info.nelem_vert,
         )
-
         axes = (
             collect(range(
                 boundaries[1, 1],
@@ -82,6 +82,51 @@ function InterpolationConfiguration(
                 step = resolution[3],
             )),
         )
+        return InterpolationCubedSphere(
+            grid,
+            collect(vert_range),
+            info.nelem_horz,
+            axes[1],
+            axes[2],
+            axes[3],
+        )
+    else
+        @error "Cannot set up interpolation for this topology."
+    end
+end
+
+"""
+    InterpolationConfiguration(
+        driver_config::DriverConfiguration,
+        boundaries::Array,
+        axes,
+    )
+
+Creates an `InterpolationTopology` (either an `InterpolationBrick` or an
+`InterpolationCubedSphere`) to be used with a `DiagnosticsGroup`. The axes
+are directly specified in lat/lon/lvl order.
+"""
+function InterpolationConfiguration(
+    driver_config::DriverConfiguration,
+    boundaries::Array,
+    axes,
+)
+    param_set = driver_config.bl.param_set
+    grid = driver_config.grid
+    if isa(grid.topology, StackedBrickTopology)
+        return InterpolationBrick(grid, boundaries, axes[1], axes[2], axes[3])
+
+    elseif isa(grid.topology, StackedCubedSphereTopology)
+
+        FT = eltype(grid)
+        _planet_radius::FT = planet_radius(param_set)
+        info = driver_config.config_info
+        vert_range = grid1d(
+            _planet_radius,
+            FT(_planet_radius + info.domain_height),
+            nelem = info.nelem_vert,
+        )
+
         return InterpolationCubedSphere(
             grid,
             collect(vert_range),

@@ -50,10 +50,10 @@ function initial_condition!(
     ::Pseudo1D{n, α, β, μ, δ},
     state,
     aux,
-    x,
+    localgeo,
     t,
 ) where {n, α, β, μ, δ}
-    ξn = dot(n, x)
+    ξn = dot(n, localgeo.coord)
     # ξT = SVector(x) - ξn * n
     state.ρ = exp(-(ξn - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
 end
@@ -99,10 +99,10 @@ let
                         # compute metrics causes problems for the single column approach
                         # (possibly need to not use curl-invariant computation)
                         if !single_column
-                            ξ1 = ξ1 + sin(2π * ξ1 * ξ2) / 10
-                            ξ2 = ξ2 + sin(2π * ξ1) / 5
+                            ξ1 = ξ1 + sin(2 * FT(π) * ξ1 * ξ2) / 10
+                            ξ2 = ξ2 + sin(2 * FT(π) * ξ1) / 5
                             if dim == 3
-                                ξ3 = ξ3 + sin(8π * ξ1 * ξ2) / 10
+                                ξ3 = ξ3 + sin(8 * FT(π) * ξ1 * ξ2) / 10
                             end
                         end
                         (ξ1, ξ2, ξ3)

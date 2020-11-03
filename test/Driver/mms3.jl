@@ -14,6 +14,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 
 import ClimateMachine.Thermodynamics: total_specific_enthalpy
+import ClimateMachine.Atmos: atmos_source!
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -41,7 +42,8 @@ include(joinpath(
 total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
     zero(FT)
 
-function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
+function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
+    (x1, x2, x3) = localgeo.coord
     state.ρ = ρ_g(t, x1, x2, x3, Val(3))
     state.ρu = SVector(
         U_g(t, x1, x2, x3, Val(3)),
@@ -51,8 +53,10 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, (x1, x2, x3), t)
     state.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
-function mms3_source!(
-    bl,
+struct MMS3Source <: Source end
+function atmos_source!(
+    ::MMS3Source,
+    ::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -102,7 +106,7 @@ function main()
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(μ_exact), WithDivergence()),
         moisture = DryModel(),
-        source = mms3_source!,
+        source = (MMS3Source(),),
     )
 
     brickrange = (
@@ -180,13 +184,7 @@ function main()
     ClimateMachine.invoke!(solver_config)
 
     # test correctness
-    dg = DGModel(
-        model,
-        grid,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-    )
+    dg = DGModel(driver_config)
     Qe = init_ode_state(dg, timeend)
     result = euclidean_distance(Q₀, Qe)
     @test result ≈ expected_result

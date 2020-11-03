@@ -53,7 +53,7 @@ function atmos_init_aux!(
     atmos_init_aux!(m.hydrostatic_state, atmos, aux, tmp, geom)
 end
 
-function init_to_ref_state!(problem, bl, state, aux, coords, t)
+function init_to_ref_state!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
     state.ρ = aux.ref_state.ρ
     state.ρu = SVector{3, FT}(0, 0, 0)
@@ -76,7 +76,7 @@ function config_balanced(
         turbulence = ConstantDynamicViscosity(FT(0)),
         hyperdiffusion = NoHyperDiffusion(),
         moisture = DryModel(),
-        source = Gravity(),
+        source = (Gravity(),),
         init_state_prognostic = init_to_ref_state!,
     )
 

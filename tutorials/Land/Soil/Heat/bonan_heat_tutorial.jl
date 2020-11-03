@@ -115,16 +115,10 @@ const param_set = EarthParameterSet();
 # Initialize and pick a floating point precision.
 ClimateMachine.init()
 FT = Float32;
-# Load a function that will create an interpolation of the
-# simulation output, to be used in plotting:
+# Load functions that will help with plotting
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-include(joinpath(
-    clima_dir,
-    "tutorials",
-    "Land",
-    "Soil",
-    "interpolation_helper.jl",
-));
+include(joinpath(clima_dir, "docs", "plothelpers.jl"));
+
 # # Determine soil parameters
 
 # Below are the soil component fractions for various soil
@@ -283,7 +277,7 @@ T_init = (aux) -> eltype(aux)(275.15);
 # conditions for heat based on the temperature - `init_soil!` also
 # converts between `T` and `ρe_int`.
 
-function init_soil!(land, state, aux, coordinates, time)
+function init_soil!(land, state, aux, localgeo, time)
     ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, time)
     θ_l = volumetric_liquid_fraction(ϑ_l, land.soil.param_functions.porosity)
     ρc_ds = land.soil.param_functions.ρc_ds
@@ -427,40 +421,16 @@ solver_config = ClimateMachine.SolverConfiguration(
 
 # # Run the integration
 ClimateMachine.invoke!(solver_config);
-
+state_types = (Prognostic(), Auxiliary())
+dons = dict_of_nodal_states(solver_config, state_types; interp = true)
 
 # # Plot results and comparison data from [1]
-# We can pull out the `z` and `T` values on the DG grid, but these will be
-# multi-valued at boundaries. We'll create an additional cartesian grid
-# , create an interpolation of the
-# DG output, and evaluate on this second grid.
-# `T` and `z` are stored in aux:
-aux = solver_config.dg.state_auxiliary;
 
-
-# Specify interpolation grid:
-zres = FT(0.02)
-boundaries = [
-    FT(0) FT(0) zmin
-    FT(1) FT(1) zmax
-]
-resolution = (FT(2), FT(2), zres)
-thegrid = solver_config.dg.grid
-intrp_brck = create_interpolation_grid(boundaries, resolution, thegrid);
-
-
-# Smooth output, and look at T vs z:
-iaux = interpolate_variables([(aux)], intrp_brck)
-iaux = iaux[1]
-z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
-iz = Array(iaux[:, z_ind, :][:])
-z = Array(aux[:, z_ind, :][:])
-T_ind = varsindex(vars_state(m, Auxiliary(), FT), :soil, :heat, :T)
-iT = Array(iaux[:, T_ind, :][:])
-
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+T = dons["soil.heat.T"];
 plot(
-    iT,
-    iz,
+    T,
+    z,
     label = "ClimateMachine",
     ylabel = "z (m)",
     xlabel = "T (K)",
@@ -468,7 +438,6 @@ plot(
 )
 plot!(T_init.(z), z, label = "Initial condition")
 filename = "bonan_heat_data.csv"
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 bonan_dataset = ArtifactWrapper(
     joinpath(clima_dir, "tutorials", "Land", "Soil", "Artifacts.toml"),
     "bonan_soil_heat",

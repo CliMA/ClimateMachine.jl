@@ -1,12 +1,12 @@
-# Spectrum calculator
+# Spectrum calculator for AtmosLES
 
-struct SpectraDiagnosticsParams <: DiagnosticsGroupParams
+struct AtmosLESSpectraDiagnosticsParams <: DiagnosticsGroupParams
     nor::Float64
 end
 
 """
-    setup_dump_spectra_diagnostics(
-        ::ClimateMachineConfigType,
+    setup_atmos_spectra_diagnostics(
+        ::AtmosLESConfigType,
         interval::String,
         out_prefix::String;
         writer = NetCDFWriter(),
@@ -14,13 +14,13 @@ end
         nor = Inf,
     )
 
-Create and return a `DiagnosticsGroup` containing a diagnostic that
-dumps the spectrum at the specified
-`interval` after the velocity fields have been interpolated, into NetCDF files prefixed by
-`out_prefix`.
+Create and return a `DiagnosticsGroup` containing a diagnostic for Atmos
+LES configurations that dumps the spectrum at the specified `interval`
+after the velocity fields have been interpolated, into NetCDF files
+prefixed by `out_prefix`.
 """
-function setup_dump_spectra_diagnostics(
-    ::ClimateMachineConfigType,
+function setup_atmos_spectra_diagnostics(
+    ::AtmosLESConfigType,
     interval::String,
     out_prefix::String,
     nor::Float64;
@@ -30,15 +30,15 @@ function setup_dump_spectra_diagnostics(
     @assert !isnothing(interpol)
 
     return DiagnosticsGroup(
-        "Spectra",
-        Diagnostics.dump_spectra_init,
-        Diagnostics.dump_spectra_fini,
-        Diagnostics.dump_spectra_collect,
+        "SpectraLES",
+        Diagnostics.atmos_les_spectra_init,
+        Diagnostics.atmos_les_spectra_fini,
+        Diagnostics.atmos_les_spectra_collect,
         interval,
         out_prefix,
         writer,
         interpol,
-        SpectraDiagnosticsParams(nor),
+        AtmosLESSpectraDiagnosticsParams(nor),
     )
 end
 
@@ -53,13 +53,21 @@ function get_spectrum(mpicomm, mpirank, Q, bl, interpol, nor)
         w = all_state_data[:, :, :, 4] ./ all_state_data[:, :, :, 1]
         x1 = Array(interpol.x1g)
         d = length(x1)
-        s, k = power_spectrum(u, v, w, x1[d] - x1[1], d, nor)
+        s, k = power_spectrum_3d(
+            AtmosLESConfigType(),
+            u,
+            v,
+            w,
+            x1[d] - x1[1],
+            d,
+            nor,
+        )
         return s, k
     end
     return nothing, nothing
 end
 
-function dump_spectra_init(dgngrp, currtime)
+function atmos_les_spectra_init(dgngrp, currtime)
     Q = Settings.Q
     bl = Settings.dg.balance_law
     mpicomm = Settings.mpicomm
@@ -86,7 +94,7 @@ function dump_spectra_init(dgngrp, currtime)
     return nothing
 end
 
-function dump_spectra_collect(dgngrp, currtime)
+function atmos_les_spectra_collect(dgngrp, currtime)
     Q = Settings.Q
     bl = Settings.dg.balance_law
     mpicomm = Settings.mpicomm
@@ -106,4 +114,4 @@ function dump_spectra_collect(dgngrp, currtime)
     return nothing
 end
 
-function dump_spectra_fini(dgngrp, currtime) end
+function atmos_les_spectra_fini(dgngrp, currtime) end

@@ -1,3 +1,4 @@
+using ..Mesh.Grids: _x1, _x2, _x3
 """
     InitStateBC
 
@@ -21,7 +22,8 @@ function atmos_boundary_state!(
     t,
     _...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+    # Put cood in a NamedTuple to mimmic LocalGeometry
+    init_state_prognostic!(m, state⁺, aux⁺, (coord = aux⁺.coord,), t)
 end
 
 function atmos_normal_boundary_flux_second_order!(
@@ -78,5 +80,6 @@ function boundary_state!(
     t,
     args...,
 )
-    init_state_prognostic!(m, state⁺, aux⁺, aux⁺.coord, t)
+    # Put cood in a NamedTuple to mimmic LocalGeometry
+    init_state_prognostic!(m, state⁺, aux⁺, (coord = aux⁺.coord,), t)
 end

@@ -13,8 +13,8 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
     @vars begin
         # defined in init_state_auxiliary
         p::FT
-        x::FT
-        z::FT
+        x_coord::FT
+        z_coord::FT
         # defined in update_aux
         u::FT
         w::FT
@@ -27,12 +27,14 @@ function vars_state(m::KinematicModel, ::Auxiliary, FT)
         e_pot::FT
         e_int::FT
         T::FT
-        S::FT
+        S_liq::FT
         RH::FT
     end
 end
 
-function init_kinematic_eddy!(eddy_model, state, aux, (x, y, z), t)
+function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
+
     FT = eltype(state)
 
     _grav::FT = grav(param_set)
@@ -86,21 +88,22 @@ function nodal_update_auxiliary_state!(
 
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
-        aux.e_pot = _grav * aux.z
+        aux.e_pot = _grav * aux.z_coord
         aux.e_int = aux.e_tot - aux.e_kin - aux.e_pot
 
         # saturation adjustment happens here
         ts = PhaseEquil(param_set, aux.e_int, state.ρ, aux.q_tot)
-        pp = PhasePartition(ts)
+        q = PhasePartition(ts)
 
         aux.T = ts.T
-        aux.q_vap = aux.q_tot - pp.liq - pp.ice
-        aux.q_liq = pp.liq
-        aux.q_ice = pp.ice
+        aux.q_vap = vapor_specific_humidity(q)
+        aux.q_liq = q.liq
+        aux.q_ice = q.ice
 
         # TODO: add super_saturation method in moist thermo
-        aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
-        aux.RH = relative_humidity(ts) * FT(100)
+        #aux.S = max(0, aux.q_vap / q_vap_saturation(ts) - FT(1)) * FT(100)
+        aux.S_liq = max(0, supersaturation(ts, Liquid()))
+        aux.RH = relative_humidity(ts)
     end
 end
 
@@ -184,6 +187,7 @@ function main()
     t_end = FT(60 * 30)
     dt = 40
     output_freq = 9
+    interval = "9steps"
 
     # periodicity and boundary numbers
     periodicity_x = true
@@ -231,7 +235,6 @@ function main()
     mpicomm = MPI.COMM_WORLD
 
     # output for paraview
-
     # initialize base prefix directory from rank 0
     vtkdir = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk"))
     if MPI.Comm_rank(mpicomm) == 0
@@ -261,23 +264,50 @@ function main()
         nothing
     end
 
+    # output for netcdf
+    boundaries = [
+        FT(0) FT(0) FT(0)
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    dgngrps = [
+        setup_dump_state_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            interpol = interpol,
+        ),
+        setup_dump_aux_diagnostics(
+            AtmosLESConfigType(),
+            interval,
+            driver_config.name,
+            interpol = interpol,
+        ),
+    ]
+    dgn_config = ClimateMachine.DiagnosticsConfiguration(dgngrps)
+
     # get aux variables indices for testing
     q_tot_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_tot)
     q_vap_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_vap)
     q_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_liq)
     q_ice_ind = varsindex(vars_state(model, Auxiliary(), FT), :q_ice)
-    S_ind = varsindex(vars_state(model, Auxiliary(), FT), :S)
+    S_liq_ind = varsindex(vars_state(model, Auxiliary(), FT), :S_liq)
 
     # call solve! function for time-integrator
     result = ClimateMachine.invoke!(
         solver_config;
+        diagnostics_config = dgn_config,
         user_callbacks = (cbvtk,),
         check_euclidean_distance = true,
     )
 
     # no supersaturation
-    max_S = maximum(abs.(solver_config.dg.state_auxiliary[:, S_ind, :]))
-    @test isequal(max_S, FT(0))
+    max_S_liq = maximum(abs.(solver_config.dg.state_auxiliary[:, S_liq_ind, :]))
+    @test isequal(max_S_liq, FT(0))
 
     # qt is conserved
     max_q_tot = maximum(abs.(solver_config.dg.state_auxiliary[:, q_tot_ind, :]))

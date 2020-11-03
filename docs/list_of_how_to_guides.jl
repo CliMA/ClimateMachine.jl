@@ -3,7 +3,10 @@
 ####
 
 how_to_guides = Any[
-    "Common" => Any["Thermodynamics" => "HowToGuides/Common/Thermodynamics.md",],
+    "Common" => Any[
+        "Thermodynamics" => "HowToGuides/Common/Thermodynamics.md",
+        "Universal Functions" => "HowToGuides/Common/UniversalFunctions.md",
+    ],
     "Atmos" => Any[
         "Temperature profiles" => "HowToGuides/Atmos/TemperatureProfiles.md",
         "Reference profiles" => "HowToGuides/Atmos/AtmosReferenceState.md",

@@ -9,8 +9,6 @@
 # `src/Driver/solver_configs.jl` while the `AtmosModel` defaults can be found in
 # `src/Atmos/Model/AtmosModel.jl` and `src/Driver/driver_configs.jl`
 #
-# This setup works in both Float32 and Float64 precision. `FT`
-#
 # To simulate the full 6 hour experiment, change `timeend` to (3600*6) and type in
 #
 # julia --project experiments/AtmosLES/bomex.jl
@@ -278,17 +276,20 @@ function atmos_source!(
     end
 
     # Collect Sources
-    source.moisture.ρq_tot += ρ∂qt∂t
     source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
     source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
+    source.moisture.ρq_tot += ρ∂qt∂t
     source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+    source.ρ += ρ∂qt∂t
+    source.ρ -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
     return nothing
 end
 
 """
   Initial Condition for BOMEX LES
 """
-function init_bomex!(problem, bl, state, aux, (x, y, z), t)
+function init_bomex!(problem, bl, state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
     # This experiment runs the BOMEX LES Configuration
     # (Shallow cumulus cloud regime)
     # x,y,z imply eastward, northward and altitude coordinates in `[m]`
@@ -353,7 +354,7 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, P, q_tot)
+    TS = PhaseEquil_pθq(bl.param_set, P, θ_liq, q_tot)
     T = air_temperature(TS)
     ρ = air_density(TS)
     q_pt = PhasePartition(TS)
@@ -382,7 +383,7 @@ function init_bomex!(problem, bl, state, aux, (x, y, z), t)
         state.ρe += rand() * ρe_tot / 100
         state.moisture.ρq_tot += rand() * ρ * q_tot / 100
     end
-    init_state_prognostic!(bl.turbconv, bl, state, aux, (x, y, z), t)
+    init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
 function bomex_model(

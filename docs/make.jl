@@ -1,4 +1,3 @@
-Base.HOME_PROJECT[] = abspath(Base.HOME_PROJECT[]) # JuliaLang/julia/pull/28625
 
 # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
 ENV["GKSwstype"] = "100"
@@ -8,7 +7,10 @@ ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"] = true
 ENV["CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER"] = true
 
 using Distributed
+using DocumenterCitations
+bib = CitationBibliography(joinpath(@__DIR__, "bibliography.bib"))
 
+@everywhere push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 @everywhere using ClimateMachine
 @everywhere using Documenter, Literate
 
@@ -34,6 +36,7 @@ pages = Any[
     "Contribution guide" => "Contributing.md",
     "Theory" => theory_docs,
     "Developer docs" => dev_docs,
+    "References" => "References.md",
 ]
 
 mathengine = MathJax(Dict(
@@ -50,6 +53,7 @@ format = Documenter.HTML(
 )
 
 makedocs(
+    bib,
     sitename = "ClimateMachine",
     doctest = false,
     strict = true,

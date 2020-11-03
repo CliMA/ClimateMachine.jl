@@ -1,7 +1,5 @@
-using FFTW
-
 """
-    power_spectrum(u, v, w, L, dim, nor)
+    power_spectrum_3d(::AtmosLESConfigType, u, v, w, L, dim, nor)
 
 Calculates the Powerspectrum from the 3D velocity fields `u`, `v`, `w`. Inputs
 need to be equi-spaced and the domain is assumed to be the same size and
@@ -12,7 +10,7 @@ have the same number of points in all directions.
 - dim: number of points
 - nor: normalization factor
 """
-function power_spectrum(u, v, w, L, dim, nor)
+function power_spectrum_3d(::AtmosLESConfigType, u, v, w, L, dim, nor)
     u_fft = fft(u)
     v_fft = fft(v)
     w_fft = fft(w)

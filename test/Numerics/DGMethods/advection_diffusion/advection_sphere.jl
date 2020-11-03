@@ -60,7 +60,7 @@ function init_velocity_diffusion!(
         +uφ * cos(φ),
     )
 end
-function initial_condition!(::SolidBodyRotation, state, aux, x, t)
+function initial_condition!(::SolidBodyRotation, state, aux, localgeo, t)
     λ = longitude(SphericalOrientation(), aux)
     φ = latitude(SphericalOrientation(), aux)
     state.ρ = exp(-((3λ)^2 + (3φ)^2))

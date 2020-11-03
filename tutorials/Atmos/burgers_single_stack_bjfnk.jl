@@ -246,7 +246,7 @@ function init_state_prognostic!(
     m::BurgersEquation,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 )
     z = aux.coord[3]
@@ -475,11 +475,7 @@ dg = solver_config.dg
 Q = solver_config.Q
 
 vdg = DGModel(
-    driver_config.bl,
-    driver_config.grid,
-    driver_config.numerical_flux_first_order,
-    driver_config.numerical_flux_second_order,
-    driver_config.numerical_flux_gradient,
+    driver_config;
     state_auxiliary = dg.state_auxiliary,
     direction = VerticalDirection(),
 )
@@ -524,7 +520,7 @@ mkpath(output_dir);
 z_scale = 100 # convert from meters to cm
 z_key = "z"
 z_label = "z [cm]"
-z = get_z(driver_config.grid, z_scale)
+z = get_z(driver_config.grid; z_scale = z_scale)
 state_vars = get_vars_from_nodal_stack(
     driver_config.grid,
     solver_config.Q,
@@ -538,30 +534,30 @@ time_data = FT[0]                                      # store time data
 # Generate plots of initial conditions for the southwest nodal stack
 export_plot(
     z,
+    time_data,
     state_data,
     ("ρcT",),
-    joinpath(output_dir, "initial_condition_T_nodal.png"),
+    joinpath(output_dir, "initial_condition_T_nodal.png");
     xlabel = "ρcT at southwest node",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     state_data,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_u_nodal.png"),
+    joinpath(output_dir, "initial_condition_u_nodal.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     state_data,
     ("ρu[2]",),
-    joinpath(output_dir, "initial_condition_v_nodal.png"),
+    joinpath(output_dir, "initial_condition_v_nodal.png");
     xlabel = "ρv at southwest node",
     ylabel = z_label,
-    time_data = time_data,
 );
 
 # ![](initial_condition_T_nodal.png)
@@ -588,21 +584,21 @@ data_var = Dict[state_vars_var]
 
 export_plot(
     z,
+    time_data,
     data_avg,
     ("ρu[1]",),
     joinpath(output_dir, "initial_condition_avg_u.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     data_var,
     ("ρu[1]",),
-    joinpath(output_dir, "initial_condition_variance_u.png"),
+    joinpath(output_dir, "initial_condition_variance_u.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
-    time_data = time_data,
 );
 
 # ![](initial_condition_avg_u.png)
@@ -674,48 +670,48 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
 # `ρu` for the southwest nodal stack:
 export_plot(
     z,
+    time_data,
     data_avg,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_avg.png"),
+    joinpath(output_dir, "solution_vs_time_u_avg.png");
     xlabel = "Horizontal mean of ρu",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     data_var,
     ("ρu[1]"),
-    joinpath(output_dir, "variance_vs_time_u.png"),
+    joinpath(output_dir, "variance_vs_time_u.png");
     xlabel = "Horizontal variance of ρu",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     data_avg,
     ("ρcT"),
-    joinpath(output_dir, "solution_vs_time_T_avg.png"),
+    joinpath(output_dir, "solution_vs_time_T_avg.png");
     xlabel = "Horizontal mean of ρcT",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     data_var,
     ("ρcT"),
-    joinpath(output_dir, "variance_vs_time_T.png"),
+    joinpath(output_dir, "variance_vs_time_T.png");
     xlabel = "Horizontal variance of ρcT",
     ylabel = z_label,
-    time_data = time_data,
 );
 export_plot(
     z,
+    time_data,
     data_nodal,
     ("ρu[1]"),
-    joinpath(output_dir, "solution_vs_time_u_nodal.png"),
+    joinpath(output_dir, "solution_vs_time_u_nodal.png");
     xlabel = "ρu at southwest node",
     ylabel = z_label,
-    time_data = time_data,
 );
 # ![](solution_vs_time_u_avg.png)
 # ![](variance_vs_time_u.png)

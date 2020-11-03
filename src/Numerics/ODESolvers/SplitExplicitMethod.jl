@@ -68,7 +68,7 @@ mutable struct SplitExplicitSolver{SS, FS, RT, MSA} <: AbstractODESolver
 end
 
 function dostep!(
-    Qvec,
+    Qslow,
     split::SplitExplicitSolver{SS},
     param,
     time::Real,
@@ -76,8 +76,7 @@ function dostep!(
     slow = split.slow_solver
     fast = split.fast_solver
 
-    Qslow = Qvec.slow
-    Qfast = Qvec.fast
+    Qfast = slow.rhs!.modeldata.Q_2D
 
     dQslow = slow.dQ
     dQ2fast = split.dQ2fast

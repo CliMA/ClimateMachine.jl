@@ -193,8 +193,10 @@ URL = {https://doi.org/10.1175/MWR2930.1},
 eprint = {https://doi.org/10.1175/MWR2930.1}
 }
 """
-function init_dycoms!(problem, bl, state, aux, (x, y, z), t)
+function init_dycoms!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
+
+    (x, y, z) = localgeo.coord
 
     z = altitude(bl, aux)
 
@@ -236,7 +238,7 @@ function init_dycoms!(problem, bl, state, aux, (x, y, z), t)
 
     # Density, Temperature
 
-    ts = LiquidIcePotTempSHumEquil_given_pressure(bl.param_set, θ_liq, p, q_tot)
+    ts = PhaseEquil_pθq(bl.param_set, p, θ_liq, q_tot)
     ρ = air_density(ts)
 
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))

@@ -14,17 +14,19 @@ PhasePartition
 PhasePartition_equil
 ThermodynamicState
 PhaseDry
-PhaseDry_given_pT
-PhaseDry_given_ρT
+PhaseDry_pT
+PhaseDry_pθ
+PhaseDry_ρθ
+PhaseDry_ρT
 PhaseEquil
+PhaseEquil_ρTq
+PhaseEquil_pTq
+PhaseEquil_pθq
+PhaseEquil_ρθq
 PhaseNonEquil
-TemperatureSHumEquil
-TemperatureSHumNonEquil
-TemperatureSHumEquil_given_pressure
-LiquidIcePotTempSHumEquil
-LiquidIcePotTempSHumNonEquil
-LiquidIcePotTempSHumNonEquil_given_pressure
-LiquidIcePotTempSHumEquil_given_pressure
+PhaseNonEquil_ρTq
+PhaseNonEquil_ρθq
+PhaseNonEquil_pθq
 ```
 
 ## Thermodynamic state methods
@@ -32,19 +34,12 @@ LiquidIcePotTempSHumEquil_given_pressure
 ```@docs
 air_density
 air_pressure
-air_pressure_given_θ
 air_temperature
-air_temperature_from_ideal_gas_law
-air_temperature_from_liquid_ice_pottemp
-air_temperature_from_liquid_ice_pottemp_given_pressure
-air_temperature_from_liquid_ice_pottemp_non_linear
 condensate
 cp_m
 cv_m
 dry_pottemp
-dry_pottemp_given_pressure
 exner
-exner_given_pressure
 gas_constant_air
 gas_constants
 has_condensate
@@ -59,7 +54,6 @@ latent_heat_vapor
 Liquid
 liquid_fraction
 liquid_ice_pottemp
-liquid_ice_pottemp_given_pressure
 liquid_ice_pottemp_sat
 liquid_specific_humidity
 moist_static_energy
@@ -76,7 +70,6 @@ soundspeed_air
 specific_enthalpy
 specific_volume
 supersaturation
-temperature_and_humidity_from_virtual_temperature
 total_energy
 total_specific_enthalpy
 total_specific_humidity

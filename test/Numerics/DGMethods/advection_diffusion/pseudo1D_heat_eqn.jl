@@ -47,10 +47,10 @@ function initial_condition!(
     ::HeatEqn{n, κ, A},
     state,
     aux,
-    x,
+    localgeo,
     t,
 ) where {n, κ, A}
-    ξn = dot(n, x)
+    ξn = dot(n, localgeo.coord)
     state.ρ = ξn + sum(A .* cos.(κ * ξn) .* exp.(-κ .^ 2 * t))
 end
 Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
@@ -220,7 +220,7 @@ let
     expected_result[2, 2, Float32, VerticalDirection] = 0.0005684843
     expected_result[2, 3, Float32, VerticalDirection] = 1.0227403e-5
     expected_result[3, 1, Float32, EveryDirection] = 0.0012602004
-    expected_result[3, 2, Float32, EveryDirection] = 2.2404534e-5
+    expected_result[3, 2, Float32, EveryDirection] = 2.2415780e-5
     expected_result[3, 3, Float32, EveryDirection] = 1.1309192e-5
     expected_result[3, 1, Float32, HorizontalDirection] = 0.005157044
     expected_result[3, 2, Float32, HorizontalDirection] = 6.66792e-5

@@ -231,7 +231,7 @@ function test_run(
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = nothing,
+        source = (),
     )
 
     dg = DGModel(
@@ -337,13 +337,13 @@ function isentropicvortex_initialcondition!(
     bl,
     state,
     aux,
-    coords,
+    localgeo,
     t,
     args...,
 )
     setup = first(args)
     FT = eltype(state)
-    x = MVector(coords)
+    x = MVector(localgeo.coord)
 
     ρ∞ = setup.ρ∞
     p∞ = setup.p∞
@@ -371,7 +371,7 @@ function isentropicvortex_initialcondition!(
     T = T∞ * (1 - _kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
     # adiabatic/isentropic relation
     p = p∞ * (T / T∞)^(FT(1) / _kappa_d)
-    ts = PhaseDry_given_pT(bl.param_set, p, T)
+    ts = PhaseDry_pT(bl.param_set, p, T)
     ρ = air_density(ts)
 
     e_pot = FT(0)

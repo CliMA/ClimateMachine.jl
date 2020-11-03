@@ -56,7 +56,7 @@ init_velocity_diffusion!(::SwirlingFlow, aux::Vars, geom::LocalGeometry) =
 
 cosbell(τ, q) = τ ≤ 1 ? ((1 + cospi(τ)) / 2)^q : zero(τ)
 
-function initial_condition!(::SwirlingFlow, state, aux, coord, t)
+function initial_condition!(::SwirlingFlow, state, aux, localgeo, t)
     FT = eltype(state)
     x, y, _ = aux.coord
     x0, y0 = FT(1 // 4), FT(1 // 4)

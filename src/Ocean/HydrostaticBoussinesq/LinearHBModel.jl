@@ -48,7 +48,8 @@ init_state_auxiliary!(
     grid,
     direction,
 ) = nothing
-init_state_prognostic!(lm::LinearHBModel, Q::Vars, A::Vars, coords, t) = nothing
+init_state_prognostic!(lm::LinearHBModel, Q::Vars, A::Vars, localgeo, t) =
+    nothing
 
 """
     compute_gradient_argument!(::LinearHBModel)

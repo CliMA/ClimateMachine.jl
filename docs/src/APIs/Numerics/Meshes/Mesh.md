@@ -53,8 +53,6 @@ Geometry.resolutionmetric
 BrickMesh.partition
 BrickMesh.brickmesh
 BrickMesh.connectmesh
-BrickMesh.mappings
-BrickMesh.commmapping
 BrickMesh.centroidtocode
 ```
 

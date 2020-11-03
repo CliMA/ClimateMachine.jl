@@ -35,29 +35,17 @@ const FT = Float64
 
     config = SplitConfig("test_restart", resolution, dimensions, Coupled())
 
-    @testset "single run" begin
-        run_split_explicit(
-            config,
-            timespan;
-            dt_slow = 90 * 60,
-            refDat = refVals.ninety_minutes,
-            analytic_solution = true,
-        )
-    end
+    midpoint = timeend / 2
+    timespan = (tout, midpoint)
 
-    @testset "restart run" begin
-        midpoint = timeend / 2
-        timespan = (tout, midpoint)
+    run_split_explicit(config, timespan; dt_slow = 90 * 60)
 
-        run_split_explicit(config, timespan; dt_slow = 90 * 60)
-
-        run_split_explicit(
-            config,
-            timespan;
-            dt_slow = 90 * 60,
-            refDat = refVals.ninety_minutes,
-            analytic_solution = true,
-            restart = Int(midpoint / tout) - 1,
-        )
-    end
+    run_split_explicit(
+        config,
+        timespan;
+        dt_slow = 90 * 60,
+        refDat = refVals.ninety_minutes,
+        analytic_solution = true,
+        restart = Int(midpoint / tout),
+    )
 end

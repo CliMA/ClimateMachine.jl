@@ -24,7 +24,7 @@ function main()
     surface_flux = cl_args["surface_flux"]
     moisture_model = cl_args["moisture_model"]
 
-    FT = Float32
+    FT = Float64
     config_type = AtmosLESConfigType
 
     # DG polynomial order
@@ -80,7 +80,7 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-	CFL_direction = HorizontalDirection(),
+        CFL_direction = HorizontalDirection(),
     )
     dgn_config = config_diagnostics(driver_config)
 

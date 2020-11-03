@@ -153,7 +153,7 @@ function test_run(
         ref_state = IsentropicVortexReferenceState{FT}(setup),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = nothing,
+        source = (),
     )
 
     linear_model = AtmosAcousticLinearModel(model)
@@ -309,13 +309,13 @@ function isentropicvortex_initialcondition!(
     bl,
     state,
     aux,
-    coords,
+    localgeo,
     t,
     args...,
 )
     setup = bl.ref_state.setup
     FT = eltype(state)
-    x = MVector(coords)
+    x = MVector(localgeo.coord)
 
     ρ∞ = setup.ρ∞
     p∞ = setup.p∞

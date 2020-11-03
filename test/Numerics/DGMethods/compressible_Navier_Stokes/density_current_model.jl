@@ -67,9 +67,10 @@ function Initialise_Density_Current!(
     bl,
     state::Vars,
     aux::Vars,
-    (x1, x2, x3),
+    localgeo,
     t,
 )
+    (x1, x2, x3) = localgeo.coord
     FT = eltype(state)
     _R_d::FT = R_d(param_set)
     _grav::FT = grav(param_set)
@@ -97,7 +98,7 @@ function Initialise_Density_Current!(
     π_exner = FT(1) - _grav / (_cp_d * θ) * x3 # exner pressure
     ρ = _MSLP / (_R_d * θ) * (π_exner)^(_cv_d / _R_d) # density
 
-    ts = LiquidIcePotTempSHumEquil(bl.param_set, θ, ρ, q_tot)
+    ts = PhaseEquil_ρθq(bl.param_set, ρ, θ, q_tot)
     q_pt = PhasePartition(ts)
 
     U, V, W = FT(0), FT(0), FT(0)  # momentum components
@@ -131,7 +132,6 @@ function test_run(
         polynomialorder = polynomialorder,
     )
     # -------------- Define model ---------------------------------- #
-    source = Gravity()
     T_profile = DryAdiabaticProfile{FT}(param_set)
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -139,7 +139,7 @@ function test_run(
         init_state_prognostic = Initialise_Density_Current!,
         ref_state = HydrostaticState(T_profile),
         turbulence = AnisoMinDiss{FT}(1),
-        source = source,
+        source = (Gravity(),),
     )
     # -------------- Define DGModel --------------------------- #
     dg = DGModel(

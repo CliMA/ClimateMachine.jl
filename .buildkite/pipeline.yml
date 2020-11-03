@@ -433,15 +433,6 @@ steps:
       queue: central
       slurm_ntasks: 3
 
-  - label: "cpu_KM_ice"
-    key: "cpu_KM_ice"
-    command:
-      - "mpiexec julia --color=yes --project test/Atmos/Parameterizations/Microphysics/KM_ice.jl "
-    agents:
-      config: cpu
-      queue: central
-      slurm_ntasks: 3
-
   - label: "cpu_haverkamp_test"
     key: "cpu_haverkamp_test"
     command:
@@ -897,30 +888,60 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_risingbubble"
-    key: "gpu_risingbubble"
+  - label: "gpu_dry_risingbubble"
+    key: "gpu_dry_risingbubble"
     command:
-      - "mpiexec julia --color=yes --project tutorials/Atmos/risingbubble.jl "
-    agents:
-      config: gpu
-      queue: central
-      slurm_ntasks: 3
-      slurm_gres: "gpu:1"
-
-  - label: "gpu_heldsuarez"
-    key: "gpu_heldsuarez"
-    command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/TestCase/risingbubble.jl "
     agents:
       config: gpu
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_baroclinic_wave"
-    key: "gpu_baroclinic_wave"
+  - label: "gpu_moist_risingbubble"
+    key: "gpu_moist_risingbubble"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/baroclinic_wave.jl "
+      - "mpiexec julia --color=yes --project experiments/TestCase/risingbubble.jl --with-moisture "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_solid_body_rotation"
+    key: "gpu_solid_body_rotation"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_dry_baroclinic_wave"
+    key: "gpu_dry_baroclinic_wave"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/baroclinic_wave.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_moist_baroclinic_wave"
+    key: "gpu_moist_baroclinic_wave"
+    command:
+      - "mpiexec julia --color=yes --project experiments/TestCase/baroclinic_wave.jl --with-moisture "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_heldsuarez"
+    key: "gpu_heldsuarez"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -971,6 +992,26 @@ steps:
     key: "gpu_bomex_les"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_sbl_les"
+    key: "gpu_sbl_les"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/stable_bl_les.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_cbl_les"
+    key: "gpu_cbl_les"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/convective_bl_les.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central

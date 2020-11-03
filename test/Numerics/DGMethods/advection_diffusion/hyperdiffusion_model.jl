@@ -120,10 +120,10 @@ function init_state_prognostic!(
     m::HyperDiffusion,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 )
-    initial_condition!(m.problem, state, aux, coords, t)
+    initial_condition!(m.problem, state, aux, localgeo, t)
 end
 
 boundary_state!(nf, ::HyperDiffusion, _...) = nothing

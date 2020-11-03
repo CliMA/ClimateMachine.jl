@@ -13,18 +13,6 @@ function land_source!(
     f(land, source, state, diffusive, aux, t, direction)
 end
 
-function land_source!(
-    ::Nothing,
-    land::LandModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-) end
-
-
 # sources are applied additively
 
 @generated function land_source!(

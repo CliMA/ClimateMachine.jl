@@ -5,7 +5,6 @@ ClimateMachine.init()
 # Float type
 const FT = Float64
 
-
 #################
 # RUN THE TESTS #
 #################
@@ -34,10 +33,17 @@ const FT = Float64
     H = 1000   # m
     dimensions = (Lˣ, Lʸ, H)
 
+    BC = (
+        ClimateMachine.Ocean.SplitExplicit01.CoastlineNoSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanFloorNoSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceStressForcing(),
+    )
+
     config = config_simple_box(
         "test_simple_box",
         resolution,
-        dimensions;
+        dimensions,
+        BC;
         dt_slow = FT(90 * 60),
         dt_fast = FT(240),
     )

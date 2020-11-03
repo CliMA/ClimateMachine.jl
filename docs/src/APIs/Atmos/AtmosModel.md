@@ -23,7 +23,7 @@ ClimateMachine.BalanceLaws.flux_first_order!(m::AtmosModel, flux::Grad, state::V
 ClimateMachine.BalanceLaws.flux_second_order!(atmos::AtmosModel, flux::Grad, state::Vars, diffusive::Vars, hyperdiffusive::Vars, aux::Vars, t::Real)
 ClimateMachine.BalanceLaws.init_state_auxiliary!(m::AtmosModel, state_auxiliary::MPIStateArray, grid, direction)
 ClimateMachine.BalanceLaws.source!(m::AtmosModel, source::Vars, state::Vars, diffusive::Vars, aux::Vars, t::Real, direction)
-ClimateMachine.BalanceLaws.init_state_prognostic!(m::AtmosModel, state::Vars, aux::Vars, coords, t, args...)
+ClimateMachine.BalanceLaws.init_state_prognostic!(m::AtmosModel, state::Vars, aux::Vars, localgeo, t, args...)
 ```
 
 ## Reference states

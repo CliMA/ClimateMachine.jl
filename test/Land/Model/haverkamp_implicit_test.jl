@@ -32,7 +32,7 @@ using ClimateMachine.BalanceLaws:
 using ClimateMachine.ArtifactWrappers
 
 haverkamp_dataset = ArtifactWrapper(
-    joinpath("test", "Land", "Model", "Artifacts.toml"),
+    joinpath("test", "Land", "Model", "Artifacts_implicit.toml"),
     "richards",
     ArtifactFile[ArtifactFile(
         url = "https://caltech.box.com/shared/static/dfijf07io7h5dk1k87saaewgsg9apq8d.csv",
@@ -45,7 +45,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     ClimateMachine.init()
     FT = Float64
 
-    function init_soil_water!(land, state, aux, coordinates, time)
+    function init_soil_water!(land, state, aux, localgeo, time)
         myfloat = eltype(aux)
         state.soil.water.ϑ_l = myfloat(land.soil.water.initialϑ_l(aux))
         state.soil.water.θ_i = myfloat(land.soil.water.initialθ_i(aux))
@@ -127,11 +127,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     Q = solver_config.Q
 
     vdg = DGModel(
-        driver_config.bl,
-        driver_config.grid,
-        driver_config.numerical_flux_first_order,
-        driver_config.numerical_flux_second_order,
-        driver_config.numerical_flux_gradient,
+        driver_config;
         state_auxiliary = dg.state_auxiliary,
         direction = VerticalDirection(),
     )

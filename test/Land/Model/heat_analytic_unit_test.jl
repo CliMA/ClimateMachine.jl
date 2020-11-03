@@ -31,7 +31,7 @@ using ClimateMachine.BalanceLaws:
     ClimateMachine.init()
     FT = Float32
 
-    function init_soil!(land, state, aux, coordinates, time)
+    function init_soil!(land, state, aux, localgeo, time)
         myFT = eltype(state)
         ϑ_l, θ_i = get_water_content(land.soil.water, aux, state, time)
         θ_l =

@@ -14,7 +14,11 @@ function atmos_collect_onetime(mpicomm, dg, Q)
         FT = eltype(Q)
         grid = dg.grid
         topology = grid.topology
-        N = polynomialorder(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        N = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(N[1] .== N)
+        N = N[1]
         Nq = N + 1
         Nqk = dimensionality(grid) == 2 ? 1 : Nq
         nrealelem = length(topology.realelems)

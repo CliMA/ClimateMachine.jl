@@ -85,7 +85,7 @@ export TurbulenceClosureModel,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
     turbulence_nodal_update_auxiliary_state!,
-    sponge_viscosity_modifier!
+    sponge_viscosity_modifier
 
 # ### Abstract Type
 # We define a `TurbulenceClosureModel` abstract type and
@@ -510,18 +510,8 @@ end
 $(DocStringExtensions.FIELDS)
 
 # Smagorinsky Model Reference
-    article{doi:10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2,
-      author = {Smagorinksy, J.},
-      title = {General circulation experiments with the primitive equations},
-      journal = {Monthly Weather Review},
-      volume = {91},
-      number = {3},
-      pages = {99-164},
-      year = {1963},
-      doi = {10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
-      URL = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2},
-      eprint = {https://doi.org/10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
-      }
+
+See [smagorinsky1963](@cite)
 
 # Lilly Model Reference
     article{doi:10.1111/j.2153-3490.1962.tb00128.x,
@@ -1060,7 +1050,7 @@ No modifiers applied to viscosity/diffusivity in sponge layer
 $(DocStringExtensions.FIELDS)
 """
 struct NoViscousSponge <: ViscousSponge end
-function sponge_viscosity_modifier!(
+function sponge_viscosity_modifier(
     bl::BalanceLaw,
     m::NoViscousSponge,
     ν,
@@ -1068,7 +1058,7 @@ function sponge_viscosity_modifier!(
     τ,
     aux,
 )
-    nothing
+    return (ν, D_t, τ)
 end
 
 """ 
@@ -1090,7 +1080,7 @@ struct UpperAtmosSponge{FT} <: ViscousSponge
     γ::FT
 end
 
-function sponge_viscosity_modifier!(
+function sponge_viscosity_modifier(
     bl::BalanceLaw,
     m::UpperAtmosSponge,
     ν,
@@ -1106,6 +1096,7 @@ function sponge_viscosity_modifier!(
         D_t += β_sponge * D_t
         τ += β_sponge * τ
     end
+    return (ν, D_t, τ)
 end
 
 end #module TurbulenceClosures.jl

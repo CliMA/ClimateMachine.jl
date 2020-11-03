@@ -38,8 +38,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.Thermodynamics:
-    TemperatureSHumEquil_given_pressure, internal_energy
+using ClimateMachine.Thermodynamics: PhaseEquil_pTq, internal_energy
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
@@ -62,7 +61,9 @@ struct DryRayleighBenardConvectionDataConfig{FT}
 end
 
 # Define initial condition kernel
-function init_problem!(problem, bl, state, aux, (x, y, z), t)
+function init_problem!(problem, bl, state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
+
     dc = bl.data_config
     FT = eltype(state)
 
@@ -86,7 +87,7 @@ function init_problem!(problem, bl, state, aux, (x, y, z), t)
 
     q_tot = FT(0)
     e_pot = gravitational_potential(bl.orientation, aux)
-    ts = TemperatureSHumEquil_given_pressure(bl.param_set, T, P, q_tot)
+    ts = PhaseEquil_pTq(bl.param_set, P, T, q_tot)
 
     ρu, ρv, ρw = FT(0), FT(0), ρ * δw
 

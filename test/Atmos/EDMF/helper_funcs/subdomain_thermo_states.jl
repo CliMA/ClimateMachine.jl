@@ -64,16 +64,16 @@ new_thermo_state_en(
 Recover NamedTuple of all thermo states
 """
 function recover_thermo_state_all(bl, state, aux)
-    ts = recover_thermo_state(bl, state, aux)
+    ts = new_thermo_state(bl, state, aux)
     return (
         gm = ts,
-        en = recover_thermo_state_en(bl, bl.moisture, state, aux, ts),
-        up = recover_thermo_state_up(bl, bl.moisture, state, aux, ts),
+        en = new_thermo_state_en(bl, bl.moisture, state, aux, ts),
+        up = new_thermo_state_up(bl, bl.moisture, state, aux, ts),
     )
 end
 
 """
-    recover_thermo_state_up(bl, state, aux)
+    recover_thermo_state_up(bl, state, aux, ts = new_thermo_state(bl, state, aux))
 
 Recover the updraft thermodynamic states given:
  - `bl`, parent `BalanceLaw`
@@ -87,12 +87,24 @@ Recover the updraft thermodynamic states given:
     This method assumes that the temperature has been
     previously computed from a new thermodynamic state
     and stored in `aux`.
+
+!!! warn
+    While recover_thermo_state_up is an ideal long-term solution,
+    right now we are directly calling new_thermo_state_up to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
 """
-recover_thermo_state_up(bl, state, aux) =
-    recover_thermo_state_up(bl, bl.moisture, state, aux)
+function recover_thermo_state_up(
+    bl,
+    state,
+    aux,
+    ts = new_thermo_state(bl, state, aux),
+)
+    return new_thermo_state_up(bl, bl.moisture, state, aux, ts)
+end
 
 """
-    recover_thermo_state_en(bl, state, aux)
+    recover_thermo_state_en(bl, state, aux, ts = recover_thermo_state(bl, state, aux))
 
 Recover the environment thermodynamic state given:
  - `bl`, parent `BalanceLaw`
@@ -106,9 +118,21 @@ Recover the environment thermodynamic state given:
     This method assumes that the temperature has been
     previously computed from a new thermodynamic state
     and stored in `aux`.
+
+!!! warn
+    While recover_thermo_state_up is an ideal long-term solution,
+    right now we are directly calling new_thermo_state_up to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
 """
-recover_thermo_state_en(bl, state, aux) =
-    recover_thermo_state_en(bl, bl.moisture, state, aux)
+function recover_thermo_state_en(
+    bl,
+    state,
+    aux,
+    ts = new_thermo_state(bl, state, aux),
+)
+    return new_thermo_state_en(bl, bl.moisture, state, aux, ts)
+end
 
 ####
 #### Implementation
@@ -133,12 +157,7 @@ function new_thermo_state_up(
         θ_liq_up = ρaθ_liq_up / ρa_up
         q_tot_up = ρaq_tot_up / ρa_up
 
-        LiquidIcePotTempSHumEquil_given_pressure(
-            m.param_set,
-            θ_liq_up,
-            p,
-            q_tot_up,
-        )
+        PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
     end
     return ts_up
 end
@@ -171,12 +190,7 @@ function new_thermo_state_en(
         @print("q_tot_en = ", q_tot_en, "\n")
         error("Environment q_tot_en out-of-bounds in new_thermo_state_en")
     end
-    ts_en = LiquidIcePotTempSHumEquil_given_pressure(
-        m.param_set,
-        θ_liq_en,
-        p,
-        q_tot_en,
-    )
+    ts_en = PhaseEquil_pθq(m.param_set, p, θ_liq_en, q_tot_en)
     return ts_en
 end
 

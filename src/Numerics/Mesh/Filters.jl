@@ -148,8 +148,12 @@ struct ExponentialFilter <: AbstractSpectralFilter
         α = -log(eps(eltype(grid))),
     )
         AT = arraytype(grid)
-        N = polynomialorder(grid)
-        ξ = referencepoints(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        N = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(N[1] .== N)
+        N = N[1]
+        ξ = referencepoints(grid)[1]
 
         @assert iseven(s)
         @assert 0 <= Nc <= N
@@ -195,8 +199,12 @@ struct BoydVandevenFilter <: AbstractSpectralFilter
 
     function BoydVandevenFilter(grid, Nc = 0, s = 32)
         AT = arraytype(grid)
-        N = polynomialorder(grid)
-        ξ = referencepoints(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        N = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(N[1] .== N)
+        N = N[1]
+        ξ = referencepoints(grid)[1]
 
         @assert iseven(s)
         @assert 0 <= Nc <= N
@@ -212,7 +220,7 @@ struct BoydVandevenFilter <: AbstractSpectralFilter
 end
 
 """
-    CutoffFilter(grid, Nc=polynomialorder(grid))
+    CutoffFilter(grid, Nc=polynomialorders(grid))
 
 Returns the spectral filter that zeros out polynomial modes greater than or
 equal to `Nc`.
@@ -221,9 +229,13 @@ struct CutoffFilter <: AbstractSpectralFilter
     "filter matrix"
     filter
 
-    function CutoffFilter(grid, Nc = polynomialorder(grid))
+    function CutoffFilter(grid, Nc = polynomialorders(grid))
+        # XXX: Needs updating for multiple polynomial orders
+        # Currently only support single polynomial order
+        @assert all(Nc[1] .== Nc)
+        Nc = Nc[1]
         AT = arraytype(grid)
-        ξ = referencepoints(grid)
+        ξ = referencepoints(grid)[1]
 
         σ(η) = 0
         filter = spectral_filter_matrix(ξ, Nc, σ)
@@ -293,7 +305,11 @@ function apply!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
 
     filtermatrix = filter.filter
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
@@ -340,7 +356,11 @@ function apply!(
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
 

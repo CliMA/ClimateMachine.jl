@@ -244,10 +244,10 @@ function init_state_prognostic!(
     m::AdvectionDiffusion,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t::Real,
 )
-    initial_condition!(m.problem, state, aux, coords, t)
+    initial_condition!(m.problem, state, aux, localgeo, t)
 end
 
 Neumann_data!(problem, ∇state, aux, x, t) = nothing
@@ -266,7 +266,7 @@ function boundary_state!(
     _...,
 )
     if bctype == 1 # Dirichlet
-        Dirichlet_data!(m.problem, stateP, auxP, auxP.coord, t)
+        Dirichlet_data!(m.problem, stateP, auxP, (coord = auxP.coord,), t)
     elseif bctype ∈ (2, 4) # Neumann
         stateP.ρ = stateM.ρ
     elseif bctype == 3 # zero Dirichlet

@@ -32,14 +32,41 @@ const FT = Float64
     H = 400  # m
     dimensions = (Lˣ, Lʸ, H)
 
-    config = SplitConfig("spindown_short", resolution, dimensions, Coupled())
+    BC = (
+        OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        OceanBC(Penetrable(FreeSlip()), Insulating()),
+    )
+    config = SplitConfig(
+        "spindown_bla",
+        resolution,
+        dimensions,
+        Coupled();
+        solver = SplitExplicitSolver,
+        boundary_conditions = BC,
+    )
+
+    #=
+    BC = (
+        ClimateMachine.Ocean.SplitExplicit01.OceanFloorFreeSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceNoStressNoForcing(),
+    )
+
+    config = SplitConfig(
+        "spindown_jmc",
+        resolution,
+        dimensions,
+        Coupled();
+        solver = SplitExplicitLSRK2nSolver,
+        boundary_conditions = BC,
+    )
+    =#
 
     run_split_explicit(
         config,
         timespan;
         dt_fast = 300, # seconds
         dt_slow = 90 * 60, # seconds
-        refDat = refVals.ninety_minutes,
+        # refDat = refVals.ninety_minutes,
         analytic_solution = true,
     )
 end

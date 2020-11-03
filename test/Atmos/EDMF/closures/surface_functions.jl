@@ -70,9 +70,9 @@ function subdomain_surface_values(
         θ_liq + surface_scalar_coeff[i] * sqrt(max(θ_liq_cv, 0))
     end
 
+    ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
     q_tot_up_surf = ntuple(N_up) do i
-        gm.moisture.ρq_tot * ρ_inv +
-        surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
+        ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
     end
 
     return (

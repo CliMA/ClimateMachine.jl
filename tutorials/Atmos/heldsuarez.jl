@@ -31,28 +31,31 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+import ClimateMachine.Atmos: atmos_source!
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
 # needed to have access to Earth's physical parameters.
 using CLIMAParameters
-using CLIMAParameters.Planet: R_d, day, grav, cp_d, cv_d, planet_radius
+using CLIMAParameters.Planet: MSLP, R_d, day, grav, cp_d, cv_d, planet_radius
 
 # We need to load the physical parameters for Earth to have an Earth-like simulation :).
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
+struct HeldSuarezForcingTutorial <: Source end
 
 # Construct the Held-Suarez forcing function. We can view this as part the
 # right-hand-side of our governing equations. It forces the total energy field
 # in a way that the resulting steady-state velocity and temperature fields of
 # the simulation resemble those of an idealized dry planet.
-function held_suarez_forcing!(
-    balance_law,
-    source,
-    state,
-    diffusive,
-    aux,
-    time::Real,
+function atmos_source!(
+    ::HeldSuarezForcingTutorial,
+    balance_law::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
     direction,
 )
     FT = eltype(state)
@@ -65,14 +68,15 @@ function held_suarez_forcing!(
     ρu = state.ρu
     ρe = state.ρe
 
-    coord = aux.coord
-    e_int = internal_energy(balance_law, state, aux)
-    T = air_temperature(balance_law.param_set, e_int)
+    ts = recover_thermo_state(balance_law, state, aux)
+    e_int = internal_energy(ts)
+    T = air_temperature(ts)
     _R_d = FT(R_d(balance_law.param_set))
     _day = FT(day(balance_law.param_set))
     _grav = FT(grav(balance_law.param_set))
     _cp_d = FT(cp_d(balance_law.param_set))
     _cv_d = FT(cv_d(balance_law.param_set))
+    _p0 = FT(MSLP(balance_law.param_set))
 
     ## Held-Suarez parameters
     k_a = FT(1 / (40 * _day))
@@ -86,12 +90,10 @@ function held_suarez_forcing!(
 
     ## Held-Suarez forcing
     φ = latitude(balance_law, aux)
-    p = air_pressure(balance_law.param_set, T, ρ)
+    p = air_pressure(ts)
 
-    ##TODO: replace _p0 with dynamic surface pressure in Δσ calculations to
-    #account for topography, but leave unchanged for calculations of σ involved
-    #in T_equil
-    _p0 = FT(1.01325e5)
+    #TODO: replace _p0 with dynamic surface pressure in Δσ calculations to account
+    #for topography, but leave unchanged for calculations of σ involved in T_equil
     σ = p / _p0
     exner_p = σ^(_R_d / _cp_d)
     Δσ = (σ - σ_b) / (1 - σ_b)
@@ -112,7 +114,7 @@ end;
 # state of our model run. In our case, we use the reference state of the
 # simulation (defined below) and add a little bit of noise. Note that the
 # initial states includes a zero initial velocity field.
-function init_heldsuarez!(problem, balance_law, state, aux, coordinates, time)
+function init_heldsuarez!(problem, balance_law, state, aux, localgeo, time)
     FT = eltype(state)
 
     ## Set initial state to reference state with random perturbation
@@ -186,7 +188,7 @@ model = AtmosModel{FT}(
     turbulence = turbulence_model,
     hyperdiffusion = hyperdiffusion_model,
     moisture = DryModel(),
-    source = (Gravity(), Coriolis(), held_suarez_forcing!, sponge),
+    source = (Gravity(), Coriolis(), HeldSuarezForcingTutorial(), sponge),
 );
 
 # This concludes the setup of the physical model!

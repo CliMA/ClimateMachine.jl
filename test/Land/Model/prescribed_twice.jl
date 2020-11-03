@@ -30,7 +30,7 @@ using ClimateMachine.BalanceLaws:
     ClimateMachine.init()
     FT = Float64
 
-    function init_soil_water!(land, state, aux, coordinates, time) end
+    function init_soil_water!(land, state, aux, localgeo, time) end
 
     soil_water_model = PrescribedWaterModel()
     soil_heat_model = PrescribedTemperatureModel()

@@ -2,7 +2,7 @@
 using DocStringExtensions
 using ..TemperatureProfiles
 export ReferenceState, NoReferenceState, HydrostaticState
-
+const TD = Thermodynamics
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
 
 """
@@ -86,7 +86,7 @@ function atmos_init_aux!(
     aux.ref_state.ρ = ρ
     RH = m.relative_humidity
     phase_type = PhaseEquil
-    (T, q_pt) = temperature_and_humidity_from_virtual_temperature(
+    (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
         atmos.param_set,
         T_virt,
         ρ,
@@ -96,14 +96,14 @@ function atmos_init_aux!(
 
     # Update temperature to be exactly consistent with
     # p, ρ, and q_pt
-    T = air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
+    T = TD.air_temperature_from_ideal_gas_law(atmos.param_set, p, ρ, q_pt)
     q_tot = q_pt.tot
     q_liq = q_pt.liq
     q_ice = q_pt.ice
     if atmos.moisture isa DryModel
-        ts = PhaseDry_given_ρT(atmos.param_set, ρ, T)
+        ts = PhaseDry_ρT(atmos.param_set, ρ, T)
     else
-        ts = TemperatureSHumEquil(atmos.param_set, T, ρ, q_tot)
+        ts = PhaseEquil_ρTq(atmos.param_set, ρ, T, q_tot)
     end
 
     aux.ref_state.ρq_tot = ρ * q_tot
@@ -146,7 +146,7 @@ function init_state_prognostic!(
     ::PressureGradientModel,
     state::Vars,
     aux::Vars,
-    coord,
+    localgeo,
     t,
 ) end
 function flux_first_order!(
@@ -166,7 +166,7 @@ boundary_state!(nf, ::PressureGradientModel, _...) = nothing
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
 function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     FT = eltype(state_auxiliary)
-    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}))
+    ∇p = similar(state_auxiliary; vars = @vars(∇p::SVector{3, FT}), nstate = 3)
 
     grad_model = PressureGradientModel()
     # Note that the choice of numerical fluxes doesn't matter

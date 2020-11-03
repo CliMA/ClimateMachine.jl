@@ -27,7 +27,7 @@ import ...BalanceLaws:
     source!,
     wavespeed,
     boundary_state!
-import ..Ocean: ocean_init_state!, ocean_init_aux!
+import ..Ocean: ocean_init_state!, ocean_init_aux!, ocean_boundary_state!
 
 using ...Mesh.Geometry: LocalGeometry
 
@@ -95,8 +95,8 @@ function vars_state(m::SWModel, ::Prognostic, T)
     end
 end
 
-function init_state_prognostic!(m::SWModel, state::Vars, aux::Vars, coords, t)
-    ocean_init_state!(m, m.problem, state, aux, coords, t)
+function init_state_prognostic!(m::SWModel, state::Vars, aux::Vars, localgeo, t)
+    ocean_init_state!(m, m.problem, state, aux, localgeo, t)
 end
 
 function vars_state(m::SWModel, ::Auxiliary, T)
@@ -307,102 +307,16 @@ dispatches to a function in OceanBoundaryConditions.jl based on bytype defined b
 """
 @inline function boundary_state!(nf, shallow::SWModel, args...)
     boundary_conditions = shallow.problem.boundary_conditions
-    return shallow_boundary_state!(nf, boundary_conditions, shallow, args...)
+    return ocean_boundary_state!(nf, boundary_conditions, shallow, args...)
 end
 
 """
-    shallow_boundary_state!(nf, bc::OceanBC, ::SWModel)
+    ocean_boundary_state!(nf, bc::OceanBC, ::SWModel)
 
 splits boundary condition application into velocity
 """
-@inline function shallow_boundary_state!(nf, bc::OceanBC, m::SWModel, args...)
-    return shallow_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
-end
-
-"""
-    shallow_boundary_state!(nf, boundaries::Tuple, ::HBModel,
-                          Q⁺, A⁺, n, Q⁻, A⁻, bctype)
-applies boundary conditions for the first-order and gradient fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@generated function shallow_boundary_state!(
-    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    boundaries::Tuple,
-    shallow,
-    Q⁺,
-    A⁺,
-    n,
-    Q⁻,
-    A⁻,
-    bctype,
-    t,
-    args...,
-)
-    N = fieldcount(boundaries)
-    return quote
-        Base.Cartesian.@nif(
-            $(N + 1),
-            i -> bctype == i, # conditionexpr
-            i -> shallow_boundary_state!(
-                nf,
-                boundaries[i],
-                shallow,
-                Q⁺,
-                A⁺,
-                n,
-                Q⁻,
-                A⁻,
-                t,
-            ), # expr
-            i -> error("Invalid boundary tag")
-        ) # elseexpr
-        return nothing
-    end
-end
-
-"""
-    shallow_boundary_state!(nf, boundaries::Tuple, ::HBModel,
-                          Q⁺, A⁺, D⁺, n, Q⁻, A⁻, D⁻, bctype)
-applies boundary conditions for the second-order fluxes
-dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
-"""
-@generated function shallow_boundary_state!(
-    nf::NumericalFluxSecondOrder,
-    boundaries::Tuple,
-    shallow,
-    Q⁺,
-    D⁺,
-    A⁺,
-    n,
-    Q⁻,
-    D⁻,
-    A⁻,
-    bctype,
-    t,
-    args...,
-)
-    N = fieldcount(boundaries)
-    return quote
-        Base.Cartesian.@nif(
-            $(N + 1),
-            i -> bctype == i, # conditionexpr
-            i -> shallow_boundary_state!(
-                nf,
-                boundaries[i],
-                shallow,
-                Q⁺,
-                D⁺,
-                A⁺,
-                n,
-                Q⁻,
-                D⁻,
-                A⁻,
-                t,
-            ), # expr
-            i -> error("Invalid boundary tag")
-        ) # elseexpr
-        return nothing
-    end
+@inline function ocean_boundary_state!(nf, bc::OceanBC, m::SWModel, args...)
+    return ocean_boundary_state!(nf, bc.velocity, m, m.turbulence, args...)
 end
 
 include("bc_velocity.jl")

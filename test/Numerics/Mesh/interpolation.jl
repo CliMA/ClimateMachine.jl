@@ -39,7 +39,7 @@ function Initialize_Brick_Interpolation_Test!(
     bl,
     state::Vars,
     aux::Vars,
-    (x, y, z),
+    localgeo,
     t,
 )
     FT = eltype(state)
@@ -283,7 +283,7 @@ function run_cubed_sphere_interpolation_test(DA, FT)
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = nothing,
+        source = (),
     )
 
     dg = DGModel(
