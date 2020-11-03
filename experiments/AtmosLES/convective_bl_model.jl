@@ -257,22 +257,6 @@ function convective_bl_model(
         ),
     )
 
-    if moisture_model == "dry"
-        moisture = DryModel()
-    elseif moisture_model == "equilibrium"
-        source = source_default
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
-    elseif moisture_model == "nonequilibrium"
-        source = (source_default..., CreateClouds())
-        moisture = NonEquilMoist()
-    else
-        @warn @sprintf(
-            """
- %s: unrecognized moisture_model in source terms, using the defaults""",
-            moisture_model,
-        )
-        source = source_default
-    end
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
         energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
@@ -280,10 +264,7 @@ function convective_bl_model(
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
             (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> (
-                surface_temperature_variation(state, t, moisture_model),
-                q_sfc,
-            ),
+            (state, aux, t) -> (surface_temperature_variation(state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
@@ -297,20 +278,10 @@ function convective_bl_model(
         )
     end
 
-    if moisture_model == "dry"
-        boundary_conditions = (
-            AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
-                energy = energy_bc,
-            ),
-            AtmosBC(),
-        )
-    else
-        boundary_conditions = (
+    moisture_flux = FT(0)
+    problem = AtmosProblem(
+        init_state_prognostic = ics,
+        boundarycondition = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
                     # normPu_int is the internal horizontal speed
@@ -321,26 +292,20 @@ function convective_bl_model(
                 moisture = moisture_bc,
             ),
             AtmosBC(),
-        )
-    end
-
-    # Set up problem initial and boundary conditions
-    moisture_flux = FT(0)
-    problem = AtmosProblem(
-        init_state_prognostic = ics,
-        boundarycondition = boundary_conditions,
+        ),
     )
 
     # Assemble model components
     model = AtmosModel{FT}(
-        AtmosLESConfigType,
+        config_type,
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = moisture,
-        source = source,
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        source = source_default,
         turbconv = turbconv,
     )
+
     return model
 end
 
@@ -360,12 +325,3 @@ function config_diagnostics(driver_config)
         core_dgngrp,
     ])
 end
-
-# # No need to save temperature for DryModel.
-# function save_subdomain_temperature!(
-#      m::AtmosModel,
-#      moist::DryModel,
-#      state::Vars,
-#      aux::Vars,
-#  )
-#  end

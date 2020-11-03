@@ -57,7 +57,6 @@ function main()
         solver_type = ode_solver_type,
         model = model,
     )
-
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
