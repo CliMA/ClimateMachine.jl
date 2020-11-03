@@ -30,7 +30,7 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function test_vertical_integral_model(time; refDat = ())
+function test_vertical_integral_model(::Type{FT}, time; refDat = ()) where {FT}
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
 
@@ -139,7 +139,7 @@ end
 #################
 # RUN THE TESTS #
 #################
-FT = Float64
+const FT = Float64
 
 const N = 4
 const Nˣ = 5
@@ -163,7 +163,7 @@ const cᶻ = 0
         [0, 86400, 30 * 86400, 365 * 86400, 10 * 365 * 86400, 100 * 365 * 86400]
     for (index, time) in enumerate(times)
         @testset "$(time)" begin
-            test_vertical_integral_model(time, refDat = refVals[index])
+            test_vertical_integral_model(FT, time, refDat = refVals[index])
         end
     end
 end

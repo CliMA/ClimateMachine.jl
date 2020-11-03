@@ -18,7 +18,13 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function config_simple_box(FT, N, resolution, dimensions; BC = nothing)
+function config_simple_box(
+    ::Type{FT},
+    N,
+    resolution,
+    dimensions;
+    BC = nothing,
+) where {FT}
     if BC == nothing
         problem = SimpleBox{FT}(dimensions...)
     else

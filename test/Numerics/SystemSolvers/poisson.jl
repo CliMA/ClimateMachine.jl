@@ -163,13 +163,13 @@ end
 function test_run(
     mpicomm,
     ArrayType,
-    FT,
+    ::Type{FT},
     dim,
     polynomialorder,
     brickrange,
     periodicity,
     linmethod,
-)
+) where {FT}
 
     topology = BrickTopology(mpicomm, brickrange, periodicity = periodicity)
     grid = DiscontinuousSpectralElementGrid(

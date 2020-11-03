@@ -141,8 +141,6 @@ function boundary_state!(
     _...,
 ) end;
 
-FT = Float64;
-
 function run_box1D(
     N_poly::Int,
     init_q::FT,
@@ -159,7 +157,7 @@ function run_box1D(
     boyd_param_1::Int = 0,
     boyd_param_2::Int = 32,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
-)
+) where {FT}
     N_poly = N_poly
     nelem = 128
     zmax = FT(350)

@@ -29,7 +29,7 @@ const param_set = EarthParameterSet()
 
 const ArrayType = ClimateMachine.array_type()
 
-function main(BC)
+function main(::Type{FT}, BC) where {FT}
     mpicomm = MPI.COMM_WORLD
 
     brickrange_2D = (xrange, yrange)
@@ -308,7 +308,7 @@ end
 #################
 # RUN THE TESTS #
 #################
-FT = Float64
+const FT = Float64
 vtkpath = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_split"))
 
 const timeend = 5 * 24 * 3600 # s
@@ -352,5 +352,5 @@ BC = (
 )
 
 @testset "$(@__FILE__)" begin
-    main(BC)
+    main(FT, BC)
 end

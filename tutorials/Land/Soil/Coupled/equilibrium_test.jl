@@ -121,7 +121,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 # Initialize and pick a floating point precision:
 ClimateMachine.init()
-FT = Float64;
+const FT = Float64;
 
 # Load plot helpers:
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));

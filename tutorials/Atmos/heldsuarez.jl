@@ -136,7 +136,7 @@ ClimateMachine.init();
 # precisions, with lower precision we get our results faster, and with higher
 # precision, we may get more accurate results, depending on the questions we
 # are after.
-FT = Float32;
+const FT = Float32;
 
 
 # ## Setup model configuration

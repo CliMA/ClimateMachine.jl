@@ -87,7 +87,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 # - Required so functions for computation of temperature profiles.
 using ClimateMachine.TemperatureProfiles
-# - Required so functions for computation of moist thermodynamic quantities and turbulence closures 
+# - Required so functions for computation of moist thermodynamic quantities and turbulence closures
 # are available.
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
@@ -182,7 +182,14 @@ end
 # ## [Model Configuration](@id config-helper)
 # We define a configuration function to assist in prescribing the physical
 # model.
-function config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
+function config_densitycurrent(
+    ::Type{FT},
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+) where {FT}
 
     ## Choose an Explicit Single-rate Solver LSRK144 from the existing [ODESolvers](@ref
     ## ODESolvers-docs) options Apply the outer constructor to define the

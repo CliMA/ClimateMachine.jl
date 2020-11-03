@@ -116,7 +116,7 @@ import ClimateMachine.BalanceLaws:
 # ## Initialization
 
 # Define the float type (`Float64` or `Float32`)
-FT = Float64;
+const FT = Float64;
 # Initialize ClimateMachine for CPU.
 ClimateMachine.init(; disable_gpu = true);
 
