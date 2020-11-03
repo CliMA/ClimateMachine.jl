@@ -521,7 +521,10 @@ function update_auxiliary_state!(
     update_auxiliary_state!(f!, dg, m, ct3d_dQ, t, elems)
     #----------
 
-    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(dg)
+    info = basic_grid_info(dg)
+    Nq, Nqk = info.Nq, info.Nqk
+    nelemv, nelemh = info.nvertelem, info.nhorzelem
+    nrealelemh = info.nhorzrealelem
 
     # compute integrals for w and pkin
     indefinite_stack_integral!(dg, m, Q, A, t, elems) # bottom -> top

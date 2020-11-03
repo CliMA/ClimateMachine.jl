@@ -21,7 +21,10 @@ end
     forcing_tendency,
 ) where {C <: Coupled}
     FT = eltype(state_bc)
-    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(model_bc)
+    info = basic_grid_info(model_bc)
+    Nq, Nqk = info.Nq, info.Nqk
+    nelemv, nelemh = info.nvertelem, info.nhorzelem
+    nrealelemh = info.nhorzrealelem
 
     #### integrate the tendency
     model_int = model_bc.modeldata.integral_model
@@ -85,7 +88,10 @@ end
     state_bt,
 ) where {C <: Coupled}
     FT = eltype(state_bc)
-    Nq, Nqk, _, _, nelemv, nelemh, nrealelemh, _ = basic_grid_info(model_bc)
+    info = basic_grid_info(model_bc)
+    Nq, Nqk = info.Nq, info.Nqk
+    nelemv, nelemh = info.nvertelem, info.nhorzelem
+    nrealelemh = info.nhorzrealelem
 
     ### integrate the horizontal velocity
     model_int = model_bc.modeldata.integral_model
