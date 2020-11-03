@@ -108,14 +108,18 @@ function export_contour(
     ϕ_string = String(ϕ)
     ϕ_data = hcat([data[ϕ_string][:] for data in dons_arr]...)
     args = (time_data, z, ϕ_data)
-    contourf(
-        args...;
-        xlabel = xlabel,
-        ylabel = ylabel,
-        label = label,
-        c = :viridis,
-    )
-    savefig(filename)
+    try
+        contourf(
+            args...;
+            xlabel = xlabel,
+            ylabel = ylabel,
+            label = label,
+            c = :viridis,
+        )
+        savefig(filename)
+    catch
+        @warn "Contour plot $label failed. Perhaps the field is all zeros"
+    end
 end
 
 function save_binned_surface_plots(
