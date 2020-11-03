@@ -1841,9 +1841,9 @@ end
     num_state_auxiliary = number_states(balance_law, Auxiliary())
     num_state_prognostic = number_states(balance_law, Prognostic())
 
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Np = Nq * Nq * Nqk
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
+    Np = Nq[1] * Nq[2] * Nqk
 
     l_state = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -1900,9 +1900,9 @@ See [`BalanceLaw`](@ref) for usage.
     num_state_auxiliary = number_states(balance_law, Auxiliary())
     num_state_temporary = varsize(vars_state_temporary)
 
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Np = Nq * Nq * Nqk
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
+    Np = Nq[1] * Nq[2] * Nqk
 
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
     local_state_temporary = MArray{Tuple{num_state_temporary}, FT}(undef)
@@ -1956,11 +1956,9 @@ Update the auxiliary state array
     num_state_prognostic = number_states(balance_law, Prognostic())
     num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-    Nq = N + 1
-
-    Nqk = dim == 2 ? 1 : Nq
-
-    Np = Nq * Nq * Nqk
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
+    Np = Nq[1] * Nq[2] * Nqk
 
     local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -2018,11 +2016,9 @@ end
     num_state_gradient_flux = number_states(balance_law, GradientFlux())
     num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-    Nq = N + 1
-
-    Nqk = dim == 2 ? 1 : Nq
-
-    Np = Nq * Nq * Nqk
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
+    Np = Nq[1] * Nq[2] * Nqk
 
     local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
