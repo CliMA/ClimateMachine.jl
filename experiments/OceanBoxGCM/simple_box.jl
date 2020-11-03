@@ -50,6 +50,7 @@ function run_simple_box(
     BC = nothing,
     Δt = nothing,
     refDat = (),
+    mymodeldata = (),
 )
     if imex
         solver_type =
@@ -68,7 +69,7 @@ function run_simple_box(
     grid = driver_config.grid
     vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1)
     exp_filter = ExponentialFilter(grid, 1, 8)
-    modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
+    modeldata = (vert_filter = vert_filter, exp_filter = exp_filter, mymodeldata = mymodeldata )
 
     timestart, timeend = timespan
     solver_config = ClimateMachine.SolverConfiguration(
