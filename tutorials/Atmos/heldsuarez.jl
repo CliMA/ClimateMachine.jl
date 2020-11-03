@@ -42,7 +42,7 @@ using CLIMAParameters.Planet: MSLP, R_d, day, grav, cp_d, cv_d, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
-struct HeldSuarezForcingTutorial <: Source end
+struct HeldSuarezForcingTutorial <: AbstractSource end
 
 # Construct the Held-Suarez forcing function. We can view this as part the
 # right-hand-side of our governing equations. It forces the total energy field
