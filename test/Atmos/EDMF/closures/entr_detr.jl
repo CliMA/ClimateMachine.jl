@@ -44,78 +44,76 @@ function entr_detr(
     N_up = n_updrafts(m.turbconv)
     ρ_inv = 1 / gm.ρ
     a_up_i = up[i].ρa * ρ_inv
+    if a_up_i<FT(0)#m.turbconv.subdomains.a_min
+        E_dyn = FT(0)
+        Δ_dyn = FT(0)
+        E_trb = FT(0)
+    else
+        lim_E = entr.lim_ϵ
+        lim_amp = entr.lim_amp
+        w_min = entr.w_min
+        # precompute vars
+        w_up_i = up[i].ρaw / up[i].ρa
+        sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
+        # ensure far from zero
+        Δw = filter_w(w_up_i - env.w, w_min)
+        w_up_i = filter_w(w_up_i, w_min)
+        Δb = up_aux[i].buoyancy - en_aux.buoyancy
+        D_E, D_δ, M_δ, M_E =
+            nondimensional_exchange_functions(m, entr, state, aux, t, ts, env, i)
 
-    lim_E = entr.lim_ϵ
-    lim_amp = entr.lim_amp
-    w_min = entr.w_min
-    # precompute vars
-    w_up_i = up[i].ρaw / up[i].ρa
-    sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
-    # ensure far from zero
-    Δw = filter_w(w_up_i - env.w, w_min)
-    w_up_i = filter_w(w_up_i, w_min)
+        # I am commenting this out for now, to make sure there is no slowdown here
+        Λ_w = abs(Δb / Δw)
+        Λ_tke = entr.c_λ * abs(Δb / (max(en.ρatke * ρ_inv, 0) + w_min))
+        λ = lamb_smooth_minimum(
+            SVector(Λ_w, Λ_tke),
+            m.turbconv.mix_len.smin_ub,
+            m.turbconv.mix_len.smin_rm,
+        )
 
-    Δb = up_aux[i].buoyancy - en_aux.buoyancy
+        # compute entrainment/detrainment components
+        E_trb =
+            2 * up[i].ρa * entr.c_t * sqrt_tke /
+            max(m.turbconv.pressure.H_up, entr.εt_min)
+        E_dyn = up[i].ρa*λ*(D_E + M_E)
+        Δ_dyn = up[i].ρa*λ*(D_δ + M_δ)
 
-    D_E, D_δ, M_δ, M_E =
-        nondimensional_exchange_functions(m, entr, state, aux, t, ts, env, i)
-
-    # I am commenting this out for now, to make sure there is no slowdown here
-    Λ_w = abs(Δb / Δw)
-    Λ_tke = entr.c_λ * abs(Δb / (max(en.ρatke * ρ_inv, 0) + w_min))
-    λ = lamb_smooth_minimum(
-        SVector(Λ_w, Λ_tke),
-        m.turbconv.mix_len.smin_ub,
-        m.turbconv.mix_len.smin_rm,
-    )
-
-    # compute limiters
-    Et_lim = Et_limiter(w_up_i, lim_E, lim_amp)
-    E_lim = E_limiter(a_up_i, lim_E, lim_amp)
-    Δ_lim = Δ_limiter(a_up_i, lim_E, lim_amp)
-    # compute entrainment/detrainment components
-    E_trb =
-        2 * up[i].ρa * entr.c_t * sqrt_tke /
-        max(m.turbconv.pressure.H_up, entr.εt_min)
-    E_dyn = up[i].ρa*λ*(D_E + M_E) * E_lim
-    Δ_dyn = up[i].ρa*λ*(D_δ + M_δ) * Δ_lim
-
-    E_dyn = min(max(E_dyn, FT(0)), FT(1))
-    Δ_dyn = min(max(Δ_dyn, FT(0)), FT(1))
-    E_trb = min(max(E_trb, FT(0)), FT(1))
-
+        E_dyn = min(max(E_dyn, FT(0)), FT(1))
+        Δ_dyn = min(max(Δ_dyn, FT(0)), FT(1))
+        E_trb = min(max(E_trb, FT(0)), FT(1))
+    end
     return E_dyn, Δ_dyn, E_trb
 end;
 
-"""
-    E_limiter(a_up::FT, E::FT) where {FT}
-Returns the asymptotic value of entrainment
-needed to ensure boundedness of the updraft
-area fraction between 0 and 1, given
- - `a_up`, the updraft area fraction
- - `E`, a minimum threshold value
-"""
-E_limiter(a_up::FT, E::FT, lim_amp::FT) where {FT} =
-    FT(1) + lim_amp * exp(-a_up^2 / (2 * E)) - exp(-(FT(1) - a_up)^2 / (2 * E))
+# """
+#     ε_limiter(a_up::FT, ϵ::FT) where {FT}
+# Returns the asymptotic value of entrainment
+# needed to ensure boundedness of the updraft
+# area fraction between 0 and 1, given
+#  - `a_up`, the updraft area fraction
+#  - `ϵ`, a minimum threshold value
+# """
+# ε_limiter(a_up::FT, ϵ::FT, lim_amp::FT) where {FT} =
+#     FT(1) + lim_amp * exp(-a_up^2 / (2 * ϵ)) - exp(-(FT(1) - a_up)^2 / (2 * ϵ))
 
-"""
-    Δ_limiter(a_up::FT, E::FT) where {FT}
-Returns the asymptotic value of detrainment
-needed to ensure boundedness of the updraft
-area fraction between 0 and 1, given
- - `a_up`, the updraft area fraction
- - `E`, a minimum threshold value
-"""
-Δ_limiter(a_up::FT, E::FT, lim_amp::FT) where {FT} =
-    FT(1) - exp(-a_up^2 / (2 * E)) + lim_amp * exp(-(FT(1) - a_up)^2 / (2 * E))
+# """
+#     δ_limiter(a_up::FT, ϵ::FT) where {FT}
+# Returns the asymptotic value of detrainment
+# needed to ensure boundedness of the updraft
+# area fraction between 0 and 1, given
+#  - `a_up`, the updraft area fraction
+#  - `ϵ`, a minimum threshold value
+# """
+# δ_limiter(a_up::FT, ϵ::FT, lim_amp::FT) where {FT} =
+#     FT(1) - exp(-a_up^2 / (2 * ϵ)) + lim_amp * exp(-(FT(1) - a_up)^2 / (2 * ϵ))
 
-"""
-    Et_limiter(w_up_i::FT, E::FT) where {FT}
-Returns the asymptotic value of turbulent
-entrainment needed to ensure positiveness
-of the updraft vertical velocity, given
- - `w_up_i`, the updraft vertical velocity
- - `E`, a minimum threshold value
-"""
-Et_limiter(w_up_i::FT, E::FT, lim_amp::FT) where {FT} =
-    FT(1) + lim_amp * exp(-w_up_i^2 / (2 * E))
+# """
+#     εt_limiter(w_up_i::FT, ϵ::FT) where {FT}
+# Returns the asymptotic value of turbulent
+# entrainment needed to ensure positiveness
+# of the updraft vertical velocity, given
+#  - `w_up_i`, the updraft vertical velocity
+#  - `ϵ`, a minimum threshold value
+# """
+# εt_limiter(w_up_i::FT, ϵ::FT, lim_amp::FT) where {FT} =
+#     FT(1) + lim_amp * exp(-w_up_i^2 / (2 * ϵ))
