@@ -7,7 +7,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Mesh.Grids: polynomialorder
+using ClimateMachine.Mesh.Grids: polynomialorders
 using ClimateMachine.Ocean.HydrostaticBoussinesq
 using ClimateMachine.Ocean.OceanProblems
 
@@ -83,7 +83,12 @@ function run_hydrostatic_test(; imex::Bool = false, BC = nothing, refDat = ())
     driver = config_simple_box(FT, N, resolution, dimensions; BC = BC)
 
     grid = driver.grid
-    vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
+    vert_filter = CutoffFilter(grid, N - 1)
     exp_filter = ExponentialFilter(grid, 1, 8)
     modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
 

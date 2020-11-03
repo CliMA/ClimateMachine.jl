@@ -21,7 +21,7 @@ using ..VariableTemplates
 
 """
     get_vars_from_nodal_stack(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
@@ -29,7 +29,7 @@ using ..VariableTemplates
         j::Int = 1,
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state`), and
@@ -41,7 +41,7 @@ the horizontal nodal coordinates.
 Variables listed in `exclude` are skipped.
 """
 function get_vars_from_nodal_stack(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
@@ -49,7 +49,12 @@ function get_vars_from_nodal_stack(
     j::Int = 1,
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
 
     # extract grid information and bring `Q` to the host if needed
     FT = eltype(Q)
@@ -116,13 +121,13 @@ end
 
 """
     get_vars_from_element_stack(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Return an array of [`get_vars_from_nodal_stack()`](@ref)s whose dimensions
 are the number of nodal points per element in the horizontal plane.
@@ -130,13 +135,19 @@ are the number of nodal points per element in the horizontal plane.
 Variables listed in `exclude` are skipped.
 """
 function get_vars_from_element_stack(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
+
     Nq = N + 1
     return [
         get_vars_from_nodal_stack(
@@ -154,13 +165,13 @@ end
 
 """
     get_horizontal_mean(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state`), and
@@ -171,13 +182,19 @@ horizontal as this is intended for the single stack configuration.
 Variables listed in `exclude` are skipped.
 """
 function get_horizontal_mean(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
+
     Nq = N + 1
     vars_avg = OrderedDict()
     vars_sq = OrderedDict()
@@ -202,13 +219,13 @@ end
 
 """
     get_horizontal_variance(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state`), and
@@ -219,13 +236,19 @@ horizontal as this is intended for the single stack configuration.
 Variables listed in `exclude` are skipped.
 """
 function get_horizontal_variance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
+
     Nq = N + 1
     vars_avg = OrderedDict()
     vars_sq = OrderedDict()
@@ -256,12 +279,12 @@ end
 """
     reduce_nodal_stack(
         op::Function,
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         vars::NamedTuple,
         var::String;
         vrange::UnitRange = 1:size(Q, 3),
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Reduce `var` from `vars` within `Q` over all nodal points in the specified
 `vrange` of elements with `op`. Return a tuple `(result, z)` where `result` is
@@ -270,14 +293,20 @@ the final value returned by `op` and `z` is the index within `vrange` where the
 """
 function reduce_nodal_stack(
     op::Function,
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars::Type,
     var::String;
     vrange::UnitRange = 1:size(Q, 3),
     i::Int = 1,
     j::Int = 1,
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
+
     Nq = N + 1
     Nqk = dimensionality(grid) == 2 ? 1 : Nq
 
@@ -307,12 +336,12 @@ end
 """
     reduce_element_stack(
         op::Function,
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         vars::NamedTuple,
         var::String;
         vrange::UnitRange = 1:size(Q, 3),
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Reduce `var` from `vars` within `Q` over all nodal points in the specified
 `vrange` of elements with `op`. Return a tuple `(result, z)` where `result` is
@@ -321,12 +350,18 @@ the final value returned by `op` and `z` is the index within `vrange` where the
 """
 function reduce_element_stack(
     op::Function,
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars::Type,
     var::String;
     vrange::UnitRange = 1:size(Q, 3),
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
+
     Nq = N + 1
     return [
         reduce_nodal_stack(
@@ -344,10 +379,10 @@ end
 
 """
     horizontally_average!(
-        grid::DiscontinuousSpectralElementGrid{T, dim, N},
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
         Q::MPIStateArray,
         i_vars,
-    ) where {T, dim, N}
+    ) where {T, dim, Ns}
 
 Horizontally average variables, from variable
 indexes `i_vars`, in `MPIStateArray` `Q`.
@@ -358,10 +393,16 @@ indexes `i_vars`, in `MPIStateArray` `Q`.
     no horizontal fluxes for a single stack configuration.
 """
 function horizontally_average!(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     i_vars,
-) where {T, dim, N}
+) where {T, dim, Ns}
+
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
+
     Nq = N + 1
     ArrType = typeof(Q.data)
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)

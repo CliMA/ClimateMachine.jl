@@ -70,7 +70,8 @@ let
                 #   writepvtu(testname, filename.(0:MPI.Comm_size(mpicomm)-1), (), FT)
                 # end
 
-                ξ = referencepoints(grid)
+                # XXX: Needs updating for multiple polynomial orders
+                ξ = referencepoints(grid)[1]
                 hmnd = (ξ[2] - ξ[1]) / (2Neh)
                 vmnd = (ξ[2] - ξ[1]) / (2Nev)
 

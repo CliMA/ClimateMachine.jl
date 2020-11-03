@@ -62,7 +62,11 @@ function basic_grid_info(dg::DGModel)
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
 
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
@@ -113,7 +117,12 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
+
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
     Nfp = Nq * Nqk
@@ -195,7 +204,8 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             state_auxiliary.data,
             grid.vgeo,
             t,
-            grid.D,
+            # XXX: Needs updating for multiple polynomial orders
+            grid.D[1],
             Val(hypervisc_indexmap),
             topology.realelems,
             ndrange = (Nq * nrealelem, Nq),
@@ -310,7 +320,8 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 grid.vgeo,
-                grid.D,
+                # XXX: Needs updating for multiple polynomial orders
+                grid.D[1],
                 topology.realelems;
                 ndrange = ndrange_volume,
                 dependencies = (comp_stream,),
@@ -383,8 +394,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 state_prognostic.data,
                 state_auxiliary.data,
                 grid.vgeo,
-                grid.ω,
-                grid.D,
+                # XXX: Needs updating for multiple polynomial orders
+                grid.ω[1],
+                grid.D[1],
                 topology.realelems,
                 t;
                 ndrange = ndrange_volume,
@@ -466,8 +478,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         state_auxiliary.data,
         grid.vgeo,
         t,
-        grid.ω,
-        grid.D,
+        # XXX: Needs updating for multiple polynomial orders
+        grid.ω[1],
+        grid.D[1],
         topology.realelems,
         α,
         β;
@@ -601,7 +614,11 @@ function init_ode_state(
 
     state_auxiliary = dg.state_auxiliary
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     nrealelem = length(topology.realelems)
 
     if !init_on_cpu
@@ -702,7 +719,11 @@ function init_state_auxiliary!(
     topology = grid.topology
     dim = dimensionality(grid)
     Np = dofs_per_element(grid)
-    polyorder = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     vgeo = grid.vgeo
     device = array_device(state_auxiliary)
     nrealelem = length(topology.realelems)
@@ -715,7 +736,7 @@ function init_state_auxiliary!(
     )(
         balance_law,
         Val(dim),
-        Val(polyorder),
+        Val(N),
         init_f!,
         state_auxiliary.data,
         isnothing(state_temporary) ? nothing : state_temporary.data,
@@ -761,7 +782,11 @@ function indefinite_stack_integral!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
 
@@ -781,7 +806,8 @@ function indefinite_stack_integral!(
         state_prognostic.data,
         state_auxiliary.data,
         grid.vgeo,
-        grid.Imat,
+        # XXX: Needs updating for multiple polynomial orders
+        grid.Imat[1],
         horzelems;
         ndrange = (length(horzelems) * Nq, Nqk),
         dependencies = (event,),
@@ -804,7 +830,11 @@ function reverse_indefinite_stack_integral!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
 
@@ -851,7 +881,11 @@ function update_auxiliary_state!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     nelem = length(elems)
 
@@ -924,7 +958,11 @@ function courant(
     nrealelem = length(topology.realelems)
 
     if nrealelem > 0
-        N = polynomialorder(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        N = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(N[1] .== N)
+        N = N[1]
         dim = dimensionality(grid)
         Nq = N + 1
         Nqk = dim == 2 ? 1 : Nq
@@ -1014,7 +1052,11 @@ function continuous_field_gradient!(
     topology = grid.topology
     nrealelem = length(topology.realelems)
 
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     dim = dimensionality(grid)
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
@@ -1034,8 +1076,9 @@ function continuous_field_gradient!(
         ∇state.data,
         state.data,
         grid.vgeo,
-        grid.D,
-        grid.ω,
+        # XXX: Needs updating for multiple polynomial orders
+        grid.D[1],
+        grid.ω[1],
         Val(I),
         Val(O),
         ndrange = (nrealelem * Nq, Nq, Nqk),

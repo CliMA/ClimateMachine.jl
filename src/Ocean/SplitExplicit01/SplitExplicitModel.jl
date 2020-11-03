@@ -17,7 +17,7 @@ using ...MPIStateArrays
 using ...DGMethods: init_ode_state, basic_grid_info
 using ...Mesh.Filters: CutoffFilter, apply!, ExponentialFilter
 using ...Mesh.Grids:
-    polynomialorder,
+    polynomialorders,
     dimensionality,
     dofs_per_element,
     VerticalDirection,

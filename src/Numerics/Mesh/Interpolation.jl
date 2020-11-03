@@ -136,7 +136,11 @@ struct InterpolationBrick{
         DA = arraytype(grid)                    # device array
         device = arraytype(grid) <: Array ? CPU() : CUDADevice()
 
-        poly_order = polynomialorder(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        poly_order = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(poly_order[1] .== poly_order)
+        poly_order = poly_order[1]
         qm1 = poly_order + 1
         ndim = 3
         toler = 4 * eps(FT) # tolerance
@@ -733,7 +737,11 @@ struct InterpolationCubedSphere{
 
         DA = arraytype(grid)                    # device array
         device = arraytype(grid) <: Array ? CPU() : CUDADevice()
-        poly_order = polynomialorder(grid)
+        # XXX: Needs updating for multiple polynomial orders
+        poly_order = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(poly_order[1] .== poly_order)
+        poly_order = poly_order[1]
         qm1 = poly_order + 1
         toler1 = FT(eps(FT) * vert_range[1] * 2.0) # tolerance for unwarp function
         toler2 = FT(eps(FT) * 4.0)                 # tolerance

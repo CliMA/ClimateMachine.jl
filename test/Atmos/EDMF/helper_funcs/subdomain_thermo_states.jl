@@ -87,6 +87,12 @@ Recover the updraft thermodynamic states given:
     This method assumes that the temperature has been
     previously computed from a new thermodynamic state
     and stored in `aux`.
+
+!!! warn
+    While recover_thermo_state_up is an ideal long-term solution,
+    right now we are directly calling new_thermo_state_up to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
 """
 function recover_thermo_state_up(
     bl,
@@ -95,7 +101,7 @@ function recover_thermo_state_up(
     ts = new_thermo_state(bl, state, aux),
 )
     return new_thermo_state_up(bl, bl.moisture, state, aux, ts)
- end
+end
 
 """
     recover_thermo_state_en(bl, state, aux, ts = recover_thermo_state(bl, state, aux))
@@ -112,6 +118,12 @@ Recover the environment thermodynamic state given:
     This method assumes that the temperature has been
     previously computed from a new thermodynamic state
     and stored in `aux`.
+
+!!! warn
+    While recover_thermo_state_up is an ideal long-term solution,
+    right now we are directly calling new_thermo_state_up to avoid
+    inconsistent aux states in kernels where the aux states are
+    out of sync with the boundary state.
 """
 function recover_thermo_state_en(
     bl,
@@ -121,6 +133,7 @@ function recover_thermo_state_en(
 )
     return new_thermo_state_en(bl, bl.moisture, state, aux, ts)
 end
+
 ####
 #### Implementation
 ####

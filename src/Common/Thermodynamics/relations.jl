@@ -2166,6 +2166,8 @@ relative_humidity(ts::ThermodynamicState{FT}) where {FT <: Real} =
         PhasePartition(ts),
     )
 
+relative_humidity(ts::PhaseDry{FT}) where {FT <: Real} = FT(0)
+
 """
     total_specific_enthalpy(e_tot, R_m, T)
 

@@ -59,30 +59,42 @@ function init_state_prognostic!(
 end
 
 function test_hmean(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars,
-) where {T, dim, N}
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     state_vars_avg = get_horizontal_mean(grid, Q, vars)
     target = target_meanprof(grid)
     @test state_vars_avg["ρ"] ≈ target
 end
 
 function test_hvar(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q::MPIStateArray,
     vars,
-) where {T, dim, N}
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     target = target_varprof(grid)
     @test state_vars_var["ρ"] ≈ target
 end
 
 function test_horizontally_ave(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
     Q_in::MPIStateArray,
     vars,
-) where {T, dim, N}
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     Q = deepcopy(Q_in)
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     i_vars = varsindex(vars, :ρ)
@@ -93,8 +105,12 @@ function test_horizontally_ave(
 end
 
 function target_meanprof(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
-) where {T, dim, N}
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     Nq = N + 1
     Ntot = Nq * grid.topology.stacksize
     z = Array(get_z(grid))
@@ -104,8 +120,12 @@ function target_meanprof(
 end
 
 function target_varprof(
-    grid::DiscontinuousSpectralElementGrid{T, dim, N},
-) where {T, dim, N}
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+) where {T, dim, Ns}
+    # XXX: Needs updating for multiple polynomial orders
+    # Currently only support single polynomial order
+    @assert all(Ns[1] .== Ns)
+    N = Ns[1]
     Nq = N + 1
     nvertelem = grid.topology.stacksize
     Ntot = Nq * nvertelem

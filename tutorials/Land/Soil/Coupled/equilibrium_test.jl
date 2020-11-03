@@ -1,7 +1,8 @@
 # # Coupled heat and water equations tending towards equilibrium
 
 # Other tutorials, such as the [soil heat tutorial](../Heat/bonan_heat_tutorial.md)
-# and -link water tutorial here- demonstrate how to solve the heat
+# and [Richards equation tutorial](../Water/equilibrium_test.md)
+# demonstrate how to solve the heat
 # equation or Richard's equation without considering
 # dynamic interactions between the two. As an example, the user could
 # prescribe a fixed function of space and time for the liquid water content,
@@ -121,15 +122,11 @@ const param_set = EarthParameterSet();
 # Initialize and pick a floating point precision:
 ClimateMachine.init()
 FT = Float64;
-# Load a function that will interpolate output of simulation:
+
+# Load plot helpers:
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-include(joinpath(
-    clima_dir,
-    "tutorials",
-    "Land",
-    "Soil",
-    "interpolation_helper.jl",
-));
+include(joinpath(clima_dir, "docs", "plothelpers.jl"));
+
 # Set soil parameters to be consistent with sand.
 # Please see e.g. the [soil heat tutorial](../Heat/bonan_heat_tutorial.md)
 # for other soil type parameters, or [2].
@@ -375,150 +372,88 @@ solver_config =
 const n_outputs = 4
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
-
-# Create a place to store this output, and determine which indices in the state
-# vector correspond to the variables we are interested in:
-all_data = Dict([k => Dict() for k in 1:n_outputs]...)
-
-K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
-κ∇T_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :heat)[3]
-ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
-T_ind = varsindex(vars_state(m, Auxiliary(), FT), :soil, :heat, :T)
-z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
-
-t = ODESolvers.gettime(solver_config.solver)
-thegrid = solver_config.dg.grid
-Q = solver_config.Q;
-aux = solver_config.dg.state_auxiliary;
-grads = solver_config.dg.state_gradient_flux
-ϑ_l = Q[:, ϑ_l_ind, :][:]
-z = aux[:, z_ind, :][:]
-T = aux[:, T_ind, :][:];
-
-
-# Gradients aren't calculated until the integration starts; we would
-# need to use the specified inital conditions to determine them. However,
-# we care more about showing that they tend to zero over time, as the system
-# approaches equlibrium, so we won't calculate them.
-
-# Save initial condition:
-initial_state = Dict{String, Array}(
-    "t" => [t],
-    "ϑ_l" => ϑ_l,
-    "T" => T,
-    "K∇h_vert" => [nothing],
-    "κ∇T_vert" => [nothing],
-);
-
+# Store initial condition at ``t=0``,
+# including prognostic, auxiliary, and
+# gradient flux variables:
+state_types = (Prognostic(), Auxiliary(), GradientFlux())
+all_data = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+time_data = FT[0] # store time data
 
 # We specify a function which evaluates `every_x_simulation_time` and returns
 # the state vector, appending the variables we are interested in into
 # `all_data`.
 
-# We also create an additional cartesian grid upon which an interpolated solution
-# of the DG output is evaluated. This is useful because the DG output is multi-valued
-# at element boundaries.
-zres = FT(0.02)
-boundaries = [
-    FT(0) FT(0) zmin
-    FT(1) FT(1) zmax
-]
-resolution = (FT(2), FT(2), zres)
-thegrid = solver_config.dg.grid
-intrp_brck = create_interpolation_grid(boundaries, resolution, thegrid)
-step = [1];
-callback = GenericCallbacks.EveryXSimulationTime(
-    every_x_simulation_time,
-) do (init = false)
-    t = ODESolvers.gettime(solver_config.solver)
-    iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
-    ϑ_l = iQ[:, ϑ_l_ind, :][:]
-    T = iaux[:, T_ind, :][:]
-    K∇h_vert = igrads[:, K∇h_vert_ind, :][:]
-    κ∇T_vert = igrads[:, κ∇T_vert_ind, :][:]
-    all_vars = Dict{String, Array}(
-        "t" => [t],
-        "ϑ_l" => ϑ_l,
-        "T" => T,
-        "K∇h_vert" => K∇h_vert,
-        "κ∇T_vert" => κ∇T_vert,
-    )
-    all_data[step[1]] = all_vars
-
-    step[1] += 1
+callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    push!(all_data, dons)
+    push!(time_data, gettime(solver_config.solver))
     nothing
 end;
-
 
 # # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 
 # Get the final state and create plots:
-t = ODESolvers.gettime(solver_config.solver)
-iQ, iaux, igrads = interpolate_variables((Q, aux, grads), intrp_brck)
+dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+push!(all_data, dons)
+push!(time_data, gettime(solver_config.solver));
 
-ϑ_l = iQ[:, ϑ_l_ind, :][:]
-T = iaux[:, T_ind, :][:]
-K∇h_vert = igrads[:, K∇h_vert_ind, :][:]
-κ∇T_vert = igrads[:, κ∇T_vert_ind, :][:]
-all_vars = Dict{String, Array}(
-    "t" => [t],
-    "ϑ_l" => ϑ_l,
-    "T" => T,
-    "K∇h_vert" => K∇h_vert,
-    "κ∇T_vert" => κ∇T_vert,
+# Get z-coordinate
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+
+# Let's export a plot of the initial state
+output_dir = @__DIR__;
+
+mkpath(output_dir);
+
+export_plot(
+    z,
+    time_data ./ (60 * 60 * 24),
+    all_data,
+    ("soil.water.ϑ_l",),
+    joinpath(output_dir, "eq_moisture_plot.png");
+    xlabel = "ϑ_l",
+    ylabel = "z (cm)",
+    time_units = "(days)",
 )
-all_data[n_outputs] = all_vars
-iz = iaux[:, z_ind, :][:]
-
-t = [all_data[k]["t"][1] for k in 1:n_outputs]
-t = ceil.(Int64, t ./ 60)
-
-ϑ_plot =
-    plot(initial_state["ϑ_l"], z, label = "t = 0", ylabel = "z", xlabel = "ϑ_l")
-plot!(all_data[1]["ϑ_l"], iz, label = "t = 0.75 days")
-plot!(all_data[2]["ϑ_l"], iz, label = "t = 1.5 days")
-plot!(all_data[3]["ϑ_l"], iz, label = "t = 2.25 days")
-plot!(all_data[4]["ϑ_l"], iz, label = "t = 3 days")
-
-
-K∇h_z_plot = plot(
-    all_data[1]["K∇h_vert"],
-    iz,
-    label = "0.75 days",
-    xlabel = "K∇h_z (m/s)",
-)
-plot!(all_data[2]["K∇h_vert"], iz, label = "1.5 days")
-plot!(all_data[3]["K∇h_vert"], iz, label = "2.25 days")
-plot!(all_data[4]["K∇h_vert"], iz, label = "3 days")
-plot!(legend = :bottomleft)
-plot(ϑ_plot, K∇h_z_plot)
-savefig("eq_moisture_plot.png")
 # ![](eq_moisture_plot.png)
 
-T_plot =
-    plot(initial_state["T"], z, label = "t = 0", ylabel = "z", xlabel = "T (K)")
-plot!(all_data[1]["T"], iz, label = "t = 0.75 days")
-plot!(all_data[2]["T"], iz, label = "t = 1.5 days")
-plot!(all_data[3]["T"], iz, label = "t = 2.25 days")
-plot!(all_data[4]["T"], iz, label = "t = 3 days")
-plot!(legend = :bottomright)
-
-κ∇T_z_plot = plot(
-    all_data[1]["κ∇T_vert"],
-    iz,
-    label = "0.75 days",
-    xlabel = "κ∇T_z (W/m^2)",
+export_plot(
+    z,
+    time_data[2:end] ./ (60 * 60 * 24),
+    all_data[2:end],
+    ("soil.water.K∇h[3]",),
+    joinpath(output_dir, "eq_hydraulic_head_plot.png");
+    xlabel = "K∇h (m/s)",
+    ylabel = "z (cm)",
+    time_units = "(days)",
 )
-plot!(all_data[2]["κ∇T_vert"], iz, label = "1.5 days")
-plot!(all_data[3]["κ∇T_vert"], iz, label = "2.25 days")
-plot!(all_data[4]["κ∇T_vert"], iz, label = "3 days")
-plot!(legend = :bottomright)
-plot(T_plot, κ∇T_z_plot)
-savefig("eq_temperature_plot.png")
+# ![](eq_hydraulic_head_plot.png)
+
+export_plot(
+    z,
+    time_data ./ (60 * 60 * 24),
+    all_data,
+    ("soil.heat.T",),
+    joinpath(output_dir, "eq_temperature_plot.png");
+    xlabel = "T (K)",
+    ylabel = "z (cm)",
+    time_units = "(days)",
+)
 # ![](eq_temperature_plot.png)
 
+export_plot(
+    z,
+    time_data[2:end] ./ (60 * 60 * 24),
+    all_data[2:end],
+    ("soil.heat.κ∇T[3]",),
+    joinpath(output_dir, "eq_heat_plot.png");
+    xlabel = "κ∇T",
+    ylabel = "z (cm)",
+    time_units = "(days)",
+)
+# ![](eq_heat_plot.png)
 
 # # Analytic Expectations
 

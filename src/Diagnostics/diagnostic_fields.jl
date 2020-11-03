@@ -92,7 +92,11 @@ This constructor computes the spatial gradients of the velocity field.
 function VectorGradients(dg::DGModel, Q::MPIStateArray)
     bl = dg.balance_law
     FT = eltype(dg.grid)
-    N = polynomialorder(dg.grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(dg.grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     npoints = Nq^3
     nrealelem = length(dg.grid.topology.realelems)
@@ -113,7 +117,8 @@ function VectorGradients(dg::DGModel, Q::MPIStateArray)
     kernel = vector_gradients_kernel!(device, workgroup)
     event = kernel(
         Q.realdata,
-        dg.grid.D,
+        # XXX: Needs updating for multiple polynomial orders
+        dg.grid.D[1],
         dg.grid.vgeo,
         g,
         data,
@@ -336,7 +341,11 @@ This function computes the vorticity of the velocity field.
 function Vorticity(dg::DGModel, vgrad::VectorGradients)
     bl = dg.balance_law
     FT = eltype(dg.grid)
-    N = polynomialorder(dg.grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(dg.grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
     Nq = N + 1
     npoints = Nq^3
     nrealelem = length(dg.grid.topology.realelems)
