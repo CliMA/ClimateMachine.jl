@@ -106,7 +106,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(2800)
+    timeend = FT(400)
     CFLmax = FT(0.90)
 
     config_type = SingleStackConfigType
@@ -140,7 +140,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        # fixed_number_of_steps = 1000,
+        fixed_number_of_steps = 1000,
         # fixed_number_of_steps=1082 # last timestep before crash
     )
 
