@@ -150,7 +150,6 @@ end
 """
 function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
-
     # Problem floating point precision
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
@@ -203,12 +202,15 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(state, t)
+function surface_temperature_variation(state, t, moisture_model)
     FT = eltype(state)
     ρ = state.ρ
-    q_tot = state.moisture.ρq_tot / ρ
-    θ_liq_sfc = FT(291.15) + FT(20) * sinpi(FT(t / 12 / 3600))
-    TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
+    θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
+    if moisture_model == "dry"
+        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
+    else
+        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
+    end
     return air_temperature(TS)
 end
 
@@ -278,7 +280,10 @@ function convective_bl_model(
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
             (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> (surface_temperature_variation(state, t), q_sfc),
+            (state, aux, t) -> (
+                surface_temperature_variation(state, t, moisture_model),
+                q_sfc,
+            ),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
@@ -322,20 +327,8 @@ function convective_bl_model(
     # Set up problem initial and boundary conditions
     moisture_flux = FT(0)
     problem = AtmosProblem(
-        boundarycondition = (
-            AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
-                energy = energy_bc,
-                moisture = moisture_bc,
-                turbconv = turbconv_bcs(turbconv),
-            ),
-            AtmosBC(),
-        ),
         init_state_prognostic = ics,
+        boundarycondition = boundary_conditions,
     )
 
     # Assemble model components
@@ -368,11 +361,11 @@ function config_diagnostics(driver_config)
     ])
 end
 
-# No need to save temperature for DryModel.
-function save_subdomain_temperature!(
-     m::AtmosModel,
-     moist::DryModel,
-     state::Vars,
-     aux::Vars,
- )
- end
+# # No need to save temperature for DryModel.
+# function save_subdomain_temperature!(
+#      m::AtmosModel,
+#      moist::DryModel,
+#      state::Vars,
+#      aux::Vars,
+#  )
+#  end

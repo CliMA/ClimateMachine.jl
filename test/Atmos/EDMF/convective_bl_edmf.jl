@@ -117,7 +117,7 @@ function main(::Type{FT}) where {FT}
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "UstableBL_EDMF",
+        "CBL_EDMF",
         N,
         nelem_vert,
         zmax,
@@ -149,11 +149,6 @@ function main(::Type{FT}) where {FT}
         solver_config.Q,
         varsindex(vsp, :ρe),
     )
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :moisture, :ρq_tot),
-    )
 
     vsa = vars_state(model, Auxiliary(), FT)
     horizontally_average!(
@@ -168,7 +163,7 @@ function main(::Type{FT}) where {FT}
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (turbconv_filters(turbconv)...),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
         )
@@ -191,7 +186,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, ["z"], state_types)]
+    all_data = [dict_of_nodal_states(solver_config, state_types)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -203,7 +198,7 @@ function main(::Type{FT}) where {FT}
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
             push!(
                 all_data,
-                dict_of_nodal_states(solver_config, ["z"], state_types),
+                dict_of_nodal_states(solver_config, state_types),
             )
             push!(time_data, gettime(solver_config.solver))
             nothing
@@ -237,12 +232,9 @@ function main(::Type{FT}) where {FT}
         check_euclidean_distance = true,
     )
 
-    push!(all_data, dict_of_nodal_states(solver_config, ["z"], state_types))
+    dons = dict_of_nodal_states(solver_config, state_types)
+    push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
-
-    all_data = dict_of_nodal_states(solver_config, ["z"])
-    ρ_expected = solver_config, ["z"]
-    @test all(isapprox.(all_data["ρ"], ρ_expected; atol = atol))
 
     return solver_config, all_data, time_data, state_types
 end
