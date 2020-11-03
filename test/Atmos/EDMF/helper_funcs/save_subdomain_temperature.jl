@@ -35,3 +35,12 @@ function save_subdomain_temperature!(
     aux.turbconv.environment.T = air_temperature(ts_en)
     return nothing
 end
+
+
+# No need to save temperature for DryModel.
+function save_subdomain_temperature!(
+    m::AtmosModel,
+    moist::DryModel,
+    state::Vars,
+    aux::Vars,
+) end
