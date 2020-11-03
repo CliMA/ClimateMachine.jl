@@ -64,16 +64,16 @@ new_thermo_state_en(
 Recover NamedTuple of all thermo states
 """
 function recover_thermo_state_all(bl, state, aux)
-    ts = recover_thermo_state(bl, state, aux)
+    ts = new_thermo_state(bl, state, aux)
     return (
         gm = ts,
-        en = recover_thermo_state_en(bl, bl.moisture, state, aux, ts),
-        up = recover_thermo_state_up(bl, bl.moisture, state, aux, ts),
+        en = new_thermo_state_en(bl, bl.moisture, state, aux, ts),
+        up = new_thermo_state_up(bl, bl.moisture, state, aux, ts),
     )
 end
 
 """
-    recover_thermo_state_up(bl, state, aux)
+    recover_thermo_state_up(bl, state, aux, ts = new_thermo_state(bl, state, aux))
 
 Recover the updraft thermodynamic states given:
  - `bl`, parent `BalanceLaw`
@@ -88,11 +88,17 @@ Recover the updraft thermodynamic states given:
     previously computed from a new thermodynamic state
     and stored in `aux`.
 """
-recover_thermo_state_up(bl, state, aux) =
-    recover_thermo_state_up(bl, bl.moisture, state, aux)
+function recover_thermo_state_up(
+    bl,
+    state,
+    aux,
+    ts = new_thermo_state(bl, state, aux),
+)
+    return new_thermo_state_up(bl, bl.moisture, state, aux, ts)
+ end
 
 """
-    recover_thermo_state_en(bl, state, aux)
+    recover_thermo_state_en(bl, state, aux, ts = recover_thermo_state(bl, state, aux))
 
 Recover the environment thermodynamic state given:
  - `bl`, parent `BalanceLaw`
@@ -107,9 +113,14 @@ Recover the environment thermodynamic state given:
     previously computed from a new thermodynamic state
     and stored in `aux`.
 """
-recover_thermo_state_en(bl, state, aux) =
-    recover_thermo_state_en(bl, bl.moisture, state, aux)
-
+function recover_thermo_state_en(
+    bl,
+    state,
+    aux,
+    ts = new_thermo_state(bl, state, aux),
+)
+    return new_thermo_state_en(bl, bl.moisture, state, aux, ts)
+end
 ####
 #### Implementation
 ####
@@ -170,7 +181,7 @@ function new_thermo_state_en(
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
 
-     # diagnose environment thermo state
+    # diagnose environment thermo state
     ρ_inv = 1 / state.ρ
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
@@ -220,7 +231,7 @@ end
 
 function recover_thermo_state_up(
     m::AtmosModel,
-    moist::Union{DryModel,EquilMoist},
+    moist::Union{DryModel, EquilMoist},
     state::Vars,
     aux::Vars,
     ts::ThermodynamicState = recover_thermo_state(m, state, aux),
@@ -250,11 +261,7 @@ function recover_thermo_state_up_i(
     T_up_i = aux.turbconv.updraft[i_up].T
     ρ_up_i = air_density(param_set, T_up_i, p)
     e_int_up_i = internal_energy(param_set, T_up_i)
-    return PhaseDry{FT, typeof(param_set)}(
-        param_set,
-        e_int_up_i,
-        ρ_up_i,
-    )
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int_up_i, ρ_up_i)
 end
 
 function recover_thermo_state_up_i(
@@ -300,11 +307,7 @@ function recover_thermo_state_en(
     T_en = aux.turbconv.environment.T
     ρ_en = air_density(param_set, T_en, p)
     e_int_en = internal_energy(param_set, T_en)
-    return PhaseDry{FT, typeof(param_set)}(
-        param_set,
-        e_int_en,
-        ρ_en,
-    )
+    return PhaseDry{FT, typeof(param_set)}(param_set, e_int_en, ρ_en)
 end
 
 function recover_thermo_state_en(
