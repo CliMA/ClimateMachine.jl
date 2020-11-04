@@ -63,5 +63,6 @@ CurrentModule = ClimateMachine.Ocean.SplitExplicit01
 
 ```@docs
 SplitExplicitLSRK2nSolver
+SplitExplicitLSRK3nSolver
 OceanDGModel
 ```
