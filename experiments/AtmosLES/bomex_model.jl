@@ -461,10 +461,11 @@ function bomex_model(
     else
         @warn @sprintf(
             """
-%s: unrecognized moisture_model in source terms, using the defaults""",
+%s: unrecognized moisture_model, using the defaults""",
             moisture_model,
         )
         source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
     end
 
     # Set up problem initial and boundary conditions

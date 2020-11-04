@@ -12,6 +12,7 @@ export AtmosBC,
     PrescribedEnergyFlux,
     BulkFormulaEnergy,
     Impermeable,
+    ImpermeablePrecipitation,
     ImpermeableTracer,
     PrescribedMoistureFlux,
     BulkFormulaMoisture,
@@ -23,14 +24,16 @@ export average_density_sfc_int
     AtmosBC(momentum = Impenetrable(FreeSlip())
             energy   = Insulating()
             moisture = Impermeable()
+            precipitation = ImpermeablePrecipitation()
             tracer  = ImpermeableTracer())
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
 """
-Base.@kwdef struct AtmosBC{M, E, Q, TR, TC}
+Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
     momentum::M = Impenetrable(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
+    precipitation::P = ImpermeablePrecipitation()
     tracer::TR = ImpermeableTracer()
     turbconv::TC = NoTurbConvBC()
 end
@@ -80,6 +83,7 @@ function atmos_boundary_state!(nf, bc::AtmosBC, atmos, args...)
     atmos_momentum_boundary_state!(nf, bc.momentum, atmos, args...)
     atmos_energy_boundary_state!(nf, bc.energy, atmos, args...)
     atmos_moisture_boundary_state!(nf, bc.moisture, atmos, args...)
+    atmos_precipitation_boundary_state!(nf, bc.precipitation, atmos, args...)
     atmos_tracer_boundary_state!(nf, bc.tracer, atmos, args...)
     turbconv_boundary_state!(nf, bc.turbconv, atmos, args...)
 end
@@ -145,6 +149,12 @@ function atmos_normal_boundary_flux_second_order!(
         atmos,
         args...,
     )
+    atmos_precipitation_normal_boundary_flux_second_order!(
+        nf,
+        bc.precipitation,
+        atmos,
+        args...,
+    )
     atmos_tracer_normal_boundary_flux_second_order!(
         nf,
         bc.tracer,
@@ -168,5 +178,6 @@ end
 include("bc_momentum.jl")
 include("bc_energy.jl")
 include("bc_moisture.jl")
+include("bc_precipitation.jl")
 include("bc_initstate.jl")
 include("bc_tracer.jl")

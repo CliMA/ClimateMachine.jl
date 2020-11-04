@@ -1,6 +1,5 @@
 #!/usr/bin/env julia --project
 using ClimateMachine
-ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
@@ -17,17 +16,45 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws:
     AbstractStateType, Auxiliary, UpwardIntegrals, DownwardIntegrals
 
+using ArgParse
 using Distributions
 using Random
 using StaticArrays
 using Test
 using DocStringExtensions
 using LinearAlgebra
+using Printf
 
 using CLIMAParameters
 using CLIMAParameters.Planet: cp_d, MSLP, grav, LH_v0
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+
+using CLIMAParameters.Atmos.Microphysics
+
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+struct RainParameterSet <: AbstractRainParameterSet end
+struct SnowParameterSet <: AbstractSnowParameterSet end
+
+struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
+    liq::L
+    ice::I
+    rai::R
+    sno::S
+end
+
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+    microphys::M
+end
+
+microphys = MicropysicsParameterSet(
+    LiquidParameterSet(),
+    IceParameterSet(),
+    RainParameterSet(),
+    SnowParameterSet(),
+)
+
+const param_set = EarthParameterSet(microphys)
+
 
 import ClimateMachine.BalanceLaws:
     vars_state,
@@ -102,6 +129,8 @@ struct DYCOMSRadiation{FT} <: RadiationModel
     F_0::FT
     "Radiative flux parameter `[W/m^2]`"
     F_1::FT
+    "is AtmosLES moisture model an equilibrium model"
+    equilibrium_moisture_model::Bool
 end
 
 vars_state(m::DYCOMSRadiation, ::Auxiliary, FT) = @vars(Rad_flux::FT)
@@ -115,7 +144,13 @@ function integral_load_auxiliary_state!(
     aux::Vars,
 )
     FT = eltype(state)
-    integrand.radiation.attenuation_coeff = state.ρ * m.κ * aux.moisture.q_liq
+
+    if m.equilibrium_moisture_model
+        integrand.radiation.attenuation_coeff =
+            state.ρ * m.κ * aux.moisture.q_liq
+    else
+        integrand.radiation.attenuation_coeff = m.κ * state.moisture.ρq_liq
+    end
 end
 function integral_set_auxiliary_state!(
     m::DYCOMSRadiation,
@@ -248,12 +283,31 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, ρ * w)
     state.ρe = E
+
     state.moisture.ρq_tot = ρ * q_tot
+
+    if bl.moisture isa NonEquilMoist
+        q_init = PhasePartition(ts)
+        state.moisture.ρq_liq = q_init.liq
+        state.moisture.ρq_ice = q_init.ice
+    end
+    if bl.precipitation isa Rain
+        state.precipitation.ρq_rai = FT(0)
+    end
 
     return nothing
 end
 
-function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
+function config_dycoms(
+    FT,
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+    moisture_model = "equilibrium",
+    precipitation_model = "noprecipitation",
+)
     # Reference state
     T_profile = DecayingTemperatureProfile{FT}(param_set)
     ref_state = HydrostaticState(T_profile)
@@ -268,7 +322,21 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
 
     F_0 = FT(70)
     F_1 = FT(22)
-    radiation = DYCOMSRadiation{FT}(κ, α_z, z_i, ρ_i, D_subsidence, F_0, F_1)
+    if moisture_model == "equilibrium"
+        equilibrium_moisture_model = true
+    else
+        equilibrium_moisture_model = false
+    end
+    radiation = DYCOMSRadiation{FT}(
+        κ,
+        α_z,
+        z_i,
+        ρ_i,
+        D_subsidence,
+        F_0,
+        F_1,
+        equilibrium_moisture_model,
+    )
 
     # Sources
     f_coriolis = FT(0.762e-4)
@@ -301,6 +369,36 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         geostrophic_forcing,
     )
 
+    # moisture model and its sources
+    if moisture_model == "equilibrium"
+        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+    end
+
+    # precipitation model and its sources
+    if precipitation_model == "noprecipitation"
+        precipitation = NoPrecipitation()
+    elseif precipitation_model == "rain"
+        source = (source..., Rain_1M())
+        precipitation = Rain()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized precipitation_model in source terms, using the defaults""",
+            precipitation_model,
+        )
+        precipitation = NoPrecipitation()
+    end
+
     problem = AtmosProblem(
         boundaryconditions = (
             AtmosBC(
@@ -316,13 +414,15 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         ),
         init_state_prognostic = init_dycoms!,
     )
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         problem = problem,
         ref_state = ref_state,
         turbulence = Vreman{FT}(C_smag),
-        moisture = EquilMoist{FT}(maxiter = 4, tolerance = FT(1)),
+        moisture = moisture,
+        precipitation = precipitation,
         radiation = radiation,
         source = source,
     )
@@ -357,6 +457,28 @@ function config_diagnostics(driver_config)
 end
 
 function main()
+    # add a command line argument to specify the kind of
+    # moisture and precipitation model you want
+    # TODO: this will move to the future namelist functionality
+    dycoms_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(dycoms_args, "DYCOMS")
+    @add_arg_table! dycoms_args begin
+        "--moisture-model"
+        help = "specify cloud condensate model"
+        metavar = "equilibrium|nonequilibrium"
+        arg_type = String
+        default = "equilibrium"
+        "--precipitation-model"
+        help = "specify precipitation model"
+        metavar = "noprecipitation|rain"
+        arg_type = String
+        default = "noprecipitation"
+    end
+
+    cl_args =
+        ClimateMachine.init(parse_clargs = true, custom_clargs = dycoms_args)
+    moisture_model = cl_args["moisture_model"]
+    precipitation_model = cl_args["precipitation_model"]
 
     FT = Float64
 
@@ -373,10 +495,19 @@ function main()
     zmax = FT(1500)
 
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(100) #FT(4 * 60 * 60)
     Cmax = FT(1.7)     # use this for single-rate explicit LSRK144
 
-    driver_config = config_dycoms(FT, N, resolution, xmax, ymax, zmax)
+    driver_config = config_dycoms(
+        FT,
+        N,
+        resolution,
+        xmax,
+        ymax,
+        zmax,
+        moisture_model,
+        precipitation_model,
+    )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
@@ -386,10 +517,19 @@ function main()
     )
     dgn_config = config_diagnostics(driver_config)
 
+    if moisture_model == "equilibrium"
+        filter_vars = ("moisture.ρq_tot",)
+    elseif moisture_model == "nonequilibrium"
+        filter_vars = ("moisture.ρq_tot", "moisture.ρq_liq", "moisture.ρq_ice")
+    end
+    if precipitation_model == "rain"
+        filter_vars = (filter_vars..., "precipitation.ρq_rai")
+    end
+
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("moisture.ρq_tot",),
+            filter_vars,
             solver_config.dg.grid,
             TMARFilter(),
         )

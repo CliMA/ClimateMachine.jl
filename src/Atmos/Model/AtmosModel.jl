@@ -99,6 +99,7 @@ default values for each field.
         hyperdiffusion,
         spongelayer,
         moisture,
+        precipitation,
         radiation,
         source,
         tracers,
@@ -255,6 +256,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         # end of inclusion in `AtmosLinearModel`
+        precipitation::vars_state(m.precipitation, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
@@ -274,6 +276,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
@@ -290,6 +293,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
 end
@@ -334,6 +338,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
     end
@@ -387,8 +392,8 @@ include("tendencies_moisture.jl")     # specify moisture tendencies
 include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
-include("thermo_states.jl")
 include("precipitation.jl")
+include("thermo_states.jl")
 include("radiation.jl")
 include("source.jl")
 include("tracers.jl")
@@ -430,6 +435,7 @@ equations.
     # pressure terms
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)
+    flux_precipitation!(m.precipitation, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
     flux_first_order!(m.turbconv, m, flux, state, aux, t)
 end
@@ -448,6 +454,7 @@ function compute_gradient_argument!(
     transform.h_tot = total_specific_enthalpy(ts, e_tot)
 
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
+    compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
     compute_gradient_argument!(
         atmos.hyperdiffusion,
@@ -483,6 +490,14 @@ function compute_gradient_flux!(
     )
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(
+        atmos.precipitation,
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
         atmos.turbconv,
@@ -543,6 +558,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     d_h_tot = -D_t .* diffusive.∇h_tot
     flux_second_order!(atmos, flux, state, τ, d_h_tot)
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(
         atmos.hyperdiffusion,
         flux,
@@ -628,6 +644,7 @@ function nodal_update_auxiliary_state!(
     t::Real,
 )
     atmos_nodal_update_auxiliary_state!(m.moisture, m, state, aux, t)
+    atmos_nodal_update_auxiliary_state!(m.precipitation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
     turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
