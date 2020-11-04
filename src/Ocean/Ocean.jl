@@ -22,7 +22,7 @@ include("OceanBC.jl")
 include("HydrostaticBoussinesq/HydrostaticBoussinesqModel.jl")
 include("ShallowWater/ShallowWaterModel.jl")
 include("SplitExplicit/SplitExplicitModel.jl")
-include("OceanProblems/SimpleBoxProblem.jl")
+include("OceanProblems/OceanProblems.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")
 
 end
