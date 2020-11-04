@@ -36,7 +36,12 @@ struct EarthParameterSet{M} <: AbstractEarthParameterSet
     microphys::M
 end
 
-const microphys = MicropysicsParameterSet(LiquidParameterSet(),IceParameterSet(),RainParameterSet(),SnowParameterSet(),)
+const microphys = MicropysicsParameterSet(
+    LiquidParameterSet(),
+    IceParameterSet(),
+    RainParameterSet(),
+    SnowParameterSet(),
+)
 const param_set = EarthParameterSet(microphys)
 
 using Dierckx
@@ -56,28 +61,34 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
     v = data_v
     w = FT(0)
     if z >= 14000
-      data_q = FT(0)
+        data_q = FT(0)
     end
-    θ_c =     3.0
-    rx  = 10000.0
-    ry  =  1500.0
-    rz  =  1500.0
-    xc  = 0.5*(FT(0) + FT(0))
-    yc  = 0.5*(FT(0) + FT(5000))
-    zc  = 2000.0
+    θ_c = 3.0
+    rx = 10000.0
+    ry = 1500.0
+    rz = 1500.0
+    xc = 0.5 * (FT(0) + FT(0))
+    yc = 0.5 * (FT(0) + FT(5000))
+    zc = 2000.0
     cylinder_flg = 0.0
-    r   = sqrt( (x - xc)^2/rx^2 + cylinder_flg*(y - yc)^2/ry^2 + (z - zc)^2/rz^2)
-    Δθ  = 0.0
+    r = sqrt(
+        (x - xc)^2 / rx^2 +
+        cylinder_flg * (y - yc)^2 / ry^2 +
+        (z - zc)^2 / rz^2,
+    )
+    Δθ = 0.0
     if r <= 1.0
-        Δθ = θ_c * (cospi(0.5*r))^2
+        Δθ = θ_c * (cospi(0.5 * r))^2
     end
     θ_liq = data_t + Δθ
-    ts = PhaseNonEquil_pθq(param_set,data_p,θ_liq,PhasePartition(FT(data_q)))
+    ts = PhaseNonEquil_pθq(param_set, data_p, θ_liq, PhasePartition(FT(data_q)))
     T = air_temperature(ts)
     ρ = air_density(ts)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(data_q)))
+    E =
+        ρ *
+        total_energy(bl.param_set, e_kin, e_pot, T, PhasePartition(FT(data_q)))
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
@@ -119,8 +130,8 @@ function spline_int()
     sounding[:, 6]
     spl_tinit = Spline1D(zinit, tinit; k = 1)
     spl_qinit = Spline1D(zinit, qinit; k = 1)
-    spl_uinit    = Spline1D(zinit, u_init; k=1)
-    spl_vinit    = Spline1D(zinit, v_init; k=1)
+    spl_uinit = Spline1D(zinit, u_init; k = 1)
+    spl_vinit = Spline1D(zinit, v_init; k = 1)
     spl_pinit = Spline1D(zinit, pinit; k = 1)
     return spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit#, spl_rhoinit, spl_ppiinit, spl_thetainit
 end
@@ -129,28 +140,35 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     # Reference state
     (sounding, _, ncols) = read_sounding()
 
-  zinit, tinit, qinit, u_init, v_init, pinit  =
-      sounding[:, 1], sounding[:, 2], 0.001 .* sounding[:, 3], sounding[:, 4], sounding[:, 5], sounding[:, 6]
-  maxz = length(zinit)
-  thinit = zeros(maxz)
-  piinit = zeros(maxz)
-  thinit[1] = tinit[1]/(1+0.61*qinit[1])
-  piinit[1] = 1
-  for k in 2:maxz
-    thinit[k] = tinit[k]/(1+0.61*qinit[k])
-    piinit[k] = piinit[k-1] - 9.81 / (1004 * 0.5 *(tinit[k] + tinit[k-1])) * (zinit[k] - zinit[k-1])
-  end
+    zinit, tinit, qinit, u_init, v_init, pinit = sounding[:, 1],
+    sounding[:, 2],
+    0.001 .* sounding[:, 3],
+    sounding[:, 4],
+    sounding[:, 5],
+    sounding[:, 6]
+    maxz = length(zinit)
+    thinit = zeros(maxz)
+    piinit = zeros(maxz)
+    thinit[1] = tinit[1] / (1 + 0.61 * qinit[1])
+    piinit[1] = 1
+    for k in 2:maxz
+        thinit[k] = tinit[k] / (1 + 0.61 * qinit[k])
+        piinit[k] =
+            piinit[k - 1] -
+            9.81 / (1004 * 0.5 * (tinit[k] + tinit[k - 1])) *
+            (zinit[k] - zinit[k - 1])
+    end
     T_min = FT(thinit[maxz] * piinit[maxz])
     T_s = FT(thinit[1] * piinit[1])
     @info T_min, T_s
     Γ_lapse = FT(9.81 / 1004)
-    tvmax = T_s*(1+0.61*qinit[1])
-    deltatv = -( T_min   - tvmax)
-    tvmin = T_min*(1+0.61*qinit[maxz])
+    tvmax = T_s * (1 + 0.61 * qinit[1])
+    deltatv = -(T_min - tvmax)
+    tvmin = T_min * (1 + 0.61 * qinit[maxz])
     @info deltatv
     htv = 8000.0
     #T = DecayingTemperatureProfile(T_min, T_s, Γ_lapse)
-    Tv = DecayingTemperatureProfile{FT}(param_set,tvmax,tvmin,htv)
+    Tv = DecayingTemperatureProfile{FT}(param_set, tvmax, tvmin, htv)
     rel_hum = FT(0)
     ref_state = HydrostaticState(Tv, rel_hum)
     # Sponge
@@ -169,23 +187,20 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_squall_line!
 
-    source = (Gravity(),rayleigh_sponge, CreateClouds())
-    
-    
+    source = (Gravity(), rayleigh_sponge, CreateClouds())
+
+
     problem = AtmosProblem(
-        boundarycondition = (
-		    AtmosBC(),
-            AtmosBC(),
-        ),
+        boundarycondition = (AtmosBC(), AtmosBC()),
         init_state_prognostic = ics,
     )
 
-    
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
-	param_set;
-	problem = problem,
-	ref_state = ref_state,
+        param_set;
+        problem = problem,
+        ref_state = ref_state,
         moisture = NonEquilMoist(),
         turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
         source = source,
@@ -200,15 +215,15 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
         xmax,
         ymax,
         zmax,
-	param_set,
+        param_set,
         init_squall_line!,
         xmin = xmin,
         ymin = ymin,
         solver_type = ode_solver,
         model = model,
-	periodicity =(true,true,false),
-	boundary = ((2,2),(2,2),(1,2)),
-	#numerical_flux_first_order = RoeNumericalFlux(),
+        periodicity = (true, true, false),
+        boundary = ((2, 2), (2, 2), (1, 2)),
+        #numerical_flux_first_order = RoeNumericalFlux(),
     )
     return config
 end
@@ -239,48 +254,33 @@ function main()
 
     t0 = FT(0)
     timeend = FT(9000)
-    spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit =
-        spline_int()
+    spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = spline_int()
     Cmax = FT(0.4)
-    driver_config = config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
+    driver_config =
+        config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         (spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit);
-	init_on_cpu = true,
-	Courant_number = Cmax
+        init_on_cpu = true,
+        Courant_number = Cmax,
     )
     #dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(
-            solver_config.Q,
-            (6),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
+        Filters.apply!(solver_config.Q, (6), solver_config.dg.grid, TMARFilter())
         nothing
     end
     filterorder = 30
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            (2,3,4),
-            solver_config.dg.grid,
-            filter,
-        )
+        Filters.apply!(solver_config.Q, (2, 3, 4), solver_config.dg.grid, filter)
         nothing
     end
     cutoff = CutoffFilter(solver_config.dg.grid)
     cbcutoff = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            (2,3,4),
-            solver_config.dg.grid,
-            cutoff,
-        )
+        Filters.apply!(solver_config.Q, (2, 3, 4), solver_config.dg.grid, cutoff)
         nothing
     end
 
