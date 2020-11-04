@@ -107,14 +107,13 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
             splitting_type = ClimateMachine.HEVISplitting(),
             fast_model = AtmosAcousticGravityLinearModel,
             mis_method = MIS2,
-            fast_method = (dg, Q, nsubsteps) ->
-                MultirateInfinitesimalStep(
-                    MISKWRK43,
-                    dg,
-                    (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
-                    Q,
-                    nsubsteps = nsubsteps,
-                ),
+            fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
+                MISKWRK43,
+                dg,
+                (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
+                Q,
+                nsubsteps = nsubsteps,
+            ),
             nsubsteps = (12, 2),
         )
     elseif fast_method == "MultirateRungeKutta"
@@ -138,10 +137,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
             fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
                 ARK548L2SA2KennedyCarpenter,
                 dg,
-                LinearBackwardEulerSolver(
-                    ManyColumnLU(),
-                    isadjustable = true,
-                ),
+                LinearBackwardEulerSolver(ManyColumnLU(), isadjustable = true),
                 Q,
                 dt = dt,
                 nsubsteps = nsubsteps,
@@ -226,7 +222,8 @@ function main()
     # Time-step size (s)
     Δt = FT(0.4)
 
-    driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
+    driver_config =
+        config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
