@@ -11,7 +11,7 @@ parameters, `γs` and `Rs` are the MRI parameters and stage values, respectively
 """
 struct MRIParam{P, T, AT, N, M}
     p::P
-    γs::NTuple{M, SArray{NTuple{1, N}, T, 1, N}}
+    γs#::NTuple{M, SArray{NTuple{1, N}, T, 1, N}}
     Rs::NTuple{N, AT}
     ts::T
     Δts::T

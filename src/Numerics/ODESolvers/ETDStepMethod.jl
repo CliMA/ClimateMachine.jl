@@ -138,6 +138,7 @@ function dostep!(Q, etd::ETDStep, p, time)
   FT = eltype(dt)
   β = etd.β
   βS = etd.βS
+  Nβ = length(βS)
   nPhi = etd.nPhi
   yn = etd.yn
   fYnj = etd.fYnj
@@ -150,15 +151,25 @@ function dostep!(Q, etd::ETDStep, p, time)
 
   nStages = etd.nStages
 
+  ts = time
+
   copyto!(yn, Q) # first stage
   for iStage = 1:nStages-1
+    dts = c[iStage+1] * dt
+
     slowrhs!(fYnj[iStage], Q, p, time + c[iStage]*dt, increment=false)
 
+    τ = zero(FT)
     nstepsLoc=ceil(Int,nsteps*c[iStage+1]);
     dτ=dt*c[iStage+1]/nstepsLoc;
+    updatetime!(fastsolver, τ)
+    updatedt!(fastsolver, dτ)
+
+    βrow = ntuple(k -> ntuple(j -> βS[k][iStage+1, j], iStage+1), Nβ)
+    mriparam = MRIParam(p, βrow, realview.(fYnj[1:iStage]), ts, dts)
 
     copyto!(Q, yn)
-    dostep!(Q, fastsolver, p, time, dτ, nstepsLoc, iStage, β, βS, nPhi, fYnj, FT(1), realview(offset), nothing)
+    dostep!(Q, fastsolver, mriparam, τ, nstepsLoc, iStage+1, FT(1), realview(offset), nothing)
   end
 end
 
@@ -235,7 +246,7 @@ function EB4(slowrhs!, fastrhs!, fastmethod, nsteps, Q::AT; dt=0, t0=0) where {A
           RT(-3)      RT(2)     RT(2)     RT(-1)    RT(0)
   ];
   βS1 = zeros(RT,5,5);
-  β1 = [
+  β2 = [
           RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
           RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
           RT(0)      RT(0)     RT(0)     RT(0)     RT(0)
