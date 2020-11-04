@@ -60,6 +60,7 @@ include("NumericalFluxes.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
 include("create_states.jl")
+include("maximum_principle_preserving_dg.jl")
 
 """
     calculate_dt(dg, model, Q, Courant_number, direction, t)

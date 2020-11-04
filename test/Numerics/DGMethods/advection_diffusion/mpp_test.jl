@@ -222,7 +222,6 @@ function run(
     dg_vol = sum(grid.vgeo[:, Grids._M, grid.topology.realelems])
     dg_vol = MPI.Allreduce(dg_vol, (+), state_prognostic.mpicomm)
 
-    #=
     # Initialize the MPP
     mppdata = DGMethods.mpp_initialize(dg, state_prognostic, mpp_vars)
 
@@ -237,6 +236,7 @@ function run(
 
     # TODO: Add test to make sure normals are unit vectors
 
+    #=
     odesolver =
         MPPSolver(mpp_vars, explicit_method, dg, state_prognostic; dt = dt)
     test_output(vtkstep) = do_output(
