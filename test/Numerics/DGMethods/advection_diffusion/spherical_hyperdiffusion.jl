@@ -155,11 +155,11 @@ function run(
     # @show "ANA vs DG" norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
     # @show "FD vs DG" norm(rhs_FD .- rhs_DGsource) / norm(rhs_FD)
 
-    # do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
-    do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
+    do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
+    # do_output(mpicomm, "output", dg, Q_DGlsrk, Q_anal, model)
 
-    # return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
-    return norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
+    return norm(rhs_anal .- rhs_DGsource) / norm(rhs_anal)
+    # return norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
 end
 
 function do_output(
@@ -244,7 +244,7 @@ let
         for FT in (Float64, )# Float32,)
 		    for base_num_elem in (8, )# 12, 15,)
                 # for polynomialorder in (6, )#(3,4,5,6,)#4,5,6,)
-		        for (polynomialorder, vert_num_elem) in ((3,8), )#(4,5), (5,3), (6,2), )
+		        for (polynomialorder, vert_num_elem) in ((5,8), )#(4,5), (5,3), (6,2), )
 
                     for τ in (1,)#4,8,) # time scale for hyperdiffusion
 

@@ -80,8 +80,8 @@ function run(
         )
     dx = min_node_distance(grid, direction())
 
-    D = (dx/2)^4/2/τ
-    # D = 1
+    # D = (dx/2)^4/2/τ
+    D = 1
 
     model = HyperDiffusion{dim}(ConstantHyperDiffusion{dim, direction(), FT}(D, k))
     dg = DGModel(
@@ -97,12 +97,12 @@ function run(
     Q0 = init_ode_state(dg, FT(0))
     # @info "Δ(horz)" dx
 
-    ϵ = 1e-3 
+    # ϵ = 1e-3 
 
     # Model vs Model
     # collect rhs from DG
-    rhs_DGsource = similar(Q0)
-    dg(rhs_DGsource, Q0, nothing, 0)
+    # rhs_DGsource = similar(Q0)
+    # dg(rhs_DGsource, Q0, nothing, 0)
 
     # Q_frhs = Q0 .+ ϵ*rhs_DGsource
 
@@ -115,7 +115,30 @@ function run(
     Q_anal = init_ode_state(dg1, dt)
 
     lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
-    solve!(Q_DGlsrk, lsrk; timeend = 100)
+
+    # Set up the information callback
+    starttime = Ref(now())
+    cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s = false)
+        if s
+            starttime[] = now()
+        else
+            energy = norm(Q_DGlsrk)
+            @info @sprintf(
+                """Update
+                simtime = %.16e
+                runtime = %s
+                norm(Q) = %.16e""",
+                gettime(lsrk),
+                Dates.format(
+                    convert(Dates.DateTime, Dates.now() - starttime[]),
+                    Dates.dateformat"HH:MM:SS",
+                ),
+                energy
+            )
+        end
+    end
+    callbacks = (cbinfo,)
+    solve!(Q_DGlsrk, lsrk; timeend = 100, callbacks=callbacks)
     @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
     
     rhs_DGlsrk = Q0 - Q_DGlsrk
