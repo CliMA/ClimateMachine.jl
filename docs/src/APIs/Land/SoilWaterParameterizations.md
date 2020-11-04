@@ -28,4 +28,5 @@ pressure_head
 hydraulic_head
 matric_potential
 volumetric_liquid_fraction
+inverse_matric_potential
 ```

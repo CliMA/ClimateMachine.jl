@@ -69,17 +69,46 @@ using ClimateMachine.Land.SoilWaterParameterizations
     m = 1.0 - 1.0 / n
     α = FT(2.6)
 
-    @test pressure_head.(Ref(vg_model), Ref(1.0), Ref(0.001), test_array) ≈
-          .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
+    @test pressure_head.(
+        Ref(vg_model),
+        Ref(1.0),
+        Ref(0.001),
+        test_array,
+        Ref(0.0),
+    ) ≈ .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
     #test branching in pressure head
-    @test pressure_head(vg_model, 1.0, 0.001, 1.5) == 500
+    @test pressure_head(vg_model, 1.0, 0.001, 1.5, 0.0) == 500
 
-    @test pressure_head.(Ref(hk_model), Ref(1.0), Ref(0.001), test_array) ≈
-          .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
+    @test pressure_head.(
+        Ref(hk_model),
+        Ref(1.0),
+        Ref(0.001),
+        test_array,
+        Ref(0.0),
+    ) ≈ .-((-1 .+ test_array .^ (-1 / m)) .* α^(-n)) .^ (1 / n)
 
 
     m = FT(0.5)
     ψb = FT(0.1656)
-    @test pressure_head(bc_model, 1.0, 0.001, 0.5) ≈ -ψb * 0.5^(-1 / m)
+    @test pressure_head(bc_model, 1.0, 0.001, 0.5, 0.0) ≈ -ψb * 0.5^(-1 / m)
     @test volumetric_liquid_fraction.([0.5, 1.5], Ref(0.75)) ≈ [0.5, 0.75]
+
+    @test inverse_matric_potential(
+        bc_model,
+        matric_potential(bc_model, FT(0.5)),
+    ) == FT(0.5)
+    @test inverse_matric_potential(
+        vg_model,
+        matric_potential(vg_model, FT(0.5)),
+    ) == FT(0.5)
+    @test inverse_matric_potential(
+        hk_model,
+        matric_potential(hk_model, FT(0.5)),
+    ) == FT(0.5)
+
+    @test_throws Exception inverse_matric_potential(bc_model, 1)
+    @test_throws Exception inverse_matric_potential(hk_model, 1)
+    @test_throws Exception inverse_matric_potential(vg_model, 1)
+
+
 end
