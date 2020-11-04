@@ -168,5 +168,6 @@ include("MultirateInfinitesimalStepMethod.jl")
 include("MultirateRungeKuttaMethod.jl")
 include("SplitExplicitMethod.jl")
 include("DifferentialEquations.jl")
+include("MPPSolvers.jl")
 
 end # module
