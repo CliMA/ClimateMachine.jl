@@ -8,8 +8,8 @@
 
 sysimage_path = abspath(
     isempty(ARGS) ?
-    joinpath(@__DIR__, "..", ".git", "hooks", "JuliaFormatterSysimage.so") :
-    ARGS[1],
+        joinpath(@__DIR__, "..", ".git", "hooks", "JuliaFormatterSysimage.so") :
+        ARGS[1],
 )
 
 @info """
