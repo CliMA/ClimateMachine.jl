@@ -86,9 +86,7 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
     ρ = air_density(ts)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
-    E =
-        ρ *
-        total_energy(bl.param_set, e_kin, e_pot, T, PhasePartition(FT(data_q)))
+    E = ρ * total_energy(e_kin, e_pot, ts)
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
