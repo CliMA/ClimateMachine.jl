@@ -119,8 +119,8 @@ end
     BulkFormulaEnergy(fn) :: EnergyBC
 
 Calculate the net inward energy flux across the boundary. The drag
-coefficient is `C_h = fn_C_h(state, aux, t, normu_int_tan)`. The surface
-temperature and q_tot are `T, q_tot = fn_T_and_q_tot(state, aux, t)`.
+coefficient is `C_h = fn_C_h(atmos, state, aux, t, normu_int_tan)`. The surface
+temperature and q_tot are `T, q_tot = fn_T_and_q_tot(atmos, state, aux, t)`.
 
 Return the flux (in W m^-2).
 """
@@ -158,8 +158,8 @@ function atmos_energy_normal_boundary_flux_second_order!(
     u_int⁻ = state_int⁻.ρu / state_int⁻.ρ
     u_int⁻_tan = projection_tangential(atmos, aux_int⁻, u_int⁻)
     normu_int⁻_tan = norm(u_int⁻_tan)
-    C_h = bc_energy.fn_C_h(state⁻, aux⁻, t, normu_int⁻_tan)
-    T, q_tot = bc_energy.fn_T_and_q_tot(state⁻, aux⁻, t)
+    C_h = bc_energy.fn_C_h(atmos, state⁻, aux⁻, t, normu_int⁻_tan)
+    T, q_tot = bc_energy.fn_T_and_q_tot(atmos, state⁻, aux⁻, t)
 
     # calculate MSE from the states at the boundary and at the interior point
     ts = PhaseEquil_ρTq(atmos.param_set, state⁻.ρ, T, q_tot)
