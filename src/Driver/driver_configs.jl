@@ -105,6 +105,7 @@ function print_model_info(model)
             )
     end
     @info msg
+    show_tendencies(model)
 end
 
 function AtmosLESConfiguration(
