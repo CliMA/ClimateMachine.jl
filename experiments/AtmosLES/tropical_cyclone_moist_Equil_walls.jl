@@ -43,9 +43,14 @@ function init_tc!(problem, bl, state, aux, (x, y, z), t, args...)
     u = data_u
     v = data_v
     w = FT(0)
-    t_anom = 1
+    t_anom = 0.25
     RMW = 50000
+    if (z < 16000)
     anom = t_anom * exp(-(data_p - 40000)^2 / 2 / (11000^2))
+    else
+    anom = FT(0)
+    pres = data_p
+    end
     Δθ = anom * exp(-(x^2 + y^2) / (2 * RMW^2))
     θ_liq = data_t / (1 + 0.61 * data_q) + Δθ
     T = air_temperature_from_liquid_ice_pottemp_given_pressure(
@@ -59,7 +64,11 @@ function init_tc!(problem, bl, state, aux, (x, y, z), t, args...)
     e_pot = gravitational_potential(bl.orientation, aux)
     E = ρ * total_energy(bl.param_set,e_kin, e_pot, T, PhasePartition(FT(data_q)))
     state.ρ = ρ
+    if (z < 16000)
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
+    else
+    state.ρu = SVector(FT(0), FT(0), FT(0))
+    end
     state.ρe = E
     state.moisture.ρq_tot = ρ * data_q
     #state.moisture.ρq_liq = FT(0)
@@ -97,7 +106,7 @@ function spline_int()
     sounding[:, 4],
     sounding[:, 5],
     sounding[:, 6]
-    t_anom = 1
+    t_anom = 0.25
     RMW = 100000
     X = -810000:5000:810000
     Y = -810000:5000:810000
@@ -111,9 +120,12 @@ function spline_int()
     for i in 1:length(X)
         for j in 1:length(X)
             for k in 1:length(zinit)
+                if (zinit[k] < 16000)
                 anom[k] = t_anom * exp(-(pinit[k] - 40000)^2 / 2 / (11000^2))
-                thetav[i, j, k] =
-                    tinit[k]  + anom[k] * exp(-(X[i]^2 + Y[j]^2) / (2 * RMW^2))
+                else
+                anom[k] = 0.0
+                end
+                thetav[i, j, k] = tinit[k]  + anom[k] * exp(-(X[i]^2 + Y[j]^2) / (2 * RMW^2))
                 theta[i, j, k] = thetav[i, j, k] / (1 + 0.61 * qinit[k])
             end
         end
@@ -247,13 +259,13 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     htv = 8000.0
     #T = DecayingTemperatureProfile(T_min, T_s, Γ_lapse)
     Tv = DecayingTemperatureProfile{FT}(param_set,tvmax,tvmin,htv)
-    rel_hum = FT(0)
+    rel_hum = FT(0.72)
     ref_state = HydrostaticState(Tv, rel_hum)
     # Sponge
-    c_sponge = 0.000833
+    c_sponge = 1.0
     # Rayleigh damping
     u_relaxation = SVector(FT(0), FT(0), FT(0))
-    zsponge = FT(16000.0)
+    zsponge = FT(15000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
 
@@ -292,12 +304,15 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
 	problem = problem,
 	ref_state = ref_state,
         moisture = EquilMoist{FT}(;maxiter = 10),
-        turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantDynamicViscosity(FT(200)),
+	#hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600),FT(2 * 3600)),
+        turbulence = Vreman{FT}(C_smag),#ConstantDynamicViscosity(FT(200)),
         source = source,
     )
 
     ode_solver = ClimateMachine.IMEXSolverType()
-
+    #ode_solver = ClimateMachine.ExplicitSolverType(
+	#solver_method = LSRK144NiegemannDiehlBusch,
+	#)
     config = ClimateMachine.AtmosLESConfiguration(
         "CYCLONE_WALLS_30_moist_Equil",
         N,
@@ -311,7 +326,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
         ymin = ymin,
         solver_type = ode_solver,
         model = model,
-	periodicity =(false,false,false),
+	periodicity =(true,true,false),
 	boundary = ((2,2),(2,2),(1,2)),
 	#numerical_flux_first_order = RoeNumericalFlux(),
     )
@@ -335,17 +350,17 @@ function main()
     Δv = FT(400)
     resolution = (Δh, Δh, Δv)
 
-    xmax = FT(500000)
-    ymax = FT(500000)
-    zmax = FT(25000)
-    xmin = FT(-500000)
-    ymin = FT(-500000)
+    xmax = FT(800000)
+    ymax = FT(800000)
+    zmax = FT(24000)
+    xmin = FT(-800000)
+    ymin = FT(-800000)
 
     t0 = FT(0)
     timeend = FT(86400)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres =
         spline_int()
-    Cmax = FT(0.2)
+    Cmax = FT(0.05)
     driver_config = config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,

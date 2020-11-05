@@ -165,7 +165,7 @@ struct RayleighSponge{FT} <: Source
     "Sponge exponent"
     γ::FT
 end
-#=function atmos_source!(
+function atmos_source!(
     s::RayleighSponge,
     atmos::AtmosModel,
     source::Vars,
@@ -181,9 +181,9 @@ end
         β_sponge = s.α_max * sinpi(r / 2)^s.γ
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
-end=#
+end
 
-function atmos_source!(
+#=function atmos_source!(
     s::RayleighSponge,
     atmos::AtmosModel,
     source::Vars,
@@ -208,21 +208,22 @@ function atmos_source!(
 
        #source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
-    if (abs(x) >= 350000)
-           r = (abs(x) - 350000) / (500000 - 350000)
+    if (abs(x) >= 750000)
+           r = (abs(x) - 750000) / (800000 - 750000)
            #h = 500000/23
           cx = s.α_max * sinpi((1-r) / 2)^s.γ#1 + tanh((abs(x)-500000)/h)
        #  source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
     end
-    if (abs(y) >= 350000)
-           r = (abs(y) - 350000) / (500000 - 350000)
+    if (abs(y) >= 750000)
+           r = (abs(y) - 750000) / (800000 - 750000)
           #h = 500000/23
           cy  = s.α_max * sinpi((1-r) / 2)^s.γ#1 + tanh((abs(y)-500000)/h)
     end
     β_sponge = 1.0 - ctop * cx * cy
     source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    #source.moisture.ρq_tot = β_sponge * (state.moisture.ρq_tot - aux.ref_state.ρq_tot)
         #source.ρu -= β_sponge * (dot(state.ρu, SVector(FT(0),FT(0),FT(1))) * SVector(FT(0),FT(0),FT(1)) - state.ρ * s.u_relaxation)
-end
+end=#
 
 """
     CreateClouds{FT} <: Source

@@ -304,7 +304,6 @@ function numerical_flux_first_order!(
         t,
         direction,
     )
-
     fluxᵀn .+= (flux⁻ + flux⁺)' * (normal_vector / 2)
 end
 

@@ -249,7 +249,7 @@ function config_tc(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     rel_hum = FT(0)
     ref_state = HydrostaticState(Tv, rel_hum)
     # Sponge
-    c_sponge = 0.000833
+    c_sponge = FT(1)
     # Rayleigh damping
     u_relaxation = SVector(FT(0), FT(0), FT(0))
     zsponge = FT(16000.0)
@@ -341,7 +341,7 @@ function main()
     ymin = FT(-400000)
 
     t0 = FT(0)
-    timeend = FT(86400)
+    timeend = FT(20 * 86400)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit, spl_pres =
         spline_int()
     Cmax = FT(0.2)

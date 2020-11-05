@@ -129,11 +129,27 @@ struct BulkFormulaEnergy{FNX, FNTM} <: EnergyBC
     fn_T_and_q_tot::FNTM
 end
 function atmos_energy_boundary_state!(
-    nf,
-    bc_energy::BulkFormulaEnergy,
-    atmos,
-    args...,
-) end
+ nf,
+     bc_energy::BulkFormulaEnergy,
+         atmos,
+	     state⁺,
+	         aux⁺,
+		     n,
+		         state⁻,
+			     aux⁻,
+			         bctype,
+				     t,
+				         args...,
+ )
+#FT = eltype(aux⁻)
+ #   _T_0::FT = T_0(atmos.param_set)
+  #  _cv_d::FT = cv_d(atmos.param_set)
+
+   # E_int⁺ = state⁺.ρ * _cv_d * (298 - _T_0)
+   # state⁺.ρe =
+    #    E_int⁺ + state⁺.ρ * gravitational_potential(atmos.orientation, aux⁻)
+
+end
 function atmos_energy_normal_boundary_flux_second_order!(
     nf,
     bc_energy::BulkFormulaEnergy,
@@ -173,4 +189,9 @@ function atmos_energy_normal_boundary_flux_second_order!(
     ρ_avg = average_density(state⁻.ρ, state_int⁻.ρ)
     # NOTE: difference from design docs since normal points outwards
     fluxᵀn.ρe -= C_h * ρ_avg * normu_int⁻_tan * (MSE - MSE_int)
+    #ν, D_t, _ = turbulence_tensors(atmos, state⁻, diffusive⁻, aux⁻, t)
+    #d_h_tot = -D_t .* diffusive⁻.∇h_tot
+    #nd_h_tot = dot(n⁻, d_h_tot)
+    ## both sides involve projections of normals, so signs are consistent
+    #fluxᵀn.ρe += nd_h_tot * state⁻.ρ
 end

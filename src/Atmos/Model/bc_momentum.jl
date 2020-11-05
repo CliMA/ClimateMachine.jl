@@ -62,16 +62,30 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     nf,
     bc_momentum::Impenetrable{FreeSlip},
     atmos,
-    args...,
+    fluxᵀn,
+            n⁻,
+	            state⁻,
+		            diff⁻,
+			            hyperdiff⁻,
+				            aux⁻,
+					            state⁺,
+						            diff⁺,
+							            hyperdiff⁺,
+								            aux⁺,
+									            bctype,
+										            t,
+											            args...,
 )
-@show("Coordinates = ", aux⁻.coord) ;                                                                                                                                                                      
-@show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_geopot=", aux⁻.orientation.∇Φ, "TW_Momentum=", fluxᵀn.ρu) : nothing ; 
+#=if (aux⁻.coord[3]>=20000)
+@show("Coordinates = ", aux⁻.coord[3]) ;                                                                                                                                                                      
+@show("TW_Mass=", fluxᵀn.ρ,"TW_Energy=", fluxᵀn.ρe, "TW_geopot=", aux⁻.orientation.∇Φ, "TW_Momentum=", fluxᵀn.ρu); 
   if atmos.moisture isa EquilMoist
   @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot);
   elseif atmos.moisture isa NonEquilMoist
   @show("TW_Moisture=", fluxᵀn.moisture.ρq_tot, fluxᵀn.moisture.ρq_ice, fluxᵀn.moisture.ρq_liq) ; 
   end 
   @show(".......");
+end=#
 end
 
 
