@@ -172,8 +172,8 @@ function config_ShearFlow(
     ## Here we assemble the `AtmosModel`.
     _C_smag = FT(C_smag(param_set))
     problem = AtmosProblem(
-			           boundarycondition = (AtmosBC(momentum = ShearTest(),),
-						AtmosBC(momentum = ShearTest(),),),
+			           boundarycondition = (InitStateBC(), InitStateBC(),),#(AtmosBC(momentum = ShearTest(),),
+						#AtmosBC(momentum = ShearTest(),),),
 				           init_state_prognostic = init_ShearFlow!,)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
@@ -181,7 +181,7 @@ function config_ShearFlow(
 	problem = problem,
         init_state_prognostic = init_ShearFlow!,    ## Apply the initial condition
         ref_state = NoReferenceState(),                         ## Reference state
-        turbulence = SmagorinskyLilly(FT(0)),        ## Turbulence closure model
+        turbulence = ConstantDynamicViscosity(FT(0.01)),#SmagorinskyLilly(FT(0)),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (),                         ## Gravity is the only source term here
         #tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
