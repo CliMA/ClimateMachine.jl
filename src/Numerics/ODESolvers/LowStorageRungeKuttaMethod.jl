@@ -83,6 +83,7 @@ function dostep!(
 )
     for i = 1:nsubsteps
         dostep!(Q, lsrk, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += lsrk.dt
     end
 end
 
@@ -168,7 +169,15 @@ added as an additionall ODE right-hand side source. If the optional parameter
 `slow_scaling !== nothing` then after the final stage update the scaling
 `slow_rv_dQ *= slow_scaling` is performed.
 """
-function dostep!(Q, lsrk::LowStorageRungeKutta2N, mrip::MRIParam, time::Real)
+function dostep!(
+    Q,
+    lsrk::LowStorageRungeKutta2N,
+    mrip::MRIParam,
+    time::Real,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    in_slow_scaling = nothing
+)
     dt = lsrk.dt
 
     RKA, RKB, RKC = lsrk.RKA, lsrk.RKB, lsrk.RKC
@@ -209,7 +218,7 @@ end
         Ns = length(γs[1])
         dqi = dQ[i]
 
-        for s in 1:Ns
+        for s in 2:Ns-1
             ri = Rs[s][i]
             sc = γs[NΓ][s]
             for k in (NΓ - 1):-1:1
