@@ -4,6 +4,7 @@ using ..Mesh.Filters:
     FilterIndices,
     vars_state_filtered,
     number_state_filtered
+using .NumericalFluxes: FirstOrderMPPNumericalFlux
 
 """
     mpp_initialize(dg, state_prognostic, mpp_target)
@@ -80,6 +81,7 @@ function mpp_initialize(
     Nqj = dim == 2 ? 1 : Nq
 
     num_state_prognostic = number_states(balance_law, Prognostic())
+    num_state_auxiliary = number_states(balance_law, Auxiliary())
 
     # Compute the targets for MPP
     num_state_mpp = varsize(vars_target)
@@ -102,6 +104,8 @@ function mpp_initialize(
     mpp_sgeo =
         DA{FT, 4}(undef, Grids._nsgeo, 1, 2dim, length(topology.realelems))
     mpp_vol = DA{FT, 1}(undef, length(topology.realelems))
+    mpp_vmap⁺ =
+        DA(reshape(topology.elemtoelem, 1, 2dim, length(topology.elems)))
     # because MPIStateArray needs a 3D array
     weights_reshape = reshape(mpp_vol, 1, 1, length(topology.realelems))
 
@@ -111,6 +115,23 @@ function mpp_initialize(
         DA,
         1,
         num_state_prognostic,
+        length(topology.elems);
+        realelems = topology.realelems,
+        ghostelems = topology.ghostelems,
+        vmaprecv = fvm_vmaprecv,
+        vmapsend = fvm_vmapsend,
+        nabrtorank = topology.nabrtorank,
+        nabrtovmaprecv = fvm_nabrtovmaprecv,
+        nabrtovmapsend = fvm_nabrtovmapsend,
+        weights = weights_reshape,
+    )
+
+    # Create storage for the auxiliary state
+    mpp_aux = MPIStateArray{FT, vars_state(balance_law, Auxiliary(), FT)}(
+        topology.mpicomm,
+        DA,
+        1,
+        num_state_auxiliary,
         length(topology.elems);
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -185,8 +206,10 @@ function mpp_initialize(
         Val(dim),
         Val(N),
         mpp_avg.data,
+        mpp_aux.data,
         mpp_vol,
         state_prognostic.data,
+        dg.state_auxiliary.data,
         grid.vgeo,
         dependencies = (event,);
         ndrange = (nrealelem * Nq, Nqj),
@@ -206,16 +229,24 @@ function mpp_initialize(
         MPIStateArrays.begin_ghost_exchange!(mpp_avg, dependencies = event)
     avg_exchange =
         MPIStateArrays.end_ghost_exchange!(mpp_avg; dependencies = avg_exchange)
+    aux_exchange =
+        MPIStateArrays.begin_ghost_exchange!(mpp_aux, dependencies = event)
+    aux_exchange =
+        MPIStateArrays.end_ghost_exchange!(mpp_aux; dependencies = aux_exchange)
 
-    wait(device, MultiEvent((avg_exchange,)))
+    wait(device, MultiEvent((avg_exchange, aux_exchange)))
 
     # Since the weights were not right when the MPIStateArray was created we
     # reset them with the right volume averages
     copyto!(mpp_avg.weights, mpp_vol)
+    copyto!(mpp_aux.weights, mpp_vol)
     copyto!(fvm_flux.weights, mpp_vol)
+
 
     return (
         state = mpp_avg,
+        auxiliary = mpp_aux,
+        vmap⁺ = mpp_vmap⁺,
         fvm_flux = fvm_flux,
         ∫dg_flux = ∫dg_flux,
         Λ_min = Λ_min,
@@ -240,8 +271,8 @@ function mpp_step_initialize!(
     balance_law = dg.balance_law
     device = array_device(state_prognostic)
 
-    #XXX: Need to handle MPI case (comm state_prognostic?)
-    update_auxiliary_state!(
+    # FIXME: How to update aux?
+    @assert !update_auxiliary_state!(
         dg,
         balance_law,
         state_prognostic,
@@ -253,58 +284,49 @@ function mpp_step_initialize!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorders(grid)
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
     nrealelem = length(topology.realelems)
-    nreduce = 2^ceil(Int, log2(Nfp))
 
-    workgroups_surface = Nfp
-    ndrange_interior_surface = Nfp * length(grid.interiorelems)
-    ndrange_exterior_surface = Nfp * length(grid.exteriorelems)
+    workgroup_size = 256
+    ndrange_interior = length(grid.interiorelems)
+    ndrange_exterior = length(grid.exteriorelems)
 
     event = Event(device)
     avg_exchange = MPIStateArrays.begin_ghost_exchange!(
         mppdata.state,
         dependencies = event,
     )
-    int_comp = knl_fvmflux!(device, workgroups_surface)(
+    int_comp = knl_fvmflux!(device, workgroup_size)(
         balance_law,
         Val(dim),
         mppdata.target,
         mppdata.fvm_flux.data,
         mppdata.state.data,
-        mppdata.aux.data,
+        mppdata.auxiliary.data,
         mppdata.sgeo,
         t,
         mppdata.vmap⁺,
         grid.elemtobndy,
         grid.interiorelems;
-        ndrange = ndrange_interior_surface,
+        ndrange = ndrange_interior,
         dependencies = (event,),
     )
     avg_exchange = MPIStateArrays.end_ghost_exchange!(
         mppdata.state;
         dependencies = avg_exchange,
     )
-    ext_comp = knl_fvmflux!(device, workgroups_surface)(
+    ext_comp = knl_fvmflux!(device, workgroup_size)(
         balance_law,
         Val(dim),
         mppdata.target,
         mppdata.fvm_flux.data,
         mppdata.state.data,
-        mppdata.aux.data,
+        mppdata.auxiliary.data,
         mppdata.sgeo,
         t,
         mppdata.vmap⁺,
         grid.elemtobndy,
         grid.exteriorelems;
-        ndrange = ndrange_exterior_surface,
+        ndrange = ndrange_exterior,
         dependencies = (avg_exchange,),
     )
     wait(device, MultiEvent((int_comp, ext_comp)))
@@ -449,8 +471,10 @@ end
     ::Val{dim},
     ::Val{N},
     mpp_avg,
+    mpp_aux,
     mpp_vol,
     state_prognostic,
+    state_auxiliary,
     vgeo,
 ) where {nreduce, dim, N, I}
     @uniform begin
@@ -460,6 +484,7 @@ end
         Nqj = dim == 2 ? 1 : Nq
 
         num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
     end
 
     # For the pencil mass matrix
@@ -550,6 +575,40 @@ end
             # Save the average value for the element
             if i == 1 && j == 1
                 mpp_avg[1, s, e] = s_reduce[1] / l_vol[1]
+            end
+        end
+
+        # loop over the prognostic states and compute the total mass for the
+        # filtered states
+        @unroll for s in 1:num_state_auxiliary
+            # compute the mass in the pencil
+            MJ_state_auxiliary = -zero(FT)
+            @unroll for k in 1:Nq
+                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+                MJ = l_MJ[k]
+                Qs = state_auxiliary[ijk, s, e]
+
+                MJ_state_auxiliary += MJ * Qs
+            end
+
+            # do the reduction for the element
+            ij = i + Nq * (j - 1)
+            s_reduce[ij] = MJ_state_auxiliary
+            @synchronize
+            @unroll for n in 11:-1:1
+                if nreduce ≥ 2^n
+                    ij = i + Nq * (j - 1)
+                    ijshift = ij + 2^(n - 1)
+                    if ij ≤ 2^(n - 1) && ijshift ≤ Nq * Nqj
+                        s_reduce[ij] += s_reduce[ijshift]
+                    end
+                    @synchronize
+                end
+            end
+
+            # Save the average value for the element
+            if i == 1 && j == 1
+                mpp_aux[1, s, e] = s_reduce[1] / l_vol[1]
             end
         end
     end
@@ -677,7 +736,7 @@ end
     end
 
     # Read the global thread ID
-    grp_id = @index(Group, Linear)
+    gid = @index(Global, Linear)
 
     # Get the element we are working on
     @inbounds e = elems[gid]
@@ -702,28 +761,28 @@ end
         # Load minus side data
         # TODO: Move outside the face loop
         @unroll for s in 1:num_state_prognostic
-            local_state_prognostic⁻[s] = state_prognostic[1, s, e⁻]
+            local_state_prognostic⁻[s] = mpp_state_prognostic[1, s, e⁻]
         end
 
         # TODO: Move outside the face loop
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁻[s] = state_auxiliary[1, s, e⁻]
+            local_state_auxiliary⁻[s] = mpp_state_auxiliary[1, s, e⁻]
         end
 
         # Load neighboring data
         @unroll for s in 1:num_state_prognostic
-            local_state_prognostic⁺[s] = state_prognostic[1, s, e⁺]
+            local_state_prognostic⁺[s] = mpp_state_prognostic[1, s, e⁺]
         end
 
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary⁺[s] = state_auxiliary[1, s, e⁺]
+            local_state_auxiliary⁺[s] = mpp_state_auxiliary[1, s, e⁺]
         end
 
         # FIXME: Do we need to handle diffusion?
         bctype = elemtobndy[f, e⁻]
         if bctype == 0
             numerical_flux_first_order!(
-                FirstOrderFVM(),
+                FirstOrderMPPNumericalFlux(),
                 balance_law,
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_fvm_flux),
                 normal_vector,
@@ -754,11 +813,9 @@ end
         end
 
         # Store the total fluxes for this face
-        if n == 1
-            @unroll for s in 1:num_state_mpp
-                s_prognostic = I[s]
-                fvm_flux[f, s_prognostic, e⁻] = sM * local_fvm_flux[s]
-            end
+        @unroll for s in 1:num_state_mpp
+            s_prognostic = I[s]
+            fvm_flux[f, s, e⁻] = sM * local_fvm_flux[s_prognostic]
         end
     end
 end

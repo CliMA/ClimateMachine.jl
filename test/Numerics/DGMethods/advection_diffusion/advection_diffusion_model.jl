@@ -19,7 +19,10 @@ import ClimateMachine.BalanceLaws:
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.DGMethods.NumericalFluxes:
-    NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
+    NumericalFluxFirstOrder,
+    NumericalFluxSecondOrder,
+    NumericalFluxGradient,
+    FirstOrderMPPNumericalFlux
 import ClimateMachine.DGMethods.NumericalFluxes:
     numerical_flux_first_order!, boundary_flux_second_order!
 
@@ -424,7 +427,7 @@ boundary_flux_second_order!(
 struct UpwindNumericalFlux <: NumericalFluxFirstOrder end
 function numerical_flux_first_order!(
     ::UpwindNumericalFlux,
-    ::AdvectionDiffusion,
+    m::AdvectionDiffusion,
     fluxᵀn::Vars{S},
     n::SVector,
     state⁻::Vars{S},
@@ -438,5 +441,21 @@ function numerical_flux_first_order!(
     un⁺ = dot(n, aux⁺.u)
     un = (un⁺ + un⁻) / 2
 
-    fluxᵀn.ρ = un ≥ 0 ? un * state⁻.ρ : un * state⁺.ρ
+    num_ms = number_multistates(m)
+    if num_ms == 0
+        fluxᵀn.ρ = un ≥ 0 ? un * state⁻.ρ : un * state⁺.ρ
+    else
+        @unroll_map(num_ms) do k
+            fluxᵀn.ρ[k].val =
+                un ≥ 0 ? un * state⁻.ρ[k].val : un * state⁺.ρ[k].val
+        end
+    end
+end
+
+function numerical_flux_first_order!(
+    ::FirstOrderMPPNumericalFlux,
+    model::AdvectionDiffusion,
+    args...,
+)
+    numerical_flux_first_order!(UpwindNumericalFlux(), model, args...)
 end

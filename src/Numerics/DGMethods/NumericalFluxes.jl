@@ -6,6 +6,7 @@ export NumericalFluxGradient,
     RusanovNumericalFlux,
     RoeNumericalFlux,
     HLLCNumericalFlux,
+    FirstOrderMPPNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -345,6 +346,14 @@ Requires a custom implementation for the balance law.
     }
 """
 struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
+
+
+"""
+    FirstOrderMPPNumericalFlux() <: NumericalFluxFirstOrder
+
+A numerical flux to use for the first order FVM flux in the MPP solvers
+"""
+struct FirstOrderMPPNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder

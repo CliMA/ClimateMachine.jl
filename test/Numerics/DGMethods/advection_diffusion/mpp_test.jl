@@ -262,7 +262,6 @@ function run(
         nothing
     end
 
-    #=
     solve!(
         state_prognostic,
         odesolver;
@@ -270,6 +269,7 @@ function run(
         callbacks = (cb_tmar, cb_output),
     )
 
+    #=
     mpp_mass = weightedsum(mppdata.state)
     @test ρ_mass ≈ mpp_mass
     for v in mpp_vars
@@ -335,7 +335,7 @@ let
     @testset "$(@__FILE__)" begin
         for FT in (Float64,)
             for dim in (2, 3)
-                for problem in (SolidRotation{4, dim}, SwirlingFlow{FT, 4, dim})
+                for problem in (SolidRotation{4, dim},)# SwirlingFlow{FT, 4, dim})
                     for explicit_method in (LSRK144NiegemannDiehlBusch,)
                         @testset "$(problem), $(explicit_method)" begin
                             cfl = max_cfl[explicit_method]
