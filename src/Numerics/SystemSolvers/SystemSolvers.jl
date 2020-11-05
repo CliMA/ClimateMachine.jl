@@ -124,7 +124,7 @@ function nonlinearsolve!(
         update_Q!(jvp!, Q, args...)
 
         # update preconditioner based on finite difference, with jvp!
-        preconditioner_update!(jvp!, rhs!.f!, preconditioner, nothing, FT(NaN))
+        preconditioner_update!(jvp!, rhs!.f!, preconditioner, args...)
 
         # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
         residual_norm, linear_iterations = donewtoniteration!(
@@ -136,7 +136,7 @@ function nonlinearsolve!(
             solver,
             args...,
         )
-        @info "Linear solver converged in $linear_iterations iterations"
+        # @info "Linear solver converged in $linear_iterations iterations"
         iters += 1
 
         preconditioner_counter_update!(preconditioner)
@@ -151,7 +151,7 @@ function nonlinearsolve!(
         # ||Delta Q|| / ||Q|| ?
         relresidual = residual_norm / initial_residual_norm
         if relresidual < tol || residual_norm < tol
-            @info "Newton converged in $iters iterations!"
+            # @info "Newton converged in $iters iterations!"
             converged = true
         end
     end
