@@ -31,6 +31,7 @@ nothing # hide
 # We use a Coriolis parameter appropriate for mid-latitudes,
 
 f = 1e-4 # s⁻¹, Coriolis parameter
+nothing # hide
 
 # and Earth's gravitational acceleration,
 
@@ -95,13 +96,14 @@ problem = InitialValueProblem(dimensions = (Lx, Ly, Lz), initial_conditions = in
 
 equations = HydrostaticBoussinesqModel{Float64}(
     EarthParameters(),
-    problem,           # The InitialValueProblem
-    κʰ = 1e-4,         # Horizontal diffusivity (m² s⁻²)
-    fₒ = f             # Coriolis parameter
+    problem,           
+    νʰ = 0.0,          # Horizontal viscosity (m² s⁻¹) 
+    κʰ = 0.0,          # Horizontal diffusivity (m² s⁻¹) 
+    fₒ = f             # Coriolis parameter (s⁻¹)
 )
 
 driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
-    "geostrophic_adjustment",             # The name of the experiment
+    "Geostrophic adjustment tutorial",    # The name of the experiment
     Np,                                   # The polynomial order
     Ne,                                   # The number of elements
     EarthParameters(),                    # The CLIMAParameters.AbstractParameterSet to use
@@ -163,6 +165,7 @@ end
 # that draws a plot and stores it in an array. When the simulation is finished,
 # we'll string together the plotted frames into an animation.
 
+using Printf
 using Plots
 
 using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, join
@@ -188,13 +191,14 @@ plot_maker = EveryXSimulationSteps(plot_every) do
     ulim = (-umax, umax)
     
     u_plot = plot(joined_u.x, [joined_u.data[:, 1, 1] joined_v.data[:, 1, 1]],
-                  xlim=domain.x, ylim=(-U, U), label=["u" "v"],
-                  xlabel="x (m)", ylabel="u and v (m s⁻¹)")
+                  xlim=domain.x, ylim=(-0.7U, 0.7U), label=["u" "v"],
+                  linewidth=2, xlabel="x (m)", ylabel="Velocities (m s⁻¹)")
 
-    η_plot = plot(joined_η.x, joined_η.data[:, 1, 1], xlim=domain.x, ylim=(0, a),
-                  label=nothing, xlabel="x (m)", ylabel="η (m)")
+    η_plot = plot(joined_η.x, joined_η.data[:, 1, 1], xlim=domain.x, ylim=(-0.01a, 1.2a),
+                  linewidth=2, label=nothing, xlabel="x (m)", ylabel="η (m)")
+                  
 
-    push!(movie_plots, (u=u_plot, η=η_plot))
+    push!(movie_plots, (u=u_plot, η=η_plot, time=solver_configuration.solver.t))
     
     return nothing
 end
@@ -209,7 +213,8 @@ result = ClimateMachine.invoke!(solver_configuration;
 # and animate the results,
 
 animation = @animate for p in movie_plots
-    frame = plot(p.u, p.η, layout=(2, 1), size=(800, 600), title=["u and v" "η"])
+    title = @sprintf("Geostrophic adjustment at t = %.2f hours", p.time / hours)
+    frame = plot(p.u, p.η, layout=(2, 1), size=(800, 600), title=[title ""])
 end
 
 gif(animation, "geostrophic_adjustment.gif", fps = 8) # hide
