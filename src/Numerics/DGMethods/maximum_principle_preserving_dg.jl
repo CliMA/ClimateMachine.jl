@@ -144,11 +144,11 @@ function mpp_initialize(
     )
 
     # Create storage for the FVM flux
-    fvm_flux = MPIStateArray{FT, vars_target}(
+    fvm_flux = MPIStateArray{FT, vars_state(balance_law, Prognostic(), FT)}(
         topology.mpicomm,
         DA,
         2 * dim, # number of faces
-        num_state_mpp,
+        num_state_prognostic,
         length(topology.elems);
         realelems = topology.realelems,
         ghostelems = topology.ghostelems,
@@ -298,7 +298,6 @@ function mpp_step_initialize!(
     int_comp = knl_fvmflux!(device, workgroup_size)(
         balance_law,
         Val(dim),
-        mppdata.target,
         mppdata.fvm_flux.data,
         mppdata.state.data,
         mppdata.auxiliary.data,
@@ -317,7 +316,6 @@ function mpp_step_initialize!(
     ext_comp = knl_fvmflux!(device, workgroup_size)(
         balance_law,
         Val(dim),
-        mppdata.target,
         mppdata.fvm_flux.data,
         mppdata.state.data,
         mppdata.auxiliary.data,
@@ -707,7 +705,6 @@ end
 @kernel function knl_fvmflux!(
     balance_law::BalanceLaw,
     ::Val{dim},
-    mpp_target::FilterIndices{I},
     fvm_flux,
     mpp_state_prognostic,
     mpp_state_auxiliary,
@@ -716,12 +713,11 @@ end
     vmap⁺,
     elemtobndy,
     elems,
-) where {dim, I}
+) where {dim}
     @uniform begin
         FT = eltype(mpp_state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
-        num_state_mpp = number_state_filtered(mpp_target, FT)
 
         nface = 2dim
 
@@ -813,9 +809,8 @@ end
         end
 
         # Store the total fluxes for this face
-        @unroll for s in 1:num_state_mpp
-            s_prognostic = I[s]
-            fvm_flux[f, s, e⁻] = sM * local_fvm_flux[s_prognostic]
+        @unroll for s in 1:num_state_prognostic
+            fvm_flux[f, s, e⁻] = sM * local_fvm_flux[s]
         end
     end
 end
