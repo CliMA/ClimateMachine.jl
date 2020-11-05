@@ -58,7 +58,55 @@ function atmos_momentum_normal_boundary_flux_second_order!(
     args...,
 ) end
 
+struct ShearTest <: MomentumBC end
 
+function atmos_momentum_boundary_state!(
+					    nf::NumericalFluxFirstOrder,
+					        bc_momentum::ShearTest,
+						    atmos,
+						        state⁺,
+							    aux⁺,
+							        n,
+								    state⁻,
+								        aux⁻,
+									    bctype,
+									        t,
+										    args...,
+										    )
+x_bc = (aux⁺.coord[1])
+y_bc = (aux⁺.coord[2])
+u = y_bc^2
+state⁺.ρ = Float64(1)
+state⁺.ρu = SVector(Float64(u),Float64(0),Float64(0)) 
+e = ((2 * 0.01 * x_bc + 10) / (1.5 - 1)) + y_bc^4 / 2
+state⁺.ρe = e 
+end
+function atmos_momentum_boundary_state!(
+					    nf::NumericalFluxGradient,
+					        bc_momentum::ShearTest,
+						    atmos,
+						        state⁺,
+							    aux⁺,
+							        n,
+								    state⁻,
+								        aux⁻,
+									    bctype,
+									        t,
+										    args...,
+										    )
+x_bc = (aux⁺.coord[1])
+y_bc = (aux⁺.coord[2])
+u = y_bc^2
+state⁺.ρ = Float64(1)
+state⁺.ρu = SVector(Float64(u),Float64(0),Float64(0))
+e = ((2 * 0.01 * x_bc + 10) / (1.5 - 1)) + y_bc^4 / 2
+state⁺.ρe = e 
+end
+function atmos_momentum_normal_boundary_flux_second_order!(
+							       nf,
+							           bc_momentum::ShearTest,
+								       atmos,
+								           args...,) end
 
 """
     NoSlip() :: MomentumDragBC

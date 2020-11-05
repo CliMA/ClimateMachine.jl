@@ -5,6 +5,7 @@ export InitStateBC
 export AtmosBC,
     Impenetrable,
     FreeSlip,
+    ShearTest,
     NoSlip,
     DragLaw,
     Insulating,
