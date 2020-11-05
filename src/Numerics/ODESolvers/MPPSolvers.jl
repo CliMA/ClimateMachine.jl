@@ -49,21 +49,15 @@ function dostep!(state_prognostic, mppsolver::MPPSolver, p, time)
     # computes the FVM fluxes from the current state
     mpp_step_initialize!(dg, state_prognostic, mppdata, time)
 
-    #=
     # run the DG solver for 1 time step
     fill!(mppdata.∫dg_flux, 0)
     Q = (dg_state = state_prognostic, ∫dg_flux = mppdata.∫dg_flux)
     dg_dt = getdt(dgsolver)
     updatedt!(dgsolver, dt)
-    solve!(
-        Q,
-        dgsolver,
-        (mpptargets = mppdata.target, orig_p = p);
-        numberofsteps = 1,
-        adjustfinalstep = false,
-    )
+    solve!(Q, dgsolver, p, numberofsteps = 1, adjustfinalstep = false)
     updatedt!(dgsolver, dg_dt)
 
+    #=
     # Correct the DG solution based on MPP
     mpp_update!(dg, state_prognostic, mppdata, dt)
 

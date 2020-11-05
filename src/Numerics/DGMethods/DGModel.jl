@@ -108,12 +108,45 @@ The 4-argument form will just compute
     tendency .= dQdt(state_prognostic, p, t)
 
 """
-function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
+function (dg::DGModel)(
+    tendency,
+    state_prognostic,
+    param,
+    t;
+    increment = false,
+    kwargs...,
+)
     # TODO deprecate increment argument
-    dg(tendency, state_prognostic, param, t, true, increment)
+    dg(tendency, state_prognostic, param, t, true, increment; kwargs...)
 end
 
-function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
+function (dg::DGModel)(
+    tendency::NamedTuple,
+    Q::NamedTuple,
+    param,
+    args...;
+    kwargs...,
+)
+    # TODO: namedtuple tendency and Q to the DGModel functor
+    dg(
+        tendency.dg_state,
+        Q.dg_state,
+        param,
+        args...;
+        ∫dg_flux = (tendency = tendency.∫dg_flux, state = Q.∫dg_flux),
+        kwargs...,
+    )
+end
+
+function (dg::DGModel)(
+    tendency,
+    state_prognostic,
+    p,
+    t,
+    α,
+    β;
+    ∫dg_flux = nothing,
+)
 
     device = array_device(state_prognostic)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
