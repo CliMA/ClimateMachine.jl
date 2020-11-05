@@ -473,8 +473,8 @@ function bomex_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> (T_sfc, q_sfc),
+            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t) -> (T_sfc, q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
