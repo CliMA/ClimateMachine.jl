@@ -84,36 +84,3 @@ function entr_detr(
     end
     return E_dyn, Δ_dyn, E_trb
 end;
-
-# """
-#     ε_limiter(a_up::FT, ϵ::FT) where {FT}
-# Returns the asymptotic value of entrainment
-# needed to ensure boundedness of the updraft
-# area fraction between 0 and 1, given
-#  - `a_up`, the updraft area fraction
-#  - `ϵ`, a minimum threshold value
-# """
-# ε_limiter(a_up::FT, ϵ::FT, lim_amp::FT) where {FT} =
-#     FT(1) + lim_amp * exp(-a_up^2 / (2 * ϵ)) - exp(-(FT(1) - a_up)^2 / (2 * ϵ))
-
-# """
-#     δ_limiter(a_up::FT, ϵ::FT) where {FT}
-# Returns the asymptotic value of detrainment
-# needed to ensure boundedness of the updraft
-# area fraction between 0 and 1, given
-#  - `a_up`, the updraft area fraction
-#  - `ϵ`, a minimum threshold value
-# """
-# δ_limiter(a_up::FT, ϵ::FT, lim_amp::FT) where {FT} =
-#     FT(1) - exp(-a_up^2 / (2 * ϵ)) + lim_amp * exp(-(FT(1) - a_up)^2 / (2 * ϵ))
-
-# """
-#     εt_limiter(w_up_i::FT, ϵ::FT) where {FT}
-# Returns the asymptotic value of turbulent
-# entrainment needed to ensure positiveness
-# of the updraft vertical velocity, given
-#  - `w_up_i`, the updraft vertical velocity
-#  - `ϵ`, a minimum threshold value
-# """
-# εt_limiter(w_up_i::FT, ϵ::FT, lim_amp::FT) where {FT} =
-#     FT(1) + lim_amp * exp(-w_up_i^2 / (2 * ϵ))
