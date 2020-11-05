@@ -107,7 +107,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
 end
 
 # Define problem configuration kernel
-function config_problem(FT, N, resolution, xmax, ymax, zmax)
+function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
 
     ## Boundary conditions
     T_bot = FT(299)

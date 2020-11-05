@@ -56,7 +56,7 @@ function mms2_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(2))
 end
 
-struct MMS2Source <: Source end
+struct MMS2Source <: AbstractSource end
 function atmos_source!(
     ::MMS2Source,
     ::AtmosModel,
@@ -88,7 +88,7 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
-struct MMS3Source <: Source end
+struct MMS3Source <: AbstractSource end
 function atmos_source!(
     ::MMS3Source,
     ::AtmosModel,

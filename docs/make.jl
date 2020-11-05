@@ -70,4 +70,5 @@ deploydocs(
     repo = "github.com/CliMA/ClimateMachine.jl.git",
     target = "build",
     push_preview = true,
+    forcepush = true,
 )

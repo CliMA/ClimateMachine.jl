@@ -130,7 +130,7 @@ function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
     return nothing
 end
 
-function main()
+function main(::Type{FT}) where {FT}
     mpicomm = MPI.COMM_WORLD
 
     ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
@@ -456,4 +456,4 @@ const τₒ = 1e-1
 const λʳ = 10 // 86400 # m/s
 const θᴱ = 10    # deg.C
 
-main()
+main(FT)

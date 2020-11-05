@@ -23,3 +23,9 @@ to be filled
 
 to be filled
 
+## Custom filter
+
+```@docs
+AbstractCustomFilter
+custom_filter!
+```

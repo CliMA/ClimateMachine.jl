@@ -334,7 +334,7 @@ function compute_gradient_flux!(
     tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2
 end;
 
-struct TurbconvSource <: Source end
+struct TurbconvSource <: AbstractSource end
 
 function atmos_source!(
     ::TurbconvSource,

@@ -42,7 +42,7 @@ using CLIMAParameters.Planet: MSLP, R_d, day, grav, cp_d, cv_d, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
-struct HeldSuarezForcingTutorial <: Source end
+struct HeldSuarezForcingTutorial <: AbstractSource end
 
 # Construct the Held-Suarez forcing function. We can view this as part the
 # right-hand-side of our governing equations. It forces the total energy field
@@ -136,7 +136,7 @@ ClimateMachine.init();
 # precisions, with lower precision we get our results faster, and with higher
 # precision, we may get more accurate results, depending on the questions we
 # are after.
-FT = Float32;
+const FT = Float32;
 
 
 # ## Setup model configuration
