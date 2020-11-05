@@ -82,6 +82,16 @@ end
 
 abstract type AtmosLinearModel <: BalanceLaw end
 
+"""
+    vars_state(m::AtmosLinearModel, ::Prognostic, FT)
+
+Conserved state variables (prognostic variables).
+
+!!! warning
+
+    `AtmosLinearModel` state ordering must be a contiguous subset of the initial
+    state of `AtmosModel` since a shared state is used.
+"""
 function vars_state(lm::AtmosLinearModel, st::Prognostic, FT)
     @vars begin
         ρ::FT
