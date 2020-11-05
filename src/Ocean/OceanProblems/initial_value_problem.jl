@@ -5,7 +5,7 @@
 struct InitialValueProblem{FT, IC, BC} <: AbstractSimpleBoxProblem
     Lˣ :: FT
     Lʸ :: FT
-     H :: FT
+    H :: FT
     initial_conditions :: IC
     boundary_conditions :: BC
 end
