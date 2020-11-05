@@ -181,7 +181,7 @@ function config_ShearFlow(
 	problem = problem,
         init_state_prognostic = init_ShearFlow!,    ## Apply the initial condition
         ref_state = NoReferenceState(),                         ## Reference state
-        turbulence = ConstantDynamicViscosity(FT(0.01)),#SmagorinskyLilly(FT(0)),        ## Turbulence closure model
+        turbulence = ConstantDynamicViscosity(FT(0.01),WithDivergence()),#SmagorinskyLilly(FT(0)),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (),                         ## Gravity is the only source term here
         #tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
@@ -236,7 +236,7 @@ function main()
     ## random seeds, spline interpolants and other special functions at the
     ## initialization step.)
     N = 4
-    Δh = FT(0.05)
+    Δh = FT(0.025)
     Δv = FT(0.2)
     resolution = (Δh, Δh, Δv)
     xmax = FT(1)
@@ -247,7 +247,7 @@ function main()
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
+    CFL = FT(0.8)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_ShearFlow(FT, N, resolution, xmax, ymax, zmax)
