@@ -32,5 +32,8 @@ src/**/Manifest.toml
 *.jpeg
 *.svg
 
+# Movies
+*.gif
+
 # Julia System Images
 *.so

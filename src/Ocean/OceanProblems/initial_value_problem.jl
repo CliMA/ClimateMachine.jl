@@ -64,10 +64,10 @@ Initialize the state variables `u = (u, v)` (a vector), `θ`, and `η`. Mutates 
 
 This function is called by `init_state_prognostic!(::HydrostaticBoussinesqModel, ...)`.
 """
-function ocean_init_state!(::HydrostaticBoussinesqModel, ivp::InitialValueProblem, state, aux, local_geometry, time)
+function ocean_init_state!(::HydrostaticBoussinesqModel, ivp::InitialValueProblem, state, aux, coord, time)
 
     ics = ivp.initial_conditions
-    x, y, z = local_geometry.coord
+    x, y, z = coord # local_geometry.coord
 
     state.u = @SVector [ics.u(x, y, z), ics.v(x, y, z)]
     state.θ = ics.θ(x, y, z)
