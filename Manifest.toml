@@ -828,6 +828,14 @@ git-tree-sha1 = "9250ef9b01b66667380cf3275b3f7488d0e25faf"
 uuid = "b718987f-49a8-5099-9789-dcd902bef87d"
 version = "1.0.1"
 
+[[TimeMachine]]
+deps = ["CUDA", "DiffEqBase", "KernelAbstractions", "LinearAlgebra", "MPI", "StaticArrays"]
+git-tree-sha1 = "57f23918fe64c9f9fa95422dc60f8cb42f325e9f"
+repo-rev = "master"
+repo-url = "https://github.com/CliMA/TimeMachine.jl/"
+uuid = "595c0a79-7f3d-439a-bc5a-b232dc3bde79"
+version = "0.0.0"
+
 [[TimeZones]]
 deps = ["Dates", "EzXML", "Mocking", "Pkg", "Printf", "RecipesBase", "Serialization", "Unicode"]
 git-tree-sha1 = "2c48caca8f3912857973590a9757e1f86cbbff81"

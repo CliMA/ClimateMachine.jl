@@ -40,7 +40,7 @@ struct DriverConfiguration{FT}
     name::String
     N::Int
     array_type
-    solver_type::AbstractSolverType
+    solver_type::Union{AbstractSolverType, DiffEqBase.AbstractODEAlgorithm}
     #
     # Model details
     param_set::AbstractParameterSet
@@ -66,7 +66,7 @@ struct DriverConfiguration{FT}
         N::Int,
         FT,
         array_type,
-        solver_type::AbstractSolverType,
+        solver_type::Union{AbstractSolverType, DiffEqBase.AbstractODEAlgorithm},
         param_set::AbstractParameterSet,
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
