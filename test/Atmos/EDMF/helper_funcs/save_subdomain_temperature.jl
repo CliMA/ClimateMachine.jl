@@ -36,7 +36,6 @@ function save_subdomain_temperature!(
     return nothing
 end
 
-
 # No need to save temperature for DryModel.
 function save_subdomain_temperature!(
     m::AtmosModel,
