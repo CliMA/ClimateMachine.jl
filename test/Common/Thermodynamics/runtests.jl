@@ -365,6 +365,18 @@ end
     e_pot = FT(93)
     @test internal_energy(ρ, ρe, ρu, e_pot) ≈ 1000.0
 
+    # internal energies for dry, vapor, liquid and ice
+    T = FT(300)
+    q = PhasePartition(FT(20 * 1e-3), FT(5 * 1e-3), FT(2 * 1e-3))
+    q_vap = vapor_specific_humidity(q)
+    Id = internal_energy_dry(param_set, T)
+    Iv = internal_energy_vapor(param_set, T)
+    Il = internal_energy_liquid(param_set, T)
+    Ii = internal_energy_ice(param_set, T)
+    @test internal_energy(param_set, T, q) ≈
+          (1 - q.tot) * Id + q_vap * Iv + q.liq * Il + q.ice * Ii
+    @test internal_energy(param_set, T) ≈ Id
+
     # potential temperatures
     T = FT(300)
     @test TD.liquid_ice_pottemp_given_pressure(param_set, T, _MSLP) === T
@@ -1024,6 +1036,10 @@ end
         @test typeof.(air_temperature.(ts)) == typeof.(e_int)
         @test typeof.(internal_energy_sat.(ts)) == typeof.(e_int)
         @test typeof.(internal_energy.(ts)) == typeof.(e_int)
+        @test typeof.(internal_energy_dry.(ts)) == typeof.(e_int)
+        @test typeof.(internal_energy_vapor.(ts)) == typeof.(e_int)
+        @test typeof.(internal_energy_liquid.(ts)) == typeof.(e_int)
+        @test typeof.(internal_energy_ice.(ts)) == typeof.(e_int)
         @test typeof.(latent_heat_vapor.(ts)) == typeof.(e_int)
         @test typeof.(latent_heat_sublim.(ts)) == typeof.(e_int)
         @test typeof.(latent_heat_fusion.(ts)) == typeof.(e_int)
@@ -1083,6 +1099,10 @@ end
     @test all(air_temperature.(ts_eq) .≈ air_temperature.(ts_dry))
     @test all(internal_energy.(ts_eq) .≈ internal_energy.(ts_dry))
     @test all(internal_energy_sat.(ts_eq) .≈ internal_energy_sat.(ts_dry))
+    @test all(internal_energy_dry.(ts_eq) .≈ internal_energy_dry.(ts_dry))
+    @test all(internal_energy_vapor.(ts_eq) .≈ internal_energy_vapor.(ts_dry))
+    @test all(internal_energy_liquid.(ts_eq) .≈ internal_energy_liquid.(ts_dry))
+    @test all(internal_energy_ice.(ts_eq) .≈ internal_energy_ice.(ts_dry))
     @test all(soundspeed_air.(ts_eq) .≈ soundspeed_air.(ts_dry))
     @test all(supersaturation.(ts_eq, Ice()) .≈ supersaturation.(ts_dry, Ice()))
     @test all(
