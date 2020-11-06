@@ -38,7 +38,7 @@ nothing # hide
 
 # while for the planetary vorticity gradient we choose
 
-β = 0.1 # Planetary vorticity gradient ∂_y f
+β = 0.2 # Planetary vorticity gradient ∂_y f
 nothing # hide
 
 # The gravitational acceleration ``g`` determines the surface gravity wave
@@ -52,7 +52,7 @@ const gravitational_acceleration = Planet.grav
 
 struct NonDimensionalParameters <: AbstractEarthParameterSet end
 
-gravitational_acceleration(::NonDimensionalParameters) = 1.0
+gravitational_acceleration(::NonDimensionalParameters) = 16.0
 
 # and so that the gravity wave speed is slightly faster than the Rossby
 # wave speed, rendering our simulations feasible.
@@ -116,7 +116,6 @@ driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
     Ne,                                   # The number of elements
     NonDimensionalParameters(),           
     equations;                            # The equations to solve, represented by a `BalanceLaw`
-    #periodicity = (false, false, false),  # Topology of the domain
     periodicity = (false, false, false),  # Topology of the domain
     boundary = ((1, 1), (1, 1), (1, 2))   # (?)
 )  
@@ -144,12 +143,16 @@ filters = (
 
 using ClimateMachine.ODESolvers
 
+start_time = 0.0
+stop_time = 20.0
+time_step = 0.02 # resolves the gravity wave speed c = 4
+
 solver_configuration = ClimateMachine.SolverConfiguration(
-    0.0,                  # start time
-    60.0,                 # stop time
+    start_time,
+    stop_time,
     driver_configuration,
     init_on_cpu = true,
-    ode_dt = 0.2,        # time step size
+    ode_dt = time_step,
     ode_solver_type = ClimateMachine.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch),
     modeldata = filters
 )
@@ -160,14 +163,14 @@ solver_configuration = ClimateMachine.SolverConfiguration(
 # `CartesianField`s to `view` the data corresponding to prognostic fields
 # in `solver_configuration.solver.Q.realdata`:
 
-using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianFields
+using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField
 
 ## CartesianDomain and CartesianField objects to help with plotting
 domain = CartesianDomain(solver_configuration.dg.grid, Ne)
 
-u = CartesianField(solver_configuration, domain, 1)
-v = CartesianField(solver_configuration, domain, 2)
-η = CartesianField(solver_configuration, domain, 3)
+u = CartesianField(solver_configuration.Q, domain, 1)
+v = CartesianField(solver_configuration.Q, domain, 2)
+η = CartesianField(solver_configuration.Q, domain, 3)
 
 # and then and builda callback that copies and glues the data 
 # for each state variable, and stores it in `fetched_states`.
@@ -229,7 +232,7 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 
     ηmax = maximum(abs, state.η)
 
-    ulim = (-ϵ/10, ϵ/10)
+    ulim = (-ϵ*g/10, ϵ*g/10)
     ηlim = (-ηmax, ηmax)
 
     ulevels = range(ulim[1], ulim[2], length=31)
