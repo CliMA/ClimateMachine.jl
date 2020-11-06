@@ -73,8 +73,8 @@ function entr_detr(
     E_dyn = up[i].ρa*λ*(D_E + M_E)
     Δ_dyn = up[i].ρa*λ*(D_δ + M_δ)
 
-    E_dyn = min(max(E_dyn, FT(0)), FT(1))
-    Δ_dyn = min(max(Δ_dyn, FT(0)), FT(1))
-    E_trb = min(max(E_trb, FT(0)), FT(1))
+    E_dyn = max(E_dyn, FT(0))
+    Δ_dyn = max(Δ_dyn, FT(0))
+    E_trb = max(E_trb, FT(0))
     return E_dyn, Δ_dyn, E_trb
 end;
