@@ -13,7 +13,7 @@ ClimateMachine.init()
 # # Domain setup
 #
 # We formulate our problem in a Cartesian domain 100 km in ``x, y`` and 400 m
-# deep, and discretized on a grid 100 fourth-order elements in ``x``, and 1
+# deep, and discretized on a grid with 100 fourth-order elements in ``x``, and 1
 # fourth-order element in ``y, z``,
 
 ## Domain
@@ -89,10 +89,15 @@ initial_conditions = InitialConditions(v=vᵍ, η=ηⁱ)
 # Next, we configure the `HydrostaticBoussinesqModel` and build the `DriverConfiguration`,
 
 using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
-
 using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
+using ClimateMachine.Ocean: Impenetrable, Penetrable, FreeSlip, Insulating, OceanBC
 
-problem = InitialValueProblem(dimensions = (Lx, Ly, Lz), initial_conditions = initial_conditions)
+problem = InitialValueProblem(
+    dimensions = (Lx, Ly, Lz),
+    initial_conditions = initial_conditions,
+    boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
+                           OceanBC(Penetrable(FreeSlip()), Insulating()))
+)
 
 equations = HydrostaticBoussinesqModel{Float64}(
     EarthParameters(),
@@ -108,8 +113,8 @@ driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
     Ne,                                   # The number of elements
     EarthParameters(),                    # The CLIMAParameters.AbstractParameterSet to use
     equations;                            # The equations to solve, represented by a `BalanceLaw`
-    periodicity = (false, false, false),  # Topology of the domain
-    boundary = ((0, 0), (0, 0), (1, 2))   # (?)
+    periodicity = (false, true, false),    # Topology of the domain
+    boundary = ((1, 1), (0, 0), (1, 2))   # (?)
 )  
 nothing # hide
 
@@ -173,9 +178,9 @@ using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, jo
 ## CartesianDomain and CartesianField objects to help with plotting
 domain = CartesianDomain(solver_configuration.dg.grid, Ne)
 
-u = CartesianField(solver_configuration, 1, domain)
-v = CartesianField(solver_configuration, 2, domain)
-η = CartesianField(solver_configuration, 3, domain)
+u = CartesianField(solver_configuration, domain, 1)
+v = CartesianField(solver_configuration, domain, 2)
+η = CartesianField(solver_configuration, domain, 3)
 
 ## Container to hold the plotted frames
 movie_plots = []

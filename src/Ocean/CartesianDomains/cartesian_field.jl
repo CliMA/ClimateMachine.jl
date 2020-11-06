@@ -12,11 +12,11 @@ function Base.collect(field::CartesianField)
     return CartesianField(elements, field)
 end
 
-Base.maximum(f, field::CartesianField) = maximum([maximum(f, el.data) for el in field.elements])
-Base.minimum(f, field::CartesianField) = minimum([minimum(f, el.data) for el in field.elements])
+Base.maximum(f, field::CartesianField) = maximum([maximum(f, el) for el in field.elements])
+Base.minimum(f, field::CartesianField) = minimum([minimum(f, el) for el in field.elements])
 
-Base.maximum(field::CartesianField) = maximum([maximum(el.data) for el in field.elements])
-Base.minimum(field::CartesianField) = minimum([minimum(el.data) for el in field.elements])
+Base.maximum(field::CartesianField) = maximum([maximum(el) for el in field.elements])
+Base.minimum(field::CartesianField) = minimum([minimum(el) for el in field.elements])
 
 Base.show(io::IO, field::CartesianField{FT}) where FT = print(io, "CartesianField{$FT}")
 
@@ -24,13 +24,20 @@ Base.@propagate_inbounds Base.getindex(field::CartesianField, i, j, k) = field.e
 
 Base.size(field::CartesianField) = size(field.elements)
 
->̃(x::FT, y::FT) where FT = x >= y + eps(FT)
+"""
+    CartesianField(solver, domain; variable_index)
 
-function CartesianField(solver, index, domain)
-    # Unwind the solver
+Returns an abstracted Cartesian `view` into `solver.Q.realdata[:, variable_index, :]`
+that assumes `solver.Q.realdata` lives on `CartesianDomain`.
+
+`CartesianField.elements` is a three-dimensional array of `RectangularElements`.
+"""
+function CartesianField(solver, domain, variable_index)
+
+    # Unwind the data in solver
     grid = solver.dg.grid
     state = solver.Q
-    data = view(state.realdata, :, index, :)
+    data = view(state.realdata, :, variable_index, :)
 
     # Unwind volume geometry
     volume_geometry = grid.vgeo
@@ -48,27 +55,24 @@ function CartesianField(solver, index, domain)
     data = reshape(data, Np+1, Np+1, Np+1, Te)
 
     # Construct a list of elements assuming Cartesian geometry
-    element_list = [CartesianElement(view(data, :, :, :, i),
-                                     view(x,    :, 1, 1, i),
-                                     view(y,    1, :, 1, i),
-                                     view(z,    1, 1, :, i)) for i = 1:Te]
+    element_list = [RectangularElement(view(data, :, :, :, i),
+                                       view(x,    :, 1, 1, i),
+                                       view(y,    1, :, 1, i),
+                                       view(z,    1, 1, :, i)) for i = 1:Te]
 
-    function flattened_distance(elem)
+    function linear_coordinate(elem)
         Δx = elem.x[1] - domain.x[1]
         Δy = elem.y[1] - domain.y[1]
         Δz = elem.z[1] - domain.z[1]
 
-        dist = (Δz / domain.Lz * domain.Ne.z * domain.Ne.y * domain.Lx +
-                Δy / domain.Ly * domain.Ne.y * domain.Lx +
-                Δx)
+        coordinate = (Δz / domain.Lz * domain.Ne.z * domain.Ne.y * domain.Lx +
+                      Δy / domain.Ly * domain.Ne.y * domain.Lx +
+                      Δx)
+
+        return coordinate
     end
 
-    # Sort elements by their corner point
-    corner_less_than(e1, e2) = ifelse(e1.z[1] ≈ e2.z[1],
-                               ifelse(e1.y[1] ≈ e2.y[1],
-                               ifelse(e1.x[1] < e2.x[1], true, false), false), false)
-                                      
-    sort!(element_list, by=flattened_distance)
+    sort!(element_list, by=linear_coordinate)
 
     # Reshape and permute dims to get an array where i, j, k correspond to x, y, z
     element_array = reshape(element_list, Ne.x, Ne.y, Ne.z)
@@ -76,8 +80,13 @@ function CartesianField(solver, index, domain)
     return CartesianField(element_array, domain)
 end
 
+function CartesianFields(solver, domain)
+    indices = size(solver.Q.realdata, 2)
+    return Tuple(CartesianField(solver, domain, i) for i in indices)
+end
+
 #####
-##### plotting
+##### Plotting (experimental)
 #####
 
 struct K
