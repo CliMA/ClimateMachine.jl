@@ -69,6 +69,32 @@ mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <:
 end
 
 """
+    dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p, time::Real,
+            nsteps::Int, iStage::Int, [slow_δ, slow_rv_dQ, slow_scaling])
+
+Wrapper function to use the strong stability preserving Runge--Kutta method `ssp`
+as the fast solver for a Multirate Infinitesimal Step method by calling dostep!(Q,
+ssp::StrongStabilityPreservingRungeKutta, p, time::Real, [slow_δ, slow_rv_dQ,
+slow_scaling]) nsubsteps times.
+"""
+function dostep!(
+    Q,
+    ssp::StrongStabilityPreservingRungeKutta,
+    p,
+    time::Real,
+    nsteps::Int,
+    iStage::Int,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+)
+    for i in 1:nsteps
+        dostep!(Q, ssp, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += ssp.dt
+    end
+end
+
+"""
     ODESolvers.dostep!(Q, ssp::StrongStabilityPreservingRungeKutta, p,
                        time::Real, [slow_δ, slow_rv_dQ, slow_scaling])
 

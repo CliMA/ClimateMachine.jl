@@ -52,6 +52,13 @@ ODESolvers.LSRKEulerMethod
 ODESolvers.MultirateRungeKutta
 ```
 
+## Multi-rate Infinitesimal Step Methods
+
+```@docs
+ODESolvers.TimeScaledRHS
+ODESolvers.MultirateInfinitesimalStep
+```
+
 ## Split-explicit methods
 
 ```@docs

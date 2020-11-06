@@ -169,7 +169,7 @@ function config_problem(::Type{FT}, N, resolution, xmax, ymax, zmax) where {FT}
         splitting_type = ClimateMachine.SlowFastSplitting(),
         mis_method = MIS2,
         fast_method = LSRK144NiegemannDiehlBusch,
-        nsubsteps = 10,
+        nsubsteps = (40,),
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

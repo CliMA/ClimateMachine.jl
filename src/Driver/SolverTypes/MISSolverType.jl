@@ -34,9 +34,9 @@ fast and slow dynamics respectively, depending on the state `Q`.
     Default: `MIS2`
 - `fast_method` (Function): Function defining the fast solver.
     Default: `LSRK54CarpenterKennedy`
-- `nsubsteps` (Int): Integer denoting the total number of times
+- `nsubsteps` (Tuple): Tuple denoting the total number of times
     to substep the fast process.
-    Default: `50`
+    Default: `(50,)`
 - `discrete_splitting` (Boolean): Boolean denoting whether a PDE level or
     discretized level splitting should be used. If `true` then the PDE is
     discretized in such a way that `f_fast + f_slow` is equivalent to
@@ -65,7 +65,7 @@ struct MISSolverType{DS} <: AbstractSolverType
     # Fast RK solver
     fast_method::Function
     # Substepping parameter for the fast processes
-    nsubsteps::Int
+    nsubsteps::Tuple
     # Whether to use a PDE level or discrete splitting
     discrete_splitting::Bool
 
@@ -74,7 +74,7 @@ struct MISSolverType{DS} <: AbstractSolverType
         fast_model = AtmosAcousticGravityLinearModel,
         mis_method = MIS2,
         fast_method = LSRK54CarpenterKennedy,
-        nsubsteps = 50,
+        nsubsteps = (50,),
         discrete_splitting = false,
     )
 
@@ -162,11 +162,108 @@ function solversetup(
         slow_dg,
         fast_dg,
         ode_solver.fast_method,
-        ode_solver.nsubsteps,
+        ode_solver.nsubsteps[1],
         Q;
         dt = dt,
         t0 = t0,
     )
 
+    return solver
+end
+
+function solversetup(
+    ode_solver::MISSolverType{HEVISplitting},
+    dg,
+    Q,
+    dt,
+    t0,
+    diffusion_direction,
+)
+
+    # Extract fast model and define a DG model
+    # for the fast processes (acoustic/gravity waves
+    # in all spatial directions)
+    fast_model = ode_solver.fast_model(dg.balance_law)
+    fast_method = ode_solver.fast_method
+    fast_dg = DGModel(
+        fast_model,
+        dg.grid,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        dg.numerical_flux_gradient,
+        state_auxiliary = dg.state_auxiliary,
+        state_gradient_flux = dg.state_gradient_flux,
+        states_higher_order = dg.states_higher_order,
+        direction = EveryDirection(),
+    )
+
+    # Using the RemainderModel, we subtract away the
+    # fast processes and define a DG model for the
+    # slower processes (advection and diffusion)
+    if ode_solver.discrete_splitting
+        numerical_flux_first_order =
+            (dg.numerical_flux_first_order, (dg.numerical_flux_first_order,))
+    else
+        numerical_flux_first_order = dg.numerical_flux_first_order
+    end
+    slow_dg = remainder_DGModel(
+        dg,
+        (fast_dg,);
+        numerical_flux_first_order = numerical_flux_first_order,
+    )
+
+    # Defining horizontal and vertical fast tendencies
+    fast_dg_h = DGModel(
+        fast_model,
+        dg.grid,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        dg.numerical_flux_gradient,
+        state_auxiliary = dg.state_auxiliary,
+        state_gradient_flux = dg.state_gradient_flux,
+        states_higher_order = dg.states_higher_order,
+        direction = HorizontalDirection(),
+    )
+    fast_dg_v = DGModel(
+        fast_model,
+        dg.grid,
+        dg.numerical_flux_first_order,
+        dg.numerical_flux_second_order,
+        dg.numerical_flux_gradient,
+        state_auxiliary = dg.state_auxiliary,
+        state_gradient_flux = dg.state_gradient_flux,
+        states_higher_order = dg.states_higher_order,
+        direction = VerticalDirection(),
+    )
+
+    fast_dg_tendencies = (fast_dg_h, fast_dg_v)
+
+    if length(ode_solver.nsubsteps) == 1
+        nsubsteps = getnsubsteps(
+            ode_solver.mis_method,
+            ode_solver.nsubsteps[1],
+            real(eltype(Q)),
+        )
+        fast_method =
+            (dg, Q) -> ode_solver.fast_method(
+                dg,
+                Q,
+                dt / ode_solver.nsubsteps[1],
+                nsubsteps,
+            )
+    elseif length(ode_solver.nsubsteps) == 2
+        fast_method =
+            (dg, Q) -> ode_solver.fast_method(dg, Q, ode_solver.nsubsteps[2])
+    end
+
+    solver = ode_solver.mis_method(
+        slow_dg,
+        fast_dg_tendencies,
+        fast_method,
+        ode_solver.nsubsteps[1],
+        Q;
+        dt = dt,
+        t0 = t0,
+    )
     return solver
 end
