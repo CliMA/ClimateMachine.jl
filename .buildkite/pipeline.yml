@@ -1048,6 +1048,16 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
+  - label: "gpu_sbl_edmf"
+    key: "gpu_sbl_edmf"
+    command:
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_edmf.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
   - label: "gpu_bomex_bulk_sfc_flux"
     key: "gpu_bomex_bulk_sfc_flux"
     command:
@@ -1062,6 +1072,36 @@ steps:
     key: "gpu_taylor_green"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/taylor_green.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_rising_bubble_bryan_mrrk"
+    key: "gpu_rising_bubble_bryan_mrrk"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_bryan.jl  --fast-method=MultirateRungeKutta "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_rising_bubble_bryan_ark"
+    key: "gpu_rising_bubble_bryan_ark"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_bryan.jl  --fast-method=AdditiveRungeKutta "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_rising_bubble_bryan_mis"
+    key: "gpu_rising_bubble_bryan_mis"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_bryan.jl  --fast-method=MultirateInfinitesimalStep "
     agents:
       config: gpu
       queue: central

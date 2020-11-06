@@ -181,13 +181,7 @@ function (lin::LinBESolver)(Q, Qhat, α, p, t)
 
     if typeof(lin.solver) <: AbstractIterativeSystemSolver
         FT = eltype(α)
-        preconditioner_update!(
-            rhs!,
-            rhs!.f!,
-            lin.preconditioner,
-            nothing,
-            FT(NaN),
-        )
+        preconditioner_update!(rhs!, rhs!.f!, lin.preconditioner, p, t)
         linearsolve!(rhs!, lin.preconditioner, lin.solver, Q, Qhat, p, t)
         preconditioner_counter_update!(lin.preconditioner)
     else

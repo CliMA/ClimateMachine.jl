@@ -47,6 +47,8 @@ using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Auxiliary, Gradient, GradientFlux, Prognostic
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
@@ -176,8 +178,11 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
-    TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
-
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
+    else
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    end
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -192,19 +197,25 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_tot
-
+    if !(bl.moisture isa DryModel)
+        state.moisture.ρq_tot = ρ * q_tot
+    end
     if z <= FT(50) # Add random perturbations to bottom 50m of model
         state.ρe += rand() * ρe_tot / 100
     end
+    init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(state, t)
+function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
     ρ = state.ρ
-    q_tot = state.moisture.ρq_tot / ρ
     θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
+    else
+        q_tot = state.moisture.ρq_tot / ρ
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
+    end
     return air_temperature(TS)
 end
 
@@ -214,6 +225,7 @@ function stable_bl_model(
     zmax,
     surface_flux;
     turbconv = NoTurbConv(),
+    moisture_model = "dry",
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
@@ -252,15 +264,31 @@ function stable_bl_model(
             v_geostrophic,
         ),
     )
-
+    if moisture_model == "dry"
+        moisture = DryModel()
+    elseif moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
         energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> (surface_temperature_variation(state, t), q_sfc),
+            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(bl, state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
@@ -274,10 +302,20 @@ function stable_bl_model(
         )
     end
 
-    moisture_flux = FT(0)
-    problem = AtmosProblem(
-        init_state_prognostic = ics,
-        boundarycondition = (
+    if moisture_model == "dry"
+        boundary_conditions = (
+            AtmosBC(
+                momentum = Impenetrable(DragLaw(
+                    # normPu_int is the internal horizontal speed
+                    # P represents the projection onto the horizontal
+                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
+                )),
+                energy = energy_bc,
+            ),
+            AtmosBC(),
+        )
+    else
+        boundary_conditions = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
                     # normPu_int is the internal horizontal speed
@@ -288,7 +326,13 @@ function stable_bl_model(
                 moisture = moisture_bc,
             ),
             AtmosBC(),
-        ),
+        )
+    end
+
+    moisture_flux = FT(0)
+    problem = AtmosProblem(
+        init_state_prognostic = ics,
+        boundarycondition = boundary_conditions,
     )
 
     # Assemble model components
@@ -297,7 +341,7 @@ function stable_bl_model(
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = moisture,
         source = source_default,
         turbconv = turbconv,
     )

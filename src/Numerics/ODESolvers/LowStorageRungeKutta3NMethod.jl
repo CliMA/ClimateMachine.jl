@@ -113,6 +113,32 @@ mutable struct LowStorageRungeKutta3N{T, RT, AT, Nstages} <: AbstractODESolver
 end
 
 """
+    dostep!(Q, lsrk3n::LowStorageRungeKutta3N, p, time::Real, nsubsteps::Int,
+            iStage::Int, [slow_δ, slow_rv_dQ, slow_scaling])
+
+Wrapper function to use the 3N low storage Runge--Kutta method `lsrk3n` as the fast
+solver for a Multirate Infinitesimal Step method by calling dostep!(Q,
+lsrk3n::LowStorageRungeKutta3N, p, time::Real, [slow_δ, slow_rv_dQ, slow_scaling])
+nsubsteps times.
+"""
+function dostep!(
+    Q,
+    lsrk3n::LowStorageRungeKutta3N,
+    p,
+    time::Real,
+    nsubsteps::Int,
+    iStage::Int,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+)
+    for i in 1:nsubsteps
+        dostep!(Q, lsrk3n, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += lsrk3n.dt
+    end
+end
+
+"""
     dostep!(Q, lsrk3n::LowStorageRungeKutta3N, p, time::Real,
             [slow_δ, slow_rv_dQ, slow_scaling])
 

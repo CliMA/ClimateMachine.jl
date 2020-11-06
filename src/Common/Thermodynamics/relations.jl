@@ -13,6 +13,10 @@ export vapor_specific_humidity
 export total_energy
 export internal_energy
 export internal_energy_sat
+export internal_energy_dry
+export internal_energy_vapor
+export internal_energy_liquid
+export internal_energy_ice
 
 # Specific heats and gas constants of moist air
 export cp_m, cv_m, gas_constant_air, gas_constants
@@ -413,6 +417,99 @@ The internal energy per unit mass, given
     e_int = ρinv * ρe_int
     return e_int
 end
+
+"""
+    internal_energy_dry(param_set, T)
+
+The dry air internal energy
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+"""
+function internal_energy_dry(param_set::APS, T::FT) where {FT <: Real}
+    _T_0::FT = T_0(param_set)
+    _cv_d::FT = cv_d(param_set)
+
+    return _cv_d * (T - _T_0)
+end
+"""
+    internal_energy_dry(ts::ThermodynamicState)
+
+The the dry air internal energy, given a thermodynamic state `ts`.
+"""
+internal_energy_dry(ts::ThermodynamicState) =
+    internal_energy_dry(ts.param_set, air_temperature(ts))
+
+"""
+    internal_energy_vapor(param_set, T)
+
+The water vapor internal energy
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+"""
+function internal_energy_vapor(param_set::APS, T::FT) where {FT <: Real}
+    _T_0::FT = T_0(param_set)
+    _cv_v::FT = cv_v(param_set)
+    _e_int_v0::FT = e_int_v0(param_set)
+
+    return _cv_v * (T - _T_0) + _e_int_v0
+end
+
+"""
+    internal_energy_vapor(ts::ThermodynamicState)
+
+The the water vapor internal energy, given a thermodynamic state `ts`.
+"""
+internal_energy_vapor(ts::ThermodynamicState) =
+    internal_energy_vapor(ts.param_set, air_temperature(ts))
+
+"""
+    internal_energy_liquid(param_set, T)
+
+The liquid water internal energy
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+"""
+function internal_energy_liquid(param_set::APS, T::FT) where {FT <: Real}
+    _T_0::FT = T_0(param_set)
+    _cv_l::FT = cv_l(param_set)
+
+    return _cv_l * (T - _T_0)
+end
+
+"""
+    internal_energy_liquid(ts::ThermodynamicState)
+
+The the liquid water internal energy, given a thermodynamic state `ts`.
+"""
+internal_energy_liquid(ts::ThermodynamicState) =
+    internal_energy_liquid(ts.param_set, air_temperature(ts))
+
+"""
+    internal_energy_ice(param_set, T)
+
+The ice internal energy
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+"""
+function internal_energy_ice(param_set::APS, T::FT) where {FT <: Real}
+    _T_0::FT = T_0(param_set)
+    _cv_i::FT = cv_i(param_set)
+    _e_int_i0::FT = e_int_i0(param_set)
+
+    return _cv_i * (T - _T_0) - _e_int_i0
+end
+
+"""
+    internal_energy_ice(ts::ThermodynamicState)
+
+The the ice internal energy, given a thermodynamic state `ts`.
+"""
+internal_energy_ice(ts::ThermodynamicState) =
+    internal_energy_ice(ts.param_set, air_temperature(ts))
 
 """
     internal_energy_sat(param_set, T, ρ, q_tot, phase_type)
