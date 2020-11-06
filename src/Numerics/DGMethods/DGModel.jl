@@ -79,6 +79,8 @@ function basic_grid_info(dg::DGModel)
     ninteriorelem = length(grid.interiorelems)
     nexteriorelem = length(grid.exteriorelems)
 
+    nface = 2 * dim
+
     grid_info = (
         dim = dim,
         N = N,
@@ -87,6 +89,7 @@ function basic_grid_info(dg::DGModel)
         Nfp_v = Nfp_v,
         Nfp_h = Nfp_h,
         Np = Np,
+        nface = nface,
         ninteriorelem = ninteriorelem,
         nexteriorelem = nexteriorelem,
     )
@@ -996,8 +999,7 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
         horizontal_D = dg.grid.D[1]
         comp_stream = volume_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(horizontal_polyorder),
+            Val(info),
             HorizontalDirection(),
             state_prognostic.data,
             dg.state_gradient_flux.data,
@@ -1022,8 +1024,7 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
         vertical_D = dg.grid.D[info.dim]
         comp_stream = volume_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(vertical_polyorder),
+            Val(info),
             VerticalDirection(),
             state_prognostic.data,
             dg.state_gradient_flux.data,
@@ -1088,8 +1089,7 @@ function launch_interface_gradients!(
 
         comp_stream = interface_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N[1]),
+            Val(info),
             HorizontalDirection(),
             dg.numerical_flux_gradient,
             state_prognostic.data,
@@ -1127,8 +1127,7 @@ function launch_interface_gradients!(
 
         comp_stream = interface_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(vertical_polyorder),
+            Val(info),
             VerticalDirection(),
             dg.numerical_flux_gradient,
             state_prognostic.data,
@@ -1180,8 +1179,7 @@ function launch_volume_divergence_of_gradients!(
 
         comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(horizontal_polyorder),
+            Val(info),
             HorizontalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
@@ -1203,8 +1201,7 @@ function launch_volume_divergence_of_gradients!(
 
         comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(vertical_polyorder),
+            Val(info),
             VerticalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
@@ -1264,8 +1261,7 @@ function launch_interface_divergence_of_gradients!(
         comp_stream =
             interface_divergence_of_gradients!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(horizontal_polyorder),
+                Val(info),
                 HorizontalDirection(),
                 CentralNumericalFluxDivergence(),
                 Qhypervisc_grad.data,
@@ -1300,8 +1296,7 @@ function launch_interface_divergence_of_gradients!(
         comp_stream =
             interface_divergence_of_gradients!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(vertical_polyorder),
+                Val(info),
                 VerticalDirection(),
                 CentralNumericalFluxDivergence(),
                 Qhypervisc_grad.data,
@@ -1353,8 +1348,7 @@ function launch_volume_gradients_of_laplacians!(
 
         comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(horizontal_polyorder),
+            Val(info),
             HorizontalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
@@ -1382,8 +1376,7 @@ function launch_volume_gradients_of_laplacians!(
 
         comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(vertical_polyorder),
+            Val(info),
             VerticalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
@@ -1447,8 +1440,7 @@ function launch_interface_gradients_of_laplacians!(
         comp_stream =
             interface_gradients_of_laplacians!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(horizontal_polyorder),
+                Val(info),
                 HorizontalDirection(),
                 CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
@@ -1486,8 +1478,7 @@ function launch_interface_gradients_of_laplacians!(
         comp_stream =
             interface_gradients_of_laplacians!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(vertical_polyorder),
+                Val(info),
                 VerticalDirection(),
                 CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
@@ -1543,8 +1534,7 @@ function launch_volume_tendency!(
 
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(horizontal_polyorder),
+            Val(info),
             dg.direction,
             HorizontalDirection(),
             tendency.data,
@@ -1577,8 +1567,7 @@ function launch_volume_tendency!(
 
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(vertical_polyorder),
+            Val(info),
             dg.direction,
             VerticalDirection(),
             tendency.data,
@@ -1650,8 +1639,7 @@ function launch_interface_tendency!(
 
         comp_stream = interface_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(horizontal_polyorder),
+            Val(info),
             HorizontalDirection(),
             dg.numerical_flux_first_order,
             dg.numerical_flux_second_order,
@@ -1690,8 +1678,7 @@ function launch_interface_tendency!(
 
         comp_stream = interface_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(vertical_polyorder),
+            Val(info),
             VerticalDirection(),
             dg.numerical_flux_first_order,
             dg.numerical_flux_second_order,

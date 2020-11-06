@@ -62,8 +62,7 @@ fluxes, respectively.
 """ volume_tendency!
 @kernel function volume_tendency!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     model_direction,
     direction,
     tendency,
@@ -79,9 +78,9 @@ fluxes, respectively.
     α,
     β,
     add_source = false,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
@@ -90,9 +89,8 @@ fluxes, respectively.
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -377,8 +375,7 @@ inviscid and viscous fluxes, respectively.
 volume_tendency!
 @kernel function volume_tendency!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     model_direction,
     ::VerticalDirection,
     tendency,
@@ -394,9 +391,9 @@ volume_tendency!
     α,
     β,
     add_source = false,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
@@ -405,9 +402,8 @@ volume_tendency!
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -681,8 +677,7 @@ fluxes, respectively.
 """ interface_tendency!
 @kernel function interface_tendency!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     numerical_flux_first_order,
     numerical_flux_second_order,
@@ -699,29 +694,18 @@ fluxes, respectively.
     elemtobndy,
     elems,
     α,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
-
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
+        nface = info.nface
+        Np = info.Np
+        Nqk = info.Nqk
 
         faces = 1:nface
         if direction isa VerticalDirection
@@ -729,9 +713,6 @@ fluxes, respectively.
         elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
-
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
 
         local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_gradient_flux⁻ =
@@ -1013,8 +994,7 @@ gradient flux.
 """ volume_gradients!
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     state_prognostic,
     state_gradient_flux,
@@ -1026,10 +1006,9 @@ gradient flux.
     ::Val{hypervisc_indexmap},
     elems,
     increment = false,
-) where {dim, polyorder, hypervisc_indexmap}
+) where {info, hypervisc_indexmap}
     @uniform begin
-        N = polyorder
-
+        dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         ngradstate = number_states(balance_law, Gradient())
@@ -1037,9 +1016,10 @@ gradient flux.
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        # Assumes same polynomial order in both
+        # horizontal directions (x,y)
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         ngradtransformstate = num_state_prognostic
 
@@ -1265,8 +1245,7 @@ matrix and G is the auxiliary gradient flux.
 """ volume_gradients!
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     ::VerticalDirection,
     state_prognostic,
     state_gradient_flux,
@@ -1278,9 +1257,9 @@ matrix and G is the auxiliary gradient flux.
     ::Val{hypervisc_indexmap},
     elems,
     increment = false,
-) where {dim, polyorder, hypervisc_indexmap}
+) where {info, hypervisc_indexmap}
     @uniform begin
-        N = polyorder
+        dim = info.dim
 
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
@@ -1289,9 +1268,10 @@ matrix and G is the auxiliary gradient flux.
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        # Assumes same polynomial order in both
+        # horizontal directions (x,y)
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         ngradtransformstate = num_state_prognostic
 
@@ -1517,8 +1497,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 """ interface_gradients!
 @kernel function interface_gradients!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     numerical_flux_gradient,
     state_prognostic,
@@ -1533,29 +1512,18 @@ auxiliary gradient flux, and G* is the associated numerical flux.
     elemtobndy,
     ::Val{hypervisc_indexmap},
     elems,
-) where {dim, polyorder, hypervisc_indexmap}
+) where {info, hypervisc_indexmap}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         ngradstate = number_states(balance_law, Gradient())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
-
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
+        nface = info.nface
+        Np = info.Np
+        Nqk = info.Nqk
 
         # Determines the number of faces depending on
         # the direction argument
@@ -1565,8 +1533,6 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
-
-        Nqk = dim == 2 ? 1 : N + 1
 
         ngradtransformstate = num_state_prognostic
 
@@ -2283,8 +2249,7 @@ end
 
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     Qhypervisc_grad,
     Qhypervisc_div,
@@ -2292,15 +2257,14 @@ end
     D,
     elems,
     increment = false,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
     end
@@ -2380,8 +2344,7 @@ end
 
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     ::VerticalDirection,
     Qhypervisc_grad,
     Qhypervisc_div,
@@ -2389,15 +2352,14 @@ end
     D,
     elems,
     increment = false,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        Nq = N + 1
-
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         l_div = MArray{Tuple{ngradlapstate}, FT}(undef)
     end
@@ -2463,8 +2425,7 @@ end
 
 @kernel function interface_divergence_of_gradients!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     divgradnumpenalty,
     Qhypervisc_grad,
@@ -2475,25 +2436,14 @@ end
     vmap⁺,
     elemtobndy,
     elems,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
-
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
+        nface = info.nface
+        Np = info.Np
+        Nqk = info.Nqk
 
         faces = 1:nface
         if direction isa VerticalDirection
@@ -2501,8 +2451,6 @@ end
         elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
-
-        Nqk = dim == 2 ? 1 : N + 1
 
         l_grad⁻ = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         l_grad⁺ = MArray{Tuple{3, ngradlapstate}, FT}(undef)
@@ -2574,8 +2522,7 @@ end
 
 @kernel function volume_gradients_of_laplacians!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     Qhypervisc_grad,
     Qhypervisc_div,
@@ -2587,9 +2534,9 @@ end
     elems,
     t,
     increment = false,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
 
         FT = eltype(Qhypervisc_grad)
         num_state_prognostic = number_states(balance_law, Prognostic())
@@ -2598,8 +2545,8 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         l_grad_lap = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -2707,8 +2654,7 @@ end
 
 @kernel function volume_gradients_of_laplacians!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     ::VerticalDirection,
     Qhypervisc_grad,
     Qhypervisc_div,
@@ -2720,9 +2666,9 @@ end
     elems,
     t,
     increment = false,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
 
         FT = eltype(Qhypervisc_grad)
         num_state_prognostic = number_states(balance_law, Prognostic())
@@ -2731,8 +2677,8 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = info.Nq[1]
+        Nqk = info.Nqk
 
         l_grad_lap = MArray{Tuple{3, ngradlapstate}, FT}(undef)
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -2820,8 +2766,7 @@ end
 
 @kernel function interface_gradients_of_laplacians!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{polyorder},
+    ::Val{info},
     direction,
     hyperviscnumflux,
     Qhypervisc_grad,
@@ -2835,29 +2780,18 @@ end
     elemtobndy,
     elems,
     t,
-) where {dim, polyorder}
+) where {info}
     @uniform begin
-        N = polyorder
+        dim = info.dim
         FT = eltype(Qhypervisc_grad)
         num_state_prognostic = number_states(balance_law, Prognostic())
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
-
-        if dim == 1
-            Np = (N + 1)
-            Nfp = 1
-            nface = 2
-        elseif dim == 2
-            Np = (N + 1) * (N + 1)
-            Nfp = (N + 1)
-            nface = 4
-        elseif dim == 3
-            Np = (N + 1) * (N + 1) * (N + 1)
-            Nfp = (N + 1) * (N + 1)
-            nface = 6
-        end
+        nface = info.nface
+        Np = info.Np
+        Nqk = info.Nqk
 
         faces = 1:nface
         if direction isa VerticalDirection
@@ -2865,8 +2799,6 @@ end
         elseif direction isa HorizontalDirection
             faces = 1:(nface - 2)
         end
-
-        Nqk = dim == 2 ? 1 : N + 1
 
         l_lap⁻ = MArray{Tuple{ngradlapstate}, FT}(undef)
         l_lap⁺ = MArray{Tuple{ngradlapstate}, FT}(undef)
