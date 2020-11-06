@@ -82,8 +82,10 @@ mutable struct AdditiveRungeKutta{
     rhs!
     "rhs linear operator"
     rhs_implicit!
-    "backwark Euler solver"
+    "backward Euler solver"
     besolver!::BE
+    "backward Euler solvers, pre-factorized, for MIS"
+    besolvers!
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"
@@ -117,6 +119,7 @@ mutable struct AdditiveRungeKutta{
         Q::AT;
         dt = nothing,
         t0 = 0,
+        nsubsteps = [],
     ) where {AT <: AbstractArray}
 
         @assert dt != nothing
@@ -140,13 +143,27 @@ mutable struct AdditiveRungeKutta{
             @assert RKA_implicit[is, is] ≈ RKA_implicit[2, 2]
         end
 
-        α = dt * RKA_implicit[2, 2]
-        besolver! = setup_backward_Euler_solver(
-            backward_euler_solver,
-            Q,
-            α,
-            rhs_implicit!,
-        )
+        if isempty(nsubsteps)
+            α = dt * RKA_implicit[2, 2]
+            besolver! = setup_backward_Euler_solver(
+                backward_euler_solver,
+                Q,
+                α,
+                rhs_implicit!,
+            )
+            besolvers! = ()
+        else
+            besolvers! = ntuple(
+                i -> setup_backward_Euler_solver(
+                    backward_euler_solver,
+                    Q,
+                    dt * nsubsteps[i] * RKA_implicit[2, 2],
+                    rhs_implicit!,
+                ),
+                length(nsubsteps),
+            )
+            besolver! = besolvers![1]
+        end
         @assert besolver! isa AbstractBackwardEulerSolver
         BE = typeof(besolver!)
 
@@ -157,6 +174,7 @@ mutable struct AdditiveRungeKutta{
             rhs!,
             rhs_implicit!,
             besolver!,
+            besolvers!,
             Qstages,
             Rstages,
             Qhat,
@@ -169,6 +187,30 @@ mutable struct AdditiveRungeKutta{
             variant_storage,
         )
     end
+end
+
+function AdditiveRungeKutta(
+    ark,
+    op::TimeScaledRHS{2, RT} where {RT},
+    backward_euler_solver,
+    Q::AT;
+    dt = 0,
+    t0 = 0,
+    nsubsteps = [],
+    split_explicit_implicit = true,
+    variant = NaiveVariant(),
+) where {AT <: AbstractArray}
+    return ark(
+        op.rhs![1],
+        op.rhs![2],
+        backward_euler_solver,
+        Q;
+        dt = dt,
+        t0 = t0,
+        nsubsteps = nsubsteps,
+        split_explicit_implicit = split_explicit_implicit,
+        variant = variant,
+    )
 end
 
 # this will only work for iterative solves
@@ -190,6 +232,24 @@ function dostep!(
     slow_scaling = nothing,
 )
     dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+end
+
+function dostep!(
+    Q,
+    ark::AdditiveRungeKutta,
+    p,
+    time::Real,
+    nsubsteps::Int,
+    iStage::Int,
+    slow_δ = nothing,
+    slow_rv_dQ = nothing,
+    slow_scaling = nothing,
+)
+    ark.besolver! = ark.besolvers![iStage]
+    for i in 1:nsubsteps
+        dostep!(Q, ark, ark.variant, p, time, slow_δ, slow_rv_dQ, slow_scaling)
+        time += ark.dt
+    end
 end
 
 function dostep!(
@@ -569,6 +629,7 @@ function ARK1ForwardBackwardEuler(
     Q::AT;
     dt = nothing,
     t0 = 0,
+    nsubsteps = [],
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
@@ -605,6 +666,7 @@ function ARK1ForwardBackwardEuler(
         Q;
         dt = dt,
         t0 = t0,
+        nsubsteps = nsubsteps,
     )
 end
 
@@ -639,6 +701,7 @@ function ARK2ImplicitExplicitMidpoint(
     Q::AT;
     dt = nothing,
     t0 = 0,
+    nsubsteps = [],
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
@@ -675,6 +738,7 @@ function ARK2ImplicitExplicitMidpoint(
         Q;
         dt = dt,
         t0 = t0,
+        nsubsteps = nsubsteps,
     )
 end
 
@@ -712,6 +776,7 @@ function ARK2GiraldoKellyConstantinescu(
     Q::AT;
     dt = nothing,
     t0 = 0,
+    nsubsteps = [],
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
     paperversion = false,
@@ -753,6 +818,7 @@ function ARK2GiraldoKellyConstantinescu(
         Q;
         dt = dt,
         t0 = t0,
+        nsubsteps = nsubsteps,
     )
 end
 
@@ -787,6 +853,7 @@ function ARK548L2SA2KennedyCarpenter(
     Q::AT;
     dt = nothing,
     t0 = 0,
+    nsubsteps = [],
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
@@ -905,6 +972,7 @@ function ARK548L2SA2KennedyCarpenter(
         Q;
         dt = dt,
         t0 = t0,
+        nsubsteps = nsubsteps,
     )
 end
 
@@ -938,6 +1006,7 @@ function ARK437L2SA1KennedyCarpenter(
     Q::AT;
     dt = nothing,
     t0 = 0,
+    nsubsteps = [],
     split_explicit_implicit = false,
     variant = LowStorageVariant(),
 ) where {AT <: AbstractArray}
@@ -1046,5 +1115,6 @@ function ARK437L2SA1KennedyCarpenter(
         Q;
         dt = dt,
         t0 = t0,
+        nsubsteps = nsubsteps,
     )
 end

@@ -206,15 +206,15 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(state, t, moisture)
+function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
     ρ = state.ρ
     θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    if moisture isa DryModel
-        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
     else
-        q_tot = state.moisture.ρq_tot / state.ρ
-        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
+        q_tot = state.moisture.ρq_tot / ρ
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
     end
     return air_temperature(TS)
 end
@@ -286,9 +286,9 @@ function stable_bl_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) ->
-                (surface_temperature_variation(state, t, moisture), q_sfc),
+            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(bl, state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,

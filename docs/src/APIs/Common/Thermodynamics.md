@@ -46,6 +46,10 @@ has_condensate
 Ice
 ice_specific_humidity
 internal_energy
+internal_energy_dry
+internal_energy_vapor
+internal_energy_liquid
+internal_energy_ice
 internal_energy_sat
 latent_heat_fusion
 latent_heat_liq_ice

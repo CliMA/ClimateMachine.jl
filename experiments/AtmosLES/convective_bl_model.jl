@@ -14,7 +14,7 @@
 ## number={12},
 ## pages={3159-3175},
 ## doi={10.1029/2018MS001534},
-## url={https://doi.org/10.1029/2018MS001534}
+## url={https://doi.org/10.1029/2018MS001534},
 ## }
 #
 # To simulate the experiment, type in
@@ -202,14 +202,15 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(state, t, moisture_model)
+function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
     ρ = state.ρ
-    θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    if moisture_model == "dry"
-        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
+    θ_liq_sfc = FT(291.15) + FT(20) * sinpi(FT(t / 12 / 3600))
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
     else
-        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
+        q_tot = state.moisture.ρq_tot / ρ
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
     end
     return air_temperature(TS)
 end
@@ -238,7 +239,7 @@ function convective_bl_model(
     q_sfc = FT(0)
 
     # Assemble source components
-    source = (
+    source_default = (
         Gravity(),
         ConvectiveBLSponge{FT}(
             zmax,
@@ -263,8 +264,9 @@ function convective_bl_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> (surface_temperature_variation(state, t), q_sfc),
+            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(bl, state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,

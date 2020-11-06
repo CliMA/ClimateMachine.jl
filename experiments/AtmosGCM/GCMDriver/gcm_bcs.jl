@@ -21,8 +21,8 @@ function parse_surface_flux_arg(
         boundarycondition = (
             AtmosBC(
                 energy = BulkFormulaEnergy(
-                    (state, aux, t, normPu_int) -> _C_drag,
-                    (state, aux, t) -> bulk_flux(state, aux, t),
+                    (bl, state, aux, t, normPu_int) -> _C_drag,
+                    (bl, state, aux, t) -> bulk_flux(state, aux, t),
                 ),
                 moisture = BulkFormulaMoisture(
                     (state, aux, t, normPu_int) -> _C_drag,

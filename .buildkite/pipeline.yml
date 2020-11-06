@@ -1088,6 +1088,36 @@ steps:
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
+  - label: "gpu_rising_bubble_bryan_mrrk"
+    key: "gpu_rising_bubble_bryan_mrrk"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_bryan.jl  --fast-method=MultirateRungeKutta "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_rising_bubble_bryan_ark"
+    key: "gpu_rising_bubble_bryan_ark"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_bryan.jl  --fast-method=AdditiveRungeKutta "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_rising_bubble_bryan_mis"
+    key: "gpu_rising_bubble_bryan_mis"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/rising_bubble_bryan.jl  --fast-method=MultirateInfinitesimalStep "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
   - label: "gpu_schar_scalar_advection"
     key: "gpu_schar_scalar_advection"
     command:
