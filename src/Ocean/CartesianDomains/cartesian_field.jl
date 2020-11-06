@@ -1,3 +1,5 @@
+using ClimateMachine.MPIStateArrays: MPIStateArray
+
 #####
 ##### CartesianField
 #####
@@ -25,22 +27,20 @@ Base.@propagate_inbounds Base.getindex(field::CartesianField, i, j, k) = field.e
 Base.size(field::CartesianField) = size(field.elements)
 
 """
-    CartesianField(solver, domain; variable_index)
+    CartesianField(state::MPIStateArray, domain::CartesianDomain; variable_index::Int)
 
-Returns an abstracted Cartesian `view` into `solver.Q.realdata[:, variable_index, :]`
-that assumes `solver.Q.realdata` lives on `CartesianDomain`.
+Returns an abstracted Cartesian `view` into `state.realdata[:, variable_index, :]`
+that assumes `state.realdata` lives on `CartesianDomain`.
 
 `CartesianField.elements` is a three-dimensional array of `RectangularElements`.
 """
-function CartesianField(solver, domain, variable_index)
+function CartesianField(state::MPIStateArray, domain::CartesianDomain, variable_index::Int)
 
     # Unwind the data in solver
-    grid = solver.dg.grid
-    state = solver.Q
     data = view(state.realdata, :, variable_index, :)
 
     # Unwind volume geometry
-    volume_geometry = grid.vgeo
+    volume_geometry = domain.grid.vgeo
 
     Ne = domain.Ne
     Te = prod(domain.Ne)
@@ -80,7 +80,7 @@ function CartesianField(solver, domain, variable_index)
     return CartesianField(element_array, domain)
 end
 
-function CartesianFields(solver, domain)
-    indices = size(solver.Q.realdata, 2)
-    return Tuple(CartesianField(solver, domain, i) for i in indices)
+function CartesianFields(state, domain)
+    indices = size(state.realdata, 2)
+    return Tuple(CartesianField(state, domain, i) for i in indices)
 end
