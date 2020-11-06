@@ -237,16 +237,23 @@ end
     vars_state(m::AtmosModel, ::Prognostic, FT)
 
 Conserved state variables (prognostic variables).
+
+!!! warning
+
+    The order of the fields for `AtmosModel` needs to match the one for
+    `AtmosLinearModel` since a shared state is used
 """
 function vars_state(m::AtmosModel, st::Prognostic, FT)
     @vars begin
+        # start of inclusion in `AtmosLinearModel`
         ρ::FT
         ρu::SVector{3, FT}
         ρe::FT
         turbulence::vars_state(m.turbulence, st, FT)
-        turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        # end of inclusion in `AtmosLinearModel`
+        turbconv::vars_state(m.turbconv, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
