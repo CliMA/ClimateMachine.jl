@@ -23,7 +23,7 @@ Lz = 400.0 # m
 
 ## Numerical parameters
 Np = 4           # Polynomial order
-Ne = (100, 1, 1) # Number of elements in (x, y, z)
+Ne = (25, 1, 1) # Number of elements in (x, y, z)
 nothing # hide
 
 # # Physical parameters
@@ -84,20 +84,51 @@ initial_conditions = InitialConditions(v=vᵍ, η=ηⁱ)
 
 """
 
-# # Driver configuration
+# # Boundary conditions, Driver configuration, and Solver configuration
 #
-# Next, we configure the `HydrostaticBoussinesqModel` and build the `DriverConfiguration`,
+# Next, we configure the `HydrostaticBoussinesqModel` and build the `DriverConfiguration`.
+# We configure our model in a domain which is bounded in the ``x`` direction.
+# Both the boundary conditions in ``x`` and in ``z`` require boundary conditions,
+# which we define:
 
-using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
-using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
 using ClimateMachine.Ocean: Impenetrable, Penetrable, FreeSlip, Insulating, OceanBC
+
+solid_surface_boundary_conditions = OceanBC(
+    Impenetrable(FreeSlip()), # Velocity boundary conditions
+    Insulating(),             # Temperature boundary conditions
+)
+
+free_surface_boundary_conditions = OceanBC(
+    Penetrable(FreeSlip()),   # Velocity boundary conditions
+    Insulating(),             # Temperature boundary conditions
+)
+
+boundary_conditions = (solid_surface_boundary_conditions, free_surface_boundary_conditions)
+
+# We refer to these boundary conditions by their indices in the `boundary_conditions` tuple
+# when speicfying the boundary conditions for the `state`; in other words, "1" corresponds to
+# `solid_surface_boundary_conditions`, while `2` corresponds to `free_surface_boundary_conditions`,
+
+state_boundary_conditions = (
+    (1, 1), # (west, east) boundary conditions
+    (0, 0), # (south, north) boundary conditions
+    (1, 2), # (bottom, top) boundary conditions
+)
+
+# We're now ready to build the `InitialValueProblem`,
+
+using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
 
 problem = InitialValueProblem(
     dimensions = (Lx, Ly, Lz),
     initial_conditions = initial_conditions,
-    boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
-                           OceanBC(Penetrable(FreeSlip()), Insulating()))
+    boundary_conditions = boundary_conditions
 )
+
+# and the `HydrostaticBoussinesqModel` representing the
+# hydrostatic Boussinesq equations,
+
+using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
 
 equations = HydrostaticBoussinesqModel{Float64}(
     EarthParameters(),
@@ -107,16 +138,25 @@ equations = HydrostaticBoussinesqModel{Float64}(
     fₒ = f             # Coriolis parameter (s⁻¹)
 )
 
+# and the `DriverConfiguration`,
+
 driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
     "Geostrophic adjustment tutorial",    # The name of the experiment
     Np,                                   # The polynomial order
     Ne,                                   # The number of elements
     EarthParameters(),                    # The CLIMAParameters.AbstractParameterSet to use
     equations;                            # The equations to solve, represented by a `BalanceLaw`
-    periodicity = (false, true, false),    # Topology of the domain
-    boundary = ((1, 1), (0, 0), (1, 2))   # (?)
+    periodicity = (false, true, false),   # Topology of the domain
+    boundary = state_boundary_conditions
 )  
 nothing # hide
+
+# !!! Horizontallly-periodic boundary conditions
+#     To set horizontally-periodic boundary conditions with
+#     `(solid_surface_boundary_conditions, free_surface_boundary_conditions)`
+#     in the vertical direction use `periodicity = (true, true, false)` and
+#     and `boundary = ((0, 0), (0, 0), (1, 2))` in the constructor for
+#     `OceanBoxGCMConfiguration`.
 
 # # Filters
 #
@@ -178,9 +218,9 @@ using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, gl
 ## CartesianDomain and CartesianField objects to help with plotting
 domain = CartesianDomain(solver_configuration.dg.grid, Ne)
 
-u = CartesianField(solver_configuration, domain, 1)
-v = CartesianField(solver_configuration, domain, 2)
-η = CartesianField(solver_configuration, domain, 3)
+u = CartesianField(solver_configuration.Q, domain, 1)
+v = CartesianField(solver_configuration.Q, domain, 2)
+η = CartesianField(solver_configuration.Q, domain, 3)
 
 ## Container to hold the plotted frames
 movie_plots = []
