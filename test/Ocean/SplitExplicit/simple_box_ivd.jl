@@ -142,7 +142,7 @@ function main(; restart = 0)
     global_logger(ConsoleLogger(logger_stream, loglevel))
 
     if restart == 0 && MPI.Comm_rank(mpicomm) == 0 && isdir(vtkpath)
-        @info @sprintf("""Remove old dir: %s and make new one""", vtkpath )
+        @info @sprintf("""Remove old dir: %s and make new one""", vtkpath)
         rm(vtkpath, recursive = true)
     end
 
@@ -186,7 +186,8 @@ function main(; restart = 0)
         dt_slow = runTime / n_chkp
         n_chkp = 0
     end
-    n_outp = t_outp > 0 ? floor(Int64, t_outp / dt_slow ) : ceil(Int64, runTime / dt_slow )
+    n_outp = t_outp > 0 ? floor(Int64, t_outp / dt_slow) :
+        ceil(Int64, runTime / dt_slow)
     ivdc_dt = numImplSteps > 0 ? dt_slow / FT(numImplSteps) : dt_slow
 
     model = OceanModel{FT}(
@@ -241,7 +242,8 @@ function main(; restart = 0)
             read_checkpoint(vtkpath, "barotropic", ArrayType, mpicomm, restart)
 
         A_3D = restart_auxiliary_state(model, grid_3D, A_3D, direction)
-        A_2D = restart_auxiliary_state(barotropicmodel, grid_2D, A_2D, direction)
+        A_2D =
+            restart_auxiliary_state(barotropicmodel, grid_2D, A_2D, direction)
 
         dg = OceanDGModel(
             model,
@@ -316,9 +318,9 @@ function main(; restart = 0)
     # (lsrk_barotropic.dQ,"baro_dQ",)
     #--
 
-    cb_ntFrq = [ n_outp, n_chkp ]
-    outp_nb = round(Int64, restart * n_chkp / n_outp )
-    step = [outp_nb , outp_nb , restart + 1]
+    cb_ntFrq = [n_outp, n_chkp]
+    outp_nb = round(Int64, restart * n_chkp / n_outp)
+    step = [outp_nb, outp_nb, restart + 1]
     cbvector = make_callbacks(
         vtkpath,
         step,
@@ -368,7 +370,7 @@ function main(; restart = 0)
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
-      # @test checkPass
+        # @test checkPass
         @info @sprintf("""Compare vs RefVals: %s""", checkRep)
     end
 
@@ -430,19 +432,21 @@ function make_callbacks(
 
     do_output("slow", step[1], model_slow, dg_slow, Q_slow)
     step[1] += 1
-    cbvtk_slow = GenericCallbacks.EveryXSimulationSteps(n_outp) do (init = false)
-        do_output("slow", step[1], model_slow, dg_slow, Q_slow)
-        step[1] += 1
-        nothing
-    end
+    cbvtk_slow =
+        GenericCallbacks.EveryXSimulationSteps(n_outp) do (init = false)
+            do_output("slow", step[1], model_slow, dg_slow, Q_slow)
+            step[1] += 1
+            nothing
+        end
 
     do_output("fast", step[2], model_fast, dg_fast, Q_fast)
     step[2] += 1
-    cbvtk_fast = GenericCallbacks.EveryXSimulationSteps(n_outp) do (init = false)
-        do_output("fast", step[2], model_fast, dg_fast, Q_fast)
-        step[2] += 1
-        nothing
-    end
+    cbvtk_fast =
+        GenericCallbacks.EveryXSimulationSteps(n_outp) do (init = false)
+            do_output("fast", step[2], model_fast, dg_fast, Q_fast)
+            step[2] += 1
+            nothing
+        end
 
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
@@ -467,37 +471,37 @@ function make_callbacks(
     end
 
     if n_chkp > 0
-      cb_checkpoint = GenericCallbacks.EveryXSimulationSteps(n_chkp) do
-        write_checkpoint(
-            Q_slow,
-            dg_slow.state_auxiliary,
-            odesolver,
-            vtkpath,
-            "baroclinic",
-            mpicomm,
-            step[3],
-        )
+        cb_checkpoint = GenericCallbacks.EveryXSimulationSteps(n_chkp) do
+            write_checkpoint(
+                Q_slow,
+                dg_slow.state_auxiliary,
+                odesolver,
+                vtkpath,
+                "baroclinic",
+                mpicomm,
+                step[3],
+            )
 
-        write_checkpoint(
-            Q_fast,
-            dg_fast.state_auxiliary,
-            odesolver,
-            vtkpath,
-            "barotropic",
-            mpicomm,
-            step[3],
-        )
+            write_checkpoint(
+                Q_fast,
+                dg_fast.state_auxiliary,
+                odesolver,
+                vtkpath,
+                "barotropic",
+                mpicomm,
+                step[3],
+            )
 
-        # rm_checkpoint(vtkpath, "baroclinic", mpicomm, step[3] - 1)
-        # rm_checkpoint(vtkpath, "barotropic", mpicomm, step[3] - 1)
-        step[3] += 1
-        nothing
-      end
-      return (cbvtk_slow, cbvtk_fast, cbinfo, cb_checkpoint)
-      # return (cbinfo, cb_checkpoint)
+            # rm_checkpoint(vtkpath, "baroclinic", mpicomm, step[3] - 1)
+            # rm_checkpoint(vtkpath, "barotropic", mpicomm, step[3] - 1)
+            step[3] += 1
+            nothing
+        end
+        return (cbvtk_slow, cbvtk_fast, cbinfo, cb_checkpoint)
+        # return (cbinfo, cb_checkpoint)
     else
-      return (cbvtk_slow, cbvtk_fast, cbinfo)
-      # return (cbinfo)
+        return (cbvtk_slow, cbvtk_fast, cbinfo)
+        # return (cbinfo)
     end
 
 end
