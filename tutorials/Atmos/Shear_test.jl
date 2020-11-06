@@ -110,13 +110,19 @@ const param_set = EarthParameterSet();
 #md #       purposes)
 function init_ShearFlow!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
-
+    FT = Float64
+    R_gas::FT = R_d(bl.param_set)
+    c_p::FT = cp_d(bl.param_set)
+    c_v::FT = cv_d(bl.param_set)
+    p0::FT = MSLP(bl.param_set)
+    _grav::FT = grav(bl.param_set)
+    γ::FT = c_p / c_v
     ## Problem float-type
     FT = eltype(state)
 
     state.ρ = FT(1)
     state.ρu = SVector(FT(y)^2,FT(0),FT(0))
-    state.ρe = ((FT(2) * FT(0.01) * FT(x) + FT(10)) / (FT(1.5) - FT(1))) + FT(y)^4 / FT(2) 
+    state.ρe = ((FT(2) * FT(0.01) * FT(x) + FT(10)) / (FT(γ) - FT(1))) + FT(y)^4 / FT(2) 
 end
 
 # ## [Model Configuration](@id config-helper)
@@ -236,7 +242,7 @@ function main()
     ## random seeds, spline interpolants and other special functions at the
     ## initialization step.)
     N = 4
-    Δh = FT(0.025)
+    Δh = FT(0.2)
     Δv = FT(0.2)
     resolution = (Δh, Δh, Δv)
     xmax = FT(1)
