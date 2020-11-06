@@ -4,14 +4,13 @@ function SplitConfig(
     name,
     resolution,
     dimensions,
-    coupling,
-    rotation = Fixed();
+    solver;
+    coupling = Coupled(),
+    rotation = Fixed(),
     boundary_conditions = (
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     ),
-    solver = SplitExplicitSolver,
-    dt_slow = 90 * 60,
 )
     mpicomm = MPI.COMM_WORLD
     ArrayType = ClimateMachine.array_type()
@@ -57,27 +56,26 @@ function SplitConfig(
         rotation = rotation,
     )
 
-    dg_3D, dg_2D = setup_models(
-        solver,
-        problem,
-        grid_3D,
-        grid_2D,
-        param_set,
-        coupling,
-        dt_slow,
-    )
+    dg_3D, dg_2D =
+        setup_models(solver, problem, grid_3D, grid_2D, param_set, coupling)
 
     return SplitConfig(name, dg_3D, dg_2D, solver, mpicomm, ArrayType)
 end
 
+function setup_models(solver::SplitExplicitSolverType, args...)
+    dispatcher = solver.split_explicit_method
+
+    return setup_models(dispatcher, solver, args...)
+end
+
 function setup_models(
     ::Type{SplitExplicitSolver},
+    ::SplitExplicitSolverType,
     problem,
     grid_3D,
     grid_2D,
     param_set,
     coupling,
-    _,
 )
 
     model_3D = HydrostaticBoussinesqModel{FT}(
@@ -148,16 +146,13 @@ end
 
 function setup_models(
     ::Type{SplitExplicitLSRK2nSolver},
+    solver::SplitExplicitSolverType,
     problem,
     grid_3D,
     grid_2D,
     param_set,
-    _,
-    dt_slow,
+    coupling,
 )
-    add_fast_substeps = 2
-    numImplSteps = 5
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
     model_3D = OceanModel{FT}(
         param_set,
         problem,
@@ -165,9 +160,6 @@ function setup_models(
         αᵀ = FT(0),
         κʰ = FT(0),
         κᶻ = FT(0),
-        add_fast_substeps = add_fast_substeps,
-        numImplSteps = numImplSteps,
-        ivdc_dt = ivdc_dt,
     )
 
     model_2D = BarotropicModel(model_3D)
@@ -182,6 +174,9 @@ function setup_models(
 
     Q_2D = init_ode_state(dg_2D, FT(0); init_on_cpu = true)
 
+    solver.numImplSteps > 0 ? ivdc_dt = solver.dt_slow / solver.numImplSteps :
+    ivdc_dt = solver.dt_slow
+
     dg_3D = OceanDGModel(
         model_3D,
         grid_3D,
@@ -189,6 +184,7 @@ function setup_models(
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         modeldata = (dg_2D, Q_2D),
+        ivdc_dt = ivdc_dt,
     )
 
     return dg_3D, dg_2D

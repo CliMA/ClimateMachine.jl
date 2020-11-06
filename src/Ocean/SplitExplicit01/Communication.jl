@@ -15,11 +15,11 @@ import ...BalanceLaws:
     slow_dt,
     fast_time_rec,
     fast_steps,
+    add,
 )
 
     #- inverse ratio of additional fast time steps (for weighted average)
     #  --> do 1/add more time-steps and average from: 1 - 1/add up to: 1 + 1/add
-    add = slow.add_fast_substeps
 
     #- set time-step and number of sub-steps we need
     #  will time-average fast over: fast_steps[1] , fast_steps[3]

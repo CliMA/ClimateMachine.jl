@@ -65,17 +65,8 @@ function main(::Type{FT}, BC) where {FT}
 
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
 
-    model = OceanModel{FT}(
-        param_set,
-        prob,
-        cʰ = cʰ,
-        add_fast_substeps = add_fast_substeps,
-        numImplSteps = numImplSteps,
-        ivdc_dt = ivdc_dt,
-        κᶜ = FT(0.1),
-    )
+    model = OceanModel{FT}(param_set, prob, cʰ = cʰ, κᶜ = FT(0.1))
     # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )	
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )	
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(0), fₒ = FT(0), β = FT(0) )
@@ -122,6 +113,8 @@ function main(::Type{FT}, BC) where {FT}
 
     Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
 
+
+    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
     dg = OceanDGModel(
         model,
         grid_3D,
@@ -129,6 +122,7 @@ function main(::Type{FT}, BC) where {FT}
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         modeldata = (barotropic_dg, Q_2D),
+        ivdc_dt = ivdc_dt,
     )
 
     Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
@@ -137,7 +131,12 @@ function main(::Type{FT}, BC) where {FT}
     lsrk_barotropic =
         LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
-    odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
+    odesolver = SplitExplicitLSRK2nSolver(
+        lsrk_ocean,
+        lsrk_barotropic;
+        add_fast_steps = add_fast_substeps,
+        numImplSteps = numImplSteps,
+    )
 
     #-- Set up State Check call back for config state arrays, called every ntFreq time steps
     ntFreq = 1

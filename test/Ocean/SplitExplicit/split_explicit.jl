@@ -44,29 +44,28 @@ end
 
 function run_split_explicit(
     config::SplitConfig,
-    timespan;
-    dt_fast = 300,
-    dt_slow = 300,
+    timeend,
+    tout;
     refDat = (),
     restart = 0,
     analytic_solution = false,
 )
     Q_3D, Q_2D, t0 = init_states(config, Val(restart))
 
-    tout, timeend = timespan
-
-    # @show dt_fast = floor(Int, 1 / (2 * sqrt(gravity * H) / minΔx)) # / 4
-    # @show dt_slow = floor(Int, minΔx / 15) # / 4
-
+    dt_slow = config.solver.dt_slow
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
 
     timeendlocal = timeend + t0
 
-    lsrk_3D = LSRK54CarpenterKennedy(config.dg_3D, Q_3D, dt = dt_slow, t0 = t0)
-    lsrk_2D = LSRK54CarpenterKennedy(config.dg_2D, Q_2D, dt = dt_fast, t0 = t0)
-
-    odesolver = config.solver(lsrk_3D, lsrk_2D;)
+    odesolver = ClimateMachine.solversetup(
+        config.solver,
+        config.dg_3D,
+        Q_3D,
+        dt_slow,
+        t0,
+        nout,
+    )
 
     vtkstep = [restart, restart, restart + 1, restart + 1]
     cbvector = make_callbacks(
@@ -89,8 +88,6 @@ function run_split_explicit(
     norm(Q₀) = %.16e
     ArrayType = %s""" eng0 config.ArrayType
 
-    # slow fast state tuple
-    Qvec = (slow = Q_3D, fast = Q_2D)
     solve!(Q_3D, odesolver; timeend = timeendlocal, callbacks = cbvector)
 
     if analytic_solution

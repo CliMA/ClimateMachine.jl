@@ -27,10 +27,23 @@ using ClimateMachine.DGMethods.NumericalFluxes:
 # Create a new child linear model instance, attached to whatever parent
 # BalanceLaw instantiates this.
 # (Not sure we need parent, but maybe we will get some parameters from it)
-struct IVDCModel{M} <: AbstractOceanModel
-    parent_om::M
-    function IVDCModel(parent_om::M;) where {M}
-        return new{M}(parent_om)
+struct IVDCModel{FT} <: AbstractOceanModel
+    κᶻ::FT
+    κᶜ::FT
+    cʰ::FT
+    cᶻ::FT
+    ivdc_dt::FT
+    function IVDCModel{FT}(
+        parent_om::AbstractOceanModel,
+        ivdc_dt,
+    ) where {FT <: AbstractFloat}
+        return new{FT}(
+            parent_om.κᶻ,
+            parent_om.κᶜ,
+            parent_om.cʰ,
+            parent_om.cᶻ,
+            ivdc_dt,
+        )
     end
 end
 
@@ -94,8 +107,8 @@ vars_state(m::IVDCModel, ::GradientFlux, FT) = @vars(κ∇θ::SVector{3, FT})
 end
 
 @inline function diffusivity_tensor(m::IVDCModel, ∂θ∂z)
-    κᶻ = m.parent_om.κᶻ * 0.5
-    κᶜ = m.parent_om.κᶜ
+    κᶻ = m.κᶻ * 0.5
+    κᶜ = m.κᶜ
     ∂θ∂z < 0 ? κ = (@SVector [0, 0, κᶜ]) : κ = (@SVector [0, 0, κᶻ])
     # ∂θ∂z <= 1e-10 ? κ = (@SVector [0, 0, κᶜ]) : κ = (@SVector [0, 0, κᶻ])
 
@@ -113,11 +126,10 @@ end
     t,
     direction,
 )
-    #ivdc_dt = m.ivdc_dt
-    ivdc_dt = m.parent_om.ivdc_dt
+    ivdc_dt = m.ivdc_dt
     @inbounds begin
         S.θ = Q.θ / ivdc_dt
-        # S.θ = 0
+
     end
 
     return nothing
@@ -137,27 +149,17 @@ function flux_second_order!(
     t,
 )
     F.θ += D.κ∇θ
-    # F.θ = 0
 
+    return nothing
 end
 
 function wavespeed(m::IVDCModel, n⁻, _...)
-    C = abs(SVector(m.parent_om.cʰ, m.parent_om.cʰ, m.parent_om.cᶻ)' * n⁻)
-    # C = abs(SVector(m.parent_om.cʰ, m.parent_om.cʰ, 50)' * n⁻)
-    # C = abs(SVector(1, 1, 1)' * n⁻)
-    ### C = abs(SVector(10, 10, 10)' * n⁻)
-    # C = abs(SVector(50, 50, 50)' * n⁻)
-    # C = abs(SVector( 0,  0,  0)' * n⁻)
-    return C
+    return abs(SVector(m.cʰ, m.cʰ, m.cᶻ)' * n⁻)
 end
 
 function boundary_state!(
-    nf::Union{
-        NumericalFluxFirstOrder,
-        NumericalFluxGradient,
-        CentralNumericalFluxGradient,
-    },
-    m::IVDCModel,
+    ::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    ::IVDCModel,
     Q⁺,
     A⁺,
     n,
@@ -188,8 +190,8 @@ end
 ###    )
 
 function boundary_state!(
-    nf::Union{NumericalFluxSecondOrder, CentralNumericalFluxSecondOrder},
-    m::IVDCModel,
+    ::NumericalFluxSecondOrder,
+    ::IVDCModel,
     Q⁺,
     D⁺,
     A⁺,
@@ -203,8 +205,6 @@ function boundary_state!(
 )
     Q⁺.θ = Q⁻.θ
     D⁺.κ∇θ = n⁻ * -0
-    # D⁺.κ∇θ = n⁻ * -0 + 7000
-    # D⁺.κ∇θ = -D⁻.κ∇θ
 
     return nothing
 end

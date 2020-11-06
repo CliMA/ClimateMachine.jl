@@ -170,17 +170,15 @@ function main(::Type{FT}) where {FT}
     #- set model time-step:
     dt_fast = 240
     dt_slow = 5400
-    # dt_fast = 300
-    # dt_slow = 300
+
     nout = ceil(Int64, tout / dt_slow)
     dt_slow = tout / nout
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
 
     model = OceanModel{FT}(
+        param_set,
         prob,
-        grav = gravity,
         cʰ = cʰ,
-        add_fast_substeps = add_fast_substeps,
+        κᶻ = FT(2e-4), # m^2/s # double standard value to account for implicit solve stuff
     )
     # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )
@@ -217,35 +215,36 @@ function main(::Type{FT}) where {FT}
         dt_slow
     )
 
-    dg = OceanDGModel(
-        model,
-        grid_3D,
-        # CentralNumericalFluxFirstOrder(),
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-    )
-
     barotropic_dg = DGModel(
         barotropicmodel,
         grid_2D,
-        # CentralNumericalFluxFirstOrder(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
 
-    Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
-    # update_auxiliary_state!(dg, model, Q_3D, FT(0))
-    # update_auxiliary_state_gradient!(dg, model, Q_3D, FT(0))
-
     Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
+
+    dg = OceanDGModel(
+        model,
+        grid_3D,
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();
+        modeldata = (barotropic_dg, Q_2D),
+    )
+
+    Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
 
     lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = 0)
     lsrk_barotropic =
         LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
 
-    odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
+    odesolver = SplitExplicitLSRK2nSolver(
+        lsrk_ocean,
+        lsrk_barotropic;
+        add_fast_steps = add_fast_substeps,
+    )
 
     #-- Set up State Check call back for config state arrays, called every ntFreq time steps
     ntFreq = 1
@@ -417,8 +416,10 @@ end
 #################
 # RUN THE TESTS #
 #################
-FT = Float64
-vtkpath = "vtk_split"
+const FT = Float64
+vtkpath =
+    abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_simple_box_2dt"))
+
 
 const timeend = 5 * 24 * 3600 # s
 const tout = 24 * 3600 # s

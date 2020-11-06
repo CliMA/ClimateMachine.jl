@@ -52,6 +52,10 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
     steps::Int
     "storage for transfer tendency"
     dQ2fast::MSA
+    "parameter for super timestepping"
+    add_fast_steps::RT
+    "number of implicit solves per step"
+    numImplSteps::RT
 
     function SplitExplicitLSRK2nSolver(
         slow_solver::LSRK2N,
@@ -59,6 +63,8 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
         Q = nothing;
         dt = getdt(slow_solver),
         t0 = slow_solver.t,
+        add_fast_steps = 0,
+        numImplSteps = 0,
     ) where {AT <: AbstractArray}
         SS = typeof(slow_solver)
         FS = typeof(fast_solver)
@@ -74,9 +80,13 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
             RT(t0),
             0,
             dQ2fast,
+            RT(add_fast_steps),
+            RT(numImplSteps),
         )
     end
 end
+
+
 
 function dostep!(
     Qslow,
@@ -125,6 +135,7 @@ function dostep!(
             fract_dt,
             fast_time_rec,
             fast_steps,
+            split.add_fast_steps,
         )
         # Initialize tentency adjustment before evaluation of slow mode
         initialize_adjustment!(
@@ -212,7 +223,7 @@ function dostep!(
     updatedt!(fast, fast_dt_in)
 
     # now do implicit mixing step
-    nImplSteps = slow_bl.numImplSteps
+    nImplSteps = split.numImplSteps
     if nImplSteps > 0
         # 1. get implicit mising model, model state variable array and solver handles
         ivdc_dg = slow.rhs!.modeldata.ivdc_dg
@@ -222,7 +233,7 @@ function dostep!(
         # ivdc_solver_dt = getdt(ivdc_solver) # would work if solver time-step was set
         # FT = typeof(slow_dt)
         # ivdc_solver_dt = slow_dt / FT(nImplSteps) # just recompute time-step
-        ivdc_solver_dt = ivdc_bl.parent_om.ivdc_dt
+        ivdc_solver_dt = ivdc_bl.ivdc_dt
         # println("ivdc_solver_dt = ",ivdc_solver_dt )
         # 2. setup start RHS, initial guess and values for computing mixing coeff
         ivdc_Q.θ .= Qslow.θ
