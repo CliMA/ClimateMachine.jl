@@ -165,7 +165,7 @@ function dostep!(Q, etd::ETDStep, p, time)
     updatetime!(fastsolver, τ)
     updatedt!(fastsolver, dτ)
 
-    βrow = ntuple(k -> ntuple(j -> βS[k][iStage+1, j], iStage+1), Nβ)
+    βrow = ntuple(k -> ntuple(j -> βS[k][iStage+1, j], iStage), Nβ)
     mriparam = MRIParam(p, βrow, realview.(fYnj[1:iStage]), ts, dts)
 
     copyto!(Q, yn)

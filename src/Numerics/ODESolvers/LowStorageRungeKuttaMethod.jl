@@ -218,7 +218,7 @@ end
         Ns = length(γs[1])
         dqi = dQ[i]
 
-        for s in 1:Ns-1
+        for s in 1:Ns
             ri = Rs[s][i]
             sc = γs[NΓ][s]
             for k in (NΓ - 1):-1:1
