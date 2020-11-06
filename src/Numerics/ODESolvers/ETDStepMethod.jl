@@ -169,7 +169,7 @@ function dostep!(Q, etd::ETDStep, p, time)
     mriparam = MRIParam(p, βrow, realview.(fYnj[1:iStage]), ts, dts)
 
     copyto!(Q, yn)
-    dostep!(Q, fastsolver, mriparam, τ, nstepsLoc, iStage, nothing, nothing, nothing)
+    dostep!(Q, fastsolver, mriparam, ts, nstepsLoc, iStage, nothing, nothing, nothing)
   end
 end
 
