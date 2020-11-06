@@ -73,7 +73,7 @@ using ClimateMachine.Ocean.OceanProblems: InitialConditions
 
 initial_conditions = InitialConditions(v=vᵍ, η=ηⁱ)
 
-@info """ The parameters for the Geostrophic adjustment problem are...
+@info """ Parameters for the Geostrophic adjustment problem are...
 
     Coriolis parameter:                            $f s⁻¹
     Gravitational acceleration:                    $g m s⁻²
@@ -173,7 +173,7 @@ end
 using Printf
 using Plots
 
-using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, join
+using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, glue
 
 ## CartesianDomain and CartesianField objects to help with plotting
 domain = CartesianDomain(solver_configuration.dg.grid, Ne)
@@ -188,18 +188,18 @@ movie_plots = []
 plot_every = 10 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
-    joined_u = join(u.elements)
-    joined_v = join(v.elements)
-    joined_η = join(η.elements)
+    glued_u = glue(u.elements)
+    glued_v = glue(v.elements)
+    glued_η = glue(η.elements)
     
     umax = 0.5 * max(maximum(abs, u), maximum(abs, v))
     ulim = (-umax, umax)
     
-    u_plot = plot(joined_u.x, [joined_u.data[:, 1, 1] joined_v.data[:, 1, 1]],
+    u_plot = plot(glued_u.x, [glued_u.data[:, 1, 1] glued_v.data[:, 1, 1]],
                   xlim=domain.x, ylim=(-0.7U, 0.7U), label=["u" "v"],
                   linewidth=2, xlabel="x (m)", ylabel="Velocities (m s⁻¹)")
 
-    η_plot = plot(joined_η.x, joined_η.data[:, 1, 1], xlim=domain.x, ylim=(-0.01a, 1.2a),
+    η_plot = plot(glued_η.x, glued_η.data[:, 1, 1], xlim=domain.x, ylim=(-0.01a, 1.2a),
                   linewidth=2, label=nothing, xlabel="x (m)", ylabel="η (m)")
                   
 

@@ -28,10 +28,10 @@ Base.show(io::IO, elem::RectangularElement{D}) where D =
 Base.@propagate_inbounds Base.getindex(elem::RectangularElement, i, j, k) = elem.data[i, j, k]
 
 #####
-##### ⟨⟨ join us ⟩⟩
+##### ⟨⟨ The glue that binds us ⟩⟩
 #####
 
-function x_join(west::RectangularElement, east::RectangularElement)
+function x_glue(west::RectangularElement, east::RectangularElement)
     west.x[end] ≈ east.x[1] || error("Element end-points $((west.x[end], east.x[1])) are not x-adjacent!")
     all(west.y .≈ east.y)   || error("Elements do not share y nodes!")
     all(west.z .≈ east.z)   || error("Elements do not share z nodes!")
@@ -47,7 +47,7 @@ function x_join(west::RectangularElement, east::RectangularElement)
     return RectangularElement(data, x, y, z)
 end
 
-function y_join(south::RectangularElement, north::RectangularElement)
+function y_glue(south::RectangularElement, north::RectangularElement)
     all(south.x .≈ north.x)   || error("Elements do not share x nodes!")
     south.y[end] ≈ north.y[1] || error("Elements are not y-adjacent!")
     all(south.z .≈ north.z)   || error("Elements do not share z nodes!")
@@ -62,7 +62,7 @@ function y_join(south::RectangularElement, north::RectangularElement)
     return RectangularElement(data, x, y, z)
 end
 
-function z_join(bottom::RectangularElement, top::RectangularElement)
+function z_glue(bottom::RectangularElement, top::RectangularElement)
     all(bottom.x .≈ top.x)   || error("Elements do not share x nodes!")
     all(bottom.y .≈ top.y)   || error("Elements do not share y nodes!")
     bottom.z[end] ≈ top.z[1] || error("Elements are not z-adjacent!")
@@ -77,27 +77,27 @@ function z_join(bottom::RectangularElement, top::RectangularElement)
     return RectangularElement(data, x, y, z)
 end
 
-x_join(e1, e2, e3...) = x_join(e1, x_join(e2, e3...))
-y_join(e1, e2, e3...) = y_join(e1, y_join(e2, e3...))
-z_join(e1, e2, e3...) = z_join(e1, z_join(e2, e3...))
+x_glue(e1, e2, e3...) = x_glue(e1, x_glue(e2, e3...))
+y_glue(e1, e2, e3...) = y_glue(e1, y_glue(e2, e3...))
+z_glue(e1, e2, e3...) = z_glue(e1, z_glue(e2, e3...))
 
-x_join(e1) = e1
-y_join(e1) = e1
-z_join(e1) = e1
+x_glue(e1) = e1
+y_glue(e1) = e1
+z_glue(e1) = e1
 
 """
-    join(elements::Array{<:RectangularElement, 3})
+    glue(elements::Array{<:RectangularElement, 3})
 
-"Joins" the three-dimensional data in `elements` into a single `RectangularElement`,
+"Glue"s the three-dimensional data in `elements` into a single `RectangularElement`,
 averaging data on shared nodes.
 """
-function join(elements::Array{<:RectangularElement, 3})
+function glue(elements::Array{<:RectangularElement, 3})
 
     Ne = size(elements)
 
-    pencils = [x_join(elements[:, j, k]...) for j = 1:Ne[2], k = 1:Ne[3]]
-      slabs = [y_join(pencils[:, k]...) for k = 1:Ne[3]]
-     volume = z_join(slabs...)
+    pencils = [x_glue(elements[:, j, k]...) for j = 1:Ne[2], k = 1:Ne[3]]
+      slabs = [y_glue(pencils[:, k]...) for k = 1:Ne[3]]
+     volume = z_glue(slabs...)
 
     return volume
 end
