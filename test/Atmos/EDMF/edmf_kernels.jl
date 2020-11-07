@@ -62,7 +62,7 @@ function vars_state(::Updraft, ::Auxiliary, FT)
 end
 
 function vars_state(::Environment, ::Auxiliary, FT)
-    @vars(T::FT, cld_frac::FT, buoyancy::FT)
+    @vars(T::FT, cld_frac::FT, buoyancy::FT, ρaθ_liq::FT)
 end
 
 function vars_state(m::EDMF, st::Auxiliary, FT)
@@ -175,7 +175,7 @@ function init_aux_turbconv!(
 
     en_aux.cld_frac = FT(0)
     en_aux.buoyancy = FT(0)
-
+    en_aux.ρaθ_liq =  FT(300)
     @unroll_map(N_up) do i
         up_aux[i].buoyancy = FT(0)
         up_aux[i].θ_liq = FT(0)
@@ -214,6 +214,7 @@ function turbconv_nodal_update_auxiliary_state!(
 
     ρ_en = air_density(ts.en)
     en_aux.buoyancy = -_grav * (ρ_en - aux.ref_state.ρ) * ρ_inv
+    en_aux.ρaθ_liq = gm.ρ*env.a*liquid_ice_pottemp(ts.en)
 
     @unroll_map(N_up) do i
         ρ_i = air_density(ts.up[i])
