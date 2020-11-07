@@ -36,9 +36,7 @@ nothing # hide
 # and Earth's gravitational acceleration,
 
 using CLIMAParameters: AbstractEarthParameterSet, Planet
-
 gravitational_acceleration = Planet.grav
-
 struct EarthParameters <: AbstractEarthParameterSet end
 
 g = gravitational_acceleration(EarthParameters()) # m s⁻²
@@ -54,10 +52,10 @@ x₀ = Lx / 4        # Gaussian origin (m, recall that x ∈ [0, Lx])
 
 # and functional form
 
-Ψ(x, L) = exp(-x^2 / 2L^2) # a Gaussian
+Ψ(x, L) = exp(-x^2 / (2 * L^2)) # a Gaussian
 
 ## Geostrophic ``y``-velocity
-vᵍ(x, y, z) = - U * (x - x₀) / L * Ψ(x - x₀, L)
+vᵍ(x, y, z) = -U * (x - x₀) / L * Ψ(x - x₀, L)
 
 ## Geostrophic surface displacement
 ηᵍ(x, y, z) = a * Ψ(x - x₀, L)
@@ -71,7 +69,7 @@ vᵍ(x, y, z) = - U * (x - x₀) / L * Ψ(x - x₀, L)
 
 using ClimateMachine.Ocean.OceanProblems: InitialConditions
 
-initial_conditions = InitialConditions(v=vᵍ, η=ηⁱ)
+initial_conditions = InitialConditions(v = vᵍ, η = ηⁱ)
 
 @info """ Parameters for the Geostrophic adjustment problem are...
 
@@ -91,7 +89,8 @@ initial_conditions = InitialConditions(v=vᵍ, η=ηⁱ)
 # Both the boundary conditions in ``x`` and in ``z`` require boundary conditions,
 # which we define:
 
-using ClimateMachine.Ocean: Impenetrable, Penetrable, FreeSlip, Insulating, OceanBC
+using ClimateMachine.Ocean:
+    Impenetrable, Penetrable, FreeSlip, Insulating, OceanBC
 
 solid_surface_boundary_conditions = OceanBC(
     Impenetrable(FreeSlip()), # Velocity boundary conditions
@@ -103,7 +102,8 @@ free_surface_boundary_conditions = OceanBC(
     Insulating(),             # Temperature boundary conditions
 )
 
-boundary_conditions = (solid_surface_boundary_conditions, free_surface_boundary_conditions)
+boundary_conditions =
+    (solid_surface_boundary_conditions, free_surface_boundary_conditions)
 
 # We refer to these boundary conditions by their indices in the `boundary_conditions` tuple
 # when speicfying the boundary conditions for the `state`; in other words, "1" corresponds to
@@ -122,7 +122,7 @@ using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
 problem = InitialValueProblem(
     dimensions = (Lx, Ly, Lz),
     initial_conditions = initial_conditions,
-    boundary_conditions = boundary_conditions
+    boundary_conditions = boundary_conditions,
 )
 
 # and the `HydrostaticBoussinesqModel` representing the
@@ -132,10 +132,10 @@ using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
 
 equations = HydrostaticBoussinesqModel{Float64}(
     EarthParameters(),
-    problem,           
-    νʰ = 0.0,          # Horizontal viscosity (m² s⁻¹) 
-    κʰ = 0.0,          # Horizontal diffusivity (m² s⁻¹) 
-    fₒ = f             # Coriolis parameter (s⁻¹)
+    problem,
+    νʰ = 0.0,  # Horizontal viscosity (m² s⁻¹) 
+    κʰ = 0.0,  # Horizontal diffusivity (m² s⁻¹) 
+    fₒ = f,   # Coriolis parameter (s⁻¹)
 )
 
 # and the `DriverConfiguration`,
@@ -147,11 +147,11 @@ driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
     EarthParameters(),                    # The CLIMAParameters.AbstractParameterSet to use
     equations;                            # The equations to solve, represented by a `BalanceLaw`
     periodicity = (false, true, false),   # Topology of the domain
-    boundary = state_boundary_conditions
-)  
+    boundary = state_boundary_conditions,
+)
 nothing # hide
 
-# !!! Horizontallly-periodic boundary conditions
+# !!! info "Horizontallly-periodic boundary conditions"
 #     To set horizontally-periodic boundary conditions with
 #     `(solid_surface_boundary_conditions, free_surface_boundary_conditions)`
 #     in the vertical direction use `periodicity = (true, true, false)` and
@@ -171,7 +171,7 @@ grid = driver_configuration.grid
 
 filters = (
     vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1),
-    exp_filter = ExponentialFilter(grid, 1, 8)
+    exp_filter = ExponentialFilter(grid, 1, 8),
 )
 
 # # Configuring the solver
@@ -189,8 +189,10 @@ solver_configuration = ClimateMachine.SolverConfiguration(
     driver_configuration,
     init_on_cpu = true,
     ode_dt = 1minute,       # time step size (s)
-    ode_solver_type = ClimateMachine.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch),
-    modeldata = filters
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    ),
+    modeldata = filters,
 )
 
 # and use a simple callback to log the progress of our simulation,
@@ -213,7 +215,8 @@ end
 using Printf
 using Plots
 
-using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, glue
+using ClimateMachine.Ocean.Fields: assemble
+using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField
 
 ## CartesianDomain and CartesianField objects to help with plotting
 domain = CartesianDomain(solver_configuration.dg.grid, Ne)
@@ -228,6 +231,7 @@ movie_plots = []
 plot_every = 10 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
+<<<<<<< HEAD
     glued_u = glue(u.elements)
     glued_v = glue(v.elements)
     glued_η = glue(η.elements)
@@ -244,7 +248,41 @@ plot_maker = EveryXSimulationSteps(plot_every) do
                   
 
     push!(movie_plots, (u=u_plot, η=η_plot, time=solver_configuration.solver.t))
-    
+
+    u_assembly = assemble(u)
+    v_assembly = assemble(v)
+    η_assembly = assemble(η)
+
+    umax = 0.5 * max(maximum(abs, u), maximum(abs, v))
+    ulim = (-umax, umax)
+
+    u_plot = plot(
+        u_assembly.x,
+        [u_assembly.data[:, 1, 1] v_assembly.data[:, 1, 1]],
+        xlim = domain.x,
+        ylim = (-0.7U, 0.7U),
+        label = ["u" "v"],
+        linewidth = 2,
+        xlabel = "x (m)",
+        ylabel = "Velocities (m s⁻¹)",
+    )
+
+    η_plot = plot(
+        η_assembly.x,
+        η_assembly.data[:, 1, 1],
+        xlim = domain.x,
+        ylim = (-0.01a, 1.2a),
+        linewidth = 2,
+        label = nothing,
+        xlabel = "x (m)",
+        ylabel = "η (m)",
+    )
+
+    push!(
+        movie_plots,
+        (u = u_plot, η = η_plot, time = solver_configuration.solver.t),
+    )
+
     return nothing
 end
 
@@ -252,14 +290,22 @@ end
 #
 # Finally, we run the simulation,
 
-result = ClimateMachine.invoke!(solver_configuration;
-                                user_callbacks = [tiny_progress_printer, plot_maker])
+result = ClimateMachine.invoke!(
+    solver_configuration;
+    user_callbacks = [tiny_progress_printer, plot_maker],
+)
 
 # and animate the results,
 
 animation = @animate for p in movie_plots
     title = @sprintf("Geostrophic adjustment at t = %.2f hours", p.time / hours)
-    frame = plot(p.u, p.η, layout=(2, 1), size=(800, 600), title=[title ""])
+    frame = plot(
+        p.u,
+        p.η,
+        layout = (2, 1),
+        size = (800, 600),
+        title = [title ""],
+    )
 end
 
 gif(animation, "geostrophic_adjustment.gif", fps = 8) # hide

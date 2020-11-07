@@ -42,10 +42,10 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `p`: HomogeneousBox problem object, used to dispatch on
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
-- `localgeo`: the local geometry, not used
+- `coords`: the local spatial coordinates, not used
 - `t`: time to evaluate at, not used
 """
-function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, localgeo, t)
+function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
     Q.u = @SVector [0, 0]
     Q.η = 0
     Q.θ = 20

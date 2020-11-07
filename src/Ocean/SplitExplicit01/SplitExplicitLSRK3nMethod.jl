@@ -38,7 +38,8 @@ and vertically averaged horizontal velocity of the model at a faster rate than
 the full model, using LowStorageRungeKutta3N time-stepping.
 
 """ SplitExplicitLSRK3nSolver
-mutable struct SplitExplicitLSRK3nSolver{SS, FS, RT, MSA, MSB} <: AbstractODESolver
+mutable struct SplitExplicitLSRK3nSolver{SS, FS, RT, MSA, MSB} <:
+               AbstractODESolver
     "slow solver"
     slow_solver::SS
     "fast solver"
@@ -136,8 +137,11 @@ function dostep!(
             fast.rhs!,
             Qfast,
             S_fast,
-            slow_dt, rkC, rkW, 
-            s, nStages,
+            slow_dt,
+            rkC,
+            rkW,
+            s,
+            nStages,
             fast_time_rec,
             fast_steps,
         )

@@ -3,17 +3,15 @@
 #####
 
 struct InitialValueProblem{FT, IC, BC} <: AbstractSimpleBoxProblem
-    Lˣ :: FT
-    Lʸ :: FT
-    H :: FT
-    initial_conditions :: IC
-    boundary_conditions :: BC
+    Lˣ::FT
+    Lʸ::FT
+    H::FT
+    initial_conditions::IC
+    boundary_conditions::BC
 end
 
 """
-    InitialValueProblem(FT=Float64;
-                        dimensions,
-                        initial_conditions=InitialConditions(),
+    InitialValueProblem(FT=Float64; dimensions, initial_conditions=InitialConditions(),
                         boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
                                                OceanBC(Penetrable(FreeSlip()), Insulating())))
 
@@ -25,14 +23,20 @@ the default `boundary_conditions` are horizontally-periodic with `Insulating()`
 and `FreeSlip()` conditions at the top and bottom.
 """
 function InitialValueProblem(
-    FT=Float64;
+    FT = Float64;
     dimensions,
     initial_conditions = InitialConditions(),
-    boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
-                           OceanBC(Penetrable(FreeSlip()), Insulating()))
+    boundary_conditions = (
+        OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        OceanBC(Penetrable(FreeSlip()), Insulating()),
+    ),
 )
 
-    return InitialValueProblem(FT.(dimensions)..., initial_conditions, boundary_conditions)
+    return InitialValueProblem(
+        FT.(dimensions)...,
+        initial_conditions,
+        boundary_conditions,
+    )
 end
 
 #####
@@ -42,10 +46,10 @@ end
 resting(x, y, z) = 0
 
 struct InitialConditions{U, V, T, E}
-    u :: U
-    v :: V
-    θ :: T
-    η :: E
+    u::U
+    v::V
+    θ::T
+    η::E
 end
 
 
@@ -65,20 +69,27 @@ L = 1e5 # m, horizontal scale of the perturbation
 
 ics = InitialConditions(η=ηᵢ)
 """
-InitialConditions(; u=resting, v=resting, θ=resting, η=resting) =
+InitialConditions(; u = resting, v = resting, θ = resting, η = resting) =
     InitialConditions(u, v, θ, η)
-    
+
 """
-    ocean_init_state!(::HydrostaticBoussinesqModel, ic::InitialCondition, state, aux, local_geometry, time)
+    ocean_init_state!(::HydrostaticBoussinesqModel, ic::InitialCondition, state, aux, coords, time)
 
 Initialize the state variables `u = (u, v)` (a vector), `θ`, and `η`. Mutates `state`.
 
 This function is called by `init_state_prognostic!(::HydrostaticBoussinesqModel, ...)`.
 """
-function ocean_init_state!(::HydrostaticBoussinesqModel, ivp::InitialValueProblem, state, aux, coord, time)
+function ocean_init_state!(
+    ::HydrostaticBoussinesqModel,
+    ivp::InitialValueProblem,
+    state,
+    aux,
+    coords,
+    time,
+)
 
     ics = ivp.initial_conditions
-    x, y, z = coord # local_geometry.coord
+    x, y, z = coords
 
     state.u = @SVector [ics.u(x, y, z), ics.v(x, y, z)]
     state.θ = ics.θ(x, y, z)

@@ -43,7 +43,7 @@ initialize u,v,η with 0 and θ linearly distributed between 9 at z=0 and 1 at z
 - `p`: OceanGyre problem object, used to dispatch on and obtain ocean height H
 - `Q`: state vector
 - `A`: auxiliary state vector, not used
-- `localgeo`: the local geometry information
+- `coords`: local spatial coordiantes
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(
@@ -51,10 +51,9 @@ function ocean_init_state!(
     p::OceanGyre,
     Q,
     A,
-    localgeo,
+    coords,
     t,
 )
-    coords = localgeo.coord
     @inbounds y = coords[2]
     @inbounds z = coords[3]
     @inbounds H = p.H
@@ -71,7 +70,7 @@ function ocean_init_state!(
     ::OceanGyre,
     Q,
     A,
-    localgeo,
+    coords,
     t,
 )
     Q.U = @SVector [-0, -0]
@@ -115,4 +114,3 @@ cool-warm north-south linear temperature gradient
     θʳ = θᴱ * (1 - y / Lʸ)
     return λʳ * (θ - θʳ)
 end
-

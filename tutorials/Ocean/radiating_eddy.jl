@@ -76,10 +76,10 @@ y₀ = Ly / 2 # Gaussian origin (m, recall that y ∈ [0, Ly])
 ## Geostrophic x- and y-velocity:
 g = gravitational_acceleration(NonDimensionalParameters())
 
-uᵍ(x, y, z) = + ϵ * g * (y - y₀) * Ψ(x - x₀, y - y₀) # - g ∂_y η
-vᵍ(x, y, z) = - ϵ * g * (x - x₀) * Ψ(x - x₀, y - y₀) # + g ∂_x η
+uᵍ(x, y, z) = +ϵ * g * (y - y₀) * Ψ(x - x₀, y - y₀) # - g ∂_y η
+vᵍ(x, y, z) = -ϵ * g * (x - x₀) * Ψ(x - x₀, y - y₀) # + g ∂_x η
 
-initial_conditions = InitialConditions(u=uᵍ, v=vᵍ, η=ηᵍ)
+initial_conditions = InitialConditions(u = uᵍ, v = vᵍ, η = ηᵍ)
 
 @info """ The parameters for the radiating eddy problem...
 
@@ -99,15 +99,18 @@ using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
 
 using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
 
-problem = InitialValueProblem(dimensions = (Lx, Ly, Lz), initial_conditions = initial_conditions)
+problem = InitialValueProblem(
+    dimensions = (Lx, Ly, Lz),
+    initial_conditions = initial_conditions,
+)
 
 equations = HydrostaticBoussinesqModel{Float64}(
     NonDimensionalParameters(),
-    problem,           
+    problem,
     νʰ = 1e-2, # Horizontal viscosity (m² s⁻¹) 
     κʰ = 1e-2, # Horizontal diffusivity (m² s⁻¹) 
     fₒ = 1,    # Coriolis parameter (s⁻¹)
-    β = β      # Coriolis parameter gradient (m⁻¹ s⁻¹)
+    β = β,      # Coriolis parameter gradient (m⁻¹ s⁻¹)
 )
 
 driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
@@ -134,7 +137,7 @@ grid = driver_configuration.grid
 
 filters = (
     vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1),
-    exp_filter = ExponentialFilter(grid, 1, 8)
+    exp_filter = ExponentialFilter(grid, 1, 8),
 )
 
 # # Configuring the solver
@@ -153,8 +156,10 @@ solver_configuration = ClimateMachine.SolverConfiguration(
     driver_configuration,
     init_on_cpu = true,
     ode_dt = time_step,
-    ode_solver_type = ClimateMachine.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch),
-    modeldata = filters
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    ),
+    modeldata = filters,
 )
 
 # # Fetching the data to make a movie
@@ -187,7 +192,10 @@ data_fetcher = EveryXSimulationTime(fetch_every) do
     glued_v = glue(v.elements)
     glued_η = glue(η.elements)
 
-    push!(fetched_states, (u=glued_u, v=glued_v, η=glued_η, time=solver.t))
+    push!(
+        fetched_states,
+        (u = glued_u, v = glued_v, η = glued_η, time = solver.t),
+    )
 
     return nothing
 end
@@ -202,8 +210,14 @@ solver = solver_configuration.solver
 wall_clock = [time_ns()]
 
 tiny_progress_printer = EveryXSimulationSteps(print_every) do
-    @info @sprintf("Steps: %d, time: %.2f, Δt: %.2f, max(|η|): %.4f, elapsed time: %.2f secs",
-                   solver.steps, solver.t, solver.dt, maximum(abs, η), 1e-9 * (time_ns() - wall_clock[1]))
+    @info @sprintf(
+        "Steps: %d, time: %.2f, Δt: %.2f, max(|η|): %.4f, elapsed time: %.2f secs",
+        solver.steps,
+        solver.t,
+        solver.dt,
+        maximum(abs, η),
+        1e-9 * (time_ns() - wall_clock[1])
+    )
 
     wall_clock[1] = time_ns()
 end
@@ -214,7 +228,8 @@ end
 
 result = ClimateMachine.invoke!(
     solver_configuration;
-    user_callbacks = [tiny_progress_printer, data_fetcher])
+    user_callbacks = [tiny_progress_printer, data_fetcher],
+)
 
 # # Animating the result
 #
@@ -223,7 +238,6 @@ result = ClimateMachine.invoke!(
 using Plots
 
 animation = @animate for (i, state) in enumerate(fetched_states)
-
     @info "Plotting frame $i of $(length(fetched_states))..."
 
     umax = maximum(abs, state.u)
@@ -232,14 +246,20 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 
     ηmax = maximum(abs, state.η)
 
-    ulim = (-ϵ*g/10, ϵ*g/10)
+    ulim = (-ϵ * g / 10, ϵ * g / 10)
     ηlim = (-ηmax, ηmax)
 
-    ulevels = range(ulim[1], ulim[2], length=31)
-    ηlevels = range(ηlim[1], ηlim[2], length=31)
+    ulevels = range(ulim[1], ulim[2], length = 31)
+    ηlevels = range(ηlim[1], ηlim[2], length = 31)
 
-    kwargs = (aspectratio = 1, linewidth = 0, xlim = domain.x, ylim = domain.y,
-              xlabel = "x (m)", ylabel = "y (m)")
+    kwargs = (
+        aspectratio = 1,
+        linewidth = 0,
+        xlim = domain.x,
+        ylim = domain.y,
+        xlabel = "x (m)",
+        ylabel = "y (m)",
+    )
 
     u_plot = contourf(
         state.u.x,
@@ -248,8 +268,9 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         color = :balance,
         clim = ulim,
         levels = ulevels,
-        kwargs...)
-        
+        kwargs...,
+    )
+
     v_plot = contourf(
         state.v.x,
         state.v.y,
@@ -257,7 +278,8 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         color = :balance,
         clim = ulim,
         levels = ulevels,
-        kwargs...)
+        kwargs...,
+    )
 
     η_plot = contourf(
         state.η.x,
@@ -266,13 +288,21 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         color = :balance,
         clim = ηlim,
         levels = ηlevels,
-        kwargs...)
+        kwargs...,
+    )
 
     u_title = @sprintf("u at t = %.2f", state.time)
     v_title = @sprintf("v at t = %.2f", state.time)
     η_title = @sprintf("η at t = %.2f", state.time)
 
-    plot(u_plot, v_plot, η_plot, layout=(1, 3), size=(1600, 400), title=[u_title v_title η_title])
+    plot(
+        u_plot,
+        v_plot,
+        η_plot,
+        layout = (1, 3),
+        size = (1600, 400),
+        title = [u_title v_title η_title],
+    )
 end
 
 gif(animation, "radiating_eddy.gif", fps = 8) # hide
