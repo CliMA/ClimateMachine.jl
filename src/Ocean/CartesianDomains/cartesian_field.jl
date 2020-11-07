@@ -63,9 +63,9 @@ function CartesianField(
     Np = domain.Np
 
     # Extract coordinate arrays with size (xnode, ynode, znode, element)
-    x = reshape(volume_geometry[:, 13, :], Np+1, Np+1, Np+1, Te)
-    y = reshape(volume_geometry[:, 14, :], Np+1, Np+1, Np+1, Te)
-    z = reshape(volume_geometry[:, 15, :], Np+1, Np+1, Np+1, Te)
+    x = reshape(volume_geometry[:, 13, :], Np + 1, Np + 1, Np + 1, Te)
+    y = reshape(volume_geometry[:, 14, :], Np + 1, Np + 1, Np + 1, Te)
+    z = reshape(volume_geometry[:, 15, :], Np + 1, Np + 1, Np + 1, Te)
 
     # Unwind the data in state.realdata
     data = view(state.realdata, :, variable_index, :)

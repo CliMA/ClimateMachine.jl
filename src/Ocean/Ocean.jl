@@ -1,7 +1,6 @@
 module Ocean
 
-export 
-    AbstractOceanCoupling,
+export AbstractOceanCoupling,
     Uncoupled,
     Coupled,
 

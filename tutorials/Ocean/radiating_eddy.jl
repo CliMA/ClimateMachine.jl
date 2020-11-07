@@ -117,11 +117,11 @@ driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
     "radiating eddy tutorial",            # The name of the experiment
     Np,                                   # The polynomial order
     Ne,                                   # The number of elements
-    NonDimensionalParameters(),           
+    NonDimensionalParameters(),
     equations;                            # The equations to solve, represented by a `BalanceLaw`
     periodicity = (false, false, false),  # Topology of the domain
-    boundary = ((1, 1), (1, 1), (1, 2))   # (?)
-)  
+    boundary = ((1, 1), (1, 1), (1, 2)),   # (?)
+)
 nothing # hide
 
 # # Filters

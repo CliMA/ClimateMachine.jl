@@ -1,5 +1,6 @@
 using MPI
-using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid, polynomialorder
+using ClimateMachine.Mesh.Grids:
+    DiscontinuousSpectralElementGrid, polynomialorder
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
 
 #####
@@ -7,26 +8,46 @@ using ClimateMachine.Mesh.Topologies: StackedBrickTopology
 #####
 
 struct CartesianDomain{FT, G}
-    grid :: G
-      Np :: Int
-      Ne :: NamedTuple{(:x, :y, :z), NTuple{3, Int}}
-       L :: NamedTuple{(:x, :y, :z), NTuple{3, FT}}
-       x :: NTuple{2, FT}
-       y :: NTuple{2, FT}
-       z :: NTuple{2, FT}
+    grid::G
+    Np::Int
+    Ne::NamedTuple{(:x, :y, :z), NTuple{3, Int}}
+    L::NamedTuple{(:x, :y, :z), NTuple{3, FT}}
+    x::NTuple{2, FT}
+    y::NTuple{2, FT}
+    z::NTuple{2, FT}
 end
 
-Base.eltype(::CartesianDomain{FT}) where FT = FT
+Base.eltype(::CartesianDomain{FT}) where {FT} = FT
 
-Base.show(io::IO, domain::CartesianDomain{FT, G}) where {FT, G} =
-    print(io, "CartesianDomain{$FT, $(G.name.wrapper)}:", '\n',
-              "    Np = ", domain.Np, ", Ne = ", domain.Ne, '\n',
-              @sprintf("    L = (x = %.2e, y = %.2e, z = %.2e)", domain.L.x, domain.L.y, domain.L.z), '\n',
-              @sprintf("    x = (%.2e, %.2e), y = (%.2e, %.2e), z = (%.2e, %.2e)",
-                       domain.x[1], domain.x[2], domain.y[1], domain.y[2], domain.z[1], domain.z[2]))
-              
+Base.show(io::IO, domain::CartesianDomain{FT, G}) where {FT, G} = print(
+    io,
+    "CartesianDomain{$FT, $(G.name.wrapper)}:",
+    '\n',
+    "    Np = ",
+    domain.Np,
+    ", Ne = ",
+    domain.Ne,
+    '\n',
+    @sprintf(
+        "    L = (x = %.2e, y = %.2e, z = %.2e)",
+        domain.L.x,
+        domain.L.y,
+        domain.L.z
+    ),
+    '\n',
+    @sprintf(
+        "    x = (%.2e, %.2e), y = (%.2e, %.2e), z = (%.2e, %.2e)",
+        domain.x[1],
+        domain.x[2],
+        domain.y[1],
+        domain.y[2],
+        domain.z[1],
+        domain.z[2]
+    )
+)
+
 name_it(Ne::NamedTuple{(:x, :y, :z)}) = Ne
-name_it(Ne) = (x=Ne[1], y=Ne[2], z=Ne[3])
+name_it(Ne) = (x = Ne[1], y = Ne[2], z = Ne[3])
 
 """
     CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
@@ -42,7 +63,7 @@ function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
 
     # Check number of elements
     prod(Ne) === size(volume_geometry, 3) ||
-        error("prod(Ne) must match the total number of grid elements.")
+    error("prod(Ne) must match the total number of grid elements.")
 
     Np = polynomialorder(grid)
 
@@ -114,9 +135,9 @@ function CartesianDomain(
     FT = Float64;
     elements,
     polynomialorder,
-    x :: Tuple{<:Number, <:Number},
-    y :: Tuple{<:Number, <:Number},
-    z :: Tuple{<:Number, <:Number},
+    x::Tuple{<:Number, <:Number},
+    y::Tuple{<:Number, <:Number},
+    z::Tuple{<:Number, <:Number},
     periodicity = (true, true, false),
     boundary = ((0, 0), (0, 0), (1, 2)),
     array_type = Array,
@@ -129,16 +150,16 @@ function CartesianDomain(
     south, north = FT.(y)
     bottom, top = FT.(z)
 
-    L = (
-        x = east - west,
-        y = north - south,
-        z = top - bottom
-    )
+    east > west || error("Domain x-limits must be increasing!")
+    north > south || error("Domain y-limits must be increasing!")
+    top > bottom || error("Domain z-limits must be increasing!")
+
+    L = (x = east - west, y = north - south, z = top - bottom)
 
     element_coordinates = (
-        range(west,   east,  length = Ne.x + 1),
-        range(south,  north, length = Ne.y + 1),
-        range(bottom, top,   length = Ne.z + 1)
+        range(west, east, length = Ne.x + 1),
+        range(south, north, length = Ne.y + 1),
+        range(bottom, top, length = Ne.z + 1),
     )
 
     topology = StackedBrickTopology(
@@ -155,9 +176,17 @@ function CartesianDomain(
         polynomialorder = polynomialorder,
     )
 
-    return CartesianDomain(grid, polynomialorder, Ne, L, (west, east), (south, north), (top, bottom))
+    return CartesianDomain{FT, typeof(grid)}(
+        grid,
+        polynomialorder,
+        Ne,
+        L,
+        (west, east),
+        (south, north),
+        (bottom, top),
+    )
 end
 
 array_type(domain::CartesianDomain) = Array #array_type(domain.grid)
-eltype(::CartesianDomain{FT}) where FT = FT
+eltype(::CartesianDomain{FT}) where {FT} = FT
 communicator(args...) = MPI.COMM_WORLD

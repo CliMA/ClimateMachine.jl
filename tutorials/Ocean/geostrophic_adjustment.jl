@@ -231,23 +231,41 @@ movie_plots = []
 plot_every = 10 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
-<<<<<<< HEAD
+    << << << < HEAD
     glued_u = glue(u.elements)
     glued_v = glue(v.elements)
     glued_η = glue(η.elements)
-    
+
     umax = 0.5 * max(maximum(abs, u), maximum(abs, v))
     ulim = (-umax, umax)
-    
-    u_plot = plot(glued_u.x, [glued_u.data[:, 1, 1] glued_v.data[:, 1, 1]],
-                  xlim=domain.x, ylim=(-0.7U, 0.7U), label=["u" "v"],
-                  linewidth=2, xlabel="x (m)", ylabel="Velocities (m s⁻¹)")
 
-    η_plot = plot(glued_η.x, glued_η.data[:, 1, 1], xlim=domain.x, ylim=(-0.01a, 1.2a),
-                  linewidth=2, label=nothing, xlabel="x (m)", ylabel="η (m)")
-                  
+    u_plot = plot(
+        glued_u.x,
+        [glued_u.data[:, 1, 1] glued_v.data[:, 1, 1]],
+        xlim = domain.x,
+        ylim = (-0.7U, 0.7U),
+        label = ["u" "v"],
+        linewidth = 2,
+        xlabel = "x (m)",
+        ylabel = "Velocities (m s⁻¹)",
+    )
 
-    push!(movie_plots, (u=u_plot, η=η_plot, time=solver_configuration.solver.t))
+    η_plot = plot(
+        glued_η.x,
+        glued_η.data[:, 1, 1],
+        xlim = domain.x,
+        ylim = (-0.01a, 1.2a),
+        linewidth = 2,
+        label = nothing,
+        xlabel = "x (m)",
+        ylabel = "η (m)",
+    )
+
+
+    push!(
+        movie_plots,
+        (u = u_plot, η = η_plot, time = solver_configuration.solver.t),
+    )
 
     u_assembly = assemble(u)
     v_assembly = assemble(v)
