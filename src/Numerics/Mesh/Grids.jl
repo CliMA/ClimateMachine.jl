@@ -343,30 +343,26 @@ the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
 function min_node_distance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     direction::Direction = EveryDirection(),
-) where {T, dim, Ns}
+) where {T, dim, N}
     topology = grid.topology
     nrealelem = length(topology.realelems)
 
     if nrealelem > 0
-        # XXX: Needs updating for multiple polynomial orders
-        # Currently only support single polynomial order
-        @assert all(Ns[1] .== Ns)
-        N = Ns[1]
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = N .+ 1
+        Np = prod(Nq)
         device = grid.vgeo isa Array ? CPU() : CUDADevice()
-        min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
+        min_neighbor_distance = similar(grid.vgeo, Np, nrealelem)
         event = Event(device)
-        event = kernel_min_neighbor_distance!(device, min(Nq * Nq * Nqk, 1024))(
+        event = kernel_min_neighbor_distance!(device, min(Np, 1024))(
             Val(N),
             Val(dim),
             direction,
             min_neighbor_distance,
             grid.vgeo,
             topology.realelems;
-            ndrange = (Nq * Nq * Nqk * nrealelem),
+            ndrange = (Np * nrealelem),
             dependencies = (event,),
         )
         wait(device, event)
@@ -986,10 +982,9 @@ neighbors.
 
     @uniform begin
         FT = eltype(min_neighbor_distance)
-        # XXX: Needs updating for multiple polynomial orders
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
-        Np = Nq * Nq * Nqk
+        Nq = N .+ 1
+        Nqk = dim == 2 ? 1 : Nq[end]
+        Np = prod(Nq)
 
         if direction isa EveryDirection
             mininξ = (true, true, true)
@@ -1004,9 +999,9 @@ neighbors.
     e = (I - 1) ÷ Np + 1
     ijk = (I - 1) % Np + 1
 
-    i = (ijk - 1) % Nq + 1
-    j = (ijk - 1) ÷ Nq % Nq + 1
-    k = (ijk - 1) ÷ Nq^2 % Nqk + 1
+    i = (ijk - 1) % Nq[1] + 1
+    j = (ijk - 1) ÷ Nq[1] % Nq[2] + 1
+    k = (ijk - 1) ÷ (Nq[1] * Nq[2]) % Nqk + 1
 
     md = typemax(FT)
 
@@ -1014,8 +1009,8 @@ neighbors.
 
     if mininξ[1]
         @unroll for î in (i - 1, i + 1)
-            if 1 ≤ î ≤ Nq
-                îjk = î + Nq * (j - 1) + Nq * Nq * (k - 1)
+            if 1 ≤ î ≤ Nq[1]
+                îjk = î + Nq[1] * (j - 1) + Nq[1] * Nq[2] * (k - 1)
                 x̂ = SVector(
                     vgeo[îjk, _x1, e],
                     vgeo[îjk, _x2, e],
@@ -1028,8 +1023,8 @@ neighbors.
 
     if mininξ[2]
         @unroll for ĵ in (j - 1, j + 1)
-            if 1 ≤ ĵ ≤ Nq
-                iĵk = i + Nq * (ĵ - 1) + Nq * Nq * (k - 1)
+            if 1 ≤ ĵ ≤ Nq[2]
+                iĵk = i + Nq[1] * (ĵ - 1) + Nq[1] * Nq[2] * (k - 1)
                 x̂ = SVector(
                     vgeo[iĵk, _x1, e],
                     vgeo[iĵk, _x2, e],
@@ -1043,7 +1038,7 @@ neighbors.
     if mininξ[3]
         @unroll for k̂ in (k - 1, k + 1)
             if 1 ≤ k̂ ≤ Nqk
-                ijk̂ = i + Nq * (j - 1) + Nq * Nq * (k̂ - 1)
+                ijk̂ = i + Nq[1] * (j - 1) + Nq[1] * Nq[2] * (k̂ - 1)
                 x̂ = SVector(
                     vgeo[ijk̂, _x1, e],
                     vgeo[ijk̂, _x2, e],
