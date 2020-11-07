@@ -218,9 +218,9 @@ using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField, gl
 ## CartesianDomain and CartesianField objects to help with plotting
 domain = CartesianDomain(solver_configuration.dg.grid, Ne)
 
-u = CartesianField(solver_configuration.Q, domain, 1)
-v = CartesianField(solver_configuration.Q, domain, 2)
-η = CartesianField(solver_configuration.Q, domain, 3)
+u = CartesianField(domain, solver_configuration.Q, 1)
+v = CartesianField(domain, solver_configuration.Q, 2)
+η = CartesianField(domain, solver_configuration.Q, 3)
 
 ## Container to hold the plotted frames
 movie_plots = []

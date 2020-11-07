@@ -1,7 +1,12 @@
 module Ocean
 
-export AbstractOceanCoupling,
-    Uncoupled, Coupled, AdvectionTerm, NonLinearAdvectionTerm
+export 
+    AbstractOceanCoupling,
+    Uncoupled,
+    Coupled,
+
+    AdvectionTerm,
+    NonLinearAdvectionTerm
 
 abstract type AbstractOceanCoupling end
 struct Uncoupled <: AbstractOceanCoupling end
@@ -17,6 +22,7 @@ function coriolis_parameter end
 function kinematic_stress end
 function surface_flux end
 
+include("Fields.jl")
 include("CartesianDomains/CartesianDomains.jl")
 
 include("OceanBC.jl")
@@ -27,8 +33,8 @@ include("SplitExplicit/SplitExplicitModel.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")
 include("OceanProblems/OceanProblems.jl")
 
-include("SuperHydrostaticBoussinesqModels.jl")
+include("SuperModels.jl")
 
-using .SuperHydrostaticBoussinesqModels: SuperHydrostaticBoussinesqModel
+using .SuperModels: HydrostaticBoussinesqSuperModel, time, steps, Δt
 
 end

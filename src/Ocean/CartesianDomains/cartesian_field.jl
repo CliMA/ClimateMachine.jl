@@ -1,10 +1,14 @@
 using ClimateMachine.MPIStateArrays: MPIStateArray
 
+using ..Fields: AbstractField
+
+import ..Fields: field
+
 #####
 ##### CartesianField
 #####
 
-struct CartesianField{E, D}
+struct CartesianField{E, D} <: AbstractField
     elements :: E
       domain :: D
 end
@@ -34,7 +38,7 @@ that assumes `state.realdata` lives on `CartesianDomain`.
 
 `CartesianField.elements` is a three-dimensional array of `RectangularElements`.
 """
-function CartesianField(state::MPIStateArray, domain::CartesianDomain, variable_index::Int)
+function CartesianField(domain::CartesianDomain, state::MPIStateArray, variable_index::Int)
 
     # Unwind the data in solver
     data = view(state.realdata, :, variable_index, :)
@@ -84,3 +88,5 @@ function CartesianFields(state, domain)
     indices = size(state.realdata, 2)
     return Tuple(CartesianField(state, domain, i) for i in indices)
 end
+
+field(domain::CartesianDomain, state, index) = CartesianField(domain, state, index)

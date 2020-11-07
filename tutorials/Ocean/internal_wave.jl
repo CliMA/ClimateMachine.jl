@@ -84,10 +84,10 @@ initial_conditions = InitialConditions(u=uᵢ, v=vᵢ, θ=Tᵢ)
 #
 # We're ready to build the model:
 
-using ClimateMachine.Ocean: SuperHydrostaticBoussinesqModel
+using ClimateMachine.Ocean: HydrostaticBoussinesqSuperModel
 using ClimateMachine.Ocean.HydrostaticBoussinesq: NonLinearAdvectionTerm
 
-model = SuperHydrostaticBoussinesqModel(
+model = HydrostaticBoussinesqSuperModel(
     domain = domain,
     initial_conditions = initial_conditions,
     advection = (momentum=nothing, tracers=NonLinearAdvectionTerm()),
@@ -97,49 +97,42 @@ model = SuperHydrostaticBoussinesqModel(
     parameters = NonDimensionalParameters(),
 )
 
-using ClimateMachine: SolverConfiguration
-
-start_time = 0.0
-stop_time = 20.0
-time_step = 0.02 # resolves the gravity wave speed c = 4
-
-solver_configuration = SolverConfiguration(
-    model,
-    stop_time = 20π/ω,
-    time_step = 1e-3
-)
-
 # # Fetching the data to make a movie
 #
-# To animate the `ClimateMachine.Ocean` solution, we create
-# `CartesianField`s to `view` the data corresponding to prognostic fields
-# in `solver_configuration.solver.Q.realdata`:
+# To animate the `ClimateMachine.Ocean` solution, we assemble and
+# cache the horizontal velocity ``u`` at periodic intervals:
 
-using ClimateMachine.Ocean.CartesianDomains: CartesianField, glue
+using ClimateMachine.Ocean.CartesianDomains: glue
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
-
-u = CartesianField(solver_configuration.Q, domain, 1)
 
 fetched_states = []
 fetch_every = 1 # unit of simulation time
 
 data_fetcher = EveryXSimulationTime(fetch_every) do
-    push!(fetched_states, (u=glue(u.elements), time=solver.t))
+    push!(fetched_states, (u=glue(model.fields.u.elements), time=time(model)))
     return nothing
 end
 
-# We also build a simple callback to log the progress of our simulation,
+# We also build a callback to log the progress of our simulation,
 
 using Printf
 using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
+using ClimateMachine.Ocean: steps, time, Δt
 
 print_every = 10 # iterations
-solver = solver_configuration.solver
 wall_clock = [time_ns()]
 
 tiny_progress_printer = EveryXSimulationSteps(print_every) do
-    @info @sprintf("Steps: %d, time: %.2f, Δt: %.2f, max(|u|): %.4f, elapsed time: %.2f secs",
-                   solver.steps, solver.t, solver.dt, maximum(abs, u), 1e-9 * (time_ns() - wall_clock[1]))
+
+    @info(
+        @sprintf("Steps: %d, time: %.2f, Δt: %.2f, max(|u|): %.4f, elapsed time: %.2f secs",
+            steps(model),
+            time(model),
+            Δt(model),
+            maximum(abs, model.fields.u),
+            1e-9 * (time_ns() - wall_clock[1])
+        )
+    )
 
     wall_clock[1] = time_ns()
 end
@@ -148,8 +141,11 @@ end
 #
 # Finally, we run the simulation,
 
+model.solver.timeend = 20.0
+model.solver.dt = 0.02 # resolves the gravity wave speed c = 4
+
 result = ClimateMachine.invoke!(
-    solver_configuration;
+    model.solver;
     user_callbacks = [tiny_progress_printer, data_fetcher])
 
 # # Animating the result
