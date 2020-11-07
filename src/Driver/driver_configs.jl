@@ -301,6 +301,8 @@ function OceanBoxGCMConfiguration(
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
 
+    ## solver_method = get_parms(,:solver_method,solver_method)
+
     brickrange = (
         range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
         range(FT(0); length = Nʸ + 1, stop = model.problem.Lʸ),

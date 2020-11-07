@@ -69,11 +69,20 @@ function writevtk(
     auxfieldnames;
     number_sample_points = 0,
 )
+    md = dg.modeldata
     vgeo = dg.grid.vgeo
     device = array_device(Q)
     (h_vgeo, h_Q, h_aux) =
         device isa CPU ? (vgeo, Q.data, state_auxiliary.data) :
         (Array(vgeo), Array(Q), Array(state_auxiliary))
+
+    rnglo = -1
+    rnghi =  1
+    if haskey(md,:mymodeldata)
+     rnglo = Main.get_parm(md.mymodeldata,:my_vtk_range_lo,rnglo)
+     rnghi = Main.get_parm(md.mymodeldata,:my_vtk_range_hi,rnghi)
+    end
+
     writevtk_helper(
         prefix,
         h_vgeo,
@@ -83,6 +92,8 @@ function writevtk(
         h_aux,
         auxfieldnames;
         number_sample_points = number_sample_points,
+        frlo=rnglo,
+        frhi=rnghi,
     )
     return nothing
 end
@@ -101,8 +112,12 @@ function writevtk_helper(
     state_auxiliary = nothing,
     auxfieldnames = nothing;
     number_sample_points,
+    frlo=-1, frhi=1
 )
     @assert number_sample_points >= 0
+    @assert frlo < frhi
+    @assert frlo >= -1
+    @assert frhi <=  1
 
     dim = dimensionality(grid)
     N = polynomialorder(grid)
@@ -125,7 +140,7 @@ function writevtk_helper(
     if number_sample_points > 0
         FT = eltype(Q)
         ξsrc = referencepoints(grid)
-        ξdst = range(FT(-1); length = number_sample_points, stop = 1)
+        ξdst = range(FT(frlo); length = number_sample_points, stop = FT(frhi))
         I1d = interpolationmatrix(ξsrc, ξdst)
         I = kron(ntuple(i -> I1d, dim)...)
         fields = ntuple(i -> I * fields[i], length(fields))
