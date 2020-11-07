@@ -259,30 +259,3 @@ function EB4(slowrhs!, fastrhs!, fastmethod, nsteps, Q::AT; dt=0, t0=0) where {A
 
   ETDStep(slowrhs!, fastrhs!, fastmethod, nsteps, nStages, nPhi, nPhiStages, (β0, β1, β2), (βS0, βS1, βS2), c, Q; dt=dt, t0=t0)
 end
-
-@kernel function update!(
-    offset,
-    ::Val{iStage},
-    fYnj,
-    βS,
-    τ,
-    nPhi
-) where {iStage}
-    e = @index(Global, Linear)
-    @inbounds begin
-      fac = βS[nPhi][iStage+1,1];
-      @unroll for k in (nPhi-1):-1:1
-        fac=fac.*τ.+βS[k][iStage+1,1];
-      end
-      offset[e]=fac.*fYnj[1][e];
-
-      @unroll for jStage in 2:iStage
-        fac = βS[nPhi][iStage+1,jStage];
-
-        @unroll for k in (nPhi-1):-1:1
-          fac=fac.*τ.+βS[k][iStage+1,jStage];
-        end
-         offset[e]+=fac.*fYnj[jStage][e];
-      end
-    end
-end
