@@ -177,24 +177,23 @@ u = CartesianField(domain, solver_configuration.Q, 1)
 v = CartesianField(domain, solver_configuration.Q, 2)
 η = CartesianField(domain, solver_configuration.Q, 3)
 
-# and then and builda callback that copies and glues the data 
+# and then and builda callback that copies and assembles the data 
 # for each state variable, and stores it in `fetched_states`.
 
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
-using ClimateMachine.Ocean.CartesianDomains: glue
+using ClimateMachine.Ocean.Fields: assemble
 
 fetched_states = []
-
 fetch_every = 1 # unit of simulation time
 
 data_fetcher = EveryXSimulationTime(fetch_every) do
-    glued_u = glue(u.elements)
-    glued_v = glue(v.elements)
-    glued_η = glue(η.elements)
+    assembled_u = assemble(u.elements)
+    assembled_v = assemble(v.elements)
+    assembled_η = assemble(η.elements)
 
     push!(
         fetched_states,
-        (u = glued_u, v = glued_v, η = glued_η, time = solver.t),
+        (u = assembled_u, v = assembled_v, η = assembled_η, time = solver.t),
     )
 
     return nothing
