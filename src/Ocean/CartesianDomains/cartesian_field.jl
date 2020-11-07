@@ -65,8 +65,8 @@ function CartesianField(state::MPIStateArray, domain::CartesianDomain, variable_
         Δy = elem.y[1] - domain.y[1]
         Δz = elem.z[1] - domain.z[1]
 
-        coordinate = (Δz / domain.Lz * domain.Ne.z * domain.Ne.y * domain.Lx +
-                      Δy / domain.Ly * domain.Ne.y * domain.Lx +
+        coordinate = (Δz / domain.L.z * domain.Ne.z * domain.Ne.y * domain.L.x +
+                      Δy / domain.L.y * domain.Ne.y * domain.L.x +
                       Δx)
 
         return coordinate

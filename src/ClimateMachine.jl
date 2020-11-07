@@ -36,7 +36,6 @@ include(joinpath("Utilities", "SingleStackUtils", "SingleStackUtils.jl"))
 include(joinpath("Numerics", "SystemSolvers", "SystemSolvers.jl"))
 include(joinpath("Numerics", "ODESolvers", "GenericCallbacks.jl"))
 include(joinpath("Numerics", "ODESolvers", "ODESolvers.jl"))
-include(joinpath("Ocean/Ocean.jl"))
 include(joinpath("Land", "Model", "LandModel.jl"))
 include(joinpath("InputOutput", "VTK", "VTK.jl"))
 include(joinpath("Common", "TurbulenceClosures", "TurbulenceClosures.jl"))
@@ -48,5 +47,7 @@ include(joinpath("Diagnostics", "Debug", "StateCheck.jl"))
 include(joinpath("Utilities", "Checkpoint", "Checkpoint.jl"))
 include(joinpath("Driver", "Callbacks", "Callbacks.jl"))
 include(joinpath("Driver", "Driver.jl"))
+
+include(joinpath("Ocean", "Ocean.jl"))
 
 end

@@ -21,10 +21,14 @@ include("CartesianDomains/CartesianDomains.jl")
 
 include("OceanBC.jl")
 
-include("HydrostaticBoussinesq/HydrostaticBoussinesqModel.jl")
+include("HydrostaticBoussinesq/HydrostaticBoussinesq.jl")
 include("ShallowWater/ShallowWaterModel.jl")
 include("SplitExplicit/SplitExplicitModel.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")
 include("OceanProblems/OceanProblems.jl")
+
+include("SuperHydrostaticBoussinesqModels.jl")
+
+using .SuperHydrostaticBoussinesqModels: SuperHydrostaticBoussinesqModel
 
 end

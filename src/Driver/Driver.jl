@@ -20,7 +20,6 @@ using ..DGMethods
 using ..BalanceLaws
 using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
-using ..Ocean.HydrostaticBoussinesq
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..Thermodynamics
