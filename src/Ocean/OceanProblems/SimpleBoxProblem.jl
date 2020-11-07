@@ -249,12 +249,13 @@ Lʸ = meridional (north-south) length
 H  = height of the ocean
 τₒ = maximum value of wind-stress (amplitude)
 """
-struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
+struct HomogeneousBox{T, BC, TI} <: AbstractSimpleBoxProblem
     Lˣ::T
     Lʸ::T
     H::T
     τₒ::T
     boundary_conditions::BC
+    theta_init::TI
     function HomogeneousBox{FT}(
         Lˣ,             # m
         Lʸ,             # m
@@ -265,8 +266,9 @@ struct HomogeneousBox{T, BC} <: AbstractSimpleBoxProblem
             OceanBC(Impenetrable(NoSlip()), Insulating()),
             OceanBC(Penetrable(KinematicStress()), Insulating()),
         ),
+        theta_init = theta_init(x,y,z,p) = 20,
     ) where {FT <: AbstractFloat}
-        return new{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, BC)
+        return new{FT, typeof(BC), typeof(theta_init)}(Lˣ, Lʸ, H, τₒ, BC, theta_init)
     end
 end
 
@@ -283,9 +285,12 @@ initialize u,v with random values, η with 0, and θ with a constant (20)
 - `t`: time to evaluate at, not used
 """
 function ocean_init_state!(m::HBModel, p::HomogeneousBox, Q, A, coords, t)
+    x=coords[1]
+    y=coords[2]
+    z=coords[3]
     Q.u = @SVector [0, 0]
     Q.η = 0
-    Q.θ = 20
+    Q.θ = p.theta_init(x,y,z,p)
 
     return nothing
 end
@@ -313,7 +318,7 @@ jet stream like windstress
 - `y`: y-coordinate in the box
 """
 @inline kinematic_stress(p::HomogeneousBox, y, ρ) =
-    @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
+    @SVector [(p.τₒ / ρ) * cos(2 * y * π / p.Lʸ), -0]
 
 @inline kinematic_stress(
     p::HomogeneousBox,

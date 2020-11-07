@@ -15,16 +15,24 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-function config_simple_box(name, resolution, dimensions, problem; BC = nothing)
+function config_simple_box(name, resolution, dimensions, problem; BC = nothing, mymodeldata = (nothing_set=0,) )
     if BC == nothing
         problem = problem{FT}(dimensions...)
     else
-        problem = problem{FT}(dimensions...; BC = BC)
+        ti_default=problem{FT}(dimensions...).theta_init
+        ti=Main.get_parm(mymodeldata,:tinit_f,ti_default)
+        problem = problem{FT}(dimensions...; BC = BC, theta_init=ti)
     end
 
     _grav::FT = grav(param_set)
     cʰ = sqrt(_grav * problem.H) # m/s
-    model = HydrostaticBoussinesqModel{FT}(param_set, problem, cʰ = cʰ)
+
+    αᵀ_default=HydrostaticBoussinesqModel{FT}((),()).αᵀ
+    αᵀ=Main.get_parm(mymodeldata,:αᵀ,αᵀ_default)
+    νʰ_default=HydrostaticBoussinesqModel{FT}((),()).νʰ
+    νʰ=Main.get_parm(mymodeldata,:νʰ,νʰ_default)
+
+    model = HydrostaticBoussinesqModel{FT}(param_set, problem, cʰ = cʰ, αᵀ=αᵀ, νʰ=νʰ)
 
     N, Nˣ, Nʸ, Nᶻ = resolution
     resolution = (Nˣ, Nʸ, Nᶻ)
@@ -50,25 +58,31 @@ function run_simple_box(
     BC = nothing,
     Δt = nothing,
     refDat = (),
+    mymodeldata = (),
 )
     if imex
         solver_type =
             ClimateMachine.IMEXSolverType(implicit_model = LinearHBModel)
         Courant_number = 0.1
     else
+        solver_method = get_parm(mymodeldata,:solver_method,LSRK144NiegemannDiehlBusch)
         solver_type = ClimateMachine.ExplicitSolverType(
-            solver_method = LSRK144NiegemannDiehlBusch,
+            solver_method = solver_method,
         )
         Courant_number = 0.4
     end
 
     driver_config =
-        config_simple_box(name, resolution, dimensions, problem; BC = BC)
+        config_simple_box(name, resolution, dimensions, problem; BC = BC, mymodeldata=mymodeldata )
 
     grid = driver_config.grid
     vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1)
     exp_filter = ExponentialFilter(grid, 1, 8)
-    modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
+    modeldata = (
+        vert_filter = vert_filter,
+        exp_filter = exp_filter,
+        mymodeldata = mymodeldata,
+    )
 
     timestart, timeend = timespan
     solver_config = ClimateMachine.SolverConfiguration(
