@@ -189,7 +189,9 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_tot
+    if !(bl.moisture isa DryModel)
+        state.moisture.ρq_tot = ρ * q_tot
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
@@ -216,6 +218,7 @@ function convective_bl_model(
     zmax,
     surface_flux;
     turbconv = NoTurbConv(),
+    moisture_model = "dry",
 ) where {FT}
 
     ics = init_convective_bl!     # Initial conditions
@@ -233,7 +236,7 @@ function convective_bl_model(
     q_sfc = FT(0)
 
     # Assemble source components
-    source = (
+    source_default = (
         Gravity(),
         ConvectiveBLSponge{FT}(
             zmax,
@@ -251,6 +254,22 @@ function convective_bl_model(
             v_geostrophic,
         ),
     )
+    if moisture_model == "dry"
+        moisture = DryModel()
+    elseif moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
 
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
@@ -299,8 +318,8 @@ function convective_bl_model(
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
-        source = source,
+        moisture = moisture,
+        source = source_default,
         turbconv = turbconv,
     )
     return model

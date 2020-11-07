@@ -71,7 +71,6 @@ function init_state_prognostic!(
     return nothing
 end;
 
-
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 struct EDMFFilter <: AbstractCustomFilter end
 import ClimateMachine.DGMethods: custom_filter!
@@ -141,8 +140,13 @@ function main(::Type{FT}) where {FT}
     N_quad = 3
     turbconv = EDMF(FT, N_updrafts, N_quad)
 
-    model =
-        convective_bl_model(FT, config_type, zmax, surface_flux; turbconv = turbconv)
+    model = convective_bl_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux;
+        turbconv = turbconv
+    )
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
@@ -162,8 +166,6 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        fixed_number_of_steps = 1000,
-        # fixed_number_of_steps=1082 # last timestep before crash
     )
 
     # --- Zero-out horizontal variations:
@@ -178,7 +180,6 @@ function main(::Type{FT}) where {FT}
         solver_config.Q,
         varsindex(vsp, :ρe),
     )
-
     vsa = vars_state(model, Auxiliary(), FT)
     horizontally_average!(
         driver_config.grid,
@@ -215,7 +216,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types)]
+    all_data = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -227,7 +228,7 @@ function main(::Type{FT}) where {FT}
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
             push!(
                 all_data,
-                dict_of_nodal_states(solver_config, state_types),
+                dict_of_nodal_states(solver_config, state_types; interp = true),
             )
             push!(time_data, gettime(solver_config.solver))
             nothing
@@ -261,7 +262,7 @@ function main(::Type{FT}) where {FT}
         check_euclidean_distance = true,
     )
 
-    dons = dict_of_nodal_states(solver_config, state_types)
+    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
     push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
 
