@@ -9,7 +9,7 @@ using ClimateMachine.Checkpoint
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
-include(joinpath(clima_dir, "experiments", "AtmosLES", "bomex_model.jl"))
+include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
@@ -46,13 +46,7 @@ function init_state_prognostic!(
     # a moist_thermo state is used here to convert the input θ,q_tot to e_int, q_tot profile
     e_int = internal_energy(m, state, aux)
 
-    if m.moisture isa DryModel
-        ρq_tot = FT(0)
-        ts = PhaseDry(m.param_set, e_int, state.ρ)
-    else
-        ρq_tot = gm.moisture.ρq_tot
-        ts = PhaseEquil(m.param_set, e_int, state.ρ, ρq_tot / state.ρ)
-    end
+    ts = PhaseDry(m.param_set, e_int, state.ρ)
     T = air_temperature(ts)
     p = air_pressure(ts)
     q = PhasePartition(ts)
@@ -63,9 +57,8 @@ function init_state_prognostic!(
         up[i].ρa = gm.ρ * a_min
         up[i].ρaw = gm.ρu[3] * a_min
         up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
-        up[i].ρaq_tot = ρq_tot * a_min
+        up[i].ρaq_tot = FT(0)
     end
-
     # initialize environment covariance with zero for now
     if z <= FT(2500)
         en.ρatke = gm.ρ * (FT(1) - z / FT(3000))
@@ -77,6 +70,7 @@ function init_state_prognostic!(
     en.ρaθ_liq_q_tot_cv = FT(1e-7) / max(z, FT(10))
     return nothing
 end;
+
 
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 struct EDMFFilter <: AbstractCustomFilter end
@@ -90,22 +84,18 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
     ρ_gm = state.ρ
     ts = recover_thermo_state(bl, state, aux)
     ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-    ρaq_tot_ups = sum(vuntuple(i->up[i].ρaq_tot, N_up))
     ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
     ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
     ρa_en        = ρ_gm - ρa_ups
     ρq_tot_gm   = state.moisture.ρq_tot
     ρaw_en      = - ρaw_ups
-    ρaq_tot_en  = (ρq_tot_gm - ρaq_tot_ups) / ρa_en
     θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
-    q_tot_en    = ρaq_tot_en / ρa_en
     w_en        = ρaw_en / ρa_en
     @unroll_map(N_up) do i
         a_up_mask = up[i].ρa < (ρ_gm * a_min)
         Δρ_area = max(a_up_mask * (ρ_gm * a_min - up[i].ρa), FT(0))
         up[i].ρa      += a_up_mask * Δρ_area
         up[i].ρaθ_liq += a_up_mask * θ_liq_en * Δρ_area
-        up[i].ρaq_tot += a_up_mask * q_tot_en * Δρ_area
         up[i].ρaw     += a_up_mask * w_en * Δρ_area
     end
 end
@@ -113,18 +103,18 @@ end
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
-    bomex_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(bomex_args, "BOMEX")
-    @add_arg_table! bomex_args begin
+    cbl_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(cbl_args, "ConvectiveBL")
+    @add_arg_table! cbl_args begin
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
     cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
+        ClimateMachine.init(parse_clargs = true, custom_clargs = cbl_args)
 
     surface_flux = cl_args["surface_flux"]
 
@@ -133,13 +123,13 @@ function main(::Type{FT}) where {FT}
     nelem_vert = 50
 
     # Prescribe domain parameters
-    zmax = FT(3000)
+    zmax = FT(3200)
 
     t0 = FT(0)
 
-    # Simulation time
-    timeend = FT(400)
-    CFLmax = FT(0.90)
+    # Full simulation requires 16+ hours of simulated time
+    timeend = FT(3600 * 0.1)
+    CFLmax = FT(0.4)
 
     config_type = SingleStackConfigType
 
@@ -152,11 +142,11 @@ function main(::Type{FT}) where {FT}
     turbconv = EDMF(FT, N_updrafts, N_quad)
 
     model =
-        bomex_model(FT, config_type, zmax, surface_flux; turbconv = turbconv)
+        convective_bl_model(FT, config_type, zmax, surface_flux; turbconv = turbconv)
 
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "BOMEX_EDMF",
+        "CBL_EDMF",
         N,
         nelem_vert,
         zmax,
@@ -188,11 +178,6 @@ function main(::Type{FT}) where {FT}
         solver_config.Q,
         varsindex(vsp, :ρe),
     )
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :moisture, :ρq_tot),
-    )
 
     vsa = vars_state(model, Auxiliary(), FT)
     horizontally_average!(
@@ -207,16 +192,9 @@ function main(::Type{FT}) where {FT}
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("moisture.ρq_tot", turbconv_filters(turbconv)...),
+            (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
-        )
-        apply!(
-            EDMFFilter(),
-            solver_config.dg.grid,
-            model,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
         )
         nothing
     end
@@ -247,7 +225,10 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(all_data, dict_of_nodal_states(solver_config, state_types))
+            push!(
+                all_data,
+                dict_of_nodal_states(solver_config, state_types),
+            )
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
@@ -288,11 +269,3 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, all_data, time_data, state_types = main(Float64)
-
-include(joinpath(
-    clima_dir,
-    "test",
-    "Atmos",
-    "EDMF",
-    "bomex_edmf_regression_test.jl",
-))
