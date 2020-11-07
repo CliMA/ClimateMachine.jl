@@ -90,7 +90,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         fast_method = LSRK54CarpenterKennedy,
         nsubsteps = (12,),
     )
-    Δt = FT(0.4)
+    Δt = FT(2.0)
 
     # Set up the model
     C_smag = FT(0.23)
