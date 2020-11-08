@@ -32,14 +32,14 @@ struct EarthParameters <: AbstractEarthParameterSet end
 ##### It's super good
 #####
 
-struct HydrostaticBoussinesqSuperModel{D, E, S, F, N, T, V}
+struct HydrostaticBoussinesqSuperModel{D, E, S, F, N, T, C}
     domain::D
     equations::E
     state::S
     fields::F
     numerical_fluxes::N
     timestepper::T
-    solver::V
+    solver_configuration::C
 end
 
 """
@@ -172,7 +172,6 @@ function HydrostaticBoussinesqSuperModel(;
     )
 
     state = solver_configuration.Q
-    solver = solver_configuration
 
     u = field(domain, state, 1)
     v = field(domain, state, 2)
@@ -188,12 +187,12 @@ function HydrostaticBoussinesqSuperModel(;
         fields,
         numerical_fluxes,
         timestepper,
-        solver,
+        solver_configuration,
     )
 end
 
-time(model::HydrostaticBoussinesqSuperModel) = model.solver.solver.t
-Δt(model::HydrostaticBoussinesqSuperModel) = model.solver.solver.dt
-steps(model::HydrostaticBoussinesqSuperModel) = model.solver.solver.steps
+time(model::HydrostaticBoussinesqSuperModel) = model.solver_configuration.solver.t
+Δt(model::HydrostaticBoussinesqSuperModel) = model.solver_configuration.solver.dt
+steps(model::HydrostaticBoussinesqSuperModel) = model.solver_configuration.solver.steps
 
 end # module

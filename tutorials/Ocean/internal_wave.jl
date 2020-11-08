@@ -162,7 +162,7 @@ end
 #
 # We're ready to launch.
 
-model.solver.timeend = 24 * 2π / ω
+model.solver_configuration.timeend = 24 * 2π / ω
 ## model.solver.dt = 0.05 # make this work
 
 @info """ Simulating a hydrostatic Gaussian wave packet with parameters
@@ -179,7 +179,7 @@ model.solver.timeend = 24 * 2π / ω
 """
 
 result = ClimateMachine.invoke!(
-    model.solver;
+    model.solver_configuration;
     user_callbacks = [tiny_progress_printer, data_fetcher],
 )
 
