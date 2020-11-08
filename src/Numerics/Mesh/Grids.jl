@@ -159,19 +159,19 @@ struct DiscontinuousSpectralElementGrid{
     vmapsend::DAI1
 
     "An array of ranges in `vmaprecv` to receive from each neighbor"
-    nabrtovmaprecv
+    nabrtovmaprecv::Any
 
     "An array of ranges in `vmapsend` to send to each neighbor"
-    nabrtovmapsend
+    nabrtovmapsend::Any
 
     "Array of real elements that do not have a ghost element as a neighbor"
-    interiorelems
+    interiorelems::Any
 
     "Array of real elements that have at least one ghost element as a neighbor"
-    exteriorelems
+    exteriorelems::Any
 
     "Array indicating if a degree of freedom (real or ghost) is active"
-    activedofs
+    activedofs::Any
 
     "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
@@ -669,7 +669,8 @@ function computegeometry(
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
-            sM[1:Nfp[d], f] = dim > 1 ?
+            sM[1:Nfp[d], f] =
+                dim > 1 ?
                 kron(1, ntuple(j -> ω[mod1(d + j, dim)], dim - 1)...) : one(FT)
         end
     end

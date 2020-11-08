@@ -84,7 +84,7 @@ A wrapper callback to execute `callback` at initialization as well as
 after each interval.
 """
 struct AtInit <: AbstractCallback
-    callback
+    callback::Any
 end
 function init!(cb::AtInit, solver, Q, param, t)
     init!(cb.callback, solver, Q, param, t)
@@ -104,7 +104,7 @@ A wrapper callback to execute `callback` at initialization and at
 finish as well as after each interval.
 """
 struct AtInitAndFini <: AbstractCallback
-    callback
+    callback::Any
 end
 function init!(cb::AtInitAndFini, solver, Q, param, t)
     init!(cb.callback, solver, Q, param, t)
@@ -126,7 +126,7 @@ A wrapper callback to execute `callback` every `Δtime` wallclock time seconds.
 """
 mutable struct EveryXWallTimeSeconds <: AbstractCallback
     "callback to wrap"
-    callback
+    callback::Any
     "wall time seconds between callbacks"
     Δtime::Real
     "MPI communicator"
@@ -168,7 +168,7 @@ A wrapper callback to execute `callback` every `time` simulation time seconds.
 """
 mutable struct EveryXSimulationTime <: AbstractCallback
     "callback to wrap"
-    callback
+    callback::Any
     "simulation time seconds between callbacks"
     Δtime::Real
     "time of the last callback"
@@ -204,7 +204,7 @@ A wrapper callback to execute `callback` every `nsteps` of the time stepper.
 """
 mutable struct EveryXSimulationSteps <: AbstractCallback
     "callback to wrap"
-    callback
+    callback::Any
     "number of steps between callbacks"
     Δsteps::Int
     "number of steps since last callback"

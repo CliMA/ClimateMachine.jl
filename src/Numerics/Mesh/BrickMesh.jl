@@ -303,8 +303,9 @@ function brickmesh(
     p = reshape(1:nvert, ntuple(j -> 2, d))
     fmask = hcat((
         p[ntuple(
-            j -> (j == div(f - 1, 2) + 1) ?
-                    ((mod(f - 1, 2) + 1):(mod(f - 1, 2) + 1)) : (:),
+            j ->
+                (j == div(f - 1, 2) + 1) ?
+                ((mod(f - 1, 2) + 1):(mod(f - 1, 2) + 1)) : (:),
             d,
         )...,][:] for f in 1:nface
     )...)
@@ -399,10 +400,10 @@ function parallelsortcolumns(
     cols = map(i -> view(A, :, i), 1:n)
     sendstarts = [
         (i <= csize) ?
-            (
+        (
             searchsortedfirst(cols, pivots[:, i], lt = lt, by = by, rev = rev) - 1
         ) * m + 1 :
-            n * m + 1 for i in 1:(csize + 1)
+        n * m + 1 for i in 1:(csize + 1)
     ]
     sendcounts = [Cint(sendstarts[i + 1] - sendstarts[i]) for i in 1:csize]
 
@@ -864,8 +865,9 @@ function connectmesh(
     p = reshape(1:nvert, ntuple(j -> 2, d))
     fmask = hcat((
         p[ntuple(
-            j -> (j == div(f - 1, 2) + 1) ?
-                    ((mod(f - 1, 2) + 1):(mod(f - 1, 2) + 1)) : (:),
+            j ->
+                (j == div(f - 1, 2) + 1) ?
+                ((mod(f - 1, 2) + 1):(mod(f - 1, 2) + 1)) : (:),
             d,
         )...][:] for f in 1:nface
     )...)

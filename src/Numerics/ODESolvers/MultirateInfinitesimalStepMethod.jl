@@ -22,7 +22,7 @@ When evaluate at time `t`, evaluates `rhs!` at time `a + bt`.
 mutable struct TimeScaledRHS{N, RT}
     a::RT
     b::RT
-    rhs!
+    rhs!::Any
     function TimeScaledRHS(a, b, rhs!)
         RT = typeof(a)
         if isa(rhs!, Tuple)
@@ -44,7 +44,7 @@ end
 
 mutable struct OffsetRHS{AT}
     offset::AT
-    rhs!
+    rhs!::Any
     function OffsetRHS(offset, rhs!)
         AT = typeof(offset)
         new{AT}(offset, rhs!)
@@ -111,7 +111,7 @@ mutable struct MultirateInfinitesimalStep{
     "Storage for offset"
     offset::AT
     "slow rhs function"
-    slowrhs!
+    slowrhs!::Any
     "RHS for fast solver"
     tsfastrhs!::TimeScaledRHS{N, RT} where {N}
     "fast rhs method"

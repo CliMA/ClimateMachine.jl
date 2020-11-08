@@ -235,7 +235,7 @@ function barotropic_state!(
 )
     gH, _ = params
 
-    M = @SMatrix [-νˣ * kˣ^2 gH * kˣ; -kˣ 0]
+    M = @SMatrix [-νˣ*kˣ^2 gH*kˣ; -kˣ 0]
     A = exp(M * t) * @SVector [1, 1]
 
     U = A[1] * sin(kˣ * x)
@@ -269,7 +269,7 @@ function barotropic_state!(
 )
     gH, f = params
 
-    M = @SMatrix [-νˣ * kˣ^2 f gH * kˣ; -f -νˣ * kˣ^2 0; -kˣ 0 0]
+    M = @SMatrix [-νˣ*kˣ^2 f gH*kˣ; -f -νˣ*kˣ^2 0; -kˣ 0 0]
     A = exp(M * t) * @SVector [1, 1, 1]
 
     U = A[1] * sin(kˣ * x)
@@ -380,10 +380,8 @@ jet stream like windstress
 @inline kinematic_stress(p::HomogeneousBox, y, ρ) =
     @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
 
-@inline kinematic_stress(
-    p::HomogeneousBox,
-    y,
-) = @SVector [-p.τₒ * cos(π * y / p.Lʸ), -0]
+@inline kinematic_stress(p::HomogeneousBox, y) =
+    @SVector [-p.τₒ * cos(π * y / p.Lʸ), -0]
 
 ##########################
 # Homogenous wind stress #
@@ -484,10 +482,8 @@ jet stream like windstress
 @inline kinematic_stress(p::OceanGyre, y, ρ) =
     @SVector [(p.τₒ / ρ) * cos(y * π / p.Lʸ), -0]
 
-@inline kinematic_stress(
-    p::OceanGyre,
-    y,
-) = @SVector [-p.τₒ * cos(π * y / p.Lʸ), -0]
+@inline kinematic_stress(p::OceanGyre, y) =
+    @SVector [-p.τₒ * cos(π * y / p.Lʸ), -0]
 
 """
     surface_flux(::OceanGyre)

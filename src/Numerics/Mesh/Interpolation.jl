@@ -435,9 +435,7 @@ function interpolate_local!(
                                 for vari in 1:nvars
                                     @inbounds vout_ii[vari] +=
                                         sv[
-                                            ii + (ij - 1) * qm1 + (ik - 1) *
-                                                                  qm1 *
-                                                                  qm1,
+                                            ii + (ij - 1) * qm1 + (ik - 1) * qm1 * qm1,
                                             vari,
                                             el,
                                         ] * wb[ii] / (ξ1l - m1_r[ii])#phir[ii]
@@ -1336,9 +1334,7 @@ function interpolate_local!(
                                 for vari in 1:nvars
                                     @inbounds vout_ii[vari] +=
                                         sv[
-                                            ii + (ij - 1) * qm1 + (ik - 1) *
-                                                                  qm1 *
-                                                                  qm1,
+                                            ii + (ij - 1) * qm1 + (ik - 1) * qm1 * qm1,
                                             vari,
                                             el,
                                         ] * wb[ii] / (ξ1l - m1_r[ii])#phir[ii]
@@ -1563,7 +1559,7 @@ function project_cubed_sphere!(
         n_threads = 256
         n_blocks = (
             np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
-                div(np_tot, n_threads)
+            div(np_tot, n_threads)
         )
         @cuda threads = (n_threads,) blocks = (n_blocks,) project_cubed_sphere_CUDA!(
             lat_grd,
@@ -1750,7 +1746,7 @@ function accumulate_interpolated_data!(
             n_threads = 256
             n_blocks = (
                 np_tot % n_threads > 0 ? div(np_tot, n_threads) + 1 :
-                    div(np_tot, n_threads)
+                div(np_tot, n_threads)
             )
             @cuda threads = (n_threads,) blocks = (n_blocks,) accumulate_helper_CUDA!(
                 i1,
