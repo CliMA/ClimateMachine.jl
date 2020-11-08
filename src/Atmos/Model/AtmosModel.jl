@@ -37,6 +37,7 @@ using ..Mesh.Grids:
     Direction
 
 using ClimateMachine.BalanceLaws
+import ClimateMachine.BalanceLaws: flux, source
 using ClimateMachine.Problems
 
 import ClimateMachine.BalanceLaws:
@@ -375,6 +376,12 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
+include("declare_prognostic_vars.jl") # declare prognostic variables
+include("multiphysics_types.jl")      # types for multi-physics tendencies
+include("tendencies_mass.jl")         # specify mass tendencies
+include("tendencies_momentum.jl")     # specify momentum tendencies
+include("tendencies_energy.jl")       # specify energy tendencies
+include("tendencies_moisture.jl")     # specify moisture tendencies
 
 include("problem.jl")
 include("ref_state.jl")
@@ -387,6 +394,9 @@ include("tracers.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
+
+include("atmos_tendencies.jl")        # specify atmos tendencies
+include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 
 """
     flux_first_order!(
@@ -408,25 +418,15 @@ equations.
     t::Real,
     direction,
 )
-    ρ = state.ρ
-    ρinv = 1 / ρ
-    ρu = state.ρu
-    u = ρinv * ρu
-
-    # advective terms
-    flux.ρ = ρ * u
-    flux.ρu = ρ * u .* u'
-    flux.ρe = u * state.ρe
+    ρu_pad = SVector(1, 1, 1)
+    ts = recover_thermo_state(m, state, aux)
+    tend = Flux{FirstOrder}()
+    args = (m, state, aux, t, ts, direction)
+    flux.ρ = Σfluxes(eq_tends(Mass(), m, tend), args...)
+    flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...)
 
     # pressure terms
-    ts = recover_thermo_state(m, state, aux)
-    p = air_pressure(ts)
-    if m.ref_state isa HydrostaticState
-        flux.ρu += (p - aux.ref_state.p) * I
-    else
-        flux.ρu += p * I
-    end
-    flux.ρe += u * p
     flux_radiation!(m.radiation, m, flux, state, aux, t)
     flux_moisture!(m.moisture, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
@@ -747,6 +747,18 @@ function source!(
     t::Real,
     direction,
 )
+    ρu_pad = SVector(1, 1, 1)
+    tend = Source()
+    ts = recover_thermo_state(m, state, aux)
+    args = (m, state, aux, t, ts, direction, diffusive)
+    source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
+    source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
+    source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
+    if !(m.moisture isa DryModel)
+        source.moisture.ρq_tot =
+            Σsources(eq_tends(TotalMoisture(), m, tend), args...)
+    end
+
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
 

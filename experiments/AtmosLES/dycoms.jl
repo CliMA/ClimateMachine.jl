@@ -297,7 +297,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     source = (
         Gravity(),
         rayleigh_sponge,
-        Subsidence{FT}(D_subsidence),
+        Subsidence(D_subsidence)...,
         geostrophic_forcing,
     )
 

@@ -4,7 +4,6 @@ using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
 export AbstractSource,
     Gravity,
     RayleighSponge,
-    Subsidence,
     GeostrophicForcing,
     Coriolis,
     RemovePrecipitation,
@@ -74,10 +73,6 @@ function atmos_source!(
     source.ρu -= SVector(0, 0, 2 * _Omega) × state.ρu
 end
 
-struct Subsidence{FT} <: AbstractSource
-    D::FT
-end
-
 function atmos_source!(
     subsidence::Subsidence,
     atmos::AtmosModel,
@@ -88,19 +83,8 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    ρ = state.ρ
-    z = altitude(atmos, aux)
-    w_sub = subsidence_velocity(subsidence, z)
-    k̂ = vertical_unit_vector(atmos, aux)
-
-    source.ρe -= ρ * w_sub * dot(k̂, diffusive.∇h_tot)
-    source.moisture.ρq_tot -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
-    source.ρ -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
+    # Migrated to Σsources
 end
-
-subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} =
-    -subsidence.D * z
-
 
 struct GeostrophicForcing{FT} <: AbstractSource
     f_coriolis::FT
