@@ -4,7 +4,7 @@ using ClimateMachine
 
 using ...DGMethods.NumericalFluxes
 
-using ..HydrostaticBoussinesq: HydrostaticBoussinesqModel
+using ..HydrostaticBoussinesq: HydrostaticBoussinesqModel, NonLinearAdvectionTerm
 using ..OceanProblems: InitialValueProblem
 using ..CartesianDomains: array_type, communicator
 using ..Ocean.Fields: field

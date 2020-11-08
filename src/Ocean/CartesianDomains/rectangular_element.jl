@@ -37,12 +37,17 @@ Base.show(io::IO, elem::RectangularElement{D}) where {D} = print(
 Base.@propagate_inbounds Base.getindex(elem::RectangularElement, i, j, k) =
     elem.data[i, j, k]
 
+eltype(::RectangularElement{<:AbstractArray{FT}}) where FT = FT
+
 #####
 ##### ⟨⟨ Assemble! ⟩⟩
 #####
 
 function x_assemble(west::RectangularElement, east::RectangularElement)
-    west.x[end] ≈ east.x[1] ||
+
+    FT = eltype(west)
+
+    isapprox(west.x[end], east.x[1], atol=sqrt(eps(FT))) ||
     error("Element end-points $((west.x[end], east.x[1])) are not x-adjacent!")
 
     all(west.y .≈ east.y) || error("Elements do not share y nodes!")
@@ -65,8 +70,14 @@ function x_assemble(west::RectangularElement, east::RectangularElement)
 end
 
 function y_assemble(south::RectangularElement, north::RectangularElement)
+
+    FT = eltype(west)
+
     all(south.x .≈ north.x) || error("Elements do not share x nodes!")
-    south.y[end] ≈ north.y[1] || error("Elements are not y-adjacent!")
+
+    isapprox(south.y[end], north.y[1], atol=sqrt(eps(FT))) ||
+    error("Elements are not y-adjacent!")
+
     all(south.z .≈ north.z) || error("Elements do not share z nodes!")
 
     x = south.x
@@ -86,9 +97,14 @@ function y_assemble(south::RectangularElement, north::RectangularElement)
 end
 
 function z_assemble(bottom::RectangularElement, top::RectangularElement)
+
+    FT = eltype(bottom)
+
     all(bottom.x .≈ top.x) || error("Elements do not share x nodes!")
     all(bottom.y .≈ top.y) || error("Elements do not share y nodes!")
-    bottom.z[end] ≈ top.z[1] || error("Elements are not z-adjacent!")
+
+    isapprox(bottom.z[end], top.z[1], atol=sqrt(eps(FT))) ||
+    error("Elements are not z-adjacent!")
 
     x = bottom.x
     y = bottom.y
