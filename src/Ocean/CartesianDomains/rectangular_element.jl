@@ -71,7 +71,7 @@ end
 
 function y_assemble(south::RectangularElement, north::RectangularElement)
 
-    FT = eltype(west)
+    FT = eltype(south)
 
     all(south.x .≈ north.x) || error("Elements do not share x nodes!")
 
