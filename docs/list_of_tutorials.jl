@@ -27,7 +27,10 @@ if generate_tutorials
             "Linear Non-Hydrostatic Mountain (Topography)" =>
                 "Atmos/agnesi_nh_lin.jl",
         ],
-        "Ocean" => [],
+        "Ocean" => [
+            "One-dimensional geostrophic adjustment" => "Ocean/geostrophic_adjustment.jl",
+            "Eddy radiating Rossby waves" => "Ocean/radiating_eddy.jl",
+        ],
         "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
         "Numerics" => [
             "System Solvers" => [
