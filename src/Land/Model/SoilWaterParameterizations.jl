@@ -306,10 +306,7 @@ end
 
 Returns the viscosity factor when we choose a TemperatureDependentViscosity.
 """
-function viscosity_factor(
-    vm::TemperatureDependentViscosity{FT},
-    T,
-) where {FT}
+function viscosity_factor(vm::TemperatureDependentViscosity{FT}, T) where {FT}
     γ = vm.γ
     T_ref = vm.T_ref
     factor = FT(γ * (T - T_ref))
@@ -396,9 +393,10 @@ function hydraulic_conductivity(
     θ_i,
     porosity::FT,
     T,
-    S_l
+    S_l,
 ) where {FT}
-    K = viscosity_factor(viscosity, T) *
+    K =
+        viscosity_factor(viscosity, T) *
         impedance_factor(impedance, θ_i, porosity * S_l) *
         moisture_factor(moisture, hydraulics, S_l)
     return K

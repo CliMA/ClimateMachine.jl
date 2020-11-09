@@ -163,7 +163,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
             nonlinearsolver;
             isadjustable = true,
             preconditioner_update_freq = 100,
-            mode = AutoDiffMode(),
+            diffmode = AutoDiffMode(),
         ),
         Q;
         dt = dt,

@@ -1,12 +1,13 @@
 using ForwardDiff
-export JacobianFreeNewtonKrylovSolver, JacobianAction, AutoDiffMode, FiniteDiffMode
+export JacobianFreeNewtonKrylovSolver,
+    JacobianAction, AutoDiffMode, FiniteDiffMode
 
 abstract type DiffMode end
 struct AutoDiffMode <: DiffMode end
 struct FiniteDiffMode <: DiffMode end
 
 """
-mutable struct JacobianAction{FT, AT}
+mutable struct JacobianAction{MT, FT, AT}
     rhs!
     ϵ::FT
     Q::AT
@@ -71,7 +72,7 @@ JΔQ = ---- ΔQ ≈ -------------------
        ∂Q                e
 
 
-Compute  JΔQ with cached Q and F(Q), and the direction  dQ
+Compute JΔQ with cached Q and F(Q), and the direction dQ
 """
 function (op::JacobianAction{FiniteDiffMode})(JΔQ, dQ, args...)
     rhs! = op.rhs!
@@ -103,6 +104,13 @@ function (op::JacobianAction{FiniteDiffMode})(JΔQ, dQ, args...)
 
 end
 
+
+"""
+Exactly evaluates the action of the Jacobian of a nonlinear
+form on a vector `ΔQ` via automatic differentiation
+
+Compute JΔQ with cached Q and F(Q), and the direction dQ
+"""
 function (op::JacobianAction{AutoDiffMode})(JΔQ, dQ, args...)
     Q = op.Q
     Fq = op.Fq
@@ -113,7 +121,7 @@ function (op::JacobianAction{AutoDiffMode})(JΔQ, dQ, args...)
 end
 
 """
-update cached Q and F(Q) before each Newton iteration
+Update cached Q and F(Q) before each Newton iteration
 """
 function update_Q!(op::JacobianAction{FiniteDiffMode}, Q, args...)
     op.Q .= Q
@@ -122,6 +130,9 @@ function update_Q!(op::JacobianAction{FiniteDiffMode}, Q, args...)
     op.rhs!(Fq, Q, args...)
 end
 
+"""
+Update the values of cached Q before each Newton iteration
+"""
 function update_Q!(op::JacobianAction{AutoDiffMode}, Q, args...)
     ForwardDiff.value(op.Q) .= Q
 end
@@ -161,7 +172,7 @@ function JacobianFreeNewtonKrylovSolver(
     ϵ = 1.e-8,
     tol = 1.e-6,
     M = 30,
-    mode = FiniteDiffMode(),
+    diffmode = FiniteDiffMode(),
 )
     FT = eltype(Q)
     residual = similar(Q)

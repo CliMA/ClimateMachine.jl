@@ -40,7 +40,7 @@ mutable struct MPIStateArray{
     DAI1,
     DAV,
     Buf <: CMBuffer,
-    DATW
+    DATW,
 } <: AbstractArray{FT, 3}
     mpicomm::MPI.Comm
     data::DATN
@@ -80,7 +80,15 @@ mutable struct MPIStateArray{
         nabrtovmaprecv::Array{UnitRange{Int64}, 1},
         nabrtovmapsend::Array{UnitRange{Int64}, 1},
         weights::DATW,
-    ) where {FT, V, DATN <: AbstractArray{FT, 3}, DAI1, DAV, Buf <: CMBuffer, DATW}
+    ) where {
+        FT,
+        V,
+        DATN <: AbstractArray{FT, 3},
+        DAI1,
+        DAV,
+        Buf <: CMBuffer,
+        DATW,
+    }
         new{FT, V, DATN, DAI1, DAV, Buf, DATW}(
             mpicomm,
             data,
@@ -144,14 +152,18 @@ mutable struct MPIStateArray{
         #
         # Better way than checking the type names?
         # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
-        if data isa CuArray 
+        if data isa CuArray
             if !(vmaprecv isa CuArray)
-                vmaprecv =
-                    copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)), vmaprecv)
-            end 
+                vmaprecv = copyto!(
+                    similar(DA, eltype(vmaprecv), size(vmaprecv)),
+                    vmaprecv,
+                )
+            end
             if !(vmapsend isa CuArray)
-                vmapsend =
-                    copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
+                vmapsend = copyto!(
+                    similar(DA, eltype(vmapsend), size(vmapsend)),
+                    vmapsend,
+                )
             end
             if !(weights isa CuArray)
                 weights = copyto!(
@@ -200,16 +212,10 @@ function Base.fill!(Q::MPIStateArray, x)
 end
 
 vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
-# function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
-#     if sym ∈ V.names
-#         varrange = varsindex(V, sym)
-#         return view(realview(Q), :, varrange, :)
-#     else
-#         return getfield(Q, sym)
-#     end
-# end
-@inline function Base.getproperty(Q::M, sym::Symbol) where
-    {FT, V, M <: MPIStateArray{FT, V}}
+@inline function Base.getproperty(
+    Q::M,
+    sym::Symbol,
+) where {FT, V, M <: MPIStateArray{FT, V}}
     if hasfield(M, sym)
         return getfield(Q, sym)
     else
@@ -343,8 +349,9 @@ Base.@propagate_inbounds Base.getindex(Q::MPIStateArray, x...) =
 Base.@propagate_inbounds Base.setindex!(Q::MPIStateArray, x...) =
     setindex!(Q.realdata, x...)
 
-Base.IndexStyle(::Type{<:MPIStateArray{FT, V, DATN, DAI1, DAV}}) where
-    {FT, V, DATN, DAI1, DAV} = IndexStyle(DAV)
+Base.IndexStyle(
+    ::Type{<:MPIStateArray{FT, V, DATN, DAI1, DAV}},
+) where {FT, V, DATN, DAI1, DAV} = IndexStyle(DAV)
 
 Base.Array(Q::MPIStateArray) = Array(Q.data)
 
@@ -888,37 +895,31 @@ ForwardDiff.Dual{Tag}(Q::MPIStateArray{FT}) where {Tag, FT} =
 ForwardDiff.Dual{Tag, FT}(Q::MPIStateArray) where {Tag, FT} =
     ForwardDiff.Dual{Tag, FT, 1}(Q)
 
-ForwardDiff.Dual{Tag}(Q::MPIStateArray{FT}) where
-    {Tag, FT <: ForwardDiff.Dual{Tag}} = Q
-
-function Base.similar(::Type{A}, ::Type{DT}, dims...) where
-    {Tag, FT, N, DT <: ForwardDiff.Dual{Tag, FT, N}, A <: StructArray{DT}}
-    partials = StructArray{ForwardDiff.Partials{N, FT}}(
-        (StructArray{NTuple{N, FT}}(
-            ntuple(i-> similar(Array, FT, dims...), N)
-        ),)
-    )
-    data = StructArray{ForwardDiff.Dual{Tag, FT, N}}(
-        (similar(Array, FT, dims...), partials)
-    )
-    return data
-end
+ForwardDiff.Dual{Tag}(
+    Q::MPIStateArray{FT},
+) where {Tag, FT <: ForwardDiff.Dual{Tag}} = Q
 
 # Assumes that two MPIStateArrays can have the same mpicomm.
 function ForwardDiff.Dual{Tag, FT, N}(
-    Q::MPIStateArray{FT, V, DATN, DAI1, DAV, Buf, DATW}
+    Q::MPIStateArray{FT, V, DATN, DAI1, DAV, Buf, DATW},
 ) where {Tag, FT, N, V, DATN, DAI1, DAV, Buf, DATW}
-    partials = StructArray{ForwardDiff.Partials{N, FT}}(
-        (StructArray{NTuple{N, FT}}(
-            ntuple(i-> similar(typeof(Q.data), FT, size(Q.data)...), N)
-        ),)
-    )
-    data = StructArray{ForwardDiff.Dual{Tag, FT, N}}(
-        (Q.data, partials)
-    )
+    partials =
+        StructArray{ForwardDiff.Partials{N, FT}}((StructArray{NTuple{N, FT}}(ntuple(
+            i -> similar(typeof(Q.data), FT, size(Q.data)...),
+            N,
+        )),))
+    data = StructArray{ForwardDiff.Dual{Tag, FT, N}}((Q.data, partials))
     realdata = view(data, ntuple(i -> Colon(), ndims(data) - 1)..., Q.realelems)
     DT = ForwardDiff.Dual{Tag, FT, N}
-    return MPIStateArray{DT, V, typeof(data), DAI1, typeof(realdata), Buf, DATW}(
+    return MPIStateArray{
+        DT,
+        V,
+        typeof(data),
+        DAI1,
+        typeof(realdata),
+        Buf,
+        DATW,
+    }(
         Q.mpicomm,
         data,
         realdata,
@@ -940,30 +941,52 @@ end
 # These return pointers to the actual data, rather than new MPIStateArrays.
 # The second function adds a default partial index of 1, which the ForwardDiff
 # API does not do. Might want to implement dot syntax for these functions?
-function ForwardDiff.value(Q::MPIStateArray{DT, V, DATN}) where
-    {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
+function ForwardDiff.value(
+    Q::MPIStateArray{DT, V, DATN},
+) where {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
     return Q.realdata.value
 end
-function ForwardDiff.partials(Q::MPIStateArray{DT, V, DATN}, i = 1) where
-    {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
+function ForwardDiff.partials(
+    Q::MPIStateArray{DT, V, DATN},
+    i = 1,
+) where {DT <: ForwardDiff.Dual, V, DATN <: StructArray{DT}}
     return Q.realdata.partials.values.:($i)
 end
 
-numlineardualbroadcasts(::Any) = 0
-numlineardualbroadcasts(::MPIStateArray{<:ForwardDiff.Dual}) = 1
-# A sum must contain 1 or more linear dual broadcasts in order to be one.
-numlineardualbroadcasts(bc::Broadcasted{S, A, typeof(+)}) where {S, A} =
-    min(1, sum(numlineardualbroadcasts.(bc.args)))
-# A product must contain exactly 1 linear dual broadcast in order to be one.
-# If it contains more than 1 linear dual broadcast, signal that it can't be
-# included in a linear dual broadcast by returning NaN.
-function numlineardualbroadcasts(bc::Broadcasted{S, A, typeof(*)}) where {S, A}
-    s = sum(numlineardualbroadcasts.(bc.args))
-    s > 1 ? NaN : s
+# Checks whether the broadcast is linear with respect to the given type.
+islinearbroadcast(::Type{T}, bc) where {T} = numlinearbroadcasts(T, bc) == 1
+# A sum must contain 1 or more linear broadcasts in order to be one.
+function numlinearbroadcasts(
+    ::Type{T},
+    bc::Broadcasted{S, A, typeof(+)},
+) where {T, S, A}
+    s = sum(numlinearbroadcasts.(T, bc.args))
+    ifelse(s > 1, 1, s)
 end
-# Any broadcast that is neither a sum nor a product can never be included in a
-# linear dual broadcast.
-numlineardualbroadcasts(::Broadcasted{S, A, F}) where {S, A, F} = NaN
+# A product must contain exactly 1 linear broadcast in order to be one. If it
+# contains more than 1 linear broadcast, signal that it can't be included in a
+# linear broadcast by returning NaN.
+function numlinearbroadcasts(
+    ::Type{T},
+    bc::Broadcasted{S, A, typeof(*)},
+) where {T, S, A}
+    s = sum(numlinearbroadcasts.(T, bc.args))
+    ifelse(s > 1, NaN, s)
+end
+# Any broadcast that is neither a sum nor a product must not contain any linear
+# broadcasts in order to be included in a linear broadcast.
+function numlinearbroadcasts(
+    ::Type{T},
+    bc::Broadcasted{S, A, F},
+) where {T, S, A, F}
+    s = sum(numlinearbroadcasts.(T, bc.args))
+    ifelse(s > 0, NaN, 0)
+end
+# A single object of the specified type counts as a linear broadcast.
+numlinearbroadcasts(::Type{T}, ::T) where {T} = 1
+# Any other non-broadcasted object does not count as a linear broadcast, though
+# it can be included in one.
+numlinearbroadcasts(::Type, ::Any) = 0
 
 tovaluebroadcast(bc::Broadcasted) =
     Broadcasted(bc.f, tovaluebroadcast.(bc.args), bc.axes)
@@ -982,7 +1005,7 @@ topartialbroadcast(x::Any, ::Any) = x
     dest::MPIStateArray{<:ForwardDiff.Dual{Tag, FT, N}},
     bc::Broadcasted{Nothing},
 ) where {Tag, FT, N}
-    if numlineardualbroadcasts(bc) == 1
+    if islinearbroadcast(MPIStateArray{<:ForwardDiff.Dual}, bc)
         copyto!(ForwardDiff.value(dest), tovaluebroadcast(bc))
         for i in 1:N
             copyto!(ForwardDiff.partials(dest, i), topartialbroadcast(bc, i))

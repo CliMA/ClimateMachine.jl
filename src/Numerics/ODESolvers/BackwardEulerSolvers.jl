@@ -215,7 +215,8 @@ solver.
 - `isadjustable`: TODO not used, might use for updating preconditioner
 - `preconditioner_update_freq`:  relavent to Jacobian free -1: no preconditioner;
                              positive number, update every freq times
-- `mode`: mode of derivative calculation
+- `diffmode`: method for evaluating Jacobian action, e.g. Finite difference or
+                             automatic differentiation
 """
 struct NonLinearBackwardEulerSolver{NLS, MT <: DiffMode}
     nlsolver::NLS
@@ -227,14 +228,10 @@ struct NonLinearBackwardEulerSolver{NLS, MT <: DiffMode}
         nlsolver;
         isadjustable = false,
         preconditioner_update_freq = -1,
-        mode::MT = FiniteDiffMode(),
+        diffmode::MT = FiniteDiffMode(),
     ) where {MT <: DiffMode}
         NLS = typeof(nlsolver)
-        return new{NLS, MT}(
-            nlsolver,
-            isadjustable,
-            preconditioner_update_freq,
-        )
+        return new{NLS, MT}(nlsolver, isadjustable, preconditioner_update_freq)
     end
 end
 
