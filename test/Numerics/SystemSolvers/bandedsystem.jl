@@ -32,10 +32,10 @@ function init_velocity_diffusion!(
     geom::LocalGeometry,
 ) where {n, α, β}
     # Direction of flow is n with magnitude α
-    aux.u = α * n
+    aux.advection.u = α * n
 
     # diffusion of strength β in the n direction
-    aux.D = β * n * n'
+    aux.diffusion.D = β * n * n'
 end
 
 struct BigAdvectionDiffusion <: BalanceLaw end
