@@ -99,7 +99,7 @@ using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
 
 using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
 
-problem = InitialValueProblem(
+problem = InitialValueProblem{Float64}(
     dimensions = (Lx, Ly, Lz),
     initial_conditions = initial_conditions,
 )
