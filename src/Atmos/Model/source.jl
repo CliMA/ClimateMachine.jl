@@ -2,7 +2,6 @@ using ..Microphysics_0M
 using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
 
 export AbstractSource,
-    Gravity,
     RayleighSponge,
     GeostrophicForcing,
     Coriolis,
@@ -38,7 +37,6 @@ end
 
 abstract type AbstractSource end
 
-struct Gravity <: AbstractSource end
 function atmos_source!(
     ::Gravity,
     atmos::AtmosModel,
@@ -49,11 +47,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    if atmos.ref_state isa HydrostaticState
-        source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
-    else
-        source.ρu -= state.ρ * aux.orientation.∇Φ
-    end
+    # Migrated to Σsources
 end
 
 struct Coriolis <: AbstractSource end
