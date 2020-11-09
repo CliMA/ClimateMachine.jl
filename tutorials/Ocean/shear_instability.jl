@@ -67,7 +67,7 @@ end
 
 # and then run the simulation.
 
-model.solver_configuration.timeend = 1.0
+model.solver_configuration.timeend = 100.0
 
 result = ClimateMachine.invoke!(
     model.solver_configuration;
