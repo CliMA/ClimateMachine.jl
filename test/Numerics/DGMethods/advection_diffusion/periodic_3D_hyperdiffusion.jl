@@ -136,12 +136,13 @@ function test_run(
     )
 
     Q = init_ode_state(dg, FT(0))
+    Q0 = init_ode_state(dg, FT(0))
 
     lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
 
-    eng0 = norm(Q)
-    @info @sprintf """Starting
-    norm(Q₀) = %.16e""" eng0
+    # eng0 = norm(Q)
+    # @info @sprintf """Starting
+    # norm(Q₀) = %.16e""" eng0
 
     # Set up the information callback
     starttime = Ref(now())
@@ -191,19 +192,21 @@ function test_run(
         callbacks = (callbacks..., cbvtk)
     end
 
-    #solve!(Q, lsrk; timeend = timeend, callbacks = callbacks)
+    solve!(Q, lsrk; timeend = timeend, callbacks = callbacks)
 
-    Qd = init_ode_state(dg, FT(0))
-    Qd_rhs = similar(Qd)
-    dg(Qd_rhs, Qd, nothing, 0)
+    @info Q0-Q
+
+    # Qd = init_ode_state(dg, FT(0))
+    # Qd_rhs = similar(Qd)
+    # dg(Qd_rhs, Qd, nothing, 0)
     
-    ϵ = 1e-5
-    Qdϵ = init_ode_state(dg, FT(ϵ))
-    dQd = (Qdϵ .- Qd) ./ ϵ
+    # ϵ = 1e-5
+    # Qdϵ = init_ode_state(dg, FT(ϵ))
+    # dQd = (Qdϵ .- Qd) ./ ϵ
 
     #   norm(Qd_rhs - dQd) / norm(Qd_rhs) = 0.1869589407767163 polyorder = 4
     # norm(Qd_rhs - dQd) / norm(Qd_rhs) = 0.0008911747066124053 polyorder = 8
-    @info "done" norm(Qd_rhs - dQd)/norm(Qd_rhs) 
+    # @info "done" norm(Qd_rhs - dQd)/norm(Qd_rhs) 
 
     #Qd_new = Qd + dt*Qd_rhs
 

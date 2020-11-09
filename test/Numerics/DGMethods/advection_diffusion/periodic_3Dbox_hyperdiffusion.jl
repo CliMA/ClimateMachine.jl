@@ -95,24 +95,29 @@ function run(
 
     dg1 = dg
     Q0 = init_ode_state(dg, FT(0))
-    # @info "Δ(horz)" dx
+    Q_DGlsrk = init_ode_state(dg, FT(0))
+    rhs_DGlsrk = init_ode_state(dg, FT(0))
+    rhs_Qanal = init_ode_state(dg, FT(0))
+    @info "Δ(horz)" dx
 
     # ϵ = 1e-3 
 
     # Model vs Model
     # collect rhs from DG
-    # rhs_DGsource = similar(Q0)
-    # dg(rhs_DGsource, Q0, nothing, 0)
+    rhs_DGsource = similar(Q0)
+    dg(rhs_DGsource, Q0, nothing, 0)
 
     # Q_frhs = Q0 .+ ϵ*rhs_DGsource
 
     # timestepper for 1 step
-    Q_DGlsrk = Q0
+    # Q_DGlsrk = Q0
     
     dt = dx^4 / 25 / sum(D)
     @info dt
 
-    Q_anal = init_ode_state(dg1, dt)
+    timeend = dt
+
+    Q_anal = init_ode_state(dg1, timeend)
 
     lsrk = LSRK54CarpenterKennedy(dg1, Q_DGlsrk; dt = dt, t0 = 0)
 
@@ -138,17 +143,21 @@ function run(
         end
     end
     callbacks = (cbinfo,)
-    solve!(Q_DGlsrk, lsrk; timeend = 100, callbacks=callbacks)
-    @info "DG stepper vs rhs: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
+    solve!(Q_DGlsrk, lsrk; timeend = dt, callbacks=callbacks)
+    solve!(Q_DGlsrk, lsrk; timeend = timeend)
+    @info "time-integrate DG vs anal -- Q: " norm(Q_anal-Q_DGlsrk)/norm(Q_anal)
     
     rhs_DGlsrk = Q0 - Q_DGlsrk
-    @info rhs_DGlsrk.ρ 
-    rhs_Qanal = Q0 - Q_anal 
+    # @info rhs_DGlsrk 
+    rhs_Qanal = Q0 - Q_anal
+    
+    @info "time-integrate DG vs anal -- rhs: " norm(rhs_Qanal-rhs_DGlsrk)/norm(rhs_Qanal)
 
-    # # analytical vs analytical
-    # # ana rhs
-    # c = get_eigenvalue(k, direction(), dim)
-    # rhs_anal = -c*D*Q0 
+    # @info rhs_DGlsrk 
+    # analytical vs analytical
+    # ana rhs
+    c = get_eigenvalue(k, direction(), dim)
+    rhs_anal = -c*D*Q0 
     # rhs_analXdt = rhs_anal * dt
     # rhs_dgXdt = rhs_DGsource * dt 
 
@@ -157,7 +166,7 @@ function run(
     # @info "ANA vs FD" norm(rhs_anal .- rhs_FD.ρ)/norm(rhs_FD.ρ)
 
     # Model vs analytical
-    # @info "DG vs FD" norm(rhs_DGsource.ρ .- rhs_FD.̢)/norm(rhs_FD.ρ)
+    # @info "DG vs FD" norm(rhs_DGsource.ρ .- rhs_FD.ρ)/norm(rhs_FD.ρ)
     # @info "DG vs ANA" norm(rhs_DGsource.ρ .- rhs_anal)/norm(rhs_anal)
 
     # do_output(mpicomm, "output", dg, rhs_DGsource, rhs_anal, model)
@@ -238,7 +247,7 @@ let
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, )# Float32,)
-            for base_num_elem in (4, )# 8,12,) 
+            for base_num_elem in (16, )# 8,16,) 
                 for polynomialorder in (3, )#4,5,6,7,8,12)
 
                     for τ in (1, )#4,8,) # time scale for hyperdiffusion
@@ -253,7 +262,7 @@ let
 
                         @info "Array FT nhorz poly τ" (ArrayType, FT, base_num_elem, polynomialorder, τ)
                         result = run(mpicomm, ArrayType, dim, topl, 
-                                    polynomialorder, FT, direction, τ*3600, SVector(1, 2, 3) )
+                                    polynomialorder, FT, direction, τ*3600, SVector(2, 0, 0) )
                             
                         @test result < 5e-2
                     
