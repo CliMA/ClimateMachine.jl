@@ -8,36 +8,37 @@ struct InitialValueProblem{FT, IC, BC} <: AbstractSimpleBoxProblem
     H::FT
     initial_conditions::IC
     boundary_conditions::BC
+
+    """
+        InitialValueProblem(FT=Float64; dimensions, initial_conditions=InitialConditions(),
+                            boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
+                                                   OceanBC(Penetrable(FreeSlip()), Insulating())))
+
+    Returns an `InitialValueProblem` with `dimensions = (Lˣ, Lʸ, H)`, `initial_conditions`,
+    and `boundary_conditions`.
+
+    The default `initial_conditions` are resting with no temperature perturbation;
+    the default `boundary_conditions` are horizontally-periodic with `Insulating()`
+    and `FreeSlip()` conditions at the top and bottom.
+    """
+    function InitialValueProblem{FT}(;
+        dimensions,
+        initial_conditions = InitialConditions(),
+        boundary_conditions = (
+            OceanBC(Impenetrable(FreeSlip()), Insulating()),
+            OceanBC(Penetrable(FreeSlip()), Insulating()),
+        ),
+    ) where {FT}
+
+        return InitialValueProblem(
+            FT.(dimensions)...,
+            initial_conditions,
+            boundary_conditions,
+        )
+    end
+
 end
 
-"""
-    InitialValueProblem(FT=Float64; dimensions, initial_conditions=InitialConditions(),
-                        boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
-                                               OceanBC(Penetrable(FreeSlip()), Insulating())))
-
-Returns an `InitialValueProblem` with `dimensions = (Lˣ, Lʸ, H)`, `initial_conditions`,
-and `boundary_conditions`.
-
-The default `initial_conditions` are resting with no temperature perturbation;
-the default `boundary_conditions` are horizontally-periodic with `Insulating()`
-and `FreeSlip()` conditions at the top and bottom.
-"""
-function InitialValueProblem(
-    FT = Float64;
-    dimensions,
-    initial_conditions = InitialConditions(),
-    boundary_conditions = (
-        OceanBC(Impenetrable(FreeSlip()), Insulating()),
-        OceanBC(Penetrable(FreeSlip()), Insulating()),
-    ),
-)
-
-    return InitialValueProblem(
-        FT.(dimensions)...,
-        initial_conditions,
-        boundary_conditions,
-    )
-end
 
 #####
 ##### Initial conditions

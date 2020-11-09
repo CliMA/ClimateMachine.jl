@@ -119,7 +119,7 @@ state_boundary_conditions = (
 
 using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
 
-problem = InitialValueProblem(
+problem = InitialValueProblem{Float64}(
     dimensions = (Lx, Ly, Lz),
     initial_conditions = initial_conditions,
     boundary_conditions = boundary_conditions,

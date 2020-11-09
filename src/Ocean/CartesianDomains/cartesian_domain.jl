@@ -67,9 +67,9 @@ function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
 
     Np = polynomialorder(grid)
 
-    x = view(volume_geometry, :, 13, :)
-    y = view(volume_geometry, :, 14, :)
-    z = view(volume_geometry, :, 15, :)
+    x = view(volume_geometry, :, grid.x1id, :)
+    y = view(volume_geometry, :, grid.x2id, :)
+    z = view(volume_geometry, :, grid.x3id, :)
 
     xlims = (minimum(x), maximum(x))
     ylims = (minimum(y), maximum(y))
