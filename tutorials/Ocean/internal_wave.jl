@@ -78,7 +78,7 @@ g = gravitational_acceleration(NonDimensionalParameters())
 # Thus given ``p = \cos (k x - ω t) \cos (m z)``, we find
 
 δ = domain.L.x / 15
-a(x) = 1e-6 * exp(-x^2 / 2δ^2)
+a(x) = 1e-6 * exp(-x^2 / 2 * δ^2)
 
 ũ(x, z, t) = +a(x) * ω * sin(k * x - ω * t) * cos(m * z)
 ṽ(x, z, t) = -a(x) * f * cos(k * x - ω * t) * cos(m * z)
@@ -106,7 +106,7 @@ model = HydrostaticBoussinesqSuperModel(
     domain = domain,
     time_step = time_step,
     initial_conditions = initial_conditions,
-    turbulence = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6),
+    turbulence_closure = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6),
     coriolis = (f₀ = f, β = 0),
     buoyancy = (αᵀ = αᵀ,),
     parameters = NonDimensionalParameters(),
@@ -125,7 +125,8 @@ fetch_every = 0.2 * 2π / ω # time
 
 data_fetcher = EveryXSimulationTime(fetch_every) do
     push!(
-        fetched_states, (
+        fetched_states,
+        (
             u = assemble(model.fields.u.elements),
             θ = assemble(model.fields.θ.elements),
             η = assemble(model.fields.η.elements),
@@ -230,9 +231,9 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     plot(
         η_plot,
         u_plot,
-        layout = Plots.grid(2, 1, heights=(0.3, 0.7)),
+        layout = Plots.grid(2, 1, heights = (0.3, 0.7)),
         link = :x,
-        size = (1200, 600)
+        size = (1200, 600),
     )
 end
 

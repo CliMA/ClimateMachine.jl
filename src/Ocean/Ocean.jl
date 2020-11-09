@@ -5,7 +5,9 @@ export AbstractOceanCoupling,
     Coupled,
 
     AdvectionTerm,
-    NonLinearAdvectionTerm
+    NonLinearAdvectionTerm,
+
+    InitialConditions
 
 abstract type AbstractOceanCoupling end
 struct Uncoupled <: AbstractOceanCoupling end
@@ -36,7 +38,6 @@ include("OceanProblems/OceanProblems.jl")
 include("SuperModels.jl")
 
 using .OceanProblems: InitialConditions
-using .CartesianDomains: CartesianDomain, assemble
 using .SuperModels: HydrostaticBoussinesqSuperModel, current_time, steps, Δt
 
 end

@@ -4,7 +4,8 @@ using ClimateMachine
 
 using ...DGMethods.NumericalFluxes
 
-using ..HydrostaticBoussinesq: HydrostaticBoussinesqModel, NonLinearAdvectionTerm
+using ..HydrostaticBoussinesq:
+    HydrostaticBoussinesqModel, NonLinearAdvectionTerm
 using ..OceanProblems: InitialValueProblem
 using ..CartesianDomains: array_type, communicator
 using ..Ocean.Fields: field
@@ -47,10 +48,10 @@ end
                  parameters = EarthParameters(),
          initial_conditions = InitialConditions(),
                   advection = (momentum = NonLinearAdvectionTerm(), tracers = NonLinearAdvectionTerm()),
-                 turbulence = (νʰ=0, νᶻ=0, κʰ=0, κᶻ=0),
+         turbulence_closure = (νʰ=0, νᶻ=0, κʰ=0, κᶻ=0),
                    coriolis = (f₀=0, β=0),
         rusanov_wave_speeds = (cʰ=0, cᶻ=0),
-                   buoyancy = (αᵀ,)
+                   buoyancy = (αᵀ=0,)
            numerical_fluxes = ( first_order = RusanovNumericalFlux(),
                                second_order = CentralNumericalFluxSecondOrder(),
                                    gradient = CentralNumericalFluxGradient())
@@ -68,10 +69,10 @@ function HydrostaticBoussinesqSuperModel(;
         momentum = NonLinearAdvectionTerm(),
         tracers = NonLinearAdvectionTerm(),
     ),
-    turbulence = (νʰ = 0, νᶻ = 0, κʰ = 0, κᶻ = 0),
+    turbulence_closure = (νʰ = 0, νᶻ = 0, κʰ = 0, κᶻ = 0),
     coriolis = (f₀ = 0, β = 0),
     rusanov_wave_speeds = (cʰ = 0, cᶻ = 0),
-    buoyancy = (αᵀ,),
+    buoyancy = (αᵀ = 0,),
     numerical_fluxes = (
         first_order = RusanovNumericalFlux(),
         second_order = CentralNumericalFluxSecondOrder(),
@@ -92,12 +93,13 @@ function HydrostaticBoussinesqSuperModel(;
     #####
 
     problem = InitialValueProblem(
+        FT,
         dimensions = (domain.L.x, domain.L.y, domain.L.z),
         initial_conditions = initial_conditions,
     )
 
     #####
-    ##### Build HydrostaticBoussinesqEquations (currently called HydrostaticBoussinesqModel)
+    ##### Build HydrostaticBoussinesqModel/Equations
     #####
 
     equations = HydrostaticBoussinesqModel{eltype(domain)}(
@@ -105,15 +107,15 @@ function HydrostaticBoussinesqSuperModel(;
         problem,
         momentum_advection = advection.momentum,
         tracer_advection = advection.tracers,
-        cʰ = FT(rusanov_wave_speeds.cʰ),
-        cᶻ = FT(rusanov_wave_speeds.cᶻ),
-        αᵀ = FT(buoyancy.αᵀ),
-        νʰ = FT(turbulence.νʰ),         # Horizontal viscosity (m² s⁻¹)
-        νᶻ = FT(turbulence.νᶻ),         # Horizontal viscosity (m² s⁻¹)
-        κʰ = FT(turbulence.κʰ),         # Horizontal diffusivity (m² s⁻¹)
-        κᶻ = FT(turbulence.κᶻ),         # Horizontal diffusivity (m² s⁻¹)
-        fₒ = FT(coriolis.f₀),           # Coriolis parameter (s⁻¹)
-        β = FT(coriolis.β),             # Coriolis parameter gradient (m⁻¹ s⁻¹)
+        cʰ = convert(FT, rusanov_wave_speeds.cʰ),
+        cᶻ = convert(FT, rusanov_wave_speeds.cᶻ),
+        αᵀ = convert(FT, buoyancy.αᵀ),
+        νʰ = convert(FT, turbulence_closure.νʰ),
+        νᶻ = convert(FT, turbulence_closure.νᶻ),
+        κʰ = convert(FT, turbulence_closure.κʰ),
+        κᶻ = convert(FT, turbulence_closure.κᶻ),
+        fₒ = convert(FT, coriolis.f₀),
+        β = FT(coriolis.β),
     )
 
     ####
@@ -191,8 +193,11 @@ function HydrostaticBoussinesqSuperModel(;
     )
 end
 
-current_time(model::HydrostaticBoussinesqSuperModel) = model.solver_configuration.solver.t
-Δt(model::HydrostaticBoussinesqSuperModel) = model.solver_configuration.solver.dt
-steps(model::HydrostaticBoussinesqSuperModel) = model.solver_configuration.solver.steps
+current_time(model::HydrostaticBoussinesqSuperModel) =
+    model.solver_configuration.solver.t
+Δt(model::HydrostaticBoussinesqSuperModel) =
+    model.solver_configuration.solver.dt
+steps(model::HydrostaticBoussinesqSuperModel) =
+    model.solver_configuration.solver.steps
 
 end # module

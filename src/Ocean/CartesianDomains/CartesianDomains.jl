@@ -1,5 +1,7 @@
 module CartesianDomains
 
+export CartesianDomain, assemble
+
 using Printf
 
 include("cartesian_domain.jl")
