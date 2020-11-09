@@ -115,7 +115,7 @@ function (op::JacobianAction{AutoDiffMode})(JΔQ, dQ, args...)
     Q = op.Q
     Fq = op.Fq
 
-    ForwardDiff.partials(Q) .= dQ
+    ForwardDiff.partials(Q) .= dQ.data
     op.rhs!(Fq, Q, args...)
     JΔQ .= ForwardDiff.partials(Fq)
 end
@@ -134,7 +134,7 @@ end
 Update the values of cached Q before each Newton iteration
 """
 function update_Q!(op::JacobianAction{AutoDiffMode}, Q, args...)
-    ForwardDiff.value(op.Q) .= Q
+    ForwardDiff.value(op.Q) .= Q.data
 end
 
 """
