@@ -65,10 +65,12 @@ function CartesianField(
     Te = prod(domain.Ne)
     Np = domain.Np
 
+    grid = domain.grid
+
     # Extract coordinate arrays with size (xnode, ynode, znode, element)
-    x = reshape(volume_geometry[:, 13, :], Np + 1, Np + 1, Np + 1, Te)
-    y = reshape(volume_geometry[:, 14, :], Np + 1, Np + 1, Np + 1, Te)
-    z = reshape(volume_geometry[:, 15, :], Np + 1, Np + 1, Np + 1, Te)
+    x = reshape(volume_geometry[:, grid.x1id, :], Np + 1, Np + 1, Np + 1, Te)
+    y = reshape(volume_geometry[:, grid.x2id, :], Np + 1, Np + 1, Np + 1, Te)
+    z = reshape(volume_geometry[:, grid.x3id, :], Np + 1, Np + 1, Np + 1, Te)
 
     # Reshape data as coordinate arrays
     data = reshape(data, Np + 1, Np + 1, Np + 1, Te)
