@@ -117,13 +117,14 @@ function writevtk_helper(
     Xid = (grid.x1id, grid.x2id, grid.x3id)
     X = ntuple(j -> (@view vgeo[:, Xid[j], :]), dim)
     fields = ntuple(j -> (@view Q[:, j, :]), size(Q, 2))
-    auxfields = isnothing(state_auxiliary) ? () :
+    auxfields =
+        isnothing(state_auxiliary) ? () :
         (
-        auxfields = ntuple(
-            j -> (@view state_auxiliary[:, j, :]),
-            size(state_auxiliary, 2),
+            auxfields = ntuple(
+                j -> (@view state_auxiliary[:, j, :]),
+                size(state_auxiliary, 2),
+            )
         )
-    )
 
     # Interpolate to an equally spaced grid if necessary
     if number_sample_points > 0
@@ -191,7 +192,11 @@ function writevtk(prefix, grid::DiscontinuousSpectralElementGrid)
     nelem = size(vgeo)[end]
     Xid = (grid.x1id, grid.x2id, grid.x3id)
     X = ntuple(
-        j -> reshape((@view vgeo[:, Xid[j], :]), ntuple(j -> Nq, dim)..., nelem),
+        j -> reshape(
+            (@view vgeo[:, Xid[j], :]),
+            ntuple(j -> Nq, dim)...,
+            nelem,
+        ),
         dim,
     )
     writemesh(prefix, X...; realelems = grid.topology.realelems)

@@ -31,7 +31,7 @@ mutable struct StrongStabilityPreservingRungeKutta{T, RT, AT, Nstages} <:
     "elapsed time steps"
     steps::Int
     "rhs function"
-    rhs!
+    rhs!::Any
     "Storage for RHS during the `StrongStabilityPreservingRungeKutta` update"
     Rstage::AT
     "Storage for the stage state during the `StrongStabilityPreservingRungeKutta` update"

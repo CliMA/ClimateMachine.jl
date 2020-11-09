@@ -39,7 +39,7 @@ struct DriverConfiguration{FT}
 
     name::String
     N::Int
-    array_type
+    array_type::Any
     solver_type::AbstractSolverType
     #
     # Model details

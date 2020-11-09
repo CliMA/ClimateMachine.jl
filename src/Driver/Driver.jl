@@ -490,7 +490,8 @@ function init_runtime(settings::ClimateMachine_Settings)
 
     # set up logging
     log_level_str = uppercase(settings.log_level)
-    loglevel = log_level_str == "DEBUG" ? Logging.Debug :
+    loglevel =
+        log_level_str == "DEBUG" ? Logging.Debug :
         log_level_str == "WARN" ? Logging.Warn :
         log_level_str == "ERROR" ? Logging.Error : Logging.Info
     if !settings.disable_custom_logger
