@@ -10,16 +10,16 @@ struct InitialValueProblem{FT, IC, BC} <: AbstractSimpleBoxProblem
     boundary_conditions::BC
 
     """
-        InitialValueProblem(FT=Float64; dimensions, initial_conditions=InitialConditions(),
-                            boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
-                                                   OceanBC(Penetrable(FreeSlip()), Insulating())))
+        InitialValueProblem{FT}(; dimensions, initial_conditions=InitialConditions(),
+                                boundary_conditions = (OceanBC(Impenetrable(FreeSlip()), Insulating()),
+                                                       OceanBC(Penetrable(FreeSlip()), Insulating())))
 
     Returns an `InitialValueProblem` with `dimensions = (Lˣ, Lʸ, H)`, `initial_conditions`,
     and `boundary_conditions`.
 
     The default `initial_conditions` are resting with no temperature perturbation;
-    the default `boundary_conditions` are horizontally-periodic with `Insulating()`
-    and `FreeSlip()` conditions at the top and bottom.
+    the default list of `boundary_conditions` provide implementations for an impenetrable, insulating
+    boundary, and a penetrable, insulating boundary.
     """
     function InitialValueProblem{FT}(;
         dimensions,
@@ -30,7 +30,7 @@ struct InitialValueProblem{FT, IC, BC} <: AbstractSimpleBoxProblem
         ),
     ) where {FT}
 
-        return InitialValueProblem(
+        return new{FT, typeof(initial_conditions), typeof(boundary_conditions)}(
             FT.(dimensions)...,
             initial_conditions,
             boundary_conditions,

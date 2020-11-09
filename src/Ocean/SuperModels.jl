@@ -92,8 +92,7 @@ function HydrostaticBoussinesqSuperModel(;
     ##### Construct generic problem type InitialValueProblem
     #####
 
-    problem = InitialValueProblem(
-        FT,
+    problem = InitialValueProblem{FT}(
         dimensions = (domain.L.x, domain.L.y, domain.L.z),
         initial_conditions = initial_conditions,
     )
