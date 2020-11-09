@@ -434,7 +434,7 @@ equations.
 
     # pressure terms
     flux_radiation!(m.radiation, m, flux, state, aux, t)
-    flux_moisture!(m.moisture, m, flux, state, aux, t)
+    flux_first_order!(m.moisture, m, flux, state, aux, t, direction)
     flux_precipitation!(m.precipitation, m, flux, state, aux, t)
     flux_tracers!(m.tracers, m, flux, state, aux, t)
     flux_first_order!(m.turbconv, m, flux, state, aux, t)

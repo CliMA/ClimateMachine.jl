@@ -1,6 +1,25 @@
 ##### Moisture tendencies
 
 #####
+##### First order fluxes
+#####
+
+function flux(::Advect{TotalMoisture}, m, state, aux, t, ts, direction)
+    u = state.ρu / state.ρ
+    return u * state.moisture.ρq_tot
+end
+
+function flux(::Advect{LiquidMoisture}, m, state, aux, t, ts, direction)
+    u = state.ρu / state.ρ
+    return u * state.moisture.ρq_liq
+end
+
+function flux(::Advect{IceMoisture}, m, state, aux, t, ts, direction)
+    u = state.ρu / state.ρ
+    return u * state.moisture.ρq_ice
+end
+
+#####
 ##### Sources
 #####
 

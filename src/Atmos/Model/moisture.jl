@@ -12,13 +12,14 @@ function atmos_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 ) end
-function flux_moisture!(
+function flux_first_order!(
     ::MoistureModel,
     ::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 ) end
 function compute_gradient_flux!(
     ::MoistureModel,
@@ -37,7 +38,7 @@ function flux_second_order!(
     t::Real,
     D_t,
 ) end
-function flux_first_order!(::MoistureModel, _...) end
+
 function compute_gradient_argument!(
     ::MoistureModel,
     transform::Vars,
@@ -143,17 +144,20 @@ function compute_gradient_flux!(
     diffusive.moisture.∇q_tot = ∇transform.moisture.q_tot
 end
 
-function flux_moisture!(
+function flux_first_order!(
     moist::EquilMoist,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
-    ρ = state.ρ
-    u = state.ρu / ρ
-    flux.moisture.ρq_tot += u * state.moisture.ρq_tot
+    ts = recover_thermo_state(atmos, state, aux)
+    tend = Flux{FirstOrder}()
+    args = (atmos, state, aux, t, ts, direction)
+    flux.moisture.ρq_tot =
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), args...)
 end
 
 function flux_second_order!(
@@ -233,19 +237,24 @@ function compute_gradient_flux!(
     diffusive.moisture.∇q_ice = ∇transform.moisture.q_ice
 end
 
-function flux_moisture!(
+function flux_first_order!(
     moist::NonEquilMoist,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    direction,
 )
-    ρ = state.ρ
-    u = state.ρu / ρ
-    flux.moisture.ρq_tot += u * state.moisture.ρq_tot
-    flux.moisture.ρq_liq += u * state.moisture.ρq_liq
-    flux.moisture.ρq_ice += u * state.moisture.ρq_ice
+    ts = recover_thermo_state(atmos, state, aux)
+    tend = Flux{FirstOrder}()
+    args = (atmos, state, aux, t, ts, direction)
+    flux.moisture.ρq_tot =
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), args...)
+    flux.moisture.ρq_liq =
+        Σfluxes(eq_tends(LiquidMoisture(), atmos, tend), args...)
+    flux.moisture.ρq_ice =
+        Σfluxes(eq_tends(IceMoisture(), atmos, tend), args...)
 end
 
 function flux_second_order!(
