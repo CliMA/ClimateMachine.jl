@@ -38,9 +38,9 @@ Planet.grav(::NonDimensionalParameters) = 1
 initial_conditions = InitialConditions(
     u = (x, y, z) -> tanh(y) + 0.1 * cos(x / 3) + 0.01 * randn(),
     v = (x, y, z) -> 0.1 * sin(y / 3),
-    θ = (x, y, z) -> x
+    θ = (x, y, z) -> x,
 )
-                                       
+
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
     time_step = 0.1,
@@ -59,14 +59,20 @@ fetched_states = []
 data_fetcher = EveryXSimulationTime(1) do
     @info "Step: $(steps(model)), t: $(current_time(model)), max|u|: $(maximum(abs, u))"
 
-    push!(fetched_states, (u = assemble(u), θ = assemble(θ), time = current_time(model)))
+    push!(
+        fetched_states,
+        (u = assemble(u), θ = assemble(θ), time = current_time(model)),
+    )
 end
 
 # and then run the simulation.
-        
+
 model.solver_configuration.timeend = 100.0
 
-result = ClimateMachine.invoke!(model.solver_configuration; user_callbacks = [data_fetcher])
+result = ClimateMachine.invoke!(
+    model.solver_configuration;
+    user_callbacks = [data_fetcher],
+)
 
 # Finally, we make an animation of the evolving shear instability.
 
@@ -77,13 +83,19 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 
     x, y, = state.u.x, state.u.y
 
-    u_plot = contourf(x, y, state.u.data[:, :, 1]'; color=:balance, kwargs...)
-    θ_plot = contourf(x, y, state.θ.data[:, :, 1]'; color=:thermal, kwargs...)
+    u_plot = contourf(x, y, state.u.data[:, :, 1]'; color = :balance, kwargs...)
+    θ_plot = contourf(x, y, state.θ.data[:, :, 1]'; color = :thermal, kwargs...)
 
     u_title = @sprintf("u at t = %.2f", state.time)
     θ_title = @sprintf("θ at t = %.2f", state.time)
 
-    plot(u_plot, θ_plot, layout = (1, 2), title = [u_title θ_title], size = (1200, 500))
+    plot(
+        u_plot,
+        θ_plot,
+        layout = (1, 2),
+        title = [u_title θ_title],
+        size = (1200, 500),
+    )
 end
 
 gif(animation, "shear_instability.gif", fps = 8)
