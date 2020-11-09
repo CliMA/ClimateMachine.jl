@@ -206,8 +206,8 @@ function config_ShearFlow(
         init_ShearFlow!,      ## Function specifying initial condition
         solver_type = ode_solver,## Time-integrator type
         model = model,## Model type
-	periodicity = (false,false,true),
-	boundary = ((2, 2), (2, 2), (1, 2)),
+	periodicity = (false,false,false),
+	boundary = ((2, 2), (2, 2), (2, 2)),
     )
     return config
 end
@@ -229,33 +229,17 @@ function config_diagnostics(driver_config)
 end
 
 function main()
-    ## These are essentially arguments passed to the
-    ## [`config_risingbubble`](@ref config-helper) function.  For type
-    ## consistency we explicitly define the problem floating-precision.
     FT = Float64
-    ## We need to specify the polynomial order for the DG discretization,
-    ## effective resolution, simulation end-time, the domain bounds, and the
-    ## courant-number for the time-integrator. Note how the time-integration
-    ## components `solver_config` are distinct from the spatial / model
-    ## components in `driver_config`. `init_on_cpu` is a helper keyword argument
-    ## that forces problem initialization on CPU (thereby allowing the use of
-    ## random seeds, spline interpolants and other special functions at the
-    ## initialization step.)
     N = 4
-    Δh = FT(0.2)
-    Δv = FT(0.2)
+    Δh = FT(0.2/8)
+    Δv = FT(0.2/8)
     resolution = (Δh, Δh, Δv)
     xmax = FT(1)
     ymax = FT(1)
     zmax = FT(1)
     t0 = FT(0)
     timeend = FT(10)
-    ## For full simulation set `timeend = 1000`
-
-    ## Use up to 1.7 if ode_solver is the single rate LSRK144.
     CFL = FT(0.8)
-
-    ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_ShearFlow(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -265,9 +249,6 @@ function main()
         Courant_number = CFL,
     )
     dgn_config = config_diagnostics(driver_config)
-
-    ## Invoke solver (calls `solve!` function for time-integrator), pass the driver,
-    ## solver and diagnostic config information.
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
@@ -275,8 +256,6 @@ function main()
         check_euclidean_distance = true,
     )
 
-    ## Check that the solution norm is reasonable.
-    @test isapprox(result, FT(1); atol = 1.5e-3)
 end
 
 # The experiment definition is now complete. Time to run it.
