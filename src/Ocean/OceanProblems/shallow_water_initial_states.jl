@@ -156,7 +156,7 @@ function gyre_init_state!(
     C = τₒ / (_grav * H) * (fₒ / β)
 
     state.η = η_munk(coords[1], coords[2], Lˣ, Lʸ, δᵐ, C)
-    state.U = @SVector zeros(T, 2)
+    state.U = @SVector zeros(FT, 2)
 
     return nothing
 end
