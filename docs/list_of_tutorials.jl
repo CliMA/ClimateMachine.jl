@@ -31,6 +31,8 @@ if generate_tutorials
             "One-dimensional geostrophic adjustment" =>
                 "Ocean/geostrophic_adjustment.jl",
             "Eddy radiating Rossby waves" => "Ocean/radiating_eddy.jl",
+            "Propagating mode-1 internal wave" => "Ocean/internal_wave.jl",
+            "Free surface shear instability" => "Ocean/shear_instability.jl",
         ],
         "Land" => ["Heat" => ["Heat Equation" => "Land/Heat/heat_equation.jl"]],
         "Numerics" => [
