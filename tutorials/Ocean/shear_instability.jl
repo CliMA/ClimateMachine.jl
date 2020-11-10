@@ -48,6 +48,10 @@ model = Ocean.HydrostaticBoussinesqSuperModel(
     parameters = NonDimensionalParameters(),
     turbulence_closure = (νʰ = 1e-2, νᶻ = 1e-2, κʰ = 1e-2, κᶻ = 1e-2),
     rusanov_wave_speeds = (cʰ = 0.1, cᶻ = 1),
+    boundary_conditions = (
+        OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        OceanBC(Penetrable(FreeSlip()), Insulating()),
+    ),
 )
 
 # We prepare a callback that periodically fetches the horizontal velocity and
