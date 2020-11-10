@@ -84,6 +84,10 @@ function HydrostaticBoussinesqSuperModel(;
     filters = nothing,
     modeldata = NamedTuple(),
     init_on_cpu = true,
+    boundary_conditions = (
+        OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        OceanBC(Penetrable(FreeSlip()), Insulating()),
+    ),
 )
 
     FT = eltype(domain)
@@ -95,6 +99,7 @@ function HydrostaticBoussinesqSuperModel(;
     problem = InitialValueProblem{FT}(
         dimensions = (domain.L.x, domain.L.y, domain.L.z),
         initial_conditions = initial_conditions,
+        boundary_conditions = boundary_conditions,
     )
 
     #####
