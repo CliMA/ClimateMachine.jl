@@ -1,6 +1,5 @@
-
 # https://github.com/jheinen/GR.jl/issues/278#issuecomment-587090846
-ENV["GKSwstype"] = "100"
+ENV["GKSwstype"] = "nul"
 # some of the tutorials cannot be run on the GPU
 ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"] = true
 # avoid problems with Documenter/Literate when using `global_logger()`
