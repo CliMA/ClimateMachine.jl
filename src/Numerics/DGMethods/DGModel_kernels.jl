@@ -90,6 +90,7 @@ fluxes, respectively.
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
         Nq = info.Nq[1]
+        Nq2 = info.Nq[2]
         Nqk = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -103,7 +104,7 @@ fluxes, respectively.
     end
 
     # Arrays for F, and the differentiation matrix D
-    shared_flux = @localmem FT (2, Nq, Nq, num_state_prognostic)
+    shared_flux = @localmem FT (2, Nq, Nq2, num_state_prognostic)
     s_D = @localmem FT (Nq, Nq)
 
     # Storage for tendency and mass inverse M⁻¹
@@ -119,7 +120,9 @@ fluxes, respectively.
 
     @inbounds begin
         # load differentiation matrix into local memory
-        s_D[i, j] = D[i, j]
+        if i <= Nq && j <= Nq
+            s_D[i, j] = D[i, j]
+        end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             # initialize local tendency
@@ -403,6 +406,7 @@ volume_tendency!
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
         Nq = info.Nq[1]
+        Nq2 = info.Nq[2]
         Nqk = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -418,12 +422,12 @@ volume_tendency!
         _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
 
-        shared_flux_size = dim == 2 ? (Nq, Nq, num_state_prognostic) : (0, 0, 0)
+        shared_flux_size = dim == 2 ? (Nq, Nq2, num_state_prognostic) : (0, 0, 0)
     end
 
     # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT shared_flux_size
-    s_D = @localmem FT (Nq, Nq)
+    s_D = @localmem FT (Nq2, Nq2)
 
     # Storage for tendency and mass inverse M⁻¹
     local_tendency = @private FT (Nqk, num_state_prognostic)
@@ -438,7 +442,9 @@ volume_tendency!
 
     @inbounds begin
         # load differentiation matrix into local memory
-        s_D[i, j] = D[i, j]
+        if i <= Nq2 && j <= Nq2
+            s_D[i, j] = D[i, j]
+        end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             # initialize local tendency
@@ -1019,6 +1025,7 @@ gradient flux.
         # Assumes same polynomial order in both
         # horizontal directions (x,y)
         Nq = info.Nq[1]
+        Nq2 = info.Nq[2]
         Nqk = info.Nqk
 
         ngradtransformstate = num_state_prognostic
@@ -1030,7 +1037,7 @@ gradient flux.
 
     # Transformation from conservative variables to
     # primitive variables (i.e. ρu → u)
-    shared_transform = @localmem FT (Nq, Nq, ngradstate)
+    shared_transform = @localmem FT (Nq, Nq2, ngradstate)
     s_D = @localmem FT (Nq, Nq)
 
     local_state_prognostic = @private FT (ngradtransformstate, Nqk)
@@ -1048,7 +1055,9 @@ gradient flux.
     @inbounds @views begin
         # Load horizontal differentiation matrix into shared memory
         # (shared across threads in an element)
-        s_D[i, j] = D[i, j]
+        if i <= Nq && j <= Nq
+            s_D[i, j] = D[i, j]
+        end
 
         @unroll for k in 1:Nqk
             # Initialize local gradient variables
@@ -1271,6 +1280,7 @@ matrix and G is the auxiliary gradient flux.
         # Assumes same polynomial order in both
         # horizontal directions (x,y)
         Nq = info.Nq[1]
+        Nq2 = info.Nq[2]
         Nqk = info.Nqk
 
         ngradtransformstate = num_state_prognostic
@@ -1288,8 +1298,8 @@ matrix and G is the auxiliary gradient flux.
 
     # Transformation from conservative variables to
     # primitive variables (i.e. ρu → u)
-    shared_transform = @localmem FT (Nq, Nq, ngradstate)
-    s_D = @localmem FT (Nq, Nq)
+    shared_transform = @localmem FT (Nq, Nq2, ngradstate)
+    s_D = @localmem FT (Nq2, Nq2)
 
     local_state_prognostic = @private FT (ngradtransformstate, Nqk)
     local_state_auxiliary = @private FT (num_state_auxiliary, Nqk)
@@ -1309,7 +1319,9 @@ matrix and G is the auxiliary gradient flux.
     @inbounds @views begin
         # Load horizontal differentiation matrix into shared memory
         # (shared across threads in an element)
-        s_D[i, j] = D[i, j]
+        if i <= Nq2 && j <= Nq2
+            s_D[i, j] = D[i, j]
+        end
 
         @unroll for k in 1:Nqk
             # Initialize local gradient variables
@@ -1583,6 +1595,9 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+
+        # @show direction
+        # @show vid⁻, vid⁺, e⁻, e⁺, id⁻, id⁺, f
 
         # Load minus side data
         @unroll for s in 1:ngradtransformstate

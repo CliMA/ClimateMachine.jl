@@ -977,14 +977,6 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     Qhypervisc_grad, _ = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    # We iterate the kernels horizontally, so our
-    # workgroup is determined by (Nqh, Nqh), where Nqh is
-    # the number of quadrature points in a horizontal (x, y) direction
-    # In three-dimensions, we assume the same polynomial orders in both x, y
-    # directions, hence Nq is the same for both
-    workgroup = (info.Nq[1], info.Nq[2])
-    # Total size of the iteration space
-    ndrange = (info.Nq[1] * info.nrealelem, info.Nq[1])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -992,6 +984,14 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+        # We iterate the kernels horizontally, so our
+        # workgroup is determined by (Nqh, Nqh), where Nqh is
+        # the number of quadrature points in a horizontal (x, y) direction
+        # In three-dimensions, we assume the same polynomial orders in both x, y
+        # directions, hence Nq is the same for both
+        workgroup = (info.Nq[1], info.Nq[2])
+        # Total size of the iteration space
+        ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
 
         # We assume N₁ = N₂, so the same polyorder, quadrature weights,
         # and differentiation operators are used
@@ -1018,6 +1018,15 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     # Now we call the kernel corresponding to the vertical direction
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        # We iterate the kernels horizontally, so our
+        # workgroup is determined by (Nqh, Nqh), where Nqh is
+        # the number of quadrature points in a horizontal (x, y) direction
+        # In three-dimensions, we assume the same polynomial orders in both x, y
+        # directions, hence Nq is the same for both
+        workgroup = (info.Nq[1], info.Nq[2])
+        # Total size of the iteration space
+        ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
 
         # Vertical polynomial degree and differentiation matrix
         vertical_polyorder = info.N[info.dim]
@@ -1075,13 +1084,13 @@ function launch_interface_gradients!(
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
 
-        workgroup = info.Nfp_h
+        workgroup = info.Nfp_v
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_h * info.ninteriorelem
+            ndrange = info.Nfp_v * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_h * info.nexteriorelem
+            ndrange = info.Nfp_v * info.nexteriorelem
         end
 
         # Hoirzontal polynomial order (assumes same for both horizontal directions)
@@ -1113,13 +1122,13 @@ function launch_interface_gradients!(
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
-        workgroup = info.Nfp_v
+        workgroup = info.Nfp_h
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_v * info.ninteriorelem
+            ndrange = info.Nfp_h * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_v * info.nexteriorelem
+            ndrange = info.Nfp_h * info.nexteriorelem
         end
 
         # Vertical polynomial degree
@@ -1517,8 +1526,8 @@ function launch_volume_tendency!(
     Qhypervisc_grad, _ = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = (info.Nq[1], info.Nq[1])
-    ndrange = (info.Nq[1] * info.nrealelem, info.Nq[1])
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1625,13 +1634,13 @@ function launch_interface_tendency!(
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
 
-        workgroup = info.Nfp_h
+        workgroup = info.Nfp_v
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_h * info.ninteriorelem
+            ndrange = info.Nfp_v * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_h * info.nexteriorelem
+            ndrange = info.Nfp_v * info.nexteriorelem
         end
 
         # Hoirzontal polynomial order (assumes same for both horizontal directions)
@@ -1664,13 +1673,13 @@ function launch_interface_tendency!(
     # Vertical kernel call
     if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
 
-        workgroup = info.Nfp_v
+        workgroup = info.Nfp_h
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_v * info.ninteriorelem
+            ndrange = info.Nfp_h * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_v * info.nexteriorelem
+            ndrange = info.Nfp_h * info.nexteriorelem
         end
 
         # Vertical polynomial degree

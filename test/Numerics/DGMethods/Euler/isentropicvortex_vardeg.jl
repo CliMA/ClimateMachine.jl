@@ -39,7 +39,7 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = (4, 2)
+    polynomialorder = (2, 4)
     numlevels = integration_testing ? 4 : 1
 
     expected_error = Dict()
@@ -251,6 +251,7 @@ function test_run(
         maximum(polynomialorder)^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
+    dt /= 10
 
     Q = init_ode_state(dg, FT(0), setup)
     lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
