@@ -162,7 +162,7 @@ function AtmosModel{FT}(
     source::S = (
         Gravity(),
         Coriolis(),
-        GeostrophicForcing{FT}(7.62e-5, 0, 0),
+        GeostrophicForcing(FT, 7.62e-5, 0, 0),
         turbconv_sources(turbconv)...,
     ),
     tracers::TR = NoTracers(),

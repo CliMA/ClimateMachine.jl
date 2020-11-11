@@ -10,6 +10,8 @@ filter_source(pv::PrognosticVariable, s) = nothing
 # Sources that have been added to new specification:
 filter_source(pv::PV, s::Subsidence{PV}) where {PV <: PrognosticVariable} = s
 filter_source(pv::PV, s::Gravity{PV}) where {PV <: Momentum} = s
+filter_source(pv::PV, s::GeostrophicForcing{PV}) where {PV <: Momentum} = s
+filter_source(pv::PV, s::Coriolis{PV}) where {PV <: Momentum} = s
 
 # Filter sources / empty elements
 filter_sources(t::Tuple) = filter(x -> !(x == nothing), t)
