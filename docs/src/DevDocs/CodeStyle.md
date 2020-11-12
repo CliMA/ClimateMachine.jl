@@ -86,36 +86,39 @@ from the `PackageCompiler` repository should be noted:
 > that needs a specific version of a package, but you have another one compiled
 > into the sysimage.
 
-The `PackageCompiler` compiler can be used with `JuliaFormatter` using the
-following commands (from the top-level directory of a clone of
-`ClimateMachine`):
+There are two helper scripts for doing this. The first will replace your default
+system image and can be run (from the top-level directory of a clone of
+`ClimateMachine`) with
+
 ```
-$ julia -q
-julia> using Pkg
-julia> Pkg.add("PackageCompiler")
-julia> using PackageCompiler
-julia> Pkg.activate(joinpath(@__DIR__, ".dev"))
-julia> using PackageCompiler
-julia> PackageCompiler.create_sysimage(:JuliaFormatter; precompile_execution_file=joinpath(@__DIR__, ".dev/precompile.jl"), replace_default=true)
+julia .dev/clima_formatter_default_image.jl
 ```
 
 If you cannot or do not want to modify the default system image, use the
 following instead:
 
 ```
-$ julia -q
-julia> using Pkg
-julia> Pkg.add("PackageCompiler")
-julia> using PackageCompiler
-julia> Pkg.activate(joinpath(@__DIR__, ".dev"))
-julia> PackageCompiler.create_sysimage(:JuliaFormatter; precompile_execution_file=joinpath(@__DIR__, ".dev/precompile.jl"), sysimage_path=joinpath(@__DIR__, ".git/hooks/JuliaFormatterSysimage.so"))
+julia .dev/clima_formatter_image.jl
 ```
 
+which will put the precompile image in `.git/hooks/JuliaFormatterSysimage.so`.
 In this case, use the `pre-commit.sysimage` `git hook` with:
 
 ```
 $ ln -s ../../.dev/hooks/pre-commit.sysimage .git/hooks/pre-commit
 ```
 
-Note: Putting the system image in `.git/hooks` protects it from calls to
-`git clean -x`.
+!!! tip
+
+  Putting the system image in `.git/hooks` protects it from calls to `git clean -x`.
+
+!!! Note
+
+  The script `.dev/clima_formatter_image.jl` can also take a second arguement
+  with will specify a different path for the system image. If this is used along
+  with the `git hook` the path in `pre-commet.sysimage` will need to be updated.
+
+!!! warning
+
+    If you use a system image for the formatter, a new system image must be
+    built in order to update the `JuliaFormatter` package.
