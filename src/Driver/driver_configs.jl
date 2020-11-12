@@ -38,7 +38,8 @@ struct DriverConfiguration{FT}
     config_type::ClimateMachineConfigType
 
     name::String
-    N::Int
+    # polynomial order tuple (polyorder_horz, polyorder_vert)
+    polyorders::NTuple{2, Int}
     array_type::Any
     solver_type::AbstractSolverType
     #
@@ -63,7 +64,7 @@ struct DriverConfiguration{FT}
     function DriverConfiguration(
         config_type,
         name::String,
-        N::Int,
+        polyorders::NTuple{2, Int},
         FT,
         array_type,
         solver_type::AbstractSolverType,
@@ -79,7 +80,7 @@ struct DriverConfiguration{FT}
         return new{FT}(
             config_type,
             name,
-            N,
+            polyorders,
             array_type,
             solver_type,
             param_set,
@@ -110,7 +111,7 @@ end
 
 function AtmosLESConfiguration(
     name::String,
-    N::Int,
+    (polyorder_horz, polyorder_vert)::NTuple{2, Int},
     (Δx, Δy, Δz)::NTuple{3, FT},
     xmax::FT,
     ymax::FT,
@@ -142,9 +143,9 @@ function AtmosLESConfiguration(
     print_model_info(model)
 
     brickrange = (
-        grid1d(xmin, xmax, elemsize = Δx * N),
-        grid1d(ymin, ymax, elemsize = Δy * N),
-        grid1d(zmin, zmax, elemsize = Δz * N),
+        grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
+        grid1d(ymin, ymax, elemsize = Δy * polyorder_horz),
+        grid1d(zmin, zmax, elemsize = Δz * polyorder_vert),
     )
     topology = StackedBrickTopology(
         mpicomm,
@@ -157,23 +158,25 @@ function AtmosLESConfiguration(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = N,
+        polynomialorder = (polyorder_horiz, polyorder_vert)
         meshwarp = meshwarp,
     )
 
     @info @sprintf(
         """
 Establishing Atmos LES configuration for %s
-    precision        = %s
-    polynomial order = %d
-    domain           = %.2f m x%.2f m x%.2f m
-    resolution       = %dx%dx%d
-    MPI ranks        = %d
-    min(Δ_horz)      = %.2f m
-    min(Δ_vert)      = %.2f m""",
+    precision              = %s
+    horiz polynomial order = %d
+    vert polynomial order  = %d
+    domain                 = %.2f m x%.2f m x%.2f m
+    resolution             = %dx%dx%d
+    MPI ranks              = %d
+    min(Δ_horz)            = %.2f m
+    min(Δ_vert)            = %.2f m""",
         name,
         FT,
-        N,
+        polyorder_horz,
+        polyorder_vert,
         xmax,
         ymax,
         zmax,
@@ -188,7 +191,7 @@ Establishing Atmos LES configuration for %s
     return DriverConfiguration(
         AtmosLESConfigType(),
         name,
-        N,
+        polyorders,
         FT,
         array_type,
         solver_type,
@@ -205,7 +208,7 @@ end
 
 function AtmosGCMConfiguration(
     name::String,
-    N::Int,
+    (polyorder_horz, polyorder_vert)::NTuple{2, Int},
     (nelem_horz, nelem_vert)::NTuple{2, Int},
     domain_height::FT,
     param_set::AbstractParameterSet,
@@ -244,24 +247,26 @@ function AtmosGCMConfiguration(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = N,
+        polynomialorder = (polyorder_horiz, polyorder_vert)
         meshwarp = meshwarp,
     )
 
     @info @sprintf(
         """
 Establishing Atmos GCM configuration for %s
-    precision        = %s
-    polynomial order = %d
-    #horiz elems     = %d
-    #vert elems      = %d
-    domain height    = %.2e m
-    MPI ranks        = %d
-    min(Δ_horz)      = %.2f m
-    min(Δ_vert)      = %.2f m""",
+    precision              = %s
+    horiz polynomial order = %d
+    vert polynomial order  = %d
+    #horiz elems           = %d
+    #vert elems            = %d
+    domain height          = %.2e m
+    MPI ranks              = %d
+    min(Δ_horz)            = %.2f m
+    min(Δ_vert)            = %.2f m""",
         name,
         FT,
-        N,
+        polyorder_horz,
+        polyorder_vert,
         nelem_horz,
         nelem_vert,
         domain_height,
@@ -273,7 +278,7 @@ Establishing Atmos GCM configuration for %s
     return DriverConfiguration(
         AtmosGCMConfigType(),
         name,
-        N,
+        (polyorder_horz, polyorder_vert),
         FT,
         array_type,
         solver_type,
@@ -290,7 +295,7 @@ end
 
 function OceanBoxGCMConfiguration(
     name::String,
-    N::Int,
+    (polyorder_horz, polyorder_vert)::NTuple{2, Int},
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
     param_set::AbstractParameterSet,
     model::HydrostaticBoussinesqModel;
@@ -330,7 +335,7 @@ function OceanBoxGCMConfiguration(
     return DriverConfiguration(
         OceanBoxGCMConfigType(),
         name,
-        N,
+        (polyorder_horz, polyorder_vert),
         FT,
         array_type,
         solver_type,
@@ -347,7 +352,7 @@ end
 
 function OceanSplitExplicitConfiguration(
     name::String,
-    N::Int,
+    (polyorder_horz, polyorder_vert)::NTuple{2, Int},
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
     param_set::AbstractParameterSet,
     model_3D::OceanModel;
@@ -504,7 +509,7 @@ end
 
 function SingleStackConfiguration(
     name::String,
-    N::Int,
+    (polyorder_horz, polyorder_vert)::NTuple{2, Int},
     nelem_vert::Int,
     zmax::FT,
     param_set::AbstractParameterSet,
@@ -549,14 +554,15 @@ function SingleStackConfiguration(
     @info @sprintf(
         """
 Establishing single stack configuration for %s
-    precision        = %s
-    polynomial order = %d
-    domain_min       = %.2f m x%.2f m x%.2f m
-    domain_max       = %.2f m x%.2f m x%.2f m
-    #vert elems      = %d
-    MPI ranks        = %d
-    min(Δ_horz)      = %.2f m
-    min(Δ_vert)      = %.2f m""",
+    precision              = %s
+    horiz polynomial order = %d
+    vert polynomial order  = %d
+    domain_min             = %.2f m x%.2f m x%.2f m
+    domain_max             = %.2f m x%.2f m x%.2f m
+    #vert elems            = %d
+    MPI ranks              = %d
+    min(Δ_horz)            = %.2f m
+    min(Δ_vert)            = %.2f m""",
         name,
         FT,
         N,
@@ -575,7 +581,7 @@ Establishing single stack configuration for %s
     return DriverConfiguration(
         SingleStackConfigType(),
         name,
-        N,
+        polyorders,
         FT,
         array_type,
         solver_type,
