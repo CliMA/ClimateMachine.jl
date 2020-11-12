@@ -39,7 +39,7 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = (2, 4)
+    polynomialorder = (4, 2)
     numlevels = integration_testing ? 4 : 1
 
     expected_error = Dict()

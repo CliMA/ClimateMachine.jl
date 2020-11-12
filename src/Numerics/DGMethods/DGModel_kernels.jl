@@ -620,7 +620,7 @@ volume_tendency!
             # Computes the rest of the volume term: M⁻¹DᵀMF
             if dim == 2
                 MI = local_MI[k]
-                @unroll for n in 1:Nq
+                @unroll for n in 1:Nq2
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[k, s] +=
                             MI * s_D[n, j] * shared_flux[i, n, s]
@@ -1379,14 +1379,14 @@ matrix and G is the auxiliary gradient flux.
                 # ∂G/∂xi = ∂ζ/∂xi * ∂G/∂ζ to get a physical gradient
                 if dim == 2
                     Gζ = zero(FT)
-                    @unroll for n in 1:Nq
+                    @unroll for n in 1:Nq2
                         Gζ += s_D[j, n] * shared_transform[i, n, s]
                     end
                     local_transform_gradient[1, s, k] += local_ζ[1, k] * Gζ
                     local_transform_gradient[2, s, k] += local_ζ[2, k] * Gζ
                     local_transform_gradient[3, s, k] += local_ζ[3, k] * Gζ
                 else
-                    @unroll for n in 1:Nq
+                    @unroll for n in 1:Nqk
                         Gζ[s, n] += s_D[n, k] * shared_transform[i, j, s]
                     end
                 end
