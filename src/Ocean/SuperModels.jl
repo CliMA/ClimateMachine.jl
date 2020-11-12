@@ -24,14 +24,6 @@ using ClimateMachine:
 import ClimateMachine: SolverConfiguration
 
 #####
-##### Build default EarthParameters
-#####
-
-using CLIMAParameters: AbstractEarthParameterSet
-
-struct EarthParameters <: AbstractEarthParameterSet end
-
-#####
 ##### It's super good
 #####
 
@@ -46,8 +38,7 @@ struct HydrostaticBoussinesqSuperModel{D, E, S, F, N, T, C}
 end
 
 """
-    HydrostaticBoussinesqSuperModel(; domain, time_step,
-                 parameters = EarthParameters(),
+    HydrostaticBoussinesqSuperModel(; domain, time_step, parameters,
          initial_conditions = InitialConditions(),
                   advection = (momentum = NonLinearAdvectionTerm(), tracers = NonLinearAdvectionTerm()),
          turbulence_closure = (νʰ=0, νᶻ=0, κʰ=0, κᶻ=0),
@@ -64,8 +55,8 @@ Builds a `SuperModel` that solves the Hydrostatic Boussinesq equations.
 """
 function HydrostaticBoussinesqSuperModel(;
     domain,
+    parameters,
     time_step, # We don't want to have to provide this here, but neverthless it's required.
-    parameters = EarthParameters(),
     initial_conditions = InitialConditions(),
     advection = (
         momentum = NonLinearAdvectionTerm(),
