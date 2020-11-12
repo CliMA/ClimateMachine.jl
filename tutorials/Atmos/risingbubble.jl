@@ -65,7 +65,7 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes

@@ -95,6 +95,7 @@ default values for each field.
         ref_state,
         turbulence,
         hyperdiffusion,
+        divergencedamping,
         spongelayer,
         moisture,
         radiation,
@@ -106,7 +107,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC} <:
+struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, DD, VS, M, P, R, S, TR, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -122,6 +123,8 @@ struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC} <:
     turbconv::TC
     "Hyperdiffusion Model (Equations for dynamics of high-order spatial wave attenuation)"
     hyperdiffusion::HD
+    "Divergence Damping equations"
+    divergencedamping::DD
     "Viscous sponge layers"
     viscoussponge::VS
     "Moisture Model (Equations for dynamics of moist variables)"
@@ -154,6 +157,7 @@ function AtmosModel{FT}(
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     turbconv::TC = NoTurbConv(),
     hyperdiffusion::HD = NoHyperDiffusion(),
+    divergencedamping::DD = NoDivergenceDamping(),
     viscoussponge::VS = NoViscousSponge(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
@@ -166,7 +170,7 @@ function AtmosModel{FT}(
     ),
     tracers::TR = NoTracers(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, DD, VS, M, P, R, S, TR, DC}
 
     atmos = (
         param_set,
@@ -176,6 +180,7 @@ function AtmosModel{FT}(
         turbulence,
         turbconv,
         hyperdiffusion,
+        divergencedamping,
         viscoussponge,
         moisture,
         precipitation,
@@ -204,6 +209,7 @@ function AtmosModel{FT}(
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     turbconv::TC = NoTurbConv(),
     hyperdiffusion::HD = NoHyperDiffusion(),
+    divergencedamping::DD = NoDivergenceDamping(),
     viscoussponge::VS = NoViscousSponge(),
     moisture::M = EquilMoist{FT}(),
     precipitation::P = NoPrecipitation(),
@@ -211,7 +217,7 @@ function AtmosModel{FT}(
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, DD, VS, M, P, R, S, TR, DC}
 
     atmos = (
         param_set,
@@ -221,6 +227,7 @@ function AtmosModel{FT}(
         turbulence,
         turbconv,
         hyperdiffusion,
+        divergencedamping,
         viscoussponge,
         moisture,
         precipitation,
@@ -264,6 +271,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
@@ -280,6 +288,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
@@ -324,6 +333,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
+        divergencedamping::vars_state(m.divergencedamping, st, FT)
         moisture::vars_state(m.moisture, st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
@@ -451,6 +461,7 @@ function compute_gradient_argument!(
     )
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbconv, atmos, transform, state, aux, t)
+    compute_gradient_argument!(atmos.divergencedamping, atmos, transform, state, aux, t)
 end
 
 function compute_gradient_flux!(
@@ -476,6 +487,7 @@ function compute_gradient_flux!(
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(atmos.tracers, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(atmos.divergencedamping, diffusive, ∇transform, state, aux, t)
     compute_gradient_flux!(
         atmos.turbconv,
         atmos,
@@ -545,6 +557,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     )
     flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
+    flux_second_order!(atmos.divergencedamping, atmos, flux, state, diffusive, aux, t)
 end
 
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
@@ -622,6 +635,7 @@ function nodal_update_auxiliary_state!(
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
     turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
+    divdamping_nodal_update_auxiliary_state!(m.divdamping, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
 end
 
@@ -664,6 +678,7 @@ function atmos_nodal_init_state_auxiliary!(
     geom::LocalGeometry,
 )
     aux.coord = geom.coord
+    init_aux_divdamping!(m.divergencedamping, m, aux, geom)
     init_aux_turbulence!(m.turbulence, m, aux, geom)
     atmos_init_aux!(m.ref_state, m, aux, tmp, geom)
     init_aux_hyperdiffusion!(m.hyperdiffusion, m, aux, geom)
