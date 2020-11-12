@@ -75,6 +75,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     debug_init::Bool = false
     integration_testing::Bool = false
     array_type::Type = Array
+    sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
 end
 
@@ -276,6 +277,11 @@ function parse_commandline(
         action = :store_const
         constant = true
         default = get_setting(:integration_testing, defaults, global_defaults)
+        "--sim-time"
+        help = "run for the specified time (in simulation seconds)"
+        metavar = "<number>"
+        arg_type = Float64
+        default = get_setting(:sim_time, defaults, global_defaults)
         "--fixed-number-of-steps"
         help = "if `≥0` perform specified number of steps"
         metavar = "<number>"
@@ -351,6 +357,10 @@ Recognized keyword arguments are:
         fill state arrays with NaNs and dump them post-initialization
 - `integration_testing::Bool = false`:
         enable integration_testing
+- `sim_time::Float64 = NaN`:
+        run for the specified time (in simulation seconds)
+- `fixed_number_of_steps::Int = -1`:
+        if `≥0` perform specified number of steps
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
 arguments.
