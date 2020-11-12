@@ -9,10 +9,11 @@ function flux(::Advect{Momentum}, m, state, aux, t, ts, direction)
 end
 
 function flux(::PressureGradient{Momentum}, m, state, aux, t, ts, direction)
+    pad = (state.ρu .* (state.ρu / state.ρ)') * 0
     if m.ref_state isa HydrostaticState
-        return (air_pressure(ts) - aux.ref_state.p) * I
+        return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
-        return air_pressure(ts) * I
+        return pad + air_pressure(ts) * I
     end
 end
 
@@ -65,18 +66,8 @@ struct GeostrophicForcing{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     u_geostrophic::FT
     v_geostrophic::FT
 end
-function GeostrophicForcing(
-    ::Type{FT},
-    f_coriolis,
-    u_geostrophic,
-    v_geostrophic,
-) where {FT}
-    return GeostrophicForcing{Momentum, FT}(
-        FT(f_coriolis),
-        FT(u_geostrophic),
-        FT(v_geostrophic),
-    )
-end
+GeostrophicForcing(::Type{FT}, args...) where {FT} =
+    GeostrophicForcing{Momentum, FT}(args...)
 function source(
     s::GeostrophicForcing{Momentum},
     m,
@@ -91,4 +82,48 @@ function source(
     ẑ = vertical_unit_vector(m, aux)
     fkvector = s.f_coriolis * ẑ
     return -fkvector × (state.ρu .- state.ρ * u_geo)
+end
+
+
+export RayleighSponge
+"""
+    RayleighSponge{FT} <: AbstractSource
+
+Rayleigh Damping (Linear Relaxation) for top wall momentum components
+Assumes laterally periodic boundary conditions for LES flows. Momentum components
+are relaxed to reference values (zero velocities) at the top boundary.
+"""
+struct RayleighSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "Relaxation velocity components"
+    u_relaxation::SVector{3, FT}
+    "Sponge exponent"
+    γ::FT
+end
+RayleighSponge(::Type{FT}, args...) where {FT} =
+    RayleighSponge{Momentum, FT}(args...)
+function source(
+    s::RayleighSponge{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    z = altitude(m, aux)
+    if z >= s.z_sponge
+        r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
+        β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        return -β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+    else
+        FT = eltype(state)
+        return SVector{3, FT}(0, 0, 0)
+    end
 end

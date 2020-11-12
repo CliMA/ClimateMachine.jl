@@ -156,7 +156,7 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
 
     ## Pass the sponge parameters to the sponge calculator
     rayleigh_sponge =
-        RayleighSponge{FT}(zmax, z_s, sponge_ampz, u_relaxation, 2)
+        RayleighSponge(FT, zmax, z_s, sponge_ampz, u_relaxation, 2)
 
     ## Define the time integrator:
     ## We chose an explicit single-rate LSRK144 for this problem
