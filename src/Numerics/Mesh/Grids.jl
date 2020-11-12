@@ -234,7 +234,8 @@ struct DiscontinuousSpectralElementGrid{
         )
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
-        (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
+        (vgeo, sgeo) =
+            computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
 
         @assert Np == size(vgeo, 1)
 
@@ -570,22 +571,17 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
 end
 
 # {{{ compute geometry
-function computegeometry(
-    topology::AbstractTopology{dim},
-    D,
-    ξ,
-    ω,
-    meshwarp,
-    vmap⁻,
-) where {dim}
+function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
+    dim = length(D)
+    nface = 2dim
+    nelem = size(elemtocoord, 3)
+
     # Compute metric terms
     Nq = ntuple(j -> size(D[j], 1), dim)
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
 
     FT = eltype(D[1])
-
-    (nface, nelem) = size(topology.elemtoelem)
 
     vgeo = zeros(FT, Np, _nvgeo, nelem)
     sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
@@ -613,7 +609,7 @@ function computegeometry(
     sJ = similar(sMJ)
 
     X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-    Metrics.creategrid!(X..., topology.elemtocoord, ξ...)
+    Metrics.creategrid!(X..., elemtocoord, ξ...)
 
     @inbounds for j in 1:length(x1)
         (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
