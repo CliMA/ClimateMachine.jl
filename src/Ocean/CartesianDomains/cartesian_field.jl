@@ -55,11 +55,15 @@ function CartesianField(
     variable_index::Int,
 )
 
+    # Unwind the data in solver
+    data = view(state.realdata, :, variable_index, :)
+
     # Unwind volume geometry
     volume_geometry = domain.grid.vgeo
 
     Ne = domain.Ne
     Te = prod(domain.Ne) # total number of elements
+    Te = prod(domain.Ne)
     Np = domain.Np
 
     grid = domain.grid

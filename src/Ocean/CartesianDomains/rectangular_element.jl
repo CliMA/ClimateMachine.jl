@@ -43,11 +43,9 @@ eltype(::RectangularElement{<:AbstractArray{FT}}) where {FT} = FT
 ##### ⟨⟨ Assemble! ⟩⟩
 #####
 
+
 function x_assemble(west::RectangularElement, east::RectangularElement)
-
-    FT = eltype(west)
-
-    isapprox(west.x[end], east.x[1], atol = sqrt(eps(FT))) ||
+    west.x[end] ≈ east.x[1] ||
     error("Element end-points $((west.x[end], east.x[1])) are not x-adjacent!")
 
     all(west.y .≈ east.y) || error("Elements do not share y nodes!")

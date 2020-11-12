@@ -2,6 +2,7 @@ using MPI
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, polynomialorder
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
+using ClimateMachine.Mesh.Grids: polynomialorder
 
 #####
 ##### CartesianDomain
@@ -11,10 +12,12 @@ struct CartesianDomain{FT, G}
     grid::G
     Np::Int
     Ne::NamedTuple{(:x, :y, :z), NTuple{3, Int}}
-    L::NamedTuple{(:x, :y, :z), NTuple{3, FT}}
     x::NTuple{2, FT}
     y::NTuple{2, FT}
     z::NTuple{2, FT}
+    Lx::FT
+    Ly::FT
+    Lz::FT
 end
 
 Base.eltype(::CartesianDomain{FT}) where {FT} = FT

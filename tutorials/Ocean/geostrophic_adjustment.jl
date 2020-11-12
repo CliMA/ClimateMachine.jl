@@ -136,6 +136,9 @@ equations = HydrostaticBoussinesqModel{Float64}(
     νʰ = 0.0,  # Horizontal viscosity (m² s⁻¹) 
     κʰ = 0.0,  # Horizontal diffusivity (m² s⁻¹) 
     fₒ = f,   # Coriolis parameter (s⁻¹)
+    νʰ = 0.0,          # Horizontal viscosity (m² s⁻¹) 
+    κʰ = 0.0,          # Horizontal diffusivity (m² s⁻¹) 
+    fₒ = f,             # Coriolis parameter (s⁻¹)
 )
 
 # and the `DriverConfiguration`,
@@ -231,7 +234,6 @@ movie_plots = []
 plot_every = 10 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
-    << << << < HEAD
     glued_u = glue(u.elements)
     glued_v = glue(v.elements)
     glued_η = glue(η.elements)
