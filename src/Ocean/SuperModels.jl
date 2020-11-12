@@ -8,6 +8,7 @@ using ..HydrostaticBoussinesq:
     HydrostaticBoussinesqModel, NonLinearAdvectionTerm
 using ..OceanProblems: InitialValueProblem
 using ..CartesianDomains: array_type, communicator
+using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
 using ..Ocean.Fields: field
 
 using ...Mesh.Filters: CutoffFilter, ExponentialFilter
