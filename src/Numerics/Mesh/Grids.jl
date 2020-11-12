@@ -587,22 +587,12 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
     sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
 
     (
-        ξ1x1,
-        ξ2x1,
-        ξ3x1,
-        ξ1x2,
-        ξ2x2,
-        ξ3x2,
-        ξ1x3,
-        ξ2x3,
-        ξ3x3,
-        MJ,
-        MJI,
-        MHJH,
-        x1,
-        x2,
-        x3,
+        #! format: off
+        ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
+        MJ, MJI, MHJH,
+        x1, x2, x3,
         JcV,
+       #! format: on
     ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
     J = similar(x1)
     (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
@@ -620,38 +610,25 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
         Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D...)
     elseif dim == 2
         Metrics.computemetric!(
-            x1,
-            x2,
+            #! format: off
+            x1, x2,
             J,
-            ξ1x1,
-            ξ2x1,
-            ξ1x2,
-            ξ2x2,
+            ξ1x1, ξ2x1, ξ1x2, ξ2x2,
             sJ,
-            n1,
-            n2,
+            n1, n2,
             D...,
+            #! format: on
         )
     elseif dim == 3
         Metrics.computemetric!(
-            x1,
-            x2,
-            x3,
+            #! format: off
+            x1, x2, x3,
             J,
-            ξ1x1,
-            ξ2x1,
-            ξ3x1,
-            ξ1x2,
-            ξ2x2,
-            ξ3x2,
-            ξ1x3,
-            ξ2x3,
-            ξ3x3,
+            ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
             sJ,
-            n1,
-            n2,
-            n3,
+            n1, n2, n3,
             D...,
+            #! format: on
         )
     end
 
@@ -693,14 +670,10 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
 
     elseif dim == 3
         map!(
-            JcV,
-            J,
-            ξ1x1,
-            ξ1x2,
-            ξ1x3,
-            ξ2x1,
-            ξ2x2,
-            ξ2x3,
+            #! format: off
+            JcV, J,
+            ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3,
+            #! format: on
         ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
             x1ξ3 = J * (ξ1x2 * ξ2x3 - ξ2x2 * ξ1x3)
             x2ξ3 = J * (ξ1x3 * ξ2x1 - ξ2x3 * ξ1x1)
