@@ -2,11 +2,7 @@ using ..Microphysics_0M
 using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
 
 export AbstractSource,
-    RayleighSponge,
-    GeostrophicForcing,
-    Coriolis,
-    RemovePrecipitation,
-    CreateClouds
+    RayleighSponge, GeostrophicForcing, RemovePrecipitation, CreateClouds
 
 # sources are applied additively
 @generated function atmos_source!(
@@ -50,7 +46,6 @@ function atmos_source!(
     # Migrated to Σsources
 end
 
-struct Coriolis <: AbstractSource end
 function atmos_source!(
     ::Coriolis,
     atmos::AtmosModel,
@@ -61,10 +56,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    FT = eltype(state)
-    _Omega::FT = Omega(atmos.param_set)
-    # note: this assumes a SphericalOrientation
-    source.ρu -= SVector(0, 0, 2 * _Omega) × state.ρu
+    # Migrated to Σsources
 end
 
 function atmos_source!(
@@ -80,11 +72,6 @@ function atmos_source!(
     # Migrated to Σsources
 end
 
-struct GeostrophicForcing{FT} <: AbstractSource
-    f_coriolis::FT
-    u_geostrophic::FT
-    v_geostrophic::FT
-end
 function atmos_source!(
     s::GeostrophicForcing,
     atmos::AtmosModel,
@@ -95,10 +82,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos, aux)
-    fkvector = s.f_coriolis * ẑ
-    source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
+    # Migrated to Σsources
 end
 
 """
