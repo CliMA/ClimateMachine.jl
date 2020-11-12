@@ -59,13 +59,23 @@ function init_state_prognostic!(
         up[i].ρaθ_liq = gm.ρ * a_min * θ_liq
         up[i].ρaq_tot = FT(0)
     end
-    # initialize environment covariance with zero for now
-    if z <= FT(2500)
-        en.ρatke = gm.ρ * (FT(1) - z / FT(3000))
+    if z <= FT(1000)
+        en.ρatke =
+            gm.ρ *
+            FT(0.4) *
+            FT(1 - z / 1000.0) *
+            FT(1 - z / 1000.0) *
+            FT(1 - z / 1000.0)
+        en.ρaθ_liq_cv =
+            gm.ρ *
+            FT(0.4) *
+            FT(1 - z / 1000.0) *
+            FT(1 - z / 1000.0) *
+            FT(1 - z / 1000.0)
     else
         en.ρatke = FT(0)
+        en.ρaθ_liq_cv = FT(0)
     end
-    en.ρaθ_liq_cv = FT(1e-5) / max(z, FT(10))
     en.ρaq_tot_cv = FT(0)
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
