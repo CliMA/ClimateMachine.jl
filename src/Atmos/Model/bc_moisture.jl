@@ -49,7 +49,6 @@ function atmos_moisture_normal_boundary_flux_second_order!(
     diffusive⁺,
     hyperdiffusive⁺,
     aux⁺,
-    bctype,
     t,
     args...,
 )
@@ -95,7 +94,6 @@ function atmos_moisture_normal_boundary_flux_second_order!(
     diffusive⁺,
     hyperdiffusive⁺,
     aux⁺,
-    bctype,
     t,
     state_int⁻,
     diffusive_int⁻,

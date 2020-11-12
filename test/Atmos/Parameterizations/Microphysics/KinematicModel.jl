@@ -103,6 +103,7 @@ import ClimateMachine.BalanceLaws:
     flux_first_order!,
     flux_second_order!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     source!
 
@@ -218,16 +219,17 @@ function init_state_prognostic!(
 )
     m.init_state_prognostic(m, state, aux, localgeo, t, args...)
 end
+boundary_conditions(::KinematicModel) = (1, 2, 3, 4, 5, 6)
 
 function boundary_state!(
     ::CentralNumericalFluxSecondOrder,
+    bctype,
     m::KinematicModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 ) end

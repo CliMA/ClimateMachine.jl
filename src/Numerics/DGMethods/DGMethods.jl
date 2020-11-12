@@ -35,6 +35,7 @@ import ..BalanceLaws:
     source!,
     transform_post_gradient_laplacian!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,

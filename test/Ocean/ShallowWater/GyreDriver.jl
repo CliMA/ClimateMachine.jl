@@ -85,7 +85,7 @@ function setup_model(
         Lʸ,
         H,
         τₒ = τₒ,
-        BC = OceanBC(Impenetrable(FreeSlip()), Insulating()),
+        BC = (OceanBC(Impenetrable(FreeSlip()), Insulating()),),
     )
 
 

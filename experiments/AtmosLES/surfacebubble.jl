@@ -97,7 +97,7 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
     )
 
     problem = AtmosProblem(
-        boundarycondition = (
+        boundaryconditions = (
             AtmosBC(energy = PrescribedEnergyFlux(energyflux)),
             AtmosBC(),
         ),

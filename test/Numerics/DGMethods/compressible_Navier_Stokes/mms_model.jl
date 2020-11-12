@@ -10,6 +10,7 @@ import ClimateMachine.BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -147,15 +148,17 @@ function wavespeed(::MMSModel, nM, state::Vars, aux::Vars, t::Real, direction)
     return abs(nM[1] * u + nM[2] * v + nM[3] * w) + sqrt(ρinv * γ * P)
 end
 
+boundary_conditions(::MMSModel) = (nothing,)
+
 function boundary_state!(
     ::RusanovNumericalFlux,
+    bctype,
     bl::MMSModel,
     stateP::Vars,
     auxP::Vars,
     nM,
     stateM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 )
@@ -169,10 +172,12 @@ function boundary_state!(
 end
 
 # FIXME: This is probably not right....
-boundary_state!(::CentralNumericalFluxGradient, bl::MMSModel, _...) = nothing
+boundary_state!(::CentralNumericalFluxGradient, bc, bl::MMSModel, _...) =
+    nothing
 
 function boundary_state!(
     ::CentralNumericalFluxSecondOrder,
+    bctype,
     bl::MMSModel,
     stateP::Vars,
     diffP::Vars,
@@ -181,7 +186,6 @@ function boundary_state!(
     stateM::Vars,
     diffM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 )

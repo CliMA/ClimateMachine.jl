@@ -142,13 +142,13 @@ end
 
 function boundary_state!(
     ::RusanovNumericalFlux,
+    bctype,
     ::AdvectionDiffusion,
     stateP::Vars,
     auxP::Vars,
     nM,
     stateM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 )

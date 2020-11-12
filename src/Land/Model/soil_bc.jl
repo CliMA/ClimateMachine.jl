@@ -1,6 +1,7 @@
 
 function soil_boundary_state!(
     nf,
+    bctype,
     land::LandModel,
     soil::SoilModel,
     m::AbstractSoilComponentModel,
@@ -11,7 +12,6 @@ function soil_boundary_state!(
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -21,6 +21,7 @@ end
 
 function soil_boundary_state!(
     nf,
+    bctype,
     land::LandModel,
     soil::SoilModel,
     m::AbstractSoilComponentModel,
@@ -29,7 +30,6 @@ function soil_boundary_state!(
     nM,
     state⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -40,6 +40,7 @@ end
 
 function soil_boundary_state!(
     nf,
+    bctype,
     land::LandModel,
     soil::SoilModel,
     water::SoilWaterModel,
@@ -48,7 +49,6 @@ function soil_boundary_state!(
     nM,
     state⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -83,6 +83,7 @@ end
 
 function soil_boundary_state!(
     nf,
+    bctype,
     land::LandModel,
     soil::SoilModel,
     water::SoilWaterModel,
@@ -93,7 +94,6 @@ function soil_boundary_state!(
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -134,6 +134,7 @@ end
 # Heat
 function soil_boundary_state!(
     nf,
+    bctype,
     land::LandModel,
     soil::SoilModel,
     heat::SoilHeatModel,
@@ -142,7 +143,6 @@ function soil_boundary_state!(
     nM,
     state⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -176,6 +176,7 @@ end
 
 function soil_boundary_state!(
     nf,
+    bctype,
     land::LandModel,
     soil::SoilModel,
     heat::SoilHeatModel,
@@ -186,7 +187,6 @@ function soil_boundary_state!(
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )

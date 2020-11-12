@@ -20,6 +20,7 @@ import ClimateMachine.BalanceLaws:
     nodal_init_state_auxiliary!,
     update_auxiliary_state!,
     init_state_prognostic!,
+    boundary_conditions,
     boundary_state!,
     wavespeed,
     transform_post_gradient_laplacian!
@@ -369,16 +370,16 @@ end
 
 Neumann_data!(problem, ∇state, aux, x, t) = nothing
 Dirichlet_data!(problem, state, aux, x, t) = nothing
-
+boundary_conditions(::AdvectionDiffusion) = (1, 2, 3, 4)
 function boundary_state!(
     nf,
+    bctype,
     m::AdvectionDiffusion{N},
     stateP::Vars,
     auxP::Vars,
     nM,
     stateM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 ) where {N}
@@ -393,6 +394,7 @@ end
 
 function boundary_state!(
     nf::CentralNumericalFluxSecondOrder,
+    bctype,
     m::AdvectionDiffusion,
     state⁺::Vars,
     diff⁺::Vars,
@@ -401,7 +403,6 @@ function boundary_state!(
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
@@ -440,6 +441,7 @@ end
 
 function boundary_flux_second_order!(
     nf::CentralNumericalFluxSecondOrder,
+    bctype,
     m::AdvectionDiffusion{N, dim, P, true},
     F,
     state⁺,
@@ -451,7 +453,6 @@ function boundary_flux_second_order!(
     diff⁻,
     hyperdiff⁻,
     aux⁻,
-    bctype,
     t,
     _...,
 ) where {N, dim, P}
@@ -491,6 +492,7 @@ end
 # Bcs for hyperdiffusion not implemented
 boundary_state!(
     ::Union{GradNumericalFlux, DivNumericalPenalty},
+    bctype,
     ::AdvectionDiffusion,
     _...,
 ) = nothing
