@@ -85,7 +85,7 @@ function main()
     ode_solver = ClimateMachine.ExplicitSolverType()
     driver_config = ClimateMachine.AtmosLESConfiguration(
         "Driver test",
-        N,
+        (N, N),
         resolution,
         xmax,
         ymax,
