@@ -133,8 +133,6 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        fixed_number_of_steps = 1000,
-        # fixed_number_of_steps=1082 # last timestep before crash
     )
 
     # --- Zero-out horizontal variations:
