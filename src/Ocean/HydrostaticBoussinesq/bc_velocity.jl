@@ -230,7 +230,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     Q⁺.u = Q⁻.u
-    D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ)'
+    D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ, bc_velocity.drag)'
 
     return nothing
 end
@@ -275,7 +275,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
     t,
 )
     Q⁺.u = Q⁻.u
-    D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ)'
+    D⁺.ν∇u = n⁻ * kinematic_stress(ocean.problem, A⁻.y, ocean.ρₒ, bc_velocity.drag)'
 
     return nothing
 end

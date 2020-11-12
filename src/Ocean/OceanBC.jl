@@ -74,9 +74,11 @@ a function with signature `stress(problem, state, aux, t)`, returning the flux (
 """
 struct KinematicStress{S} <: VelocityDragBC
     stress::S
-end
 
-KinematicStress(stress=nothing) = KinematicStress(stress)
+    function KinematicStress(stress::S=nothing) where S
+        new{S}(stress)
+    end
+end
 
 kinematic_stress(problem, y, ρ₀) = @SVector [0, 0] # fallback for generic problems
 kinematic_stress(problem, y, ρ₀, ::Nothing) = kinematic_stress(problem, y, ρ₀)
