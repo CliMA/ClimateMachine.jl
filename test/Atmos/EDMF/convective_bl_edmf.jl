@@ -66,8 +66,8 @@ function init_state_prognostic!(
         en.ρatke = FT(0)
     end
     en.ρaθ_liq_cv = FT(1e-5) / max(z, FT(10))
-    en.ρaq_tot_cv = FT(1e-5) / max(z, FT(10))
-    en.ρaθ_liq_q_tot_cv = FT(1e-7) / max(z, FT(10))
+    en.ρaq_tot_cv = FT(0)
+    en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
 end;
 
