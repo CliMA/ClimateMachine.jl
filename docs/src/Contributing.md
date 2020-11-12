@@ -70,7 +70,37 @@ in `docs/`.
 When your PR is ready for review, clean up your commit history by squashing
 and make sure your code is current with `ClimateMachine` master by rebasing.
 
-### Squash and rebase
+## Reformatting your code with `.dev/climaformat.jl`
+
+Your PR cannot be merged unless it conforms to the format style specified
+by the formatter implemented in the script `.dev/climaformat.jl`.
+
+To use the script `.dev/climaformat.jl` to reformat every file in
+`ClimateMachine.jl/` run
+
+```
+julia --project .dev/climaformat.jl
+```
+
+from `ClimateMachine.jl`'s root directory. To format individual files, type
+
+```
+julia --project .dev/climaformat.jl src/individual_file.jl
+```
+
+instead.
+
+!!! warn "Reformatting edits your code"
+    If you would like to be able to revert changes made by the formatter,
+    1. `git add` your unformatted contributions to the git index with
+       commands like `git add unformatted_contribution.jl` before running
+       the formatter.
+    2. Reformat your code by running `julia --project .dev/climaformat.jl`.
+    3. Use `git diff --cached` to view changes made by the formatter, and
+       `git checkout :/` to throw them away if you don't like the way they
+       look.
+
+## Squash and rebase
 
 Use `git rebase` (not `git merge`) to sync your work:
 
