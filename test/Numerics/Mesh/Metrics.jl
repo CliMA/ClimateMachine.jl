@@ -46,7 +46,8 @@ const SGEO3D = (sJ = 1, n1 = 2, n2 = 3, n3 = 4)
             e2c[:, :, 2] = [0 10]
             nelem = size(e2c, 3)
 
-            (x1,) = Metrics.creategrid1d(e2c, ξ...)
+            x1 = Array{FT, 2}(undef, Nq[1], nelem)
+            Metrics.creategrid!(x1, e2c, ξ[1])
             @test x1[:, 1] ≈ (ξ[1] .- 1) / 2
             @test x1[:, 2] ≈ 5 * (ξ[1] .+ 1)
 
