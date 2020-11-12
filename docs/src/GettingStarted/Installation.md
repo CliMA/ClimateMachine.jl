@@ -78,4 +78,15 @@ $ julia --project tutorials/Atmos/dry_rayleigh_benard.jl
 ```
 
 The `ClimateMachine` is CUDA-enabled and will use GPU(s) if available. To run
-on the CPU, set the environment variable `CLIMATEMACHINE_GPU` to `false`.
+on the CPU, set the environment variable `CLIMATEMACHINE_SETTINGS_DISABLE_GPU` to `true`.
+This can either be done inline with the Julia launch command using
+
+```
+CLIMATEMACHINE_SETTINGS_DISABLE_GPU=true julia --project
+```
+
+or for the whole shell session, for example with `bash` this would be
+
+```
+export CLIMATEMACHINE_SETTINGS_DISABLE_GPU=true
+```
