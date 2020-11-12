@@ -234,8 +234,7 @@ struct DiscontinuousSpectralElementGrid{
         )
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
-        (vgeo, sgeo) =
-            computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
+        (vgeo, sgeo) = computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
         @assert Np == size(vgeo, 1)
 
@@ -571,7 +570,7 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
 end
 
 # {{{ compute geometry
-function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
+function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     dim = length(D)
     nface = 2dim
     nelem = size(elemtocoord, 3)
@@ -606,8 +605,10 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
     end
 
     # Compute the metric terms
+    p = reshape(1:Np, Nq)
     if dim == 1
         Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D...)
+        fmask = (p[1:1], p[Nq[1]:Nq[1]])
     elseif dim == 2
         Metrics.computemetric!(
             #! format: off
@@ -619,6 +620,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
             D...,
             #! format: on
         )
+        fmask = (p[1, :][:], p[Nq[1], :][:], p[:, 1][:], p[:, Nq[2]][:])
     elseif dim == 3
         Metrics.computemetric!(
             #! format: off
@@ -630,6 +632,14 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
             D...,
             #! format: on
         )
+        fmask = (
+            p[1, :, :][:],
+            p[Nq[1], :, :][:],
+            p[:, 1, :][:],
+            p[:, Nq[2], :][:],
+            p[:, :, 1][:],
+            p[:, :, Nq[3]][:],
+        )
     end
 
     # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor product order is reversed
@@ -637,8 +647,9 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp, vmap⁻)
     MJ .= M .* J
     MJI .= 1 ./ MJ
     for d in 1:dim
-        vMJI[1:Nfp[d], (2d - 1):(2d), :] .=
-            MJI[vmap⁻[1:Nfp[d], (2d - 1):(2d), :]]
+        for f in (2d - 1):(2d)
+            vMJI[1:Nfp[d], f, :] .= MJI[fmask[f], :]
+        end
     end
 
     MH = kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
