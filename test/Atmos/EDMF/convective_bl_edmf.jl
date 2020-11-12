@@ -7,6 +7,7 @@ ClimateMachine.init(;
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.SystemSolvers
+using ClimateMachine.ODESolvers
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
@@ -205,13 +206,13 @@ function main(::Type{FT}) where {FT}
     # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
     # update it more freqent will accelerate the convergence of linear solves, but updating it 
     # is very expensive
-    ode_solver = ARK2ImplicitExplicitMidpoint(
+    ode_solver = ARK2ImplicitExplicitMidpoint( # try replace with Giraldo ...
         dg,
         vdg,
         NonLinearBackwardEulerSolver(
             nonlinearsolver;
             isadjustable = true,
-            preconditioner_update_freq = 50,
+            preconditioner_update_freq = 50, # set to 1 as most accurate and move on
         ),
         Q;
         dt = solver_config.dt,
