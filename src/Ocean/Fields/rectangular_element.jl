@@ -1,5 +1,3 @@
-import ..Fields: assemble
-
 #####
 ##### RectangularElement
 #####

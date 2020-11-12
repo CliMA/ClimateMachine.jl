@@ -1,30 +1,29 @@
 using MPI
+
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, polynomialorder
+
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
-using ClimateMachine.Mesh.Grids: polynomialorder
 
 #####
-##### CartesianDomain
+##### RectangularDomain
 #####
 
-struct CartesianDomain{FT, G}
+struct RectangularDomain{FT, G} <: AbstractDomain
     grid::G
     Np::Int
     Ne::NamedTuple{(:x, :y, :z), NTuple{3, Int}}
+    L::NamedTuple{(:x, :y, :z), NTuple{3, FT}}
     x::NTuple{2, FT}
     y::NTuple{2, FT}
     z::NTuple{2, FT}
-    Lx::FT
-    Ly::FT
-    Lz::FT
 end
 
-Base.eltype(::CartesianDomain{FT}) where {FT} = FT
+Base.eltype(::RectangularDomain{FT}) where {FT} = FT
 
-Base.show(io::IO, domain::CartesianDomain{FT, G}) where {FT, G} = print(
+Base.show(io::IO, domain::RectangularDomain{FT, G}) where {FT, G} = print(
     io,
-    "CartesianDomain{$FT, $(G.name.wrapper)}:",
+    "RectangularDomain{$FT, $(G.name.wrapper)}:",
     '\n',
     "    Np = ",
     domain.Np,
@@ -53,12 +52,12 @@ name_it(Ne::NamedTuple{(:x, :y, :z)}) = Ne
 name_it(Ne) = (x = Ne[1], y = Ne[2], z = Ne[3])
 
 """
-    CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
+    RectangularDomain(grid::DiscontinuousSpectralElementGrid, Ne)
 
 Inverts the volume geometry information in `grid.vgeo` to construct
-a `CartesianDomain`.
+a `RectangularDomain`.
 """
-function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
+function RectangularDomain(grid::DiscontinuousSpectralElementGrid, Ne)
     Ne = name_it(Ne)
 
     # Unwind volume geometry
@@ -84,25 +83,25 @@ function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
         z = zlims[2] - zlims[1],
     )
 
-    return CartesianDomain(grid, Np, Ne, L, xlims, ylims, zlims)
+    return RectangularDomain(grid, Np, Ne, L, xlims, ylims, zlims)
 end
 
 """
-    CartesianDomain(FT=Float64;
-                    elements,
-                    polynomialorder,
-                    x = (-1, 1),
-                    y = (-1, 1),
-                    z = (-1, 1),
-                    periodicity = (true, true, false),
-                    boundary = ((0, 0), (0, 0), (1, 2)),
-                    array_type = Array,
-                    message_communicator = MPI.COMM_WORLD)
+    RectangularDomain(FT=Float64;
+                      elements,
+                      polynomialorder,
+                      x = (-1, 1),
+                      y = (-1, 1),
+                      z = (-1, 1),
+                      periodicity = (true, true, false),
+                      boundary = ((0, 0), (0, 0), (1, 2)),
+                      array_type = Array,
+                      message_communicator = MPI.COMM_WORLD)
 
-Returns a `CartesianDomain` representing the product of `x, y, z` intervals,
+Returns a `RectangularDomain` representing the product of `x, y, z` intervals,
 specified by 2-tuples.
 
-The `CartesianDomain` is meshed with a simple `DiscontinuousSpectralElementGrid`
+The `RectangularDomain` is meshed with a simple `DiscontinuousSpectralElementGrid`
 with an isotropic `polynomialorder` and a 3-tuple of `elements`
 giving the number of elements in `x, y, z`.
 
@@ -125,16 +124,16 @@ Example
 ```jldoctest
 julia> using ClimateMachine; ClimateMachine.init()
 
-julia> using ClimateMachine.Ocean.CartesianDomains: CartesianDomain
+julia> using ClimateMachine.Ocean.RectangularDomains: RectangularDomain
 
-julia> domain = CartesianDomain(elements=(7, 8, 9), polynomialorder=4, x=(0, 1), y=(0, 1), z=(0, 1))
-CartesianDomain{Float64, ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid}:
+julia> domain = RectangularDomain(elements=(7, 8, 9), polynomialorder=4, x=(0, 1), y=(0, 1), z=(0, 1))
+RectangularDomain{Float64, ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid}:
     Np = 4, Ne = (x = 7, y = 8, z = 9)
     L = (x = 1.00e+00, y = 1.00e+00, z = 1.00e+00)
     x = (0.00e+00, 1.00e+00), y = (0.00e+00, 1.00e+00), z = (1.00e+00, 0.00e+00)
 ```
 """
-function CartesianDomain(
+function RectangularDomain(
     FT = Float64;
     elements,
     polynomialorder,
@@ -179,7 +178,7 @@ function CartesianDomain(
         polynomialorder = polynomialorder,
     )
 
-    return CartesianDomain{FT, typeof(grid)}(
+    return RectangularDomain{FT, typeof(grid)}(
         grid,
         polynomialorder,
         Ne,
@@ -190,6 +189,6 @@ function CartesianDomain(
     )
 end
 
-array_type(domain::CartesianDomain) = Array #array_type(domain.grid)
-eltype(::CartesianDomain{FT}) where {FT} = FT
+array_type(domain::RectangularDomain) = Array #array_type(domain.grid)
+eltype(::RectangularDomain{FT}) where {FT} = FT
 communicator(args...) = MPI.COMM_WORLD

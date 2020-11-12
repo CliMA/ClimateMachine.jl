@@ -6,10 +6,11 @@ using ...DGMethods.NumericalFluxes
 
 using ..HydrostaticBoussinesq:
     HydrostaticBoussinesqModel, NonLinearAdvectionTerm
+
 using ..OceanProblems: InitialValueProblem
-using ..CartesianDomains: array_type, communicator
+using ..Domains: array_type, communicator
 using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
-using ..Ocean.Fields: field
+using ..Ocean.Fields: SpectralElementField
 
 using ...Mesh.Filters: CutoffFilter, ExponentialFilter
 using ...Mesh.Grids: polynomialorder
@@ -180,10 +181,10 @@ function HydrostaticBoussinesqSuperModel(;
 
     state = solver_configuration.Q
 
-    u = field(domain, state, 1)
-    v = field(domain, state, 2)
-    η = field(domain, state, 3)
-    θ = field(domain, state, 4)
+    u = SpectralElementField(domain, state, 1)
+    v = SpectralElementField(domain, state, 2)
+    η = SpectralElementField(domain, state, 3)
+    θ = SpectralElementField(domain, state, 4)
 
     fields = (u = u, v = v, η = η, θ = θ)
 

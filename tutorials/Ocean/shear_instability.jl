@@ -10,7 +10,8 @@ using ClimateMachine
 ClimateMachine.init()
 
 using ClimateMachine.Ocean
-using ClimateMachine.Ocean.CartesianDomains
+using ClimateMachine.Ocean.Domains
+using ClimateMachine.Ocean.Fields
 
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 using ClimateMachine.Ocean: steps, Δt, current_time
@@ -18,7 +19,7 @@ using CLIMAParameters: AbstractEarthParameterSet, Planet
 
 # We begin by specifying the domain and mesh,
 
-domain = CartesianDomain(
+domain = RectangularDomain(
     elements = (24, 24, 1),
     polynomialorder = 4,
     x = (-3π, 3π),

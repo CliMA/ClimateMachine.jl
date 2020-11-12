@@ -106,7 +106,7 @@ boundary_conditions =
     (solid_surface_boundary_conditions, free_surface_boundary_conditions)
 
 # We refer to these boundary conditions by their indices in the `boundary_conditions` tuple
-# when speicfying the boundary conditions for the `state`; in other words, "1" corresponds to
+# when specifying the boundary conditions for the `state`; in other words, "1" corresponds to
 # `solid_surface_boundary_conditions`, while `2` corresponds to `free_surface_boundary_conditions`,
 
 state_boundary_conditions = (
@@ -135,10 +135,7 @@ equations = HydrostaticBoussinesqModel{Float64}(
     problem,
     νʰ = 0.0,  # Horizontal viscosity (m² s⁻¹) 
     κʰ = 0.0,  # Horizontal diffusivity (m² s⁻¹) 
-    fₒ = f,   # Coriolis parameter (s⁻¹)
-    νʰ = 0.0,          # Horizontal viscosity (m² s⁻¹) 
-    κʰ = 0.0,          # Horizontal diffusivity (m² s⁻¹) 
-    fₒ = f,             # Coriolis parameter (s⁻¹)
+    fₒ = f,    # Coriolis parameter (s⁻¹)
 )
 
 # and the `DriverConfiguration`,
@@ -218,15 +215,15 @@ end
 using Printf
 using Plots
 
-using ClimateMachine.Ocean.Fields: assemble
-using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField
+using ClimateMachine.Ocean.Fields: SpectralElementField, assemble
+using ClimateMachine.Ocean.Domains: RectangularDomain
 
-## CartesianDomain and CartesianField objects to help with plotting
-domain = CartesianDomain(solver_configuration.dg.grid, Ne)
+## RectangularDomain and SpectralElementField objects to help with plotting
+domain = RectangularDomain(solver_configuration.dg.grid, Ne)
 
-u = CartesianField(domain, solver_configuration.Q, 1)
-v = CartesianField(domain, solver_configuration.Q, 2)
-η = CartesianField(domain, solver_configuration.Q, 3)
+u = SpectralElementField(domain, solver_configuration.Q, 1)
+v = SpectralElementField(domain, solver_configuration.Q, 2)
+η = SpectralElementField(domain, solver_configuration.Q, 3)
 
 ## Container to hold the plotted frames
 movie_plots = []
@@ -234,16 +231,16 @@ movie_plots = []
 plot_every = 10 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
-    glued_u = glue(u.elements)
-    glued_v = glue(v.elements)
-    glued_η = glue(η.elements)
+    assembled_u = assemble(u.elements)
+    assembled_v = assemble(v.elements)
+    assembled_η = assemble(η.elements)
 
     umax = 0.5 * max(maximum(abs, u), maximum(abs, v))
     ulim = (-umax, umax)
 
     u_plot = plot(
-        glued_u.x,
-        [glued_u.data[:, 1, 1] glued_v.data[:, 1, 1]],
+        assembled_u.x,
+        [assembled_u.data[:, 1, 1] assembled_v.data[:, 1, 1]],
         xlim = domain.x,
         ylim = (-0.7U, 0.7U),
         label = ["u" "v"],
@@ -253,8 +250,8 @@ plot_maker = EveryXSimulationSteps(plot_every) do
     )
 
     η_plot = plot(
-        glued_η.x,
-        glued_η.data[:, 1, 1],
+        assembled_η.x,
+        assembled_η.data[:, 1, 1],
         xlim = domain.x,
         ylim = (-0.01a, 1.2a),
         linewidth = 2,

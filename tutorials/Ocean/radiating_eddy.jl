@@ -12,7 +12,7 @@ ClimateMachine.init()
 
 # # Domain setup
 #
-# We formulate a non-dimension problem in a Cartesian domain. We normalize
+# We formulate a non-dimension problem in a rectangular domain. We normalize
 # length scales by the initial width of the radiating eddy and choose
 # the domain dimensions
 
@@ -165,17 +165,18 @@ solver_configuration = ClimateMachine.SolverConfiguration(
 # # Fetching the data to make a movie
 #
 # To animate the `ClimateMachine.Ocean` solution, we create
-# `CartesianField`s to `view` the data corresponding to prognostic fields
+# `SpectralElementField`s to `view` the data corresponding to prognostic fields
 # in `solver_configuration.solver.Q.realdata`:
 
-using ClimateMachine.Ocean.CartesianDomains: CartesianDomain, CartesianField
+using ClimateMachine.Ocean.Domains: RectangularDomain
+using ClimateMachine.Ocean.Fields: SpectralElementField
 
-## CartesianDomain and CartesianField objects to help with plotting
-domain = CartesianDomain(solver_configuration.dg.grid, Ne)
+## RectangularDomain and SpectralElementField objects to help with plotting
+domain = RectangularDomain(solver_configuration.dg.grid, Ne)
 
-u = CartesianField(domain, solver_configuration.Q, 1)
-v = CartesianField(domain, solver_configuration.Q, 2)
-η = CartesianField(domain, solver_configuration.Q, 3)
+u = SpectralElementField(domain, solver_configuration.Q, 1)
+v = SpectralElementField(domain, solver_configuration.Q, 2)
+η = SpectralElementField(domain, solver_configuration.Q, 3)
 
 # and then and builda callback that copies and assembles the data 
 # for each state variable, and stores it in `fetched_states`.

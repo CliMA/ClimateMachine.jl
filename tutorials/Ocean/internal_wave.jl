@@ -14,9 +14,9 @@ ClimateMachine.init()
 #
 # We formulate a non-dimension problem in a Cartesian domain with oceanic anisotropy,
 
-using ClimateMachine.Ocean.CartesianDomains: CartesianDomain
+using ClimateMachine.Ocean.RectangularDomains: RectangularDomain
 
-domain = CartesianDomain(
+domain = RectangularDomain(
     elements = (64, 1, 4),
     polynomialorder = 4,
     x = (-128, 128),
@@ -117,7 +117,7 @@ model = HydrostaticBoussinesqSuperModel(
 # To animate the `ClimateMachine.Ocean` solution, we assemble and
 # cache the horizontal velocity ``u`` at periodic intervals:
 
-using ClimateMachine.Ocean.CartesianDomains: assemble
+using ClimateMachine.Ocean.Fields: assemble
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 
 fetched_states = []

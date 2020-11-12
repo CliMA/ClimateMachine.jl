@@ -23,9 +23,8 @@ function coriolis_parameter end
 function kinematic_stress end
 function surface_flux end
 
-include("Fields.jl")
-
-include("CartesianDomains/CartesianDomains.jl")
+include(joinpath("Domains", "Domains.jl"))
+include(joinpath("Fields", "Fields.jl"))
 
 include("OceanBC.jl")
 
