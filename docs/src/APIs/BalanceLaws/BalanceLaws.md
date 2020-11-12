@@ -10,6 +10,29 @@ CurrentModule = ClimateMachine.BalanceLaws
 BalanceLaw
 ```
 
+## Tendency types and methods
+
+```@docs
+PrognosticVariable
+AbstractOrder
+AbstractTendencyType
+TendencyDef
+eq_tends
+prognostic_vars
+fluxes
+sources
+show_tendencies
+```
+
+## Methods for fluxes and sources
+
+```@docs
+flux
+source
+Σfluxes
+Σsources
+```
+
 ## State variable types
 
 ```@docs

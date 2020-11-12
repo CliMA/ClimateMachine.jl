@@ -139,7 +139,7 @@ value of the filter function.
 """
 struct ExponentialFilter <: AbstractSpectralFilter
     "filter matrix"
-    filter
+    filter::Any
 
     function ExponentialFilter(
         grid,
@@ -195,7 +195,7 @@ controlling the smallest value of the filter function.
 """
 struct BoydVandevenFilter <: AbstractSpectralFilter
     "filter matrix"
-    filter
+    filter::Any
 
     function BoydVandevenFilter(grid, Nc = 0, s = 32)
         AT = arraytype(grid)
@@ -227,7 +227,7 @@ equal to `Nc`.
 """
 struct CutoffFilter <: AbstractSpectralFilter
     "filter matrix"
-    filter
+    filter::Any
 
     function CutoffFilter(grid, Nc = polynomialorders(grid))
         # XXX: Needs updating for multiple polynomial orders

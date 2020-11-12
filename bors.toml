@@ -3,7 +3,7 @@ status = [
   "test-os (windows-latest)",
   "test-os (macos-latest)",
   "buildkite/climatemachine-ci",
-  "docs-build",
+  "buildkite/climatemachine-docs",
   "format"
 ]
 delete_merged_branches = true

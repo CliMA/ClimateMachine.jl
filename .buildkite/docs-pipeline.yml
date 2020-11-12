@@ -1,0 +1,37 @@
+env:
+  JULIA_VERSION: "1.5.2"
+  GKSwstype: nul
+  OPENBLAS_NUM_THREADS: 1
+  CLIMATEMACHINE_SETTINGS_DISABLE_GPU: "true"
+  CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
+  CLIMATEMACHINE_SETTINGS_DISABLE_CUSTOM_LOGGER: "true"
+
+steps:
+  - label: "Build project"
+    command:
+      - "julia --project --color=yes -e 'using Pkg; Pkg.instantiate()'"
+      - "julia --project=docs/ --color=yes -e 'using Pkg; Pkg.instantiate()'"
+      - "julia --project=docs/ --color=yes -e 'using Pkg; Pkg.precompile()'"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1 
+      slurm_cpus_per_task: 1
+      slurm_mem_per_cpu: 6000
+
+  - wait
+
+  - label: "Build docs"
+    command:
+      - "julia --project=docs/ --color=yes --procs=8 docs/make.jl"
+    env:
+      JULIA_PROJECT: "docs/"
+    agents:
+      config: cpu
+      queue: central
+      slurm_time: 120
+      slurm_nodes: 1
+      slurm_ntasks: 8
+      slurm_cpus_per_task: 1
+      slurm_mem_per_cpu: 6000
+

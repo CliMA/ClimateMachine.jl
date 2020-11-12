@@ -106,7 +106,7 @@ mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
     "elapsed time steps"
     steps::Int
     "rhs function"
-    slowrhs!
+    slowrhs!::Any
     "Storage for RHS during the `MRIGARKExplicit` update"
     Rstages::NTuple{Nstages, AT}
     "RK coefficient matrices for coupling coefficients"

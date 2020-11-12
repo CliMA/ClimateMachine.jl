@@ -103,7 +103,8 @@ let
         5.5381072850485303e-08
     ]
 
-    lvls = integration_testing || ClimateMachine.Settings.integration_testing ?
+    lvls =
+        integration_testing || ClimateMachine.Settings.integration_testing ?
         length(expected_result) : 1
 
     @testset for FT in (Float64,)

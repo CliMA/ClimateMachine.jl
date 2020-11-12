@@ -284,7 +284,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
     geostrophic_forcing =
-        GeostrophicForcing{FT}(f_coriolis, u_geostrophic, v_geostrophic)
+        GeostrophicForcing(FT, f_coriolis, u_geostrophic, v_geostrophic)
 
     # Boundary conditions
     # SGS Filter constants
@@ -297,7 +297,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     source = (
         Gravity(),
         rayleigh_sponge,
-        Subsidence{FT}(D_subsidence),
+        Subsidence(D_subsidence)...,
         geostrophic_forcing,
     )
 

@@ -82,9 +82,8 @@ function main()
     poly_order = 3                           # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 0.5
     timestart::FT = 0                        # start time (s)
-    timeend::FT = n_days * day(param_set)    # end time (s)
+    timeend::FT = 7200
 
     # Set up a reference state for linearization of equations
     temp_profile_ref =
@@ -171,6 +170,7 @@ function main()
         norm(solver_config.Q .- init_solver_config.Q) /
         norm(init_solver_config.Q)
     @info "Relative error = $relative_error"
+    @test relative_error < 1e-9
 end
 
 function config_diagnostics(FT, driver_config)
