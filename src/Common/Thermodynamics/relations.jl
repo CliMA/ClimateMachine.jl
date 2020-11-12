@@ -43,6 +43,7 @@ export liquid_fraction, PhasePartition_equil
 
 # Auxiliary functions, e.g., for diagnostic purposes
 export dry_pottemp
+export equiv_pottemp
 export virtual_pottemp
 export exner
 export liquid_ice_pottemp
@@ -1831,6 +1832,42 @@ dry_pottemp(ts::ThermodynamicState) = dry_pottemp(
     ts.param_set,
     air_temperature(ts),
     air_density(ts),
+    PhasePartition(ts),
+)
+
+"""
+    equiv_pottemp(ts::ThermodynamicState)
+    equiv_pottemp(param_set, T, p)
+
+The equivalent potential temperature where
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `T` temperature
+ - `p` partial pressure of dry air
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
+ """
+function equiv_pottemp(
+    param_set::APS,
+    T::FT,
+    p::FT,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
+    _R_d = FT(R_d(param_set))
+    _cp_l = FT(cp_l(param_set))
+    _cp_d = FT(cp_d(param_set))
+    _MSLP = FT(MSLP(param_set))
+    r_t = mixing_ratio() # ?
+    fact_1 = (p/_MSLP)^(- _R_d / (_cp_d + _cp_l*r_t))
+    num = _LH_v0*r_v
+    den = T*(_cp_d + _cp_l*r_t)
+    fact_2 = exp(num/den)
+    return T*fact_1*fact_2
+end
+equiv_pottemp(ts::ThermodynamicState) = equiv_pottemp(
+    ts.param_set,
+    air_temperature(ts),
+    air_pressure(ts),
     PhasePartition(ts),
 )
 
