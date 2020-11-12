@@ -172,22 +172,22 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     rel_hum = FT(0)
     ref_state = HydrostaticState(Tv, rel_hum)
     # Sponge
-    c_sponge = FT(0.5)
+    c_sponge = FT(1.0)
     # Rayleigh damping
     u_relaxation = SVector(FT(0), FT(0), FT(0))
-    zsponge = FT(7500.0)
+    zsponge = FT(20000.0)
     rayleigh_sponge =
         RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
-
+    viscous_sponge =  UpperAtmosSponge{FT}(zmax, zsponge, FT(1.0), 2, FT(5))
     # Boundary conditions
     # SGS Filter constants
-    C_smag = FT(0.18) # 0.21 for stable testing, 0.18 in practice
+    C_smag = FT(0.21) # 0.21 for stable testing, 0.18 in practice
     C_drag = FT(0.0011)
     LHF = FT(50)
     SHF = FT(10)
     ics = init_squall_line!
 
-    source = (Gravity(), rayleigh_sponge, CreateClouds())
+    source = (Gravity(), CreateClouds(), rayleigh_sponge)
 
 
     problem = AtmosProblem(
@@ -202,14 +202,15 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
         problem = problem,
         ref_state = ref_state,
         moisture = NonEquilMoist(),
-        turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
+	#viscoussponge = viscous_sponge,
+        turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantDynamicViscosity(FT(200),WithDivergence()),
         source = source,
     )
 
     ode_solver = ClimateMachine.IMEXSolverType()
 
     config = ClimateMachine.AtmosLESConfiguration(
-        "Squall_line",
+        "Squall_line_test_constvisc",
         N,
         resolution,
         xmax,
@@ -241,9 +242,9 @@ function main()
     N = 4
 
     # Domain resolution and size
-    Δx = FT(250)
+    Δx = FT(1000)
     Δy = FT(1000)
-    Δv = FT(200)
+    Δv = FT(300)
     resolution = (Δx, Δy, Δv)
 
     xmax = FT(30000)
@@ -253,7 +254,7 @@ function main()
     ymin = FT(0)
 
     t0 = FT(0)
-    timeend = FT(9000)
+    timeend = FT(2* 84600)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = spline_int()
     Cmax = FT(0.4)
     driver_config =
@@ -268,10 +269,16 @@ function main()
     )
     #dgn_config = config_diagnostics(driver_config)
 
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do (init = false)
-        Filters.apply!(solver_config.Q, (6), solver_config.dg.grid, TMARFilter())
-        nothing
-    end
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+            Filters.apply!(
+	        solver_config.Q,
+		("moisture.ρq_tot","moisture.ρq_liq","moisture.ρq_ice",)
+		,solver_config.dg.grid,
+		TMARFilter()
+		)
+	        nothing
+	    end
+
     filterorder = 30
     filter = ExponentialFilter(solver_config.dg.grid, 0, filterorder)
     cbfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -287,7 +294,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         #diagnostics_config = dgn_config,
-        #user_callbacks = (cbtmarfilter,),
+        user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
 end

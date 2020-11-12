@@ -155,8 +155,19 @@ function atmos_source!(
     z = altitude(atmos, aux)
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
-        β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        β_sponge = min(s.α_max * sinpi(r / 2)^s.γ,1.0)
         source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        FT = eltype(aux)
+        _T_0::FT = T_0(atmos.param_set)
+        _cv_d::FT = cv_d(atmos.param_set)
+        T = aux.ref_state.T
+        E_int = state.ρ * _cv_d * (T - _T_0)
+        e_kin = 0.5 * (state.ρu[1]^2 + state.ρu[2]^2 + state.ρu[3]^2)
+        e_int = (state.ρe) - e_kin - state.ρ * gravitational_potential(atmos.orientation, aux)
+        e_diff = β_sponge * (e_int .- E_int)
+        #u_diff = β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
+        #ρe_kin =  0.5 * (u_diff[1]^2 + u_diff[2]^2 + u_diff[3]^2)
+        source.ρe -= e_diff * state.ρ
     end
 end
 

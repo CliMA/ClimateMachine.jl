@@ -1057,6 +1057,7 @@ function sponge_viscosity_modifier(
     D_t,
     τ,
     aux,
+    diffusive,
 )
     return (ν, D_t, τ)
 end
@@ -1078,6 +1079,8 @@ struct UpperAtmosSponge{FT} <: ViscousSponge
     α_max::FT
     "Sponge exponent"
     γ::FT
+    "Sponge maximum viscosity"
+    ν::FT
 end
 
 function sponge_viscosity_modifier(
@@ -1087,14 +1090,20 @@ function sponge_viscosity_modifier(
     D_t,
     τ,
     aux::Vars,
+    diffusive::Vars,
 )
     z = altitude(bl.orientation, bl.param_set, aux)
-    if z >= m.sponge
+    if z >= m.z_sponge
         r = (z - m.z_sponge) / (m.z_max - m.z_sponge)
         β_sponge = m.α_max * sinpi(r / 2)^m.γ
-        ν += β_sponge * ν
-        D_t += β_sponge * D_t
-        τ += β_sponge * τ
+        _inv_Pr_turb::Float64 = inv_Pr_turb(bl.param_set)
+        ν_s = SVector{3, Float64}(β_sponge * m.ν, β_sponge * m.ν, β_sponge * m.ν)
+        ν_s = SDiagonal(ν_s)
+        ν += ν_s
+        D_t += diag(ν_s) * _inv_Pr_turb
+        S = diffusive.turbulence.S
+        τ_s = -2 * ν_s * S
+        τ += τ_s
     end
     return (ν, D_t, τ)
 end
