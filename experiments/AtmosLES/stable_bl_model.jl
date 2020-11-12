@@ -61,7 +61,7 @@ using ClimateMachine.Atmos: altitude, recover_thermo_state
 """
   StableBL Geostrophic Forcing (Source)
 """
-struct StableBLGeostrophic{FT} <: AbstractSource
+struct StableBLGeostrophic{FT} <: Source
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -100,7 +100,7 @@ end
 """
   StableBL Sponge (Source)
 """
-struct StableBLSponge{FT} <: AbstractSource
+struct StableBLSponge{FT} <: Source
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -183,6 +183,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     else
         TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
     end
+
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -206,15 +207,14 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(bl, state, t)
+function surface_temperature_variation(state, t, moisture_model)
     FT = eltype(state)
     ρ = state.ρ
     θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
+    if moisture_model == "dry"
+        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
     else
-        q_tot = state.moisture.ρq_tot / ρ
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
+        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
     end
     return air_temperature(TS)
 end
@@ -286,9 +286,11 @@ function stable_bl_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (bl, state, aux, t, normPu_int) -> C_drag,
-            (bl, state, aux, t) ->
-                (surface_temperature_variation(bl, state, t), q_sfc),
+            (state, aux, t, normPu_int) -> C_drag,
+            (state, aux, t) -> (
+                surface_temperature_variation(state, t, moisture_model),
+                q_sfc,
+            ),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,

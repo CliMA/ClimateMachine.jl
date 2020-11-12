@@ -1,4 +1,3 @@
-"""
     ODESolvers
 
 Ordinary differential equation solvers
