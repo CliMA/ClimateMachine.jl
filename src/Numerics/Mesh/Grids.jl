@@ -661,7 +661,6 @@ function computegeometry(
     for d = 1:dim
         vMJI[1:Nfp[d], 2d-1:2d, :] .= MJI[vmap⁻[1:Nfp[d], 2d-1:2d, :]]
     end
-    sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
 
     MH = kron(ones(FT, Nq[dim]), ntuple(j -> ω[j], dim - 1)...)
 
