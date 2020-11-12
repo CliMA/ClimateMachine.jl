@@ -39,7 +39,7 @@ struct DriverConfiguration{FT}
 
     name::String
     N::Int
-    array_type
+    array_type::Any
     solver_type::AbstractSolverType
     #
     # Model details
@@ -105,6 +105,7 @@ function print_model_info(model)
             )
     end
     @info msg
+    show_tendencies(model)
 end
 
 function AtmosLESConfiguration(

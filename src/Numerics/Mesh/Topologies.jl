@@ -1251,7 +1251,7 @@ Returns either a range object or a vector containing the element boundaries.
 """
 function grid1d(a, b, stretch = nothing; elemsize = nothing, nelem = nothing)
     xor(nelem === nothing, elemsize === nothing) ||
-    error("Either `elemsize` or `nelem` arguments must be provided")
+        error("Either `elemsize` or `nelem` arguments must be provided")
     if elemsize !== nothing
         nelem = round(Int, abs(b - a) / elemsize)
     end

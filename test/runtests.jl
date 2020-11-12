@@ -27,6 +27,7 @@ end
         "Utilities",
         "Common",
         "Arrays",
+        "BalanceLaws",
         "Atmos",
         "Land",
         "Numerics",

@@ -2,13 +2,7 @@ using ..Microphysics_0M
 using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
 
 export AbstractSource,
-    Gravity,
-    RayleighSponge,
-    Subsidence,
-    GeostrophicForcing,
-    Coriolis,
-    RemovePrecipitation,
-    CreateClouds
+    RayleighSponge, GeostrophicForcing, RemovePrecipitation, CreateClouds
 
 # sources are applied additively
 @generated function atmos_source!(
@@ -39,7 +33,6 @@ end
 
 abstract type AbstractSource end
 
-struct Gravity <: AbstractSource end
 function atmos_source!(
     ::Gravity,
     atmos::AtmosModel,
@@ -50,14 +43,9 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    if atmos.ref_state isa HydrostaticState
-        source.ρu -= (state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
-    else
-        source.ρu -= state.ρ * aux.orientation.∇Φ
-    end
+    # Migrated to Σsources
 end
 
-struct Coriolis <: AbstractSource end
 function atmos_source!(
     ::Coriolis,
     atmos::AtmosModel,
@@ -68,14 +56,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    FT = eltype(state)
-    _Omega::FT = Omega(atmos.param_set)
-    # note: this assumes a SphericalOrientation
-    source.ρu -= SVector(0, 0, 2 * _Omega) × state.ρu
-end
-
-struct Subsidence{FT} <: AbstractSource
-    D::FT
+    # Migrated to Σsources
 end
 
 function atmos_source!(
@@ -88,25 +69,9 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    ρ = state.ρ
-    z = altitude(atmos, aux)
-    w_sub = subsidence_velocity(subsidence, z)
-    k̂ = vertical_unit_vector(atmos, aux)
-
-    source.ρe -= ρ * w_sub * dot(k̂, diffusive.∇h_tot)
-    source.moisture.ρq_tot -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
-    source.ρ -= ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
+    # Migrated to Σsources
 end
 
-subsidence_velocity(subsidence::Subsidence{FT}, z::FT) where {FT} =
-    -subsidence.D * z
-
-
-struct GeostrophicForcing{FT} <: AbstractSource
-    f_coriolis::FT
-    u_geostrophic::FT
-    v_geostrophic::FT
-end
 function atmos_source!(
     s::GeostrophicForcing,
     atmos::AtmosModel,
@@ -117,10 +82,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos, aux)
-    fkvector = s.f_coriolis * ẑ
-    source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
+    # Migrated to Σsources
 end
 
 """
