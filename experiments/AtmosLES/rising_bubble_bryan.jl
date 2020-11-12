@@ -86,6 +86,14 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
 
     # Choose fast solver
+    ode_solver = ClimateMachine.MISSolverType(
+        fast_model = AtmosAcousticGravityLinearModel,
+        mis_method = EB4,
+        fast_method = LSRK54CarpenterKennedy,
+        nsubsteps = (12,),
+    )
+    Δt = FT(2.0)
+    #=
     if fast_method == "LowStorageRungeKutta2N"
         ode_solver = ClimateMachine.MISSolverType(
             splitting_type = ClimateMachine.SlowFastSplitting(),
@@ -147,7 +155,7 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
     else
         error("Invalid --fast_method=$fast_method")
     end
-
+    =#
     # Set up the model
     C_smag = FT(0.23)
     ref_state =
