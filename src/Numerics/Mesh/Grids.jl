@@ -652,7 +652,9 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
         end
     end
 
-    MH = kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
+    MH =
+        dim == 1 ? ones(FT, 1) :
+        kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
 
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
@@ -662,13 +664,16 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
             if !(dim == 3 && d == 2)
                 ωf = reverse(ωf)
             end
-            sM[1:Nfp[d], f] = dim > 1 ? kron(1, ωf...) : one(FT)
+            sM[1:Nfp[d], f] .= dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
     sMJ .= sM .* sJ
 
     # Compute |r'(ξ3)| for vertical line integrals
-    if dim == 2
+    if dim == 1
+        MHJH .= 1
+        JcV .= J
+    elseif dim == 2
         map!(JcV, J, ξ1x1, ξ1x2) do J, ξ1x1, ξ1x2
             x1ξ1 = J * ξ1x2
             x2ξ2 = J * ξ1x1
