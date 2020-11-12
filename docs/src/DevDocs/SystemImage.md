@@ -10,16 +10,25 @@ A helper script for doing this is provided at
 If called with
 
  - **no arguments**: will create the system image `ClimateMachine.so` in the
-   `@__DIR__` directory (i.e., the directory in which the script is located)
+   `@__DIR__` directory (i.e., the directory in which the script is located).
+   ```
+   .dev/systemimage/climate_machine_image.jl
+   ```
 
  - **a single argument**: the system image will be placed in the path specified
-   by the argument (relative to the callers path)
+   by the argument (relative to the callers path). For example:
+   ```
+   .dev/systemimage/climate_machine_image.jl .git/ClimateMachine.so
+   ```
 
  - **a specified systemimg path and `true`**: the system image will compile the
    climate machine package module (useful for CI). This option should not be
    used when actually developing the climate machine package; see the
    [drawback](https://julialang.github.io/PackageCompiler.jl/dev/sysimages/#Drawbacks-to-custom-sysimages-1)
-   from the `PackageCompiler` repository.
+   from the `PackageCompiler` repository. For example:
+   ```
+   .dev/systemimage/climate_machine_image.jl ClimateMachine.so true
+   ```
 
 To run julia using the newly created system image use:
 ```
