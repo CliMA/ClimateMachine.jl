@@ -18,6 +18,26 @@ function flux(::PressureGradient{Momentum}, m, state, aux, t, ts, direction)
 end
 
 #####
+##### Second order fluxes
+#####
+
+struct ViscousStress{PV <: Momentum} <: TendencyDef{Flux{SecondOrder}, PV} end
+function flux(
+    ::ViscousStress{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    diffusive,
+    hyperdiff,
+)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    ν, D_t, τ = sponge_viscosity_modifier(m, m.viscoussponge, ν, D_t, τ, aux)
+    return τ * state.ρ
+end
+
+#####
 ##### Sources
 #####
 
