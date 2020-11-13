@@ -642,7 +642,8 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
         )
     end
 
-    # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor product order is reversed
+    # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor
+    # product order is reversed
     M = kron(1, reverse(ω)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
