@@ -14,6 +14,10 @@ end
     runmpi(joinpath(@__DIR__, "Metrics.jl"))
 end
 
+@testset "Mesh Grids" begin
+    runmpi(joinpath(@__DIR__, "Grids.jl"))
+end
+
 @testset "Mesh Topology" begin
     runmpi(joinpath(@__DIR__, "topology.jl"))
 end
