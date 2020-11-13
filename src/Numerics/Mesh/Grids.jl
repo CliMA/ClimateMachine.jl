@@ -659,19 +659,26 @@ function computegeometry(
         )
     end
 
-    M = kron(1, ntuple(j -> ω[j], dim)...)
+    # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor product order is reversed
+    M = kron(1, reverse(ω)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
-    vMJI .= MJI[vmap⁻]
+    for d in 1:dim
+        vMJI[1:Nfp[d], (2d - 1):(2d), :] .=
+            MJI[vmap⁻[1:Nfp[d], (2d - 1):(2d), :]]
+    end
 
-    MH = kron(ones(FT, Nq[dim]), ntuple(j -> ω[j], dim - 1)...)
+    MH = kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
 
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
-            sM[1:Nfp[d], f] =
-                dim > 1 ?
-                kron(1, ntuple(j -> ω[mod1(d + j, dim)], dim - 1)...) : one(FT)
+            ωf = ntuple(j -> ω[mod1(d + j, dim)], dim - 1)
+            # Because of the `mod1` this face is already flipped
+            if !(dim == 3 && d == 2)
+                ωf = reverse(ωf)
+            end
+            sM[1:Nfp[d], f] = dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
     sMJ .= sM .* sJ
