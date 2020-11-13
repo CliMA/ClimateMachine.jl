@@ -20,7 +20,6 @@ returns the points `r` and weights `w` associated with the `N+1`-point
 Gauss-Legendre quadrature rule of type `T`
 """
 function glpoints(::Type{T}, N::Integer) where {T <: AbstractFloat}
-    @assert N ≥ 1
     GaussQuadrature.legendre(T, N + 1, GaussQuadrature.neither)
 end
 
