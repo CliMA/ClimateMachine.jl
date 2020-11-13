@@ -1,7 +1,9 @@
-# # Shear instability of a free-surface flow
+# # Barotropic double gyre
 #
-# This script simulates the spin-up of a double-gyre
-# using `ClimateMachine.Ocean.HydrostaticBoussinesqSuperModel`.
+# This script simulates the spin-up of two-dimensional,
+# depth-independent (barotropic) wind-driven double gyre
+# in a closed basin using 
+# `ClimateMachine.Ocean.HydrostaticBoussinesqSuperModel`.
 
 using Printf
 using Plots
@@ -66,7 +68,6 @@ Planet.grav(::EarthParameters) = 0.1
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
     time_step = hour,
-    initial_conditions = initial_conditions,
     parameters = EarthParameters(),
     turbulence_closure = (νʰ = 5e3, νᶻ = 5e-3, κʰ = 1e3, κᶻ = 1e-4),
     rusanov_wave_speeds = (cʰ = 1, cᶻ = 1e-3),
@@ -94,7 +95,7 @@ end
 
 day = 24hour
 
-model.solver_configuration.timeend = 365day
+model.solver_configuration.timeend = 60day
 
 result = ClimateMachine.invoke!(
     model.solver_configuration;
