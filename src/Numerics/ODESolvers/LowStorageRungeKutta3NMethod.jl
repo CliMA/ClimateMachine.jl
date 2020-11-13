@@ -64,7 +64,7 @@ mutable struct LowStorageRungeKutta3N{T, RT, AT, Nstages} <: AbstractODESolver
     "elapsed time steps"
     steps::Int
     "rhs function"
-    rhs!
+    rhs!::Any
     "Storage for RHS during the `LowStorageRungeKutta3N` update"
     dQ::AT
     "Secondary Storage for RHS during the `LowStorageRungeKutta3N` update"

@@ -29,7 +29,7 @@ Solve for Frhs = F(q), the Jacobian action is computed
 ...
 """
 mutable struct JacobianAction{FT, AT}
-    rhs!
+    rhs!::Any
     ϵ::FT
     Q::AT
     Qdq::AT
@@ -118,7 +118,7 @@ mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
     # Max number of Newton iterations
     M::Int
     # Linear solver for the Jacobian system
-    linearsolver
+    linearsolver::Any
     # container for unknows ΔQ, which is updated for the linear solver
     ΔQ::AT
     # contrainer for F(Q)

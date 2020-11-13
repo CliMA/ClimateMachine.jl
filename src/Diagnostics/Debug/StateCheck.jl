@@ -43,10 +43,10 @@ flattenednames(::Type{T}; prefix = "") where {T <: SArray} =
 Type for returning variable statistics.
 """
 struct VStat
-    max
-    min
-    mean
-    std
+    max::Any
+    min::Any
+    mean::Any
+    std::Any
 end
 
 # Global functions to expose

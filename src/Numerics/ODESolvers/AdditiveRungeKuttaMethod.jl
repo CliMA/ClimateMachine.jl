@@ -79,13 +79,13 @@ mutable struct AdditiveRungeKutta{
     "elapsed time steps"
     steps::Int
     "rhs function"
-    rhs!
+    rhs!::Any
     "rhs linear operator"
-    rhs_implicit!
+    rhs_implicit!::Any
     "backward Euler solver"
     besolver!::BE
     "backward Euler solvers, pre-factorized, for MIS"
-    besolvers!
+    besolvers!::Any
     "Storage for solution during the AdditiveRungeKutta update"
     Qstages::NTuple{Nstagesm1, AT}
     "Storage for RHS during the AdditiveRungeKutta update"

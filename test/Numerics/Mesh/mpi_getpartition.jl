@@ -17,7 +17,7 @@ function main()
 
     bs = [
         (i == 1) ? (1:0) :
-            BrickMesh.linearpartition(Nelemtotal, i - 1, csize - 1)
+        BrickMesh.linearpartition(Nelemtotal, i - 1, csize - 1)
         for i in 1:csize
     ]
     as = [BrickMesh.linearpartition(Nelemtotal, i, csize) for i in 1:csize]

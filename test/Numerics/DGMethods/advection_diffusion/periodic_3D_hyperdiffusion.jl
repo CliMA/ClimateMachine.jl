@@ -277,11 +277,12 @@ let
                     outputtime = 1
 
                     @info (ArrayType, FT, dim, direction)
-                    vtkdir = output ?
+                    vtkdir =
+                        output ?
                         "vtk_hyperdiffusion" *
-                    "_poly$(polynomialorder)" *
-                    "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
-                    "_level$(l)" :
+                        "_poly$(polynomialorder)" *
+                        "_dim$(dim)_$(ArrayType)_$(FT)_$(direction)" *
+                        "_level$(l)" :
                         nothing
                     result[l] = test_run(
                         mpicomm,

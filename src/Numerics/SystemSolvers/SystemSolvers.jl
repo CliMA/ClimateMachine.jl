@@ -53,7 +53,7 @@ abstract type AbstractNonlinearSolver <: AbstractSystemSolver end
 Only applies the linear solver (no Newton solver)
 """
 struct LSOnly <: AbstractNonlinearSolver
-    linearsolver
+    linearsolver::Any
 end
 
 function donewtoniteration!(
@@ -156,7 +156,8 @@ function nonlinearsolve!(
         end
     end
 
-    converged || @warn "Nonlinear solver did not converge after $iters iterations"
+    converged ||
+        @warn "Nonlinear solver did not converge after $iters iterations"
     cvg[] = converged
 
     iters
@@ -276,7 +277,8 @@ function linearsolve!(
         achieved_tolerance = residual_norm / threshold * solver.rtol
     end
 
-    converged || @warn "Solver did not attain convergence after $iters iterations"
+    converged ||
+        @warn "Solver did not attain convergence after $iters iterations"
     cvg[] = converged
 
     iters

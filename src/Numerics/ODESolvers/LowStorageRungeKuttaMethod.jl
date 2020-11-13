@@ -31,7 +31,7 @@ mutable struct LowStorageRungeKutta2N{T, RT, AT, Nstages} <: AbstractODESolver
     "elapsed time steps"
     steps::Int
     "rhs function"
-    rhs!
+    rhs!::Any
     "Storage for RHS during the LowStorageRungeKutta update"
     dQ::AT
     "low storage RK coefficient vector A (rhs scaling)"

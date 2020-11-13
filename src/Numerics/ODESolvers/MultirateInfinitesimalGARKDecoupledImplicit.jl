@@ -75,7 +75,7 @@ mutable struct MRIGARKDecoupledImplicit{
     "elapsed time steps"
     steps::Int
     "rhs function"
-    slowrhs!
+    slowrhs!::Any
     "backwark Euler solver"
     besolver!::BE
     "Storage for RHS during the `MRIGARKDecoupledImplicit` update"
@@ -516,8 +516,8 @@ function MRIGARKESDIRK24LSA(
     A = [
         0 0 0 0
         γ γ 0 0
-        c3 - a32 - γ a32 γ 0
-        1 - b2 - b3 - γ b2 b3 γ
+        c3 - a32-γ a32 γ 0
+        1 - b2 - b3-γ b2 b3 γ
     ]
     c = sum(A, dims = 2)
     b = A[end, :]
