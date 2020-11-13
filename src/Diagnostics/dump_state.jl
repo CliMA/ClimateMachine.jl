@@ -7,10 +7,10 @@
         interpol = nothing,
     )
 
-Create and return a `DiagnosticsGroup` containing a diagnostic that
-simply dumps the conservative state variables at the specified
-`interval` after being interpolated, into NetCDF files prefixed by
-`out_prefix`.
+Create the "DumpState" `DiagnosticsGroup` which contains all the
+prognostic state variables. These are output on `x`, `y`, `z` or `lat`,
+`long`, `level` dimensions of an interpolated grid (`interpol` _must_
+be specified) as well as a `time` dimension at the specified `interval`.
 """
 function setup_dump_state_diagnostics(
     ::ClimateMachineConfigType,

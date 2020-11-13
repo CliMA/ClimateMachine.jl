@@ -93,6 +93,11 @@ averaged density.
 | cov\_qt\_ei\_core  | cloud core covariance of total specific humidity and specific internal energy         |
 | core\_frac       | cloud core (q\_liq > 0 and w > 0) fraction                                             |
 
+### 3D Spectral decomposition (time, wavenumber)
+
+| short name | description                                                                |
+|:-----------|:---------------------------------------------------------------------------|
+| spectrum   | 3D power spectrum using the 3 velocity components                          |
 
 ## GCM Diagnostics
 
@@ -120,6 +125,18 @@ averaged density.
 | hi         | specific enthalpy from internal energy                                     |
 |                                                                                         |
 | vort       | relative vorticity                                                         |
+
+#### 1D Spectral decomposition (time, lat, zonal wavenumber, level)
+
+| short name | description                                                                |
+|:-----------|:---------------------------------------------------------------------------|
+| spectrum_1d  | 1D power spectrum using the meridional wind                                    |
+
+#### 2D Spectral decomposition (time, total wavenumber, zonal wavenumber, level)
+
+| short name | description                                                                |
+|:-----------|:---------------------------------------------------------------------------|
+| spectrum_2d  | 2D power spectrum using the meridional wind                              |
 
 ### default (for Moist Aquaplanet)
 
@@ -166,13 +183,6 @@ These are in addition to Held-Suarez.
 |                                                                                         |
 | var\_uu\_bandpass  | (co)variances using a Lanczos filter (also for vv, ww, TT, option for others) |
 | cov\_uv\_bandpass  | (co)variances using a Lanczos filter (also for uw, vw, uT, vT, wT, option for others) |
-
-#### Spectral decomposition (time, lat, level, wavenumber)
-
-| short name | description                                                                |
-|:-----------|:---------------------------------------------------------------------------|
-| power\_spec_eke  | eddy kinetic energy power spectrum                                   |
-
 
 ### To be implemented (for Moist Aquaplanet)
 

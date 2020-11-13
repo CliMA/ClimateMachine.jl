@@ -201,7 +201,7 @@ function parse_commandline(
         arg_type = String
         default = get_setting(:vtk, defaults, global_defaults)
         "--vtk-number-sample-points"
-        help = "The number of sampling points in each element for VTK output"
+        help = "number of sampling points in each element for VTK output"
         metavar = "<number>"
         arg_type = Int
         default =
@@ -328,19 +328,19 @@ Recognized keyword arguments are:
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
 - `vtk::String = "never"`:
-        inteverval at which to write simulation vtk output
+        interval at which to write simulation vtk output
 - `vtk-number-sample-points::Int` = 0:
         the number of sampling points in each element for VTK output
 - `monitor_timestep_duration::String = "never"`:
         interval in time-steps at which to output wall-clock time per time-step
 - `monitor_courant_numbers::String = "never"`:
-        interval at which to output acoustic, advective, and diffusive Courant numbers"
+        interval at which to output acoustic, advective, and diffusive Courant numbers
 - `checkpoint::String = "never"`:
-        interval at which to output a checkpoint
+        interval at which to write a checkpoint
 - `checkpoint_keep_one::Bool = true`: (interval)
         keep all checkpoints (instead of just the most recent)"
 - `checkpoint_at_end::Bool = false`:
-        create a checkpoint at the end of the simulation"
+        create a checkpoint at the end of the simulation
 - `checkpoint_dir::String = "checkpoint"`:
         absolute or relative path to checkpoint directory
 - `restart_from_num::Int = -1`:

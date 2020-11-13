@@ -14,9 +14,17 @@ end
         nor = 1.0,
     )
 
-Create and return a `DiagnosticsGroup` containing a diagnostic that dumps
-the spectrum at the specified `interval` after the velocity fields have
-been interpolated, into NetCDF files prefixed by `out_prefix`.
+Create the "AtmosGCMSpectra" `DiagnosticsGroup` which contains the
+following diagnostic variables:
+
+- spectrum_1d: 1D power spectrum of the meridional wind
+- spectrum_2d: 2D power spectrum of the meridional wind
+
+These are output with `m`, `lat`, `level` and `m_t`, `n`, `level`
+dimensions, i.e. zonal wavenumber, latitude, level and (truncated) zonal
+wavenumber, total wavenumber, level, as well as a (unlimited) `time`
+dimension at the specified `interval`. The spectrum is computed after the
+velocity fields have been interpolated (`interpol` _must_ be specified).
 """
 function setup_atmos_spectra_diagnostics(
     ::AtmosGCMConfigType,

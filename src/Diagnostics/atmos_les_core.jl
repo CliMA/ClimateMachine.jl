@@ -14,11 +14,37 @@ using LinearAlgebra
         interpol = nothing,
     )
 
-Create and return a `DiagnosticsGroup` containing the "AtmosLESCore"
-diagnostics for LES configurations. All the diagnostics in the group
-will run at the specified `interval`, be interpolated to the specified
-boundaries and resolution, and will be written to files prefixed by
-`out_prefix` using `writer`.
+Create the "AtmosLESCore" `DiagnosticsGroup` which contains the following
+diagnostic variables, all of which are density-averaged horizontal averages
+conditional upon `q_liq > 0 && w > 0` except for `core_frac`:
+
+- core_frac: cloud core fraction
+- u_core: cloud core x-velocity
+- v_core: cloud core y-velocity
+- w_core: cloud core z-velocity
+- avg_rho_core: cloud core air density (_not_ density averaged)
+- rho_core: cloud core air density
+- qt_core: cloud core total specific humidity
+- ql_core: cloud core liquid water specific humidity
+- thv_core: cloud core virtual potential temperature
+- thl_core: cloud core liquid-ice potential temperature
+- ei_core: cloud core specific internal energy
+- var_u_core: cloud core variance of x-velocity
+- var_v_core: cloud core variance of y-velocity
+- var_w_core: cloud core variance of z-velocity
+- var_qt_core: cloud core variance of total specific humidity
+- var_thl_core: cloud core variance of liquid-ice potential temperature
+- var_ei_core: cloud core variance of specific internal energy
+- cov_w_rho_core: cloud core vertical eddy flux of density
+- cov_w_qt_core: cloud core vertical eddy flux of specific humidity
+- cov_w_thl_core: cloud core vertical eddy flux of liquid-ice potential temperature
+- cov_w_ei_core: cloud core vertical eddy flux of specific internal energy
+- cov_qt_thl_core: cloud core covariance of total specific humidity and liquid-ice potential temperature
+- cov_qt_ei_core: cloud core covariance of total specific humidity and specific internal energy
+
+All these variables are output with the `z` dimension (`x3id`) on the DG grid
+(`interpol` may _not_ be specified) as well as a (unlimited) `time` dimension
+at the specified `interval`.
 """
 function setup_atmos_core_diagnostics(
     ::AtmosLESConfigType,

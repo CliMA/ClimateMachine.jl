@@ -26,4 +26,5 @@ how_to_guides = Any[
         "ODE Solvers" => Any["Time-integration" => "HowToGuides/Numerics/ODESolvers/Timestepping.md",],
         "System Solvers" => Any["Iterative Solvers" => "HowToGuides/Numerics/SystemSolvers/IterativeSolvers.md",],
     ],
+    "Diagnostics" => Any["Using Diagnostics" => "HowToGuides/Diagnostics/UsingDiagnostics.md",],
 ]
