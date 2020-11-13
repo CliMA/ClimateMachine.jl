@@ -194,4 +194,3 @@ end
 
 array_type(domain::RectangularDomain) = Array #array_type(domain.grid)
 eltype(::RectangularDomain{FT}) where {FT} = FT
-communicator(args...) = MPI.COMM_WORLD

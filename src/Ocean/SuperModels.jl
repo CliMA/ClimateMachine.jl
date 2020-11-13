@@ -8,7 +8,7 @@ using ..HydrostaticBoussinesq:
     HydrostaticBoussinesqModel, NonLinearAdvectionTerm
 
 using ..OceanProblems: InitialValueProblem, InitialConditions
-using ..Domains: array_type, communicator
+using ..Domains: array_type
 using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
 using ..Ocean.Fields: SpectralElementField
 
@@ -148,7 +148,7 @@ function HydrostaticBoussinesqSuperModel(;
         timestepper,
         equations.param_set,
         equations,
-        communicator(domain.grid),
+        MPI.COMM_WORLD,
         domain.grid,
         numerical_fluxes.first_order,
         numerical_fluxes.second_order,
