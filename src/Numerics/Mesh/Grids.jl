@@ -653,10 +653,6 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
         end
     end
 
-    MH =
-        dim == 1 ? ones(FT, 1) :
-        kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
-
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
@@ -669,6 +665,28 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
         end
     end
     sMJ .= sM .* sJ
+
+    # compute MH and JvC
+    horizontal_vertical_metrics(vgeo, Nq, ω)
+
+    (vgeo, sgeo)
+end
+
+function horizontal_vertical_metrics(vgeo, Nq, ω)
+    dim = length(Nq)
+
+    MH = dim == 1 ? 1 : kron(ones(1, Nq[dim]), reverse(ω[1:(dim - 1)])...)[:]
+    M = kron(1, reverse(ω)...)[:]
+
+    (
+        #! format: off
+        ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
+        MJ, MJI, MHJH,
+        x1, x2, x3,
+        JcV,
+       #! format: on
+    ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
+    J = MJ ./ M[:]
 
     # Compute |r'(ξ3)| for vertical line integrals
     if dim == 1
@@ -704,7 +722,6 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     else
         error("dim $dim not implemented")
     end
-    (vgeo, sgeo)
 end
 # }}}
 
