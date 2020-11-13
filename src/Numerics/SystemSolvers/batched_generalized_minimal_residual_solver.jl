@@ -491,7 +491,7 @@ function doiteration!(
 
     # if not converged, then restart
     converged ||
-    initialize!(linearoperator!, Q, Qrhs, solver, args...; restart = true)
+        initialize!(linearoperator!, Q, Qrhs, solver, args...; restart = true)
 
     (converged, j, residual_norm)
 end

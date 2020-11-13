@@ -243,9 +243,9 @@ end
     ν = viscosity_tensor(m)
     #   D.ν∇u = ν * G.u
     D.ν∇u = @SMatrix [
-        m.νʰ * G.ud[1, 1] m.νʰ * G.ud[1, 2]
-        m.νʰ * G.ud[2, 1] m.νʰ * G.ud[2, 2]
-        m.νᶻ * G.u[3, 1] m.νᶻ * G.u[3, 2]
+        m.νʰ*G.ud[1, 1] m.νʰ*G.ud[1, 2]
+        m.νʰ*G.ud[2, 1] m.νʰ*G.ud[2, 2]
+        m.νᶻ*G.u[3, 1] m.νᶻ*G.u[3, 2]
     ]
 
     κ = diffusivity_tensor(m, G.θ[3])
@@ -261,11 +261,8 @@ end
     if m.numImplSteps > 0
         κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
     else
-        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ]) : κ = (@SVector [
-            m.κʰ,
-            m.κʰ,
-            m.κᶻ,
-        ])
+        ∂θ∂z < 0 ? κ = (@SVector [m.κʰ, m.κʰ, m.κᶜ]) :
+        κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ])
     end
 
     return Diagonal(κ)

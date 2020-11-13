@@ -644,7 +644,8 @@ eband - 1`.
                     jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq_h
 
                     @unroll for ii in 2:(p + 1)
-                        Lii = single_column(LU) ? LU[ii + q, jj] :
+                        Lii =
+                            single_column(LU) ? LU[ii + q, jj] :
                             LU[i, j, ii + q, jj, h]
                         l_b[ii] -= Lii * l_b[1]
                     end
@@ -741,7 +742,8 @@ eband - 1`.
                 @unroll for s in nstate:-1:1
                     jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq_h
 
-                    l_b[q + 1] /= single_column(LU) ? LU[q + 1, jj] :
+                    l_b[q + 1] /=
+                        single_column(LU) ? LU[q + 1, jj] :
                         LU[i, j, q + 1, jj, h]
 
                     @unroll for ii in 1:q

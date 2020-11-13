@@ -159,19 +159,19 @@ struct DiscontinuousSpectralElementGrid{
     vmapsend::DAI1
 
     "An array of ranges in `vmaprecv` to receive from each neighbor"
-    nabrtovmaprecv
+    nabrtovmaprecv::Any
 
     "An array of ranges in `vmapsend` to send to each neighbor"
-    nabrtovmapsend
+    nabrtovmapsend::Any
 
     "Array of real elements that do not have a ghost element as a neighbor"
-    interiorelems
+    interiorelems::Any
 
     "Array of real elements that have at least one ghost element as a neighbor"
-    exteriorelems
+    exteriorelems::Any
 
     "Array indicating if a degree of freedom (real or ghost) is active"
-    activedofs
+    activedofs::Any
 
     "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
@@ -655,20 +655,24 @@ function computegeometry(
         )
     end
 
-    M = kron(1, ntuple(j -> ω[j], dim)...)
+    M = kron(1, reverse(ω)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
-    for d = 1:dim
-        vMJI[1:Nfp[d], 2d-1:2d, :] .= MJI[vmap⁻[1:Nfp[d], 2d-1:2d, :]]
+    for d in 1:dim
+        vMJI[1:Nfp[d], (2d - 1):(2d), :] .=
+            MJI[vmap⁻[1:Nfp[d], (2d - 1):(2d), :]]
     end
 
-    MH = kron(ones(FT, Nq[dim]), ntuple(j -> ω[j], dim - 1)...)
+    MH = kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
 
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
-            sM[1:Nfp[d], f] = dim > 1 ?
-                kron(1, ntuple(j -> ω[mod1(d + j, dim)], dim - 1)...) : one(FT)
+            ωf = ntuple(j -> ω[mod1(d + j, dim)], dim - 1)
+            if !(dim == 3 && d == 2)
+                ωf = reverse(ωf)
+            end
+            sM[1:Nfp[d], f] = dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
     sMJ .= sM .* sJ

@@ -54,7 +54,7 @@ function init_velocity_diffusion!(
 
     uλ = 2 * FT(π) * cos(φ) * r
     uφ = 0
-    aux.u = SVector(
+    aux.advection.u = SVector(
         -uλ * sin(λ) - uφ * cos(λ) * sin(φ),
         +uλ * cos(λ) - uφ * sin(λ) * sin(φ),
         +uφ * cos(φ),
@@ -119,7 +119,7 @@ function update_velocity_diffusion!(
         10 * r / T * sin(λp)^2 * sin(2φ) * cos(FT(π) * t / T) +
         FT(2π) * r / T * cos(φ)
     uφ = 10 * r / T * sin(2λp) * cos(φ) * cos(FT(π) * t / T)
-    aux.u = SVector(
+    aux.advection.u = SVector(
         -uλ * sin(λ) - uφ * cos(λ) * sin(φ),
         +uλ * cos(λ) - uφ * sin(λ) * sin(φ),
         +uφ * cos(φ),
@@ -137,7 +137,7 @@ function advective_courant(
     Δt,
     direction,
 )
-    return Δt * norm(aux.u) / Δx
+    return Δt * norm(aux.advection.u) / Δx
 end
 
 function boundary_state!(
@@ -152,7 +152,7 @@ function boundary_state!(
     t,
     _...,
 )
-    auxP.u = -auxM.u
+    auxP.advection.u = -auxM.advection.u
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
@@ -216,7 +216,7 @@ function test_run(
     dt = FT(cfl * dx / u_scale(problem()))
     dt = outputtime / ceil(Int64, outputtime / dt)
 
-    model = AdvectionDiffusion{3, false, true}(problem())
+    model = AdvectionDiffusion{3}(problem(), diffusion = false)
     dg = DGModel(
         model,
         grid,
@@ -425,13 +425,14 @@ let
                         outputtime = timeend
 
                         @info (ArrayType, FT)
-                        vtkdir = output ?
+                        vtkdir =
+                            output ?
                             "vtk_advection_sphere" *
-                        "_$problem" *
-                        "_$explicit_method" *
-                        "_poly$(polynomialorder)" *
-                        "_$(ArrayType)_$(FT)" *
-                        "_level$(l)" :
+                            "_$problem" *
+                            "_$explicit_method" *
+                            "_poly$(polynomialorder)" *
+                            "_$(ArrayType)_$(FT)" *
+                            "_level$(l)" :
                             nothing
 
                         result[l], Δmass = test_run(

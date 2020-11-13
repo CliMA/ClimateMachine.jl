@@ -148,6 +148,7 @@ Thermodynamics.jl is tested using a set of profiles specified in `test/Common/Th
 ```@example
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet
 using Plots
@@ -155,7 +156,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
 profiles = PhaseDryProfiles(param_set, Array{Float32});
-@unpack_fields profiles T ρ z
+@unpack T, ρ, z = profiles
 p1 = scatter(ρ, z./10^3, xlabel="Density [kg/m^3]", ylabel="z [km]", title="Density");
 p2 = scatter(T, z./10^3, xlabel="Temperature [K]", ylabel="z [km]", title="Temperature");
 plot(p1, p2, layout=(1,2))
@@ -168,6 +169,7 @@ savefig("tested_profiles_dry.svg");
 ```@example
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet
 using Plots
@@ -175,7 +177,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end;
 const param_set = EarthParameterSet();
 include(joinpath(@__DIR__, repeat([".."], 4)...,"test", "Common", "Thermodynamics", "profiles.jl"))
 profiles = PhaseEquilProfiles(param_set, Array{Float32});
-@unpack_fields profiles T ρ q_tot z
+@unpack T, ρ, q_tot, z = profiles
 p1 = scatter(ρ, z./10^3, xlabel="Density [kg/m^3]", ylabel="z [km]", title="Density");
 p2 = scatter(T, z./10^3, xlabel="Temperature [K]", ylabel="z [km]", title="Temperature");
 p3 = scatter(q_tot*1000, z./10^3, xlabel="Total specific\nhumidity [g/kg]", ylabel="z [km]", title="Total specific\nhumidity");
@@ -200,6 +202,7 @@ tested profiles and the nearest space where convergence fails.
 ```@example
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet
 using Plots
@@ -213,7 +216,7 @@ clima_root = joinpath(@__DIR__, repeat([".."], 4)...);
 include(joinpath(clima_root, "test", "Common", "Thermodynamics", "profiles.jl"))
 include(joinpath(clima_root, "docs", "plothelpers.jl"));
 profiles = PhaseEquilProfiles(param_set, Array{FT});
-@unpack_fields profiles ρ e_int q_tot
+@unpack ρ, e_int, q_tot = profiles
 
 dims = (10, 10, 10);
 ρ = range(min(ρ...), stop=max(ρ...), length=dims[1]);

@@ -19,8 +19,8 @@ mutable struct SolverConfiguration{FT}
     dt::FT
     init_on_cpu::Bool
     numberofsteps::Int
-    init_args
-    solver
+    init_args::Any
+    solver::Any
 end
 
 """

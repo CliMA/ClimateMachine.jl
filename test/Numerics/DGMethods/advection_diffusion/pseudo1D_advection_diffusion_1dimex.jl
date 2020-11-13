@@ -39,10 +39,10 @@ function init_velocity_diffusion!(
     geom::LocalGeometry,
 ) where {n, α, β}
     # Direction of flow is n with magnitude α
-    aux.u = α * n
+    aux.advection.u = α * n
 
     # diffusion of strength β in the n direction
-    aux.D = β * n * n'
+    aux.diffusion.D = β * n * n'
 end
 
 function initial_condition!(
@@ -135,7 +135,7 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = N,
     )
-    model = AdvectionDiffusion{dim, fluxBC}(Pseudo1D{n, α, β, μ, δ}())
+    model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}(), flux_bc = fluxBC)
     dg = DGModel(
         model,
         grid,
@@ -338,11 +338,12 @@ let
                                 l,
                                 fluxBC,
                             )
-                            vtkdir = output ?
+                            vtkdir =
+                                output ?
                                 "vtk_advection" *
-                            "_poly$(polynomialorder)" *
-                            "_dim$(dim)_$(ArrayType)_$(FT)" *
-                            "_$(linearsolvertype)_level$(l)" :
+                                "_poly$(polynomialorder)" *
+                                "_dim$(dim)_$(ArrayType)_$(FT)" *
+                                "_$(linearsolvertype)_level$(l)" :
                                 nothing
                             result[l] = test_run(
                                 mpicomm,

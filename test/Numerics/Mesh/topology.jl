@@ -77,19 +77,24 @@ end
     @test g[1] == 0
     @test g[end] == 10
 
-    g = grid1d(10f0, 20f0, elemsize = 0.1)
+    g = grid1d(10.0f0, 20.0f0, elemsize = 0.1)
     @test eltype(g) == Float32
     @test length(g) == 101
     @test g[1] == 10
     @test g[end] == 20
 
-    g = grid1d(10f0, 20f0, InteriorStretching(0), elemsize = 0.1)
+    g = grid1d(10.0f0, 20.0f0, InteriorStretching(0), elemsize = 0.1)
     @test eltype(g) == Float32
     @test length(g) == 101
     @test g[1] == 10
     @test g[end] == 20
 
-    g = grid1d(10f0, 20f0, SingleExponentialStretching(2.5f0), elemsize = 0.1)
+    g = grid1d(
+        10.0f0,
+        20.0f0,
+        SingleExponentialStretching(2.5f0),
+        elemsize = 0.1,
+    )
     @test eltype(g) == Float32
     @test length(g) == 101
     @test g[1] == 10

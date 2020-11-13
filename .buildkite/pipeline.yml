@@ -1,5 +1,7 @@
 env:
   JULIA_VERSION: "1.5.2"
+  OPENMPI_VERSION: "4.0.4"
+  CUDA_VERSION: "10.2"
   OPENBLAS_NUM_THREADS: 1
   CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED: "true"
 
@@ -86,6 +88,15 @@ steps:
     key: "cpu_periodic_3D_hyperdiffusion"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/periodic_3D_hyperdiffusion.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_diffusion_hyperdiffusion_sphere"
+    key: "cpu_diffusion_hyperdiffusion_sphere" 
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/diffusion_hyperdiffusion_sphere.jl"
     agents:
       config: cpu
       queue: central
@@ -882,6 +893,16 @@ steps:
     key: "gpu_periodic_3D_hyperdiffusion"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/periodic_3D_hyperdiffusion.jl --integration-testing"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_diffusion_hyperdiffusion_sphere"
+    key: "gpu_diffusion_hyperdiffusion_sphere" 
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/diffusion_hyperdiffusion_sphere.jl --integration-testing"
     agents:
       config: gpu
       queue: central
