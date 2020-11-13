@@ -105,7 +105,6 @@ fluxes, respectively.
 
     # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT (2, Nq, Nq2, num_state_prognostic)
-    s_D = @localmem FT (Nq, Nq)
 
     # Storage for tendency and mass inverse M⁻¹
     local_tendency = @private FT (Nqk, num_state_prognostic)
@@ -119,10 +118,6 @@ fluxes, respectively.
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        # load differentiation matrix into local memory
-        if i <= Nq && j <= Nq
-            s_D[i, j] = D[i, j]
-        end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             # initialize local tendency
@@ -273,7 +268,7 @@ fluxes, respectively.
                 @unroll for n in 1:Nqk
                     MI = local_MI[n]
                     @unroll for s in 1:num_state_prognostic
-                        local_tendency[n, s] += MI * s_D[k, n] * local_flux_3[s]
+                        local_tendency[n, s] += MI * D[k, n] * local_flux_3[s]
                     end
                 end
             end
@@ -313,12 +308,12 @@ fluxes, respectively.
                 @unroll for n in 1:Nq
                     # ξ1-grid lines
                     local_tendency[k, s] +=
-                        MI * s_D[n, i] * shared_flux[1, n, j, s]
+                        MI * D[n, i] * shared_flux[1, n, j, s]
 
                     # ξ2-grid lines
                     if dim == 3 || (dim == 2 && direction isa EveryDirection)
                         local_tendency[k, s] +=
-                            MI * s_D[n, j] * shared_flux[2, i, n, s]
+                            MI * D[n, j] * shared_flux[2, i, n, s]
                     end
                 end
             end
@@ -390,7 +385,6 @@ end
 
     # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT shared_flux_size
-    s_D = @localmem FT (Nqv, Nqv)
 
     # Storage for tendency and mass inverse M⁻¹
     local_tendency = @private FT (Nqk, num_state_prognostic)
@@ -404,10 +398,6 @@ end
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        # load differentiation matrix into local memory
-        if i <= Nqv && j <= Nqv
-            s_D[i, j] = D[i, j]
-        end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
             # initialize local tendency
@@ -547,7 +537,7 @@ end
                     MI = local_MI[n]
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[n, s] +=
-                            MI * s_D[k, n] * local_flux_total[1, s]
+                            MI * D[k, n] * local_flux_total[1, s]
                     end
                 end
             end
@@ -586,7 +576,7 @@ end
                 @unroll for n in 1:Nqv
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[k, s] +=
-                            MI * s_D[n, j] * shared_flux[i, n, s]
+                            MI * D[n, j] * shared_flux[i, n, s]
                     end
                 end
             end
@@ -1007,7 +997,6 @@ gradient flux.
     # Transformation from conservative variables to
     # primitive variables (i.e. ρu → u)
     shared_transform = @localmem FT (Nq, Nq2, ngradstate)
-    s_D = @localmem FT (Nq, Nq)
 
     local_state_prognostic = @private FT (ngradtransformstate, Nqk)
     local_state_auxiliary = @private FT (num_state_auxiliary, Nqk)
@@ -1022,11 +1011,6 @@ gradient flux.
     i, j = @index(Local, NTuple)
 
     @inbounds @views begin
-        # Load horizontal differentiation matrix into shared memory
-        # (shared across threads in an element)
-        if i <= Nq && j <= Nq
-            s_D[i, j] = D[i, j]
-        end
         @unroll for k in 1:Nqk
             # Initialize local gradient variables
             @unroll for s in 1:ngradstate
@@ -1080,13 +1064,13 @@ gradient flux.
 
                 @unroll for n in 1:Nq
                     # Smack G with the differentiation matrix
-                    Gξ1 += s_D[i, n] * shared_transform[n, j, s]
+                    Gξ1 += D[i, n] * shared_transform[n, j, s]
                     if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                        Gξ2 += s_D[j, n] * shared_transform[i, n, s]
+                        Gξ2 += D[j, n] * shared_transform[i, n, s]
                     end
                     # Compute the gradient of G over the entire column
                     if dim == 3 && direction isa EveryDirection
-                        Gξ3[s, n] += s_D[n, k] * shared_transform[i, j, s]
+                        Gξ3[s, n] += D[n, k] * shared_transform[i, j, s]
                     end
                 end
 
@@ -1217,7 +1201,7 @@ end
         # Assumes same polynomial order in both
         # horizontal directions (x,y)
         Nq = info.Nq[1]
-        Nqv = dim == 2 ? info.Nq[2] : Nq[3]
+        Nqv = dim == 2 ? info.Nq[2] : Nq[dim]
         Nqk = info.Nqk
 
         ngradtransformstate = num_state_prognostic
@@ -1236,7 +1220,6 @@ end
     # Transformation from conservative variables to
     # primitive variables (i.e. ρu → u)
     shared_transform = @localmem FT (Nq, Nqv, ngradstate)
-    s_D = @localmem FT (Nqv, Nqv)
 
     local_state_prognostic = @private FT (ngradtransformstate, Nqk)
     local_state_auxiliary = @private FT (num_state_auxiliary, Nqk)
@@ -1254,11 +1237,7 @@ end
     i, j = @index(Local, NTuple)
 
     @inbounds @views begin
-        # Load horizontal differentiation matrix into shared memory
-        # (shared across threads in an element)
-        if i <= Nqv && j <= Nqv
-            s_D[i, j] = D[i, j]
-        end
+ 
         @unroll for k in 1:Nqk
             # Initialize local gradient variables
             @unroll for s in 1:ngradstate
@@ -1316,14 +1295,14 @@ end
                 if dim == 2
                     Gζ = zero(FT)
                     @unroll for n in 1:Nqv
-                        Gζ += s_D[j, n] * shared_transform[i, n, s]
+                        Gζ += D[j, n] * shared_transform[i, n, s]
                     end
                     local_transform_gradient[1, s, k] += local_ζ[1, k] * Gζ
                     local_transform_gradient[2, s, k] += local_ζ[2, k] * Gζ
                     local_transform_gradient[3, s, k] += local_ζ[3, k] * Gζ
                 else
-                    @unroll for n in 1:Nq
-                        Gζ[s, n] += s_D[n, k] * shared_transform[i, j, s]
+                    @unroll for n in 1:Nqk
+                        Gζ[s, n] += D[n, k] * shared_transform[i, j, s]
                     end
                 end
             end
@@ -2227,15 +2206,12 @@ end
     end
 
     s_grad = @localmem FT (Nq, Nq, Nqk, ngradlapstate, 3)
-    s_D = @localmem FT (Nq, Nq)
 
     e = @index(Group, Linear)
     i, j, k = @index(Local, NTuple)
     ijk = @index(Local, Linear)
 
     @inbounds begin
-        s_D[i, j] = D[i, j]
-
         @unroll for s in 1:ngradlapstate
             s_grad[i, j, k, s, 1] = Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e]
             s_grad[i, j, k, s, 2] = Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e]
@@ -2259,18 +2235,18 @@ end
             g2ξ1 = g2ξ2 = g2ξ3 = zero(FT)
             g3ξ1 = g3ξ2 = g3ξ3 = zero(FT)
             @unroll for n in 1:Nq
-                Din = s_D[i, n]
+                Din = D[i, n]
                 g1ξ1 += Din * s_grad[n, j, k, s, 1]
                 g2ξ1 += Din * s_grad[n, j, k, s, 2]
                 g3ξ1 += Din * s_grad[n, j, k, s, 3]
                 if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                    Djn = s_D[j, n]
+                    Djn = D[j, n]
                     g1ξ2 += Djn * s_grad[i, n, k, s, 1]
                     g2ξ2 += Djn * s_grad[i, n, k, s, 2]
                     g3ξ2 += Djn * s_grad[i, n, k, s, 3]
                 end
                 if dim == 3 && direction isa EveryDirection
-                    Dkn = s_D[k, n]
+                    Dkn = D[k, n]
                     g1ξ3 += Dkn * s_grad[i, j, n, s, 1]
                     g2ξ3 += Dkn * s_grad[i, j, n, s, 2]
                     g3ξ3 += Dkn * s_grad[i, j, n, s, 3]
@@ -2322,14 +2298,11 @@ end
     end
 
     s_grad = @localmem FT (Nq, Nq, Nqk, ngradlapstate, 3)
-    s_D = @localmem FT (Nq, Nq)
 
     e = @index(Group, Linear)
     ijk = @index(Local, Linear)
     i, j, k = @index(Local, NTuple)
     @inbounds begin
-        s_D[i, j] = D[i, j]
-
         @unroll for s in 1:ngradlapstate
             s_grad[i, j, k, s, 1] = Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e]
             s_grad[i, j, k, s, 2] = Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e]
@@ -2349,12 +2322,12 @@ end
             g1ξv = g2ξv = g3ξv = zero(FT)
             @unroll for n in 1:Nq
                 if dim == 2
-                    Djn = s_D[j, n]
+                    Djn = D[j, n]
                     g1ξv += Djn * s_grad[i, n, k, s, 1]
                     g2ξv += Djn * s_grad[i, n, k, s, 2]
                     g3ξv += Djn * s_grad[i, n, k, s, 3]
                 else
-                    Dkn = s_D[k, n]
+                    Dkn = D[k, n]
                     g1ξv += Dkn * s_grad[i, j, n, s, 1]
                     g2ξv += Dkn * s_grad[i, j, n, s, 2]
                     g3ξv += Dkn * s_grad[i, j, n, s, 3]

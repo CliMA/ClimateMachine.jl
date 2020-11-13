@@ -24,6 +24,7 @@ const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
+const integration_testing = true
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -131,8 +132,8 @@ function main()
     expected_error[Float32, 3, HLLC, 4] = 9.2315869405865669e-03
 
     @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32), dims in (2, 3)
-            for NumericalFlux in (Rusanov, Central, Roe, HLLC)
+        for FT in (Float64,), dims in (2,)
+            for NumericalFlux in (Rusanov,)
                 @info @sprintf """Configuration
                                   ArrayType     = %s
                                   FT        = %s
@@ -163,11 +164,11 @@ function main()
                     if FT === Float32 && ArrayType !== Array
                         rtol *= 10 # why does this factor have to be so big :(
                     end
-                    # @test isapprox(
-                    #     errors[level],
-                    #     expected_error[FT, dims, NumericalFlux, level];
-                    #     rtol = rtol,
-                    # )
+                    #@test isapprox(
+                    #    errors[level],
+                    #    expected_error[FT, dims, NumericalFlux, level];
+                    #    rtol = rtol,
+                    #)
                 end
 
                 rates = @. log2(
