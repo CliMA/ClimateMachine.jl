@@ -24,6 +24,7 @@ const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
+const integration_testing = true
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -39,7 +40,7 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = (4, 2)
+    polynomialorder = (2, 4)
     numlevels = integration_testing ? 4 : 1
 
     expected_error = Dict()
@@ -131,8 +132,8 @@ function main()
     expected_error[Float32, 3, HLLC, 4] = 9.2315869405865669e-03
 
     @testset "$(@__FILE__)" begin
-        for FT in (Float64, Float32), dims in (2, 3)
-            for NumericalFlux in (Rusanov, Central, Roe, HLLC)
+        for FT in (Float64,), dims in (2,)
+          for NumericalFlux in (Rusanov,)# Central, Roe, HLLC)
                 @info @sprintf """Configuration
                                   ArrayType     = %s
                                   FT        = %s
@@ -251,7 +252,7 @@ function test_run(
         maximum(polynomialorder)^2
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
-    dt /= 10
+    #dt /= 10
 
     Q = init_ode_state(dg, FT(0), setup)
     lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
