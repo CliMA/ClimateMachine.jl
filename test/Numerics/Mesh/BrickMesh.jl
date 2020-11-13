@@ -581,7 +581,7 @@ end
             mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
 
         #! format: off
-        fmask = 
+        fmask =
         (
          [ 1  3  5  7  9 11 13 15 17 19 21 23],
          [ 2  4  6  8 10 12 14 16 18 20 22 24],
@@ -590,6 +590,136 @@ end
          [ 1  2  3  4  5  6  0  0  0  0  0  0],
          [19 20 21 22 23 24  0  0  0  0  0  0],
         )
+        #! format: on
+
+        @test vmap⁻ == reshape(
+            [
+                fmask[1]
+                fmask[2]
+                fmask[3]
+                fmask[4]
+                fmask[5]
+                fmask[6]
+                fmask[1] .+ Np .* (fmask[1] .> 0)
+                fmask[2] .+ Np .* (fmask[2] .> 0)
+                fmask[3] .+ Np .* (fmask[3] .> 0)
+                fmask[4] .+ Np .* (fmask[4] .> 0)
+                fmask[5] .+ Np .* (fmask[5] .> 0)
+                fmask[6] .+ Np .* (fmask[6] .> 0)
+            ]',
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+
+        @test vmap⁺ == reshape(
+            [
+                vmap⁻[:, 1, 1]
+                vmap⁻[:, 2, 1]
+                vmap⁻[:, 4, 1]
+                vmap⁻[:, 3, 1]
+                vmap⁻[:, 5, 1]
+                vmap⁻[:, 5, 2]
+                vmap⁻[:, 1, 2]
+                vmap⁻[:, 2, 2]
+                vmap⁻[:, 4, 2]
+                vmap⁻[:, 3, 2]
+                vmap⁻[:, 6, 1]
+                vmap⁻[:, 6, 2]
+            ],
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+    end
+
+    # Test polynomial order 0
+    let
+        comm = MPI.COMM_SELF
+        x = (0:1, -1:1)
+        p = (false, true)
+        mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)[1:4]...)
+
+        N = (5, 0)
+        Nq = N .+ 1
+        d = length(x)
+        nelem = prod(length.(x) .- 1)
+        nface = 2d
+        Np = prod(Nq)
+        Nfp = div.(Np, Nq)
+
+        vmap⁻, vmap⁺ =
+            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+
+        #! format: off
+        p = reshape(1:Np, Nq)
+        fmask = ntuple(j -> zeros(Int, maximum(Nfp)), 2d)
+        fmask[1][1:Nfp[1]] .= p[1, :][:]
+        fmask[2][1:Nfp[1]] .= p[end, :][:]
+        fmask[3][1:Nfp[2]] .= p[:, 1][:]
+        fmask[4][1:Nfp[2]] .= p[:, end][:]
+        #! format: on
+
+        @test vmap⁻ == reshape(
+            [
+                fmask[1]
+                fmask[2]
+                fmask[3]
+                fmask[4]
+                fmask[1] .+ Np .* (fmask[1] .> 0)
+                fmask[2] .+ Np .* (fmask[2] .> 0)
+                fmask[3] .+ Np .* (fmask[3] .> 0)
+                fmask[4] .+ Np .* (fmask[4] .> 0)
+            ]',
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+
+        @test vmap⁺ == reshape(
+            [
+                vmap⁻[:, 1, 1]
+                vmap⁻[:, 2, 1]
+                vmap⁻[:, 4, 2]
+                vmap⁻[:, 3, 2]
+                vmap⁻[:, 1, 2]
+                vmap⁻[:, 2, 2]
+                vmap⁻[:, 4, 1]
+                vmap⁻[:, 3, 1]
+            ],
+            maximum(Nfp),
+            nface,
+            nelem,
+        )
+    end
+
+    # Test polynomial order 0
+    let
+        comm = MPI.COMM_SELF
+        x = (0:1, 0:1, -1:1)
+        p = (false, true, false)
+        mesh = connectmesh(comm, partition(comm, brickmesh(x, p)...)[1:4]...)
+
+        N = (7, 2, 0)
+        Nq = N .+ 1
+        d = length(x)
+        nelem = prod(length.(x) .- 1)
+        nface = 2d
+        Np = prod(Nq)
+        Nfp = div.(Np, Nq)
+
+        vmap⁻, vmap⁺ =
+            mappings(N, mesh[:elemtoelem], mesh[:elemtoface], mesh[:elemtoordr])
+
+        #! format: off
+        p = reshape(1:Np, Nq)
+        fmask = ntuple(j -> zeros(Int, maximum(Nfp)), 2d)
+        fmask[1][1:Nfp[1]] .= p[1, :, :][:]
+        fmask[2][1:Nfp[1]] .= p[end, :, :][:]
+        fmask[3][1:Nfp[2]] .= p[:, 1,  :][:]
+        fmask[4][1:Nfp[2]] .= p[:, end,  :][:]
+        fmask[5][1:Nfp[3]] .= p[:, :, 1][:]
+        fmask[6][1:Nfp[3]] .= p[:, :, end][:]
         #! format: on
 
         @test vmap⁻ == reshape(
@@ -830,7 +960,7 @@ end
         vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
 
         #! format: off
-        @test vmapC == 
+        @test vmapC ==
         [
          sort(unique(vcat(fmask[commfaces[:, 1]]...))) .+ (commelems[1] - 1) *Np
          sort(unique(vcat(fmask[commfaces[:, 2]]...))) .+ (commelems[2] - 1) *Np
@@ -840,6 +970,177 @@ end
         #! format: on
 
         @test nabrtovmapC == UnitRange{Int64}[1:20, 21:126]
+    end
+
+    # Test mappings with polyorder 0 in one dimension
+    let
+        N = (0, 1, 2)
+        Nq = N .+ 1
+        Np = prod(Nq)
+        d = length(N)
+        nface = 2d
+
+        commelems = [3, 4, 7, 9]
+        commfaces = BitArray([
+            true true true false
+            false true false false
+            false true false false
+            false true false false
+            false true true true
+            false true false true
+        ])
+
+        p = reshape(1:Np, Nq)
+        fmask = (
+            p[1, :, :][:],     # Face 1
+            p[Nq[1], :, :][:], # Face 2
+            p[:, 1, :][:],     # Face 3
+            p[:, Nq[2], :][:], # Face 4
+            p[:, :, 1][:],     # Face 5
+            p[:, :, Nq[3]][:], # Face 6
+        )
+
+        nabrtocomm = [1:1, 2:4]
+
+        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+        #! format: off
+        @test vmapC ==
+        [
+         sort(unique(vcat(fmask[commfaces[:, 1]]...))) .+ (commelems[1] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 2]]...))) .+ (commelems[2] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 3]]...))) .+ (commelems[3] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 4]]...))) .+ (commelems[4] - 1) *Np
+        ]
+        #! format: on
+
+        @test nabrtovmapC == UnitRange{Int64}[1:6, 7:22]
+    end
+
+    let
+        N = (3, 2, 0)
+        Nq = N .+ 1
+        Np = prod(Nq)
+        d = length(N)
+        nface = 2d
+
+        commelems = [3, 4, 7, 9, 19]
+        commfaces = BitArray([
+            true true true false true
+            false true false false false
+            false true false false true
+            false true false false false
+            false true true true false
+            false true false true false
+        ])
+
+        p = reshape(1:Np, Nq)
+        fmask = (
+            p[1, :, :][:],     # Face 1
+            p[Nq[1], :, :][:], # Face 2
+            p[:, 1, :][:],     # Face 3
+            p[:, Nq[2], :][:], # Face 4
+            p[:, :, 1][:],     # Face 5
+            p[:, :, Nq[3]][:], # Face 6
+        )
+
+        nabrtocomm = [1:1, 2:5]
+
+        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+        #! format: off
+        @test vmapC ==
+        [
+         sort(unique(vcat(fmask[commfaces[:, 1]]...))) .+ (commelems[1] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 2]]...))) .+ (commelems[2] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 3]]...))) .+ (commelems[3] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 4]]...))) .+ (commelems[4] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 5]]...))) .+ (commelems[5] - 1) *Np
+        ]
+        #! format: on
+
+        @test nabrtovmapC == UnitRange{Int64}[1:3, 4:45]
+    end
+
+    let
+        N = (0, 2)
+        Nq = N .+ 1
+        Np = prod(Nq)
+        d = length(N)
+        nface = 2d
+
+        commelems = [3, 4, 7, 9]
+        commfaces = BitArray([
+            true true true false
+            false true false true
+            false true false false
+            false true false true
+        ])
+
+        p = reshape(1:Np, Nq)
+        fmask = (
+            p[1, :][:],     # Face 1
+            p[Nq[1], :][:], # Face 2
+            p[:, 1][:],     # Face 3
+            p[:, Nq[2]][:], # Face 4
+        )
+
+        nabrtocomm = [1:1, 2:4]
+
+        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+        #! format: off
+        @test vmapC ==
+        [
+         sort(unique(vcat(fmask[commfaces[:, 1]]...))) .+ (commelems[1] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 2]]...))) .+ (commelems[2] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 3]]...))) .+ (commelems[3] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 4]]...))) .+ (commelems[4] - 1) *Np
+        ]
+        #! format: on
+
+        @test nabrtovmapC == UnitRange{Int64}[1:3, 4:12]
+    end
+
+    let
+        N = (3, 0)
+        Nq = N .+ 1
+        Np = prod(Nq)
+        d = length(N)
+        nface = 2d
+
+        commelems = [3, 4, 7, 9, 19]
+        commfaces = BitArray([
+            true true true false true
+            false true false false true
+            false true false true false
+            false true false true false
+        ])
+
+        p = reshape(1:Np, Nq)
+        fmask = (
+            p[1, :][:],     # Face 1
+            p[Nq[1], :][:], # Face 2
+            p[:, 1][:],     # Face 3
+            p[:, Nq[2]][:], # Face 4
+        )
+
+        nabrtocomm = [1:1, 2:5]
+
+        vmapC, nabrtovmapC = commmapping(N, commelems, commfaces, nabrtocomm)
+
+        #! format: off
+        @test vmapC ==
+        [
+         sort(unique(vcat(fmask[commfaces[:, 1]]...))) .+ (commelems[1] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 2]]...))) .+ (commelems[2] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 3]]...))) .+ (commelems[3] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 4]]...))) .+ (commelems[4] - 1) *Np
+         sort(unique(vcat(fmask[commfaces[:, 5]]...))) .+ (commelems[5] - 1) *Np
+        ]
+        #! format: on
+
+        @test nabrtovmapC == UnitRange{Int64}[1:1, 2:12]
     end
 
 end
