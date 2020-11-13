@@ -64,7 +64,7 @@ grid = DiscontinuousSpectralElementGrid(Ω, elements = (2,2,2), polynomialorder 
         polynomialorder = (N,N,N), 
         array = ArrayType,
         )
-    @test norm(grid.D - igrid.D) ≈ 0.0
+    @test norm(grid.D .- igrid.D) ≈ 0.0
     @test norm(grid.vgeo - igrid.vgeo) ≈ 0.0
     @test norm(grid.sgeo - igrid.sgeo) ≈ 0.0
 
@@ -110,7 +110,7 @@ grid = DiscontinuousSpectralElementGrid(Ω, elements = (2,2,2), polynomialorder 
         polynomialorder = (N,N,N), 
         array = ArrayType,
         )
-    @test norm(grid.D - igrid.D) ≈ 0.0
+    @test norm(grid.D .- igrid.D) ≈ 0.0
     @test norm(grid.vgeo - igrid.vgeo) ≈ 0.0
     @test norm(grid.sgeo - igrid.sgeo) ≈ 0.0
 

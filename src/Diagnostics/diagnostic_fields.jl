@@ -321,8 +321,8 @@ This constructor computes the spatial gradients of the velocity field.
 # To take gradient, we need a grid (D, vgeo, data), not `dg`.
 function VectorGradient(grid::G, Q::MPIStateArray, _v::Int) where G <: AbstractGrid
     FT = eltype(grid)
-    N = polynomialorder(grid)
-    Nq = N + 1
+    N = polynomialorders(grid)
+    Nq = N[1] + 1
     npoints = Nq^3
     nrealelem = length(grid.topology.realelems)
 
@@ -336,7 +336,7 @@ function VectorGradient(grid::G, Q::MPIStateArray, _v::Int) where G <: AbstractG
     kernel = vector_gradient_kernel!(device, workgroup)
     event = kernel(
         Q.realdata,
-        grid.D,
+        grid.D[1],
         grid.vgeo,
         g,
         data,
@@ -512,7 +512,7 @@ function Vorticity(grid::DiscontinuousSpectralElementGrid, vgrad::VectorGradient
     FT = eltype(grid)
 
     # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorder(grid)
+    N = polynomialorders(grid)
 
     # Currently only support single polynomial order
     @assert all(N[1] .== N)
