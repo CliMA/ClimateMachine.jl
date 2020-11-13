@@ -815,7 +815,7 @@ end
             false true false true
         ])
 
-        p = reshape(1:Np, ntuple(j -> Nq[j], d))
+        p = reshape(1:Np, Nq)
         fmask = (
             p[1, :, :][:],     # Face 1
             p[Nq[1], :, :][:], # Face 2
