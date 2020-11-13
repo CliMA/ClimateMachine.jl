@@ -1,6 +1,7 @@
-# # Shear instability of a free-surface flow
+# # Baroclinic double gyre
 #
-# This script simulates the spin-up of a double-gyre
+# This script simulates the spin-up of a three-dimensional,
+# density-stratified baroclinic double gyre in a closed basin
 # using `ClimateMachine.Ocean.HydrostaticBoussinesqSuperModel`.
 
 using Printf
@@ -43,7 +44,7 @@ domain = RectangularDomain(
 #
 # The ``x``-component of the surface stress varies in ``y``:
 
-wind_stress(y) = @SVector [- wind_stress_magnitude * cos(2π * y / Ly), 0]
+wind_stress(y) = @SVector [wind_stress_magnitude * cos(2π * y / Ly), 0]
 
 top_bc = OceanBC(Penetrable(KinematicStress(wind_stress)), Insulating())
 
@@ -56,7 +57,9 @@ boundary_conditions = (side_wall_bc, bottom_bc, top_bc)
 
 # The indices of `boundary_conditions` correspond to the integers
 # specified above in the kwarg `boundary` passed to `RectangularDomain`.
-# We use temperature as a buoyancy variable, and initialize with linear stratification,
+# 
+# We use parameters such that `θ` represents buoyancy, and initialize
+# `θ` with a linear gradient corresponding to a linear density stratification:
 
 struct EarthParameters <: AbstractEarthParameterSet end
 Planet.grav(::EarthParameters) = 0.1
@@ -130,7 +133,7 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 
     u_title = @sprintf("u (m s⁻¹) at t = %.2f days", state.time / day)
     η_title = @sprintf("η (m) at t = %.2f days", state.time / day)
-    θ_title = @sprintf("θ (ᵒC) at t = %.2f days", state.time / day)
+    θ_title = @sprintf("b (m s⁻²) at t = %.2f days", state.time / day)
 
     plot(
         u_xy_plot,
