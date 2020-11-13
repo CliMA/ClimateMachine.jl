@@ -1,5 +1,7 @@
 module SuperModels
 
+using MPI
+
 using ClimateMachine
 
 using ...DGMethods.NumericalFluxes
