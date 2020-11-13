@@ -121,12 +121,12 @@ function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
 end
 
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
-    println("Initial tendency")
-    @show extrema(tendency.data[:, 1, :])
-    @show extrema(tendency.data[:, 2, :])
-    @show extrema(tendency.data[:, 3, :])
-    @show extrema(tendency.data[:, 4, :])
-    @show extrema(tendency.data[:, 5, :])
+    #println("Initial tendency")
+    #@show extrema(tendency.data[:, 1, :])
+    #@show extrema(tendency.data[:, 2, :])
+    #@show extrema(tendency.data[:, 3, :])
+    #@show extrema(tendency.data[:, 4, :])
+    #@show extrema(tendency.data[:, 5, :])
 
     device = array_device(state_prognostic)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
@@ -349,13 +349,13 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         dependencies = (comp_stream,),
     )
 
-    wait(comp_stream)
-    println("After computing volume_tendency")
-    @show extrema(tendency.data[:, 1, :])
-    @show extrema(tendency.data[:, 2, :])
-    @show extrema(tendency.data[:, 3, :])
-    @show extrema(tendency.data[:, 4, :])
-    @show extrema(tendency.data[:, 5, :])
+    #wait(comp_stream)
+    #println("After computing volume_tendency")
+    #@show extrema(tendency.data[:, 1, :])
+    #@show extrema(tendency.data[:, 2, :])
+    #@show extrema(tendency.data[:, 3, :])
+    #@show extrema(tendency.data[:, 4, :])
+    #@show extrema(tendency.data[:, 5, :])
 
     comp_stream = launch_interface_tendency!(
         dg,
@@ -368,13 +368,13 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         dependencies = (comp_stream,),
     )
 
-    wait(comp_stream)
-    println("After computing interface_tendency")
-    @show extrema(tendency.data[:, 1, :])
-    @show extrema(tendency.data[:, 2, :])
-    @show extrema(tendency.data[:, 3, :])
-    @show extrema(tendency.data[:, 4, :])
-    @show extrema(tendency.data[:, 5, :])
+    #wait(comp_stream)
+    #println("After computing interface_tendency")
+    #@show extrema(tendency.data[:, 1, :])
+    #@show extrema(tendency.data[:, 2, :])
+    #@show extrema(tendency.data[:, 3, :])
+    #@show extrema(tendency.data[:, 4, :])
+    #@show extrema(tendency.data[:, 5, :])
 
     if communicate
         if num_state_gradient_flux > 0 || nhyperviscstate > 0
@@ -440,21 +440,21 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         ),
     )
 
-    wait(comp_stream)
-    println("state_prognostic after computing full tendency")
-    @show extrema(state_prognostic.data[:, 1, :])
-    @show extrema(state_prognostic.data[:, 2, :])
-    @show extrema(state_prognostic.data[:, 3, :])
-    @show extrema(state_prognostic.data[:, 4, :])
-    @show extrema(state_prognostic.data[:, 5, :])
+    #wait(comp_stream)
+    #println("state_prognostic after computing full tendency")
+    #@show extrema(state_prognostic.data[:, 1, :])
+    #@show extrema(state_prognostic.data[:, 2, :])
+    #@show extrema(state_prognostic.data[:, 3, :])
+    #@show extrema(state_prognostic.data[:, 4, :])
+    #@show extrema(state_prognostic.data[:, 5, :])
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
-    if t > 0
-        error("hi")
-    end
+    #if t > 0
+    #    error("hi")
+    #end
 end
 
 function init_ode_state(
@@ -1563,8 +1563,8 @@ function launch_volume_tendency!(
     ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
     comp_stream = dependencies
 
-    println("launch_volume_tendency")
-    @show workgroup, ndrange
+    #println("launch_volume_tendency")
+    #@show workgroup, ndrange
 
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
@@ -1599,13 +1599,13 @@ function launch_volume_tendency!(
             ndrange = ndrange,
             dependencies = comp_stream,
         )
-        wait(comp_stream)
-        println("After computing horizontal volume_tendency")
-        @show extrema(tendency.data[:, 1, :])
-        @show extrema(tendency.data[:, 2, :])
-        @show extrema(tendency.data[:, 3, :])
-        @show extrema(tendency.data[:, 4, :])
-        @show extrema(tendency.data[:, 5, :])
+        #wait(comp_stream)
+        #println("After computing horizontal volume_tendency")
+        #@show extrema(tendency.data[:, 1, :])
+        #@show extrema(tendency.data[:, 2, :])
+        #@show extrema(tendency.data[:, 3, :])
+        #@show extrema(tendency.data[:, 4, :])
+        #@show extrema(tendency.data[:, 5, :])
     end
 
     # Vertical kernel
@@ -1685,8 +1685,8 @@ function launch_interface_tendency!(
             elems = dg.grid.exteriorelems
             ndrange = info.Nfp_v * info.nexteriorelem
         end
-        println("launch_interface_tendency --- HorizontalDirection")
-        @show workgroup, ndrange, surface
+        #println("launch_interface_tendency --- HorizontalDirection")
+        #@show workgroup, ndrange, surface
 
         # Hoirzontal polynomial order (assumes same for both horizontal directions)
         horizontal_polyorder = info.N[1]
@@ -1727,8 +1727,8 @@ function launch_interface_tendency!(
             ndrange = info.Nfp_h * info.nexteriorelem
         end
 
-        println("launch_interface_tendency --- VerticalDirection")
-        @show workgroup, ndrange, surface
+        #println("launch_interface_tendency --- VerticalDirection")
+        #@show workgroup, ndrange, surface
 
         # Vertical polynomial degree
         vertical_polyorder = info.N[info.dim]
