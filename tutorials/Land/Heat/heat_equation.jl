@@ -85,6 +85,8 @@ import ClimateMachine.BalanceLaws:
     nodal_update_auxiliary_state!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
+    BoundaryCondition,
+    boundary_conditions,
     boundary_state!
 
 import ClimateMachine.DGMethods: calculate_dt
@@ -255,32 +257,47 @@ end;
 # internally reformulated to first-order unknowns.
 # Boundary conditions must be specified for all unknowns, both first-order and
 # second-order unknowns which have been reformulated.
+struct DirichletBC <: BoundaryCondition end;
+struct NeumannBC <: BoundaryCondition end;
+
+boundary_conditions(::HeatModel) = (DirichletBC(), NeumannBC())
 
 # The boundary conditions for `ρcT` (first order unknown)
 function boundary_state!(
     nf,
+    bc::DirichletBC,
     m::HeatModel,
     state⁺::Vars,
     aux⁺::Vars,
     n⁻,
     state⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     _...,
 )
     ## Apply Dirichlet BCs
-    if bctype == 1 # At bottom
-        state⁺.ρcT = m.ρc * m.T_bottom
-    elseif bctype == 2 # At top
-        nothing
-    end
+    state⁺.ρcT = m.ρc * m.T_bottom
+end;
+function boundary_state!(
+    nf,
+    bc::NeumannBC,
+    m::HeatModel,
+    state⁺::Vars,
+    aux⁺::Vars,
+    n⁻,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    _...,
+)
+    nothing
 end;
 
 # The boundary conditions for `ρcT` are specified here for second-order
 # unknowns
 function boundary_state!(
     nf,
+    bc::DirichletBC,
     m::HeatModel,
     state⁺::Vars,
     diff⁺::Vars,
@@ -289,16 +306,27 @@ function boundary_state!(
     state⁻::Vars,
     diff⁻::Vars,
     aux⁻::Vars,
-    bctype,
+    t,
+    _...,
+)
+    nothing
+end;
+function boundary_state!(
+    nf,
+    bc::NeumannBC,
+    m::HeatModel,
+    state⁺::Vars,
+    diff⁺::Vars,
+    aux⁺::Vars,
+    n⁻,
+    state⁻::Vars,
+    diff⁻::Vars,
+    aux⁻::Vars,
     t,
     _...,
 )
     ## Apply Neumann BCs
-    if bctype == 1 # At bottom
-        nothing
-    elseif bctype == 2 # At top
-        diff⁺.α∇ρcT = n⁻ * m.flux_top
-    end
+    diff⁺.α∇ρcT = n⁻ * m.flux_top
 end;
 
 # # Spatial discretization

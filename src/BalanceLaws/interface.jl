@@ -217,51 +217,6 @@ required to be defined if using a `RusanovNumericalFlux` numerical flux.
 """
 function wavespeed end
 
-"""
-    boundary_state!(
-        ::NumericalFluxGradient,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_auxiliary⁺::Vars,
-        normal⁻,
-        state_prognostic⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-    boundary_state!(
-        ::NumericalFluxFirstOrder,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_auxiliary⁺::Vars,
-        normal⁻,
-        state_prognostic⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-    boundary_state!(
-        ::NumericalFluxSecondOrder,
-        ::L,
-        state_prognostic⁺::Vars,
-        state_gradient_flux⁺::Vars,
-        state_auxiliary⁺:
-        Vars, normal⁻,
-        state_prognostic⁻::Vars,
-        state_gradient_flux⁻::Vars,
-        state_auxiliary⁻::Vars,
-        bctype,
-        t
-    )
-
-Apply boundary conditions for
-
- - `NumericalFluxGradient` numerical flux (internal method)
- - `NumericalFluxFirstOrder` first-order unknowns
- - `NumericalFluxSecondOrder` second-order unknowns
-
-"""
-function boundary_state! end
 
 """
     update_auxiliary_state!(

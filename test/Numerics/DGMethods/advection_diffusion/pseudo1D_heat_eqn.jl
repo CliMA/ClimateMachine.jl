@@ -54,6 +54,7 @@ Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
 
 function normal_boundary_flux_second_order!(
     ::CentralNumericalFluxSecondOrder,
+    bctype,
     ::AdvectionDiffusion{1, dim, HeatEqn{nd, κ, A}},
     fluxᵀn::Vars{S},
     n⁻,
@@ -65,7 +66,6 @@ function normal_boundary_flux_second_order!(
     diff⁺,
     hyperdiff⁺,
     aux⁺,
-    bctype,
     t,
     _...,
 ) where {S, dim, nd, κ, A}

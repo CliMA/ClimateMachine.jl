@@ -302,7 +302,7 @@ function config_dycoms(FT, N, resolution, xmax, ymax, zmax)
     )
 
     problem = AtmosProblem(
-        boundarycondition = (
+        boundaryconditions = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
                     (state, aux, t, normPu) -> C_drag,

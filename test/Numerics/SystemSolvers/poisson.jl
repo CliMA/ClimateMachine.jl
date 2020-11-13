@@ -19,6 +19,7 @@ import ClimateMachine.DGMethods:
     flux_first_order!,
     flux_second_order!,
     source!,
+    boundary_conditions,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -45,7 +46,8 @@ vars_state(::PoissonModel, ::Prognostic, T) = @vars(ϕ::T)
 vars_state(::PoissonModel, ::Gradient, T) = @vars(ϕ::T)
 vars_state(::PoissonModel, ::GradientFlux, T) = @vars(∇ϕ::SVector{3, T})
 
-boundary_state!(nf, bl::PoissonModel, _...) = nothing
+boundary_conditions(::PoissonModel) = ()
+boundary_state!(nf, bc, bl::PoissonModel, _...) = nothing
 
 function flux_first_order!(::PoissonModel, _...) end
 

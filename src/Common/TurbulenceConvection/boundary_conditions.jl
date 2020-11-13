@@ -15,7 +15,7 @@ Boundary conditions are not applied
 """
 struct NoTurbConvBC <: TurbConvBC end
 
-turbconv_bcs(::NoTurbConv) = NoTurbConvBC()
+turbconv_bcs(::NoTurbConv) = (NoTurbConvBC(), NoTurbConvBC())
 
 function turbconv_boundary_state!(nf, bc_turbulence::NoTurbConvBC, bl, args...)
     nothing

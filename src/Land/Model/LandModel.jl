@@ -15,6 +15,7 @@ import ..BalanceLaws:
     flux_first_order!,
     flux_second_order!,
     source!,
+    boundary_conditions,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -61,7 +62,7 @@ end
         init_state_prognostic::IS = nothing
     ) where {SRC, IS}
 
-Constructor for the LandModel structure. 
+Constructor for the LandModel structure.
 """
 function LandModel(
     param_set::AbstractParameterSet,

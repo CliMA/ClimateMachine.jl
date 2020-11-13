@@ -98,7 +98,7 @@ let
                 )
 
                 problem = AtmosProblem(
-                    boundarycondition = (),
+                    boundaryconditions = (),
                     init_state_prognostic = initialcondition!,
                 )
 

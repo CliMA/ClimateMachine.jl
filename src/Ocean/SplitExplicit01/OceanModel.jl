@@ -595,7 +595,8 @@ function update_penalty!(
     return nothing
 end
 
-@inline function boundary_state!(nf, ocean::OceanModel, args...)
-    boundary_conditions = ocean.problem.boundary_conditions
-    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
+boundary_conditions(ocean::OceanModel) = ocean.problem.boundary_conditions
+
+@inline function boundary_state!(nf, bc, ocean::OceanModel, args...)
+    return _ocean_boundary_state!(nf, bc, ocean, args...)
 end

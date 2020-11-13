@@ -46,6 +46,7 @@ import ClimateMachine.BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,

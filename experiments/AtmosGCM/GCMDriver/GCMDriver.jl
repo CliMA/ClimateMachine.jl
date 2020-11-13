@@ -168,7 +168,7 @@ function config_gcm_experiment(
     end
 
     # Set up the boundary conditions
-    boundarycondition = parse_surface_flux_arg(
+    boundaryconditions = parse_surface_flux_arg(
         surface_flux_arg,
         FT,
         param_set,
@@ -178,7 +178,7 @@ function config_gcm_experiment(
 
     # Set up the problem
     problem = problem_type(
-        boundarycondition = boundarycondition,
+        boundaryconditions = boundaryconditions,
         perturbation = perturbation,
         base_state = base_state,
         moisture_profile = moisture_profile,

@@ -88,11 +88,17 @@ compute_gradient_argument!
 transform_post_gradient_laplacian!
 ```
 
+## Boundary conditions
+
+```@docs
+boundary_conditions
+boundary_state!
+```
+
 ## Auxiliary kernels
 
 ```@docs
 wavespeed
-boundary_state!
 update_auxiliary_state!
 update_auxiliary_state_gradient!
 nodal_update_auxiliary_state!

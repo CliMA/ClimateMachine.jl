@@ -21,7 +21,7 @@ using ClimateMachine.DGMethods.NumericalFluxes:
 
  parent_model  = OceanModel{FT}(prob...)
  linear_model  = IVDCModel( parent_model )
- 	
+
 """
 
 # Create a new child linear model instance, attached to whatever parent
@@ -151,19 +151,20 @@ function wavespeed(m::IVDCModel, n⁻, _...)
     return C
 end
 
+boundary_conditions(m::IVDCModel) = boundary_conditions(m.parent_om)
 function boundary_state!(
     nf::Union{
         NumericalFluxFirstOrder,
         NumericalFluxGradient,
         CentralNumericalFluxGradient,
     },
+    bc,
     m::IVDCModel,
     Q⁺,
     A⁺,
     n,
     Q⁻,
     A⁻,
-    bctype,
     t,
     _...,
 )
@@ -189,6 +190,7 @@ end
 
 function boundary_state!(
     nf::Union{NumericalFluxSecondOrder, CentralNumericalFluxSecondOrder},
+    bctype,
     m::IVDCModel,
     Q⁺,
     D⁺,
@@ -197,7 +199,6 @@ function boundary_state!(
     Q⁻,
     D⁻,
     A⁻,
-    bctype,
     t,
     _...,
 )

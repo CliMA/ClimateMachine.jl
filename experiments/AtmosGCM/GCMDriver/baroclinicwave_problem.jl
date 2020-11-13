@@ -8,8 +8,8 @@
 # Override default CLIMAParameters for consistency with literature on this case
 CLIMAParameters.Planet.press_triple(::EarthParameterSet) = 610.78
 
-struct BaroclinicWaveProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
-    boundarycondition::BC
+struct BaroclinicWaveProblem{BCS, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
+    boundaryconditions::BCS
     init_state_prognostic::ISP
     init_state_auxiliary::ISA
     perturbation::WP
@@ -17,7 +17,7 @@ struct BaroclinicWaveProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
     moisture_profile::MP
 end
 function BaroclinicWaveProblem(;
-    boundarycondition = (AtmosBC(), AtmosBC()),
+    boundaryconditions = (AtmosBC(), AtmosBC()),
     perturbation = nothing,
     base_state = nothing,
     moisture_profile = nothing,
@@ -34,7 +34,7 @@ function BaroclinicWaveProblem(;
     end
 
     problem = (
-        boundarycondition,
+        boundaryconditions,
         init_gcm_experiment!,
         (_...) -> nothing,
         perturbation,

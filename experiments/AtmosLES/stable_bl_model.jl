@@ -2,11 +2,11 @@
 #=
 # This experiment file establishes the initial conditions, boundary conditions,
 # source terms and simulation parameters (domain size + resolution) for the
-# GABLS LES case (Beare et al, 2006; Kosovic and Curry, 2000). 
+# GABLS LES case (Beare et al, 2006; Kosovic and Curry, 2000).
 #
 ## @article{10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2,
 ##     author = {Kosović, Branko and Curry, Judith A.},
-##     title = "{A Large Eddy Simulation Study of a Quasi-Steady, 
+##     title = "{A Large Eddy Simulation Study of a Quasi-Steady,
 ##               Stably Stratified Atmospheric Boundary Layer}",
 ##     journal = {Journal of the Atmospheric Sciences},
 ##     volume = {57},
@@ -332,7 +332,7 @@ function stable_bl_model(
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
-        boundarycondition = boundary_conditions,
+        boundaryconditions = boundary_conditions,
     )
 
     # Assemble model components

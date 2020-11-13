@@ -111,6 +111,8 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     init_state_auxiliary!,
     init_state_prognostic!,
+    BoundaryCondition,
+    boundary_conditions,
     boundary_state!
 
 # ## Initialization
@@ -371,54 +373,68 @@ end;
 # Boundary conditions must be specified for all unknowns, both first-order and
 # second-order unknowns which have been reformulated.
 
+struct TopBC <: BoundaryCondition end;
+struct BottomBC <: BoundaryCondition end;
+boundary_conditions(::BurgersEquation) = (BottomBC(), TopBC());
+
 # The boundary conditions for `ρ`, `ρu` and `ρcT` (first order unknowns)
 function boundary_state!(
     nf,
+    bc::BottomBC,
     m::BurgersEquation,
     state⁺::Vars,
     aux⁺::Vars,
     n⁻,
-    state⁻::Vars,
-    aux⁻::Vars,
-    bctype,
-    t,
     _...,
 )
-    if bctype == 1 # bottom
-        state⁺.ρ = 1
-        state⁺.ρu = SVector(0, 0, 0)
-        state⁺.ρcT = state⁺.ρ * m.c * m.T_bottom
-    elseif bctype == 2 # top
-        state⁺.ρ = 1
-        state⁺.ρu = SVector(0, 0, 0)
-    end
+    state⁺.ρ = 1
+    state⁺.ρu = SVector(0, 0, 0)
+    state⁺.ρcT = state⁺.ρ * m.c * m.T_bottom
+end;
+function boundary_state!(
+    nf,
+    bc::TopBC,
+    m::BurgersEquation,
+    state⁺::Vars,
+    aux⁺::Vars,
+    n⁻,
+    _...,
+)
+    state⁺.ρ = 1
+    state⁺.ρu = SVector(0, 0, 0)
 end;
 
 # The boundary conditions for `ρ`, `ρu` and `ρcT` are specified here for
 # second-order unknowns
+
 function boundary_state!(
     nf,
+    bc::BottomBC,
     m::BurgersEquation,
     state⁺::Vars,
     diff⁺::Vars,
     aux⁺::Vars,
     n⁻,
-    state⁻::Vars,
-    diff⁻::Vars,
-    aux⁻::Vars,
-    bctype,
-    t,
     _...,
 )
-    if bctype == 1 # bottom
-        state⁺.ρ = 1
-        state⁺.ρu = SVector(0, 0, 0)
-        state⁺.ρcT = state⁺.ρ * m.c * m.T_bottom
-    elseif bctype == 2 # top
-        state⁺.ρ = 1
-        state⁺.ρu = SVector(0, 0, 0)
-        diff⁺.α∇ρcT = -n⁻ * m.flux_top
-    end
+    state⁺.ρ = 1
+    state⁺.ρu = SVector(0, 0, 0)
+    state⁺.ρcT = state⁺.ρ * m.c * m.T_bottom
+end;
+
+function boundary_state!(
+    nf,
+    bc::TopBC,
+    m::BurgersEquation,
+    state⁺::Vars,
+    diff⁺::Vars,
+    aux⁺::Vars,
+    n⁻,
+    _...,
+)
+    state⁺.ρ = 1
+    state⁺.ρu = SVector(0, 0, 0)
+    diff⁺.α∇ρcT = -n⁻ * m.flux_top
 end;
 
 # # Spatial discretization
