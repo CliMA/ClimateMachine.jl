@@ -132,7 +132,7 @@ function main()
     expected_error[Float32, 3, HLLC, 4] = 9.2315869405865669e-03
 
     @testset "$(@__FILE__)" begin
-        for FT in (Float64,), dims in (2,)
+        for FT in (Float64,), dims in (2, 3)
             for NumericalFlux in (Rusanov,)
                 @info @sprintf """Configuration
                                   ArrayType     = %s

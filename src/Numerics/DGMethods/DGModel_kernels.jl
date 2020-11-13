@@ -364,7 +364,7 @@ end
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
         Nq = info.Nq[1]
-        Nqv = dim == 2 ? info.Nq[2] : Nq[3]
+        Nqv = dim == 2 ? info.Nq[2] : info.Nq[dim]
         Nqk = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -533,7 +533,7 @@ end
             end
 
             if dim == 3
-                @unroll for n in 1:Nq
+                @unroll for n in 1:Nqk
                     MI = local_MI[n]
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[n, s] +=
@@ -1201,7 +1201,7 @@ end
         # Assumes same polynomial order in both
         # horizontal directions (x,y)
         Nq = info.Nq[1]
-        Nqv = dim == 2 ? info.Nq[2] : Nq[dim]
+        Nqv = dim == 2 ? info.Nq[2] : info.Nq[dim]
         Nqk = info.Nqk
 
         ngradtransformstate = num_state_prognostic
@@ -1215,11 +1215,12 @@ end
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
 
         Gζ_size = dim == 3 ? (ngradstate, Nqk) : (0, 0)
+        shared_transform_dim2 = dim == 2 ? Nqv : Nq
     end
 
     # Transformation from conservative variables to
     # primitive variables (i.e. ρu → u)
-    shared_transform = @localmem FT (Nq, Nqv, ngradstate)
+    shared_transform = @localmem FT (Nq, shared_transform_dim2, ngradstate)
 
     local_state_prognostic = @private FT (ngradtransformstate, Nqk)
     local_state_auxiliary = @private FT (num_state_auxiliary, Nqk)
