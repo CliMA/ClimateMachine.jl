@@ -95,7 +95,7 @@ end
                       z = (-1, 1),
                       periodicity = (true, true, false),
                       boundary = ((0, 0), (0, 0), (1, 2)),
-                      array_type = Array,
+                      array_type = Settings.array_type,
                       message_communicator = MPI.COMM_WORLD)
 
 Returns a `RectangularDomain` representing the product of `x, y, z` intervals,
@@ -142,7 +142,7 @@ function RectangularDomain(
     z::Tuple{<:Number, <:Number},
     periodicity = (true, true, false),
     boundary = ((0, 0), (0, 0), (1, 2)),
-    array_type = Array,
+    array_type = ClimateMachine.Settings.array_type,
     message_communicator = MPI.COMM_WORLD,
 )
 
