@@ -7,7 +7,7 @@ using ...DGMethods.NumericalFluxes
 using ..HydrostaticBoussinesq:
     HydrostaticBoussinesqModel, NonLinearAdvectionTerm
 
-using ..OceanProblems: InitialValueProblem
+using ..OceanProblems: InitialValueProblem, InitialConditions
 using ..Domains: array_type, communicator
 using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
 using ..Ocean.Fields: SpectralElementField
