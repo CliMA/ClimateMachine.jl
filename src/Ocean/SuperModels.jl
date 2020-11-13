@@ -17,6 +17,7 @@ using ...Mesh.Grids: polynomialorder
 
 using ClimateMachine:
     LSRK144NiegemannDiehlBusch,
+    LS3NRK33Heuns,
     OceanBoxGCMConfigType,
     OceanBoxGCMSpecificInfo,
     DriverConfiguration
@@ -48,7 +49,7 @@ end
            numerical_fluxes = ( first_order = RusanovNumericalFlux(),
                                second_order = CentralNumericalFluxSecondOrder(),
                                    gradient = CentralNumericalFluxGradient())
-                timestepper = ClimateMachine.ExplicitSolverType(solver_method=LSRK144NiegemannDiehlBusch),
+                timestepper = ClimateMachine.ExplicitSolverType(solver_method=LS3NRK33Heuns),
     )
 
 Builds a `SuperModel` that solves the Hydrostatic Boussinesq equations.
@@ -167,6 +168,7 @@ function HydrostaticBoussinesqSuperModel(;
         init_on_cpu = init_on_cpu,
         ode_dt = convert(FT, time_step),
         ode_solver_type = timestepper,
+        Courant_number=0.4,
         modeldata = modeldata,
     )
 
