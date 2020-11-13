@@ -659,6 +659,7 @@ function computegeometry(
         )
     end
 
+    # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor product order is reversed
     M = kron(1, reverse(ω)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
@@ -673,6 +674,7 @@ function computegeometry(
     for d in 1:dim
         for f in (2d - 1):(2d)
             ωf = ntuple(j -> ω[mod1(d + j, dim)], dim - 1)
+            # Because of the `mod1` this face is already flipped
             if !(dim == 3 && d == 2)
                 ωf = reverse(ωf)
             end
