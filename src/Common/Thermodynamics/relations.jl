@@ -1851,24 +1851,33 @@ function equiv_pottemp(
     param_set::APS,
     T::FT,
     p::FT,
-    q::PhasePartition{FT} = q_pt_0(FT),
+    ρ::FT,
+    q_tot::FT,
+    q_liq::FT,
 ) where {FT <: Real}
     _R_d = FT(R_d(param_set))
     _cp_l = FT(cp_l(param_set))
     _cp_d = FT(cp_d(param_set))
     _MSLP = FT(MSLP(param_set))
-    r_t = mixing_ratio() # ?
-    fact_1 = (p/_MSLP)^(- _R_d / (_cp_d + _cp_l*r_t))
-    num = _LH_v0*r_v
-    den = T*(_cp_d + _cp_l*r_t)
+    _LH_v0 = FT(LH_v0(param_set))
+    #r_t = mixing_ratio() # ?
+    ρ_v_tot = ρ * q_tot
+    ρ_v = ρ * (q_tot - q_liq)
+    ρ_d = ρ - ρ_v_tot
+    p_d = _R_d * ρ_d * T
+    fact_1 = (p_d/_MSLP)^(- _R_d * ρ_d / (_cp_d * ρ_d + _cp_l * ρ_v_tot))
+    num = _LH_v0 * ρ_v
+    den = T * (_cp_d * ρ_d + _cp_l * ρ_v_tot)
     fact_2 = exp(num/den)
-    return T*fact_1*fact_2
+    return T * fact_1 * fact_2
 end
 equiv_pottemp(ts::ThermodynamicState) = equiv_pottemp(
     ts.param_set,
     air_temperature(ts),
     air_pressure(ts),
-    PhasePartition(ts),
+    air_density(ts),
+    total_specific_humidity(ts),
+    PhasePartition(ts).liq
 )
 
 function virt_temp_from_RH(
