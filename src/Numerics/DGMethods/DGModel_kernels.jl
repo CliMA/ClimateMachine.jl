@@ -120,8 +120,16 @@ fluxes, respectively.
 
     @inbounds begin
         # load differentiation matrix into local memory
-        if i <= Nq && j <= Nq
-            s_D[i, j] = D[i, j]
+        #if i <= Nq && j <= Nq
+        #    s_D[i, j] = D[i, j]
+        #end
+        # FIXME: loading with one thread is probably very inefficient
+        if i == 1 && j == 1
+          @unroll for ii in 1:Nq
+            @unroll for jj in 1:Nq
+              s_D[ii, jj] = D[ii, jj]
+            end
+          end
         end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
@@ -442,8 +450,16 @@ volume_tendency!
 
     @inbounds begin
         # load differentiation matrix into local memory
-        if i <= Nq2 && j <= Nq2
-            s_D[i, j] = D[i, j]
+        #if i <= Nq2 && j <= Nq2
+        #    s_D[i, j] = D[i, j]
+        #end
+        # FIXME: loading with one thread is probably very inefficient
+        if i == 1 && j == 1
+          @unroll for ii in 1:Nq2
+            @unroll for jj in 1:Nq2
+              s_D[ii, jj] = D[ii, jj]
+            end
+          end
         end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
@@ -1055,8 +1071,16 @@ gradient flux.
     @inbounds @views begin
         # Load horizontal differentiation matrix into shared memory
         # (shared across threads in an element)
-        if i <= Nq && j <= Nq
-            s_D[i, j] = D[i, j]
+        #if i <= Nq && j <= Nq
+        #    s_D[i, j] = D[i, j]
+        #end
+        # FIXME: loading with one thread is probably very inefficient
+        if i == 1 && j == 1
+          @unroll for ii in 1:Nq
+            @unroll for jj in 1:Nq
+              s_D[ii, jj] = D[ii, jj]
+            end
+          end
         end
 
         @unroll for k in 1:Nqk
@@ -1319,8 +1343,16 @@ matrix and G is the auxiliary gradient flux.
     @inbounds @views begin
         # Load horizontal differentiation matrix into shared memory
         # (shared across threads in an element)
-        if i <= Nq2 && j <= Nq2
-            s_D[i, j] = D[i, j]
+        #if i <= Nq2 && j <= Nq2
+        #    s_D[i, j] = D[i, j]
+        #end
+        # FIXME: loading with one thread is probably very inefficient
+        if i == 1 && j == 1
+          @unroll for ii in 1:Nq2
+            @unroll for jj in 1:Nq2
+              s_D[ii, jj] = D[ii, jj]
+            end
+          end
         end
 
         @unroll for k in 1:Nqk
