@@ -659,7 +659,7 @@ function computegeometry(
         )
     end
 
-    M = kron(1, ntuple(j -> ω[j], dim)...)
+    M = kron(1, reverse(ω)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
     for d in 1:dim
@@ -667,14 +667,16 @@ function computegeometry(
             MJI[vmap⁻[1:Nfp[d], (2d - 1):(2d), :]]
     end
 
-    MH = kron(ones(FT, Nq[dim]), ntuple(j -> ω[j], dim - 1)...)
+    MH = kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
 
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
         for f in (2d - 1):(2d)
-            sM[1:Nfp[d], f] =
-                dim > 1 ?
-                kron(1, ntuple(j -> ω[mod1(d + j, dim)], dim - 1)...) : one(FT)
+            ωf = ntuple(j -> ω[mod1(d + j, dim)], dim - 1)
+            if !(dim == 3 && d == 2)
+                ωf = reverse(ωf)
+            end
+            sM[1:Nfp[d], f] = dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
     sMJ .= sM .* sJ
