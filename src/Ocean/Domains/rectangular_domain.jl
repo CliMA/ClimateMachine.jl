@@ -1,13 +1,17 @@
 using MPI
+
+using ClimateMachine: Settings
+
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, polynomialorder
+
 using ClimateMachine.Mesh.Topologies: StackedBrickTopology
 
 #####
-##### CartesianDomain
+##### RectangularDomain
 #####
 
-struct CartesianDomain{FT, G}
+struct RectangularDomain{FT, G} <: AbstractDomain
     grid::G
     Np::Int
     Ne::NamedTuple{(:x, :y, :z), NTuple{3, Int}}
@@ -17,11 +21,11 @@ struct CartesianDomain{FT, G}
     z::NTuple{2, FT}
 end
 
-Base.eltype(::CartesianDomain{FT}) where {FT} = FT
+Base.eltype(::RectangularDomain{FT}) where {FT} = FT
 
-Base.show(io::IO, domain::CartesianDomain{FT, G}) where {FT, G} = print(
+Base.show(io::IO, domain::RectangularDomain{FT, G}) where {FT, G} = print(
     io,
-    "CartesianDomain{$FT, $(G.name.wrapper)}:",
+    "RectangularDomain{$FT, $(G.name.wrapper)}:",
     '\n',
     "    Np = ",
     domain.Np,
@@ -50,12 +54,12 @@ name_it(Ne::NamedTuple{(:x, :y, :z)}) = Ne
 name_it(Ne) = (x = Ne[1], y = Ne[2], z = Ne[3])
 
 """
-    CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
+    RectangularDomain(grid::DiscontinuousSpectralElementGrid, Ne)
 
 Inverts the volume geometry information in `grid.vgeo` to construct
-a `CartesianDomain`.
+a `RectangularDomain`.
 """
-function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
+function RectangularDomain(grid::DiscontinuousSpectralElementGrid, Ne)
     Ne = name_it(Ne)
 
     # Unwind volume geometry
@@ -67,9 +71,9 @@ function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
 
     Np = polynomialorder(grid)
 
-    x = view(volume_geometry, :, 13, :)
-    y = view(volume_geometry, :, 14, :)
-    z = view(volume_geometry, :, 15, :)
+    x = view(volume_geometry, :, grid.x1id, :)
+    y = view(volume_geometry, :, grid.x2id, :)
+    z = view(volume_geometry, :, grid.x3id, :)
 
     xlims = (minimum(x), maximum(x))
     ylims = (minimum(y), maximum(y))
@@ -81,25 +85,25 @@ function CartesianDomain(grid::DiscontinuousSpectralElementGrid, Ne)
         z = zlims[2] - zlims[1],
     )
 
-    return CartesianDomain(grid, Np, Ne, L, xlims, ylims, zlims)
+    return RectangularDomain(grid, Np, Ne, L, xlims, ylims, zlims)
 end
 
 """
-    CartesianDomain(FT=Float64;
-                    elements,
-                    polynomialorder,
-                    x = (-1, 1),
-                    y = (-1, 1),
-                    z = (-1, 1),
-                    periodicity = (true, true, false),
-                    boundary = ((0, 0), (0, 0), (1, 2)),
-                    array_type = Array,
-                    message_communicator = MPI.COMM_WORLD)
+    RectangularDomain(FT=Float64;
+                      elements,
+                      polynomialorder,
+                      x = (-1, 1),
+                      y = (-1, 1),
+                      z = (-1, 1),
+                      periodicity = (true, true, false),
+                      boundary = ((0, 0), (0, 0), (1, 2)),
+                      array_type = Settings.array_type,
+                      mpicomm = MPI.COMM_WORLD)
 
-Returns a `CartesianDomain` representing the product of `x, y, z` intervals,
+Returns a `RectangularDomain` representing the product of `x, y, z` intervals,
 specified by 2-tuples.
 
-The `CartesianDomain` is meshed with a simple `DiscontinuousSpectralElementGrid`
+The `RectangularDomain` is meshed with a simple `DiscontinuousSpectralElementGrid`
 with an isotropic `polynomialorder` and a 3-tuple of `elements`
 giving the number of elements in `x, y, z`.
 
@@ -113,8 +117,9 @@ Additional arguments are:
 - `array_type`: either `Array` for CPU computations or `CuArray` for
                 GPU computations
 
-- `message_communicator`: the world communicator for message passing between
-                          nodes in a distributed memory configuration.
+- `mpicomm`: communicator for sending data across nodes in a distributed memory
+             configuration using the Message Passing Interface (MPI).
+             See https://pages.tacc.utexas.edu/~eijkhout/pcse/html/mpi-comm.html
 
 Example
 =======
@@ -122,16 +127,16 @@ Example
 ```jldoctest
 julia> using ClimateMachine; ClimateMachine.init()
 
-julia> using ClimateMachine.Ocean.CartesianDomains: CartesianDomain
+julia> using ClimateMachine.Ocean.RectangularDomains: RectangularDomain
 
-julia> domain = CartesianDomain(elements=(7, 8, 9), polynomialorder=4, x=(0, 1), y=(0, 1), z=(0, 1))
-CartesianDomain{Float64, ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid}:
+julia> domain = RectangularDomain(elements=(7, 8, 9), polynomialorder=4, x=(0, 1), y=(0, 1), z=(0, 1))
+RectangularDomain{Float64, ClimateMachine.Mesh.Grids.DiscontinuousSpectralElementGrid}:
     Np = 4, Ne = (x = 7, y = 8, z = 9)
     L = (x = 1.00e+00, y = 1.00e+00, z = 1.00e+00)
     x = (0.00e+00, 1.00e+00), y = (0.00e+00, 1.00e+00), z = (1.00e+00, 0.00e+00)
 ```
 """
-function CartesianDomain(
+function RectangularDomain(
     FT = Float64;
     elements,
     polynomialorder,
@@ -140,8 +145,8 @@ function CartesianDomain(
     z::Tuple{<:Number, <:Number},
     periodicity = (true, true, false),
     boundary = ((0, 0), (0, 0), (1, 2)),
-    array_type = Array,
-    message_communicator = MPI.COMM_WORLD,
+    array_type = Settings.array_type,
+    mpicomm = MPI.COMM_WORLD,
 )
 
     Ne = name_it(elements)
@@ -163,7 +168,7 @@ function CartesianDomain(
     )
 
     topology = StackedBrickTopology(
-        message_communicator,
+        mpicomm,
         element_coordinates;
         periodicity = periodicity,
         boundary = boundary,
@@ -176,7 +181,7 @@ function CartesianDomain(
         polynomialorder = polynomialorder,
     )
 
-    return CartesianDomain{FT, typeof(grid)}(
+    return RectangularDomain{FT, typeof(grid)}(
         grid,
         polynomialorder,
         Ne,
@@ -187,6 +192,5 @@ function CartesianDomain(
     )
 end
 
-array_type(domain::CartesianDomain) = Array #array_type(domain.grid)
-eltype(::CartesianDomain{FT}) where {FT} = FT
-communicator(args...) = MPI.COMM_WORLD
+array_type(domain::RectangularDomain) = Array #array_type(domain.grid)
+eltype(::RectangularDomain{FT}) where {FT} = FT
