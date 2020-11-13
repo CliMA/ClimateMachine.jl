@@ -1,5 +1,7 @@
 using MPI
 
+using ClimateMachine: Settings
+
 using ClimateMachine.Mesh.Grids:
     DiscontinuousSpectralElementGrid, polynomialorder
 
@@ -96,7 +98,7 @@ end
                       periodicity = (true, true, false),
                       boundary = ((0, 0), (0, 0), (1, 2)),
                       array_type = Settings.array_type,
-                      message_communicator = MPI.COMM_WORLD)
+                      mpicomm = MPI.COMM_WORLD)
 
 Returns a `RectangularDomain` representing the product of `x, y, z` intervals,
 specified by 2-tuples.
@@ -115,8 +117,9 @@ Additional arguments are:
 - `array_type`: either `Array` for CPU computations or `CuArray` for
                 GPU computations
 
-- `message_communicator`: the world communicator for message passing between
-                          nodes in a distributed memory configuration.
+- `mpicomm`: communicator for sending data across nodes in a distributed memory
+             configuration using the Message Passing Interface (MPI).
+             See https://pages.tacc.utexas.edu/~eijkhout/pcse/html/mpi-comm.html
 
 Example
 =======
@@ -142,8 +145,8 @@ function RectangularDomain(
     z::Tuple{<:Number, <:Number},
     periodicity = (true, true, false),
     boundary = ((0, 0), (0, 0), (1, 2)),
-    array_type = ClimateMachine.Settings.array_type,
-    message_communicator = MPI.COMM_WORLD,
+    array_type = Settings.array_type,
+    mpicomm = MPI.COMM_WORLD,
 )
 
     Ne = name_it(elements)
@@ -165,7 +168,7 @@ function RectangularDomain(
     )
 
     topology = StackedBrickTopology(
-        message_communicator,
+        mpicomm,
         element_coordinates;
         periodicity = periodicity,
         boundary = boundary,
