@@ -10,6 +10,8 @@ export OceanBC,
     Insulating,
     TemperatureFlux
 
+using StaticArrays
+
 using ..BalanceLaws
 
 """
@@ -70,7 +72,17 @@ Applies the specified kinematic stress on velocity normal to the boundary.
 Prescribe the net inward kinematic stress across the boundary by `stress`,
 a function with signature `stress(problem, state, aux, t)`, returning the flux (in m²/s²).
 """
-struct KinematicStress <: VelocityDragBC end
+struct KinematicStress{S} <: VelocityDragBC
+    stress::S
+
+    function KinematicStress(stress::S=nothing) where S
+        new{S}(stress)
+    end
+end
+
+kinematic_stress(problem, y, ρ₀) = @SVector [0, 0] # fallback for generic problems
+kinematic_stress(problem, y, ρ₀, ::Nothing) = kinematic_stress(problem, y, ρ₀)
+kinematic_stress(problem, y, ρ₀, drag) = drag.stress(y)
 
 """
     Insulating() :: TemperatureBC
