@@ -19,7 +19,7 @@ using ClimateMachine.Ocean.OceanProblems: InitialConditions, InitialValueProblem
 
     initial_conditions = InitialConditions(u = uᵢ, v = vᵢ, η = ηᵢ, θ = θᵢ)
 
-    problem = InitialValueProblem(
+    problem = InitialValueProblem{Float64}(
         dimensions = (π, 42, 1.1),
         initial_conditions = initial_conditions,
     )
