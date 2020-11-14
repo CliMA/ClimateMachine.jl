@@ -44,7 +44,7 @@ domain = RectangularDomain(
 #
 # The ``x``-component of the surface stress varies in ``y``:
 
-wind_stress(y) = @SVector [- wind_stress_magnitude * cos(2π * y / Ly), 0]
+wind_stress(y) = @SVector [-wind_stress_magnitude * cos(2π * y / Ly), 0]
 
 top_bc = OceanBC(Penetrable(KinematicStress(wind_stress)), Insulating())
 
@@ -52,7 +52,7 @@ top_bc = OceanBC(Penetrable(KinematicStress(wind_stress)), Insulating())
 
 side_wall_bc = OceanBC(Impenetrable(NoSlip()), Insulating())
 bottom_bc = OceanBC(Impenetrable(FreeSlip()), Insulating())
-      
+
 boundary_conditions = (side_wall_bc, bottom_bc, top_bc)
 
 # The indices of `boundary_conditions` correspond to the integers

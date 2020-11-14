@@ -75,7 +75,7 @@ a function with signature `stress(problem, state, aux, t)`, returning the flux (
 struct KinematicStress{S} <: VelocityDragBC
     stress::S
 
-    function KinematicStress(stress::S=nothing) where S
+    function KinematicStress(stress::S = nothing) where {S}
         new{S}(stress)
     end
 end

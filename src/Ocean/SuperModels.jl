@@ -170,7 +170,7 @@ function HydrostaticBoussinesqSuperModel(;
         init_on_cpu = init_on_cpu,
         ode_dt = convert(FT, time_step),
         ode_solver_type = timestepper,
-        Courant_number=0.4,
+        Courant_number = 0.4,
         modeldata = modeldata,
     )
 

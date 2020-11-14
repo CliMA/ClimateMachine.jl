@@ -7,7 +7,8 @@ using ClimateMachine.Ocean.Domains
 using CLIMAParameters: AbstractEarthParameterSet
 struct DefaultParameters <: AbstractEarthParameterSet end
 
-using ClimateMachine.Ocean: HydrostaticBoussinesqSuperModel, current_time, steps, Δt
+using ClimateMachine.Ocean:
+    HydrostaticBoussinesqSuperModel, current_time, steps, Δt
 
 @testset "$(@__FILE__)" begin
 

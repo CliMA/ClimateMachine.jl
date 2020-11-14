@@ -52,7 +52,7 @@ top_bc = OceanBC(Penetrable(KinematicStress(wind_stress)), Insulating())
 
 side_wall_bc = OceanBC(Impenetrable(NoSlip()), Insulating())
 bottom_bc = OceanBC(Impenetrable(FreeSlip()), Insulating())
-      
+
 boundary_conditions = (side_wall_bc, bottom_bc, top_bc)
 
 # The indices of `boundary_conditions` correspond to the integers
@@ -65,7 +65,7 @@ struct EarthParameters <: AbstractEarthParameterSet end
 Planet.grav(::EarthParameters) = 0.1
 
 linear_gradient(x, y, z) = N² * z
-initial_conditions = InitialConditions(θ=linear_gradient)
+initial_conditions = InitialConditions(θ = linear_gradient)
 
 # We're now ready to build the model. We use large viscosity and diffusion
 # coefficients, and Coriolis parameters appropriate for mid-latitudes on Earth.
@@ -93,10 +93,12 @@ data_fetcher = EveryXSimulationTime(24hour) do
 
     push!(
         fetched_states,
-        (u = assemble(u),
-         θ = assemble(θ),
-         η = assemble(η),
-         time = current_time(model)),
+        (
+            u = assemble(u),
+            θ = assemble(θ),
+            η = assemble(η),
+            time = current_time(model),
+        ),
     )
 end
 
@@ -116,20 +118,62 @@ result = ClimateMachine.invoke!(
 animation = @animate for (i, state) in enumerate(fetched_states)
     @info "Plotting frame $i of $(length(fetched_states))..."
 
-    j = round(Int, domain.Ne.y/2)
+    j = round(Int, domain.Ne.y / 2)
 
-    xy_kwargs = (xlim = domain.x, ylim = domain.y, linewidth = 0, aspectratio = 1)
-    xz_kwargs = (xlim = domain.x, ylim = domain.z, linewidth = 0, aspectratio = 1000)
+    xy_kwargs =
+        (xlim = domain.x, ylim = domain.y, linewidth = 0, aspectratio = 1)
+    xz_kwargs = (
+        xlim = domain.x,
+        ylim = domain.z,
+        linewidth = 0,
+        aspectratio = 1000,
+    )
 
     x, y, z = state.u.x, state.u.y, state.u.z
 
-    u_xy_plot = contourf(x, y, state.u.data[:, :, 1]'; color = :balance, xy_kwargs...)
-    η_xy_plot = contourf(x, y, state.η.data[:, :, 1]'; color = :balance, xy_kwargs...)
-    θ_xy_plot = contourf(x, y, state.θ.data[:, :, 1]'; color = :thermal, xy_kwargs...)
+    u_xy_plot = contourf(
+        x,
+        y,
+        state.u.data[:, :, 1]';
+        color = :balance,
+        xy_kwargs...,
+    )
+    η_xy_plot = contourf(
+        x,
+        y,
+        state.η.data[:, :, 1]';
+        color = :balance,
+        xy_kwargs...,
+    )
+    θ_xy_plot = contourf(
+        x,
+        y,
+        state.θ.data[:, :, 1]';
+        color = :thermal,
+        xy_kwargs...,
+    )
 
-    u_xz_plot = contourf(x, z, state.u.data[:, j, :]'; color = :balance, xz_kwargs...)
-    η_xz_plot = contourf(x, z, state.η.data[:, j, :]'; color = :balance, xz_kwargs...)
-    θ_xz_plot = contourf(x, z, state.θ.data[:, j, :]'; color = :thermal, xz_kwargs...)
+    u_xz_plot = contourf(
+        x,
+        z,
+        state.u.data[:, j, :]';
+        color = :balance,
+        xz_kwargs...,
+    )
+    η_xz_plot = contourf(
+        x,
+        z,
+        state.η.data[:, j, :]';
+        color = :balance,
+        xz_kwargs...,
+    )
+    θ_xz_plot = contourf(
+        x,
+        z,
+        state.θ.data[:, j, :]';
+        color = :thermal,
+        xz_kwargs...,
+    )
 
     u_title = @sprintf("u (m s⁻¹) at t = %.2f days", state.time / day)
     η_title = @sprintf("η (m) at t = %.2f days", state.time / day)

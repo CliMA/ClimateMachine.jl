@@ -2,7 +2,8 @@ using ClimateMachine
 
 ClimateMachine.init()
 
-using ClimateMachine.Ocean.Fields: RectangularElement, x_assemble, y_assemble, z_assemble, assemble
+using ClimateMachine.Ocean.Fields:
+    RectangularElement, x_assemble, y_assemble, z_assemble, assemble
 
 @testset "$(@__FILE__)" begin
 
@@ -11,9 +12,9 @@ using ClimateMachine.Ocean.Fields: RectangularElement, x_assemble, y_assemble, z
     Nz = 5
 
     data = rand(Nx, Ny, Nz)
-    x = range(0.0, 1.0, length=Nx)
-    y = range(0.0, 1.1, length=Ny)
-    z = range(0.0, 1.2, length=Nz)
+    x = range(0.0, 1.0, length = Nx)
+    y = range(0.0, 1.1, length = Ny)
+    z = range(0.0, 1.2, length = Nz)
 
     element = RectangularElement(data, x, y, z)
 
@@ -41,11 +42,14 @@ using ClimateMachine.Ocean.Fields: RectangularElement, x_assemble, y_assemble, z
     @test bottom_top.z[1] == z[1]
     @test bottom_top.z[end] == 2 * z[end]
 
-    northeast_element = RectangularElement(5 .* data, x .+ x[end], y .+ y[end], z)
+    northeast_element =
+        RectangularElement(5 .* data, x .+ x[end], y .+ y[end], z)
 
     # Transpoed...
-    four_elements = [element north_element
-                     east_element northeast_element ]
+    four_elements = [
+        element north_element
+        east_element northeast_element
+    ]
 
     four_elements = reshape(four_elements, 2, 2, 1)
 
