@@ -22,11 +22,33 @@ using MPI
 using ArgParse
 
 using CLIMAParameters
+using CLIMAParameters.Planet
+using CLIMAParameters.Atmos.Microphysics
+
+struct LiquidParameterSet <: AbstractLiquidParameterSet end
+struct IceParameterSet <: AbstractIceParameterSet end
+struct RainParameterSet <: AbstractRainParameterSet end
+struct SnowParameterSet <: AbstractSnowParameterSet end
+struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
+  liq::L
+  ice::I
+  rain::R
+  snow::S
+end
+struct EarthParameterSet{M} <: AbstractEarthParameterSet
+  microphys::M
+end
+const microphys = MicropysicsParameterSet(
+  LiquidParameterSet(),
+  IceParameterSet(),
+  RainParameterSet(),
+  SnowParameterSet(),
+)
+const param_set = EarthParameterSet(microphys)
+
 using CLIMAParameters.Atmos.SubgridScale: C_smag
 using CLIMAParameters.Planet:
-    R_d, cp_d, cv_d, R_v, cp_v, cv_v, cp_l, MSLP, grav, LH_v0, T_freeze
-struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet()
+    R_d, cp_d, cv_d, R_v, cp_v, cv_v, cp_l, MSLP, grav, LH_v0, T_freeze, T_0, e_int_v0
 
 include("moist_bubble_profile.jl")
 const profile = MoistBubbleProfile(param_set, Float64);
@@ -65,23 +87,25 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
 
     FT = eltype(state)
-    R_gas::FT = R_d(bl.param_set)
-    R_water::FT = R_v(bl.param_set)
-    c_pd::FT = cp_d(bl.param_set)
-    c_vd::FT = cv_d(bl.param_set)
-    c_pv::FT = cp_v(bl.param_set)
-    c_vv::FT = cv_v(bl.param_set)
-    c_pl::FT = cp_l(bl.param_set)
-    κ::FT = R_gas / c_pd
-    γ::FT = c_pd / c_vd
+    _R_d::FT = R_d(bl.param_set)
+    _R_v::FT = R_v(bl.param_set)
+    _cp_d::FT = cp_d(bl.param_set)
+    _cv_d::FT = cv_d(bl.param_set)
+    _cp_v::FT = cp_v(bl.param_set)
+    _cv_v::FT = cv_v(bl.param_set)
+    _cp_l::FT = cp_l(bl.param_set)
+    _T_0::FT = T_0(bl.param_set)
+    _e_int_v0::FT = e_int_v0(bl.param_set)
+    κ::FT = _R_d / _cp_d
+    γ::FT = _cp_d / _cv_d
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
-    L00::FT = LH_v0(bl.param_set) + (c_pl - c_pv) * T_freeze(bl.param_set)
+    L00::FT = LH_v0(param_set) + (_cp_l - _cp_v) * T_freeze(param_set)
 
     xc::FT = 10000
     zc::FT = 2000
     rc::FT = 2000
-    Δθ::FT = 2
+    Δθ::FT = 0
 
     iz = 1000
     for i = 2:size(profile.z, 1)
@@ -108,26 +132,27 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
 
     r = sqrt((x - xc)^2 + (z - zc)^2)
     ρ_d = ρ - ρ_qv - ρ_qc
-    κ_M = (R_gas * ρ_d + R_water * ρ_qv) / (c_pd * ρ_d + c_pv * ρ_qv + c_pl * ρ_qc)
-    p_loc = p0 * (R_gas * ρ_θ / p0)^(1 / (1 - κ_M))
-    T_loc = p_loc / (R_gas * ρ_d + R_water * ρ_qv)
-    ρ_e = (c_vd * ρ_d + c_vv * ρ_qv + c_pl * ρ_qc) * T_loc + L00 * ρ_qv
+    κ_M = (_R_d * ρ_d + _R_v * ρ_qv) / (_cp_d * ρ_d + _cp_v * ρ_qv + _cp_l * ρ_qc)
+    p_loc = p0 * (_R_d * ρ_θ / p0)^(1 / (1 - κ_M))
+    T_loc = p_loc / (_R_d * ρ_d + _R_v * ρ_qv)
+    ρ_e = (_cv_d * ρ_d + _cv_v * ρ_qv + _cp_l * ρ_qc) * (T_loc - _T_0) + _e_int_v0 * ρ_qv
 
     if r < rc && Δθ > 0
+        println("Inside ")
         θ_dens = ρ_θ / ρ * (p_loc / p0)^(κ_M - κ)
         θ_dens_new = θ_dens * (1 + Δθ * cospi(0.5 * r / rc)^2 / 300)
         rt = (ρ_qv + ρ_qc) / ρ_d
         rv = ρ_qv / ρ_d
-        θ_loc = θ_dens_new * (1 + rt) / (1 + (R_water / R_gas) * rv)
+        θ_loc = θ_dens_new * (1 + rt) / (1 + (_R_v / _R_d) * rv)
         if rt > 0
             while true
                 T_loc = θ_loc * (p_loc / p0)^κ
                 T_C = T_loc - 273.15
                 # SaturVapor
                 pvs = 611.2 * exp(17.62 * T_C / (243.12 + T_C))
-                ρ_d_new = (p_loc - pvs) / (R_gas * T_loc)
-                rvs = pvs / (R_water * ρ_d_new * T_loc)
-                θ_new = θ_dens_new * (1 + rt) / (1 + (R_water / R_gas) * rvs)
+                ρ_d_new = (p_loc - pvs) / (_R_d * T_loc)
+                rvs = pvs / (_R_v * ρ_d_new * T_loc)
+                θ_new = θ_dens_new * (1 + rt) / (1 + (_R_v / _R_d) * rvs)
                 if abs(θ_new - θ_loc) <= θ_loc * 1.0e-12
                     break
                 else
@@ -137,20 +162,20 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
         else
             rvs = 0
             T_loc = θ_loc * (p_loc / p0)^κ
-            ρ_d_new = p_loc / (R_gas * T_loc)
-            θ_new = θ_dens_new * (1 + rt) / (1 + (R_water / R_gas) * rvs)
+            ρ_d_new = p_loc / (_R_d * T_loc)
+            θ_new = θ_dens_new * (1 + rt) / (1 + (_R_v / _R_d) * rvs)
         end
         ρ_qv = rvs * ρ_d_new
         ρ_qc = (rt - rvs) * ρ_d_new
         ρ = ρ_d_new * (1 + rt)
         ρ_d = ρ - ρ_qv - ρ_qc
-        κ_M = (R_gas * ρ_d + R_water * ρ_qv) / (c_pd * ρ_d + c_pv * ρ_qv + c_pl * ρ_qc)
+        κ_M = (_R_d * ρ_d + _R_v * ρ_qv) / (_cp_d * ρ_d + _cp_v * ρ_qv + _cp_l * ρ_qc)
         ρ_θ = ρ * θ_dens_new * (p_loc / p0)^(κ - κ_M)
-        ρ_e = (c_vd * ρ_d + c_vv * ρ_qv + c_pl * ρ_qc) * T_loc + L00 * ρ_qv
+        ρ_e = (_cv_d * ρ_d + _cv_v * ρ_qv + _cp_l * ρ_qc) * (T_loc - _T_0) + _e_int_v0 * ρ_qv
 
     end
 
-    u = SVector(FT(20), FT(0), FT(0))
+    u = SVector(FT(0), FT(0), FT(0))
     ρu = ρ .* u
     ρ_e =
         ρ_e +
@@ -162,6 +187,10 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
     state.ρu = ρu
     state.ρe = ρ_e
     state.moisture.ρq_tot = ρ_qv + ρ_qc
+    if bl.moisture isa NonEquilMoist
+        state.moisture.ρq_liq = FT(0)
+        state.moisture.ρq_ice = FT(0)
+    end
 end
 
 function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
@@ -236,7 +265,10 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
         AtmosLESConfigType,
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        source = (Gravity(),),
+#       source = (Gravity(),),
+#       moisture = EquilMoist{FT}(; maxiter = 10, tolerance = FT(0.1)),
+        source = (Gravity(),CreateClouds(),),
+        moisture = NonEquilMoist(),
         ref_state = ref_state,
         init_state_prognostic = init_moistbubble!,
     )
@@ -287,10 +319,16 @@ function main()
     Δx = FT(125)
     Δy = FT(125)
     Δz = FT(125)
+    Δx = FT(500)
+    Δy = FT(500)
+    Δz = FT(500)
+    Δx = FT(1000)
+    Δy = FT(500)
+    Δz = FT(1000)
     resolution = (Δx, Δy, Δz)
     # Domain extents
     xmax = FT(20000)
-    ymax = FT(1000)
+    ymax = FT(4000)
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)

@@ -1858,15 +1858,16 @@ function equiv_pottemp(
     _R_d = FT(R_d(param_set))
     _cp_l = FT(cp_l(param_set))
     _cp_d = FT(cp_d(param_set))
+    _cp_v = FT(cp_v(param_set))
     _MSLP = FT(MSLP(param_set))
     _LH_v0 = FT(LH_v0(param_set))
-    #r_t = mixing_ratio() # ?
+    _T_freeze = T_freeze(param_set)
     ρ_v_tot = ρ * q_tot
     ρ_v = ρ * (q_tot - q_liq)
     ρ_d = ρ - ρ_v_tot
     p_d = _R_d * ρ_d * T
     fact_1 = (p_d/_MSLP)^(- _R_d * ρ_d / (_cp_d * ρ_d + _cp_l * ρ_v_tot))
-    num = _LH_v0 * ρ_v
+    num = (_LH_v0 - (_cp_l - _cp_v) * (T - _T_freeze)) * ρ_v
     den = T * (_cp_d * ρ_d + _cp_l * ρ_v_tot)
     fact_2 = exp(num/den)
     return T * fact_1 * fact_2
