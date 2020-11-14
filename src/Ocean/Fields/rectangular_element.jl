@@ -99,9 +99,9 @@ function assemble(elements::Array{T, 3}) where T <: Union{RectangularElement, Ar
 
     Nx, Ny, Nz = size(elements)
 
-    pencils = Tuple(assemble(Val(1), elements[:, j, k]...) for j in 1:Ny, k in 1:Nz)
+    pencils = [assemble(Val(1), elements[:, j, k]...) for j in 1:Ny, k in 1:Nz]
 
-    slabs = Tuple(assemble(Val(2), pencils[:, k]...) for k in 1:Nz)
+    slabs = [assemble(Val(2), pencils[:, k]...) for k in 1:Nz]
 
     volume = assemble(Val(3), slabs...)
 

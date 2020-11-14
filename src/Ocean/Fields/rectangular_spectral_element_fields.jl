@@ -53,9 +53,9 @@ function SpectralElementField(
     element_list = [
         RectangularElement(
             view(data, :, :, :, i),
-            view(x, :, 1, 1, i),
-            view(y, 1, :, 1, i),
-            view(z, 1, 1, :, i),
+            view(x, :, :, :, i),
+            view(y, :, :, :, i),
+            view(z, :, :, :, i),
         ) for i in 1:Te
     ]
 
