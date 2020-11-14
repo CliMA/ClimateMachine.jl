@@ -137,7 +137,7 @@ function main()
     driver_config = ClimateMachine.DriverConfiguration(
         AtmosLESConfigType(),
         "MMS3",
-        N,
+        (N, N),
         FT,
         ClimateMachine.array_type(),
         ode_solver,
