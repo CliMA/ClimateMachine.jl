@@ -136,7 +136,7 @@ function nonlinearsolve!(
             solver,
             args...,
         )
-        @info "Linear solver converged in $linear_iterations iterations"
+        # @info "Linear solver converged in $linear_iterations iterations"
         iters += 1
 
         preconditioner_counter_update!(preconditioner)
@@ -151,7 +151,7 @@ function nonlinearsolve!(
         # ||Delta Q|| / ||Q|| ?
         relresidual = residual_norm / initial_residual_norm
         if relresidual < tol || residual_norm < tol
-            @info "Newton converged in $iters iterations!"
+            # @info "Newton converged in $iters iterations!"
             converged = true
         end
     end
