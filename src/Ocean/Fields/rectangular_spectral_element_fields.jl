@@ -11,10 +11,10 @@ that assumes `state.realdata` lives on `RectangularDomain`.
 `SpectralElementField.elements` is a three-dimensional array of `RectangularElements`.
 """
 function SpectralElementField(
-    domain::RectangularDomain,
+    domain::RectangularDomain{FT},
     state::MPIStateArray,
     variable_index::Int,
-)
+) where {FT}
 
     # Unwind the data in solver
     data = view(state.realdata, :, variable_index, :)
@@ -29,10 +29,19 @@ function SpectralElementField(
 
     grid = domain.grid
 
-    # Extract coordinate arrays with size (xnode, ynode, znode, element)
-    x = reshape(volume_geometry[:, grid.x1id, :], Np + 1, Np + 1, Np + 1, Te)
-    y = reshape(volume_geometry[:, grid.x2id, :], Np + 1, Np + 1, Np + 1, Te)
-    z = reshape(volume_geometry[:, grid.x3id, :], Np + 1, Np + 1, Np + 1, Te)
+    # Transfer data to host
+    x = zeros(FT, (Np + 1)^3, Te)
+    y = zeros(FT, (Np + 1)^3, Te)
+    z = zeros(FT, (Np + 1)^3, Te)
+
+    x .= volume_geometry[:, grid.x1id, :]
+    y .= volume_geometry[:, grid.x2id, :]
+    z .= volume_geometry[:, grid.x3id, :]
+
+    # Reshape x, y, z to (xnode, ynode, znode, element)
+    x = reshape(x, Np + 1, Np + 1, Np + 1, Te)
+    y = reshape(y, Np + 1, Np + 1, Np + 1, Te)
+    z = reshape(z, Np + 1, Np + 1, Np + 1, Te)
 
     # Unwind the data in state.realdata
     data = view(state.realdata, :, variable_index, :)

@@ -23,33 +23,18 @@ end
 
 Base.eltype(::RectangularDomain{FT}) where {FT} = FT
 
-Base.show(io::IO, domain::RectangularDomain{FT, G}) where {FT, G} = print(
-    io,
-    "RectangularDomain{$FT, $(G.name.wrapper)}:",
-    '\n',
-    "    Np = ",
-    domain.Np,
-    ", Ne = ",
-    domain.Ne,
-    '\n',
-    @sprintf(
-        "    L = (x = %.2e, y = %.2e, z = %.2e)",
-        domain.L.x,
-        domain.L.y,
-        domain.L.z
-    ),
-    '\n',
-    @sprintf(
-        "    x = (%.2e, %.2e), y = (%.2e, %.2e), z = (%.2e, %.2e)",
-        domain.x[1],
-        domain.x[2],
-        domain.y[1],
-        domain.y[2],
-        domain.z[1],
-        domain.z[2]
-    )
-)
+function Base.show(io::IO, domain::RectangularDomain{FT, G}) where {FT, G}
+    Np = domain.Np
+    Ne = domain.Ne
+    L = domain.L
 
+    first = "RectangularDomain{$FT, $(G.name.wrapper)}:\n"
+    second = "    Np = $Np, Ne = $Ne\n"
+    third = "    L = $L\n"
+
+    return print(io, first, second, third)
+end
+    
 name_it(Ne::NamedTuple{(:x, :y, :z)}) = Ne
 name_it(Ne) = (x = Ne[1], y = Ne[2], z = Ne[3])
 
