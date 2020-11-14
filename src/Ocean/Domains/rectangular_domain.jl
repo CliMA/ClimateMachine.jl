@@ -123,8 +123,8 @@ RectangularDomain{Float64, ClimateMachine.Mesh.Grids.DiscontinuousSpectralElemen
 """
 function RectangularDomain(
     FT = Float64;
-    elements,
-    polynomialorder,
+    Ne,
+    Np,
     x::Tuple{<:Number, <:Number},
     y::Tuple{<:Number, <:Number},
     z::Tuple{<:Number, <:Number},
@@ -133,6 +133,9 @@ function RectangularDomain(
     array_type = Settings.array_type,
     mpicomm = MPI.COMM_WORLD,
 )
+
+    # Change global setting if its set here
+    Settings.array_type = array_type
 
     Ne = name_it(elements)
 
@@ -177,5 +180,5 @@ function RectangularDomain(
     )
 end
 
-array_type(domain::RectangularDomain) = Array #array_type(domain.grid)
+array_type(domain::RectangularDomain) = Settings.array_type
 eltype(::RectangularDomain{FT}) where {FT} = FT

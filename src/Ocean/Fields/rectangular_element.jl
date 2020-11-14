@@ -3,10 +3,10 @@
 #####
 
 """
-        RectangularElement{A}(data::D, x::X, y::Y, z::Z) where {A, D, X, Y, Z}
+    RectangularElement(data, x, y, z)
 
-    Returns...
-    """
+Returns...
+"""
 struct RectangularElement{D, X, Y, Z}
     data::D
     x::X

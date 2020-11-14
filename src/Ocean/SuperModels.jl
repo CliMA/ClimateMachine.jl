@@ -18,7 +18,6 @@ using ...Mesh.Filters: CutoffFilter, ExponentialFilter
 using ...Mesh.Grids: polynomialorder
 
 using ClimateMachine:
-    LSRK144NiegemannDiehlBusch,
     LS3NRK33Heuns,
     OceanBoxGCMConfigType,
     OceanBoxGCMSpecificInfo,
@@ -75,7 +74,7 @@ function HydrostaticBoussinesqSuperModel(;
         gradient = CentralNumericalFluxGradient(),
     ),
     timestepper = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+        solver_method = LS3NRK33Heuns,
     ),
     filters = nothing,
     modeldata = NamedTuple(),
