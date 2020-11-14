@@ -21,9 +21,10 @@ using ClimateMachine.Ocean: steps, Δt, current_time
 using CLIMAParameters: AbstractEarthParameterSet, Planet
 
 # We begin by specifying the domain and mesh,
+Ne = 256
 
 domain = RectangularDomain(
-    elements = (48, 48, 1),
+    elements = (Ne, Ne, 1),
     polynomialorder = 4,
     x = (-3π, 3π),
     y = (-3π, 3π),
@@ -75,10 +76,12 @@ data_fetcher = EveryXSimulationTime(1) do
 
     isnan(umax) && error("NaN'd out.")
 
+    #=
     push!(
         fetched_states,
         (u = assemble(u), θ = assemble(θ), time = current_time(model)),
     )
+    =#
 end
 
 # and then run the simulation.

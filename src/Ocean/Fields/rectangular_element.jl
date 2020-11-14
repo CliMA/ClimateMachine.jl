@@ -19,19 +19,16 @@ Base.minimum(f, element::RectangularElement) = minimum(f, element.data)
 Base.maximum(element::RectangularElement) = maximum(element.data)
 Base.minimum(element::RectangularElement) = minimum(element.data)
 
-Base.show(io::IO, elem::RectangularElement{D}) where {D} = print(
-    io,
-    "RectangularElement{$(D.name.wrapper)} with ",
-    @sprintf("data ∈ [%.2e, %.2e]", minimum(elem.data), maximum(elem.data)),
-    '\n',
-    @sprintf("    x ∈ [%.2e, %.2e]", minimum(elem.x), maximum(elem.x)),
-    '\n',
-    @sprintf("    y ∈ [%.2e, %.2e]", minimum(elem.y), maximum(elem.y)),
-    '\n',
-    @sprintf("    z ∈ [%.2e, %.2e]", minimum(elem.z), maximum(elem.z)),
-    '\n',
-)
+function Base.show(io::IO, elem::RectangularElement{D}) where {D}
+    intro = "RectangularElement{$(D.name.wrapper)} with "
+    data = @sprintf("data ∈ [%.2e, %.2e]\n", minimum(elem.data), maximum(elem.data))
+    x = @sprintf("    x ∈ [%.2e, %.2e]\n", minimum(elem.x), maximum(elem.x))
+    y = @sprintf("    y ∈ [%.2e, %.2e]", minimum(elem.y), maximum(elem.y))
+    z = @sprintf("    z ∈ [%.2e, %.2e]", minimum(elem.z), maximum(elem.z))
 
+    return print(io, intro, data, x, y, z)
+end    
+    
 Base.@propagate_inbounds Base.getindex(elem::RectangularElement, i, j, k) =
     elem.data[i, j, k]
 
@@ -41,103 +38,72 @@ eltype(::RectangularElement{<:AbstractArray{FT}}) where {FT} = FT
 ##### ⟨⟨ Assemble! ⟩⟩
 #####
 
+""" Assemble an array along the first dimension. """
+function assemble(::Val{1}, west::AbstractArray, east::AbstractArray)
+    contact = @. (west[end:end, :, :] + east[1:1, :, :]) / 2
 
-function x_assemble(west::RectangularElement, east::RectangularElement)
-    west.x[end] ≈ east.x[1] ||
-    error("Element end-points $((west.x[end], east.x[1])) are not x-adjacent!")
+    east = east[2:end, :, :]
+    west = west[1:(end - 1), :, :]
 
-    all(west.y .≈ east.y) || error("Elements do not share y nodes!")
-    all(west.z .≈ east.z) || error("Elements do not share z nodes!")
+    assembled = cat(west, contact, east, dims = 1)
 
-    x = vcat(west.x, east.x[2:end])
-    y = west.y
-    z = west.z
+    return assembled
+end
 
-    contact = @. 1 / 2 * (west.data[end:end, :, :] + east.data[1:1, :, :])
+""" Assemble an array along the second dimension. """
+function assemble(::Val{2}, south::AbstractArray, north::AbstractArray)
+    contact = @. (south[:, end:end, :] + north[:, 1:1, :]) / 2
 
-    data = cat(
-        west.data[1:(end - 1), :, :],
-        contact,
-        east.data[2:end, :, :],
-        dims = 1,
-    )
+    north = north[:, 2:end, :]
+    south = south[:, 1:(end - 1), :]
+
+    assembled = cat(south, contact, north, dims = 2)
+
+    return assembled
+end
+
+""" Assemble an array along the third dimension. """
+function assemble(::Val{3}, bottom::AbstractArray, top::AbstractArray)
+    contact = @. (bottom[:, :, end:end] + top[:, :, 1:1]) / 2
+
+    top = top[:, :, 2:end]
+    bottom = bottom[:, :, 1:(end - 1)]
+
+    assembled = cat(bottom, contact, top, dims = 3)
+
+    return assembled
+end
+
+""" Assemble elements along `dim`ension. """
+function assemble(dim::Val, left::RectangularElement, right::RectangularElement)
+    data = assemble(dim, left.data, right.data)
+    x = assemble(dim, left.x, right.x)
+    y = assemble(dim, left.y, right.y)
+    z = assemble(dim, left.z, right.z)
 
     return RectangularElement(data, x, y, z)
 end
 
-function y_assemble(south::RectangularElement, north::RectangularElement)
+assemble(dim::Val, e1, e2, e3...) = assemble(dim, e1, assemble(dim, e2, e3...))
+assemble(elem) = elem
 
-    FT = eltype(south)
-
-    all(south.x .≈ north.x) || error("Elements do not share x nodes!")
-
-    isapprox(south.y[end], north.y[1], atol = sqrt(eps(FT))) ||
-    error("Elements are not y-adjacent!")
-
-    all(south.z .≈ north.z) || error("Elements do not share z nodes!")
-
-    x = south.x
-    y = vcat(south.y, north.y[2:end])
-    z = south.z
-
-    contact = @. 1 / 2 * (south.data[:, end:end, :] + north.data[:, 1:1, :])
-
-    data = cat(
-        south.data[:, 1:(end - 1), :],
-        contact,
-        north.data[:, 2:end, :],
-        dims = 2,
-    )
-
-    return RectangularElement(data, x, y, z)
-end
-
-function z_assemble(bottom::RectangularElement, top::RectangularElement)
-
-    FT = eltype(bottom)
-
-    all(bottom.x .≈ top.x) || error("Elements do not share x nodes!")
-    all(bottom.y .≈ top.y) || error("Elements do not share y nodes!")
-
-    isapprox(bottom.z[end], top.z[1], atol = sqrt(eps(FT))) ||
-    error("Elements are not z-adjacent!")
-
-    x = bottom.x
-    y = bottom.y
-    z = vcat(bottom.z, top.z[2:end])
-
-    contact = @. 1 / 2 * (bottom.data[:, :, end:end] + top.data[:, :, 1:1])
-    data = cat(
-        bottom.data[:, :, 1:(end - 1)],
-        contact,
-        top.data[:, :, 2:end],
-        dims = 3,
-    )
-
-    return RectangularElement(data, x, y, z)
-end
-
-x_assemble(e1, e2, e3...) = x_assemble(e1, x_assemble(e2, e3...))
-y_assemble(e1, e2, e3...) = y_assemble(e1, y_assemble(e2, e3...))
-z_assemble(e1, e2, e3...) = z_assemble(e1, z_assemble(e2, e3...))
-
-x_assemble(e1) = e1
-y_assemble(e1) = e1
-z_assemble(e1) = e1
+data(elem::RectangularElement) = elem.data
 
 """
     assemble(elements::Array{<:RectangularElement, 3})
 
-Assemble the three-dimensional data in `elements` into a single `RectangularElement`,
+Assemble the three-dimensional data in `elements` into a single `Array`,
 averaging data on shared nodes.
 """
-function assemble(elements::Array{<:RectangularElement, 3})
+function assemble(elements::Array{T, 3}) where T <: Union{RectangularElement, Array}
 
-    Ne = size(elements)
+    Nx, Ny, Nz = size(elements)
 
-    pencils = [x_assemble(elements[:, j, k]...) for j in 1:Ne[2], k in 1:Ne[3]]
-    slabs = [y_assemble(pencils[:, k]...) for k in 1:Ne[3]]
-    volume = z_assemble(slabs...)
+    pencils = Tuple(assemble(Val(1), elements[:, j, k]...) for j in 1:Ny, k in 1:Nz)
+
+    slabs = Tuple(assemble(Val(2), pencils[:, k]...) for k in 1:Nz)
+
+    volume = assemble(Val(3), slabs...)
 
     return volume
 end
