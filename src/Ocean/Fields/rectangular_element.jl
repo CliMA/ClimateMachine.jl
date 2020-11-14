@@ -2,16 +2,28 @@
 ##### RectangularElement
 #####
 
+"""
+        RectangularElement{A}(data::D, x::X, y::Y, z::Z) where {A, D, X, Y, Z}
+
+    Returns...
+    """
 struct RectangularElement{D, X, Y, Z}
     data::D
     x::X
     y::Y
     z::Z
+    # M::Mⁱʲ
 end
 
+Base.eltype(::RectangularElement) = eltype(elem.data)
+
 Base.size(element::RectangularElement) = size(element.data)
+
 Base.collect(element::RectangularElement) =
     RectangularElement(collect(data), collect(x), collect(y), collect(z))
+
+Base.@propagate_inbounds Base.getindex(elem::RectangularElement, i, j, k) =
+    elem.data[i, j, k]
 
 Base.maximum(f, element::RectangularElement) = maximum(f, element.data)
 Base.minimum(f, element::RectangularElement) = minimum(f, element.data)
@@ -29,10 +41,6 @@ function Base.show(io::IO, elem::RectangularElement{D}) where {D}
     return print(io, intro, data, x, y, z)
 end    
     
-Base.@propagate_inbounds Base.getindex(elem::RectangularElement, i, j, k) =
-    elem.data[i, j, k]
-
-eltype(::RectangularElement{<:AbstractArray{FT}}) where {FT} = FT
 
 #####
 ##### ⟨⟨ Assemble! ⟩⟩
@@ -95,7 +103,7 @@ data(elem::RectangularElement) = elem.data
 Assemble the three-dimensional data in `elements` into a single `Array`,
 averaging data on shared nodes.
 """
-function assemble(elements::Array{T, 3}) where T <: Union{RectangularElement, Array}
+function assemble(elements::Array{T, 3}) where T <: Union{RectangularElement, AbstractArray}
 
     Nx, Ny, Nz = size(elements)
 

@@ -21,6 +21,7 @@ using ClimateMachine.Ocean.Domains
 using ClimateMachine.Ocean.Fields
 
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
+using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
 using ClimateMachine.Ocean: steps, Δt, current_time
 using CLIMAParameters: AbstractEarthParameterSet, Planet
 
@@ -39,7 +40,7 @@ N² = 1e-5 # Initial buoyancy gradient (s⁻²)
 hour = 3600.0
 day = 24hour
 year = 365day
-stop_time = 30day # Simulation stop time
+stop_time = 2day # Simulation stop time
 
 struct EarthParameters <: AbstractEarthParameterSet end
 Planet.grav(::EarthParameters) = 0.1
@@ -105,8 +106,7 @@ y = volume.y[1, :, 1]
 
 start_time = time_ns()
 
-#data_fetcher = EveryXSimulationTime(day) do
-data_fetcher = EveryXSimulationSteps(1) do
+data_fetcher = EveryXSimulationTime(day) do
     umax = maximum(abs, u)
     elapsed = (time_ns() - start_time) * 1e-9
 
@@ -118,16 +118,18 @@ data_fetcher = EveryXSimulationSteps(1) do
 
     isnan(umax) && error("NaN'd out.")
 
+    u_assembly = assemble(data.(u.elements))
+    θ_assembly = assemble(data.(θ.elements))
+
     push!(
         fetched_states,
-        (u = assemble(data.(u.elements)), θ = assemble(data.(θ.elements)), time = current_time(model)),
+        (u = u_assembly, θ = θ_assembly, time = current_time(model)),
     )
 end
 
 # and then run the simulation.
 
-#model.solver_configuration.timeend = stop_time
-model.solver_configuration.timeend = model.solver_configuration.dt * 10
+model.solver_configuration.timeend = stop_time
 
 result = ClimateMachine.invoke!(
     model.solver_configuration;
@@ -145,8 +147,8 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 
     kwargs = (xlim = domain.x, ylim = domain.y, linewidth = 0, aspectratio = 1)
 
-    u = state.u.data[:, :, end]
-    θ = state.θ.data[:, :, end]
+    u = state.u[:, :, end]
+    θ = state.θ[:, :, end]
 
     @show ulim = maximum(abs, u) + 1e-9
     @show θlim = maximum(abs, θ) + 1e-9
@@ -169,7 +171,7 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         y,
         clamp.(θ, -θlim, θlim)';
         levels = θlevels,
-        color = :thermal,
+        color = :balance,
         clim = (-θlim, θlim),
         kwargs...
     )
