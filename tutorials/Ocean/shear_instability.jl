@@ -71,7 +71,7 @@ data_fetcher = EveryXSimulationTime(1) do
     umax = maximum(abs, u)
     elapsed = (time_ns() - start_time) * 1e-9
 
-    @info "Step: $(steps(model)), t: $(current_time(model)), max|u|: $umax, wall time: $elapsed"
+    @info "Step: $(steps(model)), t: $(current_time(model)), max|u|: $umax, wall time: $(elapsed/60) min"
 
     isnan(umax) && error("NaN'd out.")
 
