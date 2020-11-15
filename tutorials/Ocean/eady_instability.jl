@@ -47,7 +47,7 @@ using CLIMAParameters: AbstractEarthParameterSet, Planet
 #
 # The total buoyancy field is ``b = f ∂_z ψ + N² z``, where
 # ``f ∂_z ψ`` is the geostrophic component of buoyancy and
-# ``N² z`` refelcts a stable stratification with buoyancy
+# ``N² z`` reflects a stable stratification with buoyancy
 # frequency ``N``. We thus have
 #
 # ```math
@@ -56,18 +56,19 @@ using CLIMAParameters: AbstractEarthParameterSet, Planet
 # 
 # The baroclinic component of ``u`` is the "thermal wind"
 # associated with ``b``. The barotropic component of ``u``,
-# ``⟨u⟩ = \frac{1}{H} ∫ u \rm{d} z``, however, is balanced by
-# a surface displacement via
+# ``⟨u⟩ = \frac{1}{H} ∫ u \rm{d} z``, however, is 
+# geostrophically-balanced with the sea surface displacement
+# via the north-south (``y``) momentum balance,
 # 
 # ```math
-# f ⟨u⟩ = - g H ∂_y η \, ,
+# f ⟨u⟩ = - g ∂_y η \, ,
 # ```
 #
 # where ``g`` is gravitational acceleration. Using
-# ``⟨u⟩ = α sin(y / λ) / 2``, we obtain
+# ``⟨u⟩ = α H sin(y / λ) / 2``, we obtain
 #
 # ```math
-# η = α f λ / (2 g H) cos(y / λ) 
+# η = α f λ H / (2 g) cos(y / λ) \, .
 # ```
 #
 # # Parameters
@@ -81,7 +82,7 @@ H = 1e3 # Domain height (m)
 f = 1e-4 # Coriolis parameter (s⁻¹)
 α = 10f # Geostrophic shear (s⁻¹)
 N² = 1e-5 # Initial buoyancy gradient (s⁻²)
-νh = κh = 1e3 # Horizontal viscosity and diffusivity (m² s⁻¹)
+νh = κh = 1e4 # Horizontal viscosity and diffusivity (m² s⁻¹)
 νz = κh = 1e-2 # Vertical viscosity and diffusivity (m² s⁻¹)
 
 minutes = 60.0
@@ -92,7 +93,7 @@ years = 365days
 stop_time = 30days # Simulation stop time
 
 struct EarthParameters <: AbstractEarthParameterSet end
-Planet.grav(::EarthParameters) = 0.1
+Planet.grav(::EarthParameters) = 1.0
 g = Planet.grav(EarthParameters())
 
 # # The domain
@@ -125,13 +126,13 @@ free_surface = OceanBC(Penetrable(FreeSlip()), Insulating())
 
 uᵢ(x, y, z) = + α * sin(y / λ) * (z + H)
 θᵢ(x, y, z) = + α * f * λ * cos(y / λ) + N² * z + α * f * L * 1e-3 * Ξ(z)
-ηᵢ(x, y, z) = α * f * λ / (2 * g * H) * cos(y / λ)
+ηᵢ(x, y, z) = α * f * λ * H / 2g * cos(y / λ)
 
 initial_conditions = InitialConditions(u = uᵢ, θ = θᵢ, η = ηᵢ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = 2minutes,
+    time_step = 30,
     initial_conditions = initial_conditions,
     parameters = EarthParameters(),
     buoyancy = (αᵀ = 1 / g,),
@@ -191,10 +192,14 @@ end
 
 model.solver_configuration.timeend = stop_time
 
-result = ClimateMachine.invoke!(
-    model.solver_configuration;
-    user_callbacks = [data_fetcher],
-)
+try
+    result = ClimateMachine.invoke!(
+        model.solver_configuration;
+        user_callbacks = [data_fetcher],
+    )
+catch err
+    @warn "Simulation stopped early because " print(showerr, err)
+end
 
 # Finally, we make an animation of the evolving shear instability.
 
@@ -210,7 +215,7 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     u = state.u[:, :, end]
     θ = state.θ[:, :, end]
 
-    @show ulim = maximum(abs, u) + 1e-9
+    @show ulim = 1 #maximum(abs, u) + 1e-9
     @show θlim = maximum(abs, θ) + 1e-9
 
     ulevels = range(-ulim, ulim, length=31)
@@ -236,8 +241,8 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         kwargs...
     )
 
-    u_title = @sprintf("u at t = %d days", state.time / days)
-    θ_title = @sprintf("θ at t = %d days", state.time / days)
+    u_title = @sprintf("u at t = %.2f days", state.time / days)
+    θ_title = @sprintf("θ at t = %.2f days", state.time / days)
 
     plot(u_plot, θ_plot, title = [u_title θ_title], size = (1200, 500))
 end

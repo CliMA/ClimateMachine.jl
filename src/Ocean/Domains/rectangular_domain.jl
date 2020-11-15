@@ -123,8 +123,8 @@ RectangularDomain{Float64, ClimateMachine.Mesh.Grids.DiscontinuousSpectralElemen
 """
 function RectangularDomain(
     FT = Float64;
-    Ne,
-    Np,
+    elements,
+    polynomialorder,
     x::Tuple{<:Number, <:Number},
     y::Tuple{<:Number, <:Number},
     z::Tuple{<:Number, <:Number},
