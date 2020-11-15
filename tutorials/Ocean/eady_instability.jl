@@ -1,4 +1,4 @@
-# # Shear instability of a free-surface flow
+# # Eady instability
 #
 # This script simulates the instability of a sheared, free-surface
 # flow using `ClimateMachine.Ocean.HydrostaticBoussinesqSuperModel`.
@@ -11,10 +11,9 @@ using JLD2
 using Plots
 using Revise
 using ClimateMachine
+using CUDA
 
 ClimateMachine.init()
-
-ClimateMachine.Settings.array_type = Array
 
 using ClimateMachine.Ocean
 using ClimateMachine.Ocean.Domains
@@ -25,10 +24,58 @@ using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
 using ClimateMachine.Ocean: steps, Δt, current_time
 using CLIMAParameters: AbstractEarthParameterSet, Planet
 
+# # The Eady instability problem
+#
+# Our objective is to model the instability
+# of a sinusoidal geostrophic jet with the streamfunction
+#
+# ```math
+# ψ(y, z) = α λ cos(y / λ) (z + H)
+# ```
+#
+# where ``α`` is geostrophic shear, ``λ`` is the width
+# of the sinusoid, and ``H`` is depth. We set ``λ = L / π``,
+# where ``L`` is the width of the domain, which fits a
+# half wavelength of the sinusoid.
+#
+# The jet is vertically sheared with the total velocity
+# field ``u = - ∂_y ψ``, such that
+#
+# ```math
+# u = α sin(y / λ) (z + H) \, .
+# ```
+#
+# The total buoyancy field is ``b = f ∂_z ψ + N² z``, where
+# ``f ∂_z ψ`` is the geostrophic component of buoyancy and
+# ``N² z`` refelcts a stable stratification with buoyancy
+# frequency ``N``. We thus have
+#
+# ```math
+# b = α λ cos(y / λ) + N² z
+# ```
+# 
+# The baroclinic component of ``u`` is the "thermal wind"
+# associated with ``b``. The barotropic component of ``u``,
+# ``⟨u⟩ = \frac{1}{H} ∫ u \rm{d} z``, however, is balanced by
+# a surface displacement via
+# 
+# ```math
+# f ⟨u⟩ = - g H ∂_y η \, ,
+# ```
+#
+# where ``g`` is gravitational acceleration. Using
+# ``⟨u⟩ = α sin(y / λ) / 2``, we obtain
+#
+# ```math
+# η = α f λ / (2 g H) cos(y / λ) 
+# ```
+#
 # # Parameters
+#
+# We now choose parameters for the Eady instability problem.
 
-Nh = 32
-Nz = 4
+Nh = 64
+Nz = 8
 L = 1e6 # Domain width (m)
 H = 1e3 # Domain height (m)
 f = 1e-4 # Coriolis parameter (s⁻¹)
@@ -37,13 +84,16 @@ N² = 1e-5 # Initial buoyancy gradient (s⁻²)
 νh = κh = 1e3 # Horizontal viscosity and diffusivity (m² s⁻¹)
 νz = κh = 1e-2 # Vertical viscosity and diffusivity (m² s⁻¹)
 
-hour = 3600.0
-day = 24hour
-year = 365day
-stop_time = 2day # Simulation stop time
+minutes = 60.0
+hours = 60minutes
+days = 24hours
+years = 365days
+
+stop_time = 30days # Simulation stop time
 
 struct EarthParameters <: AbstractEarthParameterSet end
 Planet.grav(::EarthParameters) = 0.1
+g = Planet.grav(EarthParameters())
 
 # # The domain
 
@@ -54,6 +104,7 @@ domain = RectangularDomain(
     y = (0, L),
     z = (-H, 0),
     periodicity = (true, false, false),
+    array_type = CuArray,
     boundary = ((0, 0), (1, 1), (1, 2)),
 )
 
@@ -72,18 +123,18 @@ free_surface = OceanBC(Penetrable(FreeSlip()), Insulating())
 
 λ = L / π # Sinusoidal jet width (m)
 
-# Ψ(y, z) = - α * λ * cos(y / λ) * (z + H)
-U(x, y, z) = + α * sin(y / λ) * (z + H)
-Θ(x, y, z) = - α * f * λ * cos(y / λ) + N² * z + α * f * L * 1e-3 * Ξ(z)
+uᵢ(x, y, z) = + α * sin(y / λ) * (z + H)
+θᵢ(x, y, z) = + α * f * λ * cos(y / λ) + N² * z + α * f * L * 1e-3 * Ξ(z)
+ηᵢ(x, y, z) = α * f * λ / (2 * g * H) * cos(y / λ)
 
-initial_conditions = InitialConditions(u = U, θ = Θ)
+initial_conditions = InitialConditions(u = uᵢ, θ = θᵢ, η = ηᵢ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = hour / 4,
+    time_step = 2minutes,
     initial_conditions = initial_conditions,
     parameters = EarthParameters(),
-    buoyancy = (αᵀ = 1 / Planet.grav(EarthParameters()),),
+    buoyancy = (αᵀ = 1 / g,),
     coriolis = (f₀ = f, β = 0),
     turbulence_closure = (νʰ = νh, κʰ = κh,
                           νᶻ = νz, κᶻ = νz),
@@ -94,8 +145,10 @@ model = Ocean.HydrostaticBoussinesqSuperModel(
 # We prepare a callback that periodically fetches the horizontal velocity and
 # tracer concentration for later animation,
 
-u, v, η, θ = model.fields
 fetched_states = []
+
+realdata = Array(model.state.realdata)
+u = SpectralElementField(domain, view(realdata, :, 1, :))
 
 volume = assemble(u)
 x = volume.x[:, 1, 1]
@@ -106,12 +159,19 @@ y = volume.y[1, :, 1]
 
 start_time = time_ns()
 
-data_fetcher = EveryXSimulationTime(day) do
+data_fetcher = EveryXSimulationTime(days / 10) do
+
+    realdata = Array(model.state.realdata)
+    u = SpectralElementField(domain, view(realdata, :, 1, :))
+    v = SpectralElementField(domain, view(realdata, :, 2, :))
+    η = SpectralElementField(domain, view(realdata, :, 3, :))
+    θ = SpectralElementField(domain, view(realdata, :, 4, :))
+
     umax = maximum(abs, u)
     elapsed = (time_ns() - start_time) * 1e-9
 
     step = @sprintf("Step: %d", steps(model))
-    sim_time = @sprintf("time: %.2f days", current_time(model) / day)
+    sim_time = @sprintf("time: %.2f days", current_time(model) / days)
     wall_time = @sprintf("wall time: %.2f min", elapsed / 60)
 
     @info "$step, $sim_time, $wall_time"
@@ -176,8 +236,8 @@ animation = @animate for (i, state) in enumerate(fetched_states)
         kwargs...
     )
 
-    u_title = @sprintf("u at t = %d days", state.time / day)
-    θ_title = @sprintf("θ at t = %d days", state.time / day)
+    u_title = @sprintf("u at t = %d days", state.time / days)
+    θ_title = @sprintf("θ at t = %d days", state.time / days)
 
     plot(u_plot, θ_plot, title = [u_title θ_title], size = (1200, 500))
 end
