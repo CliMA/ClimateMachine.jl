@@ -1,8 +1,7 @@
 using ..Microphysics_0M
 using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
 
-export AbstractSource,
-    RayleighSponge, GeostrophicForcing, RemovePrecipitation, CreateClouds
+export AbstractSource, RemovePrecipitation, CreateClouds
 
 # sources are applied additively
 @generated function atmos_source!(
@@ -85,25 +84,6 @@ function atmos_source!(
     # Migrated to Σsources
 end
 
-"""
-    RayleighSponge{FT} <: AbstractSource
-
-Rayleigh Damping (Linear Relaxation) for top wall momentum components
-Assumes laterally periodic boundary conditions for LES flows. Momentum components
-are relaxed to reference values (zero velocities) at the top boundary.
-"""
-struct RayleighSponge{FT} <: AbstractSource
-    "Maximum domain altitude (m)"
-    z_max::FT
-    "Altitude at with sponge starts (m)"
-    z_sponge::FT
-    "Sponge Strength 0 ⩽ α_max ⩽ 1"
-    α_max::FT
-    "Relaxation velocity components"
-    u_relaxation::SVector{3, FT}
-    "Sponge exponent"
-    γ::FT
-end
 function atmos_source!(
     s::RayleighSponge,
     atmos::AtmosModel,
@@ -114,12 +94,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    z = altitude(atmos, aux)
-    if z >= s.z_sponge
-        r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
-        β_sponge = s.α_max * sinpi(r / 2)^s.γ
-        source.ρu -= β_sponge * (state.ρu .- state.ρ * s.u_relaxation)
-    end
+    # Migrated to Σsources
 end
 
 """
