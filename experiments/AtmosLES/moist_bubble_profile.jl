@@ -16,6 +16,7 @@ function MoistBubbleProfile(param_set::AbstractParameterSet, FT)
     p0::FT = MSLP(param_set)
     _grav::FT = grav(param_set)
     L00::FT = LH_v0(param_set) + (_cp_l - _cp_v) * T_freeze(param_set)
+    _LH_v0::FT = LH_v0(param_set)
 
     n = 1000
     z = zeros(n + 1)
@@ -38,7 +39,7 @@ function MoistBubbleProfile(param_set::AbstractParameterSet, FT)
         ρ_d = ρ / (1 + r_t)
         p_d = _R_d * ρ_d * T
         T_C = T - 273.15
-        p_vs = 611.2 * exp(17.62 * T_C / (243.12 + T_C))
+        p_vs = saturation_vapor_pressure(param_set, T, _LH_v0, _cp_v - _cp_l)
         L = L00 - (_cp_l - _cp_v) * T
         F[1] = pPrime + _grav * ρ
         F[2] = p - (_R_d * ρ_d + _R_v * ρ_qv) * T

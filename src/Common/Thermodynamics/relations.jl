@@ -121,7 +121,6 @@ air_pressure(ts::ThermodynamicState) = air_pressure(
     PhasePartition(ts),
 )
 
-
 """
     air_density(param_set, T, p[, q::PhasePartition])
 
@@ -571,7 +570,7 @@ function total_energy(
     e_kin::FT,
     e_pot::FT,
     T::FT,
-    q::PhasePartition{FT} = q_pt_0(FT),
+    q::PhasePartition{FT} = _pt_0(FT),
 ) where {FT <: Real}
     return e_kin + e_pot + internal_energy(param_set, T, q)
 end
@@ -1866,7 +1865,7 @@ function equiv_pottemp(
     ρ_v = ρ * (q_tot - q_liq)
     ρ_d = ρ - ρ_v_tot
     p_d = _R_d * ρ_d * T
-    fact_1 = (p_d/_MSLP)^(- _R_d * ρ_d / (_cp_d * ρ_d + _cp_l * ρ_v_tot))
+    fact_1 = (p_d/_MSLP)^(-_R_d * ρ_d / (_cp_d * ρ_d + _cp_l * ρ_v_tot))
     num = (_LH_v0 - (_cp_l - _cp_v) * (T - _T_freeze)) * ρ_v
     den = T * (_cp_d * ρ_d + _cp_l * ρ_v_tot)
     fact_2 = exp(num/den)

@@ -192,7 +192,7 @@ vars_state(::NonEquilMoist, ::GradientFlux, FT) = @vars(
     ∇q_liq::SVector{3, FT},
     ∇q_ice::SVector{3, FT}
 )
-vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
+vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT, θ_e::FT)
 
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::NonEquilMoist,
@@ -204,6 +204,7 @@ vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
+    aux.moisture.θ_e = equiv_pottemp(ts)
     nothing
 end
 

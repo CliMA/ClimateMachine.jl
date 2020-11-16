@@ -1,5 +1,5 @@
 using ..Microphysics_0M
-using CLIMAParameters.Planet: Omega, e_int_i0, cv_l, cv_i, T_0
+using CLIMAParameters.Planet: Omega, e_int_i0, R_v, cp_v, cp_l, cv_l, cv_i, T_0, LH_v0
 
 export AbstractSource,
     RayleighSponge, GeostrophicForcing, RemovePrecipitation, CreateClouds
@@ -145,15 +145,27 @@ function atmos_source!(
     ts = recover_thermo_state(atmos, state, aux)
     q = PhasePartition(ts)
     T = air_temperature(ts)
-
+#------------    
+    _R_v::FT = R_v(atmos.param_set)
+    _cp_v::FT = cp_v(atmos.param_set)
+    _cp_l::FT = cp_l(atmos.param_set)
+    _LH_v0::FT = LH_v0(atmos.param_set)
+    q_v = (q.tot - q.liq)
+    p_vs = saturation_vapor_pressure(atmos.param_set, T, _LH_v0, _cp_v - _cp_l)
+    z = altitude(atmos, aux)
+    f1 = (p_vs / (_R_v * state.ρ * T) - q_v) 
+    f2 = q.liq
+    RelCloud = 1
+    S_q_liq = RelCloud * (f1 + f2 - sqrt(f1 * f1 + f2 * f2))
+    S_q_ice = 0
+#--------------
     # phase partition corresponding to the current T and q.tot
     # (this is not the same as phase partition from saturation adjustment)
     ts_eq = PhaseEquil_ρTq(atmos.param_set, state.ρ, T, q.tot)
-    q_eq = PhasePartition(ts_eq)
 
     # cloud condensate as relaxation source terms
-    S_q_liq = conv_q_vap_to_q_liq_ice(atmos.param_set.microphys.liq, q_eq, q)
-    S_q_ice = conv_q_vap_to_q_liq_ice(atmos.param_set.microphys.ice, q_eq, q)
+#   S_q_liq = conv_q_vap_to_q_liq_ice(atmos.param_set.microphys.liq, q_eq, q)
+#   S_q_ice = conv_q_vap_to_q_liq_ice(atmos.param_set.microphys.ice, q_eq, q)
 
     source.moisture.ρq_liq += state.ρ * S_q_liq
     source.moisture.ρq_ice += state.ρ * S_q_ice

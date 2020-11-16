@@ -101,6 +101,7 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
     L00::FT = LH_v0(param_set) + (_cp_l - _cp_v) * T_freeze(param_set)
+    _LH_v0::FT = LH_v0(param_set)
 
     xc::FT = 10000
     zc::FT = 2000
@@ -138,7 +139,6 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
     ρ_e = (_cv_d * ρ_d + _cv_v * ρ_qv + _cp_l * ρ_qc) * (T_loc - _T_0) + _e_int_v0 * ρ_qv
 
     if r < rc && Δθ > 0
-        println("Inside ")
         θ_dens = ρ_θ / ρ * (p_loc / p0)^(κ_M - κ)
         θ_dens_new = θ_dens * (1 + Δθ * cospi(0.5 * r / rc)^2 / 300)
         rt = (ρ_qv + ρ_qc) / ρ_d
@@ -149,7 +149,7 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
                 T_loc = θ_loc * (p_loc / p0)^κ
                 T_C = T_loc - 273.15
                 # SaturVapor
-                pvs = 611.2 * exp(17.62 * T_C / (243.12 + T_C))
+                pvs = saturation_vapor_pressure(param_set, T_loc, _LH_v0, _cp_v - _cp_l)
                 ρ_d_new = (p_loc - pvs) / (_R_d * T_loc)
                 rvs = pvs / (_R_v * ρ_d_new * T_loc)
                 θ_new = θ_dens_new * (1 + rt) / (1 + (_R_v / _R_d) * rvs)
@@ -188,7 +188,7 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
     state.ρe = ρ_e
     state.moisture.ρq_tot = ρ_qv + ρ_qc
     if bl.moisture isa NonEquilMoist
-        state.moisture.ρq_liq = FT(0)
+        state.moisture.ρq_liq = ρ_qc
         state.moisture.ρq_ice = FT(0)
     end
 end
@@ -196,6 +196,7 @@ end
 function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
 
     # Choose fast solver
+    println("fast_method  ",fast_method)
     if fast_method == "LowStorageRungeKutta2N"
         ode_solver = ClimateMachine.MISSolverType(
             splitting_type = ClimateMachine.SlowFastSplitting(),
@@ -260,6 +261,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
 
     # Set up the model
     C_smag = FT(0.23)
+    C_smag = FT(0.0)
     ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set, FT(300), FT(0)))
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -272,6 +274,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
         ref_state = ref_state,
         init_state_prognostic = init_moistbubble!,
     )
+    println("model.ref_state ",model.ref_state)
 
     # Problem configuration
     config = ClimateMachine.AtmosLESConfiguration(
@@ -314,21 +317,19 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 3
+    N = 4
     # Domain resolution and size
     Δx = FT(125)
     Δy = FT(125)
     Δz = FT(125)
-    Δx = FT(500)
-    Δy = FT(500)
-    Δz = FT(500)
-    Δx = FT(1000)
-    Δy = FT(500)
-    Δz = FT(1000)
+    Δx = FT(250)
+    Δy = FT(250)
+    Δz = FT(250)
     resolution = (Δx, Δy, Δz)
     # Domain extents
-    xmax = FT(20000)
-    ymax = FT(4000)
+    xmax = FT(2000)
+    xmax = FT(2000)
+    ymax = FT(2000)
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
@@ -337,6 +338,7 @@ function main()
     # Time-step size (s)
     Δt = FT(0.4)
 
+    fast_method = "StrongStabilityPreservingRungeKutta"
     driver_config = config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,

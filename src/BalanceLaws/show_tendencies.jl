@@ -30,6 +30,7 @@ Requires definitions for
 for the balance law.
 """
 function show_tendencies(bl; include_params = false)
+    println("in show_tendencies")
     ip = include_params
     prog_vars = prognostic_vars(bl)
     if !isempty(prog_vars)
@@ -39,20 +40,20 @@ function show_tendencies(bl; include_params = false)
             "(Y_i)" "(F_1)" "(S)"
         ]
         eqs = collect(string.(nameof.(typeof.(prog_vars))))
-        fmt_tends(tt) = map(prog_vars) do pv
-            format_tends(eq_tends(pv, bl, tt), ip)
-        end |> collect
-        F1 = fmt_tends(Flux{FirstOrder}())
-        S = fmt_tends(Source())
-        data = hcat(eqs, F1, S)
-        @warn "This table is temporarily incomplete"
-        println("\nPDE: ∂_t Y_i + (∇•F_1(Y))_i + (∇•F_2(Y,G)))_i = (S(Y,G))_i")
-        pretty_table(
-            data,
-            header,
-            header_crayon = crayon"yellow bold",
-            subheader_crayon = crayon"green bold",
-        )
+#       fmt_tends(tt) = map(prog_vars) do pv
+#           format_tends(eq_tends(pv, bl, tt), ip)
+#       end |> collect
+#       F1 = fmt_tends(Flux{FirstOrder}())
+#       S = fmt_tends(Source())
+#       data = hcat(eqs, F1, S)
+#       @warn "This table is temporarily incomplete"
+#       println("\nPDE: ∂_t Y_i + (∇•F_1(Y))_i + (∇•F_2(Y,G)))_i = (S(Y,G))_i")
+#       pretty_table(
+#           data,
+#           header,
+#           header_crayon = crayon"yellow bold",
+#           subheader_crayon = crayon"green bold",
+#       )
         println("")
     else
         msg = "Defining `prognostic_vars` and\n"
