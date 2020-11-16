@@ -91,8 +91,8 @@ using ClimateMachine.BalanceLaws:
         aux,
         vars_state(m, Auxiliary(), FT),
     )
-    #Make sure it runs, and that there are no state variables, and only "z" as aux.
+    #Make sure it runs, and that there are no state variables, and only "x,y,z" as aux.
     @test t == timeend
-    @test size(Base.collect(keys(aux_vars)))[1] == 1
+    @test size(Base.collect(keys(aux_vars)))[1] == 3
     @test size(Base.collect(keys(state_vars)))[1] == 0
 end

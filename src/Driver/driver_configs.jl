@@ -27,6 +27,7 @@ struct OceanSplitExplicitSpecificInfo <: ConfigSpecificInfo
     dg::DGModel
 end
 struct SingleStackSpecificInfo <: ConfigSpecificInfo end
+struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
 
 include("SolverTypes/SolverTypes.jl")
 
@@ -513,6 +514,94 @@ function OceanSplitExplicitConfiguration(
     )
 end
 
+
+
+function MultiColumnLandModel(
+    name::String,
+    N::Int,
+    (Δx, Δy, Δz)::NTuple{3, FT},
+    xmax::FT,
+    ymax::FT,
+    zmax::FT,
+    param_set::AbstractParameterSet,
+    model::BalanceLaw;
+    xmin = zero(FT),
+    ymin = zero(FT),
+    zmin = zero(FT),
+    array_type = ClimateMachine.array_type(),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = ((0, 0), (0, 0), (1, 2)),
+    solver_type = ExplicitSolverType(),
+    periodicity = (true, true, false),
+    meshwarp = (x...) -> identity(x),
+    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
+
+    print_model_info(model)
+
+    brickrange = (
+        grid1d(xmin, xmax, elemsize = Δx * N),
+        grid1d(ymin, ymax, elemsize = Δy * N),
+        grid1d(zmin, zmax, elemsize = Δz * N),
+    )
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = N,
+        meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing MultiColumnLandModel configuration for %s
+    precision        = %s
+    polynomial order = %d
+    domain           = %.2f m x%.2f m x%.2f m
+    resolution       = %dx%dx%d
+    MPI ranks        = %d
+    min(Δ_horz)      = %.2f m
+    min(Δ_vert)      = %.2f m""",
+        name,
+        FT,
+        N,
+        xmax,
+        ymax,
+        zmax,
+        Δx,
+        Δy,
+        Δz,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
+    )
+
+    return DriverConfiguration(
+        MultiColumnLandConfigType(),
+        name,
+        N,
+        FT,
+        array_type,
+        solver_type,
+        param_set,
+        model,
+        mpicomm,
+        grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        MultiColumnLandSpecificInfo(),
+    )
+end
 function SingleStackConfiguration(
     name::String,
     N::Union{Int, NTuple{2, Int}},

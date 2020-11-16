@@ -44,6 +44,7 @@ end
 """
     function soil_boundary_state!(
         nf,
+        bctype,
         land::LandModel,
         soil::SoilModel,
         water::SoilWaterModel,
@@ -52,7 +53,6 @@ end
         nM,
         state⁻::Vars,
         aux⁻::Vars,
-        bctype,
         t,
     )
 
@@ -93,6 +93,7 @@ end
 """
     function soil_boundary_state!(
         nf,
+        bctype,
         land::LandModel,
         soil::SoilModel,
         water::SoilWaterModel,
@@ -103,7 +104,6 @@ end
         state⁻::Vars,
         diff⁻::Vars,
         aux⁻::Vars,
-        bctype,
         t,
     )
 
@@ -115,7 +115,8 @@ function soil_boundary_state!(
     bctype,
     land::LandModel,
     soil::SoilModel,
-    water::SoilWaterModel,
+    component::SoilWaterModel,
+    boundaries::GeneralBoundaryConditions,
     state⁺::Vars,
     diff⁺::Vars,
     aux⁺::Vars,
@@ -124,7 +125,6 @@ function soil_boundary_state!(
     diff⁻::Vars,
     aux⁻::Vars,
     t,
-    _...,
 )
     execute_based_on_boundaries!(
         nf,

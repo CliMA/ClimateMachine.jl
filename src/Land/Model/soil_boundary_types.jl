@@ -91,7 +91,7 @@ end
 """
     SurfaceDrivenWaterBoundaryConditions{FT, PD, RD} <: AbstractBoundaryConditions
 
-A concrete example of AbstractBoundaryConditions; this is to be used when the user wishes to 
+A concrete example of `AbstractBoundaryConditions`; this is to be used when the user wishes to 
 apply physical fluxes of water at the top of the domain (according to precipitation, runoff, and 
 evaporation rates) and zero flux at the bottom of the domain.
 

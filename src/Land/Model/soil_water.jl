@@ -1,4 +1,5 @@
 export SoilWaterModel, PrescribedWaterModel, get_water_content
+include("soil_boundary_types.jl")
 
 abstract type AbstractWaterModel <: AbstractSoilComponentModel end
 
