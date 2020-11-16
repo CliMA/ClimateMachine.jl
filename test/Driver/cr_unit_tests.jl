@@ -110,7 +110,7 @@ function main()
     )
 
     isdir(ClimateMachine.Settings.checkpoint_dir) ||
-        mkpath(ClimateMachine.Settings.checkpoint_dir)
+    mkpath(ClimateMachine.Settings.checkpoint_dir)
 
     @testset "Checkpoint/restart unit tests" begin
         rm_checkpoint(

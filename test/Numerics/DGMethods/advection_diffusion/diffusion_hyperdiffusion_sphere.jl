@@ -246,12 +246,11 @@ let
                 outputtime = FT(2)
 
                 @info (ArrayType, FT)
-                vtkdir =
-                    output ?
+                vtkdir = output ?
                     "vtk_diffusion_sphere" *
-                    "_poly$(polynomialorder)" *
-                    "_$(ArrayType)_$(FT)" *
-                    "_level$(l)" :
+                "_poly$(polynomialorder)" *
+                "_$(ArrayType)_$(FT)" *
+                "_level$(l)" :
                     nothing
                 result[l] = run(
                     mpicomm,

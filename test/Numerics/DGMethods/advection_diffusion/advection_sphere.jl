@@ -425,14 +425,13 @@ let
                         outputtime = timeend
 
                         @info (ArrayType, FT)
-                        vtkdir =
-                            output ?
+                        vtkdir = output ?
                             "vtk_advection_sphere" *
-                            "_$problem" *
-                            "_$explicit_method" *
-                            "_poly$(polynomialorder)" *
-                            "_$(ArrayType)_$(FT)" *
-                            "_level$(l)" :
+                        "_$problem" *
+                        "_$explicit_method" *
+                        "_poly$(polynomialorder)" *
+                        "_$(ArrayType)_$(FT)" *
+                        "_level$(l)" :
                             nothing
 
                         result[l], Δmass = test_run(

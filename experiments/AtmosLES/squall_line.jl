@@ -264,10 +264,8 @@ function main()
         Courant_number = Cmax,
     )
 
-    result = ClimateMachine.invoke!(
-        solver_config;
-        check_euclidean_distance = true,
-    )
+    result =
+        ClimateMachine.invoke!(solver_config; check_euclidean_distance = true)
 end
 
 main()

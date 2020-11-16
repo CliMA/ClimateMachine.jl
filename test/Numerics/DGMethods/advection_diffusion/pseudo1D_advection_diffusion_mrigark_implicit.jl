@@ -349,12 +349,11 @@ let
                                 l,
                                 fluxBC,
                             )
-                            vtkdir =
-                                output ?
+                            vtkdir = output ?
                                 "vtk_advection" *
-                                "_poly$(polynomialorder)" *
-                                "_dim$(dim)_$(ArrayType)_$(FT)" *
-                                "_$(linearsolvertype)_level$(l)" :
+                            "_poly$(polynomialorder)" *
+                            "_dim$(dim)_$(ArrayType)_$(FT)" *
+                            "_$(linearsolvertype)_level$(l)" :
                                 nothing
                             result[l] = test_run(
                                 mpicomm,

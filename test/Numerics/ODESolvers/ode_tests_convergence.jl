@@ -128,8 +128,7 @@ const ArrayType = ClimateMachine.array_type()
                 errors = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in fast_mrrk_methods
-                        q0 =
-                            ArrayType === Array ? [1.0] :
+                        q0 = ArrayType === Array ? [1.0] :
                             range(-1.0, 1.0, length = 303)
                         for (n, dt) in enumerate(dts)
                             Q = ArrayType{ComplexF64}(q0)
@@ -168,8 +167,7 @@ const ArrayType = ClimateMachine.array_type()
                 errors = similar(dts)
                 for (slow_method, slow_expected_order) in slow_mrrk_methods
                     for (fast_method, fast_expected_order) in fast_mrrk_methods
-                        q0 =
-                            ArrayType === Array ? [1.0] :
+                        q0 = ArrayType === Array ? [1.0] :
                             range(-1.0, 1.0, length = 303)
                         for (n, fast_dt) in enumerate(dts)
                             slow_dt = c * fast_dt
@@ -205,8 +203,7 @@ const ArrayType = ClimateMachine.array_type()
                 errors = similar(dts)
                 for (mis_method, mis_expected_order) in mis_methods
                     for fast_method in (LSRK54CarpenterKennedy,)
-                        q0 =
-                            ArrayType === Array ? [1.0] :
+                        q0 = ArrayType === Array ? [1.0] :
                             range(-1.0, 1.0, length = 303)
                         for (n, dt) in enumerate(dts)
                             Q = ArrayType{ComplexF64}(q0)
@@ -389,8 +386,7 @@ const ArrayType = ClimateMachine.array_type()
                             min(slow_expected_order, fast_expected_order)
                         max_order =
                             max(slow_expected_order, fast_expected_order)
-                        atol =
-                            fast_method == ARK2GiraldoKellyConstantinescu ?
+                        atol = fast_method == ARK2GiraldoKellyConstantinescu ?
                             0.5 : 0.37
                         @test (
                             isapprox(rate[end], min_order; atol = atol) ||

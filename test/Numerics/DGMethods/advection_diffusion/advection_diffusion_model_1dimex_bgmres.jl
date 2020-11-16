@@ -313,7 +313,8 @@ let
                         Ne = 2^(l - 1) * base_num_elem
                         brickrange = (
                             ntuple(
-                                j -> range(FT(-1); length = Ne + 1, stop = 1),
+                                j -> range(FT(-1); length = Ne + 1,
+                                    stop = 1),
                                 dim - 1,
                             )...,
                             range(FT(-5); length = 5Ne + 1, stop = 5),
@@ -335,12 +336,11 @@ let
                         timeend = 0.5
 
                         @info (ArrayType, FT, dim, linearsolvertype, l, fluxBC)
-                        vtkdir =
-                            output ?
+                        vtkdir = output ?
                             "vtk_advection" *
-                            "_poly$(polynomialorder)" *
-                            "_dim$(dim)_$(ArrayType)_$(FT)" *
-                            "_$(linearsolvertype)_level$(l)" :
+                        "_poly$(polynomialorder)" *
+                        "_dim$(dim)_$(ArrayType)_$(FT)" *
+                        "_$(linearsolvertype)_level$(l)" :
                             nothing
                         result[l] = test_run(
                             mpicomm,

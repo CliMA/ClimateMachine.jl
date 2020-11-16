@@ -60,8 +60,7 @@ function main()
         for FT in (Float64,), dims in 2
             for split_explicit_implicit in (false, true)
                 let
-                    split =
-                        split_explicit_implicit ? "(Nonlinear, Linear)" :
+                    split = split_explicit_implicit ? "(Nonlinear, Linear)" :
                         "(Full, Linear)"
                     @info @sprintf """Configuration
                                       ArrayType = %s
