@@ -332,7 +332,7 @@ function main()
     timeend = FT(1000)
 
     # Time-step size (s)
-    Δt = FT(1.0)
+    Δt = FT(0.5)
 
     fast_method = "StrongStabilityPreservingRungeKutta"
     driver_config = config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
