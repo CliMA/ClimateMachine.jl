@@ -39,3 +39,9 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Energy} =
 # TotalMoisture
 eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: TotalMoisture} =
     ()
+# LiquidMoisture
+eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: LiquidMoisture } =
+    ()
+# IceMoisture
+eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: IceMoisture } =
+    ()

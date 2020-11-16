@@ -1,4 +1,3 @@
-using Distributions
 using Random
 using StaticArrays
 using Test
@@ -174,7 +173,7 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     u_relaxation = SVector(FT(0), FT(0), FT(0))
     zsponge = FT(7500.0)
     rayleigh_sponge =
-        RayleighSponge{FT}(zmax, zsponge, c_sponge, u_relaxation, 2)
+        RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
 
     # Boundary conditions
     # SGS Filter constants
@@ -188,7 +187,7 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
 
 
     problem = AtmosProblem(
-        boundarycondition = (AtmosBC(), AtmosBC()),
+        boundaryconditions = (AtmosBC(), AtmosBC()),
         init_state_prognostic = ics,
     )
 
