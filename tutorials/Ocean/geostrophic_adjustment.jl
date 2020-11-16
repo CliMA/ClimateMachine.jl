@@ -19,7 +19,7 @@ ClimateMachine.init()
 using ClimateMachine.Ocean.Domains
 
 domain = RectangularDomain(
-    Ne = (100, 1, 1),
+    Ne = (25, 1, 1),
     Np = 4,
     x = (0, 1e6),
     y = (0, 1e6),
@@ -121,10 +121,11 @@ using ClimateMachine.Ocean
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = 10.0,
+    time_step = 1.0,
     initial_conditions = initial_conditions,
     parameters = EarthParameters(),
     turbulence_closure = (νʰ = 0, κʰ = 0, νᶻ = 0, κᶻ = 0),
+    coriolis = (f₀ = f, β = 0),
     boundary_tags = boundary_tags,
     boundary_conditions = boundary_conditions,
 )
@@ -153,7 +154,7 @@ u, v, η, θ = model.fields
 ## Container to hold the plotted frames
 movie_plots = []
 
-plot_every = 10 # iterations
+plot_every = 100 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
 

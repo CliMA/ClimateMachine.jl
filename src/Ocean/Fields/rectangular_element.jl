@@ -1,26 +1,55 @@
+using ..Domains: RectangularDomain
+
 #####
 ##### RectangularElement
 #####
 
-"""
-    RectangularElement(data, x, y, z)
-
-Returns...
-"""
-struct RectangularElement{D, X, Y, Z}
+struct RectangularElement{D, X, Y, Z, I}
     data::D
     x::X
     y::Y
     z::Z
+    index::I # gives state.realdata[:, variable, index]
     # M::Mⁱʲ
+end
+
+"""
+    RectangularElement(domain, grid, realdata, element_index)
+
+Returns a Cartesian view into the `realdata` and nodes (located in `grid`)
+associated with `element_index`.
+"""
+function RectangularElement(domain::RectangularDomain, grid, realdata, element_index)
+    volume_geometry = grid.vgeo
+
+    Np = domain.Np
+    Te = prod(domain.Ne) # total number of elements
+
+    # Extract views of Cartesian coordinates
+    x = view(volume_geometry, :, grid.x1id, :)
+    y = view(volume_geometry, :, grid.x2id, :)
+    z = view(volume_geometry, :, grid.x3id, :)
+
+    # Reshape x, y, z to (xnode, ynode, znode, element)
+    x = reshape(x, Np + 1, Np + 1, Np + 1, Te)
+    y = reshape(y, Np + 1, Np + 1, Np + 1, Te)
+    z = reshape(z, Np + 1, Np + 1, Np + 1, Te)
+
+    # Reshape realdata as coordinate arrays
+    reshaped_realdata = reshape(realdata, Np + 1, Np + 1, Np + 1, Te)
+
+    # Build views to realdata and x, y, z
+    data = view(reshaped_realdata, :, :, :, element_index)
+    x = view(x, :, :, :, element_index)
+    y = view(y, :, :, :, element_index)
+    z = view(z, :, :, :, element_index)
+
+    return RectangularElement(data, x, y, z, element_index)
 end
 
 Base.eltype(::RectangularElement) = eltype(elem.data)
 
 Base.size(element::RectangularElement) = size(element.data)
-
-Base.collect(element::RectangularElement) =
-    RectangularElement(collect(data), collect(x), collect(y), collect(z))
 
 Base.@propagate_inbounds Base.getindex(elem::RectangularElement, i, j, k) =
     elem.data[i, j, k]
@@ -89,11 +118,11 @@ function assemble(dim::Val, left::RectangularElement, right::RectangularElement)
     y = assemble(dim, left.y, right.y)
     z = assemble(dim, left.z, right.z)
 
-    return RectangularElement(data, x, y, z)
+    return RectangularElement(data, x, y, z, nothing)
 end
 
 assemble(dim::Val, e1, e2, e3...) = assemble(dim, e1, assemble(dim, e2, e3...))
-assemble(elem) = elem
+assemble(dim::Val, elem) = elem
 
 data(elem::RectangularElement) = elem.data
 

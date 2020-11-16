@@ -12,10 +12,11 @@ using ..Domains: AbstractDomain
 ##### SpectralElementField
 #####
 
-struct SpectralElementField{R, D, E}
-    realdata::R
-    domain::D
+struct SpectralElementField{E, D, G, R}
     elements::E
+    domain::D
+    grid::G
+    realdata::R
 end
 
 """
@@ -26,9 +27,9 @@ assuming that `state.realdata` lives on `RectangularDomain`.
 
 `SpectralElementField.elements` is a three-dimensional array of `RectangularElements`.
 """
-function SpectralElementField(domain::AbstractDomain, state::MPIStateArray, variable_index::Int)
+function SpectralElementField(domain::AbstractDomain, grid, state::MPIStateArray, variable_index::Int)
     data = view(state.realdata, :, variable_index, :)
-    return SpectralElementField(domain, data)
+    return SpectralElementField(domain, grid, data)
 end
 
 const SEF = SpectralElementField
@@ -43,7 +44,7 @@ Base.minimum(f, field::SEF) = minimum([minimum(f, el) for el in field.elements])
 Base.maximum(field::SEF) = maximum([maximum(el) for el in field.elements])
 Base.minimum(field::SEF) = minimum([minimum(el) for el in field.elements])
 
-Base.show(io::IO, field::SEF{FT}) where {FT} = print(io, "SpectralElementField{$FT}")
+Base.show(io::IO, field::SEF{E}) where {E} = print(io, "SpectralElementField{$(E.name.wrapper)}")
 
 #####
 ##### Domain-specific stuff

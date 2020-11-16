@@ -4,6 +4,8 @@ using MPI
 
 using ClimateMachine
 
+using ClimateMachine: Settings
+
 using ...DGMethods.NumericalFluxes
 
 using ..HydrostaticBoussinesq:
@@ -15,7 +17,7 @@ using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
 using ..Ocean.Fields: SpectralElementField
 
 using ...Mesh.Filters: CutoffFilter, ExponentialFilter
-using ...Mesh.Grids: polynomialorder
+using ...Mesh.Grids: polynomialorder, DiscontinuousSpectralElementGrid
 
 using ClimateMachine:
     LS3NRK33Heuns,
@@ -29,8 +31,9 @@ import ClimateMachine: SolverConfiguration
 ##### It's super good
 #####
 
-struct HydrostaticBoussinesqSuperModel{D, E, S, F, N, T, C}
+struct HydrostaticBoussinesqSuperModel{D, G, E, S, F, N, T, C}
     domain::D
+    grid::G
     equations::E
     state::S
     fields::F
@@ -78,12 +81,29 @@ function HydrostaticBoussinesqSuperModel(;
     ),
     filters = nothing,
     modeldata = NamedTuple(),
+    array_type = Settings.array_type,
+    mpicomm = MPI.COMM_WORLD,
     init_on_cpu = true,
+    boundary_tags = ((0, 0), (0, 0), (1, 2)),
     boundary_conditions = (
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
     ),
 )
+
+    #####
+    ##### Build the grid
+    #####
+    
+    # Change global setting if its set here
+    Settings.array_type = array_type
+
+    grid = DiscontinuousSpectralElementGrid(
+        domain;
+        boundary_tags = boundary_tags,
+        mpicomm = mpicomm,
+        array_type = array_type
+    )
 
     FT = eltype(domain)
 
@@ -125,8 +145,6 @@ function HydrostaticBoussinesqSuperModel(;
 
     # Default vertical filter and horizontal exponential filter:
     if isnothing(filters)
-        grid = domain.grid
-
         filters = (
             vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1),
             exp_filter = ExponentialFilter(grid, 1, 8),
@@ -145,12 +163,12 @@ function HydrostaticBoussinesqSuperModel(;
         "",
         domain.Np,
         eltype(domain),
-        array_type(domain),
+        array_type,
         timestepper,
         equations.param_set,
         equations,
         MPI.COMM_WORLD,
-        domain.grid,
+        grid,
         numerical_fluxes.first_order,
         numerical_fluxes.second_order,
         numerical_fluxes.gradient,
@@ -175,15 +193,16 @@ function HydrostaticBoussinesqSuperModel(;
 
     state = solver_configuration.Q
 
-    u = SpectralElementField(domain, state, 1)
-    v = SpectralElementField(domain, state, 2)
-    η = SpectralElementField(domain, state, 3)
-    θ = SpectralElementField(domain, state, 4)
+    u = SpectralElementField(domain, grid, view(state.realdata, :, 1, :))
+    v = SpectralElementField(domain, grid, view(state.realdata, :, 2, :))
+    η = SpectralElementField(domain, grid, view(state.realdata, :, 3, :))
+    θ = SpectralElementField(domain, grid, view(state.realdata, :, 4, :))
 
     fields = (u = u, v = v, η = η, θ = θ)
 
     return HydrostaticBoussinesqSuperModel(
         domain,
+        grid,
         equations,
         state,
         fields,
@@ -197,7 +216,7 @@ current_time(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.t
 Δt(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.dt
-steps(model::HydrostaticBoussinesqSuperModel) =
+current_step(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.steps
 
 end # module

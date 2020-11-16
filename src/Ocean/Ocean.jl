@@ -37,6 +37,6 @@ include("OceanProblems/OceanProblems.jl")
 include("SuperModels.jl")
 
 using .OceanProblems: InitialConditions
-using .SuperModels: HydrostaticBoussinesqSuperModel, current_time, steps, Δt
+using .SuperModels: HydrostaticBoussinesqSuperModel, current_time, current_step, Δt
 
 end
