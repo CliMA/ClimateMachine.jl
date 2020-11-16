@@ -156,7 +156,7 @@ function atmos_source!(
     f1 = (p_vs / (_R_v * state.ρ * T) - q_v) 
     f2 = q.liq
     RelCloud = 1
-    S_q_liq = RelCloud * (f1 + f2 - sqrt(f1 * f1 + f2 * f2))
+    S_q_liq = -RelCloud * (f1 + f2 - sqrt(f1 * f1 + f2 * f2))
     S_q_ice = 0
 #--------------
     # phase partition corresponding to the current T and q.tot

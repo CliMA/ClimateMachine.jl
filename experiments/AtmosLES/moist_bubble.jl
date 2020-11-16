@@ -106,7 +106,7 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
     xc::FT = 10000
     zc::FT = 2000
     rc::FT = 2000
-    Δθ::FT = 0
+    Δθ::FT = 2
 
     iz = 1000
     for i = 2:size(profile.z, 1)
@@ -332,7 +332,7 @@ function main()
     timeend = FT(1000)
 
     # Time-step size (s)
-    Δt = FT(0.4)
+    Δt = FT(1.0)
 
     fast_method = "StrongStabilityPreservingRungeKutta"
     driver_config = config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
