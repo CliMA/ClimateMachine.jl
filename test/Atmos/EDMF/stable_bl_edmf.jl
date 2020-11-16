@@ -1,4 +1,5 @@
-using JLD
+using FileIO
+using JLD2
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -111,7 +112,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(60)
+    timeend = FT(3600*6)
     CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
@@ -204,7 +205,7 @@ function main(::Type{FT}) where {FT}
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
-    n_outputs = 5
+    n_outputs = 6
     # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
@@ -263,126 +264,5 @@ mkpath(output_dir);
 z = get_z(solver_config.dg.grid; rm_dupes = true);
 println(all_data[1].keys)
 
-save( string(output_dir,"/sbl_edmf.jld"),
+save( string(output_dir,"/sbl_edmf.jld2"),
     "all_data", all_data, "time_data", time_data, "z", z)
-
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("ρu[1]",),
-    joinpath(output_dir, "mom_u_plot_exp.png");
-    xlabel = "ρu (kg / m^2 s)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("ρu[2]",),
-    joinpath(output_dir, "mom_v_plot_exp.png");
-    xlabel = "ρv (kg / m^2 s)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("ρu[3]",),
-    joinpath(output_dir, "mom_w_plot_exp.png");
-    xlabel = "ρw (kg / m^2 s)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.environment.buoyancy",),
-    joinpath(output_dir, "env_buoy_plot_exp.png");
-    xlabel = "env buoy",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.environment.ρatke",),
-    joinpath(output_dir, "env_tke_plot_exp.png");
-    xlabel = "ρaTKE (kg / m^1 s^2)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.environment.ρaθ_liq_cv",),
-    joinpath(output_dir, "env_thetal_cov_plot_exp.png");
-    xlabel = "ρaθ_liq_cv (kg K^2/ m^3)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.updraft[1].ρa",),
-    joinpath(output_dir, "a_upd_plot_exp.png");
-    xlabel = "ρa_u (kg / m^3)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.updraft[1].ρaw",),
-    joinpath(output_dir, "rhoaw_upd_plot_exp.png");
-    xlabel = "ρaw_u (kg / m^2 s)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.updraft[1].ρaθ_liq",),
-    joinpath(output_dir, "rhoathetal_upd_plot_exp.png");
-    xlabel = "ρaθl_u (kg K / m^3)",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.updraft[1].ε_dyn",),
-    joinpath(output_dir, "ent_dyn_plot_exp.png");
-    xlabel = "ε_dyn",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.updraft[1].δ_dyn",),
-    joinpath(output_dir, "det_dyn_plot_exp.png");
-    xlabel = "δ_dyn",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
-export_plot(
-    z,
-    time_data,
-    all_data,
-    ("turbconv.updraft[1].ε_trb",),
-    joinpath(output_dir, "ent_trb_plot_exp.png");
-    xlabel = "ε_trb",
-    ylabel = "z (m)",
-    time_units = "(seconds)",
-)
