@@ -300,15 +300,18 @@ struct InterpolationBrick{
             x1i_all = zeros(UInt16, 0)
             x2i_all = zeros(UInt16, 0)
             x3i_all = zeros(UInt16, 0)
+            MPI.Gatherv!(x1i_d, nothing, root, mpicomm)
+            MPI.Gatherv!(x2i_d, nothing, root, mpicomm)
+            MPI.Gatherv!(x3i_d, nothing, root, mpicomm)
         else
             x1i_all = Array{UInt16}(undef, sum(Np_all))
             x2i_all = Array{UInt16}(undef, sum(Np_all))
             x3i_all = Array{UInt16}(undef, sum(Np_all))
+            MPI.Gatherv!(x1i_d, VBuffer(x1i_all, Np_all), root, mpicomm)
+            MPI.Gatherv!(x2i_d, VBuffer(x2i_all, Np_all), root, mpicomm)
+            MPI.Gatherv!(x3i_d, VBuffer(x3i_all, Np_all), root, mpicomm)
         end
 
-        MPI.Gatherv!(x1i_d, x1i_all, Np_all, root, mpicomm)
-        MPI.Gatherv!(x2i_d, x2i_all, Np_all, root, mpicomm)
-        MPI.Gatherv!(x3i_d, x3i_all, Np_all, root, mpicomm)
 
         if device isa CUDADevice
             ξ1_d = DA(ξ1_d)
@@ -943,15 +946,18 @@ struct InterpolationCubedSphere{
             radi_all = zeros(UInt16, 0)
             lati_all = zeros(UInt16, 0)
             longi_all = zeros(UInt16, 0)
+            MPI.Gatherv!(rad_d, nothing, root, mpicomm)
+            MPI.Gatherv!(lat_d, nothing, root, mpicomm)
+            MPI.Gatherv!(long_d, nothing, root, mpicomm)
         else
             radi_all = Array{UInt16}(undef, sum(Np_all))
             lati_all = Array{UInt16}(undef, sum(Np_all))
             longi_all = Array{UInt16}(undef, sum(Np_all))
+            MPI.Gatherv!(rad_d, VBuffer(radi_all, Np_all), root, mpicomm)
+            MPI.Gatherv!(lat_d, VBuffer(lati_all, Np_all), root, mpicomm)
+            MPI.Gatherv!(long_d, VBuffer(longi_all, Np_all), root, mpicomm)
         end
 
-        MPI.Gatherv!(rad_d, radi_all, Np_all, root, mpicomm)
-        MPI.Gatherv!(lat_d, lati_all, Np_all, root, mpicomm)
-        MPI.Gatherv!(long_d, longi_all, Np_all, root, mpicomm)
 
         if device isa CUDADevice
             ξ1_d = DA(ξ1_d)
@@ -1478,8 +1484,8 @@ function accumulate_interpolated_data!(
             for vari in 1:nvars
                 MPI.Gatherv!(
                     view(iv, :, vari),
-                    view(v_all, :, vari),
-                    Np_all,
+                    pid == root ? VBuffer(view(v_all, :, vari), Np_all) :
+                    nothing,
                     root,
                     mpicomm,
                 )
@@ -1491,8 +1497,8 @@ function accumulate_interpolated_data!(
             for vari in 1:nvars
                 MPI.Gatherv!(
                     view(v, :, vari),
-                    view(v_all, :, vari),
-                    Np_all,
+                    pid == root ? VBuffer(view(v_all, :, vari), Np_all) :
+                    nothing,
                     root,
                     mpicomm,
                 )
@@ -1591,8 +1597,8 @@ function accumulate_interpolated_data(
         for vari in 1:nvars
             MPI.Gatherv!(
                 view(h_iv, :, vari),
-                view(v_all, :, vari),
-                intrp.Np_all,
+                mpirank == 0 ? VBuffer(view(v_all, :, vari), intrp.Np_all) :
+                nothing,
                 0,
                 mpicomm,
             )
