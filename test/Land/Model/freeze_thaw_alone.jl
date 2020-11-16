@@ -85,6 +85,11 @@ using ClimateMachine.BalanceLaws:
     surface_flux = (aux, t) -> eltype(aux)(0.0)
     surface_state = nothing
     bottom_state = nothing
+
+    bc = GeneralBoundaryConditions(
+        Dirichlet(surface_state = surface_state, bottom_state = bottom_state),
+        Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
+    )
     ϑ_l0 = (aux) -> eltype(aux)(1e-10)
     θ_i0 = (aux) -> eltype(aux)(0.33)
 
@@ -92,14 +97,7 @@ using ClimateMachine.BalanceLaws:
         FT;
         initialϑ_l = ϑ_l0,
         initialθ_i = θ_i0,
-        dirichlet_bc = Dirichlet(
-            surface_state = surface_state,
-            bottom_state = bottom_state,
-        ),
-        neumann_bc = Neumann(
-            surface_flux = surface_flux,
-            bottom_flux = bottom_flux,
-        ),
+        boundaries = bc,
     )
 
     soil_heat_model =

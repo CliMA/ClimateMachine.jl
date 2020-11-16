@@ -240,7 +240,14 @@ end;
 surface_water_flux = (aux, t) -> eltype(aux)(0.0)
 bottom_water_flux = (aux, t) -> eltype(aux)(0.0)
 surface_water_state = nothing
-bottom_water_state = nothing;
+bottom_water_state = nothing
+water_bc = GeneralBoundaryConditions(
+    Dirichlet(
+        surface_state = surface_water_state,
+        bottom_state = bottom_water_state,
+    ),
+    Neumann(surface_flux = surface_water_flux, bottom_flux = bottom_water_flux),
+);
 
 # As we are not including the equations for phase changes in this tutorial,
 # we chose temperatures that are above the freezing point of water.
@@ -249,7 +256,14 @@ bottom_water_state = nothing;
 surface_heat_flux = (aux, t) -> eltype(aux)(0.0)
 bottom_heat_flux = (aux, t) -> eltype(aux)(0.0)
 surface_heat_state = nothing
-bottom_heat_state = nothing;
+bottom_heat_state = nothing
+heat_bc = GeneralBoundaryConditions(
+    Dirichlet(
+        surface_state = surface_heat_state,
+        bottom_state = bottom_heat_state,
+    ),
+    Neumann(surface_flux = surface_heat_flux, bottom_flux = bottom_heat_flux),
+);
 
 
 # Next, we define the required `init_soil!` function, which takes the user
@@ -285,14 +299,7 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
-    dirichlet_bc = Dirichlet(
-        surface_state = surface_water_state,
-        bottom_state = bottom_water_state,
-    ),
-    neumann_bc = Neumann(
-        surface_flux = surface_water_flux,
-        bottom_flux = bottom_water_flux,
-    ),
+    boundaries = water_bc,
 );
 
 
@@ -307,18 +314,7 @@ soil_water_model = SoilWaterModel(
 # tutorial.
 
 # Repeat for heat:
-soil_heat_model = SoilHeatModel(
-    FT;
-    initialT = T_init,
-    dirichlet_bc = Dirichlet(
-        surface_state = surface_heat_state,
-        bottom_state = bottom_heat_state,
-    ),
-    neumann_bc = Neumann(
-        surface_flux = surface_heat_flux,
-        bottom_flux = bottom_heat_flux,
-    ),
-);
+soil_heat_model = SoilHeatModel(FT; initialT = T_init, boundaries = heat_bc);
 
 
 # Combine into a single soil model:
