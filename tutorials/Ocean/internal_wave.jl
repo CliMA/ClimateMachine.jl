@@ -1,6 +1,6 @@
-# # Geostrophic adjustment in the hydrostatic Boussinesq equations
+# # Mode-1 internal wave reflection
 #
-# This example simulates a one-dimensional geostrophic adjustement problem
+# This example simulates the propagation of a mode-1 internal wave
 # using the `ClimateMachine.Ocean` subcomponent to solve the hydrostatic
 # Boussinesq equations.
 #
@@ -14,16 +14,15 @@ ClimateMachine.init()
 #
 # We formulate a non-dimension problem in a Cartesian domain with oceanic anisotropy,
 
-using ClimateMachine.Ocean.RectangularDomains: RectangularDomain
+using ClimateMachine.Ocean.Domains
 
 domain = RectangularDomain(
-    elements = (64, 1, 4),
-    polynomialorder = 4,
+    Ne = (64, 1, 4),
+    Np = 4,
     x = (-128, 128),
     y = (-128, 128),
     z = (-1, 0),
     periodicity = (false, false, false),
-    boundary = ((1, 1), (1, 1), (1, 2)),
 )
 
 # # Parameters
@@ -51,15 +50,14 @@ m = π
 # We impose modest gravitational acceleration to render time-stepping feasible,
 
 using CLIMAParameters: AbstractEarthParameterSet, Planet
-const gravitational_acceleration = Planet.grav
 struct NonDimensionalParameters <: AbstractEarthParameterSet end
 
-gravitational_acceleration(::NonDimensionalParameters) = 256.0
+Planet.grav(::NonDimensionalParameters) = 256.0
 
 # we'd like to use `θ` as a buoyancy variable, which requires
 # setting the thermal expansion coefficient ``αᵀ`` to
 
-g = gravitational_acceleration(NonDimensionalParameters())
+g = Planet.grav(NonDimensionalParameters())
 
 αᵀ = 1 / g
 
@@ -96,7 +94,7 @@ initial_conditions = InitialConditions(u = uᵢ, v = vᵢ, θ = θᵢ)
 # 
 # We choose a time-step that resolves the gravity wave phase speed,
 
-time_step = 0.02 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resolution
+time_step = 0.01 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resolution
 
 # and build a model with a smidgeon of viscosity and diffusion,
 
@@ -106,10 +104,11 @@ model = HydrostaticBoussinesqSuperModel(
     domain = domain,
     time_step = time_step,
     initial_conditions = initial_conditions,
+    parameters = NonDimensionalParameters(),
     turbulence_closure = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6),
     coriolis = (f₀ = f, β = 0),
     buoyancy = (αᵀ = αᵀ,),
-    parameters = NonDimensionalParameters(),
+    boundary_tags = ((1, 1), (1, 1), (1, 2)),
 )
 
 # # Fetching data for an animation
@@ -117,6 +116,7 @@ model = HydrostaticBoussinesqSuperModel(
 # To animate the `ClimateMachine.Ocean` solution, we assemble and
 # cache the horizontal velocity ``u`` at periodic intervals:
 
+using ClimateMachine.Ocean: current_time
 using ClimateMachine.Ocean.Fields: assemble
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 
@@ -130,7 +130,7 @@ data_fetcher = EveryXSimulationTime(fetch_every) do
             u = assemble(model.fields.u.elements),
             θ = assemble(model.fields.θ.elements),
             η = assemble(model.fields.η.elements),
-            time = time(model),
+            time = current_time(model),
         ),
     )
     return nothing
@@ -139,8 +139,8 @@ end
 # We also build a callback to log the progress of our simulation,
 
 using Printf
-using ClimateMachine.Ocean: steps, time, Δt
 using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
+using ClimateMachine.Ocean: current_time
 
 print_every = 100 # iterations
 wall_clock = [time_ns()]
@@ -149,8 +149,8 @@ tiny_progress_printer = EveryXSimulationSteps(print_every) do
 
     @info(@sprintf(
         "Steps: %d, time: %.2f, Δt: %.2f, max(|u|): %.4f, elapsed time: %.2f secs",
-        steps(model),
-        time(model),
+        current_step(model),
+        current_time(model),
         Δt(model),
         maximum(abs, model.fields.u),
         1e-9 * (time_ns() - wall_clock[1])
