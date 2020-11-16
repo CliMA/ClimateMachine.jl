@@ -16,15 +16,16 @@ ClimateMachine.init()
 # deep, and discretized on a grid with 100 fourth-order elements in ``x``, and 1
 # fourth-order element in ``y, z``,
 
-## Domain
-Lx = 1e6   # m
-Ly = 1e6   # m
-Lz = 400.0 # m
+using ClimateMachine.Ocean.Domains
 
-## Numerical parameters
-Np = 4           # Polynomial order
-Ne = (25, 1, 1) # Number of elements in (x, y, z)
-nothing # hide
+domain = RectangularDomain(
+    Ne = (100, 1, 1),
+    Np = 4,
+    x = (0, 1e6),
+    y = (0, 1e6),
+    z = (-400, 0),
+    periodicity = (false, true, false),
+)
 
 # # Physical parameters
 #
@@ -36,19 +37,18 @@ nothing # hide
 # and Earth's gravitational acceleration,
 
 using CLIMAParameters: AbstractEarthParameterSet, Planet
-gravitational_acceleration = Planet.grav
 struct EarthParameters <: AbstractEarthParameterSet end
 
-g = gravitational_acceleration(EarthParameters()) # m s⁻²
+g = Planet.grav(EarthParameters()) # m s⁻²
 
 # # An unbalanced initial state
 #
 # We use a Gaussian, partially-balanced initial condition with parameters
 
-U = 0.1            # geostrophic velocity (m s⁻¹)
-L = Lx / 40        # Gaussian width (m)
-a = f * U * L / g  # amplitude of the geostrophic surface displacement (m)
-x₀ = Lx / 4        # Gaussian origin (m, recall that x ∈ [0, Lx])
+U = 0.1              # geostrophic velocity (m s⁻¹)
+L = domain.L.x / 40  # Gaussian width (m)
+a = f * U * L / g    # amplitude of the geostrophic surface displacement (m)
+x₀ = domain.L.x / 4  # Gaussian origin (m, recall that x ∈ [0, Lx])
 
 # and functional form
 
@@ -105,106 +105,36 @@ free_surface_boundary_conditions = OceanBC(
 boundary_conditions =
     (solid_surface_boundary_conditions, free_surface_boundary_conditions)
 
-# We refer to these boundary conditions by their indices in the `boundary_conditions` tuple
+# We refer to these boundary conditions by their indices in the `boundary_tags` tuple
 # when specifying the boundary conditions for the `state`; in other words, "1" corresponds to
 # `solid_surface_boundary_conditions`, while `2` corresponds to `free_surface_boundary_conditions`,
 
-state_boundary_conditions = (
+boundary_tags = (
     (1, 1), # (west, east) boundary conditions
     (0, 0), # (south, north) boundary conditions
     (1, 2), # (bottom, top) boundary conditions
 )
 
-# We're now ready to build the `InitialValueProblem`,
+# We're now ready to build the model.
 
-using ClimateMachine.Ocean.OceanProblems: InitialValueProblem
+using ClimateMachine.Ocean
 
-problem = InitialValueProblem{Float64}(
-    dimensions = (Lx, Ly, Lz),
+model = Ocean.HydrostaticBoussinesqSuperModel(
+    domain = domain,
+    time_step = 10.0,
     initial_conditions = initial_conditions,
+    parameters = EarthParameters(),
+    turbulence_closure = (νʰ = 0, κʰ = 0, νᶻ = 0, κᶻ = 0),
+    boundary_tags = boundary_tags,
     boundary_conditions = boundary_conditions,
 )
-
-# and the `HydrostaticBoussinesqModel` representing the
-# hydrostatic Boussinesq equations,
-
-using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
-
-equations = HydrostaticBoussinesqModel{Float64}(
-    EarthParameters(),
-    problem,
-    νʰ = 0.0,  # Horizontal viscosity (m² s⁻¹) 
-    κʰ = 0.0,  # Horizontal diffusivity (m² s⁻¹) 
-    fₒ = f,    # Coriolis parameter (s⁻¹)
-)
-
-# and the `DriverConfiguration`,
-
-driver_configuration = ClimateMachine.OceanBoxGCMConfiguration(
-    "Geostrophic adjustment tutorial",    # The name of the experiment
-    Np,                                   # The polynomial order
-    Ne,                                   # The number of elements
-    EarthParameters(),                    # The CLIMAParameters.AbstractParameterSet to use
-    equations;                            # The equations to solve, represented by a `BalanceLaw`
-    periodicity = (false, true, false),   # Topology of the domain
-    boundary = state_boundary_conditions,
-)
-nothing # hide
 
 # !!! info "Horizontallly-periodic boundary conditions"
 #     To set horizontally-periodic boundary conditions with
 #     `(solid_surface_boundary_conditions, free_surface_boundary_conditions)`
-#     in the vertical direction use `periodicity = (true, true, false)` and
-#     and `boundary = ((0, 0), (0, 0), (1, 2))` in the constructor for
-#     `OceanBoxGCMConfiguration`.
-
-# # Filters
-#
-# The `HydrostaticBoussinesqModel` currently assumes that both `vert_filter`
-# and `exp_filter` are supplied to `modeldata` in `SolverConfiguration`.
-# We define these required objects,
-
-using ClimateMachine.Mesh.Filters
-using ClimateMachine.Mesh.Grids: polynomialorder
-
-grid = driver_configuration.grid
-
-filters = (
-    vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1),
-    exp_filter = ExponentialFilter(grid, 1, 8),
-)
-
-# # Configuring the solver
-#
-# We configure our solver with the `LSRK144NiegemannDiehlBusch` time-stepping method.
-
-using ClimateMachine.ODESolvers
-
-minute = 60.0
-hours = 60minute
-
-solver_configuration = ClimateMachine.SolverConfiguration(
-    0.0,                    # start time (s)
-    4hours,                 # stop time (s)
-    driver_configuration,
-    init_on_cpu = true,
-    ode_dt = 1minute,       # time step size (s)
-    ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    ),
-    modeldata = filters,
-)
-
-# and use a simple callback to log the progress of our simulation,
-
-using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
-
-print_every = 10 # iterations
-solver = solver_configuration.solver
-
-tiny_progress_printer = EveryXSimulationSteps(print_every) do
-    @info "Steps: $(solver.steps), time: $(solver.t), time step: $(solver.dt)"
-end
+#     in the vertical direction use `periodicity = (true, true, false)` in
+#     the `domain` constructor and `boundary_tags = ((0, 0), (0, 0), (1, 2))`
+#     in the constructor for `HydrostaticBoussinesqSuperModel`.
 
 # # Animating the solution
 #
@@ -214,16 +144,11 @@ end
 
 using Printf
 using Plots
+using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
+using ClimateMachine.Ocean.Fields: assemble
+using ClimateMachine.Ocean: current_step, current_time
 
-using ClimateMachine.Ocean.Fields: SpectralElementField, assemble
-using ClimateMachine.Ocean.Domains: RectangularDomain
-
-## RectangularDomain and SpectralElementField objects to help with plotting
-domain = RectangularDomain(solver_configuration.dg.grid, Ne)
-
-u = SpectralElementField(domain, solver_configuration.Q, 1)
-v = SpectralElementField(domain, solver_configuration.Q, 2)
-η = SpectralElementField(domain, solver_configuration.Q, 3)
+u, v, η, θ = model.fields
 
 ## Container to hold the plotted frames
 movie_plots = []
@@ -231,6 +156,9 @@ movie_plots = []
 plot_every = 10 # iterations
 
 plot_maker = EveryXSimulationSteps(plot_every) do
+
+    @info "Steps: $(current_step(model)), time: $(current_time(model))"
+
     assembled_u = assemble(u.elements)
     assembled_v = assemble(v.elements)
     assembled_η = assemble(η.elements)
@@ -239,7 +167,7 @@ plot_maker = EveryXSimulationSteps(plot_every) do
     ulim = (-umax, umax)
 
     u_plot = plot(
-        assembled_u.x,
+        assembled_u.x[:, 1, 1],
         [assembled_u.data[:, 1, 1] assembled_v.data[:, 1, 1]],
         xlim = domain.x,
         ylim = (-0.7U, 0.7U),
@@ -250,7 +178,7 @@ plot_maker = EveryXSimulationSteps(plot_every) do
     )
 
     η_plot = plot(
-        assembled_η.x,
+        assembled_η.x[:, 1, 1],
         assembled_η.data[:, 1, 1],
         xlim = domain.x,
         ylim = (-0.01a, 1.2a),
@@ -260,44 +188,9 @@ plot_maker = EveryXSimulationSteps(plot_every) do
         ylabel = "η (m)",
     )
 
-
     push!(
         movie_plots,
-        (u = u_plot, η = η_plot, time = solver_configuration.solver.t),
-    )
-
-    u_assembly = assemble(u)
-    v_assembly = assemble(v)
-    η_assembly = assemble(η)
-
-    umax = 0.5 * max(maximum(abs, u), maximum(abs, v))
-    ulim = (-umax, umax)
-
-    u_plot = plot(
-        u_assembly.x,
-        [u_assembly.data[:, 1, 1] v_assembly.data[:, 1, 1]],
-        xlim = domain.x,
-        ylim = (-0.7U, 0.7U),
-        label = ["u" "v"],
-        linewidth = 2,
-        xlabel = "x (m)",
-        ylabel = "Velocities (m s⁻¹)",
-    )
-
-    η_plot = plot(
-        η_assembly.x,
-        η_assembly.data[:, 1, 1],
-        xlim = domain.x,
-        ylim = (-0.01a, 1.2a),
-        linewidth = 2,
-        label = nothing,
-        xlabel = "x (m)",
-        ylabel = "η (m)",
-    )
-
-    push!(
-        movie_plots,
-        (u = u_plot, η = η_plot, time = solver_configuration.solver.t),
+        (u = u_plot, η = η_plot, time = current_time(model)),
     )
 
     return nothing
@@ -307,9 +200,13 @@ end
 #
 # Finally, we run the simulation,
 
+hours = 3600.0
+
+model.solver_configuration.timeend = 4hours
+
 result = ClimateMachine.invoke!(
-    solver_configuration;
-    user_callbacks = [tiny_progress_printer, plot_maker],
+    model.solver_configuration;
+    user_callbacks = [plot_maker],
 )
 
 # and animate the results,
