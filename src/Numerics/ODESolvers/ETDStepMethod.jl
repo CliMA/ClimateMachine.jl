@@ -271,7 +271,7 @@ function EB4(
         RT(0) RT(0) RT(0) RT(0) RT(0)
         RT(1 // 2) RT(0) RT(0) RT(0) RT(0)
         RT(1 // 2) RT(0) RT(0) RT(0) RT(0)
-        RT(1) RT(0) RT(1) RT(0) RT(0)
+        RT(1) RT(0) RT(0) RT(0) RT(0)
         RT(1) RT(0) RT(0) RT(0) RT(0)
     ]
     βs0 = zeros(RT, 5, 5)
