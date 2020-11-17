@@ -193,10 +193,10 @@ function HydrostaticBoussinesqSuperModel(;
 
     state = solver_configuration.Q
 
-    u = SpectralElementField(domain, grid, view(state.realdata, :, 1, :))
-    v = SpectralElementField(domain, grid, view(state.realdata, :, 2, :))
-    η = SpectralElementField(domain, grid, view(state.realdata, :, 3, :))
-    θ = SpectralElementField(domain, grid, view(state.realdata, :, 4, :))
+    u = SpectralElementField(domain, grid, state, 1)
+    v = SpectralElementField(domain, grid, state, 2)
+    η = SpectralElementField(domain, grid, state, 3)
+    θ = SpectralElementField(domain, grid, state, 4)
 
     fields = (u = u, v = v, η = η, θ = θ)
 

@@ -5,6 +5,7 @@ export SpectralElementField, assemble, data
 using CUDA
 using Printf
 
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ..Domains: AbstractDomain
 
@@ -12,11 +13,13 @@ using ..Domains: AbstractDomain
 ##### SpectralElementField
 #####
 
-struct SpectralElementField{E, D, G, R}
+struct SpectralElementField{E, D, G, A, V, R}
     elements::E
     domain::D
     grid::G
-    realdata::R
+    data::A
+    realdata::V
+    realelems::R # Required to build realdata from data
 end
 
 """
@@ -27,9 +30,18 @@ assuming that `state.realdata` lives on `RectangularDomain`.
 
 `SpectralElementField.elements` is a three-dimensional array of `RectangularElements`.
 """
-function SpectralElementField(domain::AbstractDomain, grid, state::MPIStateArray, variable_index::Int)
-    data = view(state.realdata, :, variable_index, :)
-    return SpectralElementField(domain, grid, data)
+function SpectralElementField(
+    domain::AbstractDomain,
+    grid::DiscontinuousSpectralElementGrid,
+    state::MPIStateArray,
+    variable_index::Int
+)
+
+    data = view(state.data, :, variable_index, :)
+    realdata = view(state.realdata, :, variable_index, :)
+    realelems = state.realelems
+
+    return SpectralElementField(domain, grid, data, realdata, realelems)
 end
 
 const SEF = SpectralElementField

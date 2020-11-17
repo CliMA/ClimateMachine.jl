@@ -39,4 +39,8 @@ include("SuperModels.jl")
 using .OceanProblems: InitialConditions
 using .SuperModels: HydrostaticBoussinesqSuperModel, current_time, current_step, Δt
 
+include("JLD2Writer.jl")
+
+using .JLD2Writers: JLD2Writer, OutputTimeSeries
+
 end
