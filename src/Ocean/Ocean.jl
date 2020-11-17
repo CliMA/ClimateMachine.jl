@@ -29,6 +29,9 @@ include(joinpath("Fields", "Fields.jl"))
 include("OceanBC.jl")
 
 include("HydrostaticBoussinesq/HydrostaticBoussinesq.jl")
+
+using .HydrostaticBoussinesq: HydrostaticBoussinesqModel, Forcing
+
 include("ShallowWater/ShallowWaterModel.jl")
 include("SplitExplicit/SplitExplicitModel.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")

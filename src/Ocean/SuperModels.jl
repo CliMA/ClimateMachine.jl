@@ -9,7 +9,7 @@ using ClimateMachine: Settings
 using ...DGMethods.NumericalFluxes
 
 using ..HydrostaticBoussinesq:
-    HydrostaticBoussinesqModel, NonLinearAdvectionTerm
+    HydrostaticBoussinesqModel, NonLinearAdvectionTerm, Forcing
 
 using ..OceanProblems: InitialValueProblem, InitialConditions
 using ..Domains: array_type
@@ -71,6 +71,7 @@ function HydrostaticBoussinesqSuperModel(;
     coriolis = (f₀ = 0, β = 0),
     rusanov_wave_speeds = (cʰ = 0, cᶻ = 0),
     buoyancy = (αᵀ = 0,),
+    forcing = Forcing(),
     numerical_fluxes = (
         first_order = RusanovNumericalFlux(),
         second_order = CentralNumericalFluxSecondOrder(),
@@ -126,6 +127,7 @@ function HydrostaticBoussinesqSuperModel(;
         problem,
         momentum_advection = advection.momentum,
         tracer_advection = advection.tracers,
+        forcing = forcing,
         cʰ = convert(FT, rusanov_wave_speeds.cʰ),
         cᶻ = convert(FT, rusanov_wave_speeds.cᶻ),
         αᵀ = convert(FT, buoyancy.αᵀ),

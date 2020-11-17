@@ -27,17 +27,25 @@ domain = RectangularDomain(
     periodicity = (true, false, false),
 )
 
+# Non-dimensional parameters:
+
 struct NonDimensionalParameters <: AbstractEarthParameterSet end
 Planet.grav(::NonDimensionalParameters) = 10
 g = Planet.grav(NonDimensionalParameters())
 
 f = 1e-3 # Coriolis parameter
-ϵ = 0.0 # Perturbation amplitude
+ϵ = 0.2 # Perturbation amplitude
 ℓ = 0.5 # Perturbation width
 k = 1.0 # Perturbation wavenumber
+const a = f / g # Surface displacement amplitude
 
 # Jet
 Ψ(y) = - tanh(y)
+U(y) = sech(y)^2
+
+# Tracer
+const L = domain.L.x
+T(y) = sin(2π * y / L)
 
 # Perturbations
 ψ̃(x, y) = exp(-y^2 / 2ℓ^2) * cos(k * x) * cos(k * y)
@@ -48,12 +56,21 @@ ũ(x, y) = (k * tan(k * y) + y / ℓ^2) * ψ̃(x, y)
 # ṽ = + ∂_x ψ̃ = - k * tan(k * x) * ψ̃
 ṽ(x, y) = - k * tan(k * x) * ψ̃(x, y)
 
-uᵢ(x, y, z) = sech(y)^2 + ϵ * ũ(x, y)
+# Initial conditions: Jet/tracer + perturbations
+uᵢ(x, y, z) = U(y) + ϵ * ũ(x, y)
 vᵢ(x, y, z) = ϵ * ṽ(x, y)
-θᵢ(x, y, z) = 0 #sin(2π * y / domain.L.x)
-ηᵢ(x, y, z) = f / g * (Ψ(y) + ϵ * ψ̃(x, y))
+θᵢ(x, y, z) = T(y)
+ηᵢ(x, y, z) = a * (Ψ(y) + ϵ * ψ̃(x, y))
 
 initial_conditions = InitialConditions(u=uᵢ, v=vᵢ, θ=θᵢ, η=ηᵢ)
+
+# Forcing: relax to large-scale state
+const τ = 100.0
+relax_u(y, t, u, v, w, η, θ) = 1 / τ * (U(y) - u)
+relax_η(y, t, u, v, w, η, θ) = 1 / τ * (a * Ψ(y) - η)
+relax_θ(y, t, u, v, w, η, θ) = 1 / τ * (T(y) - θ)
+
+forcing = Ocean.Forcing(u=relax_u, η=relax_η, θ=relax_θ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
@@ -62,6 +79,7 @@ model = Ocean.HydrostaticBoussinesqSuperModel(
     parameters = NonDimensionalParameters(),
     turbulence_closure = (νʰ = 1e-4, κʰ = 1e-4,
                           νᶻ = 1e-2, κᶻ = 1e-2),
+    forcing = forcing,
     rusanov_wave_speeds = (cʰ = sqrt(g * domain.L.z), cᶻ = 1e-2),
     coriolis = (f₀ = f, β = 0),
     buoyancy = (αᵀ = 0,),
@@ -86,7 +104,7 @@ writer = JLD2Writer(model, filepath="test.jld2", overwrite_existing=true)
 
 start_time = time_ns()
 
-data_fetcher = EveryXSimulationSteps(10) do
+data_fetcher = EveryXSimulationTime(1) do
     write!(writer)
 
     realdata = convert(Array, model.state.realdata)
@@ -107,7 +125,7 @@ end
 
 # and then run the simulation.
 
-model.solver_configuration.timeend = 20
+model.solver_configuration.timeend = 40
 
 try
     result = ClimateMachine.invoke!(
@@ -143,11 +161,13 @@ animation = @animate for i = 1:length(u_timeseries)
     θ = assemble(θ_timeseries[i]).data[:, :, 1]
 
     ulim = 1
-    ηlim = f / g
     θlim = 1
 
+    ηmin = minimum(η)
+    ηmax = maximum(η)
+
     ulevels = range(-ulim, ulim, length=31)
-    ηlevels = range(-ηlim, ηlim, length=31)
+    ηlevels = range(ηmin, ηmax, length=31)
     θlevels = range(-θlim, θlim, length=31)
 
     u_plot = heatmap(x, y, clamp.(u, -ulim, ulim)';
@@ -156,8 +176,8 @@ animation = @animate for i = 1:length(u_timeseries)
     v_plot = heatmap(x, y, clamp.(v, -ulim, ulim)';
                      levels = ulevels, clim = (-ulim, ulim), color = :balance, kwargs...)
 
-    η_plot = heatmap(x, y, clamp.(η, -ηlim, ηlim)';
-                     levels = ηlevels, clim = (-ηlim, ηlim), color = :balance, kwargs...)
+    η_plot = heatmap(x, y, clamp.(η, ηmin, ηmax)';
+                     levels = ηlevels, clim = (ηmin, ηmax), color = :balance, kwargs...)
 
     θ_plot = heatmap(x, y, clamp.(θ, -θlim, θlim)';
                      levels = θlevels, clim = (-θlim, θlim), color = :thermal, kwargs...)

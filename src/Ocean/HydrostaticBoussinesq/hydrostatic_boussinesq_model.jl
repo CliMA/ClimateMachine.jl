@@ -21,12 +21,13 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
     momentum_advection::MA
     tracer_advection::TA
+    forcing::F
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -44,6 +45,7 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
         coupling::C = Uncoupled(),
         momentum_advection::MA = nothing,
         tracer_advection::TA = NonLinearAdvectionTerm(),
+        forcing::F = Forcing(),
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -55,13 +57,14 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS, P, C, MA, TA}
-        return new{C, PS, P, MA, TA, FT}(
+    ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F}
+        return new{C, PS, P, MA, TA, F, FT}(
             param_set,
             problem,
             coupling,
             momentum_advection,
             tracer_advection,
+            forcing,
             ρₒ,
             cʰ,
             cᶻ,
@@ -77,6 +80,12 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
     end
 end
 HBModel = HydrostaticBoussinesqModel
+
+@inline noforcing(args...) = 0
+
+function Forcing(; u=noforcing, v=noforcing, η=noforcing, θ=noforcing)
+    return (u=u, v=v, η=η, θ=θ)
+end
 
 """
     vars_state(::HBModel, ::Prognostic)
@@ -526,18 +535,19 @@ end
 
 """
     source!(::HBModel)
-    calculates the source term contribution to state variables
-    this computation is done pointwise at each nodal point
 
-    arguments:
+Calculates the source term contribution to state variables.
+This computation is done pointwise at each nodal point.
+
+Arguments:
     m -> model in this case HBModel
     F -> array of fluxes for each state variable
     Q -> array of state variables
     A -> array of aux variables
     t -> time, not used
 
-    computations
-    ∂ᵗu = -f×u
+Computations:
+    ∂ᵗu = -f × u
     ∂ᵗη = w|(z=0)
 """
 @inline function source!(
@@ -554,6 +564,17 @@ end
     S.η += wz0
 
     coriolis_force!(m, m.coupling, S, Q, A, t)
+
+    # Arguments for forcing functions
+    # args = y, t, u, v, w, η, θ
+    args = tuple(A.y, t, Q.u..., A.w, Q.η, Q.θ)
+
+    Su = m.forcing.u(args...)
+    Sv = m.forcing.v(args...)
+    
+    S.u += @SVector [Su, Sv]
+    S.η += m.forcing.η(args...)
+    S.θ += m.forcing.θ(args...)
 
     return nothing
 end

@@ -1,6 +1,6 @@
 module HydrostaticBoussinesq
 
-export HydrostaticBoussinesqModel
+export HydrostaticBoussinesqModel, Forcing
 
 using StaticArrays
 using LinearAlgebra: dot, Diagonal
