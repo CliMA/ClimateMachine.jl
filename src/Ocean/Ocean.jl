@@ -41,6 +41,6 @@ using .SuperModels: HydrostaticBoussinesqSuperModel, current_time, current_step,
 
 include("JLD2Writer.jl")
 
-using .JLD2Writers: JLD2Writer, OutputTimeSeries
+using .JLD2Writers: JLD2Writer, OutputTimeSeries, write!
 
 end

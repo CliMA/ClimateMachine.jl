@@ -3,20 +3,37 @@ module JLD2Writers
 using JLD2
 
 using ClimateMachine.Ocean.Domains: DiscontinuousSpectralElementGrid
-using ClimateMachine.Ocean: current_step, Δt, current_time
+using ClimateMachine.Ocean: current_step, current_time
+using ..Fields: SpectralElementField
 
-struct JLD2Writer{F, M, O, A}
+struct JLD2Writer{A, F, M, O}
     filepath :: F
     model :: M
     outputs :: O
     array_type :: A
 end
 
-function Base.show(io::IO, writer::JLD2Writer)
-    print(io, "JLD2Writer")
+function Base.show(io::IO, writer::JLD2Writer{A}) where A
+
+    header =   "JLD2Writer{$A}"
+    filepath = "    ├── filepath: $(writer.filepath)"
+    outputs =  "    └── $(length(writer.outputs)) outputs: $(keys(ow.outputs))"
+
+    print(io, header, '\n', filepath, '\n', outputs)
+
     return nothing
 end
 
+"""
+    JLD2Writer(model, outputs=model.fields; filepath, array_type=Array, overwrite_existing=true)
+
+Returns a utility for writing field output to JLD2 files, `overwrite_existing` file at `filepath`.
+
+`write!(jld2_writer::JLD2Writer)` writes `outputs` to `filepath`, where `outputs` is either a `NamedTuple` or
+`Dict`ionary of `fields` or functions of the form `output(model)`.
+
+Field data is converted to `array_type` before outputting.
+"""
 function JLD2Writer(model, outputs=model.fields; filepath, array_type=Array, overwrite_existing=true)
 
     # Convert grid to CPU
@@ -27,7 +44,7 @@ function JLD2Writer(model, outputs=model.fields; filepath, array_type=Array, ove
 
     file = jldopen(filepath, "a+")
 
-    file["domain"] = domain
+    file["domain"] = model.domain
     file["grid"] = cpu_grid
 
     close(file)
@@ -108,10 +125,6 @@ function OutputTimeSeries(name, filepath)
 
         times = [file["times/$i"] for i in output_indices]
         steps = [file["steps/$i"] for i in output_indices]
-
-        # N_outputs = length(output_indices)
-        # times = OffsetArray(times, 0:N_outputs-1)
-        # steps = OffsetArray(steps, 0:N_outputs-1)
 
     catch err
         @warn "Could not build time series of $name from $filepath because $(sprint(showerror, err))"

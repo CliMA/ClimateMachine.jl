@@ -15,7 +15,8 @@ using ClimateMachine.Ocean.Fields
 
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
-using ClimateMachine.Ocean: current_step, Δt, current_time, JLD2Writer, OutputTimeSeries
+using ClimateMachine.Ocean: current_step, Δt, current_time
+using ClimateMachine.Ocean: JLD2Writer, OutputTimeSeries, write!
 using CLIMAParameters: AbstractEarthParameterSet, Planet
 
 # Domain
@@ -27,16 +28,16 @@ domain = RectangularDomain(
 )
 
 struct NonDimensionalParameters <: AbstractEarthParameterSet end
-Planet.grav(::NonDimensionalParameters) = 1.0
+Planet.grav(::NonDimensionalParameters) = 10
 g = Planet.grav(NonDimensionalParameters())
 
-f = 0.01 # Coriolis parameter
+f = 1e-3 # Coriolis parameter
 ϵ = 0.0 # Perturbation amplitude
 ℓ = 0.5 # Perturbation width
 k = 1.0 # Perturbation wavenumber
 
 # Jet
-ψ(y) = tanh(y)
+Ψ(y) = - tanh(y)
 
 # Perturbations
 ψ̃(x, y) = exp(-y^2 / 2ℓ^2) * cos(k * x) * cos(k * y)
@@ -50,16 +51,16 @@ ṽ(x, y) = - k * tan(k * x) * ψ̃(x, y)
 uᵢ(x, y, z) = sech(y)^2 + ϵ * ũ(x, y)
 vᵢ(x, y, z) = ϵ * ṽ(x, y)
 θᵢ(x, y, z) = 0 #sin(2π * y / domain.L.x)
-ηᵢ(x, y, z) = 0 #f / g * (tanh(y) + ϵ * ψ̃(x, y))
+ηᵢ(x, y, z) = f / g * (Ψ(y) + ϵ * ψ̃(x, y))
 
 initial_conditions = InitialConditions(u=uᵢ, v=vᵢ, θ=θᵢ, η=ηᵢ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = 0.1,
+    time_step = 0.01,
     initial_conditions = initial_conditions,
     parameters = NonDimensionalParameters(),
-    turbulence_closure = (νʰ = 1e-3, κʰ = 1e-3,
+    turbulence_closure = (νʰ = 1e-4, κʰ = 1e-4,
                           νᶻ = 1e-2, κᶻ = 1e-2),
     rusanov_wave_speeds = (cʰ = sqrt(g * domain.L.z), cᶻ = 1e-2),
     coriolis = (f₀ = f, β = 0),
@@ -99,7 +100,7 @@ data_fetcher = EveryXSimulationSteps(10) do
     elapsed = (time_ns() - start_time) * 1e-9
     wall_time = @sprintf("elapsed wall time: %.2f min", elapsed / 60)  
 
-    isnan(maximum(abs, u)) && error("Your simulation NaN'd out.") 
+    isnan(maximum(abs, u)) && error("NaNs.") 
 
     @info "$step, $time, $max_u, $wall_time"
 end
@@ -114,7 +115,7 @@ try
         user_callbacks = [data_fetcher],
     )
 catch err
-    @warn "Simulation ended prematurely due to $(sprint(showerror, err))"
+    @warn "Simulation ended prematurely because $(sprint(showerror, err))"
 end
 
 # Finally, we make an animation of the evolving shear instability.
@@ -142,7 +143,7 @@ animation = @animate for i = 1:length(u_timeseries)
     θ = assemble(θ_timeseries[i]).data[:, :, 1]
 
     ulim = 1
-    ηlim = 1 / g
+    ηlim = f / g
     θlim = 1
 
     ulevels = range(-ulim, ulim, length=31)
