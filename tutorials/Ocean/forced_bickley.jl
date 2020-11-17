@@ -22,7 +22,7 @@ using CLIMAParameters: AbstractEarthParameterSet, Planet
 # Domain
 
 domain = RectangularDomain(
-    Ne = (16, 16, 1), Np = 4,
+    Ne = (32, 32, 1), Np = 4,
     x = (-2π, 2π), y = (-2π, 2π), z = (0, 1),
     periodicity = (true, false, false),
 )
@@ -74,7 +74,7 @@ forcing = Ocean.Forcing(u=relax_u, η=relax_η, θ=relax_θ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = 0.01,
+    time_step = 0.005,
     initial_conditions = initial_conditions,
     parameters = NonDimensionalParameters(),
     turbulence_closure = (νʰ = 1e-4, κʰ = 1e-4,
