@@ -543,4 +543,110 @@ function numerical_flux_first_order!(
     fluxᵀn .+= penalty / 2
 end
 
+struct MatrixFlux <: NumericalFluxFirstOrder end
+function numerical_flux_first_order!(
+    numerical_flux::MatrixFlux,
+    balance_law::BalanceLaw,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_conservative⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_conservative⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    FT = eltype(fluxᵀn)
+    numerical_flux_first_order!(
+        EntropyConservative(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_conservative⁻,
+        state_auxiliary⁻,
+        state_conservative⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+    fluxᵀn = parent(fluxᵀn)
+    
+    γ = FT(gamma(param_set))
+
+    ω = FT(π) / 3
+    δ = FT(π) / 5
+    random_unit_vector = SVector(sin(ω) * cos(δ), cos(ω) * cos(δ), sin(δ))
+    # tangent space basis
+    τ1 = random_unit_vector × normal_vector
+    τ2 = τ1 × normal_vector
+
+    ρ⁻ = state_conservative⁻.ρ
+    ρu⁻ = state_conservative⁻.ρu
+    ρe⁻ = state_conservative⁻.ρe
+   
+    Φ⁻ = state_auxiliary⁻.Φ
+    u⁻ = ρu⁻ / ρ⁻
+    p⁻ = pressure(ρ⁻, ρu⁻, ρe⁻, Φ⁻)
+    β⁻ = ρ⁻ / 2p⁻
+    
+    Φ⁺ = state_auxiliary⁺.Φ
+    ρ⁺ = state_conservative⁺.ρ
+    ρu⁺ = state_conservative⁺.ρu
+    ρe⁺ = state_conservative⁺.ρe
+    
+    u⁺ = ρu⁺ / ρ⁺
+    p⁺ = pressure(ρ⁺, ρu⁺, ρe⁺, Φ⁺)
+    β⁺ = ρ⁺ / 2p⁺
+
+    ρ_log = logave(ρ⁻, ρ⁺)
+    β_log = logave(β⁻, β⁺)
+    Φ_avg = ave(Φ⁻, Φ⁺)
+    u_avg = ave.(u⁻, u⁺)
+    p_avg = ave(ρ⁻, ρ⁺) / 2ave(β⁻, β⁺)
+    u²_bar = 2 * sum(u_avg .^ 2) - sum(ave(u⁻ .^ 2, u⁺ .^ 2))
+
+    h_bar = γ / (2 * β_log * (γ - 1)) + u²_bar / 2 + Φ_avg
+    c_bar = sqrt(γ * p_avg / ρ_log)
+
+    umc = u_avg - c_bar * normal_vector
+    upc = u_avg + c_bar * normal_vector
+    u_avgᵀn = u_avg' * normal_vector
+    R = hcat(
+      SVector(1, umc[1], umc[2], umc[3], h_bar - c_bar * u_avgᵀn),
+      SVector(1, u_avg[1], u_avg[2], u_avg[3], u²_bar / 2 + Φ_avg),
+      SVector(0, τ1[1], τ1[2], τ1[3], τ1' * u_avg),
+      SVector(0, τ2[1], τ2[2], τ2[3], τ2' * u_avg),
+      SVector(1, upc[1], upc[2], upc[3], h_bar + c_bar * u_avgᵀn),
+    )
+
+    Λ = SDiagonal(
+      abs(u_avgᵀn - c_bar) * ρ_log / 2γ,
+      abs(u_avgᵀn) * ρ_log * (γ - 1) / γ,
+      abs(u_avgᵀn) * p_avg,
+      abs(u_avgᵀn) * p_avg,
+      abs(u_avgᵀn + c_bar) * ρ_log / 2γ,
+    )
+
+    entropy⁻ = similar(parent(state_conservative⁻), Size(6))
+    state_to_entropy_variables!(
+      balance_law,
+      Vars{vars_state_entropy(balance_law, FT)}(entropy⁻),
+      state_conservative⁻,
+      state_auxiliary⁻,
+    )
+    
+    entropy⁺ = similar(parent(state_conservative⁺), Size(6))
+    state_to_entropy_variables!(
+      balance_law,
+      Vars{vars_state_entropy(balance_law, FT)}(entropy⁺),
+      state_conservative⁺,
+      state_auxiliary⁺,
+    )
+
+    Δentropy = parent(entropy⁺) - parent(entropy⁻)
+
+    fluxᵀn .-= R * Λ * R' * Δentropy[SOneTo(5)] / 2
+end
+
 include("linear.jl")

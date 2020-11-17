@@ -164,7 +164,8 @@ function run(
         model,
         grid;
         volume_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = EntropyConservative(),
+        #surface_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = MatrixFlux(),
     )
 
     # determine the time step
