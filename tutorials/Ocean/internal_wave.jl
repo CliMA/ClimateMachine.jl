@@ -94,7 +94,7 @@ initial_conditions = InitialConditions(u = uᵢ, v = vᵢ, θ = θᵢ)
 # 
 # We choose a time-step that resolves the gravity wave phase speed,
 
-time_step = 0.01 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resolution
+time_step = 0.005 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resolution
 
 # and build a model with a smidgeon of viscosity and diffusion,
 
