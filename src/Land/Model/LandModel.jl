@@ -4,7 +4,8 @@ using DocStringExtensions
 using LinearAlgebra, StaticArrays
 
 using CLIMAParameters
-using CLIMAParameters.Planet: ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0
+using CLIMAParameters.Planet:
+    ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0, T_freeze, grav
 
 using ..VariableTemplates
 using ..MPIStateArrays
