@@ -148,7 +148,7 @@ wall_clock = [time_ns()]
 tiny_progress_printer = EveryXSimulationSteps(print_every) do
 
     @info(@sprintf(
-        "Steps: %d, time: %.2f, Δt: %.2f, max(|u|): %.4f, elapsed time: %.2f secs",
+        "Steps: %d, time: %.2f, Δt: %.2f, max(|u|): %.2e, elapsed time: %.2f secs",
         current_step(model),
         current_time(model),
         Δt(model),
@@ -204,7 +204,7 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 
 
     η_plot = plot(
-        state.u.x,
+        state.u.x[:, 1, 1],
         state.η.data[:, 1, 1],
         ylim = ηlim,
         label = nothing,
@@ -212,8 +212,8 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     )
 
     u_plot = contourf(
-        state.u.x,
-        state.u.z,
+        state.u.x[:, 1, 1],
+        state.u.z[1, 1, :],
         clamp.(state.u.data[:, 1, :], ulim[1], ulim[2])';
         aspectratio = 64,
         linewidth = 0,
