@@ -1,5 +1,6 @@
 # # Forced Bickley jet
 
+using CUDA
 using Printf
 using Plots
 using Revise
@@ -22,7 +23,7 @@ using CLIMAParameters: AbstractEarthParameterSet, Planet
 # Domain
 
 domain = RectangularDomain(
-    Ne = (32, 32, 1), Np = 4,
+    Ne = (64, 64, 1), Np = 4,
     x = (-2π, 2π), y = (-2π, 2π), z = (0, 1),
     periodicity = (true, false, false),
 )
@@ -36,7 +37,7 @@ g = Planet.grav(NonDimensionalParameters())
 f = 1e-3 # Coriolis parameter
 ϵ = 0.2 # Perturbation amplitude
 ℓ = 0.5 # Perturbation width
-k = 1.0 # Perturbation wavenumber
+k = 2.0 # Perturbation wavenumber
 const a = f / g # Surface displacement amplitude
 
 # Jet
@@ -74,8 +75,9 @@ forcing = Ocean.Forcing(u=relax_u, η=relax_η, θ=relax_θ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = 0.005,
+    time_step = 0.002,
     initial_conditions = initial_conditions,
+    array_type = CuArray,
     parameters = NonDimensionalParameters(),
     turbulence_closure = (νʰ = 1e-4, κʰ = 1e-4,
                           νᶻ = 1e-2, κᶻ = 1e-2),
@@ -125,7 +127,7 @@ end
 
 # and then run the simulation.
 
-model.solver_configuration.timeend = 40
+model.solver_configuration.timeend = 200
 
 try
     result = ClimateMachine.invoke!(
@@ -148,8 +150,6 @@ v_timeseries = OutputTimeSeries(:v, writer.filepath)
 animation = @animate for i = 1:length(u_timeseries)
 
     local u
-    local η
-    local θ
 
     @info "Plotting frame $i of $(length(u_timeseries))..."
 
