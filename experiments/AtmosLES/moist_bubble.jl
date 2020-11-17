@@ -175,7 +175,7 @@ function init_moistbubble!(problem, bl, state, aux, localgeo, t)
 
     end
 
-    u = SVector(FT(0), FT(0), FT(0))
+    u = SVector(FT(20), FT(0), FT(0))
     ρu = ρ .* u
     ρ_e =
         ρ_e +
@@ -261,7 +261,6 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
 
     # Set up the model
     C_smag = FT(0.23)
-    C_smag = FT(0.0)
     ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set, FT(300), FT(0)))
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -317,7 +316,7 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 4
+    N = 3
     # Domain resolution and size
     Δx = FT(125)
     Δy = FT(125)
