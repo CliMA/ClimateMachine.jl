@@ -1,7 +1,4 @@
-# # Shear instability of a free-surface flow
-#
-# This script simulates the instability of a sheared, free-surface
-# flow using `ClimateMachine.Ocean.HydrostaticBoussinesqSuperModel`.
+# # Forced Bickley jet
 
 using Printf
 using Plots
@@ -18,54 +15,56 @@ using ClimateMachine.Ocean.Fields
 
 using ClimateMachine.GenericCallbacks: EveryXSimulationTime
 using ClimateMachine.GenericCallbacks: EveryXSimulationSteps
-using ClimateMachine.Ocean: current_step, Δt, current_time
+using ClimateMachine.Ocean: current_step, Δt, current_time, JLD2Writer, OutputTimeSeries
 using CLIMAParameters: AbstractEarthParameterSet, Planet
 
-# We begin by specifying the domain and mesh,
+# Domain
 
 domain = RectangularDomain(
-    Ne = (64, 64, 1),
-    Np = 4,
-    x = (-4π, 4π),
-    y = (-4π, 4π),
-    z = (0, 1),
-    periodicity = (true, true, false),
+    Ne = (16, 16, 1), Np = 4,
+    x = (-2π, 2π), y = (-2π, 2π), z = (0, 1),
+    periodicity = (true, false, false),
 )
-
-# Note that the default solid-wall boundary conditions are free-slip and
-# insulating on tracers. Next, we specify model parameters and the sheared
-# initial conditions
 
 struct NonDimensionalParameters <: AbstractEarthParameterSet end
-Planet.grav(::NonDimensionalParameters) = 0.1
-
-ϵ = 0.01
-ψ(y) = tanh(y)
-f = 0.0
+Planet.grav(::NonDimensionalParameters) = 1.0
 g = Planet.grav(NonDimensionalParameters())
 
-initial_conditions = InitialConditions(
-    u = (x, y, z) -> sech(y)^2 * (1 + ϵ * randn()),
-    v = (x, y, z) -> ϵ * sech(y)^2 * randn(),
-    θ = (x, y, z) -> sin(y / 4),
-    η = (x, y, z) -> - f / g * ψ(y),
-)
+f = 0.01 # Coriolis parameter
+ϵ = 0.0 # Perturbation amplitude
+ℓ = 0.5 # Perturbation width
+k = 1.0 # Perturbation wavenumber
 
-Δx = domain.L.x / (domain.Ne.x * domain.Np)
-c = sqrt(g * domain.L.z)
-@show dt = Δx / c / 10
+# Jet
+ψ(y) = tanh(y)
+
+# Perturbations
+ψ̃(x, y) = exp(-y^2 / 2ℓ^2) * cos(k * x) * cos(k * y)
+
+# ũ = - ∂_y ψ̃ = (k * tan(k * y) + y / ℓ^2) * ψ̃
+ũ(x, y) = (k * tan(k * y) + y / ℓ^2) * ψ̃(x, y)
+
+# ṽ = + ∂_x ψ̃ = - k * tan(k * x) * ψ̃
+ṽ(x, y) = - k * tan(k * x) * ψ̃(x, y)
+
+uᵢ(x, y, z) = sech(y)^2 + ϵ * ũ(x, y)
+vᵢ(x, y, z) = ϵ * ṽ(x, y)
+θᵢ(x, y, z) = 0 #sin(2π * y / domain.L.x)
+ηᵢ(x, y, z) = 0 #f / g * (tanh(y) + ϵ * ψ̃(x, y))
+
+initial_conditions = InitialConditions(u=uᵢ, v=vᵢ, θ=θᵢ, η=ηᵢ)
 
 model = Ocean.HydrostaticBoussinesqSuperModel(
     domain = domain,
-    time_step = dt,
+    time_step = 0.1,
     initial_conditions = initial_conditions,
     parameters = NonDimensionalParameters(),
-    turbulence_closure = (νʰ = 1e-4, κʰ = 1e-4,
-                          νᶻ = 1e-4, κᶻ = 1e-4),
+    turbulence_closure = (νʰ = 1e-3, κʰ = 1e-3,
+                          νᶻ = 1e-2, κᶻ = 1e-2),
     rusanov_wave_speeds = (cʰ = sqrt(g * domain.L.z), cᶻ = 1e-2),
     coriolis = (f₀ = f, β = 0),
     buoyancy = (αᵀ = 0,),
-    boundary_tags = ((0, 0), (0, 0), (1, 2)),
+    boundary_tags = ((0, 0), (1, 1), (1, 2)),
     boundary_conditions = (
         OceanBC(Impenetrable(FreeSlip()), Insulating()),
         OceanBC(Penetrable(FreeSlip()), Insulating()),
@@ -82,18 +81,15 @@ volume = assemble(u)
 x = volume.x[:, 1, 1]
 y = volume.y[1, :, 1]
 
-u, v, η, θ = model.fields
-fetched_states = []
+writer = JLD2Writer(model, filepath="test.jld2", overwrite_existing=true)
 
 start_time = time_ns()
 
 data_fetcher = EveryXSimulationSteps(10) do
+    write!(writer)
 
     realdata = convert(Array, model.state.realdata)
     u = SpectralElementField(domain, model.grid, view(realdata, :, 1, :))
-    v = SpectralElementField(domain, model.grid, view(realdata, :, 2, :))
-    η = SpectralElementField(domain, model.grid, view(realdata, :, 3, :))
-    θ = SpectralElementField(domain, model.grid, view(realdata, :, 4, :))
 
     # Print a helpful message
     step = @sprintf("Step: %d", current_step(model))
@@ -106,21 +102,11 @@ data_fetcher = EveryXSimulationSteps(10) do
     isnan(maximum(abs, u)) && error("Your simulation NaN'd out.") 
 
     @info "$step, $time, $max_u, $wall_time"
-
-
-    # Fetch some data
-    push!(
-        fetched_states,
-        (u = assemble(u),
-         η = assemble(η),
-         θ = assemble(θ),
-         time = current_time(model)),
-    )
 end
 
 # and then run the simulation.
 
-model.solver_configuration.timeend = 1000 * dt
+model.solver_configuration.timeend = 20
 
 try
     result = ClimateMachine.invoke!(
@@ -133,19 +119,27 @@ end
 
 # Finally, we make an animation of the evolving shear instability.
 
-animation = @animate for (i, state) in enumerate(fetched_states)
+timeserieses = OutputTimeSeries.(keys(model.fields), writer.filepath)
+
+u_timeseries = OutputTimeSeries(:u, writer.filepath)
+v_timeseries = OutputTimeSeries(:v, writer.filepath)
+η_timeseries = OutputTimeSeries(:η, writer.filepath)
+θ_timeseries = OutputTimeSeries(:θ, writer.filepath)
+
+animation = @animate for i = 1:length(u_timeseries)
 
     local u
     local η
     local θ
 
-    @info "Plotting frame $i of $(length(fetched_states))..."
+    @info "Plotting frame $i of $(length(u_timeseries))..."
 
     kwargs = (xlim = domain.x, ylim = domain.y, linewidth = 0, aspectratio = 1)
 
-    u = state.u.data[:, :, 1]
-    η = state.η.data[:, :, 1]
-    θ = state.θ.data[:, :, 1]
+    u = assemble(u_timeseries[i]).data[:, :, 1]
+    v = assemble(v_timeseries[i]).data[:, :, 1]
+    η = assemble(η_timeseries[i]).data[:, :, 1]
+    θ = assemble(θ_timeseries[i]).data[:, :, 1]
 
     ulim = 1
     ηlim = 1 / g
@@ -155,14 +149,25 @@ animation = @animate for (i, state) in enumerate(fetched_states)
     ηlevels = range(-ηlim, ηlim, length=31)
     θlevels = range(-θlim, θlim, length=31)
 
-    u_plot = contourf(x, y, clamp.(u, -ulim, ulim)'; levels = ulevels, color = :balance, kwargs...)
-    η_plot = contourf(x, y, clamp.(η, -ηlim, ηlim)'; levels = ηlevels, color = :balance, kwargs...)
-    θ_plot = contourf(x, y, clamp.(θ, -θlim, θlim)'; levels = θlevels, color = :thermal, kwargs...)
+    u_plot = heatmap(x, y, clamp.(u, -ulim, ulim)';
+                     levels = ulevels, clim = (-ulim, ulim), color = :balance, kwargs...)
 
-    u_title = @sprintf("u at t = %.2f", state.time)
-    θ_title = @sprintf("θ at t = %.2f", state.time)
+    v_plot = heatmap(x, y, clamp.(v, -ulim, ulim)';
+                     levels = ulevels, clim = (-ulim, ulim), color = :balance, kwargs...)
 
-    plot(u_plot, θ_plot, title = [u_title θ_title], size = (1200, 500))
+    η_plot = heatmap(x, y, clamp.(η, -ηlim, ηlim)';
+                     levels = ηlevels, clim = (-ηlim, ηlim), color = :balance, kwargs...)
+
+    θ_plot = heatmap(x, y, clamp.(θ, -θlim, θlim)';
+                     levels = θlevels, clim = (-θlim, θlim), color = :thermal, kwargs...)
+
+    u_title = @sprintf("u at t = %.2f", u_timeseries.times[i])
+    v_title = @sprintf("v at t = %.2f", u_timeseries.times[i])
+    θ_title = @sprintf("θ at t = %.2f", u_timeseries.times[i])
+    η_title = @sprintf("η at t = %.2f", u_timeseries.times[i])
+
+    plot(u_plot, v_plot, η_plot, θ_plot, title = [u_title v_title η_title θ_title],
+         layout = (2, 2), size = (1200, 1000))
 end
 
 gif(animation, "forced_bickley.gif", fps = 8)
