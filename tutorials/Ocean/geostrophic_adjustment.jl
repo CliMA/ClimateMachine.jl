@@ -52,13 +52,13 @@ x₀ = domain.L.x / 4  # Gaussian origin (m, recall that x ∈ [0, Lx])
 
 # and functional form
 
-Ψ(x, L) = exp(-x^2 / (2 * L^2)) # a Gaussian
+Gaussian(x, L) = exp(-x^2 / (2 * L^2))
 
-## Geostrophic ``y``-velocity
-vᵍ(x, y, z) = -U * (x - x₀) / L * Ψ(x - x₀, L)
+## Geostrophic ``y``-velocity: f V = g ∂_x η
+vᵍ(x, y, z) = - U * (x - x₀) / L * Gaussian(x - x₀, L)
 
 ## Geostrophic surface displacement
-ηᵍ(x, y, z) = a * Ψ(x - x₀, L)
+ηᵍ(x, y, z) = a * Gaussian(x - x₀, L)
 
 # We double the initial surface displacement so that the surface is half-balanced,
 # half unbalanced,
