@@ -992,7 +992,7 @@ steps:
   - label: "gpu_isothermal_zonal_flow"
     key: "gpu_isothermal_zonal_flow"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/isothermal_zonal_flow.jl "
+      - "mpiexec julia --color=yes --project experiments/TestCase/isothermal_zonal_flow.jl "
     agents:
       config: gpu
       queue: central
