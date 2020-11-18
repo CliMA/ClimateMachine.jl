@@ -41,7 +41,7 @@ function show_tendencies(bl; include_params = false)
         ]
         eqs = collect(string.(nameof.(typeof.(prog_vars))))
 #       fmt_tends(tt) = map(prog_vars) do pv
-#           format_tends(eq_tends(pv, bl, tt), ip)
+#           format_tends(eq_tends(pv, bl, tt), ip) 
 #       end |> collect
 #       F1 = fmt_tends(Flux{FirstOrder}())
 #       S = fmt_tends(Source())
@@ -53,7 +53,7 @@ function show_tendencies(bl; include_params = false)
 #           header,
 #           header_crayon = crayon"yellow bold",
 #           subheader_crayon = crayon"green bold",
-#       )
+#OSSI   )
         println("")
     else
         msg = "Defining `prognostic_vars` and\n"

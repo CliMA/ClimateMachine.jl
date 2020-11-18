@@ -6,6 +6,7 @@ export NumericalFluxGradient,
     RusanovNumericalFlux,
     RoeNumericalFlux,
     HLLCNumericalFlux,
+    LMARNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -345,6 +346,8 @@ Requires a custom implementation for the balance law.
     }
 """
 struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
+
+struct LMARNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder

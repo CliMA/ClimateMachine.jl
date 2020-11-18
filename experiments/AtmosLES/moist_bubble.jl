@@ -261,6 +261,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
 
     # Set up the model
     C_smag = FT(0.23)
+    C_smag = FT(0.0)
     ref_state = HydrostaticState(DryAdiabaticProfile{FT}(param_set, FT(300), FT(0)))
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -287,6 +288,8 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
         init_moistbubble!,
         solver_type = ode_solver,
         model = model,
+        numerical_flux_first_order = RusanovNumericalFlux(),
+#       numerical_flux_first_order = HLLCNumericalFlux(),
     )
     return config
 end
@@ -316,7 +319,7 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 3
+    N = 1
     # Domain resolution and size
     Δx = FT(125)
     Δy = FT(125)
@@ -324,7 +327,7 @@ function main()
     resolution = (Δx, Δy, Δz)
     # Domain extents
     xmax = FT(20000)
-    ymax = FT(500)
+    ymax = FT(125)
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
@@ -343,6 +346,7 @@ function main()
         ode_dt = Δt,
     )
     dgn_config = config_diagnostics(driver_config)
+
 
     # Invoke solver (calls solve! function for time-integrator)
     result = ClimateMachine.invoke!(
