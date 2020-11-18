@@ -128,10 +128,10 @@ function main(::Type{FT}) where {FT}
 
     t0 = FT(0)
 
-    # Full simulation requires 16+ hours of simulated time
-    timeend = FT(3600*3)
-    CFLmax = FT(0.4)
-    # CFLmax = FT(20.0)
+    timeend = FT(3600)
+    # CFLmax = FT(0.4)
+    # CFLmax = FT(4.0)
+    CFLmax = FT(20.0)
 
     config_type = SingleStackConfigType
 
