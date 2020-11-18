@@ -15,11 +15,60 @@ using LinearAlgebra
         interpol = nothing,
     )
 
-Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
-diagnostics for LES configurations. All the diagnostics in the group will
-run at the specified `interval`, be interpolated to the specified boundaries
-and resolution, and will be written to files prefixed by `out_prefix` using
-`writer`.
+Create the "AtmosLESDefault" `DiagnosticsGroup` which contains the following
+diagnostic variables, all of which are density-averaged horizontal averages,
+variances and co-variances:
+
+- u: x-velocity
+- v: y-velocity
+- w: z-velocity
+- avg_rho: air density (_not_ density-averaged)
+- rho: air density
+- temp: air temperature
+- pres: air pressure
+- thd: dry potential temperature
+- et: total specific energy
+- ei: specific internal energy
+- ht: specific enthalpy based on total energy
+- hi: specific enthalpy based on internal energy
+- w_ht_sgs: vertical sgs flux of total specific enthalpy
+- var_u: variance of x-velocity
+- var_v: variance of y-velocity
+- var_w: variance of z-velocity
+- w3: third moment of z-velocity
+- tke: turbulent kinetic energy
+- var_ei: variance of specific internal energy
+- cov_w_u: vertical eddy flux of x-velocity
+- cov_w_v: vertical eddy flux of y-velocity
+- cov_w_rho: vertical eddy flux of density
+- cov_w_thd: vertical eddy flux of dry potential temperature
+- cov_w_ei: vertical eddy flux of specific internal energy
+
+When an `EquilMoist` or a `NonEquilMoist` moisture model is used, the following
+diagnostic variables are also output, also density-averaged horizontal averages,
+variances and co-variances:
+
+- qt: mass fraction of total water in air
+- ql: mass fraction of liquid water in air
+- qv: mass fraction of water vapor in air
+- qi: mass fraction of ice in air
+- thv: virtual potential temperature
+- thl: liquid-ice potential temperature
+- w_qt_sgs: vertical sgs flux of total specific humidity
+- var_qt: variance of total specific humidity
+- var_thl: variance of liquid-ice potential temperature
+- cov_w_qt: vertical eddy flux of total specific humidity
+- cov_w_ql: vertical eddy flux of liquid water specific humidity
+- cov_w_qi: vertical eddy flux of cloud ice specific humidity
+- cov_w_qv: vertical eddy flux of water vapor specific humidity
+- cov_w_thv: vertical eddy flux of virtual potential temperature
+- cov_w_thl: vertical eddy flux of liquid-ice potential temperature
+- cov_qt_thl: covariance of total specific humidity and liquid-ice potential temperature
+- cov_qt_ei: covariance of total specific humidity and specific internal energy
+
+All these variables are output with the `z` dimension (`x3id`) on the DG grid
+(`interpol` may _not_ be specified) as well as a (unlimited) `time` dimension
+at the specified `interval`.
 """
 function setup_atmos_default_diagnostics(
     ::AtmosLESConfigType,

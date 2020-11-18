@@ -22,12 +22,15 @@ end
         interpol = nothing,
     )
 
-Create and return a `DiagnosticsGroup` containing the
-"AtmosTurbulenceStats" diagnostics for both LES and GCM
-configurations. All the diagnostics in the group will run at the
-specified `interval`, be interpolated to the specified boundaries
-and resolution, and written to files prefixed by `out_prefix`
-using `writer`.
+Create the "AtmosTurbulenceStats" `DiagnosticsGroup` which contains the
+following diagnostic variables:
+
+- E_k: volumetrically-averaged dimensionless kinetic energy
+- dE: volumetrically-averaged kinetic energy dissipation
+
+These are scalar variables computed on the DG grid (`interpol` may _not_
+be specified), output on the (unlimited) `time` dimension at the specified
+`interval`.
 """
 function setup_atmos_turbulence_stats(
     ::ClimateMachineConfigType,
