@@ -271,6 +271,27 @@ Compute reverse indefinite integral along stack.
 """
 function reverse_indefinite_stack_integral! end
 
+"""
+    init_state_vertically_flattened!
+
+Initialize the vertically flattened state, at ``t = 0``.
+"""
+function init_state_vertically_flattened! end
+
+"""
+    update_vertically_flattened_state!
+
+Update the vertically_flattened state variables with global scope.
+"""
+function update_vertically_flattened_state! end
+
+"""
+    nodal_update_vertically_flattened_state!
+
+Update the vertically_flattened state variables at each location in space.
+"""
+function nodal_update_vertically_flattened_state! end
+
 # Internal methods
 number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))

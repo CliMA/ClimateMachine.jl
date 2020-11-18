@@ -8,7 +8,8 @@ export AbstractStateType,
     GradientLaplacian,
     Hyperdiffusive,
     UpwardIntegrals,
-    DownwardIntegrals
+    DownwardIntegrals,
+    VerticallyFlattened
 
 abstract type AbstractStateType end
 
@@ -74,3 +75,11 @@ struct UpwardIntegrals <: AbstractStateType end
 Variables computed in downward integrals
 """
 struct DownwardIntegrals <: AbstractStateType end
+
+"""
+    VerticallyFlattened <: AbstractStateType
+
+Variables remapped onto a vertically flattened
+version of the discontinuous spectral element grid
+"""
+struct VerticallyFlattened <: AbstractStateType end

@@ -21,6 +21,7 @@ using ..BalanceLaws:
     Hyperdiffusive,
     UpwardIntegrals,
     DownwardIntegrals,
+    VerticallyFlattened,
     vars_state,
     number_states
 
@@ -45,7 +46,10 @@ import ..BalanceLaws:
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    reverse_integral_set_auxiliary_state!,
+    init_state_vertically_flattened!,
+    update_vertically_flattened_state!,
+    nodal_update_vertically_flattened_state!
 
 export DGModel,
     init_ode_state,

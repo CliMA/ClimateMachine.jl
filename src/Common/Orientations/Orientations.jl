@@ -242,9 +242,13 @@ end
 Gravity acts in the third coordinate, and the gravitational potential is relative to
 `coord[3] == 0`.
 """
-struct FlatOrientation <: Orientation
-    # for Coriolis we could add latitude?
+struct FlatOrientation{FT} <: Orientation
+    latitude::FT
 end
+FlatOrientation(;
+    latitude::FT = 0.,
+) where {FT <: AbstractFloat} = FlatOrientation{FT}(latitude)
+
 function orientation_nodal_init_aux!(
     ::FlatOrientation,
     param_set::APS,
@@ -254,6 +258,10 @@ function orientation_nodal_init_aux!(
     FT = eltype(aux)
     _grav::FT = grav(param_set)
     @inbounds aux.orientation.Φ = _grav * geom.coord[3]
+end
+
+function latitude(orientation::FlatOrientation, aux::Vars)
+    return orientation.latitude
 end
 
 end

@@ -43,3 +43,41 @@ function init_state(state, balance_law, grid, direction, ::Auxiliary)
     init_state_auxiliary!(balance_law, state, grid, direction)
     return state
 end
+
+function create_state(
+    balance_law,
+    grid,
+    st::VerticallyFlattened;
+    fill_nan = false,
+)
+    topology = grid.topology
+    nvertelem = topology.stacksize
+    nhorzelem = div(length(topology.elems), nvertelem)
+
+    # Note that DGModel will soon allow different orders along different axes.
+    N = polynomialorder(grid)
+    nvert = N * nvertelem + 1
+    nhorz = (N + 1) * (N + 1) * nhorzelem
+
+    # Why is this not just `FT = eltype(grid)`?
+    h_vgeo = Array(grid.vgeo)
+    FT = eltype(h_vgeo)
+    DA = arraytype(grid)
+
+    ns = number_states(balance_law, st)
+    state = similar(DA, DA{FT, 2}, ns)
+    for s in 1:ns
+        state[s] = similar(DA, FT, nvert, nhorz)
+    end
+
+    if fill_nan
+        for s in 1:ns
+            fill!(state[s], NaN)
+        end
+    end
+    return state
+end
+
+function init_state(vf, aux, balance_law, grid, ::VerticallyFlattened)
+    init_state_vertically_flattened!(balance_law, vf, aux, grid)
+end

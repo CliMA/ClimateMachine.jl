@@ -57,7 +57,10 @@ import ClimateMachine.BalanceLaws:
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
+    reverse_integral_set_auxiliary_state!,
+    init_state_vertically_flattened!,
+    update_vertically_flattened_state!,
+    nodal_update_vertically_flattened_state!
 
 import ClimateMachine.DGMethods:
     LocalGeometry, lengthscale, resolutionmetric, DGModel
@@ -349,6 +352,15 @@ function vars_state(m::AtmosModel, st::DownwardIntegrals, FT)
     end
 end
 
+"""
+    vars_state(m::AtmosModel, ::VerticallyFlattened, FT)
+"""
+function vars_state(m::AtmosModel, st::VerticallyFlattened, FT)
+    @vars begin
+        radiation::vars_state(m.radiation, st, FT)
+    end
+end
+
 ####
 #### Forward orientation methods
 ####
@@ -579,6 +591,70 @@ end
     return ws
 end
 
+function init_state_vertically_flattened!(
+    m::AtmosModel,
+    vf,
+    aux,
+    grid,
+)
+    atmos_init_state_vertically_flattened!(
+        m.radiation,
+        m,
+        vf,
+        aux,
+        grid,
+    )
+end
+
+function atmos_init_state_vertically_flattened!(::Any, m, vf, aux, grid) end
+
+function update_vertically_flattened_state!(
+    dg::DGModel,
+    m::AtmosModel,
+    state_prognostic,
+    t,
+    elems,
+)
+    if number_states(m, VerticallyFlattened()) > 0
+        update_vertically_flattened_state!(
+            nodal_update_vertically_flattened_state!,
+            dg,
+            m,
+            state_prognostic,
+            t,
+            elems,
+        )
+        atmos_update_vertically_flattened_state!(m.radiation)
+    end
+end
+
+function atmos_update_vertically_flattened_state!(::Any) end
+
+function nodal_update_vertically_flattened_state!(
+    m::AtmosModel,
+    vf::Vars,
+    state::Vars,
+    aux::Vars,
+    isboundary::Val
+)
+    atmos_nodal_update_vertically_flattened_state!(
+        m.radiation,
+        m,
+        vf,
+        state,
+        aux,
+        isboundary,
+    )
+end
+
+function atmos_nodal_update_vertically_flattened_state!(
+    ::Any,
+    m,
+    vf,
+    state,
+    aux,
+    isboundary,
+) end
 
 function update_auxiliary_state!(
     dg::DGModel,

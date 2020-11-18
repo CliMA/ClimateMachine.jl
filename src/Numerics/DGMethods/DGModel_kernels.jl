@@ -1721,6 +1721,89 @@ end
 end
 
 @doc """
+    kernel_nodal_update_vertically_flattened_state!(balance_law::BalanceLaw,
+                        ::Val{dim}, ::Val{N}, ::Val{nvertelem}, f!,
+                        state_vertically_flattened, state_prognostic,
+                        state_auxiliary, vgeo, elems) where {dim, N, nvertelem}
+
+Update the vertically_flattened state array
+""" kernel_nodal_update_vertically_flattened_state!
+@kernel function kernel_nodal_update_vertically_flattened_state!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{N},
+    ::Val{nvertelem},
+    f!,
+    state_vertically_flattened,
+    state_prognostic,
+    state_auxiliary,
+    elems,
+) where {dim, N, nvertelem}
+    @uniform begin
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        num_state_vertically_flattened = number_states(balance_law, VerticallyFlattened())
+
+        Nq = N + 1
+        Nqj = dim == 2 ? 1 : Nq
+
+        local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_vertically_flattened = MArray{Tuple{num_state_vertically_flattened}, FT}(undef)
+    end
+
+    _eh = @index(Group, Linear)
+    i, j = @index(Local, NTuple)
+
+    @inbounds begin
+        eh = elems[_eh]
+
+        for ev in 1:nvertelem
+            e = ev + (eh - 1) * nvertelem
+            hindex = i + Nq * (j - 1) + Nq * Nqj * (eh - 1)
+
+            @unroll for k in 1:Nq
+                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+                vindex = k + (Nq - 1) * (ev - 1)
+                @unroll for s in 1:num_state_prognostic
+                    local_state_prognostic[s] = state_prognostic[ijk, s, e]
+                end
+                @unroll for s in 1:num_state_auxiliary
+                    local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
+                end
+                @unroll for s in 1:num_state_vertically_flattened
+                    local_state_vertically_flattened[s] =
+                        state_vertically_flattened[s][vindex, hindex]
+                end
+
+                # At every interface between two elements, mark the bottom point
+                # in the higher element as a boundary point, so that its data is
+                # averaged with the top point in the lower element.
+                f!(
+                    balance_law,
+                    Vars{vars_state(balance_law, VerticallyFlattened(), FT)}(
+                        local_state_vertically_flattened,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_state_prognostic,
+                    ),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                        local_state_auxiliary,
+                    ),
+                    Val(ev > 1 && k == 1),
+                )
+
+                @unroll for s in 1:num_state_vertically_flattened
+                    state_vertically_flattened[s][vindex, hindex] =
+                        local_state_vertically_flattened[s]
+                end
+            end
+        end
+    end
+end
+
+@doc """
     kernel_indefinite_stack_integral!(balance_law::BalanceLaw, ::Val{dim}, ::Val{N},
                                   ::Val{nvertelem}, state_prognostic, state_auxiliary, vgeo,
                                   Imat, elems) where {dim, N, nvertelem}

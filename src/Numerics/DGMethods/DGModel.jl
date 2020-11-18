@@ -1,7 +1,7 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, VFS, D, DD, MD}
     balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
@@ -10,6 +10,7 @@ struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
     state_auxiliary::AS
     state_gradient_flux::DS
     states_higher_order::HDS
+    state_vertically_flattened::VFS
     direction::D
     diffusion_direction::DD
     modeldata::MD
@@ -33,12 +34,24 @@ function DGModel(
         create_state(balance_law, grid, GradientLaplacian()),
         create_state(balance_law, grid, Hyperdiffusive()),
     ),
+    state_vertically_flattened = create_state(
+        balance_law,
+        grid,
+        VerticallyFlattened()
+    ),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
 )
     state_auxiliary =
         init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
+    init_state(
+        state_vertically_flattened,
+        state_auxiliary,
+        balance_law,
+        grid,
+        VerticallyFlattened()
+    )
     DGModel(
         balance_law,
         grid,
@@ -48,6 +61,7 @@ function DGModel(
         state_auxiliary,
         state_gradient_flux,
         states_higher_order,
+        state_vertically_flattened,
         direction,
         diffusion_direction,
         modeldata,
@@ -149,6 +163,14 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         !(isstacked(topology) && typeof(dg.direction) <: VerticalDirection)
 
     update_auxiliary_state!(
+        dg,
+        balance_law,
+        state_prognostic,
+        t,
+        dg.grid.topology.realelems,
+    )
+
+    update_vertically_flattened_state!(
         dg,
         balance_law,
         state_prognostic,
@@ -920,6 +942,79 @@ function update_auxiliary_state!(
             dependencies = (event,),
         )
     end
+    wait(device, event)
+end
+
+function init_state_vertically_flattened!(
+    balance_law::BalanceLaw,
+    state_vertically_flattened,
+    state_auxiliary,
+    grid,
+) end
+
+function update_vertically_flattened_state!(
+    dg::DGModel,
+    balance_law::BalanceLaw,
+    state_prognostic,
+    t,
+    elems,
+)
+    if number_states(balance_law, VerticallyFlattened()) > 0
+        update_vertically_flattened_state!(
+            nodal_update_vertically_flattened_state!,
+            dg,
+            balance_law,
+            state_prognostic,
+            t,
+            elems,
+        )
+    end
+end
+
+function nodal_update_vertically_flattened_state!(
+    balance_law,
+    vf,
+    state,
+    aux,
+    isboundary,
+) end
+
+function update_vertically_flattened_state!(
+    f!,
+    dg::DGModel,
+    m::BalanceLaw,
+    state_prognostic::MPIStateArray,
+    t::Real,
+    elems::UnitRange = dg.grid.topology.realelems,
+)
+    device = array_device(state_prognostic)
+
+    grid = dg.grid
+    topology = grid.topology
+
+    dim = dimensionality(grid)
+    N = polynomialorder(grid)
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+
+    event = Event(device)
+    event = kernel_nodal_update_vertically_flattened_state!(device, (Nq, Nqk))(
+        m,
+        Val(dim),
+        Val(N),
+        Val(nvertelem),
+        f!,
+        dg.state_vertically_flattened, # not an MPIStateArray, so no data
+        state_prognostic.data,
+        dg.state_auxiliary.data,
+        horzelems;
+        ndrange = (length(horzelems) * Nq, Nqk),
+        dependencies = (event,),
+    )
     wait(device, event)
 end
 
