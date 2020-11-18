@@ -16,7 +16,6 @@ using ClimateMachine.NumericalFluxes
 using ClimateMachine.VTK
 
 using StaticArrays
-using Test
 using Printf
 using MPI
 using ArgParse
@@ -91,8 +90,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
             splitting_type = ClimateMachine.SlowFastSplitting(),
             fast_model = AtmosAcousticGravityLinearModel,
             mis_method = MIS2,
-            fast_method = LSRK54CarpenterKennedy,
-            nsubsteps = (50,),
+            fast_method = LSRK144NiegemannDiehlBusch,
+            nsubsteps = (25,),
         )
     elseif fast_method == "StrongStabilityPreservingRungeKutta"
         ode_solver = ClimateMachine.MISSolverType(
@@ -205,22 +204,22 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 3
+    N = 5
     # Domain resolution and size
-    Δx = FT(125)
-    Δy = FT(125)
-    Δz = FT(125)
-    resolution = (Δx, Δy, Δz)
+    Δh = FT(75)
+    Δv = FT(75)
+    resolution = (Δh, Δh, Δv)
     # Domain extents
     xmax = FT(20000)
     ymax = FT(1000)
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(20)
+    timeend = FT(2000)
 
     # Time-step size (s)
-    Δt = FT(0.4)
+    # Δt = FT(0.4)
+    Courant = FT(20)
 
     driver_config =
         config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
@@ -228,8 +227,9 @@ function main()
         t0,
         timeend,
         driver_config,
-        init_on_cpu = true,
-        ode_dt = Δt,
+        init_on_cpu = false,
+        # ode_dt = Δt,
+        Courant_number = Courant,
     )
     dgn_config = config_diagnostics(driver_config)
 
@@ -237,10 +237,8 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
-
-    @test isapprox(result, FT(1); atol = 1.5e-3)
 end
 
 main()
