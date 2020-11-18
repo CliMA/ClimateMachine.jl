@@ -567,7 +567,7 @@ Computations:
 
     # Arguments for forcing functions
     # args = y, t, u, v, w, η, θ
-    args = tuple(A.y, t, Q.u..., A.w, Q.η, Q.θ)
+    args = tuple(A.y, t, Q.u[1], Q.u[2], A.w, Q.η, Q.θ)
 
     Su = m.forcing.u(args...)
     Sv = m.forcing.v(args...)
