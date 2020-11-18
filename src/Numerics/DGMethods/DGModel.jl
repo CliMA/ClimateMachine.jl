@@ -1399,8 +1399,6 @@ function launch_volume_tendency!(
     Qhypervisc_grad, _ = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = (info.Nq, info.Nq)
-    ndrange = (info.Nq * info.nrealelem, info.Nq)
     comp_stream = dependencies
     dim = info.dim
 
@@ -1412,11 +1410,20 @@ function launch_volume_tendency!(
     compute_ξ3 = dim == 3 && (dg.direction isa EveryDirection ||
                   dg.direction isa VerticalDirection)
 
+    line_D = dg.grid.line_D
+    line_I = dg.grid.line_I
+    ω = dg.grid.ω
+    line_ω = dg.grid.line_ω
+    line_Nq = size.(line_D, 1)
     if compute_ξ1
+        workgroup = (line_Nq[1], info.Nq)
+        ndrange = (line_Nq[1] * info.nrealelem, info.Nq)
+
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
             Val(dim),
             Val(info.N),
+            Val(line_Nq[1]),
             dg.direction,
             Val(1),
             tendency.data,
@@ -1427,8 +1434,10 @@ function launch_volume_tendency!(
             dg.grid.vgeo,
             t,
             # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            ω[1],
+            line_ω[1],
+            line_D[1],
+            line_I[1],
             dg.grid.topology.realelems,
             α,
             β,
@@ -1439,10 +1448,14 @@ function launch_volume_tendency!(
     end
     
     if compute_ξ2
+        workgroup = (line_Nq[2], info.Nq)
+        ndrange = (line_Nq[2] * info.nrealelem, info.Nq)
+
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
             Val(info.dim),
             Val(info.N),
+            Val(line_Nq[2]),
             dg.direction,
             Val(2),
             tendency.data,
@@ -1453,8 +1466,10 @@ function launch_volume_tendency!(
             dg.grid.vgeo,
             t,
             # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            ω[2],
+            line_ω[2],
+            line_D[2],
+            line_I[2],
             dg.grid.topology.realelems,
             α,
             compute_ξ1 ? true : β,
@@ -1466,10 +1481,14 @@ function launch_volume_tendency!(
     end
     
     if compute_ξ3
+        workgroup = (line_Nq[3], info.Nq)
+        ndrange = (line_Nq[3] * info.nrealelem, info.Nq)
+
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
             Val(info.dim),
             Val(info.N),
+            Val(line_Nq[3]),
             dg.direction,
             Val(3),
             tendency.data,
@@ -1480,8 +1499,10 @@ function launch_volume_tendency!(
             dg.grid.vgeo,
             t,
             # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            ω[3],
+            line_ω[3],
+            line_D[3],
+            line_I[3],
             dg.grid.topology.realelems,
             α,
             (compute_ξ1 || compute_ξ2) ? true : β,

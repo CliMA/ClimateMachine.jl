@@ -56,7 +56,7 @@ function min_node_distance(
 end
 
 # {{{
-const _nvgeo = 16
+const _nvgeo = 17
 const _ξ1x1,
 _ξ2x1,
 _ξ3x1,
@@ -72,7 +72,8 @@ _MH,
 _x1,
 _x2,
 _x3,
-_JcV = 1:_nvgeo
+_JcV,
+_J = 1:_nvgeo
 const vgeoid = (
     ξ1x1id = _ξ1x1,
     ξ2x1id = _ξ2x1,
@@ -175,12 +176,21 @@ struct DiscontinuousSpectralElementGrid{
 
     "1-D lgl weights on the device (one for each dimension)"
     ω::DAT1
+    
+    "1-D line lgl weights on the device (one for each dimension)"
+    line_ω::DAT1
 
     "1-D derivative operator on the device (one for each dimension)"
     D::DAT2
 
     "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
+    
+    "1-D line derivative operator on the device (one for each dimension)"
+    line_D::DAT2
+    
+    "1-D line interpolation operator on the device (one for each dimension)"
+    line_I::DAT2
 
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
@@ -189,6 +199,7 @@ struct DiscontinuousSpectralElementGrid{
         FloatType,
         DeviceArray,
         meshwarp::Function = (x...) -> identity(x),
+        line_polynomialorder = polynomialorder,
     ) where {dim}
 
         if polynomialorder isa Integer
@@ -197,10 +208,16 @@ struct DiscontinuousSpectralElementGrid{
             polynomialorder =
                 (polynomialorder[1], polynomialorder[1], polynomialorder[2])
         end
+        
+        if line_polynomialorder isa Integer
+            line_polynomialorder = ntuple(j -> line_polynomialorder, dim)
+        end
 
         @assert dim == length(polynomialorder)
+        @assert dim == length(line_polynomialorder)
 
         N = polynomialorder
+        line_N = line_polynomialorder
 
         (vmap⁻, vmap⁺) = mappings(
             N,
@@ -227,12 +244,18 @@ struct DiscontinuousSpectralElementGrid{
         # Create element operators for each polynomial order
         ξω = ntuple(j -> Elements.lglpoints(FloatType, N[j]), dim)
         ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
+        
 
         Imat = ntuple(
             j -> indefinite_integral_interpolation_matrix(ξ[j], ω[j]),
             dim,
         )
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
+        
+        line_ξ = ntuple(j -> Elements.lglpoints(FloatType, line_N[j])[1], dim)
+        line_ω = ntuple(j -> Elements.lglpoints(FloatType, line_N[j])[2], dim)
+        line_D = ntuple(j -> Elements.spectralderivative(line_ξ[j]), dim)
+        line_I = ntuple(j -> Elements.interpolationmatrix(ξ[j], line_ξ[j]), dim)
 
         (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
 
@@ -254,6 +277,9 @@ struct DiscontinuousSpectralElementGrid{
         ω = DeviceArray.(ω)
         D = DeviceArray.(D)
         Imat = DeviceArray.(Imat)
+        
+        line_D = DeviceArray.(line_D)
+        line_I = DeviceArray.(line_I)
 
         # FIXME: There has got to be a better way!
         DAT1 = typeof(ω)
@@ -294,8 +320,11 @@ struct DiscontinuousSpectralElementGrid{
             DeviceArray(topology.exteriorelems),
             activedofs,
             ω,
+            line_ω,
             D,
             Imat,
+            line_D,
+            line_I,
         )
     end
 end
@@ -607,8 +636,8 @@ function computegeometry(
         x2,
         x3,
         JcV,
+        J
     ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
-    J = similar(x1)
     (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
     sJ = similar(sMJ)
 

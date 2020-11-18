@@ -19,6 +19,7 @@ const _ξ1x3, _ξ2x3, _ξ3x3 = Grids._ξ1x3, Grids._ξ2x3, Grids._ξ3x3
 const _M, _MI = Grids._M, Grids._MI
 const _x1, _x2, _x3 = Grids._x1, Grids._x2, Grids._x3
 const _JcV = Grids._JcV
+const _J = Grids._J
 
 const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
@@ -64,6 +65,7 @@ fluxes, respectively.
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{polyorder},
+    ::Val{line_Nq},
     model_direction,
     ::Val{diff_direction},
     tendency,
@@ -74,41 +76,50 @@ fluxes, respectively.
     vgeo,
     t,
     ω,
+    ωD,
     D,
+    I,
     elems,
     α,
     β,
     add_source = false,
-) where {dim, polyorder, diff_direction}
+) where {dim, polyorder, line_Nq, diff_direction}
     @uniform begin
         N = polyorder
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
-
-        ngradlapstate = number_states(balance_law, GradientLaplacian())
-        nhyperviscstate = number_states(balance_law, Hyperdiffusive())
+        num_state_hyperdiffusion = number_states(balance_law, Hyperdiffusive())
 
         Nq = N + 1
+        Nq1 = line_Nq
         Nq3 = dim == 2 ? 1 : Nq
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
+        local_state_hyperdiffusion = MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         
         local_flux = MArray{Tuple{3, num_state_prognostic}, FT}(undef)
         local_flux_total = MArray{Tuple{3, num_state_prognostic}, FT}(undef)
     end
+   
+    # That's a lot of shared memory !
+    shared_prognostic = @localmem FT (Nq1, Nq, num_state_prognostic)
+    shared_auxiliary = @localmem FT (Nq, Nq, num_state_auxiliary)
+    shared_gradient_flux = @localmem FT (Nq, Nq, num_state_gradient_flux)
+    shared_hyperdiffusion = @localmem FT (Nq, Nq, num_state_hyperdiffusion)
+    shared_J = @localmem FT (Nq, Nq)
+    shared_ξD = @localmem FT (Nq, Nq, 3)
 
-    # Arrays for F, and the differentiation matrix D
-    shared_flux = @localmem FT (Nq, Nq, num_state_prognostic)
-    s_D = @localmem FT (Nq, Nq)
+    local_ξD = @private FT (3,)
+    local_flux_total = @private FT (3, num_state_prognostic)
     local_tendency = @private FT (num_state_prognostic,)
     local_ijk = @private Int (1,)
+    local_M = @private FT (1,)
 
     # Grab the index associated with the current element `e` and the
     # horizontal quadrature indices `i` (in the ξ1-direction),
@@ -118,9 +129,6 @@ fluxes, respectively.
     t1, t2 = @index(Local, NTuple)
 
     @inbounds begin
-        # load differentiation matrix into local memory
-        s_D[t1, t2] = D[t1, t2]
-
         @unroll for t3 in 1:Nq3
             @synchronize
             
@@ -132,50 +140,91 @@ fluxes, respectively.
               i = t1
               j = t2
               k = t3
+              _ξDx1, _ξDx2, _ξDx3 = _ξ1x1, _ξ1x2, _ξ1x3
             elseif diff_direction == 2
               j = t1
               i = t2
               k = t3
+              _ξDx1, _ξDx2, _ξDx3 = _ξ2x1, _ξ2x2, _ξ2x3
             elseif diff_direction == 3
               k = t1
               i = t2
               j = t3
+              _ξDx1, _ξDx2, _ξDx3 = _ξ3x1, _ξ3x2, _ξ3x3
             end
             ijk = i + Nq * ((j - 1) + Nq * (k - 1)) 
             local_ijk[1] = ijk
 
-            M = vgeo[ijk, _M, e]
+            # Load everything into shared memory !
+            if t1 <= Nq
+              @unroll for s in 1:num_state_prognostic
+                  shared_prognostic[t1, t2, s] = state_prognostic[ijk, s, e]
+              end
 
-            # Extract Jacobian terms ∂ξᵢ/∂xⱼ
-            if diff_direction == 1
-              ξDx1 = vgeo[ijk, _ξ1x1, e]
-              ξDx2 = vgeo[ijk, _ξ1x2, e]
-              ξDx3 = vgeo[ijk, _ξ1x3, e]
-            elseif diff_direction == 2
-              ξDx1 = vgeo[ijk, _ξ2x1, e]
-              ξDx2 = vgeo[ijk, _ξ2x2, e]
-              ξDx3 = vgeo[ijk, _ξ2x3, e]
-            elseif diff_direction == 3
-              ξDx1 = vgeo[ijk, _ξ3x1, e]
-              ξDx2 = vgeo[ijk, _ξ3x2, e]
-              ξDx3 = vgeo[ijk, _ξ3x3, e]
+              @unroll for s in 1:num_state_auxiliary
+                  shared_auxiliary[t1, t2, s] = state_auxiliary[ijk, s, e]
+              end
+
+              @unroll for s in 1:num_state_gradient_flux
+                  shared_gradient_flux[t1, t2, s] = state_gradient_flux[ijk, s, e]
+              end
+
+              @unroll for s in 1:num_state_hyperdiffusion
+                  shared_hyperdiffusion[t1, t2, s] = Qhypervisc_grad[ijk, s, e]
+              end
+              
+              shared_J[t1, t2] = vgeo[ijk, _J, e]
+              shared_ξD[t1, t2, 1] = vgeo[ijk, _ξDx1, e]
+              shared_ξD[t1, t2, 2] = vgeo[ijk, _ξDx2, e]
+              shared_ξD[t1, t2, 3] = vgeo[ijk, _ξDx3, e]
             end
 
-            # Read fields into registers (hopefully)
+            @synchronize
+
+            # Interpolate to a finer grid in the differentiation direction
+            
+            local_M[1] = zero(FT)
+            for n in 1:Nq
+              local_M[1] += I[t1, n] * shared_J[n, t2]
+            end
+            local_M[1] *= ωD[t1] * ω[t2]
+            if dim == 3
+              local_M[1] *= ω[t3]
+            end
+           
+            @unroll for s in 1:3
+                local_ξD[s] = zero(FT)
+                for n in 1:Nq
+                  local_ξD[s] += I[t1, n] * shared_ξD[n, t2, s]
+                end
+            end
+            
             @unroll for s in 1:num_state_prognostic
-                local_state_prognostic[s] = state_prognostic[ijk, s, e]
+                local_state_prognostic[s] = zero(FT)
+                for n in 1:Nq
+                  local_state_prognostic[s] += I[t1, n] * shared_prognostic[n, t2, s]
+                end
             end
-
+            
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
+                local_state_auxiliary[s] = zero(FT)
+                for n in 1:Nq
+                  local_state_auxiliary[s] += I[t1, n] * shared_auxiliary[n, t2, s]
+                end
             end
-
+            
             @unroll for s in 1:num_state_gradient_flux
-                local_state_gradient_flux[s] = state_gradient_flux[ijk, s, e]
+                local_state_gradient_flux[s] = zero(FT)
+                for n in 1:Nq
+                  local_state_gradient_flux[s] += I[t1, n] * shared_gradient_flux[n, t2, s]
+                end
             end
-
-            @unroll for s in 1:nhyperviscstate
-                local_state_hyperdiffusion[s] = Qhypervisc_grad[ijk, s, e]
+            
+            @unroll for s in 1:num_state_hyperdiffusion
+                local_state_hyperdiffusion[s] = zero(FT)
+                for n in 1:Nq
+                  local_state_hyperdiffusion[s] += I[t1, n] * shared_hyperdiffusion[n, t2, s]
+                end
             end
 
             # Computes the local inviscid fluxes Fⁱⁿᵛ
@@ -278,15 +327,7 @@ fluxes, respectively.
                   end
                 end
             end
-
-            # Build "inside metrics" flux
-            @unroll for s in 1:num_state_prognostic
-                F1, F2, F3 = local_flux_total[1, s],
-                  local_flux_total[2, s], local_flux_total[3, s]
-
-                shared_flux[t1, t2, s] = M * (ξDx1 * F1 + ξDx2 * F2 + ξDx3 * F3)
-            end
-
+            
             # Computes the contribution due to the source term S
             if add_source
                 fill!(local_source, -zero(eltype(local_source)))
@@ -308,22 +349,61 @@ fluxes, respectively.
                     (model_direction,),
                 )
 
+                M = local_M[1]
                 @unroll for s in 1:num_state_prognostic
-                    local_tendency[s] += local_source[s]
+                    local_tendency[s] = M * local_source[s]
                 end
             end
+
+            @synchronize
+
+            M = local_M[1]
+            ξDx1 = local_ξD[1]
+            ξDx2 = local_ξD[2]
+            ξDx3 = local_ξD[3]
+            # Build "inside metrics" flux
+            @unroll for s in 1:num_state_prognostic
+                F1, F2, F3 = local_flux_total[1, s],
+                  local_flux_total[2, s], local_flux_total[3, s]
+
+                # reusing shared_prognostic to store the flux
+                shared_prognostic[t1, t2, s] = M * (ξDx1 * F1 + ξDx2 * F2 + ξDx3 * F3)
+            end
+
             @synchronize
 
             # Weak "inside metrics" derivative.
             # Computes the rest of the volume term: M⁻¹DᵀF
             ijk = local_ijk[1]
-            MI = vgeo[ijk, _MI, e]
             @unroll for s in 1:num_state_prognostic
-                @unroll for n in 1:Nq
+                @unroll for n in 1:Nq1
                     # ξ-grid lines
                     local_tendency[s] +=
-                        MI * s_D[n, t1] * shared_flux[n, t2, s]
+                        D[n, t1] * shared_prognostic[n, t2, s]
                 end
+            end
+            
+            @synchronize
+            
+            # store tendency in shared_prognostic
+            @unroll for s in 1:num_state_prognostic
+              shared_prognostic[t1, t2, s] = local_tendency[s]
+            end
+            
+            @synchronize
+
+            # interpolate tendency back to the original grid,
+            # divide by the mass matrix, and store
+            ijk = local_ijk[1]
+
+            if t1 <= Nq
+              MI = vgeo[ijk, _MI, e]
+              @unroll for s in 1:num_state_prognostic
+                local_tendency[s] = 0
+                for n in 1:Nq1
+                  local_tendency[s] += I[n, t1] * shared_prognostic[n, t2, s]
+                end
+                local_tendency[s] *= MI
 
                 if β != 0
                   T = α * local_tendency[s] + β * tendency[ijk, s, e]
@@ -331,6 +411,7 @@ fluxes, respectively.
                   T = α * local_tendency[s]
                 end
                 tendency[ijk, s, e] = T
+              end
             end
         end
     end
