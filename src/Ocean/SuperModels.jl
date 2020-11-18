@@ -148,7 +148,7 @@ function HydrostaticBoussinesqSuperModel(;
     # Default vertical filter and horizontal exponential filter:
     if isnothing(filters)
         filters = (
-            vert_filter = CutoffFilter(grid, polynomialorder(grid) - 1),
+            vert_filter = CutoffFilter(grid, polynomialorder(grid)),
             exp_filter = ExponentialFilter(grid, 1, 8),
         )
     end
