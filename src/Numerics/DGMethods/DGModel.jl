@@ -1402,17 +1402,23 @@ function launch_volume_tendency!(
     workgroup = (info.Nq, info.Nq)
     ndrange = (info.Nq * info.nrealelem, info.Nq)
     comp_stream = dependencies
+    dim = info.dim
 
-    # If the model direction is EveryDirection, we need to perform
-    # both horizontal AND vertical kernel calls; otherwise, we only
-    # call the kernel corresponding to the model direction `dg.diffusion_direction`
-    if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
+    compute_ξ1 = dg.direction isa EveryDirection ||
+                 dg.direction isa HorizontalDirection
+    compute_ξ2 = dg.direction isa EveryDirection ||
+                 (dim == 2 && dg.direction isa VerticalDirection) ||
+                 (dim == 3 && dg.direction isa HorizontalDirection)
+    compute_ξ3 = dim == 3 && (dg.direction isa EveryDirection ||
+                  dg.direction isa VerticalDirection)
+
+    if compute_ξ1
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
+            Val(dim),
             Val(info.N),
             dg.direction,
-            HorizontalDirection(),
+            Val(1),
             tendency.data,
             state_prognostic.data,
             dg.state_gradient_flux.data,
@@ -1426,21 +1432,19 @@ function launch_volume_tendency!(
             dg.grid.topology.realelems,
             α,
             β,
-            # If the model direction is horizontal, we want to be sure to add sources
-            dg.direction isa HorizontalDirection,
+            true,
             ndrange = ndrange,
             dependencies = comp_stream,
         )
     end
-
-    # Vertical kernel
-    if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+    
+    if compute_ξ2
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
             Val(info.dim),
             Val(info.N),
             dg.direction,
-            VerticalDirection(),
+            Val(2),
             tendency.data,
             state_prognostic.data,
             dg.state_gradient_flux.data,
@@ -1453,18 +1457,41 @@ function launch_volume_tendency!(
             dg.grid.D[1],
             dg.grid.topology.realelems,
             α,
-            # If we are computing the volume gradient in every direction, we
-            # need to increment into the appropriate fields _after_ the
-            # horizontal computation.
-            dg.direction isa EveryDirection ? true : β,
-            # Boolean to add source. In the case of EveryDirection, we always add the sources
-            # in the vertical kernel. Here, we make the assumption that we're either computing
-            # in every direction, or _just_ the vertical direction.
-            true;
+            compute_ξ1 ? true : β,
+            # only add sources if not added previously
+            !compute_ξ1;
             ndrange = ndrange,
             dependencies = comp_stream,
         )
     end
+    
+    if compute_ξ3
+        comp_stream = volume_tendency!(info.device, workgroup)(
+            dg.balance_law,
+            Val(info.dim),
+            Val(info.N),
+            dg.direction,
+            Val(3),
+            tendency.data,
+            state_prognostic.data,
+            dg.state_gradient_flux.data,
+            Qhypervisc_grad.data,
+            dg.state_auxiliary.data,
+            dg.grid.vgeo,
+            t,
+            # XXX: Needs updating for multiple polynomial orders
+            dg.grid.ω[1],
+            dg.grid.D[1],
+            dg.grid.topology.realelems,
+            α,
+            (compute_ξ1 || compute_ξ2) ? true : β,
+            # only add sources here if not added previously
+            !compute_ξ1 && !compute_ξ2;
+            ndrange = ndrange,
+            dependencies = comp_stream,
+        )
+    end
+
 
     return comp_stream
 end
