@@ -70,6 +70,7 @@ ClimateMachine.Atmos.FreeSlip
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
 ClimateMachine.Atmos.BulkFormulaEnergy
+ClimateMachine.Atmos.ImpermeablePrecipitation
 ClimateMachine.Atmos.ImpermeableTracer
 ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
@@ -82,4 +83,7 @@ ClimateMachine.Atmos.average_density
 ```@docs
 ClimateMachine.Atmos.RemovePrecipitation
 ClimateMachine.Atmos.CreateClouds
+ClimateMachine.Atmos.Rain_1M
+
+
 ```

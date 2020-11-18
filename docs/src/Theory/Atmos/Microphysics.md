@@ -676,6 +676,44 @@ If ``T > T_{freeze}``:
 \end{equation}
 ```
 
+## Coupling to the state variables
+
+### Rain
+
+The source of rain water ``\mathcal{S}_{q_{rai}}`` is a sum of the
+  [autoconversion](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics/#Rain-autoconversion),
+  [accretion](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics/#Accretion), and
+  [rain evaporation](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics/#Rain-evaporation-and-snow-sublimation)
+  sources.
+The sink of total water is equal to the source of rain water:
+  ``\mathcal{S}_{q_{tot}}`` = -``\mathcal{S}_{q_{rai}}``.
+The sink of liquid water is equal to the source of rain water
+  from autoconversion and accretion:
+  ``\mathcal{S}_{q_{liq}}`` = - ``\left.\mathcal{S}_{q_{rai}} \right|_{acnv}`` - ``\left. \mathcal{S}_{q_{rai}} \right|_{accr}``.
+Following the conservation equations for
+[moisture](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosModel/#Moisture)
+and [mass](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosModel/#Mass),
+the ``\mathcal{S}_{q_{tot}}`` sink has to be multiplied by ``\rho`` before
+  adding it as one of the sink terms to both ``\rho`` and ``\rho q_{tot}``
+  state variables.
+Similarly, the ``\mathcal{S}_{q_{liq}}`` sink has to be multiplied by ``\rho``
+  before adding it as one of the sink terms to ``\rho q_{liq}`` state variable.
+For the conservation equation for
+[total energy](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/AtmosModel/#Energy),
+  the sink due to removing ``q_{tot}`` is computed as:
+```math
+\begin{equation}
+\left. \sum_{j\in\{v,l,i\}}(I_j + \Phi)  \rho C(q_j \rightarrow q_p) \right|_{precip} =
+  (I_l + \Phi) \rho \, \mathcal{S}_{q_{tot}}
+\end{equation}
+```
+where:
+ - ``I_l = c_{vl} (T - T_0)`` is the internal energy of liquid water,
+ - ``T`` is the temperature,
+ - ``T_0`` is the thermodynamic reference temperature (which is unrelated to the reference temperature used in hydrostatic reference states used in the momentum equations),
+ - ``c_{vl}`` is the isochoric specific heat of liquid water,
+ - ``\Phi`` is the effective gravitational potential.
+
 ## Example figures
 
 ```@example example_figures

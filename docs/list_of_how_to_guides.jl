@@ -11,6 +11,7 @@ how_to_guides = Any[
         "Temperature profiles" => "HowToGuides/Atmos/TemperatureProfiles.md",
         "Reference profiles" => "HowToGuides/Atmos/AtmosReferenceState.md",
         "Moisture model" => "HowToGuides/Atmos/MoistureModelChoices.md",
+        "Precipitation model" => "HowToGuides/Atmos/PrecipitationModelChoices.md",
     ],
     "Ocean" => Any[
     # "Home" => "HowToGuides/Ocean/index.md"
