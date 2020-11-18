@@ -10,6 +10,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.TurbulenceClosures
@@ -22,6 +23,7 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
+using CLIMAParameters.Atmos.SubgridScale: C_smag
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -169,21 +171,21 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
+    ν_hyper::FT = 8 * 3600
     if with_moisture
-        hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
+        hyperdiffusion = EquilMoistBiharmonic(ν_hyper)
         moisture = EquilMoist{FT}()
-        source = (Gravity(), Coriolis())
     else
-        hyperdiffusion = DryBiharmonic(FT(8 * 3600))
+        hyperdiffusion = DryBiharmonic(ν_hyper)
         moisture = DryModel()
-        source = (Gravity(), Coriolis())
     end
+    source = (Gravity(), Coriolis())
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
-        turbulence = ConstantKinematicViscosity(FT(0)),
+        turbulence = SmagorinskyLilly{FT}(FT(C_smag(param_set))),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
@@ -220,10 +222,10 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 3                           # discontinuous Galerkin polynomial order
+    poly_order = 4                           # discontinuous Galerkin polynomial order
     n_horz = 12                              # horizontal element number
     n_vert = 6                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 12
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -240,7 +242,7 @@ function main()
         discrete_splitting = false,
     )
 
-    CFL = FT(0.1) # target acoustic CFL number
+    CFL = FT(10) # target acoustic CFL number (in the vertical)
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -249,7 +251,7 @@ function main()
         driver_config,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
-        CFL_direction = HorizontalDirection(),
+        CFL_direction = VerticalDirection(),
         diffdir = HorizontalDirection(),
     )
 
@@ -266,6 +268,7 @@ function main()
             solver_config.dg.grid,
             filter,
             state_auxiliary = solver_config.dg.state_auxiliary,
+            # direction = VerticalDirection(),
         )
         nothing
     end
