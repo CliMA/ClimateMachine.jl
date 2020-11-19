@@ -772,10 +772,7 @@ function source!(
     source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
     source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
-    if !(m.moisture isa DryModel)
-        source.moisture.ρq_tot =
-            Σsources(eq_tends(TotalMoisture(), m, tend), args...)
-    end
+    source!(m.moisture, m, source, state, diffusive, aux, t, direction)
 
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end

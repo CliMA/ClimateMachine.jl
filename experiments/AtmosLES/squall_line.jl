@@ -194,7 +194,7 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_squall_line!
 
-    source = (Gravity(), rayleigh_sponge, CreateClouds())
+    source = (Gravity(), rayleigh_sponge, CreateClouds()...)
 
 
     problem = AtmosProblem(
