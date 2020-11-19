@@ -2942,7 +2942,7 @@ end
 @kernel function kernel_continuous_field_gradient!(
     balance_law::BalanceLaw,
     ::Val{dim},
-    ::Val{polyorder},
+    ::Val{polyorders},
     direction,
     ∇state,
     state,
@@ -2951,17 +2951,19 @@ end
     ω,
     ::Val{I},
     ::Val{O},
-) where {dim, polyorder, I, O}
+    increment,
+) where {dim, polyorders, I, O}
     @uniform begin
-        N = polyorder
+        Ns = polyorders
         FT = eltype(state)
         ngradstate = length(I)
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nqs = Ns .+ 1
+        Nq = Nqs[1]
+        Nq2 = Nqs[2]
+        Nqk = dim == 2 ? 1 : Nqs[dim]
     end
 
-    shared_state = @localmem FT (Nq, Nq, ngradstate)
-    s_D = @localmem FT (Nq, Nq)
+    shared_state = @localmem FT (Nq, Nq2, ngradstate)
 
     local_gradient = @private FT (3, ngradstate, Nqk)
     Gξ3 = @private FT (ngradstate, Nqk)
@@ -2970,8 +2972,6 @@ end
     i, j = @index(Local, NTuple)
 
     @inbounds @views begin
-        s_D[i, j] = D[i, j]
-
         @unroll for k in 1:Nqk
             @unroll for s in 1:ngradstate
                 local_gradient[1, s, k] = -zero(FT)
@@ -2997,22 +2997,37 @@ end
             @unroll for s in 1:ngradstate
                 Gξ1 = Gξ2 = zero(FT)
 
-                @unroll for n in 1:Nq
-                    Gξ1 += s_D[i, n] * shared_state[n, j, s]
-                    Gξ2 += s_D[j, n] * shared_state[i, n, s]
-                    if dim == 3
-                        Gξ3[s, n] += s_D[n, k] * shared_state[i, j, s]
+                if (dim == 2 && (direction isa VerticalDirection))
+                    @unroll for n in 1:Nq2
+                        Gξ2 += D[j, n] * shared_state[i, n, s]
+                    end
+                end
+                if (dim == 3 && (direction isa VerticalDirection))
+                    @unroll for n in 1:Nqk
+                        Gξ3[s, n] += D[n, k] * shared_state[i, j, s]
                     end
                 end
 
-                if !(direction isa VerticalDirection)
+                if (dim == 2 && (direction isa HorizontalDirection))
+                    @unroll for n in 1:Nq
+                        Gξ1 += D[i, n] * shared_state[n, j, s]
+                    end
+                end
+                if (dim == 3 && (direction isa HorizontalDirection))
+                    @unroll for n in 1:Nq
+                        Gξ1 += D[i, n] * shared_state[n, j, s]
+                        Gξ2 += D[j, n] * shared_state[i, n, s]
+                    end
+                end
+
+                if (direction isa HorizontalDirection)
                     local_gradient[1, s, k] += ξ1x1 * Gξ1
                     local_gradient[2, s, k] += ξ1x2 * Gξ1
                     local_gradient[3, s, k] += ξ1x3 * Gξ1
                 end
-
-                if (dim == 3 && !(direction isa VerticalDirection)) ||
-                   (dim == 2 && !(direction isa HorizontalDirection))
+                
+                if ((dim == 2 && (direction isa VerticalDirection)) ||
+                    (dim == 3 && (direction isa HorizontalDirection)))
                     ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                     vgeo[ijk, _ξ2x2, e],
                     vgeo[ijk, _ξ2x3, e]
@@ -3027,7 +3042,7 @@ end
         @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
-            if dim == 3 && !(direction isa HorizontalDirection)
+            if (dim == 3 && (direction isa VerticalDirection))
                 ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
                 vgeo[ijk, _ξ3x2, e],
                 vgeo[ijk, _ξ3x3, e]
@@ -3038,10 +3053,18 @@ end
                 end
             end
 
-            @unroll for s in 1:ngradstate
-                ∇state[ijk, O[3 * (s - 1) + 1], e] = local_gradient[1, s, k]
-                ∇state[ijk, O[3 * (s - 1) + 2], e] = local_gradient[2, s, k]
-                ∇state[ijk, O[3 * (s - 1) + 3], e] = local_gradient[3, s, k]
+            if increment
+                @unroll for s in 1:ngradstate
+                    ∇state[ijk, O[3 * (s - 1) + 1], e] += local_gradient[1, s, k]
+                    ∇state[ijk, O[3 * (s - 1) + 2], e] += local_gradient[2, s, k]
+                    ∇state[ijk, O[3 * (s - 1) + 3], e] += local_gradient[3, s, k]
+                end
+            else
+                @unroll for s in 1:ngradstate
+                    ∇state[ijk, O[3 * (s - 1) + 1], e] = local_gradient[1, s, k]
+                    ∇state[ijk, O[3 * (s - 1) + 2], e] = local_gradient[2, s, k]
+                    ∇state[ijk, O[3 * (s - 1) + 3], e] = local_gradient[3, s, k]
+                end
             end
         end
     end

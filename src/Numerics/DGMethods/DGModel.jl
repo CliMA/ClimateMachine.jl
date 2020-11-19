@@ -918,8 +918,8 @@ function continuous_field_gradient!(
         event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2], Nqk))(
             m,
             Val(dim),
-            Val(horizontal_polyorder),
-            direction,
+            Val(N),
+            HorizontalDirection(),
             ∇state.data,
             state.data,
             grid.vgeo,
@@ -927,6 +927,7 @@ function continuous_field_gradient!(
             horizontal_ω,
             Val(I),
             Val(O),
+            false,
             ndrange = (nrealelem * Nq[1], Nq[2], Nqk),
             dependencies = (event,),
         )
@@ -939,8 +940,8 @@ function continuous_field_gradient!(
         event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2], Nqk))(
             m,
             Val(dim),
-            Val(vertical_polyorder),
-            direction,
+            Val(N),
+            VerticalDirection(),
             ∇state.data,
             state.data,
             grid.vgeo,
@@ -948,6 +949,9 @@ function continuous_field_gradient!(
             vertical_ω,
             Val(I),
             Val(O),
+            # If we are computing in every direction, we need to
+            # increment after we compute the horizontal values
+            (direction isa EveryDirection);
             ndrange = (nrealelem * Nq[1], Nq[2], Nqk),
             dependencies = (event,),
         )
