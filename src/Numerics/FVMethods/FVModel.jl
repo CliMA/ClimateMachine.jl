@@ -59,8 +59,8 @@ function weno_reconstruction!(
     # at i - 1/2, i + 1/2
     P = similar(state_primitive_top, num_state_primitive, 2, 3)
     P .= 0
-    for r in 0:2
-        for j in 0:2
+    @unroll for r in 0:2
+        @unroll for j in 0:2
             P[:, 1, 3 - r] +=
                 b[r + 1, j + 1] *
                 cell_weights[3 + r - j] *
@@ -76,7 +76,7 @@ function weno_reconstruction!(
     # build the second derivative part in smoothness measure
     d2B = similar(state_primitive_top, 3, 3)
     d2B .= 0
-    for r in 0:2
+    @unroll for r in 0:2
         d2B[r + 1, 3] =
             6 / (
                 (
@@ -105,8 +105,8 @@ function weno_reconstruction!(
 
     d2P = similar(state_primitive_top, num_state_primitive, 3)
     d2P .= 0
-    for r in 0:2
-        for j in 0:2
+    @unroll for r in 0:2
+        @unroll for j in 0:2
             d2P[:, r + 1] +=
                 d2B[r + 1, j + 1] *
                 cell_weights[3 - r + j] *
@@ -133,8 +133,8 @@ function weno_reconstruction!(
     d1B[1, 1, 1] =
         d1B[1, 1, 2] - 2 * (2 * h3 + 2 * h4 + h5) / (h3 * h4 * (h4 + h5))
 
-    for r in 0:2
-        for j in 0:2
+    @unroll for r in 0:2
+        @unroll for j in 0:2
             d1B[2, r + 1, j + 1] =
                 d1B[1, r + 1, j + 1] + FT(0.5) * h3 * d2B[r + 1, j + 1]
             d1B[3, r + 1, j + 1] = d1B[1, r + 1, j + 1] + h3 * d2B[r + 1, j + 1]
@@ -142,9 +142,9 @@ function weno_reconstruction!(
     end
     d1P = similar(state_primitive_top, num_state_primitive, 3, 3)   # xi-1/2 xi, xi+1/2; r
     d1P .= 0
-    for i in 1:3
-        for r in 0:2
-            for j in 0:2
+    @unroll for i in 1:3
+        @unroll for r in 0:2
+            @unroll for j in 0:2
                 d1P[:, i, r + 1] +=
                     d1B[i, r + 1, j + 1] *
                     cell_weights[3 - r + j] *
@@ -233,7 +233,7 @@ function weno_reconstruction!(
 
     # at i - 1/2, i + 1/2, r = 0, 1
     P = similar(state_primitive_top, num_state_primitive, 2, 2)
-    for r in 0:1
+    @unroll for r in 0:1
         P[:, 1, r + 1] =
             cell_states_primitive[2] - dP[:, r + 1] * h2 / 2
         P[:, 2, r + 1] =
@@ -292,7 +292,6 @@ function fv_reconstruction!(
     cell_states_primitive::NTuple{3, AbstractArray{FT}},
     cell_weights::SVector{3, FT},
 ) where {FT}
-
     num_state_primitive = length(state_primitive_top)
     Δz⁻, Δz, Δz⁺ = cell_weights
 
