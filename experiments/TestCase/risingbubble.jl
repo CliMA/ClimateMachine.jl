@@ -20,6 +20,30 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
 
+using Images, FileIO
+using Dierckx
+
+function getspline(img_path, xlim, ylim)
+    img = 1 .- rotr90(Float64.(Gray.(load(img_path))))
+    img = img / maximum.(img)
+    Nx, Ny = size(img)
+    Δx = xlim[2] - xlim[1]
+    Δy = ylim[2] - ylim[1]
+    hx = Δx / Nx
+    hy = Δy / Ny
+    h = min(hx, hy)
+    xlim = (xlim .- sum(xlim) / 2) .* (h / hx) .+ sum(xlim) / 2
+    ylim = (ylim .- sum(ylim) / 2) .* (h / hy) .+ sum(ylim) / 2
+    x = range(xlim[1], stop = xlim[2], length = Nx)
+    y = range(ylim[1], stop = ylim[2], length = Ny)
+    spl = Spline2D(x, y, img)
+    xlim, ylim
+    data(x, y) =
+        (xlim[1] ≤ x ≤ xlim[2] && ylim[1] ≤ y ≤ ylim[2]) ? spl(x, y) : 0.0
+    return data
+end
+spl = getspline(joinpath("images", "clima_logo.png"), (3000, 7000), (500, 4000))
+
 function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Problem float-type
     FT = eltype(state)
@@ -35,11 +59,6 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     γ::FT = c_p / c_v
 
     ## Define bubble center and background potential temperature
-    xc::FT = 5000
-    yc::FT = 1000
-    zc::FT = 2000
-    r = sqrt((x - xc)^2 + (z - zc)^2)
-    rc::FT = 2000
     θamplitude::FT = 2
     q_tot_amplitude::FT = 1e-3
 
@@ -48,12 +67,9 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
 
     ## Add the thermal perturbation:
-    Δθ::FT = 0
-    Δq_tot::FT = 0
-    if r <= rc
-        Δθ = θamplitude * (1.0 - r / rc)
-        Δq_tot = q_tot_amplitude * (1.0 - r / rc)
-    end
+    val = spl(x, z)
+    Δθ = θamplitude * val
+    Δq_tot = q_tot_amplitude * val
 
     ## Compute perturbed thermodynamic state:
     θ = θ_ref + Δθ                                      # potential temperature
@@ -106,10 +122,11 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
     else
         moisture = DryModel()
     end
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_prognostic = init_risingbubble!,
+        init_state_prognostic = (x...) -> init_risingbubble!(x...),
         ref_state = ref_state,
         turbulence = SmagorinskyLilly(_C_smag),
         moisture = moisture,
@@ -180,19 +197,24 @@ function main()
         constant = true
         default = false
     end
-    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = rb_args)
+    cl_args = ClimateMachine.init(
+        parse_clargs = true,
+        custom_clargs = rb_args,
+        vtk = "1steps",
+        vtk_number_sample_points = 6,
+    )
     with_moisture = cl_args["with_moisture"]
 
     FT = Float64
     N = 4
-    Δh = FT(125)
-    Δv = FT(125)
+    Δh = FT(50)
+    Δv = FT(50)
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
-    ymax = FT(500)
+    ymax = FT(N * Δh)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(1000)
+    timeend = FT(1)
 
     CFL = FT(1.7)
 
