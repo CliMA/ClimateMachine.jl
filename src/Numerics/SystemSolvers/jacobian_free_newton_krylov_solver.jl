@@ -184,13 +184,14 @@ set ΔQ = F(Q^n) - Frhs
 - `solver`: linear solver
 ...
 """
-function donewtoniteration!(
+function dononlineariteration!(
     rhs!,
     jvp!,
     preconditioner::AbstractPreconditioner,
     Q,
     Qrhs,
     solver::JacobianFreeNewtonKrylovSolver,
+    iters,
     args...,
 )
 

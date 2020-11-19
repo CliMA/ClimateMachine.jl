@@ -56,16 +56,17 @@ struct LSOnly <: AbstractNonlinearSolver
     linearsolver::Any
 end
 
-function donewtoniteration!(
+function dononlineariteration!(
     rhs!,
     linearoperator!,
     preconditioner,
     Q,
     Qrhs,
     solver::LSOnly,
+    iters,
     args...,
 )
-    @info "donewtoniteration! linearsolve!", args...
+    @info "dononlineariteration! linearsolve!", args...
     linearsolve!(
         linearoperator!,
         preconditioner,
@@ -127,13 +128,15 @@ function nonlinearsolve!(
         preconditioner_update!(jvp!, rhs!.f!, preconditioner, args...)
 
         # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
-        residual_norm, linear_iterations = donewtoniteration!(
+        println("Iteration $iters, Q[1:10, :, 1] = $(Q[1:10, :, 1])")
+        residual_norm, linear_iterations = dononlineariteration!(
             rhs!,
             jvp!,
             preconditioner,
             Q,
             Qrhs,
             solver,
+            iters,
             args...,
         )
         @info "Linear solver converged in $linear_iterations iterations"
@@ -143,7 +146,7 @@ function nonlinearsolve!(
 
 
         if !isfinite(residual_norm)
-            error("norm of residual is not finite after $iters iterations of `donewtoniteration!`")
+            error("norm of residual is not finite after $iters iterations of `dononlineariteration!`")
         end
 
         # Check residual_norm / norm(R0)
@@ -161,6 +164,9 @@ function nonlinearsolve!(
     cvg[] = converged
 
     iters
+    if iters > 2
+        banana
+    end
 end
 
 """
@@ -301,5 +307,6 @@ include("columnwise_lu_solver.jl")
 include("preconditioners.jl")
 include("batched_generalized_minimal_residual_solver.jl")
 include("jacobian_free_newton_krylov_solver.jl")
+include("accelerators.jl")
 
 end

@@ -152,6 +152,9 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     nonlinearsolver =
         JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-9)
 
+    nonlinearsolver =
+        AndersonAccelerator(Q, nonlinearsolver; M = 3)
+
     ode_solver = ARK548L2SA2KennedyCarpenter(
         dg,
         vdg,

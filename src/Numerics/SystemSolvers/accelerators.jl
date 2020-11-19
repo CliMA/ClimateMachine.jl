@@ -1,29 +1,48 @@
 export AbstractAccelerator,
-    NoAccelerator,
     AndersonAccelerator,
-    NGMRESAccelerator,
-    doacceleration
+    NGMRESAccelerator
 
 """
     AbstractAccelerator
 
-This is an abstract type representing an accelerator such as NGMRES.
+This is an abstract type representing a generic accelerator that wraps another nonlinear solver.
 """
-abstract type AbstractAccelerator end
+abstract type AbstractAccelerator <: AbstractNonlinearSolver end
+function internalsolver(::AbstractAccelerator) end
+function doacceleration!(::AbstractAccelerator, ::Any) end
 
-"""
-    NoAccelerator
-
-Do nothing
-"""
-struct NoAccelerator <: AbstractAccelerator end
-
-"""
-    do_acceleration!(::NoAccelerator, x)
-
-Do nothing, when there is no accelerator, accelerator = Nothing
-"""
-function do_acceleration!(::NoAccelerator, x, k::Int) end
+function initialize!(rhs!, Q, Qrhs, solver::AbstractAccelerator, args...)
+    initialize!(rhs!, Q, Qrhs, internalsolver(solver), args...)
+end
+function dononlineariteration!(
+    rhs!,
+    jvp!,
+    preconditioner,
+    Q,
+    Qrhs,
+    solver::AbstractAccelerator,
+    iters,
+    args...,
+)
+    nlsolver = internalsolver(solver)
+    _, linear_iterations = dononlineariteration!(
+        rhs!,
+        jvp!,
+        preconditioner,
+        Q,
+        Qrhs,
+        nlsolver,
+        iters,
+        args...,
+    )
+    # TODO: Only do this if the residual is not small enough
+    doacceleration!(solver, Q, iters)
+    R = nlsolver.residual
+    rhs!(R, Q, args...)
+    R .-= Qrhs
+    residual_norm = norm(R, weighted_norm)
+    return residual_norm, linear_iterations
+end
 
 """
 struct AndersonAccelerator{AT}
@@ -43,7 +62,10 @@ end
 - `update_freq`: preconditioner update frequency
 ...
 """
-struct AndersonAccelerator{M, FT, AT1, AT2} <: AbstractAccelerator
+# TODO: Might want to get rid of mutable + k, and pass k to dononlineariteration
+mutable struct AndersonAccelerator{M, FT, AT1, AT2, NLS} <: AbstractAccelerator
+    ϵ::FT   # TODO: REMOVE LATER
+    tol::FT # TODO: REMOVE LATER
     ω::FT                         # relaxation parameter
     β::MArray{Tuple{M}, FT, 1, M} # β_k
     x::AT1                        # x_k
@@ -52,29 +74,33 @@ struct AndersonAccelerator{M, FT, AT1, AT2} <: AbstractAccelerator
     gprev::AT1                    # g_{k-1}
     Xβ::AT1
     Gβ::AT1
-    X::AT2                        # (x_k - x_{k-1}, x_{k-1} - x_{k-2}, ..., x_{k-m_k+1} - x_{k-m_k})
-    G::AT2                        # (g_k - g_{k-1}, g_{k-1} - g_{k-2}, ..., g_{k-m_k+1} - g_{k-m_k})
+    X::AT2                        # (x_k - x_{k-1}, ..., x_{k-m_k+1} - x_{k-m_k})
+    G::AT2                        # (g_k - g_{k-1}, ..., g_{k-m_k+1} - g_{k-m_k})
     Gcopy::AT2
+    nlsolver::NLS
 end
 
-function AndersonAccelerator(Q::AT; M::Int = 1, ω::FT = 1.) where {AT, FT}
+function AndersonAccelerator(Q::AT, nlsolver::NLS; M::Int = 1, ω::FT = 1.) where {AT, NLS, FT}
+    β = @MArray zeros(M)
     x = similar(vec(Q))
     X = similar(x, length(x), M)
-    AndersonAccelerator{M, FT, typeof(x), typeof(X)}(
-        ω,
-        @MArray zeros(M),
+    AndersonAccelerator{M, FT, typeof(x), typeof(X), NLS}(
+        nlsolver.ϵ, nlsolver.tol, ω, β,
         x, similar(x), similar(x), similar(x), similar(x), similar(x),
-        X, similar(X), similar(X)
+        X, similar(X), similar(X),
+        nlsolver
     )
 end
 
-function doacceleration!(a::AndersonAccelerator{M}, Q, k::Int) where {M}
+internalsolver(a::AndersonAccelerator) = a.nlsolver
+
+function doacceleration!(a::AndersonAccelerator{M}, Q, k) where {M}
     ω = a.ω
     x = a.x
     xprev = a.xprev
     g = a.g
     gprev = a.gprev
-    X = a.x
+    X = a.X
     G = a.G
     Gcopy = a.Gcopy
     β = a.β
