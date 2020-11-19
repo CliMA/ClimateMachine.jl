@@ -915,7 +915,7 @@ function continuous_field_gradient!(
         horizontal_polyorder = N[1]
         horizontal_D = grid.D[1]
         horizontal_ω = grid.ω[1]
-        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2], Nqk))(
+        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
             m,
             Val(dim),
             Val(N),
@@ -928,7 +928,7 @@ function continuous_field_gradient!(
             Val(I),
             Val(O),
             false,
-            ndrange = (nrealelem * Nq[1], Nq[2], Nqk),
+            ndrange = (nrealelem * Nq[1], Nq[2]),
             dependencies = (event,),
         )
     end
@@ -937,7 +937,7 @@ function continuous_field_gradient!(
         vertical_polyorder = N[dim]
         vertical_D = grid.D[dim]
         vertical_ω = grid.ω[dim]
-        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2], Nqk))(
+        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
             m,
             Val(dim),
             Val(N),
@@ -952,7 +952,7 @@ function continuous_field_gradient!(
             # If we are computing in every direction, we need to
             # increment after we compute the horizontal values
             (direction isa EveryDirection);
-            ndrange = (nrealelem * Nq[1], Nq[2], Nqk),
+            ndrange = (nrealelem * Nq[1], Nq[2]),
             dependencies = (event,),
         )
     end
