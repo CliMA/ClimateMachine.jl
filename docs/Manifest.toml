@@ -317,9 +317,9 @@ version = "0.1.8"
 
 [[DoubleFloats]]
 deps = ["GenericSVD", "GenericSchur", "LinearAlgebra", "Polynomials", "Printf", "Quadmath", "Random", "Requires", "SpecialFunctions"]
-git-tree-sha1 = "256485945b158f5351e28dd71f178f4ca59abcaf"
+git-tree-sha1 = "3351fb3839b6967604f9abca62fd3c1f85875906"
 uuid = "497a8b3b-efae-58df-a0af-a86822472b78"
-version = "1.1.13"
+version = "1.1.15"
 
 [[EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
