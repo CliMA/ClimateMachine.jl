@@ -1573,9 +1573,9 @@ function saturation_adjustment_given_ρθq(
                 @print("-----------------------------------------\n")
                 @print("maxiter reached in saturation_adjustment_given_ρθq:\n")
                 @print(
-                    ", ρ=",
+                    "    ρ=",
                     ρ,
-                    "    θ_liq_ice=",
+                    ", θ_liq_ice=",
                     θ_liq_ice,
                     ", q_tot=",
                     q_tot,
@@ -1682,9 +1682,9 @@ function saturation_adjustment_given_pθq(
                 @print("-----------------------------------------\n")
                 @print("maxiter reached in saturation_adjustment_given_pθq:\n")
                 @print(
-                    ", p=",
+                    "    p=",
                     p,
-                    "    θ_liq_ice=",
+                    ", θ_liq_ice=",
                     θ_liq_ice,
                     ", q_tot=",
                     q_tot,
@@ -1996,9 +1996,9 @@ function air_temperature_given_θρq_nonlinear(
                 ρ,
                 ", q.tot=",
                 q.tot,
-                "q.liq = ",
+                ", q.liq = ",
                 q.liq,
-                "q.ice = ",
+                ", q.ice = ",
                 q.ice,
                 ", T = ",
                 sol.root,
