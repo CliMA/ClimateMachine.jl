@@ -52,7 +52,7 @@ function reconstruction_test(::Type{FT}) where {FT}
     for i in 1:length(h)
         u[:, i] = (uf_I[:, i + 1] - uf_I[:, i]) / h[i]
     end
-    cell_states_primitive = (Vars{FT, Array{FT}, 0}(u[:, 1]),)
+    cell_states_primitive = (u[:, 1],)
     state_primitive_top = similar(cell_states_primitive[1])
     state_primitive_bottom = similar(cell_states_primitive[1])
     cell_weights = SVector(h[1])
@@ -83,9 +83,9 @@ function reconstruction_test(::Type{FT}) where {FT}
         u[:, i] = (uf_I[:, i + 1] - uf_I[:, i]) / h[i]
     end
     cell_states_primitive = (
-        Vars{FT, Array{FT}, 0}(u[:, 1]),
-        Vars{FT, Array{FT}, 0}(u[:, 2]),
-        Vars{FT, Array{FT}, 0}(u[:, 3]),
+        u[:, 1],
+        u[:, 2],
+        u[:, 3],
     )
     state_primitive_top = similar(cell_states_primitive[1])
     state_primitive_bottom = similar(cell_states_primitive[1])
@@ -130,11 +130,11 @@ function reconstruction_test(::Type{FT}) where {FT}
 
 
     cell_states_primitive = (
-        Vars{FT, Array{FT}, 0}(u[:, 1]),
-        Vars{FT, Array{FT}, 0}(u[:, 2]),
-        Vars{FT, Array{FT}, 0}(u[:, 3]),
-        Vars{FT, Array{FT}, 0}(u[:, 4]),
-        Vars{FT, Array{FT}, 0}(u[:, 5]),
+        u[:, 1],
+        u[:, 2],
+        u[:, 3],
+        u[:, 4],
+        u[:, 5],
     )
     state_primitive_top = similar(cell_states_primitive[1])
     state_primitive_bottom = similar(cell_states_primitive[1])

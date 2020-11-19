@@ -23,17 +23,17 @@ P''_r(x)    =  ∑_{j=0}^{2} C''_{rj}(x) u_{i - r + j}  (use these 3 cell averag
 
 """
 function weno_reconstruction!(
-    state_primitive_top::Vars,
-    state_primitive_bottom::Vars,
-    cell_states_primitive::NTuple{5, Vars},
+    state_primitive_top::AbstractArray{FT},
+    state_primitive_bottom::AbstractArray{FT},
+    cell_states_primitive::NTuple{5, AbstractArray{FT}},
     cell_weights::SVector{5, FT},
 ) where {FT}
 
 
-    num_state_primitive = length(parent(state_primitive_top))
+    num_state_primitive = length(state_primitive_top)
     h1, h2, h3, h4, h5 = cell_weights
 
-    b̂ = zeros(FT, 3, 3)
+    b̂ = similar(state_primitive_top, 3, 3)
     b̂[3, 3] = 1 / (h1 + h2 + h3) + 1 / (h2 + h3) + 1 / h3
     b̂[3, 2] = b̂[3, 3] - (h1 + h2 + h3) * (h2 + h3) / ((h1 + h2) * h2 * h3)
     b̂[3, 1] = b̂[3, 2] + (h1 + h2 + h3) * h3 / (h1 * h2 * (h2 + h3))
@@ -44,7 +44,7 @@ function weno_reconstruction!(
     b̂[1, 2] = b̂[1, 3] + h3 * (h4 + h5) / ((h3 + h4) * h4 * h5)
     b̂[1, 1] = b̂[1, 2] + 1 / h3 - 1 / h4 - 1 / (h4 + h5)
 
-    b = zeros(FT, 3, 3)
+    b = similar(state_primitive_top, 3, 3)
     b[3, 3] = 1 / (h5 + h4 + h3) + 1 / (h4 + h3) + 1 / h3
     b[3, 2] = b[3, 3] - (h5 + h4 + h3) * (h4 + h3) / ((h5 + h4) * h4 * h3)
     b[3, 1] = b[3, 2] + (h5 + h4 + h3) * h3 / (h5 * h4 * (h4 + h3))
@@ -57,26 +57,28 @@ function weno_reconstruction!(
 
 
     # at i - 1/2, i + 1/2
-    P = zeros(FT, num_state_primitive, 2, 3)
+    P = similar(state_primitive_top, num_state_primitive, 2, 3)
+    P .= 0
     for r in 0:2
         for j in 0:2
             P[:, 1, 3 - r] +=
                 b[r + 1, j + 1] *
                 cell_weights[3 + r - j] *
-                parent(cell_states_primitive[3 + r - j])
+                cell_states_primitive[3 + r - j]
             P[:, 2, r + 1] +=
                 b̂[r + 1, j + 1] *
                 cell_weights[3 - r + j] *
-                parent(cell_states_primitive[3 - r + j])
+                cell_states_primitive[3 - r + j]
         end
     end
 
 
     # build the second derivative part in smoothness measure
-    d2B = zeros(FT, 3, 3)
+    d2B = similar(state_primitive_top, 3, 3)
+    d2B .= 0
     for r in 0:2
         d2B[r + 1, 3] =
-            6.0 / (
+            6 / (
                 (
                     cell_weights[3 - r] +
                     cell_weights[4 - r] +
@@ -87,27 +89,28 @@ function weno_reconstruction!(
             )
         d2B[r + 1, 2] =
             d2B[r + 1, 3] -
-            6.0 / (
+            6 / (
                 (cell_weights[3 - r] + cell_weights[4 - r]) *
                 cell_weights[4 - r] *
                 cell_weights[5 - r]
             )
         d2B[r + 1, 1] =
             d2B[r + 1, 2] +
-            6.0 / (
+            6 / (
                 cell_weights[3 - r] *
                 cell_weights[4 - r] *
                 (cell_weights[4 - r] + cell_weights[5 - r])
             )
     end
 
-    d2P = zeros(FT, num_state_primitive, 3)
+    d2P = similar(state_primitive_top, num_state_primitive, 3)
+    d2P .= 0
     for r in 0:2
         for j in 0:2
             d2P[:, r + 1] +=
                 d2B[r + 1, j + 1] *
                 cell_weights[3 - r + j] *
-                parent(cell_states_primitive[3 - r + j])
+                cell_states_primitive[3 - r + j]
         end
     end
 
@@ -115,7 +118,7 @@ function weno_reconstruction!(
 
     # build the first derivative part in smoothness measure
 
-    d1B = zeros(FT, 3, 3, 3) # xi-1/2 xi, xi+1/2; r, j
+    d1B = similar(state_primitive_top, 3, 3, 3) # xi-1/2 xi, xi+1/2; r, j
     d1B[1, 3, 3] = 2 * (h1 + 2 * h2) / ((h1 + h2 + h3) * (h2 + h3) * h3)
     d1B[1, 3, 2] = d1B[1, 3, 3] - 2 * (h1 + 2 * h2 - h3) / ((h1 + h2) * h2 * h3)
     d1B[1, 3, 1] = d1B[1, 3, 2] + 2 * (h1 + h2 - h3) / (h1 * h2 * (h2 + h3))
@@ -133,33 +136,33 @@ function weno_reconstruction!(
     for r in 0:2
         for j in 0:2
             d1B[2, r + 1, j + 1] =
-                d1B[1, r + 1, j + 1] + 0.5 * h3 * d2B[r + 1, j + 1]
+                d1B[1, r + 1, j + 1] + FT(0.5) * h3 * d2B[r + 1, j + 1]
             d1B[3, r + 1, j + 1] = d1B[1, r + 1, j + 1] + h3 * d2B[r + 1, j + 1]
         end
     end
-    d1P = zeros(FT, num_state_primitive, 3, 3)   # xi-1/2 xi, xi+1/2; r
+    d1P = similar(state_primitive_top, num_state_primitive, 3, 3)   # xi-1/2 xi, xi+1/2; r
+    d1P .= 0
     for i in 1:3
         for r in 0:2
             for j in 0:2
                 d1P[:, i, r + 1] +=
                     d1B[i, r + 1, j + 1] *
                     cell_weights[3 - r + j] *
-                    parent(cell_states_primitive[3 - r + j])
+                    cell_states_primitive[3 - r + j]
             end
         end
     end
 
-    IS1 =
-        h3^2 * (d1P[:, 1, :] .^ 2 + 4 * d1P[:, 2, :] .^ 2 + d1P[:, 3, :] .^ 2) /
-        6.0
+    fact = d1P[:, 1, :] .^ 2 + 4 * d1P[:, 2, :] .^ 2 + d1P[:, 3, :] .^ 2
+    IS1 = h3^2 * fact / 6
 
 
     IS = IS1 + IS2
 
     # high order test
-    # IS .= 1.0
+    # IS .= 1
 
-    d = zeros(FT, 3)
+    d = similar(state_primitive_top, 3)
     d[3] =
         (h3 + h4) * (h3 + h4 + h5) /
         ((h1 + h2 + h3 + h4) * (h1 + h2 + h3 + h4 + h5))
@@ -168,7 +171,7 @@ function weno_reconstruction!(
         ((h1 + h2 + h3 + h4) * (h2 + h3 + h4 + h5) * (h1 + h2 + h3 + h4 + h5))
     d[1] = h2 * (h1 + h2) / ((h2 + h3 + h4 + h5) * (h1 + h2 + h3 + h4 + h5))
 
-    d̂ = zeros(FT, 3)
+    d̂ = similar(state_primitive_top, 3)
     d̂[3] = h4 * (h4 + h5) / ((h1 + h2 + h3 + h4) * (h1 + h2 + h3 + h4 + h5))
     d̂[2] =
         (h1 + h2 + h3) * (h4 + h5) * (h1 + 2 * h2 + 2 * h3 + 2 * h4 + h5) /
@@ -177,7 +180,7 @@ function weno_reconstruction!(
         (h2 + h3) * (h1 + h2 + h3) /
         ((h2 + h3 + h4 + h5) * (h1 + h2 + h3 + h4 + h5))
 
-    ϵ = 1.0e-6
+    ϵ = FT(1.0e-6)
     α = d' ./ (ϵ .+ IS) .^ 2
     α̂ = d̂' ./ (ϵ .+ IS) .^ 2
 
@@ -186,11 +189,9 @@ function weno_reconstruction!(
 
 
     # at  i - 1/2,  i + 1/2
-    state_primitive_top_arr = parent(state_primitive_top)
-    state_primitive_bottom_arr = parent(state_primitive_bottom)
-    for i in 1:num_state_primitive
-        state_primitive_bottom_arr[i] += w[i, :]' * P[i, 1, :]
-        state_primitive_top_arr[i] += ŵ[i, :]' * P[i, 2, :]
+    @unroll for i in 1:num_state_primitive
+        state_primitive_bottom[i] += w[i, :]' * P[i, 1, :]
+        state_primitive_top[i] += ŵ[i, :]' * P[i, 2, :]
     end
 end
 
@@ -205,13 +206,13 @@ Journal of Scientific Computing 67.3 (2016): 1219-1246.
 
 """
 function weno_reconstruction!(
-    state_primitive_top::Vars,
-    state_primitive_bottom::Vars,
-    cell_states_primitive::NTuple{3, Vars},
+    state_primitive_top::AbstractArray{FT},
+    state_primitive_bottom::AbstractArray{FT},
+    cell_states_primitive::NTuple{3, AbstractArray{FT}},
     cell_weights::SVector{3, FT},
 ) where {FT}
 
-    num_state_primitive = length(parent(state_primitive_top))
+    num_state_primitive = length(state_primitive_top)
     h1, h2, h3 = cell_weights
 
 
@@ -219,25 +220,24 @@ function weno_reconstruction!(
     C⁺_l, C⁺_r = γ / (1 + β + γ), (1 + β) / (1 + β + γ)
     C⁻_l, C⁻_r = (1 + β) / (1 + β + γ), γ / (1 + β + γ)
 
-
-    dP = zeros(FT, num_state_primitive, 2)
+    dP = similar(state_primitive_top, num_state_primitive, 2)
     dP[:, 1] =
         2 *
-        (parent(cell_states_primitive[2]) - parent(cell_states_primitive[1])) /
+        (cell_states_primitive[2] - cell_states_primitive[1]) /
         (h1 + h2)
     dP[:, 2] =
         2 *
-        (parent(cell_states_primitive[3]) - parent(cell_states_primitive[2])) /
+        (cell_states_primitive[3] - cell_states_primitive[2]) /
         (h2 + h3)
 
 
     # at i - 1/2, i + 1/2, r = 0, 1
-    P = zeros(FT, num_state_primitive, 2, 2)
+    P = similar(state_primitive_top, num_state_primitive, 2, 2)
     for r in 0:1
         P[:, 1, r + 1] =
-            parent(cell_states_primitive[2]) - dP[:, r + 1] * h2 / 2.0
+            cell_states_primitive[2] - dP[:, r + 1] * h2 / 2
         P[:, 2, r + 1] =
-            parent(cell_states_primitive[2]) + dP[:, r + 1] * h2 / 2.0
+            cell_states_primitive[2] + dP[:, r + 1] * h2 / 2
     end
 
     # IS = int h2 *P'^2 dx, P  is a linear function
@@ -249,7 +249,7 @@ function weno_reconstruction!(
     d = [(1 + γ) / (1 + β + γ); β / (1 + β + γ)]
     d̂ = [γ / (1 + β + γ); (1 + β) / (1 + β + γ)]
 
-    ϵ = 1.0e-6
+    ϵ = FT(1.0e-6)
     α = d' ./ (ϵ .+ IS) .^ 2
     α̂ = d̂' ./ (ϵ .+ IS) .^ 2
 
@@ -257,11 +257,9 @@ function weno_reconstruction!(
     ŵ = α̂ ./ sum(α̂, dims = 2)
 
     # at  i - 1/2,  i + 1/2
-    state_primitive_top_arr = parent(state_primitive_top)
-    state_primitive_bottom_arr = parent(state_primitive_bottom)
-    for i in 1:num_state_primitive
-        state_primitive_bottom_arr[i] += w[i, :]' * P[i, 1, :]
-        state_primitive_top_arr[i] += ŵ[i, :]' * P[i, 2, :]
+    @unroll for i in 1:num_state_primitive
+        state_primitive_bottom[i] += w[i, :]' * P[i, 1, :]
+        state_primitive_top[i] += ŵ[i, :]' * P[i, 2, :]
     end
 
 end
@@ -275,41 +273,37 @@ Van Leer Limiter is used
 Implemented based on https://en.wikipedia.org/wiki/Flux_limiter
 """
 function limiter(
-    Δ⁺::Array{FT, 1},
-    Δ⁻::Array{FT, 1},
-    num_state::IT,
-) where {FT, IT}
-    Δ = zeros(FT, num_state)
-    for s in 1:num_state
-        if Δ⁺[s] * Δ⁻[s] > 0.0
+    Δ⁺::AbstractArray{FT, 1},
+    Δ⁻::AbstractArray{FT, 1},
+    ::Val{num_state},
+) where {FT, num_state}
+    Δ = similar(Δ⁺, num_state)
+    Δ .= 0
+    @unroll for s in 1:num_state
+        if Δ⁺[s] * Δ⁻[s] > 0
             Δ[s] = FT(2) * Δ⁺[s] * Δ⁻[s] / (Δ⁺[s] + Δ⁻[s])
         end
     end
     return Δ
 end
 function fv_reconstruction!(
-    state_primitive_top::Vars,
-    state_primitive_bottom::Vars,
-    cell_states_primitive::NTuple{3, Vars},
+    state_primitive_top::AbstractArray{FT},
+    state_primitive_bottom::AbstractArray{FT},
+    cell_states_primitive::NTuple{3, AbstractArray{FT}},
     cell_weights::SVector{3, FT},
 ) where {FT}
 
-    num_state_primitive = length(parent(state_primitive_top))
+    num_state_primitive = length(state_primitive_top)
     Δz⁻, Δz, Δz⁺ = cell_weights
 
-
-    Δu⁺ = (parent(cell_states_primitive[3]) .- parent(cell_states_primitive[2]))
-    Δu⁻ = (parent(cell_states_primitive[2]) .- parent(cell_states_primitive[1]))
+    Δu⁺ = (cell_states_primitive[3] .- cell_states_primitive[2])
+    Δu⁻ = (cell_states_primitive[2] .- cell_states_primitive[1])
 
     ∂state =
-        2.0 * limiter(Δu⁺ / (Δz⁺ + Δz), Δu⁻ / (Δz⁻ + Δz), num_state_primitive)
+        2 * limiter(Δu⁺ / (Δz⁺ + Δz), Δu⁻ / (Δz⁻ + Δz), Val(num_state_primitive))
 
-
-    u⁺ = parent(state_primitive_top)
-    u⁻ = parent(state_primitive_bottom)
-
-    u⁺ .= parent(cell_states_primitive[2]) .+ ∂state * Δz / 2.0
-    u⁻ .= parent(cell_states_primitive[2]) .- ∂state * Δz / 2.0
+    state_primitive_top .= cell_states_primitive[2] .+ ∂state * Δz / 2
+    state_primitive_bottom .= cell_states_primitive[2] .- ∂state * Δz / 2
 end
 
 
@@ -318,15 +312,40 @@ First order (constant) FV reconstruction on nonuniform grids
 Mainly used for Boundary conditions
 """
 function const_reconstruction!(
-    state_primitive_top::Vars,
-    state_primitive_bottom::Vars,
-    cell_states_primitive::NTuple{1, Vars},
+    state_primitive_top::AbstractArray{FT},
+    state_primitive_bottom::AbstractArray{FT},
+    cell_states_primitive::NTuple{1, AbstractArray{FT}},
     cell_weights::SVector{1, FT},
 ) where {FT}
-
-    state_primitive_top_arr = parent(state_primitive_top)
-    state_primitive_bottom_arr = parent(state_primitive_bottom)
-
-    state_primitive_top_arr .= parent(cell_states_primitive[1])
-    state_primitive_bottom_arr .= parent(cell_states_primitive[1])
+    state_primitive_top .= cell_states_primitive[1]
+    state_primitive_bottom .= cell_states_primitive[1]
 end
+
+
+
+
+"""
+    prognostic_to_primitive!(bl, state_prim, state_prog)
+
+Compute `state_prim` from `state_prog`. By default,
+we use the identity.
+"""
+function prognostic_to_primitive!(bl, state_prim, state_prog)
+    state_prog_arr = parent(state_prog)
+    state_prim_arr = parent(state_prim)
+    state_prim_arr .= state_prog_arr
+end
+
+"""
+    primitive_to_prognostic!(bl, state_prog, state_prim)
+
+Compute `state_prog` from `state_prim`. By default,
+we use the identity.
+"""
+function primitive_to_prognostic!(bl, state_prog, state_prim)
+    state_prog_arr = parent(state_prog)
+    state_prim_arr = parent(state_prim)
+    state_prog_arr .= state_prim_arr
+end
+
+
