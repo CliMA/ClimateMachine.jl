@@ -34,12 +34,9 @@ function fourth_func(ξ)
     [(ξ .^ 5 .+ ξ)'; (ξ .^ 3 .+ ξ)']
 end
 
+@testset "First order (1 stenciels) reconstruction test" begin
+    FT = Float64
 
-function reconstruction_test(::Type{FT}) where {FT}
-
-    ##########################################################################
-    # First order (1 stenciels) reconstruction test
-    ##########################################################################
     grid = FT[0; 1] * FT(0.1)
     h = grid[2:end] - grid[1:(end - 1)]
     grid_c = (grid[2:end] + grid[1:(end - 1)]) / 2
@@ -62,12 +59,12 @@ function reconstruction_test(::Type{FT}) where {FT}
         cell_states_primitive,
         cell_weights,
     )
-    @info "Constant uf_ref : ", uc[:, 1]
-    @info "Constant u⁻, u⁺ : ", state_primitive_bottom, state_primitive_top
+    @test all(uc[:, 1] .≈ state_primitive_bottom)
+    @test all(uc[:, 1] .≈ state_primitive_top)
+end
 
-    ##########################################################################
-    #       Second order (3 stenciels) reconstruction test
-    ##########################################################################
+@testset "Second order (3 stenciels) reconstruction test" begin
+    FT = Float64
 
     ## weno3 test pass, set IS .= 1.0, leads to p2 recovery
     grid = FT[0; 1; 3; 6] * FT(0.1)
@@ -96,23 +93,29 @@ function reconstruction_test(::Type{FT}) where {FT}
         cell_states_primitive,
         cell_weights,
     )
-    @info "WENO3 uf_ref : ", uf[:, 2], uf[:, 3]
-    @info "WENO3 u⁻, u⁺ : ", state_primitive_bottom, state_primitive_top
+    @test isapprox(uf[:, 2][1], state_primitive_bottom[1]; rtol=0.05)
+    @test uf[:, 2][2] ≈ state_primitive_bottom[2]
 
+    @test isapprox(uf[:, 3][1], state_primitive_top[1]; rtol=0.05)
+    @test uf[:, 3][2] ≈ state_primitive_top[2]
 
-    ## fv test pass, set limiter .= 1.0, leads to p2 recovery  ???
+    ## fv test pass, set limiter .= 1, leads to p2 recovery  ???
     fv_reconstruction!(
         state_primitive_top,
         state_primitive_bottom,
         cell_states_primitive,
         cell_weights,
     )
-    @info "FV uf_ref : ", uf[:, 2], uf[:, 3]
-    @info "FV u⁻, u⁺ : ", state_primitive_bottom, state_primitive_top
 
-    ##########################################################################
-    # Fifth order (5 stenciels) reconstruction test
-    ##########################################################################
+    @test isapprox(uf[:, 2][1], state_primitive_bottom[1]; rtol=0.05)
+    @test uf[:, 2][2] ≈ state_primitive_bottom[2]
+
+    @test isapprox(uf[:, 3][1], state_primitive_top[1]; rtol=0.05)
+    @test uf[:, 3][2] ≈ state_primitive_top[2]
+end
+
+@testset "Fifth order (5 stenciels) reconstruction test" begin
+    FT = Float64
 
     ## weno5 test, set IS .= 1.0, leads to p4 recovery
     grid = FT[0; 1; 3; 6; 7; 9] * FT(0.1)
@@ -127,7 +130,6 @@ function reconstruction_test(::Type{FT}) where {FT}
     for i in 1:length(h)
         u[:, i] = (uf_I[:, i + 1] - uf_I[:, i]) / h[i]
     end
-
 
     cell_states_primitive = (
         u[:, 1],
@@ -145,10 +147,11 @@ function reconstruction_test(::Type{FT}) where {FT}
         cell_states_primitive,
         cell_weights,
     )
-    @info "WENO5 uf_ref : ", uf[:, 3], uf[:, 4]
-    @info "WENO5 u⁻, u⁺ : ", state_primitive_bottom, state_primitive_top
+
+    @test isapprox(uf[:, 3][1], state_primitive_bottom[1]; rtol=0.05)
+    @test uf[:, 3][2] ≈ state_primitive_bottom[2]
+
+    @test isapprox(uf[:, 4][1], state_primitive_top[1]; rtol=0.05)
+    @test uf[:, 4][2] ≈ state_primitive_top[2]
 
 end
-
-
-reconstruction_test(Float64)
