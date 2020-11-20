@@ -30,7 +30,8 @@ include("DryAtmos.jl")
 struct PeriodicOrientation <: Orientation end
 
 function init_state_auxiliary!(
-    ::DryAtmosModel{dim, PeriodicOrientation},
+    ::DryAtmosModel,
+    ::PeriodicOrientation,
     state_auxiliary,
     geom,
 ) where {dim}
@@ -42,17 +43,17 @@ Base.@kwdef struct IsothermalPeriodicExample{FT} <: AbstractDryAtmosProblem
     η::FT = 1 // 10000
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::DryAtmosModel,
     problem::IsothermalPeriodicExample,
     state::Vars,
     aux::Vars,
-    coords,
+    localgeo,
     t,
     args...,
 )
     FT = eltype(state)
-    @inbounds x = coords[1]
+    @inbounds x = localgeo.coord[1]
     state.ρ = exp(-aux.Φ)
     state.ρu = @SVector [FT(0), FT(0), FT(0)]
     p = state.ρ + problem.η * exp(-100 * (x - FT(1 / 2))^2)
@@ -203,8 +204,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
     writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)#; number_sample_points = 10)
 

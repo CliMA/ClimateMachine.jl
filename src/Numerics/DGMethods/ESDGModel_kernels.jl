@@ -16,7 +16,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
         ::Val{dim},
         ::Val{polyorder},
         tendency,
-        state_conservative,
+        state_prognostic,
         state_auxiliary,
         vgeo,
         D,
@@ -33,7 +33,7 @@ approximation of all derivatives.
     ::Val{polyorder},
     volume_numerical_flux_first_order,
     tendency,
-    state_conservative,
+    state_prognostic,
     state_auxiliary,
     vgeo,
     D,
@@ -42,9 +42,9 @@ approximation of all derivatives.
 ) where {dim, polyorder}
     @uniform begin
         N = polyorder
-        FT = eltype(state_conservative)
-        num_state = number_state_conservative(balance_law, FT)
-        num_aux = number_state_auxiliary(balance_law, FT)
+        FT = eltype(state_prognostic)
+        num_state = number_states(balance_law, Prognostic(), FT)
+        num_aux = number_states(balance_law, Auxiliary(), FT)
 
         local_H = MArray{Tuple{3, num_state}, FT}(undef)
 
@@ -93,7 +93,7 @@ approximation of all derivatives.
             pencil_G_3[2, k] = vgeo[ijk, _ξ3x2, e]
             pencil_G_3[3, k] = vgeo[ijk, _ξ3x3, e]
             @unroll for s in 1:num_state
-                pencil_state[s, k] = state_conservative[ijk, s, e]
+                pencil_state[s, k] = state_prognostic[ijk, s, e]
             end
             @unroll for s in 1:num_aux
                 pencil_aux[s, k] = state_auxiliary[ijk, s, e]
@@ -169,11 +169,11 @@ approximation of all derivatives.
             fill!(local_source, -zero(eltype(local_source)))
             source!(
                 balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_source),
-                Vars{vars_state_conservative(balance_law, FT)}(
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_source),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(
                     state_1,
                 ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     aux_1,
                 ),
             )

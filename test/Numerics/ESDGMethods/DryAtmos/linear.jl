@@ -5,10 +5,6 @@ using ClimateMachine.Mesh.Geometry: LocalGeometry
 using ClimateMachine.Mesh.Grids: Direction
 
 import ClimateMachine.BalanceLaws:
-    vars_state_gradient,
-    vars_state_gradient_flux,
-    vars_integrals,
-    vars_reverse_integrals,
     flux_second_order!,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
@@ -25,19 +21,15 @@ end
 
 abstract type DryAtmosLinearModel <: BalanceLaw end
 
-function vars_state_conservative(lm::DryAtmosLinearModel, FT)
+function vars_state(lm::DryAtmosLinearModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
         ρe::FT
     end
 end
-vars_state_gradient(lm::DryAtmosLinearModel, FT) = @vars()
-vars_state_gradient_flux(lm::DryAtmosLinearModel, FT) = @vars()
-vars_state_auxiliary(lm::DryAtmosLinearModel, FT) =
-    vars_state_auxiliary(lm.atmos, FT)
-vars_integrals(lm::DryAtmosLinearModel, FT) = @vars()
-vars_reverse_integrals(lm::DryAtmosLinearModel, FT) = @vars()
+vars_state(lm::DryAtmosLinearModel, st::Auxiliary, FT) =
+    vars_state(lm.atmos, st, FT)
 
 function update_auxiliary_state!(
     dg::DGModel,
@@ -98,15 +90,18 @@ function wavespeed(
     return soundspeed(ref.ρ, ref.p)
 end
 
+boundary_conditions(lm::DryAtmosLinearModel) = (1, 2)
 function boundary_state!(
     nf::NumericalFluxFirstOrder,
+    bc,
     lm::DryAtmosLinearModel,
     args...,
 )
-    boundary_state!(nf, lm.atmos, args...)
+    boundary_state!(nf, bc, lm.atmos, args...)
 end
 function boundary_state!(
     nf::NumericalFluxSecondOrder,
+    bc,
     lm::DryAtmosLinearModel,
     args...,
 )
@@ -114,7 +109,7 @@ function boundary_state!(
 end
 init_state_auxiliary!(lm::DryAtmosLinearModel, aux::Vars, geom::LocalGeometry) =
     nothing
-init_state_conservative!(
+init_state_prognostic!(
     lm::DryAtmosLinearModel,
     state::Vars,
     aux::Vars,

@@ -63,7 +63,7 @@ end
     ESDGModel(
         balance_law,
         grid;
-        state_auxiliary = create_auxiliary_state(balance_law, grid),
+        state_auxiliary = create_state(balance_law, grid, Auxiliary()),
         volume_numerical_flux_first_order = EntropyConservative(),
         surface_numerical_flux_first_order = EntropyConservative(),
     )
@@ -76,10 +76,14 @@ then semi-discrete scheme will be entropy stable (or conservative).
 function ESDGModel(
     balance_law,
     grid;
-    state_auxiliary = create_auxiliary_state(balance_law, grid),
+    # FIXME: this probably should be done differently
+    state_auxiliary =
+    (aux=create_state(balance_law, grid, Auxiliary());
+     init_state(aux, balance_law, grid, EveryDirection(), Auxiliary())),
     volume_numerical_flux_first_order = EntropyConservative(),
     surface_numerical_flux_first_order = EntropyConservative(),
 )
+
     ESDGModel(
         balance_law,
         grid,
@@ -92,7 +96,7 @@ end
 """
     (esdg::ESDGModel)(
         tendency::MPIStateArray,
-        state_conservative::MPIStateArray,
+        state_prognostic::MPIStateArray,
         param::Nothing,
         t,
         α = true,
@@ -101,26 +105,31 @@ end
 
 Compute the entropy stable tendency from the model `esdg`.
 
-    tendency .= α .* dQdt(state_conservative, param, t) .+ β .* tendency
+    tendency .= α .* dQdt(state_prognostic, param, t) .+ β .* tendency
 """
 function (esdg::ESDGModel)(
     tendency::MPIStateArray,
-    state_conservative::MPIStateArray,
+    state_prognostic::MPIStateArray,
     ::Nothing,
     t,
     α = true,
     β = false,
 )
-    device = array_device(state_conservative)
+    device = array_device(state_prognostic)
 
     balance_law = esdg.balance_law
-    @assert number_state_gradient_flux(balance_law, Int) == 0
+    @assert number_states(balance_law, GradientFlux(), Int) == 0
 
     grid = esdg.grid
     topology = grid.topology
 
     dim = dimensionality(grid)
-    N = polynomialorder(grid)
+    # XXX: Needs updating for multiple polynomial orders
+    N = polynomialorders(grid)
+    # Currently only support single polynomial order
+    @assert all(N[1] .== N)
+    N = N[1]
+
     Nq = N + 1
     Nqk = dim == 2 ? 1 : Nq
     Nfp = Nq * Nqk
@@ -132,7 +141,7 @@ function (esdg::ESDGModel)(
     # XXX: When we do stacked meshes and IMEX this will change
     communicate = true
 
-    exchange_state_conservative = NoneEvent()
+    exchange_state_prognostic = NoneEvent()
 
     comp_stream = Event(device)
 
@@ -140,8 +149,8 @@ function (esdg::ESDGModel)(
     # tendency Computation #
     ########################
     if communicate
-        exchange_state_conservative = MPIStateArrays.begin_ghost_exchange!(
-            state_conservative;
+        exchange_state_prognostic = MPIStateArrays.begin_ghost_exchange!(
+            state_prognostic;
             dependencies = comp_stream,
         )
     end
@@ -153,10 +162,10 @@ function (esdg::ESDGModel)(
         Val(N),
         esdg.volume_numerical_flux_first_order,
         tendency.data,
-        state_conservative.data,
+        state_prognostic.data,
         state_auxiliary.data,
         grid.vgeo,
-        grid.D,
+        grid.D[1],
         α,
         β,
         ndrange = (nrealelem * Nq, Nq),
@@ -172,7 +181,7 @@ function (esdg::ESDGModel)(
         esdg.surface_numerical_flux_first_order,
         nothing,
         tendency.data,
-        state_conservative.data,
+        state_prognostic.data,
         nothing,
         nothing,
         state_auxiliary.data,
@@ -189,9 +198,9 @@ function (esdg::ESDGModel)(
     )
 
     if communicate
-        exchange_state_conservative = MPIStateArrays.end_ghost_exchange!(
-            state_conservative;
-            dependencies = exchange_state_conservative,
+        exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
+            state_prognostic;
+            dependencies = exchange_state_prognostic,
         )
     end
 
@@ -204,7 +213,7 @@ function (esdg::ESDGModel)(
         esdg.surface_numerical_flux_first_order,
         nothing,
         tendency.data,
-        state_conservative.data,
+        state_prognostic.data,
         nothing,
         nothing,
         state_auxiliary.data,
@@ -217,7 +226,7 @@ function (esdg::ESDGModel)(
         grid.exteriorelems,
         α;
         ndrange = Nfp * length(grid.exteriorelems),
-        dependencies = (comp_stream, exchange_state_conservative),
+        dependencies = (comp_stream, exchange_state_prognostic),
     )
 
 

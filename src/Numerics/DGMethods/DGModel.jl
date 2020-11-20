@@ -97,37 +97,7 @@ function basic_launch_info(dg::DGModel)
     return merge(grid_info, (device = device,))
 end
 
-"""
-    (dg::DGModel)(tendency, state_prognostic, nothing, t, α, β)
-
-Computes the tendency terms compatible with `IncrementODEProblem`
-
-    tendency .= α .* dQdt(state_prognostic, p, t) .+ β .* tendency
-
-The 4-argument form will just compute
-
-    tendency .= dQdt(state_prognostic, p, t)
-
-"""
-function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
-    # TODO deprecate increment argument
-    dg(tendency, state_prognostic, param, t, true, increment)
-end
-
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
-
-    balance_law = dg.balance_law
-    device = array_device(state_conservative)
-
-    grid = dg.grid
-    topology = grid.topology
-
-    dim = dimensionality(grid)
-    N = polynomialorder(grid)
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
-    nrealelem = length(topology.realelems)
 
     device = array_device(state_prognostic)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
@@ -769,14 +739,6 @@ function courant(
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
-function MPIStateArrays.MPIStateArray(dg::DGModel)
-    balance_law = dg.balance_law
-    grid = dg.grid
-
-    state_prognostic = create_state(balance_law, grid, Prognostic())
-
-    return state_prognostic
-end
 
 """
     continuous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,

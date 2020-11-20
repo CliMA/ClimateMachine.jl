@@ -36,9 +36,10 @@ include("DryAtmos.jl")
 
 struct RisingBubble <: AbstractDryAtmosProblem end
 
-function init_state_conservative!(bl::DryAtmosModel, 
-                                  ::RisingBubble,
-                                  state, aux, (x, y, z), t)
+function init_state_prognostic!(bl::DryAtmosModel, 
+                                ::RisingBubble,
+                                state, aux, localgeo, t)
+    (x, y, z) = localgeo.coord
     ## Problem float-type
     FT = eltype(state)
 
@@ -210,7 +211,7 @@ function run(
         # create vtk dir
         Nelem = Ne[1]
         vtkdir =
-            "RTB" *
+            "test_RTB" *
             "_poly$(polynomialorder)_dims$(dim)_$(ArrayType)_$(FT)_nelem$(Nelem)"
         mkpath(vtkdir)
 
@@ -249,8 +250,8 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, model, testname = "RTB")
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
     writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)#; number_sample_points = 10)
 

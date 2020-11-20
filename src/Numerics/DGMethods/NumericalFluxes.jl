@@ -391,11 +391,11 @@ function numerical_volume_conservative_flux_first_order!(
     numerical_volume_conservative_flux_first_order!(
         numflux,
         balancelaw,
-        Grad{vars_state_conservative(balancelaw, FT)}(flux),
-        Vars{vars_state_conservative(balancelaw, FT)}(state_1),
-        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_1),
-        Vars{vars_state_conservative(balancelaw, FT)}(state_2),
-        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
+        Grad{vars_state(balancelaw, Prognostic(), FT)}(flux),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_1),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_1),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_2),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_2),
     )
 end
 numerical_volume_conservative_flux_first_order!(::Nothing, _...) = nothing
@@ -435,11 +435,11 @@ function numerical_volume_fluctuation_flux_first_order!(
     numerical_volume_fluctuation_flux_first_order!(
         numflux,
         balancelaw,
-        Grad{vars_state_conservative(balancelaw, FT)}(fluctuation),
-        Vars{vars_state_conservative(balancelaw, FT)}(state_1),
-        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_1),
-        Vars{vars_state_conservative(balancelaw, FT)}(state_2),
-        Vars{vars_state_auxiliary(balancelaw, FT)}(aux_2),
+        Grad{vars_state(balancelaw, Prognostic(), FT)}(fluctuation),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_1),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_1),
+        Vars{vars_state(balancelaw, Prognostic(), FT)}(state_2),
+        Vars{vars_state(balancelaw, Auxiliary(), FT)}(aux_2),
     )
 end
 numerical_volume_fluctuation_flux_first_order!(::Nothing, _...) = nothing
@@ -495,18 +495,18 @@ function numerical_flux_first_order!(
     balance_law::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     direction,
 ) where {S, A}
     # Let's just work with straight arrays!
     fluxᵀn = parent(fluxᵀn)
-    state_1 = parent(state_conservative⁻)
+    state_1 = parent(state_prognostic⁻)
     aux_1 = parent(state_auxiliary⁻)
-    state_2 = parent(state_conservative⁺)
+    state_2 = parent(state_prognostic⁺)
     aux_2 = parent(state_auxiliary⁺)
 
     # create the storage for the volume flux

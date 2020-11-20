@@ -1,15 +1,14 @@
 using ClimateMachine.VariableTemplates: Vars, Grad, @vars
-using ClimateMachine.BalanceLaws: number_state_conservative
+using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws:
     BalanceLaw,
-    vars_state_auxiliary,
-    vars_state_conservative,
-    vars_state_entropy,
+    vars_state,
     state_to_entropy_variables!,
     entropy_variables_to_state!,
-    init_state_auxiliary!,
-    init_state_conservative!,
+    nodal_init_state_auxiliary!,
+    init_state_prognostic!,
     state_to_entropy,
+    boundary_conditions,
     boundary_state!,
     wavespeed,
     flux_first_order!,
@@ -55,17 +54,18 @@ function DryAtmosModel{D}(orientation,
     DryAtmosModel{D, O, P, RS, S}(orientation, problem, ref_state, sources)
 end
 
+boundary_conditions(::DryAtmosModel) = (1, 2)
 # XXX: Hack for Impenetrable.
 #      This is NOT entropy stable / conservative!!!!
 function boundary_state!(
     ::NumericalFluxFirstOrder,
+    bctype,
     ::DryAtmosModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     _...,
 )
     state⁺.ρ = state⁻.ρ
@@ -74,16 +74,17 @@ function boundary_state!(
     aux⁺.Φ = aux⁻.Φ
 end
 
-function init_state_conservative!(
+function init_state_prognostic!(
     m::DryAtmosModel,
     args...,
 )
-  init_state_conservative!(m, m.problem, args...)
+  init_state_prognostic!(m, m.problem, args...)
 end
 
-function init_state_auxiliary!(
+function nodal_init_state_auxiliary!(
     m::DryAtmosModel,
     state_auxiliary,
+    tmp,
     geom,
 )
   init_state_auxiliary!(m, m.orientation, state_auxiliary, geom)
@@ -158,8 +159,10 @@ end
 struct DryReferenceState{TP}
   temperature_profile::TP
 end
-vars_state_auxiliary(::DryAtmosModel, ::DryReferenceState, FT) = @vars(T::FT, p::FT, ρ::FT, ρe::FT)
-vars_state_auxiliary(::DryAtmosModel, ::NoReferenceState, FT) = @vars()
+vars_state(::DryAtmosModel, ::DryReferenceState, ::Auxiliary, FT) =
+  @vars(T::FT, p::FT, ρ::FT, ρe::FT)
+vars_state(::DryAtmosModel, ::NoReferenceState, ::Auxiliary, FT) =
+  @vars()
 
 function init_state_auxiliary!(
     m::DryAtmosModel,
@@ -258,12 +261,12 @@ function soundspeed(ρ, p)
 end
 
 """
-    vars_state_conservative(::DryAtmosModel, FT)
+    vars_state(::DryAtmosModel, ::Prognostic, FT)
 
-The state variables for the `DryAtmosModel` are density `ρ`, momentum `ρu`,
+The prognostic state variables for the `DryAtmosModel` are density `ρ`, momentum `ρu`,
 and total energy `ρe`
 """
-function vars_state_conservative(::DryAtmosModel, FT)
+function vars_state(::DryAtmosModel, ::Prognostic, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -272,29 +275,29 @@ function vars_state_conservative(::DryAtmosModel, FT)
 end
 
 """
-    vars_state_auxiliary(::DryAtmosModel, FT)
+    vars_state(::DryAtmosModel, ::Auxiliary, FT)
 
 The auxiliary variables for the `DryAtmosModel` is gravitational potential
 `Φ`
 """
-function vars_state_auxiliary(m::DryAtmosModel, FT)
+function vars_state(m::DryAtmosModel, st::Auxiliary, FT)
     @vars begin
         Φ::FT
         ∇Φ::SVector{3, FT} # TODO: only needed for the linear model
-        ref_state::vars_state_auxiliary(m, m.ref_state, FT)
-        problem::vars_state_auxiliary(m, m.problem, FT)
+        ref_state::vars_state(m, m.ref_state, st, FT)
+        problem::vars_state(m, m.problem, st, FT)
     end
 end
-vars_state_auxiliary(::DryAtmosModel, ::AbstractDryAtmosProblem, FT) = @vars()
+vars_state(::DryAtmosModel, ::AbstractDryAtmosProblem, ::Auxiliary, FT) = @vars()
 
 """
-    vars_state_entropy(::DryAtmosModel, FT)
+    vars_state(::DryAtmosModel, ::Entropy, FT)
 
 The entropy variables for the `DryAtmosModel` correspond to the state
 variables density `ρ`, momentum `ρu`, and total energy `ρe` as well as the
 auxiliary variable gravitational potential `Φ`
 """
-function vars_state_entropy(::DryAtmosModel, FT)
+function vars_state(::DryAtmosModel, ::Entropy, FT)
     @vars begin
         ρ::FT
         ρu::SVector{3, FT}
@@ -455,24 +458,24 @@ function source!(
     m::DryAtmosModel,
     ::Coriolis,
     source,
-    state_conservative,
+    state_prognostic,
     state_auxiliary,
 )
-    FT = eltype(state_conservative)
+    FT = eltype(state_prognostic)
     _Omega::FT = Omega(param_set)
     # note: this assumes a SphericalOrientation
-    source.ρu -= SVector(0, 0, 2 * _Omega) × state_conservative.ρu
+    source.ρu -= SVector(0, 0, 2 * _Omega) × state_prognostic.ρu
 end
 
 function source!(
     m::DryAtmosModel,
     source,
-    state_conservative,
+    state_prognostic,
     state_auxiliary,
 )
   ntuple(Val(length(m.sources))) do s
     Base.@_inline_meta
-    source!(m, m.sources[s], source, state_conservative, state_auxiliary)
+    source!(m, m.sources[s], source, state_prognostic, state_auxiliary)
   end
 end
 
@@ -483,36 +486,24 @@ function numerical_flux_first_order!(
     balance_law::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     direction,
 ) where {S, A}
 
     FT = eltype(fluxᵀn)
-    #num_state_conservative = number_state_conservative(balance_law, FT)
-    #flux = similar(fluxᵀn, Size(3, num_state_conservative))
-    #numerical_volume_conservative_flux_first_order!(
-    #    EntropyConservative(),
-    #    balance_law,
-    #    Grad{S}(flux),
-    #    state_conservative⁻,
-    #    state_auxiliary⁻,
-    #    state_conservative⁺,
-    #    state_auxiliary⁺,
-    #)
-    #fluxᵀn .= flux' * normal_vector
 
     numerical_flux_first_order!(
         EntropyConservative(),
         balance_law,
         fluxᵀn,
         normal_vector,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
         t,
         direction,
@@ -522,7 +513,7 @@ function numerical_flux_first_order!(
     wavespeed⁻ = wavespeed(
         balance_law,
         normal_vector,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
         t,
         direction,
@@ -530,7 +521,7 @@ function numerical_flux_first_order!(
     wavespeed⁺ = wavespeed(
         balance_law,
         normal_vector,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
         t,
         direction,
@@ -538,7 +529,7 @@ function numerical_flux_first_order!(
     max_wavespeed = max.(wavespeed⁻, wavespeed⁺)
     penalty =
         max_wavespeed .*
-        (parent(state_conservative⁻) - parent(state_conservative⁺))
+        (parent(state_prognostic⁻) - parent(state_prognostic⁺))
 
     fluxᵀn .+= penalty / 2
 end
@@ -549,9 +540,9 @@ function numerical_flux_first_order!(
     balance_law::BalanceLaw,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
-    state_conservative⁻::Vars{S},
+    state_prognostic⁻::Vars{S},
     state_auxiliary⁻::Vars{A},
-    state_conservative⁺::Vars{S},
+    state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
     t,
     direction,
@@ -563,9 +554,9 @@ function numerical_flux_first_order!(
         balance_law,
         fluxᵀn,
         normal_vector,
-        state_conservative⁻,
+        state_prognostic⁻,
         state_auxiliary⁻,
-        state_conservative⁺,
+        state_prognostic⁺,
         state_auxiliary⁺,
         t,
         direction,
@@ -581,9 +572,9 @@ function numerical_flux_first_order!(
     τ1 = random_unit_vector × normal_vector
     τ2 = τ1 × normal_vector
 
-    ρ⁻ = state_conservative⁻.ρ
-    ρu⁻ = state_conservative⁻.ρu
-    ρe⁻ = state_conservative⁻.ρe
+    ρ⁻ = state_prognostic⁻.ρ
+    ρu⁻ = state_prognostic⁻.ρu
+    ρe⁻ = state_prognostic⁻.ρe
    
     Φ⁻ = state_auxiliary⁻.Φ
     u⁻ = ρu⁻ / ρ⁻
@@ -591,9 +582,9 @@ function numerical_flux_first_order!(
     β⁻ = ρ⁻ / 2p⁻
     
     Φ⁺ = state_auxiliary⁺.Φ
-    ρ⁺ = state_conservative⁺.ρ
-    ρu⁺ = state_conservative⁺.ρu
-    ρe⁺ = state_conservative⁺.ρe
+    ρ⁺ = state_prognostic⁺.ρ
+    ρu⁺ = state_prognostic⁺.ρu
+    ρe⁺ = state_prognostic⁺.ρe
     
     u⁺ = ρu⁺ / ρ⁺
     p⁺ = pressure(ρ⁺, ρu⁺, ρe⁺, Φ⁺)
@@ -628,19 +619,19 @@ function numerical_flux_first_order!(
       abs(u_avgᵀn + c_bar) * ρ_log / 2γ,
     )
 
-    entropy⁻ = similar(parent(state_conservative⁻), Size(6))
+    entropy⁻ = similar(parent(state_prognostic⁻), Size(6))
     state_to_entropy_variables!(
       balance_law,
-      Vars{vars_state_entropy(balance_law, FT)}(entropy⁻),
-      state_conservative⁻,
+      Vars{vars_state(balance_law, Entropy(), FT)}(entropy⁻),
+      state_prognostic⁻,
       state_auxiliary⁻,
     )
     
-    entropy⁺ = similar(parent(state_conservative⁺), Size(6))
+    entropy⁺ = similar(parent(state_prognostic⁺), Size(6))
     state_to_entropy_variables!(
       balance_law,
-      Vars{vars_state_entropy(balance_law, FT)}(entropy⁺),
-      state_conservative⁺,
+      Vars{vars_state(balance_law, Entropy(), FT)}(entropy⁺),
+      state_prognostic⁺,
       state_auxiliary⁺,
     )
 

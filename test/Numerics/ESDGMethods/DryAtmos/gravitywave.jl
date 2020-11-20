@@ -47,7 +47,7 @@ end
 gw_small_setup(FT) = GravityWave{FT}(L=300e3, d=5e3, x_c=100e3, timeend=30*60)
 gw_large_setup(FT) = GravityWave{FT}(L=24000e3, d=400e3, x_c=8000e3, timeend=3000*60)
 
-function vars_state_auxiliary(::DryAtmosModel, ::GravityWave, FT)
+function vars_state(::DryAtmosModel, ::GravityWave, ::Auxiliary, FT)
   @vars begin
     ρ_exact::FT
     ρu_exact::SVector{3, FT}
@@ -55,9 +55,10 @@ function vars_state_auxiliary(::DryAtmosModel, ::GravityWave, FT)
   end
 end
 
-function init_state_conservative!(bl::DryAtmosModel, 
-                                  problem::GravityWave,
-                                  state, aux, (x, y, z), t)
+function init_state_prognostic!(bl::DryAtmosModel, 
+                                problem::GravityWave,
+                                state, aux, localgeo, t)
+    x, y, z = localgeo.coord
     FT = eltype(state)
     _R_d::FT = R_d(param_set)
     _cp_d::FT = cp_d(param_set)
@@ -328,8 +329,8 @@ function do_output(mpicomm, vtkdir, vtkstep, esdg, Q, Qexact, model, testname = 
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
 
     writevtk(filename, Q, esdg, statenames, esdg.state_auxiliary, auxnames)#; number_sample_points = 10)
 

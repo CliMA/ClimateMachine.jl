@@ -22,9 +22,9 @@ function MPIStateArrays.MPIStateArray(dg::AbstractDGModel)
     balance_law = dg.balance_law
     grid = dg.grid
 
-    state_conservative = create_conservative_state(balance_law, grid)
+    state_prognostic = create_state(balance_law, grid, Prognostic())
 
-    return state_conservative
+    return state_prognostic
 end
 
 function init_ode_state(
@@ -152,31 +152,31 @@ end
 """
     (dg::AbstractDGModel)(
         tendency,
-        state_conservative,
+        state_prognostic,
         ::Nothing,
         param,
         t;
         increment = false,
     )
 
-Wrapper for `dg(tendency, state_conservative, param, t, true, increment)`
+Wrapper for `dg(tendency, state_prognostic, param, t, true, increment)`
 
 This interface for the `AbstractDGModel` functor will be depreciated.
 """
 function (dg::AbstractDGModel)(
     tendency,
-    state_conservative,
+    state_prognostic,
     param,
     t;
     increment = false,
 )
-    dg(tendency, state_conservative, param, t, true, increment)
+    dg(tendency, state_prognostic, param, t, true, increment)
 end
 
 """
     (dg::AbstractDGModel)(
         tendency,
-        state_conservative,
+        state_prognostic,
         param,
         t,
         α = true,
@@ -185,11 +185,11 @@ end
 
 Each `AbstractDGModel` should implement a functor that computes
 
-    tendency .= α .* dQdt(state_conservative, param, t) .+ β .* tendency
+    tendency .= α .* dQdt(state_prognostic, param, t) .+ β .* tendency
 
 When called in 4-argument form it should compute
 
-    tendency .= dQdt(state_conservative, param, t)
+    tendency .= dQdt(state_prognostic, param, t)
 """
 function (dg::AbstractDGModel) end
 
@@ -521,74 +521,6 @@ fluxes, respectively.
                     ),
                 )
             end d -> throw(BoundsError(bcs, bctag))
-            numerical_boundary_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
-                normal_vector,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁻,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁺nondiff,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁺nondiff,
-                ),
-                bctype,
-                t,
-                face_direction,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative_bottom1,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
-            )
-            numerical_boundary_flux_second_order!(
-                numerical_flux_second_order,
-                balance_law,
-                Vars{vars_state_conservative(balance_law, FT)}(local_flux),
-                normal_vector,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁻,
-                ),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(
-                    local_state_gradient_flux⁻,
-                ),
-                Vars{vars_hyperdiffusive(balance_law, FT)}(
-                    local_state_hyperdiffusion⁻,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁻,
-                ),
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative⁺diff,
-                ),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(
-                    local_state_gradient_flux⁺,
-                ),
-                Vars{vars_hyperdiffusive(balance_law, FT)}(
-                    local_state_hyperdiffusion⁺,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary⁺diff,
-                ),
-                bctype,
-                t,
-                Vars{vars_state_conservative(balance_law, FT)}(
-                    local_state_conservative_bottom1,
-                ),
-                Vars{vars_state_gradient_flux(balance_law, FT)}(
-                    local_state_gradient_flux_bottom1,
-                ),
-                Vars{vars_state_auxiliary(balance_law, FT)}(
-                    local_state_auxiliary_bottom1,
-                ),
-            )
         end
 
         # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))

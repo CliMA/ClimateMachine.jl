@@ -15,12 +15,7 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
-using ClimateMachine.Thermodynamics:
-    air_density,
-    soundspeed_air,
-    internal_energy,
-    PhaseDry_given_pT,
-    PhasePartition
+using ClimateMachine.Thermodynamics: soundspeed_air
 using ClimateMachine.TemperatureProfiles: IsothermalProfile
 using ClimateMachine.VariableTemplates: flattenednames
 
@@ -57,9 +52,10 @@ end
 
 struct BaroclinicWave <: AbstractDryAtmosProblem end
 
-function init_state_conservative!(bl::DryAtmosModel,
-                                  ::BaroclinicWave,
-                                  state, aux, coords, t)
+function init_state_prognostic!(bl::DryAtmosModel,
+                                ::BaroclinicWave,
+                                state, aux, localgeo, t)
+    coords = localgeo.coord
     FT = eltype(state)
 
     # parameters
@@ -352,8 +348,8 @@ function do_output(
         vtkstep
     )
 
-    statenames = flattenednames(vars_state_conservative(model, eltype(Q)))
-    auxnames = flattenednames(vars_state_auxiliary(model, eltype(Q)))
+    statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
+    auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
     writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
 
     ## Generate the pvtu file for these vtk files
