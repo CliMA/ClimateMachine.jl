@@ -3,9 +3,9 @@
 The `Microphysics.jl` module describes a 1-moment bulk parameterization of
   cloud microphysical processes.
 The module is based on the ideas of
-  [Kessler\_1995](https://doi.org/10.1016/0169-8095%2894%2900090-Z),
-  [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2)
-  and [Kaul\_et\_al\_2015](https://doi.org/10.1175/MWR-D-14-00319.1).
+  [Kessler1995](@cite),
+  [Grabowski1998](@cite)
+  and [Kaul2015](@cite).
 
 The cloud microphysics variables are expressed as specific humidities:
   - `q_tot` - total water specific humidity,
@@ -78,12 +78,12 @@ With that said, the assumption about the shape of the particles is used three
 |``m_e^{ice}``  | exponent in ``m(r)`` for ice            | -               | ``3``                                           |           |
 |               |                                         |                 |                                                 |           |
 |``r_0^{sno}``  | typical snow crystal radius             | ``m``           | ``10^{-3} ``                                    |           |
-|``m_0^{sno}``  | coefficient in ``m(r)`` for snow        | ``kg``          | ``0.1 \,  r_0^2``                               | eq (6b) [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2) |
-|``m_e^{sno}``  | exponent in ``m(r)`` for snow           | -               | ``2``                                           | eq (6b) [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2) |
-|``a_0^{sno}``  | coefficient in ``a(r)`` for snow        | ``m^2``         | ``0.3 \pi \, r_0^2``                            | ``\alpha`` in eq(16b) [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2).|
+|``m_0^{sno}``  | coefficient in ``m(r)`` for snow        | ``kg``          | ``0.1 \,  r_0^2``                               | eq (6b) [Grabowski1998](@cite) |
+|``m_e^{sno}``  | exponent in ``m(r)`` for snow           | -               | ``2``                                           | eq (6b) [Grabowski1998](@cite) |
+|``a_0^{sno}``  | coefficient in ``a(r)`` for snow        | ``m^2``         | ``0.3 \pi \, r_0^2``                            | ``\alpha`` in eq(16b) [Grabowski1998](@cite).|
 |``a_e^{sno}``  | exponent in ``a(r)`` for snow           | -               | ``2``                                           |           |
-|``v_0^{sno}``  | coefficient in ``v_{term}(r)`` for snow | ``\frac{m}{s}`` | ``2^{9/4} r_0^{1/4}``                           | eq (6b) [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2) |
-|``v_e^{sno}``  | exponent in ``v_{term}(r)`` for snow    | -               | ``0.25``                                        | eq (6b) [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2) |
+|``v_0^{sno}``  | coefficient in ``v_{term}(r)`` for snow | ``\frac{m}{s}`` | ``2^{9/4} r_0^{1/4}``                           | eq (6b) [Grabowski1998](@cite) |
+|``v_e^{sno}``  | exponent in ``v_{term}(r)`` for snow    | -               | ``0.25``                                        | eq (6b) [Grabowski1998](@cite) |
 
 where:
  - ``\rho_{water}`` is the density of water,
@@ -112,15 +112,15 @@ where:
     It would be great to replace the above simple power laws
     with more accurate relationships.
     For example:
-    [Khvorostyanov\_and\_Curry\_2002](https://doi.org/10.1175/1520-0469%282002%29059<1872:TVODAC>2.0.CO;2)
+    [Khvorostyanov2002](@cite)
     or
-    [Karrer\_et\_al\_2020](https://doi.org/10.1002/essoar.10502128.2)
+    [Karrer2020](@cite)
 
 ## Assumed particle size distributions
 
 The particle size distributions are assumed to follow
   Marshall-Palmer distribution
-  [Marshall\_and\_Palmer\_1948](https://doi.org/10.1175/1520-0469%281948%29005<0165:TDORWS>2.0.CO;2)
+  [Marshall1948](@cite)
   eq. 1:
 ```math
 \begin{equation}
@@ -148,10 +148,10 @@ package and are shown in the table below.
 
 |    symbol       |         definition                           | units              | default value                             | reference  |
 |-----------------|----------------------------------------------|--------------------|-------------------------------------------|------------|
-|``n_{0}^{rai}``  | rain drop size distribution parameter        | ``\frac{1}{m^4}``  | ``16 \cdot 10^6``                         | eq (2) [Marshall\_and\_Palmer\_1948](https://doi.org/10.1175/1520-0469%281948%29005<0165:TDORWS>2.0.CO;2) |
-|``n_{0}^{ice}``  | cloud ice size distribution parameter        | ``\frac{1}{m^4}``  | ``2 \cdot 10^7``                          | bottom of page 4396 [Kaul\_et\_al\_2015](https://doi.org/10.1175/MWR-D-14-00319.1) |
-|``\mu^{sno}``    | snow size distribution parameter coefficient | ``\frac{1}{m^4}``  | ``4.36 \cdot 10^9 \, \rho_0^{\nu^{sno}}`` | eq (A1) [Kaul\_et\_al\_2015](https://doi.org/10.1175/MWR-D-14-00319.1) |
-|``\nu^{sno}``    | snow size distribution parameter exponent    | ``-``              | ``0.63``                                  | eq (A1) [Kaul\_et\_al\_2015](https://doi.org/10.1175/MWR-D-14-00319.1) |
+|``n_{0}^{rai}``  | rain drop size distribution parameter        | ``\frac{1}{m^4}``  | ``16 \cdot 10^6``                         | eq (2) [Marshall1948](@cite) |
+|``n_{0}^{ice}``  | cloud ice size distribution parameter        | ``\frac{1}{m^4}``  | ``2 \cdot 10^7``                          | bottom of page 4396 [Kaul2015](@cite) |
+|``\mu^{sno}``    | snow size distribution parameter coefficient | ``\frac{1}{m^4}``  | ``4.36 \cdot 10^9 \, \rho_0^{\nu^{sno}}`` | eq (A1) [Kaul2015](@cite) |
+|``\nu^{sno}``    | snow size distribution parameter exponent    | ``-``              | ``0.63``                                  | eq (A1) [Kaul2015](@cite) |
 
 The ``\lambda`` parameter is defined as
 ```math
@@ -199,19 +199,19 @@ They consist of:
 
 |    symbol                  |         definition                                        | units                    | default value          | reference |
 |----------------------------|-----------------------------------------------------------|--------------------------|------------------------|-----------|
-|``C_{drag}``                | rain drop drag coefficient                                | -                        | ``0.55``               | ``C_{drag}`` is such that the mass averaged terminal velocity is close to [Smolarkiewicz\_and\_Grabowski\_1996](https://doi.org/10.1175/1520-0493%281996%29124<0487:TTLSLM>2.0.CO;2) |
+|``C_{drag}``                | rain drop drag coefficient                                | -                        | ``0.55``               | ``C_{drag}`` is such that the mass averaged terminal velocity is close to [Grabowski1996](@cite) |
 |``\tau_{cond\_evap}``       | cloud water condensation/evaporation timescale            | ``s``                    | ``10``                 |           |
 |``\tau_{dep\_sub}``         | cloud ice deposition/sublimation timescale                | ``s``                    | ``10``                 |           |
-|``\tau_{acnv}``             | cloud to rain water autoconversion timescale              | ``s``                    | ``10^3``               | eq (5a) [Smolarkiewicz\_and\_Grabowski\_1996](https://doi.org/10.1175/1520-0493%281996%29124<0487:TTLSLM>2.0.CO;2) |
-|``q_{liq\_threshold}``      | cloud to rain water autoconversion threshold              | -                        | ``5 \cdot 10^{-4}``    | eq (5a) [Smolarkiewicz\_and\_Grabowski\_1996](https://doi.org/10.1175/1520-0493%281996%29124<0487:TTLSLM>2.0.CO;2) |
-|``r_{is}``                  | threshold particle radius between ice and snow            | ``m``                    | ``62.5 \cdot 10^{-6}`` | abstract [Harrington_1995](https://doi.org/10.1175/1520-0469%281995%29052<4344:POICCP>2.0.CO;2) |
-|``E_{lr}``                  | collision efficiency between rain drops and cloud droplets| -                        | ``0.8``                | eq (16a) [Grabowski\_1998](https://doi.org/10.1175/1520-0469%281998%29055<3283:TCRMOL>2.0.CO;2) |
-|``E_{ls}``                  | collision efficiency between snow and cloud droplets      | -                        | ``0.1``                | Appendix B [Rutledge\_and\_Hobbs\_1983](https://doi.org/10.1175/1520-0469%281983%29040<1185:TMAMSA>2.0.CO;2) |
-|``E_{ir}``                  | collision efficiency between rain drops and cloud ice     | -                        | ``1``                  | Appendix B [Rutledge\_and\_Hobbs\_1984](https://doi.org/10.1175/1520-0469%281984%29041<2949:TMAMSA>2.0.CO;2) |
-|``E_{is}``                  | collision efficiency between snow and cloud ice           | -                        | ``0.1``                | bottom page 3649 [Morrison\_and\_Gettelman\_2008](https://doi.org/10.1175/2008JCLI2105.1) |
-|``E_{rs}``                  | collision efficiency between rain drops and snow          | -                        | ``1``                  | top page 3650 [Morrison\_and\_Gettelman\_2008](https://doi.org/10.1175/2008JCLI2105.1) |
-|``a_{vent}^{rai}, b_{vent}^{rai}`` | rain drop ventilation factor coefficients          | -                        | ``1.5 \;``,``\; 0.53`` | chosen such that at ``q_{tot}=15 g/kg`` and ``T=288K`` the evap. rate is close to empirical evap. rate in [Smolarkiewicz\_and\_Grabowski\_1996](https://doi.org/10.1175/1520-0493%281996%29124<0487:TTLSLM>2.0.CO;2) |
-|``a_{vent}^{sno}, b_{vent}^{sno}`` | snow ventilation factor coefficients               | -                        | ``0.65 \;``,``\; 0.44``| eq (A19) [Kaul\_et\_al\_2015](https://doi.org/10.1175/MWR-D-14-00319.1) |
+|``\tau_{acnv}``             | cloud to rain water autoconversion timescale              | ``s``                    | ``10^3``               | eq (5a) [Grabowski1996](@cite) |
+|``q_{liq\_threshold}``      | cloud to rain water autoconversion threshold              | -                        | ``5 \cdot 10^{-4}``    | eq (5a) [Grabowski1996](@cite) |
+|``r_{is}``                  | threshold particle radius between ice and snow            | ``m``                    | ``62.5 \cdot 10^{-6}`` | abstract [Harrington1995](@cite) |
+|``E_{lr}``                  | collision efficiency between rain drops and cloud droplets| -                        | ``0.8``                | eq (16a) [Grabowski1998](@cite) |
+|``E_{ls}``                  | collision efficiency between snow and cloud droplets      | -                        | ``0.1``                | Appendix B [Rutledge1983](@cite) |
+|``E_{ir}``                  | collision efficiency between rain drops and cloud ice     | -                        | ``1``                  | Appendix B [Rutledge1984](@cite) |
+|``E_{is}``                  | collision efficiency between snow and cloud ice           | -                        | ``0.1``                | bottom page 3649 [Morrison2008](@cite) |
+|``E_{rs}``                  | collision efficiency between rain drops and snow          | -                        | ``1``                  | top page 3650 [Morrison2008](@cite) |
+|``a_{vent}^{rai}, b_{vent}^{rai}`` | rain drop ventilation factor coefficients          | -                        | ``1.5 \;``,``\; 0.53`` | chosen such that at ``q_{tot}=15 g/kg`` and ``T=288K`` the evap. rate is close to empirical evap. rate in [Grabowski1996](@cite) |
+|``a_{vent}^{sno}, b_{vent}^{sno}`` | snow ventilation factor coefficients               | -                        | ``0.65 \;``,``\; 0.44``| eq (A19) [Kaul2015](@cite) |
 |``K_{therm}``               | thermal conductivity of air                               | ``\frac{J}{m \; s \; K}``| ``2.4 \cdot 10^{-2}``  |           |
 |``\nu_{air}``               | kinematic viscosity of air                                | ``\frac{m^2}{s}``        | ``1.6 \cdot 10^{-5}``  |           |
 |``D_{vapor}``               | diffusivity of water vapor                                | ``\frac{m^2}{s}``        | ``2.26 \cdot 10^{-5}`` |           |
@@ -220,7 +220,7 @@ They consist of:
 
 The ventilation factor parameterizes the increase in the mass and heat exchange
   for falling particles.
-Following [Seifert\_and\_Beheng\_2006](https://doi.org/10.1007/s00703-005-0112-4)
+Following [Seifert2006](@cite)
   eq. 24  the ventilation factor is defined as:
 ```math
 \begin{equation}
@@ -261,7 +261,7 @@ F(r) = a_{vent} +
 ## Terminal velocity
 
 The mass weighted terminal velocity ``v_t`` is defined following
-[Ogura\_and\_Takahashi\_1971](https://doi.org/10.1175/1520-0493%281971%29099<0895:NSOTLC>2.3.CO;2):
+[Ogura1971](@cite):
 ```math
 \begin{equation}
   v_t = \frac{\int_0^\infty n(r) \, m(r) \, v_{term}(r) \, dr}
@@ -285,9 +285,9 @@ Integrating over the assumed Marshall-Palmer distribution and using the
     be size and flow dependent.
     <!-- [drag_coefficient](https://www.grc.nasa.gov/www/K-12/airplane/dragsphere.html) -->
     In general we should implement these terminal velocity parameterizations:
-    [Khvorostyanov\_and\_Curry\_2002](https://doi.org/10.1175/1520-0469%282002%29059<1872:TVODAC>2.0.CO;2)
+    [Khvorostyanov2002](@cite)
     or
-    [Karrer_et_al_2020](https://doi.org/10.1002/essoar.10502128.1)
+    [Karrer2020](@cite)
 
 ## Cloud water condensation/evaporation
 
@@ -326,14 +326,14 @@ where:
     available condensation nuclei, turbulence intensity, etc.
     See works by [prof Raymond Shaw](https://www.mtu.edu/physics/department/faculty/shaw/)
     for hints.
-    In particular, [Desai et al., 2019](https://doi.org/10.1029/2019GL083503).
+    In particular, [Desai2019](@cite).
 
 ## Rain autoconversion
 
 Rain autoconversion defines the rate of conversion form cloud liquid water
   to rain water due to collisions between cloud droplets.
 It is parameterized following
-  [Kessler\_1995](https://doi.org/10.1016/0169-8095%2894%2900090-Z):
+  [Kessler1995](@cite):
 
 ```math
 \begin{equation}
@@ -350,7 +350,7 @@ where:
     This is the simplest possible autoconversion parameterization.
     It would be great to implement others and test the impact on precipitation.
     See for example
-    [Wood\_2005](https://doi.org/10.1175/JAS3530.1)
+    [Wood2005](@cite)
     Table 1 for other simple choices.
 
 ## Snow autoconversion
@@ -359,7 +359,7 @@ Snow autoconversion defines the rate of conversion form cloud ice to snow due
   the growth of cloud ice by water vapor deposition.
 It is defined as the change of mass of cloud ice for cloud ice particles
   larger than threshold ``r_{is}``.
-See [Harrington_1995](https://doi.org/10.1175/1520-0469%281995%29052<4344:POICCP>2.0.CO;2)
+See [Harrington1995](@cite)
   for derivation.
 
 ```math
@@ -375,7 +375,7 @@ The ``\frac{dm}{dt}`` is obtained by solving the water vapor diffusion equation
   in spherical coordinates and linking the changes in temperature at the drop
   surface to the changes in saturated vapor pressure via the Clausius-Clapeyron
   equation, following
-  [Mason\_1971](https://global.oup.com/academic/product/the-physics-of-clouds-9780199588046?cc=us&lang=en&).
+  [Mason2010](@cite).
 
 For the simplest case of spherical particles and not taking into account
   ventilation effects:
@@ -421,7 +421,7 @@ Finally the snow autoconversion rate is computed as
     For non-spherical particles the mass rate of growth
     should be multiplied by a function depending on the particle aspect ratio.
     For functions proposed for different crystal habitats see
-    [Harrington_1995](https://doi.org/10.1175/1520-0469%281995%29052<4344:POICCP>2.0.CO;2) Appendix B.
+    [Harrington1995](@cite) Appendix B.
 
 ## Accretion
 
@@ -538,7 +538,7 @@ There are two additional assumptions that we make to integrate
 - We assume that ``a(r_i, r_j) = \pi (r_i + r_j)^2``.
   This corresponds to a geometric formulation of the collision kernel,
   aka cylindrical formulation, see
-  [Wang\_et\_al\_2005](https://doi.org/10.1175/JAS3655.1)
+  [Wang2006](@cite)
   for discussion.
 
 The eq.(\ref{eq:accr_sr1}) can then be integrated as:
@@ -737,24 +737,21 @@ const rain_param_set = RainParameterSet()
 const ice_param_set = IceParameterSet()
 const snow_param_set = SnowParameterSet()
 
-# eq. 5d in Smolarkiewicz and Grabowski 1996
-# https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+# eq. 5d in [Grabowski1996](@cite)
 function terminal_velocity_empirical(q_rai::DT, q_tot::DT, ρ::DT, ρ_air_ground::DT) where {DT<:Real}
     rr  = q_rai / (DT(1) - q_tot)
     vel = DT(14.34) * ρ_air_ground^DT(0.5) * ρ^-DT(0.3654) * rr^DT(0.1346)
     return vel
 end
 
-# eq. 5b in Smolarkiewicz and Grabowski 1996
-# https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+# eq. 5b in [Grabowski1996](@cite)
 function accretion_empirical(q_rai::DT, q_liq::DT, q_tot::DT) where {DT<:Real}
     rr  = q_rai / (DT(1) - q_tot)
     rl  = q_liq / (DT(1) - q_tot)
     return DT(2.2) * rl * rr^DT(7/8)
 end
 
-# eq. 5c in Smolarkiewicz and Grabowski 1996
-# https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+# eq. 5c in [Grabowski1996](@cite)
 function rain_evap_empirical(q_rai::DT, q::PhasePartition, T::DT, p::DT, ρ::DT) where {DT<:Real}
 
     ts_neq = PhaseNonEquil_ρTq(param_set, ρ, T, q)

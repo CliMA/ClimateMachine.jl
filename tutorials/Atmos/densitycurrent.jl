@@ -299,12 +299,7 @@ end
 #
 # ## References
 #
-# [1] J. Straka, R. Wilhelmson, L. Wicker, J. Anderson, K. Droegemeier,
-# Numerical solution of a nonlinear density current: a benchmark solution and comparisons
-# Int. J. Numer. Methods Fluids 17 (1993) 1–22,  https://doi.org/10.1002/fld.1650170103
-#
-# [2] R. Carpenter, K. Droegemeier, P. Woodward, C. Hane,
-# Application of the piecewise parabolic method (PPM) to meteorological modeling,
-# Mon. Weather Rev. 118 (1990) 586–612, https://doi.org/10.1175/1520-0493(1990)118<0586:AOTPPM>2.0.CO;2
+# - [Straka1993](@cite)
+# - [Carpenter1990](@cite)
 
 main()

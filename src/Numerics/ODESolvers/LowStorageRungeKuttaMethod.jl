@@ -344,17 +344,7 @@ This uses the fourth-order, 14-stage, low-storage, Runge--Kutta scheme of
 Niegemann, Diehl, and Busch (2012) with optimized stability region
 
 ### References
-
-    @article{niegemann2012efficient,
-      title={Efficient low-storage Runge--Kutta schemes with optimized stability regions},
-      author={Niegemann, Jens and Diehl, Richard and Busch, Kurt},
-      journal={Journal of Computational Physics},
-      volume={231},
-      number={2},
-      pages={364--372},
-      year={2012},
-      publisher={Elsevier}
-    }
+ - [Niegemann2012](@cite)
 """
 function LSRK144NiegemannDiehlBusch(
     F,

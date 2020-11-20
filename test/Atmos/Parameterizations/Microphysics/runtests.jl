@@ -84,8 +84,7 @@ end
 end
 
 @testset "RainFallSpeed" begin
-    # eq. 5d in Smolarkiewicz and Grabowski 1996
-    # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+    # eq. 5d in [Grabowski1996](@cite)
     function terminal_velocity_empir(
         q_rai::FT,
         q_tot::FT,
@@ -191,8 +190,7 @@ end
 
 @testset "RainLiquidAccretion" begin
 
-    # eq. 5b in Smolarkiewicz and Grabowski 1996
-    # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+    # eq. 5b in [Grabowski1996](@cite)
     function accretion_empir(q_rai::FT, q_liq::FT, q_tot::FT) where {FT <: Real}
         rr = q_rai / (FT(1) - q_tot)
         rl = q_liq / (FT(1) - q_tot)
@@ -242,8 +240,7 @@ end
 
 @testset "RainEvaporation" begin
 
-    # eq. 5c in Smolarkiewicz and Grabowski 1996
-    # https://doi.org/10.1175/1520-0493(1996)124<0487:TTLSLM>2.0.CO;2
+    # eq. 5c in [Grabowski1996](@cite)
     function rain_evap_empir(
         prs::AbstractParameterSet,
         q_rai::FT,

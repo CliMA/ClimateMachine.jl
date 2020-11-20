@@ -1,17 +1,4 @@
-# This tutorial uses the TMAR Filter from
-#
-#    @article{doi:10.1175/MWR-D-16-0220.1,
-#      author = {Light, Devin and Durran, Dale},
-#      title = {Preserving Nonnegativity in Discontinuous Galerkin
-#               Approximations to Scalar Transport via Truncation and Mass
-#               Aware Rescaling (TMAR)},
-#      journal = {Monthly Weather Review},
-#      volume = {144},
-#      number = {12},
-#      pages = {4771-4786},
-#      year = {2016},
-#      doi = {10.1175/MWR-D-16-0220.1},
-#    }
+# This tutorial uses the TMAR Filter from [Light2016](@cite)
 #
 # to reproduce the tutorial in section 4b.  It is a shear swirling
 # flow deformation of a transported quantity from LeVeque 1996.  The exact

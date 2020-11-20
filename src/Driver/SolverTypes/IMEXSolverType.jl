@@ -61,17 +61,7 @@ where `n` is now only the nonlinear tendency.
     discretizing the original PDE directly.
 
 ### References
-    @article{giraldo2013implicit,
-      title={Implicit-explicit formulations of a three-dimensional
-             nonhydrostatic unified model of the atmosphere ({NUMA})},
-      author={Giraldo, Francis X and Kelly, James F and Constantinescu, Emil M},
-      journal={SIAM Journal on Scientific Computing},
-      volume={35},
-      number={5},
-      pages={B1162--B1194},
-      year={2013},
-      publisher={SIAM}
-    }
+ - [Giraldo2013](@cite)
 """
 struct IMEXSolverType{DS, ST} <: AbstractSolverType
     # The type of discrete splitting to apply to the right-hand side

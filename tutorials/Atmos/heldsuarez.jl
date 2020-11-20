@@ -307,6 +307,4 @@ result = ClimateMachine.invoke!(
 
 # ## References
 #
-# - Held, I.M. and M.J. Suarez, 1994: A Proposal for the Intercomparison
-# the Dynamical Cores of Atmospheric General Circulation Models. Bull. #
-# Amer. Meteor. Soc., 75, 1825–1830, https://doi.org/10.1175/1520-0477(1994)075<1825:APFTIO>2.0.CO;2
+# - [Held1994](@cite)

@@ -17,16 +17,9 @@ This object is intended to be passed to the [`linearsolve!`](@ref) command.
 This uses the restarted Generalized Minimal Residual method of Saad and Schultz (1986).
 
 ## References
-    @article{saad1986gmres,
-      title={GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems},
-      author={Saad, Youcef and Schultz, Martin H},
-      journal={SIAM Journal on scientific and statistical computing},
-      volume={7},
-      number={3},
-      pages={856--869},
-      year={1986},
-      publisher={SIAM}
-    }
+
+ - [Saad1986](@cite)
+
 """
 mutable struct GeneralizedMinimalResidual{M, MP1, MMP1, T, AT} <:
                AbstractIterativeSystemSolver

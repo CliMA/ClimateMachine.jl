@@ -955,12 +955,9 @@ the AtmosModel. For more information on this particular implementation,
 see Chapter 10.4 in the provided reference below.
 
 ## References
-    @book{toro2013riemann,
-        title={Riemann solvers and numerical methods for fluid dynamics: a practical introduction},
-        author={Toro, Eleuterio F},
-        year={2013},
-        publisher={Springer Science & Business Media}
-    }
+
+ - [Toro2013](@cite)
+
 """
 function numerical_flux_first_order!(
     ::HLLCNumericalFlux,

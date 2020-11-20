@@ -55,17 +55,7 @@ fast and slow dynamics respectively, depending on the state `Q`.
     discretizing the original PDE directly.
 
 ### References
-    @article{SchlegelKnothArnoldWolke2012,
-        title={Implementation of multirate time integration methods for air
-            pollution modelling},
-        author={Schlegel, M and Knoth, O and Arnold, M and Wolke, R},
-        journal={Geoscientific Model Development},
-        volume={5},
-        number={6},
-        pages={1395--1405},
-        year={2012},
-        publisher={Copernicus GmbH}
-    }
+ - [Schlegel2012](@cite)
 """
 struct MultirateSolverType{DS} <: AbstractSolverType
     # The type of discrete splitting to apply to the right-hand side
@@ -141,30 +131,8 @@ of a similar implementations include the following
 references.
 
 ### References
-    @article{SchlegelKnothArnoldWolke2012,
-        title={Implementation of multirate time integration methods for air
-            pollution modelling},
-        author={Schlegel, M and Knoth, O and Arnold, M and Wolke, R},
-        journal={Geoscientific Model Development},
-        volume={5},
-        number={6},
-        pages={1395--1405},
-        year={2012},
-        publisher={Copernicus GmbH}
-    }
-
-    @article{Schlegel_2009,
-        doi = {10.1016/j.cam.2008.08.009},
-        year = {2009},
-        month = {apr},
-        publisher = {Elsevier {BV}},
-        volume = {226},
-        number = {2},
-        pages = {345--357},
-        author = {Martin Schlegel and Oswald Knoth and Martin Arnold and Ralf Wolke},
-        title = {Multirate Runge-Kutta schemes for advection equations},
-        journal = {Journal of Computational and Applied Mathematics}
-    }
+ - [Schlegel2012](@cite)
+ - [Schlegel2009](@cite)
 """
 function solversetup(
     ode_solver::MultirateSolverType{SlowFastSplitting},
@@ -240,27 +208,8 @@ Examples of similar multirate-HEVI approaches include
 the following references.
 
 ### References
-    @article{doms2011description,
-        title={A Description of the Nonhydrostatic Regional COSMO model.
-            Part I: Dynamics and Numerics},
-        author={Doms, G{\"u}nther and Baldauf, M},
-        journal={Deutscher Wetterdienst, Offenbach},
-        year={2011}
-    }
-
-    @article{Tomita_2008,
-        doi = {10.1137/070692273},
-        year = {2008},
-        month = {jan},
-        publisher = {Society for Industrial and Applied Mathematics ({SIAM})},
-        volume = {30},
-        number = {6},
-        pages = {2755--2776},
-        author = {Hirofumi Tomita and Koji Goto and Masaki Satoh},
-        title = {A New Approach to Atmospheric General Circulation Model:
-            Global Cloud Resolving Model {NICAM} and its Computational Performance},
-        journal = {{SIAM} Journal on Scientific Computing}
-    }
+ - [Doms2011](@cite)
+ - [Tomita2008](@cite)
 
 # Comments:
 Currently, the only HEVI-type splitting ClimateMachine can currently

@@ -29,18 +29,7 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("advection_diffusion_model.jl")
 
-# This is a setup similar to the one presented in:
-# @article{WILLIAMSON1992211,
-#   title = {A standard test set for numerical approximations to the
-#            shallow water equations in spherical geometry},
-#   journal = {Journal of Computational Physics},
-#   volume = {102},
-#   number = {1},
-#   pages = {211 - 224},
-#   year = {1992},
-#   doi = {10.1016/S0021-9991(05)80016-6},
-#   url = {https://doi.org/10.1016/S0021-9991(05)80016-6},
-# }
+# This is a setup similar to the one presented in [Williamson1992](@cite)
 struct SolidBodyRotation <: AdvectionDiffusionProblem end
 function init_velocity_diffusion!(
     ::SolidBodyRotation,
@@ -68,20 +57,7 @@ end
 finaltime(::SolidBodyRotation) = 1
 u_scale(::SolidBodyRotation) = 2π
 
-# This is a setup similar to the one presented in:
-# @Article{gmd-5-887-2012,
-# AUTHOR = {Lauritzen, P. H. and Skamarock, W. C. and Prather, M. J.
-#           and Taylor, M. A.},
-# TITLE = {A standard test case suite for two-dimensional linear
-#          transport on the sphere},
-# JOURNAL = {Geoscientific Model Development},
-# VOLUME = {5},
-# YEAR = {2012},
-# NUMBER = {3},
-# PAGES = {887--901},
-# URL = {https://www.geosci-model-dev.net/5/887/2012/},
-# DOI = {10.5194/gmd-5-887-2012}
-# }
+# This is a setup similar to the one presented in [Lauritzen2012](@cite)
 struct ReversingDeformationalFlow <: AdvectionDiffusionProblem end
 init_velocity_diffusion!(
     ::ReversingDeformationalFlow,

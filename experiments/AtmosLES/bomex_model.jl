@@ -22,29 +22,7 @@
 # 3) Collapsed experiment design
 # 4) Updates to generally keep this in sync with master
 
-@article{doi:10.1175/1520-0469(2003)60<1201:ALESIS>2.0.CO;2,
-author = {Siebesma, A. Pier and Bretherton,
-          Christopher S. and Brown,
-          Andrew and Chlond,
-          Andreas and Cuxart,
-          Joan and Duynkerke,
-          Peter G. and Jiang,
-          Hongli and Khairoutdinov,
-          Marat and Lewellen,
-          David and Moeng,
-          Chin-Hoh and Sanchez,
-          Enrique and Stevens,
-          Bjorn and Stevens,
-          David E.},
-title = {A Large Eddy Simulation Intercomparison Study of Shallow Cumulus Convection},
-journal = {Journal of the Atmospheric Sciences},
-volume = {60},
-number = {10},
-pages = {1201-1219},
-year = {2003},
-doi = {10.1175/1520-0469(2003)60<1201:ALESIS>2.0.CO;2},
-URL = {https://journals.ametsoc.org/doi/abs/10.1175/1520-0469%282003%2960%3C1201%3AALESIS%3E2.0.CO%3B2},
-eprint = {https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%282003%2960%3C1201%3AALESIS%3E2.0.CO%3B2}
+[Siebesma2003](@cite)
 =#
 
 using ArgParse
