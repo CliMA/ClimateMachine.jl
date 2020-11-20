@@ -21,13 +21,14 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T, I} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
     momentum_advection::MA
     tracer_advection::TA
     forcing::F
+    state_filter::I
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -46,6 +47,7 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T} <: BalanceLaw
         momentum_advection::MA = nothing,
         tracer_advection::TA = NonLinearAdvectionTerm(),
         forcing::F = Forcing(),
+        state_filter::I = nothing,
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -58,13 +60,14 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T} <: BalanceLaw
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
     ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F}
-        return new{C, PS, P, MA, TA, F, FT}(
+        return new{I, C, PS, P, MA, TA, F, FT}(
             param_set,
             problem,
             coupling,
             momentum_advection,
             tracer_advection,
             forcing,
+            state_filter,
             ρₒ,
             cʰ,
             cᶻ,
@@ -79,6 +82,7 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T} <: BalanceLaw
         )
     end
 end
+
 HBModel = HydrostaticBoussinesqModel
 
 @inline noforcing(args...) = 0
@@ -617,13 +621,16 @@ function update_penalty!(
     return nothing
 end
 
+filter_state!(Q, filter::Nothing, grid) = nothing
+filter_state!(Q, filter, grid) = apply!(Q, UnitRange(1, size(Q, 2)), grid)
+
 """
     update_auxiliary_state!(::HBModel)
 
-    applies the vertical filter to the zonal and meridional velocities to preserve numerical incompressibility
-    applies an exponential filter to θ to anti-alias the non-linear advective term
+Applies the vertical filter to the zonal and meridional velocities to preserve numerical incompressibility
+Applies an exponential filter to θ to anti-alias the non-linear advective term
 
-    doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
+Doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
 """
 function update_auxiliary_state!(
     dg::DGModel,
@@ -644,6 +651,8 @@ function update_auxiliary_state!(
 
         exp_filter = MD.exp_filter
         apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
+
+        filter_state!(Q, m.state_filter, dg.grid)
     end
 
     compute_flow_deviation!(dg, m, m.coupling, Q, t)
