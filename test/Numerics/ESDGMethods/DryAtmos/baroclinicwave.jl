@@ -2,21 +2,17 @@ using ClimateMachine
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Mesh.Topologies:
     StackedCubedSphereTopology, cubedshellwarp, grid1d
-using ClimateMachine.Mesh.Grids:
-    DiscontinuousSpectralElementGrid, VerticalDirection, min_node_distance
+using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.DGMethods: ESDGModel, init_ode_state
-using ClimateMachine.DGMethods.NumericalFluxes:
-    RusanovNumericalFlux,
-    CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder
+using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
 using ClimateMachine.VTK: writevtk, writepvtu
 using ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 using ClimateMachine.Thermodynamics: soundspeed_air
-using ClimateMachine.TemperatureProfiles: IsothermalProfile
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.VariableTemplates: flattenednames
 
 using CLIMAParameters
@@ -30,7 +26,8 @@ const output_vtk = false
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet();
-const X = 20
+#const X = 20
+const X = 1
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / X
 CLIMAParameters.Planet.Omega(::EarthParameterSet) = 7.2921159e-5 * X
 
@@ -176,13 +173,16 @@ function main()
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 5
-    numelem_horz = 5
-    numelem_vert = 5
+    polynomialorder = 4
 
-    timeend = 5 * 43200
-    # timeend = 33 * 60 * 60 # Full simulation
-    outputtime = 600
+    numelem_horz = 12
+    numelem_vert = 6
+
+    #timeend = 5 * 43200
+    #outputtime = 600
+
+    timeend = 12 * 24 * 3600
+    outputtime = 24 * 3600
 
     FT = Float64
     result = run(
@@ -224,12 +224,13 @@ function run(
         meshwarp = cubedshellwarp,
     )
 
-    #T_profile = IsothermalProfile(param_set, setup.T_ref)
+    T_profile = DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+
 
     problem = BaroclinicWave()
     model = DryAtmosModel{FT}(SphericalOrientation(),
                               problem,
-        #ref_state = DryReferenceState(T_profile),
+                              ref_state = DryReferenceState(T_profile),
                               sources = (Coriolis(),)
     )
 
@@ -237,28 +238,44 @@ function run(
         model,
         grid,
         volume_numerical_flux_first_order = EntropyConservative(),
-        surface_numerical_flux_first_order = EntropyConservative(),
+        surface_numerical_flux_first_order = MatrixFlux(),
     )
+
+    linearmodel = DryAtmosAcousticGravityLinearModel(model)
+    lineardg = DGModel(
+        linearmodel,
+        grid,
+        RusanovNumericalFlux(),
+        #CentralNumericalFluxFirstOrder(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();
+        direction = VerticalDirection(),
+        state_auxiliary = esdg.state_auxiliary,
+     )
 
     # determine the time step
     element_size = (domain_height / numelem_vert)
     acoustic_speed = soundspeed_air(param_set, FT(330))
     #dt_factor = 1
     #dt = dt_factor * element_size / acoustic_speed / polynomialorder^2
-    dx = min_node_distance(grid)
-    cfl = 1.0
+    dx = min_node_distance(grid, HorizontalDirection())
+    cfl = 0.05
     dt = cfl * dx / acoustic_speed
 
     Q = init_ode_state(esdg, FT(0))
 
-    odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
+    #odesolver = LSRK144NiegemannDiehlBusch(esdg, Q; dt = dt, t0 = 0)
 
-    #filterorder = 18
-    #filter = ExponentialFilter(grid, 0, filterorder)
-    #cbfilter = EveryXSimulationSteps(1) do
-    #    Filters.apply!(Q, :, grid, filter, direction = VerticalDirection())
-    #    nothing
-    #end
+    linearsolver = ManyColumnLU()
+    odesolver = ARK2GiraldoKellyConstantinescu(
+        esdg,
+        lineardg,
+        LinearBackwardEulerSolver(linearsolver; isadjustable = false),
+        Q;
+        dt = dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+    )
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -350,7 +367,8 @@ function do_output(
 
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     auxnames = flattenednames(vars_state(model, Auxiliary(), eltype(Q)))
-    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames)
+    writevtk(filename, Q, dg, statenames, dg.state_auxiliary, auxnames;
+             number_sample_points=10)
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
