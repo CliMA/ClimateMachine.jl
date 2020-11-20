@@ -38,6 +38,9 @@ Base.eltype(A::DGColumnBandedMatrix) = eltype(A.data)
 Base.size(A::DGColumnBandedMatrix) = size(A.data)
 dimensionality(::DGColumnBandedMatrix{D}) where {D} = D
 polynomialorders(::DGColumnBandedMatrix{D, P}) where {D, P} = P
+# polynomialorder orders P is a tuple,
+# last entry is always the vertical polynomial order
+vertical_polynomialorder(::DGColumnBandedMatrix{D, P}) where {D, P} = P[end]
 num_state(::DGColumnBandedMatrix{D, P, NS}) where {D, P, NS} = NS
 num_horz_elem(::DGColumnBandedMatrix{D, P, NS, EH}) where {D, P, NS, EH} = EH
 num_vert_elem(
@@ -50,7 +53,7 @@ single_column(
     ::DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC},
 ) where {D, P, NS, EH, EV, EB, SC} = SC
 lower_bandwidth(A::DGColumnBandedMatrix) =
-    (polynomialorders(A) + 1) * num_state(A) * elem_band(A) - 1
+    (vertical_polynomialorder(A) + 1) * num_state(A) * elem_band(A) - 1
 upper_bandwidth(A::DGColumnBandedMatrix) = lower_bandwidth(A)
 Base.reshape(A::DGColumnBandedMatrix, args...) =
     DGColumnBandedMatrix(A, reshape(A.data, args...))
@@ -307,20 +310,20 @@ function empty_banded_matrix(
 
     nstate = number_states(bl, Prognostic())
     N = polynomialorders(grid)
+    dim = dimensionality(grid)
     Nq = N .+ 1
+    Nq_h = Nq[1]
+    Nqj = dim == 2 ? 1 : Nq[2]
+    Nq_v = Nq[dim]
 
     # p is lower bandwidth
     # q is upper bandwidth
     eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
-    p = q = nstate * Nq[1] * eband - 1
+    p = q = nstate * Nq_v * eband - 1
 
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
-
-    dim = dimensionality(grid)
-
-    Nqj = dim == 2 ? 1 : Nq[dim]
 
     # first horizontal DOF index
     # second horizontal DOF index
@@ -328,9 +331,9 @@ function empty_banded_matrix(
     # vertical DOF index
     # horizontal element index
     A = if single_column
-        similar(Q.data, p + q + 1, Nq * nstate * nvertelem)
+        similar(Q.data, p + q + 1, Nq_v * nstate * nvertelem)
     else
-        similar(Q.data, Nq, Nqj, p + q + 1, Nq * nstate * nvertelem, nhorzelem)
+        similar(Q.data, Nq_h, Nqj, p + q + 1, Nq_v * nstate * nvertelem, nhorzelem)
     end
     fill!(A, zero(FT))
 
@@ -391,7 +394,11 @@ function update_banded_matrix!(
 
     nstate = number_states(bl, Prognostic())
     N = polynomialorders(grid)
+    dim = dimensionality(grid)
     Nq = N .+ 1
+    Nq_h = Nq[1]
+    Nqj = dim == 2 ? 1 : Nq[2]
+    Nq_v = Nq[dim]
 
     # p is lower bandwidth
     # q is upper bandwidth
@@ -403,12 +410,6 @@ function update_banded_matrix!(
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
     nhorzelem = div(nrealelem, nvertelem)
-
-    dim = dimensionality(grid)
-
-    Nq_h = Nq[1]
-    Nqj = dim == 2 ? 1 : Nq[2]
-    Nq_v = Nq[dim]
 
     # loop through all DOFs in a column and compute the matrix column
     # loop only the first min(nvertelem, 2eband+1) elements
@@ -536,7 +537,7 @@ is stored as
         Nq_v = Nq[end]
         nstate = num_state(A)
         nvertelem = num_vert_elem(A)
-        n = nstate * Nq_h * nvertelem
+        n = nstate * Nq_v * nvertelem
         p, q = lower_bandwidth(A), upper_bandwidth(A)
     end
 
@@ -547,7 +548,7 @@ is stored as
         for v in 1:nvertelem
             for k in 1:Nq_v
                 for s in 1:nstate
-                    kk = s + (k - 1) * nstate + (v - 1) * nstate * Nq_h
+                    kk = s + (k - 1) * nstate + (v - 1) * nstate * Nq_v
 
                     Aq = A[i, j, q + 1, kk, h]
                     for ii in 1:p
@@ -598,7 +599,7 @@ eband - 1`.
         Nqj = dimensionality(LU) == 2 ? 1 : Nq[2]
         Nq_v = Nq[end]
         nvertelem = num_vert_elem(LU)
-        n = nstate * Nq_h * nvertelem
+        n = nstate * Nq_v * nvertelem
         eband = elem_band(LU)
         p, q = lower_bandwidth(LU), upper_bandwidth(LU)
 
@@ -614,7 +615,7 @@ eband - 1`.
                 @unroll for s in 1:nstate
                     ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
-                    ii = s + (k - 1) * nstate + (v - 1) * nstate * Nq_h
+                    ii = s + (k - 1) * nstate + (v - 1) * nstate * Nq_v
                     l_b[ii] = nvertelem ≥ v ? b[ijk, s, ee] : zero(FT)
                 end
             end
@@ -623,7 +624,7 @@ eband - 1`.
         for v in 1:nvertelem
             @unroll for k in 1:Nq_v
                 @unroll for s in 1:nstate
-                    jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq_h
+                    jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq_v
 
                     @unroll for ii in 2:(p + 1)
                         Lii =
@@ -632,7 +633,7 @@ eband - 1`.
                         l_b[ii] -= Lii * l_b[1]
                     end
 
-                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
 
                     b[ijk, s, ee] = l_b[1]
@@ -643,9 +644,9 @@ eband - 1`.
 
                     if jj + p < n
                         (idx, si) = fldmod1(jj + p + 1, nstate)
-                        (vi, ki) = fldmod1(idx, Nq)
+                        (vi, ki) = fldmod1(idx, Nq_v)
 
-                        ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (ki - 1)
+                        ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (ki - 1)
                         ee = vi + nvertelem * (h - 1)
 
                         l_b[p + 1] = b[ijk, si, ee]
@@ -700,9 +701,9 @@ eband - 1`.
             @unroll for k in Nq_v:-1:1
                 @unroll for s in nstate:-1:1
                     vi = eband - nvertelem + v
-                    ii = s + (k - 1) * nstate + (vi - 1) * nstate * Nq_h
+                    ii = s + (k - 1) * nstate + (vi - 1) * nstate * Nq_v
 
-                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
 
                     l_b[ii] = b[ijk, s, ee]
@@ -713,7 +714,7 @@ eband - 1`.
         for v in nvertelem:-1:1
             @unroll for k in Nq_v:-1:1
                 @unroll for s in nstate:-1:1
-                    jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq_h
+                    jj = s + (k - 1) * nstate + (v - 1) * nstate * Nq_v
 
                     l_b[q + 1] /=
                         single_column(LU) ? LU[q + 1, jj] :
@@ -725,7 +726,7 @@ eband - 1`.
                         l_b[ii] -= Uii * l_b[q + 1]
                     end
 
-                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
 
                     b[ijk, s, ee] = l_b[q + 1]
@@ -736,9 +737,9 @@ eband - 1`.
 
                     if jj - q > 1
                         (idx, si) = fldmod1(jj - q - 1, nstate)
-                        (vi, ki) = fldmod1(idx, Nq_h)
+                        (vi, ki) = fldmod1(idx, Nq_v)
 
-                        ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (ki - 1)
+                        ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (ki - 1)
                         ee = vi + nvertelem * (h - 1)
 
                         l_b[1] = b[ijk, si, ee]
@@ -769,6 +770,7 @@ end
         Nq = N .+ 1
         Nq_h = Nq[1]
         Nqj = dim == 2 ? 1 : Nq[dim]
+        Nq_v = Nq[end]
 
         eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
     end
@@ -778,7 +780,7 @@ end
 
     @inbounds begin
         e = ev + (eh - 1) * nvertelem
-        ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
+        ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
         @unroll for s in 1:nstate
             if k == kin && s == sin && ((ev - evin0) % (2eband + 1) == 0)
                 Q[ijk, s, e] = 1
@@ -818,10 +820,10 @@ end
     i, j, k = @index(Local, NTuple)
 
     for evin in evin0:(2eband + 1):nvertelem
-        # sin, kin, evin are the state, vertical fod, and vert element we are
+        # sin, kin, evin are the state, vertical dof, and vert element we are
         # handling
         # column index of matrix
-        jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq_h
+        jj = sin + (kin - 1) * nstate + (evin - 1) * nstate * Nq_v
 
         # one thread is launch for dof that might contribute to column jj's band
         @inbounds begin
@@ -833,7 +835,7 @@ end
                 ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                 @unroll for s in 1:nstate
                     # row index of matrix
-                    ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq_h
+                    ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq_v
                     # row band index
                     bb = ii - jj
                     # make sure we're in the bandwidth
@@ -864,8 +866,8 @@ end
         p = lower_bandwidth(A)
         q = upper_bandwidth(A)
 
-        elo = div(q, Nq_h * nstate - 1)
-        eup = div(p, Nq_h * nstate - 1)
+        elo = div(q, Nq_v * nstate - 1)
+        eup = div(p, Nq_v * nstate - 1)
     end
 
     ev, eh = @index(Group, NTuple)
@@ -876,15 +878,15 @@ end
         e = ev + nvertelem * (eh - 1)
         @unroll for s in 1:nstate
             Ax = -zero(FT)
-            ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq_h
+            ii = s + (k - 1) * nstate + (ev - 1) * nstate * Nq_v
 
             # banded matrix column loops
             @unroll for evv in max(1, ev - elo):min(nvertelem, ev + eup)
                 ee = evv + nvertelem * (eh - 1)
                 @unroll for kk in 1:Nq_v
-                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (kk - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (kk - 1)
                     @unroll for ss in 1:nstate
-                        jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq_h
+                        jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq_v
                         bb = ii - jj
                         if -q ≤ bb ≤ p
                             if !single_column(A)
@@ -897,7 +899,7 @@ end
                     end
                 end
             end
-            ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
+            ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
             dQ[ijk, s, e] = Ax
         end
     end
