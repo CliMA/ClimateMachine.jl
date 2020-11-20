@@ -78,14 +78,15 @@ by the formatter implemented in the script `.dev/climaformat.jl`.
 To use the script `.dev/climaformat.jl` to reformat every file in
 `ClimateMachine.jl/` run
 
-```
-julia --project .dev/climaformat.jl
+```bash
+.dev/climaformat.jl
 ```
 
-from `ClimateMachine.jl`'s root directory. To format individual files, type
+in a terminal from `ClimateMachine.jl`'s root directory. To format individual files,
+type
 
-```
-julia --project .dev/climaformat.jl src/individual_file.jl
+```bash
+.dev/climaformat.jl src/individual_file.jl
 ```
 
 instead.
@@ -95,8 +96,8 @@ instead.
     1. `git add` your unformatted contributions to the git index with
        commands like `git add unformatted_contribution.jl` before running
        the formatter.
-    2. Reformat your code by running `julia --project .dev/climaformat.jl`.
-    3. Use `git diff --cached` to view changes made by the formatter, and
+    2. Reformat your code by running `.dev/climaformat.jl`.
+    3. Use `git diff` to view changes made by the formatter, and
        `git checkout :/` to throw them away if you don't like the way they
        look.
 
