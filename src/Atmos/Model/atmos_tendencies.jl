@@ -37,4 +37,5 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Energy} =
     (Advect{PV}(), Pressure{PV}())
 
 # Moisture
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} = ()
+eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
+    (Advect{PV}(),)
