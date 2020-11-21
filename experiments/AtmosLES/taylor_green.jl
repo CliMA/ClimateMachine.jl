@@ -68,7 +68,7 @@ function init_greenvortex!(problem, bl, state, aux, localgeo, t)
     e_pot = FT(0)# potential energy
     Pinf = 101325
     Uzero = FT(100)
-    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y))
+    p = Pinf + (ρ * Uzero^2 / 16) * (2 + cos(2 * z)) * (cos(2 * x) + cos(2 * y))
     u = Uzero * sin(x) * cos(y) * cos(z)
     v = -Uzero * cos(x) * sin(y) * cos(z)
     e_kin = 0.5 * (u^2 + v^2)
