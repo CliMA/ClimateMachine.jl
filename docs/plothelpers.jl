@@ -22,7 +22,7 @@ end
     export_plot(
         z,
         time_data,
-        all_data::Array,
+        dons_arr::Array,
         ϕ_all,
         filename;
         xlabel,
@@ -34,25 +34,27 @@ end
     )
 
 Export plot of all variables, or all
-available time-steps in `all_data`.
+available time-steps in `dons_arr`.
 """
 function export_plot(
     z,
     time_data,
-    all_data::Array,
+    dons_arr::Array,
     ϕ_all,
     filename;
     xlabel,
     ylabel,
     time_units = "[s]",
     round_digits = 2,
+    sample_rate = 1,
     horiz_layout = false,
     xlims = (:auto, :auto),
 )
     ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
     single_var = ϕ_all[1] == xlabel || length(ϕ_all) == 1
     p = plot()
-    for (t, data) in zip(time_data, all_data)
+    sample = 1:sample_rate:length(time_data)
+    for (t, data) in zip(time_data[sample], dons_arr[sample])
         for ϕ in ϕ_all
             ϕ_string = String(ϕ)
             ϕ_data = data[ϕ_string][:]
@@ -75,7 +77,7 @@ end
     export_contour(
         z,
         time_data,
-        all_data::Array,
+        dons_arr::Array,
         ϕ,
         filename;
         xlabel = "time [s]",
@@ -86,7 +88,7 @@ end
 Export contour plots given
  - `z` Array of altitude. Note: this must not include duplicate nodal points.
  - `time_data` array of time data
- - `all_data` an array whose elements are populated by `dict_of_nodal_states`
+ - `dons_arr` an array whose elements are populated by `dict_of_nodal_states`
  - `ϕ` variable to contour
  - `filename` file name to export to.
  - `xlabel` x-label
@@ -96,7 +98,7 @@ Export contour plots given
 function export_contour(
     z,
     time_data,
-    all_data::Array,
+    dons_arr::Array,
     ϕ,
     filename;
     xlabel = "time [s]",
@@ -104,7 +106,7 @@ function export_contour(
     label = String(ϕ),
 )
     ϕ_string = String(ϕ)
-    ϕ_data = hcat([data[ϕ_string][:] for data in all_data]...)
+    ϕ_data = hcat([data[ϕ_string][:] for data in dons_arr]...)
     args = (time_data, z, ϕ_data)
     contourf(
         args...;
@@ -159,7 +161,7 @@ state_prefix(::GradientFlux) = "grad_flux_"
 """
     export_state_plots(
         solver_config,
-        all_data,
+        dons_arr,
         time_data,
         output_dir;
         state_types = (Prognostic(), Auxiliary()),
@@ -169,18 +171,19 @@ state_prefix(::GradientFlux) = "grad_flux_"
 
 Export line plots of states given
  - `solver_config` a `SolverConfiguration`
- - `all_data` an array of dictionaries, returned from `dict_of_nodal_states`
+ - `dons_arr` an array of dictionaries, returned from `dict_of_nodal_states`
  - `time_data` an array of time values
  - `output_dir` output directory
 """
 function export_state_plots(
     solver_config,
-    all_data,
+    dons_arr,
     time_data,
     output_dir;
     state_types = (Prognostic(), Auxiliary()),
     z = Array(get_z(solver_config.dg.grid)),
     xlims = (:auto, :auto),
+    sample_rate = 1,
     time_units = "[s]",
     ylabel = "z [m]",
 )
@@ -194,10 +197,11 @@ function export_state_plots(
             export_plot(
                 z,
                 time_data,
-                all_data,
+                dons_arr,
                 (fn,),
                 file_name;
                 xlabel = fn,
+                sample_rate = sample_rate,
                 ylabel = ylabel,
                 time_units = time_units,
                 round_digits = 5,
@@ -210,7 +214,7 @@ end
 """
     export_state_contours(
         solver_config,
-        all_data,
+        dons_arr,
         time_data,
         output_dir;
         state_types = (Prognostic(),),
@@ -224,7 +228,7 @@ state variable given `state_types`.
 """
 function export_state_contours(
     solver_config,
-    all_data,
+    dons_arr,
     time_data,
     output_dir;
     state_types = (Prognostic(),),
@@ -240,7 +244,7 @@ function export_state_contours(
             base_name = state_prefix(st) * replace(fn, "." => "_")
             filename = joinpath(output_dir, "cnt_$(base_name).png")
             label = string(replace(fn, "." => "_"))
-            args = (z, time_data, all_data, fn, filename)
+            args = (z, time_data, dons_arr, fn, filename)
             export_contour(
                 args...;
                 xlabel = xlabel,
