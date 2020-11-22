@@ -1170,8 +1170,8 @@ function launch_volume_divergence_of_gradients!(
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = (info.Nq[1], info.Nq[1], info.Nqk)
-    ndrange = (info.nrealelem * info.Nq[1], info.Nq[1], info.Nqk)
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.nrealelem * info.Nq[1], info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1253,13 +1253,13 @@ function launch_interface_divergence_of_gradients!(
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
 
-        workgroup = info.Nfp_h
+        workgroup = info.Nfp_v
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_h * info.ninteriorelem
+            ndrange = info.Nfp_v * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_h * info.nexteriorelem
+            ndrange = info.Nfp_v * info.nexteriorelem
         end
 
         # Hoirzontal polynomial order (assumes same for both horizontal directions)
@@ -1288,13 +1288,13 @@ function launch_interface_divergence_of_gradients!(
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
-        workgroup = info.Nfp_v
+        workgroup = info.Nfp_h
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_v * info.ninteriorelem
+            ndrange = info.Nfp_h * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_v * info.nexteriorelem
+            ndrange = info.Nfp_h * info.nexteriorelem
         end
 
         # Vertical polynomial degree
@@ -1337,8 +1337,8 @@ function launch_volume_gradients_of_laplacians!(
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = (info.Nq[1], info.Nq[1], info.Nqk)
-    ndrange = (info.nrealelem * info.Nq[1], info.Nq[1], info.Nqk)
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.nrealelem * info.Nq[1], info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1432,13 +1432,13 @@ function launch_interface_gradients_of_laplacians!(
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
 
-        workgroup = info.Nfp_h
+        workgroup = info.Nfp_v
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_h * info.ninteriorelem
+            ndrange = info.Nfp_v * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_h * info.nexteriorelem
+            ndrange = info.Nfp_v * info.nexteriorelem
         end
 
         # Hoirzontal polynomial order (assumes same for both horizontal directions)
@@ -1470,13 +1470,13 @@ function launch_interface_gradients_of_laplacians!(
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
 
-        workgroup = info.Nfp_v
+        workgroup = info.Nfp_h
         if surface === :interior
             elems = dg.grid.interiorelems
-            ndrange = info.Nfp_v * info.ninteriorelem
+            ndrange = info.Nfp_h * info.ninteriorelem
         else
             elems = dg.grid.exteriorelems
-            ndrange = info.Nfp_v * info.nexteriorelem
+            ndrange = info.Nfp_h * info.nexteriorelem
         end
 
         # Vertical polynomial degree
