@@ -48,9 +48,9 @@ function GenericCallbacks.init!(cb::SummaryLogCallback, solver, Q, param, t)
     return nothing
 end
 function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
-    runtime_ms = Dates.now() - cb.wtimestart
-    runtime = Dates.format(
-        convert(Dates.DateTime, runtime_ms),
+    wallclock_time_ms = Dates.now() - cb.wtimestart
+    wallclock = Dates.format(
+        convert(Dates.DateTime, wallclock_time_ms),
         Dates.dateformat"HH:MM:SS",
     )
     normQ = norm(Q)
@@ -59,24 +59,28 @@ function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
     else
         simtime = @sprintf "%8.2f / %8.2f" t cb.stimeend
     end
-    runtime_s = runtime_ms.value / 1000
-    efficiency = @sprintf "%8.4f" t / runtime_s
-    estimated_remaining_ms =
-        Dates.Millisecond(ceil(Int, cb.stimeend * runtime_s / t * 1000))
+    wallclock_s = wallclock_time_ms.value / 1000
+    efficiency = @sprintf "%8.4f" t / wallclock_s
+
+    estimated_wallclock_end = cb.stimeend * wallclock_s / t
+
+    estimated_wallclock_end_ms =
+        Dates.Millisecond(ceil(Int, estimated_wallclock_end * 1000))
+
     estimated_remaining = Dates.format(
-        convert(Dates.DateTime, estimated_remaining_ms),
+        convert(Dates.DateTime, estimated_wallclock_end_ms),
         Dates.dateformat"HH:MM:SS",
     )
     @info @sprintf(
         """
         Update
             simtime = %s
-            runtime = %s
-            efficiency (simtime / runtime) = %s
-            remaining runtime (estimated) = %s
+            wallclock = %s
+            efficiency (simtime / wallclock) = %s
+            wallclock end (estimated) = %s
             norm(Q) = %.16e""",
         simtime,
-        runtime,
+        wallclock,
         efficiency,
         estimated_remaining,
         normQ,
