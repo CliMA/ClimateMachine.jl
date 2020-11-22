@@ -98,14 +98,6 @@ function atmos_source!(
     # Migrated to Σsources
 end
 
-"""
-    CreateClouds{FT} <: AbstractSource
-
-A source/sink to `q_liq` and `q_ice` implemented as a relaxation towards
-equilibrium in the Microphysics module.
-The default relaxation timescales are defined in CLIMAParameters.jl.
-"""
-struct CreateClouds <: AbstractSource end
 function atmos_source!(
     ::CreateClouds,
     atmos::AtmosModel,
@@ -116,23 +108,7 @@ function atmos_source!(
     t::Real,
     direction,
 )
-    # get current temperature and phase partition
-    FT = eltype(state)
-    ts = recover_thermo_state(atmos, state, aux)
-    q = PhasePartition(ts)
-    T = air_temperature(ts)
-
-    # phase partition corresponding to the current T and q.tot
-    # (this is not the same as phase partition from saturation adjustment)
-    ts_eq = PhaseEquil_ρTq(atmos.param_set, state.ρ, T, q.tot)
-    q_eq = PhasePartition(ts_eq)
-
-    # cloud condensate as relaxation source terms
-    S_q_liq = conv_q_vap_to_q_liq_ice(atmos.param_set.microphys.liq, q_eq, q)
-    S_q_ice = conv_q_vap_to_q_liq_ice(atmos.param_set.microphys.ice, q_eq, q)
-
-    source.moisture.ρq_liq += state.ρ * S_q_liq
-    source.moisture.ρq_ice += state.ρ * S_q_ice
+    # Migrated to Σsources
 end
 
 """

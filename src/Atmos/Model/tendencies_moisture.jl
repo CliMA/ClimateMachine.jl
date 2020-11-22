@@ -38,3 +38,68 @@ function source(
     k̂ = vertical_unit_vector(m, aux)
     return -state.ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
 end
+
+export CreateClouds
+"""
+    CreateClouds{PV <: Union{LiquidMoisture,IceMoisture}} <: TendencyDef{Source, PV}
+
+A source/sink to `q_liq` and `q_ice` implemented as a relaxation towards
+equilibrium in the Microphysics module.
+The default relaxation timescales are defined in CLIMAParameters.jl.
+"""
+struct CreateClouds{PV <: Union{LiquidMoisture, IceMoisture}} <:
+       TendencyDef{Source, PV} end
+
+CreateClouds() = (CreateClouds{LiquidMoisture}(), CreateClouds{IceMoisture}())
+
+function source(
+    s::CreateClouds{LiquidMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    # get current temperature and phase partition
+    FT = eltype(state)
+    q = PhasePartition(ts)
+    T = air_temperature(ts)
+
+    # phase partition corresponding to the current T and q.tot
+    # (this is not the same as phase partition from saturation adjustment)
+    ts_eq = PhaseEquil_ρTq(m.param_set, state.ρ, T, q.tot)
+    q_eq = PhasePartition(ts_eq)
+
+    # cloud condensate as relaxation source terms
+    S_q_liq = conv_q_vap_to_q_liq_ice(m.param_set.microphys.liq, q_eq, q)
+
+    return state.ρ * S_q_liq
+end
+
+function source(
+    s::CreateClouds{IceMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    # get current temperature and phase partition
+    FT = eltype(state)
+    q = PhasePartition(ts)
+    T = air_temperature(ts)
+
+    # phase partition corresponding to the current T and q.tot
+    # (this is not the same as phase partition from saturation adjustment)
+    ts_eq = PhaseEquil_ρTq(m.param_set, state.ρ, T, q.tot)
+    q_eq = PhasePartition(ts_eq)
+
+    # cloud condensate as relaxation source terms
+    S_q_ice = conv_q_vap_to_q_liq_ice(m.param_set.microphys.ice, q_eq, q)
+
+    return state.ρ * S_q_ice
+end

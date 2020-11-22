@@ -357,7 +357,7 @@ function config_dycoms(
     if moisture_model == "equilibrium"
         moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
-        source = (source..., CreateClouds())
+        source = (source..., CreateClouds()...)
         moisture = NonEquilMoist()
     else
         @warn @sprintf(
