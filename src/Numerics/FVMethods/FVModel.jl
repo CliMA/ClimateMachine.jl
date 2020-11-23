@@ -195,7 +195,76 @@ function weno_reconstruction!(
     end
 end
 
+"""
+    launch_fvm_tendency!(
+        dg,
+        state_prognostic,
+        t;
+        surface::Symbol,
+        dependencies
+    )
 
+Launches Finite Volume Method tendency, which performs
+WENO reconstruction on the element faces.
+
+The argument `surface` is either `:interior` or `:exterior`,
+which denotes whether we are computing values on boundaries
+which are interior (exterior resp.) to the _parallel_ boundary.
+"""
+function launch_fvm_tendency!(
+    dg,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    surface::Symbol,
+    dependencies,
+)
+    @assert surface === :interior || surface === :exterior
+    Qhypervisc_grad, _ = dg.states_higher_order
+
+    info = basic_launch_info(dg)
+    workgroup = info.Nfp
+    if surface === :interior
+        elems = dg.grid.interiorelems
+        ndrange = info.Nfp * info.ninteriorelem
+    else
+        elems = dg.grid.exteriorelems
+        ndrange = info.Nfp * info.nexteriorelem
+    end
+
+    comp_stream = dependencies
+
+    # Vertical kernel call
+    if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+        comp_stream = fvm_interface_tendency!(info.device, workgroup)(
+            dg.balance_law,
+            Val(info.dim),
+            Val(info.N),
+            VerticalDirection(),
+            dg.numerical_flux_first_order,
+            dg.numerical_flux_second_order,
+            tendency.data,
+            state_prognostic.data,
+            dg.state_gradient_flux.data,
+            Qhypervisc_grad.data,
+            dg.state_auxiliary.data,
+            dg.grid.vgeo,
+            dg.grid.sgeo,
+            t,
+            dg.grid.vmap⁻,
+            dg.grid.vmap⁺,
+            dg.grid.elemtobndy,
+            elems,
+            α;
+            ndrange = ndrange,
+            dependencies = comp_stream,
+        )
+    end
+
+    return comp_stream
+end
 
 """
 Third order WENO reconstruction on nonuniform grids
