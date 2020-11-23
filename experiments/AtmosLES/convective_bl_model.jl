@@ -196,7 +196,8 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_tot = ρ * q_tot
     end
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand() * ρe_tot / 100
+        # state.ρe += rand() * ρe_tot / 100
+        state.ρe += FT(0.5) * ρe_tot / 100
     end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
@@ -226,7 +227,7 @@ function convective_bl_model(
     ics = init_convective_bl!     # Initial conditions
 
     C_smag = FT(0.23)     # Smagorinsky coefficient
-    C_drag = FT(0.001)    # Momentum exchange coefficient
+    C_drag = FT(0)    # Momentum exchange coefficient
     z_sponge = FT(2560)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
     γ = 2                  # Strength of sponge layer (exponent)
@@ -236,6 +237,8 @@ function convective_bl_model(
     f_coriolis = FT(1.031e-4) # Coriolis parameter
     u_star = FT(0.3)
     q_sfc = FT(0)
+    LHF = FT(0)       # Latent heat flux `[W/m²]`
+    SHF = FT(0)         # Sensible heat flux `[W/m²]`
 
     # Assemble source components
     source_default = (

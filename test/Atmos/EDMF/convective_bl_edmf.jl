@@ -10,8 +10,11 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.Mesh.Filters: apply!
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
+include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
@@ -79,6 +82,8 @@ import ClimateMachine.DGMethods: custom_filter!
 
 function custom_filter!(::EDMFFilter, bl, state, aux)
     FT = eltype(state)
+    # this ρu[3]=0 is only for single_stack
+    state.ρu = SVector(state.ρu[1],state.ρu[2],0)
     a_min = bl.turbconv.subdomains.a_min
     up = state.turbconv.updraft
     N_up = n_updrafts(bl.turbconv)
@@ -120,25 +125,28 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 3
-    nelem_vert = 15
+    N = 4
+    nelem_vert = 20
 
     # Prescribe domain parameters
-    zmax = FT(3200)
+    zmax = FT(3000)
 
     t0 = FT(0)
 
-    timeend = FT(3600)
-    # CFLmax = FT(0.4)
-    # CFLmax = FT(4.0)
-    CFLmax = FT(20.0)
+    timeend = FT(5000)
+    CFLmax = FT(25)
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.IMEXSolverType()
-    # ode_solver_type = ClimateMachine.ExplicitSolverType(
-    #     solver_method = LSRK144NiegemannDiehlBusch,
-    # )
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = SingleColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = true,
+        # split_explicit_implicit = false,
+        discrete_splitting = false,
+        # discrete_splitting = true,
+    )
 
     N_updrafts = 1
     N_quad = 3
@@ -160,7 +168,7 @@ function main(::Type{FT}) where {FT}
         zmax,
         param_set,
         model;
-        hmax = FT(20000),
+        hmax = zmax,
         solver_type = ode_solver_type,
     )
 
@@ -170,60 +178,9 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
+        # fixed_number_of_steps = 600,
     )
 
-    #################### Change the ode_solver to implicit solver
-    dg = solver_config.dg
-    Q = solver_config.Q
-    vdg = DGModel(
-        driver_config;
-        state_auxiliary = dg.state_auxiliary,
-        direction = VerticalDirection(),
-    )
-    # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        max_subspace_size = 30,
-        atol = -1.0,
-        rtol = 5e-5,
-    )
-    """
-    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
-
-    F(Q) == 0
-    ||F(Q^i) || / ||F(Q^0) || < tol
-
-    """
-    # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
-    # I have also try larger tol, but tol = 1e-3 does not work
-    nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
-
-    # this is a second order time integrator, to change it to a first order time integrator
-    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
-    # and stability
-    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
-    # update it more freqent will accelerate the convergence of linear solves, but updating it 
-    # is very expensive
-    ode_solver = ARK2ImplicitExplicitMidpoint( # try replace with Giraldo ...
-        dg,
-        vdg,
-        NonLinearBackwardEulerSolver(
-            nonlinearsolver;
-            isadjustable = true,
-            preconditioner_update_freq = 50, # set to 1 as most accurate and move on
-        ),
-        Q;
-        dt = solver_config.dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-        variant = NaiveVariant(),
-    )
-
-    solver_config.solver = ode_solver
-
-    #######################################
     # --- Zero-out horizontal variations:
     vsp = vars_state(model, Prognostic(), FT)
     horizontally_average!(
@@ -326,3 +283,19 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, all_data, time_data, state_types = main(Float64)
+
+export_state_plots(
+    solver_config,
+    all_data,
+    time_data,
+    joinpath("output", "cbl_edmf_ss_acc");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
+
+ export_state_contours(
+    solver_config,
+    all_data,
+    time_data,
+    joinpath("output", "cbl_edmf_ss_acc");
+    z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+)
