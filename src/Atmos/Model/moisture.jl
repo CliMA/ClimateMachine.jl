@@ -185,7 +185,6 @@ function flux_second_order!(
 end
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
 function flux_second_order!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
-    flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
 end
@@ -309,7 +308,6 @@ function flux_second_order!(
     d_q_liq,
     d_q_ice,
 )
-    flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
     flux.moisture.ρq_liq += d_q_liq * state.ρ

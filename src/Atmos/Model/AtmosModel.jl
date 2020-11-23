@@ -552,11 +552,18 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
+    ρu_pad = SVector(1, 1, 1)
+    ts = recover_thermo_state(atmos, state, aux)
+    tend = Flux{SecondOrder}()
+    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), args...) .* ρu_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), atmos, tend), args...) .* ρu_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...)
+
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     ν, D_t, τ =
         sponge_viscosity_modifier(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
-    d_h_tot = -D_t .* diffusive.∇h_tot
-    flux_second_order!(atmos, flux, state, τ, d_h_tot)
+
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(
@@ -570,19 +577,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
     )
     flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
-end
-
-#TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
-@inline function flux_second_order!(
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    τ,
-    d_h_tot,
-)
-    flux.ρu += τ * state.ρ
-    flux.ρe += τ * state.ρu
-    flux.ρe += d_h_tot * state.ρ
 end
 
 @inline function wavespeed(
