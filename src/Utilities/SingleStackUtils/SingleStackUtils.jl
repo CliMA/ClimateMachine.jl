@@ -7,6 +7,8 @@ export get_vars_from_nodal_stack,
     reduce_nodal_stack,
     reduce_element_stack,
     horizontally_average!,
+    max_horizontal_invariance,
+    assert_horizontally_uniform,
     dict_of_nodal_states
 
 using OrderedCollections
@@ -275,6 +277,49 @@ function get_horizontal_variance(
     vars_var = merge(-, vars_sq, vars_avg)
     return vars_var
 end
+
+"""
+    max_horizontal_invariance(
+        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        Q::MPIStateArray,
+        vars;
+        exclude::Vector{String} = String[],
+    ) where {T, dim, Ns}
+
+Max horizontal variance of variables specified in `vars` (as returned by
+e.g. `vars_state`) are not horizontally uniform along the vertical stack.
+
+Variables listed in `exclude` are skipped.
+"""
+function max_horizontal_invariance(
+    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    Q::MPIStateArray,
+    vars;
+    exclude::Vector{String} = String[],
+) where {T, dim, Ns}
+    horiz_var = get_horizontal_variance(
+        grid,
+        Q,
+        vars;
+        exclude = exclude,
+    )
+    max_horiz_var = Dict(var => maximum(abs.(hv)) for (var,hv) in horiz_var)
+    return max_horiz_var
+end
+
+"""
+    assert_horizontally_uniform(max_horiz_var, var, FT, tol = 10eps(FT))
+
+Error if field `var`, computed from `max_horizontal_invariance`,
+is horizontally non-uniform above tolerance `tol`.
+"""
+function assert_horizontally_uniform(max_horiz_var, var, FT, tol = 10eps(FT))
+    if !(max_horiz_var[var] < tol)
+        @show max_horiz_var[var]
+        error("$var not horizontally uniform.")
+    end
+end
+
 
 """
     reduce_nodal_stack(

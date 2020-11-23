@@ -36,6 +36,7 @@ using Test
 
 using ClimateMachine
 using ClimateMachine.Atmos
+using ClimateMachine.Atmos: vars_state
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods.NumericalFluxes

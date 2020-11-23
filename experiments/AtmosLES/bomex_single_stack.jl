@@ -1,6 +1,7 @@
 include("bomex_model.jl")
+using ClimateMachine.SingleStackUtils
 
-function main()
+function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
     bomex_args = ArgParseSettings(autofix_names = true)
@@ -24,7 +25,6 @@ function main()
     surface_flux = cl_args["surface_flux"]
     moisture_model = cl_args["moisture_model"]
 
-    FT = Float64
     config_type = SingleStackConfigType
 
     # DG polynomial order
@@ -71,6 +71,19 @@ function main()
         init_on_cpu = true,
         Courant_number = CFLmax,
     )
+
+    vsp = vars_state(model, Prognostic(), FT)
+    Q = solver_config.Q
+    grid = driver_config.grid
+    i_ρ = varsindex(vsp, :ρ)
+    i_ρe = varsindex(vsp, :ρe)
+    i_ρu = varsindex(vsp, :ρu)
+    i_ρq_tot = varsindex(vsp, :moisture, :ρq_tot)
+    horizontally_average!(grid, Q, i_ρ)
+    horizontally_average!(grid, Q, i_ρe)
+    horizontally_average!(grid, Q, i_ρu)
+    horizontally_average!(grid, Q, i_ρq_tot)
+
     dgn_config = config_diagnostics(driver_config)
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
@@ -80,6 +93,17 @@ function main()
             solver_config.dg.grid,
             TMARFilter(),
         )
+        max_horiz_var = max_horizontal_invariance(
+            solver_config.dg.grid,
+            solver_config.Q,
+            vars_state(solver_config.dg.balance_law, Prognostic(), FT)
+        )
+        assert_horizontally_uniform(max_horiz_var, "ρ", FT, 100eps(FT))
+        assert_horizontally_uniform(max_horiz_var, "ρe", FT, 1000sqrt(eps(FT)))
+        assert_horizontally_uniform(max_horiz_var, "ρu[2]", FT, 100eps(FT))
+        assert_horizontally_uniform(max_horiz_var, "ρu[3]", FT, 100eps(FT))
+        assert_horizontally_uniform(max_horiz_var, "ρu[3]", FT, 100eps(FT))
+        assert_horizontally_uniform(max_horiz_var, "moisture.ρq_tot", FT, 10eps(FT))
         nothing
     end
 
@@ -97,4 +121,4 @@ function main()
     )
 end
 
-main()
+main(Float64)
