@@ -39,3 +39,27 @@ function source(s::Subsidence{Mass}, m, state, aux, t, ts, direction, diffusive)
     k̂ = vertical_unit_vector(m, aux)
     return -state.ρ * w_sub * dot(k̂, diffusive.moisture.∇q_tot)
 end
+
+function source(
+    s::RemovePrecipitation{Mass},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    if has_condensate(ts)
+        nt = compute_precip_params(s, aux, ts)
+        return state.ρ * nt.S_qt
+    else
+        FT = eltype(state)
+        return FT(0)
+    end
+end
+
+function source(s::Rain_1M{Mass}, m, state, aux, t, ts, direction, diffusive)
+    nt = compute_rain_params(m, state, aux, t, ts)
+    return state.ρ * nt.S_qt
+end

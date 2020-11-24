@@ -103,3 +103,50 @@ function source(
 
     return state.ρ * S_q_ice
 end
+
+function source(
+    s::RemovePrecipitation{TotalMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    if has_condensate(ts)
+        nt = compute_precip_params(s, aux, ts)
+        return state.ρ * nt.S_qt
+    else
+        FT = eltype(state)
+        return FT(0)
+    end
+end
+
+function source(
+    s::Rain_1M{TotalMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = compute_rain_params(m, state, aux, t, ts)
+    return state.ρ * nt.S_qt
+end
+
+function source(
+    s::Rain_1M{LiquidMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = compute_rain_params(m, state, aux, t, ts)
+    return state.ρ * nt.S_ql
+end

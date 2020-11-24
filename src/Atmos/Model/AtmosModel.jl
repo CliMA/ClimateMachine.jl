@@ -2,6 +2,7 @@ module Atmos
 
 export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
 
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
 using CLIMAParameters.Atmos.SubgridScale: C_smag
@@ -395,6 +396,7 @@ include("tendencies_mass.jl")         # specify mass tendencies
 include("tendencies_momentum.jl")     # specify momentum tendencies
 include("tendencies_energy.jl")       # specify energy tendencies
 include("tendencies_moisture.jl")     # specify moisture tendencies
+include("tendencies_precipitation.jl")# specify precipitation tendencies
 
 include("problem.jl")
 include("ref_state.jl")
