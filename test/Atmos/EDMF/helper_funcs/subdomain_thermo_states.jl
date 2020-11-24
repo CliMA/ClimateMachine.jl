@@ -202,8 +202,11 @@ function new_thermo_state_en(
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
-    tmp = sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))
+    tmp = sum(vuntuple(j -> up[j].ρaθ_liq, N_up))
     if !(0 <= θ_liq_en)
+        z = altitude(m, aux)
+        println("in new_thermo_state_en")
+        @print("z = ", z, "\n")
         @print("tmp = ", tmp, "\n")
         @print("θ_liq = ", θ_liq, "\n")
         @print("θ_liq_en = ", θ_liq_en, "\n")

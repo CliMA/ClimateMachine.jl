@@ -201,8 +201,7 @@ function turbconv_nodal_update_auxiliary_state!(
     up = state.turbconv.updraft
 
     # Recover thermo states
-    println("edmf_kernels 204")
-    @show(up[1].ρa)
+    z = altitude(m, aux)
     ts = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
@@ -212,7 +211,6 @@ function turbconv_nodal_update_auxiliary_state!(
     ρ_inv = 1 / gm.ρ
     _grav::FT = grav(m.param_set)
 
-    z = altitude(m, aux)
 
     ρ_en = air_density(ts.en)
     en_aux.buoyancy = -_grav * (ρ_en - aux.ref_state.ρ) * ρ_inv
@@ -679,7 +677,7 @@ function turbconv_boundary_state!(
     state_int::Vars,
     aux_int::Vars,
 ) where {FT}
-
+    validate_variables(m, state⁻, aux, "turbconv_boundary_state! (state⁻)")
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
     up = state⁺.turbconv.updraft
@@ -715,6 +713,7 @@ function turbconv_boundary_state!(
         en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
         en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
     end
+    validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
 end;
 
 # The boundary conditions for second-order unknowns

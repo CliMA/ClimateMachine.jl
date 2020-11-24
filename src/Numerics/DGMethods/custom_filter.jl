@@ -35,7 +35,7 @@ function apply!(
     state_prognostic::MPIStateArray,
     state_auxiliary::MPIStateArray,
 ) where {F!}
-    elems = grid.topology.realelems
+    elems = grid.topology.elems
     device = array_device(state_prognostic)
     Np = dofs_per_element(grid)
     # XXX: Needs updating for multiple polynomial orders

@@ -8,10 +8,15 @@ using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
+using ClimateMachine.Atmos: AtmosModel
+using ClimateMachine.Atmos: PressureGradientModel
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-import ClimateMachine.DGMethods: custom_filter!
+import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
+using ClimateMachine.DGMethods: RemBL
 using ClimateMachine.Mesh.Filters: apply!
+
+rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
 
@@ -82,39 +87,44 @@ using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 struct EDMFFilter <: AbstractCustomFilter end
 import ClimateMachine.DGMethods: custom_filter!
 
+custom_filter!(f::EDMFFilter, bl::RemBL, state, aux) = custom_filter!(f, bl.main, state, aux)
 function custom_filter!(::EDMFFilter, bl, state, aux)
-    FT = eltype(state)
-    # this ρu[3]=0 is only for single_stack
-    state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-    up = state.turbconv.updraft
-    N_up = n_updrafts(bl.turbconv)
-    ρ_gm = state.ρ
-    ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-    ρa_max = ρ_gm-ρa_min
-    ts = recover_thermo_state(bl, state, aux)
-    ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-    ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-    ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-    ρa_en        = ρ_gm - ρa_ups
-    ρaw_en      = - ρaw_ups
-    θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
-    w_en        = ρaw_en / ρa_en
-    @unroll_map(N_up) do i
-        Δρa_low = max((ρa_min - up[i].ρa), FT(0))
-        Δρa_high = max((up[i].ρa-ρa_max), FT(0))
-        up[i].ρa      += Δρa_low - Δρa_high
-        up[i].ρaθ_liq += Δρa_low * θ_liq_en
-        up[i].ρaw     += Δρa_low * w_en
-        up[i].ρaθ_liq -= Δρa_high * up[i].ρaθ_liq/up[i].ρa
-        up[i].ρaw     -= Δρa_high * up[i].ρaw/up[i].ρa
-        if up[i].ρa-ρa_max>FT(0.00001)
-            println("up[i].ρa in edmf filter")
-            @show(up[i].ρa-ρa_max)
-            @show(ρa_max)
-            @show(Δρa_low)
-            @show(Δρa_high)
-            println("-----------------------")
+    if hasproperty(bl, :turbconv)
+        FT = eltype(state)
+        # this ρu[3]=0 is only for single_stack
+        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        up = state.turbconv.updraft
+        N_up = n_updrafts(bl.turbconv)
+        ρ_gm = state.ρ
+        ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+        ρa_max = ρ_gm-ρa_min
+        ts = recover_thermo_state(bl, state, aux)
+        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+        ρa_en       = ρ_gm - ρa_ups
+        ρaw_en      = - ρaw_ups
+        θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
+        w_en        = ρaw_en / ρa_en
+        @unroll_map(N_up) do i
+            Δρa_low = max((ρa_min - up[i].ρa), FT(0))
+            Δρa_high = max((up[i].ρa-ρa_max), FT(0))
+            up[i].ρa      += Δρa_low - Δρa_high
+            up[i].ρaθ_liq += Δρa_low * θ_liq_en
+            up[i].ρaw     += Δρa_low * w_en
+            up[i].ρaθ_liq -= Δρa_high * up[i].ρaθ_liq/up[i].ρa
+            up[i].ρaw     -= Δρa_high * up[i].ρaw/up[i].ρa
+            if !(ρa_min < up[i].ρa < ρa_max)
+                println("up[i].ρa in edmf filter")
+                @show(up[i].ρa-ρa_max)
+                @show(up[i].ρa)
+                @show(ρa_max)
+                @show(Δρa_low)
+                @show(Δρa_high)
+                println("-----------------------")
+            end
         end
+        validate_variables(bl, state, aux, "custom_filter!")
     end
 
 end
@@ -142,7 +152,7 @@ function main(::Type{FT}) where {FT}
     nelem_vert = 20
 
     # Prescribe domain parameters
-    zmax = FT(3000)
+    zmax = FT(3300)
 
     t0 = FT(0)
 
@@ -224,13 +234,13 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
-        Filters.apply!( # comment this for NoTurbConv
-            EDMFFilter(),
-            solver_config.dg.grid,
-            solver_config.dg.balance_law,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
-        )
+        # Filters.apply!( # comment this for NoTurbConv
+        #     EDMFFilter(),
+        #     solver_config.dg.grid,
+        #     solver_config.dg.balance_law,
+        #     solver_config.Q,
+        #     solver_config.dg.state_auxiliary,
+        # )
         nothing
     end
 
