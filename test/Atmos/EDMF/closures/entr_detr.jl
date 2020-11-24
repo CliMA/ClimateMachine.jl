@@ -49,6 +49,10 @@ function entr_detr(
     w_min = entr.w_min
     # precompute vars
     w_up_i = up[i].ρaw / up[i].ρa
+    temp = max(en.ρatke, 0) * ρ_inv / env.a
+    if temp<FT(0)
+        @show(ρ_inv , env.a)
+    end
     sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
     # ensure far from zero
     Δw = filter_w(w_up_i - env.w, w_min)
@@ -73,8 +77,8 @@ function entr_detr(
     E_dyn = up[i].ρa*λ*(D_E + M_E)
     Δ_dyn = up[i].ρa*λ*(D_δ + M_δ)
 
-    E_dyn = abs(up[i].ρa*FT(0.0004))#max(E_dyn, FT(0))
-    Δ_dyn = FT(0)#max(Δ_dyn, FT(0))
-    E_trb = FT(0)#max(E_trb, FT(0))
+    # E_dyn = abs(up[i].ρa*FT(0.0004))#max(E_dyn, FT(0))
+    # Δ_dyn = FT(0.000004)/(FT(1)-env.a) #max(Δ_dyn, FT(0))
+    # E_trb = FT(0)#max(E_trb, FT(0))
     return E_dyn, Δ_dyn, E_trb
 end;

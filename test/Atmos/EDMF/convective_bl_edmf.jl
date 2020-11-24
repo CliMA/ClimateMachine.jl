@@ -13,6 +13,8 @@ const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import ClimateMachine.DGMethods: custom_filter!
 using ClimateMachine.Mesh.Filters: apply!
 
+ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
+
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
@@ -93,7 +95,6 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
     ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
     ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
     ρa_en        = ρ_gm - ρa_ups
-    ρq_tot_gm   = state.moisture.ρq_tot
     ρaw_en      = - ρaw_ups
     θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
     w_en        = ρaw_en / ρa_en
@@ -101,8 +102,8 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         a_up_mask = up[i].ρa < (ρ_gm * a_min)
         Δρ_area = max(a_up_mask * (ρ_gm * a_min - up[i].ρa), FT(0))
         up[i].ρa      += a_up_mask * Δρ_area
-        up[i].ρaθ_liq += a_up_mask * θ_liq_en * Δρ_area
-        up[i].ρaw     += a_up_mask * w_en * Δρ_area
+        up[i].ρaθ_liq += a_up_mask * Δρ_area * θ_liq_en
+        up[i].ρaw     += a_up_mask * Δρ_area * w_en
     end
 end
 
@@ -133,7 +134,7 @@ function main(::Type{FT}) where {FT}
 
     t0 = FT(0)
 
-    timeend = FT(5000)
+    timeend = FT(3600*6)
     CFLmax = FT(25)
 
     config_type = SingleStackConfigType
@@ -150,7 +151,8 @@ function main(::Type{FT}) where {FT}
 
     N_updrafts = 1
     N_quad = 3
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
 
     model = convective_bl_model(
         FT,
@@ -210,6 +212,13 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
+        # Filters.apply!(
+        #     EDMFFilter(),
+        #     solver_config.dg.grid,
+        #     solver_config.dg.balance_law,
+        #     solver_config.Q,
+        #     solver_config.dg.state_auxiliary,
+        # )
         nothing
     end
 
