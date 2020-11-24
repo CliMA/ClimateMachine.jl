@@ -201,6 +201,8 @@ function turbconv_nodal_update_auxiliary_state!(
     up = state.turbconv.updraft
 
     # Recover thermo states
+    println("edmf_kernels 204")
+    @show(up[1].ρa)
     ts = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
