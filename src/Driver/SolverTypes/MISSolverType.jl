@@ -180,22 +180,9 @@ function solversetup(
     diffusion_direction,
 )
 
-    # Extract fast model and define a DG model
-    # for the fast processes (acoustic/gravity waves
-    # in all spatial directions)
+    # Extract fast model and solver method
     fast_model = ode_solver.fast_model(dg.balance_law)
     fast_method = ode_solver.fast_method
-    fast_dg = DGModel(
-        fast_model,
-        dg.grid,
-        dg.numerical_flux_first_order,
-        dg.numerical_flux_second_order,
-        dg.numerical_flux_gradient,
-        state_auxiliary = dg.state_auxiliary,
-        state_gradient_flux = dg.state_gradient_flux,
-        states_higher_order = dg.states_higher_order,
-        direction = EveryDirection(),
-    )
 
     # Using the RemainderModel, we subtract away the
     # fast processes and define a DG model for the
@@ -206,11 +193,6 @@ function solversetup(
     else
         numerical_flux_first_order = dg.numerical_flux_first_order
     end
-    slow_dg = remainder_DGModel(
-        dg,
-        (fast_dg,);
-        numerical_flux_first_order = numerical_flux_first_order,
-    )
 
     # Defining horizontal and vertical fast tendencies
     fast_dg_h = DGModel(
@@ -235,8 +217,16 @@ function solversetup(
         states_higher_order = dg.states_higher_order,
         direction = VerticalDirection(),
     )
+    slow_dg = remainder_DGModel(
+        dg,
+        (fast_dg_h, fast_dg_v);
+        numerical_flux_first_order = numerical_flux_first_order,
+    )
 
     fast_dg_tendencies = (fast_dg_h, fast_dg_v)
+
+    linearsolver = GeneralizedConjugateResidual(60, Q; rtol = 1e-5)
+    besolver = LinearBackwardEulerSolver(linearsolver, isadjustable = true)
 
     if length(ode_solver.nsubsteps) == 1
         nsubsteps = getnsubsteps(
@@ -249,11 +239,15 @@ function solversetup(
                 dg,
                 Q,
                 dt / ode_solver.nsubsteps[1],
+                besolver,
                 nsubsteps,
             )
     elseif length(ode_solver.nsubsteps) == 2
         fast_method =
             (dg, Q) -> ode_solver.fast_method(dg, Q, ode_solver.nsubsteps[2])
+    else
+        error("hi")
+        fast_method = ode_solver.fast_method
     end
 
     solver = ode_solver.mis_method(

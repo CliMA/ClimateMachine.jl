@@ -85,67 +85,77 @@ end
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
 
     # Choose fast solver
-    if fast_method == "LowStorageRungeKutta2N"
-        ode_solver = ClimateMachine.MISSolverType(
-            splitting_type = ClimateMachine.SlowFastSplitting(),
-            fast_model = AtmosAcousticGravityLinearModel,
-            mis_method = MIS2,
-            fast_method = LSRK144NiegemannDiehlBusch,
-            nsubsteps = (25,),
-        )
-    elseif fast_method == "StrongStabilityPreservingRungeKutta"
-        ode_solver = ClimateMachine.MISSolverType(
-            splitting_type = ClimateMachine.SlowFastSplitting(),
-            fast_model = AtmosAcousticGravityLinearModel,
-            mis_method = MIS2,
-            fast_method = SSPRK33ShuOsher,
-            nsubsteps = (12,),
-        )
-    elseif fast_method == "MultirateInfinitesimalStep"
-        ode_solver = ClimateMachine.MISSolverType(
-            splitting_type = ClimateMachine.HEVISplitting(),
-            fast_model = AtmosAcousticGravityLinearModel,
-            mis_method = MIS2,
-            fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
-                MISKWRK43,
-                dg,
-                (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
-                Q,
-                nsubsteps = nsubsteps,
-            ),
-            nsubsteps = (12, 2),
-        )
-    elseif fast_method == "MultirateRungeKutta"
-        ode_solver = ClimateMachine.MISSolverType(
-            splitting_type = ClimateMachine.HEVISplitting(),
-            fast_model = AtmosAcousticGravityLinearModel,
-            mis_method = MIS2,
-            fast_method = (dg, Q, nsubsteps) -> MultirateRungeKutta(
-                LSRK144NiegemannDiehlBusch,
-                dg,
-                Q,
-                steps = nsubsteps,
-            ),
-            nsubsteps = (12, 4),
-        )
-    elseif fast_method == "AdditiveRungeKutta"
-        ode_solver = ClimateMachine.MISSolverType(
-            splitting_type = ClimateMachine.HEVISplitting(),
-            fast_model = AtmosAcousticGravityLinearModel,
-            mis_method = MISRK3,
-            fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
-                ARK548L2SA2KennedyCarpenter,
-                dg,
-                LinearBackwardEulerSolver(ManyColumnLU(), isadjustable = true),
-                Q,
-                dt = dt,
-                nsubsteps = nsubsteps,
-            ),
-            nsubsteps = (12,),
-        )
-    else
-        error("Invalid --fast_method=$fast_method")
-    end
+    # if fast_method == "LowStorageRungeKutta2N"
+    #     ode_solver = ClimateMachine.MISSolverType(
+    #         splitting_type = ClimateMachine.SlowFastSplitting(),
+    #         fast_model = AtmosAcousticGravityLinearModel,
+    #         mis_method = MIS2,
+    #         fast_method = LSRK144NiegemannDiehlBusch,
+    #         nsubsteps = (25,),
+    #     )
+    # elseif fast_method == "StrongStabilityPreservingRungeKutta"
+    #     ode_solver = ClimateMachine.MISSolverType(
+    #         splitting_type = ClimateMachine.SlowFastSplitting(),
+    #         fast_model = AtmosAcousticGravityLinearModel,
+    #         mis_method = MIS2,
+    #         fast_method = SSPRK33ShuOsher,
+    #         nsubsteps = (12,),
+    #     )
+    # elseif fast_method == "MultirateInfinitesimalStep"
+    #     ode_solver = ClimateMachine.MISSolverType(
+    #         splitting_type = ClimateMachine.HEVISplitting(),
+    #         fast_model = AtmosAcousticGravityLinearModel,
+    #         mis_method = MIS2,
+    #         fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
+    #             MISKWRK43,
+    #             dg,
+    #             (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
+    #             Q,
+    #             nsubsteps = nsubsteps,
+    #         ),
+    #         nsubsteps = (12, 2),
+    #     )
+    # elseif fast_method == "MultirateRungeKutta"
+    #     ode_solver = ClimateMachine.MISSolverType(
+    #         splitting_type = ClimateMachine.HEVISplitting(),
+    #         fast_model = AtmosAcousticGravityLinearModel,
+    #         mis_method = MIS2,
+    #         fast_method = (dg, Q, nsubsteps) -> MultirateRungeKutta(
+    #             LSRK144NiegemannDiehlBusch,
+    #             dg,
+    #             Q,
+    #             steps = nsubsteps,
+    #         ),
+    #         nsubsteps = (12, 4),
+    #     )
+    # elseif fast_method == "AdditiveRungeKutta"
+    #     ode_solver = ClimateMachine.MISSolverType(
+    #         splitting_type = ClimateMachine.HEVISplitting(),
+    #         fast_model = AtmosAcousticGravityLinearModel,
+    #         mis_method = MISRK3,
+    #         fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
+    #             ARK548L2SA2KennedyCarpenter,
+    #             dg,
+    #             LinearBackwardEulerSolver(ManyColumnLU(), isadjustable = true),
+    #             Q,
+    #             dt = dt,
+    #             nsubsteps = nsubsteps,
+    #         ),
+    #         nsubsteps = (12,),
+    #     )
+    # else
+    #     error("Invalid --fast_method=$fast_method")
+    # end
+
+    ode_solver = ClimateMachine.ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+
+    # ode_solver = ClimateMachine.MISSolverType(
+    #     splitting_type = ClimateMachine.SlowFastSplitting(),
+    #     fast_model = AtmosAcousticGravityLinearModel,
+    #     mis_method = MIS2,
+    #     fast_method = LSRK144NiegemannDiehlBusch,
+    #     nsubsteps = (15,),
+    # )
 
     # Set up the model
     C_smag = FT(0.23)
@@ -206,8 +216,8 @@ function main()
     # DG polynomial order
     N = 5
     # Domain resolution and size
-    Δh = FT(75)
-    Δv = FT(75)
+    Δh = FT(125)
+    Δv = FT(125)
     resolution = (Δh, Δh, Δv)
     # Domain extents
     xmax = FT(20000)
@@ -219,7 +229,7 @@ function main()
 
     # Time-step size (s)
     # Δt = FT(0.4)
-    Courant = FT(20)
+    Courant = FT(1)
 
     driver_config =
         config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)

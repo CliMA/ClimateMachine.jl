@@ -14,7 +14,7 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.TurbulenceClosures
-using ClimateMachine.SystemSolvers: ManyColumnLU
+using ClimateMachine.SystemSolvers
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
@@ -241,23 +241,42 @@ function main()
     #     split_explicit_implicit = true,
     #     discrete_splitting = false,
     # )
-    ode_solver_type = ClimateMachine.MultirateSolverType(
+    # ode_solver_type = ClimateMachine.MultirateSolverType(
+    #     splitting_type = ClimateMachine.HEVISplitting(),
+    #     fast_model = AtmosAcousticGravityLinearModel,
+    #     implicit_solver = ManyColumnLU,
+    #     implicit_solver_adjustable = true,
+    #     slow_method = LSRK54CarpenterKennedy,
+    #     fast_method = ARK2GiraldoKellyConstantinescu,
+    #     timestep_ratio = 50,
+    # )
+    ode_solver_type = ClimateMachine.MISSolverType(
         splitting_type = ClimateMachine.HEVISplitting(),
         fast_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        implicit_solver_adjustable = true,
-        slow_method = LSRK54CarpenterKennedy,
-        fast_method = ARK2GiraldoKellyConstantinescu,
-        timestep_ratio = 50,
+        mis_method = MISRK3,
+        # `dg` here is actually a tuple of fast tendencies
+        # that get wrapped in a TimeScaledRHS and passed to
+        # the modified ARK constructor
+        # HACK
+        fast_method = (dg, Q, dt, linearsolver, nsubsteps) -> AdditiveRungeKutta(
+            ARK2GiraldoKellyConstantinescu,
+            dg,
+            linearsolver,
+            Q,
+            dt = dt,
+            nsubsteps = nsubsteps,
+        ),
+        nsubsteps = (12,),
+        discrete_splitting = true,
     )
-
-    CFL = FT(40) # target acoustic CFL number (in the vertical)
+    CFL = FT(100) # target acoustic CFL number (in the vertical)
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
         timestart,
         timeend,
         driver_config,
+        init_on_cpu=true,
         Courant_number = CFL,
         ode_solver_type = ode_solver_type,
         CFL_direction = VerticalDirection(),
@@ -298,7 +317,7 @@ function main()
         diagnostics_config = dgn_config,
         user_callbacks = (cbfilter,),
         #user_callbacks = (cbtmarfilter, cbfilter),
-        check_euclidean_distance = true,
+        check_euclidean_distance = false,
     )
 end
 
