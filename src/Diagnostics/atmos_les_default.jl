@@ -126,7 +126,7 @@ function vars_atmos_les_default_simple(m::Union{EquilMoist, NonEquilMoist}, FT)
     end
 end
 vars_atmos_les_default_simple(::PrecipitationModel, FT) = @vars()
-function vars_atmos_les_default_simple(::Rain, FT)
+function vars_atmos_les_default_simple(::RainModel, FT)
     @vars begin
         qr::FT                  # q_rai
     end
@@ -226,7 +226,7 @@ function atmos_les_default_simple_sums!(
     return nothing
 end
 function atmos_les_default_simple_sums!(
-    precipitation::Rain,
+    precipitation::RainModel,
     state,
     gradflux,
     thermo,
@@ -310,7 +310,7 @@ function vars_atmos_les_default_ho(m::Union{EquilMoist, NonEquilMoist}, FT)
     end
 end
 vars_atmos_les_default_ho(::PrecipitationModel, FT) = @vars()
-function vars_atmos_les_default_ho(m::Rain, FT)
+function vars_atmos_les_default_ho(m::RainModel, FT)
     @vars begin
         var_qr::FT              # q_rai′q_rai′
         cov_w_qr::FT            # w′q_rai′
@@ -430,7 +430,7 @@ function atmos_les_default_ho_sums!(
     return nothing
 end
 function atmos_les_default_ho_sums!(
-    moist::Rain,
+    moist::RainModel,
     state,
     thermo,
     MH,
@@ -621,7 +621,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             # for LWP
             ρq_liq_z[evk] += MH * thermo.moisture.q_liq * state.ρ * state.ρ
         end
-        if isa(bl.precipitation, Rain)
+        if isa(bl.precipitation, RainModel)
             # for RWP
             ρq_rai_z[evk] += MH * state.precipitation.ρq_rai * state.ρ
         end
@@ -651,7 +651,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 ρq_liq_z[evk] = tot_ρq_liq_z / MH_z[evk]
             end
         end
-        if isa(bl.precipitation, Rain)
+        if isa(bl.precipitation, RainModel)
             # for RWP
             tot_ρq_rai_z = MPI.Reduce(ρq_rai_z[evk], +, 0, mpicomm)
             if mpirank == 0
@@ -699,7 +699,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         end
         # for RWP
         # FIXME properly
-        if isa(bl.precipitation, Rain)
+        if isa(bl.precipitation, RainModel)
             ρq_rai_z[evk] /= avg_rho
         end
 
@@ -782,7 +782,7 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals["cld_cover"] = cld_cover
             varvals["lwp"] = lwp
         end
-        if isa(bl.precipitation, Rain)
+        if isa(bl.precipitation, RainModel)
             varvals["rwp"] = rwp
         end
 

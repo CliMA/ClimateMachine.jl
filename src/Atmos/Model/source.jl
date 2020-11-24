@@ -1,8 +1,7 @@
 using ..Microphysics_0M
 using ..Microphysics
-using CLIMAParameters.Planet: Omega
 
-export AbstractSource, RemovePrecipitation, CreateClouds, Rain_1M
+export RemovePrecipitation, Rain_1M
 
 # sources are applied additively
 @generated function atmos_source!(
@@ -30,8 +29,6 @@ export AbstractSource, RemovePrecipitation, CreateClouds, Rain_1M
         return nothing
     end
 end
-
-abstract type AbstractSource end
 
 function atmos_source!(
     ::Gravity,
