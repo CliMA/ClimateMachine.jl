@@ -10,6 +10,7 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: AtmosModel
 using ClimateMachine.Atmos: PressureGradientModel
+using ClimateMachine.BalanceLaws
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
