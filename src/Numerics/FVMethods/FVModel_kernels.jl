@@ -49,6 +49,8 @@ See [`BalanceLaw`](@ref) for usage.
         face_direction = VerticalDirection()
 
         flux_bot = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        flux_top = MArray{Tuple{num_state_prognostic}, FT}(undef)
+
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -62,6 +64,8 @@ See [`BalanceLaw`](@ref) for usage.
 
         local_state_prognostic_bot = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_prognostic_top = MArray{Tuple{num_state_prognostic}, FT}(undef)
+
+        local_state_prognostic_top⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
 
         local_state_auxiliary_top⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
         local_state_auxiliary_bot = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -77,10 +81,6 @@ See [`BalanceLaw`](@ref) for usage.
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        # @unroll for n in 1:Nq
-        #     s_I[i, n] = Imat[i, n]
-        # end
-        # @synchronize
 
         eh = elems[_eh]
 
@@ -91,7 +91,62 @@ See [`BalanceLaw`](@ref) for usage.
         #    | --------------- | --------------- | --------------- | -----> z
         #    | bot⁻   e⁻  top⁻ | bot    e    top | bot⁺  e⁺   top⁺ |
         
-        for ev in 1:nvertelem
+        ### TODO PERIODIC
+
+        # The first element on the bottom
+        ev = 1
+        begin
+            e = ev + (eh - 1) * nvertelem
+            ijk = i + Nq * ((j - 1))
+            @unroll for s in 1:num_state_prognostic
+                local_state_prognostic[s] = state_prognostic[ijk, s, e]
+            end
+            prognostic_to_primitive!(
+                balance_law,
+                Vars{vsp}(local_state_primitive),
+                Vars{vsp}(local_state_prognostic)
+            )
+
+            ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
+
+            cell_states_primitive = (local_state_primitive,)
+
+            const_reconstruction!(local_state_primitive_bot, local_state_primitive_top, cell_states_primitive, cell_weights)
+            
+            primitive_to_prognostic!(
+                balance_law,
+                Vars{vsp}(local_state_prognostic_bot),
+                Vars{vsp}(local_state_primitive_bot),
+            )
+            primitive_to_prognostic!(
+                balance_law,
+                Vars{vsp}(local_state_prognostic_top),
+                Vars{vsp}(local_state_primitive_top),
+            )  
+
+            ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
+            
+            # compute flux_bot from
+            numerical_boundary_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                Vars{vsp}(flux_bot),
+                SVector(normal_vector),
+                Vars{vsp}(local_state_prognostic_bot),
+                Vars{vsa}(local_state_auxiliary_bot),
+                t,
+                face_direction,
+            )
+
+            @unroll for s in 1:num_state_prognostic
+                tendency[vid⁻, s, e] -= α * vMI * sM * flux_bot[s]
+            end
+
+            local_state_prognostic_top⁻ = local_state_prognostic_top
+        end
+
+
+        for ev in 2:nvertelem-1
             e = ev + (eh - 1) * nvertelem
             e⁺ = e + 1
             e⁻ = e - 1
@@ -127,6 +182,8 @@ See [`BalanceLaw`](@ref) for usage.
                 Vars{vsp}(local_state_prognostic⁻)
             )
 
+            ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
+
             cell_states_primitive = (local_state_primitive⁻,  local_state_primitive, local_state_primitive⁺)
 
             fv_reconstruction!(local_state_primitive_bot, local_state_primitive_top, cell_states_primitive, cell_weights)
@@ -140,7 +197,9 @@ See [`BalanceLaw`](@ref) for usage.
                 balance_law,
                 Vars{vsp}(local_state_prognostic_top),
                 Vars{vsp}(local_state_primitive_top),
-            )            
+            )    
+            
+            ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
 
             # Step 2: compute flux on the bottom face
             
@@ -167,19 +226,85 @@ See [`BalanceLaw`](@ref) for usage.
                 tendency[vid⁻, s, e⁻] -= α * vMI * sM * flux_bot[s]
             end
             @unroll for s in 1:num_state_prognostic
-                tendency[vid⁻, s, e] -= α * vMI * sM * flux_bot[s]
+                tendency[vid⁻, s, e] += α * vMI * sM * flux_bot[s]
             end
-            # Need to wait after even faces to avoid race conditions
-            # @synchronize(f % 2 == 0)
-
-            # Handle ragged end
-            if ev == nvertelem
-            end
-
 
             local_state_prognostic_top⁻ = local_state_prognostic_top
             
         end
         # Step 3: compute flux on the top face (bc condition)
+
+        # The element on the top
+        ev = nvertelem
+        begin
+            e = ev + (eh - 1) * nvertelem
+            ijk = i + Nq * ((j - 1))
+            @unroll for s in 1:num_state_prognostic
+                local_state_prognostic[s] = state_prognostic[ijk, s, e]
+            end
+            prognostic_to_primitive!(
+                balance_law,
+                Vars{vsp}(local_state_primitive),
+                Vars{vsp}(local_state_prognostic)
+            )
+
+            ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
+
+            cell_states_primitive = (local_state_primitive,)
+
+            const_reconstruction!(local_state_primitive_bot, local_state_primitive_top, cell_states_primitive, cell_weights)
+            
+            primitive_to_prognostic!(
+                balance_law,
+                Vars{vsp}(local_state_prognostic_bot),
+                Vars{vsp}(local_state_primitive_bot),
+            )
+            primitive_to_prognostic!(
+                balance_law,
+                Vars{vsp}(local_state_prognostic_top),
+                Vars{vsp}(local_state_primitive_top),
+            )  
+
+            ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
+            
+            # compute flux_bot from
+            numerical_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                Vars{vsp}(flux_bot),
+                SVector(normal_vector),
+                Vars{vsp}(local_state_prognostic_top⁻),
+                Vars{vsa}(local_state_auxiliary_top⁻),
+                Vars{vsp}(local_state_prognostic_bot),
+                Vars{vsa}(local_state_auxiliary_bot),
+                t,
+                face_direction,
+            )
+
+            # compute flux_bot from top
+            numerical_boundary_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                Vars{vsp}(flux_top),
+                SVector(normal_vector),
+                Vars{vsp}(local_state_prognostic_top),
+                Vars{vsa}(local_state_auxiliary_top),
+                t,
+                face_direction,
+            )
+
+            @unroll for s in 1:num_state_prognostic
+                tendency[vid⁻, s, e⁻] -= α * vMI * sM * flux_bot[s]
+            end
+
+            @unroll for s in 1:num_state_prognostic
+                tendency[vid⁻, s, e] += α * vMI * sM * flux_bot[s]
+            end
+
+            @unroll for s in 1:num_state_prognostic
+                tendency[vid⁻, s, e] -= α * vMI * sM * flux_top[s]
+            end
+        end
+
     end
 end
