@@ -2,47 +2,27 @@
 export PicardStandardSolver
 
 """
-Solve for Frhs = F(Q), by finite difference
-
-    ∂F(Q)      F(Q + eΔQ) - F(Q)
-    ---- ΔQ ≈ -------------------
-     ∂Q                e
-
-     Q^n+1 = Q^n - dF/dQ(Q^{n})⁻¹ (F(Q^n) - Frhs)
-
-     set ΔQ = F(Q^n) - Frhs
+Solve for Frhs = F(Q) by Picard fixed point.
 """
 mutable struct PicardStandardSolver{FT, AT} <: AbstractNonlinearSolver
-    # small number used for finite difference
-    ϵ::FT
     # tolerances for convergence
     tol::FT
-    # Max number of Newton iterations
+    # Max number of Picard iterations
     M::Int
-    # Linear solver for the Jacobian system
-    linearsolver::Any
-    # container for unknows ΔQ, which is updated for the linear solver
-    ΔQ::AT
     # contrainer for F(Q)
     residual::AT
 end
 
 function PicardStandardSolver(
-    Q,
-    linearsolver;
-    ϵ = 1.e-8,
+    Q;
     tol = 1.e-6,
     M = 30,
 )
     FT = eltype(Q)
     residual = similar(Q)
-    ΔQ = similar(Q)
-    return JacobianFreeNewtonKrylovSolver(
-        FT(ϵ),
+    return PicardStandardSolver(
         FT(tol),
         M,
-        linearsolver,
-        ΔQ,
         residual,
     )
 end
@@ -149,7 +129,7 @@ function dononlineariteration!(
     R = solver.residual
 
     # Picard Update
-    Q .-= R
+    Q .+= R
 
     # Compute residual norm and residual for next step
     rhs!(R, Q, args...)

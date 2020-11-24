@@ -128,7 +128,6 @@ function nonlinearsolve!(
         preconditioner_update!(jvp!, rhs!.f!, preconditioner, args...)
 
         # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
-        println("Iteration $iters, Q[1:10, :, 1] = $(Q[1:10, :, 1])")
         residual_norm, linear_iterations = dononlineariteration!(
             rhs!,
             jvp!,
@@ -164,9 +163,6 @@ function nonlinearsolve!(
     cvg[] = converged
 
     iters
-    if iters > 2
-        banana
-    end
 end
 
 """
@@ -308,5 +304,6 @@ include("preconditioners.jl")
 include("batched_generalized_minimal_residual_solver.jl")
 include("jacobian_free_newton_krylov_solver.jl")
 include("accelerators.jl")
+include("picard_solver.jl")
 
 end
