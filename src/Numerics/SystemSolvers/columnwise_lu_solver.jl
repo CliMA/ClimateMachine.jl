@@ -163,7 +163,7 @@ function band_back!(Q, A)
 
     Nq = polynomialorders(A) .+ 1
     Nq_h = Nq[1]
-    Nqj = dimensionality(A) == 2 ? 1 : Nq[end]
+    Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
     nhorzelem = num_horz_elem(A)
 
     event = Event(device)
@@ -633,7 +633,7 @@ eband - 1`.
                         l_b[ii] -= Lii * l_b[1]
                     end
 
-                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
 
                     b[ijk, s, ee] = l_b[1]
@@ -646,7 +646,7 @@ eband - 1`.
                         (idx, si) = fldmod1(jj + p + 1, nstate)
                         (vi, ki) = fldmod1(idx, Nq_v)
 
-                        ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (ki - 1)
+                        ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (ki - 1)
                         ee = vi + nvertelem * (h - 1)
 
                         l_b[p + 1] = b[ijk, si, ee]
@@ -703,7 +703,7 @@ eband - 1`.
                     vi = eband - nvertelem + v
                     ii = s + (k - 1) * nstate + (vi - 1) * nstate * Nq_v
 
-                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
 
                     l_b[ii] = b[ijk, s, ee]
@@ -726,7 +726,7 @@ eband - 1`.
                         l_b[ii] -= Uii * l_b[q + 1]
                     end
 
-                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
 
                     b[ijk, s, ee] = l_b[q + 1]
@@ -739,7 +739,7 @@ eband - 1`.
                         (idx, si) = fldmod1(jj - q - 1, nstate)
                         (vi, ki) = fldmod1(idx, Nq_v)
 
-                        ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (ki - 1)
+                        ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (ki - 1)
                         ee = vi + nvertelem * (h - 1)
 
                         l_b[1] = b[ijk, si, ee]
@@ -769,7 +769,7 @@ end
 
         Nq = N .+ 1
         Nq_h = Nq[1]
-        Nqj = dim == 2 ? 1 : Nq[dim]
+        Nqj = dim == 2 ? 1 : Nq[2]
         Nq_v = Nq[end]
 
         eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
@@ -780,7 +780,7 @@ end
 
     @inbounds begin
         e = ev + (eh - 1) * nvertelem
-        ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
+        ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
         @unroll for s in 1:nstate
             if k == kin && s == sin && ((ev - evin0) % (2eband + 1) == 0)
                 Q[ijk, s, e] = 1
@@ -884,7 +884,7 @@ end
             @unroll for evv in max(1, ev - elo):min(nvertelem, ev + eup)
                 ee = evv + nvertelem * (eh - 1)
                 @unroll for kk in 1:Nq_v
-                    ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (kk - 1)
+                    ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (kk - 1)
                     @unroll for ss in 1:nstate
                         jj = ss + (kk - 1) * nstate + (evv - 1) * nstate * Nq_v
                         bb = ii - jj
@@ -899,7 +899,7 @@ end
                     end
                 end
             end
-            ijk = i + Nqj * (j - 1) + Nq_v * Nqj * (k - 1)
+            ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
             dQ[ijk, s, e] = Ax
         end
     end
