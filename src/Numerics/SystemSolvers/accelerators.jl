@@ -9,10 +9,13 @@ This is an abstract type representing a generic accelerator that wraps another n
 """
 abstract type AbstractAccelerator <: AbstractNonlinearSolver end
 function internalsolver(::AbstractAccelerator) end
+function set_initial_residual_norm(::AbstractAccelerator, ::Real) end
+function get_initial_residual_norm(::AbstractAccelerator) end
 function doacceleration!(::AbstractAccelerator, ::Any) end
 
 function initialize!(rhs!, Q, Qrhs, solver::AbstractAccelerator, args...)
-    initialize!(rhs!, Q, Qrhs, internalsolver(solver), args...)
+    initial_residual_norm = initialize!(rhs!, Q, Qrhs, internalsolver(solver), args...)
+    set_initial_residual_norm(solver, initial_residual_norm)
 end
 function dononlineariteration!(
     rhs!,
@@ -25,7 +28,7 @@ function dononlineariteration!(
     args...,
 )
     nlsolver = internalsolver(solver)
-    _, linear_iterations = dononlineariteration!(
+    residual_norm, linear_iterations = dononlineariteration!(
         rhs!,
         jvp!,
         preconditioner,
@@ -35,12 +38,14 @@ function dononlineariteration!(
         iters,
         args...,
     )
-    # TODO: Only do this if the residual is not small enough
-    doacceleration!(solver, Q, iters)
-    R = nlsolver.residual
-    rhs!(R, Q, args...)
-    R .-= Qrhs
-    residual_norm = norm(R, weighted_norm)
+    converged = checkconverged(get_initial_residual_norm(solver), residual_norm)
+    if !converged
+        doacceleration!(solver, Q, iters)
+        R = nlsolver.residual
+        rhs!(R, Q, args...)
+        R .-= Qrhs
+        residual_norm = norm(R, weighted_norm)
+    end
     return residual_norm, linear_iterations
 end
 
@@ -64,13 +69,14 @@ end
 """
 # TODO: Might want to get rid of mutable + k, and pass k to dononlineariteration
 mutable struct AndersonAccelerator{M, FT, AT1, AT2, NLS} <: AbstractAccelerator
-    ϵ::FT   # TODO: REMOVE LATER
     tol::FT # TODO: REMOVE LATER
+    initial_residual_norm::FT
     ω::FT                         # relaxation parameter
-    β::MArray{Tuple{M}, FT, 1, M} # β_k
+    β::AT1                        # β_k, linear combination weights
     x::AT1                        # x_k
     xprev::AT1                    # x_{k-1}
     g::AT1                        # g_k
+    gcopy::AT1                    # Only needed when length(vec(Q)) > M.
     gprev::AT1                    # g_{k-1}
     Xβ::AT1
     Gβ::AT1
@@ -81,24 +87,27 @@ mutable struct AndersonAccelerator{M, FT, AT1, AT2, NLS} <: AbstractAccelerator
 end
 
 function AndersonAccelerator(Q::AT, nlsolver::NLS; M::Int = 1, ω::FT = 1.) where {AT, NLS, FT}
-    β = @MArray zeros(M)
+    β = similar(vec(Q), M) # Could also be @MArray zeros(M), but ldiv! is not defined for MArrays.
     x = similar(vec(Q))
     X = similar(x, length(x), M)
     AndersonAccelerator{M, FT, typeof(x), typeof(X), NLS}(
-        nlsolver.ϵ, nlsolver.tol, ω, β,
-        x, similar(x), similar(x), similar(x), similar(x), similar(x),
+        nlsolver.tol, zero(FT), ω, β,
+        x, similar(x), similar(x), similar(x), similar(x), similar(x), similar(x),
         X, similar(X), similar(X),
         nlsolver
     )
 end
 
 internalsolver(a::AndersonAccelerator) = a.nlsolver
+set_initial_residual_norm(a::AndersonAccelerator, n::Real) = (a.initial_residual_norm = n)
+get_initial_residual_norm(a::AndersonAccelerator) = a.initial_residual_norm
 
 function doacceleration!(a::AndersonAccelerator{M}, Q, k) where {M}
     ω = a.ω
     x = a.x
     xprev = a.xprev
     g = a.g
+    gcopy = a.gcopy
     gprev = a.gprev
     X = a.X
     G = a.G
@@ -121,11 +130,23 @@ function doacceleration!(a::AndersonAccelerator{M}, Q, k) where {M}
         G[:, 2:mk] .= G[:, 1:mk - 1]   # G_k = (g_k - g_{k-1}, ...,
         G[:, 1] .= g .- gprev          #        g_{k-m_k+1} - g_{k-m_k})
         Gcopy[:, 1:mk] .= G[:, 1:mk]
-        @views ldiv!(
-            β[1:mk],
-            qr!(Gcopy[:, 1:mk], Val(true)),
-            g
-        )                              # β_k = argmin_β(g_k - G_k β)
+        βview = view(β, 1:mk)
+        qr = qr!(view(Gcopy, :, 1:mk), Val(true))
+        
+        # Optimized version of ldiv!(βview, qr, g)
+        # β_k = argmin_β(g_k - G_k β)
+        l = size(qr, 1)
+        if l > mk
+            gcopy .= g
+            ldiv!(qr, gcopy)
+            βview .= view(gcopy, 1:mk)
+        else
+            # Can't be a broadcast because mk != l.
+            # Should we replace all the broadcasts with copyto!s?
+            copyto!(βview, view(g, 1:l))
+            ldiv!(qr, βview)
+        end
+
         xprev .= x                     # x_k        
         @views mul!(Xβ, X[:, 1:mk], β[1:mk])
         @views mul!(Gβ, G[:, 1:mk], β[1:mk])
