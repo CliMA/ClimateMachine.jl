@@ -13,16 +13,16 @@ using ClimateMachine.VTK: writemesh_highorder, writemesh_raw
             (r, _) = GaussQuadrature.legendre(T, Nq, GaussQuadrature.both)
             s = dim > 1 ? r : [0]
             t = dim > 2 ? r : [0]
-            Nqi = length(r)
-            Nqj = length(s)
-            Nqk = length(t)
-            Np = Nqi * Nqj * Nqk
+            Nq1 = length(r)
+            Nq2 = length(s)
+            Nq3 = length(t)
+            Np = Nq1 * Nq2 * Nq3
 
-            x1 = Array{T, 4}(undef, Nqi, Nqj, Nqk, nelem)
-            x2 = Array{T, 4}(undef, Nqi, Nqj, Nqk, nelem)
-            x3 = Array{T, 4}(undef, Nqi, Nqj, Nqk, nelem)
+            x1 = Array{T, 4}(undef, Nq1, Nq2, Nq3, nelem)
+            x2 = Array{T, 4}(undef, Nq1, Nq2, Nq3, nelem)
+            x3 = Array{T, 4}(undef, Nq1, Nq2, Nq3, nelem)
 
-            for e in 1:nelem, k in 1:Nqk, j in 1:Nqj, i in 1:Nqi
+            for e in 1:nelem, k in 1:Nq3, j in 1:Nq2, i in 1:Nq1
                 xoffset = nelem + 1 - 2e
                 x1[i, j, k, e], x2[i, j, k, e], x3[i, j, k, e] =
                     r[i] - xoffset, s[j], t[k]
