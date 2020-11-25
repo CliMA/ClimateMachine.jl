@@ -1,6 +1,6 @@
 using Test
 using GaussQuadrature
-using ClimateMachine.VTK: writemesh
+using ClimateMachine.VTK: writemesh_highorder
 
 @testset "VTK" begin
     for dim in 1:3
@@ -40,15 +40,18 @@ using ClimateMachine.VTK: writemesh
         s = copy(d)
 
         if dim == 1
-            @test "test$(dim)d.vtu" ==
-                  writemesh("test$(dim)d", x1; fields = (("d", d), ("s", s)))[1]
-            @test "test$(dim)d.vtu" == writemesh(
+            @test "test$(dim)d.vtu" == writemesh_highorder(
+                "test$(dim)d",
+                x1;
+                fields = (("d", d), ("s", s)),
+            )[1]
+            @test "test$(dim)d.vtu" == writemesh_highorder(
                 "test$(dim)d",
                 x1;
                 x2 = x2,
                 fields = (("d", d), ("s", s)),
             )[1]
-            @test "test$(dim)d.vtu" == writemesh(
+            @test "test$(dim)d.vtu" == writemesh_highorder(
                 "test$(dim)d",
                 x1;
                 x2 = x2,
@@ -56,13 +59,13 @@ using ClimateMachine.VTK: writemesh
                 fields = (("d", d), ("s", s)),
             )[1]
         elseif dim == 2
-            @test "test$(dim)d.vtu" == writemesh(
+            @test "test$(dim)d.vtu" == writemesh_highorder(
                 "test$(dim)d",
                 x1,
                 x2;
                 fields = (("d", d), ("s", s)),
             )[1]
-            @test "test$(dim)d.vtu" == writemesh(
+            @test "test$(dim)d.vtu" == writemesh_highorder(
                 "test$(dim)d",
                 x1,
                 x2;
@@ -70,7 +73,7 @@ using ClimateMachine.VTK: writemesh
                 fields = (("d", d), ("s", s)),
             )[1]
         elseif dim == 3
-            @test "test$(dim)d.vtu" == writemesh(
+            @test "test$(dim)d.vtu" == writemesh_highorder(
                 "test$(dim)d",
                 x1,
                 x2,

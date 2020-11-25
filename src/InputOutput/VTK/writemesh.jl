@@ -1,6 +1,6 @@
 using WriteVTK
 
-function vtk_connectivity_map(Nqi, Nqj = 1, Nqk = 1)
+function vtk_connectivity_map_highorder(Nqi, Nqj = 1, Nqk = 1)
     connectivity = Array{Int, 1}(undef, Nqi * Nqj * Nqk)
     L = LinearIndices((1:Nqi, 1:Nqj, 1:Nqk))
 
@@ -80,7 +80,7 @@ end
 #=
 This is the 1D WriteMesh routine
 =#
-function writemesh(
+function writemesh_highorder(
     base_name,
     x1;
     x2 = nothing,
@@ -90,7 +90,7 @@ function writemesh(
 )
     (Nqr, _) = size(x1)
 
-    con = vtk_connectivity_map(Nqr)
+    con = vtk_connectivity_map_highorder(Nqr)
 
     M = MeshCell{VTKCellTypes.VTKCellType, Array{Int, 1}}
     cells = Array{M, 1}(undef, length(realelems))
@@ -131,7 +131,7 @@ end
 #=
 This is the 2D WriteMesh routine
 =#
-function writemesh(
+function writemesh_highorder(
     base_name,
     x1,
     x2;
@@ -142,7 +142,7 @@ function writemesh(
     @assert size(x1) == size(x2)
     (Nqr, Nqs, _) = size(x1)
     @assert Nqr == Nqs
-    con = vtk_connectivity_map(Nqr, Nqs)
+    con = vtk_connectivity_map_highorder(Nqr, Nqs)
 
     M = MeshCell{VTKCellTypes.VTKCellType, Array{Int, 1}}
     cells = Array{M, 1}(undef, length(realelems))
@@ -179,7 +179,7 @@ end
 #=
 This is the 3D WriteMesh routine
 =#
-function writemesh(
+function writemesh_highorder(
     base_name,
     x1,
     x2,
@@ -189,7 +189,7 @@ function writemesh(
 )
     (Nqr, Nqs, Nqt, _) = size(x1)
     @assert Nqr == Nqs == Nqt
-    con = vtk_connectivity_map(Nqr, Nqs, Nqt)
+    con = vtk_connectivity_map_highorder(Nqr, Nqs, Nqt)
     M = MeshCell{VTKCellTypes.VTKCellType, Array{Int, 1}}
     cells = Array{M, 1}(undef, length(realelems))
     for (i, e) in enumerate(realelems)

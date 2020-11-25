@@ -164,7 +164,7 @@ function writevtk_helper(
     end
 
     fields = (fields..., auxfields...)
-    writemesh(
+    writemesh_highorder(
         prefix,
         X...;
         fields = fields,
