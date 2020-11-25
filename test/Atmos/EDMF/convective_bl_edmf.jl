@@ -147,7 +147,7 @@ function main(::Type{FT}) where {FT}
 
     t0 = FT(0)
 
-    timeend = FT(3600)
+    timeend = FT(1)
     CFLmax = FT(25)
 
     config_type = SingleStackConfigType

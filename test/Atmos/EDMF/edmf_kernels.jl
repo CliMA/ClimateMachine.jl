@@ -340,7 +340,7 @@ function compute_gradient_flux!(
     t::Real,
 ) where {FT}
     N_up = n_updrafts(turbconv)
-    println("===========================in compute_gradient_flux =================")
+    # println("===========================in compute_gradient_flux =================")
     # Aliases:
     gm = state
     up_dif = diffusive.turbconv.updraft
@@ -650,7 +650,7 @@ function flux_second_order!(
     t::Real,
 ) where {FT}
     N_up = n_updrafts(turbconv)
-    println("===========================in flux_second_order =================")
+    # println("===========================in flux_second_order =================")
 
     # Aliases:
     gm = state
