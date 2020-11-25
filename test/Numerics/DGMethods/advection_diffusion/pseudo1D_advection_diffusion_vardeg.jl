@@ -282,8 +282,7 @@ let
                 (FT == Float64 ? 4 : 3) : 1
             result = zeros(FT, numlevels)
             for dim in (3,)
-                for direction in
-                    (EveryDirection,)# HorizontalDirection, VerticalDirection)
+                for direction in (EveryDirection,)# HorizontalDirection, VerticalDirection)
                     for fluxBC in (true,)
                         if direction <: EveryDirection
                             n =
