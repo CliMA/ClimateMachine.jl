@@ -277,7 +277,7 @@ function BatchedGeneralizedMinimalResidual(
         m = Nq[1] * nvertelem
         n = (Nq[1]^(dim - 1)) * nhorzelem * num_states
     else
-        m = Nq[1]  * nvertelem * num_states
+        m = Nq[1] * nvertelem * num_states
         n = (Nq[1]^(dim - 1)) * nhorzelem
     end
 
