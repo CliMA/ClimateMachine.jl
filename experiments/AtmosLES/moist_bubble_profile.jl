@@ -22,7 +22,9 @@ function MoistBubbleProfile(param_set::AbstractParameterSet, FT)
     z = zeros(n + 1)
     Val = zeros(n + 1, 4)
     r_t0 = 2.e-2
+    r_t0 = 0.0
     θ_e0 = 320
+    θ_e0 = 300
     Δz = 10
 
     function resMoisture!(F, z, y, yPrime)

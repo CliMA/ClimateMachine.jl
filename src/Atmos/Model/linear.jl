@@ -384,3 +384,32 @@ function numerical_flux_first_order!(
         direction,
     )
 end
+
+function numerical_flux_first_order!(
+    ::LMARNumericalFlux,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    # There is no intermediate speed for the AtmosLinearModel.
+    # As a result, HLLC simplifies to Rusanov.
+    numerical_flux_first_order!(
+        RusanovNumericalFlux(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+end

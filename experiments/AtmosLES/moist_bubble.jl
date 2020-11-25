@@ -204,6 +204,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
             mis_method = MIS2,
             fast_method = LSRK54CarpenterKennedy,
             nsubsteps = (50,),
+            discrete_splitting = true,
         )
     elseif fast_method == "StrongStabilityPreservingRungeKutta"
         ode_solver = ClimateMachine.MISSolverType(
@@ -212,6 +213,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
             mis_method = MIS2,
             fast_method = SSPRK33ShuOsher,
             nsubsteps = (12,),
+            discrete_splitting = true,
         )
     elseif fast_method == "MultirateInfinitesimalStep"
         ode_solver = ClimateMachine.MISSolverType(
@@ -226,6 +228,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
                 nsubsteps = nsubsteps,
             ),
             nsubsteps = (12, 2),
+            discrete_splitting = true,
         )
     elseif fast_method == "MultirateRungeKutta"
         ode_solver = ClimateMachine.MISSolverType(
@@ -239,6 +242,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
                 steps = nsubsteps,
             ),
             nsubsteps = (12, 4),
+            discrete_splitting = true,
         )
     elseif fast_method == "AdditiveRungeKutta"
         ode_solver = ClimateMachine.MISSolverType(
@@ -254,6 +258,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
                 nsubsteps = nsubsteps,
             ),
             nsubsteps = (12,),
+            discrete_splitting = true,
         )
     else
         error("Invalid --fast_method=$fast_method")
@@ -290,6 +295,7 @@ function config_moistbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
         model = model,
         numerical_flux_first_order = RusanovNumericalFlux(),
 #       numerical_flux_first_order = HLLCNumericalFlux(),
+#       numerical_flux_first_order = LMARNumericalFlux(),
     )
     return config
 end
@@ -319,7 +325,7 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 1
+    N = 4
     # Domain resolution and size
     Δx = FT(125)
     Δy = FT(125)
@@ -327,7 +333,7 @@ function main()
     resolution = (Δx, Δy, Δz)
     # Domain extents
     xmax = FT(20000)
-    ymax = FT(125)
+    ymax = FT(500)
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)

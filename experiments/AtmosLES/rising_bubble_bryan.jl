@@ -12,8 +12,11 @@ using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-using ClimateMachine.NumericalFluxes
 using ClimateMachine.VTK
+using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.BalanceLaws:
+    BalanceLaw, Auxiliary, Gradient, GradientFlux, Prognostic
+
 
 using StaticArrays
 using Test
@@ -143,6 +146,8 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
                 nsubsteps = nsubsteps,
             ),
             nsubsteps = (12,),
+            discrete_splitting = true, 
+
         )
     else
         error("Invalid --fast_method=$fast_method")
@@ -173,6 +178,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
         init_risingbubble!,
         solver_type = ode_solver,
         model = model,
+#       numerical_flux_first_order = RusanovNumericalFlux(),
+        numerical_flux_first_order = HLLCNumericalFlux(),
+
     )
     return config
 end

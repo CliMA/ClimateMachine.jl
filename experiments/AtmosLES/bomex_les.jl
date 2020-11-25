@@ -72,6 +72,8 @@ function main()
         ics;
         solver_type = ode_solver_type,
         model = model,
+#       numerical_flux_first_order = RusanovNumericalFlux(),
+        numerical_flux_first_order = HLLCNumericalFlux(),
     )
 
     solver_config = ClimateMachine.SolverConfiguration(

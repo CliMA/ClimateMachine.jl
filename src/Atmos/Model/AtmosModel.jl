@@ -1152,6 +1152,26 @@ function numerical_flux_first_order!(
         ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
         fluxᵀn.moisture.ρq_tot = ρq_b * u_half 
     end
+    if balance_law.moisture isa NonEquilMoist
+        ρq⁻ = state_prognostic⁻.moisture.ρq_tot
+        q⁻ = ρq⁻ / ρ⁻
+        ρq⁺ = state_prognostic⁺.moisture.ρq_tot
+        q⁺ = ρq⁺ / ρ⁺
+        ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+        fluxᵀn.moisture.ρq_tot = ρq_b * u_half 
+        ρq⁻ = state_prognostic⁻.moisture.ρq_liq
+        q⁻ = ρq⁻ / ρ⁻
+        ρq⁺ = state_prognostic⁺.moisture.ρq_liq
+        q⁺ = ρq⁺ / ρ⁺
+        ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+        fluxᵀn.moisture.ρq_liq = ρq_b * u_half 
+        ρq⁻ = state_prognostic⁻.moisture.ρq_ice
+        q⁻ = ρq⁻ / ρ⁻
+        ρq⁺ = state_prognostic⁺.moisture.ρq_ice
+        q⁺ = ρq⁺ / ρ⁺
+        ρq_b = u_half > FT(0) ? ρq⁻ : ρq⁺
+        fluxᵀn.moisture.ρq_ice = ρq_b * u_half 
+    end
     if !(balance_law.tracers isa NoTracers)
         ρχ⁻ = state_prognostic⁻.tracers.ρχ
         χ⁻ = ρχ⁻ / ρ⁻
