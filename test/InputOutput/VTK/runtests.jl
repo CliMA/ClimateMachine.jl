@@ -87,3 +87,81 @@ using ClimateMachine.VTK: writemesh_highorder, writemesh_raw
         end
     end
 end
+
+
+using MPI
+MPI.Initialized() || MPI.Init()
+using ClimateMachine.Mesh.Topologies: BrickTopology
+using ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+using ClimateMachine.VTK: writevtk_helper
+
+let
+    mpicomm = MPI.COMM_SELF
+    for FT in (Float64,) #Float32)
+        for dim in 2:3
+            N = (2, 3, 4)[1:dim]
+            if dim == 2
+                Ne = (4, 5)
+                brickrange = (
+                    range(FT(0); length = Ne[1] + 1, stop = 1),
+                    range(FT(0); length = Ne[2] + 1, stop = 1),
+                )
+                topl = BrickTopology(
+                    mpicomm,
+                    brickrange,
+                    periodicity = (false, false),
+                )
+                warpfun =
+                    (x1, x2, _) -> begin
+                        (x1 + sin(x1 * x2), x2 + sin(2 * x1 * x2), 0)
+                    end
+            elseif dim == 3
+                Ne = (3, 4, 5)
+                brickrange = (
+                    range(FT(0); length = Ne[1] + 1, stop = 1),
+                    range(FT(0); length = Ne[2] + 1, stop = 1),
+                    range(FT(0); length = Ne[3] + 1, stop = 1),
+                )
+                topl = BrickTopology(
+                    mpicomm,
+                    brickrange,
+                    periodicity = (false, false, false),
+                )
+                warpfun =
+                    (x1, x2, x3) -> begin
+                        (
+                            x1 + (x1 - 1 / 2) * cos(2 * π * x2 * x3) / 4,
+                            x2 + exp(sin(2π * (x1 * x2 + x3))) / 20,
+                            x3 + x1 / 4 + x2^2 / 2 + sin(x1 * x2 * x3),
+                        )
+                    end
+            end
+            grid = DiscontinuousSpectralElementGrid(
+                topl,
+                FloatType = FT,
+                DeviceArray = Array,
+                polynomialorder = N,
+                meshwarp = warpfun,
+            )
+            Q = rand(FT, prod(N .+ 1), 3, prod(Ne))
+            prefix = "test$(dim)d_raw"
+            @test "$(prefix).vtu" == writevtk_helper(
+                prefix,
+                grid.vgeo,
+                Q,
+                grid,
+                ("a", "b", "c");
+                number_sample_points = 0,
+            )[1]
+            prefix = "test$(dim)d_high_order"
+            @test "$(prefix).vtu" == writevtk_helper(
+                prefix,
+                grid.vgeo,
+                Q,
+                grid,
+                ("a", "b", "c");
+                number_sample_points = 10,
+            )[1]
+        end
+    end
+end
