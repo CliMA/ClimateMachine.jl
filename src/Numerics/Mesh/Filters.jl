@@ -137,40 +137,42 @@ where `s` is the filter order (must be even), the filter starts with
 polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
 value of the filter function.
 """
-struct ExponentialFilter <: AbstractSpectralFilter
-    "filter matrix"
-    filter::Any
-    "direction in which you're applying the filter"
-    direction::Direction
+struct ExponentialFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
 
     function ExponentialFilter(
         grid,
         Nc = 0,
         s = 32,
         α = -log(eps(eltype(grid))),
-        direction = HorizontalDirection(),
     )
-        AT = arraytype(grid)
+        dim = dimensionality(grid)
+
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
         # Tuple of polynomial degrees (N₁, N₂, N₃)
         N = polynomialorders(grid)
         # In 2D, we assume same polynomial order in the horizontal
-        dim = dimensionality(grid)
         @assert dim == 2 || N[1] == N[2]
-        # NOTE: assumes same polynomial order in both horizontal directions
-        if direction isa HorizontalDirection
-            N = N[1]
-            ξ = referencepoints(grid)[1]
-        else
-            @assert direction isa VerticalDirection
-            N = N[end]
-            ξ = referencepoints(grid)[end]
-        end
-
         @assert iseven(s)
-        @assert 0 <= Nc <= N
+        @assert all(0 .<= Nc .<= N)
+
         σ(η) = exp(-α * η^s)
-        filter = spectral_filter_matrix(ξ, Nc, σ)
-        new(AT(filter), direction)
+
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
     end
 end
 
@@ -194,44 +196,41 @@ controlling the smallest value of the filter function.
 ### References
  - [Boyd1996](@cite)
 """
-struct BoydVandevenFilter <: AbstractSpectralFilter
-    "filter matrix"
-    filter::Any
-    "direction in which you're applying the filter"
-    direction::Direction
+struct BoydVandevenFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
 
-    function BoydVandevenFilter(
-        grid,
-        Nc = 0,
-        s = 32,
-        direction = HorizontalDirection(),
-    )
-        AT = arraytype(grid)
+    function BoydVandevenFilter(grid, Nc = 0, s = 32)
+        dim = dimensionality(grid)
+
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
         # Tuple of polynomial degrees (N₁, N₂, N₃)
         N = polynomialorders(grid)
         # In 2D, we assume same polynomial order in the horizontal
-        dim = dimensionality(grid)
         @assert dim == 2 || N[1] == N[2]
-        # NOTE: assumes same polynomial order in both horizontal directions
-        if direction isa HorizontalDirection
-            N = N[1]
-            ξ = referencepoints(grid)[1]
-        else
-            @assert direction isa VerticalDirection
-            N = N[end]
-            ξ = referencepoints(grid)[end]
-        end
-
         @assert iseven(s)
-        @assert 0 <= Nc <= N
+        @assert all(0 .<= Nc .<= N)
+
         function σ(η)
             a = 2 * abs(η) - 1
             χ = iszero(a) ? one(a) : sqrt(-log1p(-a^2) / a^2)
-            return erfc(sqrt(s) * χ * a) / 2ξ
+            return erfc(sqrt(s) * χ * a) / 2
         end
-        filter = spectral_filter_matrix(ξ, Nc, σ)
 
-        new(AT(filter), direction)
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
     end
 end
 
@@ -241,36 +240,36 @@ end
 Returns the spectral filter that zeros out polynomial modes greater than or
 equal to `Nc`.
 """
-struct CutoffFilter <: AbstractSpectralFilter
-    "filter matrix"
-    filter::Any
-    "direction in which you're applying the filter"
-    direction::Direction
+struct CutoffFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
 
-    function CutoffFilter(
-        grid,
-        Nc = maximum(polynomialorders(grid)),
-        direction = HorizontalDirection(),
-    )
-        AT = arraytype(grid)
+    function CutoffFilter(grid, Nc = polynomialorders(grid))
+        dim = dimensionality(grid)
+
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
         # Tuple of polynomial degrees (N₁, N₂, N₃)
         N = polynomialorders(grid)
         # In 2D, we assume same polynomial order in the horizontal
-        dim = dimensionality(grid)
         @assert dim == 2 || N[1] == N[2]
-        # NOTE: assumes same polynomial order in both horizontal directions
-        if direction isa HorizontalDirection
-            N = N[1]
-            ξ = referencepoints(grid)[1]
-        else
-            @assert direction isa VerticalDirection
-            N = N[end]
-            ξ = referencepoints(grid)[end]
-        end
+        @assert all(0 .<= Nc .<= N)
 
         σ(η) = 0
-        filter = spectral_filter_matrix(ξ, Nc, σ)
-        new(AT(filter), direction)
+
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
     end
 end
 
@@ -328,32 +327,53 @@ function apply!(
     # Currently only support same polynomial in both horizontal directions
     @assert N[1] == N[2]
 
-    filtermatrix = filter.filter
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     nelem = length(topology.elems)
     # Number of Gauss-Lobatto quadrature points in each direction
-    Nqs = N .+ 1
-    Nqi = Nqs[1]
-    Nqj = Nqs[2]
-    Nqk = dim == 2 ? 1 : Nqs[dim]
+    Nq = N .+ 1
+    Nqi = Nq[1]
+    Nqj = Nq[2]
+    Nqk = dim == 2 ? 1 : Nq[dim]
 
     nrealelem = length(topology.realelems)
 
-    event = Event(device)
-    event = kernel_apply_filter!(device, (Nqi, Nqj, Nqk))(
-        Val(dim),
-        Val(N),
-        Val(vars(Q)),
-        Val(isnothing(state_auxiliary) ? nothing : vars(state_auxiliary)),
-        direction,
-        Q.data,
-        isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
-        target,
-        filtermatrix,
-        ndrange = (nrealelem * Nqi, Nqj, Nqk),
-        dependencies = (event,),
-    )
+    if direction isa EveryDirection || direction isa HorizontalDirection
+        filtermatrix = filter.filter_matrices[1]
+        event = Event(device)
+        event = kernel_apply_filter!(device, (Nqi, Nqj, Nqk))(
+            Val(dim),
+            Val(N),
+            Val(vars(Q)),
+            Val(isnothing(state_auxiliary) ? nothing :
+                    vars(state_auxiliary)),
+            HorizontalDirection(),
+            Q.data,
+            isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            target,
+            filtermatrix,
+            ndrange = (nrealelem * Nqi, Nqj, Nqk),
+            dependencies = (event,),
+        )
+    end
+    if direction isa EveryDirection || direction isa VerticalDirection
+        filtermatrix = filter.filter_matrices[end]
+        event = Event(device)
+        event = kernel_apply_filter!(device, (Nqi, Nqj, Nqk))(
+            Val(dim),
+            Val(N),
+            Val(vars(Q)),
+            Val(isnothing(state_auxiliary) ? nothing :
+                    vars(state_auxiliary)),
+            VerticalDirection(),
+            Q.data,
+            isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            target,
+            filtermatrix,
+            ndrange = (nrealelem * Nqi, Nqj, Nqk),
+            dependencies = (event,),
+        )
+    end
     wait(device, event)
 end
 
@@ -509,7 +529,6 @@ horizontal and/or vertical reference directions.
         l_Qfiltered2 = MVector{nfilterstates, FT}(undef)
     end
 
-    s_filter = @localmem FT (Nq, Nq2)
     s_Q = @localmem FT (Nq, Nq2, Nqk, nfilterstates)
     l_Q = @private FT (nstates,)
     l_Qfiltered = @private FT (nfilterstates,)
@@ -519,9 +538,7 @@ horizontal and/or vertical reference directions.
     i, j, k = @index(Local, NTuple)
 
     @inbounds begin
-        ijk = i + Nq * ((j - 1) + Nqk * (k - 1)) # TODO: check
-
-        s_filter[i, j] = filtermatrix[i, j]
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
 
         @unroll for s in 1:nstates
             l_Q[s] = Q[ijk, s, e]
@@ -552,8 +569,7 @@ horizontal and/or vertical reference directions.
             @synchronize
             @unroll for n in 1:Nq
                 @unroll for fs in 1:nfilterstates
-                    #TODO: This needs to change for multi polynomial orders
-                    l_Qfiltered[fs] += s_filter[i, n] * s_Q[n, j, k, fs]
+                    l_Qfiltered[fs] += filtermatrix[i, n] * s_Q[n, j, k, fs]
                 end
             end
 
@@ -570,7 +586,7 @@ horizontal and/or vertical reference directions.
             @synchronize
             @unroll for n in 1:Nq
                 @unroll for fs in 1:nfilterstates
-                    l_Qfiltered[fs] += s_filter[j, n] * s_Q[i, n, k, fs]
+                    l_Qfiltered[fs] += filtermatrix[j, n] * s_Q[i, n, k, fs]
                 end
             end
 
@@ -587,7 +603,7 @@ horizontal and/or vertical reference directions.
             @synchronize
             @unroll for n in 1:Nqk
                 @unroll for fs in 1:nfilterstates
-                    l_Qfiltered[fs] += s_filter[k, n] * s_Q[i, j, n, fs]
+                    l_Qfiltered[fs] += filtermatrix[k, n] * s_Q[i, j, n, fs]
                 end
             end
         end
@@ -604,7 +620,7 @@ horizontal and/or vertical reference directions.
         )
 
         # Store result
-        ijk = i + Nq * ((j - 1) + Nqk * (k - 1)) # TODO: check
+        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
         @unroll for s in 1:nstates
             Q[ijk, s, e] = l_Q2[s]
         end
@@ -627,6 +643,7 @@ end
         Nqs = N .+ 1
         Nq = Nqs[1]
         Nqj = dim == 2 ? 1 : Nqs[2]
+        Nqk = Nqs[end]
 
         nfilterstates = number_state_filtered(target, FT)
         nelemperblock = 1
@@ -643,7 +660,7 @@ end
 
     @inbounds begin
         # loop up the pencil and load Q and MJ
-        @unroll for k in 1:Nq
+        @unroll for k in 1:Nqk
             ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
 
             @unroll for sf in 1:nfilterstates
@@ -657,7 +674,7 @@ end
         @unroll for sf in 1:nfilterstates
             MJQ, MJQclipped = zero(FT), zero(FT)
 
-            @unroll for k in 1:Nq
+            @unroll for k in 1:Nqk
                 MJ = l_MJ[k]
                 Qs = l_Q[sf, k]
                 Qsclipped = Qs ≥ 0 ? Qs : zero(Qs)
@@ -694,7 +711,7 @@ end
             r = qs_average > 0 ? qs_average / qs_clipped_average : zero(FT)
 
             s = I[sf]
-            @unroll for k in 1:Nq
+            @unroll for k in 1:Nqk
                 ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
 
                 Qs = l_Q[sf, k]

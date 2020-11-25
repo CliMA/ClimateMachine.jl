@@ -21,7 +21,7 @@ ClimateMachine.init()
              0x3fb608a150f6f927  0x3fe99528b1a1cd8d  0x3fcd41d41f8bae45  0xbfc987d5fabab8d5  0x3fb5da1cd858af87
              0xbfb333332eb1cd92  0x3fc666666826f178  0x3fe999999798faaa  0x3fc666666826f176  0xbfb333332eb1cd94
              0x3fb5da1cd858af84  0xbfc987d5fabab8d4  0x3fcd41d41f8bae46  0x3fe99528b1a1cd8e  0x3fb608a150f6f924
-             0xbfc970267f929618  0x3fddbe357bce0b5c  0xbfe111110d0fd333  0x3fddfd863c6c9a44  0x3fe98f3cd0d725e8            ]
+             0xbfc970267f929618  0x3fddbe357bce0b5c  0xbfe111110d0fd333  0x3fddfd863c6c9a44  0x3fe98f3cd0d725e8]
         #! format: on
         W = reinterpret.(Float64, W)
 
@@ -40,7 +40,8 @@ ClimateMachine.init()
         )
 
         filter = ClimateMachine.Mesh.Filters.ExponentialFilter(grid, 0, 32)
-        @test filter.filter ≈ W
+        nf = length(filter.filter_matrices)
+        @test all(ntuple(i -> filter.filter_matrices[i] ≈ W, nf))
     end
 
     let
@@ -68,13 +69,14 @@ ClimateMachine.init()
         )
 
         filter = ClimateMachine.Mesh.Filters.ExponentialFilter(grid, 1, 4)
-        @test filter.filter ≈ W
+        nf = length(filter.filter_matrices)
+        @test all(ntuple(i -> filter.filter_matrices[i] ≈ W, nf))
     end
 
     let
         T = Float64
-        N = 5
-        Nc = 4
+        N = (5, 3)
+        Nc = (4, 2)
 
         topology = ClimateMachine.Mesh.Topologies.BrickTopology(
             MPI.COMM_SELF,
@@ -87,18 +89,25 @@ ClimateMachine.init()
             DeviceArray = Array,
         )
 
-        # XXX: Needs updating for multiple polynomial orders
-        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)[1]
-        a, b = GaussQuadrature.legendre_coefs(T, N)
-        V = GaussQuadrature.orthonormal_poly(ξ, a, b)
+        ξ = ClimateMachine.Mesh.Grids.referencepoints(grid)
+        ξ1 = ξ[1]
+        ξ2 = ξ[2]
+        a1, b1 = GaussQuadrature.legendre_coefs(T, N[1])
+        a2, b2 = GaussQuadrature.legendre_coefs(T, N[2])
+        V1 = GaussQuadrature.orthonormal_poly(ξ1, a1, b1)
+        V2 = GaussQuadrature.orthonormal_poly(ξ2, a2, b2)
 
-        Σ = ones(T, N + 1)
-        Σ[(Nc:N) .+ 1] .= 0
+        Σ1 = ones(T, N[1] + 1)
+        Σ2 = ones(T, N[2] + 1)
+        Σ1[(Nc[1]:N[1]) .+ 1] .= 0
+        Σ2[(Nc[2]:N[2]) .+ 1] .= 0
 
-        W = V * Diagonal(Σ) / V
+        W1 = V1 * Diagonal(Σ1) / V1
+        W2 = V2 * Diagonal(Σ2) / V2
 
         filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, Nc)
-        @test filter.filter ≈ W
+        @test filter.filter_matrices[1] ≈ W1
+        @test filter.filter_matrices[2] ≈ W2
     end
 end
 
@@ -175,16 +184,7 @@ end
                         polynomialorder = N,
                     )
 
-                filter_horizontal = ClimateMachine.Mesh.Filters.CutoffFilter(
-                    grid,
-                    2,
-                    HorizontalDirection(),
-                )
-                filter_vertical = ClimateMachine.Mesh.Filters.CutoffFilter(
-                    grid,
-                    2,
-                    VerticalDirection(),
-                )
+                filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, 2)
 
                 model = FilterTestModel{4}()
                 dg = ClimateMachine.DGMethods.DGModel(
@@ -202,34 +202,13 @@ end
                         nothing,
                         dim,
                     )
-                    if direction isa EveryDirection
-                        ClimateMachine.Mesh.Filters.apply!(
-                            Q,
-                            target,
-                            grid,
-                            filter_horizontal,
-                            direction = HorizontalDirection(),
-                        )
-                        ClimateMachine.Mesh.Filters.apply!(
-                            Q,
-                            target,
-                            grid,
-                            filter_vertical,
-                            direction = VerticalDirection(),
-                        )
-                    else
-                        filter =
-                            direction isa HorizontalDirection ?
-                            filter_horizontal : filter_vertical
-                        ClimateMachine.Mesh.Filters.apply!(
-                            Q,
-                            target,
-                            grid,
-                            filter,
-                            direction = direction(),
-                        )
-                    end
-
+                    ClimateMachine.Mesh.Filters.apply!(
+                        Q,
+                        target,
+                        grid,
+                        filter,
+                        direction = direction(),
+                    )
                     P = ClimateMachine.DGMethods.init_ode_state(
                         dg,
                         direction(),
