@@ -1,6 +1,7 @@
 #### thermo states for subdomains
 
 using KernelAbstractions: @print
+using ClimateMachine.VariableTemplates
 
 export new_thermo_state_up,
     new_thermo_state_en,
@@ -214,6 +215,18 @@ function new_thermo_state_en(
         @print("up[1].ρa = ", up[1].ρa, "\n")
         @print("up[1].ρaw = ", up[1].ρaw, "\n")
         @print("up[1].ρaθ_liq = ", up[1].ρaθ_liq, "\n")
+        @print("up[1].ρaq_tot = ", up[1].ρaq_tot, "\n")
+        @show(state.ρ)
+        @show(state.ρu)
+        @show(state.ρe)
+        @show(state)
+        @show(up)
+        st = vars_state(m, Prognostic(), eltype(state))
+        ftc = flattened_tup_chain(st)
+        for i in 1:varsize(st)
+            var = ftc[i]
+            @show var, getproperty(state, var)
+        end
         @show(up)
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end

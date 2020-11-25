@@ -81,7 +81,12 @@ function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
         estimated_remaining,
         normQ,
     )
-    isnan(normQ) && error("norm(Q) is NaN")
+    if isnan(normQ)
+        println("norm(Q) is NaN")
+        @show(Q)
+        println("========================================")
+    end
+    # isnan(normQ) && error("norm(Q) is NaN")
     return nothing
 end
 function GenericCallbacks.fini!(cb::SummaryLogCallback, solver, Q, param, t)
