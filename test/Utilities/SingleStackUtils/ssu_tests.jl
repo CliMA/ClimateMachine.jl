@@ -63,10 +63,6 @@ function test_hmean(
     Q::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
     state_vars_avg = get_horizontal_mean(grid, Q, vars)
     target = target_meanprof(grid)
     @test state_vars_avg["ρ"] ≈ target
@@ -77,10 +73,6 @@ function test_hvar(
     Q::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     target = target_varprof(grid)
     @test state_vars_var["ρ"] ≈ target
@@ -91,10 +83,6 @@ function test_horizontally_ave(
     Q_in::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
     Q = deepcopy(Q_in)
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     i_vars = varsindex(vars, :ρ)
@@ -107,11 +95,9 @@ end
 function target_meanprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-    Nq = N + 1
+    Nqs = Ns .+ 1
+    # Assumes same polynomial order in both horizontal directions
+    Nq = Nqs[1]
     Ntot = Nq * grid.topology.stacksize
     z = Array(get_z(grid))
     target =
@@ -122,11 +108,9 @@ end
 function target_varprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-    Nq = N + 1
+    Nqs = Ns .+ 1
+    # Assumes same polynomial order in both horizontal directions
+    Nq = Nqs[1]
     nvertelem = grid.topology.stacksize
     Ntot = Nq * nvertelem
     z = Array(get_z(grid))

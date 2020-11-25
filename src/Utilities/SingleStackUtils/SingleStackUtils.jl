@@ -51,15 +51,12 @@ function get_vars_from_nodal_stack(
     interp = false,
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-
     # extract grid information and bring `Q` to the host if needed
     FT = eltype(Q)
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    Nqs = Ns .+ 1
+    # assumes the same polynomial order in all horizontal directions
+    Nq = Nqs[1]
+    Nqk = dim == 2 ? 1 : Nqs[dim]
     Np = dofs_per_element(grid)
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
 
@@ -143,12 +140,9 @@ function get_vars_from_element_stack(
     interp = false,
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nqs = Ns .+ 1
+    Nq = Nqs[1]
 
-    Nq = N + 1
     return [
         get_vars_from_nodal_stack(
             grid,
@@ -190,12 +184,9 @@ function get_horizontal_mean(
     interp = false,
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nqs = Ns .+ 1
+    Nq = Nqs[1]
 
-    Nq = N + 1
     vars_avg = OrderedDict()
     vars_sq = OrderedDict()
     for i in 1:Nq
@@ -244,12 +235,9 @@ function get_horizontal_variance(
     interp = false,
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nqs = Ns .+ 1
+    Nq = Nqs[1]
 
-    Nq = N + 1
     vars_avg = OrderedDict()
     vars_sq = OrderedDict()
     for i in 1:Nq
@@ -302,13 +290,9 @@ function reduce_nodal_stack(
     j::Int = 1,
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    Nqs = Ns .+ 1
+    Nq = Nqs[1]
+    Nqk = dim == 2 ? 1 : Nqs[dim]
 
     var_names = flattenednames(vars)
     var_ind = findfirst(s -> s == var, var_names)
@@ -357,12 +341,9 @@ function reduce_element_stack(
     vrange::UnitRange = 1:size(Q, 3),
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nqs = Ns .+ 1
+    Nq = Nqs[1]
 
-    Nq = N + 1
     return [
         reduce_nodal_stack(
             op,
@@ -398,15 +379,13 @@ function horizontally_average!(
     i_vars,
 ) where {T, dim, Ns}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nqs = Ns .+ 1
+    Nq = Nqs[1]
+    Nqk = dim == 2 ? 1 : Nqs[dim]
 
-    Nq = N + 1
     ArrType = typeof(Q.data)
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+
     for ev in 1:size(state_data, 3), k in 1:Nqk, i_v in i_vars
         Q_sum = 0
         for i in 1:Nq, j in 1:Nq
