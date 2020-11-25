@@ -200,7 +200,12 @@ struct BoydVandevenFilter <: AbstractSpectralFilter
     "direction in which you're applying the filter"
     direction::Direction
 
-    function BoydVandevenFilter(grid, Nc = 0, s = 32, direction = HorizontalDirection())
+    function BoydVandevenFilter(
+        grid,
+        Nc = 0,
+        s = 32,
+        direction = HorizontalDirection(),
+    )
         AT = arraytype(grid)
         # Tuple of polynomial degrees (N₁, N₂, N₃)
         N = polynomialorders(grid)
@@ -242,7 +247,12 @@ struct CutoffFilter <: AbstractSpectralFilter
     "direction in which you're applying the filter"
     direction::Direction
 
-    function CutoffFilter(grid, Nc = maximum(polynomialorders(grid)), direction = HorizontalDirection())
+    function CutoffFilter(
+        grid,
+        Nc = maximum(polynomialorders(grid)),
+        direction = HorizontalDirection(),
+    )
+        AT = arraytype(grid)
         # Tuple of polynomial degrees (N₁, N₂, N₃)
         N = polynomialorders(grid)
         # In 2D, we assume same polynomial order in the horizontal
@@ -307,29 +317,31 @@ function apply!(
     grid::DiscontinuousSpectralElementGrid,
     filter::AbstractSpectralFilter;
     state_auxiliary = nothing,
+    direction = EveryDirection(),
 )
-    direction = filter.direction
-    @assert !(direction isa EveryDirection)
     topology = grid.topology
 
     # Tuple of polynomial degrees (N₁, N₂, N₃)
     N = polynomialorders(grid)
     # In 2D, we assume same polynomial order in the horizontal
     dim = dimensionality(grid)
-    @assert dim == 2 || N[1] == N[2]
+    # Currently only support same polynomial in both horizontal directions
+    @assert N[1] == N[2]
 
     filtermatrix = filter.filter
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     nelem = length(topology.elems)
     # Number of Gauss-Lobatto quadrature points in each direction
-    Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[end]
+    Nqs = N .+ 1
+    Nqi = Nqs[1]
+    Nqj = Nqs[2]
+    Nqk = dim == 2 ? 1 : Nqs[dim]
 
     nrealelem = length(topology.realelems)
 
     event = Event(device)
-    event = kernel_apply_filter!(device, (Nq[1], Nq[2], Nqk))(
+    event = kernel_apply_filter!(device, (Nqi, Nqj, Nqk))(
         Val(dim),
         Val(N),
         Val(vars(Q)),
@@ -339,7 +351,7 @@ function apply!(
         isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
         target,
         filtermatrix,
-        ndrange = (nrealelem * Nq[1], Nq[2], Nqk),
+        ndrange = (nrealelem * Nqi, Nqj, Nqk),
         dependencies = (event,),
     )
     wait(device, event)
@@ -364,13 +376,12 @@ function apply!(
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    # Currently only support same polynomial in both horizontal directions
+    @assert N[1] == N[2]
+    Nqs = N .+ 1
+    Nq = Nqs[1]
+    Nqk = dim == 2 ? 1 : Nqs[dim]
 
     nrealelem = length(topology.realelems)
     nreduce = 2^ceil(Int, log2(Nq * Nqk))
@@ -469,8 +480,10 @@ horizontal and/or vertical reference directions.
     @uniform begin
         FT = eltype(Q)
 
-        Nq = N .+ 1
-        Nqk = dim == 2 ? 1 : Nq[dim]
+        Nqs = N .+ 1
+        Nq = Nqs[1]
+        Nq2 = Nqs[2]
+        Nqk = dim == 2 ? 1 : Nqs[dim]
 
         if direction isa EveryDirection
             filterinξ1 = filterinξ2 = true
@@ -496,8 +509,8 @@ horizontal and/or vertical reference directions.
         l_Qfiltered2 = MVector{nfilterstates, FT}(undef)
     end
 
-    s_filter = @localmem FT (Nq, Nq)
-    s_Q = @localmem FT (Nq, Nq, Nqk, nfilterstates)
+    s_filter = @localmem FT (Nq, Nq2)
+    s_Q = @localmem FT (Nq, Nq2, Nqk, nfilterstates)
     l_Q = @private FT (nstates,)
     l_Qfiltered = @private FT (nfilterstates,)
     l_aux = @private FT (nfilteraux,)
@@ -611,8 +624,9 @@ end
     @uniform begin
         FT = eltype(Q)
 
-        Nq = N .+ 1
-        Nqj = dim == 2 ? 1 : Nq # TODO: Does this change as Nqk = dim == 2 ? 1 : Nq[dim] ?
+        Nqs = N .+ 1
+        Nq = Nqs[1]
+        Nqj = dim == 2 ? 1 : Nqs[2]
 
         nfilterstates = number_state_filtered(target, FT)
         nelemperblock = 1

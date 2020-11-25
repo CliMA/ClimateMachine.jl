@@ -175,7 +175,16 @@ end
                         polynomialorder = N,
                     )
 
-                filter = ClimateMachine.Mesh.Filters.CutoffFilter(grid, 2)
+                filter_horizontal = ClimateMachine.Mesh.Filters.CutoffFilter(
+                    grid,
+                    2,
+                    HorizontalDirection(),
+                )
+                filter_vertical = ClimateMachine.Mesh.Filters.CutoffFilter(
+                    grid,
+                    2,
+                    VerticalDirection(),
+                )
 
                 model = FilterTestModel{4}()
                 dg = ClimateMachine.DGMethods.DGModel(
@@ -193,13 +202,33 @@ end
                         nothing,
                         dim,
                     )
-                    ClimateMachine.Mesh.Filters.apply!(
-                        Q,
-                        target,
-                        grid,
-                        filter,
-                        direction = direction(),
-                    )
+                    if direction isa EveryDirection
+                        ClimateMachine.Mesh.Filters.apply!(
+                            Q,
+                            target,
+                            grid,
+                            filter_horizontal,
+                            direction = HorizontalDirection(),
+                        )
+                        ClimateMachine.Mesh.Filters.apply!(
+                            Q,
+                            target,
+                            grid,
+                            filter_vertical,
+                            direction = VerticalDirection(),
+                        )
+                    else
+                        filter =
+                            direction isa HorizontalDirection ?
+                            filter_horizontal : filter_vertical
+                        ClimateMachine.Mesh.Filters.apply!(
+                            Q,
+                            target,
+                            grid,
+                            filter,
+                            direction = direction(),
+                        )
+                    end
 
                     P = ClimateMachine.DGMethods.init_ode_state(
                         dg,
