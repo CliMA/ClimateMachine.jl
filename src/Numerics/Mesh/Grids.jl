@@ -388,22 +388,23 @@ function get_z(
     z_scale = 1,
     rm_dupes = false,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    # Assumes same polynomial orders in all horizontal directions
+    Nhoriz = Ns[1]
+    Nvert = Ns[end]
+    Nph = (Nhoriz + 1)^2
+    Np = Nph * (Nvert + 1)
     if rm_dupes
-        ijk_range = (1:((N + 1)^2):(((N + 1)^3) - (N + 1)^2))
+        ijk_range = (1:Nph:(Np - Nph))
         vgeo = Array(grid.vgeo)
         z = reshape(vgeo[ijk_range, _x3, :], :)
-        z = [z..., vgeo[(N + 1)^3, _x3, end]]
+        z = [z..., vgeo[Np, _x3, end]]
         return z * z_scale
     else
-        ijk_range = (1:((N + 1)^2):((N + 1)^3))
+        ijk_range = (1:Nph:Np)
         z = Array(reshape(grid.vgeo[ijk_range, _x3, :], :))
         return z * z_scale
     end
-    return reshape(grid.vgeo[(1:((N + 1)^2):((N + 1)^3)), _x3, :], :) * z_scale
+    return reshape(grid.vgeo[(1:Nph:Np), _x3, :], :) * z_scale
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)

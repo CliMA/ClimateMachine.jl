@@ -96,9 +96,8 @@ function target_meanprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
     Nqs = Ns .+ 1
-    # Assumes same polynomial order in both horizontal directions
-    Nq = Nqs[1]
-    Ntot = Nq * grid.topology.stacksize
+    Nq_v = Nqs[end]
+    Ntot = Nq_v * grid.topology.stacksize
     z = Array(get_z(grid))
     target =
         SVector{Ntot, T}([1.0 - 4.0 * (z_i - z[Ntot] / 2.0)^2 for z_i in z])
@@ -109,22 +108,21 @@ function target_varprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
     Nqs = Ns .+ 1
-    # Assumes same polynomial order in both horizontal directions
-    Nq = Nqs[1]
+    Nq_v = Nqs[end]
     nvertelem = grid.topology.stacksize
-    Ntot = Nq * nvertelem
+    Ntot = Nq_v * nvertelem
     z = Array(get_z(grid))
-    x = z[1:Nq] * nvertelem
+    x = z[1:Nq_v] * nvertelem
     scaled_var = 0.0
-    for i in 1:Nq
-        for j in 1:Nq
+    for i in 1:Nq_v
+        for j in 1:Nq_v
             scaled_var = scaled_var + (2 - x[i] - x[j]) * (2 - x[i] - x[j])
         end
     end
     target = SVector{Ntot, Float64}([
         (1.0 - 4.0 * (z_i - z[Ntot] / 2.0)^2) *
         (1.0 - 4.0 * (z_i - z[Ntot] / 2.0)^2) *
-        (scaled_var / Nq / Nq - 1) for z_i in z
+        (scaled_var / Nq_v / Nq_v - 1) for z_i in z
     ])
     return target
 end
