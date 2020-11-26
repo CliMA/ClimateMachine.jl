@@ -122,6 +122,7 @@ function writevtk_helper(
 
     X = grid.x_vtk[1:dim]
     fields = ntuple(j -> (@view Q[:, j, :]), size(Q, 2))
+
     auxfields =
         isnothing(state_auxiliary) ? () :
         (
@@ -131,10 +132,33 @@ function writevtk_helper(
             )
         )
 
+    # If any dimension are N = 0 we mirror these out to the boundaries for viz
+    # purposed
+    if any(N .== 0)
+        Nq_N1 = max.(Nq, 2)
+        Np_N1 = prod(Nq_N1)
+        ind = ntuple(i -> N[i] == 0 ? [1, 1] : Colon(), dim)
+        fields = ntuple(length(fields)) do i
+            fld = reshape(fields[i], Nq..., nelem)
+            fld2 = @view fld[ind..., :]
+            reshape(fld2, (Np_N1, nelem))
+        end
+        auxfields = ntuple(length(auxfields)) do i
+            fld = reshape(auxfields[i], Nq..., nelem)
+            fld2 = @view fld[ind..., :]
+            reshape(fld2, (Np_N1, nelem))
+        end
+        Nq = Nq_N1
+    end
+
     # Interpolate to an equally spaced grid if necessary
     if number_sample_points > 0
         FT = eltype(Q)
-        ξ = referencepoints(grid)
+        # If any dimension are N = 0 we manual set (-1, 1) grids
+        ξ = ntuple(
+            i -> N[i] == 0 ? FT.([-1, 1]) : referencepoints(grid)[i],
+            dim,
+        )
         ξdst = range(FT(-1); length = number_sample_points, stop = 1)
         I1d = ntuple(i -> interpolationmatrix(ξ[dim - i + 1], ξdst), dim)
         I = kron(I1d...)
