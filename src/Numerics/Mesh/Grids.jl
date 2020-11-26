@@ -324,7 +324,12 @@ Returns the 1D interpolation points used for the reference element.
 function referencepoints(
     ::DiscontinuousSpectralElementGrid{FT, dim, N},
 ) where {FT, dim, N}
-    ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
+    ξω = ntuple(
+        j ->
+            N[j] == 0 ? Elements.glpoints(FT, N[j]) :
+            Elements.lglpoints(FT, N[j]),
+        dim,
+    )
     ξ, _ = ntuple(j -> map(x -> x[j], ξω), 2)
     return ξ
 end
