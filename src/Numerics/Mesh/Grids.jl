@@ -133,6 +133,7 @@ struct DiscontinuousSpectralElementGrid{
     DAI2,
     DAI3,
     TOP,
+    TVTK,
 } <: AbstractGrid{T, dim, N, Np, DA}
     "mesh topology"
     topology::TOP
@@ -181,6 +182,12 @@ struct DiscontinuousSpectralElementGrid{
 
     "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
+
+    """
+    tuple of (x1, x2, x3) to use for vtk output (Needed for the `N = 0` case) in
+    other cases these match `vgeo` values
+    """
+    x_vtk::TVTK
 
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
@@ -239,7 +246,8 @@ struct DiscontinuousSpectralElementGrid{
         )
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
-        (vgeo, sgeo) = computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
+        (vgeo, sgeo, x_vtk) =
+            computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
         @assert Np == size(vgeo, 1)
 
@@ -269,6 +277,7 @@ struct DiscontinuousSpectralElementGrid{
         DAI2 = typeof(elemtobndy)
         DAI3 = typeof(vmap⁻)
         TOP = typeof(topology)
+        TVTK = typeof(x_vtk)
 
         new{
             FloatType,
@@ -284,6 +293,7 @@ struct DiscontinuousSpectralElementGrid{
             DAI2,
             DAI3,
             TOP,
+            TVTK,
         }(
             topology,
             vgeo,
@@ -301,6 +311,7 @@ struct DiscontinuousSpectralElementGrid{
             ω,
             D,
             Imat,
+            x_vtk,
         )
     end
 end
@@ -595,8 +606,9 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     D_N1 = ntuple(j -> Nq[j] == 1 ? D1 : D[j], dim)
     ξ_N1 = ntuple(j -> Nq[j] == 1 ? ξ1 : ξ[j], dim)
     ω_N1 = ntuple(j -> Nq[j] == 1 ? ω1 : ω[j], dim)
-    (vgeo_N1, sgeo_N1) =
+    (vgeo_N1, sgeo_N1, x_vtk) =
         computegeometry(elemtocoord, D_N1, ξ_N1, ω_N1, meshwarp)
+
 
     # Sort out the vgeo terms
     @views begin
@@ -719,7 +731,7 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
         end
     end
 
-    (vgeo, sgeo)
+    (vgeo, sgeo, x_vtk)
 end
 
 function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
@@ -826,7 +838,11 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # compute MH and JvC
     horizontal_vertical_metrics(vgeo, Nq, ω)
 
-    (vgeo, sgeo)
+    # This is mainly done to support FVM plotting when N=0 (since we need cell
+    # edge values)
+    x_vtk = (vgeo[:, _x1, :], vgeo[:, _x2, :], vgeo[:, _x3, :])
+
+    (vgeo, sgeo, x_vtk)
 end
 
 function horizontal_vertical_metrics(vgeo, Nq, ω)

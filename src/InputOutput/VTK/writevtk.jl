@@ -120,8 +120,7 @@ function writevtk_helper(
 
     nelem = size(Q)[end]
 
-    Xid = (grid.x1id, grid.x2id, grid.x3id)
-    X = ntuple(j -> (@view vgeo[:, Xid[j], :]), dim)
+    X = grid.x_vtk[1:dim]
     fields = ntuple(j -> (@view Q[:, j, :]), size(Q, 2))
     auxfields =
         isnothing(state_auxiliary) ? () :
