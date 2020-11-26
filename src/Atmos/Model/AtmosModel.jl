@@ -759,6 +759,8 @@ function source!(
             Σsources(eq_tends(TotalMoisture(), m, tend), args...)
     end
 
+    println("=========  Atmos model")
+    @show(m.source)
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
 

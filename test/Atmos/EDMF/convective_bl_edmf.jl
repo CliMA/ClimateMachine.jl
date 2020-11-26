@@ -79,8 +79,8 @@ function init_state_prognostic!(
         en.ρatke = FT(0)
     end
     en.ρaθ_liq_cv = FT(1e-5) / max(z, FT(10))
-    en.ρaq_tot_cv = FT(1e-5) / max(z, FT(10))
-    en.ρaθ_liq_q_tot_cv = FT(1e-7) / max(z, FT(10))
+    en.ρaq_tot_cv = FT(0) / max(z, FT(10))
+    en.ρaθ_liq_q_tot_cv = FT(0) / max(z, FT(10))
     return nothing
 end;
 
@@ -100,29 +100,19 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
         ρa_max = ρ_gm-ρa_min
         ts = recover_thermo_state(bl, state, aux)
+        θ_liq_gm = liquid_ice_pottemp(ts)
         ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
         ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
         ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
         ρa_en       = ρ_gm - ρa_ups
         ρaw_en      = - ρaw_ups
-        θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
+        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
         w_en        = ρaw_en / ρa_en
         @unroll_map(N_up) do i
-            Δρa_low = max((ρa_min - up[i].ρa), FT(0))
-            Δρa_high = max((up[i].ρa-ρa_max), FT(0))
-            up[i].ρa      += Δρa_low - Δρa_high
-            up[i].ρaθ_liq += Δρa_low * θ_liq_en
-            up[i].ρaw     += Δρa_low * w_en
-            up[i].ρaθ_liq -= Δρa_high * up[i].ρaθ_liq/up[i].ρa
-            up[i].ρaw     -= Δρa_high * up[i].ρaw/up[i].ρa
-            if !(ρa_min < up[i].ρa < ρa_max)
-                println("up[i].ρa in edmf filter")
-                @show(up[i].ρa-ρa_max)
-                @show(up[i].ρa)
-                @show(ρa_max)
-                @show(Δρa_low)
-                @show(Δρa_high)
-                println("-----------------------")
+            if !(ρa_min <= up[i].ρa <= ρa_max)
+                up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+                up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+                up[i].ρaw     = FT(0)
             end
         end
         validate_variables(bl, state, aux, "custom_filter!")
@@ -157,7 +147,7 @@ function main(::Type{FT}) where {FT}
 
     t0 = FT(0)
 
-    timeend = FT(1000)
+    timeend = FT(1)
     CFLmax = FT(25)
 
     config_type = SingleStackConfigType
@@ -175,7 +165,7 @@ function main(::Type{FT}) where {FT}
     N_updrafts = 1
     N_quad = 3
     turbconv = EDMF(FT, N_updrafts, N_quad)
-    # turbconv = NoTurbConv() and comment EDMF filters in cbtmarfilter
+    # turbconv = NoTurbConv() #and comment EDMF filters in cbtmarfilter
 
     model = convective_bl_model(
         FT,
@@ -235,13 +225,13 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
-        # Filters.apply!( # comment this for NoTurbConv
-        #     EDMFFilter(),
-        #     solver_config.dg.grid,
-        #     solver_config.dg.balance_law,
-        #     solver_config.Q,
-        #     solver_config.dg.state_auxiliary,
-        # )
+        Filters.apply!( # comment this for NoTurbConv
+            EDMFFilter(),
+            solver_config.dg.grid,
+            solver_config.dg.balance_law,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
+        )
         nothing
     end
 
