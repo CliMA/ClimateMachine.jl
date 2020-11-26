@@ -45,7 +45,7 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
                             r_inner = _planet_radius, 
                             r_outer = _planet_radius + domain_height)
     
-    function f(sR, ξ, η)
+    function f(sR, ξ, η, faceid)
         X, Y = tan(π * ξ / 4), tan(π * η / 4)
 
         # Linear Decay Profile
@@ -53,9 +53,10 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
 
         # Angles
         mR = sR
-        ϕ = rad2deg(atan(X))
-        θ = rad2deg(atan(cos(ϕ) / Y))
-        mR = sign(sR)*(abs(sR) + (3000*exp(-abs(ϕ/5)) * Δ))
+        if faceid == 1
+            ϕ = rad2deg(atan(X))
+            mR = sign(sR)*(abs(sR) + (4000*Δ*exp(-abs((deg2rad(ϕ)*π/2)^2))))
+        end
 
         δ = 1 + X^2 + Y^2
         x1 = mR / sqrt(δ)
@@ -65,23 +66,29 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
     fdim = argmax(abs.((a, b, c)))
     
     if fdim == 1 && a < 0
+        faceid = 1 
         # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-        x1, x2, x3 = f(-R, b / a, c / a)
+        x1, x2, x3 = f(-R, b / a, c / a, faceid)
     elseif fdim == 2 && b < 0
+        faceid = 2
         # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
-        x2, x1, x3 = f(-R, a / b, c / b)
+        x2, x1, x3 = f(-R, a / b, c / b, faceid)
     elseif fdim == 1 && a > 0
+        faceid = 3
         # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-        x1, x2, x3 = f(R, b / a, c / a)
+        x1, x2, x3 = f(R, b / a, c / a, faceid)
     elseif fdim == 2 && b > 0
+        faceid = 4 
         # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-        x2, x1, x3 = f(R, a / b, c / b)
+        x2, x1, x3 = f(R, a / b, c / b, faceid)
     elseif fdim == 3 && c > 0
+        faceid = 5 
         # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
-        x3, x2, x1 = f(R, b / c, a / c)
+        x3, x2, x1 = f(R, b / c, a / c, faceid)
     elseif fdim == 3 && c < 0
+        faceid = 6
         # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
-        x3, x2, x1 = f(-R, b / c, a / c)
+        x3, x2, x1 = f(-R, b / c, a / c, faceid)
     else
         error("invalid case for cubedshellwarp: $a, $b, $c")
     end
