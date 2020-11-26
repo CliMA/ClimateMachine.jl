@@ -163,6 +163,11 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
+    else
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+    end
     TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
 
     # Compute momentum contributions
@@ -179,10 +184,13 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_tot
+    if !(bl.moisture isa DryModel)
+        state.moisture.ρq_tot = ρ * q_tot
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand() * ρe_tot / 100
+        # state.ρe += rand() * ρe_tot / 100
+        state.ρe += FT(0.5) * ρe_tot / 100
     end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
@@ -206,6 +214,7 @@ function convective_bl_model(
     zmax,
     surface_flux;
     turbconv = NoTurbConv(),
+    moisture_model = "dry",
 ) where {FT}
 
     ics = init_convective_bl!     # Initial conditions
@@ -221,6 +230,8 @@ function convective_bl_model(
     f_coriolis = FT(1.031e-4) # Coriolis parameter
     u_star = FT(0.3)
     q_sfc = FT(0)
+    LHF = FT(0)       # Latent heat flux `[W/m²]`
+    SHF = FT(0)         # Sensible heat flux `[W/m²]`
 
     # Assemble source components
     source = (
@@ -241,6 +252,22 @@ function convective_bl_model(
             v_geostrophic,
         ),
     )
+    if moisture_model == "dry"
+        moisture = DryModel()
+    elseif moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds())
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
 
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
