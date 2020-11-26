@@ -810,7 +810,7 @@ function turbconv_boundary_state!(
     state_int::Vars,
     aux_int::Vars,
 ) where {FT}
-    validate_variables(m, state⁻, aux, "turbconv_boundary_state! (state⁻)")
+    # validate_variables(m, state⁻, aux, "turbconv_boundary_state! (state⁻)")
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
     up = state⁺.turbconv.updraft
@@ -846,7 +846,7 @@ function turbconv_boundary_state!(
         en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
         en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
     end
-    validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
+    # validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
     normQ = (en.ρatke*en.ρaθ_liq_cv*en.ρaq_tot_cv*en.ρaθ_liq_q_tot_cv)
     if isnan(normQ)
         println("=========================== 788")
