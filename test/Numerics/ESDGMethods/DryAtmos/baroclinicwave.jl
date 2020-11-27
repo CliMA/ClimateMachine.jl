@@ -4,7 +4,7 @@ using ClimateMachine.Mesh.Topologies:
     StackedCubedSphereTopology, cubedshellwarp, grid1d
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Filters
-using ClimateMachine.DGMethods: ESDGModel, init_ode_state
+using ClimateMachine.DGMethods: ESDGModel, init_ode_state, courant
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
@@ -306,7 +306,54 @@ function run(
                               """ gettime(odesolver) runtime energy
         end
     end
-    callbacks = (cbinfo,)
+    cbcfl = EveryXSimulationSteps(100) do
+            simtime = gettime(odesolver) 
+            c_v = courant(
+                nondiffusive_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            c_h = courant(
+                nondiffusive_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+            ca_v = courant(
+                advective_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                VerticalDirection(),
+            )
+            ca_h = courant(
+                advective_courant,
+                esdg,
+                model,
+                Q,
+                dt,
+                simtime,
+                HorizontalDirection(),
+            )
+
+            @info @sprintf """CFL
+                              simtime = %.16e
+                              Acoustic (vertical) Courant number    = %.2g
+                              Acoustic (horizontal) Courant number  = %.2g
+                              Advection (vertical) Courant number   = %.2g
+                              Advection (horizontal) Courant number = %.2g
+                              """ simtime c_v c_h ca_v ca_h
+    end
+    callbacks = (cbinfo, cbcfl)
 
     if output_vtk
         # create vtk dir

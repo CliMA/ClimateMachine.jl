@@ -640,4 +640,52 @@ function numerical_flux_first_order!(
     fluxᵀn .-= R * Λ * R' * Δentropy[SOneTo(5)] / 2
 end
 
+function vertical_unit_vector(m::DryAtmosModel, aux::Vars)
+  FT = eltype(aux)
+  aux.∇Φ / FT(grav(param_set))
+end
+
+norm_u(state::Vars, k̂::AbstractVector, ::VerticalDirection) =
+    abs(dot(state.ρu, k̂)) / state.ρ
+norm_u(state::Vars, k̂::AbstractVector, ::HorizontalDirection) =
+    norm((state.ρu .- dot(state.ρu, k̂) * k̂) / state.ρ)
+norm_u(state::Vars, k̂::AbstractVector, ::Direction) = norm(state.ρu / state.ρ)
+
+function advective_courant(
+    m::DryAtmosModel,
+    state::Vars,
+    aux::Vars,
+    diffusive::Vars,
+    Δx,
+    Δt,
+    t,
+    direction,
+)
+    k̂ = vertical_unit_vector(m, aux)
+    normu = norm_u(state, k̂, direction)
+    return Δt * normu / Δx
+end
+
+function nondiffusive_courant(
+    m::DryAtmosModel,
+    state::Vars,
+    aux::Vars,
+    diffusive::Vars,
+    Δx,
+    Δt,
+    t,
+    direction,
+)
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    Φ = aux.Φ
+    p = pressure(ρ, ρu, ρe, Φ)
+
+    k̂ = vertical_unit_vector(m, aux)
+    normu = norm_u(state, k̂, direction)
+    ss = soundspeed(ρ, p)
+    return Δt * (normu + ss) / Δx
+end
+
 include("linear.jl")
