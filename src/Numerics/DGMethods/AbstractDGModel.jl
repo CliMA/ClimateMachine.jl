@@ -532,3 +532,156 @@ fluxes, respectively.
         @synchronize(f % 2 == 0)
     end
 end
+
+"""
+    courant(local_courant::Function, dg::DGModel, m::BalanceLaw,
+            state_prognostic::MPIStateArray, direction=EveryDirection())
+Returns the maximum of the evaluation of the function `local_courant`
+pointwise throughout the domain.  The function `local_courant` is given an
+approximation of the local node distance `Δx`.  The `direction` controls which
+reference directions are considered when computing the minimum node distance
+`Δx`.
+An example `local_courant` function is
+    function local_courant(m::AtmosModel, state_prognostic::Vars, state_auxiliary::Vars,
+                           diffusive::Vars, Δx)
+      return Δt * cmax / Δx
+    end
+where `Δt` is the time step size and `cmax` is the maximum flow speed in the
+model.
+"""
+function courant(
+    local_courant::Function,
+    dg::AbstractDGModel,
+    m::BalanceLaw,
+    state_prognostic::MPIStateArray,
+    Δt,
+    simtime,
+    direction = EveryDirection(),
+)
+    grid = dg.grid
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+
+    if nrealelem > 0
+        # XXX: Needs updating for multiple polynomial orders
+        N = polynomialorders(grid)
+        # Currently only support single polynomial order
+        @assert all(N[1] .== N)
+        N = N[1]
+        dim = dimensionality(grid)
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+        device = array_device(grid.vgeo)
+        pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
+        event = Event(device)
+        event = Grids.kernel_min_neighbor_distance!(
+            device,
+            min(Nq * Nq * Nqk, 1024),
+        )(
+            Val(N),
+            Val(dim),
+            direction,
+            pointwise_courant,
+            grid.vgeo,
+            topology.realelems;
+            ndrange = (nrealelem * Nq * Nq * Nqk),
+            dependencies = (event,),
+        )
+        event = kernel_local_courant!(device, min(Nq * Nq * Nqk, 1024))(
+            m,
+            Val(dim),
+            Val(N),
+            pointwise_courant,
+            local_courant,
+            state_prognostic.data,
+            dg.state_auxiliary.data,
+            number_states(m, GradientFlux()) > 0 ?
+              dg.state_gradient_flux.data : nothing,
+            topology.realelems,
+            Δt,
+            simtime,
+            direction;
+            ndrange = nrealelem * Nq * Nq * Nqk,
+            dependencies = (event,),
+        )
+        wait(device, event)
+        rank_courant_max = maximum(pointwise_courant)
+    else
+        rank_courant_max = typemin(eltype(state_prognostic))
+    end
+
+    MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
+end
+
+@kernel function kernel_local_courant!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{N},
+    pointwise_courant,
+    local_courant,
+    state_prognostic,
+    state_auxiliary,
+    state_gradient_flux,
+    elems,
+    Δt,
+    simtime,
+    direction,
+) where {dim, N}
+    @uniform begin
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_gradient_flux = number_states(balance_law, GradientFlux())
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+
+        Nq = N + 1
+
+        Nqk = dim == 2 ? 1 : Nq
+
+        Np = Nq * Nq * Nqk
+
+        local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_gradient_flux =
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+    end
+
+    I = @index(Global, Linear)
+    e = (I - 1) ÷ Np + 1
+    n = (I - 1) % Np + 1
+
+    @inbounds begin
+        @unroll for s in 1:num_state_prognostic
+            local_state_prognostic[s] = state_prognostic[n, s, e]
+        end
+
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary[s] = state_auxiliary[n, s, e]
+        end
+
+        if !isnothing(state_gradient_flux)
+          @unroll for s in 1:num_state_gradient_flux
+              local_state_gradient_flux[s] = state_gradient_flux[n, s, e]
+          end
+        end
+
+        Δx = pointwise_courant[n, e]
+        c = local_courant(
+            balance_law,
+            Vars{vars_state(balance_law, Prognostic(), FT)}(
+                local_state_prognostic,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                local_state_auxiliary,
+            ),
+            Vars{vars_state(balance_law, GradientFlux(), FT)}(
+                local_state_gradient_flux,
+            ),
+            Δx,
+            Δt,
+            simtime,
+            direction,
+        )
+
+        pointwise_courant[n, e] = c
+    end
+end
