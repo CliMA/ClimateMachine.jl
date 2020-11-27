@@ -49,7 +49,7 @@ ClimateMachine.Atmos.DryModel
 ClimateMachine.Atmos.EquilMoist
 ClimateMachine.Atmos.NonEquilMoist
 ClimateMachine.Atmos.NoPrecipitation
-ClimateMachine.Atmos.Rain
+ClimateMachine.Atmos.RainModel
 ```
 
 ## Stabilization

@@ -68,3 +68,29 @@ function source(
     k̂ = vertical_unit_vector(m, aux)
     return -state.ρ * w_sub * dot(k̂, diffusive.∇h_tot)
 end
+
+function source(
+    s::RemovePrecipitation{Energy},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    if has_condensate(ts)
+        nt = compute_precip_params(s, aux, ts)
+        @unpack S_qt, λ, I_l, I_i, Φ = nt
+        return (λ * I_l + (1 - λ) * I_i + Φ) * state.ρ * S_qt
+    else
+        FT = eltype(state)
+        return FT(0)
+    end
+end
+
+function source(s::Rain_1M{Energy}, m, state, aux, t, ts, direction, diffusive)
+    nt = compute_rain_params(m, state, aux, t, ts)
+    @unpack S_qt, Φ, I_l = nt
+    return state.ρ * S_qt * (Φ + I_l)
+end

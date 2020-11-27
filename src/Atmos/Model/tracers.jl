@@ -56,13 +56,15 @@ function atmos_nodal_update_auxiliary_state!(
 )
     nothing
 end
-function flux_tracers!(
+function flux_first_order!(
     ::TracerModel,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
     nothing
 end
@@ -179,13 +181,15 @@ function compute_gradient_flux!(
 )
     diffusive.tracers.∇χ = ∇transform.tracers.χ
 end
-function flux_tracers!(
+function flux_first_order!(
     tr::NTracers,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
     u = state.ρu / state.ρ
     flux.tracers.ρχ += (state.tracers.ρχ .* u')'

@@ -2,6 +2,7 @@ module Atmos
 
 export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
 
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
 using CLIMAParameters.Atmos.SubgridScale: C_smag
@@ -171,6 +172,8 @@ function AtmosModel{FT}(
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
 
+    @assert !any(isa.(source, Tuple))
+
     atmos = (
         param_set,
         problem,
@@ -215,6 +218,8 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+
+    @assert !any(isa.(source, Tuple))
 
     atmos = (
         param_set,
@@ -382,12 +387,16 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
+export AbstractSource
+abstract type AbstractSource end
+
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies
 include("tendencies_mass.jl")         # specify mass tendencies
 include("tendencies_momentum.jl")     # specify momentum tendencies
 include("tendencies_energy.jl")       # specify energy tendencies
 include("tendencies_moisture.jl")     # specify moisture tendencies
+include("tendencies_precipitation.jl")# specify precipitation tendencies
 
 include("problem.jl")
 include("ref_state.jl")
@@ -432,12 +441,11 @@ equations.
     flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...)
 
-    # pressure terms
-    flux_radiation!(m.radiation, m, flux, state, aux, t)
-    flux_first_order!(m.moisture, m, flux, state, aux, t, direction)
-    flux_precipitation!(m.precipitation, m, flux, state, aux, t)
-    flux_tracers!(m.tracers, m, flux, state, aux, t)
-    flux_first_order!(m.turbconv, m, flux, state, aux, t)
+    flux_first_order!(m.radiation, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.moisture, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.precipitation, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.tracers, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.turbconv, m, flux, state, aux, t, ts, direction)
 end
 
 function compute_gradient_argument!(

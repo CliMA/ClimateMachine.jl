@@ -19,6 +19,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
 ) end
 function compute_gradient_flux!(
@@ -162,9 +163,9 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
 )
-    ts = recover_thermo_state(atmos, state, aux)
     tend = Flux{FirstOrder}()
     args = (atmos, state, aux, t, ts, direction)
     flux.moisture.ρq_tot =
@@ -271,9 +272,9 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
 )
-    ts = recover_thermo_state(atmos, state, aux)
     tend = Flux{FirstOrder}()
     args = (atmos, state, aux, t, ts, direction)
     flux.moisture.ρq_tot =

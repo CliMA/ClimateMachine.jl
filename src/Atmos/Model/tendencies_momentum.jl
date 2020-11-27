@@ -1,5 +1,7 @@
 ##### Momentum tendencies
 
+using CLIMAParameters.Planet: Omega
+
 #####
 ##### First order fluxes
 #####
