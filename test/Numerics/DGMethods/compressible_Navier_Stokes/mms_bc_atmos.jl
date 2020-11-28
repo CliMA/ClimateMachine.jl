@@ -15,11 +15,15 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.Orientations
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VTK
+
+import ClimateMachine.Atmos: filter_source, atmos_source!
+import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -40,7 +44,6 @@ include("mms_solution_generated.jl")
 
 import ClimateMachine.Thermodynamics: total_specific_enthalpy
 using ClimateMachine.Atmos
-import ClimateMachine.Atmos: atmos_source!
 
 total_specific_enthalpy(ts::PhaseDry{FT}, e_tot::FT) where {FT <: Real} =
     zero(FT)
@@ -56,25 +59,58 @@ function mms2_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(2))
 end
 
-struct MMS2Source <: AbstractSource end
-function atmos_source!(
-    ::MMS2Source,
-    ::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+struct MMSSource{PV <: Union{Mass, Momentum, Energy}, N} <:
+       TendencyDef{Source, PV} end
+
+filter_source(pv::PV, m::AtmosModel, s::MMSSource{PV}) where {PV} = s
+atmos_source!(::MMSSource, args...) = nothing
+
+MMSSource(N::Int) =
+    (MMSSource{Mass, N}(), MMSSource{Momentum, N}(), MMSSource{Energy, N}())
+
+
+function source(
+    s::MMSSource{Mass, N},
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
-)
+    diffusive,
+) where {N}
     x1, x2, x3 = aux.coord
-    source.ρ = Sρ_g(t, x1, x2, x3, Val(2))
-    source.ρu = SVector(
-        SU_g(t, x1, x2, x3, Val(2)),
-        SV_g(t, x1, x2, x3, Val(2)),
-        SW_g(t, x1, x2, x3, Val(2)),
+    return Sρ_g(t, x1, x2, x3, Val(N))
+end
+function source(
+    s::MMSSource{Momentum, N},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+) where {N}
+    x1, x2, x3 = aux.coord
+    return SVector(
+        SU_g(t, x1, x2, x3, Val(N)),
+        SV_g(t, x1, x2, x3, Val(N)),
+        SW_g(t, x1, x2, x3, Val(N)),
     )
-    source.ρe = SE_g(t, x1, x2, x3, Val(2))
+end
+function source(
+    s::MMSSource{Energy, N},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+) where {N}
+    x1, x2, x3 = aux.coord
+    return SE_g(t, x1, x2, x3, Val(N))
 end
 
 function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
@@ -86,27 +122,6 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
         W_g(t, x1, x2, x3, Val(3)),
     )
     state.ρe = E_g(t, x1, x2, x3, Val(3))
-end
-
-struct MMS3Source <: AbstractSource end
-function atmos_source!(
-    ::MMS3Source,
-    ::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    x1, x2, x3 = aux.coord
-    source.ρ = Sρ_g(t, x1, x2, x3, Val(3))
-    source.ρu = SVector(
-        SU_g(t, x1, x2, x3, Val(3)),
-        SV_g(t, x1, x2, x3, Val(3)),
-        SW_g(t, x1, x2, x3, Val(3)),
-    )
-    source.ρe = SE_g(t, x1, x2, x3, Val(3))
 end
 
 # initial condition
@@ -137,7 +152,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 WithDivergence(),
             ),
             moisture = DryModel(),
-            source = (MMS2Source(),),
+            source = (MMSSource(2)...,),
         )
     else
         problem = AtmosProblem(
@@ -155,9 +170,10 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
                 WithDivergence(),
             ),
             moisture = DryModel(),
-            source = (MMS3Source(),),
+            source = (MMSSource(3)...,),
         )
     end
+    show_tendencies(model)
 
     dg = DGModel(
         model,
