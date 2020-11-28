@@ -68,7 +68,10 @@ function basic_grid_info(dg::DGModel)
     # Number of quadrature point in each direction (Nq₁, Nq₂, Nq₃)
     Nq = N .+ 1
 
-    # Number of quadrature points in the vertical
+    # Number of quadrature point in the horizontal direction Nq₁ * Nq₂
+    Nqh = Nq[1] * Nq[2]
+
+    # Number of quadrature points in the vertical Nq₃
     Nqk = dim == 2 ? 1 : Nq[dim]
 
     Np = dofs_per_element(grid)
@@ -85,6 +88,7 @@ function basic_grid_info(dg::DGModel)
         dim = dim,
         N = N,
         Nq = Nq,
+        Nqh = Nqh,
         Nqk = Nqk,
         Nfp_v = Nfp_v,
         Nfp_h = Nfp_h,

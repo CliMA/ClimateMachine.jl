@@ -45,7 +45,7 @@ end
 @inline function compute_flow_deviation!(dg, m::HBModel, ::Coupled, Q, t)
     FT = eltype(Q)
     info = basic_grid_info(dg)
-    Nq, Nqk = info.Nq, info.Nqk
+    Nqh, Nqk = info.Nqh, info.Nqk
     nelemv, nelemh = info.nvertelem, info.nhorzelem
     nrealelemh = info.nhorzrealelem
 
@@ -57,14 +57,14 @@ end
     ### properly shape MPIStateArrays
     num_int = number_states(integral, Auxiliary())
     data_int = model_int.state_auxiliary.data
-    data_int = reshape(data_int, Nq^2, Nqk, num_int, nelemv, nelemh)
+    data_int = reshape(data_int, Nqh, Nqk, num_int, nelemv, nelemh)
 
     num_aux = number_states(m, Auxiliary())
     data_aux = dg.state_auxiliary.data
-    data_aux = reshape(data_aux, Nq^2, Nqk, num_aux, nelemv, nelemh)
+    data_aux = reshape(data_aux, Nqh, Nqk, num_aux, nelemv, nelemh)
 
     num_state = number_states(m, Prognostic())
-    data_state = reshape(Q.data, Nq^2, Nqk, num_state, nelemv, nelemh)
+    data_state = reshape(Q.data, Nqh, Nqk, num_state, nelemv, nelemh)
 
     ### get vars indices
     index_∫u = varsindex(vars_state(integral, Auxiliary(), FT), :(∫x))

@@ -516,7 +516,7 @@ function update_auxiliary_state!(
     #----------
 
     info = basic_grid_info(dg)
-    Nq, Nqk = info.Nq, info.Nqk
+    Nqh, Nqk = info.Nqh, info.Nqk
     nelemv, nelemh = info.nvertelem, info.nhorzelem
     nrealelemh = info.nhorzrealelem
 
@@ -529,7 +529,7 @@ function update_auxiliary_state!(
     # return a SubArray, and adapt (used for broadcasting along reshaped arrays)
     # has a limited recursion depth for the types allowed.
     nb_aux_m = number_states(m, Auxiliary())
-    data_m = reshape(A.data, Nq^2, Nqk, nb_aux_m, nelemv, nelemh)
+    data_m = reshape(A.data, Nqh, Nqk, nb_aux_m, nelemv, nelemh)
 
     # project w(z=0) down the stack
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
@@ -548,7 +548,7 @@ function update_auxiliary_state!(
     nb_aux_flw = number_states(flowint, Auxiliary())
     data_flw = reshape(
         flowintegral_dg.state_auxiliary.data,
-        Nq^2,
+        Nqh,
         Nqk,
         nb_aux_flw,
         nelemv,
