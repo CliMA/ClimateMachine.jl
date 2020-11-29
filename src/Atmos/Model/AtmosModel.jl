@@ -569,8 +569,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...)
 
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
-    ν, D_t, τ =
-        sponge_viscosity_modifier(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
 
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)

@@ -28,7 +28,6 @@ function flux(
     hyperdiff,
 )
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    ν, D_t, τ = sponge_viscosity_modifier(m, m.viscoussponge, ν, D_t, τ, aux)
     return τ * state.ρu
 end
 
@@ -44,7 +43,6 @@ function flux(
     hyperdiff,
 )
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    ν, D_t, τ = sponge_viscosity_modifier(m, m.viscoussponge, ν, D_t, τ, aux)
     d_h_tot = -D_t .* diffusive.∇h_tot
     return d_h_tot * state.ρ
 end
