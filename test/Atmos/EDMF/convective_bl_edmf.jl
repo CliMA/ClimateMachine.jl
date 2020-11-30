@@ -10,7 +10,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 using ClimateMachine.Mesh.Filters: apply!
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
@@ -115,7 +115,6 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
                 up[i].ρaw     = FT(0)
             end
         end
-        validate_variables(bl, state, aux, "custom_filter!")
     end
 
 end
@@ -147,19 +146,14 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(3600*6)
-    CFLmax = FT(25)
+    timeend = FT(10)
+    # timeend = FT(3600*6)
+    CFLmax = FT(0.9)
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = SingleColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        # split_explicit_implicit = false,
-        discrete_splitting = false,
-        # discrete_splitting = true,
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
     )
 
     N_updrafts = 1
