@@ -15,7 +15,7 @@ using ClimateMachine.Thermodynamics
 using CLIMAParameters.Planet
 
 struct HeldSuarezProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
-    boundarycondition::BC
+    boundaryconditions::BC
     init_state_prognostic::ISP
     init_state_auxiliary::ISA
     perturbation::WP
@@ -40,7 +40,7 @@ function HeldSuarezProblem(;
     end
 
     problem = (
-        boundarycondition,
+        boundaryconditions,
         init_gcm_experiment!,
         (_...) -> nothing,
         perturbation,
@@ -52,4 +52,5 @@ end
 
 problem_name(::HeldSuarezProblem) = "HeldSuarez"
 
-setup_source(::HeldSuarezProblem) = (Gravity(), Coriolis(), HeldSuarezForcing())
+setup_source(::HeldSuarezProblem) =
+    (Gravity(), Coriolis(), HeldSuarezForcing()...)
