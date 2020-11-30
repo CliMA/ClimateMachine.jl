@@ -82,7 +82,8 @@ function atmos_init_aux!(
     ∇Φ = ∇gravitational_potential(atmos, aux)
 
     # density computation from pressure ρ = -1/g*dpdz
-    ρ = -k' * tmp.∇p / (k' * ∇Φ)
+    #ρ = -k' * tmp.∇p / (k' * ∇Φ)
+    ρ = p / (_R_d * T_virt)
     aux.ref_state.ρ = ρ
     RH = m.relative_humidity
     phase_type = PhaseEquil

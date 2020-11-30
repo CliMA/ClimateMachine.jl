@@ -114,15 +114,15 @@ function init_aux!(
         direction,
     )
 
-    continuous_field_gradient!(
-        m,
-        state_auxiliary,
-        ("orientation.∇Φ",),
-        state_auxiliary,
-        ("orientation.Φ",),
-        grid,
-        direction,
-    )
+    #continuous_field_gradient!(
+    #    m,
+    #    state_auxiliary,
+    #    ("orientation.∇Φ",),
+    #    state_auxiliary,
+    #    ("orientation.Φ",),
+    #    grid,
+    #    direction,
+    #)
 end
 
 #####
@@ -170,6 +170,7 @@ function orientation_nodal_init_aux!(
     _planet_radius::FT = planet_radius(param_set)
     normcoord = norm(geom.coord)
     aux.orientation.Φ = _grav * (normcoord - _planet_radius)
+    aux.orientation.∇Φ = _grav * geom.coord / normcoord
 end
 
 
@@ -254,6 +255,7 @@ function orientation_nodal_init_aux!(
     FT = eltype(aux)
     _grav::FT = grav(param_set)
     @inbounds aux.orientation.Φ = _grav * geom.coord[3]
+    aux.orientation.∇Φ = (0, 0, _grav)
 end
 
 end
