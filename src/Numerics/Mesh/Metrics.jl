@@ -227,9 +227,7 @@ arrays `sJ`, `n1`, `n2`, and `n3` should be of size `Nq^2 * nface * nelem` with
 The curl invariant formulation of Kopriva (2006), equation 37, is used.
 
 Reference:
-  Kopriva, David A. "Metric identities and the discontinuous spectral element
-  method on curvilinear meshes." Journal of Scientific Computing 26.3 (2006):
-  301-327. <https://doi.org/10.1007/s10915-005-9070-8>
+ - [Kopriva2006](@cite)
 """
 function computemetric!(
     x1,

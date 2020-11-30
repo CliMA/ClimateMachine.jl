@@ -757,17 +757,7 @@ This uses the second-order-accurate 3-stage additive Runge--Kutta scheme of
 Giraldo, Kelly and Constantinescu (2013).
 
 ### References
-    @article{giraldo2013implicit,
-      title={Implicit-explicit formulations of a three-dimensional
-             nonhydrostatic unified model of the atmosphere ({NUMA})},
-      author={Giraldo, Francis X and Kelly, James F and Constantinescu, Emil M},
-      journal={SIAM Journal on Scientific Computing},
-      volume={35},
-      number={5},
-      pages={B1162--B1194},
-      year={2013},
-      publisher={SIAM}
-    }
+ - [Giraldo2013](@cite)
 """
 function ARK2GiraldoKellyConstantinescu(
     F,
@@ -834,17 +824,7 @@ This uses the fifth-order-accurate 8-stage additive Runge--Kutta scheme of
 Kennedy and Carpenter (2013).
 
 ### References
-
-    @article{kennedy2019higher,
-      title={Higher-order additive Runge--Kutta schemes for ordinary
-             differential equations},
-      author={Kennedy, Christopher A and Carpenter, Mark H},
-      journal={Applied Numerical Mathematics},
-      volume={136},
-      pages={183--205},
-      year={2019},
-      publisher={Elsevier}
-    }
+ - [Kennedy2019](@cite)
 """
 function ARK548L2SA2KennedyCarpenter(
     F,
@@ -988,16 +968,7 @@ This uses the fourth-order-accurate 7-stage additive Runge--Kutta scheme of
 Kennedy and Carpenter (2013).
 
 ### References
-    @article{kennedy2019higher,
-      title={Higher-order additive Runge--Kutta schemes for ordinary
-             differential equations},
-      author={Kennedy, Christopher A and Carpenter, Mark H},
-      journal={Applied Numerical Mathematics},
-      volume={136},
-      pages={183--205},
-      year={2019},
-      publisher={Elsevier}
-    }
+ - [Kennedy2019](@cite)
 """
 function ARK437L2SA1KennedyCarpenter(
     F,

@@ -29,6 +29,7 @@ import ...BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,
@@ -38,7 +39,11 @@ import ...BalanceLaws:
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!
-import ..Ocean: ocean_init_state!, ocean_init_aux!, ocean_boundary_state!
+import ..Ocean:
+    ocean_init_state!,
+    ocean_init_aux!,
+    ocean_boundary_state!,
+    _ocean_boundary_state!
 
 ×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
 ⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
@@ -723,15 +728,16 @@ function update_auxiliary_state_gradient!(
     return true
 end
 
+boundary_conditions(ocean::HBModel) = ocean.problem.boundary_conditions
+
 """
     boundary_state!(nf, ::HBModel, args...)
 
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(nf, ocean::HBModel, args...)
-    boundary_conditions = ocean.problem.boundary_conditions
-    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
+@inline function boundary_state!(nf, bc, ocean::HBModel, args...)
+    return _ocean_boundary_state!(nf, bc, ocean, args...)
 end
 
 """

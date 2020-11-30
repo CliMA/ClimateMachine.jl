@@ -22,9 +22,6 @@ projection(::EveryDirection, ::SVector{3}) = I
 projection(::VerticalDirection, k::SVector{3}) = k * k'
 projection(::HorizontalDirection, k::SVector{3}) = I - k * k'
 
-struct Advection end
-struct Diffusion end
-
 struct TestProblem{adv, diff, dir, topo} <: AdvectionDiffusionProblem end
 
 initial_ρ(::Box, x) = prod(sin.(π * x))
@@ -51,8 +48,10 @@ function init_velocity_diffusion!(
 ) where {adv, diff, dir, topo}
     k = vertical_unit_vector(topo, geom.coord)
     P = projection(dir, k)
-    aux.u = !isnothing(adv) ? P * velocity(topo, geom.coord) : zeros(SVector{3})
-    aux.D = !isnothing(diff) ? SMatrix{3, 3}(P) / 200 : zeros(SMatrix{3, 3})
+    aux.advection.u =
+        !isnothing(adv) ? P * velocity(topo, geom.coord) : zeros(SVector{3})
+    aux.diffusion.D =
+        !isnothing(diff) ? SMatrix{3, 3}(P) / 200 : zeros(SMatrix{3, 3})
 end
 
 function initial_condition!(
@@ -117,7 +116,7 @@ function test_run(
         hp = TestProblem{adv, diff, HorizontalDirection(), topo()}(),
     )
 
-    models = map(AdvectionDiffusion{3, false}, problems)
+    models = map(AdvectionDiffusion{3}, problems)
 
     dgmodels = map(models) do m
         (

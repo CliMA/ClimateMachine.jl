@@ -161,7 +161,9 @@ function flux_first_order!(
 end
 flux_second_order!(::PressureGradientModel, _...) = nothing
 source!(::PressureGradientModel, _...) = nothing
-boundary_state!(nf, ::PressureGradientModel, _...) = nothing
+
+boundary_conditions(::PressureGradientModel) = ntuple(i -> nothing, 6)
+boundary_state!(nf, ::Nothing, ::PressureGradientModel, _...) = nothing
 
 ∇reference_pressure(::NoReferenceState, state_auxiliary, grid) = nothing
 function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)

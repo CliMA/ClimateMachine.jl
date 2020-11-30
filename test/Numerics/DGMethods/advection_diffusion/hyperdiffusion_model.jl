@@ -17,6 +17,7 @@ import ClimateMachine.BalanceLaws:
     compute_gradient_flux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
+    boundary_conditions,
     boundary_state!,
     wavespeed,
     transform_post_gradient_laplacian!
@@ -126,4 +127,5 @@ function init_state_prognostic!(
     initial_condition!(m.problem, state, aux, localgeo, t)
 end
 
+boundary_conditions(::HyperDiffusion) = ()
 boundary_state!(nf, ::HyperDiffusion, _...) = nothing

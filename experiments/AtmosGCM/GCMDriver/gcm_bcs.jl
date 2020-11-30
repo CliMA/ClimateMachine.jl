@@ -10,7 +10,7 @@ function parse_surface_flux_arg(
     moisture,
 ) where {FT}
     if arg === nothing || arg == "default"
-        boundarycondition = (AtmosBC(), AtmosBC())
+        boundaryconditions = (AtmosBC(), AtmosBC())
     elseif arg == "bulk"
         if !isa(moisture, EquilMoist)
             error("need a moisture model for surface-flux: bulk")
@@ -18,7 +18,7 @@ function parse_surface_flux_arg(
         _C_drag = C_drag(param_set)::FT
         bulk_flux = Varying_SST_TJ16(param_set, orientation, moisture) # GCM-specific function for T_sfc, q_sfc = f(latitude, height)
         #bulk_flux = (T_sfc, q_sfc) # prescribed constant T_sfc, q_sfc
-        boundarycondition = (
+        boundaryconditions = (
             AtmosBC(
                 energy = BulkFormulaEnergy(
                     (bl, state, aux, t, normPu_int) -> _C_drag,
@@ -38,7 +38,7 @@ function parse_surface_flux_arg(
         error("unknown surface flux: " * arg)
     end
 
-    return boundarycondition
+    return boundaryconditions
 end
 
 # Current options for GCM boundary conditions:

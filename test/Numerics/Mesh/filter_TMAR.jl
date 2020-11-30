@@ -1,17 +1,4 @@
-# This tutorial uses the TMAR Filter from
-#
-#    @article{doi:10.1175/MWR-D-16-0220.1,
-#      author = {Light, Devin and Durran, Dale},
-#      title = {Preserving Nonnegativity in Discontinuous Galerkin
-#               Approximations to Scalar Transport via Truncation and Mass
-#               Aware Rescaling (TMAR)},
-#      journal = {Monthly Weather Review},
-#      volume = {144},
-#      number = {12},
-#      pages = {4771-4786},
-#      year = {2016},
-#      doi = {10.1175/MWR-D-16-0220.1},
-#    }
+# This tutorial uses the TMAR Filter from [Light2016](@cite)
 #
 # to reproduce the tutorial in section 4b.  It is a shear swirling
 # flow deformation of a transported quantity from LeVeque 1996.  The exact
@@ -79,7 +66,7 @@ function update_velocity_diffusion!(
 
     u = 2 * sx^2 * sy * cy * ct
     v = -2 * sy^2 * sx * cx * ct
-    aux.u = SVector(u, v, 0)
+    aux.advection.u = SVector(u, v, 0)
 end;
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, model, testname)
@@ -131,12 +118,12 @@ function test_run(
         polynomialorder = N,
     )
 
-    model = AdvectionDiffusion{2, false, true}(problem)
+    model = AdvectionDiffusion{2}(problem, diffusion = false)
 
     dg = DGModel(
         model,
         grid,
-        UpwindNumericalFlux(),
+        RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )

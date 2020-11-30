@@ -98,7 +98,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t, spline_fun)
         state.ρq_rai = ρ * FT(0)
         state.ρq_sno = ρ * FT(0)
 
-        #https://journals.ametsoc.org/doi/pdf/10.1175/1520-0469%281998%29055%3C3283%3ATCRMOL%3E2.0.CO%3B2
+        # [Grabowski1998](@cite)
         # velocity (derivative of streamfunction)
         # This is actually different than what comes out from taking a
         # derivative of Ψ from the paper. I have sin(π/2/X(x-xc)).
@@ -308,13 +308,13 @@ end
 
 function boundary_state!(
     ::RusanovNumericalFlux,
+    bctype,
     m::KinematicModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )

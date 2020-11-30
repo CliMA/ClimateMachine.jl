@@ -33,18 +33,18 @@ function show_tendencies(bl; include_params = false)
     ip = include_params
     prog_vars = prognostic_vars(bl)
     if !isempty(prog_vars)
-        # TODO: add Flux{SecondOrder}
         header = [
-            "Equation" "Flux{FirstOrder}" "Source"
-            "(Y_i)" "(F_1)" "(S)"
+            "Equation" "Flux{FirstOrder}" "Flux{SecondOrder}" "Source"
+            "(Y_i)" "(F_1)" "(F_2)" "(S)"
         ]
         eqs = collect(string.(nameof.(typeof.(prog_vars))))
         fmt_tends(tt) = map(prog_vars) do pv
             format_tends(eq_tends(pv, bl, tt), ip)
         end |> collect
         F1 = fmt_tends(Flux{FirstOrder}())
+        F2 = fmt_tends(Flux{SecondOrder}())
         S = fmt_tends(Source())
-        data = hcat(eqs, F1, S)
+        data = hcat(eqs, F1, F2, S)
         @warn "This table is temporarily incomplete"
         println("\nPDE: ∂_t Y_i + (∇•F_1(Y))_i + (∇•F_2(Y,G)))_i = (S(Y,G))_i")
         pretty_table(

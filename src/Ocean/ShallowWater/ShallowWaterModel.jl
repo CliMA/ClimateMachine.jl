@@ -26,8 +26,13 @@ import ...BalanceLaws:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_conditions,
     boundary_state!
-import ..Ocean: ocean_init_state!, ocean_init_aux!, ocean_boundary_state!
+import ..Ocean:
+    ocean_init_state!,
+    ocean_init_aux!,
+    ocean_boundary_state!,
+    _ocean_boundary_state!
 
 using ...Mesh.Geometry: LocalGeometry
 
@@ -299,15 +304,16 @@ linear_drag!(::ConstantViscosity, _...) = nothing
     return nothing
 end
 
+boundary_conditions(shallow::SWModel) = shallow.problem.boundary_conditions
+
 """
     boundary_state!(nf, ::SWModel, args...)
 
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(nf, shallow::SWModel, args...)
-    boundary_conditions = shallow.problem.boundary_conditions
-    return ocean_boundary_state!(nf, boundary_conditions, shallow, args...)
+@inline function boundary_state!(nf, bc, shallow::SWModel, args...)
+    return _ocean_boundary_state!(nf, bc, shallow, args...)
 end
 
 """

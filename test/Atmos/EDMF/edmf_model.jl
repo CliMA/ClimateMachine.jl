@@ -325,11 +325,20 @@ end
 import ClimateMachine.TurbulenceConvection: turbconv_sources, turbconv_bcs
 
 """
-    EDMFBCs <: TurbConvBC
+    EDMFTopBC <: TurbConvBC
 
-Boundary conditions for EDMF.
+Boundary conditions for the top of the EDMF.
 """
-struct EDMFBCs <: TurbConvBC end
+struct EDMFTopBC <: TurbConvBC end
+
+"""
+    EDMFBottomBC <: TurbConvBC
+
+Boundary conditions for the bottom of the EDMF.
+"""
+struct EDMFBottomBC <: TurbConvBC end
+
+
 n_updrafts(m::EDMF{FT, N_up}) where {FT, N_up} = N_up
 n_updrafts(m::TurbulenceConvectionModel) = 0
 turbconv_filters(m::TurbulenceConvectionModel) = ()
@@ -341,4 +350,4 @@ turbconv_filters(m::EDMF) = (
 )
 n_quad_points(m::Environment{FT, N_quad}) where {FT, N_quad} = N_quad
 turbconv_sources(m::EDMF) = (TurbconvSource(),)
-turbconv_bcs(::EDMF) = EDMFBCs()
+turbconv_bcs(::EDMF) = (EDMFBottomBC(), EDMFTopBC())

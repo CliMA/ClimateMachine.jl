@@ -94,6 +94,7 @@ function SolverConfiguration(
     direction = get_direction(driver_config.config_type),
     timeend_dt_adjust = true,
     CFL_direction = get_direction(driver_config.config_type),
+    sim_time = Settings.sim_time,
     fixed_number_of_steps = Settings.fixed_number_of_steps,
     skip_update_aux = false,
 ) where {FT <: AbstractFloat}
@@ -213,6 +214,9 @@ function SolverConfiguration(
             t0,
             CFL_direction,
         )
+    end
+    if !isnan(sim_time)
+        timeend = sim_time
     end
     if fixed_number_of_steps < 0
         numberofsteps = convert(Int, cld(timeend - t0, ode_dt))

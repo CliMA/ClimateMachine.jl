@@ -14,10 +14,14 @@ end
         nor = Inf,
     )
 
-Create and return a `DiagnosticsGroup` containing a diagnostic for Atmos
-LES configurations that dumps the spectrum at the specified `interval`
-after the velocity fields have been interpolated, into NetCDF files
-prefixed by `out_prefix`.
+Create the "AtmosLESSpectra" `DiagnosticsGroup` which contains the following
+diagnostic variable:
+
+- spectrum: power spectrum from 3D velocity fields
+
+This variable is output with the `k` dimension (wave number) on an interpolated
+grid (`interpol` _must_ be specified) as well as a (unlimited) `time` dimension
+at the specified `interval`.
 """
 function setup_atmos_spectra_diagnostics(
     ::AtmosLESConfigType,
@@ -30,7 +34,7 @@ function setup_atmos_spectra_diagnostics(
     @assert !isnothing(interpol)
 
     return DiagnosticsGroup(
-        "SpectraLES",
+        "AtmosLESSpectra",
         Diagnostics.atmos_les_spectra_init,
         Diagnostics.atmos_les_spectra_fini,
         Diagnostics.atmos_les_spectra_collect,

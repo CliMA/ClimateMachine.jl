@@ -195,7 +195,7 @@ pfield = F(λ, η)             # Input variable on Gaussian grid Float64[nλ, n�
 
 # References
 - Ehrendorfer, M., Spectral Numerical Weather Prediction Models, Appendix B, Society for Industrial and Applied Mathematics, 2011
-- A. Wiin-Nielsen (1967) On the annual variation and spectral distribution of atmospheric energy, Tellus, 19:4, 540-559, DOI: 10.3402/tellusa.v19i4.9822
+- [Wiin1967](@cite)
 """
 function trans_grid_to_spherical!(
     mesh::SpectralSphericalMesh,

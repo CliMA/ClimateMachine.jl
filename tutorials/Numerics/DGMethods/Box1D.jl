@@ -35,7 +35,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    boundary_state!,
+    boundary_conditions,
     wavespeed
 
 ClimateMachine.init(; disable_gpu = true, log_level = "warn");
@@ -128,18 +128,7 @@ end
     d_h_tot,
 ) end
 
-function boundary_state!(
-    nf,
-    m::Box1D,
-    state⁺::Vars,
-    aux⁺::Vars,
-    n⁻,
-    state⁻::Vars,
-    aux⁻::Vars,
-    bctype,
-    t,
-    _...,
-) end;
+boundary_condtions(m::Box1D) = ()
 
 function run_box1D(
     N_poly::Int,

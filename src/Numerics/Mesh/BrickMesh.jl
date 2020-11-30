@@ -35,7 +35,7 @@ where the 15-bit Hilbert integer = `A B C D E F G H I J K L M N O` is stored
 in `H`
 
 This function is based on public domain code from John Skilling which can be
-found in <https://doi.org/10.1063/1.1751381>.
+found in [Skilling2004](@cite).
 """
 function hilbertcode(Y::AbstractArray{T}; bits = 8 * sizeof(T)) where {T}
     # Below is Skilling's AxestoTranspose
@@ -382,7 +382,11 @@ function parallelsortcolumns(
     npivots = clamp(n, 0, csize)
     pivots = T[A[i, div(n * p, npivots) + 1] for i in 1:m, p in 0:(npivots - 1)]
     pivotcounts = MPI.Allgather(Cint(length(pivots)), comm)
-    pivots = MPI.Allgatherv(pivots, pivotcounts, comm)
+    pivots = MPI.Allgatherv!(
+        pivots,
+        VBuffer(similar(pivots, sum(pivotcounts)), pivotcounts),
+        comm,
+    )
     pivots = reshape(pivots, m, div(length(pivots), m))
     pivots =
         sortslices(pivots, dims = 2, alg = alg, lt = lt, by = by, rev = rev)
@@ -398,30 +402,25 @@ function parallelsortcolumns(
     ]
 
     cols = map(i -> view(A, :, i), 1:n)
-    sendstarts = [
-        (i <= csize) ?
+    senddispls = Cint[
         (
             searchsortedfirst(cols, pivots[:, i], lt = lt, by = by, rev = rev) - 1
-        ) * m + 1 :
-        n * m + 1 for i in 1:(csize + 1)
+        ) * m for i in 1:csize
     ]
-    sendcounts = [Cint(sendstarts[i + 1] - sendstarts[i]) for i in 1:csize]
+    sendcounts = Cint[
+        (i == csize ? n * m : senddispls[i + 1]) - senddispls[i]
+        for i in 1:csize
+    ]
 
-    B = []
-    for r in 0:(csize - 1)
-        counts = MPI.Allgather(sendcounts[r + 1], comm)
-        c = MPI.Gatherv(
-            view(A, sendstarts[r + 1]:(sendstarts[r + 2] - 1)),
-            counts,
-            r,
-            comm,
-        )
-        if r == crank
-            B = c
-        end
-    end
+    recvcounts = similar(sendcounts)
+    MPI.Alltoall!(UBuffer(sendcounts, 1), MPI.UBuffer(recvcounts, 1), comm)
+    B = similar(A, sum(recvcounts))
+    MPI.Alltoallv!(
+        VBuffer(A, sendcounts, senddispls),
+        VBuffer(B, recvcounts),
+        comm,
+    )
     B = reshape(B, m, div(length(B), m))
-
     sortslices(B, dims = 2, alg = alg, lt = lt, by = by, rev = rev)
 end
 
@@ -489,25 +488,12 @@ function getpartition(comm::MPI.Comm, elemtocode::AbstractMatrix)
     for i in 1:last(size(A))
         sendcounts[A[ncode + 2, i] + 1] += m
     end
-    sendstarts = ones(Int, csize + 1)
-    for i in 1:csize
-        sendstarts[i + 1] = sendcounts[i] + sendstarts[i]
-    end
 
     # communicate columns of A to original rank
-    B = []
-    for r in 0:(csize - 1)
-        rcounts = MPI.Allgather(sendcounts[r + 1], comm)
-        c = MPI.Gatherv(
-            view(A, sendstarts[r + 1]:(sendstarts[r + 2] - 1)),
-            rcounts,
-            r,
-            comm,
-        )
-        if r == crank
-            B = c
-        end
-    end
+    recvcounts = similar(sendcounts)
+    MPI.Alltoall!(UBuffer(sendcounts, 1), UBuffer(recvcounts, 1), comm)
+    B = similar(A, sum(recvcounts))
+    MPI.Alltoallv!(VBuffer(A, sendcounts), VBuffer(B, recvcounts), comm)
     B = reshape(B, m, div(length(B), m))
 
     # check to make sure we didn't drop any elements
@@ -524,13 +510,8 @@ function getpartition(comm::MPI.Comm, elemtocode::AbstractMatrix)
 
     partsendorder = Int.(B[ncode + 1, :])
 
-    partrecvcounts = Cint[]
-    for r in 0:(csize - 1)
-        c = MPI.Gather(partsendcounts[r + 1], r, comm)
-        if r == crank
-            partrecvcounts = c
-        end
-    end
+    partrecvcounts = similar(partsendcounts)
+    MPI.Alltoall!(UBuffer(partsendcounts, 1), UBuffer(partrecvcounts, 1), comm)
 
     partrecvstarts = ones(Int, csize + 1)
     for i in 1:csize
@@ -585,56 +566,49 @@ function partition(
         globord = globord[sendorder]
     end
 
-    newelemtovert = []
-    newelemtocoord = []
-    newelemtobndy = []
-    newelemtofaceconnect = []
-    newglobord = []
-    for r in 0:(csize - 1)
-        sendrange = sendstarts[r + 1]:(sendstarts[r + 2] - 1)
-        rcounts = MPI.Allgather(Cint(length(sendrange)), comm)
 
-        netv = MPI.Gatherv(
-            view(elemtovert, :, sendrange),
-            rcounts .* Cint(nvert),
-            r,
+    sendcounts = diff(sendstarts)
+    recvcounts = similar(sendcounts)
+    MPI.Alltoall!(UBuffer(sendcounts, 1), UBuffer(recvcounts, 1), comm)
+
+    newelemtovert = similar(elemtovert, nvert * sum(recvcounts))
+    MPI.Alltoallv!(
+        VBuffer(elemtovert, Cint(nvert) .* sendcounts),
+        VBuffer(newelemtovert, Cint(nvert) .* recvcounts),
+        comm,
+    )
+
+    newelemtocoord = similar(elemtocoord, d * nvert * sum(recvcounts))
+    MPI.Alltoallv!(
+        VBuffer(elemtocoord, Cint(d * nvert) .* sendcounts),
+        VBuffer(newelemtocoord, Cint(d * nvert) .* recvcounts),
+        comm,
+    )
+
+    newelemtobndy = similar(elemtobndy, nface * sum(recvcounts))
+    MPI.Alltoallv!(
+        VBuffer(elemtobndy, Cint(nface) .* sendcounts),
+        VBuffer(newelemtobndy, Cint(nface) .* recvcounts),
+        comm,
+    )
+
+    newelemtofaceconnect =
+        similar(elemtofaceconnect, nfacevert * nface * sum(recvcounts))
+    MPI.Alltoallv!(
+        VBuffer(elemtofaceconnect, Cint(nfacevert * nface) .* sendcounts),
+        VBuffer(newelemtofaceconnect, Cint(nfacevert * nface) .* recvcounts),
+        comm,
+    )
+
+    if !isempty(globord)
+        newglobord = similar(globord, sum(recvcounts))
+        MPI.Alltoallv!(
+            VBuffer(globord, sendcounts),
+            VBuffer(newglobord, recvcounts),
             comm,
         )
-
-        netc = MPI.Gatherv(
-            view(elemtocoord, :, :, sendrange),
-            rcounts .* Cint(d * nvert),
-            r,
-            comm,
-        )
-
-        netb = MPI.Gatherv(
-            view(elemtobndy, :, sendrange),
-            rcounts .* Cint(nface),
-            r,
-            comm,
-        )
-
-        netfc = MPI.Gatherv(
-            view(elemtofaceconnect, :, :, sendrange),
-            rcounts .* Cint(nfacevert * nface),
-            r,
-            comm,
-        )
-
-        if !isempty(globord)
-            netglobord = MPI.Gatherv(view(globord, sendrange), rcounts, r, comm)
-        end
-
-        if r == crank
-            newelemtovert = netv
-            newelemtocoord = netc
-            newelemtobndy = netb
-            newelemtofaceconnect = netfc
-            if !isempty(globord)
-                newglobord = netglobord
-            end
-        end
+    else
+        newglobord = similar(globord)
     end
 
     newnelem = recvstarts[end] - 1
@@ -938,19 +912,11 @@ function connectmesh(
     end
 
     # communicate columns of A to original rank
-    B = []
-    for r in 0:(csize - 1)
-        rcounts = MPI.Allgather(sendcounts[r + 1], comm)
-        c = MPI.Gatherv(
-            view(A, sendstarts[r + 1]:(sendstarts[r + 2] - 1)),
-            rcounts,
-            r,
-            comm,
-        )
-        if r == crank
-            B = c
-        end
-    end
+    recvcounts = similar(sendcounts)
+    MPI.Alltoall!(UBuffer(sendcounts, 1), UBuffer(recvcounts, 1), comm)
+
+    B = similar(A, sum(recvcounts))
+    MPI.Alltoallv!(VBuffer(A, sendcounts), VBuffer(B, recvcounts), comm)
     B = reshape(B, m, nface * nelem)
 
     # get element sending information

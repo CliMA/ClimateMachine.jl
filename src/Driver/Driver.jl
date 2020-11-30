@@ -75,6 +75,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     debug_init::Bool = false
     integration_testing::Bool = false
     array_type::Type = Array
+    sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
 end
 
@@ -200,7 +201,7 @@ function parse_commandline(
         arg_type = String
         default = get_setting(:vtk, defaults, global_defaults)
         "--vtk-number-sample-points"
-        help = "The number of sampling points in each element for VTK output"
+        help = "number of sampling points in each element for VTK output"
         metavar = "<number>"
         arg_type = Int
         default =
@@ -276,6 +277,11 @@ function parse_commandline(
         action = :store_const
         constant = true
         default = get_setting(:integration_testing, defaults, global_defaults)
+        "--sim-time"
+        help = "run for the specified time (in simulation seconds)"
+        metavar = "<number>"
+        arg_type = Float64
+        default = get_setting(:sim_time, defaults, global_defaults)
         "--fixed-number-of-steps"
         help = "if `≥0` perform specified number of steps"
         metavar = "<number>"
@@ -322,19 +328,19 @@ Recognized keyword arguments are:
 - `diagnostics::String = "never"`:
         interval at which to collect diagnostics"
 - `vtk::String = "never"`:
-        inteverval at which to write simulation vtk output
+        interval at which to write simulation vtk output
 - `vtk-number-sample-points::Int` = 0:
         the number of sampling points in each element for VTK output
 - `monitor_timestep_duration::String = "never"`:
         interval in time-steps at which to output wall-clock time per time-step
 - `monitor_courant_numbers::String = "never"`:
-        interval at which to output acoustic, advective, and diffusive Courant numbers"
+        interval at which to output acoustic, advective, and diffusive Courant numbers
 - `checkpoint::String = "never"`:
-        interval at which to output a checkpoint
+        interval at which to write a checkpoint
 - `checkpoint_keep_one::Bool = true`: (interval)
         keep all checkpoints (instead of just the most recent)"
 - `checkpoint_at_end::Bool = false`:
-        create a checkpoint at the end of the simulation"
+        create a checkpoint at the end of the simulation
 - `checkpoint_dir::String = "checkpoint"`:
         absolute or relative path to checkpoint directory
 - `restart_from_num::Int = -1`:
@@ -351,6 +357,10 @@ Recognized keyword arguments are:
         fill state arrays with NaNs and dump them post-initialization
 - `integration_testing::Bool = false`:
         enable integration_testing
+- `sim_time::Float64 = NaN`:
+        run for the specified time (in simulation seconds)
+- `fixed_number_of_steps::Int = -1`:
+        if `≥0` perform specified number of steps
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
 arguments.

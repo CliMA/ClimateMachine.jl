@@ -515,6 +515,8 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 ) where {FT}
     # Aliases:
     gm = state
@@ -672,14 +674,13 @@ end;
 # First order boundary conditions
 function turbconv_boundary_state!(
     nf,
-    bc::EDMFBCs,
+    bc::EDMFBottomBC,
     m::AtmosModel{FT},
     state⁺::Vars,
     aux⁺::Vars,
     n⁻,
     state⁻::Vars,
     aux⁻::Vars,
-    bctype,
     t,
     state_int::Vars,
     aux_int::Vars,
@@ -691,42 +692,51 @@ function turbconv_boundary_state!(
     en = state⁺.turbconv.environment
     gm = state⁺
     gm_a = aux⁺
-    if bctype == 1 # bottom
-        zLL = altitude(m, aux_int)
-        a_up_surf,
-        θ_liq_up_surf,
-        q_tot_up_surf,
-        θ_liq_cv,
-        q_tot_cv,
-        θ_liq_q_tot_cv,
-        tke = subdomain_surface_values(
-            turbconv.surface,
-            turbconv,
-            m,
-            gm,
-            gm_a,
-            zLL,
-        )
 
-        @unroll_map(N_up) do i
-            up[i].ρaw = FT(0)
-            up[i].ρa = a_up_surf[i] * gm.ρ
-            up[i].ρaθ_liq = up[i].ρa * θ_liq_up_surf[i]
-            up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
-        end
-        a_en = environment_area(gm, gm_a, N_up)
-        en.ρatke = gm.ρ * a_en * tke
-        en.ρaθ_liq_cv = gm.ρ * a_en * θ_liq_cv
-        en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
-        en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
+    zLL = altitude(m, aux_int)
+    a_up_surf,
+    θ_liq_up_surf,
+    q_tot_up_surf,
+    θ_liq_cv,
+    q_tot_cv,
+    θ_liq_q_tot_cv,
+    tke = subdomain_surface_values(turbconv.surface, turbconv, m, gm, gm_a, zLL)
+
+    @unroll_map(N_up) do i
+        up[i].ρaw = FT(0)
+        up[i].ρa = a_up_surf[i] * gm.ρ
+        up[i].ρaθ_liq = up[i].ρa * θ_liq_up_surf[i]
+        up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
     end
     validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
+    a_en = environment_area(gm, gm_a, N_up)
+    en.ρatke = gm.ρ * a_en * tke
+    en.ρaθ_liq_cv = gm.ρ * a_en * θ_liq_cv
+    en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
+    en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
 end;
+function turbconv_boundary_state!(
+    nf,
+    bc::EDMFTopBC,
+    m::AtmosModel{FT},
+    state⁺::Vars,
+    aux⁺::Vars,
+    n⁻,
+    state⁻::Vars,
+    aux⁻::Vars,
+    t,
+    state_int::Vars,
+    aux_int::Vars,
+) where {FT}
+    nothing
+>>>>>>> master
+end;
+
 
 # The boundary conditions for second-order unknowns
 function turbconv_normal_boundary_flux_second_order!(
     nf,
-    bc::EDMFBCs,
+    bc::EDMFBottomBC,
     m::AtmosModel{FT},
     fluxᵀn::Vars,
     n⁻,
@@ -738,24 +748,41 @@ function turbconv_normal_boundary_flux_second_order!(
     diff⁺::Vars,
     hyperdiff⁺::Vars,
     aux⁺::Vars,
-    bctype,
+    t,
+    _...,
+) where {FT}
+    nothing
+end;
+function turbconv_normal_boundary_flux_second_order!(
+    nf,
+    bc::EDMFTopBC,
+    m::AtmosModel{FT},
+    fluxᵀn::Vars,
+    n⁻,
+    state⁻::Vars,
+    diff⁻::Vars,
+    hyperdiff⁻::Vars,
+    aux⁻::Vars,
+    state⁺::Vars,
+    diff⁺::Vars,
+    hyperdiff⁺::Vars,
+    aux⁺::Vars,
     t,
     _...,
 ) where {FT}
     turbconv = m.turbconv
-    N = n_updrafts(turbconv)
+    N_up = n_updrafts(turbconv)
     up_flx = fluxᵀn.turbconv.updraft
     en_flx = fluxᵀn.turbconv.environment
-    if bctype == 2 # top
-        @unroll_map(N_up) do i
-            up_flx[i].ρaw = -n⁻ * FT(0)
-            up_flx[i].ρa = -n⁻ * FT(0)
-            up_flx[i].ρaθ_liq = -n⁻ * FT(0)
-            up_flx[i].ρaq_tot = -n⁻ * FT(0)
-        end
-        en_flx.∇tke = -n⁻ * FT(0)
-        en_flx.∇e_int_cv = -n⁻ * FT(0)
-        en_flx.∇q_tot_cv = -n⁻ * FT(0)
-        en_flx.∇e_int_q_tot_cv = -n⁻ * FT(0)
-    end
+    # @unroll_map(N_up) do i
+    #     up_flx[i].ρaw = -n⁻ * FT(0)
+    #     up_flx[i].ρa = -n⁻ * FT(0)
+    #     up_flx[i].ρaθ_liq = -n⁻ * FT(0)
+    #     up_flx[i].ρaq_tot = -n⁻ * FT(0)
+    # end
+    # en_flx.∇tke = -n⁻ * FT(0)
+    # en_flx.∇e_int_cv = -n⁻ * FT(0)
+    # en_flx.∇q_tot_cv = -n⁻ * FT(0)
+    # en_flx.∇e_int_q_tot_cv = -n⁻ * FT(0)
+
 end;

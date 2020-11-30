@@ -17,10 +17,17 @@ function main()
     (d, nelem) = size(code)
 
     root = 0
-    counts = MPI.Allgather(Cint(length(code)), comm)
-    code_all = MPI.Gatherv(code, counts, root, comm)
+    counts = MPI.Gather(Cint(length(code)), 0, comm)
+    code_all = MPI.Gatherv!(
+        code,
+        MPI.Comm_rank(comm) == root ?
+        VBuffer(similar(code, sum(counts)), counts) : nothing,
+        root,
+        comm,
+    )
 
     if MPI.Comm_rank(comm) == root
+
         code_all = reshape(code_all, d, div(sum(counts), d))
 
         code_expect = UInt64[

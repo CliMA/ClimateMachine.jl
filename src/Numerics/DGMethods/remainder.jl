@@ -12,6 +12,7 @@ import ..BalanceLaws:
     source!,
     transform_post_gradient_laplacian!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     update_auxiliary_state!,
     integral_load_auxiliary_state!,
@@ -193,8 +194,11 @@ compute_gradient_argument!(rem_balance_law::RemBL, args...) =
 compute_gradient_flux!(rem_balance_law::RemBL, args...) =
     compute_gradient_flux!(rem_balance_law.main, args...)
 
-boundary_state!(nf, rem_balance_law::RemBL, args...) =
-    boundary_state!(nf, rem_balance_law.main, args...)
+boundary_conditions(rem_balance_law::RemBL) =
+    boundary_conditions(rem_balance_law.main)
+
+boundary_state!(nf, bc, rem_balance_law::RemBL, args...) =
+    boundary_state!(nf, bc, rem_balance_law.main, args...)
 
 init_state_auxiliary!(rem_balance_law::RemBL, args...) =
     init_state_auxiliary!(rem_balance_law.main, args...)
@@ -508,6 +512,7 @@ end
             NumericalFluxFirstOrder,
             NTuple{NumSubFluxes, NumericalFluxFirstOrder},
         },
+        bc,
         rem_balance_law::RemBL,
         fluxᵀn::Vars{S},
         normal_vector::SVector,
@@ -515,7 +520,6 @@ end
         state_auxiliary⁻::Vars{A},
         state_prognostic⁺::Vars{S},
         state_auxiliary⁺::Vars{A},
-        bctype,
         t,
         directions,
         args...,
@@ -534,6 +538,7 @@ function numerical_boundary_flux_first_order!(
         NumericalFluxFirstOrder,
         NTuple{NumSubFluxes, NumericalFluxFirstOrder},
     },
+    bc,
     rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     normal_vector::SVector,
@@ -541,7 +546,6 @@ function numerical_boundary_flux_first_order!(
     state_auxiliary⁻::Vars{A},
     state_prognostic⁺::Vars{S},
     state_auxiliary⁺::Vars{A},
-    bctype,
     t,
     ::Dirs,
     state_prognostic1⁻::Vars{S},
@@ -560,6 +564,7 @@ function numerical_boundary_flux_first_order!(
     if rem_balance_law.maindir isa Union{Dirs.types...}
         @inbounds numerical_boundary_flux_first_order!(
             numerical_fluxes[1],
+            bc,
             rem_balance_law.main,
             fluxᵀn,
             normal_vector,
@@ -567,7 +572,6 @@ function numerical_boundary_flux_first_order!(
             state_auxiliary⁻,
             state_prognostic⁺,
             state_auxiliary⁺,
-            bctype,
             t,
             (rem_balance_law.maindir,),
             state_prognostic1⁻,
@@ -608,6 +612,7 @@ function numerical_boundary_flux_first_order!(
             fill!(a_sub_fluxᵀn, -zero(eltype(a_sub_fluxᵀn)))
             numerical_boundary_flux_first_order!(
                 nf,
+                bc,
                 sub,
                 Vars{vars_state(sub, Prognostic(), FT)}(a_sub_fluxᵀn),
                 normal_vector,
@@ -619,7 +624,6 @@ function numerical_boundary_flux_first_order!(
                     a_sub_state_prognostic⁺,
                 ),
                 state_auxiliary⁺,
-                bctype,
                 t,
                 (rem_balance_law.subsdir[k],),
                 Vars{vars_state(sub, Prognostic(), FT)}(
@@ -642,11 +646,13 @@ subcomponents models have second order terms this would need to be updated.
 """
 normal_boundary_flux_second_order!(
     nf,
+    bc,
     rem_balance_law::RemBL,
     fluxᵀn::Vars{S},
     args...,
 ) where {S} = normal_boundary_flux_second_order!(
     nf,
+    bc,
     rem_balance_law.main,
     fluxᵀn,
     args...,

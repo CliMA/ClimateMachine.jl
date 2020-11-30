@@ -4,7 +4,8 @@ using DocStringExtensions
 using LinearAlgebra, StaticArrays
 
 using CLIMAParameters
-using CLIMAParameters.Planet: ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0
+using CLIMAParameters.Planet:
+    ρ_cloud_liq, ρ_cloud_ice, cp_l, cp_i, T_0, LH_f0, T_freeze, grav
 
 using ..VariableTemplates
 using ..MPIStateArrays
@@ -15,6 +16,7 @@ import ..BalanceLaws:
     flux_first_order!,
     flux_second_order!,
     source!,
+    boundary_conditions,
     boundary_state!,
     compute_gradient_argument!,
     compute_gradient_flux!,
@@ -61,7 +63,7 @@ end
         init_state_prognostic::IS = nothing
     ) where {SRC, IS}
 
-Constructor for the LandModel structure. 
+Constructor for the LandModel structure.
 """
 function LandModel(
     param_set::AbstractParameterSet,

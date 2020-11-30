@@ -29,18 +29,7 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("advection_diffusion_model.jl")
 
-# This is a setup similar to the one presented in:
-# @article{WILLIAMSON1992211,
-#   title = {A standard test set for numerical approximations to the
-#            shallow water equations in spherical geometry},
-#   journal = {Journal of Computational Physics},
-#   volume = {102},
-#   number = {1},
-#   pages = {211 - 224},
-#   year = {1992},
-#   doi = {10.1016/S0021-9991(05)80016-6},
-#   url = {https://doi.org/10.1016/S0021-9991(05)80016-6},
-# }
+# This is a setup similar to the one presented in [Williamson1992](@cite)
 struct SolidBodyRotation <: AdvectionDiffusionProblem end
 function init_velocity_diffusion!(
     ::SolidBodyRotation,
@@ -54,7 +43,7 @@ function init_velocity_diffusion!(
 
     uλ = 2 * FT(π) * cos(φ) * r
     uφ = 0
-    aux.u = SVector(
+    aux.advection.u = SVector(
         -uλ * sin(λ) - uφ * cos(λ) * sin(φ),
         +uλ * cos(λ) - uφ * sin(λ) * sin(φ),
         +uφ * cos(φ),
@@ -68,20 +57,7 @@ end
 finaltime(::SolidBodyRotation) = 1
 u_scale(::SolidBodyRotation) = 2π
 
-# This is a setup similar to the one presented in:
-# @Article{gmd-5-887-2012,
-# AUTHOR = {Lauritzen, P. H. and Skamarock, W. C. and Prather, M. J.
-#           and Taylor, M. A.},
-# TITLE = {A standard test case suite for two-dimensional linear
-#          transport on the sphere},
-# JOURNAL = {Geoscientific Model Development},
-# VOLUME = {5},
-# YEAR = {2012},
-# NUMBER = {3},
-# PAGES = {887--901},
-# URL = {https://www.geosci-model-dev.net/5/887/2012/},
-# DOI = {10.5194/gmd-5-887-2012}
-# }
+# This is a setup similar to the one presented in [Lauritzen2012](@cite)
 struct ReversingDeformationalFlow <: AdvectionDiffusionProblem end
 init_velocity_diffusion!(
     ::ReversingDeformationalFlow,
@@ -119,7 +95,7 @@ function update_velocity_diffusion!(
         10 * r / T * sin(λp)^2 * sin(2φ) * cos(FT(π) * t / T) +
         FT(2π) * r / T * cos(φ)
     uφ = 10 * r / T * sin(2λp) * cos(φ) * cos(FT(π) * t / T)
-    aux.u = SVector(
+    aux.advection.u = SVector(
         -uλ * sin(λ) - uφ * cos(λ) * sin(φ),
         +uλ * cos(λ) - uφ * sin(λ) * sin(φ),
         +uφ * cos(φ),
@@ -137,22 +113,22 @@ function advective_courant(
     Δt,
     direction,
 )
-    return Δt * norm(aux.u) / Δx
+    return Δt * norm(aux.advection.u) / Δx
 end
 
 function boundary_state!(
     ::RusanovNumericalFlux,
+    bctype,
     ::AdvectionDiffusion,
     stateP::Vars,
     auxP::Vars,
     nM,
     stateM::Vars,
     auxM::Vars,
-    bctype,
     t,
     _...,
 )
-    auxP.u = -auxM.u
+    auxP.advection.u = -auxM.advection.u
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dg, Q, Qe, model, testname)
@@ -216,7 +192,7 @@ function test_run(
     dt = FT(cfl * dx / u_scale(problem()))
     dt = outputtime / ceil(Int64, outputtime / dt)
 
-    model = AdvectionDiffusion{3, false, true}(problem())
+    model = AdvectionDiffusion{3}(problem(), diffusion = false)
     dg = DGModel(
         model,
         grid,

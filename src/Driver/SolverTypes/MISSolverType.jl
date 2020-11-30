@@ -44,16 +44,7 @@ fast and slow dynamics respectively, depending on the state `Q`.
     Default: `false`
 
 ### References
-    @article{KnothWensch2014,
-        title={Generalized split-explicit Runge--Kutta methods for
-            the compressible Euler equations},
-        author={Knoth, Oswald and Wensch, Joerg},
-        journal={Monthly Weather Review},
-        volume={142},
-        number={5},
-        pages={2067--2081},
-        year={2014}
-    }
+ - [KnothWensch2014](@cite)
 """
 struct MISSolverType{DS} <: AbstractSolverType
     # The type of discrete splitting to apply to the right-hand side

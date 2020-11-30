@@ -22,18 +22,7 @@ solvers. This is based on
 Currently only the low storage RK methods can be used as slow solvers
 
 ### References
-
-    @article{SchlegelKnothArnoldWolke2012,
-      title={Implementation of multirate time integration methods for air
-             pollution modelling},
-      author={Schlegel, M and Knoth, O and Arnold, M and Wolke, R},
-      journal={Geoscientific Model Development},
-      volume={5},
-      number={6},
-      pages={1395--1405},
-      year={2012},
-      publisher={Copernicus GmbH}
-    }
+ - [Schlegel2012](@cite)
 """
 mutable struct MultirateRungeKutta{SS, FS, RT} <: AbstractODESolver
     "slow solver"

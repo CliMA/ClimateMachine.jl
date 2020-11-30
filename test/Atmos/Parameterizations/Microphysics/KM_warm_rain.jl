@@ -165,13 +165,13 @@ end
 
 function boundary_state!(
     ::RusanovNumericalFlux,
+    bctype,
     m::KinematicModel,
     state⁺,
     aux⁺,
     n,
     state⁻,
     aux⁻,
-    bctype,
     t,
     args...,
 )

@@ -137,9 +137,9 @@ where `s` is the filter order (must be even), the filter starts with
 polynomial order `Nc`, and `alpha` is a parameter controlling the smallest
 value of the filter function.
 """
-struct ExponentialFilter <: AbstractSpectralFilter
-    "filter matrix"
-    filter::Any
+struct ExponentialFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
 
     function ExponentialFilter(
         grid,
@@ -147,21 +147,32 @@ struct ExponentialFilter <: AbstractSpectralFilter
         s = 32,
         α = -log(eps(eltype(grid))),
     )
-        AT = arraytype(grid)
-        # XXX: Needs updating for multiple polynomial orders
-        N = polynomialorders(grid)
-        # Currently only support single polynomial order
-        @assert all(N[1] .== N)
-        N = N[1]
-        ξ = referencepoints(grid)[1]
+        dim = dimensionality(grid)
 
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
+        # Tuple of polynomial degrees (N₁, N₂, N₃)
+        N = polynomialorders(grid)
+        # In 2D, we assume same polynomial order in the horizontal
+        @assert dim == 2 || N[1] == N[2]
         @assert iseven(s)
-        @assert 0 <= Nc <= N
+        @assert all(0 .<= Nc .<= N)
 
         σ(η) = exp(-α * η^s)
-        filter = spectral_filter_matrix(ξ, Nc, σ)
 
-        new(AT(filter))
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
     end
 end
 
@@ -183,39 +194,43 @@ the filter starts with polynomial order `Nc`, and `alpha` is a parameter
 controlling the smallest value of the filter function.
 
 ### References
-
-    @inproceedings{boyd1996erfc,
-    title={The erfc-log filter and the asymptotics of the Euler and Vandeven sequence accelerations},
-    author={Boyd, JP},
-    booktitle={Proceedings of the Third International Conference on Spectral and High Order Methods},
-    pages={267--276},
-    year={1996},
-    organization={Houston Math. J}
-    }
+ - [Boyd1996](@cite)
 """
-struct BoydVandevenFilter <: AbstractSpectralFilter
-    "filter matrix"
-    filter::Any
+struct BoydVandevenFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
 
     function BoydVandevenFilter(grid, Nc = 0, s = 32)
-        AT = arraytype(grid)
-        # XXX: Needs updating for multiple polynomial orders
-        N = polynomialorders(grid)
-        # Currently only support single polynomial order
-        @assert all(N[1] .== N)
-        N = N[1]
-        ξ = referencepoints(grid)[1]
+        dim = dimensionality(grid)
 
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
+        # Tuple of polynomial degrees (N₁, N₂, N₃)
+        N = polynomialorders(grid)
+        # In 2D, we assume same polynomial order in the horizontal
+        @assert dim == 2 || N[1] == N[2]
         @assert iseven(s)
-        @assert 0 <= Nc <= N
+        @assert all(0 .<= Nc .<= N)
+
         function σ(η)
             a = 2 * abs(η) - 1
             χ = iszero(a) ? one(a) : sqrt(-log1p(-a^2) / a^2)
             return erfc(sqrt(s) * χ * a) / 2
         end
-        filter = spectral_filter_matrix(ξ, Nc, σ)
 
-        new(AT(filter))
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
     end
 end
 
@@ -225,22 +240,36 @@ end
 Returns the spectral filter that zeros out polynomial modes greater than or
 equal to `Nc`.
 """
-struct CutoffFilter <: AbstractSpectralFilter
-    "filter matrix"
-    filter::Any
+struct CutoffFilter{FM} <: AbstractSpectralFilter
+    "filter matrices in all directions (tuple of filter matrices)"
+    filter_matrices::FM
 
     function CutoffFilter(grid, Nc = polynomialorders(grid))
-        # XXX: Needs updating for multiple polynomial orders
-        # Currently only support single polynomial order
-        @assert all(Nc[1] .== Nc)
-        Nc = Nc[1]
-        AT = arraytype(grid)
-        ξ = referencepoints(grid)[1]
+        dim = dimensionality(grid)
+
+        # Support different filtering thresholds in different
+        # directions (default behavior is to apply the same threshold
+        # uniformly in all directions)
+        if Nc isa Integer
+            Nc = ntuple(i -> Nc, dim)
+        elseif Nc isa NTuple{2} && dim == 3
+            Nc = (Nc[1], Nc[1], Nc[2])
+        end
+        @assert length(Nc) == dim
+
+        # Tuple of polynomial degrees (N₁, N₂, N₃)
+        N = polynomialorders(grid)
+        # In 2D, we assume same polynomial order in the horizontal
+        @assert dim == 2 || N[1] == N[2]
+        @assert all(0 .<= Nc .<= N)
 
         σ(η) = 0
-        filter = spectral_filter_matrix(ξ, Nc, σ)
 
-        new(AT(filter))
+        AT = arraytype(grid)
+        ξ = referencepoints(grid)
+        filter_matrices =
+            ntuple(i -> AT(spectral_filter_matrix(ξ[i], Nc[i], σ)), dim)
+        new{typeof(filter_matrices)}(filter_matrices)
     end
 end
 
@@ -248,20 +277,7 @@ end
     TMARFilter()
 
 Returns the truncation and mass aware rescaling nonnegativity preservation
-filter.  The details of this filter are described in
-
-    @article{doi:10.1175/MWR-D-16-0220.1,
-      author = {Light, Devin and Durran, Dale},
-      title = {Preserving Nonnegativity in Discontinuous Galerkin
-               Approximations to Scalar Transport via Truncation and Mass
-               Aware Rescaling (TMAR)},
-      journal = {Monthly Weather Review},
-      volume = {144},
-      number = {12},
-      pages = {4771-4786},
-      year = {2016},
-      doi = {10.1175/MWR-D-16-0220.1},
-    }
+filter.  The details of this filter are described in [Light2016](@cite)
 
 Note this needs to be used with a restrictive time step or a flux correction
 to ensure that grid integral is conserved.
@@ -299,41 +315,64 @@ function apply!(
     target::AbstractFilterTarget,
     grid::DiscontinuousSpectralElementGrid,
     filter::AbstractSpectralFilter;
-    direction::Direction = EveryDirection(),
     state_auxiliary = nothing,
+    direction = EveryDirection(),
 )
     topology = grid.topology
 
-    dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
+    # Tuple of polynomial degrees (N₁, N₂, N₃)
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
+    # In 2D, we assume same polynomial order in the horizontal
+    dim = dimensionality(grid)
+    # Currently only support same polynomial in both horizontal directions
+    @assert N[1] == N[2]
 
-    filtermatrix = filter.filter
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     nelem = length(topology.elems)
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    # Number of Gauss-Lobatto quadrature points in each direction
+    Nq = N .+ 1
+    Nq1 = Nq[1]
+    Nq2 = Nq[2]
+    Nq3 = dim == 2 ? 1 : Nq[dim]
 
     nrealelem = length(topology.realelems)
 
-    event = Event(device)
-    event = kernel_apply_filter!(device, (Nq, Nq, Nqk))(
-        Val(dim),
-        Val(N),
-        Val(vars(Q)),
-        Val(isnothing(state_auxiliary) ? nothing : vars(state_auxiliary)),
-        direction,
-        Q.data,
-        isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
-        target,
-        filtermatrix,
-        ndrange = (nrealelem * Nq, Nq, Nqk),
-        dependencies = (event,),
-    )
+    if direction isa EveryDirection || direction isa HorizontalDirection
+        @assert dim == 2 || Nq1 == Nq2
+        filtermatrix = filter.filter_matrices[1]
+        event = Event(device)
+        event = kernel_apply_filter!(device, (Nq1, Nq2, Nq3))(
+            Val(dim),
+            Val(N),
+            Val(vars(Q)),
+            Val(isnothing(state_auxiliary) ? nothing : vars(state_auxiliary)),
+            HorizontalDirection(),
+            Q.data,
+            isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            target,
+            filtermatrix,
+            ndrange = (nrealelem * Nq1, Nq2, Nq3),
+            dependencies = (event,),
+        )
+    end
+    if direction isa EveryDirection || direction isa VerticalDirection
+        filtermatrix = filter.filter_matrices[end]
+        event = Event(device)
+        event = kernel_apply_filter!(device, (Nq1, Nq2, Nq3))(
+            Val(dim),
+            Val(N),
+            Val(vars(Q)),
+            Val(isnothing(state_auxiliary) ? nothing : vars(state_auxiliary)),
+            VerticalDirection(),
+            Q.data,
+            isnothing(state_auxiliary) ? nothing : state_auxiliary.data,
+            target,
+            filtermatrix,
+            ndrange = (nrealelem * Nq1, Nq2, Nq3),
+            dependencies = (event,),
+        )
+    end
     wait(device, event)
 end
 
@@ -356,19 +395,18 @@ function apply!(
     device = typeof(Q.data) <: Array ? CPU() : CUDADevice()
 
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    # Currently only support same polynomial in both horizontal directions
+    @assert dim == 2 || N[1] == N[2]
+    Nqs = N .+ 1
+    Nq = Nqs[1]
+    Nqj = dim == 2 ? 1 : Nqs[2]
 
     nrealelem = length(topology.realelems)
-    nreduce = 2^ceil(Int, log2(Nq * Nqk))
+    nreduce = 2^ceil(Int, log2(Nq * Nqj))
 
     event = Event(device)
-    event = kernel_apply_TMAR_filter!(device, (Nq, Nqk), (nrealelem * Nq, Nqk))(
+    event = kernel_apply_TMAR_filter!(device, (Nq, Nqj), (nrealelem * Nq, Nqj))(
         Val(nreduce),
         Val(dim),
         Val(N),
@@ -461,8 +499,10 @@ horizontal and/or vertical reference directions.
     @uniform begin
         FT = eltype(Q)
 
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nqs = N .+ 1
+        Nq1 = Nqs[1]
+        Nq2 = Nqs[2]
+        Nq3 = dim == 2 ? 1 : Nqs[dim]
 
         if direction isa EveryDirection
             filterinξ1 = filterinξ2 = true
@@ -488,8 +528,7 @@ horizontal and/or vertical reference directions.
         l_Qfiltered2 = MVector{nfilterstates, FT}(undef)
     end
 
-    s_filter = @localmem FT (Nq, Nq)
-    s_Q = @localmem FT (Nq, Nq, Nqk, nfilterstates)
+    s_Q = @localmem FT (Nq1, Nq2, Nq3, nfilterstates)
     l_Q = @private FT (nstates,)
     l_Qfiltered = @private FT (nfilterstates,)
     l_aux = @private FT (nfilteraux,)
@@ -498,9 +537,7 @@ horizontal and/or vertical reference directions.
     i, j, k = @index(Local, NTuple)
 
     @inbounds begin
-        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
-
-        s_filter[i, j] = filtermatrix[i, j]
+        ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
         @unroll for s in 1:nstates
             l_Q[s] = Q[ijk, s, e]
@@ -529,9 +566,9 @@ horizontal and/or vertical reference directions.
 
         if filterinξ1
             @synchronize
-            @unroll for n in 1:Nq
+            @unroll for n in 1:Nq1
                 @unroll for fs in 1:nfilterstates
-                    l_Qfiltered[fs] += s_filter[i, n] * s_Q[n, j, k, fs]
+                    l_Qfiltered[fs] += filtermatrix[i, n] * s_Q[n, j, k, fs]
                 end
             end
 
@@ -546,9 +583,9 @@ horizontal and/or vertical reference directions.
 
         if filterinξ2
             @synchronize
-            @unroll for n in 1:Nq
+            @unroll for n in 1:Nq2
                 @unroll for fs in 1:nfilterstates
-                    l_Qfiltered[fs] += s_filter[j, n] * s_Q[i, n, k, fs]
+                    l_Qfiltered[fs] += filtermatrix[j, n] * s_Q[i, n, k, fs]
                 end
             end
 
@@ -563,9 +600,9 @@ horizontal and/or vertical reference directions.
 
         if filterinξ3
             @synchronize
-            @unroll for n in 1:Nqk
+            @unroll for n in 1:Nq3
                 @unroll for fs in 1:nfilterstates
-                    l_Qfiltered[fs] += s_filter[k, n] * s_Q[i, j, n, fs]
+                    l_Qfiltered[fs] += filtermatrix[k, n] * s_Q[i, j, n, fs]
                 end
             end
         end
@@ -582,7 +619,7 @@ horizontal and/or vertical reference directions.
         )
 
         # Store result
-        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+        ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
         @unroll for s in 1:nstates
             Q[ijk, s, e] = l_Q2[s]
         end
@@ -602,26 +639,28 @@ end
     @uniform begin
         FT = eltype(Q)
 
-        Nq = N + 1
-        Nqj = dim == 2 ? 1 : Nq
+        Nqs = N .+ 1
+        Nq1 = Nqs[1]
+        Nq2 = dim == 2 ? 1 : Nqs[2]
+        Nq3 = Nqs[end]
 
         nfilterstates = number_state_filtered(target, FT)
         nelemperblock = 1
     end
 
-    l_Q = @private FT (nfilterstates, Nq)
-    l_MJ = @private FT (Nq,)
+    l_Q = @private FT (nfilterstates, Nq1)
+    l_MJ = @private FT (Nq1,)
 
-    s_MJQ = @localmem FT (Nq * Nqj, nfilterstates)
-    s_MJQclipped = @localmem FT (Nq * Nqj, nfilterstates)
+    s_MJQ = @localmem FT (Nq1 * Nq2, nfilterstates)
+    s_MJQclipped = @localmem FT (Nq1 * Nq2, nfilterstates)
 
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
         # loop up the pencil and load Q and MJ
-        @unroll for k in 1:Nq
-            ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+        @unroll for k in 1:Nq3
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
             @unroll for sf in 1:nfilterstates
                 s = I[sf]
@@ -634,7 +673,7 @@ end
         @unroll for sf in 1:nfilterstates
             MJQ, MJQclipped = zero(FT), zero(FT)
 
-            @unroll for k in 1:Nq
+            @unroll for k in 1:Nq3
                 MJ = l_MJ[k]
                 Qs = l_Q[sf, k]
                 Qsclipped = Qs ≥ 0 ? Qs : zero(Qs)
@@ -643,7 +682,7 @@ end
                 MJQclipped += MJ * Qsclipped
             end
 
-            ij = i + Nq * (j - 1)
+            ij = i + Nq1 * (j - 1)
 
             s_MJQ[ij, sf] = MJQ
             s_MJQclipped[ij, sf] = MJQclipped
@@ -652,9 +691,9 @@ end
 
         @unroll for n in 11:-1:1
             if nreduce ≥ 2^n
-                ij = i + Nq * (j - 1)
+                ij = i + Nq1 * (j - 1)
                 ijshift = ij + 2^(n - 1)
-                if ij ≤ 2^(n - 1) && ijshift ≤ Nq * Nqj
+                if ij ≤ 2^(n - 1) && ijshift ≤ Nq1 * Nq2
                     @unroll for sf in 1:nfilterstates
                         s_MJQ[ij, sf] += s_MJQ[ijshift, sf]
                         s_MJQclipped[ij, sf] += s_MJQclipped[ijshift, sf]
@@ -671,8 +710,8 @@ end
             r = qs_average > 0 ? qs_average / qs_clipped_average : zero(FT)
 
             s = I[sf]
-            @unroll for k in 1:Nq
-                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+            @unroll for k in 1:Nq3
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
                 Qs = l_Q[sf, k]
                 Q[ijk, s, e] = Qs ≥ 0 ? r * Qs : zero(Qs)

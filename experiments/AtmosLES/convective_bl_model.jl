@@ -283,20 +283,10 @@ function convective_bl_model(
         )
     end
 
-    if moisture_model == "dry"
-        boundary_conditions = (
-            AtmosBC(
-                momentum = Impenetrable(DragLaw(
-                    # normPu_int is the internal horizontal speed
-                    # P represents the projection onto the horizontal
-                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
-                )),
-                energy = energy_bc,
-            ),
-            AtmosBC(),
-        )
-    else
-        boundary_conditions = (
+    # Set up problem initial and boundary conditions
+    moisture_flux = FT(0)
+    problem = AtmosProblem(
+        boundaryconditions = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
                     # normPu_int is the internal horizontal speed
@@ -305,13 +295,10 @@ function convective_bl_model(
                 )),
                 energy = energy_bc,
                 moisture = moisture_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
-        )
-    end
-    # Set up problem initial and boundary conditions
-    moisture_flux = FT(0)
-    problem = AtmosProblem(
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
+        ),
         init_state_prognostic = ics,
         boundarycondition = boundary_conditions,
     )

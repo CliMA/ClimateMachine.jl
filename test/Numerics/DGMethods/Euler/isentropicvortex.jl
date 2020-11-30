@@ -219,7 +219,7 @@ function test_run(
     )
 
     problem = AtmosProblem(
-        boundarycondition = (),
+        boundaryconditions = (),
         init_state_prognostic = isentropicvortex_initialcondition!,
     )
 

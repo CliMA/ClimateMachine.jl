@@ -29,6 +29,7 @@ import ClimateMachine.BalanceLaws:
     update_auxiliary_state!,
     indefinite_stack_integral!,
     reverse_indefinite_stack_integral!,
+    boundary_conditions,
     boundary_state!,
     compute_gradient_argument!,
     nodal_init_state_auxiliary!,
@@ -73,7 +74,8 @@ vars_state(::IntegralTestSphereModel, ::GradientFlux, T) = @vars()
 flux_first_order!(::IntegralTestSphereModel, _...) = nothing
 flux_second_order!(::IntegralTestSphereModel, _...) = nothing
 source!(::IntegralTestSphereModel, _...) = nothing
-boundary_state!(_, ::IntegralTestSphereModel, _...) = nothing
+boundary_conditions(::IntegralTestSphereModel) = (nothing,)
+boundary_state!(_, ::Nothing, ::IntegralTestSphereModel, _...) = nothing
 init_state_prognostic!(::IntegralTestSphereModel, _...) = nothing
 wavespeed(::IntegralTestSphereModel, _...) = 1
 

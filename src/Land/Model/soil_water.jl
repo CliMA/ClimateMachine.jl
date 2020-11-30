@@ -220,6 +220,7 @@ function soil_init_aux!(
         soil.param_functions.porosity,
         soil.param_functions.S_s,
         water.initialϑ_l(aux),
+        water.initialθ_i(aux),
     )
     aux.soil.water.h = hydraulic_head(aux.z, ψ)
     aux.soil.water.K =
@@ -254,6 +255,7 @@ function land_nodal_update_auxiliary_state!(
         soil.param_functions.porosity,
         soil.param_functions.S_s,
         state.soil.water.ϑ_l,
+        state.soil.water.θ_i,
     )
     aux.soil.water.h = hydraulic_head(aux.z, ψ)
     aux.soil.water.K =
@@ -289,6 +291,7 @@ function compute_gradient_argument!(
         soil.param_functions.porosity,
         soil.param_functions.S_s,
         state.soil.water.ϑ_l,
+        state.soil.water.θ_i,
     )
     transform.soil.water.h = hydraulic_head(aux.z, ψ)
 

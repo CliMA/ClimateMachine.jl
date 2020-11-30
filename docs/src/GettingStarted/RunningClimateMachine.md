@@ -1,9 +1,10 @@
 # Running the `ClimateMachine`
 
-The `ClimateMachine` is composed of three models for the Earth system, a
-dynamical core, and a number of other components. These are put together to
-set up a simulation by a [_driver_](./Terminology.md), for example the Held-Suarez atmospheric
-GCM, or the Rising Bubble atmospheric LES. The driver specifies:
+The `ClimateMachine` is composed of three models for the Earth system,
+a dynamical core, and a number of other components. These are put together
+to set up a simulation by a [_driver_](./Terminology.md), for example the
+Held-Suarez atmospheric GCM, or the Rising Bubble atmospheric LES. The
+driver specifies:
 - the dimensions and resolution of the simulation domain,
 - the duration of the simulation,
 - boundary conditions,
@@ -27,62 +28,72 @@ $ julia --project experiments/AtmosGCM/heldsuarez.jl
 
 Simpler examples of driver files can be found in the tutorials.
 Driver files in experiments show more complex examples.
+
 ## Input and output
 
 The `ClimateMachine` provides the [`ArtifactWrappers`](@ref
-ArtifactWrappers-docs) module to assist a driver in sourcing input data for a
-simulation, but any mechanism may be used.
+ArtifactWrappers-docs) module to assist a driver in sourcing input data
+for a simulation, but any mechanism may be used.
 
 Output takes the form of various [groups of diagnostic variables](@ref
 Diagnostics-groups) that are written to NetCDF files at user-specified
-intervals by the `ClimateMachine` when configured to do so by a driver.
+intervals by the `ClimateMachine` when configured to do so by a driver
+(see the [how to guide](@ref How-to-diagnostics)).
 
-The `ClimateMachine` can also output [prognostic](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.Prognostic)
- and [auxiliary](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.Auxiliary) state variables
+The `ClimateMachine` can also output
+[prognostic](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.Prognostic)
+ and
+ [auxiliary](../APIs/BalanceLaws/BalanceLaws.md#ClimateMachine.BalanceLaws.Auxiliary)
+ state variables
 to VTK files at specified intervals.
 
 Whether or not output is generated, and if so, at what interval, is a
 `ClimateMachine` _setting_.
 
+More information on output data formats and diagnostics can be found
+[here](@ref Model-output).
+
 ## `ClimateMachine` settings
 
-Some aspects of the `ClimateMachine`'s behavior can be controlled via its
-_settings_ such as use of the GPU, diagnostics output and frequency,
-checkpointing/restarting, etc. There are 3 ways in which these settings can be
-changed:
+Some aspects of the `ClimateMachine`'s behavior can be controlled via
+its _settings_ such as use of the GPU, diagnostics output and frequency,
+checkpointing/restarting, etc. There are 3 ways in which these settings
+can be changed:
 
 1. [Command line arguments](@ref ClimateMachine-clargs) have the highest
-   precedence, but it is possible for a driver to disable parsing of command
-   line arguments. In such a case, only the next two ways can be used to change
-   settings.
+   precedence, but it is possible for a driver to disable parsing of
+   command line arguments. In such a case, only the next two ways can
+   be used to change settings.
 
-3. [Programmatic settings](@ref ClimateMachine-kwargs) have the next highest
-   precedence.
+3. [Programmatic settings](@ref ClimateMachine-kwargs) have the next
+   highest precedence.
 
 2. [Environment variables](@ref ClimateMachine-envvars) have the lowest
    precedence.
 
 ### [Command line arguments](@id ClimateMachine-clargs)
 
-If a driver configures the `ClimateMachine` to parse command line arguments (by
-passing `parse_clargs = true` to `ClimateMachine.init()`), you can query the
-list of arguments understood, for example:
+If a driver configures the `ClimateMachine` to parse command line
+arguments (by passing `parse_clargs = true` to `ClimateMachine.init()`),
+you can query the list of arguments understood, for example:
 
 ```
 $ julia --project experiments/AtmosGCM/heldsuarez.jl --help
 usage: experiments/AtmosGCM/heldsuarez.jl [--disable-gpu]
                         [--show-updates <interval>]
                         [--diagnostics <interval>] [--vtk <interval>]
+                        [--vtk-number-sample-points <number>]
                         [--monitor-timestep-duration <interval>]
                         [--monitor-courant-numbers <interval>]
                         [--checkpoint <interval>]
                         [--checkpoint-keep-all] [--checkpoint-at-end]
                         [--checkpoint-dir <path>]
-                        [--restart-from-num <number>]
-                        [--fix-rng-seed]
+                        [--restart-from-num <number>] [--fix-rng-seed]
                         [--disable-custom-logger]
                         [--log-level <level>] [--output-dir <path>]
-                        [--integration-testing]
+                        [--debug-init] [--integration-testing]
+                        [--sim-time <number>]
+                        [--fixed-number-of-steps <number>]
                         [--number-of-tracers <number>] [-h]
 
 Climate Machine: an Earth System Model that automatically learns from data
@@ -103,6 +114,9 @@ ClimateMachine:
                         (default: "never")
   --vtk <interval>      interval at which to output VTK (default:
                         "never")
+  --vtk-number-sample-points <number>
+                        number of sampling points in each element for
+                        VTK output (type: Int64, default: 0)
   --monitor-timestep-duration <interval>
                         interval in time-steps at which to output
                         wall-clock time per time-step (default:
@@ -130,12 +144,17 @@ ClimateMachine:
   --disable-custom-logger
                         do not use a custom logger
   --log-level <level>   set the log level to one of
-                        debug/info/warn/error (default: "info")
+                        debug/info/warn/error (default: "INFO")
   --output-dir <path>   directory for output data (default: "output")
   --debug-init          fill state arrays with NaNs and dump them
-                        post-initialization"
+                        post-initialization
   --integration-testing
                         enable integration testing
+  --sim-time <number>   run for the specified time (in simulation
+                        seconds) (type: Float64, default: NaN)
+  --fixed-number-of-steps <number>
+                        if `≥0` perform specified number of steps
+                        (type: Int64, default: -1)
 
 Any <interval> unless otherwise stated may be specified as:
     - 2hours or 10mins or 30secs => wall-clock time
@@ -149,22 +168,22 @@ There may also be driver-specific command line arguments.
 
 ### [Programmatic control](@id ClimateMachine-kwargs)
 
-Every `ClimateMachine` setting can also be controlled via keyword arguments to
-the `ClimateMachine` initialization function, `ClimateMachine.init()`. For
-instance, a driver can specify that VTK output should occur every 5 simulation
-minutes with:
+Every `ClimateMachine` setting can also be controlled via
+keyword arguments to the `ClimateMachine` initialization function,
+`ClimateMachine.init()`. For instance, a driver can specify that VTK
+output should occur every 5 simulation minutes with:
 
 ```julia
 ClimateMachine.init(vtk = "5smins")
 ```
 
-This can be overridden by by passing `--vtk=never` on the command line, _if_
-the `ClimateMachine` is parsing command line arguments.
+This can be overridden by by passing `--vtk=never` on the command line,
+_if_ the `ClimateMachine` is parsing command line arguments.
 
 !!! note
 
-    The `ClimateMachine` will only process command line arguments if a driver
-    requests that it do so with:
+    The `ClimateMachine` will only process command line arguments if a
+    driver requests that it do so with:
     ```julia
     ClimateMachine.init(parse_clargs = true)
     ```
@@ -172,8 +191,9 @@ the `ClimateMachine` is parsing command line arguments.
 ### [Environment variables](@id ClimateMachine-envvars)
 
 Every `ClimateMachine` command line argument has an equivalent environment
-variable that takes the form `CLIMATEMACHINE_SETTINGS_<SETTING_NAME>`, however
-command line arguments and programmatic control have higher precedence.
+variable that takes the form `CLIMATEMACHINE_SETTINGS_<SETTING_NAME>`,
+however command line arguments and programmatic control have higher
+precedence.
 
 ## Running with MPI
 
@@ -183,20 +203,21 @@ Use MPI to start a distributed run of the `ClimateMachine`. For example:
 mpiexec -np 4 julia --project experiments/AtmosGCM/heldsuarez.jl
 ```
 
-will run the Held-Suarez experiment with four MPI ranks. If you are running on
-a cluster, you would use this command within a SLURM batch script (or the
-equivalent) that allocates four tasks. On a stand-alone machine, MPI will
-likely require that you have at least four cores.
+will run the Held-Suarez experiment with four MPI ranks. If you are
+running on a cluster, you would use this command within a SLURM batch
+script (or the equivalent) that allocates four tasks. On a stand-alone
+machine, MPI will likely require that you have at least four cores.
 
-Note that unless GPU use is disabled (by changing the setting in one of the
-ways described above), each `ClimateMachine` process will use GPU acceleration.
-If there are insufficient GPUs (four in the example above), the
-`ClimateMachine` processes will share the GPU resources available.
+Note that unless GPU use is disabled (by changing the setting in one of
+the ways described above), each `ClimateMachine` process will use GPU
+acceleration.  If there are insufficient GPUs (four in the example above),
+the `ClimateMachine` processes will share the GPU resources available.
 
 ## Scripts for end-to-end runs, logging and visualization
 
-The `ClimateMachine` [wiki](https://github.com/CliMA/ClimateMachine.jl/wiki)
+The `ClimateMachine`
+[wiki](https://github.com/CliMA/ClimateMachine.jl/wiki)
 contains detailed examples of [Slurm
-scripts](https://github.com/CliMA/ClimateMachine.jl/wiki/Bash-Run-Scripts) that
-run the `ClimateMachine`, record specified performance metrics and produce
-basic visualization output. 
+scripts](https://github.com/CliMA/ClimateMachine.jl/wiki/Bash-Run-Scripts)
+that run the `ClimateMachine`, record specified performance metrics and
+produce basic visualization output.

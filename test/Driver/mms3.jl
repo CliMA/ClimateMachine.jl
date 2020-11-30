@@ -94,7 +94,7 @@ function main()
     expected_result = FT(3.403104838700577e-02)
 
     problem = AtmosProblem(
-        boundarycondition = InitStateBC(),
+        boundaryconditions = (InitStateBC(),),
         init_state_prognostic = mms3_init_state!,
     )
 
@@ -137,7 +137,7 @@ function main()
     driver_config = ClimateMachine.DriverConfiguration(
         AtmosLESConfigType(),
         "MMS3",
-        N,
+        (N, N),
         FT,
         ClimateMachine.array_type(),
         ode_solver,

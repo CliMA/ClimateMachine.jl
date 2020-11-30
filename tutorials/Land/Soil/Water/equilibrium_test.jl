@@ -12,8 +12,7 @@
 # as ice is a form of water that must be accounted for to ensure
 # water mass conservation. If freezing and thawing are not turned on
 # (the default), the amount of ice in the model is zero for all space and time
-# (again by default). *It does not make sense to change this default*, since the
-# liquid water equation would have no knowledge of the amount of ice in the soil.
+# (again by default). 
 
 # The equations are:
 
@@ -177,9 +176,8 @@ sources = ();
 # Define the function that initializes the prognostic variables. This
 # in turn calls the functions supplied to `soil_water_model`.
 function init_soil_water!(land, state, aux, localgeo, time)
-    FT = eltype(state)
-    state.soil.water.ϑ_l = FT(land.soil.water.initialϑ_l(aux))
-    state.soil.water.θ_i = FT(land.soil.water.initialθ_i(aux))
+    state.soil.water.ϑ_l = eltype(state)(land.soil.water.initialϑ_l(aux))
+    state.soil.water.θ_i = eltype(state)(land.soil.water.initialθ_i(aux))
 end
 
 

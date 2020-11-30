@@ -30,9 +30,7 @@ end
 returns the barycentric weights associated with the array of points `r`
 
 Reference:
-  Jean-Paul Berrut & Lloyd N. Trefethen, "Barycentric Lagrange Interpolation",
-  SIAM Review 46 (2004), pp. 501-517.
-  <https://doi.org/10.1137/S0036144502417715>
+  [Berrut2004](@cite)
 """
 function baryweights(r::AbstractVector{T}) where {T}
     Np = length(r)
@@ -58,9 +56,7 @@ returns the spectral differentiation matrix for a polynomial defined on the
 points `r` with associated barycentric weights `wb`
 
 Reference:
-  Jean-Paul Berrut & Lloyd N. Trefethen, "Barycentric Lagrange Interpolation",
-  SIAM Review 46 (2004), pp. 501-517.
-  <https://doi.org/10.1137/S0036144502417715>
+ - [Berrut2004](@cite)
 """
 function spectralderivative(
     r::AbstractVector{T},
@@ -94,9 +90,7 @@ returns the polynomial interpolation matrix for interpolating between the points
 `rsrc` (with associated barycentric weights `wbsrc`) and `rdst`
 
 Reference:
-  Jean-Paul Berrut & Lloyd N. Trefethen, "Barycentric Lagrange Interpolation",
-  SIAM Review 46 (2004), pp. 501-517.
-  <https://doi.org/10.1137/S0036144502417715>
+ - [Berrut2004](@cite)
 """
 function interpolationmatrix(
     rsrc::AbstractVector{T},
