@@ -184,7 +184,7 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        state.ρe += rand() * ρe_tot / 100
+        # state.ρe += rand() * ρe_tot / 100
     end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end

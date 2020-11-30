@@ -92,7 +92,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
     if hasproperty(bl, :turbconv)
         FT = eltype(state)
         # this ρu[3]=0 is only for single_stack
-        # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
         up = state.turbconv.updraft
         en = state.turbconv.environment
         N_up = n_updrafts(bl.turbconv)
