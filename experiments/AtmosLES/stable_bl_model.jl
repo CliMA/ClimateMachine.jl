@@ -2,22 +2,9 @@
 #=
 # This experiment file establishes the initial conditions, boundary conditions,
 # source terms and simulation parameters (domain size + resolution) for the
-# GABLS LES case (Beare et al, 2006; Kosovic and Curry, 2000). 
+# GABLS LES case ([Beare2006](@cite); [Kosovic2000](@cite)).
 #
-## @article{10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2,
-##     author = {Kosović, Branko and Curry, Judith A.},
-##     title = "{A Large Eddy Simulation Study of a Quasi-Steady, 
-##               Stably Stratified Atmospheric Boundary Layer}",
-##     journal = {Journal of the Atmospheric Sciences},
-##     volume = {57},
-##     number = {8},
-##     pages = {1052-1068},
-##     year = {2000},
-##     month = {04},
-##     issn = {0022-4928},
-##     doi = {10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2},
-##     url = {https://doi.org/10.1175/1520-0469(2000)057<1052:ALESSO>2.0.CO;2},
-## }
+## [Kosovic2000](@cite)
 #
 # To simulate the experiment, type in
 #
@@ -61,7 +48,7 @@ using ClimateMachine.Atmos: altitude, recover_thermo_state
 """
   StableBL Geostrophic Forcing (Source)
 """
-struct StableBLGeostrophic{FT} <: Source
+struct StableBLGeostrophic{FT} <: AbstractSource
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -100,7 +87,7 @@ end
 """
   StableBL Sponge (Source)
 """
-struct StableBLSponge{FT} <: Source
+struct StableBLSponge{FT} <: AbstractSource
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -183,7 +170,6 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     else
         TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
     end
-
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -207,14 +193,15 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
-function surface_temperature_variation(state, t, moisture_model)
+function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
     ρ = state.ρ
     θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    if moisture_model == "dry"
-        TS = PhaseDry_ρθ(param_set, ρ, θ_liq_sfc)
+    if bl.moisture isa DryModel
+        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
     else
-        TS = PhaseEquil_ρθq(param_set, ρ, θ_liq_sfc, q_tot)
+        q_tot = state.moisture.ρq_tot / ρ
+        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
     end
     return air_temperature(TS)
 end
@@ -263,6 +250,7 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
         moisture = DryModel()
@@ -270,7 +258,7 @@ function stable_bl_model(
         source = source_default
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
     elseif moisture_model == "nonequilibrium"
-        source = (source_default..., CreateClouds())
+        source = (source_default..., CreateClouds()...)
         moisture = NonEquilMoist()
     else
         @warn @sprintf(
@@ -286,11 +274,9 @@ function stable_bl_model(
         moisture_bc = PrescribedMoistureFlux((state, aux, t) -> moisture_flux)
     elseif surface_flux == "bulk"
         energy_bc = BulkFormulaEnergy(
-            (state, aux, t, normPu_int) -> C_drag,
-            (state, aux, t) -> (
-                surface_temperature_variation(state, t, moisture_model),
-                q_sfc,
-            ),
+            (bl, state, aux, t, normPu_int) -> C_drag,
+            (bl, state, aux, t) ->
+                (surface_temperature_variation(bl, state, t), q_sfc),
         )
         moisture_bc = BulkFormulaMoisture(
             (state, aux, t, normPu_int) -> C_drag,
@@ -330,11 +316,11 @@ function stable_bl_model(
             AtmosBC(),
         )
     end
-
+    # Set up problem initial and boundary conditions
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
-        boundarycondition = boundary_conditions,
+        boundaryconditions = boundary_conditions,
     )
 
     # Assemble model components
