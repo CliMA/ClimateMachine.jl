@@ -17,8 +17,9 @@ import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
 using ClimateMachine.Mesh.Filters: apply!
 
-rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()X_RNG_SEED"] = true
+rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 
+ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
