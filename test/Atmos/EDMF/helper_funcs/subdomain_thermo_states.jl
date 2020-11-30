@@ -193,7 +193,6 @@ function new_thermo_state_en(
 )
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
-
     # diagnose environment thermo state
     z = altitude(m, aux)
     ρ_inv = 1 / state.ρ
