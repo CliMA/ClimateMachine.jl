@@ -13,11 +13,11 @@ using ClimateMachine.Atmos: PressureGradientModel
 using ClimateMachine.BalanceLaws
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-# import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
+import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
 using ClimateMachine.Mesh.Filters: apply!
 
-# rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
+rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
 

@@ -398,6 +398,7 @@ function atmos_source!(
 ) where {FT}
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
+    println("===========================in source =================")
 
     # Aliases:
     gm = state
@@ -594,6 +595,7 @@ function flux_first_order!(
     up_flx = flux.turbconv.updraft
     en_flx = flux.turbconv.environment
     N_up = n_updrafts(turbconv)
+    println("===========================in flux_first_order =================")
 
     ρ_inv = 1 / gm.ρ
     ẑ = vertical_unit_vector(m, aux)
@@ -646,6 +648,7 @@ function flux_second_order!(
     t::Real,
 ) where {FT}
     N_up = n_updrafts(turbconv)
+    # println("===========================in flux_second_order =================")
 
     # Aliases:
     gm = state
