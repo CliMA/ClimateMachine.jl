@@ -519,7 +519,9 @@ function flux_first_order!(
     # Aliases:
     gm = state
     up = state.turbconv.updraft
+    en = state.turbconv.environment
     up_flx = flux.turbconv.updraft
+    en_flx = flux.turbconv.environment
     N_up = n_updrafts(turbconv)
 
     ρ_inv = 1 / gm.ρ
@@ -540,6 +542,11 @@ function flux_first_order!(
         up_flx[i].ρaθ_liq = w_up_i * up[i].ρaθ_liq * ẑ
         up_flx[i].ρaq_tot = w_up_i * up[i].ρaq_tot * ẑ
     end
+    env = environment_vars(state, aux, N_up)
+    en_flx.ρatke = en.ρatke *env.w * ẑ
+    en_flx.ρaθ_liq_cv = en.ρaθ_liq_cv *env.w * ẑ
+    en_flx.ρaq_tot_cv = en.ρaq_tot_cv *env.w * ẑ
+    en_flx.ρaθ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv *env.w * ẑ
 end;
 
 # in the EDMF second order (diffusive) fluxes
