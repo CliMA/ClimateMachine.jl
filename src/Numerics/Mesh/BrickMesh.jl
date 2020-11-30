@@ -1086,5 +1086,38 @@ function connectmesh(
     )        # neighbor send ranges into `sendelems`
 end
 
+"""
+    (bndytoelem, bndytoface) = enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
+
+Update the `elemtoelem` array based on the boundary faces specified in
+`elemtobndy`. Builds the `bndytoelem` and `bndytoface` tuples.
+"""
+function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
+    nb = 0
+    for i in 1:length(periodicity)
+        if !periodicity[i]
+            nb = max(nb, boundary[i]...)
+        end
+    end
+    @assert nb <= 6
+
+    bndytoelem = ntuple(b -> Vector{Int64}(), nb)
+    bndytoface = ntuple(b -> Vector{Int64}(), nb)
+
+    nface, nelem = size(elemtoelem)
+
+    N = zeros(Int, nb)
+    for e in 1:nelem
+        for f in 1:nface
+            d = elemtobndy[f, e]
+            if d != 0
+                elemtoelem[f, e] = N[d] += 1
+                push!(bndytoelem[d], e)
+                push!(bndytoface[d], f)
+            end
+        end
+    end
+    return (bndytoelem, bndytoface)
+end
 
 end # module
