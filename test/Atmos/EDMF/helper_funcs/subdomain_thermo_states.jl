@@ -203,13 +203,23 @@ function new_thermo_state_en(
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
+    tmp = sum(vuntuple(j -> up[j].ρaθ_liq, N_up))
     if !(0 <= θ_liq_en)
-        @print("θ_liq_en = ", θ_liq_en, "\n")
+        z = altitude(m, aux)
+        println("in new_thermo_state_en")
+        @print("z = ", z, "\n")
+        @print("tmp = ", tmp, "\n")
+        @print("θ_liq = ", θ_liq, "\n")
+        @print("θ_liq_en = ", θ_liq_en, "\n")\
         @print("θ_liq_up = ", up[1].ρaθ_liq/up[1].ρa, "\n")
         @print("a_up = ", up[1].ρa/state.ρ, "\n")
         @print("state.ρ = ", state.ρ, "\n")
         @print("θ_liq = ", θ_liq, "\n")
         print("z = ", z, "\n")
+        @print("a_en = ", a_en, "\n")
+        @print("up[1].ρa = ", up[1].ρa, "\n")
+        @print("up[1].ρaw = ", up[1].ρaw, "\n")
+        @print("up[1].ρaθ_liq = ", up[1].ρaθ_liq, "\n")
         error("Environment θ_liq_en out-of-bounds in new_thermo_state_en")
     end
     ts_en = PhaseDry_pθ(m.param_set, p, θ_liq_en)

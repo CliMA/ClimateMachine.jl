@@ -83,6 +83,34 @@ function init_state_prognostic!(
     return nothing
 end;
 
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+struct EDMFFilter <: AbstractCustomFilter end
+import ClimateMachine.DGMethods: custom_filter!
+
+function custom_filter!(::EDMFFilter, bl, state, aux)
+    FT = eltype(state)
+    a_min = bl.turbconv.subdomains.a_min
+    up = state.turbconv.updraft
+    N_up = n_updrafts(bl.turbconv)
+    ρ_gm = state.ρ
+    ts = recover_thermo_state(bl, state, aux)
+    ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+    ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+    ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+    ρa_en        = ρ_gm - ρa_ups
+    ρq_tot_gm   = state.moisture.ρq_tot
+    ρaw_en      = - ρaw_ups
+    θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
+    w_en        = ρaw_en / ρa_en
+    @unroll_map(N_up) do i
+        a_up_mask = up[i].ρa < (ρ_gm * a_min)
+        Δρ_area = max(a_up_mask * (ρ_gm * a_min - up[i].ρa), FT(0))
+        up[i].ρa      += a_up_mask * Δρ_area
+        up[i].ρaθ_liq += a_up_mask * θ_liq_en * Δρ_area
+        up[i].ρaw     += a_up_mask * w_en * Δρ_area
+    end
+end
+
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
@@ -96,7 +124,8 @@ function main(::Type{FT}) where {FT}
         default = "bulk"
     end
 
-    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+    cl_args =
+        ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
 
     surface_flux = cl_args["surface_flux"]
 

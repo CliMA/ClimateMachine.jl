@@ -247,22 +247,16 @@ function export_state_contours(
     mkpath(output_dir)
     for st in state_types
         vs = vars_state(solver_config.dg.balance_law, st, FT)
-        for fn in flattenednames(vs)
-            @show fn
-            if !any(fn == y for y in skip_fields)
-                if fn != "ρu[3]"
-                    base_name = state_prefix(st) * replace(fn, "." => "_")
-                    filename = joinpath(output_dir, "cnt_$(base_name).png")
-                    label = string(replace(fn, "." => "_"))
-                    args = (z, time_data ./ 3600, all_data, fn, filename)
-                    export_contour(
-                        args...;
-                        xlabel = xlabel,
-                        ylabel = ylabel,
-                        label = label,
-                    )
-                end
-            end
+        for fn in flattenednames(vs)            base_name = state_prefix(st) * replace(fn, "." => "_")
+            filename = joinpath(output_dir, "cnt_$(base_name).png")
+            label = string(replace(fn, "." => "_"))
+            args = (z, time_data, dons_arr, fn, filename)
+            export_contour(
+                args...;
+                xlabel = xlabel,
+                ylabel = ylabel,
+                label = label,
+            )
         end
     end
 end

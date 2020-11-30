@@ -28,8 +28,8 @@ function main()
     resolution = (Δh, Δh, Δv)
 
     # Prescribe domain parameters
-    xmax = FT(4800)
-    ymax = FT(4800)
+    xmax = Δh * FT(N+1) # FT(4800)
+    ymax = Δh * FT(N+1) # FT(4800)
     zmax = FT(3200)
 
     t0 = FT(0)
@@ -70,12 +70,26 @@ function main()
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            ("moisture.ρq_tot",),
+            (),
             solver_config.dg.grid,
             TMARFilter(),
         )
         nothing
     end
+    state_types = (Prognostic(), Auxiliary())
+    all_data = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    time_data = FT[0]
+    n_outputs = 10
+    every_x_simulation_time = ceil(Int, timeend / n_outputs)
+
+    cb_data_vs_time =
+        GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+            push!(all_data,
+                dict_of_nodal_states(solver_config, state_types; interp = true)
+            )
+            push!(time_data, gettime(solver_config.solver))
+            nothing
+        end
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "1mins", FT(0.0001)),
@@ -89,6 +103,9 @@ function main()
         check_cons = check_cons,
         check_euclidean_distance = true,
     )
+    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    push!(all_data, dons)
+    push!(time_data, gettime(solver_config.solver))
+    return solver_config, all_data, time_data, state_types
 end
-
-main()
+solver_config, all_data, time_data, state_types = main()

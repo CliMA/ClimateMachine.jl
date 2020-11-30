@@ -62,7 +62,7 @@ function vars_state(::Updraft, ::Auxiliary, FT)
 end
 
 function vars_state(::Environment, ::Auxiliary, FT)
-    @vars(T::FT, cld_frac::FT, buoyancy::FT)
+    @vars(T::FT, cld_frac::FT, buoyancy::FT, ρaθ_liq::FT)
 end
 
 function vars_state(m::EDMF, st::Auxiliary, FT)
@@ -175,7 +175,7 @@ function init_aux_turbconv!(
 
     en_aux.cld_frac = FT(0)
     en_aux.buoyancy = FT(0)
-
+    en_aux.ρaθ_liq =  FT(300)
     @unroll_map(N_up) do i
         up_aux[i].buoyancy = FT(0)
         up_aux[i].θ_liq = FT(0)
@@ -201,6 +201,7 @@ function turbconv_nodal_update_auxiliary_state!(
     up = state.turbconv.updraft
 
     # Recover thermo states
+    z = altitude(m, aux)
     ts = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
@@ -210,10 +211,10 @@ function turbconv_nodal_update_auxiliary_state!(
     ρ_inv = 1 / gm.ρ
     _grav::FT = grav(m.param_set)
 
-    z = altitude(m, aux)
 
     ρ_en = air_density(ts.en)
     en_aux.buoyancy = -_grav * (ρ_en - aux.ref_state.ρ) * ρ_inv
+    en_aux.ρaθ_liq = gm.ρ*env.a*liquid_ice_pottemp(ts.en)
 
     @unroll_map(N_up) do i
         ρ_i = air_density(ts.up[i])
@@ -421,6 +422,7 @@ function atmos_source!(
 
         # environment second moments:
         # environment second moments:
+        ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
         en_src.ρatke += (
             Δ_dyn[i] *
             (w_up_i - env.w) *
@@ -685,7 +687,7 @@ function turbconv_boundary_state!(
     state_int::Vars,
     aux_int::Vars,
 ) where {FT}
-
+    validate_variables(m, state⁻, aux, "turbconv_boundary_state! (state⁻)")
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
     up = state⁺.turbconv.updraft
@@ -708,6 +710,7 @@ function turbconv_boundary_state!(
         up[i].ρaθ_liq = up[i].ρa * θ_liq_up_surf[i]
         up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
     end
+    validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
     a_en = environment_area(gm, gm_a, N_up)
     en.ρatke = gm.ρ * a_en * tke
     en.ρaθ_liq_cv = gm.ρ * a_en * θ_liq_cv

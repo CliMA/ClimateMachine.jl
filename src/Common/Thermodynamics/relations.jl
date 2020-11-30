@@ -2191,6 +2191,9 @@ function exner_given_pressure(
     # gas constant and isobaric specific heat of moist air
     _R_m = gas_constant_air(param_set, q)
     _cp_m = cp_m(param_set, q)
+    if p*_MSLP<0
+        @show(p, _MSLP)
+    end
 
     return (p / _MSLP)^(_R_m / _cp_m)
 end

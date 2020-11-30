@@ -113,7 +113,21 @@ function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
     dg(tendency, state_prognostic, param, t, true, increment)
 end
 
+function rhs_prehook_filters end
+using ..Mesh.Filters
+
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
+
+    rhs_phf = rhs_prehook_filters(dg.balance_law)
+    if rhs_phf != nothing
+        Filters.apply!(
+            rhs_phf,
+            dg.grid,
+            dg.balance_law,
+            state_prognostic,
+            dg.state_auxiliary,
+        )
+    end
 
     device = array_device(state_prognostic)
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
