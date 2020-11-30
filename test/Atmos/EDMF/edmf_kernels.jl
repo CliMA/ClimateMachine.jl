@@ -350,7 +350,6 @@ function atmos_source!(
     N_up = n_updrafts(turbconv)
 
     # Aliases:
-    println("============> in source")
     gm = state
     en = state.turbconv.environment
     up = state.turbconv.updraft
@@ -516,7 +515,7 @@ function flux_first_order!(
     aux::Vars,
     t::Real,
 ) where {FT}
-    println("============> in flux_first_order")
+
     # Aliases:
     gm = state
     up = state.turbconv.updraft
@@ -561,7 +560,6 @@ function flux_second_order!(
     aux::Vars,
     t::Real,
 ) where {FT}
-    println("============> in flux_second_order")
     N_up = n_updrafts(turbconv)
 
     # Aliases:
