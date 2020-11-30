@@ -56,7 +56,7 @@ let
     d_F = ArrayType(AB)
     d_F = DGColumnBandedMatrix{
         3,
-        N,
+        (N, N, N),
         nstate,
         nhorzelem,
         nvertelem,
