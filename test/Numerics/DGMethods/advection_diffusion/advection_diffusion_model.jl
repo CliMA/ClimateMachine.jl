@@ -343,7 +343,7 @@ end
 
 has_variable_coefficients(::AdvectionDiffusionProblem) = false
 function update_auxiliary_state!(
-    dg::DGModel,
+    dg::DGFVMModel,
     m::AdvectionDiffusion,
     Q::MPIStateArray,
     t::Real,

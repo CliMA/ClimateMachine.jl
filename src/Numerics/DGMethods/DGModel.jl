@@ -1,7 +1,59 @@
 using .NumericalFluxes:
     CentralNumericalFluxHigherOrder, CentralNumericalFluxDivergence
 
-struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD}
+"""
+    SpaceDiscretization
+
+Supertype for spatial discretizations.
+
+Must have the following properties:
+
+    - `grid`
+    - `balance_law`
+    - `state_auxiliary`
+"""
+abstract type SpaceDiscretization end
+
+struct DGFVMModel{BL, G, NFND, AS, D, MD} <: SpaceDiscretization
+    balance_law::BL
+    grid::G
+    numerical_flux_first_order::NFND
+    state_auxiliary::AS
+    direction::D
+    modeldata::MD
+end
+
+function DGFVMModel(
+    balance_law,
+    grid,
+    numerical_flux_first_order;
+    fill_nan = false,
+    state_auxiliary = create_state(
+        balance_law,
+        grid,
+        Auxiliary(),
+        fill_nan = fill_nan,
+    ),
+    direction = EveryDirection(),
+    modeldata = nothing,
+)
+    # Make sure we are FVM in the vertical
+    @assert polynomialorders(grid)[end] == 0
+    @assert isstacked(grid.topology)
+    state_auxiliary =
+        init_state(state_auxiliary, balance_law, grid, direction, Auxiliary())
+    DGFVMModel(
+        balance_law,
+        grid,
+        numerical_flux_first_order,
+        state_auxiliary,
+        direction,
+        modeldata,
+    )
+end
+
+struct DGModel{BL, G, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
+       SpaceDiscretization
     balance_law::BL
     grid::G
     numerical_flux_first_order::NFND
@@ -57,9 +109,9 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
-# TODO: dont need to actually pass DG model (just need the grid)
-function basic_grid_info(dg::DGModel)
-    grid = dg.grid
+basic_grid_info(spacedisc::SpaceDiscretization) =
+    basic_grid_info(spacedisc.grid)
+function basic_grid_info(grid)
     dim = dimensionality(grid)
     # Tuple of polynomial degrees (N₁, N₂, N₃)
     N = polynomialorders(grid)
@@ -101,14 +153,28 @@ function basic_grid_info(dg::DGModel)
     return merge(grid_info, topology_info)
 end
 
-function basic_launch_info(dg::DGModel)
-    device = array_device(dg.state_auxiliary)
-    grid_info = basic_grid_info(dg)
+function basic_launch_info(spacedisc::SpaceDiscretization)
+    device = array_device(spacedisc.state_auxiliary)
+    grid_info = basic_grid_info(spacedisc.grid)
     return merge(grid_info, (device = device,))
 end
 
+function (spacedisc::SpaceDiscretization)(
+    tendency,
+    state_prognostic,
+    param,
+    t;
+    increment = false,
+)
+    # TODO deprecate increment argument
+    spacedisc(tendency, state_prognostic, param, t, true, increment)
+end
+
 """
-    (dg::DGModel)(tendency, state_prognostic, nothing, t, α, β)
+    (dgfvm::DGFVMModel)(tendency, state_prognostic, _, t, α, β)
+
+Uses spectral element discontinuous Galerkin in the horizontal and finite volume
+in the vertical to compute the tendency.
 
 Computes the tendency terms compatible with `IncrementODEProblem`
 
@@ -117,13 +183,129 @@ Computes the tendency terms compatible with `IncrementODEProblem`
 The 4-argument form will just compute
 
     tendency .= dQdt(state_prognostic, p, t)
-
 """
-function (dg::DGModel)(tendency, state_prognostic, param, t; increment = false)
-    # TODO deprecate increment argument
-    dg(tendency, state_prognostic, param, t, true, increment)
+function (dgfvm::DGFVMModel)(tendency, state_prognostic, _, t, α, β)
+    device = array_device(state_prognostic)
+
+    FT = eltype(state_prognostic)
+    num_state_prognostic = number_states(dgfvm.balance_law, Prognostic())
+    @assert 0 == number_states(dgfvm.balance_law, GradientFlux())
+    @assert 0 == number_states(dgfvm.balance_law, Hyperdiffusive())
+    num_state_tendency = size(tendency, 2)
+
+    if num_state_prognostic < num_state_tendency && β != 1
+        # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
+        tendency .*= β
+        β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!
+    end
+
+    communicate =
+        !(
+            isstacked(dgfvm.grid.topology) &&
+            typeof(dgfvm.direction) <: VerticalDirection
+        )
+
+    #JK update_auxiliary_state!(
+    #JK     dg,
+    #JK     dg.balance_law,
+    #JK     state_prognostic,
+    #JK     t,
+    #JK     dg.grid.topology.realelems,
+    #JK )
+
+    exchange_state_prognostic = NoneEvent()
+
+    comp_stream = Event(device)
+
+    if communicate
+        exchange_state_prognostic = MPIStateArrays.begin_ghost_exchange!(
+            state_prognostic;
+            dependencies = comp_stream,
+        )
+    end
+
+    # TODO: Add diffusion calls
+
+    ###################
+    # RHS Computation #
+    ###################
+    comp_stream = launch_volume_tendency!(
+        dgfvm,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        dependencies = (comp_stream,),
+    )
+
+    comp_stream = launch_interface_tendency!(
+        dgfvm,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        surface = :interior,
+        dependencies = (comp_stream,),
+    )
+
+    if communicate
+        # TODO: gradient and hyperdiffusion communication
+        exchange_state_prognostic = MPIStateArrays.end_ghost_exchange!(
+            state_prognostic;
+            dependencies = exchange_state_prognostic,
+        )
+
+        # update_aux may start asynchronous work on the compute device and
+        # we synchronize those here through a device event.
+        wait(device, exchange_state_prognostic)
+        #JK update_auxiliary_state!(
+        #JK     dg,
+        #JK     dg.balance_law,
+        #JK     state_prognostic,
+        #JK     t,
+        #JK     dg.grid.topology.ghostelems,
+        #JK )
+        #JK exchange_state_prognostic = Event(device)
+    end
+
+    comp_stream = launch_interface_tendency!(
+        dgfvm,
+        tendency,
+        state_prognostic,
+        t,
+        α,
+        β;
+        surface = :exterior,
+        dependencies = (
+            comp_stream,
+            exchange_state_prognostic,
+            #JK exchange_state_gradient_flux,
+            #JK exchange_Qhypervisc_grad,
+        ),
+    )
+
+    # The synchronization here through a device event prevents CuArray based and
+    # other default stream kernels from launching before the work scheduled in
+    # this function is finished.
+    wait(device, comp_stream)
 end
 
+"""
+    (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
+
+Uses spectral element discontinuous Galerkin in all direction to compute the
+tendency.
+
+Computes the tendency terms compatible with `IncrementODEProblem`
+
+    tendency .= α .* dQdt(state_prognostic, p, t) .+ β .* tendency
+
+The 4-argument form will just compute
+
+    tendency .= dQdt(state_prognostic, p, t)
+"""
 function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 
     device = array_device(state_prognostic)
@@ -429,15 +611,16 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
 end
 
 function init_ode_state(
-    dg::DGModel,
+    spacedisc::SpaceDiscretization,
     args...;
     init_on_cpu = false,
     fill_nan = false,
 )
-    device = arraytype(dg.grid) <: Array ? CPU() : CUDADevice()
+    grid = spacedisc.grid
+    balance_law = spacedisc.balance_law
+    state_auxiliary = spacedisc.state_auxiliary
 
-    balance_law = dg.balance_law
-    grid = dg.grid
+    device = arraytype(grid) <: Array ? CPU() : CUDADevice()
 
     state_prognostic =
         create_state(balance_law, grid, Prognostic(), fill_nan = fill_nan)
@@ -445,7 +628,6 @@ function init_ode_state(
     topology = grid.topology
     Np = dofs_per_element(grid)
 
-    state_auxiliary = dg.state_auxiliary
     dim = dimensionality(grid)
     N = polynomialorders(grid)
     nrealelem = length(topology.realelems)
@@ -1475,7 +1657,7 @@ end
 Launches horizontal and vertical volume kernels for computing tendencies (sources, sinks, etc).
 """
 function launch_volume_tendency!(
-    dg,
+    spacedisc,
     tendency,
     state_prognostic,
     t,
@@ -1483,13 +1665,22 @@ function launch_volume_tendency!(
     β;
     dependencies,
 )
-    Qhypervisc_grad, _ = dg.states_higher_order
+    # XXX: This is until FVM with diffusion is implemented
+    if spacedisc isa DGFVMModel
+        @assert 0 == number_states(spacedisc.balance_law, GradientFlux())
+        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
+        Qhypervisc_grad_data = nothing
+        grad_flux_data = nothing
+    elseif spacedisc isa DGModel
+        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
+        grad_flux_data = spacedisc.state_gradient_flux.data
+    end
 
     # Workgroup is determined by the number of quadrature points
     # in the horizontal direction. For each horizontal quadrature
     # point, we operate on a stack of quadrature in the vertical
     # direction. (Iteration space is in the horizontal)
-    info = basic_launch_info(dg)
+    info = basic_launch_info(spacedisc)
 
     # We assume (in 3-D) that both x and y directions
     # are discretized using the same polynomial order, Nq[1] == Nq[2].
@@ -1501,68 +1692,71 @@ function launch_volume_tendency!(
 
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
-    # call the kernel corresponding to the model direction `dg.diffusion_direction`
-    if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
+    # call the kernel corresponding to the model direction
+    # `spacedisc.diffusion_direction`
+    if spacedisc.direction isa EveryDirection ||
+       spacedisc.direction isa HorizontalDirection
 
         # Horizontal polynomial degree
         horizontal_polyorder = info.N[1]
         # Horizontal quadrature weights and differentiation matrix
-        horizontal_ω = dg.grid.ω[1]
-        horizontal_D = dg.grid.D[1]
+        horizontal_ω = spacedisc.grid.ω[1]
+        horizontal_D = spacedisc.grid.D[1]
 
         comp_stream = volume_tendency!(info.device, workgroup)(
-            dg.balance_law,
+            spacedisc.balance_law,
             Val(info),
-            dg.direction,
+            spacedisc.direction,
             HorizontalDirection(),
             tendency.data,
             state_prognostic.data,
-            dg.state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            dg.state_auxiliary.data,
-            dg.grid.vgeo,
+            grad_flux_data,
+            Qhypervisc_grad_data,
+            spacedisc.state_auxiliary.data,
+            spacedisc.grid.vgeo,
             t,
             horizontal_ω,
             horizontal_D,
-            dg.grid.topology.realelems,
+            spacedisc.grid.topology.realelems,
             α,
             β,
             # If the model direction is horizontal, we want to be sure to add sources
-            dg.direction isa HorizontalDirection,
+            spacedisc.direction isa HorizontalDirection,
             ndrange = ndrange,
             dependencies = comp_stream,
         )
     end
 
     # Vertical kernel
-    if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+    if spacedisc.direction isa EveryDirection ||
+       spacedisc.direction isa VerticalDirection
 
         # Vertical polynomial degree
         vertical_polyorder = info.N[info.dim]
         # Vertical quadrature weights and differentiation matrix
-        vertical_ω = dg.grid.ω[info.dim]
-        vertical_D = dg.grid.D[info.dim]
+        vertical_ω = spacedisc.grid.ω[info.dim]
+        vertical_D = spacedisc.grid.D[info.dim]
 
         comp_stream = volume_tendency!(info.device, workgroup)(
-            dg.balance_law,
+            spacedisc.balance_law,
             Val(info),
-            dg.direction,
+            spacedisc.direction,
             VerticalDirection(),
             tendency.data,
             state_prognostic.data,
-            dg.state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            dg.state_auxiliary.data,
-            dg.grid.vgeo,
+            grad_flux_data,
+            Qhypervisc_grad_data,
+            spacedisc.state_auxiliary.data,
+            spacedisc.grid.vgeo,
             t,
             vertical_ω,
             vertical_D,
-            dg.grid.topology.realelems,
+            spacedisc.grid.topology.realelems,
             α,
             # If we are computing the volume gradient in every direction, we
             # need to increment into the appropriate fields _after_ the
             # horizontal computation.
-            dg.direction isa EveryDirection ? true : β,
+            spacedisc.direction isa EveryDirection ? true : β,
             # Boolean to add source. In the case of EveryDirection, we always add the sources
             # in the vertical kernel. Here, we make the assumption that we're either computing
             # in every direction, or _just_ the vertical direction.
@@ -1575,15 +1769,25 @@ function launch_volume_tendency!(
     return comp_stream
 end
 
+# XXX: This is just to maskout the second order flux for the start of FVM development
+import .NumericalFluxes
+struct NothingFlux <: NumericalFluxes.NumericalFluxSecondOrder end
+function NumericalFluxes.numerical_flux_second_order!(::NothingFlux, _...) end
+function NumericalFluxes.numerical_boundary_flux_second_order!(
+    ::NothingFlux,
+    _...,
+) end
+
+
 """
-    launch_interface_tendency!(dg, state_prognostic, t; surface::Symbol, dependencies)
+    launch_interface_tendency!(spacedisc, state_prognostic, t; surface::Symbol, dependencies)
 
 Launches horizontal and vertical interface kernels for computing tendencies (sources, sinks, etc).
 The argument `surface` is either `:interior` or `:exterior`, which denotes whether we are computing
 values on boundaries which are interior (exterior resp.) to the _parallel_ boundary.
 """
 function launch_interface_tendency!(
-    dg,
+    spacedisc,
     tendency,
     state_prognostic,
     t,
@@ -1593,22 +1797,34 @@ function launch_interface_tendency!(
     dependencies,
 )
     @assert surface === :interior || surface === :exterior
-    Qhypervisc_grad, _ = dg.states_higher_order
+    # XXX: This is until FVM with diffusion is implemented
+    if spacedisc isa DGFVMModel
+        @assert 0 == number_states(spacedisc.balance_law, GradientFlux())
+        @assert 0 == number_states(spacedisc.balance_law, Hyperdiffusive())
+        Qhypervisc_grad_data = nothing
+        grad_flux_data = nothing
+        numerical_flux_second_order = NothingFlux()
+    elseif spacedisc isa DGModel
+        Qhypervisc_grad_data = spacedisc.states_higher_order[1].data
+        grad_flux_data = spacedisc.state_gradient_flux.data
+        numerical_flux_second_order = spacedisc.numerical_flux_second_order
+    end
 
-    info = basic_launch_info(dg)
+    info = basic_launch_info(spacedisc)
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
-    # call the kernel corresponding to the model direction `dg.diffusion_direction`
-    if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
+    # call the kernel corresponding to the model direction `spacedisc.diffusion_direction`
+    if spacedisc.direction isa EveryDirection ||
+       spacedisc.direction isa HorizontalDirection
 
         workgroup = info.Nfp_v
         if surface === :interior
-            elems = dg.grid.interiorelems
+            elems = spacedisc.grid.interiorelems
             ndrange = workgroup * info.ninteriorelem
         else
-            elems = dg.grid.exteriorelems
+            elems = spacedisc.grid.exteriorelems
             ndrange = workgroup * info.nexteriorelem
         end
 
@@ -1616,22 +1832,22 @@ function launch_interface_tendency!(
         horizontal_polyorder = info.N[1]
 
         comp_stream = interface_tendency!(info.device, workgroup)(
-            dg.balance_law,
+            spacedisc.balance_law,
             Val(info),
             HorizontalDirection(),
-            dg.numerical_flux_first_order,
-            dg.numerical_flux_second_order,
+            spacedisc.numerical_flux_first_order,
+            numerical_flux_second_order,
             tendency.data,
             state_prognostic.data,
-            dg.state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            dg.state_auxiliary.data,
-            dg.grid.vgeo,
-            dg.grid.sgeo,
+            grad_flux_data,
+            Qhypervisc_grad_data,
+            spacedisc.state_auxiliary.data,
+            spacedisc.grid.vgeo,
+            spacedisc.grid.sgeo,
             t,
-            dg.grid.vmap⁻,
-            dg.grid.vmap⁺,
-            dg.grid.elemtobndy,
+            spacedisc.grid.vmap⁻,
+            spacedisc.grid.vmap⁺,
+            spacedisc.grid.elemtobndy,
             elems,
             α;
             ndrange = ndrange,
@@ -1640,14 +1856,15 @@ function launch_interface_tendency!(
     end
 
     # Vertical kernel call
-    if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+    if spacedisc.direction isa EveryDirection ||
+       spacedisc.direction isa VerticalDirection
 
         workgroup = info.Nfp_h
         if surface === :interior
-            elems = dg.grid.interiorelems
+            elems = spacedisc.grid.interiorelems
             ndrange = workgroup * info.ninteriorelem
         else
-            elems = dg.grid.exteriorelems
+            elems = spacedisc.grid.exteriorelems
             ndrange = workgroup * info.nexteriorelem
         end
 
@@ -1655,22 +1872,22 @@ function launch_interface_tendency!(
         vertical_polyorder = info.N[info.dim]
 
         comp_stream = interface_tendency!(info.device, workgroup)(
-            dg.balance_law,
+            spacedisc.balance_law,
             Val(info),
             VerticalDirection(),
-            dg.numerical_flux_first_order,
-            dg.numerical_flux_second_order,
+            spacedisc.numerical_flux_first_order,
+            numerical_flux_second_order,
             tendency.data,
             state_prognostic.data,
-            dg.state_gradient_flux.data,
-            Qhypervisc_grad.data,
-            dg.state_auxiliary.data,
-            dg.grid.vgeo,
-            dg.grid.sgeo,
+            grad_flux_data,
+            Qhypervisc_grad_data,
+            spacedisc.state_auxiliary.data,
+            spacedisc.grid.vgeo,
+            spacedisc.grid.sgeo,
             t,
-            dg.grid.vmap⁻,
-            dg.grid.vmap⁺,
-            dg.grid.elemtobndy,
+            spacedisc.grid.vmap⁻,
+            spacedisc.grid.vmap⁺,
+            spacedisc.grid.elemtobndy,
             elems,
             α;
             ndrange = ndrange,
