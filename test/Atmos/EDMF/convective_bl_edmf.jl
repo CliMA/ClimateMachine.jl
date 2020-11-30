@@ -146,8 +146,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(10)
-    # timeend = FT(3600*6)
+    timeend = FT(3600*3)
     CFLmax = FT(0.9)
 
     config_type = SingleStackConfigType
