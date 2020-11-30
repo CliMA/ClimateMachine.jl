@@ -115,6 +115,8 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
                 up[i].ρaw     = FT(0)
             end
         end
+        println("in custom_filter")
+        @show(up[i].ρa/state.ρ)
     end
 
 end
@@ -146,7 +148,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(3600*3)
+    timeend = FT(360)
     CFLmax = FT(0.9)
 
     config_type = SingleStackConfigType
