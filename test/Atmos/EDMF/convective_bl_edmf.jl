@@ -10,15 +10,14 @@ using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.Atmos: AtmosModel
 using ClimateMachine.Atmos: PressureGradientModel
+using ClimateMachine.BalanceLaws
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
 using ClimateMachine.Mesh.Filters: apply!
 
-rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
-
-ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
+rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()X_RNG_SEED"] = true
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
