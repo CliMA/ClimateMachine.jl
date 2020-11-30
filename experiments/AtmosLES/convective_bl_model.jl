@@ -313,7 +313,7 @@ function convective_bl_model(
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
-        boundaryconditions = boundary_conditions,
+        boundarycondition = boundary_conditions,
     )
 
     # Assemble model components
