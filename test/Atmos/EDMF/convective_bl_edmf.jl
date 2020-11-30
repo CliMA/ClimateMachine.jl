@@ -94,6 +94,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # this ρu[3]=0 is only for single_stack
         state.ρu = SVector(state.ρu[1],state.ρu[2],0)
         up = state.turbconv.updraft
+        en = state.turbconv.environment
         N_up = n_updrafts(bl.turbconv)
         ρ_gm = state.ρ
         ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
@@ -107,23 +108,16 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
         w_en        = ρaw_en / ρa_en
         @unroll_map(N_up) do i
-            Δρa_low = max((ρa_min - up[i].ρa), FT(0))
-            Δρa_high = max((up[i].ρa-ρa_max), FT(0))
-            up[i].ρa      += Δρa_low - Δρa_high
-            up[i].ρaθ_liq += Δρa_low * θ_liq_en
-            up[i].ρaw     += Δρa_low * w_en
-            up[i].ρaθ_liq -= Δρa_high * up[i].ρaθ_liq/up[i].ρa
-            up[i].ρaw     -= Δρa_high * up[i].ρaw/up[i].ρa
-            if !(ρa_min < up[i].ρa < ρa_max)
-                println("up[i].ρa in edmf filter")
-                @show(up[i].ρa-ρa_max)
-                @show(up[i].ρa)
-                @show(ρa_max)
-                @show(Δρa_low)
-                @show(Δρa_high)
-                println("-----------------------")
+            if !(ρa_min <= up[i].ρa <= ρa_max)
+                up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+                up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+                up[i].ρaw     = FT(0)
             end
         end
+        en.ρatke = max(en.ρatke,FT(0))
+        en.ρaθ_liq = max(en.ρaθ_liq,FT(0))
+        en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
         validate_variables(bl, state, aux, "custom_filter!")
     end
 
