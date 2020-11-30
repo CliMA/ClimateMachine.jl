@@ -12,6 +12,7 @@ using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 using ClimateMachine.Mesh.Filters: apply!
+import ClimateMachine.DGMethods: custom_filter!
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
