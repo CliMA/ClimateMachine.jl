@@ -97,12 +97,14 @@ function reverse_integral_set_auxiliary_state!(
     aux::Vars,
     integ::Vars,
 ) end
-function flux_radiation!(
+function flux_first_order!(
     ::RadiationModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 ) end
 
 # ------------------------ Begin Radiation Model ---------------------- #
@@ -178,13 +180,15 @@ function reverse_integral_set_auxiliary_state!(
     aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
 end
 
-function flux_radiation!(
+function flux_first_order!(
     m::DYCOMSRadiation,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
     FT = eltype(flux)
     z = altitude(atmos, aux)
@@ -275,7 +279,7 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_liq = q_init.liq
         state.moisture.ρq_ice = q_init.ice
     end
-    if bl.precipitation isa Rain
+    if bl.precipitation isa RainModel
         state.precipitation.ρq_rai = FT(0)
     end
 
@@ -372,8 +376,8 @@ function config_dycoms(
     if precipitation_model == "noprecipitation"
         precipitation = NoPrecipitation()
     elseif precipitation_model == "rain"
-        source = (source..., Rain_1M())
-        precipitation = Rain()
+        source = (source..., Rain_1M()...)
+        precipitation = RainModel()
     else
         @warn @sprintf(
             """

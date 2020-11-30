@@ -79,6 +79,8 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
     return nothing
 end
