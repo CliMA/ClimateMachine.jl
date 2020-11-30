@@ -250,6 +250,7 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
         moisture = DryModel()
@@ -315,7 +316,7 @@ function stable_bl_model(
             AtmosBC(),
         )
     end
-
+    # Set up problem initial and boundary conditions
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,

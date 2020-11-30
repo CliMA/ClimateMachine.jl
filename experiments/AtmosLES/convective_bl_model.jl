@@ -5,17 +5,7 @@
 # Convective Boundary Layer LES case (Kitamura et al, 2016).
 
 ## ### Convective Boundary Layer LES
-## @article{Nishizawa2018,
-## author={Nishizawa, S and Kitamura, Y},
-## title={A Surface Flux Scheme Based on the Monin-Obukhov Similarity for Finite Volume Models},
-## journal={Journal of Advances in Modeling Earth Systems},
-## year={2018},
-## volume={10},
-## number={12},
-## pages={3159-3175},
-## doi={10.1029/2018MS001534},
-## url={https://doi.org/10.1029/2018MS001534},
-## }
+## [Nishizawa2018](@cite)
 #
 # To simulate the experiment, type in
 #
@@ -150,6 +140,7 @@ end
 """
 function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
+
     # Problem floating point precision
     FT = eltype(state)
     R_gas::FT = R_d(bl.param_set)
@@ -172,11 +163,8 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     π_exner = FT(1) - _grav / (c_p * θ) * z # exner pressure
     ρ = p0 / (R_gas * θ) * (π_exner)^(c_v / R_gas) # density
     # Establish thermodynamic state and moist phase partitioning
-    if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq)
-    else
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
-    end
+    TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq, q_tot)
+
     # Compute momentum contributions
     ρu = ρ * u
     ρv = ρ * v
@@ -194,9 +182,9 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
+
     if z <= FT(400) # Add random perturbations to bottom 400m of model
-        # state.ρe += rand() * ρe_tot / 100
-        state.ρe += FT(0.5) * ρe_tot / 100
+        state.ρe += rand() * ρe_tot / 100
     end
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
@@ -226,7 +214,7 @@ function convective_bl_model(
     ics = init_convective_bl!     # Initial conditions
 
     C_smag = FT(0.23)     # Smagorinsky coefficient
-    C_drag = FT(0)    # Momentum exchange coefficient
+    C_drag = FT(0.001)    # Momentum exchange coefficient
     z_sponge = FT(2560)     # Start of sponge layer
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
     γ = 2                  # Strength of sponge layer (exponent)
@@ -236,8 +224,6 @@ function convective_bl_model(
     f_coriolis = FT(1.031e-4) # Coriolis parameter
     u_star = FT(0.3)
     q_sfc = FT(0)
-    LHF = FT(0)       # Latent heat flux `[W/m²]`
-    SHF = FT(0)         # Sensible heat flux `[W/m²]`
 
     # Assemble source components
     source_default = (
@@ -257,6 +243,7 @@ function convective_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
         moisture = DryModel()
@@ -264,7 +251,7 @@ function convective_bl_model(
         source = source_default
         moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
     elseif moisture_model == "nonequilibrium"
-        source = (source_default..., CreateClouds())
+        source = (source_default..., CreateClouds()...)
         moisture = NonEquilMoist()
     else
         @warn @sprintf(
@@ -322,7 +309,7 @@ function convective_bl_model(
             AtmosBC(),
         )
     end
-
+    # Set up problem initial and boundary conditions
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
