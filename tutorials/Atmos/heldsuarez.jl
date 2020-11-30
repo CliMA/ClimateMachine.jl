@@ -165,7 +165,7 @@ z_sponge = FT(12e3)                    # height at which sponge begins (m)
 α_relax = FT(1 / 60 / 15)              # sponge relaxation rate (1/s)
 exponent = FT(2)                       # sponge exponent for squared-sinusoid profile
 u_relax = SVector(FT(0), FT(0), FT(0)) # relaxation velocity (m/s)
-sponge = RayleighSponge(domain_height, z_sponge, α_relax, u_relax, exponent);
+sponge = RayleighSponge(FT, domain_height, z_sponge, α_relax, u_relax, exponent);
 
 # ## Set up turbulence models
 # In order to produce a stable simulation, we need to dissipate energy and
@@ -307,6 +307,4 @@ result = ClimateMachine.invoke!(
 
 # ## References
 #
-# - Held, I.M. and M.J. Suarez, 1994: A Proposal for the Intercomparison
-# the Dynamical Cores of Atmospheric General Circulation Models. Bull. #
-# Amer. Meteor. Soc., 75, 1825–1830, https://doi.org/10.1175/1520-0477(1994)075<1825:APFTIO>2.0.CO;2
+# - [Held1994](@cite)

@@ -4,6 +4,7 @@ ClimateMachine.init(parse_clargs = true)
 
 using ClimateMachine.Atmos
 using ClimateMachine.ConfigTypes
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.Diagnostics
 using ClimateMachine.Orientations
 using ClimateMachine.GenericCallbacks
@@ -20,6 +21,7 @@ using ClimateMachine.VariableTemplates
 using Distributions: Uniform
 using LinearAlgebra
 using StaticArrays
+using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet:
@@ -77,10 +79,8 @@ function init_isothermal_zonal_flow!(problem, bl, state, aux, localgeo, t)
     state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T₀)
 end
 
-function config_isothermal_zonal_flow(FT, poly_order, resolution)
+function config_isothermal_zonal_flow(FT, poly_order, resolution, ref_state)
     # Set up a reference state for linearization of equations
-    temp_profile_ref = IsothermalProfile(param_set, FT(300))
-    ref_state = HydrostaticState(temp_profile_ref)
 
     domain_height = FT(10e3)
 
@@ -105,6 +105,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution)
         param_set,
         init_isothermal_zonal_flow!;
         model = model,
+        numerical_flux_first_order = RoeNumericalFlux(),
     )
 
     return config
@@ -146,17 +147,25 @@ function main()
     timestart = FT(0)                        # start time (s)
     timeend = FT(3600)                       # end time (s)
 
+    # set up the reference state for linearization of equations
+    temp_profile_ref = IsothermalProfile(param_set, FT(300))
+    ref_state = HydrostaticState(temp_profile_ref)
+
     # Set up driver configuration
-    driver_config =
-        config_isothermal_zonal_flow(FT, poly_order, (n_horz, n_vert))
+    driver_config = config_isothermal_zonal_flow(
+        FT,
+        poly_order,
+        (n_horz, n_vert),
+        ref_state,
+    )
 
     # Set up experiment
     ode_solver_type = ClimateMachine.IMEXSolverType(
         implicit_model = AtmosAcousticGravityLinearModel,
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
+        split_explicit_implicit = false,
+        discrete_splitting = true,
     )
     CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(
@@ -168,6 +177,9 @@ function main()
         ode_solver_type = ode_solver_type,
         CFL_direction = HorizontalDirection(),
     )
+
+    # save the initial condition for testing
+    Q0 = copy(solver_config.Q)
 
     # Set up diagnostics
     dgn_config = config_diagnostics(FT, driver_config)
@@ -193,6 +205,11 @@ function main()
         user_callbacks = (cbfilter,),
         check_euclidean_distance = true,
     )
+
+    relative_error = norm(solver_config.Q .- Q0) / norm(Q0)
+    @info "Relative error = $relative_error"
+    @test relative_error < 1e-7
+
 end
 
 main()

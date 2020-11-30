@@ -1,15 +1,11 @@
 # This file establishes the default initial conditions, boundary conditions and sources
-# for the baroclinicwave_problem experiment, following
-#
-# Ullrich, P. A., Melvin, T., Jablonowski, C., and Staniforth, A.:
-# A proposed baroclinic wave test case for deep- and shallow atmosphere
-# dynamical cores, Q. J. Roy. Meteor. Soc., 140, 1590-1602, doi:10.1002/qj.2241, 2014.
+# for the baroclinicwave_problem experiment, following [Ullrich2014](@cite)
 
 # Override default CLIMAParameters for consistency with literature on this case
 CLIMAParameters.Planet.press_triple(::EarthParameterSet) = 610.78
 
-struct BaroclinicWaveProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
-    boundarycondition::BC
+struct BaroclinicWaveProblem{BCS, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
+    boundaryconditions::BCS
     init_state_prognostic::ISP
     init_state_auxiliary::ISA
     perturbation::WP
@@ -17,7 +13,7 @@ struct BaroclinicWaveProblem{BC, ISP, ISA, WP, BS, MP} <: AbstractAtmosProblem
     moisture_profile::MP
 end
 function BaroclinicWaveProblem(;
-    boundarycondition = (AtmosBC(), AtmosBC()),
+    boundaryconditions = (AtmosBC(), AtmosBC()),
     perturbation = nothing,
     base_state = nothing,
     moisture_profile = nothing,
@@ -34,7 +30,7 @@ function BaroclinicWaveProblem(;
     end
 
     problem = (
-        boundarycondition,
+        boundaryconditions,
         init_gcm_experiment!,
         (_...) -> nothing,
         perturbation,

@@ -34,6 +34,7 @@ import ClimateMachine.DGMethods:
     flux_first_order!,
     flux_second_order!,
     source!,
+    boundary_conditions,
     boundary_state!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!
@@ -97,8 +98,10 @@ source!(::ConservationTestModel, _...) = nothing
 
 struct ConservationTestModelNumFlux <: NumericalFluxFirstOrder end
 
+boundary_conditions(::ConservationTestModel) = (nothing,)
 boundary_state!(
     ::CentralNumericalFluxSecondOrder,
+    bc,
     ::ConservationTestModel,
     _...,
 ) = nothing
@@ -130,6 +133,7 @@ end
 
 function numerical_boundary_flux_first_order!(
     ::ConservationTestModelNumFlux,
+    bctype,
     bl::BalanceLaw,
     fluxᵀn::Vars{S},
     n::SVector,
@@ -137,7 +141,6 @@ function numerical_boundary_flux_first_order!(
     aux⁻::Vars{A},
     state⁺::Vars{S},
     aux⁺::Vars{A},
-    bctype,
     t,
     direction,
     state1⁻::Vars{S},

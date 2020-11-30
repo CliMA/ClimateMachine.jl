@@ -8,8 +8,8 @@ The snapshots of these spectra should be averaged to obtain a time-average.
 The input velocities must be interpolated to a Gaussian grid.
 
 # References
-- A. Wiin-Nielsen (1967) On the annual variation and spectral distribution of atmospheric energy, Tellus, 19:4, 540-559, DOI: 10.3402/tellusa.v19i4.9822
-- Koshyk, J. N., and K. Hamilton, 2001: The Horizontal Kinetic Energy Spectrum and Spectral Budget Simulated by a High-Resolution Troposphere–Stratosphere–Mesosphere GCM. J. Atmos. Sci., 58, 329–348, https://doi.org/10.1175/1520-0469(2001)058<0329:THKESA>2.0.CO;2.
+- [Wiin1967](@cite)
+- [Koshyk2001](@cite)
 
 # Arguments
 - var_grid: variable (typically u or v) on a Gausian (lon, lat, z) grid to be transformed
@@ -73,7 +73,7 @@ end
 - mass_weight: weight for mass-weighted calculations
 
 # References
-Baer, F., 1972: An Alternate Scale Representation of Atmospheric Energy Spectra. J. Atmos. Sci., 29, 649–664, https://doi.org/10.1175/1520-0469(1972)029<0649:AASROA>2.0.CO;2
+ - [Baer1972](@cite)
 """
 function power_spectrum_2d(::AtmosGCMConfigType, var_grid, mass_weight)
     #  initialize spherical mesh variables

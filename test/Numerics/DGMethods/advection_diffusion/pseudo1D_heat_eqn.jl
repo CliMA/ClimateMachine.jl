@@ -33,11 +33,8 @@ function init_velocity_diffusion!(
     aux::Vars,
     geom::LocalGeometry,
 ) where {n}
-    # No advection
-    aux.u = 0 * n
-
     # diffusion of strength 1 in the n direction
-    aux.D = n * n'
+    aux.diffusion.D = n * n'
 end
 
 # solution is such that
@@ -57,7 +54,8 @@ Dirichlet_data!(P::HeatEqn, x...) = initial_condition!(P, x...)
 
 function normal_boundary_flux_second_order!(
     ::CentralNumericalFluxSecondOrder,
-    ::AdvectionDiffusion{dim, HeatEqn{nd, κ, A}},
+    bctype,
+    ::AdvectionDiffusion{1, dim, HeatEqn{nd, κ, A}},
     fluxᵀn::Vars{S},
     n⁻,
     state⁻,
@@ -68,7 +66,6 @@ function normal_boundary_flux_second_order!(
     diff⁺,
     hyperdiff⁺,
     aux⁺,
-    bctype,
     t,
     _...,
 ) where {S, dim, nd, κ, A}
@@ -86,7 +83,7 @@ function normal_boundary_flux_second_order!(
         ))
 
         # Compute flux value
-        D = aux⁻.D
+        D = aux⁻.diffusion.D
         fluxᵀn.ρ = -(D * ∇ρ)' * n⁻
     end
 end
@@ -116,7 +113,7 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = N,
     )
-    model = AdvectionDiffusion{dim}(HeatEqn{n, κ, A}())
+    model = AdvectionDiffusion{dim}(HeatEqn{n, κ, A}(); advection = false)
     dg = DGModel(
         model,
         grid,

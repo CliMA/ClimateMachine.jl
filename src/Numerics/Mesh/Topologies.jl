@@ -922,22 +922,7 @@ end
 
 Given points `(a, b, c)` on the surface of a cube, warp the points out to a
 spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-Ronchi, Iacono, Paolucci (1996) https://linkinghub.elsevier.com/retrieve/pii/S0021999196900479
-
-```
-@article{RonchiIaconoPaolucci1996,
-  title={The ``cubed sphere'': a new method for the solution of partial
-         differential equations in spherical geometry},
-  author={Ronchi, C. and Iacono, R. and Paolucci, P. S.},
-  journal={Journal of Computational Physics},
-  volume={124},
-  number={1},
-  pages={93--114},
-  year={1996},
-  doi={10.1006/jcph.1996.0047}
-}
-```
-
+[Ronchi1996](@cite)
 """
 function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
 

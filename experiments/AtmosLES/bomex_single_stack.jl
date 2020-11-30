@@ -6,6 +6,11 @@ function main()
     bomex_args = ArgParseSettings(autofix_names = true)
     add_arg_group!(bomex_args, "BOMEX")
     @add_arg_table! bomex_args begin
+        "--moisture-model"
+        help = "specify cloud condensate model"
+        metavar = "equilibrium|nonequilibrium"
+        arg_type = String
+        default = "equilibrium"
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
@@ -17,6 +22,7 @@ function main()
         ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
 
     surface_flux = cl_args["surface_flux"]
+    moisture_model = cl_args["moisture_model"]
 
     FT = Float64
     config_type = SingleStackConfigType
@@ -39,7 +45,13 @@ function main()
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
 
-    model = bomex_model(FT, config_type, zmax, surface_flux)
+    model = bomex_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux;
+        moisture_model = moisture_model,
+    )
     ics = model.problem.init_state_prognostic
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(

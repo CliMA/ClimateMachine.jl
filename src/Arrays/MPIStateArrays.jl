@@ -152,8 +152,10 @@ mutable struct MPIStateArray{
         # Make sure that we have finished all outstanding data for halo
         # exchanges before the MPIStateArray is finalize.
         finalizer(Q) do x
-            MPI.Waitall!(x.recvreq)
-            MPI.Waitall!(x.sendreq)
+            if !MPI.Finalized()
+                MPI.Waitall!(x.recvreq)
+                MPI.Waitall!(x.sendreq)
+            end
         end
         return Q
     end

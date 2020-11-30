@@ -123,7 +123,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
 
     if dim == 2
         problem = AtmosProblem(
-            boundarycondition = InitStateBC(),
+            boundaryconditions = (InitStateBC(),),
             init_state_prognostic = mms2_init_state!,
         )
         model = AtmosModel{FT}(
@@ -141,7 +141,7 @@ function test_run(mpicomm, ArrayType, dim, topl, warpfun, N, timeend, FT, dt)
         )
     else
         problem = AtmosProblem(
-            boundarycondition = InitStateBC(),
+            boundaryconditions = (InitStateBC(),),
             init_state_prognostic = mms3_init_state!,
         )
         model = AtmosModel{FT}(

@@ -35,7 +35,11 @@ using ...DGMethods.NumericalFluxes:
 
 using ..Ocean
 
-import ..Ocean: ocean_init_aux!, ocean_init_state!, ocean_boundary_state!
+import ..Ocean:
+    ocean_init_aux!,
+    ocean_init_state!,
+    ocean_boundary_state!,
+    _ocean_boundary_state!
 
 import ...DGMethods.NumericalFluxes:
     update_penalty!, numerical_flux_second_order!, NumericalFluxFirstOrder
@@ -46,6 +50,7 @@ import ...DGMethods:
     flux_second_order!,
     source!,
     wavespeed,
+    boundary_conditions,
     boundary_state!,
     update_auxiliary_state!,
     update_auxiliary_state_gradient!,

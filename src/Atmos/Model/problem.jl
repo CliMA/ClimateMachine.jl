@@ -10,9 +10,9 @@ abstract type AbstractAtmosProblem <: AbstractProblem end
 The default problem definition (initial and boundary conditions)
 for `AtmosModel`.
 """
-struct AtmosProblem{BC, ISP, ISA} <: AbstractAtmosProblem
+struct AtmosProblem{BCS, ISP, ISA} <: AbstractAtmosProblem
     "Boundary condition specification"
-    boundarycondition::BC
+    boundaryconditions::BCS
     "Initial condition (function to assign initial values of prognostic state variables)"
     init_state_prognostic::ISP
     "Initial condition (function to assign initial values of auxiliary state variables)"
@@ -20,13 +20,13 @@ struct AtmosProblem{BC, ISP, ISA} <: AbstractAtmosProblem
 end
 
 function AtmosProblem(;
-    boundarycondition::BC = AtmosBC(),
+    boundaryconditions::BCS = (AtmosBC(), AtmosBC()),
     init_state_prognostic::ISP = nothing,
     init_state_auxiliary::ISA = atmos_problem_init_state_auxiliary,
-) where {BC, ISP, ISA}
+) where {BCS, ISP, ISA}
     @assert init_state_prognostic ≠ nothing
 
-    problem = (boundarycondition, init_state_prognostic, init_state_auxiliary)
+    problem = (boundaryconditions, init_state_prognostic, init_state_auxiliary)
 
     return AtmosProblem{typeof.(problem)...}(problem...)
 end

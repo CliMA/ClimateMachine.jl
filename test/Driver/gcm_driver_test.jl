@@ -93,7 +93,7 @@ function main()
     )
     driver_config = ClimateMachine.AtmosGCMConfiguration(
         "GCM Driver test",
-        N,
+        (N, N),
         resolution,
         setup.domain_height,
         param_set,

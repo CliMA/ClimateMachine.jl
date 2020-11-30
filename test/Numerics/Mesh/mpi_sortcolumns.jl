@@ -14,11 +14,23 @@ function main()
     B = BrickMesh.parallelsortcolumns(comm, A, rev = true)
 
     root = 0
-    Acounts = MPI.Allgather(Cint(length(A)), comm)
-    A_all = MPI.Gatherv(A, Acounts, root, comm)
+    Acounts = MPI.Gather(Cint(length(A)), root, comm)
+    A_all = MPI.Gatherv!(
+        A,
+        MPI.Comm_rank(comm) == root ?
+        VBuffer(similar(A, sum(Acounts)), Acounts) : nothing,
+        root,
+        comm,
+    )
 
-    Bcounts = MPI.Allgather(Cint(length(B)), comm)
-    B_all = MPI.Gatherv(B, Bcounts, root, comm)
+    Bcounts = MPI.Gather(Cint(length(B)), root, comm)
+    B_all = MPI.Gatherv!(
+        B,
+        MPI.Comm_rank(comm) == root ?
+        VBuffer(similar(B, sum(Bcounts)), Bcounts) : nothing,
+        root,
+        comm,
+    )
 
     if MPI.Comm_rank(comm) == root
         A_all = reshape(A_all, d, div(length(A_all), d))

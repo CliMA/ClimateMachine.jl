@@ -35,11 +35,34 @@ using ..TurbulenceClosures: turbulence_tensors
         interpol = nothing,
     )
 
-Create and return a `DiagnosticsGroup` containing the "AtmosDefault"
-diagnostics for GCM configurations. All the diagnostics in the group will run
-at the specified `interval`, be interpolated to the specified boundaries and
-resolution, and will be written to files prefixed by `out_prefix` using
-`writer`.
+Create the "AtmosGCMDefault" `DiagnosticsGroup` which contains the following
+diagnostic variables:
+- u: zonal wind
+- v: meridional wind
+- w: vertical wind
+- rho: air density
+- temp: air temperature
+- pres: air pressure
+- thd: dry potential temperature
+- et: total specific energy
+- ei: specific internal energy
+- ht: specific enthalpy based on total energy
+- hi: specific enthalpy based on internal energy
+- vort: vertical component of relative velocity
+
+When an `EquilMoist` moisture model is used, the following diagnostic
+variables are also output:
+
+- qt: mass fraction of total water in air
+- ql: mass fraction of liquid water in air
+- qv: mass fraction of water vapor in air
+- qi: mass fraction of ice in air
+- thv: virtual potential temperature
+- thl: liquid-ice potential temperature
+
+All these variables are output with `lat`, `long`, and `level` dimensions
+of an interpolated grid (`interpol` _must_ be specified) as well as a
+(unlimited) `time` dimension at the specified `interval`.
 """
 function setup_atmos_default_diagnostics(
     ::AtmosGCMConfigType,

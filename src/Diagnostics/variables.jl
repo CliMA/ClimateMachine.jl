@@ -156,6 +156,14 @@ function setup_variables()
         "thl",
         var_attrib("K", "liquid-ice potential temperature", ""),
     )
+    Variables["qr"] = DiagnosticVariable(
+        "qr",
+        var_attrib(
+            "kg kg^-1",
+            "mass fraction of rain in the air",
+            "mass_fraction_of_rain_in_the_air",
+        ),
+    )
     Variables["cld_frac"] = DiagnosticVariable(
         "cld_frac",
         var_attrib(
@@ -195,6 +203,10 @@ function setup_variables()
     Variables["var_ei"] = DiagnosticVariable(
         "var_ei",
         var_attrib("J^2 kg^-2", "variance of specific internal energy", ""),
+    )
+    Variables["var_qr"] = DiagnosticVariable(
+        "var_qr",
+        var_attrib("kg^2 kg^-2", "variance of rain specific humidity", ""),
     )
     Variables["cov_w_u"] = DiagnosticVariable(
         "cov_w_u",
@@ -288,6 +300,14 @@ function setup_variables()
             "",
         ),
     )
+    Variables["cov_w_qr"] = DiagnosticVariable(
+        "cov_w_qr",
+        var_attrib(
+            "kg kg^-1 m s^-1",
+            "vertical eddy flux of liquid water specific humidity",
+            "",
+        ),
+    )
     Variables["w_qt_sgs"] = DiagnosticVariable(
         "w_qt_sgs",
         var_attrib(
@@ -322,6 +342,14 @@ function setup_variables()
             "kg m^-2",
             "liquid water path",
             "atmosphere_mass_content_of_cloud_condensed_water",
+        ),
+    )
+    Variables["rwp"] = DiagnosticVariable(
+        "rwp",
+        var_attrib(
+            "kg m^-2",
+            "rain water path",
+            "atmosphere_mass_content_of_rain_water",
         ),
     )
     Variables["core_frac"] = DiagnosticVariable(

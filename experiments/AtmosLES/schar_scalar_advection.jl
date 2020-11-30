@@ -24,24 +24,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 ### Citation
-#@article{
-#    author = {Schär, Christoph and 
-#              Leuenberger, Daniel and 
-#              Fuhrer, Oliver and 
-#              Lüthi, Daniel and 
-#              Girard, Claude},
-#    title = "{A New Terrain-Following Vertical Coordinate Formulation 
-#              for Atmospheric Prediction Models}",
-#    journal = {Monthly Weather Review},
-#    volume = {130},
-#    number = {10},
-#    pages = {2459-2480},
-#    year = {2002},
-#    month = {10},
-#    issn = {0027-0644},
-#    doi = {10.1175/1520-0493(2002)130<2459:ANTFVC>2.0.CO;2},
-#    url = {https://doi.org/10.1175/1520-0493(2002)130<2459:ANTFVC>2.0.CO;2},
-#}
+# [Schar2002](@cite)
 
 # ## [Initial Conditions]
 function init_schar!(problem, bl, state, aux, localgeo, t)
@@ -156,7 +139,7 @@ function config_schar(FT, N, resolution, xmax, ymax, zmax)
 
     ## Pass the sponge parameters to the sponge calculator
     rayleigh_sponge =
-        RayleighSponge{FT}(zmax, z_s, sponge_ampz, u_relaxation, 2)
+        RayleighSponge(FT, zmax, z_s, sponge_ampz, u_relaxation, 2)
 
     ## Define the time integrator:
     ## We chose an explicit single-rate LSRK144 for this problem

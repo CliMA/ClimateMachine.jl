@@ -15,6 +15,7 @@ fraction are also included.
 module SoilWaterParameterizations
 
 using DocStringExtensions
+using UnPack
 
 export AbstractImpedanceFactor,
     NoImpedance,
@@ -37,8 +38,8 @@ export AbstractImpedanceFactor,
     pressure_head,
     hydraulic_head,
     matric_potential,
-    volumetric_liquid_fraction
-
+    volumetric_liquid_fraction,
+    inverse_matric_potential
 
 """
     AbstractImpedanceFactor{FT <: AbstractFloat}
@@ -419,17 +420,17 @@ hydraulic_head(z, ψ) = z + ψ
 """
     volumetric_liquid_fraction(
         ϑ_l::FT,
-        porosity::FT,
+        eff_porosity::FT,
     ) where {FT}
 
-Compute the volumetric liquid fraction from the porosity and the augmented liquid
+Compute the volumetric liquid fraction from the effective porosity and the augmented liquid
 fraction.
 """
-function volumetric_liquid_fraction(ϑ_l::FT, porosity::FT) where {FT}
-    if ϑ_l < porosity
+function volumetric_liquid_fraction(ϑ_l::FT, eff_porosity::FT) where {FT}
+    if ϑ_l < eff_porosity
         θ_l = ϑ_l
     else
-        θ_l = porosity
+        θ_l = eff_porosity
     end
     return θ_l
 end
@@ -461,22 +462,32 @@ end
         porosity::FT,
         S_s::FT,
         ϑ_l::FT,
+        θ_i::FT,
     ) where {FT}
 
-Determine the pressure head in both saturated and unsaturated soil.
+Determine the pressure head in both saturated and unsaturated soil. 
+
+If ice is present, it reduces the volume available for liquid water. 
+The augmented liquid fraction changes behavior depending on if this 
+volume is full of liquid water vs not. Therefore, the region of saturated
+vs unsaturated soil depends on porosity - θ_i, not just on porosity.  
+If the liquid water is unsaturated, the usual matric potential expression
+is treated as unaffected by the presence of ice.
 """
 function pressure_head(
     model::AbstractHydraulicsModel{FT},
     porosity::FT,
     S_s::FT,
     ϑ_l::FT,
+    θ_i::FT,
 ) where {FT}
-
-    S_l = effective_saturation(porosity, ϑ_l)
-    if S_l < 1
+    eff_porosity = porosity - θ_i
+    S_l_eff = effective_saturation(eff_porosity, ϑ_l)
+    if S_l_eff < 1
+        S_l = effective_saturation(porosity, ϑ_l)
         ψ = matric_potential(model, S_l)
     else
-        ψ = (ϑ_l - porosity) / S_s
+        ψ = (ϑ_l - eff_porosity) / S_s
     end
     return ψ
 end
@@ -490,10 +501,7 @@ end
 Compute the van Genuchten function for matric potential.
 """
 function matric_potential(model::vanGenuchten{FT}, S_l::FT) where {FT}
-    n = model.n
-    m = model.m
-    α = model.α
-
+    @unpack n, m, α = model
     ψ_m = -((S_l^(-FT(1) / m) - FT(1)) * α^(-n))^(FT(1) / n)
     return ψ_m
 end
@@ -508,9 +516,7 @@ Compute the van Genuchten function as a proxy for the Haverkamp model
 matric potential (for testing purposes).
 """
 function matric_potential(model::Haverkamp{FT}, S_l::FT) where {FT}
-    n = model.n
-    m = model.m
-    α = model.α
+    @unpack n, m, α = model
 
     ψ_m = -((S_l^(-FT(1) / m) - FT(1)) * α^(-n))^(FT(1) / n)
     return ψ_m
@@ -525,11 +531,65 @@ end
 Compute the Brooks and Corey function for matric potential.
 """
 function matric_potential(model::BrooksCorey{FT}, S_l::FT) where {FT}
-    ψb = model.ψb
-    m = model.m
-
+    @unpack ψb, m = model
     ψ_m = -ψb * S_l^(-FT(1) / m)
     return ψ_m
+end
+
+
+
+"""
+    inverse_matric_potential(
+        model::vanGenuchten{FT},
+        ψ::FT
+    ) where {FT}
+
+Compute the effective saturation given the matric potential, using
+the van Genuchten formulation.
+"""
+function inverse_matric_potential(model::vanGenuchten{FT}, ψ::FT) where {FT}
+
+    ψ > 0 && error("Matric potential is positive")
+
+    @unpack n, m, α = model
+    S = (FT(1) + (α * abs(ψ))^n)^(-m)
+    return S
+end
+
+
+"""
+    inverse_matric_potential(
+        model::Haverkamp{FT}
+        ψ::FT
+    ) where {FT}
+
+Compute the effective saturation given the matric potential using the 
+Haverkamp hydraulics model. This model uses the van Genuchten 
+formulation for matric potential.
+"""
+function inverse_matric_potential(model::Haverkamp{FT}, ψ::FT) where {FT}
+    ψ > 0 && error("Matric potential is positive")
+    @unpack n, m, α = model
+    S = (FT(1) + (α * abs(ψ))^n)^(-m)
+    return S
+end
+
+
+"""
+    inverse_matric_potential(
+        model::BrooksCorey{FT}
+        ψ::FT
+    ) where {FT}
+
+Compute the effective saturation given the matric potential using the 
+Brooks and Corey formulation.
+"""
+function inverse_matric_potential(model::BrooksCorey{FT}, ψ::FT) where {FT}
+    ψ > 0 && error("Matric potential is positive")
+
+    @unpack ψb, m = model
+    S = (-ψ / ψb)^(-m)
+    return S
 end
 
 end #Module

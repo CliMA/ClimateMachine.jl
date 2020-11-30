@@ -16,7 +16,8 @@ import ...BalanceLaws:
     initialize_states!,
     tendency_from_slow_to_fast!,
     cummulate_fast_solution!,
-    reconcile_from_fast_to_slow!
+    reconcile_from_fast_to_slow!,
+    boundary_conditions
 
 HBModel = HydrostaticBoussinesqModel
 SWModel = ShallowWaterModel

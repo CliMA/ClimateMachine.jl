@@ -85,18 +85,11 @@ c_h(uf::AUF) = c_h(uf.param_set, uf)
 
 # Reference
 
-    Nishizawa, S., and Y. Kitamura. "A Surface Flux
-    Scheme Based on the Monin‐Obukhov Similarity for
-    Finite Volume Models." Journal of Advances in
-    Modeling Earth Systems 10.12 (2018): 3159-3175.
-    Appendix A.
+ - [Nishizawa2018](@cite)
 
 # Original research
 
-    Businger, Joost A., et al. "Flux-profile
-    relationships in the atmospheric surface layer."
-    Journal of the atmospheric Sciences 28.2 (1971):
-    181-189.
+ - [Businger1971](@cite)
 
 # Equations in reference:
 
@@ -232,12 +225,8 @@ end
 """
     Gryanik <: AbstractUniversalFunction{FT}
 
-# Reference
-    Gryanik, Vladimir M., et al. "New modified and extended
-    stability functions for the stable boundary layer based
-    on SHEBA and parametrizations of bulk transfer coefficients
-    for climate models." Journal of the Atmospheric Sciences
-    (2020).
+# References
+ - [Gryanik2020](@cite)
 
 # Equations in reference:
 
@@ -319,11 +308,8 @@ end
 """
     Grachev <: AbstractUniversalFunction{FT}
 
-# Reference:
-    Grachev, A. A., E. L. Andreas, C. W. Fairall, P. S. Guest, and
-    P. O. G. Persson, 2007a: SHEBA flux–profile relationships in
-    the stable atmospheric boundary layer. Bound.-Layer Meteor.,
-    124, 315–333, https://doi.org/10.1007/s10546-007-9177-6.
+# References
+ - [Grachev2007](@cite)
 
 Equations in reference:
 

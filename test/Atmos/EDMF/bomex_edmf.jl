@@ -344,10 +344,4 @@ end
 
 solver_config, all_data, time_data, state_types = main(Float64)
 
-include(joinpath(
-    clima_dir,
-    "test",
-    "Atmos",
-    "EDMF",
-    "bomex_edmf_regression_test.jl",
-))
+include(joinpath(@__DIR__, "bomex_edmf_regression_test.jl"))

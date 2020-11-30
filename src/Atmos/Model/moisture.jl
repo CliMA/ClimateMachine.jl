@@ -12,13 +12,15 @@ function atmos_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 ) end
-function flux_moisture!(
+function flux_first_order!(
     ::MoistureModel,
     ::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 ) end
 function compute_gradient_flux!(
     ::MoistureModel,
@@ -37,7 +39,7 @@ function flux_second_order!(
     t::Real,
     D_t,
 ) end
-function flux_first_order!(::MoistureModel, _...) end
+
 function compute_gradient_argument!(
     ::MoistureModel,
     transform::Vars,
@@ -83,6 +85,17 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     aux.moisture.air_T = air_temperature(ts)
     nothing
 end
+
+function source!(
+    m::DryModel,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+) end
 
 """
     EquilMoist
@@ -143,17 +156,20 @@ function compute_gradient_flux!(
     diffusive.moisture.∇q_tot = ∇transform.moisture.q_tot
 end
 
-function flux_moisture!(
+function flux_first_order!(
     moist::EquilMoist,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
-    ρ = state.ρ
-    u = state.ρu / ρ
-    flux.moisture.ρq_tot += u * state.moisture.ρq_tot
+    tend = Flux{FirstOrder}()
+    args = (atmos, state, aux, t, ts, direction)
+    flux.moisture.ρq_tot =
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), args...)
 end
 
 function flux_second_order!(
@@ -170,9 +186,25 @@ function flux_second_order!(
 end
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
 function flux_second_order!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
-    flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
+end
+
+function source!(
+    m::EquilMoist,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    tend = Source()
+    ts = recover_thermo_state(atmos, state, aux)
+    args = (atmos, state, aux, t, ts, direction, diffusive)
+    source.moisture.ρq_tot =
+        Σsources(eq_tends(TotalMoisture(), atmos, tend), args...)
 end
 
 """
@@ -233,19 +265,24 @@ function compute_gradient_flux!(
     diffusive.moisture.∇q_ice = ∇transform.moisture.q_ice
 end
 
-function flux_moisture!(
+function flux_first_order!(
     moist::NonEquilMoist,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
-    ρ = state.ρ
-    u = state.ρu / ρ
-    flux.moisture.ρq_tot += u * state.moisture.ρq_tot
-    flux.moisture.ρq_liq += u * state.moisture.ρq_liq
-    flux.moisture.ρq_ice += u * state.moisture.ρq_ice
+    tend = Flux{FirstOrder}()
+    args = (atmos, state, aux, t, ts, direction)
+    flux.moisture.ρq_tot =
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), args...)
+    flux.moisture.ρq_liq =
+        Σfluxes(eq_tends(LiquidMoisture(), atmos, tend), args...)
+    flux.moisture.ρq_ice =
+        Σfluxes(eq_tends(IceMoisture(), atmos, tend), args...)
 end
 
 function flux_second_order!(
@@ -272,9 +309,29 @@ function flux_second_order!(
     d_q_liq,
     d_q_ice,
 )
-    flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
     flux.moisture.ρq_liq += d_q_liq * state.ρ
     flux.moisture.ρq_ice += d_q_ice * state.ρ
+end
+
+function source!(
+    m::NonEquilMoist,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    tend = Source()
+    ts = recover_thermo_state(atmos, state, aux)
+    args = (atmos, state, aux, t, ts, direction, diffusive)
+    source.moisture.ρq_tot =
+        Σsources(eq_tends(TotalMoisture(), atmos, tend), args...)
+    source.moisture.ρq_liq =
+        Σsources(eq_tends(LiquidMoisture(), atmos, tend), args...)
+    source.moisture.ρq_ice =
+        Σsources(eq_tends(IceMoisture(), atmos, tend), args...)
 end

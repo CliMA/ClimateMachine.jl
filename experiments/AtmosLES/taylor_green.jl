@@ -42,28 +42,10 @@ import ClimateMachine.Atmos: flux_second_order!
 """
     Initial Condition for Taylor-Green vortex (LES)
 
-@article{taylorGreen1937,
-author = {Taylor, G. I. and Green, A. E.},
-title = {Mechanisms of production of small eddies from large ones},
-journal = {Proc. Roy. Soc. A},
-volume = {158}
-number = {895},
-year = {1937},
-doi={doi.org/10.1098/rspa.1937.0036},
-}
-@article{rafeiEtAl2018,
-author = {Rafei, M.E. and K\"on\"oszy, L. and Rana, Z.},
-title = {Investigation of Numerical Dissipation in Classicaland Implicit Large Eddy Simulations,
-journal = {Aerospace},
-year = {2018},
-}
-@article{bullJameson2014,
-author = {Bull, J.R. and Jameson, A.},
-title = {Simulation of the Compressible {Taylor Green} Vortex
-using High-Order Flux Reconstruction Schemes},
-journal = {AIAA Aviation 7th AIAA theoretical fluid mechanics conference},
-year = {2014},
-}
+## References:
+ - [Taylor1937](@cite)
+ - [Rafei2018](@cite)
+ - [Bull2014](@cite)
 """
 function init_greenvortex!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
@@ -86,7 +68,7 @@ function init_greenvortex!(problem, bl, state, aux, localgeo, t)
     e_pot = FT(0)# potential energy
     Pinf = 101325
     Uzero = FT(100)
-    p = Pinf + (ρ * Uzero / 16) * (2 + cos(z)) * (cos(x) + cos(y))
+    p = Pinf + (ρ * Uzero^2 / 16) * (2 + cos(2 * z)) * (cos(2 * x) + cos(2 * y))
     u = Uzero * sin(x) * cos(y) * cos(z)
     v = -Uzero * cos(x) * sin(y) * cos(z)
     e_kin = 0.5 * (u^2 + v^2)

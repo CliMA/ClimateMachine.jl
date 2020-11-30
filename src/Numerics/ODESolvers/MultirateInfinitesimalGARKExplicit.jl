@@ -84,18 +84,7 @@ The available concrete implementations are:
   - [`MRIGARKERK45aSandu`](@ref)
 
 ### References
-
-    @article{Sandu2019,
-        title={A class of multirate infinitesimal gark methods},
-        author={Sandu, Adrian},
-        journal={SIAM Journal on Numerical Analysis},
-        volume={57},
-        number={5},
-        pages={2300--2327},
-        year={2019},
-        publisher={SIAM},
-        doi={10.1137/18M1205492}
-    }
+ - [Sandu2019](@cite)
 """
 mutable struct MRIGARKExplicit{T, RT, AT, Nstages, NΓ, FS, Nstages_sq} <:
                AbstractODESolver

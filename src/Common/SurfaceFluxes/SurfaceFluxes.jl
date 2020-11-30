@@ -10,17 +10,7 @@
     - exchange coefficients
 
 ## References
-
-@article{nishizawa2018surface,
-  title={A Surface Flux Scheme Based on the Monin-Obukhov Similarity for Finite Volume Models},
-  author={Nishizawa, S and Kitamura, Y},
-  journal={Journal of Advances in Modeling Earth Systems},
-  volume={10},
-  number={12},
-  pages={3159--3175},
-  year={2018},
-  publisher={Wiley Online Library}
-}
+ - [Nishizawa2018](@cite)
 
 """
 module SurfaceFluxes
