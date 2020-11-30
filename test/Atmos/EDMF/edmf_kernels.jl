@@ -422,6 +422,7 @@ function atmos_source!(
 
         # environment second moments:
         # environment second moments:
+        ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
         en_src.ρatke += (
             Δ_dyn[i] *
             (w_up_i - env.w) *
@@ -450,10 +451,10 @@ function atmos_source!(
             (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) *
             (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
             E_trb[i] *
-            (q_tot_en - gm.moisture.ρq_tot * ρ_inv) *
+            (q_tot_en - ρq_tot * ρ_inv) *
             (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
             E_trb[i] *
-            (q_tot_en - gm.moisture.ρq_tot * ρ_inv) *
+            (q_tot_en - ρq_tot * ρ_inv) *
             (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) -
             (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv
         )
@@ -466,7 +467,7 @@ function atmos_source!(
             (θ_liq_en - θ_liq) *
             (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
             E_trb[i] *
-            (q_tot_en - gm.moisture.ρq_tot * ρ_inv) *
+            (q_tot_en - ρq_tot * ρ_inv) *
             (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
             (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv
         )
@@ -729,7 +730,6 @@ function turbconv_boundary_state!(
     aux_int::Vars,
 ) where {FT}
     nothing
->>>>>>> master
 end;
 
 

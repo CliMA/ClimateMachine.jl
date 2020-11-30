@@ -105,7 +105,8 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
         ρa_en       = ρ_gm - ρa_ups
         ρaw_en      = - ρaw_ups
-        θ_liq_en    = (liquid_ice_pottemp(ts) - ρaθ_liq_ups) / ρa_en
+        θ_liq_gm    = liquid_ice_pottemp(ts)
+        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
         w_en        = ρaw_en / ρa_en
         @unroll_map(N_up) do i
             if !(ρa_min <= up[i].ρa <= ρa_max)
@@ -115,7 +116,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
             end
         end
         en.ρatke = max(en.ρatke,FT(0))
-        en.ρaθ_liq = max(en.ρaθ_liq,FT(0))
+        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
         en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
         # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
         validate_variables(bl, state, aux, "custom_filter!")
