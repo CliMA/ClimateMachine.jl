@@ -316,7 +316,7 @@ function stable_bl_model(
             AtmosBC(),
         )
     end
-
+    # Set up problem initial and boundary conditions
     moisture_flux = FT(0)
     problem = AtmosProblem(
         init_state_prognostic = ics,
