@@ -250,6 +250,7 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
         moisture = DryModel()
