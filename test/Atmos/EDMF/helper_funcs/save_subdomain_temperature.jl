@@ -81,7 +81,7 @@ function save_subdomain_temperature!(
     state::Vars,
     aux::Vars,
 )
-    # validate_variables(m, state, aux, "save_subdomain_temperature! (dry)")
+    validate_variables(m, state, aux, "save_subdomain_temperature! (dry)")
     N_up = n_updrafts(m.turbconv)
     ts = recover_thermo_state(m, state, aux)
     ts_up = new_thermo_state_up(m, state, aux, ts)

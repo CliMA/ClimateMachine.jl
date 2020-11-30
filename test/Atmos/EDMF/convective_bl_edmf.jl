@@ -95,6 +95,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # this ρu[3]=0 is only for single_stack
         state.ρu = SVector(state.ρu[1],state.ρu[2],0)
         up = state.turbconv.updraft
+        en = state.turbconv.environment
         N_up = n_updrafts(bl.turbconv)
         ρ_gm = state.ρ
         ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
@@ -115,7 +116,12 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
                 up[i].ρaw     = FT(0)
             end
         end
-        # validate_variables(bl, state, aux, "custom_filter!")
+        en.ρatke = max(en.ρatke,FT(0))
+        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+        println("in filter", up[i].ρa/state.ρ)
+        validate_variables(bl, state, aux, "custom_filter!")
     end
 
 end

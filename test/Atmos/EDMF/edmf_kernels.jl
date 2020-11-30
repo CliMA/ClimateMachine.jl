@@ -244,26 +244,26 @@ function turbconv_nodal_update_auxiliary_state!(
         up_aux[i].Δ_dyn = Δ_dyn[i]
         up_aux[i].E_trb = E_trb[i]
     end
-    normQ = (up_aux[1].buoyancy*up_aux[1].a*up_aux[1].θ_liq
-            *up_aux[1].q_tot*up_aux[1].w*en_aux.buoyancy
-            *up_aux[1].E_dyn*up_aux[1].Δ_dyn*up_aux[1].E_trb)
-    if isnan(normQ)
-        println("=========================== 251")
-        @show(up_aux[1].buoyancy*up_aux[1].a)
-        @show(up_aux[1].θ_liq)
-        @show(up_aux[1].q_tot)
-        @show(up_aux[1].w)
-        @show(en_aux.buoyancy)
-        @show(up_aux[1].E_dyn)
-        @show(up_aux[1].Δ_dyn)
-        @show(up_aux[1].E_trb)
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    # normQ = (up_aux[1].buoyancy*up_aux[1].a*up_aux[1].θ_liq
+    #         *up_aux[1].q_tot*up_aux[1].w*en_aux.buoyancy
+    #         *up_aux[1].E_dyn*up_aux[1].Δ_dyn*up_aux[1].E_trb)
+    # if isnan(normQ)
+    #     println("=========================== 251")
+    #     @show(up_aux[1].buoyancy*up_aux[1].a)
+    #     @show(up_aux[1].θ_liq)
+    #     @show(up_aux[1].q_tot)
+    #     @show(up_aux[1].w)
+    #     @show(en_aux.buoyancy)
+    #     @show(up_aux[1].E_dyn)
+    #     @show(up_aux[1].Δ_dyn)
+    #     @show(up_aux[1].E_trb)
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
 end;
 
 function compute_gradient_argument!(
@@ -315,19 +315,19 @@ function compute_gradient_argument!(
     e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2)
     en_tf.e = total_energy(e_kin, _grav * z, ts.en)
 
-    normQ = (en_tf.θ_liq_cv*en_tf.q_tot_cv*en_tf.θ_liq_q_tot_cv)
-    if isnan(normQ)
-        println("=========================== 311")
-        @show(en_tf.θ_liq_cv)
-        @show(en_tf.q_tot_cv)
-        @show(en_tf.θ_liq_q_tot_cv)
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    # normQ = (en_tf.θ_liq_cv*en_tf.q_tot_cv*en_tf.θ_liq_q_tot_cv)
+    # if isnan(normQ)
+    #     println("=========================== 311")
+    #     @show(en_tf.θ_liq_cv)
+    #     @show(en_tf.q_tot_cv)
+    #     @show(en_tf.θ_liq_q_tot_cv)
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
 end;
 
 function compute_gradient_flux!(
@@ -340,7 +340,6 @@ function compute_gradient_flux!(
     t::Real,
 ) where {FT}
     N_up = n_updrafts(turbconv)
-    # println("===========================in compute_gradient_flux =================")
     # Aliases:
     gm = state
     up_dif = diffusive.turbconv.updraft
@@ -369,20 +368,20 @@ function compute_gradient_flux!(
 
     tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2
 
-    normQ = (en_dif.∇tke[3].*en_dif.∇θ_liq_cv[3].*en_dif.∇q_tot_cv[3].*en_dif.∇θ_liq_q_tot_cv[3])
-    if isnan(normQ)
-        println("=========================== 362")
-        @show(en_dif.∇tke[3])
-        @show(en_dif.∇θ_liq_cv[3])
-        @show(en_dif.∇q_tot_cv[3])
-        @show(en_dif.∇θ_liq_q_tot_cv[3])
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    # normQ = (en_dif.∇tke[3].*en_dif.∇θ_liq_cv[3].*en_dif.∇q_tot_cv[3].*en_dif.∇θ_liq_q_tot_cv[3])
+    # if isnan(normQ)
+    #     println("=========================== 362")
+    #     @show(en_dif.∇tke[3])
+    #     @show(en_dif.∇θ_liq_cv[3])
+    #     @show(en_dif.∇q_tot_cv[3])
+    #     @show(en_dif.∇θ_liq_q_tot_cv[3])
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
 end;
 
 struct TurbconvSource <: AbstractSource end
@@ -399,7 +398,6 @@ function atmos_source!(
 ) where {FT}
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
-    println("===========================in source =================")
 
     # Aliases:
     gm = state
@@ -557,26 +555,26 @@ function atmos_source!(
         )
     # println("=========================== 557")
     # @show(en_src.ρatke)
-    normQ = (en_src.ρatke*en_src.ρaθ_liq_cv*en_src.ρaq_tot_cv
-        *en_src.ρaθ_liq_q_tot_cv*up_src[1].ρa*up_src[1].ρaw
-        *up_src[1].ρaθ_liq*up_src[1].ρaq_tot)
-    if isnan(normQ)
-        println("=========================== 543")
-        @show(en_src.ρatke)
-        @show(en_src.ρaθ_liq_cv)
-        @show(en_src.ρaq_tot_cv)
-        @show(en_src.ρaθ_liq_q_tot_cv)
-        @show(up_src[1].ρa)
-        @show(up_src[1].ρaw)
-        @show(up_src[1].ρaθ_liq)
-        @show(up_src[1].ρaq_tot)
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    # normQ = (en_src.ρatke*en_src.ρaθ_liq_cv*en_src.ρaq_tot_cv
+    #     *en_src.ρaθ_liq_q_tot_cv*up_src[1].ρa*up_src[1].ρaw
+    #     *up_src[1].ρaθ_liq*up_src[1].ρaq_tot)
+    # if isnan(normQ)
+    #     println("=========================== 543")
+    #     @show(en_src.ρatke)
+    #     @show(en_src.ρaθ_liq_cv)
+    #     @show(en_src.ρaq_tot_cv)
+    #     @show(en_src.ρaθ_liq_q_tot_cv)
+    #     @show(up_src[1].ρa)
+    #     @show(up_src[1].ρaw)
+    #     @show(up_src[1].ρaθ_liq)
+    #     @show(up_src[1].ρaq_tot)
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
     # covariance microphysics sources should be applied here
 end;
 
@@ -596,14 +594,12 @@ function flux_first_order!(
     up_flx = flux.turbconv.updraft
     en_flx = flux.turbconv.environment
     N_up = n_updrafts(turbconv)
-    # println("===========================in flux_first_order =================")
 
     ρ_inv = 1 / gm.ρ
     ẑ = vertical_unit_vector(m, aux)
     a_min = turbconv.subdomains.a_min
     a_max = turbconv.subdomains.a_max
     # in future GCM implementations we need to think about grid mean advection
-
     ρa_up = vuntuple(N_up) do i
         gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
     end
@@ -625,17 +621,17 @@ function flux_first_order!(
     # println("============621")
     # @show(en_flx.ρatke)
 
-    normQ = (up_flx[1].ρa[3]*up_flx[1].ρaw[3]*up_flx[1].ρaθ_liq[3]*up_flx[1].ρaq_tot[3]*
-        en_flx.ρatke[3]*en_flx.ρaθ_liq_cv[3]*en_flx.ρaq_tot_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
-    if isnan(normQ)
-        println("=========================== 589")
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    # normQ = (up_flx[1].ρa[3]*up_flx[1].ρaw[3]*up_flx[1].ρaθ_liq[3]*up_flx[1].ρaq_tot[3]*
+    #     en_flx.ρatke[3]*en_flx.ρaθ_liq_cv[3]*en_flx.ρaq_tot_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
+    # if isnan(normQ)
+    #     println("=========================== 589")
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
 end;
 
 # in the EDMF second order (diffusive) fluxes
@@ -650,7 +646,6 @@ function flux_second_order!(
     t::Real,
 ) where {FT}
     N_up = n_updrafts(turbconv)
-    # println("===========================in flux_second_order =================")
 
     # Aliases:
     gm = state
@@ -757,41 +752,41 @@ function flux_second_order!(
     en_flx.ρaq_tot_cv = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot_cv[3] * ẑ
     en_flx.ρaθ_liq_q_tot_cv =
         -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
-    if en_flx.ρaθ_liq_q_tot_cv[3]<-FT(2500)
-        println("============755")
-        @show(en_flx.ρatke)
-        @show(gm.ρ)
-        @show(env.a)
-        @show(K_eddy)
-        @show(en_dif.∇θ_liq_q_tot_cv[3])
-        @show(ẑ)
-    end
+    # if en_flx.ρaθ_liq_q_tot_cv[3]<-FT(2500)
+    #     println("============755")
+    #     @show(en_flx.ρatke)
+    #     @show(gm.ρ)
+    #     @show(env.a)
+    #     @show(K_eddy)
+    #     @show(en_dif.∇θ_liq_q_tot_cv[3])
+    #     @show(ẑ)
+    # end
     # if isnan(en_flx.ρaθ_liq_q_tot_cv[3])
-    normQ = (en_flx.ρatke[3]*en_flx.ρaθ_liq_cv[3]*en_flx.ρaq_tot_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
-    normQ1 = (en_flx.ρaθ_liq_cv[3]*en_flx.ρaq_tot_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
-    normQ2 = (en_flx.ρatke[3])
-    normQ3 = (en_flx.ρatke[3]*en_flx.ρaθ_liq_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
-    if isnan(normQ)
-        println("=========================== 745")
-        z = altitude(m, aux)
-        @show(z)
-        @show(gm.ρ)
-        @show(en.ρatke)
-        @show(tke_en)
-        @show(en_flx.ρatke)
-        @show(en_flx.ρaθ_liq_cv)
-        @show(en_flx.ρaq_tot_cv)
-        @show(en_flx.ρaθ_liq_q_tot_cv)
-        @show(K_eddy)
-        @show(l_mix)
-        @show(env.a)
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    # normQ = (en_flx.ρatke[3]*en_flx.ρaθ_liq_cv[3]*en_flx.ρaq_tot_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
+    # normQ1 = (en_flx.ρaθ_liq_cv[3]*en_flx.ρaq_tot_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
+    # normQ2 = (en_flx.ρatke[3])
+    # normQ3 = (en_flx.ρatke[3]*en_flx.ρaθ_liq_cv[3]*en_flx.ρaθ_liq_q_tot_cv[3])
+    # if isnan(normQ)
+    #     println("=========================== 745")
+    #     z = altitude(m, aux)
+    #     @show(z)
+    #     @show(gm.ρ)
+    #     @show(en.ρatke)
+    #     @show(tke_en)
+    #     @show(en_flx.ρatke)
+    #     @show(en_flx.ρaθ_liq_cv)
+    #     @show(en_flx.ρaq_tot_cv)
+    #     @show(en_flx.ρaθ_liq_q_tot_cv)
+    #     @show(K_eddy)
+    #     @show(l_mix)
+    #     @show(env.a)
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
     # en_flx.ρatke = FT(0) * ẑ
 end;
 
@@ -810,7 +805,7 @@ function turbconv_boundary_state!(
     state_int::Vars,
     aux_int::Vars,
 ) where {FT}
-    # validate_variables(m, state⁻, aux, "turbconv_boundary_state! (state⁻)")
+    validate_variables(m, state⁻, aux, "turbconv_boundary_state! (state⁻)")
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
     up = state⁺.turbconv.updraft
@@ -846,21 +841,21 @@ function turbconv_boundary_state!(
         en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
         en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
     end
-    # validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
-    normQ = (en.ρatke*en.ρaθ_liq_cv*en.ρaq_tot_cv*en.ρaθ_liq_q_tot_cv)
-    if isnan(normQ)
-        println("=========================== 788")
-        @show(en.ρatke)
-        @show(en.ρaθ_liq_cv)
-        @show(en.ρaq_tot_cv)
-        @show(en.ρaθ_liq_q_tot_cv)
-        st = vars_state(m, Prognostic(), eltype(state))
-        ftc = flattened_tup_chain(st)
-        for i in 1:varsize(st)
-            var = ftc[i]
-            @show var, getproperty(state, var)
-        end
-    end
+    validate_variables(m, state⁺, aux, "turbconv_boundary_state! (state⁺)")
+    # normQ = (en.ρatke*en.ρaθ_liq_cv*en.ρaq_tot_cv*en.ρaθ_liq_q_tot_cv)
+    # if isnan(normQ)
+    #     println("=========================== 788")
+    #     @show(en.ρatke)
+    #     @show(en.ρaθ_liq_cv)
+    #     @show(en.ρaq_tot_cv)
+    #     @show(en.ρaθ_liq_q_tot_cv)
+    #     st = vars_state(m, Prognostic(), eltype(state))
+    #     ftc = flattened_tup_chain(st)
+    #     for i in 1:varsize(st)
+    #         var = ftc[i]
+    #         @show var, getproperty(state, var)
+    #     end
+    # end
 end;
 
 # The boundary conditions for second-order unknowns
