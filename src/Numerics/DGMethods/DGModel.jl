@@ -786,7 +786,7 @@ function courant(
                 device,
                 min(Nq[1] * Nq[2] * Nqk, 1024),
             )(
-                Val(N[1]),
+                Val(N),
                 Val(dim),
                 HorizontalDirection(),
                 pointwise_courant,
@@ -799,7 +799,7 @@ function courant(
                 kernel_local_courant!(device, min(Nq[1] * Nq[2] * Nqk, 1024))(
                     m,
                     Val(dim),
-                    Val(N[1]),
+                    Val(N),
                     pointwise_courant,
                     local_courant,
                     state_prognostic.data,
@@ -820,7 +820,7 @@ function courant(
                 device,
                 min(Nq[1] * Nq[2] * Nqk, 1024),
             )(
-                Val(N[dim]),
+                Val(N),
                 Val(dim),
                 VerticalDirection(),
                 pointwise_courant,
@@ -833,7 +833,7 @@ function courant(
                 kernel_local_courant!(device, min(Nq[1] * Nq[2] * Nqk, 1024))(
                     m,
                     Val(dim),
-                    Val(N[dim]),
+                    Val(N),
                     pointwise_courant,
                     local_courant,
                     state_prognostic.data,

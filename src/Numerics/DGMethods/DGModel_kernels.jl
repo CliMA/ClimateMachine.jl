@@ -3114,11 +3114,11 @@ end
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
-        Nq = N + 1
+        Nq = N .+ 1
 
-        Nqk = dim == 2 ? 1 : Nq
+        Nqk = dim == 2 ? 1 : Nq[dim]
 
-        Np = Nq * Nq * Nqk
+        Np = Nq[1] * Nq[2] * Nqk
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
