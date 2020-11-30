@@ -10,8 +10,11 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.SystemSolvers
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.Mesh.Filters: apply!
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
+include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
