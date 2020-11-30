@@ -49,6 +49,7 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export DGModel,
+    DGFVMModel,
     init_ode_state,
     restart_ode_state,
     restart_auxiliary_state,
