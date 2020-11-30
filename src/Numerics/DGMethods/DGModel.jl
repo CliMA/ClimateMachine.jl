@@ -475,6 +475,7 @@ function init_ode_state(
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
         state_prognostic .= h_state_prognostic
+        state_auxiliary .= h_state_auxiliary
     end
 
     event = Event(device)
