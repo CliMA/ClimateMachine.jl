@@ -1,6 +1,7 @@
 using ClimateMachine
 ClimateMachine.init()
 using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.Orientations: NoOrientation
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
@@ -14,7 +15,8 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 
 import ClimateMachine.Thermodynamics: total_specific_enthalpy
-import ClimateMachine.Atmos: atmos_source!
+import ClimateMachine.Atmos: filter_source, atmos_source!
+import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -53,25 +55,58 @@ function mms3_init_state!(problem, bl, state::Vars, aux::Vars, localgeo, t)
     state.ρe = E_g(t, x1, x2, x3, Val(3))
 end
 
-struct MMS3Source <: AbstractSource end
-function atmos_source!(
-    ::MMS3Source,
-    ::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+struct MMSSource{PV <: Union{Mass, Momentum, Energy}, N} <:
+       TendencyDef{Source, PV} end
+
+filter_source(pv::PV, m::AtmosModel, s::MMSSource{PV}) where {PV} = s
+atmos_source!(::MMSSource, args...) = nothing
+
+MMSSource(N::Int) =
+    (MMSSource{Mass, N}(), MMSSource{Momentum, N}(), MMSSource{Energy, N}())
+
+
+function source(
+    s::MMSSource{Mass, N},
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
-)
+    diffusive,
+) where {N}
     x1, x2, x3 = aux.coord
-    source.ρ = Sρ_g(t, x1, x2, x3, Val(3))
-    source.ρu = SVector(
-        SU_g(t, x1, x2, x3, Val(3)),
-        SV_g(t, x1, x2, x3, Val(3)),
-        SW_g(t, x1, x2, x3, Val(3)),
+    return Sρ_g(t, x1, x2, x3, Val(N))
+end
+function source(
+    s::MMSSource{Momentum, N},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+) where {N}
+    x1, x2, x3 = aux.coord
+    return SVector(
+        SU_g(t, x1, x2, x3, Val(N)),
+        SV_g(t, x1, x2, x3, Val(N)),
+        SW_g(t, x1, x2, x3, Val(N)),
     )
-    source.ρe = SE_g(t, x1, x2, x3, Val(3))
+end
+function source(
+    s::MMSSource{Energy, N},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+) where {N}
+    x1, x2, x3 = aux.coord
+    return SE_g(t, x1, x2, x3, Val(N))
 end
 
 function main()
@@ -106,7 +141,7 @@ function main()
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(μ_exact), WithDivergence()),
         moisture = DryModel(),
-        source = (MMS3Source(),),
+        source = (MMSSource(3)...,),
     )
 
     brickrange = (
