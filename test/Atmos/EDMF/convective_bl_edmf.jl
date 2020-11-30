@@ -88,7 +88,7 @@ function init_state_prognostic!(
     return nothing
 end;
 
-custom_filter!(f::EDMFFilter, bl::RemBL, state, aux) = custom_filter!(f, bl.main, state, aux)
+struct EDMFFilter <: AbstractCustomFilter end
 function custom_filter!(::EDMFFilter, bl, state, aux)
     if hasproperty(bl, :turbconv)
         FT = eltype(state)
