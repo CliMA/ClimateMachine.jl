@@ -79,9 +79,9 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 3                           # discontinuous Galerkin polynomial order
-    n_horz = 12                              # horizontal element number
-    n_vert = 6                               # vertical element number
+    poly_order = 5                           # discontinuous Galerkin polynomial order
+    n_horz = 8                              # horizontal element number
+    n_vert = 4                               # vertical element number
     timestart::FT = 0                        # start time (s)
     timeend::FT = 7200
 
