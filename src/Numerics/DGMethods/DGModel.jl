@@ -1728,8 +1728,10 @@ function launch_volume_tendency!(
     end
 
     # Vertical kernel
-    if spacedisc.direction isa EveryDirection ||
-       spacedisc.direction isa VerticalDirection
+    if spacedisc isa DGModel && (
+        spacedisc.direction isa EveryDirection ||
+        spacedisc.direction isa VerticalDirection
+    )
 
         # Vertical polynomial degree
         vertical_polyorder = info.N[info.dim]
