@@ -86,16 +86,7 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     nothing
 end
 
-function source!(
-    m::DryModel,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-) end
+source!(::DryModel, args...) = nothing
 
 """
     EquilMoist
@@ -192,16 +183,16 @@ end
 
 function source!(
     m::EquilMoist,
-    atmos::AtmosModel,
     source::Vars,
+    atmos::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
+    diffusive::Vars,
 )
     tend = Source()
-    ts = recover_thermo_state(atmos, state, aux)
     args = (atmos, state, aux, t, ts, direction, diffusive)
     source.moisture.ρq_tot =
         Σsources(eq_tends(TotalMoisture(), atmos, tend), args...)
@@ -317,16 +308,16 @@ end
 
 function source!(
     m::NonEquilMoist,
-    atmos::AtmosModel,
     source::Vars,
+    atmos::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
+    diffusive::Vars,
 )
     tend = Source()
-    ts = recover_thermo_state(atmos, state, aux)
     args = (atmos, state, aux, t, ts, direction, diffusive)
     source.moisture.ρq_tot =
         Σsources(eq_tends(TotalMoisture(), atmos, tend), args...)
