@@ -6,6 +6,10 @@ ClimateMachine.init(;
 )
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
+using ClimateMachine.DGMethods
+using ClimateMachine.SystemSolvers
+import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
@@ -78,6 +82,11 @@ function init_state_prognostic!(
     return nothing
 end;
 
+struct ZeroVerticalVelocityFilter <: AbstractCustomFilter end
+function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
+    state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
+end
+
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
@@ -97,8 +106,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 1
-    nelem_vert = 50
+    N = 4
+    nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(3000)
@@ -107,12 +116,16 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(400)
-    CFLmax = FT(0.90)
+    CFLmax = FT(1.2)
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+    ode_solver_type = ClimateMachine.IMEXSolverType(
+        implicit_model = AtmosAcousticGravityLinearModel,
+        implicit_solver = SingleColumnLU,
+        solver_method = ARK2GiraldoKellyConstantinescu,
+        split_explicit_implicit = true,
+        discrete_splitting = false,
     )
 
     N_updrafts = 1
@@ -130,7 +143,7 @@ function main(::Type{FT}) where {FT}
         zmax,
         param_set,
         model;
-        hmax = FT(500),
+        hmax = zmax,
         solver_type = ode_solver_type,
     )
 
@@ -140,8 +153,6 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        fixed_number_of_steps = 1000,
-        # fixed_number_of_steps=1082 # last timestep before crash
     )
 
     # --- Zero-out horizontal variations:
@@ -179,26 +190,19 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
+        Filters.apply!(
+            ZeroVerticalVelocityFilter(),
+            solver_config.dg.grid,
+            solver_config.dg.balance_law,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
+        )
         nothing
     end
 
-    # State variable
-    Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    M = vgeo[:, Grids._M, :]
-    # Unpack prognostic vars
-    ρ₀ = Q.ρ
-    ρe₀ = Q.ρe
-    # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M)
-    Σρe₀ = sum(ρe₀ .* M)
-
-    grid = driver_config.grid
-
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types)]
+    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -208,21 +212,18 @@ function main(::Type{FT}) where {FT}
 
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-            push!(all_data, dict_of_nodal_states(solver_config, state_types))
+            push!(
+                dons_arr,
+                dict_of_nodal_states(solver_config, state_types; interp = true),
+            )
             push!(time_data, gettime(solver_config.solver))
             nothing
         end
 
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
-        nothing
-    end
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
+        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
+    )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
@@ -232,22 +233,18 @@ function main(::Type{FT}) where {FT}
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (
-            cbtmarfilter,
-            cb_check_cons,
-            cb_data_vs_time,
-            cb_print_step,
-        ),
+        check_cons = check_cons,
+        user_callbacks = (cbtmarfilter, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
-    dons = dict_of_nodal_states(solver_config, state_types)
-    push!(all_data, dons)
+    dons = dict_of_nodal_states(solver_config, state_types; interp = true)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, all_data, time_data, state_types
+    return solver_config, dons_arr, time_data, state_types
 end
 
-solver_config, all_data, time_data, state_types = main(Float64)
+solver_config, dons_arr, time_data, state_types = main(Float64)
 
-include(joinpath(@__DIR__, "bomex_edmf_regression_test.jl"))
+include(joinpath(@__DIR__, "report_mse.jl"))
