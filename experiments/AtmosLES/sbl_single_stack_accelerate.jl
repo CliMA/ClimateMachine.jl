@@ -63,9 +63,8 @@ function main(::Type{FT}) where {FT}
     # Prescribe domain parameters
     nelem_vert = 20
     zmax = FT(400)
-
     t0 = FT(0)
-
+    # Simulation time
     timeend = FT(3600 * 6)
     # timeend = FT(3600 * 6) # goal for 10 min run
 
