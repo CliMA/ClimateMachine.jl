@@ -1,8 +1,4 @@
 using ClimateMachine
-using ClimateMachine.SystemSolvers
-using ClimateMachine.ODESolvers
-using ClimateMachine.MPIStateArrays
-
 ClimateMachine.init(;
     parse_clargs = true,
     output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
@@ -10,10 +6,25 @@ ClimateMachine.init(;
 )
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
+using ClimateMachine.ODESolvers
+using ClimateMachine.MPIStateArrays
+using ClimateMachine.SystemSolvers
+using ClimateMachine.Atmos: AtmosModel
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+using ClimateMachine.Atmos: PressureGradientModel
+using ClimateMachine.BalanceLaws
+using ClimateMachine.Mesh.Filters: apply!
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+# import ClimateMachine.DGMethods: custom_filter!
+import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
+using ClimateMachine.DGMethods: RemBL
 
+rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
+
+ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
+include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
 
@@ -83,6 +94,59 @@ function init_state_prognostic!(
     return nothing
 end;
 
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+struct EDMFFilter <: AbstractCustomFilter end
+import ClimateMachine.DGMethods: custom_filter!
+
+function custom_filter!(::EDMFFilter, bl, state, aux)
+    if hasproperty(bl, :turbconv)
+        FT = eltype(state)
+        # this ρu[3]=0 is only for single_stack
+        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        up = state.turbconv.updraft
+        en = state.turbconv.environment
+        N_up = n_updrafts(bl.turbconv)
+        ρ_gm = state.ρ
+        ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+        ρa_max = ρ_gm-ρa_min
+        ts = recover_thermo_state(bl, state, aux)
+        θ_liq_gm    = liquid_ice_pottemp(ts)
+        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+        ρa_en       = ρ_gm - ρa_ups
+        ρaw_en      = - ρaw_ups
+        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+        if !(θ_liq_en > FT(0))
+            z = altitude(bl, aux)
+            println("negative θ_liq_en")
+            @show(θ_liq_en)
+            @show(ρa_ups)
+            @show(z)
+            @show(θ_liq_gm)
+            @show(ρaθ_liq_ups)
+        end
+        w_en        = ρaw_en / ρa_en
+        @unroll_map(N_up) do i
+            if !(ρa_min <= up[i].ρa <= ρa_max)
+                up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+                up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+                up[i].ρaw     = FT(0)
+            end
+            if isnan(up)
+                up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+                up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+                up[i].ρaw     = FT(0)
+            end
+        end
+        en.ρatke = max(en.ρatke,FT(0))
+        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+        # validate_variables(bl, state, aux, "custom_filter!")
+    end
+end
+
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
@@ -101,8 +165,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 1
-    nelem_vert = 50
+    N = 4
+    nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -111,7 +175,7 @@ function main(::Type{FT}) where {FT}
 
     # Simulation time
     timeend = FT(3600 * 6)
-    CFLmax = FT(40.0)
+    CFLmax = FT(20.0)
 
     config_type = SingleStackConfigType
 
@@ -139,7 +203,7 @@ function main(::Type{FT}) where {FT}
         zmax,
         param_set,
         model;
-        hmax = FT(40),
+        hmax = zmax,
         solver_type = ode_solver_type,
     )
 
@@ -238,6 +302,13 @@ function main(::Type{FT}) where {FT}
             (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
+        )
+        Filters.apply!( # comment this for NoTurbConv
+            EDMFFilter(),
+            solver_config.dg.grid,
+            solver_config.dg.balance_law,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
         )
         nothing
     end

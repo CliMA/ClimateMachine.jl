@@ -209,7 +209,7 @@ function new_thermo_state_en(
         @print("z = ", z, "\n")
         @print("tmp = ", tmp, "\n")
         @print("θ_liq = ", θ_liq, "\n")
-        @print("θ_liq_en = ", θ_liq_en, "\n")\
+        @print("θ_liq_en = ", θ_liq_en, "\n")
         @print("θ_liq_up = ", up[1].ρaθ_liq/up[1].ρa, "\n")
         @print("a_up = ", up[1].ρa/state.ρ, "\n")
         @print("state.ρ = ", state.ρ, "\n")

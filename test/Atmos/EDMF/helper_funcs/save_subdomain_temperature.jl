@@ -57,6 +57,7 @@ function validate_variables(m::AtmosModel, state, aux, caller)
     end
     a_en = environment_area(state, aux, N_up)
     behaved["a_en"] = a_min - ε <= a_en <= a_max + ε, a_en
+    @print("updraft area is ", up[1].ρa / state.ρ, "\n")
 
     if !all(first.(values(behaved)))
         @show caller
@@ -81,7 +82,7 @@ function save_subdomain_temperature!(
     state::Vars,
     aux::Vars,
 )
-    validate_variables(m, state, aux, "save_subdomain_temperature! (dry)")
+    # validate_variables(m, state, aux, "save_subdomain_temperature! (dry)")
     N_up = n_updrafts(m.turbconv)
     ts = recover_thermo_state(m, state, aux)
     ts_up = new_thermo_state_up(m, state, aux, ts)
