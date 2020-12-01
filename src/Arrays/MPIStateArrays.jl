@@ -9,7 +9,8 @@ using MPI
 using StaticArrays
 
 using ..TicToc
-using ..VariableTemplates: @vars, varsindex, varsindices, varsize
+using ..VariableTemplates:
+    @vars, varsindex, varsindices, varsize, wrap_val, flattened_tup_chain
 
 using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
@@ -27,7 +28,8 @@ using .CMBuffers
 cpuify(x::AbstractArray) = convert(Array, x)
 cpuify(x::Real) = x
 
-export MPIStateArray, euclidean_distance, weightedsum, array_device, vars
+export MPIStateArray,
+    euclidean_distance, weightedsum, array_device, vars, show_not_finite_fields
 
 """
     MPIStateArray{FT, DATN<:AbstractArray{FT,3}, DAI1, DAV,
@@ -853,6 +855,40 @@ end
         @unroll for s in 1:nvar
             buf[n, s, e] = recvbuf[s, i]
         end
+    end
+end
+
+"""
+    show_not_finite_fields(Q::MPIStateArray)
+
+Prints a warning of which fields are not finite.
+
+!!! warn
+    This is an expensive method, which calls `mapreduce`
+    on `Q`.
+"""
+function show_not_finite_fields(Q::MPIStateArray)
+    vs = vars(Q)
+    not_finite_fields = []
+    not_finite =
+        Array(reshape(mapreduce(x -> !isfinite(x), |, Q; dims = (1, 3)), :))
+    for ftc in flattened_tup_chain(vs)
+        i_vars = varsindex(vs, wrap_val.(ftc)...)
+        if length(i_vars) > 1 # variable is an array
+            for (j, i_var) in enumerate(i_vars)
+                if not_finite[i_var]
+                    push!(not_finite_fields, join(string.(ftc), ".") * "[$j]")
+                end
+            end
+        else # variable is a scalar
+            if not_finite[i_vars[1]]
+                push!(not_finite_fields, join(string.(ftc), "."))
+            end
+        end
+    end
+    if !isempty(not_finite_fields)
+        @warn "Field(s) ($(join(not_finite_fields, ", ", ", and "))) are not finite (has NaNs or Inf)"
+        flush(stdout)
     end
 end
 
