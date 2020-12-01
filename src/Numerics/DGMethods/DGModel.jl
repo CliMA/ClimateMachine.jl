@@ -779,75 +779,35 @@ function courant(
         device = array_device(grid.vgeo)
         pointwise_courant = similar(grid.vgeo, Nq[1]^dim, nrealelem)
         event = Event(device)
-
-        # Compute the Courant number in the horizontal direction
-        if direction isa EveryDirection || direction isa HorizontalDirection
-            event = Grids.kernel_min_neighbor_distance!(
-                device,
-                min(Nq[1] * Nq[2] * Nqk, 1024),
-            )(
-                Val(N),
-                Val(dim),
-                HorizontalDirection(),
-                pointwise_courant,
-                grid.vgeo,
-                topology.realelems;
-                ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
-                dependencies = (event,),
-            )
-            event =
-                kernel_local_courant!(device, min(Nq[1] * Nq[2] * Nqk, 1024))(
-                    m,
-                    Val(dim),
-                    Val(N),
-                    pointwise_courant,
-                    local_courant,
-                    state_prognostic.data,
-                    dg.state_auxiliary.data,
-                    dg.state_gradient_flux.data,
-                    topology.realelems,
-                    Δt,
-                    simtime,
-                    HorizontalDirection();
-                    ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
-                    dependencies = (event,),
-                )
-        end
-
-        # Compute the Courant number in the vertical direction
-        if direction isa EveryDirection || direction isa VerticalDirection
-            event = Grids.kernel_min_neighbor_distance!(
-                device,
-                min(Nq[1] * Nq[2] * Nqk, 1024),
-            )(
-                Val(N),
-                Val(dim),
-                VerticalDirection(),
-                pointwise_courant,
-                grid.vgeo,
-                topology.realelems;
-                ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
-                dependencies = (event,),
-            )
-            event =
-                kernel_local_courant!(device, min(Nq[1] * Nq[2] * Nqk, 1024))(
-                    m,
-                    Val(dim),
-                    Val(N),
-                    pointwise_courant,
-                    local_courant,
-                    state_prognostic.data,
-                    dg.state_auxiliary.data,
-                    dg.state_gradient_flux.data,
-                    topology.realelems,
-                    Δt,
-                    simtime,
-                    VerticalDirection();
-                    ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
-                    dependencies = (event,),
-                )
-        end
-
+        event = Grids.kernel_min_neighbor_distance!(
+            device,
+            min(Nq[1] * Nq[2] * Nqk, 1024),
+        )(
+            Val(N),
+            Val(dim),
+            direction,
+            pointwise_courant,
+            grid.vgeo,
+            topology.realelems;
+            ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
+            dependencies = (event,),
+        )
+        event = kernel_local_courant!(device, min(Nq[1] * Nq[2] * Nqk, 1024))(
+            m,
+            Val(dim),
+            Val(N),
+            pointwise_courant,
+            local_courant,
+            state_prognostic.data,
+            dg.state_auxiliary.data,
+            dg.state_gradient_flux.data,
+            topology.realelems,
+            Δt,
+            simtime,
+            direction;
+            ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
+            dependencies = (event,),
+        )
         wait(device, event)
 
         rank_courant_max = maximum(pointwise_courant)
