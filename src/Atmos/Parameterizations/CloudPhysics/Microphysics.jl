@@ -32,6 +32,7 @@ export τ_relax
 export terminal_velocity
 
 export conv_q_vap_to_q_liq_ice
+export conv_q_vap_to_q_liq_ice2
 
 export conv_q_liq_to_q_rai
 export conv_q_ice_to_q_sno
@@ -354,6 +355,50 @@ function conv_q_vap_to_q_liq_ice(
     _τ_sub_dep::FT = τ_relax(ice_param_set)
 
     return (q_sat.ice - q.ice) / _τ_sub_dep
+end
+
+"""
+    conv_q_vap_to_q_liq_ice2(liquid_param_set::ALPS, q_sat_liq, q_vap)
+    conv_q_vap_to_q_liq_ice2(ice_param_set::AIPS, q_sat_ice, q_vap)
+
+ - `liquid_param_set` - abstract set with cloud water parameters
+ - `ice_param_set` - abstract set with cloud ice parameters
+ - `q_sat_liq` - saturation specific humidity over liquid
+ - `q_sat_ice` - saturation specific humidity over ice
+ - `q_vap` - water vapor specific humidity
+
+Returns the cloud water tendency due to condensation and evaporation
+or cloud ice tendency due to sublimation and vapor deposition.
+The tendency is obtained assuming a relaxation to equilibrium with
+a constant timescale.
+"""
+function conv_q_vap_to_q_liq_ice2(
+    liquid_param_set::ALPS,
+    q_sat_liq::FT,
+    q_vap::FT,
+) where {FT <: Real}
+
+    #TODO - we might want them to be different
+    # for example because condensation depends on available CCN and
+    # evaporation does not
+    _τ_cond::FT = τ_relax(liquid_param_set)
+    _τ_evap::FT = τ_relax(liquid_param_set)
+
+    excess_vap::FT = q_vap - q_sat_liq
+    return max(0, excess_vap) / _τ_cond + min(0, excess_vap) / _τ_evap
+end
+function conv_q_vap_to_q_liq_ice2(
+    ice_param_set::AIPS,
+    q_sat_ice::FT,
+    q_vap::FT,
+) where {FT <: Real}
+
+    # TODO - see above comment for cond/evap
+    _τ_sub::FT = τ_relax(ice_param_set)
+    _τ_dep::FT = τ_relax(ice_param_set)
+
+    excess_vap::FT = q_vap - q_sat_ice
+    return max(0, excess_vap) / _τ_dep + min(0, excess_vap) / _τ_sub
 end
 
 """
