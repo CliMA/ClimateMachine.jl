@@ -174,29 +174,30 @@ let
     mpicomm = MPI.COMM_WORLD
     FT = Float64
     numlevels = 2
-    polynomialorder = 4
     base_num_elem = 4
 
     @testset "$(@__FILE__)" begin
-        @testset for topo in (Box{2}, Box{3}, Sphere)
-            @testset for (adv, diff) in (
-                (Advection, nothing),
-                (nothing, Diffusion),
-                (Advection, Diffusion),
-            )
-                @testset for level in 1:numlevels
-                    Ne = 2^(level - 1) * base_num_elem
-                    test_run(
-                        adv,
-                        diff,
-                        topo,
-                        mpicomm,
-                        ArrayType,
-                        FT,
-                        polynomialorder,
-                        Ne,
-                        level,
-                    )
+        @testset for polyorders in ((4, 4), (4, 2))
+            @testset for topo in (Box{2}, Box{3}, Sphere)
+                @testset for (adv, diff) in (
+                    (Advection, nothing),
+                    (nothing, Diffusion),
+                    (Advection, Diffusion),
+                )
+                    @testset for level in 1:numlevels
+                        Ne = 2^(level - 1) * base_num_elem
+                        test_run(
+                            adv,
+                            diff,
+                            topo,
+                            mpicomm,
+                            ArrayType,
+                            FT,
+                            polyorders,
+                            Ne,
+                            level,
+                        )
+                    end
                 end
             end
         end
