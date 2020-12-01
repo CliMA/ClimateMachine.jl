@@ -13,8 +13,16 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-using ClimateMachine.BalanceLaws:
-    AbstractStateType, Auxiliary, UpwardIntegrals, DownwardIntegrals
+
+using ClimateMachine.BalanceLaws
+import ClimateMachine.BalanceLaws:
+    vars_state,
+    flux,
+    eq_tends,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
 
 using ArgParse
 using Distributions
@@ -55,66 +63,15 @@ microphys = MicropysicsParameterSet(
 
 const param_set = EarthParameterSet(microphys)
 
-
-import ClimateMachine.BalanceLaws:
-    vars_state,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
-
-import ClimateMachine.BalanceLaws: boundary_state!
-import ClimateMachine.Atmos: flux_second_order!
-
-# -------------------- Radiation Model -------------------------- #
-vars_state(::RadiationModel, ::AbstractStateType, FT) = @vars()
-
-function atmos_nodal_update_auxiliary_state!(
-    ::RadiationModel,
-    ::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-
-function integral_load_auxiliary_state!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function integral_set_auxiliary_state!(::RadiationModel, aux::Vars, integ::Vars) end
-function reverse_integral_load_auxiliary_state!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function reverse_integral_set_auxiliary_state!(
-    ::RadiationModel,
-    aux::Vars,
-    integ::Vars,
-) end
-function flux_first_order!(
-    ::RadiationModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-) end
-
 # ------------------------ Begin Radiation Model ---------------------- #
+
 """
-  DYCOMSRadiation <: RadiationModel
+    DYCOMSRadiationModel <: RadiationModel
 
 ## References
  - [Stevens2005](@cite)
 """
-struct DYCOMSRadiation{FT} <: RadiationModel
+struct DYCOMSRadiationModel{FT} <: RadiationModel
     "mass absorption coefficient `[m^2/kg]`"
     κ::FT
     "Troposphere cooling parameter `[m^(-4/3)]`"
@@ -133,64 +90,17 @@ struct DYCOMSRadiation{FT} <: RadiationModel
     equilibrium_moisture_model::Bool
 end
 
-vars_state(m::DYCOMSRadiation, ::Auxiliary, FT) = @vars(Rad_flux::FT)
+struct DYCOMSRadiation{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 
-vars_state(m::DYCOMSRadiation, ::UpwardIntegrals, FT) =
-    @vars(attenuation_coeff::FT)
-function integral_load_auxiliary_state!(
-    m::DYCOMSRadiation,
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
+eq_tends(
+    pv::PV,
+    ::DYCOMSRadiationModel,
+    ::Flux{FirstOrder},
+) where {PV <: Energy} = (DYCOMSRadiation{PV}(),)
+
+function flux(::DYCOMSRadiation{Energy}, atmos, state, aux, t, ts, direction)
+    m = atmos.radiation
     FT = eltype(state)
-
-    if m.equilibrium_moisture_model
-        integrand.radiation.attenuation_coeff =
-            state.ρ * m.κ * aux.moisture.q_liq
-    else
-        integrand.radiation.attenuation_coeff = m.κ * state.moisture.ρq_liq
-    end
-end
-function integral_set_auxiliary_state!(
-    m::DYCOMSRadiation,
-    aux::Vars,
-    integral::Vars,
-)
-    integral = integral.radiation.attenuation_coeff
-    aux.∫dz.radiation.attenuation_coeff = integral
-end
-
-vars_state(m::DYCOMSRadiation, ::DownwardIntegrals, FT) =
-    @vars(attenuation_coeff::FT)
-function reverse_integral_load_auxiliary_state!(
-    m::DYCOMSRadiation,
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
-    FT = eltype(state)
-    integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
-end
-function reverse_integral_set_auxiliary_state!(
-    m::DYCOMSRadiation,
-    aux::Vars,
-    integral::Vars,
-)
-    aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
-end
-
-function flux_first_order!(
-    m::DYCOMSRadiation,
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-)
-    FT = eltype(flux)
     z = altitude(atmos, aux)
     Δz_i = max(z - m.z_i, -zero(FT))
     # Constants
@@ -206,8 +116,56 @@ function flux_first_order!(
     F_rad =
         upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
     ẑ = vertical_unit_vector(atmos, aux)
-    flux.ρe += F_rad * ẑ
+    return F_rad * ẑ
 end
+
+vars_state(m::DYCOMSRadiationModel, ::Auxiliary, FT) = @vars(Rad_flux::FT)
+
+vars_state(m::DYCOMSRadiationModel, ::UpwardIntegrals, FT) =
+    @vars(attenuation_coeff::FT)
+function integral_load_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    integrand::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    FT = eltype(state)
+
+    if m.equilibrium_moisture_model
+        integrand.radiation.attenuation_coeff =
+            state.ρ * m.κ * aux.moisture.q_liq
+    else
+        integrand.radiation.attenuation_coeff = m.κ * state.moisture.ρq_liq
+    end
+end
+function integral_set_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    aux::Vars,
+    integral::Vars,
+)
+    integral = integral.radiation.attenuation_coeff
+    aux.∫dz.radiation.attenuation_coeff = integral
+end
+
+vars_state(m::DYCOMSRadiationModel, ::DownwardIntegrals, FT) =
+    @vars(attenuation_coeff::FT)
+function reverse_integral_load_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    integrand::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    FT = eltype(state)
+    integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
+end
+function reverse_integral_set_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    aux::Vars,
+    integral::Vars,
+)
+    aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
+end
+
 # -------------------------- End Radiation Model ------------------------ #
 
 """
@@ -315,7 +273,7 @@ function config_dycoms(
     else
         equilibrium_moisture_model = false
     end
-    radiation = DYCOMSRadiation{FT}(
+    radiation = DYCOMSRadiationModel{FT}(
         κ,
         α_z,
         z_i,
