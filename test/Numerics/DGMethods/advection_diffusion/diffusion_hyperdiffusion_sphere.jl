@@ -218,13 +218,13 @@ let
     base_num_elem = 4
 
     expected_result = Dict()
-    expected_result[Diffusion, 1] = 2.6002775334282781e-06
+    expected_result[Diffusion, 1] = 2.6002775334282785e-06
     expected_result[Diffusion, 2] = 4.1602462623838931e-07
     expected_result[Diffusion, 3] = 5.8997889725858304e-08
 
-    expected_result[HyperDiffusion, 1] = 8.9777024547368984e-05
-    expected_result[HyperDiffusion, 2] = 9.2892846451968804e-06
-    expected_result[HyperDiffusion, 3] = 1.1822300793048034e-06
+    expected_result[HyperDiffusion, 1] = 9.3032674316702424e-05
+    expected_result[HyperDiffusion, 2] = 1.0149377619104328e-05
+    expected_result[HyperDiffusion, 3] = 1.2985297333025857e-06
 
     numlevels =
         integration_testing || ClimateMachine.Settings.integration_testing ? 3 :
