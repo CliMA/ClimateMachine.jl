@@ -207,26 +207,25 @@ let
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 0
     base_num_elem = 4
 
     expected_result = Dict()
-    expected_result[2, 1, Float64] = 5.3831781708924931e-01
-    expected_result[2, 2, Float64] = 3.0915831779382535e-01
-    expected_result[2, 3, Float64] = 1.7236683956106186e-01
-    expected_result[2, 4, Float64] = 9.2677511626195891e-02
-    expected_result[3, 1, Float64] = 6.2473789212892050e-01
-    expected_result[3, 2, Float64] = 3.6921367786807441e-01
-    expected_result[3, 3, Float64] = 2.0788964073457664e-01
-    expected_result[3, 4, Float64] = 1.1262653616064706e-01
-    expected_result[2, 1, Float32] = 5.3831773996353149e-01
-    expected_result[2, 2, Float32] = 3.0915820598602295e-01
-    expected_result[2, 3, Float32] = 1.7236681282520294e-01
-    expected_result[2, 4, Float32] = 9.2677429318428040e-02
-    expected_result[3, 1, Float32] = 6.2473779916763306e-01
-    expected_result[3, 2, Float32] = 3.6921373009681702e-01
-    expected_result[3, 3, Float32] = 2.0788973569869995e-01
-    expected_result[3, 4, Float32] = 1.1262649297714233e-01
+    expected_result[2, 1, Float64] = 3.1975803201004632e-01
+    expected_result[2, 2, Float64] = 1.8627674551822404e-01
+    expected_result[2, 3, Float64] = 1.0405818305399551e-01
+    expected_result[2, 4, Float64] = 5.5997036645317050e-02
+    expected_result[3, 1, Float64] = 2.7529128252186852e-01
+    expected_result[3, 2, Float64] = 1.6737691447662753e-01
+    expected_result[3, 3, Float64] = 9.6809054521915947e-02
+    expected_result[3, 4, Float64] = 5.3410417324053723e-02
+    expected_result[2, 1, Float32] = 3.1975793838500977e-01
+    expected_result[2, 2, Float32] = 1.8627668917179108e-01
+    expected_result[2, 3, Float32] = 1.0405827313661575e-01
+    expected_result[2, 4, Float32] = 5.5997163057327271e-02
+    expected_result[3, 1, Float32] = 2.7529123425483704e-01
+    expected_result[3, 2, Float32] = 1.6737693548202515e-01
+    expected_result[3, 3, Float32] = 9.6808202564716339e-02
+    expected_result[3, 4, Float32] = 5.3404398262500763e-02
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32)
@@ -236,6 +235,7 @@ let
                 4 : 1
             result = zeros(FT, numlevels)
             for dim in 2:3
+                polynomialorder = (ntuple(j -> 2, dim - 1)..., 0)
                 n =
                     dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :
                     SVector{3, FT}(1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))
@@ -254,7 +254,7 @@ let
                         periodicity = periodicity,
                         boundary = bc,
                     )
-                    dt = (α / 4) / (Ne * max(1, polynomialorder)^2)
+                    dt = (α / 4) / (Ne * max(1, maximum(polynomialorder))^2)
                     @info "time step" dt
 
                     timeend = FT(1 // 4)
