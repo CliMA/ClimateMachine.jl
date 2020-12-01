@@ -11,7 +11,6 @@ using LinearAlgebra
 using Printf
 using Test
 
-const integration_testing = true
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
@@ -104,11 +103,15 @@ function test_run(mpicomm, dim, polynomialorders, level, ArrayType, FT)
 
     dt = (α / 4) / (Ne * maximum(polynomialorders)^2)
     timeend = 1
-    outputtime = 1
-    dt = outputtime / ceil(Int64, outputtime / dt)
     @info "time step" dt
 
-    @info (ArrayType, FT, dim, polynomialorders[1], polynomialorders[end])
+    @info @sprintf """Test parameters:
+    ArrayType                   = %s
+    FloatType                   = %s
+    Dimension                   = %s
+    Horizontal polynomial order = %s
+    Vertical polynomial order   = %s
+      """ ArrayType FT dim polynomialorders[1] polynomialorders[end]
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
@@ -181,14 +184,116 @@ function main()
     ArrayType = ClimateMachine.array_type()
     mpicomm = MPI.COMM_WORLD
 
+    # Dictionary keys: dim, level, polynomial order, FT, and direction
+    expected_result = Dict()
+
+    # Dim 2, degree 4 in the horizontal, Float64
+    expected_result[2, 1, 4, Float64, HorizontalDirection] = 0.0467837436192571
+    expected_result[2, 2, 4, Float64, HorizontalDirection] =
+        0.004066556782723549
+    expected_result[2, 3, 4, Float64, HorizontalDirection] =
+        5.3144336694234015e-5
+    expected_result[2, 4, 4, Float64, HorizontalDirection] =
+        3.978000110046181e-7
+
+    # Dim 2, degree 2 in the vertical, Float64
+    expected_result[2, 1, 2, Float64, VerticalDirection] = 0.15362016594121006
+    expected_result[2, 2, 2, Float64, VerticalDirection] = 0.04935353328794371
+    expected_result[2, 3, 2, Float64, VerticalDirection] = 0.015530511948609192
+    expected_result[2, 4, 2, Float64, VerticalDirection] = 0.0006275095484456197
+
+    # Dim 2, degree 2 in the horizontal, Float64
+    expected_result[2, 1, 2, Float64, HorizontalDirection] = 0.15362016594121003
+    expected_result[2, 2, 2, Float64, HorizontalDirection] = 0.04935353328794369
+    expected_result[2, 3, 2, Float64, HorizontalDirection] =
+        0.015530511948609204
+    expected_result[2, 4, 2, Float64, HorizontalDirection] =
+        0.0006275095484455967
+
+    # Dim 2, degree 4 in the vertical, Float64
+    expected_result[2, 1, 4, Float64, VerticalDirection] = 0.04678374361925714
+    expected_result[2, 2, 4, Float64, VerticalDirection] = 0.0040665567827235
+    expected_result[2, 3, 4, Float64, VerticalDirection] = 5.3144336694109365e-5
+    expected_result[2, 4, 4, Float64, VerticalDirection] = 3.978000109805811e-7
+
+    # Dim 3, degree 4 in the horizontal, Float64
+    expected_result[3, 1, 4, Float64, HorizontalDirection] =
+        0.017475667486259432
+    expected_result[3, 2, 4, Float64, HorizontalDirection] =
+        0.0012502148161420109
+    expected_result[3, 3, 4, Float64, HorizontalDirection] =
+        6.999081063570052e-5
+    expected_result[3, 4, 4, Float64, HorizontalDirection] =
+        2.8724182090419642e-6
+
+    # Dim 3, degree 2 in the vertical, Float64
+    expected_result[3, 1, 2, Float64, VerticalDirection] = 0.2172517221280645
+    expected_result[3, 2, 2, Float64, VerticalDirection] = 0.06979643612684193
+    expected_result[3, 3, 2, Float64, VerticalDirection] = 0.02196346062832051
+    expected_result[3, 4, 2, Float64, VerticalDirection] = 0.0008874325139302493
+
+    # Dim 3, degree 2 in the horizontal, Float64
+    expected_result[3, 1, 2, Float64, HorizontalDirection] = 0.10343354980172516
+    expected_result[3, 2, 2, Float64, HorizontalDirection] = 0.03415137756593495
+    expected_result[3, 3, 2, Float64, HorizontalDirection] =
+        0.0035959803480493553
+    expected_result[3, 4, 2, Float64, HorizontalDirection] =
+        0.0002714157844893719
+
+    # Dim 3, degree 4 in the vertical, Float64
+    expected_result[3, 1, 4, Float64, VerticalDirection] = 0.06616220472493903
+    expected_result[3, 2, 4, Float64, VerticalDirection] = 0.005750979754288175
+    expected_result[3, 3, 4, Float64, VerticalDirection] = 7.515744171591452e-5
+    expected_result[3, 4, 4, Float64, VerticalDirection] = 5.625741705890895e-7
+
+    # Dim 2, degree 4 in the horizontal, Float32
+    expected_result[2, 1, 4, Float32, HorizontalDirection] = 0.046783954f0
+    expected_result[2, 2, 4, Float32, HorizontalDirection] = 0.004066328f0
+    expected_result[2, 3, 4, Float32, HorizontalDirection] = 5.327546f-5
+
+    # Dim 2, degree 2 in the vertical, Float32
+    expected_result[2, 1, 2, Float32, VerticalDirection] = 0.15362015f0
+    expected_result[2, 2, 2, Float32, VerticalDirection] = 0.04935346f0
+    expected_result[2, 3, 2, Float32, VerticalDirection] = 0.015530386f0
+
+    # Dim 2, degree 2 in the horizontal, Float32
+    expected_result[2, 1, 2, Float32, HorizontalDirection] = 0.1536202f0
+    expected_result[2, 2, 2, Float32, HorizontalDirection] = 0.04935346f0
+    expected_result[2, 3, 2, Float32, HorizontalDirection] = 0.015530357f0
+
+    # Dim 2, degree 4 in the vertical, Float32
+    expected_result[2, 1, 4, Float32, VerticalDirection] = 0.04678398f0
+    expected_result[2, 2, 4, Float32, VerticalDirection] = 0.0040662177f0
+    expected_result[2, 3, 4, Float32, VerticalDirection] = 5.3401447f-5
+
+    # Dim 3, degree 4 in the horizontal, Float32
+    expected_result[3, 1, 4, Float32, HorizontalDirection] = 0.01747554f0
+    expected_result[3, 2, 4, Float32, HorizontalDirection] = 0.0012502924f0
+    expected_result[3, 3, 4, Float32, HorizontalDirection] = 7.00218f-5
+
+    # Dim 3, degree 2 in the vertical, Float32
+    expected_result[3, 1, 2, Float32, VerticalDirection] = 0.21725166f0
+    expected_result[3, 2, 2, Float32, VerticalDirection] = 0.06979626f0
+    expected_result[3, 3, 2, Float32, VerticalDirection] = 0.021963252f0
+
+    # Dim 3, degree 2 in the horizontal, Float32
+    expected_result[3, 1, 2, Float32, HorizontalDirection] = 0.10343349f0
+    expected_result[3, 2, 2, Float32, HorizontalDirection] = 0.034151305f0
+    expected_result[3, 3, 2, Float32, HorizontalDirection] = 0.0035958516f0
+
+    # Dim 3, degree 4 in the vertical, Float32
+    expected_result[3, 1, 4, Float32, VerticalDirection] = 0.06616244f0
+    expected_result[3, 2, 4, Float32, VerticalDirection] = 0.005750495f0
+    expected_result[3, 3, 4, Float32, VerticalDirection] = 7.538217f-5
+
     @testset "Variable degree DG: advection diffusion model" begin
-        for FT in (Float64,)# Float32)
+        for FT in (Float32, Float64)
             numlevels =
                 integration_testing ||
                 ClimateMachine.Settings.integration_testing ?
                 (FT == Float64 ? 4 : 3) : 1
-            for dim in (3,)
-                for polynomialorders in ((4, 2),)
+            for dim in 2:3
+                for polynomialorders in ((4, 2), (2, 4))
                     result = Dict()
                     for level in 1:numlevels
                         result[level] = test_run(
@@ -199,6 +304,22 @@ function main()
                             ArrayType,
                             FT,
                         )
+                        horiz_poly = polynomialorders[1]
+                        vert_poly = polynomialorders[2]
+                        @test result[level][1] ≈ FT(expected_result[
+                            dim,
+                            level,
+                            horiz_poly,
+                            FT,
+                            HorizontalDirection,
+                        ])
+                        @test result[level][2] ≈ FT(expected_result[
+                            dim,
+                            level,
+                            vert_poly,
+                            FT,
+                            VerticalDirection,
+                        ])
                     end
                     @info begin
                         msg = ""
