@@ -774,7 +774,8 @@ function source!(
     source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
     source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
-    source!(m.moisture, m, source, state, diffusive, aux, t, direction)
+    source!(m.moisture, source, args...)
+    source!(m.precipitation, source, args...)
 
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
