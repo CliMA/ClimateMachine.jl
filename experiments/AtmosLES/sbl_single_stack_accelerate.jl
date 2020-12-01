@@ -62,7 +62,7 @@ function main(::Type{FT}) where {FT}
 
     # Prescribe domain parameters
     nelem_vert = 20
-    zmax = FT(3000)
+    zmax = FT(400)
 
     t0 = FT(0)
 
