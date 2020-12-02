@@ -657,6 +657,31 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
         # compute MH and JvC
         horizontal_vertical_metrics(vgeo, Nq, ω)
+        # update JcV for the vertical FV scheme, which is 
+        # the radial grid size, 
+        # if vertical finite volume is applied in the last dimension
+        if Nq[dim] == 1
+            avg_den = 2 .^ (sum(Nq[1:dim] .== 1) - 1)
+            avg_ind = ntuple(i -> Colon(), dim - 1)
+            vgeo[:, _JcV, :] =
+                sum(
+                    sqrt.(
+                        (
+                            vgeo_N1_flds[_x1][avg_ind..., 2, :] .-
+                            vgeo_N1_flds[_x1][avg_ind..., 1, :]
+                        ) .^ 2 +
+                        (
+                            vgeo_N1_flds[_x2][avg_ind..., 2, :] .-
+                            vgeo_N1_flds[_x2][avg_ind..., 1, :]
+                        ) .^ 2 +
+                        (
+                            vgeo_N1_flds[_x3][avg_ind..., 2, :] .-
+                            vgeo_N1_flds[_x3][avg_ind..., 1, :]
+                        ) .^ 2,
+                    ),
+                    dims = findall(Nq[1:(dim - 1)] .== 1),
+                )[:] / (2avg_den)
+        end
         num_vgeo_handled += 2
 
         # Make sure we handled all the vgeo terms
@@ -869,36 +894,33 @@ function horizontal_vertical_metrics(vgeo, Nq, ω)
     # Compute |r'(ξ3)| for vertical line integrals
     if dim == 1
         MHJH .= 1
-        JcV .= J
     elseif dim == 2
-        map!(JcV, J, ξ1x1, ξ1x2) do J, ξ1x1, ξ1x2
-            x1ξ1 = J * ξ1x2
-            x2ξ2 = J * ξ1x1
-            hypot(x1ξ1, x2ξ2)
-        end
         map!(MHJH, J, ξ2x1, ξ2x2) do J, ξ2x1, ξ2x2
             hypot(J * ξ2x1, J * ξ2x2)
         end
         MHJH .= MH .* MHJH
 
     elseif dim == 3
-        map!(
-            #! format: off
-            JcV, J,
-            ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3,
-            #! format: on
-        ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
-            x1ξ3 = J * (ξ1x2 * ξ2x3 - ξ2x2 * ξ1x3)
-            x2ξ3 = J * (ξ1x3 * ξ2x1 - ξ2x3 * ξ1x1)
-            x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
-            hypot(x1ξ3, x2ξ3, x3ξ3)
-        end
         map!(MHJH, J, ξ3x1, ξ3x2, ξ3x3) do J, ξ3x1, ξ3x2, ξ3x3
             hypot(J * ξ3x1, J * ξ3x2, J * ξ3x3)
         end
         MHJH .= MH .* MHJH
     else
         error("dim $dim not implemented")
+    end
+
+    if Nq[dim] > 1
+        Nq_hori = (dim == 1) ? 1 : prod(Nq[1:(dim - 1)])
+        Δx3 =
+            sqrt.(
+                (x1[(end - Nq_hori + 1):end, :, :] - x1[1:Nq_hori, :, :]) .^ 2 +
+                (x2[(end - Nq_hori + 1):end, :, :] - x2[1:Nq_hori, :, :]) .^ 2 +
+                (x3[(end - Nq_hori + 1):end, :, :] - x3[1:Nq_hori, :, :]) .^ 2,
+            )
+        for i in 1:Nq[dim]
+            JcV[(1 + (i - 1) * Nq_hori):(Nq_hori + (i - 1) * Nq_hori), :, :] .=
+                Δx3 ./ 2
+        end
     end
 end
 # }}}
