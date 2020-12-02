@@ -8,8 +8,8 @@
         diffusive::Vars,
         aux::Vars,
         t::Real,
-        δ::Tuple,
-        εt::Tuple,
+        Δ::Tuple,
+        Et::Tuple,
         ts,
         env,
     ) where {FT}
@@ -21,8 +21,8 @@ Returns the mixing length used in the diffusive turbulence closure, given:
  - `diffusive`, additional variables
  - `aux`, auxiliary variables
  - `t`, the time
- - `δ`, the detrainment rate
- - `εt`, the turbulent entrainment rate
+ - `Δ`, the detrainment rate
+ - `Et`, the turbulent entrainment rate
  - `ts`, NamedTuple of thermodynamic states
  - `env`, NamedTuple of environment variables
 """
@@ -33,8 +33,8 @@ function mixing_length(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    δ::Tuple,
-    εt::Tuple,
+    Δ::Tuple,
+    Et::Tuple,
     ts,
     env,
 ) where {FT}
@@ -91,9 +91,9 @@ function mixing_length(
     w_up = vuntuple(i -> up[i].ρaw / up[i].ρa, N_up)
     b = sum(
         ntuple(N_up) do i
-            a_up[i] * w_up[i] * δ[i] / env.a *
+            Δ[i] / gm.ρ / env.a *
             ((w_up[i] - env.w) * (w_up[i] - env.w) / 2 - tke_en) -
-            a_up[i] * w_up[i] * (w_up[i] - env.w) * εt[i] * env.w / env.a
+            (w_up[i] - env.w) * Et[i] / gm.ρ * env.w / env.a
         end,
     )
 
