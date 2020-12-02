@@ -52,9 +52,12 @@ elem_band(
 single_column(
     ::DGColumnBandedMatrix{D, P, NS, EH, EV, EB, SC},
 ) where {D, P, NS, EH, EV, EB, SC} = SC
+lower_bandwidth(N, nstate, eband) = (max(1, N) + 1) * nstate * eband - 1
 lower_bandwidth(A::DGColumnBandedMatrix) =
-    (vertical_polynomialorder(A) + 1) * num_state(A) * elem_band(A) - 1
-upper_bandwidth(A::DGColumnBandedMatrix) = lower_bandwidth(A)
+    lower_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
+upper_bandwidth(N, nstate, eband) = lower_bandwidth(N, nstate, eband)
+upper_bandwidth(A::DGColumnBandedMatrix) =
+    upper_bandwidth(polynomialorder(A), num_state(A), elem_band(A))
 Base.reshape(A::DGColumnBandedMatrix, args...) =
     DGColumnBandedMatrix(A, reshape(A.data, args...))
 Adapt.adapt_structure(to, A::DGColumnBandedMatrix) =
@@ -189,7 +192,7 @@ Forms the banded matrices for each the column operator defined by the `DGModel`
 dg.  If `single_column=false` then a banded matrix is stored for each column and
 if `single_column=true` only the banded matrix associated with the first column
 of the first element is stored. The bandwidth of the DG column banded matrix is
-`p = q = (polynomialorder + 1) * nstate * eband - 1` with `p` and `q` being
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1`  with `p` and `q` being
 the upper and lower bandwidths.
 
 The banded matrices are stored in the LAPACK band storage format
@@ -238,7 +241,7 @@ operator `f!` which is assumed to have the same banded structure as the
 `DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
 column and if `single_column=true` only the banded matrix associated with the
 first column of the first element is stored. The bandwidth of the DG column
-banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
+banded matrix is `p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` with
 `p` and `q` being the upper and lower bandwidths.
 
 The banded matrices are stored in the LAPACK band storage format
@@ -321,7 +324,8 @@ function empty_banded_matrix(
     # p is lower bandwidth
     # q is upper bandwidth
     eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
-    p = q = nstate * Nq_v * eband - 1
+    p = lower_bandwidth(N, nstate, eband)
+    q = upper_bandwidth(N, nstate, eband)
 
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
@@ -371,7 +375,7 @@ operator `f!` which is assumed to have the same banded structure as the
 `DGModel` dg.  If `single_column=false` then a banded matrix is stored for each
 column and if `single_column=true` only the banded matrix associated with the
 first column of the first element is stored. The bandwidth of the DG column
-banded matrix is `p = q = (polynomialorder + 1) * nstate * eband - 1` with
+banded matrix is `p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1`  with
 `p` and `q` being the upper and lower bandwidths.
 
 Here `args` are passed to `f!`.
@@ -404,12 +408,7 @@ function update_banded_matrix!(
         Nq_v = Nq[dim]
     end
 
-    # p is lower bandwidth
-    # q is upper bandwidth
-    eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
-
-    # Matrix bandwidth is determined by the vertical discretization
-    p = q = nstate * Nq[end] * eband - 1
+    eband = elem_band(A)
 
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
@@ -424,13 +423,9 @@ function update_banded_matrix!(
             for k in 1:Nq_v
                 # Set a single 1 per column and rest 0
                 event = Event(device)
-                event = kernel_set_banded_data!(device, (Nq_h, Nqj, Nq_v))(
-                    bl,
-                    Val(dim),
-                    Val(nstate),
-                    Val(N),
-                    Val(nvertelem),
+                event = kernel_set_banded_data!(device, (Nq, Nqj, Nq))(
                     Q.data,
+                    A,
                     k,
                     s,
                     ev,
@@ -512,8 +507,8 @@ example, `A[i, j, :, :, h]`, is the band matrix associated with the `(i, j)`th
 degree of freedom in the horizontal element `h`.
 
 Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
-bandwidth `p` where `n = nstate * Nq_h * nvertelem` and `p = q = nstate * Nq *
-eband - 1`.
+bandwidth `p` where `n = nstate * Nq * nvertelem` and
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` 
 
 Each band matrix is stored in the [LAPACK band storage](https://www.netlib.org/lapack/lug/node124.html).
 For example the band matrix
@@ -588,8 +583,8 @@ The LU-factorization array `LU` contains a single band matrix or one
 for each vertical column, see [`band_lu!`](@ref).
 
 Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
-bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
-eband - 1`.
+bandwidth `p` where `n = nstate * Nq * nvertelem` and
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` 
 
 ### Reference
 
@@ -611,6 +606,8 @@ eband - 1`.
         eband = elem_band(LU)
         p, q = lower_bandwidth(LU), upper_bandwidth(LU)
 
+        # number of elements needed to fill l_b
+        elems_l_b = div(p + 1, Nq * nstate)
         l_b = MArray{Tuple{p + 1}, FT}(undef)
     end
 
@@ -618,8 +615,8 @@ eband - 1`.
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        @unroll for v in 1:eband
-            @unroll for k in 1:Nq_v
+        @unroll for v in 1:elems_l_b
+            @unroll for k in 1:Nq
                 @unroll for s in 1:nstate
                     ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
@@ -677,8 +674,8 @@ The LU-factorization array `LU` contains a single band matrix or one
 for each vertical column, see [`band_lu!`](@ref).
 
 Each `n` by `n` band matrix is assumed to have upper bandwidth `q` and lower
-bandwidth `p` where `n = nstate * Nq * nvertelem` and `p = q = nstate * Nq *
-eband - 1`.
+bandwidth `p` where `n = nstate * Nq * nvertelem` and
+`p = q = (max(polynomialorder, 1) + 1) * nstate * eband - 1` 
 
 ### Reference
 
@@ -700,6 +697,8 @@ eband - 1`.
         q = upper_bandwidth(LU)
         eband = elem_band(LU)
 
+        # number of elements needed to fill l_b
+        elems_l_b = div(q + 1, Nq * nstate)
         l_b = MArray{Tuple{q + 1}, FT}(undef)
     end
 
@@ -707,11 +706,11 @@ eband - 1`.
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        @unroll for v in nvertelem:-1:(nvertelem - eband + 1)
-            @unroll for k in Nq_v:-1:1
+        @unroll for v in nvertelem:-1:(nvertelem - elems_l_b + 1)
+            @unroll for k in Nq:-1:1
                 @unroll for s in nstate:-1:1
-                    vi = eband - nvertelem + v
-                    ii = s + (k - 1) * nstate + (vi - 1) * nstate * Nq_v
+                    vi = elems_l_b - nvertelem + v
+                    ii = s + (k - 1) * nstate + (vi - 1) * nstate * Nq
 
                     ijk = i + Nqj * (j - 1) + Nq_h * Nqj * (k - 1)
                     ee = v + nvertelem * (h - 1)
@@ -762,29 +761,21 @@ end
 
 ### TODO: Document this
 @kernel function kernel_set_banded_data!(
-    bl::BalanceLaw,
-    ::Val{dim},
-    ::Val{nstate},
-    ::Val{N},
-    ::Val{nvertelem},
     Q,
+    A::DGColumnBandedMatrix,
     kin,
     sin,
     evin0,
     helems,
     velems,
-) where {dim, N, nstate, nvertelem}
+)
     @uniform begin
         FT = eltype(Q)
-
-        Nq = N .+ 1
-        @inbounds begin
-            Nq_h = Nq[1]
-            Nqj = dim == 2 ? 1 : Nq[2]
-            Nq_v = Nq[end]
-        end
-
-        eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
+        nstate = num_state(A)
+        Nq = polynomialorder(A) + 1
+        Nqj = dimensionality(A) == 2 ? 1 : Nq
+        nvertelem = num_vert_elem(A)
+        eband = elem_band(A)
     end
 
     ev, eh = @index(Group, NTuple)
@@ -872,18 +863,15 @@ end
     @uniform begin
         FT = eltype(A)
         nstate = num_state(A)
-        Nq = polynomialorders(A) .+ 1
-        @inbounds begin
-            Nq_h = Nq[1]
-            Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
-            Nq_v = Nq[end]
-        end
+        N = polynomialorder(A)
+        Nq = N + 1
+        Nqj = dimensionality(A) == 2 ? 1 : Nq
         nvertelem = num_vert_elem(A)
         p = lower_bandwidth(A)
         q = upper_bandwidth(A)
 
-        elo = div(q, Nq_v * nstate - 1)
-        eup = div(p, Nq_v * nstate - 1)
+        elo = div(q, (max(1, N) + 1) * nstate - 1)
+        eup = div(p, (max(1, N) + 1) * nstate - 1)
     end
 
     ev, eh = @index(Group, NTuple)
