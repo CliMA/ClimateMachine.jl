@@ -69,8 +69,11 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
     (Advect{PV}(),)
 
 # Precipitation
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Precipitation} =
-    ()
+eq_tends(
+    pv::PV,
+    m::AtmosModel,
+    tt::Flux{FirstOrder},
+) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
 
 #####
 ##### Second order fluxes
