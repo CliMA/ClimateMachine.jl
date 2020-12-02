@@ -133,6 +133,7 @@ struct DiscontinuousSpectralElementGrid{
     DAI2,
     DAI3,
     TOP,
+    TVTK,
 } <: AbstractGrid{T, dim, N, Np, DA}
     "mesh topology"
     topology::TOP
@@ -182,6 +183,12 @@ struct DiscontinuousSpectralElementGrid{
     "1-D indefinite integral operator on the device (one for each dimension)"
     Imat::DAT2
 
+    """
+    tuple of (x1, x2, x3) to use for vtk output (Needed for the `N = 0` case) in
+    other cases these match `vgeo` values
+    """
+    x_vtk::TVTK
+
     # Constructor for a tuple of polynomial orders
     function DiscontinuousSpectralElementGrid(
         topology::AbstractTopology{dim};
@@ -225,7 +232,12 @@ struct DiscontinuousSpectralElementGrid{
         Np = prod(N .+ 1)
 
         # Create element operators for each polynomial order
-        ξω = ntuple(j -> Elements.lglpoints(FloatType, N[j]), dim)
+        ξω = ntuple(
+            j ->
+                N[j] == 0 ? Elements.glpoints(FloatType, N[j]) :
+                Elements.lglpoints(FloatType, N[j]),
+            dim,
+        )
         ξ, ω = ntuple(j -> map(x -> x[j], ξω), 2)
 
         Imat = ntuple(
@@ -234,7 +246,8 @@ struct DiscontinuousSpectralElementGrid{
         )
         D = ntuple(j -> Elements.spectralderivative(ξ[j]), dim)
 
-        (vgeo, sgeo) = computegeometry(topology, D, ξ, ω, meshwarp, vmap⁻)
+        (vgeo, sgeo, x_vtk) =
+            computegeometry(topology.elemtocoord, D, ξ, ω, meshwarp)
 
         @assert Np == size(vgeo, 1)
 
@@ -264,6 +277,7 @@ struct DiscontinuousSpectralElementGrid{
         DAI2 = typeof(elemtobndy)
         DAI3 = typeof(vmap⁻)
         TOP = typeof(topology)
+        TVTK = typeof(x_vtk)
 
         new{
             FloatType,
@@ -279,6 +293,7 @@ struct DiscontinuousSpectralElementGrid{
             DAI2,
             DAI3,
             TOP,
+            TVTK,
         }(
             topology,
             vgeo,
@@ -296,6 +311,7 @@ struct DiscontinuousSpectralElementGrid{
             ω,
             D,
             Imat,
+            x_vtk,
         )
     end
 end
@@ -308,7 +324,12 @@ Returns the 1D interpolation points used for the reference element.
 function referencepoints(
     ::DiscontinuousSpectralElementGrid{FT, dim, N},
 ) where {FT, dim, N}
-    ξω = ntuple(j -> Elements.lglpoints(FT, N[j]), dim)
+    ξω = ntuple(
+        j ->
+            N[j] == 0 ? Elements.glpoints(FT, N[j]) :
+            Elements.lglpoints(FT, N[j]),
+        dim,
+    )
     ξ, _ = ntuple(j -> map(x -> x[j], ξω), 2)
     return ξ
 end
@@ -570,105 +591,241 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
 end
 
 # {{{ compute geometry
-function computegeometry(
-    topology::AbstractTopology{dim},
-    D,
-    ξ,
-    ω,
-    meshwarp,
-    vmap⁻,
-) where {dim}
-    # Compute metric terms
+function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
+    FT = eltype(D[1])
+    dim = length(D)
+    nface = 2dim
+    nelem = size(elemtocoord, 3)
+
     Nq = ntuple(j -> size(D[j], 1), dim)
+    Np = prod(Nq)
+    Nfp = div.(Np, Nq)
+
+    Nq_N1 = max.(Nq, 2)
+    Np_N1 = prod(Nq_N1)
+    Nfp_N1 = div.(Np_N1, Nq_N1)
+
+    # First we compute the geometry with all the N = 0 dimension set to N = 1
+    ξ1, ω1 = Elements.lglpoints(FT, 1)
+    D1 = Elements.spectralderivative(ξ1)
+    D_N1 = ntuple(j -> Nq[j] == 1 ? D1 : D[j], dim)
+    ξ_N1 = ntuple(j -> Nq[j] == 1 ? ξ1 : ξ[j], dim)
+    ω_N1 = ntuple(j -> Nq[j] == 1 ? ω1 : ω[j], dim)
+    (vgeo_N1, sgeo_N1, x_vtk) =
+        computegeometry(elemtocoord, D_N1, ξ_N1, ω_N1, meshwarp)
+
+
+    # Sort out the vgeo terms
+    @views begin
+        vgeo_N1_flds =
+            ntuple(fld -> reshape(vgeo_N1[:, fld, :], Nq_N1..., nelem), _nvgeo)
+
+        # Allocate the storage for N = 0 volume metrics
+        vgeo = zeros(FT, Np, _nvgeo, nelem)
+
+        # Counter to make sure we got all the vgeo terms
+        num_vgeo_handled = 0
+
+        # _M should be a sum
+        vgeo[:, _M, :][:] .= sum(vgeo_N1_flds[_M], dims = findall(Nq .== 1))[:]
+        num_vgeo_handled += 1
+
+        # need to recompute _MI
+        vgeo[:, _MI, :] = 1 ./ vgeo[:, _M, :]
+        num_vgeo_handled += 1
+
+        # coordinates should just be averages
+        avg_den = 2 .^ sum(Nq .== 1)
+        for fld in (_x1, _x2, _x3)
+            vgeo[:, fld, :] =
+                sum(vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] / avg_den
+            num_vgeo_handled += 1
+        end
+
+        # For the metrics it is J * ξixk we approximate so multiply and divide the
+        # mass matrix (which has the Jacobian determinant and the proper averaging
+        # due to the quadrature weights)
+        M_N1 = vgeo_N1_flds[_M]
+        MI = vgeo[:, _MI, :]
+        for fld in
+            (_ξ1x1, _ξ2x1, _ξ3x1, _ξ1x2, _ξ2x2, _ξ3x2, _ξ1x3, _ξ2x3, _ξ3x3)
+            vgeo[:, fld, :] =
+                sum(M_N1 .* vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] .*
+                MI[:]
+            num_vgeo_handled += 1
+        end
+
+        # compute MH and JvC
+        horizontal_vertical_metrics(vgeo, Nq, ω)
+        num_vgeo_handled += 2
+
+        # Make sure we handled all the vgeo terms
+        @assert _nvgeo == num_vgeo_handled
+    end
+
+    # Sort out the sgeo terms
+    @views begin
+        sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
+
+        # for the volume inverse mass matrix
+        MI = vgeo[:, _MI, :]
+        p = reshape(1:Np, Nq)
+        if dim == 1
+            fmask = (p[1:1], p[Nq[1]:Nq[1]])
+        elseif dim == 2
+            fmask = (p[1, :][:], p[Nq[1], :][:], p[:, 1][:], p[:, Nq[2]][:])
+        elseif dim == 3
+            fmask = (
+                p[1, :, :][:],
+                p[Nq[1], :, :][:],
+                p[:, 1, :][:],
+                p[:, Nq[2], :][:],
+                p[:, :, 1][:],
+                p[:, :, Nq[3]][:],
+            )
+        end
+        for d in 1:dim
+            for f in (2d - 1):(2d)
+                # number of points matches means that we keep all the data
+                # (N = 0 is not on the face)
+                if Nfp[d] == Nfp_N1[d]
+                    sgeo[:, 1:Nfp[d], f, :] .= sgeo_N1[:, 1:Nfp[d], f, :]
+
+                    # Volume inverse mass will be wrong so reset it
+                    sgeo[_vMI, 1:Nfp[d], f, :] .= MI[fmask[f], :]
+                else
+                    # Counter to make sure we got all the sgeo terms
+                    num_sgeo_handled = 0
+
+                    # sum to get sM
+                    Nq_f = (Nq[1:(d - 1)]..., Nq[(d + 1):dim]...)
+                    Nq_f_N1 = (Nq_N1[1:(d - 1)]..., Nq_N1[(d + 1):dim]...)
+                    sM_N1 = reshape(
+                        sgeo_N1[_sM, 1:Nfp_N1[d], f, :],
+                        Nq_f_N1...,
+                        nelem,
+                    )
+                    sgeo[_sM, 1:Nfp[d], f, :][:] .=
+                        sum(sM_N1, dims = findall(Nq_f .== 1))[:]
+                    num_sgeo_handled += 1
+
+                    # Normals (like metrics in the volume) need to be computed
+                    # scaled by surface Jacobian which we can do with the
+                    # surface mass matrices
+                    sM = sgeo[_sM, 1:Nfp[d], f, :]
+                    for fld in (_n1, _n2, _n3)
+                        fld_N1 = reshape(
+                            sgeo_N1[fld, 1:Nfp_N1[d], f, :],
+                            Nq_f_N1...,
+                            nelem,
+                        )
+                        sgeo[fld, 1:Nfp[d], f, :][:] .=
+                            sum(sM_N1 .* fld_N1, dims = findall(Nq_f .== 1))[:] ./
+                            sM[:]
+                        num_sgeo_handled += 1
+                    end
+
+                    # set the volume inverse mass matrix
+                    sgeo[_vMI, 1:Nfp[d], f, :] .= MI[fmask[f], :]
+                    num_sgeo_handled += 1
+
+                    # Make sure we handled all the vgeo terms
+                    @assert _nsgeo == num_sgeo_handled
+                end
+            end
+        end
+    end
+
+    (vgeo, sgeo, x_vtk)
+end
+
+function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
+    dim = length(D)
+    nface = 2dim
+    nelem = size(elemtocoord, 3)
+
+    Nq = ntuple(j -> size(D[j], 1), dim)
+
+    # Compute metric terms for FVM
+    if any(Nq .== 1)
+        return computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
+    end
+
     Np = prod(Nq)
     Nfp = div.(Np, Nq)
 
     FT = eltype(D[1])
 
-    (nface, nelem) = size(topology.elemtoelem)
-
     vgeo = zeros(FT, Np, _nvgeo, nelem)
     sgeo = zeros(FT, _nsgeo, maximum(Nfp), nface, nelem)
 
     (
-        ξ1x1,
-        ξ2x1,
-        ξ3x1,
-        ξ1x2,
-        ξ2x2,
-        ξ3x2,
-        ξ1x3,
-        ξ2x3,
-        ξ3x3,
-        MJ,
-        MJI,
-        MHJH,
-        x1,
-        x2,
-        x3,
+        #! format: off
+        ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
+        MJ, MJI, MHJH,
+        x1, x2, x3,
         JcV,
+       #! format: on
     ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
     J = similar(x1)
     (n1, n2, n3, sMJ, vMJI) = ntuple(j -> (@view sgeo[j, :, :, :]), _nsgeo)
     sJ = similar(sMJ)
 
     X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
-    Metrics.creategrid!(X..., topology.elemtocoord, ξ...)
+    Metrics.creategrid!(X..., elemtocoord, ξ...)
 
     @inbounds for j in 1:length(x1)
         (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
     end
 
     # Compute the metric terms
+    p = reshape(1:Np, Nq)
     if dim == 1
         Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D...)
+        fmask = (p[1:1], p[Nq[1]:Nq[1]])
     elseif dim == 2
         Metrics.computemetric!(
-            x1,
-            x2,
+            #! format: off
+            x1, x2,
             J,
-            ξ1x1,
-            ξ2x1,
-            ξ1x2,
-            ξ2x2,
+            ξ1x1, ξ2x1, ξ1x2, ξ2x2,
             sJ,
-            n1,
-            n2,
+            n1, n2,
             D...,
+            #! format: on
         )
+        fmask = (p[1, :][:], p[Nq[1], :][:], p[:, 1][:], p[:, Nq[2]][:])
     elseif dim == 3
         Metrics.computemetric!(
-            x1,
-            x2,
-            x3,
+            #! format: off
+            x1, x2, x3,
             J,
-            ξ1x1,
-            ξ2x1,
-            ξ3x1,
-            ξ1x2,
-            ξ2x2,
-            ξ3x2,
-            ξ1x3,
-            ξ2x3,
-            ξ3x3,
+            ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
             sJ,
-            n1,
-            n2,
-            n3,
+            n1, n2, n3,
             D...,
+            #! format: on
+        )
+        fmask = (
+            p[1, :, :][:],
+            p[Nq[1], :, :][:],
+            p[:, 1, :][:],
+            p[:, Nq[2], :][:],
+            p[:, :, 1][:],
+            p[:, :, Nq[3]][:],
         )
     end
 
-    # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor product order is reversed
+    # since `ξ1` is the fastest dimension and `ξdim` the slowest the tensor
+    # product order is reversed
     M = kron(1, reverse(ω)...)
     MJ .= M .* J
     MJI .= 1 ./ MJ
     for d in 1:dim
-        vMJI[1:Nfp[d], (2d - 1):(2d), :] .=
-            MJI[vmap⁻[1:Nfp[d], (2d - 1):(2d), :]]
+        for f in (2d - 1):(2d)
+            vMJI[1:Nfp[d], f, :] .= MJI[fmask[f], :]
+        end
     end
-
-    MH = kron(ones(FT, Nq[dim]), reverse(ω[1:(dim - 1)])...)
 
     sM = fill!(similar(sJ, maximum(Nfp), nface), NaN)
     for d in 1:dim
@@ -678,13 +835,42 @@ function computegeometry(
             if !(dim == 3 && d == 2)
                 ωf = reverse(ωf)
             end
-            sM[1:Nfp[d], f] = dim > 1 ? kron(1, ωf...) : one(FT)
+            sM[1:Nfp[d], f] .= dim > 1 ? kron(1, ωf...) : one(FT)
         end
     end
     sMJ .= sM .* sJ
 
+    # compute MH and JvC
+    horizontal_vertical_metrics(vgeo, Nq, ω)
+
+    # This is mainly done to support FVM plotting when N=0 (since we need cell
+    # edge values)
+    x_vtk = (vgeo[:, _x1, :], vgeo[:, _x2, :], vgeo[:, _x3, :])
+
+    (vgeo, sgeo, x_vtk)
+end
+
+function horizontal_vertical_metrics(vgeo, Nq, ω)
+    dim = length(Nq)
+
+    MH = dim == 1 ? 1 : kron(ones(1, Nq[dim]), reverse(ω[1:(dim - 1)])...)[:]
+    M = kron(1, reverse(ω)...)[:]
+
+    (
+        #! format: off
+        ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
+        MJ, MJI, MHJH,
+        x1, x2, x3,
+        JcV,
+       #! format: on
+    ) = ntuple(j -> (@view vgeo[:, j, :]), _nvgeo)
+    J = MJ ./ M[:]
+
     # Compute |r'(ξ3)| for vertical line integrals
-    if dim == 2
+    if dim == 1
+        MHJH .= 1
+        JcV .= J
+    elseif dim == 2
         map!(JcV, J, ξ1x1, ξ1x2) do J, ξ1x1, ξ1x2
             x1ξ1 = J * ξ1x2
             x2ξ2 = J * ξ1x1
@@ -697,14 +883,10 @@ function computegeometry(
 
     elseif dim == 3
         map!(
-            JcV,
-            J,
-            ξ1x1,
-            ξ1x2,
-            ξ1x3,
-            ξ2x1,
-            ξ2x2,
-            ξ2x3,
+            #! format: off
+            JcV, J,
+            ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3,
+            #! format: on
         ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
             x1ξ3 = J * (ξ1x2 * ξ2x3 - ξ2x2 * ξ1x3)
             x2ξ3 = J * (ξ1x3 * ξ2x1 - ξ2x3 * ξ1x1)
@@ -718,7 +900,6 @@ function computegeometry(
     else
         error("dim $dim not implemented")
     end
-    (vgeo, sgeo)
 end
 # }}}
 

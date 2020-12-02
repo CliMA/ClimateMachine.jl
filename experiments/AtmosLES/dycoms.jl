@@ -13,8 +13,16 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-using ClimateMachine.BalanceLaws:
-    AbstractStateType, Auxiliary, UpwardIntegrals, DownwardIntegrals
+
+using ClimateMachine.BalanceLaws
+import ClimateMachine.BalanceLaws:
+    vars_state,
+    flux,
+    eq_tends,
+    integral_load_auxiliary_state!,
+    integral_set_auxiliary_state!,
+    reverse_integral_load_auxiliary_state!,
+    reverse_integral_set_auxiliary_state!
 
 using ArgParse
 using Distributions
@@ -55,66 +63,15 @@ microphys = MicropysicsParameterSet(
 
 const param_set = EarthParameterSet(microphys)
 
-
-import ClimateMachine.BalanceLaws:
-    vars_state,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
-
-import ClimateMachine.BalanceLaws: boundary_state!
-import ClimateMachine.Atmos: flux_second_order!
-
-# -------------------- Radiation Model -------------------------- #
-vars_state(::RadiationModel, ::AbstractStateType, FT) = @vars()
-
-function atmos_nodal_update_auxiliary_state!(
-    ::RadiationModel,
-    ::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-
-function integral_load_auxiliary_state!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function integral_set_auxiliary_state!(::RadiationModel, aux::Vars, integ::Vars) end
-function reverse_integral_load_auxiliary_state!(
-    ::RadiationModel,
-    integ::Vars,
-    state::Vars,
-    aux::Vars,
-) end
-function reverse_integral_set_auxiliary_state!(
-    ::RadiationModel,
-    aux::Vars,
-    integ::Vars,
-) end
-function flux_first_order!(
-    ::RadiationModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-) end
-
 # ------------------------ Begin Radiation Model ---------------------- #
+
 """
-  DYCOMSRadiation <: RadiationModel
+    DYCOMSRadiationModel <: RadiationModel
 
 ## References
  - [Stevens2005](@cite)
 """
-struct DYCOMSRadiation{FT} <: RadiationModel
+struct DYCOMSRadiationModel{FT} <: RadiationModel
     "mass absorption coefficient `[m^2/kg]`"
     κ::FT
     "Troposphere cooling parameter `[m^(-4/3)]`"
@@ -133,64 +90,17 @@ struct DYCOMSRadiation{FT} <: RadiationModel
     equilibrium_moisture_model::Bool
 end
 
-vars_state(m::DYCOMSRadiation, ::Auxiliary, FT) = @vars(Rad_flux::FT)
+struct DYCOMSRadiation{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 
-vars_state(m::DYCOMSRadiation, ::UpwardIntegrals, FT) =
-    @vars(attenuation_coeff::FT)
-function integral_load_auxiliary_state!(
-    m::DYCOMSRadiation,
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
+eq_tends(
+    pv::PV,
+    ::DYCOMSRadiationModel,
+    ::Flux{FirstOrder},
+) where {PV <: Energy} = (DYCOMSRadiation{PV}(),)
+
+function flux(::DYCOMSRadiation{Energy}, atmos, state, aux, t, ts, direction)
+    m = atmos.radiation
     FT = eltype(state)
-
-    if m.equilibrium_moisture_model
-        integrand.radiation.attenuation_coeff =
-            state.ρ * m.κ * aux.moisture.q_liq
-    else
-        integrand.radiation.attenuation_coeff = m.κ * state.moisture.ρq_liq
-    end
-end
-function integral_set_auxiliary_state!(
-    m::DYCOMSRadiation,
-    aux::Vars,
-    integral::Vars,
-)
-    integral = integral.radiation.attenuation_coeff
-    aux.∫dz.radiation.attenuation_coeff = integral
-end
-
-vars_state(m::DYCOMSRadiation, ::DownwardIntegrals, FT) =
-    @vars(attenuation_coeff::FT)
-function reverse_integral_load_auxiliary_state!(
-    m::DYCOMSRadiation,
-    integrand::Vars,
-    state::Vars,
-    aux::Vars,
-)
-    FT = eltype(state)
-    integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
-end
-function reverse_integral_set_auxiliary_state!(
-    m::DYCOMSRadiation,
-    aux::Vars,
-    integral::Vars,
-)
-    aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
-end
-
-function flux_first_order!(
-    m::DYCOMSRadiation,
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-)
-    FT = eltype(flux)
     z = altitude(atmos, aux)
     Δz_i = max(z - m.z_i, -zero(FT))
     # Constants
@@ -206,8 +116,56 @@ function flux_first_order!(
     F_rad =
         upward_flux_from_sfc + upward_flux_from_cloud + free_troposphere_flux
     ẑ = vertical_unit_vector(atmos, aux)
-    flux.ρe += F_rad * ẑ
+    return F_rad * ẑ
 end
+
+vars_state(m::DYCOMSRadiationModel, ::Auxiliary, FT) = @vars(Rad_flux::FT)
+
+vars_state(m::DYCOMSRadiationModel, ::UpwardIntegrals, FT) =
+    @vars(attenuation_coeff::FT)
+function integral_load_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    integrand::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    FT = eltype(state)
+
+    if m.equilibrium_moisture_model
+        integrand.radiation.attenuation_coeff =
+            state.ρ * m.κ * aux.moisture.q_liq
+    else
+        integrand.radiation.attenuation_coeff = m.κ * state.moisture.ρq_liq
+    end
+end
+function integral_set_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    aux::Vars,
+    integral::Vars,
+)
+    integral = integral.radiation.attenuation_coeff
+    aux.∫dz.radiation.attenuation_coeff = integral
+end
+
+vars_state(m::DYCOMSRadiationModel, ::DownwardIntegrals, FT) =
+    @vars(attenuation_coeff::FT)
+function reverse_integral_load_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    integrand::Vars,
+    state::Vars,
+    aux::Vars,
+)
+    FT = eltype(state)
+    integrand.radiation.attenuation_coeff = aux.∫dz.radiation.attenuation_coeff
+end
+function reverse_integral_set_auxiliary_state!(
+    m::DYCOMSRadiationModel,
+    aux::Vars,
+    integral::Vars,
+)
+    aux.∫dnz.radiation.attenuation_coeff = integral.radiation.attenuation_coeff
+end
+
 # -------------------------- End Radiation Model ------------------------ #
 
 """
@@ -315,7 +273,7 @@ function config_dycoms(
     else
         equilibrium_moisture_model = false
     end
-    radiation = DYCOMSRadiation{FT}(
+    radiation = DYCOMSRadiationModel{FT}(
         κ,
         α_z,
         z_i,
@@ -461,12 +419,18 @@ function main()
         metavar = "noprecipitation|rain"
         arg_type = String
         default = "noprecipitation"
+        "--check-asserts"
+        help = "should asserts be checked at the end of the simulation"
+        metavar = "yes|no"
+        arg_type = String
+        default = "no"
     end
 
     cl_args =
         ClimateMachine.init(parse_clargs = true, custom_clargs = dycoms_args)
     moisture_model = cl_args["moisture_model"]
     precipitation_model = cl_args["precipitation_model"]
+    check_asserts = cl_args["check_asserts"]
 
     FT = Float64
 
@@ -530,6 +494,74 @@ function main()
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
+
+    # some simple checks to ensure that rain and clouds exist in the CI runs
+    if check_asserts == "yes"
+
+        m = driver_config.bl
+        Q = solver_config.Q
+        ρ_ind = varsindex(vars_state(m, Prognostic(), FT), :ρ)
+
+        if moisture_model == "nonequilibrium"
+
+            ρq_liq_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_liq)
+            ρq_ice_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_ice)
+
+            min_q_liq = minimum(abs.(
+                Array(Q[:, ρq_liq_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_liq = maximum(abs.(
+                Array(Q[:, ρq_liq_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            min_q_ice = minimum(abs.(
+                Array(Q[:, ρq_ice_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_ice = maximum(abs.(
+                Array(Q[:, ρq_ice_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_liq, max_q_liq)
+            @info(min_q_ice, max_q_ice)
+
+            # test that cloud condensate variables exist and are not NaN
+            @test !isnan(max_q_liq)
+            @test !isnan(max_q_ice)
+
+            # test that there is reasonable amount of cloud water...
+            @test abs(max_q_liq) > FT(5e-4)
+
+            # ...and that there is no cloud ice
+            @test isequal(min_q_ice, FT(0))
+            @test isequal(max_q_ice, FT(0))
+
+
+        end
+        if precipitation_model == "rain"
+            ρq_rai_ind = varsindex(
+                vars_state(m, Prognostic(), FT),
+                :precipitation,
+                :ρq_rai,
+            )
+
+            min_q_rai = minimum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_rai = maximum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_rai, max_q_rai)
+
+            # test that rain variable exists and is not NaN
+            @test !isnan(max_q_rai)
+
+            # test that there is reasonable amount of rain water...
+            @test abs(max_q_rai) > FT(1e-6)
+        end
+    end
 end
 
 main()

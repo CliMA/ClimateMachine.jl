@@ -50,6 +50,8 @@ function compute_gradient_argument!(
     t::Real,
 ) end
 
+source!(::PrecipitationModel, args...) = nothing
+
 """
     NoPrecipitation <: PrecipitationModel
 
@@ -142,4 +144,21 @@ function flux_second_order!(
 end
 function flux_second_order!(precip::RainModel, flux::Grad, state::Vars, d_q_rai)
     flux.precipitation.ρq_rai += d_q_rai * state.ρ
+end
+
+function source!(
+    m::RainModel,
+    source::Vars,
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    ts,
+    direction,
+    diffusive::Vars,
+)
+    tend = Source()
+    args = (atmos, state, aux, t, ts, direction, diffusive)
+    source.precipitation.ρq_rai =
+        Σsources(eq_tends(Rain(), atmos, tend), args...)
 end

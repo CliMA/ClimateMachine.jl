@@ -52,6 +52,7 @@ function show_tendencies(bl; include_params = false)
             header,
             header_crayon = crayon"yellow bold",
             subheader_crayon = crayon"green bold",
+            crop = :none,
         )
         println("")
     else

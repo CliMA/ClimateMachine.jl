@@ -547,10 +547,10 @@ function flux_first_order!(
         up_flx[i].ρaq_tot = w_up_i * up[i].ρaq_tot * ẑ
     end
     env = environment_vars(state, aux, N_up)
-    en_flx.ρatke = en.ρatke *env.w * ẑ
-    en_flx.ρaθ_liq_cv = en.ρaθ_liq_cv *env.w * ẑ
-    en_flx.ρaq_tot_cv = en.ρaq_tot_cv *env.w * ẑ
-    en_flx.ρaθ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv *env.w * ẑ
+    en_flx.ρatke = en.ρatke * env.w * ẑ
+    en_flx.ρaθ_liq_cv = en.ρaθ_liq_cv * env.w * ẑ
+    en_flx.ρaq_tot_cv = en.ρaq_tot_cv * env.w * ẑ
+    en_flx.ρaθ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv * env.w * ẑ
 end;
 
 # in the EDMF second order (diffusive) fluxes

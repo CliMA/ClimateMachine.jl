@@ -4,6 +4,8 @@ abstract type RadiationModel end
 
 vars_state(::RadiationModel, ::AbstractStateType, FT) = @vars()
 
+eq_tends(pv::PV, ::RadiationModel, ::Flux{FirstOrder}) where {PV} = ()
+
 function atmos_nodal_update_auxiliary_state!(
     ::RadiationModel,
     ::AtmosModel,

@@ -300,6 +300,15 @@ steps:
       queue: central
       slurm_ntasks: 2
 
+  - label: "cpu_fvm_advection"
+    key: "cpu_fvm_advection"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
   - label: "cpu_gcm_driver_test"
     key: "cpu_gcm_driver_test"
     command:
@@ -679,6 +688,16 @@ steps:
       slurm_ntasks: 2
       slurm_gres: "gpu:1"
 
+  - label: "gpu_fvm_advection"
+    key: "gpu_fvm_advection"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
   - label: "gpu_gcm_driver_test"
     key: "gpu_gcm_driver_test"
     command:
@@ -1022,7 +1041,7 @@ steps:
   - label: "gpu_dycoms_with_precip"
     key: "gpu_dycoms_with_precip"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed --moisture-model nonequilibrium --precipitation-model rain"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed --moisture-model nonequilibrium --precipitation-model rain --sim-time 120 --check-asserts yes"
     agents:
       config: gpu
       queue: central
