@@ -162,8 +162,8 @@ end
         @test topology.elemtocoord[:, :, 16] == [3 4 3 4; 5 5 6 6]
 
         @test topology.elemtoelem == [
-            1 1 4 4 5 6 6 5 8 7 10 9 14 3 2 15
-            2 15 14 3 8 7 10 9 12 11 11 12 13 13 16 16
+            1 1 4 2 3 4 6 5 8 7 10 9 14 3 2 15
+            2 15 14 3 8 7 10 9 12 11 5 6 7 13 16 8
             6 7 2 1 4 5 8 3 14 9 12 13 16 15 10 11
             4 3 8 5 6 1 2 7 10 15 16 11 12 9 14 13
         ]
@@ -176,6 +176,8 @@ end
         ]
 
         @test topology.elemtoordr == ones(Int, size(topology.elemtoordr))
+
+        @test topology.elemtoelem[topology.elemtobndy .== 1] == 1:8
 
         @test topology.elems == 1:nelem
         @test topology.realelems == 1:nelem
@@ -258,7 +260,7 @@ end
 
         @test topology.elemtoelem == [
             1 2 1 2 3 4
-            3 4 5 6 5 6
+            3 4 5 6 1 2
             2 1 4 3 6 5
             2 1 4 3 6 5
         ]
@@ -278,6 +280,9 @@ end
             0 0 0 0 0 0
             0 0 0 0 0 0
         ]
+
+        @test topology.elemtoelem[topology.elemtobndy .== 1] == 1:2
+        @test topology.elemtoelem[topology.elemtobndy .== 2] == 1:2
 
         @test topology.elems == 1:nelem
         @test topology.realelems == 1:nelem
