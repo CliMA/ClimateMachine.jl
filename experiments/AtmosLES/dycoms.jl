@@ -419,12 +419,18 @@ function main()
         metavar = "noprecipitation|rain"
         arg_type = String
         default = "noprecipitation"
+        "--check-asserts"
+        help = "should asserts be checked at the end of the simulation"
+        metavar = "yes|no"
+        arg_type = String
+        default = "no"
     end
 
     cl_args =
         ClimateMachine.init(parse_clargs = true, custom_clargs = dycoms_args)
     moisture_model = cl_args["moisture_model"]
     precipitation_model = cl_args["precipitation_model"]
+    check_asserts = cl_args["check_asserts"]
 
     FT = Float64
 
@@ -488,6 +494,74 @@ function main()
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
+
+    # some simple checks to ensure that rain and clouds exist in the CI runs
+    if check_asserts == "yes"
+
+        m = driver_config.bl
+        Q = solver_config.Q
+        ρ_ind = varsindex(vars_state(m, Prognostic(), FT), :ρ)
+
+        if moisture_model == "nonequilibrium"
+
+            ρq_liq_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_liq)
+            ρq_ice_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_ice)
+
+            min_q_liq = minimum(abs.(
+                Array(Q[:, ρq_liq_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_liq = maximum(abs.(
+                Array(Q[:, ρq_liq_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            min_q_ice = minimum(abs.(
+                Array(Q[:, ρq_ice_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_ice = maximum(abs.(
+                Array(Q[:, ρq_ice_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_liq, max_q_liq)
+            @info(min_q_ice, max_q_ice)
+
+            # test that cloud condensate variables exist and are not NaN
+            @test !isnan(max_q_liq)
+            @test !isnan(max_q_ice)
+
+            # test that there is reasonable amount of cloud water...
+            @test abs(max_q_liq) > FT(5e-4)
+
+            # ...and that there is no cloud ice
+            @test isequal(min_q_ice, FT(0))
+            @test isequal(max_q_ice, FT(0))
+
+
+        end
+        if precipitation_model == "rain"
+            ρq_rai_ind = varsindex(
+                vars_state(m, Prognostic(), FT),
+                :precipitation,
+                :ρq_rai,
+            )
+
+            min_q_rai = minimum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_rai = maximum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_rai, max_q_rai)
+
+            # test that rain variable exists and is not NaN
+            @test !isnan(max_q_rai)
+
+            # test that there is reasonable amount of rain water...
+            @test abs(max_q_rai) > FT(1e-6)
+        end
+    end
 end
 
 main()

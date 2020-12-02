@@ -1041,7 +1041,7 @@ steps:
   - label: "gpu_dycoms_with_precip"
     key: "gpu_dycoms_with_precip"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed --moisture-model nonequilibrium --precipitation-model rain"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed --moisture-model nonequilibrium --precipitation-model rain --sim-time 120 --check-asserts yes"
     agents:
       config: gpu
       queue: central
