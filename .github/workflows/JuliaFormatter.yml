@@ -35,7 +35,7 @@ jobs:
     - uses: julia-actions/setup-julia@latest
       if: steps.filter.outputs.julia_file_change == 'true'
       with:
-        version: 1.5
+        version: 1.5.2
 
     - name: Apply JuliaFormatter
       if: steps.filter.outputs.julia_file_change == 'true'
