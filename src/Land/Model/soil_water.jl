@@ -45,7 +45,7 @@ function PrescribedWaterModel(
 end
 
 """
-    SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCD, BCN} <: AbstractWaterModel
+    SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCT} <: AbstractWaterModel
 
 The necessary components for solving the equations for water (liquid or ice) in soil. 
 
@@ -61,8 +61,7 @@ liquid and ice form, and water content is conserved upon phase change.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCD, BCN} <:
-       AbstractWaterModel
+struct SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCT} <: AbstractWaterModel
     "Impedance Factor - will be 1 or ice dependent"
     impedance_factor::IF
     "Viscosity Factor - will be 1 or temperature dependent"
@@ -75,10 +74,8 @@ struct SoilWaterModel{FT, IF, VF, MF, HM, Fiϑl, Fiθi, BCD, BCN} <:
     initialϑ_l::Fiϑl
     "Initial condition: volumetric ice fraction"
     initialθ_i::Fiθi
-    "Dirichlet boundary condition structure"
-    dirichlet_bc::BCD
-    "Neumann boundary condition  structure"
-    neumann_bc::BCN
+    "Boundary Condition Type"
+    boundaries::BCT
 end
 
 """
@@ -90,8 +87,7 @@ end
         hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
         initialϑ_l = (aux) -> FT(NaN),
         initialθ_i = (aux) -> FT(0.0),
-        dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
-        neumann_bc::AbstractBoundaryFunctions = Neumann(),
+        boundaries::AbstractBoundaryConditions,
     ) where {FT}
 
 Constructor for the SoilWaterModel. Defaults imply a constant K = K_sat model.
@@ -104,8 +100,7 @@ function SoilWaterModel(
     hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
     initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
     initialθ_i::Function = (aux) -> eltype(aux)(0.0),
-    dirichlet_bc::AbstractBoundaryFunctions = Dirichlet(),
-    neumann_bc::AbstractBoundaryFunctions = Neumann(),
+    boundaries::AbstractBoundaryConditions,
 ) where {FT}
     args = (
         impedance_factor,
@@ -114,8 +109,7 @@ function SoilWaterModel(
         hydraulics,
         initialϑ_l,
         initialθ_i,
-        dirichlet_bc,
-        neumann_bc,
+        boundaries,
     )
     return SoilWaterModel{FT, typeof.(args)...}(args...)
 end

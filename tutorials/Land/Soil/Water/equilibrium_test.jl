@@ -142,6 +142,10 @@ surface_flux = (aux, t) -> eltype(aux)(0.0)
 bottom_flux = (aux, t) -> eltype(aux)(0.0)
 surface_state = nothing
 bottom_state = nothing
+bc = GeneralBoundaryConditions(
+    Dirichlet(surface_state = surface_state, bottom_state = bottom_state),
+    Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
+)
 
 # Define the initial state function. The default for `θ_i` is zero.
 ϑ_l0 = (aux) -> eltype(aux)(0.494);
@@ -157,14 +161,7 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(n = 2.0),
     initialϑ_l = ϑ_l0,
-    dirichlet_bc = Dirichlet(
-        surface_state = surface_state,
-        bottom_state = bottom_state,
-    ),
-    neumann_bc = Neumann(
-        surface_flux = surface_flux,
-        bottom_flux = bottom_flux,
-    ),
+    boundaries = bc,
 );
 
 # Create the soil model - the coupled soil water and soil heat models.
