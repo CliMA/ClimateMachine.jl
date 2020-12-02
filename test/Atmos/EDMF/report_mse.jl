@@ -13,11 +13,11 @@ include(joinpath(@__DIR__, "compute_mse.jl"))
 best_mse = Dict()
 best_mse[:Bomex] = Dict()
 best_mse[:Bomex]["ρ"] = 3.4943021267397123e-02
-best_mse[:Bomex]["ρu[1]"] = 3.0714039084256679e+03
+best_mse[:Bomex]["ρu[1]"] = 3.0714039084256697e+03
 best_mse[:Bomex]["ρu[2]"] = 1.3375796498101822e-03
 best_mse[:Bomex]["moisture.ρq_tot"] = 4.8463531712319707e-02
 best_mse[:Bomex]["turbconv.environment.ρatke"] = 4.7760529270257848e+03
-best_mse[:Bomex]["turbconv.environment.ρaθ_liq_cv"] = 8.5663969066126555e+01
+best_mse[:Bomex]["turbconv.environment.ρaθ_liq_cv"] = 8.5663972837809141e+01
 best_mse[:Bomex]["turbconv.environment.ρaq_tot_cv"] = 1.6260195840899604e+02
 best_mse[:Bomex]["turbconv.updraft[1].ρa"] = 7.9888809513438588e+01
 best_mse[:Bomex]["turbconv.updraft[1].ρaw"] = 8.5229392101997301e-02
