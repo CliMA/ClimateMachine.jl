@@ -143,7 +143,7 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
         # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
         # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
-        # validate_variables(bl, state, aux, "custom_filter!")
+        validate_variables(bl, state, aux, "custom_filter!")
     end
 end
 

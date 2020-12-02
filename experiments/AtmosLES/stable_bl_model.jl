@@ -231,6 +231,8 @@ function stable_bl_model(
     f_coriolis = FT(1.39e-4) # Coriolis parameter at 73N
 
     q_sfc = FT(0)
+    LHF = FT(0)
+    SHF = FT(0)
 
     # Assemble source components
     source_default = (

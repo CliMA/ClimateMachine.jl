@@ -44,33 +44,35 @@ function validate_variables(m::AtmosModel, state, aux, caller)
     a_max = m.turbconv.subdomains.a_max
     ρa_min = state.ρ * a_min
     ρa_max = state.ρ-ρa_min
-    behaved["ρa_min"] = 0 < ρa_min < 1.3, ρa_min
-    behaved["ρa_max"] = 0 < ρa_max < 1.3, ρa_max
+    # behaved["ρa_min"] = 0 < ρa_min < 1.3, ρa_min
+    # behaved["ρa_max"] = 0 < ρa_max < 1.3, ρa_max
     behaved["ρ"] = (0 < state.ρ < 2, state.ρ)
     N_up = n_updrafts(m.turbconv)
     z = altitude(m, aux)
     ρ = state.ρ
-    ε = 10eps(FT)
+    ε = 1000eps(FT)
     @unroll_map(N_up) do i
         behaved["up[$i].ρa"] = 0 < up[i].ρa < 2*(1-a_min), up[i].ρa
         behaved["up[$i].a"] = a_min - ε < up[i].ρa / ρ < a_max + ε, up[i].ρa / ρ
     end
     a_en = environment_area(state, aux, N_up)
     behaved["a_en"] = a_min - ε <= a_en <= a_max + ε, a_en
-    @print("updraft area is ", up[1].ρa / state.ρ, "\n")
 
     if !all(first.(values(behaved)))
         @show caller
         for (k,v) in behaved
-            println("$k, $(v[1]) = $(v[2])")
+            println("$(v[1]) ,$k = $(v[2])")
         end
         @unroll_map(N_up) do i
             @show z, i, up[i].ρa, up[i].ρa/ρ
         end
         @show a_min
+        @show up[1].ρa / ρ
+        @show a_en
         @show a_max
         @show ρa_min
         @show ρa_max
+        @show up[1].ρaθ_liq
         error("Misbehaved state.")
     end
 end

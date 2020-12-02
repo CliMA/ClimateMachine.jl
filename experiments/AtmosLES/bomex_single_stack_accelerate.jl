@@ -4,54 +4,52 @@ ClimateMachine.init(;
     output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
     fix_rng_seed = true,
 )
-using ClimateMachine.Atmos: AtmosModel
 using ClimateMachine.Atmos: vars_state
 using ClimateMachine.Atmos: PressureGradientModel
+using ClimateMachine.Atmos: AtmosModel
+using ClimateMachine.BalanceLaws
 using ClimateMachine.BalanceLaws: vars_state
 using ClimateMachine.Checkpoint
 using ClimateMachine.DGMethods
+using ClimateMachine.DGMethods
 import ClimateMachine.DGMethods: custom_filter!
-import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.DGMethods: RemBL
+import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
 using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.ODESolvers
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
-using ClimateMachine.BalanceLaws
-using ClimateMachine.SingleStackUtils
 using ClimateMachine.SystemSolvers
-
-const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+using ClimateMachine.SingleStackUtils
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
+include("bomex_model.jl")
 ENV["CLIMATEMACHINE_SETTINGS_DISABLE_GPU"] = true
 ENV["CLIMATEMACHINE_SETTINGS_MONITOR_COURANT_NUMBERS"] = "3000steps"
 ENV["CLIMATEMACHINE_SETTINGS_MONITOR_TIMESTEP_DURATION"] = "3000steps"
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
-include("stable_bl_model.jl")
 
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
-rhs_prehook_filters(atmos::BalanceLaw) = MyCustomFilter()
+rhs_prehook_filters(atmos::BalanceLaw) = nothing
 rhs_prehook_filters(atmos::PressureGradientModel) = nothing
-
 struct MyCustomFilter <: AbstractCustomFilter end
-function custom_filter!(::MyCustomFilter, balance_law, state::Vars{S}, aux)  where {S}
+function custom_filter!(::MyCustomFilter, balance_law, state, aux)
     state.ρu = SVector(state.ρu[1],state.ρu[2],0)
 end
 
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
     # TODO: this will move to the future namelist functionality
-    sbl_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(sbl_args, "StableBoundaryLayer")
-    @add_arg_table! sbl_args begin
+    bomex_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(bomex_args, "BOMEX")
+    @add_arg_table! bomex_args begin
         "--surface-flux"
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "bulk"
+        default = "prescribed"
     end
 
     cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
+        ClimateMachine.init(parse_clargs = true, custom_clargs = bomex_args)
 
     surface_flux = cl_args["surface_flux"]
 
@@ -62,10 +60,11 @@ function main(::Type{FT}) where {FT}
 
     # Prescribe domain parameters
     nelem_vert = 20
-    zmax = FT(400)
+    zmax = FT(3000)
+
     t0 = FT(0)
-    # Simulation time
-    timeend = FT(3600 * 3)
+
+    timeend = FT(3600 * 6)
     # timeend = FT(3600 * 6) # goal for 10 min run
 
     use_explicit_stepper_with_small_Δt = false
@@ -97,11 +96,11 @@ function main(::Type{FT}) where {FT}
     # )
     end
 
-    model = stable_bl_model(FT, config_type, zmax, surface_flux)
+    model = bomex_model(FT, config_type, zmax, surface_flux)
     ics = model.problem.init_state_prognostic
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_SINGLE_STACK",
+        "BOMEX_SINGLE_STACK",
         N,
         nelem_vert,
         zmax,
@@ -117,27 +116,6 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        ode_dt = 2.64583e-01,
-    )
-
-    # --- Zero-out horizontal variations:
-    vsp = vars_state(model, Prognostic(), FT)
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :turbconv),
-    )
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.Q,
-        varsindex(vsp, :ρe),
-    )
-
-    vsa = vars_state(model, Auxiliary(), FT)
-    horizontally_average!(
-        driver_config.grid,
-        solver_config.dg.state_auxiliary,
-        varsindex(vsa, :turbconv),
     )
     dgn_config = config_diagnostics(driver_config)
 
@@ -160,7 +138,7 @@ function main(::Type{FT}) where {FT}
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
             solver_config.Q,
-            (),
+            ("moisture.ρq_tot",),
             solver_config.dg.grid,
             TMARFilter(),
         )
@@ -175,8 +153,8 @@ function main(::Type{FT}) where {FT}
     end
 
     check_cons = (
-        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
-        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.25)),
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.0001)),
+        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.0025)),
     )
 
     result = ClimateMachine.invoke!(
@@ -199,7 +177,7 @@ export_state_plots(
     solver_config,
     dons_arr,
     time_data,
-    joinpath("output", "sbl_ss_acc");
+    joinpath("output", "bomex_ss_acc");
     z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
 )
 
@@ -207,6 +185,6 @@ export_state_contours(
     solver_config,
     dons_arr,
     time_data,
-    joinpath("output", "sbl_ss_acc");
+    joinpath("output", "bomex_ss_acc");
     z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
 )
