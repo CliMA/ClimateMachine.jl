@@ -37,15 +37,17 @@ using ..Mesh.Grids:
     EveryDirection,
     Direction
 
-using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: flux, source
+using ..BalanceLaws
 using ClimateMachine.Problems
 
-import ClimateMachine.BalanceLaws:
+import ..BalanceLaws:
     vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
+    eq_tends,
+    flux,
+    source,
     wavespeed,
     boundary_conditions,
     boundary_state!,
@@ -441,7 +443,6 @@ equations.
     flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...)
 
-    flux_first_order!(m.radiation, m, flux, state, aux, t, ts, direction)
     flux_first_order!(m.moisture, m, flux, state, aux, t, ts, direction)
     flux_first_order!(m.precipitation, m, flux, state, aux, t, ts, direction)
     flux_first_order!(m.tracers, m, flux, state, aux, t, ts, direction)
@@ -774,7 +775,8 @@ function source!(
     source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
     source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
-    source!(m.moisture, m, source, state, diffusive, aux, t, direction)
+    source!(m.moisture, source, args...)
+    source!(m.precipitation, source, args...)
 
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end

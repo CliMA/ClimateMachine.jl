@@ -6,14 +6,13 @@ using LinearAlgebra
 using MPI
 using OrderedCollections
 using StaticArrays
-import GaussQuadrature
 using KernelAbstractions
 
 using ClimateMachine
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.Mesh.Geometry
-using ClimateMachine.Mesh.Elements
+import ClimateMachine.Mesh.Elements: baryweights
 import ClimateMachine.MPIStateArrays: array_device
 
 export dimensions,
@@ -225,12 +224,8 @@ struct InterpolationBrick{
 
         end # el loop
 
-        m_ξ1, _ = GaussQuadrature.legendre(FT, qm[1], GaussQuadrature.both)
-        m_ξ2, _ = GaussQuadrature.legendre(FT, qm[2], GaussQuadrature.both)
-        m_ξ3, _ = GaussQuadrature.legendre(FT, qm[3], GaussQuadrature.both)
-        wb1 = Elements.baryweights(m_ξ1)
-        wb2 = Elements.baryweights(m_ξ2)
-        wb3 = Elements.baryweights(m_ξ3)
+        m_ξ1, m_ξ2, m_ξ3 = referencepoints(grid)
+        wb1, wb2, wb3 = baryweights(m_ξ1), baryweights(m_ξ2), baryweights(m_ξ3)
 
         Npl = offset[end]
 
@@ -883,12 +878,8 @@ struct InterpolationCubedSphere{
         lat_d = Vector{UInt16}(undef, Npl)
         long_d = Vector{UInt16}(undef, Npl)
 
-        m_ξ1, _ = GaussQuadrature.legendre(FT, qm[1], GaussQuadrature.both)
-        m_ξ2, _ = GaussQuadrature.legendre(FT, qm[2], GaussQuadrature.both)
-        m_ξ3, _ = GaussQuadrature.legendre(FT, qm[3], GaussQuadrature.both)
-        wb1 = Elements.baryweights(m_ξ1)
-        wb2 = Elements.baryweights(m_ξ2)
-        wb3 = Elements.baryweights(m_ξ3)
+        m_ξ1, m_ξ2, m_ξ3 = referencepoints(grid)
+        wb1, wb2, wb3 = baryweights(m_ξ1), baryweights(m_ξ2), baryweights(m_ξ3)
         for i in 1:Nel
             ctr = 1
             for j in (offset_d[i] + 1):offset_d[i + 1]

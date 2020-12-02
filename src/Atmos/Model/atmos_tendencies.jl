@@ -2,8 +2,6 @@
 ##### Tendency specification
 #####
 
-import ..BalanceLaws: eq_tends
-
 #####
 ##### Sources
 #####
@@ -63,8 +61,8 @@ eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Momentum} =
     (Advect{PV}(), PressureGradient{PV}())
 
 # Energy
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Energy} =
-    (Advect{PV}(), Pressure{PV}())
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{FirstOrder}) where {PV <: Energy} =
+    (Advect{PV}(), Pressure{PV}(), eq_tends(pv, m.radiation, tt)...)
 
 # Moisture
 eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =

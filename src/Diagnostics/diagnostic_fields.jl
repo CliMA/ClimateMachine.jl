@@ -92,33 +92,23 @@ This constructor computes the spatial gradients of the velocity field.
 function VectorGradients(dg::DGModel, Q::MPIStateArray)
     bl = dg.balance_law
     FT = eltype(dg.grid)
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(dg.grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    npoints = Nq^3
+    Nq = polynomialorders(dg.grid) .+ 1 #N + 1
+    Nqmax = maximum(Nq)
+    npoints = prod(Nq)
     nrealelem = length(dg.grid.topology.realelems)
 
     g = similar(Q.realdata, npoints, nrealelem, 3, 3)
     data = similar(Q.realdata, npoints, 9, nrealelem)
 
-    ind = [
-        varsindex(vars_state(bl, Prognostic(), FT), :ρ)
-        varsindex(vars_state(bl, Prognostic(), FT), :ρu)
-    ]
+    ind = varsindices(vars_state(bl, Prognostic(), FT), ("ρ", "ρu"))
     _ρ, _ρu, _ρv, _ρw = ind[1], ind[2], ind[3], ind[4]
-
     device = array_device(Q)
-    workgroup = (Nq, Nq)
-    ndrange = (nrealelem * Nq, Nq)
-
-    kernel = vector_gradients_kernel!(device, workgroup)
-    event = kernel(
+    comp_stream = Event(device)
+    workgroup = (Nqmax, Nqmax)
+    ndrange = (nrealelem * Nqmax, Nqmax)
+    comp_stream = vector_gradients_kernel!(device, workgroup)(
         Q.realdata,
-        # XXX: Needs updating for multiple polynomial orders
-        dg.grid.D[1],
+        dg.grid.D,
         dg.grid.vgeo,
         g,
         data,
@@ -127,16 +117,18 @@ function VectorGradients(dg::DGModel, Q::MPIStateArray)
         _ρv,
         _ρw,
         Val(Nq),
+        Val(Nqmax),
         ndrange = ndrange,
+        dependencies = (comp_stream,),
     )
-    wait(event)
+    wait(comp_stream)
 
     return VectorGradients(data)
 end
 
 @kernel function vector_gradients_kernel!(
     sv::AbstractArray{FT},
-    D::AbstractArray{FT, 2},
+    D::Tuple{AbstractArray{FT, 2}, AbstractArray{FT, 2}, AbstractArray{FT, 2}},
     vgeo::AbstractArray{FT},
     g::AbstractArray{FT, 4},
     vgrad_data::AbstractArray{FT, 3},
@@ -144,28 +136,34 @@ end
     _ρu::Int,
     _ρv::Int,
     _ρw::Int,
-    ::Val{qm1},
-) where {qm1, FT <: AbstractFloat}
+    ::Val{qm},
+    ::Val{qmax},
+) where {qm, qmax, FT <: AbstractFloat}
 
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
-    s_D = @localmem FT (qm1, qm1)
-    s_U = @localmem FT (qm1, qm1)
-    s_V = @localmem FT (qm1, qm1)
-    s_W = @localmem FT (qm1, qm1)
+    s_D = @localmem FT (qmax, qmax)
+    s_U = @localmem FT (qmax, qmax)
+    s_V = @localmem FT (qmax, qmax)
+    s_W = @localmem FT (qmax, qmax)
 
-    s_D[i, j] = D[i, j]
-    @synchronize
     # computing derivatives with respect to ξ1
-    for t in 1:qm1, s in 1:qm1
-        ijk = j + ((s - 1) + (t - 1) * qm1) * qm1
-        s_U[i, j] = s_D[i, j] * (sv[ijk, _ρu, e] / sv[ijk, _ρ, e])
-        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
-        s_W[i, j] = s_D[i, j] * (sv[ijk, _ρw, e] / sv[ijk, _ρ, e])
+    if i ≤ qm[1] && j ≤ qm[1]
+        s_D[i, j] = D[1][i, j]
+    end
+    @synchronize
+
+    for t in 1:qm[3], s in 1:qm[2]
+        if i ≤ qm[1] && j ≤ qm[1]
+            ijk = j + ((s - 1) + (t - 1) * qm[2]) * qm[1]
+            s_U[i, j] = s_D[i, j] * (sv[ijk, _ρu, e] / sv[ijk, _ρ, e])
+            s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+            s_W[i, j] = s_D[i, j] * (sv[ijk, _ρw, e] / sv[ijk, _ρ, e])
+        end
         @synchronize
         if j == 1
-            for r in 2:qm1
+            for r in 2:qm[1]
                 s_U[i, 1] += s_U[i, r]
                 s_V[i, 1] += s_V[i, r]
                 s_W[i, 1] += s_W[i, r]
@@ -173,21 +171,28 @@ end
         end
         @synchronize
         if j == 1
-            g[i + ((s - 1) + (t - 1) * qm1) * qm1, e, 1, 1] = s_U[i, 1] # ∂u₁∂ξ₁
-            g[i + ((s - 1) + (t - 1) * qm1) * qm1, e, 2, 1] = s_V[i, 1] # ∂u₂∂ξ₁
-            g[i + ((s - 1) + (t - 1) * qm1) * qm1, e, 3, 1] = s_W[i, 1] # ∂u₃∂ξ₁
+            g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 1, 1] = s_U[i, 1] # ∂u₁∂ξ₁
+            g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 2, 1] = s_V[i, 1] # ∂u₂∂ξ₁
+            g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 3, 1] = s_W[i, 1] # ∂u₃∂ξ₁
         end
     end
     @synchronize
     # computing derivatives with respect to ξ2
-    for t in 1:qm1, r in 1:qm1
-        ijk = r + ((j - 1) + (t - 1) * qm1) * qm1
-        s_U[i, j] = s_D[i, j] * (sv[ijk, _ρu, e] / sv[ijk, _ρ, e])
-        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
-        s_W[i, j] = s_D[i, j] * (sv[ijk, _ρw, e] / sv[ijk, _ρ, e])
+    if i ≤ qm[2] && j ≤ qm[2]
+        s_D[i, j] = D[2][i, j]
+    end
+    @synchronize
+
+    for t in 1:qm[3], r in 1:qm[1]
+        if i ≤ qm[2] && j ≤ qm[2]
+            ijk = r + ((j - 1) + (t - 1) * qm[2]) * qm[1]
+            s_U[i, j] = s_D[i, j] * (sv[ijk, _ρu, e] / sv[ijk, _ρ, e])
+            s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+            s_W[i, j] = s_D[i, j] * (sv[ijk, _ρw, e] / sv[ijk, _ρ, e])
+        end
         @synchronize
         if j == 1
-            for s in 2:qm1
+            for s in 2:qm[2]
                 s_U[i, 1] += s_U[i, s]
                 s_V[i, 1] += s_V[i, s]
                 s_W[i, 1] += s_W[i, s]
@@ -195,21 +200,29 @@ end
         end
         @synchronize
         if j == 1
-            g[r + ((i - 1) + (t - 1) * qm1) * qm1, e, 1, 2] = s_U[i, 1] # ∂u₁∂ξ₂
-            g[r + ((i - 1) + (t - 1) * qm1) * qm1, e, 2, 2] = s_V[i, 1] # ∂u₂∂ξ₂
-            g[r + ((i - 1) + (t - 1) * qm1) * qm1, e, 3, 2] = s_W[i, 1] # ∂u₃∂ξ₂
+            g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 1, 2] = s_U[i, 1] # ∂u₁∂ξ₂
+            g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 2, 2] = s_V[i, 1] # ∂u₂∂ξ₂
+            g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 3, 2] = s_W[i, 1] # ∂u₃∂ξ₂
         end
     end
     @synchronize
     # computing derivatives with respect to ξ3
-    for s in 1:qm1, r in 1:qm1
-        ijk = r + ((s - 1) + (j - 1) * qm1) * qm1
-        s_U[i, j] = s_D[i, j] * (sv[ijk, _ρu, e] / sv[ijk, _ρ, e])
-        s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
-        s_W[i, j] = s_D[i, j] * (sv[ijk, _ρw, e] / sv[ijk, _ρ, e])
+    if i ≤ qm[3] && j ≤ qm[3]
+        s_D[i, j] = D[3][i, j]
+    end
+    @synchronize
+
+
+    for s in 1:qm[2], r in 1:qm[1]
+        if i ≤ qm[3] && j ≤ qm[3]
+            ijk = r + ((s - 1) + (j - 1) * qm[2]) * qm[1]
+            s_U[i, j] = s_D[i, j] * (sv[ijk, _ρu, e] / sv[ijk, _ρ, e])
+            s_V[i, j] = s_D[i, j] * (sv[ijk, _ρv, e] / sv[ijk, _ρ, e])
+            s_W[i, j] = s_D[i, j] * (sv[ijk, _ρw, e] / sv[ijk, _ρ, e])
+        end
         @synchronize
         if j == 1
-            for t in 2:qm1
+            for t in 2:qm[3]
                 s_U[i, 1] += s_U[i, t]
                 s_V[i, 1] += s_V[i, t]
                 s_W[i, 1] += s_W[i, t]
@@ -217,9 +230,9 @@ end
         end
         @synchronize
         if j == 1
-            g[r + ((s - 1) + (i - 1) * qm1) * qm1, e, 1, 3] = s_U[i, 1] # ∂u₁∂ξ₃
-            g[r + ((s - 1) + (i - 1) * qm1) * qm1, e, 2, 3] = s_V[i, 1] # ∂u₂∂ξ₃
-            g[r + ((s - 1) + (i - 1) * qm1) * qm1, e, 3, 3] = s_W[i, 1] # ∂u₃∂ξ₃
+            g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 1, 3] = s_U[i, 1] # ∂u₁∂ξ₃
+            g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 2, 3] = s_V[i, 1] # ∂u₂∂ξ₃
+            g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 3, 3] = s_W[i, 1] # ∂u₃∂ξ₃
         end
     end
     @synchronize
@@ -228,8 +241,8 @@ end
     ∂₁u₂, ∂₂u₂, ∂₃u₂ = 4, 5, 6
     ∂₁u₃, ∂₂u₃, ∂₃u₃ = 7, 8, 9
 
-    for k in 1:qm1
-        ijk = i + ((j - 1) + (k - 1) * qm1) * qm1
+    for k in 1:qm[1]
+        ijk = i + ((j - 1) + (k - 1) * qm[2]) * qm[1]
 
         ξ1x1 = vgeo[ijk, _ξ1x1, e]
         ξ1x2 = vgeo[ijk, _ξ1x2, e]
@@ -341,24 +354,25 @@ This function computes the vorticity of the velocity field.
 function Vorticity(dg::DGModel, vgrad::VectorGradients)
     bl = dg.balance_law
     FT = eltype(dg.grid)
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(dg.grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    npoints = Nq^3
+    npoints = prod(polynomialorders(dg.grid) .+ 1)
     nrealelem = length(dg.grid.topology.realelems)
 
     data = similar(vgrad.data, npoints, 3, nrealelem)
 
     device = array_device(data)
-    workgroup = (Nq, Nq)
-    ndrange = (nrealelem * Nq, Nq)
+    comp_stream = Event(device)
+    thr_max = 256
+    thr_x = min(thr_max, npoints)
+    workgroup = (thr_x, 1)
+    ndrange = (npoints, nrealelem)
 
-    kernel = vorticity_kernel!(device, workgroup)
-    event = kernel(vgrad.data, data, Val(Nq), ndrange = ndrange)
-    wait(event)
+    comp_stream = vorticity_kernel!(device, workgroup)(
+        vgrad.data,
+        data,
+        ndrange = ndrange,
+        dependencies = (comp_stream,),
+    )
+    wait(comp_stream)
 
     return Vorticity(data)
 end
@@ -366,25 +380,15 @@ end
 @kernel function vorticity_kernel!(
     vgrad_data::AbstractArray{FT, 3},
     vort_data::AbstractArray{FT, 3},
-    ::Val{qm1},
-) where {qm1, FT <: AbstractFloat}
-
-    e = @index(Group, Linear)
-    i, j = @index(Local, NTuple)
+) where {FT <: AbstractFloat}
+    ijk, e = @index(Global, NTuple)
 
     ∂₁u₁, ∂₂u₁, ∂₃u₁ = 1, 2, 3
     ∂₁u₂, ∂₂u₂, ∂₃u₂ = 4, 5, 6
     ∂₁u₃, ∂₂u₃, ∂₃u₃ = 7, 8, 9
     Ω₁, Ω₂, Ω₃ = 1, 2, 3
 
-    for k in 1:qm1
-        ijk = i + ((j - 1) + (k - 1) * qm1) * qm1
-
-        vort_data[ijk, Ω₁, e] =
-            vgrad_data[ijk, ∂₂u₃, e] - vgrad_data[ijk, ∂₃u₂, e]
-        vort_data[ijk, Ω₂, e] =
-            vgrad_data[ijk, ∂₃u₁, e] - vgrad_data[ijk, ∂₁u₃, e]
-        vort_data[ijk, Ω₃, e] =
-            vgrad_data[ijk, ∂₁u₂, e] - vgrad_data[ijk, ∂₂u₁, e]
-    end
+    vort_data[ijk, Ω₁, e] = vgrad_data[ijk, ∂₂u₃, e] - vgrad_data[ijk, ∂₃u₂, e]
+    vort_data[ijk, Ω₂, e] = vgrad_data[ijk, ∂₃u₁, e] - vgrad_data[ijk, ∂₁u₃, e]
+    vort_data[ijk, Ω₃, e] = vgrad_data[ijk, ∂₁u₂, e] - vgrad_data[ijk, ∂₂u₁, e]
 end
