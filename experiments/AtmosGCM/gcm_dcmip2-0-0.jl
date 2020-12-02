@@ -57,28 +57,29 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
         # Linear Decay Profile
         # Δ = (r_outer - abs(sR))/(r_outer-r_inner)
         Δ = 1.0 
+        δ = 1 + X^2 + Y^2
 
         # Angles
+        # mR == modified radius 
         mR = sR
         if faceid == 1
             λ = atan(X)                     # longitude 
-            φ = atan(cos(λ)/Y)              # latitude
-
+            φ = atan(cos(λ)*Y)              # latitude
         elseif faceid == 2
-            λ = atan(-1/X) 
-            φ = atan(sin(λ)/Y)
+            λ = atan(X) + π/2 
+            φ = atan(Y * cos(atan(X)))
         elseif faceid == 3
-            λ = atan(X) 
-            φ = atan(-cos(λ)/Y)
+            λ = atan(X) + π 
+            φ = atan(Y * cos(atan(X)))
         elseif faceid == 4
-            λ = atan(-1/X) 
-            φ = atan(-sin(λ)/Y)
+            λ = atan(X) + (3/2)*π
+            φ = atan(Y * cos(atan(X)))
         elseif faceid == 5
-            λ = atan(-X/Y)
-            φ = atan(X/sin(λ))
-        elseif faceid == 6
-            λ = atan(X/Y)
-            φ = atan(-X/sin(λ)) 
+            λ = atan(X,-Y)
+            φ = atan(1/sqrt(δ-1))
+        elseif faceid == 6 # Pole 
+            λ = atan(X,Y)
+            φ = -atan(1/sqrt(δ-1))
         end
 
         r_m = acos(sin(φ_m)*sin(φ)+cos(φ_m)*cos(φ)*cos(λ-λ_m))
@@ -91,7 +92,6 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
         mR = sign(sR)*( abs(sR) + zs*Δ )
         # mR = sign(sR)*( abs(sR) + zs )
 
-        δ = 1 + X^2 + Y^2
         x1 = mR / sqrt(δ)
         x2, x3 = X * x1, Y * x1
         x1, x2, x3
