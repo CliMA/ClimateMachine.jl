@@ -12,6 +12,7 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
+using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Interpolation
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics: total_energy, air_density
@@ -32,6 +33,101 @@ CLIMAParameters.Planet.Omega(::EarthParameterSet) = 0.0
 CLIMAParameters.Planet.planet_radius(::EarthParameterSet) = 6.371e6 / 125.0
 CLIMAParameters.Planet.MSLP(::EarthParameterSet) = 1e5
 
+"""
+    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
+
+Given points `(a, b, c)` on the surface of a cube, warp the points out to a
+spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
+[Ronchi1996](@cite). Then, warp surface points to "lift" radial coordinates
+to represent some topographical profile.
+"""
+function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
+                            r_inner = _planet_radius, 
+                            r_outer = _planet_radius + domain_height)
+    
+    function f(sR, ξ, η, faceid)
+        R_m = π * 3/4
+        h0 = 2000
+        ζ_m = π/16
+        φ_m = 0
+        λ_m = π*3/2
+
+        X, Y = tan(π * ξ / 4), tan(π * η / 4)
+
+        # Linear Decay Profile
+        # Δ = (r_outer - abs(sR))/(r_outer-r_inner)
+        Δ = 1.0 
+
+        # Angles
+        mR = sR
+        if faceid == 1
+            λ = atan(X)                     # longitude 
+            φ = atan(cos(λ)/Y)              # latitude
+
+        elseif faceid == 2
+            λ = atan(-1/X) 
+            φ = atan(sin(λ)/Y)
+        elseif faceid == 3
+            λ = atan(X) 
+            φ = atan(-cos(λ)/Y)
+        elseif faceid == 4
+            λ = atan(-1/X) 
+            φ = atan(-sin(λ)/Y)
+        elseif faceid == 5
+            λ = atan(-X/Y)
+            φ = atan(X/sin(λ))
+        elseif faceid == 6
+            λ = atan(X/Y)
+            φ = atan(-X/sin(λ)) 
+        end
+
+        r_m = acos(sin(φ_m)*sin(φ)+cos(φ_m)*cos(φ)*cos(λ-λ_m))
+        if r_m < R_m
+            zs = 0.5*h0*(1+cos(π*r_m/R_m)) * cos(π*r_m/ζ_m) * cos(π*r_m/ζ_m)
+        else
+            zs = 0.0
+        end
+
+        mR = sign(sR)*( abs(sR) + zs*Δ )
+        # mR = sign(sR)*( abs(sR) + zs )
+
+        δ = 1 + X^2 + Y^2
+        x1 = mR / sqrt(δ)
+        x2, x3 = X * x1, Y * x1
+        x1, x2, x3
+    end
+    fdim = argmax(abs.((a, b, c)))
+    
+    if fdim == 1 && a < 0
+        faceid = 1 
+        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        x1, x2, x3 = f(-R, b / a, c / a, faceid)
+    elseif fdim == 2 && b < 0
+        faceid = 2
+        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        x2, x1, x3 = f(-R, a / b, c / b, faceid)
+    elseif fdim == 1 && a > 0
+        faceid = 3
+        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        x1, x2, x3 = f(R, b / a, c / a, faceid)
+    elseif fdim == 2 && b > 0
+        faceid = 4 
+        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        x2, x1, x3 = f(R, a / b, c / b, faceid)
+    elseif fdim == 3 && c > 0
+        faceid = 5 
+        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        x3, x2, x1 = f(R, b / c, a / c, faceid)
+    elseif fdim == 3 && c < 0
+        faceid = 6
+        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        x3, x2, x1 = f(-R, b / c, a / c, faceid)
+    else
+        error("invalid case for cubedshellwarp: $a, $b, $c")
+    end
+
+    return x1, x2, x3
+end
 
 function init_nonhydrostatic_gravity_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
@@ -113,6 +209,7 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         DecayingTemperatureProfile{FT}(param_set, FT(300), FT(100), FT(27.5e3))
     ref_state = HydrostaticState(temp_profile_ref)
 
+    _planet_radius = FT(planet_radius(param_set))
     domain_height::FT = 10e3               # distance between surface and top of atmosphere (m)
 
     # Set up the atmosphere model
@@ -136,9 +233,21 @@ function config_nonhydrostatic_gravity_wave(FT, poly_order, resolution)
         param_set,
         init_nonhydrostatic_gravity_wave!;
         model = model,
+        meshwarp = setmax(cubedshelltopowarp,                   ## Function
+                          _planet_radius,                       ## Domain inner radius
+                          _planet_radius + domain_height)       ## Domain outer radius
     )
 
     return config
+end
+
+function setmax(f, r_inner, r_outer)
+    function setmaxima(a,b,c)
+        return f(a, b, c, max(abs(a), abs(b), abs(c));
+                 r_inner = r_inner,
+                 r_outer = r_outer)
+    end
+    return setmaxima
 end
 
 function config_diagnostics(FT, driver_config)
@@ -171,11 +280,11 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 8                               # horizontal element number
-    n_vert = 4                               # vertical element number
+    poly_order = 4                           # discontinuous Galerkin polynomial order
+    n_horz = 12                               # horizontal element number
+    n_vert = 5                               # vertical element number
     timestart = FT(0)                        # start time (s)
-    timeend = FT(3600)                       # end time (s)
+    timeend = FT(0.5)                       # end time (s)
 
     # Set up driver configuration
     driver_config =

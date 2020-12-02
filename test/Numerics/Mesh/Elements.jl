@@ -93,7 +93,7 @@ end
     end
 
     for test_type in (Float32, Float64, BigFloat)
-        r, w = Elements.lgpoints(test_type, N)
+        r, w = Elements.glpoints(test_type, N)
         D = Elements.spectralderivative(r)
 
         @test sum(P5(r) .^ 2 .* w) ≈ IPN(test_type, 5)

@@ -19,6 +19,7 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
 ) end
 function compute_gradient_flux!(
@@ -85,16 +86,7 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     nothing
 end
 
-function source!(
-    m::DryModel,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-) end
+source!(::DryModel, args...) = nothing
 
 """
     EquilMoist
@@ -162,9 +154,9 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
 )
-    ts = recover_thermo_state(atmos, state, aux)
     tend = Flux{FirstOrder}()
     args = (atmos, state, aux, t, ts, direction)
     flux.moisture.ρq_tot =
@@ -185,23 +177,22 @@ function flux_second_order!(
 end
 #TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
 function flux_second_order!(moist::EquilMoist, flux::Grad, state::Vars, d_q_tot)
-    flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
 end
 
 function source!(
     m::EquilMoist,
-    atmos::AtmosModel,
     source::Vars,
+    atmos::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
+    diffusive::Vars,
 )
     tend = Source()
-    ts = recover_thermo_state(atmos, state, aux)
     args = (atmos, state, aux, t, ts, direction, diffusive)
     source.moisture.ρq_tot =
         Σsources(eq_tends(TotalMoisture(), atmos, tend), args...)
@@ -272,9 +263,9 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
 )
-    ts = recover_thermo_state(atmos, state, aux)
     tend = Flux{FirstOrder}()
     args = (atmos, state, aux, t, ts, direction)
     flux.moisture.ρq_tot =
@@ -309,7 +300,6 @@ function flux_second_order!(
     d_q_liq,
     d_q_ice,
 )
-    flux.ρ += d_q_tot * state.ρ
     flux.ρu += d_q_tot .* state.ρu'
     flux.moisture.ρq_tot += d_q_tot * state.ρ
     flux.moisture.ρq_liq += d_q_liq * state.ρ
@@ -318,16 +308,16 @@ end
 
 function source!(
     m::NonEquilMoist,
-    atmos::AtmosModel,
     source::Vars,
+    atmos::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
+    ts,
     direction,
+    diffusive::Vars,
 )
     tend = Source()
-    ts = recover_thermo_state(atmos, state, aux)
     args = (atmos, state, aux, t, ts, direction, diffusive)
     source.moisture.ρq_tot =
         Σsources(eq_tends(TotalMoisture(), atmos, tend), args...)

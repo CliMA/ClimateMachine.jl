@@ -2,7 +2,6 @@ using ClimateMachine
 using MPI
 using ClimateMachine.Mesh.Topologies
 using ClimateMachine.Mesh.Grids
-using ClimateMachine.VTK: writemesh
 using Logging
 using LinearAlgebra
 using Random

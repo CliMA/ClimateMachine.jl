@@ -527,6 +527,8 @@ function flux_first_order!(
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 ) where {FT}
     # Aliases:
     gm = state

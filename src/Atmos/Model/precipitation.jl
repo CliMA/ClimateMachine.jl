@@ -1,7 +1,7 @@
 #### Precipitation component in atmosphere model
 abstract type PrecipitationModel end
 
-export NoPrecipitation, Rain#, RainSnow
+export NoPrecipitation, RainModel#, RainSnow
 
 using ..Microphysics
 
@@ -14,13 +14,15 @@ function atmos_nodal_update_auxiliary_state!(
     aux::Vars,
     t::Real,
 ) end
-function flux_precipitation!(
+function flux_first_order!(
     ::PrecipitationModel,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 ) end
 function compute_gradient_flux!(
     ::PrecipitationModel,
@@ -48,6 +50,8 @@ function compute_gradient_argument!(
     t::Real,
 ) end
 
+source!(::PrecipitationModel, args...) = nothing
+
 """
     NoPrecipitation <: PrecipitationModel
 
@@ -57,18 +61,18 @@ struct NoPrecipitation <: PrecipitationModel end
 
 
 """
-    Rain <: PrecipitationModel
+    RainModel <: PrecipitationModel
 
 Precipitation model with rain only.
 """
-struct Rain <: PrecipitationModel end
+struct RainModel <: PrecipitationModel end
 
-vars_state(::Rain, ::Prognostic, FT) = @vars(ρq_rai::FT)
-vars_state(::Rain, ::Gradient, FT) = @vars(q_rai::FT)
-vars_state(::Rain, ::GradientFlux, FT) = @vars(∇q_rai::SVector{3, FT})
+vars_state(::RainModel, ::Prognostic, FT) = @vars(ρq_rai::FT)
+vars_state(::RainModel, ::Gradient, FT) = @vars(q_rai::FT)
+vars_state(::RainModel, ::GradientFlux, FT) = @vars(∇q_rai::SVector{3, FT})
 
 function atmos_nodal_update_auxiliary_state!(
-    precip::Rain,
+    precip::RainModel,
     atmos::AtmosModel,
     state::Vars,
     aux::Vars,
@@ -76,7 +80,7 @@ function atmos_nodal_update_auxiliary_state!(
 ) end
 
 function compute_gradient_argument!(
-    precip::Rain,
+    precip::RainModel,
     transform::Vars,
     state::Vars,
     aux::Vars,
@@ -87,7 +91,7 @@ function compute_gradient_argument!(
 end
 
 function compute_gradient_flux!(
-    precip::Rain,
+    precip::RainModel,
     diffusive::Vars,
     ∇transform::Grad,
     state::Vars,
@@ -98,13 +102,15 @@ function compute_gradient_flux!(
     diffusive.precipitation.∇q_rai = ∇transform.precipitation.q_rai
 end
 
-function flux_precipitation!(
-    precip::Rain,
+function flux_first_order!(
+    precip::RainModel,
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
+    ts,
+    direction,
 )
     FT = eltype(state)
     u = state.ρu / state.ρ
@@ -125,7 +131,7 @@ function flux_precipitation!(
 end
 
 function flux_second_order!(
-    precip::Rain,
+    precip::RainModel,
     flux::Grad,
     state::Vars,
     diffusive::Vars,
@@ -136,6 +142,23 @@ function flux_second_order!(
     d_q_rai = (-D_t) .* diffusive.precipitation.∇q_rai
     flux_second_order!(precip, flux, state, d_q_rai)
 end
-function flux_second_order!(precip::Rain, flux::Grad, state::Vars, d_q_rai)
+function flux_second_order!(precip::RainModel, flux::Grad, state::Vars, d_q_rai)
     flux.precipitation.ρq_rai += d_q_rai * state.ρ
+end
+
+function source!(
+    m::RainModel,
+    source::Vars,
+    atmos::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+    ts,
+    direction,
+    diffusive::Vars,
+)
+    tend = Source()
+    args = (atmos, state, aux, t, ts, direction, diffusive)
+    source.precipitation.ρq_rai =
+        Σsources(eq_tends(Rain(), atmos, tend), args...)
 end

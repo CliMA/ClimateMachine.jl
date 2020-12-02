@@ -27,6 +27,78 @@ using CLIMAParameters.Planet: day, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+function setmax(f, r_inner, r_outer)
+    function setmaxima(a,b,c)
+        return f(a, b, c, max(abs(a), abs(b), abs(c));
+                 r_inner = r_inner,
+                 r_outer = r_outer)
+    end
+    return setmaxima
+end
+
+function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
+                            r_inner = _planet_radius, 
+                            r_outer = _planet_radius + domain_height)
+
+    function f(sR, ξ, η, faceid)
+        R_m = π * 3/4
+        h0 = 2000
+        ζ_m = π/16
+        φ_m = 0
+        λ_m = π*3/2
+
+
+        X, Y = tan(π * ξ / 4), tan(π * η / 4)
+
+        # Linear Decay Profile
+        Δ = (r_outer - abs(sR))/(r_outer-r_inner)
+
+        # Angles
+        mR = sR
+        if faceid == 1
+            ϕ = rad2deg(atan(X))
+            mR = sign(sR)*(abs(sR) + (4000*Δ*exp(-abs((deg2rad(ϕ)*π/2)^2))))
+        end
+
+        δ = 1 + X^2 + Y^2
+        x1 = mR / sqrt(δ)
+        x2, x3 = X * x1, Y * x1
+        x1, x2, x3
+    end
+    fdim = argmax(abs.((a, b, c)))
+
+    if fdim == 1 && a < 0
+        faceid = 1 
+        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        x1, x2, x3 = f(-R, b / a, c / a, faceid)
+    elseif fdim == 2 && b < 0
+        faceid = 2
+        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        x2, x1, x3 = f(-R, a / b, c / b, faceid)
+    elseif fdim == 1 && a > 0
+        faceid = 3
+        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        x1, x2, x3 = f(R, b / a, c / a, faceid)
+    elseif fdim == 2 && b > 0
+        faceid = 4 
+        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        x2, x1, x3 = f(R, a / b, c / b, faceid)
+    elseif fdim == 3 && c > 0
+        faceid = 5 
+        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        x3, x2, x1 = f(R, b / c, a / c, faceid)
+    elseif fdim == 3 && c < 0
+        faceid = 6
+        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        x3, x2, x1 = f(-R, b / c, a / c, faceid)
+    else
+        error("invalid case for cubedshellwarp: $a, $b, $c")
+    end
+
+    return x1, x2, x3
+end
+
+
 function init_solid_body_rotation!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
@@ -51,6 +123,8 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
     exp_name = "SolidBodyRotation"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
 
+    _planet_radius = FT(planet_radius(param_set))
+ 
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
@@ -71,6 +145,9 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
         init_solid_body_rotation!;
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
+        meshwarp = setmax(cubedshelltopowarp,                   ## Function
+                          _planet_radius,                       ## Domain inner radius
+                          _planet_radius + domain_height)       ## Domain outer radius
     )
 
     return config
@@ -79,9 +156,9 @@ end
 function main()
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = 5                           # discontinuous Galerkin polynomial order
-    n_horz = 8                              # horizontal element number
-    n_vert = 4                               # vertical element number
+    poly_order = 3                           # discontinuous Galerkin polynomial order
+    n_horz = 12                              # horizontal element number
+    n_vert = 6                               # vertical element number
     timestart::FT = 0                        # start time (s)
     timeend::FT = 7200
 

@@ -2,7 +2,7 @@
 
 The precipitation model in `Atmos.jl` describes the behavior
   of precipitating water in the atmosphere (i.e. rain and snow).
-There are two options available: `NoPrecipitation` and `Rain`.
+There are two options available: `NoPrecipitation` and `RainModel`.
 
 ## NoPrecipitation
 
@@ -16,9 +16,9 @@ In the first case `ρ q_tot` (total water specific humidity) is not removed
 In the second case `ρ q_tot` is removed if it exceeds a threshold.
 
 
-## Rain
+## RainModel
 
-The `Rain` model assumes that precipitating water is present but only in the
+The `RainModel` model assumes that precipitating water is present but only in the
   form of rain (liquid-phase precipitation).
 It adds `ρ q_rai` (air density times total rain water specific humidity)
   to state variables.

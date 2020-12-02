@@ -7,7 +7,8 @@ using ..DGMethods
 using ..TicToc
 
 """
-    writevtk(prefix, Q::MPIStateArray, dg::DGModel [, fieldnames]; number_sample_points)
+    writevtk(prefix, Q::MPIStateArray, dg::DGModel [, fieldnames];
+             number_sample_points = 0)
 
 Write a vtk file for all the fields in the state array `Q` using geometry and
 connectivity information from `dg.grid`. The filename will start with `prefix`
@@ -16,8 +17,12 @@ in the vtk file can be specified through the collection of strings `fieldnames`;
 if not specified the fields names will be `"Q1"` through `"Qk"` where `k` is the
 number of states in `Q`, i.e., `k = size(Q,2)`.
 
-If specified, fields are sampled on an equally spaced, tensor-product grid of
-points with 'number_sample_points' in each direction.
+If `number_sample_points > 0` then the fields are sampled on an equally spaced,
+tensor-product grid of points with 'number_sample_points' in each direction and
+the output VTK element type is set to by a VTK lagrange type.
+
+When `number_sample_points == 0` the raw nodal values are saved, and linear VTK
+elements are used connecting the degree of freedom boxes.
 """
 function writevtk(
     prefix,
@@ -42,7 +47,8 @@ end
 
 """
     writevtk(prefix, Q::MPIStateArray, dg::DGModel, fieldnames,
-             state_auxiliary::MPIStateArray, auxfieldnames)
+             state_auxiliary::MPIStateArray, auxfieldnames;
+             number_sample_points = 0)
 
 Write a vtk file for all the fields in the state array `Q` and auxiliary state
 `state_auxiliary` using geometry and connectivity information from `dg.grid`. The
@@ -57,8 +63,12 @@ If `auxfieldnames === nothing` then the fields names will be `"aux1"` through
 `"auxk"` where `k` is the number of states in `state_auxiliary`, i.e., `k =
 size(state_auxiliary,2)`.
 
-If specified, fields are sampled on an equally spaced, tensor-product grid of
-points with 'number_sample_points' in each direction.
+If `number_sample_points > 0` then the fields are sampled on an equally spaced,
+tensor-product grid of points with 'number_sample_points' in each direction and
+the output VTK element type is set to by a VTK lagrange type.
+
+When `number_sample_points == 0` the raw nodal values are saved, and linear VTK
+elements are used connecting the degree of freedom boxes.
 """
 function writevtk(
     prefix,
@@ -105,18 +115,14 @@ function writevtk_helper(
     @assert number_sample_points >= 0
 
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
+    Nq = N .+ 1
 
     nelem = size(Q)[end]
 
-    Xid = (grid.x1id, grid.x2id, grid.x3id)
-    X = ntuple(j -> (@view vgeo[:, Xid[j], :]), dim)
+    X = grid.x_vtk[1:dim]
     fields = ntuple(j -> (@view Q[:, j, :]), size(Q, 2))
+
     auxfields =
         isnothing(state_auxiliary) ? () :
         (
@@ -126,29 +132,46 @@ function writevtk_helper(
             )
         )
 
+    # If any dimension are N = 0 we mirror these out to the boundaries for viz
+    # purposed
+    if any(N .== 0)
+        Nq_N1 = max.(Nq, 2)
+        Np_N1 = prod(Nq_N1)
+        ind = ntuple(i -> N[i] == 0 ? [1, 1] : Colon(), dim)
+        fields = ntuple(length(fields)) do i
+            fld = reshape(fields[i], Nq..., nelem)
+            fld2 = @view fld[ind..., :]
+            reshape(fld2, (Np_N1, nelem))
+        end
+        auxfields = ntuple(length(auxfields)) do i
+            fld = reshape(auxfields[i], Nq..., nelem)
+            fld2 = @view fld[ind..., :]
+            reshape(fld2, (Np_N1, nelem))
+        end
+        Nq = Nq_N1
+    end
+
     # Interpolate to an equally spaced grid if necessary
     if number_sample_points > 0
         FT = eltype(Q)
-        # XXX: Needs updating for multiple polynomial orders
-        ξsrc = referencepoints(grid)[1]
+        # If any dimension are N = 0 we manual set (-1, 1) grids
+        ξ = ntuple(
+            i -> N[i] == 0 ? FT.([-1, 1]) : referencepoints(grid)[i],
+            dim,
+        )
         ξdst = range(FT(-1); length = number_sample_points, stop = 1)
-        I1d = interpolationmatrix(ξsrc, ξdst)
-        I = kron(ntuple(i -> I1d, dim)...)
+        I1d = ntuple(i -> interpolationmatrix(ξ[dim - i + 1], ξdst), dim)
+        I = kron(I1d...)
         fields = ntuple(i -> I * fields[i], length(fields))
         auxfields = ntuple(i -> I * auxfields[i], length(auxfields))
         X = ntuple(i -> I * X[i], length(X))
-        Nq = number_sample_points
+        Nq = ntuple(j -> number_sample_points, dim)
     end
 
-    X = ntuple(i -> reshape(X[i], ntuple(j -> Nq, dim)..., nelem), length(X))
-    fields = ntuple(
-        i -> reshape(fields[i], ntuple(j -> Nq, dim)..., nelem),
-        length(fields),
-    )
-    auxfields = ntuple(
-        i -> reshape(auxfields[i], ntuple(j -> Nq, dim)..., nelem),
-        length(auxfields),
-    )
+    X = ntuple(i -> reshape(X[i], Nq..., nelem), length(X))
+    fields = ntuple(i -> reshape(fields[i], Nq..., nelem), length(fields))
+    auxfields =
+        ntuple(i -> reshape(auxfields[i], Nq..., nelem), length(auxfields))
 
     if fieldnames === nothing
         fields = ntuple(i -> ("Q$i", fields[i]), length(fields))
@@ -164,40 +187,19 @@ function writevtk_helper(
     end
 
     fields = (fields..., auxfields...)
-    writemesh(
-        prefix,
-        X...;
-        fields = fields,
-        realelems = grid.topology.realelems,
-    )
-end
-
-"""
-    writegrid(prefix, grid::DiscontinuousSpectralElementGrid)
-
-Write a vtk file for the grid.  The filename will start with `prefix` which
-may also contain a directory path.
-"""
-function writevtk(prefix, grid::DiscontinuousSpectralElementGrid)
-    dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(dg.grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-
-    vgeo = grid.vgeo isa Array ? grid.vgeo : Array(grid.vgeo)
-
-    nelem = size(vgeo)[end]
-    Xid = (grid.x1id, grid.x2id, grid.x3id)
-    X = ntuple(
-        j -> reshape(
-            (@view vgeo[:, Xid[j], :]),
-            ntuple(j -> Nq, dim)...,
-            nelem,
-        ),
-        dim,
-    )
-    writemesh(prefix, X...; realelems = grid.topology.realelems)
+    if number_sample_points > 0
+        return writemesh_highorder(
+            prefix,
+            X...;
+            fields = fields,
+            realelems = grid.topology.realelems,
+        )
+    else
+        return writemesh_raw(
+            prefix,
+            X...;
+            fields = fields,
+            realelems = grid.topology.realelems,
+        )
+    end
 end

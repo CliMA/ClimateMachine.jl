@@ -2,6 +2,7 @@ module Atmos
 
 export AtmosModel, AtmosAcousticLinearModel, AtmosAcousticGravityLinearModel
 
+using UnPack
 using CLIMAParameters
 using CLIMAParameters.Planet: grav, cp_d
 using CLIMAParameters.Atmos.SubgridScale: C_smag
@@ -36,15 +37,17 @@ using ..Mesh.Grids:
     EveryDirection,
     Direction
 
-using ClimateMachine.BalanceLaws
-import ClimateMachine.BalanceLaws: flux, source
+using ..BalanceLaws
 using ClimateMachine.Problems
 
-import ClimateMachine.BalanceLaws:
+import ..BalanceLaws:
     vars_state,
     flux_first_order!,
     flux_second_order!,
     source!,
+    eq_tends,
+    flux,
+    source,
     wavespeed,
     boundary_conditions,
     boundary_state!,
@@ -171,6 +174,8 @@ function AtmosModel{FT}(
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
 
+    @assert !any(isa.(source, Tuple))
+
     atmos = (
         param_set,
         problem,
@@ -215,6 +220,8 @@ function AtmosModel{FT}(
     tracers::TR = NoTracers(),
     data_config::DC = nothing,
 ) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+
+    @assert !any(isa.(source, Tuple))
 
     atmos = (
         param_set,
@@ -382,12 +389,16 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
+export AbstractSource
+abstract type AbstractSource end
+
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies
 include("tendencies_mass.jl")         # specify mass tendencies
 include("tendencies_momentum.jl")     # specify momentum tendencies
 include("tendencies_energy.jl")       # specify energy tendencies
 include("tendencies_moisture.jl")     # specify moisture tendencies
+include("tendencies_precipitation.jl")# specify precipitation tendencies
 
 include("problem.jl")
 include("ref_state.jl")
@@ -432,12 +443,10 @@ equations.
     flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...)
 
-    # pressure terms
-    flux_radiation!(m.radiation, m, flux, state, aux, t)
-    flux_first_order!(m.moisture, m, flux, state, aux, t, direction)
-    flux_precipitation!(m.precipitation, m, flux, state, aux, t)
-    flux_tracers!(m.tracers, m, flux, state, aux, t)
-    flux_first_order!(m.turbconv, m, flux, state, aux, t)
+    flux_first_order!(m.moisture, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.precipitation, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.tracers, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.turbconv, m, flux, state, aux, t, ts, direction)
 end
 
 function compute_gradient_argument!(
@@ -552,11 +561,18 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
+    ρu_pad = SVector(1, 1, 1)
+    ts = recover_thermo_state(atmos, state, aux)
+    tend = Flux{SecondOrder}()
+    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), args...) .* ρu_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), atmos, tend), args...) .* ρu_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...)
+
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     ν, D_t, τ =
         sponge_viscosity_modifier(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
-    d_h_tot = -D_t .* diffusive.∇h_tot
-    flux_second_order!(atmos, flux, state, τ, d_h_tot)
+
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(
@@ -570,19 +586,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
     )
     flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
-end
-
-#TODO: Consider whether to not pass ρ and ρu (not state), foc BCs reasons
-@inline function flux_second_order!(
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    τ,
-    d_h_tot,
-)
-    flux.ρu += τ * state.ρ
-    flux.ρe += τ * state.ρu
-    flux.ρe += d_h_tot * state.ρ
 end
 
 @inline function wavespeed(
@@ -772,7 +775,8 @@ function source!(
     source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
     source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
     source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
-    source!(m.moisture, m, source, state, diffusive, aux, t, direction)
+    source!(m.moisture, source, args...)
+    source!(m.precipitation, source, args...)
 
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end
