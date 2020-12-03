@@ -9,14 +9,14 @@ using .NumericalFluxes:
     numerical_boundary_flux_second_order!,
     numerical_boundary_flux_divergence!,
     numerical_boundary_flux_higher_order!
-
+using Statistics
 using ..Mesh.Geometry
 
 # {{{ FIXME: remove this after we've figure out how to pass through to kernel
 const _ξ1x1, _ξ2x1, _ξ3x1 = Grids._ξ1x1, Grids._ξ2x1, Grids._ξ3x1
 const _ξ1x2, _ξ2x2, _ξ3x2 = Grids._ξ1x2, Grids._ξ2x2, Grids._ξ3x2
 const _ξ1x3, _ξ2x3, _ξ3x3 = Grids._ξ1x3, Grids._ξ2x3, Grids._ξ3x3
-const _M, _MI = Grids._M, Grids._MI
+const _M, _MI, _MH = Grids._M, Grids._MI, Grids._MH
 const _x1, _x2, _x3 = Grids._x1, Grids._x2, Grids._x3
 const _JcV = Grids._JcV
 
@@ -3134,3 +3134,67 @@ end
         end
     end
 end
+
+@doc """
+    kernel_elementwise_relaxation!(balance_law::BalanceLaw, ::Val{dim}, ::Val{N},
+                                  ::Val{nvertelem}, state_prognostic, state_auxiliary, vgeo,
+                                  Imat, elems) where {dim, N, nvertelem}
+Computational kernel: Compute element-averages for prognostic relaxation
+See [`BalanceLaw`](@ref) for usage.
+""" kernel_relaxation_tendency!
+@kernel function kernel_relaxation_tendency!(
+    balance_law,
+    ::Val{dim},
+    ::Val{N},
+    ::Val{Nqk},
+    ::Val{nvertelem},
+    ::Val{nhorzelem},
+    state_prognostic,
+    state_auxiliary,
+    vgeo,
+    tendency,
+    t,
+) where {dim, N, Nqk, nvertelem, nhorzelem}
+    @uniform begin
+        # Unpack
+        FT = eltype(state_prognostic)
+        num_state_prognostic = number_states(balance_law, Prognostic())
+        Nq = N[1]+1 
+        npoints = Nq * Nq * Nqk
+
+        local_mean = @localmem FT (Nqk, num_state_prognostic) 
+        local_sum = @localmem FT (Nqk, num_state_prognostic)
+    end
+    # Compute
+    for eh in 1:nhorzelem
+        for ev in 1:nvertelem
+            e = ev + (eh - 1) * nvertelem
+            for k in 1:Nqk
+                # Nodal indices
+                sind = Nq^2 * (k-1) + 1 
+                find = k * Nq^2
+                for j = 1:Nq
+                    for i = 1:Nq
+                        ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+                        #MH = vgeo[ijk, _MH, e]
+                        #ΣMH = sum(vgeo[sind:find,_MH,e])
+                        #@unroll for s in 1:num_state_prognostic
+                        #    local_sum[k,s] += MH .* state_prognostic[ijk, s, e]
+                        #end
+                        #@unroll for s in 1:num_state_prognostic
+                        #    local_mean[k, s] = local_sum[k,s] ./ ΣMH
+                        #    t > FT(0) ? @show(s, mean(state_prognostic[sind:find,s,e]), local_mean[k,s]) : nothing ;
+                        #end
+                        if vgeo[ijk,_x3,e] > 
+                            @unroll for s in 1:num_state_prognostic
+                                tendency[ijk,s,e] -= state_prognostic[ijk,s,e] - mean(state_prognostic[sind:find,s,e])
+                            end
+                        end 
+                    end
+                end
+            end
+        end
+    end
+    # Return
+end
+

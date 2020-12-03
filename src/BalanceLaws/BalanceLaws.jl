@@ -22,6 +22,7 @@ export BalanceLaw,
     integral_load_auxiliary_state!,
     integral_set_auxiliary_state!,
     indefinite_stack_integral!,
+    elementwise_relaxation!,
     reverse_indefinite_stack_integral!,
     reverse_integral_load_auxiliary_state!,
     reverse_integral_set_auxiliary_state!

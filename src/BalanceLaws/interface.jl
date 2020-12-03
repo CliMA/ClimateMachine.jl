@@ -335,6 +335,14 @@ Compute reverse indefinite integral along stack.
 """
 function reverse_indefinite_stack_integral! end
 
+"""
+    elementwise_relaxation!
+
+Compute relaxation terms [horizontal averages] per element
+"""
+function elementwise_relaxation! end
+
+
 # Internal methods
 number_states(m::BalanceLaw, st::AbstractStateType, FT = Int) =
     varsize(vars_state(m, st, FT))

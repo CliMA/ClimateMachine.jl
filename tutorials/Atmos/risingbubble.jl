@@ -169,7 +169,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = ρu
     state.ρe = ρe_tot
-    state.tracers.ρχ = ρχ
+    #state.tracers.ρχ = ρχ
 end
 
 # ## [Model Configuration](@id config-helper)
@@ -232,7 +232,7 @@ function config_risingbubble(
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
-        tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
+        #tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients
     )
 
     ## Finally, we pass a `Problem Name` string, the mesh information, and the
@@ -282,11 +282,11 @@ function main()
     ## random seeds, spline interpolants and other special functions at the
     ## initialization step.)
     N = 4
-    Δh = FT(125)
-    Δv = FT(125)
+    Δh = FT(250)
+    Δv = FT(250)
     resolution = (Δh, Δh, Δv)
     xmax = FT(10000)
-    ymax = FT(500)
+    ymax = FT(1000)
     zmax = FT(10000)
     t0 = FT(0)
     timeend = FT(100)

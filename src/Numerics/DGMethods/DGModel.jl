@@ -346,6 +346,17 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         surface = :interior,
         dependencies = (comp_stream,),
     )
+    
+    comp_stream = launch_relaxation_tendency!(
+        dg,
+        tendency,
+        state_prognostic,
+        state_auxiliary,
+        t,
+        α,
+        β;
+        dependencies = comp_stream,
+    )
 
     if communicate
         if num_state_gradient_flux > 0 || nhyperviscstate > 0
@@ -587,6 +598,52 @@ function update_auxiliary_state_gradient!(
     elems,
 )
     return false
+end
+
+"""
+    launch_relaxation_tendency!(dg, state_prognostic, t; dependencies)
+
+Launches relaxation tendency kernels.
+"""
+function launch_relaxation_tendency!(
+    dg,
+    tendency,
+    state_prognostic,
+    t,
+    α,
+    β;
+    dependencies,
+)
+
+    info = basic_launch_info(dg)
+    workgroup = (info.Nq, info.Nq)
+    ndrange = (info.Nq * info.nrealelem, info.Nq)
+    comp_stream = dependencies
+    grid = dg.grid 
+    N = polynomialorders(grid)
+    dim = dimensionality(grid)
+    Nqk = info.Nqk
+    topology = grid.topology
+    nrealelem = length(topology.realelems)
+    nvertelem = topology.stacksize
+    nhorzelem = div(nrealelem, nvertelem)
+    comp_stream = dependencies
+    comp_stream = kernel_relaxation_tendency!(info.device, (info.Nq, info.Nq))(
+        dg.balance_law,
+        Val(dim),
+        Val(N),
+        Val(Nqk),
+        Val(nvertelem),
+        Val(nhorzelem),
+        state_prognostic.data,
+        grid.vgeo,
+        tendency.data, 
+        t;
+        ndrange = (nhorzelem * info.Nq, info.Nq),
+        dependencies = comp_stream,
+    )
+
+    return comp_stream
 end
 
 function indefinite_stack_integral!(

@@ -615,6 +615,7 @@ function update_auxiliary_state!(
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
+    dQdt,
 )
     FT = eltype(Q)
     state_auxiliary = dg.state_auxiliary
@@ -625,7 +626,7 @@ function update_auxiliary_state!(
     end
 
     update_auxiliary_state!(nodal_update_auxiliary_state!, dg, m, Q, t, elems)
-
+    
     # TODO: Remove this hook. This hook was added for implementing
     # the first draft of EDMF, and should be removed so that we can
     # rely on a single vertical element traversal. This hook allows
