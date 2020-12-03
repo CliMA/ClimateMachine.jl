@@ -54,6 +54,15 @@ function init_HIT!(problem, bl, state, aux, localgeo, t, args...)
     spl_pinit, spl_uinit, spl_vinit, spl_winit = args[1]
     # interpolate data
     (x, y, z) = localgeo.coord
+    if (x ≈ pi)
+       x = -pi
+    end
+    if (y ≈ pi)
+       y = -pi
+    end
+    if (z ≈ pi)
+       z = -pi
+    end
     u = FT(spl_uinit(x,y,z))
     v = FT(spl_vinit(x,y,z))
     w = FT(spl_winit(x,y,z))
@@ -68,7 +77,6 @@ function init_HIT!(problem, bl, state, aux, localgeo, t, args...)
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, ρ * w)
     state.ρe = E
-    @info x,y,z,u,v,w,T,p
     return nothing
 end
 
@@ -82,7 +90,7 @@ function spline_int()
        a[6] = -0.22320e-1
        a[7] = 0.66575e-2
        l = 55.0
-       u_0 = 27.1893
+       u_0 = 100
        const1 = 2 * pi / l
        const2 = const1 / (u_0^2)
        Nx = 32
@@ -192,9 +200,11 @@ function spline_int()
        what[1,yc,1] = complex(0,0)
        what[1,1,zc] = complex(0,0)
        what[1,1,1] = complex(0,0)
-       u = irfft(uhat,32)
-       v = irfft(vhat,32)
-       w = irfft(what,32)
+       @info uhat
+       
+       u = irfft(fftshift(fftshift(uhat,2),3),32)
+       v = irfft(fftshift(fftshift(vhat,2),3),32)
+       w = irfft(fftshift(fftshift(what,2),3),32)
        k_max = 6
        csq = 0.01
        const3 = 32.0 / 3.0 / k_max^5 * sqrt(2.0 / pi) * csq
@@ -273,7 +283,7 @@ function spline_int()
            end
          end
        end
-       p = irfft(phat,32)
+       p = irfft(fftshift(fftshift(phat,2),3),32)
        X = -pi:pi/16:pi-pi/16
        Y = -pi:pi/16:pi-pi/16
        Z = -pi:pi/16:pi-pi/16
@@ -406,7 +416,7 @@ function main()
     zmin = FT(-pi)
     zmax = FT(pi)
     t0 = FT(0)
-    timeend = FT(10)
+    timeend = FT(0.01)
     spl_pinit, spl_uinit, spl_vinit, spl_winit = spline_int()
     Cmax = FT(0.4)
 
@@ -422,7 +432,7 @@ function main()
     )
     tnor = FT(100)
     titer = FT(0.01)
-    snor = FT(10000.0)
+    snor = FT(1)
     dgn_config = config_diagnostics(
         driver_config,
         (xmin, xmax, ymin, ymax, zmin, zmax),
