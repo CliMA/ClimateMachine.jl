@@ -343,30 +343,26 @@ the reference coordinate directions.  The direction controls which reference
 directions are considered.
 """
 function min_node_distance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     direction::Direction = EveryDirection(),
-) where {T, dim, Ns}
+) where {T, dim, N}
     topology = grid.topology
     nrealelem = length(topology.realelems)
 
     if nrealelem > 0
-        # XXX: Needs updating for multiple polynomial orders
-        # Currently only support single polynomial order
-        @assert all(Ns[1] .== Ns)
-        N = Ns[1]
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = N .+ 1
+        Np = prod(Nq)
         device = grid.vgeo isa Array ? CPU() : CUDADevice()
-        min_neighbor_distance = similar(grid.vgeo, Nq^dim, nrealelem)
+        min_neighbor_distance = similar(grid.vgeo, Np, nrealelem)
         event = Event(device)
-        event = kernel_min_neighbor_distance!(device, min(Nq * Nq * Nqk, 1024))(
+        event = kernel_min_neighbor_distance!(device, min(Np, 1024))(
             Val(N),
             Val(dim),
             direction,
             min_neighbor_distance,
             grid.vgeo,
             topology.realelems;
-            ndrange = (Nq * Nq * Nqk * nrealelem),
+            ndrange = (Np * nrealelem),
             dependencies = (event,),
         )
         wait(device, event)
@@ -388,26 +384,28 @@ Get the Gauss-Lobatto points along the Z-coordinate.
  - `rm_dupes`: removes duplicate Gauss-Lobatto points
 """
 function get_z(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns};
+    grid::DiscontinuousSpectralElementGrid{T, dim, N};
     z_scale = 1,
     rm_dupes = false,
-) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+) where {T, dim, N}
+    # Assumes same polynomial orders in all horizontal directions
+    @assert dim < 3 || N[1] == N[2]
+    Nhoriz = N[1]
+    Nvert = N[end]
+    Nph = (Nhoriz + 1)^2
+    Np = Nph * (Nvert + 1)
     if rm_dupes
-        ijk_range = (1:((N + 1)^2):(((N + 1)^3) - (N + 1)^2))
+        ijk_range = (1:Nph:(Np - Nph))
         vgeo = Array(grid.vgeo)
         z = reshape(vgeo[ijk_range, _x3, :], :)
-        z = [z..., vgeo[(N + 1)^3, _x3, end]]
+        z = [z..., vgeo[Np, _x3, end]]
         return z * z_scale
     else
-        ijk_range = (1:((N + 1)^2):((N + 1)^3))
+        ijk_range = (1:Nph:Np)
         z = Array(reshape(grid.vgeo[ijk_range, _x3, :], :))
         return z * z_scale
     end
-    return reshape(grid.vgeo[(1:((N + 1)^2):((N + 1)^3)), _x3, :], :) * z_scale
+    return reshape(grid.vgeo[(1:Nph:Np), _x3, :], :) * z_scale
 end
 
 function Base.getproperty(G::DiscontinuousSpectralElementGrid, s::Symbol)
@@ -986,10 +984,8 @@ neighbors.
 
     @uniform begin
         FT = eltype(min_neighbor_distance)
-        # XXX: Needs updating for multiple polynomial orders
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
-        Np = Nq * Nq * Nqk
+        Nq = N .+ 1
+        Np = prod(Nq)
 
         if direction isa EveryDirection
             mininξ = (true, true, true)
@@ -998,24 +994,33 @@ neighbors.
         elseif direction isa VerticalDirection
             mininξ = (false, dim == 2 ? true : false, dim == 2 ? false : true)
         end
+
+        @inbounds begin
+            Nq1 = Nq[1]
+            Nq2 = Nq[2]
+            Nqk = dim == 2 ? 1 : Nq[end]
+            mininξ1 = mininξ[1]
+            mininξ2 = mininξ[2]
+            mininξ3 = mininξ[3]
+        end
     end
 
     I = @index(Global, Linear)
     e = (I - 1) ÷ Np + 1
     ijk = (I - 1) % Np + 1
 
-    i = (ijk - 1) % Nq + 1
-    j = (ijk - 1) ÷ Nq % Nq + 1
-    k = (ijk - 1) ÷ Nq^2 % Nqk + 1
+    i = (ijk - 1) % Nq1 + 1
+    j = (ijk - 1) ÷ Nq1 % Nq2 + 1
+    k = (ijk - 1) ÷ (Nq1 * Nq2) % Nqk + 1
 
     md = typemax(FT)
 
     x = SVector(vgeo[ijk, _x1, e], vgeo[ijk, _x2, e], vgeo[ijk, _x3, e])
 
-    if mininξ[1]
+    if mininξ1
         @unroll for î in (i - 1, i + 1)
-            if 1 ≤ î ≤ Nq
-                îjk = î + Nq * (j - 1) + Nq * Nq * (k - 1)
+            if 1 ≤ î ≤ Nq1
+                îjk = î + Nq1 * (j - 1) + Nq1 * Nq2 * (k - 1)
                 x̂ = SVector(
                     vgeo[îjk, _x1, e],
                     vgeo[îjk, _x2, e],
@@ -1026,10 +1031,10 @@ neighbors.
         end
     end
 
-    if mininξ[2]
+    if mininξ2
         @unroll for ĵ in (j - 1, j + 1)
-            if 1 ≤ ĵ ≤ Nq
-                iĵk = i + Nq * (ĵ - 1) + Nq * Nq * (k - 1)
+            if 1 ≤ ĵ ≤ Nq2
+                iĵk = i + Nq1 * (ĵ - 1) + Nq1 * Nq2 * (k - 1)
                 x̂ = SVector(
                     vgeo[iĵk, _x1, e],
                     vgeo[iĵk, _x2, e],
@@ -1040,10 +1045,10 @@ neighbors.
         end
     end
 
-    if mininξ[3]
+    if mininξ3
         @unroll for k̂ in (k - 1, k + 1)
             if 1 ≤ k̂ ≤ Nqk
-                ijk̂ = i + Nq * (j - 1) + Nq * Nq * (k̂ - 1)
+                ijk̂ = i + Nq1 * (j - 1) + Nq1 * Nq2 * (k̂ - 1)
                 x̂ = SVector(
                     vgeo[ijk̂, _x1, e],
                     vgeo[ijk̂, _x2, e],

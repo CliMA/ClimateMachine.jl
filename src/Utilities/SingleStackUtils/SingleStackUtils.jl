@@ -21,7 +21,7 @@ using ..VariableTemplates
 
 """
     get_vars_from_nodal_stack(
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
@@ -29,7 +29,7 @@ using ..VariableTemplates
         j::Int = 1,
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state`), and
@@ -41,7 +41,7 @@ the horizontal nodal coordinates.
 Variables listed in `exclude` are skipped.
 """
 function get_vars_from_nodal_stack(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
@@ -49,17 +49,17 @@ function get_vars_from_nodal_stack(
     j::Int = 1,
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, Ns}
-
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+) where {T, dim, N}
 
     # extract grid information and bring `Q` to the host if needed
     FT = eltype(Q)
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    Nq = N .+ 1
+    # Code assumes the same polynomial order in all horizontal directions
+    @inbounds begin
+        Nq1 = Nq[1]
+        Nq2 = Nq[2]
+        Nqk = dim == 2 ? 1 : Nq[dim]
+    end
     Np = dofs_per_element(grid)
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
 
@@ -81,7 +81,7 @@ function get_vars_from_nodal_stack(
     @inbounds for ev in vrange, k in 1:Nqk, v in vars_wanted
         if interp && k == 1
             # Get face degree of freedom number
-            n = i + Nq * ((j - 1))
+            n = i + Nq1 * ((j - 1))
             # get the element numbers
             ev⁻ = ev
             # Get neighboring id data
@@ -97,7 +97,7 @@ function get_vars_from_nodal_stack(
             push!(stack_vals[var_names[v]], state_local)
         elseif interp && k == Nqk
             # Get face degree of freedom number
-            n = i + Nq * ((j - 1))
+            n = i + Nq1 * ((j - 1))
             # get the element numbers
             ev⁻ = ev
             # Get neighboring id data
@@ -110,7 +110,7 @@ function get_vars_from_nodal_stack(
                 push!(stack_vals[var_names[v]], state_local)
             end
         else
-            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             state_local = state_data[ijk, v, ev]
             push!(stack_vals[var_names[v]], state_local)
         end
@@ -121,13 +121,13 @@ end
 
 """
     get_vars_from_element_stack(
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Return an array of [`get_vars_from_nodal_stack()`](@ref)s whose dimensions
 are the number of nodal points per element in the horizontal plane.
@@ -135,20 +135,18 @@ are the number of nodal points per element in the horizontal plane.
 Variables listed in `exclude` are skipped.
 """
 function get_vars_from_element_stack(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, Ns}
+) where {T, dim, N}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nq = N .+ 1
+    @inbounds Nq1 = Nq[1]
+    @inbounds Nq2 = Nq[2]
 
-    Nq = N + 1
     return [
         get_vars_from_nodal_stack(
             grid,
@@ -159,19 +157,19 @@ function get_vars_from_element_stack(
             j = j,
             exclude = exclude,
             interp = interp,
-        ) for i in 1:Nq, j in 1:Nq
+        ) for i in 1:Nq1, j in 1:Nq2
     ]
 end
 
 """
     get_horizontal_mean(
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state`), and
@@ -182,24 +180,22 @@ horizontal as this is intended for the single stack configuration.
 Variables listed in `exclude` are skipped.
 """
 function get_horizontal_mean(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, Ns}
+) where {T, dim, N}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nq = N .+ 1
+    @inbounds Nq1 = Nq[1]
+    @inbounds Nq2 = Nq[2]
 
-    Nq = N + 1
     vars_avg = OrderedDict()
     vars_sq = OrderedDict()
-    for i in 1:Nq
-        for j in 1:Nq
+    for i in 1:Nq1
+        for j in 1:Nq2
             vars_nodal = get_vars_from_nodal_stack(
                 grid,
                 Q,
@@ -213,19 +209,19 @@ function get_horizontal_mean(
             vars_avg = merge(+, vars_avg, vars_nodal)
         end
     end
-    map!(x -> x ./ Nq / Nq, values(vars_avg))
+    map!(x -> x ./ Nq1 / Nq1, values(vars_avg))
     return vars_avg
 end
 
 """
     get_horizontal_variance(
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars;
         vrange::UnitRange = 1:size(Q, 3),
         exclude::Vector{String} = String[],
         interp = false,
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Return a dictionary whose keys are the `flattenednames()` of the variables
 specified in `vars` (as returned by e.g. `vars_state`), and
@@ -236,24 +232,22 @@ horizontal as this is intended for the single stack configuration.
 Variables listed in `exclude` are skipped.
 """
 function get_horizontal_variance(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars;
     vrange::UnitRange = 1:size(Q, 3),
     exclude::Vector{String} = String[],
     interp = false,
-) where {T, dim, Ns}
+) where {T, dim, N}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nq = N .+ 1
+    @inbounds Nq1 = Nq[1]
+    @inbounds Nq2 = Nq[2]
 
-    Nq = N + 1
     vars_avg = OrderedDict()
     vars_sq = OrderedDict()
-    for i in 1:Nq
-        for j in 1:Nq
+    for i in 1:Nq1
+        for j in 1:Nq2
             vars_nodal = get_vars_from_nodal_stack(
                 grid,
                 Q,
@@ -270,8 +264,8 @@ function get_horizontal_variance(
             vars_sq = merge(+, vars_sq, vars_nodal_sq)
         end
     end
-    map!(x -> (x ./ Nq / Nq) .^ 2, values(vars_avg))
-    map!(x -> x ./ Nq / Nq, values(vars_sq))
+    map!(x -> (x ./ Nq1 / Nq1) .^ 2, values(vars_avg))
+    map!(x -> x ./ Nq1 / Nq1, values(vars_sq))
     vars_var = merge(-, vars_sq, vars_avg)
     return vars_var
 end
@@ -279,12 +273,12 @@ end
 """
     reduce_nodal_stack(
         op::Function,
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars::NamedTuple,
         var::String;
         vrange::UnitRange = 1:size(Q, 3),
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Reduce `var` from `vars` within `Q` over all nodal points in the specified
 `vrange` of elements with `op`. Return a tuple `(result, z)` where `result` is
@@ -293,22 +287,21 @@ the final value returned by `op` and `z` is the index within `vrange` where the
 """
 function reduce_nodal_stack(
     op::Function,
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars::Type,
     var::String;
     vrange::UnitRange = 1:size(Q, 3),
     i::Int = 1,
     j::Int = 1,
-) where {T, dim, Ns}
+) where {T, dim, N}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+    Nq = N .+ 1
+    @inbounds begin
+        Nq1 = Nq[1]
+        Nq2 = Nq[2]
+        Nqk = dim == 2 ? 1 : Nq[dim]
+    end
 
     var_names = flattenednames(vars)
     var_ind = findfirst(s -> s == var, var_names)
@@ -318,10 +311,10 @@ function reduce_nodal_stack(
 
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
     z = vrange.start
-    result = state_data[i + Nq * (j - 1), var_ind, z]
+    result = state_data[i + Nq1 * (j - 1), var_ind, z]
     for ev in vrange
         for k in 1:Nqk
-            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             new_result = op(result, state_data[ijk, var_ind, ev])
             if !isequal(new_result, result)
                 result = new_result
@@ -336,12 +329,12 @@ end
 """
     reduce_element_stack(
         op::Function,
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         vars::NamedTuple,
         var::String;
         vrange::UnitRange = 1:size(Q, 3),
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Reduce `var` from `vars` within `Q` over all nodal points in the specified
 `vrange` of elements with `op`. Return a tuple `(result, z)` where `result` is
@@ -350,19 +343,17 @@ the final value returned by `op` and `z` is the index within `vrange` where the
 """
 function reduce_element_stack(
     op::Function,
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     vars::Type,
     var::String;
     vrange::UnitRange = 1:size(Q, 3),
-) where {T, dim, Ns}
+) where {T, dim, N}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nq = N .+ 1
+    @inbounds Nq1 = Nq[1]
+    @inbounds Nq2 = Nq[2]
 
-    Nq = N + 1
     return [
         reduce_nodal_stack(
             op,
@@ -373,16 +364,16 @@ function reduce_element_stack(
             vrange = vrange,
             i = i,
             j = j,
-        ) for i in 1:Nq, j in 1:Nq
+        ) for i in 1:Nq1, j in 1:Nq2
     ]
 end
 
 """
     horizontally_average!(
-        grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+        grid::DiscontinuousSpectralElementGrid{T, dim, N},
         Q::MPIStateArray,
         i_vars,
-    ) where {T, dim, Ns}
+    ) where {T, dim, N}
 
 Horizontally average variables, from variable
 indexes `i_vars`, in `MPIStateArray` `Q`.
@@ -393,28 +384,29 @@ indexes `i_vars`, in `MPIStateArray` `Q`.
     no horizontal fluxes for a single stack configuration.
 """
 function horizontally_average!(
-    grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
+    grid::DiscontinuousSpectralElementGrid{T, dim, N},
     Q::MPIStateArray,
     i_vars,
-) where {T, dim, Ns}
+) where {T, dim, N}
 
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
+    Nq = N .+ 1
+    @inbounds begin
+        Nq1 = Nq[1]
+        Nq2 = Nq[2]
+        Nqk = dim == 2 ? 1 : Nq[dim]
+    end
 
-    Nq = N + 1
     ArrType = typeof(Q.data)
     state_data = array_device(Q) isa CPU ? Q.realdata : Array(Q.realdata)
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
+
     for ev in 1:size(state_data, 3), k in 1:Nqk, i_v in i_vars
         Q_sum = 0
-        for i in 1:Nq, j in 1:Nq
-            Q_sum += state_data[i + Nq * ((j - 1) + Nq * (k - 1)), i_v, ev]
+        for i in 1:Nq1, j in 1:Nq2
+            Q_sum += state_data[i + Nq1 * ((j - 1) + Nq2 * (k - 1)), i_v, ev]
         end
-        Q_ave = Q_sum / (Nq * Nq)
-        for i in 1:Nq, j in 1:Nq
-            ijk = i + Nq * ((j - 1) + Nq * (k - 1))
+        Q_ave = Q_sum / (Nq1 * Nq2)
+        for i in 1:Nq1, j in 1:Nq2
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             state_data[ijk, i_v, ev] = Q_ave
         end
     end
