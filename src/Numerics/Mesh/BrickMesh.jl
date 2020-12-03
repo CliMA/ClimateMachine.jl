@@ -1099,6 +1099,11 @@ function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
             nb = max(nb, boundary[i]...)
         end
     end
+    # Limitation of the boundary condition unrolling in the DG kernels
+    # (should never be violated unless more general unstructured meshes are used
+    # since cube meshes only have 6 faces in 3D, and only 1 bcs is currently allowed
+    # per face)
+  
     @assert nb <= 6
 
     bndytoelem = ntuple(b -> Vector{Int64}(), nb)
@@ -1110,6 +1115,7 @@ function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
     for e in 1:nelem
         for f in 1:nface
             d = elemtobndy[f, e]
+            @assert 0 <= d <= nb
             if d != 0
                 elemtoelem[f, e] = N[d] += 1
                 push!(bndytoelem[d], e)
