@@ -125,6 +125,8 @@ function soil_boundary_state!(
     diff⁻::Vars,
     aux⁻::Vars,
     t,
+    _...,
+
 )
     execute_based_on_boundaries!(
         nf,
