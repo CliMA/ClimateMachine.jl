@@ -2,30 +2,40 @@
 export PicardStandardSolver
 
 """
-Solve for Frhs = F(Q) by Picard fixed point.
+Solve for F(Q) = Qrhs by Picard fixed point.
 """
-mutable struct PicardStandardSolver{FT, AT} <: AbstractNonlinearSolver
-    # tolerances for convergence
-    tol::FT
-    # Max number of Picard iterations
-    M::Int
-    # contrainer for F(Q)
+struct PicardStandardSolver{FT, AT} <: AbstractNonlinearSolver
+    # Absolute tolerance
+    atol::FT
+    # Relative tolerance
+    rtol::FT
+    # Max newton iterations
+    maxiters::Int
+    # container for F(Q)
+    FQ::AT
+    # container for F(Q) - Q
     residual::AT
 end
 
 function PicardStandardSolver(
     Q;
-    tol = 1.e-6,
-    M = 30,
+    atol = 1.e-6,
+    rtol = 1.e-6,
+    maxiters = 30,
 )
     FT = eltype(Q)
-    residual = similar(Q)
     return PicardStandardSolver(
-        FT(tol),
-        M,
-        residual,
+        FT(atol),
+        FT(rtol),
+        maxiters,
+        similar(Q),
+        similar(Q),
     )
 end
+
+atol(solver::PicardStandardSolver) = solver.atol
+rtol(solver::PicardStandardSolver) = solver.rtol
+maxiters(solver::PicardStandardSolver) = solver.maxiters
 
 """
 PicardStandardSolver initialize the residual
@@ -33,24 +43,21 @@ PicardStandardSolver initialize the residual
 function initialize!(
     rhs!,
     Q,
-    Qrhs,
+    Qrhs, # unused
     solver::PicardStandardSolver,
     args...,
 )
-    # where R = Qrhs - F(Q)
+    FQ = solver.FQ
     R = solver.residual
-    # Computes F(Q) and stores in R
-    rhs!(R, Q, args...)
-    # Computes R = R - Qrhs
-    R .-= Qrhs
+    
+    rhs!(FQ, Q, args...)
+    R .= FQ .- Q
     return norm(R, weighted_norm)
 end
 
 """
     dononlineariteration!(
         rhs!,
-        jvp!,
-        preconditioner::AbstractPreconditioner,
         Q,
         Qrhs,
         solver::PicardStandardSolver,
@@ -70,22 +77,22 @@ Backward Euler
     (Q^{n+1} - Q^n)/Δt = f(Q^{n+1}, t^{n+1})
 Newton
     Q^{n+1} - Δt f(Q^{n+1}, t^{n+1}) = Q^n
-    F(Q) = Q - Δt f(Q, t^{n+1})
+    F_n(Q) = Q - Δt f(Q, t^{n+1})
     Frhs = Q^n
-    w.t.s. F(Q^{n+1}) = Frhs
+    w.t.s. F_n(Q^{n+1}) = Frhs
 
-    r(Q^{n+1}) = F(Q^{n+1}) - Frhs = Q^{n+1} - Δt f(Q^{n+1}, t^{n+1}) - Q^n
+    r_n(Q^{n+1}) = F_n(Q^{n+1}) - Frhs = Q^{n+1} - Δt f(Q^{n+1}, t^{n+1}) - Q^n
 
-    F(Q^{n+1,k}) + ∂F/∂Q(Q^{n+1,k}) * (Q^{n+1,k+1} - Q^{n+1,k}) = Frhs
-    Q^{n+1,k+1} = Q^{n+1,k} - ∂F/∂Q(Q^{n+1,k})⁻¹(F(Q^{n+1,k}) - Frhs)
+    F_n(Q^{n+1,k}) + ∂F_n/∂Q(Q^{n+1,k}) * (Q^{n+1,k+1} - Q^{n+1,k}) = Frhs
+    Q^{n+1,k+1} = Q^{n+1,k} - ∂F_n/∂Q(Q^{n+1,k})⁻¹(F_n(Q^{n+1,k}) - Frhs)
 "Standard" Picard
     Q^{n+1} = Δt f(Q^{n+1}, t^{n+1}) + Q^n
-    F(Q) = Δt f(Q, t^{n+1}) + Q^n
-    w.t.s. F(Q^{n+1}) = Q^{n+1}
+    F_p(Q) = Δt f(Q, t^{n+1}) + Q^n = Q + Q^n - F_n(Q)
+    w.t.s. F_p(Q^{n+1}) = Q^{n+1}
 
-    r(Q^{n+1}) = F(Q^{n+1}) - Q^{n+1} = Δt f(Q^{n+1}, t^{n+1}) + Q^n - Q^{n+1}
+    r_p(Q^{n+1}) = F_p(Q^{n+1}) - Q^{n+1} = Δt f(Q^{n+1}, t^{n+1}) + Q^n - Q^{n+1} = -r_n(Q^{n+1})
 
-    Q^{n+1,k+1} = F(Q^{n+1,k})
+    Q^{n+1,k+1} = F_p(Q^{n+1,k}) = Q^{n+1,k} - (F_n(Q^{n+1,k}) - Q^n)
 
 
 F(Q) = Q - Δt f(Q, t^{n+1})
@@ -109,32 +116,28 @@ Note: we already computed the residual for Q_k during the previous step/initiali
 ...
 # Arguments 
 - `rhs!`:  functor rhs!(Q) =  F(Q)
-- `jvp!`:  Jacobian action jvp!(ΔQ)  = dF/dQ(Q) ⋅ ΔQ
-- `preconditioner`: approximation of dF/dQ(Q)
-- `Q` : Q^n
-- `Qrhs` : Frhs
+- `Q`: Q^n
+- `Qrhs`: unused, included to fit general nonlinearsolve! interface
 - `solver`: linear solver
 ...
 """
 function dononlineariteration!(
-    rhs!,
-    jvp!,
-    preconditioner::AbstractPreconditioner,
-    Q,
-    Qrhs,
     solver::PicardStandardSolver,
+    rhs!,
+    Q,
+    Qrhs, # unused
+    threshold,
     iters,
     args...,
 )
     R = solver.residual
-
-    # Picard Update
-    Q .+= R
+    FQ = solver.FQ
+    Q .= FQ
 
     # Compute residual norm and residual for next step
-    rhs!(R, Q, args...)
-    R .-= Qrhs
+    rhs!(FQ, Q, args...)
+    R .= FQ .- Q
     resnorm = norm(R, weighted_norm)
-
-    return resnorm, iters
+    converged = check_convergence(resnorm, threshold, iters)
+    return converged
 end

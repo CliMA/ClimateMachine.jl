@@ -1,5 +1,5 @@
 
-export JacobianFreeNewtonKrylovSolver, JacobianAction
+export JacobianFreeNewtonKrylovSolver, JacobianAction # Should stop exporting this eventually.
 
 """
 mutable struct JacobianAction{FT, AT}
@@ -110,18 +110,20 @@ Solve for Frhs = F(Q), by finite difference
 
      set ΔQ = F(Q^n) - Frhs
 """
-mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
-    # small number used for finite difference
-    ϵ::FT
-    # tolerances for convergence
-    tol::FT
-    # Max number of Newton iterations
-    M::Int
+struct JacobianFreeNewtonKrylovSolver{FT, JVP, LS, AT} <: AbstractNonlinearSolver
+    # Absolute tolerance
+    atol::FT
+    # Relative tolerance
+    rtol::FT
+    # Max newton iterations
+    maxiters::Int
+    # Jacobian action
+    jvp!::JVP
     # Linear solver for the Jacobian system
-    linearsolver::Any
+    linearsolver::LS
     # container for unknows ΔQ, which is updated for the linear solver
     ΔQ::AT
-    # contrainer for F(Q)
+    # container for F(Q)
     residual::AT
 end
 
@@ -132,21 +134,28 @@ function JacobianFreeNewtonKrylovSolver(
     Q,
     linearsolver;
     ϵ = 1.e-8,
-    tol = 1.e-6,
-    M = 30,
+    atol = 1.e-6,
+    rtol = 1.e-6,
+    maxiters = 30,
 )
     FT = eltype(Q)
     residual = similar(Q)
     ΔQ = similar(Q)
+    jvp! = JacobianAction(nothing, Q, FT(ϵ))
     return JacobianFreeNewtonKrylovSolver(
-        FT(ϵ),
-        FT(tol),
-        M,
+        atol,
+        rtol,
+        maxiters,
+        jvp!,
         linearsolver,
         ΔQ,
         residual,
     )
 end
+
+atol(solver::JacobianFreeNewtonKrylovSolver) = solver.atol
+rtol(solver::JacobianFreeNewtonKrylovSolver) = solver.rtol
+maxiters(solver::JacobianFreeNewtonKrylovSolver) = solver.maxiters
 
 """
 JacobianFreeNewtonKrylovSolver initialize the residual
@@ -168,7 +177,7 @@ function initialize!(
 end
 
 """
-Solve for Frhs = F(Q), by finite difference
+Solve for Frhs = F(Q) by Newton's method
 
 Q^n+1 = Q^n - dF/dQ(Q^{n})⁻¹ (F(Q^n) - Frhs)
 
@@ -185,15 +194,22 @@ set ΔQ = F(Q^n) - Frhs
 ...
 """
 function dononlineariteration!(
+    solver::JacobianFreeNewtonKrylovSolver,
     rhs!,
-    jvp!,
-    preconditioner::AbstractPreconditioner,
     Q,
     Qrhs,
-    solver::JacobianFreeNewtonKrylovSolver,
+    threshold,
     iters,
-    args...,
+    args...;
+    preconditioner = NoPreconditioner(),
 )
+    jvp! = solver.jvp!
+    
+    # dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n)), update Q^n in jvp!
+    update_Q!(jvp!, Q, args...)
+
+    # update preconditioner based on finite difference, with jvp!
+    # preconditioner_update!(jvp!, rhs!.f!, preconditioner, args...)
 
     FT = eltype(Q)
     ΔQ = solver.ΔQ
@@ -209,6 +225,8 @@ function dononlineariteration!(
     # ΔQ = dF/dQ(Q^{n})⁻¹ (Frhs - F(Q^n)) = -dF/dQ(Q^{n})⁻¹ R
     iters =
         linearsolve!(jvp!, preconditioner, solver.linearsolver, ΔQ, -R, args...)
+    
+    @info "Linear solver converged in $iters iterations"
 
     # Newton correction Q^{n+1} = Q^n + dF/dQ(Q^{n})⁻¹ (Frhs - F(Q^n))
     Q .+= ΔQ
@@ -218,5 +236,8 @@ function dononlineariteration!(
     R .-= Qrhs
     resnorm = norm(R, weighted_norm)
 
-    return resnorm, iters
+    preconditioner_counter_update!(preconditioner)
+
+    converged = check_convergence(resnorm, threshold, iters)
+    return converged
 end

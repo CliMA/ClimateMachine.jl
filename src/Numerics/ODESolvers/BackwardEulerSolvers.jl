@@ -298,19 +298,19 @@ Update the rhs! in the jacobian action jvp!
 """
 function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
 
+    # TODO: Update solver operator step, dispatches on solver type(?)
     rhs! = EulerOperator(nlbesolver.f_imp!, -α)
 
     nlbesolver.jvp!.rhs! = rhs!
 
     nonlinearsolve!(
-        rhs!,
-        nlbesolver.jvp!,
-        nlbesolver.preconditioner,
         nlbesolver.nlsolver,
+        rhs!,
         Q,
         Qhat,
         p,
-        t,
+        t;
+        preconditioner = nlbesolver.preconditioner,
     )
 
 end

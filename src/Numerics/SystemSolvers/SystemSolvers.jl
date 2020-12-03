@@ -41,6 +41,15 @@ This is an abstract type representing a generic linear solver.
 abstract type AbstractSystemSolver end
 
 """
+    atol(::AbstractSystemSolver)
+    rtol(::AbstractSystemSolver)
+    maxiters(::AbstractSystemSolver)
+"""
+function atol end
+function rtol end
+function maxiters end
+
+"""
     AbstractNonlinearSolver
 
 This is an abstract type representing a generic nonlinear solver.
@@ -48,119 +57,69 @@ This is an abstract type representing a generic nonlinear solver.
 abstract type AbstractNonlinearSolver <: AbstractSystemSolver end
 
 """
-    LSOnly
-
-Only applies the linear solver (no Newton solver)
+    initialize!(::AbstractNonlinearSolver, args...; kwargs...)
+    dononlineariteration!(::AbstractNonlinearSolver, args...; kwargs...)
 """
-struct LSOnly <: AbstractNonlinearSolver
-    linearsolver::Any
+function initialize! end
+function dononlineariteration! end
+
+function check_convergence(residual_norm, threshold, iters)
+    if !isfinite(residual_norm)
+        error("norm of residual is not finite after $iters iterations")
+    end
+
+    # Check residual_norm / norm(R0)
+    # Comment: Should we check "correction" magitude?
+    # ||Delta Q|| / ||Q|| ?
+    return residual_norm < threshold
 end
 
-function dononlineariteration!(
-    rhs!,
-    linearoperator!,
-    preconditioner,
-    Q,
-    Qrhs,
-    solver::LSOnly,
-    iters,
-    args...,
-)
-    @info "dononlineariteration! linearsolve!", args...
-    linearsolve!(
-        linearoperator!,
-        preconditioner,
-        solver.linearsolver,
-        Q,
+"""
+    function nonlinearsolve!(
+        solver::AbstractNonlinearSolver,
+        rhs!,
+        Q::AT,
         Qrhs,
         args...;
-        max_iters = getmaxiterations(solver.linearsolver),
-    )
-end
+        kwargs...
+    ) where {AT}
 
-
-"""
-
-Solving rhs!(Q) = Qrhs via Newton,
-
-where `F = rhs!(Q) - Qrhs`
-
-dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n))
-
-preconditioner ≈ dF/dQ(Q)
-
+Solving rhs!(Q) = Qrhs via a nonlinear solver.
 """
 function nonlinearsolve!(
-    rhs!,
-    jvp!,
-    preconditioner,
     solver::AbstractNonlinearSolver,
+    rhs!,
     Q::AT,
     Qrhs,
     args...;
-    max_newton_iters = 10,
-    cvg = Ref{Bool}(),
+    kwargs...
 ) where {AT}
-
     FT = eltype(Q)
-    tol = solver.tol
-    converged = false
     iters = 0
 
-    if preconditioner === nothing
-        preconditioner = NoPreconditioner()
-    end
-
-    # Initialize NLSolver, compute initial residual
+    # Initialize NLSolver, compute the threshold
     initial_residual_norm = initialize!(rhs!, Q, Qrhs, solver, args...)
-    if initial_residual_norm < tol
-        converged = true
-    end
-    converged && return iters
+    initial_residual_norm < atol(solver) && return iters
+    threshold = max(atol(solver), rtol(solver) * initial_residual_norm)
 
-
-    while !converged && iters < max_newton_iters
-
-        # dF/dQ(Q^n) ΔQ ≈ jvp!(ΔQ;  Q^n, F(Q^n)), update Q^n in jvp!
-        update_Q!(jvp!, Q, args...)
-
-        # update preconditioner based on finite difference, with jvp!
-        preconditioner_update!(jvp!, rhs!.f!, preconditioner, args...)
-
-        # do newton iteration with Q^{n+1} = Q^{n} - dF/dQ(Q^n)⁻¹ (rhs!(Q) - Qrhs)
-        residual_norm, linear_iterations = dononlineariteration!(
+    converged = false
+    m = maxiters(solver)
+    while !converged && iters < m
+        converged = dononlineariteration!(
+            solver,
             rhs!,
-            jvp!,
-            preconditioner,
             Q,
             Qrhs,
-            solver,
+            threshold,
             iters,
-            args...,
+            args...;
+            kwargs...
         )
-        @info "Linear solver converged in $linear_iterations iterations"
         iters += 1
-
-        preconditioner_counter_update!(preconditioner)
-
-
-        if !isfinite(residual_norm)
-            error("norm of residual is not finite after $iters iterations of `dononlineariteration!`")
-        end
-
-        # Check residual_norm / norm(R0)
-        # Comment: Should we check "correction" magitude?
-        # ||Delta Q|| / ||Q|| ?
-        relresidual = residual_norm / initial_residual_norm
-        if relresidual < tol || residual_norm < tol
-            @info "Newton converged in $iters iterations!"
-            converged = true
-        end
     end
 
     converged ||
         @warn "Nonlinear solver did not converge after $iters iterations"
-    cvg[] = converged
 
     iters
 end
