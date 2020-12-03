@@ -18,4 +18,4 @@ abstract type Precipitation <: PrognosticVariable end
 struct Rain <: Precipitation end
 struct Snow <: Precipitation end
 
-struct Tracers <: PrognosticVariable end
+struct Tracers{N} <: PrognosticVariable end

@@ -75,6 +75,10 @@ eq_tends(
     tt::Flux{FirstOrder},
 ) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
 
+# Tracers
+eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {N, PV <: Tracers{N}} =
+    (Advect{PV}(),)
+
 #####
 ##### Second order fluxes
 #####
@@ -103,3 +107,10 @@ eq_tends(
     ::AtmosModel,
     ::Flux{SecondOrder},
 ) where {PV <: Precipitation} = ()
+
+# Tracers
+eq_tends(
+    pv::PV,
+    ::AtmosModel,
+    ::Flux{SecondOrder},
+) where {N, PV <: Tracers{N}} = ()

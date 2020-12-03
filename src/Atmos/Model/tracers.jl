@@ -181,8 +181,14 @@ function compute_gradient_flux!(
 )
     diffusive.tracers.∇χ = ∇transform.tracers.χ
 end
+
+function flux(::Advect{Tracers{N}}, m, state, aux, t, ts, direction) where {N}
+    u = state.ρu / state.ρ
+    return (state.tracers.ρχ .* u')'
+end
+
 function flux_first_order!(
-    tr::NTracers,
+    tr::NTracers{N},
     atmos::AtmosModel,
     flux::Grad,
     state::Vars,
@@ -190,10 +196,12 @@ function flux_first_order!(
     t::Real,
     ts,
     direction,
-)
-    u = state.ρu / state.ρ
-    flux.tracers.ρχ += (state.tracers.ρχ .* u')'
+) where {N}
+    tend = Flux{FirstOrder}()
+    args = (atmos, state, aux, t, ts, direction)
+    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), args...)
 end
+
 function flux_second_order!(
     tr::NTracers,
     flux::Grad,
