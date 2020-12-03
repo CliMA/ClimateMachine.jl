@@ -189,14 +189,14 @@ function run_box1D(
     z = get_z(grid)
 
     # store initial condition at ``t=0``
-    all_data = Dict[dict_of_nodal_states(solver_config)]
+    dons_arr = Dict[dict_of_nodal_states(solver_config)]
     time_data = FT[0]                                      # store time data
 
     # output
     output_freq = floor(Int, timeend / dt) + 10
 
     cb_output = GenericCallbacks.EveryXSimulationSteps(output_freq) do
-        push!(all_data, dict_of_nodal_states(solver_config))
+        push!(dons_arr, dict_of_nodal_states(solver_config))
         push!(time_data, gettime(solver_config.solver))
         nothing
     end
@@ -286,13 +286,13 @@ Mass Conservation:
         (final_mass - initial_mass) / initial_mass
     )
 
-    push!(all_data, dict_of_nodal_states(solver_config))
+    push!(dons_arr, dict_of_nodal_states(solver_config))
     push!(time_data, gettime(solver_config.solver))
 
     export_plot(
         z,
         time_data,
-        all_data,
+        dons_arr,
         ("q",),
         joinpath(output_dir, plot_name);
         xlabel = "x",

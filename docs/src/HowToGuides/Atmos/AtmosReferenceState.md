@@ -12,11 +12,11 @@ include(joinpath(clima_dir, "test", "Atmos", "Model", "get_atmos_ref_states.jl")
 function export_ref_state_plot(nelem_vert, N_poly)
     solver_config = get_atmos_ref_states(nelem_vert, N_poly, 0.5)
     z = get_z(solver_config.dg.grid)
-    all_data = dict_of_nodal_states(solver_config)
-    T = all_data["ref_state.T"]
-    ρ = all_data["ref_state.ρ"]
-    p = all_data["ref_state.p"]
-    ρe = all_data["ref_state.ρe"]
+    dons_arr = dict_of_nodal_states(solver_config)
+    T = dons_arr["ref_state.T"]
+    ρ = dons_arr["ref_state.ρ"]
+    p = dons_arr["ref_state.p"]
+    ρe = dons_arr["ref_state.ρe"]
     p1 = plot(T, z./10^3, xlabel="Temperature [K]");
     p2 = plot(ρ, z./10^3, xlabel="Density [kg/m^3]");
     p3 = plot(p./10^3, z./10^3, xlabel="Pressure [kPa]");
