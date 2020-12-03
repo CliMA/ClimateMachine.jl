@@ -42,13 +42,16 @@ state.
 struct HydrostaticState{P, FT} <: ReferenceState
     virtual_temperature_profile::P
     relative_humidity::FT
+    subtract_off::Bool
 end
 function HydrostaticState(
-    virtual_temperature_profile::TemperatureProfile{FT},
+    virtual_temperature_profile::TemperatureProfile{FT};
+    subtract_off=true
 ) where {FT}
     return HydrostaticState{typeof(virtual_temperature_profile), FT}(
         virtual_temperature_profile,
         FT(0),
+        subtract_off
     )
 end
 

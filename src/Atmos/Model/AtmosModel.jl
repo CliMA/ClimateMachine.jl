@@ -1148,7 +1148,7 @@ function numerical_flux_first_order!(
 
     # Compute p * D = p * (0, n₁, n₂, n₃, S⁰)
     pD = @MVector zeros(FT, num_state_prognostic)
-    if balance_law.ref_state isa HydrostaticState
+    if balance_law.ref_state isa HydrostaticState && balance_law.ref_state.subtract_off
         # pressure should be continuous but it doesn't hurt to average
         ref_p⁻ = state_auxiliary⁻.ref_state.p
         ref_p⁺ = state_auxiliary⁺.ref_state.p
