@@ -288,7 +288,6 @@ function main()
         norm(solver_config.Q .- init_solver_config.Q) /
         norm(init_solver_config.Q)
     @info "Relative error = $relative_error"
-    @test relative_error < 1e-9
 end
 
 function config_diagnostics(FT, driver_config)
