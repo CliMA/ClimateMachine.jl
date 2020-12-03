@@ -63,19 +63,8 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        CFL_direction = HorizontalDirection(),
     )
     dgn_config = config_diagnostics(driver_config)
-
-    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
-        Filters.apply!(
-            solver_config.Q,
-            ("moisture.ρq_tot",),
-            solver_config.dg.grid,
-            TMARFilter(),
-        )
-        nothing
-    end
 
     check_cons = (
         ClimateMachine.ConservationCheck("ρ", "1mins", FT(0.0001)),
@@ -84,7 +73,6 @@ function main()
 
     result = ClimateMachine.invoke!(
         solver_config;
-        user_callbacks = (cbtmarfilter,),
         diagnostics_config = dgn_config,
         check_cons = check_cons,
         check_euclidean_distance = true,
