@@ -202,7 +202,7 @@ end
                 @test topology.bndytoface == ()
             else
                 @test topology.bndytoelem == ([1, 10],)
-                @test topology.bndytoface == ([1, 2])
+                @test topology.bndytoface == ([1, 2],)
             end
         end
         for py in (true, false), px in (true, false)

@@ -1103,7 +1103,7 @@ function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
     # (should never be violated unless more general unstructured meshes are used
     # since cube meshes only have 6 faces in 3D, and only 1 bcs is currently allowed
     # per face)
-  
+
     @assert nb <= 6
 
     bndytoelem = ntuple(b -> Vector{Int64}(), nb)
