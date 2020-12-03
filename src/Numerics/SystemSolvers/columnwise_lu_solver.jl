@@ -114,8 +114,8 @@ function band_lu!(A)
 
     nstate = num_state(A)
     Nq = polynomialorders(A) .+ 1
-    Nq_h = Nq[1]
-    Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+    @inbounds Nq_h = Nq[1]
+    @inbounds Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
     nhorzelem = num_horz_elem(A)
 
     groupsize = (Nq_h, Nqj)
@@ -144,8 +144,8 @@ function band_forward!(Q, A)
     device = array_device(Q)
 
     Nq = polynomialorders(A) .+ 1
-    Nq_h = Nq[1]
-    Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+    @inbounds Nq_h = Nq[1]
+    @inbounds Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
     nhorzelem = num_horz_elem(A)
 
     event = Event(device)
@@ -162,8 +162,8 @@ function band_back!(Q, A)
     device = array_device(Q)
 
     Nq = polynomialorders(A) .+ 1
-    Nq_h = Nq[1]
-    Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+    @inbounds Nq_h = Nq[1]
+    @inbounds Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
     nhorzelem = num_horz_elem(A)
 
     event = Event(device)
@@ -312,9 +312,11 @@ function empty_banded_matrix(
     N = polynomialorders(grid)
     dim = dimensionality(grid)
     Nq = N .+ 1
-    Nq_h = Nq[1]
-    Nqj = dim == 2 ? 1 : Nq[2]
-    Nq_v = Nq[dim]
+    @inbounds begin
+        Nq_h = Nq[1]
+        Nqj = dim == 2 ? 1 : Nq[2]
+        Nq_v = Nq[dim]
+    end
 
     # p is lower bandwidth
     # q is upper bandwidth
@@ -396,9 +398,11 @@ function update_banded_matrix!(
     N = polynomialorders(grid)
     dim = dimensionality(grid)
     Nq = N .+ 1
-    Nq_h = Nq[1]
-    Nqj = dim == 2 ? 1 : Nq[2]
-    Nq_v = Nq[dim]
+    @inbounds begin
+        Nq_h = Nq[1]
+        Nqj = dim == 2 ? 1 : Nq[2]
+        Nq_v = Nq[dim]
+    end
 
     # p is lower bandwidth
     # q is upper bandwidth
@@ -475,9 +479,11 @@ function banded_matrix_vector_product!(A, dQ::MPIStateArray, Q::MPIStateArray)
     device = array_device(Q)
 
     Nq = polynomialorders(A) .+ 1
-    Nq_h = Nq[1]
-    Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
-    Nq_v = Nq[end]
+    @inbounds begin
+        Nq_h = Nq[1]
+        Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+        Nq_v = Nq[end]
+    end
     nvertelem = num_vert_elem(A)
     nhorzelem = num_horz_elem(A)
 
@@ -533,8 +539,8 @@ is stored as
 @kernel function band_lu_kernel!(A)
     @uniform begin
         Nq = polynomialorders(A) .+ 1
-        Nq_h = Nq[1]
-        Nq_v = Nq[end]
+        @inbounds Nq_h = Nq[1]
+        @inbounds Nq_v = Nq[end]
         nstate = num_state(A)
         nvertelem = num_vert_elem(A)
         n = nstate * Nq_v * nvertelem
@@ -595,9 +601,11 @@ eband - 1`.
         FT = eltype(b)
         nstate = num_state(LU)
         Nq = polynomialorders(LU) .+ 1
-        Nq_h = Nq[1]
-        Nqj = dimensionality(LU) == 2 ? 1 : Nq[2]
-        Nq_v = Nq[end]
+        @inbounds begin
+            Nq_h = Nq[1]
+            Nqj = dimensionality(LU) == 2 ? 1 : Nq[2]
+            Nq_v = Nq[end]
+        end
         nvertelem = num_vert_elem(LU)
         n = nstate * Nq_v * nvertelem
         eband = elem_band(LU)
@@ -682,9 +690,11 @@ eband - 1`.
         FT = eltype(b)
         nstate = num_state(LU)
         Nq = polynomialorders(LU) .+ 1
-        Nq_h = Nq[1]
-        Nqj = dimensionality(LU) == 2 ? 1 : Nq[2]
-        Nq_v = Nq[end]
+        @inbounds begin
+            Nq_h = Nq[1]
+            Nqj = dimensionality(LU) == 2 ? 1 : Nq[2]
+            Nq_v = Nq[end]
+        end
         nvertelem = num_vert_elem(LU)
         n = nstate * Nq_h * nvertelem
         q = upper_bandwidth(LU)
@@ -768,9 +778,11 @@ end
         FT = eltype(Q)
 
         Nq = N .+ 1
-        Nq_h = Nq[1]
-        Nqj = dim == 2 ? 1 : Nq[2]
-        Nq_v = Nq[end]
+        @inbounds begin
+            Nq_h = Nq[1]
+            Nqj = dim == 2 ? 1 : Nq[2]
+            Nq_v = Nq[end]
+        end
 
         eband = number_states(bl, GradientFlux()) == 0 ? 1 : 2
     end
@@ -804,9 +816,11 @@ end
         FT = eltype(A)
         nstate = num_state(A)
         Nq = polynomialorders(A) .+ 1
-        Nq_h = Nq[1]
-        Nq_v = Nq[end]
-        Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+        @inbounds begin
+            Nq_h = Nq[1]
+            Nq_v = Nq[end]
+            Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+        end
         nvertelem = num_vert_elem(A)
         p = lower_bandwidth(A)
         q = upper_bandwidth(A)
@@ -859,9 +873,11 @@ end
         FT = eltype(A)
         nstate = num_state(A)
         Nq = polynomialorders(A) .+ 1
-        Nq_h = Nq[1]
-        Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
-        Nq_v = Nq[end]
+        @inbounds begin
+            Nq_h = Nq[1]
+            Nqj = dimensionality(A) == 2 ? 1 : Nq[2]
+            Nq_v = Nq[end]
+        end
         nvertelem = num_vert_elem(A)
         p = lower_bandwidth(A)
         q = upper_bandwidth(A)

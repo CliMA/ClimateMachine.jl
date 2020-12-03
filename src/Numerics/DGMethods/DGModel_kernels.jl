@@ -89,8 +89,8 @@ fluxes, respectively.
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -363,8 +363,8 @@ end
         ngradlapstate = number_states(balance_law, GradientLaplacian())
         nhyperviscstate = number_states(balance_law, Hyperdiffusive())
 
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
@@ -380,7 +380,7 @@ end
         _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
 
-        Nqv = dim == 2 ? Nq2 : info.Nq[dim]
+        @inbounds Nqv = dim == 2 ? Nq2 : info.Nq[dim]
         shared_flux_size =
             dim == 2 ? (Nq1, Nqv, num_state_prognostic) : (0, 0, 0)
     end
@@ -985,8 +985,8 @@ gradient flux.
 
         # Kernel assumes same polynomial order in both
         # horizontal directions (x, y)
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         ngradtransformstate = num_state_prognostic
@@ -1202,8 +1202,8 @@ end
 
         # Assumes same polynomial order in both
         # horizontal directions (x,y)
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         ngradtransformstate = num_state_prognostic
@@ -1217,7 +1217,7 @@ end
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
 
         Gζ_size = dim == 3 ? (ngradstate, Nq3) : (0, 0)
-        Nqv = dim == 2 ? Nq2 : info.Nq[dim]
+        @inbounds Nqv = dim == 2 ? Nq2 : info.Nq[dim]
         shared_transform_dim2 = dim == 2 ? Nqv : Nq1
     end
 
@@ -1748,8 +1748,8 @@ end
     num_state_prognostic = number_states(balance_law, Prognostic())
 
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[dim]
-    Np = Nq[1] * Nq[2] * Nqk
+    @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+    @inbounds Np = Nq[1] * Nq[2] * Nqk
 
     l_state = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -1807,8 +1807,8 @@ See [`BalanceLaw`](@ref) for usage.
     num_state_temporary = varsize(vars_state_temporary)
 
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[dim]
-    Np = Nq[1] * Nq[2] * Nqk
+    @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+    @inbounds Np = Nq[1] * Nq[2] * Nqk
 
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
     local_state_temporary = MArray{Tuple{num_state_temporary}, FT}(undef)
@@ -1863,8 +1863,8 @@ Update the auxiliary state array
     num_state_auxiliary = number_states(balance_law, Auxiliary())
 
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[dim]
-    Np = Nq[1] * Nq[2] * Nqk
+    @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+    @inbounds Np = Nq[1] * Nq[2] * Nqk
 
     local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -1923,8 +1923,8 @@ end
     num_state_auxiliary = number_states(balance_law, Auxiliary())
 
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[dim]
-    Np = Nq[1] * Nq[2] * Nqk
+    @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+    @inbounds Np = Nq[1] * Nq[2] * Nqk
 
     local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
     local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -2229,8 +2229,8 @@ and ∇G are the gradients.
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
     end
 
@@ -2323,13 +2323,13 @@ end
         FT = eltype(Qhypervisc_grad)
         ngradlapstate = number_states(balance_law, GradientLaplacian())
 
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         l_grad = MArray{Tuple{ngradlapstate}, FT}(undef)
 
-        Nqv = dim == 2 ? Nq2 : info.Nq[dim]
+        @inbounds Nqv = dim == 2 ? Nq2 : info.Nq[dim]
         s_grad_size = dim == 2 ? (Nq1, Nqv, ngradlapstate) : (0, 0, 0)
     end
 
@@ -2603,8 +2603,8 @@ D is the differentiation matrix and ΔG is the laplacian
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         local_state_hyperdiffusion = MArray{Tuple{nhyperviscstate}, FT}(undef)
@@ -2764,15 +2764,15 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         ngradtransformstate = num_state_prognostic
 
-        Nq1 = info.Nq[1]
-        Nq2 = info.Nq[2]
+        @inbounds Nq1 = info.Nq[1]
+        @inbounds Nq2 = info.Nq[2]
         Nq3 = info.Nqk
 
         _ζx1 = dim == 2 ? _ξ2x1 : _ξ3x1
         _ζx2 = dim == 2 ? _ξ2x2 : _ξ3x2
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
 
-        Nqv = dim == 2 ? Nq2 : info.Nq[dim]
+        @inbounds Nqv = dim == 2 ? Nq2 : info.Nq[dim]
         lap_ζ_size = dim == 3 ? (ngradlapstate, Nq3) : (0, 0)
         shared_lap_dim2 = dim == 2 ? Nqv : Nq1
 
@@ -3119,8 +3119,8 @@ end
         num_state_auxiliary = number_states(balance_law, Auxiliary())
 
         Nq = N .+ 1
-        Nqk = dim == 2 ? 1 : Nq[dim]
-        Np = Nq[1] * Nq[2] * Nqk
+        @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+        @inbounds Np = Nq[1] * Nq[2] * Nqk
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
@@ -3185,9 +3185,11 @@ end
         FT = eltype(state)
         ngradstate = length(I)
         Nq = N .+ 1
-        Nq1 = Nq[1]
-        Nq2 = Nq[2]
-        Nq3 = dim == 2 ? 1 : Nq[dim]
+        @inbounds begin
+            Nq1 = Nq[1]
+            Nq2 = Nq[2]
+            Nq3 = dim == 2 ? 1 : Nq[dim]
+        end
     end
 
     shared_state = @localmem FT (Nq1, Nq2, ngradstate)

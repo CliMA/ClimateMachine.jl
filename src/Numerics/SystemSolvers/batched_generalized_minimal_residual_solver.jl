@@ -272,7 +272,7 @@ function BatchedGeneralizedMinimalResidual(
     # Q = reshape(Q, reshaping_tup), leads to the column-wise fashion Q
     reshaping_tup = (Nq..., num_states, nvertelem, nhorzelem)
 
-    if independent_states
+    @inbounds if independent_states
         # Assumes same polynomial order in all horizontal directions
         m = Nq[1] * nvertelem
         n = (Nq[1]^(dim - 1)) * nhorzelem * num_states

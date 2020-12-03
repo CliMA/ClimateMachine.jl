@@ -73,8 +73,9 @@ end
         vs_p = Vars{vars_state(bl, Prognostic(), FT)}
         vs_a = Vars{vars_state(bl, Auxiliary(), FT)}
         Nq = N .+ 1
-        Nqk = dim == 2 ? 1 : Nq[dim]
-        Np = Nq[1] * Nq[2] * Nqk
+
+        @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+        @inbounds Np = Nq[1] * Nq[2] * Nqk
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
