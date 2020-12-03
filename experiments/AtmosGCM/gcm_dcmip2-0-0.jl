@@ -75,7 +75,7 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
             λ = atan(X) + (3/2)*π
             φ = atan(Y * cos(atan(X)))
         elseif faceid == 5
-            λ = atan(X,-Y)
+            λ = atan(X,-Y) + π
             φ = atan(1/sqrt(δ-1))
         elseif faceid == 6 # Pole 
             λ = atan(X,Y)
