@@ -55,8 +55,7 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
         X, Y = tan(π * ξ / 4), tan(π * η / 4)
 
         # Linear Decay Profile
-        # Δ = (r_outer - abs(sR))/(r_outer-r_inner)
-        Δ = 1.0 
+        Δ = (r_outer - abs(sR))/(r_outer-r_inner)
         δ = 1 + X^2 + Y^2
 
         # Angles
@@ -90,7 +89,6 @@ function cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c));
         end
 
         mR = sign(sR)*( abs(sR) + zs*Δ )
-        # mR = sign(sR)*( abs(sR) + zs )
 
         x1 = mR / sqrt(δ)
         x2, x3 = X * x1, Y * x1
