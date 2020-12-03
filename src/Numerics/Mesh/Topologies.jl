@@ -19,7 +19,8 @@ export basic_topology_info
 """
     AbstractTopology{dim, T, nb}
 
-Represents the connectivity of individual elements, with local dimension `dim` with `nb` boundary conditions types. The element coordinates are of type `T`.
+Represents the connectivity of individual elements, with local dimension `dim`
+with `nb` boundary conditions types. The element coordinates are of type `T`.
 """
 abstract type AbstractTopology{dim, T, nb} end
 
