@@ -105,12 +105,13 @@ Returns zero for net surface runoff.
 """
 function compute_surface_runoff(soil::SoilModel,
                                 runoff_model::NoRunoff,
-                                precip_model::AbstractPrecipModel{FT},
+                                precip_model::AbstractPrecipModel,
                                 aux::Vars,
                                 state::Vars,
                                 diff::Vars,
                                 t::Real,
-                                ) where {FT}
+                                )
+    FT = eltype(state)
     return FT(0.0)
 end
 

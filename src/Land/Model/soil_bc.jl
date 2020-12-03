@@ -115,7 +115,7 @@ function soil_boundary_state!(
     bctype,
     land::LandModel,
     soil::SoilModel,
-    component::SoilWaterModel,
+    water::SoilWaterModel,
     boundaries::GeneralBoundaryConditions,
     state⁺::Vars,
     diff⁺::Vars,

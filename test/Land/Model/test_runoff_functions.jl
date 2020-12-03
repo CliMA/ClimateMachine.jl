@@ -9,6 +9,7 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
 using ClimateMachine
+using ClimateMachine.Land
 using ClimateMachine.Land.Runoff
 using ClimateMachine.VariableTemplates
 
@@ -27,14 +28,36 @@ using ClimateMachine.VariableTemplates
     end
 
     model = RunoffTestModel()
-
+    
     st = state(model, F)
     v = Vars{st}(zeros(MVector{varsize(st), F}))
 
+    soil_param_functions =
+        SoilParamFunctions{F}(porosity = 0.75, Ksat = 1e-7, S_s = 1e-3)
+    bottom_flux =
+        (aux, t) -> eltype(aux)(0.0)
+    surface_flux = nothing
+    surface_state = (aux, t) -> eltype(aux)(0.2)
+    bottom_state = nothing
+    ϑ_l0 = (aux) -> eltype(aux)(0.2)
+    bc = GeneralBoundaryConditions(
+        Dirichlet(surface_state = surface_state, bottom_state = bottom_state),
+        Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
+    )
+
+    soil_water_model = SoilWaterModel(F; initialϑ_l = ϑ_l0, boundaries = bc)
+    soil_heat_model = PrescribedTemperatureModel()
+
+    m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
+
+    
     flux_bc =
         compute_surface_flux.(
+            Ref(m_soil),
             Ref(runoff_model),
             Ref(precip_model),
+            Ref(v),
+            Ref(v),
             Ref(v),
             [1, 2, 3, 4],
         )
