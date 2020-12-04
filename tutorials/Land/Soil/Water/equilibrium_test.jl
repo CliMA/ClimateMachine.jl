@@ -224,12 +224,12 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
 # Create a place to store this output.
 state_types = (Prognostic(), Auxiliary(), GradientFlux())
-all_data = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
 time_data = FT[0] # store time data
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
@@ -239,7 +239,7 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # Get the final state and create plots:
 dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-push!(all_data, dons)
+push!(dons_arr, dons)
 push!(time_data, gettime(solver_config.solver));
 
 # Get z-coordinate
@@ -260,8 +260,8 @@ output_dir = @__DIR__;
 t = time_data ./ (60 * 60 * 24);
 
 plot(
-    all_data[1]["soil.water.ϑ_l"],
-    all_data[1]["z"],
+    dons_arr[1]["soil.water.ϑ_l"],
+    dons_arr[1]["z"],
     label = string("t = ", string(t[1]), "days"),
     xlim = [0.47, 0.501],
     ylabel = "z",
@@ -270,24 +270,24 @@ plot(
     title = "Equilibrium test",
 );
 plot!(
-    all_data[4]["soil.water.ϑ_l"],
-    all_data[4]["z"],
+    dons_arr[4]["soil.water.ϑ_l"],
+    dons_arr[4]["z"],
     label = string("t = ", string(t[4]), "days"),
 );
 plot!(
-    all_data[6]["soil.water.ϑ_l"],
-    all_data[6]["z"],
+    dons_arr[6]["soil.water.ϑ_l"],
+    dons_arr[6]["z"],
     label = string("t = ", string(t[6]), "days"),
 );
 plot!(
-    (all_data[1]["z"] .+ 10.0) .* slope .+ all_data[6]["soil.water.ϑ_l"][1],
-    all_data[1]["z"],
+    (dons_arr[1]["z"] .+ 10.0) .* slope .+ dons_arr[6]["soil.water.ϑ_l"][1],
+    dons_arr[1]["z"],
     label = "expected",
 );
 
 plot!(
-    1e-3 .+ all_data[1]["soil.water.ϑ_l"],
-    all_data[1]["z"],
+    1e-3 .+ dons_arr[1]["soil.water.ϑ_l"],
+    dons_arr[1]["z"],
     label = "porosity",
 );
 # save the output.

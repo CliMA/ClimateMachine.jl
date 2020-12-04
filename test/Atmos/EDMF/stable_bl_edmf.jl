@@ -199,7 +199,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -210,7 +210,7 @@ function main(::Type{FT}) where {FT}
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
             push!(
-                all_data,
+                dons_arr,
                 dict_of_nodal_states(solver_config, state_types; interp = true),
             )
             push!(time_data, gettime(solver_config.solver))
@@ -246,10 +246,10 @@ function main(::Type{FT}) where {FT}
     )
 
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, all_data, time_data, state_types
+    return solver_config, dons_arr, time_data, state_types
 end
 
-solver_config, all_data, time_data, state_types = main(Float64)
+solver_config, dons_arr, time_data, state_types = main(Float64)

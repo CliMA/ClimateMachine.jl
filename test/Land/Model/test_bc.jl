@@ -106,7 +106,7 @@ using ClimateMachine.BalanceLaws:
 
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
-    all_data = Dict([k => Dict() for k in 1:n_outputs]...)
+    dons_arr = Dict([k => Dict() for k in 1:n_outputs]...)
 
     iostep = [1]
     callback = GenericCallbacks.EveryXSimulationTime(
@@ -120,7 +120,7 @@ using ClimateMachine.BalanceLaws:
             "K" => K,
             "K∇h_vert" => K∇h_vert,
         )
-        all_data[iostep[1]] = all_vars
+        dons_arr[iostep[1]] = all_vars
         iostep[1] += 1
         nothing
     end
@@ -130,14 +130,14 @@ using ClimateMachine.BalanceLaws:
     K = aux[:, K_ind, :]
     K∇h_vert = grads[:, K∇h_vert_ind, :]
     all_vars = Dict{String, Array}("t" => [t], "K" => K, "K∇h_vert" => K∇h_vert)
-    all_data[n_outputs] = all_vars
+    dons_arr[n_outputs] = all_vars
 
 
     computed_bottom_∇h =
-        [all_data[k]["K∇h_vert"][1] for k in 1:n_outputs] ./ [all_data[k]["K"][1] for k in 1:n_outputs]
+        [dons_arr[k]["K∇h_vert"][1] for k in 1:n_outputs] ./ [dons_arr[k]["K"][1] for k in 1:n_outputs]
 
 
-    t = [all_data[k]["t"][1] for k in 1:n_outputs]
+    t = [dons_arr[k]["t"][1] for k in 1:n_outputs]
     # we need a -1 out in front here because the flux BC is on -K∇h
     prescribed_bottom_∇h = t -> FT(-1) * FT(-3.0 * sin(pi * 2.0 * t / 300.0))
 
