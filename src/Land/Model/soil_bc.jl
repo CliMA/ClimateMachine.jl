@@ -227,7 +227,7 @@ function execute_based_on_boundaries!(
     runoff_model = boundaries.runoff_model
     #compute surface flux
     net_surface_flux =
-        compute_surface_flux(runoff_model, precip_model, state⁻, t)
+        compute_surface_flux(soil, runoff_model, precip_model, aux⁻, state⁻, t)
     #top
     if bctype == 2
         diff⁺.soil.water.K∇h = n̂ * (-net_surface_flux)

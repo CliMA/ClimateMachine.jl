@@ -108,7 +108,6 @@ function compute_surface_runoff(soil::SoilModel,
                                 precip_model::AbstractPrecipModel,
                                 aux::Vars,
                                 state::Vars,
-                                diff::Vars,
                                 t::Real,
                                 )
     FT = eltype(state)
@@ -140,8 +139,6 @@ struct TopmodelRunoff{FT, F1,F2, F3, F4} <: AbstractSurfaceRunoffModel
     end
 end
 
-
-
 """
     function compute_mean_p(precip_model::DrivenConstantPrecip, t::Real)
 
@@ -159,14 +156,12 @@ end
 """
   function compute_ic(soilmodel)
 
-Compute infiltration capacity.
+Compute infiltration capacity. Currently a stand-in.
 """
-# function compute_ic(soil::SoilModel, diff::Vars)
-#     #   ic = -diff.soil.water.K∇h
-    
-#     ic = soil.soil_param_functions.Ksat * d_psi_d_sl(Sl=1) * (1 - Sl[2])/dz
-#     return ic
-# end
+function compute_ic(soil::SoilModel, state::Vars)
+    ic = soil.soil_param_functions.Ksat# * d_psi_d_sl(Sl=1) * (1 - Sl[2])/dz
+    return ic
+end
 """
   function compute_horton_runoff(runoff_model, precip_model, state)
 
@@ -177,13 +172,12 @@ function compute_horton_runoff(soil::SoilModel,
                                precip_model::DrivenConstantPrecip{FT},
                                aux::Vars,
                                state::Vars,
-                               diff::Vars,
                                t::Real,
                                ) where {FT}
-    mean_p = precip_model.mp(t)
-    mean_e = FT(0.0)#evaporation.me(t)
+    mean_p = precip_model(t)
+    mean_e = FT(0.0)
     incident_water_flux = mean_p - mean_e
-    ic = FT(1.0) #compute_ic(soil, diff)
+    ic = compute_ic(soil, state)
     if S_lsfc < FT(1) && incident_water_flux > ic
         horton_runoff = incident_water_flux - ic
     else
@@ -197,8 +191,7 @@ end
   function compute_dunne_runoff(runoff_model, precip_model, state)
 
 Compute Dunne runoff, under the assumptions that the variable
-x = topographic index - minimum index
-follows a Gamma distribution.
+x = ϕ-ϕ_min follows a Gamma distribution.
 
 We further assume that the local value of the effective saturation
 is given by S = S̄ - m (ϕ-ϕ̄), where an overbar represents a coarse scale
@@ -272,13 +265,12 @@ function compute_surface_runoff(soil::SoilModel,
                                 precip_model::DrivenConstantPrecip{FT},
                                 aux::Vars,
                                 state::Vars,
-                                diff::Vars,
                                 t::Real
                                ) where {FT}
    
-   r_l_horton = compute_horton_runoff(soil, runoff_model, precip_model, aux, state, diff, t)
-   r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, diff, t)
-   return r_l_dunne+r_l_horton
+   #r_l_horton = compute_horton_runoff(soil, runoff_model, precip_model, aux, state, t)
+   r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, t)
+   return r_l_dunne#+r_l_horton
 end
 
 function compute_surface_flux(soil::SoilModel,
@@ -286,11 +278,10 @@ function compute_surface_flux(soil::SoilModel,
                               precip_model::AbstractPrecipModel{FT},
                               aux::Vars,
                               state::Vars,
-                              diff::Vars,
                               t::Real
                               ) where {FT}
     mean_p = precip_model.mp(t)
-    net_runoff = compute_surface_runoff(soil, runoff_model, precip_model, aux, state, diff)
+    net_runoff = compute_surface_runoff(soil, runoff_model, precip_model, aux, state, t)
     net_flux = net_runoff - mean_p
     return net_flux
 end
