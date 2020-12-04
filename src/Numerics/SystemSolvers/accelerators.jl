@@ -227,120 +227,213 @@ AbstractSolverAlgorithm
 #=
 Dennis's Notes:
 
-Perhaps "Basic" and "Split" should be replaced with "ZerothOrder" and "FirstOrder"?
+Perhaps "Basic" and "Modified" should be replaced with "ZerothOrder" and "FirstOrder"?
 Perhaps "Matrix" and "Vector" should be replaced with "Linear" and "Constant"?
-
-The SystemSolver contains basic algorithm information (atol, maxiters, etc.), as well as cache of arrays for intermediate computations, and all of these things are immutable.
-The Problem contains information specific to the current backward euler step, so either it has to be mutable, or it has to be constructed anew for each backward euler step.
-  Specifically, different backward euler steps require different values of Δt, which means that they require different functions f!, fMatrix!, and fVector!.
-  It is possible to also make the Problem immutable, but this would require passing around Δt in addition to the Problem and calling, e.g., f! as f!(fQ, Q, Δt, args...).
-Should the SystemSolver be split into seperate Algorithm and SolverCache structs?
-  Aside from generalizability, what would be the benefit of doing so?
-  If we did this, we would have to pass around three objects (Algorithm, SolverCache, and Problem), while only needing to specialize methods on one of them (Algorithm).
-Since the SystemSolver type determines the Problem type, perhaps we should also store the problem information in the SystemSolver?
-  This would let us get away with passing around just a single object.
-  On the other hand, if we did this, the SystemSolver would probably have to be mutable. Is there any downside to this?
-Does the solution array Q belong in the SystemSolver or in the Problem? The notes below assume that it is in the Problem.
-Do cached arrays like fQ, fMatrixQ, and R belong in the SystemSolver or in the Problem? The notes below assume that they are in the SystemSolver.
+Perhaps the threshold should be stored in the Problem, since the latter is already mutable?
 
 Problem
-- StandardProblem(Q, f!, frhs::Array)               # Find Q such that f(Q) = frhs, where f!(fQ, Q, args...) sets fQ = f(Q)
-- BasicFixedPointProblem(Q, f!)                     # Find Q such that Q = f(Q), where f!(fQ, Q, args...) sets fQ = f(Q)
-- ModifiedFixedPointProblem(Q, fMatrix!, fVector!)  # Find Q such that fMatrix(Q) * Q = fVector(Q), where fMatrix!(fMatrixQ, Q, args...) sets fMatrixQ = fMatrix(Q) and ...
-                                                    # BasicFixedPointProblem is equivalent to SplitFixedPointProblem with fMatrix(Q) = I and fVector(Q) = f(Q)
-                                                    # For Richard's Equation, the standard SplitFixedPointProblem involves a tri-diagonal fMatrix.
+- StandardProblem(Q, f!, frhs)                     # Find Q such that f(Q) = frhs, where f!(fQ, Q, args...) sets fQ = f(Q)
+- BasicFixedPointProblem(Q, f!)                    # Find Q such that Q = f(Q), where f!(fQ, Q, args...) sets fQ = f(Q)
+- ModifiedFixedPointProblem(Q, fMatrix!, fVector!) # Find Q such that fMatrix(Q) * Q = fVector(Q), where fMatrix!(fMatrixQ, Q, args...) sets fMatrixQ = fMatrix(Q) and fVector!(fVectorQ, Q, args...) sets ...
+                                                   # BasicFixedPointProblem is equivalent to ModifiedFixedPointProblem with fMatrix(Q) = I and fVector(Q) = f(Q)
+                                                   # For Richard's Equation, the typical ModifiedFixedPointProblem involves a tri-diagonal fMatrixQ.
 
-ODESolver
-- BackwardEulerSolver: (Q^{n+1} - Q^n)/Δt = ∂Q∂t(Q^{n+1}, t^{n+1}, args...) or (Q^{n+1} - Q^n)/Δt = ∂Q∂tMatrix(Q^{n+1}, t^{n+1}, args...) * Q^{n+1} + ∂Q∂tVector(Q^{n+1}, t^{n+1}, args...)
-  * StandardProblem: Q^{n+1} - Δt * ∂Q∂t(Q^{n+1}, t^{n+1}, args...) = Q^n,
-                     so f(Q) = Q - Δt * ∂Q∂t(Q, t^{n+1}, args...) and frhs = Q^n
-  * BasicFixedPointProblem: Q^{n+1} = Δt * ∂Q∂t(Q^{n+1}, t^{n+1}, args...) + Q^n,
-                           so f(Q) = Δt * ∂Q∂t(Q, t^{n+1}, args...) + Q^n
-  * SplitFixedPointProblem: (I - Δt * ∂Q∂tMatrix(Q^{n+1}, t^{n+1}, args...)) * Q^{n+1} = Δt * ∂Q∂tVector(Q^{n+1}, t^{n+1}, args...) + Q^n,
-                           so fMatrix(Q) = I - Δt * ∂Q∂tMatrix(Q, t^{n+1}, args...) and fVector(Q) = Δt * ∂Q∂tVector(Q, t^{n+1}, args...) + Q^n
-  # BackwardEulerSolver chooses Problem type based on IterativeSolver type and whether it was provided with ∂Q∂t or both ∂Q∂tMatrix and ∂Q∂tVector
+https://diffeq.sciml.ai/dev/features/performance_overloads/#performance_overloads
 
-ImplicitTendencySolver(::SystemSolver)
+dqdt = ODEFunction(f, jvp=f2)
+SplitODEFunction(f1,f2) # dqdt = f1(q,t) + f2(q,t)
 
-SystemSolver
-- DirectSolver
-  - DirectLinearSolver
-    - ColumnLUSolver
-      - SingleColumnLUSolver
-      - ManyColumnLUSolver
-- IterativeSolver
-  - IterativeLinearSolver(preconditioner::Preconditioner, atol::AbstractFloat, rtol::AbstractFloat, maxiters::Integer) # Only solves StandardProblem
-    - ConjugateGradientSolver
-    - GeneralizedConjugateResidualSolver
-    - GeneralizedMinimalResidualSolver
-    - BatchedGeneralizedMinimalResidualSolver
-  - IterativeNonlinearSolver(atol::AbstractFloat, rtol::AbstractFloat, maxiters::Integer)
-    - BasicPicardSolver                                                                              # Only solves BasicFixedPointProblem:    Q^{k+1} = f(Q^k)
-    - SplitPicardSolver(linearsolver::IterativeLinearSolver)                                         # Only solves ModifiedFixedPointProblem: Q^{k+1} = fMatrix(Q^k)⁻¹ * fVector(Q^k)
-    - JacobianFreeNewtonKrylovSolver(linearsolver::IterativeLinearSolver, finite_or_auto_diff::Bool) # Only solves StandardProblem:           Q^{k+1} = Q^k - df/dQ(Q^k)⁻¹ * (f(Q^k) - frhs)
-  - Accelerator(nonlinearsolver::IterativeNonlinearSolver, depth::Integer)
-    - AndersonAccelerator
-    - NonlinearGeneralizedMinimalResidualSolver
+dqdt = f(q,t)
 
-  Methods:
-  * function solve!(iterativesolver::IterativeSolver, problem::Problem, args...)
+find q such that:
+q - γ f(q,t) = qp
+
+1) if f(q,t) = Lq (linear, homogeneous)
+    - (I - γ L) q = qp
+2) if f(q,t) = L(t) * q (linear, inhomogeneous)
+    - (I - γ L(t)) q = qp
+3) f(q,t) = L(q,t) q + g(q,t)
+    - (I - γ L(q,t)) q = qp + γ g(q,t)
+      - Modified Picard => (I - γ L(q_n,t)) q_{n+1} = qp + γ g(q_n,t)
+    - if g(q,t) == 0, and L(q,t) == L(t) then equivalent to (1/2)
+4) f(q,t) has Jacobian (or some approximation) J_f(q,t)
+    - solve h(q,t) = q - γ f(q,t) - qp = 0 via Newton's method
+      => J_h(q,t) = I - γ J_f(q,t)
+    - gives iterations of the form
+        q_{n+1} = q_n - J_h(q_n,t) \ h(q_n,t)   
+        =>   J_h * (q_{n+1} - q_n) = -h(q_n,t)
+        =>   [I - γ J_f(q_n,t)] * (q_{n+1} - q_n) = - [(q_n - γ f(q_n,t)) - qp]
+
+
+1) Backward Euler ODE timestepper dqdt(q,t) = f(q,t)
+  for each step
+    solve!(q_next, BackwardEulerProblem(f,dt*alpha,q), solver)
+
+2) IMEX scheme: dqdt(q,t) = f1(q,t) + f2(q,t)
+    https://clima.github.io/TimeMachine.jl/dev/background/ark/
+  for each step
+    for each stage
+      x = solve(BackwardEulerProblem(f1, dt*alpha[i,i], y), solver) 
+
+      if f1(q,t) = Lq (linear, homogeneous)
+        can either
+          - use a direct solver: 
+            form L (banded), and compute lu(L) at t = 0, reuse factorization
+          - use an iterative solver:
+            specify and reuse the preconditioner
+        solve something that looks like  W = I - dt*alpha[i,i]*L => W x = y
+        # at ODE init, or if `dt` or `alpha[i,i]` changes
+         W = BackwardEulerOperator(ODEFunction(f1, jac=L)), dt*alpha[i,i])
+         Wfact = factorize(W)
+        # at each stage
+         solve!(x, ImplicitProblem(Wfact, y), solver) 
+
+        
+
+        
+        
+      
+ImplicitProblem(h, Qp): h(Q,t) = Qp
+    if h = BackwardEulerOperator(f,γ)  => h(Q,t) = Q - γ f(Q,t)
+    const BackwardEulerProblem = ImplicitProblem{BackwardEulerOperator}
+    
+
+    
+# ImplicitTendencyAlgorithm solves either
+  (Q^{n+1} - Q^n)/(α * Δt) = ∂Q∂t(Q^{n+1}, t^{n+1}, args...) or
+  (Q^{n+1} - Q^n)/(α * Δt) = ∂Q∂tMatrix(Q^{n+1}, t^{n+1}, args...) * Q^{n+1} + ∂Q∂tVector(Q^{n+1}, t^{n+1}, args...)
+# ImplicitTendencyAlgorithm chooses Problem type based on IterativeAlgorithm type and whether it was provided with ∂Q∂t or both ∂Q∂tMatrix and ∂Q∂tVector
+  * StandardProblem:           Q^{n+1} - α * Δt * ∂Q∂t(Q^{n+1}, t^{n+1}, args...) = Q^n,
+                               so f(Q) = Q - α * Δt * ∂Q∂t(Q, t^{n+1}, args...) and frhs = Q^n
+  * BasicFixedPointProblem:    Q^{n+1} = α * Δt * ∂Q∂t(Q^{n+1}, t^{n+1}, args...) + Q^n,
+                               so f(Q) = α * Δt * ∂Q∂t(Q, t^{n+1}, args...) + Q^n
+  * ModifiedFixedPointProblem: (I - α * Δt * ∂Q∂tMatrix(Q^{n+1}, t^{n+1}, args...)) * Q^{n+1} = α * Δt * ∂Q∂tVector(Q^{n+1}, t^{n+1}, args...) + Q^n,
+                               so fMatrix(Q) = I - α * Δt * ∂Q∂tMatrix(Q, t^{n+1}, args...) and fVector(Q) = α * Δt * ∂Q∂tVector(Q, t^{n+1}, args...) + Q^n
+# Since α changes on each iteration of the ImplicitTendencyAlgorithm, the Problem must be mutable (otherwise, it would have to be re-constructed on each iteration).
+
+Legend:
+  - Denotes an abstract type
+  > Denotes a concrete type
+  The fields written after abstract types actually belong to their concrete subtypes
+
+- Algorithm
+  - SystemAlgorithm
+    - DirectAlgorithm
+      - DirectLinearAlgorithm
+        - ColumnLUAlgorithm
+          > SingleColumnLUAlgorithm{...}(...)
+          > ManyColumnLUAlgorithm{...}(...)
+    - IterativeAlgorithm
+      - IterativeLinearAlgorithm{PT, FT}(preconditioner::PT, atol::FT, rtol::FT, maxiters::Int)              # Only solves StandardProblem
+        > ConjugateGradientAlgorithm{...}(...)
+        > GeneralizedConjugateResidualAlgorithm{...}(...)
+        > GeneralizedMinimalResidualAlgorithm{...}(...)
+        > BatchedGeneralizedMinimalResidualAlgorithm{...}(...)
+      - IterativeNonlinearAlgorithm{FT}(atol::FT, rtol::FT, maxiters::Int)
+        > BasicPicardAlgorithm                                                                               # Only solves BasicFixedPointProblem:    Q^{k+1} = f(Q^k)
+        > ModifiedPicardAlgorithm{ILAT}(iterativelinearalgorithm::ILAT)                                      # Only solves ModifiedFixedPointProblem: Q^{k+1} = fMatrix(Q^k)⁻¹ * fVector(Q^k)
+        > JacobianFreeNewtonKrylovAlgorithm{ILAT}(iterativelinearalgorithm::ILAT, finite_or_auto_diff::Bool) # Only solves StandardProblem:           Q^{k+1} = Q^k - df/dQ(Q^k)⁻¹ * (f(Q^k) - frhs)
+      - AcceleratedAlgorithm{INAT}(iterativenonlinearalgorithm::INAT, depth::Int)                            # Only solves Problem that can be solved by iterativenonlinearalgorithm
+        > AndersonAcceleratedAlgorithm
+        > NonlinearGeneralizedMinimalResidualAlgorithm
+  > ImplicitTendencyAlgorithm{SAT}(systemalgorithm::SAT, preconditioner_update_freq::Int)                    # The preconditioner_update_freq does not belong here, so where should it go???
+
+- Cache
+  - SystemCache
+    - DirectCache
+      - DirectLinearCache
+        - ColumnLUCache
+          > SingleColumnLUCache{...}(...)
+          > ManyColumnLUCache{...}(...)
+    - IterativeCache
+      - IterativeLinearCache
+        > ConjugateGradientCache{...}(...)
+        > GeneralizedConjugateResidualCache{...}(...)
+        > GeneralizedMinimalResidualCache{...}(...)
+        > BatchedGeneralizedMinimalResidualCache{...}(...)
+      - IterativeNonlinearCache
+        > BasicPicardCache{AT}(fQ::AT, residual::AT)
+        > ModifiedPicardCache{ILCT, MAT, VAT}(iterativelinearcache::ILCT, fMatrixQ::MAT, fVectorQ::VAT, residual::VAT)
+        > JacobianFreeNewtonKrylovCache{ILCT, JVPT, AT}(iterativelinearcache::ILCT, jvp!::JVPT, ΔQ::AT, residual::AT)
+      - AcceleratedCache{INCT}(iterativenonlinearcache::INCT)
+        > AndersonAcceleratedCache{...}(...)
+        > NonlinearGeneralizedMinimalResidualCache{...}(...)
+  > ImplicitTendencyCache{SCT}(systemcache::SCT)
+
+  Methods used for every IterativeAlgorithm:
+  * function solve!(iterativealgorithm::IterativeAlgorithm, iterativecache::IterativeCache, problem::Problem, args...)
         iters = 0
-        initial_residual_norm = initialize!(iterativesolver, problem, args...)
+        initial_residual_norm = initialize!(iterativealgorithm, iterativecache, problem, args...)
         initial_residual_norm < atol(solver) && return iters
         threshold = max(atol(solver), rtol(solver) * initial_residual_norm)
         m = maxiters(solver)
         has_converged = false
         while !has_converged && iters < m
-            residual_norm = doiteration!(iterativesolver, problem, args...)
+            residual_norm = doiteration!(iterativealgorithm, iterativecache, problem, args...)
             converged = check_convergence(residual_norm, threshold, iters)
             iters += 1
         end
-        has_converged || @warn "$(typeof(iterativesolver)) did not converge after $iters iterations"
+        has_converged || @warn "$(typeof(iterativealgorithm)) did not converge after $iters iterations"
         return iters
     end
-  
   * function check_convergence(residual_norm, threshold, iters)
         isfinite(residual_norm) || error("Norm of residual is not finite after $iters iterations")
         return residual_norm < threshold
     end
 
-  Interface:
-  * function atol(::IterativeSolver)::AbstractFloat end
-  * function rtol(::IterativeSolver)::AbstractFloat end
-  * function maxiters(::IterativeSolver)::Integer end
-  * function residual!(::IterativeSolver, ::Problem, args...)::AbstractFloat end # Computes residual and returns its norm
-  * function initialize!(::IterativeSolver, ::Problem, args...)::AbstractFloat end # Initializes IterativeSolver's cache and returns residual!
-  * function doiteration!(::IterativeSolver, ::Problem, threshold::AbstractFloat, iters::Integer, args...)::AbstractFloat end # Updates IterativeSolver's cache and Problem's Q, and returns residual!
+  Interface that must be provided by every IterativeAlgorithm:
+  * function allocatecache(::Algorithm, ::AbstractArray)::Cache end                                                                  # Generates the Cache that corresponds to the given Algorithm
+  * function atol(::IterativeAlgorithm)::AbstractFloat end
+  * function rtol(::IterativeAlgorithm)::AbstractFloat end
+  * function maxiters(::IterativeAlgorithm)::Integer end
+  * function residual!(::IterativeAlgorithm, ::IterativeCache, ::Problem, args...)::AbstractFloat end                                # Computes residual and returns its norm
+  * function initialize!(::IterativeAlgorithm, ::IterativeCache, ::Problem, args...)::AbstractFloat end                              # Initializes IterativeCache and returns residual!
+  * function doiteration!(::IterativeAlgorithm, ::IterativeCache, ::Problem, ::AbstractFloat, ::Integer, args...)::AbstractFloat end # Updates IterativeCache and Problem's Q, and returns residual!
 
-  Implementation for Accelerator:
-  * atol(s::Accelerator) = atol(s.nonlinearsolver)
-  * rtol(s::Accelerator) = rtol(s.nonlinearsolver)
-  * maxiters(s::Accelerator) = maxiters(s.nonlinearsolver)
-  * residual!(s::Accelerator, p::Problem, args...) = residual!(s.nonlinearsolver, p, args...)
-  * initialize!(s::Accelerator, p::Problem, args...) = initialize!(s.nonlinearsolver, p, args...)
-  * function doiteration!(s::Accelerator, p::Problem, threshold::AbstractFloat, iters::Integer, args...)
-        nonlinearsolver = s.nonlinearsolver
-        residual_norm = doiteration!(nonlinearsolver, p, threshold, iters, args...)
+  Implementation for AcceleratedAlgorithm:
+  * allocatecache(a::AndersonAcceleratedAlgorithm, Q::AbstractArray) =
+        AndersonAcceleratedCache(allocatecache(a.iterativenonlinearalgorithm, Q), similar(Q), ...)
+  * allocatecache(a::NonlinearGeneralizedMinimalResidualAlgorithm, Q::AbstractArray) =
+        NonlinearGeneralizedMinimalResidualCache(allocatecache(a.iterativenonlinearalgorithm, Q), similar(Q), ...)
+  * atol(a::AcceleratedAlgorithm) = atol(s.iterativenonlinearalgorithm)
+  * rtol(a::AcceleratedAlgorithm) = rtol(s.iterativenonlinearalgorithm)
+  * maxiters(a::AcceleratedAlgorithm) = maxiters(s.iterativenonlinearalgorithm)
+  * residual!(a::AcceleratedAlgorithm, c::AcceleratedCache, p::Problem, args...) =
+        residual!(s.iterativenonlinearalgorithm, c.iterativenonlinearcache, p, args...)
+  * initialize!(a::AcceleratedAlgorithm, c::AcceleratedCache, p::Problem, args...) =
+        initialize!(s.iterativenonlinearalgorithm, c.iterativenonlinearcache, p, args...)
+  * function doiteration!(a::AcceleratedAlgorithm, c::AcceleratedCache, p::Problem, threshold::AbstractFloat, iters::Integer, args...)
+        a2 = a.iterativenonlinearalgorithm
+        c2 = c.iterativenonlinearcache
+        residual_norm = doiteration!(a2, c2, p, threshold, iters, args...)
         if !check_convergence(residual_norm, threshold, iters)
-            accelerate!(s, p, threshold, iters, args...)
-            residual_norm = residual!(nonlinearsolver, p, args...)
+            accelerate!(a, c, p, threshold, iters, args...)
+            residual_norm = residual!(a2, c2, p, args...)
         end
         return residual_norm
     end
-  * function accelerate!(::Accelerator, ::Problem, threshold::AbstractFloat, iters::Integer, args...)::Nothing end # Updates Accelerator's cache Problem's Q
-
-  Implementation for BasicPicardSolver:
-  * atol(s::BasicPicardSolver) = s.atol
-  * rtol(s::BasicPicardSolver) = s.rtol
-  * maxiters(s::BasicPicardSolver) = s.maxiters
-  * function residual!(s::BasicPicardSolver, p::BasicFixedPointProblem, args...)
-        p.f!(s.fQ, p.Q, args...)
-        s.R .= s.fQ .- p.Q
-        return norm(s.R, weighted_norm)
+  * function accelerate!(::AndersonAcceleratedAlgorithm, ::AndersonAcceleratedCache, ::Problem, ::AbstractFloat, ::Integer, args...)
+        ... # Update AndersonAcceleratedCache and Problem's Q
+        return Nothing
     end
-  * initialize!(s::BasicPicardSolver, p::Problem, args...) = residual!(s, p, args...)
-  * function doiteration!(s::BasicPicardSolver, p::BasicFixedPointProblem, args...)
-        p.Q .= s.fQ
-        return residual!(s, p, args...)
+  * function accelerate!(::NonlinearGeneralizedMinimalResidualAlgorithm, ::NonlinearGeneralizedMinimalResidualCache, ::Problem, ::AbstractFloat, ::Integer, args...)
+        ... # Update NonlinearGeneralizedMinimalResidualCache and Problem's Q
+        return Nothing
+    end
+
+  Implementation for BasicPicardAlgorithm:
+  * allocatecache(a::BasicPicardAlgorithm, Q::AbstractArray) = BasicPicardCache(similar(Q), similar(Q))
+  * atol(a::BasicPicardAlgorithm) = a.atol
+  * rtol(a::BasicPicardAlgorithm) = a.rtol
+  * maxiters(a::BasicPicardAlgorithm) = a.maxiters
+  * function residual!(a::BasicPicardAlgorithm, c::BasicPicardCache, p::BasicFixedPointProblem, args...)
+        p.f!(c.fQ, p.Q, args...)
+        c.residual .= c.fQ .- p.Q
+        return norm(c.residual, weighted_norm)
+    end
+  * initialize!(a::BasicPicardAlgorithm, c::BasicPicardCache, p::BasicFixedPointProblem, args...) = residual!(a, c, p, args...)
+  * function doiteration!(a::BasicPicardAlgorithm, c::BasicPicardCache, p::BasicFixedPointProblem, threshold::AbstractFloat, iters::Integer, args...)
+        p.Q .= c.fQ
+        return residual!(a, c, p, args...)
     end
 =#
