@@ -1,20 +1,20 @@
 abstract type PrecipitationBC end
 
 """
-    ImpermeablePrecipitation() :: PrecipitationBC
+    OutflowPrecipitation() :: PrecipitationBC
 
-No precipitation flux.
+Free flux out of the domain.
 """
-struct ImpermeablePrecipitation <: PrecipitationBC end
+struct OutflowPrecipitation <: PrecipitationBC end
 function atmos_precipitation_boundary_state!(
     nf,
-    bc_precipitation::ImpermeablePrecipitation,
+    bc_precipitation::OutflowPrecipitation,
     atmos,
     args...,
 ) end
 function atmos_precipitation_normal_boundary_flux_second_order!(
     nf,
-    bc_precipitation::ImpermeablePrecipitation,
+    bc_precipitation::OutflowPrecipitation,
     atmos,
     args...,
 ) end

@@ -164,6 +164,14 @@ function setup_variables()
             "mass_fraction_of_rain_in_the_air",
         ),
     )
+    Variables["qs"] = DiagnosticVariable(
+        "qs",
+        var_attrib(
+            "kg kg^-1",
+            "mass fraction of snow in the air",
+            "mass_fraction_of_snow_in_the_air",
+        ),
+    )
     Variables["cld_frac"] = DiagnosticVariable(
         "cld_frac",
         var_attrib(
@@ -207,6 +215,10 @@ function setup_variables()
     Variables["var_qr"] = DiagnosticVariable(
         "var_qr",
         var_attrib("kg^2 kg^-2", "variance of rain specific humidity", ""),
+    )
+    Variables["var_qs"] = DiagnosticVariable(
+        "var_qs",
+        var_attrib("kg^2 kg^-2", "variance of snow specific humidity", ""),
     )
     Variables["cov_w_u"] = DiagnosticVariable(
         "cov_w_u",
@@ -308,6 +320,14 @@ function setup_variables()
             "",
         ),
     )
+    Variables["cov_w_qs"] = DiagnosticVariable(
+        "cov_w_qs",
+        var_attrib(
+            "kg kg^-1 m s^-1",
+            "vertical eddy flux of snow specific humidity",
+            "",
+        ),
+    )
     Variables["w_qt_sgs"] = DiagnosticVariable(
         "w_qt_sgs",
         var_attrib(
@@ -344,12 +364,28 @@ function setup_variables()
             "atmosphere_mass_content_of_cloud_condensed_water",
         ),
     )
+    Variables["iwp"] = DiagnosticVariable(
+        "iwp",
+        var_attrib(
+            "kg m^-2",
+            "ice water path",
+            "atmosphere_mass_content_of_cloud_ice",
+        ),
+    )
     Variables["rwp"] = DiagnosticVariable(
         "rwp",
         var_attrib(
             "kg m^-2",
             "rain water path",
             "atmosphere_mass_content_of_rain_water",
+        ),
+    )
+    Variables["swp"] = DiagnosticVariable(
+        "swp",
+        var_attrib(
+            "kg m^-2",
+            "snow water path",
+            "atmosphere_mass_content_of_snow_water",
         ),
     )
     Variables["core_frac"] = DiagnosticVariable(

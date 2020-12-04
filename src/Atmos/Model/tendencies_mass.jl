@@ -50,7 +50,7 @@ function source(
     diffusive,
 )
     if has_condensate(ts)
-        nt = compute_precip_params(s, aux, ts)
+        nt = compute_remove_precip_params(s, aux, ts)
         return state.ρ * nt.S_qt
     else
         FT = eltype(state)
@@ -58,7 +58,30 @@ function source(
     end
 end
 
-function source(s::Rain_1M{Mass}, m, state, aux, t, ts, direction, diffusive)
-    nt = compute_rain_params(m, state, aux, t, ts)
+function source(
+    s::WarmRain_1M{Mass},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = compute_warm_rain_params(m, state, aux, t, ts)
+    return state.ρ * nt.S_qt
+end
+
+function source(
+    s::RainSnow_1M{Mass},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = compute_rain_snow_params(m, state, aux, t, ts)
     return state.ρ * nt.S_qt
 end

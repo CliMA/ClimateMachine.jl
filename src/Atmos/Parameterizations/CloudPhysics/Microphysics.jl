@@ -427,8 +427,8 @@ end
  - `q_pre` - rain water or snow specific humidity
  - `ρ` - rain water or snow specific humidity
 
-Returns the sink of cloud water (liquid or ice) due to collisions
-with precipitating water (rain or snow).
+Returns the source of precipitating water (rain or snow)
+due to collisions with cloud water (liquid or ice).
 """
 function accretion(
     param_set::APS,
