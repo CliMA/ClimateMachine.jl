@@ -193,7 +193,7 @@ function atmos_source!(
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
         β_sponge = α_max * sinpi(r / 2)^s.γ
-#       source.ρu -= β_sponge * projection_normal(atmos.orientation, param_set, aux, state.ρu)
+        source.ρu -= β_sponge * projection_normal(atmos.orientation, param_set, aux, state.ρu)
     end
     return nothing
 end
@@ -211,8 +211,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     exp_name = "BaroclinicWave"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     z_sponge = FT(12e3)                    # height at which sponge begins (m)
-    α_max = FT(1 / 60 / 15)              # sponge relaxation rate (1/s)
-    γ = FT(2)
+    α_max = FT(10 / 60 / 15)              # sponge relaxation rate (1/s)
+    γ = FT(1)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
@@ -226,7 +226,6 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         ), )
         #source = (Gravity(), Coriolis(), RemovePrecipitation(true))
     else
-        println("GCMSponge ",GCMSponge)
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
         source = (Gravity(), Coriolis(), GCMSponge{FT}(
@@ -303,36 +302,34 @@ function main()
 #           fast_model = AtmosAcousticGravityLinearModel,
 #           mis_method = MIS2,
 #           fast_method = LSRK144NiegemannDiehlBusch,
-#           nsubsteps = (72,),
+#           nsubsteps = (24,),
 #           discrete_splitting = true,
 #       )
 
-ode_solver_type = ClimateMachine.MISSolverType(
-            splitting_type = ClimateMachine.HEVISplitting(),
-            fast_model = AtmosAcousticGravityLinearModel,
-            mis_method = MIS2,
-            fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
-                MISKWRK43,
-                dg,
-                (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
-                Q,
-                nsubsteps = nsubsteps,
-            ),
-            nsubsteps = (2, 36),
-            discrete_splitting = true,
-        )
+ ode_solver_type = ClimateMachine.MISSolverType(
+             splitting_type = ClimateMachine.HEVISplitting(),
+             fast_model = AtmosAcousticGravityLinearModel,
+             mis_method = MIS2,
+             fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
+                 MISKWRK43,
+                 dg,
+                 (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
+                 Q,
+                 nsubsteps = nsubsteps,
+             ),
+             nsubsteps = (4, 24),
+             discrete_splitting = true,
+         )
 
-    #=
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
-    )
-    =#
+#   ode_solver_type = ClimateMachine.IMEXSolverType(
+#       implicit_model = AtmosAcousticGravityLinearModel,
+#       implicit_solver = ManyColumnLU,
+#       solver_method = ARK2GiraldoKellyConstantinescu,
+#       split_explicit_implicit = true,
+#       discrete_splitting = false,
+#   )
 
-    CFL = FT(.3) # target acoustic CFL number
+    CFL = FT(1) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
