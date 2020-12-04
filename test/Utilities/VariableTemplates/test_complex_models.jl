@@ -1,6 +1,7 @@
 using Test
 using StaticArrays
 using ClimateMachine.VariableTemplates
+using ClimateMachine.VariableTemplates: wrap_val
 
 @testset "Test complex models" begin
 
@@ -120,11 +121,9 @@ using ClimateMachine.VariableTemplates
         @test i_vm == i_vm_correct
     end
 
-    convert_to_val(sym) = sym
-    convert_to_val(i::Int) = Val(i)
     # test that getproperty matches varsindex
     ntuple(N) do i
-        i_ϕ = varsindex(st, convert_to_val.(ftc[i])...)
+        i_ϕ = varsindex(st, wrap_val.(ftc[i])...)
         ϕ = getproperty(v, ftc[i])
         @test all(parent(v)[i_ϕ] .≈ ϕ)
     end
