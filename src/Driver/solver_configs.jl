@@ -208,10 +208,11 @@ function SolverConfiguration(
 
     # initial Δt specified or computed
     if ode_dt === nothing
-        dtmodel = getdtmodel(ode_solver_type, bl)
+        # Compute dt based on the stiff components of the balance law
+        stiffmodel = getstiffmodel(ode_solver_type, bl)
         ode_dt = ClimateMachine.DGMethods.calculate_dt(
             dg,
-            dtmodel,
+            stiffmodel,
             Q,
             Courant_number,
             t0,

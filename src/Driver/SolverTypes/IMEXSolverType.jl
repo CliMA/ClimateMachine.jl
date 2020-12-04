@@ -110,12 +110,12 @@ struct IMEXSolverType{DS, ST} <: AbstractSolverType
 end
 
 """
-    getdtmodel(ode_solver::IMEXSolverType, bl)
+    getstiffmodel(ode_solver::IMEXSolverType, bl)
 
 A function which returns a model representing the dynamics
 with the most restrictive time-stepping requirements.
 """
-function getdtmodel(ode_solver::IMEXSolverType, bl)
+function getstiffmodel(ode_solver::IMEXSolverType, bl)
     # Most restrictive dynamics are treated implicitly
     return ode_solver.implicit_model(bl)
 end

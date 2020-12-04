@@ -29,14 +29,15 @@ struct ImplicitSolverType <: AbstractSolverType
 end
 
 """
-    getdtmodel(ode_solver::AbstractSolverType, bl)
+    getstiffmodel(ode_solver::AbstractSolverType, bl)
 
 A function which returns a model representing the dynamics
 with the most restrictive time-stepping requirements.
 """
-function getdtmodel(ode_solver::ImplicitSolverType, bl)
-    # For implicit methods, the entire model itself
-    # contributes to the total stability of the time-integrator
+function getstiffmodel(ode_solver::ImplicitSolverType, bl)
+    # For fully implicit methods (no explicit part),
+    # the entire model itself contributes to the total
+    # stability of the time-integrator
     return bl
 end
 

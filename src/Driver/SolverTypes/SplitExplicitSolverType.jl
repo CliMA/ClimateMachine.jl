@@ -40,12 +40,12 @@ struct SplitExplicitSolverType{SM, FM, FT} <: AbstractSolverType
 end
 
 """
-    getdtmodel(ode_solver::AbstractSolverType, bl)
+    getstiffmodel(ode_solver::AbstractSolverType, bl)
 
 A function which returns a model representing the dynamics
 with the most restrictive time-stepping requirements.
 """
-function getdtmodel(::SplitExplicitSolverType, bl)
+function getstiffmodel(::SplitExplicitSolverType, bl)
     # For explicit methods, the entire model itself
     # contributes to the total stability of the time-integrator
     return bl

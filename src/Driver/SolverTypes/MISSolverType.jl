@@ -83,12 +83,12 @@ struct MISSolverType{DS} <: AbstractSolverType
 end
 
 """
-    getdtmodel(ode_solver::MISSolverType, bl)
+    getstiffmodel(ode_solver::MISSolverType, bl)
 
 A function which returns a model representing the dynamics
 with the most restrictive time-stepping requirements.
 """
-function getdtmodel(ode_solver::MISSolverType, bl)
+function getstiffmodel  (ode_solver::MISSolverType, bl)
     # Most restrictive dynamics are part of the fast model
     return ode_solver.fast_model(bl)
 end

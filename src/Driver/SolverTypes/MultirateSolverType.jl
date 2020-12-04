@@ -102,12 +102,12 @@ struct MultirateSolverType{DS} <: AbstractSolverType
 end
 
 """
-    getdtmodel(ode_solver::MultirateSolverType, bl)
+    getstiffmodel(ode_solver::MultirateSolverType, bl)
 
 A function which returns a model representing the dynamics
 with the most restrictive time-stepping requirements.
 """
-function getdtmodel(ode_solver::MultirateSolverType, bl)
+function getstiffmodel(ode_solver::MultirateSolverType, bl)
     # Most restrictive dynamics are part of the fast model
     return ode_solver.fast_model(bl)
 end
