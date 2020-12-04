@@ -30,8 +30,8 @@ struct SnowParameterSet <: AbstractSnowParameterSet end
 struct MicropysicsParameterSet{L, I, R, S} <: AbstractMicrophysicsParameterSet
     liq::L
     ice::I
-    rain::R
-    snow::S
+    rai::R
+    sno::S
 end
 struct EarthParameterSet{M} <: AbstractEarthParameterSet
     microphys::M
@@ -94,6 +94,8 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
     state.moisture.ρq_tot = ρ * data_q
     state.moisture.ρq_liq = FT(0)
     state.moisture.ρq_ice = FT(0)
+    state.precipitation.ρq_rai = FT(0)
+    state.precipitation.ρq_sno = FT(0)
     return nothing
 end
 
@@ -182,7 +184,7 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     c_sponge = FT(0.5)
     # Rayleigh damping
     u_relaxation = SVector(FT(0), FT(0), FT(0))
-    zsponge = FT(7500.0)
+    zsponge = FT(15000.0)
     rayleigh_sponge =
         RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
 
@@ -194,14 +196,12 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_squall_line!
 
-    source = (Gravity(), rayleigh_sponge, CreateClouds()...)
-
+    source = (Gravity(), rayleigh_sponge, CreateClouds()..., RainSnow_1M()...)
 
     problem = AtmosProblem(
         boundaryconditions = (AtmosBC(), AtmosBC()),
         init_state_prognostic = ics,
     )
-
 
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -209,6 +209,7 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
         problem = problem,
         ref_state = ref_state,
         moisture = NonEquilMoist(),
+        precipitation = RainSnowModel(),
         turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
         source = source,
     )
@@ -234,10 +235,33 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     )
     return config
 end
-function config_diagnostics(driver_config)
-    interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(interval, driver_config.name)
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
+
+function config_diagnostics(driver_config, boundaries, resolution)
+
+    interval = "10steps"
+
+    dgngrp_profiles = setup_atmos_default_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+    )
+
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
+    )
+    dgngrp_state = setup_dump_state_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
+
+    return ClimateMachine.DiagnosticsConfiguration([
+        dgngrp_profiles,
+        dgngrp_state,
+    ])
 end
 
 function main()
@@ -258,6 +282,11 @@ function main()
     zmax = FT(24000)
     xmin = FT(-30000)
     ymin = FT(0)
+    # for diagnostics
+    boundaries = [
+        xmin ymin FT(0)
+        xmax ymax zmax
+    ]
 
     t0 = FT(0)
     timeend = FT(9000)
@@ -274,8 +303,32 @@ function main()
         Courant_number = Cmax,
     )
 
-    result =
-        ClimateMachine.invoke!(solver_config; check_euclidean_distance = true)
+    dgn_config = config_diagnostics(driver_config, boundaries, resolution)
+
+    filter_vars = (
+        "moisture.ρq_tot",
+        "moisture.ρq_liq",
+        "moisture.ρq_ice",
+        "precipitation.ρq_rai",
+        "precipitation.ρq_sno",
+    )
+
+    cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
+        Filters.apply!(
+            solver_config.Q,
+            filter_vars,
+            solver_config.dg.grid,
+            TMARFilter(),
+        )
+        nothing
+    end
+
+    result = ClimateMachine.invoke!(
+        solver_config;
+        diagnostics_config = dgn_config,
+        user_callbacks = (cbtmarfilter,),
+        check_euclidean_distance = true,
+    )
 end
 
 main()

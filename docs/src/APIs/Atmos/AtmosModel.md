@@ -42,7 +42,7 @@ ClimateMachine.Atmos.recover_thermo_state
 ClimateMachine.Atmos.new_thermo_state
 ```
 
-## Moisture
+## Moisture and Precipitation
 
 ```@docs
 ClimateMachine.Atmos.DryModel
@@ -50,6 +50,7 @@ ClimateMachine.Atmos.EquilMoist
 ClimateMachine.Atmos.NonEquilMoist
 ClimateMachine.Atmos.NoPrecipitation
 ClimateMachine.Atmos.RainModel
+ClimateMachine.Atmos.RainSnowModel
 ```
 
 ## Stabilization
@@ -70,7 +71,7 @@ ClimateMachine.Atmos.FreeSlip
 ClimateMachine.Atmos.PrescribedTemperature
 ClimateMachine.Atmos.PrescribedEnergyFlux
 ClimateMachine.Atmos.BulkFormulaEnergy
-ClimateMachine.Atmos.ImpermeablePrecipitation
+ClimateMachine.Atmos.OutflowPrecipitation
 ClimateMachine.Atmos.ImpermeableTracer
 ClimateMachine.Atmos.Impenetrable
 ClimateMachine.Atmos.Insulating
@@ -83,9 +84,8 @@ ClimateMachine.Atmos.average_density
 ```@docs
 ClimateMachine.Atmos.RemovePrecipitation
 ClimateMachine.Atmos.CreateClouds
-ClimateMachine.Atmos.Rain_1M
-
-
+ClimateMachine.Atmos.WarmRain_1M
+ClimateMachine.Atmos.RainSnow_1M
 ```
 
 ## Large-scale forcing

@@ -334,7 +334,7 @@ function config_dycoms(
     if precipitation_model == "noprecipitation"
         precipitation = NoPrecipitation()
     elseif precipitation_model == "rain"
-        source = (source..., Rain_1M()...)
+        source = (source..., WarmRain_1M()...)
         precipitation = RainModel()
     else
         @warn @sprintf(
