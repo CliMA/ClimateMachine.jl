@@ -35,3 +35,6 @@ src/**/Manifest.toml
 
 # Julia System Images
 *.so
+
+#
+.julia_depot/*

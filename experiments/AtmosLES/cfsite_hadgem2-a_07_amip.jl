@@ -278,7 +278,7 @@ function source(
     diffusive,
 )
     # TODO: write correct tendency
-    return 0
+    return FT(0)
 end
 
 function source(
@@ -292,7 +292,7 @@ function source(
     diffusive,
 )
     # TODO: write correct tendency
-    return 0
+    return FT(0)
 end
 
 # Ideally we will add a way here to relax over only certain regions.
@@ -524,7 +524,7 @@ end
 # ------------------------------------------------------------------- #
 
 # LinearSponge(::Type{FT}, args...) where {FT} =
-    # LinearSponge{Momentum, FT}(args...)
+#     LinearSponge{Momentum, FT}(args...)
 
 # we choose to implement:
 # -- Momentum: Yes, it is good to relax energy
@@ -536,7 +536,6 @@ end
 LinearSponge(::Type{FT}, args...) where {FT} = (
     LinearSponge{Momentum, FT}(args...),
     LinearSponge{Energy, FT}(args...),
-    # LinearSponge{Moisture, FT}(args...),
 )
 
 # ------------------------------------------------------------------- #
@@ -556,7 +555,7 @@ function source(
     FT = eltype(state)
     @unpack z_max, z_sponge, α_max, γ = s
     # Establish sponge relaxation velocity
-    u_geo = SVector(aux.lsforcing.ua, aux.lsforcing.va, 0)
+    u_geo = SVector(aux.lsforcing.ua, aux.lsforcing.va, aux.lsforcing.w_s)
     z = altitude(m, aux)
     # Accumulate sources
     if z_sponge <= z
@@ -598,7 +597,7 @@ function source(
         T_tendency  =  (T .-  aux.lsforcing.ta ) 
         return  -β_sponge * (cvm * state.ρ * T_tendency) 
     else
-        return 0
+        return FT(0) # maybe you have to cast this to FT? Idk why it fails otherwise but maybe it doesn't jive wit type mixing
     end
 end
 
@@ -921,15 +920,6 @@ function init_cfsites!(problem, bl, state, aux, localgeo, t, spl)
 
 
     tntr_value = FT(-1/86400) # K/day * 1d/86400s
-
-    # Assign and store the ref variable for sources
-    aux.lsforcing.ta = ta
-    aux.lsforcing.hus = hus
-    aux.lsforcing.Σtemp_tendency = (tntha + tntva + tntr) * 0 + tntr * tntr_value/tntr # ignore the temperature fluxes from advection since they might be large and random, keep some radiative cooling
-    aux.lsforcing.ua = ua
-    aux.lsforcing.va = va
-    aux.lsforcing.Σqt_tendency = tnhusha + tnhusva
-    aux.lsforcing.w_s = -wap / ρ_gcm / _grav
 
     # since we defined this in terms of the splines, we should use the ρ not the ρ_gcm later
     aux.lsforcing.ta             = ta # 
