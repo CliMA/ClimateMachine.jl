@@ -17,7 +17,7 @@ Computes a DiscontinuousSpectralElementGrid as specified by a product domain
 # Arguments
 -`Ω`: A product domain object
 
-# Keyword Arguments TODO: Add brickrange and topolgoy as keyword arguments
+# Keyword Arguments TODO: Add brickrange and topology as keyword arguments
 -`elements`: A tuple of integers ordered by (Nx, Ny, Nz) for number of elements
 -`polynomialorder`: A tupe of integers ordered by (npx, npy, npz) for polynomial order
 -`FT`: floattype, assumed Float64 unless otherwise specified
@@ -27,7 +27,7 @@ Computes a DiscontinuousSpectralElementGrid as specified by a product domain
 # Return 
 A DiscontinuousSpectralElementGrid object
 """
-function DiscontinuousSpectralElementGrid(Ω::ProductDomain; elements = nothing, polynomialorder = nothing, FT=Float64, mpicomm=MPI.COMM_WORLD, array = Array)
+function DiscontinuousSpectralElementGrid(Ω::ProductDomain; elements = nothing, polynomialorder = nothing, boundary = nothing, FT=Float64, mpicomm=MPI.COMM_WORLD, array = Array)
     if elements==nothing
         error_message = "Please specify the number of elements as a tuple whose size is commensurate with the domain,"
         error_message = "e.g., a 3 dimensional domain would need a specification like elements = (10,10,10)."
@@ -38,12 +38,6 @@ function DiscontinuousSpectralElementGrid(Ω::ProductDomain; elements = nothing,
     if polynomialorder==nothing
         error_message = "Please specify the polynomial order as a tuple whose size is commensurate with the domain,"
         error_message = "e.g., a 3 dimensional domain would need a specification like polynomialorder = (3,3,3)."
-        @error(error_message)
-        return nothing
-    end
-
-    if !prod([polynomialorder[i]==polynomialorder[1] for i in eachindex(polynomialorder)])
-        error_message = "The polynomial order must be the same in each dimension, e.g., (2,2,2) for 3 dimensions."
         @error(error_message)
         return nothing
     end
@@ -77,22 +71,22 @@ function DiscontinuousSpectralElementGrid(Ω::ProductDomain; elements = nothing,
     end
 
     brickrange = Tuple(tuple_ranges)
+    if boundary==nothing
+        boundary = (ntuple(j -> (1, 2), dimension - 1)...,(3, 4),)
+    end
 
     topl = StackedBrickTopology(
                             mpicomm,
                             brickrange;
                             periodicity = periodicity,
-                            boundary = (
-                                ntuple(j -> (1, 2), dimension - 1)...,
-                                (3, 4),
-                            )
+                            boundary = boundary
     )
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
         FloatType = FT,
         DeviceArray = array,
-        polynomialorder = polynomialorder[1],
+        polynomialorder = polynomialorder,
     )
     return grid
 end

@@ -28,7 +28,7 @@ function launch_volume_divergence!(grid::G, flux_divergence, flux, N, nrealelem,
     workgroup = (N+1, N+1) # same size as shared memory tiles
     ndrange = ( (N+1) * nrealelem, N+1)
     comp_stream = dependencies
-
+    flux_divergence.realdata[:] .= 0 # necesary for now
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
@@ -67,7 +67,7 @@ end
 
     # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT (2, Nq, Nq) # shared memory on the gpu
-    s_D = @localmem FT (Nq, Nq)            # shared memory on the gpu
+    s_D = @localmem FT (Nq, Nq)            # shared memory on the gpu (can remove)
 
     # Storage for tendency and mass inverse M⁻¹, **perhaps in @uniform block**
     local_tendency = @private FT (Nqk,)   # thread private memory
@@ -341,7 +341,6 @@ fluxes, respectively.  interface_tendency!
         # needs to be modified by the faces?
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
-        # Oh dang, it's boundary conditions
         # No Flux BC and Central Fluxes for the interfaces allows the kernel
         # to be extensible
         # TODO: make it no flux on the boundary for now and add the flux later
@@ -360,7 +359,7 @@ fluxes, respectively.  interface_tendency!
         
         # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ ))
         flux_divergence[vid⁻, e⁻, 1] += vMI * sM * local_flux # Warning, need to think about this
-        #@show vid⁻ e⁻ id⁻ local_flux flux_divergence[vid⁻, e⁻, 1] vMI sM f
+        # @show vid⁻ e⁻ id⁻ local_flux flux_divergence[vid⁻, e⁻, 1] vMI sM f
         # Need to wait after even faces to avoid race conditions
         # Note: only need synchronization for F%2 == 0, but this crashed...
         @synchronize
