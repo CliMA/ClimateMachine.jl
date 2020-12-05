@@ -532,6 +532,7 @@ end
 # -- Moisture: No, it is probably not worth it since there's almost no moisture in the sponge
 # -- Energy  : Yes, we would like to fix the upper atmospheric temperature as an energy sink
 
+# works this way for gcm_relax
 LinearSponge(::Type{FT}, args...) where {FT} = (
     LinearSponge{Momentum, FT}(args...),
     LinearSponge{Energy, FT}(args...),
@@ -591,9 +592,9 @@ function source(
         #ZS: different sponge formulation?
         β_sponge = α_max .* sinpi(r / FT(2)) .^ γ
         #
-        ts = recover_thermo_state(atmos, state, aux)       
+        # ts = recover_thermo_state(atmos, state, aux)       
         cvm = cv_m(ts)                                  
-        T  = air_temperature(ts) 
+        T   = air_temperature(ts) 
         T_tendency  =  (T .-  aux.lsforcing.ta ) 
         return  -β_sponge * (cvm * state.ρ * T_tendency) 
     else
