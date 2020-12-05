@@ -4,12 +4,16 @@ using ...VariableTemplates
 using DocStringExtensions
 using ...Land:SoilModel
 
+include("SoilWaterParameterizations.jl")
+using .SoilWaterParameterizations
+
 export DrivenConstantPrecip,
     compute_surface_flux,
     NoRunoff,
     TopmodelRunoff,
     AbstractPrecipModel,
-    AbstractSurfaceRunoffModel
+    AbstractSurfaceRunoffModel,
+    CoarseGridRunoff
 
 
 """
@@ -59,7 +63,7 @@ function (dcp::DrivenConstantPrecip{FT})(t::Real) where {FT}
 end
 
 
-#just commenting out for now. possibly simpler to leave out until we are ready, as not needed by Maxwell cases.
+#just commenting out for now. possibly simpler to leave out until we are ready
 #"""
 #    AbstractEvapParameterization{FT <: AbstractFloat}
 #"""
@@ -114,10 +118,19 @@ function compute_surface_runoff(soil::SoilModel,
     return FT(0.0)
 end
 
+
+"""
+    CoarseGridRunoff <: AbstractSurfaceRunoffModel
+
+Chosen when no subgrid effects are to be modeled.
+"""
+struct CoarseGridRunoff <: AbstractSurfaceRunoffModel end
+
+
 """
     struct TopmodelRunoff :< AbstractSurfaceRunoffModel
 
-The necessary information for determining surface runoff using TOPMODEL assumptions.
+The TOPMODEL Runoff model for parameterizing subgrid variations in surface water content.
 
 # Fields
 $(DocStringExtensions.FIELDS)
@@ -159,7 +172,14 @@ end
 Compute infiltration capacity. Currently a stand-in.
 """
 function compute_ic(soil::SoilModel, state::Vars)
-    ic = soil.soil_param_functions.Ksat# * d_psi_d_sl(Sl=1) * (1 - Sl[2])/dz
+    hydraulics = soil.water.hydraulics
+    FT = eltype(state)
+    S = effective_saturation(
+        soil.soil_param_functions.porosity,
+        state.soil.water.ϑ_l,
+    )
+    #For vG, dPsi/dS at S = 1 diverges. so do approx differently 
+    ic = soil.soil_param_functions.Ksat#(FT(1)-matric_potential(hydraulics,S)/dz)
     return ic
 end
 """
@@ -233,27 +253,28 @@ function compute_Dunne_runoff(soil::SoilModel,
 end
 
 
-#function compute_Dunne_runoff(soil::SoilModel,
-#                              runoff_model::TopmodelRunoff{FT}(),
-#                              precip_dist::ConstantPrecip{FT},
-#                              #evaporation::ConstantEvap{FT},
-#                              state::Vars,
-#                              t::Real,
-#    ) where {FT}
-#    S_l = effective_saturation(
-#    soil.param_functions.porosity,
-#    state.soil.water.ϑ_l,
-#    )
-#    S_lsfc = state.soil.water.ϑ_l / soil.soil_param_functions.porosity
-#    mean_p = precip_dist.mp(t)
-#    mean_e = FT(0.0)#evaporation.me(t)
-#    if S_lsfc >= FT(1)
-#	dunne_runoff = mean_p - mean_e
-#    else#
-#	dunne_runoff = FT(0.0)
-#    end
-#    return dunne_runoff
-#end
+function compute_dunne_runoff(soil::SoilModel,
+                              runoff_model::CoarseGridRunoff,
+                              precip_model::DrivenConstantPrecip,
+                              aux::Vars,
+                              state::Vars,
+                              t::Real,
+                              )
+    FT = eltype(state)
+    effective_porosity = soil.param_functions.porosity - state.soil.water.θ_i
+    coarse_S_l = effective_saturation(
+        effective_porosity,
+        state.soil.water.ϑ_l,
+    )
+    
+    mean_p = compute_mean_p(precip_model,t)
+    if coarse_S_l >= FT(1)
+	dunne_runoff = mean_p
+    else
+	dunne_runoff = FT(0.0)
+    end
+    return dunne_runoff
+end
 
 """
   function compute_surface_runoff(runoff_model, precip_model, state)
@@ -261,28 +282,26 @@ end
 Compute surface runoff, accounting for precipitation, evaporation, according to TOPMODEL assumptions.
 """
 function compute_surface_runoff(soil::SoilModel,
-                                runoff_model::TopmodelRunoff{FT},
-                                precip_model::DrivenConstantPrecip{FT},
+                                runoff_model::CoarseGridRunoff,
+                                precip_model::DrivenConstantPrecip,
                                 aux::Vars,
                                 state::Vars,
                                 t::Real
-                               ) where {FT}
-   
-   #r_l_horton = compute_horton_runoff(soil, runoff_model, precip_model, aux, state, t)
+                               )
    r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, t)
-   return r_l_dunne#+r_l_horton
+   return r_l_dunne
 end
 
 function compute_surface_flux(soil::SoilModel,
                               runoff_model::AbstractSurfaceRunoffModel,
-                              precip_model::AbstractPrecipModel{FT},
+                              precip_model::AbstractPrecipModel,
                               aux::Vars,
                               state::Vars,
                               t::Real
-                              ) where {FT}
-    mean_p = precip_model.mp(t)
+                              )
+    mean_p = compute_mean_p(precip_model,t)
     net_runoff = compute_surface_runoff(soil, runoff_model, precip_model, aux, state, t)
-    net_flux = net_runoff - mean_p
+    net_flux = mean_p-net_runoff
     return net_flux
 end
 
