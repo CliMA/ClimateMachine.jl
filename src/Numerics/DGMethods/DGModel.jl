@@ -610,7 +610,7 @@ function indefinite_stack_integral!(
     dim = dimensionality(grid)
     N = polynomialorders(grid)
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[dim]
+    Nqk = dim == 2 ? 1 : Nq[2]
 
     FT = eltype(state_prognostic)
 
@@ -623,8 +623,7 @@ function indefinite_stack_integral!(
     event = kernel_indefinite_stack_integral!(device, (Nq[1], Nqk))(
         m,
         Val(dim),
-        # Only need the polynomial order in the vertical
-        Val(N[dim]),
+        Val(N),
         Val(nvertelem),
         state_prognostic.data,
         state_auxiliary.data,
@@ -655,7 +654,7 @@ function reverse_indefinite_stack_integral!(
     dim = dimensionality(grid)
     N = polynomialorders(grid)
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[dim]
+    Nqk = dim == 2 ? 1 : Nq[2]
 
     FT = eltype(state_auxiliary)
 
@@ -668,8 +667,7 @@ function reverse_indefinite_stack_integral!(
     event = kernel_reverse_indefinite_stack_integral!(device, (Nq[1], Nqk))(
         m,
         Val(dim),
-        # Only need the polynomial order in the vertical
-        Val(N[dim]),
+        Val(N),
         Val(nvertelem),
         state_prognostic.data,
         state_auxiliary.data,

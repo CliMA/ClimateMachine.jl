@@ -588,7 +588,7 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
     (vmapC, nabrtovmapC)
 end
 
-# {{{ compute geometry
+# Compute geometry
 function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     FT = eltype(D[1])
     dim = length(D)
@@ -604,6 +604,8 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     Nfp_N1 = div.(Np_N1, Nq_N1)
 
     # First we compute the geometry with all the N = 0 dimension set to N = 1
+    # so that we can later compute the geometry for the case N = 0, as the
+    # average of two N = 1 cases
     ξ1, ω1 = Elements.lglpoints(FT, 1)
     D1 = Elements.spectralderivative(ξ1)
     D_N1 = ntuple(j -> Nq[j] == 1 ? D1 : D[j], dim)
@@ -611,7 +613,6 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     ω_N1 = ntuple(j -> Nq[j] == 1 ? ω1 : ω[j], dim)
     (vgeo_N1, sgeo_N1, x_vtk) =
         computegeometry(elemtocoord, D_N1, ξ_N1, ω_N1, meshwarp)
-
 
     # Sort out the vgeo terms
     @views begin
@@ -882,9 +883,7 @@ function horizontal_metrics(vgeo, Nq, ω)
         error("dim $dim not implemented")
     end
 end
-# }}}
 
-# {{{ indefinite integral matrix
 """
     indefinite_integral_interpolation_matrix(r, ω)
 

@@ -167,14 +167,36 @@ function test_run(mpicomm, dim, Ne, N, FT, ArrayType)
     dg(dQdt, Q, nothing, 0.0)
 
     # Wrapping in Array ensure both GPU and CPU code use same approx
-    @test Array(dg.state_auxiliary.data[:, 1, :]) ≈
-          Array(dg.state_auxiliary.data[:, 8, :])
-    @test Array(dg.state_auxiliary.data[:, 2, :]) ≈
-          Array(dg.state_auxiliary.data[:, 9, :])
-    @test Array(dg.state_auxiliary.data[:, 3, :]) ≈
-          Array(dg.state_auxiliary.data[:, 10, :])
-    @test Array(dg.state_auxiliary.data[:, 4, :]) ≈
-          Array(dg.state_auxiliary.data[:, 11, :])
+    if N[end] > 0
+        # Forward integral a
+        @test Array(dg.state_auxiliary.data[:, 1, :]) ≈
+              Array(dg.state_auxiliary.data[:, 8, :])
+        # Forward integral b
+        @test Array(dg.state_auxiliary.data[:, 2, :]) ≈
+              Array(dg.state_auxiliary.data[:, 9, :])
+        # Reverse integral a
+        @test Array(dg.state_auxiliary.data[:, 3, :]) ≈
+              Array(dg.state_auxiliary.data[:, 10, :])
+        # Reverse integral b
+        @test Array(dg.state_auxiliary.data[:, 4, :]) ≈
+              Array(dg.state_auxiliary.data[:, 11, :])
+    else
+        Nq = N .+ 1
+        A = reshape(
+            Array(dg.state_auxiliary.data[:, 1, :]),
+            Nq[1],
+            dim == 2 ? 1 : Nq[2],
+            Nq[end],
+            prod(Ne),
+        )
+        A_avg = similar(A)
+        # First cell value is average of 0 and top face of cell
+        A_avg[:, :, 1, :] .= A[:, :, 1, :] / 2
+        # Remaining cells are average of the two faces
+        A_avg[:, :, 2:end, :] .=
+            (A[:, :, 1:(end - 1), :] + A[:, :, 2:end, :]) / 2
+        @test A_avg[:] ≈ Array(dg.state_auxiliary.data[:, 8, :])[:]
+    end
 end
 
 let
@@ -186,21 +208,21 @@ let
     numelem = (5, 5, 5)
     lvls = 1
 
-    polynomialorder = 4
-
-    for FT in (Float64,) #Float32)
-        for dim in 2:3
-            err = zeros(FT, lvls)
-            for l in 1:lvls
-                @info (ArrayType, FT, dim)
-                test_run(
-                    mpicomm,
-                    dim,
-                    ntuple(j -> 2^(l - 1) * numelem[j], dim),
-                    polynomialorder,
-                    FT,
-                    ArrayType,
-                )
+    for polynomialorder in ((4, 4), (4, 3))
+        for FT in (Float64,)
+            for dim in 2:3
+                err = zeros(FT, lvls)
+                for l in 1:lvls
+                    @info (ArrayType, FT, dim, polynomialorder)
+                    test_run(
+                        mpicomm,
+                        dim,
+                        ntuple(j -> 2^(l - 1) * numelem[j], dim),
+                        polynomialorder,
+                        FT,
+                        ArrayType,
+                    )
+                end
             end
         end
     end
