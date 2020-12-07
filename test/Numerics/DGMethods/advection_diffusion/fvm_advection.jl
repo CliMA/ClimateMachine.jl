@@ -4,7 +4,7 @@ import Dates
 import MPI
 
 import ClimateMachine
-import ClimateMachine.DGMethods.FVReconstructions: FVConstant
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 import ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
@@ -92,6 +92,7 @@ end
 function test_run(
     mpicomm,
     ArrayType,
+    fvmethod,
     dim,
     topl,
     N,
@@ -114,7 +115,7 @@ function test_run(
     dgfvm = DGFVModel(
         model,
         grid,
-        FVConstant(),
+        fvmethod,
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
@@ -214,22 +215,45 @@ let
     base_num_elem = 4
 
     expected_result = Dict()
-    expected_result[2, 1, Float64] = 3.1975803201004632e-01
-    expected_result[2, 2, Float64] = 1.8627674551822404e-01
-    expected_result[2, 3, Float64] = 1.0405818305399551e-01
-    expected_result[2, 4, Float64] = 5.5997036645317050e-02
-    expected_result[3, 1, Float64] = 2.7529128252186852e-01
-    expected_result[3, 2, Float64] = 1.6737691447662753e-01
-    expected_result[3, 3, Float64] = 9.6809054521915947e-02
-    expected_result[3, 4, Float64] = 5.3410417324053723e-02
-    expected_result[2, 1, Float32] = 3.1975793838500977e-01
-    expected_result[2, 2, Float32] = 1.8627668917179108e-01
-    expected_result[2, 3, Float32] = 1.0405827313661575e-01
-    expected_result[2, 4, Float32] = 5.5997163057327271e-02
-    expected_result[3, 1, Float32] = 2.7529123425483704e-01
-    expected_result[3, 2, Float32] = 1.6737693548202515e-01
-    expected_result[3, 3, Float32] = 9.6808202564716339e-02
-    expected_result[3, 4, Float32] = 5.3404398262500763e-02
+    expected_result[2, 1, Float64, FVConstant()] = 1.0404261715459338e-01
+    expected_result[2, 2, Float64, FVConstant()] = 5.5995868545685376e-02
+    expected_result[2, 3, Float64, FVConstant()] = 2.9383695610072275e-02
+    expected_result[2, 4, Float64, FVConstant()] = 1.5171779426843507e-02
+
+    expected_result[2, 1, Float64, FVLinear()] = 8.3196657944903635e-02
+    expected_result[2, 2, Float64, FVLinear()] = 3.9277132273521774e-02
+    expected_result[2, 3, Float64, FVLinear()] = 1.7155773433218020e-02
+    expected_result[2, 4, Float64, FVLinear()] = 7.6525022056819231e-03
+
+    expected_result[3, 1, Float64, FVConstant()] = 9.6785620234054362e-02
+    expected_result[3, 2, Float64, FVConstant()] = 5.3406412788842651e-02
+    expected_result[3, 3, Float64, FVConstant()] = 2.8471535157235807e-02
+    expected_result[3, 4, Float64, FVConstant()] = 1.4846239937398318e-02
+
+    expected_result[3, 1, Float64, FVLinear()] = 8.5860120005258181e-02
+    expected_result[3, 2, Float64, FVLinear()] = 4.2844889694123235e-02
+    expected_result[3, 3, Float64, FVLinear()] = 1.9302295207100174e-02
+    expected_result[3, 4, Float64, FVLinear()] = 8.6084633401356733e-03
+
+    expected_result[2, 1, Float32, FVConstant()] = 1.0404255986213684e-01
+    expected_result[2, 2, Float32, FVConstant()] = 5.5995877832174301e-02
+    expected_result[2, 3, Float32, FVConstant()] = 2.9383875429630280e-02
+    expected_result[2, 4, Float32, FVConstant()] = 1.5171864069998264e-02
+
+    expected_result[2, 1, Float32, FVLinear()] = 8.3196602761745453e-02
+    expected_result[2, 2, Float32, FVLinear()] = 3.9277125149965286e-02
+    expected_result[2, 3, Float32, FVLinear()] = 1.7155680805444717e-02
+    expected_result[2, 4, Float32, FVLinear()] = 7.6521718874573708e-03
+
+    expected_result[3, 1, Float32, FVConstant()] = 9.6785508096218109e-02
+    expected_result[3, 2, Float32, FVConstant()] = 5.3406376391649246e-02
+    expected_result[3, 3, Float32, FVConstant()] = 2.8471505269408226e-02
+    expected_result[3, 4, Float32, FVConstant()] = 1.4849635772407055e-02
+
+    expected_result[3, 1, Float32, FVLinear()] = 8.5860058665275574e-02
+    expected_result[3, 2, Float32, FVLinear()] = 4.2844854295253754e-02
+    expected_result[3, 3, Float32, FVLinear()] = 1.9302234053611755e-02
+    expected_result[3, 4, Float32, FVLinear()] = 8.6139924824237823e-03
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32)
@@ -239,68 +263,80 @@ let
                 4 : 1
             result = zeros(FT, numlevels)
             for dim in 2:3
-                polynomialorder = (ntuple(j -> 2, dim - 1)..., 0)
+                N = (ntuple(j -> 4, dim - 1)..., 0)
                 n =
                     dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :
                     SVector{3, FT}(1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))
                 α = FT(1)
-                for l in 1:numlevels
-                    Ne = 2^(l - 1) * base_num_elem
-                    brickrange = ntuple(
-                        j -> range(FT(-1); length = Ne + 1, stop = 1),
-                        dim,
-                    )
-                    periodicity = ntuple(j -> false, dim)
-                    bc = ntuple(j -> (1, 2), dim)
-                    topl = StackedBrickTopology(
-                        mpicomm,
-                        brickrange;
-                        periodicity = periodicity,
-                        boundary = bc,
-                    )
-                    dt = (α / 4) / (Ne * max(1, maximum(polynomialorder))^2)
-                    @info "time step" dt
 
-                    timeend = FT(1 // 4)
-                    outputtime = timeend
+                for fvmethod in (FVConstant(), FVLinear())
+                    @info @sprintf """Configuration
+                                      FT                = %s
+                                      ArrayType         = %s
+                                      FV Reconstruction = %s
+                                      dims              = %d
+                                      """ FT ArrayType fvmethod dim
+                    for l in 1:numlevels
+                        Ne = 2^(l - 1) * base_num_elem
+                        brickrange = (
+                            ntuple(
+                                j -> range(FT(-1); length = Ne + 1, stop = 1),
+                                dim - 1,
+                            )...,
+                            range(FT(-1); length = N[1] * Ne + 1, stop = 1),
+                        )
+                        periodicity = ntuple(j -> false, dim)
+                        bc = ntuple(j -> (1, 2), dim)
+                        topl = StackedBrickTopology(
+                            mpicomm,
+                            brickrange;
+                            periodicity = periodicity,
+                            boundary = bc,
+                        )
+                        dt = (α / 4) / (Ne * max(1, maximum(N))^2)
 
-                    dt = outputtime / ceil(Int64, outputtime / dt)
+                        timeend = FT(1 // 4)
+                        outputtime = timeend
 
-                    @info (ArrayType, FT, dim)
-                    vtkdir =
-                        output ?
-                        "vtk_advection" *
-                        "_poly$(polynomialorder)" *
-                        "_dim$(dim)_$(ArrayType)_$(FT)" *
-                        "_level$(l)" :
-                        nothing
-                    result[l] = test_run(
-                        mpicomm,
-                        ArrayType,
-                        dim,
-                        topl,
-                        polynomialorder,
-                        timeend,
-                        FT,
-                        dt,
-                        n,
-                        α,
-                        vtkdir,
-                        outputtime,
-                    )
-                    @test result[l] ≈ FT(expected_result[dim, l, FT])
-                    if l > 1
-                        rate = log2(result[l - 1]) - log2(result[l])
-                        @info @sprintf("rate for level %d = %e", l, rate)
+                        dt = outputtime / ceil(Int64, outputtime / dt)
+
+                        vtkdir =
+                            output ?
+                            "vtk_advection" *
+                            "_poly$(N)" *
+                            "_dim$(dim)_$(ArrayType)_$(FT)" *
+                            "_level$(l)" :
+                            nothing
+                        result[l] = test_run(
+                            mpicomm,
+                            ArrayType,
+                            fvmethod,
+                            dim,
+                            topl,
+                            N,
+                            timeend,
+                            FT,
+                            dt,
+                            n,
+                            α,
+                            vtkdir,
+                            outputtime,
+                        )
+                        @test result[l] ≈
+                              FT(expected_result[dim, l, FT, fvmethod])
                     end
-                end
-                @info begin
-                    msg = ""
-                    for l in 1:(numlevels - 1)
-                        rate = log2(result[l]) - log2(result[l + 1])
-                        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                    @info begin
+                        msg = ""
+                        for l in 1:(numlevels - 1)
+                            rate = log2(result[l]) - log2(result[l + 1])
+                            msg *= @sprintf(
+                                "\n  rate for level %d = %e\n",
+                                l,
+                                rate
+                            )
+                        end
+                        msg
                     end
-                    msg
                 end
             end
         end

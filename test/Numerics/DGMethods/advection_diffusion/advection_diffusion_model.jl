@@ -26,6 +26,7 @@ import ClimateMachine.BalanceLaws:
     transform_post_gradient_laplacian!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
+using ClimateMachine.DGMethods: SpaceDiscretization
 using ClimateMachine.DGMethods.NumericalFluxes:
     NumericalFluxFirstOrder,
     NumericalFluxSecondOrder,
@@ -343,14 +344,14 @@ end
 
 has_variable_coefficients(::AdvectionDiffusionProblem) = false
 function update_auxiliary_state!(
-    dg::DGFVModel,
+    spacedisc::SpaceDiscretization,
     m::AdvectionDiffusion,
     Q::MPIStateArray,
     t::Real,
     elems::UnitRange,
 )
     if has_variable_coefficients(m.problem)
-        update_auxiliary_state!(dg, m, Q, t, elems) do m, state, aux, t
+        update_auxiliary_state!(spacedisc, m, Q, t, elems) do m, state, aux, t
             update_velocity_diffusion!(m.problem, m, state, aux, t)
         end
         return true
