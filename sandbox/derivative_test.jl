@@ -95,6 +95,7 @@ event = launch_interface_divergence!(grid, s_flux_divergence, flux, N, dim, devi
 wait(event)
 
 tol = eps(1e5) 
+L∞(x) = maximum(abs.(x))
 # The divergence operation is : -v_flux_divergence + s_flux_divergence (note the sign convention)  
 @testset "Incompressible Flow Field" begin
     computed_divergence = -v_flux_divergence + s_flux_divergence
