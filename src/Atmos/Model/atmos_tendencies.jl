@@ -96,7 +96,7 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Momentum} =
 
 # Energy
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Energy} =
-    (ViscousProduction{PV}(), EnthalpyProduction{PV}())
+    (ViscousFlux{PV}(), DiffEnthalpyFlux{PV}())
 
 # Moisture
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} = ()
