@@ -918,7 +918,7 @@ function indefinite_integral_interpolation_matrix(r, ω)
 
     I∫ = similar(r, Nq, Nq)
     # first value is zero
-    I∫[1, :] .= 0
+    I∫[1, :] .= Nq == 1 ? ω[1] : 0
 
     # barycentric weights for interpolation
     wbary = Elements.baryweights(r)
