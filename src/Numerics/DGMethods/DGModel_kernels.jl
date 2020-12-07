@@ -835,18 +835,34 @@ fluxes, respectively.
             )
         else
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Loop up the first element along all horizontal elements
-                @unroll for s in 1:num_state_prognostic
-                    local_state_prognostic_bottom1[s] =
-                        state_prognostic[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_gradient_flux
-                    local_state_gradient_flux_bottom1[s] =
-                        state_gradient_flux[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n + Nqk^2, s, e⁻]
+                if info.N[end] == 0
+                    # Loop up to next element for all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n, s, e⁻ + 1]
+                    end
+                    @unroll for s in 1:num_state_gradient_flux
+                        local_state_gradient_flux_bottom1[s] =
+                            state_gradient_flux[n, s, e⁻ + 1]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n, s, e⁻ + 1]
+                    end
+                else
+                    # Loop up the first element along all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n + Nqk^2, s, e⁻]
+                    end
+                    @unroll for s in 1:num_state_gradient_flux
+                        local_state_gradient_flux_bottom1[s] =
+                            state_gradient_flux[n + Nqk^2, s, e⁻]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n + Nqk^2, s, e⁻]
+                    end
                 end
             end
 
@@ -1629,14 +1645,26 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             # NOTE: Used for boundary conditions related to the energy
             # variables (see `BulkFormulaEnergy`)
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Loop up the first element along all horizontal elements
-                @unroll for s in 1:num_state_prognostic
-                    local_state_prognostic_bottom1[s] =
-                        state_prognostic[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n + Nqk^2, s, e⁻]
+                if info.N[end] == 0
+                    # Loop up to next element for all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n, s, e⁻ + 1]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n, s, e⁻ + 1]
+                    end
+                else
+                    # Loop up the first element along all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n + Nqk^2, s, e⁻]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n + Nqk^2, s, e⁻]
+                    end
                 end
             end
             bcs = boundary_conditions(balance_law)
