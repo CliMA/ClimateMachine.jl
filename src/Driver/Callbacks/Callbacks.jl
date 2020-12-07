@@ -11,6 +11,7 @@ using Statistics
 using CLIMAParameters
 using CLIMAParameters.Planet: day
 
+using ..ClimateMachine
 using ..BalanceLaws
 using ..Courant
 using ..Checkpoint
@@ -18,7 +19,7 @@ using ..DGMethods
 using ..BalanceLaws: vars_state, Prognostic, Auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
-using ..Mesh.Grids: HorizontalDirection, VerticalDirection
+using ..Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
@@ -334,6 +335,32 @@ function monitor_courant_numbers(mcn_opt, solver_config)
         nothing
     end
     return cb_cfl
+end
+
+function adapt_timestep(adp_opt, solver_config)
+    cb_constr = CB_constructor(adp_opt, solver_config)
+    cb_constr === nothing && return nothing
+    cb_adp = cb_constr() do
+        dt = solver_config.solver.dt
+        dg = solver_config.dg
+        bl = dg.balance_law
+        Q = solver_config.Q
+        t0 = solver_config.t0
+        ode_solver_type = solver_config.ode_solver_type
+        dtmodel = getdtmodel(ode_solver_type, bl)
+        ndt = ClimateMachine.DGMethods.calculate_dt(
+            dg,
+            dtmodel,
+            Q,
+            solver_config.CFL,
+            t0,
+            solver_config.diffdir,
+        )
+        @info @sprintf("""Updating time step: %8.16f => %8.16f""", dt, ndt)
+        updatedt!(solver_config.solver, ndt)
+        nothing
+    end
+    return cb_adp
 end
 
 """

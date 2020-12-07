@@ -4,7 +4,7 @@
 CurrentModule = ClimateMachine
 ```
 
-## Solver types
+## Solver types and functions
 
 ```@docs
 HEVISplitting
@@ -17,6 +17,7 @@ ImplicitSolverType
 SplitExplicitSolverType
 ConfigTypes
 IMEXSolverType
+getdtmodel
 ```
 
 ## Configurations
