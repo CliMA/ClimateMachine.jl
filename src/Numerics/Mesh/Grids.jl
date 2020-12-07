@@ -634,7 +634,7 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
         # coordinates should just be averages
         avg_den = 2 .^ sum(Nq .== 1)
-        for fld in (_x1, _x2, _x3)
+        for fld in (_x1, _x2, _x3, _JcV)
             vgeo[:, fld, :] =
                 sum(vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] / avg_den
             num_vgeo_handled += 1
@@ -654,8 +654,8 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
         end
 
         # compute MH and JvC
-        horizontal_vertical_metrics(vgeo, Nq, ω)
-        num_vgeo_handled += 2
+        horizontal_metrics(vgeo, Nq, ω)
+        num_vgeo_handled += 1
 
         # Make sure we handled all the vgeo terms
         @assert _nvgeo == num_vgeo_handled
@@ -779,13 +779,13 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     # Compute the metric terms
     p = reshape(1:Np, Nq)
     if dim == 1
-        Metrics.computemetric!(x1, J, ξ1x1, sJ, n1, D...)
+        Metrics.computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D...)
         fmask = (p[1:1], p[Nq[1]:Nq[1]])
     elseif dim == 2
         Metrics.computemetric!(
             #! format: off
             x1, x2,
-            J,
+            J, JcV,
             ξ1x1, ξ2x1, ξ1x2, ξ2x2,
             sJ,
             n1, n2,
@@ -797,7 +797,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
         Metrics.computemetric!(
             #! format: off
             x1, x2, x3,
-            J,
+            J, JcV,
             ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3, ξ2x3, ξ3x3,
             sJ,
             n1, n2, n3,
@@ -839,7 +839,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     sMJ .= sM .* sJ
 
     # compute MH and JvC
-    horizontal_vertical_metrics(vgeo, Nq, ω)
+    horizontal_metrics(vgeo, Nq, ω)
 
     # This is mainly done to support FVM plotting when N=0 (since we need cell
     # edge values)
@@ -848,7 +848,7 @@ function computegeometry(elemtocoord, D, ξ, ω, meshwarp)
     (vgeo, sgeo, x_vtk)
 end
 
-function horizontal_vertical_metrics(vgeo, Nq, ω)
+function horizontal_metrics(vgeo, Nq, ω)
     dim = length(Nq)
 
     MH = dim == 1 ? 1 : kron(ones(1, Nq[dim]), reverse(ω[1:(dim - 1)])...)[:]
@@ -867,30 +867,13 @@ function horizontal_vertical_metrics(vgeo, Nq, ω)
     # Compute |r'(ξ3)| for vertical line integrals
     if dim == 1
         MHJH .= 1
-        JcV .= J
     elseif dim == 2
-        map!(JcV, J, ξ1x1, ξ1x2) do J, ξ1x1, ξ1x2
-            x1ξ1 = J * ξ1x2
-            x2ξ2 = J * ξ1x1
-            hypot(x1ξ1, x2ξ2)
-        end
         map!(MHJH, J, ξ2x1, ξ2x2) do J, ξ2x1, ξ2x2
             hypot(J * ξ2x1, J * ξ2x2)
         end
         MHJH .= MH .* MHJH
 
     elseif dim == 3
-        map!(
-            #! format: off
-            JcV, J,
-            ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3,
-            #! format: on
-        ) do J, ξ1x1, ξ1x2, ξ1x3, ξ2x1, ξ2x2, ξ2x3
-            x1ξ3 = J * (ξ1x2 * ξ2x3 - ξ2x2 * ξ1x3)
-            x2ξ3 = J * (ξ1x3 * ξ2x1 - ξ2x3 * ξ1x1)
-            x3ξ3 = J * (ξ1x1 * ξ2x2 - ξ2x1 * ξ1x2)
-            hypot(x1ξ3, x2ξ3, x3ξ3)
-        end
         map!(MHJH, J, ξ3x1, ξ3x2, ξ3x3) do J, ξ3x1, ξ3x2, ξ3x3
             hypot(J * ξ3x1, J * ξ3x2, J * ξ3x3)
         end
