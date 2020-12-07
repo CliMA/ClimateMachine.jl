@@ -6,6 +6,7 @@ export NumericalFluxGradient,
     RusanovNumericalFlux,
     RoeNumericalFlux,
     HLLCNumericalFlux,
+    LMARSNumericalFlux,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -340,6 +341,15 @@ Requires a custom implementation for the balance law.
  - [Toro2013](@cite)
 """
 struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
+
+"""
+    LMARSNumericalFlux() <: NumericalFluxFirstOrder
+A Low-Mach number Approximate Riemann Solver for first-order fluxes.
+
+- [Chen2013](@cite)
+
+"""
+struct LMARSNumericalFlux <: NumericalFluxFirstOrder end
 
 """
     NumericalFluxSecondOrder
