@@ -59,8 +59,9 @@ function update_auxiliary_state!(
     return true
 end
 
-vars_state(::IntegralTestSphereModel, ::UpwardIntegrals, T) = @vars(v::T)
-vars_state(::IntegralTestSphereModel, ::DownwardIntegrals, T) = @vars(v::T)
+vars_state(::IntegralTestSphereModel, ::UpwardIntegrals, T) = @vars(v::T, r::T)
+vars_state(::IntegralTestSphereModel, ::DownwardIntegrals, T) =
+    @vars(v::T, r::T)
 vars_state(m::IntegralTestSphereModel, ::Auxiliary, T) = @vars(
     int::vars_state(m, UpwardIntegrals(), T),
     rev_int::vars_state(m, UpwardIntegrals(), T),
@@ -93,7 +94,9 @@ function nodal_init_state_auxiliary!(
     # Exact integral
     aux.a = 1 + cos(ϕ)^2 * sin(θ)^2 + sin(ϕ)^2
     aux.int.v = exp(-aux.a * aux.r^2) - exp(-aux.a * m.Rinner^2)
+    aux.int.r = aux.r - m.Rinner
     aux.rev_int.v = exp(-aux.a * m.Router^2) - exp(-aux.a * aux.r^2)
+    aux.rev_int.r = m.Router - aux.r
 end
 
 @inline function integral_load_auxiliary_state!(
@@ -103,6 +106,7 @@ end
     aux::Vars,
 )
     integrand.v = -2 * aux.r * aux.a * exp(-aux.a * aux.r^2)
+    integrand.r = 1
 end
 
 @inline function integral_set_auxiliary_state!(
@@ -111,6 +115,7 @@ end
     integral::Vars,
 )
     aux.int.v = integral.v
+    aux.int.r = integral.r
 end
 
 @inline function reverse_integral_load_auxiliary_state!(
@@ -120,6 +125,7 @@ end
     aux::Vars,
 )
     integral.v = aux.int.v
+    integral.r = aux.int.r
 end
 
 @inline function reverse_integral_set_auxiliary_state!(
@@ -128,6 +134,7 @@ end
     integral::Vars,
 )
     aux.rev_int.v = integral.v
+    aux.rev_int.r = integral.r
 end
 
 if !@isdefined integration_testing
@@ -159,6 +166,16 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
 
     exact_aux = copy(dg.state_auxiliary)
     dg(dQdt, Q, nothing, 0.0)
+    (int_r_ind, rev_int_r_ind) = varsindices(
+        vars_state(dg.balance_law, Auxiliary(), FT),
+        ("int.r", "rev_int.r"),
+    )
+
+    # We should be exact for the integral of ∫_{R_{inner}}^{r} 1
+    @test exact_aux[:, int_r_ind, :] ≈ dg.state_auxiliary[:, int_r_ind, :]
+    @test exact_aux[:, rev_int_r_ind, :] ≈
+          dg.state_auxiliary[:, rev_int_r_ind, :]
+
     euclidean_distance(exact_aux, dg.state_auxiliary)
 end
 
@@ -168,50 +185,55 @@ let
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
-
     base_Nhorz = 4
     base_Nvert = 2
     Rinner = 1 // 2
     Router = 1
 
-    polynomialorder = 4
-
-    expected_result = [
+    expected_result = Dict()
+    expected_result[1] = [
+        1.5934735012225074e-02
+        4.0030667455285352e-03
+        1.0020652111566574e-03
+        2.5059856392475887e-04
+    ]
+    expected_result[4] = [
         4.662884229467401e-7,
         7.218989778540723e-9,
         1.1258613174916711e-10,
         1.7587739986848968e-12,
     ]
-    lvls = integration_testing ? length(expected_result) : 1
+    lvls = integration_testing ? length(expected_result[4]) : 1
 
-    for FT in (Float64,) # Float32)
-        err = zeros(FT, lvls)
-        for l in 1:lvls
-            @info (ArrayType, FT, "sphere", l)
-            Nhorz = 2^(l - 1) * base_Nhorz
-            Nvert = 2^(l - 1) * base_Nvert
-            Rrange = grid1d(FT(Rinner), FT(Router); nelem = Nvert)
-            topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
-            err[l] = test_run(
-                mpicomm,
-                topl,
-                ArrayType,
-                polynomialorder,
-                FT,
-                FT(Rinner),
-                FT(Router),
-            )
-            @test expected_result[l] ≈ err[l] rtol = 1e-3 atol = eps(FT)
-        end
-        if integration_testing
-            @info begin
-                msg = ""
-                for l in 1:(lvls - 1)
-                    rate = log2(err[l]) - log2(err[l + 1])
-                    msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+    for N in (1, 4)
+        for FT in (Float64,) # Float32)
+            err = zeros(FT, lvls)
+            for l in 1:lvls
+                @info (ArrayType, FT, "sphere", N, l)
+                Nhorz = 2^(l - 1) * base_Nhorz
+                Nvert = 2^(l - 1) * base_Nvert
+                Rrange = grid1d(FT(Rinner), FT(Router); nelem = Nvert)
+                topl = StackedCubedSphereTopology(mpicomm, Nhorz, Rrange)
+                err[l] = test_run(
+                    mpicomm,
+                    topl,
+                    ArrayType,
+                    N,
+                    FT,
+                    FT(Rinner),
+                    FT(Router),
+                )
+                @test expected_result[N][l] ≈ err[l] rtol = 1e-3 atol = eps(FT)
+            end
+            if integration_testing
+                @info begin
+                    msg = "polynomialorder order $N"
+                    for l in 1:(lvls - 1)
+                        rate = log2(err[l]) - log2(err[l + 1])
+                        msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
+                    end
+                    msg
                 end
-                msg
             end
         end
     end
