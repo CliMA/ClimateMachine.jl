@@ -318,6 +318,15 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
     end
 end
 
+function vars_state(m::AtmosModel, st::Primitive, FT)
+    @vars begin
+        ρ::FT
+        u::SVector{3, FT}
+        p::FT
+        moisture::vars_state(m.moisture, st, FT)
+    end
+end
+
 """
     vars_state(m::AtmosModel, ::Gradient, FT)
 
@@ -463,6 +472,7 @@ include("lsforcing.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
+include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables

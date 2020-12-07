@@ -38,6 +38,7 @@ source
 ```@docs
 AbstractStateType
 Prognostic
+Primitive
 Auxiliary
 Gradient
 GradientFlux

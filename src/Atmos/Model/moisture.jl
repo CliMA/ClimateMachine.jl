@@ -104,6 +104,7 @@ EquilMoist{FT}(;
 
 
 vars_state(::EquilMoist, ::Prognostic, FT) = @vars(ρq_tot::FT)
+vars_state(::EquilMoist, ::Primitive, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::Gradient, FT) = @vars(q_tot::FT)
 vars_state(::EquilMoist, ::GradientFlux, FT) = @vars(∇q_tot::SVector{3, FT})
 vars_state(::EquilMoist, ::Auxiliary, FT) =
@@ -207,6 +208,8 @@ struct NonEquilMoist <: MoistureModel end
 
 vars_state(::NonEquilMoist, ::Prognostic, FT) =
     @vars(ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
+vars_state(::NonEquilMoist, ::Primitive, FT) =
+    @vars(q_tot::FT, q_liq::FT, q_ice::FT)
 vars_state(::NonEquilMoist, ::Gradient, FT) =
     @vars(q_tot::FT, q_liq::FT, q_ice::FT)
 vars_state(::NonEquilMoist, ::GradientFlux, FT) = @vars(
