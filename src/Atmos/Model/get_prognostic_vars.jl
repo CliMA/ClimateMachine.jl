@@ -19,4 +19,5 @@ prognostic_vars(m::AtmosModel) = (
     prognostic_vars(m.moisture)...,
     prognostic_vars(m.precipitation)...,
     prognostic_vars(m.tracers)...,
+    prognostic_vars(m.turbconv)...,
 )
