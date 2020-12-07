@@ -90,6 +90,7 @@ function atmos_source!(
 )
     # Migrated to Σsources
 end
+atmos_source!(::EnergySponge, args...) = nothing
 
 function atmos_source!(
     ::CreateClouds,
