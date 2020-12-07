@@ -78,8 +78,6 @@ struct DriverConfiguration{FT}
         numerical_flux_gradient::NumericalFluxGradient,
         config_info::ConfigSpecificInfo,
     )
-        # FIXME: Once variable degree kernels are merged, remove this assert
-        @assert polyorders[1] == polyorders[2]
         return new{FT}(
             config_type,
             name,

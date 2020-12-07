@@ -247,8 +247,26 @@ for the returned quantities.
 - `aux` = Array of auxiliary variables
 - `t` = time
 """
-turbulence_tensors(m::TurbulenceClosureModel, bl::BalanceLaw, args...) =
-    turbulence_tensors(m, bl.orientation, bl.param_set, args...)
+function turbulence_tensors(
+    m::TurbulenceClosureModel,
+    bl::BalanceLaw,
+    state,
+    diffusive,
+    aux,
+    t,
+)
+    ν, D_t, τ = turbulence_tensors(
+        m,
+        bl.orientation,
+        bl.param_set,
+        state,
+        diffusive,
+        aux,
+        t,
+    )
+    ν, D_t, τ = sponge_viscosity_modifier(bl, bl.viscoussponge, ν, D_t, τ, aux)
+    return (ν, D_t, τ)
+end
 
 # We also provide generic math functions for use within the turbulence closures,
 # commonly used quantities such as the [principal tensor invariants](@ref tensor-invariants), handling of

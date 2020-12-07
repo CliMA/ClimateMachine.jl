@@ -112,7 +112,7 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC} <:
+struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
        BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
@@ -140,6 +140,8 @@ struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC} <:
     source::S
     "Tracer Terms (Equations for dynamics of active and passive tracers)"
     tracers::TR
+    "Large-scale forcing (Forcing information from GCMs, reanalyses, or observations)"
+    lsforcing::LF
     "Data Configuration (Helper field for experiment configuration)"
     data_config::DC
 end
@@ -171,8 +173,26 @@ function AtmosModel{FT}(
         turbconv_sources(turbconv)...,
     ),
     tracers::TR = NoTracers(),
+    lsforcing::LF = NoLSForcing(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+) where {
+    FT <: AbstractFloat,
+    ISP,
+    PR,
+    O,
+    RS,
+    T,
+    TC,
+    HD,
+    VS,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    LF,
+    DC,
+}
 
     @assert !any(isa.(source, Tuple))
 
@@ -190,6 +210,7 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
+        lsforcing,
         data_config,
     )
 
@@ -218,8 +239,26 @@ function AtmosModel{FT}(
     radiation::R = NoRadiation(),
     source::S = (Gravity(), Coriolis(), turbconv_sources(turbconv)...),
     tracers::TR = NoTracers(),
+    lsforcing::LF = NoLSForcing(),
     data_config::DC = nothing,
-) where {FT <: AbstractFloat, ISP, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, DC}
+) where {
+    FT <: AbstractFloat,
+    ISP,
+    PR,
+    O,
+    RS,
+    T,
+    TC,
+    HD,
+    VS,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    LF,
+    DC,
+}
 
     @assert !any(isa.(source, Tuple))
 
@@ -237,6 +276,7 @@ function AtmosModel{FT}(
         radiation,
         source,
         tracers,
+        lsforcing,
         data_config,
     )
 
@@ -267,6 +307,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
+        lsforcing::vars_state(m.lsforcing, st, FT)
     end
 end
 
@@ -283,6 +324,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        lsforcing::vars_state(m.lsforcing, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
@@ -300,6 +342,7 @@ function vars_state(m::AtmosModel, st::GradientFlux, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
+        lsforcing::vars_state(m.lsforcing, st, FT)
         precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
     end
@@ -348,6 +391,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         precipitation::vars_state(m.precipitation, st, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
+        lsforcing::vars_state(m.lsforcing, st, FT)
     end
 end
 
@@ -408,6 +452,7 @@ include("thermo_states.jl")
 include("radiation.jl")
 include("source.jl")
 include("tracers.jl")
+include("lsforcing.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
@@ -474,6 +519,7 @@ function compute_gradient_argument!(
         t,
     )
     compute_gradient_argument!(atmos.tracers, transform, state, aux, t)
+    compute_gradient_argument!(atmos.lsforcing, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbconv, atmos, transform, state, aux, t)
 end
 
@@ -499,6 +545,14 @@ function compute_gradient_flux!(
     )
     # diffusivity of moisture components
     compute_gradient_flux!(atmos.moisture, diffusive, ∇transform, state, aux, t)
+    compute_gradient_flux!(
+        atmos.lsforcing,
+        diffusive,
+        ∇transform,
+        state,
+        aux,
+        t,
+    )
     compute_gradient_flux!(
         atmos.precipitation,
         diffusive,
@@ -570,8 +624,6 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...)
 
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
-    ν, D_t, τ =
-        sponge_viscosity_modifier(atmos, atmos.viscoussponge, ν, D_t, τ, aux)
 
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
     flux_second_order!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)

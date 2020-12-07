@@ -91,9 +91,9 @@ function mixing_length(
     w_up = vuntuple(i -> up[i].ρaw / up[i].ρa, N_up)
     b = sum(
         ntuple(N_up) do i
-            Δ[i]/gm.ρ / env.a *
+            Δ[i] / gm.ρ / env.a *
             ((w_up[i] - env.w) * (w_up[i] - env.w) / 2 - tke_en) -
-             (w_up[i] - env.w) * Et[i]/gm.ρ * env.w / env.a
+            (w_up[i] - env.w) * Et[i] / gm.ρ * env.w / env.a
         end,
     )
 

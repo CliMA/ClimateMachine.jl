@@ -20,10 +20,10 @@ const TD = Thermodynamics
     RH = 0.5
     (nelem_vert, N_poly) = (20, 4)
     solver_config = get_atmos_ref_states(nelem_vert, N_poly, RH)
-    all_data = dict_of_nodal_states(solver_config, (Auxiliary(),))
-    T = all_data["ref_state.T"]
-    p = all_data["ref_state.p"]
-    ρ = all_data["ref_state.ρ"]
+    dons_arr = dict_of_nodal_states(solver_config, (Auxiliary(),))
+    T = dons_arr["ref_state.T"]
+    p = dons_arr["ref_state.p"]
+    ρ = dons_arr["ref_state.ρ"]
 
     @load "$data_file" T_ref p_ref ρ_ref
     @test all(T .≈ T_ref)
@@ -37,12 +37,12 @@ end
     # Fails on (80, 1)
     for (nelem_vert, N_poly) in [(40, 2), (20, 4)]
         solver_config = get_atmos_ref_states(nelem_vert, N_poly, RH)
-        all_data = dict_of_nodal_states(solver_config)
+        dons_arr = dict_of_nodal_states(solver_config)
         phase_type = PhaseEquil
-        T = all_data["ref_state.T"]
-        p = all_data["ref_state.p"]
-        ρ = all_data["ref_state.ρ"]
-        q_tot = all_data["ref_state.ρq_tot"] ./ ρ
+        T = dons_arr["ref_state.T"]
+        p = dons_arr["ref_state.p"]
+        ρ = dons_arr["ref_state.ρ"]
+        q_tot = dons_arr["ref_state.ρq_tot"] ./ ρ
         q_pt = PhasePartition.(q_tot)
 
         # TODO: test that ρ and p are in discrete hydrostatic balance

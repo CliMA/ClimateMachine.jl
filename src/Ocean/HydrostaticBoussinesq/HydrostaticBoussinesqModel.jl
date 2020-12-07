@@ -715,12 +715,12 @@ function update_auxiliary_state_gradient!(
     number_aux = number_states(m, Auxiliary())
     index_wz0 = varsindex(vars_state(m, Auxiliary(), FT), :wz0)
     info = basic_grid_info(dg)
-    Nq, Nqk = info.Nq, info.Nqk
+    Nqh, Nqk = info.Nqh, info.Nqk
     nelemv, nelemh = info.nvertelem, info.nhorzelem
     nrealelemh = info.nhorzrealelem
 
     # project w(z=0) down the stack
-    data = reshape(A.data, Nq^2, Nqk, number_aux, nelemv, nelemh)
+    data = reshape(A.data, Nqh, Nqk, number_aux, nelemv, nelemh)
     flat_wz0 = @view data[:, end:end, index_w, end:end, 1:nrealelemh]
     boxy_wz0 = @view data[:, :, index_wz0, :, 1:nrealelemh]
     boxy_wz0 .= flat_wz0

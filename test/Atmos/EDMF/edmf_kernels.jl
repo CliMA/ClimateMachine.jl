@@ -404,17 +404,17 @@ function atmos_source!(
         )
 
         # entrainment and detrainment
-        up_src[i].ρa += (E_dyn[i] - Δ_dyn[i])
+        up_src[i].ρa += E_dyn[i] - Δ_dyn[i]
         up_src[i].ρaw +=
             ((E_dyn[i] + E_trb[i]) * env.w - (Δ_dyn[i] + E_trb[i]) * w_up_i)
-        up_src[i].ρaθ_liq +=
-                ((E_dyn[i] + E_trb[i]) * θ_liq_en -
-                 (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
-                )
-        up_src[i].ρaq_tot +=
-                ((E_dyn[i] + E_trb[i]) * q_tot_en -
-                 (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
-                )
+        up_src[i].ρaθ_liq += (
+            (E_dyn[i] + E_trb[i]) * θ_liq_en -
+            (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
+        )
+        up_src[i].ρaq_tot += (
+            (E_dyn[i] + E_trb[i]) * q_tot_en -
+            (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
+        )
 
         # add buoyancy and perturbation pressure in subdomain w equation
         up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz)
@@ -424,13 +424,9 @@ function atmos_source!(
         # environment second moments:
         ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
         en_src.ρatke += (
-            Δ_dyn[i] *
-            (w_up_i - env.w) *
-            (w_up_i - env.w) *
-            FT(0.5) +
-            E_trb[i] *
-            (env.w - gm.ρu[3] * ρ_inv) *
-            (env.w - w_up_i) - (E_dyn[i] + E_trb[i]) * tke_en
+            Δ_dyn[i] * (w_up_i - env.w) * (w_up_i - env.w) * FT(0.5) +
+            E_trb[i] * (env.w - gm.ρu[3] * ρ_inv) * (env.w - w_up_i) -
+            (E_dyn[i] + E_trb[i]) * tke_en
         )
 
         en_src.ρaθ_liq_cv += (

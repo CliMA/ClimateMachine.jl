@@ -85,18 +85,9 @@ function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
         estimated_remaining,
         normQ,
     )
-    if isnan(normQ)
-        vs = vars(Q)
-        nan_fields = []
-        for ftc in flattened_tup_chain(vs)
-            i_var = varsindex(vs, ftc...)
-            if isnan(norm(Q[:, :, i_var]))
-                push!(nan_fields, join(string.(ftc), "."))
-            end
-        end
-        if !isempty(nan_fields)
-            error("Fields $(join(nan_fields, ", ", "and ")) have NaNs")
-        end
+    if !isfinite(normQ)
+        show_not_finite_fields(Q)
+        error("norm(Q) is not finite")
     end
     return nothing
 end

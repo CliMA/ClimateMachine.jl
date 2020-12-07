@@ -234,17 +234,10 @@ function BatchedGeneralizedMinimalResidual(
     grid = dg.grid
     topology = grid.topology
     dim = dimensionality(grid)
-
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    # Number of Gauss-Lobatto quadrature points in 1D
-    Nq = N + 1
 
-    # Assumes same number of quadrature points in all spatial directions
-    Np = Tuple([Nq for i in 1:dim])
+    # Number of Gauss-Lobatto quadrature points in each direction
+    Nq = N .+ 1
 
     # Number of states and elements (in vertical and horizontal directions)
     num_states = size(Q)[2]
@@ -271,20 +264,21 @@ function BatchedGeneralizedMinimalResidual(
     # A single 1-D column has `Nq * nvertelem * num_states`
     # degrees of freedom.
     #
-    # nql = length(Np)
+    # nql = length(Nq)
     # indices:      (1...nql, nql + 1 , nql + 2, nql + 3)
 
     # for 3d case, this is [ni, nj, nk, num_states, nvertelem, nhorzelem]
     # here ni, nj, nk are number of Gauss quadrature points in each element in x-y-z directions
     # Q = reshape(Q, reshaping_tup), leads to the column-wise fashion Q
-    reshaping_tup = (Np..., num_states, nvertelem, nhorzelem)
+    reshaping_tup = (Nq..., num_states, nvertelem, nhorzelem)
 
-    if independent_states
-        m = Nq * nvertelem
-        n = (Nq^(dim - 1)) * nhorzelem * num_states
+    @inbounds if independent_states
+        # Assumes same polynomial order in all horizontal directions
+        m = Nq[1] * nvertelem
+        n = (Nq[1]^(dim - 1)) * nhorzelem * num_states
     else
-        m = Nq * nvertelem * num_states
-        n = (Nq^(dim - 1)) * nhorzelem
+        m = Nq[1] * nvertelem * num_states
+        n = (Nq[1]^(dim - 1)) * nhorzelem
     end
 
     if max_subspace_size === nothing

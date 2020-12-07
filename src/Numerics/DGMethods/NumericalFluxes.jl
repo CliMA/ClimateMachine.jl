@@ -441,7 +441,7 @@ function numerical_flux_divergence!(
     grad⁺::Grad{GL},
 ) where {GL}
     parent(div_penalty) .=
-        (parent(grad⁺) .- parent(grad⁻))' * (normal_vector / 2)
+        (parent(grad⁺) .+ parent(grad⁻))' * (normal_vector / 2)
 end
 
 function numerical_boundary_flux_divergence!(
@@ -487,7 +487,7 @@ function numerical_flux_higher_order!(
     state_auxiliary⁺::Vars{A},
     t,
 ) where {HD, GL, S, A}
-    G = normal_vector .* (parent(lap⁻) .+ parent(lap⁺))' ./ 2
+    G = normal_vector .* (parent(lap⁺) .- parent(lap⁻))' ./ 2
     transform_post_gradient_laplacian!(
         balance_law,
         hyperdiff,

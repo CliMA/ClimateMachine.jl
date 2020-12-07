@@ -142,35 +142,35 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
 
 
-        FT = eltype(state)
-        # this ρu[3]=0 is only for single_stack
+        # FT = eltype(state)
+        # # this ρu[3]=0 is only for single_stack
         # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-        up = state.turbconv.updraft
-        en = state.turbconv.environment
-        N_up = n_updrafts(bl.turbconv)
-        ρ_gm = state.ρ
-        ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-        ρa_max = ρ_gm-ρa_min
-        ts = recover_thermo_state(bl, state, aux)
-        θ_liq_gm    = liquid_ice_pottemp(ts)
-        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-        ρa_en       = ρ_gm - ρa_ups
-        ρaw_en      = - ρaw_ups
-        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # if !(θ_liq_en > FT(0))
-        w_en        = ρaw_en / ρa_en
-        @unroll_map(N_up) do i
-            up[i].ρa = ρa_min
-            up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-            up[i].ρaw     = FT(0)
-        end
-        en.ρatke = max(en.ρatke,FT(0))
-        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
-        # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
-        # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
-        validate_variables(bl, state, aux, "custom_filter!")
+        # up = state.turbconv.updraft
+        # en = state.turbconv.environment
+        # N_up = n_updrafts(bl.turbconv)
+        # ρ_gm = state.ρ
+        # ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+        # ρa_max = ρ_gm-ρa_min
+        # ts = recover_thermo_state(bl, state, aux)
+        # θ_liq_gm    = liquid_ice_pottemp(ts)
+        # ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+        # ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+        # ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+        # ρa_en       = ρ_gm - ρa_ups
+        # ρaw_en      = - ρaw_ups
+        # θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+        # # if !(θ_liq_en > FT(0))
+        # w_en        = ρaw_en / ρa_en
+        # @unroll_map(N_up) do i
+        #     up[i].ρa = ρa_min
+        #     up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+        #     up[i].ρaw     = FT(0)
+        # end
+        # en.ρatke = max(en.ρatke,FT(0))
+        # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        # # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        # # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+        # validate_variables(bl, state, aux, "custom_filter!")
     end
 end
 
@@ -204,7 +204,7 @@ function main(::Type{FT}) where {FT}
     timeend = FT(3600*3)
 
     # Charlie's solver
-    use_explicit_stepper_with_small_Δt = false
+    use_explicit_stepper_with_small_Δt = true
     if use_explicit_stepper_with_small_Δt
         CFLmax = FT(0.9)
         # ode_solver_type = ClimateMachine.IMEXSolverType()
@@ -225,8 +225,47 @@ function main(::Type{FT}) where {FT}
         )
     end
 
+    # old version
+    # ode_solver_type = ClimateMachine.ExplicitSolverType(
+    #     solver_method = LSRK144NiegemannDiehlBusch,
+    # )
+
+    N_updrafts = 1
+    N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
+    turbconv = EDMF(FT, N_updrafts, N_quad)
+
+    model = stable_bl_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux;
+        # turbconv = turbconv,
+        turbconv = NoTurbConv(),
+    )
+
+    # Assemble configuration
+    driver_config = ClimateMachine.SingleStackConfiguration(
+        "SBL_EDMF",
+        N,
+        nelem_vert,
+        zmax,
+        param_set,
+        model;
+        hmax = zmax,
+        solver_type = ode_solver_type,
+    )
+
+    solver_config = ClimateMachine.SolverConfiguration(
+        t0,
+        timeend,
+        driver_config,
+        init_on_cpu = true,
+        Courant_number = CFLmax,
+        ode_dt = 2.64583e-01,
+    )
+
     #################### Change the ode_solver to implicit solver
-    CFLmax = FT(25)
+    CFLmax = FT(5)
     dg = solver_config.dg
     Q = solver_config.Q
 
@@ -283,44 +322,6 @@ function main(::Type{FT}) where {FT}
     #######################################
 
 
-    # old version
-    # ode_solver_type = ClimateMachine.ExplicitSolverType(
-    #     solver_method = LSRK144NiegemannDiehlBusch,
-    # )
-
-    N_updrafts = 1
-    N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
-
-    model = stable_bl_model(
-        FT,
-        config_type,
-        zmax,
-        surface_flux;
-        turbconv = turbconv,
-        # turbconv = NoTurbConv(),
-    )
-
-    # Assemble configuration
-    driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_EDMF",
-        N,
-        nelem_vert,
-        zmax,
-        param_set,
-        model;
-        hmax = zmax,
-        solver_type = ode_solver_type,
-    )
-
-    solver_config = ClimateMachine.SolverConfiguration(
-        t0,
-        timeend,
-        driver_config,
-        init_on_cpu = true,
-        Courant_number = CFLmax,
-        ode_dt = 2.64583e-01,
-    )
 
     # --- Zero-out horizontal variations:
     vsp = vars_state(model, Prognostic(), FT)
@@ -377,7 +378,7 @@ function main(::Type{FT}) where {FT}
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
     state_types = (Prognostic(), Auxiliary())
-    all_data = [dict_of_nodal_states(solver_config, state_types; interp = true)]
+    dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
@@ -388,7 +389,7 @@ function main(::Type{FT}) where {FT}
     cb_data_vs_time =
         GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
             push!(
-                all_data,
+                dons_arr,
                 dict_of_nodal_states(solver_config, state_types; interp = true),
             )
             push!(time_data, gettime(solver_config.solver))
@@ -406,7 +407,7 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
@@ -424,10 +425,10 @@ function main(::Type{FT}) where {FT}
     )
 
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
 
-    return solver_config, all_data, time_data, state_types
+    return solver_config, dons_arr, time_data, state_types
 end
 
-solver_config, all_data, time_data, state_types = main(Float64)
+solver_config, dons_arr, time_data, state_types = main(Float64)

@@ -34,7 +34,7 @@ Base.@kwdef struct EntrainmentDetrainment{FT <: AbstractFloat}
     "Exponential area limiter amplitude"
     lim_amp::FT = 10
     "Minimum value for turb entr"
-    εt_min::FT = 1e-4
+    H_up_min::FT = 1e-4
 end
 
 """

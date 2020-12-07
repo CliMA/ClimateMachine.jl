@@ -57,32 +57,43 @@ end
 # Include the remainder model for composing DG models and balance laws
 include("remainder.jl")
 
+# TODO: dont need to actually pass DG model (just need the grid)
 function basic_grid_info(dg::DGModel)
     grid = dg.grid
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
+    # Tuple of polynomial degrees (N₁, N₂, N₃)
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
+    @assert dim == 2 || N[1] == N[2]
 
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
+    # Number of quadrature point in each direction (Nq₁, Nq₂, Nq₃)
+    Nq = N .+ 1
+
+    # Number of quadrature point in the horizontal direction Nq₁ * Nq₂
+    Nqh = Nq[1] * Nq[2]
+
+    # Number of quadrature points in the vertical Nq₃
+    Nqk = dim == 2 ? 1 : Nq[dim]
+
     Np = dofs_per_element(grid)
+    Nfp_v, Nfp_h = div.(Np, (Nq[1], Nq[end]))
 
     topology_info = basic_topology_info(grid.topology)
 
-    ninteriorelem = length(dg.grid.interiorelems)
-    nexteriorelem = length(dg.grid.exteriorelems)
+    ninteriorelem = length(grid.interiorelems)
+    nexteriorelem = length(grid.exteriorelems)
+
+    nface = 2 * dim
 
     grid_info = (
         dim = dim,
         N = N,
         Nq = Nq,
+        Nqh = Nqh,
         Nqk = Nqk,
-        Nfp = Nfp,
+        Nfp_v = Nfp_v,
+        Nfp_h = Nfp_h,
         Np = Np,
+        nface = nface,
         ninteriorelem = ninteriorelem,
         nexteriorelem = nexteriorelem,
     )
@@ -450,11 +461,7 @@ function init_ode_state(
 
     state_auxiliary = dg.state_auxiliary
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
     nrealelem = length(topology.realelems)
 
     if !init_on_cpu
@@ -489,6 +496,7 @@ function init_ode_state(
         )
         wait(event) # XXX: This could be `wait(device, event)` once KA supports that.
         state_prognostic .= h_state_prognostic
+        state_auxiliary .= h_state_auxiliary
     end
 
     event = Event(device)
@@ -555,11 +563,7 @@ function init_state_auxiliary!(
     topology = grid.topology
     dim = dimensionality(grid)
     Np = dofs_per_element(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
     vgeo = grid.vgeo
     device = array_device(state_auxiliary)
     nrealelem = length(topology.realelems)
@@ -618,13 +622,9 @@ function indefinite_stack_integral!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
 
     FT = eltype(state_prognostic)
 
@@ -634,18 +634,19 @@ function indefinite_stack_integral!(
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = kernel_indefinite_stack_integral!(device, (Nq, Nqk))(
+    event = kernel_indefinite_stack_integral!(device, (Nq[1], Nqk))(
         m,
         Val(dim),
-        Val(N),
+        # Only need the polynomial order in the vertical
+        Val(N[dim]),
         Val(nvertelem),
         state_prognostic.data,
         state_auxiliary.data,
         grid.vgeo,
-        # XXX: Needs updating for multiple polynomial orders
-        grid.Imat[1],
+        # Only need the vertical Imat since this kernel is vertically oriented
+        grid.Imat[dim],
         horzelems;
-        ndrange = (length(horzelems) * Nq, Nqk),
+        ndrange = (length(horzelems) * Nq[1], Nqk),
         dependencies = (event,),
     )
     wait(device, event)
@@ -666,13 +667,9 @@ function reverse_indefinite_stack_integral!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
 
     FT = eltype(state_auxiliary)
 
@@ -682,15 +679,16 @@ function reverse_indefinite_stack_integral!(
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = kernel_reverse_indefinite_stack_integral!(device, (Nq, Nqk))(
+    event = kernel_reverse_indefinite_stack_integral!(device, (Nq[1], Nqk))(
         m,
         Val(dim),
-        Val(N),
+        # Only need the polynomial order in the vertical
+        Val(N[dim]),
         Val(nvertelem),
         state_prognostic.data,
         state_auxiliary.data,
         horzelems;
-        ndrange = (length(horzelems) * Nq, Nqk),
+        ndrange = (length(horzelems) * Nq[1], Nqk),
         dependencies = (event,),
     )
     wait(device, event)
@@ -717,12 +715,7 @@ function update_auxiliary_state!(
     topology = grid.topology
 
     dim = dimensionality(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
     nelem = length(elems)
 
     Np = dofs_per_element(grid)
@@ -794,20 +787,16 @@ function courant(
     nrealelem = length(topology.realelems)
 
     if nrealelem > 0
-        # XXX: Needs updating for multiple polynomial orders
         N = polynomialorders(grid)
-        # Currently only support single polynomial order
-        @assert all(N[1] .== N)
-        N = N[1]
         dim = dimensionality(grid)
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
+        Nq = N .+ 1
+        Nqk = dim == 2 ? 1 : Nq[dim]
         device = array_device(grid.vgeo)
-        pointwise_courant = similar(grid.vgeo, Nq^dim, nrealelem)
+        pointwise_courant = similar(grid.vgeo, Nq[1]^dim, nrealelem)
         event = Event(device)
         event = Grids.kernel_min_neighbor_distance!(
             device,
-            min(Nq * Nq * Nqk, 1024),
+            min(Nq[1] * Nq[2] * Nqk, 1024),
         )(
             Val(N),
             Val(dim),
@@ -815,10 +804,10 @@ function courant(
             pointwise_courant,
             grid.vgeo,
             topology.realelems;
-            ndrange = (nrealelem * Nq * Nq * Nqk),
+            ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
             dependencies = (event,),
         )
-        event = kernel_local_courant!(device, min(Nq * Nq * Nqk, 1024))(
+        event = kernel_local_courant!(device, min(Nq[1] * Nq[2] * Nqk, 1024))(
             m,
             Val(dim),
             Val(N),
@@ -831,10 +820,11 @@ function courant(
             Δt,
             simtime,
             direction;
-            ndrange = nrealelem * Nq * Nq * Nqk,
+            ndrange = (nrealelem * Nq[1] * Nq[2] * Nqk),
             dependencies = (event,),
         )
         wait(device, event)
+
         rank_courant_max = maximum(pointwise_courant)
     else
         rank_courant_max = typemin(eltype(state_prognostic))
@@ -887,16 +877,10 @@ function continuous_field_gradient!(
 )
     topology = grid.topology
     nrealelem = length(topology.realelems)
-
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
     dim = dimensionality(grid)
-    Nq = N + 1
-    Nqk = dim == 2 ? 1 : Nq
-    Nfp = Nq * Nqk
+    Nq = N .+ 1
+    Nqk = dim == 2 ? 1 : Nq[dim]
     device = array_device(state)
 
     I = varsindices(vars(state), vars_in)
@@ -904,22 +888,53 @@ function continuous_field_gradient!(
 
     event = Event(device)
 
-    event = kernel_continuous_field_gradient!(device, (Nq, Nq, Nqk))(
-        m,
-        Val(dim),
-        Val(N),
-        direction,
-        ∇state.data,
-        state.data,
-        grid.vgeo,
-        # XXX: Needs updating for multiple polynomial orders
-        grid.D[1],
-        grid.ω[1],
-        Val(I),
-        Val(O),
-        ndrange = (nrealelem * Nq, Nq, Nqk),
-        dependencies = (event,),
-    )
+    if direction isa EveryDirection || direction isa HorizontalDirection
+        # We assume N₁ = N₂, so the same polyorder, quadrature weights,
+        # and differentiation operators are used
+        horizontal_polyorder = N[1]
+        horizontal_D = grid.D[1]
+        horizontal_ω = grid.ω[1]
+        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
+            m,
+            Val(dim),
+            Val(N),
+            HorizontalDirection(),
+            ∇state.data,
+            state.data,
+            grid.vgeo,
+            horizontal_D,
+            horizontal_ω,
+            Val(I),
+            Val(O),
+            false,
+            ndrange = (nrealelem * Nq[1], Nq[2]),
+            dependencies = (event,),
+        )
+    end
+
+    if direction isa EveryDirection || direction isa VerticalDirection
+        vertical_polyorder = N[dim]
+        vertical_D = grid.D[dim]
+        vertical_ω = grid.ω[dim]
+        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
+            m,
+            Val(dim),
+            Val(N),
+            VerticalDirection(),
+            ∇state.data,
+            state.data,
+            grid.vgeo,
+            vertical_D,
+            vertical_ω,
+            Val(I),
+            Val(O),
+            # If we are computing in every direction, we need to
+            # increment after we compute the horizontal values
+            (direction isa EveryDirection);
+            ndrange = (nrealelem * Nq[1], Nq[2]),
+            dependencies = (event,),
+        )
+    end
     wait(device, event)
 end
 
@@ -944,9 +959,18 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     FT = eltype(state_prognostic)
     Qhypervisc_grad, _ = dg.states_higher_order
 
+    # Workgroup is determined by the number of quadrature points
+    # in the horizontal direction. For each horizontal quadrature
+    # point, we operate on a stack of quadrature in the vertical
+    # direction. (Iteration space is in the horizontal)
     info = basic_launch_info(dg)
-    workgroup = (info.Nq, info.Nq)
-    ndrange = (info.Nq * info.nrealelem, info.Nq)
+
+    # Since We assume (in 3-D) that both x and y directions
+    # are discretized using the same polynomial order, Nq[1] == Nq[2].
+    # In 2-D, the workgroup spans the entire set of quadrature points:
+    # Nq[1] * Nq[2]
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -954,10 +978,14 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+
+        # We assume N₁ = N₂, so the same polyorder, quadrature weights,
+        # and differentiation operators are used
+        horizontal_polyorder = info.N[1]
+        horizontal_D = dg.grid.D[1]
         comp_stream = volume_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             HorizontalDirection(),
             state_prognostic.data,
             dg.state_gradient_flux.data,
@@ -965,8 +993,7 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
             dg.state_auxiliary.data,
             dg.grid.vgeo,
             t,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.D[1],
+            horizontal_D,
             Val(hyperdiff_indexmap(dg.balance_law, FT)),
             dg.grid.topology.realelems,
             ndrange = ndrange,
@@ -977,10 +1004,13 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     # Now we call the kernel corresponding to the vertical direction
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        # Vertical polynomial degree and differentiation matrix
+        vertical_polyorder = info.N[info.dim]
+        vertical_D = dg.grid.D[info.dim]
         comp_stream = volume_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             VerticalDirection(),
             state_prognostic.data,
             dg.state_gradient_flux.data,
@@ -988,8 +1018,7 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
             dg.state_auxiliary.data,
             dg.grid.vgeo,
             t,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.D[1],
+            vertical_D,
             Val(hyperdiff_indexmap(dg.balance_law, FT)),
             dg.grid.topology.realelems,
             # If we are computing the volume gradient in every direction, we
@@ -1024,15 +1053,6 @@ function launch_interface_gradients!(
     Qhypervisc_grad, _ = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = info.Nfp
-    if surface === :interior
-        elems = dg.grid.interiorelems
-        ndrange = info.Nfp * info.ninteriorelem
-    else
-        elems = dg.grid.exteriorelems
-        ndrange = info.Nfp * info.nexteriorelem
-    end
-
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1040,10 +1060,22 @@ function launch_interface_gradients!(
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+
+        workgroup = info.Nfp_v
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = workgroup * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = workgroup * info.nexteriorelem
+        end
+
+        # Hoirzontal polynomial order (assumes same for both horizontal directions)
+        horizontal_polyorder = info.N[1]
+
         comp_stream = interface_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             HorizontalDirection(),
             dg.numerical_flux_gradient,
             state_prognostic.data,
@@ -1066,10 +1098,22 @@ function launch_interface_gradients!(
     # Vertical interface kernel call
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        workgroup = info.Nfp_h
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = workgroup * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = workgroup * info.nexteriorelem
+        end
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+
         comp_stream = interface_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             VerticalDirection(),
             dg.numerical_flux_gradient,
             state_prognostic.data,
@@ -1105,8 +1149,8 @@ function launch_volume_divergence_of_gradients!(
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = (info.Nq, info.Nq, info.Nqk)
-    ndrange = (info.nrealelem * info.Nq, info.Nq, info.Nqk)
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.nrealelem * info.Nq[1], info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1114,16 +1158,19 @@ function launch_volume_divergence_of_gradients!(
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+
+        # Horizontal polynomial order and differentiation matrix
+        horizontal_polyorder = info.N[1]
+        horizontal_D = dg.grid.D[1]
+
         comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             HorizontalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
             dg.grid.vgeo,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.D[1],
+            horizontal_D,
             dg.grid.topology.realelems;
             ndrange = ndrange,
             dependencies = comp_stream,
@@ -1133,16 +1180,19 @@ function launch_volume_divergence_of_gradients!(
     # And now the vertical kernel call
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        # Vertical polynomial order and differentiation matrix
+        vertical_polyorder = info.N[info.dim]
+        vertical_D = dg.grid.D[info.dim]
+
         comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             VerticalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
             dg.grid.vgeo,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.D[1],
+            vertical_D,
             dg.grid.topology.realelems,
             # If we are computing the volume gradient in every direction, we
             # need to increment into the appropriate fields _after_ the
@@ -1174,14 +1224,6 @@ function launch_interface_divergence_of_gradients!(
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = info.Nfp
-    if surface === :interior
-        elems = dg.grid.interiorelems
-        ndrange = info.Nfp * info.ninteriorelem
-    else
-        elems = dg.grid.exteriorelems
-        ndrange = info.Nfp * info.nexteriorelem
-    end
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1189,11 +1231,23 @@ function launch_interface_divergence_of_gradients!(
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+
+        workgroup = info.Nfp_v
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = info.Nfp_v * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = info.Nfp_v * info.nexteriorelem
+        end
+
+        # Hoirzontal polynomial order (assumes same for both horizontal directions)
+        horizontal_polyorder = info.N[1]
+
         comp_stream =
             interface_divergence_of_gradients!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(info.N),
+                Val(info),
                 HorizontalDirection(),
                 CentralNumericalFluxDivergence(),
                 Qhypervisc_grad.data,
@@ -1212,11 +1266,23 @@ function launch_interface_divergence_of_gradients!(
     # Vertical kernel call
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        workgroup = info.Nfp_h
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = info.Nfp_h * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = info.Nfp_h * info.nexteriorelem
+        end
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+
         comp_stream =
             interface_divergence_of_gradients!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(info.N),
+                Val(info),
                 VerticalDirection(),
                 CentralNumericalFluxDivergence(),
                 Qhypervisc_grad.data,
@@ -1250,8 +1316,8 @@ function launch_volume_gradients_of_laplacians!(
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = (info.Nq, info.Nq, info.Nqk)
-    ndrange = (info.nrealelem * info.Nq, info.Nq, info.Nqk)
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.nrealelem * info.Nq[1], info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
@@ -1259,19 +1325,24 @@ function launch_volume_gradients_of_laplacians!(
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+
+        # Horizontal polynomial degree
+        horizontal_polyorder = info.N[1]
+        # Horizontal quadrature weights and differentiation matrix
+        horizontal_ω = dg.grid.ω[1]
+        horizontal_D = dg.grid.D[1]
+
         comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             HorizontalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
             state_prognostic.data,
             dg.state_auxiliary.data,
             dg.grid.vgeo,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            horizontal_ω,
+            horizontal_D,
             dg.grid.topology.realelems,
             t;
             ndrange = ndrange,
@@ -1282,19 +1353,24 @@ function launch_volume_gradients_of_laplacians!(
     # Vertical kernel call
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+        # Vertical quadrature weights and differentiation matrix
+        vertical_ω = dg.grid.ω[info.dim]
+        vertical_D = dg.grid.D[info.dim]
+
         comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             VerticalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
             state_prognostic.data,
             dg.state_auxiliary.data,
             dg.grid.vgeo,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            vertical_ω,
+            vertical_D,
             dg.grid.topology.realelems,
             t,
             # If we are computing the volume gradient in every direction, we
@@ -1326,29 +1402,31 @@ function launch_interface_gradients_of_laplacians!(
 )
     @assert surface === :interior || surface === :exterior
     Qhypervisc_grad, Qhypervisc_div = dg.states_higher_order
-
-    info = basic_launch_info(dg)
-    workgroup = info.Nfp
-    if surface === :interior
-        elems = dg.grid.interiorelems
-        ndrange = info.Nfp * info.ninteriorelem
-    else
-        elems = dg.grid.exteriorelems
-        ndrange = info.Nfp * info.nexteriorelem
-    end
-
     comp_stream = dependencies
+    info = basic_launch_info(dg)
 
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa HorizontalDirection
+
+        workgroup = info.Nfp_v
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = info.Nfp_v * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = info.Nfp_v * info.nexteriorelem
+        end
+
+        # Hoirzontal polynomial order (assumes same for both horizontal directions)
+        horizontal_polyorder = info.N[1]
+
         comp_stream =
             interface_gradients_of_laplacians!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(info.N),
+                Val(info),
                 HorizontalDirection(),
                 CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
@@ -1370,11 +1448,23 @@ function launch_interface_gradients_of_laplacians!(
     # Vertical kernel call
     if dg.diffusion_direction isa EveryDirection ||
        dg.diffusion_direction isa VerticalDirection
+
+        workgroup = info.Nfp_h
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = info.Nfp_h * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = info.Nfp_h * info.nexteriorelem
+        end
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+
         comp_stream =
             interface_gradients_of_laplacians!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info.dim),
-                Val(info.N),
+                Val(info),
                 VerticalDirection(),
                 CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
@@ -1412,19 +1502,34 @@ function launch_volume_tendency!(
 )
     Qhypervisc_grad, _ = dg.states_higher_order
 
+    # Workgroup is determined by the number of quadrature points
+    # in the horizontal direction. For each horizontal quadrature
+    # point, we operate on a stack of quadrature in the vertical
+    # direction. (Iteration space is in the horizontal)
     info = basic_launch_info(dg)
-    workgroup = (info.Nq, info.Nq)
-    ndrange = (info.Nq * info.nrealelem, info.Nq)
+
+    # Since We assume (in 3-D) that both x and y directions
+    # are discretized using the same polynomial order, Nq[1] == Nq[2].
+    # In 2-D, the workgroup spans the entire set of quadrature points:
+    # Nq[1] * Nq[2]
+    workgroup = (info.Nq[1], info.Nq[2])
+    ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
+
+        # Horizontal polynomial degree
+        horizontal_polyorder = info.N[1]
+        # Horizontal quadrature weights and differentiation matrix
+        horizontal_ω = dg.grid.ω[1]
+        horizontal_D = dg.grid.D[1]
+
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             dg.direction,
             HorizontalDirection(),
             tendency.data,
@@ -1434,9 +1539,8 @@ function launch_volume_tendency!(
             dg.state_auxiliary.data,
             dg.grid.vgeo,
             t,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            horizontal_ω,
+            horizontal_D,
             dg.grid.topology.realelems,
             α,
             β,
@@ -1449,10 +1553,16 @@ function launch_volume_tendency!(
 
     # Vertical kernel
     if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+        # Vertical quadrature weights and differentiation matrix
+        vertical_ω = dg.grid.ω[info.dim]
+        vertical_D = dg.grid.D[info.dim]
+
         comp_stream = volume_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             dg.direction,
             VerticalDirection(),
             tendency.data,
@@ -1462,9 +1572,8 @@ function launch_volume_tendency!(
             dg.state_auxiliary.data,
             dg.grid.vgeo,
             t,
-            # XXX: Needs updating for multiple polynomial orders
-            dg.grid.ω[1],
-            dg.grid.D[1],
+            vertical_ω,
+            vertical_D,
             dg.grid.topology.realelems,
             α,
             # If we are computing the volume gradient in every direction, we
@@ -1504,25 +1613,28 @@ function launch_interface_tendency!(
     Qhypervisc_grad, _ = dg.states_higher_order
 
     info = basic_launch_info(dg)
-    workgroup = info.Nfp
-    if surface === :interior
-        elems = dg.grid.interiorelems
-        ndrange = info.Nfp * info.ninteriorelem
-    else
-        elems = dg.grid.exteriorelems
-        ndrange = info.Nfp * info.nexteriorelem
-    end
-
     comp_stream = dependencies
 
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
     if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
+
+        workgroup = info.Nfp_v
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = workgroup * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = workgroup * info.nexteriorelem
+        end
+
+        # Hoirzontal polynomial order (assumes same for both horizontal directions)
+        horizontal_polyorder = info.N[1]
+
         comp_stream = interface_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             HorizontalDirection(),
             dg.numerical_flux_first_order,
             dg.numerical_flux_second_order,
@@ -1546,10 +1658,22 @@ function launch_interface_tendency!(
 
     # Vertical kernel call
     if dg.direction isa EveryDirection || dg.direction isa VerticalDirection
+
+        workgroup = info.Nfp_h
+        if surface === :interior
+            elems = dg.grid.interiorelems
+            ndrange = workgroup * info.ninteriorelem
+        else
+            elems = dg.grid.exteriorelems
+            ndrange = workgroup * info.nexteriorelem
+        end
+
+        # Vertical polynomial degree
+        vertical_polyorder = info.N[info.dim]
+
         comp_stream = interface_tendency!(info.device, workgroup)(
             dg.balance_law,
-            Val(info.dim),
-            Val(info.N),
+            Val(info),
             VerticalDirection(),
             dg.numerical_flux_first_order,
             dg.numerical_flux_second_order,

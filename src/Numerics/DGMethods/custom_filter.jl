@@ -38,11 +38,7 @@ function apply!(
     elems = grid.topology.realelems
     device = array_device(state_prognostic)
     Np = dofs_per_element(grid)
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
     knl_custom_filter! = kernel_custom_filter!(device, min(Np, 1024))
     event = Event(device)
     event = knl_custom_filter!(
@@ -76,9 +72,10 @@ end
         num_state_auxiliary = number_states(bl, Auxiliary())
         vs_p = Vars{vars_state(bl, Prognostic(), FT)}
         vs_a = Vars{vars_state(bl, Auxiliary(), FT)}
-        Nq = N + 1
-        Nqk = dim == 2 ? 1 : Nq
-        Np = Nq * Nq * Nqk
+        Nq = N .+ 1
+
+        @inbounds Nqk = dim == 2 ? 1 : Nq[dim]
+        @inbounds Np = Nq[1] * Nq[2] * Nqk
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
