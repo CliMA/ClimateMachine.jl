@@ -126,17 +126,19 @@ averaged density.
 |                                                                                         |
 | vort       | relative vorticity                                                         |
 
-#### 1D Spectral decomposition (time, lat, zonal wavenumber, level)
+
+#### 1D spectral decomposition using the Fourier transform (time, level, latitude, zonal wavenumber)
 
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| spectrum_1d  | 1D power spectrum using the meridional wind                                    |
+| spectrum_1d  | kinetic energy power spectrum                                   |
 
-#### 2D Spectral decomposition (time, total wavenumber, zonal wavenumber, level)
+#### 2D spectral decomposition using the spherical harmonics (time, level, spherical wavenumber, zonal wavenumber)
 
 | short name | description                                                                |
 |:-----------|:---------------------------------------------------------------------------|
-| spectrum_2d  | 2D power spectrum using the meridional wind                              |
+| spectrum_2d  | kinetic energy power spectrum
+
 
 ### default (for Moist Aquaplanet)
 
@@ -183,6 +185,7 @@ These are in addition to Held-Suarez.
 |                                                                                         |
 | var\_uu\_bandpass  | (co)variances using a Lanczos filter (also for vv, ww, TT, option for others) |
 | cov\_uv\_bandpass  | (co)variances using a Lanczos filter (also for uw, vw, uT, vT, wT, option for others) |
+
 
 ### To be implemented (for Moist Aquaplanet)
 
