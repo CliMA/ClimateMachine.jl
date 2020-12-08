@@ -37,11 +37,13 @@ function compute_gradient_flux!(
 function flux_second_order!(
     ::PrecipitationModel,
     flux::Grad,
+    ::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
-    D_t,
+    ts,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
 ) end
 function flux_first_order!(::PrecipitationModel, _...) end
 function compute_gradient_argument!(
@@ -262,26 +264,18 @@ end
 function flux_second_order!(
     precip::RainSnowModel,
     flux::Grad,
+    atmos::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
-    D_t,
+    ts,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
 )
-    d_q_rai = (-D_t) .* diffusive.precipitation.∇q_rai
-    d_q_sno = (-D_t) .* diffusive.precipitation.∇q_sno
-
-    flux_second_order!(precip, flux, state, d_q_rai, d_q_sno)
-end
-function flux_second_order!(
-    precip::RainSnowModel,
-    flux::Grad,
-    state::Vars,
-    d_q_rai,
-    d_q_sno,
-)
-    flux.precipitation.ρq_rai += d_q_rai * state.ρ
-    flux.precipitation.ρq_sno += d_q_sno * state.ρ
+    tend = Flux{SecondOrder}()
+    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
+    flux.precipitation.ρq_rai = Σfluxes(eq_tends(Rain(), atmos, tend), args...)
+    flux.precipitation.ρq_sno = Σfluxes(eq_tends(Snow(), atmos, tend), args...)
 end
 
 function source!(
@@ -309,8 +303,16 @@ end
 
 eq_tends(pv::PV, ::RainModel, ::Flux{FirstOrder}) where {PV <: Rain} =
     (PrecipitationFlux{PV}(),)
+eq_tends(pv::PV, ::RainModel, ::Flux{SecondOrder}) where {PV <: Rain} =
+    (Diffusion{PV}(),)
 
-eq_tends(pv::PV, ::RainSnowModel, ::Flux{FirstOrder}) where {PV <: Rain} =
-    (PrecipitationFlux{PV}(),)
-eq_tends(pv::PV, ::RainSnowModel, ::Flux{FirstOrder}) where {PV <: Snow} =
-    (PrecipitationFlux{PV}(),)
+eq_tends(
+    pv::PV,
+    ::RainSnowModel,
+    ::Flux{FirstOrder},
+) where {PV <: Precipitation} = (PrecipitationFlux{PV}(),)
+eq_tends(
+    pv::PV,
+    ::RainSnowModel,
+    ::Flux{SecondOrder},
+) where {PV <: Precipitation} = (Diffusion{PV}(),)
