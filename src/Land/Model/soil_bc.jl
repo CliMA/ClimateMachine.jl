@@ -233,6 +233,9 @@ function execute_based_on_boundaries!(
         #bottom
     elseif bctype == 1
         diff⁺.soil.water.K∇h = n̂ * eltype(state⁻)(0.0)
+        #no flux on lateral sides
+    elseif bctype == 3
+        diff⁺.soil.water.K∇h = n̂ * eltype(state⁻)(0.0)
     end
 
 
@@ -352,6 +355,9 @@ function execute_based_on_boundaries!(
         else
             nothing
         end
+        #no flux on lateral sides
+    elseif bctype == 3
+        diff⁺.soil.water.K∇h = n̂ * eltype(state⁻)(0.0)
     end
 end
 
@@ -613,5 +619,8 @@ function execute_based_on_boundaries!(
         else
             nothing
         end
+        #no flux on lateral sides
+    elseif bctype == 3
+        diff⁺.soil.water.K∇h = n̂ * eltype(state⁻)(0.0)
     end
 end

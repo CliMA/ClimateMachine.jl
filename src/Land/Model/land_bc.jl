@@ -1,4 +1,4 @@
-boundary_conditions(::LandModel) = (1, 2)
+boundary_conditions(::LandModel) = (1, 2, 3)
 
 function boundary_state!(
     nf,
