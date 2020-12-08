@@ -95,6 +95,11 @@ function init_state_prognostic!(
     return nothing
 end;
 
+struct ZeroVerticalVelocityFilter <: AbstractCustomFilter end
+function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
+    state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
+end
+
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 rhs_prehook_filters(atmos::PressureGradientModel) = nothing
@@ -184,13 +189,14 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
     cl_args =
         ClimateMachine.init(parse_clargs = true, custom_clargs = sbl_args)
 
     surface_flux = cl_args["surface_flux"]
+
     config_type = SingleStackConfigType
 
     # DG polynomial order
