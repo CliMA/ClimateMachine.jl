@@ -48,6 +48,8 @@ apis = [
         "DG Methods" => "APIs/Numerics/DGMethods/DGMethods.md",
         "Courant" => "APIs/Numerics/DGMethods/Courant.md",
         "Numerical Fluxes" => "APIs/Numerics/DGMethods/NumericalFluxes.md",
+        "Finite Volume Reconstructions" =>
+            "APIs/Numerics/DGMethods/FVReconstructions.md",
     ],
     "Utilities" => [
         "Variable Templates" => "APIs/Utilities/VariableTemplates.md",
