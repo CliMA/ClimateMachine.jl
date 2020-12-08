@@ -65,8 +65,10 @@ function main()
     x3 = @view grid.vgeo[:, Grids._x3, :]
 
     interior_faces = vec(grid.elemtobndy .== 0)
-    interior_vmap⁻ = reshape(grid.vmap⁻, (size(grid.vmap⁻,1),:))[:,interior_faces]
-    interior_vmap⁺ = reshape(grid.vmap⁺, (size(grid.vmap⁺,1),:))[:,interior_faces]
+    interior_vmap⁻ =
+        reshape(grid.vmap⁻, (size(grid.vmap⁻, 1), :))[:, interior_faces]
+    interior_vmap⁺ =
+        reshape(grid.vmap⁺, (size(grid.vmap⁺, 1), :))[:, interior_faces]
 
     @test x1[interior_vmap⁻] ≈ x1[interior_vmap⁺]
     @test x2[interior_vmap⁻] ≈ x2[interior_vmap⁺]

@@ -80,7 +80,7 @@ function get_vars_from_nodal_stack(
     vgeo = convert(Array, grid.vgeo)
     # extract values from `state_data`
     @inbounds for ev in vrange, k in 1:Nqk, v in vars_wanted
-        if interp && k == 1 && elemtobndy[5,ev] == 0
+        if interp && k == 1 && elemtobndy[5, ev] == 0
             # Get face degree of freedom number
             n = i + Nq1 * ((j - 1))
             # get the element numbers
@@ -96,7 +96,7 @@ function get_vars_from_nodal_stack(
             state_local += J⁺ * state_data[vid⁺, v, ev⁺]
             state_local /= (J⁻ + J⁺)
             push!(stack_vals[var_names[v]], state_local)
-        elseif interp && k == Nqk && elemtobndy[6,ev] == 0
+        elseif interp && k == Nqk && elemtobndy[6, ev] == 0
             # Get face degree of freedom number
             n = i + Nq1 * ((j - 1))
             # get the element numbers
