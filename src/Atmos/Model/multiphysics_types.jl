@@ -26,6 +26,8 @@ struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
 
+struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:
+       TendencyDef{Flux{SecondOrder}, PV} end
 
 export RemovePrecipitation
 """
