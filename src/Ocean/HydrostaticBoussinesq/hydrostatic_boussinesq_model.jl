@@ -21,7 +21,7 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T, I} <: BalanceLaw
+struct HydrostaticBoussinesqModel{S, C, PS, P, MA, TA, F, T, I} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
@@ -29,6 +29,7 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T, I} <: BalanceLaw
     tracer_advection::TA
     forcing::F
     state_filter::I
+    stabilizing_dissipation::S
     ρₒ::T
     cʰ::T
     cᶻ::T
@@ -48,6 +49,7 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T, I} <: BalanceLaw
         tracer_advection::TA = NonLinearAdvectionTerm(),
         forcing::F = Forcing(),
         state_filter::I = nothing,
+        stabilizing_dissipation::S = nothing,
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -59,8 +61,8 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T, I} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F}
-        return new{I, C, PS, P, MA, TA, F, FT}(
+    ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F, S, I}
+        return new{S, C, PS, P, MA, TA, F, FT, I}(
             param_set,
             problem,
             coupling,
@@ -68,6 +70,7 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, T, I} <: BalanceLaw
             tracer_advection,
             forcing,
             state_filter,
+            stabilizing_dissipation,
             ρₒ,
             cʰ,
             cᶻ,
@@ -256,31 +259,31 @@ this computation is done pointwise at each nodal point
 
     velocity_gradient_flux!(m, m.coupling, D, G, Q, A, t)
 
-    κ = diffusivity_tensor(m, G.∇θ[3])
+    κ = diffusivity_tensor(m, G.∇θ)
     D.κ∇θ = -κ * G.∇θ
 
     return nothing
 end
 
 @inline function velocity_gradient_flux!(m::HBModel, ::Uncoupled, D, G, Q, A, t)
-    ν = viscosity_tensor(m)
+    ν = viscosity_tensor(m, G.∇u)
     D.ν∇u = -ν * G.∇u
 
     return nothing
 end
 
 """
-    viscosity_tensor(::HBModel)
+    viscosity_tensor(m, ∇u)
 
 uniform viscosity with different values for horizontal and vertical directions
 
 # Arguments
 - `m`: model object to dispatch on and get viscosity parameters
 """
-@inline viscosity_tensor(m::HBModel) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
+@inline viscosity_tensor(m::HBModel{<:Nothing}, ∇u) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
 
 """
-    diffusivity_tensor(::HBModel)
+    diffusivity_tensor(m, ∇θ)
 
 uniform diffusivity in the horizontal direction
 applies convective adjustment in the vertical, bump by 1000 if ∂θ∂z < 0
@@ -289,7 +292,8 @@ applies convective adjustment in the vertical, bump by 1000 if ∂θ∂z < 0
 - `m`: model object to dispatch on and get diffusivity parameters
 - `∂θ∂z`: value of the derivative of temperature in the z-direction
 """
-@inline function diffusivity_tensor(m::HBModel, ∂θ∂z)
+@inline function diffusivity_tensor(m::HBModel{<:Nothing}, ∇θ)
+    ∂θ∂z = ∇θ[3]
     ∂θ∂z < 0 ? κ = m.κᶜ : κ = m.κᶻ
 
     return Diagonal(@SVector [m.κʰ, m.κʰ, κ])
@@ -661,7 +665,6 @@ function update_auxiliary_state!(
 end
 
 @inline compute_flow_deviation!(dg, ::HBModel, ::Uncoupled, _...) = nothing
-
 
 """
     update_auxiliary_state_gradient!(::HBModel)

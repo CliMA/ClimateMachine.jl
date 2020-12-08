@@ -72,6 +72,7 @@ function HydrostaticBoussinesqSuperModel(;
     rusanov_wave_speeds = (cʰ = 0, cᶻ = 0),
     buoyancy = (αᵀ = 0,),
     forcing = Forcing(),
+    stabilizing_dissipation = nothing,
     numerical_fluxes = (
         first_order = RusanovNumericalFlux(),
         second_order = CentralNumericalFluxSecondOrder(),
@@ -128,6 +129,7 @@ function HydrostaticBoussinesqSuperModel(;
         momentum_advection = advection.momentum,
         tracer_advection = advection.tracers,
         forcing = forcing,
+        stabilizing_dissipation = stabilizing_dissipation,
         cʰ = convert(FT, rusanov_wave_speeds.cʰ),
         cᶻ = convert(FT, rusanov_wave_speeds.cᶻ),
         αᵀ = convert(FT, buoyancy.αᵀ),
