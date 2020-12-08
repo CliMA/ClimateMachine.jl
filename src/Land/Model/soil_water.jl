@@ -100,7 +100,7 @@ function SoilWaterModel(
     hydraulics::AbstractHydraulicsModel{FT} = vanGenuchten{FT}(),
     initialϑ_l::Function = (aux) -> eltype(aux)(NaN),
     initialθ_i::Function = (aux) -> eltype(aux)(0.0),
-    boundaries::AbstractBoundaryConditions,
+    boundaries::AbstractBoundaryConditions = GeneralBoundaryConditions(),
 ) where {FT}
     args = (
         impedance_factor,
@@ -188,7 +188,14 @@ end
 
 vars_state(water::SoilWaterModel, st::Prognostic, FT) = @vars(ϑ_l::FT, θ_i::FT)
 
-vars_state(water::SoilWaterModel, st::Auxiliary, FT) = @vars(h::FT, K::FT)
+function vars_state(water::SoilWaterModel, st::Auxiliary, FT)
+    @vars begin
+        h::FT,
+        K::FT,
+        #runoff::vars_state(runoff::AbstractSurfaceRunoffModel, st, FT)
+    end
+end
+
 
 
 vars_state(water::SoilWaterModel, st::Gradient, FT) = @vars(h::FT)

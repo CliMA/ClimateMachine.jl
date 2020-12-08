@@ -518,7 +518,7 @@ end
 
 function MultiColumnLandModel(
     name::String,
-    N::Int,
+    N::Union{Int, NTuple{2, Int}},
     (Δx, Δy, Δz)::NTuple{3, FT},
     xmax::FT,
     ymax::FT,
@@ -530,22 +530,26 @@ function MultiColumnLandModel(
     zmin = zero(FT),
     array_type = ClimateMachine.array_type(),
     mpicomm = MPI.COMM_WORLD,
-    boundary = ((0, 0), (0, 0), (1, 2)),
+    boundary = ((3, 3), (3, 3), (1, 2)),
     solver_type = ExplicitSolverType(),
-    periodicity = (true, true, false),
+    periodicity = (false, false, false),
     meshwarp = (x...) -> identity(x),
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
+    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+
+    
     print_model_info(model)
 
     brickrange = (
-        grid1d(xmin, xmax, elemsize = Δx * N),
-        grid1d(ymin, ymax, elemsize = Δy * N),
-        grid1d(zmin, zmax, elemsize = Δz * N),
+        grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
+        grid1d(ymin, ymax, elemsize = Δy * polyorder_horz),
+        grid1d(zmin, zmax, elemsize = Δz * polyorder_vert),
     )
+
     topology = StackedBrickTopology(
         mpicomm,
         brickrange,
@@ -557,7 +561,7 @@ function MultiColumnLandModel(
         topology,
         FloatType = FT,
         DeviceArray = array_type,
-        polynomialorder = N,
+        polynomialorder = (polyorder_horz, polyorder_vert),
         meshwarp = meshwarp,
     )
 
@@ -565,7 +569,8 @@ function MultiColumnLandModel(
         """
 Establishing MultiColumnLandModel configuration for %s
     precision        = %s
-    polynomial order = %d
+    vert polyn order = %d
+    horz polyn order = %d
     domain           = %.2f m x%.2f m x%.2f m
     resolution       = %dx%dx%d
     MPI ranks        = %d
@@ -573,7 +578,8 @@ Establishing MultiColumnLandModel configuration for %s
     min(Δ_vert)      = %.2f m""",
         name,
         FT,
-        N,
+        polyorder_vert,
+        polyorder_horz,
         xmax,
         ymax,
         zmax,

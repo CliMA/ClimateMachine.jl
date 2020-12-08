@@ -234,6 +234,8 @@ function execute_based_on_boundaries!(
         #bottom
     elseif bctype == 1
         diff⁺.soil.water.K∇h = n̂ * eltype(state⁻)(0.0)
+    elseif bctype == 3
+        diff⁺.soil.water.K∇h = n̂ * eltype(state⁻)(0.0)
     end
 
 

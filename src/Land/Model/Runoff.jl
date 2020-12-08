@@ -3,9 +3,7 @@ module Runoff
 using ...VariableTemplates
 using DocStringExtensions
 using ...Land:SoilModel
-
-include("SoilWaterParameterizations.jl")
-using .SoilWaterParameterizations
+using ...Land:matric_potential, effective_saturation, volumetric_liquid_fraction
 
 export DrivenConstantPrecip,
     compute_surface_flux,
@@ -124,7 +122,14 @@ end
 
 Chosen when no subgrid effects are to be modeled.
 """
-struct CoarseGridRunoff <: AbstractSurfaceRunoffModel end
+struct CoarseGridRunoff{FT,F} <: AbstractSurfaceRunoffModel
+    "Vertical resolution at the surface"
+    Δz::F
+    function CoarseGridRunoff{FT}(Δz::F) where {FT, F}
+        new{FT, F}(Δz)
+    end
+end
+
 
 
 """
@@ -171,15 +176,17 @@ end
 
 Compute infiltration capacity. Currently a stand-in.
 """
-function compute_ic(soil::SoilModel, state::Vars)
-    hydraulics = soil.water.hydraulics
+function compute_ic(soil::SoilModel, runoff_model::CoarseGridRunoff,state::Vars)
     FT = eltype(state)
+    Δz = runoff_model.Δz
+    hydraulics = soil.water.hydraulics
+    θ_l = volumetric_liquid_fraction(state.soil.water.ϑ_l, soil.param_functions.porosity)
     S = effective_saturation(
-        soil.soil_param_functions.porosity,
-        state.soil.water.ϑ_l,
+        soil.param_functions.porosity,
+        θ_l,
     )
-    #For vG, dPsi/dS at S = 1 diverges. so do approx differently 
-    ic = soil.soil_param_functions.Ksat#(FT(1)-matric_potential(hydraulics,S)/dz)
+    
+    ic = soil.param_functions.Ksat*(FT(1)-matric_potential(hydraulics,S)/Δz)
     return ic
 end
 """
@@ -188,17 +195,22 @@ end
 Compute Horton runoff.
 """
 function compute_horton_runoff(soil::SoilModel,
-                               runoff_model::TopmodelRunoff{FT},
+                               runoff_model::CoarseGridRunoff{FT},
                                precip_model::DrivenConstantPrecip{FT},
                                aux::Vars,
                                state::Vars,
                                t::Real,
                                ) where {FT}
     mean_p = precip_model(t)
-    mean_e = FT(0.0)
-    incident_water_flux = mean_p - mean_e
-    ic = compute_ic(soil, state)
-    if S_lsfc < FT(1) && incident_water_flux > ic
+    incident_water_flux = mean_p
+    ic = compute_ic(soil, runoff_model, state)
+    # Need to take into account the ice to determine if the soil is truly saturated.
+    effective_porosity = soil.param_functions.porosity - state.soil.water.θ_i
+    coarse_S_l = effective_saturation(
+        effective_porosity,
+        state.soil.water.ϑ_l,
+    )
+    if coarse_S_l < FT(1) && incident_water_flux > ic
         horton_runoff = incident_water_flux - ic
     else
         horton_runoff = FT(0.0)
@@ -288,8 +300,9 @@ function compute_surface_runoff(soil::SoilModel,
                                 state::Vars,
                                 t::Real
                                )
-   r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, t)
-   return r_l_dunne
+    r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, t)
+    r_l_horton = compute_horton_runoff(soil, runoff_model, precip_model, aux, state, t)
+   return r_l_dunne+r_l_horton
 end
 
 function compute_surface_flux(soil::SoilModel,
