@@ -147,35 +147,35 @@ function custom_filter!(::EDMFFilter, bl, state, aux)
         # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
 
 
-        # FT = eltype(state)
-        # # this ρu[3]=0 is only for single_stack
+        FT = eltype(state)
+        # this ρu[3]=0 is only for single_stack
         # state.ρu = SVector(state.ρu[1],state.ρu[2],0)
-        # up = state.turbconv.updraft
-        # en = state.turbconv.environment
-        # N_up = n_updrafts(bl.turbconv)
-        # ρ_gm = state.ρ
-        # ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-        # ρa_max = ρ_gm-ρa_min
-        # ts = recover_thermo_state(bl, state, aux)
-        # θ_liq_gm    = liquid_ice_pottemp(ts)
-        # ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-        # ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-        # ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-        # ρa_en       = ρ_gm - ρa_ups
-        # ρaw_en      = - ρaw_ups
-        # θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        # # if !(θ_liq_en > FT(0))
-        # w_en        = ρaw_en / ρa_en
-        # @unroll_map(N_up) do i
-        #     up[i].ρa = ρa_min
-        #     up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-        #     up[i].ρaw     = FT(0)
-        # end
-        # en.ρatke = max(en.ρatke,FT(0))
-        # en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
-        # # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
-        # # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
-        # validate_variables(bl, state, aux, "custom_filter!")
+        up = state.turbconv.updraft
+        en = state.turbconv.environment
+        N_up = n_updrafts(bl.turbconv)
+        ρ_gm = state.ρ
+        ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+        ρa_max = ρ_gm-ρa_min
+        ts = recover_thermo_state(bl, state, aux)
+        θ_liq_gm    = liquid_ice_pottemp(ts)
+        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+        ρa_en       = ρ_gm - ρa_ups
+        ρaw_en      = - ρaw_ups
+        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+        # if !(θ_liq_en > FT(0))
+        w_en        = ρaw_en / ρa_en
+        @unroll_map(N_up) do i
+            up[i].ρa = ρa_min
+            up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+            up[i].ρaw     = FT(0)
+        end
+        en.ρatke = max(en.ρatke,FT(0))
+        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+        validate_variables(bl, state, aux, "custom_filter!")
     end
 end
 
@@ -245,8 +245,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        # turbconv = turbconv,
-        turbconv = NoTurbConv(),
+        turbconv = turbconv,
+        # turbconv = NoTurbConv(),
     )
 
     # Assemble configuration
@@ -270,62 +270,62 @@ function main(::Type{FT}) where {FT}
         ode_dt = 2.64583e-01,
     )
 
-    #################### Change the ode_solver to implicit solver
-    CFLmax = FT(5)
-    dg = solver_config.dg
-    Q = solver_config.Q
+    # #################### Change the ode_solver to implicit solver
+    # CFLmax = FT(5)
+    # dg = solver_config.dg
+    # Q = solver_config.Q
 
 
-    vdg = DGModel(
-        driver_config;
-        state_auxiliary = dg.state_auxiliary,
-        direction = VerticalDirection(),
-    )
+    # vdg = DGModel(
+    #     driver_config;
+    #     state_auxiliary = dg.state_auxiliary,
+    #     direction = VerticalDirection(),
+    # )
 
 
-    # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        max_subspace_size = 30,
-        atol = -1.0,
-        rtol = 5e-5,
-    )
+    # # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
+    # linearsolver = BatchedGeneralizedMinimalResidual(
+    #     dg,
+    #     Q;
+    #     max_subspace_size = 30,
+    #     atol = -1.0,
+    #     rtol = 5e-5,
+    # )
 
-    """
-    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
-    F(Q) == 0
-    ||F(Q^i) || / ||F(Q^0) || < tol
-    """
-    # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
-    # I have also try larger tol, but tol = 1e-3 does not work
-    nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
+    # """
+    # N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
+    # F(Q) == 0
+    # ||F(Q^i) || / ||F(Q^0) || < tol
+    # """
+    # # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
+    # # I have also try larger tol, but tol = 1e-3 does not work
+    # nonlinearsolver =
+    #     JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
 
-    # this is a second order time integrator, to change it to a first order time integrator
-    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
-    # and stability
-    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
-    # update it more freqent will accelerate the convergence of linear solves, but updating it 
-    # is very expensive
-    ode_solver = ARK2ImplicitExplicitMidpoint(
-        dg,
-        vdg,
-        NonLinearBackwardEulerSolver(
-            nonlinearsolver;
-            isadjustable = true,
-            preconditioner_update_freq = 50,
-        ),
-        Q;
-        dt = solver_config.dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-        variant = NaiveVariant(),
-    )
+    # # this is a second order time integrator, to change it to a first order time integrator
+    # # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
+    # # and stability
+    # # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
+    # # update it more freqent will accelerate the convergence of linear solves, but updating it 
+    # # is very expensive
+    # ode_solver = ARK2ImplicitExplicitMidpoint(
+    #     dg,
+    #     vdg,
+    #     NonLinearBackwardEulerSolver(
+    #         nonlinearsolver;
+    #         isadjustable = true,
+    #         preconditioner_update_freq = 50,
+    #     ),
+    #     Q;
+    #     dt = solver_config.dt,
+    #     t0 = 0,
+    #     split_explicit_implicit = false,
+    #     variant = NaiveVariant(),
+    # )
 
-    solver_config.solver = ode_solver
+    # solver_config.solver = ode_solver
 
-    #######################################
+    # #######################################
 
 
 
