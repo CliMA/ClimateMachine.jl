@@ -70,8 +70,8 @@ using ClimateMachine.BalanceLaws:
     yres = FT(0.2)
     zres = FT(0.01)
     # Specify the domain boundaries.
-    zmax = FT(0);
-    zmin = FT(-1);
+    zmax = FT(0)
+    zmin = FT(-1)
     xmax = FT(1)
     ymax = FT(1)
 
@@ -98,26 +98,27 @@ using ClimateMachine.BalanceLaws:
         driver_config,
         ode_dt = dt,
     )
-    n_outputs  = 30
-    every_x_simulation_time = ceil(Int, timeend / n_outputs);
+    n_outputs = 30
+    every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
     state_types = (Auxiliary(), GradientFlux())
-    dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = false)]
+    dons_arr =
+        Dict[dict_of_nodal_states(solver_config, state_types; interp = false)]
     time_data = FT[0] # store time data
 
     # We specify a function which evaluates `every_x_simulation_time` and returns
     # the state vector, appending the variables we are interested in into
     # `all_data`.
-    
+
     callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
         dons = dict_of_nodal_states(solver_config, state_types; interp = false)
         push!(dons_arr, dons)
         push!(time_data, gettime(solver_config.solver))
         nothing
-    end;
-    
+    end
+
     # # Run the integration
-    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
+    ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
     computed_bottom_∇h =
         [dons_arr[k]["soil.water.K∇h[3]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs]
 
@@ -127,10 +128,12 @@ using ClimateMachine.BalanceLaws:
     prescribed_bottom_∇h = t -> FT(-1) * FT(-3.0 * sin(pi * 2.0 * t / 300.0))
 
     MSE = mean((prescribed_bottom_∇h.(t) .- computed_bottom_∇h) .^ 2.0)
-    computed_y1_∇h =
-        maximum(abs.([dons_arr[k]["soil.water.K∇h[2]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs]))
-    computed_x1_∇h =
-        maximum(abs.([dons_arr[k]["soil.water.K∇h[1]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs]))
+    computed_y1_∇h = maximum(abs.(
+        [dons_arr[k]["soil.water.K∇h[2]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs],
+    ))
+    computed_x1_∇h = maximum(abs.(
+        [dons_arr[k]["soil.water.K∇h[1]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs],
+    ))
     @test MSE < 1e-4
     @test computed_x1_∇h < 1e-10
     @test computed_y1_∇h < 1e-10
