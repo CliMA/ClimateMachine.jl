@@ -22,8 +22,8 @@ function source(
     direction,
     diffusive,
 )
-    nt = compute_warm_rain_params(m, state, aux, t, ts)
-    return state.ρ * nt.S_qr
+    nt = warm_rain_sources(m, state, aux, ts)
+    return nt.S_ρ_qr
 end
 
 function source(
@@ -36,8 +36,8 @@ function source(
     direction,
     diffusive,
 )
-    nt = compute_rain_snow_params(m, state, aux, t, ts)
-    return state.ρ * nt.S_qr
+    nt = rain_snow_sources(m, state, aux, ts)
+    return nt.S_ρ_qr
 end
 
 function source(
@@ -50,6 +50,6 @@ function source(
     direction,
     diffusive,
 )
-    nt = compute_rain_snow_params(m, state, aux, t, ts)
-    return state.ρ * nt.S_qs
+    nt = rain_snow_sources(m, state, aux, ts)
+    return nt.S_ρ_qs
 end
