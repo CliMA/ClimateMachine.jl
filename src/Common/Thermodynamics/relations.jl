@@ -591,6 +591,31 @@ function total_energy(
 end
 
 """
+    total_energy_given_ρp(param_set, ρ, p, e_kin, e_pot[, q::PhasePartition])
+
+The total energy per unit mass, given
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `e_kin` kinetic energy per unit mass
+ - `e_pot` potential energy per unit mass
+ - `ρ` (moist-)air density
+ - `p` pressure
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
+"""
+function total_energy_given_ρp(
+    param_set::APS,
+    ρ::FT,
+    p::FT,
+    e_kin::FT,
+    e_pot::FT,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
+    T = air_temperature_from_ideal_gas_law(param_set, p, ρ, q)
+    return total_energy(param_set, e_kin, e_pot, T, q)
+end
+
+"""
     soundspeed_air(param_set, T[, q::PhasePartition])
 
 The speed of sound in unstratified air, where
@@ -1351,6 +1376,96 @@ function saturation_adjustment(
             return sol.root
         end
     end
+end
+
+"""
+    saturation_adjustment_ρpq(
+        param_set,
+        ρ,
+        p,
+        q_tot,
+        phase_type,
+        maxiter,
+        temperature_tol
+    )
+Compute the temperature that is consistent with
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `ρ` (moist-)air density
+ - `p` pressure
+ - `q_tot` total specific humidity
+ - `phase_type` a thermodynamic state type
+ - `maxiter` maximum iterations for non-linear equation solve
+ - `temperature_tol` temperature tolerance
+by finding the root of
+
+```
+T - air_temperature_from_ideal_gas_law(
+        param_set,
+        p,
+        ρ,
+        PhasePartition_equil(param_set, T, ρ, q_tot, phase_type),
+    )
+```
+using Newtons method using ForwardDiff.
+See also [`saturation_adjustment`](@ref).
+"""
+function saturation_adjustment_ρpq(
+    param_set::APS,
+    ρ::FT,
+    p::FT,
+    q_tot::FT,
+    phase_type::Type{<:PhaseEquil},
+    maxiter::Int,
+    temperature_tol::FT = eps(FT),
+) where {FT <: Real}
+    tol = SolutionTolerance(temperature_tol)
+    q_pt = PhasePartition(q_tot)
+    T_init = air_temperature_from_ideal_gas_law(param_set, p, ρ, q_pt)
+    # Use `oftype` to preserve diagonalized type signatures:
+    sol = find_zero(
+        T ->
+            T - air_temperature_from_ideal_gas_law(
+                param_set,
+                oftype(T, p),
+                oftype(T, ρ),
+                PhasePartition_equil(
+                    param_set,
+                    T,
+                    oftype(T, ρ),
+                    oftype(T, q_tot),
+                    phase_type,
+                ),
+            ),
+        NewtonsMethodAD(T_init),
+        CompactSolution(),
+        tol,
+        maxiter,
+    )
+    if !sol.converged
+        if print_warning()
+            @print("-----------------------------------------\n")
+            @print("maxiter reached in saturation_adjustment_ρpq:\n")
+            @print(
+                "    ρ=",
+                ρ,
+                ", p=",
+                p,
+                ", q_tot=",
+                q_tot,
+                ", T = ",
+                sol.root,
+                ", maxiter=",
+                maxiter,
+                ", tol=",
+                tol.tol,
+                "\n"
+            )
+        end
+        if error_on_non_convergence()
+            error("Failed to converge with printed set of inputs.")
+        end
+    end
+    return sol.root
 end
 
 """

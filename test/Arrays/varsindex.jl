@@ -22,6 +22,13 @@ const V = @vars begin
     end
 end
 
+const VNT = @vars begin
+    a::Float32
+    e::Tuple{ntuple(3) do i
+        @vars(b::SVector{3, Float32})
+    end...}
+end
+
 @testset "MPIStateArray varsindex" begin
     # check with invalid vars size
     @test_throws ErrorException MPIStateArray{Float32, V}(
@@ -104,4 +111,47 @@ end
     A = MPIStateArray{Float32}(mpicomm, ArrayType, 4, 29, 8)
     @test_throws ErrorException A.a
     @test_throws ErrorException getstateview(A, "a")
+end
+
+@testset "MPIStateArray show_not_finite_fields" begin
+    post_msg = "are not finite (has NaNs or Inf)"
+    Q = MPIStateArray{Float32, V}(mpicomm, ArrayType, 4, 34, 8)
+    Q .= 1
+    Qv = view(MPIStateArrays.realview(Q), :, 1:1, :)
+    Qv .= NaN
+    msg = "Field(s) (a) " * post_msg
+    @test_logs (:warn, msg) show_not_finite_fields(Q)
+
+    Qv = view(MPIStateArrays.realview(Q), :, 2:2, :)
+    Qv .= NaN
+    msg = "Field(s) (a, and b[1]) " * post_msg
+    @test_logs (:warn, msg) show_not_finite_fields(Q)
+
+    Qv = view(MPIStateArrays.realview(Q), :, 31:31, :)
+    Qv .= NaN
+    msg = "Field(s) (a, b[1], and e.b[1]) " * post_msg
+    @test_logs (:warn, msg) show_not_finite_fields(Q)
+
+    Q .= 1
+    @test show_not_finite_fields(Q) == nothing
+end
+
+@testset "MPIStateArray show_not_finite_fields - ntuple vars" begin
+    post_msg = "are not finite (has NaNs or Inf)"
+    Q = MPIStateArray{Float32, VNT}(mpicomm, ArrayType, 4, 10, 8)
+    Q .= 1
+    Qv = view(MPIStateArrays.realview(Q), :, 1:1, :)
+    Qv .= NaN
+    msg = "Field(s) (a) " * post_msg
+    @test_logs (:warn, msg) show_not_finite_fields(Q)
+
+    Qv = view(MPIStateArrays.realview(Q), :, 2:2, :)
+    Qv .= NaN
+    msg = "Field(s) (a, and e.1.b[1]) " * post_msg
+    @test_logs (:warn, msg) show_not_finite_fields(Q)
+
+    Qv = view(MPIStateArrays.realview(Q), :, 6:6, :)
+    Qv .= NaN
+    msg = "Field(s) (a, e.1.b[1], and e.2.b[2]) " * post_msg
+    @test_logs (:warn, msg) show_not_finite_fields(Q)
 end

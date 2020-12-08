@@ -76,15 +76,15 @@ const FT = Float32
         (aux, t) -> eltype(aux)(0.0),
     )
 
-    soil_heat_model = SoilHeatModel(
-        FT;
-        initialT = T_init,
-        dirichlet_bc = Dirichlet(
+    bc = GeneralBoundaryConditions(
+        Dirichlet(
             surface_state = heat_surface_state,
             bottom_state = heat_bottom_state,
         ),
-        neumann_bc = Neumann(surface_flux = nothing, bottom_flux = nothing),
+        Neumann(surface_flux = nothing, bottom_flux = nothing),
     )
+
+    soil_heat_model = SoilHeatModel(FT; initialT = T_init, boundaries = bc)
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
     sources = ()

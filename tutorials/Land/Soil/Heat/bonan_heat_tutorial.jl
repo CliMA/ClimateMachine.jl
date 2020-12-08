@@ -306,19 +306,12 @@ soil_water_model = PrescribedWaterModel(
 # to indicate that they do not want to supply a boundary condition of that type.
 # For example, below we indicate that we are applying (and supplying!) a Dirichlet
 # condition at the top of the domain, and a Neumann condition at the bottom.
+bc = GeneralBoundaryConditions(
+    Dirichlet(surface_state = heat_surface_state, bottom_state = nothing),
+    Neumann(surface_flux = nothing, bottom_flux = heat_bottom_flux),
+)
 
-soil_heat_model = SoilHeatModel(
-    FT;
-    initialT = T_init,
-    dirichlet_bc = Dirichlet(
-        surface_state = heat_surface_state,
-        bottom_state = nothing,
-    ),
-    neumann_bc = Neumann(
-        surface_flux = nothing,
-        bottom_flux = heat_bottom_flux,
-    ),
-);
+soil_heat_model = SoilHeatModel(FT; initialT = T_init, boundaries = bc);
 
 # The full soil model requires a heat model and a water model, as well as the
 # soil parameter functions:

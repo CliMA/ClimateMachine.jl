@@ -16,25 +16,15 @@ end
 ##### First order fluxes
 #####
 
-struct ViscousProduction{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(
-    ::ViscousProduction{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
+struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
+function flux(::ViscousFlux{Energy}, m, state, aux, t, ts, diffusive, hyperdiff)
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    ν, D_t, τ = sponge_viscosity_modifier(m, m.viscoussponge, ν, D_t, τ, aux)
     return τ * state.ρu
 end
 
-struct EnthalpyProduction{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
+struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(
-    ::EnthalpyProduction{Energy},
+    ::DiffEnthalpyFlux{Energy},
     m,
     state,
     aux,
@@ -44,7 +34,6 @@ function flux(
     hyperdiff,
 )
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    ν, D_t, τ = sponge_viscosity_modifier(m, m.viscoussponge, ν, D_t, τ, aux)
     d_h_tot = -D_t .* diffusive.∇h_tot
     return d_h_tot * state.ρ
 end

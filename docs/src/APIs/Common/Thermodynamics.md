@@ -18,15 +18,18 @@ PhaseDry_pT
 PhaseDry_pθ
 PhaseDry_ρθ
 PhaseDry_ρT
+PhaseDry_ρp
 PhaseEquil
 PhaseEquil_ρTq
 PhaseEquil_pTq
 PhaseEquil_pθq
 PhaseEquil_ρθq
+PhaseEquil_ρpq
 PhaseNonEquil
 PhaseNonEquil_ρTq
 PhaseNonEquil_ρθq
 PhaseNonEquil_pθq
+PhaseNonEquil_ρpq
 ```
 
 ## Thermodynamic state methods

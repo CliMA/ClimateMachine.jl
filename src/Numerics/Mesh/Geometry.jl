@@ -118,6 +118,7 @@ end
 
 The effective grid resolution at the point.
 """
-lengthscale(g::LocalGeometry) = 2 / (cbrt(det(g.invJ)) * g.polyorder)
+lengthscale(g::LocalGeometry) =
+    2 / (cbrt(det(g.invJ)) * maximum(max.(1, g.polyorder)))
 
 end # module

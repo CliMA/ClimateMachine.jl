@@ -54,8 +54,8 @@ end
 function main()
     FT = Float64
 
-    # DG polynomial order
-    N = 4
+    # DG polynomial orders
+    N = (4, 4)
 
     # Domain resolution
     nelem_horz = 4
@@ -93,7 +93,7 @@ function main()
     )
     driver_config = ClimateMachine.AtmosGCMConfiguration(
         "GCM Driver test",
-        (N, N),
+        N,
         resolution,
         setup.domain_height,
         param_set,

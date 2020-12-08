@@ -63,6 +63,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     vtk_number_sample_points::Int = 0
     monitor_timestep_duration::String = "never"
     monitor_courant_numbers::String = "never"
+    adapt_timestep::String = "never"
     checkpoint::String = "never"
     checkpoint_keep_one::Bool = true
     checkpoint_at_end::Bool = false
@@ -218,6 +219,11 @@ function parse_commandline(
         arg_type = String
         default =
             get_setting(:monitor_courant_numbers, defaults, global_defaults)
+        "--adapt-timestep"
+        help = "interval at which to update the timestep"
+        metavar = "<interval>"
+        arg_type = String
+        default = get_setting(:adapt_timestep, defaults, global_defaults)
         "--checkpoint"
         help = "interval at which to create a checkpoint"
         metavar = "<interval>"
@@ -335,6 +341,8 @@ Recognized keyword arguments are:
         interval in time-steps at which to output wall-clock time per time-step
 - `monitor_courant_numbers::String = "never"`:
         interval at which to output acoustic, advective, and diffusive Courant numbers
+- `adapt-timestep::String = "never"`:
+        interval at which to update the timestep
 - `checkpoint::String = "never"`:
         interval at which to write a checkpoint
 - `checkpoint_keep_one::Bool = true`: (interval)
@@ -661,6 +669,12 @@ function invoke!(
     )
     if !isnothing(cb_mcn)
         callbacks = (callbacks..., cb_mcn)
+    end
+
+    # Timestep adapter
+    cb_adp = Callbacks.adapt_timestep(Settings.adapt_timestep, solver_config)
+    if !isnothing(cb_adp)
+        callbacks = (callbacks..., cb_adp)
     end
 
     # checkpointing callback

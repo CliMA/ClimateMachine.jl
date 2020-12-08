@@ -37,7 +37,7 @@ function show_tendencies(bl; include_params = false)
             "Equation" "Flux{FirstOrder}" "Flux{SecondOrder}" "Source"
             "(Y_i)" "(F_1)" "(F_2)" "(S)"
         ]
-        eqs = collect(string.(nameof.(typeof.(prog_vars))))
+        eqs = collect(string.(typeof.(prog_vars)))
         fmt_tends(tt) = map(prog_vars) do pv
             format_tends(eq_tends(pv, bl, tt), ip)
         end |> collect
@@ -52,6 +52,7 @@ function show_tendencies(bl; include_params = false)
             header,
             header_crayon = crayon"yellow bold",
             subheader_crayon = crayon"green bold",
+            crop = :none,
         )
         println("")
     else

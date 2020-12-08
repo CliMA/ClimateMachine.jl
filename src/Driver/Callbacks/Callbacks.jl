@@ -11,6 +11,7 @@ using Statistics
 using CLIMAParameters
 using CLIMAParameters.Planet: day
 
+using ..ClimateMachine
 using ..BalanceLaws
 using ..Courant
 using ..Checkpoint
@@ -18,7 +19,7 @@ using ..DGMethods
 using ..BalanceLaws: vars_state, Prognostic, Auxiliary
 using ..Diagnostics
 using ..GenericCallbacks
-using ..Mesh.Grids: HorizontalDirection, VerticalDirection
+using ..Mesh.Grids: EveryDirection, HorizontalDirection, VerticalDirection
 using ..MPIStateArrays
 using ..ODESolvers
 using ..TicToc
@@ -48,9 +49,9 @@ function GenericCallbacks.init!(cb::SummaryLogCallback, solver, Q, param, t)
     return nothing
 end
 function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
-    runtime_ms = Dates.now() - cb.wtimestart
-    runtime = Dates.format(
-        convert(Dates.DateTime, runtime_ms),
+    wallclock_time_ms = Dates.now() - cb.wtimestart
+    wallclock = Dates.format(
+        convert(Dates.DateTime, wallclock_time_ms),
         Dates.dateformat"HH:MM:SS",
     )
     normQ = norm(Q)
@@ -59,29 +60,36 @@ function GenericCallbacks.call!(cb::SummaryLogCallback, solver, Q, param, t)
     else
         simtime = @sprintf "%8.2f / %8.2f" t cb.stimeend
     end
-    runtime_s = runtime_ms.value / 1000
-    efficiency = @sprintf "%8.4f" t / runtime_s
-    estimated_remaining_ms =
-        Dates.Millisecond(ceil(Int, cb.stimeend * runtime_s / t * 1000))
+    wallclock_s = wallclock_time_ms.value / 1000
+    efficiency = @sprintf "%8.4f" t / wallclock_s
+
+    estimated_wallclock_end = cb.stimeend * wallclock_s / t
+
+    estimated_wallclock_end_ms =
+        Dates.Millisecond(ceil(Int, estimated_wallclock_end * 1000))
+
     estimated_remaining = Dates.format(
-        convert(Dates.DateTime, estimated_remaining_ms),
+        convert(Dates.DateTime, estimated_wallclock_end_ms),
         Dates.dateformat"HH:MM:SS",
     )
     @info @sprintf(
         """
         Update
             simtime = %s
-            runtime = %s
-            efficiency (simtime / runtime) = %s
-            remaining runtime (estimated) = %s
+            wallclock = %s
+            efficiency (simtime / wallclock) = %s
+            wallclock end (estimated) = %s
             norm(Q) = %.16e""",
         simtime,
-        runtime,
+        wallclock,
         efficiency,
         estimated_remaining,
         normQ,
     )
-    isnan(normQ) && error("norm(Q) is NaN")
+    if !isfinite(normQ)
+        show_not_finite_fields(Q)
+        error("norm(Q) is not finite")
+    end
     return nothing
 end
 function GenericCallbacks.fini!(cb::SummaryLogCallback, solver, Q, param, t)
@@ -327,6 +335,32 @@ function monitor_courant_numbers(mcn_opt, solver_config)
         nothing
     end
     return cb_cfl
+end
+
+function adapt_timestep(adp_opt, solver_config)
+    cb_constr = CB_constructor(adp_opt, solver_config)
+    cb_constr === nothing && return nothing
+    cb_adp = cb_constr() do
+        dt = solver_config.solver.dt
+        dg = solver_config.dg
+        bl = dg.balance_law
+        Q = solver_config.Q
+        t0 = solver_config.t0
+        ode_solver_type = solver_config.ode_solver_type
+        dtmodel = getdtmodel(ode_solver_type, bl)
+        ndt = ClimateMachine.DGMethods.calculate_dt(
+            dg,
+            dtmodel,
+            Q,
+            solver_config.CFL,
+            t0,
+            solver_config.diffdir,
+        )
+        @info @sprintf("""Updating time step: %8.16f => %8.16f""", dt, ndt)
+        updatedt!(solver_config.solver, ndt)
+        nothing
+    end
+    return cb_adp
 end
 
 """

@@ -89,12 +89,9 @@ function run_hydrostatic_test(; imex::Bool = false, BC = nothing, refDat = ())
     driver = config_simple_box(FT, N, resolution, dimensions; BC = BC)
 
     grid = driver.grid
-    # XXX: Needs updating for multiple polynomial orders
     N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    vert_filter = CutoffFilter(grid, N - 1)
+    Nvert = N[end]
+    vert_filter = CutoffFilter(grid, Nvert - 1)
     exp_filter = ExponentialFilter(grid, 1, 8)
     modeldata = (vert_filter = vert_filter, exp_filter = exp_filter)
 

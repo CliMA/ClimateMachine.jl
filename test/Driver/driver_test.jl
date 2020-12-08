@@ -66,8 +66,8 @@ function main()
 
     FT = Float64
 
-    # DG polynomial order
-    N = 4
+    # DG polynomial orders
+    N = (4, 4)
 
     # Domain resolution and size
     Δh = FT(40)
@@ -85,7 +85,7 @@ function main()
     ode_solver = ClimateMachine.ExplicitSolverType()
     driver_config = ClimateMachine.AtmosLESConfiguration(
         "Driver test",
-        (N, N),
+        N,
         resolution,
         xmax,
         ymax,

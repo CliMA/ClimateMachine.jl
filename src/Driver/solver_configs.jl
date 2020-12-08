@@ -21,6 +21,9 @@ mutable struct SolverConfiguration{FT}
     numberofsteps::Int
     init_args::Any
     solver::Any
+    ode_solver_type::Any
+    diffdir::Any
+    CFL::FT
 end
 
 """
@@ -244,6 +247,9 @@ function SolverConfiguration(
         numberofsteps,
         init_args,
         solver,
+        ode_solver_type,
+        diffdir,
+        Courant_number,
     )
 end
 

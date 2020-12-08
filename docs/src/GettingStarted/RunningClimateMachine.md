@@ -85,6 +85,7 @@ usage: experiments/AtmosGCM/heldsuarez.jl [--disable-gpu]
                         [--vtk-number-sample-points <number>]
                         [--monitor-timestep-duration <interval>]
                         [--monitor-courant-numbers <interval>]
+                        [--adapt-timestep <interval>]
                         [--checkpoint <interval>]
                         [--checkpoint-keep-all] [--checkpoint-at-end]
                         [--checkpoint-dir <path>]
@@ -124,6 +125,10 @@ ClimateMachine:
   --monitor-courant-numbers <interval>
                         interval at which to output acoustic,
                         advective, and diffusive Courant numbers
+                        (default: "never")
+  --adapt-timestep <interval>
+                        interval at which to adjust timestep to correspond
+                        to desired courant number
                         (default: "never")
   --checkpoint <interval>
                         interval at which to create a checkpoint

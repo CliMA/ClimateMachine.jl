@@ -246,6 +246,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_acousticwave_variable_degree"
+    key: "cpu_acousticwave_variable_degree"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_mms_bc_atmos"
     key: "cpu_mms_bc_atmos"
     command:
@@ -282,6 +291,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_variable_degree_advection_diffusion"
+    key: "cpu_variable_degree_advection_diffusion"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/variable_degree_advection_diffusion.jl"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_sphere"
     key: "cpu_sphere"
     command:
@@ -295,6 +313,15 @@ steps:
     key: "cpu_advection_sphere"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/advection_sphere.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
+  - label: "cpu_fvm_advection"
+    key: "cpu_fvm_advection"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection.jl "
     agents:
       config: cpu
       queue: central
@@ -619,6 +646,16 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_acousticwave_variable_degree"
+    key: "gpu_acousticwave_variable_degree"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_mms_bc_atmos"
     key: "gpu_mms_bc_atmos"
     command:
@@ -659,6 +696,16 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_variable_degree_advection_diffusion"
+    key: "gpu_variable_degree_advection_diffusion"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/variable_degree_advection_diffusion.jl"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_sphere"
     key: "gpu_sphere"
     command:
@@ -673,6 +720,16 @@ steps:
     key: "gpu_advection_sphere"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/advection_sphere.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_fvm_advection"
+    key: "gpu_fvm_advection"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection.jl "
     agents:
       config: gpu
       queue: central
@@ -1022,7 +1079,7 @@ steps:
   - label: "gpu_dycoms_with_precip"
     key: "gpu_dycoms_with_precip"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed --moisture-model nonequilibrium --precipitation-model rain"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/dycoms.jl --fix-rng-seed --moisture-model nonequilibrium --precipitation-model rain --sim-time 120 --check-asserts yes"
     agents:
       config: gpu
       queue: central
@@ -1063,6 +1120,16 @@ steps:
     key: "gpu_cbl_les"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/convective_bl_les.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_cfsite"
+    key: "gpu_cfsite"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/cfsite_hadgem2-a_07_amip.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central

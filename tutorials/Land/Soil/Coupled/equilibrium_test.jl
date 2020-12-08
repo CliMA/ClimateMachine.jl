@@ -240,7 +240,14 @@ end;
 surface_water_flux = (aux, t) -> eltype(aux)(0.0)
 bottom_water_flux = (aux, t) -> eltype(aux)(0.0)
 surface_water_state = nothing
-bottom_water_state = nothing;
+bottom_water_state = nothing
+water_bc = GeneralBoundaryConditions(
+    Dirichlet(
+        surface_state = surface_water_state,
+        bottom_state = bottom_water_state,
+    ),
+    Neumann(surface_flux = surface_water_flux, bottom_flux = bottom_water_flux),
+);
 
 # As we are not including the equations for phase changes in this tutorial,
 # we chose temperatures that are above the freezing point of water.
@@ -249,7 +256,14 @@ bottom_water_state = nothing;
 surface_heat_flux = (aux, t) -> eltype(aux)(0.0)
 bottom_heat_flux = (aux, t) -> eltype(aux)(0.0)
 surface_heat_state = nothing
-bottom_heat_state = nothing;
+bottom_heat_state = nothing
+heat_bc = GeneralBoundaryConditions(
+    Dirichlet(
+        surface_state = surface_heat_state,
+        bottom_state = bottom_heat_state,
+    ),
+    Neumann(surface_flux = surface_heat_flux, bottom_flux = bottom_heat_flux),
+);
 
 
 # Next, we define the required `init_soil!` function, which takes the user
@@ -285,14 +299,7 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(α = vg_α, n = vg_n),
     initialϑ_l = ϑ_l0,
-    dirichlet_bc = Dirichlet(
-        surface_state = surface_water_state,
-        bottom_state = bottom_water_state,
-    ),
-    neumann_bc = Neumann(
-        surface_flux = surface_water_flux,
-        bottom_flux = bottom_water_flux,
-    ),
+    boundaries = water_bc,
 );
 
 
@@ -307,18 +314,7 @@ soil_water_model = SoilWaterModel(
 # tutorial.
 
 # Repeat for heat:
-soil_heat_model = SoilHeatModel(
-    FT;
-    initialT = T_init,
-    dirichlet_bc = Dirichlet(
-        surface_state = surface_heat_state,
-        bottom_state = bottom_heat_state,
-    ),
-    neumann_bc = Neumann(
-        surface_flux = surface_heat_flux,
-        bottom_flux = bottom_heat_flux,
-    ),
-);
+soil_heat_model = SoilHeatModel(FT; initialT = T_init, boundaries = heat_bc);
 
 
 # Combine into a single soil model:
@@ -376,16 +372,16 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 # including prognostic, auxiliary, and
 # gradient flux variables:
 state_types = (Prognostic(), Auxiliary(), GradientFlux())
-all_data = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
 time_data = FT[0] # store time data
 
 # We specify a function which evaluates `every_x_simulation_time` and returns
 # the state vector, appending the variables we are interested in into
-# `all_data`.
+# `dons_arr`.
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
@@ -396,7 +392,7 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # Get the final state and create plots:
 dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-push!(all_data, dons)
+push!(dons_arr, dons)
 push!(time_data, gettime(solver_config.solver));
 
 # Get z-coordinate
@@ -410,7 +406,7 @@ mkpath(output_dir);
 export_plot(
     z,
     time_data ./ (60 * 60 * 24),
-    all_data,
+    dons_arr,
     ("soil.water.ϑ_l",),
     joinpath(output_dir, "eq_moisture_plot.png");
     xlabel = "ϑ_l",
@@ -422,7 +418,7 @@ export_plot(
 export_plot(
     z,
     time_data[2:end] ./ (60 * 60 * 24),
-    all_data[2:end],
+    dons_arr[2:end],
     ("soil.water.K∇h[3]",),
     joinpath(output_dir, "eq_hydraulic_head_plot.png");
     xlabel = "K∇h (m/s)",
@@ -434,7 +430,7 @@ export_plot(
 export_plot(
     z,
     time_data ./ (60 * 60 * 24),
-    all_data,
+    dons_arr,
     ("soil.heat.T",),
     joinpath(output_dir, "eq_temperature_plot.png");
     xlabel = "T (K)",
@@ -446,7 +442,7 @@ export_plot(
 export_plot(
     z,
     time_data[2:end] ./ (60 * 60 * 24),
-    all_data[2:end],
+    dons_arr[2:end],
     ("soil.heat.κ∇T[3]",),
     joinpath(output_dir, "eq_heat_plot.png");
     xlabel = "κ∇T",

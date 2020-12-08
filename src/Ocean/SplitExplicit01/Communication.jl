@@ -83,7 +83,7 @@ end
     update_auxiliary_state!(tendency_dg, tend, dQslow2fast, 0, elems)
 
     info = basic_grid_info(dgSlow)
-    Nq, Nqk = info.Nq, info.Nqk
+    Nqh, Nqk = info.Nqh, info.Nqk
     nelemv, nelemh = info.nvertelem, info.nhorzelem
     nrealelemh = info.nhorzrealelem
 
@@ -91,7 +91,7 @@ end
     nb_aux_tnd = number_states(tend, Auxiliary())
     data_tnd = reshape(
         tendency_dg.state_auxiliary.data,
-        Nq^2,
+        Nqh,
         Nqk,
         nb_aux_tnd,
         nelemv,
@@ -102,7 +102,7 @@ end
 
     ## copy into Gᵁ of dgFast
     nb_aux_fst = number_states(fast, Auxiliary())
-    data_fst = reshape(dgFast.state_auxiliary.data, Nq^2, nb_aux_fst, nelemh)
+    data_fst = reshape(dgFast.state_auxiliary.data, Nqh, nb_aux_fst, nelemh)
     index_Gᵁ = varsindex(vars_state(fast, Auxiliary(), FT), :Gᵁ)
     boxy_Gᵁ = @view data_fst[:, index_Gᵁ, 1:nrealelemh]
     boxy_Gᵁ .= flat_∫du
@@ -113,7 +113,7 @@ end
     nb_aux_slw = number_states(slow, Auxiliary())
     data_slw = reshape(
         dgSlow.state_auxiliary.data,
-        Nq^2,
+        Nqh,
         Nqk,
         nb_aux_slw,
         nelemv,
@@ -167,7 +167,7 @@ end
 )
     FT = eltype(Qslow)
     info = basic_grid_info(dgSlow)
-    Nq, Nqk = info.Nq, info.Nqk
+    Nqh, Nqk = info.Nqh, info.Nqk
     nelemv, nelemh = info.nvertelem, info.nhorzelem
     nrealelemh = info.nhorzrealelem
     grid = dgSlow.grid
@@ -191,7 +191,7 @@ end
     nb_aux_flw = number_states(flowint, Auxiliary())
     data_flw = reshape(
         flowintegral_dg.state_auxiliary.data,
-        Nq^2,
+        Nqh,
         Nqk,
         nb_aux_flw,
         nelemv,
@@ -207,7 +207,7 @@ end
     Δu .= dgFast.state_auxiliary.U_c
 
     nb_aux_fst = number_states(fast, Auxiliary())
-    data_fst = reshape(dgFast.state_auxiliary.data, Nq^2, nb_aux_fst, nelemh)
+    data_fst = reshape(dgFast.state_auxiliary.data, Nqh, nb_aux_fst, nelemh)
     index_Δu = varsindex(vars_state(fast, Auxiliary(), FT), :Δu)
     boxy_Δu = @view data_fst[:, index_Δu, 1:nrealelemh]
     boxy_Δu .-= flat_∫u
@@ -215,10 +215,10 @@ end
 
     ## apply the 2D correction to the 3D solution
     nb_cons_slw = number_states(slow, Prognostic())
-    data_slw = reshape(Qslow.data, Nq^2, Nqk, nb_cons_slw, nelemv, nelemh)
+    data_slw = reshape(Qslow.data, Nqh, Nqk, nb_cons_slw, nelemv, nelemh)
     index_u = varsindex(vars_state(slow, Prognostic(), FT), :u)
     boxy_u = @view data_slw[:, :, index_u, :, 1:nrealelemh]
-    boxy_u .+= reshape(boxy_Δu, Nq^2, 1, 2, 1, nrealelemh)
+    boxy_u .+= reshape(boxy_Δu, Nqh, 1, 2, 1, nrealelemh)
 
     ## save Eta from 3D model into η_diag (aux var of 2D model)
     ## and store difference between η from Barotropic Model and η_diag
@@ -234,7 +234,7 @@ end
     ## copy 2D model Eta over to 3D model
     index_η_c = varsindex(vars_state(fast, Auxiliary(), FT), :η_c)
     boxy_η_2D = @view data_fst[:, index_η_c, 1:nrealelemh]
-    boxy_η_3D .= reshape(boxy_η_2D, Nq^2, 1, 1, 1, nrealelemh)
+    boxy_η_3D .= reshape(boxy_η_2D, Nqh, 1, 1, 1, nrealelemh)
 
     return nothing
 end
