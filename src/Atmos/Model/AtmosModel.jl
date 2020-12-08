@@ -443,6 +443,7 @@ include("tendencies_momentum.jl")     # specify momentum tendencies
 include("tendencies_energy.jl")       # specify energy tendencies
 include("tendencies_moisture.jl")     # specify moisture tendencies
 include("tendencies_precipitation.jl")# specify precipitation tendencies
+include("tendencies_tracers.jl")      # specify tracer tendencies
 
 include("problem.jl")
 include("ref_state.jl")
@@ -636,7 +637,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
         aux,
         t,
     )
-    flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.tracers, flux, args...)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
 end
 
