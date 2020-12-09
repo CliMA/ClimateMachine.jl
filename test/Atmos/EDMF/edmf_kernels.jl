@@ -530,7 +530,7 @@ function atmos_source!(
         # pressure tke source from the i'th updraft
         en_src.ρatke += ρa_up_i * (w_up_i - env.w) * dpdz
     end
-    l_mix = mixing_length(
+    l_mix, ∂b∂z_env, Pr_t = mixing_length(
         m,
         m.turbconv.mix_len,
         state,
@@ -542,22 +542,27 @@ function atmos_source!(
         ts,
         env,
     )
-    K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+
+    K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_h = K_m / Pr_t
     Shear² = diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 
     # production from mean gradient and Dissipation
-    en_src.ρatke += ρa₀ * (K_eddy * Shear² - Diss₀ * tke_en)
+    en_src.ρatke += ρa₀ * K_m * Shear² # tke Shear source
+    en_src.ρatke += -ρa₀ * K_h * ∂b∂z_env   # tke Bouyancy source
+    en_src.ρatke += -ρa₀ * Diss₀ * tke_en  # tke Dissipation
+
     en_src.ρaθ_liq_cv +=
         ρa₀ *
-        (K_eddy * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
+        (K_h * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
     en_src.ρaq_tot_cv +=
         ρa₀ *
-        (K_eddy * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
+        (K_h * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
     en_src.ρaθ_liq_q_tot_cv +=
         ρa₀ * (
-            K_eddy * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
+            K_h * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
             Diss₀ * en.ρaθ_liq_q_tot_cv
         )
     # covariance microphysics sources should be applied here
@@ -715,7 +720,7 @@ function flux_second_order!(
 
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
 
-    l_mix = mixing_length(
+    l_mix, _, Pr_t = mixing_length(
         m,
         turbconv.mix_len,
         state,
@@ -728,7 +733,8 @@ function flux_second_order!(
         env,
     )
     tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
-    K_eddy = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_h = K_m / Pr_t
 
     #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
     e_int = internal_energy(m, state, aux)
@@ -773,9 +779,9 @@ function flux_second_order!(
     )
 
     # update grid mean flux_second_order
-    ρe_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇e[3] + massflux_e
-    ρq_tot_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot[3] + massflux_q_tot
-    ρu_sgs_flux = -gm.ρ * env.a * K_eddy * en_dif.∇w[3] + massflux_w
+    ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
+    ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
+    ρu_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
 
     # for now the coupling to the dycore is commented out
 
@@ -789,11 +795,11 @@ function flux_second_order!(
 
     ẑ = vertical_unit_vector(m, aux)
     # env second moment flux_second_order
-    en_flx.ρatke = -gm.ρ * env.a * K_eddy * en_dif.∇tke[3] * ẑ
-    en_flx.ρaθ_liq_cv = -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_cv[3] * ẑ
-    en_flx.ρaq_tot_cv = -gm.ρ * env.a * K_eddy * en_dif.∇q_tot_cv[3] * ẑ
+    en_flx.ρatke = -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
+    en_flx.ρaθ_liq_cv = -gm.ρ * env.a * K_h * en_dif.∇θ_liq_cv[3] * ẑ
+    en_flx.ρaq_tot_cv = -gm.ρ * env.a * K_h * en_dif.∇q_tot_cv[3] * ẑ
     en_flx.ρaθ_liq_q_tot_cv =
-        -gm.ρ * env.a * K_eddy * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
+        -gm.ρ * env.a * K_h * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
 end;
 
 # First order boundary conditions
