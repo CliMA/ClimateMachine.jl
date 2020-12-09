@@ -2,44 +2,43 @@
 # This file contains helpers and lists currently available options
 
 # Current options for GCM-specific sources:
-import ClimateMachine.Atmos: atmos_source!
 
 """
-    HeldSuarezForcing <: AbstractSource
+    HeldSuarezForcing{PV <: Union{Momentum,Energy}} <: TendencyDef{Source, PV}
 
 Defines a forcing that parametrises radiative and frictional effects using
 Newtonian relaxation and Rayleigh friction, following Held and Suarez (1994)
 """
-struct HeldSuarezForcing <: AbstractSource end
+struct HeldSuarezForcing{PV <: Union{Momentum, Energy}} <:
+       TendencyDef{Source, PV} end
 
-function atmos_source!(
-    ::HeldSuarezForcing,
-    bl::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+HeldSuarezForcing() =
+    (HeldSuarezForcing{Momentum}(), HeldSuarezForcing{Energy}())
+
+import ClimateMachine.BalanceLaws: source
+import ClimateMachine.Atmos: filter_source, atmos_source!
+
+filter_source(pv::PV, m, s::HeldSuarezForcing{PV}) where {PV} = s
+atmos_source!(::HeldSuarezForcing, args...) = nothing
+
+function held_suarez_forcing_coefficients(
+    bl,
+    state,
+    aux,
+    t,
+    ts,
     direction,
+    diffusive,
 )
     FT = eltype(state)
 
     # Parameters
     T_ref = FT(255)
 
-    # Extract the state
-    ρ = state.ρ
-    ρu = state.ρu
-    ρe = state.ρe
-
-    ts = recover_thermo_state(bl, state, aux)
-    e_int = internal_energy(ts)
-    T = air_temperature(ts)
     _R_d = FT(R_d(bl.param_set))
     _day = FT(day(bl.param_set))
     _grav = FT(grav(bl.param_set))
     _cp_d = FT(cp_d(bl.param_set))
-    _cv_d = FT(cv_d(bl.param_set))
     _p0 = FT(MSLP(bl.param_set))
 
     # Held-Suarez parameters
@@ -66,10 +65,53 @@ function atmos_source!(
     T_equil = max(T_min, T_equil)
     k_T = k_a + (k_s - k_a) * height_factor * cos(φ)^4
     k_v = k_f * height_factor
+    return (k_v = k_v, k_T = k_T, T_equil = T_equil)
+end
 
-    # Apply Held-Suarez forcing
-    source.ρu -= k_v * projection_tangential(bl, aux, ρu)
-    source.ρe -= k_T * ρ * _cv_d * (T - T_equil)
+function source(
+    s::HeldSuarezForcing{Energy},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = held_suarez_forcing_coefficients(
+        m,
+        state,
+        aux,
+        t,
+        ts,
+        direction,
+        diffusive,
+    )
+    FT = eltype(state)
+    _cv_d = FT(cv_d(m.param_set))
+    @unpack k_T, T_equil = nt
+    T = air_temperature(ts)
+    return -k_T * state.ρ * _cv_d * (T - T_equil)
+end
 
-    return nothing
+function source(
+    s::HeldSuarezForcing{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = held_suarez_forcing_coefficients(
+        m,
+        state,
+        aux,
+        t,
+        ts,
+        direction,
+        diffusive,
+    )
+    return -nt.k_v * projection_tangential(m, aux, state.ρu)
 end

@@ -48,8 +48,7 @@ using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
-using ClimateMachine.BalanceLaws:
-    BalanceLaw, Auxiliary, Gradient, GradientFlux, Prognostic
+using ClimateMachine.BalanceLaws
 
 using CLIMAParameters
 using CLIMAParameters.Planet: e_int_v0, grav, day
@@ -71,13 +70,15 @@ microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
 
 const param_set = EarthParameterSet(microphys)
 
-import ClimateMachine.Atmos: atmos_source!
+import ClimateMachine.Atmos: filter_source, atmos_source!
+import ClimateMachine.BalanceLaws: source
 using ClimateMachine.Atmos: altitude, recover_thermo_state
+using UnPack
 
 """
   Bomex Geostrophic Forcing (Source)
 """
-struct BomexGeostrophic{FT} <: AbstractSource
+struct BomexGeostrophic{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -87,36 +88,35 @@ struct BomexGeostrophic{FT} <: AbstractSource
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-function atmos_source!(
-    s::BomexGeostrophic,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+
+BomexGeostrophic(::Type{FT}, args...) where {FT} =
+    BomexGeostrophic{Momentum, FT}(args...)
+
+function source(
+    s::BomexGeostrophic{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
+    diffusive,
 )
+    @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
-    f_coriolis = s.f_coriolis
-    u_geostrophic = s.u_geostrophic
-    u_slope = s.u_slope
-    v_geostrophic = s.v_geostrophic
-
-    z = altitude(atmos, aux)
+    z = altitude(m, aux)
     # Note z dependence of eastward geostrophic velocity
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos, aux)
+    ẑ = vertical_unit_vector(m, aux)
     fkvector = f_coriolis * ẑ
     # Accumulate sources
-    source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
-    return nothing
+    return -fkvector × (state.ρu .- state.ρ * u_geo)
 end
 
 """
   Bomex Sponge (Source)
 """
-struct BomexSponge{FT} <: AbstractSource
+struct BomexSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -132,42 +132,43 @@ struct BomexSponge{FT} <: AbstractSource
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-function atmos_source!(
-    s::BomexSponge,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+
+BomexSponge(::Type{FT}, args...) where {FT} = BomexSponge{Momentum, FT}(args...)
+
+function source(
+    s::BomexSponge{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
+    diffusive,
 )
+    @unpack z_max, z_sponge, α_max, γ = s
+    @unpack u_geostrophic, u_slope, v_geostrophic = s
 
-    z_max = s.z_max
-    z_sponge = s.z_sponge
-    α_max = s.α_max
-    γ = s.γ
-    u_geostrophic = s.u_geostrophic
-    u_slope = s.u_slope
-    v_geostrophic = s.v_geostrophic
-
-    z = altitude(atmos, aux)
+    z = altitude(m, aux)
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos, aux)
+    ẑ = vertical_unit_vector(m, aux)
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
         β_sponge = α_max * sinpi(r / 2)^s.γ
-        source.ρu -= β_sponge * (state.ρu .- state.ρ * u_geo)
+        return -β_sponge * (state.ρu .- state.ρ * u_geo)
+    else
+        FT = eltype(state)
+        return SVector{3, FT}(0, 0, 0)
     end
-    return nothing
 end
 
 """
-  BomexTendencies (Source)
+    BomexTendencies (Source)
+
 Moisture, Temperature and Subsidence tendencies
 """
-struct BomexTendencies{FT} <: AbstractSource
+struct BomexTendencies{PV <: Union{Mass, Energy, TotalMoisture}, FT} <:
+       TendencyDef{Source, PV}
     "Advection tendency in total moisture `[s⁻¹]`"
     ∂qt∂t_peak::FT
     "Lower extent of piecewise profile (moisture term) `[m]`"
@@ -185,42 +186,35 @@ struct BomexTendencies{FT} <: AbstractSource
     "Max height in domain"
     z_max::FT
 end
-function atmos_source!(
-    s::BomexTendencies,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+
+BomexTendencies(::Type{FT}, args...) where {FT} = (
+    BomexTendencies{Mass, FT}(args...),
+    BomexTendencies{Energy, FT}(args...),
+    BomexTendencies{TotalMoisture, FT}(args...),
+)
+
+function compute_bomex_tend_params(
+    s,
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
+    diffusive,
 )
     FT = eltype(state)
     ρ = state.ρ
-    z = altitude(atmos, aux)
-    _e_int_v0 = FT(e_int_v0(atmos.param_set))
-
-    # Establish thermodynamic state
-    TS = recover_thermo_state(atmos, state, aux)
+    z = altitude(m, aux)
 
     # Moisture tendencey (sink term)
     # Temperature tendency (Radiative cooling)
     # Large scale subsidence
     # Unpack struct
-    zl_moisture = s.zl_moisture
-    zh_moisture = s.zh_moisture
-    z_max = s.z_max
-    zl_sub = s.zl_sub
-    zh_sub = s.zh_sub
+    @unpack zl_moisture, zh_moisture, z_max, zl_sub, zh_sub = s
+    @unpack w_sub, ∂qt∂t_peak, ∂θ∂t_peak = s
     zl_temperature = zl_sub
-    w_sub = s.w_sub
-    ∂qt∂t_peak = s.∂qt∂t_peak
-    ∂θ∂t_peak = s.∂θ∂t_peak
-    k̂ = vertical_unit_vector(atmos, aux)
-
-    # Thermodynamic state identification
-    q_pt = PhasePartition(TS)
-    cvm = cv_m(TS)
+    k̂ = vertical_unit_vector(m, aux)
 
     # Piecewise term for moisture tendency
     linscale_moisture = (z - zl_moisture) / (zh_moisture - zl_moisture)
@@ -252,16 +246,76 @@ function atmos_source!(
     else
         w_s = -zero(FT)
     end
-
-    # Collect Sources
-    source.ρe += cvm * ρ∂θ∂t * exner(TS) + _e_int_v0 * ρ∂qt∂t
-    source.ρe -= ρ * w_s * dot(k̂, diffusive.∇h_tot)
-    source.moisture.ρq_tot += ρ∂qt∂t
-    source.moisture.ρq_tot -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
-    source.ρ += ρ∂qt∂t
-    source.ρ -= ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
-    return nothing
+    return (w_s = w_s, ρ∂qt∂t = ρ∂qt∂t, ρ∂θ∂t = ρ∂θ∂t, k̂ = k̂)
 end
+
+function source(
+    s::BomexTendencies{Mass},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    params =
+        compute_bomex_tend_params(s, m, state, aux, t, ts, direction, diffusive)
+    @unpack ρ∂qt∂t, w_s, k̂ = params
+    ρ = state.ρ
+    return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+end
+function source(
+    s::BomexTendencies{Energy},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    params =
+        compute_bomex_tend_params(s, m, state, aux, t, ts, direction, diffusive)
+    FT = eltype(state)
+    @unpack ρ∂qt∂t, ρ∂θ∂t, w_s, k̂ = params
+    cvm = cv_m(ts)
+    _e_int_v0 = FT(e_int_v0(m.param_set))
+    term1 = cvm * ρ∂θ∂t * exner(ts) + _e_int_v0 * ρ∂qt∂t
+    term2 = state.ρ * w_s * dot(k̂, diffusive.∇h_tot)
+    return term1 - term2
+end
+function source(
+    s::BomexTendencies{TotalMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    params =
+        compute_bomex_tend_params(s, m, state, aux, t, ts, direction, diffusive)
+    @unpack ρ∂qt∂t, w_s, k̂ = params
+    return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
+end
+
+filter_source(
+    pv::PV,
+    m,
+    s::BomexTendencies{PV},
+) where {PV <: PrognosticVariable} = s
+filter_source(pv::PV, m, s::BomexSponge{PV}) where {PV <: PrognosticVariable} =
+    s
+filter_source(
+    pv::PV,
+    m,
+    s::BomexGeostrophic{PV},
+) where {PV <: PrognosticVariable} = s
+atmos_source!(::BomexTendencies, args...) = nothing
+atmos_source!(::BomexSponge, args...) = nothing
+atmos_source!(::BomexGeostrophic, args...) = nothing
 
 """
   Initial Condition for BOMEX LES
@@ -332,10 +386,9 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
     P = P_sfc * exp(-z / H)
 
     # Establish thermodynamic state and moist phase partitioning
-    TS = PhaseEquil_pθq(bl.param_set, P, θ_liq, q_tot)
-    T = air_temperature(TS)
-    ρ = air_density(TS)
-    q_pt = PhasePartition(TS)
+    ts = PhaseEquil_pθq(bl.param_set, P, θ_liq, q_tot)
+    T = air_temperature(ts)
+    ρ = air_density(ts)
 
     # Compute momentum contributions
     ρu = ρ * u
@@ -345,7 +398,7 @@ function init_bomex!(problem, bl, state, aux, localgeo, t)
     # Compute energy contributions
     e_kin = FT(1 // 2) * (u^2 + v^2 + w^2)
     e_pot = _grav * z
-    ρe_tot = ρ * total_energy(e_kin, e_pot, TS)
+    ρe_tot = ρ * total_energy(e_kin, e_pot, ts)
 
     # Assign initial conditions for prognostic state variables
     state.ρ = ρ
@@ -408,7 +461,8 @@ function bomex_model(
     # Assemble source components
     source_default = (
         Gravity(),
-        BomexTendencies{FT}(
+        BomexTendencies(
+            FT,
             ∂qt∂t_peak,
             zl_moisture,
             zh_moisture,
@@ -417,8 +471,9 @@ function bomex_model(
             zh_sub,
             w_sub,
             zmax,
-        ),
-        BomexSponge{FT}(
+        )...,
+        BomexSponge(
+            FT,
             zmax,
             z_sponge,
             α_max,
@@ -427,7 +482,7 @@ function bomex_model(
             u_slope,
             v_geostrophic,
         ),
-        BomexGeostrophic{FT}(f_coriolis, u_geostrophic, u_slope, v_geostrophic),
+        BomexGeostrophic(FT, f_coriolis, u_geostrophic, u_slope, v_geostrophic),
         turbconv_sources(turbconv)...,
     )
     if moisture_model == "equilibrium"

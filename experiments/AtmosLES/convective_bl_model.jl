@@ -18,6 +18,7 @@ using LinearAlgebra
 using Printf
 using Random
 using StaticArrays
+using UnPack
 using Test
 
 using ClimateMachine
@@ -35,21 +36,21 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 
-using ClimateMachine.BalanceLaws:
-    BalanceLaw, Auxiliary, Gradient, GradientFlux, Prognostic
+using ClimateMachine.BalanceLaws
+import ClimateMachine.BalanceLaws: source
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.Atmos: atmos_source!, flux_second_order!
+import ClimateMachine.Atmos: filter_source, atmos_source!
 using ClimateMachine.Atmos: altitude, recover_thermo_state
 
 """
-  ConvectiveBL Geostrophic Forcing (Source)
+    ConvectiveBL Geostrophic Forcing (Source)
 """
-struct ConvectiveBLGeostrophic{FT} <: AbstractSource
+struct ConvectiveBLGeostrophic{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     "Coriolis parameter [s⁻¹]"
     f_coriolis::FT
     "Eastward geostrophic velocity `[m/s]` (Base)"
@@ -59,36 +60,34 @@ struct ConvectiveBLGeostrophic{FT} <: AbstractSource
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-function atmos_source!(
-    s::ConvectiveBLGeostrophic,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+ConvectiveBLGeostrophic(::Type{FT}, args...) where {FT} =
+    ConvectiveBLGeostrophic{Momentum, FT}(args...)
+
+function source(
+    s::ConvectiveBLGeostrophic{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
+    diffusive,
 )
+    @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
-    f_coriolis = s.f_coriolis
-    u_geostrophic = s.u_geostrophic
-    u_slope = s.u_slope
-    v_geostrophic = s.v_geostrophic
-
-    z = altitude(atmos, aux)
+    z = altitude(m, aux)
     # Note z dependence of eastward geostrophic velocity
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos, aux)
+    ẑ = vertical_unit_vector(m, aux)
     fkvector = f_coriolis * ẑ
     # Accumulate sources
-    source.ρu -= fkvector × (state.ρu .- state.ρ * u_geo)
-    return nothing
+    return -fkvector × (state.ρu .- state.ρ * u_geo)
 end
 
 """
   ConvectiveBL Sponge (Source)
 """
-struct ConvectiveBLSponge{FT} <: AbstractSource
+struct ConvectiveBLSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
     "Maximum domain altitude (m)"
     z_max::FT
     "Altitude at with sponge starts (m)"
@@ -104,36 +103,40 @@ struct ConvectiveBLSponge{FT} <: AbstractSource
     "Northward geostrophic velocity `[m/s]`"
     v_geostrophic::FT
 end
-function atmos_source!(
-    s::ConvectiveBLSponge,
-    atmos::AtmosModel,
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+ConvectiveBLSponge(::Type{FT}, args...) where {FT} =
+    ConvectiveBLSponge{Momentum, FT}(args...)
+
+function source(
+    s::ConvectiveBLSponge{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
     direction,
+    diffusive,
 )
+    @unpack z_max, z_sponge, α_max, γ = s
+    @unpack u_geostrophic, u_slope, v_geostrophic = s
 
-    z_max = s.z_max
-    z_sponge = s.z_sponge
-    α_max = s.α_max
-    γ = s.γ
-    u_geostrophic = s.u_geostrophic
-    u_slope = s.u_slope
-    v_geostrophic = s.v_geostrophic
-
-    z = altitude(atmos, aux)
+    z = altitude(m, aux)
     u_geo = SVector(u_geostrophic + u_slope * z, v_geostrophic, 0)
-    ẑ = vertical_unit_vector(atmos, aux)
+    ẑ = vertical_unit_vector(m, aux)
     # Accumulate sources
     if z_sponge <= z
         r = (z - z_sponge) / (z_max - z_sponge)
         β_sponge = α_max * sinpi(r / 2)^s.γ
-        source.ρu -= β_sponge * (state.ρu .- state.ρ * u_geo)
+        return -β_sponge * (state.ρu .- state.ρ * u_geo)
+    else
+        FT = eltype(state)
+        return SVector{3, FT}(0, 0, 0)
     end
-    return nothing
 end
+
+filter_source(pv::PV, m, s::ConvectiveBLGeostrophic{PV}) where {PV} = s
+filter_source(pv::PV, m, s::ConvectiveBLSponge{PV}) where {PV} = s
+atmos_source!(::ConvectiveBLGeostrophic, args...) = nothing
+atmos_source!(::ConvectiveBLSponge, args...) = nothing
 
 """
   Initial Condition for ConvectiveBoundaryLayer LES
@@ -228,7 +231,8 @@ function convective_bl_model(
     # Assemble source components
     source_default = (
         Gravity(),
-        ConvectiveBLSponge{FT}(
+        ConvectiveBLSponge(
+            FT,
             zmax,
             z_sponge,
             α_max,
@@ -237,7 +241,8 @@ function convective_bl_model(
             u_slope,
             v_geostrophic,
         ),
-        ConvectiveBLGeostrophic{FT}(
+        ConvectiveBLGeostrophic(
+            FT,
             f_coriolis,
             u_geostrophic,
             u_slope,

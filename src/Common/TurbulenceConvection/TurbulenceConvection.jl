@@ -16,6 +16,7 @@ export init_state_prognostic!,
 
 import ..BalanceLaws:
     vars_state,
+    prognostic_vars,
     init_state_prognostic!,
     init_state_auxiliary!,
     update_auxiliary_state!,
@@ -39,6 +40,8 @@ A "no model" type, which results in kernels that
 pass through and do nothing.
 """
 struct NoTurbConv <: TurbulenceConvectionModel end
+
+prognostic_vars(::NoTurbConv) = ()
 
 vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
 

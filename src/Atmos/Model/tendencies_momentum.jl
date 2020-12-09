@@ -108,7 +108,7 @@ end
 
 export RayleighSponge
 """
-    RayleighSponge{FT} <: AbstractSource
+    RayleighSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
 
 Rayleigh Damping (Linear Relaxation) for top wall momentum components
 Assumes laterally periodic boundary conditions for LES flows. Momentum components
