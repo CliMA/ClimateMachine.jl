@@ -727,12 +727,20 @@ fluxes, respectively.
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        bctag = elemtobndy[f, e⁻]
         # Get surface mass, volume mass inverse
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:num_state_prognostic
@@ -772,7 +780,6 @@ fluxes, respectively.
         end
 
         # Oh dang, it's boundary conditions
-        bctag = elemtobndy[f, e⁻]
         fill!(local_flux, -zero(eltype(local_flux)))
         if bctag == 0
             numerical_flux_first_order!(
@@ -1509,11 +1516,19 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         )
 
         # Extract surface mass operator `sM` and volumne mass inverse `vMI`
+        bctag = elemtobndy[f, e⁻]
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:ngradtransformstate
@@ -1562,7 +1577,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         )
 
         # Oh drat, it's boundary conditions
-        bctag = elemtobndy[f, e⁻]
+
         fill!(
             local_state_gradient_flux,
             -zero(eltype(local_state_gradient_flux)),
@@ -2491,11 +2506,19 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        bctag = elemtobndy[f, e⁻]
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:ngradlapstate
@@ -2511,7 +2534,6 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
             l_grad⁺[3, s] = Qhypervisc_grad[vid⁺, 3 * (s - 1) + 3, e⁺]
         end
 
-        bctag = elemtobndy[f, e⁻]
         if bctag == 0
             numerical_flux_divergence!(
                 divgradnumpenalty,
@@ -2999,11 +3021,19 @@ the associated numerical flux.
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        bctag = elemtobndy[f, e⁻]
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:ngradtransformstate
@@ -3031,7 +3061,6 @@ the associated numerical flux.
             l_lap⁺[s] = Qhypervisc_div[vid⁺, s, e⁺]
         end
 
-        bctag = elemtobndy[f, e⁻]
         if bctag == 0
             numerical_flux_higher_order!(
                 hyperviscnumflux,

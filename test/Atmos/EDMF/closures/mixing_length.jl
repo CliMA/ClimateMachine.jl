@@ -1,5 +1,4 @@
 #### Mixing length model kernels
-
 """
     mixing_length(
         m::AtmosModel{FT},
@@ -55,13 +54,14 @@ function mixing_length(
     Shear² = diffusive.turbconv.S²
     tke_en = max(en.ρatke, 0) * ρinv / env.a
 
+    # buoyancy related functions
+    # compute obukhov_length and ustar from SurfaceFlux.jl here
     ustar = m.turbconv.surface.ustar
     obukhov_length = m.turbconv.surface.obukhov_length
 
-    # buoyancy related functions
     ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, state, diffusive, aux, t, ts)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
-    Pr_z = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
+    Pr_t = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
 
     # compute L1
     Nˢ_fact = (sign(Nˢ_eff - eps(FT)) + 1) / 2
@@ -84,7 +84,7 @@ function mixing_length(
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
-    a = ml.c_m * (Shear² - ∂b∂z / Pr_z) * sqrt(tke_en)
+    a = ml.c_m * (Shear² - ∂b∂z / Pr_t) * sqrt(tke_en)
     # Dissipation term
     b = FT(0)
     a_up = vuntuple(i -> up[i].ρa * ρinv, N_up)
@@ -120,5 +120,5 @@ function mixing_length(
 
     l_mix =
         lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
-    return l_mix
+    return l_mix, ∂b∂z, Pr_t
 end;
