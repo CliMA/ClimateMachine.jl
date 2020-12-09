@@ -26,3 +26,5 @@ prognostic_vars(m::AtmosModel) = (
     prognostic_vars(m.tracers)...,
     prognostic_vars(m.turbconv)...,
 )
+
+prognostic_vars(m::AtmosLinearModel) = (Mass(), Momentum(), Energy())
