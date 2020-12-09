@@ -131,6 +131,12 @@ function vars_atmos_les_default_simple(::RainModel, FT)
         qr::FT                  # q_rai
     end
 end
+function vars_atmos_les_default_simple(::RainSnowModel, FT)
+    @vars begin
+        qr::FT                  # q_rai
+        qs::FT                  # q_sno
+    end
+end
 num_atmos_les_default_simple_vars(m, FT) =
     varsize(vars_atmos_les_default_simple(m, FT))
 atmos_les_default_simple_vars(m, array) =
@@ -238,7 +244,20 @@ function atmos_les_default_simple_sums!(
 
     return nothing
 end
+function atmos_les_default_simple_sums!(
+    precipitation::RainSnowModel,
+    state,
+    gradflux,
+    thermo,
+    MH,
+    D_t,
+    sums,
+)
+    sums.precipitation.qr += MH * state.precipitation.ρq_rai
+    sums.precipitation.qs += MH * state.precipitation.ρq_sno
 
+    return nothing
+end
 
 function atmos_les_default_clouds(
     ::MoistureModel,
@@ -314,6 +333,14 @@ function vars_atmos_les_default_ho(m::RainModel, FT)
     @vars begin
         var_qr::FT              # q_rai′q_rai′
         cov_w_qr::FT            # w′q_rai′
+    end
+end
+function vars_atmos_les_default_ho(m::RainSnowModel, FT)
+    @vars begin
+        var_qr::FT              # q_rai′q_rai′
+        var_qs::FT              # q_sno′q_sno′
+        cov_w_qr::FT            # w′q_rai′
+        cov_w_qs::FT            # w′q_sno′
     end
 end
 num_atmos_les_default_ho_vars(m, FT) = varsize(vars_atmos_les_default_ho(m, FT))
@@ -448,6 +475,29 @@ function atmos_les_default_ho_sums!(
 
     return nothing
 end
+function atmos_les_default_ho_sums!(
+    moist::RainSnowModel,
+    state,
+    thermo,
+    MH,
+    ha,
+    w′,
+    e_int′,
+    sums,
+)
+    q_rai = state.precipitation.ρq_rai / state.ρ
+    q_rai′ = q_rai - ha.precipitation.qr
+    q_sno = state.precipitation.ρq_sno / state.ρ
+    q_sno′ = q_sno - ha.precipitation.qs
+
+    sums.precipitation.var_qr += MH * q_rai′^2 * state.ρ
+    sums.precipitation.var_qs += MH * q_sno′^2 * state.ρ
+
+    sums.precipitation.cov_w_qr += MH * w′ * q_rai′ * state.ρ
+    sums.precipitation.cov_w_qs += MH * w′ * q_sno′ * state.ρ
+
+    return nothing
+end
 
 function prefix_filter(s)
     if startswith(s, "moisture.")
@@ -495,7 +545,9 @@ function atmos_les_default_init(dgngrp::DiagnosticsGroup, currtime)
         vars["cld_base"] = ((), FT, Variables["cld_base"].attrib)
         vars["cld_cover"] = ((), FT, Variables["cld_cover"].attrib)
         vars["lwp"] = ((), FT, Variables["lwp"].attrib)
+        vars["iwp"] = ((), FT, Variables["iwp"].attrib)
         vars["rwp"] = ((), FT, Variables["rwp"].attrib)
+        vars["swp"] = ((), FT, Variables["swp"].attrib)
 
         # create the output file
         dprefix = @sprintf(
@@ -571,10 +623,11 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         zeros(FT, num_atmos_les_default_simple_vars(bl, FT))
         for _ in 1:(Nqk * nvertelem)
     ]
-    # for LWP
+    # for liquid, ice, rain and snow water paths
     ρq_liq_z = [zero(FT) for _ in 1:(Nqk * nvertelem)]
-    # for RWP
+    ρq_ice_z = [zero(FT) for _ in 1:(Nqk * nvertelem)]
     ρq_rai_z = [zero(FT) for _ in 1:(Nqk * nvertelem)]
+    ρq_sno_z = [zero(FT) for _ in 1:(Nqk * nvertelem)]
     # for cld*
     qc_gt_0_z = [zeros(FT, (Nq * Nq * nhorzelem)) for _ in 1:(Nqk * nvertelem)]
     qc_gt_0_full = zeros(FT, (Nq * Nq * nhorzelem))
@@ -620,10 +673,17 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
             # for LWP
             ρq_liq_z[evk] += MH * thermo.moisture.q_liq * state.ρ * state.ρ
+            ρq_ice_z[evk] += MH * thermo.moisture.q_ice * state.ρ * state.ρ
         end
         if isa(bl.precipitation, RainModel)
             # for RWP
             ρq_rai_z[evk] += MH * state.precipitation.ρq_rai * state.ρ
+        end
+        if isa(bl.precipitation, RainSnowModel)
+            # for RWP
+            ρq_rai_z[evk] += MH * state.precipitation.ρq_rai * state.ρ
+            # for SWP
+            ρq_sno_z[evk] += MH * state.precipitation.ρq_sno * state.ρ
         end
     end
 
@@ -645,10 +705,12 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 cld_frac[evk] = tot_qc_gt_0_z / tot_horz_z
             end
 
-            # for LWP
+            # for LWP and IWP
             tot_ρq_liq_z = MPI.Reduce(ρq_liq_z[evk], +, 0, mpicomm)
+            tot_ρq_ice_z = MPI.Reduce(ρq_ice_z[evk], +, 0, mpicomm)
             if mpirank == 0
                 ρq_liq_z[evk] = tot_ρq_liq_z / MH_z[evk]
+                ρq_ice_z[evk] = tot_ρq_ice_z / MH_z[evk]
             end
         end
         if isa(bl.precipitation, RainModel)
@@ -656,6 +718,15 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             tot_ρq_rai_z = MPI.Reduce(ρq_rai_z[evk], +, 0, mpicomm)
             if mpirank == 0
                 ρq_rai_z[evk] = tot_ρq_rai_z / MH_z[evk]
+            end
+        end
+        if isa(bl.precipitation, RainSnowModel)
+            # for RWP and SWP
+            tot_ρq_rai_z = MPI.Reduce(ρq_rai_z[evk], +, 0, mpicomm)
+            tot_ρq_sno_z = MPI.Reduce(ρq_sno_z[evk], +, 0, mpicomm)
+            if mpirank == 0
+                ρq_rai_z[evk] = tot_ρq_rai_z / MH_z[evk]
+                ρq_sno_z[evk] = tot_ρq_sno_z / MH_z[evk]
             end
         end
     end
@@ -692,22 +763,26 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             end
         end
 
-        # for LWP
+        # for all the water paths
         # FIXME properly
         if isa(bl.moisture, EquilMoist) || isa(bl.moisture, NonEquilMoist)
             ρq_liq_z[evk] /= avg_rho
+            ρq_ice_z[evk] /= avg_rho
         end
-        # for RWP
-        # FIXME properly
         if isa(bl.precipitation, RainModel)
             ρq_rai_z[evk] /= avg_rho
         end
-
+        if isa(bl.precipitation, RainSnowModel)
+            ρq_rai_z[evk] /= avg_rho
+            ρq_sno_z[evk] /= avg_rho
+        end
     end
 
-    # compute LWP and RWP
+    # compute all the water paths
     lwp = NaN
+    iwp = NaN
     rwp = NaN
+    swp = NaN
     if mpirank == 0
         JcV = reshape(
             view(vgeo, :, grid.JcVid, topology.realelems),
@@ -718,7 +793,9 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         )
         Mvert = (ω .* JcV[1, :, :, 1])[:]
         lwp = FT(sum(ρq_liq_z .* Mvert))
+        iwp = FT(sum(ρq_ice_z .* Mvert))
         rwp = FT(sum(ρq_rai_z .* Mvert))
+        swp = FT(sum(ρq_sno_z .* Mvert))
     end
 
     # compute the variances and covariances
@@ -781,9 +858,14 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
             varvals["cld_base"] = cld_base
             varvals["cld_cover"] = cld_cover
             varvals["lwp"] = lwp
+            varvals["iwp"] = iwp
         end
         if isa(bl.precipitation, RainModel)
             varvals["rwp"] = rwp
+        end
+        if isa(bl.precipitation, RainSnowModel)
+            varvals["rwp"] = rwp
+            varvals["swp"] = swp
         end
 
         # write output

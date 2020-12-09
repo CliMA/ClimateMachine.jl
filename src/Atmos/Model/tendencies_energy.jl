@@ -69,7 +69,7 @@ function source(
     diffusive,
 )
     if has_condensate(ts)
-        nt = compute_precip_params(s, aux, ts)
+        nt = compute_remove_precip_params(s, aux, ts)
         @unpack S_qt, λ, I_l, I_i, Φ = nt
         return (λ * I_l + (1 - λ) * I_i + Φ) * state.ρ * S_qt
     else
@@ -78,8 +78,31 @@ function source(
     end
 end
 
-function source(s::Rain_1M{Energy}, m, state, aux, t, ts, direction, diffusive)
-    nt = compute_rain_params(m, state, aux, t, ts)
+function source(
+    s::WarmRain_1M{Energy},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = compute_warm_rain_params(m, state, aux, t, ts)
     @unpack S_qt, Φ, I_l = nt
     return state.ρ * S_qt * (Φ + I_l)
+end
+
+function source(
+    s::RainSnow_1M{Energy},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = compute_rain_snow_params(m, state, aux, t, ts)
+    return nt.S_ρe
 end

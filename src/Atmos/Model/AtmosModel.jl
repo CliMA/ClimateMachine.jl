@@ -193,7 +193,6 @@ function AtmosModel{FT}(
     LF,
     DC,
 }
-
     @assert !any(isa.(source, Tuple))
 
     atmos = (

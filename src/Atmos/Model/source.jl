@@ -118,7 +118,20 @@ function atmos_source!(
 end
 
 function atmos_source!(
-    ::Rain_1M,
+    ::WarmRain_1M,
+    atmos::AtmosModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    # Migrated to Σsources
+end
+
+function atmos_source!(
+    ::RainSnow_1M,
     atmos::AtmosModel,
     source::Vars,
     state::Vars,
