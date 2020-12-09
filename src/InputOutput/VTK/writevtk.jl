@@ -40,7 +40,7 @@ function writevtk(
         h_Q,
         dg.grid,
         fieldnames;
-        number_sample_points = 0,
+        number_sample_points = number_sample_points,
     )
     return nothing
 end
