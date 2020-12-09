@@ -15,6 +15,9 @@ const mpicomm = MPI.COMM_WORLD
 const FT = Float64
 Ω = Circle(-1,1) × Circle(-1,1) × Circle(-1,1)
 dims = ndims(Ω)
+
+ClimateMachine.gpu_allowscalar(true)
+
 # the grid data structure contains 37 members
 # (6) Surface structures
 # sgeo, and the 5 ids
@@ -83,7 +86,7 @@ interior   = setdiff(1:length(s_flux_divergence), grid.vmap⁻)
 @. F1 = z
 @. F2 = x 
 @. F3 = y + x
-ClimateMachine.gpu_allowscalar(true)
+
 flux[:,:,1:1] .= F1
 flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
