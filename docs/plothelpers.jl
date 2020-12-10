@@ -21,7 +21,7 @@ end
     export_plot(
         z,
         time_data,
-        all_data::Array,
+        dons_arr::Array,
         ϕ_all,
         filename;
         xlabel,
@@ -32,12 +32,12 @@ end
         xlims = (:auto, :auto),
     )
 Export plot of all variables, or all
-available time-steps in `all_data`.
+available time-steps in `dons_arr`.
 """
 function export_plot(
     z,
     time_data,
-    all_data::Array,
+    dons_arr::Array,
     ϕ_all,
     filename;
     xlabel,
@@ -50,7 +50,7 @@ function export_plot(
     ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
     single_var = ϕ_all[1] == xlabel || length(ϕ_all) == 1
     p = plot()
-    for (t, data) in zip(time_data, all_data)
+    for (t, data) in zip(time_data, dons_arr)
         for ϕ in ϕ_all
             ϕ_string = String(ϕ)
             ϕ_data = data[ϕ_string][:]
@@ -73,7 +73,7 @@ end
     export_contour(
         z,
         time_data,
-        all_data::Array,
+        dons_arr::Array,
         ϕ,
         filename;
         xlabel = "time [s]",
@@ -83,7 +83,7 @@ end
 Export contour plots given
  - `z` Array of altitude. Note: this must not include duplicate nodal points.
  - `time_data` array of time data
- - `all_data` an array whose elements are populated by `dict_of_nodal_states`
+ - `dons_arr` an array whose elements are populated by `dict_of_nodal_states`
  - `ϕ` variable to contour
  - `filename` file name to export to.
  - `xlabel` x-label
@@ -93,7 +93,7 @@ Export contour plots given
 function export_contour(
     z,
     time_data,
-    all_data::Array,
+    dons_arr::Array,
     ϕ,
     filename;
     xlabel = "time [s]",
@@ -101,7 +101,7 @@ function export_contour(
     label = String(ϕ),
 )
     ϕ_string = String(ϕ)
-    ϕ_data = hcat([data[ϕ_string][:] for data in all_data]...)
+    ϕ_data = hcat([data[ϕ_string][:] for data in dons_arr]...)
     args = (time_data, z, ϕ_data)
     try
         contourf(
@@ -173,7 +173,7 @@ const skip_fields = (
 """
     export_state_plots(
         solver_config,
-        all_data,
+        dons_arr,
         time_data,
         output_dir;
         state_types = (Prognostic(), Auxiliary()),
@@ -182,13 +182,13 @@ const skip_fields = (
     )
 Export line plots of states given
  - `solver_config` a `SolverConfiguration`
- - `all_data` an array of dictionaries, returned from `dict_of_nodal_states`
+ - `dons_arr` an array of dictionaries, returned from `dict_of_nodal_states`
  - `time_data` an array of time values
  - `output_dir` output directory
 """
 function export_state_plots(
     solver_config,
-    all_data,
+    dons_arr,
     time_data,
     output_dir;
     state_types = (Prognostic(), Auxiliary()),
@@ -209,7 +209,7 @@ function export_state_plots(
                 export_plot(
                     z,
                     time_data ./ 3600,
-                    all_data,
+                    dons_arr,
                     (fn,),
                     file_name;
                     xlabel = fn,
@@ -226,7 +226,7 @@ end
 """
     export_state_contours(
         solver_config,
-        all_data,
+        dons_arr,
         time_data,
         output_dir;
         state_types = (Prognostic(),),
@@ -239,7 +239,7 @@ state variable given `state_types`.
 """
 function export_state_contours(
     solver_config,
-    all_data,
+    dons_arr,
     time_data,
     output_dir;
     state_types = (Prognostic(),),
