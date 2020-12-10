@@ -393,7 +393,7 @@ function config_dycoms(
 end
 
 function config_diagnostics(driver_config)
-    interval = "10000steps"
+    interval = "1000steps"
     dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         interval,
