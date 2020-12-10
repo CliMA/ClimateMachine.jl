@@ -78,14 +78,14 @@ boundary_state!(nf, ::Nothing, ::VorticityModel, _...) = nothing
 
 # Initialize the balance law struct
 
-mutable struct VorticityBalanceLawStruct # maybe this could be generalised?
+Base.@kwdef mutable struct VorticityBalanceLaw # maybe this could be generalised?
     dgmodel::DGModel
     init::Function
     Ω_dg::MPIStateArray
 
     VorticityBalanceLawStruct() = new(nothing, nothing)
 end
-const VorticityBalanceLawStruct = VorticityBalanceLawStruct()
+const VorticityBalanceLawStruct = VorticityBalanceLaw()
 
 function vort_init(
     ::VorticityModel,
