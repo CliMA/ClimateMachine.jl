@@ -1,3 +1,4 @@
+using ArgParse
 using Random
 using StaticArrays
 using NCDatasets
@@ -5,6 +6,9 @@ using Test
 using DocStringExtensions
 using LinearAlgebra
 using DelimitedFiles
+using Dierckx
+using Printf
+
 using ClimateMachine
 using ClimateMachine.Atmos
 using ClimateMachine.ArtifactWrappers
@@ -19,6 +23,8 @@ using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.BalanceLaws: vars_state, Prognostic
+
 using CLIMAParameters
 using CLIMAParameters.Planet
 using CLIMAParameters.Atmos.Microphysics
@@ -45,11 +51,13 @@ const microphys = MicropysicsParameterSet(
 )
 const param_set = EarthParameterSet(microphys)
 
-using Dierckx
-ClimateMachine.init(parse_clargs = true)
-
+"""
+  Define initial conditions based on sounding data
+"""
 function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
+
     FT = eltype(state)
+
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = args[1]
     # interpolate data
     (x, y, z) = localgeo.coord
@@ -88,19 +96,32 @@ function init_squall_line!(problem, bl, state, aux, localgeo, t, args...)
     e_kin = FT(1 / 2) * FT((u^2 + v^2 + w^2))
     e_pot = gravitational_potential(bl.orientation, aux)
     E = ρ * total_energy(e_kin, e_pot, ts)
+
     state.ρ = ρ
     state.ρu = SVector(ρ * u, ρ * v, FT(0))
     state.ρe = E
+
     state.moisture.ρq_tot = ρ * data_q
-    state.moisture.ρq_liq = FT(0)
-    state.moisture.ρq_ice = FT(0)
-    state.precipitation.ρq_rai = FT(0)
-    state.precipitation.ρq_sno = FT(0)
+    if bl.moisture isa NonEquilMoist
+        state.moisture.ρq_liq = FT(0)
+        state.moisture.ρq_ice = FT(0)
+    end
+
+    if bl.precipitation isa RainModel
+        state.precipitation.ρq_rai = FT(0)
+    end
+    if bl.precipitation isa RainSnowModel
+        state.precipitation.ρq_rai = FT(0)
+        state.precipitation.ρq_sno = FT(0)
+    end
+
     return nothing
 end
 
+"""
+  Read the original squall sounding
+"""
 function read_sounding()
-    #read in the original squal sounding
     soundings_dataset = ArtifactWrapper(
         joinpath(@__DIR__, "Artifacts.toml"),
         "soundings",
@@ -122,12 +143,12 @@ function read_sounding()
     return (height = height, θ = θ, q_vap = q_vap, u = u, v = v, p = p)
 end
 
+"""
+  Get data from interpolated array onto vectors.
+  Accepts data in 6 column format
+"""
 function spline_int()
 
-    # ----------------------------------------------------
-    # GET DATA FROM INTERPOLATED ARRAY ONTO VECTORS
-    # This driver accepts data in 6 column format
-    # ----------------------------------------------------
     nt = read_sounding()
 
     # WARNING: Not all sounding data is formatted/scaled the same.
@@ -145,7 +166,18 @@ function spline_int()
     )
 end
 
-function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
+function config_squall_line(
+    FT,
+    N,
+    resolution,
+    xmax,
+    ymax,
+    zmax,
+    xmin,
+    ymin,
+    moisture_model = "nonequilibrium",
+    precipitation_model = "rainsnow",
+)
     # Reference state
     nt = read_sounding()
 
@@ -174,12 +206,12 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     tvmax = T_s * (1 + 0.61 * qinit[1])
     deltatv = -(T_min - tvmax)
     tvmin = T_min * (1 + 0.61 * qinit[maxz])
-    @info deltatv
     htv = 8000.0
     #T = DecayingTemperatureProfile(T_min, T_s, Γ_lapse)
     Tv = DecayingTemperatureProfile{FT}(param_set, tvmax, tvmin, htv)
     rel_hum = FT(0)
     ref_state = HydrostaticState(Tv, rel_hum)
+
     # Sponge
     c_sponge = FT(0.5)
     # Rayleigh damping
@@ -196,7 +228,43 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
     SHF = FT(10)
     ics = init_squall_line!
 
-    source = (Gravity(), rayleigh_sponge, CreateClouds()..., RainSnow_1M()...)
+    source = (Gravity(), rayleigh_sponge)
+
+    # moisture model and its sources
+    if moisture_model == "equilibrium"
+        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source..., CreateClouds()...)
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = (source..., CreateClouds()...)
+        moisture = NonEquilMoist()
+    end
+
+    # precipitation model and its sources
+    if precipitation_model == "noprecipitation"
+        precipitation = NoPrecipitation()
+        source = (source..., RemovePrecipitation(true)...)
+    elseif precipitation_model == "rain"
+        source = (source..., WarmRain_1M()...)
+        precipitation = RainModel()
+    elseif precipitation_model == "rainsnow"
+        source = (source..., RainSnow_1M()...)
+        precipitation = RainSnowModel()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized precipitation_model in source terms, using the defaults""",
+            precipitation_model,
+        )
+        source = (source..., RainSnow_1M()...)
+        precipitation = RainSnowModel()
+    end
 
     problem = AtmosProblem(
         boundaryconditions = (AtmosBC(), AtmosBC()),
@@ -208,9 +276,9 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
         param_set;
         problem = problem,
         ref_state = ref_state,
-        moisture = NonEquilMoist(),
-        precipitation = RainSnowModel(),
-        turbulence = SmagorinskyLilly{FT}(C_smag),#ConstantViscosityWithDivergence{FT}(200),
+        moisture = moisture,
+        precipitation = precipitation,
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         source = source,
     )
 
@@ -231,14 +299,13 @@ function config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
         model = model,
         periodicity = (true, true, false),
         boundary = ((2, 2), (2, 2), (1, 2)),
-        #numerical_flux_first_order = RoeNumericalFlux(),
     )
     return config
 end
 
 function config_diagnostics(driver_config, boundaries, resolution)
 
-    interval = "10steps"
+    interval = "3600ssecs"
 
     dgngrp_profiles = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
@@ -265,6 +332,32 @@ function config_diagnostics(driver_config, boundaries, resolution)
 end
 
 function main()
+    # TODO: this will move to the future namelist functionality
+    squall_args = ArgParseSettings(autofix_names = true)
+    add_arg_group!(squall_args, "SQUALL_LINE")
+    @add_arg_table! squall_args begin
+        "--moisture-model"
+        help = "specify cloud condensate model"
+        metavar = "equilibrium|nonequilibrium"
+        arg_type = String
+        default = "nonequilibrium"
+        "--precipitation-model"
+        help = "specify precipitation model"
+        metavar = "noprecipitation|rain|rainsnow"
+        arg_type = String
+        default = "rainsnow"
+        "--check-asserts"
+        help = "should asserts be checked at the end of the simulation"
+        metavar = "yes|no"
+        arg_type = String
+        default = "no"
+    end
+
+    cl_args =
+        ClimateMachine.init(parse_clargs = true, custom_clargs = squall_args)
+    moisture_model = cl_args["moisture_model"]
+    precipitation_model = cl_args["precipitation_model"]
+    check_asserts = cl_args["check_asserts"]
 
     FT = Float64
 
@@ -292,8 +385,20 @@ function main()
     timeend = FT(9000)
     spl_tinit, spl_qinit, spl_uinit, spl_vinit, spl_pinit = spline_int()
     Cmax = FT(0.4)
-    driver_config =
-        config_squall_line(FT, N, resolution, xmax, ymax, zmax, xmin, ymin)
+
+    # driver, solver and diagnostics configs
+    driver_config = config_squall_line(
+        FT,
+        N,
+        resolution,
+        xmax,
+        ymax,
+        zmax,
+        xmin,
+        ymin,
+        moisture_model,
+        precipitation_model,
+    )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
@@ -302,16 +407,19 @@ function main()
         init_on_cpu = true,
         Courant_number = Cmax,
     )
-
     dgn_config = config_diagnostics(driver_config, boundaries, resolution)
 
-    filter_vars = (
-        "moisture.ρq_tot",
-        "moisture.ρq_liq",
-        "moisture.ρq_ice",
-        "precipitation.ρq_rai",
-        "precipitation.ρq_sno",
-    )
+    filter_vars = ("moisture.ρq_tot",)
+    if moisture_model == "nonequilibrium"
+        filter_vars = (filter_vars..., "moisture.ρq_liq", "moisture.ρq_ice")
+    end
+    if precipitation_model == "rain"
+        filter_vars = (filter_vars..., "precipitation.ρq_rai")
+    end
+    if precipitation_model == "rainsnow"
+        filter_vars =
+            (filter_vars..., "precipitation.ρq_rai", "precipitation.ρq_rai")
+    end
 
     cbtmarfilter = GenericCallbacks.EveryXSimulationSteps(1) do
         Filters.apply!(
@@ -329,6 +437,131 @@ function main()
         user_callbacks = (cbtmarfilter,),
         check_euclidean_distance = true,
     )
+
+    if check_asserts == "yes"
+
+        m = driver_config.bl
+        Q = solver_config.Q
+        ρ_ind = varsindex(vars_state(m, Prognostic(), FT), :ρ)
+
+        if moisture_model == "equilibrium"
+            ρq_tot_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_tot)
+
+            min_q_tot = minimum(abs.(
+                Array(Q[:, ρq_tot_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_tot = maximum(abs.(
+                Array(Q[:, ρq_tot_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_tot, max_q_tot)
+
+            # test that moisture exists and is not NaN
+            @test !isnan(max_q_tot)
+
+            # test that there is reasonable amount of moisture
+            @test abs(max_q_tot) > FT(1e-2)
+        end
+        if moisture_model == "nonequilibrium"
+            ρq_tot_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_tot)
+            ρq_liq_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_liq)
+            ρq_ice_ind =
+                varsindex(vars_state(m, Prognostic(), FT), :moisture, :ρq_ice)
+
+            min_q_tot = minimum(abs.(
+                Array(Q[:, ρq_tot_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_tot = maximum(abs.(
+                Array(Q[:, ρq_tot_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            min_q_liq = minimum(abs.(
+                Array(Q[:, ρq_liq_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_liq = maximum(abs.(
+                Array(Q[:, ρq_liq_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            min_q_ice = minimum(abs.(
+                Array(Q[:, ρq_ice_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_ice = maximum(abs.(
+                Array(Q[:, ρq_ice_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            @info(min_q_tot, max_q_tot)
+            @info(min_q_liq, max_q_liq)
+            @info(min_q_ice, max_q_ice)
+
+            # test that moisture exists and is not NaN
+            @test !isnan(max_q_tot)
+            @test !isnan(max_q_liq)
+            @test !isnan(max_q_ice)
+
+            # test that there is reasonable amount of moisture
+            @test abs(max_q_tot) > FT(1e-2)
+            @test abs(max_q_liq) > FT(1e-3)
+            @test abs(max_q_ice) > FT(1e-3)
+        end
+
+        if precipitation_model == "rain"
+            ρq_rai_ind = varsindex(
+                vars_state(m, Prognostic(), FT),
+                :precipitation,
+                :ρq_rai,
+            )
+
+            min_q_rai = minimum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_rai = maximum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_rai, max_q_rai)
+
+            # test that rain variable exists and is not NaN
+            @test !isnan(max_q_rai)
+
+            # test that there is reasonable amount of rain water...
+            @test abs(max_q_rai) > FT(1e-4)
+        end
+        if precipitation_model == "rainsnow"
+            ρq_rai_ind = varsindex(
+                vars_state(m, Prognostic(), FT),
+                :precipitation,
+                :ρq_rai,
+            )
+            ρq_sno_ind = varsindex(
+                vars_state(m, Prognostic(), FT),
+                :precipitation,
+                :ρq_sno,
+            )
+            min_q_rai = minimum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_rai = maximum(abs.(
+                Array(Q[:, ρq_rai_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            min_q_sno = minimum(abs.(
+                Array(Q[:, ρq_sno_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+            max_q_sno = maximum(abs.(
+                Array(Q[:, ρq_sno_ind, :]) ./ Array(Q[:, ρ_ind, :]),
+            ))
+
+            @info(min_q_rai, max_q_rai)
+            @info(min_q_sno, max_q_sno)
+
+            # test that rain and snow variables exists and are not NaN
+            @test !isnan(max_q_rai)
+            @test !isnan(max_q_sno)
+
+            # test that there is reasonable amount of precipitation
+            @test abs(max_q_rai) > FT(1e-4)
+            @test abs(max_q_sno) > FT(1e-6)
+        end
+    end
 end
 
 main()
