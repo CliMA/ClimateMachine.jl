@@ -475,12 +475,18 @@ end
 
     # load shared memory
     if tk == 1
-        m_ξ1_sh[tj] = m_ξ1[tj]
         m_ξ2_sh[tj] = m_ξ2[tj]
-        m_ξ3_sh[tj] = m_ξ3[tj]
-        wb1_sh[tj] = wb1[tj]
         wb2_sh[tj] = wb2[tj]
-        wb3_sh[tj] = wb3[tj]
+    end
+    if tj == 1
+        m_ξ3_sh[tk] = m_ξ3[tk]
+        wb3_sh[tk] = wb3[tk]
+    end
+    if tj == 1 && tk == 1
+        for i in 1:qm[1]
+            m_ξ1_sh[i] = m_ξ1[i]
+            wb1_sh[i] = wb1[i]
+        end
     end
     @synchronize
 
@@ -1269,7 +1275,7 @@ function interpolate_local!(
     comp_stream = Event(device)
 
     workgroup = (qm[2], qm[3])
-    ndrange = (qm[2] * Nel, qm[2] * nvars)
+    ndrange = (qm[2] * Nel, qm[3] * nvars)
 
     comp_stream = interpolate_local_kernel!(device, workgroup)(
         offset,
