@@ -778,7 +778,7 @@ function courant(
         Nq = N .+ 1
         Nqk = dim == 2 ? 1 : Nq[dim]
         device = array_device(grid.vgeo)
-        pointwise_courant = similar(grid.vgeo, Nq[1]^dim, nrealelem)
+        pointwise_courant = similar(grid.vgeo, prod(Nq), nrealelem)
         event = Event(device)
         event = Grids.kernel_min_neighbor_distance!(
             device,

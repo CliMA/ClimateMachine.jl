@@ -50,7 +50,7 @@ function power_spectrum_1d(::AtmosGCMConfigType, var_grid, z, lat, lon, weight)
             # convert to energy spectra
             zon_spectrum[1, j, k] =
                 zon_spectrum[1, j, k] +
-                0.5 * weight[k] * fourier[1] .* conj(fourier[1])
+                weight[k] * fourier[1] .* conj(fourier[1])
 
             for m in 2:num_pfourier
                 zon_spectrum[m, j, k] =
@@ -73,7 +73,7 @@ end
 - mass_weight: weight for mass-weighted calculations
 
 # References
- - [Baer1972](@cite)
+- [Baer1972](@cite)
 """
 function power_spectrum_2d(::AtmosGCMConfigType, var_grid, mass_weight)
     #  initialize spherical mesh variables
@@ -98,13 +98,11 @@ function power_spectrum_2d(::AtmosGCMConfigType, var_grid, mass_weight)
 
         # Calculate energy spectra
         var_spectrum[:, :, k] =
-            sum(var_spherical[:, :, k, :], dims = 3) .*
-            conj(sum(var_spherical[:, :, k, :], dims = 3))  # var_spectrum[m,n,k]
+            2.0 .* sum(var_spherical[:, :, k, :], dims = 3) .*
+            conj(sum(var_spherical[:, :, k, :], dims = 3))  # var_spectrum[m,n,k] # factor 2 to account for negative Fourier frequencies
+        var_spectrum[1, :, k] = var_spectrum[1, :, k] ./ 2.0 # m=0
     end
-    return var_spectrum[2:end, 2:end, :] .* nθ .^ 2,
-    mesh.wave_numbers,
-    var_spherical,
-    mesh
+    return var_spectrum, mesh.wave_numbers, var_spherical, mesh
 end
 
 # TODO: enable mass weighted and vertically integrated calculations

@@ -49,8 +49,8 @@ include("spherical_helper_test.jl")
 
     nm_spectrum_ = nm_spectrum[:, 10, 1]
     var_grid_ = var_grid[:, 10, 1]
-    sum_spec = sum((nm_spectrum_ .* conj(nm_spectrum_)))
-    sum_grid = sum(0.5 .* (var_grid_ .^ 2)) / length(var_grid_)
+    sum_spec = sum(nm_spectrum_)
+    sum_grid = sum(var_grid_ .^ 2) / length(var_grid_)
 
     sum_res = (sum_spec - sum_grid) / sum_grid
 
@@ -85,16 +85,17 @@ end
     # Grid to spherical to grid reconstruction
     reconstruction = trans_spherical_to_grid!(mesh, spherical)
 
-    sum_spec = sum((spectrum))
-    sum_grid =
-        sum(0.5 .* var_grid[:, :, 1] .^ 2 * reshape(cosθ, (length(cosθ), 1)))
-    sum_reco = sum(
-        0.5 .* reconstruction[:, :, 1] .^ 2 * reshape(cosθ, (length(cosθ), 1)),
-    )
+    sum_spec = sum((0.5 * spectrum))
+    dθ = π .* wts ./ sum(wts)
+    dθ = π / length(wts)
+    area_factor = reshape(cosθ .* dθ .^ 2 / 4π, (1, length(cosθ)))
+
+    sum_grid = sum(0.5 .* var_grid[:, :, 1] .^ 2 .* area_factor) # scaled to average over Earth's area (units: m2/s2) 
+    sum_reco = sum(0.5 .* reconstruction[:, :, 1] .^ 2 .* area_factor)
 
     sum_res_1 = (sum_spec - sum_grid) / sum_grid
     sum_res_2 = (sum_reco - sum_grid) / sum_grid
 
-    @test abs(sum_res_1) < 0.5
-    @test abs(sum_res_2) < 0.5
+    @test abs(sum_res_1) < 0.1
+    @test abs(sum_res_2) < 0.1
 end
