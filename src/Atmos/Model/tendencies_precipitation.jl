@@ -8,6 +8,19 @@
 ##### Second order fluxes
 #####
 
+function flux(::Diffusion{Rain}, m, state, aux, t, ts, diffusive, hyperdiff)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_rai = (-D_t) .* diffusive.precipitation.∇q_rai
+    return d_q_rai * state.ρ
+end
+
+function flux(::Diffusion{Snow}, m, state, aux, t, ts, diffusive, hyperdiff)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_sno = (-D_t) .* diffusive.precipitation.∇q_sno
+    return d_q_sno * state.ρ
+end
+
+
 #####
 ##### Sources
 #####

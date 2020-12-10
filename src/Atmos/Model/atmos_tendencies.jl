@@ -129,9 +129,9 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} = ()
 # Precipitation
 eq_tends(
     pv::PV,
-    ::AtmosModel,
-    ::Flux{SecondOrder},
-) where {PV <: Precipitation} = ()
+    m::AtmosModel,
+    tt::Flux{SecondOrder},
+) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
 
 # Tracers
 eq_tends(
