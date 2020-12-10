@@ -47,25 +47,33 @@ RemovePrecipitation(b::Bool) = (
     RemovePrecipitation{TotalMoisture}(b),
 )
 
-function compute_remove_precip_params(
+function remove_precipitation_sources(
     s::RemovePrecipitation{PV},
+    atmos,
+    state,
     aux,
     ts,
 ) where {PV <: Union{Mass, Energy, TotalMoisture}}
-    FT = eltype(aux)
-    S_qt::FT = 0
+
+    FT = eltype(state)
+
     q = PhasePartition(ts)
     λ::FT = liquid_fraction(ts)
     I_l::FT = internal_energy_liquid(ts)
     I_i::FT = internal_energy_ice(ts)
     Φ::FT = gravitational_potential(atmos.orientation, aux)
+
+    S_qt::FT = 0
     if s.use_qc_thr
         S_qt = remove_precipitation(atmos.param_set, q)
     else
         q_vap_sat = q_vap_saturation(ts)
         S_qt = remove_precipitation(atmos.param_set, q, q_vap_sat)
     end
-    return (S_qt = S_qt, λ = λ, I_l = I_l, I_i = I_i, Φ = Φ)
+
+    S_e::FT = (λ * I_l + (1 - λ) * I_i + Φ) * S_qt
+
+    return (S_ρ_qt = state.ρ * S_qt, S_ρ_e = state.ρ * S_e)
 end
 
 export WarmRain_1M
@@ -85,7 +93,8 @@ WarmRain_1M() = (
     WarmRain_1M{Rain}(),
 )
 
-function compute_warm_rain_params(atmos, state, aux, t, ts)
+function warm_rain_sources(atmos, state, aux, ts)
+
     FT = eltype(state)
 
     q = PhasePartition(ts)
@@ -118,8 +127,14 @@ function compute_warm_rain_params(atmos, state, aux, t, ts)
     S_qr::FT = src_q_rai_acnv + src_q_rai_accr + src_q_rai_evap
     S_ql::FT = -src_q_rai_acnv - src_q_rai_accr
     S_qt::FT = -S_qr
+    S_e::FT = S_qt * (I_l + Φ)
 
-    return (S_qt = S_qt, S_ql = S_ql, S_qr = S_qr, I_l = I_l, Φ = Φ)
+    return (
+        S_ρ_qt = state.ρ * S_qt,
+        S_ρ_ql = state.ρ * S_ql,
+        S_ρ_qr = state.ρ * S_qr,
+        S_ρ_e = state.ρ * S_e,
+    )
 end
 
 export RainSnow_1M
@@ -140,24 +155,21 @@ RainSnow_1M() = (
     RainSnow_1M{Snow}(),
 )
 
-function compute_rain_snow_params(atmos, state, aux, t, ts)
+function rain_snow_sources(atmos, state, aux, ts)
+
     FT = eltype(state)
 
     q_rai::FT = state.precipitation.ρq_rai / state.ρ
     q_sno::FT = state.precipitation.ρq_sno / state.ρ
-
     q = PhasePartition(ts)
     T::FT = air_temperature(ts)
-
     I_d::FT = internal_energy_dry(ts)
     I_v::FT = internal_energy_vapor(ts)
     I_l::FT = internal_energy_liquid(ts)
     I_i::FT = internal_energy_ice(ts)
-
     _T_freeze::FT = T_freeze(atmos.param_set)
     _L_f::FT = latent_heat_fusion(ts)
     _cv_l::FT = cv_l(atmos.param_set)
-
     Φ::FT = gravitational_potential(atmos.orientation, aux)
 
     # temporary vars for summming different source terms
@@ -166,13 +178,13 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
     S_ql::FT = FT(0)
     S_qi::FT = FT(0)
     S_qt::FT = FT(0)
-    S_ρe::FT = FT(0)
+    S_e::FT = FT(0)
 
     # source of rain via autoconversion
     tmp = conv_q_liq_to_q_rai(atmos.param_set.microphys.rai, q.liq)
     S_qr += tmp
     S_ql -= tmp
-    S_ρe -= state.ρ * tmp * (I_l + Φ)
+    S_e -= tmp * (I_l + Φ)
 
     # source of snow via autoconversion
     tmp = conv_q_ice_to_q_sno(
@@ -184,7 +196,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
     )
     S_qs += tmp
     S_qi -= tmp
-    S_ρe -= state.ρ * tmp * (I_i + Φ)
+    S_e -= tmp * (I_i + Φ)
 
     # source of rain water via accretion cloud water - rain
     tmp = accretion(
@@ -197,7 +209,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
     )
     S_qr += tmp
     S_ql -= tmp
-    S_ρe -= state.ρ * tmp * (I_l + Φ)
+    S_e -= tmp * (I_l + Φ)
 
     # source of snow via accretion cloud ice - snow
     tmp = accretion(
@@ -210,7 +222,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
     )
     S_qs += tmp
     S_qi -= tmp
-    S_ρe -= state.ρ * tmp * (I_i + Φ)
+    S_e -= tmp * (I_i + Φ)
 
     # sink of cloud water via accretion cloud water - snow
     tmp = accretion(
@@ -224,13 +236,13 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
     if T < _T_freeze # cloud droplets freeze to become snow)
         S_qs += tmp
         S_ql -= tmp
-        S_ρe -= state.ρ * tmp * (I_i + Φ)
+        S_e -= tmp * (I_i + Φ)
     else # snow melts, both cloud water and snow become rain
         α::FT = _cv_l / _L_f * (T - _T_freeze)
         S_ql -= tmp
         S_qs -= tmp * α
         S_qr += tmp * (1 + α)
-        S_ρe -= state.ρ * tmp * ((1 + α) * I_l - α * I_i + Φ)
+        S_e -= tmp * ((1 + α) * I_l - α * I_i + Φ)
     end
 
     # sink of cloud ice via accretion cloud ice - rain
@@ -252,10 +264,10 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
         state.ρ,
     )
     S_qi -= tmp1
-    S_ρe -= state.ρ * tmp1 * (I_i + Φ)
+    S_e -= tmp1 * (I_i + Φ)
     S_qr -= tmp2
-    S_ρe += state.ρ * _L_f * tmp2
-    S_qs += (tmp1 + tmp2)
+    S_e += tmp2 * _L_f
+    S_qs += tmp1 + tmp2
 
     # accretion rain - snow
     if T < _T_freeze
@@ -269,7 +281,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
         )
         S_qs += tmp
         S_qr -= tmp
-        S_ρe += state.ρ * tmp * _L_f
+        S_e += tmp * _L_f
     else
         tmp = accretion_snow_rain(
             atmos.param_set,
@@ -281,7 +293,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
         )
         S_qs -= tmp
         S_qr += tmp
-        S_ρe -= state.ρ * tmp * _L_f
+        S_e -= tmp * _L_f
     end
 
     # rain evaporation sink (it already has negative sign for evaporation)
@@ -294,7 +306,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
         T,
     )
     S_qr += tmp
-    S_ρe -= state.ρ * tmp * (I_l + Φ)
+    S_e -= tmp * (I_l + Φ)
 
     # snow sublimation/deposition source/sink
     tmp = evaporation_sublimation(
@@ -306,7 +318,7 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
         T,
     )
     S_qs += tmp
-    S_ρe -= state.ρ * tmp * (I_i + Φ)
+    S_e -= tmp * (I_i + Φ)
 
     # snow melt
     tmp = snow_melt(
@@ -318,17 +330,17 @@ function compute_rain_snow_params(atmos, state, aux, t, ts)
     )
     S_qs -= tmp
     S_qr += tmp
-    S_ρe -= state.ρ * tmp * _L_f
+    S_e -= tmp * _L_f
 
     # total qt sink is the sum of precip sources
     S_qt = -S_qr - S_qs
 
     return (
-        S_qt = S_qt,
-        S_ql = S_ql,
-        S_qi = S_qi,
-        S_qr = S_qr,
-        S_qs = S_qs,
-        S_ρe = S_ρe,
+        S_ρ_qt = state.ρ * S_qt,
+        S_ρ_ql = state.ρ * S_ql,
+        S_ρ_qi = state.ρ * S_qi,
+        S_ρ_qr = state.ρ * S_qr,
+        S_ρ_qs = state.ρ * S_qs,
+        S_ρ_e = state.ρ * S_e,
     )
 end
