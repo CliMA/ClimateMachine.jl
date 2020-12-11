@@ -255,6 +255,11 @@ function update_auxiliary_state!(
 end
 
 """
+dynsgs
+"""
+function dynsgs! end
+
+"""
     nodal_update_auxiliary_state!(::BL, state_prognostic, state_auxiliary, [state_gradflux,] t)
 
 Update the auxiliary state variables at each node for a [`BalanceLaw`](@ref)
