@@ -209,49 +209,24 @@ function main(::Type{FT}) where {FT}
     # Simulation time
     timeend = FT(3600*0.1)
 
-    # Charlie's solver
-    use_explicit_stepper_with_small_Δt = true
-    if use_explicit_stepper_with_small_Δt
-        CFLmax = FT(0.9)
-        # ode_solver_type = ClimateMachine.IMEXSolverType()
-
-         ode_solver_type = ClimateMachine.ExplicitSolverType(
-            solver_method = LSRK144NiegemannDiehlBusch,
-        )
-    else
-        CFLmax = FT(25)
-        ode_solver_type = ClimateMachine.IMEXSolverType(
-            implicit_model = AtmosAcousticGravityLinearModel,
-            implicit_solver = SingleColumnLU,
-            solver_method = ARK2GiraldoKellyConstantinescu,
-            split_explicit_implicit = true,
-            # split_explicit_implicit = false,
-            discrete_splitting = false,
-            # discrete_splitting = true,
-        )
-    end
-
-    # old version
-    # ode_solver_type = ClimateMachine.ExplicitSolverType(
-    #     solver_method = LSRK144NiegemannDiehlBusch,
-    # )
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
 
     N_updrafts = 1
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
-    turbconv = EDMF(FT, N_updrafts, N_quad)
+    # turbconv = EDMF(FT, N_updrafts, N_quad)
+    turbconv = NoTurbConv()
 
-    model = stable_bl_model(
-        FT,
-        config_type,
-        zmax,
-        surface_flux;
-        # turbconv = turbconv,
-        turbconv = NoTurbConv(),
-    )
+    CFLmax = FT(25)
+    # Choose default IMEX solver
+    ode_solver_type = ClimateMachine.ExplicitSolverType()
 
+    model = stable_bl_model(FT, config_type, zmax, surface_flux)
+    ics = model.problem.init_state_prognostic
     # Assemble configuration
     driver_config = ClimateMachine.SingleStackConfiguration(
-        "SBL_EDMF",
+        "StableBoundaryLayer",
         N,
         nelem_vert,
         zmax,
@@ -260,72 +235,71 @@ function main(::Type{FT}) where {FT}
         hmax = zmax,
         solver_type = ode_solver_type,
     )
-
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        # ode_dt = 2.64583e-01,
+    )
+    #################### Change the ode_solver to implicit solver
+    dg = solver_config.dg
+
+
+
+    Q = solver_config.Q
+
+
+    vdg = DGModel(
+        driver_config;
+        state_auxiliary = dg.state_auxiliary,
+        direction = VerticalDirection(),
     )
 
-    # #################### Change the ode_solver to implicit solver
-    # CFLmax = FT(5)
-    # dg = solver_config.dg
-    # Q = solver_config.Q
 
+    # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        dg,
+        Q;
+        max_subspace_size = 30,
+        atol = -1.0,
+        rtol = 5e-5,
+    )
 
-    # vdg = DGModel(
-    #     driver_config;
-    #     state_auxiliary = dg.state_auxiliary,
-    #     direction = VerticalDirection(),
-    # )
+    """
+    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
+    F(Q) == 0
+    ||F(Q^i) || / ||F(Q^0) || < tol
+    """
+    # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
+    # I have also try larger tol, but tol = 1e-3 does not work
+    nonlinearsolver =
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
 
+    # this is a second order time integrator, to change it to a first order time integrator
+    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
+    # and stability
+    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
+    # update it more freqent will accelerate the convergence of linear solves, but updating it 
+    # is very expensive
+    ode_solver = ARK2ImplicitExplicitMidpoint(
+        dg,
+        vdg,
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 50,
+        ),
+        Q;
+        dt = solver_config.dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+        variant = NaiveVariant(),
+    )
 
-    # # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
-    # linearsolver = BatchedGeneralizedMinimalResidual(
-    #     dg,
-    #     Q;
-    #     max_subspace_size = 30,
-    #     atol = -1.0,
-    #     rtol = 5e-5,
-    # )
+    solver_config.solver = ode_solver
 
-    # """
-    # N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
-    # F(Q) == 0
-    # ||F(Q^i) || / ||F(Q^0) || < tol
-    # """
-    # # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
-    # # I have also try larger tol, but tol = 1e-3 does not work
-    # nonlinearsolver =
-    #     JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
-
-    # # this is a second order time integrator, to change it to a first order time integrator
-    # # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
-    # # and stability
-    # # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
-    # # update it more freqent will accelerate the convergence of linear solves, but updating it 
-    # # is very expensive
-    # ode_solver = ARK2ImplicitExplicitMidpoint(
-    #     dg,
-    #     vdg,
-    #     NonLinearBackwardEulerSolver(
-    #         nonlinearsolver;
-    #         isadjustable = true,
-    #         preconditioner_update_freq = 50,
-    #     ),
-    #     Q;
-    #     dt = solver_config.dt,
-    #     t0 = 0,
-    #     split_explicit_implicit = false,
-    #     variant = NaiveVariant(),
-    # )
-
-    # solver_config.solver = ode_solver
-
-    # #######################################
+    #######################################
 
 
 
