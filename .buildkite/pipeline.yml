@@ -999,7 +999,7 @@ steps:
   - label: "gpu_solid_body_rotation"
     key: "gpu_solid_body_rotation"
     command:
-      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation.jl "
+      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation.jl --diagnostics=default "
     agents:
       config: gpu
       queue: central
@@ -1029,7 +1029,7 @@ steps:
   - label: "gpu_heldsuarez"
     key: "gpu_heldsuarez"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --fix-rng-seed "
     agents:
       config: gpu
       queue: central
