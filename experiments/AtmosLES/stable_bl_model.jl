@@ -258,6 +258,7 @@ function stable_bl_model(
         ),
     )
     if moisture_model == "dry"
+        source = source_default
         moisture = DryModel()
     elseif moisture_model == "equilibrium"
         source = source_default
@@ -304,8 +305,9 @@ function stable_bl_model(
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
                 energy = energy_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     else
         boundary_conditions = (
@@ -317,8 +319,9 @@ function stable_bl_model(
                 )),
                 energy = energy_bc,
                 moisture = moisture_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     end
 
@@ -335,7 +338,7 @@ function stable_bl_model(
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = moisture,
-        source = source_default,
+        source = source,
         turbconv = turbconv,
     )
 
