@@ -170,7 +170,7 @@ end
             end
         end
         @synchronize
-        if j == 1
+        if j == 1 && i ≤ qm[1]
             g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 1, 1] = s_U[i, 1] # ∂u₁∂ξ₁
             g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 2, 1] = s_V[i, 1] # ∂u₂∂ξ₁
             g[i + ((s - 1) + (t - 1) * qm[2]) * qm[1], e, 3, 1] = s_W[i, 1] # ∂u₃∂ξ₁
@@ -199,7 +199,7 @@ end
             end
         end
         @synchronize
-        if j == 1
+        if j == 1 && i ≤ qm[2]
             g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 1, 2] = s_U[i, 1] # ∂u₁∂ξ₂
             g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 2, 2] = s_V[i, 1] # ∂u₂∂ξ₂
             g[r + ((i - 1) + (t - 1) * qm[2]) * qm[1], e, 3, 2] = s_W[i, 1] # ∂u₃∂ξ₂
@@ -229,7 +229,7 @@ end
             end
         end
         @synchronize
-        if j == 1
+        if j == 1 && i ≤ qm[3]
             g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 1, 3] = s_U[i, 1] # ∂u₁∂ξ₃
             g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 2, 3] = s_V[i, 1] # ∂u₂∂ξ₃
             g[r + ((s - 1) + (i - 1) * qm[2]) * qm[1], e, 3, 3] = s_W[i, 1] # ∂u₃∂ξ₃
@@ -241,57 +241,59 @@ end
     ∂₁u₂, ∂₂u₂, ∂₃u₂ = 4, 5, 6
     ∂₁u₃, ∂₂u₃, ∂₃u₃ = 7, 8, 9
 
-    for k in 1:qm[1]
-        ijk = i + ((j - 1) + (k - 1) * qm[2]) * qm[1]
+    if i ≤ qm[1] && j ≤ qm[2]
+        for k in 1:qm[3]
+            ijk = i + ((j - 1) + (k - 1) * qm[2]) * qm[1]
 
-        ξ1x1 = vgeo[ijk, _ξ1x1, e]
-        ξ1x2 = vgeo[ijk, _ξ1x2, e]
-        ξ1x3 = vgeo[ijk, _ξ1x3, e]
-        ξ2x1 = vgeo[ijk, _ξ2x1, e]
-        ξ2x2 = vgeo[ijk, _ξ2x2, e]
-        ξ2x3 = vgeo[ijk, _ξ2x3, e]
-        ξ3x1 = vgeo[ijk, _ξ3x1, e]
-        ξ3x2 = vgeo[ijk, _ξ3x2, e]
-        ξ3x3 = vgeo[ijk, _ξ3x3, e]
+            ξ1x1 = vgeo[ijk, _ξ1x1, e]
+            ξ1x2 = vgeo[ijk, _ξ1x2, e]
+            ξ1x3 = vgeo[ijk, _ξ1x3, e]
+            ξ2x1 = vgeo[ijk, _ξ2x1, e]
+            ξ2x2 = vgeo[ijk, _ξ2x2, e]
+            ξ2x3 = vgeo[ijk, _ξ2x3, e]
+            ξ3x1 = vgeo[ijk, _ξ3x1, e]
+            ξ3x2 = vgeo[ijk, _ξ3x2, e]
+            ξ3x3 = vgeo[ijk, _ξ3x3, e]
 
-        vgrad_data[ijk, ∂₁u₁, e] =
-            g[ijk, e, 1, 1] * ξ1x1 +
-            g[ijk, e, 1, 2] * ξ2x1 +
-            g[ijk, e, 1, 3] * ξ3x1
-        vgrad_data[ijk, ∂₂u₁, e] =
-            g[ijk, e, 1, 1] * ξ1x2 +
-            g[ijk, e, 1, 2] * ξ2x2 +
-            g[ijk, e, 1, 3] * ξ3x2
-        vgrad_data[ijk, ∂₃u₁, e] =
-            g[ijk, e, 1, 1] * ξ1x3 +
-            g[ijk, e, 1, 2] * ξ2x3 +
-            g[ijk, e, 1, 3] * ξ3x3
+            vgrad_data[ijk, ∂₁u₁, e] =
+                g[ijk, e, 1, 1] * ξ1x1 +
+                g[ijk, e, 1, 2] * ξ2x1 +
+                g[ijk, e, 1, 3] * ξ3x1
+            vgrad_data[ijk, ∂₂u₁, e] =
+                g[ijk, e, 1, 1] * ξ1x2 +
+                g[ijk, e, 1, 2] * ξ2x2 +
+                g[ijk, e, 1, 3] * ξ3x2
+            vgrad_data[ijk, ∂₃u₁, e] =
+                g[ijk, e, 1, 1] * ξ1x3 +
+                g[ijk, e, 1, 2] * ξ2x3 +
+                g[ijk, e, 1, 3] * ξ3x3
 
-        vgrad_data[ijk, ∂₁u₂, e] =
-            g[ijk, e, 2, 1] * ξ1x1 +
-            g[ijk, e, 2, 2] * ξ2x1 +
-            g[ijk, e, 2, 3] * ξ3x1
-        vgrad_data[ijk, ∂₂u₂, e] =
-            g[ijk, e, 2, 1] * ξ1x2 +
-            g[ijk, e, 2, 2] * ξ2x2 +
-            g[ijk, e, 2, 3] * ξ3x2
-        vgrad_data[ijk, ∂₃u₂, e] =
-            g[ijk, e, 2, 1] * ξ1x3 +
-            g[ijk, e, 2, 2] * ξ2x3 +
-            g[ijk, e, 2, 3] * ξ3x3
+            vgrad_data[ijk, ∂₁u₂, e] =
+                g[ijk, e, 2, 1] * ξ1x1 +
+                g[ijk, e, 2, 2] * ξ2x1 +
+                g[ijk, e, 2, 3] * ξ3x1
+            vgrad_data[ijk, ∂₂u₂, e] =
+                g[ijk, e, 2, 1] * ξ1x2 +
+                g[ijk, e, 2, 2] * ξ2x2 +
+                g[ijk, e, 2, 3] * ξ3x2
+            vgrad_data[ijk, ∂₃u₂, e] =
+                g[ijk, e, 2, 1] * ξ1x3 +
+                g[ijk, e, 2, 2] * ξ2x3 +
+                g[ijk, e, 2, 3] * ξ3x3
 
-        vgrad_data[ijk, ∂₁u₃, e] =
-            g[ijk, e, 3, 1] * ξ1x1 +
-            g[ijk, e, 3, 2] * ξ2x1 +
-            g[ijk, e, 3, 3] * ξ3x1
-        vgrad_data[ijk, ∂₂u₃, e] =
-            g[ijk, e, 3, 1] * ξ1x2 +
-            g[ijk, e, 3, 2] * ξ2x2 +
-            g[ijk, e, 3, 3] * ξ3x2
-        vgrad_data[ijk, ∂₃u₃, e] =
-            g[ijk, e, 3, 1] * ξ1x3 +
-            g[ijk, e, 3, 2] * ξ2x3 +
-            g[ijk, e, 3, 3] * ξ3x3
+            vgrad_data[ijk, ∂₁u₃, e] =
+                g[ijk, e, 3, 1] * ξ1x1 +
+                g[ijk, e, 3, 2] * ξ2x1 +
+                g[ijk, e, 3, 3] * ξ3x1
+            vgrad_data[ijk, ∂₂u₃, e] =
+                g[ijk, e, 3, 1] * ξ1x2 +
+                g[ijk, e, 3, 2] * ξ2x2 +
+                g[ijk, e, 3, 3] * ξ3x2
+            vgrad_data[ijk, ∂₃u₃, e] =
+                g[ijk, e, 3, 1] * ξ1x3 +
+                g[ijk, e, 3, 2] * ξ2x3 +
+                g[ijk, e, 3, 3] * ξ3x3
+        end
     end
 end
 
