@@ -98,7 +98,7 @@ using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 
 struct ZeroVerticalVelocityFilter <: AbstractCustomFilter end
 function custom_filter!(::ZeroVerticalVelocityFilter, bl, state, aux)
-    state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
+    # state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
 end
 
 rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
@@ -189,7 +189,7 @@ function main(::Type{FT}) where {FT}
         help = "specify surface flux for energy and moisture"
         metavar = "prescribed|bulk"
         arg_type = String
-        default = "prescribed"
+        default = "bulk"
     end
 
     cl_args =
@@ -207,7 +207,7 @@ function main(::Type{FT}) where {FT}
     zmax = FT(400)
     t0 = FT(0)
     # Simulation time
-    timeend = FT(3600*3)
+    timeend = FT(3600*0.1)
 
     # Charlie's solver
     use_explicit_stepper_with_small_Δt = true
@@ -245,8 +245,8 @@ function main(::Type{FT}) where {FT}
         config_type,
         zmax,
         surface_flux;
-        turbconv = turbconv,
-        # turbconv = NoTurbConv(),
+        # turbconv = turbconv,
+        turbconv = NoTurbConv(),
     )
 
     # Assemble configuration
@@ -267,7 +267,7 @@ function main(::Type{FT}) where {FT}
         driver_config,
         init_on_cpu = true,
         Courant_number = CFLmax,
-        ode_dt = 2.64583e-01,
+        # ode_dt = 2.64583e-01,
     )
 
     # #################### Change the ode_solver to implicit solver
@@ -358,13 +358,13 @@ function main(::Type{FT}) where {FT}
             solver_config.dg.grid,
             TMARFilter(),
         )
-        Filters.apply!( # comment this for NoTurbConv
-            EDMFFilter(),
-            solver_config.dg.grid,
-            solver_config.dg.balance_law,
-            solver_config.Q,
-            solver_config.dg.state_auxiliary,
-        )
+        # Filters.apply!( # comment this for NoTurbConv
+        #     EDMFFilter(),
+        #     solver_config.dg.grid,
+        #     solver_config.dg.balance_law,
+        #     solver_config.Q,
+        #     solver_config.dg.state_auxiliary,
+        # )
         nothing
     end
 
@@ -413,7 +413,7 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    cb_print_step = GenericCallbacks.EveryXSimulationSteps(1) do
+    cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
         nothing
     end
