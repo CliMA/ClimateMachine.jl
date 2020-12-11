@@ -544,7 +544,8 @@ function atmos_source!(
         env,
     )
 
-    K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    # K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = FT(0.01)
     K_h = K_m / Pr_t
     Shear² = diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
@@ -734,7 +735,8 @@ function flux_second_order!(
         env,
     )
     tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
-    K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    # K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = FT(0.01)
     K_h = K_m / Pr_t
 
     #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
