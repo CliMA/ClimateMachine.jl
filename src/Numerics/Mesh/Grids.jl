@@ -618,13 +618,26 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     @views begin
         vgeo_N1_flds =
             ntuple(fld -> reshape(vgeo_N1[:, fld, :], Nq_N1..., nelem), _nvgeo)
+    end
 
-        # Allocate the storage for N = 0 volume metrics
-        vgeo = zeros(FT, Np, _nvgeo, nelem)
+    # Allocate the storage for N = 0 volume metrics
+    vgeo = zeros(FT, Np, _nvgeo, nelem)
 
-        # Counter to make sure we got all the vgeo terms
-        num_vgeo_handled = 0
+    # Counter to make sure we got all the vgeo terms
+    num_vgeo_handled = 0
 
+    X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
+    Metrics.creategrid!(X..., elemtocoord, ξ...)
+    x1 = @view vgeo[:, _x1, :]
+    x2 = @view vgeo[:, _x2, :]
+    x3 = @view vgeo[:, _x3, :]
+    @inbounds for j in 1:length(x1)
+        (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
+    end
+
+    num_vgeo_handled += 3
+
+    @views begin
         # _M should be a sum
         vgeo[:, _M, :][:] .= sum(vgeo_N1_flds[_M], dims = findall(Nq .== 1))[:]
         num_vgeo_handled += 1
@@ -635,7 +648,7 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
         # coordinates should just be averages
         avg_den = 2 .^ sum(Nq .== 1)
-        for fld in (_x1, _x2, _x3, _JcV)
+        for fld in (_JcV,)
             vgeo[:, fld, :] =
                 sum(vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] / avg_den
             num_vgeo_handled += 1

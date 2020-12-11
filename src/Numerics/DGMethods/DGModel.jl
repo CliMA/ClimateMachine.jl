@@ -682,7 +682,6 @@ end
 # nodal_update_auxiliary_state!, defined for the
 # particular balance_law:
 
-
 # TODO: this should really be a separate function
 function update_auxiliary_state!(
     f!,
