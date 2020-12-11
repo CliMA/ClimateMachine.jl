@@ -6,6 +6,7 @@ export NumericalFluxGradient,
     RusanovNumericalFlux,
     RoeNumericalFlux,
     HLLCNumericalFlux,
+    RoeNumericalFluxMoist,
     CentralNumericalFluxGradient,
     CentralNumericalFluxFirstOrder,
     CentralNumericalFluxSecondOrder,
@@ -340,6 +341,31 @@ Requires a custom implementation for the balance law.
  - [Toro2013](@cite)
 """
 struct HLLCNumericalFlux <: NumericalFluxFirstOrder end
+
+"""
+    RoeNumericalFluxMoist <: NumericalFluxFirstOrder
+
+A moist implementation of the numerical flux based on the approximate Riemann solver of Roe
+
+Requires a custom implementation for the balance law.
+"""
+struct RoeNumericalFluxMoist <: NumericalFluxFirstOrder
+    " set to true for low Mach number correction"
+    LM::Bool
+    " set to true for Hartman Hyman correction"
+    HH::Bool
+    " set to true for LeVeque correction"
+    LV::Bool
+    " set to true for Positivity preserving LeVeque Correction"
+    LVPP::Bool
+end
+
+RoeNumericalFluxMoist(;
+    LM::Bool = false,
+    HH::Bool = false,
+    LV::Bool = false,
+    LVPP::Bool = false,
+) = RoeNumericalFluxMoist(LM, HH, LV, LVPP)
 
 """
     NumericalFluxSecondOrder

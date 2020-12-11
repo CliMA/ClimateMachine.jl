@@ -388,3 +388,124 @@ function numerical_flux_first_order!(
         direction,
     )
 end
+function numerical_flux_first_order!(
+    numerical_flux::RoeNumericalFluxMoist,
+    balance_law::AtmosLinearModel,
+    fluxᵀn::Vars{S},
+    normal_vector::SVector,
+    state_prognostic⁻::Vars{S},
+    state_auxiliary⁻::Vars{A},
+    state_prognostic⁺::Vars{S},
+    state_auxiliary⁺::Vars{A},
+    t,
+    direction,
+) where {S, A}
+
+    numerical_flux_first_order!(
+        CentralNumericalFluxFirstOrder(),
+        balance_law,
+        fluxᵀn,
+        normal_vector,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+        t,
+        direction,
+    )
+
+    atmos = balance_law.atmos
+    param_set = atmos.param_set
+    FT = eltype(aux)
+    ρu⁻ = state_prognostic⁻.ρu
+
+    ref_ρ⁻ = state_auxiliary⁻.ref_state.ρ
+    ref_ρe⁻ = state_auxiliary⁻.ref_state.ρe
+    ref_T⁻ = state_auxiliary⁻.ref_state.T
+    ref_q⁻ = state_auxiliary⁻.ref_state.ρq_tot / ref_ρ⁻
+    ref_qliq⁻ = state_auxiliary⁻.ref_state.ρq_liq / ref_ρ⁻
+    ref_qice⁻ = state_auxiliary⁻.ref_state.ρq_ice / ref_ρ⁻
+    ref_p⁻ = state_auxiliary⁻.ref_state.p
+    ref_q_pt⁻ = PhasePartition(ref_q⁻, ref_qliq⁻, ref_qice⁻)
+    _R_m⁻ = gas_constant_air(param_set, ref_q_pt⁻)
+    ref_h⁻ = total_specific_enthalpy(ref_ρe⁻, _R_m⁻, ref_T⁻)
+
+    ref_c⁻ = soundspeed_air(param_set, ref_T⁻, ref_q_pt⁻)
+
+    pL⁻ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_prognostic⁻,
+        state_auxiliary⁻,
+    )
+
+    ρu⁺ = state_prognostic⁺.ρu
+
+    ref_ρ⁺ = state_auxiliary⁺.ref_state.ρ
+    ref_ρe⁺ = state_auxiliary⁺.ref_state.ρe
+    ref_T⁺ = state_auxiliary⁺.ref_state.T
+    ref_q⁺ = state_auxiliary⁺.ref_state.ρq_tot / ref_ρ⁺
+    ref_qliq⁺ = state_auxiliary⁺.ref_state.ρq_liq / ref_ρ⁺
+    ref_qice⁺ = state_auxiliary⁺.ref_state.ρq_ice / ref_ρ⁺
+    ref_p⁺ = state_auxiliary⁺.ref_state.p
+    ref_q_pt⁺ = PhasePartition(ref_q⁺, ref_qliq⁺, ref_qice⁺)
+    _R_m⁺ = gas_constant_air(param_set, ref_q_pt⁺)
+    ref_h⁺ = total_specific_enthalpy(ref_ρe⁺, _R_m⁺, ref_T⁺)
+    ref_c⁺ = soundspeed_air(param_set, ref_T⁺, ref_q_pt⁺)
+    pL⁺ = linearized_pressure(
+        atmos.moisture,
+        param_set,
+        atmos.orientation,
+        state_prognostic⁺,
+        state_auxiliary⁺,
+    )
+
+    # not sure if arithmetic averages are a good idea here
+    ref_h̃ = (ref_h⁻ + ref_h⁺) / 2
+    ref_c̃ = (ref_c⁻ + ref_c⁺) / 2
+    ref_qt = (ref_q⁺ + ref_q⁻) / 2
+
+    ΔpL = pL⁺ - pL⁻
+    Δρuᵀn = (ρu⁺ - ρu⁻)' * normal_vector
+
+    _T_0::FT = T_0(param_set)
+    _e_int_v0::FT = e_int_v0(param_set)
+    _cv_d::FT = cv_d(param_set)
+    Φ = gravitational_potential(balance_law.atmos, state_auxiliary⁻)
+    # guaranteed to be random
+    ω = FT(π) / 3
+    δ = FT(π) / 5
+    random_unit_vector = SVector(sin(ω) * cos(δ), cos(ω) * cos(δ), sin(δ))
+    # tangent space basis
+    τ1 = random_unit_vector × normal_vector
+    τ2 = τ1 × normal_vector
+
+
+    ũc̃⁻ = ref_c̃ * normal_vector
+    ũc̃⁺ = -ref_c̃ * normal_vector
+    Λ = SDiagonal(
+        abs(0 - ref_c̃),
+        abs(0),
+        abs(0),
+        abs(0),
+        abs(0 + ref_c̃),
+        abs(0),
+    )
+    M = hcat(
+        SVector(1, ũc̃⁺[1], ũc̃⁺[2], ũc̃⁺[3], ref_h̃, ref_qt),
+        SVector(0, τ1[1], τ1[2], τ1[3], 0, 0),
+        SVector(0, τ2[1], τ2[2], τ2[3], 0, 0),
+        SVector(1, 0, 0, 0, Φ - _T_0 * _cv_d, 0),
+        SVector(1, ũc̃⁻[1], ũc̃⁻[2], ũc̃⁻[3], ref_h̃, ref_qt),
+        SVector(0, 0, 0, 0, _e_int_v0, 1),
+    )
+    Δρ = state_prognostic⁺.ρ - state_prognostic⁻.ρ
+    Δρu = ρu⁺ - ρu⁻
+    Δρe = state_prognostic⁺.ρe - state_prognostic⁻.ρe
+    Δρq_tot =
+        state_prognostic⁺.moisture.ρq_tot - state_prognostic⁻.moisture.ρq_tot
+    Δstate = SVector(Δρ, Δρu[1], Δρu[2], Δρu[3], Δρe, Δρq_tot)
+
+    parent(fluxᵀn) .-= M * Λ * (M \ Δstate) / 2
+end
