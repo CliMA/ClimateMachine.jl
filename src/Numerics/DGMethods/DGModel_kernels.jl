@@ -727,12 +727,20 @@ fluxes, respectively.
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        bctag = elemtobndy[f, e⁻]
         # Get surface mass, volume mass inverse
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:num_state_prognostic
@@ -772,7 +780,6 @@ fluxes, respectively.
         end
 
         # Oh dang, it's boundary conditions
-        bctag = elemtobndy[f, e⁻]
         fill!(local_flux, -zero(eltype(local_flux)))
         if bctag == 0
             numerical_flux_first_order!(
@@ -828,18 +835,34 @@ fluxes, respectively.
             )
         else
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Loop up the first element along all horizontal elements
-                @unroll for s in 1:num_state_prognostic
-                    local_state_prognostic_bottom1[s] =
-                        state_prognostic[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_gradient_flux
-                    local_state_gradient_flux_bottom1[s] =
-                        state_gradient_flux[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n + Nqk^2, s, e⁻]
+                if info.N[end] == 0
+                    # Loop up to next element for all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n, s, e⁻ + 1]
+                    end
+                    @unroll for s in 1:num_state_gradient_flux
+                        local_state_gradient_flux_bottom1[s] =
+                            state_gradient_flux[n, s, e⁻ + 1]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n, s, e⁻ + 1]
+                    end
+                else
+                    # Loop up the first element along all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n + Nqk^2, s, e⁻]
+                    end
+                    @unroll for s in 1:num_state_gradient_flux
+                        local_state_gradient_flux_bottom1[s] =
+                            state_gradient_flux[n + Nqk^2, s, e⁻]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n + Nqk^2, s, e⁻]
+                    end
                 end
             end
 
@@ -1509,11 +1532,19 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         )
 
         # Extract surface mass operator `sM` and volumne mass inverse `vMI`
+        bctag = elemtobndy[f, e⁻]
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:ngradtransformstate
@@ -1562,7 +1593,7 @@ auxiliary gradient flux, and G* is the associated numerical flux.
         )
 
         # Oh drat, it's boundary conditions
-        bctag = elemtobndy[f, e⁻]
+
         fill!(
             local_state_gradient_flux,
             -zero(eltype(local_state_gradient_flux)),
@@ -1614,14 +1645,26 @@ auxiliary gradient flux, and G* is the associated numerical flux.
             # NOTE: Used for boundary conditions related to the energy
             # variables (see `BulkFormulaEnergy`)
             if (dim == 2 && f == 3) || (dim == 3 && f == 5)
-                # Loop up the first element along all horizontal elements
-                @unroll for s in 1:num_state_prognostic
-                    local_state_prognostic_bottom1[s] =
-                        state_prognostic[n + Nqk^2, s, e⁻]
-                end
-                @unroll for s in 1:num_state_auxiliary
-                    local_state_auxiliary_bottom1[s] =
-                        state_auxiliary[n + Nqk^2, s, e⁻]
+                if info.N[end] == 0
+                    # Loop up to next element for all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n, s, e⁻ + 1]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n, s, e⁻ + 1]
+                    end
+                else
+                    # Loop up the first element along all horizontal elements
+                    @unroll for s in 1:num_state_prognostic
+                        local_state_prognostic_bottom1[s] =
+                            state_prognostic[n + Nqk^2, s, e⁻]
+                    end
+                    @unroll for s in 1:num_state_auxiliary
+                        local_state_auxiliary_bottom1[s] =
+                            state_auxiliary[n + Nqk^2, s, e⁻]
+                    end
                 end
             end
             bcs = boundary_conditions(balance_law)
@@ -2491,11 +2534,19 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        bctag = elemtobndy[f, e⁻]
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:ngradlapstate
@@ -2511,7 +2562,6 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
             l_grad⁺[3, s] = Qhypervisc_grad[vid⁺, 3 * (s - 1) + 3, e⁺]
         end
 
-        bctag = elemtobndy[f, e⁻]
         if bctag == 0
             numerical_flux_divergence!(
                 divgradnumpenalty,
@@ -2999,11 +3049,19 @@ the associated numerical flux.
             sgeo[_n2, n, f, e⁻],
             sgeo[_n3, n, f, e⁻],
         )
+        bctag = elemtobndy[f, e⁻]
         sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
         id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
         e⁺ = ((id⁺ - 1) ÷ Np) + 1
 
         vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+        if bctag != 0
+            # TODO: we will use vmap⁺ to store the boundary element info
+            #be = e⁺
+            #bcid = vid⁺
+            e⁺ = e⁻
+            vid⁺ = vid⁻
+        end
 
         # Load minus side data
         @unroll for s in 1:ngradtransformstate
@@ -3031,7 +3089,6 @@ the associated numerical flux.
             l_lap⁺[s] = Qhypervisc_div[vid⁺, s, e⁺]
         end
 
-        bctag = elemtobndy[f, e⁻]
         if bctag == 0
             numerical_flux_higher_order!(
                 hyperviscnumflux,

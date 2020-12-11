@@ -28,7 +28,7 @@ function SpectralSphericalMesh(nθ::Int64, nd::Int64)
     nλ = 2nθ
     Δλ = 2π / nλ
 
-    num_fourier = Int64((2 * nθ - 1) / 3) # number of truncated zonal wavenumbers (m): minimum truncation given nθ - e.g.: nlat = 32 -> T21 (can change manually for more a severe truncation)
+    num_fourier = Int64(floor((2 * nθ - 1) / 3)) # number of truncated zonal wavenumbers (m): minimum truncation given nθ - e.g.: nlat = 32 -> T21 (can change manually for more a severe truncation)
     num_spherical = Int64(num_fourier + 1) # number of total wavenumbers (n)
 
     radius = Float64(6371000)

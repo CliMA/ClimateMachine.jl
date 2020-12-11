@@ -17,8 +17,8 @@ end
 Create the "AtmosGCMSpectra" `DiagnosticsGroup` which contains the
 following diagnostic variables:
 
-- spectrum_1d: 1D power spectrum of the meridional wind
-- spectrum_2d: 2D power spectrum of the meridional wind
+- spectrum_1d: 1D power spectrum of kinetic energy ( 1/2*u^2 + 1/2*v^2) 
+- spectrum_2d: 2D power spectrum of kinetic energy ( 1/2*u^2 + 1/2*v^2)
 
 These are output with `m`, `lat`, `level` and `m_t`, `n`, `level`
 dimensions, i.e. zonal wavenumber, latitude, level and (truncated) zonal
@@ -67,23 +67,42 @@ function get_spectra(mpicomm, mpirank, Q, bl, interpol, nor)
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
 
     if mpirank == 0
-        var_grid = all_state_data[:, :, :, 3] ./ all_state_data[:, :, :, 1]
+
         dims = dimensions(interpol)
         lat = dims["lat"][1]
         lon = dims["long"][1]
         level = dims["level"][1] .- FT(planet_radius(Settings.param_set))
 
         mass_weight = ones(FT, length(level)) # TODO: interpolate on pressure levs and do mass weighted calculations
-        spectrum_1d, m = power_spectrum_1d(
+
+        var_grid_u = all_state_data[:, :, :, 2] ./ all_state_data[:, :, :, 1]
+        spectrum_1d_u, m = power_spectrum_1d(
             AtmosGCMConfigType(),
-            var_grid,
+            var_grid_u,
             level,
             lat,
             lon,
             mass_weight,
         )
-        spectrum_2d, m_and_n, _, __ =
-            power_spectrum_2d(AtmosGCMConfigType(), var_grid, mass_weight)
+        spectrum_2d_u, m_and_n, _, __ =
+            power_spectrum_2d(AtmosGCMConfigType(), var_grid_u, mass_weight)
+
+        var_grid_v = all_state_data[:, :, :, 3] ./ all_state_data[:, :, :, 1]
+        mass_weight = ones(FT, length(level)) # TODO: interpolate on pressure levs and do mass weighted calculations
+        spectrum_1d_v, m = power_spectrum_1d(
+            AtmosGCMConfigType(),
+            var_grid_v,
+            level,
+            lat,
+            lon,
+            mass_weight,
+        )
+        spectrum_2d_v, m_and_n, _, __ =
+            power_spectrum_2d(AtmosGCMConfigType(), var_grid_v, mass_weight)
+
+        spectrum_1d = 0.5 .* (spectrum_1d_u + spectrum_1d_v)
+        spectrum_2d = 0.5 .* (spectrum_2d_u + spectrum_2d_v)
+
         return spectrum_1d, m, spectrum_2d, m_and_n
     end
     return nothing, nothing, nothing, nothing
@@ -112,8 +131,8 @@ function atmos_gcm_spectra_init(dgngrp, currtime)
         num_spherical = (num_fourier + 1) # number of total wavenumbers (n)
         dims = OrderedDict(
             "m" => (collect(FT, 1:1:length(lat[1])) .- 1, Dict()),
-            "m_t" => (collect(FT, 1:1:num_fourier) .- 1, Dict()),
-            "n" => (collect(FT, 1:1:num_spherical) .- 1, Dict()),
+            "m_t" => (collect(FT, 0:1:num_fourier), Dict()),
+            "n" => (collect(FT, 0:1:num_spherical), Dict()),
             "level" => level,
             "lat" => lat,
         )

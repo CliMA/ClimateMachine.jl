@@ -18,7 +18,7 @@ In the second case `ρ q_tot` is removed if it exceeds a threshold.
 
 ## RainModel
 
-The `RainModel` model assumes that precipitating water is present but only in the
+The `RainModel` assumes that precipitating water is present but only in the
   form of rain (liquid-phase precipitation).
 It adds `ρ q_rai` (air density times total rain water specific humidity)
   to state variables.
@@ -26,7 +26,12 @@ It uses a subset of source terms from the [1-moment microphysics scheme](https:/
   that parameterize processes relevant to liquid-phase clouds
   (autoconverion, accretion, and rain evaporation).
 
-## RainSnow
+## RainSnowModel
 
-Soon!
-
+The `RainSnowModel` assumes that precipitating water is present in the
+  form of rain (liquid-phase precipitation) and
+  snow (ice-phase precipitation).
+It adds `ρ q_rai` (air density times total rain water specific humidity)
+  and `ρ q_sno` (air density times total snow water specific humidity)
+  to state variables.
+It uses source terms from the [1-moment microphysics scheme](https://clima.github.io/ClimateMachine.jl/latest/Theory/Atmos/Microphysics/).

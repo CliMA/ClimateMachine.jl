@@ -1099,7 +1099,7 @@ steps:
   - label: "gpu_squall_line"
     key: "gpu_squall_line"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 120"
     agents:
       config: gpu
       queue: central

@@ -162,8 +162,8 @@ end
         @test topology.elemtocoord[:, :, 16] == [3 4 3 4; 5 5 6 6]
 
         @test topology.elemtoelem == [
-            1 1 4 4 5 6 6 5 8 7 10 9 14 3 2 15
-            2 15 14 3 8 7 10 9 12 11 11 12 13 13 16 16
+            1 1 4 2 3 4 6 5 8 7 10 9 14 3 2 15
+            2 15 14 3 8 7 10 9 12 11 5 6 7 13 16 8
             6 7 2 1 4 5 8 3 14 9 12 13 16 15 10 11
             4 3 8 5 6 1 2 7 10 15 16 11 12 9 14 13
         ]
@@ -176,6 +176,8 @@ end
         ]
 
         @test topology.elemtoordr == ones(Int, size(topology.elemtoordr))
+
+        @test topology.elemtoelem[topology.elemtobndy .== 1] == 1:8
 
         @test topology.elems == 1:nelem
         @test topology.realelems == 1:nelem
@@ -195,10 +197,26 @@ end
         for px in (true, false)
             topology = BrickTopology(comm, (0:10,), periodicity = (px,))
             @test Topologies.hasboundary(topology) == !px
+            if px
+                @test topology.bndytoelem == ()
+                @test topology.bndytoface == ()
+            else
+                @test topology.bndytoelem == ([1, 10],)
+                @test topology.bndytoface == ([1, 2],)
+            end
         end
         for py in (true, false), px in (true, false)
             topology = BrickTopology(comm, (0:10, 0:3), periodicity = (px, py))
             @test Topologies.hasboundary(topology) == !(px && py)
+            if px && py
+                @test topology.bndytoelem == ()
+                @test topology.bndytoface == ()
+            else
+                @test sort(unique(topology.bndytoface[1])) == vcat(
+                    px ? Int64[] : Int64[1, 2],
+                    py ? Int64[] : Int64[3, 4],
+                )
+            end
         end
         for pz in (true, false), py in (true, false), px in (true, false)
             topology = BrickTopology(
@@ -207,6 +225,16 @@ end
                 periodicity = (px, py, pz),
             )
             @test Topologies.hasboundary(topology) == !(px && py && pz)
+            if px && py && pz
+                @test topology.bndytoelem == ()
+                @test topology.bndytoface == ()
+            else
+                @test sort(unique(topology.bndytoface[1])) == vcat(
+                    px ? Int64[] : Int64[1, 2],
+                    py ? Int64[] : Int64[3, 4],
+                    pz ? Int64[] : Int64[5, 6],
+                )
+            end
         end
     end
 end
@@ -232,7 +260,7 @@ end
 
         @test topology.elemtoelem == [
             1 2 1 2 3 4
-            3 4 5 6 5 6
+            3 4 5 6 1 2
             2 1 4 3 6 5
             2 1 4 3 6 5
         ]
@@ -253,6 +281,9 @@ end
             0 0 0 0 0 0
         ]
 
+        @test topology.elemtoelem[topology.elemtobndy .== 1] == 1:2
+        @test topology.elemtoelem[topology.elemtobndy .== 2] == 1:2
+
         @test topology.elems == 1:nelem
         @test topology.realelems == 1:nelem
         @test topology.ghostelems == nelem .+ (1:0)
@@ -264,6 +295,9 @@ end
         @test topology.nabrtorank == Int[]
         @test topology.nabrtorecv == UnitRange{Int}[]
         @test topology.nabrtosend == UnitRange{Int}[]
+
+        @test topology.bndytoelem == ([1, 2], [5, 6])
+        @test topology.bndytoface == ([1, 1], [2, 2])
     end
     let
         comm = MPI.COMM_SELF
@@ -271,6 +305,15 @@ end
             topology =
                 StackedBrickTopology(comm, (0:10, 0:3), periodicity = (px, py))
             @test Topologies.hasboundary(topology) == !(px && py)
+            if px && py
+                @test topology.bndytoelem == ()
+                @test topology.bndytoface == ()
+            else
+                @test sort(unique(topology.bndytoface[1])) == vcat(
+                    px ? Int64[] : Int64[1, 2],
+                    py ? Int64[] : Int64[3, 4],
+                )
+            end
         end
         for pz in (true, false), py in (true, false), px in (true, false)
             topology = StackedBrickTopology(
@@ -279,13 +322,25 @@ end
                 periodicity = (px, py, pz),
             )
             @test Topologies.hasboundary(topology) == !(px && py && pz)
+            if px && py && pz
+                @test topology.bndytoelem == ()
+                @test topology.bndytoface == ()
+            else
+                @test sort(unique(topology.bndytoface[1])) == vcat(
+                    px ? Int64[] : Int64[1, 2],
+                    py ? Int64[] : Int64[3, 4],
+                    pz ? Int64[] : Int64[5, 6],
+                )
+            end
         end
     end
 end
 
 @testset "StackedCubedSphereTopology tests" begin
-    topology = StackedCubedSphereTopology(MPI.COMM_SELF, 3, 1.0:3.0)
+    topology =
+        StackedCubedSphereTopology(MPI.COMM_SELF, 3, 1.0:3.0, boundary = (2, 1))
     @test Topologies.hasboundary(topology)
+    @test map(unique, topology.bndytoface) == ([6], [5])
 end
 
 @testset "CubedShellTopology tests" begin

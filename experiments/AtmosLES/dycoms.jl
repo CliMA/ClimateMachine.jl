@@ -334,7 +334,7 @@ function config_dycoms(
     if precipitation_model == "noprecipitation"
         precipitation = NoPrecipitation()
     elseif precipitation_model == "rain"
-        source = (source..., Rain_1M()...)
+        source = (source..., WarmRain_1M()...)
         precipitation = RainModel()
     else
         @warn @sprintf(
@@ -393,7 +393,7 @@ function config_dycoms(
 end
 
 function config_diagnostics(driver_config)
-    interval = "10000steps"
+    interval = "1000steps"
     dgngrp = setup_atmos_default_diagnostics(
         AtmosLESConfigType(),
         interval,

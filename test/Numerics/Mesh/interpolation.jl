@@ -7,7 +7,7 @@ using StaticArrays
 using Statistics
 using Test
 import GaussQuadrature
-using KernelAbstractions: CPU, CUDADevice
+using KernelAbstractions
 
 using ClimateMachine
 ClimateMachine.init()
@@ -33,6 +33,8 @@ using CLIMAParameters.Planet: R_d, planet_radius, grav, MSLP
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+#-------------------------------------
+fcn(x, y, z) = sin(x) * cos(y) * cos(z) # sample function
 #-------------------------------------
 function Initialize_Brick_Interpolation_Test!(
     problem,
@@ -84,25 +86,27 @@ function (setup::TestSphereSetup)(problem, bl, state, aux, coords, t)
     return nothing
 end
 #----------------------------------------------------------------------------
-function run_brick_interpolation_test(DA, FT)
+function run_brick_interpolation_test(
+    ::Type{DA},
+    ::Type{FT},
+    polynomialorders,
+    toler::FT,
+) where {DA, FT <: AbstractFloat}
     mpicomm = MPI.COMM_WORLD
     root = 0
     pid = MPI.Comm_rank(mpicomm)
     npr = MPI.Comm_size(mpicomm)
 
-    xmin, ymin, zmin = 0, 0, 0                   # defining domain extent
-    xmax, ymax, zmax = 2000, 400, 2000
+    xmin, ymin, zmin = FT(0), FT(0), FT(0)         # defining domain extent
+    xmax, ymax, zmax = FT(2000), FT(400), FT(2000)
     xres = [FT(10), FT(10), FT(10)] # resolution of interpolation grid
 
     Ne = (20, 4, 20)
-
-    polynomialorder = 5 #8# 5 #8 #4
     #-------------------------
     _x, _y, _z = ClimateMachine.Mesh.Grids.vgeoid.x1id,
     ClimateMachine.Mesh.Grids.vgeoid.x2id,
     ClimateMachine.Mesh.Grids.vgeoid.x3id
     #-------------------------
-
     brickrange = (
         range(FT(xmin); length = Ne[1] + 1, stop = xmax),
         range(FT(ymin); length = Ne[2] + 1, stop = ymax),
@@ -117,7 +121,7 @@ function run_brick_interpolation_test(DA, FT)
         topl,
         FloatType = FT,
         DeviceArray = DA,
-        polynomialorder = polynomialorder,
+        polynomialorder = polynomialorders,
     )
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -143,11 +147,8 @@ function run_brick_interpolation_test(DA, FT)
     x1 = @view grid.vgeo[:, _x:_x, :]
     x2 = @view grid.vgeo[:, _y:_y, :]
     x3 = @view grid.vgeo[:, _z:_z, :]
-
     #----calling interpolation function on state variable # st_idx--------------------------
     nvars = size(Q.data, 2)
-    fcn(x, y, z) = sin(x) * cos(y) * cos(z) # sample function
-    # ideally we would just call fcn here, but that doesn't call the correct trig intrinsics
     Q.data .= sin.(x1 ./ xmax) .* cos.(x2 ./ ymax) .* cos.(x3 ./ zmax)
 
     xbnd = Array{FT}(undef, 2, 3)
@@ -177,6 +178,7 @@ function run_brick_interpolation_test(DA, FT)
         fiv = DA(Array{FT}(undef, 0, 0, 0, 0))
     end
     interpolate_local!(intrp_brck, Q.data, iv)                    # interpolation
+
     accumulate_interpolated_data!(intrp_brck, iv, fiv)      # write interpolation data to file
     #------------------------------
     err_inf_dom = zeros(FT, nvars)
@@ -200,7 +202,8 @@ function run_brick_interpolation_test(DA, FT)
             x2[i, j, k] = x2g[j]
             x3[i, j, k] = x3g[k]
         end
-        fex = fcn.(x1 ./ xmax, x2 ./ ymax, x3 ./ zmax)
+
+        fex = sin.(x1 ./ xmax) .* cos.(x2 ./ ymax) .* cos.(x3 ./ zmax)
 
         for vari in 1:nvars
             err_inf_dom[vari] =
@@ -209,12 +212,6 @@ function run_brick_interpolation_test(DA, FT)
     end
 
     MPI.Bcast!(err_inf_dom, root, mpicomm)
-
-    if FT == Float64
-        toler = 1.0E-9
-    elseif FT == Float32
-        toler = 1.0E-6
-    end
 
     if maximum(err_inf_dom) > toler
         if pid == 0
@@ -231,18 +228,20 @@ end #function run_brick_interpolation_test
 #----------------------------------------------------------------------------
 # Cubed sphere, lat/long interpolation test
 #----------------------------------------------------------------------------
-function run_cubed_sphere_interpolation_test(DA, FT)
+function run_cubed_sphere_interpolation_test(
+    ::Type{DA},
+    ::Type{FT},
+    polynomialorders,
+    toler::FT,
+) where {DA, FT <: AbstractFloat}
     mpicomm = MPI.COMM_WORLD
     root = 0
     pid = MPI.Comm_rank(mpicomm)
     npr = MPI.Comm_size(mpicomm)
 
     domain_height = FT(30e3)
-
-    polynomialorder = 5
     numelem_horz = 6
     numelem_vert = 4
-
     #-------------------------
     _x, _y, _z = ClimateMachine.Mesh.Grids.vgeoid.x1id,
     ClimateMachine.Mesh.Grids.vgeoid.x2id,
@@ -260,7 +259,7 @@ function run_cubed_sphere_interpolation_test(DA, FT)
     lat_res = FT(1) # 1 degree resolution
     long_res = FT(1) # 1 degree resolution
     nel_vert_grd = 20 #100 #50 #10#50
-    rad_res = FT((vert_range[end] - vert_range[1]) / FT(nel_vert_grd)) #1000.00    # 1000 m vertical resolution
+    rad_res = FT((vert_range[end] - vert_range[1]) / FT(nel_vert_grd)) # 1000 m vertical resolution
     #----------------------------------------------------------
     _MSLP::FT = MSLP(param_set)
     setup = TestSphereSetup(_MSLP, FT(255), FT(30e3))
@@ -271,7 +270,7 @@ function run_cubed_sphere_interpolation_test(DA, FT)
         topology,
         FloatType = FT,
         DeviceArray = DA,
-        polynomialorder = polynomialorder,
+        polynomialorder = polynomialorders,
         meshwarp = ClimateMachine.Mesh.Topologies.cubedshellwarp,
     )
 
@@ -305,11 +304,14 @@ function run_cubed_sphere_interpolation_test(DA, FT)
     ymax = _planet_radius
     zmax = _planet_radius
 
-    fcn(x, y, z) = sin(x) * cos(y) * cos(z) # sample function
-
     nvars = size(Q.data, 2)
-    Q.data .= sin.(x1 ./ xmax) .* cos.(x2 ./ ymax) .* cos.(x3 ./ zmax)
 
+    Q.data .= sin.(x1 ./ xmax) .* cos.(x2 ./ ymax) .* cos.(x3 ./ zmax)
+    #for ivar in 1:nvars
+    #    Q.data[:, ivar, :] .=
+    #        sin.(x1[:, 1, :] ./ xmax) .* cos.(x2[:, 1, :] ./ ymax) .*
+    #        cos.(x3[:, 1, :] ./ zmax)
+    #end
     #------------------------------
     lat_min, lat_max = FT(-90.0), FT(90.0)            # inclination/zeinth angle range
     long_min, long_max = FT(-180.0), FT(180.0)     # azimuthal angle range
@@ -401,12 +403,6 @@ function run_cubed_sphere_interpolation_test(DA, FT)
 
     MPI.Bcast!(err_inf_dom, root, mpicomm)
 
-    if FT == Float64
-        toler = 2.0E-7
-    elseif FT == Float32
-        toler = 2.0E-6
-    end
-
     if maximum(err_inf_dom) > toler
         if pid == 0
             println("err_inf_domain = $(maximum(err_inf_dom)) is larger than prescribed tolerance of $toler")
@@ -419,9 +415,23 @@ end
 #----------------------------------------------------------------------------
 @testset "Interpolation tests" begin
     DA = ClimateMachine.array_type()
-    for FT in (Float64, Float32)
-        run_brick_interpolation_test(DA, FT)
-        run_cubed_sphere_interpolation_test(DA, FT)
-    end
+
+    run_brick_interpolation_test(DA, Float32, (0), Float32(1E-1))
+    run_brick_interpolation_test(DA, Float64, (0), Float64(1E-1))
+
+    run_brick_interpolation_test(DA, Float32, (5), Float32(1E-6))
+    run_brick_interpolation_test(DA, Float64, (5), Float64(1E-9))
+
+    run_brick_interpolation_test(DA, Float32, (5, 6), Float32(1E-6))
+    run_brick_interpolation_test(DA, Float64, (5, 6), Float64(1E-9))
+
+    run_cubed_sphere_interpolation_test(DA, Float32, (0), Float32(2e-1))
+    run_cubed_sphere_interpolation_test(DA, Float64, (0), Float64(2e-1))
+
+    run_cubed_sphere_interpolation_test(DA, Float32, (5), Float32(2e-6))
+    run_cubed_sphere_interpolation_test(DA, Float64, (5), Float64(2e-7))
+
+    run_cubed_sphere_interpolation_test(DA, Float32, (5, 6), Float32(2e-6))
+    run_cubed_sphere_interpolation_test(DA, Float64, (5, 6), Float64(2e-7))
 end
 #------------------------------------------------

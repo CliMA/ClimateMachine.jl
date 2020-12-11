@@ -244,7 +244,7 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
 end
 
 """
-    atmos_gcm_default_collect(bl, currtime)
+    atmos_gcm_default_collect(dgngrp, currtime)
 
     Master function that performs a global grid traversal to compute various
     diagnostics using the above functions.
@@ -258,24 +258,20 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         return nothing
     end
 
-    dg = Settings.dg
-    atmos = dg.balance_law
-    Q = Settings.Q
     mpicomm = Settings.mpicomm
+    dg = Settings.dg
+    Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
+    atmos = dg.balance_law
     grid = dg.grid
-    topology = grid.topology
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(dg.grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
-    npoints = Nq * Nq * Nqk
-    nrealelem = length(topology.realelems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
+    grid_info = basic_grid_info(dg)
+    topl_info = basic_topology_info(grid.topology)
+    Nqk = grid_info.Nqk
+    Nqh = grid_info.Nqh
+    npoints = prod(grid_info.Nq)
+    nrealelem = topl_info.nrealelem
+    nvertelem = topl_info.nvertelem
+    nhorzelem = topl_info.nhorzrealelem
 
     # get needed arrays onto the CPU
     device = array_device(Q)
@@ -298,7 +294,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
 
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
-    @visitQ nhorzelem nvertelem Nqk Nq begin
+    @traverse_dg_grid grid_info topl_info begin
         state = extract_state(dg, state_data, ijk, e, Prognostic())
         aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
@@ -346,7 +342,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
             num_atmos_gcm_default_simple_3d_vars(atmos, FT),
         )
 
-        @visitI nlong nlat nlevel begin
+        @traverse_interpolated_grid nlong nlat nlevel begin
             statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,

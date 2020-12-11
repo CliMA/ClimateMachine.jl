@@ -193,7 +193,6 @@ function AtmosModel{FT}(
     LF,
     DC,
 }
-
     @assert !any(isa.(source, Tuple))
 
     atmos = (
@@ -626,7 +625,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
 
     flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
-    flux_second_order!(atmos.precipitation, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.precipitation, flux, args...)
     flux_second_order!(
         atmos.hyperdiffusion,
         flux,

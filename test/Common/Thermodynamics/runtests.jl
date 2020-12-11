@@ -1171,3 +1171,14 @@ end
     @test all(last.(gas_constants.(ts_eq)) ≈ last.(gas_constants.(ts_dry)))
 
 end
+
+@testset "Thermodynamics - ProfileSet Iterator" begin
+    ArrayType = Array{Float64}
+    FT = eltype(ArrayType)
+    profiles = PhaseEquilProfiles(param_set, ArrayType)
+    @unpack T, q_pt, z, phase_type = profiles
+    @test all(z .≈ (nt.z for nt in profiles))
+    @test all(T .≈ (nt.T for nt in profiles))
+    @test all(getproperty.(q_pt, :tot) .≈ (nt.q_pt.tot for nt in profiles))
+    @test all(phase_type .== (nt.phase_type for nt in profiles))
+end

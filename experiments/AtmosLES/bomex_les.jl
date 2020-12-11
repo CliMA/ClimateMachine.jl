@@ -44,8 +44,8 @@ function main()
 
     # For a full-run, please set the timeend to 3600*6 seconds
     # and change the values in ConservationCheck
-    # For the test we set this to == 30 minutes
-    timeend = FT(1800)
+    # For the test we set this to == 20 minutes
+    timeend = FT(1200)
     #timeend = FT(3600 * 6)
     CFLmax = FT(0.35)
 
