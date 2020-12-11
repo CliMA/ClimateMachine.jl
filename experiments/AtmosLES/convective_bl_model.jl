@@ -182,7 +182,9 @@ function init_convective_bl!(problem, bl, state, aux, localgeo, t)
     state.ρ = ρ
     state.ρu = SVector(ρu, ρv, ρw)
     state.ρe = ρe_tot
-    state.moisture.ρq_tot = ρ * q_tot
+    if !(bl.moisture isa DryModel)
+        state.moisture.ρq_tot = ρ * q_tot
+    end
 
     if z <= FT(400) # Add random perturbations to bottom 400m of model
         state.ρe += rand() * ρe_tot / 100
@@ -209,6 +211,7 @@ function convective_bl_model(
     zmax,
     surface_flux;
     turbconv = NoTurbConv(),
+    moisture_model = "dry",
 ) where {FT}
 
     ics = init_convective_bl!     # Initial conditions
@@ -224,9 +227,10 @@ function convective_bl_model(
     f_coriolis = FT(1.031e-4) # Coriolis parameter
     u_star = FT(0.3)
     q_sfc = FT(0)
+    moisture_flux = FT(0)
 
     # Assemble source components
-    source = (
+    source_default = (
         Gravity(),
         ConvectiveBLSponge(
             FT,
@@ -247,6 +251,23 @@ function convective_bl_model(
         ),
     )
 
+    if moisture_model == "dry"
+        source = source_default
+        moisture = DryModel()
+    elseif moisture_model == "equilibrium"
+        source = source_default
+        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1))
+    elseif moisture_model == "nonequilibrium"
+        source = (source_default..., CreateClouds()...)
+        moisture = NonEquilMoist()
+    else
+        @warn @sprintf(
+            """
+%s: unrecognized moisture_model in source terms, using the defaults""",
+            moisture_model,
+        )
+        source = source_default
+    end
     # Set up problem initial and boundary conditions
     if surface_flux == "prescribed"
         energy_bc = PrescribedEnergyFlux((state, aux, t) -> LHF + SHF)
@@ -270,9 +291,21 @@ function convective_bl_model(
     end
 
     # Set up problem initial and boundary conditions
-    moisture_flux = FT(0)
-    problem = AtmosProblem(
-        boundaryconditions = (
+    if moisture_model == "dry"
+        boundary_conditions = (
+            AtmosBC(
+                momentum = Impenetrable(DragLaw(
+                    # normPu_int is the internal horizontal speed
+                    # P represents the projection onto the horizontal
+                    (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
+                )),
+                energy = energy_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
+            ),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
+        )
+    else
+        boundary_conditions = (
             AtmosBC(
                 momentum = Impenetrable(DragLaw(
                     # normPu_int is the internal horizontal speed
@@ -284,8 +317,12 @@ function convective_bl_model(
                 turbconv = turbconv_bcs(turbconv)[1],
             ),
             AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
-        ),
+        )
+    end
+
+    problem = AtmosProblem(
         init_state_prognostic = ics,
+        boundaryconditions = boundary_conditions,
     )
 
     # Assemble model components
