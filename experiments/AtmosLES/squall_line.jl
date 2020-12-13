@@ -122,8 +122,17 @@ end
   Read the original squall sounding
 """
 function read_sounding()
+
+    # Artifact creation is not thread-safe
+    #      https://github.com/JuliaLang/Pkg.jl/issues/1219
+    # To avoid race conditions from multiple jobs running this
+    # driver at the same time, we must store artifacts in a
+    # separate folder.
+
+    artifact_folder = mktempdir(@__DIR__; prefix = "artifacts_")
+
     soundings_dataset = ArtifactWrapper(
-        joinpath(@__DIR__, "Artifacts.toml"),
+        joinpath(artifact_folder, "Artifacts.toml"),
         "soundings",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/rjnvt2dlw7etm1c7mmdfrkw5gnfds5lx.nc",
