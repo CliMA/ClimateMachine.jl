@@ -51,10 +51,10 @@ RemovePrecipitation(b::Bool) = (
 function remove_precipitation_sources(
     s::RemovePrecipitation{PV},
     atmos,
-    state,
-    aux,
-    ts,
+    args,
 ) where {PV <: Union{Mass, Energy, TotalMoisture}}
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
 
     FT = eltype(state)
 
@@ -94,7 +94,9 @@ WarmRain_1M() = (
     WarmRain_1M{Rain}(),
 )
 
-function warm_rain_sources(atmos, state, aux, ts)
+function warm_rain_sources(atmos, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
 
     FT = eltype(state)
 
@@ -156,7 +158,9 @@ RainSnow_1M() = (
     RainSnow_1M{Snow}(),
 )
 
-function rain_snow_sources(atmos, state, aux, ts)
+function rain_snow_sources(atmos, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
 
     FT = eltype(state)
 

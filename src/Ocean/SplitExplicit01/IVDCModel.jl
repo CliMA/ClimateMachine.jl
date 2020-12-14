@@ -3,9 +3,6 @@
 #
 # In this version the operator is tweked to be the indentity for testing
 
-using ClimateMachine.DGMethods.NumericalFluxes:
-    NumericalFluxFirstOrder, NumericalFluxSecondOrder, NumericalFluxGradient
-
 """
  IVDCModel{M} <: BalanceLaw
 

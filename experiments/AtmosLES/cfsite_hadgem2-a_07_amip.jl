@@ -58,30 +58,12 @@ GCMRelaxation(::Type{FT}, args...) where {FT} = (
     GCMRelaxation{TotalMoisture, FT}(args...),
 )
 
-function source(
-    s::GCMRelaxation{Mass},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::GCMRelaxation{Mass}, m, args)
     # TODO: write correct tendency
     return 0
 end
 
-function source(
-    s::GCMRelaxation{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::GCMRelaxation{TotalMoisture}, m, args)
     # TODO: write correct tendency
     return 0
 end
@@ -119,16 +101,9 @@ LargeScaleProcess() = (
     LargeScaleProcess{TotalMoisture}(),
 )
 
-function source(
-    s::LargeScaleProcess{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::LargeScaleProcess{Energy}, m, args)
+    @unpack state, aux, diffusive = args
+    @unpack ts = args.precomputed
     # Establish problem float-type
     FT = eltype(state)
     # Establish vertical orientation
@@ -143,15 +118,15 @@ function source(
     # Temperature contribution
     T_tendency = aux.lsforcing.Σtemp_tendency + ∂T∂z * w_s
     # Moisture contribution
-    q_tot_tendency =
-        compute_q_tot_tend(m, state, aux, t, ts, direction, diffusive)
+    q_tot_tendency = compute_q_tot_tend(m, args)
 
     return cvm * state.ρ * T_tendency + _e_int_v0 * state.ρ * q_tot_tendency
 end
 
-function compute_q_tot_tend(m, state, aux, t, ts, direction, diffusive)
+function compute_q_tot_tend(m, args)
+    @unpack aux, diffusive = args
     # Establish problem float-type
-    FT = eltype(state)
+    FT = eltype(aux)
     k̂ = vertical_unit_vector(m, aux)
     # Establish vertical orientation
     ∂qt∂z = diffusive.lsforcing.∇ᵥhus
@@ -160,33 +135,15 @@ function compute_q_tot_tend(m, state, aux, t, ts, direction, diffusive)
     return aux.lsforcing.Σqt_tendency + ∂qt∂z * w_s
 end
 
-function source(
-    s::LargeScaleProcess{Mass},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    q_tot_tendency =
-        compute_q_tot_tend(m, state, aux, t, ts, direction, diffusive)
+function source(s::LargeScaleProcess{Mass}, m, args)
+    @unpack state = args
+    q_tot_tendency = compute_q_tot_tend(m, args)
     return state.ρ * q_tot_tendency
 end
 
-function source(
-    s::LargeScaleProcess{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    q_tot_tendency =
-        compute_q_tot_tend(m, state, aux, t, ts, direction, diffusive)
+function source(s::LargeScaleProcess{TotalMoisture}, m, args)
+    @unpack state, aux = args
+    q_tot_tendency = compute_q_tot_tend(m, args)
     return state.ρ * q_tot_tendency
 end
 
@@ -210,48 +167,24 @@ LargeScaleSubsidence() = (
     LargeScaleSubsidence{TotalMoisture}(),
 )
 
-function source(
-    s::LargeScaleSubsidence{Mass},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::LargeScaleSubsidence{Mass}, m, args)
+    @unpack state, aux, diffusive = args
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
     # Establish subsidence velocity
     w_s = aux.lsforcing.w_s
     return -state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end
-function source(
-    s::LargeScaleSubsidence{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::LargeScaleSubsidence{Energy}, m, args)
+    @unpack state, aux, diffusive = args
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
     # Establish subsidence velocity
     w_s = aux.lsforcing.w_s
     return -state.ρ * w_s * dot(k̂, diffusive.∇h_tot)
 end
-function source(
-    s::LargeScaleSubsidence{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::LargeScaleSubsidence{TotalMoisture}, m, args)
+    @unpack state, aux, diffusive = args
     # Establish vertical orientation
     k̂ = vertical_unit_vector(m, aux)
     # Establish subsidence velocity
@@ -284,16 +217,8 @@ end
 LinearSponge(::Type{FT}, args...) where {FT} =
     LinearSponge{Momentum, FT}(args...)
 
-function source(
-    s::LinearSponge{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::LinearSponge{Momentum}, m, args)
+    @unpack state, aux = args
     #Unpack sponge parameters
     FT = eltype(state)
     @unpack z_max, z_sponge, α_max, γ = s

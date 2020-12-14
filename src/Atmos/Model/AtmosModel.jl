@@ -800,6 +800,9 @@ function init_state_auxiliary!(
     )
 end
 
+precompute(atmos::AtmosModel, args, ::Source) =
+    (ts = recover_thermo_state(atmos, args.state, args.aux),)
+
 """
     source!(
         m::AtmosModel,
@@ -829,13 +832,22 @@ function source!(
 )
     ρu_pad = SVector(1, 1, 1)
     tend = Source()
-    ts = recover_thermo_state(m, state, aux)
-    args = (m, state, aux, t, ts, direction, diffusive)
-    source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
-    source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
-    source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
-    source!(m.moisture, source, args...)
-    source!(m.precipitation, source, args...)
+
+    _args = (
+        state = state,
+        aux = aux,
+        t = t,
+        direction = direction,
+        diffusive = diffusive,
+    )
+
+    args = merge(_args, (precomputed = precompute(m, _args, tend),))
+
+    source.ρ = Σsources(eq_tends(Mass(), m, tend), m, args)
+    source.ρu = Σsources(eq_tends(Momentum(), m, tend), m, args) .* ρu_pad
+    source.ρe = Σsources(eq_tends(Energy(), m, tend), m, args)
+    source!(m.moisture, source, m, args)
+    source!(m.precipitation, source, m, args)
 
     atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
 end

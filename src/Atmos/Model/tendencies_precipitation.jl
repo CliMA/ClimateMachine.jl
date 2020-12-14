@@ -25,44 +25,17 @@ end
 ##### Sources
 #####
 
-function source(
-    s::WarmRain_1M{Rain},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = warm_rain_sources(m, state, aux, ts)
+function source(s::WarmRain_1M{Rain}, m, args)
+    nt = warm_rain_sources(m, args)
     return nt.S_ρ_qr
 end
 
-function source(
-    s::RainSnow_1M{Rain},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = rain_snow_sources(m, state, aux, ts)
+function source(s::RainSnow_1M{Rain}, m, args)
+    nt = rain_snow_sources(m, args)
     return nt.S_ρ_qr
 end
 
-function source(
-    s::RainSnow_1M{Snow},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = rain_snow_sources(m, state, aux, ts)
+function source(s::RainSnow_1M{Snow}, m, args)
+    nt = rain_snow_sources(m, args)
     return nt.S_ρ_qs
 end
