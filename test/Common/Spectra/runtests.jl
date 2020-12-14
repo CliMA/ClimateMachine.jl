@@ -86,7 +86,6 @@ end
     reconstruction = trans_spherical_to_grid!(mesh, spherical)
 
     sum_spec = sum((0.5 * spectrum))
-    dθ = π .* wts ./ sum(wts)
     dθ = π / length(wts)
     area_factor = reshape(cosθ .* dθ .^ 2 / 4π, (1, length(cosθ)))
 
