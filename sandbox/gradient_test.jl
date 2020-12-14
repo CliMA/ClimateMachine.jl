@@ -35,5 +35,22 @@ dependencies = nothing
 # Initialize State s
 Q  = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 1)
 ∇Q = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
+exact_∇Q = copy(∇Q)
 
-launch_volume_gradient!(grid, ∇Q, Q, nrealelem, device)
+event = launch_volume_gradient!(grid, ∇Q, Q, nrealelem, device)
+wait(event)
+
+## Test Block 1: Volume Test
+@. Q[:,:, 1] = sin(π*x)
+@. exact_∇Q[:,:, 1] =  π*cos(π*x)
+@. exact_∇Q[:,:, 2] =  0.0 
+@. exact_∇Q[:,:, 3] =  0.0
+
+event = launch_volume_gradient!(grid, ∇Q, Q, nrealelem, device)
+wait(event)
+tol = eps(1e5) 
+L∞(x) = maximum(abs.(x))
+println(L∞(∇Q - exact_∇Q))
+@testset "Gradient Test" begin
+    @test L∞(∇Q - exact_∇Q) < tol
+end
