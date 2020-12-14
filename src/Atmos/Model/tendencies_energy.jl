@@ -92,3 +92,48 @@ function source(s::Rain_1M{Energy}, m, state, aux, t, ts, direction, diffusive)
     @unpack S_qt, Φ, I_l = nt
     return state.ρ * S_qt * (Φ + I_l)
 end
+
+export TemperatureRelaxation
+"""
+    TemperatureRelaxation{FT} <: AbstractSource
+
+Rayleigh Damping (Linear Relaxation) for top wall momentum components
+Assumes laterally periodic boundary conditions for LES flows. Momentum components
+are relaxed to reference values (zero velocities) at the top boundary.
+"""
+struct TemperatureRelaxation{PV <: Energy, FT} <: TendencyDef{Source, PV}
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "Relaxation velocity components"
+    u_relaxation::SVector{3, FT}
+    "Sponge exponent"
+    γ::FT
+end
+TemperatureRelaxation(::Type{FT}, args...) where {FT} =
+    TemperatureRelaxation{Energy, FT}(args...)
+function source(
+    s::TemperatureRelaxation{Energy},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    z = altitude(m, aux)
+
+    ρe_int = state.ρ * internal_energy(ts)
+    if z >= s.z_sponge
+        r = (z - s.z_sponge) / (s.z_max - s.z_sponge)
+        β_sponge = s.α_max * sinpi(r / 2)^s.γ
+        return -β_sponge * (ρe_int .- aux.ρe₀)
+    else
+        FT = eltype(state)
+        return SVector{3, FT}(0, 0, 0)
+    end
+end

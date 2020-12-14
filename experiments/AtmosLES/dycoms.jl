@@ -240,6 +240,8 @@ function init_dycoms!(problem, bl, state, aux, localgeo, t)
     if bl.precipitation isa RainModel
         state.precipitation.ρq_rai = FT(0)
     end
+    
+    aux.ρe₀ = internal_energy(ts) * ρ
 
     return nothing
 end
@@ -296,6 +298,8 @@ function config_dycoms(
     zsponge = FT(1000.0)
     rayleigh_sponge =
         RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
+    temperature_sponge=
+        TemperatureRelaxation(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
     geostrophic_forcing =
         GeostrophicForcing(FT, f_coriolis, u_geostrophic, v_geostrophic)
@@ -313,6 +317,7 @@ function config_dycoms(
         rayleigh_sponge,
         Subsidence(D_subsidence)...,
         geostrophic_forcing,
+        temperature_sponge
     )
 
     # moisture model and its sources
