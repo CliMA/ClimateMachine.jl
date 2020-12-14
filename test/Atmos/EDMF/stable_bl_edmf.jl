@@ -110,7 +110,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(360)
+    timeend = FT(3600*6)
     CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
@@ -224,7 +224,7 @@ function main(::Type{FT}) where {FT}
         @show (abs(δρ))
         @show (abs(δρe))
         @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
+        @test (abs(δρe) <= 0.1)
         nothing
     end
 
