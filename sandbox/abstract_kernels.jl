@@ -23,10 +23,14 @@ const _JcV = Grids._JcV
 const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
 
-function launch_volume_divergence!(grid::G, flux_divergence, flux, N, nrealelem, dim, device; dependencies = nothing) where {G <: AbstractGrid}
+function launch_volume_divergence!(grid::G, flux_divergence, flux, nrealelem, device; dependencies = nothing) where {G <: AbstractGrid}
+
+    N = polynomialorders(grid)
+    dim = length(grid.D)
+
     FT = eltype(flux)
-    workgroup = (N+1, N+1) # same size as shared memory tiles
-    ndrange = ( (N+1) * nrealelem, N+1)
+    workgroup = (N[1]+1, N[2]+1) # same size as shared memory tiles
+    ndrange = ( (N[1]+1)*nrealelem, (N[2]+1))
     comp_stream = dependencies
     flux_divergence.realdata[:] .= 0 # necesary for now
     # If the model direction is EveryDirection, we need to perform
@@ -36,7 +40,7 @@ function launch_volume_divergence!(grid::G, flux_divergence, flux, N, nrealelem,
         flux_divergence.data,
         flux.data,
         Val(dim),
-        Val(N),
+        Val(N[1]),
         grid.vgeo,
         grid.D[1],
         ndrange = ndrange,
@@ -187,8 +191,6 @@ function launch_interface_divergence!(
     grid::G,
     flux_divergence,
     flux,
-    N,
-    dim,
     device;
     dependencies = nothing,
 ) where {G <: AbstractGrid}
@@ -196,36 +198,29 @@ function launch_interface_divergence!(
     # @assert surface === :interior || surface === :exterior
 
     FT = eltype(flux)
+
+    dim = length(grid.D)
+    N = polynomialorders(grid)
     
     # Assumes poly order is the same in every direction
     # TODO: copy from new kernel with variable polynomial order
     if dim == 1
-        Np = (N + 1)
+        Np = (N[1] + 1)
         Nfp = 1
         nface = 2
     elseif dim == 2
-        Np = (N + 1) * (N + 1)
-        Nfp = (N + 1)
+        Np = (N[1] + 1) * (N[2] + 1)
+        Nfp = (N[1] + 1)
         nface = 4
     elseif dim == 3
-        Np = (N + 1) * (N + 1) * (N + 1)
-        Nfp = (N + 1) * (N + 1)
+        Np = (N[1] + 1) * (N[2] + 1) * (N[3] + 1)
+        Nfp = (N[1] + 1) * (N[2] + 1)
         nface = 6
     end
     flux_divergence.realdata[:] .= 0   
     workgroup = Nfp
     elems = grid.interiorelems
     ndrange = Nfp * length(grid.interiorelems)
-    #= 
-    # MPI stuff
-    if surface === :interior
-        elems = grid.interiorelems
-        ndrange = Nfp * ninteriorelem
-    else
-        elems = grid.exteriorelems
-        ndrange = Nfp * nexteriorelem
-    end
-    =#
 
     comp_stream = dependencies
 
@@ -237,7 +232,7 @@ function launch_interface_divergence!(
         flux_divergence.data,
         flux.data,
         Val(dim),
-        Val(N),
+        Val(N[1]),
         grid.vgeo,
         grid.sgeo,
         grid.vmap⁻,
@@ -363,5 +358,169 @@ fluxes, respectively.  interface_tendency!
         # Need to wait after even faces to avoid race conditions
         # Note: only need synchronization for F%2 == 0, but this crashed...
         @synchronize
+    end
+end
+
+function launch_volume_gradient!(grid::G, flux_divergence, flux, nrealelem, device; dependencies = nothing) where {G <: AbstractGrid}
+
+    N = polynomialorders(grid)
+    dim = length(grid.D)
+
+    FT = eltype(flux)
+    workgroup = (N[1]+1, N[2]+1) # same size as shared memory tiles
+    ndrange = ( (N[1]+1)*nrealelem, (N[2]+1))
+    comp_stream = dependencies
+    flux_divergence.realdata[:] .= 0 # necessary for now
+    # If the model direction is EveryDirection, we need to perform
+    # both horizontal AND vertical kernel calls; otherwise, we only
+    # call the kernel corresponding to the model direction `dg.diffusion_direction`
+    comp_stream = volume_divergence_kernel!(device, workgroup)(
+        flux_divergence.data,
+        flux.data,
+        Val(dim),
+        Val(N[1]),
+        grid.vgeo,
+        grid.D[1],
+        ndrange = ndrange,
+        dependencies = comp_stream,
+    )
+
+    return comp_stream
+end
+
+# TODO: should be similar to vectorgradients kernel
+@kernel function volume_gradient_kernel!(
+    flux_divergence,
+    flux,
+    ::Val{dim},
+    ::Val{polyorder},
+    vgeo,
+    D,
+) where {dim, polyorder}
+    # This allows for the variables to remain after @synchronize
+    # for CPU computation
+    @uniform begin
+        N = polyorder
+        FT = eltype(flux)
+        @inbounds Nq1 = N[1] + 1
+        @inbounds Nq2 = N[2] + 1
+        Nq3 = (dim == 2) ? 1 : N[3] + 1
+        local_flux = MArray{Tuple{3, 1}, FT}(undef)
+        local_flux_3 = MArray{Tuple{1, 1}, FT}(undef)
+    end
+
+    # Arrays for F, and the differentiation matrix D
+    shared_flux = @localmem FT (2, Nq1, Nq2) # shared memory on the gpu
+
+    # Storage for tendency and mass inverse M⁻¹, **perhaps in @uniform block**
+    local_tendency = @private FT (Nq3,)   # thread private memory
+    local_MI = @private FT (Nq3,)         # thread private memory
+
+    # Grab the index associated with the current element `e` and the
+    # horizontal quadrature indices `i` (in the ξ1-direction),
+    # `j` (in the ξ2-direction) [directions on the reference element].
+    # Parallelize over elements, then over columns
+    e = @index(Group, Linear)    # Group is the index of the work group
+    i, j = @index(Local, NTuple) # i, j is the index within a work group
+    
+    @inbounds begin
+        # load differentiation matrix into local memory
+        @unroll for k in 1:Nq3 # if 2D Nq3 = 1, if 3D Nq
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) # convert to linear indices
+            # initialize local tendency
+            local_tendency[k] = zero(FT)
+            # read in mass matrix inverse for element `e` in each plane k
+            local_MI[k] = vgeo[ijk, _MI, e]
+        end
+        # end of boiler plate loading
+
+        @unroll for k in 1:Nq3 # search
+            @synchronize # perhaps moved up outside the loop
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) 
+            M = vgeo[ijk, _M, e]
+            # Extract Jacobian terms
+            # ∂/∂x¹ = ∂ξ¹/ ∂x¹ ∂/∂ξ¹ + ∂ξ²/ ∂x¹ ∂/∂ξ² + ∂ξ³/ ∂x¹ ∂/∂ξ³
+            # ∂/∂x² = ∂ξ¹/ ∂x² ∂/∂ξ¹ + ∂ξ²/ ∂x² ∂/∂ξ² + ∂ξ³/ ∂x² ∂/∂ξ³
+            # ∂/∂x³ = ∂ξ¹/ ∂x³ ∂/∂ξ¹ + ∂ξ²/ ∂x³ ∂/∂ξ² + ∂ξ³/ ∂x³ ∂/∂ξ³
+            # The integration by parts is then done with respect to the
+            # (ξ¹, ξ², ξ³) coordinate system 
+            # (wich is why terms associated with the columns appear)
+            ξ1x1 = vgeo[ijk, _ξ1x1, e]
+            ξ1x2 = vgeo[ijk, _ξ1x2, e]
+            ξ1x3 = vgeo[ijk, _ξ1x3, e]
+            
+            ξ2x1 = vgeo[ijk, _ξ2x1, e]
+            ξ2x2 = vgeo[ijk, _ξ2x2, e]
+            ξ2x3 = vgeo[ijk, _ξ2x3, e]
+
+            ξ3x1 = vgeo[ijk, _ξ3x1, e]
+            ξ3x2 = vgeo[ijk, _ξ3x2, e]
+            ξ3x3 = vgeo[ijk, _ξ3x3, e]
+            # ∂ᵗθ = ∇⋅(u⃗θ -κ∇θ), F1 = uθ , F2 = vθ, F3 = wθ, where u⃗ = (u,v,w)
+            # Computes the local inviscid fluxes Fⁱⁿᵛ
+            # Need to load in user passed in flux aka make flux into local flux
+            fill!(local_flux, -zero(eltype(local_flux))) # can remove this
+
+            # probably becomes flux[ijk, e, 1]
+            shared_flux[1, i, j] = flux[ijk, e, 1] # local_flux[1]
+            
+            # probably becomes flux[ijk, e, 2] 
+            shared_flux[2, i, j] = flux[ijk, e, 1] # local_flux[2] 
+
+            # not taking derivative in third direction
+            local_flux_3         = flux[ijk, e, 1] # local_flux[3] 
+
+            # Build "inside metrics" flux
+            F1 = shared_flux[1, i, j]
+            F2 = shared_flux[2, i, j]
+            F3 = local_flux_3
+
+            shared_flux[1, i, j] = F1 # M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)          
+            # shared_flux[2, i, j] = M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
+            # local_flux_3         = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
+            
+
+            ## Everything above is point-wise multiplication
+            # Fix Me  
+
+            # ξ1
+            @unroll for n in 1:Nq1
+                local_tendency[n] += ξ1x1 * D[k, n] * F1
+            end
+        
+            @unroll for k in 1:Nq3 # if 2D Nq3 = 1, if 3D Nq
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) # convert to linear indices
+                flux_divergence[ijk, e, 1] += local_tendency[k] 
+                local_tendency[k] = zero(FT)
+            end
+            
+            # ξ2
+            @unroll for n in 1:Nq2
+                local_tendency[n] += ξ2x1 * D[k, n] * F1
+            end
+        
+            @unroll for k in 1:Nq3 # if 2D Nq3 = 1, if 3D Nq
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) # convert to linear indices
+                flux_divergence[ijk, e, 3] += local_tendency[k] 
+                local_tendency[k] = zero(FT)
+            end
+
+            # ξ3
+            @unroll for n in 1:Nq3
+                local_tendency[n] += ξ3x1 * D[k, n] * F1
+            end
+        
+            @unroll for k in 1:Nq3 # if 2D Nq3 = 1, if 3D Nq
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) # convert to linear indices
+                flux_divergence[ijk, e, 3] += local_tendency[k] 
+                #local_tendency[k] = zero(FT)
+            end
+
+        end
+
+        @unroll for k in 1:Nq3 # search
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+            flux_divergence[ijk, e, l] += local_tendency[k] 
+        end
     end
 end
