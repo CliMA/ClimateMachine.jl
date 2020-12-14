@@ -13,7 +13,7 @@ ClimateMachine.init()
 const ArrayType = ClimateMachine.array_type()
 const mpicomm = MPI.COMM_WORLD
 const FT = Float64
-Ω = Circle(-1,1) × Circle(-1,1) × Circle(-1,1)
+Ω = Circle(-1,1) × Circle(-1,1) #  × Circle(-1,1)
 dims = ndims(Ω)
 
 ClimateMachine.gpu_allowscalar(true)
