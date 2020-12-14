@@ -16,10 +16,8 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.Mesh.Filters: apply!
 using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 # import ClimateMachine.DGMethods: custom_filter!
-import ClimateMachine.DGMethods: custom_filter!, rhs_prehook_filters
+import ClimateMachine.DGMethods: custom_filter!
 using ClimateMachine.DGMethods: RemBL
-
-rhs_prehook_filters(atmos::BalanceLaw) = EDMFFilter()
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
 include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
@@ -287,7 +285,7 @@ function main(::Type{FT}) where {FT}
         @show (abs(δρ))
         @show (abs(δρe))
         @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
+        @test (abs(δρe) <= 0.1)
         nothing
     end
 

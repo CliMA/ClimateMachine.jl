@@ -101,8 +101,8 @@ function main(::Type{FT}) where {FT}
     surface_flux = cl_args["surface_flux"]
 
     # DG polynomial order
-    N = 1
-    nelem_vert = 50
+    N = 4
+    nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
