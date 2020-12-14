@@ -190,8 +190,8 @@ vars_state(water::SoilWaterModel, st::Prognostic, FT) = @vars(ϑ_l::FT, θ_i::FT
 
 function vars_state(water::SoilWaterModel, st::Auxiliary, FT)
     @vars begin
-        h::FT,
-        K::FT,
+        h::FT
+        K::FT
         #runoff::vars_state(runoff::AbstractSurfaceRunoffModel, st, FT)
     end
 end
