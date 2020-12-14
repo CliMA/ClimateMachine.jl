@@ -120,7 +120,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
     # Choose the initial and final times, as well as a timestep.
     t0 = FT(0)
-    timeend = FT(60)
+    timeend = FT(60*5)
     dt = FT(0.001)
 
     # Create the solver configuration.
@@ -206,9 +206,9 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
         all_data[6]["z"],
         label = string("t = ", string(t[6]), "s"),
     );
-        plot(
-        soil_param_functions.Ksat*ones(length(all_data[4]["K∇h"]),1),
-        all_data[4]["z"],
+    plot!(
+        soil_param_functions.Ksat*ones(length(all_data[4]["soil.water.K∇h[3]"]),1),
+        all_data[6]["z"],
         label = string("K_sat =", string(soil_param_functions.Ksat), "ms-1"),
     );
 
