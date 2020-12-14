@@ -36,7 +36,7 @@ dependencies = nothing
 Q  = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 1)
 ∇Q = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
 exact_∇Q = copy(∇Q)
-
+##
 event = launch_volume_gradient!(grid, ∇Q, Q, nrealelem, device)
 wait(event)
 
