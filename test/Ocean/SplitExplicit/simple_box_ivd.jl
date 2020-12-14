@@ -12,11 +12,10 @@ using ClimateMachine.MPIStateArrays
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates: flattenednames
 using ClimateMachine.Ocean.SplitExplicit01
-using ClimateMachine.Ocean.OceanProblems
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.VTK
+using ClimateMachine.Checkpoint
 
-using Test
 using MPI
 using LinearAlgebra
 using StaticArrays
@@ -27,10 +26,92 @@ using CLIMAParameters.Planet: grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+import ClimateMachine.Ocean.SplitExplicit01:
+    ocean_init_aux!,
+    ocean_init_state!,
+    ocean_boundary_state!,
+    CoastlineFreeSlip,
+    CoastlineNoSlip,
+    OceanFloorFreeSlip,
+    OceanFloorNoSlip,
+    OceanSurfaceNoStressNoForcing,
+    OceanSurfaceStressNoForcing,
+    OceanSurfaceNoStressForcing,
+    OceanSurfaceStressForcing
+import ClimateMachine.DGMethods:
+    update_auxiliary_state!, update_auxiliary_state_gradient!, VerticalDirection
+# using GPUifyLoops
+
 const ArrayType = ClimateMachine.array_type()
 
-function main(::Type{FT}, BC) where {FT}
+struct SimpleBox{T, BC} <: AbstractOceanProblem
+    Lˣ::T
+    Lʸ::T
+    H::T
+    τₒ::T
+    λʳ::T
+    θᴱ::T
+    boundary_conditions::BC
+end
+
+function ocean_init_state!(p::SimpleBox, Q, A, localgeo, t)
+    coords = localgeo.coord
+    @inbounds y = coords[2]
+    @inbounds z = coords[3]
+    @inbounds H = p.H
+
+    Q.u = @SVector [-0, -0]
+    Q.η = -0
+    Q.θ = (5 + 4 * cos(y * π / p.Lʸ)) * (1 + z / H)
+
+    return nothing
+end
+
+function ocean_init_aux!(m::OceanModel, p::SimpleBox, A, geom)
+    FT = eltype(A)
+    @inbounds A.y = geom.coord[2]
+
+    # not sure if this is needed but getting weird intialization stuff
+    A.w = -0
+    A.pkin = -0
+    A.wz0 = -0
+    A.u_d = @SVector [-0, -0]
+    A.ΔGu = @SVector [-0, -0]
+
+    return nothing
+end
+
+# A is Filled afer the state
+function ocean_init_aux!(m::BarotropicModel, P::SimpleBox, A, geom)
+    @inbounds A.y = geom.coord[2]
+
+    A.Gᵁ = @SVector [-0, -0]
+    A.U_c = @SVector [-0, -0]
+    A.η_c = -0
+    A.U_s = @SVector [-0, -0]
+    A.η_s = -0
+    A.Δu = @SVector [-0, -0]
+    A.η_diag = -0
+    A.Δη = -0
+
+    return nothing
+end
+
+function main(; restart = 0)
     mpicomm = MPI.COMM_WORLD
+
+    ll = uppercase(get(ENV, "JULIA_LOG_LEVEL", "INFO"))
+    loglevel =
+        ll == "DEBUG" ? Logging.Debug :
+        ll == "WARN" ? Logging.Warn :
+        ll == "ERROR" ? Logging.Error : Logging.Info
+    logger_stream = MPI.Comm_rank(mpicomm) == 0 ? stderr : devnull
+    global_logger(ConsoleLogger(logger_stream, loglevel))
+
+    if restart == 0 && MPI.Comm_rank(mpicomm) == 0 && isdir(vtkpath)
+        @info @sprintf("""Remove old dir: %s and make new one""", vtkpath)
+        rm(vtkpath, recursive = true)
+    end
 
     brickrange_2D = (xrange, yrange)
     topl_2D =
@@ -56,28 +137,43 @@ function main(::Type{FT}, BC) where {FT}
         polynomialorder = N,
     )
 
-    prob = OceanGyre{FT}(Lˣ, Lʸ, H; τₒ = τₒ, λʳ = λʳ, θᴱ = θᴱ, BC = BC)
+    BC = (
+        ClimateMachine.Ocean.SplitExplicit01.CoastlineNoSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanFloorNoSlip(),
+        ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceStressForcing(),
+    )
+    prob = SimpleBox{FT, typeof(BC)}(Lˣ, Lʸ, H, τₒ, λʳ, θᴱ, BC)
     gravity::FT = grav(param_set)
 
     #- set model time-step:
     dt_fast = 240
     dt_slow = 5400
-
-    nout = ceil(Int64, tout / dt_slow)
-    dt_slow = tout / nout
-    numImplSteps > 0 ? ivdc_dt = dt_slow / FT(numImplSteps) : ivdc_dt = dt_slow
+    # dt_fast = 300
+    # dt_slow = 300
+    if t_chkp > 0
+        n_chkp = ceil(Int64, t_chkp / dt_slow)
+        dt_slow = t_chkp / n_chkp
+    else
+        n_chkp = ceil(Int64, runTime / dt_slow)
+        dt_slow = runTime / n_chkp
+        n_chkp = 0
+    end
+    n_outp =
+        t_outp > 0 ? floor(Int64, t_outp / dt_slow) :
+        ceil(Int64, runTime / dt_slow)
+    ivdc_dt = numImplSteps > 0 ? dt_slow / FT(numImplSteps) : dt_slow
 
     model = OceanModel{FT}(
-        param_set,
         prob,
+        grav = gravity,
         cʰ = cʰ,
         add_fast_substeps = add_fast_substeps,
         numImplSteps = numImplSteps,
         ivdc_dt = ivdc_dt,
         κᶜ = FT(0.1),
     )
-    # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )	
-    # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )	
+    # model = OceanModel{FT}(prob, cʰ = cʰ, fₒ = FT(0), β = FT(0) )
+    # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(1e3), νᶻ = FT(1e-3) )
     # model = OceanModel{FT}(prob, cʰ = cʰ, νʰ = FT(0), fₒ = FT(0), β = FT(0) )
 
     barotropicmodel = BarotropicModel(model)
@@ -111,58 +207,98 @@ function main(::Type{FT}, BC) where {FT}
         dt_slow
     )
 
-    barotropic_dg = DGModel(
-        barotropicmodel,
-        grid_2D,
-        # CentralNumericalFluxFirstOrder(),
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient(),
-    )
+    if restart > 0
+        direction = EveryDirection()
+        Q_3D, A_3D, t0 =
+            read_checkpoint(vtkpath, "baroclinic", ArrayType, mpicomm, restart)
+        Q_2D, A_2D, _ =
+            read_checkpoint(vtkpath, "barotropic", ArrayType, mpicomm, restart)
 
-    Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
+        A_3D = restart_auxiliary_state(model, grid_3D, A_3D, direction)
+        A_2D =
+            restart_auxiliary_state(barotropicmodel, grid_2D, A_2D, direction)
 
-    dg = OceanDGModel(
-        model,
-        grid_3D,
-        RusanovNumericalFlux(),
-        CentralNumericalFluxSecondOrder(),
-        CentralNumericalFluxGradient();
-        modeldata = (barotropic_dg, Q_2D),
-    )
+        dg = OceanDGModel(
+            model,
+            grid_3D,
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
+            CentralNumericalFluxGradient();
+            state_auxiliary = A_3D,
+        )
+        barotropic_dg = DGModel(
+            barotropicmodel,
+            grid_2D,
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
+            CentralNumericalFluxGradient(),
+            state_auxiliary = A_2D,
+        )
 
-    Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
+        Q_3D = restart_ode_state(dg, Q_3D; init_on_cpu = true)
+        Q_2D = restart_ode_state(barotropic_dg, Q_2D; init_on_cpu = true)
 
-    lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = 0)
+    else
+        t0 = 0
+        dg = OceanDGModel(
+            model,
+            grid_3D,
+            # CentralNumericalFluxFirstOrder(),
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
+            CentralNumericalFluxGradient(),
+        )
+        barotropic_dg = DGModel(
+            barotropicmodel,
+            grid_2D,
+            # CentralNumericalFluxFirstOrder(),
+            RusanovNumericalFlux(),
+            CentralNumericalFluxSecondOrder(),
+            CentralNumericalFluxGradient(),
+        )
+
+        Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
+        # update_auxiliary_state!(dg, model, Q_3D, FT(0))
+        # update_auxiliary_state_gradient!(dg, model, Q_3D, FT(0))
+
+        Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
+
+    end
+    timeend = runTime + t0
+
+    lsrk_ocean = LSRK54CarpenterKennedy(dg, Q_3D, dt = dt_slow, t0 = t0)
     lsrk_barotropic =
-        LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = 0)
+        LSRK54CarpenterKennedy(barotropic_dg, Q_2D, dt = dt_fast, t0 = t0)
 
     odesolver = SplitExplicitLSRK2nSolver(lsrk_ocean, lsrk_barotropic)
 
-    #-- Set up State Check call back for config state arrays, called every ntFreq time steps
-    ntFreq = 1
+    #-- Set up State Check call back for config state arrays, called every ntFrq_SC time steps
     cbcs_dg = ClimateMachine.StateCheck.sccreate(
         [
             (Q_3D, "oce Q_3D"),
             (dg.state_auxiliary, "oce aux"),
+            # (dg.diffstate,"oce diff",),
+            # (lsrk_ocean.dQ,"oce_dQ",),
+            # (dg.modeldata.tendency_dg.state_auxiliary,"tend Int aux",),
+            # (dg.modeldata.conti3d_Q,"conti3d_Q",),
             (Q_2D, "baro Q_2D"),
             (barotropic_dg.state_auxiliary, "baro aux"),
-            # (dg.diffstate,"oce diff",),	
-            # (lsrk_ocean.dQ,"oce_dQ",),	
-            # (dg.modeldata.tendency_dg.state_auxiliary,"tend Int aux",),	
-            # (dg.modeldata.conti3d_Q,"conti3d_Q",),
-            # (barotropic_dg.diffstate,"baro diff",),	
-            # (lsrk_barotropic.dQ,"baro_dQ",)
         ],
-        ntFreq;
+        ntFrq_SC;
         prec = 12,
     )
+    # (barotropic_dg.diffstate,"baro diff",),
+    # (lsrk_barotropic.dQ,"baro_dQ",)
+    #--
 
-    step = [0, 0]
+    cb_ntFrq = [n_outp, n_chkp]
+    outp_nb = round(Int64, restart * n_chkp / n_outp)
+    step = [outp_nb, outp_nb, restart + 1]
     cbvector = make_callbacks(
         vtkpath,
         step,
-        nout,
+        cb_ntFrq,
+        timeend,
         mpicomm,
         odesolver,
         dg,
@@ -178,8 +314,11 @@ function main(::Type{FT}, BC) where {FT}
     norm(Q₀) = %.16e
     ArrayType = %s""" eng0 ArrayType
 
+    # slow fast state tuple
+    Qvec = (slow = Q_3D, fast = Q_2D)
+    # solve!(Qvec, odesolver; timeend = timeend, callbacks = cbvector)
     cbv = (cbvector..., cbcs_dg)
-    solve!(Q_3D, odesolver; timeend = timeend, callbacks = cbv)
+    solve!(Qvec, odesolver; timeend = timeend, callbacks = cbv)
 
     ## Enable the code block below to print table for use in reference value code
     ## reference value code sits in a file named $(@__FILE__)_refvals.jl. It is hand
@@ -204,7 +343,6 @@ function main(::Type{FT}, BC) where {FT}
         refDat = (refVals[1], refPrecs[1])
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
-        @test checkPass
         @info @sprintf("""Compare vs RefVals: %s""", checkRep)
     end
 
@@ -214,7 +352,8 @@ end
 function make_callbacks(
     vtkpath,
     step,
-    nout,
+    ntFrq,
+    timeend,
     mpicomm,
     odesolver,
     dg_slow,
@@ -224,10 +363,8 @@ function make_callbacks(
     model_fast,
     Q_fast,
 )
-
-    if isdir(vtkpath)
-        rm(vtkpath, recursive = true)
-    end
+    n_outp = ntFrq[1]
+    n_chkp = ntFrq[2]
     mkpath(vtkpath)
     mkpath(vtkpath * "/slow")
     mkpath(vtkpath * "/fast")
@@ -266,18 +403,22 @@ function make_callbacks(
     end
 
     do_output("slow", step[1], model_slow, dg_slow, Q_slow)
-    cbvtk_slow = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("slow", step[1], model_slow, dg_slow, Q_slow)
-        step[1] += 1
-        nothing
-    end
+    step[1] += 1
+    cbvtk_slow =
+        GenericCallbacks.EveryXSimulationSteps(n_outp) do (init = false)
+            do_output("slow", step[1], model_slow, dg_slow, Q_slow)
+            step[1] += 1
+            nothing
+        end
 
     do_output("fast", step[2], model_fast, dg_fast, Q_fast)
-    cbvtk_fast = GenericCallbacks.EveryXSimulationSteps(nout) do (init = false)
-        do_output("fast", step[2], model_fast, dg_fast, Q_fast)
-        step[2] += 1
-        nothing
-    end
+    step[2] += 1
+    cbvtk_fast =
+        GenericCallbacks.EveryXSimulationSteps(n_outp) do (init = false)
+            do_output("fast", step[2], model_fast, dg_fast, Q_fast)
+            step[2] += 1
+            nothing
+        end
 
     starttime = Ref(now())
     cbinfo = GenericCallbacks.EveryXWallTimeSeconds(60, mpicomm) do (s = false)
@@ -301,18 +442,53 @@ function make_callbacks(
         end
     end
 
-    # return (cbvtk_slow, cbvtk_fast, cbinfo)
-    return (cbinfo,)
+    if n_chkp > 0
+        cb_checkpoint = GenericCallbacks.EveryXSimulationSteps(n_chkp) do
+            write_checkpoint(
+                Q_slow,
+                dg_slow.state_auxiliary,
+                odesolver,
+                vtkpath,
+                "baroclinic",
+                mpicomm,
+                step[3],
+            )
+
+            write_checkpoint(
+                Q_fast,
+                dg_fast.state_auxiliary,
+                odesolver,
+                vtkpath,
+                "barotropic",
+                mpicomm,
+                step[3],
+            )
+
+            # rm_checkpoint(vtkpath, "baroclinic", mpicomm, step[3] - 1)
+            # rm_checkpoint(vtkpath, "barotropic", mpicomm, step[3] - 1)
+            step[3] += 1
+            nothing
+        end
+        return (cbvtk_slow, cbvtk_fast, cbinfo, cb_checkpoint)
+    else
+        return (cbvtk_slow, cbvtk_fast, cbinfo)
+    end
+
 end
 
 #################
 # RUN THE TESTS #
 #################
-const FT = Float64
-vtkpath = abspath(joinpath(ClimateMachine.Settings.output_dir, "vtk_split"))
+FT = Float64
+vtkpath = "vtk_split"
 
-const timeend = 5 * 24 * 3600 # s
-const tout = 24 * 3600 # s
+const runTime = 5 * 24 * 3600 # s
+const t_outp = 24 * 3600 # s
+const t_chkp = runTime  # s
+#const runTime = 6 * 3600 # s
+#const t_outp = 6 * 3600 # s
+#const t_chkp = 0
+const ntFrq_SC = 1 # frequency (in time-step) for State-Check output
 
 const N = 4
 const Nˣ = 20
@@ -339,18 +515,11 @@ add_fast_substeps = 2
 # default = 0 : disable implicit vertical diffusion
 numImplSteps = 5
 
-#const τₒ = 2e-1  # (Pa = N/m^2)
-# since we are using old BC (with factor of 2), take only half:
-const τₒ = 1e-1
-const λʳ = 10 // 86400 # m/s
+const τₒ = 2e-1  # (Pa = N/m^2)
+const λʳ = 20 // 86400 # m/s
+#- since we are using old BC (with factor of 2), take only half:
+#const τₒ = 1e-1
+#const λʳ = 10 // 86400
 const θᴱ = 10    # deg.C
 
-BC = (
-    ClimateMachine.Ocean.SplitExplicit01.CoastlineNoSlip(),
-    ClimateMachine.Ocean.SplitExplicit01.OceanFloorNoSlip(),
-    ClimateMachine.Ocean.SplitExplicit01.OceanSurfaceStressForcing(),
-)
-
-@testset "$(@__FILE__)" begin
-    main(FT, BC)
-end
+main(restart = 0)

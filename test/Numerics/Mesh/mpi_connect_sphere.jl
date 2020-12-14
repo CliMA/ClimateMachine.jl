@@ -64,9 +64,15 @@ function main()
     x2 = @view grid.vgeo[:, Grids._x2, :]
     x3 = @view grid.vgeo[:, Grids._x3, :]
 
-    @test x1[grid.vmap⁻] ≈ x1[grid.vmap⁺]
-    @test x2[grid.vmap⁻] ≈ x2[grid.vmap⁺]
-    @test x3[grid.vmap⁻] ≈ x3[grid.vmap⁺]
+    interior_faces = vec(grid.elemtobndy .== 0)
+    interior_vmap⁻ =
+        reshape(grid.vmap⁻, (size(grid.vmap⁻, 1), :))[:, interior_faces]
+    interior_vmap⁺ =
+        reshape(grid.vmap⁺, (size(grid.vmap⁺, 1), :))[:, interior_faces]
+
+    @test x1[interior_vmap⁻] ≈ x1[interior_vmap⁺]
+    @test x2[interior_vmap⁻] ≈ x2[interior_vmap⁺]
+    @test x3[interior_vmap⁻] ≈ x3[interior_vmap⁺]
 
     Np = (N + 1)^3
     x1x2x3 = MPIStateArray{FT}(
@@ -99,9 +105,9 @@ function main()
     x2 = @view x1x2x3.data[:, 2, :]
     x3 = @view x1x2x3.data[:, 3, :]
 
-    @test x1[grid.vmap⁻] ≈ x1[grid.vmap⁺]
-    @test x2[grid.vmap⁻] ≈ x2[grid.vmap⁺]
-    @test x3[grid.vmap⁻] ≈ x3[grid.vmap⁺]
+    @test x1[interior_vmap⁻] ≈ x1[interior_vmap⁺]
+    @test x2[interior_vmap⁻] ≈ x2[interior_vmap⁺]
+    @test x3[interior_vmap⁻] ≈ x3[interior_vmap⁺]
 
     nothing
 end

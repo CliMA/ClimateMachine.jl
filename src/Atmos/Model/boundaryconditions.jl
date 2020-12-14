@@ -12,7 +12,7 @@ export AtmosBC,
     PrescribedEnergyFlux,
     BulkFormulaEnergy,
     Impermeable,
-    ImpermeablePrecipitation,
+    OutflowPrecipitation,
     ImpermeableTracer,
     PrescribedMoistureFlux,
     BulkFormulaMoisture,
@@ -24,7 +24,7 @@ export average_density_sfc_int
     AtmosBC(momentum = Impenetrable(FreeSlip())
             energy   = Insulating()
             moisture = Impermeable()
-            precipitation = ImpermeablePrecipitation()
+            precipitation = OutflowPrecipitation()
             tracer  = ImpermeableTracer())
 
 The standard boundary condition for [`AtmosModel`](@ref). The default options imply a "no flux" boundary condition.
@@ -33,7 +33,7 @@ Base.@kwdef struct AtmosBC{M, E, Q, P, TR, TC}
     momentum::M = Impenetrable(FreeSlip())
     energy::E = Insulating()
     moisture::Q = Impermeable()
-    precipitation::P = ImpermeablePrecipitation()
+    precipitation::P = OutflowPrecipitation()
     tracer::TR = ImpermeableTracer()
     turbconv::TC = NoTurbConvBC()
 end

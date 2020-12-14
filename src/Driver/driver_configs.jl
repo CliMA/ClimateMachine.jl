@@ -5,7 +5,6 @@
 # - AtmosLESConfiguration
 # - AtmosGCMConfiguration
 # - OceanBoxGCMConfiguration
-# - OceanSplitExplicitConfiguration
 # - SingleStackConfiguration
 #
 # User-customized configurations can use these as templates.
@@ -21,11 +20,6 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
     nelem_horz::Int
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
-struct OceanSplitExplicitSpecificInfo <: ConfigSpecificInfo
-    model_2D::BalanceLaw
-    grid_2D::DiscontinuousSpectralElementGrid
-    dg::DGModel
-end
 struct SingleStackSpecificInfo <: ConfigSpecificInfo end
 struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
 
@@ -79,8 +73,6 @@ struct DriverConfiguration{FT}
         numerical_flux_gradient::NumericalFluxGradient,
         config_info::ConfigSpecificInfo,
     )
-        # FIXME: Once variable degree kernels are merged, remove this assert
-        @assert polyorders[1] == polyorders[2]
         return new{FT}(
             config_type,
             name,
@@ -306,7 +298,7 @@ function OceanBoxGCMConfiguration(
     N::Union{Int, NTuple{2, Int}},
     (Nˣ, Nʸ, Nᶻ)::NTuple{3, Int},
     param_set::AbstractParameterSet,
-    model::HydrostaticBoussinesqModel;
+    model;
     FT = Float64,
     array_type = ClimateMachine.array_type(),
     solver_type = ExplicitSolverType(
@@ -608,6 +600,7 @@ Establishing MultiColumnLandModel configuration for %s
         MultiColumnLandSpecificInfo(),
     )
 end
+
 function SingleStackConfiguration(
     name::String,
     N::Union{Int, NTuple{2, Int}},

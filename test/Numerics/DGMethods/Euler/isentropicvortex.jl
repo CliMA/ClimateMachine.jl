@@ -34,7 +34,7 @@ end
 const output_vtk = false
 
 function main()
-    ClimateMachine.init()
+    ClimateMachine.init(parse_clargs = true)
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
@@ -45,10 +45,15 @@ function main()
     expected_error = Dict()
 
     # just to make it shorter and aligning
-    Rusanov = RusanovNumericalFlux
-    Central = CentralNumericalFluxFirstOrder
-    Roe = RoeNumericalFlux
-    HLLC = HLLCNumericalFlux
+    Rusanov = RusanovNumericalFlux()
+    Central = CentralNumericalFluxFirstOrder()
+    Roe = RoeNumericalFlux()
+    HLLC = HLLCNumericalFlux()
+    RoeMoist = RoeNumericalFluxMoist()
+    RoeMoistLM = RoeNumericalFluxMoist(; LM = true)
+    RoeMoistHH = RoeNumericalFluxMoist(; HH = true)
+    RoeMoistLV = RoeNumericalFluxMoist(; LV = true)
+    RoeMoistLVPP = RoeNumericalFluxMoist(; LVPP = true)
 
     expected_error[Float64, 2, Rusanov, 1] = 1.1990999506538110e+01
     expected_error[Float64, 2, Rusanov, 2] = 2.0813000228865612e+00
@@ -64,6 +69,31 @@ function main()
     expected_error[Float64, 2, Roe, 2] = 1.3895805145495934e+00
     expected_error[Float64, 2, Roe, 3] = 6.6174934435569849e-02
     expected_error[Float64, 2, Roe, 4] = 2.1917769287815940e-03
+
+    expected_error[Float64, 2, RoeMoist, 1] = 1.2415957884123003e+01
+    expected_error[Float64, 2, RoeMoist, 2] = 1.4188653323424882e+00
+    expected_error[Float64, 2, RoeMoist, 3] = 6.7913325894248130e-02
+    expected_error[Float64, 2, RoeMoist, 4] = 2.0377963111049128e-03
+
+    expected_error[Float64, 2, RoeMoistLM, 1] = 1.2316906651180444e+01
+    expected_error[Float64, 2, RoeMoistLM, 2] = 1.4359406523244560e+00
+    expected_error[Float64, 2, RoeMoistLM, 3] = 6.8650238542101505e-02
+    expected_error[Float64, 2, RoeMoistLM, 4] = 2.0000156591586842e-03
+
+    expected_error[Float64, 2, RoeMoistHH, 1] = 1.2425625606467793e+01
+    expected_error[Float64, 2, RoeMoistHH, 2] = 1.4029458093339020e+00
+    expected_error[Float64, 2, RoeMoistHH, 3] = 6.8648208937091268e-02
+    expected_error[Float64, 2, RoeMoistHH, 4] = 2.0711985861781648e-03
+
+    expected_error[Float64, 2, RoeMoistLV, 1] = 1.2415957884123003e+01
+    expected_error[Float64, 2, RoeMoistLV, 2] = 1.4188653323424882e+00
+    expected_error[Float64, 2, RoeMoistLV, 3] = 6.7913325894248130e-02
+    expected_error[Float64, 2, RoeMoistLV, 4] = 2.0377963111049128e-03
+
+    expected_error[Float64, 2, RoeMoistLVPP, 1] = 1.2441813136310969e+01
+    expected_error[Float64, 2, RoeMoistLVPP, 2] = 2.0219325767566727e+00
+    expected_error[Float64, 2, RoeMoistLVPP, 3] = 6.7716921628626484e-02
+    expected_error[Float64, 2, RoeMoistLVPP, 4] = 2.1051129944994005e-03
 
     expected_error[Float64, 2, HLLC, 1] = 1.2889756097329746e+01
     expected_error[Float64, 2, HLLC, 2] = 1.3895808565455936e+00
@@ -85,6 +115,31 @@ function main()
     expected_error[Float64, 3, Roe, 3] = 2.0926351682882375e-02
     expected_error[Float64, 3, Roe, 4] = 6.9310072176312712e-04
 
+    expected_error[Float64, 3, RoeMoist, 1] = 3.9262706246552574e+00
+    expected_error[Float64, 3, RoeMoist, 2] = 4.4868461432545598e-01
+    expected_error[Float64, 3, RoeMoist, 3] = 2.1476079330305119e-02
+    expected_error[Float64, 3, RoeMoist, 4] = 6.4440777504566171e-04
+
+    expected_error[Float64, 3, RoeMoistLM, 1] = 3.8949478745407458e+00
+    expected_error[Float64, 3, RoeMoistLM, 2] = 4.5408430461734528e-01
+    expected_error[Float64, 3, RoeMoistLM, 3] = 2.1709111570716800e-02
+    expected_error[Float64, 3, RoeMoistLM, 4] = 6.3246048386171073e-04
+
+    expected_error[Float64, 3, RoeMoistHH, 1] = 3.9293278268948622e+00
+    expected_error[Float64, 3, RoeMoistHH, 2] = 4.4365041912830866e-01
+    expected_error[Float64, 3, RoeMoistHH, 3] = 2.1708469753267460e-02
+    expected_error[Float64, 3, RoeMoistHH, 4] = 6.5497050185153694e-04
+
+    expected_error[Float64, 3, RoeMoistLV, 1] = 3.9262706246552574e+00
+    expected_error[Float64, 3, RoeMoistLV, 2] = 4.4868461432545598e-01
+    expected_error[Float64, 3, RoeMoistLV, 3] = 2.1476079330305119e-02
+    expected_error[Float64, 3, RoeMoistLV, 4] = 6.4440777504566171e-04
+
+    expected_error[Float64, 3, RoeMoistLVPP, 1] = 3.9344467732944071e+00
+    expected_error[Float64, 3, RoeMoistLVPP, 2] = 6.3939122178436703e-01
+    expected_error[Float64, 3, RoeMoistLVPP, 3] = 2.1413970848172485e-02
+    expected_error[Float64, 3, RoeMoistLVPP, 4] = 6.6569517942933988e-04
+
     expected_error[Float64, 3, HLLC, 1] = 4.0760987751605402e+00
     expected_error[Float64, 3, HLLC, 2] = 4.3942404996518236e-01
     expected_error[Float64, 3, HLLC, 3] = 2.0926409337758904e-02
@@ -104,6 +159,31 @@ function main()
     expected_error[Float32, 2, Roe, 2] = 1.3895936012268066e+00
     expected_error[Float32, 2, Roe, 3] = 6.8037144839763641e-02
     expected_error[Float32, 2, Roe, 4] = 3.8893952965736389e-02
+
+    expected_error[Float32, 2, RoeMoist, 1] = 1.2415886878967285e+01
+    expected_error[Float32, 2, RoeMoist, 2] = 1.4188879728317261e+00
+    expected_error[Float32, 2, RoeMoist, 3] = 6.9743692874908447e-02
+    expected_error[Float32, 2, RoeMoist, 4] = 3.7607192993164063e-02
+
+    expected_error[Float32, 2, RoeMoistLM, 1] = 1.2316809654235840e+01
+    expected_error[Float32, 2, RoeMoistLM, 2] = 4.5408430461734528e+00
+    expected_error[Float32, 2, RoeMoistLM, 3] = 7.0370830595493317e-02
+    expected_error[Float32, 2, RoeMoistLM, 4] = 3.7792034447193146e-02
+
+    expected_error[Float32, 2, RoeMoistHH, 1] = 1.2425449371337891e+01
+    expected_error[Float32, 2, RoeMoistHH, 2] = 1.4030106067657471e+00
+    expected_error[Float32, 2, RoeMoistHH, 3] = 7.0363849401473999e-02
+    expected_error[Float32, 2, RoeMoistHH, 4] = 3.7904966622591019e-02
+
+    expected_error[Float32, 2, RoeMoistLV, 1] = 1.2415886878967285e+01
+    expected_error[Float32, 2, RoeMoistLV, 2] = 1.4188879728317261e+00
+    expected_error[Float32, 2, RoeMoistLV, 3] = 6.9743692874908447e-02
+    expected_error[Float32, 2, RoeMoistLV, 4] = 3.7607192993164063e-02
+
+    expected_error[Float32, 2, RoeMoistLVPP, 1] = 1.2441481590270996e+01
+    expected_error[Float32, 2, RoeMoistLVPP, 2] = 2.0217459201812744e+00
+    expected_error[Float32, 2, RoeMoistLVPP, 3] = 7.0483185350894928e-02
+    expected_error[Float32, 2, RoeMoistLVPP, 4] = 5.1601748913526535e-02
 
     expected_error[Float32, 2, HLLC, 1] = 1.2889801025390625e+01
     expected_error[Float32, 2, HLLC, 2] = 1.3895059823989868e+00
@@ -125,6 +205,31 @@ function main()
     expected_error[Float32, 3, Roe, 3] = 2.1365188062191010e-02
     expected_error[Float32, 3, Roe, 4] = 9.3323951587080956e-03
 
+    expected_error[Float32, 3, RoeMoist, 1] = 3.9262301921844482e+00
+    expected_error[Float32, 3, RoeMoist, 2] = 4.4864514470100403e-01
+    expected_error[Float32, 3, RoeMoist, 3] = 2.1889146417379379e-02
+    expected_error[Float32, 3, RoeMoist, 4] = 8.8266804814338684e-03
+
+    expected_error[Float32, 3, RoeMoistLM, 1] = 3.8948786258697510e+00
+    expected_error[Float32, 3, RoeMoistLM, 2] = 4.5405751466751099e-01
+    expected_error[Float32, 3, RoeMoistLM, 3] = 2.2112159058451653e-02
+    expected_error[Float32, 3, RoeMoistLM, 4] = 8.7371272966265678e-03
+
+    expected_error[Float32, 3, RoeMoistHH, 1] = 3.9292929172515869e+00
+    expected_error[Float32, 3, RoeMoistHH, 2] = 4.4363334774971008e-01
+    expected_error[Float32, 3, RoeMoistHH, 3] = 2.2118536755442619e-02
+    expected_error[Float32, 3, RoeMoistHH, 4] = 8.9262928813695908e-03
+
+    expected_error[Float32, 3, RoeMoistLV, 1] = 3.9262151718139648e+00
+    expected_error[Float32, 3, RoeMoistLV, 2] = 4.4865489006042480e-01
+    expected_error[Float32, 3, RoeMoistLV, 3] = 2.1889505907893181e-02
+    expected_error[Float32, 3, RoeMoistLV, 4] = 8.8385939598083496e-03
+
+    expected_error[Float32, 3, RoeMoistLVPP, 1] = 3.9343423843383789e+00
+    expected_error[Float32, 3, RoeMoistLVPP, 2] = 6.3935810327529907e-01
+    expected_error[Float32, 3, RoeMoistLVPP, 3] = 2.1930629387497902e-02
+    expected_error[Float32, 3, RoeMoistLVPP, 4] = 1.0632344521582127e-02
+
     expected_error[Float32, 3, HLLC, 1] = 4.0760631561279297e+00
     expected_error[Float32, 3, HLLC, 2] = 4.3940672278404236e-01
     expected_error[Float32, 3, HLLC, 3] = 2.1352596580982208e-02
@@ -132,7 +237,17 @@ function main()
 
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32), dims in (2, 3)
-            for NumericalFlux in (Rusanov, Central, Roe, HLLC)
+            for NumericalFlux in (
+                Rusanov,
+                Central,
+                Roe,
+                HLLC,
+                RoeMoist,
+                RoeMoistLM,
+                RoeMoistHH,
+                RoeMoistLV,
+                RoeMoistLVPP,
+            )
                 @info @sprintf """Configuration
                                   ArrayType     = %s
                                   FT        = %s
@@ -222,7 +337,11 @@ function test_run(
         boundaryconditions = (),
         init_state_prognostic = isentropicvortex_initialcondition!,
     )
-
+    if NumericalFlux isa RoeNumericalFluxMoist
+        moisture = EquilMoist{FT}()
+    else
+        moisture = DryModel()
+    end
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
@@ -230,14 +349,14 @@ function test_run(
         orientation = NoOrientation(),
         ref_state = NoReferenceState(),
         turbulence = ConstantDynamicViscosity(FT(0)),
-        moisture = DryModel(),
+        moisture = moisture,
         source = (),
     )
 
     dg = DGModel(
         model,
         grid,
-        NumericalFlux(),
+        NumericalFlux,
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
     )
@@ -379,6 +498,9 @@ function isentropicvortex_initialcondition!(
     state.ρu = ρ * u
     e_kin = u' * u / 2
     state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+    if !(bl.moisture isa DryModel)
+        state.moisture.ρq_tot = FT(0)
+    end
 end
 
 function do_output(

@@ -277,24 +277,20 @@ function atmos_les_default_perturbations_collect(
         return nothing
     end
 
-    dg = Settings.dg
-    atmos = dg.balance_law
-    Q = Settings.Q
     mpicomm = Settings.mpicomm
+    dg = Settings.dg
+    Q = Settings.Q
     mpirank = MPI.Comm_rank(mpicomm)
+    atmos = dg.balance_law
     grid = dg.grid
-    topology = grid.topology
-    # XXX: Needs updating for multiple polynomial orders
-    N = polynomialorders(grid)
-    # Currently only support single polynomial order
-    @assert all(N[1] .== N)
-    N = N[1]
-    Nq = N + 1
-    Nqk = dimensionality(grid) == 2 ? 1 : Nq
-    npoints = Nq * Nq * Nqk
-    nrealelem = length(topology.realelems)
-    nvertelem = topology.stacksize
-    nhorzelem = div(nrealelem, nvertelem)
+    grid_info = basic_grid_info(dg)
+    topl_info = basic_topology_info(grid.topology)
+    Nqk = grid_info.Nqk
+    Nqh = grid_info.Nqh
+    npoints = prod(grid_info.Nq)
+    nrealelem = topl_info.nrealelem
+    nvertelem = topl_info.nvertelem
+    nhorzelem = topl_info.nhorzrealelem
 
     # get needed arrays onto the CPU
     if array_device(Q) isa CPU
@@ -310,7 +306,7 @@ function atmos_les_default_perturbations_collect(
 
     # Compute thermo variables
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
-    @visitQ nhorzelem nvertelem Nqk Nq begin
+    @traverse_dg_grid grid_info topl_info begin
         state = extract_state(dg, state_data, ijk, e, Prognostic())
         aux = extract_state(dg, aux_data, ijk, e, Auxiliary())
 
@@ -344,7 +340,7 @@ function atmos_les_default_perturbations_collect(
             zeros(FT, num_atmos_les_default_simple_vars(atmos, FT))
             for _ in 1:nz
         ]
-        @visitI nx ny nz begin
+        @traverse_interpolated_grid nx ny nz begin
             statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,
@@ -394,7 +390,7 @@ function atmos_les_default_perturbations_collect(
             nz,
             num_atmos_les_default_perturbation_vars(atmos, FT),
         )
-        @visitI nx ny nz begin
+        @traverse_interpolated_grid nx ny nz begin
             statei = Vars{vars_state(atmos, Prognostic(), FT)}(view(
                 all_state_data,
                 lo,

@@ -217,7 +217,7 @@ applies free slip conditions for first-order and gradient fluxes
 """
 function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    ::Impenetrable{KinematicStress},
+    ::Impenetrable{<:KinematicStress},
     shallow::SWModel,
     turb::TurbulenceClosure,
     args...,
@@ -239,7 +239,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
 """
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
-    ::Impenetrable{KinematicStress},
+    ::Impenetrable{<:KinematicStress},
     shallow::SWModel,
     Q⁺,
     D⁺,
@@ -265,7 +265,7 @@ applies free slip conditions for first-order and gradient fluxes
 """
 function ocean_boundary_state!(
     nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
-    ::Penetrable{KinematicStress},
+    ::Penetrable{<:KinematicStress},
     shallow::SWModel,
     turb::TurbulenceClosure,
     args...,
@@ -287,7 +287,7 @@ sets ghost point to have specified flux on the boundary for ν∇u
 """
 @inline function ocean_boundary_state!(
     ::NumericalFluxSecondOrder,
-    ::Penetrable{KinematicStress},
+    ::Penetrable{<:KinematicStress},
     shallow::SWModel,
     ::TurbulenceClosure,
     Q⁺,

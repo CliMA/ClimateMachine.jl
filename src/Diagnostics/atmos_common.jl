@@ -11,27 +11,17 @@ const AtmosCollected = AtmosCollectedDiagnostics()
 
 function atmos_collect_onetime(mpicomm, dg, Q)
     if !AtmosCollected.onetime_done
+
         FT = eltype(Q)
         grid = dg.grid
-        topology = grid.topology
-        # XXX: Needs updating for multiple polynomial orders
-        N = polynomialorders(grid)
-        # Currently only support single polynomial order
-        @assert all(N[1] .== N)
-        N = N[1]
-        Nq = N + 1
-        Nqk = dimensionality(grid) == 2 ? 1 : Nq
-        nrealelem = length(topology.realelems)
-        nvertelem = topology.stacksize
-        nhorzelem = div(nrealelem, nvertelem)
-
+        grid_info = basic_grid_info(dg)
+        topl_info = basic_topology_info(grid.topology)
+        Nqk = grid_info.Nqk
+        nvertelem = topl_info.nvertelem
         localvgeo = array_device(Q) isa CPU ? grid.vgeo : Array(grid.vgeo)
-
         AtmosCollected.zvals = zeros(FT, Nqk * nvertelem)
         AtmosCollected.MH_z = zeros(FT, Nqk * nvertelem)
-
-        @visitQ nhorzelem nvertelem Nqk Nq begin
-            evk = Nqk * (ev - 1) + k
+        @traverse_dg_grid grid_info topl_info begin
             z = localvgeo[ijk, grid.x3id, e]
             MH = localvgeo[ijk, grid.MHid, e]
             AtmosCollected.zvals[evk] = z

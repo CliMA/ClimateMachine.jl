@@ -3,7 +3,7 @@ export flattened_tup_chain
 flattened_tup_chain(::Type{NamedTuple{(), Tuple{}}}; prefix = (Symbol(),)) = ()
 flattened_tup_chain(::Type{T}; prefix = (Symbol(),)) where {T <: Real} =
     (prefix,)
-flattened_tup_chain(::Type{T}; prefix = (Symbol(),)) where {T <: SVector} =
+flattened_tup_chain(::Type{T}; prefix = (Symbol(),)) where {T <: SArray} =
     (prefix,)
 flattened_tup_chain(
     ::Type{T};

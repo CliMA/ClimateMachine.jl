@@ -1,5 +1,5 @@
-
 include("../../../experiments/OceanSplitExplicit/simple_box.jl")
+
 ClimateMachine.init()
 
 # Float type

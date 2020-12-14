@@ -47,6 +47,20 @@ function varsindex(::Type{S}, insym::Symbol) where {S <: NamedTuple}
     end
     error("symbol '$insym' not found")
 end
+
+# return `Symbol`s unchanged.
+wrap_val(sym) = sym
+# wrap integer in `Val`
+wrap_val(i::Int) = Val(i)
+
+# We enforce that calls to `varsindex` on
+# an `NTuple` must be unrapped in `Val`.
+# This is enforced to synchronize failures
+# on the CPU and GPU, rather than allowing
+# CPU-working and GPU-breaking versions.
+# This means that users _must_ wrap `sym`
+# in `Val`, which can be done with `wrap_val`
+# above.
 unval(::Val{i}) where {i} = i
 Base.@propagate_inbounds function varsindex(
     ::Type{S},

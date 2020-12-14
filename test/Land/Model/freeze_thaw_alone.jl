@@ -132,25 +132,25 @@ using ClimateMachine.BalanceLaws:
         ode_dt = dt,
     )
     state_types = (Prognostic(),)
-    all_data =
+    dons_arr =
         Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
     callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
         dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-        push!(all_data, dons)
+        push!(dons_arr, dons)
         push!(time_data, gettime(solver_config.solver))
         nothing
     end
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
     m_liq = [
-        ρ_cloud_liq(param_set) * mean(all_data[k]["soil.water.ϑ_l"])
+        ρ_cloud_liq(param_set) * mean(dons_arr[k]["soil.water.ϑ_l"])
         for k in 1:(n_outputs + 1)
     ]
     m_ice = [
-        ρ_cloud_ice(param_set) * mean(all_data[k]["soil.water.θ_i"])
+        ρ_cloud_ice(param_set) * mean(dons_arr[k]["soil.water.θ_i"])
         for k in 1:(n_outputs + 1)
     ]
     total_water = m_ice + m_liq

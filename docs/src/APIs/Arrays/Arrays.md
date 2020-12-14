@@ -19,3 +19,9 @@ weightedsum
 ```@docs
 CMBuffers.CMBuffer
 ```
+
+## Helpers
+
+```@docs
+show_not_finite_fields
+```

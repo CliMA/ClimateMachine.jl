@@ -115,8 +115,8 @@ function source(
     diffusive,
 )
     if has_condensate(ts)
-        nt = compute_precip_params(s, aux, ts)
-        return state.ρ * nt.S_qt
+        nt = remove_precipitation_sources(s, m, state, aux, ts)
+        return nt.S_ρ_qt
     else
         FT = eltype(state)
         return FT(0)
@@ -124,7 +124,7 @@ function source(
 end
 
 function source(
-    s::Rain_1M{TotalMoisture},
+    s::WarmRain_1M{TotalMoisture},
     m,
     state,
     aux,
@@ -133,12 +133,12 @@ function source(
     direction,
     diffusive,
 )
-    nt = compute_rain_params(m, state, aux, t, ts)
-    return state.ρ * nt.S_qt
+    nt = warm_rain_sources(m, state, aux, ts)
+    return nt.S_ρ_qt
 end
 
 function source(
-    s::Rain_1M{LiquidMoisture},
+    s::WarmRain_1M{LiquidMoisture},
     m,
     state,
     aux,
@@ -147,6 +147,48 @@ function source(
     direction,
     diffusive,
 )
-    nt = compute_rain_params(m, state, aux, t, ts)
-    return state.ρ * nt.S_ql
+    nt = warm_rain_sources(m, state, aux, ts)
+    return nt.S_ρ_ql
+end
+
+function source(
+    s::RainSnow_1M{TotalMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = rain_snow_sources(m, state, aux, ts)
+    return nt.S_ρ_qt
+end
+
+function source(
+    s::RainSnow_1M{LiquidMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = rain_snow_sources(m, state, aux, ts)
+    return nt.S_ρ_ql
+end
+
+function source(
+    s::RainSnow_1M{IceMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = rain_snow_sources(m, state, aux, ts)
+    return nt.S_ρ_qi
 end

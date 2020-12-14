@@ -5,7 +5,7 @@ function null_init_state!(
     ::TurbulenceClosure,
     state,
     aux,
-    coord,
+    local_geometry,
     t,
 )
     T = eltype(state.U)
@@ -23,9 +23,12 @@ function lsw_init_state!(
     p::HomogeneousBox,
     state,
     aux,
-    coords,
+    local_geometry,
     t,
 )
+
+    coords = local_geometry.coord
+
     state.U = @SVector [
         u_lsw(coords[1], coords[2], t),
         v_lsw(coords[1], coords[2], t),
@@ -45,9 +48,12 @@ function lkw_init_state!(
     p::HomogeneousBox,
     state,
     aux,
-    coords,
+    local_geometry,
     t,
 )
+
+    coords = local_geometry.coord
+
     state.U = @SVector [
         u_lkw(coords[1], coords[2], t),
         v_lkw(coords[1], coords[2], t),
@@ -92,9 +98,12 @@ function gyre_init_state!(
     T::LinearDrag,
     state,
     aux,
-    coords,
+    local_geometry,
     t,
 )
+
+    coords = local_geometry.coord
+
     FT = eltype(state)
     τₒ = p.τₒ
     fₒ = m.fₒ
@@ -137,9 +146,12 @@ function gyre_init_state!(
     V::ConstantViscosity,
     state,
     aux,
-    coords,
+    local_geometry,
     t,
 )
+
+    coords = local_geometry.coord
+
     FT = eltype(state.U)
     _grav::FT = grav(m.param_set)
 

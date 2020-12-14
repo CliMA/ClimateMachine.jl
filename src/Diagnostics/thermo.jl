@@ -29,7 +29,7 @@ end
 num_thermo(bl, FT) = varsize(vars_thermo(bl, FT))
 thermo_vars(bl, array) = Vars{vars_thermo(bl, eltype(array))}(array)
 
-# compute thermodynamic variables visitor function, to use with `@visitQ`
+# compute thermodynamic variables visitor function
 function compute_thermo!(atmos::AtmosModel, state, aux, thermo)
     e_tot = state.ρe / state.ρ
     ts = recover_thermo_state(atmos, state, aux)

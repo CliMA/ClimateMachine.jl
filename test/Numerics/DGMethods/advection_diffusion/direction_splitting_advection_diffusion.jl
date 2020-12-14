@@ -7,6 +7,7 @@ using ClimateMachine.DGMethods
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.MPIStateArrays
 using LinearAlgebra
+using Printf
 using Random
 
 include("advection_diffusion_model.jl")
@@ -174,29 +175,46 @@ let
     mpicomm = MPI.COMM_WORLD
     FT = Float64
     numlevels = 2
-    polynomialorder = 4
     base_num_elem = 4
 
+    # This test doesn't do any heavy computational work,
+    # but compiles a lot of model/discretization combinations.
+    # Compilation times on the GPU are longer, so we only run one
+    # variable-degree case on the GPU
+    if ArrayType == Array
+        polynomialorders = ((4, 4), (4, 2))
+    else
+        polynomialorders = ((4, 2),)
+    end
+
+    @info @sprintf """Test parameters:
+    ArrayType                   = %s
+    FloatType                   = %s
+    Polynomial orders           = %s
+      """ ArrayType FT polynomialorders
+
     @testset "$(@__FILE__)" begin
-        @testset for topo in (Box{2}, Box{3}, Sphere)
-            @testset for (adv, diff) in (
-                (Advection, nothing),
-                (nothing, Diffusion),
-                (Advection, Diffusion),
-            )
-                @testset for level in 1:numlevels
-                    Ne = 2^(level - 1) * base_num_elem
-                    test_run(
-                        adv,
-                        diff,
-                        topo,
-                        mpicomm,
-                        ArrayType,
-                        FT,
-                        polynomialorder,
-                        Ne,
-                        level,
-                    )
+        @testset for polyorders in polynomialorders
+            @testset for topo in (Box{2}, Box{3}, Sphere)
+                @testset for (adv, diff) in (
+                    (Advection, nothing),
+                    (nothing, Diffusion),
+                    (Advection, Diffusion),
+                )
+                    @testset for level in 1:numlevels
+                        Ne = 2^(level - 1) * base_num_elem
+                        test_run(
+                            adv,
+                            diff,
+                            topo,
+                            mpicomm,
+                            ArrayType,
+                            FT,
+                            polyorders,
+                            Ne,
+                            level,
+                        )
+                    end
                 end
             end
         end

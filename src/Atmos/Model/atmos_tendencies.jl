@@ -15,8 +15,10 @@ filter_source(pv::PV, m, s::Gravity{PV}) where {PV <: Momentum} = s
 filter_source(pv::PV, m, s::GeostrophicForcing{PV}) where {PV <: Momentum} = s
 filter_source(pv::PV, m, s::Coriolis{PV}) where {PV <: Momentum} = s
 filter_source(pv::PV, m, s::RayleighSponge{PV}) where {PV <: Momentum} = s
+
 filter_source(pv::PV, m, s::CreateClouds{PV}) where {PV <: LiquidMoisture} = s
 filter_source(pv::PV, m, s::CreateClouds{PV}) where {PV <: IceMoisture} = s
+
 filter_source(
     pv::PV,
     m,
@@ -26,16 +28,39 @@ filter_source(
 filter_source(
     pv::PV,
     ::NonEquilMoist,
-    s::Rain_1M{PV},
+    s::WarmRain_1M{PV},
 ) where {PV <: LiquidMoisture} = s
 filter_source(
     pv::PV,
     ::MoistureModel,
-    s::Rain_1M{PV},
+    s::WarmRain_1M{PV},
 ) where {PV <: LiquidMoisture} = nothing
-filter_source(pv::PV, m::MoistureModel, s::Rain_1M{PV}) where {PV} = s
+filter_source(pv::PV, m::MoistureModel, s::WarmRain_1M{PV}) where {PV} = s
+filter_source(pv::PV, m::AtmosModel, s::WarmRain_1M{PV}) where {PV} =
+    filter_source(pv, m.moisture, s)
 
-filter_source(pv::PV, m::AtmosModel, s::Rain_1M{PV}) where {PV} =
+filter_source(
+    pv::PV,
+    ::NonEquilMoist,
+    s::RainSnow_1M{PV},
+) where {PV <: LiquidMoisture} = s
+filter_source(
+    pv::PV,
+    ::MoistureModel,
+    s::RainSnow_1M{PV},
+) where {PV <: LiquidMoisture} = nothing
+filter_source(
+    pv::PV,
+    ::NonEquilMoist,
+    s::RainSnow_1M{PV},
+) where {PV <: IceMoisture} = s
+filter_source(
+    pv::PV,
+    ::MoistureModel,
+    s::RainSnow_1M{PV},
+) where {PV <: IceMoisture} = nothing
+filter_source(pv::PV, m::MoistureModel, s::RainSnow_1M{PV}) where {PV} = s
+filter_source(pv::PV, m::AtmosModel, s::RainSnow_1M{PV}) where {PV} =
     filter_source(pv, m.moisture, s)
 
 # Filter sources / empty elements
@@ -69,8 +94,15 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
     (Advect{PV}(),)
 
 # Precipitation
-eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {PV <: Precipitation} =
-    ()
+eq_tends(
+    pv::PV,
+    m::AtmosModel,
+    tt::Flux{FirstOrder},
+) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
+
+# Tracers
+eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {N, PV <: Tracers{N}} =
+    (Advect{PV}(),)
 
 #####
 ##### Second order fluxes
@@ -89,7 +121,7 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Momentum} =
 
 # Energy
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Energy} =
-    (ViscousProduction{PV}(), EnthalpyProduction{PV}())
+    (ViscousFlux{PV}(), DiffEnthalpyFlux{PV}())
 
 # Moisture
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} = ()
@@ -97,6 +129,13 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} = ()
 # Precipitation
 eq_tends(
     pv::PV,
+    m::AtmosModel,
+    tt::Flux{SecondOrder},
+) where {PV <: Precipitation} = (eq_tends(pv, m.precipitation, tt)...,)
+
+# Tracers
+eq_tends(
+    pv::PV,
     ::AtmosModel,
     ::Flux{SecondOrder},
-) where {PV <: Precipitation} = ()
+) where {N, PV <: Tracers{N}} = ()

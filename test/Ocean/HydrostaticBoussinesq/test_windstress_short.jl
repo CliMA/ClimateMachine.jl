@@ -59,6 +59,7 @@ const FT = Float64
         imex = false,
         BC = BC,
         Δt = 180,
-        refDat = refVals.explicit,
+        refDat = ClimateMachine.array_type() == Array ? refVals.explicit_cpu :
+                 refVals.explicit_gpu,
     )
 end

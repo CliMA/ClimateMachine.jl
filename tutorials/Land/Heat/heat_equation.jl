@@ -440,13 +440,13 @@ z_label = "z [cm]";
 z = get_z(grid; z_scale = z_scale, rm_dupes = true);
 
 # Create an array to store the solution:
-all_data = Dict[dict_of_nodal_states(solver_config; interp = true)]  # store initial condition at ``t=0``
+dons_arr = Dict[dict_of_nodal_states(solver_config; interp = true)]  # store initial condition at ``t=0``
 time_data = FT[0]                                      # store time data
 
 export_plot(
     z,
     time_data,
-    all_data,
+    dons_arr,
     ("ρcT",),
     joinpath(output_dir, "initial_condition.png");
     xlabel = "ρcT",
@@ -469,10 +469,10 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 # The `ClimateMachine`'s time-steppers provide hooks, or callbacks, which
 # allow users to inject code to be executed at specified intervals. In this
 # callback, a dictionary of prognostic and auxiliary states are appended to
-# `all_data` for time the callback is executed. In addition, time is collected
+# `dons_arr` for time the callback is executed. In addition, time is collected
 # and appended to `time_data`.
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-    push!(all_data, dict_of_nodal_states(solver_config; interp = true))
+    push!(dons_arr, dict_of_nodal_states(solver_config; interp = true))
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
@@ -485,24 +485,24 @@ end;
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # Append result at the end of the last time step:
-push!(all_data, dict_of_nodal_states(solver_config; interp = true));
+push!(dons_arr, dict_of_nodal_states(solver_config; interp = true));
 push!(time_data, gettime(solver_config.solver));
 
 # # Post-processing
 
-# Our solution is stored in the array of dictionaries `all_data` whose keys are
+# Our solution is stored in the array of dictionaries `dons_arr` whose keys are
 # the output interval. The next level keys are the variable names, and the
 # values are the values along the grid:
 
-# To get `T` at ``t=0``, we can use `T_at_t_0 = all_data[1]["T"][:]`
-@show keys(all_data[1])
+# To get `T` at ``t=0``, we can use `T_at_t_0 = dons_arr[1]["T"][:]`
+@show keys(dons_arr[1])
 
 # Let's plot the solution:
 
 export_plot(
     z,
     time_data,
-    all_data,
+    dons_arr,
     ("ρcT",),
     joinpath(output_dir, "solution_vs_time.png");
     xlabel = "ρcT",
@@ -513,7 +513,7 @@ export_plot(
 export_contour(
     z,
     time_data,
-    all_data,
+    dons_arr,
     "ρcT",
     joinpath(output_dir, "solution_contour.png");
     ylabel = "z [cm]",
@@ -522,7 +522,7 @@ export_contour(
 
 # The results look as we would expect: a fixed temperature at the bottom is
 # resulting in heat flux that propagates up the domain. To run this file, and
-# inspect the solution in `all_data`, include this tutorial in the Julia REPL
+# inspect the solution in `dons_arr`, include this tutorial in the Julia REPL
 # with:
 
 # ```julia

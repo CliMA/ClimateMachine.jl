@@ -17,17 +17,18 @@ export grid1d, SingleExponentialStretching, InteriorStretching
 export basic_topology_info
 
 """
-    AbstractTopology{dim}
+    AbstractTopology{dim, T, nb}
 
-Represents the connectivity of individual elements, with local dimension `dim`.
+Represents the connectivity of individual elements, with local dimension `dim`
+with `nb` boundary conditions types. The element coordinates are of type `T`.
 """
-abstract type AbstractTopology{dim} end
+abstract type AbstractTopology{dim, T, nb} end
 
 """
-    BoxElementTopology{dim, T} <: AbstractTopology{dim}
+    BoxElementTopology{dim, T, nb} <: AbstractTopology{dim,T,nb}
 
 The local topology of a larger MPI-distributed topology, represented by
-`dim`-dimensional box elements.
+`dim`-dimensional box elements, with `nb` boundary conditions.
 
 This contains the necessary information for the connectivity elements of the
 elements on the local process, along with "ghost" elements from neighbouring
@@ -37,7 +38,7 @@ processes.
 
 $(DocStringExtensions.FIELDS)
 """
-struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
+struct BoxElementTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
 
     """
     MPI communicator for communicating with neighbouring processes.
@@ -100,8 +101,8 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
 
     """
     Element to neighboring element; `elemtoelem[f,e]` is the number of the
-    element neighboring element `e` across face `f`.  If there is no neighboring
-    element then `elemtoelem[f,e] == e`.
+    element neighboring element `e` across face `f`. If it is a boundary face,
+    then it is the boundary element index.
     """
     elemtoelem::Array{Int64, 2}
 
@@ -147,11 +148,18 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
     origsendorder::Array{Int64, 1}
 
     """
-    boolean for whether or not this topology has a boundary
+    Tuple of boundary to element. `bndytoelem[b][i]` is the element which faces
+    the `i`th boundary element of boundary `b`.
     """
-    hasboundary::Bool
+    bndytoelem::NTuple{nb, Array{Int64, 1}}
 
-    function BoxElementTopology{dim, T}(
+    """
+    Tuple of boundary to element face. `bndytoface[b][i]` is the face number of
+    the element which faces the `i`th boundary element of boundary `b`.
+    """
+    bndytoface::NTuple{nb, Array{Int64, 1}}
+
+    function BoxElementTopology{dim, T, nb}(
         mpicomm,
         elems,
         realelems,
@@ -168,13 +176,14 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
         nabrtorecv,
         nabrtosend,
         origsendorder,
-        hasboundary,
-    ) where {dim, T}
+        bndytoelem,
+        bndytoface,
+    ) where {dim, T, nb}
 
         exteriorelems = sort(unique(sendelems))
         interiorelems = sort(setdiff(realelems, exteriorelems))
 
-        return new{dim, T}(
+        return new{dim, T, nb}(
             mpicomm,
             elems,
             realelems,
@@ -193,7 +202,8 @@ struct BoxElementTopology{dim, T} <: AbstractTopology{dim}
             nabrtorecv,
             nabrtosend,
             origsendorder,
-            hasboundary,
+            bndytoelem,
+            bndytoface,
         )
     end
 end
@@ -204,7 +214,7 @@ end
 query function to check whether a topology has a boundary (i.e., not fully
 periodic)
 """
-hasboundary(topology::AbstractTopology) = topology.hasboundary
+hasboundary(topology::AbstractTopology{dim, T, nb}) where {dim, T, nb} = nb != 0
 
 if VERSION >= v"1.2-"
     isstacked(::T) where {T <: AbstractTopology} = hasfield(T, :stacksize)
@@ -214,41 +224,42 @@ else
 end
 
 """
-    BrickTopology{dim, T} <: AbstractTopology{dim}
+    BrickTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
 
 A simple grid-based topology. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
-struct BrickTopology{dim, T} <: AbstractTopology{dim}
-    topology::BoxElementTopology{dim, T}
+struct BrickTopology{dim, T, nb} <: AbstractTopology{dim, T, nb}
+    topology::BoxElementTopology{dim, T, nb}
 end
 Base.getproperty(a::BrickTopology, p::Symbol) =
     getproperty(getfield(a, :topology), p)
 
 """
-    CubedShellTopology{T} <: AbstractTopology{2}
+    CubedShellTopology{T} <: AbstractTopology{2, T, 0}
 
 A cube-shell topology. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
-struct CubedShellTopology{T} <: AbstractTopology{2}
-    topology::BoxElementTopology{2, T}
+struct CubedShellTopology{T} <: AbstractTopology{2, T, 0}
+    topology::BoxElementTopology{2, T, 0}
 end
 Base.getproperty(a::CubedShellTopology, p::Symbol) =
     getproperty(getfield(a, :topology), p)
 
-abstract type AbstractStackedTopology{dim} <: AbstractTopology{dim} end
+abstract type AbstractStackedTopology{dim, T, nb} <:
+              AbstractTopology{dim, T, nb} end
 
 
 """
-    StackedBrickTopology{dim, T} <: AbstractStackedTopology{dim}
+    StackedBrickTopology{dim, T, nb} <: AbstractStackedTopology{dim}
 
 A simple grid-based topology, where all elements on the trailing dimension are
 stacked to be contiguous. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
-struct StackedBrickTopology{dim, T} <: AbstractStackedTopology{dim}
-    topology::BoxElementTopology{dim, T}
+struct StackedBrickTopology{dim, T, nb} <: AbstractStackedTopology{dim, T, nb}
+    topology::BoxElementTopology{dim, T, nb}
     stacksize::Int64
 end
 function Base.getproperty(a::StackedBrickTopology, p::Symbol)
@@ -257,14 +268,14 @@ function Base.getproperty(a::StackedBrickTopology, p::Symbol)
 end
 
 """
-    StackedCubedSphereTopology{3, T} <: AbstractStackedTopology{3}
+    StackedCubedSphereTopology{T, nb} <: AbstractStackedTopology{3, T, nb}
 
 A cube-sphere topology. All elements on the same "vertical" dimension are
 stacked to be contiguous. This is a convenience wrapper around
 [`BoxElementTopology`](@ref).
 """
-struct StackedCubedSphereTopology{T} <: AbstractStackedTopology{3}
-    topology::BoxElementTopology{3, T}
+struct StackedCubedSphereTopology{T, nb} <: AbstractStackedTopology{3, T, nb}
+    topology::BoxElementTopology{3, T, nb}
     stacksize::Int64
 end
 function Base.getproperty(a::StackedCubedSphereTopology, p::Symbol)
@@ -380,6 +391,7 @@ function BrickTopology(
         boundary = tuple(mapslices(x -> tuple(x...), boundary, dims = 1)...)
     end
 
+
     # We cannot handle anything else right now...
     @assert connectivity == :face
     @assert ghostsize == 1
@@ -397,9 +409,17 @@ function BrickTopology(
     origsendorder = topology[5]
     topology = BrickMesh.connectmesh(mpicomm, topology[1:4]...)
 
+    bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
+        topology.elemtoelem,
+        topology.elemtobndy,
+        periodicity,
+        boundary,
+    )
+    nb = length(bndytoelem)
+
     dim = length(elemrange)
     T = eltype(topology.elemtocoord)
-    return BrickTopology{dim, T}(BoxElementTopology{dim, T}(
+    return BrickTopology{dim, T, nb}(BoxElementTopology{dim, T, nb}(
         mpicomm,
         topology.elems,
         topology.realelems,
@@ -416,7 +436,8 @@ function BrickTopology(
         topology.nabrtorecv,
         topology.nabrtosend,
         origsendorder,
-        !minimum(periodicity),
+        bndytoelem,
+        bndytoface,
     ))
 end
 
@@ -687,10 +708,18 @@ function StackedBrickTopology(
         ) for n in 1:length(nabrtorank)
     ]
 
+    bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
+        elemtoelem,
+        elemtobndy,
+        periodicity,
+        boundary,
+    )
+    nb = length(bndytoelem)
+
     T = eltype(basetopo.elemtocoord)
 
-    StackedBrickTopology{dim, T}(
-        BoxElementTopology{dim, T}(
+    StackedBrickTopology{dim, T, nb}(
+        BoxElementTopology{dim, T, nb}(
             mpicomm,
             elems,
             realelems,
@@ -707,14 +736,15 @@ function StackedBrickTopology(
             nabrtorecv,
             nabrtosend,
             basetopo.origsendorder,
-            !minimum(periodicity),
+            bndytoelem,
+            bndytoface,
         ),
         stacksize,
     )
 end
 
 """
-    CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{dim}
+    CubedShellTopology(mpicomm, Nelem, T) <: AbstractTopology{dim,T,nb}
 
 Generate a cubed shell mesh with the number of elements along each dimension of
 the cubes being `Nelem`. This topology actual creates a cube mesh, and the
@@ -794,7 +824,7 @@ function CubedShellTopology(
         dim = 2,
     )
 
-    CubedShellTopology{T}(BoxElementTopology{2, T}(
+    CubedShellTopology{T}(BoxElementTopology{2, T, 0}(
         mpicomm,
         topology.elems,
         topology.realelems,
@@ -811,7 +841,8 @@ function CubedShellTopology(
         topology.nabrtorecv,
         topology.nabrtosend,
         origsendorder,
-        false,
+        (),
+        (),
     ))
 end
 
@@ -1196,8 +1227,16 @@ function StackedCubedSphereTopology(
         ) for n in 1:length(nabrtorank)
     ]
 
-    StackedCubedSphereTopology{T}(
-        BoxElementTopology{3, T}(
+    bndytoelem, bndytoface = BrickMesh.enumerateboundaryfaces!(
+        elemtoelem,
+        elemtobndy,
+        (false,),
+        (boundary,),
+    )
+    nb = length(bndytoelem)
+
+    StackedCubedSphereTopology{T, nb}(
+        BoxElementTopology{3, T, nb}(
             mpicomm,
             elems,
             realelems,
@@ -1214,7 +1253,8 @@ function StackedCubedSphereTopology(
             nabrtorecv,
             nabrtosend,
             basetopo.origsendorder,
-            true,
+            bndytoelem,
+            bndytoface,
         ),
         stacksize,
     )

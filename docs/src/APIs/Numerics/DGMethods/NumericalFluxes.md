@@ -11,6 +11,7 @@ NumericalFluxGradient
 RusanovNumericalFlux
 RoeNumericalFlux
 HLLCNumericalFlux
+RoeNumericalFluxMoist
 NumericalFluxFirstOrder
 NumericalFluxSecondOrder
 CentralNumericalFluxSecondOrder
