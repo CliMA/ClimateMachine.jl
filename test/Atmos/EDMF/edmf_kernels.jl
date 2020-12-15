@@ -323,6 +323,10 @@ function compute_gradient_argument!(
     en = state.turbconv.environment
 
     # Recover thermo states
+    # if up[1].ρaq_tot>FT(0)
+    #     println("non zero ρaq_tot")
+    #     @show up[1].ρaq_tot
+    # end
     ts = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
@@ -563,6 +567,14 @@ function atmos_source!(
             Diss₀ * en.ρaθ_liq_q_tot_cv
         )
     # covariance microphysics sources should be applied here
+
+    if m.moisture isa DryModel
+        en_src.ρaq_tot_cv = FT(0)
+        en_src.ρaθ_liq_q_tot_cv = FT(0)
+        @unroll_map(N_up) do i
+            up_src[i].ρaq_tot = FT(0)
+        end
+    end
 end;
 
 function compute_ρa_up(m, state, aux)
@@ -675,6 +687,15 @@ function flux_first_order!(
     en_flx.ρaq_tot_cv = Σfluxes(eq_tends(en_ρaq_tot_cv(), m, tend), args...)
     en_flx.ρaθ_liq_q_tot_cv =
         Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), m, tend), args...)
+
+    if m.moisture isa DryModel
+        ẑ = vertical_unit_vector(m, aux)
+        en_flx.ρaq_tot_cv =  FT(0).*ẑ
+        en_flx.ρaθ_liq_q_tot_cv = FT(0).*ẑ
+        @unroll_map(N_up) do i
+            up_flx[i].ρaq_tot = FT(0).*ẑ
+        end
+    end
 end;
 
 # in the EDMF second order (diffusive) fluxes
@@ -796,6 +817,11 @@ function flux_second_order!(
     en_flx.ρaq_tot_cv = -gm.ρ * env.a * K_h * en_dif.∇q_tot_cv[3] * ẑ
     en_flx.ρaθ_liq_q_tot_cv =
         -gm.ρ * env.a * K_h * en_dif.∇θ_liq_q_tot_cv[3] * ẑ
+
+    if m.moisture isa DryModel
+        en_flx.ρaq_tot_cv = FT(0).*ẑ
+        en_flx.ρaθ_liq_q_tot_cv = FT(0).*ẑ
+    end
 end;
 
 # First order boundary conditions
@@ -840,6 +866,14 @@ function turbconv_boundary_state!(
     en.ρaθ_liq_cv = gm.ρ * a_en * θ_liq_cv
     en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
     en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
+
+    if m.moisture isa DryModel
+        en.ρaq_tot_cv = FT(0)
+        en.ρaθ_liq_q_tot_cv = FT(0)
+        @unroll_map(N_up) do i
+            up[i].ρaq_tot = FT(0)
+        end
+    end
 end;
 function turbconv_boundary_state!(
     nf,

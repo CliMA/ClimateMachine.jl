@@ -229,7 +229,7 @@ function convective_bl_model(
     q_sfc = FT(0)
     moisture_flux = FT(0)
     LHF = FT(0)
-    SHF = FT(70)
+    SHF = FT(110)
 
     # Assemble source components
     source_default = (
@@ -333,7 +333,7 @@ function convective_bl_model(
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
-        moisture = EquilMoist{FT}(; maxiter = 5, tolerance = FT(0.1)),
+        moisture = moisture,
         source = source,
         turbconv = turbconv,
     )
