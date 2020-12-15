@@ -289,6 +289,10 @@ function turbconv_nodal_update_auxiliary_state!(
         up_aux[i].buoyancy -= b_gm
     end
     en_aux.buoyancy -= b_gm
+    # println("update nodal ")
+    # @show(z, up_aux[1].buoyancy)
+    # @show(up_aux[1].θ_liq)
+    # @show(up_aux[1].w)
 
     EΔ_up = ntuple(N_up) do i
         entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
@@ -845,6 +849,8 @@ function turbconv_boundary_state!(
     en = state⁺.turbconv.environment
     gm = state⁺
     gm_a = aux⁺
+    ts = recover_thermo_state_all(m, state⁺, aux⁺)
+    θ_liq_gm = liquid_ice_pottemp(ts.gm)
 
     zLL = altitude(m, aux_int)
     a_up_surf,
@@ -856,11 +862,16 @@ function turbconv_boundary_state!(
     tke = subdomain_surface_values(turbconv.surface, turbconv, m, gm, gm_a, zLL)
 
     @unroll_map(N_up) do i
-        up[i].ρaw = FT(0)
+        up[i].ρaw = a_up_surf[i] * FT(0.01)
         up[i].ρa = a_up_surf[i] * gm.ρ
-        up[i].ρaθ_liq = up[i].ρa * θ_liq_up_surf[i]
+        up[i].ρaθ_liq = up[i].ρa * (θ_liq_up_surf[i]+FT(3))
         up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
     end
+    # println("in the surface  BC")
+    # @show(up[1].ρaθ_liq/up[1].ρa)
+    # @show(q_tot_up_surf[1])
+    # @show(θ_liq_gm)
+
     a_en = environment_area(gm, gm_a, N_up)
     en.ρatke = gm.ρ * a_en * tke
     en.ρaθ_liq_cv = gm.ρ * a_en * θ_liq_cv
