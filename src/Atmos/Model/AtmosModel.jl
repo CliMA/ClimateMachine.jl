@@ -318,6 +318,15 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
     end
 end
 
+function vars_state(m::AtmosModel, st::Primitive, FT)
+    @vars begin
+        ρ::FT
+        u::SVector{3, FT}
+        p::FT
+        moisture::vars_state(m.moisture, st, FT)
+    end
+end
+
 """
     vars_state(m::AtmosModel, ::Gradient, FT)
 
@@ -450,6 +459,7 @@ include("tendencies_momentum.jl")     # specify momentum tendencies
 include("tendencies_energy.jl")       # specify energy tendencies
 include("tendencies_moisture.jl")     # specify moisture tendencies
 include("tendencies_precipitation.jl")# specify precipitation tendencies
+include("tendencies_tracers.jl")      # specify tracer tendencies
 
 include("problem.jl")
 include("ref_state.jl")
@@ -463,6 +473,7 @@ include("lsforcing.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
+include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
@@ -643,7 +654,7 @@ function. Contributions from subcomponents are then assembled (pointwise).
         aux,
         t,
     )
-    flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.tracers, flux, args...)
     flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
 end
 
