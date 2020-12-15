@@ -44,7 +44,7 @@ include("SplitExplicit/SplitExplicitModel.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")
 include("OceanProblems/OceanProblems.jl")
 
-include("SuperModels.jl")
+include("SuperModels/SuperModels.jl")
 
 using .OceanProblems: InitialConditions
 using .SuperModels:
