@@ -35,3 +35,4 @@
 # 12 is MHid (horizontal mass matrix?)
 # 13-15 are x1 x2 x3
 # 16 is the vertical volume jacobian
+# grid.vgeo[:, grid.ξ1x1, :]

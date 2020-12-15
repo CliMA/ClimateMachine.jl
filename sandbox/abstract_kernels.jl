@@ -437,30 +437,36 @@ end
         @unroll for k in 1:Nq3 # search
             @synchronize # perhaps moved up outside the loop
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) 
-            M = vgeo[ijk, _M, e]
             # Extract Jacobian terms
             # ∂/∂x¹ = ∂ξ¹/ ∂x¹ ∂/∂ξ¹ + ∂ξ²/ ∂x¹ ∂/∂ξ² + ∂ξ³/ ∂x¹ ∂/∂ξ³
             # ∂/∂x² = ∂ξ¹/ ∂x² ∂/∂ξ¹ + ∂ξ²/ ∂x² ∂/∂ξ² + ∂ξ³/ ∂x² ∂/∂ξ³
             # ∂/∂x³ = ∂ξ¹/ ∂x³ ∂/∂ξ¹ + ∂ξ²/ ∂x³ ∂/∂ξ² + ∂ξ³/ ∂x³ ∂/∂ξ³
             # The integration by parts is then done with respect to the
             # (ξ¹, ξ², ξ³) coordinate system 
-            # (wich is why terms associated with the columns appear)
+            # (which is why terms associated with the columns appear)
+
+            shared_flux[1, i, j] = state[ijk, e, 1] # local_flux[1]
+            
+            @synchronize
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             ξ1x1 = vgeo[ijk, _ξ1x1, e]
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
             ξ3x1 = vgeo[ijk, _ξ3x1, e]
-
-            shared_flux[1, i, j] = state[ijk, e, 1] # local_flux[1]
-
+            
             @unroll for n in 1:Nq1
                 # ξ1-grid lines
-                local_tendency[k] += ξ1x1 * D[i, n] * shared_flux[1, n, j]                                                                                
+                gradient[ijk, e, 1] += ξ1x1 * D[i, n] * shared_flux[1, n, j]                                                                                
             end
-            @synchronize
+            @unroll for n in 1:Nq1
+                # ξ2-grid lines
+                gradient[ijk, e, 1] += ξ2x1 * D[j, n] * shared_flux[1, i, n]                                                                                
+            end
         end
-
+        #=
         @unroll for k in 1:Nq3 # search
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             gradient[ijk, e, 1] += local_tendency[k] 
         end
+        =#
     end
 end
