@@ -6,13 +6,16 @@ using CLIMAParameters.Planet: Omega
 ##### First order fluxes
 #####
 
-function flux(::Advect{Momentum}, m, state, aux, t, ts, direction)
+function flux(::Advect{Momentum}, atmos, args)
+    @unpack state = args
     return state.ρu .* (state.ρu / state.ρ)'
 end
 
-function flux(::PressureGradient{Momentum}, m, state, aux, t, ts, direction)
+function flux(::PressureGradient{Momentum}, atmos, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
     pad = (state.ρu .* (state.ρu / state.ρ)') * 0
-    if m.ref_state isa HydrostaticState
+    if atmos.ref_state isa HydrostaticState
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
         return pad + air_pressure(ts) * I

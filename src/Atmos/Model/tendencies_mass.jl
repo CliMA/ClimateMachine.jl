@@ -4,8 +4,8 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Mass}, m, state, aux, t, ts, direction)
-    return state.ρu
+function flux(::Advect{Mass}, atmos, args)
+    return args.state.ρu
 end
 
 #####

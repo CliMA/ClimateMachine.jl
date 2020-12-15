@@ -25,6 +25,7 @@ import ClimateMachine.BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 using ArgParse
+using UnPack
 using Distributions
 using Random
 using StaticArrays
@@ -98,7 +99,8 @@ eq_tends(
     ::Flux{FirstOrder},
 ) where {PV <: Energy} = (DYCOMSRadiation{PV}(),)
 
-function flux(::DYCOMSRadiation{Energy}, atmos, state, aux, t, ts, direction)
+function flux(::DYCOMSRadiation{Energy}, atmos, args)
+    @unpack state, aux = args
     m = atmos.radiation
     FT = eltype(state)
     z = altitude(atmos, aux)

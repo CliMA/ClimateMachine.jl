@@ -4,7 +4,8 @@
 ##### First order fluxes
 #####
 
-function flux(::PrecipitationFlux{Rain}, m, state, aux, t, ts, direction)
+function flux(::PrecipitationFlux{Rain}, atmos, args)
+    @unpack state, aux = args
     FT = eltype(state)
     u = state.ρu / state.ρ
     q_rai = state.precipitation.ρq_rai / state.ρ
@@ -12,18 +13,19 @@ function flux(::PrecipitationFlux{Rain}, m, state, aux, t, ts, direction)
     v_term_rai::FT = FT(0)
     if q_rai > FT(0)
         v_term_rai = terminal_velocity(
-            m.param_set,
-            m.param_set.microphys.rai,
+            atmos.param_set,
+            atmos.param_set.microphys.rai,
             state.ρ,
             q_rai,
         )
     end
 
-    k̂ = vertical_unit_vector(m, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
     return state.precipitation.ρq_rai * (u - k̂ * v_term_rai)
 end
 
-function flux(::PrecipitationFlux{Snow}, m, state, aux, t, ts, direction)
+function flux(::PrecipitationFlux{Snow}, atmos, args)
+    @unpack state, aux = args
     FT = eltype(state)
     u = state.ρu / state.ρ
     q_sno = state.precipitation.ρq_sno / state.ρ
@@ -31,14 +33,14 @@ function flux(::PrecipitationFlux{Snow}, m, state, aux, t, ts, direction)
     v_term_sno::FT = FT(0)
     if q_sno > FT(0)
         v_term_sno = terminal_velocity(
-            m.param_set,
-            m.param_set.microphys.sno,
+            atmos.param_set,
+            atmos.param_set.microphys.sno,
             state.ρ,
             q_sno,
         )
     end
 
-    k̂ = vertical_unit_vector(m, aux)
+    k̂ = vertical_unit_vector(atmos, aux)
     return state.precipitation.ρq_sno * (u - k̂ * v_term_sno)
 end
 
