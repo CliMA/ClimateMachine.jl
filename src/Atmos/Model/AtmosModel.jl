@@ -52,6 +52,7 @@ import ..BalanceLaws:
     source!,
     eq_tends,
     flux,
+    precompute,
     source,
     wavespeed,
     boundary_conditions,
