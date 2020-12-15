@@ -20,6 +20,55 @@ function flux(::Advect{IceMoisture}, m, state, aux, t, ts, direction)
 end
 
 #####
+##### Second order fluxes
+#####
+
+function flux(
+    ::MoistureDiffusion{TotalMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    diffusive,
+    hyperdiff,
+)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    return d_q_tot * state.ρ
+end
+
+function flux(
+    ::MoistureDiffusion{LiquidMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    diffusive,
+    hyperdiff,
+)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_liq = (-D_t) .* diffusive.moisture.∇q_liq
+    return d_q_liq * state.ρ
+end
+
+function flux(
+    ::MoistureDiffusion{IceMoisture},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    diffusive,
+    hyperdiff,
+)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_ice = (-D_t) .* diffusive.moisture.∇q_ice
+    return d_q_ice * state.ρ
+end
+
+#####
 ##### Sources
 #####
 

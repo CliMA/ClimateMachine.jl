@@ -34,8 +34,24 @@ function flux(
     diffusive,
     hyperdiff,
 )
+    pad = (state.ρu .* (state.ρu / state.ρ)') * 0
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    return τ * state.ρ
+    return pad + τ * state.ρ
+end
+
+function flux(
+    ::MoistureDiffusion{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    diffusive,
+    hyperdiff,
+)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    return d_q_tot .* state.ρu'
 end
 
 #####

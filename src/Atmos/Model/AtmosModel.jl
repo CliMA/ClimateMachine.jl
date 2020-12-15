@@ -498,13 +498,13 @@ equations.
     t::Real,
     direction,
 )
-    ρu_pad = SVector(1, 1, 1)
+    flux_pad = SVector(1, 1, 1)
     ts = recover_thermo_state(m, state, aux)
     tend = Flux{FirstOrder}()
     args = (m, state, aux, t, ts, direction)
-    flux.ρ = Σfluxes(eq_tends(Mass(), m, tend), args...)
-    flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...)
+    flux.ρ = Σfluxes(eq_tends(Mass(), m, tend), args...) .* flux_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...) .* flux_pad
 
     flux_first_order!(m.moisture, m, flux, state, aux, t, ts, direction)
     flux_first_order!(m.precipitation, m, flux, state, aux, t, ts, direction)
@@ -633,17 +633,17 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
-    ρu_pad = SVector(1, 1, 1)
+    flux_pad = SVector(1, 1, 1)
     ts = recover_thermo_state(atmos, state, aux)
     tend = Flux{SecondOrder}()
     args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), args...) .* ρu_pad
-    flux.ρu = Σfluxes(eq_tends(Momentum(), atmos, tend), args...) .* ρu_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...)
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), args...) .* flux_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), atmos, tend), args...) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...) .* flux_pad
 
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
 
-    flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
+    flux_second_order!(atmos.moisture, flux, args...)
     flux_second_order!(atmos.precipitation, flux, args...)
     flux_second_order!(
         atmos.hyperdiffusion,

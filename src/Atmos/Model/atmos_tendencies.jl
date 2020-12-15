@@ -108,23 +108,32 @@ eq_tends(pv::PV, ::AtmosModel, ::Flux{FirstOrder}) where {N, PV <: Tracers{N}} =
 ##### Second order fluxes
 #####
 
+eq_tends(
+    pv::PV,
+    ::DryModel,
+    ::Flux{SecondOrder},
+) where {PV <: Union{Mass, Momentum, Moisture}} = ()
+eq_tends(
+    pv::PV,
+    ::MoistureModel,
+    ::Flux{SecondOrder},
+) where {PV <: Union{Mass, Momentum, Moisture}} = (MoistureDiffusion{PV}(),)
+
 # Mass
-moist_diffusion(pv::PV, ::DryModel) where {PV <: Mass} = ()
-moist_diffusion(pv::PV, ::MoistureModel) where {PV <: Mass} =
-    (MoistureDiffusion{PV}(),)
-eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV <: Mass} =
-    (moist_diffusion(pv, m.moisture)...,)
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Mass} =
+    (eq_tends(pv, m.moisture, tt)...,)
 
 # Momentum
-eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Momentum} =
-    (ViscousStress{PV}(),)
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Momentum} =
+    (ViscousStress{PV}(), eq_tends(pv, m.moisture, tt)...)
 
 # Energy
 eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Energy} =
     (ViscousFlux{PV}(), DiffEnthalpyFlux{PV}())
 
 # Moisture
-eq_tends(pv::PV, ::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} = ()
+eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Moisture} =
+    (eq_tends(pv, m.moisture, tt)...,)
 
 # Precipitation
 eq_tends(

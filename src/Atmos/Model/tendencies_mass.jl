@@ -12,7 +12,6 @@ end
 ##### Second order fluxes
 #####
 
-struct MoistureDiffusion{PV <: Mass} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(
     ::MoistureDiffusion{Mass},
     m,
