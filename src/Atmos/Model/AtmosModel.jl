@@ -619,6 +619,9 @@ function transform_post_gradient_laplacian!(
     )
 end
 
+precompute(atmos::AtmosModel, args, ::Flux{SecondOrder}) =
+    (ts = recover_thermo_state(atmos, args.state, args.aux),)
+
 """
     flux_second_order!(
         atmos::AtmosModel,
@@ -643,28 +646,28 @@ function. Contributions from subcomponents are then assembled (pointwise).
     t::Real,
 )
     flux_pad = SVector(1, 1, 1)
-    ts = recover_thermo_state(atmos, state, aux)
     tend = Flux{SecondOrder}()
-    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), args...) .* flux_pad
-    flux.ρu = Σfluxes(eq_tends(Momentum(), atmos, tend), args...) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...) .* flux_pad
 
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
-
-    flux_second_order!(atmos.moisture, flux, args...)
-    flux_second_order!(atmos.precipitation, flux, args...)
-    flux_second_order!(
-        atmos.hyperdiffusion,
-        flux,
-        state,
-        diffusive,
-        hyperdiffusive,
-        aux,
-        t,
+    _args = (
+        state = state,
+        aux = aux,
+        t = t,
+        diffusive = diffusive,
+        hyperdiffusive = hyperdiffusive,
     )
-    flux_second_order!(atmos.tracers, flux, args...)
-    flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
+
+    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
+
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρu =
+        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
+
+    flux_second_order!(atmos.moisture, flux, atmos, args)
+    flux_second_order!(atmos.precipitation, flux, atmos, args)
+    flux_second_order!(atmos.hyperdiffusion, flux, args)
+    flux_second_order!(atmos.tracers, flux, atmos, args)
+    flux_second_order!(atmos.turbconv, flux, atmos, args)
 end
 
 @inline function wavespeed(
@@ -729,7 +732,6 @@ function nodal_update_auxiliary_state!(
     atmos_nodal_update_auxiliary_state!(m.precipitation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
-    turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
 end
 

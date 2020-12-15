@@ -565,9 +565,9 @@ function atmos_source!(
     # covariance microphysics sources should be applied here
 end;
 
-function compute_ρa_up(m, state, aux)
+function compute_ρa_up(atmos, state, aux)
     # Aliases:
-    turbconv = m.turbconv
+    turbconv = atmos.turbconv
     gm = state
     up = state.turbconv.updraft
     N_up = n_updrafts(turbconv)
@@ -672,13 +672,12 @@ end;
 # exist only in the grid mean and the environment
 function flux_second_order!(
     turbconv::EDMF{FT},
-    m::AtmosModel{FT},
     flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+    atmos::AtmosModel{FT},
+    args,
 ) where {FT}
+
+    @unpack state, diffusive, aux, t = args
     N_up = n_updrafts(turbconv)
 
     # Aliases:
@@ -690,25 +689,25 @@ function flux_second_order!(
     en_dif = diffusive.turbconv.environment
 
     # Recover thermo states
-    ts = recover_thermo_state_all(m, state, aux)
+    ts = recover_thermo_state_all(atmos, state, aux)
 
     # Get environment variables
     env = environment_vars(state, aux, N_up)
 
     ρ_inv = FT(1) / gm.ρ
-    _grav::FT = grav(m.param_set)
-    z = altitude(m, aux)
+    _grav::FT = grav(atmos.param_set)
+    z = altitude(atmos, aux)
     a_min = turbconv.subdomains.a_min
     a_max = turbconv.subdomains.a_max
 
     EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
+        entr_detr(atmos, atmos.turbconv.entr_detr, state, aux, t, ts, env, i)
     end
 
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
 
     l_mix, _, Pr_t = mixing_length(
-        m,
+        atmos,
         turbconv.mix_len,
         state,
         diffusive,
@@ -720,11 +719,11 @@ function flux_second_order!(
         env,
     )
     tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
-    K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = atmos.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
 
     #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
-    e_int = internal_energy(m, state, aux)
+    e_int = internal_energy(atmos, state, aux)
 
     e_kin = vuntuple(N_up) do i
         FT(1 // 2) * (
@@ -746,7 +745,7 @@ function flux_second_order!(
             (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
         end,
     )
-    ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
     massflux_q_tot = sum(
         vuntuple(N_up) do i
             up[i].ρa *
@@ -780,7 +779,7 @@ function flux_second_order!(
     #     0, 0, ρu_sgs_flux,
     # )
 
-    ẑ = vertical_unit_vector(m, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     # env second moment flux_second_order
     en_flx.ρatke = -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
     en_flx.ρaθ_liq_cv = -gm.ρ * env.a * K_h * en_dif.∇θ_liq_cv[3] * ẑ

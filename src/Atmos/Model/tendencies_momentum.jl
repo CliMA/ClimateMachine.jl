@@ -27,32 +27,16 @@ end
 #####
 
 struct ViscousStress{PV <: Momentum} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(
-    ::ViscousStress{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
+function flux(::ViscousStress{Momentum}, atmos, args)
+    @unpack state, aux, t, diffusive = args
     pad = (state.ρu .* (state.ρu / state.ρ)') * 0
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     return pad + τ * state.ρ
 end
 
-function flux(
-    ::MoistureDiffusion{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::MoistureDiffusion{Momentum}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
     return d_q_tot .* state.ρu'
 end

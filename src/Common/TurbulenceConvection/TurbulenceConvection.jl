@@ -109,12 +109,9 @@ end
 
 function flux_second_order!(
     m::TurbulenceConvectionModel,
-    bl::BalanceLaw,
     flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+    bl::BalanceLaw,
+    args,
 )
     return nothing
 end
