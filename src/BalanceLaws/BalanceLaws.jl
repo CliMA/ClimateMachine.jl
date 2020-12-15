@@ -5,6 +5,7 @@ using ..VariableTemplates
 export BalanceLaw,
     vars_state,
     number_states,
+    precompute,
     init_state_prognostic!,
     init_state_auxiliary!,
     compute_gradient_flux!,
