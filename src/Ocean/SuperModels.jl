@@ -73,6 +73,7 @@ function HydrostaticBoussinesqSuperModel(;
     buoyancy = (αᵀ = 0,),
     forcing = Forcing(),
     stabilizing_dissipation = nothing,
+    state_filter_order = nothing,
     numerical_fluxes = (
         first_order = RusanovNumericalFlux(),
         second_order = CentralNumericalFluxSecondOrder(),
@@ -122,6 +123,8 @@ function HydrostaticBoussinesqSuperModel(;
     #####
     ##### Build HydrostaticBoussinesqModel/Equations
     #####
+    
+    state_filter = isnothing(state_filter_order) ? nothing : CutoffFilter(grid, state_filter_order)
 
     equations = HydrostaticBoussinesqModel{eltype(domain)}(
         parameters,
@@ -130,6 +133,7 @@ function HydrostaticBoussinesqSuperModel(;
         tracer_advection = advection.tracers,
         forcing = forcing,
         stabilizing_dissipation = stabilizing_dissipation,
+        state_filter = state_filter,
         cʰ = convert(FT, rusanov_wave_speeds.cʰ),
         cᶻ = convert(FT, rusanov_wave_speeds.cᶻ),
         αᵀ = convert(FT, buoyancy.αᵀ),

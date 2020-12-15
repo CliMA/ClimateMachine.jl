@@ -626,7 +626,7 @@ function update_penalty!(
 end
 
 filter_state!(Q, filter::Nothing, grid) = nothing
-filter_state!(Q, filter, grid) = apply!(Q, UnitRange(1, size(Q, 2)), grid)
+filter_state!(Q, filter, grid) = apply!(Q, UnitRange(1, size(Q, 2)), grid, filter)
 
 """
     update_auxiliary_state!(::HBModel)
@@ -680,9 +680,12 @@ function update_auxiliary_state_gradient!(
     t::Real,
     elems::UnitRange,
 )
+
     FT = eltype(Q)
     A = dg.state_auxiliary
     D = dg.state_gradient_flux
+
+    filter_state!(D, m.state_filter, dg.grid)
 
     # load -∇ʰu as ∂ᶻw
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
