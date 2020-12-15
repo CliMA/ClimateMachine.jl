@@ -1329,7 +1329,7 @@ steps:
   - label: "gpu_stable_bl_edmf_implicit_test"
     key: "gpu_stable_bl_edmf_implicit_test"
     command:
-      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_edmf_implicit.jl "
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_single_stack_implicit.jl "
     agents:
       config: gpu
       queue: central
