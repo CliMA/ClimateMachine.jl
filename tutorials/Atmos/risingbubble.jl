@@ -229,7 +229,7 @@ function config_risingbubble(
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = ref_state,                         ## Reference state
-        turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
+        turbulence = DynamicSubgridStabilization(),
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
         tracers = NTracers{ntracers, FT}(δ_χ),         ## Tracer model with diffusivity coefficients

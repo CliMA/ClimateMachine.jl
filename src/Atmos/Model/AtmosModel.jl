@@ -408,6 +408,7 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
+        χ̅::FT
     end
 end
 

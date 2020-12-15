@@ -1505,6 +1505,16 @@ function launch_volume_tendency!(
     # If the model direction is EveryDirection, we need to perform
     # both horizontal AND vertical kernel calls; otherwise, we only
     # call the kernel corresponding to the model direction `dg.diffusion_direction`
+    
+    dynsgs!(
+       dg, 
+       dg.balance_law, 
+       state_prognostic.data, 
+       tendency.data, 
+       dg.state_auxiliary.data, 
+       t, 
+       dg.grid.topology.realelems
+    )
     if dg.direction isa EveryDirection || dg.direction isa HorizontalDirection
 
         # Horizontal polynomial degree
@@ -1574,6 +1584,8 @@ function launch_volume_tendency!(
             dependencies = comp_stream,
         )
     end
+
+
 
     return comp_stream
 end
@@ -1682,4 +1694,93 @@ function launch_interface_tendency!(
     end
 
     return comp_stream
+end
+
+
+"""
+    dynsgs!(...)
+Returns the viscosity computed using the DynamicSubgridStabilization method.
+"""
+function dynsgs!(
+    dg::DGModel,
+    m::BalanceLaw,
+    Q,
+    dQdt,
+    state_auxiliary,
+    t::Real,
+    elems::UnitRange = dg.grid.topology.elems
+)
+    
+    FT = eltype(Q)
+    grid = dg.grid
+    topology = grid.topology
+    
+    N = polynomialorders(grid)[1]
+    dim = dimensionality(grid)
+    
+    Nq = N + 1
+    Nqk = dim == 2 ? 1 : Nq
+    
+    nrealelem = length(topology.realelems)
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+    nhorzelem = length(horzelems)
+
+    device = typeof(Q) <: Array ? CPU() : CUDA()
+    
+    μ_dynsgs = similar(Q, Nq^dim, number_states(dg.balance_law,Prognostic()), nrealelem)
+    vgeo = Array(grid.vgeo)
+    localQ = Array(Q)
+    S = zero(FT)
+    Q_ave = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+    fill!(Q_ave, zero(FT))
+    for e in 1:nrealelem
+      for ijk in 1:Nq^dim
+        M = vgeo[ijk, _M, e]
+	S += M
+	for s in 1:number_states(dg.balance_law,Prognostic())
+	  Q_ave[s] += M * localQ[ijk,s,e]
+	end
+      end
+    end
+    Q_ave = Q_ave ./ S
+    l_δ̅ = Array(similar(Q, Nq^dim, number_states(dg.balance_law,Prognostic()), nrealelem))
+    fill!(l_δ̅, zero(FT))
+    for e in 1:nrealelem
+      for ijk in 1:Nq^dim
+        for s in 1:number_states(dg.balance_law,Prognostic())
+          l_δ̅[ijk,s,e] = localQ[ijk,s,e] - Q_ave[s]
+        end
+      end
+    end
+   rhs = dQdt
+   l_rhs_m = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+   l_δ̅_m = Array(similar(Q, number_states(dg.balance_law,Prognostic())))
+   for s in 1:number_states(dg.balance_law,Prognostic())
+       l_δ̅_m[s] = maximum(abs.(l_δ̅[:,s,:]))
+       #l_rhs_m[s] = MPI.Allreduce(l_rhs_m[s], max, topology.mpicomm)
+       l_δ̅_m[s] = MPI.Allreduce(l_δ̅_m[s], max, topology.mpicomm)
+   end
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+       l_rhs_m[s,e] = maximum(abs.(rhs[:,s,e]))
+     end
+   end
+
+   μ = Array(similar(Q, number_states(dg.balance_law,Prognostic()), nrealelem))
+   for e in 1:nrealelem
+     for s in 1:number_states(dg.balance_law,Prognostic())
+       μ[s,e] = l_rhs_m[s,e] / l_δ̅_m[s]
+     end
+   end
+   
+   μ = l_rhs_m ./ (l_δ̅_m .+ eps(FT))
+   ida = 22
+   for e in 1:nrealelem
+       if size(state_auxiliary)[2] == 22
+        state_auxiliary[:,ida,e] .= maximum(μ[:,e]) 
+       end
+   end
+   nothing
 end
