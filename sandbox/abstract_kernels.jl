@@ -146,10 +146,7 @@ end
             @unroll for n in 1:Nqk
                 MI = local_MI[n]
                 local_tendency[n] += MI * s_D[k, n] * local_flux_3
-                #ijk = i + Nq * ((j - 1) + Nq * (n - 1))
-                #flux_divergence[ijk, e, 1] += MI * s_D[k, n] * local_flux_3
             end
-            
 
             @synchronize
             
@@ -413,7 +410,7 @@ end
     shared_flux = @localmem FT (2, Nq1, Nq2) # shared memory on the gpu
 
     # Storage for tendency and mass inverse M⁻¹, **perhaps in @uniform block**
-    local_tendency = @private FT (Nq3,)   # thread private memory
+    local_tendency = @private FT (Nq3, dim)   # thread private memory
     local_MI = @private FT (Nq3,)         # thread private memory
 
     # Grab the index associated with the current element `e` and the
@@ -428,7 +425,9 @@ end
         @unroll for k in 1:Nq3 # if 2D Nq3 = 1, if 3D Nq
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1)) # convert to linear indices
             # initialize local tendency
-            local_tendency[k] = zero(FT)
+            local_tendency[k, 1] = zero(FT)
+            local_tendency[k, 2] = zero(FT)
+            local_tendency[k, 3] = zero(FT)
             # read in mass matrix inverse for element `e` in each plane k
             local_MI[k] = vgeo[ijk, _MI, e]
         end
@@ -444,29 +443,52 @@ end
             # The integration by parts is then done with respect to the
             # (ξ¹, ξ², ξ³) coordinate system 
             # (which is why terms associated with the columns appear)
-
+            # maybe load gradient into shared memory
             shared_flux[1, i, j] = state[ijk, e, 1] # local_flux[1]
+
+            ξ3x1 = vgeo[ijk, _ξ3x1, e]
+            ξ3x2 = vgeo[ijk, _ξ3x2, e]
+            ξ3x3 = vgeo[ijk, _ξ3x3, e]
+
+            @unroll for n in 1:Nq3
+                ∂Q∂ξ³ = D[n, k] * shared_flux[1, i, j]
+                local_tendency[n, 1] += ξ3x1 * ∂Q∂ξ³
+                local_tendency[n, 2] += ξ3x2 * ∂Q∂ξ³
+                local_tendency[n, 3] += ξ3x3 * ∂Q∂ξ³
+            end
             
             @synchronize
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             ξ1x1 = vgeo[ijk, _ξ1x1, e]
+            ξ1x2 = vgeo[ijk, _ξ1x2, e]
+            ξ1x3 = vgeo[ijk, _ξ1x3, e]
+
             ξ2x1 = vgeo[ijk, _ξ2x1, e]
-            ξ3x1 = vgeo[ijk, _ξ3x1, e]
-            
+            ξ2x2 = vgeo[ijk, _ξ2x2, e]
+            ξ2x3 = vgeo[ijk, _ξ2x3, e]
+
             @unroll for n in 1:Nq1
                 # ξ1-grid lines
-                gradient[ijk, e, 1] += ξ1x1 * D[i, n] * shared_flux[1, n, j]                                                                                
+                ∂Q∂ξ¹ = D[i, n] * shared_flux[1, n, j]
+                gradient[ijk, e, 1] += ξ1x1 * ∂Q∂ξ¹
+                gradient[ijk, e, 2] += ξ1x2 * ∂Q∂ξ¹
+                gradient[ijk, e, 3] += ξ1x3 * ∂Q∂ξ¹                                                                                 
             end
-            @unroll for n in 1:Nq1
+
+            @unroll for n in 1:Nq2
+                ∂Q∂ξ² = D[i, n] * shared_flux[1, i, n]
                 # ξ2-grid lines
-                gradient[ijk, e, 1] += ξ2x1 * D[j, n] * shared_flux[1, i, n]                                                                                
+                gradient[ijk, e, 1] += ξ2x1 * ∂Q∂ξ²
+                gradient[ijk, e, 2] += ξ2x2 * ∂Q∂ξ²
+                gradient[ijk, e, 3] += ξ2x3 * ∂Q∂ξ²                                                                                
             end
         end
-        #=
-        @unroll for k in 1:Nq3 # search
+
+        @unroll for k in 1:Nq3 
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-            gradient[ijk, e, 1] += local_tendency[k] 
+            gradient[ijk, e, 1] += local_tendency[k, 1] 
+            gradient[ijk, e, 2] += local_tendency[k, 2] 
+            gradient[ijk, e, 3] += local_tendency[k, 3] 
         end
-        =#
     end
 end
