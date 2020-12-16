@@ -57,54 +57,6 @@ function compute_gradient_argument!(
 source!(::PrecipitationModel, args...) = nothing
 
 """
-    PrecipitationFlux{PV <: Union{Rain, Snow}} <: TendencyDef{Flux{FirstOrder}, PV}
-
-Computes the precipitation flux as a sum of air velocity and terminal velocity
-multiplied by the advected variable.
-"""
-struct PrecipitationFlux{PV <: Union{Rain, Snow}} <:
-       TendencyDef{Flux{FirstOrder}, PV} end
-
-PrecipitationFlux() = (PrecipitationFlux{Rain()}, PrecipitationFlux{Snow()})
-
-function flux(::PrecipitationFlux{Rain}, m, state, aux, t, ts, direction)
-    FT = eltype(state)
-    u = state.ρu / state.ρ
-    q_rai = state.precipitation.ρq_rai / state.ρ
-
-    v_term_rai::FT = FT(0)
-    if q_rai > FT(0)
-        v_term_rai = terminal_velocity(
-            m.param_set,
-            m.param_set.microphys.rai,
-            state.ρ,
-            q_rai,
-        )
-    end
-
-    k̂ = vertical_unit_vector(m, aux)
-    return state.precipitation.ρq_rai * (u - k̂ * v_term_rai)
-end
-function flux(::PrecipitationFlux{Snow}, m, state, aux, t, ts, direction)
-    FT = eltype(state)
-    u = state.ρu / state.ρ
-    q_sno = state.precipitation.ρq_sno / state.ρ
-
-    v_term_sno::FT = FT(0)
-    if q_sno > FT(0)
-        v_term_sno = terminal_velocity(
-            m.param_set,
-            m.param_set.microphys.sno,
-            state.ρ,
-            q_sno,
-        )
-    end
-
-    k̂ = vertical_unit_vector(m, aux)
-    return state.precipitation.ρq_sno * (u - k̂ * v_term_sno)
-end
-
-"""
     NoPrecipitation <: PrecipitationModel
 
 No precipitation.
@@ -170,18 +122,17 @@ end
 function flux_second_order!(
     precip::RainModel,
     flux::Grad,
+    atmos::AtmosModel,
     state::Vars,
-    diffusive::Vars,
     aux::Vars,
     t::Real,
-    D_t,
+    ts,
+    diffusive::Vars,
+    hyperdiffusive::Vars,
 )
-    d_q_rai = (-D_t) .* diffusive.precipitation.∇q_rai
-
-    flux_second_order!(precip, flux, state, d_q_rai)
-end
-function flux_second_order!(precip::RainModel, flux::Grad, state::Vars, d_q_rai)
-    flux.precipitation.ρq_rai += d_q_rai * state.ρ
+    tend = Flux{SecondOrder}()
+    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
+    flux.precipitation.ρq_rai = Σfluxes(eq_tends(Rain(), atmos, tend), args...)
 end
 
 function source!(m::RainModel, source::Vars, atmos::AtmosModel, args)
