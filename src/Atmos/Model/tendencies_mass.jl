@@ -24,7 +24,6 @@ function flux(
     hyperdiff,
 )
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    ν, D_t, τ = sponge_viscosity_modifier(m, m.viscoussponge, ν, D_t, τ, aux)
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
     return d_q_tot * state.ρ
 end
@@ -51,15 +50,38 @@ function source(
     diffusive,
 )
     if has_condensate(ts)
-        nt = compute_precip_params(s, aux, ts)
-        return state.ρ * nt.S_qt
+        nt = remove_precipitation_sources(s, m, state, aux, ts)
+        return nt.S_ρ_qt
     else
         FT = eltype(state)
         return FT(0)
     end
 end
 
-function source(s::Rain_1M{Mass}, m, state, aux, t, ts, direction, diffusive)
-    nt = compute_rain_params(m, state, aux, t, ts)
-    return state.ρ * nt.S_qt
+function source(
+    s::WarmRain_1M{Mass},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = warm_rain_sources(m, state, aux, ts)
+    return nt.S_ρ_qt
+end
+
+function source(
+    s::RainSnow_1M{Mass},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    direction,
+    diffusive,
+)
+    nt = rain_snow_sources(m, state, aux, ts)
+    return nt.S_ρ_qt
 end

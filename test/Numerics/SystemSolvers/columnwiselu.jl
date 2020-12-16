@@ -28,30 +28,32 @@ function band_to_full(B, p, q)
     A
 end
 
-let
-    N = 1
-    Nq = N + 1
+function run_columnwiselu_test(FT, N)
+
+    Nq = N .+ 1
+    Nq1 = Nq[1]
+    Nq2 = Nq[2]
+    Nqv = Nq[3]
     nstate = 3
     nvertelem = 5
     nhorzelem = 4
     eband = 2
 
-    FT = Float64
-    m = n = Nq * nstate * nvertelem
-    p = q = Nq * nstate * eband - 1
+    m = n = Nqv * nstate * nvertelem
+    p = q = Nqv * nstate * eband - 1
 
     Random.seed!(1234)
-    AB = rand(FT, Nq, Nq, p + q + 1, n, nhorzelem)
+    AB = rand(FT, Nq1, Nq2, p + q + 1, n, nhorzelem)
 
     AB[:, :, q + 1, :, :] .+= 10 # Make A's diagonally dominate
 
     Random.seed!(5678)
-    b = rand(FT, Nq, Nq, Nq, nstate, nvertelem, nhorzelem)
+    b = rand(FT, Nq1, Nq2, Nqv, nstate, nvertelem, nhorzelem)
     x = similar(b)
 
     perm = (4, 3, 5, 1, 2, 6)
-    bp = reshape(PermutedDimsArray(b, perm), n, Nq, Nq, nhorzelem)
-    xp = reshape(PermutedDimsArray(x, perm), n, Nq, Nq, nhorzelem)
+    bp = reshape(PermutedDimsArray(b, perm), n, Nq1, Nq2, nhorzelem)
+    xp = reshape(PermutedDimsArray(x, perm), n, Nq1, Nq2, nhorzelem)
 
     d_F = ArrayType(AB)
     d_F = DGColumnBandedMatrix{
@@ -67,8 +69,8 @@ let
         d_F,
     )
 
-    groupsize = (Nq, Nq)
-    ndrange = (Nq, Nq, nhorzelem)
+    groupsize = (Nq1, Nq2)
+    ndrange = (Nq1, Nq2, nhorzelem)
 
     event = Event(array_device(d_F.data))
     event = band_lu_kernel!(array_device(d_F.data), groupsize, ndrange)(
@@ -79,20 +81,20 @@ let
 
     F = Array(d_F.data)
 
-    for h in 1:nhorzelem, j in 1:Nq, i in 1:Nq
+    for h in 1:nhorzelem, j in 1:Nq2, i in 1:Nq1
         B = AB[i, j, :, :, h]
         G = band_to_full(B, p, q)
         GLU = lu!(G, Val(false))
 
         H = band_to_full(F[i, j, :, :, h], p, q)
 
-        @test H ≈ G
+        @assert H ≈ G
 
         xp[:, i, j, h] .= GLU \ bp[:, i, j, h]
     end
 
-    b = reshape(b, Nq * Nq * Nq, nstate, nvertelem * nhorzelem)
-    x = reshape(x, Nq * Nq * Nq, nstate, nvertelem * nhorzelem)
+    b = reshape(b, Nq1 * Nq2 * Nqv, nstate, nvertelem * nhorzelem)
+    x = reshape(x, Nq1 * Nq2 * Nqv, nstate, nvertelem * nhorzelem)
 
     d_x = ArrayType(b)
 
@@ -110,5 +112,15 @@ let
     )
     wait(array_device(d_x), event)
 
-    @test x ≈ Array(d_x)
+    result = x ≈ Array(d_x)
+    return result
+end
+
+@testset "Columnwise LU test" begin
+    for FT in (Float64, Float32)
+        for N in ((1, 1, 1), (1, 1, 2), (2, 2, 1))
+            result = run_columnwiselu_test(FT, N)
+            @test result
+        end
+    end
 end

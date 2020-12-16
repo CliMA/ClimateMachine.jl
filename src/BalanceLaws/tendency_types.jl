@@ -10,10 +10,10 @@
 #  - `G = ∇Y` - the gradient of the prognostic state (rank 2 tensor)
 #  - `F₁` - the first order tendency flux (rank 2 tensor)
 #  - `F₂` - the second order tendency flux (rank 2 tensor)
-#  - `Tᵤ` - the unsteady tendency (column vector)
-#  - `T₁` - the first order flux tendency (column vector)
-#  - `T₂` - the second order flux tendency (column vector)
-#  - `S` - the non-conservative tendency source (column vector)
+#  - `Tᵤ` - the explicit time derivative (column vector)
+#  - `T₁` - the first order flux divergence (column vector)
+#  - `T₂` - the second order flux divergence (column vector)
+#  - `S` - the non-conservative source (column vector)
 
 export PrognosticVariable
 export FirstOrder, SecondOrder

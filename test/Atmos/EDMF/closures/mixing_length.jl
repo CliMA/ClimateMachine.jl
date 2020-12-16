@@ -1,5 +1,4 @@
 #### Mixing length model kernels
-
 """
     mixing_length(
         m::AtmosModel{FT},
@@ -8,8 +7,8 @@
         diffusive::Vars,
         aux::Vars,
         t::Real,
-        δ::Tuple,
-        εt::Tuple,
+        Δ::Tuple,
+        Et::Tuple,
         ts,
         env,
     ) where {FT}
@@ -21,8 +20,8 @@ Returns the mixing length used in the diffusive turbulence closure, given:
  - `diffusive`, additional variables
  - `aux`, auxiliary variables
  - `t`, the time
- - `δ`, the detrainment rate
- - `εt`, the turbulent entrainment rate
+ - `Δ`, the detrainment rate
+ - `Et`, the turbulent entrainment rate
  - `ts`, NamedTuple of thermodynamic states
  - `env`, NamedTuple of environment variables
 """
@@ -33,8 +32,8 @@ function mixing_length(
     diffusive::Vars,
     aux::Vars,
     t::Real,
-    δ::Tuple,
-    εt::Tuple,
+    Δ::Tuple,
+    Et::Tuple,
     ts,
     env,
 ) where {FT}
@@ -55,13 +54,14 @@ function mixing_length(
     Shear² = diffusive.turbconv.S²
     tke_en = max(en.ρatke, 0) * ρinv / env.a
 
+    # buoyancy related functions
+    # compute obukhov_length and ustar from SurfaceFlux.jl here
     ustar = m.turbconv.surface.ustar
     obukhov_length = m.turbconv.surface.obukhov_length
 
-    # buoyancy related functions
     ∂b∂z, Nˢ_eff = compute_buoyancy_gradients(m, state, diffusive, aux, t, ts)
     Grad_Ri = ∇Richardson_number(∂b∂z, Shear², 1 / ml.max_length, ml.Ri_c)
-    Pr_z = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
+    Pr_t = turbulent_Prandtl_number(ml.Pr_n, Grad_Ri, ml.ω_pr)
 
     # compute L1
     Nˢ_fact = (sign(Nˢ_eff - eps(FT)) + 1) / 2
@@ -84,16 +84,16 @@ function mixing_length(
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
-    a = ml.c_m * (Shear² - ∂b∂z / Pr_z) * sqrt(tke_en)
+    a = ml.c_m * (Shear² - ∂b∂z / Pr_t) * sqrt(tke_en)
     # Dissipation term
     b = FT(0)
     a_up = vuntuple(i -> up[i].ρa * ρinv, N_up)
     w_up = vuntuple(i -> up[i].ρaw / up[i].ρa, N_up)
     b = sum(
         ntuple(N_up) do i
-            a_up[i] * w_up[i] * δ[i] / env.a *
+            Δ[i] / gm.ρ / env.a *
             ((w_up[i] - env.w) * (w_up[i] - env.w) / 2 - tke_en) -
-            a_up[i] * w_up[i] * (w_up[i] - env.w) * εt[i] * env.w / env.a
+            (w_up[i] - env.w) * Et[i] / gm.ρ * env.w / env.a
         end,
     )
 
@@ -120,5 +120,5 @@ function mixing_length(
 
     l_mix =
         lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
-    return l_mix
+    return l_mix, ∂b∂z, Pr_t
 end;

@@ -58,10 +58,45 @@ OceanGyre
 ## Other (development)
 
 ```@meta
+CurrentModule = ClimateMachine.Ocean
+```
+
+```@docs
+HydrostaticBoussinesqSuperModel
+```
+
+```@meta
+CurrentModule = ClimateMachine.Ocean.JLD2Writers
+```
+
+```@docs
+JLD2Writer
+```
+
+```@meta
+CurrentModule = ClimateMachine.Ocean.Domains
+```
+
+```@docs
+RectangularDomain
+```
+
+```@meta
+CurrentModule = ClimateMachine.Ocean.Fields
+```
+
+```@docs
+SpectralElementField
+RectangularElement
+assemble
+```
+
+```@meta
 CurrentModule = ClimateMachine.Ocean.SplitExplicit01
 ```
 
 ```@docs
 SplitExplicitLSRK2nSolver
+SplitExplicitLSRK3nSolver
 OceanDGModel
 ```

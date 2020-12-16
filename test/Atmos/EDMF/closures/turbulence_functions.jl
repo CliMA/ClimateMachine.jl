@@ -145,6 +145,12 @@ Returns the turbulent Prandtl number, given:
  - `Grad_Ri`, the gradient Richardson number
 """
 function turbulent_Prandtl_number(Pr_n::FT, Grad_Ri::FT, ω_pr::FT) where {FT}
-    denom = 1 + ω_pr * Grad_Ri - sqrt((1 + ω_pr * Grad_Ri)^2 - 4 * Grad_Ri)
-    return Pr_n * 2 * Grad_Ri / denom
+    if Grad_Ri > FT(0)
+        factor =
+            2 * Grad_Ri /
+            (1 + ω_pr * Grad_Ri - sqrt((1 + ω_pr * Grad_Ri)^2 - 4 * Grad_Ri))
+    else
+        factor = FT(1)
+    end
+    return Pr_n * factor
 end;

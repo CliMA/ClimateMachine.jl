@@ -34,7 +34,7 @@ Base.@kwdef struct EntrainmentDetrainment{FT <: AbstractFloat}
     "Exponential area limiter amplitude"
     lim_amp::FT = 10
     "Minimum value for turb entr"
-    εt_min::FT = 1e-4
+    H_up_min::FT = 1e-4
 end
 
 """
@@ -179,7 +179,7 @@ Base.@kwdef struct MixingLengthModel{FT <: AbstractFloat}
     "Prandtl number empirical coefficient"
     ω_pr::FT = 53.0 / 13.0
     "Prandtl number scale"
-    Pr_n::FT = 1 #0.74
+    Pr_n::FT = 0.74
     "Critical Richardson number"
     Ri_c::FT = 0.25
     "Random small number variable that should be addressed"

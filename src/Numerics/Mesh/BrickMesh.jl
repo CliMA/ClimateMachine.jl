@@ -1086,5 +1086,44 @@ function connectmesh(
     )        # neighbor send ranges into `sendelems`
 end
 
+"""
+    (bndytoelem, bndytoface) = enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
+
+Update the `elemtoelem` array based on the boundary faces specified in
+`elemtobndy`. Builds the `bndytoelem` and `bndytoface` tuples.
+"""
+function enumerateboundaryfaces!(elemtoelem, elemtobndy, periodicity, boundary)
+    nb = 0
+    for i in 1:length(periodicity)
+        if !periodicity[i]
+            nb = max(nb, boundary[i]...)
+        end
+    end
+    # Limitation of the boundary condition unrolling in the DG kernels
+    # (should never be violated unless more general unstructured meshes are used
+    # since cube meshes only have 6 faces in 3D, and only 1 bcs is currently allowed
+    # per face)
+
+    @assert nb <= 6
+
+    bndytoelem = ntuple(b -> Vector{Int64}(), nb)
+    bndytoface = ntuple(b -> Vector{Int64}(), nb)
+
+    nface, nelem = size(elemtoelem)
+
+    N = zeros(Int, nb)
+    for e in 1:nelem
+        for f in 1:nface
+            d = elemtobndy[f, e]
+            @assert 0 <= d <= nb
+            if d != 0
+                elemtoelem[f, e] = N[d] += 1
+                push!(bndytoelem[d], e)
+                push!(bndytoface[d], f)
+            end
+        end
+    end
+    return (bndytoelem, bndytoface)
+end
 
 end # module

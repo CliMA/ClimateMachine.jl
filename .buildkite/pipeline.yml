@@ -246,6 +246,15 @@ steps:
       queue: central
       slurm_ntasks: 3
 
+  - label: "cpu_acousticwave_variable_degree"
+    key: "cpu_acousticwave_variable_degree"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
   - label: "cpu_mms_bc_atmos"
     key: "cpu_mms_bc_atmos"
     command:
@@ -277,6 +286,15 @@ steps:
     key: "cpu_direction_splitting_advection_diffusion"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/direction_splitting_advection_diffusion.jl --fix-rng-seed"
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_variable_degree_advection_diffusion"
+    key: "cpu_variable_degree_advection_diffusion"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/variable_degree_advection_diffusion.jl"
     agents:
       config: cpu
       queue: central
@@ -628,6 +646,16 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
+  - label: "gpu_acousticwave_variable_degree"
+    key: "gpu_acousticwave_variable_degree"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
   - label: "gpu_mms_bc_atmos"
     key: "gpu_mms_bc_atmos"
     command:
@@ -662,6 +690,16 @@ steps:
     key: "gpu_direction_splitting_advection_diffusion"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/direction_splitting_advection_diffusion.jl --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_variable_degree_advection_diffusion"
+    key: "gpu_variable_degree_advection_diffusion"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/variable_degree_advection_diffusion.jl"
     agents:
       config: gpu
       queue: central
@@ -1048,20 +1086,40 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
-  - label: "gpu_bomex_les"
-    key: "gpu_bomex_les"
+  - label: "gpu_squall_eq_no_precip"
+    key: "gpu_squall_eq_no_precip"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 600 --check-asserts yes --moisture-model equilibrium --precipitation-model noprecipitation"
     agents:
       config: gpu
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_squall_line"
-    key: "gpu_squall_line"
+  - label: "gpu_squall_eq_rain"
+    key: "gpu_squall_eq_rain"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 600 --check-asserts yes --moisture-model equilibrium --precipitation-model rain"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_squall_neq_rain_snow"
+    key: "gpu_squall_neq_rain_snow"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 600 --check-asserts yes --moisture-model nonequilibrium --precipitation-model rainsnow"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_les"
+    key: "gpu_bomex_les"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1082,6 +1140,16 @@ steps:
     key: "gpu_cbl_les"
     command:
       - "mpiexec julia --color=yes --project experiments/AtmosLES/convective_bl_les.jl --diagnostics=default --fix-rng-seed"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_cfsite"
+    key: "gpu_cfsite"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/cfsite_hadgem2-a_07_amip.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1206,16 +1274,6 @@ steps:
       config: gpu
       queue: central
       slurm_ntasks: 3
-      slurm_gres: "gpu:1"
-
-  - label: "gpu_test_simple_box"
-    key: "gpu_test_simple_box"
-    command:
-      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_simple_box.jl "
-    agents:
-      config: gpu
-      queue: central
-      slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
   - label: "gpu_simple_box_ivd"

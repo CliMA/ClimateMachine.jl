@@ -23,6 +23,7 @@ using ArgParse
 using LinearAlgebra
 using StaticArrays
 using Test
+using UnPack
 
 using ClimateMachine
 using ClimateMachine.Atmos

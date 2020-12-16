@@ -13,16 +13,16 @@ include(joinpath(@__DIR__, "compute_mse.jl"))
 best_mse = Dict()
 best_mse[:Bomex] = Dict()
 best_mse[:Bomex]["ρ"] = 3.4943021267397123e-02
-best_mse[:Bomex]["ρu[1]"] = 3.0714039084256697e+03
+best_mse[:Bomex]["ρu[1]"] = 3.0714039084256679e+03
 best_mse[:Bomex]["ρu[2]"] = 1.3375796498101822e-03
 best_mse[:Bomex]["moisture.ρq_tot"] = 4.8463531712319707e-02
-best_mse[:Bomex]["turbconv.environment.ρatke"] = 4.7760529270257848e+03
-best_mse[:Bomex]["turbconv.environment.ρaθ_liq_cv"] = 8.5663972837809141e+01
-best_mse[:Bomex]["turbconv.environment.ρaq_tot_cv"] = 1.6260195840899604e+02
-best_mse[:Bomex]["turbconv.updraft[1].ρa"] = 7.9888809513438588e+01
-best_mse[:Bomex]["turbconv.updraft[1].ρaw"] = 8.5229392101997301e-02
-best_mse[:Bomex]["turbconv.updraft[1].ρaθ_liq"] = 9.0175083910345997e+00
-best_mse[:Bomex]["turbconv.updraft[1].ρaq_tot"] = 1.0777046662295460e+01
+best_mse[:Bomex]["turbconv.environment.ρatke"] = 6.7458994186482869e+02
+best_mse[:Bomex]["turbconv.environment.ρaθ_liq_cv"] = 8.5667200477293633e+01
+best_mse[:Bomex]["turbconv.environment.ρaq_tot_cv"] = 1.6455670738880309e+02
+best_mse[:Bomex]["turbconv.updraft[1].ρa"] = 7.9547300082766554e+01
+best_mse[:Bomex]["turbconv.updraft[1].ρaw"] = 8.4294492216319045e-02
+best_mse[:Bomex]["turbconv.updraft[1].ρaθ_liq"] = 9.0095767705492662e+00
+best_mse[:Bomex]["turbconv.updraft[1].ρaq_tot"] = 1.0767427989197111e+01
 #! format: on
 
 sufficient_mse(computed_mse, best_mse) = computed_mse <= best_mse + eps()

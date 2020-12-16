@@ -1,6 +1,7 @@
 
 export AbstractSolverType
 export DiscreteSplittingType, HEVISplitting
+export getdtmodel
 
 """
     AbstractSolverType

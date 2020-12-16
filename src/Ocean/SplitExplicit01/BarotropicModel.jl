@@ -19,7 +19,9 @@ function init_state_prognostic!(
     localgeo,
     t,
 )
-    return ocean_init_state!(m, m.baroclinic.problem, Q, A, localgeo, t)
+    Q.U = @SVector [-0, -0]
+    Q.η = -0
+    return nothing
 end
 
 function vars_state(m::BarotropicModel, ::Auxiliary, T)
@@ -108,7 +110,7 @@ vars_state(m::BarotropicModel, ::DownwardIntegrals, T) = @vars()
         U = @SVector [Q.U[1], Q.U[2], 0]
         η = Q.η
         H = m.baroclinic.problem.H
-        g = grav(m.baroclinic.param_set)
+        g = m.baroclinic.grav
         Iʰ = @SMatrix [
             1 0
             0 1
@@ -160,7 +162,6 @@ end
     abs(SVector(m.baroclinic.cʰ, m.baroclinic.cʰ, m.baroclinic.cᶻ)' * n⁻)
 
 # We want not have jump penalties on η (since not a flux variable)
-#   ::Union{RusanovNumericalFlux, CentralNumericalFluxFirstOrder},
 function update_penalty!(
     ::RusanovNumericalFlux,
     ::BarotropicModel,
@@ -178,13 +179,16 @@ function update_penalty!(
     return nothing
 end
 
-# hack for handling multiple boundaries for now
-# will fix with a future update
-boundary_conditions(bm::BarotropicModel) = (
-    bm.baroclinic.problem.boundary_conditions[1],
-    bm.baroclinic.problem.boundary_conditions[1],
-    bm.baroclinic.problem.boundary_conditions[1],
-)
+boundary_conditions(bm::BarotropicModel) =
+    (bm.baroclinic.problem.boundary_conditions[1],)
+
+
+"""
+    boundary_state!(nf, bc, ::BarotropicModel, args...)
+
+applies boundary conditions for this model
+dispatches to a function in OceanBoundaryConditions.jl based on BC type defined by a problem such as SimpleBoxProblem.jl
+"""
 @inline function boundary_state!(nf, bc, bm::BarotropicModel, args...)
-    return _ocean_boundary_state!(nf, bc, bm, args...)
+    return ocean_model_boundary!(bm, bc, nf, args...)
 end

@@ -34,6 +34,33 @@ struct ProfileSet{AFT, QPT, PT}
     phase_type::PT  # Phase type (e.g., `PhaseDry`, `PhaseEquil`)
 end
 
+function Base.iterate(ps::ProfileSet, state = 1)
+    state > length(ps.z) && return nothing
+    nt = (
+        z = ps.z[state],
+        T = ps.T[state],
+        p = ps.p[state],
+        RS = ps.RS[state],
+        e_int = ps.e_int[state],
+        ρ = ps.ρ[state],
+        θ_liq_ice = ps.θ_liq_ice[state],
+        q_tot = ps.q_tot[state],
+        q_liq = ps.q_liq[state],
+        q_ice = ps.q_ice[state],
+        q_pt = ps.q_pt[state],
+        RH = ps.RH[state],
+        e_pot = ps.e_pot[state],
+        u = ps.u[state],
+        v = ps.v[state],
+        w = ps.w[state],
+        e_kin = ps.e_kin[state],
+        phase_type = ps.phase_type,
+    )
+    return (nt, state + 1)
+end
+Base.IteratorSize(::ProfileSet) = Base.HasLength()
+Base.length(ps::ProfileSet) = length(ps.z)
+
 """
     input_config(
         ArrayType;

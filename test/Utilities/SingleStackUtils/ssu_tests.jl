@@ -63,10 +63,6 @@ function test_hmean(
     Q::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
     state_vars_avg = get_horizontal_mean(grid, Q, vars)
     target = target_meanprof(grid)
     @test state_vars_avg["ρ"] ≈ target
@@ -77,10 +73,6 @@ function test_hvar(
     Q::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     target = target_varprof(grid)
     @test state_vars_var["ρ"] ≈ target
@@ -91,10 +83,6 @@ function test_horizontally_ave(
     Q_in::MPIStateArray,
     vars,
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
     Q = deepcopy(Q_in)
     state_vars_var = get_horizontal_variance(grid, Q, vars)
     i_vars = varsindex(vars, :ρ)
@@ -107,12 +95,9 @@ end
 function target_meanprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-    Nq = N + 1
-    Ntot = Nq * grid.topology.stacksize
+    Nqs = Ns .+ 1
+    Nq_v = Nqs[end]
+    Ntot = Nq_v * grid.topology.stacksize
     z = Array(get_z(grid))
     target =
         SVector{Ntot, T}([1.0 - 4.0 * (z_i - z[Ntot] / 2.0)^2 for z_i in z])
@@ -122,25 +107,22 @@ end
 function target_varprof(
     grid::DiscontinuousSpectralElementGrid{T, dim, Ns},
 ) where {T, dim, Ns}
-    # XXX: Needs updating for multiple polynomial orders
-    # Currently only support single polynomial order
-    @assert all(Ns[1] .== Ns)
-    N = Ns[1]
-    Nq = N + 1
+    Nqs = Ns .+ 1
+    Nq_v = Nqs[end]
     nvertelem = grid.topology.stacksize
-    Ntot = Nq * nvertelem
+    Ntot = Nq_v * nvertelem
     z = Array(get_z(grid))
-    x = z[1:Nq] * nvertelem
+    x = z[1:Nq_v] * nvertelem
     scaled_var = 0.0
-    for i in 1:Nq
-        for j in 1:Nq
+    for i in 1:Nq_v
+        for j in 1:Nq_v
             scaled_var = scaled_var + (2 - x[i] - x[j]) * (2 - x[i] - x[j])
         end
     end
     target = SVector{Ntot, Float64}([
         (1.0 - 4.0 * (z_i - z[Ntot] / 2.0)^2) *
         (1.0 - 4.0 * (z_i - z[Ntot] / 2.0)^2) *
-        (scaled_var / Nq / Nq - 1) for z_i in z
+        (scaled_var / Nq_v / Nq_v - 1) for z_i in z
     ])
     return target
 end

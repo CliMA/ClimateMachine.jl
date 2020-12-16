@@ -372,16 +372,16 @@ const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 # including prognostic, auxiliary, and
 # gradient flux variables:
 state_types = (Prognostic(), Auxiliary(), GradientFlux())
-all_data = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
+dons_arr = Dict[dict_of_nodal_states(solver_config, state_types; interp = true)]
 time_data = FT[0] # store time data
 
 # We specify a function which evaluates `every_x_simulation_time` and returns
 # the state vector, appending the variables we are interested in into
-# `all_data`.
+# `dons_arr`.
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-    push!(all_data, dons)
+    push!(dons_arr, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
@@ -392,7 +392,7 @@ ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 # Get the final state and create plots:
 dons = dict_of_nodal_states(solver_config, state_types; interp = true)
-push!(all_data, dons)
+push!(dons_arr, dons)
 push!(time_data, gettime(solver_config.solver));
 
 # Get z-coordinate
@@ -406,7 +406,7 @@ mkpath(output_dir);
 export_plot(
     z,
     time_data ./ (60 * 60 * 24),
-    all_data,
+    dons_arr,
     ("soil.water.ϑ_l",),
     joinpath(output_dir, "eq_moisture_plot.png");
     xlabel = "ϑ_l",
@@ -418,7 +418,7 @@ export_plot(
 export_plot(
     z,
     time_data[2:end] ./ (60 * 60 * 24),
-    all_data[2:end],
+    dons_arr[2:end],
     ("soil.water.K∇h[3]",),
     joinpath(output_dir, "eq_hydraulic_head_plot.png");
     xlabel = "K∇h (m/s)",
@@ -430,7 +430,7 @@ export_plot(
 export_plot(
     z,
     time_data ./ (60 * 60 * 24),
-    all_data,
+    dons_arr,
     ("soil.heat.T",),
     joinpath(output_dir, "eq_temperature_plot.png");
     xlabel = "T (K)",
@@ -442,7 +442,7 @@ export_plot(
 export_plot(
     z,
     time_data[2:end] ./ (60 * 60 * 24),
-    all_data[2:end],
+    dons_arr[2:end],
     ("soil.heat.κ∇T[3]",),
     joinpath(output_dir, "eq_heat_plot.png");
     xlabel = "κ∇T",

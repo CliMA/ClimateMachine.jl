@@ -59,7 +59,8 @@ For the conservation equation for
   the sink due to removing ``q_{tot}`` is computed as:
 ```math
 \begin{equation}
-\left. \sum_{j\in\{v,l,i\}}(I_j + \Phi)  \rho C(q_j \rightarrow q_p) \right|_{precip} =
+\left. \mathcal{S}_{\rho e} \right|_{precip} =
+  \left. \sum_{j\in\{v,l,i\}}(I_j + \Phi)  \rho C(q_j \rightarrow q_p) \right|_{precip} =
   \left[\lambda I_l + (1 - \lambda) I_i + \Phi \right]
   \rho \, \left.\mathcal{S}_{q_{tot}} \right|_{precip}
 \end{equation}

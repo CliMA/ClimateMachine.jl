@@ -98,7 +98,7 @@ function creategrid!(x1, x2, x3, e2c, ξ1, ξ2, ξ3)
 end
 
 """
-    computemetric!(x1, J, ξ1x1, sJ, n1, D)
+    computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
 
 Compute the 1-D metric terms from the element grid arrays `x1`. All the arrays
 are preallocated by the user and the (square) derivative matrix `D` should be
@@ -108,18 +108,19 @@ If `Nq = size(D, 1)` and `nelem = div(length(x1), Nq)` then the volume arrays
 `x1`, `J`, and `ξ1x1` should all have length `Nq * nelem`.  Similarly, the face
 arrays `sJ` and `n1` should be of length `nface * nelem` with `nface = 2`.
 """
-function computemetric!(x1, J, ξ1x1, sJ, n1, D)
+function computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
     Nq = size(D, 1)
     nelem = div(length(J), Nq)
     x1 = reshape(x1, (Nq, nelem))
     J = reshape(J, (Nq, nelem))
+    JcV = reshape(JcV, (Nq, nelem))
     ξ1x1 = reshape(ξ1x1, (Nq, nelem))
     nface = 2
     n1 = reshape(n1, (1, nface, nelem))
     sJ = reshape(sJ, (1, nface, nelem))
 
     @inbounds for e in 1:nelem
-        J[:, e] = D * x1[:, e]
+        JcV[:, e] = J[:, e] = D * x1[:, e]
     end
     ξ1x1 .= 1 ./ J
 
@@ -130,7 +131,7 @@ function computemetric!(x1, J, ξ1x1, sJ, n1, D)
 end
 
 """
-    computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D2)
+    computemetric!(x1, x2, J, JcV, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D2)
 
 Compute the 2-D metric terms from the element grid arrays `x1` and `x2`. All the
 arrays are preallocated by the user and the (square) derivative matrice `D1` and
@@ -142,13 +143,28 @@ then the volume arrays `x1`, `x2`, `J`, `ξ1x1`, `ξ2x1`, `ξ1x2`, and `ξ2x2`
 should all be of size `(Nq..., nelem)`.  Similarly, the face arrays `sJ`, `n1`,
 and `n2` should be of size `(maximum(Nq), nface, nelem)` with `nface = 4`
 """
-function computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D2)
+function computemetric!(
+    x1,
+    x2,
+    J,
+    JcV,
+    ξ1x1,
+    ξ2x1,
+    ξ1x2,
+    ξ2x2,
+    sJ,
+    n1,
+    n2,
+    D1,
+    D2,
+)
     T = eltype(x1)
     Nq = (size(D1, 1), size(D2, 1))
     nelem = div(length(J), prod(Nq))
     x1 = reshape(x1, (Nq..., nelem))
     x2 = reshape(x2, (Nq..., nelem))
     J = reshape(J, (Nq..., nelem))
+    JcV = reshape(JcV, (Nq..., nelem))
     ξ1x1 = reshape(ξ1x1, (Nq..., nelem))
     ξ2x1 = reshape(ξ2x1, (Nq..., nelem))
     ξ1x2 = reshape(ξ1x2, (Nq..., nelem))
@@ -171,6 +187,7 @@ function computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D
                 x1ξ2 += D2[j, n] * x1[i, n, e]
                 x2ξ2 += D2[j, n] * x2[i, n, e]
             end
+            JcV[i, j, e] = hypot(x1ξ2, x2ξ2)
             J[i, j, e] = x1ξ1 * x2ξ2 - x2ξ1 * x1ξ2
             ξ1x1[i, j, e] = x2ξ2 / J[i, j, e]
             ξ2x1[i, j, e] = -x2ξ1 / J[i, j, e]
@@ -210,7 +227,7 @@ function computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D1, D
 end
 
 """
-    computemetric!(x1, x2, x3, J, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
+    computemetric!(x1, x2, x3, J, JcV, ξ1x1, ξ2x1, ξ3x1, ξ1x2, ξ2x2, ξ3x2, ξ1x3,
                    ξ2x3, ξ3x3, sJ, n1, n2, n3, D)
 
 Compute the 3-D metric terms from the element grid arrays `x1`, `x2`, and `x3`.
@@ -234,6 +251,7 @@ function computemetric!(
     x2,
     x3,
     J,
+    JcV,
     ξ1x1,
     ξ2x1,
     ξ3x1,
@@ -262,6 +280,7 @@ function computemetric!(
     x2 = reshape(x2, (Nq..., nelem))
     x3 = reshape(x3, (Nq..., nelem))
     J = reshape(J, (Nq..., nelem))
+    JcV = reshape(JcV, (Nq..., nelem))
     ξ1x1 = reshape(ξ1x1, (Nq..., nelem))
     ξ2x1 = reshape(ξ2x1, (Nq..., nelem))
     ξ3x1 = reshape(ξ3x1, (Nq..., nelem))
@@ -318,6 +337,7 @@ function computemetric!(
                 x2ξ3 += D3[k, n] * x2[i, j, n, e]
                 x3ξ3 += D3[k, n] * x3[i, j, n, e]
             end
+            JcV[i, j, k, e] = hypot(x1ξ3, x2ξ3, x3ξ3)
             J[i, j, k, e] = (
                 x1ξ1 * (x2ξ2 * x3ξ3 - x3ξ2 * x2ξ3) +
                 x2ξ1 * (x3ξ2 * x1ξ3 - x1ξ2 * x3ξ3) +
@@ -452,9 +472,9 @@ function computemetric(x1::AbstractArray{T, 2}, D::AbstractMatrix{T}) where {T}
     sJ = Array{T, 3}(undef, 1, nface, nelem)
     n1 = Array{T, 3}(undef, 1, nface, nelem)
 
-    computemetric!(x1, J, ξ1x1, sJ, n1, D)
+    computemetric!(x1, J, JcV, ξ1x1, sJ, n1, D)
 
-    (J = J, ξ1x1 = ξ1x1, sJ = sJ, n1 = n1)
+    (J = J, JcV = JcV, ξ1x1 = ξ1x1, sJ = sJ, n1 = n1)
 end
 
 
@@ -488,6 +508,7 @@ function computemetric(
     nface = 4
 
     J = similar(x1)
+    JcV = similar(x1)
     ξ1x1 = similar(x1)
     ξ2x1 = similar(x1)
     ξ1x2 = similar(x1)
@@ -497,10 +518,11 @@ function computemetric(
     n1 = Array{T, 3}(undef, Nq, nface, nelem)
     n2 = Array{T, 3}(undef, Nq, nface, nelem)
 
-    computemetric!(x1, x2, J, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
+    computemetric!(x1, x2, J, JcV, ξ1x1, ξ2x1, ξ1x2, ξ2x2, sJ, n1, n2, D)
 
     (
         J = J,
+        JcV = JcV,
         ξ1x1 = ξ1x1,
         ξ2x1 = ξ2x1,
         ξ1x2 = ξ1x2,
@@ -555,6 +577,7 @@ function computemetric(
     nface = 6
 
     J = similar(x1)
+    JcV = similar(x1)
     ξ1x1 = similar(x1)
     ξ2x1 = similar(x1)
     ξ3x1 = similar(x1)
@@ -575,6 +598,7 @@ function computemetric(
         x2,
         x3,
         J,
+        JcV,
         ξ1x1,
         ξ2x1,
         ξ3x1,
@@ -593,6 +617,7 @@ function computemetric(
 
     (
         J = J,
+        JcV = JcV,
         ξ1x1 = ξ1x1,
         ξ2x1 = ξ2x1,
         ξ3x1 = ξ3x1,
