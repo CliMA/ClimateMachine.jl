@@ -201,6 +201,7 @@ end
 
 """
     PhaseEquil
+
 Moist thermodynamic phase, given
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `e_int` internal energy
@@ -209,9 +210,8 @@ Moist thermodynamic phase, given
 and, optionally
  - `maxiter` maximum iterations for saturation adjustment
  - `temperature_tol` temperature tolerance for saturation adjustment
- - `sat_adjust` function pointer to particular saturation adjustment method, options include
-    - `saturation_adjustment` uses Newtons method with analytic gradients
-    - `saturation_adjustment_SecantMethod` uses Secant method
+ - `sat_adjust_method` the numerical method to use.
+    See the [`Thermodynamics`](@ref) for options.
 """
 function PhaseEquil(
     param_set::APS,
@@ -220,11 +220,12 @@ function PhaseEquil(
     q_tot::FT,
     maxiter::Int = 8,
     temperature_tol::FT = FT(1e-1),
-    sat_adjust::Function = saturation_adjustment,
-) where {FT <: Real}
+    ::Type{sat_adjust_method} = NewtonsMethod,
+) where {FT <: Real, sat_adjust_method}
     phase_type = PhaseEquil
     q_tot_safe = clamp(q_tot, FT(0), FT(1))
-    T = sat_adjust(
+    T = saturation_adjustment(
+        sat_adjust_method,
         param_set,
         e_int,
         ρ,
@@ -234,6 +235,30 @@ function PhaseEquil(
         temperature_tol,
     )
     return PhaseEquil{FT, typeof(param_set)}(param_set, e_int, ρ, q_tot_safe, T)
+end
+
+# Convenience method for comparing Numerical
+# methods without having to specify maxiter
+# and temperature_tol. maxiter and temperature_tol
+# should be in sync with the PhaseEquil(...) constructor
+function PhaseEquil_dev_only(
+    param_set::APS,
+    e_int::FT,
+    ρ::FT,
+    q_tot::FT;
+    maxiter::Int = 8,
+    temperature_tol::FT = FT(1e-1),
+    sat_adjust_method::Type{NM} = NewtonsMethod,
+) where {FT <: Real, NM}
+    return PhaseEquil(
+        param_set,
+        e_int,
+        ρ,
+        q_tot,
+        maxiter,
+        temperature_tol,
+        sat_adjust_method,
+    )
 end
 
 """
@@ -364,6 +389,9 @@ Constructs a [`PhaseEquil`](@ref) thermodynamic state from temperature.
  - `p` pressure
  - `q_tot` total specific humidity
  - `perform_sat_adjust` Bool indicating to perform saturation adjustment
+ - `maxiter` maximum number of iterations to perform in saturation adjustment
+ - `sat_adjust_method` the numerical method to use.
+    See the [`Thermodynamics`](@ref) for options.
 """
 function PhaseEquil_ρpq(
     param_set::APS,
@@ -372,11 +400,13 @@ function PhaseEquil_ρpq(
     q_tot::FT,
     perform_sat_adjust = false,
     maxiter::Int = 5,
-) where {FT <: Real}
+    ::Type{sat_adjust_method} = NewtonsMethodAD,
+) where {FT <: Real, sat_adjust_method}
 
     phase_type = PhaseEquil
     if perform_sat_adjust
         T = saturation_adjustment_ρpq(
+            sat_adjust_method,
             param_set,
             ρ,
             p,
