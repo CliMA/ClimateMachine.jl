@@ -451,6 +451,7 @@ end
             ξ3x3 = vgeo[ijk, _ξ3x3, e]
 
             @unroll for n in 1:Nq3
+                # ξ3-grid lines
                 ∂Q∂ξ³ = D[n, k] * shared_flux[1, i, j]
                 local_tendency[n, 1] += ξ3x1 * ∂Q∂ξ³
                 local_tendency[n, 2] += ξ3x2 * ∂Q∂ξ³
@@ -485,6 +486,7 @@ end
         end
 
         @unroll for k in 1:Nq3 
+            # ξ3-grid lines
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             gradient[ijk, e, 1] += local_tendency[k, 1] 
             gradient[ijk, e, 2] += local_tendency[k, 2] 
