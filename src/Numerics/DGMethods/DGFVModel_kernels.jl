@@ -1,5 +1,8 @@
-using .FVReconstructions: FVConstant, FVLinear
-using ..BalanceLaws: prognostic_to_primitive!, primitive_to_prognostic!
+import .FVReconstructions: FVConstant, FVLinear
+import ..BalanceLaws:
+    prognostic_to_primitive!, primitive_to_prognostic!, Primitive
+import .FVReconstructions: width
+import StaticArrays: SUnitRange
 
 @doc """
     function vert_fvm_interface_tendency!(
@@ -44,354 +47,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     ::Val{nvertelem},
     ::Val{periodicstack},
     ::VerticalDirection,
-    ::FVConstant,
-    numerical_flux_first_order,
-    numerical_flux_second_order,
-    tendency,
-    state_prognostic,
-    state_gradient_flux,
-    state_auxiliary,
-    _,
-    sgeo,
-    t,
-    elemtobndy,
-    elems,
-    α,
-) where {info, nvertelem, periodicstack}
-    @uniform begin
-        dim = info.dim
-        FT = eltype(state_prognostic)
-        num_state_prognostic = number_states(balance_law, Prognostic())
-        num_state_gradient_flux = number_states(balance_law, GradientFlux())
-        num_state_auxiliary = number_states(balance_law, Auxiliary())
-        num_state_hyperdiffusion = number_states(balance_law, Hyperdiffusive())
-        @assert num_state_hyperdiffusion == 0
-
-        nface = info.nface
-        Np = info.Np
-        Nqk = info.Nqk # can only be 1 for the FVM method!
-        @assert Nqk == 1
-
-        # We only have the vertical faces
-        faces = (nface - 1):nface
-
-        local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_gradient_flux⁻ =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_hyperdiffusion⁻ =
-            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
-
-        local_state_prognostic⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_gradient_flux⁺ =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_hyperdiffusion⁺ =
-            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
-
-        local_state_prognostic_bottom1 =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_gradient_flux_bottom1 =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_auxiliary_bottom1 =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
-        # XXX: will revisit this later for FVM
-        fill!(local_state_prognostic_bottom1, NaN)
-        fill!(local_state_gradient_flux_bottom1, NaN)
-        fill!(local_state_auxiliary_bottom1, NaN)
-
-        local_flux_top = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_flux_bottom = MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        sM = MArray{Tuple{2}, FT}(undef)
-
-        # The remainder model needs to know which direction of face the model is
-        # being evaluated for. In this case we only have `VerticalDirection()`
-        # faces
-        face_direction = (EveryDirection(), VerticalDirection())
-    end
-
-    # Get the horizontal group IDs
-    grp_H = @index(Group, Linear)
-
-    # Determine the index for the element at the bottom of the stack
-    eHI = (grp_H - 1) * nvertelem + 1
-
-    # Compute bottom stack element index minus one (so we can add vert element
-    # number directly)
-    eH = elems[eHI] - 1
-
-    # Which degree of freedom do we handle in the element
-    n = @index(Local, Linear)
-
-    # Loads the data for a given element
-    function load_data!(
-        local_state_prognostic,
-        local_state_auxiliary,
-        local_state_gradient_flux,
-        e,
-    )
-        @unroll for s in 1:num_state_prognostic
-            local_state_prognostic[s] = state_prognostic[n, s, e]
-        end
-
-        @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary[s] = state_auxiliary[n, s, e]
-        end
-
-        @unroll for s in 1:num_state_gradient_flux
-            local_state_gradient_flux[s] = state_gradient_flux[n, s, e]
-        end
-    end
-
-    # We need to compute the first element we handles bottom flux (future
-    # elements will just copied from the prior element)
-    @inbounds begin
-        eV = 1
-
-        # Minus is the top
-        e⁻ = eH + eV
-
-        # bottom face
-        f⁻ = faces[1]
-
-        # surface mass
-        sM[1] = sgeo[_sM, n, f⁻, e⁻]
-
-        # outward normal for this face
-        normal_vector = SVector(
-            sgeo[_n1, n, f⁻, e⁻],
-            sgeo[_n2, n, f⁻, e⁻],
-            sgeo[_n3, n, f⁻, e⁻],
-        )
-
-        # determine the plus side element (bottom)
-        e⁺, bctag = if periodicstack
-            eH + nvertelem, 0
-        else
-            e⁻, elemtobndy[f⁻, e⁻]
-        end
-
-        # Load minus and plus side data
-        load_data!(
-            local_state_prognostic⁻,
-            local_state_auxiliary⁻,
-            local_state_gradient_flux⁻,
-            e⁻,
-        )
-        load_data!(
-            local_state_prognostic⁺,
-            local_state_auxiliary⁺,
-            local_state_gradient_flux⁺,
-            e⁺,
-        )
-
-        # compute the flux
-        fill!(local_flux_bottom, -zero(eltype(local_flux_bottom)))
-        if bctag == 0
-            numerical_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                local_flux_bottom,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                t,
-                face_direction,
-            )
-            numerical_flux_second_order!(
-                numerical_flux_second_order,
-                balance_law,
-                local_flux_bottom,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_gradient_flux⁺,
-                local_state_hyperdiffusion⁺,
-                local_state_auxiliary⁺,
-                t,
-            )
-        else
-            numerical_boundary_flux_first_order!(
-                numerical_flux_first_order,
-                bctag,
-                balance_law,
-                local_flux_bottom,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                t,
-                face_direction,
-                local_state_prognostic_bottom1,
-                local_state_auxiliary_bottom1,
-            )
-            numerical_boundary_flux_second_order!(
-                numerical_flux_second_order,
-                bctag,
-                balance_law,
-                local_flux_bottom,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_gradient_flux⁺,
-                local_state_hyperdiffusion⁺,
-                local_state_auxiliary⁺,
-                t,
-                local_state_prognostic_bottom1,
-                local_state_gradient_flux_bottom1,
-                local_state_auxiliary_bottom1,
-            )
-        end
-    end
-
-    # Loop up the vertical stack to update the minus side element (we have the
-    # bottom flux from the previous element, so only need to calculate the top
-    # flux)
-    @inbounds for eV in 1:nvertelem
-        e⁻ = eH + eV
-
-        # volume mass inverse
-        vMI = sgeo[_vMI, n, faces[1], e⁻]
-
-        # Compute the top face numerical flux
-        # The minus side is the bottom element
-        # The plus side is the top element
-        f⁻ = faces[2]
-
-        # surface mass
-        sM[2] = sgeo[_sM, n, f⁻, e⁻]
-
-        # normal with respect to the minus side
-        normal_vector = SVector(
-            sgeo[_n1, n, f⁻, e⁻],
-            sgeo[_n2, n, f⁻, e⁻],
-            sgeo[_n3, n, f⁻, e⁻],
-        )
-
-        # determine the plus side element (top)
-        e⁺, bctag = if eV != nvertelem
-            e⁻ + 1, 0
-        elseif periodicstack
-            eH + 1, 0
-        else
-            e⁻, elemtobndy[f⁻, e⁻]
-        end
-
-        # Load plus side data (minus data is already set)
-        load_data!(
-            local_state_prognostic⁺,
-            local_state_auxiliary⁺,
-            local_state_gradient_flux⁺,
-            e⁺,
-        )
-
-        # compute the flux
-        fill!(local_flux_top, -zero(eltype(local_flux_top)))
-        if bctag == 0
-            numerical_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                local_flux_top,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                t,
-                face_direction,
-            )
-            numerical_flux_second_order!(
-                numerical_flux_second_order,
-                balance_law,
-                local_flux_top,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_gradient_flux⁺,
-                local_state_hyperdiffusion⁺,
-                local_state_auxiliary⁺,
-                t,
-            )
-        else
-            numerical_boundary_flux_first_order!(
-                numerical_flux_first_order,
-                bctag,
-                balance_law,
-                local_flux_top,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                t,
-                face_direction,
-                local_state_prognostic_bottom1,
-                local_state_auxiliary_bottom1,
-            )
-            numerical_boundary_flux_second_order!(
-                numerical_flux_second_order,
-                bctag,
-                balance_law,
-                local_flux_top,
-                normal_vector,
-                local_state_prognostic⁻,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                local_state_auxiliary⁻,
-                local_state_prognostic⁺,
-                local_state_gradient_flux⁺,
-                local_state_hyperdiffusion⁺,
-                local_state_auxiliary⁺,
-                t,
-                local_state_prognostic_bottom1,
-                local_state_gradient_flux_bottom1,
-                local_state_auxiliary_bottom1,
-            )
-        end
-
-        # Update RHS M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
-        @unroll for s in 1:num_state_prognostic
-            # FIXME: Should we pretch these?
-            tendency[n, s, e⁻] -=
-                α *
-                vMI *
-                (sM[2] * (local_flux_top[s]) + sM[1] * (local_flux_bottom[s]))
-        end
-
-        # Set the flux bottom flux for the next element
-        local_flux_bottom .= -local_flux_top
-
-        # set the surface mass matrix
-        sM[1] = sM[2]
-
-        # the current plus side is the next minus side
-        local_state_prognostic⁻ .= local_state_prognostic⁺
-        local_state_auxiliary⁻ .= local_state_auxiliary⁺
-        local_state_gradient_flux⁻ .= local_state_gradient_flux⁺
-    end
-end
-
-@kernel function vert_fvm_interface_tendency!(
-    balance_law::BalanceLaw,
-    ::Val{info},
-    ::Val{nvertelem},
-    ::Val{periodicstack},
-    ::VerticalDirection,
-    reconstruction!::FVLinear,
+    reconstruction!,
     numerical_flux_first_order,
     numerical_flux_second_order,
     tendency,
@@ -409,98 +65,105 @@ end
         dim = info.dim
         FT = eltype(state_prognostic)
         num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_primitive = number_states(balance_law, Primitive())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
-        num_state_hyperdiffusion = number_states(balance_law, Hyperdiffusive())
-        @assert num_state_hyperdiffusion == 0
-
-        vsp = Vars{vars_state(balance_law, Prognostic(), FT)}
-        vsa = Vars{vars_state(balance_law, Auxiliary(), FT)}
+        num_state_hyperdiffusive = number_states(balance_law, Hyperdiffusive())
+        @assert num_state_hyperdiffusive == 0
 
         nface = info.nface
         Np = info.Np
         Nqk = info.Nqk # can only be 1 for the FVM method!
         @assert Nqk == 1
 
-        @assert nvertelem >= 3
-
         # We only have the vertical faces
         faces = (nface - 1):nface
 
-        # +/- indicate top/bottom elements
-        # top and bottom indicate face states
+        stencil_width = width(reconstruction!)
 
+        # If this fails the `@nif` below needs to change
+        @assert stencil_width < 4
+
+        # In the case of stencil_width = 0 we still need two values to evaluate
+        # the fluxes, so the minimum stencil diameter is 2
+        stencil_diameter = max(2, 2stencil_width + 1)
+
+        # Value in the stencil that corresponds to the top face with respect to
+        # face being updated
+        stencil_center = max(stencil_width, 1) + 1
+
+        # 1 → cell i, face i - 1/2
+        # 2 → cell i, face i + 1/2
+        local_state_face_prognostic = ntuple(Val(stencil_diameter)) do _
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        end
+
+        local_cell_weights = MArray{Tuple{stencil_diameter}, FT}(undef)
+
+        # Two mass matrix inverse corresponding to +/- cells
+        vMI = MArray{Tuple{2}, FT}(undef)
+
+        # Storing the value below element when walking up the stack
+        # cell i-1, face i - 1/2
+        local_state_face_prognostic_neighbor =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+
+        local_state_face_primitive = ntuple(Val(2)) do _
+            MArray{Tuple{num_state_primitive}, FT}(undef)
+        end
+
+        # Storage for all the values in the stencil
+        local_state_prognostic = ntuple(Val(stencil_diameter)) do _
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        end
+
+
+        # Need to wrap in SVector so we can use views later
+        local_state_primitive = SVector(ntuple(Val(stencil_diameter)) do _
+            MArray{Tuple{num_state_primitive}, FT}(undef)
+        end...)
+
+        local_state_auxiliary = ntuple(Val(stencil_diameter)) do _
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        end
+
+        # FIXME: These two arrays could be smaller
+        # (only 2 elements not stencil_diameter)
+        local_state_gradient_flux = ntuple(Val(stencil_diameter)) do _
+            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        end
+
+        local_state_hyperdiffusive = ntuple(Val(stencil_diameter)) do _
+            MArray{Tuple{num_state_hyperdiffusive}, FT}(undef)
+        end
+
+        # Storage for the numerical flux
         local_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
 
-        local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_prognostic⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_prognostic⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        local_state_primitive = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_primitive⁺ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_primitive⁻ = MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_auxiliary⁺ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_auxiliary⁻ = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
-        local_state_gradient_flux⁻ =
+        # Storage for the extra boundary points for some BCs
+        local_state_prognostic_bottom1 =
+            MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_state_gradient_flux_bottom1 =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_gradient_flux =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-        local_state_gradient_flux⁺ =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
-
-        local_state_hyperdiffusion⁻ =
-            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
-        local_state_hyperdiffusion =
-            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
-        local_state_hyperdiffusion⁺ =
-            MArray{Tuple{num_state_hyperdiffusion}, FT}(undef)
-
-        local_state_primitive_bottom =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_primitive_top =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        local_state_prognostic_bottom =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_prognostic_top =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        local_state_auxiliary_bottom =
+        local_state_auxiliary_bottom1 =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_auxiliary_top =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
-        local_state_prognostic⁻_top =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_prognostic⁺_bottom =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-
-        local_state_auxiliary⁻_top =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_auxiliary⁺_bottom =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
-
-
-        local_state_prognostic_boundary =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_state_auxiliary_boundary =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_gradient_flux_boundary =
-            MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
         # XXX: will revisit this later for FVM
-        fill!(local_state_prognostic_boundary, NaN)
-        fill!(local_state_auxiliary_boundary, NaN)
-        fill!(local_state_gradient_flux_boundary, NaN)
+        fill!(local_state_prognostic_bottom1, NaN)
+        fill!(local_state_gradient_flux_bottom1, NaN)
+        fill!(local_state_auxiliary_bottom1, NaN)
 
         # The remainder model needs to know which direction of face the model is
         # being evaluated for. In this case we only have `VerticalDirection()`
         # faces
         face_direction = (VerticalDirection())
     end
+
+    # Optimization ideas:
+    #  - More than 1 thread per stack
+    #  - shift pointers not data
+    #  - Don't keep wide stencil for all variables / data
+    #  - Don't load periodic data when domain is not periodic
 
     # Get the horizontal group IDs
     grp_H = @index(Group, Linear)
@@ -523,732 +186,414 @@ end
         e,
     )
         @unroll for s in 1:num_state_prognostic
-            local_state_prognostic[s] = state_prognostic[n, s, e]
+            @inbounds local_state_prognostic[s] = state_prognostic[n, s, e]
         end
 
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary[s] = state_auxiliary[n, s, e]
+            @inbounds local_state_auxiliary[s] = state_auxiliary[n, s, e]
         end
 
         @unroll for s in 1:num_state_gradient_flux
-            local_state_gradient_flux[s] = state_gradient_flux[n, s, e]
+            @inbounds local_state_gradient_flux[s] =
+                state_gradient_flux[n, s, e]
         end
     end
 
-    # We need to compute the first element we handles bottom flux (only for nonperiodic boundary condition)
-    # elements will just copied from the prior element)
+    # To update the first element we either need to apply a BCS on the bottom
+    # face in the nonperiodic case, or we need to reconstruct the periodic value
+    # for the bottom face
     @inbounds begin
-        eV = 1
-        # the first element
-        e = eH + eV
+        # If periodic we are doing the reconstruction in element periodically
+        # below the first element, otherwise we are reconstructing the first
+        # element
+        eV = periodicstack ? nvertelem : 1
 
-        # bottom face
-        f_bottom = faces[1]
-        # surface mass
-        sM_bottom = sgeo[_sM, n, f_bottom, e]
-        cw = vgeo[n, _M, e]
-        vMI = vgeo[n, _MI, e]
+        # Figure out the data we need
+        els = ntuple(Val(stencil_diameter)) do k
+            eH + mod1(eV - 1 + k - (stencil_center - 1), nvertelem)
+        end
 
-        # outward normal for this the bottom face
-        normal_vector_bottom = SVector(
-            sgeo[_n1, n, f_bottom, e],
-            sgeo[_n2, n, f_bottom, e],
-            sgeo[_n3, n, f_bottom, e],
-        )
+        # Load all the stencil data
+        @unroll for k in 1:stencil_diameter
+            load_data!(
+                local_state_prognostic[k],
+                local_state_auxiliary[k],
+                local_state_gradient_flux[k],
+                els[k],
+            )
+            # If local cell weights are NOT _M we need to load _vMI out of sgeo
+            local_cell_weights[k] = vgeo[n, _M, els[k]]
+        end
 
+        # transform all the data into primitive variables
+        @unroll for k in 1:stencil_diameter
+            prognostic_to_primitive!(
+                balance_law,
+                local_state_primitive[k],
+                local_state_prognostic[k],
+                local_state_auxiliary[k],
+            )
+        end
+        vMI[2] = 1 / local_cell_weights[stencil_center]
+
+        # If we are periodic we reconstruct the top and bottom values for eV
+        # then start with eV update in loop below
         if periodicstack
-            e⁻ = eH + nvertelem
-            e⁺ = e + 1
-            cw⁻ = vgeo[n, _M, e⁻]
-            cw⁺ = vgeo[n, _M, e⁺]
-
-            load_data!(
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                local_state_gradient_flux⁻,
-                e⁻,
-            )
-            load_data!(
-                local_state_prognostic,
-                local_state_auxiliary,
-                local_state_gradient_flux,
-                e,
-            )
-            load_data!(
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                local_state_gradient_flux⁺,
-                e⁺,
-            )
-
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive⁻,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-            )
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive,
-                local_state_prognostic,
-                local_state_auxiliary,
-            )
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive⁺,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-            )
-
-            cell_states_primitive = (
-                local_state_primitive⁻,
-                local_state_primitive,
-                local_state_primitive⁺,
-            )
-
-            cell_weights = SVector(cw⁻, cw, cw⁺)
-
-            # Linear Reconstuction
+            # Reconstruct the top and bottom values
+            rng1, rng2 = stencil_center .+ (-stencil_width, stencil_width)
+            rng = SUnitRange(rng1, rng2)
             reconstruction!(
-                local_state_primitive_bottom,
-                local_state_primitive_top,
-                cell_states_primitive,
-                cell_weights,
+                local_state_face_primitive[1],
+                local_state_face_primitive[2],
+                local_state_primitive[rng],
+                local_cell_weights[rng],
             )
 
-            # TODO
-            local_state_auxiliary_bottom .= local_state_auxiliary
-            local_state_auxiliary_top .= local_state_auxiliary
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_bottom,
-                local_state_primitive_bottom,
-                local_state_auxiliary_bottom,
-            )
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_top,
-                local_state_primitive_top,
-                local_state_auxiliary_top,
-            )
-
-            # this is used for the stack top element
-            local_state_prognostic⁺_bottom .= local_state_prognostic_bottom
-            local_state_auxiliary⁺_bottom .= local_state_auxiliary_bottom
-            local_state_prognostic⁻_top .= local_state_prognostic_top
-            local_state_auxiliary⁻_top .= local_state_auxiliary_top
-
+            # Transform the values back to prognostic state
+            @unroll for f in 1:2
+                primitive_to_prognostic!(
+                    balance_law,
+                    local_state_face_prognostic[f],
+                    local_state_face_primitive[f],
+                    # Use the cell auxiliary data
+                    local_state_auxiliary[stencil_center],
+                )
+            end
         else
 
-            e⁺ = e + 1
-            load_data!(
-                local_state_prognostic,
-                local_state_auxiliary,
-                local_state_gradient_flux,
-                e,
-            )
-            load_data!(
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                local_state_gradient_flux⁺,
-                e⁺,
+            bctag = elemtobndy[faces[1], eH + eV]
+
+            sM = sgeo[_sM, n, faces[1], eH + eV]
+            normal = SVector(
+                sgeo[_n1, n, faces[1], eH + eV],
+                sgeo[_n2, n, faces[1], eH + eV],
+                sgeo[_n3, n, faces[1], eH + eV],
             )
 
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive,
-                local_state_prognostic,
-                local_state_auxiliary,
-            )
-            cell_states_primitive = (local_state_primitive,)
-            cell_weights = SVector(cw)
-
-            # Constant reconstruction
+            # Reconstruction using only eVs cell value
+            rng = SUnitRange(stencil_center, stencil_center)
             reconstruction!(
-                local_state_primitive_bottom,
-                local_state_primitive_top,
-                cell_states_primitive,
-                cell_weights,
+                local_state_face_primitive[1],
+                local_state_face_primitive[2],
+                local_state_primitive[rng],
+                local_cell_weights[rng],
             )
 
-            # TODO
-            local_state_auxiliary_bottom .= local_state_auxiliary
-            local_state_auxiliary_top .= local_state_auxiliary
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_bottom,
-                local_state_primitive_bottom,
-                local_state_auxiliary_bottom,
-            )
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_top,
-                local_state_primitive_top,
-                local_state_auxiliary_top,
-            )
-
-            fill!(local_flux, -zero(eltype(local_flux)))
-            # TODO
-            bctag = elemtobndy[f_bottom, e]
-            local_state_prognostic⁻ .= local_state_prognostic_bottom
-            local_state_auxiliary⁻ .= local_state_auxiliary_bottom
-            numerical_boundary_flux_first_order!(
-                numerical_flux_first_order,
-                bctag,
-                balance_law,
-                local_flux,
-                normal_vector_bottom,
-                local_state_prognostic_bottom,
-                local_state_auxiliary_bottom,
-                # TODO 
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-                t,
-                face_direction,
-                local_state_prognostic_boundary,
-                local_state_auxiliary_boundary,
-            )
-
-            local_state_prognostic⁻ .= local_state_prognostic_bottom
-            local_state_gradient_flux⁻ .= local_state_gradient_flux
-            local_state_hyperdiffusion⁻ .= local_state_hyperdiffusion
-            local_state_auxiliary⁻ .= local_state_auxiliary_bottom
-            numerical_boundary_flux_second_order!(
-                numerical_flux_second_order,
-                bctag,
-                balance_law,
-                local_flux,
-                normal_vector_bottom,
-                #
-                local_state_prognostic_bottom,
-                local_state_gradient_flux,
-                local_state_hyperdiffusion,
-                local_state_auxiliary_bottom,
-                #
-                local_state_prognostic⁻,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                local_state_auxiliary⁻,
-                t,
-                local_state_prognostic_boundary,
-                local_state_gradient_flux_boundary,
-                local_state_auxiliary_boundary,
-            )
-
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e] -= α * vMI * sM_bottom * (local_flux[s])
+            # Transform the values back to prognostic state
+            @unroll for k in 1:2
+                primitive_to_prognostic!(
+                    balance_law,
+                    local_state_face_prognostic[k],
+                    local_state_face_primitive[k],
+                    # Use the cell auxiliary data
+                    local_state_auxiliary[stencil_center],
+                )
             end
 
-            #TODO
-            local_state_prognostic⁻_top .= local_state_prognostic_top
-            local_state_auxiliary⁻_top .= local_state_auxiliary_top
-
-        end
-    end
-
-    # Loop up the vertical stack to update the minus side element (we have the
-    # bottom flux from the previous element, so only need to calculate the top
-    # flux)
-    @inbounds for eV in 2:(nvertelem - 1)
-        e = eH + eV
-        e⁻ = e - 1
-        e⁺ = e + 1
-
-        # volume mass inverse
-        cw⁻, cw, cw⁺ = vgeo[n, _M, e⁻], vgeo[n, _M, e], vgeo[n, _M, e⁺]
-
-        # Compute the top face numerical flux
-        # The minus side is the bottom element
-        # The plus side is the top element
-        f_bottom = faces[1]
-        # surface mass
-        sM_bottom = sgeo[_sM, n, f_bottom, e]
-
-        # outward normal with respect to the element
-        normal_vector_bottom = SVector(
-            sgeo[_n1, n, f_bottom, e],
-            sgeo[_n2, n, f_bottom, e],
-            sgeo[_n3, n, f_bottom, e],
-        )
-
-
-        # Load plus side data (minus data is already set)
-        local_state_prognostic⁻ .= local_state_prognostic
-        local_state_auxiliary⁻ .= local_state_auxiliary
-        local_state_gradient_flux⁻ .= local_state_gradient_flux
-        local_state_prognostic .= local_state_prognostic⁺
-        local_state_auxiliary .= local_state_auxiliary⁺
-        local_state_gradient_flux .= local_state_gradient_flux⁺
-        load_data!(
-            local_state_prognostic⁺,
-            local_state_auxiliary⁺,
-            local_state_gradient_flux⁺,
-            e⁺,
-        )
-
-
-        prognostic_to_primitive!(
-            balance_law,
-            local_state_primitive⁻,
-            local_state_prognostic⁻,
-            local_state_auxiliary⁻,
-        )
-
-        prognostic_to_primitive!(
-            balance_law,
-            local_state_primitive,
-            local_state_prognostic,
-            local_state_auxiliary,
-        )
-
-        prognostic_to_primitive!(
-            balance_law,
-            local_state_primitive⁺,
-            local_state_prognostic⁺,
-            local_state_auxiliary⁺,
-        )
-
-
-        cell_states_primitive = (
-            local_state_primitive⁻,
-            local_state_primitive,
-            local_state_primitive⁺,
-        )
-
-        cell_weights = SVector(cw⁻, cw, cw⁺)
-
-        # Linear Reconstuction
-        reconstruction!(
-            local_state_primitive_bottom,
-            local_state_primitive_top,
-            cell_states_primitive,
-            cell_weights,
-        )
-
-        # TODO
-        local_state_auxiliary_bottom .= local_state_auxiliary
-        local_state_auxiliary_top .= local_state_auxiliary
-
-        primitive_to_prognostic!(
-            balance_law,
-            local_state_prognostic_bottom,
-            local_state_primitive_bottom,
-            local_state_auxiliary_bottom,
-        )
-
-        primitive_to_prognostic!(
-            balance_law,
-            local_state_prognostic_top,
-            local_state_primitive_top,
-            local_state_auxiliary_top,
-        )
-
-        ###  TODO HYDROSTATIC BALANCE RECONSTRUCTION
-
-        # compute the flux
-        fill!(local_flux, -zero(eltype(local_flux)))
-
-        numerical_flux_first_order!(
-            numerical_flux_first_order,
-            balance_law,
-            local_flux,
-            normal_vector_bottom,
-            local_state_prognostic_bottom,
-            local_state_auxiliary_bottom,
-            local_state_prognostic⁻_top,
-            local_state_auxiliary⁻_top,
-            t,
-            face_direction,
-        )
-
-        numerical_flux_second_order!(
-            numerical_flux_second_order,
-            balance_law,
-            local_flux,
-            normal_vector_bottom,
-            #
-            # local_state_prognostic_bottom,
-            local_state_prognostic,
-            local_state_gradient_flux,
-            local_state_hyperdiffusion,
-            # local_state_auxiliary_bottom,
-            local_state_auxiliary,
-            #
-            # local_state_prognostic⁻_top,
-            local_state_prognostic⁻,
-            local_state_gradient_flux⁻,
-            local_state_hyperdiffusion⁻,
-            # local_state_auxiliary⁻_top,
-            local_state_auxiliary⁻,
-            t,
-        )
-
-        # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
-        # TODO: This isn't correct:
-        # FIXME: Should we pretch these?
-        vMI = vgeo[n, _MI, e⁻]
-        @unroll for s in 1:num_state_prognostic
-            tendency[n, s, e⁻] += α * vMI * sM_bottom * (local_flux[s])
-        end
-        vMI = vgeo[n, _MI, e]
-        @unroll for s in 1:num_state_prognostic
-            tendency[n, s, e] -= α * vMI * sM_bottom * (local_flux[s])
-        end
-
-        local_state_prognostic⁻_top .= local_state_prognostic_top
-        local_state_auxiliary⁻_top .= local_state_auxiliary_top
-    end
-
-    # The top element
-    @inbounds begin
-        eV = nvertelem
-        # the first element
-        e = eH + eV
-        # bottom face
-        f_bottom, f_top = faces[1], faces[2]
-
-        # surface mass
-        sM_bottom, sM_top = sgeo[_sM, n, f_bottom, e], sgeo[_sM, n, f_top, e]
-        cw = vgeo[n, _M, e]
-        # outward normal for this face
-        # outward normal for this the bottom face
-        normal_vector_bottom = SVector(
-            sgeo[_n1, n, f_bottom, e],
-            sgeo[_n2, n, f_bottom, e],
-            sgeo[_n3, n, f_bottom, e],
-        )
-
-        # outward normal for this the bottom face
-        normal_vector_top = SVector(
-            sgeo[_n1, n, f_top, e],
-            sgeo[_n2, n, f_top, e],
-            sgeo[_n3, n, f_top, e],
-        )
-
-        if periodicstack
-
-            e⁻ = e - 1
-            e⁺ = eH + 1
-            cw⁻ = vgeo[n, _M, e⁻]
-            cw⁺ = vgeo[n, _M, e⁺]
-
-            local_state_prognostic⁻ .= local_state_prognostic
-            local_state_auxiliary⁻ .= local_state_auxiliary
-            local_state_gradient_flux⁻ .= local_state_gradient_flux
-            local_state_prognostic .= local_state_prognostic⁺
-            local_state_auxiliary .= local_state_auxiliary⁺
-            local_state_gradient_flux .= local_state_gradient_flux⁺
-            load_data!(
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-                local_state_gradient_flux⁺,
-                e⁺,
-            )
-
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive⁻,
-                local_state_prognostic⁻,
-                local_state_auxiliary⁻,
-            )
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive,
-                local_state_prognostic,
-                local_state_auxiliary,
-            )
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive⁺,
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
-            )
-
-            cell_states_primitive = (
-                local_state_primitive⁻,
-                local_state_primitive,
-                local_state_primitive⁺,
-            )
-
-            cell_weights = SVector(cw⁻, cw, cw⁺)
-
-            # Linear Reconstuction
-            reconstruction!(
-                local_state_primitive_bottom,
-                local_state_primitive_top,
-                cell_states_primitive,
-                cell_weights,
-            )
-
-            # TODO
-            local_state_auxiliary_bottom .= local_state_auxiliary
-            local_state_auxiliary_top .= local_state_auxiliary
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_bottom,
-                local_state_primitive_bottom,
-                local_state_auxiliary_bottom,
-            )
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_top,
-                local_state_primitive_top,
-                local_state_auxiliary_top,
-            )
-
-            # compute the bottom flux
-            fill!(local_flux, -zero(eltype(local_flux)))
-
-            numerical_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                local_flux,
-                normal_vector_bottom,
-                local_state_prognostic_bottom,
-                local_state_auxiliary_bottom,
-                local_state_prognostic⁻_top,
-                local_state_auxiliary⁻_top,
-                t,
-                face_direction,
-            )
-
-            numerical_flux_second_order!(
-                numerical_flux_second_order,
-                balance_law,
-                local_flux,
-                normal_vector_bottom,
-                #
-                # local_state_prognostic_bottom,
-                local_state_prognostic,
-                local_state_gradient_flux,
-                local_state_hyperdiffusion,
-                # local_state_auxiliary_bottom,
-                local_state_auxiliary,
-                #
-                # local_state_prognostic⁻_top,
-                local_state_prognostic⁻,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                # local_state_auxiliary⁻_top,
-                local_state_auxiliary⁻,
-                t,
-            )
-
-            # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
-            # TODO: This isn't correct:
-            # FIXME: Should we pretch these?
-            vMI = vgeo[n, _MI, e⁻]
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e⁻] += α * vMI * sM_bottom * (local_flux[s])
-            end
-            vMI = vgeo[n, _MI, e]
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e] -= α * vMI * sM_bottom * (local_flux[s])
-            end
-
-            # compute the top flux
-            fill!(local_flux, -zero(eltype(local_flux)))
-
-            numerical_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                local_flux,
-                normal_vector_top,
-                local_state_prognostic_top,
-                local_state_auxiliary_top,
-                local_state_prognostic⁺_bottom,
-                local_state_auxiliary⁺_bottom,
-                t,
-                face_direction,
-            )
-
-            numerical_flux_second_order!(
-                numerical_flux_second_order,
-                balance_law,
-                local_flux,
-                normal_vector_top,
-                #
-                # local_state_prognostic_top,
-                local_state_prognostic,
-                local_state_gradient_flux,
-                local_state_hyperdiffusion,
-                # local_state_auxiliary_top,
-                local_state_auxiliary,
-                #
-                # local_state_prognostic⁺_bottom,
-                local_state_prognostic⁺,
-                local_state_gradient_flux⁺,
-                local_state_hyperdiffusion⁺,
-                # local_state_auxiliary⁺_bottom,
-                local_state_auxiliary⁺,
-                t,
-            )
-
-            # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
-
-            vMI = vgeo[n, _MI, e]
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e] -= α * vMI * sM_top * (local_flux[s])
-            end
-            vMI = vgeo[n, _MI, e⁺]
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e⁺] += α * vMI * sM_top * (local_flux[s])
-            end
-
-
-        else
-            e⁻ = e - 1
-
-            # Reset arrays to the top element value
-            local_state_gradient_flux⁻ .= local_state_gradient_flux
-            local_state_prognostic .= local_state_prognostic⁺
-            local_state_auxiliary .= local_state_auxiliary⁺
-            local_state_gradient_flux .= local_state_gradient_flux⁺
-            local_state_auxiliary_bottom .= local_state_auxiliary
-            local_state_auxiliary_top .= local_state_auxiliary
-
-            prognostic_to_primitive!(
-                balance_law,
-                local_state_primitive,
-                local_state_prognostic,
-                local_state_auxiliary,
-            )
-            cell_states_primitive = (local_state_primitive,)
-            cell_weights = SVector(cw)
-
-            # Constant reconstruction
-            reconstruction!(
-                local_state_primitive_bottom,
-                local_state_primitive_top,
-                cell_states_primitive,
-                cell_weights,
-            )
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_bottom,
-                local_state_primitive_bottom,
-                local_state_auxiliary_bottom,
-            )
-
-            primitive_to_prognostic!(
-                balance_law,
-                local_state_prognostic_top,
-                local_state_primitive_top,
-                local_state_auxiliary_top,
-            )
-
-            # bottom flux
-            fill!(local_flux, -zero(eltype(local_flux)))
-
-            numerical_flux_first_order!(
-                numerical_flux_first_order,
-                balance_law,
-                local_flux,
-                normal_vector_bottom,
-                local_state_prognostic_bottom,
-                local_state_auxiliary_bottom,
-                local_state_prognostic⁻_top,
-                local_state_auxiliary⁻_top,
-                t,
-                face_direction,
-            )
-
-            numerical_flux_second_order!(
-                numerical_flux_second_order,
-                balance_law,
-                local_flux,
-                normal_vector_bottom,
-                #
-                local_state_prognostic_bottom,
-                local_state_gradient_flux,
-                local_state_hyperdiffusion,
-                local_state_auxiliary_bottom,
-                #
-                local_state_prognostic⁻_top,
-                local_state_gradient_flux⁻,
-                local_state_hyperdiffusion⁻,
-                local_state_auxiliary⁻_top,
-                t,
-            )
-
-
-
-
-            # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ + Fᵛⁱˢᶜ⋆))
-            # TODO: This isn't correct:
-            # FIXME: Should we pretch these?
-            vMI = vgeo[n, _MI, e]
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e] -= α * vMI * sM_bottom * (local_flux[s])
-            end
-            vMI = vgeo[n, _MI, e⁻]
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e⁻] += α * vMI * sM_bottom * (local_flux[s])
-            end
-
-
-            bctag = elemtobndy[f_top, e]
-
-            fill!(local_flux, -zero(eltype(local_flux)))
-
-            local_state_prognostic⁺ .= local_state_prognostic_top
-            local_state_auxiliary⁺ .= local_state_auxiliary_top
+            # Fill ghost cell data
+            fill!(local_flux, -zero(FT))
+            local_state_face_prognostic_neighbor .=
+                local_state_face_prognostic[1]
+            local_state_auxiliary[stencil_center - 1] .=
+                local_state_auxiliary[stencil_center]
 
             numerical_boundary_flux_first_order!(
                 numerical_flux_first_order,
                 bctag,
                 balance_law,
                 local_flux,
-                normal_vector_top,
-                local_state_prognostic_top,
-                local_state_auxiliary_top,
-                #TODO
-                local_state_prognostic⁺,
-                local_state_auxiliary⁺,
+                normal,
+                local_state_face_prognostic[1],
+                local_state_auxiliary[stencil_center],
+                local_state_face_prognostic_neighbor,
+                local_state_auxiliary[stencil_center - 1],
                 t,
                 face_direction,
-                local_state_prognostic_boundary,
-                local_state_auxiliary_boundary,
+                local_state_prognostic_bottom1,
+                local_state_auxiliary_bottom1,
             )
 
-            local_state_prognostic⁺ .= local_state_prognostic_top
-            local_state_gradient_flux⁺ .= local_state_gradient_flux
-            local_state_hyperdiffusion⁺ .= local_state_hyperdiffusion
-            local_state_auxiliary⁺ .= local_state_auxiliary_top
+            # Fill / reset ghost cell data
+            local_state_prognostic[stencil_center - 1] .=
+                local_state_prognostic[stencil_center]
+            local_state_gradient_flux[stencil_center - 1] .=
+                local_state_gradient_flux[stencil_center]
+            local_state_hyperdiffusive[stencil_center - 1] .=
+                local_state_hyperdiffusive[stencil_center]
+            local_state_auxiliary[stencil_center - 1] .=
+                local_state_auxiliary[stencil_center]
 
             numerical_boundary_flux_second_order!(
                 numerical_flux_second_order,
                 bctag,
                 balance_law,
                 local_flux,
-                normal_vector_top,
-                #
-                local_state_prognostic_top,
-                local_state_gradient_flux,
-                local_state_hyperdiffusion,
-                local_state_auxiliary_top,
-                #
-                local_state_prognostic⁺,
-                local_state_gradient_flux⁺,
-                local_state_hyperdiffusion⁺,
-                local_state_auxiliary⁺,
-                #
+                normal,
+                local_state_prognostic[stencil_center],
+                local_state_gradient_flux[stencil_center],
+                local_state_hyperdiffusive[stencil_center],
+                local_state_auxiliary[stencil_center],
+                local_state_prognostic[stencil_center - 1],
+                local_state_gradient_flux[stencil_center - 1],
+                local_state_hyperdiffusive[stencil_center - 1],
+                local_state_auxiliary[stencil_center - 1],
                 t,
-                local_state_prognostic_boundary,
-                local_state_gradient_flux_boundary,
-                local_state_auxiliary_boundary,
+                local_state_prognostic_bottom1,
+                local_state_gradient_flux_bottom1,
+                local_state_auxiliary_bottom1,
             )
 
-            vMI = vgeo[n, _MI, e]
+            # Compute boundary flux and add it in bottom element of the mesh
             @unroll for s in 1:num_state_prognostic
-                tendency[n, s, e] -= α * vMI * sM_top * (local_flux[s])
+                tendency[n, s, eH + eV] -= α * sM * vMI[2] * local_flux[s]
+            end
+        end
+
+        # The rest of the elements in the stack
+        # Compute flux and update for face between elements eV and eV - 1
+        #    top face of eV - 1
+        #    bottom face of eV
+        # For the reconstruction arrays `stencil_center - 1` corresponds to `eV
+        # - 1` and `stencil_center` corresponds to `eV`
+        #
+        # Loop for periodic case has to go beyond the top element so we compute
+        # the flux through the top face of vertical element `nvertelem` and
+        # bottom face of vertical element 1
+        for eV_up in (periodicstack ? (1:nvertelem) : (2:nvertelem))
+            # mod1 handles periodicity
+            eV_dn = mod1(eV_up - 1, nvertelem)
+
+            # shift data in storage in order to load new upper element for
+            # reconstruction
+            # FIXME: shift pointers not data?
+            @unroll for k in 1:(stencil_diameter - 1)
+                local_state_prognostic[k] .= local_state_prognostic[k + 1]
+                local_state_primitive[k] .= local_state_primitive[k + 1]
+                local_state_auxiliary[k] .= local_state_auxiliary[k + 1]
+                local_state_gradient_flux[k] .= local_state_gradient_flux[k + 1]
+                local_cell_weights[k] = local_cell_weights[k + 1]
+            end
+
+            # Update volume mass inverse as we move up the stack of elements
+            vMI[1] = vMI[2]
+
+            # Load surface metrics for the face we will update (bottom face of
+            # `eV_up`)
+            sM = sgeo[_sM, n, faces[1], eH + eV_up]
+            normal = SVector(
+                sgeo[_n1, n, faces[1], eH + eV_up],
+                sgeo[_n2, n, faces[1], eH + eV_up],
+                sgeo[_n3, n, faces[1], eH + eV_up],
+            )
+
+            # Reconstruction for eV_dn was computed in last time through the
+            # loop, so we need to store the upper reconstructed values to
+            # compute flux for this face
+            local_state_face_prognostic_neighbor .=
+                local_state_face_prognostic[2]
+
+            # Next data we need to load (assume periodic, mod1, for now  will
+            # mask out below as needed for boundary conditions)
+            eV_load = mod1(eV_up + stencil_width, nvertelem)
+
+            # get element number
+            e_load = eH + eV_load
+
+            # Load the next cell into the end of the element arrays
+            load_data!(
+                local_state_prognostic[stencil_diameter],
+                local_state_auxiliary[stencil_diameter],
+                local_state_gradient_flux[stencil_diameter],
+                e_load,
+            )
+
+            # Get local volume mass matrix inverse
+            local_cell_weights[stencil_diameter] = vgeo[n, _M, e_load]
+            vMI[2] = 1 / local_cell_weights[stencil_center]
+
+            # tranform the prognostic data to primitive data
+            prognostic_to_primitive!(
+                balance_law,
+                local_state_primitive[stencil_diameter],
+                local_state_prognostic[stencil_diameter],
+                local_state_auxiliary[stencil_diameter],
+            )
+
+            # Do the reconstruction! for this cell and compute the values at the
+            # bottom (1) and top (2) faces of element `eV_up`
+            if periodicstack ||
+               stencil_width < eV_up < nvertelem - stencil_width + 1
+                # If we are in the interior or periodic just use the
+                # reconstruction
+                rng1, rng2 = stencil_center .+ (-stencil_width, stencil_width)
+                rng = SUnitRange(rng1, rng2)
+                reconstruction!(
+                    local_state_face_primitive[1],
+                    local_state_face_primitive[2],
+                    local_state_primitive[rng],
+                    local_cell_weights[rng],
+                )
+            elseif eV_up <= stencil_width
+                # Bottom of the element stack requires reconstruct using a
+                # subset of the elements
+                # Values around stencil center that we need for this
+                # reconstruction
+                Base.Cartesian.@nif 4 w -> (eV_up == w) w -> begin
+                    rng1, rng2 = stencil_center .+ (1 - w, w - 1)
+                    rng = SUnitRange(rng1, rng2)
+                    reconstruction!(
+                        local_state_face_primitive[1],
+                        local_state_face_primitive[2],
+                        local_state_primitive[rng],
+                        local_cell_weights[rng],
+                    )
+                end w -> throw(BoundsError(local_state_primitive, w))
+            elseif eV_up >= nvertelem - stencil_width + 1
+                # Top of the element stack requires reconstruct using a
+                # subset of the elements
+                Base.Cartesian.@nif 4 w -> (w == (nvertelem - eV_up + 1)) w ->
+                    begin
+                        rng1, rng2 = stencil_center .+ (1 - w, w - 1)
+                        rng = SUnitRange(rng1, rng2)
+                        reconstruction!(
+                            local_state_face_primitive[1],
+                            local_state_face_primitive[2],
+                            local_state_primitive[rng],
+                            local_cell_weights[rng],
+                        )
+                    end w -> throw(BoundsError(local_state_primitive, w))
+            end
+
+            # Transform reconstructed primitive values to prognostic
+            @unroll for k in 1:2
+                primitive_to_prognostic!(
+                    balance_law,
+                    local_state_face_prognostic[k],
+                    local_state_face_primitive[k],
+                    # Use the cell auxiliary data
+                    local_state_auxiliary[stencil_center],
+                )
+            end
+
+            # Compute the flux for the bottom face of the element we are
+            # considering
+            fill!(local_flux, -zero(FT))
+            numerical_flux_first_order!(
+                numerical_flux_first_order,
+                balance_law,
+                local_flux,
+                normal,
+                local_state_face_prognostic[1],
+                local_state_auxiliary[stencil_center],
+                local_state_face_prognostic_neighbor,
+                local_state_auxiliary[stencil_center - 1],
+                t,
+                face_direction,
+            )
+
+            numerical_flux_second_order!(
+                numerical_flux_second_order,
+                balance_law,
+                local_flux,
+                normal,
+                local_state_prognostic[stencil_center],
+                local_state_gradient_flux[stencil_center],
+                local_state_hyperdiffusive[stencil_center],
+                local_state_auxiliary[stencil_center],
+                local_state_prognostic[stencil_center - 1],
+                local_state_gradient_flux[stencil_center - 1],
+                local_state_hyperdiffusive[stencil_center - 1],
+                local_state_auxiliary[stencil_center - 1],
+                t,
+            )
+
+            # Update the bottom element:
+            # numerical flux is computed with respect to the top element, so
+            # `+=` is used to reverse the flux
+            @unroll for s in 1:num_state_prognostic
+                tendency[n, s, eH + eV_dn] += α * sM * vMI[1] * local_flux[s]
+            end
+
+            # Update the top element
+            @unroll for s in 1:num_state_prognostic
+                tendency[n, s, eH + eV_up] -= α * sM * vMI[2] * local_flux[s]
+            end
+
+            # If we have a boundary and we are on the top element update the
+            # boundary face
+            if !periodicstack && eV_up == nvertelem
+                # Load surface metrics for the face we will update
+                # (top face of `eV_up`)
+                bctag = elemtobndy[faces[2], eH + eV_up]
+                sM = sgeo[_sM, n, faces[2], eH + eV_up]
+                normal = SVector(
+                    sgeo[_n1, n, faces[2], eH + eV_up],
+                    sgeo[_n2, n, faces[2], eH + eV_up],
+                    sgeo[_n3, n, faces[2], eH + eV_up],
+                )
+
+                # Since we are at the last element to update, we can safely use
+                # `stencil_center - 1` to store the ghost data
+
+                fill!(local_flux, -zero(FT))
+
+                # Fill ghost cell data
+                # Use the top reconstruction (since handling top face)
+                local_state_face_prognostic_neighbor .=
+                    local_state_face_prognostic[2]
+                local_state_auxiliary[stencil_center - 1] .=
+                    local_state_auxiliary[stencil_center]
+                numerical_boundary_flux_first_order!(
+                    numerical_flux_first_order,
+                    bctag,
+                    balance_law,
+                    local_flux,
+                    normal,
+                    # Use the top reconstruction (since handling top face)
+                    local_state_face_prognostic[2],
+                    local_state_auxiliary[stencil_center],
+                    local_state_face_prognostic_neighbor,
+                    local_state_auxiliary[stencil_center - 1],
+                    t,
+                    face_direction,
+                    local_state_prognostic_bottom1,
+                    local_state_auxiliary_bottom1,
+                )
+
+                # Fill / reset ghost cell data
+                local_state_prognostic[stencil_center - 1] .=
+                    local_state_prognostic[stencil_center]
+                local_state_gradient_flux[stencil_center - 1] .=
+                    local_state_gradient_flux[stencil_center]
+                local_state_hyperdiffusive[stencil_center - 1] .=
+                    local_state_hyperdiffusive[stencil_center]
+                local_state_auxiliary[stencil_center - 1] .=
+                    local_state_auxiliary[stencil_center]
+                numerical_boundary_flux_second_order!(
+                    numerical_flux_second_order,
+                    bctag,
+                    balance_law,
+                    local_flux,
+                    normal,
+                    local_state_prognostic[stencil_center],
+                    local_state_gradient_flux[stencil_center],
+                    local_state_hyperdiffusive[stencil_center],
+                    local_state_auxiliary[stencil_center],
+                    local_state_prognostic[stencil_center - 1],
+                    local_state_gradient_flux[stencil_center - 1],
+                    local_state_hyperdiffusive[stencil_center - 1],
+                    local_state_auxiliary[stencil_center - 1],
+                    t,
+                    local_state_prognostic_bottom1,
+                    local_state_gradient_flux_bottom1,
+                    local_state_auxiliary_bottom1,
+                )
+
+                # In this case we only update the element eV_up (not eV_dn)
+                @unroll for s in 1:num_state_prognostic
+                    tendency[n, s, eH + eV_up] -=
+                        α * sM * vMI[2] * local_flux[s]
+                end
             end
         end
     end

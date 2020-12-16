@@ -1,5 +1,6 @@
 module FVReconstructions
 using KernelAbstractions.Extras: @unroll
+import StaticArrays: SUnitRange, SVector
 
 """
     AbstractReconstruction
@@ -10,7 +11,7 @@ Concrete types must provide implementions of
     - `width(recon)`
        returns the width of the reconstruction. Total number of points used in
        reconstruction of top and bottom states is `2width(recon) + 1`
-       - (::AbstractReconstruction)(state_top, state_bottom, cell_states::NTuple,
+       - (::AbstractReconstruction)(state_top, state_bottom, cell_states::SVector,
                                     cell_weights)
       compute the reconstruction
 
@@ -57,9 +58,9 @@ struct FVConstant <: AbstractReconstruction end
 
 width(::FVConstant) = 0
 
-function (::FVConstant)(state_bot, state_top, cell_states::NTuple{1}, _)
-    state_top .= cell_states[1]
-    state_bot .= cell_states[1]
+function (::FVConstant)(state_bot, state_top, cell_states::SVector{1}, _)
+    @inbounds state_top .= cell_states[1]
+    @inbounds state_bot .= cell_states[1]
 end
 """
     FVLinear{W = 1} <: AbstractReconstruction
@@ -99,11 +100,11 @@ width(::FVLinear{W}) where {W} = W
 function (fvrecon::FVLinear)(
     state_bot,
     state_top,
-    cell_states::NTuple{3},
+    cell_states::SVector{3},
     cell_weights,
 )
-    wi_top = 1 / (cell_weights[3] + cell_weights[2])
-    wi_bot = 1 / (cell_weights[2] + cell_weights[1])
+    @inbounds wi_top = 1 / (cell_weights[3] + cell_weights[2])
+    @inbounds wi_bot = 1 / (cell_weights[2] + cell_weights[1])
     @inbounds @unroll for s in 1:length(state_top)
         # Compute the edge gradient approximations
         Δ_top = wi_top * (cell_states[3][s] - cell_states[2][s])
@@ -121,7 +122,7 @@ end
 function (fvrecon::FVLinear)(
     state_bot,
     state_top,
-    cell_states::NTuple{1},
+    cell_states::SVector{1},
     cell_weights,
 )
     FVConstant()(state_bot, state_top, cell_states, cell_weights)
@@ -130,16 +131,12 @@ end
 function (fvrecon::FVLinear)(
     state_bot,
     state_top,
-    cell_states::NTuple{D},
+    cell_states::SVector{D},
     cell_weights,
 ) where {D}
     W = div(D - 1, 2)
-    fvrecon(
-        state_bot,
-        state_top,
-        cell_states[W .+ (0:2)],
-        cell_weights[W .+ (0:2)],
-    )
+    rng = SUnitRange(W, W + 2)
+    @inbounds fvrecon(state_bot, state_top, cell_states[rng], cell_weights[rng])
 end
 
 """
