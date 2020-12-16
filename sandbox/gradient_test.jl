@@ -22,7 +22,7 @@ ClimateMachine.gpu_allowscalar(true)
 if 2 == ndims(Ω)
     grid = DiscontinuousSpectralElementGrid(Ω, elements = (1,1), polynomialorder = (4,4), array = ArrayType)
 else
-    grid = DiscontinuousSpectralElementGrid(Ω, elements = (10,2,2), polynomialorder = (3,3,3), array = ArrayType)
+    grid = DiscontinuousSpectralElementGrid(Ω, elements = (10,2,10), polynomialorder = (3,3,3), array = ArrayType)
 end
 
 x, y, z = coordinates(grid)
@@ -42,11 +42,33 @@ cartesian_∇Q = copy(∇Q) .* 0.0
 event = launch_volume_gradient!(grid, ∇Q, Q, nrealelem, device)
 wait(event)
 
-## Test Block 1: Volume Test
+## Test Block 1: Volume Test, x-direction
 @. Q.realdata[:,:, 1] = sin(π*x)
 @. exact_∇Q.realdata[:,:, 1] =  π*cos(π*x)
 @. exact_∇Q.realdata[:,:, 2] =  0.0 
 @. exact_∇Q.realdata[:,:, 3] =  0.0
+
+∇!(cartesian_∇Q, Q, grid)
+
+event = launch_volume_gradient!(grid, ∇Q, Q, nrealelem, device)
+wait(event)
+tol = eps(1e4) 
+L∞(x) = maximum(abs.(x))
+println(L∞(∇Q - exact_∇Q))
+@testset "Gradient Test" begin
+    @test L∞(∇Q - cartesian_∇Q) < tol
+end
+
+tol = eps(1e14) 
+@testset "Exact Gradient Test" begin
+    @test L∞(∇Q - exact_∇Q) < tol
+end
+
+## Test Block 2: Volume Test, z-direction
+@. Q.realdata[:,:, 1] = sin(π*z)
+@. exact_∇Q.realdata[:,:, 1] =  0.0
+@. exact_∇Q.realdata[:,:, 2] =  0.0 
+@. exact_∇Q.realdata[:,:, 3] =  π*cos(π*z)
 
 ∇!(cartesian_∇Q, Q, grid)
 
