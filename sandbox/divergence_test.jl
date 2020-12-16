@@ -33,9 +33,9 @@ N = round(Int, size(x)[1]^(1/dim)) - 1
 dependencies = nothing
 
 # Initialize State s
-F1 = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2] , 1)
-F2 = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2] , 1)
-F3 = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2] , 1)
+F1 = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2], 1)
+F2 = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2], 1)
+F3 = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2], 1)
 flux = MPIStateArray{FT}(mpicomm, ArrayType, size(x)[1], size(x)[2] , 3)
 
 v_flux_divergence = F1 .* 0
@@ -80,6 +80,30 @@ flux[:,:,1:1] .= F1
 flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. π*cos(π*x)
+
+event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
+wait(event)
+event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
+wait(event)
+
+tol = 1e-3 # for this test should be a function of polynomial order / element size
+# The divergence operation is : -v_flux_divergence + s_flux_divergence (note the sign convention)  
+@testset "Compressible Flow Field" begin
+    computed_divergence = -v_flux_divergence + s_flux_divergence
+    @test L∞(computed_divergence - analytic_flux_divergence ) < tol
+    # test to see if only the exterior terms were affected
+    @test L∞(s_flux_divergence[interior]) < eps(1.0)
+end
+
+## Test Block 3: Compressible Flow Field
+@. F1 =  sin(π*x)
+@. F2 =  sin(π*y) 
+@. F3 =  cos(π*z)
+ClimateMachine.gpu_allowscalar(true)
+flux[:,:,1:1] .= F1
+flux[:,:,2:2] .= F2
+flux[:,:,3:3] .= F3
+analytic_flux_divergence = @. π*cos(π*x) + π*cos(π*y) - π*sin(π*x)
 
 event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
 wait(event)
