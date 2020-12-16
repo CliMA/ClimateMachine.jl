@@ -348,6 +348,7 @@ function adapt_timestep(adp_opt, solver_config)
         t0 = solver_config.t0
         ode_solver_type = solver_config.ode_solver_type
         dtmodel = getdtmodel(ode_solver_type, bl)
+        
         ndt = ClimateMachine.DGMethods.calculate_dt(
             dg,
             dtmodel,
@@ -356,8 +357,10 @@ function adapt_timestep(adp_opt, solver_config)
             t0,
             solver_config.diffdir,
         )
-        @info @sprintf("""Updating time step: %8.16f => %8.16f""", dt, ndt)
-        updatedt!(solver_config.solver, ndt)
+        if (ndt > 0)
+          @info @sprintf("""Updating time step: %8.16f => %8.16f""", dt, ndt)
+          updatedt!(solver_config.solver, ndt)
+        end
         nothing
     end
     return cb_adp

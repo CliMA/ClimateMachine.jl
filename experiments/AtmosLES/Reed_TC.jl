@@ -10,7 +10,9 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
+using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
@@ -227,7 +229,7 @@ function init_ReedTC!(problem, bl, state, aux, localgeo, t)
     wavenumber = 3
     angle = atan(lat - cen_lat, lon - cen_lon)
     wave = FT(real.(exp(complex(0, 1) * (wavenumber * (pi / 2 - angle)))))
-   pert =
+    pert =
         wave *
         theta_0 *
         exp(-((gr - r_b) / sigma_r)^2 - ((height - z_b) / sigma_z)^2)
@@ -269,9 +271,13 @@ end
 
 function read_sounding()
     #read in the original squal sounding
-    soundings_dataset = ArtifactWrapper(joinpath(@__DIR__, "Artifacts.toml"),
+    soundings_dataset = ArtifactWrapper(
+        joinpath(@__DIR__, "Artifacts.toml"),
         "soundings",
-	ArtifactFile[ArtifactFile(url = "https://caltech.box.com/shared/static/rjnvt2dlw7etm1c7mmdfrkw5gnfds5lx.nc",filename = "sounding_gabersek.nc",),],
+        ArtifactFile[ArtifactFile(
+            url = "https://caltech.box.com/shared/static/rjnvt2dlw7etm1c7mmdfrkw5gnfds5lx.nc",
+            filename = "sounding_gabersek.nc",
+        ),],
     )
     data_folder = get_data_folder(soundings_dataset)
     fsounding = joinpath(data_folder, "sounding_gabersek.nc")
@@ -348,14 +354,19 @@ function config_ReedTC(
     rayleigh_sponge =
         RayleighSponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
     # Geostrophic forcing
-    energy_sponge =
-        EnergySponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
+    energy_sponge = EnergySponge(FT, zmax, zsponge, c_sponge, u_relaxation, 2)
     # Boundary conditions
     # SGS Filter constants
     C_smag = FT(0.21) # 0.21 for stable testing, 0.18 in practice
     C_drag = FT(0.0011)
 
-    source = (Gravity(), Coriolis(),rayleigh_sponge, energy_sponge, RemovePrecipitation(false))
+    source = (
+        Gravity(),
+        Coriolis(),
+        rayleigh_sponge,
+        energy_sponge,
+        RemovePrecipitation(false)...,
+    )
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
@@ -394,8 +405,10 @@ function config_ReedTC(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ))),
                 energy = BulkFormulaEnergy(
-                    (atmos, state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
-                    (atmos, state, aux, t) -> (aux.moisture.temperature, state.moisture.ρq_tot),
+                    (atmos, state, aux, t, normPu) ->
+                        C_drag + 4 * 1e-5 * normPu,
+                    (atmos, state, aux, t) ->
+                        (aux.moisture.temperature, state.moisture.ρq_tot),
                 ),
                 moisture = BulkFormulaMoisture(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
@@ -424,6 +437,39 @@ function config_ReedTC(
         solver_method = LSRK144NiegemannDiehlBusch,
     )
 
+    #=ode_solver = ClimateMachine.MISSolverType(
+        splitting_type = ClimateMachine.SlowFastSplitting(),
+        fast_model = AtmosAcousticGravityLinearModel,
+        mis_method = MIS2,
+        fast_method = LSRK54CarpenterKennedy,
+        nsubsteps = (30,),
+    )=#
+    #=
+    ode_solver = ClimateMachine.MISSolverType(
+					                  splitting_type = ClimateMachine.HEVISplitting(),
+							              fast_model = AtmosAcousticGravityLinearModel,
+								                  mis_method = MISRK3,
+										              fast_method = (dg, Q, dt, nsubsteps) -> AdditiveRungeKutta(
+																			                 ARK548L2SA2KennedyCarpenter,
+																					                 dg,
+																							                 LinearBackwardEulerSolver(ManyColumnLU(), isadjustable = true),
+																									                 Q,
+																											                 dt = dt,
+																													                 nsubsteps = nsubsteps,
+																															             ),
+											                  nsubsteps = (12,),
+													          )
+
+    =#
+    #=ode_solver = ClimateMachine.MISSolverType(
+					                  splitting_type = ClimateMachine.SlowFastSplitting(),
+							              fast_model = AtmosAcousticGravityLinearModel,
+								                  mis_method = MIS2,
+										              fast_method = SSPRK33ShuOsher,
+											                  nsubsteps = (18,),
+													          )=#
+
+    
     config = ClimateMachine.AtmosLESConfiguration(
         "ReedTC",
         N,
@@ -441,13 +487,35 @@ function config_ReedTC(
     return config
 end
 
-function config_diagnostics(driver_config)
+function config_diagnostics(driver_config, xmin, xmax, ymin, ymax, zmin, zmax, resolution)
     interval = "10000steps"
-    dgngrp = setup_atmos_default_diagnostics(
-        AtmosLESConfigType(),
-        interval,
-        driver_config.name,
+    boundaries = [
+        xmin ymin zmin
+        xmax ymax zmax
+    ]
+    interpol = ClimateMachine.InterpolationConfiguration(
+        driver_config,
+        boundaries,
+        resolution,
     )
+    ds_dgngrp = setup_dump_state_diagnostics(
+        AtmosLESConfigType(),
+        "3600ssecs",
+        driver_config.name,
+        interpol = interpol,
+    )
+    da_dgngrp = setup_dump_aux_diagnostics(
+        AtmosLESConfigType(),
+        "3600ssecs",
+        driver_config.name,
+        interpol = interpol,
+    )
+    return ClimateMachine.DiagnosticsConfiguration([
+        ds_dgngrp,
+        da_dgngrp,
+    ],)
+
+
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
@@ -509,8 +577,9 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = Cmax,
+        CFL_direction = VerticalDirection(),
     )
-    dgn_config = config_diagnostics(driver_config)
+    dgn_config = config_diagnostics(driver_config, -xmax, xmax, -ymax, ymax, -zmax, zmax, resolution)
 
     if moisture_model == "equilibrium"
         filter_vars = ("moisture.ρq_tot",)
