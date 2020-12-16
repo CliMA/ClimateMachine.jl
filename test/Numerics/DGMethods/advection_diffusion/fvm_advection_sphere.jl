@@ -348,7 +348,7 @@ let
     expected_result[SolidBodyRotation, 1, FVConstant] = 1.6249678501611961e+07
     expected_result[SolidBodyRotation, 2, FVConstant] = 7.2020207047738554e+05
     expected_result[SolidBodyRotation, 3, FVConstant] = 5.2452627634607365e+04
-    expected_result[SolidBodyRotation, 4, FVConstant] = 3.1132401693922270e+03
+    expected_result[SolidBodyRotation, 4, FVConstant] = 3.1132403618328990e+03
 
     expected_result[SolidBodyRotation, 1, FVLinear] = 1.6650018586769039e+07
     expected_result[SolidBodyRotation, 2, FVLinear] = 7.2518593691652094e+05
