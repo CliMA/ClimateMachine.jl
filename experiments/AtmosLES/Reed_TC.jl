@@ -405,10 +405,8 @@ function config_ReedTC(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
                 ))),
                 energy = BulkFormulaEnergy(
-                    (atmos, state, aux, t, normPu) ->
-                        C_drag + 4 * 1e-5 * normPu,
-                    (atmos, state, aux, t) ->
-                        (aux.moisture.temperature, state.moisture.ρq_tot),
+                    (atmos, state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
+                    (atmos, state, aux, t) -> (aux.moisture.temperature, state.moisture.ρq_tot),
                 ),
                 moisture = BulkFormulaMoisture(
                     (state, aux, t, normPu) -> C_drag + 4 * 1e-5 * normPu,
