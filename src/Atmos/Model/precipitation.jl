@@ -184,21 +184,10 @@ function flux_second_order!(precip::RainModel, flux::Grad, state::Vars, d_q_rai)
     flux.precipitation.ρq_rai += d_q_rai * state.ρ
 end
 
-function source!(
-    m::RainModel,
-    source::Vars,
-    atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-    diffusive::Vars,
-)
+function source!(m::RainModel, source::Vars, atmos::AtmosModel, args)
     tend = Source()
-    args = (atmos, state, aux, t, ts, direction, diffusive)
     source.precipitation.ρq_rai =
-        Σsources(eq_tends(Rain(), atmos, tend), args...)
+        Σsources(eq_tends(Rain(), atmos, tend), atmos, args)
 end
 
 """
@@ -278,23 +267,12 @@ function flux_second_order!(
     flux.precipitation.ρq_sno = Σfluxes(eq_tends(Snow(), atmos, tend), args...)
 end
 
-function source!(
-    m::RainSnowModel,
-    source::Vars,
-    atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-    diffusive::Vars,
-)
+function source!(m::RainSnowModel, source::Vars, atmos::AtmosModel, args)
     tend = Source()
-    args = (atmos, state, aux, t, ts, direction, diffusive)
     source.precipitation.ρq_rai =
-        Σsources(eq_tends(Rain(), atmos, tend), args...)
+        Σsources(eq_tends(Rain(), atmos, tend), atmos, args)
     source.precipitation.ρq_sno =
-        Σsources(eq_tends(Snow(), atmos, tend), args...)
+        Σsources(eq_tends(Snow(), atmos, tend), atmos, args)
 end
 
 #####

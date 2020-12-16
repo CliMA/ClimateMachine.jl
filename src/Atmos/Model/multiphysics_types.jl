@@ -26,6 +26,8 @@ struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
 
+struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:
+       TendencyDef{Flux{SecondOrder}, PV} end
 
 export RemovePrecipitation
 """
@@ -51,10 +53,10 @@ RemovePrecipitation(b::Bool) = (
 function remove_precipitation_sources(
     s::RemovePrecipitation{PV},
     atmos,
-    state,
-    aux,
-    ts,
+    args,
 ) where {PV <: Union{Mass, Energy, TotalMoisture}}
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
 
     FT = eltype(state)
 
@@ -94,7 +96,9 @@ WarmRain_1M() = (
     WarmRain_1M{Rain}(),
 )
 
-function warm_rain_sources(atmos, state, aux, ts)
+function warm_rain_sources(atmos, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
 
     FT = eltype(state)
 
@@ -156,7 +160,9 @@ RainSnow_1M() = (
     RainSnow_1M{Snow}(),
 )
 
-function rain_snow_sources(atmos, state, aux, ts)
+function rain_snow_sources(atmos, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
 
     FT = eltype(state)
 

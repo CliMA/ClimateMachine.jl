@@ -34,8 +34,24 @@ function flux(
     diffusive,
     hyperdiff,
 )
+    pad = (state.ρu .* (state.ρu / state.ρ)') * 0
     ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
-    return τ * state.ρ
+    return pad + τ * state.ρ
+end
+
+function flux(
+    ::MoistureDiffusion{Momentum},
+    m,
+    state,
+    aux,
+    t,
+    ts,
+    diffusive,
+    hyperdiff,
+)
+    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+    d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    return d_q_tot .* state.ρu'
 end
 
 #####
@@ -45,16 +61,8 @@ end
 export Gravity
 struct Gravity{PV <: Momentum} <: TendencyDef{Source, PV} end
 Gravity() = Gravity{Momentum}()
-function source(
-    s::Gravity{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::Gravity{Momentum}, m, args)
+    @unpack state, aux = args
     if m.ref_state isa HydrostaticState
         return -(state.ρ - aux.ref_state.ρ) * aux.orientation.∇Φ
     else
@@ -65,16 +73,8 @@ end
 export Coriolis
 struct Coriolis{PV <: Momentum} <: TendencyDef{Source, PV} end
 Coriolis() = Coriolis{Momentum}()
-function source(
-    s::Coriolis{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::Coriolis{Momentum}, m, args)
+    @unpack state = args
     FT = eltype(state)
     _Omega::FT = Omega(m.param_set)
     # note: this assumes a SphericalOrientation
@@ -89,16 +89,8 @@ struct GeostrophicForcing{PV <: Momentum, FT} <: TendencyDef{Source, PV}
 end
 GeostrophicForcing(::Type{FT}, args...) where {FT} =
     GeostrophicForcing{Momentum, FT}(args...)
-function source(
-    s::GeostrophicForcing{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::GeostrophicForcing{Momentum}, m, args)
+    @unpack state, aux = args
     u_geo = SVector(s.u_geostrophic, s.v_geostrophic, 0)
     ẑ = vertical_unit_vector(m, aux)
     fkvector = s.f_coriolis * ẑ
@@ -128,16 +120,8 @@ struct RayleighSponge{PV <: Momentum, FT} <: TendencyDef{Source, PV}
 end
 RayleighSponge(::Type{FT}, args...) where {FT} =
     RayleighSponge{Momentum, FT}(args...)
-function source(
-    s::RayleighSponge{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::RayleighSponge{Momentum}, m, args)
+    @unpack state, aux = args
     z = altitude(m, aux)
     if z >= s.z_sponge
         r = (z - s.z_sponge) / (s.z_max - s.z_sponge)

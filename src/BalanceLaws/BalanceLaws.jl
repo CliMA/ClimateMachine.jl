@@ -5,6 +5,7 @@ using ..VariableTemplates
 export BalanceLaw,
     vars_state,
     number_states,
+    precompute,
     init_state_prognostic!,
     init_state_auxiliary!,
     compute_gradient_flux!,
@@ -32,5 +33,6 @@ include("boundaryconditions.jl")
 include("tendency_types.jl")
 include("show_tendencies.jl")
 include("sum_tendencies.jl")
+include("prog_prim_conversion.jl")
 
 end

@@ -36,12 +36,14 @@ function subdomain_surface_values(
     turbconv = atmos.turbconv
     N_up = n_updrafts(turbconv)
     gm = state
+
     # TODO: change to new_thermo_state
-    ts = recover_thermo_state(atmos, state, aux)
-    q = PhasePartition(ts)
-    _cp_m = cp_m(ts)
-    lv = latent_heat_vapor(ts)
-    Π = exner(ts)
+    _grav::FT = grav(atmos.param_set)
+    ts = recover_thermo_state_all(atmos, state, aux)
+    q = PhasePartition(ts.gm)
+    _cp_m = cp_m(ts.gm)
+    lv = latent_heat_vapor(ts.gm)
+    Π = exner(ts.gm)
     ρ_inv = 1 / gm.ρ
     surface_scalar_coeff = turbconv.surface.scalar_coeff
 
@@ -63,8 +65,7 @@ function subdomain_surface_values(
 
     a_up_surf = ntuple(i -> FT(surf.a / N_up), N_up)
     e_int = internal_energy(atmos, state, aux)
-    ts_new = new_thermo_state(atmos, state, aux)
-    θ_liq = liquid_ice_pottemp(ts_new)
+    θ_liq = liquid_ice_pottemp(ts.gm)
 
     upd_θ_liq_surf = ntuple(N_up) do i
         θ_liq + surface_scalar_coeff[i] * sqrt(max(θ_liq_cv, 0))
@@ -75,7 +76,33 @@ function subdomain_surface_values(
         ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
     end
 
+    ### compute surface w -- consider using obukhov_length instead of zLL
+    # en_buoyancy = -_grav * (air_density(ts.en) - aux.ref_state.ρ) * ρ_inv
+    # a_en_surf = FT(1) - sum(a_up_surf)
+    # ab_up_surf = ntuple(N_up) do i
+    #     -_grav * (air_density(ts.up[i])- aux.ref_state.ρ) * ρ_inv * a_up_surf[i]
+    # end
+
+    # b_gm = sum(ab_up_surf) + a_en_surf*en_buoyancy
+    # w_up_surf = ntuple(N_up) do i
+    #     sqrt(zLL*max(ab_up_surf[i]/a_up_surf[i]-b_gm,FT(0)))
+    # end
+
+    b_up_surf = ntuple(N_up) do i
+        -_grav * (air_density(ts.up[i])- air_density(ts.gm)) * ρ_inv
+    end
+    w_up_surf = ntuple(N_up) do i
+        sqrt(zLL*max(b_up_surf[i],FT(0)))
+    end
+    println("in Surface function")
+    @show(zLL)
+    @show(b_up_surf[1])
+    @show(air_density(ts.up[1])-air_density(ts.gm))
+    @show(upd_θ_liq_surf[1]-θ_liq)
+    @show(q_tot_up_surf[1]-ρq_tot * ρ_inv)
+
     return (
+        w_up_surf = w_up_surf,
         a_up_surf = a_up_surf,
         upd_θ_liq_surf = upd_θ_liq_surf,
         q_tot_up_surf = q_tot_up_surf,

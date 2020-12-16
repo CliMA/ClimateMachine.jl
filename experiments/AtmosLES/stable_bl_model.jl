@@ -62,16 +62,8 @@ end
 StableBLGeostrophic(::Type{FT}, args...) where {FT} =
     StableBLGeostrophic{Momentum, FT}(args...)
 
-function source(
-    s::StableBLGeostrophic{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::StableBLGeostrophic{Momentum}, m, args)
+    @unpack state, aux = args
     @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
     z = altitude(m, aux)
@@ -106,16 +98,9 @@ end
 StableBLSponge(::Type{FT}, args...) where {FT} =
     StableBLSponge{Momentum, FT}(args...)
 
-function source(
-    s::StableBLSponge{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::StableBLSponge{Momentum}, m, args)
+    @unpack state, aux = args
+
     @unpack z_max, z_sponge, α_max, γ = s
     @unpack u_geostrophic, u_slope, v_geostrophic = s
 

@@ -12,8 +12,6 @@ using Random
 using CLIMAParameters
 
 using ..Atmos
-using ..Ocean.HydrostaticBoussinesq
-using ..Ocean.SplitExplicit01
 using ..Callbacks
 using ..Checkpoint
 using ..SystemSolvers
@@ -23,7 +21,6 @@ using ..DGMethods
 using ..BalanceLaws
 using ..DGMethods: remainder_DGModel
 using ..DGMethods.NumericalFluxes
-
 
 using ..Mesh.Grids
 using ..Mesh.Topologies

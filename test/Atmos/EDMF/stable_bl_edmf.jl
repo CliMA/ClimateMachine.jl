@@ -253,3 +253,19 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, dons_arr, time_data, state_types = main(Float64)
+
+## Uncomment lines to save output using JLD2
+#
+# output_dir = @__DIR__;
+# mkpath(output_dir);
+
+# z = get_z(solver_config.dg.grid; rm_dupes = true);
+# save(
+#     string(output_dir, "/sbl_edmf.jld2"),
+#     "dons_arr",
+#     dons_arr,
+#     "time_data",
+#     time_data,
+#     "z",
+#     z,
+# )

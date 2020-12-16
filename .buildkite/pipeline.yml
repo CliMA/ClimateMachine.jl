@@ -999,7 +999,7 @@ steps:
   - label: "gpu_solid_body_rotation"
     key: "gpu_solid_body_rotation"
     command:
-      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation.jl "
+      - "mpiexec julia --color=yes --project experiments/TestCase/solid_body_rotation.jl --diagnostics=default "
     agents:
       config: gpu
       queue: central
@@ -1029,7 +1029,7 @@ steps:
   - label: "gpu_heldsuarez"
     key: "gpu_heldsuarez"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosGCM/heldsuarez.jl --fix-rng-seed "
     agents:
       config: gpu
       queue: central
@@ -1086,20 +1086,40 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
-  - label: "gpu_bomex_les"
-    key: "gpu_bomex_les"
+  - label: "gpu_squall_eq_no_precip"
+    key: "gpu_squall_eq_no_precip"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 600 --check-asserts yes --moisture-model equilibrium --precipitation-model noprecipitation"
     agents:
       config: gpu
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_squall_line"
-    key: "gpu_squall_line"
+  - label: "gpu_squall_eq_rain"
+    key: "gpu_squall_eq_rain"
     command:
-      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 120"
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 600 --check-asserts yes --moisture-model equilibrium --precipitation-model rain"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_squall_neq_rain_snow"
+    key: "gpu_squall_neq_rain_snow"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/squall_line.jl --fix-rng-seed --sim-time 600 --check-asserts yes --moisture-model nonequilibrium --precipitation-model rainsnow"
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_bomex_les"
+    key: "gpu_bomex_les"
+    command:
+      - "mpiexec julia --color=yes --project experiments/AtmosLES/bomex_les.jl --diagnostics=default --fix-rng-seed"
     agents:
       config: gpu
       queue: central
@@ -1256,20 +1276,20 @@ steps:
       slurm_ntasks: 3
       slurm_gres: "gpu:1"
 
-  - label: "gpu_test_simple_box"
-    key: "gpu_test_simple_box"
+  - label: "gpu_simple_box_ivd"
+    key: "gpu_simple_box_ivd"
     command:
-      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/test_simple_box.jl "
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/simple_box_ivd.jl "
     agents:
       config: gpu
       queue: central
       slurm_ntasks: 1
       slurm_gres: "gpu:1"
 
-  - label: "gpu_simple_box_ivd"
-    key: "gpu_simple_box_ivd"
+  - label: "gpu_simple_dbl_gyre"
+    key: "gpu_simple_dbl_gyre"
     command:
-      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/simple_box_ivd.jl "
+      - "mpiexec julia --color=yes --project test/Ocean/SplitExplicit/simple_dbl_gyre.jl "
     agents:
       config: gpu
       queue: central
@@ -1309,7 +1329,7 @@ steps:
   - label: "gpu_stable_bl_edmf_implicit_test"
     key: "gpu_stable_bl_edmf_implicit_test"
     command:
-      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_edmf_implicit.jl "
+      - "mpiexec julia --color=yes --project test/Atmos/EDMF/stable_bl_single_stack_implicit.jl "
     agents:
       config: gpu
       queue: central

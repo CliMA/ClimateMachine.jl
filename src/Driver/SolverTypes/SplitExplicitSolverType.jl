@@ -73,7 +73,10 @@ function solversetup(ode_solver::SplitExplicitSolverType, dg_3D, Q_3D, _, t0, _)
     slow_solver =
         ode_solver.slow_method(dg_3D, Q_3D, dt = ode_solver.dt_slow, t0 = t0)
 
-    solver = SplitExplicitLSRK2nSolver(slow_solver, fast_solver)
+    solver = ClimateMachine.Ocean.SplitExplicit01.SplitExplicitLSRK2nSolver(
+        slow_solver,
+        fast_solver,
+    )
 
     return solver
 end

@@ -849,10 +849,11 @@ function turbconv_boundary_state!(
     en = state⁺.turbconv.environment
     gm = state⁺
     gm_a = aux⁺
-    ts = recover_thermo_state_all(m, state⁺, aux⁺)
-    θ_liq_gm = liquid_ice_pottemp(ts.gm)
+    # ts = recover_thermo_state_all(m, state⁺, aux⁺)
+    # θ_liq_gm = liquid_ice_pottemp(ts.gm)
 
     zLL = altitude(m, aux_int)
+    w_up_surf,
     a_up_surf,
     θ_liq_up_surf,
     q_tot_up_surf,
@@ -862,15 +863,20 @@ function turbconv_boundary_state!(
     tke = subdomain_surface_values(turbconv.surface, turbconv, m, gm, gm_a, zLL)
 
     @unroll_map(N_up) do i
-        up[i].ρaw = a_up_surf[i] * FT(0.01)
-        up[i].ρa = a_up_surf[i] * gm.ρ
+        up[i].ρa =  gm.ρ * a_up_surf[i]
         up[i].ρaθ_liq = up[i].ρa * (θ_liq_up_surf[i]+FT(3))
         up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
     end
-    # println("in the surface  BC")
-    # @show(up[1].ρaθ_liq/up[1].ρa)
-    # @show(q_tot_up_surf[1])
-    # @show(θ_liq_gm)
+
+    w_up_surf = surface_w(turbconv.surface, turbconv, m, gm, gm_a, zLL)
+    @unroll_map(N_up) do i
+        up[i].ρaw = up[i].ρa * w_up_surf[i]
+    end
+    println("in the surface  BC")
+    @show(up[1].ρa)
+    @show(up[1].ρaw)
+    @show(up[1].ρaθ_liq)
+    @show(up[1].ρaq_tot)
 
     a_en = environment_area(gm, gm_a, N_up)
     en.ρatke = gm.ρ * a_en * tke

@@ -4,6 +4,7 @@ using LinearAlgebra
 using MPI
 using Printf
 using StaticArrays
+using UnPack
 
 using ClimateMachine
 using ClimateMachine.ConfigTypes
@@ -69,29 +70,13 @@ MMSSource(N::Int) =
     (MMSSource{Mass, N}(), MMSSource{Momentum, N}(), MMSSource{Energy, N}())
 
 
-function source(
-    s::MMSSource{Mass, N},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-) where {N}
+function source(s::MMSSource{Mass, N}, m, args) where {N}
+    @unpack aux, t = args
     x1, x2, x3 = aux.coord
     return Sρ_g(t, x1, x2, x3, Val(N))
 end
-function source(
-    s::MMSSource{Momentum, N},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-) where {N}
+function source(s::MMSSource{Momentum, N}, m, args) where {N}
+    @unpack aux, t = args
     x1, x2, x3 = aux.coord
     return SVector(
         SU_g(t, x1, x2, x3, Val(N)),
@@ -99,16 +84,8 @@ function source(
         SW_g(t, x1, x2, x3, Val(N)),
     )
 end
-function source(
-    s::MMSSource{Energy, N},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-) where {N}
+function source(s::MMSSource{Energy, N}, m, args) where {N}
+    @unpack aux, t = args
     x1, x2, x3 = aux.coord
     return SE_g(t, x1, x2, x3, Val(N))
 end
