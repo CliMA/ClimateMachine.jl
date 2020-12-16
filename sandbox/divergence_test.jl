@@ -20,11 +20,8 @@ ClimateMachine.gpu_allowscalar(true)
 
 
 # Define Grid: might want to loop over element sizes and polynomial orders
-if 2 == ndims(Ω)
-    grid = DiscontinuousSpectralElementGrid(Ω, elements = (1,1), polynomialorder = (4,4), array = ArrayType)
-else
-    grid = DiscontinuousSpectralElementGrid(Ω, elements = (10,3,3), polynomialorder = (4,4,4), array = ArrayType)
-end
+grid = DiscontinuousSpectralElementGrid(Ω, elements = (10,10,10), polynomialorder = (4,4,4), array = ArrayType)
+
 x, y, z = coordinates(grid)
 nrealelem = size(x)[2]
 device = array_device(x)
@@ -60,7 +57,7 @@ wait(event)
 event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
 wait(event)
 
-tol = eps(1e5) 
+tol = eps(1e6) 
 L∞(x) = maximum(abs.(x))
 # The divergence operation is : -v_flux_divergence + s_flux_divergence (note the sign convention)  
 @testset "Incompressible Flow Field" begin
@@ -96,14 +93,17 @@ tol = 1e-3 # for this test should be a function of polynomial order / element si
 end
 
 ## Test Block 3: Compressible Flow Field
-@. F1 =  sin(π*x)
-@. F2 =  sin(π*y) 
-@. F3 =  cos(π*z)
+a = 1
+b = 1 
+c = 1
+@. F1 =  a * sin(π*x)
+@. F2 =  b * sin(π*y) 
+@. F3 =  c * cos(π*z)
 ClimateMachine.gpu_allowscalar(true)
 flux[:,:,1:1] .= F1
 flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
-analytic_flux_divergence = @. π*cos(π*x) + π*cos(π*y) - π*sin(π*x)
+analytic_flux_divergence = @. a * π*cos(π*x) + b*π*cos(π*y) - c*π*sin(π*z)
 
 event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
 wait(event)

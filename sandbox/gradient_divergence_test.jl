@@ -39,8 +39,8 @@ s_∇Q = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
 ##
 # Test 1: Check for same numerical computation
 a = 1
-b = 0
-c = 0
+b = 1
+c = 1
 ClimateMachine.gpu_allowscalar(true)
 @. Φ[:,:,1] = a * sin(π*x)
 @. Φ[:,:,2] = b * sin(π*y)
@@ -48,9 +48,9 @@ ClimateMachine.gpu_allowscalar(true)
 @. Q = a * sin(π*x) + b * sin(π*y) + c * cos(π*z)
 
 # Divergence
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, Φ, nrealelem, device)
 wait(event)
-event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
+event = launch_interface_divergence!(grid, s_flux_divergence, Φ, device)
 wait(event)
 
 # Gradient
