@@ -40,48 +40,35 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
     end
 
     # Sand van Genuchten parameters, Bonan19, table 8.3, p. 151
-    porosity = FT(0.43)
-    α = FT(14.5) #m-1
-    n = FT(2.68) #unitless
-    Ksat = FT(0.0000825) #ms-1 (0.2970/(60^2))
+    # porosity = FT(0.43)
+    # α = FT(14.5) #m-1
+    # n = FT(2.68) #unitless
+    # Ksat = FT(0.0000825) #ms-1 (0.2970/(60^2))
 
-    # # Clay van Genuchten parameters
-    # porosity = FT(0.38)
-    # α = FT(0.8) #m-1
-    # n = FT(1.09) #unitless
-    # Ksat = FT(5.56e-7) #ms-1 (0.0020/(60^2))
+    # # Clay van Genuchten parameters, Bonan19, table 8.3, p. 151
+    porosity = FT(0.38)
+    α = FT(0.8) #m-1
+    n = FT(1.09) #unitless
+    Ksat = FT(5.56e-7) #ms-1 (0.0020/(60^2))
 
     soil_param_functions =
         SoilParamFunctions{FT}(porosity = porosity, Ksat = Ksat, S_s = 1e-3)
     # nota bene: the flux is -K∇h
-   # ϑ_l0 = (aux) -> eltype(aux)(porosity-0.1)
-    #ϑ_l0 = FT(soil_param_functions.porosity)
-
     bottom_flux = (aux, t) -> FT(0.0)
-    # Δz = min_node_distance(driver_config.grid)  # "Vertical resolution at the surface"
-    # soil_hydraulics = vanGenuchten{FT}(n = n, α = α)
-    # θ_l = volumetric_liquid_fraction(ϑ_l0, soil_param_functions.porosity)
-    # S = effective_saturation(
-    #     soil_param_functions.porosity,
-    #     θ_l,
-    # )
-    # icflux = -Ksat*(FT(1)-matric_potential(soil_hydraulics,S)/Δz)
-    # surface_flux = (aux, t) -> FT(icflux)
-    surface_state = (aux, t) -> eltype(aux)(porosity)
-
-    # bc = GeneralBoundaryConditions(
-    #     Dirichlet(surface_state = nothing, bottom_state = nothing),
-    #     Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
-    # )
-    # ϑ_l0 = (aux) -> eltype(aux)(soil_param_functions.porosity-0.1)
+   surface_flux = (aux, t) -> FT(-1.0)
+   # surface_state = (aux, t) -> eltype(aux)(porosity)
 
     bc = GeneralBoundaryConditions(
-        Dirichlet(surface_state = surface_state, bottom_state = nothing),
-        Neumann(surface_flux = nothing, bottom_flux = bottom_flux),
+        Dirichlet(surface_state = nothing, bottom_state = nothing),
+        Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
     )
-    ϑ_l0 = (aux) -> eltype(aux)(soil_param_functions.porosity-0.2)
+    ϑ_l0 = (aux) -> eltype(aux)(soil_param_functions.porosity-0.1)
 
-    #soil_water_model = SoilWaterModel(FT; initialϑ_l = ϑ_l0, boundaries = bc)
+    # bc = GeneralBoundaryConditions(
+    #     Dirichlet(surface_state = surface_state, bottom_state = nothing),
+    #     Neumann(surface_flux = nothing, bottom_flux = bottom_flux),
+    # )
+
     soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
@@ -120,8 +107,8 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
     # Choose the initial and final times, as well as a timestep.
     t0 = FT(0)
-    timeend = FT(60*5)
-    dt = FT(0.001)
+    timeend = FT(3000)
+    dt = FT(0.1)
 
     # Create the solver configuration.
     solver_config =
@@ -157,16 +144,19 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
 
     # Get z-coordinate
     z = get_z(solver_config.dg.grid; rm_dupes = true);
-    # # # Create some plots
 
+    # "Vertical resolution at the surface"
+    Δz = min_node_distance(driver_config.grid)
+
+    # # # Create some plots
     output_dir = @__DIR__;
 
-    t = time_data; #./ (60);
+    t = time_data./ (60);
 
     plot(
         all_data[1]["soil.water.ϑ_l"],
         all_data[1]["z"],
-        label = string("t = ", string(t[1]), "s"),
+        label = string("t = ", string(t[1]), "min"),
         #xlim = [0.47, 0.501],
         ylabel = "z",
         xlabel = "ϑ_l",
@@ -174,22 +164,33 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
         title = "IC test",
     );
     plot!(
-        all_data[4]["soil.water.ϑ_l"],
-        all_data[4]["z"],
-        label = string("t = ", string(t[2]), "s"),
+        all_data[2]["soil.water.ϑ_l"],
+        all_data[2]["z"],
+        label = string("t = ", string(t[2]), "min"),
     );
     plot!(
-        all_data[6]["soil.water.ϑ_l"],
-        all_data[6]["z"],
-        label = string("t = ", string(t[6]), "s"),
+        all_data[3]["soil.water.ϑ_l"],
+        all_data[3]["z"],
+        label = string("t = ", string(t[3]), "min"),
+    );
+    plot!(
+        all_data[n_outputs]["soil.water.ϑ_l"],
+        all_data[n_outputs]["z"],
+        label = string("t = ", string(t[n_outputs]), "min"),
+    );
+    plot!(
+        all_data[n_outputs+1]["soil.water.ϑ_l"],
+        all_data[n_outputs+1]["z"],
+        label = string("t = ", string(t[n_outputs+1]), "min"),
     );
 
-    savefig(joinpath(output_dir, "ic_test_dirichlet_vol_wat_content.png"))
+    savefig(joinpath(output_dir, "neumann_vol_wat_content.png"))
+    #savefig(joinpath(output_dir, "ic_test_dirichlet_vol_wat_content.png"))
 
-        plot(
+    plot(
         all_data[1]["soil.water.K∇h[3]"],
         all_data[1]["z"],
-        label = string("t = ", string(t[1]), "s"),
+        label = string("t = ", string(t[1]), "min"),
         #xlim = [0.47, 0.501],
         ylabel = "z",
         xlabel = "K∇h",
@@ -197,25 +198,33 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
         title = "IC test",
     );
     plot!(
-        all_data[4]["soil.water.K∇h[3]"],
-        all_data[4]["z"],
-        label = string("t = ", string(t[2]), "s"),
+        all_data[2]["soil.water.K∇h[3]"],
+        all_data[2]["z"],
+        label = string("t = ", string(t[2]), "min"),
     );
     plot!(
-        all_data[6]["soil.water.K∇h[3]"],
-        all_data[6]["z"],
-        label = string("t = ", string(t[6]), "s"),
+        all_data[3]["soil.water.K∇h[3]"],
+        all_data[3]["z"],
+        label = string("t = ", string(t[3]), "min"),
     );
     plot!(
-        soil_param_functions.Ksat*ones(length(all_data[4]["soil.water.K∇h[3]"]),1),
-        all_data[6]["z"],
+        all_data[n_outputs]["soil.water.K∇h[3]"],
+        all_data[n_outputs]["z"],
+        label = string("t = ", string(t[n_outputs]), "min"),
+    );
+    plot!(
+        all_data[n_outputs+1]["soil.water.K∇h[3]"],
+        all_data[n_outputs+1]["z"],
+        label = string("t = ", string(t[n_outputs+1]), "min"),
+    );
+    plot!(
+        soil_param_functions.Ksat*ones(length(all_data[n_outputs+1]["soil.water.K∇h[3]"]),1),
+        all_data[n_outputs+1]["z"],
         label = string("K_sat =", string(soil_param_functions.Ksat), "ms-1"),
     );
 
-
-    # save the output.
-    #savefig(joinpath(output_dir, "ic_test_2_bc_neumann_ic_overleaf.png"))
-    savefig(joinpath(output_dir, "ic_test_dirichlet_infiltration.png"))
+    savefig(joinpath(output_dir, "neumann_infiltration.png"))
+    #savefig(joinpath(output_dir, "ic_test_dirichlet_infiltration.png"))
 
     # solver_config = ClimateMachine.SolverConfiguration(
     #     t0,
