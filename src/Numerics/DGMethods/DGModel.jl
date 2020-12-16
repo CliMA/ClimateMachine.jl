@@ -527,7 +527,7 @@ end
 """
     init_state_auxiliary!(
         bl::BalanceLaw,
-        f!, 
+        f!,
         statearray_auxiliary,
         grid,
         direction;
@@ -610,17 +610,17 @@ function indefinite_stack_integral!(
     dim = dimensionality(grid)
     N = polynomialorders(grid)
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[2]
+    Nqj = dim == 2 ? 1 : Nq[2]
 
     FT = eltype(state_prognostic)
 
-    # do integrals
+    # Compute integrals
     nelem = length(elems)
     nvertelem = topology.stacksize
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = kernel_indefinite_stack_integral!(device, (Nq[1], Nqk))(
+    event = kernel_indefinite_stack_integral!(device, (Nq[1], Nqj))(
         m,
         Val(dim),
         Val(N),
@@ -631,7 +631,7 @@ function indefinite_stack_integral!(
         # Only need the vertical Imat since this kernel is vertically oriented
         grid.Imat[dim],
         horzelems;
-        ndrange = (length(horzelems) * Nq[1], Nqk),
+        ndrange = (length(horzelems) * Nq[1], Nqj),
         dependencies = (event,),
     )
     wait(device, event)
@@ -654,17 +654,17 @@ function reverse_indefinite_stack_integral!(
     dim = dimensionality(grid)
     N = polynomialorders(grid)
     Nq = N .+ 1
-    Nqk = dim == 2 ? 1 : Nq[2]
+    Nqj = dim == 2 ? 1 : Nq[2]
 
     FT = eltype(state_auxiliary)
 
-    # do integrals
+    # Compute integrals
     nelem = length(elems)
     nvertelem = topology.stacksize
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
 
     event = Event(device)
-    event = kernel_reverse_indefinite_stack_integral!(device, (Nq[1], Nqk))(
+    event = kernel_reverse_indefinite_stack_integral!(device, (Nq[1], Nqj))(
         m,
         Val(dim),
         Val(N),
@@ -672,7 +672,7 @@ function reverse_indefinite_stack_integral!(
         state_prognostic.data,
         state_auxiliary.data,
         horzelems;
-        ndrange = (length(horzelems) * Nq[1], Nqk),
+        ndrange = (length(horzelems) * Nq[1], Nqj),
         dependencies = (event,),
     )
     wait(device, event)
@@ -948,7 +948,7 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
     # direction. (Iteration space is in the horizontal)
     info = basic_launch_info(dg)
 
-    # Since We assume (in 3-D) that both x and y directions
+    # We assume (in 3-D) that both x and y directions
     # are discretized using the same polynomial order, Nq[1] == Nq[2].
     # In 2-D, the workgroup spans the entire set of quadrature points:
     # Nq[1] * Nq[2]
@@ -1491,7 +1491,7 @@ function launch_volume_tendency!(
     # direction. (Iteration space is in the horizontal)
     info = basic_launch_info(dg)
 
-    # Since We assume (in 3-D) that both x and y directions
+    # We assume (in 3-D) that both x and y directions
     # are discretized using the same polynomial order, Nq[1] == Nq[2].
     # In 2-D, the workgroup spans the entire set of quadrature points:
     # Nq[1] * Nq[2]

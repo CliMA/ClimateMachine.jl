@@ -165,98 +165,62 @@ function test_run(mpicomm, topl, ArrayType, N, FT, Rinner, Router)
 
     exact_aux = copy(dg.state_auxiliary)
     dg(dQdt, Q, nothing, 0.0)
-    (int_r_ind, rev_int_r_ind, aux_center_exact_ind) = varsindices(
+    (int_r_ind, rev_int_r_ind) = varsindices(
         vars_state(dg.balance_law, Auxiliary(), FT),
-        ("int.r", "rev_int.r", "r"),
+        ("int.r", "rev_int.r"),
     )
 
-    # We should be exact for the integral of ∫_{R_{inner}}^{r} 1
-    if N > 0
-        @test exact_aux[:, int_r_ind, :] ≈ dg.state_auxiliary[:, int_r_ind, :]
-        @test exact_aux[:, rev_int_r_ind, :] ≈
-              dg.state_auxiliary[:, rev_int_r_ind, :]
-    else
-        # For N = 0 we only compare the first integral which is the integral of
-        # a vertical constant function; N = 0 can also integrate linears exactly
-        # since we use the midpoint rule to compute the face value, but the
-        # averaging procedure we use below does not work in this case
+    # Since N = 0 integrals live at the faces we need to average values to the
+    # faces for comparison
+    if N == 0
+
         nvertelem = topl.stacksize
         nhorzelem = div(length(topl.elems), nvertelem)
         naux = size(exact_aux, 2)
         ndof = size(exact_aux, 1)
 
-        # Reshape the data array to be (dofs in 1D, dofs in 1D, dofs in 1D,
-        # naux, vertical elm, horizontal elm)
+        # Reshape the data array to be (dofs, naux, vertical elm, horizontal elm)
         aux =
             reshape(dg.state_auxiliary.data, (ndof, naux, nvertelem, nhorzelem))
 
-        # Store the computed face values
-        A_faces = aux[:, int_r_ind, :, :]
-        # Store the exact center values
-        A_center_exact = aux[:, aux_center_exact_ind, :, :] .- Rinner
+        # average forward integrals to cell centers
+        for ind in varsindices(
+            vars_state(dg.balance_law, Auxiliary(), FT),
+            ("int.r", "int.v"),
+        )
 
-        # With N = 0, the integral will return the values in the faces. Namely,
-        # verical element index `eV` will be the value of the integral on the
-        # face ABOVE element `eV`. Namely,
-        #    A_faces[n, eV, eH]
-        # will be degree of freedom `n`, in horizontal element stack `eH`, and
-        # face `eV + 1/2`.
-        #
-        # The exact values stored in `A_center_exact` are actually at the cell
-        # centers because these are computed using the `init_state_auxiliary!`
-        # which evaluates using the cell centers.
-        #
-        # This mismatch means we need to convert from faces to cell centers for
-        # comparison, and we do this using averaging to go from faces to cell
-        # centers.
+            # Store the computed face values
+            A_faces = aux[:, ind, :, :]
 
-        # Storage for the averaging
-        A_center = similar(A_faces)
+            # Bottom cell value is average of 0 and top face of cell
+            aux[:, ind, 1, :] .= A_faces[:, 1, :] / 2
 
-        # Bottom cell value is average of 0 and top face of cell
-        A_center[:, 1, :] .= A_faces[:, 1, :] / 2
+            # Remaining cells are average of the two faces
+            aux[:, ind, 2:end, :] .=
+                (A_faces[:, 1:(end - 1), :] + A_faces[:, 2:end, :]) / 2
+        end
 
-        # Remaining cells are average of the two faces
-        A_center[:, 2:end, :] .=
-            (A_faces[:, 1:(end - 1), :] + A_faces[:, 2:end, :]) / 2
+        # average reverse integrals to cell centers
+        for ind in varsindices(
+            vars_state(dg.balance_law, Auxiliary(), FT),
+            ("rev_int.r", "rev_int.v"),
+        )
 
-        # Compare the exact and computed
-        @test A_center ≈ A_center_exact
+            # Store the computed face values
+            RA_faces = aux[:, ind, :, :]
 
-        # We do the same things for the reverse integral, the only difference is
-        # now the values
-        #    RA_faces[n, eV, eH]
-        # will be degree of freedom `n`, in horizontal element stack `eH`, and
+            # Bottom cell value is average of 0 and top face of cell
+            aux[:, ind, end, :] .= RA_faces[:, end, :] / 2
 
-        # We do the same things for the reverse integral, the only difference is
-        # now the values
-        #    RA_faces[n, eV, eH]
-        # will be degree of freedom `n`, in horizontal element stack `eH`, and
-        # face `eV - 1/2` (e.g., the face below element `eV`
-
-        # Store the computed face values
-        RA_faces = aux[:, rev_int_r_ind, :, :]
-        # Store the exact center values
-        RA_center_exact = aux[:, aux_center_exact_ind, :, :]
-
-        # Storage for the averaging
-        RA_center = similar(RA_faces)
-
-        # Top cell value is average of 0 and top face of cell
-        RA_center[:, end, :] .= Router .- RA_faces[:, end, :] / 2
-
-        # Remaining cells are average of the two faces
-        RA_center[:, 1:(end - 1), :] .=
-            (RA_faces[:, 1:(end - 1), :] + RA_faces[:, 2:end, :]) / 2
-
-        # Compare the exact and computed
-        @test RA_center ≈ RA_center_exact
-
-        # All the `JcV` (line integral metrics) values should be `Δ / 2`
-        Δ = (Router - Rinner) / nvertelem
-        @test all(Δ .≈ 2grid.vgeo[:, Grids._JcV, :])
+            # Remaining cells are average of the two faces
+            aux[:, ind, 1:(end - 1), :] .=
+                (RA_faces[:, 1:(end - 1), :] + RA_faces[:, 2:end, :]) / 2
+        end
     end
-
+    # We should be exact for the integral of ∫_{R_{inner}}^{r} 1
+    @test exact_aux[:, int_r_ind, :] ≈ dg.state_auxiliary[:, int_r_ind, :]
+    @test exact_aux[:, rev_int_r_ind, :] ≈
+          dg.state_auxiliary[:, rev_int_r_ind, :]
     euclidean_distance(exact_aux, dg.state_auxiliary)
 end
 
@@ -272,6 +236,12 @@ let
     Router = 1
 
     expected_result = Dict()
+    expected_result[0] = [
+        2.2259657670562167e-02
+        5.6063943176909315e-03
+        1.4042479532664005e-03
+        3.5122834187695408e-04
+    ]
     expected_result[1] = [
         1.5934735012225074e-02
         4.0030667455285352e-03
@@ -304,12 +274,9 @@ let
                     FT(Rinner),
                     FT(Router),
                 )
-                if N != 0
-                    @test expected_result[N][l] ≈ err[l] rtol = 1e-3 atol =
-                        eps(FT)
-                end
+                @test expected_result[N][l] ≈ err[l] rtol = 1e-3 atol = eps(FT)
             end
-            if integration_testing && N != 0
+            if lvls > 1
                 @info begin
                     msg = "polynomialorder order $N"
                     for l in 1:(lvls - 1)
