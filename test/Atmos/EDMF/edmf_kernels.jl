@@ -853,7 +853,6 @@ function turbconv_boundary_state!(
     # θ_liq_gm = liquid_ice_pottemp(ts.gm)
 
     zLL = altitude(m, aux_int)
-    w_up_surf,
     a_up_surf,
     θ_liq_up_surf,
     q_tot_up_surf,
@@ -868,7 +867,7 @@ function turbconv_boundary_state!(
         up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
     end
 
-    w_up_surf = surface_w(turbconv.surface, turbconv, m, gm, gm_a, zLL)
+    w_up_surf = updraft_surface_w(turbconv.surface, turbconv, m, gm, gm_a, zLL)
     @unroll_map(N_up) do i
         up[i].ρaw = up[i].ρa * w_up_surf[i]
     end

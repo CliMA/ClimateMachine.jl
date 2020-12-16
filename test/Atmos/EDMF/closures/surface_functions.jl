@@ -38,7 +38,6 @@ function subdomain_surface_values(
     gm = state
 
     # TODO: change to new_thermo_state
-    _grav::FT = grav(atmos.param_set)
     ts = recover_thermo_state_all(atmos, state, aux)
     q = PhasePartition(ts.gm)
     _cp_m = cp_m(ts.gm)
@@ -76,33 +75,7 @@ function subdomain_surface_values(
         ρq_tot * ρ_inv + surface_scalar_coeff[i] * sqrt(max(q_tot_cv, 0))
     end
 
-    ### compute surface w -- consider using obukhov_length instead of zLL
-    # en_buoyancy = -_grav * (air_density(ts.en) - aux.ref_state.ρ) * ρ_inv
-    # a_en_surf = FT(1) - sum(a_up_surf)
-    # ab_up_surf = ntuple(N_up) do i
-    #     -_grav * (air_density(ts.up[i])- aux.ref_state.ρ) * ρ_inv * a_up_surf[i]
-    # end
-
-    # b_gm = sum(ab_up_surf) + a_en_surf*en_buoyancy
-    # w_up_surf = ntuple(N_up) do i
-    #     sqrt(zLL*max(ab_up_surf[i]/a_up_surf[i]-b_gm,FT(0)))
-    # end
-
-    b_up_surf = ntuple(N_up) do i
-        -_grav * (air_density(ts.up[i])- air_density(ts.gm)) * ρ_inv
-    end
-    w_up_surf = ntuple(N_up) do i
-        sqrt(zLL*max(b_up_surf[i],FT(0)))
-    end
-    println("in Surface function")
-    @show(zLL)
-    @show(b_up_surf[1])
-    @show(air_density(ts.up[1])-air_density(ts.gm))
-    @show(upd_θ_liq_surf[1]-θ_liq)
-    @show(q_tot_up_surf[1]-ρq_tot * ρ_inv)
-
     return (
-        w_up_surf = w_up_surf,
         a_up_surf = a_up_surf,
         upd_θ_liq_surf = upd_θ_liq_surf,
         q_tot_up_surf = q_tot_up_surf,
@@ -112,6 +85,33 @@ function subdomain_surface_values(
         tke = tke,
     )
 end;
+
+
+function updraft_surface_w(
+    surf::SurfaceModel,
+    turbconv::EDMF{FT},
+    atmos::AtmosModel{FT},
+    state::Vars,
+    aux::Vars,
+    zLL::FT,
+) where {FT}
+
+    N_up = n_updrafts(turbconv)
+    ts = recover_thermo_state_all(atmos, state, aux)
+    _grav::FT = grav(atmos.param_set)
+
+    ρ_gm = air_density(ts.gm)
+    b_up_surf = ntuple(N_up) do i
+        -_grav * (air_density(ts.up[i]) - ρ_gm) / ρ_gm
+    end
+    w_up_surf = ntuple(N_up) do i
+        sqrt(zLL*max(b_up_surf[i],FT(0)))
+    end
+
+    return w_up_surf
+
+end;
+
 
 """
     percentile_bounds_mean_norm(
