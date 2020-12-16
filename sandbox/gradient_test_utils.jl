@@ -54,7 +54,7 @@ function ∇!(∇Q, Q, grid)
     r_ξ1x1  = reshape(grid.vgeo[:, grid.ξ1x1id, :, : ], ((N .+1)..., nrealelem))
     r_ξ2x2  = reshape(grid.vgeo[:, grid.ξ2x2id, :, : ], ((N .+1)..., nrealelem))
     r_ξ3x3  = reshape(grid.vgeo[:, grid.ξ3x3id, :, : ], ((N .+1)..., nrealelem))
-
+    D = grid.D[1]
     ∂x!(r_∇Q, r_Q, D, nrealelem, N, r_ξ1x1)
     ∂y!(r_∇Q, r_Q, D, nrealelem, N, r_ξ2x2)
     ∂z!(r_∇Q, r_Q, D, nrealelem, N, r_ξ3x3)
