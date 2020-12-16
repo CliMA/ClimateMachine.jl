@@ -66,3 +66,13 @@ tol = 0.68 # small element sizes with p or h refinement this will get smaller
 @testset "Exact Gradient Test" begin
     @test L∞(∇Q - exact_∇Q) < tol
 end
+
+## Test Block 2: Interface Test
+
+event = launch_interface_gradient!(grid, ∇Q, Q, device)
+wait(event)
+
+tol = eps(1000.0)
+@testset "Gradient Interface Test" begin
+    @test L∞(∇Q) < tol
+end

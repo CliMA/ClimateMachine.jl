@@ -494,3 +494,189 @@ end
         end
     end
 end
+
+"""
+    launch_interface_gradients!(dg, state_prognostic, t; surface::Symbol, dependencies)
+
+Launches horizontal and vertical kernels for computing the interface gradients.
+The argument `surface` is either `:interior` or `:exterior`, which denotes whether
+we are computing interface gradients on boundaries which are interior (exterior resp.)
+to the _parallel_ boundary.
+"""
+function launch_interface_gradient!(
+    grid::G,
+    gradient,
+    state,
+    device;
+    dependencies = nothing,
+) where {G <: AbstractGrid}
+    # MPI
+    # @assert surface === :interior || surface === :exterior
+
+    FT = eltype(state)
+
+    dim = length(grid.D)
+    N = polynomialorders(grid)
+    
+    # Assumes poly order is the same in every direction
+    # TODO: copy from new kernel with variable polynomial order
+    if dim == 1
+        Np = (N[1] + 1)
+        Nfp = 1
+        nface = 2
+    elseif dim == 2
+        Np = (N[1] + 1) * (N[2] + 1)
+        Nfp = (N[1] + 1)
+        nface = 4
+    elseif dim == 3
+        Np = (N[1] + 1) * (N[2] + 1) * (N[3] + 1)
+        Nfp = (N[1] + 1) * (N[2] + 1)
+        nface = 6
+    end
+    gradient.realdata[:] .= 0   
+    workgroup = Nfp
+    elems = grid.interiorelems
+    ndrange = Nfp * length(grid.interiorelems)
+
+    comp_stream = dependencies
+
+    #TODO: fix with appropriate function calls
+    # If the model direction is EveryDirection, we need to perform
+    # both horizontal AND vertical kernel calls; otherwise, we only
+    # call the kernel corresponding to the model direction `dg.diffusion_direction`
+    comp_stream = interface_gradient_kernel!(device, workgroup)(
+        gradient.data,
+        state.data,
+        Val(dim),
+        Val(N[1]),
+        grid.vgeo,
+        grid.sgeo,
+        grid.vmap⁻,
+        grid.vmap⁺,
+        grid.elemtobndy,
+        elems,
+        nface,
+        Np,
+        ndrange = ndrange,
+        dependencies = comp_stream,
+    )
+    return comp_stream
+end
+
+@doc """
+    function interface_gradient_kernel!(
+        gradient,
+        state,
+        ::Val{dim},
+        ::Val{polyorder},
+        direction, # we will probably want to get rid of this
+        numerical_state_first_order,  # this is metadata, we need to specify what numerical state we are using
+        tendency,
+        vgeo,
+        sgeo,
+        vmap⁻,
+        vmap⁺,
+        elemtobndy,
+        elems,
+    )
+
+Compute kernel for evaluating the interface tendencies for the
+DG form:
+
+∫ₑ ψ⋅ ∂q/∂t dV - ∫ₑ ∇ψ⋅F⃗ dV + ∮ₑ ψF⃗⋅n̂ dS,
+
+or equivalently in matrix form:
+
+dQ/dt = M⁻¹(MS + DᵀM F⃗ + ∑ᶠ LᵀMᶠF⃗ ).
+
+This kernel computes the surface terms: M⁻¹ ∑ᶠ LᵀMᶠ(F)),
+where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
+from volume to face, and Fⁱⁿᵛ⋆, Fᵛⁱˢᶜ⋆
+are the numerical statees for the inviscid and viscous
+statees, respectively.  interface_tendency!
+"""
+@kernel function interface_gradient_kernel!(
+    gradient,
+    state,
+    ::Val{dim},
+    ::Val{polyorder},
+    vgeo,
+    sgeo,
+    vmap⁻,
+    vmap⁺,
+    elemtobndy,
+    elems,
+    nface,
+    Np,
+) where {dim, polyorder}
+    @uniform begin
+        N = polyorder
+        FT = eltype(state)
+
+        # faces: (1, 2, 3, 4, 5, 6)  = (West, East, South, North, Bottom, Top)
+        # We think...
+        faces = 1:nface
+
+        Nq = N + 1
+        Nqk = dim == 2 ? 1 : Nq
+    end
+    eI = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    e = @private Int (1,)
+    
+    e[1] = elems[eI]
+    # goes over too many points right now
+    for f in faces
+        # Inter-element index
+        e⁻ = e[1]
+        normal_vector = SVector(
+            sgeo[_n1, n, f, e⁻],
+            sgeo[_n2, n, f, e⁻],
+            sgeo[_n3, n, f, e⁻],
+        )
+        # Get surface mass, volume mass inverse
+
+        # sM = surface mass matrix
+        # vMI = volume mass inverse matrix
+        sM, vMI = sgeo[_sM, n, f, e⁻], sgeo[_vMI, n, f, e⁻]
+
+        # Ids corresponding to the workitem on the face
+        # vmap⁻ and vmap⁺ are the linear indices
+        id⁻, id⁺ = vmap⁻[n, f, e⁻], vmap⁺[n, f, e⁻]
+
+        # neighbor element index
+        e⁺ = ((id⁺ - 1) ÷ Np) + 1 # this is why 1 indexing is failure
+
+        # vid's are cartesian indices of the GL points
+        # needs to be modified by the faces?
+        vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
+
+        # No Flux BC and Central Fluxes for the interfaces allows the kernel
+        # to be extensible
+        # TODO: make it no state on the boundary for now and add the state later
+        # bctype = elemtobndy[f, e⁻]
+
+        # gradient[vmap⁻] = (state[vmap⁻] + state[vmap⁺])/2
+        # ∫dA F⃗⋅n̂ 
+        # normal_vector[1] * (state[vmap⁻,1] + state[vmap⁺,1])/2
+        # normal_vector[2] * (state[vmap⁻,2] + state[vmap⁺,2])/2
+        # normal_vector[3] * (state[vmap⁻,3] + state[vmap⁺,3])/2
+        # # ∂ᵗ∫dVρ = - ∫dS Φ⃗⋅n̂ = - state on boundary
+        
+        local_state_1 = normal_vector[1] * (state[vid⁺, e⁺] - state[vid⁻, e⁻])/2
+        local_state_2 = normal_vector[2] * (state[vid⁺, e⁺] - state[vid⁻, e⁻])/2
+        local_state_3 = normal_vector[3] * (state[vid⁺, e⁺] - state[vid⁻, e⁻])/2
+        
+        # Update RHS (in outer face loop): M⁻¹ Mfᵀ(Fⁱⁿᵛ⋆ ))
+        gradient[vid⁻, e⁻, 1] += vMI * sM * local_state_1
+        gradient[vid⁻, e⁻, 2] += vMI * sM * local_state_2
+        gradient[vid⁻, e⁻, 3] += vMI * sM * local_state_3
+
+        # @show vid⁻ e⁻ id⁻ local_state gradient[vid⁻, e⁻, 1] vMI sM f
+        # Need to wait after even faces to avoid race conditions
+        # Note: only need synchronization for F%2 == 0, but this crashed...
+        @synchronize
+    end
+end
+
