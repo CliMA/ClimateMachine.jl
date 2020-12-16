@@ -815,10 +815,10 @@ function turbconv_boundary_state!(
 
     turbconv = m.turbconv
     N_up = n_updrafts(turbconv)
-    up = state⁺.turbconv.updraft
-    en = state⁺.turbconv.environment
-    gm = state⁺
-    gm_a = aux⁺
+    up⁺ = state⁺.turbconv.updraft
+    en⁺ = state⁺.turbconv.environment
+    gm⁻ = state⁻
+    gm_a⁻ = aux⁻
 
     zLL = altitude(m, aux_int)
     a_up_surf,
@@ -827,19 +827,20 @@ function turbconv_boundary_state!(
     θ_liq_cv,
     q_tot_cv,
     θ_liq_q_tot_cv,
-    tke = subdomain_surface_values(turbconv.surface, turbconv, m, gm, gm_a, zLL)
+    tke =
+        subdomain_surface_values(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
 
     @unroll_map(N_up) do i
-        up[i].ρaw = FT(0)
-        up[i].ρa = a_up_surf[i] * gm.ρ
-        up[i].ρaθ_liq = up[i].ρa * θ_liq_up_surf[i]
-        up[i].ρaq_tot = up[i].ρa * q_tot_up_surf[i]
+        up⁺[i].ρaw = FT(0)
+        up⁺[i].ρa = a_up_surf[i] * gm⁻.ρ
+        up⁺[i].ρaθ_liq = up⁺[i].ρa * θ_liq_up_surf[i]
+        up⁺[i].ρaq_tot = up⁺[i].ρa * q_tot_up_surf[i]
     end
-    a_en = environment_area(gm, gm_a, N_up)
-    en.ρatke = gm.ρ * a_en * tke
-    en.ρaθ_liq_cv = gm.ρ * a_en * θ_liq_cv
-    en.ρaq_tot_cv = gm.ρ * a_en * q_tot_cv
-    en.ρaθ_liq_q_tot_cv = gm.ρ * a_en * θ_liq_q_tot_cv
+    a_en = environment_area(gm⁻, gm_a⁻, N_up)
+    en⁺.ρatke = gm⁻.ρ * a_en * tke
+    en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
+    en⁺.ρaq_tot_cv = gm⁻.ρ * a_en * q_tot_cv
+    en⁺.ρaθ_liq_q_tot_cv = gm⁻.ρ * a_en * θ_liq_q_tot_cv
 end;
 function turbconv_boundary_state!(
     nf,
