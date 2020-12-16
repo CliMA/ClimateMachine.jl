@@ -220,7 +220,9 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
+    po_hor = 5 
+    po_ver = 5
+    poly_order = (po_hor, po_ver)                      # discontinuous Galerkin polynomial order
     n_horz = 8                               # horizontal element number
     n_vert = 3                               # vertical element number
     n_days::FT = 1
