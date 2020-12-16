@@ -20,7 +20,7 @@ dims = ndims(Ω)
 ClimateMachine.gpu_allowscalar(true)
 
 polynomialorder = (3,3,3)
-elements = (1,1,1)
+elements = (2,1,1)
 nrealelem = prod(elements)
 grid = DiscontinuousSpectralElementGrid(Ω, elements = elements, polynomialorder = polynomialorder, array = ArrayType)
 x, y, z = coordinates(grid)
@@ -33,11 +33,11 @@ ijksize = prod(polynomialorder .+ 1)
 v_flux_divergence = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem , 1)
 s_flux_divergence = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem , 1)
 # Gradient Arrays
-Q  = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 1)
+Q    = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 1)
 v_∇Q = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
 s_∇Q = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
 ##
-# Test 1: Check for same numerical computation
+# Test 1: Continuous function
 a = 1
 b = 1
 c = 1
@@ -66,3 +66,39 @@ L∞(x) = maximum(abs.(x))
     total_trace_gradient = sum(v_∇Q - s_∇Q, dims=3)
     @test L∞(total_divergence - total_trace_gradient) < tol
 end
+
+##
+# Test 2: Discontinuous function
+a = 1
+b = 0
+c = 0
+ClimateMachine.gpu_allowscalar(true)
+# Heaviside Step Function Check
+@. Φ[:,1,1] = 0.0 
+@. Φ[:,2,1] = 1.0 
+@. Φ[:,:,2] = 0.0
+@. Φ[:,:,3] = 0.0 
+@. Q = Φ[:,:,1]
+
+# Divergence
+event = launch_volume_divergence!(grid, v_flux_divergence, Φ, nrealelem, device)
+wait(event)
+event = launch_interface_divergence!(grid, s_flux_divergence, Φ, device)
+wait(event)
+
+# Gradient
+event = launch_volume_gradient!(grid, v_∇Q, Q, nrealelem, device)
+wait(event)
+event = launch_interface_gradient!(grid, s_∇Q, Q, device)
+wait(event)
+
+tol = eps(1e5)
+L∞(x) = maximum(abs.(x))
+@testset "Divergence = Trace(Gradient)" begin
+    total_divergence = -v_flux_divergence + s_flux_divergence
+    total_gradient = v_∇Q + s_∇Q
+    total_trace_gradient = sum(total_gradient, dims=3)
+    @test L∞(v_∇Q) < tol # since piecewise constant
+    @test L∞(total_divergence - total_trace_gradient) < tol
+end
+
