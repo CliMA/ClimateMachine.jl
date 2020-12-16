@@ -61,7 +61,7 @@ wait(event)
 
 tol = eps(1e5)
 L∞(x) = maximum(abs.(x))
-@testset "Divergence = Trace(Gradient)" begin
+@testset "Continuous: Divergence = Trace(Gradient)" begin
     total_divergence = -v_flux_divergence + s_flux_divergence
     total_trace_gradient = sum(v_∇Q - s_∇Q, dims=3)
     @test L∞(total_divergence - total_trace_gradient) < tol
@@ -94,7 +94,7 @@ wait(event)
 
 tol = eps(1e5)
 L∞(x) = maximum(abs.(x))
-@testset "Divergence = Trace(Gradient)" begin
+@testset "Discontinuous: Divergence = Trace(Gradient)" begin
     total_divergence = -v_flux_divergence + s_flux_divergence
     total_gradient = v_∇Q + s_∇Q
     total_trace_gradient = sum(total_gradient, dims=3)
