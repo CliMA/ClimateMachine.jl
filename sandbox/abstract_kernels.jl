@@ -477,7 +477,7 @@ end
             end
 
             @unroll for n in 1:Nq2
-                ∂Q∂ξ² = D[i, n] * shared_flux[1, i, n]
+                ∂Q∂ξ² = D[j, n] * shared_flux[1, i, n]
                 # ξ2-grid lines
                 gradient[ijk, e, 1] += ξ2x1 * ∂Q∂ξ²
                 gradient[ijk, e, 2] += ξ2x2 * ∂Q∂ξ²
