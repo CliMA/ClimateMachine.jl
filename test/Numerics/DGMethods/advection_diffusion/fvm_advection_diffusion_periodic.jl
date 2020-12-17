@@ -335,7 +335,7 @@ function main()
     @testset "$(@__FILE__)" begin
         for FT in (Float64, Float32)
             result = Dict()
-            for fvmethod in (FVConstant(), FVLinear())
+            for fvmethod in (FVConstant(), FVLinear(), FVLinear{3}())
                 @info @sprintf """Test parameters:
                 ArrayType                   = %s
                 FloatType                   = %s
@@ -361,10 +361,11 @@ function main()
                     )
 
 
+                    fv_key = fvmethod isa FVLinear ? FVLinear() : fvmethod
                     @test result[level][1] ≈ FT(expected_result[
                         2,
                         polynomialorders[1],
-                        fvmethod,
+                        fv_key,
                         level,
                         FT,
                         1,
@@ -372,7 +373,7 @@ function main()
                     @test result[level][2] ≈ FT(expected_result[
                         2,
                         polynomialorders[1],
-                        fvmethod,
+                        fv_key,
                         level,
                         FT,
                         2,
