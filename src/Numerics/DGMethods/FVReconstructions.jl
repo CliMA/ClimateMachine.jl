@@ -57,33 +57,51 @@ struct FVConstant <: AbstractReconstruction end
 
 width(::FVConstant) = 0
 
-function (::FVConstant)(
-    state_bot,
-    state_top,
-    cell_states::NTuple{1},
-    _,
-) where {FT}
+function (::FVConstant)(state_bot, state_top, cell_states::NTuple{1}, _)
     state_top .= cell_states[1]
     state_bot .= cell_states[1]
 end
 """
-    FVLinear <: AbstractReconstruction
+    FVLinear{W = 1} <: AbstractReconstruction
 
-Reconstruction type for limited linear reconstruction finite volume methods
+Reconstruction type for limited linear reconstruction finite volume methods.
+
+!!! note
+   The optional type parameter `W` is mainly for debuggin purposes and allows
+   the stencil to be artificially widened to make sure the kernels work with
+   wide stencils.
+
+    FVLinear(limiter = VanLeer())
+    FVLinear{W}(limiter = VanLeer())
+
+Construct the `FVLinear` reconstruction type with the given slope `limiter`
 """
-struct FVLinear{L} <: AbstractReconstruction
+struct FVLinear{W, L} <: AbstractReconstruction
     limiter::L
-    FVLinear(limiter = VanLeer()) = new{typeof(limiter)}(limiter)
+
 end
 
-width(::FVLinear) = 1
+"""
+    FVLinear(limiter = VanLeer())
+    FVLinear{W}(limiter = VanLeer())
+
+Construct the `FVLinear` reconstruction type with the given slope `limiter` and
+optional width `W`.
+"""
+function FVLinear{W}(limiter = VanLeer()) where {W}
+    @assert W > 0
+    FVLinear{W, typeof(limiter)}(limiter)
+end
+FVLinear(limiter = VanLeer()) = FVLinear{1}(limiter)
+
+width(::FVLinear{W}) where {W} = W
 
 function (fvrecon::FVLinear)(
     state_bot,
     state_top,
     cell_states::NTuple{3},
     cell_weights,
-) where {FT}
+)
     wi_top = 1 / (cell_weights[3] + cell_weights[2])
     wi_bot = 1 / (cell_weights[2] + cell_weights[1])
     @inbounds @unroll for s in 1:length(state_top)
@@ -105,8 +123,23 @@ function (fvrecon::FVLinear)(
     state_top,
     cell_states::NTuple{1},
     cell_weights,
-) where {FT}
+)
     FVConstant()(state_bot, state_top, cell_states, cell_weights)
+end
+
+function (fvrecon::FVLinear)(
+    state_bot,
+    state_top,
+    cell_states::NTuple{D},
+    cell_weights,
+) where {D}
+    W = div(D - 1, 2)
+    fvrecon(
+        state_bot,
+        state_top,
+        cell_states[W .+ (0:2)],
+        cell_weights[W .+ (0:2)],
+    )
 end
 
 """
