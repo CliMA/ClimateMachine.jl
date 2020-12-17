@@ -19,7 +19,8 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.Thermodynamics
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Atmos: AtmosModel, DryModel, EquilMoist, NonEquilMoist
-using ClimateMachine.Atmos: prognostic_to_primitive!, primitive_to_prognostic!
+using ClimateMachine.BalanceLaws:
+    prognostic_to_primitive!, primitive_to_prognostic!
 const BL = BalanceLaws
 
 struct EarthParameterSet <: AbstractEarthParameterSet end
@@ -99,6 +100,7 @@ end
         prog_0 = deepcopy(parent(prog))
         prim_arr .= 0
         prognostic_to_primitive!(bl, bl.moisture, prim, prog, e_int)
+        @test !all(parent(prim) .≈ parent(prog)) # ensure not calling fallback
         primitive_to_prognostic!(bl, bl.moisture, prog, prim, e_pot)
         @test all(parent(prog) .≈ prog_0)
 
@@ -107,6 +109,7 @@ end
         prim_0 = deepcopy(parent(prim))
         prog_arr .= 0
         primitive_to_prognostic!(bl, bl.moisture, prog, prim, e_pot)
+        @test !all(parent(prim) .≈ parent(prog)) # ensure not calling fallback
         prognostic_to_primitive!(bl, bl.moisture, prim, prog, e_int)
         @test all(parent(prim) .≈ prim_0)
     end
@@ -131,6 +134,7 @@ end
         prog_0 = deepcopy(parent(prog))
         prim_arr .= 0
         prognostic_to_primitive!(bl, bl.moisture, prim, prog, e_int)
+        @test !all(parent(prim) .≈ parent(prog)) # ensure not calling fallback
         primitive_to_prognostic!(bl, bl.moisture, prog, prim, e_pot)
         @test all(parent(prog)[1:4] .≈ prog_0[1:4])
         @test isapprox(parent(prog)[5], prog_0[5]; atol = atol_energy)
@@ -143,6 +147,7 @@ end
         prim_0 = deepcopy(parent(prim))
         prog_arr .= 0
         primitive_to_prognostic!(bl, bl.moisture, prog, prim, e_pot)
+        @test !all(parent(prim) .≈ parent(prog)) # ensure not calling fallback
         prognostic_to_primitive!(bl, bl.moisture, prim, prog, e_int)
         @test all(parent(prim)[1:4] .≈ prim_0[1:4])
         # @test all(parent(prim)[5] .≈ prim_0[5]) # fails
@@ -171,6 +176,7 @@ end
         prog_0 = deepcopy(parent(prog))
         prim_arr .= 0
         prognostic_to_primitive!(bl, bl.moisture, prim, prog, e_int)
+        @test !all(parent(prim) .≈ parent(prog)) # ensure not calling fallback
         primitive_to_prognostic!(bl, bl.moisture, prog, prim, e_pot)
         @test all(parent(prog) .≈ prog_0)
 
@@ -179,6 +185,7 @@ end
         prim_0 = deepcopy(parent(prim))
         prog_arr .= 0
         primitive_to_prognostic!(bl, bl.moisture, prog, prim, e_pot)
+        @test !all(parent(prim) .≈ parent(prog)) # ensure not calling fallback
         prognostic_to_primitive!(bl, bl.moisture, prim, prog, e_int)
         @test all(parent(prim) .≈ prim_0)
     end
@@ -210,6 +217,7 @@ end
         prog_0 = deepcopy(parent(prog))
         prim_arr .= 0
         BL.prognostic_to_primitive!(bl, prim_arr, prog_arr, aux_arr)
+        @test !all(prog_arr .≈ prim_arr) # ensure not calling fallback
         BL.primitive_to_prognostic!(bl, prog_arr, prim_arr, aux_arr)
         @test all(parent(prog) .≈ prog_0)
 
@@ -218,6 +226,7 @@ end
         prim_0 = deepcopy(parent(prim))
         prog_arr .= 0
         BL.primitive_to_prognostic!(bl, prog_arr, prim_arr, aux_arr)
+        @test !all(prog_arr .≈ prim_arr) # ensure not calling fallback
         BL.prognostic_to_primitive!(bl, prim_arr, prog_arr, aux_arr)
         @test all(parent(prim) .≈ prim_0)
     end

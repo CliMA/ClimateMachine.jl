@@ -60,6 +60,8 @@ import ..BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
     init_state_auxiliary!,
     init_state_prognostic!,
     update_auxiliary_state!,
