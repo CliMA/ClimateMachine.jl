@@ -641,19 +641,19 @@ function update_auxiliary_state!(
     elems::UnitRange,
 )
     FT = eltype(Q)
-    MD = dg.modeldata
+    md = dg.modeldata
 
     # `update_aux!` gets called twice, once for the real elements and once for
     # the ghost elements.  Only apply the filters to the real elems.
     if elems == dg.grid.topology.realelems
         # required to ensure that after integration velocity field is divergence free
-        vert_filter = MD.vert_filter
+        vert_filter = md.vert_filter
         apply!(Q, (:u,), dg.grid, vert_filter, direction = VerticalDirection())
 
         exp_filter = MD.exp_filter
         apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
 
-        filter_state!(Q, MD.state_filter, dg.grid)
+        filter_state!(Q, md.state_filter, dg.grid)
     end
 
     compute_flow_deviation!(dg, m, m.coupling, Q, t)
@@ -682,7 +682,7 @@ function update_auxiliary_state_gradient!(
     A = dg.state_auxiliary
     D = dg.state_gradient_flux
 
-    filter_state!(D, MD.state_filter, dg.grid)
+    filter_state!(D, dg.modeldata.state_filter, dg.grid)
 
     # load -∇ʰu as ∂ᶻw
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
