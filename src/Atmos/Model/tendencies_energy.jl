@@ -4,16 +4,19 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Energy}, m, state, aux, t, ts, direction)
+function flux(::Advect{Energy}, atmos, args)
+    @unpack state = args
     return (state.ρu / state.ρ) * state.ρe
 end
 
-function flux(::Pressure{Energy}, m, state, aux, t, ts, direction)
+function flux(::Pressure{Energy}, atmos, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
     return state.ρu / state.ρ * air_pressure(ts)
 end
 
 #####
-##### First order fluxes
+##### Second order fluxes
 #####
 
 struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end

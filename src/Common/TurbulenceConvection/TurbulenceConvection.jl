@@ -79,11 +79,7 @@ function flux_first_order!(
     m::TurbulenceConvectionModel,
     bl::BalanceLaw,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 )
     return nothing
 end

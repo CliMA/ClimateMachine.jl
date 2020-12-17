@@ -56,16 +56,7 @@ function atmos_nodal_update_auxiliary_state!(
 )
     nothing
 end
-function flux_first_order!(
-    ::TracerModel,
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-)
+function flux_first_order!(::TracerModel, atmos::AtmosModel, flux::Grad, args)
     nothing
 end
 function compute_gradient_flux!(
@@ -188,15 +179,10 @@ function flux_first_order!(
     tr::NTracers{N},
     atmos::AtmosModel,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 ) where {N}
     tend = Flux{FirstOrder}()
-    args = (atmos, state, aux, t, ts, direction)
-    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), args...)
+    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function flux_second_order!(

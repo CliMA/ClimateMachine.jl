@@ -20,11 +20,7 @@ function flux_first_order!(
     ::PrecipitationModel,
     atmos::AtmosModel,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 ) end
 function compute_gradient_flux!(
     ::PrecipitationModel,
@@ -108,15 +104,11 @@ function flux_first_order!(
     precip::RainModel,
     atmos::AtmosModel,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 )
     tend = Flux{FirstOrder}()
-    args = (atmos, state, aux, t, ts, direction)
-    flux.precipitation.ρq_rai = Σfluxes(eq_tends(Rain(), atmos, tend), args...)
+    flux.precipitation.ρq_rai =
+        Σfluxes(eq_tends(Rain(), atmos, tend), atmos, args)
 end
 
 function flux_second_order!(
@@ -189,16 +181,13 @@ function flux_first_order!(
     precip::RainSnowModel,
     atmos::AtmosModel,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 )
     tend = Flux{FirstOrder}()
-    args = (atmos, state, aux, t, ts, direction)
-    flux.precipitation.ρq_rai = Σfluxes(eq_tends(Rain(), atmos, tend), args...)
-    flux.precipitation.ρq_sno = Σfluxes(eq_tends(Snow(), atmos, tend), args...)
+    flux.precipitation.ρq_rai =
+        Σfluxes(eq_tends(Rain(), atmos, tend), atmos, args)
+    flux.precipitation.ρq_sno =
+        Σfluxes(eq_tends(Snow(), atmos, tend), atmos, args)
 end
 
 function flux_second_order!(

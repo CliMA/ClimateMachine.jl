@@ -580,81 +580,69 @@ function compute_ρa_up(m, state, aux)
     return ρa_up
 end
 
-function flux(::Advect{up_ρa{i}}, m, state, aux, t, ts, direction) where {i}
+function flux(::Advect{up_ρa{i}}, atmos, args) where {i}
+    @unpack state, aux = args
     up = state.turbconv.updraft
-    ẑ = vertical_unit_vector(m, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
     return up[i].ρaw * ẑ
 end
-function flux(::Advect{up_ρaw{i}}, m, state, aux, t, ts, direction) where {i}
+function flux(::Advect{up_ρaw{i}}, atmos, args) where {i}
+    @unpack state, aux = args
     up = state.turbconv.updraft
-    ẑ = vertical_unit_vector(m, aux)
-    ρa_up = compute_ρa_up(m, state, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
+    ρa_up = compute_ρa_up(atmos, state, aux)
     return up[i].ρaw * up[i].ρaw / ρa_up[i] * ẑ
 end
-function flux(
-    ::Advect{up_ρaθ_liq{i}},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-) where {i}
+function flux(::Advect{up_ρaθ_liq{i}}, atmos, args) where {i}
+    @unpack state, aux = args
     up = state.turbconv.updraft
-    ẑ = vertical_unit_vector(m, aux)
-    ρa_up = compute_ρa_up(m, state, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
+    ρa_up = compute_ρa_up(atmos, state, aux)
     return up[i].ρaw / ρa_up[i] * up[i].ρaθ_liq * ẑ
 end
-function flux(
-    ::Advect{up_ρaq_tot{i}},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-) where {i}
+function flux(::Advect{up_ρaq_tot{i}}, atmos, args) where {i}
+    @unpack state, aux = args
     up = state.turbconv.updraft
-    ẑ = vertical_unit_vector(m, aux)
-    ρa_up = compute_ρa_up(m, state, aux)
+    ẑ = vertical_unit_vector(atmos, aux)
+    ρa_up = compute_ρa_up(atmos, state, aux)
     return up[i].ρaw / ρa_up[i] * up[i].ρaq_tot * ẑ
 end
 
-function flux(::Advect{en_ρatke}, m, state, aux, t, ts, direction)
+function flux(::Advect{en_ρatke}, atmos, args)
+    @unpack state, aux = args
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(m.turbconv))
-    ẑ = vertical_unit_vector(m, aux)
+    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
+    ẑ = vertical_unit_vector(atmos, aux)
     return en.ρatke * env.w * ẑ
 end
-function flux(::Advect{en_ρaθ_liq_cv}, m, state, aux, t, ts, direction)
+function flux(::Advect{en_ρaθ_liq_cv}, atmos, args)
+    @unpack state, aux = args
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(m.turbconv))
-    ẑ = vertical_unit_vector(m, aux)
+    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
+    ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaθ_liq_cv * env.w * ẑ
 end
-function flux(::Advect{en_ρaq_tot_cv}, m, state, aux, t, ts, direction)
+function flux(::Advect{en_ρaq_tot_cv}, atmos, args)
+    @unpack state, aux = args
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(m.turbconv))
-    ẑ = vertical_unit_vector(m, aux)
+    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
+    ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaq_tot_cv * env.w * ẑ
 end
-function flux(::Advect{en_ρaθ_liq_q_tot_cv}, m, state, aux, t, ts, direction)
+function flux(::Advect{en_ρaθ_liq_q_tot_cv}, atmos, args)
+    @unpack state, aux = args
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(m.turbconv))
-    ẑ = vertical_unit_vector(m, aux)
+    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
+    ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaθ_liq_q_tot_cv * env.w * ẑ
 end
 
 # # in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts
 function flux_first_order!(
     turbconv::EDMF{FT},
-    m::AtmosModel{FT},
+    atmos::AtmosModel{FT},
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 ) where {FT}
     # Aliases:
     up_flx = flux.turbconv.updraft
@@ -662,19 +650,22 @@ function flux_first_order!(
     N_up = n_updrafts(turbconv)
     # in future GCM implementations we need to think about grid mean advection
     tend = Flux{FirstOrder}()
-    args = (m, state, aux, t, ts, direction)
 
     @unroll_map(N_up) do i
-        up_flx[i].ρa = Σfluxes(eq_tends(up_ρa{i}(), m, tend), args...)
-        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), m, tend), args...)
-        up_flx[i].ρaθ_liq = Σfluxes(eq_tends(up_ρaθ_liq{i}(), m, tend), args...)
-        up_flx[i].ρaq_tot = Σfluxes(eq_tends(up_ρaq_tot{i}(), m, tend), args...)
+        up_flx[i].ρa = Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args)
+        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args)
+        up_flx[i].ρaθ_liq =
+            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args)
+        up_flx[i].ρaq_tot =
+            Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
     end
-    en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), m, tend), args...)
-    en_flx.ρaθ_liq_cv = Σfluxes(eq_tends(en_ρaθ_liq_cv(), m, tend), args...)
-    en_flx.ρaq_tot_cv = Σfluxes(eq_tends(en_ρaq_tot_cv(), m, tend), args...)
+    en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args)
+    en_flx.ρaθ_liq_cv =
+        Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
+    en_flx.ρaq_tot_cv =
+        Σfluxes(eq_tends(en_ρaq_tot_cv(), atmos, tend), atmos, args)
     en_flx.ρaθ_liq_q_tot_cv =
-        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), m, tend), args...)
+        Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
 end;
 
 # in the EDMF second order (diffusive) fluxes
