@@ -51,9 +51,9 @@ flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. 0 * x
 
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, flux)
 wait(event)
-event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
+event = launch_interface_divergence!(grid, s_flux_divergence, flux)
 wait(event)
 
 tol = eps(1e6) 

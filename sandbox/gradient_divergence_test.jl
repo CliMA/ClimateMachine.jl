@@ -50,15 +50,15 @@ ClimateMachine.gpu_allowscalar(true)
 @. Q = a * sin(π*x) + b * sin(π*y) + c * cos(π*z)
 
 # Divergence
-event = launch_volume_divergence!(grid, v_flux_divergence, Φ, nrealelem, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, Φ)
 wait(event)
-event = launch_interface_divergence!(grid, s_flux_divergence, Φ, device)
+event = launch_interface_divergence!(grid, s_flux_divergence, Φ)
 wait(event)
 
 # Gradient
-event = launch_volume_gradient!(grid, v_∇Q, Q, nrealelem, device)
+event = launch_volume_gradient!(grid, v_∇Q, Q, nrealelem)
 wait(event)
-event = launch_interface_gradient!(grid, s_∇Q, Q, device)
+event = launch_interface_gradient!(grid, s_∇Q, Q)
 wait(event)
 
 tol = eps(1e5)
@@ -83,15 +83,15 @@ ClimateMachine.gpu_allowscalar(true)
 @. Q = Φ[:,:,1]
 
 # Divergence
-event = launch_volume_divergence!(grid, v_flux_divergence, Φ, nrealelem, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, Φ)
 wait(event)
-event = launch_interface_divergence!(grid, s_flux_divergence, Φ, device)
+event = launch_interface_divergence!(grid, s_flux_divergence, Φ)
 wait(event)
 
 # Gradient
-event = launch_volume_gradient!(grid, v_∇Q, Q, nrealelem, device)
+event = launch_volume_gradient!(grid, v_∇Q, Q)
 wait(event)
-event = launch_interface_gradient!(grid, s_∇Q, Q, device)
+event = launch_interface_gradient!(grid, s_∇Q, Q)
 wait(event)
 
 tol = eps(1e5)

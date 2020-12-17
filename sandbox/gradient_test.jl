@@ -39,7 +39,7 @@ Q  = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 1)
 exact_∇Q = copy(∇Q)
 cartesian_∇Q = copy(∇Q) .* 0.0
 ##
-event = launch_volume_gradient!(grid, ∇Q, Q, device)
+event = launch_volume_gradient!(grid, ∇Q, Q)
 wait(event)
 
 ## Test Block 1: Volume Test, gradient 
@@ -53,7 +53,7 @@ c = 1
 
 ∇!(cartesian_∇Q, Q, grid)
 
-event = launch_volume_gradient!(grid, ∇Q, Q, device)
+event = launch_volume_gradient!(grid, ∇Q, Q)
 wait(event)
 tol = eps(1e5) 
 L∞(x) = maximum(abs.(x))
@@ -69,7 +69,7 @@ end
 
 ## Test Block 2: Interface Test
 
-event = launch_interface_gradient!(grid, ∇Q, Q, device)
+event = launch_interface_gradient!(grid, ∇Q, Q)
 wait(event)
 
 tol = eps(1000.0)
