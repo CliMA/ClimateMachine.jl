@@ -77,9 +77,9 @@ flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. π*cos(π*x)
 
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, flux)
 wait(event)
-event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
+event = launch_interface_divergence!(grid, s_flux_divergence, flux)
 wait(event)
 
 tol = 1e-3 # for this test should be a function of polynomial order / element size
@@ -104,9 +104,9 @@ flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. a * π*cos(π*x) + b*π*cos(π*y) - c*π*sin(π*z)
 
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, flux)
 wait(event)
-event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
+event = launch_interface_divergence!(grid, s_flux_divergence, flux)
 wait(event)
 
 tol = 1e-3 # for this test should be a function of polynomial order / element size

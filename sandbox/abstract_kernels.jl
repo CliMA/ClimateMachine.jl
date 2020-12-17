@@ -26,7 +26,7 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 function launch_volume_divergence!(grid::G, flux_divergence, flux; dependencies = nothing) where {G <: AbstractGrid}
 
     nrealelem = length(grid.interiorelems)
-    device = array_device(gradient)
+    device = array_device(flux)
     N = polynomialorders(grid)
     dim = length(grid.D)
 

@@ -20,7 +20,7 @@ dims = ndims(Ω)
 ClimateMachine.gpu_allowscalar(true)
 
 polynomialorder = (3,3,3)
-elements = (2,1,3)
+elements = (2,1,1)
 nrealelem = prod(elements)
 grid = DiscontinuousSpectralElementGrid(Ω, elements = elements, polynomialorder = polynomialorder, array = ArrayType)
 println(nrealelem - length(grid.interiorelems))
@@ -56,7 +56,7 @@ event = launch_interface_divergence!(grid, s_flux_divergence, Φ)
 wait(event)
 
 # Gradient
-event = launch_volume_gradient!(grid, v_∇Q, Q, nrealelem)
+event = launch_volume_gradient!(grid, v_∇Q, Q)
 wait(event)
 event = launch_interface_gradient!(grid, s_∇Q, Q)
 wait(event)
@@ -66,6 +66,7 @@ L∞(x) = maximum(abs.(x))
 @testset "Continuous: Divergence = Trace(Gradient)" begin
     total_divergence = -v_flux_divergence + s_flux_divergence
     total_trace_gradient = sum(v_∇Q - s_∇Q, dims=3)
+    @test L∞(s_∇Q  ) < tol
     @test L∞(total_divergence - total_trace_gradient) < tol
 end
 
@@ -103,86 +104,3 @@ L∞(x) = maximum(abs.(x))
     @test L∞(v_∇Q) < tol # since piecewise constant
     @test L∞(total_divergence - total_trace_gradient) < tol
 end
-
-
-##
-abstract type AbstractCalculus end
-
-struct Div{T} <: AbstractCalculus
-    grid::T
-end
-
-function grad(Q::MPIStateArray, _1)
-    Q_x1 = view(Q, (:,:,_1))
-
-    v_∇Q_x1 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-    s_∇Q_x1 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-
-    event = launch_volume_gradient!(grid, v_∇Q, Q_x1)
-    wait(event)
-
-    event = launch_interface_gradient!(grid, s_∇Q, Q_x1)
-    wait(event)
-
-    grad = v_∇Q_x1 + s_∇Q_x1
-
-    return grad
-end
-
-function grad(Q::MPIStateArray, _1, _2, _3)
-    Q_x1 = view(Q, (:,:,_1))
-    Q_x2 = view(Q, (:,:,_2))
-    Q_x3 = view(Q, (:,:,_3))
-
-    v_∇Q_x1 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-    v_∇Q_x2 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-    v_∇Q_x3 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-
-    s_∇Q_x1 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-    s_∇Q_x2 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-    s_∇Q_x3 = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-
-    ## strong form gradients here
-    event_x1 = launch_volume_gradient!(grid, v_∇Q_x1, Q_x1)
-    event_x2 = launch_volume_gradient!(grid, v_∇Q_x2, Q_x2)
-    event_x3 = launch_volume_gradient!(grid, v_∇Q_x3, Q_x3)
-    wait(event_x1)
-    wait(event_x2)
-    wait(event_x3)
-
-    ## strong form gradients here
-    event_x1 = launch_interface_gradient!(grid, s_∇Q_x1, Q_x1)
-    event_x2 = launch_interface_gradient!(grid, s_∇Q_x2, Q_x2)
-    event_x3 = launch_interface_gradient!(grid, s_∇Q_x3, Q_x3)
-    wait(event_x1)
-    wait(event_x2)
-    wait(event_x3)
-
-    ∇Q_x1 = v_∇Q_x1 + s_∇Q_x1
-    ∇Q_x2 = v_∇Q_x2 + s_∇Q_x2
-    ∇Q_x3 = v_∇Q_x3 + s_∇Q_x3
-
-    return (; ∇Q_x1, ∇Q_x2, ∇Q_x3)
-end
-
-function div(Q::MPIStateArray, _1, _2, _3)
-    ∇Q_x1, ∇Q_x2, ∇Q_x3 = grad(Q, _1, _2, _3)
-
-    div = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 1)
-    div[:,:,1] = ∇Q_x1[:,:,1] + ∇Q_x2[:,:,2] + ∇Q_x3[:,:,3]
-
-    return div
-end
-
-function curl(Q::MPIStateArray, _1, _2, _3)
-    ∇Q_x1, ∇Q_x2, ∇Q_x3 = grad(Q, _1, _2, _3)
-
-    curl = MPIStateArray{FT}(mpicomm, ArrayType, ijksize, nrealelem, 3)
-
-    curl[:,:,1] = ∇Q_x3[:,:,2] - ∇Q_x2[:,:,3]
-    curl[:,:,2] = ∇Q_x1[:,:,3] - ∇Q_x3[:,:,1]
-    curl[:,:,3] = ∇Q_x2[:,:,1] - ∇Q_x1[:,:,2]
-
-    return curl
-end
-
