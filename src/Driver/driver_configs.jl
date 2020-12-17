@@ -21,7 +21,7 @@ struct AtmosGCMSpecificInfo{FT} <: ConfigSpecificInfo
 end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 struct SingleStackSpecificInfo <: ConfigSpecificInfo end
-
+struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
 include("SolverTypes/SolverTypes.jl")
 
 """
@@ -474,6 +474,99 @@ Establishing single stack configuration for %s
         numerical_flux_second_order,
         numerical_flux_gradient,
         SingleStackSpecificInfo(),
+    )
+end
+
+function MultiColumnLandModel(
+    name::String,
+    N::Union{Int, NTuple{2, Int}},
+    (Δx, Δy, Δz)::NTuple{3, FT},
+    xmax::FT,
+    ymax::FT,
+    zmax::FT,
+    param_set::AbstractParameterSet,
+    model::BalanceLaw;
+    xmin = zero(FT),
+    ymin = zero(FT),
+    zmin = zero(FT),
+    array_type = ClimateMachine.array_type(),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = ((3, 3), (3, 3), (1, 2)),
+    solver_type = ExplicitSolverType(),
+    periodicity = (false, false, false),
+    meshwarp = (x...) -> identity(x),
+    numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
+
+    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+
+
+    print_model_info(model)
+
+    brickrange = (
+        grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
+        grid1d(ymin, ymax, elemsize = Δy * polyorder_horz),
+        grid1d(zmin, zmax, elemsize = Δz * polyorder_vert),
+    )
+
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = (polyorder_horz, polyorder_vert),
+        meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing MultiColumnLandModel configuration for %s
+    precision        = %s
+    vert polyn order = %d
+    horz polyn order = %d
+    domain           = %.2f m x%.2f m x%.2f m
+    resolution       = %dx%dx%d
+    MPI ranks        = %d
+    min(Δ_horz)      = %.2f m
+    min(Δ_vert)      = %.2f m""",
+        name,
+        FT,
+        polyorder_vert,
+        polyorder_horz,
+        xmax,
+        ymax,
+        zmax,
+        Δx,
+        Δy,
+        Δz,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
+    )
+
+    return DriverConfiguration(
+        MultiColumnLandConfigType(),
+        name,
+        (polyorder_horz, polyorder_vert),
+        FT,
+        array_type,
+        solver_type,
+        param_set,
+        model,
+        mpicomm,
+        grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        MultiColumnLandSpecificInfo(),
     )
 end
 

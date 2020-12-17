@@ -516,6 +516,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_soil_test_bc_3d"
+    key: "cpu_soil_test_bc_3d"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc_3d.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "gpu_varsindex"
     key: "gpu_varsindex"
     command:
@@ -1360,6 +1369,16 @@ steps:
     key: "gpu_soil_test_bc"
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_soil_test_bc_3d"
+    key: "gpu_soil_test_bc_3d"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc_3d.jl "
     agents:
       config: gpu
       queue: central

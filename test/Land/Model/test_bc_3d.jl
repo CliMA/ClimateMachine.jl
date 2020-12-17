@@ -45,9 +45,13 @@ using ClimateMachine.BalanceLaws:
         (aux, t) -> bottom_flux_amplitude * sin(f * t) * aux.soil.water.K
     surface_state = (aux, t) -> eltype(aux)(0.2)
     ϑ_l0 = (aux) -> eltype(aux)(0.2)
+
     bc = LandDomainBC(
         bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
         surface_bc = LandComponentBC(soil_water = Dirichlet(surface_state)),
+        lateral_bc = LandComponentBC(
+            soil_water = Neumann((aux, t) -> eltype(aux)(0.0)),
+        ),
     )
     soil_water_model = SoilWaterModel(FT; initialϑ_l = ϑ_l0)
     soil_heat_model = PrescribedTemperatureModel()
@@ -64,28 +68,31 @@ using ClimateMachine.BalanceLaws:
 
 
     N_poly = 5
-    nelem_vert = 50
-
-
-    # Specify the domain boundaries
+    xres = FT(0.2)
+    yres = FT(0.2)
+    zres = FT(0.01)
+    # Specify the domain boundaries.
     zmax = FT(0)
     zmin = FT(-1)
+    xmax = FT(1)
+    ymax = FT(1)
 
-    driver_config = ClimateMachine.SingleStackConfiguration(
+    driver_config = ClimateMachine.MultiColumnLandModel(
         "LandModel",
-        N_poly,
-        nelem_vert,
+        (N_poly, N_poly),
+        (xres, yres, zres),
+        xmax,
+        ymax,
         zmax,
         param_set,
         m;
         zmin = zmin,
-        numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     )
 
 
     t0 = FT(0)
     timeend = FT(300)
-    dt = FT(0.05)
+    dt = FT(0.5)
 
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -93,52 +100,43 @@ using ClimateMachine.BalanceLaws:
         driver_config,
         ode_dt = dt,
     )
-    mygrid = solver_config.dg.grid
-    Q = solver_config.Q
-    aux = solver_config.dg.state_auxiliary
-    grads = solver_config.dg.state_gradient_flux
-    K∇h_vert_ind =
-        varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
-    K_ind = varsindex(vars_state(m, Auxiliary(), FT), :soil, :water, :K)
     n_outputs = 30
-
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
-    dons_arr = Dict([k => Dict() for k in 1:n_outputs]...)
+    state_types = (Auxiliary(), GradientFlux())
+    dons_arr =
+        Dict[dict_of_nodal_states(solver_config, state_types; interp = false)]
+    time_data = FT[0] # store time data
 
-    iostep = [1]
-    callback = GenericCallbacks.EveryXSimulationTime(
-        every_x_simulation_time,
-    ) do (init = false)
-        t = ODESolvers.gettime(solver_config.solver)
-        K = aux[:, K_ind, :]
-        K∇h_vert = grads[:, K∇h_vert_ind, :]
-        all_vars = Dict{String, Array}(
-            "t" => [t],
-            "K" => K,
-            "K∇h_vert" => K∇h_vert,
-        )
-        dons_arr[iostep[1]] = all_vars
-        iostep[1] += 1
+    # We specify a function which evaluates `every_x_simulation_time` and returns
+    # the state vector, appending the variables we are interested in into
+    # `all_data`.
+
+    callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
+        dons = dict_of_nodal_states(solver_config, state_types; interp = false)
+        push!(dons_arr, dons)
+        push!(time_data, gettime(solver_config.solver))
         nothing
     end
 
+    # # Run the integration
     ClimateMachine.invoke!(solver_config; user_callbacks = (callback,))
-    t = ODESolvers.gettime(solver_config.solver)
-    K = aux[:, K_ind, :]
-    K∇h_vert = grads[:, K∇h_vert_ind, :]
-    all_vars = Dict{String, Array}("t" => [t], "K" => K, "K∇h_vert" => K∇h_vert)
-    dons_arr[n_outputs] = all_vars
-
-
     computed_bottom_∇h =
-        [dons_arr[k]["K∇h_vert"][1] for k in 1:n_outputs] ./ [dons_arr[k]["K"][1] for k in 1:n_outputs]
+        [dons_arr[k]["soil.water.K∇h[3]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs]
 
 
-    t = [dons_arr[k]["t"][1] for k in 1:n_outputs]
+    t = time_data[2:n_outputs]
     # we need a -1 out in front here because the flux BC is on -K∇h
     prescribed_bottom_∇h = t -> FT(-1) * FT(-3.0 * sin(pi * 2.0 * t / 300.0))
 
     MSE = mean((prescribed_bottom_∇h.(t) .- computed_bottom_∇h) .^ 2.0)
-    @test MSE < 1e-7
+    computed_y1_∇h = maximum(abs.(
+        [dons_arr[k]["soil.water.K∇h[2]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs],
+    ))
+    computed_x1_∇h = maximum(abs.(
+        [dons_arr[k]["soil.water.K∇h[1]"][1] for k in 2:n_outputs] ./ [dons_arr[k]["soil.water.K"][1] for k in 2:n_outputs],
+    ))
+    @test MSE < 1e-4
+    @test computed_x1_∇h < 1e-10
+    @test computed_y1_∇h < 1e-10
 end

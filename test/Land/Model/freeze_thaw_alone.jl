@@ -83,22 +83,14 @@ using ClimateMachine.BalanceLaws:
 
     bottom_flux = (aux, t) -> eltype(aux)(0.0)
     surface_flux = (aux, t) -> eltype(aux)(0.0)
-    surface_state = nothing
-    bottom_state = nothing
-
-    bc = GeneralBoundaryConditions(
-        Dirichlet(surface_state = surface_state, bottom_state = bottom_state),
-        Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
+        surface_bc = LandComponentBC(soil_water = Neumann(surface_flux)),
     )
     ϑ_l0 = (aux) -> eltype(aux)(1e-10)
     θ_i0 = (aux) -> eltype(aux)(0.33)
 
-    soil_water_model = SoilWaterModel(
-        FT;
-        initialϑ_l = ϑ_l0,
-        initialθ_i = θ_i0,
-        boundaries = bc,
-    )
+    soil_water_model = SoilWaterModel(FT; initialϑ_l = ϑ_l0, initialθ_i = θ_i0)
 
     soil_heat_model =
         PrescribedTemperatureModel((aux, t) -> eltype(aux)(276.15))
@@ -108,6 +100,7 @@ using ClimateMachine.BalanceLaws:
     m = LandModel(
         param_set,
         m_soil;
+        boundary_conditions = bc,
         source = sources,
         init_state_prognostic = init_soil_water!,
     )

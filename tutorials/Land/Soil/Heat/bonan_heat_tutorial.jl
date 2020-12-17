@@ -268,6 +268,15 @@ heat_surface_state = (aux, t) -> eltype(aux)(288.15)
 heat_bottom_flux = (aux, t) -> eltype(aux)(0.0)
 T_init = (aux) -> eltype(aux)(275.15);
 
+# The boundary value problem in this case, with two spatial derivatives,
+# requires a boundary condition at the top of the domain and the bottom.
+# Here we choose to specify a bottom flux condition, and a top state condition.
+# Our problem is effectively 1D, so we do not need to specify lateral boundary
+# conditions.
+bc = LandDomainBC(
+    bottom_bc = LandComponentBC(soil_heat = Neumann(heat_bottom_flux)),
+    surface_bc = LandComponentBC(soil_heat = Dirichlet(heat_surface_state)),
+);
 
 # We also need to define a function `init_soil!`, which
 # initializes all of the prognostic variables (here, we
@@ -298,20 +307,7 @@ soil_water_model = PrescribedWaterModel(
     (aux, t) -> prescribed_volumetric_ice_fraction,
 );
 
-# The boundary value problem in this case, with two spatial derivatives,
-# requires a boundary condition at the top of the domain and the bottom.
-# This gives four possible combinations of boundary conditions - top Dirichlet
-# and bottom either Neumann or Dirichlet, or top Neumann and bottom either
-# Dirichlet or Neumann. The user should set the unused fields to `nothing`
-# to indicate that they do not want to supply a boundary condition of that type.
-# For example, below we indicate that we are applying (and supplying!) a Dirichlet
-# condition at the top of the domain, and a Neumann condition at the bottom.
-bc = GeneralBoundaryConditions(
-    Dirichlet(surface_state = heat_surface_state, bottom_state = nothing),
-    Neumann(surface_flux = nothing, bottom_flux = heat_bottom_flux),
-)
-
-soil_heat_model = SoilHeatModel(FT; initialT = T_init, boundaries = bc);
+soil_heat_model = SoilHeatModel(FT; initialT = T_init);
 
 # The full soil model requires a heat model and a water model, as well as the
 # soil parameter functions:
@@ -325,6 +321,7 @@ sources = ();
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil!,
 );

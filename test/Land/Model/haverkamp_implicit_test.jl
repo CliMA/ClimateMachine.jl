@@ -69,16 +69,15 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     bottom_flux = (aux, t) -> aux.soil.water.K * bottom_flux_multiplier
     ϑ_l0 = (aux) -> initial_moisture
 
-    bc = GeneralBoundaryConditions(
-        Dirichlet(surface_state = surface_state, bottom_state = nothing),
-        Neumann(surface_flux = nothing, bottom_flux = bottom_flux),
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
+        surface_bc = LandComponentBC(soil_water = Dirichlet(surface_state)),
     )
     soil_water_model = SoilWaterModel(
         FT;
         moisture_factor = MoistureDependent{FT}(),
         hydraulics = Haverkamp{FT}(),
         initialϑ_l = ϑ_l0,
-        boundaries = bc,
     )
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
@@ -86,6 +85,7 @@ haverkamp_dataset_path = get_data_folder(haverkamp_dataset)
     m = LandModel(
         param_set,
         m_soil;
+        boundary_conditions = bc,
         source = sources,
         init_state_prognostic = init_soil_water!,
     )

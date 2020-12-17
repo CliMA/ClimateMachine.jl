@@ -10,7 +10,8 @@ export ClimateMachineConfigType,
     AtmosGCMConfigType,
     OceanBoxGCMConfigType,
     OceanSplitExplicitConfigType,
-    SingleStackConfigType
+    SingleStackConfigType,
+    MultiColumnLandConfigType
 
 abstract type ClimateMachineConfigType end
 struct AtmosLESConfigType <: ClimateMachineConfigType end
@@ -18,5 +19,5 @@ struct AtmosGCMConfigType <: ClimateMachineConfigType end
 struct OceanBoxGCMConfigType <: ClimateMachineConfigType end
 struct OceanSplitExplicitConfigType <: ClimateMachineConfigType end
 struct SingleStackConfigType <: ClimateMachineConfigType end
-
+struct MultiColumnLandConfigType <: ClimateMachineConfigType end
 end
