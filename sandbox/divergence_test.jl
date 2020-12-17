@@ -23,7 +23,6 @@ ClimateMachine.gpu_allowscalar(true)
 grid = DiscontinuousSpectralElementGrid(Ω, elements = (10,10,10), polynomialorder = (4,4,4), array = ArrayType)
 
 x, y, z = coordinates(grid)
-nrealelem = size(x)[2]
 device = array_device(x)
 dim = ndims(Ω)
 N = round(Int, size(x)[1]^(1/dim)) - 1
@@ -52,7 +51,7 @@ flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. 0 * x
 
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, flux, device)
 wait(event)
 event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
 wait(event)
@@ -78,7 +77,7 @@ flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. π*cos(π*x)
 
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, flux, device)
 wait(event)
 event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
 wait(event)
@@ -105,7 +104,7 @@ flux[:,:,2:2] .= F2
 flux[:,:,3:3] .= F3
 analytic_flux_divergence = @. a * π*cos(π*x) + b*π*cos(π*y) - c*π*sin(π*z)
 
-event = launch_volume_divergence!(grid, v_flux_divergence, flux, nrealelem, device)
+event = launch_volume_divergence!(grid, v_flux_divergence, flux, device)
 wait(event)
 event = launch_interface_divergence!(grid, s_flux_divergence, flux, device)
 wait(event)

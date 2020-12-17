@@ -23,8 +23,10 @@ const _JcV = Grids._JcV
 const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
 
-function launch_volume_divergence!(grid::G, flux_divergence, flux, nrealelem, device; dependencies = nothing) where {G <: AbstractGrid}
+function launch_volume_divergence!(grid::G, flux_divergence, flux; dependencies = nothing) where {G <: AbstractGrid}
 
+    nrealelem = length(grid.interiorelems)
+    device = array_device(gradient)
     N = polynomialorders(grid)
     dim = length(grid.D)
 
@@ -187,8 +189,7 @@ to the _parallel_ boundary.
 function launch_interface_divergence!(
     grid::G,
     flux_divergence,
-    flux,
-    device;
+    flux;
     dependencies = nothing,
 ) where {G <: AbstractGrid}
     # MPI
@@ -196,6 +197,7 @@ function launch_interface_divergence!(
 
     FT = eltype(flux)
 
+    device = array_device(flux)
     dim = length(grid.D)
     N = polynomialorders(grid)
     
@@ -358,8 +360,10 @@ fluxes, respectively.  interface_tendency!
     end
 end
 
-function launch_volume_gradient!(grid::G, gradient, state, nrealelem, device; dependencies = nothing) where {G <: AbstractGrid}
+function launch_volume_gradient!(grid::G, gradient, state; dependencies = nothing) where {G <: AbstractGrid}
 
+    nrealelem = length(grid.interiorelems)
+    device = array_device(gradient)
     N = polynomialorders(grid)
     dim = length(grid.D)
 
@@ -506,15 +510,14 @@ to the _parallel_ boundary.
 function launch_interface_gradient!(
     grid::G,
     gradient,
-    state,
-    device;
+    state;
     dependencies = nothing,
 ) where {G <: AbstractGrid}
     # MPI
     # @assert surface === :interior || surface === :exterior
 
     FT = eltype(state)
-
+    device = array_device(state)
     dim = length(grid.D)
     N = polynomialorders(grid)
     
