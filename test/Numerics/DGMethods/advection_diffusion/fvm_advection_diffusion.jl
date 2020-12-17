@@ -389,7 +389,7 @@ function main()
                 ClimateMachine.Settings.integration_testing ?
                 (FT == Float64 ? 4 : 3) : 1
             for dim in 2:3
-                for fvmethod in (FVConstant(), FVLinear())
+                for fvmethod in (FVConstant(), FVLinear(), FVLinear{3}())
                     polynomialorders = (4, 0)
                     result = Dict()
                     for level in 1:numlevels
@@ -411,9 +411,10 @@ function main()
                             FT,
                             vtkdir,
                         )
+                        fv_key = fvmethod isa FVLinear ? FVLinear() : fvmethod
                         @test all(
                             result[level] .≈
-                            FT.(expected_result[dim, level, FT, fvmethod]),
+                            FT.(expected_result[dim, level, FT, fv_key]),
                         )
                     end
                     @info begin
