@@ -133,7 +133,6 @@ function HydrostaticBoussinesqSuperModel(;
         tracer_advection = advection.tracers,
         forcing = forcing,
         stabilizing_dissipation = stabilizing_dissipation,
-        state_filter = state_filter,
         cʰ = convert(FT, rusanov_wave_speeds.cʰ),
         cᶻ = convert(FT, rusanov_wave_speeds.cᶻ),
         αᵀ = convert(FT, buoyancy.αᵀ),
@@ -156,6 +155,7 @@ function HydrostaticBoussinesqSuperModel(;
         filters = (
             vert_filter = CutoffFilter(grid, polynomialorder(grid)),
             exp_filter = ExponentialFilter(grid, 1, 8),
+            state_filter = state_filter,
         )
     end
 

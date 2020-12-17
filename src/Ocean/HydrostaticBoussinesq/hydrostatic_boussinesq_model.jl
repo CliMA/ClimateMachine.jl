@@ -21,14 +21,13 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{S, C, PS, P, MA, TA, F, T, I} <: BalanceLaw
+struct HydrostaticBoussinesqModel{S, C, PS, P, MA, TA, F, T} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
     momentum_advection::MA
     tracer_advection::TA
     forcing::F
-    state_filter::I
     stabilizing_dissipation::S
     ρₒ::T
     cʰ::T
@@ -48,7 +47,6 @@ struct HydrostaticBoussinesqModel{S, C, PS, P, MA, TA, F, T, I} <: BalanceLaw
         momentum_advection::MA = nothing,
         tracer_advection::TA = NonLinearAdvectionTerm(),
         forcing::F = Forcing(),
-        state_filter::I = nothing,
         stabilizing_dissipation::S = nothing,
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
@@ -61,15 +59,14 @@ struct HydrostaticBoussinesqModel{S, C, PS, P, MA, TA, F, T, I} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F, S, I}
-        return new{S, C, PS, P, MA, TA, F, FT, I}(
+    ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F, S}
+        return new{S, C, PS, P, MA, TA, F, FT}(
             param_set,
             problem,
             coupling,
             momentum_advection,
             tracer_advection,
             forcing,
-            state_filter,
             stabilizing_dissipation,
             ρₒ,
             cʰ,
@@ -656,7 +653,7 @@ function update_auxiliary_state!(
         exp_filter = MD.exp_filter
         apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
 
-        filter_state!(Q, m.state_filter, dg.grid)
+        filter_state!(Q, MD.state_filter, dg.grid)
     end
 
     compute_flow_deviation!(dg, m, m.coupling, Q, t)
@@ -685,7 +682,7 @@ function update_auxiliary_state_gradient!(
     A = dg.state_auxiliary
     D = dg.state_gradient_flux
 
-    filter_state!(D, m.state_filter, dg.grid)
+    filter_state!(D, MD.state_filter, dg.grid)
 
     # load -∇ʰu as ∂ᶻw
     index_w = varsindex(vars_state(m, Auxiliary(), FT), :w)
