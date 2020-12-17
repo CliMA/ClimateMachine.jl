@@ -650,7 +650,7 @@ function update_auxiliary_state!(
         vert_filter = md.vert_filter
         apply!(Q, (:u,), dg.grid, vert_filter, direction = VerticalDirection())
 
-        exp_filter = MD.exp_filter
+        exp_filter = md.exp_filter
         apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
 
         filter_state!(Q, md.state_filter, dg.grid)
