@@ -100,7 +100,10 @@ function prop_defaults()
   bl_prop=( bl_prop...,   init_theta=init_theta )
 
   bl_prop=( bl_prop..., source_theta=nothing)
-  bl_prop=( bl_prop..., calc_kappa_diff=nothing)
+
+  calc_kappa_diff(_...)=(return 0., 0., 0.)
+  bl_prop=( bl_prop..., calc_kappa_diff=calc_kappa_diff)
+
   bl_prop=( bl_prop..., get_wavespeed=(0.) )
   bl_prop=( bl_prop..., get_penalty_tau=(1.) )
 end
