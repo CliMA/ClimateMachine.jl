@@ -296,7 +296,7 @@ function parse_commandline(
         default = get_setting(:fixed_number_of_steps, defaults, global_defaults)
         "--degree"
         help = "tuple of horizontal and vertical polynomial degrees for spatial discretization order (no space before/after comma)"
-        metavar = "horizontal,vertical"
+        metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
     end
