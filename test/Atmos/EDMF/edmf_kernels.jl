@@ -347,9 +347,8 @@ function compute_gradient_argument!(
     en_tf.q_tot_cv = enforce_positivity(en.ρaq_tot_cv) / (env.a * gm.ρ)
     en_tf.θ_liq_q_tot_cv = en.ρaθ_liq_q_tot_cv / (env.a * gm.ρ)
 
-    # TODO: is this supposed to be grabbed from grid mean?
-    en_tf.θv = virtual_pottemp(ts.gm)
-    e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2)
+    en_tf.θv = virtual_pottemp(ts.en)
+    e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
     en_tf.e = total_energy(e_kin, _grav * z, ts.en)
 end;
 
@@ -390,7 +389,7 @@ function compute_gradient_flux!(
     en_dif.∇θv = en_∇tf.θv
     en_dif.∇e = en_∇tf.e
 
-    tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2
+    tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
 end;
 
 struct TurbconvSource <: AbstractSource end
@@ -548,18 +547,22 @@ function atmos_source!(
 
     # production from mean gradient and Dissipation
     en_src.ρatke += ρa₀ * K_m * Shear² # tke Shear source
-    en_src.ρatke += -ρa₀ * K_h * ∂b∂z_env   # tke Bouyancy source
+    en_src.ρatke += -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_src.ρatke += -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 
     en_src.ρaθ_liq_cv +=
-        ρa₀ *
-        (K_h * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] - Diss₀ * en.ρaθ_liq_cv)
+        ρa₀ * (
+            FT(2) * K_h * en_dif.∇θ_liq[3] * en_dif.∇θ_liq[3] -
+            Diss₀ * en.ρaθ_liq_cv
+        )
     en_src.ρaq_tot_cv +=
-        ρa₀ *
-        (K_h * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] - Diss₀ * en.ρaq_tot_cv)
+        ρa₀ * (
+            FT(2) * K_h * en_dif.∇q_tot[3] * en_dif.∇q_tot[3] -
+            Diss₀ * en.ρaq_tot_cv
+        )
     en_src.ρaθ_liq_q_tot_cv +=
         ρa₀ * (
-            K_h * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
+            FT(2) * K_h * en_dif.∇θ_liq[3] * en_dif.∇q_tot[3] -
             Diss₀ * en.ρaθ_liq_q_tot_cv
         )
     # covariance microphysics sources should be applied here
@@ -645,7 +648,7 @@ function flux(::Advect{en_ρaθ_liq_q_tot_cv}, m, state, aux, t, ts, direction)
     return en.ρaθ_liq_q_tot_cv * env.w * ẑ
 end
 
-# # in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the uprdafts
+# # in the EDMF first order (advective) fluxes exist only in the grid mean (if <w> is nonzero) and the updrafts
 function flux_first_order!(
     turbconv::EDMF{FT},
     m::AtmosModel{FT},
@@ -750,7 +753,6 @@ function flux_second_order!(
     massflux_e = sum(
         vuntuple(N_up) do i
             up[i].ρa *
-            ρ_inv *
             (gm.ρe * ρ_inv - e_tot_up[i]) *
             (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
         end,
@@ -759,7 +761,6 @@ function flux_second_order!(
     massflux_q_tot = sum(
         vuntuple(N_up) do i
             up[i].ρa *
-            ρ_inv *
             (ρq_tot * ρ_inv - up[i].ρaq_tot / up[i].ρa) *
             (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
         end,
@@ -768,7 +769,6 @@ function flux_second_order!(
     massflux_w = sum(
         vuntuple(N_up) do i
             up[i].ρa *
-            ρ_inv *
             (gm.ρu[3] * ρ_inv - up[i].ρaw / up[i].ρa) *
             (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
         end,
