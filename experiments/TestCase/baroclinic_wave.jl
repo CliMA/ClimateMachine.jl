@@ -163,8 +163,9 @@ end
 function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
-        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
+        DecayingTemperatureProfile{FT}(param_set, FT(290), FT(160), FT(8e3))
     ref_state = HydrostaticState(temp_profile_ref)
+    
 
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
@@ -178,6 +179,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         moisture = DryModel()
         source = (Gravity(), Coriolis())
     end
+    
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
         param_set;
@@ -188,7 +190,9 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         moisture = moisture,
         source = source,
     )
-
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
     config = ClimateMachine.AtmosGCMConfiguration(
         exp_name,
         poly_order,
@@ -197,6 +201,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+	#solver_type = ode_solver_type,
     )
 
     return config
@@ -223,7 +228,7 @@ function main()
     poly_order = 5                           # discontinuous Galerkin polynomial order
     n_horz = 8                              # horizontal element number
     n_vert = 4                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 15
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -239,7 +244,10 @@ function main()
         split_explicit_implicit = true,
         discrete_splitting = false,
     )
-
+    #ode_solver_type = ClimateMachine.MultirateSolverType(;timestep_ratio = 500)
+    #=ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )=# 
     CFL = FT(0.1) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
