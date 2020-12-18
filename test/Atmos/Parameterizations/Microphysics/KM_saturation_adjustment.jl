@@ -1,18 +1,11 @@
 include("KinematicModel.jl")
 
-function vars_state(m::KinematicModel, ::Prognostic, FT)
-    @vars begin
-        ρ::FT
-        ρu::SVector{3, FT}
-        ρe::FT
-        ρq_tot::FT
-    end
-end
-
-function vars_state(m::KinematicModel, ::Auxiliary, FT)
+function vars_state(m::AtmosModel, st::Auxiliary, FT)
     @vars begin
         # defined in init_state_auxiliary
-        p::FT
+        ref_state::vars_state(m.ref_state, st, FT)
+        orientation::vars_state(m.orientation, st, FT)
+        moisture::vars_state(m.moisture, st, FT)
         x_coord::FT
         z_coord::FT
         # defined in update_aux
@@ -44,12 +37,12 @@ function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t)
         # density
         q_pt_0 = PhasePartition(dc.qt_0)
         R_m, cp_m, cv_m, γ = gas_constants(param_set, q_pt_0)
-        T::FT = dc.θ_0 * (aux.p / dc.p_1000)^(R_m / cp_m)
-        ρ::FT = aux.p / R_m / T
+        T::FT = dc.θ_0 * (aux.ref_state.p / dc.p_1000)^(R_m / cp_m)
+        ρ::FT = aux.ref_state.p / R_m / T
         state.ρ = ρ
 
         # moisture
-        state.ρq_tot = ρ * dc.qt_0
+        state.moisture.ρq_tot = ρ * dc.qt_0
 
         # velocity (derivative of streamfunction)
         ρu::FT =
@@ -73,7 +66,7 @@ function init_kinematic_eddy!(eddy_model, state, aux, localgeo, t)
 end
 
 function nodal_update_auxiliary_state!(
-    m::KinematicModel,
+    m::AtmosModel,
     state::Vars,
     aux::Vars,
     t::Real,
@@ -84,7 +77,7 @@ function nodal_update_auxiliary_state!(
         aux.u = state.ρu[1] / state.ρ
         aux.w = state.ρu[3] / state.ρ
 
-        aux.q_tot = state.ρq_tot / state.ρ
+        aux.q_tot = state.moisture.ρq_tot / state.ρ
 
         aux.e_tot = state.ρe / state.ρ
         aux.e_kin = 1 // 2 * (aux.u^2 + aux.w^2)
@@ -107,58 +100,32 @@ function nodal_update_auxiliary_state!(
     end
 end
 
-function boundary_state!(
-    ::RusanovNumericalFlux,
-    bctype,
-    m::KinematicModel,
-    state⁺,
-    aux⁺,
-    n,
-    state⁻,
-    aux⁻,
-    t,
-    args...,
-) end
-
-@inline function wavespeed(
-    m::KinematicModel,
-    nM,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    _...,
-)
-    @inbounds u = state.ρu / state.ρ
-    return abs(dot(nM, u))
-end
-
-@inline function flux_first_order!(
-    m::KinematicModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-)
-    FT = eltype(state)
-    @inbounds begin
-        # advect moisture ...
-        flux.ρq_tot = SVector(
-            state.ρu[1] * state.ρq_tot / state.ρ,
-            FT(0),
-            state.ρu[3] * state.ρq_tot / state.ρ,
-        )
-        # ... energy ...
-        flux.ρe = SVector(
-            state.ρu[1] / state.ρ * (state.ρe + aux.p),
-            FT(0),
-            state.ρu[3] / state.ρ * (state.ρe + aux.p),
-        )
-        # ... and don't advect momentum (kinematic setup)
-    end
-end
-
-source!(::KinematicModel, _...) = nothing
+# Advection+pressure{energy}
+# @inline function flux_first_order!(
+#     m::KinematicModel,
+#     flux::Grad,
+#     state::Vars,
+#     aux::Vars,
+#     t::Real,
+#     direction,
+# )
+#     FT = eltype(state)
+#     @inbounds begin
+#         # advect moisture ...
+#         flux.moisture.ρq_tot = SVector(
+#             state.ρu[1] * state.moisture.ρq_tot / state.ρ,
+#             FT(0),
+#             state.ρu[3] * state.moisture.ρq_tot / state.ρ,
+#         )
+#         # ... energy ...
+#         flux.ρe = SVector(
+#             state.ρu[1] / state.ρ * (state.ρe + aux.p),
+#             FT(0),
+#             state.ρu[3] / state.ρ * (state.ρe + aux.p),
+#         )
+#         # ... and don't advect momentum (kinematic setup)
+#     end
+# end
 
 function main()
     # Working precision

@@ -505,6 +505,7 @@ equations.
     direction,
 )
 
+    project = SVector(1, 0, 1)
     flux_pad = SVector(1, 1, 1)
     tend = Flux{FirstOrder}()
     _args = (state = state, aux = aux, t = t, direction = direction)
@@ -512,7 +513,7 @@ equations.
     flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
     flux.ρu =
         Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad .* project
 
     flux_first_order!(atmos.moisture, atmos, flux, args)
     flux_first_order!(atmos.precipitation, atmos, flux, args)

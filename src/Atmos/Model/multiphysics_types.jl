@@ -22,6 +22,8 @@ subsidence_velocity(subsidence::Subsidence{PV, FT}, z::FT) where {PV, FT} =
 
 struct PressureGradient{PV <: Momentum} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
+export KinematicModelPressure
+struct KinematicModelPressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 
 struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end

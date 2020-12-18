@@ -38,6 +38,8 @@ using ClimateMachine.Thermodynamics:
     latent_heat_fusion,
     Liquid,
     Ice,
+    PhaseEquil_ρpq,
+    air_pressure,
     supersaturation,
     vapor_specific_humidity
 
@@ -80,13 +82,20 @@ const rain_param_set = param_set.microphys_param_set.rain
 const snow_param_set = param_set.microphys_param_set.snow
 
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, Hyperdiffusive
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, Hyperdiffusive,
+    Flux, FirstOrder, SecondOrder, Source
+
+using ClimateMachine.Atmos:
+    Mass, Momentum, Energy, Moisture, TotalMoisture, Advect, KinematicModelPressure
+
+import ClimateMachine.Atmos:
+    eq_tends,
+    atmos_nodal_init_state_auxiliary!
 
 import ClimateMachine.BalanceLaws:
     vars_state,
     init_state_prognostic!,
     init_state_auxiliary!,
-    nodal_init_state_auxiliary!,
     nodal_update_auxiliary_state!,
     flux_first_order!,
     flux_second_order!,
@@ -97,6 +106,27 @@ import ClimateMachine.BalanceLaws:
 
 import ClimateMachine.DGMethods: DGModel
 using ClimateMachine.Mesh.Geometry: LocalGeometry
+
+# Override Atmos eq_tends:
+eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Mass} =
+    ()
+eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Momentum} =
+    ()
+eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Moisture} =
+    (Advect{PV}(),)
+eq_tends(pv::PV, m::AtmosModel, ::Flux{FirstOrder}) where {PV <: Energy} =
+    (Advect{PV}(), KinematicModelPressure{PV}())
+
+eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV <: Momentum} =
+    ()
+eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV <: Mass} =
+    ()
+eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV <: Energy} =
+    ()
+eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV <: Moisture} =
+    ()
+eq_tends(pv::PV, m::AtmosModel, ::Flux{SecondOrder}) where {PV} =
+    ()
 
 struct KinematicModelConfig{FT}
     xmax::FT
@@ -119,52 +149,8 @@ struct KinematicModelConfig{FT}
     idx_bc_top::Int
 end
 
-struct KinematicModel{FT, PS, O, M, P, S, BC, IS, DC} <: BalanceLaw
-    param_set::PS
-    orientation::O
-    moisture::M
-    precipitation::P
-    source::S
-    boundarycondition::BC
-    init_state_prognostic::IS
-    data_config::DC
-end
-
-function KinematicModel{FT}(
-    ::Type{AtmosLESConfigType},
-    param_set::AbstractParameterSet;
-    orientation::O = FlatOrientation(),
-    moisture::M = nothing,
-    precipitation::P = nothing,
-    source::S = nothing,
-    boundarycondition::BC = nothing,
-    init_state_prognostic::IS = nothing,
-    data_config::DC = nothing,
-) where {FT <: AbstractFloat, O, M, P, S, BC, IS, DC}
-
-    @assert param_set ≠ nothing
-    @assert init_state_prognostic ≠ nothing
-
-    atmos = (
-        param_set,
-        orientation,
-        moisture,
-        precipitation,
-        source,
-        boundarycondition,
-        init_state_prognostic,
-        data_config,
-    )
-
-    return KinematicModel{FT, typeof.(atmos)...}(atmos...)
-end
-
-vars_state(m::KinematicModel, ::Gradient, FT) = @vars()
-
-vars_state(m::KinematicModel, ::GradientFlux, FT) = @vars()
-
-function nodal_init_state_auxiliary!(
-    m::KinematicModel,
+function atmos_nodal_init_state_auxiliary!(
+    m::AtmosModel,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
@@ -190,29 +176,40 @@ function nodal_init_state_auxiliary!(
             _R_d / _cp_d * _grav / dc.θ_0 / R_m * (z - dc.z_0)
         )^(_cp_d / _R_d)
 
+    T::FT = dc.θ_0 * (p / dc.p_1000)^(R_m / cp_m)
+    ρ::FT = p / R_m / T
+
+    ts = PhaseEquil_ρpq(
+        m.param_set,
+        ρ,
+        p,
+        dc.qt_0,
+        false
+    )
+
     @inbounds begin
-        aux.p = p
+        aux.ref_state.p = air_pressure(ts)
         aux.x_coord = x
         aux.z_coord = z
     end
 end
 
 function init_state_prognostic!(
-    m::KinematicModel,
+    m::AtmosModel,
     state::Vars,
     aux::Vars,
     localgeo,
     t,
     args...,
 )
-    m.init_state_prognostic(m, state, aux, localgeo, t, args...)
+    m.problem.init_state_prognostic(m, state, aux, localgeo, t, args...)
 end
-boundary_conditions(::KinematicModel) = (1, 2, 3, 4, 5, 6)
+boundary_conditions(::AtmosModel) = (1, 2, 3, 4, 5, 6)
 
 function boundary_state!(
     ::CentralNumericalFluxSecondOrder,
     bctype,
-    m::KinematicModel,
+    m::AtmosModel,
     state⁺,
     aux⁺,
     n,
@@ -222,26 +219,8 @@ function boundary_state!(
     args...,
 ) end
 
-@inline function flux_second_order!(
-    m::KinematicModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-) end
-
-@inline function flux_second_order!(
-    m::KinematicModel,
-    flux::Grad,
-    state::Vars,
-    τ,
-    d_h_tot,
-) end
-
 function config_kinematic_eddy(
-    FT,
+    ::Type{FT},
     N,
     resolution,
     xmax,
@@ -262,7 +241,7 @@ function config_kinematic_eddy(
     idx_bc_back,
     idx_bc_bottom,
     idx_bc_top,
-)
+) where {FT}
     # Choose explicit solver
     ode_solver = ClimateMachine.ExplicitSolverType(
         solver_method = LSRK144NiegemannDiehlBusch,
@@ -289,12 +268,21 @@ function config_kinematic_eddy(
         Int(idx_bc_top),
     )
 
+    problem = AtmosProblem(
+        boundaryconditions = (
+            AtmosBC(),
+            AtmosBC(),
+        ),
+        init_state_prognostic=init_kinematic_eddy!,
+    )
+
     # Set up the model
-    model = KinematicModel{FT}(
+    model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
-        init_state_prognostic = init_kinematic_eddy!,
         data_config = kmc,
+        source = ()
+        problem = problem
     )
 
     config = ClimateMachine.AtmosLESConfiguration(

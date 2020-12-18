@@ -147,9 +147,10 @@ function flux_first_order!(
     flux::Grad,
     args,
 )
+    project = SVector(1, 0, 1)
     tend = Flux{FirstOrder}()
     flux.moisture.ρq_tot =
-        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), atmos, args)
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), atmos, args) .* project
 end
 
 function flux_second_order!(
@@ -241,13 +242,14 @@ function flux_first_order!(
     flux::Grad,
     args,
 )
+    project = SVector(1, 0, 1)
     tend = Flux{FirstOrder}()
     flux.moisture.ρq_tot =
-        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), atmos, args)
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), atmos, args) .* project
     flux.moisture.ρq_liq =
-        Σfluxes(eq_tends(LiquidMoisture(), atmos, tend), atmos, args)
+        Σfluxes(eq_tends(LiquidMoisture(), atmos, tend), atmos, args) .* project
     flux.moisture.ρq_ice =
-        Σfluxes(eq_tends(IceMoisture(), atmos, tend), atmos, args)
+        Σfluxes(eq_tends(IceMoisture(), atmos, tend), atmos, args) .* project
 end
 
 function flux_second_order!(

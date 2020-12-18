@@ -15,6 +15,11 @@ function flux(::Pressure{Energy}, atmos, args)
     return state.ρu / state.ρ * air_pressure(ts)
 end
 
+function flux(::KinematicModelPressure{Energy}, atmos, args)
+    @unpack state, aux = args
+    return state.ρu / state.ρ * aux.ref_state.p
+end
+
 #####
 ##### Second order fluxes
 #####
