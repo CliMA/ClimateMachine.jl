@@ -867,7 +867,7 @@ function turbconv_boundary_state!(
     end
     w_up_surf = updraft_surface_w(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
     @unroll_map(N_up) do i
-        up⁺[i].ρaw = up⁺[i].ρa * w_up_surf[i]
+        up⁺[i].ρaw = a_up_surf[i] * gm⁻.ρ * w_up_surf[i]
     end
 
     a_en = FT(1) - sum(a_up_surf)
