@@ -822,6 +822,12 @@ git-tree-sha1 = "3b9f665c70712af3264b61c27a7e1d62055dafd1"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
 version = "0.9.6"
 
+[[StructArrays]]
+deps = ["Adapt", "DataAPI", "Tables"]
+git-tree-sha1 = "8099ed9fb90b6e754d6ba8c6ed8670f010eadca0"
+uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
+version = "0.4.4"
+
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"

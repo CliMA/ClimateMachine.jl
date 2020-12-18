@@ -64,103 +64,99 @@ mutable struct MPIStateArray{
     nabrtovmapsend::Array{UnitRange{Int64}, 1}
 
     weights::DATN
+end
 
-    function MPIStateArray{FT, V}(
-        mpicomm,
-        DA,
-        Np,
-        nstate,
-        numelem,
+function MPIStateArray{FT, V}(
+    mpicomm,
+    DA,
+    Np,
+    nstate,
+    numelem,
+    realelems,
+    ghostelems,
+    vmaprecv,
+    vmapsend,
+    nabrtorank,
+    nabrtovmaprecv,
+    nabrtovmapsend,
+    weights;
+    mpi_knows_cuda = nothing,
+) where {FT, V}
+    data = similar(DA, FT, Np, nstate, numelem)
+
+    if varsize(V) > 0 && varsize(V) != nstate
+        error("var sizes and numbers of states do not match")
+    end
+
+    if isnothing(mpi_knows_cuda)
+        mpi_knows_cuda = MPI.has_cuda()
+    end
+
+    if data isa Array || mpi_knows_cuda
+        kind = SingleCMBuffer
+    else
+        kind = DoubleCMBuffer
+    end
+    recv_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmaprecv))
+    send_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmapsend))
+
+    realdata =
+        view(data, ntuple(i -> Colon(), ndims(data) - 1)..., realelems)
+
+    nnabr = length(nabrtorank)
+    sendreq = fill(MPI.REQUEST_NULL, nnabr)
+    recvreq = fill(MPI.REQUEST_NULL, nnabr)
+
+    # If vmap is not on the device we need to copy it up (we also do not want to
+    # put it up everytime, so if it's already on the device then we do not do
+    # anything).
+    #
+    # Better way than checking the type names?
+    # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
+    if typeof(vmaprecv).name != typeof(data).name
+        vmaprecv =
+            copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)), vmaprecv)
+    end
+    if typeof(vmapsend).name != typeof(data).name
+        vmapsend =
+            copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
+    end
+    if typeof(weights).name != typeof(data).name
+        weights = copyto!(
+            similar(DA, eltype(weights), size(weights)),
+            Array(weights),
+        )
+    end
+
+    Q = MPIStateArray{FT, V}(
+        # Make sure that each MPIStateArray has its own MPI context.  This
+        # allows multiple MPIStateArrays to be communicating asynchronously
+        # at the same time without having to explicitly manage tags.
+        MPI.Comm_dup(mpicomm),
+        data,
+        realdata,
         realelems,
         ghostelems,
         vmaprecv,
         vmapsend,
+        sendreq,
+        recvreq,
+        send_buffer,
+        recv_buffer,
         nabrtorank,
         nabrtovmaprecv,
         nabrtovmapsend,
-        weights;
-        mpi_knows_cuda = nothing,
-    ) where {FT, V}
-        data = similar(DA, FT, Np, nstate, numelem)
-
-
-        if varsize(V) > 0 && varsize(V) != nstate
-            error("var sizes and numbers of states do not match")
+        weights,
+    )
+    # Make sure that we have finished all outstanding data for halo
+    # exchanges before the MPIStateArray is finalized.
+    finalizer(Q) do x
+        if !MPI.Finalized()
+            MPI.Waitall!(x.recvreq)
+            MPI.Waitall!(x.sendreq)
         end
-
-        if isnothing(mpi_knows_cuda)
-            mpi_knows_cuda = MPI.has_cuda()
-        end
-
-        if data isa Array || mpi_knows_cuda
-            kind = SingleCMBuffer
-        else
-            kind = DoubleCMBuffer
-        end
-        recv_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmaprecv))
-        send_buffer = CMBuffer{FT}(DA, kind, nstate, length(vmapsend))
-
-        realdata =
-            view(data, ntuple(i -> Colon(), ndims(data) - 1)..., realelems)
-        DAV = typeof(realdata)
-
-        nnabr = length(nabrtorank)
-        sendreq = fill(MPI.REQUEST_NULL, nnabr)
-        recvreq = fill(MPI.REQUEST_NULL, nnabr)
-
-        # If vmap is not on the device we need to copy it up (we also do not want to
-        # put it up everytime, so if it's already on the device then we do not do
-        # anything).
-        #
-        # Better way than checking the type names?
-        # XXX: Use Adapt.jl vmaprecv = adapt(DA, vmaprecv)
-        if typeof(vmaprecv).name != typeof(data).name
-            vmaprecv =
-                copyto!(similar(DA, eltype(vmaprecv), size(vmaprecv)), vmaprecv)
-        end
-        if typeof(vmapsend).name != typeof(data).name
-            vmapsend =
-                copyto!(similar(DA, eltype(vmapsend), size(vmapsend)), vmapsend)
-        end
-        if typeof(weights).name != typeof(data).name
-            weights = copyto!(
-                similar(DA, eltype(weights), size(weights)),
-                Array(weights),
-            )
-        end
-
-        DAI1 = typeof(vmaprecv)
-        Buf = typeof(send_buffer)
-        Q = new{FT, V, typeof(data), DAI1, DAV, Buf}(
-            # Make sure that each MPIStateArray has its own MPI context.  This
-            # allows multiple MPIStateArrays to be communicating asynchronously
-            # at the same time without having to explicitly manage tags.
-            MPI.Comm_dup(mpicomm),
-            data,
-            realdata,
-            realelems,
-            ghostelems,
-            vmaprecv,
-            vmapsend,
-            sendreq,
-            recvreq,
-            send_buffer,
-            recv_buffer,
-            nabrtorank,
-            nabrtovmaprecv,
-            nabrtovmapsend,
-            weights,
-        )
-        # Make sure that we have finished all outstanding data for halo
-        # exchanges before the MPIStateArray is finalize.
-        finalizer(Q) do x
-            if !MPI.Finalized()
-                MPI.Waitall!(x.recvreq)
-                MPI.Waitall!(x.sendreq)
-            end
-        end
-        return Q
     end
+    return Q
 end
 
 function Base.fill!(Q::MPIStateArray, x)
@@ -169,12 +165,12 @@ function Base.fill!(Q::MPIStateArray, x)
 end
 
 vars(Q::MPIStateArray{FT, V}) where {FT, V} = V
-function Base.getproperty(Q::MPIStateArray{FT, V}, sym::Symbol) where {FT, V}
-    if sym ∈ V.names
+function Base.getproperty(Q::M, sym::Symbol) where {FT, V, M <: MPIStateArray{FT, V}}
+    if hasfield(M, sym)
+        return getfield(Q, sym)
+    else
         varrange = varsindex(V, sym)
         return view(realview(Q), :, varrange, :)
-    else
-        return getfield(Q, sym)
     end
 end
 
@@ -324,16 +320,19 @@ function Base.similar(
     similar(Q, FT; vars = V, nstate = nstate)
 end
 
-Base.size(Q::MPIStateArray, x...; kw...) = size(Q.realdata, x...; kw...)
+Base.size(Q::MPIStateArray) = size(Q.realdata)
 
-Base.getindex(Q::MPIStateArray, x...; kw...) = getindex(Q.realdata, x...; kw...)
+Base.axes(Q::MPIStateArray) = axes(Q.realdata)
 
-Base.setindex!(Q::MPIStateArray, x...; kw...) =
-    setindex!(Q.realdata, x...; kw...)
+Base.@propagate_inbounds Base.getindex(Q::MPIStateArray, x...) =
+    getindex(Q.realdata, x...)
 
-Base.eltype(Q::MPIStateArray, x...; kw...) = eltype(Q.data, x...; kw...)
+Base.@propagate_inbounds Base.setindex!(Q::MPIStateArray, x...) =
+    setindex!(Q.realdata, x...)
 
-Base.Array(Q::MPIStateArray) = Array(Q.data)
+Base.IndexStyle(
+    ::Type{<:MPIStateArray{FT, V, DATN, DAI1, DAV}},
+) where {FT, V, DATN, DAI1, DAV} = IndexStyle(DAV)
 
 # broadcasting stuff
 
@@ -363,29 +362,23 @@ end
 transform_array(mpisa::MPIStateArray) = mpisa.realdata
 transform_array(x) = x
 
-Base.copyto!(dest::Array, src::MPIStateArray) = copyto!(dest, src.data)
+function Base.copyto!(dest::AbstractArray, src::MPIStateArray)
+    copyto!(dest, src.realdata)
+end
+
+function Base.copyto!(dest::MPIStateArray, src::AbstractArray)
+    copyto!(dest.realdata, src)
+    return dest
+end
 
 function Base.copyto!(dest::MPIStateArray, src::MPIStateArray)
     copyto!(dest.realdata, src.realdata)
-    dest
+    return dest
 end
 
-@inline function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
-    # check for the case a .= b, where b is an array
-    if bc.f === identity && bc.args isa Tuple{AbstractArray}
-        if bc.args isa Tuple{MPIStateArray}
-            realindices = CartesianIndices((
-                axes(dest.data)[1:(end - 1)]...,
-                dest.realelems,
-            ))
-            copyto!(dest.data, realindices, bc.args[1].data, realindices)
-        else
-            copyto!(dest.data, bc.args[1])
-        end
-    else
-        copyto!(dest.realdata, transform_broadcasted(bc, dest.data))
-    end
-    dest
+function Base.copyto!(dest::MPIStateArray, bc::Broadcasted{Nothing})
+    copyto!(dest.realdata, transform_broadcasted(bc, dest.data))
+    return dest
 end
 
 @inline function Base.zero(Q::MPIStateArray{FT}) where {FT}
@@ -803,9 +796,8 @@ array_device(Q::MPIStateArray) = array_device(Q.data)
 array_device(ra::Base.ReshapedArray{T, N, A}) where {T, N, A <: MPIStateArray} =
     array_device(parent(ra))
 
-realview(Q::Union{Array, SArray, MArray}) = Q
+realview(Q::AbstractArray) = Q
 realview(Q::MPIStateArray) = Q.realdata
-realview(Q::CuArray) = Q
 
 # transform all arguments of `bc` from MPIStateArrays to CuArrays
 # and replace CPU function with GPU variants

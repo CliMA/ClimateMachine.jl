@@ -138,6 +138,7 @@ function nonlinearsolve!(
         )
         # @info "Linear solver converged in $linear_iterations iterations"
         iters += 1
+        println("$(typeof(solver).name), iteration $iters, $Q")
 
         preconditioner_counter_update!(preconditioner)
 
@@ -269,6 +270,7 @@ function linearsolve!(
         )
 
         iters += inner_iters
+        println("$(typeof(solver).name), iteration $iters, $Q")
 
         if !isfinite(residual_norm)
             error("norm of residual is not finite after $iters iterations of `doiteration!`")
@@ -301,5 +303,7 @@ include("columnwise_lu_solver.jl")
 include("preconditioners.jl")
 include("batched_generalized_minimal_residual_solver.jl")
 include("jacobian_free_newton_krylov_solver.jl")
+include("Problem.jl")
+include("IterativeAlgorithm.jl")
 
 end

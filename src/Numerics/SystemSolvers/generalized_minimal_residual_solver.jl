@@ -81,6 +81,7 @@ function initialize!(
     fill!(g0, 0)
     g0[1] = residual_norm
     krylov_basis[1] ./= residual_norm
+    println("initialize, $Q, $Qrhs, $(krylov_basis[1])")
 
     converged, max(threshold, atol)
 end
@@ -127,6 +128,10 @@ function doiteration!(
 
         # compose the new rotation with the others
         Ω = lmul!(G, Ω)
+        println("inner iteration $j, $(krylov_basis[j + 1]), $(krylov_basis[j])")
+        println("inner iteration $j, $H")
+        println("inner iteration $j, $g0")
+        println("inner iteration $j, $G")
 
         residual_norm = abs(g0[j + 1])
 
