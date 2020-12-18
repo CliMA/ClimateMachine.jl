@@ -839,7 +839,7 @@ function main()
     init_ρ = Spline1D(z_range, ρ_range)
     init_dρ = Spline1D(z_range, dρ_range)
 
-    driver_config = config_kinematic_eddy(
+    driver_config, ode_solver_type = config_kinematic_eddy(
         FT,
         N,
         resolution,
@@ -867,6 +867,7 @@ function main()
         t_end,
         driver_config,
         (init_T, init_qt, init_p, init_ρ, init_dρ),
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
         init_on_cpu = true,
         #Courant_number = CFL,

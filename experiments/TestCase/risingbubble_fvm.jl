@@ -103,10 +103,6 @@ function config_risingbubble(
     with_moisture,
 )
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK54CarpenterKennedy,
-    )
-
     T_surface = FT(300)
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
@@ -142,7 +138,6 @@ function config_risingbubble(
         zmax,
         param_set,
         init_risingbubble!,
-        solver_type = ode_solver,
         model = model,
         numerical_flux_first_order = RoeNumericalFlux(),
         fv_reconstruction = HBFVReconstruction(model, fv_reconstruction),
@@ -226,10 +221,16 @@ function main()
         zmax,
         with_moisture,
     )
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK54CarpenterKennedy,
+    )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFL,
     )

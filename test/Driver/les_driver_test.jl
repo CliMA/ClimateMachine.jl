@@ -83,7 +83,6 @@ function main()
     timeend = FT(10)
     CFL = FT(0.4)
 
-    ode_solver = ClimateMachine.ExplicitSolverType()
     driver_config = ClimateMachine.AtmosLESConfiguration(
         "Driver test",
         N,
@@ -93,12 +92,13 @@ function main()
         zmax,
         param_set,
         init_test!,
-        solver_type = ode_solver,
     )
+    ode_solver_type = ClimateMachine.ExplicitSolverType()
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         Courant_number = CFL,
     )
 

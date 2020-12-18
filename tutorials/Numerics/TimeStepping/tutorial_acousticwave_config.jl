@@ -60,7 +60,7 @@ function (setup::AcousticWaveSetup)(problem, bl, state, aux, localgeo, t)
 end
 
 function run_acousticwave(
-    ode_solver,
+    ode_solver_type,
     CFL::FT,
     CFL_direction,
     timeend::FT,
@@ -100,7 +100,6 @@ function run_acousticwave(
         setup.domain_height,
         param_set,
         setup;
-        solver_type = ode_solver,
         model = model,
     )
 
@@ -110,7 +109,7 @@ function run_acousticwave(
         driver_config,
         Courant_number = CFL,
         init_on_cpu = true,
-        ode_solver_type = ode_solver,
+        ode_solver_type = ode_solver_type,
         CFL_direction = CFL_direction,
     )
 

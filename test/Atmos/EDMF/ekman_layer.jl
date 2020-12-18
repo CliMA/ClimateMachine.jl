@@ -160,13 +160,13 @@ function main(::Type{FT}, cl_args) where {FT}
         param_set,
         model;
         hmax = FT(40),
-        solver_type = ode_solver_type,
         fv_reconstruction = fv_reconstruction,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFLmax,
     )

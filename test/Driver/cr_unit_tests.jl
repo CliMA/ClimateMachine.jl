@@ -72,7 +72,7 @@ function main()
     # Timestep size (s)
     dt = FT(600)
 
-    ode_solver = ClimateMachine.MISSolverType(;
+    ode_solver_type = ClimateMachine.MISSolverType(;
         splitting_type = ClimateMachine.SlowFastSplitting(),
         nsubsteps = (20,),
     )
@@ -101,13 +101,13 @@ function main()
         setup.domain_height,
         param_set,
         setup;
-        solver_type = ode_solver,
         model = model,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
     )
 

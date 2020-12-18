@@ -30,9 +30,6 @@ const param_set = EarthParameterSet()
 include("sin_init.jl")
 
 function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK54CarpenterKennedy,
-    )
     config = ClimateMachine.AtmosLESConfiguration(
         "Diagnostics SIN test",
         N,
@@ -41,8 +38,7 @@ function config_sin_test(FT, N, resolution, xmax, ymax, zmax)
         ymax,
         zmax,
         param_set,
-        init_sin_test!;
-        solver_type = ode_solver,
+        init_sin_test!,
     )
 
     return config
@@ -82,10 +78,16 @@ function main()
     timeend = dt
 
     driver_config = config_sin_test(FT, N, resolution, xmax, ymax, zmax)
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK54CarpenterKennedy,
+    )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         ode_dt = dt,
         init_on_cpu = true,
     )

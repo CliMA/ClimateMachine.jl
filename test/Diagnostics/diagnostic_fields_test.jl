@@ -87,14 +87,6 @@ end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
 
-    # Choose explicit multirate solver
-    ode_solver = ClimateMachine.MultirateSolverType(
-        fast_model = AtmosAcousticGravityLinearModel,
-        slow_method = LSRK144NiegemannDiehlBusch,
-        fast_method = LSRK144NiegemannDiehlBusch,
-        timestep_ratio = 10,
-    )
-
     # Set up the model
     T_profile = DryAdiabaticProfile{FT}(param_set)
     C_smag = FT(0.23)
@@ -121,7 +113,6 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
         zmax,
         param_set,
         init_risingbubble!,
-        solver_type = ode_solver,
         model = model,
     )
     return config
@@ -164,10 +155,20 @@ function run_brick_diagostics_fields_test()
         CFL = FT(20)
 
         driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
+
+        # Choose explicit multirate solver
+        ode_solver_type = ClimateMachine.MultirateSolverType(
+            fast_model = AtmosAcousticGravityLinearModel,
+            slow_method = LSRK144NiegemannDiehlBusch,
+            fast_method = LSRK144NiegemannDiehlBusch,
+            timestep_ratio = 10,
+        )
+
         solver_config = ClimateMachine.SolverConfiguration(
             t0,
             timeend,
-            driver_config,
+            driver_config;
+            ode_solver_type = ode_solver_type,
             init_on_cpu = true,
             Courant_number = CFL,
         )

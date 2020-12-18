@@ -47,6 +47,22 @@ DGMethods.courant(
 get_direction(::ClimateMachineConfigType) = EveryDirection()
 get_direction(::SingleStackConfigType) = VerticalDirection()
 
+get_solver_type(::Type{FT}, ::AtmosGCMConfigType) where {FT} =
+    DefaultSolverType()
+get_solver_type(::Type{FT}, ::AtmosLESConfigType) where {FT} =
+    solver_type = IMEXSolverType(
+        implicit_solver = SingleColumnLU,
+        implicit_solver_adjustable = false,
+    )
+get_solver_type(::Type{FT}, ::OceanSplitExplicitConfigType) where {FT} =
+    SplitExplicitSolverType{FT}(90.0 * 60.0, 240.0)
+get_solver_type(::Type{FT}, ::OceanBoxGCMConfigType) where {FT} =
+    ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
+get_solver_type(::Type{FT}, ::SingleStackConfigType) where {FT} =
+    ExplicitSolverType()
+get_solver_type(::Type{FT}, ::MultiColumnLandConfigType) where {FT} =
+    ExplicitSolverType()
+
 """
     ClimateMachine.SolverConfiguration(
         t0::FT,
@@ -54,7 +70,7 @@ get_direction(::SingleStackConfigType) = VerticalDirection()
         driver_config::DriverConfiguration,
         init_args...;
         init_on_cpu=false,
-        ode_solver_type=driver_config.solver_type,
+        ode_solver_type,
         ode_dt=nothing,
         modeldata=nothing,
         Courant_number=0.4,
@@ -71,7 +87,7 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `driver_config::DriverConfiguration`: from `AtmosLESConfiguration()`, etc.
 # - `init_args...`: passed through to `init_state_prognostic!()`.
 # - `init_on_cpu=false`: run `init_state_prognostic!()` on CPU?
-# - `ode_solver_type=driver_config.solver_type`: override solver choice.
+# - `ode_solver_type`: override solver choice.
 # - `ode_dt=nothing`: override timestep computation.
 # - `modeldata=nothing`: passed through to `DGModel`.
 # - `Courant_number=0.4`: for the simulation.
@@ -91,7 +107,7 @@ function SolverConfiguration(
     driver_config::DriverConfiguration,
     init_args...;
     init_on_cpu = false,
-    ode_solver_type = driver_config.solver_type,
+    ode_solver_type = get_solver_type(FT, driver_config.config_type),
     ode_dt = nothing,
     modeldata = nothing,
     Courant_number = nothing,

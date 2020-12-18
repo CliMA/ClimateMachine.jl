@@ -92,10 +92,6 @@ end
 
 function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-
     T_surface = FT(300)
     T_min_ref = FT(0)
     T_profile = DryAdiabaticProfile{FT}(param_set, T_surface, T_min_ref)
@@ -131,7 +127,6 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
         zmax,
         param_set,
         init_risingbubble!,
-        solver_type = ode_solver,
         model = model,
     )
     return config
@@ -203,10 +198,16 @@ function main()
 
     driver_config =
         config_risingbubble(FT, N, resolution, xmax, ymax, zmax, with_moisture)
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFL,
     )

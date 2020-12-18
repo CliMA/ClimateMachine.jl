@@ -193,12 +193,6 @@ function config_densitycurrent(
     zmax,
 ) where {FT}
 
-    ## Choose an Explicit Single-rate Solver LSRK144 from the existing [ODESolvers](@ref
-    ## ODESolvers-docs) options Apply the outer constructor to define the
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-
     ## The model coefficient for the turbulence closure is defined via the
     ## [CLIMAParameters
     ## package](https://CliMA.github.io/CLIMAParameters.jl/dev/) A reference
@@ -242,7 +236,6 @@ function config_densitycurrent(
         zmax,                     # Domain maximum size [m]
         param_set,                # Parameter set.
         init_densitycurrent!,     # Function specifying initial condition
-        solver_type = ode_solver, # Time-integrator type
         model = model,            # Model type
         periodicity = (false, false, false),
         boundary = ((1, 1), (1, 1), (1, 1)),   # Set all boundaries to solid walls
@@ -281,10 +274,17 @@ function main()
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_densitycurrent(FT, N, resolution, xmax, ymax, zmax)
+
+    ## Choose an Explicit Single-rate Solver LSRK144 from the existing [ODESolvers](@ref
+    ## ODESolvers-docs) options Apply the outer constructor to define the
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFL,
     )

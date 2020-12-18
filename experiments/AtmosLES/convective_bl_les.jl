@@ -54,13 +54,13 @@ function main()
         zmax,
         param_set,
         ics,
-        solver_type = ode_solver_type,
         model = model,
     )
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = CFLmax,
     )

@@ -323,9 +323,8 @@ function config_kinematic_eddy(
         xmin = FT(0),
         ymin = FT(0),
         zmin = FT(0),
-        solver_type = ode_solver,
         model = model,
     )
 
-    return config
+    return config, ode_solver
 end

@@ -393,10 +393,9 @@ function config_dycoms(
         zmax,
         param_set,
         init_dycoms!,
-        solver_type = ode_solver,
         model = model,
     )
-    return config
+    return config, ode_solver
 end
 
 function config_diagnostics(driver_config, timeend)
@@ -458,7 +457,7 @@ function main()
     timeend = FT(100) #FT(4 * 60 * 60)
     Cmax = FT(1.7)     # use this for single-rate explicit LSRK144
 
-    driver_config = config_dycoms(
+    driver_config, ode_solver_type = config_dycoms(
         FT,
         N,
         resolution,
@@ -472,6 +471,7 @@ function main()
         t0,
         timeend,
         driver_config,
+        ode_solver_type = ode_solver_type,
         init_on_cpu = true,
         Courant_number = Cmax,
     )

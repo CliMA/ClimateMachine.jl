@@ -113,7 +113,6 @@ struct DriverConfiguration{FT}
     # Polynomial order tuple (polyorder_horz, polyorder_vert)
     polyorders::NTuple{2, Int}
     array_type::Any
-    solver_type::AbstractSolverType
     #
     # Model details
     param_set::AbstractParameterSet
@@ -143,7 +142,6 @@ struct DriverConfiguration{FT}
         polyorders::NTuple{2, Int},
         FT,
         array_type,
-        solver_type::AbstractSolverType,
         param_set::AbstractParameterSet,
         bl::BalanceLaw,
         mpicomm::MPI.Comm,
@@ -160,7 +158,6 @@ struct DriverConfiguration{FT}
             name,
             polyorders,
             array_type,
-            solver_type,
             param_set,
             bl,
             mpicomm,
@@ -206,10 +203,6 @@ function AtmosLESConfiguration(
     ymin = zero(FT),
     zmin = zero(FT),
     array_type = ClimateMachine.array_type(),
-    solver_type = IMEXSolverType(
-        implicit_solver = SingleColumnLU,
-        implicit_solver_adjustable = false,
-    ),
     physics = AtmosPhysics{FT}(param_set;),
     model = AtmosModel{FT}(
         AtmosLESConfigType,
@@ -335,7 +328,6 @@ Establishing Atmos LES configuration for %s
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
-        solver_type,
         param_set,
         model,
         mpicomm,
@@ -357,7 +349,6 @@ function AtmosGCMConfiguration(
     param_set::AbstractParameterSet,
     init_GCM!;
     array_type = ClimateMachine.array_type(),
-    solver_type = DefaultSolverType(),
     physics = AtmosPhysics{FT}(param_set),
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -458,7 +449,6 @@ Establishing Atmos GCM configuration for %s
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
-        solver_type,
         param_set,
         model,
         mpicomm,
@@ -485,9 +475,6 @@ function OceanBoxGCMConfiguration(
     model;
     FT = Float64,
     array_type = ClimateMachine.array_type(),
-    solver_type = ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    ),
     mpicomm = MPI.COMM_WORLD,
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
@@ -552,7 +539,6 @@ Establishing Ocean Box GCM configuration for %s
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
-        solver_type,
         param_set,
         model,
         mpicomm,
@@ -576,7 +562,6 @@ function SingleStackConfiguration(
     zmin = zero(FT),
     hmax = one(FT),
     array_type = ClimateMachine.array_type(),
-    solver_type = ExplicitSolverType(),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((0, 0), (0, 0), (1, 2)),
     periodicity = (true, true, false),
@@ -658,7 +643,6 @@ Establishing single stack configuration for %s
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
-        solver_type,
         param_set,
         model,
         mpicomm,
@@ -687,7 +671,6 @@ function MultiColumnLandModel(
     array_type = ClimateMachine.array_type(),
     mpicomm = MPI.COMM_WORLD,
     boundary = ((3, 3), (3, 3), (1, 2)),
-    solver_type = ExplicitSolverType(),
     periodicity = (false, false, false),
     meshwarp = (x...) -> identity(x),
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
@@ -772,7 +755,6 @@ Establishing MultiColumnLandModel configuration for %s
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
-        solver_type,
         param_set,
         model,
         mpicomm,

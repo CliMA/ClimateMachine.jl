@@ -94,10 +94,6 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
 
     C_smag = FT(0.23)
 
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
-
     physics = AtmosPhysics{FT}(
         param_set;
         turbulence = SmagorinskyLilly{FT}(C_smag),
@@ -126,7 +122,6 @@ function config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
         zmax,
         param_set,
         init_surfacebubble!,
-        solver_type = ode_solver,
         model = model,
     )
 
@@ -175,11 +170,17 @@ function main()
     timeend = FT(2000)
 
     driver_config = config_surfacebubble(FT, N, resolution, xmax, ymax, zmax)
+
+    ode_solver_type = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
+
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
         timeend,
         driver_config,
         init_on_cpu = true,
+        ode_solver_type = ode_solver_type,
     )
 
     dgn_ssecs = (timeend / 2) + 10

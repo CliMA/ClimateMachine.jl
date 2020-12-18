@@ -481,7 +481,6 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     param_set,
     m,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
-    solver_type = ode_solver_type,
 );
 
 # # Time discretization
@@ -509,8 +508,13 @@ dt = FT(50.0) * min(Fourier_bound, Courant_bound)
 # function used for initialization). 
 
 
-solver_config =
-    ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
+solver_config = ClimateMachine.SolverConfiguration(
+    t0,
+    timeend,
+    driver_config,
+    ode_dt = dt,
+    ode_solver_type = ode_solver_type,
+);
 
 
 # ## Inspect the initial conditions for a single nodal stack

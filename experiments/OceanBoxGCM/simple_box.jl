@@ -29,6 +29,7 @@ function config_simple_box(name, resolution, dimensions, problem; BC = nothing)
     N, Nˣ, Nʸ, Nᶻ = resolution
     resolution = (Nˣ, Nʸ, Nᶻ)
 
+    solver_type = ExplicitSolverType(solver_method = LSRK144NiegemannDiehlBusch)
     config = ClimateMachine.OceanBoxGCMConfiguration(
         name,
         N,
@@ -37,7 +38,7 @@ function config_simple_box(name, resolution, dimensions, problem; BC = nothing)
         model,
     )
 
-    return config
+    return config, solver_type
 end
 
 function run_simple_box(
@@ -52,17 +53,17 @@ function run_simple_box(
     refDat = (),
 )
     if imex
-        solver_type =
+        ode_solver_type =
             ClimateMachine.IMEXSolverType(implicit_model = LinearHBModel)
         Courant_number = 0.1
     else
-        solver_type = ClimateMachine.ExplicitSolverType(
+        ode_solver_type = ClimateMachine.ExplicitSolverType(
             solver_method = LSRK144NiegemannDiehlBusch,
         )
         Courant_number = 0.4
     end
 
-    driver_config =
+    driver_config, solver_type_driver_config =
         config_simple_box(name, resolution, dimensions, problem; BC = BC)
 
     grid = driver_config.grid
@@ -81,7 +82,7 @@ function run_simple_box(
         timeend,
         driver_config,
         init_on_cpu = true,
-        ode_solver_type = solver_type,
+        ode_solver_type = ode_solver_type,
         ode_dt = Δt,
         modeldata = modeldata,
         Courant_number = Courant_number,
