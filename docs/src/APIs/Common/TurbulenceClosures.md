@@ -34,7 +34,6 @@ UpperAtmosSponge
 ```@docs
 turbulence_tensors
 init_aux_turbulence!
-turbulence_nodal_update_auxiliary_state!
 principal_invariants
 symmetrize
 norm2
