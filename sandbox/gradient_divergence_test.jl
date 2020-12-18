@@ -44,9 +44,9 @@ a = 1
 b = 1
 c = 1
 ClimateMachine.gpu_allowscalar(true)
-@. Φ[:,:,1] = a * sin(π*x)
-@. Φ[:,:,2] = b * sin(π*y)
-@. Φ[:,:,3] = c * cos(π*z)
+@. Φ.realdata[:,:,1] = a * sin(π*x)
+@. Φ.realdata[:,:,2] = b * sin(π*y)
+@. Φ.realdata[:,:,3] = c * cos(π*z)
 @. Q = a * sin(π*x) + b * sin(π*y) + c * cos(π*z)
 
 # Divergence
@@ -67,7 +67,7 @@ L∞(x) = maximum(abs.(x))
     total_divergence = -v_flux_divergence + s_flux_divergence
     total_trace_gradient = sum(v_∇Q - s_∇Q, dims=3)
     @test L∞(s_∇Q  ) < tol
-    @test L∞(total_divergence - total_trace_gradient) < tol
+    @test L∞(total_divergence - ArrayType(total_trace_gradient)) < tol
 end
 
 ##
@@ -102,5 +102,5 @@ L∞(x) = maximum(abs.(x))
     total_gradient =  v_∇Q + s_∇Q
     total_trace_gradient = sum(total_gradient, dims=3)
     @test L∞(v_∇Q) < tol # since piecewise constant
-    @test L∞(total_divergence - total_trace_gradient) < tol
+    @test L∞(total_divergence - ArrayType(total_trace_gradient)) < tol
 end
