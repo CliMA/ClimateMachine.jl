@@ -25,7 +25,7 @@ using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
-    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
+    BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state, show_tendencies
 
 function init_soil!(land, state, aux, localgeo, time)
     FT = eltype(state)

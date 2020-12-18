@@ -2,6 +2,7 @@ module Land
 
 using DocStringExtensions
 using LinearAlgebra, StaticArrays
+using UnPack
 
 using CLIMAParameters
 using CLIMAParameters.Planet:
@@ -22,7 +23,10 @@ import ..BalanceLaws:
     compute_gradient_flux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    nodal_update_auxiliary_state!
+    nodal_update_auxiliary_state!,
+    prognostic_vars,
+    eq_tends,
+    flux
 using ..DGMethods: LocalGeometry, DGModel
 export LandModel
 
@@ -224,4 +228,8 @@ include("soil_water.jl")
 include("soil_heat.jl")
 include("soil_bc.jl")
 include("source.jl")
+include("declare_prognostic_vars.jl")
+include("get_prognostic_vars.jl")
+include("land_tendencies.jl")
+
 end # Module

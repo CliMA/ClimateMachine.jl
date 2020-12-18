@@ -221,6 +221,16 @@ function flux_second_order!(
     diffusive_water_flux =
         -ρe_int_l .* get_diffusive_water_term(soil.water, diffusive)
     diffusive_heat_flux = -diffusive.soil.heat.κ∇T
-    flux.soil.heat.ρe_int += diffusive_heat_flux + diffusive_water_flux
+    tend = Flux{SecondOrder}()
+    args = (; land, state, diffusive, hyperdiffusive, aux, t)
+    flux.soil.heat.ρe_int = Σfluxes(eq_tends(VolIntEnergy(),land, tend), land, args)
 
+#    flux.soil.heat.ρe_int += diffusive_heat_flux + diffusive_water_flux
+    flux.soil.heat.ρe_int += diffusive_water_flux# + diffusive_heat_flux
+    
 end
+
+
+
+prognostic_vars(heat::SoilHeatModel) = (VolIntEnergy(),)
+prognostic_vars(heat::PrescribedTemperatureModel) = ()
