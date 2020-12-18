@@ -25,6 +25,40 @@ struct SingleStackSpecificInfo <: ConfigSpecificInfo end
 include("SolverTypes/SolverTypes.jl")
 
 """
+    ArgParse.parse_item
+
+Parses custom command line option for tuples of two integers.
+"""
+function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
+
+    str_array = split(s, ",")
+    horizontal = parse(Int, str_array[1])
+    vertical = parse(Int, str_array[2])
+
+    return (horizontal, vertical)
+end
+
+"""
+    get_polyorders
+
+Utility functions that gets the polynomial orders for the given configuration
+either passed from command line or as default values
+"""
+function get_polyorders(N)
+
+    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != (-1, -1)
+        ClimateMachine.Settings.degree
+    elseif N isa Int
+        (N, N)
+    else
+        N
+    end
+end
+
+"""
     ClimateMachine.DriverConfiguration
 
 Collects all parameters necessary to set up a ClimateMachine simulation.
@@ -135,7 +169,7 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     print_model_info(model)
 
@@ -162,14 +196,14 @@ function AtmosLESConfiguration(
     @info @sprintf(
         """
 Establishing Atmos LES configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    domain                 = %.2f m x%.2f m x%.2f m
-    resolution             = %dx%dx%d
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    domain                  = %.2f m x%.2f m x%.2f m
+    resolution              = %dx%dx%d
+    MPI ranks               = %d
+    min(Δ_horz)             = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
         polyorder_horz,
@@ -224,7 +258,7 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     print_model_info(model)
 
@@ -253,15 +287,15 @@ function AtmosGCMConfiguration(
     @info @sprintf(
         """
 Establishing Atmos GCM configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    # horiz elem           = %d
-    # vert elems           = %d
-    domain height          = %.2e m
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    # horiz elem            = %d
+    # vert elems            = %d
+    domain height           = %.2e m
+    MPI ranks               = %d
+    min(Δ_horz)             = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
         polyorder_horz,
@@ -311,7 +345,7 @@ function OceanBoxGCMConfiguration(
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     brickrange = (
         range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
@@ -371,7 +405,7 @@ function SingleStackConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     print_model_info(model)
 
@@ -400,15 +434,15 @@ function SingleStackConfiguration(
     @info @sprintf(
         """
 Establishing single stack configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    domain_min             = %.2f m x%.2f m x%.2f m
-    domain_max             = %.2f m x%.2f m x%.2f m
-    # vert elems           = %d
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    domain_min              = %.2f m x%.2f m x%.2f m
+    domain_max              = %.2f m x%.2f m x%.2f m
+    # vert elems            = %d
+    MPI ranks               = %d
+    min(Δ_horz)             = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
         polyorder_horz,

@@ -79,6 +79,8 @@ the ODE solver, and return a `SolverConfiguration` to be used with
 # - `direction=EveryDirection()`: restrict diffusivity direction.
 # - `timeend_dt_adjust=true`: should `dt` be adjusted to hit `timeend` exactly
 # - `CFL_direction=EveryDirection()`: direction for `calculate_dt`
+# - `sim_time`: run for the specified time (in simulation seconds).
+# - `fixed_number_of_steps`: if `≥0` perform specified number of steps.
 
 Note that `diffdir`, `direction`, and `CFL_direction` are `VerticalDirection()`
 when `driver_config.config_type isa SingleStackConfigType`.

@@ -588,7 +588,7 @@ function commmapping(N, commelems, commfaces, nabrtocomm)
     (vmapC, nabrtovmapC)
 end
 
-# {{{ compute geometry
+# Compute geometry
 function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     FT = eltype(D[1])
     dim = length(D)
@@ -604,6 +604,8 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     Nfp_N1 = div.(Np_N1, Nq_N1)
 
     # First we compute the geometry with all the N = 0 dimension set to N = 1
+    # so that we can later compute the geometry for the case N = 0, as the
+    # average of two N = 1 cases
     ξ1, ω1 = Elements.lglpoints(FT, 1)
     D1 = Elements.spectralderivative(ξ1)
     D_N1 = ntuple(j -> Nq[j] == 1 ? D1 : D[j], dim)
@@ -612,18 +614,30 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
     (vgeo_N1, sgeo_N1, x_vtk) =
         computegeometry(elemtocoord, D_N1, ξ_N1, ω_N1, meshwarp)
 
-
     # Sort out the vgeo terms
     @views begin
         vgeo_N1_flds =
             ntuple(fld -> reshape(vgeo_N1[:, fld, :], Nq_N1..., nelem), _nvgeo)
+    end
 
-        # Allocate the storage for N = 0 volume metrics
-        vgeo = zeros(FT, Np, _nvgeo, nelem)
+    # Allocate the storage for N = 0 volume metrics
+    vgeo = zeros(FT, Np, _nvgeo, nelem)
 
-        # Counter to make sure we got all the vgeo terms
-        num_vgeo_handled = 0
+    # Counter to make sure we got all the vgeo terms
+    num_vgeo_handled = 0
 
+    X = ntuple(j -> (@view vgeo[:, _x1 + j - 1, :]), dim)
+    Metrics.creategrid!(X..., elemtocoord, ξ...)
+    x1 = @view vgeo[:, _x1, :]
+    x2 = @view vgeo[:, _x2, :]
+    x3 = @view vgeo[:, _x3, :]
+    @inbounds for j in 1:length(x1)
+        (x1[j], x2[j], x3[j]) = meshwarp(x1[j], x2[j], x3[j])
+    end
+
+    num_vgeo_handled += 3
+
+    @views begin
         # _M should be a sum
         vgeo[:, _M, :][:] .= sum(vgeo_N1_flds[_M], dims = findall(Nq .== 1))[:]
         num_vgeo_handled += 1
@@ -634,7 +648,7 @@ function computegeometry_fvm(elemtocoord, D, ξ, ω, meshwarp)
 
         # coordinates should just be averages
         avg_den = 2 .^ sum(Nq .== 1)
-        for fld in (_x1, _x2, _x3, _JcV)
+        for fld in (_JcV,)
             vgeo[:, fld, :] =
                 sum(vgeo_N1_flds[fld], dims = findall(Nq .== 1))[:] / avg_den
             num_vgeo_handled += 1
@@ -882,9 +896,7 @@ function horizontal_metrics(vgeo, Nq, ω)
         error("dim $dim not implemented")
     end
 end
-# }}}
 
-# {{{ indefinite integral matrix
 """
     indefinite_integral_interpolation_matrix(r, ω)
 
