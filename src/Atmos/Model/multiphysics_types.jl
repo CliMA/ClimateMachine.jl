@@ -50,6 +50,17 @@ RemovePrecipitation(b::Bool) = (
     RemovePrecipitation{TotalMoisture}(b),
 )
 
+"""
+    PrecipitationFlux{PV <: Union{Rain, Snow}} <: TendencyDef{Flux{FirstOrder}, PV}
+
+Computes the precipitation flux as a sum of air velocity and terminal velocity
+multiplied by the advected variable.
+"""
+struct PrecipitationFlux{PV <: Union{Rain, Snow}} <:
+       TendencyDef{Flux{FirstOrder}, PV} end
+
+PrecipitationFlux() = (PrecipitationFlux{Rain}(), PrecipitationFlux{Snow}())
+
 function remove_precipitation_sources(
     s::RemovePrecipitation{PV},
     atmos,

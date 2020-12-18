@@ -4,7 +4,8 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{Tracers{N}}, m, state, aux, t, ts, direction) where {N}
+function flux(::Advect{Tracers{N}}, atmos, args) where {N}
+    @unpack state = args
     u = state.ρu / state.ρ
     return (state.tracers.ρχ .* u')'
 end

@@ -241,7 +241,7 @@ function config_squall_line(
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
         source = (source..., CreateClouds()...)
         moisture = NonEquilMoist()
@@ -333,10 +333,17 @@ function config_diagnostics(driver_config, boundaries, resolution)
         driver_config.name,
         interpol = interpol,
     )
+    dgngrp_aux = setup_dump_aux_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
 
     return ClimateMachine.DiagnosticsConfiguration([
         dgngrp_profiles,
         dgngrp_state,
+        dgngrp_aux,
     ])
 end
 

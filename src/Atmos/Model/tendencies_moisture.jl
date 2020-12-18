@@ -4,17 +4,20 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{TotalMoisture}, m, state, aux, t, ts, direction)
+function flux(::Advect{TotalMoisture}, atmos, args)
+    @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_tot
 end
 
-function flux(::Advect{LiquidMoisture}, m, state, aux, t, ts, direction)
+function flux(::Advect{LiquidMoisture}, atmos, args)
+    @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_liq
 end
 
-function flux(::Advect{IceMoisture}, m, state, aux, t, ts, direction)
+function flux(::Advect{IceMoisture}, atmos, args)
+    @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_ice
 end
