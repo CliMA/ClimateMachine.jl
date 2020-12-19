@@ -32,7 +32,6 @@ using ClimateMachine.VariableTemplates
 
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
 
 using LinearAlgebra
 using StaticArrays
@@ -113,9 +112,6 @@ struct HeldSuarezForcing{PV <: Union{Momentum, Energy}} <:
 
 HeldSuarezForcing() =
     (HeldSuarezForcing{Momentum}(), HeldSuarezForcing{Energy}())
-
-filter_source(pv::PV, m, s::HeldSuarezForcing{PV}) where {PV} = s
-atmos_source!(::HeldSuarezForcing, args...) = nothing
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args

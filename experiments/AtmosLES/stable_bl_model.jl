@@ -37,7 +37,6 @@ using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
@@ -117,11 +116,6 @@ function source(s::StableBLSponge{Momentum}, m, args)
         return SVector{3, FT}(0, 0, 0)
     end
 end
-
-filter_source(pv::PV, m, s::StableBLGeostrophic{PV}) where {PV} = s
-filter_source(pv::PV, m, s::StableBLSponge{PV}) where {PV} = s
-atmos_source!(::StableBLGeostrophic, args...) = nothing
-atmos_source!(::StableBLSponge, args...) = nothing
 
 """
   Initial Condition for StableBoundaryLayer LES

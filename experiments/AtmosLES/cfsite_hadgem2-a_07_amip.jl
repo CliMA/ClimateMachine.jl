@@ -38,7 +38,6 @@ struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 # Physics specific imports
 using ClimateMachine.Atmos: altitude, recover_thermo_state
-import ClimateMachine.Atmos: source!, atmos_source!, filter_source
 import ClimateMachine.BalanceLaws: source, eq_tends
 
 # Citation for problem setup
@@ -235,16 +234,6 @@ function source(s::LinearSponge{Momentum}, m, args)
         return SVector{3, FT}(0, 0, 0)
     end
 end
-
-atmos_source!(s::GCMRelaxation, args...) = nothing
-atmos_source!(s::LargeScaleProcess, args...) = nothing
-atmos_source!(s::LargeScaleSubsidence, args...) = nothing
-atmos_source!(s::LinearSponge, args...) = nothing
-
-filter_source(pv::PV, m, s::GCMRelaxation{PV}) where {PV} = s
-filter_source(pv::PV, m, s::LargeScaleProcess{PV}) where {PV} = s
-filter_source(pv::PV, m, s::LargeScaleSubsidence{PV}) where {PV} = s
-filter_source(pv::PV, m, s::LinearSponge{PV}) where {PV} = s
 
 # We first specify the NetCDF file from which we wish to read our
 # GCM values.
