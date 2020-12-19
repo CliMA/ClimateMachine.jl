@@ -4,15 +4,17 @@ import Dates
 import MPI
 
 import ClimateMachine
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant
 import ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
     CentralNumericalFluxGradient
-import ClimateMachine.DGMethods: DGFVMModel, init_ode_state
+import ClimateMachine.DGMethods: DGFVModel, init_ode_state
 import ClimateMachine.GenericCallbacks:
     EveryXWallTimeSeconds, EveryXSimulationSteps
 import ClimateMachine.MPIStateArrays: MPIStateArray, euclidean_distance
-import ClimateMachine.Mesh.Grids: DiscontinuousSpectralElementGrid
+import ClimateMachine.Mesh.Grids:
+    DiscontinuousSpectralElementGrid, EveryDirection
 import ClimateMachine.Mesh.Topologies: StackedBrickTopology
 import ClimateMachine.ODESolvers: LSRK54CarpenterKennedy, solve!, gettime
 import ClimateMachine.VTK: writevtk, writepvtu
@@ -51,8 +53,8 @@ function initial_condition!(
 end
 Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
 
-function do_output(mpicomm, vtkdir, vtkstep, dg_fvm, Q, Qe, model, testname)
-    ## name of the file that this MPI rank will write
+function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
+    ## Name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
         vtkdir,
@@ -64,7 +66,7 @@ function do_output(mpicomm, vtkdir, vtkstep, dg_fvm, Q, Qe, model, testname)
     statenames = flattenednames(vars_state(model, Prognostic(), eltype(Q)))
     exactnames = statenames .* "_exact"
 
-    writevtk(filename, Q, dg_fvm, statenames, Qe, exactnames)
+    writevtk(filename, Q, dgfvm, statenames, Qe, exactnames)
 
     ## generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
@@ -109,11 +111,19 @@ function test_run(
         polynomialorder = N,
     )
     model = AdvectionDiffusion{dim}(Pseudo1D{n, α}(), diffusion = false)
-    dg_fvm = DGFVMModel(model, grid, RusanovNumericalFlux())
+    dgfvm = DGFVModel(
+        model,
+        grid,
+        FVConstant(),
+        RusanovNumericalFlux(),
+        CentralNumericalFluxSecondOrder(),
+        CentralNumericalFluxGradient();
+        direction = EveryDirection(),
+    )
 
-    Q = init_ode_state(dg_fvm, FT(0))
+    Q = init_ode_state(dgfvm, FT(0))
 
-    lsrk = LSRK54CarpenterKennedy(dg_fvm, Q; dt = dt, t0 = 0)
+    lsrk = LSRK54CarpenterKennedy(dgfvm, Q; dt = dt, t0 = 0)
 
     eng0 = norm(Q)
     @info @sprintf """Starting
@@ -151,7 +161,7 @@ function test_run(
             mpicomm,
             vtkdir,
             vtkstep,
-            dg_fvm,
+            dgfvm,
             Q,
             Q,
             model,
@@ -161,12 +171,12 @@ function test_run(
         # setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
-            Qe = init_ode_state(dg_fvm, gettime(lsrk))
+            Qe = init_ode_state(dgfvm, gettime(lsrk))
             do_output(
                 mpicomm,
                 vtkdir,
                 vtkstep,
-                dg_fvm,
+                dgfvm,
                 Q,
                 Qe,
                 model,
@@ -180,7 +190,7 @@ function test_run(
 
     # Print some end of the simulation information
     engf = norm(Q)
-    Qe = init_ode_state(dg_fvm, FT(timeend))
+    Qe = init_ode_state(dgfvm, FT(timeend))
 
     engfe = norm(Qe)
     errf = euclidean_distance(Q, Qe)
