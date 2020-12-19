@@ -126,9 +126,9 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             MArray{Tuple{num_state_primitive}, FT}(undef)
         end...)
 
-        local_state_auxiliary = ntuple(Val(stencil_diameter)) do _
+        local_state_auxiliary = SVector(ntuple(Val(stencil_diameter)) do _
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        end
+        end...)
 
         # FIXME: These two arrays could be smaller
         # (only 2 elements not stencil_diameter)
@@ -253,6 +253,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
+                local_state_auxiliary[rng],
                 local_cell_weights[rng],
             )
 
@@ -284,10 +285,13 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             # Reconstruction using only eVs cell value
             rng = SUnitRange(stencil_center, stencil_center)
+            # Need two geopotential cell values for hydrostatic reconstuction
+            rng_aux = SUnitRange(stencil_center, stencil_center + 1)
             reconstruction!(
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
+                local_state_auxiliary[rng_aux],
                 local_cell_weights[rng],
             )
 
@@ -443,6 +447,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_primitive[1],
                     local_state_face_primitive[2],
                     local_state_primitive[rng],
+                    local_state_auxiliary[rng],
                     local_cell_weights[rng],
                 )
             elseif eV_up <= stencil_width
@@ -457,6 +462,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_face_primitive[1],
                         local_state_face_primitive[2],
                         local_state_primitive[rng],
+                        local_state_auxiliary[rng],
                         local_cell_weights[rng],
                     )
                 end w -> throw(BoundsError(local_state_primitive, w))
@@ -467,10 +473,15 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     begin
                         rng1, rng2 = stencil_center .+ (1 - w, w - 1)
                         rng = SUnitRange(rng1, rng2)
+                        # At the top need two geopotential cell values for hydrostatic reconstuction
+                        rng_aux =
+                            w == 1 ?
+                            SUnitRange(stencil_center - 1, stencil_center) : rng
                         reconstruction!(
                             local_state_face_primitive[1],
                             local_state_face_primitive[2],
                             local_state_primitive[rng],
+                            local_state_auxiliary[rng_aux],
                             local_cell_weights[rng],
                         )
                     end w -> throw(BoundsError(local_state_primitive, w))
@@ -882,6 +893,193 @@ end
                 state_gradient_flux[n, s, e] += local_state_gradient_flux[s]
             else
                 state_gradient_flux[n, s, e] = local_state_gradient_flux[s]
+            end
+        end
+    end
+end
+
+@kernel function vert_fvm_auxiliary_field_gradient!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{nface},
+    ::Val{Np},
+    ∇state,
+    state,
+    vgeo,
+    sgeo,
+    vmap⁻,
+    vmap⁺,
+    elemtobndy,
+    ::Val{I},
+    ::Val{O},
+    increment,
+) where {dim, nface, Np, I, O}
+    @uniform begin
+        FT = eltype(state)
+        ngradstate = length(I)
+
+        # We only have the vertical faces
+        faces = (nface - 1):nface
+
+        local_state_bottom = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+        local_state = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+        local_state_top = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+    end
+
+    e = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        face_bottom = faces[1]
+        face_top = faces[2]
+
+        bctag_bottom = elemtobndy[face_bottom, e]
+        bctag_top = elemtobndy[face_top, e]
+
+        # TODO: exploit structured grid
+        id = vmap⁻[n, face_bottom, e]
+        id_bottom = vmap⁺[n, face_bottom, e]
+        id_top = vmap⁺[n, face_top, e]
+
+        e_bottom = ((id_bottom - 1) ÷ Np) + 1
+        e_top = ((id_top - 1) ÷ Np) + 1
+
+        vid = ((id - 1) % Np) + 1
+        vid_bottom = ((id_bottom - 1) % Np) + 1
+        vid_top = ((id_top - 1) % Np) + 1
+
+        if bctag_bottom != 0
+            e_bottom = e
+            vid_bottom = vid
+        end
+        if bctag_top != 0
+            e_top = e
+            vid_top = vid
+        end
+
+        dzh_bottom = vgeo[vid_bottom, _JcV, e_bottom]
+        dzh = vgeo[vid, _JcV, e]
+        dzh_top = vgeo[vid_top, _JcV, e_top]
+
+        if dim == 2
+            ξvx1 = vgeo[vid, _ξ2x1, e]
+            ξvx2 = vgeo[vid, _ξ2x2, e]
+            ξvx3 = vgeo[vid, _ξ2x3, e]
+        elseif dim == 3
+            ξvx1 = vgeo[vid, _ξ3x1, e]
+            ξvx2 = vgeo[vid, _ξ3x2, e]
+            ξvx3 = vgeo[vid, _ξ3x3, e]
+        end
+
+        @unroll for s in 1:ngradstate
+            local_state_bottom[s] = state[vid_bottom, I[s], e_bottom]
+            local_state_top[s] = state[vid_top, I[s], e_top]
+        end
+
+        # only need the middle state near the boundaries
+        if bctag_bottom != 0 || bctag_top != 0
+            @unroll for s in 1:ngradstate
+                local_state[s] = state[vid, I[s], e]
+            end
+        end
+
+        # extrapolation at the boundaries equivalent to one-sided differencing
+        if bctag_bottom != 0
+            @unroll for s in 1:ngradstate
+                local_state_bottom[s] = 2 * local_state[s] - local_state_top[s]
+            end
+            dzh_bottom = dzh_top
+        end
+
+        if bctag_top != 0
+            @unroll for s in 1:ngradstate
+                local_state_top[s] = 2 * local_state[s] - local_state_bottom[s]
+            end
+            dzh_top = dzh_bottom
+        end
+
+        @unroll for s in 1:ngradstate
+            dz = dzh_top + 2dzh + dzh_bottom
+            ∇s_v = (local_state_top[s] - local_state_bottom[s]) / dz
+            # rotate back to Cartesian
+            if increment
+                ∇state[vid, O[3 * (s - 1) + 1], e] += ξvx1 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 2], e] += ξvx2 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 3], e] += ξvx3 * dzh * ∇s_v
+            else
+                ∇state[vid, O[3 * (s - 1) + 1], e] = ξvx1 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 2], e] = ξvx2 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 3], e] = ξvx3 * dzh * ∇s_v
+            end
+        end
+    end
+end
+
+@kernel function kernel_fvm_balance!(
+    f!,
+    balance_law::BalanceLaw,
+    ::Val{nvertelem},
+    state_auxiliary,
+    elems,
+) where {nvertelem}
+    @uniform begin
+        FT = eltype(state_auxiliary)
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        local_state_auxiliary_bot =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_auxiliary_top =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+    end
+
+    _eh = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        eh = elems[_eh]
+
+        # handle first element
+        ev = 1
+        e = ev + (eh - 1) * nvertelem
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary_bot[s] = state_auxiliary[n, s, e]
+        end
+        f!(
+            balance_law,
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                local_state_auxiliary_bot,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                local_state_auxiliary_bot,
+            ),
+        )
+        @unroll for s in 1:num_state_auxiliary
+            state_auxiliary[n, s, e] = local_state_auxiliary_bot[s]
+        end
+
+        # Loop up the stack of elements
+        for ev in 2:nvertelem
+            e = ev + (eh - 1) * nvertelem
+
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
+            end
+
+            f!(
+                balance_law,
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary_bot,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary_top,
+                ),
+            )
+
+            @unroll for s in 1:num_state_auxiliary
+                state_auxiliary[n, s, e] = local_state_auxiliary_top[s]
+            end
+
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary_bot[s] = local_state_auxiliary_top[s]
             end
         end
     end
