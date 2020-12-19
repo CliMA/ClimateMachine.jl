@@ -7,7 +7,7 @@ CurrentModule = ClimateMachine.DGMethods
 ```@docs
 SpaceDiscretization
 DGModel
-DGFVMModel
+DGFVModel
 remainder_DGModel
 continuous_field_gradient!
 courant
