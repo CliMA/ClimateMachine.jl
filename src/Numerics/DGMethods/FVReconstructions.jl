@@ -70,7 +70,7 @@ end
 Reconstruction type for limited linear reconstruction finite volume methods.
 
 !!! note
-   The optional type parameter `W` is mainly for debuggin purposes and allows
+   The optional type parameter `W` is mainly for debugging purposes and allows
    the stencil to be artificially widened to make sure the kernels work with
    wide stencils.
 
