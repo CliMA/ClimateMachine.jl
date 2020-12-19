@@ -94,7 +94,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
         # 1 → element i, face i - 1/2 (bottom face)
         # 2 → element i, face i + 1/2 (top face)
-        local_state_face_prognostic = ntuple(Val(stencil_diameter)) do _
+        local_state_face_prognostic = ntuple(Val(2)) do _
             MArray{Tuple{num_state_prognostic}, FT}(undef)
         end
 
