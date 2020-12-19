@@ -118,6 +118,26 @@ export_plot(
  ylabel = "z (m)",
  time_units = "(seconds)",
 )
+export_plot(
+ z,
+ time_data,
+ dons_arr,
+ ("turbconv.environment.shear_prod",),
+ joinpath(output_dir, "env_shear_prod.png");
+ xlabel = "shear production",
+ ylabel = "z (m)",
+ time_units = "(seconds)",
+)
+export_plot(
+ z,
+ time_data,
+ dons_arr,
+ ("turbconv.environment.tke_diss",),
+ joinpath(output_dir, "env_tke_diss.png");
+ xlabel = "TKE diss",
+ ylabel = "z (m)",
+ time_units = "(seconds)",
+)
 # Covariances
 export_plot(
  z,

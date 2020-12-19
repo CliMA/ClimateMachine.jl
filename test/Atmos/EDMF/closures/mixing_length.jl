@@ -78,7 +78,7 @@ function mixing_length(
         m.turbconv.surface.zLL,
     )
     tke_surf = surf_vals.tke
-    L_W = ml.κ * z / (sqrt(tke_surf) * ml.c_m / ustar / ustar)
+    L_W = ml.κ * max(z, FT(20)) / (sqrt(3.75) * ml.c_m)
     stab_fac = -(sign(obukhov_length) - 1) / 2
     L_W *= (
         stab_fac * min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ) +
@@ -111,13 +111,13 @@ function mixing_length(
     end
     L_tke = l_entdet
 
-    if L_Nˢ < eps(FT) || L_Nˢ > ml.max_length
+    if L_Nˢ < FT(1e-3) || L_Nˢ > ml.max_length
         L_Nˢ = ml.max_length
     end
-    if L_W < eps(FT) || L_W > ml.max_length
+    if L_W < FT(1e-3) || L_W > ml.max_length
         L_W = ml.max_length
     end
-    if L_tke < eps(FT) || L_tke > ml.max_length
+    if L_tke < FT(1e-3) || L_tke > ml.max_length
         L_tke = ml.max_length
     end
 

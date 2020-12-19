@@ -106,7 +106,7 @@ function main(::Type{FT}) where {FT}
 
     # DG polynomial order
     N = 1
-    nelem_vert = 50
+    nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
