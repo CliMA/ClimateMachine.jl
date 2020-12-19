@@ -14,7 +14,8 @@ end
 function flux(::PressureGradient{Momentum}, atmos, args)
     @unpack state, aux = args
     @unpack ts = args.precomputed
-    pad = (state.ρu .* (state.ρu / state.ρ)') * 0
+    s = state.ρu * state.ρu'
+    pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
     if atmos.ref_state isa HydrostaticState
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
@@ -29,7 +30,8 @@ end
 struct ViscousStress{PV <: Momentum} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::ViscousStress{Momentum}, atmos, args)
     @unpack state, aux, t, diffusive = args
-    pad = (state.ρu .* (state.ρu / state.ρ)') * 0
+    s = state.ρu * state.ρu'
+    pad = SArray{Tuple{size(s)...}}(ntuple(i -> 0, length(s)))
     ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     return pad + τ * state.ρ
 end
