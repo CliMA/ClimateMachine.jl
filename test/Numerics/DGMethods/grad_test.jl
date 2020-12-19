@@ -82,7 +82,7 @@ function test_run(mpicomm, dim, direction, Ne, N, FT, ArrayType)
         state_gradient_flux = nothing,
     )
 
-    continuous_field_gradient!(
+    auxiliary_field_gradient!(
         model,
         dg.state_auxiliary,
         (:∇a,),

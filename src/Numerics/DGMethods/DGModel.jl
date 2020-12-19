@@ -1106,7 +1106,7 @@ function MPIStateArrays.MPIStateArray(dg::DGModel)
 end
 
 """
-    continuous_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
+    auxiliary_field_gradient!(::BalanceLaw, ∇state::MPIStateArray,
                                vars_out, state::MPIStateArray, vars_in, grid;
                                direction = EveryDirection())
 
@@ -1119,7 +1119,7 @@ its primary purpose is to take the gradient of continuous reference fields.
 ```julia
 FT = eltype(state_auxiliary)
 grad_Φ = similar(state_auxiliary, vars=@vars(∇Φ::SVector{3, FT}))
-continuous_field_gradient!(
+auxiliary_field_gradient!(
     model,
     grad_Φ,
     ("∇Φ",),
@@ -1129,7 +1129,7 @@ continuous_field_gradient!(
 )
 ```
 """
-function continuous_field_gradient!(
+function auxiliary_field_gradient!(
     m::BalanceLaw,
     ∇state::MPIStateArray,
     vars_out,
@@ -1157,7 +1157,7 @@ function continuous_field_gradient!(
         horizontal_polyorder = N[1]
         horizontal_D = grid.D[1]
         horizontal_ω = grid.ω[1]
-        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
+        event = kernel_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
             m,
             Val(dim),
             Val(N),
@@ -1179,7 +1179,7 @@ function continuous_field_gradient!(
         vertical_polyorder = N[dim]
         vertical_D = grid.D[dim]
         vertical_ω = grid.ω[dim]
-        event = kernel_continuous_field_gradient!(device, (Nq[1], Nq[2]))(
+        event = kernel_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
             m,
             Val(dim),
             Val(N),

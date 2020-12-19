@@ -72,7 +72,7 @@ function test_run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
 
     exact_aux = copy(dg.state_auxiliary)
 
-    continuous_field_gradient!(
+    auxiliary_field_gradient!(
         model,
         dg.state_auxiliary,
         (:∇a,),

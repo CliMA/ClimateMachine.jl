@@ -3267,7 +3267,7 @@ end
     end
 end
 
-@kernel function kernel_continuous_field_gradient!(
+@kernel function kernel_auxiliary_field_gradient!(
     balance_law::BalanceLaw,
     ::Val{dim},
     ::Val{N},
