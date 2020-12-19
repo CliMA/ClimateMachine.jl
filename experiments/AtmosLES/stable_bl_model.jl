@@ -206,7 +206,7 @@ function stable_bl_model(
 
     ics = init_problem!     # Initial conditions
 
-    C_smag = FT(0.23)     # Smagorinsky coefficient
+    C_smag = FT(0.0)     # Smagorinsky coefficient
     C_drag = FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
 

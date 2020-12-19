@@ -1,5 +1,5 @@
-# using FileIO
-# using JLD2
+using FileIO
+using JLD2
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -8,6 +8,8 @@ ClimateMachine.init(;
 )
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
+using ClimateMachine.SystemSolvers
+using ClimateMachine.ODESolvers
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 
@@ -112,8 +114,9 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(60)
-    CFLmax = FT(0.50)
+    timeend = FT(3600)
+    # CFLmax = FT(0.50)
+    CFLmax = FT(20)
 
     config_type = SingleStackConfigType
 
@@ -152,6 +155,63 @@ function main(::Type{FT}) where {FT}
         init_on_cpu = true,
         Courant_number = CFLmax,
     )
+
+    #################### Change the ode_solver to implicit solver
+
+    dg = solver_config.dg
+    Q = solver_config.Q
+
+
+    vdg = DGModel(
+        driver_config;
+        state_auxiliary = dg.state_auxiliary,
+        direction = VerticalDirection(),
+    )
+
+
+    # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
+    linearsolver = BatchedGeneralizedMinimalResidual(
+        dg,
+        Q;
+        max_subspace_size = 30,
+        atol = -1.0,
+        rtol = 5e-5,
+    )
+
+    """
+    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
+    F(Q) == 0
+    ||F(Q^i) || / ||F(Q^0) || < tol
+    """
+    # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
+    # I have also try larger tol, but tol = 1e-3 does not work
+    nonlinearsolver =
+        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
+
+    # this is a second order time integrator, to change it to a first order time integrator
+    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
+    # and stability
+    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
+    # update it more freqent will accelerate the convergence of linear solves, but updating it 
+    # is very expensive
+    ode_solver = ARK2ImplicitExplicitMidpoint(
+        dg,
+        vdg,
+        NonLinearBackwardEulerSolver(
+            nonlinearsolver;
+            isadjustable = true,
+            preconditioner_update_freq = 50,
+        ),
+        Q;
+        dt = solver_config.dt,
+        t0 = 0,
+        split_explicit_implicit = false,
+        variant = NaiveVariant(),
+    )
+
+    solver_config.solver = ode_solver
+
+    #######################################
 
     # --- Zero-out horizontal variations:
     vsp = vars_state(model, Prognostic(), FT)
@@ -205,7 +265,7 @@ function main(::Type{FT}) where {FT}
     time_data = FT[0]
 
     # Define the number of outputs from `t0` to `timeend`
-    n_outputs = 5
+    n_outputs = 6
     # This equates to exports every ceil(Int, timeend/n_outputs) time-step:
     every_x_simulation_time = ceil(Int, timeend / n_outputs)
 
@@ -257,17 +317,17 @@ end
 solver_config, dons_arr, time_data, state_types = main(Float64)
 
 ## Uncomment lines to save output using JLD2
-#
-# output_dir = @__DIR__;
-# mkpath(output_dir);
-# println(dons_arr[1].keys)
-# z = get_z(solver_config.dg.grid; rm_dupes = true);
-# save(
-#     string(output_dir, "/sbl_edmf.jld2"),
-#     "dons_arr",
-#     dons_arr,
-#     "time_data",
-#     time_data,
-#     "z",
-#     z,
-# )
+
+output_dir = @__DIR__;
+mkpath(output_dir);
+println(dons_arr[1].keys)
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+save(
+    string(output_dir, "/sbl_edmf.jld2"),
+    "dons_arr",
+    dons_arr,
+    "time_data",
+    time_data,
+    "z",
+    z,
+)

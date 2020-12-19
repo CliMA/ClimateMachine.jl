@@ -1,4 +1,3 @@
-
 export JacobianFreeNewtonKrylovSolver, JacobianAction
 
 """
@@ -10,14 +9,10 @@ mutable struct JacobianAction{FT, AT}
     Fq::AT
     Fqdq::AT
 end
-
 Solve for Frhs = F(q), the Jacobian action is computed
-
     ∂F(Q)      F(Q + eΔQ) - F(Q)
     ---- ΔQ ≈ -------------------
      ∂Q                e
-
-
 ...
 # Arguments     
 - `rhs!`           : nonlinear operator F(Q)
@@ -51,12 +46,9 @@ end
 """
 Approximates the action of the Jacobian of a nonlinear
 form on a vector `ΔQ` using the difference quotient:
-
       ∂F(Q)      F(Q + e ΔQ) - F(Q)
 JΔQ = ---- ΔQ ≈ -------------------
        ∂Q                e
-
-
 Compute  JΔQ with cached Q and F(Q), and the direction  dQ
 """
 function (op::JacobianAction)(JΔQ, dQ, args...)
@@ -71,15 +63,20 @@ function (op::JacobianAction)(JΔQ, dQ, args...)
     n = length(dQ)
     normdQ = norm(dQ, weighted_norm)
 
+    β = √ϵ
+
     if normdQ > ϵ
+        # for preconditioner reconstruction, it goes into this part
+        # e depends only on the active freedoms in the preconditioner reconstruction
         factor = FT(1 / (n * normdQ))
+        Qdq .= Q .* (abs.(dQ) .> 0)
+        e = factor * β * norm(Qdq, 1, false) + β
     else
-        # initial newton step, ΔQ = 0
         factor = FT(1 / n)
+        e = factor * β * norm(Q, 1, false) + β
     end
 
-    β = √ϵ
-    e = factor * β * norm(Q, 1, false) + β
+
 
     Qdq .= Q .+ e .* dQ
 
@@ -101,13 +98,10 @@ end
 
 """
 Solve for Frhs = F(Q), by finite difference
-
     ∂F(Q)      F(Q + eΔQ) - F(Q)
     ---- ΔQ ≈ -------------------
      ∂Q                e
-
      Q^n+1 = Q^n - dF/dQ(Q^{n})⁻¹ (F(Q^n) - Frhs)
-
      set ΔQ = F(Q^n) - Frhs
 """
 mutable struct JacobianFreeNewtonKrylovSolver{FT, AT} <: AbstractNonlinearSolver
@@ -169,11 +163,8 @@ end
 
 """
 Solve for Frhs = F(Q), by finite difference
-
 Q^n+1 = Q^n - dF/dQ(Q^{n})⁻¹ (F(Q^n) - Frhs)
-
 set ΔQ = F(Q^n) - Frhs
-
 ...
 # Arguments 
 - `rhs!`:  functor rhs!(Q) =  F(Q)
