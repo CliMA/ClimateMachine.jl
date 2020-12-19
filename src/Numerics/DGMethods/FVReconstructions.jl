@@ -15,12 +15,14 @@ Concrete types must provide implementions of
                                     cell_weights)
       compute the reconstruction
 
+```
 (::AbstractReconstruction)(
         state_top,
         state_bottom,
         cell_states,
         cell_weights,
     )
+```
 
 Perform the finite volume reconstruction for the top and bottom states using the
 tuple of `cell_states` values using the `cell_weights`.
