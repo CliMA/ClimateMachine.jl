@@ -506,18 +506,17 @@ equations.
 )
 
     flux_pad = SVector(1, 1, 1)
+    ts = recover_thermo_state(m, state, aux)
     tend = Flux{FirstOrder}()
-    _args = (state = state, aux = aux, t = t, direction = direction)
-    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
+    args = (m, state, aux, t, ts, direction)
+    flux.ρ = Σfluxes(eq_tends(Mass(), m, tend), args...) .* flux_pad
+    flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...) .* flux_pad
 
-    flux_first_order!(atmos.moisture, atmos, flux, args)
-    flux_first_order!(atmos.precipitation, atmos, flux, args)
-    flux_first_order!(atmos.tracers, atmos, flux, args)
-    flux_first_order!(atmos.turbconv, atmos, flux, args)
+    flux_first_order!(m.moisture, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.precipitation, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.tracers, m, flux, state, aux, t, ts, direction)
+    flux_first_order!(m.turbconv, m, flux, state, aux, t, ts, direction)
 
 end
 

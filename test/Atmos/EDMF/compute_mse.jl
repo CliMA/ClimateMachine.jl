@@ -19,7 +19,7 @@ PyCLES_output_dataset = ArtifactWrapper(
     "PyCLES_output",
     ArtifactFile[
     # ArtifactFile(url = "https://caltech.box.com/shared/static/johlutwhohvr66wn38cdo7a6rluvz708.nc", filename = "Rico.nc",),
-    # ArtifactFile(url = "https://caltech.box.com/shared/static/zraeiftuzlgmykzhppqwrym2upqsiwyb.nc", filename = "Gabls.nc",),
+    ArtifactFile(url = "https://caltech.box.com/shared/static/zraeiftuzlgmykzhppqwrym2upqsiwyb.nc", filename = "Gabls.nc",),
     # ArtifactFile(url = "https://caltech.box.com/shared/static/toyvhbwmow3nz5bfa145m5fmcb2qbfuz.nc", filename = "DYCOMS_RF01.nc",),
     # ArtifactFile(url = "https://caltech.box.com/shared/static/ivo4751camlph6u3k68ftmb1dl4z7uox.nc", filename = "TRMM_LBA.nc",),
     # ArtifactFile(url = "https://caltech.box.com/shared/static/4osqp0jpt4cny8fq2ukimgfnyi787vsy.nc", filename = "ARM_SGP.nc",),
@@ -29,8 +29,11 @@ PyCLES_output_dataset = ArtifactWrapper(
     ],
 )
 PyCLES_output_dataset_path = get_data_folder(PyCLES_output_dataset)
-data_files = Dict()
-data_files[:Bomex] = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
+#! format: on
+
+#! format: off
+# data_files = Dict()
+# data_files[:Bomex] = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
 # data_files[:Rico] = Dataset(joinpath(PyCLES_output_dataset_path, "Rico.nc"), "r")
 # data_files[:Gabls] = Dataset(joinpath(PyCLES_output_dataset_path, "Gabls.nc"), "r")
 # data_files[:DYCOMS_RF01] = Dataset(joinpath(PyCLES_output_dataset_path, "DYCOMS_RF01.nc"), "r")

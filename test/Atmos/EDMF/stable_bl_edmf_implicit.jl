@@ -118,8 +118,16 @@ function main(::Type{FT}) where {FT}
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+    ode_solver_type = ClimateMachine.HEVISolverType(
+        FT;
+        solver_method = ARK2ImplicitExplicitMidpoint,
+        linear_max_subspace_size = 30,
+        linear_atol = FT(-1.0),
+        linear_rtol = FT(5e-5),
+        nonlinear_max_iterations = 10,
+        nonlinear_rtol = FT(1e-4),
+        nonlinear_ϵ = FT(1.e-10),
+        preconditioner_update_freq = Int(50),
     )
 
     N_updrafts = 1
@@ -153,62 +161,62 @@ function main(::Type{FT}) where {FT}
         init_on_cpu = true,
         Courant_number = CFLmax,
     )
-    #################### Change the ode_solver to implicit solver
+    # #################### Change the ode_solver to implicit solver
 
-    dg = solver_config.dg
-    Q = solver_config.Q
-
-
-    vdg = DGModel(
-        driver_config;
-        state_auxiliary = dg.state_auxiliary,
-        direction = VerticalDirection(),
-    )
+    # dg = solver_config.dg
+    # Q = solver_config.Q
 
 
-    # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
-    linearsolver = BatchedGeneralizedMinimalResidual(
-        dg,
-        Q;
-        max_subspace_size = 30,
-        atol = -1.0,
-        rtol = 5e-5,
-    )
+    # vdg = DGModel(
+    #     driver_config;
+    #     state_auxiliary = dg.state_auxiliary,
+    #     direction = VerticalDirection(),
+    # )
 
-    """
-    N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
 
-    F(Q) == 0
-    ||F(Q^i) || / ||F(Q^0) || < tol
+    # # linear solver relative tolerance rtol which should be slightly smaller than the nonlinear solver tol
+    # linearsolver = BatchedGeneralizedMinimalResidual(
+    #     dg,
+    #     Q;
+    #     max_subspace_size = 30,
+    #     atol = -1.0,
+    #     rtol = 5e-5,
+    # )
 
-    """
-    # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
-    # I have also try larger tol, but tol = 1e-3 does not work
-    nonlinearsolver =
-        JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
+    # """
+    # N(q)(Q) = Qhat  => F(Q) = N(q)(Q) - Qhat
 
-    # this is a second order time integrator, to change it to a first order time integrator
-    # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
-    # and stability
-    # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
-    # update it more freqent will accelerate the convergence of linear solves, but updating it 
-    # is very expensive
-    ode_solver = ARK2ImplicitExplicitMidpoint(
-        dg,
-        vdg,
-        NonLinearBackwardEulerSolver(
-            nonlinearsolver;
-            isadjustable = true,
-            preconditioner_update_freq = 50,
-        ),
-        Q;
-        dt = solver_config.dt,
-        t0 = 0,
-        split_explicit_implicit = false,
-        variant = NaiveVariant(),
-    )
+    # F(Q) == 0
+    # ||F(Q^i) || / ||F(Q^0) || < tol
 
-    solver_config.solver = ode_solver
+    # """
+    # # ϵ is a sensity parameter for this problem, it determines the finite difference Jacobian dF = (F(Q + ϵdQ) - F(Q))/ϵ
+    # # I have also try larger tol, but tol = 1e-3 does not work
+    # nonlinearsolver =
+    #     JacobianFreeNewtonKrylovSolver(Q, linearsolver; tol = 1e-4, ϵ = 1.e-10)
+
+    # # this is a second order time integrator, to change it to a first order time integrator
+    # # change it ARK1ForwardBackwardEuler, which can reduce the cost by half at the cost of accuracy 
+    # # and stability
+    # # preconditioner_update_freq = 50 means updating the preconditioner every 50 Newton solves, 
+    # # update it more freqent will accelerate the convergence of linear solves, but updating it 
+    # # is very expensive
+    # ode_solver = ARK2ImplicitExplicitMidpoint(
+    #     dg,
+    #     vdg,
+    #     NonLinearBackwardEulerSolver(
+    #         nonlinearsolver;
+    #         isadjustable = true,
+    #         preconditioner_update_freq = 50,
+    #     ),
+    #     Q;
+    #     dt = solver_config.dt,
+    #     t0 = 0,
+    #     split_explicit_implicit = false,
+    #     variant = NaiveVariant(),
+    # )
+
+    # solver_config.solver = ode_solver
 
     #######################################
     # --- Zero-out horizontal variations:
