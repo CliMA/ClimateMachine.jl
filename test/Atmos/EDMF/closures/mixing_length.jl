@@ -78,12 +78,10 @@ function mixing_length(
         m.turbconv.surface.zLL,
     )
     tke_surf = surf_vals.tke
-    L_W = ml.κ * max(z, FT(20)) / (sqrt(3.75) * ml.c_m)
-    stab_fac = -(sign(obukhov_length) - 1) / 2
-    L_W *= (
-        stab_fac * min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ) +
-        (FT(1) - stab_fac)
-    )
+    L_W = ml.κ * z / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
+    if obukhov_length < -eps(FT)
+        L_W *= min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ)
+    end
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
@@ -121,7 +119,6 @@ function mixing_length(
         L_tke = ml.max_length
     end
 
-    l_mix =
-        lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
+    l_mix = lamb_smooth_minimum(SVector(L_Nˢ, L_W, L_tke), ml.smin_ub, ml.smin_rm)
     return l_mix, ∂b∂z, Pr_t
 end;

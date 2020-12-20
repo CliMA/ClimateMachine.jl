@@ -156,7 +156,9 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
     @vars(
         S²::FT, # should be conditionally grabbed from atmos.turbulence
         environment::vars_state(m.environment, st, FT),
-        updraft::vars_state(m.updraft, st, FT)
+        updraft::vars_state(m.updraft, st, FT),
+        u::FT,
+        v::FT
     )
 end
 
@@ -323,6 +325,7 @@ function compute_gradient_argument!(
     # Aliases:
     up_tf = transform.turbconv.updraft
     en_tf = transform.turbconv.environment
+    tf = transform.turbconv
     gm = state
     up = state.turbconv.updraft
     en = state.turbconv.environment
@@ -355,6 +358,9 @@ function compute_gradient_argument!(
     en_tf.θv = virtual_pottemp(ts.en)
     e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
     en_tf.e = total_energy(e_kin, _grav * z, ts.en)
+
+    tf.u = gm.ρu[1] * ρ_inv
+    tf.v = gm.ρu[2] * ρ_inv
 end;
 
 function compute_gradient_flux!(
@@ -372,6 +378,7 @@ function compute_gradient_flux!(
     gm = state
     up_dif = diffusive.turbconv.updraft
     tc_dif = diffusive.turbconv
+    ∇tf = ∇transform.turbconv
     up_∇tf = ∇transform.turbconv.updraft
     en_dif = diffusive.turbconv.environment
     en_∇tf = ∇transform.turbconv.environment
@@ -394,6 +401,9 @@ function compute_gradient_flux!(
 
     en_dif.∇θv = en_∇tf.θv
     en_dif.∇e = en_∇tf.e
+
+    tc_dif.∇u = ∇tf.u
+    tc_dif.∇v = ∇tf.v
 
     tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
 
@@ -729,6 +739,7 @@ function flux_second_order!(
     gm_flx = flux
     en_flx = flux.turbconv.environment
     en_dif = diffusive.turbconv.environment
+    dif = diffusive.turbconv
 
     # Recover thermo states
     ts = recover_thermo_state_all(atmos, state, aux)
@@ -806,17 +817,19 @@ function flux_second_order!(
     # update grid mean flux_second_order
     ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
     ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
-    ρu_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
+    ρw_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
+    ρu_sgs_flux = -gm.ρ * env.a * K_m * dif.∇u[3]
+    ρv_sgs_flux = -gm.ρ * env.a * K_m * dif.∇v[3]
 
     # for now the coupling to the dycore is commented out
 
-    # gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
+    gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
     # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
-    # gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-    #     0, 0, 0,
-    #     0, 0, 0,
-    #     0, 0, ρu_sgs_flux,
-    # )
+    gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
+        0, 0, 0,
+        0, 0, 0,
+        ρu_sgs_flux, ρv_sgs_flux, ρw_sgs_flux,
+    )
 
     ẑ = vertical_unit_vector(atmos, aux)
     # env second moment flux_second_order
