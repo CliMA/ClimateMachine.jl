@@ -120,7 +120,9 @@ end
 function vars_state(m::EDMF, st::Gradient, FT)
     @vars(
         environment::vars_state(m.environment, st, FT),
-        updraft::vars_state(m.updraft, st, FT)
+        updraft::vars_state(m.updraft, st, FT),
+        u::FT,
+        v::FT
     )
 end
 
@@ -157,8 +159,8 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
         S²::FT, # should be conditionally grabbed from atmos.turbulence
         environment::vars_state(m.environment, st, FT),
         updraft::vars_state(m.updraft, st, FT),
-        u::FT,
-        v::FT
+        ∇u::SVector{3, FT},
+        ∇v::SVector{3, FT}
     )
 end
 
@@ -826,9 +828,9 @@ function flux_second_order!(
     gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
     # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
     gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-        0, 0, 0,
-        0, 0, 0,
-        ρu_sgs_flux, ρv_sgs_flux, ρw_sgs_flux,
+        0, 0, ρu_sgs_flux,
+        0, 0, ρv_sgs_flux,
+        0, 0, ρw_sgs_flux,
     )
 
     ẑ = vertical_unit_vector(atmos, aux)

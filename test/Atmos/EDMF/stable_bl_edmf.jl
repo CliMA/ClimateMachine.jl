@@ -114,7 +114,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(3600)
+    timeend = FT(4.0*3600)
     # CFLmax = FT(0.50)
     CFLmax = FT(20)
 
