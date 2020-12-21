@@ -126,9 +126,9 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             MArray{Tuple{num_state_primitive}, FT}(undef)
         end...)
 
-        local_state_auxiliary = ntuple(Val(stencil_diameter)) do _
+        local_state_auxiliary = SVector(ntuple(Val(stencil_diameter)) do _
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        end
+        end...)
 
         # FIXME: These two arrays could be smaller
         # (only 2 elements not stencil_diameter)
@@ -253,6 +253,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
+                local_state_auxiliary[rng],
                 local_cell_weights[rng],
             )
 
@@ -288,6 +289,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
+                local_state_auxiliary[rng],
                 local_cell_weights[rng],
             )
 
@@ -443,6 +445,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_primitive[1],
                     local_state_face_primitive[2],
                     local_state_primitive[rng],
+                    local_state_auxiliary[rng],
                     local_cell_weights[rng],
                 )
             elseif eV_up <= stencil_width
@@ -457,6 +460,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_face_primitive[1],
                         local_state_face_primitive[2],
                         local_state_primitive[rng],
+                        local_state_auxiliary[rng],
                         local_cell_weights[rng],
                     )
                 end w -> throw(BoundsError(local_state_primitive, w))
@@ -471,6 +475,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                             local_state_face_primitive[1],
                             local_state_face_primitive[2],
                             local_state_primitive[rng],
+                            local_state_auxiliary[rng],
                             local_cell_weights[rng],
                         )
                     end w -> throw(BoundsError(local_state_primitive, w))
