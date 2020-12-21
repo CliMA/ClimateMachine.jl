@@ -1157,7 +1157,7 @@ function auxiliary_field_gradient!(
         horizontal_polyorder = N[1]
         horizontal_D = grid.D[1]
         horizontal_ω = grid.ω[1]
-        event = kernel_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
+        event = dgsem_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
             m,
             Val(dim),
             Val(N),
@@ -1177,26 +1177,52 @@ function auxiliary_field_gradient!(
 
     if direction isa EveryDirection || direction isa VerticalDirection
         vertical_polyorder = N[dim]
-        vertical_D = grid.D[dim]
-        vertical_ω = grid.ω[dim]
-        event = kernel_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
-            m,
-            Val(dim),
-            Val(N),
-            VerticalDirection(),
-            ∇state.data,
-            state.data,
-            grid.vgeo,
-            vertical_D,
-            vertical_ω,
-            Val(I),
-            Val(O),
-            # If we are computing in every direction, we need to
-            # increment after we compute the horizontal values
-            (direction isa EveryDirection);
-            ndrange = (nrealelem * Nq[1], Nq[2]),
-            dependencies = (event,),
-        )
+        if vertical_polyorder > 0
+            vertical_D = grid.D[dim]
+            vertical_ω = grid.ω[dim]
+            event = dgsem_auxiliary_field_gradient!(device, (Nq[1], Nq[2]))(
+                m,
+                Val(dim),
+                Val(N),
+                VerticalDirection(),
+                ∇state.data,
+                state.data,
+                grid.vgeo,
+                vertical_D,
+                vertical_ω,
+                Val(I),
+                Val(O),
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                (direction isa EveryDirection);
+                ndrange = (nrealelem * Nq[1], Nq[2]),
+                dependencies = (event,),
+            )
+        else
+            Np = dofs_per_element(grid)
+            Nfp_v, Nfp_h = div.(Np, (Nq[1], Nq[end]))
+            nface = 2 * dim
+            event = vert_fvm_auxiliary_field_gradient!(device, Nfp_h)(
+                m,
+                Val(dim),
+                Val(nface),
+                Val(Np),
+                ∇state.data,
+                state.data,
+                grid.vgeo,
+                grid.sgeo,
+                grid.vmap⁻,
+                grid.vmap⁺,
+                grid.elemtobndy,
+                Val(I),
+                Val(O),
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                (direction isa EveryDirection);
+                ndrange = (nrealelem * Nfp_h),
+                dependencies = (event,),
+            )
+        end
     end
     wait(device, event)
 end

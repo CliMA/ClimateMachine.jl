@@ -886,3 +886,120 @@ end
         end
     end
 end
+
+@kernel function vert_fvm_auxiliary_field_gradient!(
+    balance_law::BalanceLaw,
+    ::Val{dim},
+    ::Val{nface},
+    ::Val{Np},
+    ∇state,
+    state,
+    vgeo,
+    sgeo,
+    vmap⁻,
+    vmap⁺,
+    elemtobndy,
+    ::Val{I},
+    ::Val{O},
+    increment,
+) where {dim, nface, Np, I, O}
+    @uniform begin
+        FT = eltype(state)
+        ngradstate = length(I)
+
+        # We only have the vertical faces
+        faces = (nface - 1):nface
+
+        local_state_bottom = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+        local_state = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+        local_state_top = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+    end
+
+    e = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        face_bottom = faces[1]
+        face_top = faces[2]
+
+        bctag_bottom = elemtobndy[face_bottom, e]
+        bctag_top = elemtobndy[face_top, e]
+
+        # TODO: exploit structured grid
+        id = vmap⁻[n, face_bottom, e]
+        id_bottom = vmap⁺[n, face_bottom, e]
+        id_top = vmap⁺[n, face_top, e]
+
+        e_bottom = ((id_bottom - 1) ÷ Np) + 1
+        e_top = ((id_top - 1) ÷ Np) + 1
+
+        vid = ((id - 1) % Np) + 1
+        vid_bottom = ((id_bottom - 1) % Np) + 1
+        vid_top = ((id_top - 1) % Np) + 1
+
+        if bctag_bottom != 0
+            e_bottom = e
+            vid_bottom = vid
+        end
+        if bctag_top != 0
+            e_top = e
+            vid_top = vid
+        end
+
+        dzh_bottom = vgeo[vid_bottom, _JcV, e_bottom]
+        dzh = vgeo[vid, _JcV, e]
+        dzh_top = vgeo[vid_top, _JcV, e_top]
+
+        if dim == 2
+            ξvx1 = vgeo[vid, _ξ2x1, e]
+            ξvx2 = vgeo[vid, _ξ2x2, e]
+            ξvx3 = vgeo[vid, _ξ2x3, e]
+        elseif dim == 3
+            ξvx1 = vgeo[vid, _ξ3x1, e]
+            ξvx2 = vgeo[vid, _ξ3x2, e]
+            ξvx3 = vgeo[vid, _ξ3x3, e]
+        end
+
+        @unroll for s in 1:ngradstate
+            local_state_bottom[s] = state[vid_bottom, I[s], e_bottom]
+            local_state_top[s] = state[vid_top, I[s], e_top]
+        end
+
+        # only need the middle state near the boundaries
+        if bctag_bottom != 0 || bctag_top != 0
+            @unroll for s in 1:ngradstate
+                local_state[s] = state[vid, I[s], e]
+            end
+        end
+
+        # extrapolation at the boundaries equivalent to one-sided differencing
+        if bctag_bottom != 0
+            @unroll for s in 1:ngradstate
+                local_state_bottom[s] = 2 * local_state[s] - local_state_top[s]
+            end
+            dzh_bottom = dzh_top
+        end
+
+        if bctag_top != 0
+            @unroll for s in 1:ngradstate
+                local_state_top[s] = 2 * local_state[s] - local_state_bottom[s]
+            end
+            dzh_top = dzh_bottom
+        end
+
+        @unroll for s in 1:ngradstate
+            dz = dzh_top + 2dzh + dzh_bottom
+            ∇s_v = (local_state_top[s] - local_state_bottom[s]) / dz
+            # rotate back to Cartesian
+            if increment
+                ∇state[vid, O[3 * (s - 1) + 1], e] += ξvx1 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 2], e] += ξvx2 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 3], e] += ξvx3 * dzh * ∇s_v
+            else
+                ∇state[vid, O[3 * (s - 1) + 1], e] = ξvx1 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 2], e] = ξvx2 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 3], e] = ξvx3 * dzh * ∇s_v
+            end
+        end
+    end
+end
