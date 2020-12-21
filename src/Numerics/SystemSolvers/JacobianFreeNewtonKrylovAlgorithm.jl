@@ -185,6 +185,8 @@ function JacobianFreeNewtonKrylovAlgorithm(
     autodiff::Union{Bool, Nothing} = nothing,
     β::Union{Real, Nothing} = nothing,
 )
+    @check_positive(atol, rtol, maxiters, β)
+    @check_finite(β)
     return JacobianFreeNewtonKrylovAlgorithm(
         krylovalgorithm,
         atol,

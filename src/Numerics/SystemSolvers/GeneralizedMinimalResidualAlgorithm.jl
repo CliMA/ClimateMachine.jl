@@ -49,6 +49,7 @@ function GeneralizedMinimalResidualAlgorithm(;
     sarrays::Union{Bool, Nothing} = nothing,
     groupsize::Union{Int, Nothing} = nothing,
 )
+    @check_positive(atol, rtol, maxrestarts, M, groupsize)
     return GeneralizedMinimalResidualAlgorithm(
         preconditioner,
         atol,

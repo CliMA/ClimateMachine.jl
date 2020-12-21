@@ -124,8 +124,8 @@ function solve!(solver::IterativeSolver, problem::Problem, args...)
     return (iters, fcalls)
 end
 
-# Utility function used by solve!() and doiteration!() that checks whether the
-# solver has converged.
+# Function used by solve!() and doiteration!() that checks whether the solver
+# has converged.
 function check_convergence(residual_norm, threshold, iters)
     isfinite(residual_norm) ||
         error("Norm of residual is not finite after $iters iterations")
@@ -145,6 +145,42 @@ end
     end
 end
 =#
+
+# Macro used by algorithm constructors that checks whether the keyword
+# arguments specified by the user are all positive.
+macro check_positive(args...)
+    n = length(args)
+    block = Expr(:block)
+    block.args = Array{Any}(undef, n)
+    for i in 1:n
+        arg = args[i]
+        message = "Keyword argument $arg must be positive, but it was set to "
+        block.args[i] = quote
+            if !isnothing($arg) && !($arg > 0)
+                throw(AssertionError(string($message, $arg)))
+            end
+        end
+    end
+    return block
+end
+
+# Macro used by algorithm constructors that checks whether the keyword
+# arguments specified by the user are all finite.
+macro check_finite(args...)
+    n = length(args)
+    block = Expr(:block)
+    block.args = Array{Any}(undef, n)
+    for i in 1:n
+        arg = args[i]
+        message = "Keyword argument $arg must be finite, but it was set to "
+        block.args[i] = quote
+            if !isnothing($arg) && !isfinite($arg)
+                throw(AssertionError(string($message, $arg)))
+            end
+        end
+    end
+    return block
+end
 
 include("GeneralizedMinimalResidualAlgorithm.jl")
 include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
