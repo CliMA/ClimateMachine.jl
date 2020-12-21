@@ -840,7 +840,7 @@ function init_state_auxiliary!(
         ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
         init_state_auxiliary!(
             m,
-            atmos_nodal_init_density_from_pressure!,
+            atmos_init_density_from_pressure!,
             state_auxiliary,
             grid,
             direction;

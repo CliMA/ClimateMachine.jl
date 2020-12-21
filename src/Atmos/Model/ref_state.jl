@@ -58,7 +58,7 @@ end
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 
-atmos_init_ref_state_pressure!(m, _...) = nothing
+atmos_init_ref_state_pT!(m, _...) = nothing
 function atmos_init_ref_state_pT!(
     m::HydrostaticState{P, F},
     atmos::AtmosModel,
@@ -72,7 +72,6 @@ function atmos_init_ref_state_pT!(
 end
 
 function atmos_init_density_from_pressure!(
-    m::HydrostaticState{P, F},
     atmos::AtmosModel,
     aux::Vars,
     tmp::Vars,
