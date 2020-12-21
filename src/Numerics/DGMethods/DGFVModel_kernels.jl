@@ -285,11 +285,13 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             # Reconstruction using only eVs cell value
             rng = SUnitRange(stencil_center, stencil_center)
+            # Need two geopotential cell values for hydrostatic reconstuction
+            rng_aux = SUnitRange(stencil_center, stencil_center+1)
             reconstruction!(
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
-                local_state_auxiliary[rng],
+                local_state_auxiliary[rng_aux],
                 local_cell_weights[rng],
             )
 
@@ -471,11 +473,13 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     begin
                         rng1, rng2 = stencil_center .+ (1 - w, w - 1)
                         rng = SUnitRange(rng1, rng2)
+                        # At the top need two geopotential cell values for hydrostatic reconstuction
+                        rng_aux = w == 1 ? SUnitRange(stencil_center - 1, stencil_center) : rng
                         reconstruction!(
                             local_state_face_primitive[1],
                             local_state_face_primitive[2],
                             local_state_primitive[rng],
-                            local_state_auxiliary[rng],
+                            local_state_auxiliary[rng_aux],
                             local_cell_weights[rng],
                         )
                     end w -> throw(BoundsError(local_state_primitive, w))
