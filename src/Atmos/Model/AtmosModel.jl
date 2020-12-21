@@ -482,6 +482,8 @@ include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 
+include("reconstructions.jl")   # finite-volume method reconstructions
+
 precompute(atmos::AtmosModel, args, tt::Flux{FirstOrder}) =
     (ts = recover_thermo_state(atmos, args.state, args.aux),)
 
