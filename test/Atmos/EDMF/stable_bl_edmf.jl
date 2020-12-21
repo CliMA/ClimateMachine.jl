@@ -1,3 +1,5 @@
+# using FileIO
+# using JLD2
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -198,7 +200,7 @@ function main(::Type{FT}) where {FT}
     grid = driver_config.grid
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary())
+    state_types = (Prognostic(), Auxiliary(), GradientFlux())
     dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
@@ -258,7 +260,7 @@ solver_config, dons_arr, time_data, state_types = main(Float64)
 #
 # output_dir = @__DIR__;
 # mkpath(output_dir);
-
+# println(dons_arr[1].keys)
 # z = get_z(solver_config.dg.grid; rm_dupes = true);
 # save(
 #     string(output_dir, "/sbl_edmf.jld2"),
