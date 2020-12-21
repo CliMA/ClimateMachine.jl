@@ -25,12 +25,7 @@ function flux_second_order!(
     ::MoistureModel,
     flux::Grad,
     atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
+    args,
 ) end
 
 function compute_gradient_argument!(
@@ -156,17 +151,11 @@ function flux_second_order!(
     moist::EquilMoist,
     flux::Grad,
     atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
+    args,
 )
     tend = Flux{SecondOrder}()
-    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
     flux.moisture.ρq_tot =
-        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), args...)
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), atmos, args)
 end
 
 function source!(m::EquilMoist, source::Vars, atmos::AtmosModel, args)
@@ -254,21 +243,15 @@ function flux_second_order!(
     ::NonEquilMoist,
     flux::Grad,
     atmos::AtmosModel,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
+    args,
 )
     tend = Flux{SecondOrder}()
-    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
     flux.moisture.ρq_tot =
-        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), args...)
+        Σfluxes(eq_tends(TotalMoisture(), atmos, tend), atmos, args)
     flux.moisture.ρq_liq =
-        Σfluxes(eq_tends(LiquidMoisture(), atmos, tend), args...)
+        Σfluxes(eq_tends(LiquidMoisture(), atmos, tend), atmos, args)
     flux.moisture.ρq_ice =
-        Σfluxes(eq_tends(IceMoisture(), atmos, tend), args...)
+        Σfluxes(eq_tends(IceMoisture(), atmos, tend), atmos, args)
 end
 
 function source!(m::NonEquilMoist, source::Vars, atmos::AtmosModel, args)

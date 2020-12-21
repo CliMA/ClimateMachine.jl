@@ -126,7 +126,7 @@ atmos_source!(::ConvectiveBLSponge, args...) = nothing
 """
   Initial Condition for ConvectiveBoundaryLayer LES
 """
-function init_convective_bl!(problem, bl, state, aux, localgeo, t)
+function init_problem!(problem, bl, state, aux, localgeo, t)
     (x, y, z) = localgeo.coord
 
     # Problem floating point precision
@@ -199,12 +199,14 @@ function convective_bl_model(
     moisture_model = "dry",
 ) where {FT}
 
-    ics = init_convective_bl!     # Initial conditions
+    ics = init_problem!     # Initial conditions
 
     C_smag = FT(0.23)     # Smagorinsky coefficient
     C_drag = FT(0.001)    # Momentum exchange coefficient
     z_sponge = FT(2560)     # Start of sponge layer
+
     α_max = FT(0.75)       # Strength of sponge layer (timescale)
+
     γ = 2                  # Strength of sponge layer (exponent)
     u_geostrophic = FT(4)        # Eastward relaxation speed
     u_slope = FT(0)              # Slope of altitude-dependent relaxation speed
@@ -236,6 +238,7 @@ function convective_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
 
     if moisture_model == "dry"
@@ -277,7 +280,6 @@ function convective_bl_model(
         )
     end
 
-    # Set up problem initial and boundary conditions
     if moisture_model == "dry"
         boundary_conditions = (
             AtmosBC(
@@ -314,7 +316,7 @@ function convective_bl_model(
 
     # Assemble model components
     model = AtmosModel{FT}(
-        AtmosLESConfigType,
+        config_type,
         param_set;
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
@@ -322,6 +324,7 @@ function convective_bl_model(
         source = source,
         turbconv = turbconv,
     )
+
     return model
 end
 

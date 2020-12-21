@@ -12,17 +12,9 @@ end
 ##### Second order fluxes
 #####
 
-function flux(
-    ::MoistureDiffusion{Mass},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::MoistureDiffusion{Mass}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
     return d_q_tot * state.ρ
 end

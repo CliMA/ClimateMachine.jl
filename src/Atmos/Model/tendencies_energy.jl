@@ -20,23 +20,16 @@ end
 #####
 
 struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(::ViscousFlux{Energy}, m, state, aux, t, ts, diffusive, hyperdiff)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::ViscousFlux{Energy}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     return τ * state.ρu
 end
 
 struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
-function flux(
-    ::DiffEnthalpyFlux{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    diffusive,
-    hyperdiff,
-)
-    ν, D_t, τ = turbulence_tensors(m, state, diffusive, aux, t)
+function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
     d_h_tot = -D_t .* diffusive.∇h_tot
     return d_h_tot * state.ρ
 end
