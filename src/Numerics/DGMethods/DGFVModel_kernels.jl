@@ -156,7 +156,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # The remainder model needs to know which direction of face the model is
         # being evaluated for. In this case we only have `VerticalDirection()`
         # faces
-        face_direction = (VerticalDirection())
+        face_direction = (VerticalDirection(),)
     end
 
     # Optimization ideas:
