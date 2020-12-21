@@ -40,7 +40,8 @@ using ..Mesh.Grids:
     HorizontalDirection,
     min_node_distance,
     EveryDirection,
-    Direction
+    Direction,
+    polynomialorders
 
 using ..BalanceLaws
 using ClimateMachine.Problems
@@ -94,6 +95,7 @@ using ..DGMethods.NumericalFluxes:
     RoeNumericalFluxMoist
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
+using ..DGMethods: fvm_balance!
 
 
 """
@@ -780,6 +782,27 @@ function atmos_nodal_init_state_auxiliary!(
     m.problem.init_state_auxiliary(m.problem, m, aux, geom)
 end
 
+function fvm_balance_init!(m::AtmosModel, aux_bot::Vars, aux_top::Vars)
+    FT = eltype(aux_bot)
+    _R_d::FT = R_d(m.param_set)
+
+    T_bot = aux_bot.ref_state.T
+    p_bot = aux_bot.ref_state.p
+    ρ_bot = p_bot / (_R_d * T_bot)
+    Φ_bot = aux_bot.orientation.Φ
+
+    Φ_top = aux_top.orientation.Φ
+    T_top = aux_top.ref_state.T
+
+    ρ_top =
+        (p_bot - ρ_bot * (Φ_top - Φ_bot) / 2) /
+        (_R_d * T_top + (Φ_top - Φ_bot) / 2)
+    p_top = _R_d * T_top * ρ_top
+
+    aux_top.ref_state.ρ = ρ_top
+    aux_top.ref_state.p = p_top
+end
+
 """
     init_state_auxiliary!(
         m::AtmosModel,
@@ -802,21 +825,33 @@ function init_state_auxiliary!(
     init_state_auxiliary!(
         m,
         (m, aux, tmp, geom) ->
-            atmos_init_ref_state_pressure!(m.ref_state, m, aux, geom),
+            atmos_init_ref_state_pT!(m.ref_state, m, aux, geom),
         state_auxiliary,
         grid,
         direction,
     )
 
-    ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
+    vertical_fvm = polynomialorders(grid)[end] == 0
+    if vertical_fvm
+        fvm_balance!(fvm_balance_init!, m, state_auxiliary, grid)
+    else
+        ∇p = ∇reference_pressure(m.ref_state, state_auxiliary, grid)
+        init_state_auxiliary!(
+            m,
+            atmos_nodal_init_density_from_pressure!,
+            state_auxiliary,
+            grid,
+            direction;
+            state_temporary = ∇p,
+        )
+    end
 
     init_state_auxiliary!(
         m,
         atmos_nodal_init_state_auxiliary!,
         state_auxiliary,
         grid,
-        direction;
-        state_temporary = ∇p,
+        direction,
     )
 end
 
@@ -1148,7 +1183,8 @@ function numerical_flux_first_order!(
 
     # Compute p * D = p * (0, n₁, n₂, n₃, S⁰)
     pD = @MVector zeros(FT, num_state_prognostic)
-    if balance_law.ref_state isa HydrostaticState && balance_law.ref_state.subtract_off
+    if balance_law.ref_state isa HydrostaticState &&
+       balance_law.ref_state.subtract_off
         # pressure should be continuous but it doesn't hurt to average
         ref_p⁻ = state_auxiliary⁻.ref_state.p
         ref_p⁺ = state_auxiliary⁺.ref_state.p

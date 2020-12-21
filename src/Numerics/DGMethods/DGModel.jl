@@ -2107,3 +2107,36 @@ function launch_interface_tendency!(
 
     return comp_stream
 end
+
+function fvm_balance!(
+    balance_func,
+    m::BalanceLaw,
+    state_auxiliary::MPIStateArray,
+    grid,
+)
+    device = array_device(state_auxiliary)
+
+
+    dim = dimensionality(grid)
+    N = polynomialorders(grid)
+    Nq = N .+ 1
+    Nqj = dim == 2 ? 1 : Nq[2]
+
+    topology = grid.topology
+    elems = topology.elems
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+
+    event = Event(device)
+    event = kernel_fvm_balance!(device, (Nq[1], Nqj))(
+        balance_func,
+        m,
+        Val(nvertelem),
+        state_auxiliary.data,
+        horzelems;
+        ndrange = (length(horzelems) * Nq[1], Nqj),
+        dependencies = (event,),
+    )
+    wait(device, event)
+end

@@ -286,7 +286,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # Reconstruction using only eVs cell value
             rng = SUnitRange(stencil_center, stencil_center)
             # Need two geopotential cell values for hydrostatic reconstuction
-            rng_aux = SUnitRange(stencil_center, stencil_center+1)
+            rng_aux = SUnitRange(stencil_center, stencil_center + 1)
             reconstruction!(
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
@@ -474,7 +474,9 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         rng1, rng2 = stencil_center .+ (1 - w, w - 1)
                         rng = SUnitRange(rng1, rng2)
                         # At the top need two geopotential cell values for hydrostatic reconstuction
-                        rng_aux = w == 1 ? SUnitRange(stencil_center - 1, stencil_center) : rng
+                        rng_aux =
+                            w == 1 ?
+                            SUnitRange(stencil_center - 1, stencil_center) : rng
                         reconstruction!(
                             local_state_face_primitive[1],
                             local_state_face_primitive[2],
@@ -1008,6 +1010,76 @@ end
                 ∇state[vid, O[3 * (s - 1) + 1], e] = ξvx1 * dzh * ∇s_v
                 ∇state[vid, O[3 * (s - 1) + 2], e] = ξvx2 * dzh * ∇s_v
                 ∇state[vid, O[3 * (s - 1) + 3], e] = ξvx3 * dzh * ∇s_v
+            end
+        end
+    end
+end
+
+@kernel function kernel_fvm_balance!(
+    f!,
+    balance_law::BalanceLaw,
+    ::Val{nvertelem},
+    state_auxiliary,
+    elems,
+) where {nvertelem}
+    @uniform begin
+        FT = eltype(state_auxiliary)
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        local_state_auxiliary_bot =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        local_state_auxiliary_top =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+    end
+
+    _eh = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        eh = elems[_eh]
+
+        # handle first element
+        ev = 1
+        e = ev + (eh - 1) * nvertelem
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary_bot[s] = state_auxiliary[n, s, e]
+        end
+        f!(
+            balance_law,
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                local_state_auxiliary_bot,
+            ),
+            Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                local_state_auxiliary_bot,
+            ),
+        )
+        @unroll for s in 1:num_state_auxiliary
+            state_auxiliary[n, s, e] = local_state_auxiliary_bot[s]
+        end
+
+        # Loop up the stack of elements
+        for ev in 2:nvertelem
+            e = ev + (eh - 1) * nvertelem
+
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
+            end
+
+            f!(
+                balance_law,
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary_bot,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary_top,
+                ),
+            )
+
+            @unroll for s in 1:num_state_auxiliary
+                state_auxiliary[n, s, e] = local_state_auxiliary_top[s]
+            end
+
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary_bot[s] = local_state_auxiliary_top[s]
             end
         end
     end

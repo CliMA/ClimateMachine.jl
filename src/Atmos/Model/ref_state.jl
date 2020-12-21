@@ -46,12 +46,12 @@ struct HydrostaticState{P, FT} <: ReferenceState
 end
 function HydrostaticState(
     virtual_temperature_profile::TemperatureProfile{FT};
-    subtract_off=true
+    subtract_off = true,
 ) where {FT}
     return HydrostaticState{typeof(virtual_temperature_profile), FT}(
         virtual_temperature_profile,
         FT(0),
-        subtract_off
+        subtract_off,
     )
 end
 
@@ -59,15 +59,30 @@ vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 
 atmos_init_ref_state_pressure!(m, _...) = nothing
-function atmos_init_ref_state_pressure!(
+function atmos_init_ref_state_pT!(
     m::HydrostaticState{P, F},
     atmos::AtmosModel,
     aux::Vars,
     geom::LocalGeometry,
 ) where {P, F}
     z = altitude(atmos, aux)
-    _, p = m.virtual_temperature_profile(atmos.param_set, z)
+    T_virt, p = m.virtual_temperature_profile(atmos.param_set, z)
     aux.ref_state.p = p
+    aux.ref_state.T = T_virt
+end
+
+function atmos_init_density_from_pressure!(
+    m::HydrostaticState{P, F},
+    atmos::AtmosModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+) where {P, F}
+    k = vertical_unit_vector(atmos, aux)
+    ∇Φ = ∇gravitational_potential(atmos, aux)
+    # density computation from pressure ρ = -1/g*dpdz
+    ρ = -k' * tmp.∇p / (k' * ∇Φ)
+    aux.ref_state.ρ = ρ
 end
 
 function atmos_init_aux!(
@@ -77,16 +92,10 @@ function atmos_init_aux!(
     tmp::Vars,
     geom::LocalGeometry,
 ) where {P, F}
-    z = altitude(atmos, aux)
-    T_virt, p = m.virtual_temperature_profile(atmos.param_set, z)
-    FT = eltype(aux)
-    _R_d::FT = R_d(atmos.param_set)
-    k = vertical_unit_vector(atmos, aux)
-    ∇Φ = ∇gravitational_potential(atmos, aux)
+    T_virt = aux.ref_state.T
+    ρ = aux.ref_state.ρ
+    p = aux.ref_state.p
 
-    # density computation from pressure ρ = -1/g*dpdz
-    ρ = -k' * tmp.∇p / (k' * ∇Φ)
-    aux.ref_state.ρ = ρ
     RH = m.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
