@@ -2044,28 +2044,33 @@ See [`BalanceLaw`](@ref) for usage.
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         nout = number_states(balance_law, UpwardIntegrals())
 
-        Nq = N + 1
-        Nqj = dim == 2 ? 1 : Nq
+        # Number of Gauss-Lobatto quadrature points in each direction
+        Nq = N .+ 1
+        Nq1 = Nq[1]
+        Nq2 = dim == 2 ? 1 : Nq[2]
+        Nq3 = Nq[end]
 
         local_state_prognostic = MArray{Tuple{num_state_prognostic}, FT}(undef)
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_kernel = MArray{Tuple{nout, Nq}, FT}(undef)
+        local_kernel = MArray{Tuple{nout, Nq3}, FT}(undef)
     end
 
-    local_integral = @private FT (nout, Nq)
-    s_I = @localmem FT (Nq, Nq)
+    local_integral = @private FT (nout, Nq1)
+    s_I = @localmem FT (Nq3, Nq3)
 
     _eh = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
-        @unroll for n in 1:Nq
-            s_I[i, n] = Imat[i, n]
+        @unroll for iv in i:Nq1:Nq3
+            @unroll for jv in j:Nq2:Nq3
+                s_I[iv, jv] = Imat[iv, jv]
+            end
         end
         @synchronize
 
         # Initialize the constant state at zero
-        @unroll for k in 1:Nq
+        @unroll for k in 1:Nq3
             @unroll for s in 1:nout
                 local_integral[s, k] = 0
             end
@@ -2079,8 +2084,8 @@ See [`BalanceLaw`](@ref) for usage.
 
             # Evaluate the integral kernel at each DOF in the slabk
             # loop up the pencil
-            @unroll for k in 1:Nq
-                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+            @unroll for k in 1:Nq3
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
                 Jc = vgeo[ijk, _JcV, e]
                 @unroll for s in 1:num_state_prognostic
                     local_state_prognostic[s] = state_prognostic[ijk, s, e]
@@ -2105,7 +2110,7 @@ See [`BalanceLaw`](@ref) for usage.
                     ),
                 )
 
-                # multiply in the curve jacobian
+                # Multiply in the curve jacobian
                 @unroll for s in 1:nout
                     local_kernel[s, k] *= Jc
                 end
@@ -2113,19 +2118,19 @@ See [`BalanceLaw`](@ref) for usage.
 
             # Evaluate the integral up the element
             @unroll for s in 1:nout
-                @unroll for k in 1:Nq
-                    @unroll for n in 1:Nq
+                @unroll for k in 1:Nq3
+                    @unroll for n in 1:Nq3
                         local_integral[s, k] += s_I[k, n] * local_kernel[s, n]
                     end
                 end
             end
 
             # Store out to memory and reset the background value for next element
-            @unroll for k in 1:Nq
+            @unroll for k in 1:Nq3
                 @unroll for s in 1:nout
                     local_kernel[s, k] = local_integral[s, k]
                 end
-                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
                 integral_set_auxiliary_state!(
                     balance_law,
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
@@ -2141,7 +2146,7 @@ See [`BalanceLaw`](@ref) for usage.
                     )),
                 )
                 @unroll for ind_out in 1:nout
-                    local_integral[ind_out, k] = local_integral[ind_out, Nq]
+                    local_integral[ind_out, k] = local_integral[ind_out, Nq3]
                 end
             end
         end
@@ -2160,11 +2165,14 @@ end
     @uniform begin
         FT = eltype(state_auxiliary)
 
-        Nq = N + 1
-        Nqj = dim == 2 ? 1 : Nq
+        # Number of Gauss-Lobatto quadrature points in each direction
+        Nq = N .+ 1
+        Nq1 = Nq[1]
+        Nq2 = dim == 2 ? 1 : Nq[2]
+        Nq3 = Nq[end]
         nout = number_states(balance_law, DownwardIntegrals())
 
-        # note that k is the second not 4th index (since this is scratch memory and k
+        # Note that k is the second not 4th index (since this is scratch memory and k
         # needs to be persistent across threads)
         l_T = MArray{Tuple{nout}, FT}(undef)
         l_V = MArray{Tuple{nout}, FT}(undef)
@@ -2176,8 +2184,9 @@ end
     @inbounds begin
         eh = elems[_eh]
 
-        # Initialize the constant state at zero
-        ijk = i + Nq * ((j - 1) + Nqj * (Nq - 1))
+        # Extract the top value from the top element which is degree of freedom
+        # (i, j, Nq3)
+        ijk = i + Nq1 * ((j - 1) + Nq2 * (Nq3 - 1))
         et = nvertelem + (eh - 1) * nvertelem
         reverse_integral_load_auxiliary_state!(
             balance_law,
@@ -2197,10 +2206,21 @@ end
         )
 
         # Loop up the stack of elements
-        for ev in 1:nvertelem
+        #
+        # In the case of N = 0 the forward integral computed the top face
+        # integral value, when reversing we want to store the bottom face value
+        # (there is no need to store the top face value of the top element since
+        # the reverse integral will be zero there, whereas in the forward case
+        # the bottom face of the first element was zero).
+        #
+        # This loop gets complicated in this case since we have a shifting of
+        # the element values.
+
+        # Loop limits for N = 0 versus N > 0
+        for ev in (Nq3 == 1 ? (1:(nvertelem - 1)) : (1:nvertelem))
             e = ev + (eh - 1) * nvertelem
-            @unroll for k in 1:Nq
-                ijk = i + Nq * ((j - 1) + Nqj * (k - 1))
+            @unroll for k in 1:Nq3
+                ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
                 reverse_integral_load_auxiliary_state!(
                     balance_law,
                     Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
@@ -2224,11 +2244,30 @@ end
                         state_auxiliary,
                         ijk,
                         :,
-                        e,
+                        # In the N = 0 case we shift the data up
+                        Nq3 == 1 ? e + 1 : e,
                     )),
                     Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
                 )
             end
+        end
+        # We need to update the first vertical element value still with the very
+        # top value
+        if Nq3 == 1
+            ev = 1
+            k = 1
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+            e = ev + (eh - 1) * nvertelem
+            reverse_integral_set_auxiliary_state!(
+                balance_law,
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
+                    state_auxiliary,
+                    ijk,
+                    :,
+                    e,
+                )),
+                Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
+            )
         end
     end
 end

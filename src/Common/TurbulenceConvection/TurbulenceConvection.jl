@@ -79,11 +79,7 @@ function flux_first_order!(
     m::TurbulenceConvectionModel,
     bl::BalanceLaw,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 )
     return nothing
 end
@@ -113,12 +109,9 @@ end
 
 function flux_second_order!(
     m::TurbulenceConvectionModel,
-    bl::BalanceLaw,
     flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+    bl::BalanceLaw,
+    args,
 )
     return nothing
 end

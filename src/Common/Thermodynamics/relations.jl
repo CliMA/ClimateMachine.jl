@@ -1260,6 +1260,7 @@ end
 
 """
     saturation_adjustment(
+        sat_adjust_method,
         param_set,
         e_int,
         ρ,
@@ -1271,6 +1272,8 @@ end
 
 Compute the temperature that is consistent with
 
+ - `sat_adjust_method` the numerical method to use.
+    See the [`Thermodynamics`](@ref) for options.
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `e_int` internal energy
  - `ρ` (moist-)air density
@@ -1288,6 +1291,7 @@ using Newtons method with analytic gradients.
 See also [`saturation_adjustment`](@ref).
 """
 function saturation_adjustment(
+    ::Type{sat_adjust_method},
     param_set::APS,
     e_int::FT,
     ρ::FT,
@@ -1295,7 +1299,7 @@ function saturation_adjustment(
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     temperature_tol::FT,
-) where {FT <: Real}
+) where {FT <: Real, sat_adjust_method}
     _T_min::FT = T_min(param_set)
     _cv_d = FT(cv_d(param_set))
     # Convert temperature tolerance to a convergence criterion on internal energy residuals
@@ -1330,20 +1334,17 @@ function saturation_adjustment(
                     internal_energy_sat(
                         param_set,
                         heavisided(T),
-                        ρ,
-                        q_tot,
+                        oftype(T, ρ),
+                        oftype(T, q_tot),
                         phase_type,
                     ) - e_int,
-                NewtonsMethod(
-                    T_1,
-                    T_ -> ∂e_int_∂T(
-                        param_set,
-                        heavisided(T_),
-                        e_int,
-                        ρ,
-                        q_tot,
-                        phase_type,
-                    ),
+                sa_numerical_method(
+                    sat_adjust_method,
+                    param_set,
+                    ρ,
+                    e_int,
+                    q_tot,
+                    phase_type,
                 ),
                 CompactSolution(),
                 tol,
@@ -1353,21 +1354,13 @@ function saturation_adjustment(
                 if print_warning()
                     @print("-----------------------------------------\n")
                     @print("maxiter reached in saturation_adjustment:\n")
-                    @print(
-                        "    e_int=",
-                        e_int,
-                        ", ρ=",
-                        ρ,
-                        ", q_tot=",
-                        q_tot,
-                        ", T = ",
-                        sol.root,
-                        ", maxiter=",
-                        maxiter,
-                        ", tol=",
-                        tol.tol,
-                        "\n"
-                    )
+                    print_numerical_method(sat_adjust_method)
+                    @print(", e_int=", e_int)
+                    @print(", ρ=", ρ)
+                    @print(", q_tot=", q_tot)
+                    @print(", T=", sol.root)
+                    @print(", maxiter=", maxiter)
+                    @print(", tol=", tol.tol, "\n")
                 end
                 if error_on_non_convergence()
                     error("Failed to converge with printed set of inputs.")
@@ -1380,6 +1373,7 @@ end
 
 """
     saturation_adjustment_ρpq(
+        sat_adjust_method,
         param_set,
         ρ,
         p,
@@ -1389,6 +1383,8 @@ end
         temperature_tol
     )
 Compute the temperature that is consistent with
+ - `sat_adjust_method` the numerical method to use.
+    See the [`Thermodynamics`](@ref) for options.
  - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
  - `ρ` (moist-)air density
  - `p` pressure
@@ -1410,6 +1406,7 @@ using Newtons method using ForwardDiff.
 See also [`saturation_adjustment`](@ref).
 """
 function saturation_adjustment_ρpq(
+    ::Type{sat_adjust_method},
     param_set::APS,
     ρ::FT,
     p::FT,
@@ -1417,10 +1414,8 @@ function saturation_adjustment_ρpq(
     phase_type::Type{<:PhaseEquil},
     maxiter::Int,
     temperature_tol::FT = eps(FT),
-) where {FT <: Real}
+) where {FT <: Real, sat_adjust_method}
     tol = SolutionTolerance(temperature_tol)
-    q_pt = PhasePartition(q_tot)
-    T_init = air_temperature_from_ideal_gas_law(param_set, p, ρ, q_pt)
     # Use `oftype` to preserve diagonalized type signatures:
     sol = find_zero(
         T ->
@@ -1436,7 +1431,14 @@ function saturation_adjustment_ρpq(
                     phase_type,
                 ),
             ),
-        NewtonsMethodAD(T_init),
+        sa_numerical_method_ρpq(
+            sat_adjust_method,
+            param_set,
+            ρ,
+            p,
+            q_tot,
+            phase_type,
+        ),
         CompactSolution(),
         tol,
         maxiter,
@@ -1445,21 +1447,13 @@ function saturation_adjustment_ρpq(
         if print_warning()
             @print("-----------------------------------------\n")
             @print("maxiter reached in saturation_adjustment_ρpq:\n")
-            @print(
-                "    ρ=",
-                ρ,
-                ", p=",
-                p,
-                ", q_tot=",
-                q_tot,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            print_numerical_method(sat_adjust_method)
+            @print(", ρ=", ρ)
+            @print(", p=", p)
+            @print(", q_tot=", q_tot)
+            @print(", T=", sol.root)
+            @print(", maxiter=", maxiter)
+            @print(", tol=", tol.tol, "\n")
         end
         if error_on_non_convergence()
             error("Failed to converge with printed set of inputs.")
@@ -1491,122 +1485,6 @@ saturation adjustment using Secant method
 @inline function bound_upper_temperature(T_1::FT, T_2::FT) where {FT <: Real}
     T_2 = max(T_1 + ΔT_min(FT), T_2)
     return min(T_1 + ΔT_max(FT), T_2)
-end
-
-"""
-    saturation_adjustment_SecantMethod(
-        param_set,
-        e_int,
-        ρ,
-        q_tot,
-        phase_type,
-        maxiter,
-        temperature_tol
-    )
-
-Compute the temperature `T` that is consistent with
-
- - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
- - `e_int` internal energy
- - `ρ` (moist-)air density
- - `q_tot` total specific humidity
- - `phase_type` a thermodynamic state type
- - `maxiter` maximum iterations for non-linear equation solve
- - `temperature_tol` temperature tolerance
-
-by finding the root of
-
-`e_int - internal_energy_sat(param_set, T, ρ, q_tot, phase_type) = 0`
-
-See also [`saturation_adjustment_given_ρθq`](@ref).
-"""
-function saturation_adjustment_SecantMethod(
-    param_set::APS,
-    e_int::FT,
-    ρ::FT,
-    q_tot::FT,
-    phase_type::Type{<:PhaseEquil},
-    maxiter::Int,
-    temperature_tol::FT,
-) where {FT <: Real}
-    _T_min::FT = T_min(param_set)
-    _cv_d = FT(cv_d(param_set))
-    # Convert temperature tolerance to a convergence criterion on internal energy residuals
-    tol = ResidualTolerance(temperature_tol * _cv_d)
-
-    T_1 = max(_T_min, air_temperature(param_set, e_int, PhasePartition(q_tot))) # Assume all vapor
-    q_v_sat = q_vap_saturation(param_set, T_1, ρ, phase_type)
-    unsaturated = q_tot <= q_v_sat
-    if unsaturated && T_1 > _T_min
-        return T_1
-    else
-
-        _T_freeze::FT = T_freeze(param_set)
-        e_int_upper = internal_energy_sat(
-            param_set,
-            _T_freeze + temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
-            ρ,
-            q_tot,
-            phase_type,
-        )
-        e_int_lower = internal_energy_sat(
-            param_set,
-            _T_freeze - temperature_tol / 2, # /2 => resulting interval is `temperature_tol` wide
-            ρ,
-            q_tot,
-            phase_type,
-        )
-        if e_int_lower < e_int < e_int_upper
-            return _T_freeze
-        else
-            # FIXME here: need to revisit bounds for saturation adjustment to guarantee bracketing of zero.
-            T_2 = air_temperature(
-                param_set,
-                e_int,
-                PhasePartition(q_tot, FT(0), q_tot),
-            ) # Assume all ice
-            T_2 = bound_upper_temperature(T_1, T_2)
-            sol = find_zero(
-                T ->
-                    internal_energy_sat(
-                        param_set,
-                        heavisided(T),
-                        ρ,
-                        q_tot,
-                        phase_type,
-                    ) - e_int,
-                SecantMethod(T_1, T_2),
-                CompactSolution(),
-                tol,
-                maxiter,
-            )
-            if !sol.converged
-                if print_warning()
-                    @print("-----------------------------------------\n")
-                    @print("maxiter reached in saturation_adjustment_SecantMethod:\n")
-                    @print(
-                        "    e_int=",
-                        e_int,
-                        ", ρ=",
-                        ρ,
-                        ", q_tot=",
-                        q_tot,
-                        ", T = ",
-                        sol.root,
-                        ", maxiter=",
-                        maxiter,
-                        ", tol=",
-                        tol.tol,
-                        "\n"
-                    )
-                end
-                if error_on_non_convergence()
-                    error("Failed to converge with printed set of inputs.")
-                end
-            end
-            return sol.root
-        end
-    end
 end
 
 """
@@ -1687,21 +1565,13 @@ function saturation_adjustment_given_ρθq(
             if print_warning()
                 @print("-----------------------------------------\n")
                 @print("maxiter reached in saturation_adjustment_given_ρθq:\n")
-                @print(
-                    "    ρ=",
-                    ρ,
-                    ", θ_liq_ice=",
-                    θ_liq_ice,
-                    ", q_tot=",
-                    q_tot,
-                    ", T = ",
-                    sol.root,
-                    ", maxiter=",
-                    maxiter,
-                    ", tol=",
-                    tol.tol,
-                    "\n"
-                )
+                @print("    Method=SecantMethod")
+                @print(", ρ=", ρ)
+                @print(", θ_liq_ice=", θ_liq_ice)
+                @print(", q_tot=", q_tot)
+                @print(", T=", sol.root)
+                @print(", maxiter=", maxiter)
+                @print(", tol=", tol.tol, "\n")
             end
             if error_on_non_convergence()
                 error("Failed to converge with printed set of inputs.")
@@ -1796,21 +1666,13 @@ function saturation_adjustment_given_pθq(
             if print_warning()
                 @print("-----------------------------------------\n")
                 @print("maxiter reached in saturation_adjustment_given_pθq:\n")
-                @print(
-                    "    p=",
-                    p,
-                    ", θ_liq_ice=",
-                    θ_liq_ice,
-                    ", q_tot=",
-                    q_tot,
-                    ", T = ",
-                    sol.root,
-                    ", maxiter=",
-                    maxiter,
-                    ", tol=",
-                    tol.tol,
-                    "\n"
-                )
+                @print("    Method=SecantMethod")
+                @print(", p=", p)
+                @print(", θ_liq_ice=", θ_liq_ice)
+                @print(", q_tot=", q_tot)
+                @print(", T=", sol.root)
+                @print(", maxiter=", maxiter)
+                @print(", tol=", tol.tol, "\n")
             end
             if error_on_non_convergence()
                 error("Failed to converge with printed set of inputs.")
@@ -1998,21 +1860,13 @@ function temperature_and_humidity_given_TᵥρRH(
         if print_warning()
             @print("-----------------------------------------\n")
             @print("maxiter reached in temperature_and_humidity_given_TᵥρRH:\n")
-            @print(
-                "    T_virt=",
-                T_virt,
-                ", RH=",
-                RH,
-                ", ρ=",
-                ρ,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            @print("    Method=SecantMethod")
+            @print(", T_virt=", T_virt)
+            @print(", RH=", RH)
+            @print(", ρ=", ρ)
+            @print(", T=", sol.root)
+            @print(", maxiter=", maxiter)
+            @print(", tol=", tol.tol, "\n")
         end
         if error_on_non_convergence()
             error("Failed to converge with printed set of inputs.")
@@ -2104,25 +1958,15 @@ function air_temperature_given_θρq_nonlinear(
         if print_warning()
             @print("-----------------------------------------\n")
             @print("maxiter reached in air_temperature_given_θρq_nonlinear:\n")
-            @print(
-                "    θ_liq_ice=",
-                θ_liq_ice,
-                ", ρ=",
-                ρ,
-                ", q.tot=",
-                q.tot,
-                ", q.liq = ",
-                q.liq,
-                ", q.ice = ",
-                q.ice,
-                ", T = ",
-                sol.root,
-                ", maxiter=",
-                maxiter,
-                ", tol=",
-                tol.tol,
-                "\n"
-            )
+            @print("    Method=SecantMethod")
+            @print(", θ_liq_ice=", θ_liq_ice)
+            @print(", ρ=", ρ)
+            @print(", q.tot=", q.tot)
+            @print(", q.liq=", q.liq)
+            @print(", q.ice=", q.ice)
+            @print(", T=", sol.root)
+            @print(", maxiter=", maxiter)
+            @print(", tol=", tol.tol, "\n")
         end
         if error_on_non_convergence()
             error("Failed to converge with printed set of inputs.")

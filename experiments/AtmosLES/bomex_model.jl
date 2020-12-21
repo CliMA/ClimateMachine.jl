@@ -92,16 +92,8 @@ end
 BomexGeostrophic(::Type{FT}, args...) where {FT} =
     BomexGeostrophic{Momentum, FT}(args...)
 
-function source(
-    s::BomexGeostrophic{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::BomexGeostrophic{Momentum}, m, args)
+    @unpack state, aux = args
     @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
     z = altitude(m, aux)
@@ -135,16 +127,8 @@ end
 
 BomexSponge(::Type{FT}, args...) where {FT} = BomexSponge{Momentum, FT}(args...)
 
-function source(
-    s::BomexSponge{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::BomexSponge{Momentum}, m, args)
+    @unpack state, aux = args
     @unpack z_max, z_sponge, α_max, γ = s
     @unpack u_geostrophic, u_slope, v_geostrophic = s
 
@@ -193,16 +177,8 @@ BomexTendencies(::Type{FT}, args...) where {FT} = (
     BomexTendencies{TotalMoisture, FT}(args...),
 )
 
-function compute_bomex_tend_params(
-    s,
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function compute_bomex_tend_params(s, m, args)
+    @unpack state, aux = args
     FT = eltype(state)
     ρ = state.ρ
     z = altitude(m, aux)
@@ -249,34 +225,17 @@ function compute_bomex_tend_params(
     return (w_s = w_s, ρ∂qt∂t = ρ∂qt∂t, ρ∂θ∂t = ρ∂θ∂t, k̂ = k̂)
 end
 
-function source(
-    s::BomexTendencies{Mass},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    params =
-        compute_bomex_tend_params(s, m, state, aux, t, ts, direction, diffusive)
+function source(s::BomexTendencies{Mass}, m, args)
+    @unpack state, diffusive = args
+    params = compute_bomex_tend_params(s, m, args)
     @unpack ρ∂qt∂t, w_s, k̂ = params
     ρ = state.ρ
     return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end
-function source(
-    s::BomexTendencies{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    params =
-        compute_bomex_tend_params(s, m, state, aux, t, ts, direction, diffusive)
+function source(s::BomexTendencies{Energy}, m, args)
+    @unpack state, diffusive = args
+    @unpack ts = args.precomputed
+    params = compute_bomex_tend_params(s, m, args)
     FT = eltype(state)
     @unpack ρ∂qt∂t, ρ∂θ∂t, w_s, k̂ = params
     cvm = cv_m(ts)
@@ -285,18 +244,9 @@ function source(
     term2 = state.ρ * w_s * dot(k̂, diffusive.∇h_tot)
     return term1 - term2
 end
-function source(
-    s::BomexTendencies{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    params =
-        compute_bomex_tend_params(s, m, state, aux, t, ts, direction, diffusive)
+function source(s::BomexTendencies{TotalMoisture}, m, args)
+    @unpack state, diffusive = args
+    params = compute_bomex_tend_params(s, m, args)
     @unpack ρ∂qt∂t, w_s, k̂ = params
     return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end

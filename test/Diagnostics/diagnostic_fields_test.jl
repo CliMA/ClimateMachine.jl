@@ -143,7 +143,7 @@ function run_brick_diagostics_fields_test()
     # Working precision
     for FT in (Float32, Float64)
         # DG polynomial order
-        N = 4
+        N = (4, 5)
         # Domain resolution and size
         Δh = FT(50)
         Δv = FT(50)

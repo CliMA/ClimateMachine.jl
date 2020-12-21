@@ -62,16 +62,8 @@ end
 StableBLGeostrophic(::Type{FT}, args...) where {FT} =
     StableBLGeostrophic{Momentum, FT}(args...)
 
-function source(
-    s::StableBLGeostrophic{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::StableBLGeostrophic{Momentum}, m, args)
+    @unpack state, aux = args
     @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
     z = altitude(m, aux)
@@ -106,16 +98,9 @@ end
 StableBLSponge(::Type{FT}, args...) where {FT} =
     StableBLSponge{Momentum, FT}(args...)
 
-function source(
-    s::StableBLSponge{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::StableBLSponge{Momentum}, m, args)
+    @unpack state, aux = args
+
     @unpack z_max, z_sponge, α_max, γ = s
     @unpack u_geostrophic, u_slope, v_geostrophic = s
 
@@ -258,6 +243,7 @@ function stable_bl_model(
         ),
     )
     if moisture_model == "dry"
+        source = source_default
         moisture = DryModel()
     elseif moisture_model == "equilibrium"
         source = source_default
@@ -304,8 +290,9 @@ function stable_bl_model(
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
                 energy = energy_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     else
         boundary_conditions = (
@@ -317,8 +304,9 @@ function stable_bl_model(
                 )),
                 energy = energy_bc,
                 moisture = moisture_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     end
 
@@ -335,7 +323,7 @@ function stable_bl_model(
         problem = problem,
         turbulence = SmagorinskyLilly{FT}(C_smag),
         moisture = moisture,
-        source = source_default,
+        source = source,
         turbconv = turbconv,
     )
 

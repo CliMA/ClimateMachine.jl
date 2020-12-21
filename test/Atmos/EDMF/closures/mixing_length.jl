@@ -65,7 +65,7 @@ function mixing_length(
 
     # compute L1
     Nˢ_fact = (sign(Nˢ_eff - eps(FT)) + 1) / 2
-    coeff = min(sqrt(ml.c_b * tke_en) / Nˢ_eff, ml.max_length)
+    coeff = min(ml.c_b * sqrt(tke_en) / Nˢ_eff, ml.max_length)
     L_Nˢ = coeff * Nˢ_fact + ml.max_length * (FT(1) - Nˢ_fact)
 
     # compute L2 - law of the wall
@@ -80,7 +80,10 @@ function mixing_length(
     tke_surf = surf_vals.tke
     L_W = ml.κ * z / (sqrt(tke_surf) * ml.c_m / ustar / ustar)
     stab_fac = -(sign(obukhov_length) - 1) / 2
-    L_W *= stab_fac * min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ)
+    L_W *= (
+        stab_fac * min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ) +
+        (FT(1) - stab_fac)
+    )
 
     # compute L3 - entrainment detrainment sources
     # Production/destruction terms
@@ -97,7 +100,7 @@ function mixing_length(
         end,
     )
 
-    c_neg = ml.c_d * tke_en * sqrt(abs(tke_en))
+    c_neg = ml.c_d * tke_en * sqrt(tke_en)
     if abs(a) > ml.random_minval && 4 * a * c_neg > -b^2
         l_entdet =
             max(-b / FT(2) / a + sqrt(b^2 + 4 * a * c_neg) / 2 / a, FT(0))

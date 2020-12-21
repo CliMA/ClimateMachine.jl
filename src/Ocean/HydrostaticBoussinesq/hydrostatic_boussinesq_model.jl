@@ -1,54 +1,3 @@
-module HydrostaticBoussinesq
-
-export HydrostaticBoussinesqModel
-
-using StaticArrays
-using LinearAlgebra: dot, Diagonal
-using CLIMAParameters.Planet: grav
-
-using ..Ocean
-using ...VariableTemplates
-using ...MPIStateArrays
-using ...Mesh.Filters: apply!
-using ...Mesh.Grids: VerticalDirection
-using ...Mesh.Geometry
-using ...DGMethods
-using ...DGMethods: init_state_auxiliary!
-using ...DGMethods.NumericalFluxes
-using ...BalanceLaws
-
-import ..Ocean: coriolis_parameter
-import ...DGMethods.NumericalFluxes: update_penalty!
-import ...BalanceLaws:
-    vars_state,
-    init_state_prognostic!,
-    init_state_auxiliary!,
-    compute_gradient_argument!,
-    compute_gradient_flux!,
-    flux_first_order!,
-    flux_second_order!,
-    source!,
-    wavespeed,
-    boundary_conditions,
-    boundary_state!,
-    update_auxiliary_state!,
-    update_auxiliary_state_gradient!,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
-import ..Ocean:
-    ocean_init_state!,
-    ocean_init_aux!,
-    ocean_boundary_state!,
-    _ocean_boundary_state!
-
-×(a::SVector, b::SVector) = StaticArrays.cross(a, b)
-⋅(a::SVector, b::SVector) = StaticArrays.dot(a, b)
-⊗(a::SVector, b::SVector) = a * b'
-
 """
     HydrostaticBoussinesqModel <: BalanceLaw
 
@@ -72,29 +21,33 @@ fₒ = first coriolis parameter (constant term)
     HydrostaticBoussinesqModel(problem)
 
 """
-struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
+struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, F, FT, I} <: BalanceLaw
     param_set::PS
     problem::P
     coupling::C
     momentum_advection::MA
     tracer_advection::TA
-    ρₒ::T
-    cʰ::T
-    cᶻ::T
-    αᵀ::T
-    νʰ::T
-    νᶻ::T
-    κʰ::T
-    κᶻ::T
-    κᶜ::T
-    fₒ::T
-    β::T
+    forcing::F
+    state_filter::I
+    ρₒ::FT
+    cʰ::FT
+    cᶻ::FT
+    αᵀ::FT
+    νʰ::FT
+    νᶻ::FT
+    κʰ::FT
+    κᶻ::FT
+    κᶜ::FT
+    fₒ::FT
+    β::FT
     function HydrostaticBoussinesqModel{FT}(
         param_set::PS,
         problem::P;
         coupling::C = Uncoupled(),
         momentum_advection::MA = nothing,
         tracer_advection::TA = NonLinearAdvectionTerm(),
+        forcing::F = Forcing(),
+        state_filter::I = nothing,
         ρₒ = FT(1000),  # kg / m^3
         cʰ = FT(0),     # m/s
         cᶻ = FT(0),     # m/s
@@ -106,13 +59,15 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
         κᶜ = FT(1e-1),  # m^2 / s # diffusivity for convective adjustment
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11), # Hz / m
-    ) where {FT <: AbstractFloat, PS, P, C, MA, TA}
-        return new{C, PS, P, MA, TA, FT}(
+    ) where {FT <: AbstractFloat, PS, P, C, MA, TA, F, I}
+        return new{C, PS, P, MA, TA, F, FT, I}(
             param_set,
             problem,
             coupling,
             momentum_advection,
             tracer_advection,
+            forcing,
+            state_filter,
             ρₒ,
             cʰ,
             cᶻ,
@@ -127,7 +82,16 @@ struct HydrostaticBoussinesqModel{C, PS, P, MA, TA, T} <: BalanceLaw
         )
     end
 end
+
 HBModel = HydrostaticBoussinesqModel
+
+boundary_conditions(ocean::HBModel) = ocean.problem.boundary_conditions
+
+@inline noforcing(args...) = 0
+
+function Forcing(; u = noforcing, v = noforcing, η = noforcing, θ = noforcing)
+    return (u = u, v = v, η = η, θ = θ)
+end
 
 """
     vars_state(::HBModel, ::Prognostic)
@@ -152,8 +116,8 @@ end
 sets the initial value for state variables
 dispatches to ocean_init_state! which is defined in a problem file such as SimpleBoxProblem.jl
 """
-function init_state_prognostic!(m::HBModel, Q::Vars, A::Vars, localgeo, t)
-    return ocean_init_state!(m, m.problem, Q, A, localgeo, t)
+function init_state_prognostic!(m::HBModel, Q::Vars, A::Vars, local_geometry, t)
+    return ocean_init_state!(m, m.problem, Q, A, local_geometry, t)
 end
 
 """
@@ -181,6 +145,8 @@ function vars_state(m::HBModel, ::Auxiliary, T)
         ΔGᵘ::SVector{2, T}   # vertically averaged tendency
     end
 end
+
+function ocean_init_aux! end
 
 """
     init_state_auxiliary!(::HBModel)
@@ -575,18 +541,19 @@ end
 
 """
     source!(::HBModel)
-    calculates the source term contribution to state variables
-    this computation is done pointwise at each nodal point
 
-    arguments:
+Calculates the source term contribution to state variables.
+This computation is done pointwise at each nodal point.
+
+Arguments:
     m -> model in this case HBModel
     F -> array of fluxes for each state variable
     Q -> array of state variables
     A -> array of aux variables
     t -> time, not used
 
-    computations
-    ∂ᵗu = -f×u
+Computations:
+    ∂ᵗu = -f × u
     ∂ᵗη = w|(z=0)
 """
 @inline function source!(
@@ -603,6 +570,17 @@ end
     S.η += wz0
 
     coriolis_force!(m, m.coupling, S, Q, A, t)
+
+    # Arguments for forcing functions
+    # args = y, t, u, v, w, η, θ
+    args = tuple(A.y, t, Q.u[1], Q.u[2], A.w, Q.η, Q.θ)
+
+    Su = m.forcing.u(args...)
+    Sv = m.forcing.v(args...)
+
+    S.u += @SVector [Su, Sv]
+    S.η += m.forcing.η(args...)
+    S.θ += m.forcing.θ(args...)
 
     return nothing
 end
@@ -645,13 +623,16 @@ function update_penalty!(
     return nothing
 end
 
+filter_state!(Q, filter::Nothing, grid) = nothing
+filter_state!(Q, filter, grid) = apply!(Q, UnitRange(1, size(Q, 2)), grid)
+
 """
     update_auxiliary_state!(::HBModel)
 
-    applies the vertical filter to the zonal and meridional velocities to preserve numerical incompressibility
-    applies an exponential filter to θ to anti-alias the non-linear advective term
+Applies the vertical filter to the zonal and meridional velocities to preserve numerical incompressibility
+Applies an exponential filter to θ to anti-alias the non-linear advective term
 
-    doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
+Doesn't actually touch the aux variables any more, but we need a better filter interface than this anyways
 """
 function update_auxiliary_state!(
     dg::DGModel,
@@ -672,6 +653,8 @@ function update_auxiliary_state!(
 
         exp_filter = MD.exp_filter
         apply!(Q, (:θ,), dg.grid, exp_filter, direction = VerticalDirection())
+
+        filter_state!(Q, m.state_filter, dg.grid)
     end
 
     compute_flow_deviation!(dg, m, m.coupling, Q, t)
@@ -728,20 +711,30 @@ function update_auxiliary_state_gradient!(
     return true
 end
 
-boundary_conditions(ocean::HBModel) = ocean.problem.boundary_conditions
+"""
+    boundary_state!(nf, bc, ::HBModel, args...)
 
+applies boundary conditions for the hyperbolic fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@inline boundary_state!(nf, bc, ocean::HBModel, args...) =
+    _ocean_boundary_state!(nf, bc, ocean, args...)
+
+#=
 """
     boundary_state!(nf, ::HBModel, args...)
 
 applies boundary conditions for the hyperbolic fluxes
 dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
 """
-@inline function boundary_state!(nf, bc, ocean::HBModel, args...)
-    return _ocean_boundary_state!(nf, bc, ocean, args...)
+@inline function boundary_state!(nf, ocean::HBModel, args...)
+    boundary_conditions = ocean.problem.boundary_conditions
+    return ocean_boundary_state!(nf, boundary_conditions, ocean, args...)
 end
+=#
 
 """
-    ocean_boundary_state!(nf, bc::OceanBC, ::HBModel)
+    ocean_boundary_state!(nf, bc::OceanBC, ::HBModel, args...)
 
 splits boundary condition application into velocity and temperature conditions
 """
@@ -752,9 +745,90 @@ splits boundary condition application into velocity and temperature conditions
     return nothing
 end
 
-include("bc_velocity.jl")
-include("bc_temperature.jl")
-include("LinearHBModel.jl")
-include("Courant.jl")
+"""
+    ocean_boundary_state!(nf, boundaries::Tuple, ::HBModel,
+                          Q⁺, A⁺, n, Q⁻, A⁻, bctype)
 
+applies boundary conditions for the first-order and gradient fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@generated function ocean_boundary_state!(
+    nf::Union{NumericalFluxFirstOrder, NumericalFluxGradient},
+    boundaries::Tuple,
+    ocean,
+    Q⁺,
+    A⁺,
+    n,
+    Q⁻,
+    A⁻,
+    bctype,
+    t,
+    args...,
+)
+    N = fieldcount(boundaries)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> ocean_boundary_state!(
+                nf,
+                boundaries[i],
+                ocean,
+                Q⁺,
+                A⁺,
+                n,
+                Q⁻,
+                A⁻,
+                t,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
+end
+
+"""
+    ocean_boundary_state!(nf, boundaries::Tuple, ::HBModel,
+                          Q⁺, A⁺, D⁺, n, Q⁻, A⁻, D⁻, bctype)
+
+applies boundary conditions for the second-order fluxes
+dispatches to a function in OceanBoundaryConditions.jl based on bytype defined by a problem such as SimpleBoxProblem.jl
+"""
+@generated function ocean_boundary_state!(
+    nf::NumericalFluxSecondOrder,
+    boundaries::Tuple,
+    ocean,
+    Q⁺,
+    D⁺,
+    A⁺,
+    n,
+    Q⁻,
+    D⁻,
+    A⁻,
+    bctype,
+    t,
+    args...,
+)
+    N = fieldcount(boundaries)
+    return quote
+        Base.Cartesian.@nif(
+            $(N + 1),
+            i -> bctype == i, # conditionexpr
+            i -> ocean_boundary_state!(
+                nf,
+                boundaries[i],
+                ocean,
+                Q⁺,
+                D⁺,
+                A⁺,
+                n,
+                Q⁻,
+                D⁻,
+                A⁻,
+                t,
+            ), # expr
+            i -> error("Invalid boundary tag")
+        ) # elseexpr
+        return nothing
+    end
 end

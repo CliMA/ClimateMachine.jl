@@ -56,16 +56,7 @@ function atmos_nodal_update_auxiliary_state!(
 )
     nothing
 end
-function flux_first_order!(
-    ::TracerModel,
-    atmos::AtmosModel,
-    flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
-)
+function flux_first_order!(::TracerModel, atmos::AtmosModel, flux::Grad, args)
     nothing
 end
 function compute_gradient_flux!(
@@ -78,15 +69,7 @@ function compute_gradient_flux!(
 )
     nothing
 end
-function flux_second_order!(
-    ::TracerModel,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    D_t,
-)
+function flux_second_order!(::TracerModel, flux::Grad, atmos::AtmosModel, args)
     nothing
 end
 function compute_gradient_argument!(
@@ -182,40 +165,24 @@ function compute_gradient_flux!(
     diffusive.tracers.∇χ = ∇transform.tracers.χ
 end
 
-function flux(::Advect{Tracers{N}}, m, state, aux, t, ts, direction) where {N}
-    u = state.ρu / state.ρ
-    return (state.tracers.ρχ .* u')'
-end
-
 function flux_first_order!(
     tr::NTracers{N},
     atmos::AtmosModel,
     flux::Grad,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
-    direction,
+    args,
 ) where {N}
     tend = Flux{FirstOrder}()
-    args = (atmos, state, aux, t, ts, direction)
-    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), args...)
+    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function flux_second_order!(
-    tr::NTracers,
+    tr::NTracers{N},
     flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    D_t,
-)
-    d_χ = (-D_t) * aux.tracers.δ_χ' .* diffusive.tracers.∇χ
-    flux_second_order!(tr, flux, state, d_χ)
-end
-function flux_second_order!(tr::NTracers, flux::Grad, state::Vars, d_χ)
-    flux.tracers.ρχ += d_χ * state.ρ
+    atmos::AtmosModel,
+    args,
+) where {N}
+    tend = Flux{SecondOrder}()
+    flux.tracers.ρχ = Σfluxes(eq_tends(Tracers{N}(), atmos, tend), atmos, args)
 end
 
 function wavespeed_tracers!(
@@ -235,3 +202,13 @@ function wavespeed_tracers!(
 
     return nothing
 end
+
+#####
+##### Tendency specification
+#####
+
+eq_tends(
+    pv::PV,
+    m::NTracers{N},
+    tt::Flux{SecondOrder},
+) where {N, PV <: Tracers{N}} = (Diffusion{PV}(),)

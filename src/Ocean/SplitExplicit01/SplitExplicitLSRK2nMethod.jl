@@ -79,7 +79,7 @@ mutable struct SplitExplicitLSRK2nSolver{SS, FS, RT, MSA} <: AbstractODESolver
 end
 
 function dostep!(
-    Qslow,
+    Qvec,
     split::SplitExplicitLSRK2nSolver{SS},
     param,
     time::Real,
@@ -87,7 +87,8 @@ function dostep!(
     slow = split.slow_solver
     fast = split.fast_solver
 
-    Qfast = slow.rhs!.modeldata.Q_2D
+    Qslow = Qvec.slow
+    Qfast = Qvec.fast
 
     dQslow = slow.dQ
     dQ2fast = split.dQ2fast
@@ -112,6 +113,7 @@ function dostep!(
         end
 
         # Initialize fast model and set time-step and number of substeps we need
+        # Note: to reproduce previous Fast output, 1) remove "firstStage = ..." line
         fast_steps = [0 0 0]
         FT = typeof(slow_dt)
         fast_time_rec = [fast_dt_in FT(0)]
@@ -124,7 +126,8 @@ function dostep!(
             Qfast,
             fract_dt,
             fast_time_rec,
-            fast_steps,
+            fast_steps;
+            firstStage = (slow_s == 1),
         )
         # Initialize tentency adjustment before evaluation of slow mode
         initialize_adjustment!(
@@ -195,7 +198,8 @@ function dostep!(
             )
         end
 
-        # reconcile slow equation using fast equation
+        # Reconcile slow equation using fast equation
+        # Note: to reproduce previous Fast output, 2) remove "lastStage = ..." line
         reconcile_from_fast_to_slow!(
             slow_bl,
             fast_bl,
@@ -203,7 +207,8 @@ function dostep!(
             fast.rhs!,
             Qslow,
             Qfast,
-            fast_time_rec,
+            fast_time_rec;
+            lastStage = (slow_s == length(slow.RKA)),
         )
 
     end

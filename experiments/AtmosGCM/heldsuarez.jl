@@ -117,15 +117,9 @@ HeldSuarezForcing() =
 filter_source(pv::PV, m, s::HeldSuarezForcing{PV}) where {PV} = s
 atmos_source!(::HeldSuarezForcing, args...) = nothing
 
-function held_suarez_forcing_coefficients(
-    bl,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function held_suarez_forcing_coefficients(bl, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
     FT = eltype(state)
 
     # Parameters
@@ -164,25 +158,10 @@ function held_suarez_forcing_coefficients(
     return (k_v = k_v, k_T = k_T, T_equil = T_equil)
 end
 
-function source(
-    s::HeldSuarezForcing{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = held_suarez_forcing_coefficients(
-        m,
-        state,
-        aux,
-        t,
-        ts,
-        direction,
-        diffusive,
-    )
+function source(s::HeldSuarezForcing{Energy}, m, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
+    nt = held_suarez_forcing_coefficients(m, args)
     FT = eltype(state)
     _cv_d = FT(cv_d(m.param_set))
     @unpack k_T, T_equil = nt
@@ -190,26 +169,9 @@ function source(
     return -k_T * state.ρ * _cv_d * (T - T_equil)
 end
 
-function source(
-    s::HeldSuarezForcing{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = held_suarez_forcing_coefficients(
-        m,
-        state,
-        aux,
-        t,
-        ts,
-        direction,
-        diffusive,
-    )
-    return -nt.k_v * projection_tangential(m, aux, state.ρu)
+function source(s::HeldSuarezForcing{Momentum}, m, args)
+    nt = held_suarez_forcing_coefficients(m, args)
+    return -nt.k_v * projection_tangential(m, args.aux, args.state.ρu)
 end
 
 function config_heldsuarez(FT, poly_order, resolution)
