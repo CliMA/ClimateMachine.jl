@@ -1,24 +1,28 @@
 export GeneralizedMinimalResidualAlgorithm
 
-struct GeneralizedMinimalResidualAlgorithm <: IterativeAlgorithm
+struct GeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
     preconditioner
     atol
     rtol
     maxrestarts
     M
     sarrays
+    groupsize
 end
 
 """
     GeneralizedMinimalResidualAlgorithm(
+        preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
         atol::Union{AbstractFloat, Nothing} = nothing,
         rtol::Union{AbstractFloat, Nothing} = nothing,
         maxrestarts::Union{Int, Nothing} = nothing,
-        krylovdim::Union{Int, Nothing} = nothing,
+        M::Union{Int, Nothing} = nothing,
+        sarrays::Union{Bool, Nothing} = nothing,
+        groupsize::Union{Int, Nothing} = nothing,
     )
 
 Constructor for the `GeneralizedMinimalResidualAlgorithm`, which solves a
-`StandardProblem` that represents the equation `f(Q) = frhs`, where `f` must be
+`StandardProblem` that represents the equation `f(Q) = rhs`, where `f` must be
 a linear function of `Q`. This algorithm uses the restarted Generalized Minimal
 Residual method of Saad and Schultz (1986).
 
@@ -26,8 +30,7 @@ Residual method of Saad and Schultz (1986).
 
  - [Saad1986](@cite)
 
-...
-# Arguments
+# Keyword Arguments
 - `preconditioner`: right preconditioner; defaults to NoPreconditioner
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
@@ -35,7 +38,7 @@ Residual method of Saad and Schultz (1986).
 - `M`: number of steps after which the algorithm restarts, and number of basis
     vectors in the Kyrlov subspace; defaults to `min(20, length(Q))`
 - `sarrays`: whether to use statically sized arrays; defaults to `true`
-...
+- `groupsize`: group size for kernel abstractions; defaults to 256
 """
 function GeneralizedMinimalResidualAlgorithm(;
     preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -44,6 +47,7 @@ function GeneralizedMinimalResidualAlgorithm(;
     maxrestarts::Union{Int, Nothing} = nothing,
     M::Union{Int, Nothing} = nothing,
     sarrays::Union{Bool, Nothing} = nothing,
+    groupsize::Union{Int, Nothing} = nothing,
 )
     return GeneralizedMinimalResidualAlgorithm(
         preconditioner,
@@ -52,6 +56,7 @@ function GeneralizedMinimalResidualAlgorithm(;
         maxrestarts,
         M,
         sarrays,
+        groupsize,
     )
 end
 
@@ -64,6 +69,7 @@ struct GeneralizedMinimalResidualSolver{PT, KT, HT, GT, FT} <: IterativeSolver
     rtol::FT           # relative tolerance
     maxrestarts::Int   # maximum number of restarts
     M::Int             # number of steps after which the algorithm restarts
+    groupsize::Int     # group size for kernel abstractions
 end
 
 function IterativeSolver(
@@ -73,7 +79,7 @@ function IterativeSolver(
     Q = problem.Q
     FT = eltype(Q)
     
-    @assert size(Q) == size(problem.frhs)
+    @assert size(Q) == size(problem.rhs)
 
     preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
         algorithm.preconditioner
@@ -82,6 +88,7 @@ function IterativeSolver(
     maxrestarts = isnothing(algorithm.maxrestarts) ? 10 : algorithm.maxrestarts
     M = isnothing(algorithm.M) ? min(20, length(Q)) : algorithm.M
     sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
+    groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
 
     return GeneralizedMinimalResidualSolver(
         preconditioner,
@@ -92,6 +99,7 @@ function IterativeSolver(
         rtol,
         maxrestarts,
         M,
+        groupsize
     )
 end
 
@@ -101,31 +109,36 @@ maxiters(solver::GeneralizedMinimalResidualSolver) = solver.maxrestarts
 
 function initialize!(
     solver::GeneralizedMinimalResidualSolver,
+    threshold,
+    iters,
     problem::StandardProblem,
     args...,
 )
     krylov_basis = solver.krylov_basis
     g0 = solver.g0
     
-    # Store the initial residual in krylov_basis[1].
+    # Store the residual in krylov_basis[1].
     problem.f!(krylov_basis[1], problem.Q, args...)
-    krylov_basis[1] .= problem.frhs .- krylov_basis[1]
+    krylov_basis[1] .= problem.rhs .- krylov_basis[1]
+
     residual_norm = norm(krylov_basis[1], weighted_norm)
+    has_converged = check_convergence(residual_norm, threshold, iters)
 
-    g0[1] = residual_norm
-    g0[2:end] .= zero(eltype(g0))
-    krylov_basis[1] ./= residual_norm
+    # Normalize krylov_basis[1] and update g0.
+    if !has_converged
+        krylov_basis[1] ./= residual_norm
+        g0[1] = residual_norm
+        g0[2:end] .= zero(eltype(g0))
+    end
 
-    println("initialize, $(problem.Q), $(problem.frhs), $(krylov_basis[1])")
-
-    return residual_norm
+    return residual_norm, has_converged, 1
 end
 
 function doiteration!(
     solver::GeneralizedMinimalResidualSolver,
-    problem::StandardProblem,
     threshold,
     iters,
+    problem::StandardProblem,
     args...,
 )
     preconditioner = solver.preconditioner
@@ -168,10 +181,6 @@ function doiteration!(
 
         # Compose the new rotation with the others.
         Ω = lmul!(G, Ω)
-        println("inner iteration $j, $(krylov_basis[j + 1]), $(krylov_basis[j])")
-        println("inner iteration $j, $H")
-        println("inner iteration $j, $g0")
-        println("inner iteration $j, $G")
 
         # Check whether the algorithm has converged.
         residual_norm = abs(g0[j + 1])
@@ -185,7 +194,7 @@ function doiteration!(
     # Compose the solution vector.
     # TODO: Should this be `for i in 1:j Q .+= y[i] .* krylov_basis[i] end`?
     event = Event(array_device(Q))
-    event = linearcombination!(array_device(Q), 256)(
+    event = linearcombination!(array_device(Q), solver.groupsize)(
         realview(Q),
         y,
         realview.(krylov_basis),
@@ -198,13 +207,10 @@ function doiteration!(
     # Un-apply the right preconditioner.
     preconditioner_solve!(preconditioner, Q)
 
-    # Restart if the algorithm did not converge.
-    # TODO: Should this be
-    # if !has_converged
-    #     residual_norm = initialize!(solver, problem, args...)
-    #     has_converged = check_convergence(residual_norm, threshold, iters)
-    # end
-    has_converged || initialize!(solver, problem, args...)
+    has_converged && return has_converged, j
 
-    return has_converged
+    # Restart if the algorithm did not converge.
+    residual_norm, has_converged, initfcalls =
+        initialize!(solver, threshold, iters, problem, args...)
+    return has_converged, j + initfcalls
 end

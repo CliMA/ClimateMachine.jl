@@ -8,15 +8,15 @@ Abstract type representing an equation to be solved.
 abstract type Problem end
 
 """
-    StandardProblem(f!, frhs, Q)
+    StandardProblem(f!, rhs, Q)
 
-Represents the equation `f(Q) = frhs`, where `f!(fQ, Q, args...)` sets
-`fQ = f(Q)`.
+Represents the equation `f(Q) = rhs`, where `f!(fQ, Q, args...)` sets
+`fQ = f(Q)` and `rhs` is some array that contains the right-hand side.
 """
 struct StandardProblem{F!T, AT1, AT2} <: Problem
     f!::F!T
     Q::AT1
-    frhs::AT2
+    rhs::AT2
 end
 
 """

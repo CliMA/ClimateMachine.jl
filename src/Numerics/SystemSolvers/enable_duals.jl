@@ -120,8 +120,8 @@ operation in place.
 """
 setvalue!(Q::StructArray{DT, N, NTup}, value::AT) where {
     DT <: Dual, N, AT,
-    NTup <: NamedTuple{(:value, :partials), Tuple{AT, <:StructArray}}
-} = StructArray{DT, N, NTup}((value, Q.partials))
+    NTup <: NamedTuple{(:value, :partials), <:Tuple{AT, StructArray}}
+} = StructArray{DT, N, NTup}(NTup((value, Q.partials)))
 function setvalue!(
     Q::MPIStateArray{<:Dual{FT}},
     value::MPIStateArray{FT}
@@ -137,10 +137,30 @@ end
 # TODO: Check whether all of these actually improve efficiency. The second
 #       copyto! should be identical to the default version for typeof(src) <:
 #       Union{StructArray, MPIStateArray}, but the others should be faster.
+function Base.fill!(
+    A::StructArray{DT},
+    x::FT,
+) where {Tag, FT, N, DT <: Dual{Tag, FT, N}}
+    fill!(value(A), x)
+    for i in 1:N
+        fill!(partial(A, i), zero(FT))
+    end
+    return A
+end
+function Base.fill!(
+    A::StructArray{DT},
+    x::DT,
+) where {Tag, FT, N, DT <: Dual{Tag, FT, N}}
+    fill!(value(A), x)
+    for i in 1:N
+        fill!(partial(A, i), partial(x, i))
+    end
+    return A
+end
 function Base.copyto!(
     dest::StructArray{DT},
     src::AbstractArray{FT},
-) where {Tag, FT, DT <: Dual{Tag, FT}}
+) where {Tag, FT, N, DT <: Dual{Tag, FT, N}}
     copyto!(value(dest), src)
     for i in 1:N
         fill!(partial(dest, i), zero(FT))
@@ -161,16 +181,16 @@ function Base.copyto!(
     dest::StructArray{DT},
     bc::Broadcasted{Nothing},
 ) where {Tag, FT, N, DT <: Dual{Tag, FT, N}}
-    nlb = num_linear_broadcasts(DT, bc)
+    nlb = num_linear_bcs(DT, bc)
     if nlb == 0
         copyto!(value(dest), bc)
         for i in 1:N
             fill!(partial(dest, i), zero(FT))
         end
     elseif nlb == 1
-        copyto!(value(dest), value_broadcast(DT, bc))
+        copyto!(value(dest), value_bc(DT, bc))
         for i in 1:N
-            copyto!(partial(dest, i), partial_broadcast(DT, bc, i))
+            copyto!(partial(dest, i), partial_bc(DT, bc, i))
         end
     else
         # Default copyto! from broadcast.jl
@@ -189,7 +209,7 @@ function Base.copyto!(
 end
 
 """
-    num_linear_broadcasts(T::Type, bc::Any)
+    num_linear_bcs(T::Type, bc::Any)
 
 Indicates whether bc is a linear broadcast with respect to objects of type T.
 
@@ -199,64 +219,55 @@ The possible return values are
 - NaN: bc is a broadcast that is nonlinear with respect to objects of type T
 """
 # An identity operation is a linear broadcast if its argument is one.
-function num_linear_broadcasts(
+num_linear_bcs(
     ::Type{T},
     bc::Broadcasted{S, A, typeof(identity)},
-) where {T, S, A}
-    return num_linear_broadcasts(T, bc.args[1])
-end
+) where {T, S, A} = num_linear_bcs(T, bc.args[1])
 # A sum/difference must contain 1 or more linear broadcasts in order to be one.
-function num_linear_broadcasts(
+function num_linear_bcs(
     ::Type{T},
     bc::Broadcasted{S, A, F},
 ) where {T, S, A, F <: Union{typeof(+), typeof(-)}}
-    s = sum(num_linear_broadcasts.(T, bc.args))
+    s = sum(num_linear_bcs.(T, bc.args))
     return ifelse(s > 1, 1, s)
 end
 # A product must contain exactly 1 linear broadcast in order to be one. If it
 # contains more than 1 linear broadcast, it is nonlinear.
-function num_linear_broadcasts(
+function num_linear_bcs(
     ::Type{T},
     bc::Broadcasted{S, A, typeof(*)},
 ) where {T, S, A}
-    s = sum(num_linear_broadcasts.(T, bc.args))
+    s = sum(num_linear_bcs.(T, bc.args))
     return ifelse(s > 1, NaN, s)
 end
 # A quotient must contain a linear broadcast in only the numerator in order to
 # be one. If it contains a linear or nonlinear broadcast in the denominator, it
 # is nonlinear.
-function num_linear_broadcasts(
+function num_linear_bcs(
     ::Type{T},
     bc::Broadcasted{S, A, typeof(/)},
 ) where {T, S, A}
-    if num_linear_broadcasts(T, bc.args[2]) == 0
-        return num_linear_broadcasts(T, bc.args[1])
+    if num_linear_bcs(T, bc.args[2]) == 0
+        return num_linear_bcs(T, bc.args[1])
     else
         return NaN
     end
 end
 # Any other operation that contains a linear or nonlinear broadcast is assumed
 # to be nonlinear.
-function num_linear_broadcasts(
-    ::Type{T},
-    bc::Broadcasted{S, A, F},
-) where {T, S, A, F}
-    return ifelse(sum(num_linear_broadcasts.(T, bc.args)) > 0, NaN, 0)
-end
-# A single object of type T is always a linear broadcast.
-num_linear_broadcasts(::Type{T}, ::T) where {T} = 1
-# An array that contains objects of type T is always a linear broadcast.
-num_linear_broadcasts(::Type{T}, ::AbstractArray{T}) where {T} = 1
+num_linear_bcs(::Type{T}, bc::Broadcasted{S, A, F}) where {T, S, A, F} =
+    ifelse(sum(num_linear_bcs.(T, bc.args)) > 0, NaN, 0)
+# An object of type T or an array of such objects is always a linear broadcast.
+num_linear_bcs(::Type{T}, ::Union{T, AbstractArray{<:T}}) where {T} = 1
 # Anything else is not a broadcast that involves objects of type T.
-num_linear_broadcasts(::Type, ::Any) = 0
+num_linear_bcs(::Type, ::Any) = 0
 
 # Extract the values from a broadcasted operation that is known to be linear
 # with respect to dual type T.
-value_broadcast(::Type{T}, bc::Broadcasted) where {T} =
-    Broadcasted(bc.f, value_broadcast.(T, bc.args), bc.axes)
-value_broadcast(::Type{T}, Q::T) where {T} = value(Q)
-value_broadcast(::Type{T}, Q::AbstractArray{<:T}) where {T} = value(Q)
-value_broadcast(::Type, Q::Any) = Q
+value_bc(::Type{T}, bc::Broadcasted) where {T} =
+    Broadcasted(bc.f, value_bc.(T, bc.args), bc.axes)
+value_bc(::Type{T}, Q::Union{T, AbstractArray{<:T}}) where {T} = value(Q)
+value_bc(::Type, Q::Any) = Q
 
 # Extract the partials from a broadcasted operation that is known to be linear
 # with respect to dual type T. For sums and differences, this requires
@@ -264,43 +275,46 @@ value_broadcast(::Type, Q::Any) = Q
 # from the remaining arguments. (This is equivalent to replacing the arguments
 # that do not have partials with zeros.) Since the overall broadcast is known
 # to be linear, at least one of its arguments must also be a linear broadcast.
-partial_broadcast(::Type{T}, bc::Broadcasted{S, A, typeof(+)}, i) where {T, S, A} =
-    Broadcasted(bc.f, partial_broadcast.(T, remove_no_partials(T, bc.args...), i), bc.axes)
-partial_broadcast(::Type{T}, bc::Broadcasted{S, A, typeof(-), Tuple{<:Any}}, i) where {T, S, A} =
-    Broadcasted(bc.f, (partial_broadcast(T, bc.args[1], i),), bc.axes)
-function partial_broadcast(
+partial_bc(::Type{T}, bc::Broadcasted{S, A, typeof(+)}, i) where {T, S, A} =
+    Broadcasted(bc.f, rm_no_partials(T, i, bc.args...), bc.axes)
+partial_bc(
     ::Type{T},
-    bc::Broadcasted{S, A, typeof(-), Tuple{<:Any, <:Any}},
+    bc::Broadcasted{S, A, typeof(-), <:Tuple{Any}},
+    i
+) where {T, S, A} =
+    Broadcasted(bc.f, (partial_bc(T, bc.args[1], i),), bc.axes)
+function partial_bc(
+    ::Type{T},
+    bc::Broadcasted{S, A, typeof(-), <:Tuple{Any, Any}},
     i
 ) where {T, S, A}
-    c1 = check_broadcast(T, bc.args[1])
-    c2 = check_broadcast(T, bc.args[2])
+    c1 = has_partials(T, bc.args[1])
+    c2 = has_partials(T, bc.args[2])
     if c1 && c2
-        return Broadcasted(bc.f, partial_broadcast.(T, bc.args, i), bc.axes)
+        return Broadcasted(bc.f, partial_bc.(T, bc.args, i), bc.axes)
     elseif c1
-        return partial_broadcast(T, bc.args[1], i)
+        return partial_bc(T, bc.args[1], i)
     else # c2
-        return Broadcasted(bc.f, (partial_broadcast(T, bc.args[2], i),), bc.axes)
+        return Broadcasted(bc.f, (partial_bc(T, bc.args[2], i),), bc.axes)
     end
 end
-partial_broadcast(::Type{T}, bc::Any, i) where {T} = _partial_broadcast(T, bc, i)
+partial_bc(::Type{T}, bc::Any, i) where {T} = _partial_bc(T, bc, i)
 
 # Utility functions for extracting partials.
-_partial_broadcast(::Type{T}, bc::Broadcasted, i) where {T} =
-    Broadcasted(bc.f, _partial_broadcast.(T, bc.args, i), bc.axes)
-_partial_broadcast(::Type{T}, Q::T, i) where {T} = partial(Q, i)
-_partial_broadcast(::Type{T}, Q::AbstractArray{<:T}, i) where {T} = partial(Q, i)
-_partial_broadcast(::Type, Q::Any, i) = Q
-check_broadcast(::Type{T}, bc::Broadcasted) where {T} =
-    any(check_broadcast.(T, bc.args))
-check_broadcast(::Type{T}, ::T) where {T} = true
-check_broadcast(::Type{T}, ::AbstractArray{T}) where {T} = true
-check_broadcast(::Type, ::Any) = false
-function remove_no_partials(::Type{T}, bc, args...) where {T}
-    if check_broadcast(T, bc)
-        return (bc, remove_no_partials(T, args...)...)
+function rm_no_partials(::Type{T}, i, bc, args...) where {T}
+    if has_partials(T, bc)
+        return (partial_bc(T, bc, i), rm_no_partials(T, i, args...)...)
     else
-        return remove_no_partials(T, args...)
+        return rm_no_partials(T, i, args...)
     end
 end
-remove_no_partials(::Type) = ()
+rm_no_partials(::Type, i) = ()
+has_partials(::Type{T}, bc::Broadcasted) where {T} =
+    any(has_partials.(T, bc.args))
+has_partials(::Type{T}, ::Union{T, AbstractArray{<:T}}) where {T} = true
+has_partials(::Type, ::Any) = false
+_partial_bc(::Type{T}, bc::Broadcasted, i) where {T} =
+    Broadcasted(bc.f, _partial_bc.(T, bc.args, i), bc.axes)
+_partial_bc(::Type{T}, Q::Union{T, AbstractArray{<:T}}, i) where {T} =
+    partial(Q, i)
+_partial_bc(::Type, Q::Any, i) = Q
