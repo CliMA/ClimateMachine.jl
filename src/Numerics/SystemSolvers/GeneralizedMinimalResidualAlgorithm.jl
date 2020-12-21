@@ -13,8 +13,8 @@ end
 """
     GeneralizedMinimalResidualAlgorithm(
         preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
-        atol::Union{AbstractFloat, Nothing} = nothing,
-        rtol::Union{AbstractFloat, Nothing} = nothing,
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
         maxrestarts::Union{Int, Nothing} = nothing,
         M::Union{Int, Nothing} = nothing,
         sarrays::Union{Bool, Nothing} = nothing,
@@ -42,8 +42,8 @@ Residual method of Saad and Schultz (1986).
 """
 function GeneralizedMinimalResidualAlgorithm(;
     preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
-    atol::Union{AbstractFloat, Nothing} = nothing,
-    rtol::Union{AbstractFloat, Nothing} = nothing,
+    atol::Union{Real, Nothing} = nothing,
+    rtol::Union{Real, Nothing} = nothing,
     maxrestarts::Union{Int, Nothing} = nothing,
     M::Union{Int, Nothing} = nothing,
     sarrays::Union{Bool, Nothing} = nothing,

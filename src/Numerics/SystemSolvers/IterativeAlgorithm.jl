@@ -155,6 +155,7 @@ include("JacobianFreeNewtonKrylovAlgorithm.jl")
 #       - By taking the max of atol and rtol * initial_residual_norm, we are using the looser condition, ensuring that the tighter condition is not satisfied upon termination; we should use min instead.
 #           - See the last paragraph in http://www.math.uakron.edu/~kreider/num1/stopcrit.pdf.
 #           - If we want to ensure that rtol * initial_residual_norm is greater than eps(FT), we should take the max of eps(FT) and rtol * initial_residual_norm, but that is not the job of atol.
+#           - Rather, atol specifies the maximum absolute error that the result can have. In Mathematica, the only way to disable atol is to set it to infinity, but in our code we could also set it to 0.
 #           - Should we even use eps(FT) = eps(one(FT)) = nextfloat(one(FT)) - one(FT)? If Q has norm n, maybe we want to use eps(n)? Or, if Q has minimum (in magnitude) element m, we could use eps(m)?
 #       - We should also consider using residual_norm instead of initial_residual norm for the relative tolerance condition, like some other authors do.
 #       - We are also planning to add a new condition based on Q instead of f(Q), so this part of the code will have to change anyway.

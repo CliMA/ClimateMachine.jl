@@ -128,11 +128,11 @@ end
 """
     JacobianFreeNewtonKrylovAlgorithm(
         krylovalgorithm::KrylovAlgorithm;
-        atol::Union{AbstractFloat, Nothing} = nothing,
-        rtol::Union{AbstractFloat, Nothing} = nothing,
+        atol::Union{Real, Nothing} = nothing,
+        rtol::Union{Real, Nothing} = nothing,
         maxiters::Union{Int, Nothing} = nothing,
         autodiff::Union{Bool, Nothing} = nothing,
-        β::Union{AbstractFloat, Nothing} = nothing,
+        β::Union{Real, Nothing} = nothing,
     )
 
 Constructor for the `JacobianFreeNewtonKrylovAlgorithm`, which solves a
@@ -179,11 +179,11 @@ restricts `f` to being such that `f(Q)` has the same size as `Q`.
 """
 function JacobianFreeNewtonKrylovAlgorithm(
     krylovalgorithm::KrylovAlgorithm;
-    atol::Union{AbstractFloat, Nothing} = nothing,
-    rtol::Union{AbstractFloat, Nothing} = nothing,
+    atol::Union{Real, Nothing} = nothing,
+    rtol::Union{Real, Nothing} = nothing,
     maxiters::Union{Int, Nothing} = nothing,
     autodiff::Union{Bool, Nothing} = nothing,
-    β::Union{AbstractFloat, Nothing} = nothing,
+    β::Union{Real, Nothing} = nothing,
 )
     return JacobianFreeNewtonKrylovAlgorithm(
         krylovalgorithm,
