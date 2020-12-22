@@ -22,39 +22,33 @@ Abstract type for an iterative solver.
 abstract type IterativeSolver end
 
 """
-    IterativeSolver(
-        algorithm::IterativeAlgorithm,
-        problem::Problem
-    )::IterativeSolver
+    IterativeSolver(algorithm::IterativeAlgorithm, problem::Problem)
 
 Constructs the solver associated with the combination of `algorithm` and
 `problem`.
 """
-function IterativeSolver(
-    algorithm::IterativeAlgorithm,
-    problem::Problem,
-)::IterativeSolver end
+function IterativeSolver(algorithm::IterativeAlgorithm, problem::Problem) end
 
 """
-    atol(solver::IterativeSolver)::AbstractFloat
+    atol(solver::IterativeSolver)
 
 Returns the absolute tolerance of `solver`.
 """
-function atol(solver::IterativeSolver)::AbstractFloat end
+function atol(solver::IterativeSolver) end
 
 """
-    rtol(solver::IterativeSolver)::AbstractFloat
+    rtol(solver::IterativeSolver)
 
 Returns the relative tolerance of `solver`.
 """
-function rtol(solver::IterativeSolver)::AbstractFloat end
+function rtol(solver::IterativeSolver) end
 
 """
-    maxiters(solver::IterativeSolver)::Int
+    maxiters(solver::IterativeSolver)
 
 Returns the maximum number of iterations that `solver` can take.
 """
-function maxiters(solver::IterativeSolver)::Int end
+function maxiters(solver::IterativeSolver) end
 
 """
     initialize!(
@@ -63,7 +57,7 @@ function maxiters(solver::IterativeSolver)::Int end
         iters,
         problem::Problem,
         args...,
-    )::AbstractFloat
+    )
 
 Initializes `solver` and returns the norm of the residual, whether the solver
 converged, and the number of times `f` was evaluated. Uses `threshold` and
@@ -71,9 +65,11 @@ converged, and the number of times `f` was evaluated. Uses `threshold` and
 """
 function initialize!(
     solver::IterativeSolver,
+    threshold,
+    iters,
     problem::Problem,
     args...,
-)::AbstractFloat end
+) end
 
 """
     doiteration!(
@@ -82,7 +78,7 @@ function initialize!(
         iters,
         problem::Problem,
         args...,
-    )::AbstractFloat
+    )
 
 Performs an iteration of `solver`, updates the solution vector in `problem`,
 and returns whether the solver converged and the number of times `f` was
@@ -95,7 +91,7 @@ function doiteration!(
     iters,
     problem::Problem,
     args...,
-)::AbstractFloat end
+) end
 
 """
     solve!(solver::IterativeSolver, problem::Problem, args...)::Int
@@ -146,38 +142,59 @@ end
 end
 =#
 
-# Macro used by algorithm constructors that checks whether the keyword
-# arguments specified by the user are all positive.
+# Macro used by algorithm constructors that checks whether the arguments
+# specified by the user are all positive.
 macro check_positive(args...)
     n = length(args)
     block = Expr(:block)
     block.args = Array{Any}(undef, n)
     for i in 1:n
         arg = args[i]
-        message = "Keyword argument $arg must be positive, but it was set to "
-        block.args[i] = quote
+        message = "$arg must be positive, but it was set to "
+        arg = esc(arg)
+        block.args[i] = :(
             if !isnothing($arg) && !($arg > 0)
-                throw(AssertionError(string($message, $arg)))
+                throw(DomainError(string($message, $arg)))
             end
-        end
+        )
     end
     return block
 end
 
-# Macro used by algorithm constructors that checks whether the keyword
-# arguments specified by the user are all finite.
+# Macro used by algorithm constructors that checks whether the arguments
+# specified by the user are all iterables of positive values.
+macro check_positive_iterable(args...)
+    n = length(args)
+    block = Expr(:block)
+    block.args = Array{Any}(undef, n)
+    for i in 1:n
+        arg = args[i]
+        message = "$arg must contain positive values, but it was set to "
+        arg = esc(arg)
+        block.args[i] = :(
+            if !isnothing($arg) && !all($arg .> 0)
+                throw(DomainError(string($message, $arg)))
+            end
+        )
+    end
+    return block
+end
+
+# Macro used by algorithm constructors that checks whether the arguments
+# specified by the user are all finite.
 macro check_finite(args...)
     n = length(args)
     block = Expr(:block)
     block.args = Array{Any}(undef, n)
     for i in 1:n
         arg = args[i]
-        message = "Keyword argument $arg must be finite, but it was set to "
-        block.args[i] = quote
+        message = "$arg must be finite, but it was set to "
+        arg = esc(arg)
+        block.args[i] = :(
             if !isnothing($arg) && !isfinite($arg)
-                throw(AssertionError(string($message, $arg)))
+                throw(DomainError(string($message, $arg)))
             end
-        end
+        )
     end
     return block
 end

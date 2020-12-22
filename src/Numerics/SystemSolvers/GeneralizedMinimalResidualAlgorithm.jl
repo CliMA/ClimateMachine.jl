@@ -24,7 +24,8 @@ end
 Constructor for the `GeneralizedMinimalResidualAlgorithm`, which solves a
 `StandardProblem` that represents the equation `f(Q) = rhs`, where `f` must be
 a linear function of `Q`. This algorithm uses the restarted Generalized Minimal
-Residual method of Saad and Schultz (1986).
+Residual method of Saad and Schultz (1986). Since Krylov subspace methods can
+only solve square linear systems, `rhs` must have the same size as `Q`.
 
 ## References
 
@@ -149,7 +150,6 @@ function doiteration!(
     Q = problem.Q
 
     Ω = LinearAlgebra.Rotation{eltype(Q)}([])
-    residual_norm = typemax(eltype(Q))
 
     has_converged = false
     j = 0
@@ -184,8 +184,7 @@ function doiteration!(
         Ω = lmul!(G, Ω)
 
         # Check whether the algorithm has converged.
-        residual_norm = abs(g0[j + 1])
-        has_converged = check_convergence(residual_norm, threshold, iters)
+        has_converged = check_convergence(abs(g0[j + 1]), threshold, iters)
     end
 
     # Solve the triangular system.
@@ -211,7 +210,7 @@ function doiteration!(
     has_converged && return has_converged, j
 
     # Restart if the algorithm did not converge.
-    residual_norm, has_converged, initfcalls =
+    _, has_converged, initfcalls =
         initialize!(solver, threshold, iters, problem, args...)
     return has_converged, j + initfcalls
 end

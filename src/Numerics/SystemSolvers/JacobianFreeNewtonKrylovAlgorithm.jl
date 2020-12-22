@@ -160,8 +160,8 @@ To get `Q^{k+1}`, the algorithm solves this linear equation for `ΔQ` and sets
 A standard Newton algorithm would solve the linear equation by explicitly
 constructing the Jacobian `J(Q^k)` and finding its inverse. The Newton-Krylov
 algorithm avoids this by using a Krylov subspace method to solve the equation.
-Since Krylov subspace methods can only solve square linear systems, this
-restricts `f` to being such that `f(Q)` has the same size as `Q`.
+Since Krylov subspace methods can only solve square linear systems, `rhs` must
+have the same size as `Q`.
 
 # Arguments
 - `krylovalgorithm`: algorithm used to solve the linear equation generated on
