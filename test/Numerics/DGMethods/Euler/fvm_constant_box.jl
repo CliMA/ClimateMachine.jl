@@ -43,7 +43,7 @@ function main()
                       """ ArrayType "$FT" "$NumericalFlux" dims
 
     numelem_horz = 2
-    numelem_vert = 32
+    numelem_vert = 3
     test_run(
         mpicomm,
         ArrayType,
@@ -117,9 +117,10 @@ function test_run(
     cfl = 0.8
     dz = step(vert_range)
     dx = step(horz_range)
-    dt = min(cfl/polynomialorder[1]^2 * dx / 330, cfl * dz / 330)
+    dt = 1
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
+
 
     Q = init_ode_state(dg, FT(0))
     lsrk = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
@@ -197,9 +198,13 @@ function test_run(
 end
 
 function initialcondition!(problem, bl, state, aux, coords, t, args...)
-    state.ρ = 1
+    FT = typeof(t)
+    state.ρ = FT(1)
     state.ρu = SVector(0, 0, 0)
-    state.ρe = 10000
+
+    p = FT(4000)
+    ts = PhaseDry_ρp(bl.param_set, state.ρ, p)
+    state.ρe = state.ρ * total_energy(FT(0), FT(0), ts)
 end
 
 
