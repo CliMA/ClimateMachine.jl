@@ -32,7 +32,7 @@ function main()
 
     polynomialorder = (4, 4)
     FT = Float64
-    dims = 3
+    dims = 2
     NumericalFlux = RoeNumericalFlux
     @info @sprintf """Configuration
                       ArrayType     = %s
@@ -73,7 +73,7 @@ function test_run(
     brickrange = (horz_range, horz_range, vert_range)
 
     # periodicity = (true, true, false)
-    periodicity = (true, true, true)
+    periodicity = (true, true)
     topology =
         StackedBrickTopology(mpicomm, brickrange; periodicity = periodicity)
 

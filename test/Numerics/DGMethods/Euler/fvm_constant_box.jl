@@ -33,7 +33,7 @@ function main()
 
     polynomialorder = (4, 0)
     FT = Float64
-    dims = 3
+    dims = 2
     NumericalFlux = RoeNumericalFlux
     @info @sprintf """Configuration
                       ArrayType     = %s
@@ -71,10 +71,10 @@ function test_run(
     horz_range =
         range(FT(0), length = numelem_horz + 1, stop = FT(domain_width))
     vert_range = range(0, length = numelem_vert + 1, stop = domain_height)
-    brickrange = (horz_range, horz_range, vert_range)
+    brickrange = (horz_range, vert_range)
 
-    # periodicity = (true, true, false)
-    periodicity = (true, true, true)
+    # periodicity = (true, false)
+    periodicity = (true, true)
     topology =
         StackedBrickTopology(mpicomm, brickrange; periodicity = periodicity)
 
@@ -111,7 +111,7 @@ function test_run(
         CentralNumericalFluxGradient(),
     )
 
-    timeend = FT(86400)
+    timeend = FT(86400 * 10)
 
     # determine the time step
     cfl = 0.8

@@ -941,6 +941,7 @@ function numerical_flux_first_order!(
     param_set = balance_law.param_set
     _cv_d::FT = cv_d(param_set)
     _T_0::FT = T_0(param_set)
+    γ::FT = cp_d(param_set) / cv_d(param_set)
 
     Φ = gravitational_potential(balance_law, state_auxiliary⁻)
 
@@ -985,6 +986,8 @@ function numerical_flux_first_order!(
     ũ = roe_average(ρ⁻, ρ⁺, u⁻, u⁺)
     h̃ = roe_average(ρ⁻, ρ⁺, h⁻, h⁺)
     c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
+
+    c̃ = sqrt((γ - 1) * (h̃ - 0.5 * ũ'*ũ - Φ))
 
     ũᵀn = ũ' * normal_vector
 
@@ -1257,7 +1260,7 @@ function numerical_flux_first_order!(
         balance_law.moisture.maxiter,
         balance_law.moisture.tolerance,
     )
-    c̃ = sqrt((γ - 1) * (h̃ - (ũ[1]^2 + ũ[2]^2 + ũ[3]^2) / 2))
+    c̃ = sqrt((γ - 1) * (h̃ - (ũ[1]^2 + ũ[2]^2 + ũ[3]^2) / 2 - Φ))
     (R_m, _cp_m, _cv_m, gamma) = gas_constants(ts)
     # chosen by fair dice roll
     # guaranteed to be random
