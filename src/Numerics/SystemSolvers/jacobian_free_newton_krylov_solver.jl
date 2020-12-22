@@ -71,15 +71,20 @@ function (op::JacobianAction)(JΔQ, dQ, args...)
     n = length(dQ)
     normdQ = norm(dQ, weighted_norm)
 
+    β = √ϵ
+
     if normdQ > ϵ
+        # for preconditioner reconstruction, it goes into this part
+        # e depends only on the active freedoms in the preconditioner reconstruction
         factor = FT(1 / (n * normdQ))
+        Qdq .= Q .* (abs.(dQ) .> 0)
+        e = factor * β * norm(Qdq, 1, false) + β
     else
-        # initial newton step, ΔQ = 0
         factor = FT(1 / n)
+        e = factor * β * norm(Q, 1, false) + β
     end
 
-    β = √ϵ
-    e = factor * β * norm(Q, 1, false) + β
+
 
     Qdq .= Q .+ e .* dQ
 
