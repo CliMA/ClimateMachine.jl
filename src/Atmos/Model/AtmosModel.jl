@@ -622,9 +622,12 @@ function transform_post_gradient_laplacian!(
 end
 
 function precompute(atmos::AtmosModel, args, tt::Flux{SecondOrder})
-    ts = recover_thermo_state(atmos, args.state, args.aux)
+    @unpack state, diffusive, aux, t = args
+    ts = recover_thermo_state(atmos, state, aux)
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    turbulence = (ν = ν, D_t = D_t, τ = τ)
     turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
-    return (; ts, turbconv)
+    return (; ts, turbconv, turbulence)
 end
 
 """
@@ -828,8 +831,9 @@ end
 
 function precompute(atmos::AtmosModel, args, tt::Source)
     ts = recover_thermo_state(atmos, args.state, args.aux)
+    precipitation = precompute(atmos.precipitation, atmos, args, ts, tt)
     turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
-    return (; ts, turbconv)
+    return (; ts, turbconv, precipitation)
 end
 
 """
