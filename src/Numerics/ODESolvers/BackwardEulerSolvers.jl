@@ -310,7 +310,8 @@ function (nlbesolver::NonLinBESolver)(Q, Qhat, α, p, t)
         Q,
         Qhat,
         p,
-        t,
+        t;
+        max_newton_iters = nlbesolver.nlsolver.M,
     )
 
 end

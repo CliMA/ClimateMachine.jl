@@ -1,5 +1,4 @@
-# using FileIO
-# using JLD2
+
 include("stable_bl_init.jl")
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
@@ -28,13 +27,22 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(60)
-    CFLmax = FT(0.50)
+    timeend = FT(3600)
+    # CFLmax = FT(0.50)
+    CFLmax = FT(20)
 
     config_type = SingleStackConfigType
 
-    ode_solver_type = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
+    ode_solver_type = ClimateMachine.HEVISolverType(
+        FT;
+        solver_method = ARK2ImplicitExplicitMidpoint,
+        linear_max_subspace_size = 30,
+        linear_atol = FT(-1.0),
+        linear_rtol = FT(5e-5),
+        nonlinear_max_iterations = 10,
+        nonlinear_rtol = FT(1e-4),
+        nonlinear_ϵ = FT(1.e-10),
+        preconditioner_update_freq = Int(50),
     )
 
     N_updrafts = 1
@@ -101,22 +109,11 @@ function main(::Type{FT}) where {FT}
         nothing
     end
 
-    # State variable
-    Q = solver_config.Q
-    # Volume geometry information
-    vgeo = driver_config.grid.vgeo
-    M = vgeo[:, Grids._M, :]
-    # Unpack prognostic vars
-    ρ₀ = Q.ρ
-    ρe₀ = Q.ρe
-    # DG variable sums
-    Σρ₀ = sum(ρ₀ .* M)
-    Σρe₀ = sum(ρe₀ .* M)
 
     grid = driver_config.grid
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary(), GradientFlux())
+    state_types = (Prognostic(), Auxiliary())
     dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
@@ -135,16 +132,10 @@ function main(::Type{FT}) where {FT}
             nothing
         end
 
-    cb_check_cons = GenericCallbacks.EveryXSimulationSteps(3000) do
-        Q = solver_config.Q
-        δρ = (sum(Q.ρ .* M) - Σρ₀) / Σρ₀
-        δρe = (sum(Q.ρe .* M) .- Σρe₀) ./ Σρe₀
-        @show (abs(δρ))
-        @show (abs(δρe))
-        @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.1)
-        nothing
-    end
+    check_cons = (
+        ClimateMachine.ConservationCheck("ρ", "3000steps", FT(0.001)),
+        ClimateMachine.ConservationCheck("ρe", "3000steps", FT(0.1)),
+    )
 
     cb_print_step = GenericCallbacks.EveryXSimulationSteps(100) do
         @show getsteps(solver_config.solver)
@@ -154,12 +145,8 @@ function main(::Type{FT}) where {FT}
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (
-            cbtmarfilter,
-            cb_check_cons,
-            cb_data_vs_time,
-            cb_print_step,
-        ),
+        check_cons = check_cons,
+        user_callbacks = (cbtmarfilter, cb_data_vs_time, cb_print_step),
         check_euclidean_distance = true,
     )
 
@@ -171,19 +158,5 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, dons_arr, time_data, state_types = main(Float64)
-
-## Uncomment lines to save output using JLD2
-#
-# output_dir = @__DIR__;
-# mkpath(output_dir);
-# println(dons_arr[1].keys)
-# z = get_z(solver_config.dg.grid; rm_dupes = true);
-# save(
-#     string(output_dir, "/sbl_edmf.jld2"),
-#     "dons_arr",
-#     dons_arr,
-#     "time_data",
-#     time_data,
-#     "z",
-#     z,
-# )
+# include(joinpath(@__DIR__, "report_mse_sbl.jl"))
+nothing
