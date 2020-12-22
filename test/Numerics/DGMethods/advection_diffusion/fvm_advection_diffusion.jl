@@ -27,64 +27,54 @@ const output = parse(Bool, lowercase(get(ENV, "JULIA_CLIMA_OUTPUT", "false")))
 
 include("advection_diffusion_model.jl")
 
-struct Pseudo1D{n1, n2, n3, α, β, μ, δ} <: AdvectionDiffusionProblem end
+struct Pseudo1D{ns, α, β, μ, δ} <: AdvectionDiffusionProblem end
 
 function init_velocity_diffusion!(
-    ::Pseudo1D{n1, n2, n3, α, β},
+    ::Pseudo1D{ns, α, β},
     aux::Vars,
     geom::LocalGeometry,
-) where {n1, n2, n3, α, β}
-    # Direction of flow is n1 (resp n2 or n3) with magnitude α
-    aux.advection.u = hcat(α * n1, α * n2, α * n3)
+) where {ns, α, β}
+    # Direction of flow is ns[i] with magnitude α
+    aux.advection.u = hcat(ntuple(i -> α * ns[i], Val(length(ns)))...)
 
-    # Diffusion of strength β in the n1 and n2 directions
-    aux.diffusion.D = hcat(β * n1 * n1', β * n2 * n2', β * n3 * n3')
+    # Diffusion of strength β in the ns[i] direction
+    aux.diffusion.D = hcat(ntuple(i -> β * ns[i] * ns[i]', Val(length(ns)))...)
 end
 
+function gaussian(x, t, α, β, μ, δ)
+    exp(-(x - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
+end
+function ∇gaussian(n, x, t, α, β, μ, δ)
+    -2n * (x - μ - α * t) / (4 * β * (δ + t)) *
+    exp(-(x - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
+end
 function initial_condition!(
-    ::Pseudo1D{n1, n2, n3, α, β, μ, δ},
+    ::Pseudo1D{ns, α, β, μ, δ},
     state,
     aux,
     localgeo,
     t,
-) where {n1, n2, n3, α, β, μ, δ}
-    ξn1 = dot(n1, localgeo.coord)
-    ξn2 = dot(n2, localgeo.coord)
-    ξn3 = dot(n3, localgeo.coord)
-    ρ1 = exp(-(ξn1 - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
-    ρ2 = exp(-(ξn2 - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
-    ρ3 = exp(-(ξn3 - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
-    state.ρ = (ρ1, ρ2, ρ3)
+) where {ns, α, β, μ, δ}
+    ρ = ntuple(Val(length(ns))) do i
+        ξn = dot(ns[i], localgeo.coord)
+        gaussian(ξn, t, α, β, μ, δ)
+    end
+    state.ρ = length(ns) == 1 ? ρ[1] : ρ
 end
 
 Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
 
 function Neumann_data!(
-    ::Pseudo1D{n1, n2, n3, α, β, μ, δ},
+    ::Pseudo1D{ns, α, β, μ, δ},
     ∇state,
     aux,
     x,
     t,
-) where {n1, n2, n3, α, β, μ, δ}
-    ξn1 = dot(n1, x)
-    ξn2 = dot(n2, x)
-    ξn3 = dot(n3, x)
-    ∇ρ1 =
-        -(
-            2n1 * (ξn1 - μ - α * t) / (4 * β * (δ + t)) *
-            exp(-(ξn1 - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
-        )
-    ∇ρ2 =
-        -(
-            2n2 * (ξn2 - μ - α * t) / (4 * β * (δ + t)) *
-            exp(-(ξn2 - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
-        )
-    ∇ρ3 =
-        -(
-            2n3 * (ξn3 - μ - α * t) / (4 * β * (δ + t)) *
-            exp(-(ξn3 - μ - α * t)^2 / (4 * β * (δ + t))) / sqrt(1 + t / δ)
-        )
-    ∇state.ρ = hcat(∇ρ1, ∇ρ2, ∇ρ3)
+) where {ns, α, β, μ, δ}
+    ∇state.ρ = hcat(ntuple(Val(length(ns))) do i
+        ξn = dot(ns[i], x)
+        ∇gaussian(ns[i], ξn, t, α, β, μ, δ)
+    end...)
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
@@ -133,6 +123,7 @@ function test_run(
     ArrayType,
     FT,
     vtkdir,
+    direction,
 )
 
     n_hd =
@@ -144,6 +135,14 @@ function test_run(
     n_dg =
         dim == 2 ? SVector{3, FT}(1 / sqrt(2), 1 / sqrt(2), 0) :
         SVector{3, FT}(1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))
+
+    if direction isa EveryDirection
+        ns = (n_hd, n_vd, n_dg)
+    elseif direction isa HorizontalDirection
+        ns = (n_hd,)
+    elseif direction isa VerticalDirection
+        ns = (n_vd,)
+    end
 
     α = FT(1)
     β = FT(1 // 100)
@@ -176,9 +175,10 @@ function test_run(
     ArrayType                   = %s
     FloatType                   = %s
     Dimension                   = %s
+    Direction                   = %s
     Horizontal polynomial order = %s
     Vertical polynomial order   = %s
-      """ fvmethod ArrayType FT dim polynomialorders[1] polynomialorders[end]
+      """ fvmethod ArrayType FT dim direction polynomialorders[1] polynomialorders[end]
 
     grid = DiscontinuousSpectralElementGrid(
         topl,
@@ -189,8 +189,8 @@ function test_run(
 
     # Model being tested
     model = AdvectionDiffusion{dim}(
-        Pseudo1D{n_hd, n_vd, n_dg, α, β, μ, δ}(),
-        num_equations = 3,
+        Pseudo1D{ns, α, β, μ, δ}(),
+        num_equations = length(ns),
     )
 
     # Main DG discretization
@@ -201,7 +201,7 @@ function test_run(
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
-        direction = EveryDirection(),
+        direction = direction,
     )
 
     # Initialize all relevant state arrays and create solvers
@@ -281,26 +281,45 @@ function test_run(
 
     metrics = @. (engf, engf / eng0, engf - eng0, errf, errf / engfe)
 
-    @info @sprintf """Finished
-    Horizontal field:
-      norm(Q)                 = %.16e
-      norm(Q) / norm(Q₀)      = %.16e
-      norm(Q) - norm(Q₀)      = %.16e
-      norm(Q - Qe)            = %.16e
-      norm(Q - Qe) / norm(Qe) = %.16e
-    Vertical field:
-      norm(Q)                 = %.16e
-      norm(Q) / norm(Q₀)      = %.16e
-      norm(Q) - norm(Q₀)      = %.16e
-      norm(Q - Qe)            = %.16e
-      norm(Q - Qe) / norm(Qe) = %.16e
-    Diagonal field:
-      norm(Q)                 = %.16e
-      norm(Q) / norm(Q₀)      = %.16e
-      norm(Q) - norm(Q₀)      = %.16e
-      norm(Q - Qe)            = %.16e
-      norm(Q - Qe) / norm(Qe) = %.16e
-      """ first.(metrics)... ntuple(f -> metrics[f][2], 5)... last.(metrics)...
+    @info begin
+        j = 1
+        msg = "Finished\n"
+        if direction isa HorizontalDirection || direction isa EveryDirection
+            msg *= @sprintf """
+            Horizontal field:
+              norm(Q)                 = %.16e
+              norm(Q) / norm(Q₀)      = %.16e
+              norm(Q) - norm(Q₀)      = %.16e
+              norm(Q - Qe)            = %.16e
+              norm(Q - Qe) / norm(Qe) = %.16e
+            """ ntuple(f -> metrics[f][j], 5)...
+            j += 1
+        end
+
+        if direction isa VerticalDirection || direction isa EveryDirection
+            msg *= @sprintf """
+            Vertical field:
+              norm(Q)                 = %.16e
+              norm(Q) / norm(Q₀)      = %.16e
+              norm(Q) - norm(Q₀)      = %.16e
+              norm(Q - Qe)            = %.16e
+              norm(Q - Qe) / norm(Qe) = %.16e
+            """ ntuple(f -> metrics[f][j], 5)...
+            j += 1
+        end
+
+        if direction isa EveryDirection
+            msg *= @sprintf """
+            Diagonal field:
+              norm(Q)                 = %.16e
+              norm(Q) / norm(Q₀)      = %.16e
+              norm(Q) - norm(Q₀)      = %.16e
+              norm(Q - Qe)            = %.16e
+              norm(Q - Qe) / norm(Qe) = %.16e
+            """ ntuple(f -> metrics[f][j], 5)...
+        end
+        msg
+    end
 
     return Tuple(errf)
 end
@@ -384,52 +403,88 @@ function main()
 
     @testset "Variable degree DG: advection diffusion model" begin
         for FT in (Float32, Float64)
-            numlevels =
-                integration_testing ||
-                ClimateMachine.Settings.integration_testing ?
-                (FT == Float64 ? 4 : 3) : 1
-            for dim in 2:3
-                for fvmethod in (FVConstant(), FVLinear(), FVLinear{3}())
-                    polynomialorders = (4, 0)
-                    result = Dict()
-                    for level in 1:numlevels
-                        vtkdir =
-                            output ?
-                            "vtk_advection" *
-                            "_poly$(polynomialorders)" *
-                            "_dim$(dim)_$(ArrayType)_$(FT)" *
-                            "_fvmethod$(fvmethod)" *
-                            "_level$(level)" :
-                            nothing
-                        result[level] = test_run(
-                            mpicomm,
-                            dim,
-                            fvmethod,
-                            polynomialorders,
-                            level,
-                            ArrayType,
-                            FT,
-                            vtkdir,
-                        )
-                        fv_key = fvmethod isa FVLinear ? FVLinear() : fvmethod
-                        @test all(
-                            result[level] .≈
-                            FT.(expected_result[dim, level, FT, fv_key]),
-                        )
-                    end
-                    @info begin
-                        msg = ""
-                        for l in 1:(numlevels - 1)
-                            rate = @. log2(result[l]) - log2(result[l + 1])
-                            msg *= @sprintf(
-                                "\n  rates for level %d Horizontal = %e",
-                                l,
-                                rate[1]
+            for direction in
+                (EveryDirection(), HorizontalDirection(), VerticalDirection())
+                numlevels =
+                    integration_testing ||
+                    ClimateMachine.Settings.integration_testing ?
+                    (FT == Float64 ? 4 : 3) : 1
+                for dim in 2:3
+                    for fvmethod in (FVConstant(), FVLinear(), FVLinear{3}())
+                        polynomialorders = (4, 0)
+                        result = Dict()
+                        for level in 1:numlevels
+                            vtkdir =
+                                output ?
+                                "vtk_advection" *
+                                "_poly$(polynomialorders)" *
+                                "_dim$(dim)_$(ArrayType)_$(FT)" *
+                                "_fvmethod$(fvmethod)" *
+                                "_level$(level)" :
+                                nothing
+                            result[level] = test_run(
+                                mpicomm,
+                                dim,
+                                fvmethod,
+                                polynomialorders,
+                                level,
+                                ArrayType,
+                                FT,
+                                vtkdir,
+                                direction,
                             )
-                            msg *= @sprintf(", Vertical = %e", rate[2])
-                            msg *= @sprintf(", Diagonal = %e\n", rate[3])
+                            fv_key =
+                                fvmethod isa FVLinear ? FVLinear() : fvmethod
+                            if direction isa EveryDirection
+                                @test all(
+                                    result[level] .≈
+                                    FT.(expected_result[
+                                        dim,
+                                        level,
+                                        FT,
+                                        fv_key,
+                                    ]),
+                                )
+                            elseif direction isa HorizontalDirection
+                                @test result[level][1] .≈ FT.(expected_result[
+                                    dim,
+                                    level,
+                                    FT,
+                                    fv_key,
+                                ])[1]
+                            elseif direction isa VerticalDirection
+                                @test result[level][1] .≈ FT.(expected_result[
+                                    dim,
+                                    level,
+                                    FT,
+                                    fv_key,
+                                ])[2]
+                            end
                         end
-                        msg
+                        @info begin
+                            msg = ""
+                            for l in 1:(numlevels - 1)
+                                rate = @. log2(result[l]) - log2(result[l + 1])
+                                msg *= @sprintf("\n  rates for level %d", l)
+                                j = 1
+                                if direction isa HorizontalDirection ||
+                                   direction isa EveryDirection
+                                    msg *=
+                                        @sprintf(", Horizontal = %e", rate[j])
+                                    j += 1
+                                end
+                                if direction isa VerticalDirection ||
+                                   direction isa EveryDirection
+                                    msg *= @sprintf(", Vertical = %e", rate[j])
+                                    j += 1
+                                end
+                                if direction isa EveryDirection
+                                    msg *= @sprintf(", Diagonal = %e", rate[j])
+                                end
+                                msg *= "\n"
+                            end
+                            msg
+                        end
                     end
                 end
             end
