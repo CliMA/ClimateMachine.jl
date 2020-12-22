@@ -148,6 +148,9 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         local_state_auxiliary_bottom1 =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
+        # Storage for the tendency
+        local_tendency = MArray{Tuple{num_state_prognostic}, FT}(undef)
+
         # XXX: will revisit this later for FVM
         fill!(local_state_prognostic_bottom1, NaN)
         fill!(local_state_gradient_flux_bottom1, NaN)
@@ -259,6 +262,11 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_auxiliary[stencil_center],
                 )
             end
+
+            # Initialize local tendency
+            @unroll for s in 1:num_state_prognostic
+                local_tendency[s] = -zero(FT)
+            end
         else
 
             bctag = elemtobndy[faces[1], eH + eV]
@@ -345,7 +353,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             # Compute boundary flux and add it in bottom element of the mesh
             @unroll for s in 1:num_state_prognostic
-                tendency[n, s, eH + eV] -= α * sM * vMI[2] * local_flux[s]
+                local_tendency[s] = -α * sM * vMI[2] * local_flux[s]
             end
         end
 
@@ -511,88 +519,93 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # numerical flux is computed with respect to the top element, so
             # `+=` is used to reverse the flux
             @unroll for s in 1:num_state_prognostic
-                tendency[n, s, eH + eV_dn] += α * sM * vMI[1] * local_flux[s]
+                local_tendency[s] += α * sM * vMI[1] * local_flux[s]
+
+                tendency[n, s, eH + eV_dn] += local_tendency[s]
+
+                # Store contribution to the top element tendency
+                local_tendency[s] = -α * sM * vMI[2] * local_flux[s]
             end
 
-            # Update the top element
-            @unroll for s in 1:num_state_prognostic
-                tendency[n, s, eH + eV_up] -= α * sM * vMI[2] * local_flux[s]
-            end
+            # Update top element of the stack
+            if eV_up == nvertelem
+                # If periodic just add in the tendency that we just computed
+                if periodicstack
+                    @unroll for s in 1:num_state_prognostic
+                        tendency[n, s, eH + eV_up] += local_tendency[s]
+                    end
+                else
+                    # Load surface metrics for the face we will update
+                    # (top face of `eV_up`)
+                    bctag = elemtobndy[faces[2], eH + eV_up]
+                    sM = sgeo[_sM, n, faces[2], eH + eV_up]
+                    normal = SVector(
+                        sgeo[_n1, n, faces[2], eH + eV_up],
+                        sgeo[_n2, n, faces[2], eH + eV_up],
+                        sgeo[_n3, n, faces[2], eH + eV_up],
+                    )
 
-            # If we have a boundary and we are on the top element update the
-            # boundary face
-            if !periodicstack && eV_up == nvertelem
-                # Load surface metrics for the face we will update
-                # (top face of `eV_up`)
-                bctag = elemtobndy[faces[2], eH + eV_up]
-                sM = sgeo[_sM, n, faces[2], eH + eV_up]
-                normal = SVector(
-                    sgeo[_n1, n, faces[2], eH + eV_up],
-                    sgeo[_n2, n, faces[2], eH + eV_up],
-                    sgeo[_n3, n, faces[2], eH + eV_up],
-                )
+                    # Since we are at the last element to update, we can safely use
+                    # `stencil_center - 1` to store the ghost data
 
-                # Since we are at the last element to update, we can safely use
-                # `stencil_center - 1` to store the ghost data
+                    fill!(local_flux, -zero(FT))
 
-                fill!(local_flux, -zero(FT))
-
-                # Fill ghost cell data
-                # Use the top reconstruction (since handling top face)
-                local_state_face_prognostic_neighbor .=
-                    local_state_face_prognostic[2]
-                local_state_auxiliary[stencil_center - 1] .=
-                    local_state_auxiliary[stencil_center]
-                numerical_boundary_flux_first_order!(
-                    numerical_flux_first_order,
-                    bctag,
-                    balance_law,
-                    local_flux,
-                    normal,
+                    # Fill ghost cell data
                     # Use the top reconstruction (since handling top face)
-                    local_state_face_prognostic[2],
-                    local_state_auxiliary[stencil_center],
-                    local_state_face_prognostic_neighbor,
-                    local_state_auxiliary[stencil_center - 1],
-                    t,
-                    face_direction,
-                    local_state_prognostic_bottom1,
-                    local_state_auxiliary_bottom1,
-                )
+                    local_state_face_prognostic_neighbor .=
+                        local_state_face_prognostic[2]
+                    local_state_auxiliary[stencil_center - 1] .=
+                        local_state_auxiliary[stencil_center]
+                    numerical_boundary_flux_first_order!(
+                        numerical_flux_first_order,
+                        bctag,
+                        balance_law,
+                        local_flux,
+                        normal,
+                        # Use the top reconstruction (since handling top face)
+                        local_state_face_prognostic[2],
+                        local_state_auxiliary[stencil_center],
+                        local_state_face_prognostic_neighbor,
+                        local_state_auxiliary[stencil_center - 1],
+                        t,
+                        face_direction,
+                        local_state_prognostic_bottom1,
+                        local_state_auxiliary_bottom1,
+                    )
 
-                # Fill / reset ghost cell data
-                local_state_prognostic[stencil_center - 1] .=
-                    local_state_prognostic[stencil_center]
-                local_state_gradient_flux[stencil_center - 1] .=
-                    local_state_gradient_flux[stencil_center]
-                local_state_hyperdiffusive[stencil_center - 1] .=
-                    local_state_hyperdiffusive[stencil_center]
-                local_state_auxiliary[stencil_center - 1] .=
-                    local_state_auxiliary[stencil_center]
-                numerical_boundary_flux_second_order!(
-                    numerical_flux_second_order,
-                    bctag,
-                    balance_law,
-                    local_flux,
-                    normal,
-                    local_state_prognostic[stencil_center],
-                    local_state_gradient_flux[stencil_center],
-                    local_state_hyperdiffusive[stencil_center],
-                    local_state_auxiliary[stencil_center],
-                    local_state_prognostic[stencil_center - 1],
-                    local_state_gradient_flux[stencil_center - 1],
-                    local_state_hyperdiffusive[stencil_center - 1],
-                    local_state_auxiliary[stencil_center - 1],
-                    t,
-                    local_state_prognostic_bottom1,
-                    local_state_gradient_flux_bottom1,
-                    local_state_auxiliary_bottom1,
-                )
+                    # Fill / reset ghost cell data
+                    local_state_prognostic[stencil_center - 1] .=
+                        local_state_prognostic[stencil_center]
+                    local_state_gradient_flux[stencil_center - 1] .=
+                        local_state_gradient_flux[stencil_center]
+                    local_state_hyperdiffusive[stencil_center - 1] .=
+                        local_state_hyperdiffusive[stencil_center]
+                    local_state_auxiliary[stencil_center - 1] .=
+                        local_state_auxiliary[stencil_center]
+                    numerical_boundary_flux_second_order!(
+                        numerical_flux_second_order,
+                        bctag,
+                        balance_law,
+                        local_flux,
+                        normal,
+                        local_state_prognostic[stencil_center],
+                        local_state_gradient_flux[stencil_center],
+                        local_state_hyperdiffusive[stencil_center],
+                        local_state_auxiliary[stencil_center],
+                        local_state_prognostic[stencil_center - 1],
+                        local_state_gradient_flux[stencil_center - 1],
+                        local_state_hyperdiffusive[stencil_center - 1],
+                        local_state_auxiliary[stencil_center - 1],
+                        t,
+                        local_state_prognostic_bottom1,
+                        local_state_gradient_flux_bottom1,
+                        local_state_auxiliary_bottom1,
+                    )
 
-                # In this case we only update the element eV_up (not eV_dn)
-                @unroll for s in 1:num_state_prognostic
-                    tendency[n, s, eH + eV_up] -=
-                        α * sM * vMI[2] * local_flux[s]
+                    @unroll for s in 1:num_state_prognostic
+                        local_tendency[s] -= α * sM * vMI[2] * local_flux[s]
+                        tendency[n, s, eH + eV_up] += local_tendency[s]
+                    end
                 end
             end
         end
