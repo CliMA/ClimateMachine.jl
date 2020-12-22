@@ -16,6 +16,7 @@ export init_state_prognostic!,
 
 import ..BalanceLaws:
     vars_state,
+    source!,
     prognostic_vars,
     init_state_prognostic!,
     init_state_auxiliary!,
@@ -83,6 +84,8 @@ function flux_first_order!(
 )
     return nothing
 end
+
+source!(m::TurbulenceConvectionModel, _...) = nothing
 
 function compute_gradient_argument!(
     m::TurbulenceConvectionModel,

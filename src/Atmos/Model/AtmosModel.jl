@@ -470,7 +470,6 @@ include("moisture.jl")
 include("precipitation.jl")
 include("thermo_states.jl")
 include("radiation.jl")
-include("source.jl")
 include("tracers.jl")
 include("lsforcing.jl")
 include("linear.jl")
@@ -844,7 +843,7 @@ Computes (and assembles) source terms `S(Y)` in:
 ```
 """
 function source!(
-    m::AtmosModel,
+    atmos::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -863,15 +862,15 @@ function source!(
         diffusive = diffusive,
     )
 
-    args = merge(_args, (precomputed = precompute(m, _args, tend),))
+    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    source.ρ = Σsources(eq_tends(Mass(), m, tend), m, args)
-    source.ρu = Σsources(eq_tends(Momentum(), m, tend), m, args) .* ρu_pad
-    source.ρe = Σsources(eq_tends(Energy(), m, tend), m, args)
-    source!(m.moisture, source, m, args)
-    source!(m.precipitation, source, m, args)
-
-    atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
+    source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
+    source.ρu =
+        Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* ρu_pad
+    source.ρe = Σsources(eq_tends(Energy(), atmos, tend), atmos, args)
+    source!(atmos.moisture, source, atmos, args)
+    source!(atmos.precipitation, source, atmos, args)
+    source!(atmos.turbconv, source, atmos, args)
 end
 
 """

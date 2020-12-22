@@ -9,8 +9,6 @@ using ClimateMachine.BalanceLaws
 using ClimateMachine.MPIStateArrays: MPIStateArray
 using ClimateMachine.DGMethods: LocalGeometry, DGModel
 
-import ClimateMachine.Atmos: atmos_source!
-
 import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
@@ -21,6 +19,7 @@ import ClimateMachine.BalanceLaws:
     init_state_prognostic!,
     flux_first_order!,
     flux_second_order!,
+    source!,
     compute_gradient_argument!,
     compute_gradient_flux!
 
@@ -431,21 +430,10 @@ function compute_gradient_flux!(
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end;
 
-struct TurbconvSource <: AbstractSource end
-
-function atmos_source!(
-    ::TurbconvSource,
-    m::AtmosModel{FT},
-    source::Vars,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    direction,
-) where {FT}
-    turbconv = m.turbconv
+function source!(m::EDMF, source::Vars, atmos::AtmosModel{FT}, args) where {FT}
+    @unpack state, diffusive, aux, t, direction = args
+    turbconv = atmos.turbconv
     N_up = n_updrafts(turbconv)
-
     # Aliases:
     gm = state
     en = state.turbconv.environment
@@ -456,18 +444,18 @@ function atmos_source!(
     up_aux = aux.turbconv.updraft
 
     # Recover thermo states
-    ts = recover_thermo_state_all(m, state, aux)
+    ts = recover_thermo_state_all(atmos, state, aux)
 
     # Get environment variables
     env = environment_vars(state, aux, N_up)
 
     EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
+        entr_detr(atmos, atmos.turbconv.entr_detr, state, aux, t, ts, env, i)
     end
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
 
     # get environment values
-    _grav::FT = grav(m.param_set)
+    _grav::FT = grav(atmos.param_set)
     ρ_inv = 1 / gm.ρ
     θ_liq_en = liquid_ice_pottemp(ts.en)
     q_tot_en = total_specific_humidity(ts.en)
@@ -479,7 +467,7 @@ function atmos_source!(
     ρa_up = vuntuple(N_up) do i
         gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
     end
-    ρq_tot = m.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
 
     @unroll_map(N_up) do i
 
@@ -489,8 +477,8 @@ function atmos_source!(
 
         # first moment sources - for now we compute these as aux variable
         dpdz = perturbation_pressure(
-            m,
-            m.turbconv.pressure,
+            atmos,
+            atmos.turbconv.pressure,
             state,
             diffusive,
             aux,
@@ -566,8 +554,8 @@ function atmos_source!(
         en_src.ρatke += ρa_up_i * (w_up_i - env.w) * dpdz
     end
     l_mix, ∂b∂z_env, Pr_t = mixing_length(
-        m,
-        m.turbconv.mix_len,
+        atmos,
+        atmos.turbconv.mix_len,
         state,
         diffusive,
         aux,
@@ -578,11 +566,11 @@ function atmos_source!(
         env,
     )
 
-    K_m = m.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
+    K_m = atmos.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
     Shear² = diffusive.turbconv.S²
     ρa₀ = gm.ρ * env.a
-    Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
+    Diss₀ = atmos.turbconv.mix_len.c_d * sqrt(tke_en) / l_mix
 
     # production from mean gradient and Dissipation
     en_src.ρatke += ρa₀ * K_m * Shear² # tke Shear source

@@ -70,7 +70,6 @@ microphys = MicropysicsParameterSet(LiquidParameterSet(), IceParameterSet())
 
 const param_set = EarthParameterSet(microphys)
 
-import ClimateMachine.Atmos: filter_source, atmos_source!
 import ClimateMachine.BalanceLaws: source
 using ClimateMachine.Atmos: altitude, recover_thermo_state
 using UnPack
@@ -250,22 +249,6 @@ function source(s::BomexTendencies{TotalMoisture}, m, args)
     @unpack ρ∂qt∂t, w_s, k̂ = params
     return ρ∂qt∂t - state.ρ * w_s * dot(k̂, diffusive.moisture.∇q_tot)
 end
-
-filter_source(
-    pv::PV,
-    m,
-    s::BomexTendencies{PV},
-) where {PV <: PrognosticVariable} = s
-filter_source(pv::PV, m, s::BomexSponge{PV}) where {PV <: PrognosticVariable} =
-    s
-filter_source(
-    pv::PV,
-    m,
-    s::BomexGeostrophic{PV},
-) where {PV <: PrognosticVariable} = s
-atmos_source!(::BomexTendencies, args...) = nothing
-atmos_source!(::BomexSponge, args...) = nothing
-atmos_source!(::BomexGeostrophic, args...) = nothing
 
 """
   Initial Condition for BOMEX LES

@@ -44,7 +44,6 @@ using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-import ClimateMachine.Atmos: filter_source, atmos_source!
 using ClimateMachine.Atmos: altitude, recover_thermo_state
 
 """
@@ -117,11 +116,6 @@ function source(s::ConvectiveBLSponge{Momentum}, m, args)
         return SVector{3, FT}(0, 0, 0)
     end
 end
-
-filter_source(pv::PV, m, s::ConvectiveBLGeostrophic{PV}) where {PV} = s
-filter_source(pv::PV, m, s::ConvectiveBLSponge{PV}) where {PV} = s
-atmos_source!(::ConvectiveBLGeostrophic, args...) = nothing
-atmos_source!(::ConvectiveBLSponge, args...) = nothing
 
 """
   Initial Condition for ConvectiveBoundaryLayer LES
