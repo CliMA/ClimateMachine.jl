@@ -3,11 +3,11 @@ import KernelAbstractions: CPU
 using ..Mesh.Grids
 using ..Mesh.Elements: interpolationmatrix
 using ..MPIStateArrays
-using ..DGMethods
+using ..DGMethods: SpaceDiscretization
 using ..TicToc
 
 """
-    writevtk(prefix, Q::MPIStateArray, dg::DGModel [, fieldnames];
+    writevtk(prefix, Q::MPIStateArray, dg::SpaceDiscretization [, fieldnames];
              number_sample_points = 0)
 
 Write a vtk file for all the fields in the state array `Q` using geometry and
@@ -27,7 +27,7 @@ elements are used connecting the degree of freedom boxes.
 function writevtk(
     prefix,
     Q::MPIStateArray,
-    dg::DGModel,
+    dg::SpaceDiscretization,
     fieldnames = nothing;
     number_sample_points = 0,
 )
@@ -40,13 +40,13 @@ function writevtk(
         h_Q,
         dg.grid,
         fieldnames;
-        number_sample_points = 0,
+        number_sample_points = number_sample_points,
     )
     return nothing
 end
 
 """
-    writevtk(prefix, Q::MPIStateArray, dg::DGModel, fieldnames,
+    writevtk(prefix, Q::MPIStateArray, dg::SpaceDiscretization, fieldnames,
              state_auxiliary::MPIStateArray, auxfieldnames;
              number_sample_points = 0)
 
@@ -73,7 +73,7 @@ elements are used connecting the degree of freedom boxes.
 function writevtk(
     prefix,
     Q::MPIStateArray,
-    dg::DGModel,
+    dg::SpaceDiscretization,
     fieldnames,
     state_auxiliary,
     auxfieldnames;

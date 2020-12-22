@@ -261,9 +261,10 @@ stacked to be contiguous. This is a convenience wrapper around
 struct StackedBrickTopology{dim, T, nb} <: AbstractStackedTopology{dim, T, nb}
     topology::BoxElementTopology{dim, T, nb}
     stacksize::Int64
+    periodicstack::Bool
 end
 function Base.getproperty(a::StackedBrickTopology, p::Symbol)
-    return p == :stacksize ? getfield(a, p) :
+    return p in (:stacksize, :periodicstack) ? getfield(a, p) :
            getproperty(getfield(a, :topology), p)
 end
 
@@ -279,8 +280,12 @@ struct StackedCubedSphereTopology{T, nb} <: AbstractStackedTopology{3, T, nb}
     stacksize::Int64
 end
 function Base.getproperty(a::StackedCubedSphereTopology, p::Symbol)
-    return p == :stacksize ? getfield(a, p) :
-           getproperty(getfield(a, :topology), p)
+    if p == :periodicstack
+        return false
+    else
+        return p == :stacksize ? getfield(a, p) :
+               getproperty(getfield(a, :topology), p)
+    end
 end
 
 """ A wrapper for the BrickTopology """
@@ -740,6 +745,7 @@ function StackedBrickTopology(
             bndytoface,
         ),
         stacksize,
+        periodicity[end],
     )
 end
 

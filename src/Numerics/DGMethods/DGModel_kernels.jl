@@ -8,7 +8,8 @@ using .NumericalFluxes:
     numerical_boundary_flux_first_order!,
     numerical_boundary_flux_second_order!,
     numerical_boundary_flux_divergence!,
-    numerical_boundary_flux_higher_order!
+    numerical_boundary_flux_higher_order!,
+    CentralNumericalFluxGradient
 
 using ..Mesh.Geometry
 
@@ -599,7 +600,7 @@ end
 end
 
 @doc """
-    function interface_tendency!(
+    function dgsem_interface_tendency!(
         balance_law::BalanceLaw,
         ::Val{dim},
         ::Val{polyorder},
@@ -635,8 +636,8 @@ where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
 from volume to face, and Fⁱⁿᵛ⋆, Fᵛⁱˢᶜ⋆
 are the numerical fluxes for the inviscid and viscous
 fluxes, respectively.
-""" interface_tendency!
-@kernel function interface_tendency!(
+""" dgsem_interface_tendency!
+@kernel function dgsem_interface_tendency!(
     balance_law::BalanceLaw,
     ::Val{info},
     direction,
@@ -1415,7 +1416,7 @@ end
 end
 
 @doc """
-    function interface_gradients!(
+    function dgsem_interface_gradients!(
         balance_law::BalanceLaw,
         ::Val{dim},
         ::Val{polyorder},
@@ -1448,8 +1449,8 @@ This kernel computes the interface gradient term: M⁻¹ LᵀMf(G* - G),
 where M is the mass matrix, Mf is the face mass matrix, L is an interpolator
 from volume to face, G is the
 auxiliary gradient flux, and G* is the associated numerical flux.
-""" interface_gradients!
-@kernel function interface_gradients!(
+""" dgsem_interface_gradients!
+@kernel function dgsem_interface_gradients!(
     balance_law::BalanceLaw,
     ::Val{info},
     direction,
