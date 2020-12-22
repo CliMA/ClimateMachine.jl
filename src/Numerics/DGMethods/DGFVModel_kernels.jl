@@ -60,6 +60,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     elemtobndy,
     elems,
     α,
+    β,
+    increment,
 ) where {info, nvertelem, periodicstack}
     @uniform begin
         dim = info.dim
@@ -521,7 +523,16 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             @unroll for s in 1:num_state_prognostic
                 local_tendency[s] += α * sM * vMI[1] * local_flux[s]
 
-                tendency[n, s, eH + eV_dn] += local_tendency[s]
+                if increment
+                    tendency[n, s, eH + eV_dn] += local_tendency[s]
+                else
+                    if β != 0
+                        T = local_tendency[s] + β * tendency[n, s, eH + eV_dn]
+                    else
+                        T = local_tendency[s]
+                    end
+                    tendency[n, s, eH + eV_dn] = T
+                end
 
                 # Store contribution to the top element tendency
                 local_tendency[s] = -α * sM * vMI[2] * local_flux[s]
@@ -532,7 +543,18 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 # If periodic just add in the tendency that we just computed
                 if periodicstack
                     @unroll for s in 1:num_state_prognostic
-                        tendency[n, s, eH + eV_up] += local_tendency[s]
+                        if increment
+                            tendency[n, s, eH + eV_up] += local_tendency[s]
+                        else
+                            if β != 0
+                                T =
+                                    local_tendency[s] +
+                                    β * tendency[n, s, eH + eV_up]
+                            else
+                                T = local_tendency[s]
+                            end
+                            tendency[n, s, eH + eV_up] = T
+                        end
                     end
                 else
                     # Load surface metrics for the face we will update
@@ -604,7 +626,18 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
                     @unroll for s in 1:num_state_prognostic
                         local_tendency[s] -= α * sM * vMI[2] * local_flux[s]
-                        tendency[n, s, eH + eV_up] += local_tendency[s]
+                        if increment
+                            tendency[n, s, eH + eV_up] += local_tendency[s]
+                        else
+                            if β != 0
+                                T =
+                                    local_tendency[s] +
+                                    β * tendency[n, s, eH + eV_up]
+                            else
+                                T = local_tendency[s]
+                            end
+                            tendency[n, s, eH + eV_up] = T
+                        end
                     end
                 end
             end
@@ -626,6 +659,7 @@ end
     t,
     elemtobndy,
     elems,
+    increment,
 ) where {info, nvertelem, periodicstack}
     @uniform begin
 
@@ -807,7 +841,11 @@ end
         # This is the surface integral evaluated discretely
         # M^(-1) Mf G*
         @unroll for s in 1:num_state_gradient_flux
-            state_gradient_flux[n, s, e] += local_state_gradient_flux[s]
+            if increment
+                state_gradient_flux[n, s, e] += local_state_gradient_flux[s]
+            else
+                state_gradient_flux[n, s, e] = local_state_gradient_flux[s]
+            end
         end
     end
 end

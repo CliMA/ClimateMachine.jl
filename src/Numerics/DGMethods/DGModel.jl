@@ -323,7 +323,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         t,
         α,
         β;
-        dependencies = (comp_stream,),
+        dependencies = comp_stream,
     )
 
     comp_stream = launch_interface_tendency!(
@@ -334,7 +334,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         α,
         β;
         surface = :interior,
-        dependencies = (comp_stream,),
+        dependencies = comp_stream,
     )
 
     if communicate
@@ -1432,7 +1432,10 @@ function launch_interface_gradients!(
                 spacedisc.grid.sgeo,
                 t,
                 spacedisc.grid.elemtobndy,
-                elems;
+                elems,
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                spacedisc.direction isa EveryDirection,
                 ndrange = ndrange,
                 dependencies = comp_stream,
             )
@@ -2058,7 +2061,11 @@ function launch_interface_tendency!(
                 t,
                 spacedisc.grid.elemtobndy,
                 elems,
-                α;
+                α,
+                β,
+                # If we are computing in every direction, we need to
+                # increment after we compute the horizontal values
+                spacedisc.direction isa EveryDirection,
                 ndrange = ndrange,
                 dependencies = comp_stream,
             )
