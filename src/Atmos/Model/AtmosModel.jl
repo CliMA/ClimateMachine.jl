@@ -985,9 +985,13 @@ function numerical_flux_first_order!(
     ρ̃ = sqrt(ρ⁻ * ρ⁺)
     ũ = roe_average(ρ⁻, ρ⁺, u⁻, u⁺)
     h̃ = roe_average(ρ⁻, ρ⁺, h⁻, h⁺)
-    c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
 
-    c̃ = sqrt((γ - 1) * (h̃ - 0.5 * ũ'*ũ - Φ))
+    # c̃ = sqrt(roe_average(ρ⁻, ρ⁺, c⁻^2, c⁺^2))
+    c̃ = sound_speed_from_enthalpy( 
+        param_set,
+        h̃,
+        ũ'*ũ,
+        Φ)
 
     ũᵀn = ũ' * normal_vector
 

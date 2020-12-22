@@ -55,6 +55,7 @@ export specific_enthalpy
 export total_specific_enthalpy
 export moist_static_energy
 export saturated
+export sound_speed_from_enthalpy
 
 heavisided(x) = (x > 0) * x
 
@@ -335,6 +336,39 @@ function air_temperature(
         e_int - (q.tot - q.liq) * _e_int_v0 + q.ice * (_e_int_v0 + _e_int_i0)
     ) / cv_m(param_set, q)
 end
+
+"""
+    air_temperature_from_enthalpy(param_set, e_int, q::PhasePartition)
+
+The air temperature, where
+
+ - `param_set` an `AbstractParameterSet`, see the [`Thermodynamics`](@ref) for more details
+ - `e_int` internal energy per unit mass
+and, optionally,
+ - `q` [`PhasePartition`](@ref). Without this argument, the results are for dry air.
+"""
+function sound_speed_from_enthalpy(
+    param_set::APS,
+    h::FT,
+    e_kin::FT,
+    e_pot::FT,
+    q::PhasePartition{FT} = q_pt_0(FT),
+) where {FT <: Real}
+    _R_m = gas_constant_air(param_set, q)
+    _cv_m = cv_m(param_set, q)
+    _cp_m = cp_m(param_set, q)
+
+    _T_0::FT = T_0(param_set)
+    _e_int_v0::FT = e_int_v0(param_set)
+    _e_int_i0::FT = e_int_i0(param_set)
+
+    T = (h + _T_0*_cv_m - e_kin - e_pot - (q.tot - q.liq) * _e_int_v0 + q.ice * (_e_int_v0 + _e_int_i0)) / (_cv_m + _R_m)
+
+    γ = _cp_m / _cv_m
+
+    return sqrt(γ * _R_m * T)
+end
+
 
 """
     air_temperature(ts::ThermodynamicState)
