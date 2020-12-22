@@ -26,6 +26,16 @@ function flux(::ViscousFlux{Energy}, atmos, args)
     return τ * state.ρu
 end
 
+function flux(::HyperdiffViscousFlux{Energy}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
+end
+
+function flux(::HyperdiffEnthalpyFlux{Energy}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
+end
+
 struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
     @unpack state, aux, t, diffusive = args

@@ -52,7 +52,7 @@ using ..BalanceLaws
 
 import ..BalanceLaws:
     vars_state,
-    flux_second_order!,
+    eq_tends,
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!
@@ -96,7 +96,7 @@ Abstract type for constant viscosity models
 abstract type ConstantViscosity <: TurbulenceClosureModel end
 
 """
-    Abstract type for Hyperdiffusion models
+    Abstract type for HyperDiffusion models
 """
 abstract type HyperDiffusion end
 
@@ -170,7 +170,6 @@ function transform_post_gradient_laplacian!(
     aux::Vars,
     t::Real,
 ) end
-function flux_second_order!(h::HyperDiffusion, flux::Grad, args) end
 function compute_gradient_flux!(
     h::HyperDiffusion,
     diffusive::Vars,
@@ -880,14 +879,6 @@ function transform_post_gradient_laplacian!(
     hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄_q_tot * ∇Δq_tot
 end
 
-function flux_second_order!(h::EquilMoistBiharmonic, flux::Grad, args)
-    @unpack state, hyperdiffusive = args
-    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
-    flux.moisture.ρq_tot += hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρ
-end
-
 """
   DryBiharmonic{FT} <: HyperDiffusion
 
@@ -953,13 +944,6 @@ function transform_post_gradient_laplacian!(
     ν₄ = (aux.hyperdiffusion.Δ / 2)^4 / 2 / τ_timescale
     hyperdiffusive.hyperdiffusion.ν∇³u_h = ν₄ * ∇Δu_h
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
-end
-
-function flux_second_order!(h::DryBiharmonic, flux::Grad, args)
-    @unpack state, hyperdiffusive = args
-    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
 end
 
 # ### [Viscous Sponge](@id viscous-sponge)
@@ -1028,5 +1012,66 @@ function sponge_viscosity_modifier(
     end
     return (ν, D_t, τ)
 end
+
+const Biharmonic = Union{EquilMoistBiharmonic, DryBiharmonic}
+
+export HyperdiffEnthalpyFlux
+struct HyperdiffEnthalpyFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
+
+export HyperdiffViscousFlux
+struct HyperdiffViscousFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
+
+export hyperdiff_enthalpy_and_momentum_flux
+
+"""
+    hyperdiff_enthalpy_and_momentum_flux(
+        ::PrognosticVariable,
+        ::HyperDiffusion,
+        ::AbstractTendencyType,
+    )
+
+A tuple of the hyperdiffusive enthalpy
+and viscous flux types based on the
+diffusive model.
+"""
+function hyperdiff_enthalpy_and_momentum_flux end
+
+# empty tuple by default
+hyperdiff_enthalpy_and_momentum_flux(
+    pv::PV,
+    ::HyperDiffusion,
+    ::Flux{SecondOrder},
+) where {PV} = ()
+
+# Enthalpy and viscous for Biharmonic model
+hyperdiff_enthalpy_and_momentum_flux(
+    pv::PV,
+    ::Biharmonic,
+    ::Flux{SecondOrder},
+) where {PV} = (HyperdiffEnthalpyFlux{PV}(), HyperdiffViscousFlux{PV}())
+
+export hyperdiff_momentum_flux
+"""
+    hyperdiff_momentum_flux(
+        ::PrognosticVariable,
+        ::HyperDiffusion,
+        ::AbstractTendencyType,
+    )
+
+A tuple of the hyperdiffusive viscous
+flux types based on the diffusive model.
+"""
+function hyperdiff_momentum_flux end
+
+# empty tuple by default
+hyperdiff_momentum_flux(
+    pv::PV,
+    ::HyperDiffusion,
+    ::Flux{SecondOrder},
+) where {PV} = ()
+
+# Viscous for Biharmonic model
+hyperdiff_momentum_flux(pv::PV, ::Biharmonic, ::Flux{SecondOrder}) where {PV} =
+    (HyperdiffViscousFlux{PV}(),)
 
 end #module TurbulenceClosures.jl
