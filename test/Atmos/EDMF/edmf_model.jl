@@ -349,5 +349,5 @@ turbconv_filters(m::EDMF) = (
     "turbconv.updraft",
 )
 n_quad_points(m::Environment{FT, N_quad}) where {FT, N_quad} = N_quad
-turbconv_sources(m::EDMF) = (TurbconvSource(),)
+turbconv_sources(m::EDMF) = ()
 turbconv_bcs(::EDMF) = (EDMFBottomBC(), EDMFTopBC())

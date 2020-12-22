@@ -16,10 +16,6 @@ HeldSuarezForcing() =
     (HeldSuarezForcing{Momentum}(), HeldSuarezForcing{Energy}())
 
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
-
-filter_source(pv::PV, m, s::HeldSuarezForcing{PV}) where {PV} = s
-atmos_source!(::HeldSuarezForcing, args...) = nothing
 
 function held_suarez_forcing_coefficients(bl, args)
     @unpack state, aux = args
