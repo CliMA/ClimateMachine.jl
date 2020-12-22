@@ -29,8 +29,9 @@ using ..TurbulenceClosures: turbulence_tensors
 
 include("diagnostic_fields.jl")
 include("vorticity_balancelaw.jl")
+include("hyperdiffusion_balancelaw.jl")
 
-mutable struct VorticityBLState <: DiagnosticsGroupParams
+mutable struct VorticityBLState
     bl::Union{Nothing, VorticityModel}
     dg::Union{Nothing, DGModel}
     state::Union{Nothing, MPIStateArray}
@@ -39,14 +40,33 @@ mutable struct VorticityBLState <: DiagnosticsGroupParams
     VorticityBLState() = new(nothing, nothing, nothing, nothing)
 end
 
+mutable struct HyperdiffusionBLState
+    bl::Union{Nothing, DryBiharmonicModel}
+    dg::Union{Nothing, DGModel}
+    state::Union{Nothing, MPIStateArray}
+    dQ::Union{Nothing, MPIStateArray}
+
+    HyperdiffusionBLState() = new(nothing, nothing, nothing, nothing)
+end
+
+struct AtmosGCMAdditionalDiagnosticsParams{FT} <: DiagnosticsGroupParams
+    timescale::FT
+    vort_state::VorticityBLState
+    hyper_state::HyperdiffusionBLState
+
+    AtmosGCMAdditionalDiagnosticsParams(timescale::FT) where {FT} =
+        new{FT}(timescale, VorticityBLState(), HyperdiffusionBLState())
+end
+
 """
     setup_atmos_default_diagnostics(
         ::AtmosGCMConfigType,
         interval::String,
         out_prefix::String;
-        writer::AbstractWriter,
+        timescale = Inf,
+        writer = NetCDFWriter(),
         interpol = nothing,
-    )
+    ) where {FT}
 
 Create the "AtmosGCMDefault" `DiagnosticsGroup` which contains the following
 diagnostic variables:
@@ -74,6 +94,13 @@ variables are also output:
 - thv: virtual potential temperature
 - thl: liquid-ice potential temperature
 
+When `DryBiharmonic` hyperdiffusion is used, the following diagnostic
+variables are also output:
+
+- hyper_e: hyperdiffusion tendency for total energy
+- hyper_u: hyperdiffusion tendency for zonal velocity
+- hyper_v: hyperdiffusion tendency for meridional velocity
+
 All these variables are output with `lat`, `long`, and `level` dimensions
 of an interpolated grid (`interpol` _must_ be specified) as well as a
 (unlimited) `time` dimension at the specified `interval`.
@@ -82,9 +109,10 @@ function setup_atmos_default_diagnostics(
     ::AtmosGCMConfigType,
     interval::String,
     out_prefix::String;
+    timescale = Inf,
     writer = NetCDFWriter(),
     interpol = nothing,
-)
+) where {FT}
     # TODO: remove this
     @assert !isnothing(interpol)
 
@@ -97,7 +125,7 @@ function setup_atmos_default_diagnostics(
         out_prefix,
         writer,
         interpol,
-        VorticityBLState(),
+        AtmosGCMAdditionalDiagnosticsParams(timescale),
     )
 end
 
@@ -119,6 +147,10 @@ function vars_atmos_gcm_default_simple_3d(atmos::AtmosModel, FT)
         vort2::FT               # Ω_bl₃
 
         moisture::vars_atmos_gcm_default_simple_3d(atmos.moisture, FT)
+        hyperdiffusion::vars_atmos_gcm_default_simple_3d(
+            atmos.hyperdiffusion,
+            FT,
+        )
     end
 end
 vars_atmos_gcm_default_simple_3d(::MoistureModel, FT) = @vars()
@@ -133,6 +165,14 @@ function vars_atmos_gcm_default_simple_3d(m::EquilMoist, FT)
 
     end
 end
+vars_atmos_gcm_default_simple_3d(::HyperDiffusion, FT) = @vars()
+function vars_atmos_gcm_default_simple_3d(h::DryBiharmonic, FT)
+    @vars begin
+        hyper_e::FT
+        hyper_u::FT
+        hyper_v::FT
+    end
+end
 num_atmos_gcm_default_simple_3d_vars(m, FT) =
     varsize(vars_atmos_gcm_default_simple_3d(m, FT))
 atmos_gcm_default_simple_3d_vars(m, array) =
@@ -143,8 +183,9 @@ function atmos_gcm_default_simple_3d_vars!(
     atmos::AtmosModel,
     state_prognostic,
     thermo,
-    dyni,
-    dyn_bli,
+    dyn_vort,
+    dyn_vort2,
+    dyn_hd,
     vars,
 )
     vars.u = state_prognostic.ρu[1] / state_prognostic.ρ
@@ -160,14 +201,21 @@ function atmos_gcm_default_simple_3d_vars!(
     vars.ht = thermo.h_tot
     vars.hi = thermo.h_int
 
-    vars.vort = dyni.Ω₃
+    vars.vort = dyn_vort.Ω₃
 
-    vars.vort2 = dyn_bli.Ω_bl₃
+    vars.vort2 = dyn_vort2.Ω_bl₃
 
     atmos_gcm_default_simple_3d_vars!(
         atmos.moisture,
         state_prognostic,
         thermo,
+        vars,
+    )
+    atmos_gcm_default_simple_3d_vars!(
+        atmos.hyperdiffusion,
+        state_prognostic,
+        thermo,
+        dyn_hd,
         vars,
     )
 
@@ -196,25 +244,57 @@ function atmos_gcm_default_simple_3d_vars!(
 
     return nothing
 end
+function atmos_gcm_default_simple_3d_vars!(
+    ::HyperDiffusion,
+    state_prognostic,
+    thermo,
+    dyn_hd,
+    vars,
+)
+    return nothing
+end
+function atmos_gcm_default_simple_3d_vars!(
+    h::DryBiharmonic,
+    state_prognostic,
+    thermo,
+    dyn_hd,
+    vars,
+)
+    vars.hyperdiffusion.hyper_e = dyn_hd.he_bl
+    vars.hyperdiffusion.hyper_u = dyn_hd.hu_bl₁
+    vars.hyperdiffusion.hyper_v = dyn_hd.hu_bl₂
+
+    return nothing
+end
 
 # Dynamic variables
-function vars_dyn(FT)
+function vars_dyn_vort(FT)
     @vars begin
         Ω₁::FT
         Ω₂::FT
         Ω₃::FT
     end
 end
-dyn_vars(array) = Vars{vars_dyn(eltype(array))}(array)
+dyn_vort_vars(array) = Vars{vars_dyn_vort(eltype(array))}(array)
 
-function vars_dyn_bl(FT)
+function vars_dyn_vort2(FT)
     @vars begin
         Ω_bl₁::FT
         Ω_bl₂::FT
         Ω_bl₃::FT
     end
 end
-dyn_bl_vars(array) = Vars{vars_dyn_bl(eltype(array))}(array)
+dyn_vort2_vars(array) = Vars{vars_dyn_vort2(eltype(array))}(array)
+
+function vars_dyn_hd(FT)
+    @vars begin
+        he_bl::FT
+        hu_bl₁::FT
+        hu_bl₂::FT
+        hu_bl₃::FT
+    end
+end
+dyn_hd_vars(array) = Vars{vars_dyn_hd(eltype(array))}(array)
 
 
 """
@@ -238,8 +318,10 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
         return nothing
     end
 
+    params = dgngrp.params
+
     # set up the vorticity mini balance law
-    vort_state = dgngrp.params
+    vort_state = params.vort_state
     vort_state.bl = VorticityModel()
     vort_state.dg = DGModel(
         vort_state.bl,
@@ -255,6 +337,29 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
         nstate = 3,
     )
 
+    # set up the hyperdiffusion mini balance law
+    hyper_state = params.hyper_state
+    if atmos.hyperdiffusion isa DryBiharmonic && isfinite(params.timescale)
+        hyper_state.bl = DryBiharmonicModel(
+            atmos.param_set,
+            atmos.orientation,
+            params.timescale,
+        )
+        hyper_state.dg = DGModel(
+            hyper_state.bl,
+            grid,
+            CentralNumericalFluxFirstOrder(),
+            CentralNumericalFluxSecondOrder(),
+            CentralNumericalFluxGradient(),
+        )
+        hyper_state.state = init_ode_state(hyper_state.dg, FT(0))
+        hyper_state.dQ = similar(
+            hyper_state.state;
+            vars = @vars(hyper_e::FT, hyper_u::SVector{3, FT}),
+            nstate = 4,
+        )
+    end
+
     if mpirank == 0
         # get dimensions for the interpolated grid
         dims = dimensions(dgngrp.interpol)
@@ -269,7 +374,7 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
         # set up the variables we're going to be writing
         vars = OrderedDict()
         varnames = map(
-            s -> startswith(s, "moisture.") ? s[10:end] : s,
+            prefix_filter,
             flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
         )
         for varname in varnames
@@ -306,7 +411,9 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
             """
         return nothing
     end
-    vort_state = dgngrp.params
+    params = dgngrp.params
+    vort_state = params.vort_state
+    hyper_state = params.hyper_state
 
     mpicomm = Settings.mpicomm
     dg = Settings.dg
@@ -343,13 +450,30 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     vort = Vorticity(dg, vgrad)
 
     # run the vorticity mini balance law
-    ix_ρu = varsindex(vars(Q), :ρu)
     ix_ρ = varsindex(vars(Q), :ρ)
+    ix_ρu = varsindex(vars(Q), :ρu)
+    ix_ρe = varsindex(vars(Q), :ρe)
     ρ = Q.data[:, ix_ρ, :]
-    u = Q.data[:, ix_ρu, :] ./ ρ
+    ρu = Q.data[:, ix_ρu, :]
+    ρe = Q.data[:, ix_ρe, :]
+    u = ρu ./ ρ
+    ix_temperature =
+        varsindex(vars(dg.state_auxiliary), :moisture, :temperature)
+    temperature = dg.state_auxiliary.data[:, ix_temperature, :]
 
     vort_state.dg.state_auxiliary.data .= u
     vort_state.dg(vort_state.dQ, vort_state.state, nothing, FT(0))
+
+    # run the hyperdiffusion mini balance law
+    do_hyperdiffusion =
+        atmos.hyperdiffusion isa DryBiharmonic && isfinite(params.timescale)
+    if do_hyperdiffusion
+        hyper_state.dg.state_auxiliary.ρ .= ρ
+        hyper_state.dg.state_auxiliary.ρu .= ρu
+        hyper_state.dg.state_auxiliary.ρe .= ρe
+        hyper_state.dg.state_auxiliary.temperature .= temperature
+        hyper_state.dg(hyper_state.dQ, hyper_state.state, nothing, FT(0))
+    end
 
     # Compute thermo variables element-wise
     thermo_array = Array{FT}(undef, npoints, num_thermo(atmos, FT), nrealelem)
@@ -370,25 +494,42 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     ithermo = ArrayType{FT}(undef, interpol.Npl, num_thermo(atmos, FT))
     interpolate_local!(interpol, ArrayType(thermo_array), ithermo)
 
-    idyn = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
-    interpolate_local!(interpol, vort.data, idyn)
+    idyn_vort = ArrayType{FT}(undef, interpol.Npl, size(vort.data, 2))
+    interpolate_local!(interpol, vort.data, idyn_vort)
 
-    idyn_bl = ArrayType{FT}(undef, interpol.Npl, size(vort_state.dQ.data, 2))
-    interpolate_local!(interpol, vort_state.dQ.data, idyn_bl)
+    idyn_vort2 = ArrayType{FT}(undef, interpol.Npl, size(vort_state.dQ.data, 2))
+    interpolate_local!(interpol, vort_state.dQ.data, idyn_vort2)
+
+    idyn_hd = nothing
+    if do_hyperdiffusion
+        idyn_hd =
+            ArrayType{FT}(undef, interpol.Npl, size(hyper_state.dQ.data, 2))
+        interpolate_local!(interpol, hyper_state.dQ.data, idyn_hd)
+    end
 
     # TODO: get indices here without hard-coding them
     _ρu, _ρv, _ρw = 2, 3, 4
     project_cubed_sphere!(interpol, istate, (_ρu, _ρv, _ρw))
     _Ω₁, _Ω₂, _Ω₃ = 1, 2, 3
-    project_cubed_sphere!(interpol, idyn, (_Ω₁, _Ω₂, _Ω₃))
-    project_cubed_sphere!(interpol, idyn_bl, (_Ω₁, _Ω₂, _Ω₃))
-
+    project_cubed_sphere!(interpol, idyn_vort, (_Ω₁, _Ω₂, _Ω₃))
+    project_cubed_sphere!(interpol, idyn_vort2, (_Ω₁, _Ω₂, _Ω₃))
+    if do_hyperdiffusion
+        _u₁, _u₂, _u₃ = 2, 3, 4
+        project_cubed_sphere!(interpol, idyn_hd, (_u₁, _u₂, _u₃))
+    end
 
     # FIXME: accumulating to rank 0 is not scalable
     all_state_data = accumulate_interpolated_data(mpicomm, interpol, istate)
     all_thermo_data = accumulate_interpolated_data(mpicomm, interpol, ithermo)
-    all_dyn_data = accumulate_interpolated_data(mpicomm, interpol, idyn)
-    all_dyn_bl_data = accumulate_interpolated_data(mpicomm, interpol, idyn_bl)
+    all_dyn_vort_data =
+        accumulate_interpolated_data(mpicomm, interpol, idyn_vort)
+    all_dyn_vort2_data =
+        accumulate_interpolated_data(mpicomm, interpol, idyn_vort2)
+    all_dyn_hd_data = nothing
+    if do_hyperdiffusion
+        all_dyn_hd_data =
+            accumulate_interpolated_data(mpicomm, interpol, idyn_hd)
+    end
 
     if mpirank == 0
         # get dimensions for the interpolated grid
@@ -416,8 +557,12 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 :,
             ))
             thermoi = thermo_vars(atmos, view(all_thermo_data, lo, la, le, :))
-            dyni = dyn_vars(view(all_dyn_data, lo, la, le, :))
-            dyn_bli = dyn_bl_vars(view(all_dyn_bl_data, lo, la, le, :))
+            dyni_vort = dyn_vort_vars(view(all_dyn_vort_data, lo, la, le, :))
+            dyni_vort2 = dyn_vort2_vars(view(all_dyn_vort2_data, lo, la, le, :))
+            dyni_hd = nothing
+            if do_hyperdiffusion
+                dyni_hd = dyn_hd_vars(view(all_dyn_hd_data, lo, la, le, :))
+            end
             simple_3d_vars = atmos_gcm_default_simple_3d_vars(
                 atmos,
                 view(simple_3d_vars_array, lo, la, le, :),
@@ -427,8 +572,9 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
                 atmos,
                 statei,
                 thermoi,
-                dyni,
-                dyn_bli,
+                dyni_vort,
+                dyni_vort2,
+                dyni_hd,
                 simple_3d_vars,
             )
         end
@@ -436,7 +582,7 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
         # assemble the diagnostics for writing
         varvals = OrderedDict()
         varnames = map(
-            s -> startswith(s, "moisture.") ? s[10:end] : s,
+            prefix_filter,
             flattenednames(vars_atmos_gcm_default_simple_3d(atmos, FT)),
         )
         for (vari, varname) in enumerate(varnames)

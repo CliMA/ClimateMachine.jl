@@ -541,4 +541,24 @@ function setup_variables()
         "vort2",
         var_attrib("s^-1", "vorticity from DG kernels", ""),
     )
+    Variables["hyper_e"] = DiagnosticVariable(
+        "hyper_e",
+        var_attrib("m^2 s^-2", "hyperdiffusion tendency for total energy", ""),
+    )
+    Variables["hyper_u"] = DiagnosticVariable(
+        "hyper_u",
+        var_attrib(
+            "kg m^-2 s^-2",
+            "hyperdiffusion tendency for zonal velocity",
+            "",
+        ),
+    )
+    Variables["hyper_v"] = DiagnosticVariable(
+        "hyper_v",
+        var_attrib(
+            "kg m^-2 s^-2",
+            "hyperdiffusion tendency for meridional velocity",
+            "",
+        ),
+    )
 end

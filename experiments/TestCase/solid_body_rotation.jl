@@ -84,6 +84,8 @@ function main()
     n_vert = 4                               # vertical element number
     timestart::FT = 0                        # start time (s)
     timeend::FT = 7200
+    dgn_ssecs = (timeend / 2) + 10
+    dgn_interval = "$(dgn_ssecs)ssecs"
 
     # Set up a reference state for linearization of equations
     temp_profile_ref =
@@ -141,7 +143,7 @@ function main()
     solver_config.Q .= init_solver_config.Q
 
     # Set up diagnostics
-    dgn_config = config_diagnostics(FT, driver_config)
+    dgn_config = config_diagnostics(FT, driver_config, dgn_interval)
 
     # Set up user-defined callbacks
     filterorder = 20
@@ -173,9 +175,7 @@ function main()
     @test relative_error < 1e-9
 end
 
-function config_diagnostics(FT, driver_config)
-    interval = "0.5shours" # chosen to allow diagnostics every 30 simulated minutes
-
+function config_diagnostics(FT, driver_config, interval)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info

@@ -499,16 +499,6 @@ function atmos_les_default_ho_sums!(
     return nothing
 end
 
-function prefix_filter(s)
-    if startswith(s, "moisture.")
-        s[10:end]
-    elseif startswith(s, "precipitation.")
-        s[15:end]
-    else
-        s
-    end
-end
-
 """
     atmos_les_default_init(dgngrp, currtime)
 
