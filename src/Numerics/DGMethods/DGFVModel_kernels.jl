@@ -62,6 +62,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     α,
     β,
     increment,
+    add_source,
 ) where {info, nvertelem, periodicstack}
     @uniform begin
         dim = info.dim
@@ -152,6 +153,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
         # Storage for the tendency
         local_tendency = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
 
         # XXX: will revisit this later for FVM
         fill!(local_state_prognostic_bottom1, NaN)
@@ -517,6 +519,24 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 t,
             )
 
+            if add_source
+                fill!(local_source, -zero(eltype(local_source)))
+                source!(
+                    balance_law,
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(
+                        local_source,
+                    ),
+                    Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[stencil_center - 1],),
+                    Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[stencil_center - 1],),
+                    Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[stencil_center - 1],),
+                    t,
+                    (VerticalDirection(),),
+                )
+                @unroll for s in 1:num_state_prognostic
+                    local_tendency[s] += local_source[s]
+                end
+            end
+
             # Update the bottom element:
             # numerical flux is computed with respect to the top element, so
             # `+=` is used to reverse the flux
@@ -540,6 +560,23 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             # Update top element of the stack
             if eV_up == nvertelem
+                if add_source
+                    fill!(local_source, -zero(eltype(local_source)))
+                    source!(
+                        balance_law,
+                        Vars{vars_state(balance_law, Prognostic(), FT)}(
+                            local_source,
+                        ),
+                        Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[stencil_center],),
+                        Vars{vars_state(balance_law, GradientFlux(), FT)}(local_state_gradient_flux[stencil_center],),
+                        Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[stencil_center],),
+                        t,
+                        (VerticalDirection(),),
+                    )
+                    @unroll for s in 1:num_state_prognostic
+                        local_tendency[s] += local_source[s]
+                    end
+                end
                 # If periodic just add in the tendency that we just computed
                 if periodicstack
                     @unroll for s in 1:num_state_prognostic

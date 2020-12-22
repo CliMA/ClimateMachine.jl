@@ -1864,8 +1864,10 @@ function launch_volume_tendency!(
             spacedisc.grid.topology.realelems,
             α,
             β,
-            # If the model direction is horizontal, we want to be sure to add sources
-            spacedisc.direction isa HorizontalDirection,
+            # If the model direction is horizontal or FV in the vertical,
+            # we want to be sure to add sources
+            spacedisc.direction isa HorizontalDirection ||
+            spacedisc isa DGFVModel,
             ndrange = ndrange,
             dependencies = comp_stream,
         )
@@ -2066,6 +2068,9 @@ function launch_interface_tendency!(
                 # If we are computing in every direction, we need to
                 # increment after we compute the horizontal values
                 spacedisc.direction isa EveryDirection,
+                # If we are computing in vertical direction, we need to
+                # add sources here
+                spacedisc.direction isa VerticalDirection,
                 ndrange = ndrange,
                 dependencies = comp_stream,
             )
