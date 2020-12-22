@@ -39,7 +39,7 @@ Given two values `Δ1` and `Δ2`, should return the value of
 ```
 Δ2 * ϕ(Δ1 / Δ2)
 ```
-where `0 ≤ ϕ(r) ≤ 2` is the slope slope limiter
+where `0 ≤ ϕ(r) ≤ 2` is the slope limiter
 """
 abstract type AbstractSlopeLimiter end
 

@@ -80,7 +80,7 @@ function do_output(
     testname;
     number_sample_points = 0,
 )
-    ## name of the file that this MPI rank will write
+    ## Name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
         vtkdir,
@@ -99,12 +99,12 @@ function do_output(
         number_sample_points = number_sample_points,
     )
 
-    ## generate the pvtu file for these vtk files
+    ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
-        ## name of the pvtu file
+        ## Name of the pvtu file
         pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
 
-        ## name of each of the ranks vtk files
+        ## Name of each of the ranks vtk files
         prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
@@ -175,14 +175,14 @@ function test_run(
     end
     callbacks = (cbinfo,)
     if ~isnothing(vtkdir)
-        # create vtk dir
+        # Create vtk dir
         if MPI.Comm_rank(mpicomm) == 0
             mkpath(vtkdir)
         end
         MPI.Barrier(mpicomm)
 
         vtkstep = 0
-        # output initial step
+        # Output initial step
         do_output(
             mpicomm,
             vtkdir,
@@ -194,7 +194,7 @@ function test_run(
             number_sample_points = N[1] + 1,
         )
 
-        # setup the output callback
+        # Setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
             Qe = init_ode_state(dg, gettime(odesolver))

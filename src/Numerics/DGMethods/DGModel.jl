@@ -210,7 +210,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
     num_state_tendency = size(tendency, 2)
 
     if num_state_prognostic < num_state_tendency && β != 1
-        # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
+        # If we don't operate on the full state, then we need to scale here instead of volume_tendency!
         tendency .*= β
         β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!
     end
@@ -267,7 +267,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
                 dependencies = exchange_state_prognostic,
             )
 
-            # update_aux may start asynchronous work on the compute device and
+            # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
@@ -299,7 +299,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
         end
 
         if num_state_gradient_flux > 0
-            # update_aux_diffusive may start asynchronous work on the compute device
+            # Update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
             wait(device, comp_stream)
             update_auxiliary_state_gradient!(
@@ -344,7 +344,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
                 dependencies = exchange_state_gradient_flux,
             )
 
-            # update_aux_diffusive may start asynchronous work on the
+            # Update_aux_diffusive may start asynchronous work on the
             # compute device and we synchronize those here through a device
             # event.
             wait(device, exchange_state_gradient_flux)
@@ -362,7 +362,7 @@ function (dgfvm::DGFVModel)(tendency, state_prognostic, _, t, α, β)
                 dependencies = exchange_state_prognostic,
             )
 
-            # update_aux may start asynchronous work on the compute device and
+            # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
@@ -426,7 +426,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
     @assert num_state_prognostic ≤ num_state_tendency
 
     if num_state_prognostic < num_state_tendency && β != 1
-        # if we don't operate on the full state, then we need to scale here instead of volume_tendency!
+        # If we don't operate on the full state, then we need to scale here instead of volume_tendency!
         tendency .*= β
         β = β != 0 # if β==0 then we can avoid the memory load in volume_tendency!
     end
@@ -485,7 +485,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 dependencies = exchange_state_prognostic,
             )
 
-            # update_aux may start asynchronous work on the compute device and
+            # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
@@ -523,7 +523,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
         end
 
         if num_state_gradient_flux > 0
-            # update_aux_diffusive may start asynchronous work on the compute device
+            # Update_aux_diffusive may start asynchronous work on the compute device
             # and we synchronize those here through a device event.
             wait(device, comp_stream)
             update_auxiliary_state_gradient!(
@@ -655,7 +655,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                         dependencies = exchange_state_gradient_flux,
                     )
 
-                # update_aux_diffusive may start asynchronous work on the
+                # Update_aux_diffusive may start asynchronous work on the
                 # compute device and we synchronize those here through a device
                 # event.
                 wait(device, exchange_state_gradient_flux)
@@ -680,7 +680,7 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
                 dependencies = exchange_state_prognostic,
             )
 
-            # update_aux may start asynchronous work on the compute device and
+            # Update_aux may start asynchronous work on the compute device and
             # we synchronize those here through a device event.
             wait(device, exchange_state_prognostic)
             update_auxiliary_state!(
@@ -985,7 +985,7 @@ function update_auxiliary_state!(
 
     knl_nodal_update_auxiliary_state! =
         kernel_nodal_update_auxiliary_state!(device, min(Np, 1024))
-    ### update state_auxiliary variables
+    ### Update state_auxiliary variables
     event = Event(device)
     if diffusive
         event = knl_nodal_update_auxiliary_state!(

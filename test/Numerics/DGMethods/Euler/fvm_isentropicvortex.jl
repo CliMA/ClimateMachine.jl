@@ -45,7 +45,7 @@ function main()
 
     expected_error = Dict()
 
-    # just to make it shorter and aligning
+    # Just to make it shorter and aligning
     Roe = RoeNumericalFlux
 
     # Float64, Dim 2, degree 4 in the horizontal, FV order 1, refinement level
@@ -77,7 +77,7 @@ function main()
 
                     for level in 1:numlevels
 
-                        # match element numbers
+                        # Match element numbers
                         numelems = (
                             2^(level - 1) * 5,
                             2^(level - 1) * 5 * polynomialorder,
@@ -178,7 +178,7 @@ function test_run(
 
     timeend = FT(2 * setup.domain_halflength / 10 / setup.translation_speed)
 
-    # determine the time step
+    # Determine the time step
     elementsize = minimum(step.(brickrange))
     dt =
         elementsize / soundspeed_air(model.param_set, setup.T∞) /
@@ -218,17 +218,17 @@ function test_run(
     callbacks = (cbinfo,)
 
     if output_vtk
-        # create vtk dir
+        # Create vtk dir
         vtkdir =
             "vtk_isentropicvortex" *
             "_poly$(polynomialorder)_dims$(dims)_$(ArrayType)_$(FT)_level$(level)"
         mkpath(vtkdir)
 
         vtkstep = 0
-        # output initial step
+        # Output initial step
         do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Q, model)
 
-        # setup the output callback
+        # Setup the output callback
         outputtime = timeend
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
@@ -240,7 +240,7 @@ function test_run(
 
     solve!(Q, lsrk; timeend = timeend, callbacks = callbacks)
 
-    # final statistics
+    # Final statistics
     Qe = init_ode_state(dgfvm, timeend, setup)
     engf = norm(Q)
     engfe = norm(Qe)
@@ -291,7 +291,7 @@ function isentropicvortex_initialcondition!(
     u∞ = SVector(translation_speed * cos(α), translation_speed * sin(α), 0)
 
     x .-= u∞ * t
-    # make the function periodic
+    # Make the function periodic
     x .-= floor.((x .+ L) / 2L) * 2L
 
     @inbounds begin
@@ -303,7 +303,7 @@ function isentropicvortex_initialcondition!(
 
     _kappa_d::FT = kappa_d(param_set)
     T = T∞ * (1 - _kappa_d * vortex_speed^2 / 2 * ρ∞ / p∞ * exp(-(r / R)^2))
-    # adiabatic/isentropic relation
+    # Adiabatic/isentropic relation
     p = p∞ * (T / T∞)^(FT(1) / _kappa_d)
     ts = PhaseDry_pT(bl.param_set, p, T)
     ρ = air_density(ts)
@@ -325,7 +325,7 @@ function do_output(
     model,
     testname = "isentropicvortex",
 )
-    ## name of the file that this MPI rank will write
+    ## Name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
         vtkdir,
@@ -344,7 +344,7 @@ function do_output(
         ## name of the pvtu file
         pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
 
-        ## name of each of the ranks vtk files
+        ## Name of each of the ranks vtk files
         prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end

@@ -73,7 +73,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
         nface = info.nface
         Np = info.Np
-        Nqk = info.Nqk # can only be 1 for the FVM method!
+        Nqk = info.Nqk # Can only be 1 for the FVM method!
         @assert Nqk == 1
 
         # We only have the vertical faces
@@ -203,7 +203,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     # face in the nonperiodic case, or we need to reconstruct the periodic value
     # for the bottom face
     @inbounds begin
-        # If periodic we are doing the reconstruction in element periodically
+        # If periodic, we are doing the reconstruction in element periodically
         # below the first element, otherwise we are reconstructing the first
         # element
         eV = periodicstack ? nvertelem : 1
@@ -225,7 +225,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             local_cell_weights[k] = vgeo[n, _M, els[k]]
         end
 
-        # transform all the data into primitive variables
+        # Transform all the data into primitive variables
         @unroll for k in 1:stencil_diameter
             prognostic_to_primitive!(
                 balance_law,
@@ -363,7 +363,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # mod1 handles periodicity
             eV_dn = mod1(eV_up - 1, nvertelem)
 
-            # shift data in storage in order to load new upper element for
+            # Shift data in storage in order to load new upper element for
             # reconstruction
             # FIXME: shift pointers not data?
             @unroll for k in 1:(stencil_diameter - 1)
@@ -396,7 +396,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # mask out below as needed for boundary conditions)
             eV_load = mod1(eV_up + stencil_width, nvertelem)
 
-            # get element number
+            # Get element number
             e_load = eH + eV_load
 
             # Load the next cell into the end of the element arrays
@@ -411,7 +411,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             local_cell_weights[stencil_diameter] = vgeo[n, _M, e_load]
             vMI[2] = 1 / local_cell_weights[stencil_center]
 
-            # tranform the prognostic data to primitive data
+            # Tranform the prognostic data to primitive data
             prognostic_to_primitive!(
                 balance_law,
                 local_state_primitive[stencil_diameter],
@@ -698,27 +698,27 @@ end
         )
         sM = ntuple(k -> sgeo[_sM, n, faces[k], e], Val(2))
 
-        # volume mass same on both faces
+        # Volume mass same on both faces
         vMI = sgeo[_vMI, n, faces[1], e]
 
         # Get the mass matrix for each of the elements
         M = ntuple(k -> vgeo[n, _M, els[k]], Val(3))
 
-        # load prognostic data
+        # Load prognostic data
         @unroll for k in 1:3
             @unroll for s in 1:num_state_prognostic
                 local_state_prognostic[k][s] = state_prognostic[n, s, els[k]]
             end
         end
 
-        # load auxiliary data
+        # Load auxiliary data
         @unroll for k in 1:3
             @unroll for s in 1:num_state_auxiliary
                 local_state_auxiliary[k][s] = state_auxiliary[n, s, els[k]]
             end
         end
 
-        # transform to the gradient argument (i.e., the values we take the
+        # Transform to the gradient argument (i.e., the values we take the
         # gradient of)
         @unroll for k in 1:3
             fill!(l_grad_arg[k], -zero(eltype(l_grad_arg[k])))

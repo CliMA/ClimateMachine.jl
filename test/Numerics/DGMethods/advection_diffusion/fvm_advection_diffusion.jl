@@ -37,7 +37,7 @@ function init_velocity_diffusion!(
     # Direction of flow is n1 (resp n2 or n3) with magnitude α
     aux.advection.u = hcat(α * n1, α * n2, α * n3)
 
-    # diffusion of strength β in the n1 and n2 directions
+    # Diffusion of strength β in the n1 and n2 directions
     aux.diffusion.D = hcat(β * n1 * n1', β * n2 * n2', β * n3 * n3')
 end
 
@@ -88,7 +88,7 @@ function Neumann_data!(
 end
 
 function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
-    ## name of the file that this MPI rank will write
+    ## Name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
         vtkdir,
@@ -102,12 +102,12 @@ function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
 
     writevtk(filename, Q, dgfvm, statenames, Qe, exactnames)
 
-    ## generate the pvtu file for these vtk files
+    ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
-        ## name of the pvtu file
+        ## Name of the pvtu file
         pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
 
-        ## name of each of the ranks vtk files
+        ## Name of each of the ranks vtk files
         prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
@@ -236,11 +236,11 @@ function test_run(
     end
     callbacks = (cbinfo,)
     if ~isnothing(vtkdir)
-        # create vtk dir
+        # Create vtk dir
         mkpath(vtkdir)
 
         vtkstep = 0
-        # output initial step
+        # Output initial step
         do_output(
             mpicomm,
             vtkdir,
@@ -252,7 +252,7 @@ function test_run(
             "advection_diffusion",
         )
 
-        # setup the output callback
+        # Setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
             Qe = init_ode_state(dgfvm, gettime(solver))

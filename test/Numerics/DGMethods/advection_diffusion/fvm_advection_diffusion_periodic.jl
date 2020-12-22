@@ -37,11 +37,11 @@ function init_velocity_diffusion!(
     aux::Vars,
     geom::LocalGeometry,
 ) where {u, v, ν}
-    # advection velocity of the flow is [u, v]
+    # Advection velocity of the flow is [u, v]
     uvec = SVector(u, v, 0)
     aux.advection.u = hcat(uvec, uvec)
 
-    # diffusion of the flow is νI (isentropic diffusivity)
+    # Diffusion of the flow is νI (isentropic diffusivity)
     I3 = @SMatrix [1 0 0; 0 1 0; 0 0 1]
     aux.diffusion.D = hcat(0 * I3, ν * I3)
 
@@ -55,7 +55,7 @@ function initial_condition!(
     t,
 ) where {u, v, ν}
     FT = typeof(u)
-    # the computational domain is [-1.5 1.5]×[-1.5 1.5]
+    # The computational domain is [-1.5 1.5]×[-1.5 1.5]
     Lx, Ly = 3, 3
     x, y, _ = localgeo.coord
 
@@ -70,7 +70,7 @@ Dirichlet_data!(P::Pseudo1D, x...) = initial_condition!(P, x...)
 
 
 function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
-    ## name of the file that this MPI rank will write
+    ## Name of the file that this MPI rank will write
     filename = @sprintf(
         "%s/%s_mpirank%04d_step%04d",
         vtkdir,
@@ -86,10 +86,10 @@ function do_output(mpicomm, vtkdir, vtkstep, dgfvm, Q, Qe, model, testname)
 
     ## Generate the pvtu file for these vtk files
     if MPI.Comm_rank(mpicomm) == 0
-        ## name of the pvtu file
+        ## Name of the pvtu file
         pvtuprefix = @sprintf("%s/%s_step%04d", vtkdir, testname, vtkstep)
 
-        ## name of each of the ranks vtk files
+        ## Name of each of the ranks vtk files
         prefixes = ntuple(MPI.Comm_size(mpicomm)) do i
             @sprintf("%s_mpirank%04d_step%04d", testname, i - 1, vtkstep)
         end
@@ -126,7 +126,7 @@ function test_run(
     base_num_elem = 4
     Ne = 2^(level - 1) * base_num_elem
 
-    # match number of points 
+    # Match number of points
     N_dg_point, N_fvm_point = Ne + 1, Ne * polynomialorders[1] + 1
 
 
@@ -145,8 +145,8 @@ function test_run(
         boundary = bc,
     )
 
-    # one period 
-    timeend = Lx / u #
+    # One period
+    timeend = Lx / u
     # dt ≤ CFL (Δx / Np²)/u   u = √2  CFL = 1/√2
     dt = Lx / (Ne * polynomialorders[1]^2)
 
@@ -204,11 +204,11 @@ function test_run(
     end
     callbacks = (cbinfo,)
     if ~isnothing(vtkdir)
-        # create vtk dir
+        # Create vtk dir
         mkpath(vtkdir)
 
         vtkstep = 0
-        # output initial step
+        # Output initial step
         do_output(
             mpicomm,
             vtkdir,
@@ -220,7 +220,7 @@ function test_run(
             "advection_diffusion_periodic",
         )
 
-        # setup the output callback
+        # Setup the output callback
         cbvtk = EveryXSimulationSteps(floor(outputtime / dt)) do
             vtkstep += 1
             Qe = init_ode_state(dgfvm, gettime(solver))
