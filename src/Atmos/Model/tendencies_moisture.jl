@@ -47,6 +47,11 @@ function flux(::MoistureDiffusion{IceMoisture}, atmos, args)
     return d_q_ice * state.ρ
 end
 
+function flux(::HyperdiffViscousFlux{TotalMoisture}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρ
+end
+
 #####
 ##### Sources
 #####

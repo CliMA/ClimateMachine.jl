@@ -49,6 +49,7 @@ import ..BalanceLaws:
     reverse_integral_set_auxiliary_state!
 
 export DGModel,
+    DGFVModel,
     init_ode_state,
     restart_ode_state,
     restart_auxiliary_state,
@@ -58,9 +59,11 @@ export DGModel,
     courant
 
 include("custom_filter.jl")
+include("FVReconstructions.jl")
 include("NumericalFluxes.jl")
 include("DGModel.jl")
 include("DGModel_kernels.jl")
+include("DGFVModel_kernels.jl")
 include("create_states.jl")
 
 """

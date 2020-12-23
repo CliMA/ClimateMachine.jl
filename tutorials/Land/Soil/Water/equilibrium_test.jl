@@ -135,17 +135,17 @@ soil_param_functions = SoilParamFunctions{FT}(
 # Define the boundary conditions. The user can specify two conditions,
 # either at the top or at the bottom, and they can either be Dirichlet
 # (on `ϑ_l`) or Neumann (on `-K∇h`). Note that fluxes are supplied as
-# scalars, inside the code they are multiplied by ẑ. The two conditions
-# not supplied must be set to `nothing`.
+# scalars, inside the code they are multiplied by ẑ.
 
 surface_flux = (aux, t) -> eltype(aux)(0.0)
-bottom_flux = (aux, t) -> eltype(aux)(0.0)
-surface_state = nothing
-bottom_state = nothing
-bc = GeneralBoundaryConditions(
-    Dirichlet(surface_state = surface_state, bottom_state = bottom_state),
-    Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
-)
+bottom_flux = (aux, t) -> eltype(aux)(0.0);
+
+# Our problem is effectively 1D, so we do not need to specify lateral boundary
+# conditions.
+bc = LandDomainBC(
+    bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
+    surface_bc = LandComponentBC(soil_water = Neumann(surface_flux)),
+);
 
 # Define the initial state function. The default for `θ_i` is zero.
 ϑ_l0 = (aux) -> eltype(aux)(0.494);
@@ -161,7 +161,6 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(n = 2.0),
     initialϑ_l = ϑ_l0,
-    boundaries = bc,
 );
 
 # Create the soil model - the coupled soil water and soil heat models.
@@ -182,6 +181,7 @@ end
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil_water!,
 );

@@ -318,10 +318,55 @@ steps:
       queue: central
       slurm_ntasks: 2
 
+  - label: "cpu_fvm_advection_sphere"
+    key: "cpu_fvm_advection_sphere"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_sphere.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
+  - label: "cpu_fvm_swirl"
+    key: "cpu_fvm_swirl"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_swirl.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
   - label: "cpu_fvm_advection"
     key: "cpu_fvm_advection"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
+  - label: "cpu_fvm_advection_diffusion"
+    key: "cpu_fvm_advection_diffusion"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_diffusion.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
+  - label: "cpu_fvm_advection_diffusion_periodic"
+    key: "cpu_fvm_advection_diffusion_periodic"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_diffusion_periodic.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 2
+
+  - label: "cpu_fvm_isentropicvortex"
+    key: "cpu_fvm_isentropicvortex"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/fvm_isentropicvortex.jl "
     agents:
       config: cpu
       queue: central
@@ -511,6 +556,15 @@ steps:
     key: "cpu_soil_test_bc"
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
+  - label: "cpu_soil_test_bc_3d"
+    key: "cpu_soil_test_bc_3d"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc_3d.jl "
     agents:
       config: cpu
       queue: central
@@ -736,10 +790,60 @@ steps:
       slurm_ntasks: 2
       slurm_gres: "gpu:1"
 
+  - label: "gpu_fvm_advection_sphere"
+    key: "gpu_fvm_advection_sphere"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_sphere.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_fvm_swirl"
+    key: "gpu_fvm_swirl"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_swirl.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
   - label: "gpu_fvm_advection"
     key: "gpu_fvm_advection"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_fvm_advection_diffusion"
+    key: "gpu_fvm_advection_diffusion"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_diffusion.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_fvm_advection_diffusion_periodic"
+    key: "gpu_fvm_advection_diffusion_periodic"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_diffusion_periodic.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 2
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_fvm_isentropicvortex"
+    key: "gpu_fvm_isentropicvortex"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/fvm_isentropicvortex.jl "
     agents:
       config: gpu
       queue: central
@@ -1360,6 +1464,16 @@ steps:
     key: "gpu_soil_test_bc"
     command:
       - "mpiexec julia --color=yes --project test/Land/Model/test_bc.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 1
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_soil_test_bc_3d"
+    key: "gpu_soil_test_bc_3d"
+    command:
+      - "mpiexec julia --color=yes --project test/Land/Model/test_bc_3d.jl "
     agents:
       config: gpu
       queue: central
