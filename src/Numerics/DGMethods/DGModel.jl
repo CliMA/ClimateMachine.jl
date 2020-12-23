@@ -14,7 +14,7 @@ Must have the following properties:
 """
 abstract type SpaceDiscretization end
 
-struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
+struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, HDS, D, DD, MD} <:
        SpaceDiscretization
     balance_law::BL
     grid::G
@@ -24,6 +24,7 @@ struct DGFVModel{BL, G, FVR, NFND, NFD, GNF, AS, DS, D, DD, MD} <:
     numerical_flux_gradient::GNF
     state_auxiliary::AS
     state_gradient_flux::DS
+    states_higher_order::HDS
     direction::D
     diffusion_direction::DD
     modeldata::MD
@@ -44,6 +45,10 @@ function DGFVModel(
         fill_nan = fill_nan,
     ),
     state_gradient_flux = create_state(balance_law, grid, GradientFlux()),
+    states_higher_order = (
+        create_state(balance_law, grid, GradientLaplacian()),
+        create_state(balance_law, grid, Hyperdiffusive()),
+    ),
     direction = EveryDirection(),
     diffusion_direction = direction,
     modeldata = nothing,
@@ -62,6 +67,7 @@ function DGFVModel(
         numerical_flux_gradient,
         state_auxiliary,
         state_gradient_flux,
+        states_higher_order,
         direction,
         diffusion_direction,
         modeldata,
