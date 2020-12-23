@@ -65,7 +65,7 @@ fluxes, respectively.
     balance_law::BalanceLaw,
     ::Val{info},
     model_direction,
-    direction,
+    ::HorizontalDirection,
     tendency,
     state_prognostic,
     state_gradient_flux,
@@ -139,15 +139,10 @@ fluxes, respectively.
             ξ1x1 = vgeo[ijk, _ξ1x1, e]
             ξ1x2 = vgeo[ijk, _ξ1x2, e]
             ξ1x3 = vgeo[ijk, _ξ1x3, e]
-            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+            if dim == 3
                 ξ2x1 = vgeo[ijk, _ξ2x1, e]
                 ξ2x2 = vgeo[ijk, _ξ2x2, e]
                 ξ2x3 = vgeo[ijk, _ξ2x3, e]
-            end
-            if dim == 3 && direction isa EveryDirection
-                ξ3x1 = vgeo[ijk, _ξ3x1, e]
-                ξ3x2 = vgeo[ijk, _ξ3x2, e]
-                ξ3x3 = vgeo[ijk, _ξ3x3, e]
             end
 
             # Read fields into registers (hopefully)
@@ -222,12 +217,9 @@ fluxes, respectively.
 
                 shared_flux[1, i, j, s] =
                     M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
-                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                if dim == 3
                     shared_flux[2, i, j, s] =
                         M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
-                end
-                if dim == 3 && direction isa EveryDirection
-                    local_flux_3[s] = M * (ξ3x1 * F1 + ξ3x2 * F2 + ξ3x3 * F3)
                 end
             end
 
@@ -261,15 +253,6 @@ fluxes, respectively.
                             shared_flux[2, i, j, s] +=
                                 M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
                         end
-                    end
-                end
-            end
-
-            if dim == 3 && direction isa EveryDirection
-                @unroll for n in 1:Nq3
-                    MI = local_MI[n]
-                    @unroll for s in 1:num_state_prognostic
-                        local_tendency[n, s] += MI * D[k, n] * local_flux_3[s]
                     end
                 end
             end
@@ -312,7 +295,7 @@ fluxes, respectively.
                         MI * D[n, i] * shared_flux[1, n, j, s]
 
                     # ξ2-grid lines
-                    if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    if dim == 3
                         local_tendency[k, s] +=
                             MI * D[n, j] * shared_flux[2, i, n, s]
                     end
@@ -986,7 +969,7 @@ gradient flux.
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
     ::Val{info},
-    direction,
+    ::HorizontalDirection,
     state_prognostic,
     state_gradient_flux,
     Qhypervisc_grad,
@@ -1091,12 +1074,8 @@ gradient flux.
                 @unroll for n in 1:Nq1
                     # Smack G with the differentiation matrix
                     Gξ1 += D[i, n] * shared_transform[n, j, s]
-                    if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    if dim == 3
                         Gξ2 += D[j, n] * shared_transform[i, n, s]
-                    end
-                    # Compute the gradient of G over the entire column
-                    if dim == 3 && direction isa EveryDirection
-                        Gξ3[s, n] += D[n, k] * shared_transform[i, j, s]
                     end
                 end
 
@@ -1107,7 +1086,7 @@ gradient flux.
                 local_transform_gradient[2, s, k] += ξ1x2 * Gξ1
                 local_transform_gradient[3, s, k] += ξ1x3 * Gξ1
 
-                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                if dim == 3
                     ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                     vgeo[ijk, _ξ2x2, e],
                     vgeo[ijk, _ξ2x3, e]
@@ -1123,18 +1102,6 @@ gradient flux.
 
         @unroll for k in 1:Nq3
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-
-            # Application of chain-rule in ξ3-direction: ∂G/∂xi = ∂ξ3/∂xi * ∂G/∂ξ3
-            if dim == 3 && direction isa EveryDirection
-                ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
-                vgeo[ijk, _ξ3x2, e],
-                vgeo[ijk, _ξ3x3, e]
-                @unroll for s in 1:ngradstate
-                    local_transform_gradient[1, s, k] += ξ3x1 * Gξ3[s, k]
-                    local_transform_gradient[2, s, k] += ξ3x2 * Gξ3[s, k]
-                    local_transform_gradient[3, s, k] += ξ3x3 * Gξ3[s, k]
-                end
-            end
 
             # Hyperdiffusion (avoid recomputing gradients of the state since
             # these are needed for the hyperdiffusion kernels)
@@ -2302,7 +2269,7 @@ and ∇G are the gradients.
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
     ::Val{info},
-    direction,
+    ::HorizontalDirection,
     Qhypervisc_grad,
     Qhypervisc_div,
     vgeo,
@@ -2349,7 +2316,7 @@ and ∇G are the gradients.
             # Extract Jacobian terms ∂ξᵢ/∂xⱼ
             ξ1x1, ξ1x2, ξ1x3 =
                 vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
-            if dim == 3 || (dim == 2 && direction isa EveryDirection)
+            if dim == 3
                 ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                 vgeo[ijk, _ξ2x2, e],
                 vgeo[ijk, _ξ2x3, e]
@@ -2674,7 +2641,7 @@ D is the differentiation matrix and ΔG is the laplacian
 @kernel function volume_gradients_of_laplacians!(
     balance_law::BalanceLaw,
     ::Val{info},
-    direction,
+    ::HorizontalDirection,
     Qhypervisc_grad,
     Qhypervisc_div,
     state_prognostic,
@@ -2750,11 +2717,8 @@ D is the differentiation matrix and ΔG is the laplacian
 
                 @unroll for n in 1:Nq1
                     lap_ξ1 += D[i, n] * s_lap[n, j, s]
-                    if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                    if dim == 3
                         lap_ξ2 += D[j, n] * s_lap[i, n, s]
-                    end
-                    if dim == 3 && direction isa EveryDirection
-                        lap_ξ3[s, n] += D[n, k] * s_lap[i, j, s]
                     end
                 end
 
@@ -2765,7 +2729,7 @@ D is the differentiation matrix and ΔG is the laplacian
                 l_grad_lap[2, s, k] = ξ1x2 * lap_ξ1
                 l_grad_lap[3, s, k] = ξ1x3 * lap_ξ1
 
-                if dim == 3 || (dim == 2 && direction isa EveryDirection)
+                if dim == 3
                     ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                     vgeo[ijk, _ξ2x2, e],
                     vgeo[ijk, _ξ2x3, e]
@@ -2782,16 +2746,6 @@ D is the differentiation matrix and ΔG is the laplacian
 
         @unroll for k in 1:Nq3
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-
-            # Application of chain-rule in ξ3-direction: ∂G/∂xi = ∂ξ3/∂xi * ∂G/∂ξ3
-            if dim == 3 && direction isa EveryDirection
-                ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
-                vgeo[ijk, _ξ3x2, e],
-                vgeo[ijk, _ξ3x3, e]
-                l_grad_lap[1, s, k] += ξ3x1 * lap_ξ3[s, k]
-                l_grad_lap[2, s, k] += ξ3x2 * lap_ξ3[s, k]
-                l_grad_lap[3, s, k] += ξ3x3 * lap_ξ3[s, k]
-            end
 
             fill!(
                 local_state_hyperdiffusion,
