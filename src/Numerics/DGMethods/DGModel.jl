@@ -1038,7 +1038,7 @@ model.
 """
 function courant(
     local_courant::Function,
-    dg::DGModel,
+    dg::SpaceDiscretization,
     m::BalanceLaw,
     state_prognostic::MPIStateArray,
     Δt,
