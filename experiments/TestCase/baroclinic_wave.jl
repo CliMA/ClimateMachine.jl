@@ -13,6 +13,7 @@ using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
 using ClimateMachine.TurbulenceClosures
+using ClimateMachine.NumericalFluxes
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
@@ -201,6 +202,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+	numerical_flux_first_order = RoeNumericalFlux(),
 	#solver_type = ode_solver_type,
     )
 
@@ -292,7 +294,7 @@ function main()
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        #user_callbacks = (cbfilter,),
         #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )

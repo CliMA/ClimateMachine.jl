@@ -91,9 +91,13 @@ using StaticArrays
 using Test
 using CLIMAParameters
 using CLIMAParameters.Atmos.SubgridScale: C_smag
-using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav
+using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, T_surf_ref
+import CLIMAParameters
+
 struct EarthParameterSet <: AbstractEarthParameterSet end
-const param_set = EarthParameterSet();
+const param_set = EarthParameterSet()
+#CLIMAParameters.Planet.cp_d(ps::AbstractEarthParameterSet) =  717.5060234725578 * 2
+
 
 # ## [Initial Conditions](@id init-rtb)
 # This example demonstrates the use of functions defined
@@ -119,8 +123,9 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     R_gas::FT = R_d(bl.param_set)
     c_p::FT = cp_d(bl.param_set)
     c_v::FT = cv_d(bl.param_set)
-    p0::FT = MSLP(bl.param_set)
+     p0::FT = MSLP(bl.param_set)
     _grav::FT = grav(bl.param_set)
+    T_ref::FT = T_surf_ref(bl.param_set)
     γ::FT = c_p / c_v
     k = FT(0.5)
     l = FT(0.5)
@@ -132,8 +137,8 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     u = U0 + ep * u1
     v = ep * v1
     w = FT(0)#z * (u + v)
-    ρ = FT(1.1)
-    T = FT(300)
+    ρ = FT(1.0)
+    T = T_ref
     ρu = SVector{3,FT}(ρ * u, ρ * v, ρ * w)
     ts = PhaseDry_ρT(bl.param_set, ρ, T)
     e_kin = 0.5 * (u^2 + v^2 + w^2)
@@ -214,12 +219,13 @@ function config_risingbubble(
     ref_state = HydrostaticState(T_profile)
 
     ## Here we assemble the `AtmosModel`.
-    _C_smag = FT(0)#C_smag(param_set))
+    _C_smag = FT(0.05)#C_smag(param_set))
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
         ref_state = NoReferenceState(),#ref_state,                         ## Reference state
+	orientation = NoOrientation(),
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (),#(Gravity(),),                         ## Gravity is the only source term here
@@ -229,7 +235,7 @@ function config_risingbubble(
     ## Finally, we pass a `Problem Name` string, the mesh information, and the
     ## model type to  the [`AtmosLESConfiguration`] object.
     config = ClimateMachine.AtmosLESConfiguration(
-        "Bickley7NeN5",       ## Problem title [String]
+        "Bickley7NeN8Roe",       ## Problem title [String]
         N,                       ## Polynomial order [Int]
         resolution,              ## (Δx, Δy, Δz) effective resolution [m]
         xmax,                    ## Domain maximum size [m]
@@ -276,14 +282,14 @@ function main()
     ## that forces problem initialization on CPU (thereby allowing the use of
     ## random seeds, spline interpolants and other special functions at the
     ## initialization step.)
-    N = 4
-    Ncells = 37
+    N = 8
+    Ncells = 48
     xmax = FT(2 * pi)
     ymax = FT(2 * pi)
     Δh = FT(2 * xmax / Ncells)
     Δv = FT(2 * xmax / Ncells)
     resolution = (Δh, Δh, Δv)
-    zmax = FT(6 * Δv)   
+    zmax = FT(9 * Δv)   
 
 
     t0 = FT(0)
