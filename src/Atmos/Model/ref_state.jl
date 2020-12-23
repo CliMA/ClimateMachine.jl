@@ -4,6 +4,8 @@ using ..TemperatureProfiles
 export ReferenceState, NoReferenceState, HydrostaticState
 const TD = Thermodynamics
 using CLIMAParameters.Planet: R_d, MSLP, cp_d, grav, T_surf_ref, T_min_ref
+using ..DGMethods: fvm_balance!
+using ..Mesh.Grids: polynomialorders
 
 """
     ReferenceState
@@ -14,14 +16,6 @@ condition or for linearization.
 abstract type ReferenceState end
 
 vars_state(m::ReferenceState, ::AbstractStateType, FT) = @vars()
-
-atmos_init_aux!(
-    ::ReferenceState,
-    ::AtmosModel,
-    aux::Vars,
-    tmp::Vars,
-    geom::LocalGeometry,
-) = nothing
 
 """
     NoReferenceState <: ReferenceState
@@ -45,12 +39,13 @@ struct HydrostaticState{P, FT} <: ReferenceState
     subtract_off::Bool
 end
 function HydrostaticState(
-    virtual_temperature_profile::TemperatureProfile{FT};
+    virtual_temperature_profile::TemperatureProfile{FT},
+    relative_humidity = FT(0);
     subtract_off = true,
 ) where {FT}
     return HydrostaticState{typeof(virtual_temperature_profile), FT}(
         virtual_temperature_profile,
-        FT(0),
+        relative_humidity,
         subtract_off,
     )
 end
@@ -58,20 +53,19 @@ end
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 
-atmos_init_ref_state_pT!(m, _...) = nothing
-function atmos_init_ref_state_pT!(
-    m::HydrostaticState{P, F},
+function ref_state_init_pTvirt!(
     atmos::AtmosModel,
     aux::Vars,
+    tmp::Vars,
     geom::LocalGeometry,
-) where {P, F}
+)
     z = altitude(atmos, aux)
-    T_virt, p = m.virtual_temperature_profile(atmos.param_set, z)
+    T_virt, p = atmos.ref_state.virtual_temperature_profile(atmos.param_set, z)
     aux.ref_state.p = p
     aux.ref_state.T = T_virt
 end
 
-function atmos_init_density_from_pressure!(
+function ref_state_init_density_from_pressure!(
     atmos::AtmosModel,
     aux::Vars,
     tmp::Vars,
@@ -84,18 +78,18 @@ function atmos_init_density_from_pressure!(
     aux.ref_state.ρ = ρ
 end
 
-function atmos_init_aux!(
-    m::HydrostaticState{P, F},
+function ref_state_finalize_init!(
     atmos::AtmosModel,
     aux::Vars,
     tmp::Vars,
     geom::LocalGeometry,
-) where {P, F}
+)
+    FT = eltype(aux)
     T_virt = aux.ref_state.T
     ρ = aux.ref_state.ρ
     p = aux.ref_state.p
 
-    RH = m.relative_humidity
+    RH = atmos.ref_state.relative_humidity
     phase_type = PhaseEquil
     (T, q_pt) = TD.temperature_and_humidity_given_TᵥρRH(
         atmos.param_set,
@@ -121,9 +115,49 @@ function atmos_init_aux!(
     aux.ref_state.ρq_liq = ρ * q_liq
     aux.ref_state.ρq_ice = ρ * q_ice
     aux.ref_state.T = T
-    e_kin = F(0)
+    e_kin = FT(0)
     e_pot = gravitational_potential(atmos.orientation, aux)
     aux.ref_state.ρe = ρ * total_energy(e_kin, e_pot, ts)
+end
+
+atmos_init_aux!(::AtmosModel, ::NoReferenceState, _...) = nothing
+function atmos_init_aux!(
+    atmos::AtmosModel,
+    ::HydrostaticState,
+    state_auxiliary::MPIStateArray,
+    grid,
+    direction,
+)
+    init_state_auxiliary!(
+        atmos,
+        ref_state_init_pTvirt!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
+
+    vertical_fvm = polynomialorders(grid)[end] == 0
+    if vertical_fvm
+        fvm_balance!(fvm_balance_init!, atmos, state_auxiliary, grid)
+    else
+        ∇p = ∇reference_pressure(atmos.ref_state, state_auxiliary, grid)
+        init_state_auxiliary!(
+            atmos,
+            ref_state_init_density_from_pressure!,
+            state_auxiliary,
+            grid,
+            direction;
+            state_temporary = ∇p,
+        )
+    end
+
+    init_state_auxiliary!(
+        atmos,
+        ref_state_finalize_init!,
+        state_auxiliary,
+        grid,
+        direction,
+    )
 end
 
 using ..MPIStateArrays: vars
@@ -201,4 +235,25 @@ function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
 
     grad_dg(∇p, gradQ, nothing, FT(0))
     return ∇p
+end
+
+function fvm_balance_init!(m::AtmosModel, aux_bot::Vars, aux_top::Vars)
+    FT = eltype(aux_bot)
+    _R_d::FT = R_d(m.param_set)
+
+    T_bot = aux_bot.ref_state.T
+    p_bot = aux_bot.ref_state.p
+    ρ_bot = p_bot / (_R_d * T_bot)
+    Φ_bot = aux_bot.orientation.Φ
+
+    Φ_top = aux_top.orientation.Φ
+    T_top = aux_top.ref_state.T
+
+    ρ_top =
+        (p_bot - ρ_bot * (Φ_top - Φ_bot) / 2) /
+        (_R_d * T_top + (Φ_top - Φ_bot) / 2)
+    p_top = _R_d * T_top * ρ_top
+
+    aux_top.ref_state.ρ = ρ_top
+    aux_top.ref_state.p = p_top
 end
