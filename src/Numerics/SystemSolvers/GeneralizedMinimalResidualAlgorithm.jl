@@ -21,11 +21,12 @@ end
         groupsize::Union{Int, Nothing} = nothing,
     )
 
-Constructor for the `GeneralizedMinimalResidualAlgorithm`, which solves a
-`StandardProblem` that represents the equation `f(Q) = rhs`, where `f` must be
-a linear function of `Q`. This algorithm uses the restarted Generalized Minimal
-Residual method of Saad and Schultz (1986). Since Krylov subspace methods can
-only solve square linear systems, `rhs` must have the same size as `Q`.
+Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves `f(Q) = rhs`,
+
+`f` must be a linear function of `Q`. This algorithm uses the restarted 
+Generalized Minimal Residual method of Saad and Schultz (1986). Since Krylov
+subspace methods can only solve square linear systems,
+`rhs` must have the same size as `Q`.
 
 ## References
 
@@ -76,12 +77,13 @@ end
 
 function IterativeSolver(
     algorithm::GeneralizedMinimalResidualAlgorithm,
-    problem::StandardProblem
+    f!,
+    Q,
+    rhs,
 )
-    Q = problem.Q
     FT = eltype(Q)
     
-    @assert size(Q) == size(problem.rhs)
+    @assert size(Q) == size(rhs)
 
     preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
         algorithm.preconditioner
@@ -113,15 +115,17 @@ function initialize!(
     solver::GeneralizedMinimalResidualSolver,
     threshold,
     iters,
-    problem::StandardProblem,
+    f!,
+    Q,
+    rhs,
     args...,
 )
     krylov_basis = solver.krylov_basis
     g0 = solver.g0
     
     # Store the residual in krylov_basis[1].
-    problem.f!(krylov_basis[1], problem.Q, args...)
-    krylov_basis[1] .= problem.rhs .- krylov_basis[1]
+    f!(krylov_basis[1], Q, args...)
+    krylov_basis[1] .= rhs .- krylov_basis[1]
 
     residual_norm = norm(krylov_basis[1], weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
@@ -140,14 +144,15 @@ function doiteration!(
     solver::GeneralizedMinimalResidualSolver,
     threshold,
     iters,
-    problem::StandardProblem,
+    f!,
+    Q,
+    rhs,
     args...,
 )
     preconditioner = solver.preconditioner
     krylov_basis = solver.krylov_basis
     H = solver.H
     g0 = solver.g0
-    Q = problem.Q
 
     Ω = LinearAlgebra.Rotation{eltype(Q)}([])
 
@@ -160,7 +165,7 @@ function doiteration!(
         preconditioner_solve!(preconditioner, krylov_basis[j])
 
         # Apply the linear operator.
-        problem.f!(krylov_basis[j + 1], krylov_basis[j], args...)
+        f!(krylov_basis[j + 1], krylov_basis[j], args...)
 
         # Do Arnoldi iteration using modified Gram Schmidt orthonormalization.
         for i in 1:j
@@ -211,6 +216,6 @@ function doiteration!(
 
     # Restart if the algorithm did not converge.
     _, has_converged, initfcalls =
-        initialize!(solver, threshold, iters, problem, args...)
+        initialize!(solver, threshold, iters, f!, Q, rhs, args...)
     return has_converged, j + initfcalls
 end

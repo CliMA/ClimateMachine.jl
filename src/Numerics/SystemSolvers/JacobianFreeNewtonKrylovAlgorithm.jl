@@ -135,8 +135,7 @@ end
         β::Union{Real, Nothing} = nothing,
     )
 
-Constructor for the `JacobianFreeNewtonKrylovAlgorithm`, which solves a
-`StandardProblem` that represents the equation `f(Q) = rhs`.
+Constructor for the `JacobianFreeNewtonKrylovAlgorithm`, which solves `f(Q) = rhs`.
 
 Suppose that the value of `Q` on the `k`-th iteration of the algorithm is
 `Q^k`, where `f(Q^k) ≠ rhs`. Since `f` is analytic at `Q^k`, its Taylor series
@@ -197,10 +196,9 @@ function JacobianFreeNewtonKrylovAlgorithm(
     )
 end
 
-struct JaCobIanfrEEneWtONKryLovSoLVeR{ILST, LPT, JVPT, AT, FT} <:
+struct JaCobIanfrEEneWtONKryLovSoLVeR{ILST, JVPT, AT, FT} <:
         IterativeSolver
     krylovsolver::ILST # solver used to solve the linear problem
-    linearproblem::LPT # linear problem jvp(ΔQ) = Δf
     jvp!::JVPT         # Jacobian vector product jvp(ΔQ) ≈ J(Q^k) ΔQ
     ΔQ::AT             # container for Q^{k+1} - Q^k
     Δf::AT             # container for rhs - f(Q^k)
@@ -211,12 +209,13 @@ end
 
 function IterativeSolver(
     algorithm::JacobianFreeNewtonKrylovAlgorithm,
-    problem::StandardProblem
+    f!,
+    Q,
+    rhs,
 )
-    Q = problem.Q
     FT = eltype(Q)
     
-    @assert size(Q) == size(problem.rhs)
+    @assert size(Q) == size(rhs)
 
     atol = isnothing(algorithm.atol) ? FT(1e-6) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? FT(1e-6) : FT(algorithm.rtol)
@@ -224,14 +223,12 @@ function IterativeSolver(
     autodiff = isnothing(algorithm.autodiff) ? false : algorithm.autodiff
     β = isnothing(algorithm.β) ? FT(1e-4) : FT(algorithm.β)
 
-    jvp! = JacobianVectorProduct(problem.f!, Q, autodiff, β)
+    jvp! = JacobianVectorProduct(f!, Q, autodiff, β)
     ΔQ = similar(Q)
     Δf = similar(Q)
-    linearproblem = StandardProblem(jvp!, ΔQ, Δf)
 
     return JaCobIanfrEEneWtONKryLovSoLVeR(
-        IterativeSolver(algorithm.krylovalgorithm, linearproblem),
-        linearproblem,
+        IterativeSolver(algorithm.krylovalgorithm, jvp!, ΔQ, Δf),
         jvp!,
         ΔQ,
         Δf,
@@ -249,13 +246,15 @@ function residual!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
     iters,
-    problem::StandardProblem,
+    f!,
+    Q,
+    rhs,
     args...,
 )
     Δf = solver.Δf
 
-    problem.f!(Δf, problem.Q, args...)
-    Δf .= problem.rhs .- Δf
+    f!(Δf, Q, args...)
+    Δf .= rhs .- Δf
 
     residual_norm = norm(Δf, weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
@@ -266,41 +265,44 @@ function initialize!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
     iters,
-    problem::StandardProblem,
+    f!,
+    Q,
+    rhs,
     args...,
 )
-    initializejvp!(solver.jvp!, problem.Q)
-    return residual!(solver, threshold, iters, problem, args...)
+    initializejvp!(solver.jvp!, Q)
+    return residual!(solver, threshold, iters, f!, Q, rhs, args...)
 end
 
 function doiteration!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
     iters,
-    problem::StandardProblem,
+    f!,
+    Q,
+    rhs,
     args...,
 )
     ΔQ = solver.ΔQ
     jvp! = solver.jvp!
     krylovsolver = solver.krylovsolver
     preconditioner = krylovsolver.preconditioner
-    f! = problem.f!
 
     ΔQ .= zero(eltype(ΔQ))
     fcalls1 = updatejvp!(jvp!, args...)
 
     # TODO: Abstract this away in Preconditioner.jl
-    if isa(problem.f!, EulerOperator)
+    if isa(f!, EulerOperator)
         preconditioner_update!(jvp!, f!.f!, preconditioner, args...)
-    elseif isa(problem.f!, DGModel)
+    elseif isa(f!, DGModel)
         preconditioner_update!(jvp!, f!, preconditioner, args...)
     end
-    fcalls2 = solve!(krylovsolver, solver.linearproblem, args...)[2]
+    fcalls2 = solve!(krylovsolver, solver.jvp!, solver.ΔQ, solver.Δf, args...)[2]
     preconditioner_counter_update!(preconditioner)
 
-    problem.Q .+= ΔQ
+    Q .+= ΔQ
 
     residual_norm, has_converged, fcalls3 =
-        residual!(solver, threshold, iters, problem, args...)
+        residual!(solver, threshold, iters, f!, Q, rhs, args...)
     return has_converged, fcalls1 + fcalls2 + fcalls3
 end

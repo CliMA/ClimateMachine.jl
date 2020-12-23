@@ -22,12 +22,14 @@ Abstract type for an iterative solver.
 abstract type IterativeSolver end
 
 """
-    IterativeSolver(algorithm::IterativeAlgorithm, problem::Problem)
+    IterativeSolver(algorithm::IterativeAlgorithm, args...)
 
-Constructs the solver associated with the combination of `algorithm` and
-`problem`.
+Constructs the solver associated with `algorithm`.
+
+`args...` specifies the format of the problem to be solved,
+dependent on `algorithm`.
 """
-function IterativeSolver(algorithm::IterativeAlgorithm, problem::Problem) end
+function IterativeSolver(algorithm::IterativeAlgorithm, args...) end
 
 """
     atol(solver::IterativeSolver)
@@ -55,7 +57,6 @@ function maxiters(solver::IterativeSolver) end
         solver::IterativeSolver,
         threshold,
         iters,
-        problem::Problem,
         args...,
     )
 
@@ -67,7 +68,6 @@ function initialize!(
     solver::IterativeSolver,
     threshold,
     iters,
-    problem::Problem,
     args...,
 ) end
 
@@ -76,11 +76,10 @@ function initialize!(
         solver::IterativeSolver,
         threshold,
         iters,
-        problem::Problem,
         args...,
     )
 
-Performs an iteration of `solver`, updates the solution vector in `problem`,
+Performs an iteration of `solver`, updates the solution vector,
 and returns whether the solver converged and the number of times `f` was
 evaluated. Uses `threshold` and `iters` to check for convergence by calling
 `check_convergence`.
@@ -89,28 +88,29 @@ function doiteration!(
     solver::IterativeSolver,
     threshold,
     iters,
-    problem::Problem,
     args...,
 ) end
 
 """
-    solve!(solver::IterativeSolver, problem::Problem, args...)::Int
+    solve!(solver::IterativeSolver, args...)::Int
 
-Iteratively solves `problem` with `solver` by repeatedly calling the function
-`doiteration!`. Returns the number of iterations taken by `solver` and the
-number of times `solver` called `f`.
+Iteratively solves a (non)linear system equations with a (non)linear `solver`.
+
+`args...` contains the problem to be solved in the format specified by the
+solver algorithm being used. Returns the number of iterations taken by `solver`
+and the number of times `solver` called `f`.
 """
-function solve!(solver::IterativeSolver, problem::Problem, args...)
+function solve!(solver::IterativeSolver, args...)
     iters = 0
 
     initial_residual_norm, has_converged, fcalls =
-        initialize!(solver, atol(solver), iters, problem, args...)
+        initialize!(solver, atol(solver), iters, args...)
     has_converged && return (iters, fcalls)
     threshold = max(atol(solver), rtol(solver) * initial_residual_norm)
 
     while !has_converged && iters < maxiters(solver)
         has_converged, newfcalls =
-            doiteration!(solver, threshold, iters, problem, args...)
+            doiteration!(solver, threshold, iters, args...)
         iters += 1
         fcalls += newfcalls
     end
@@ -202,6 +202,7 @@ end
 include("GeneralizedMinimalResidualAlgorithm.jl")
 include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
 include("JacobianFreeNewtonKrylovAlgorithm.jl")
+include("StandardPicardAlgorithm.jl")
 
 # TODO:
 #   - Our stopping condition is incorrect!
