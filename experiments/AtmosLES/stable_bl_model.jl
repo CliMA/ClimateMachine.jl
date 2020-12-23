@@ -194,13 +194,13 @@ function stable_bl_model(
     config_type,
     zmax,
     surface_flux;
+    turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
     moisture_model = "dry",
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
 
-    C_smag = FT(0.23)     # Smagorinsky coefficient
     C_drag = FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
 
@@ -235,6 +235,7 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
         source = source_default
@@ -315,7 +316,7 @@ function stable_bl_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = turbulence,
         moisture = moisture,
         source = source,
         turbconv = turbconv,

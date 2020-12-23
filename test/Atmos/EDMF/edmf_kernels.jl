@@ -119,7 +119,9 @@ end
 function vars_state(m::EDMF, st::Gradient, FT)
     @vars(
         environment::vars_state(m.environment, st, FT),
-        updraft::vars_state(m.updraft, st, FT)
+        updraft::vars_state(m.updraft, st, FT),
+        u::FT,
+        v::FT
     )
 end
 
@@ -155,7 +157,9 @@ function vars_state(m::EDMF, st::GradientFlux, FT)
     @vars(
         S²::FT, # should be conditionally grabbed from atmos.turbulence
         environment::vars_state(m.environment, st, FT),
-        updraft::vars_state(m.updraft, st, FT)
+        updraft::vars_state(m.updraft, st, FT),
+        ∇u::SVector{3, FT},
+        ∇v::SVector{3, FT}
     )
 end
 
@@ -320,6 +324,7 @@ function compute_gradient_argument!(
     z = altitude(m, aux)
 
     # Aliases:
+    gm_tf = transform.turbconv
     up_tf = transform.turbconv.updraft
     en_tf = transform.turbconv.environment
     gm = state
@@ -354,6 +359,9 @@ function compute_gradient_argument!(
     en_tf.θv = virtual_pottemp(ts.en)
     e_kin = FT(1 // 2) * ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + env.w^2) # TBD: Check
     en_tf.e = total_energy(e_kin, _grav * z, ts.en)
+
+    gm_tf.u = gm.ρu[1] * ρ_inv
+    gm_tf.v = gm.ρu[2] * ρ_inv
 end;
 
 function compute_gradient_flux!(
@@ -369,12 +377,13 @@ function compute_gradient_flux!(
 
     # Aliases:
     gm = state
+    gm_dif = diffusive.turbconv
+    gm_∇tf = ∇transform.turbconv
     up_dif = diffusive.turbconv.updraft
-    tc_dif = diffusive.turbconv
     up_∇tf = ∇transform.turbconv.updraft
+    en = state.turbconv.environment
     en_dif = diffusive.turbconv.environment
     en_∇tf = ∇transform.turbconv.environment
-    en = state.turbconv.environment
 
     @unroll_map(N_up) do i
         up_dif[i].∇w = up_∇tf[i].w
@@ -394,7 +403,10 @@ function compute_gradient_flux!(
     en_dif.∇θv = en_∇tf.θv
     en_dif.∇e = en_∇tf.e
 
-    tc_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
+    gm_dif.∇u = gm_∇tf.u
+    gm_dif.∇v = gm_∇tf.v
+
+    gm_dif.S² = ∇transform.u[3, 1]^2 + ∇transform.u[3, 2]^2 + en_dif.∇w[3]^2 # ∇transform.u is Jacobian.T
 
     # Recompute l_mix, K_m and tke budget terms for output.
     ts = recover_thermo_state_all(m, state, aux)
@@ -425,7 +437,7 @@ function compute_gradient_flux!(
     ρa₀ = gm.ρ * env.a
     Diss₀ = m.turbconv.mix_len.c_d * sqrt(tke_en) / en_dif.l_mix
 
-    en_dif.shear_prod = ρa₀ * en_dif.K_m * tc_dif.S² # tke Shear source
+    en_dif.shear_prod = ρa₀ * en_dif.K_m * gm_dif.S² # tke Shear source
     en_dif.buoy_prod = -ρa₀ * K_h * ∂b∂z_env   # tke Buoyancy source
     en_dif.tke_diss = -ρa₀ * Diss₀ * tke_en  # tke Dissipation
 end;
@@ -717,6 +729,7 @@ function flux_second_order!(
     gm_flx = flux
     en_flx = flux.turbconv.environment
     en_dif = diffusive.turbconv.environment
+    gm_dif = diffusive.turbconv
 
     # Recover thermo states
     ts = recover_thermo_state_all(atmos, state, aux)
@@ -794,16 +807,18 @@ function flux_second_order!(
     # update grid mean flux_second_order
     ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
     ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
-    ρu_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
+    ρw_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
+    ρu_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇u[3]
+    ρv_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇v[3]
 
     # for now the coupling to the dycore is commented out
 
     # gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
     # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
     # gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-    #     0, 0, 0,
-    #     0, 0, 0,
     #     0, 0, ρu_sgs_flux,
+    #     0, 0, ρv_sgs_flux,
+    #     0, 0, ρw_sgs_flux,
     # )
 
     ẑ = vertical_unit_vector(atmos, aux)
