@@ -51,6 +51,13 @@ const microphys = MicropysicsParameterSet(
 )
 const param_set = EarthParameterSet(microphys)
 
+# path to download artifacts
+const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
+    @__DIR__
+else
+    mktempdir(@__DIR__; prefix = "artifact_")
+end
+
 """
   Define initial conditions based on sounding data
 """
@@ -129,10 +136,8 @@ function read_sounding()
     # driver at the same time, we must store artifacts in a
     # separate folder.
 
-    artifact_folder = mktempdir(@__DIR__; prefix = "artifacts_")
-
     soundings_dataset = ArtifactWrapper(
-        joinpath(artifact_folder, "Artifacts.toml"),
+        joinpath(ARTIFACT_DIR, "Artifacts.toml"),
         "soundings",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/rjnvt2dlw7etm1c7mmdfrkw5gnfds5lx.nc",
