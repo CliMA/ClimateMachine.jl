@@ -15,7 +15,6 @@ import ClimateMachine.BalanceLaws: vars_state, nodal_init_state_auxiliary!
 
 using ClimateMachine.Mesh.Geometry: LocalGeometry
 
-const integration_testing = true
 if !@isdefined integration_testing
     const integration_testing = parse(
         Bool,
