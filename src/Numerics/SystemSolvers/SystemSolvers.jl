@@ -7,7 +7,8 @@ using ..Mesh.Grids
 import ..Mesh.Grids: polynomialorders, dimensionality
 using ..Mesh.Topologies
 using ..DGMethods
-using ..DGMethods: DGModel
+using ..DGMethods: DGModel, DGFVModel, SpaceDiscretization
+import ..DGMethods.FVReconstructions: width
 using ..BalanceLaws
 
 using Adapt

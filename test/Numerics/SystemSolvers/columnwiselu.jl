@@ -10,8 +10,7 @@ using ClimateMachine.SystemSolvers:
     band_lu_kernel!,
     band_forward_kernel!,
     band_back_kernel!,
-    DGColumnBandedMatrix,
-    lower_bandwidth
+    DGColumnBandedMatrix
 
 import ClimateMachine.MPIStateArrays: array_device
 
@@ -29,91 +28,99 @@ function band_to_full(B, p, q)
     A
 end
 
-let
+function run_columnwiselu_test(FT, N)
 
-    @testset "$(@__FILE__) Columnwise LU" begin
-        for N in (0, 1)
-            Nq = N + 1
-            nstate = 3
-            nvertelem = 5
-            nhorzelem = 4
-            eband = 2
+    Nq = N .+ 1
+    Nq1 = Nq[1]
+    Nq2 = Nq[2]
+    Nqv = Nq[3]
+    nstate = 3
+    nvertelem = 5
+    nhorzelem = 4
+    eband = 2
 
-            FT = Float64
-            m = n = Nq * nstate * nvertelem
-            p = q = lower_bandwidth(N, nstate, eband)
+    m = n = Nqv * nstate * nvertelem
+    p = q = Nqv * nstate * eband - 1
 
-            Random.seed!(1234)
-            AB = rand(FT, Nq, Nq, p + q + 1, n, nhorzelem)
+    Random.seed!(1234)
+    AB = rand(FT, Nq1, Nq2, p + q + 1, n, nhorzelem)
 
-            AB[:, :, q + 1, :, :] .+= 10 # Make A's diagonally dominate
+    AB[:, :, q + 1, :, :] .+= 10 # Make A's diagonally dominate
 
-            Random.seed!(5678)
-            b = rand(FT, Nq, Nq, Nq, nstate, nvertelem, nhorzelem)
-            x = similar(b)
+    Random.seed!(5678)
+    b = rand(FT, Nq1, Nq2, Nqv, nstate, nvertelem, nhorzelem)
+    x = similar(b)
 
-            perm = (4, 3, 5, 1, 2, 6)
-            bp = reshape(PermutedDimsArray(b, perm), n, Nq, Nq, nhorzelem)
-            xp = reshape(PermutedDimsArray(x, perm), n, Nq, Nq, nhorzelem)
+    perm = (4, 3, 5, 1, 2, 6)
+    bp = reshape(PermutedDimsArray(b, perm), n, Nq1, Nq2, nhorzelem)
+    xp = reshape(PermutedDimsArray(x, perm), n, Nq1, Nq2, nhorzelem)
 
-            d_F = ArrayType(AB)
-            d_F = DGColumnBandedMatrix{
-                3,
-                N,
-                nstate,
-                nhorzelem,
-                nvertelem,
-                eband,
-                false,
-                typeof(d_F),
-            }(
-                d_F,
-            )
+    d_F = ArrayType(AB)
+    d_F = DGColumnBandedMatrix{
+        3,
+        N,
+        nstate,
+        nhorzelem,
+        nvertelem,
+        eband,
+        false,
+        typeof(d_F),
+    }(
+        d_F,
+    )
 
-            groupsize = (Nq, Nq)
-            ndrange = (Nq, Nq, nhorzelem)
+    groupsize = (Nq1, Nq2)
+    ndrange = (Nq1, Nq2, nhorzelem)
 
-            event = Event(array_device(d_F.data))
-            event = band_lu_kernel!(array_device(d_F.data), groupsize, ndrange)(
-                d_F,
-                dependencies = (event,),
-            )
-            wait(array_device(d_F.data), event)
+    event = Event(array_device(d_F.data))
+    event = band_lu_kernel!(array_device(d_F.data), groupsize, ndrange)(
+        d_F,
+        dependencies = (event,),
+    )
+    wait(array_device(d_F.data), event)
 
-            F = Array(d_F.data)
+    F = Array(d_F.data)
 
-            for h in 1:nhorzelem, j in 1:Nq, i in 1:Nq
-                B = AB[i, j, :, :, h]
-                G = band_to_full(B, p, q)
-                GLU = lu!(G, Val(false))
+    for h in 1:nhorzelem, j in 1:Nq2, i in 1:Nq1
+        B = AB[i, j, :, :, h]
+        G = band_to_full(B, p, q)
+        GLU = lu!(G, Val(false))
 
-                H = band_to_full(F[i, j, :, :, h], p, q)
+        H = band_to_full(F[i, j, :, :, h], p, q)
 
-                @test H ≈ G
+        @assert H ≈ G
 
-                xp[:, i, j, h] .= GLU \ bp[:, i, j, h]
-            end
+        xp[:, i, j, h] .= GLU \ bp[:, i, j, h]
+    end
 
-            b = reshape(b, Nq * Nq * Nq, nstate, nvertelem * nhorzelem)
-            x = reshape(x, Nq * Nq * Nq, nstate, nvertelem * nhorzelem)
+    b = reshape(b, Nq1 * Nq2 * Nqv, nstate, nvertelem * nhorzelem)
+    x = reshape(x, Nq1 * Nq2 * Nqv, nstate, nvertelem * nhorzelem)
 
-            d_x = ArrayType(b)
+    d_x = ArrayType(b)
 
-            event = Event(array_device(d_x))
-            event = band_forward_kernel!(array_device(d_x), groupsize, ndrange)(
-                d_x,
-                d_F,
-                dependencies = (event,),
-            )
+    event = Event(array_device(d_x))
+    event = band_forward_kernel!(array_device(d_x), groupsize, ndrange)(
+        d_x,
+        d_F,
+        dependencies = (event,),
+    )
 
-            event = band_back_kernel!(array_device(d_x), groupsize, ndrange)(
-                d_x,
-                d_F,
-                dependencies = (event,),
-            )
-            wait(array_device(d_x), event)
+    event = band_back_kernel!(array_device(d_x), groupsize, ndrange)(
+        d_x,
+        d_F,
+        dependencies = (event,),
+    )
+    wait(array_device(d_x), event)
 
-            @test x ≈ Array(d_x)
+    result = x ≈ Array(d_x)
+    return result
+end
+
+@testset "Columnwise LU test" begin
+    for FT in (Float64, Float32)
+        for N in ((1, 1, 1), (1, 1, 2), (2, 2, 1), (2, 2, 0))
+            result = run_columnwiselu_test(FT, N)
+            @test result
         end
     end
 end

@@ -193,7 +193,7 @@ end
 
 """
     BatchedGeneralizedMinimalResidual(
-        dg::DGModel,
+        dg::SpaceDiscretization,
         Q::MPIStateArray;
         atol = sqrt(eps(eltype(Q))),
         rtol = sqrt(eps(eltype(Q))),
@@ -203,11 +203,11 @@ end
 
 # Description
 Specialized constructor for `BatchedGeneralizedMinimalResidual` struct, using
-a `DGModel` to infer state-information and determine appropriate reshaping
+a `SpaceDiscretization` to infer state-information and determine appropriate reshaping
 and permutations.
 
 # Arguments
-- `dg`: (DGModel) A `DGModel` containing all relevant grid and topology
+- `dg`: (SpaceDiscretization) A `SpaceDiscretization` containing all relevant grid and topology
         information.
 - `Q` : (MPIStateArray) An `MPIStateArray` containing field information.
 
@@ -224,7 +224,7 @@ and permutations.
 instance of `BatchedGeneralizedMinimalResidual` struct
 """
 function BatchedGeneralizedMinimalResidual(
-    dg::DGModel,
+    dg::SpaceDiscretization,
     Q::MPIStateArray;
     atol = sqrt(eps(eltype(Q))),
     rtol = sqrt(eps(eltype(Q))),

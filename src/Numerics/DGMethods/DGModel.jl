@@ -1096,7 +1096,7 @@ function courant(
     MPI.Allreduce(rank_courant_max, max, topology.mpicomm)
 end
 
-function MPIStateArrays.MPIStateArray(dg::DGModel)
+function MPIStateArrays.MPIStateArray(dg::SpaceDiscretization)
     balance_law = dg.balance_law
     grid = dg.grid
 

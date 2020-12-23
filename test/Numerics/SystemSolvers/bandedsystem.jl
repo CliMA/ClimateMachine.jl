@@ -8,8 +8,9 @@ using Random
 using StaticArrays
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws: vars_state, number_states
-using ClimateMachine.DGMethods: DGModel, init_ode_state, create_state
+using ClimateMachine.DGMethods: DGModel, DGFVModel, init_ode_state, create_state
 using ClimateMachine.SystemSolvers: banded_matrix, banded_matrix_vector_product!
+using ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 using ClimateMachine.DGMethods.NumericalFluxes:
     RusanovNumericalFlux,
     CentralNumericalFluxSecondOrder,
@@ -72,39 +73,53 @@ let
     @testset "$(@__FILE__) DGModel matrix" begin
         for FT in (Float64, Float32)
             for dim in (2, 3)
-                for N in (0, 4)
-                    for single_column in (false, true)
-                        # Setup the topology
-                        if dim == 2
-                            brickrange = (
-                                range(FT(0); length = Neh + 1, stop = 1),
-                                range(FT(1); length = Nev + 1, stop = 2),
-                            )
-                        elseif dim == 3
-                            brickrange = (
-                                range(FT(0); length = Neh + 1, stop = 1),
-                                range(FT(0); length = Neh + 1, stop = 1),
-                                range(FT(1); length = Nev + 1, stop = 2),
-                            )
-                        end
-                        topl = StackedBrickTopology(mpicomm, brickrange)
+                for single_column in (false, true)
+                    # Setup the topology
+                    if dim == 2
+                        brickrange = (
+                            range(FT(0); length = Neh + 1, stop = 1),
+                            range(FT(1); length = Nev + 1, stop = 2),
+                        )
+                    elseif dim == 3
+                        brickrange = (
+                            range(FT(0); length = Neh + 1, stop = 1),
+                            range(FT(0); length = Neh + 1, stop = 1),
+                            range(FT(1); length = Nev + 1, stop = 2),
+                        )
+                    end
+                    topl = StackedBrickTopology(mpicomm, brickrange)
 
-                        # Warp mesh
-                        function warpfun(ξ1, ξ2, ξ3)
-                            # single column currently requires no geometry warping
+                    # Warp mesh
+                    function warpfun(ξ1, ξ2, ξ3)
+                        # single column currently requires no geometry warping
 
-                            # Even if the warping is in only the horizontal, the way we
-                            # compute metrics causes problems for the single column approach
-                            # (possibly need to not use curl-invariant computation)
-                            if !single_column
-                                ξ1 = ξ1 + sin(2 * FT(π) * ξ1 * ξ2) / 10
-                                ξ2 = ξ2 + sin(2 * FT(π) * ξ1) / 5
-                                if dim == 3
-                                    ξ3 = ξ3 + sin(8 * FT(π) * ξ1 * ξ2) / 10
-                                end
+                        # Even if the warping is in only the horizontal, the way we
+                        # compute metrics causes problems for the single column approach
+                        # (possibly need to not use curl-invariant computation)
+                        if !single_column
+                            ξ1 = ξ1 + sin(2 * FT(π) * ξ1 * ξ2) / 10
+                            ξ2 = ξ2 + sin(2 * FT(π) * ξ1) / 5
+                            if dim == 3
+                                ξ3 = ξ3 + sin(8 * FT(π) * ξ1 * ξ2) / 10
                             end
-                            (ξ1, ξ2, ξ3)
                         end
+                        (ξ1, ξ2, ξ3)
+                    end
+
+                    d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
+                    n = SVector{3, FT}(d ./ norm(d))
+
+                    α = FT(1)
+                    β = FT(1 // 100)
+                    μ = FT(-1 // 2)
+                    δ = FT(1 // 10)
+                    model = AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
+
+                    for (N, fvmethod) in (
+                        ((4, 4), nothing),
+                        ((4, 0), FVConstant()),
+                        ((4, 0), FVLinear()),
+                    )
 
                         # create the actual grid
                         grid = DiscontinuousSpectralElementGrid(
@@ -114,34 +129,48 @@ let
                             polynomialorder = N,
                             meshwarp = warpfun,
                         )
-                        d = dim == 2 ? FT[1, 10, 0] : FT[1, 1, 10]
-                        n = SVector{3, FT}(d ./ norm(d))
 
-                        α = FT(1)
-                        β = FT(1 // 100)
-                        μ = FT(-1 // 2)
-                        δ = FT(1 // 10)
-                        model =
-                            AdvectionDiffusion{dim}(Pseudo1D{n, α, β, μ, δ}())
 
                         # the nonlinear model is needed so we can grab the state_auxiliary below
-                        dg = DGModel(
-                            model,
-                            grid,
-                            RusanovNumericalFlux(),
-                            CentralNumericalFluxSecondOrder(),
-                            CentralNumericalFluxGradient(),
-                        )
+                        dg =
+                            (fvmethod === nothing) ?
+                            DGModel(
+                                model,
+                                grid,
+                                RusanovNumericalFlux(),
+                                CentralNumericalFluxSecondOrder(),
+                                CentralNumericalFluxGradient(),
+                            ) :
+                            DGFVModel(
+                                model,
+                                grid,
+                                fvmethod,
+                                RusanovNumericalFlux(),
+                                CentralNumericalFluxSecondOrder(),
+                                CentralNumericalFluxGradient(),
+                            )
 
-                        vdg = DGModel(
-                            model,
-                            grid,
-                            RusanovNumericalFlux(),
-                            CentralNumericalFluxSecondOrder(),
-                            CentralNumericalFluxGradient();
-                            direction = VerticalDirection(),
-                            state_auxiliary = dg.state_auxiliary,
-                        )
+                        vdg =
+                            (fvmethod === nothing) ?
+                            DGModel(
+                                model,
+                                grid,
+                                RusanovNumericalFlux(),
+                                CentralNumericalFluxSecondOrder(),
+                                CentralNumericalFluxGradient();
+                                direction = VerticalDirection(),
+                                state_auxiliary = dg.state_auxiliary,
+                            ) :
+                            DGFVModel(
+                                model,
+                                grid,
+                                fvmethod,
+                                RusanovNumericalFlux(),
+                                CentralNumericalFluxSecondOrder(),
+                                CentralNumericalFluxGradient();
+                                direction = VerticalDirection(),
+                                state_auxiliary = dg.state_auxiliary,
+                            )
 
                         A_banded = banded_matrix(
                             vdg,
