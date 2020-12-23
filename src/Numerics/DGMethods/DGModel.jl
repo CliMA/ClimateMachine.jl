@@ -1254,17 +1254,16 @@ function launch_volume_gradients!(spacedisc, state_prognostic, t; dependencies)
         horizontal_D = spacedisc.grid.D[1]
         comp_stream = volume_gradients!(info.device, workgroup)(
             spacedisc.balance_law,
-            Val(info),
             HorizontalDirection(),
-            state_prognostic.data,
             spacedisc.state_gradient_flux.data,
             Qhypervisc_grad_data,
+            state_prognostic.data,
             spacedisc.state_auxiliary.data,
             spacedisc.grid.vgeo,
-            t,
             horizontal_D,
+            Val(info),
             Val(hyperdiff_indexmap(spacedisc.balance_law, FT)),
-            spacedisc.grid.topology.realelems,
+            t,
             ndrange = ndrange,
             dependencies = comp_stream,
         )
@@ -1281,17 +1280,16 @@ function launch_volume_gradients!(spacedisc, state_prognostic, t; dependencies)
         vertical_D = spacedisc.grid.D[info.dim]
         comp_stream = volume_gradients!(info.device, workgroup)(
             spacedisc.balance_law,
-            Val(info),
             VerticalDirection(),
-            state_prognostic.data,
             spacedisc.state_gradient_flux.data,
             Qhypervisc_grad_data,
+            state_prognostic.data,
             spacedisc.state_auxiliary.data,
             spacedisc.grid.vgeo,
-            t,
             vertical_D,
+            Val(info),
             Val(hyperdiff_indexmap(spacedisc.balance_law, FT)),
-            spacedisc.grid.topology.realelems,
+            t,
             # If we are computing the volume gradient in every direction, we
             # need to increment into the appropriate fields _after_ the
             # horizontal computation.
@@ -1352,21 +1350,21 @@ function launch_interface_gradients!(
 
         comp_stream = dgsem_interface_gradients!(info.device, workgroup)(
             spacedisc.balance_law,
-            Val(info),
             HorizontalDirection(),
-            spacedisc.numerical_flux_gradient,
-            state_prognostic.data,
             spacedisc.state_gradient_flux.data,
             Qhypervisc_grad_data,
+            state_prognostic.data,
             spacedisc.state_auxiliary.data,
             spacedisc.grid.vgeo,
             spacedisc.grid.sgeo,
-            t,
             spacedisc.grid.vmap⁻,
             spacedisc.grid.vmap⁺,
             spacedisc.grid.elemtobndy,
+            Val(info),
             Val(hyperdiff_indexmap(spacedisc.balance_law, FT)),
-            elems;
+            spacedisc.numerical_flux_gradient,
+            elems,
+            t;
             ndrange = ndrange,
             dependencies = comp_stream,
         )
@@ -1391,21 +1389,21 @@ function launch_interface_gradients!(
         if spacedisc isa DGModel
             comp_stream = dgsem_interface_gradients!(info.device, workgroup)(
                 spacedisc.balance_law,
-                Val(info),
                 VerticalDirection(),
-                spacedisc.numerical_flux_gradient,
-                state_prognostic.data,
                 spacedisc.state_gradient_flux.data,
                 Qhypervisc_grad_data,
+                state_prognostic.data,
                 spacedisc.state_auxiliary.data,
                 spacedisc.grid.vgeo,
                 spacedisc.grid.sgeo,
-                t,
                 spacedisc.grid.vmap⁻,
                 spacedisc.grid.vmap⁺,
                 spacedisc.grid.elemtobndy,
+                Val(info),
                 Val(hyperdiff_indexmap(spacedisc.balance_law, FT)),
-                elems;
+                spacedisc.numerical_flux_gradient,
+                elems,
+                t;
                 ndrange = ndrange,
                 dependencies = comp_stream,
             )
@@ -1476,13 +1474,12 @@ function launch_volume_divergence_of_gradients!(
 
         comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info),
             HorizontalDirection(),
-            Qhypervisc_grad.data,
             Qhypervisc_div.data,
+            Qhypervisc_grad.data,
             dg.grid.vgeo,
             horizontal_D,
-            dg.grid.topology.realelems;
+            Val(info);
             ndrange = ndrange,
             dependencies = comp_stream,
         )
@@ -1498,13 +1495,12 @@ function launch_volume_divergence_of_gradients!(
 
         comp_stream = volume_divergence_of_gradients!(info.device, workgroup)(
             dg.balance_law,
-            Val(info),
             VerticalDirection(),
-            Qhypervisc_grad.data,
             Qhypervisc_div.data,
+            Qhypervisc_grad.data,
             dg.grid.vgeo,
             vertical_D,
-            dg.grid.topology.realelems,
+            Val(info),
             # If we are computing the volume gradient in every direction, we
             # need to increment into the appropriate fields _after_ the
             # horizontal computation.
@@ -1558,16 +1554,16 @@ function launch_interface_divergence_of_gradients!(
         comp_stream =
             interface_divergence_of_gradients!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info),
                 HorizontalDirection(),
-                CentralNumericalFluxDivergence(),
-                Qhypervisc_grad.data,
                 Qhypervisc_div.data,
+                Qhypervisc_grad.data,
                 dg.grid.vgeo,
                 dg.grid.sgeo,
                 dg.grid.vmap⁻,
                 dg.grid.vmap⁺,
                 dg.grid.elemtobndy,
+                Val(info),
+                CentralNumericalFluxDivergence(),
                 elems;
                 ndrange = ndrange,
                 dependencies = comp_stream,
@@ -1593,16 +1589,16 @@ function launch_interface_divergence_of_gradients!(
         comp_stream =
             interface_divergence_of_gradients!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info),
                 VerticalDirection(),
-                CentralNumericalFluxDivergence(),
-                Qhypervisc_grad.data,
                 Qhypervisc_div.data,
+                Qhypervisc_grad.data,
                 dg.grid.vgeo,
                 dg.grid.sgeo,
                 dg.grid.vmap⁻,
                 dg.grid.vmap⁺,
                 dg.grid.elemtobndy,
+                Val(info),
+                CentralNumericalFluxDivergence(),
                 elems;
                 ndrange = ndrange,
                 dependencies = comp_stream,
@@ -1645,16 +1641,14 @@ function launch_volume_gradients_of_laplacians!(
 
         comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
             dg.balance_law,
-            Val(info),
             HorizontalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
             state_prognostic.data,
             dg.state_auxiliary.data,
             dg.grid.vgeo,
-            horizontal_ω,
             horizontal_D,
-            dg.grid.topology.realelems,
+            Val(info),
             t;
             ndrange = ndrange,
             dependencies = comp_stream,
@@ -1673,16 +1667,14 @@ function launch_volume_gradients_of_laplacians!(
 
         comp_stream = volume_gradients_of_laplacians!(info.device, workgroup)(
             dg.balance_law,
-            Val(info),
             VerticalDirection(),
             Qhypervisc_grad.data,
             Qhypervisc_div.data,
             state_prognostic.data,
             dg.state_auxiliary.data,
             dg.grid.vgeo,
-            vertical_ω,
             vertical_D,
-            dg.grid.topology.realelems,
+            Val(info),
             t,
             # If we are computing the volume gradient in every direction, we
             # need to increment into the appropriate fields _after_ the
@@ -1737,9 +1729,7 @@ function launch_interface_gradients_of_laplacians!(
         comp_stream =
             interface_gradients_of_laplacians!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info),
                 HorizontalDirection(),
-                CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 state_prognostic.data,
@@ -1749,6 +1739,8 @@ function launch_interface_gradients_of_laplacians!(
                 dg.grid.vmap⁻,
                 dg.grid.vmap⁺,
                 dg.grid.elemtobndy,
+                Val(info),
+                CentralNumericalFluxHigherOrder(),
                 elems,
                 t;
                 ndrange = ndrange,
@@ -1775,9 +1767,7 @@ function launch_interface_gradients_of_laplacians!(
         comp_stream =
             interface_gradients_of_laplacians!(info.device, workgroup)(
                 dg.balance_law,
-                Val(info),
                 VerticalDirection(),
-                CentralNumericalFluxHigherOrder(),
                 Qhypervisc_grad.data,
                 Qhypervisc_div.data,
                 state_prognostic.data,
@@ -1787,6 +1777,8 @@ function launch_interface_gradients_of_laplacians!(
                 dg.grid.vmap⁻,
                 dg.grid.vmap⁺,
                 dg.grid.elemtobndy,
+                Val(info),
+                CentralNumericalFluxHigherOrder(),
                 elems,
                 t;
                 ndrange = ndrange,
@@ -1843,31 +1835,28 @@ function launch_volume_tendency!(
 
         # Horizontal polynomial degree
         horizontal_polyorder = info.N[1]
-        # Horizontal quadrature weights and differentiation matrix
-        horizontal_ω = spacedisc.grid.ω[1]
+        # Horizontal differentiation matrix
         horizontal_D = spacedisc.grid.D[1]
 
         comp_stream = volume_tendency!(info.device, workgroup)(
             spacedisc.balance_law,
-            Val(info),
-            spacedisc.direction,
             HorizontalDirection(),
             tendency.data,
             state_prognostic.data,
+            spacedisc.state_auxiliary.data,
             grad_flux_data,
             Qhypervisc_grad_data,
-            spacedisc.state_auxiliary.data,
             spacedisc.grid.vgeo,
-            t,
-            horizontal_ω,
             horizontal_D,
-            spacedisc.grid.topology.realelems,
+            Val(info),
+            spacedisc.direction,
+            t,
             α,
             β,
             # If the model direction is horizontal or FV in the vertical,
             # we want to be sure to add sources
             spacedisc.direction isa HorizontalDirection ||
-            spacedisc isa DGFVModel,
+            spacedisc isa DGFVModel;
             ndrange = ndrange,
             dependencies = comp_stream,
         )
@@ -1881,25 +1870,22 @@ function launch_volume_tendency!(
 
         # Vertical polynomial degree
         vertical_polyorder = info.N[info.dim]
-        # Vertical quadrature weights and differentiation matrix
-        vertical_ω = spacedisc.grid.ω[info.dim]
+        # Vertical differentiation matrix
         vertical_D = spacedisc.grid.D[info.dim]
 
         comp_stream = volume_tendency!(info.device, workgroup)(
             spacedisc.balance_law,
-            Val(info),
-            spacedisc.direction,
             VerticalDirection(),
             tendency.data,
             state_prognostic.data,
+            spacedisc.state_auxiliary.data,
             grad_flux_data,
             Qhypervisc_grad_data,
-            spacedisc.state_auxiliary.data,
             spacedisc.grid.vgeo,
-            t,
-            vertical_ω,
             vertical_D,
-            spacedisc.grid.topology.realelems,
+            Val(info),
+            spacedisc.direction,
+            t,
             α,
             # If we are computing the volume gradient in every direction, we
             # need to increment into the appropriate fields _after_ the
@@ -1970,22 +1956,22 @@ function launch_interface_tendency!(
 
         comp_stream = dgsem_interface_tendency!(info.device, workgroup)(
             spacedisc.balance_law,
-            Val(info),
             HorizontalDirection(),
-            spacedisc.numerical_flux_first_order,
-            numerical_flux_second_order,
             tendency.data,
             state_prognostic.data,
+            spacedisc.state_auxiliary.data,
             grad_flux_data,
             Qhypervisc_grad_data,
-            spacedisc.state_auxiliary.data,
             spacedisc.grid.vgeo,
             spacedisc.grid.sgeo,
-            t,
             spacedisc.grid.vmap⁻,
             spacedisc.grid.vmap⁺,
             spacedisc.grid.elemtobndy,
+            Val(info),
+            spacedisc.numerical_flux_first_order,
+            numerical_flux_second_order,
             elems,
+            t,
             α;
             ndrange = ndrange,
             dependencies = comp_stream,
@@ -2008,22 +1994,22 @@ function launch_interface_tendency!(
 
             comp_stream = dgsem_interface_tendency!(info.device, workgroup)(
                 spacedisc.balance_law,
-                Val(info),
                 VerticalDirection(),
-                spacedisc.numerical_flux_first_order,
-                numerical_flux_second_order,
                 tendency.data,
                 state_prognostic.data,
+                spacedisc.state_auxiliary.data,
                 grad_flux_data,
                 Qhypervisc_grad_data,
-                spacedisc.state_auxiliary.data,
                 spacedisc.grid.vgeo,
                 spacedisc.grid.sgeo,
-                t,
                 spacedisc.grid.vmap⁻,
                 spacedisc.grid.vmap⁺,
                 spacedisc.grid.elemtobndy,
+                Val(info),
+                spacedisc.numerical_flux_first_order,
+                numerical_flux_second_order,
                 elems,
+                t,
                 α;
                 ndrange = ndrange,
                 dependencies = comp_stream,

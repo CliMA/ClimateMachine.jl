@@ -28,23 +28,20 @@ const _sM, _vMI = Grids._sM, Grids._vMI
 """
     function volume_tendency!(
         balance_law::BalanceLaw,
-        ::Val{dim},
-        ::Val{polyorder},
-        model_direction,
         direction,
         tendency,
         state_prognostic,
+        state_auxiliary,
         state_gradient_flux,
         Qhypervisc_grad,
-        state_auxiliary,
         vgeo,
-        t,
-        ω,
         D,
-        elems,
+        ::Val{info},
+        model_direction,
+        t,
         α,
         β,
-        add_source = false,
+        add_source,
     )
 
 Compute kernel for evaluating the volume tendencies for the
@@ -63,22 +60,20 @@ fluxes, respectively.
 """
 @kernel function volume_tendency!(
     balance_law::BalanceLaw,
-    ::Val{info},
-    model_direction,
     ::HorizontalDirection,
     tendency,
-    state_prognostic,
-    state_gradient_flux,
-    Qhypervisc_grad,
-    state_auxiliary,
-    vgeo,
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(state_gradient_flux),
+    @Const(Qhypervisc_grad),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
+    model_direction,
     t,
-    ω,
-    D,
-    elems,
     α,
     β,
-    add_source = false,
+    add_source::Bool,
 ) where {info}
     @uniform begin
         dim = info.dim
@@ -320,22 +315,20 @@ end
 
 @kernel function volume_tendency!(
     balance_law::BalanceLaw,
-    ::Val{info},
-    model_direction,
     ::VerticalDirection,
     tendency,
-    state_prognostic,
-    state_gradient_flux,
-    Qhypervisc_grad,
-    state_auxiliary,
-    vgeo,
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(state_gradient_flux),
+    @Const(Qhypervisc_grad),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
+    model_direction,
     t,
-    ω,
-    D,
-    elems,
     α,
     β,
-    add_source = false,
+    add_source::Bool,
 ) where {info}
     @uniform begin
         dim = info.dim
@@ -585,23 +578,22 @@ end
 @doc """
     function dgsem_interface_tendency!(
         balance_law::BalanceLaw,
-        ::Val{dim},
-        ::Val{polyorder},
         direction,
-        numerical_flux_first_order,
-        numerical_flux_second_order,
         tendency,
         state_prognostic,
+        state_auxiliary,
         state_gradient_flux,
         Qhypervisc_grad,
-        state_auxiliary,
         vgeo,
         sgeo,
-        t,
         vmap⁻,
         vmap⁺,
         elemtobndy,
+        ::Val{info},
+        numerical_flux_first_order,
+        numerical_flux_second_order,
         elems,
+        t,
         α,
     )
 
@@ -622,22 +614,22 @@ fluxes, respectively.
 """ dgsem_interface_tendency!
 @kernel function dgsem_interface_tendency!(
     balance_law::BalanceLaw,
-    ::Val{info},
     direction,
+    tendency,
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(state_gradient_flux),
+    @Const(Qhypervisc_grad),
+    @Const(vgeo),
+    @Const(sgeo),
+    @Const(vmap⁻),
+    @Const(vmap⁺),
+    @Const(elemtobndy),
+    ::Val{info},
     numerical_flux_first_order,
     numerical_flux_second_order,
-    tendency,
-    state_prognostic,
-    state_gradient_flux,
-    Qhypervisc_grad,
-    state_auxiliary,
-    vgeo,
-    sgeo,
-    t,
-    vmap⁻,
-    vmap⁺,
-    elemtobndy,
     elems,
+    t,
     α,
 ) where {info}
     @uniform begin
@@ -938,18 +930,16 @@ end
 """
     function volume_gradients!(
         balance_law::BalanceLaw,
-        ::Val{dim},
-        ::Val{polyorder},
         direction,
-        state_prognostic,
         state_gradient_flux,
         Qhypervisc_grad,
+        state_prognostic,
         state_auxiliary,
         vgeo,
-        t,
         D,
+        ::Val{info},
         ::Val{hypervisc_indexmap},
-        elems,
+        t,
         increment = false,
     )
 
@@ -968,17 +958,16 @@ gradient flux.
 """
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
-    ::Val{info},
     ::HorizontalDirection,
-    state_prognostic,
     state_gradient_flux,
     Qhypervisc_grad,
-    state_auxiliary,
-    vgeo,
-    t,
-    D,
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
     ::Val{hypervisc_indexmap},
-    elems,
+    t,
     increment = false,
 ) where {info, hypervisc_indexmap}
     @uniform begin
@@ -1168,17 +1157,16 @@ end
 
 @kernel function volume_gradients!(
     balance_law::BalanceLaw,
-    ::Val{info},
     ::VerticalDirection,
-    state_prognostic,
     state_gradient_flux,
     Qhypervisc_grad,
-    state_auxiliary,
-    vgeo,
-    t,
-    D,
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
     ::Val{hypervisc_indexmap},
-    elems,
+    t,
     increment = false,
 ) where {info, hypervisc_indexmap}
     @uniform begin
@@ -1385,22 +1373,21 @@ end
 @doc """
     function dgsem_interface_gradients!(
         balance_law::BalanceLaw,
-        ::Val{dim},
-        ::Val{polyorder},
         direction,
-        numerical_flux_gradient,
-        state_prognostic,
         state_gradient_flux,
         Qhypervisc_grad,
+        state_prognostic,
         state_auxiliary,
         vgeo,
         sgeo,
-        t,
         vmap⁻,
         vmap⁺,
         elemtobndy,
+        ::Val{info},
         ::Val{hypervisc_indexmap},
+        numerical_flux_gradient,
         elems,
+        t,
     )
 
 Computes the surface integral for the auxiliary equation
@@ -1419,21 +1406,21 @@ auxiliary gradient flux, and G* is the associated numerical flux.
 """ dgsem_interface_gradients!
 @kernel function dgsem_interface_gradients!(
     balance_law::BalanceLaw,
-    ::Val{info},
     direction,
-    numerical_flux_gradient,
-    state_prognostic,
     state_gradient_flux,
     Qhypervisc_grad,
-    state_auxiliary,
-    vgeo,
-    sgeo,
-    t,
-    vmap⁻,
-    vmap⁺,
-    elemtobndy,
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(vgeo),
+    @Const(sgeo),
+    @Const(vmap⁻),
+    @Const(vmap⁺),
+    @Const(elemtobndy),
+    ::Val{info},
     ::Val{hypervisc_indexmap},
+    numerical_flux_gradient,
     elems,
+    t,
 ) where {info, hypervisc_indexmap}
     @uniform begin
         dim = info.dim
@@ -2243,13 +2230,12 @@ end
 """
     function volume_divergence_of_gradients!(
         balance_law::BalanceLaw,
-        ::Val{info},
         direction,
-        Qhypervisc_grad,
         Qhypervisc_div,
+        Qhypervisc_grad,
         vgeo,
         D,
-        elems,
+        ::Val{info},
         increment = false,
     )
 
@@ -2268,13 +2254,12 @@ and ∇G are the gradients.
 """
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
-    ::Val{info},
     ::HorizontalDirection,
-    Qhypervisc_grad,
     Qhypervisc_div,
-    vgeo,
-    D,
-    elems,
+    @Const(Qhypervisc_grad),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
     increment = false,
 ) where {info}
     @uniform begin
@@ -2362,13 +2347,12 @@ end
 
 @kernel function volume_divergence_of_gradients!(
     balance_law::BalanceLaw,
-    ::Val{info},
     ::VerticalDirection,
-    Qhypervisc_grad,
     Qhypervisc_div,
-    vgeo,
-    D,
-    elems,
+    @Const(Qhypervisc_grad),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
     increment = false,
 ) where {info}
     @uniform begin
@@ -2468,16 +2452,16 @@ end
 """
     function interface_divergence_of_gradients!(
         balance_law::BalanceLaw,
-        ::Val{info},
         direction,
-        divgradnumpenalty,
-        Qhypervisc_grad,
         Qhypervisc_div,
+        Qhypervisc_grad,
         vgeo,
         sgeo,
         vmap⁻,
         vmap⁺,
         elemtobndy,
+        ::Val{info},
+        divgradnumpenalty,
         elems,
     )
 
@@ -2496,16 +2480,16 @@ from volume to face, and (∇G)⋆ is the numerical fluxes for the gradients.
 """
 @kernel function interface_divergence_of_gradients!(
     balance_law::BalanceLaw,
-    ::Val{info},
     direction,
-    divgradnumpenalty,
-    Qhypervisc_grad,
     Qhypervisc_div,
-    vgeo,
-    sgeo,
-    vmap⁻,
-    vmap⁺,
-    elemtobndy,
+    @Const(Qhypervisc_grad),
+    @Const(vgeo),
+    @Const(sgeo),
+    @Const(vmap⁻),
+    @Const(vmap⁺),
+    @Const(elemtobndy),
+    ::Val{info},
+    divgradnumpenalty,
     elems,
 ) where {info}
     @uniform begin
@@ -2612,19 +2596,17 @@ end
 """
     function volume_gradients_of_laplacians!(
         balance_law::BalanceLaw,
-        ::Val{info},
         direction,
         Qhypervisc_grad,
         Qhypervisc_div,
         state_prognostic,
         state_auxiliary,
         vgeo,
-        ω,
         D,
-        elems,
+        ::Val{info},
         t,
         increment = false,
-    ) where {info}
+    )
 
 Computes the volume integral for the auxiliary equation
 (in DG strong form):
@@ -2640,16 +2622,14 @@ D is the differentiation matrix and ΔG is the laplacian
 """
 @kernel function volume_gradients_of_laplacians!(
     balance_law::BalanceLaw,
-    ::Val{info},
     ::HorizontalDirection,
     Qhypervisc_grad,
-    Qhypervisc_div,
-    state_prognostic,
-    state_auxiliary,
-    vgeo,
-    ω,
-    D,
-    elems,
+    @Const(Qhypervisc_div),
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
     t,
     increment = false,
 ) where {info}
@@ -2788,16 +2768,14 @@ end
 
 @kernel function volume_gradients_of_laplacians!(
     balance_law::BalanceLaw,
-    ::Val{info},
     ::VerticalDirection,
     Qhypervisc_grad,
-    Qhypervisc_div,
-    state_prognostic,
-    state_auxiliary,
-    vgeo,
-    ω,
-    D,
-    elems,
+    @Const(Qhypervisc_div),
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(vgeo),
+    @Const(D),
+    ::Val{info},
     t,
     increment = false,
 ) where {info}
@@ -2953,9 +2931,7 @@ end
 """
     function interface_gradients_of_laplacians!(
         balance_law::BalanceLaw,
-        ::Val{info},
         direction,
-        hyperviscnumflux,
         Qhypervisc_grad,
         Qhypervisc_div,
         state_prognostic,
@@ -2965,6 +2941,8 @@ end
         vmap⁻,
         vmap⁺,
         elemtobndy,
+        ::Val{info},
+        hyperviscnumflux,
         elems,
         t,
     )
@@ -2985,18 +2963,18 @@ the associated numerical flux.
 """
 @kernel function interface_gradients_of_laplacians!(
     balance_law::BalanceLaw,
-    ::Val{info},
     direction,
-    hyperviscnumflux,
     Qhypervisc_grad,
-    Qhypervisc_div,
-    state_prognostic,
-    state_auxiliary,
-    vgeo,
-    sgeo,
-    vmap⁻,
-    vmap⁺,
-    elemtobndy,
+    @Const(Qhypervisc_div),
+    @Const(state_prognostic),
+    @Const(state_auxiliary),
+    @Const(vgeo),
+    @Const(sgeo),
+    @Const(vmap⁻),
+    @Const(vmap⁺),
+    @Const(elemtobndy),
+    ::Val{info},
+    hyperviscnumflux,
     elems,
     t,
 ) where {info}
