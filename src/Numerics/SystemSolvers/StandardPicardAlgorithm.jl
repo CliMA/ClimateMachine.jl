@@ -103,6 +103,5 @@ function doiteration!(
     R .= fQ .- Q
     residual_norm  = norm(R, weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
-    @info Q
     return has_converged, 1
 end
