@@ -974,16 +974,15 @@ gradient flux.
         local_transform = MArray{Tuple{ngradstate}, FT}(undef)
         local_state_gradient_flux =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+        local_transform_gradient = MArray{Tuple{3, ngradstate}, FT}(undef)
     end
 
     # Transformation from conservative variables to
     # primitive variables (i.e. ρu → u)
     shared_transform = @localmem FT (Nq1, Nq2, ngradstate)
 
-    local_state_prognostic = @private FT (ngradtransformstate, Nq3)
-    local_state_auxiliary = @private FT (num_state_auxiliary, Nq3)
-    local_transform_gradient = @private FT (3, ngradstate, Nq3)
-    Gξ3 = @private FT (ngradstate, Nq3)
+    local_state_prognostic = @private FT (ngradtransformstate)
+    local_state_auxiliary = @private FT (num_state_auxiliary)
 
     # Grab the index associated with the current element `e` and the
     # horizontal quadrature indices `i` (in the ξ1-direction),
@@ -994,38 +993,25 @@ gradient flux.
 
     @inbounds @views begin
         @unroll for k in 1:Nq3
-            # Initialize local gradient variables
-            @unroll for s in 1:ngradstate
-                local_transform_gradient[1, s, k] = -zero(FT)
-                local_transform_gradient[2, s, k] = -zero(FT)
-                local_transform_gradient[3, s, k] = -zero(FT)
-                Gξ3[s, k] = -zero(FT)
-            end
+            # Synchronize threads on the device
+            @synchronize
 
             # Load prognostic and auxiliary variables
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             @unroll for s in 1:ngradtransformstate
-                local_state_prognostic[s, k] = state_prognostic[ijk, s, e]
+                local_state_prognostic[s] = state_prognostic[ijk, s, e]
             end
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[s, k] = state_auxiliary[ijk, s, e]
+                local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
             end
-        end
 
-        # Compute G(q) and write the result into shared memory
-        @unroll for k in 1:Nq3
+            # Compute G(q) and write the result into shared memory
             fill!(local_transform, -zero(eltype(local_transform)))
             compute_gradient_argument!(
                 balance_law,
-                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform),
-                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
-                    :,
-                    k,
-                ]),
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
-                    :,
-                    k,
-                ]),
+                Vars{vars_state(balance_law, Gradient(), FT)}(local_transform[:]),
+                Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[:]),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[:]),
                 t,
             )
 
@@ -1055,44 +1041,37 @@ gradient flux.
                 # Application of chain-rule in ξ1 and ξ2 directions,
                 # ∂G/∂xi = ∂ξ1/∂xi * ∂G/∂ξ1, ∂G/∂xi = ∂ξ2/∂xi * ∂G/∂ξ2
                 # to get a physical gradient
-                local_transform_gradient[1, s, k] += ξ1x1 * Gξ1
-                local_transform_gradient[2, s, k] += ξ1x2 * Gξ1
-                local_transform_gradient[3, s, k] += ξ1x3 * Gξ1
+                local_transform_gradient[1, s] = ξ1x1 * Gξ1
+                local_transform_gradient[2, s] = ξ1x2 * Gξ1
+                local_transform_gradient[3, s] = ξ1x3 * Gξ1
 
                 if dim == 3
                     ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                     vgeo[ijk, _ξ2x2, e],
                     vgeo[ijk, _ξ2x3, e]
-                    local_transform_gradient[1, s, k] += ξ2x1 * Gξ2
-                    local_transform_gradient[2, s, k] += ξ2x2 * Gξ2
-                    local_transform_gradient[3, s, k] += ξ2x3 * Gξ2
+                    local_transform_gradient[1, s] += ξ2x1 * Gξ2
+                    local_transform_gradient[2, s] += ξ2x2 * Gξ2
+                    local_transform_gradient[3, s] += ξ2x3 * Gξ2
                 end
             end
-
-            # Synchronize threads on the device
-            @synchronize
-        end
-
-        @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
             # Hyperdiffusion (avoid recomputing gradients of the state since
             # these are needed for the hyperdiffusion kernels)
             @unroll for s in 1:ngradlapstate
                 if increment
                     Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] +=
-                        local_transform_gradient[1, hypervisc_indexmap[s], k]
+                        local_transform_gradient[1, hypervisc_indexmap[s]]
                     Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] +=
-                        local_transform_gradient[2, hypervisc_indexmap[s], k]
+                        local_transform_gradient[2, hypervisc_indexmap[s]]
                     Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] +=
-                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+                        local_transform_gradient[3, hypervisc_indexmap[s]]
                 else
                     Qhypervisc_grad[ijk, 3 * (s - 1) + 1, e] =
-                        local_transform_gradient[1, hypervisc_indexmap[s], k]
+                        local_transform_gradient[1, hypervisc_indexmap[s]]
                     Qhypervisc_grad[ijk, 3 * (s - 1) + 2, e] =
-                        local_transform_gradient[2, hypervisc_indexmap[s], k]
+                        local_transform_gradient[2, hypervisc_indexmap[s]]
                     Qhypervisc_grad[ijk, 3 * (s - 1) + 3, e] =
-                        local_transform_gradient[3, hypervisc_indexmap[s], k]
+                        local_transform_gradient[3, hypervisc_indexmap[s]]
                 end
             end
 
@@ -1108,18 +1087,12 @@ gradient flux.
                     Vars{vars_state(balance_law, GradientFlux(), FT)}(
                         local_state_gradient_flux,
                     ),
-                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient[
-                        :,
-                        :,
-                        k,
-                    ]),
+                    Grad{vars_state(balance_law, Gradient(), FT)}(local_transform_gradient),
                     Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
                         :,
-                        k,
                     ]),
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
                         :,
-                        k,
                     ]),
                     t,
                 )
@@ -2258,26 +2231,12 @@ and ∇G are the gradients.
 
     s_grad = @localmem FT (2, Nq1, Nq2, ngradlapstate)
 
-    local_div = @private FT (Nq3, ngradlapstate)
-    local_MI = @private FT (Nq3,)
-
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds begin
         @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-            # initialize local tendency
-            @unroll for s in 1:ngradlapstate
-                local_div[k, s] = zero(FT)
-            end
-            # read in mass matrix inverse for element `e`
-            local_MI[k] = vgeo[ijk, _MI, e]
-        end
-
-        @unroll for k in 1:Nq3
             @synchronize
-
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
             M = vgeo[ijk, _M, e]
@@ -2303,26 +2262,24 @@ and ∇G are the gradients.
             end
             @synchronize
 
-            MI = local_MI[k]
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+
+            MI = vgeo[ijk, _MI, e]
             @unroll for s in 1:ngradlapstate
+                local_div = -zero(FT)
                 @unroll for n in 1:Nq1
                     Dni = D[n, i]
-                    local_div[k, s] -= MI * Dni * s_grad[1, n, j, s]
+                    local_div -= MI * Dni * s_grad[1, n, j, s]
                     if dim == 3
                         Dnj = D[n, j]
-                        local_div[k, s] -= MI * Dnj * s_grad[2, i, n, s]
+                        local_div -= MI * Dnj * s_grad[2, i, n, s]
                     end
                 end
-            end
-        end
-
-        @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-            @unroll for s in 1:ngradlapstate
+                
                 if increment
-                    Qhypervisc_div[ijk, s, e] += local_div[k, s]
+                    Qhypervisc_div[ijk, s, e] += local_div
                 else
-                    Qhypervisc_div[ijk, s, e] = local_div[k, s]
+                    Qhypervisc_div[ijk, s, e] = local_div
                 end
             end
         end
@@ -2635,36 +2592,28 @@ D is the differentiation matrix and ΔG is the laplacian
     end
 
     s_lap = @localmem FT (Nq1, Nq2, ngradlapstate)
-    local_state_prognostic = @private FT (ngradtransformstate, Nq3)
-    local_state_auxiliary = @private FT (num_state_auxiliary, Nq3)
-    l_grad_lap = @private FT (3, ngradlapstate, Nq3)
-    lap_ξ3 = @private FT (ngradlapstate, Nq3)
+    local_state_prognostic = @private FT (ngradtransformstate,)
+    local_state_auxiliary = @private FT (num_state_auxiliary,)
+    l_grad_lap = @private FT (3, ngradlapstate)
 
     e = @index(Group, Linear)
     i, j = @index(Local, NTuple)
 
     @inbounds @views begin
         @unroll for k in 1:Nq3
-            @unroll for s in 1:ngradlapstate
-                l_grad_lap[1, s, k] = -zero(FT)
-                l_grad_lap[2, s, k] = -zero(FT)
-                l_grad_lap[3, s, k] = -zero(FT)
-                lap_ξ3[s, k] = -zero(FT)
-            end
-
+            # Synchronize threads on the device
+            @synchronize
+            
             # Load prognostic and auxiliary variables
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             @unroll for s in 1:ngradtransformstate
-                local_state_prognostic[s, k] = state_prognostic[ijk, s, e]
+                local_state_prognostic[s] = state_prognostic[ijk, s, e]
             end
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[s, k] = state_auxiliary[ijk, s, e]
+                local_state_auxiliary[s] = state_auxiliary[ijk, s, e]
             end
-        end
 
-        @unroll for k in 1:Nq3
             # store laplacian into shared memory
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
             @unroll for s in 1:ngradlapstate
                 s_lap[i, j, s] = Qhypervisc_div[ijk, s, e]
             end
@@ -2689,27 +2638,19 @@ D is the differentiation matrix and ΔG is the laplacian
                 # Application of chain-rule in ξ1 and ξ2 directions,
                 # ∂G/∂xi = ∂ξ1/∂xi * ∂G/∂ξ1, ∂G/∂xi = ∂ξ2/∂xi * ∂G/∂ξ2
                 # to get a physical gradient
-                l_grad_lap[1, s, k] = ξ1x1 * lap_ξ1
-                l_grad_lap[2, s, k] = ξ1x2 * lap_ξ1
-                l_grad_lap[3, s, k] = ξ1x3 * lap_ξ1
+                l_grad_lap[1, s] = ξ1x1 * lap_ξ1
+                l_grad_lap[2, s] = ξ1x2 * lap_ξ1
+                l_grad_lap[3, s] = ξ1x3 * lap_ξ1
 
                 if dim == 3
                     ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
                     vgeo[ijk, _ξ2x2, e],
                     vgeo[ijk, _ξ2x3, e]
-                    l_grad_lap[1, s, k] += ξ2x1 * lap_ξ2
-                    l_grad_lap[2, s, k] += ξ2x2 * lap_ξ2
-                    l_grad_lap[3, s, k] += ξ2x3 * lap_ξ2
+                    l_grad_lap[1, s] += ξ2x1 * lap_ξ2
+                    l_grad_lap[2, s] += ξ2x2 * lap_ξ2
+                    l_grad_lap[3, s] += ξ2x3 * lap_ξ2
                 end
-
             end
-
-            # Synchronize threads on the device
-            @synchronize
-        end
-
-        @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
             fill!(
                 local_state_hyperdiffusion,
@@ -2725,15 +2666,12 @@ D is the differentiation matrix and ΔG is the laplacian
                 Grad{vars_state(balance_law, GradientLaplacian(), FT)}(l_grad_lap[
                     :,
                     :,
-                    k,
                 ]),
                 Vars{vars_state(balance_law, Prognostic(), FT)}(local_state_prognostic[
                     :,
-                    k,
                 ]),
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(local_state_auxiliary[
                     :,
-                    k,
                 ]),
                 t,
             )
