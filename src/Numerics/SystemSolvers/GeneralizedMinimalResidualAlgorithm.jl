@@ -21,12 +21,13 @@ end
         groupsize::Union{Int, Nothing} = nothing,
     )
 
-Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves `f(Q) = rhs`,
+Constructor for a `GeneralizedMinimalResidualAlgorithm`, which solves an
+equation of the form `f(Q) = rhs`, where `f` is assumed to be a linear function
+of `Q`.
 
-`f` must be a linear function of `Q`. This algorithm uses the restarted 
-Generalized Minimal Residual method of Saad and Schultz (1986). Since Krylov
-subspace methods can only solve square linear systems,
-`rhs` must have the same size as `Q`.
+This algorithm uses the restarted Generalized Minimal Residual method of Saad
+and Schultz (1986). As a Krylov subspace method, it can only solve square
+linear systems, so `rhs` must have the same size as `Q`.
 
 ## References
 
@@ -63,11 +64,11 @@ function GeneralizedMinimalResidualAlgorithm(;
     )
 end
 
-struct GeneralizedMinimalResidualSolver{PT, KT, HT, GT, FT} <: IterativeSolver
+struct GeneralizedMinimalResidualSolver{PT, KT, GT, HT, FT} <: IterativeSolver
     preconditioner::PT # right preconditioner
-    krylov_basis::KT   # containers for Krylov basis vectors
+    krylovbasis::KT    # containers for Krylov basis vectors
+    g0::GT             # container for r.h.s. of least squares problem
     H::HT              # container for Hessenberg matrix
-    g0::GT             # container for right-hand side of least squares problem
     atol::FT           # absolute tolerance
     rtol::FT           # relative tolerance
     maxrestarts::Int   # maximum number of restarts
@@ -82,8 +83,6 @@ function IterativeSolver(
     rhs,
 )
     FT = eltype(Q)
-    
-    @assert size(Q) == size(rhs)
 
     preconditioner = isnothing(algorithm.preconditioner) ? NoPreconditioner() :
         algorithm.preconditioner
@@ -94,16 +93,22 @@ function IterativeSolver(
     sarrays = isnothing(algorithm.sarrays) ? true : algorithm.sarrays
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
 
+    @assert(size(Q) == size(rhs), string(
+        "Krylov subspace methods can only solve square linear systems, so Q ",
+        "must have the same dimensions as rhs,\nbut their dimensions are ",
+        size(Q), " and ", size(rhs), ", respectively"
+    ))
+
     return GeneralizedMinimalResidualSolver(
         preconditioner,
         ntuple(i -> similar(Q), M + 1),
-        sarrays ? (@MArray zeros(FT, M + 1, M)) : zeros(FT, M + 1, M),
         sarrays ? (@MArray zeros(FT, M + 1, 1)) : zeros(FT, M + 1, 1),
+        sarrays ? (@MArray zeros(FT, M + 1, M)) : zeros(FT, M + 1, M),
         atol,
         rtol,
         maxrestarts,
         M,
-        groupsize
+        groupsize,
     )
 end
 
@@ -120,19 +125,19 @@ function initialize!(
     rhs,
     args...,
 )
-    krylov_basis = solver.krylov_basis
+    krylovbasis = solver.krylovbasis
     g0 = solver.g0
     
-    # Store the residual in krylov_basis[1].
-    f!(krylov_basis[1], Q, args...)
-    krylov_basis[1] .= rhs .- krylov_basis[1]
+    # Store the residual in krylovbasis[1].
+    f!(krylovbasis[1], Q, args...)
+    krylovbasis[1] .= rhs .- krylovbasis[1]
 
-    residual_norm = norm(krylov_basis[1], weighted_norm)
+    residual_norm = norm(krylovbasis[1], weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
 
-    # Normalize krylov_basis[1] and update g0.
+    # Normalize krylovbasis[1] and update g0.
     if !has_converged
-        krylov_basis[1] ./= residual_norm
+        krylovbasis[1] ./= residual_norm
         g0[1] = residual_norm
         g0[2:end] .= zero(eltype(g0))
     end
@@ -150,9 +155,9 @@ function doiteration!(
     args...,
 )
     preconditioner = solver.preconditioner
-    krylov_basis = solver.krylov_basis
-    H = solver.H
+    krylovbasis = solver.krylovbasis
     g0 = solver.g0
+    H = solver.H
 
     Ω = LinearAlgebra.Rotation{eltype(Q)}([])
 
@@ -162,18 +167,18 @@ function doiteration!(
         j += 1
 
         # Apply the right preconditioner.
-        preconditioner_solve!(preconditioner, krylov_basis[j])
+        preconditioner_solve!(preconditioner, krylovbasis[j])
 
         # Apply the linear operator.
-        f!(krylov_basis[j + 1], krylov_basis[j], args...)
+        f!(krylovbasis[j + 1], krylovbasis[j], args...)
 
         # Do Arnoldi iteration using modified Gram Schmidt orthonormalization.
         for i in 1:j
-            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted_norm)
-            krylov_basis[j + 1] .-= H[i, j] .* krylov_basis[i]
+            H[i, j] = dot(krylovbasis[j + 1], krylovbasis[i], weighted_norm)
+            krylovbasis[j + 1] .-= H[i, j] .* krylovbasis[i]
         end
-        H[j + 1, j] = norm(krylov_basis[j + 1], weighted_norm)
-        krylov_basis[j + 1] ./= H[j + 1, j]
+        H[j + 1, j] = norm(krylovbasis[j + 1], weighted_norm)
+        krylovbasis[j + 1] ./= H[j + 1, j]
 
         # Apply the previous Givens rotations to the new column of H.
         @views H[1:j, j:j] .= Ω * H[1:j, j:j]
@@ -197,12 +202,12 @@ function doiteration!(
     y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
     # Compose the solution vector.
-    # TODO: Should this be `for i in 1:j Q .+= y[i] .* krylov_basis[i] end`?
+    # TODO: Should this be `for i in 1:j Q .+= y[i] .* krylovbasis[i] end`?
     event = Event(array_device(Q))
     event = linearcombination!(array_device(Q), solver.groupsize)(
         realview(Q),
         y,
-        realview.(krylov_basis),
+        realview.(krylovbasis),
         true;
         ndrange = length(Q),
         dependencies = (event,),

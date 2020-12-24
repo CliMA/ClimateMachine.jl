@@ -172,7 +172,7 @@ macro check_positive_iterable(args...)
         message = "$arg must contain positive values, but it was set to "
         arg = esc(arg)
         block.args[i] = :(
-            if !isnothing($arg) && !all($arg .> 0)
+            if !isnothing($arg) && !(length($arg) > 0 && minimum($arg) > 0)
                 throw(DomainError(string($message, $arg)))
             end
         )
@@ -205,6 +205,10 @@ include("JacobianFreeNewtonKrylovAlgorithm.jl")
 include("StandardPicardAlgorithm.jl")
 
 # TODO:
+#   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm
+#       - Check if the explicit computations in BatchedGeneralizedMinimalResidualAlgorithm are more efficient than the abstractions in GeneralizedMinimalResidualAlgorithm.
+#       - Fix the preconditioner implementation in GeneralizedMinimalResidualAlgorithm.
+#           - The solution taken from Solvent.jl looks wrong; use the solution from BatchedGeneralizedMinimalResidualAlgorithm, which has a seperate ΔQ vector to which the preconditioner is applied.
 #   - Our stopping condition is incorrect!
 #       - By taking the max of atol and rtol * initial_residual_norm, we are using the looser condition, ensuring that the tighter condition is not satisfied upon termination; we should use min instead.
 #           - See the last paragraph in http://www.math.uakron.edu/~kreider/num1/stopcrit.pdf.
@@ -218,12 +222,6 @@ include("StandardPicardAlgorithm.jl")
 #   - Consider where EulerOperator needs to be
 #       - It should be explicitly dealt with in Preconditioners.jl and enable_duals.jl, but BackwardEulerSolvers.jl is included after those files.
 #       - Has been commented out in BackwardEulerSolvers.jl and moved to Problem.jl as a temporary workaround.
-#   - Consider eliminating Problem and passing its components as function arguments
-#       - Since the user needs to pass different arrays Q, they get no benefit from constructing an immutable Problem around Q instead of passing Q directly.
-#       - While function calls appear simpler with one Problem argument instead of three arguments, those functions will still be called with those three arguments, just wrapped in a Problem.
-#       - So, really, introducing an immutable Problem just introduces clutter without any benefit.
-#       - On the other hand, if Problem is made mutable, then the user could store both Q and args... in there, swapping them out when necessary. I don't think this makes things any simpler, though.
-#       - Discussion result: remove Problem; maybe ask Simon first
 #   - Get a reference for stepsize() computation in JacobianFreeNewtonKrylovSolver
 #   - Check whether weighted_norm needs to be passed around everywhere
 #   - Pass α for EulerOperator in args... to solve!()

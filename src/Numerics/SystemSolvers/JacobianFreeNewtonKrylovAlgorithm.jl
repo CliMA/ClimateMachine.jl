@@ -135,7 +135,8 @@ end
         β::Union{Real, Nothing} = nothing,
     )
 
-Constructor for the `JacobianFreeNewtonKrylovAlgorithm`, which solves `f(Q) = rhs`.
+Constructor for the `JacobianFreeNewtonKrylovAlgorithm`, which solves an
+equation of the form `f(Q) = rhs`.
 
 Suppose that the value of `Q` on the `k`-th iteration of the algorithm is
 `Q^k`, where `f(Q^k) ≠ rhs`. Since `f` is analytic at `Q^k`, its Taylor series
@@ -214,8 +215,6 @@ function IterativeSolver(
     rhs,
 )
     FT = eltype(Q)
-    
-    @assert size(Q) == size(rhs)
 
     atol = isnothing(algorithm.atol) ? FT(1e-6) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? FT(1e-6) : FT(algorithm.rtol)
@@ -223,10 +222,15 @@ function IterativeSolver(
     autodiff = isnothing(algorithm.autodiff) ? false : algorithm.autodiff
     β = isnothing(algorithm.β) ? FT(1e-4) : FT(algorithm.β)
 
+    @assert(size(Q) == size(rhs), string(
+        "Krylov subspace methods can only solve square linear systems, so Q ",
+        "must have the same dimensions as rhs,\nbut their dimensions are ",
+        size(Q), " and ", size(rhs), ", respectively"
+    ))
+
     jvp! = JacobianVectorProduct(f!, Q, autodiff, β)
     ΔQ = similar(Q)
     Δf = similar(Q)
-
     return JaCobIanfrEEneWtONKryLovSoLVeR(
         IterativeSolver(algorithm.krylovalgorithm, jvp!, ΔQ, Δf),
         jvp!,
@@ -297,7 +301,7 @@ function doiteration!(
     elseif isa(f!, DGModel)
         preconditioner_update!(jvp!, f!, preconditioner, args...)
     end
-    fcalls2 = solve!(krylovsolver, solver.jvp!, solver.ΔQ, solver.Δf, args...)[2]
+    fcalls2 = solve!(krylovsolver, jvp!, ΔQ, solver.Δf, args...)[2]
     preconditioner_counter_update!(preconditioner)
 
     Q .+= ΔQ

@@ -13,15 +13,17 @@ end
         maxiters::Union{Int, Nothing} = nothing,
     )
 
-Constructor for the `StandardPicardAlgorithm`, which solves `f(Q) = Q`.
+Constructor for a `StandardPicardAlgorithm`, which solves an equation of the
+form `f(Q) = Q`, where `f` is assumed to be a contraction mapping of `Q`.
 
-The Picard method solves a fixed point problem by repeatedly setting new
-estimate `Q^{k+1} = f(Q^k)`. `f` must be a contractive function.
+This algorithm uses the standard Picard method, which sets `Q^{k+1} = f(Q^k)`,
+where `Q^k` and `Q^{k+1}` are the values of `Q` on the `k`-th and `k+1`-th
+iterations of the algorithm.
 
 # Keyword Arguments
 - `atol`: absolute tolerance; defaults to `1e-6`
 - `rtol`: relative tolerance; defaults to `1e-6`
-- `maxiters`: maximum number of iterations; defaults to 20
+- `maxiters`: maximum number of iterations; defaults to 10
 """
 function StandardPicardAlgorithm(;
     atol::Union{Real, Nothing} = nothing,
@@ -37,11 +39,11 @@ function StandardPicardAlgorithm(;
 end
 
 struct StandardPicardSolver{AT, FT} <: IterativeSolver
-    fQ::AT      # container for Q^{k+1} = f(Q^k)
-    residual::AT       # container for residual Q^k - f(Q^k) 
-    atol::FT
-    rtol::FT
-    maxiters::Int
+    fQ::AT        # container for f(Q^k)
+    residual::AT  # container for residual f(Q^k) - Q^k
+    atol::FT      # absolute tolerance
+    rtol::FT      # relative tolerance
+    maxiters::Int # maximum number of iterations
 end
 
 function IterativeSolver(
@@ -54,7 +56,7 @@ function IterativeSolver(
 
     atol = isnothing(algorithm.atol) ? FT(1e-6) : FT(algorithm.atol)
     rtol = isnothing(algorithm.rtol) ? FT(1e-6) : FT(algorithm.rtol)
-    maxiters = isnothing(algorithm.maxiters) ? 20 : algorithm.maxiters
+    maxiters = isnothing(algorithm.maxiters) ? 10 : algorithm.maxiters
     
     return StandardPicardSolver(
         similar(Q),
@@ -78,10 +80,12 @@ function initialize!(
     args...,
 )
     fQ = solver.fQ
-    R = solver.residual
+    residual = solver.residual
+
     f!(fQ, Q, args...)
-    R .= Q .- fQ
-    residual_norm  = norm(R, weighted_norm)
+    residual .= fQ .- Q
+
+    residual_norm  = norm(residual, weighted_norm)
     has_converged = check_convergence(residual_norm, threshold, iters)
     return residual_norm, has_converged, 1
 end
@@ -94,14 +98,6 @@ function doiteration!(
     Q,
     args...,
 )
-    R = solver.residual
-    fQ = solver.fQ
-    Q .= fQ
-
-    # Compute residual norm and residual for next step
-    f!(fQ, Q, args...)
-    R .= fQ .- Q
-    residual_norm  = norm(R, weighted_norm)
-    has_converged = check_convergence(residual_norm, threshold, iters)
-    return has_converged, 1
+    Q .= solver.fQ
+    return initialize!(solver, threshold, iters, f!, Q, args...)[2:3]
 end
