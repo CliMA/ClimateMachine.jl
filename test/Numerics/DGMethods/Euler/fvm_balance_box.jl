@@ -3,6 +3,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
+import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.GenericCallbacks
@@ -40,7 +41,7 @@ function main()
                       """ ArrayType "$FT" "$NumericalFlux" dims
 
     numelem_horz = 10
-    numelem_vert = 64
+    numelem_vert = 32
     test_run(
         mpicomm,
         ArrayType,
@@ -99,7 +100,7 @@ function test_run(
     dg = DGFVModel(
         model,
         grid,
-        AtmosFVConstantBalanced(model),
+        HBFVReconstruction(model, FVLinear()),
         NumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),

@@ -20,7 +20,6 @@ Concrete types must provide implementions of
         state_top,
         state_bottom,
         cell_states,
-        cell_aux,
         cell_weights,
     )
 ```
@@ -61,7 +60,7 @@ struct FVConstant <: AbstractReconstruction end
 
 width(::FVConstant) = 0
 
-function (::FVConstant)(state_bot, state_top, cell_states::SVector{1}, _, _)
+function (::FVConstant)(state_bot, state_top, cell_states::SVector{1}, _)
     @inbounds state_top .= cell_states[1]
     @inbounds state_bot .= cell_states[1]
 end
@@ -104,7 +103,6 @@ function (fvrecon::FVLinear)(
     state_bot,
     state_top,
     cell_states::SVector{3},
-    _,
     cell_weights,
 )
     @inbounds wi_top = 1 / (cell_weights[3] + cell_weights[2])
@@ -127,28 +125,20 @@ function (fvrecon::FVLinear)(
     state_bot,
     state_top,
     cell_states::SVector{1},
-    cell_aux,
     cell_weights,
 )
-    FVConstant()(state_bot, state_top, cell_states, cell_aux, cell_weights)
+    FVConstant()(state_bot, state_top, cell_states, cell_weights)
 end
 
 function (fvrecon::FVLinear)(
     state_bot,
     state_top,
     cell_states::SVector{D},
-    cell_aux,
     cell_weights,
 ) where {D}
     W = div(D - 1, 2)
     rng = SUnitRange(W, W + 2)
-    @inbounds fvrecon(
-        state_bot,
-        state_top,
-        cell_states[rng],
-        cell_aux[rng],
-        cell_weights[rng],
-    )
+    @inbounds fvrecon(state_bot, state_top, cell_states[rng], cell_weights[rng])
 end
 
 """

@@ -126,9 +126,9 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             MArray{Tuple{num_state_primitive}, FT}(undef)
         end...)
 
-        local_state_auxiliary = SVector(ntuple(Val(stencil_diameter)) do _
+        local_state_auxiliary = ntuple(Val(stencil_diameter)) do _
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        end...)
+        end
 
         # FIXME: These two arrays could be smaller
         # (only 2 elements not stencil_diameter)
@@ -229,7 +229,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 els[k],
             )
             # If local cell weights are NOT _M we need to load _vMI out of sgeo
-            local_cell_weights[k] = vgeo[n, _M, els[k]]
+            local_cell_weights[k] = 2 * vgeo[n, _JcV, els[k]]
         end
 
         # Transform all the data into primitive variables
@@ -241,7 +241,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_auxiliary[k],
             )
         end
-        vMI[2] = 1 / local_cell_weights[stencil_center]
+        vMI[2] = sgeo[_vMI, n, faces[2], els[stencil_center]]
 
         # If we are periodic we reconstruct the top and bottom values for eV
         # then start with eV update in loop below
@@ -253,7 +253,6 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
-                local_state_auxiliary[rng],
                 local_cell_weights[rng],
             )
 
@@ -285,13 +284,10 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
             # Reconstruction using only eVs cell value
             rng = SUnitRange(stencil_center, stencil_center)
-            # Need two geopotential cell values for hydrostatic reconstuction
-            rng_aux = SUnitRange(stencil_center, stencil_center + 1)
             reconstruction!(
                 local_state_face_primitive[1],
                 local_state_face_primitive[2],
                 local_state_primitive[rng],
-                local_state_auxiliary[rng_aux],
                 local_cell_weights[rng],
             )
 
@@ -424,8 +420,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             )
 
             # Get local volume mass matrix inverse
-            local_cell_weights[stencil_diameter] = vgeo[n, _M, e_load]
-            vMI[2] = 1 / local_cell_weights[stencil_center]
+            local_cell_weights[stencil_diameter] = 2vgeo[n, _JcV, e_load]
+            vMI[2] = sgeo[_vMI, n, faces[2], eH + eV_up]
 
             # Tranform the prognostic data to primitive data
             prognostic_to_primitive!(
@@ -447,7 +443,6 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     local_state_face_primitive[1],
                     local_state_face_primitive[2],
                     local_state_primitive[rng],
-                    local_state_auxiliary[rng],
                     local_cell_weights[rng],
                 )
             elseif eV_up <= stencil_width
@@ -462,7 +457,6 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_face_primitive[1],
                         local_state_face_primitive[2],
                         local_state_primitive[rng],
-                        local_state_auxiliary[rng],
                         local_cell_weights[rng],
                     )
                 end w -> throw(BoundsError(local_state_primitive, w))
@@ -473,15 +467,10 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     begin
                         rng1, rng2 = stencil_center .+ (1 - w, w - 1)
                         rng = SUnitRange(rng1, rng2)
-                        # At the top need two geopotential cell values for hydrostatic reconstuction
-                        rng_aux =
-                            w == 1 ?
-                            SUnitRange(stencil_center - 1, stencil_center) : rng
                         reconstruction!(
                             local_state_face_primitive[1],
                             local_state_face_primitive[2],
                             local_state_primitive[rng],
-                            local_state_auxiliary[rng_aux],
                             local_cell_weights[rng],
                         )
                     end w -> throw(BoundsError(local_state_primitive, w))
