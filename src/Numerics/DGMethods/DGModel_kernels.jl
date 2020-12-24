@@ -102,9 +102,8 @@ fluxes, respectively.
     # Arrays for F, and the differentiation matrix D
     shared_flux = @localmem FT (2, Nq1, Nq2, num_state_prognostic)
 
-    # Storage for tendency and mass inverse M⁻¹
-    local_tendency = @private FT (Nq3, num_state_prognostic)
-    local_MI = @private FT (Nq3,)
+    # Storage for tendency
+    local_tendency = @private FT (num_state_prognostic)
 
     # Grab the index associated with the current element `e` and the
     # horizontal quadrature indices `i` (in the ξ1-direction),
@@ -115,18 +114,14 @@ fluxes, respectively.
 
     @inbounds begin
         @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-            # initialize local tendency
-            @unroll for s in 1:num_state_prognostic
-                local_tendency[k, s] = zero(FT)
-            end
-            # read in mass matrix inverse for element `e`
-            local_MI[k] = vgeo[ijk, _MI, e]
-        end
-
-        @unroll for k in 1:Nq3
             @synchronize
+            
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+            
+            # Initialize local tendency
+            @unroll for s in 1:num_state_prognostic
+                local_tendency[s] = -zero(FT)
+            end
 
             M = vgeo[ijk, _M, e]
 
@@ -203,21 +198,7 @@ fluxes, respectively.
                 shared_flux[2, i, j, s] += local_flux[2, s]
                 local_flux_3[s] += local_flux[3, s]
             end
-
-            # Build "inside metrics" flux
-            @unroll for s in 1:num_state_prognostic
-                F1, F2, F3 = shared_flux[1, i, j, s],
-                shared_flux[2, i, j, s],
-                local_flux_3[s]
-
-                shared_flux[1, i, j, s] =
-                    M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
-                if dim == 3
-                    shared_flux[2, i, j, s] =
-                        M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
-                end
-            end
-
+            
             # In the case of the remainder model we may need to loop through the
             # models to add in restricted direction components
             if model_direction isa EveryDirection && balance_law isa RemBL
@@ -238,17 +219,25 @@ fluxes, respectively.
                         (HorizontalDirection(),),
                     )
 
-                    # Precomputing J ∇ξⁱ⋅ F
                     @unroll for s in 1:num_state_prognostic
-                        F1, F2, F3 =
-                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
-                        shared_flux[1, i, j, s] +=
-                            M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
-                        if dim == 3
-                            shared_flux[2, i, j, s] +=
-                                M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
-                        end
+                        shared_flux[1, i, j, s] += local_flux[1, s]
+                        shared_flux[2, i, j, s] += local_flux[2, s]
+                        local_flux_3[s] += local_flux[3, s]
                     end
+                end
+            end
+
+            # Build "inside metrics" flux
+            @unroll for s in 1:num_state_prognostic
+                F1, F2, F3 = shared_flux[1, i, j, s],
+                shared_flux[2, i, j, s],
+                local_flux_3[s]
+
+                shared_flux[1, i, j, s] =
+                    M * (ξ1x1 * F1 + ξ1x2 * F2 + ξ1x3 * F3)
+                if dim == 3
+                    shared_flux[2, i, j, s] =
+                        M * (ξ2x1 * F1 + ξ2x2 * F2 + ξ2x3 * F3)
                 end
             end
 
@@ -274,7 +263,7 @@ fluxes, respectively.
                 )
 
                 @unroll for s in 1:num_state_prognostic
-                    local_tendency[k, s] += local_source[s]
+                    local_tendency[s] += local_source[s]
                 end
 
             end
@@ -282,29 +271,24 @@ fluxes, respectively.
 
             # Weak "inside metrics" derivative.
             # Computes the rest of the volume term: M⁻¹DᵀF
-            MI = local_MI[k]
+            MI = vgeo[ijk, _MI, e]
             @unroll for s in 1:num_state_prognostic
                 @unroll for n in 1:Nq1
                     # ξ1-grid lines
-                    local_tendency[k, s] +=
+                    local_tendency[s] +=
                         MI * D[n, i] * shared_flux[1, n, j, s]
 
                     # ξ2-grid lines
                     if dim == 3
-                        local_tendency[k, s] +=
+                        local_tendency[s] +=
                             MI * D[n, j] * shared_flux[2, i, n, s]
                     end
                 end
-            end
-        end
 
-        @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-            @unroll for s in 1:num_state_prognostic
                 if β != 0
-                    T = α * local_tendency[k, s] + β * tendency[ijk, s, e]
+                    T = α * local_tendency[s] + β * tendency[ijk, s, e]
                 else
-                    T = α * local_tendency[k, s]
+                    T = α * local_tendency[s]
                 end
                 tendency[ijk, s, e] = T
             end
