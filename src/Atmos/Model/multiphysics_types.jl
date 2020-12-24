@@ -24,6 +24,7 @@ struct PressureGradient{PV <: Momentum} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 
 struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
+export Diffusion
 struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
 
 struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:

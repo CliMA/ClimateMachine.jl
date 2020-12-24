@@ -4,6 +4,7 @@ ClimateMachine.init(;
     output_dir = get(ENV, "CLIMATEMACHINE_SETTINGS_OUTPUT_DIR", "output"),
     fix_rng_seed = true,
 )
+@show ClimateMachine.array_type()
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
 using ClimateMachine.DGMethods
