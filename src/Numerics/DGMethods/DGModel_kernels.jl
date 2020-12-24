@@ -268,6 +268,8 @@ fluxes, respectively.
 
             end
             @synchronize
+            
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
             # Weak "inside metrics" derivative.
             # Computes the rest of the volume term: M⁻¹DᵀF
