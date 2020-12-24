@@ -13,6 +13,7 @@ import ClimateMachine.BalanceLaws:
     vars_state,
     prognostic_vars,
     flux,
+    precompute,
     source,
     eq_tends,
     update_auxiliary_state!,
@@ -298,11 +299,7 @@ function turbconv_nodal_update_auxiliary_state!(
     end
     en_aux.buoyancy -= b_gm
 
-    EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
-    end
-
-    E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
+    E_dyn, Δ_dyn, E_trb = entr_detr(m, state, aux, ts.up, ts.en, env)
 
     @unroll_map(N_up) do i
         up_aux[i].E_dyn = E_dyn[i]
@@ -373,6 +370,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 ) where {FT}
+    args = (; diffusive, state, aux, t)
     N_up = n_updrafts(turbconv)
 
     # Aliases:
@@ -414,21 +412,16 @@ function compute_gradient_flux!(
     env = environment_vars(state, aux, N_up)
     tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
 
-    EΔ_up = ntuple(N_up) do i
-        entr_detr(m, m.turbconv.entr_detr, state, aux, t, ts, env, i)
-    end
-    E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
+    E_dyn, Δ_dyn, E_trb = entr_detr(m, state, aux, ts.up, ts.en, env)
 
     en_dif.l_mix, ∂b∂z_env, Pr_t = mixing_length(
         m,
         m.turbconv.mix_len,
-        state,
-        diffusive,
-        aux,
-        t,
+        args,
         Δ_dyn,
         E_trb,
-        ts,
+        ts.gm,
+        ts.en,
         env,
     )
 
@@ -444,6 +437,11 @@ end;
 
 function source!(m::EDMF, source::Vars, atmos::AtmosModel{FT}, args) where {FT}
     @unpack state, diffusive, aux, t, direction = args
+    ts_gm = args.precomputed.ts
+    tc_cache = args.precomputed.turbconv
+    @unpack ts_en, ts_up, env, ρa_up = tc_cache
+    @unpack E_dyn, Δ_dyn, E_trb, dpdz, l_mix, ∂b∂z_env, Pr_t = tc_cache
+
     turbconv = atmos.turbconv
     N_up = n_updrafts(turbconv)
     # Aliases:
@@ -455,50 +453,22 @@ function source!(m::EDMF, source::Vars, atmos::AtmosModel{FT}, args) where {FT}
     en_dif = diffusive.turbconv.environment
     up_aux = aux.turbconv.updraft
 
-    # Recover thermo states
-    ts = recover_thermo_state_all(atmos, state, aux)
-
-    # Get environment variables
-    env = environment_vars(state, aux, N_up)
-
-    EΔ_up = ntuple(N_up) do i
-        entr_detr(atmos, atmos.turbconv.entr_detr, state, aux, t, ts, env, i)
-    end
-    E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
-
     # get environment values
     _grav::FT = grav(atmos.param_set)
     ρ_inv = 1 / gm.ρ
-    θ_liq_en = liquid_ice_pottemp(ts.en)
-    q_tot_en = total_specific_humidity(ts.en)
+    θ_liq_en = liquid_ice_pottemp(ts_en)
+    q_tot_en = total_specific_humidity(ts_en)
     tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
-    θ_liq = liquid_ice_pottemp(ts.gm)
-    a_min = turbconv.subdomains.a_min
-    a_max = turbconv.subdomains.a_max
+    θ_liq = liquid_ice_pottemp(ts_gm)
 
-    ρa_up = vuntuple(N_up) do i
-        gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
-    end
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
 
     @unroll_map(N_up) do i
 
-        ρa_up_i = ρa_up[i]
-        w_up_i = up[i].ρaw / ρa_up_i
-        ρa_up_i_inv = FT(1) / ρa_up_i
+        w_up_i = up[i].ρaw / ρa_up[i]
+        ρa_up_i_inv = FT(1) / ρa_up[i]
 
         # first moment sources - for now we compute these as aux variable
-        dpdz = perturbation_pressure(
-            atmos,
-            atmos.turbconv.pressure,
-            state,
-            diffusive,
-            aux,
-            t,
-            env,
-            i,
-        )
-
         # entrainment and detrainment
         up_src[i].ρa += E_dyn[i] - Δ_dyn[i]
         up_src[i].ρaw +=
@@ -513,7 +483,7 @@ function source!(m::EDMF, source::Vars, atmos::AtmosModel{FT}, args) where {FT}
         )
 
         # add buoyancy and perturbation pressure in subdomain w equation
-        up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz)
+        up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz[i])
         # microphysics sources should be applied here
 
         # environment second moments:
@@ -563,20 +533,8 @@ function source!(m::EDMF, source::Vars, atmos::AtmosModel{FT}, args) where {FT}
         )
 
         # pressure tke source from the i'th updraft
-        en_src.ρatke += ρa_up_i * (w_up_i - env.w) * dpdz
+        en_src.ρatke += ρa_up[i] * (w_up_i - env.w) * dpdz[i]
     end
-    l_mix, ∂b∂z_env, Pr_t = mixing_length(
-        atmos,
-        atmos.turbconv.mix_len,
-        state,
-        diffusive,
-        aux,
-        t,
-        Δ_dyn,
-        E_trb,
-        ts,
-        env,
-    )
 
     K_m = atmos.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
@@ -630,51 +588,51 @@ function flux(::Advect{up_ρa{i}}, atmos, args) where {i}
 end
 function flux(::Advect{up_ρaw{i}}, atmos, args) where {i}
     @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    ρa_up = compute_ρa_up(atmos, state, aux)
     return up[i].ρaw * up[i].ρaw / ρa_up[i] * ẑ
 end
 function flux(::Advect{up_ρaθ_liq{i}}, atmos, args) where {i}
     @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    ρa_up = compute_ρa_up(atmos, state, aux)
     return up[i].ρaw / ρa_up[i] * up[i].ρaθ_liq * ẑ
 end
 function flux(::Advect{up_ρaq_tot{i}}, atmos, args) where {i}
     @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    ρa_up = compute_ρa_up(atmos, state, aux)
     return up[i].ρaw / ρa_up[i] * up[i].ρaq_tot * ẑ
 end
 
 function flux(::Advect{en_ρatke}, atmos, args)
     @unpack state, aux = args
+    @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρatke * env.w * ẑ
 end
 function flux(::Advect{en_ρaθ_liq_cv}, atmos, args)
     @unpack state, aux = args
+    @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaθ_liq_cv * env.w * ẑ
 end
 function flux(::Advect{en_ρaq_tot_cv}, atmos, args)
     @unpack state, aux = args
+    @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaq_tot_cv * env.w * ẑ
 end
 function flux(::Advect{en_ρaθ_liq_q_tot_cv}, atmos, args)
     @unpack state, aux = args
+    @unpack env = args.precomputed.turbconv
     en = state.turbconv.environment
-    env = environment_vars(state, aux, n_updrafts(atmos.turbconv))
     ẑ = vertical_unit_vector(atmos, aux)
     return en.ρaθ_liq_q_tot_cv * env.w * ẑ
 end
@@ -710,6 +668,89 @@ function flux_first_order!(
         Σfluxes(eq_tends(en_ρaθ_liq_q_tot_cv(), atmos, tend), atmos, args)
 end;
 
+function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
+    @unpack state, aux = args
+    env = environment_vars(state, aux, n_updrafts(bl.turbconv))
+    ρa_up = compute_ρa_up(bl, state, aux)
+    return (; env, ρa_up)
+end
+
+function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
+    @unpack state, aux, diffusive, t = args
+    ts_gm = ts
+    N_up = n_updrafts(bl.turbconv)
+    env = environment_vars(state, aux, N_up)
+    ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
+    ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
+
+    E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env)
+
+    l_mix, ∂b∂z_env, Pr_t = mixing_length(
+        bl,
+        bl.turbconv.mix_len,
+        args,
+        Δ_dyn,
+        E_trb,
+        ts_gm,
+        ts_en,
+        env,
+    )
+    ρa_up = compute_ρa_up(bl, state, aux)
+
+    return (;
+        env,
+        ρa_up,
+        ts_en,
+        ts_up,
+        E_dyn,
+        Δ_dyn,
+        E_trb,
+        l_mix,
+        ∂b∂z_env,
+        Pr_t,
+    )
+end
+
+function precompute(::EDMF, bl, args, ts, ::Source)
+    @unpack state, aux, diffusive, t = args
+    ts_gm = ts
+    N_up = n_updrafts(bl.turbconv)
+    env = environment_vars(state, aux, N_up)
+
+    ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
+    ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
+
+    E_dyn, Δ_dyn, E_trb = entr_detr(bl, state, aux, ts_up, ts_en, env)
+
+    dpdz = perturbation_pressure(bl, args, env)
+
+    l_mix, ∂b∂z_env, Pr_t = mixing_length(
+        bl,
+        bl.turbconv.mix_len,
+        args,
+        Δ_dyn,
+        E_trb,
+        ts_gm,
+        ts_en,
+        env,
+    )
+    ρa_up = compute_ρa_up(bl, state, aux)
+
+    return (;
+        env,
+        ρa_up,
+        ts_en,
+        ts_up,
+        E_dyn,
+        Δ_dyn,
+        E_trb,
+        dpdz,
+        l_mix,
+        ∂b∂z_env,
+        Pr_t,
+    )
+end
+
 # in the EDMF second order (diffusive) fluxes
 # exist only in the grid mean and the environment
 function flux_second_order!(
@@ -720,6 +761,8 @@ function flux_second_order!(
 ) where {FT}
 
     @unpack state, diffusive, aux, t = args
+    @unpack l_mix, ∂b∂z_env, Pr_t, E_dyn, Δ_dyn, E_trb, ρa_up, env, ts_up =
+        args.precomputed.turbconv
     N_up = n_updrafts(turbconv)
 
     # Aliases:
@@ -731,42 +774,15 @@ function flux_second_order!(
     en_dif = diffusive.turbconv.environment
     gm_dif = diffusive.turbconv
 
-    # Recover thermo states
-    ts = recover_thermo_state_all(atmos, state, aux)
-
-    # Get environment variables
-    env = environment_vars(state, aux, N_up)
-
     ρ_inv = FT(1) / gm.ρ
     _grav::FT = grav(atmos.param_set)
     z = altitude(atmos, aux)
-    a_min = turbconv.subdomains.a_min
-    a_max = turbconv.subdomains.a_max
 
-    EΔ_up = ntuple(N_up) do i
-        entr_detr(atmos, atmos.turbconv.entr_detr, state, aux, t, ts, env, i)
-    end
-
-    E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
-
-    l_mix, _, Pr_t = mixing_length(
-        atmos,
-        turbconv.mix_len,
-        state,
-        diffusive,
-        aux,
-        t,
-        Δ_dyn,
-        E_trb,
-        ts,
-        env,
-    )
     tke_en = enforce_positivity(en.ρatke) / env.a * ρ_inv
     K_m = atmos.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
     K_h = K_m / Pr_t
 
     #TotalFlux(ϕ) = Eddy_Diffusivity(ϕ) + MassFlux(ϕ)
-    e_int = internal_energy(atmos, state, aux)
 
     e_kin = vuntuple(N_up) do i
         FT(1 // 2) * (
@@ -775,10 +791,7 @@ function flux_second_order!(
             (up[i].ρaw / up[i].ρa)^2
         )
     end
-    e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts.up[i]), N_up)
-    ρa_up = vuntuple(N_up) do i
-        gm.ρ * enforce_unit_bounds(up[i].ρa * ρ_inv, a_min, a_max)
-    end
+    e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts_up[i]), N_up)
 
     massflux_e = sum(
         vuntuple(N_up) do i

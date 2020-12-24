@@ -18,6 +18,7 @@ to one of the EDMF profile constructors.
 ### TurbulentPrantlNumberProfile
 
 ```@example
+using UnPack
 using ClimateMachine
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 using ClimateMachine.Atmos: AtmosModel

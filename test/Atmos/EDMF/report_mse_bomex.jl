@@ -16,13 +16,13 @@ best_mse[:Bomex]["ρ"] = 3.4943021267397123e-02
 best_mse[:Bomex]["ρu[1]"] = 3.0714039084256679e+03
 best_mse[:Bomex]["ρu[2]"] = 1.3375796498101822e-03
 best_mse[:Bomex]["moisture.ρq_tot"] = 4.8463531712319707e-02
-best_mse[:Bomex]["turbconv.environment.ρatke"] = 6.1572840530432791e+02
-best_mse[:Bomex]["turbconv.environment.ρaθ_liq_cv"] = 8.5666903275495429e+01
-best_mse[:Bomex]["turbconv.environment.ρaq_tot_cv"] = 1.6436084624021990e+02
-best_mse[:Bomex]["turbconv.updraft[1].ρa"] = 8.0001172663166514e+01
-best_mse[:Bomex]["turbconv.updraft[1].ρaw"] = 8.4920000488063571e-02
-best_mse[:Bomex]["turbconv.updraft[1].ρaθ_liq"] = 9.0208723977237693e+00
-best_mse[:Bomex]["turbconv.updraft[1].ρaq_tot"] = 1.0782418080492549e+01
+best_mse[:Bomex]["turbconv.environment.ρatke"] = 6.1572840542744723e+02
+best_mse[:Bomex]["turbconv.environment.ρaθ_liq_cv"] = 8.5666903275489148e+01
+best_mse[:Bomex]["turbconv.environment.ρaq_tot_cv"] = 1.6436084624018417e+02
+best_mse[:Bomex]["turbconv.updraft[1].ρa"] = 8.0001172665454277e+01
+best_mse[:Bomex]["turbconv.updraft[1].ρaw"] = 8.4920000479795602e-02
+best_mse[:Bomex]["turbconv.updraft[1].ρaθ_liq"] = 9.0208723977710275e+00
+best_mse[:Bomex]["turbconv.updraft[1].ρaq_tot"] = 1.0782418080549389e+01
 #! format: on
 
 sufficient_mse(computed_mse, best_mse) = computed_mse <= best_mse + eps()
