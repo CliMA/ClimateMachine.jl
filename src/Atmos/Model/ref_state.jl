@@ -53,7 +53,7 @@ end
 vars_state(m::HydrostaticState, ::Auxiliary, FT) =
     @vars(ρ::FT, p::FT, T::FT, ρe::FT, ρq_tot::FT, ρq_liq::FT, ρq_ice::FT)
 
-function ref_state_init_pTvirt!(
+function ref_state_init_pρ!(
     atmos::AtmosModel,
     aux::Vars,
     tmp::Vars,
@@ -62,7 +62,7 @@ function ref_state_init_pTvirt!(
     z = altitude(atmos, aux)
     T_virt, p = atmos.ref_state.virtual_temperature_profile(atmos.param_set, z)
     aux.ref_state.p = p
-    aux.ref_state.T = T_virt
+    aux.ref_state.ρ = p / (T_virt * R_d(atmos.param_set))
 end
 
 function ref_state_init_density_from_pressure!(
@@ -85,9 +85,10 @@ function ref_state_finalize_init!(
     geom::LocalGeometry,
 )
     FT = eltype(aux)
-    T_virt = aux.ref_state.T
+
     ρ = aux.ref_state.ρ
     p = aux.ref_state.p
+    T_virt = p / (ρ * R_d(atmos.param_set))
 
     RH = atmos.ref_state.relative_humidity
     phase_type = PhaseEquil
@@ -128,16 +129,21 @@ function atmos_init_aux!(
     grid,
     direction,
 )
+    # Step 1: initialize both ρ and p
     init_state_auxiliary!(
         atmos,
-        ref_state_init_pTvirt!,
+        ref_state_init_pρ!,
         state_auxiliary,
         grid,
         direction,
     )
 
+    # Step 2: correct ρ from p to satisfy discrete hydrostic balance
     vertical_fvm = polynomialorders(grid)[end] == 0
+
     if vertical_fvm
+        # Vertical finite volume scheme 
+        # pᵢ - pᵢ₊₁ =  g ρᵢ₊₁ Δzᵢ₊₁/2 + g ρᵢ Δzᵢ/2
         fvm_balance!(fvm_balance_init!, atmos, state_auxiliary, grid)
     else
         ∇p = ∇reference_pressure(atmos.ref_state, state_auxiliary, grid)
@@ -237,23 +243,19 @@ function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     return ∇p
 end
 
-function fvm_balance_init!(m::AtmosModel, aux_bot::Vars, aux_top::Vars)
-    FT = eltype(aux_bot)
-    _R_d::FT = R_d(m.param_set)
-
-    T_bot = aux_bot.ref_state.T
-    p_bot = aux_bot.ref_state.p
-    ρ_bot = p_bot / (_R_d * T_bot)
-    Φ_bot = aux_bot.orientation.Φ
-
-    Φ_top = aux_top.orientation.Φ
-    T_top = aux_top.ref_state.T
-
-    ρ_top =
-        (p_bot - ρ_bot * (Φ_top - Φ_bot) / 2) /
-        (_R_d * T_top + (Φ_top - Φ_bot) / 2)
-    p_top = _R_d * T_top * ρ_top
-
-    aux_top.ref_state.ρ = ρ_top
-    aux_top.ref_state.p = p_top
+"""
+ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
+"""
+function fvm_balance_init!(
+    m::AtmosModel,
+    aux_bot::Vars,
+    aux::Vars,
+    Δz::MArray{Tuple{2}, FT},
+) where {FT}
+    _grav::FT = grav(m.param_set)
+    aux.ref_state.ρ =
+        (
+            aux_bot.ref_state.p - aux.ref_state.p -
+            _grav * aux_bot.ref_state.ρ * Δz[1] / 2
+        ) / (_grav * Δz[2] / 2)
 end

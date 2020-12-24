@@ -1004,54 +1004,62 @@ end
     end
 end
 
+"""
+    kernel_fvm_balance!(f!, balance_law::BalanceLaw, ::Val{nvertelem}, state_auxiliary, vgeo, elems)
+
+    pᵢ₋₁ - pᵢ =  g ρᵢ Δzᵢ/2 + g ρᵢ₋₁ Δzᵢ₋₁/2
+    for i = 2:nvertelem 
+        ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
+    end
+
+ - `f!`: update function
+ - `balance_law`: atmosphere model
+ - `state_auxiliary`: auxiliary variables, ρ is updated 
+ - `vgeo`: 2*vgeo[ijk ,_JcV , e] is Δz
+ - `elems`: horizontal element list
+"""
 @kernel function kernel_fvm_balance!(
     f!,
     balance_law::BalanceLaw,
     ::Val{nvertelem},
     state_auxiliary,
+    vgeo,
     elems,
 ) where {nvertelem}
     @uniform begin
         FT = eltype(state_auxiliary)
         num_state_auxiliary = number_states(balance_law, Auxiliary())
+        # ρᵢ₋₁ pᵢ₋₁
         local_state_auxiliary_bot =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
-        local_state_auxiliary_top =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        # ρᵢ pᵢ
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+        Δz = MArray{Tuple{2}, FT}(undef)
     end
 
-    _eh = @index(Group, Linear)
+    _eH = @index(Group, Linear)
     n = @index(Local, Linear)
 
     @inbounds begin
-        eh = elems[_eh]
+        eH = elems[_eH]
 
         # handle first element
-        ev = 1
-        e = ev + (eh - 1) * nvertelem
+        eV = 1
+        e = eV + (eH - 1) * nvertelem
         @unroll for s in 1:num_state_auxiliary
             local_state_auxiliary_bot[s] = state_auxiliary[n, s, e]
         end
-        f!(
-            balance_law,
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary_bot,
-            ),
-            Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                local_state_auxiliary_bot,
-            ),
-        )
-        @unroll for s in 1:num_state_auxiliary
-            state_auxiliary[n, s, e] = local_state_auxiliary_bot[s]
-        end
+        Δz[1] = 2 * vgeo[n, _JcV, e]
 
         # Loop up the stack of elements
-        for ev in 2:nvertelem
-            e = ev + (eh - 1) * nvertelem
+        for eV in 2:nvertelem
+            e = eV + (eH - 1) * nvertelem
 
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
+                local_state_auxiliary[s] = state_auxiliary[n, s, e]
             end
+            Δz[2] = 2 * vgeo[n, _JcV, e]
 
             f!(
                 balance_law,
@@ -1059,17 +1067,21 @@ end
                     local_state_auxiliary_bot,
                 ),
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary_top,
+                    local_state_auxiliary,
                 ),
+                Δz,
             )
 
+            # update to the global array
             @unroll for s in 1:num_state_auxiliary
-                state_auxiliary[n, s, e] = local_state_auxiliary_top[s]
+                state_auxiliary[n, s, e] = local_state_auxiliary[s]
             end
 
+            # (ρᵢ pᵢ Δzᵢ) -> (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁)
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary_bot[s] = local_state_auxiliary_top[s]
+                local_state_auxiliary_bot[s] = local_state_auxiliary[s]
             end
+            Δz[1] = Δz[2]
         end
     end
 end

@@ -2134,6 +2134,7 @@ function fvm_balance!(
         m,
         Val(nvertelem),
         state_auxiliary.data,
+        grid.vgeo,
         horzelems;
         ndrange = (length(horzelems) * Nq[1], Nqj),
         dependencies = (event,),

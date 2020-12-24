@@ -806,6 +806,7 @@ function init_state_auxiliary!(
     grid,
     direction,
 )
+    # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
 
     atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
