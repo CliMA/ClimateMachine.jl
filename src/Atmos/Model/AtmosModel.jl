@@ -62,6 +62,7 @@ import ..BalanceLaws:
     transform_post_gradient_laplacian!,
     prognostic_to_primitive!,
     primitive_to_prognostic!,
+    construct_face_auxiliary_state!,
     init_state_auxiliary!,
     init_state_prognostic!,
     update_auxiliary_state!,
