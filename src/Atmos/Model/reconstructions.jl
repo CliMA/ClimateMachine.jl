@@ -5,9 +5,9 @@ export HBFVReconstruction
 using ..DGMethods.FVReconstructions: AbstractReconstruction
 import ..DGMethods.FVReconstructions: width
 
-struct HBFVReconstruction{M} <: AbstractReconstruction
+struct HBFVReconstruction{M, R} <: AbstractReconstruction
     _atmo::M
-    _recon::AbstractReconstruction
+    _recon::R
 end
 
 width(hb_recon::HBFVReconstruction) = width(hb_recon._recon)
@@ -28,24 +28,19 @@ function (hb_recon::HBFVReconstruction)(
     stencil_diameter = D
     stencil_width = div(D - 1, 2)
     stencil_center = stencil_width + 1
-    # save the pressure states
+    # save the pressure Δpressure_ref states
     ps = similar(state_bot, stencil_diameter)
+    ρgΔz_half = similar(state_bot, stencil_diameter)
+
     @unroll for i in 1:stencil_diameter
         ps[i] = vars_prim(cell_states[i]).p
+        ρgΔz_half[i] = vars_prim(cell_states[i]).ρ * _grav * cell_weights[i] / 2
     end
 
     # construct reference pressure steates and update pressure states
     p_ref = ps[stencil_center]
-    p_bot_ref =
-        p_ref +
-        vars_prim(cell_states[stencil_center]).ρ *
-        cell_weights[stencil_center] *
-        _grav / 2
-    p_top_ref =
-        p_ref -
-        vars_prim(cell_states[stencil_center]).ρ *
-        cell_weights[stencil_center] *
-        _grav / 2
+    p_bot_ref = p_ref + ρgΔz_half[stencil_center]
+    p_top_ref = p_ref - ρgΔz_half[stencil_center]
 
     vars_prim(cell_states[stencil_center]).p -= p_ref
 
@@ -53,22 +48,12 @@ function (hb_recon::HBFVReconstruction)(
     @unroll for i in 1:stencil_width
         # stencil_center - i , stencil_center - i + 1
         p⁻_ref +=
-            vars_prim(cell_states[stencil_center - i + 1]).ρ *
-            cell_weights[stencil_center - i + 1] *
-            _grav / 2 +
-            vars_prim(cell_states[stencil_center - i]).ρ *
-            cell_weights[stencil_center - i] *
-            _grav / 2
+            ρgΔz_half[stencil_center - i + 1] + ρgΔz_half[stencil_center - i]
         vars_prim(cell_states[stencil_center - i]).p -= p⁻_ref
 
         # stencil_center + i - 1 , stencil_center + i
         p⁺_ref -=
-            vars_prim(cell_states[stencil_center + i - 1]).ρ *
-            cell_weights[stencil_center + i - 1] *
-            _grav / 2 +
-            vars_prim(cell_states[stencil_center + i]).ρ *
-            cell_weights[stencil_center + i] *
-            _grav / 2
+            ρgΔz_half[stencil_center + i - 1] + ρgΔz_half[stencil_center + i]
         vars_prim(cell_states[stencil_center + i]).p -= p⁺_ref
     end
 
