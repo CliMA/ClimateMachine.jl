@@ -1,5 +1,5 @@
-# using FileIO
-# using JLD2
+using FileIO
+using JLD2
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -112,7 +112,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(60)
+    timeend = FT(600)
     CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
@@ -258,16 +258,16 @@ solver_config, dons_arr, time_data, state_types = main(Float64)
 
 ## Uncomment lines to save output using JLD2
 #
-# output_dir = @__DIR__;
-# mkpath(output_dir);
-# println(dons_arr[1].keys)
-# z = get_z(solver_config.dg.grid; rm_dupes = true);
-# save(
-#     string(output_dir, "/sbl_edmf.jld2"),
-#     "dons_arr",
-#     dons_arr,
-#     "time_data",
-#     time_data,
-#     "z",
-#     z,
-# )
+output_dir = @__DIR__;
+mkpath(output_dir);
+println(dons_arr[1].keys)
+z = get_z(solver_config.dg.grid; rm_dupes = true);
+save(
+    string(output_dir, "/sbl_edmf.jld2"),
+    "dons_arr",
+    dons_arr,
+    "time_data",
+    time_data,
+    "z",
+    z,
+)

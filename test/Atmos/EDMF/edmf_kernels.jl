@@ -465,75 +465,78 @@ function source!(m::EDMF, source::Vars, atmos::AtmosModel{FT}, args) where {FT}
 
     @unroll_map(N_up) do i
 
-        w_up_i = up[i].ρaw / ρa_up[i]
-        ρa_up_i_inv = FT(1) / ρa_up[i]
+        if ρa_up[i] > eps(FT)
+            ρa_up_i_inv = FT(1) / ρa_up[i]
 
-        # first moment sources - for now we compute these as aux variable
-        # entrainment and detrainment
-        up_src[i].ρa += E_dyn[i] - Δ_dyn[i]
-        up_src[i].ρaw +=
-            ((E_dyn[i] + E_trb[i]) * env.w - (Δ_dyn[i] + E_trb[i]) * w_up_i)
-        up_src[i].ρaθ_liq += (
-            (E_dyn[i] + E_trb[i]) * θ_liq_en -
-            (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
-        )
-        up_src[i].ρaq_tot += (
-            (E_dyn[i] + E_trb[i]) * q_tot_en -
-            (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
-        )
+            w_up_i = up[i].ρaw * ρa_up_i_inv
 
-        # add buoyancy and perturbation pressure in subdomain w equation
-        up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz[i])
-        # microphysics sources should be applied here
+            # first moment sources - for now we compute these as aux variable
+            # entrainment and detrainment
+            up_src[i].ρa += E_dyn[i] - Δ_dyn[i]
+            up_src[i].ρaw +=
+                ((E_dyn[i] + E_trb[i]) * env.w - (Δ_dyn[i] + E_trb[i]) * w_up_i)
+            up_src[i].ρaθ_liq += (
+                (E_dyn[i] + E_trb[i]) * θ_liq_en -
+                (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq * ρa_up_i_inv
+            )
+            up_src[i].ρaq_tot += (
+                (E_dyn[i] + E_trb[i]) * q_tot_en -
+                (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot * ρa_up_i_inv
+            )
 
-        # environment second moments:
-        en_src.ρatke += (
-            Δ_dyn[i] * (w_up_i - env.w) * (w_up_i - env.w) * FT(0.5) +
-            E_trb[i] * (env.w - gm.ρu[3] * ρ_inv) * (env.w - w_up_i) -
-            (E_dyn[i] + E_trb[i]) * tke_en
-        )
+            # add buoyancy and perturbation pressure in subdomain w equation
+            up_src[i].ρaw += up[i].ρa * (up_aux[i].buoyancy - dpdz[i])
+            # microphysics sources should be applied here
 
-        en_src.ρaθ_liq_cv += (
-            Δ_dyn[i] *
-            (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
-            (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) +
-            E_trb[i] *
-            (θ_liq_en - θ_liq) *
-            (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) +
-            E_trb[i] *
-            (θ_liq_en - θ_liq) *
-            (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
-            (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_cv
-        )
+            # environment second moments:
+            en_src.ρatke += (
+                Δ_dyn[i] * (w_up_i - env.w) * (w_up_i - env.w) * FT(0.5) +
+                E_trb[i] * (env.w - gm.ρu[3] * ρ_inv) * (env.w - w_up_i) -
+                (E_dyn[i] + E_trb[i]) * tke_en
+            )
 
-        en_src.ρaq_tot_cv += (
-            Δ_dyn[i] *
-            (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) *
-            (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
-            E_trb[i] *
-            (q_tot_en - ρq_tot * ρ_inv) *
-            (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
-            E_trb[i] *
-            (q_tot_en - ρq_tot * ρ_inv) *
-            (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) -
-            (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv
-        )
+            en_src.ρaθ_liq_cv += (
+                Δ_dyn[i] *
+                (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
+                (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) +
+                E_trb[i] *
+                (θ_liq_en - θ_liq) *
+                (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) +
+                E_trb[i] *
+                (θ_liq_en - θ_liq) *
+                (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
+                (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_cv
+            )
 
-        en_src.ρaθ_liq_q_tot_cv += (
-            Δ_dyn[i] *
-            (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
-            (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
-            E_trb[i] *
-            (θ_liq_en - θ_liq) *
-            (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
-            E_trb[i] *
-            (q_tot_en - ρq_tot * ρ_inv) *
-            (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
-            (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv
-        )
+            en_src.ρaq_tot_cv += (
+                Δ_dyn[i] *
+                (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) *
+                (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
+                E_trb[i] *
+                (q_tot_en - ρq_tot * ρ_inv) *
+                (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
+                E_trb[i] *
+                (q_tot_en - ρq_tot * ρ_inv) *
+                (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) -
+                (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv
+            )
 
-        # pressure tke source from the i'th updraft
-        en_src.ρatke += ρa_up[i] * (w_up_i - env.w) * dpdz[i]
+            en_src.ρaθ_liq_q_tot_cv += (
+                Δ_dyn[i] *
+                (up[i].ρaθ_liq * ρa_up_i_inv - θ_liq_en) *
+                (up[i].ρaq_tot * ρa_up_i_inv - q_tot_en) +
+                E_trb[i] *
+                (θ_liq_en - θ_liq) *
+                (q_tot_en - up[i].ρaq_tot * ρa_up_i_inv) +
+                E_trb[i] *
+                (q_tot_en - ρq_tot * ρ_inv) *
+                (θ_liq_en - up[i].ρaθ_liq * ρa_up_i_inv) -
+                (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv
+            )
+
+            # pressure tke source from the i'th updraft
+            en_src.ρatke += ρa_up[i] * (w_up_i - env.w) * dpdz[i]
+        end
     end
 
     K_m = atmos.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
@@ -586,26 +589,29 @@ function flux(::Advect{up_ρa{i}}, atmos, args) where {i}
     ẑ = vertical_unit_vector(atmos, aux)
     return up[i].ρaw * ẑ
 end
-function flux(::Advect{up_ρaw{i}}, atmos, args) where {i}
+function flux(::Advect{up_ρaw{i}}, atmos::AtmosModel{FT}, args) where {i, FT}
     @unpack state, aux = args
     @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw * up[i].ρaw / ρa_up[i] * ẑ
+    ρa_up_inv_i = ρa_up[i] > eps(FT) ? FT(1)/ρa_up[i] : FT(0)
+    return up[i].ρaw * up[i].ρaw * ρa_up_inv_i * ẑ
 end
-function flux(::Advect{up_ρaθ_liq{i}}, atmos, args) where {i}
+function flux(::Advect{up_ρaθ_liq{i}}, atmos::AtmosModel{FT}, args) where {i, FT}
     @unpack state, aux = args
     @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw / ρa_up[i] * up[i].ρaθ_liq * ẑ
+    ρa_up_inv_i = ρa_up[i] > eps(FT) ? FT(1)/ρa_up[i] : FT(0)
+    return up[i].ρaw * ρa_up_inv_i * up[i].ρaθ_liq * ẑ
 end
-function flux(::Advect{up_ρaq_tot{i}}, atmos, args) where {i}
+function flux(::Advect{up_ρaq_tot{i}}, atmos::AtmosModel{FT}, args) where {i, FT}
     @unpack state, aux = args
     @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw / ρa_up[i] * up[i].ρaq_tot * ẑ
+    ρa_up_inv_i = ρa_up[i] > eps(FT) ? FT(1)/ρa_up[i] : FT(0)
+    return up[i].ρaw * ρa_up_inv_i * up[i].ρaq_tot * ẑ
 end
 
 function flux(::Advect{en_ρatke}, atmos, args)
@@ -795,28 +801,40 @@ function flux_second_order!(
 
     massflux_e = sum(
         vuntuple(N_up) do i
-            up[i].ρa *
-            (gm.ρe * ρ_inv - e_tot_up[i]) *
-            (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+            if up[i].ρa > eps(FT)
+                up[i].ρa *
+                (gm.ρe * ρ_inv - e_tot_up[i]) *
+                (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+            else
+                FT(0)
+            end
         end,
     )
+
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
+    
     massflux_q_tot = sum(
         vuntuple(N_up) do i
-            up[i].ρa *
-            (ρq_tot * ρ_inv - up[i].ρaq_tot / up[i].ρa) *
-            (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+            if up[i].ρa > eps(FT)
+                up[i].ρa *
+                (ρq_tot * ρ_inv - up[i].ρaq_tot / up[i].ρa) *
+                (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+            else
+                FT(0)
+            end
         end,
     )
-
     massflux_w = sum(
         vuntuple(N_up) do i
-            up[i].ρa *
-            (gm.ρu[3] * ρ_inv - up[i].ρaw / up[i].ρa) *
-            (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+            if up[i].ρa > eps(FT)
+                up[i].ρa *
+                (gm.ρu[3] * ρ_inv - up[i].ρaw / up[i].ρa) *
+                (gm.ρu[3] * ρ_inv - up[i].ρaw / ρa_up[i])
+            else
+                FT(0)
+            end
         end,
     )
-
     # update grid mean flux_second_order
     ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
     ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
@@ -827,12 +845,14 @@ function flux_second_order!(
     # for now the coupling to the dycore is commented out
 
     # gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
-    # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
-    # gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-    #     0, 0, ρu_sgs_flux,
-    #     0, 0, ρv_sgs_flux,
-    #     0, 0, ρw_sgs_flux,
-    # )
+    if !(atmos.moisture isa DryModel)
+        gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
+    end
+    gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
+        0, 0, ρu_sgs_flux,
+        0, 0, ρv_sgs_flux,
+        0, 0, ρw_sgs_flux,
+    )
 
     ẑ = vertical_unit_vector(atmos, aux)
     # env second moment flux_second_order

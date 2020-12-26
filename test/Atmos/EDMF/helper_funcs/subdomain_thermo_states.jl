@@ -148,13 +148,16 @@ function new_thermo_state_up(
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
-
+    FT = eltype(state)
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
-        θ_liq_up = ρaθ_liq_up / ρa_up
-
+        if ρa_up > eps(FT)
+            θ_liq_up = ρaθ_liq_up / ρa_up
+        else
+            θ_liq_up = liquid_ice_pottemp(ts)
+        end
         PhaseDry_pθ(m.param_set, p, θ_liq_up)
     end
     return ts_up
@@ -170,14 +173,20 @@ function new_thermo_state_up(
     N_up = n_updrafts(m.turbconv)
     up = state.turbconv.updraft
     p = air_pressure(ts)
+    FT = eltype(state)
 
     # compute thermo state for updrafts
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
         ρaq_tot_up = up[i].ρaq_tot
-        θ_liq_up = ρaθ_liq_up / ρa_up
-        q_tot_up = ρaq_tot_up / ρa_up
+        if ρa_up > eps(FT)
+            θ_liq_up = ρaθ_liq_up / ρa_up
+            q_tot_up = ρaq_tot_up / ρa_up
+        else
+            θ_liq_up = liquid_ice_pottemp(ts)
+            q_tot_up = state.moisture.ρq_tot / state.ρ
+        end
 
         PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)
     end
@@ -273,7 +282,11 @@ function recover_thermo_state_up_i(
 
     p = air_pressure(ts)
     T_up_i = aux.turbconv.updraft[i_up].T
-    q_tot_up_i = up[i_up].ρaq_tot / up[i_up].ρa
+    if ρa_up > eps(FT)
+        q_tot_up_i = up[i_up].ρaq_tot / up[i_up].ρa
+    else
+        q_tot_up_i = state.moisture.ρq_tot / state.ρ
+    end
     ρ_up_i = air_density(param_set, T_up_i, p, PhasePartition(q_tot_up_i))
     q_up_i =
         PhasePartition_equil(param_set, T_up_i, ρ_up_i, q_tot_up_i, PhaseEquil)
