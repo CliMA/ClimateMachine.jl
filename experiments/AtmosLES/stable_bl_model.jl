@@ -170,6 +170,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
+    # Only necessary for LES simulations
     # if z <= FT(50) # Add random perturbations to bottom 50m of model
     #     state.ρe += rand() * ρe_tot / 100
     # end
