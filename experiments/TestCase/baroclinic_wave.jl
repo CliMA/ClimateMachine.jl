@@ -165,7 +165,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     # Set up a reference state for linearization of equations
     temp_profile_ref =
         DecayingTemperatureProfile{FT}(param_set, FT(290), FT(220), FT(8e3))
-    ref_state = HydrostaticState(temp_profile_ref)
+    #ref_state = HydrostaticState(temp_profile_ref)
+    ref_state = BaroclinicWaveReferenceState()
 
     # Set up the atmosphere model
     exp_name = "BaroclinicWave"
@@ -224,7 +225,7 @@ function main()
     poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
     n_horz = 8                               # horizontal element number
     n_vert = 3                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 15
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -241,7 +242,7 @@ function main()
         discrete_splitting = false,
     )
 
-    CFL = FT(0.1) # target acoustic CFL number
+    CFL = FT(0.3) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -345,5 +346,110 @@ function config_diagnostics(FT, driver_config)
 
     return ClimateMachine.DiagnosticsConfiguration([dgngrp, ds_dgngrp])
 end
+
+import ClimateMachine.Atmos: atmos_init_aux!, vars_state
+using ClimateMachine.BalanceLaws: Auxiliary
+using ClimateMachine.Mesh.Geometry: LocalGeometry
+struct BaroclinicWaveReferenceState <: ReferenceState end
+vars_state(::BaroclinicWaveReferenceState, ::Auxiliary, FT) =
+  @vars(ρ::FT, ρu::SVector{3, FT}, ρe::FT, p::FT, T::FT)
+function atmos_init_aux!(
+    m::BaroclinicWaveReferenceState,
+    bl::AtmosModel,
+    aux::Vars,
+    tmp::Vars,
+    geom::LocalGeometry,
+)
+    FT = eltype(aux)
+
+    # parameters
+    _grav::FT = grav(bl.param_set)
+    _R_d::FT = R_d(bl.param_set)
+    _Ω::FT = Omega(bl.param_set)
+    _a::FT = planet_radius(bl.param_set)
+    _p_0::FT = MSLP(bl.param_set)
+
+    k::FT = 3
+    T_E::FT = 310
+    T_P::FT = 240
+    T_0::FT = 0.5 * (T_E + T_P)
+    Γ::FT = 0.005
+    A::FT = 1 / Γ
+    B::FT = (T_0 - T_P) / T_0 / T_P
+    C::FT = 0.5 * (k + 2) * (T_E - T_P) / T_E / T_P
+    b::FT = 2
+    H::FT = _R_d * T_0 / _grav
+    z_t::FT = 15e3
+    λ_c::FT = π / 9
+    φ_c::FT = 2 * π / 9
+    d_0::FT = _a / 6
+    V_p::FT = 1
+    M_v::FT = 0.608
+    p_w::FT = 34e3                 # Pressure width parameter for specific humidity
+    η_crit::FT = p_w / _p_0        # Critical pressure coordinate
+    q_0::FT = 0.018                # Maximum specific humidity (default: 0.018)
+    q_t::FT = 1e-12                # Specific humidity above artificial tropopause
+    φ_w::FT = 2π / 9               # Specific humidity latitude wind parameter
+
+    # grid
+    φ = latitude(bl.orientation, aux)
+    λ = longitude(bl.orientation, aux)
+    z = altitude(bl.orientation, bl.param_set, aux)
+    r::FT = z + _a
+    γ::FT = 1 # set to 0 for shallow-atmosphere case and to 1 for deep atmosphere case
+
+    # convenience functions for temperature and pressure
+    τ_z_1::FT = exp(Γ * z / T_0)
+    τ_z_2::FT = 1 - 2 * (z / b / H)^2
+    τ_z_3::FT = exp(-(z / b / H)^2)
+    τ_1::FT = 1 / T_0 * τ_z_1 + B * τ_z_2 * τ_z_3
+    τ_2::FT = C * τ_z_2 * τ_z_3
+    τ_int_1::FT = A * (τ_z_1 - 1) + B * z * τ_z_3
+    τ_int_2::FT = C * z * τ_z_3
+    I_T::FT =
+        (cos(φ) * (1 + γ * z / _a))^k -
+        k / (k + 2) * (cos(φ) * (1 + γ * z / _a))^(k + 2)
+
+    # base state virtual temperature, pressure, specific humidity, density
+    T_v::FT = (τ_1 - τ_2 * I_T)^(-1)
+    p::FT = _p_0 * exp(-_grav / _R_d * (τ_int_1 - τ_int_2 * I_T))
+
+    # base state velocity
+    U::FT =
+        _grav * k / _a *
+        τ_int_2 *
+        T_v *
+        (
+            (cos(φ) * (1 + γ * z / _a))^(k - 1) -
+            (cos(φ) * (1 + γ * z / _a))^(k + 1)
+        )
+    u_ref::FT =
+        -_Ω * (_a + γ * z) * cos(φ) +
+        sqrt((_Ω * (_a + γ * z) * cos(φ))^2 + (_a + γ * z) * cos(φ) * U)
+    v_ref::FT = 0
+    w_ref::FT = 0
+
+    u_sphere = SVector{3, FT}(u_ref, v_ref, w_ref)
+    u_cart = sphr_to_cart_vec(bl.orientation, u_sphere, aux)
+
+    q_tot = FT(0)
+    phase_partition = PhasePartition(q_tot)
+
+    ## temperature & density
+    T::FT = T_v / (1 + M_v * q_tot)
+    ρ::FT = air_density(bl.param_set, T, p, phase_partition)
+
+    ## potential & kinetic energy
+    e_pot::FT = gravitational_potential(bl.orientation, aux)
+    e_kin::FT = 0.5 * u_cart' * u_cart
+    e_tot::FT = total_energy(bl.param_set, e_kin, e_pot, T, phase_partition)
+
+    aux.ref_state.ρ = ρ
+    aux.ref_state.ρu = ρ * u_cart
+    aux.ref_state.ρe = ρ * e_tot
+    aux.ref_state.p = p
+    aux.ref_state.T = T
+end
+
 
 main()
