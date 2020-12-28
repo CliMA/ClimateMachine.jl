@@ -17,12 +17,15 @@ and, optionally,
 function linearized_air_pressure(
     param_set::AbstractParameterSet,
     ρ::FT,
+    ρu::SVector{3, FT},
     ρe_tot::FT,
     ρe_pot::FT,
+    aux::Vars,
     ρq_tot::FT = FT(0),
     ρq_liq::FT = FT(0),
     ρq_ice::FT = FT(0),
 ) where {FT <: Real, PS}
+    ref = aux.ref_state
     _R_d::FT = R_d(param_set)
     _cv_d::FT = cv_d(param_set)
     _T_0::FT = T_0(param_set)
@@ -31,7 +34,9 @@ function linearized_air_pressure(
     return ρ * _R_d * _T_0 +
            _R_d / _cv_d * (
         ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
-        ρq_ice * (_e_int_i0 + _e_int_v0)
+        ρq_ice * (_e_int_i0 + _e_int_v0) -
+        ref.ρu' * ref.ρu / 2ref.ρ * (1 - (ρ - ref.ρ) / ref.ρ) -
+        ref.ρu' * (ρu - ref.ρu) / ref.ρ
     )
 end
 
@@ -43,7 +48,7 @@ end
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
+    return linearized_air_pressure(param_set, state.ρ, state.ρu, state.ρe, ρe_pot, aux)
 end
 @inline function linearized_pressure(
     ::EquilMoist,
@@ -56,8 +61,10 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
+        state.ρu,
         state.ρe,
         ρe_pot,
+        aux,
         state.moisture.ρq_tot,
     )
 end
@@ -72,8 +79,10 @@ end
     linearized_air_pressure(
         param_set,
         state.ρ,
+        state.ρu,
         state.ρe,
         ρe_pot,
+        aux,
         state.moisture.ρq_tot,
         state.moisture.ρq_liq,
         state.moisture.ρq_ice,
@@ -163,7 +172,8 @@ function wavespeed(
     direction,
 )
     ref = aux.ref_state
-    return soundspeed_air(lm.atmos.param_set, ref.T)
+    uN = abs(dot(nM, ref.ρu / ref.ρ))
+    return uN + soundspeed_air(lm.atmos.param_set, ref.T)
 end
 
 boundary_conditions(atmoslm::AtmosLinearModel) = (AtmosBC(), AtmosBC())
@@ -256,7 +266,6 @@ function flux_first_order!(
     ref = aux.ref_state
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
     pL = linearized_pressure(
         lm.atmos.moisture,
         lm.atmos.param_set,
@@ -264,8 +273,20 @@ function flux_first_order!(
         state,
         aux,
     )
+
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+
+    flux.ρ = ρu
+
+    flux.ρu = ref.ρu * ref.ρu' / ref.ρ * (1 - (ρ - ref.ρ) / ref.ρ)
+    flux.ρu += ref.ρu * (ρu - ref.ρu)' / ref.ρ
+    flux.ρu += (ρu - ref.ρu) * ref.ρu' / ref.ρ
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+
+    flux.ρe = (ref.ρe + ref.p) * (state.ρu - ref.ρu) / ref.ρ
+    flux.ρe += (ρe + pL - (ρ - ref.ρ) / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
     nothing
 end
 function source!(
