@@ -12,15 +12,16 @@ using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.ODESolvers
+using ClimateMachine.ODESolvers: update_backward_Euler_solver!
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.SystemSolvers: ManyColumnLU
 using ClimateMachine.Mesh.Filters
 using ClimateMachine.Mesh.Grids
 using ClimateMachine.TemperatureProfiles
-using ClimateMachine.Thermodynamics:
-    air_density, air_temperature, total_energy, internal_energy, PhasePartition
+using ClimateMachine.Thermodynamics
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
+using ClimateMachine.DGMethods: update_auxiliary_state!
 using ClimateMachine.Spectra: compute_gaussian!
 
 using CLIMAParameters
@@ -281,12 +282,26 @@ function main()
         )
         nothing
     end
+    
+    cb_update_ref_state = GenericCallbacks.EveryXSimulationSteps(100) do
+        Q = solver_config.Q
+        dg = solver_config.dg
+        m = solver_config.dg.balance_law
+        odesolver = solver_config.solver
+        t = gettime(odesolver)
+        
+        update_auxiliary_state!(update_ref_state!, dg, m, Q, t)
+
+        α = odesolver.dt * odesolver.RKA_implicit[2, 2]
+        update_backward_Euler_solver!(odesolver.besolver!, Q, α)
+        nothing
+    end
 
     # Run the model
     result = ClimateMachine.invoke!(
         solver_config;
         diagnostics_config = dgn_config,
-        user_callbacks = (cbfilter,),
+        user_callbacks = (cbfilter, cb_update_ref_state),
         #user_callbacks = (cbtmarfilter, cbfilter),
         check_euclidean_distance = true,
     )
@@ -451,5 +466,24 @@ function atmos_init_aux!(
     aux.ref_state.T = T
 end
 
+function update_ref_state!(
+    m::AtmosModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+  param_set = m.param_set
+  ρ = state.ρ
+  ρu = state.ρu
+  ρe = state.ρe
+  aux.ref_state.ρ = ρ
+  aux.ref_state.ρu = ρu
+  aux.ref_state.ρe = ρe
+  Φ = aux.orientation.Φ 
+  e_int = (ρe - ρu' * ρu / 2ρ - ρ * Φ) / ρ
+  T = air_temperature(param_set, e_int)
+  aux.ref_state.T = T
+  aux.ref_state.p = air_pressure(param_set, T, ρ)
+end
 
 main()
