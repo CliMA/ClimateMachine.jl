@@ -8,8 +8,18 @@ ClimateMachine.init(;
 )
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.Checkpoint
+using ClimateMachine.ODESolvers
+using ClimateMachine.SystemSolvers
 using ClimateMachine.BalanceLaws: vars_state
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
+using ClimateMachine.Atmos: AtmosModel
+using ClimateMachine.Atmos: PressureGradientModel
+using ClimateMachine.BalanceLaws
+using ClimateMachine.Mesh.Filters: apply!
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+# import ClimateMachine.DGMethods: custom_filter!
+import ClimateMachine.DGMethods: custom_filter!
+using ClimateMachine.DGMethods: RemBL
 
 include(joinpath(clima_dir, "experiments", "AtmosLES", "stable_bl_model.jl"))
 include("edmf_model.jl")
@@ -84,6 +94,51 @@ function init_state_prognostic!(
     en.ρaθ_liq_q_tot_cv = FT(0)
     return nothing
 end;
+
+using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
+struct EDMFFilter <: AbstractCustomFilter end
+import ClimateMachine.DGMethods: custom_filter!
+
+custom_filter!(f::EDMFFilter, bl::RemBL, state, aux) = custom_filter!(f, bl.main, state, aux)
+
+function custom_filter!(::EDMFFilter, bl, state, aux)
+    if hasproperty(bl, :turbconv)
+        FT = eltype(state)
+        # this ρu[3]=0 is only for single_stack
+        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        up = state.turbconv.updraft
+        en = state.turbconv.environment
+        N_up = n_updrafts(bl.turbconv)
+        ρ_gm = state.ρ
+        ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
+        ρa_max = ρ_gm-ρa_min
+        ts = recover_thermo_state(bl, state, aux)
+        θ_liq_gm    = liquid_ice_pottemp(ts)
+        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
+        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
+        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
+        ρa_en       = ρ_gm - ρa_ups
+        ρaw_en      = - ρaw_ups
+        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+        w_en        = ρaw_en / ρa_en
+        @unroll_map(N_up) do i
+            # if !(ρa_min <= up[i].ρa <= ρa_max)
+            #     up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+            #     up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+            #     up[i].ρaw     = FT(0)
+            # end
+            up[i].ρa = ρa_min
+            up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
+            up[i].ρaw     = FT(0)
+        end
+        en.ρatke = max(en.ρatke,FT(0))
+        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
+        # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
+        # validate_variables(bl, state, aux, "custom_filter!")
+    end
+
+end
 
 function main(::Type{FT}) where {FT}
     # add a command line argument to specify the kind of surface flux
@@ -181,6 +236,13 @@ function main(::Type{FT}) where {FT}
             (turbconv_filters(turbconv)...,),
             solver_config.dg.grid,
             TMARFilter(),
+        )
+        Filters.apply!( # comment this for NoTurbConv
+            EDMFFilter(),
+            solver_config.dg.grid,
+            solver_config.dg.balance_law,
+            solver_config.Q,
+            solver_config.dg.state_auxiliary,
         )
         nothing
     end

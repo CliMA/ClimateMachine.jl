@@ -105,9 +105,14 @@ function updraft_surface_w(
         -_grav * (air_density(ts.up[i]) - ρ_gm) / ρ_gm
     end
     w_up_surf = ntuple(N_up) do i
-        sqrt(0.1*zLL*max(b_up_surf[i],FT(0)))
+        if b_up_surf[i]>FT(0)
+            sqrt(0.1*zLL*max(b_up_surf[i],FT(0)))
+        elseif b_up_surf[i]<FT(0)
+            -sqrt(0.1*zLL*max(b_up_surf[i],FT(0)))
+        else
+            FT(0)
+        end
     end
-
     return w_up_surf
 
 end;
