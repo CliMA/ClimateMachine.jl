@@ -798,13 +798,13 @@ function flux_second_order!(
 
     # for now the coupling to the dycore is commented out
 
-    # gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
-    # gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
-    # gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-    #     0, 0, 0,
-    #     0, 0, 0,
-    #     0, 0, ρu_sgs_flux,
-    # )
+    gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
+    gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
+    gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
+        0, 0, 0,
+        0, 0, 0,
+        0, 0, ρu_sgs_flux,
+    )
 
     ẑ = vertical_unit_vector(atmos, aux)
     # env second moment flux_second_order
