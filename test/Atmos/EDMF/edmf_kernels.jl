@@ -794,16 +794,18 @@ function flux_second_order!(
     # update grid mean flux_second_order
     ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
     ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
-    ρu_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
+    ρw_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
+    ρu_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇u[3]
+    ρv_sgs_flux = -gm.ρ * env.a * K_m * gm_dif.∇v[3]
 
     # for now the coupling to the dycore is commented out
 
     gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
     gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
     gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-        0, 0, 0,
-        0, 0, 0,
         0, 0, ρu_sgs_flux,
+        0, 0, ρv_sgs_flux,
+        0, 0, ρw_sgs_flux,
     )
 
     ẑ = vertical_unit_vector(atmos, aux)
