@@ -344,41 +344,41 @@ end
         _ζx3 = dim == 2 ? _ξ2x3 : _ξ3x3
 
         @inbounds Nqv = dim == 2 ? Nq2 : info.Nq[dim]
-        shared_flux_size =
-            dim == 2 ? (Nq1, Nqv, num_state_prognostic) : (0, 0, 0)
+        Nql = dim == 2 ? 1 : Nq2
     end
 
     # Arrays for F, and the differentiation matrix D
-    shared_flux = @localmem FT shared_flux_size
+    shared_flux = @localmem FT (Nq1, Nqv, num_state_prognostic)
 
     # Storage for tendency and mass inverse M⁻¹
-    local_tendency = @private FT (Nq3, num_state_prognostic)
-    local_MI = @private FT (Nq3,)
+    local_tendency = @private FT (num_state_prognostic)
 
     # Grab the index associated with the current element `e` and the
     # horizontal quadrature indices `i` (in the ξ1-direction),
     # `j` (in the ξ2-direction) [directions on the reference element].
     # Parallelize over elements, then over columns
     e = @index(Group, Linear)
-    i, j = @index(Local, NTuple)
+    t1, t2 = @index(Local, NTuple)
 
     @inbounds begin
-        @unroll for k in 1:Nq3
+        @unroll for l in 1:Nql
+            @synchronize()
+
+            if dim == 2
+              i, j = t1, t2
+              k = l
+            elseif dim == 3
+              i, k = t1, t2
+              j = l
+            end
             ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+            
             # initialize local tendency
             @unroll for s in 1:num_state_prognostic
-                local_tendency[k, s] = zero(FT)
+                local_tendency[s] = zero(FT)
             end
-            # read in mass matrix inverse for element `e`
-            local_MI[k] = vgeo[ijk, _MI, e]
-        end
 
-        # ensure D is loaded
-        @synchronize(dim == 3)
-
-        @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-
+            # read in mass matrix for element `e`
             M = vgeo[ijk, _M, e]
 
             # Extract vertical Jacobian terms ∂ζ/∂xⱼ
@@ -450,19 +450,6 @@ end
                 local_flux_total[3, s] += local_flux[3, s]
             end
 
-            # Build "inside metrics" flux
-            @unroll for s in 1:num_state_prognostic
-                F1, F2, F3 = local_flux_total[1, s],
-                local_flux_total[2, s],
-                local_flux_total[3, s]
-                Fv = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
-                if dim == 2
-                    shared_flux[i, j, s] = Fv
-                else
-                    local_flux_total[1, s] = Fv
-                end
-            end
-
             # In the case of the remainder model we may need to loop through the
             # models to add in restricted direction components
             if model_direction isa EveryDirection && balance_law isa RemBL
@@ -482,29 +469,21 @@ end
                         t,
                         (VerticalDirection(),),
                     )
-
-                    # Precomputing J ∇ζ⋅ F
                     @unroll for s in 1:num_state_prognostic
-                        F1, F2, F3 =
-                            local_flux[1, s], local_flux[2, s], local_flux[3, s]
-                        Fv = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
-                        if dim == 2
-                            shared_flux[i, j, s] += Fv
-                        else
-                            local_flux_total[1, s] += Fv
-                        end
+                        local_flux_total[1, s] += local_flux[1, s]
+                        local_flux_total[2, s] += local_flux[2, s]
+                        local_flux_total[3, s] += local_flux[3, s]
                     end
                 end
             end
 
-            if dim == 3
-                @unroll for n in 1:Nq3
-                    MI = local_MI[n]
-                    @unroll for s in 1:num_state_prognostic
-                        local_tendency[n, s] +=
-                            MI * D[k, n] * local_flux_total[1, s]
-                    end
-                end
+            # Build "inside metrics" flux
+            @unroll for s in 1:num_state_prognostic
+                F1, F2, F3 = local_flux_total[1, s],
+                local_flux_total[2, s],
+                local_flux_total[3, s]
+                Fv = M * (ζx1 * F1 + ζx2 * F2 + ζx3 * F3)
+                shared_flux[t1, t2, s] = Fv
             end
 
             # Computes the contribution due to the source term S
@@ -529,31 +508,36 @@ end
                 )
 
                 @unroll for s in 1:num_state_prognostic
-                    local_tendency[k, s] += local_source[s]
+                    local_tendency[s] += local_source[s]
                 end
             end
-            @synchronize(dim == 2)
+            
+            @synchronize()
+            
+            if dim == 2
+              i, j = t1, t2
+              k = l
+            elseif dim == 3
+              i, k = t1, t2
+              j = l
+            end
+            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
 
             # Weak "inside metrics" derivative.
             # Computes the rest of the volume term: M⁻¹DᵀMF
-            if dim == 2
-                MI = local_MI[k]
-                @unroll for n in 1:Nqv
-                    @unroll for s in 1:num_state_prognostic
-                        local_tendency[k, s] +=
-                            MI * D[n, j] * shared_flux[i, n, s]
-                    end
+            MI = vgeo[ijk, _MI, e]
+            @unroll for n in 1:Nqv
+                @unroll for s in 1:num_state_prognostic
+                    local_tendency[s] +=
+                        MI * D[n, t2] * shared_flux[t1, n, s]
                 end
             end
-        end
-
-        @unroll for k in 1:Nq3
-            ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
+            
             @unroll for s in 1:num_state_prognostic
                 if β != 0
-                    T = α * local_tendency[k, s] + β * tendency[ijk, s, e]
+                    T = α * local_tendency[s] + β * tendency[ijk, s, e]
                 else
-                    T = α * local_tendency[k, s]
+                    T = α * local_tendency[s]
                 end
                 tendency[ijk, s, e] = T
             end

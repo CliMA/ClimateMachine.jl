@@ -1872,6 +1872,11 @@ function launch_volume_tendency!(
         vertical_polyorder = info.N[info.dim]
         # Vertical differentiation matrix
         vertical_D = spacedisc.grid.D[info.dim]
+   
+        if info.dim == 3
+          workgroup = (info.Nq[1], info.Nq[3])
+          ndrange = (info.Nq[1] * info.nrealelem, info.Nq[3])
+        end
 
         comp_stream = volume_tendency!(info.device, workgroup)(
             spacedisc.balance_law,
