@@ -106,6 +106,8 @@ function prop_defaults()
 
   bl_prop=( bl_prop..., get_wavespeed=(0.) )
   bl_prop=( bl_prop..., get_penalty_tau=(1.) )
+
+  bl_prop=( bl_prop..., LAW=CplTestBL )
 end
 
 """
