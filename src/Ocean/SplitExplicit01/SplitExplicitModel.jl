@@ -31,9 +31,9 @@ using ...DGMethods.NumericalFluxes:
     NumericalFluxGradient,
     NumericalFluxSecondOrder,
     RusanovNumericalFlux,
+    CentralNumericalFluxFirstOrder,
     CentralNumericalFluxGradient,
-    CentralNumericalFluxSecondOrder,
-    CentralNumericalFluxFirstOrder
+    CentralNumericalFluxSecondOrder
 
 using ..Ocean: AbstractOceanProblem
 

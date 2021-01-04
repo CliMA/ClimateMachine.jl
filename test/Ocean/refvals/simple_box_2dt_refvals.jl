@@ -69,7 +69,7 @@ parr = [
  [  "baro aux",  "Δu[1]",    12,    12,    12,    12 ],
  [  "baro aux",  "Δu[2]",    12,    12,    12,    12 ],
  [  "baro aux",  :η_diag,    12,    12,     8,    12 ],
- [  "baro aux",      :Δη,    12,    12,     8,    12 ],
+ [  "baro aux",      :Δη,     9,     9,     6,    10 ],
  [  "baro aux",       :y,    12,    12,    12,    12 ],
 ]
 # END SCPRINT

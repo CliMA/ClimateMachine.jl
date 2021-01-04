@@ -34,18 +34,9 @@ using ClimateMachine.VariableTemplates
 
     soil_param_functions =
         SoilParamFunctions{F}(porosity = 0.75, Ksat = 1e-7, S_s = 1e-3)
-    bottom_flux =
-        (aux, t) -> eltype(aux)(0.0)
-    surface_flux = nothing
-    surface_state = (aux, t) -> eltype(aux)(0.2)
-    bottom_state = nothing
     ϑ_l0 = (aux) -> eltype(aux)(0.2)
-    bc = GeneralBoundaryConditions(
-        Dirichlet(surface_state = surface_state, bottom_state = bottom_state),
-        Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
-    )
 
-    soil_water_model = SoilWaterModel(F; initialϑ_l = ϑ_l0, boundaries = bc)
+    soil_water_model = SoilWaterModel(F; initialϑ_l = ϑ_l0)
     soil_heat_model = PrescribedTemperatureModel()
 
     m_soil = SoilModel(soil_param_functions, soil_water_model, soil_heat_model)
@@ -58,9 +49,8 @@ using ClimateMachine.VariableTemplates
             Ref(precip_model),
             Ref(v),
             Ref(v),
-            Ref(v),
             [1, 2, 3, 4],
         )
-    @test flux_bc ≈ F.([-2, -4, -6, -8])
+    @test flux_bc ≈ F.([2, 4, 6, 8])
     @test eltype(flux_bc) == F
 end

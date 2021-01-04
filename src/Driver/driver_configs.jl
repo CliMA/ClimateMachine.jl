@@ -22,8 +22,41 @@ end
 struct OceanBoxGCMSpecificInfo <: ConfigSpecificInfo end
 struct SingleStackSpecificInfo <: ConfigSpecificInfo end
 struct MultiColumnLandSpecificInfo <: ConfigSpecificInfo end
-
 include("SolverTypes/SolverTypes.jl")
+
+"""
+    ArgParse.parse_item
+
+Parses custom command line option for tuples of two integers.
+"""
+function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
+
+    str_array = split(s, ",")
+    horizontal = parse(Int, str_array[1])
+    vertical = parse(Int, str_array[2])
+
+    return (horizontal, vertical)
+end
+
+"""
+    get_polyorders
+
+Utility functions that gets the polynomial orders for the given configuration
+either passed from command line or as default values
+"""
+function get_polyorders(N)
+
+    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+
+    # Check if polynomial degree was passed as a CL option
+    if ClimateMachine.Settings.degree != (-1, -1)
+        ClimateMachine.Settings.degree
+    elseif N isa Int
+        (N, N)
+    else
+        N
+    end
+end
 
 """
     ClimateMachine.DriverConfiguration
@@ -136,7 +169,7 @@ function AtmosLESConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     print_model_info(model)
 
@@ -163,14 +196,14 @@ function AtmosLESConfiguration(
     @info @sprintf(
         """
 Establishing Atmos LES configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    domain                 = %.2f m x%.2f m x%.2f m
-    resolution             = %dx%dx%d
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    domain                  = %.2f m x%.2f m x%.2f m
+    resolution              = %dx%dx%d
+    MPI ranks               = %d
+    min(Δ_horz)             = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
         polyorder_horz,
@@ -225,7 +258,7 @@ function AtmosGCMConfiguration(
     numerical_flux_gradient = CentralNumericalFluxGradient(),
 ) where {FT <: AbstractFloat}
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     print_model_info(model)
 
@@ -254,15 +287,15 @@ function AtmosGCMConfiguration(
     @info @sprintf(
         """
 Establishing Atmos GCM configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    # horiz elem           = %d
-    # vert elems           = %d
-    domain height          = %.2e m
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    # horiz elem            = %d
+    # vert elems            = %d
+    domain height           = %.2e m
+    MPI ranks               = %d
+    min(Δ_horz)             = %.2f m
+    min(Δ_vert)             = %.2f m""",
         name,
         FT,
         polyorder_horz,
@@ -312,7 +345,7 @@ function OceanBoxGCMConfiguration(
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
 
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
     brickrange = (
         range(FT(0); length = Nˣ + 1, stop = model.problem.Lˣ),
@@ -352,6 +385,98 @@ function OceanBoxGCMConfiguration(
     )
 end
 
+function SingleStackConfiguration(
+    name::String,
+    N::Union{Int, NTuple{2, Int}},
+    nelem_vert::Int,
+    zmax::FT,
+    param_set::AbstractParameterSet,
+    model::BalanceLaw;
+    zmin = zero(FT),
+    hmax = one(FT),
+    array_type = ClimateMachine.array_type(),
+    solver_type = ExplicitSolverType(),
+    mpicomm = MPI.COMM_WORLD,
+    boundary = ((0, 0), (0, 0), (1, 2)),
+    periodicity = (true, true, false),
+    meshwarp = (x...) -> identity(x),
+    numerical_flux_first_order = RusanovNumericalFlux(),
+    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
+    numerical_flux_gradient = CentralNumericalFluxGradient(),
+) where {FT <: AbstractFloat}
+
+    (polyorder_horz, polyorder_vert) = get_polyorders(N)
+
+    print_model_info(model)
+
+    xmin, xmax = zero(FT), hmax
+    ymin, ymax = zero(FT), hmax
+    brickrange = (
+        grid1d(xmin, xmax, nelem = 1),
+        grid1d(ymin, ymax, nelem = 1),
+        grid1d(zmin, zmax, nelem = nelem_vert),
+    )
+    topology = StackedBrickTopology(
+        mpicomm,
+        brickrange,
+        periodicity = periodicity,
+        boundary = boundary,
+    )
+
+    grid = DiscontinuousSpectralElementGrid(
+        topology,
+        FloatType = FT,
+        DeviceArray = array_type,
+        polynomialorder = (polyorder_horz, polyorder_vert),
+        meshwarp = meshwarp,
+    )
+
+    @info @sprintf(
+        """
+Establishing single stack configuration for %s
+    precision               = %s
+    horiz polynomial order  = %d
+    vert polynomial order   = %d
+    domain_min              = %.2f m x%.2f m x%.2f m
+    domain_max              = %.2f m x%.2f m x%.2f m
+    # vert elems            = %d
+    MPI ranks               = %d
+    min(Δ_horz)             = %.2f m
+    min(Δ_vert)             = %.2f m""",
+        name,
+        FT,
+        polyorder_horz,
+        polyorder_vert,
+        xmin,
+        ymin,
+        zmin,
+        xmax,
+        ymax,
+        zmax,
+        nelem_vert,
+        MPI.Comm_size(mpicomm),
+        min_node_distance(grid, HorizontalDirection()),
+        min_node_distance(grid, VerticalDirection())
+    )
+
+    return DriverConfiguration(
+        SingleStackConfigType(),
+        name,
+        (polyorder_horz, polyorder_vert),
+        FT,
+        array_type,
+        solver_type,
+        param_set,
+        model,
+        mpicomm,
+        grid,
+        numerical_flux_first_order,
+        numerical_flux_second_order,
+        numerical_flux_gradient,
+        SingleStackSpecificInfo(),
+    )
+end
+
 function MultiColumnLandModel(
     name::String,
     N::Union{Int, NTuple{2, Int}},
@@ -377,7 +502,7 @@ function MultiColumnLandModel(
 
     (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
 
-    
+
     print_model_info(model)
 
     brickrange = (
@@ -430,98 +555,6 @@ Establishing MultiColumnLandModel configuration for %s
     return DriverConfiguration(
         MultiColumnLandConfigType(),
         name,
-        N,
-        FT,
-        array_type,
-        solver_type,
-        param_set,
-        model,
-        mpicomm,
-        grid,
-        numerical_flux_first_order,
-        numerical_flux_second_order,
-        numerical_flux_gradient,
-        MultiColumnLandSpecificInfo(),
-    )
-end
-
-function SingleStackConfiguration(
-    name::String,
-    N::Union{Int, NTuple{2, Int}},
-    nelem_vert::Int,
-    zmax::FT,
-    param_set::AbstractParameterSet,
-    model::BalanceLaw;
-    zmin = zero(FT),
-    hmax = one(FT),
-    array_type = ClimateMachine.array_type(),
-    solver_type = ExplicitSolverType(),
-    mpicomm = MPI.COMM_WORLD,
-    boundary = ((0, 0), (0, 0), (1, 2)),
-    periodicity = (true, true, false),
-    meshwarp = (x...) -> identity(x),
-    numerical_flux_first_order = RusanovNumericalFlux(),
-    numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
-    numerical_flux_gradient = CentralNumericalFluxGradient(),
-) where {FT <: AbstractFloat}
-
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
-
-    print_model_info(model)
-
-    xmin, xmax = zero(FT), hmax
-    ymin, ymax = zero(FT), hmax
-    brickrange = (
-        grid1d(xmin, xmax, nelem = 1),
-        grid1d(ymin, ymax, nelem = 1),
-        grid1d(zmin, zmax, nelem = nelem_vert),
-    )
-    topology = StackedBrickTopology(
-        mpicomm,
-        brickrange,
-        periodicity = periodicity,
-        boundary = boundary,
-    )
-
-    grid = DiscontinuousSpectralElementGrid(
-        topology,
-        FloatType = FT,
-        DeviceArray = array_type,
-        polynomialorder = (polyorder_horz, polyorder_vert),
-        meshwarp = meshwarp,
-    )
-
-    @info @sprintf(
-        """
-Establishing single stack configuration for %s
-    precision              = %s
-    horiz polynomial order = %d
-    vert polynomial order  = %d
-    domain_min             = %.2f m x%.2f m x%.2f m
-    domain_max             = %.2f m x%.2f m x%.2f m
-    # vert elems           = %d
-    MPI ranks              = %d
-    min(Δ_horz)            = %.2f m
-    min(Δ_vert)            = %.2f m""",
-        name,
-        FT,
-        polyorder_horz,
-        polyorder_vert,
-        xmin,
-        ymin,
-        zmin,
-        xmax,
-        ymax,
-        zmax,
-        nelem_vert,
-        MPI.Comm_size(mpicomm),
-        min_node_distance(grid, HorizontalDirection()),
-        min_node_distance(grid, VerticalDirection())
-    )
-
-    return DriverConfiguration(
-        SingleStackConfigType(),
-        name,
         (polyorder_horz, polyorder_vert),
         FT,
         array_type,
@@ -533,7 +566,7 @@ Establishing single stack configuration for %s
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
-        SingleStackSpecificInfo(),
+        MultiColumnLandSpecificInfo(),
     )
 end
 

@@ -1,7 +1,7 @@
 """
     TurbulenceClosures
 
-Functions for turbulence, sub-grid scale modelling. These include
+Functions for turbulence, sub-grid scale modeling. These include
 viscosity terms, diffusivity and stress tensors.
 
 - [`ConstantViscosity`](@ref)
@@ -35,38 +35,27 @@ module TurbulenceClosures
 #md #     `turbulence=Vreman(C_smag)`\
 #md #     `turbulence=AnisoMinDiss(C_poincare)`
 
-using ClimateMachine
 using DocStringExtensions
 using LinearAlgebra
 using StaticArrays
-
+using UnPack
 import CLIMAParameters: AbstractParameterSet
-import ClimateMachine.Mesh.Geometry:
-    LocalGeometry, resolutionmetric, lengthscale
-
-using ClimateMachine.Orientations
-using ClimateMachine.VariableTemplates
-using ClimateMachine.BalanceLaws
 using CLIMAParameters.Atmos.SubgridScale: inv_Pr_turb
 
+using ClimateMachine
 
-import ClimateMachine.BalanceLaws:
+import ..Mesh.Geometry: LocalGeometry, resolutionmetric, lengthscale
+
+using ..Orientations
+using ..VariableTemplates
+using ..BalanceLaws
+
+import ..BalanceLaws:
     vars_state,
-    flux_first_order!,
-    flux_second_order!,
-    source!,
+    eq_tends,
     compute_gradient_argument!,
     compute_gradient_flux!,
-    transform_post_gradient_laplacian!,
-    init_state_prognostic!,
-    update_auxiliary_state!,
-    indefinite_stack_integral!,
-    reverse_indefinite_stack_integral!,
-    integral_load_auxiliary_state!,
-    integral_set_auxiliary_state!,
-    reverse_integral_load_auxiliary_state!,
-    reverse_integral_set_auxiliary_state!
-
+    transform_post_gradient_laplacian!
 
 export TurbulenceClosureModel,
     ConstantViscosity,
@@ -84,7 +73,6 @@ export TurbulenceClosureModel,
     turbulence_tensors,
     init_aux_turbulence!,
     init_aux_hyperdiffusion!,
-    turbulence_nodal_update_auxiliary_state!,
     sponge_viscosity_modifier
 
 # ### Abstract Type
@@ -108,12 +96,12 @@ Abstract type for constant viscosity models
 abstract type ConstantViscosity <: TurbulenceClosureModel end
 
 """
-    Abstract type for Hyperdiffusion models
+    Abstract type for HyperDiffusion models
 """
 abstract type HyperDiffusion end
 
 """
-    Abstract type for viscous sponge layers. 
+    Abstract type for viscous sponge layers.
 Modifier for viscosity computed from existing turbulence closures.
 """
 abstract type ViscousSponge end
@@ -129,19 +117,6 @@ function init_aux_turbulence!(
     ::BalanceLaw,
     aux::Vars,
     geom::LocalGeometry,
-) end
-
-"""
-    turbulence_nodal_update_auxiliary_state!
-Update auxiliary variables for turbulence models.
-Overload for specific turbulence closure type.
-"""
-function turbulence_nodal_update_auxiliary_state!(
-    ::TurbulenceClosureModel,
-    ::BalanceLaw,
-    state::Vars,
-    aux::Vars,
-    t::Real,
 ) end
 
 """
@@ -178,13 +153,6 @@ function init_aux_hyperdiffusion!(
     aux::Vars,
     geom::LocalGeometry,
 ) end
-function hyperdiffusion_nodal_update_auxiliary_state!(
-    ::HyperDiffusion,
-    ::BalanceLaw,
-    state::Vars,
-    aux::Vars,
-    t::Real,
-) end
 function compute_gradient_argument!(
     ::HyperDiffusion,
     ::BalanceLaw,
@@ -199,15 +167,6 @@ function transform_post_gradient_laplacian!(
     hyperdiffusive::Vars,
     gradvars::Grad,
     state::Vars,
-    aux::Vars,
-    t::Real,
-) end
-function flux_second_order!(
-    h::HyperDiffusion,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
     aux::Vars,
     t::Real,
 ) end
@@ -378,10 +337,10 @@ export WithoutDivergence
 # and appropriately computes the turbulent stress tensor based on this term. Diffusivity can be
 # computed using the turbulent Prandtl number for the appropriate problem regime.
 # ```math
-# \tau = 
+# \tau =
 #     \begin{cases}
 #     - 2 \nu \mathrm{S} & \mathrm{WithoutDivergence},\\
-#     - 2 \nu \mathrm{S} + \frac{2}{3} \nu \mathrm{tr(S)} I_3 & \mathrm{WithDivergence}. 
+#     - 2 \nu \mathrm{S} + \frac{2}{3} \nu \mathrm{tr(S)} I_3 & \mathrm{WithDivergence}.
 #     \end{cases}
 # ```
 
@@ -920,25 +879,10 @@ function transform_post_gradient_laplacian!(
     hyperdiffusive.hyperdiffusion.ν∇³q_tot = ν₄_q_tot * ∇Δq_tot
 end
 
-function flux_second_order!(
-    h::EquilMoistBiharmonic,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-)
-    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
-    flux.moisture.ρq_tot += hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρ
-end
-
 """
   DryBiharmonic{FT} <: HyperDiffusion
 
-Assumes dry compressible flow. 
+Assumes dry compressible flow.
 Horizontal hyperdiffusion methods for application in GCM and LES settings
 Timescales are prescribed by the user while the diffusion coefficient is
 computed as a function of the grid lengthscale.
@@ -1002,34 +946,20 @@ function transform_post_gradient_laplacian!(
     hyperdiffusive.hyperdiffusion.ν∇³h_tot = ν₄ * ∇Δh_tot
 end
 
-function flux_second_order!(
-    h::DryBiharmonic,
-    flux::Grad,
-    state::Vars,
-    diffusive::Vars,
-    hyperdiffusive::Vars,
-    aux::Vars,
-    t::Real,
-)
-    flux.ρu += state.ρ * hyperdiffusive.hyperdiffusion.ν∇³u_h
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³u_h * state.ρu
-    flux.ρe += hyperdiffusive.hyperdiffusion.ν∇³h_tot * state.ρ
-end
-
 # ### [Viscous Sponge](@id viscous-sponge)
-# `ViscousSponge` requires a user to specify a constant viscosity (kinematic), 
+# `ViscousSponge` requires a user to specify a constant viscosity (kinematic),
 # a sponge start height, the domain height, a sponge strength, and a sponge
 # exponent.
-# Given viscosity, diffusivity and stresses from arbitrary turbulence models, 
+# Given viscosity, diffusivity and stresses from arbitrary turbulence models,
 # the viscous sponge enhances diffusive terms within a user-specified layer,
 # typically used at the top of the domain to absorb waves. A smooth onset is
 # ensured through a weight function that increases weight height from the sponge
 # onset height.
 # ```
 """
-    NoViscousSponge 
+    NoViscousSponge
 No modifiers applied to viscosity/diffusivity in sponge layer
-# Fields 
+# Fields
 #
 $(DocStringExtensions.FIELDS)
 """
@@ -1045,11 +975,11 @@ function sponge_viscosity_modifier(
     return (ν, D_t, τ)
 end
 
-""" 
-    Upper domain viscous relaxation 
+"""
+    Upper domain viscous relaxation
 Applies modifier to viscosity and diffusivity terms
 in a user-specified upper domain sponge region
-# Fields 
+# Fields
 #
 $(DocStringExtensions.FIELDS)
 """
@@ -1082,5 +1012,66 @@ function sponge_viscosity_modifier(
     end
     return (ν, D_t, τ)
 end
+
+const Biharmonic = Union{EquilMoistBiharmonic, DryBiharmonic}
+
+export HyperdiffEnthalpyFlux
+struct HyperdiffEnthalpyFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
+
+export HyperdiffViscousFlux
+struct HyperdiffViscousFlux{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
+
+export hyperdiff_enthalpy_and_momentum_flux
+
+"""
+    hyperdiff_enthalpy_and_momentum_flux(
+        ::PrognosticVariable,
+        ::HyperDiffusion,
+        ::AbstractTendencyType,
+    )
+
+A tuple of the hyperdiffusive enthalpy
+and viscous flux types based on the
+diffusive model.
+"""
+function hyperdiff_enthalpy_and_momentum_flux end
+
+# empty tuple by default
+hyperdiff_enthalpy_and_momentum_flux(
+    pv::PV,
+    ::HyperDiffusion,
+    ::Flux{SecondOrder},
+) where {PV} = ()
+
+# Enthalpy and viscous for Biharmonic model
+hyperdiff_enthalpy_and_momentum_flux(
+    pv::PV,
+    ::Biharmonic,
+    ::Flux{SecondOrder},
+) where {PV} = (HyperdiffEnthalpyFlux{PV}(), HyperdiffViscousFlux{PV}())
+
+export hyperdiff_momentum_flux
+"""
+    hyperdiff_momentum_flux(
+        ::PrognosticVariable,
+        ::HyperDiffusion,
+        ::AbstractTendencyType,
+    )
+
+A tuple of the hyperdiffusive viscous
+flux types based on the diffusive model.
+"""
+function hyperdiff_momentum_flux end
+
+# empty tuple by default
+hyperdiff_momentum_flux(
+    pv::PV,
+    ::HyperDiffusion,
+    ::Flux{SecondOrder},
+) where {PV} = ()
+
+# Viscous for Biharmonic model
+hyperdiff_momentum_flux(pv::PV, ::Biharmonic, ::Flux{SecondOrder}) where {PV} =
+    (HyperdiffViscousFlux{PV}(),)
 
 end #module TurbulenceClosures.jl

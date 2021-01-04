@@ -55,12 +55,12 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
         SoilParamFunctions{FT}(porosity = porosity, Ksat = Ksat, S_s = 1e-3)
     # nota bene: the flux is -K∇h
     bottom_flux = (aux, t) -> FT(0.0)
-   surface_flux = (aux, t) -> FT(-1.0)
+    surface_flux = (aux, t) -> FT(-1.0)
    # surface_state = (aux, t) -> eltype(aux)(porosity)
 
-    bc = GeneralBoundaryConditions(
-        Dirichlet(surface_state = nothing, bottom_state = nothing),
-        Neumann(surface_flux = surface_flux, bottom_flux = bottom_flux),
+    bc = LandDomainBC(
+        bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
+        surface_bc = LandComponentBC(soil_water = Neumann(surface_flux)),
     )
     ϑ_l0 = (aux) -> eltype(aux)(soil_param_functions.porosity-0.1)
 
@@ -73,8 +73,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
     FT;
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(n = n, α = α),
-    initialϑ_l = ϑ_l0,
-    boundaries = bc,
+    initialϑ_l = ϑ_l0
 );
     soil_heat_model = PrescribedTemperatureModel()
 
@@ -83,6 +82,7 @@ include(joinpath(clima_dir, "docs", "plothelpers.jl"));
     m = LandModel(
         param_set,
         m_soil;
+        boundary_conditions = bc,
         source = sources,
         init_state_prognostic = init_soil_water!,
     )

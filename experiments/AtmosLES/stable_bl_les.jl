@@ -42,7 +42,16 @@ function main()
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.ExplicitSolverType()
 
-    model = stable_bl_model(FT, config_type, zmax, surface_flux)
+    C_smag = FT(0.23)
+
+    model = stable_bl_model(
+        FT,
+        config_type,
+        zmax,
+        surface_flux;
+        turbulence = SmagorinskyLilly{FT}(C_smag),
+    )
+
     ics = model.problem.init_state_prognostic
 
     # Assemble configuration

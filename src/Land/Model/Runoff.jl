@@ -302,7 +302,7 @@ function compute_surface_runoff(soil::SoilModel,
                                )
     r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, t)
     r_l_horton = compute_horton_runoff(soil, runoff_model, precip_model, aux, state, t)
-   return r_l_dunne+r_l_horton
+   return r_l_dunne#+r_l_horton
 end
 
 function compute_surface_flux(soil::SoilModel,

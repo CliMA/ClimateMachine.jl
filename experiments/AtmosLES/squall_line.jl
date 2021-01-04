@@ -51,6 +51,13 @@ const microphys = MicropysicsParameterSet(
 )
 const param_set = EarthParameterSet(microphys)
 
+# path to download artifacts
+const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
+    @__DIR__
+else
+    mktempdir(@__DIR__; prefix = "artifact_")
+end
+
 """
   Define initial conditions based on sounding data
 """
@@ -122,8 +129,15 @@ end
   Read the original squall sounding
 """
 function read_sounding()
+
+    # Artifact creation is not thread-safe
+    #      https://github.com/JuliaLang/Pkg.jl/issues/1219
+    # To avoid race conditions from multiple jobs running this
+    # driver at the same time, we must store artifacts in a
+    # separate folder.
+
     soundings_dataset = ArtifactWrapper(
-        joinpath(@__DIR__, "Artifacts.toml"),
+        joinpath(ARTIFACT_DIR, "Artifacts.toml"),
         "soundings",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/rjnvt2dlw7etm1c7mmdfrkw5gnfds5lx.nc",
@@ -232,7 +246,7 @@ function config_squall_line(
 
     # moisture model and its sources
     if moisture_model == "equilibrium"
-        moisture = EquilMoist{FT}(; maxiter = 4, tolerance = FT(1))
+        moisture = EquilMoist{FT}(; maxiter = 20, tolerance = FT(1))
     elseif moisture_model == "nonequilibrium"
         source = (source..., CreateClouds()...)
         moisture = NonEquilMoist()
@@ -324,10 +338,17 @@ function config_diagnostics(driver_config, boundaries, resolution)
         driver_config.name,
         interpol = interpol,
     )
+    dgngrp_aux = setup_dump_aux_diagnostics(
+        AtmosLESConfigType(),
+        interval,
+        driver_config.name,
+        interpol = interpol,
+    )
 
     return ClimateMachine.DiagnosticsConfiguration([
         dgngrp_profiles,
         dgngrp_state,
+        dgngrp_aux,
     ])
 end
 

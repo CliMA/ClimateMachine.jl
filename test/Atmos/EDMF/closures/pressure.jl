@@ -1,46 +1,44 @@
 #### Pressure model kernels
 
+function perturbation_pressure(bl::AtmosModel{FT}, args, env) where {FT}
+    dpdz = ntuple(n_updrafts(bl.turbconv)) do i
+        perturbation_pressure(bl, bl.turbconv.pressure, args, env, i)
+    end
+    return dpdz
+end
+
 """
     perturbation_pressure(
         m::AtmosModel{FT},
         press::PressureModel,
-        state::Vars,
-        diffusive::Vars,
-        aux::Vars,
-        t::Real,
+        args,
         env,
         i,
     ) where {FT}
+
 Returns the value of perturbation pressure gradient
 for updraft i following He et al. (JAMES, 2020), given:
+
  - `m`, an `AtmosModel`
  - `press`, a `PressureModel`
- - `state`, state variables
- - `diffusive`, additional variables
- - `aux`, auxiliary variables
- - `t`, the time
+ - `args`, top-level arguments
  - `env`, NamedTuple of environment variables
  - `i`, index of the updraft
 """
 function perturbation_pressure(
     m::AtmosModel{FT},
     press::PressureModel,
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
+    args,
     env,
     i,
 ) where {FT}
+    @unpack state, diffusive, aux = args
 
     # Alias convention:
-    gm = state
-    en = state.turbconv.environment
     up = state.turbconv.updraft
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
 
-    N_up = n_updrafts(m.turbconv)
     w_up_i = up[i].ρaw / up[i].ρa
 
     nh_press_buoy = press.α_b * up_aux[i].buoyancy

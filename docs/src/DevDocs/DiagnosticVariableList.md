@@ -125,6 +125,7 @@ averaged density.
 | hi         | specific enthalpy from internal energy                                     |
 |                                                                                         |
 | vort       | relative vorticity                                                         |
+| vort2      | relative vorticity from DGmodel kernels                                    |
 
 
 #### 1D spectral decomposition using the Fourier transform (time, level, latitude, zonal wavenumber)

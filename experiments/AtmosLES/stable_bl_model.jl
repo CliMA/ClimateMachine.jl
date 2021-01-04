@@ -37,7 +37,6 @@ using ClimateMachine.TurbulenceConvection
 using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cp_d, cv_d, MSLP, grav, day
@@ -62,16 +61,8 @@ end
 StableBLGeostrophic(::Type{FT}, args...) where {FT} =
     StableBLGeostrophic{Momentum, FT}(args...)
 
-function source(
-    s::StableBLGeostrophic{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::StableBLGeostrophic{Momentum}, m, args)
+    @unpack state, aux = args
     @unpack f_coriolis, u_geostrophic, u_slope, v_geostrophic = s
 
     z = altitude(m, aux)
@@ -106,16 +97,9 @@ end
 StableBLSponge(::Type{FT}, args...) where {FT} =
     StableBLSponge{Momentum, FT}(args...)
 
-function source(
-    s::StableBLSponge{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::StableBLSponge{Momentum}, m, args)
+    @unpack state, aux = args
+
     @unpack z_max, z_sponge, α_max, γ = s
     @unpack u_geostrophic, u_slope, v_geostrophic = s
 
@@ -132,11 +116,6 @@ function source(
         return SVector{3, FT}(0, 0, 0)
     end
 end
-
-filter_source(pv::PV, m, s::StableBLGeostrophic{PV}) where {PV} = s
-filter_source(pv::PV, m, s::StableBLSponge{PV}) where {PV} = s
-atmos_source!(::StableBLGeostrophic, args...) = nothing
-atmos_source!(::StableBLSponge, args...) = nothing
 
 """
   Initial Condition for StableBoundaryLayer LES
@@ -215,13 +194,13 @@ function stable_bl_model(
     config_type,
     zmax,
     surface_flux;
+    turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
     moisture_model = "dry",
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
 
-    C_smag = FT(0.23)     # Smagorinsky coefficient
     C_drag = FT(0.001)    # Momentum exchange coefficient
     u_star = FT(0.30)
 
@@ -256,8 +235,10 @@ function stable_bl_model(
             u_slope,
             v_geostrophic,
         ),
+        turbconv_sources(turbconv)...,
     )
     if moisture_model == "dry"
+        source = source_default
         moisture = DryModel()
     elseif moisture_model == "equilibrium"
         source = source_default
@@ -304,8 +285,9 @@ function stable_bl_model(
                     (state, aux, t, normPu_int) -> (u_star / normPu_int)^2,
                 )),
                 energy = energy_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     else
         boundary_conditions = (
@@ -317,8 +299,9 @@ function stable_bl_model(
                 )),
                 energy = energy_bc,
                 moisture = moisture_bc,
+                turbconv = turbconv_bcs(turbconv)[1],
             ),
-            AtmosBC(),
+            AtmosBC(turbconv = turbconv_bcs(turbconv)[2]),
         )
     end
 
@@ -333,9 +316,9 @@ function stable_bl_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = turbulence,
         moisture = moisture,
-        source = source_default,
+        source = source,
         turbconv = turbconv,
     )
 

@@ -1,16 +1,32 @@
 #### Entrainment-Detrainment kernels
 
+function entr_detr(
+    bl::AtmosModel{FT},
+    state::Vars,
+    aux::Vars,
+    ts_up,
+    ts_en,
+    env,
+) where {FT}
+    EΔ_up = ntuple(n_updrafts(bl.turbconv)) do i
+        entr_detr(bl, bl.turbconv.entr_detr, state, aux, ts_up, ts_en, env, i)
+    end
+    E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
+    return E_dyn, Δ_dyn, E_trb
+end
+
 """
     entr_detr(
         m::AtmosModel{FT},
         entr::EntrainmentDetrainment,
         state::Vars,
         aux::Vars,
-        t::Real,
-        ts,
+        ts_up,
+        ts_en,
         env,
         i,
     ) where {FT}
+
 Returns the dynamic entrainment and detrainment rates,
 as well as the turbulent entrainment rate, following
 Cohen et al. (JAMES, 2020), given:
@@ -18,8 +34,8 @@ Cohen et al. (JAMES, 2020), given:
  - `entr`, an `EntrainmentDetrainment` model
  - `state`, state variables
  - `aux`, auxiliary variables
- - `t`, the time
- - `ts`, NamedTuple of thermodynamic states
+ - `ts_up`, updraft thermodynamic states
+ - `ts_en`, environment thermodynamic states
  - `env`, NamedTuple of environment variables
  - `i`, index of the updraft
 """
@@ -28,8 +44,8 @@ function entr_detr(
     entr::EntrainmentDetrainment,
     state::Vars,
     aux::Vars,
-    t::Real,
-    ts,
+    ts_up,
+    ts_en,
     env,
     i,
 ) where {FT}
@@ -54,8 +70,16 @@ function entr_detr(
     Δw = filter_w(w_up_i - env.w, w_min)
     w_up_i = filter_w(w_up_i, w_min)
     Δb = up_aux[i].buoyancy - en_aux.buoyancy
-    D_E, D_δ, M_δ, M_E =
-        nondimensional_exchange_functions(m, entr, state, aux, t, ts, env, i)
+    D_E, D_δ, M_δ, M_E = nondimensional_exchange_functions(
+        m,
+        entr,
+        state,
+        aux,
+        ts_up,
+        ts_en,
+        env,
+        i,
+    )
 
     # I am commenting this out for now, to make sure there is no slowdown here
     Λ_w = abs(Δb / Δw)

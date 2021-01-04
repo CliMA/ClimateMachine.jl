@@ -5,7 +5,8 @@
         state::Vars,
         aux::Vars,
         t::Real,
-        ts,
+        ts_up,
+        ts_en,
         env,
         i,
     ) where {FT}
@@ -16,8 +17,8 @@ functions following Cohen et al. (JAMES, 2020), given:
  - `entr`, an `EntrainmentDetrainment` model
  - `state`, state variables
  - `aux`, auxiliary variables
- - `t`, the time
- - `ts`, NamedTuple of thermodynamic states
+ - `ts_up`, updraft thermodynamic states
+ - `ts_en`, environment thermodynamic states
  - `env`, NamedTuple of environment variables
  - `i`, the updraft index
 """
@@ -26,8 +27,8 @@ function nondimensional_exchange_functions(
     entr::EntrainmentDetrainment,
     state::Vars,
     aux::Vars,
-    t::Real,
-    ts,
+    ts_up,
+    ts_en,
     env,
     i,
 ) where {FT}
@@ -46,13 +47,13 @@ function nondimensional_exchange_functions(
     w_up_i = up[i].ρaw / up[i].ρa
 
     # thermodynamic variables
-    RH_up = relative_humidity(ts.up[i])
-    RH_en = relative_humidity(ts.en)
+    RH_up = relative_humidity(ts_up[i])
+    RH_en = relative_humidity(ts_en)
 
     Δw = filter_w(w_up_i - env.w, w_min)
     Δb = up_aux[i].buoyancy - en_aux.buoyancy
 
-    c_δ = sign(condensate(ts.en) + condensate(ts.up[i])) * entr.c_δ
+    c_δ = sign(condensate(ts_en) + condensate(ts_up[i])) * entr.c_δ
 
     # compute dry and moist aux functions
     μ_ij = (entr.χ - a_up_i / (a_up_i + env.a)) * Δb / Δw

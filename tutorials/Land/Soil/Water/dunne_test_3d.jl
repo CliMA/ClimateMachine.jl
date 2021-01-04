@@ -64,9 +64,13 @@ zmin = FT(-3);
 xmax = FT(400)
 ymax = FT(320)
 
-bc =  SurfaceDrivenWaterBoundaryConditions(FT;
-    precip_model = DrivenConstantPrecip{FT}(precip_of_t),
-    runoff_model = CoarseGridRunoff{FT}(zres)
+bc =  LandDomainBC(
+    bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
+    surface_bc = LandComponentBC(soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
+                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
+                                                runoff_model = CoarseGridRunoff{FT}(zres)
+                                                                                   )),
+    lateral_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0)))
 )
 
 soil_water_model = SoilWaterModel(
@@ -74,7 +78,6 @@ soil_water_model = SoilWaterModel(
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(n = 2.0,  α = 100.0),
     initialϑ_l = ϑ_l0,
-    boundaries = bc,
 );
 
 # Create the soil model - the coupled soil water and soil heat models.
@@ -142,7 +145,7 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60* 300)
-dt = FT(0.1); #5
+dt = FT(0.5); #5
 
 # Create the solver configuration.
 solver_config =
@@ -233,7 +236,7 @@ function compute_bc(all_data, N,x,y,z, surface_locs)
             st_m = MArray{Tuple{varsize(st_structure)}, FT}(st_vals)
             thest = Vars{st_structure}(st_m)
             t = time_data[i]
-            infiltration = compute_surface_flux(m_soil,bc.runoff_model,bc.precip_model, theaux, thest, t)
+            infiltration = compute_surface_flux(m_soil,bc.surface_bc.soil_water.runoff_model,bc.surface_bc.soil_water.precip_model, theaux, thest, t)
             i_arr[i,k] = infiltration
             moisture[i,k] =  ϑ1[k]
             

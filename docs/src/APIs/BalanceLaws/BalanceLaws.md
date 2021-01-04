@@ -19,6 +19,7 @@ AbstractTendencyType
 TendencyDef
 eq_tends
 prognostic_vars
+precompute
 fluxes
 sources
 show_tendencies
@@ -38,6 +39,7 @@ source
 ```@docs
 AbstractStateType
 Prognostic
+Primitive
 Auxiliary
 Gradient
 GradientFlux

@@ -68,22 +68,25 @@ ymax = FT(320)
 
 heaviside(x) = 0.5 * (sign(x) + 1)
 sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/width)))
-precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 300*60,10)))
+precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 200*60,10)))#heaviside(200*60-t))
+# Define the initial state function. The default for `θ_i` is zero.
+ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.025 * sigmoid(aux.z, -0.5,0.02))#heaviside((-0.5)-aux.z))
 
-ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.05 * sigmoid(aux.z, -1,0.02))
+bc =  LandDomainBC(
+    bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
+    surface_bc = LandComponentBC(soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
+                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
+                                                runoff_model = CoarseGridRunoff{FT}(zres)
+                                                                                   )),
+    lateral_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0)))
+)
 
-
-bc =  SurfaceDrivenWaterBoundaryConditions(FT;
-                                           precip_model = DrivenConstantPrecip{FT}(precip_of_t),
-                                           runoff_model = CoarseGridRunoff{FT}(zres)
-                                           )
 
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
     hydraulics = vanGenuchten{FT}(n = 2.0,  α = 100.0),
-    initialϑ_l = ϑ_l0,
-    boundaries = bc,
+    initialϑ_l = ϑ_l0
 );
 
 # Create the soil model - the coupled soil water and soil heat models.
@@ -104,6 +107,7 @@ end
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil_water!,
 );

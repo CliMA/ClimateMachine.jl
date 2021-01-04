@@ -16,6 +16,7 @@ using ClimateMachine.GenericCallbacks
 using ClimateMachine.VTK
 using ClimateMachine.Checkpoint
 
+using Test
 using MPI
 using LinearAlgebra
 using StaticArrays
@@ -206,22 +207,17 @@ function main(; restart = 0)
 
     if restart > 0
         direction = EveryDirection()
-        Q_3D, A_3D, t0 =
+        Q_3D, _, t0 =
             read_checkpoint(vtkpath, "baroclinic", ArrayType, mpicomm, restart)
-        Q_2D, A_2D, _ =
+        Q_2D, _, _ =
             read_checkpoint(vtkpath, "barotropic", ArrayType, mpicomm, restart)
-
-        A_3D = restart_auxiliary_state(model, grid_3D, A_3D, direction)
-        A_2D =
-            restart_auxiliary_state(barotropicmodel, grid_2D, A_2D, direction)
 
         dg = OceanDGModel(
             model,
             grid_3D,
             RusanovNumericalFlux(),
             CentralNumericalFluxSecondOrder(),
-            CentralNumericalFluxGradient();
-            state_auxiliary = A_3D,
+            CentralNumericalFluxGradient(),
         )
         barotropic_dg = DGModel(
             barotropicmodel,
@@ -229,7 +225,6 @@ function main(; restart = 0)
             RusanovNumericalFlux(),
             CentralNumericalFluxSecondOrder(),
             CentralNumericalFluxGradient(),
-            state_auxiliary = A_2D,
         )
 
         Q_3D = restart_ode_state(dg, Q_3D; init_on_cpu = true)
@@ -255,9 +250,6 @@ function main(; restart = 0)
         )
 
         Q_3D = init_ode_state(dg, FT(0); init_on_cpu = true)
-        # update_auxiliary_state!(dg, model, Q_3D, FT(0))
-        # update_auxiliary_state_gradient!(dg, model, Q_3D, FT(0))
-
         Q_2D = init_ode_state(barotropic_dg, FT(0); init_on_cpu = true)
 
     end
@@ -341,6 +333,7 @@ function main(; restart = 0)
         checkPass = ClimateMachine.StateCheck.scdocheck(cbcs_dg, refDat)
         checkPass ? checkRep = "Pass" : checkRep = "Fail"
         @info @sprintf("""Compare vs RefVals: %s""", checkRep)
+        @test checkPass
     end
 
     return nothing
@@ -440,10 +433,12 @@ function make_callbacks(
     end
 
     if n_chkp > 0
+        # Note: write zeros instead of Aux vars (not needed to restart); would be
+        # better just to write state vars (once write_checkpoint() can handle it)
         cb_checkpoint = GenericCallbacks.EveryXSimulationSteps(n_chkp) do
             write_checkpoint(
                 Q_slow,
-                dg_slow.state_auxiliary,
+                zero(Q_slow),
                 odesolver,
                 vtkpath,
                 "baroclinic",
@@ -453,7 +448,7 @@ function make_callbacks(
 
             write_checkpoint(
                 Q_fast,
-                dg_fast.state_auxiliary,
+                zero(Q_fast),
                 odesolver,
                 vtkpath,
                 "barotropic",
@@ -461,8 +456,6 @@ function make_callbacks(
                 step[3],
             )
 
-            # rm_checkpoint(vtkpath, "baroclinic", mpicomm, step[3] - 1)
-            # rm_checkpoint(vtkpath, "barotropic", mpicomm, step[3] - 1)
             step[3] += 1
             nothing
         end
@@ -519,4 +512,6 @@ const λʳ = 20 // 86400 # m/s
 #const λʳ = 10 // 86400
 const θᴱ = 10    # deg.C
 
-main(restart = 0)
+@testset "$(@__FILE__)" begin
+    main(restart = 0)
+end

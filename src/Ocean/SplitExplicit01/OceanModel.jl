@@ -237,14 +237,15 @@ end
 )
     ν = viscosity_tensor(m)
     #  D.ν∇u = ν * G.u
-    D.ν∇u = @SMatrix [
-        m.νʰ*G.ud[1, 1] m.νʰ*G.ud[1, 2]
-        m.νʰ*G.ud[2, 1] m.νʰ*G.ud[2, 2]
-        m.νᶻ*G.u[3, 1] m.νᶻ*G.u[3, 2]
-    ]
+    D.ν∇u =
+        -@SMatrix [
+            m.νʰ*G.ud[1, 1] m.νʰ*G.ud[1, 2]
+            m.νʰ*G.ud[2, 1] m.νʰ*G.ud[2, 2]
+            m.νᶻ*G.u[3, 1] m.νᶻ*G.u[3, 2]
+        ]
 
     κ = diffusivity_tensor(m, G.θ[3])
-    D.κ∇θ = κ * G.θ
+    D.κ∇θ = -κ * G.θ
 
     return nothing
 end
@@ -426,9 +427,9 @@ end
     #- vertical viscosity only (horizontal fluxes in horizontal model)
     #  F.u -= @SVector([0, 0, 1]) * D.ν∇u[3, :]'
     #- all 3 direction viscous flux for horizontal momentum tendency
-    F.u -= D.ν∇u
+    F.u += D.ν∇u
 
-    F.θ -= D.κ∇θ
+    F.θ += D.κ∇θ
 
     return nothing
 end

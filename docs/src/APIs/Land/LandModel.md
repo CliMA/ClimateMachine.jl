@@ -25,7 +25,9 @@ ClimateMachine.Land.PhaseChange
 
 ## Boundary Conditions
 ```@docs
-ClimateMachine.Land.GeneralBoundaryConditions
+ClimateMachine.Land.LandDomainBC
+ClimateMachine.Land.LandComponentBC
+ClimateMachine.Land.NoBC
 ClimateMachine.Land.SurfaceDrivenWaterBoundaryConditions
 ClimateMachine.Land.Dirichlet
 ClimateMachine.Land.Neumann

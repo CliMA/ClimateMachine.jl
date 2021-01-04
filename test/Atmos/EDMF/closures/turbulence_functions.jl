@@ -22,29 +22,25 @@ end
 """
     compute_buoyancy_gradients(
         m::AtmosModel{FT},
-        state::Vars,
-        diffusive::Vars,
-        aux::Vars,
-        t::Real,
-        ts
+        args,
+        ts_gm,
+        ts_en
     ) where {FT}
 Returns the environmental buoyancy gradient following Tan et al. (JAMES, 2018)
 and the effective environmental static stability following
 Lopez-Gomez et al. (JAMES, 2020), given:
  - `m`, an `AtmosModel`
- - `state`, state variables
- - `diffusive`, additional variables
- - `aux`, auxiliary variables
- - `t`, the time
+ - `args`, top-level arguments
+ - `ts_gm`, grid-mean thermodynamic state
+ - `ts_en`, environment thermodynamic state
 """
 function compute_buoyancy_gradients(
     m::AtmosModel{FT},
-    state::Vars,
-    diffusive::Vars,
-    aux::Vars,
-    t::Real,
-    ts,
+    args,
+    ts_gm,
+    ts_en,
 ) where {FT}
+    @unpack state, aux, diffusive = args
     # Alias convention:
     gm = state
     en_dif = diffusive.turbconv.environment
@@ -54,19 +50,19 @@ function compute_buoyancy_gradients(
     _R_d::FT = R_d(m.param_set)
     _R_v::FT = R_v(m.param_set)
     ε_v::FT = 1 / molmass_ratio(m.param_set)
-    p = air_pressure(ts.gm)
+    p = air_pressure(ts_gm)
 
-    q_tot_en = total_specific_humidity(ts.en)
-    θ_liq_en = liquid_ice_pottemp(ts.en)
-    lv = latent_heat_vapor(ts.en)
-    T = air_temperature(ts.en)
-    Π = exner(ts.en)
-    q_liq = liquid_specific_humidity(ts.en)
-    _cp_m = cp_m(ts.en)
-    θ_virt = virtual_pottemp(ts.en)
+    q_tot_en = total_specific_humidity(ts_en)
+    θ_liq_en = liquid_ice_pottemp(ts_en)
+    lv = latent_heat_vapor(ts_en)
+    T = air_temperature(ts_en)
+    Π = exner(ts_en)
+    q_liq = liquid_specific_humidity(ts_en)
+    _cp_m = cp_m(ts_en)
+    θ_virt = virtual_pottemp(ts_en)
 
     (ts_dry, ts_cloudy, cloud_frac) =
-        compute_subdomain_statistics(m, state, aux, t)
+        compute_subdomain_statistics(m, args, ts_gm, ts_en)
     cloudy = thermo_variables(ts_cloudy)
     dry = thermo_variables(ts_dry)
 
