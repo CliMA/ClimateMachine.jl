@@ -21,8 +21,8 @@ end
 
 struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::ViscousFlux{Energy}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state = args
+    @unpack τ = args.precomputed.turbulence
     return τ * state.ρu
 end
 
@@ -38,8 +38,8 @@ end
 
 struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_h_tot = -D_t .* diffusive.∇h_tot
     return d_h_tot * state.ρ
 end
@@ -69,11 +69,11 @@ function source(s::RemovePrecipitation{Energy}, m, args)
 end
 
 function source(s::WarmRain_1M{Energy}, m, args)
-    nt = warm_rain_sources(m, args)
-    return nt.S_ρ_e
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_e
 end
 
 function source(s::RainSnow_1M{Energy}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_e
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_e
 end

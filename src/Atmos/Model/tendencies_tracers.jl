@@ -15,8 +15,8 @@ end
 #####
 
 function flux(::Diffusion{Tracers{N}}, atmos, args) where {N}
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, aux, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_χ = (-D_t) * aux.tracers.δ_χ' .* diffusive.tracers.∇χ
     return d_χ * state.ρ
 end
