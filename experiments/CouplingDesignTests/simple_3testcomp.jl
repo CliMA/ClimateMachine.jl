@@ -35,7 +35,7 @@ domainO = RectangularDomain(
     x = (0, 1e6),
     y = (0, 1e6),
     z = (-4e3, 0),
-    periodicity = (true, true, false),
+    periodicity = (true, true, true),
 )
 domainL = RectangularDomain(
     Ne = (10, 10, 1),
@@ -43,7 +43,7 @@ domainL = RectangularDomain(
     x = (0, 1e6),
     y = (0, 1e6),
     z = (0, 1),
-    periodicity = (true, true, false),
+    periodicity = (true, true, true),
 )
 
 # Create 3 components - one on each domain, for now all are instances

@@ -38,28 +38,37 @@ function CplSolver(;component_list=component_list, callback_list=callback_list, 
 end
 
 function dostep!(Qtop,
-                 solver::CplSolver,
+                 csolver::CplSolver,
                  param,
                  time::Real)
 
          # Atmos
          # - retrieve atmos import boundary state/flux from coupler
          # -  Step atmos ( solver.component_list[atmos_comp] )
-         solve!(solver.component_list.atmosphere.state,
-                solver.component_list.atmosphere.stepper;
-                numberofsteps=1)
+         solve!(csolver.component_list.atmosphere.state,
+                csolver.component_list.atmosphere.stepper;
+                numberofsteps=5,
+                callbacks=csolver.callback_list.atmosphere)
          # - post atmos export boundary state/flux to coupler
 
 
          # Ocean
          # - retrieve ocean import boundary state/flux from coupler
          # -  Step ocean
+         solve!(csolver.component_list.ocean.state,
+                csolver.component_list.ocean.stepper;
+                numberofsteps=1,
+                callbacks=csolver.callback_list.ocean)
          # - post ocean export boundary state/flux to coupler
           
 
          # Land
          # - retrieve land import boundary state/flux from coupler
          # -  Step land
+         solve!(csolver.component_list.land.state,
+                csolver.component_list.land.stepper;
+                numberofsteps=10,
+                callbacks=csolver.callback_list.land)
          # - post land export boundary state/flux to coupler
 
          return nothing
