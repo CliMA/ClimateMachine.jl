@@ -42,6 +42,7 @@ function dostep!(Qtop,
                  param,
                  time::Real)
 
+         println("Start coupled cycle")
          # Atmos
          # - retrieve atmos import boundary state/flux from coupler
          # -  Step atmos ( solver.component_list[atmos_comp] )
@@ -70,6 +71,7 @@ function dostep!(Qtop,
                 numberofsteps=10,
                 callbacks=csolver.callback_list.land)
          # - post land export boundary state/flux to coupler
+         println("End coupled cycle")
 
          return nothing
 end

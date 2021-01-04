@@ -73,4 +73,4 @@ cC=Coupling.CplSolver(component_list=component_list,
                       coupling_dt=5.,t0=0.)
 
 # Invoke solve! with coupled timestepper and callback list.
-solve!(nothing,cC;numberofsteps=1)
+solve!(nothing,cC;numberofsteps=2)
