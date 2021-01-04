@@ -18,7 +18,6 @@ using ClimateMachine.Atmos
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.Orientations
 using ClimateMachine.BalanceLaws: Prognostic, Auxiliary, vars_state
-
     
 using ClimateMachine.VariableTemplates: flattenednames
 
@@ -43,10 +42,6 @@ function main()
 
     timeend = 15 * 24 * 3600
     outputtime = timeend
-    
-
-    #timeend = 20000
-    #outputtime = 200
 
     FT = Float64
 
@@ -76,14 +71,15 @@ function test_run(
     FT,
     split_explicit_implicit,
 )
-
     setup = ZonalFlowSetup{FT}()
 
     _planet_radius::FT = planet_radius(param_set)
     horz_range = range(FT(0), stop = _planet_radius, length = numelem_horz+1)
     vert_range = range(FT(0), stop = setup.domain_height, length = numelem_vert+1)
     brickrange = (horz_range, horz_range, vert_range)
-    topology = StackedBrickTopology(mpicomm, brickrange, periodicity=(true,true,true))
+    
+    periodicity=(true, true, false)
+    topology = StackedBrickTopology(mpicomm, brickrange, periodicity=periodicity)
 
     grid = DiscontinuousSpectralElementGrid(
         topology,
@@ -91,15 +87,20 @@ function test_run(
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
     )
-
-    #T_profile = IsothermalProfile(param_set, setup.T0)
+  
+    zero_ref_state_velocity = false
+    if zero_ref_state_velocity
+      ref_state = ZonalReferenceState(setup.T0, FT(0))
+    else
+      ref_state = ZonalReferenceState(setup.T0, setup.u0)
+    end
 
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = setup,
         orientation = FlatOrientation(),
-        ref_state = ZonalReferenceState(),
+        ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
         source = (Gravity(),),
@@ -109,7 +110,6 @@ function test_run(
     dg = DGModel(
         model,
         grid,
-        #RoeNumericalFlux(),
         RusanovNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient(),
@@ -119,7 +119,6 @@ function test_run(
         linearmodel,
         grid,
         RusanovNumericalFlux(),
-        #RoeNumericalFlux(),
         CentralNumericalFluxSecondOrder(),
         CentralNumericalFluxGradient();
         direction = VerticalDirection(),
@@ -133,18 +132,15 @@ function test_run(
     dz = min_node_distance(grid, VerticalDirection())
     aspect_ratio = dx / dz
    
-    horz_sound_cfl = FT(10 // 100)
+    horz_sound_cfl = FT(60 // 100)
     dt = horz_sound_cfl * dx / acoustic_speed
-    vert_sound_cfl = horz_sound_cfl * aspect_ratio
-    
     horz_adv_cfl = dt * setup.u0 / dx
+    
     @show dt
     @show aspect_ratio
-    @show horz_sound_cfl, vert_sound_cfl
+    @show horz_sound_cfl
     @show horz_adv_cfl
 
-    # Adjust the time step so we exactly hit 1 hour for VTK output
-    #dt = 60 * 60 / ceil(60 * 60 / dt)
     nsteps = ceil(Int, timeend / dt)
 
     Q = init_ode_state(dg, FT(0))
@@ -154,11 +150,7 @@ function test_run(
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
             dg,
-            (lineardg,);
-            #numerical_flux_first_order = (
-            #    dg.numerical_flux_first_order,
-            #    (lineardg.numerical_flux_first_order,),
-            #),
+            (lineardg,)
         )
     end
     odesolver = ARK2GiraldoKellyConstantinescu(
@@ -175,13 +167,6 @@ function test_run(
         split_explicit_implicit = split_explicit_implicit,
     )
     @test getsteps(odesolver) == 0
-
-    #filterorder = 64
-    #filter = ExponentialFilter(grid, 0, filterorder)
-    #cbfilter = EveryXSimulationSteps(1) do
-    #    Filters.apply!(Q, :, grid, filter, direction = VerticalDirection())
-    #    nothing
-    #end
 
     filterorder = 18
     filter = ExponentialFilter(grid, 0, filterorder)
@@ -345,11 +330,15 @@ end
 
 import ClimateMachine.Atmos: atmos_init_aux!, vars_state
 
-struct ZonalReferenceState <: ReferenceState end
+struct ZonalReferenceState{FT} <: ReferenceState
+    T0::FT
+    u0::FT
+end
+
 vars_state(::ZonalReferenceState, ::Auxiliary, FT) =
   @vars(ρ::FT, ρu::SVector{3, FT}, ρe::FT, p::FT, T::FT)
 function atmos_init_aux!(
-    m::ZonalReferenceState,
+    refstate::ZonalReferenceState,
     atmos::AtmosModel,
     aux::Vars,
     tmp::Vars,
@@ -362,17 +351,18 @@ function atmos_init_aux!(
     _R_d::FT = R_d(param_set)
     _grav::FT = grav(param_set)
     
-    T0 = FT(300)
-    u0 = FT(0)
+    T0 = refstate.T0
+    u0 = refstate.u0
 
     p = _MSLP * exp(-_grav * z / (_R_d * T0))
     ρ = p / (_R_d * T0)
+    
+    e_int = internal_energy(param_set, T0)
+    e_pot = gravitational_potential(atmos.orientation, aux)
+    e_kin = u0 ^ 2 / 2
 
     aux.ref_state.ρ = ρ
     aux.ref_state.ρu = ρ * SVector(u0, 0, 0)
-    e_int = internal_energy(param_set, T0)
-    e_pot = aux.orientation.Φ
-    e_kin = u0 ^ 2 / 2
     aux.ref_state.ρe = ρ * (e_int + e_pot + e_kin)
     aux.ref_state.p = p
     aux.ref_state.T = T0
