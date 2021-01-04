@@ -9,6 +9,12 @@ using ClimateMachine.Coupling
 # To create meshes (borrowed from Ocean for now!)
 using ClimateMachine.Ocean.Domains
 
+# To setup some callbacks
+using ClimateMachine.GenericCallbacks
+
+# To invoke timestepper
+using ClimateMachine.ODESolvers
+
 ClimateMachine.init()
 
 # Use toy balance law for now
@@ -21,7 +27,7 @@ domainA = RectangularDomain(
     x = (0, 1e6),
     y = (0, 1e6),
     z = (0, 1e5),
-    periodicity = (true, true, false),
+    periodicity = (true, true, true),
 )
 domainO = RectangularDomain(
     Ne = (10, 10, 4),
@@ -46,6 +52,25 @@ mA=Coupling.CplTestModel(;domain=domainA,BL_module=CplTestingBL)
 mO=Coupling.CplTestModel(;domain=domainO,BL_module=CplTestingBL)
 mL=Coupling.CplTestModel(;domain=domainL,BL_module=CplTestingBL)
 
+# Create some callbacks to push component boundary states to export fields.
+cpl_cbA=GenericCallbacks.EveryXSimulationSteps(1) do
+ println("Atmos export fill callback")
+end
+cpl_cbO=GenericCallbacks.EveryXSimulationSteps(1) do
+ println("Ocean export fill callback")
+end
+cpl_cbL=GenericCallbacks.EveryXSimulationSteps(1) do
+ println("Land export fill callback")
+end
 
 # Instantiate a coupled timestepper that steps forward the components and
-# maps imports and exports between components.
+# implements mapings between components export bondary states and
+# other components imports.
+component_list=(atmosphere=mA,ocean=mO,land=mL)
+callback_list =(atmosphere=(cpl_cbA,),ocean=(cpl_cbO,),land=(cpl_cbL,) )
+cC=Coupling.CplSolver(component_list=component_list,
+                      callback_list=callback_list,
+                      coupling_dt=5.,t0=0.)
+
+# Invoke solve! with coupled timestepper and callback list.
+solve!(nothing,cC;numberofsteps=1)

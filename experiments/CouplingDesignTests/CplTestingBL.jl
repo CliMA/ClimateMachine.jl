@@ -99,12 +99,14 @@ function prop_defaults()
   init_theta(_...)=(return 0.)
   bl_prop=( bl_prop...,   init_theta=init_theta )
 
-  bl_prop=( bl_prop..., source_theta=nothing)
+  source_theta(_...)=(return 0.)
+  bl_prop=( bl_prop..., source_theta=source_theta )
 
   calc_kappa_diff(_...)=(return 0., 0., 0.)
   bl_prop=( bl_prop..., calc_kappa_diff=calc_kappa_diff)
 
-  bl_prop=( bl_prop..., get_wavespeed=(0.) )
+  get_wavespeed(_...)=return(0.)
+  bl_prop=( bl_prop..., get_wavespeed=get_wavespeed )
   bl_prop=( bl_prop..., get_penalty_tau=(1.) )
 
   bl_prop=( bl_prop..., LAW=CplTestBL )
@@ -259,7 +261,7 @@ end
 function wavespeed(bl::l_type, _...)
  # Used in Rusanov term. 
  # Only active if there is a flux first order term?
- e.bl_prop.get_wavespeed()
+ bl.bl_prop.get_wavespeed()
 end
 
 """
