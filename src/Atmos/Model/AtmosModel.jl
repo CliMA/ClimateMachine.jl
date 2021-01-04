@@ -480,8 +480,11 @@ include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
 
-precompute(atmos::AtmosModel, args, tt::Flux{FirstOrder}) =
-    (ts = recover_thermo_state(atmos, args.state, args.aux),)
+function precompute(atmos::AtmosModel, args, tt::Flux{FirstOrder})
+    ts = recover_thermo_state(atmos, args.state, args.aux)
+    turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
+    return (; ts, turbconv)
+end
 
 """
     flux_first_order!(
@@ -618,8 +621,11 @@ function transform_post_gradient_laplacian!(
     )
 end
 
-precompute(atmos::AtmosModel, args, ::Flux{SecondOrder}) =
-    (ts = recover_thermo_state(atmos, args.state, args.aux),)
+function precompute(atmos::AtmosModel, args, tt::Flux{SecondOrder})
+    ts = recover_thermo_state(atmos, args.state, args.aux)
+    turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
+    return (; ts, turbconv)
+end
 
 """
     flux_second_order!(
@@ -820,8 +826,11 @@ function init_state_auxiliary!(
     )
 end
 
-precompute(atmos::AtmosModel, args, tt::Source) =
-    (ts = recover_thermo_state(atmos, args.state, args.aux),)
+function precompute(atmos::AtmosModel, args, tt::Source)
+    ts = recover_thermo_state(atmos, args.state, args.aux)
+    turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
+    return (; ts, turbconv)
+end
 
 """
     source!(

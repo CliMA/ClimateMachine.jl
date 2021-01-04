@@ -57,11 +57,14 @@ function main(::Type{FT}) where {FT}
     N_quad = 3 # Using N_quad = 1 leads to norm(Q) = NaN at init.
     turbconv = NoTurbConv()
 
+    C_smag = FT(0.23)
+
     model = stable_bl_model(
         FT,
         config_type,
         zmax,
         surface_flux;
+        turbulence = SmagorinskyLilly{FT}(C_smag),
         turbconv = turbconv,
     )
 
@@ -212,8 +215,8 @@ function main(::Type{FT}) where {FT}
         δρe = (weightedsum(Q, ρe_idx) .- Σρe₀) ./ Σρe₀
         @show (abs(δρ))
         @show (abs(δρe))
-        @test (abs(δρ) <= 1.0e-10)
-        @test (abs(δρe) <= 0.025)
+        @test (abs(δρ) <= 0.001)
+        @test (abs(δρe) <= 0.1)
         nothing
     end
 
