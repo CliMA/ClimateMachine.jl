@@ -826,14 +826,20 @@ function flux_second_order!(
 
     # for now the coupling to the dycore is commented out
 
-    gm_flx.ρe              += SVector{3,FT}(0,0,ρe_sgs_flux)
+    gm_flx.ρe += SVector{3, FT}(0, 0, ρe_sgs_flux)
     if atmos.moisture isa DryModel
-        gm_flx.moisture.ρq_tot += SVector{3,FT}(0,0,ρq_tot_sgs_flux)
+        gm_flx.moisture.ρq_tot += SVector{3, FT}(0, 0, ρq_tot_sgs_flux)
     end
-    gm_flx.ρu              += SMatrix{3, 3, FT, 9}(
-        0, 0, ρu_sgs_flux,
-        0, 0, ρv_sgs_flux,
-        0, 0, ρw_sgs_flux,
+    gm_flx.ρu += SMatrix{3, 3, FT, 9}(
+        0,
+        0,
+        ρu_sgs_flux,
+        0,
+        0,
+        ρv_sgs_flux,
+        0,
+        0,
+        ρw_sgs_flux,
     )
 
     ẑ = vertical_unit_vector(atmos, aux)
@@ -882,7 +888,8 @@ function turbconv_boundary_state!(
         up⁺[i].ρaθ_liq = up⁺[i].ρa * θ_liq_up_surf[i]
         up⁺[i].ρaq_tot = up⁺[i].ρa * q_tot_up_surf[i]
     end
-    w_up_surf = updraft_surface_w(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
+    w_up_surf =
+        updraft_surface_w(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
     @unroll_map(N_up) do i
         up⁺[i].ρaw = a_up_surf[i] * gm⁻.ρ * w_up_surf[i]
     end

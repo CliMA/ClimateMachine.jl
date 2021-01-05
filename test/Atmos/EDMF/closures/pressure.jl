@@ -39,14 +39,17 @@ function perturbation_pressure(
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
 
-    w_up_i = up[i].ρaw / up[i].ρa
+    if up[i].ρa/state.ρ>m.turbconv.subdomains.a_min
+        w_up_i = up[i].ρaw / up[i].ρa
 
-    nh_press_buoy = press.α_b * up_aux[i].buoyancy
-    nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]
-    nh_pressure_drag =
-        press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
+        nh_press_buoy = press.α_b * up_aux[i].buoyancy
+        nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]
+        nh_pressure_drag =
+            press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
 
-    dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
-
+        dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
+    else
+        dpdz = FT(0)
+    end
     return dpdz
 end;

@@ -20,7 +20,12 @@ import ClimateMachine.DGMethods: custom_filter!
 using ClimateMachine.DGMethods: RemBL
 
 ENV["CLIMATEMACHINE_SETTINGS_FIX_RNG_SEED"] = true
-include(joinpath(clima_dir, "experiments", "AtmosLES", "convective_bl_model.jl"))
+include(joinpath(
+    clima_dir,
+    "experiments",
+    "AtmosLES",
+    "convective_bl_model.jl",
+))
 include(joinpath(clima_dir, "docs", "plothelpers.jl"))
 include("edmf_model.jl")
 include("edmf_kernels.jl")
@@ -98,41 +103,42 @@ using ClimateMachine.DGMethods: AbstractCustomFilter, apply!
 struct EDMFFilter <: AbstractCustomFilter end
 import ClimateMachine.DGMethods: custom_filter!
 
-custom_filter!(f::EDMFFilter, bl::RemBL, state, aux) = custom_filter!(f, bl.main, state, aux)
+custom_filter!(f::EDMFFilter, bl::RemBL, state, aux) =
+    custom_filter!(f, bl.main, state, aux)
 
 function custom_filter!(::EDMFFilter, bl, state, aux)
     if hasproperty(bl, :turbconv)
         FT = eltype(state)
         println("in filter")
         # this ρu[3]=0 is only for single_stack
-        state.ρu = SVector(state.ρu[1],state.ρu[2],0)
+        state.ρu = SVector(state.ρu[1], state.ρu[2], 0)
         up = state.turbconv.updraft
         en = state.turbconv.environment
         N_up = n_updrafts(bl.turbconv)
         ρ_gm = state.ρ
         ρa_min = ρ_gm * bl.turbconv.subdomains.a_min
-        ρa_max = ρ_gm-ρa_min
+        ρa_max = ρ_gm - ρa_min
         ts = recover_thermo_state(bl, state, aux)
-        θ_liq_gm    = liquid_ice_pottemp(ts)
-        ρaθ_liq_ups = sum(vuntuple(i->up[i].ρaθ_liq, N_up))
-        ρa_ups      = sum(vuntuple(i->up[i].ρa, N_up))
-        ρaw_ups     = sum(vuntuple(i->up[i].ρaw, N_up))
-        ρa_en       = ρ_gm - ρa_ups
-        ρaw_en      = - ρaw_ups
-        θ_liq_en    = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
-        w_en        = ρaw_en / ρa_en
+        θ_liq_gm = liquid_ice_pottemp(ts)
+        ρaθ_liq_ups = sum(vuntuple(i -> up[i].ρaθ_liq, N_up))
+        ρa_ups = sum(vuntuple(i -> up[i].ρa, N_up))
+        ρaw_ups = sum(vuntuple(i -> up[i].ρaw, N_up))
+        ρa_en = ρ_gm - ρa_ups
+        ρaw_en = -ρaw_ups
+        θ_liq_en = (θ_liq_gm - ρaθ_liq_ups) / ρa_en
+        w_en = ρaw_en / ρa_en
         @unroll_map(N_up) do i
             if !(ρa_min <= up[i].ρa <= ρa_max)
-                up[i].ρa = min(max(up[i].ρa,ρa_min),ρa_max)
+                up[i].ρa = min(max(up[i].ρa, ρa_min), ρa_max)
                 up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
-                up[i].ρaw     = FT(0)
+                up[i].ρaw = FT(0)
             end
             # up[i].ρa = ρa_min
             # up[i].ρaθ_liq = up[i].ρa * θ_liq_gm
             # up[i].ρaw     = FT(0)
         end
-        en.ρatke = max(en.ρatke,FT(0))
-        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv,FT(0))
+        en.ρatke = max(en.ρatke, FT(0))
+        en.ρaθ_liq_cv = max(en.ρaθ_liq_cv, FT(0))
         # en.ρaq_tot_cv = max(en.ρaq_tot_cv,FT(0))
         # en.ρaθ_liq_q_tot_cv = max(en.ρaθ_liq_q_tot_cv,FT(0))
         # validate_variables(bl, state, aux, "custom_filter!")
@@ -153,8 +159,7 @@ function main(::Type{FT}) where {FT}
         default = "prescribed"
     end
 
-    cl_args =
-        ClimateMachine.init(parse_clargs = true, custom_clargs = cbl_args)
+    cl_args = ClimateMachine.init(parse_clargs = true, custom_clargs = cbl_args)
 
     surface_flux = cl_args["surface_flux"]
 
@@ -385,7 +390,7 @@ export_state_plots(
     z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
 )
 
- export_state_contours(
+export_state_contours(
     solver_config,
     dons_arr,
     time_data,

@@ -355,6 +355,7 @@ function bomex_model(
     config_type,
     zmax,
     surface_flux;
+    turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
     moisture_model = "equilibrium",
 ) where {FT}
@@ -477,7 +478,7 @@ function bomex_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = turbulence,
         moisture = moisture,
         source = source,
         turbconv = turbconv,
