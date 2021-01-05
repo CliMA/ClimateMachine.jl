@@ -34,9 +34,9 @@ function linearized_air_pressure(
     return ρ * _R_d * _T_0 +
            _R_d / _cv_d * (
         ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
-        ρq_ice * (_e_int_i0 + _e_int_v0) -
-        ref.ρu' * ref.ρu / 2ref.ρ * (1 - (ρ - ref.ρ) / ref.ρ) -
-        ref.ρu' * (ρu - ref.ρu) / ref.ρ
+        ρq_ice * (_e_int_i0 + _e_int_v0) +
+        ref.ρu' * ref.ρu / (2 * (ref.ρ ^ 2)) * ρ -
+        ref.ρu' * ρu / ref.ρ
     )
 end
 
@@ -231,7 +231,6 @@ function flux_first_order!(
     ref = aux.ref_state
     e_pot = gravitational_potential(lm.atmos.orientation, aux)
 
-    flux.ρ = state.ρu
     pL = linearized_pressure(
         lm.atmos.moisture,
         lm.atmos.param_set,
@@ -239,8 +238,20 @@ function flux_first_order!(
         state,
         aux,
     )
+    
+    ρ = state.ρ
+    ρu = state.ρu
+    ρe = state.ρe
+    
+    flux.ρ = ρu
+
+    flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
+    flux.ρu += ref.ρu * ρu' / ref.ρ
+    flux.ρu += ρu * ref.ρu' / ref.ρ
     flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
+
+    flux.ρe = (ref.ρe + ref.p) / ref.ρ * state.ρu
+    flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
     nothing
 end
 source!(::AtmosAcousticLinearModel, _...) = nothing
@@ -280,13 +291,13 @@ function flux_first_order!(
 
     flux.ρ = ρu
 
-    flux.ρu = ref.ρu * ref.ρu' / ref.ρ * (1 - (ρ - ref.ρ) / ref.ρ)
-    flux.ρu += ref.ρu * (ρu - ref.ρu)' / ref.ρ
-    flux.ρu += (ρu - ref.ρu) * ref.ρu' / ref.ρ
+    flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
+    flux.ρu += ref.ρu * ρu' / ref.ρ
+    flux.ρu += ρu * ref.ρu' / ref.ρ
     flux.ρu += pL * I
 
-    flux.ρe = (ref.ρe + ref.p) * (state.ρu - ref.ρu) / ref.ρ
-    flux.ρe += (ρe + pL - (ρ - ref.ρ) / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
+    flux.ρe = (ref.ρe + ref.p) / ref.ρ * state.ρu
+    flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
     nothing
 end
 function source!(
