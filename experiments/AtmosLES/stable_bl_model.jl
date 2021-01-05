@@ -178,15 +178,7 @@ end
 
 function surface_temperature_variation(bl, state, t)
     FT = eltype(state)
-    ρ = state.ρ
-    θ_liq_sfc = FT(265) - FT(1 / 4) * (t / 3600)
-    if bl.moisture isa DryModel
-        TS = PhaseDry_ρθ(bl.param_set, ρ, θ_liq_sfc)
-    else
-        q_tot = state.moisture.ρq_tot / ρ
-        TS = PhaseEquil_ρθq(bl.param_set, ρ, θ_liq_sfc, q_tot)
-    end
-    return air_temperature(TS)
+    return FT(265) - FT(1 / 4) * (t / 3600)
 end
 
 function stable_bl_model(
