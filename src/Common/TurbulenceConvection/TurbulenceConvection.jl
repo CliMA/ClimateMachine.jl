@@ -16,6 +16,7 @@ export init_state_prognostic!,
 
 import ..BalanceLaws:
     vars_state,
+    eq_tends,
     source!,
     precompute,
     prognostic_vars,
@@ -45,6 +46,7 @@ struct NoTurbConv <: TurbulenceConvectionModel end
 
 prognostic_vars(::NoTurbConv) = ()
 
+eq_tends(pv, ::NoTurbConv, tt) = ()
 precompute(::NoTurbConv, bl, args, ts, tend_type) = NamedTuple()
 
 vars_state(m::TurbulenceConvectionModel, ::AbstractStateType, FT) = @vars()
