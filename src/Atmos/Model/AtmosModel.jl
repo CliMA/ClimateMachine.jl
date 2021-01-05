@@ -292,6 +292,8 @@ function AtmosModel{FT}(
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
 
+Base.eltype(::AtmosModel{FT}) where {FT} = FT
+
 """
     vars_state(m::AtmosModel, ::Prognostic, FT)
 

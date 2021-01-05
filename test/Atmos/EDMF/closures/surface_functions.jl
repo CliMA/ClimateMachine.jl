@@ -86,6 +86,36 @@ function subdomain_surface_values(
     )
 end;
 
+function updraft_surface_w(
+    surf::SurfaceModel,
+    turbconv::EDMF{FT},
+    atmos::AtmosModel{FT},
+    state::Vars,
+    aux::Vars,
+    zLL::FT,
+) where {FT}
+
+    N_up = n_updrafts(turbconv)
+    ts = recover_thermo_state_all(atmos, state, aux)
+    _grav::FT = grav(atmos.param_set)
+
+    ρ_gm = air_density(ts.gm)
+    b_up_surf = ntuple(N_up) do i
+        -_grav * (air_density(ts.up[i]) - ρ_gm) / ρ_gm
+    end
+    w_up_surf = ntuple(N_up) do i
+        if b_up_surf[i] > FT(0)
+            sqrt(0.1 * zLL * max(b_up_surf[i], FT(0)))
+        elseif b_up_surf[i] < FT(0)
+            -sqrt(0.1 * zLL * max(b_up_surf[i], FT(0)))
+        else
+            FT(0)
+        end
+    end
+    return w_up_surf
+
+end;
+
 """
     percentile_bounds_mean_norm(
         low_percentile::FT,

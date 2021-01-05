@@ -319,8 +319,17 @@ function turbconv_nodal_update_auxiliary_state!(
     gm = state
     en = state.turbconv.environment
     up = state.turbconv.updraft
-
+    z = altitude(m, aux)
     # Recover thermo states
+    if z<FT(100)
+        println("edmf_kernels.jl 324")
+        @show(z)
+        @show(up[1].ρa)
+        @show(up[1].ρaw)
+        @show(up[1].ρaθ_liq)
+        @show(up[1].ρaq_tot)
+    end
+
     ts = recover_thermo_state_all(m, state, aux)
 
     # Get environment variables
@@ -517,6 +526,7 @@ end
 
 function source(::EntrDetr{up_ρaθ_liq{i}}, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
+    FT = eltype(atmos)
     up = args.state.turbconv.updraft
     θ_liq_en = liquid_ice_pottemp(ts_en)
     entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * θ_liq_en)
@@ -528,6 +538,7 @@ end
 
 function source(::EntrDetr{up_ρaq_tot{i}}, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
+    FT = eltype(atmos)
     up = args.state.turbconv.updraft
     q_tot_en = total_specific_humidity(ts_en)
     entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * q_tot_en)
@@ -540,6 +551,7 @@ end
 function source(::EntrDetr{en_ρatke}, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, w_up = args.precomputed.turbconv
     @unpack state = args
+    FT = eltype(atmos)
     up = state.turbconv.updraft
     en = state.turbconv.environment
     gm = state
@@ -561,6 +573,7 @@ end
 function source(::EntrDetr{en_ρaθ_liq_cv}, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     @unpack state = args
+    FT = eltype(atmos)
     ts_gm = args.precomputed.ts
     up = state.turbconv.updraft
     en = state.turbconv.environment
@@ -760,6 +773,16 @@ function source!(m::EDMF, src::Vars, atmos, args)
         up_src[i].ρaq_tot =
             Σsources(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
     end
+
+    @unpack state, aux = args
+    z = altitude(atmos, aux)
+    if z<100
+        @show(z)
+        @show(up_src[1].ρa)
+        @show(up_src[1].ρaw)
+        @show(up_src[1].ρaθ_liq)
+        @show(up_src[1].ρaq_tot)
+    end
     en_src.ρatke = Σsources(eq_tends(en_ρatke(), atmos, tend), atmos, args)
     en_src.ρaθ_liq_cv =
         Σsources(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
@@ -868,6 +891,17 @@ function flux_first_order!(
         up_flx[i].ρaq_tot =
             Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args)
     end
+    @unpack state, aux = args
+    z = altitude(atmos, aux)
+    if z<FT(100)
+        @show(z)
+        @show(up_flx[1].ρa)
+        @show(up_flx[1].ρaw)
+        @show(up_flx[1].ρaθ_liq)
+        @show(up_flx[1].ρaq_tot)
+    end
+    
+    # Recover thermo states
     en_flx.ρatke = Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args)
     en_flx.ρaθ_liq_cv =
         Σfluxes(eq_tends(en_ρaθ_liq_cv(), atmos, tend), atmos, args)
@@ -889,6 +923,7 @@ function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
 
     return (; env, ρa_up, w_up, fix_void_up)
 end
+
 
 function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
     @unpack state, aux, diffusive, t = args
@@ -1185,11 +1220,19 @@ function turbconv_boundary_state!(
         subdomain_surface_values(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
 
     @unroll_map(N_up) do i
-        up⁺[i].ρaw = FT(0)
         up⁺[i].ρa = gm⁻.ρ * a_up_surf[i]
         up⁺[i].ρaθ_liq = gm⁻.ρ * a_up_surf[i] * θ_liq_up_surf[i]
-        up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+        if !(m.moisture isa DryModel)
+            up⁺[i].ρaq_tot = gm⁻.ρ * a_up_surf[i] * q_tot_up_surf[i]
+        end
     end
+
+    w_up_surf =
+        updraft_surface_w(turbconv.surface, turbconv, m, gm⁻, gm_a⁻, zLL)
+    @unroll_map(N_up) do i
+        up⁺[i].ρaw = a_up_surf[i] * gm⁻.ρ * w_up_surf[i]
+    end
+
     a_en = environment_area(gm⁻, gm_a⁻, N_up)
     en⁺.ρatke = gm⁻.ρ * a_en * tke
     en⁺.ρaθ_liq_cv = gm⁻.ρ * a_en * θ_liq_cv
