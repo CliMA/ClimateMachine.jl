@@ -29,6 +29,7 @@ const param_set = EarthParameterSet()
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
 const output_vtk = false
+const gravity = false
 
 function main()
     ClimateMachine.init()
@@ -77,8 +78,13 @@ function test_run(
     horz_range = range(FT(0), stop = _planet_radius, length = numelem_horz+1)
     vert_range = range(FT(0), stop = setup.domain_height, length = numelem_vert+1)
     brickrange = (horz_range, horz_range, vert_range)
-    
-    periodicity=(true, true, false)
+   
+    if gravity
+      periodicity=(true, true, false)
+    else
+      periodicity=(true, true, true)
+    end
+
     topology = StackedBrickTopology(mpicomm, brickrange, periodicity=periodicity)
 
     grid = DiscontinuousSpectralElementGrid(
@@ -95,17 +101,30 @@ function test_run(
       ref_state = ZonalReferenceState(setup.T0, setup.u0)
     end
 
+    if gravity
+      source = (Gravity(),)
+      orientation = FlatOrientation()
+    else
+      source = ()
+      orientation = NoOrientation()
+    end
+
     model = AtmosModel{FT}(
         AtmosLESConfigType,
         param_set;
         init_state_prognostic = setup,
-        orientation = FlatOrientation(),
+        orientation = orientation,
         ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = (Gravity(),),
+        source = source,
     )
-    linearmodel = AtmosAcousticGravityLinearModel(model)
+    
+    if gravity
+      linearmodel = AtmosAcousticGravityLinearModel(model)
+    else
+      linearmodel = AtmosAcousticLinearModel(model)
+    end
 
     dg = DGModel(
         model,
@@ -145,7 +164,17 @@ function test_run(
 
     Q = init_ode_state(dg, FT(0))
 
-    linearsolver = ManyColumnLU()
+    if gravity 
+      linearsolver = ManyColumnLU()
+    else
+      # LU doesn't work with periodic bcs
+      linearsolver = GeneralizedMinimalResidual(
+          Q,
+          M = 50,
+          rtol = sqrt(eps(FT)) / 100,
+          atol = sqrt(eps(FT)) / 100,
+      )
+    end
 
     if split_explicit_implicit
         rem_dg = remainder_DGModel(
@@ -165,6 +194,7 @@ function test_run(
         dt = dt,
         t0 = 0,
         split_explicit_implicit = split_explicit_implicit,
+        variant=NaiveVariant(),
     )
     @test getsteps(odesolver) == 0
 
@@ -274,20 +304,22 @@ Base.@kwdef struct ZonalFlowSetup{FT}
     u0::FT = 30
 end
 
-function (setup::ZonalFlowSetup)(problem, bl, state, aux, localgeo, t)
+function (setup::ZonalFlowSetup)(problem, atmos, state, aux, localgeo, t)
     # callable to set initial conditions
     FT = eltype(state)
+
+    (x, y, z) = localgeo.coord
 
     u0 = setup.u0
     T0 = setup.T0
 
     ρ = aux.ref_state.ρ
     e_kin = u0 ^ 2 / 2
-    e_pot = aux.orientation.Φ
+    e_pot = gravitational_potential(atmos.orientation, aux)
     
     state.ρ = ρ
     state.ρu = ρ * SVector(u0, 0, 0)
-    state.ρe = ρ * total_energy(bl.param_set, e_kin, e_pot, T0)
+    state.ρe = ρ * total_energy(atmos.param_set, e_kin, e_pot, T0)
 end
 
 function do_output(
@@ -353,13 +385,13 @@ function atmos_init_aux!(
     
     T0 = refstate.T0
     u0 = refstate.u0
-
-    p = _MSLP * exp(-_grav * z / (_R_d * T0))
-    ρ = p / (_R_d * T0)
     
     e_int = internal_energy(param_set, T0)
     e_pot = gravitational_potential(atmos.orientation, aux)
     e_kin = u0 ^ 2 / 2
+    
+    p = _MSLP * exp(-e_pot / (_R_d * T0))
+    ρ = p / (_R_d * T0)
 
     aux.ref_state.ρ = ρ
     aux.ref_state.ρu = ρ * SVector(u0, 0, 0)
