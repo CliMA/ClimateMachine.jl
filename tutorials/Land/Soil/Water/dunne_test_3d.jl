@@ -98,6 +98,7 @@ end
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil_water!,
 );
@@ -145,7 +146,7 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
 timeend = FT(60* 300)
-dt = FT(0.5); #5
+dt = FT(0.1); #5
 
 # Create the solver configuration.
 solver_config =
@@ -166,6 +167,8 @@ y_ind = varsindex(vars_state(m, Auxiliary(), FT), :y)
 z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
 ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
 K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
+K∇h_y_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[2]
+K∇h_x_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[1]
 
 x = aux[:, x_ind, :]
 y = aux[:, y_ind, :]
@@ -173,14 +176,16 @@ z = aux[:, z_ind, :]
 ϑ_l = Q[:, ϑ_l_ind, :]
 K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
 
-all_data = [Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert)]
+all_data = [Dict{String, Array}("ϑ_l" => ϑ_l, "Khz" => K∇h_vert,"Khx" => K∇h_vert,"Khy" => K∇h_vert)]
 time_data = FT[0] # store time data
 
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
     ϑ_l = Q[:, ϑ_l_ind, :]
     K∇h_vert = grads[:, K∇h_vert_ind, :]
+    Khy = grads[:, K∇h_y_ind, :]
+    Khx = grads[:, K∇h_x_ind, :]
 
-    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "K∇h" => K∇h_vert)
+    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "Khz" => K∇h_vert,"Khx" => Khx,"Khy" => Khy)
     push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
@@ -203,7 +208,7 @@ end
 
 N = length(all_data)
 
-i_c_of_t = [mean(compute_at_surface(all_data[k]["K∇h"][:],x[:],z[:])) for k in 1:N]
+i_c_of_t = [mean(compute_at_surface(all_data[k]["Khz"][:],x[:],z[:])) for k in 1:N]
 precip = precip_of_t.(time_data[1:N])
 
 ztrue = inverse_warp_maxwell_slope.(x,y,z; topo_max = 0.2, zmin = -3, xmax = 400)
@@ -222,7 +227,7 @@ function compute_bc(all_data, N,x,y,z, surface_locs)
     i_meas = zeros(N)
     moisture = zeros(N, length(z1))
     for i in 1:N
-        K∇h  = all_data[i]["K∇h"][:][surface_locs]
+        K∇h  = all_data[i]["Khz"][:][surface_locs]
         i_meas[i] = mean(K∇h)
         ϑ1 = all_data[i]["ϑ_l"][:][surface_locs]
         for k in 1:length(z1)
@@ -262,7 +267,7 @@ end
 anim = @animate for i in 1:Int(50)
     f(i*3)
 end
-(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture.gif", fps = 8))
+(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture2.gif", fps = 8))
 
 #would be much better as a contour plot!!
 
@@ -297,7 +302,7 @@ end
 anim = @animate for i in 1:Int(50)
     f2(i*3)
 end
-(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture2.gif", fps = 8))
+(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture.gif", fps = 8))
 
 
 
