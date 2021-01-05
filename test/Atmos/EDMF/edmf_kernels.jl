@@ -337,11 +337,25 @@ function turbconv_nodal_update_auxiliary_state!(
 
     @unroll_map(N_up) do i
         ρ_i = air_density(ts.up[i])
-        up_aux[i].buoyancy = -_grav * (ρ_i - aux.ref_state.ρ) * ρ_inv
-        up_aux[i].a = up[i].ρa * ρ_inv
-        up_aux[i].θ_liq = up[i].ρaθ_liq / up[i].ρa
-        up_aux[i].q_tot = up[i].ρaq_tot / up[i].ρa
-        up_aux[i].w = up[i].ρaw / up[i].ρa
+        up_aux[i].buoyancy = fix_void_up(
+            up[i].ρa,
+            -_grav * (ρ_i - aux.ref_state.ρ) * ρ_inv,
+            grid_mean_b(state, aux, N_up),
+        )
+        up_aux[i].a = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
+        up_aux[i].θ_liq = fix_void_up(
+            up[i].ρa,
+            up[i].ρaθ_liq / up[i].ρa,
+            liquid_ice_pottemp(ts[1]),
+        )
+        if !(m.moisture isa DryModel)
+            up_aux[i].q_tot = fix_void_up(
+                up[i].ρa,
+                up[i].ρaq_tot / up[i].ρa,
+                gm.moisture.ρq_tot,
+            )
+        end
+        up_aux[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
     end
     b_gm = grid_mean_b(state, aux, N_up)
 
@@ -387,7 +401,7 @@ function compute_gradient_argument!(
     env = environment_vars(state, aux, N_up)
 
     @unroll_map(N_up) do i
-        up_tf[i].w = up[i].ρaw / up[i].ρa
+        up_tf[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
     end
     _grav::FT = grav(m.param_set)
 
@@ -488,15 +502,16 @@ function compute_gradient_flux!(
 end;
 
 function source(::EntrDetr{up_ρa{i}}, atmos, args) where {i}
-    @unpack E_dyn, Δ_dyn = args.precomputed.turbconv
-    return E_dyn[i] - Δ_dyn[i]
+    @unpack E_dyn, Δ_dyn, ρa_up = args.precomputed.turbconv
+    return fix_void_up(ρa_up[i], E_dyn[i] - Δ_dyn[i])
 end
 
 function source(::EntrDetr{up_ρaw{i}}, atmos, args) where {i}
-    @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up = args.precomputed.turbconv
+    @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
-    entr = (E_dyn[i] + E_trb[i]) * env.w
-    detr = (Δ_dyn[i] + E_trb[i]) * up[i].ρaw / ρa_up[i]
+    entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * env.w)
+    detr = fix_void_up(ρa_up[i], (Δ_dyn[i] + E_trb[i]) * w_up[i])
+
     return entr - detr
 end
 
@@ -504,8 +519,10 @@ function source(::EntrDetr{up_ρaθ_liq{i}}, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     θ_liq_en = liquid_ice_pottemp(ts_en)
-    entr = (E_dyn[i] + E_trb[i]) * θ_liq_en
-    detr = (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq / ρa_up[i]
+    entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * θ_liq_en)
+    detr =
+        fix_void_up(ρa_up[i], (Δ_dyn[i] + E_trb[i]) * up[i].ρaθ_liq / ρa_up[i])
+
     return entr - detr
 end
 
@@ -513,13 +530,15 @@ function source(::EntrDetr{up_ρaq_tot{i}}, atmos, args) where {i}
     @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, ts_en = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     q_tot_en = total_specific_humidity(ts_en)
-    entr = (E_dyn[i] + E_trb[i]) * q_tot_en
-    detr = (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot / ρa_up[i]
+    entr = fix_void_up(ρa_up[i], (E_dyn[i] + E_trb[i]) * q_tot_en)
+    detr =
+        fix_void_up(ρa_up[i], (Δ_dyn[i] + E_trb[i]) * up[i].ρaq_tot / ρa_up[i])
+
     return entr - detr
 end
 
-function source(::EntrDetr{en_ρatke}, atmos::AtmosModel{FT}, args) where {FT}
-    @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up = args.precomputed.turbconv
+function source(::EntrDetr{en_ρatke}, atmos, args)
+    @unpack E_dyn, Δ_dyn, E_trb, env, ρa_up, w_up = args.precomputed.turbconv
     @unpack state = args
     up = state.turbconv.updraft
     en = state.turbconv.environment
@@ -528,14 +547,13 @@ function source(::EntrDetr{en_ρatke}, atmos::AtmosModel{FT}, args) where {FT}
     ρ_inv = 1 / gm.ρ
     tke_en = enforce_positivity(en.ρatke) * ρ_inv / env.a
 
-    w_up = vuntuple(N_up) do i
-        up[i].ρaw / ρa_up[i]
-    end
-
     entr_detr = vuntuple(N_up) do i
-        E_trb[i] * (env.w - gm.ρu[3] * ρ_inv) * (env.w - w_up[i]) -
-        (E_dyn[i] + E_trb[i]) * tke_en +
-        Δ_dyn[i] * (w_up[i] - env.w) * (w_up[i] - env.w) * FT(0.5)
+        fix_void_up(
+            ρa_up[i],
+            E_trb[i] * (env.w - gm.ρu[3] * ρ_inv) * (env.w - w_up[i]) -
+            (E_dyn[i] + E_trb[i]) * tke_en +
+            Δ_dyn[i] * (w_up[i] - env.w) * (w_up[i] - env.w) / 2,
+        )
     end
     return sum(entr_detr)
 end
@@ -551,23 +569,27 @@ function source(::EntrDetr{en_ρaθ_liq_cv}, atmos, args)
     θ_liq_en = liquid_ice_pottemp(ts_en)
 
     entr_detr = vuntuple(N_up) do i
-        Δ_dyn[i] *
-        (up[i].ρaθ_liq / ρa_up[i] - θ_liq_en) *
-        (up[i].ρaθ_liq / ρa_up[i] - θ_liq_en) +
-        E_trb[i] * (θ_liq_en - θ_liq) * (θ_liq_en - up[i].ρaθ_liq / ρa_up[i]) +
-        E_trb[i] * (θ_liq_en - θ_liq) * (θ_liq_en - up[i].ρaθ_liq / ρa_up[i]) -
-        (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_cv
+        fix_void_up(
+            ρa_up[i],
+            Δ_dyn[i] *
+            (up[i].ρaθ_liq / ρa_up[i] - θ_liq_en) *
+            (up[i].ρaθ_liq / ρa_up[i] - θ_liq_en) +
+            E_trb[i] *
+            (θ_liq_en - θ_liq) *
+            (θ_liq_en - up[i].ρaθ_liq / ρa_up[i]) +
+            E_trb[i] *
+            (θ_liq_en - θ_liq) *
+            (θ_liq_en - up[i].ρaθ_liq / ρa_up[i]) -
+            (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_cv,
+        )
     end
     return sum(entr_detr)
 end
 
-function source(
-    ::EntrDetr{en_ρaq_tot_cv},
-    atmos::AtmosModel{FT},
-    args,
-) where {FT}
+function source(::EntrDetr{en_ρaq_tot_cv}, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     @unpack state = args
+    FT = eltype(state)
     up = state.turbconv.updraft
     en = state.turbconv.environment
     gm = state
@@ -577,27 +599,27 @@ function source(
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
 
     entr_detr = vuntuple(N_up) do i
-        Δ_dyn[i] *
-        (up[i].ρaq_tot / ρa_up[i] - q_tot_en) *
-        (up[i].ρaq_tot / ρa_up[i] - q_tot_en) +
-        E_trb[i] *
-        (q_tot_en - ρq_tot * ρ_inv) *
-        (q_tot_en - up[i].ρaq_tot / ρa_up[i]) +
-        E_trb[i] *
-        (q_tot_en - ρq_tot * ρ_inv) *
-        (q_tot_en - up[i].ρaq_tot / ρa_up[i]) -
-        (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv
+        fix_void_up(
+            ρa_up[i],
+            Δ_dyn[i] *
+            (up[i].ρaq_tot / ρa_up[i] - q_tot_en) *
+            (up[i].ρaq_tot / ρa_up[i] - q_tot_en) +
+            E_trb[i] *
+            (q_tot_en - ρq_tot * ρ_inv) *
+            (q_tot_en - up[i].ρaq_tot / ρa_up[i]) +
+            E_trb[i] *
+            (q_tot_en - ρq_tot * ρ_inv) *
+            (q_tot_en - up[i].ρaq_tot / ρa_up[i]) -
+            (E_dyn[i] + E_trb[i]) * en.ρaq_tot_cv,
+        )
     end
     return sum(entr_detr)
 end
 
-function source(
-    ::EntrDetr{en_ρaθ_liq_q_tot_cv},
-    atmos::AtmosModel{FT},
-    args,
-) where {FT}
+function source(::EntrDetr{en_ρaθ_liq_q_tot_cv}, atmos, args)
     @unpack E_dyn, Δ_dyn, E_trb, ρa_up, ts_en = args.precomputed.turbconv
     @unpack state = args
+    FT = eltype(state)
     ts_gm = args.precomputed.ts
     up = state.turbconv.updraft
     en = state.turbconv.environment
@@ -610,24 +632,29 @@ function source(
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
 
     entr_detr = vuntuple(N_up) do i
-        Δ_dyn[i] *
-        (up[i].ρaθ_liq / ρa_up[i] - θ_liq_en) *
-        (up[i].ρaq_tot / ρa_up[i] - q_tot_en) +
-        E_trb[i] * (θ_liq_en - θ_liq) * (q_tot_en - up[i].ρaq_tot / ρa_up[i]) +
-        E_trb[i] *
-        (q_tot_en - ρq_tot * ρ_inv) *
-        (θ_liq_en - up[i].ρaθ_liq / ρa_up[i]) -
-        (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv
+        fix_void_up(
+            ρa_up[i],
+            Δ_dyn[i] *
+            (up[i].ρaθ_liq / ρa_up[i] - θ_liq_en) *
+            (up[i].ρaq_tot / ρa_up[i] - q_tot_en) +
+            E_trb[i] *
+            (θ_liq_en - θ_liq) *
+            (q_tot_en - up[i].ρaq_tot / ρa_up[i]) +
+            E_trb[i] *
+            (q_tot_en - ρq_tot * ρ_inv) *
+            (θ_liq_en - up[i].ρaθ_liq / ρa_up[i]) -
+            (E_dyn[i] + E_trb[i]) * en.ρaθ_liq_q_tot_cv,
+        )
     end
     return sum(entr_detr)
 end
 
 function source(::PressSource{en_ρatke}, atmos, args)
-    @unpack env, ρa_up, dpdz = args.precomputed.turbconv
+    @unpack env, ρa_up, dpdz, w_up = args.precomputed.turbconv
     up = args.state.turbconv.updraft
     N_up = n_updrafts(atmos.turbconv)
     press_tke = vuntuple(N_up) do i
-        ρa_up[i] * (up[i].ρaw / ρa_up[i] - env.w) * dpdz[i]
+        fix_void_up(ρa_up[i], ρa_up[i] * (w_up[i] - env.w) * dpdz[i])
     end
     return sum(press_tke)
 end
@@ -718,7 +745,7 @@ function source(::PressSource{up_ρaw{i}}, atmos, args) where {i}
     return -up[i].ρa * dpdz[i]
 end
 
-function source!(m::EDMF, src::Vars, atmos::AtmosModel{FT}, args) where {FT}
+function source!(m::EDMF, src::Vars, atmos, args)
     N_up = n_updrafts(atmos.turbconv)
     # Aliases:
     en_src = src.turbconv.environment
@@ -759,30 +786,34 @@ end
 
 function flux(::Advect{up_ρa{i}}, atmos, args) where {i}
     @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw * ẑ
+    return fix_void_up(ρa_up[i], up[i].ρaw) * ẑ
 end
 function flux(::Advect{up_ρaw{i}}, atmos, args) where {i}
     @unpack state, aux = args
-    @unpack ρa_up = args.precomputed.turbconv
+    @unpack ρa_up, w_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw * up[i].ρaw / ρa_up[i] * ẑ
+    return fix_void_up(ρa_up[i], up[i].ρaw * w_up[i]) * ẑ
+
 end
 function flux(::Advect{up_ρaθ_liq{i}}, atmos, args) where {i}
     @unpack state, aux = args
-    @unpack ρa_up = args.precomputed.turbconv
+    @unpack ρa_up, w_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw / ρa_up[i] * up[i].ρaθ_liq * ẑ
+    return fix_void_up(ρa_up[i], w_up[i] * up[i].ρaθ_liq) * ẑ
+
 end
 function flux(::Advect{up_ρaq_tot{i}}, atmos, args) where {i}
     @unpack state, aux = args
-    @unpack ρa_up = args.precomputed.turbconv
+    @unpack ρa_up, w_up = args.precomputed.turbconv
     up = state.turbconv.updraft
     ẑ = vertical_unit_vector(atmos, aux)
-    return up[i].ρaw / ρa_up[i] * up[i].ρaq_tot * ẑ
+    return fix_void_up(ρa_up[i], w_up[i] * up[i].ρaq_tot) * ẑ
+
 end
 
 function flux(::Advect{en_ρatke}, atmos, args)
@@ -850,7 +881,13 @@ function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     @unpack state, aux = args
     env = environment_vars(state, aux, n_updrafts(bl.turbconv))
     ρa_up = compute_ρa_up(bl, state, aux)
-    return (; env, ρa_up)
+    up = state.turbconv.updraft
+    N_up = n_updrafts(bl.turbconv)
+    w_up = vuntuple(N_up) do i
+        fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
+    end
+
+    return (; env, ρa_up, w_up, fix_void_up)
 end
 
 function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
@@ -896,15 +933,16 @@ function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
         K_h,
         K_m,
         Pr_t,
+        fix_void_up,
     )
 end
 
 function precompute(::EDMF, bl, args, ts, ::Source)
     @unpack state, aux, diffusive, t = args
     ts_gm = ts
+    up = state.turbconv.updraft
     N_up = n_updrafts(bl.turbconv)
     env = environment_vars(state, aux, N_up)
-
     ts_en = new_thermo_state_en(bl, bl.moisture, state, aux, ts_gm)
     ts_up = new_thermo_state_up(bl, bl.moisture, state, aux, ts_gm)
 
@@ -924,6 +962,10 @@ function precompute(::EDMF, bl, args, ts, ::Source)
     )
     ρa_up = compute_ρa_up(bl, state, aux)
 
+    w_up = vuntuple(N_up) do i
+        fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
+    end
+
     en = state.turbconv.environment
     tke_en = enforce_positivity(en.ρatke) / env.a / state.ρ
     K_m = bl.turbconv.mix_len.c_m * l_mix * sqrt(tke_en)
@@ -936,6 +978,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
         K_m,
         K_h,
         ρa_up,
+        w_up,
         ts_en,
         ts_up,
         E_dyn,
@@ -945,6 +988,7 @@ function precompute(::EDMF, bl, args, ts, ::Source)
         l_mix,
         ∂b∂z_env,
         Pr_t,
+        fix_void_up,
     )
 end
 
@@ -970,9 +1014,12 @@ function flux(::SGSFlux{Energy}, atmos, args)
 
     massflux_e = sum(
         ntuple(N_up) do i
-            ρa_up[i] *
-            (gm.ρe * ρ_inv - e_tot_up[i]) *
-            (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i])
+            fix_void_up(
+                ρa_up[i],
+                ρa_up[i] *
+                (gm.ρe * ρ_inv - e_tot_up[i]) *
+                (gm.ρu[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
+            )
         end,
     )
     ρe_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇e[3] + massflux_e
@@ -996,9 +1043,12 @@ function flux(::SGSFlux{TotalMoisture}, atmos, args)
 
     massflux_q_tot = sum(
         ntuple(N_up) do i
-            ρa_up[i] *
-            (ρq_tot * ρ_inv - ρaq_tot_up[i] / ρa_up[i]) *
-            (ρu_gm_tup[3] * ρ_inv - ρaw_up[i] / ρa_up[i])
+            fix_void_up(
+                ρa_up[i],
+                ρa_up[i] *
+                (ρq_tot * ρ_inv - ρaq_tot_up[i] / ρa_up[i]) *
+                (ρu_gm_tup[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
+            )
         end,
     )
     ρq_tot_sgs_flux = -gm.ρ * env.a * K_h * en_dif.∇q_tot[3] + massflux_q_tot
@@ -1020,9 +1070,12 @@ function flux(::SGSFlux{Momentum}, atmos, args)
 
     massflux_w = sum(
         ntuple(N_up) do i
-            ρa_up[i] *
-            (ρu_gm_tup[3] * ρ_inv - ρaw_up[i] / ρa_up[i]) *
-            (ρu_gm_tup[3] * ρ_inv - ρaw_up[i] / ρa_up[i])
+            fix_void_up(
+                ρa_up[i],
+                ρa_up[i] *
+                (ρu_gm_tup[3] * ρ_inv - ρaw_up[i] / ρa_up[i]) *
+                (ρu_gm_tup[3] * ρ_inv - ρaw_up[i] / ρa_up[i]),
+            )
         end,
     )
     ρw_sgs_flux = -gm.ρ * env.a * K_m * en_dif.∇w[3] + massflux_w
