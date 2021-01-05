@@ -33,7 +33,7 @@ end
     ρ = dons_arr["ref_state.ρ"]
 
     @load "$data_file" T_ref p_ref ρ_ref
-    @test all(T .≈ T_ref)
+    @test all(isapprox.(T, T_ref; rtol = 1e-6))
     @test all(p .≈ p_ref)
     @test all(ρ .≈ ρ_ref)
 end
