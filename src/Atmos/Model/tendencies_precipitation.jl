@@ -50,15 +50,15 @@ end
 #####
 
 function flux(::Diffusion{Rain}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_q_rai = (-D_t) .* diffusive.precipitation.∇q_rai
     return d_q_rai * state.ρ
 end
 
 function flux(::Diffusion{Snow}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_q_sno = (-D_t) .* diffusive.precipitation.∇q_sno
     return d_q_sno * state.ρ
 end
@@ -69,16 +69,16 @@ end
 #####
 
 function source(s::WarmRain_1M{Rain}, m, args)
-    nt = warm_rain_sources(m, args)
-    return nt.S_ρ_qr
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qr
 end
 
 function source(s::RainSnow_1M{Rain}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_qr
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qr
 end
 
 function source(s::RainSnow_1M{Snow}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_qs
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qs
 end

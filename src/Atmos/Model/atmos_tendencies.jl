@@ -16,8 +16,8 @@ filter_sources(pv::PrognosticVariable, m, srcs) =
     filter_sources(map(s -> diag_source(pv, m, s), srcs))
 
 # Entry point
-eq_tends(pv::PrognosticVariable, m::AtmosModel, ::Source) =
-    filter_sources(pv, m, m.source)
+eq_tends(pv::PrognosticVariable, m::AtmosModel, tt::Source) =
+    (filter_sources(pv, m, m.source)..., eq_tends(pv, m.turbconv, tt)...)
 # ---------
 
 #####
@@ -75,6 +75,7 @@ eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Momentum} =
     (
         ViscousStress{PV}(),
         eq_tends(pv, m.moisture, tt)...,
+        eq_tends(pv, m.turbconv, tt)...,
         hyperdiff_momentum_flux(pv, m.hyperdiffusion, tt)...,
     )
 
@@ -82,6 +83,7 @@ eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Momentum} =
 eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Energy} = (
     ViscousFlux{PV}(),
     DiffEnthalpyFlux{PV}(),
+    eq_tends(pv, m.turbconv, tt)...,
     hyperdiff_enthalpy_and_momentum_flux(pv, m.hyperdiffusion, tt)...,
 )
 
@@ -89,6 +91,7 @@ eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Energy} = (
 eq_tends(pv::PV, m::AtmosModel, tt::Flux{SecondOrder}) where {PV <: Moisture} =
     (
         eq_tends(pv, m.moisture, tt)...,
+        eq_tends(pv, m.turbconv, tt)...,
         hyperdiff_momentum_flux(pv, m.hyperdiffusion, tt)...,
     )
 

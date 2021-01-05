@@ -24,6 +24,7 @@ struct PressureGradient{PV <: Momentum} <: TendencyDef{Flux{FirstOrder}, PV} end
 struct Pressure{PV <: Energy} <: TendencyDef{Flux{FirstOrder}, PV} end
 
 struct Advect{PV} <: TendencyDef{Flux{FirstOrder}, PV} end
+export Diffusion
 struct Diffusion{PV} <: TendencyDef{Flux{SecondOrder}, PV} end
 
 struct MoistureDiffusion{PV <: Union{Mass, Momentum, Moisture}} <:
@@ -107,9 +108,8 @@ WarmRain_1M() = (
     WarmRain_1M{Rain}(),
 )
 
-function warm_rain_sources(atmos, args)
+function warm_rain_sources(atmos, args, ts)
     @unpack state, aux = args
-    @unpack ts = args.precomputed
 
     FT = eltype(state)
 
@@ -171,9 +171,8 @@ RainSnow_1M() = (
     RainSnow_1M{Snow}(),
 )
 
-function rain_snow_sources(atmos, args)
+function rain_snow_sources(atmos, args, ts)
     @unpack state, aux = args
-    @unpack ts = args.precomputed
 
     FT = eltype(state)
 

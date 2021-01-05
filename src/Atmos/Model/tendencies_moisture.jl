@@ -27,22 +27,22 @@ end
 #####
 
 function flux(::MoistureDiffusion{TotalMoisture}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
     return d_q_tot * state.ρ
 end
 
 function flux(::MoistureDiffusion{LiquidMoisture}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_q_liq = (-D_t) .* diffusive.moisture.∇q_liq
     return d_q_liq * state.ρ
 end
 
 function flux(::MoistureDiffusion{IceMoisture}, atmos, args)
-    @unpack state, aux, t, diffusive = args
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
     d_q_ice = (-D_t) .* diffusive.moisture.∇q_ice
     return d_q_ice * state.ρ
 end
@@ -128,26 +128,26 @@ function source(s::RemovePrecipitation{TotalMoisture}, m, args)
 end
 
 function source(s::WarmRain_1M{TotalMoisture}, m, args)
-    nt = warm_rain_sources(m, args)
-    return nt.S_ρ_qt
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qt
 end
 
 function source(s::WarmRain_1M{LiquidMoisture}, m, args)
-    nt = warm_rain_sources(m, args)
-    return nt.S_ρ_ql
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_ql
 end
 
 function source(s::RainSnow_1M{TotalMoisture}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_qt
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qt
 end
 
 function source(s::RainSnow_1M{LiquidMoisture}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_ql
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_ql
 end
 
 function source(s::RainSnow_1M{IceMoisture}, m, args)
-    nt = rain_snow_sources(m, args)
-    return nt.S_ρ_qi
+    @unpack cache = args.precomputed.precipitation
+    return cache.S_ρ_qi
 end
