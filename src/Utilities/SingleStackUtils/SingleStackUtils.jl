@@ -91,7 +91,7 @@ function get_vars_from_nodal_stack(
             # get the volume degree of freedom numbers
             vid⁻, vid⁺ = ((id⁻ - 1) % Np) + 1, ((id⁺ - 1) % Np) + 1
 
-            J⁺, J⁻ = vgeo[vid⁻, Grids._M, ev⁻], vgeo[vid⁺, Grids._M, ev⁺]
+            J⁻, J⁺ = vgeo[vid⁻, Grids._M, ev⁻], vgeo[vid⁺, Grids._M, ev⁺]
             state_local = J⁻ * state_data[vid⁻, v, ev⁻]
             state_local += J⁺ * state_data[vid⁺, v, ev⁺]
             state_local /= (J⁻ + J⁺)
