@@ -23,6 +23,11 @@ steps:
 
   - label: "Build docs"
     command:
+      # this extracts out the PR number from the bors message on the trying branch 
+      # to force documenter to deploy the PR branch number gh-preview
+      - "if [ $$BUILDKITE_BRANCH == \"trying\" ]; then \
+            export BUILDKITE_PULL_REQUEST=\"$${BUILDKITE_MESSAGE//[!0-9]/}\"; \
+         fi"
       - "julia --project=docs/ --color=yes --procs=8 docs/make.jl"
     env:
       JULIA_PROJECT: "docs/"

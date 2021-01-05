@@ -20,5 +20,4 @@ struct OceanBoxGCMConfigType <: ClimateMachineConfigType end
 struct OceanSplitExplicitConfigType <: ClimateMachineConfigType end
 struct SingleStackConfigType <: ClimateMachineConfigType end
 struct MultiColumnLandConfigType <: ClimateMachineConfigType end
-
 end

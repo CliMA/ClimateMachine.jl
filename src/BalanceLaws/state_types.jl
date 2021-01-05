@@ -2,6 +2,7 @@
 
 export AbstractStateType,
     Prognostic,
+    Primitive,
     Auxiliary,
     Gradient,
     GradientFlux,
@@ -15,6 +16,7 @@ export AbstractStateType,
 
 Subtypes of this describe the variables used by different parts of a [`BalanceLaw`](@ref):
 - [`Prognostic`](@ref)
+- [`Primitive`](@ref)
 - [`Auxiliary`](@ref)
 - [`Gradient`](@ref)
 - [`GradientFlux`](@ref)
@@ -35,6 +37,14 @@ which are specified by the [`BalanceLaw`](@ref), and
 solved for by the ODE solver.
 """
 struct Prognostic <: AbstractStateType end
+
+"""
+    Primitive <: AbstractStateType
+
+Primitive variables, which are specified
+by the [`BalanceLaw`](@ref).
+"""
+struct Primitive <: AbstractStateType end
 
 """
     Auxiliary <: AbstractStateType

@@ -4,35 +4,60 @@
 ##### First order fluxes
 #####
 
-function flux(::Advect{TotalMoisture}, m, state, aux, t, ts, direction)
+function flux(::Advect{TotalMoisture}, atmos, args)
+    @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_tot
 end
 
-function flux(::Advect{LiquidMoisture}, m, state, aux, t, ts, direction)
+function flux(::Advect{LiquidMoisture}, atmos, args)
+    @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_liq
 end
 
-function flux(::Advect{IceMoisture}, m, state, aux, t, ts, direction)
+function flux(::Advect{IceMoisture}, atmos, args)
+    @unpack state = args
     u = state.ρu / state.ρ
     return u * state.moisture.ρq_ice
+end
+
+#####
+##### Second order fluxes
+#####
+
+function flux(::MoistureDiffusion{TotalMoisture}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    d_q_tot = (-D_t) .* diffusive.moisture.∇q_tot
+    return d_q_tot * state.ρ
+end
+
+function flux(::MoistureDiffusion{LiquidMoisture}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    d_q_liq = (-D_t) .* diffusive.moisture.∇q_liq
+    return d_q_liq * state.ρ
+end
+
+function flux(::MoistureDiffusion{IceMoisture}, atmos, args)
+    @unpack state, aux, t, diffusive = args
+    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
+    d_q_ice = (-D_t) .* diffusive.moisture.∇q_ice
+    return d_q_ice * state.ρ
+end
+
+function flux(::HyperdiffViscousFlux{TotalMoisture}, atmos, args)
+    @unpack state, hyperdiffusive = args
+    return hyperdiffusive.hyperdiffusion.ν∇³q_tot * state.ρ
 end
 
 #####
 ##### Sources
 #####
 
-function source(
-    s::Subsidence{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::Subsidence{TotalMoisture}, m, args)
+    @unpack state, aux, diffusive = args
     z = altitude(m, aux)
     w_sub = subsidence_velocity(s, z)
     k̂ = vertical_unit_vector(m, aux)
@@ -52,16 +77,9 @@ struct CreateClouds{PV <: Union{LiquidMoisture, IceMoisture}} <:
 
 CreateClouds() = (CreateClouds{LiquidMoisture}(), CreateClouds{IceMoisture}())
 
-function source(
-    s::CreateClouds{LiquidMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::CreateClouds{LiquidMoisture}, m, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
     # get current temperature and phase partition
     FT = eltype(state)
     q = PhasePartition(ts)
@@ -78,16 +96,9 @@ function source(
     return state.ρ * S_q_liq
 end
 
-function source(
-    s::CreateClouds{IceMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::CreateClouds{IceMoisture}, m, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
     # get current temperature and phase partition
     FT = eltype(state)
     q = PhasePartition(ts)
@@ -104,18 +115,11 @@ function source(
     return state.ρ * S_q_ice
 end
 
-function source(
-    s::RemovePrecipitation{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function source(s::RemovePrecipitation{TotalMoisture}, m, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
     if has_condensate(ts)
-        nt = remove_precipitation_sources(s, m, state, aux, ts)
+        nt = remove_precipitation_sources(s, m, args)
         return nt.S_ρ_qt
     else
         FT = eltype(state)
@@ -123,72 +127,27 @@ function source(
     end
 end
 
-function source(
-    s::WarmRain_1M{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = warm_rain_sources(m, state, aux, ts)
+function source(s::WarmRain_1M{TotalMoisture}, m, args)
+    nt = warm_rain_sources(m, args)
     return nt.S_ρ_qt
 end
 
-function source(
-    s::WarmRain_1M{LiquidMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = warm_rain_sources(m, state, aux, ts)
+function source(s::WarmRain_1M{LiquidMoisture}, m, args)
+    nt = warm_rain_sources(m, args)
     return nt.S_ρ_ql
 end
 
-function source(
-    s::RainSnow_1M{TotalMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = rain_snow_sources(m, state, aux, ts)
+function source(s::RainSnow_1M{TotalMoisture}, m, args)
+    nt = rain_snow_sources(m, args)
     return nt.S_ρ_qt
 end
 
-function source(
-    s::RainSnow_1M{LiquidMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = rain_snow_sources(m, state, aux, ts)
+function source(s::RainSnow_1M{LiquidMoisture}, m, args)
+    nt = rain_snow_sources(m, args)
     return nt.S_ρ_ql
 end
 
-function source(
-    s::RainSnow_1M{IceMoisture},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = rain_snow_sources(m, state, aux, ts)
+function source(s::RainSnow_1M{IceMoisture}, m, args)
+    nt = rain_snow_sources(m, args)
     return nt.S_ρ_qi
 end

@@ -260,8 +260,8 @@ function BatchedGeneralizedMinimalResidual(
     #        o----------o
     # There are 4 total 1-D columns, each containing two
     # degrees of freedom. In general, a mesh of stacked elements will
-    # have `Nq^2 * nhorzelem` total 1-D columns.
-    # A single 1-D column has `Nq * nvertelem * num_states`
+    # have `Nq[1] * Nq[2] * nhorzelem` total 1-D columns.
+    # A single 1-D column has `Nq[3] * nvertelem * num_states`
     # degrees of freedom.
     #
     # nql = length(Nq)
@@ -272,13 +272,14 @@ function BatchedGeneralizedMinimalResidual(
     # Q = reshape(Q, reshaping_tup), leads to the column-wise fashion Q
     reshaping_tup = (Nq..., num_states, nvertelem, nhorzelem)
 
-    @inbounds if independent_states
-        # Assumes same polynomial order in all horizontal directions
-        m = Nq[1] * nvertelem
-        n = (Nq[1]^(dim - 1)) * nhorzelem * num_states
+    @inbounds Nqv = Nq[dim]
+    @inbounds Nqh = dim == 2 ? Nq[1] : Nq[1] * Nq[2]
+    if independent_states
+        m = Nqv * nvertelem
+        n = Nqh * nhorzelem * num_states
     else
-        m = Nq[1] * nvertelem * num_states
-        n = (Nq[1]^(dim - 1)) * nhorzelem
+        m = Nqv * nvertelem * num_states
+        n = Nqh * nhorzelem
     end
 
     if max_subspace_size === nothing

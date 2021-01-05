@@ -52,6 +52,7 @@ import ..BalanceLaws:
     source!,
     eq_tends,
     flux,
+    precompute,
     source,
     wavespeed,
     boundary_conditions,
@@ -59,6 +60,8 @@ import ..BalanceLaws:
     compute_gradient_argument!,
     compute_gradient_flux!,
     transform_post_gradient_laplacian!,
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
     init_state_auxiliary!,
     init_state_prognostic!,
     update_auxiliary_state!,
@@ -318,6 +321,15 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
     end
 end
 
+function vars_state(m::AtmosModel, st::Primitive, FT)
+    @vars begin
+        ρ::FT
+        u::SVector{3, FT}
+        p::FT
+        moisture::vars_state(m.moisture, st, FT)
+    end
+end
+
 """
     vars_state(m::AtmosModel, ::Gradient, FT)
 
@@ -450,6 +462,7 @@ include("tendencies_momentum.jl")     # specify momentum tendencies
 include("tendencies_energy.jl")       # specify energy tendencies
 include("tendencies_moisture.jl")     # specify moisture tendencies
 include("tendencies_precipitation.jl")# specify precipitation tendencies
+include("tendencies_tracers.jl")      # specify tracer tendencies
 
 include("problem.jl")
 include("ref_state.jl")
@@ -457,15 +470,21 @@ include("moisture.jl")
 include("precipitation.jl")
 include("thermo_states.jl")
 include("radiation.jl")
-include("source.jl")
 include("tracers.jl")
 include("lsforcing.jl")
 include("linear.jl")
 include("courant.jl")
 include("filters.jl")
+include("prog_prim_conversion.jl")   # prognostic<->primitive conversion
 
 include("atmos_tendencies.jl")        # specify atmos tendencies
 include("get_prognostic_vars.jl")     # get tuple of prognostic variables
+
+function precompute(atmos::AtmosModel, args, tt::Flux{FirstOrder})
+    ts = recover_thermo_state(atmos, args.state, args.aux)
+    turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
+    return (; ts, turbconv)
+end
 
 """
     flux_first_order!(
@@ -480,25 +499,28 @@ Computes and assembles non-diffusive fluxes in the model
 equations.
 """
 @inline function flux_first_order!(
-    m::AtmosModel,
+    atmos::AtmosModel,
     flux::Grad,
     state::Vars,
     aux::Vars,
     t::Real,
     direction,
 )
-    ρu_pad = SVector(1, 1, 1)
-    ts = recover_thermo_state(m, state, aux)
-    tend = Flux{FirstOrder}()
-    args = (m, state, aux, t, ts, direction)
-    flux.ρ = Σfluxes(eq_tends(Mass(), m, tend), args...)
-    flux.ρu = Σfluxes(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), m, tend), args...)
 
-    flux_first_order!(m.moisture, m, flux, state, aux, t, ts, direction)
-    flux_first_order!(m.precipitation, m, flux, state, aux, t, ts, direction)
-    flux_first_order!(m.tracers, m, flux, state, aux, t, ts, direction)
-    flux_first_order!(m.turbconv, m, flux, state, aux, t, ts, direction)
+    flux_pad = SVector(1, 1, 1)
+    tend = Flux{FirstOrder}()
+    _args = (state = state, aux = aux, t = t, direction = direction)
+    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρu =
+        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
+
+    flux_first_order!(atmos.moisture, atmos, flux, args)
+    flux_first_order!(atmos.precipitation, atmos, flux, args)
+    flux_first_order!(atmos.tracers, atmos, flux, args)
+    flux_first_order!(atmos.turbconv, atmos, flux, args)
+
 end
 
 function compute_gradient_argument!(
@@ -599,6 +621,12 @@ function transform_post_gradient_laplacian!(
     )
 end
 
+function precompute(atmos::AtmosModel, args, tt::Flux{SecondOrder})
+    ts = recover_thermo_state(atmos, args.state, args.aux)
+    turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
+    return (; ts, turbconv)
+end
+
 """
     flux_second_order!(
         atmos::AtmosModel,
@@ -622,29 +650,28 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
-    ρu_pad = SVector(1, 1, 1)
-    ts = recover_thermo_state(atmos, state, aux)
+    flux_pad = SVector(1, 1, 1)
     tend = Flux{SecondOrder}()
-    args = (atmos, state, aux, t, ts, diffusive, hyperdiffusive)
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), args...) .* ρu_pad
-    flux.ρu = Σfluxes(eq_tends(Momentum(), atmos, tend), args...) .* ρu_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), args...)
 
-    ν, D_t, τ = turbulence_tensors(atmos, state, diffusive, aux, t)
-
-    flux_second_order!(atmos.moisture, flux, state, diffusive, aux, t, D_t)
-    flux_second_order!(atmos.precipitation, flux, args...)
-    flux_second_order!(
-        atmos.hyperdiffusion,
-        flux,
-        state,
-        diffusive,
-        hyperdiffusive,
-        aux,
-        t,
+    _args = (
+        state = state,
+        aux = aux,
+        t = t,
+        diffusive = diffusive,
+        hyperdiffusive = hyperdiffusive,
     )
-    flux_second_order!(atmos.tracers, flux, state, diffusive, aux, t, D_t)
-    flux_second_order!(atmos.turbconv, atmos, flux, state, diffusive, aux, t)
+
+    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
+
+    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρu =
+        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
+    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
+
+    flux_second_order!(atmos.moisture, flux, atmos, args)
+    flux_second_order!(atmos.precipitation, flux, atmos, args)
+    flux_second_order!(atmos.tracers, flux, atmos, args)
+    flux_second_order!(atmos.turbconv, flux, atmos, args)
 end
 
 @inline function wavespeed(
@@ -709,7 +736,6 @@ function nodal_update_auxiliary_state!(
     atmos_nodal_update_auxiliary_state!(m.precipitation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.radiation, m, state, aux, t)
     atmos_nodal_update_auxiliary_state!(m.tracers, m, state, aux, t)
-    turbulence_nodal_update_auxiliary_state!(m.turbulence, m, state, aux, t)
     turbconv_nodal_update_auxiliary_state!(m.turbconv, m, state, aux, t)
 end
 
@@ -800,6 +826,12 @@ function init_state_auxiliary!(
     )
 end
 
+function precompute(atmos::AtmosModel, args, tt::Source)
+    ts = recover_thermo_state(atmos, args.state, args.aux)
+    turbconv = precompute(atmos.turbconv, atmos, args, ts, tt)
+    return (; ts, turbconv)
+end
+
 """
     source!(
         m::AtmosModel,
@@ -819,7 +851,7 @@ Computes (and assembles) source terms `S(Y)` in:
 ```
 """
 function source!(
-    m::AtmosModel,
+    atmos::AtmosModel,
     source::Vars,
     state::Vars,
     diffusive::Vars,
@@ -829,15 +861,24 @@ function source!(
 )
     ρu_pad = SVector(1, 1, 1)
     tend = Source()
-    ts = recover_thermo_state(m, state, aux)
-    args = (m, state, aux, t, ts, direction, diffusive)
-    source.ρ = Σsources(eq_tends(Mass(), m, tend), args...)
-    source.ρu = Σsources(eq_tends(Momentum(), m, tend), args...) .* ρu_pad
-    source.ρe = Σsources(eq_tends(Energy(), m, tend), args...)
-    source!(m.moisture, source, args...)
-    source!(m.precipitation, source, args...)
 
-    atmos_source!(m.source, m, source, state, diffusive, aux, t, direction)
+    _args = (
+        state = state,
+        aux = aux,
+        t = t,
+        direction = direction,
+        diffusive = diffusive,
+    )
+
+    args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
+
+    source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
+    source.ρu =
+        Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* ρu_pad
+    source.ρe = Σsources(eq_tends(Energy(), atmos, tend), atmos, args)
+    source!(atmos.moisture, source, atmos, args)
+    source!(atmos.precipitation, source, atmos, args)
+    source!(atmos.turbconv, source, atmos, args)
 end
 
 """

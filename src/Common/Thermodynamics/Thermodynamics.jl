@@ -22,6 +22,23 @@ _molmass_ratio = molmass_ratio(param_set)
 
 Because these parameters are widely used throughout this module,
 `param_set` is an argument for many Thermodynamics functions.
+
+## Numerical methods for saturation adjustment
+
+Saturation adjustment function are designed to accept
+ - `sat_adjust_method` a type used to dispatch which numerical method to use
+
+and a function to return an instance of the numerical method. For example:
+
+ - `sa_numerical_method_ρpq` returns an instance of the numerical
+    method. One of these functions must be defined for the particular
+    numerical method and the particular formulation (`ρ-p-q_tot` in this case).
+
+The currently supported numerical methods, in RootSolvers.jl, are:
+ - `NewtonsMethod` uses Newton method with analytic gradients
+ - `NewtonsMethodAD` uses Newton method with autodiff
+ - `SecantMethod` uses Secant method
+ - `RegulaFalsiMethod` uses Regula-Falsi method
 """
 module Thermodynamics
 
@@ -55,6 +72,7 @@ print_warning() = true
 include("states.jl")
 include("relations.jl")
 include("isentropic.jl")
+include("config_numerical_method.jl")
 
 Base.broadcastable(dap::DryAdiabaticProcess) = Ref(dap)
 Base.broadcastable(phase::Phase) = Ref(phase)

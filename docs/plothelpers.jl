@@ -30,7 +30,7 @@ end
         time_units = "[s]",
         round_digits = 2,
         horiz_layout = false,
-        xlims = (:auto, :auto),
+        kwargs...
     )
 
 Export plot of all variables, or all
@@ -48,7 +48,7 @@ function export_plot(
     round_digits = 2,
     sample_rate = 1,
     horiz_layout = false,
-    xlims = (:auto, :auto),
+    kwargs...,
 )
     ϕ_all isa Tuple || (ϕ_all = (ϕ_all,))
     single_var = ϕ_all[1] == xlabel || length(ϕ_all) == 1
@@ -66,7 +66,7 @@ function export_plot(
                 xlabel = xlabel,
                 ylabel = ylabel,
                 label = label,
-                xlims = xlims,
+                kwargs...,
             )
         end
     end
@@ -82,7 +82,8 @@ end
         filename;
         xlabel = "time [s]",
         ylabel = "z [m]",
-        label = String(ϕ)
+        label = String(ϕ),
+        kwargs...
     )
 
 Export contour plots given
@@ -104,6 +105,7 @@ function export_contour(
     xlabel = "time [s]",
     ylabel = "z [m]",
     label = String(ϕ),
+    kwargs...,
 )
     ϕ_string = String(ϕ)
     ϕ_data = hcat([data[ϕ_string][:] for data in dons_arr]...)
@@ -115,6 +117,7 @@ function export_contour(
             ylabel = ylabel,
             label = label,
             c = :viridis,
+            kwargs...,
         )
         savefig(filename)
     catch
@@ -170,7 +173,10 @@ state_prefix(::GradientFlux) = "grad_flux_"
         output_dir;
         state_types = (Prognostic(), Auxiliary()),
         z = Array(get_z(solver_config.dg.grid)),
-        xlims = (:auto, :auto),
+        sample_rate = 1,
+        time_units = "[s]",
+        ylabel = "z [m]",
+        kwargs...
     )
 
 Export line plots of states given
@@ -186,10 +192,10 @@ function export_state_plots(
     output_dir;
     state_types = (Prognostic(), Auxiliary()),
     z = Array(get_z(solver_config.dg.grid)),
-    xlims = (:auto, :auto),
     sample_rate = 1,
     time_units = "[s]",
     ylabel = "z [m]",
+    kwargs...,
 )
     FT = eltype(solver_config.Q)
     mkpath(output_dir)
@@ -209,7 +215,7 @@ function export_state_plots(
                 ylabel = ylabel,
                 time_units = time_units,
                 round_digits = 5,
-                xlims = xlims,
+                kwargs...,
             )
         end
     end
@@ -225,6 +231,7 @@ end
         xlabel = "time [s]",
         ylabel = "z [m]",
         z = Array(get_z(solver_config.dg.grid; rm_dupes=true)),
+        kwargs...
     )
 
 Call `export_contour` for every
@@ -239,6 +246,7 @@ function export_state_contours(
     xlabel = "time [s]",
     ylabel = "z [m]",
     z = Array(get_z(solver_config.dg.grid; rm_dupes = true)),
+    kwargs...,
 )
     FT = eltype(solver_config.Q)
     mkpath(output_dir)
@@ -254,6 +262,7 @@ function export_state_contours(
                 xlabel = xlabel,
                 ylabel = ylabel,
                 label = label,
+                kwargs...,
             )
         end
     end

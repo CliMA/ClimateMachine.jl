@@ -17,7 +17,7 @@
 
 export PrognosticVariable
 export FirstOrder, SecondOrder
-export Flux, Source
+export AbstractTendencyType, Flux, Source
 export TendencyDef
 
 """
@@ -121,3 +121,14 @@ function fluxes(bl::BalanceLaw, order::O) where {O <: AbstractOrder}
     tend = filter(x -> x ≠ nothing, tend)
     return Tuple(Iterators.flatten(tend))
 end
+
+"""
+    precompute(bl, args, ::AbstractTendencyType)
+
+A nested NamedTuple of precomputed (cached) values
+and or objects. This is useful for "expensive"
+point-wise quantities that are used in multiple
+tendency terms. For example, computing a quantity
+that requires iteration.
+"""
+precompute(bl, args, ::AbstractTendencyType) = NamedTuple()

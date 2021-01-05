@@ -1,3 +1,5 @@
+# using FileIO
+# using JLD2
 using ClimateMachine
 ClimateMachine.init(;
     parse_clargs = true,
@@ -110,7 +112,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(360)
+    timeend = FT(60)
     CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType
@@ -198,7 +200,7 @@ function main(::Type{FT}) where {FT}
     grid = driver_config.grid
 
     # state_types = (Prognostic(), Auxiliary(), GradientFlux())
-    state_types = (Prognostic(), Auxiliary())
+    state_types = (Prognostic(), Auxiliary(), GradientFlux())
     dons_arr = [dict_of_nodal_states(solver_config, state_types; interp = true)]
     time_data = FT[0]
 
@@ -224,7 +226,7 @@ function main(::Type{FT}) where {FT}
         @show (abs(δρ))
         @show (abs(δρe))
         @test (abs(δρ) <= 0.001)
-        @test (abs(δρe) <= 0.0025)
+        @test (abs(δρe) <= 0.1)
         nothing
     end
 
@@ -253,3 +255,19 @@ function main(::Type{FT}) where {FT}
 end
 
 solver_config, dons_arr, time_data, state_types = main(Float64)
+
+## Uncomment lines to save output using JLD2
+#
+# output_dir = @__DIR__;
+# mkpath(output_dir);
+# println(dons_arr[1].keys)
+# z = get_z(solver_config.dg.grid; rm_dupes = true);
+# save(
+#     string(output_dir, "/sbl_edmf.jld2"),
+#     "dons_arr",
+#     dons_arr,
+#     "time_data",
+#     time_data,
+#     "z",
+#     z,
+# )

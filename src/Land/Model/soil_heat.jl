@@ -29,34 +29,27 @@ function PrescribedTemperatureModel(T::Function = (aux, t) -> eltype(aux)(0.0))
 end
 
 """
-    SoilHeatModel{FT, FiT, BCT} <: AbstractHeatModel
+    SoilHeatModel{FT, FiT} <: AbstractHeatModel
 The necessary components for the Heat Equation in a soil water matrix.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct SoilHeatModel{FT, FiT, BCT} <: AbstractHeatModel
+struct SoilHeatModel{FT, FiT} <: AbstractHeatModel
     "Initial conditions for temperature"
     initialT::FiT
-    "Boundary Condition Type"
-    boundaries::BCT
 end
 
 """
     SoilHeatModel(
         ::Type{FT};
         initialT::FT = FT(NaN),
-        boundaries::AbstractBoundaryConditions,
     ) where {FT}
 
 Constructor for the SoilHeatModel.
 """
-function SoilHeatModel(
-    ::Type{FT};
-    initialT = (aux) -> FT(NaN),
-    boundaries::AbstractBoundaryConditions,
-) where {FT}
-    args = (initialT, boundaries)
-    return SoilHeatModel{FT, typeof.(args)...}(args...)
+function SoilHeatModel(::Type{FT}; initialT = (aux) -> FT(NaN)) where {FT}
+    args = initialT
+    return SoilHeatModel{FT, typeof(args)}(args)
 end
 
 """

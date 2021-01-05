@@ -35,7 +35,6 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.BalanceLaws
 
 import ClimateMachine.BalanceLaws: source
-import ClimateMachine.Atmos: filter_source, atmos_source!
 
 # [ClimateMachine parameters](https://github.com/CliMA/CLIMAParameters.jl) are
 # needed to have access to Earth's physical parameters.
@@ -58,18 +57,9 @@ struct HeldSuarezForcingTutorial{PV <: Union{Momentum, Energy}} <:
 HeldSuarezForcingTutorial() =
     (HeldSuarezForcingTutorial{Momentum}(), HeldSuarezForcingTutorial{Energy}())
 
-filter_source(pv::PV, m, s::HeldSuarezForcingTutorial{PV}) where {PV} = s
-atmos_source!(::HeldSuarezForcingTutorial, args...) = nothing
-
-function held_suarez_forcing_coefficients(
-    bl,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
+function held_suarez_forcing_coefficients(bl, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
     FT = eltype(state)
 
     ## Parameters
@@ -108,50 +98,19 @@ function held_suarez_forcing_coefficients(
     return (k_v = k_v, k_T = k_T, T_equil = T_equil)
 end
 
-function source(
-    s::HeldSuarezForcingTutorial{Energy},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = held_suarez_forcing_coefficients(
-        m,
-        state,
-        aux,
-        t,
-        ts,
-        direction,
-        diffusive,
-    )
+function source(s::HeldSuarezForcingTutorial{Energy}, m, args)
+    @unpack state = args
+    @unpack ts = args.precomputed
+    nt = held_suarez_forcing_coefficients(m, args)
     _cv_d = FT(cv_d(m.param_set))
     @unpack k_T, T_equil = nt
     T = air_temperature(ts)
     return -k_T * state.ρ * _cv_d * (T - T_equil)
 end
 
-function source(
-    s::HeldSuarezForcingTutorial{Momentum},
-    m,
-    state,
-    aux,
-    t,
-    ts,
-    direction,
-    diffusive,
-)
-    nt = held_suarez_forcing_coefficients(
-        m,
-        state,
-        aux,
-        t,
-        ts,
-        direction,
-        diffusive,
-    )
+function source(s::HeldSuarezForcingTutorial{Momentum}, m, args)
+    @unpack state, aux = args
+    nt = held_suarez_forcing_coefficients(m, args)
     return -nt.k_v * projection_tangential(m, aux, state.ρu)
 end
 
