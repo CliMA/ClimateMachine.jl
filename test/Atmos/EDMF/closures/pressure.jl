@@ -38,7 +38,9 @@ function perturbation_pressure(
     up = state.turbconv.updraft
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
-    if up[i].ρa/state.ρ>m.turbconv.subdomains.a_min
+    if up[i].ρa/state.ρ<m.turbconv.subdomains.a_min
+        dpdz = FT(0)
+    else
         w_up_i = up[i].ρaw / up[i].ρa
 
         nh_press_buoy = press.α_b * up_aux[i].buoyancy
@@ -47,8 +49,6 @@ function perturbation_pressure(
             press.α_d * (w_up_i - env.w) * abs(w_up_i - env.w) / press.H_up
 
         dpdz = nh_press_buoy + nh_pressure_adv + nh_pressure_drag
-    else
-        dpdz = FT(0)
     end
 
     return dpdz
