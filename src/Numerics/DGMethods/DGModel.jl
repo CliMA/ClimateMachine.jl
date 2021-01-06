@@ -709,11 +709,22 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_Qhypervisc_grad,
         ),
     )
+   
+    wait(comp_stream)
+    if size(tendency, 2) == 5 && t >= 0
+      @show t
+      @show extrema(Array(tendency.data[:, 1, :]))
+      @show extrema(Array(tendency.data[:, 2, :]))
+      @show extrema(Array(tendency.data[:, 3, :]))
+      @show extrema(Array(tendency.data[:, 4, :]))
+      @show extrema(Array(tendency.data[:, 5, :]))
+    end
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
     # this function is finished.
     wait(device, comp_stream)
+
 end
 
 function init_ode_state(

@@ -94,7 +94,7 @@ function test_run(
         polynomialorder = polynomialorder,
     )
   
-    zero_ref_state_velocity = false
+    zero_ref_state_velocity = true
     if zero_ref_state_velocity
       ref_state = ZonalReferenceState(setup.T0, FT(0))
     else
@@ -196,6 +196,10 @@ function test_run(
         split_explicit_implicit = split_explicit_implicit,
         variant=NaiveVariant(),
     )
+   
+    #dt = horz_sound_cfl * dz / acoustic_speed
+    #odesolver = LSRK54CarpenterKennedy(dg, Q; dt = dt, t0 = 0)
+
     @test getsteps(odesolver) == 0
 
     filterorder = 18
@@ -255,7 +259,8 @@ function test_run(
                               """ gettime(odesolver) runtime energy
         end
     end
-    callbacks = (cbinfo, cbfilter, cbcheck)
+    #callbacks = (cbinfo, cbfilter, cbcheck)
+    callbacks = (cbinfo, cbcheck)
 
     if output_vtk
         # create vtk dir
@@ -278,6 +283,7 @@ function test_run(
         callbacks = (callbacks..., cbvtk)
     end
 
+    nsteps = 3
     solve!(
         Q,
         odesolver;
