@@ -296,12 +296,7 @@ function doiteration!(
     ΔQ .= zero(eltype(ΔQ))
     fcalls1 = updatejvp!(jvp!, args...)
 
-    # TODO: Abstract this away in Preconditioner.jl
-    if isa(f!, EulerOperator)
-        preconditioner_update!(jvp!, f!.f!, preconditioner, args...)
-    elseif isa(f!, DGModel)
-        preconditioner_update!(jvp!, f!, preconditioner, args...)
-    end
+    preconditioner_update!(jvp!, f!, preconditioner, args...)
     fcalls2 = solve!(krylovsolver, ΔQ, jvp!, solver.Δf, args...)[2]
     preconditioner_counter_update!(preconditioner)
 

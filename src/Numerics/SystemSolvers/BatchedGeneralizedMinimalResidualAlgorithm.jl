@@ -67,6 +67,7 @@ struct BatchedGeneralizedMinimalResidualAlgorithm <: KrylovAlgorithm
     rtol
     maxrestarts
     M
+    coupledstates
     dims
     batchdimindices
     groupsize
@@ -79,6 +80,7 @@ end
         rtol::Union{AbstractFloat, Nothing} = nothing,
         maxrestarts::Union{Int, Nothing} = nothing,
         M::Union{Int, Nothing} = nothing,
+        coupledstates::Union{Bool, Nothing} = nothing,
         dims::Union{Dims, Nothing} = nothing,
         batchdimindices::Union{Dims, Nothing} = nothing,
         groupsize::Union{Int, Nothing} = nothing,
@@ -105,12 +107,24 @@ systems, so `rhs` must have the same size as `Q`.
 - `maxrestarts`: maximum number of restarts; defaults to `10`
 - `M`: number of steps after which the algorithm restarts, and number of basis
     vectors in each Kyrlov subspace; defaults to `min(20, length(Q))`
+- `coupledstates`: only relevant when `f` uses a `DGModel`; denotes whether the
+    states in the `DGModel` are coupled to each other; defaults to `true`
 - `dims`: dimensions from which to select batch dimensions; does not need to
     match the actual dimensions of `Q`, but must have the property that
-    `prod(dims) == length(Q)`; defaults to `size(Q)`
-- `batchdimindices`: indices of dimensions in `dims` that form each batch;
-    must define batches that form independent linear systems; defaults to
-    `Tuple(1:length(dims))`
+    `prod(dims) == length(Q)`; defaults to `size(Q)` when `f` does not use a
+    `DGModel`, `(npoints, nstates, nelems)` when `f` uses a `DGModel` with
+    `EveryDirection`, and `(nhorzpoints, nvertpoints, nstates, nvertelems,
+    nhorzelems)` when `f` uses a `DGModel` with `HorizontalDirection` or
+    `VerticalDirection`; default value will be used unless `batchdimindices` is
+    also specified
+- `batchdimindices`: indices of dimensions in `dims` that form each batch; is
+    assumed to define batches that form independent linear systems; defaults to
+    `Tuple(1:ndims(Q))` when `f` does not use a `DGModel`, `(1, 2, 3)` or
+    `(1, 3)` when `f` uses a `DGModel` with `EveryDirection` (the former for
+    coupled states and the latter for uncoupled states), `(1, 3, 5)` or
+    `(1, 5)` when `f` uses a `DGModel` with `HorizontalDirection`, and
+    `(2, 3, 4)` or `(2, 4)` when `f` uses a `DGModel` with `VerticalDirection`;
+    default value will be used unless `dims` is also specified
 - `groupsize`: group size for kernel abstractions; defaults to `256`
 """
 function BatchedGeneralizedMinimalResidualAlgorithm(;
@@ -119,6 +133,7 @@ function BatchedGeneralizedMinimalResidualAlgorithm(;
     rtol::Union{AbstractFloat, Nothing} = nothing,
     maxrestarts::Union{Int, Nothing} = nothing,
     M::Union{Int, Nothing} = nothing,
+    coupledstates::Union{Bool, Nothing} = nothing,
     dims::Union{Dims, Nothing} = nothing,
     batchdimindices::Union{Dims, Nothing} = nothing,
     groupsize::Union{Int, Nothing} = nothing,
@@ -136,52 +151,52 @@ function BatchedGeneralizedMinimalResidualAlgorithm(;
         batchdimindices
     )
 
+    if xor(isnothing(dims), isnothing(batchdimindices))
+        @warn string(
+            "Both dims and batchdimindices must be specified in order to ",
+            "override default values."
+        )
+    end
+    if !isnothing(dims) && !isnothing(batchdimindices)
+        @assert(maximum(batchdimindices) <= length(dims), string(
+            "batchdimindices must contain a subset of the indices of ",
+            "dimensions in dims, ", dims, ", but it was set to ",
+            batchdimindices
+        ))
+    end
+
     return BatchedGeneralizedMinimalResidualAlgorithm(
         preconditioner,
         atol,
         rtol,
         maxrestarts,
         M,
+        coupledstates,
         dims,
         batchdimindices,
         groupsize,
     )
 end
 
-"""
-    function BatchedGeneralizedMinimalResidualAlgorithm(
-        dg::DGModel;
-        coupledstates::Bool = false,
-        kwargs...
+function defaultbatches(Q, f!::Any, coupledstates)
+    @warn string(
+        "All computations will be done on a single batch.\nIf this was not ",
+        "intended, consider using a GeneralizedMinimalResidualAlgorithm ",
+        "instead of a BatchedGeneralizedMinimalResidualAlgorithm."
     )
-
-Specialized constructor for a `BatchedGeneralizedMinimalResidualAlgorithm`
-that solves the equation `f(Q) = rhs`, where `f` calls a `DGModel`, and where
-`Q` and `rhs` are both `MPIStateArray`s. Uses the fields of the `DGModel` to
-determine an optimal way of batching `Q`.
-
-# Arguments
- - `dg`: the `DGModel` that gets called by `f`
-
-# Keyword Arguments
-- `coupledstates`: whether the states in `Q` are coupled in the `DGModel`;
-    defaults to `true`
-- `kwargs`: keyword arguments that are accepted by the default constructor;
-    any values specified for `dims` and `batchdimindices` are overwritten by
-    this constructor
-"""
-function BatchedGeneralizedMinimalResidualAlgorithm(
-    dg::DGModel;
-    coupledstates::Bool = true,
-    kwargs...,
-)
+    return size(Q), Tuple(1:ndims(Q))
+end
+function defaultbatches(Q, op::EulerOperator, coupledstates)
+    return defaultbatches(Q, op.f!, coupledstates)
+end
+function defaultbatches(Q, dg::DGModel, coupledstates)
     direction = dg.direction
     grid = dg.grid
     topology = grid.topology
     N = polynomialorders(grid)
     nvertpoints = N[end] + 1
     nhorzpoints = length(N) == 3 ? (N[1] + 1) * (N[2] + 1) : N[1] + 1
-    nstates = number_states(dg.balance_law, Prognostic())
+    nstates = size(Q)[2] # This could be obtained from dg with number_states.
     nelems = length(topology.realelems)
     nvertelems = topology.stacksize
     nhorzelems = div(nelems, nvertelems)
@@ -210,11 +225,7 @@ function BatchedGeneralizedMinimalResidualAlgorithm(
         end
     end
 
-    return BatchedGeneralizedMinimalResidualAlgorithm(;
-        kwargs...,
-        dims,
-        batchdimindices,
-    )
+    return dims, batchdimindices
 end
 
 struct BatechedGeneralizedMinimalResidualSolver{BT, PT, AT, BMT, BAT, FT} <:
@@ -251,9 +262,12 @@ function IterativeSolver(
     rtol = isnothing(algorithm.rtol) ? √eps(FT) : FT(algorithm.rtol)
     maxrestarts = isnothing(algorithm.maxrestarts) ? 10 : algorithm.maxrestarts
     M = isnothing(algorithm.M) ? min(20, length(Q)) : algorithm.M
-    dims = isnothing(algorithm.dims) ? size(Q) : algorithm.dims
-    batchdimindices = isnothing(algorithm.batchdimindices) ?
-        Tuple(1:length(dims)) : algorithm.batchdimindices
+    coupledstates = isnothing(algorithm.coupledstates) ?
+        true : algorithm.coupledstates
+    dims, batchdimindices =
+        isnothing(algorithm.dims) || isnothing(algorithm.batchdimindices) ?
+        defaultbatches(Q, f!, coupledstates) :
+        algorithm.dims, algorithm.batchdimindices
     groupsize = isnothing(algorithm.groupsize) ? 256 : algorithm.groupsize
 
     @assert(size(Q) == size(rhs), string(
@@ -265,19 +279,6 @@ function IterativeSolver(
         "dims must contain the dimensions of an array with the same length ",
         "as Q, ", length(Q), ", but it was set to ", dims
     ))
-    @assert(maximum(batchdimindices) <= length(dims), string(
-        "batchdimindices must contain a subset of the indices of ",
-        "dimensions in dims, ", dims, ", but it was set to ",
-        batchdimindices
-    ))
-    if length(batchdimindices) == length(dims)
-        @warn string(
-            "batchdimindices includes every dimension in dims, so all ",
-            "computations will be done on a single batch.\nIf this was not ",
-            "intended, consider using a GeneralizedMinimalResidualAlgorithm ",
-            "instead of a BatchedGeneralizedMinimalResidualAlgorithm."
-        )
-    end
 
     remainingdimindices = Tuple(setdiff(1:length(dims), batchdimindices))
     batchsize = prod(dims[[batchdimindices...]])

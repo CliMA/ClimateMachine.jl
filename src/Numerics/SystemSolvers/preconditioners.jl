@@ -97,7 +97,7 @@ update the DGColumnBandedMatrix by the finite difference approximation
 """
 function preconditioner_update!(
     op,
-    dg,
+    dg::DGModel,
     preconditioner::ColumnwiseLUPreconditioner,
     args...,
 )
@@ -116,6 +116,21 @@ function preconditioner_update!(
     band_lu!(A)
 
     preconditioner.counter = 0
+end
+function preconditioner_update!(
+    op,
+    eo::EulerOperator,
+    preconditioner::ColumnwiseLUPreconditioner,
+    args...,
+)
+    preconditioner_update!(op, eo.f!, preconditioner, args...)
+end
+function preconditioner_update!(
+    op,
+    _::Any,
+    preconditioner::ColumnwiseLUPreconditioner,
+    args...,
+)
 end
 
 """
