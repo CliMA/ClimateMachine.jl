@@ -99,10 +99,10 @@ systems, so `rhs` must have the same size as `Q`.
  - [Saad1986](@cite)
 
 # Keyword Arguments
-- `preconditioner`: right preconditioner; defaults to NoPreconditioner
+- `preconditioner`: right preconditioner; defaults to `NoPreconditioner`
 - `atol`: absolute tolerance; defaults to `eps(eltype(Q))`
 - `rtol`: relative tolerance; defaults to `√eps(eltype(Q))`
-- `maxrestarts`: maximum number of restarts; defaults to 10
+- `maxrestarts`: maximum number of restarts; defaults to `10`
 - `M`: number of steps after which the algorithm restarts, and number of basis
     vectors in each Kyrlov subspace; defaults to `min(20, length(Q))`
 - `dims`: dimensions from which to select batch dimensions; does not need to
@@ -111,7 +111,7 @@ systems, so `rhs` must have the same size as `Q`.
 - `batchdimindices`: indices of dimensions in `dims` that form each batch;
     must define batches that form independent linear systems; defaults to
     `Tuple(1:length(dims))`
-- `groupsize`: group size for kernel abstractions; defaults to 256
+- `groupsize`: group size for kernel abstractions; defaults to `256`
 """
 function BatchedGeneralizedMinimalResidualAlgorithm(;
     preconditioner::Union{AbstractPreconditioner, Nothing} = nothing,
@@ -123,12 +123,18 @@ function BatchedGeneralizedMinimalResidualAlgorithm(;
     batchdimindices::Union{Dims, Nothing} = nothing,
     groupsize::Union{Int, Nothing} = nothing,
 )
-    @check_positive(atol, rtol, maxrestarts, M, groupsize)
-    @check_positive_iterable(dims, batchdimindices)
-    @assert(isnothing(batchdimindices) || allunique(batchdimindices), string(
-        "batchdimindices must be a tuple of unique indices, but it was ",
-        "set to ", batchdimindices
-    ))
+    @checkargs(
+        "be positive", arg -> arg > 0,
+        atol, rtol, maxrestarts, M, groupsize
+    )
+    @checkargs(
+        "contain positive values", arg -> length(arg) > 0 && minimum(arg) > 0,
+        dims, batchdimindices
+    )
+    @checkargs(
+        "be a tuple of unique indices", arg -> allunique(arg),
+        batchdimindices
+    )
 
     return BatchedGeneralizedMinimalResidualAlgorithm(
         preconditioner,
@@ -167,7 +173,7 @@ determine an optimal way of batching `Q`.
 function BatchedGeneralizedMinimalResidualAlgorithm(
     dg::DGModel;
     coupledstates::Bool = true,
-    kwargs...
+    kwargs...,
 )
     direction = dg.direction
     grid = dg.grid
@@ -233,8 +239,8 @@ end
 
 function IterativeSolver(
     algorithm::BatchedGeneralizedMinimalResidualAlgorithm,
-    f!,
     Q,
+    f!,
     rhs,
 )
     FT = eltype(Q)
@@ -301,14 +307,14 @@ atol(solver::BatechedGeneralizedMinimalResidualSolver) = solver.atol
 rtol(solver::BatechedGeneralizedMinimalResidualSolver) = solver.rtol
 maxiters(solver::BatechedGeneralizedMinimalResidualSolver) = solver.maxrestarts
 
-function initialize!(
+function residual!(
     solver::BatechedGeneralizedMinimalResidualSolver,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     rhs,
-    args...,
+    args...;
 )
     basisveccurr = solver.basisveccurr
     krylovbases = solver.krylovbases
@@ -322,7 +328,7 @@ function initialize!(
 
     # Calculate krylovbases[:, 1, :] and g0s[:, :] in batches.
     event = Event(device)
-    event = batched_initialize!(device, solver.groupsize)(
+    event = batched_residual!(device, solver.groupsize)(
         krylovbases,
         g0s,
         solver.M,
@@ -339,14 +345,23 @@ function initialize!(
     return residual_norm, has_converged, 1
 end
 
+function initialize!(
+    solver::BatechedGeneralizedMinimalResidualSolver,
+    threshold,
+    iters,
+    args...;
+)
+    return residual!(solver, threshold, iters, args...)
+end
+
 function doiteration!(
     solver::BatechedGeneralizedMinimalResidualSolver,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     rhs,
-    args...,
+    args...;
 )
     preconditioner = solver.preconditioner
     basisvecprev = solver.basisvecprev
@@ -435,11 +450,11 @@ function doiteration!(
     # Restart if the algorithm did not converge.
     has_converged && return has_converged, m
     _, has_converged, initfcalls =
-        initialize!(solver, threshold, iters, f!, Q, rhs, args...)
+        residual!(solver, threshold, iters, Q, f!, rhs, args...)
     return has_converged, m + initfcalls
 end
 
-@kernel function batched_initialize!(krylovbases, g0s, M, batchsize)
+@kernel function batched_residual!(krylovbases, g0s, M, batchsize)
     b = @index(Global)
     FT = eltype(g0s)
 

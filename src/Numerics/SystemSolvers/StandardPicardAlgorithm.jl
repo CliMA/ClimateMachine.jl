@@ -7,7 +7,7 @@ struct StandardPicardAlgorithm <: IterativeAlgorithm
 end
 
 """
-    function StandardPicardAlgorithm(
+    StandardPicardAlgorithm(
         atol::Union{Real, Nothing} = nothing,
         rtol::Union{Real, Nothing} = nothing,
         maxiters::Union{Int, Nothing} = nothing,
@@ -30,7 +30,7 @@ function StandardPicardAlgorithm(;
     rtol::Union{Real, Nothing} = nothing,
     maxiters::Union{Int, Nothing} = nothing,
 )
-    @check_positive(atol, rtol, maxiters)
+    @checkargs("be positive", arg -> arg > 0, atol, rtol, maxiters)
     return StandardPicardAlgorithm(
         atol,
         rtol,
@@ -48,8 +48,8 @@ end
 
 function IterativeSolver(
     algorithm::StandardPicardAlgorithm,
-    f!,
     Q,
+    f!,
     args...;
 )
     FT = eltype(Q)
@@ -71,12 +71,11 @@ atol(solver::StandardPicardSolver) = solver.atol
 rtol(solver::StandardPicardSolver) = solver.rtol
 maxiters(solver::StandardPicardSolver) = solver.maxiters
 
-function initialize!(
-    solver::StandardPicardSolver,
+function residual!(solver::StandardPicardSolver,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     args...,
 )
     fQ = solver.fQ
@@ -90,14 +89,24 @@ function initialize!(
     return residual_norm, has_converged, 1
 end
 
+function initialize!(
+    solver::StandardPicardSolver,
+    threshold,
+    iters,
+    args...,
+)
+    return residual!(solver, threshold, iters, args...)
+end
+
 function doiteration!(
     solver::StandardPicardSolver,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     args...,
 )
     Q .= solver.fQ
-    return initialize!(solver, threshold, iters, f!, Q, args...)[2:3]
+    _, has_converged, fcalls = residual!(solver, threshold, iters, Q, f!, args...)
+    return has_converged, fcalls
 end

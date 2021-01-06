@@ -53,6 +53,27 @@ Returns the maximum number of iterations that `solver` can take.
 function maxiters(solver::IterativeSolver) end
 
 """
+    residual!(
+        solver::IterativeSolver,
+        threshold,
+        iters,
+        args...,
+    )
+
+Returns the norm of the residual, whether the solver converged, and the number
+of times `f` was evaluated.
+
+Uses `threshold` and `iters` to check for convergence by calling
+`check_convergence`.
+"""
+function residual!(
+    solver::IterativeSolver,
+    threshold,
+    iters,
+    args...,
+) end
+
+"""
     initialize!(
         solver::IterativeSolver,
         threshold,
@@ -60,9 +81,7 @@ function maxiters(solver::IterativeSolver) end
         args...,
     )
 
-Initializes `solver` and returns the norm of the residual, whether the solver
-converged, and the number of times `f` was evaluated. Uses `threshold` and
-`iters` to check for convergence by calling `check_convergence`.
+Initializes `solver`, returning the output of `residual!`.
 """
 function initialize!(
     solver::IterativeSolver,
@@ -79,10 +98,8 @@ function initialize!(
         args...,
     )
 
-Performs an iteration of `solver`, updates the solution vector,
-and returns whether the solver converged and the number of times `f` was
-evaluated. Uses `threshold` and `iters` to check for convergence by calling
-`check_convergence`.
+Performs an iteration of `solver` and updates the solution vector, returning
+the whether the solver converged and the number of times `f` was evaluated.
 """
 function doiteration!(
     solver::IterativeSolver,
@@ -106,7 +123,7 @@ function solve!(solver::IterativeSolver, args...)
     initial_residual_norm, has_converged, fcalls =
         initialize!(solver, atol(solver), iters, args...)
     has_converged && return (iters, fcalls)
-    threshold = max(atol(solver), rtol(solver) * initial_residual_norm)
+    threshold = max(atol(solver), rtol(solver) * initial_residual_norm) # TODO: make this a min after comparison testing.
 
     while !has_converged && iters < maxiters(solver)
         has_converged, newfcalls =
@@ -143,56 +160,19 @@ end
 =#
 
 # Macro used by algorithm constructors that checks whether the arguments
-# specified by the user are all positive.
-macro check_positive(args...)
+# specified by the user all make the function `check` return `true`. The first
+# argument that makes it return `false` causes a `DomainError` to be thrown.
+macro checkargs(string, check, args...)
     n = length(args)
     block = Expr(:block)
     block.args = Array{Any}(undef, n)
     for i in 1:n
         arg = args[i]
-        message = "$arg must be positive, but it was set to "
+        error_message = "$arg must $string, but it was set to "
         arg = esc(arg)
         block.args[i] = :(
-            if !isnothing($arg) && !($arg > 0)
-                throw(DomainError(string($message, $arg)))
-            end
-        )
-    end
-    return block
-end
-
-# Macro used by algorithm constructors that checks whether the arguments
-# specified by the user are all iterables of positive values.
-macro check_positive_iterable(args...)
-    n = length(args)
-    block = Expr(:block)
-    block.args = Array{Any}(undef, n)
-    for i in 1:n
-        arg = args[i]
-        message = "$arg must contain positive values, but it was set to "
-        arg = esc(arg)
-        block.args[i] = :(
-            if !isnothing($arg) && !(length($arg) > 0 && minimum($arg) > 0)
-                throw(DomainError(string($message, $arg)))
-            end
-        )
-    end
-    return block
-end
-
-# Macro used by algorithm constructors that checks whether the arguments
-# specified by the user are all finite.
-macro check_finite(args...)
-    n = length(args)
-    block = Expr(:block)
-    block.args = Array{Any}(undef, n)
-    for i in 1:n
-        arg = args[i]
-        message = "$arg must be finite, but it was set to "
-        arg = esc(arg)
-        block.args[i] = :(
-            if !isnothing($arg) && !isfinite($arg)
-                throw(DomainError(string($message, $arg)))
+            if !isnothing($arg) && !$check($arg)
+                throw(DomainError(string($error_message, $arg)))
             end
         )
     end
@@ -203,6 +183,7 @@ include("GeneralizedMinimalResidualAlgorithm.jl")
 include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
 include("JacobianFreeNewtonKrylovAlgorithm.jl")
 include("StandardPicardAlgorithm.jl")
+include("AccelerationAlgorithm.jl")
 
 # TODO:
 #   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm
@@ -231,3 +212,14 @@ include("StandardPicardAlgorithm.jl")
 #       - Detailed comparison of Krylov methods (GMRES, TFQMR, BiCGSTAB and QMRCGSTAB) and general preconditioners (Gauss-Seidel, incomplete LU factorization, and algebraic multigrid).
 #       - "GMRES tends to deliver better performance when coupled with an effective multigrid preconditioner, but it is less competitive with an ineffective preconditioner due to restarts."
 #       - "Right preconditioning is, in general, more reliable than left preconditioning for large-scale systems."
+#   - Testing of the IterativeAlgorithm Interface
+#       - Convert CG and GCR to new interface
+#       - Comparison testing with old code
+#       - More thorough tests following example of test/Numerics/SystemSolvers/iterativesolvers.jl
+#           - No iterations if initial value is the solution
+#           - Test expected number of iterations
+#           - Convert these tests to use the new interface
+#       - Test all params throw correct errors if invalid input used
+#       - Test Accelerator has <= number of iterations as non-accelerated version
+#       - Correctness testing with large and small problems
+#       - Organize test directory

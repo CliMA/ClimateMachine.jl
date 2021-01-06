@@ -5,22 +5,22 @@ include("enable_duals.jl")
 abstract type JacobianVectorProduct end
 
 mutable struct JacobianVectorProductFD{F!T, AT, FT} <: JacobianVectorProduct
-    f!::F!T   # nonlinear operator f
     Q::AT     # pointer to the solution vector Q
     QdQ::AT   # container for Q + e ΔQ
+    f!::F!T   # nonlinear operator f
     fQ::AT    # cache for f(Q)
     fQdQ::AT  # container for f(Q + e ΔQ)
     β::FT     # parameter used to compute e
 end
 
 mutable struct JacobianVectorProductAD{F!T, AT} <: JacobianVectorProduct
-    f!::F!T   # nonlinear operator f that can operate on dual numbers
     QdQ::AT   # container for Q + ε ΔQ that can store dual numbers
+    f!::F!T   # nonlinear operator f that can operate on dual numbers
     fQdQ::AT  # container for f(Q + ε ΔQ) that can store dual numbers
 end
 
 """
-    JacobianVectorProduct(f!, Q, autodiff, β)
+    JacobianVectorProduct(Q, f!, autodiff, β)
     
 Constructor for the `JacobianVectorProduct`.
     
@@ -44,24 +44,25 @@ at `Q`, its Taylor series expansion around `Q` gives the equation
                            ∂Q
 
 # Arguments
+- `Q`: the point at which the Jacobian of `f` must be computed; this container
+    is only used for allocations, and may be changed with `initializejvp!`
 - `f!`: nonlinear operator `f`
-- `Q`: the point at which the Jacobian of `f` must be computed
 - `autodiff`: whether to use automatic differentiation for calculating the
     Jacobian vector product (if `false`, use the finite difference method)
 - `β`: parameter for the finite difference method (used if `autodiff == false`)
 """
-function JacobianVectorProduct(f!, Q, autodiff, β)
+function JacobianVectorProduct(Q, f!, autodiff, β)
     if autodiff
         return JacobianVectorProductAD(
-            enable_duals(f!),
             enable_duals(Q),
+            enable_duals(f!),
             enable_duals(similar(Q)),
         )
     else
         return JacobianVectorProductFD(
-            f!,
             Q,
             similar(Q),
+            f!,
             similar(Q),
             similar(Q),
             β,
@@ -170,7 +171,7 @@ have the same size as `Q`.
 # Keyword Arguments
 - `atol`: absolute tolerance; defaults to `1e-6`
 - `rtol`: relative tolerance; defaults to `1e-6`
-- `maxiters`: maximum number of iterations; defaults to 10
+- `maxiters`: maximum number of iterations; defaults to `10`
 - `autodiff`: whether to use automatic differentiation for calculating the
     Jacobian vector product (if `false`, use the finite difference method);
     defaults to `false`
@@ -185,8 +186,8 @@ function JacobianFreeNewtonKrylovAlgorithm(
     autodiff::Union{Bool, Nothing} = nothing,
     β::Union{Real, Nothing} = nothing,
 )
-    @check_positive(atol, rtol, maxiters, β)
-    @check_finite(β)
+    @checkargs("be positive", arg -> arg > 0, atol, rtol, maxiters, β)
+    @checkargs("be finite", arg -> isfinite(arg), β)
     return JacobianFreeNewtonKrylovAlgorithm(
         krylovalgorithm,
         atol,
@@ -210,8 +211,8 @@ end
 
 function IterativeSolver(
     algorithm::JacobianFreeNewtonKrylovAlgorithm,
-    f!,
     Q,
+    f!,
     rhs,
 )
     FT = eltype(Q)
@@ -228,11 +229,11 @@ function IterativeSolver(
         size(Q), " and ", size(rhs), ", respectively"
     ))
 
-    jvp! = JacobianVectorProduct(f!, Q, autodiff, β)
+    jvp! = JacobianVectorProduct(Q, f!, autodiff, β)
     ΔQ = similar(Q)
     Δf = similar(Q)
     return JaCobIanfrEEneWtONKryLovSoLVeR(
-        IterativeSolver(algorithm.krylovalgorithm, jvp!, ΔQ, Δf),
+        IterativeSolver(algorithm.krylovalgorithm, ΔQ, jvp!, Δf),
         jvp!,
         ΔQ,
         Δf,
@@ -250,10 +251,10 @@ function residual!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     rhs,
-    args...,
+    args...;
 )
     Δf = solver.Δf
 
@@ -269,23 +270,23 @@ function initialize!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     rhs,
-    args...,
+    args...;
 )
     initializejvp!(solver.jvp!, Q)
-    return residual!(solver, threshold, iters, f!, Q, rhs, args...)
+    return residual!(solver, threshold, iters, Q, f!, rhs, args...)
 end
 
 function doiteration!(
     solver::JaCobIanfrEEneWtONKryLovSoLVeR,
     threshold,
     iters,
-    f!,
     Q,
+    f!,
     rhs,
-    args...,
+    args...;
 )
     ΔQ = solver.ΔQ
     jvp! = solver.jvp!
@@ -301,12 +302,12 @@ function doiteration!(
     elseif isa(f!, DGModel)
         preconditioner_update!(jvp!, f!, preconditioner, args...)
     end
-    fcalls2 = solve!(krylovsolver, jvp!, ΔQ, solver.Δf, args...)[2]
+    fcalls2 = solve!(krylovsolver, ΔQ, jvp!, solver.Δf, args...)[2]
     preconditioner_counter_update!(preconditioner)
 
     Q .+= ΔQ
 
     residual_norm, has_converged, fcalls3 =
-        residual!(solver, threshold, iters, f!, Q, rhs, args...)
+        residual!(solver, threshold, iters, Q, f!, rhs, args...)
     return has_converged, fcalls1 + fcalls2 + fcalls3
 end
