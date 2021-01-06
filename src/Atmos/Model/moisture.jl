@@ -60,7 +60,7 @@ Assumes the moisture components is in the dry limit.
 """
 struct DryModel <: MoistureModel end
 
-vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
+vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT, air_p::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::DryModel,
     atmos::AtmosModel,
@@ -71,6 +71,7 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
+    aux.moisture.air_p = air_pressure(ts)
     nothing
 end
 
@@ -107,6 +108,7 @@ vars_state(::EquilMoist, ::Auxiliary, FT) =
 )
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
+    aux.moisture.air_p = air_pressure(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.q_liq = PhasePartition(ts).liq
     aux.moisture.q_ice = PhasePartition(ts).ice
@@ -193,6 +195,7 @@ vars_state(::NonEquilMoist, ::Auxiliary, FT) = @vars(temperature::FT, θ_v::FT)
 )
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.temperature = air_temperature(ts)
+    aux.moisture.air_p = air_pressure(ts)
     aux.moisture.θ_v = virtual_pottemp(ts)
     nothing
 end
