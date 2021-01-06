@@ -1420,13 +1420,13 @@ function compute_analytical_topography(::DCMIPMountain,
                                        r_inner, r_outer)
         #User specified warp parameters
         R_m = π * 3 / 4
-        h0 = 10000
+        h0 = 2000
         ζ_m = π / 16
         φ_m = 0
         λ_m = π * 3 / 2
         r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
         # Define mesh decay profile 
-        Δ = 1 #(r_outer - abs(sR)) / (r_outer - r_inner)
+        Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
         if r_m < R_m
             zs =
                 0.5 *
