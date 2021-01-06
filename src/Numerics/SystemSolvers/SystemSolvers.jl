@@ -301,7 +301,7 @@ include("columnwise_lu_solver.jl")
 include("preconditioners.jl")
 include("batched_generalized_minimal_residual_solver.jl")
 include("jacobian_free_newton_krylov_solver.jl")
-include("Problem.jl")
+include("Operator.jl")
 include("IterativeAlgorithm.jl")
 
 end
