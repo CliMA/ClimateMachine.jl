@@ -32,10 +32,35 @@ Parses custom command line option for tuples of two integers.
 function ArgParse.parse_item(::Type{NTuple{2, Int}}, s::AbstractString)
 
     str_array = split(s, ",")
-    horizontal = parse(Int, str_array[1])
-    vertical = parse(Int, str_array[2])
+    int_1 = parse(Int, str_array[1])
+    int_2 = length(str_array) > 1 ? parse(Int, str_array[2]) : 0
 
-    return (horizontal, vertical)
+    return (int_1, int_2)
+end
+
+"""
+    ArgParse.parse_item
+
+Parses custom command line option for tuples of three integers.
+"""
+function ArgParse.parse_item(::Type{NTuple{3, Int}}, s::AbstractString)
+
+    str_array = split(s, ",")
+    int_2 = int_3 = 0
+    int_1 = parse(Int, str_array[1])
+
+    if length(str_array) >= 2
+        int_2 = parse(Int, str_array[2])
+    end
+
+    if length(str_array) == 3
+        int_3 = parse(Int, str_array[3])
+    else
+        print("Invalid number of elements")
+        return nothing
+    end
+
+    return (int_1, int_2, int_3)
 end
 
 """
@@ -45,8 +70,6 @@ Utility functions that gets the polynomial orders for the given configuration
 either passed from command line or as default values
 """
 function get_polyorders(N)
-
-    (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
 
     # Check if polynomial degree was passed as a CL option
     if ClimateMachine.Settings.degree != (-1, -1)
@@ -59,6 +82,22 @@ function get_polyorders(N)
 end
 
 """
+    get_elems
+
+Utility functions that gets the number of elements used for the given configuration
+either passed from command line or as default values
+"""
+function get_nelems(nE)
+
+    # Check if the number of elements were passed as a CL option
+    if ClimateMachine.Settings.nelems != (-1, -1)
+        ClimateMachine.Settings.nelems
+    else
+        nE
+    end
+end
+
+"""
     ClimateMachine.DriverConfiguration
 
 Collects all parameters necessary to set up a ClimateMachine simulation.
@@ -67,7 +106,7 @@ struct DriverConfiguration{FT}
     config_type::ClimateMachineConfigType
 
     name::String
-    # polynomial order tuple (polyorder_horz, polyorder_vert)
+    # Polynomial order tuple (polyorder_horz, polyorder_vert)
     polyorders::NTuple{2, Int}
     array_type::Any
     solver_type::AbstractSolverType
@@ -76,10 +115,10 @@ struct DriverConfiguration{FT}
     param_set::AbstractParameterSet
     bl::BalanceLaw
     #
-    # execution details
+    # Execution details
     mpicomm::MPI.Comm
     #
-    # mesh details
+    # Mesh details
     grid::DiscontinuousSpectralElementGrid
     #
     # DGModel details
@@ -89,7 +128,7 @@ struct DriverConfiguration{FT}
     # DGFVModel details, used when polyorder_vert = 0
     fv_reconstruction::Union{Nothing, AbstractReconstruction}
     #
-    # configuration-specific info
+    # Configuration-specific info
     config_info::ConfigSpecificInfo
 
     function DriverConfiguration(
@@ -288,6 +327,9 @@ function AtmosGCMConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
+    nE = (nelem_horz, nelem_vert)
+    (nelem_horz, nelem_vert) = get_nelems(nE)
+
     print_model_info(model, mpicomm)
 
     _planet_radius::FT = planet_radius(param_set)
@@ -439,6 +481,9 @@ function SingleStackConfiguration(
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
+
+    nE = get_nelems(nelem_vert)
+    nelem_vert = nE[1]
 
     print_model_info(model, mpicomm)
 

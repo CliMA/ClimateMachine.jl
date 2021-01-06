@@ -77,6 +77,7 @@ Base.@kwdef mutable struct ClimateMachine_Settings
     sim_time::Float64 = NaN
     fixed_number_of_steps::Int = -1
     degree::NTuple{2, Int} = (-1, -1)
+    nelems::NTuple{2, Int} = (-1, -1)
 end
 
 const Settings = ClimateMachine_Settings()
@@ -112,7 +113,7 @@ function get_setting(setting_name::Symbol, settings, defaults)
         env_val = ENV[setting_env]
         if setting_type == String
             v = env_val
-        elseif setting_type == NTuple{2, Int}
+        elseif setting_type == NTuple{2, Int} || setting_type == NTuple{3, Int}
             v = ArgParse.parse_item(setting_type, env_val)
         else
             v = tryparse(setting_type, env_val)
@@ -300,6 +301,11 @@ function parse_commandline(
         metavar = "<horizontal>,<vertical>"
         arg_type = NTuple{2, Int}
         default = get_setting(:degree, defaults, global_defaults)
+        "--nelems"
+        help = "tuple of number of elements in each direction: 2 for GCM or 1 for single-stack (no space before/after comma)"
+        metavar = "<nelem_1>,<nelem_2>"
+        arg_type = NTuple{2, Int}
+        default = get_setting(:nelems, defaults, global_defaults)
     end
     # add custom cli argparse settings if provided
     if !isnothing(custom_clargs)
@@ -377,6 +383,8 @@ Recognized keyword arguments are:
         if `≥0` perform specified number of steps
 - `degree::NTuple{2, Int} = (-1, -1)`:
         tuple of horizontal and vertical polynomial degrees for spatial discretization order
+- `nelems::NTuple{2, Int} = (-1, -1)`:
+        tuple of number of elements in each direction: 2 for GCM or 1 for single-stack
 
 Returns `nothing`, or if `parse_clargs = true`, returns parsed command line
 arguments.
