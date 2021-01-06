@@ -68,7 +68,7 @@ single_column(
 # The lower_bandwidth ls formulated as Nq_v*nstate * eband - 1
 lower_bandwidth(N, nstate, eband) = (N + 1) * nstate * eband - 1
 lower_bandwidth(A::DGColumnBandedMatrix) =
-    (vertical_polynomialorder(A) + 1) * num_state(A) * elem_band(A) - 1
+    lower_bandwidth(vertical_polynomialorder(A), num_state(A), elem_band(A))
 upper_bandwidth(N, nstate, eband) = lower_bandwidth(N, nstate, eband)
 upper_bandwidth(A::DGColumnBandedMatrix) =
     upper_bandwidth(vertical_polynomialorder(A), num_state(A), elem_band(A))
@@ -343,9 +343,10 @@ function empty_banded_matrix(
             number_states(bl, GradientFlux()) == 0 ?
             width(dg.fv_reconstruction) + 2 :
             max(width(dg.fv_reconstruction) + 2, 3)
-        )
+        ) # else: DGFVModel
 
-    p = q = nstate * Nq_v * eband - 1
+    p = lower_bandwidth(N[dim], nstate, eband)
+    q = upper_bandwidth(N[dim], nstate, eband)
 
     nrealelem = length(topology.realelems)
     nvertelem = topology.stacksize
