@@ -957,6 +957,7 @@ using StaticArrays
 const _x1 = Grids._x1
 const _x2 = Grids._x2
 const _x3 = Grids._x3
+const _JcV = Grids._JcV
 
 @doc """
     kernel_min_neighbor_distance!(::Val{N}, ::Val{dim}, direction,
@@ -991,6 +992,8 @@ neighbors.
         end
 
         @inbounds begin
+            # 2D Nq = (nh, nv)
+            # 3D Nq = (nh, nh, nv)
             Nq1 = Nq[1]
             Nq2 = Nq[2]
             Nqk = dim == 2 ? 1 : Nq[end]
@@ -1000,10 +1003,14 @@ neighbors.
         end
     end
 
+
     I = @index(Global, Linear)
+    # local element id
     e = (I - 1) ÷ Np + 1
+    # local quadrature id
     ijk = (I - 1) % Np + 1
 
+    # local i, j, k quadrature id
     i = (ijk - 1) % Nq1 + 1
     j = (ijk - 1) ÷ Nq1 % Nq2 + 1
     k = (ijk - 1) ÷ (Nq1 * Nq2) % Nqk + 1
@@ -1012,6 +1019,7 @@ neighbors.
 
     x = SVector(vgeo[ijk, _x1, e], vgeo[ijk, _x2, e], vgeo[ijk, _x3, e])
 
+    # first horizontal distance
     if mininξ1
         @unroll for î in (i - 1, i + 1)
             if 1 ≤ î ≤ Nq1
@@ -1026,30 +1034,42 @@ neighbors.
         end
     end
 
+    # second horizontal distance or vertical distance (dim=2)
     if mininξ2
-        @unroll for ĵ in (j - 1, j + 1)
-            if 1 ≤ ĵ ≤ Nq2
-                iĵk = i + Nq1 * (ĵ - 1) + Nq1 * Nq2 * (k - 1)
-                x̂ = SVector(
-                    vgeo[iĵk, _x1, e],
-                    vgeo[iĵk, _x2, e],
-                    vgeo[iĵk, _x3, e],
-                )
-                md = min(md, norm(x - x̂))
+        # FV Vercial direction, use 2vgeo[ijk, _JcV, e]
+        if dim == 2 && Nq2 == 1
+            md = min(md, 2vgeo[ijk, _JcV, e])
+        else
+            @unroll for ĵ in (j - 1, j + 1)
+                if 1 ≤ ĵ ≤ Nq2
+                    iĵk = i + Nq1 * (ĵ - 1) + Nq1 * Nq2 * (k - 1)
+                    x̂ = SVector(
+                        vgeo[iĵk, _x1, e],
+                        vgeo[iĵk, _x2, e],
+                        vgeo[iĵk, _x3, e],
+                    )
+                    md = min(md, norm(x - x̂))
+                end
             end
         end
     end
 
+    # vertical distance (dim=3)
     if mininξ3
-        @unroll for k̂ in (k - 1, k + 1)
-            if 1 ≤ k̂ ≤ Nqk
-                ijk̂ = i + Nq1 * (j - 1) + Nq1 * Nq2 * (k̂ - 1)
-                x̂ = SVector(
-                    vgeo[ijk̂, _x1, e],
-                    vgeo[ijk̂, _x2, e],
-                    vgeo[ijk̂, _x3, e],
-                )
-                md = min(md, norm(x - x̂))
+        # FV Vercial direction, use 2vgeo[ijk, _JcV, e]
+        if dim == 3 && Nqk == 1
+            md = min(md, 2vgeo[ijk, _JcV, e])
+        else
+            @unroll for k̂ in (k - 1, k + 1)
+                if 1 ≤ k̂ ≤ Nqk
+                    ijk̂ = i + Nq1 * (j - 1) + Nq1 * Nq2 * (k̂ - 1)
+                    x̂ = SVector(
+                        vgeo[ijk̂, _x1, e],
+                        vgeo[ijk̂, _x2, e],
+                        vgeo[ijk̂, _x3, e],
+                    )
+                    md = min(md, norm(x - x̂))
+                end
             end
         end
     end
