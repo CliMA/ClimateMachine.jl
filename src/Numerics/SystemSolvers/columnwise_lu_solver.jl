@@ -54,15 +54,15 @@ single_column(
 ) where {D, P, NS, EH, EV, EB, SC} = SC
 
 # DG: lower_bandwidth is Nq_v*nstate * eband - 1, (does not include itself) 
-# eband = 1 for inviscid, since nodal point at the face communicates to the overlaping point to its neighbor
-# and other points only communicates to points in the same element
+# eband = 1 for inviscid, since nodal point at the face communicate to the overlaping point to its neighbor
+# and other points only communicate to points in the same element
 # eband = 2 for visous
 #
 # FV: lower_bandwidth is nstate * (stencil_width + 1 + 1) - 1,  
 # since the reconstruction states depend on stencil_width points on each side, 
 # and the flux depends on stencil_width + 1 points on each side
 # eband = (stencil_width + 2) for inviscid
-# eband = max{ (stencil_width + 2), 3} for viscid, 
+# eband = max{ (stencil_width + 2), 3} for viscous, 
 # since the viscous flux is computed by applying first order FD twice
 #  
 # The lower_bandwidth ls formulated as Nq_v*nstate * eband - 1
