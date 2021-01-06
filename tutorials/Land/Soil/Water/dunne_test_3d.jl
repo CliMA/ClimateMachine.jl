@@ -17,7 +17,6 @@ using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.DGMethods: BalanceLaw, LocalGeometry
 using ClimateMachine.MPIStateArrays
 using ClimateMachine.GenericCallbacks
-using ClimateMachine.SystemSolvers
 using ClimateMachine.ODESolvers
 using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils

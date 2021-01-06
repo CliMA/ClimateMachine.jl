@@ -1,11 +1,7 @@
-#this runs but have not confirmed output. killed after 45 min
 using MPI
 using OrderedCollections
 using StaticArrays
 using Statistics
-
-# - Load CLIMAParameters and ClimateMachine modules
-
 using CLIMAParameters
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
@@ -26,10 +22,7 @@ using ClimateMachine.VariableTemplates
 using ClimateMachine.SingleStackUtils
 using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
-#using ClimateMachine.Mesh.Filters
 
-
-# - Define the float type desired (`Float64` or `Float32`)
 const FT = Float64;
 
 # - Initialize ClimateMachine for CPU
@@ -38,9 +31,6 @@ ClimateMachine.init(; disable_gpu = true);
 # Load plot helpers:
 const clima_dir = dirname(dirname(pathof(ClimateMachine)));
 include(joinpath(clima_dir, "docs", "plothelpers.jl"));
-
-# # Set up the soil model
-
 
 soil_heat_model = PrescribedTemperatureModel();
 
@@ -53,24 +43,22 @@ soil_param_functions = SoilParamFunctions{FT}(
     S_s = 5e-4,
 );
 
+heaviside(x) = 0.5 * (sign(x) + 1)
+sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/width)))
+precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 900*60,10)))#heaviside(200*60-t))
+# Define the initial state function. The default for `θ_i` is zero.
+ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.1 * sigmoid(aux.z, -1.0,0.02))#heaviside((-0.5)-aux.z))
 
 # Specify the polynomial order and resolution.
 N_poly = 1;
 xres = FT(80)
 yres = FT(80)
-zres = FT(0.05)
+zres = FT(0.05) ## could change to be larger to match Maxwell
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-3);
+zmin = FT(-3);## will change to 5?
 xmax = FT(400)
 ymax = FT(320)
-
-
-heaviside(x) = 0.5 * (sign(x) + 1)
-sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/width)))
-precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 200*60,10)))#heaviside(200*60-t))
-# Define the initial state function. The default for `θ_i` is zero.
-ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.025 * sigmoid(aux.z, -0.5,0.02))#heaviside((-0.5)-aux.z))
 
 bc =  LandDomainBC(
     bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
@@ -113,9 +101,6 @@ m = LandModel(
 );
 
 # # Specify the numerical configuration and output data.
-
-
-
 function warp_maxwell_slope(xin, yin, zin; topo_max = 0.2, zmin =  -3, xmax = 400)
     FT = eltype(xin)
     zmax = FT(xin/xmax*topo_max)
@@ -124,6 +109,15 @@ function warp_maxwell_slope(xin, yin, zin; topo_max = 0.2, zmin =  -3, xmax = 40
     x, y, z = xin, yin, zout
     return x, y, z
 end
+
+
+function inverse_warp_maxwell_slope(xin, yin, zin; topo_max = 0.2, zmin =  -3, xmax = 400)
+    FT = eltype(xin)
+    zmax = FT(xin/xmax*topo_max)
+    alpha = FT(1.0)- zmax/zmin
+    zout = (zin-zmin)/alpha+zmin
+    return zout
+ end
 
 topo_max = FT(0.2)
 # Create the driver configuration.
@@ -144,8 +138,8 @@ driver_config = ClimateMachine.MultiColumnLandModel(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60 * 350)
-dt = FT(0.1); #5
+timeend = FT(60*900)
+dt = FT(6); #5
 
 # Create the solver configuration.
 solver_config =
@@ -155,29 +149,147 @@ solver_config =
 const n_outputs = 500;
 
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
+mygrid = solver_config.dg.grid;
+Q = solver_config.Q;
+aux = solver_config.dg.state_auxiliary;
+grads = solver_config.dg.state_gradient_flux
 
-state_types = (Prognostic(), Auxiliary(), GradientFlux())
-all_data = Dict[dict_of_nodal_states(solver_config, state_types; interp = false)]
+x_ind = varsindex(vars_state(m, Auxiliary(), FT), :x)
+y_ind = varsindex(vars_state(m, Auxiliary(), FT), :y)
+z_ind = varsindex(vars_state(m, Auxiliary(), FT), :z)
+ϑ_l_ind = varsindex(vars_state(m, Prognostic(), FT), :soil, :water, :ϑ_l)
+K∇h_vert_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[3]
+K∇h_y_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[2]
+K∇h_x_ind = varsindex(vars_state(m, GradientFlux(), FT), :soil, :water)[1]
+
+x = aux[:, x_ind, :]
+y = aux[:, y_ind, :]
+z = aux[:, z_ind, :]
+ϑ_l = Q[:, ϑ_l_ind, :]
+K∇h_vert = zeros(length(ϑ_l)) .+ FT(NaN)
+
+all_data = [Dict{String, Array}("ϑ_l" => ϑ_l, "Khz" => K∇h_vert,"Khx" => K∇h_vert,"Khy" => K∇h_vert)]
 time_data = FT[0] # store time data
 
-# We specify a function which evaluates `every_x_simulation_time` and returns
-# the state vector, appending the variables we are interested in into
-# `all_data`.
-
 callback = GenericCallbacks.EveryXSimulationTime(every_x_simulation_time) do
-    dons = dict_of_nodal_states(solver_config, state_types; interp = false)
+    ϑ_l = Q[:, ϑ_l_ind, :]
+    K∇h_vert = grads[:, K∇h_vert_ind, :]
+    Khy = grads[:, K∇h_y_ind, :]
+    Khx = grads[:, K∇h_x_ind, :]
+
+    dons = Dict{String, Array}("ϑ_l" => ϑ_l, "Khz" => K∇h_vert,"Khx" => Khx,"Khy" => Khy)
     push!(all_data, dons)
     push!(time_data, gettime(solver_config.solver))
     nothing
 end;
 
-# # Run the integration
 ClimateMachine.invoke!(solver_config; user_callbacks = (callback,));
 
 
-# # Create some plots
 
-output_dir = @__DIR__;
+function compute_at_surface(array, x, z)
+    fluxes = []
+    for i in unique(x)
+        q = [x .== i][1]
+        loc = round.(z[q] .* 10) .== maximum(round.(z[q].*10))
+        value = mean(array[q][loc])
+        push!(fluxes, value)
+    end
+    return fluxes
+end
 
-t = time_data ./ (60);
+N = length(all_data)
 
+i_c_of_t = [mean(compute_at_surface(all_data[k]["Khz"][:],x[:],z[:])) for k in 1:N]
+precip = precip_of_t.(time_data[1:N])
+
+ztrue = inverse_warp_maxwell_slope.(x,y,z; topo_max = 0.2, zmin = -3, xmax = 400)
+surface_locs = round.(ztrue[:] .* 100) .== 0
+####Get actual BC
+function compute_bc(all_data, N,x,y,z, surface_locs)
+    aux_structure = vars_state(m, Auxiliary(), FT)
+    st_structure = vars_state(m, Prognostic(), FT)
+    x1 = x[:][surface_locs]
+    y1 = y[:][surface_locs]
+    z1 = z[:][surface_locs]
+    h1 = FT(0.0)
+    k1 = FT(0.0)
+    θi1 = FT(0.0)
+    i_arr = zeros(N, length(z1))
+    i_meas = zeros(N)
+    moisture = zeros(N, length(z1))
+    for i in 1:N
+        K∇h  = all_data[i]["Khz"][:][surface_locs]
+        i_meas[i] = mean(K∇h)
+        ϑ1 = all_data[i]["ϑ_l"][:][surface_locs]
+        for k in 1:length(z1)
+            
+            aux_vals = [x1[k], y1[k], z1[k], h1, k1]
+            aux_m = MArray{Tuple{varsize(aux_structure)}, FT}(aux_vals)
+            theaux = Vars{aux_structure}(aux_m)
+            
+            
+            st_vals = [ϑ1[k], θi1]
+            st_m = MArray{Tuple{varsize(st_structure)}, FT}(st_vals)
+            thest = Vars{st_structure}(st_m)
+            t = time_data[i]
+            infiltration = compute_surface_flux(m_soil,bc.surface_bc.soil_water.runoff_model,bc.surface_bc.soil_water.precip_model, theaux, thest, t)
+            i_arr[i,k] = infiltration
+            moisture[i,k] =  ϑ1[k]
+            
+        end
+    end
+    return x1,y1,z1, i_meas, i_arr, moisture
+end
+xv,yv,zv, imv, iv,mmv = compute_bc(all_data, N, x,y,z,surface_locs)
+
+top_moisture = [mean(mmv[k,:]) for k in 1:N]
+effective_s  = volumetric_liquid_fraction.(top_moisture,Ref(0.4)) ./ 0.4
+ψ = matric_potential.(Ref(soil_water_model.hydraulics), effective_s)
+expected = soil_param_functions.Ksat .* (1 .- ψ/zres)
+iiii = [mean(iv[k,:]) for k in 1:N]
+plot(time_data ./ 60, log10.(i_c_of_t), label  ="mean, measured from simulation")
+plot!(time_data ./ 60, log10.(expected), label  = "i_c", color = "red")
+plot!(time_data ./ 60, log10.(-precip), label  = "precip", color = "purple")
+plot!(time_data ./ 60, log10.(-iiii), label  = "mean flux BC", color = "black")
+scatter!([0,0],[0,0] .+ log10(soil_param_functions.Ksat), label = "Ksat")
+plot!(xlabel = "Time (minutes)")
+plot!(ylabel = "Flux at surface (m/s)")
+plot!(legend = :bottomright)
+plot!(title = "Dunne turned off")
+savefig("./tutorials/Land/Soil/Water/horton_infiltration.png")#_dunne_off.png")
+
+
+#would be much better as a contour plot!!
+
+function f2(k)
+    locs = z .> -1
+    θvals = all_data[k]["ϑ_l"][locs]
+    xvals = x[locs]
+    zvals  = z[locs]
+    
+    myvals =unique([[round(100*xvals[k])/100,round(100*zvals[k])/100] for k in 1:length(xvals)])
+    θ2 = zeros(length(myvals))
+    θ1 = zeros(length(myvals))
+    X = [myvals[k][1] for k in 1:length(myvals)]
+    Z = [myvals[k][2] for k in 1:length(myvals)]
+    for i in 1:length(myvals)
+        pair = myvals[i]
+        if (pair[1] .* 100)./100 == 0.0
+            loc = (Int.(round.(zvals .* 100)./100 .== pair[2]) .+ Int.(round.(xvals .* 100)./100 .== pair[1])) .== 2
+            θ1[i] = mean(θvals[loc])
+        elseif (pair[1] .* 100)./100 == 400.0
+            loc = (Int.(round.(zvals .* 100)./100 .== pair[2]) .+ Int.(round.(xvals .* 100)./100 .== pair[1])) .== 2
+            θ2[i] = mean(θvals[loc])
+        end
+        
+    end
+    plot(θ1[θ1.!=0]./0.4,Z[θ1 .!=0],xlim = [0.29,0.38]./0.4, label = "downslope", xlabel = "S_l", ylabel = "Depth")
+    plot!(θ2[θ2.!=0]./0.4,Z[θ2 .!=0], xlim = [0.29,0.38]./0.4, label = "upslope")
+    plot!(legend = :topright)
+
+end
+anim = @animate for i in 1:Int(50)
+    f2(i*10)
+end
+(gif(anim, "./tutorials/Land/Soil/Water/horton_surface_moisture.gif", fps = 8))#_dunne_off.gif", fps = 8))

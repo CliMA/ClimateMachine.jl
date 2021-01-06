@@ -7,6 +7,8 @@ using ...Land:matric_potential, effective_saturation, volumetric_liquid_fraction
 
 export DrivenConstantPrecip,
     compute_surface_flux,
+    compute_dunne_runoff,
+    compute_horton_runoff,
     NoRunoff,
     TopmodelRunoff,
     AbstractPrecipModel,
@@ -174,7 +176,7 @@ end
 """
   function compute_ic(soilmodel)
 
-Compute infiltration capacity. Currently a stand-in.
+Compute infiltration capacity. Positive by convention.
 """
 function compute_ic(soil::SoilModel, runoff_model::CoarseGridRunoff,state::Vars)
     FT = eltype(state)
@@ -192,7 +194,7 @@ end
 """
   function compute_horton_runoff(runoff_model, precip_model, state)
 
-Compute Horton runoff.
+Compute Horton runoff. Runoff, if nonzero, is positive.
 """
 function compute_horton_runoff(soil::SoilModel,
                                runoff_model::CoarseGridRunoff{FT},
@@ -210,8 +212,10 @@ function compute_horton_runoff(soil::SoilModel,
         effective_porosity,
         state.soil.water.ϑ_l,
     )
-    if coarse_S_l < FT(1) && incident_water_flux > ic
-        horton_runoff = incident_water_flux - ic
+    # i_c > 0 by definition. If incident water flux points in -z and is larger in mag,
+    # runoff. if it is smaller in mag (or positive), there is no runoff.
+    if coarse_S_l < FT(1) && incident_water_flux < -ic
+        horton_runoff = abs(incident_water_flux) - ic # defined to be positive
     else
         horton_runoff = FT(0.0)
     end
@@ -261,7 +265,7 @@ function compute_Dunne_runoff(soil::SoilModel,
     
     dunne_runoff = mean_p*cdf_x
 
-    return dunne_runoff
+    return dunne_runoff#CHECK SIGN
 end
 
 
@@ -280,8 +284,9 @@ function compute_dunne_runoff(soil::SoilModel,
     )
     
     mean_p = compute_mean_p(precip_model,t)
-    if coarse_S_l >= FT(1)
-	dunne_runoff = mean_p
+    incident_water_flux = mean_p
+    if coarse_S_l >= FT(1) && incident_water_flux < FT(0)#if evap >precip, no runoff
+	dunne_runoff = abs(incident_water_flux) # positive.
     else
 	dunne_runoff = FT(0.0)
     end
@@ -302,7 +307,7 @@ function compute_surface_runoff(soil::SoilModel,
                                )
     r_l_dunne = compute_dunne_runoff(soil, runoff_model, precip_model, aux, state, t)
     r_l_horton = compute_horton_runoff(soil, runoff_model, precip_model, aux, state, t)
-   return r_l_dunne#+r_l_horton
+   return r_l_horton+r_l_dunne
 end
 
 function compute_surface_flux(soil::SoilModel,
@@ -313,8 +318,9 @@ function compute_surface_flux(soil::SoilModel,
                               t::Real
                               )
     mean_p = compute_mean_p(precip_model,t)
+    incident_water_flux = mean_p
     net_runoff = compute_surface_runoff(soil, runoff_model, precip_model, aux, state, t)
-    net_flux = mean_p-net_runoff
+    net_flux = incident_water_flux-(-net_runoff)
     return net_flux
 end
 

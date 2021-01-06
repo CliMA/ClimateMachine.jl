@@ -52,31 +52,28 @@ soil_param_functions = SoilParamFunctions{FT}(
 # not supplied must be set to `nothing`.
 
 heaviside(x) = 0.5 * (sign(x) + 1)
-#surface_flux = (aux, t) -> eltype(aux)(((3.3e-4)/60) * heaviside(200*60-t)) # check units -- 
-# m3 right? eltype(aux)(0.0)
-#bottom_flux = (aux, t) -> eltype(aux)(0.0)
-#surface_state = nothing
-#bottom_state = nothing
-
-#check that this is the right type
-#also need to check that it is being enforced
-precip_of_t = (t) -> eltype(t)(((3.3e-4)/60) * heaviside(200*60-t))
+sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/width)))
+precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 200*60,10)))#heaviside(200*60-t))
 # Define the initial state function. The default for `θ_i` is zero.
-ϑ_l0 = (aux) -> eltype(aux)(0.2 + 0.2 * heaviside((-1.0)-aux.z))
-
-
-bc =  PhysicalFluxBoundaryConditions(FT;
-    precip_dist = ConstantPrecip{FT}(; mp = precip_of_t),
-    runoff_model = NoRunoff()
+ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.05 * sigmoid(aux.z, -1.0,0.02))#heaviside((-0.5)-aux.z))
+zres = FT(0.05)
+bc =  LandDomainBC(
+    bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
+    surface_bc = LandComponentBC(soil_water = SurfaceDrivenWaterBoundaryConditions(FT;
+                                                precip_model = DrivenConstantPrecip{FT}(precip_of_t),
+                                                runoff_model = CoarseGridRunoff{FT}(zres)
+                                                                                   )),
 )
+
+
+
 
 soil_water_model = SoilWaterModel(
     FT;
     moisture_factor = MoistureDependent{FT}(),
-    hydraulics = vanGenuchten{FT}(n = 2.0,  α = 1.0), # changed alpha to 1, n to 2
+    hydraulics = vanGenuchten{FT}(n = 2.0,  α = 100.0), # changed alpha to 1, n to 2
     #but need to verify units for alpha (KMDyes)
     initialϑ_l = ϑ_l0,
-    boundaries = bc,
 );
 
 # Create the soil model - the coupled soil water and soil heat models.
@@ -97,6 +94,7 @@ end
 m = LandModel(
     param_set,
     m_soil;
+    boundary_conditions = bc,
     source = sources,
     init_state_prognostic = init_soil_water!,
 );
@@ -104,12 +102,12 @@ m = LandModel(
 # # Specify the numerical configuration and output data.
 
 # Specify the polynomial order and vertical resolution.
-N_poly = 2;
-nelem_vert = 20;
+N_poly = 1;
+nelem_vert = 40;
 
 # Specify the domain boundaries.
 zmax = FT(0);
-zmin = FT(-5);
+zmin = FT(-3);
 
 # The atmosphere is dry and the flow impinges against a witch of Agnesi mountain of heigh $h_{m}=1$m
 # and base parameter $a=10000m$ and centered on $x_{c} = 120km$ in a 2D domain
@@ -152,12 +150,12 @@ driver_config = ClimateMachine.SingleStackConfiguration(
     m;
     zmin = zmin,
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
-    meshwarp = (x...) -> warp_maxwell_slope(x...),#setmax(warp_agnesi, xmax, ymax, zmax),
+    #meshwarp = (x...) -> warp_maxwell_slope(x...),#setmax(warp_agnesi, xmax, ymax, zmax),
 );
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60*4) # * 300)
+timeend = FT(60*100) # * 300)
 dt = FT(3); #5
 
 # Create the solver configuration.
@@ -165,7 +163,7 @@ solver_config =
     ClimateMachine.SolverConfiguration(t0, timeend, driver_config, ode_dt = dt);
 
 # Determine how often you want output.
-const n_outputs = 5;
+const n_outputs = 500;
 
 const every_x_simulation_time = ceil(Int, timeend / n_outputs);
 
@@ -248,3 +246,4 @@ plot!(
 # save the output.
 savefig(joinpath(output_dir, "maxwell_test_infiltation.png"))
 # # References
+xs
