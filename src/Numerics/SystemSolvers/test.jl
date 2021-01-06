@@ -34,16 +34,16 @@ end
         originalsolver1 = GeneralizedMinimalResidual(x0, M = 20)
         originalsolver2 = BatchedGeneralizedMinimalResidual(x0, 500, 2, forward_reshape = (500, 2), forward_permute = (1, 2))
         originalsolver3 = BatchedGeneralizedMinimalResidual(x0, 250, 4, forward_reshape = (250, 4), forward_permute = (1, 2))
-        newsolver1 = IterativeSolver(GeneralizedMinimalResidualAlgorithm(), f!, x0, b)
-        newsolver2 = IterativeSolver(BatchedGeneralizedMinimalResidualAlgorithm(dims = (500, 2), batchdimindices = (1,)), f!, x0, b)
-        newsolver3 = IterativeSolver(BatchedGeneralizedMinimalResidualAlgorithm(dims = (250, 4), batchdimindices = (1,)), f!, x0, b)
+        newsolver1 = IterativeSolver(GeneralizedMinimalResidualAlgorithm(), x0, f!, b)
+        newsolver2 = IterativeSolver(BatchedGeneralizedMinimalResidualAlgorithm(dims = (500, 2), batchdimindices = (1,)), x0, f!, b)
+        newsolver3 = IterativeSolver(BatchedGeneralizedMinimalResidualAlgorithm(dims = (250, 4), batchdimindices = (1,)), x0, f!, b)
 
         iters1 = linearsolve!(f!, nothing, originalsolver1, x1, b)
         iters2 = linearsolve!(f!, nothing, originalsolver2, x2, b)
         iters3 = linearsolve!(f!, nothing, originalsolver3, x3, b)
-        iters4 = solve!(newsolver1, f!, x4, b)
-        iters5 = solve!(newsolver2, f!, x5, b)
-        iters6 = solve!(newsolver3, f!, x6, b)
+        iters4 = solve!(newsolver1, x4, f!, b)
+        iters5 = solve!(newsolver2, x5, f!, b)
+        iters6 = solve!(newsolver3, x6, f!, b)
 
         println("Linear ($T): $iters1, $iters2, $iters3, $iters4, $iters5, $iters6")
         @test x1 == x4
@@ -65,12 +65,12 @@ end
 
         originalsolver = JacobianFreeNewtonKrylovSolver(x1, GeneralizedMinimalResidual(x0, M = 20))
         originaljvp = JacobianAction(tsf!, x0, originalsolver.ϵ)
-        newsolver1 = IterativeSolver(JacobianFreeNewtonKrylovAlgorithm(GeneralizedMinimalResidualAlgorithm()), f!, x0, b)
-        newsolver2 = IterativeSolver(JacobianFreeNewtonKrylovAlgorithm(GeneralizedMinimalResidualAlgorithm(), autodiff = true), f!, x0, b)
+        newsolver1 = IterativeSolver(JacobianFreeNewtonKrylovAlgorithm(GeneralizedMinimalResidualAlgorithm()), x0, f!, b)
+        newsolver2 = IterativeSolver(JacobianFreeNewtonKrylovAlgorithm(GeneralizedMinimalResidualAlgorithm(), autodiff = true), x0, f!, b)
 
         iters1 = nonlinearsolve!(tsf!, originaljvp, nothing, originalsolver, x1, b, max_newton_iters = 10000)
-        iters2 = solve!(newsolver1, f!, x2, b)
-        iters3 = solve!(newsolver2, f!, x3, b)
+        iters2 = solve!(newsolver1, x2, f!, b)
+        iters3 = solve!(newsolver2, x3, f!, b)
 
         println("Nonlinear ($T): $iters1, $iters2, $iters3")
         @test x1 == x2
