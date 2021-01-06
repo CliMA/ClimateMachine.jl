@@ -1002,150 +1002,6 @@ function cubedshellwarp(a, b, c, R = max(abs(a), abs(b), abs(c)))
     return x1, x2, x3
 end
 
-"""
-    compute_lat_long(X,Y,δ,faceid)
-Helper function to allow computation of latitute and longitude coordinates
-given the cubed sphere coordinates X, Y, δ, faceid 
-TODO: [Citation required]
-"""
-function compute_lat_long(X,Y,δ,faceid)
-        if faceid == 1
-            λ = atan(X)                     # longitude 
-            ϕ = atan(cos(λ) * Y)            # latitude
-        elseif faceid == 2
-            λ = atan(X) + π / 2
-            ϕ = atan(Y * cos(atan(X)))
-        elseif faceid == 3
-            λ = atan(X) + π
-            ϕ = atan(Y * cos(atan(X)))
-        elseif faceid == 4
-            λ = atan(X) + (3 / 2) * π
-            ϕ = atan(Y * cos(atan(X)))
-        elseif faceid == 5
-            λ = atan(X, -Y) + π
-            ϕ = atan(1 / sqrt(δ - 1))
-        elseif faceid == 6
-            λ = atan(X, Y)
-            ϕ = -atan(1 / sqrt(δ - 1))
-        end
-    return λ,ϕ
-end
-
-
-"""
-    AnalyticalTopography
-Abstract type to allow dispatch over different analytical topography prescriptions 
-in experiments. 
-"""
-abstract type AnalyticalTopography end
-
-function compute_analytical_topography(::AnalyticalTopography,
-                                       λ, ϕ, sR,
-                                       r_inner, r_outer)
-    return sR
-end
-
-"""
-    NoAnalyticalTopoWarp <: AnalyticalTopography
-Allows definition of fallback methods in case cubedshelltopowarp is used with 
-no prescribed topography function. 
-"""
-struct NoAnalyticalTopoWarp <: AnalyticalTopography end
-
-
-### DCMIP Mountain 
-struct DCMIPMountain <: AnalyticalTopography end
-function compute_analytical_topography(::DCMIPMountain,
-                                       λ, ϕ, sR,
-                                       r_inner, r_outer)
-        #User specified warp parameters
-        R_m = π * 3 / 4
-        h0 = 10000
-        ζ_m = π / 16
-        φ_m = 0
-        λ_m = π * 3 / 2
-        r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-        # Define mesh decay profile 
-        Δ = 1 #(r_outer - abs(sR)) / (r_outer - r_inner)
-        if r_m < R_m
-            zs =
-                0.5 *
-                h0 *
-                (1 + cos(π * r_m / R_m)) *
-                cos(π * r_m / ζ_m) *
-                cos(π * r_m / ζ_m)
-        else
-            zs = 0.0
-        end
-        mR = sign(sR) * (abs(sR) + zs * Δ)
-        return mR 
-end
-
-"""
-    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
-                       r_inner = _planet_radius,
-                       r_outer = _planet_radius + domain_height,
-                       topography = NoTopography())
-
-Given points `(a, b, c)` on the surface of a cube, warp the points out to a
-spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
-[Ronchi1996](@cite). Assumes a user specified modified radius using the 
-compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified 
-via the AnalyticalTopography type.
-"""
-function cubedshelltopowarp(
-    a,
-    b,
-    c,
-    R = max(abs(a), abs(b), abs(c));
-    r_inner = _planet_radius,
-    r_outer = _planet_radius + domain_height,
-    topography::AnalyticalTopography = NoTopography(),
-)
-
-    function f(sR, ξ, η, faceid)
-        X, Y = tan(π * ξ / 4), tan(π * η / 4)
-        δ = 1 + X^2 + Y^2
-        λ,ϕ = compute_lat_long(X,Y,δ,faceid)
-        mR = compute_analytical_topography(topography, 
-                                           λ, ϕ, sR, 
-                                           r_inner, r_outer)
-        x1 = mR / sqrt(δ)
-        x2, x3 = X * x1, Y * x1
-        x1, x2, x3
-    end
-    fdim = argmax(abs.((a, b, c)))
-
-    if fdim == 1 && a < 0
-        faceid = 1
-        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
-        x1, x2, x3 = f(-R, b / a, c / a, faceid)
-    elseif fdim == 2 && b < 0
-        faceid = 2
-        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
-        x2, x1, x3 = f(-R, a / b, c / b, faceid)
-    elseif fdim == 1 && a > 0
-        faceid = 3
-        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
-        x1, x2, x3 = f(R, b / a, c / a, faceid)
-    elseif fdim == 2 && b > 0
-        faceid = 4
-        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
-        x2, x1, x3 = f(R, a / b, c / b, faceid)
-    elseif fdim == 3 && c > 0
-        faceid = 5
-        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
-        x3, x2, x1 = f(R, b / c, a / c, faceid)
-    elseif fdim == 3 && c < 0
-        faceid = 6
-        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
-        x3, x2, x1 = f(-R, b / c, a / c, faceid)
-    else
-        error("invalid case for cubedshellwarp: $a, $b, $c")
-    end
-
-    return x1, x2, x3
-end
 
 """
     cubedshellunwarp(x1, x2, x3)
@@ -1502,6 +1358,153 @@ function basic_topology_info(topology::AbstractTopology)
         nelem = length(topology.elems),
         nrealelem = length(topology.realelems),
     )
+end
+
+
+### Helper Functions for Topography Calculations
+"""
+    compute_lat_long(X,Y,δ,faceid)
+Helper function to allow computation of latitute and longitude coordinates
+given the cubed sphere coordinates X, Y, δ, faceid 
+TODO: [Citation required]
+"""
+function compute_lat_long(X,Y,δ,faceid)
+        if faceid == 1
+            λ = atan(X)                     # longitude 
+            ϕ = atan(cos(λ) * Y)            # latitude
+        elseif faceid == 2
+            λ = atan(X) + π / 2
+            ϕ = atan(Y * cos(atan(X)))
+        elseif faceid == 3
+            λ = atan(X) + π
+            ϕ = atan(Y * cos(atan(X)))
+        elseif faceid == 4
+            λ = atan(X) + (3 / 2) * π
+            ϕ = atan(Y * cos(atan(X)))
+        elseif faceid == 5
+            λ = atan(X, -Y) + π
+            ϕ = atan(1 / sqrt(δ - 1))
+        elseif faceid == 6
+            λ = atan(X, Y)
+            ϕ = -atan(1 / sqrt(δ - 1))
+        end
+    return λ,ϕ
+end
+
+
+"""
+    AnalyticalTopography
+Abstract type to allow dispatch over different analytical topography prescriptions 
+in experiments. 
+"""
+abstract type AnalyticalTopography end
+
+function compute_analytical_topography(::AnalyticalTopography,
+                                       λ, ϕ, sR,
+                                       r_inner, r_outer)
+    return sR
+end
+
+"""
+    NoAnalyticalTopoWarp <: AnalyticalTopography
+Allows definition of fallback methods in case cubedshelltopowarp is used with 
+no prescribed topography function. 
+"""
+struct NoAnalyticalTopoWarp <: AnalyticalTopography end
+
+
+### DCMIP Mountain 
+struct DCMIPMountain <: AnalyticalTopography end
+function compute_analytical_topography(::DCMIPMountain,
+                                       λ, ϕ, sR,
+                                       r_inner, r_outer)
+        #User specified warp parameters
+        R_m = π * 3 / 4
+        h0 = 10000
+        ζ_m = π / 16
+        φ_m = 0
+        λ_m = π * 3 / 2
+        r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
+        # Define mesh decay profile 
+        Δ = 1 #(r_outer - abs(sR)) / (r_outer - r_inner)
+        if r_m < R_m
+            zs =
+                0.5 *
+                h0 *
+                (1 + cos(π * r_m / R_m)) *
+                cos(π * r_m / ζ_m) *
+                cos(π * r_m / ζ_m)
+        else
+            zs = 0.0
+        end
+        mR = sign(sR) * (abs(sR) + zs * Δ)
+        return mR 
+end
+
+"""
+    cubedshelltopowarp(a, b, c, R = max(abs(a), abs(b), abs(c)); 
+                       r_inner = _planet_radius,
+                       r_outer = _planet_radius + domain_height,
+                       topography = NoTopography())
+
+Given points `(a, b, c)` on the surface of a cube, warp the points out to a
+spherical shell of radius `R` based on the equiangular gnomonic grid proposed by
+[Ronchi1996](@cite). Assumes a user specified modified radius using the 
+compute_analytical_topography function. Defaults to smooth cubed sphere unless otherwise specified 
+via the AnalyticalTopography type.
+"""
+function cubedshelltopowarp(
+    a,
+    b,
+    c,
+    R = max(abs(a), abs(b), abs(c));
+    r_inner = _planet_radius,
+    r_outer = _planet_radius + domain_height,
+    topography::AnalyticalTopography = NoTopography(),
+)
+
+    function f(sR, ξ, η, faceid)
+        X, Y = tan(π * ξ / 4), tan(π * η / 4)
+        δ = 1 + X^2 + Y^2
+        λ,ϕ = compute_lat_long(X,Y,δ,faceid)
+        mR = compute_analytical_topography(topography, 
+                                           λ, ϕ, sR, 
+                                           r_inner, r_outer)
+        x1 = mR / sqrt(δ)
+        x2, x3 = X * x1, Y * x1
+        x1, x2, x3
+    end
+    fdim = argmax(abs.((a, b, c)))
+
+    if fdim == 1 && a < 0
+        faceid = 1
+        # (-R, *, *) : Face I from Ronchi, Iacono, Paolucci (1996)
+        x1, x2, x3 = f(-R, b / a, c / a, faceid)
+    elseif fdim == 2 && b < 0
+        faceid = 2
+        # ( *,-R, *) : Face II from Ronchi, Iacono, Paolucci (1996)
+        x2, x1, x3 = f(-R, a / b, c / b, faceid)
+    elseif fdim == 1 && a > 0
+        faceid = 3
+        # ( R, *, *) : Face III from Ronchi, Iacono, Paolucci (1996)
+        x1, x2, x3 = f(R, b / a, c / a, faceid)
+    elseif fdim == 2 && b > 0
+        faceid = 4
+        # ( *, R, *) : Face IV from Ronchi, Iacono, Paolucci (1996)
+        x2, x1, x3 = f(R, a / b, c / b, faceid)
+    elseif fdim == 3 && c > 0
+        faceid = 5
+        # ( *, *, R) : Face V from Ronchi, Iacono, Paolucci (1996)
+        x3, x2, x1 = f(R, b / c, a / c, faceid)
+    elseif fdim == 3 && c < 0
+        faceid = 6
+        # ( *, *,-R) : Face VI from Ronchi, Iacono, Paolucci (1996)
+        x3, x2, x1 = f(-R, b / c, a / c, faceid)
+    else
+        error("invalid case for cubedshellwarp: $a, $b, $c")
+    end
+
+    return x1, x2, x3
 end
 
 end

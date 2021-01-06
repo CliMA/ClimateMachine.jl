@@ -37,7 +37,7 @@ function set_topofun(f, r_inner, r_outer, topography)
             max(abs(a), abs(b), abs(c));
             r_inner = r_inner,
             r_outer = r_outer,
-            topography = DCMIPMountain(),
+            topography = topography,
         )
     end
     return wrapper_topo
