@@ -38,6 +38,18 @@ struct HydrostaticState{P, FT} <: ReferenceState
     relative_humidity::FT
     subtract_off::Bool
 end
+"""
+    HydrostaticState(
+        virtual_temperature_profile,
+        relative_humidity = 0;
+        subtract_off = true,
+    )
+
+Construct a `HydrostaticState` given virtual temperature profile and
+relative humidity. The keyword argument `subtract_off` controls
+whether the constructed state is subtracted off in the prognostic
+momentum equation to remove hydrostatic contribution.
+"""
 function HydrostaticState(
     virtual_temperature_profile::TemperatureProfile{FT},
     relative_humidity = FT(0);
@@ -243,15 +255,13 @@ function ∇reference_pressure(::ReferenceState, state_auxiliary, grid)
     return ∇p
 end
 
-"""
-ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
-"""
 function fvm_balance_init!(
     m::AtmosModel,
     aux_bot::Vars,
     aux::Vars,
     Δz::MArray{Tuple{2}, FT},
 ) where {FT}
+    # ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
     _grav::FT = grav(m.param_set)
     aux.ref_state.ρ =
         (
