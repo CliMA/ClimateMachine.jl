@@ -153,17 +153,6 @@ const _n1, _n2, _n3 = Grids._n1, Grids._n2, Grids._n3
 const _sM, _vMI = Grids._sM, Grids._vMI
 
 
-function gradient_argument(
-  m::AdvectionDiffusion,
-  state,
-  aux,
-  t,
-)
-  (ρ = state.ρ,)
-end
-gradient_extract(m::AdvectionDiffusion, args...) = gradient_extract(m.diffusion, args...)
-gradient_extract(::Diffusion{1}, ∇vars, state, aux, t) = (σ = aux.diffusion.D * ∇vars.ρ,)
-
 
 
 
@@ -220,7 +209,7 @@ end
 end
 
 
-
+#=
 function _unpack_grad_args(::Type{FT}, idx) where {FT<:Real}
   return :(v[:,$idx]), idx+1
 end
@@ -247,72 +236,80 @@ end
 @generated function unpack_grad(::Type{T}, v) where {T}
   _unpack_grad_args(T,1)[1]
 end
+=#
 
 using HybridArrays
+import ClimateMachine.MPIStateArrays: vars, array_device
 
+Hprog= HybridArray{Tuple{5,5,5,1,StaticArrays.Dynamic()}}(reshape(Q.data, (5,5,5,1,64)))
+Haux = HybridArray{Tuple{5,5,5,15,StaticArrays.Dynamic()}}(reshape(dg.state_auxiliary.data, (5,5,5,15,64)))
+Hgradpost = HybridArray{Tuple{5,5,5,3,StaticArrays.Dynamic()}}(reshape(dg.state_gradient_flux.data,(5,5,5,3,64)))
 
-reshape(Q.data, (5,5))
+Base.ndims(::KernelAbstractions.ScratchArray{N}) where {N} = N
 
-struct Field{V,A}
+struct PackedArray{V,D,A,N} <: AbstractArray{V,N}
   data::A
 end
-Field{V}(data::A) where {V,A} = Field{V,A}(data)
-MPIStateArrays.vars(::Field{V}) where {V} = V
+PackedArray{V,D}(data::A) where {V,D,A} = PackedArray{V,D,A,ndims(data)-1}(data)
+vars(::PackedArray{V}) where {V} = V
+array_device(P::PackedArray) = array_device(P.data)
+array_device(H::HybridArray) = array_device(H.data)
+
+Base.getindex(P::PackedArray{V,1},i::Integer) where {V} = unpack(V,P.data[:,i])
+
+Base.getindex(P::PackedArray{V,2},i::Integer) where {V} = unpack(V,P.data[i,:])
+Base.getindex(P::PackedArray{V,3},i::Integer, j::Integer) where {V} = unpack(V,P.data[i,j,:])
+
+Base.getindex(P::PackedArray{V,4},i::Integer,j::Integer,k::Integer,e::Integer) where {V} = unpack(V,P.data[i,j,k,:,e])
+Base.getindex(P::PackedArray{V,4},i::Integer,j::Integer,k::Colon,  e::Integer) where {V} = PackedArray{V,2}(P.data[i,j,k,:,e])
+
+
+# "Full" field
+const FField{V,FT,N1,N2,N3,NV,A} = PackedArray{V,4,HybridArray{Tuple{N1,N2,N3,NV,StaticArrays.Dynamic()},FT,5,5,A}}
+
+FField{V}(array) where {V} = PackedArray{V,4}(array)
+
+
+Fprog = FField{vars(Q)}(Hprog)
+Faux = FField{vars(dg.state_auxiliary)}(Haux)
+Fgradpost = FField{vars(dg.state_gradient_flux)}(Hgradpost)
+
+
+gradarg(state, aux, t) = (ρ = state.ρ,)
+gradpost(∇vars, state, aux, t) = (σ = aux.diffusion.D * ∇vars.ρ,)
+
 
 @kernel function volume_gradients!(
-  balance_law::BalanceLaw,
-  ::Val{info},
+  gradarg::FnGradArg,
+  gradpost::FnGradPost,
+  Fprog::FField{ProgType,FT,Nq1,Nq2,Nq3,Nprog},
+  Faux::FField{AuxType,FT,Nq1,Nq2,Nq3,Naux},
+  Fgradpost::FField{GradType,FT,Nq1,Nq2,Nq3,Ngradpost},
   direction,
-  state_prognostic,
-  state_gradient_flux,
-  Qhypervisc_grad,
-  state_auxiliary,
-  vgeo,
+  Fvgeo,
   t,
   D,
-  ::Val{hypervisc_indexmap},
-  elems,
   increment = false,
-) where {info, hypervisc_indexmap}
+) where {FnGradArg,FnGradPost,ProgType,AuxType,GradType,FT,Nq1,Nq2,Nq3,Nprog,Naux,Ngradpost}
   @uniform begin
-      dim = info.dim
-      FT = eltype(state_prognostic.data)
-
-      PrognosticType = vars(state_prognostic)
-      AuxiliaryType = vars(state_auxiliary)
-
       TransformType = Core.Compiler.return_type(
-        gradient_argument,
-        Tuple{typeof(balance_law), PrognosticType, AuxiliaryType, typeof(t)}
+        gradarg,
+        Tuple{ProgType, AuxType, typeof(t)}
       )
-
-      num_state_prognostic = length(packtype(FT, PrognosticType))
-      ngradstate = length(packtype(FT, TransformType))
-      num_state_auxiliary = length(packtype(FT, AuxiliaryType))
-
-      num_state_gradient_flux = number_states(balance_law, GradientFlux())
-
-      # Kernel assumes same polynomial order in both
-      # horizontal directions (x, y)
-      @inbounds Nq1 = info.Nq[1]
-      @inbounds Nq2 = info.Nq[2]
-      Nq3 = info.Nqk
-
-      ngradtransformstate = num_state_prognostic
-
-      local_transform = MArray{Tuple{ngradstate}, FT}(undef)
-      local_state_gradient_flux =
-          MArray{Tuple{num_state_gradient_flux}, FT}(undef)
+      NGrad = length(packtype(FT, TransformType))
   end
 
   # Transformation from conservative variables to
   # primitive variables (i.e. ρu → u)
-  shared_transform = @localmem FT (Nq1, Nq2, ngradstate)
+  shared_transform = @localmem FT (Nq1, Nq2, NGrad)
 
-  local_state_prognostic = @private FT (ngradtransformstate, Nq3)
-  local_state_auxiliary = @private FT (num_state_auxiliary, Nq3)
-  local_transform_gradient = @private FT (3, ngradstate, Nq3)
-  Gξ3 = @private FT (ngradstate, Nq3)
+  local_transform_gradient = @private SVector{3,FT} (NGrad, Nq3)
+  local_prog = @private FT (Nprog, Nq3)
+  local_aux = @private FT (Naux, Nq3)
+  Gξ3 = @private FT (NGrad, Nq3)
+
+  @uniform L3prog = PackedArray{ProgType,2}(local_prog)
+  @uniform L3aux = PackedArray{AuxType,2}(local_aux)
 
   # Grab the index associated with the current element `e` and the
   # horizontal quadrature indices `i` (in the ξ1-direction),
@@ -321,49 +318,35 @@ MPIStateArrays.vars(::Field{V}) where {V} = V
   e = @index(Group, Linear)
   i, j = @index(Local, NTuple)
 
+  @inbounds begin
 
-  @inbounds @views begin
       @unroll for k in 1:Nq3
           # Initialize local gradient variables
-          @unroll for s in 1:ngradstate
-              local_transform_gradient[1, s, k] = -zero(FT)
-              local_transform_gradient[2, s, k] = -zero(FT)
-              local_transform_gradient[3, s, k] = -zero(FT)
+          @unroll for s in 1:NGrad
+              local_transform_gradient[s,k] = SVector{3,FT}(-0,-0,-0)
               Gξ3[s, k] = -zero(FT)
           end
-
-          # Load prognostic and auxiliary variables
-          ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-          @unroll for s in 1:ngradtransformstate
-              local_state_prognostic[s, k] = state_prognostic.data[ijk, s, e]
+          @unroll for s in 1:Nprog
+            local_prog[s,k] = Fprog.data[i,j,k,s,e]
           end
-          @unroll for s in 1:num_state_auxiliary
-              local_state_auxiliary[s, k] = state_auxiliary.data[ijk, s, e]
+          @unroll for s in 1:Naux
+            local_aux[s,k] = Faux.data[i,j,k,s,e]
           end
       end
 
       # Compute G(q) and write the result into shared memory
       @unroll for k in 1:Nq3
-          local_transform = gradient_argument(
-            balance_law,
-            unpack(vars(state_prognostic), local_state_prognostic[:,k]),
-            unpack(vars(state_auxiliary), local_state_auxiliary[:,k]),
-            t,
-          )
-          local_transform_vec = pack(FT, local_transform)
-          @unroll for s in 1:ngradstate
-              shared_transform[i, j, s] = local_transform_vec[s]
-          end
+          transform = gradarg(unpack(ProgType, local_prog[:,k]), unpack(AuxType, local_aux[:,k]), t)
+          shared_transform[i, j, :] = pack(FT, transform)
 
           # Synchronize threads on the device
           @synchronize
 
-          ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-          ξ1x1, ξ1x2, ξ1x3 =
-              vgeo[ijk, _ξ1x1, e], vgeo[ijk, _ξ1x2, e], vgeo[ijk, _ξ1x3, e]
+          ξ1x = Fvgeo[i,j,k,e].∂ξ∂x[1,:]
+          ξ2x = Fvgeo[i,j,k,e].∂ξ∂x[2,:]
 
           # Compute gradient of each state
-          @unroll for s in 1:ngradstate
+          @unroll for s in 1:NGrad
               Gξ1 = Gξ2 = zero(FT)
 
               @unroll for n in 1:Nq1
@@ -381,17 +364,10 @@ MPIStateArrays.vars(::Field{V}) where {V} = V
               # Application of chain-rule in ξ1 and ξ2 directions,
               # ∂G/∂xi = ∂ξ1/∂xi * ∂G/∂ξ1, ∂G/∂xi = ∂ξ2/∂xi * ∂G/∂ξ2
               # to get a physical gradient
-              local_transform_gradient[1, s, k] += ξ1x1 * Gξ1
-              local_transform_gradient[2, s, k] += ξ1x2 * Gξ1
-              local_transform_gradient[3, s, k] += ξ1x3 * Gξ1
+              local_transform_gradient[s, k] += ξ1x .* Gξ1
 
               if dim == 3 || (dim == 2 && direction isa EveryDirection)
-                  ξ2x1, ξ2x2, ξ2x3 = vgeo[ijk, _ξ2x1, e],
-                  vgeo[ijk, _ξ2x2, e],
-                  vgeo[ijk, _ξ2x3, e]
-                  local_transform_gradient[1, s, k] += ξ2x1 * Gξ2
-                  local_transform_gradient[2, s, k] += ξ2x2 * Gξ2
-                  local_transform_gradient[3, s, k] += ξ2x3 * Gξ2
+                  local_transform_gradient[s, k] += ξ2x .* Gξ2
               end
           end
 
@@ -400,61 +376,59 @@ MPIStateArrays.vars(::Field{V}) where {V} = V
       end
 
       @unroll for k in 1:Nq3
-          ijk = i + Nq1 * ((j - 1) + Nq2 * (k - 1))
-
           # Application of chain-rule in ξ3-direction: ∂G/∂xi = ∂ξ3/∂xi * ∂G/∂ξ3
           if dim == 3 && direction isa EveryDirection
-              ξ3x1, ξ3x2, ξ3x3 = vgeo[ijk, _ξ3x1, e],
-              vgeo[ijk, _ξ3x2, e],
-              vgeo[ijk, _ξ3x3, e]
-              @unroll for s in 1:ngradstate
-                  local_transform_gradient[1, s, k] += ξ3x1 * Gξ3[s, k]
-                  local_transform_gradient[2, s, k] += ξ3x2 * Gξ3[s, k]
-                  local_transform_gradient[3, s, k] += ξ3x3 * Gξ3[s, k]
+              ξ3x = Fvgeo[i,j,k,e].∂ξ∂x[3,:]
+              @unroll for s in 1:NGrad
+                  local_transform_gradient[s, k] += ξ3x .* Gξ3[s, k]
               end
           end
 
-          if num_state_gradient_flux > 0
-            l = gradient_extract(balance_law,
-             unpack_grad(TransformType, local_transform_gradient[:,:,k]),
-             unpack(vars(state_prognostic), local_state_prognostic[:,k]),
-             unpack(vars(state_auxiliary), local_state_auxiliary[:,k]),
-             t
-            )
-            local_state_gradient_flux = pack(FT, l)
+          post = gradpost(
+            unpack(TransformType, local_transform_gradient[:,k]),
+            unpack(ProgType, local_prog[:,k]),
+            unpack(AuxType, local_aux[:,k]),
+            t
+          )
 
-              # Write out the result of the kernel to global memory
-              @unroll for s in 1:num_state_gradient_flux
-                  if increment
-                      state_gradient_flux[ijk, s, e] +=
-                          local_state_gradient_flux[s]
-                  else
-                      state_gradient_flux[ijk, s, e] =
-                          local_state_gradient_flux[s]
-                  end
-              end
+          # Write out the result of the kernel to global memory
+          if increment
+            Fgradpost.data[i,j,k,:,e] += pack(FT, post)
+          else
+            Fgradpost.data[i,j,k,:,e] = pack(FT, post)
           end
+
       end
   end
 end
 
-function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
-  FT = eltype(state_prognostic)
-  Qhypervisc_grad, _ = dg.states_higher_order
 
-  # Workgroup is determined by the number of quadrature points
-  # in the horizontal direction. For each horizontal quadrature
-  # point, we operate on a stack of quadrature in the vertical
-  # direction. (Iteration space is in the horizontal)
-  info = ClimateMachine.DGMethods.basic_launch_info(dg)
+
+
+
+
+function launch_volume_gradients!(
+  gradarg::FnGradArg,
+  gradpost::FnGradPost,
+  Fprog::FField{ProgType,FT,Nq1,Nq2,Nq3,Nprog},
+  Faux::FField{AuxType,FT,Nq1,Nq2,Nq3,Naux},
+  Fgradpost::FField{GradType,FT,Nq1,Nq2,Nq3,Ngradpost},
+  direction,
+  grid,
+  t;
+  dependencies) where {FnGradArg,FnGradPost,ProgType,AuxType,GradType,FT,Nq1,Nq2,Nq3,Nprog,Naux,Ngradpost}
+
 
   # We assume (in 3-D) that both x and y directions
   # are discretized using the same polynomial order, Nq[1] == Nq[2].
   # In 2-D, the workgroup spans the entire set of quadrature points:
   # Nq[1] * Nq[2]
-  workgroup = (info.Nq[1], info.Nq[2])
-  ndrange = (info.Nq[1] * info.nrealelem, info.Nq[2])
-  comp_stream = dependencies
+  ngroups = size(Fprog.data,5)
+  workgroup = (Nq1, Nq2)
+  ndrange = (Nq1 * ngroups, Nq2)
+  device = array_device(Fprog.data)
+
+  Fvgeo = FField{NamedTuple{(:∂ξ∂x,:M,:MI,:MH,:x,:JcV),Tuple{SMatrix{3,3,Float64,9},FT,FT,FT,SVector{3,FT},FT}}}(HybridArray{Tuple{5,5,5,16,StaticArrays.Dynamic()}}(reshape(grid.vgeo,(5,5,5,16,64))))
 
   # If the model direction is EveryDirection, we need to perform
   # both horizontal AND vertical kernel calls; otherwise, we only
@@ -464,23 +438,19 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
 
       # We assume N₁ = N₂, so the same polyorder, quadrature weights,
       # and differentiation operators are used
-      horizontal_polyorder = info.N[1]
-      horizontal_D = dg.grid.D[1]
-      comp_stream = volume_gradients!(info.device, workgroup)(
-          dg.balance_law,
-          Val(info),
-          HorizontalDirection(),
-          Field{vars(state_prognostic)}(state_prognostic.data),
-          dg.state_gradient_flux.data,
-          Qhypervisc_grad.data,
-          Field{vars(dg.state_auxiliary)}(dg.state_auxiliary.data),
-          dg.grid.vgeo,
-          t,
-          horizontal_D,
-          Val(hyperdiff_indexmap(dg.balance_law, FT)),
-          dg.grid.topology.realelems,
-          ndrange = ndrange,
-          dependencies = comp_stream,
+      @assert Nq1 == Nq2
+      dependencies = volume_gradients!(device, workgroup)(
+        gradarg,
+        gradpost,
+        Fprog,
+        Faux,
+        Fgradpost,
+        HorizontalDirection(),
+        Fvgeo,
+        t,
+        grid.D[1];
+        ndrange = ndrange,
+        dependencies = dependencies,
       )
   end
 
@@ -489,35 +459,32 @@ function launch_volume_gradients!(dg, state_prognostic, t; dependencies)
      dg.diffusion_direction isa VerticalDirection
 
       # Vertical polynomial degree and differentiation matrix
-      vertical_polyorder = info.N[info.dim]
-      vertical_D = dg.grid.D[info.dim]
-      comp_stream = volume_gradients!(info.device, workgroup)(
-          dg.balance_law,
-          Val(info),
-          VerticalDirection(),
-          Field{vars(state_prognostic)}(state_prognostic.data),
-          dg.state_gradient_flux.data,
-          Qhypervisc_grad.data,
-          Field{vars(dg.state_auxiliary)}(dg.state_auxiliary.data),
-          dg.grid.vgeo,
-          t,
-          vertical_D,
-          Val(hyperdiff_indexmap(dg.balance_law, FT)),
-          dg.grid.topology.realelems,
-          # If we are computing the volume gradient in every direction, we
-          # need to increment into the appropriate fields _after_ the
-          # horizontal computation.
-          !(dg.diffusion_direction isa VerticalDirection),
-          ndrange = ndrange,
-          dependencies = comp_stream,
+      dependencies = volume_gradients!(device, workgroup)(
+        gradarg,
+        gradpost,
+        Fprog,
+        Faux,
+        Fgradpost,
+        VerticalDirection(),
+        Fvgeo,
+        t,
+        grid.D[3],
+        !(dg.diffusion_direction isa VerticalDirection);
+        ndrange = ndrange,
+        dependencies = dependencies,
       )
   end
-  return comp_stream
+  return dependencies
 end
 
 wait(launch_volume_gradients!(
-         dg,
-         Q,
-         0.0;
-         dependencies = comp_stream,
-       ))
+  gradarg,
+  gradpost,
+  Fprog,
+  Faux,
+  Fgradpost,
+  EveryDirection(),
+  grid,
+  0.0;
+  dependencies = comp_stream,
+))
