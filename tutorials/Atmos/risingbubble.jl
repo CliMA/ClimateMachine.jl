@@ -65,7 +65,7 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(parse_clargs=true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -190,9 +190,11 @@ function config_risingbubble(
     ## Apply the outer constructor to define the `ode_solver`.
     ## The 1D-IMEX method is less appropriate for the problem given the current
     ## mesh aspect ratio (1:1).
-    ode_solver = ClimateMachine.ExplicitSolverType(
-        solver_method = LSRK144NiegemannDiehlBusch,
-    )
+    #ode_solver = ClimateMachine.ExplicitSolverType(
+    #    solver_method = LSRK144NiegemannDiehlBusch,
+    #)
+    ode_solver = ClimateMachine.DefaultSolverType()
+    
     ## If the user prefers a multi-rate explicit time integrator,
     ## the ode_solver above can be replaced with
     ##
@@ -248,6 +250,7 @@ function config_risingbubble(
         init_risingbubble!,      ## Function specifying initial condition
         solver_type = ode_solver,## Time-integrator type
         model = model,           ## Model type
+        numerical_flux_first_order = RoeNumericalFlux()
     )
     return config
 end
@@ -289,11 +292,11 @@ function main()
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(100)
+    timeend = FT(500)
     ## For full simulation set `timeend = 1000`
 
     ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
+    CFL = FT(0.5)
 
     ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)

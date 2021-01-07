@@ -60,7 +60,10 @@ Assumes the moisture components is in the dry limit.
 """
 struct DryModel <: MoistureModel end
 
-vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
+vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, 
+                                                air_T::FT, 
+                                                air_P::FT, 
+                                                air_PL::FT)
 @inline function atmos_nodal_update_auxiliary_state!(
     moist::DryModel,
     atmos::AtmosModel,
@@ -71,6 +74,15 @@ vars_state(::DryModel, ::Auxiliary, FT) = @vars(θ_v::FT, air_T::FT)
     ts = new_thermo_state(atmos, state, aux)
     aux.moisture.θ_v = virtual_pottemp(ts)
     aux.moisture.air_T = air_temperature(ts)
+    aux.moisture.air_P = air_pressure(ts)
+    pL = linearized_pressure(
+        atmos.moisture,
+        atmos.param_set,
+        atmos.orientation,
+        state,
+        aux,
+    )
+    aux.moisture.air_PL = pL
     nothing
 end
 
