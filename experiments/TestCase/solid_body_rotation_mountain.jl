@@ -93,7 +93,7 @@ function config_solid_body_rotation(FT, poly_order, resolution, ref_state)
             _planet_radius,                       ## Domain inner radius
             _planet_radius + domain_height,       ## Domain outer radius
             DCMIPMountain(),                      ## Problem specific dispatch
-        ),       
+        ),
     )
 
     return config

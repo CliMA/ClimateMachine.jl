@@ -9,7 +9,7 @@ export AbstractTopology,
     CubedShellTopology,
     StackedCubedSphereTopology,
     AnalyticalTopography,
-    NoTopography, 
+    NoTopography,
     DCMIPMountain,
     isstacked,
     cubedshellwarp,
@@ -1289,7 +1289,7 @@ Returns either a range object or a vector containing the element boundaries.
 """
 function grid1d(a, b, stretch = nothing; elemsize = nothing, nelem = nothing)
     xor(nelem === nothing, elemsize === nothing) ||
-        error("Either `elemsize` or `nelem` arguments must be provided")
+    error("Either `elemsize` or `nelem` arguments must be provided")
     if elemsize !== nothing
         nelem = round(Int, abs(b - a) / elemsize)
     end
@@ -1368,27 +1368,27 @@ Helper function to allow computation of latitute and longitude coordinates
 given the cubed sphere coordinates X, Y, δ, faceid 
 TODO: [Citation required]
 """
-function compute_lat_long(X,Y,δ,faceid)
-        if faceid == 1
-            λ = atan(X)                     # longitude 
-            ϕ = atan(cos(λ) * Y)            # latitude
-        elseif faceid == 2
-            λ = atan(X) + π / 2
-            ϕ = atan(Y * cos(atan(X)))
-        elseif faceid == 3
-            λ = atan(X) + π
-            ϕ = atan(Y * cos(atan(X)))
-        elseif faceid == 4
-            λ = atan(X) + (3 / 2) * π
-            ϕ = atan(Y * cos(atan(X)))
-        elseif faceid == 5
-            λ = atan(X, -Y) + π
-            ϕ = atan(1 / sqrt(δ - 1))
-        elseif faceid == 6
-            λ = atan(X, Y)
-            ϕ = -atan(1 / sqrt(δ - 1))
-        end
-    return λ,ϕ
+function compute_lat_long(X, Y, δ, faceid)
+    if faceid == 1
+        λ = atan(X)                     # longitude 
+        ϕ = atan(cos(λ) * Y)            # latitude
+    elseif faceid == 2
+        λ = atan(X) + π / 2
+        ϕ = atan(Y * cos(atan(X)))
+    elseif faceid == 3
+        λ = atan(X) + π
+        ϕ = atan(Y * cos(atan(X)))
+    elseif faceid == 4
+        λ = atan(X) + (3 / 2) * π
+        ϕ = atan(Y * cos(atan(X)))
+    elseif faceid == 5
+        λ = atan(X, -Y) + π
+        ϕ = atan(1 / sqrt(δ - 1))
+    elseif faceid == 6
+        λ = atan(X, Y)
+        ϕ = -atan(1 / sqrt(δ - 1))
+    end
+    return λ, ϕ
 end
 
 
@@ -1399,9 +1399,14 @@ in experiments.
 """
 abstract type AnalyticalTopography end
 
-function compute_analytical_topography(::AnalyticalTopography,
-                                       λ, ϕ, sR,
-                                       r_inner, r_outer)
+function compute_analytical_topography(
+    ::AnalyticalTopography,
+    λ,
+    ϕ,
+    sR,
+    r_inner,
+    r_outer,
+)
     return sR
 end
 
@@ -1415,30 +1420,35 @@ struct NoAnalyticalTopoWarp <: AnalyticalTopography end
 
 ### DCMIP Mountain 
 struct DCMIPMountain <: AnalyticalTopography end
-function compute_analytical_topography(::DCMIPMountain,
-                                       λ, ϕ, sR,
-                                       r_inner, r_outer)
-        #User specified warp parameters
-        R_m = π * 3 / 4
-        h0 = 2000
-        ζ_m = π / 16
-        φ_m = 0
-        λ_m = π * 3 / 2
-        r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
-        # Define mesh decay profile 
-        Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
-        if r_m < R_m
-            zs =
-                0.5 *
-                h0 *
-                (1 + cos(π * r_m / R_m)) *
-                cos(π * r_m / ζ_m) *
-                cos(π * r_m / ζ_m)
-        else
-            zs = 0.0
-        end
-        mR = sign(sR) * (abs(sR) + zs * Δ)
-        return mR 
+function compute_analytical_topography(
+    ::DCMIPMountain,
+    λ,
+    ϕ,
+    sR,
+    r_inner,
+    r_outer,
+)
+    #User specified warp parameters
+    R_m = π * 3 / 4
+    h0 = 2000
+    ζ_m = π / 16
+    φ_m = 0
+    λ_m = π * 3 / 2
+    r_m = acos(sin(φ_m) * sin(ϕ) + cos(φ_m) * cos(ϕ) * cos(λ - λ_m))
+    # Define mesh decay profile 
+    Δ = (r_outer - abs(sR)) / (r_outer - r_inner)
+    if r_m < R_m
+        zs =
+            0.5 *
+            h0 *
+            (1 + cos(π * r_m / R_m)) *
+            cos(π * r_m / ζ_m) *
+            cos(π * r_m / ζ_m)
+    else
+        zs = 0.0
+    end
+    mR = sign(sR) * (abs(sR) + zs * Δ)
+    return mR
 end
 
 """
@@ -1466,10 +1476,15 @@ function cubedshelltopowarp(
     function f(sR, ξ, η, faceid)
         X, Y = tan(π * ξ / 4), tan(π * η / 4)
         δ = 1 + X^2 + Y^2
-        λ,ϕ = compute_lat_long(X,Y,δ,faceid)
-        mR = compute_analytical_topography(topography, 
-                                           λ, ϕ, sR, 
-                                           r_inner, r_outer)
+        λ, ϕ = compute_lat_long(X, Y, δ, faceid)
+        mR = compute_analytical_topography(
+            topography,
+            λ,
+            ϕ,
+            sR,
+            r_inner,
+            r_outer,
+        )
         x1 = mR / sqrt(δ)
         x2, x3 = X * x1, Y * x1
         x1, x2, x3
