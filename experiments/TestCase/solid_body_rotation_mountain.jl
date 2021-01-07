@@ -21,7 +21,6 @@ using ClimateMachine.Thermodynamics: air_density, total_energy
 
 using LinearAlgebra
 using StaticArrays
-using Test
 
 using CLIMAParameters
 using CLIMAParameters.Planet: day, planet_radius
