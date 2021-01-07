@@ -3,7 +3,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.BalanceLaws
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods
-import ClimateMachine.DGMethods.FVReconstructions: FVConstant, FVLinear
+using ClimateMachine.DGMethods.FVReconstructions: FVLinear
 using ClimateMachine.DGMethods.NumericalFluxes
 using ClimateMachine.TemperatureProfiles
 using ClimateMachine.GenericCallbacks
@@ -18,40 +18,43 @@ using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 
 using CLIMAParameters
+using CLIMAParameters.Planet: planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
-using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates
+using Test, MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates
 
 function main()
-    ClimateMachine.init(parse_clargs = true)
+    ClimateMachine.init()
     ArrayType = ClimateMachine.array_type()
 
     mpicomm = MPI.COMM_WORLD
 
     polynomialorder = (4, 0)
     FT = Float64
-    dims = 3
     NumericalFlux = RoeNumericalFlux
     @info @sprintf """Configuration
                       ArrayType     = %s
-                      FT        = %s
+                      FT            = %s
                       NumericalFlux = %s
-                      dims          = %d
-                      """ ArrayType "$FT" "$NumericalFlux" dims
+                      """ ArrayType FT NumericalFlux
 
     numelem_horz = 10
     numelem_vert = 32
-    test_run(
-        mpicomm,
-        ArrayType,
-        polynomialorder,
-        numelem_horz,
-        numelem_vert,
-        NumericalFlux,
-        FT,
-        dims,
-    )
+
+    @testset for domain_type in (:box, :sphere)
+        err = test_run(
+            mpicomm,
+            ArrayType,
+            polynomialorder,
+            numelem_horz,
+            numelem_vert,
+            NumericalFlux,
+            FT,
+            domain_type,
+        )
+        @test err < FT(6e-12)
+    end
 end
 
 function test_run(
@@ -62,39 +65,63 @@ function test_run(
     numelem_vert,
     NumericalFlux,
     FT,
-    dims,
+    domain_type,
 )
-    domain_width = 20e3
     domain_height = 10e3
-    horz_range =
-        range(FT(0), length = numelem_horz + 1, stop = FT(domain_width))
-    vert_range = range(0, length = numelem_vert + 1, stop = domain_height)
-    brickrange = (horz_range, horz_range, vert_range)
-
-    periodicity = (true, true, false)
-    topology =
-        StackedBrickTopology(mpicomm, brickrange; periodicity = periodicity)
+    if domain_type === :box
+        domain_width = 20e3
+        horz_range =
+            range(FT(0), length = numelem_horz + 1, stop = FT(domain_width))
+        vert_range = range(0, length = numelem_vert + 1, stop = domain_height)
+        brickrange = (horz_range, horz_range, vert_range)
+        periodicity = (true, true, false)
+        topology =
+            StackedBrickTopology(mpicomm, brickrange; periodicity = periodicity)
+        meshwarp = (x...) -> identity(x)
+    elseif domain_type === :sphere
+        _planet_radius::FT = planet_radius(param_set)
+        vert_range = grid1d(
+            _planet_radius,
+            FT(_planet_radius + domain_height),
+            nelem = numelem_vert,
+        )
+        topology = StackedCubedSphereTopology(mpicomm, numelem_horz, vert_range)
+        meshwarp = cubedshellwarp
+    end
 
     grid = DiscontinuousSpectralElementGrid(
         topology,
         FloatType = FT,
         DeviceArray = ArrayType,
         polynomialorder = polynomialorder,
+        meshwarp = meshwarp,
     )
 
     problem = AtmosProblem(init_state_prognostic = initialcondition!)
 
-    temp_profile = IsothermalProfile(param_set, FT(300))
+    T0 = FT(300)
+    temp_profile = IsothermalProfile(param_set, T0)
     ref_state = HydrostaticState(temp_profile; subtract_off = false)
+
+    if domain_type === :box
+        configtype = AtmosLESConfigType
+        orientation = FlatOrientation()
+        source = (Gravity(),)
+    elseif domain_type === :sphere
+        configtype = AtmosGCMConfigType
+        orientation = SphericalOrientation()
+        source = (Gravity(), Coriolis())
+    end
+
     model = AtmosModel{FT}(
-        AtmosLESConfigType,
+        configtype,
         param_set;
         problem = problem,
-        orientation = FlatOrientation(),
+        orientation = orientation,
         ref_state = ref_state,
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
-        source = (Gravity(),),
+        source = source,
     )
 
     dg = DGFVModel(
@@ -106,12 +133,12 @@ function test_run(
         CentralNumericalFluxGradient(),
     )
 
-    timeend = FT(10000)
+    timeend = FT(100)
 
     # determine the time step
     cfl = 0.2
-    dx = step(vert_range)
-    dt = cfl * dx / 330
+    dz = step(vert_range)
+    dt = cfl * dz / soundspeed_air(param_set, T0)
     nsteps = ceil(Int, timeend / dt)
     dt = timeend / nsteps
 
@@ -120,15 +147,16 @@ function test_run(
 
     eng0 = norm(Q)
     @info @sprintf """Starting
+                      domain_type   = %s
                       numelem_horz  = %d
                       numelem_vert  = %d
                       dt            = %.16e
                       norm(Q₀)      = %.16e
-                      """ numelem_horz numelem_vert dt eng0
+                      """ domain_type numelem_horz numelem_vert dt eng0
 
     # Set up the information callback
     starttime = Ref(now())
-    cbinfo = EveryXWallTimeSeconds(10, mpicomm) do (s = false)
+    cbinfo = EveryXWallTimeSeconds(60, mpicomm) do (s = false)
         if s
             starttime[] = now()
         else
@@ -161,14 +189,15 @@ function test_run(
     engf = norm(Q)
     engfe = norm(Qe)
     errf = euclidean_distance(Q, Qe)
+    errr = errf / engfe
     @info @sprintf """Finished
     norm(Q)                 = %.16e
     norm(Q) / norm(Q₀)      = %.16e
     norm(Q) - norm(Q₀)      = %.16e
     norm(Q - Qe)            = %.16e
     norm(Q - Qe) / norm(Qe) = %.16e
-    """ engf engf / eng0 engf - eng0 errf errf / engfe
-    errf
+    """ engf engf / eng0 engf - eng0 errf errr
+    errr
 end
 
 function initialcondition!(problem, bl, state, aux, coords, t, args...)
