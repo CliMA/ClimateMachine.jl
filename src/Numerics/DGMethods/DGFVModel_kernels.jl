@@ -889,9 +889,7 @@ end
 
 @kernel function vert_fvm_auxiliary_field_gradient!(
     balance_law::BalanceLaw,
-    ::Val{dim},
-    ::Val{nface},
-    ::Val{Np},
+    ::Val{info},
     ∇state,
     state,
     vgeo,
@@ -902,10 +900,14 @@ end
     ::Val{I},
     ::Val{O},
     increment,
-) where {dim, nface, Np, I, O}
+) where {info, I, O}
     @uniform begin
         FT = eltype(state)
         ngradstate = length(I)
+
+        dim = info.dim
+        nface = info.nface
+        Np = info.Np
 
         # We only have the vertical faces
         faces = (nface - 1):nface

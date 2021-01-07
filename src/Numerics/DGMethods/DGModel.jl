@@ -1199,14 +1199,10 @@ function auxiliary_field_gradient!(
                 dependencies = (event,),
             )
         else
-            Np = dofs_per_element(grid)
-            Nfp_v, Nfp_h = div.(Np, (Nq[1], Nq[end]))
-            nface = 2 * dim
-            event = vert_fvm_auxiliary_field_gradient!(device, Nfp_h)(
+            info = basic_grid_info(grid)
+            event = vert_fvm_auxiliary_field_gradient!(device, info.Nfp_h)(
                 m,
-                Val(dim),
-                Val(nface),
-                Val(Np),
+                Val(info),
                 ∇state.data,
                 state.data,
                 grid.vgeo,
@@ -1219,7 +1215,7 @@ function auxiliary_field_gradient!(
                 # If we are computing in every direction, we need to
                 # increment after we compute the horizontal values
                 (direction isa EveryDirection);
-                ndrange = (nrealelem * Nfp_h),
+                ndrange = (nrealelem * info.Nfp_h),
                 dependencies = (event,),
             )
         end
