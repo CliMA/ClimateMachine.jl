@@ -121,7 +121,7 @@ function ref_state_finalize_init!(
     aux.ref_state.ρe = ρ * total_energy(e_kin, e_pot, ts)
 end
 
-atmos_init_aux!(::AtmosModel, ::NoReferenceState, _...) = nothing
+atmos_init_aux!(::AtmosModel, ::ReferenceState, _...) = nothing
 function atmos_init_aux!(
     atmos::AtmosModel,
     ::HydrostaticState,
