@@ -88,7 +88,7 @@ function ref_state_finalize_init!(
 
     ρ = aux.ref_state.ρ
     p = aux.ref_state.p
-    T_virt = p / (ρ * R_d(atmos.param_set))
+    T_virt = p / (ρ * FT(R_d(atmos.param_set)))
 
     RH = atmos.ref_state.relative_humidity
     phase_type = PhaseEquil
