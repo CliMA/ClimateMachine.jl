@@ -31,15 +31,9 @@ using ClimateMachine.BalanceLaws:
     BalanceLaw, Prognostic, Auxiliary, Gradient, GradientFlux, vars_state
 using ClimateMachine.ArtifactWrappers
 
-# path to download artifacts
-const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
-    @__DIR__
-else
-    mktempdir(@__DIR__; prefix = "artifact_")
-end
-
 haverkamp_dataset = ArtifactWrapper(
-    joinpath(ARTIFACT_DIR, "Artifacts.toml"),
+    @__DIR__,
+    isempty(get(ENV, "CI", "")),
     "richards",
     ArtifactFile[ArtifactFile(
         url = "https://caltech.box.com/shared/static/dfijf07io7h5dk1k87saaewgsg9apq8d.csv",
