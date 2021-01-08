@@ -105,7 +105,7 @@ function config_isothermal_zonal_flow(FT, poly_order, resolution, ref_state)
         param_set,
         init_isothermal_zonal_flow!;
         model = model,
-        numerical_flux_first_order = RoeNumericalFlux(),
+        numerical_flux_first_order = RusanovNumericalFlux(),
     )
 
     return config
@@ -160,12 +160,11 @@ function main()
     )
 
     # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
+    ode_solver_type = ClimateMachine.ThreeDimIMEXSolverType(
         implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = false,
-        discrete_splitting = true,
+        max_gmres_iter = 50,
+        solver_rtol = 1e-10,
     )
     CFL = FT(0.4)
     solver_config = ClimateMachine.SolverConfiguration(
