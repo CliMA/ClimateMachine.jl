@@ -96,7 +96,11 @@ function vars_state(m::EDMF, st::Prognostic, FT)
 end
 
 function vars_state(::Updraft, ::Gradient, FT)
-    @vars(w::FT,)
+    @vars(ρa::FT,
+          ρaw::FT,
+          ρaθ_liq::FT,
+          ρaq_tot::FT,
+          w::FT,)
 end
 
 function vars_state(::Environment, ::Gradient, FT)
@@ -131,7 +135,11 @@ function vars_state(m::NTuple{N, Updraft}, st::GradientFlux, FT) where {N}
 end
 
 function vars_state(::Updraft, st::GradientFlux, FT)
-    @vars(∇w::SVector{3, FT},)
+    @vars(∇ρa::SVector{3, FT},
+          ∇ρaw::SVector{3, FT},
+          ∇ρaθ_liq::SVector{3, FT},
+          ∇ρaq_tot::SVector{3, FT},
+          ∇w::SVector{3, FT},)
 end
 
 function vars_state(::Environment, ::GradientFlux, FT)
@@ -402,6 +410,10 @@ function compute_gradient_argument!(
 
     @unroll_map(N_up) do i
         up_tf[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+        up_tf[i].ρa = up[i].ρa
+        up_tf[i].ρaw = up[i].ρaw
+        up_tf[i].ρaθ_liq = up[i].ρaθ_liq
+        up_tf[i].ρaq_tot = up[i].ρaq_tot
     end
     _grav::FT = grav(m.param_set)
 
@@ -450,6 +462,10 @@ function compute_gradient_flux!(
     en_∇tf = ∇transform.turbconv.environment
 
     @unroll_map(N_up) do i
+        up_dif[i].∇ρa = up_∇tf[i].ρa
+        up_dif[i].∇ρaw = up_∇tf[i].ρaw
+        up_dif[i].∇ρaθ_liq = up_∇tf[i].ρaθ_liq
+        up_dif[i].∇ρaq_tot = up_∇tf[i].ρaq_tot
         up_dif[i].∇w = up_∇tf[i].w
     end
 
@@ -1127,6 +1143,63 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
     return -gm.ρ * env.a * K_m * en_dif.∇tke[3] * ẑ
 end
 
+function flux(::Diffusion{up_ρa{i}}, atmos, args) where {i}
+    @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
+    FT = eltype(atmos)
+    up = state.turbconv.updraft
+    up_dif = diffusive.turbconv.updraft
+    gm = state
+    z = altitute(atmos, aux)
+    α = FT(5e-2)
+    K = exp(-α*z)
+    ẑ = vertical_unit_vector(atmos, aux)
+    return -K * up_dif.∇ρa[3] * ẑ
+end
+
+
+function flux(::Diffusion{up_ρaw{i}}, atmos, args) where {i}
+    @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
+    FT = eltype(atmos)
+    up = state.turbconv.updraft
+    up_dif = diffusive.turbconv.updraft
+    gm = state
+    z = altitute(atmos, aux)
+    α = FT(5e-2)
+    K = exp(-α*z)
+    ẑ = vertical_unit_vector(atmos, aux)
+    return - K * up_dif.∇ρaw[3] * ẑ
+end
+
+function flux(::Diffusion{up_ρaθ_liq{i}}, atmos, args) where {i}
+    @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
+    FT = eltype(atmos)
+    up = state.turbconv.updraft
+    up_dif = diffusive.turbconv.updraft
+    gm = state
+    z = altitute(atmos, aux)
+    α = FT(5e-2)
+    K = exp(-α*z)
+    ẑ = vertical_unit_vector(atmos, aux)
+    return - K * up_dif.∇ρaθ_liq[3] * ẑ
+end
+
+function flux(::Diffusion{up_ρaq_tot{i}}, atmos, args) where {i}
+    @unpack state, aux = args
+    @unpack ρa_up = args.precomputed.turbconv
+    FT = eltype(atmos)
+    up = state.turbconv.updraft
+    up_dif = diffusive.turbconv.updraft
+    gm = state
+    z = altitute(atmos, aux)
+    α = FT(5e-2)
+    K = exp(-α*z)
+    ẑ = vertical_unit_vector(atmos, aux)
+    return - K * up_dif.∇ρaq_tot[3] * ẑ
+end
+
 function flux_second_order!(
     turbconv::EDMF{FT},
     flux::Grad,
@@ -1139,6 +1212,20 @@ function flux_second_order!(
     flux_pad = SVector(1, 1, 1)
     # in future GCM implementations we need to think about grid mean advection
     tend = Flux{SecondOrder}()
+
+    up_flx = flux.turbconv.updraft
+    en_flx = flux.turbconv.environment
+    N_up = n_updrafts(turbconv)
+
+    @unroll_map(N_up) do i
+        up_flx[i].ρa = Σfluxes(eq_tends(up_ρa{i}(), atmos, tend), atmos, args).* flux_pad
+        up_flx[i].ρaw = Σfluxes(eq_tends(up_ρaw{i}(), atmos, tend), atmos, args).* flux_pad
+        up_flx[i].ρaθ_liq =
+            Σfluxes(eq_tends(up_ρaθ_liq{i}(), atmos, tend), atmos, args).* flux_pad
+        up_flx[i].ρaq_tot =
+            Σfluxes(eq_tends(up_ρaq_tot{i}(), atmos, tend), atmos, args).* flux_pad
+    end
+
     en_flx.ρatke =
         Σfluxes(eq_tends(en_ρatke(), atmos, tend), atmos, args) .* flux_pad
     # in the EDMF second order (diffusive) fluxes
