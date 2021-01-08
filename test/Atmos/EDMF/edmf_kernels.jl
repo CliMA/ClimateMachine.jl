@@ -348,7 +348,7 @@ function turbconv_nodal_update_auxiliary_state!(
             up[i].ρaθ_liq / up[i].ρa,
             liquid_ice_pottemp(ts[1]),
         )
-        if m.moisture isa DryModel
+        if !(m.moisture isa DryModel)
             up_aux[i].q_tot = fix_void_up(
                 up[i].ρa,
                 up[i].ρaq_tot / up[i].ρa,
