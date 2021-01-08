@@ -95,6 +95,7 @@ using ..DGMethods.NumericalFluxes:
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
+using Base.Broadcast: Broadcasted, BroadcastStyle, ArrayStyle
 
 """
     AtmosModel <: BalanceLaw
@@ -292,6 +293,8 @@ function AtmosModel{FT}(
 
     return AtmosModel{FT, typeof.(atmos)...}(atmos...)
 end
+
+Base.eltype(::AtmosModel{FT}) where {FT} = FT
 
 """
     vars_state(m::AtmosModel, ::Prognostic, FT)
