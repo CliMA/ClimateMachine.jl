@@ -10,7 +10,9 @@ using ClimateMachine.SystemSolvers:
     band_lu_kernel!,
     band_forward_kernel!,
     band_back_kernel!,
-    DGColumnBandedMatrix
+    DGColumnBandedMatrix,
+    lower_bandwidth,
+    upper_bandwidth
 
 import ClimateMachine.MPIStateArrays: array_device
 
@@ -40,7 +42,8 @@ function run_columnwiselu_test(FT, N)
     eband = 2
 
     m = n = Nqv * nstate * nvertelem
-    p = q = Nqv * nstate * eband - 1
+    p = lower_bandwidth(N[end], nstate, eband)
+    q = upper_bandwidth(N[end], nstate, eband)
 
     Random.seed!(1234)
     AB = rand(FT, Nq1, Nq2, p + q + 1, n, nhorzelem)
@@ -118,7 +121,7 @@ end
 
 @testset "Columnwise LU test" begin
     for FT in (Float64, Float32)
-        for N in ((1, 1, 1), (1, 1, 2), (2, 2, 1))
+        for N in ((1, 1, 1), (1, 1, 2), (2, 2, 1), (2, 2, 0))
             result = run_columnwiselu_test(FT, N)
             @test result
         end

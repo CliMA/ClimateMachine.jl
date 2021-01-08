@@ -48,6 +48,15 @@ steps:
       queue: central
       slurm_ntasks: 1
 
+  - label: "cpu_fvm_advection_diffusion_model_1dimex_bjfnks"
+    key: "cpu_fvm_advection_diffusion_model_1dimex_bjfnks"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/advection_diffusion/fvm_advection_diffusion_model_1dimex_bjfnks.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 1
+
   - label: "cpu_pseudo1D_advection_diffusion"
     key: "cpu_pseudo1D_advection_diffusion"
     command:
@@ -250,6 +259,15 @@ steps:
     key: "cpu_acousticwave_variable_degree"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: cpu
+      queue: central
+      slurm_ntasks: 3
+
+  - label: "cpu_fvm_balance"
+    key: "cpu_fvm_balance"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/fvm_balance.jl "
     agents:
       config: cpu
       queue: central
@@ -714,6 +732,16 @@ steps:
     key: "gpu_acousticwave_variable_degree"
     command:
       - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/acousticwave_variable_degree.jl "
+    agents:
+      config: gpu
+      queue: central
+      slurm_ntasks: 3
+      slurm_gres: "gpu:1"
+
+  - label: "gpu_fvm_balance"
+    key: "gpu_fvm_balance"
+    command:
+      - "mpiexec julia --color=yes --project test/Numerics/DGMethods/Euler/fvm_balance.jl "
     agents:
       config: gpu
       queue: central
