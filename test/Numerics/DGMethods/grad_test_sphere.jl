@@ -38,9 +38,9 @@ function nodal_init_state_auxiliary!(
 ) where {dir}
     x, y, z = g.coord
     r = hypot(x, y, z)
-    aux.a = r
+    aux.a = r^3
     if !(dir isa HorizontalDirection)
-        aux.∇a = g.coord / r
+        aux.∇a = 3 * r^2 * g.coord / r
     else
         aux.∇a = SVector(0, 0, 0)
     end
@@ -72,7 +72,7 @@ function test_run(mpicomm, Ne_horz, Ne_vert, N, FT, ArrayType, direction)
 
     exact_aux = copy(dg.state_auxiliary)
 
-    continuous_field_gradient!(
+    auxiliary_field_gradient!(
         model,
         dg.state_auxiliary,
         (:∇a,),
@@ -92,54 +92,65 @@ let
 
     mpicomm = MPI.COMM_WORLD
 
-    polynomialorder = 4
     base_Nhorz = 4
     base_Nvert = 2
 
-    expected_result = [
-        2.0924087890777517e-04
-        1.3897932154337201e-05
-        8.8256018429045312e-07
-        5.5381072850485303e-08
-    ]
+    expected_result = Dict()
+    expected_result[(4, 4), 1] = 4.3759489495202896e-04
+    expected_result[(4, 4), 2] = 2.9065372851175251e-05
+    expected_result[(4, 4), 3] = 1.8457379514995729e-06
+    expected_result[(4, 4), 4] = 1.1582093840084037e-07
+
+    expected_result[(4, 0), 1] = 1.1070045305138052e+00
+    expected_result[(4, 0), 2] = 4.2750547196265593e-01
+    expected_result[(4, 0), 3] = 1.6041478911787385e-01
+    expected_result[(4, 0), 4] = 5.8570590697850776e-02
 
     lvls =
-        integration_testing || ClimateMachine.Settings.integration_testing ?
-        length(expected_result) : 1
+        integration_testing || ClimateMachine.Settings.integration_testing ? 4 :
+        1
 
     @testset for FT in (Float64,)
-        @testset for direction in (
-            EveryDirection(),
-            HorizontalDirection(),
-            VerticalDirection(),
-        )
-            err = zeros(FT, lvls)
-            @testset for l in 1:lvls
-                Ne_horz = 2^(l - 1) * base_Nhorz
-                Ne_vert = 2^(l - 1) * base_Nvert
+        @testset for polynomialorder in ((4, 4), (4, 0))
+            @testset for direction in (
+                EveryDirection(),
+                HorizontalDirection(),
+                VerticalDirection(),
+            )
+                err = zeros(FT, lvls)
+                @testset for l in 1:lvls
+                    Ne_horz = 2^(l - 1) * base_Nhorz
+                    Ne_vert = 2^(l - 1) * base_Nvert
 
-                err[l] = test_run(
-                    mpicomm,
-                    Ne_horz,
-                    Ne_vert,
-                    polynomialorder,
-                    FT,
-                    ArrayType,
-                    direction,
-                )
+                    err[l] = test_run(
+                        mpicomm,
+                        Ne_horz,
+                        Ne_vert,
+                        polynomialorder,
+                        FT,
+                        ArrayType,
+                        direction,
+                    )
+                    if !(direction isa HorizontalDirection)
+                        @test err[l] ≈ expected_result[polynomialorder, l]
+                    else
+                        @test abs(err[l]) < FT(1.3e-13)
+                    end
+                end
                 if !(direction isa HorizontalDirection)
-                    @test err[l] ≈ expected_result[l]
-                else
-                    @test abs(err[l]) < FT(1e-13)
+                    @info begin
+                        msg = "Polynomial order = $polynomialorder, direction = $direction\n"
+                        for l in 1:(lvls - 1)
+                            rate = log2(err[l]) - log2(err[l + 1])
+                            msg *= @sprintf(
+                                "\n  rate for level %d = %e\n",
+                                l,
+                                rate
+                            )
+                        end
+                        msg
+                    end
                 end
-            end
-            @info begin
-                msg = ""
-                for l in 1:(lvls - 1)
-                    rate = log2(err[l]) - log2(err[l + 1])
-                    msg *= @sprintf("\n  rate for level %d = %e\n", l, rate)
-                end
-                msg
             end
         end
     end

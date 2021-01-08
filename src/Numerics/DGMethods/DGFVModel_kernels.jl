@@ -229,7 +229,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 els[k],
             )
             # If local cell weights are NOT _M we need to load _vMI out of sgeo
-            local_cell_weights[k] = vgeo[n, _M, els[k]]
+            local_cell_weights[k] = 2 * vgeo[n, _JcV, els[k]]
         end
 
         # Transform all the data into primitive variables
@@ -241,7 +241,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 local_state_auxiliary[k],
             )
         end
-        vMI[2] = 1 / local_cell_weights[stencil_center]
+        vMI[2] = sgeo[_vMI, n, faces[2], els[stencil_center]]
 
         # If we are periodic we reconstruct the top and bottom values for eV
         # then start with eV update in loop below
@@ -420,8 +420,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             )
 
             # Get local volume mass matrix inverse
-            local_cell_weights[stencil_diameter] = vgeo[n, _M, e_load]
-            vMI[2] = 1 / local_cell_weights[stencil_center]
+            local_cell_weights[stencil_diameter] = 2vgeo[n, _JcV, e_load]
+            vMI[2] = sgeo[_vMI, n, faces[2], eH + eV_up]
 
             # Tranform the prognostic data to primitive data
             prognostic_to_primitive!(
@@ -883,6 +883,207 @@ end
             else
                 state_gradient_flux[n, s, e] = local_state_gradient_flux[s]
             end
+        end
+    end
+end
+
+@kernel function vert_fvm_auxiliary_field_gradient!(
+    balance_law::BalanceLaw,
+    ::Val{info},
+    ∇state,
+    state,
+    vgeo,
+    sgeo,
+    vmap⁻,
+    vmap⁺,
+    elemtobndy,
+    ::Val{I},
+    ::Val{O},
+    increment,
+) where {info, I, O}
+    @uniform begin
+        FT = eltype(state)
+        ngradstate = length(I)
+
+        dim = info.dim
+        nface = info.nface
+        Np = info.Np
+
+        # We only have the vertical faces
+        faces = (nface - 1):nface
+
+        local_state_bottom = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+        local_state = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+        local_state_top = fill!(MArray{Tuple{ngradstate}, FT}(undef), NaN)
+    end
+
+    e = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        face_bottom = faces[1]
+        face_top = faces[2]
+
+        bctag_bottom = elemtobndy[face_bottom, e]
+        bctag_top = elemtobndy[face_top, e]
+
+        # TODO: exploit structured grid
+        id = vmap⁻[n, face_bottom, e]
+        id_bottom = vmap⁺[n, face_bottom, e]
+        id_top = vmap⁺[n, face_top, e]
+
+        e_bottom = ((id_bottom - 1) ÷ Np) + 1
+        e_top = ((id_top - 1) ÷ Np) + 1
+
+        vid = ((id - 1) % Np) + 1
+        vid_bottom = ((id_bottom - 1) % Np) + 1
+        vid_top = ((id_top - 1) % Np) + 1
+
+        if bctag_bottom != 0
+            e_bottom = e
+            vid_bottom = vid
+        end
+        if bctag_top != 0
+            e_top = e
+            vid_top = vid
+        end
+
+        dzh_bottom = vgeo[vid_bottom, _JcV, e_bottom]
+        dzh = vgeo[vid, _JcV, e]
+        dzh_top = vgeo[vid_top, _JcV, e_top]
+
+        if dim == 2
+            ξvx1 = vgeo[vid, _ξ2x1, e]
+            ξvx2 = vgeo[vid, _ξ2x2, e]
+            ξvx3 = vgeo[vid, _ξ2x3, e]
+        elseif dim == 3
+            ξvx1 = vgeo[vid, _ξ3x1, e]
+            ξvx2 = vgeo[vid, _ξ3x2, e]
+            ξvx3 = vgeo[vid, _ξ3x3, e]
+        end
+
+        @unroll for s in 1:ngradstate
+            local_state_bottom[s] = state[vid_bottom, I[s], e_bottom]
+            local_state_top[s] = state[vid_top, I[s], e_top]
+        end
+
+        # only need the middle state near the boundaries
+        if bctag_bottom != 0 || bctag_top != 0
+            @unroll for s in 1:ngradstate
+                local_state[s] = state[vid, I[s], e]
+            end
+        end
+
+        # extrapolation at the boundaries equivalent to one-sided differencing
+        if bctag_bottom != 0
+            @unroll for s in 1:ngradstate
+                local_state_bottom[s] = 2 * local_state[s] - local_state_top[s]
+            end
+            dzh_bottom = dzh_top
+        end
+
+        if bctag_top != 0
+            @unroll for s in 1:ngradstate
+                local_state_top[s] = 2 * local_state[s] - local_state_bottom[s]
+            end
+            dzh_top = dzh_bottom
+        end
+
+        @unroll for s in 1:ngradstate
+            dz = dzh_top + 2dzh + dzh_bottom
+            ∇s_v = (local_state_top[s] - local_state_bottom[s]) / dz
+            # rotate back to Cartesian
+            if increment
+                ∇state[vid, O[3 * (s - 1) + 1], e] += ξvx1 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 2], e] += ξvx2 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 3], e] += ξvx3 * dzh * ∇s_v
+            else
+                ∇state[vid, O[3 * (s - 1) + 1], e] = ξvx1 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 2], e] = ξvx2 * dzh * ∇s_v
+                ∇state[vid, O[3 * (s - 1) + 3], e] = ξvx3 * dzh * ∇s_v
+            end
+        end
+    end
+end
+
+"""
+    kernel_fvm_balance!(f!, balance_law::BalanceLaw, ::Val{nvertelem}, state_auxiliary, vgeo, elems)
+
+    pᵢ₋₁ - pᵢ =  g ρᵢ Δzᵢ/2 + g ρᵢ₋₁ Δzᵢ₋₁/2
+    for i = 2:nvertelem 
+        ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
+    end
+
+ - `f!`: update function
+ - `balance_law`: atmosphere model
+ - `state_auxiliary`: auxiliary variables, ρ is updated 
+ - `vgeo`: 2*vgeo[ijk ,_JcV , e] is Δz
+ - `elems`: horizontal element list
+"""
+@kernel function kernel_fvm_balance!(
+    f!,
+    balance_law::BalanceLaw,
+    ::Val{nvertelem},
+    state_auxiliary,
+    vgeo,
+    elems,
+) where {nvertelem}
+    @uniform begin
+        FT = eltype(state_auxiliary)
+        num_state_auxiliary = number_states(balance_law, Auxiliary())
+        # ρᵢ₋₁ pᵢ₋₁
+        local_state_auxiliary_bot =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        # ρᵢ pᵢ
+        local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
+
+        Δz = MArray{Tuple{2}, FT}(undef)
+    end
+
+    _eH = @index(Group, Linear)
+    n = @index(Local, Linear)
+
+    @inbounds begin
+        eH = elems[_eH]
+
+        # handle first element
+        eV = 1
+        e = eV + (eH - 1) * nvertelem
+        @unroll for s in 1:num_state_auxiliary
+            local_state_auxiliary_bot[s] = state_auxiliary[n, s, e]
+        end
+        Δz[1] = 2 * vgeo[n, _JcV, e]
+
+        # Loop up the stack of elements
+        for eV in 2:nvertelem
+            e = eV + (eH - 1) * nvertelem
+
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary[s] = state_auxiliary[n, s, e]
+            end
+            Δz[2] = 2 * vgeo[n, _JcV, e]
+
+            f!(
+                balance_law,
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary_bot,
+                ),
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary,
+                ),
+                Δz,
+            )
+
+            # update to the global array
+            @unroll for s in 1:num_state_auxiliary
+                state_auxiliary[n, s, e] = local_state_auxiliary[s]
+            end
+
+            # (ρᵢ pᵢ Δzᵢ) -> (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁)
+            @unroll for s in 1:num_state_auxiliary
+                local_state_auxiliary_bot[s] = local_state_auxiliary[s]
+            end
+            Δz[1] = Δz[2]
         end
     end
 end
