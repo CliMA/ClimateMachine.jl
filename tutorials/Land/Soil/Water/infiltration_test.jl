@@ -55,7 +55,7 @@ heaviside(x) = 0.5 * (sign(x) + 1)
 sigmoid(x, offset, width) = typeof(x)(exp((x-offset)/width)/(1+exp((x-offset)/width)))
 precip_of_t = (t) -> eltype(t)(-((3.3e-4)/60) * (1-sigmoid(t, 200*60,10)))#heaviside(200*60-t))
 # Define the initial state function. The default for `θ_i` is zero.
-ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.05 * sigmoid(aux.z, -1.0,0.02))#heaviside((-0.5)-aux.z))
+ϑ_l0 = (aux) -> eltype(aux)(0.399- 0.005 * sigmoid(aux.z, -1.0,0.02))#heaviside((-0.5)-aux.z))
 zres = FT(0.05)
 bc =  LandDomainBC(
     bottom_bc = LandComponentBC(soil_water = Neumann((aux,t)->eltype(aux)(0.0))),
@@ -103,7 +103,7 @@ m = LandModel(
 
 # Specify the polynomial order and vertical resolution.
 N_poly = 1;
-nelem_vert = 40;
+nelem_vert = 1500;
 
 # Specify the domain boundaries.
 zmax = FT(0);
@@ -155,8 +155,8 @@ driver_config = ClimateMachine.SingleStackConfiguration(
 
 # Choose the initial and final times, as well as a timestep.
 t0 = FT(0)
-timeend = FT(60*100) # * 300)
-dt = FT(3); #5
+timeend = FT(60*10) # * 300)
+dt = FT(0.15); #5
 
 # Create the solver configuration.
 solver_config =
@@ -222,28 +222,3 @@ output_dir = @__DIR__;
 
 t = time_data ./ (60);
 
-plot(
-    all_data[1]["ϑ_l"],
-    all_data[1]["z"],
-    label = string("t = ", string(t[1]), "min"),
-    xlim = [0.0, 0.501],
-    ylabel = "z",
-    xlabel = "ϑ_l",
-    legend = :bottomleft,
-    title = "Maxwell Infiltration",
-);
-plot!(
-    all_data[4]["ϑ_l"],
-    all_data[4]["z"],
-    label = string("t = ", string(t[4]), "min"),
-);
-plot!(
-    all_data[6]["ϑ_l"],
-    all_data[6]["z"],
-    label = string("t = ", string(t[6]), "min"),
-);
-
-# save the output.
-savefig(joinpath(output_dir, "maxwell_test_infiltation.png"))
-# # References
-xs

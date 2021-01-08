@@ -223,6 +223,8 @@ function compute_bc(all_data, N,x,y,z, surface_locs)
     k1 = FT(0.0)
     θi1 = FT(0.0)
     i_arr = zeros(N, length(z1))
+    d_arr = zeros(N, length(z1))
+    h_arr = zeros(N, length(z1))
     i_meas = zeros(N)
     moisture = zeros(N, length(z1))
     for i in 1:N
@@ -241,14 +243,18 @@ function compute_bc(all_data, N,x,y,z, surface_locs)
             thest = Vars{st_structure}(st_m)
             t = time_data[i]
             infiltration = compute_surface_flux(m_soil,bc.surface_bc.soil_water.runoff_model,bc.surface_bc.soil_water.precip_model, theaux, thest, t)
+            d = compute_dunne_runoff(m_soil,bc.surface_bc.soil_water.runoff_model,bc.surface_bc.soil_water.precip_model, theaux, thest, t)
+            h = compute_horton_runoff(m_soil,bc.surface_bc.soil_water.runoff_model,bc.surface_bc.soil_water.precip_model, theaux, thest, t)
+            h_arr[i,k] = h
+            d_arr[i,k] = d
             i_arr[i,k] = infiltration
             moisture[i,k] =  ϑ1[k]
             
         end
     end
-    return x1,y1,z1, i_meas, i_arr, moisture
+    return x1,y1,z1, i_meas, i_arr, moisture,d_arr,h_arr
 end
-xv,yv,zv, imv, iv,mmv = compute_bc(all_data, N, x,y,z,surface_locs)
+xv,yv,zv, imv, iv,mmv, dv,hv = compute_bc(all_data, N, x,y,z,surface_locs)
 
 iiii = [mean(iv[k,:]) for k in 1:N]
 plot(time_data ./ 60, -i_c_of_t, label  ="mean, measured from simulation")
@@ -256,17 +262,32 @@ plot!(time_data ./ 60, iiii, label  = "mean flux BC", color = "black")
 plot!(xlabel = "Time (minutes)")
 plot!(ylabel = "Flux at surface (m/s)")
 plot!(legend = :bottomright)
-savefig("./tutorials/Land/Soil/Water/dunne_infiltration.png")
+savefig("./tutorials/Land/Soil/Water/runoff_plots/mean_dunne_infiltration_no_ic.png")
 
+top_moisture = [mean(mmv[k,:]) for k in 1:N]
+effective_s  = volumetric_liquid_fraction.(top_moisture,Ref(0.4)) ./ 0.4
+ψ = pressure_head.(Ref(soil_water_model.hydraulics), Ref(0.4), Ref(soil_param_functions.S_s), top_moisture, Ref(0.0))
+expected = soil_param_functions.Ksat .* (1 .- ψ/zres)
+iiii = [mean(iv[k,:]) for k in 1:N]
+plot(time_data ./ 60, log10.(abs.(i_c_of_t)), label  ="mean, measured from simulation")
+plot!(time_data ./ 60, log10.(expected), label  = "i_c", color = "red")
+plot!(time_data ./ 60, log10.(-precip), label  = "precip", color = "purple")
+plot!(time_data ./ 60, log10.(abs.(iiii)), label  = "mean flux BC", color = "black")
+plot!(time_data ./ 60,zeros(length(time_data)) .+ log10(soil_param_functions.Ksat), label = "Ksat")
+plot!(xlabel = "Time (minutes)")
+plot!(ylabel = "Flux at surface (m/s)")
+plot!(legend = :bottomleft)
+plot!(title = "Dunne ic")
+plot!(ylim = [-18,-5])
+savefig("./tutorials/Land/Soil/Water/runoff_plots/mean_dunne_infiltration_no_ic_log.png")
 
-
-function f(k)
-    scatter(z[:], x[:],all_data[k]["ϑ_l"][:], zlim = [0.35,0.402], xlim = [-1, 0.2],label = "")
-end
-anim = @animate for i in 1:Int(50)
-    f(i*3)
-end
-(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture2.gif", fps = 8))
+#function f(k)
+#    scatter(z[:], x[:],all_data[k]["ϑ_l"][:], zlim = [0.35,0.402], xlim = [-1, 0.2],label = "")
+#end
+#anim = @animate for i in 1:Int(50)
+#    f(i*3)
+#end
+#(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture2_no_ic.gif", fps = 8))
 
 #would be much better as a contour plot!!
 
@@ -301,22 +322,72 @@ end
 anim = @animate for i in 1:Int(50)
     f2(i*3)
 end
-(gif(anim, "./tutorials/Land/Soil/Water/dunne_surface_moisture.gif", fps = 8))
+(gif(anim, "./tutorials/Land/Soil/Water/runoff_plots/dunne_surface_moisture_no_ic.gif", fps = 8))
+
+
+
+#####
+function f3(k)
+    locs = z .> -1
+    θvals = all_data[k]["ϑ_l"][locs]
+    xvals = x[locs]
+    zvals  = z[locs]
+    
+    myvals =unique([[round(100*xvals[k])/100,round(100*zvals[k])/100] for k in 1:length(xvals)])
+    θ2 = zeros(length(myvals))
+    θ1 = zeros(length(myvals))
+    X = [myvals[k][1] for k in 1:length(myvals)]
+    Z = [myvals[k][2] for k in 1:length(myvals)]
+    for i in 1:length(myvals)
+        pair = myvals[i]
+        if (pair[1] .* 100)./100 == 0.0
+            loc = (Int.(round.(zvals .* 100)./100 .== pair[2]) .+ Int.(round.(xvals .* 100)./100 .== pair[1])) .== 2
+            θ1[i] = mean(θvals[loc])
+        elseif (pair[1] .* 100)./100 == 400.0
+            loc = (Int.(round.(zvals .* 100)./100 .== pair[2]) .+ Int.(round.(xvals .* 100)./100 .== pair[1])) .== 2
+            θ2[i] = mean(θvals[loc])
+        end
+        
+    end
+    return [mean(θ1[θ1 .!=0]), mean(θ2[θ2 .!=0])]
+end
+#Plot top_moisture and integrated vertical moisture vs time at upslope and downslope point
+ds = [round.(xv) .== 0.0][1]
+top_moisture_ds = [mean(mmv[k,ds[:]]) for k in 1:N]
+us = [round.(xv) .== 400.0][1]
+top_moisture_us = [mean(mmv[k,us][:]) for k in 1:N]
+integrated = [f3(k) for k in 1:N]
+int_ds = [integrated[k][1] for k in 1:N]
+int_us = [integrated[k][2] for k in 1:N]
+plot(time_data ./ 60, top_moisture_ds, label = "Top ϑ_l, downslope")
+plot!(time_data./ 60, top_moisture_us, label = "Top ϑ_l, upslope")
+plot!(time_data ./60, int_us, label = "Mean ϑ_l above 1m, upslope")
+plot!(time_data ./ 60, int_us, label = "Mean ϑ_l above 1m, downslope")
+plot!(xlabel = "Time (min)")
+plot!(ylabel = "ϑ_l")
+plot!(legend = :bottomright)
+savefig("./tutorials/Land/Soil/Water/runoff_plots/dunne_surface_moisture_no_ic_time.png")
+#Plot ic, D, H, flux, precip, R vs time at two spots on surface
 
 
 
 
+bc_ds = [mean(iv[k,ds[:]]) for k in 1:N]
+d_ds = [mean(dv[k,ds[:]]) for k in 1:N]
+h_ds = [mean(hv[k,ds[:]]) for k in 1:N]
+ψ = pressure_head.(Ref(soil_water_model.hydraulics), Ref(0.4), Ref(soil_param_functions.S_s), top_moisture_ds, Ref(0.0))
 
+expected_ds_ic = soil_param_functions.Ksat .* (1 .- ψ/zres)
 
+plot(time_data ./60, bc_ds, label = "infiltration BC", linewidth = 3)
+#plot!(time_data ./60, h_ds, label = "Horton Runoff")
+plot!(time_data ./60, d_ds, label = "Dunne Runoff")
+plot!(time_data ./60, -expected_ds_ic, label = "infiltration capacity", color = "black")
+plot!(time_data ./60, precip, label = "precip")
 
-
-##Runoff
-plot(time_data ./ 60, -(precip_of_t.(time_data) .- iiii), title = "Runoff", xlabel = " Time (min)", ylabel = "Runoff (m/s)")
-savefig("./tutorials/Land/Soil/Water/dunne_runoff.png")
-plot(time_data ./ 60, -(precip_of_t.(time_data) .- iiii).*60*ymax*100, title = "Discharge - If height is 100m", xlabel = " Time (min)", ylabel = "Discharge (m^3/s)")
-savefig("./tutorials/Land/Soil/Water/dunne_discharge.png")
-
-## ic_of_t agrees with imv.  = 5e-6 and then drops to zero around 50 minutes in, stays zero. (why does it stay zero? I guess entire top is saturated...so why not Ksat?? Well - when precip stops, runoff stops, and the BC goes to zero flux. perhaps we are seeing that. ah - entire thing is full....
-# still - is zero BC the right thing at the top? I guess so!
-
+plot!(xlabel = "Time (min)")
+plot!(ylabel = "-K∂_z h")
+plot!(legend = :bottomright)
+plot!(title = "Surface fluxes; downslope")
+savefig("./tutorials/Land/Soil/Water/runoff_plots/dunne_surface_flux_no_ic_time.png")
 
