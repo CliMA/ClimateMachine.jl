@@ -24,8 +24,7 @@ Vreman
 AnisoMinDiss
 HyperDiffusion
 NoHyperDiffusion
-DryBiharmonic
-EquilMoistBiharmonic
+Biharmonic
 ViscousSponge
 NoViscousSponge
 UpperAtmosSponge
