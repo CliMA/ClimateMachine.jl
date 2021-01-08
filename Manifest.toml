@@ -421,8 +421,8 @@ version = "0.21.1"
 
 [[KernelAbstractions]]
 deps = ["Adapt", "CUDA", "Cassette", "InteractiveUtils", "MacroTools", "SpecialFunctions", "StaticArrays", "UUIDs"]
-git-tree-sha1 = "a3c84e2d3947dfd88af2b1a4b2da6dffb88ac239"
-repo-rev = "master"
+git-tree-sha1 = "257aab9ee84af22cf9aabc5e58e0551d38dbd2da"
+repo-rev = "vc/fancy_private"
 repo-url = "https://github.com/JuliaGPU/KernelAbstractions.jl.git"
 uuid = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 version = "0.4.6"

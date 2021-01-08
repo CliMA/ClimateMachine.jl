@@ -245,7 +245,7 @@ Hprog= HybridArray{Tuple{5,5,5,1,StaticArrays.Dynamic()}}(reshape(Q.data, (5,5,5
 Haux = HybridArray{Tuple{5,5,5,15,StaticArrays.Dynamic()}}(reshape(dg.state_auxiliary.data, (5,5,5,15,64)))
 Hgradpost = HybridArray{Tuple{5,5,5,3,StaticArrays.Dynamic()}}(reshape(dg.state_gradient_flux.data,(5,5,5,3,64)))
 
-Base.ndims(::KernelAbstractions.ScratchArray{N}) where {N} = N
+#Base.ndims(::KernelAbstractions.ScratchArray{N}) where {N} = N
 
 struct PackedArray{V,D,A,N} <: AbstractArray{V,N}
   data::A
@@ -279,7 +279,7 @@ gradarg(state, aux, t) = (ρ = state.ρ,)
 gradpost(∇vars, state, aux, t) = (σ = aux.diffusion.D * ∇vars.ρ,)
 
 
-@kernel function volume_gradients!(
+@kernel function volume_gradients_X!(
   gradarg::FnGradArg,
   gradpost::FnGradPost,
   Fprog::FField{ProgType,FT,Nq1,Nq2,Nq3,Nprog},
@@ -307,9 +307,6 @@ gradpost(∇vars, state, aux, t) = (σ = aux.diffusion.D * ∇vars.ρ,)
   local_prog = @private FT (Nprog, Nq3)
   local_aux = @private FT (Naux, Nq3)
   Gξ3 = @private FT (NGrad, Nq3)
-
-  @uniform L3prog = PackedArray{ProgType,2}(local_prog)
-  @uniform L3aux = PackedArray{AuxType,2}(local_aux)
 
   # Grab the index associated with the current element `e` and the
   # horizontal quadrature indices `i` (in the ξ1-direction),
@@ -439,7 +436,7 @@ function launch_volume_gradients!(
       # We assume N₁ = N₂, so the same polyorder, quadrature weights,
       # and differentiation operators are used
       @assert Nq1 == Nq2
-      dependencies = volume_gradients!(device, workgroup)(
+      dependencies = volume_gradients_X!(device, workgroup)(
         gradarg,
         gradpost,
         Fprog,
@@ -459,7 +456,7 @@ function launch_volume_gradients!(
      dg.diffusion_direction isa VerticalDirection
 
       # Vertical polynomial degree and differentiation matrix
-      dependencies = volume_gradients!(device, workgroup)(
+      dependencies = volume_gradients_X!(device, workgroup)(
         gradarg,
         gradpost,
         Fprog,
