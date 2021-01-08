@@ -40,13 +40,6 @@ const param_set = EarthParameterSet()
 using ClimateMachine.Atmos: altitude, recover_thermo_state
 import ClimateMachine.BalanceLaws: source, eq_tends
 
-# path to download artifacts
-const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
-    @__DIR__
-else
-    mktempdir(@__DIR__; prefix = "artifact_")
-end
-
 # Citation for problem setup
 ## CMIP6 Test Dataset - cfsites
 ## [Webb2017](@cite)
@@ -278,7 +271,8 @@ function get_gcm_info(group_id)
     @printf("--------------------------------------------------\n")
 
     lsforcing_dataset = ArtifactWrapper(
-        joinpath(ARTIFACT_DIR, "Artifacts.toml"),
+        @__DIR__,
+        isempty(get(ENV, "CI", "")),
         "lsforcing",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/dszfbqzwgc9a55vhxd43yenvebcb6bcj.nc",

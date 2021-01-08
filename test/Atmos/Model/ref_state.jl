@@ -5,16 +5,10 @@ using ClimateMachine.ArtifactWrappers
 using ClimateMachine.Thermodynamics
 const TD = Thermodynamics
 
-# path to download artifacts
-const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
-    @__DIR__
-else
-    mktempdir(@__DIR__; prefix = "artifact_")
-end
-
 @testset "Hydrostatic reference states - regression test" begin
     ref_state_dataset = ArtifactWrapper(
-        joinpath(ARTIFACT_DIR, "Artifacts.toml"),
+        @__DIR__,
+        isempty(get(ENV, "CI", "")),
         "ref_state",
         ArtifactFile[ArtifactFile(
             url = "https://caltech.box.com/shared/static/gyq292ns79wm9xpmy1sse3qtnpcxw54q.jld2",
