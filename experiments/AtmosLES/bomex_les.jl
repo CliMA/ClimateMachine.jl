@@ -49,6 +49,8 @@ function main()
     #timeend = FT(3600 * 6)
     CFLmax = FT(0.35)
 
+    C_smag = FT(0.23)     # Smagorinsky coefficient
+
     # Choose default IMEX solver
     ode_solver_type = ClimateMachine.IMEXSolverType()
 
@@ -56,8 +58,9 @@ function main()
         FT,
         config_type,
         zmax,
-        surface_flux,
+        surface_flux;
         moisture_model = moisture_model,
+        turbulence = SmagorinskyLilly{FT}(C_smag),
     )
     ics = model.problem.init_state_prognostic
     # Assemble configuration
