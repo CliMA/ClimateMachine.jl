@@ -84,6 +84,7 @@ include("IMEXSolverType.jl")
 include("MultirateSolverType.jl")
 include("MISSolverType.jl")
 include("SplitExplicitSolverType.jl")
+include("ThreeDimIMEXSolverType.jl")
 
 DefaultSolverType = IMEXSolverType
 export DefaultSolverType
