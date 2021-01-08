@@ -64,7 +64,7 @@ end
 function SubdomainModel(
     ::Type{FT},
     N_up;
-    a_min::FT = 0.001,
+    a_min::FT = FT(0),
     a_max::FT = 1 - N_up * a_min,
 ) where {FT}
     return SubdomainModel(; a_min = a_min, a_max = a_max)
