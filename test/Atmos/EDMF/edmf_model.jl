@@ -114,6 +114,8 @@ Constructor for `SurfaceModel` for EDMF, given:
 """
 function SurfaceModel{FT}(N_up;) where {FT}
     a_surf::FT = 0.1
+    "exponential decay rate for surface upd diffusivity"
+    α_surf::FT = 5e-2
 
     surface_scalar_coeff = SVector(
         ntuple(N_up) do i
