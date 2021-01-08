@@ -2137,3 +2137,25 @@ function fvm_balance!(
     )
     wait(device, event)
 end
+
+using SparseArrays
+function SparseArrays.SparseMatrixCSC(spacedisc::SpaceDiscretization)
+  Q = MPIStateArray(spacedisc)
+  dQ = MPIStateArray(spacedisc)
+  Q .= 0
+  dQ .= 0
+  I = Array{Int64}(undef, 0)
+  J = Array{Int64}(undef, 0)
+  V = Array{eltype(Q)}(undef, 0)
+  for k = 1:length(Q)
+    mod(k, 1000) == 1 && @show k, length(Q)
+    Q[k] = 1
+    spacedisc(dQ, Q, nothing, 0; increment=false)
+    Q .= 0
+    SV = sparse(reshape(dQ, length(dQ)))
+    append!(I, SV.nzind)
+    append!(J, k * ones(Int64, size(SV.nzind)))
+    append!(V, SV.nzval)
+  end
+  sparse(I, J, V)
+end
