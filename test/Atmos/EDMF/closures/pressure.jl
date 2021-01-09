@@ -33,13 +33,12 @@ function perturbation_pressure(
     i,
 ) where {FT}
     @unpack state, diffusive, aux = args
-
     # Alias convention:
     up = state.turbconv.updraft
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
 
-    w_up_i = up[i].ρaw / up[i].ρa
+    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
 
     nh_press_buoy = press.α_b * up_aux[i].buoyancy
     nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]

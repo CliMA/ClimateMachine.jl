@@ -95,7 +95,6 @@ using ..DGMethods.NumericalFluxes:
 
 import ..Courant: advective_courant, nondiffusive_courant, diffusive_courant
 
-
 """
     AtmosModel <: BalanceLaw
 

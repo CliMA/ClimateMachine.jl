@@ -32,3 +32,14 @@ we need this to avoid domain error in certain
 circumstances.
 """
 enforce_positivity(x::FT) where {FT} = max(x, FT(0))
+
+"""
+    fix_void_up(ρa_up_i::FT, val::FT, fallback = FT(0)) where {FT}
+
+Substitute value by a consistent fallback in case of
+negligible area fraction (void updraft).
+"""
+function fix_void_up(ρa_up_i::FT, val::FT, fallback = FT(0)) where {FT}
+    tol = sqrt(eps(FT))
+    return ρa_up_i > tol ? val : fallback
+end
