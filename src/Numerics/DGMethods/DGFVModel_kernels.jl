@@ -583,14 +583,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         if increment
                             tendency[n, s, eH + eV_up] += local_tendency[s]
                         else
-                            if β != 0
-                                T =
-                                    local_tendency[s] +
-                                    β * tendency[n, s, eH + eV_up]
-                            else
-                                T = local_tendency[s]
-                            end
-                            tendency[n, s, eH + eV_up] += T
+                            # This tendency has already been updated in the first element (eV_up=1)
+                            tendency[n, s, eH + eV_up] += local_tendency[s]
                         end
                     end
                 else
