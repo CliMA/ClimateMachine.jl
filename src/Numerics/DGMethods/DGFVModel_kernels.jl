@@ -590,7 +590,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                             else
                                 T = local_tendency[s]
                             end
-                            tendency[n, s, eH + eV_up] = T
+                            tendency[n, s, eH + eV_up] += T
                         end
                     end
                 else
