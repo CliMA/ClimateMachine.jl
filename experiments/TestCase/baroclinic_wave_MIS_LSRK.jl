@@ -167,7 +167,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     ref_state = HydrostaticState(temp_profile_ref)
 
     # Set up the atmosphere model
-    exp_name = "BaroclinicWave"
+    exp_name = "BaroclinicWaveMIS"
     domain_height::FT = 30e3 # distance between surface and top of atmosphere (m)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
@@ -206,7 +206,7 @@ function main()
     # add a command line argument to specify whether to use a moist setup
     # TODO: this will move to the future namelist functionality
     bw_args = ArgParseSettings(autofix_names = true)
-    add_arg_group!(bw_args, "BaroclinicWave")
+    add_arg_group!(bw_args, "BaroclinicWaveMIS")
     @add_arg_table! bw_args begin
         "--with-moisture"
         help = "use a moist setup"
@@ -259,11 +259,11 @@ function main()
                 Q,
                 nsubsteps = nsubsteps,
             ),
-            nsubsteps = (25, 3),
+            nsubsteps = (6, 18),
         )
 
 
-    CFL = FT(1.0) # target acoustic CFL number
+    CFL = FT(1.2) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
