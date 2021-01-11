@@ -4,9 +4,11 @@ using ArgParse
 using LinearAlgebra
 using StaticArrays
 using Test
+using UnPack
 
 using ClimateMachine
 using ClimateMachine.Atmos
+using ClimateMachine.BalanceLaws
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.Diagnostics
@@ -22,12 +24,74 @@ using ClimateMachine.Thermodynamics:
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
 using ClimateMachine.Spectra: compute_gaussian!
+using ClimateMachine.Atmos: altitude, recover_thermo_state
+import ClimateMachine.BalanceLaws: source, eq_tends
+
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
 struct EarthParameterSet <: AbstractEarthParameterSet end
 const param_set = EarthParameterSet()
 
+"""
+    GCMRelaxation{PV, FT} <: TendencyDef{Source, PV}
+
+"""
+struct GCMRelaxation{PV <: Union{Momentum, Energy}, FT} <: TendencyDef{Source, PV}
+    "Maximum domain altitude (m)"
+    z_max::FT
+    "Altitude at with sponge starts (m)"
+    z_sponge::FT
+    "Sponge Strength 0 ⩽ α_max ⩽ 1"
+    α_max::FT
+    "Sponge exponent"
+    γ::FT
+end
+
+GCMRelaxation(::Type{FT}, args...) where {FT} = (
+    GCMRelaxation{Momentum, FT}(args...),
+    GCMRelaxation{Energy, FT}(args...),
+)
+
+function source(s::GCMRelaxation{Momentum}, m, args)
+    @unpack state, aux = args
+    FT = eltype(state)
+    @unpack z_max, z_sponge, α_max, γ = s
+    # Establish sponge relaxation velocity
+    u_geo = aux.u₀
+    z = altitude(m, aux)
+    # Accumulate sources
+    if z_sponge <= z
+        r = (z - z_sponge) / (z_max - z_sponge)
+        #ZS: different sponge formulation?
+        β_sponge = α_max .* sinpi(r / FT(2)) .^ γ
+        return -β_sponge * (state.ρu .- state.ρ * u_geo)
+    else
+        return SVector{3, FT}(0, 0, 0)
+    end
+end
+
+function source(s::GCMRelaxation{Energy}, m, args)
+    @unpack state, aux = args
+    #Unpack sponge parameters
+    FT = eltype(state)
+    @unpack z_max, z_sponge, α_max, γ = s
+    # Establish sponge relaxation velocity
+    u_cart = aux.u₀
+    z = altitude(m, aux)
+    e_kin = 0.5 * u_cart' * u_cart
+    e_pot = gravitational_potential(m.orientation, aux)
+    e_tot_r = (e_kin + e_pot + aux.e_int₀)
+    # Accumulate sources
+    if z_sponge <= z
+        r = (z - z_sponge) / (z_max - z_sponge)
+        #ZS: different sponge formulation?
+        β_sponge = α_max .* sinpi(r / FT(2)) .^ γ
+        return -β_sponge * (state.ρe - state.ρ * e_tot_r)
+    else
+        return FT(0)
+    end
+end
 function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
     FT = eltype(state)
 
@@ -158,6 +222,9 @@ function init_baroclinic_wave!(problem, bl, state, aux, localgeo, t)
         state.moisture.ρq_tot = ρ * q_tot
     end
 
+    aux.u₀ = u_cart
+    aux.e_int₀ = internal_energy(bl.param_set, T, phase_partition)
+
     nothing
 end
 
@@ -173,11 +240,11 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
     if with_moisture
         hyperdiffusion = EquilMoistBiharmonic(FT(8 * 3600))
         moisture = EquilMoist{FT}()
-        source = (Gravity(), Coriolis())
+        source = (Gravity(), Coriolis(), GCMRelaxation(FT, domain_height, domain_height * 0.80, 1/3600/6, 4)...)
     else
         hyperdiffusion = DryBiharmonic(FT(8 * 3600))
         moisture = DryModel()
-        source = (Gravity(), Coriolis())
+        source = (Gravity(), Coriolis(), GCMRelaxation(FT, domain_height, domain_height * 0.80, 1/3600/6, 4)...)
     end
     model = AtmosModel{FT}(
         AtmosGCMConfigType,
@@ -185,6 +252,7 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         init_state_prognostic = init_baroclinic_wave!,
         ref_state = ref_state,
         turbulence = ConstantKinematicViscosity(FT(0)),
+        #turbulence = SmagorinskyLilly{FT}(0.25),
         hyperdiffusion = hyperdiffusion,
         moisture = moisture,
         source = source,
@@ -198,6 +266,8 @@ function config_baroclinic_wave(FT, poly_order, resolution, with_moisture)
         param_set,
         init_baroclinic_wave!;
         model = model,
+        #numerical_flux_first_order = LMARSNumericalFlux()
+        #numerical_flux_first_order = HLLCNumericalFlux()
     )
 
     return config
@@ -224,7 +294,7 @@ function main()
     poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
     n_horz = 8                               # horizontal element number
     n_vert = 3                               # vertical element number
-    n_days::FT = 1
+    n_days::FT = 30
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
 
@@ -238,7 +308,7 @@ function main()
         implicit_solver = ManyColumnLU,
         solver_method = ARK2GiraldoKellyConstantinescu,
         split_explicit_implicit = true,
-        discrete_splitting = false,
+        discrete_splitting = true,
     )
 
     CFL = FT(0.1) # target acoustic CFL number
