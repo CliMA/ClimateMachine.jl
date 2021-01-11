@@ -184,6 +184,8 @@ include("BatchedGeneralizedMinimalResidualAlgorithm.jl")
 include("JacobianFreeNewtonKrylovAlgorithm.jl")
 include("StandardPicardAlgorithm.jl")
 include("AccelerationAlgorithm.jl")
+include("GeneralizedConjugateResidualAlgorithm.jl")
+include("ConjugateGradientAlgorithm.jl")
 
 # TODO:
 #   - Make GeneralizedMinimalResidualAlgorithm look more like BatchedGeneralizedMinimalResidualAlgorithm
@@ -204,7 +206,7 @@ include("AccelerationAlgorithm.jl")
 #       - It should be explicitly dealt with in Preconditioners.jl and enable_duals.jl, but BackwardEulerSolvers.jl is included after those files.
 #       - Has been commented out in BackwardEulerSolvers.jl and moved to Problem.jl as a temporary workaround.
 #   - Get a reference for stepsize() computation in JacobianFreeNewtonKrylovSolver
-#   - Check whether weighted_norm needs to be passed around everywhere
+#   - [DONE] Check whether weighted_norm needs to be passed around everywhere
 #   - Pass α for EulerOperator in args... to solve!()
 #   - Rename JaCobIanfrEEneWtONKryLovSoLVeR with proper capitalization after removing jacobian_free_newton_krylov_solver.jl
 #   - If we want other linear solvers and preconditioners, we should check out https://arxiv.org/pdf/1607.00351.pdf (may help solve stiffer nonlinear problems)
@@ -213,7 +215,7 @@ include("AccelerationAlgorithm.jl")
 #       - "GMRES tends to deliver better performance when coupled with an effective multigrid preconditioner, but it is less competitive with an ineffective preconditioner due to restarts."
 #       - "Right preconditioning is, in general, more reliable than left preconditioning for large-scale systems."
 #   - Testing of the IterativeAlgorithm Interface
-#       - Convert CG and GCR to new interface
+#       - [DONE] Convert CG and GCR to new interface
 #       - Comparison testing with old code
 #       - More thorough tests following example of test/Numerics/SystemSolvers/iterativesolvers.jl
 #           - No iterations if initial value is the solution
