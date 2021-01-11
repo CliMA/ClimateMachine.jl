@@ -17,4 +17,5 @@ NumericalFluxSecondOrder
 CentralNumericalFluxSecondOrder
 CentralNumericalFluxFirstOrder
 CentralNumericalFluxGradient
+LMARSNumericalFlux
 ```
