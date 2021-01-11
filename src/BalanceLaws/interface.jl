@@ -62,6 +62,9 @@ function vars_state end
 
 # Fallback: no variables
 vars_state(::BalanceLaw, ::AbstractStateType, FT) = @vars()
+vars_state(bl, ::PrognosticIn, FT) = vars_state(bl, Prognostic(), FT)
+vars_state(bl, ::PrognosticOut, FT) = vars_state(bl, Prognostic(), FT)
+
 
 """
     init_state_prognostic!(
