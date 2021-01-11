@@ -1,5 +1,5 @@
 #### Land sources
-export PhaseChange
+export PhaseChange, Precip
 
 function heaviside(x::FT) where {FT}
     if x >= FT(0)
@@ -11,14 +11,14 @@ function heaviside(x::FT) where {FT}
 end
 
 
-abstract type SoilSource{FT <: AbstractFloat} end
+abstract type LandSource{FT <: AbstractFloat} end
 
 """
     PhaseChange <: SoilSource
 The function which computes the freeze/thaw source term for Richard's equation,
 assuming the timescale is the maximum of the thermal timescale and the timestep.
 """
-Base.@kwdef struct PhaseChange{FT} <: SoilSource{FT}
+Base.@kwdef struct PhaseChange{FT} <: LandSource{FT}
     "Timestep"
     Δt::FT = FT(NaN)
     "Timescale for temperature changes"
@@ -37,6 +37,32 @@ function land_source!(
     direction,
 )
     f(land, source, state, diffusive, aux, t, direction)
+end
+
+#TODO: precip docs
+struct Precip{FT, F} <: LandSource{FT}
+    precip::F
+
+    function Precip{FT}(precip::F) where {FT, F}
+        new{FT, F}(precip)
+    end
+end
+
+function (p::Precip{FT})(x, y, t)  where {FT}
+    FT(p.precip(x, y, t))
+end
+
+function land_source!(
+    source_type::Precip,
+    land::LandModel,
+    source::Vars,
+    state::Vars,
+    diffusive::Vars,
+    aux::Vars,
+    t::Real,
+    direction,
+)
+    source.river.area += source_type(aux.x, aux.y, t)
 end
 
 function land_source!(

@@ -675,7 +675,7 @@ function MultiColumnLandModel(
     zmin = zero(FT),
     array_type = ClimateMachine.array_type(),
     mpicomm = MPI.COMM_WORLD,
-    boundary = ((3, 3), (3, 3), (1, 2)),
+    boundary = ((3, 4), (5, 6), (1, 2)),
     solver_type = ExplicitSolverType(),
     periodicity = (false, false, false),
     meshwarp = (x...) -> identity(x),

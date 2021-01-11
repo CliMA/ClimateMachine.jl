@@ -5,4 +5,5 @@ using Test, Pkg
     include("prescribed_twice.jl")
     include("freeze_thaw_alone.jl")
     include("test_physical_bc.jl")
+    include("test_no_river.jl")
 end
