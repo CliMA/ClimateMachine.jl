@@ -43,6 +43,7 @@ end
     aux::Vars,
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
+    ρe_pot += 0.5*(state.ρu[1]*state.ρu[1]+state.ρu[2]*state.ρu[2]+state.ρu[3]*state.ρu[3])/state.ρ 
     return linearized_air_pressure(param_set, state.ρ, state.ρe, ρe_pot)
 end
 @inline function linearized_pressure(
@@ -229,7 +230,7 @@ function flux_first_order!(
         state,
         aux,
     )
-    flux.ρu += pL * I
+    flux.ρu += (pL -ref.p) * I
     flux.ρe = ((ref.ρe + ref.p) / ref.ρ - e_pot) * state.ρu
     nothing
 end
@@ -264,8 +265,9 @@ function flux_first_order!(
         state,
         aux,
     )
-    flux.ρu += pL * I
-    flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    flux.ρu += (pL - ref.p) * I
+#   flux.ρe = ((ref.ρe + ref.p) / ref.ρ) * state.ρu
+    flux.ρe = ((state.ρe + pL) / state.ρ) * state.ρu
     nothing
 end
 function source!(
@@ -279,7 +281,7 @@ function source!(
 ) where {Dir <: Direction}
     if Dir === VerticalDirection || Dir === EveryDirection
         ∇Φ = ∇gravitational_potential(lm.atmos.orientation, aux)
-        source.ρu -= state.ρ * ∇Φ
+        source.ρu -= (state.ρ - aux.ref_state.ρ) * ∇Φ
     end
     nothing
 end

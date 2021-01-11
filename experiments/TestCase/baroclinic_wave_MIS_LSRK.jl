@@ -21,7 +21,6 @@ using ClimateMachine.Thermodynamics:
     air_density, air_temperature, total_energy, internal_energy, PhasePartition
 using ClimateMachine.TurbulenceClosures
 using ClimateMachine.VariableTemplates
-using ClimateMachine.Spectra: compute_gaussian!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: MSLP, R_d, day, grav, Omega, planet_radius
@@ -221,9 +220,9 @@ function main()
 
     # Driver configuration parameters
     FT = Float64                             # floating type precision
-    poly_order = (5, 6)                      # discontinuous Galerkin polynomial order
-    n_horz = 8                               # horizontal element number
-    n_vert = 3                               # vertical element number
+    poly_order = 5                           # discontinuous Galerkin polynomial order
+    n_horz = 8                              # horizontal element number
+    n_vert = 4                               # vertical element number
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
@@ -233,15 +232,38 @@ function main()
         config_baroclinic_wave(FT, poly_order, (n_horz, n_vert), with_moisture)
 
     # Set up experiment
-    ode_solver_type = ClimateMachine.IMEXSolverType(
-        implicit_model = AtmosAcousticGravityLinearModel,
-        implicit_solver = ManyColumnLU,
-        solver_method = ARK2GiraldoKellyConstantinescu,
-        split_explicit_implicit = true,
-        discrete_splitting = false,
-    )
+#   ode_solver_type = ClimateMachine.IMEXSolverType(
+#       implicit_model = AtmosAcousticGravityLinearModel,
+#       implicit_solver = ManyColumnLU,
+#       solver_method = ARK2GiraldoKellyConstantinescu,
+#       split_explicit_implicit = true,
+#       discrete_splitting = false,
+#   )
 
-    CFL = FT(0.6) # target acoustic CFL number
+        # Set up experiment
+#    ode_solver_type = ClimateMachine.MISSolverType(;
+#       splitting_type = ClimateMachine.SlowFastSplitting(),
+#       mis_method = MIS2,
+#       fast_method = LSRK144NiegemannDiehlBusch,
+#       nsubsteps = (25,),
+#   )
+
+     ode_solver_type = ClimateMachine.MISSolverType(
+            splitting_type = ClimateMachine.HEVISplitting(),
+            fast_model = AtmosAcousticGravityLinearModel,
+            mis_method = MIS2,
+            fast_method = (dg, Q, nsubsteps) -> MultirateInfinitesimalStep(
+                MISKWRK43,
+                dg,
+                (dgi, Qi) -> LSRK54CarpenterKennedy(dgi, Qi),
+                Q,
+                nsubsteps = nsubsteps,
+            ),
+            nsubsteps = (30, 3),
+        )
+
+
+    CFL = FT(1.0) # target acoustic CFL number
 
     # time step is computed such that the horizontal acoustic Courant number is CFL
     solver_config = ClimateMachine.SolverConfiguration(
@@ -297,36 +319,15 @@ function config_diagnostics(FT, driver_config)
     _planet_radius = FT(planet_radius(param_set))
 
     info = driver_config.config_info
-
-    # Setup diagnostic grid(s)
-    nlats = 128
-
-    sinθ, wts = compute_gaussian!(nlats)
-    lats = asin.(sinθ) .* 180 / π
-    lons = 180.0 ./ nlats * collect(FT, 1:1:(2nlats))[:] .- 180.0
-
     boundaries = [
-        FT(lats[1]) FT(lons[1]) _planet_radius
-        FT(lats[end]) FT(lons[end]) FT(_planet_radius + info.domain_height)
+        FT(-90.0) FT(-180.0) _planet_radius
+        FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
     ]
-
-    lvls = collect(range(
-        boundaries[1, 3],
-        boundaries[2, 3],
-        step = FT(1000), # in m
-    ))
-
-    #boundaries = [
-    #    FT(-90.0) FT(-180.0) _planet_radius
-    #    FT(90.0) FT(180.0) FT(_planet_radius + info.domain_height)
-    #]
-
-    #resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
-
+    resolution = (FT(2), FT(2), FT(1000)) # in (deg, deg, m)
     interpol = ClimateMachine.InterpolationConfiguration(
         driver_config,
         boundaries,
-        [lats, lons, lvls],
+        resolution,
     )
 
     dgngrp = setup_atmos_default_diagnostics(
@@ -336,14 +337,7 @@ function config_diagnostics(FT, driver_config)
         interpol = interpol,
     )
 
-    ds_dgngrp = setup_atmos_spectra_diagnostics(
-        AtmosGCMConfigType(),
-        interval,
-        driver_config.name,
-        interpol = interpol,
-    )
-
-    return ClimateMachine.DiagnosticsConfiguration([dgngrp, ds_dgngrp])
+    return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
 main()

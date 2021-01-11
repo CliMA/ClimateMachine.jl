@@ -1,0 +1,11 @@
+
+PDE: ∂_t Y_i + (∇•F_1(Y))_i + (∇•F_2(Y,G)))_i = (S(Y,G))_i
+┌──────────┬────────────────────────────┬─────────────────────────────────┬─────────────────────┐
+│ Equation │           Flux{FirstOrder} │               Flux{SecondOrder} │              Source │
+│    (Y_i) │                      (F_1) │                           (F_2) │                 (S) │
+├──────────┼────────────────────────────┼─────────────────────────────────┼─────────────────────┤
+│     Mass │                   (Advect) │                              () │                  () │
+│ Momentum │ (Advect, PressureGradient) │                 (ViscousStress) │ (Gravity, Coriolis) │
+│   Energy │         (Advect, Pressure) │ (ViscousFlux, DiffEnthalpyFlux) │                  () │
+└──────────┴────────────────────────────┴─────────────────────────────────┴─────────────────────┘
+

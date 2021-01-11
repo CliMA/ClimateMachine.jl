@@ -19,7 +19,7 @@ function flux(::PressureGradient{Momentum}, atmos, args)
     if atmos.ref_state isa HydrostaticState
         return pad + (air_pressure(ts) - aux.ref_state.p) * I
     else
-        return pad + air_pressure(ts) * I
+        return pad + (air_pressure(ts) - aux.ref_state.p) * I
     end
 end
 

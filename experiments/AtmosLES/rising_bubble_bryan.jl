@@ -147,6 +147,9 @@ function config_risingbubble(FT, N, resolution, xmax, ymax, zmax, fast_method)
     else
         error("Invalid --fast_method=$fast_method")
     end
+    ode_solver = ClimateMachine.ExplicitSolverType(
+        solver_method = LSRK144NiegemannDiehlBusch,
+    )
 
     # Set up the model
     C_smag = FT(0.23)
@@ -205,11 +208,11 @@ function main()
     # Working precision
     FT = Float64
     # DG polynomial order
-    N = 3
+    N = 4
     # Domain resolution and size
-    Δx = FT(125)
-    Δy = FT(125)
-    Δz = FT(125)
+    Δx = FT(250)
+    Δy = FT(250)
+    Δz = FT(250)
     resolution = (Δx, Δy, Δz)
     # Domain extents
     xmax = FT(20000)
@@ -217,7 +220,7 @@ function main()
     zmax = FT(10000)
     # Simulation time
     t0 = FT(0)
-    timeend = FT(20)
+    timeend = FT(1000)
 
     # Time-step size (s)
     Δt = FT(0.4)
