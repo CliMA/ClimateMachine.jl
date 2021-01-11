@@ -1366,7 +1366,6 @@ end
     compute_lat_long(X,Y,δ,faceid)
 Helper function to allow computation of latitute and longitude coordinates
 given the cubed sphere coordinates X, Y, δ, faceid 
-TODO: [Citation required]
 """
 function compute_lat_long(X, Y, δ, faceid)
     if faceid == 1
@@ -1411,14 +1410,17 @@ function compute_analytical_topography(
 end
 
 """
-    NoAnalyticalTopoWarp <: AnalyticalTopography
+    NoTopography <: AnalyticalTopography
 Allows definition of fallback methods in case cubedshelltopowarp is used with 
 no prescribed topography function. 
 """
-struct NoAnalyticalTopoWarp <: AnalyticalTopography end
-
+struct NoTopography <: AnalyticalTopography end
 
 ### DCMIP Mountain 
+"""
+    DCMIPMountain <: AnalyticalTopography
+Topography description based on standard DCMIP experiments. 
+"""
 struct DCMIPMountain <: AnalyticalTopography end
 function compute_analytical_topography(
     ::DCMIPMountain,
