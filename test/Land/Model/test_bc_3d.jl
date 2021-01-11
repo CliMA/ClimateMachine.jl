@@ -44,14 +44,16 @@ using ClimateMachine.BalanceLaws:
     bottom_flux =
         (aux, t) -> bottom_flux_amplitude * sin(f * t) * aux.soil.water.K
     surface_state = (aux, t) -> eltype(aux)(0.2)
+    lateral_state = (aux, t) -> eltype(aux)(0.0)
     ϑ_l0 = (aux) -> eltype(aux)(0.2)
 
     bc = LandDomainBC(
         bottom_bc = LandComponentBC(soil_water = Neumann(bottom_flux)),
         surface_bc = LandComponentBC(soil_water = Dirichlet(surface_state)),
-        lateral_bc = LandComponentBC(
-            soil_water = Neumann((aux, t) -> eltype(aux)(0.0)),
-        ),
+        minx_bc = LandComponentBC(soil_water = Neumann(lateral_state)),
+        maxx_bc = LandComponentBC(soil_water = Neumann(lateral_state)),
+        miny_bc = LandComponentBC(soil_water = Neumann(lateral_state)),
+        maxy_bc = LandComponentBC(soil_water = Neumann(lateral_state)),
     )
     soil_water_model = SoilWaterModel(FT; initialϑ_l = ϑ_l0)
     soil_heat_model = PrescribedTemperatureModel()
