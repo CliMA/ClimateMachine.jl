@@ -28,13 +28,14 @@ import ..BalanceLaws:
     compute_gradient_flux!,
     nodal_init_state_auxiliary!,
     init_state_prognostic!,
-    nodal_update_auxiliary_state!
+    nodal_update_auxiliary_state!,
+    wavespeed
 using ..DGMethods: LocalGeometry, DGModel
 export LandModel
 
 
 """
-    LandModel{PS, S, LBC, SRC, IS} <: BalanceLaw
+    LandModel{PS, S, SF, LBC, SRC, SRCDT, IS} <: BalanceLaw
 
 A BalanceLaw for land modeling.
 Users may over-ride prescribed default values for each field.
@@ -44,19 +45,23 @@ Users may over-ride prescribed default values for each field.
     LandModel(
         param_set,
         soil;
+        surface,
         boundary_conditions,
         source,
+        source_dt,
         init_state_prognostic
     )
 
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct LandModel{PS, S, LBC, SRC, SRCDT, IS} <: BalanceLaw
+struct LandModel{PS, S, SF, LBC, SRC, SRCDT, IS} <: BalanceLaw
     "Parameter set"
     param_set::PS
     "Soil model"
     soil::S
+    "Surface Flow model"
+    surface::SF
     "struct of boundary conditions"
     boundary_conditions::LBC
     "Source Terms (Problem specific source terms)"
@@ -73,6 +78,7 @@ parameter_set(m::LandModel) = m.param_set
     LandModel(
         param_set::AbstractParameterSet,
         soil::BalanceLaw;
+        surface::BalanceLaw = NoSurfaceFlowModel(),
         boundary_conditions::LBC = (),
         source::SRC = (),
         init_state_prognostic::IS = nothing
@@ -83,6 +89,7 @@ Constructor for the LandModel structure.
 function LandModel(
     param_set::AbstractParameterSet,
     soil::BalanceLaw;
+    surface::BalanceLaw = NoSurfaceFlowModel(),
     boundary_conditions::LBC = LandDomainBC(),
     source::SRC = (),
     init_state_prognostic::IS = nothing,
@@ -92,6 +99,7 @@ function LandModel(
     land = (
         param_set,
         soil,
+        surface,
         boundary_conditions,
         source,
         source_dt,
@@ -104,26 +112,32 @@ end
 function vars_state(land::LandModel, st::Prognostic, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
+        surface::vars_state(land.surface, st, FT)
     end
 end
 
 
 function vars_state(land::LandModel, st::Auxiliary, FT)
     @vars begin
+        x::FT
+        y::FT
         z::FT
         soil::vars_state(land.soil, st, FT)
+        surface::vars_state(land.surface, st, FT)
     end
 end
 
 function vars_state(land::LandModel, st::Gradient, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
+        surface::vars_state(land.surface, st, FT)
     end
 end
 
 function vars_state(land::LandModel, st::GradientFlux, FT)
     @vars begin
         soil::vars_state(land.soil, st, FT)
+        surface::vars_state(land.surface, st, FT)
     end
 end
 
@@ -133,8 +147,11 @@ function nodal_init_state_auxiliary!(
     tmp::Vars,
     geom::LocalGeometry,
 )
+    aux.x = geom.coord[1]
+    aux.y = geom.coord[2]
     aux.z = geom.coord[3]
     land_init_aux!(land, land.soil, aux, geom)
+    land_init_aux!(land, land.surface, aux, geom)
 end
 
 function compute_gradient_argument!(
@@ -176,6 +193,7 @@ function nodal_update_auxiliary_state!(
     t::Real,
 )
     land_nodal_update_auxiliary_state!(land, land.soil, state, aux, t)
+    land_nodal_update_auxiliary_state!(land, land.surface, state, aux, t)
 end
 
 function init_state_prognostic!(
@@ -190,7 +208,6 @@ function init_state_prognostic!(
 end
 
 include("prog_types.jl")
-
 include("RadiativeEnergyFlux.jl")
 using .RadiativeEnergyFlux
 include("SoilWaterParameterizations.jl")
@@ -203,11 +220,19 @@ include("soil_heat.jl")
 include("Runoff.jl")
 using .Runoff
 include("land_bc.jl")
+include("SurfaceFlow.jl")
+using .SurfaceFlow
 include("soil_bc.jl")
-
 include("prognostic_vars.jl")
-
-include("source.jl")
 include("land_tendencies.jl")
+include("source.jl")
+
+function wavespeed(m::LandModel, n⁻, state::Vars, aux::Vars, t::Real, direction)
+    FT = eltype(state)
+    h = max(state.surface.height, FT(0.0))
+    v = calculate_velocity(m.surface, aux.x, aux.y, h)
+    speed = norm(v)
+    return speed
+end
 
 end # Module

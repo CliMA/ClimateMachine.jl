@@ -22,6 +22,9 @@ apis = [
             "APIs/Land/SoilWaterParameterizations.md",
         "Soil Heat Parameterizations" =>
             "APIs/Land/SoilHeatParameterizations.md",
+        "Surface Flow" => "APIs/Land/SurfaceFlow.md",
+        "Radiative Boundary Conditions" =>
+            "APIs/Land/RadiativeEnergyFlux.md",
     ],
     "Common" => [
         "Orientations" => "APIs/Common/Orientations.md",

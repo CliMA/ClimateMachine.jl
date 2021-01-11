@@ -9,19 +9,34 @@ eq_tends(pv::AbstractPrognosticVariable, m::LandModel, tt::Source) =
 ##### First order fluxes
 #####
 
-eq_tends(::PV, ::LandModel, ::Flux{FirstOrder}) where {PV} = ()
+eq_tends(pv::PV, land::LandModel, tt::Flux{FirstOrder}) where {PV} = (
+    eq_tends(pv, land.soil.heat, tt)...,
+    eq_tends(pv, land.soil.water, tt)...,
+    eq_tends(pv, land.surface, tt)...,
+)
 
+eq_tends(::PV, ::AbstractSoilComponentModel, ::Flux{FirstOrder}) where {PV} = ()
+eq_tends(::PV, ::NoSurfaceFlowModel, ::Flux{FirstOrder}) where {PV} = ()
+
+eq_tends(::SurfaceWaterHeight, ::OverlandFlowModel, ::Flux{FirstOrder}) =
+    (VolumeAdvection(),)
 
 #####
 ##### Second order fluxes
 #####
 
 # Empty by default
+
 eq_tends(pv::PV, ::AbstractSoilComponentModel, ::Flux{SecondOrder}) where {PV} =
     ()
+eq_tends(pv::PV, ::OverlandFlowModel, ::Flux{SecondOrder}) where {PV} = ()
+eq_tends(pv::PV, ::NoSurfaceFlowModel, ::Flux{SecondOrder}) where {PV} = ()
 
-eq_tends(pv::PV, land::LandModel, tt::Flux{SecondOrder}) where {PV} =
-    (eq_tends(pv, land.soil.heat, tt)..., eq_tends(pv, land.soil.water, tt)...)
+eq_tends(pv::PV, land::LandModel, tt::Flux{SecondOrder}) where {PV} = (
+    eq_tends(pv, land.soil.heat, tt)...,
+    eq_tends(pv, land.soil.water, tt)...,
+    eq_tends(pv, land.surface, tt)...,
+)
 
 eq_tends(
     pv::PV,
@@ -30,7 +45,6 @@ eq_tends(
 ) where {PV <: VolumetricInternalEnergy} =
     (eq_tends(pv, land.soil.heat, land.soil.water, tt)...,)
 
-# TODO: move to soi_heat.jl?
 eq_tends(
     ::VolumetricInternalEnergy,
     ::SoilHeatModel,
@@ -38,7 +52,6 @@ eq_tends(
     ::Flux{SecondOrder},
 ) = (DiffHeatFlux(), DarcyDrivenHeatFlux())
 
-# TODO: move to soi_water.jl?
 eq_tends(
     ::VolumetricInternalEnergy,
     ::SoilHeatModel,
