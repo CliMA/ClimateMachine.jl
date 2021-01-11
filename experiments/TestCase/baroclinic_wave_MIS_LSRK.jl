@@ -259,7 +259,7 @@ function main()
                 Q,
                 nsubsteps = nsubsteps,
             ),
-            nsubsteps = (30, 3),
+            nsubsteps = (25, 3),
         )
 
 
