@@ -2,99 +2,170 @@ using Test
 using ClimateMachine
 using ClimateMachine.SystemSolvers
 
-using StaticArrays, LinearAlgebra, Random
+using StaticArrays, SparseArrays, LinearAlgebra, Random
 
 Random.seed!(1)
 
-# @testset "Solver Params" begin
-#     # test rtol, atol, maxiter functions return the correct type and value
-#     # test errors throw for out of bounds values
+linear_algs = (
+    (atol, rtol, maxiters) -> GeneralizedMinimalResidualAlgorithm(;
+        atol = atol,
+        rtol = rtol,
+        maxrestarts = maxiters,
+    ),
+    (atol, rtol, maxiters) -> GeneralizedConjugateResidualAlgorithm(;
+        atol = atol,
+        rtol = rtol,
+        maxrestarts = maxiters,
+    ),
+    (atol, rtol, maxiters) -> ConjugateGradientAlgorithm(;
+        atol = atol,
+        rtol = rtol,
+        maxiters = maxiters,
+    ),
+)
 
-#     FT = Float32
-#     f(args...) = nothing
-#     Q = [FT(1)]
-#     rhs = [FT(1)]
+standard_algs = (
+    (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
+        GeneralizedMinimalResidualAlgorithm();
+        atol = atol,
+        rtol = rtol,
+        maxiters = maxiters,
+    ),
+    (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
+        GeneralizedMinimalResidualAlgorithm(); 
+        atol = atol,
+        rtol = rtol,
+        maxiters = maxiters,
+        autodiff=true,
+    ),
+    (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
+        GeneralizedConjugateResidualAlgorithm(); 
+        atol = atol,
+        rtol = rtol,
+        maxiters = maxiters,
+    ),
+    (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
+        GeneralizedConjugateResidualAlgorithm(); 
+        atol = atol,
+        rtol = rtol,
+        maxiters = maxiters,
+        autodiff=true,
+    ),
+)
 
-#     algs = (
-#         (atol, rtol, maxiters) -> GeneralizedMinimalResidualAlgorithm(;
-#             atol = atol,
-#             rtol = rtol,
-#             maxrestarts = maxiters,
-#         ),
-#         (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
-#             GeneralizedMinimalResidualAlgorithm();
-#             atol = atol,
-#             rtol = rtol,
-#             maxiters = maxiters,
-#         ),
-#         (atol, rtol, maxiters) -> StandardPicardAlgorithm(;
-#             atol = atol,
-#             rtol = rtol,
-#             maxiters = maxiters,
-#         ),
-#     )
-
-#     atol, rtol, maxiters = 1.e-4, 1.e-5, 14
-
-#     for alg in algs
-#         solver = IterativeSolver(alg(atol, rtol, maxiters), Q, f, rhs)
-#         a = ClimateMachine.SystemSolvers.atol(solver)
-#         r = ClimateMachine.SystemSolvers.rtol(solver)
-#         m = ClimateMachine.SystemSolvers.maxiters(solver)
-#         @test a == FT(atol)
-#         @test r == FT(rtol)
-#         @test m == maxiters
-#     end
-
-#     params = (
-#         (-1.e-4, 1.e-5, 14),
-#         (1.e-4, -1.e-5, 14),
-#         (1.e-4, 1.e-5, -14),
-#     )
-#     for alg in algs
-#         for (atol, rtol, maxiters) in params
-#             @test_throws DomainError alg(atol, rtol, maxiters)
-#         end
-#     end
-# end
-
-# @testset "Standard Problems" begin
-#     algs = (
-#             (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
-#                 GeneralizedMinimalResidualAlgorithm()),
-#             (atol, rtol, maxiters) -> JacobianFreeNewtonKrylovAlgorithm(
-#                 GeneralizedMinimalResidualAlgorithm(); autodiff=true),
-#         )
-
-#     atol, rtol, maxiters = 1.e-6, 1.e-6, 10
-
-#     for T in [Float32, Float64]
-#         f!(fx, x) = (fx[1] = x[1]^2 + T(2); fx[2] = (x[2] - T(1))^3 + T(3))
-#         x0 = rand(T, 2)
-#         b = T[11, 11]
-#         x_true = T[3, 3]
-
-#         for alg in algs
-#             Q = copy(x0)
-#             solver = IterativeSolver(alg(atol, rtol, maxiters), Q, f!, b)
-#             solve!(solver, Q, f!, b)
-#             @test norm(Q - x_true) < 1.e-6
-#         end
-#     end
-# end
-
-@testset "Fixed Point Problems" begin
-    algs = (
-        (atol, rtol, maxiters) -> StandardPicardAlgorithm(;
+fixed_pt_algs = (
+    (atol, rtol, maxiters) -> StandardPicardAlgorithm(;
+        atol = atol,
+        rtol = rtol,
+        maxiters = maxiters,
+    ),
+    (atol, rtol, maxiters) -> AndersonAccelerationAlgorithm(
+        StandardPicardAlgorithm(;
             atol = atol,
             rtol = rtol,
-            maxiters = maxiters,
-        ),
-        (atol, rtol, maxiters) -> AndersonAccelerationAlgorithm(
-            StandardPicardAlgorithm(; atol = atol, rtol = rtol, maxiters = maxiters);
-            depth = 4,
-        )
-    )    
+            maxiters = maxiters
+        );
+        depth = 4,
+    )
+)
+
+@testset "Solver Params" begin
+    # test rtol, atol, maxiter functions return the correct type and value
+    # test errors throw for out of bounds values
+
+    FT = Float32
+    f(args...) = nothing
+    Q = [FT(1)]
+    rhs = [FT(1)]
+
+    atol, rtol, maxiters = 1.e-4, 1.e-5, 14
+
+    for alg in (linear_algs..., standard_algs..., fixed_pt_algs...)
+        solver = IterativeSolver(alg(atol, rtol, maxiters), Q, f, rhs)
+        a = ClimateMachine.SystemSolvers.atol(solver)
+        r = ClimateMachine.SystemSolvers.rtol(solver)
+        m = ClimateMachine.SystemSolvers.maxiters(solver)
+        @test a == FT(atol)
+        @test r == FT(rtol)
+        @test m == maxiters
+    end
+
+    params = (
+        (-1.e-4, 1.e-5, 14),
+        (1.e-4, -1.e-5, 14),
+        (1.e-4, 1.e-5, -14),
+    )
+    for alg in (linear_algs..., standard_algs..., fixed_pt_algs...)
+        for (atol, rtol, maxiters) in params
+            @test_throws DomainError alg(atol, rtol, maxiters)
+        end
+    end
+end
+
+@testset "Linear Problems" begin
+
+    # Creates a Laplacian matrix based on the code from: http://math.mit.edu/~stevenj/18.303/lecture-10.html
+    # construct the (M+1)xM matrix D, not including the 1/dx factor
+    sdiff1(M) = [ [1.0 spzeros(1, M-1)]; spdiagm(1=>ones(M-1)) - I ]
+
+    # make the discrete -Laplacian in 2d, with Dirichlet boundaries
+    function Laplacian(Nx, Ny, Lx, Ly)
+        dx = Lx / (Nx+1)
+        dy = Ly / (Ny+1)
+        Dx = sdiff1(Nx) / dx
+        Dy = sdiff1(Ny) / dy
+        Ax = Dx' * Dx
+        Ay = Dy' * Dy
+        return kron(spdiagm(0=>ones(Ny)), Ax) + kron(Ay, spdiagm(0=>ones(Nx)))
+    end
+
+    FT = Float64
+    Lx = 1
+    Ly = 1
+    Nx = 10
+    Ny = 10
+    A = Laplacian(Nx, Ny, Lx, Ly)
+    n, _ = size(A)
+    @info "Size of matrix A: ($n, $n)"
+    b = rand(FT, n)
+    x = rand(FT, n)
+
+    f!(y, x) = (y .= A * x)
+
+    atol = eps(FT)
+    rtol = sqrt(eps(FT))
+    maxiters = 35
+
+    for alg in linear_algs
+        Q0 = copy(x)
+        Q = copy(x)
+        solver = IterativeSolver(alg(atol, rtol, maxiters), Q, f!, b)
+        iters, fcalls = solve!(solver, Q, f!, b)
+        @info iters
+        @test norm(A * Q - b) < rtol * norm(A * Q0 - b)
+    end
+end
+
+@testset "Standard Problems" begin
+
+    atol, rtol, maxiters = 1.e-6, 1.e-6, 10
+
+    for T in [Float32, Float64]
+        f!(fx, x) = (fx[1] = x[1]^2 + T(2); fx[2] = (x[2] - T(1))^3 + T(3))
+        x0 = rand(T, 2)
+        b = T[11, 11]
+        x_true = T[3, 3]
+
+        for alg in standard_algs
+            Q = copy(x0)
+            solver = IterativeSolver(alg(atol, rtol, maxiters), Q, f!, b)
+            solve!(solver, Q, f!, b)
+            @test norm(Q - x_true) < 1.e-6
+        end
+    end
+end
+
+@testset "Fixed Point Problems" begin  
 
     atol, rtol, maxiters = 1.e-6, 1.e-6, 40
 
@@ -105,16 +176,12 @@ Random.seed!(1)
         end
         x0 = rand(T, 2)
         x_true = T[0.499336, 0.391739]
-        # f!(y,x) = (y .= x./T(10))
-        # x0 = T[.5]
-        # x_true = T[0.0]
         
-        for alg in algs 
+        for alg in fixed_pt_algs
             Q = copy(x0)
             solver = IterativeSolver(alg(atol, rtol, maxiters), Q, f!)
             iters, fcalls = solve!(solver, Q, f!)
-            @info iters, fcalls
-            @info Q
+
             @test norm(Q - x_true) < atol
         end
     end
