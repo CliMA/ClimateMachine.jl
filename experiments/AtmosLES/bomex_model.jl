@@ -362,8 +362,6 @@ function bomex_model(
 
     ics = init_bomex!     # Initial conditions
 
-    C_smag = FT(0.23)     # Smagorinsky coefficient
-
     u_star = FT(0.28)     # Friction velocity
     C_drag = FT(0.0011)   # Bulk transfer coefficient
 
@@ -478,7 +476,7 @@ function bomex_model(
         config_type,
         param_set;
         problem = problem,
-        turbulence = SmagorinskyLilly{FT}(C_smag),
+        turbulence = turbulence,
         moisture = moisture,
         source = source,
         turbconv = turbconv,

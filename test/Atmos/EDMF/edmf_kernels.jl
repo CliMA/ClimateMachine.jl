@@ -414,6 +414,10 @@ function compute_gradient_argument!(
         up_tf[i].ρaθ_liq = up[i].ρaθ_liq
         up_tf[i].ρaq_tot = up[i].ρaq_tot
         up_tf[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+        up_tf[i].ρa = up[i].ρa
+        up_tf[i].ρaw = up[i].ρaw
+        up_tf[i].ρaθ_liq = up[i].ρaθ_liq
+        up_tf[i].ρaq_tot = up[i].ρaq_tot
     end
     _grav::FT = grav(m.param_set)
 
