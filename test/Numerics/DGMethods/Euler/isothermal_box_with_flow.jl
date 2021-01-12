@@ -28,7 +28,7 @@ const param_set = EarthParameterSet()
 
 using MPI, Logging, StaticArrays, LinearAlgebra, Printf, Dates, Test
 
-const output_vtk = false
+const output_vtk = true
 const gravity = false
 
 function main()
@@ -155,12 +155,15 @@ function test_run(
     dt = horz_sound_cfl * dx / acoustic_speed
     horz_adv_cfl = dt * setup.u0 / dx
     
+    outputtime = dt
+    
     @show dt
     @show aspect_ratio
     @show horz_sound_cfl
     @show horz_adv_cfl
 
-    nsteps = ceil(Int, timeend / dt)
+    #nsteps = ceil(Int, timeend / dt)
+    nsteps = 50
 
     Q = init_ode_state(dg, FT(0))
 

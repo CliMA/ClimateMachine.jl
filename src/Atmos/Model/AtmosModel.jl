@@ -411,6 +411,11 @@ function vars_state(m::AtmosModel, st::Auxiliary, FT)
         tracers::vars_state(m.tracers, st, FT)
         radiation::vars_state(m.radiation, st, FT)
         lsforcing::vars_state(m.lsforcing, st, FT)
+        pL1::FT
+        pL2::FT
+        pL3::FT
+        pL4::FT
+        pL5::FT
     end
 end
 

@@ -21,6 +21,7 @@ function linearized_air_pressure(
     ρe_tot::FT,
     ρe_pot::FT,
     aux::Vars,
+    linearization_type,
     ρq_tot::FT = FT(0),
     ρq_liq::FT = FT(0),
     ρq_ice::FT = FT(0),
@@ -33,7 +34,6 @@ function linearized_air_pressure(
     _e_int_v0::FT = e_int_v0(param_set)
     _e_int_i0::FT = e_int_i0(param_set)
     c = soundspeed_air(param_set, ref.T)
-    linearization_type = 2
     if linearization_type == 1 # standard, breaks
       pL = ρ * _R_d * _T_0 +
            _R_d / _cv_d * (
@@ -76,9 +76,10 @@ end
     orientation::Orientation,
     state::Vars,
     aux::Vars,
+    linearization_type = 2
 )
     ρe_pot = state.ρ * gravitational_potential(orientation, aux)
-    return linearized_air_pressure(param_set, state.ρ, state.ρu, state.ρe, ρe_pot, aux)
+    return linearized_air_pressure(param_set, state.ρ, state.ρu, state.ρe, ρe_pot, aux, linearization_type)
 end
 @inline function linearized_pressure(
     ::EquilMoist,
@@ -145,6 +146,54 @@ vars_state(lm::AtmosLinearModel, ::AbstractStateType, FT) = @vars()
 vars_state(lm::AtmosLinearModel, st::Auxiliary, FT) =
     vars_state(lm.atmos, st, FT)
 
+function store_linearized_pressures!(
+    m::AtmosLinearModel,
+    state::Vars,
+    aux::Vars,
+    t::Real,
+)
+
+  aux.pL1 = linearized_pressure(
+    m.atmos.moisture,
+    m.atmos.param_set,
+    m.atmos.orientation,
+    state,
+    aux,
+    1
+  )
+  aux.pL2 = linearized_pressure(
+    m.atmos.moisture,
+    m.atmos.param_set,
+    m.atmos.orientation,
+    state,
+    aux,
+    2
+  )
+  aux.pL3 = linearized_pressure(
+    m.atmos.moisture,
+    m.atmos.param_set,
+    m.atmos.orientation,
+    state,
+    aux,
+    3
+  )
+  aux.pL4 = linearized_pressure(
+    m.atmos.moisture,
+    m.atmos.param_set,
+    m.atmos.orientation,
+    state,
+    aux,
+    4
+  )
+  aux.pL5 = linearized_pressure(
+    m.atmos.moisture,
+    m.atmos.param_set,
+    m.atmos.orientation,
+    state,
+    aux,
+    5
+  )
+end
 
 function update_auxiliary_state!(
     dg::DGModel,
@@ -153,7 +202,8 @@ function update_auxiliary_state!(
     t::Real,
     elems::UnitRange,
 )
-    return false
+    update_auxiliary_state!(store_linearized_pressures!, dg, lm, Q, t, elems)
+    return true
 end
 function flux_second_order!(
     lm::AtmosLinearModel,
