@@ -112,3 +112,17 @@ function percentile_bounds_mean_norm(
     filter!(y -> xp_low < y < xp_high, x)
     return Statistics.mean(x)
 end
+
+"""
+    surface_upd_diff(α::FT,z::FT) where {FT}
+
+Returns exponentially decaying Eddy diffusivity in the updrafts
+that represents the surface and circumvents the use of updraft surface w
+`α` is the exponential decay factor (should be made non dimentional in the future!!)
+`z`, the height"
+ - `α`,
+ - `z`,
+"""
+function surface_upd_diff(α::FT,z::FT) where {FT}
+    return exp(-α*z)
+end
