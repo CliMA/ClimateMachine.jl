@@ -28,16 +28,46 @@ function linearized_air_pressure(
     ref = aux.ref_state
     _R_d::FT = R_d(param_set)
     _cv_d::FT = cv_d(param_set)
+    _cp_d::FT = cp_d(param_set)
     _T_0::FT = T_0(param_set)
     _e_int_v0::FT = e_int_v0(param_set)
     _e_int_i0::FT = e_int_i0(param_set)
-    return ρ * _R_d * _T_0 +
+    c = soundspeed_air(param_set, ref.T)
+    linearization_type = 2
+    if linearization_type == 1 # standard, breaks
+      pL = ρ * _R_d * _T_0 +
            _R_d / _cv_d * (
-        ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
-        ρq_ice * (_e_int_i0 + _e_int_v0) +
-        ref.ρu' * ref.ρu / (2 * (ref.ρ ^ 2)) * ρ -
-        ref.ρu' * ρu / ref.ρ
-    )
+           ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
+           ρq_ice * (_e_int_i0 + _e_int_v0)
+      )
+    elseif linearization_type == 2 # with kinetic energy contribution, works
+      pL = ρ * _R_d * _T_0 +
+           _R_d / _cv_d * (
+           ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
+           ρq_ice * (_e_int_i0 + _e_int_v0) -
+           ref.ρu' * ρu / ref.ρ# +
+           # don't need this term
+           #ref.ρu' * ref.ρu / (2 * (ref.ρ ^ 2)) * ρ
+      )
+    elseif linearization_type == 3 # Tapio's suggestion 1, breaks
+      pL = ρ * _R_d * _T_0 +
+           _R_d / _cv_d * (
+           ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
+           ρq_ice * (_e_int_i0 + _e_int_v0) -
+           c * ρu[1] / 2
+      )
+    elseif linearization_type == 4 # Tapio's suggestion 2, breaks
+      pL = ρ * _R_d * _T_0 +
+           _R_d / _cv_d * (
+           ρe_tot - ρe_pot - (ρq_tot - ρq_liq) * _e_int_v0 +
+           ρq_ice * (_e_int_i0 + _e_int_v0) -
+           c * ρu[3] / 2
+      )
+    elseif linearization_type == 5 # Tapio's suggestion 3, breaks
+      γ = _cp_d / _cv_d
+      pL = ref.p * (1  + γ * (ρ - ref.ρ) / ref.ρ)
+    end
+    return pL
 end
 
 @inline function linearized_pressure(
@@ -245,13 +275,13 @@ function flux_first_order!(
     
     flux.ρ = ρu
 
-    flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
-    flux.ρu += ref.ρu * ρu' / ref.ρ
-    flux.ρu += ρu * ref.ρu' / ref.ρ
+    #flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
+    #flux.ρu += ref.ρu * ρu' / ref.ρ
+    #flux.ρu += ρu * ref.ρu' / ref.ρ
     flux.ρu += pL * I
 
     flux.ρe = (ref.ρe + ref.p) / ref.ρ * state.ρu
-    flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
+    #flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
     nothing
 end
 source!(::AtmosAcousticLinearModel, _...) = nothing
@@ -291,13 +321,13 @@ function flux_first_order!(
 
     flux.ρ = ρu
 
-    flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
-    flux.ρu += ref.ρu * ρu' / ref.ρ
-    flux.ρu += ρu * ref.ρu' / ref.ρ
+    #flux.ρu = ref.ρu * ref.ρu' / ref.ρ ^ 2 * ρ
+    #flux.ρu += ref.ρu * ρu' / ref.ρ
+    #flux.ρu += ρu * ref.ρu' / ref.ρ
     flux.ρu += pL * I
 
     flux.ρe = (ref.ρe + ref.p) / ref.ρ * state.ρu
-    flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
+    #flux.ρe += (ρe + pL - ρ / ref.ρ * (ref.ρe + ref.p)) * ref.ρu / ref.ρ
     nothing
 end
 function source!(

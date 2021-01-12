@@ -82,7 +82,7 @@ function test_run(
     if gravity
       periodicity=(true, true, false)
     else
-      periodicity=(true, true, true)
+      periodicity=(true, true, false)
     end
 
     topology = StackedBrickTopology(mpicomm, brickrange, periodicity=periodicity)
@@ -168,12 +168,13 @@ function test_run(
       linearsolver = ManyColumnLU()
     else
       # LU doesn't work with periodic bcs
-      linearsolver = GeneralizedMinimalResidual(
-          Q,
-          M = 50,
-          rtol = sqrt(eps(FT)) / 100,
-          atol = sqrt(eps(FT)) / 100,
-      )
+      #linearsolver = GeneralizedMinimalResidual(
+      #    Q,
+      #    M = 50,
+      #    rtol = sqrt(eps(FT)) / 100,
+      #    atol = sqrt(eps(FT)) / 100,
+      #)
+      linearsolver = ManyColumnLU()
     end
 
     if split_explicit_implicit
@@ -217,9 +218,11 @@ function test_run(
         ρu = Array(Q.data[:, 2, :])
         ρv = Array(Q.data[:, 3, :])
         ρw = Array(Q.data[:, 4, :])
+
         u = ρu ./ ρ
         v = ρv ./ ρ
         w = ρw ./ ρ
+
         @info "u = $(extrema(u))"
         @info "v = $(extrema(v))"
         @info "w = $(extrema(w))"
