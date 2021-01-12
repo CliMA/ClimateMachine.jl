@@ -8,7 +8,8 @@ export get_vars_from_nodal_stack,
     reduce_element_stack,
     horizontally_average!,
     dict_of_nodal_states,
-    NodalStack
+    NodalStack,
+    single_stack_diagnostics
 
 using OrderedCollections
 using UnPack
@@ -525,11 +526,11 @@ struct NodalStack{N, BL, G, S, VR, TI, TJ, CI, IN}
     interp::IN
     function NodalStack(
         bl::BalanceLaw,
-        grid::DiscontinuousSpectralElementGrid,
+        grid::DiscontinuousSpectralElementGrid;
         prognostic,
         auxiliary,
         diffusive,
-        hyperdiffusive;
+        hyperdiffusive,
         i = 1,
         j = 1,
         interp = true,
@@ -555,17 +556,6 @@ struct NodalStack{N, BL, G, S, VR, TI, TJ, CI, IN}
         new{len, BL, G, S, VR, TI, TJ, CI, IN}(args...)
     end
 end
-
-# Convenience wrapper
-NodalStack(solver_config; kwargs...) = NodalStack(
-    solver_config.dg.balance_law,
-    solver_config.dg.grid,
-    solver_config.Q,
-    solver_config.dg.state_auxiliary,
-    solver_config.dg.state_gradient_flux,
-    solver_config.dg.states_higher_order[2];
-    kwargs...,
-)
 
 Base.length(gs::NodalStack{N}) where {N} = N
 
@@ -698,5 +688,7 @@ function Base.iterate(gs::NodalStack, iter_state = 1)
         return ((; prog, aux, ∇flux, hyperdiff), iter_state⁺)
     end
 end
+
+include("single_stack_diagnostics.jl")
 
 end # module

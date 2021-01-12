@@ -119,7 +119,6 @@ varsize(::Type{NamedTuple{(), Tuple{}}}) = 0
 varsize(::Type{SArray{S, T, N} where L}) where {S, T, N} = prod(S.parameters)
 
 include("var_names.jl")
-include("flattened_tup_chain.jl")
 
 # TODO: should be possible to get rid of @generated
 @generated function varsize(::Type{S}) where {S}
@@ -456,5 +455,7 @@ Base.@propagate_inbounds function Base.getindex(
         return Base.getproperty(p, tup_chain[2:end])
     end
 end
+
+include("flattened_tup_chain.jl")
 
 end # module

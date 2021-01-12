@@ -293,3 +293,5 @@ function write_debug_init_vtk_and_pvtu(
         writepvtu(pvtuprefix, prefixes, state_names, eltype(state))
     end
 end
+
+include("solver_config_wrappers.jl")

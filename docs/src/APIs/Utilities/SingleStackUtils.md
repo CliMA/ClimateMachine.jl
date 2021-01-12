@@ -16,4 +16,5 @@ reduce_element_stack
 horizontally_average!
 dict_of_nodal_states
 NodalStack
+single_stack_diagnostics
 ```

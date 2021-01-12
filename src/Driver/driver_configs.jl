@@ -125,6 +125,7 @@ struct DriverConfiguration{FT}
 end
 
 function print_model_info(model)
+    @show ClimateMachine.array_type()
     msg = "Model composition\n"
     for key in fieldnames(typeof(model))
         msg =
