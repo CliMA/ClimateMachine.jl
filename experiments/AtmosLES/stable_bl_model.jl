@@ -13,7 +13,6 @@
 
 using ArgParse
 using Distributions
-using Random
 using StaticArrays
 using Test
 using DocStringExtensions
@@ -117,6 +116,8 @@ function source(s::StableBLSponge{Momentum}, m, args)
     end
 end
 
+add_perturbations!(state, localgeo) = nothing
+
 """
   Initial Condition for StableBoundaryLayer LES
 """
@@ -170,9 +171,7 @@ function init_problem!(problem, bl, state, aux, localgeo, t)
     if !(bl.moisture isa DryModel)
         state.moisture.ρq_tot = ρ * q_tot
     end
-    if z <= FT(50) # Add random perturbations to bottom 50m of model
-        state.ρe += rand() * ρe_tot / 100
-    end
+    add_perturbations!(state, localgeo)
     init_state_prognostic!(bl.turbconv, bl, state, aux, localgeo, t)
 end
 
