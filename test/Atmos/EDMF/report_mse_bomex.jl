@@ -25,7 +25,7 @@ best_mse[:Bomex]["turbconv.updraft[1].ρaθ_liq"] = 9.0208723977818579e+00
 best_mse[:Bomex]["turbconv.updraft[1].ρaq_tot"] = 1.0782418080562499e+01
 #! format: on
 
-sufficient_mse(computed_mse, best_mse) = computed_mse <= best_mse + eps()
+sufficient_mse(computed_mse, best_mse) = computed_mse <= best_mse + sqrt(eps())
 
 function test_mse(computed_mse, best_mse, key)
     mse_not_regressed = sufficient_mse(computed_mse[key], best_mse[key])
