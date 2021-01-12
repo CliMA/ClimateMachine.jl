@@ -2,16 +2,10 @@ using Pkg.Artifacts
 
 using ClimateMachine.ArtifactWrappers
 
-# path to download artifacts
-const ARTIFACT_DIR = if isempty(get(ENV, "CI", ""))
-    @__DIR__
-else
-    mktempdir(@__DIR__; prefix = "artifact_")
-end
-
 # Get dycoms dataset folder:
 dycoms_dataset = ArtifactWrapper(
-    joinpath(ARTIFACT_DIR, "Artifacts.toml"),
+    @__DIR__,
+    isempty(get(ENV, "CI", "")),
     "dycoms",
     ArtifactFile[ArtifactFile(
         url = "https://caltech.box.com/shared/static/bxau6i46y6ikxn2sy9krgz0sw5vuptfo.nc",
