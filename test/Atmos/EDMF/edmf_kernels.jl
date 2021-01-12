@@ -225,7 +225,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: Union{Momentum, Energy, TotalMoisture}} = () # do _not_ add SGSFlux back to grid-mean
+) where {PV <: Union{Momentum, Energy, TotalMoisture}} = (SGSFlux{PV}(),) # do _not_ add SGSFlux back to grid-mean
 # (SGSFlux{PV}(),) # add SGSFlux back to grid-mean
 
 # Turbconv tendencies
@@ -242,7 +242,7 @@ eq_tends(
     pv::PV,
     m::EDMF,
     ::Flux{SecondOrder},
-) where {PV <: EnvironmentPrognosticVariable} = (Diffusion{PV}(),)
+) where {PV <: EDMFPrognosticVariable} = (Diffusion{PV}(),)
 
 eq_tends(
     pv::PV,
@@ -1148,28 +1148,29 @@ function flux(::Diffusion{en_ρatke}, atmos, args)
 end
 
 function flux(::Diffusion{up_ρa{i}}, atmos, args) where {i}
-    @unpack state, aux = args
+    @unpack state, aux, diffusive = args
     @unpack ρa_up = args.precomputed.turbconv
     FT = eltype(atmos)
     up = state.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
     gm = state
-    z = altitute(atmos, aux)
+    z = altitude(atmos, aux)
     α = atmos.turbconv.surface.α_surf
     K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
+    println("inside Diffusion{up_ρa{i}")
     return -K * up_dif.∇ρa[3] * ẑ
 end
 
 
 function flux(::Diffusion{up_ρaw{i}}, atmos, args) where {i}
-    @unpack state, aux = args
+    @unpack state, aux, diffusive = args
     @unpack ρa_up = args.precomputed.turbconv
     FT = eltype(atmos)
     up = state.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
     gm = state
-    z = altitute(atmos, aux)
+    z = altitude(atmos, aux)
     α = atmos.turbconv.surface.α_surf
     K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
@@ -1177,13 +1178,13 @@ function flux(::Diffusion{up_ρaw{i}}, atmos, args) where {i}
 end
 
 function flux(::Diffusion{up_ρaθ_liq{i}}, atmos, args) where {i}
-    @unpack state, aux = args
+    @unpack state, aux, diffusive = args
     @unpack ρa_up = args.precomputed.turbconv
     FT = eltype(atmos)
     up = state.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
     gm = state
-    z = altitute(atmos, aux)
+    z = altitude(atmos, aux)
     α = atmos.turbconv.surface.α_surf
     K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
@@ -1191,13 +1192,13 @@ function flux(::Diffusion{up_ρaθ_liq{i}}, atmos, args) where {i}
 end
 
 function flux(::Diffusion{up_ρaq_tot{i}}, atmos, args) where {i}
-    @unpack state, aux = args
+    @unpack state, aux, diffusive = args
     @unpack ρa_up = args.precomputed.turbconv
     FT = eltype(atmos)
     up = state.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
     gm = state
-    z = altitute(atmos, aux)
+    z = altitude(atmos, aux)
     α = atmos.turbconv.surface.α_surf
     K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
