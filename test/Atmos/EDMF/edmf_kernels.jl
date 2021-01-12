@@ -1099,7 +1099,7 @@ function flux(::Diffusion{up_ρa{i}}, atmos, args) where {i}
     gm = state
     z = altitute(atmos, aux)
     α = atmos.turbconv.surface.α_surf
-    K = exp(-α*z)
+    K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
     return -K * up_dif.∇ρa[3] * ẑ
 end
@@ -1114,7 +1114,7 @@ function flux(::Diffusion{up_ρaw{i}}, atmos, args) where {i}
     gm = state
     z = altitute(atmos, aux)
     α = atmos.turbconv.surface.α_surf
-    K = exp(-α*z)
+    K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
     return - K * up_dif.∇ρaw[3] * ẑ
 end
@@ -1128,7 +1128,7 @@ function flux(::Diffusion{up_ρaθ_liq{i}}, atmos, args) where {i}
     gm = state
     z = altitute(atmos, aux)
     α = atmos.turbconv.surface.α_surf
-    K = exp(-α*z)
+    K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
     return - K * up_dif.∇ρaθ_liq[3] * ẑ
 end
@@ -1142,7 +1142,7 @@ function flux(::Diffusion{up_ρaq_tot{i}}, atmos, args) where {i}
     gm = state
     z = altitute(atmos, aux)
     α = atmos.turbconv.surface.α_surf
-    K = exp(-α*z)
+    K = surface_upd_diff(α,z)
     ẑ = vertical_unit_vector(atmos, aux)
     return - K * up_dif.∇ρaq_tot[3] * ẑ
 end

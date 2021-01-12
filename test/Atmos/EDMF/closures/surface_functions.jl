@@ -112,3 +112,8 @@ function percentile_bounds_mean_norm(
     filter!(y -> xp_low < y < xp_high, x)
     return Statistics.mean(x)
 end
+
+
+function surface_upd_diff(α::FT,z::FT) where {FT <: AbstractFloat}
+    return exp(-α*z)
+end
