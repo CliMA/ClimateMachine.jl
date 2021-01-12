@@ -35,14 +35,41 @@ Sum of the fluxes where
  - `fluxes` is an `NTuple{N, TendencyDef{Flux{O}, PV}} where {N, PV, O}`
 """
 function Σfluxes(
+    pv::PV,
     fluxes::NTuple{N, TendencyDef{Flux{O}, PV}},
     args...,
-) where {N, PV, O}
+) where {N, O, PV}
     return ntuple_sum(ntuple(Val(N)) do i
         flux(fluxes[i], args...)
     end)
 end
-Σfluxes(fluxes::Tuple{}, args...) = 0
+
+# Emptry scalar case:
+function Σfluxes(
+    pv::PV,
+    fluxes::NTuple{0, TendencyDef{Flux{O}, PV}},
+    args...,
+) where {O, PV}
+    return SVector(0, 0, 0)
+end
+
+# Emptry vector case:
+function Σfluxes(
+    pv::PV,
+    fluxes::NTuple{0, TendencyDef{Flux{O}, PV}},
+    args...,
+) where {O, PV <: AbstractMomentum}
+    return SArray{Tuple{3, 3}}(ntuple(i -> 0, 9))
+end
+
+# Emptry tracer case:
+function Σfluxes(
+    pv::PV,
+    fluxes::NTuple{0, TendencyDef{Flux{O}, PV}},
+    args...,
+) where {O, N, PV <: AbstractTracers{N}}
+    return SArray{Tuple{3, N}}(ntuple(i -> 0, 3 * N))
+end
 
 """
     Σsources(sources::NTuple, args...)
@@ -51,6 +78,7 @@ Sum of the sources where
  - `sources` is an `NTuple{N, TendencyDef{Source, PV}} where {N, PV}`
 """
 function Σsources(
+    pv::PV,
     sources::NTuple{N, TendencyDef{Source, PV}},
     args...,
 ) where {N, PV}
@@ -58,4 +86,30 @@ function Σsources(
         source(sources[i], args...)
     end)
 end
-Σsources(sources::Tuple{}, args...) = 0
+
+# Emptry scalar case:
+function Σsources(
+    pv::PV,
+    sources::NTuple{0, TendencyDef{Source, PV}},
+    args...,
+) where {PV}
+    return 0
+end
+
+# Emptry vector case:
+function Σsources(
+    pv::PV,
+    sources::NTuple{0, TendencyDef{Source, PV}},
+    args...,
+) where {PV <: AbstractMomentum}
+    return SVector(0, 0, 0)
+end
+
+# Emptry tracer case:
+function Σsources(
+    pv::PV,
+    sources::NTuple{0, TendencyDef{Source, PV}},
+    args...,
+) where {N, PV <: AbstractTracers{N}}
+    return SArray{Tuple{N}}(ntuple(i -> 0, N))
+end

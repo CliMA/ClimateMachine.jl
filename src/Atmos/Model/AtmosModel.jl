@@ -537,21 +537,16 @@ equations.
     direction,
 )
 
-    vec_pad = SVector(1, 1, 1)
-    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
     tend = Flux{FirstOrder}()
     _args = (; state, aux, t, direction)
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* vec_pad
-    flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* tens_pad
 
-    flux_first_order!(atmos.energy, atmos, flux, args)
-    flux_first_order!(atmos.moisture, atmos, flux, args)
-    flux_first_order!(atmos.precipitation, atmos, flux, args)
-    flux_first_order!(atmos.tracers, atmos, flux, args)
-    flux_first_order!(atmos.turbconv, atmos, flux, args)
-
+    map(prognostic_vars(atmos)) do prog
+        var, name = get_prog_state(flux, prog)
+        val = Σfluxes(prog, eq_tends(prog, atmos, tend), atmos, args)
+        setproperty!(var, name, val)
+    end
+    nothing
 end
 
 function compute_gradient_argument!(
@@ -682,23 +677,16 @@ function. Contributions from subcomponents are then assembled (pointwise).
     aux::Vars,
     t::Real,
 )
-    vec_pad = SVector(1, 1, 1)
-    tens_pad = SArray{Tuple{3, 3}}(ntuple(i -> 1, 9))
     tend = Flux{SecondOrder}()
-
     _args = (; state, aux, t, diffusive, hyperdiffusive)
-
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* vec_pad
-    flux.ρu =
-        Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* tens_pad
-
-    flux_second_order!(atmos.energy, flux, atmos, args)
-    flux_second_order!(atmos.moisture, flux, atmos, args)
-    flux_second_order!(atmos.precipitation, flux, atmos, args)
-    flux_second_order!(atmos.tracers, flux, atmos, args)
-    flux_second_order!(atmos.turbconv, flux, atmos, args)
+    map(prognostic_vars(atmos)) do prog
+        var, name = get_prog_state(flux, prog)
+        val = Σfluxes(prog, eq_tends(prog, atmos, tend), atmos, args)
+        setproperty!(var, name, val)
+    end
+    nothing
 end
 
 @inline function wavespeed(
@@ -875,20 +863,16 @@ function source!(
     t::Real,
     direction,
 )
-    vec_pad = SVector(1, 1, 1)
     tend = Source()
-
     _args = (; state, aux, t, direction, diffusive)
-
     args = merge(_args, (precomputed = precompute(atmos, _args, tend),))
 
-    source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
-    source.ρu =
-        Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* vec_pad
-    source!(atmos.energy, source, atmos, args)
-    source!(atmos.moisture, source, atmos, args)
-    source!(atmos.precipitation, source, atmos, args)
-    source!(atmos.turbconv, source, atmos, args)
+    map(prognostic_vars(atmos)) do prog
+        var, name = get_prog_state(source, prog)
+        val = Σsources(prog, eq_tends(prog, atmos, tend), atmos, args)
+        setproperty!(var, name, val)
+    end
+    nothing
 end
 
 """
