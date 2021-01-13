@@ -106,3 +106,4 @@ function power_spectrum_2d(::AtmosGCMConfigType, var_grid, mass_weight)
 end
 
 # TODO: enable mass weighted and vertically integrated calculations
+# TODO: generalize for odd number of latitudes
