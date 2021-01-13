@@ -451,9 +451,6 @@ gravitational_potential(bl, aux) = gravitational_potential(bl.orientation, aux)
 turbulence_tensors(atmos::AtmosModel, args...) =
     turbulence_tensors(atmos.turbulence, atmos, args...)
 
-export AbstractSource
-abstract type AbstractSource end
-
 include("declare_prognostic_vars.jl") # declare prognostic variables
 include("multiphysics_types.jl")      # types for multi-physics tendencies
 include("tendencies_mass.jl")         # specify mass tendencies
