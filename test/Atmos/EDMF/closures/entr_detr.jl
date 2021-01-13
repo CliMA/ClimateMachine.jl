@@ -7,9 +7,10 @@ function entr_detr(
     ts_up,
     ts_en,
     env,
+    buoy,
 ) where {FT}
     EΔ_up = ntuple(n_updrafts(bl.turbconv)) do i
-        entr_detr(bl, bl.turbconv.entr_detr, state, aux, ts_up, ts_en, env, i)
+        entr_detr(bl, bl.turbconv.entr_detr, state, aux, ts_up, ts_en, env, buoy, i)
     end
     E_dyn, Δ_dyn, E_trb = ntuple(i -> map(x -> x[i], EΔ_up), 3)
     return E_dyn, Δ_dyn, E_trb
@@ -24,6 +25,7 @@ end
         ts_up,
         ts_en,
         env,
+        buoy,
         i,
     ) where {FT}
 
@@ -37,6 +39,7 @@ Cohen et al. (JAMES, 2020), given:
  - `ts_up`, updraft thermodynamic states
  - `ts_en`, environment thermodynamic states
  - `env`, NamedTuple of environment variables
+ - `buoy`, NamedTuple of environment and updraft buoyancies
  - `i`, index of the updraft
 """
 function entr_detr(
@@ -47,6 +50,7 @@ function entr_detr(
     ts_up,
     ts_en,
     env,
+    buoy,
     i,
 ) where {FT}
 
@@ -69,7 +73,7 @@ function entr_detr(
     # ensure far from zero
     Δw = filter_w(w_up_i - env.w, w_min)
     w_up_i = filter_w(w_up_i, w_min)
-    Δb = up_aux[i].buoyancy - en_aux.buoyancy
+    Δb = buoy.up[i] - buoy.en
     D_E, D_δ, M_δ, M_E = nondimensional_exchange_functions(
         m,
         entr,
@@ -78,6 +82,7 @@ function entr_detr(
         ts_up,
         ts_en,
         env,
+        buoy,
         i,
     )
 

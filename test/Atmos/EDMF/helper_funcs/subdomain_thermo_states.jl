@@ -203,7 +203,7 @@ function new_thermo_state_en(
     ρ_inv = 1 / state.ρ
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
-    a_en = environment_area(state, aux, N_up)
+    a_en = environment_area(state, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
     a_max = m.turbconv.subdomains.a_max
@@ -232,7 +232,7 @@ function new_thermo_state_en(
     p = air_pressure(ts)
     θ_liq = liquid_ice_pottemp(ts)
     q_tot = total_specific_humidity(ts)
-    a_en = environment_area(state, aux, N_up)
+    a_en = environment_area(state, N_up)
     θ_liq_en = (θ_liq - sum(vuntuple(j -> up[j].ρaθ_liq * ρ_inv, N_up))) / a_en
     q_tot_en = (q_tot - sum(vuntuple(j -> up[j].ρaq_tot * ρ_inv, N_up))) / a_en
     a_min = m.turbconv.subdomains.a_min
@@ -310,7 +310,7 @@ function recover_thermo_state_en(
     T_en = aux.turbconv.environment.T
     ρ_inv = 1 / state.ρ
     q_tot = total_specific_humidity(ts)
-    a_en = environment_area(state, aux, N_up)
+    a_en = environment_area(state, N_up)
     q_tot_en = (q_tot - sum(vuntuple(i -> up[i].ρaq_tot, N_up)) * ρ_inv) / a_en
     ρ_en = air_density(param_set, T_en, p, PhasePartition(q_tot_en))
     q_en = PhasePartition_equil(param_set, T_en, ρ_en, q_tot_en, PhaseEquil)
