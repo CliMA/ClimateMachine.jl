@@ -51,23 +51,8 @@ function vars_state(m::NTuple{N, Updraft}, st::Auxiliary, FT) where {N}
     return Tuple{ntuple(i -> vars_state(m[i], st, FT), N)...}
 end
 
-function vars_state(::Updraft, ::Auxiliary, FT)
-    @vars(
-        buoyancy::FT,
-        a::FT,
-        E_dyn::FT,
-        Δ_dyn::FT,
-        E_trb::FT,
-        T::FT,
-        θ_liq::FT,
-        q_tot::FT,
-        w::FT,
-    )
-end
-
-function vars_state(::Environment, ::Auxiliary, FT)
-    @vars(T::FT, cld_frac::FT, buoyancy::FT)
-end
+vars_state(::Updraft, ::Auxiliary, FT) = @vars(T::FT, buoyancy::FT)
+vars_state(::Environment, ::Auxiliary, FT) = @vars(T::FT, buoyancy::FT)
 
 function vars_state(m::EDMF, st::Auxiliary, FT)
     @vars(
@@ -293,14 +278,10 @@ function init_aux_turbconv!(
     en_aux = aux.turbconv.environment
     up_aux = aux.turbconv.updraft
 
-    en_aux.cld_frac = FT(0)
     en_aux.buoyancy = FT(0)
 
     @unroll_map(N_up) do i
         up_aux[i].buoyancy = FT(0)
-        up_aux[i].θ_liq = FT(0)
-        up_aux[i].q_tot = FT(0)
-        up_aux[i].w = FT(0)
     end
 end;
 
@@ -342,20 +323,6 @@ function turbconv_nodal_update_auxiliary_state!(
             -_grav * (ρ_i - aux.ref_state.ρ) * ρ_inv,
             grid_mean_b(state, aux, N_up),
         )
-        up_aux[i].a = fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
-        up_aux[i].θ_liq = fix_void_up(
-            up[i].ρa,
-            up[i].ρaθ_liq / up[i].ρa,
-            liquid_ice_pottemp(ts[1]),
-        )
-        if !(m.moisture isa DryModel)
-            up_aux[i].q_tot = fix_void_up(
-                up[i].ρa,
-                up[i].ρaq_tot / up[i].ρa,
-                gm.moisture.ρq_tot,
-            )
-        end
-        up_aux[i].w = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
     end
     b_gm = grid_mean_b(state, aux, N_up)
 
@@ -364,14 +331,6 @@ function turbconv_nodal_update_auxiliary_state!(
         up_aux[i].buoyancy -= b_gm
     end
     en_aux.buoyancy -= b_gm
-
-    E_dyn, Δ_dyn, E_trb = entr_detr(m, state, aux, ts.up, ts.en, env)
-
-    @unroll_map(N_up) do i
-        up_aux[i].E_dyn = E_dyn[i]
-        up_aux[i].Δ_dyn = Δ_dyn[i]
-        up_aux[i].E_trb = E_trb[i]
-    end
 
 end;
 
@@ -882,12 +841,26 @@ function precompute(::EDMF, bl, args, ts, ::Flux{FirstOrder})
     env = environment_vars(state, aux, n_updrafts(bl.turbconv))
     ρa_up = compute_ρa_up(bl, state, aux)
     up = state.turbconv.updraft
+    gm = state
     N_up = n_updrafts(bl.turbconv)
+    ρ_inv = 1 / gm.ρ
     w_up = vuntuple(N_up) do i
         fix_void_up(ρa_up[i], up[i].ρaw / ρa_up[i])
     end
 
-    return (; env, ρa_up, w_up, fix_void_up)
+    θ_liq_up = vuntuple(N_up) do i
+        fix_void_up(up[i].ρa, up[i].ρaθ_liq / up[i].ρa, liquid_ice_pottemp(ts))
+    end
+    a_up = vuntuple(N_up) do i
+        fix_void_up(up[i].ρa, up[i].ρa * ρ_inv)
+    end
+    if !(bl.moisture isa DryModel)
+        q_tot_up = vuntuple(N_up) do i
+            fix_void_up(up[i].ρa, up[i].ρaq_tot / up[i].ρa, gm.moisture.ρq_tot)
+        end
+    end
+
+    return (; env, a_up, q_tot_up, ρa_up, θ_liq_up, w_up, fix_void_up)
 end
 
 function precompute(::EDMF, bl, args, ts, ::Flux{SecondOrder})
@@ -994,7 +967,7 @@ end
 
 function flux(::SGSFlux{Energy}, atmos, args)
     @unpack state, aux, diffusive = args
-    @unpack env, K_h, ρa_up, ts_up = args.precomputed.turbconv
+    @unpack env, K_h, ρa_up, ρaw_up, ts_up = args.precomputed.turbconv
     FT = eltype(state)
     _grav::FT = grav(atmos.param_set)
     z = altitude(atmos, aux)
@@ -1010,7 +983,6 @@ function flux(::SGSFlux{Energy}, atmos, args)
         FT(1 // 2) *
         ((gm.ρu[1] * ρ_inv)^2 + (gm.ρu[2] * ρ_inv)^2 + (gm.ρu[3] * ρ_inv)^2)
     e_tot_up = ntuple(i -> total_energy(e_kin[i], _grav * z, ts_up[i]), N_up)
-    ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
 
     massflux_e = sum(
         ntuple(N_up) do i
@@ -1028,7 +1000,7 @@ end
 
 function flux(::SGSFlux{TotalMoisture}, atmos, args)
     @unpack state, diffusive = args
-    @unpack env, K_h, ρa_up = args.precomputed.turbconv
+    @unpack env, K_h, ρa_up, ρaw_up = args.precomputed.turbconv
     FT = eltype(state)
     en_dif = diffusive.turbconv.environment
     up = state.turbconv.updraft
@@ -1036,7 +1008,6 @@ function flux(::SGSFlux{TotalMoisture}, atmos, args)
     ρ_inv = 1 / gm.ρ
     N_up = n_updrafts(atmos.turbconv)
     ρq_tot = atmos.moisture isa DryModel ? FT(0) : gm.moisture.ρq_tot
-    ρaw_up = vuntuple(i -> up[i].ρaw, N_up)
     ρaq_tot_up = vuntuple(i -> up[i].ρaq_tot, N_up)
 
     ρu_gm_tup = Tuple(gm.ρu)
