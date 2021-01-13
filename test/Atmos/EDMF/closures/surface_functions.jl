@@ -61,7 +61,8 @@ function subdomain_surface_values(
         4 * (θ_liq_surface_flux * q_tot_surface_flux) / (ustar²) * fact
     tke = ustar² * (surf.κ_star² + tke_fact)
 
-    a_up_surf = ntuple(i -> FT(surf.a / N_up), N_up)
+    # a_up_surf = ntuple(i -> FT(surf.a / N_up), N_up)
+    a_up_surf = ntuple(i -> FT(0), N_up)
     e_int = internal_energy(atmos, state, aux)
     ts_new = new_thermo_state(atmos, state, aux)
     θ_liq = liquid_ice_pottemp(ts_new)

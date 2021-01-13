@@ -103,7 +103,7 @@ function main(::Type{FT}) where {FT}
 
     # DG polynomial order
     N = 1
-    nelem_vert = 50
+    nelem_vert = 20
 
     # Prescribe domain parameters
     zmax = FT(400)
@@ -111,7 +111,7 @@ function main(::Type{FT}) where {FT}
     t0 = FT(0)
 
     # Simulation time
-    timeend = FT(60)
+    timeend = FT(9000)
     CFLmax = FT(0.50)
 
     config_type = SingleStackConfigType

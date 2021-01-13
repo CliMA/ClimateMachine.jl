@@ -72,7 +72,7 @@ function mixing_length(
         m.turbconv.surface.zLL,
     )
 
-    L_W = ml.κ * z / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
+    L_W = ml.κ * max(z, 5.0) / (sqrt(m.turbconv.surface.κ_star²) * ml.c_m)
     if obukhov_length < -eps(FT)
         L_W *= min((FT(1) - ml.a2 * z / obukhov_length)^ml.a1, 1 / ml.κ)
     end
