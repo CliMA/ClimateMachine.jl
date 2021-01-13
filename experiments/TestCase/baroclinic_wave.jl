@@ -233,7 +233,7 @@ function main()
     n_days::FT = 1
     timestart::FT = 0                        # start time (s)
     timeend::FT = n_days * day(param_set)    # end time (s)
-    dgn_ssecs = (timeend / 2) + 10
+    dgn_ssecs = (timeend / 2) + 30
     dgn_interval = "$(dgn_ssecs)ssecs"
     hd_timescale::FT = 8 * 3600
 

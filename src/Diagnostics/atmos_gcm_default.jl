@@ -390,7 +390,6 @@ function atmos_gcm_default_init(dgngrp::DiagnosticsGroup, currtime)
             Settings.starttime,
         )
         dfilename = joinpath(Settings.output_dir, dprefix)
-
         init_data(dgngrp.writer, dfilename, dims, vars)
     end
 
@@ -450,28 +449,19 @@ function atmos_gcm_default_collect(dgngrp::DiagnosticsGroup, currtime)
     vort = Vorticity(dg, vgrad)
 
     # run the vorticity mini balance law
-    ix_ρ = varsindex(vars(Q), :ρ)
-    ix_ρu = varsindex(vars(Q), :ρu)
-    ix_ρe = varsindex(vars(Q), :ρe)
-    ρ = Q.data[:, ix_ρ, :]
-    ρu = Q.data[:, ix_ρu, :]
-    ρe = Q.data[:, ix_ρe, :]
-    u = ρu ./ ρ
-    ix_temperature =
-        varsindex(vars(dg.state_auxiliary), :moisture, :temperature)
-    temperature = dg.state_auxiliary.data[:, ix_temperature, :]
-
-    vort_state.dg.state_auxiliary.data .= u
+    vort_state.dg.state_auxiliary.u .= Q.ρu ./ Q.ρ
     vort_state.dg(vort_state.dQ, vort_state.state, nothing, FT(0))
 
     # run the hyperdiffusion mini balance law
     do_hyperdiffusion =
         atmos.hyperdiffusion isa DryBiharmonic && isfinite(params.timescale)
     if do_hyperdiffusion
-        hyper_state.dg.state_auxiliary.ρ .= ρ
-        hyper_state.dg.state_auxiliary.ρu .= ρu
-        hyper_state.dg.state_auxiliary.ρe .= ρe
-        hyper_state.dg.state_auxiliary.temperature .= temperature
+        hyper_state.dg.state_auxiliary.ρ .= Q.ρ
+        hyper_state.dg.state_auxiliary.ρu .= Q.ρu
+        hyper_state.dg.state_auxiliary.ρe .= Q.ρe
+        ix_temp = varsindex(vars(dg.state_auxiliary), :moisture, :temperature)
+        hyper_state.dg.state_auxiliary.temperature .=
+            view(MPIStateArrays.realview(dg.state_auxiliary), :, ix_temp, :)
         hyper_state.dg(hyper_state.dQ, hyper_state.state, nothing, FT(0))
     end
 
