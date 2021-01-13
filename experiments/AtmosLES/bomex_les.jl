@@ -1,4 +1,14 @@
+using Random
 include("bomex_model.jl")
+
+function add_perturbations!(state, localgeo)
+    FT = eltype(state)
+    z = localgeo.coord[3]
+    if z <= FT(400) # Add random perturbations to bottom 400m of model
+        state.ρe += (rand() - 0.5) * state.ρe / 100
+        state.moisture.ρq_tot += (rand() - 0.5) * state.moisture.ρq_tot / 100
+    end
+end
 
 function main()
     # add a command line argument to specify the kind of surface flux
