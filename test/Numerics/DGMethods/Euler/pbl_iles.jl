@@ -18,7 +18,7 @@ using ClimateMachine.Orientations
 using ClimateMachine.BalanceLaws
 using ClimateMachine.VariableTemplates: flattenednames
 
-import ..BalanceLaws: source
+import ..BalanceLaws: source, two_point_source!
 
 using CLIMAParameters
 using CLIMAParameters.Planet: R_d, cv_d, cp_d, grav, MSLP
@@ -133,16 +133,26 @@ function test_run(
     end
     
     cbcheck = EveryXSimulationSteps(1000) do
-        ρ = Array(Q.data[:, 1, :])
-        ρu = Array(Q.data[:, 2, :])
-        ρv = Array(Q.data[:, 3, :])
-        ρw = Array(Q.data[:, 4, :])
+        @views begin
+          ρ = Array(Q.data[:, 1, :])
+          ρu = Array(Q.data[:, 2, :])
+          ρv = Array(Q.data[:, 3, :])
+          ρw = Array(Q.data[:, 4, :])
+        end
+
         u = ρu ./ ρ
         v = ρv ./ ρ
         w = ρw ./ ρ
+
+        ω = Array(Q.weights)
+        ekin = (u .^ 2 + v .^ 2 + w .^ 2) ./ 2
+
+        ∫ekin = sum(ω .* ekin)
+
         @info "u = $(extrema(u))"
         @info "v = $(extrema(v))"
         @info "w = $(extrema(w))"
+        @info "∫ekin = $(∫ekin)"
         nothing
     end
 
@@ -279,6 +289,37 @@ function source(s::HeatFlux{Energy}, m, args)
     hscale = FT(25)
     hflux = h0 * exp(-z / hscale) / hscale
     return _cv_d * ρ * hflux * exner(ts) 
+end
+
+struct Drag{PV <: Momentum} <: TendencyDef{Source, PV} end
+Drag() = Drag{Momentum}()
+function source(s::Drag{Momentum}, m, args)
+    @unpack state, aux = args
+    @unpack ts = args.precomputed
+    FT = eltype(aux)
+    
+    z = altitude(m, aux)
+    _cv_d::FT = cv_d(m.param_set)
+
+    ρ = state.ρ
+    h0 = FT(1 / 100)
+    hscale = FT(25)
+    hflux = h0 * exp(-z / hscale) / hscale
+    return _cv_d * ρ * hflux * exner(ts) 
+end
+
+function two_point_source!(m::AtmosModel, source::Vars,
+                           state::Vars, state_bot::Vars, aux::Vars)
+    FT = eltype(source)
+    z = altitude(m, aux)
+
+    c0 = FT(1 / 10)
+    hscale = FT(25)
+    u0 = state_bot.ρu / state_bot.ρ
+    v0 = @inbounds sqrt(u0[1] ^ 2 + u0[2] ^ 2)
+    ρu = state.ρu
+    ρu_drag = @inbounds SVector(ρu[1], ρu[2], 0)
+    source.ρu =  -c0 * v0 / 2 * ρu_drag * exp(-z / hscale) / hscale
 end
 
 function do_output(

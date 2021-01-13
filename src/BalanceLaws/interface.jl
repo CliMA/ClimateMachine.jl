@@ -157,6 +157,7 @@ function flux_second_order! end
 Compute non-conservative source terms for a [`BalanceLaw`](@ref) subtype `BL`.
 """
 function source! end
+function two_point_source! end
 
 """
     compute_gradient_argument!(

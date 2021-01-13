@@ -715,6 +715,9 @@ function (dg::DGModel)(tendency, state_prognostic, _, t, α, β)
             exchange_Qhypervisc_grad,
         ),
     )
+    
+    comp_stream = launch_two_point_source!(dg, tendency, state_prognostic, t,
+                                           dependencies=comp_stream)
 
     # The synchronization here through a device event prevents CuArray based and
     # other default stream kernels from launching before the work scheduled in
@@ -2118,18 +2121,18 @@ function fvm_balance!(
 )
     device = array_device(state_auxiliary)
 
-
     dim = dimensionality(grid)
     N = polynomialorders(grid)
     Nq = N .+ 1
     Nqj = dim == 2 ? 1 : Nq[2]
 
     topology = grid.topology
+
     elems = topology.elems
     nelem = length(elems)
     nvertelem = topology.stacksize
     horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
-
+    
     event = Event(device)
     event = kernel_fvm_balance!(device, (Nq[1], Nqj))(
         balance_func,
@@ -2142,4 +2145,34 @@ function fvm_balance!(
         dependencies = (event,),
     )
     wait(device, event)
+end
+
+function launch_two_point_source!(dg, tendency, state_prognostic, t; dependencies)
+    FT = eltype(state_prognostic)
+    info = basic_launch_info(dg)
+
+    Nq1 = info.Nq[1]
+    Nqj = info.dim == 2 ? 1 : info.Nq[2]
+    comp_stream = dependencies
+
+    topology = dg.grid.topology
+    
+    elems = topology.elems
+    nelem = length(elems)
+    nvertelem = topology.stacksize
+    horzelems = fld1(first(elems), nvertelem):fld1(last(elems), nvertelem)
+    
+    comp_stream = kernel_two_point_source!(info.device, (Nq1, Nqj))(
+        dg.balance_law,
+        Val(info.dim),
+        Val(info.N),
+        Val(nvertelem),
+        tendency.data,
+        state_prognostic.data,
+        dg.state_auxiliary.data,
+        horzelems;
+        ndrange = (length(horzelems) * Nq1, Nqj),
+        dependencies = (comp_stream,),
+    )
+    return comp_stream
 end
