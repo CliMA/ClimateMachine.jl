@@ -146,17 +146,17 @@ function source(s::LargeScaleProcess{TotalMoisture}, m, args)
     return state.ρ * q_tot_tendency
 end
 
-# Large-scale subsidence forcing
 """
-    Subsidence <: AbstractSource
+    LargeScaleSubsidence{PV <: Union{Mass, Energy, TotalMoisture}} <:
+       TendencyDef{Source, PV}
 
-Subsidence tendency, given a vertical velocity at the large scale,
-obtained from the GCM data.
+Large-scale subsidence tendency, given a vertical velocity
+at the large scale, obtained from the GCM data.
 
-    wap = GCM vertical velocity [Pa s⁻¹]. Note the conversion required
+```
+wap = GCM vertical velocity [Pa s⁻¹]. Note the conversion required
+```
 """
-struct SubsidenceTendency <: AbstractSource end
-
 struct LargeScaleSubsidence{PV <: Union{Mass, Energy, TotalMoisture}} <:
        TendencyDef{Source, PV} end
 
