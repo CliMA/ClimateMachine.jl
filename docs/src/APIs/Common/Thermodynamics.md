@@ -63,6 +63,7 @@ liquid_fraction
 liquid_ice_pottemp
 liquid_ice_pottemp_sat
 liquid_specific_humidity
+mixing_ratios
 moist_static_energy
 q_vap_saturation
 q_vap_saturation_liquid
@@ -74,6 +75,7 @@ saturation_adjustment
 saturation_excess
 saturation_vapor_pressure
 soundspeed_air
+shum_to_mixing_ratio
 specific_enthalpy
 specific_volume
 supersaturation
