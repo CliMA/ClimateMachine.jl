@@ -124,19 +124,22 @@ struct DriverConfiguration{FT}
     end
 end
 
-function print_model_info(model)
-    @show ClimateMachine.array_type()
-    msg = "Model composition\n"
-    for key in fieldnames(typeof(model))
-        msg =
-            msg * @sprintf(
-                "    %s = %s\n",
-                string(key),
-                string((getproperty(model, key)))
-            )
+function print_model_info(model, mpicomm)
+    mpirank = MPI.Comm_rank(mpicomm)
+    if mpirank == 0
+        @show ClimateMachine.array_type()
+        msg = "Model composition\n"
+        for key in fieldnames(typeof(model))
+            msg =
+                msg * @sprintf(
+                    "    %s = %s\n",
+                    string(key),
+                    string((getproperty(model, key)))
+                )
+        end
+        @info msg
+        show_tendencies(model)
     end
-    @info msg
-    show_tendencies(model)
 end
 
 function AtmosLESConfiguration(
@@ -172,7 +175,7 @@ function AtmosLESConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
-    print_model_info(model)
+    print_model_info(model, mpicomm)
 
     brickrange = (
         grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
@@ -261,7 +264,7 @@ function AtmosGCMConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
-    print_model_info(model)
+    print_model_info(model, mpicomm)
 
     _planet_radius::FT = planet_radius(param_set)
     vert_range = grid1d(
@@ -408,7 +411,7 @@ function SingleStackConfiguration(
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
 
-    print_model_info(model)
+    print_model_info(model, mpicomm)
 
     xmin, xmax = zero(FT), hmax
     ymin, ymax = zero(FT), hmax
@@ -504,7 +507,7 @@ function MultiColumnLandModel(
     (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
 
 
-    print_model_info(model)
+    print_model_info(model, mpicomm)
 
     brickrange = (
         grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
