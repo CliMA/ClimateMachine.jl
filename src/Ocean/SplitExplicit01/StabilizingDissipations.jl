@@ -3,11 +3,11 @@ module StabilizingDissipations
 using StaticArrays
 using LinearAlgebra
 
-using ClimateMachine.Mesh.Grids: min_node_distance, HorizontalDirection
+using ....Mesh.Grids: min_node_distance, HorizontalDirection
 
-import ClimateMachine.Ocean.HydrostaticBoussinesq: diffusivity_tensor, viscosity_tensor
+import ..SplitExplicit01: diffusivity_tensor, viscosity_tensor
 
-using ClimateMachine.Ocean.HydrostaticBoussinesq: HydrostaticBoussinesqModel
+using ..SplitExplicit01: OceanModel, BarotropicModel
 
 struct StabilizingDissipation{T}
     κʰ_min :: T 
@@ -45,7 +45,7 @@ function StabilizingDissipation(;
                                       FT(Δθ))
 end
 
-@inline function viscosity_tensor(m::HydrostaticBoussinesqModel{<:StabilizingDissipation}, ∇u)
+@inline function viscosity_tensor(m::OceanModel{<:StabilizingDissipation}, ∇u)
     ϰ = m.stabilizing_dissipation
     Δh = ϰ.minimum_node_spacing
 
@@ -66,7 +66,12 @@ end
     return Diagonal(@SVector [νʰ, νʰ, m.νᶻ])
 end
 
-@inline function diffusivity_tensor(m::HydrostaticBoussinesqModel{<:StabilizingDissipation}, ∇θ)
+@inline function viscosity_tensor(m::BarotropicModel{M}, ∇U) where {M <: OceanModel{<:StabilizingDissipation}}
+    νʰ = m.νʰ + ϰ.νʰ_min
+    return Diagonal(@SVector [νʰ, νʰ, 0])
+end
+
+@inline function diffusivity_tensor(m::OceanModel{<:StabilizingDissipation}, ∇θ)
 
     @inbounds begin
         θx = ∇θ[1]
