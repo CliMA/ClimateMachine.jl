@@ -65,6 +65,12 @@ if generate_tutorials
             ],
             "DG Methods" =>
                 ["Filters" => "Numerics/DGMethods/showcase_filters.jl"],
+            "Time-Stepping" => [
+                "Introduction" => "Numerics/TimeStepping/ts_intro.jl",
+                "Numerics/TimeStepping/tutorial_risingbubble_config.jl",
+                "Explicit Runge-Kutta methods" =>
+                    "Numerics/TimeStepping/explicit_lsrk.jl",
+            ],
         ],
         "Diagnostics" => [
             "Debug" => [

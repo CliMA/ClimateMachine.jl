@@ -1,4 +1,4 @@
-# # [Rising Thermal Bubble](@id Rising-termal-bubble)
+# # [Rising Thermal Bubble Configuration](@id Rising-Thermal-Bubble-Configuration)
 #
 # In this example, we demonstrate the usage of the `ClimateMachine`
 # [AtmosModel](@ref AtmosModel-docs) machinery to solve the fluid
@@ -103,7 +103,7 @@ const param_set = EarthParameterSet();
 #md #     The following variables are assigned in the initial condition
 #md #     - `state.ρ` = Scalar quantity for initial density profile
 #md #     - `state.ρu`= 3-component vector for initial momentum profile
-#md #     - `state.energy.ρe`= Scalar quantity for initial total-energy profile
+#md #     - `state.ρe`= Scalar quantity for initial total-energy profile
 #md #       humidity
 #md #     - `state.tracers.ρχ` = Vector of four tracers (here, for demonstration
 #md #       only; we can interpret these as dye injections for visualization
@@ -168,7 +168,7 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.energy.ρe = ρe_tot
+    state.ρe = ρe_tot
     state.tracers.ρχ = ρχ
 end
 
@@ -246,7 +246,7 @@ function config_risingbubble(
         zmax,                    ## Domain maximum size [m]
         param_set,               ## Parameter set.
         init_risingbubble!,      ## Function specifying initial condition
-        solver_type = ode_solver,## Time-integrator type
+        ## solver_type = ode_solver,## Time-integrator type
         model = model,           ## Model type
     )
     return config
@@ -256,7 +256,7 @@ end
 #md #     `Keywords` are used to specify some arguments (see appropriate source
 #md #     files).
 
-# ## [Diagnostics](@id config_diagnostics)
+# ## Diagnostics
 # Here we define the diagnostic configuration specific to this problem.
 function config_diagnostics(driver_config)
     interval = "10000steps"
@@ -268,7 +268,7 @@ function config_diagnostics(driver_config)
     return ClimateMachine.DiagnosticsConfiguration([dgngrp])
 end
 
-function main()
+function run_simulation(ode_solver, CFL, timeend)
     ## These are essentially arguments passed to the
     ## [`config_risingbubble`](@ref config-helper) function.  For type
     ## consistency we explicitly define the problem floating-precision.
@@ -289,13 +289,9 @@ function main()
     ymax = FT(500)
     zmax = FT(10000)
     t0 = FT(0)
-    timeend = FT(100)
+    ## timeend = FT(100)
     ## For full simulation set `timeend = 1000`
 
-    ## Use up to 1.7 if ode_solver is the single rate LSRK144.
-    CFL = FT(1.7)
-
-    ## Assign configurations so they can be passed to the `invoke!` function
     driver_config = config_risingbubble(FT, N, resolution, xmax, ymax, zmax)
     solver_config = ClimateMachine.SolverConfiguration(
         t0,
@@ -303,8 +299,10 @@ function main()
         driver_config,
         init_on_cpu = true,
         Courant_number = CFL,
+        ode_solver_type = ode_solver,
     )
     dgn_config = config_diagnostics(driver_config)
+    @show solver_config.ode_solver_type
 
     ## Invoke solver (calls `solve!` function for time-integrator), pass the driver,
     ## solver and diagnostic config information.
@@ -314,41 +312,5 @@ function main()
         user_callbacks = (),
         check_euclidean_distance = true,
     )
-
-    ## Check that the solution norm is reasonable.
-    @test isapprox(result, FT(1); atol = 1.5e-3)
+    return result
 end
-
-# The experiment definition is now complete. Time to run it.
-
-# ## Running the file
-# `julia --project tutorials/Atmos/risingbubble.jl` will run the
-# experiment from the main ClimateMachine.jl directory, with diagnostics output
-# at the intervals specified in [`config_diagnostics`](@ref
-# config_diagnostics).  You can also prescribe command line arguments for
-# simulation update and output specifications.  For
-# rapid turnaround, we recommend that you run this experiment on a GPU.
-
-# VTK output can be controlled via command line by
-# setting `parse_clargs=true` in the `ClimateMachine.init`
-# arguments, and then using `--vtk=<interval>`.
-
-# ## [Output Visualisation](@id output-viz)
-# See the `ClimateMachine` API interface documentation
-# for generating output.
-#
-#
-# - [VisIt](https://wci.llnl.gov/simulation/computer-codes/visit/)
-# - [Paraview](https://wci.llnl.gov/simulation/computer-codes/visit/)
-# are two commonly used programs for `.vtu` files.
-#
-# For NetCDF or JLD2 diagnostics you may use any of the following tools:
-# Julia's
-# [`NCDatasets`](https://github.com/Alexander-Barth/NCDatasets.jl) and
-# [`JLD2`](https://github.com/JuliaIO/JLD2.jl) packages with a suitable
-#
-# or the known and quick NCDF visualization tool:
-# [`ncview`](http://meteora.ucsd.edu/~pierce/ncview_home_page.html)
-# plotting program.
-
-main()
