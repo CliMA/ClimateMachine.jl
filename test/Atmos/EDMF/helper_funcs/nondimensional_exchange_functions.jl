@@ -8,6 +8,7 @@
         ts_up,
         ts_en,
         env,
+        buoy,
         i,
     ) where {FT}
 
@@ -20,6 +21,7 @@ functions following Cohen et al. (JAMES, 2020), given:
  - `ts_up`, updraft thermodynamic states
  - `ts_en`, environment thermodynamic states
  - `env`, NamedTuple of environment variables
+ - `buoy`, NamedTuple of environment and updraft buoyancies
  - `i`, the updraft index
 """
 function nondimensional_exchange_functions(
@@ -30,6 +32,7 @@ function nondimensional_exchange_functions(
     ts_up,
     ts_en,
     env,
+    buoy,
     i,
 ) where {FT}
 
@@ -51,7 +54,7 @@ function nondimensional_exchange_functions(
     RH_en = relative_humidity(ts_en)
 
     Δw = filter_w(w_up_i - env.w, w_min)
-    Δb = up_aux[i].buoyancy - en_aux.buoyancy
+    Δb = buoy.up[i] - buoy.en
 
     c_δ = sign(condensate(ts_en) + condensate(ts_up[i])) * entr.c_δ
 
