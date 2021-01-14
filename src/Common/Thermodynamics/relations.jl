@@ -45,6 +45,8 @@ export liquid_fraction, PhasePartition_equil
 export dry_pottemp
 export virtual_pottemp
 export exner
+export shum_to_mixing_ratio
+export mixing_ratios
 export liquid_ice_pottemp
 export liquid_ice_pottemp_sat
 export relative_humidity
@@ -2184,6 +2186,44 @@ exner(ts::ThermodynamicState) = exner(
     air_density(ts),
     PhasePartition(ts),
 )
+
+"""
+    shum_to_mixing_ratio(q, q_tot)
+
+Mixing ratio, from specific humidity
+ - `q` specific humidity
+ - `q_tot` total specific humidity
+"""
+function shum_to_mixing_ratio(q::FT, q_tot::FT) where {FT <: Real}
+    return q / (1 - q_tot)
+end
+
+"""
+    mixing_ratios(q::PhasePartition)
+
+Mixing ratios
+ - `r.tot` total mixing ratio
+ - `r.liq` liquid mixing ratio
+ - `r.ice` ice mixing ratio
+given a phase partition, `q`.
+"""
+function mixing_ratios(q::PhasePartition{FT}) where {FT <: Real}
+    return PhasePartition(
+        shum_to_mixing_ratio(q.tot, q.tot),
+        shum_to_mixing_ratio(q.liq, q.tot),
+        shum_to_mixing_ratio(q.ice, q.tot),
+    )
+end
+
+"""
+    mixing_ratios(ts::ThermodynamicState)
+
+Mixing ratios stored, in a phase partition, for
+ - total specific humidity
+ - liquid specific humidity
+ - ice specific humidity
+"""
+mixing_ratios(ts::ThermodynamicState) = mixing_ratios(PhasePartition(ts))
 
 """
     relative_humidity(param_set, T, p, phase_type, q::PhasePartition)
