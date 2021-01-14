@@ -17,5 +17,6 @@ using ...Mesh.Filters: CutoffFilter, ExponentialFilter
 using ...Mesh.Grids: polynomialorders, DiscontinuousSpectralElementGrid
 
 include("hydrostatic_boussinesq_super_model.jl")
+include("split_explicit_ocean_super_model.jl")
 
 end # module

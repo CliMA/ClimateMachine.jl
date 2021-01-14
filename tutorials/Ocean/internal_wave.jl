@@ -98,6 +98,21 @@ time_step = 0.005 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resoluti
 
 # and build a model with a smidgeon of viscosity and diffusion,
 
+using ClimateMachine.Ocean.SuperModels: SplitExplicitOceanSuperModel
+
+model = SplitExplicitOceanSuperModel(
+    domain = domain,
+    parameters = NonDimensionalParameters(),
+    barotropic_time_step = time_step,
+    baroclinic_time_step = time_step / 24,
+    initial_conditions = initial_conditions,
+    turbulence_closure = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6, κᶜ = 1.0),
+    coriolis = (f₀ = f, β = 0),
+    buoyancy = (αᵀ = αᵀ,),
+    boundary_tags = ((1, 1), (1, 1), (1, 2)),
+)
+
+#=
 using ClimateMachine.Ocean: HydrostaticBoussinesqSuperModel
 
 model = HydrostaticBoussinesqSuperModel(
@@ -237,3 +252,4 @@ animation = @animate for (i, state) in enumerate(fetched_states)
 end
 
 gif(animation, "internal_wave.gif", fps = 8) # hide
+=#

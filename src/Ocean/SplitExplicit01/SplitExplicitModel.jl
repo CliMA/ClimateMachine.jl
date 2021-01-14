@@ -71,8 +71,8 @@ import ...SystemSolvers: BatchedGeneralizedMinimalResidual, linearsolve!
 
 abstract type AbstractOceanModel <: BalanceLaw end
 
-function ocean_init_aux! end
-function ocean_init_state! end
+import ..Ocean: ocean_init_aux!, ocean_init_state!
+
 function ocean_model_boundary! end
 function set_fast_for_stepping! end
 function initialize_fast_state! end

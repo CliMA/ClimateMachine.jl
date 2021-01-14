@@ -42,7 +42,7 @@ using CLIMAParameters.Planet: grav
 ##### It's super good
 #####
 
-struct HydrostaticOceanSuperModel{D, G, B, C, F, T}
+struct SplitExplicitOceanSuperModel{D, G, B, C, F, T}
     domain::D
     grid::G
     barotropic::B
@@ -52,7 +52,7 @@ struct HydrostaticOceanSuperModel{D, G, B, C, F, T}
 end
 
 """
-    HydrostaticOceanSuperModel(; domain, time_step, parameters,
+    SplitExplicitOceanSuperModel(; domain, time_step, parameters,
          initial_conditions = InitialConditions(),
          turbulence_closure = (νʰ=0, νᶻ=0, κʰ=0, κᶻ=0, κᶜ=0),
                    coriolis = (f₀=0, β=0),
@@ -66,24 +66,27 @@ end
 
 Builds a `SuperModel` that solves the Hydrostatic Boussinesq equations.
 
-Note: `fast_time_step` is adjusted so that `fast_time_step / slow_time_step` is a
+Note: `barotropic_time_step` is adjusted so that `barotropic_time_step / baroclinic_time_step` is a
 multiple of 12.
 
-`relative_fast_averaging_window` controls time-averaging required to reconcile the 
-fast barotropic and slow baroclinic mode. In particular `relative_fast_averaging_window` is
-the size of the averaging window for the barotropic mode relative to the `slow_time_step`.
-We must have `ϵ > relative_fast_averaging_window >= 1` where `ϵ` is not that small (probably
-you want `ϵ > 1/8`).
+`fractional_barotropic_averaging_window` controls time-averaging required to reconcile the 
+fast barotropic and slow baroclinic mode. In particular, `fractional_barotropic_averaging_window`
+is the fractional size of the averaging window for the barotropic mode
+relative to the `baroclinic_time_step` (in other words, the window size expressed as a
+fraction of `baroclinic_time_step`). `fractional_barotropic_averaging_window` must be less than 1 to be
+a valid fraction, and also significantly greater than 0 for valid averaging, so that
+`ϵ > fractional_barotropic_averaging_window >= 1` where `ϵ` is not that small (probably `ϵ ≈ 1/8`).
 
-Note: `relative_fast_averaging_window` is a *target* window which is adjusted depending on
-the number of Runge-Kutta stages.
+Note: `fractional_barotropic_averaging_window` is a *target* window 
+that's adjusted depending on the number of Runge-Kutta stages.
 """
-function HydrostaticOceanSuperModel(;
+function SplitExplicitOceanSuperModel(;
     domain,
     parameters,
-    slow_time_step,
-    fast_time_step,
-    relative_fast_averaging_window = 1/3,
+    baroclinic_time_step,
+    barotropic_time_step,
+    initial_time = 0.0,
+    fractional_barotropic_averaging_window = 1/3,
     implicit_gmres_stages = 0,
     initial_conditions = InitialConditions(),
     turbulence_closure = (νʰ = 0, νᶻ = 0, κʰ = 0, κᶻ = 0, κᶜ = 0),
@@ -95,9 +98,6 @@ function HydrostaticOceanSuperModel(;
         first_order = RusanovNumericalFlux(),
         second_order = CentralNumericalFluxSecondOrder(),
         gradient = CentralNumericalFluxGradient(),
-    ),
-    timestepper = ClimateMachine.ExplicitSolverType(
-        solver_method = LS3NRK33Heuns,
     ),
     filters = nothing,
     modeldata = NamedTuple(),
@@ -140,8 +140,8 @@ function HydrostaticOceanSuperModel(;
     grid = DiscontinuousSpectralElementGrid(
         topology,
         FloatType = FT,
-        DeviceArray = array_typ,
-        polynomialorder = Np,
+        DeviceArray = array_type,
+        polynomialorder = domain.Np,
     )
 
     horizontal_topology = BrickTopology(
@@ -183,12 +183,12 @@ function HydrostaticOceanSuperModel(;
         κᶜ = convert(FT, turbulence_closure.κᶜ),
         fₒ = convert(FT, coriolis.f₀),
         β = convert(FT, coriolis.β),
-        add_fast_substeps = 1 / relative_fast_averaging_window,
+        add_fast_substeps = 1 / fractional_barotropic_averaging_window,
         numImplSteps = implicit_gmres_stages,
-        ivdc_dt = slow_time_step / implicit_gmres_stages,
+        ivdc_dt = baroclinic_time_step / implicit_gmres_stages,
     )
 
-    barotropic_equations = BarotropicModel(model)
+    barotropic_equations = BarotropicModel(baroclinic_equations)
 
     ####
     #### "modeldata"
@@ -214,15 +214,20 @@ function HydrostaticOceanSuperModel(;
         """ Gravity wave CFL condition
             min(Δx) / 2√(gH) = %.1f
               fast time step = %.1f
-            Gravity wave CFL = %.1f""",
+            Gravity wave CFL = %.1f\n""",
         min_Δx / 2c,
-        fast_time_step,
-        fast_time_step * 2c / min_Δx,
+        barotropic_time_step,
+        barotropic_time_step * 2c / min_Δx,
     )
 
     # 2 horizontal directions + harmonic viscosity or diffusion: 2^2 factor in CFL:
-    viscous_time_step_limit = 1 / (2 * model.νʰ / min_Δx^2 + model.νᶻ / min_Δz^2) / 4
-    diffusive_time_step_limit = 1 / (2 * model.κʰ / min_Δx^2 + model.κᶻ / min_Δz^2) / 4
+    νʰ = baroclinic_equations.νʰ
+    νᶻ = baroclinic_equations.νᶻ
+    κʰ = baroclinic_equations.κʰ
+    κᶻ = baroclinic_equations.κᶻ
+
+    viscous_time_step_limit = 1 / (2 * νʰ / min_Δx^2 + νᶻ / min_Δz^2) / 4
+    diffusive_time_step_limit = 1 / (2 * κʰ / min_Δx^2 + κᶻ / min_Δz^2) / 4
 
     @info @sprintf(
         """ Viscous and diffusive CFL conditions
@@ -230,12 +235,12 @@ function HydrostaticOceanSuperModel(;
             1 / (8κʰ / min(Δx)^2 + 4κᶻ / min(Δz)^2) = %.1f
                                      slow time step = %.1f
                                         Viscous CFL = %.1f
-                                      Diffusive CFL = %.1f"""
+                                      Diffusive CFL = %.1f\n""",
         viscous_time_step_limit,
         diffusive_time_step_limit,
-        slow_time_step,
-        slow_time_step / viscous_time_step_limit,
-        slow_time_step / diffusive_time_step_limit,
+        baroclinic_time_step,
+        baroclinic_time_step / viscous_time_step_limit,
+        baroclinic_time_step / diffusive_time_step_limit,
     )
 
     baroclinic_discretization = OceanDGModel(
@@ -257,29 +262,43 @@ function HydrostaticOceanSuperModel(;
     baroclinic_state = init_ode_state(baroclinic_discretization, FT(0); init_on_cpu = true)
     barotropic_state = init_ode_state(barotropic_discretization, FT(0); init_on_cpu = true)
 
-    u = SpectralElementField(domain, grid, state, 1)
-    v = SpectralElementField(domain, grid, state, 2)
-    η = SpectralElementField(domain, grid, state, 3)
-    θ = SpectralElementField(domain, grid, state, 4)
+    u = SpectralElementField(domain, grid, baroclinic_state, 1)
+    v = SpectralElementField(domain, grid, baroclinic_state, 2)
+    η = SpectralElementField(domain, grid, baroclinic_state, 3)
+    θ = SpectralElementField(domain, grid, baroclinic_state, 4)
 
     fields = (u = u, v = v, η = η, θ = θ)
 
-    return HydrostaticBoussinesqSuperModel(
+    #####
+    ##### Timestepper setup
+    #####
+
+    baroclinic_timestepper = LS3NRK33Heuns(baroclinic_discretization, baroclinic_state,
+                                           dt = baroclinic_time_step, t0 = initial_time)
+
+    barotropic_timestepper = LS3NRK33Heuns(barotropic_discretization, barotropic_state,
+                                           dt = barotropic_time_step, t0 = initial_time)
+
+    timestepper = SplitExplicitLSRK3nSolver(baroclinic_timestepper, barotropic_timestepper)
+
+    #####
+    ##### Organize model properties
+    #####
+
+    baroclinic = (state = baroclinic_state,
+                  discretization = baroclinic_discretization,
+                  equations = baroclinic_equations)
+
+    barotropic = (state = barotropic_state,
+                  discretization = barotropic_discretization,
+                  equations = barotropic_equations)
+
+    return SplitExplicitOceanSuperModel(
         domain,
         grid,
-        equations,
-        state,
+        barotropic,
+        baroclinic,
         fields,
-        numerical_fluxes,
         timestepper,
-        solver_configuration,
     )
 end
-
-current_time(model::HydrostaticBoussinesqSuperModel) =
-    model.solver_configuration.solver.t
-Δt(model::HydrostaticBoussinesqSuperModel) =
-    model.solver_configuration.solver.dt
-current_step(model::HydrostaticBoussinesqSuperModel) =
-    model.solver_configuration.solver.steps
-
