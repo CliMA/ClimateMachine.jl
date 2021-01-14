@@ -84,7 +84,7 @@ function mixing_length(
     b = FT(0)
     a_up = vuntuple(i -> up[i].ρa * ρinv, N_up)
     w_up = vuntuple(N_up) do i
-        fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+        fix_void_up(m.turbconv, up[i].ρa/gm.ρ, up[i].ρaw / up[i].ρa)
     end
     b = sum(
         ntuple(N_up) do i

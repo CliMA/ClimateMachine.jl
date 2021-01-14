@@ -68,7 +68,13 @@ function entr_detr(
     lim_amp = entr.lim_amp
     w_min = entr.w_min
     # precompute vars
-    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    w_up_i = fix_void_up(
+        m.turbconv,
+        up[i].ρa*ρ_inv,
+        up[i].ρaw / up[i].ρa,
+        gm.ρu[3],
+        gm.ρu[3],
+    )
     sqrt_tke = sqrt(max(en.ρatke, 0) * ρ_inv / env.a)
     # ensure far from zero
     Δw = filter_w(w_up_i - env.w, w_min)

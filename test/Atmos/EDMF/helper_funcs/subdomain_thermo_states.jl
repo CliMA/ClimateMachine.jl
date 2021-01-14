@@ -153,8 +153,13 @@ function new_thermo_state_up(
     ts_up = vuntuple(N_up) do i
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
-        θ_liq_up =
-            fix_void_up(ρa_up, ρaθ_liq_up / ρa_up, liquid_ice_pottemp(ts))
+        θ_liq_up = fix_void_up(
+            m.turbconv,
+            ρa_up/state.ρ,
+            ρaθ_liq_up / ρa_up,
+            liquid_ice_pottemp(ts),
+            liquid_ice_pottemp(ts),
+        )
         PhaseDry_pθ(m.param_set, p, θ_liq_up)
     end
     return ts_up
@@ -177,11 +182,18 @@ function new_thermo_state_up(
         ρa_up = up[i].ρa
         ρaθ_liq_up = up[i].ρaθ_liq
         ρaq_tot_up = up[i].ρaq_tot
-        θ_liq_up =
-            fix_void_up(ρa_up, ρaθ_liq_up / ρa_up, liquid_ice_pottemp(ts))
+        θ_liq_up = fix_void_up(
+            m.turbconv,
+            ρa_up/state.ρ,
+            ρaθ_liq_up / ρa_up,
+            liquid_ice_pottemp(ts),
+            liquid_ice_pottemp(ts),
+        )
         q_tot_up = fix_void_up(
-            ρa_up,
+            m.turbconv,
+            ρa_up/state.ρ,
             ρaq_tot_up / ρa_up,
+            total_specific_humidity(ts),
             total_specific_humidity(ts),
         )
         PhaseEquil_pθq(m.param_set, p, θ_liq_up, q_tot_up)

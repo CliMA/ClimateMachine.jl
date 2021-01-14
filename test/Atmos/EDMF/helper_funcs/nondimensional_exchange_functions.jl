@@ -47,7 +47,13 @@ function nondimensional_exchange_functions(
     N_up = n_updrafts(m.turbconv)
     ρinv = 1 / gm.ρ
     a_up_i = up[i].ρa * ρinv
-    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    w_up_i = fix_void_up(
+        m.turbconv,
+        up[i].ρa,
+        up[i].ρaw / up[i].ρa,
+        gm.ρu[3],
+        gm.ρu[3],
+    )
 
     # thermodynamic variables
     RH_up = relative_humidity(ts_up[i])

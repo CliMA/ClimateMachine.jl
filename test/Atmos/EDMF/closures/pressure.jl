@@ -41,7 +41,13 @@ function perturbation_pressure(
     up_aux = aux.turbconv.updraft
     up_dif = diffusive.turbconv.updraft
 
-    w_up_i = fix_void_up(up[i].ρa, up[i].ρaw / up[i].ρa)
+    w_up_i = fix_void_up(
+        m.turbconv,
+        up[i].ρa/state.ρ,
+        up[i].ρaw / up[i].ρa,
+        state.ρu[3],
+        state.ρu[3],
+    )
 
     nh_press_buoy = press.α_b * buoy.up[i]
     nh_pressure_adv = -press.α_a * w_up_i * up_dif[i].∇w[3]
