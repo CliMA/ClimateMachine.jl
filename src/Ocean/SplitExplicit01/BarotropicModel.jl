@@ -84,13 +84,13 @@ end
     A::Vars,
     t,
 )
-    ν = viscosity_tensor(m)
+    ν = viscosity_tensor(m, G.u)
     D.ν∇U = -ν * G.U
 
     return nothing
 end
 
-@inline function viscosity_tensor(bm::BarotropicModel)
+@inline function viscosity_tensor(bm::BarotropicModel{M}, ∇u) where {M <: OceanModel{Nothing}}
     m = bm.baroclinic
     return Diagonal(@SVector [m.νʰ, m.νʰ, 0])
 end

@@ -1,4 +1,4 @@
-struct OceanModel{P, T} <: AbstractOceanModel
+struct OceanModel{S, P, T} <: AbstractOceanModel
     problem::P
     grav::T
     ρₒ::T
@@ -7,6 +7,7 @@ struct OceanModel{P, T} <: AbstractOceanModel
     add_fast_substeps::T
     numImplSteps::T
     ivdc_dt::T
+    stabilizing_dissipation::S
     αᵀ::T
     νʰ::T
     νᶻ::T
@@ -24,6 +25,7 @@ struct OceanModel{P, T} <: AbstractOceanModel
         add_fast_substeps = 0,
         numImplSteps = 0,
         ivdc_dt = FT(1),
+        stabilizing_dissipation::S = nothing,
         αᵀ = FT(2e-4),  # 1/K
         νʰ = FT(5e3),   # m^2/s
         νᶻ = FT(5e-3),  # m^2/s
@@ -32,8 +34,8 @@ struct OceanModel{P, T} <: AbstractOceanModel
         κᶜ = FT(1e-4),  # convective adjustment vertical diffusivity, m^2/s
         fₒ = FT(1e-4),  # Hz
         β = FT(1e-11),  # Hz/m
-    ) where {FT <: AbstractFloat}
-        return new{typeof(problem), FT}(
+    ) where {FT <: AbstractFloat, S}
+        return new{S, typeof(problem), FT}(
             problem,
             grav,
             ρₒ,
@@ -42,6 +44,7 @@ struct OceanModel{P, T} <: AbstractOceanModel
             add_fast_substeps,
             numImplSteps,
             ivdc_dt,
+            stabilizing_dissipation,
             αᵀ,
             νʰ,
             νᶻ,
@@ -235,7 +238,7 @@ end
     A::Vars,
     t,
 )
-    ν = viscosity_tensor(m)
+    ν = viscosity_tensor(m, G.u)
     #  D.ν∇u = ν * G.u
     D.ν∇u =
         -@SMatrix [
@@ -244,15 +247,17 @@ end
             m.νᶻ*G.u[3, 1] m.νᶻ*G.u[3, 2]
         ]
 
-    κ = diffusivity_tensor(m, G.θ[3])
+    κ = diffusivity_tensor(m, G.θ)
     D.κ∇θ = -κ * G.θ
 
     return nothing
 end
 
-@inline viscosity_tensor(m::OceanModel) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
+@inline viscosity_tensor(m::OceanModel{Nothing}, ∇u) = Diagonal(@SVector [m.νʰ, m.νʰ, m.νᶻ])
 
-@inline function diffusivity_tensor(m::OceanModel, ∂θ∂z)
+@inline function diffusivity_tensor(m::OceanModel{Nothing}, ∇θ)
+
+    @inbounds ∂θ∂z = ∇θ[3]
 
     if m.numImplSteps > 0
         κ = (@SVector [m.κʰ, m.κʰ, m.κᶻ * 0.5])
