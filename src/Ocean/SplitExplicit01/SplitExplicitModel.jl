@@ -87,5 +87,6 @@ include("BarotropicModel.jl")
 include("IVDCModel.jl")
 include("Communication.jl")
 include("OceanBoundaryConditions.jl")
+include("StabilizingDissipations.jl")
 
 end
