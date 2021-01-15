@@ -13,17 +13,17 @@ data_file = Dataset(joinpath(PyCLES_output_dataset_path, "Bomex.nc"), "r")
 
 #! format: off
 best_mse = OrderedDict()
-best_mse["prog_ρ"] = 3.4917543567414361e-02
-best_mse["prog_ρu_1"] = 3.0715061616086055e+03
-best_mse["prog_ρu_2"] = 1.2895273328642526e-03
-best_mse["prog_moisture_ρq_tot"] = 4.1330591681431349e-02
-best_mse["prog_turbconv_environment_ρatke"] = 6.6415719930220473e+02
-best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.5667223192884450e+01
-best_mse["prog_turbconv_environment_ρaq_tot_cv"] = 1.6435555166434060e+02
-best_mse["prog_turbconv_updraft_1_ρa"] = 7.9564915637753856e+01
-best_mse["prog_turbconv_updraft_1_ρaw"] = 8.4288782179220159e-02
-best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 9.0095910670416632e+00
-best_mse["prog_turbconv_updraft_1_ρaq_tot"] = 1.0768554319426404e+01
+best_mse["prog_ρ"] = 3.4917543567412931e-02
+best_mse["prog_ρu_1"] = 3.0715061616086091e+03
+best_mse["prog_ρu_2"] = 1.2895273328644243e-03
+best_mse["prog_moisture_ρq_tot"] = 4.1330591681431862e-02
+best_mse["prog_turbconv_environment_ρatke"] = 6.7419793087180005e+02
+best_mse["prog_turbconv_environment_ρaθ_liq_cv"] = 8.5667222913342755e+01
+best_mse["prog_turbconv_environment_ρaq_tot_cv"] = 1.6435778026434528e+02
+best_mse["prog_turbconv_updraft_1_ρa"] = 7.9568648163256995e+01
+best_mse["prog_turbconv_updraft_1_ρaw"] = 8.4292074562603486e-02
+best_mse["prog_turbconv_updraft_1_ρaθ_liq"] = 9.0094974216941637e+00
+best_mse["prog_turbconv_updraft_1_ρaq_tot"] = 1.0768452320369121e+01
 #! format: on
 
 computed_mse = compute_mse(
@@ -34,6 +34,7 @@ computed_mse = compute_mse(
     data_file,
     "Bomex",
     best_mse,
+    400,
     plot_dir,
 )
 
@@ -41,13 +42,14 @@ computed_mse = compute_mse(
     #! format: off
     test_mse(computed_mse, best_mse, "prog_ρ")
     test_mse(computed_mse, best_mse, "prog_ρu_1")
+    test_mse(computed_mse, best_mse, "prog_ρu_2")
     test_mse(computed_mse, best_mse, "prog_moisture_ρq_tot")
+    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρatke")
+    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaθ_liq_cv")
+    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaq_tot_cv")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρa")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaw")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaθ_liq")
     test_mse(computed_mse, best_mse, "prog_turbconv_updraft_1_ρaq_tot")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρatke")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaθ_liq_cv")
-    test_mse(computed_mse, best_mse, "prog_turbconv_environment_ρaq_tot_cv")
     #! format: on
 end

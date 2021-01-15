@@ -25,6 +25,7 @@ using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
 using ClimateMachine.DGMethods.NumericalFluxes
+using ClimateMachine.TemperatureProfiles
 using ClimateMachine.Diagnostics
 using ClimateMachine.GenericCallbacks
 using ClimateMachine.Mesh.Filters
@@ -190,6 +191,7 @@ function stable_bl_model(
     turbulence = ConstantKinematicViscosity(FT(0)),
     turbconv = NoTurbConv(),
     moisture_model = "dry",
+    ref_state = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
 ) where {FT}
 
     ics = init_problem!     # Initial conditions
@@ -317,6 +319,7 @@ function stable_bl_model(
         config_type,
         param_set;
         problem = problem,
+        ref_state = ref_state,
         turbulence = turbulence,
         moisture = moisture,
         source = source,
