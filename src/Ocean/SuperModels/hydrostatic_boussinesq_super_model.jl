@@ -198,8 +198,9 @@ end
 
 current_time(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.t
+
 Δt(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.dt
+
 current_step(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.steps
-
