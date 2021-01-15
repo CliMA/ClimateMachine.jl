@@ -394,6 +394,9 @@ function get_z(
     Nvert = N[end]
     Nph = (Nhoriz + 1)^2
     Np = Nph * (Nvert + 1)
+    if last(polynomialorders(grid)) == 0
+        rm_dupes = false # no duplicates in FVM
+    end
     if rm_dupes
         ijk_range = (1:Nph:(Np - Nph))
         vgeo = Array(grid.vgeo)

@@ -18,6 +18,8 @@ import ..BalanceLaws:
     vars_state,
     eq_tends,
     source!,
+    prognostic_to_primitive!,
+    primitive_to_prognostic!,
     precompute,
     prognostic_vars,
     init_state_prognostic!,
@@ -151,6 +153,9 @@ function init_state_prognostic!(
     localgeo,
     t,
 ) end
+
+prognostic_to_primitive!(::NoTurbConv, _...) = nothing
+primitive_to_prognostic!(::NoTurbConv, _...) = nothing
 
 include("boundary_conditions.jl")
 include("source.jl")
