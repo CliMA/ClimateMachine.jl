@@ -713,8 +713,10 @@ end
         faces = (nface - 1, nface)
 
         # Storage for the prognostic state for e-1, e, e+1
-        local_state_prognostic =
-            ntuple(_ -> MArray{Tuple{num_state_prognostic_in}, FT}(undef), Val(3))
+        local_state_prognostic = ntuple(
+            _ -> MArray{Tuple{num_state_prognostic_in}, FT}(undef),
+            Val(3),
+        )
 
         # Storage for the auxiliary state for e-1, e, e+1
         local_state_auxiliary =
@@ -793,7 +795,8 @@ end
         # Load prognostic data
         @unroll for k in 1:3
             @unroll for s in 1:num_state_prognostic_in
-                local_state_prognostic[k][s] = state_prognostic.data[n, s, els[k]]
+                local_state_prognostic[k][s] =
+                    state_prognostic.data[n, s, els[k]]
             end
         end
 
