@@ -19,8 +19,9 @@ using ..ConfigTypes
 using ..Diagnostics
 using ..DGMethods
 using ..BalanceLaws
-using ..DGMethods: remainder_DGModel
+using ..DGMethods: remainder_DGModel, SpaceDiscretization
 using ..DGMethods.NumericalFluxes
+using ..DGMethods.FVReconstructions
 
 using ..Mesh.Grids
 using ..Mesh.Topologies

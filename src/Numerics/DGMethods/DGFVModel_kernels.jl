@@ -185,6 +185,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     # Which degree of freedom do we handle in the element
     n = @index(Local, Linear)
 
+
     # Loads the data for a given element
     function load_data!(
         local_state_prognostic,
@@ -537,6 +538,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                 end
             end
 
+
             # Update the bottom element:
             # numerical flux is computed with respect to the top element, so
             # `+=` is used to reverse the flux
@@ -583,14 +585,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         if increment
                             tendency[n, s, eH + eV_up] += local_tendency[s]
                         else
-                            if β != 0
-                                T =
-                                    local_tendency[s] +
-                                    β * tendency[n, s, eH + eV_up]
-                            else
-                                T = local_tendency[s]
-                            end
-                            tendency[n, s, eH + eV_up] = T
+                            # This tendency has already been updated in the first element (eV_up=1)
+                            tendency[n, s, eH + eV_up] += local_tendency[s]
                         end
                     end
                 else
@@ -1008,10 +1004,15 @@ end
 
 """
     kernel_fvm_balance!(f!, balance_law::BalanceLaw, ::Val{nvertelem}, state_auxiliary, vgeo, elems)
+    
+    To avoid the oscillation in the reference temperature
+    ρ[nvertelem] = ρ[nvertelem] * (1 - ϵ)
+    to ensure 
+    T[nvertelem - 1] ≥ T[nvertelem]
 
     pᵢ₋₁ - pᵢ =  g ρᵢ Δzᵢ/2 + g ρᵢ₋₁ Δzᵢ₋₁/2
-    for i = 2:nvertelem 
-        ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
+    for i = nvertelem-1:-1:1 
+        ρᵢ₋₁  = (pᵢ₋₁ - pᵢ - g ρᵢ Δzᵢ/2) / (g  Δzᵢ₋₁/2)
     end
 
  - `f!`: update function
@@ -1031,10 +1032,10 @@ end
     @uniform begin
         FT = eltype(state_auxiliary)
         num_state_auxiliary = number_states(balance_law, Auxiliary())
-        # ρᵢ₋₁ pᵢ₋₁
-        local_state_auxiliary_bot =
-            MArray{Tuple{num_state_auxiliary}, FT}(undef)
         # ρᵢ pᵢ
+        local_state_auxiliary_top =
+            MArray{Tuple{num_state_auxiliary}, FT}(undef)
+        # ρᵢ₋₁ pᵢ₋₁
         local_state_auxiliary = MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
         Δz = MArray{Tuple{2}, FT}(undef)
@@ -1046,30 +1047,34 @@ end
     @inbounds begin
         eH = elems[_eH]
 
-        # handle first element
-        eV = 1
+        # handle top element
+        eV = nvertelem
         e = eV + (eH - 1) * nvertelem
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary_bot[s] = state_auxiliary[n, s, e]
+            local_state_auxiliary_top[s] = state_auxiliary[n, s, e]
         end
-        Δz[1] = 2 * vgeo[n, _JcV, e]
+        # Δzᵢ
+        Δz[2] = 2 * vgeo[n, _JcV, e]
 
         # Loop up the stack of elements
-        for eV in 2:nvertelem
+        for eV in (nvertelem - 1):-1:1
             e = eV + (eH - 1) * nvertelem
 
             @unroll for s in 1:num_state_auxiliary
                 local_state_auxiliary[s] = state_auxiliary[n, s, e]
             end
-            Δz[2] = 2 * vgeo[n, _JcV, e]
+            # Δzᵢ₋₁
+            Δz[1] = 2 * vgeo[n, _JcV, e]
 
             f!(
                 balance_law,
-                Vars{vars_state(balance_law, Auxiliary(), FT)}(
-                    local_state_auxiliary_bot,
-                ),
+                # ρᵢ₋₁ pᵢ₋₁
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(
                     local_state_auxiliary,
+                ),
+                # ρᵢ pᵢ
+                Vars{vars_state(balance_law, Auxiliary(), FT)}(
+                    local_state_auxiliary_top,
                 ),
                 Δz,
             )
@@ -1079,11 +1084,11 @@ end
                 state_auxiliary[n, s, e] = local_state_auxiliary[s]
             end
 
-            # (ρᵢ pᵢ Δzᵢ) -> (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁)
+            # (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁) -> (ρᵢ pᵢ Δzᵢ) 
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary_bot[s] = local_state_auxiliary[s]
+                local_state_auxiliary_top[s] = local_state_auxiliary[s]
             end
-            Δz[1] = Δz[2]
+            Δz[2] = Δz[1]
         end
     end
 end

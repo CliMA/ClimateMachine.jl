@@ -86,6 +86,8 @@ struct DriverConfiguration{FT}
     numerical_flux_first_order::NumericalFluxFirstOrder
     numerical_flux_second_order::NumericalFluxSecondOrder
     numerical_flux_gradient::NumericalFluxGradient
+    # DGFVModel details, used when polyorder_vert = 0
+    fv_reconstruction::Union{Nothing, AbstractReconstruction}
     #
     # configuration-specific info
     config_info::ConfigSpecificInfo
@@ -104,6 +106,7 @@ struct DriverConfiguration{FT}
         numerical_flux_first_order::NumericalFluxFirstOrder,
         numerical_flux_second_order::NumericalFluxSecondOrder,
         numerical_flux_gradient::NumericalFluxGradient,
+        fv_reconstruction::Union{Nothing, AbstractReconstruction},
         config_info::ConfigSpecificInfo,
     )
         return new{FT}(
@@ -119,6 +122,7 @@ struct DriverConfiguration{FT}
             numerical_flux_first_order,
             numerical_flux_second_order,
             numerical_flux_gradient,
+            fv_reconstruction,
             config_info,
         )
     end
@@ -171,6 +175,7 @@ function AtmosLESConfiguration(
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
+    fv_reconstruction = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -178,9 +183,9 @@ function AtmosLESConfiguration(
     print_model_info(model, mpicomm)
 
     brickrange = (
-        grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
-        grid1d(ymin, ymax, elemsize = Δy * polyorder_horz),
-        grid1d(zmin, zmax, elemsize = Δz * polyorder_vert),
+        grid1d(xmin, xmax, elemsize = Δx * max(polyorder_horz, 1)),
+        grid1d(ymin, ymax, elemsize = Δy * max(polyorder_horz, 1)),
+        grid1d(zmin, zmax, elemsize = Δz * max(polyorder_vert, 1)),
     )
     topology = StackedBrickTopology(
         mpicomm,
@@ -237,6 +242,7 @@ Establishing Atmos LES configuration for %s
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
+        fv_reconstruction,
         AtmosLESSpecificInfo(),
     )
 end
@@ -260,6 +266,7 @@ function AtmosGCMConfiguration(
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
+    fv_reconstruction = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -326,6 +333,7 @@ Establishing Atmos GCM configuration for %s
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
+        fv_reconstruction,
         AtmosGCMSpecificInfo(domain_height, nelem_vert, nelem_horz),
     )
 end
@@ -345,6 +353,7 @@ function OceanBoxGCMConfiguration(
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
+    fv_reconstruction = nothing,
     periodicity = (false, false, false),
     boundary = ((1, 1), (1, 1), (2, 3)),
 )
@@ -385,6 +394,7 @@ function OceanBoxGCMConfiguration(
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
+        fv_reconstruction,
         OceanBoxGCMSpecificInfo(),
     )
 end
@@ -407,6 +417,7 @@ function SingleStackConfiguration(
     numerical_flux_first_order = RusanovNumericalFlux(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
+    fv_reconstruction = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = get_polyorders(N)
@@ -477,6 +488,7 @@ Establishing single stack configuration for %s
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
+        fv_reconstruction,
         SingleStackSpecificInfo(),
     )
 end
@@ -502,6 +514,7 @@ function MultiColumnLandModel(
     numerical_flux_first_order = CentralNumericalFluxFirstOrder(),
     numerical_flux_second_order = CentralNumericalFluxSecondOrder(),
     numerical_flux_gradient = CentralNumericalFluxGradient(),
+    fv_reconstruction = nothing,
 ) where {FT <: AbstractFloat}
 
     (polyorder_horz, polyorder_vert) = isa(N, Int) ? (N, N) : N
@@ -510,9 +523,9 @@ function MultiColumnLandModel(
     print_model_info(model, mpicomm)
 
     brickrange = (
-        grid1d(xmin, xmax, elemsize = Δx * polyorder_horz),
-        grid1d(ymin, ymax, elemsize = Δy * polyorder_horz),
-        grid1d(zmin, zmax, elemsize = Δz * polyorder_vert),
+        grid1d(xmin, xmax, elemsize = Δx * max(polyorder_horz, 1)),
+        grid1d(ymin, ymax, elemsize = Δy * max(polyorder_horz, 1)),
+        grid1d(zmin, zmax, elemsize = Δz * max(polyorder_vert, 1)),
     )
 
     topology = StackedBrickTopology(
@@ -570,6 +583,7 @@ Establishing MultiColumnLandModel configuration for %s
         numerical_flux_first_order,
         numerical_flux_second_order,
         numerical_flux_gradient,
+        fv_reconstruction,
         MultiColumnLandSpecificInfo(),
     )
 end
@@ -591,3 +605,30 @@ DGModel(driver_config; kwargs...) = DGModel(
     driver_config.numerical_flux_gradient;
     kwargs...,
 )
+
+"""
+-SpaceDiscretization(driver_config; kwargs...)
+-
+-Initialize a [`SpaceDiscretization`](@ref) given a
+-[`DriverConfiguration`](@ref) and keyword
+-arguments supported by [`SpaceDiscretization`](@ref).
+-"""
+SpaceDiscretization(driver_config; kwargs...) =
+    (driver_config.polyorders[2] == 0) ?
+    DGFVModel(
+        driver_config.bl,
+        driver_config.grid,
+        driver_config.fv_reconstruction,
+        driver_config.numerical_flux_first_order,
+        driver_config.numerical_flux_second_order,
+        driver_config.numerical_flux_gradient;
+        kwargs...,
+    ) :
+    DGModel(
+        driver_config.bl,
+        driver_config.grid,
+        driver_config.numerical_flux_first_order,
+        driver_config.numerical_flux_second_order,
+        driver_config.numerical_flux_gradient;
+        kwargs...,
+    )

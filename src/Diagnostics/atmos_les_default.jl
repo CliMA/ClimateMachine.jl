@@ -590,17 +590,15 @@ function atmos_les_default_collect(dgngrp::DiagnosticsGroup, currtime)
         state_data = Q.realdata
         aux_data = dg.state_auxiliary.realdata
         vgeo = grid.vgeo
-        # Currently only support single polynomial order
-        # XXX: Needs updating for multiple polynomial orders
-        ω = grid.ω[1]
+        # ω is the weight vector for the vertical direction
+        ω = grid.ω[end]
         gradflux_data = dg.state_gradient_flux.realdata
     else
         state_data = Array(Q.realdata)
         aux_data = Array(dg.state_auxiliary.realdata)
         vgeo = Array(grid.vgeo)
-        # Currently only support single polynomial order
-        # XXX: Needs updating for multiple polynomial orders
-        ω = Array(grid.ω[1])
+        # ω is the weight vector for the vertical direction
+        ω = Array(grid.ω[end])
         gradflux_data = Array(dg.state_gradient_flux.realdata)
     end
     FT = eltype(state_data)
