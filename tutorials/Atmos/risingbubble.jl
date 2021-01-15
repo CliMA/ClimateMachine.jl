@@ -65,7 +65,7 @@
 # specific to atmospheric and ocean flow modeling.
 
 using ClimateMachine
-ClimateMachine.init()
+ClimateMachine.init(;parse_clargs = true)
 using ClimateMachine.Atmos
 using ClimateMachine.Orientations
 using ClimateMachine.ConfigTypes
@@ -131,7 +131,8 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     θamplitude::FT = 2
 
     ## This is configured in the reference hydrostatic state
-    θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
+    # θ_ref::FT = bl.ref_state.virtual_temperature_profile.T_surface
+    θ_ref::FT = 300
 
     ## Add the thermal perturbation:
     Δθ::FT = 0
@@ -168,7 +169,8 @@ function init_risingbubble!(problem, bl, state, aux, localgeo, t)
     ## Assign State Variables
     state.ρ = ρ
     state.ρu = ρu
-    state.ρe = ρe_tot
+    # state.ρe = ρe_tot
+    state.energy.ρθ_liq_ice = θ
     state.tracers.ρχ = ρχ
 end
 
@@ -223,12 +225,15 @@ function config_risingbubble(
     ref_state = HydrostaticState(T_profile)
 
     ## Here we assemble the `AtmosModel`.
-    _C_smag = FT(C_smag(param_set))
+    # _C_smag = FT(C_smag(param_set))
+    _C_smag = FT(0)
     model = AtmosModel{FT}(
         AtmosLESConfigType,                            ## Flow in a box, requires the AtmosLESConfigType
         param_set;                                     ## Parameter set corresponding to earth parameters
         init_state_prognostic = init_risingbubble!,    ## Apply the initial condition
-        ref_state = ref_state,                         ## Reference state
+        # ref_state = ref_state,                         ## Reference state
+        ref_state = NoReferenceState(),                         ## Reference state
+        energy = θModel(),                             ## Energy model
         turbulence = SmagorinskyLilly(_C_smag),        ## Turbulence closure model
         moisture = DryModel(),                         ## Exclude moisture variables
         source = (Gravity(),),                         ## Gravity is the only source term here
