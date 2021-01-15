@@ -9,6 +9,11 @@ function flux(::Advect{Energy}, atmos, args)
     return (state.ρu / state.ρ) * state.ρe
 end
 
+function flux(::Advect{ρθ_liq_ice}, atmos, args)
+    @unpack state = args
+    return (state.ρu / state.ρ) * state.energy.ρθ_liq_ice
+end
+
 function flux(::Pressure{Energy}, atmos, args)
     @unpack state = args
     @unpack ts = args.precomputed
@@ -19,11 +24,17 @@ end
 ##### Second order fluxes
 #####
 
-struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
+struct ViscousFlux{PV <: Union{Energy,ρθ_liq_ice}} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::ViscousFlux{Energy}, atmos, args)
     @unpack state = args
     @unpack τ = args.precomputed.turbulence
     return τ * state.ρu
+end
+
+function flux(::ViscousFlux{ρθ_liq_ice}, atmos, args)
+    @unpack state, diffusive = args
+    @unpack ν = args.precomputed.turbulence
+    return state.ρ * ν * diffusive.energy.∇θ_liq_ice
 end
 
 function flux(::HyperdiffViscousFlux{Energy}, atmos, args)

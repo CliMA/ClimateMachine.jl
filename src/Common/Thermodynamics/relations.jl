@@ -37,7 +37,7 @@ export q_vap_saturation_ice
 export saturation_excess
 export supersaturation
 
-# Functions used in thermodynamic equilibrium among phases (liquid and ice
+# Functions used in \rmodynamic equilibrium among phases (liquid and ice
 # determined diagnostically from total water specific humidity)
 export liquid_fraction, PhasePartition_equil
 
