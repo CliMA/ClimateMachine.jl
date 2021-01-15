@@ -2181,7 +2181,7 @@ See [`BalanceLaw`](@ref) for usage.
                 integral_set_auxiliary_state!(
                     balance_law,
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
+                        state_auxiliary.data,
                         ijk,
                         :,
                         e,
@@ -2239,13 +2239,13 @@ end
             balance_law,
             Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_T),
             Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                state,
+                state.data,
                 ijk,
                 :,
                 et,
             )),
             Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                state_auxiliary,
+                state_auxiliary.data,
                 ijk,
                 :,
                 et,
@@ -2272,13 +2272,13 @@ end
                     balance_law,
                     Vars{vars_state(balance_law, DownwardIntegrals(), FT)}(l_V),
                     Vars{vars_state(balance_law, Prognostic(), FT)}(view(
-                        state,
+                        state.data,
                         ijk,
                         :,
                         e,
                     )),
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
+                        state_auxiliary.data,
                         ijk,
                         :,
                         e,
@@ -2288,7 +2288,7 @@ end
                 reverse_integral_set_auxiliary_state!(
                     balance_law,
                     Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                        state_auxiliary,
+                        state_auxiliary.data,
                         ijk,
                         :,
                         # In the N = 0 case we shift the data up
@@ -2308,7 +2308,7 @@ end
             reverse_integral_set_auxiliary_state!(
                 balance_law,
                 Vars{vars_state(balance_law, Auxiliary(), FT)}(view(
-                    state_auxiliary,
+                    state_auxiliary.data,
                     ijk,
                     :,
                     e,
