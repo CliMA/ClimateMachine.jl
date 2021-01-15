@@ -6,7 +6,7 @@ using DocStringExtensions
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using ..MPIStateArrays
-using ..FieldArrays
+using ..FieldArrays: localfieldarray, FieldArray
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..VariableTemplates

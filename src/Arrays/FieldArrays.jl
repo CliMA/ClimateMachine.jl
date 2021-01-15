@@ -1,6 +1,7 @@
 module FieldArrays
 
 export FieldArray, localfieldarray
+
 import ..MPIStateArrays: MPIStateArray, vars
 
 struct FieldArray{V, A}
