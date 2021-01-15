@@ -50,10 +50,10 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     reconstruction!,
     numerical_flux_first_order,
     numerical_flux_second_order,
-    tendency,
-    state_prognostic,
-    state_gradient_flux,
-    state_auxiliary,
+    tendency::FieldArray,
+    state_prognostic::FieldArray,
+    state_gradient_flux::FieldArray,
+    state_auxiliary::FieldArray,
     vgeo,
     sgeo,
     t,
@@ -67,7 +67,8 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
     @uniform begin
         dim = info.dim
         FT = eltype(state_prognostic)
-        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_prognostic_in = number_states(balance_law, PrognosticIn())
+        num_state_prognostic_out = number_states(balance_law, PrognosticOut())
         num_state_primitive = number_states(balance_law, Primitive())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
@@ -98,7 +99,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # 1 → element i, face i - 1/2 (bottom face)
         # 2 → element i, face i + 1/2 (top face)
         local_state_face_prognostic = ntuple(Val(2)) do _
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            MArray{Tuple{num_state_prognostic_in}, FT}(undef)
         end
 
         local_cell_weights = MArray{Tuple{stencil_diameter}, FT}(undef)
@@ -109,7 +110,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         # Storing the value below element when walking up the stack
         # cell i-1, face i - 1/2
         local_state_face_prognostic_neighbor =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            MArray{Tuple{num_state_prognostic_in}, FT}(undef)
 
         local_state_face_primitive = ntuple(Val(2)) do _
             MArray{Tuple{num_state_primitive}, FT}(undef)
@@ -117,7 +118,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
 
         # Storage for all the values in the stencil
         local_state_prognostic = ntuple(Val(stencil_diameter)) do _
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            MArray{Tuple{num_state_prognostic_in}, FT}(undef)
         end
 
 
@@ -141,19 +142,19 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         end
 
         # Storage for the numerical flux
-        local_flux = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_flux = MArray{Tuple{num_state_prognostic_out}, FT}(undef)
 
         # Storage for the extra boundary points for some BCs
         local_state_prognostic_bottom1 =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            MArray{Tuple{num_state_prognostic_in}, FT}(undef)
         local_state_gradient_flux_bottom1 =
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
         local_state_auxiliary_bottom1 =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
         # Storage for the tendency
-        local_tendency = MArray{Tuple{num_state_prognostic}, FT}(undef)
-        local_source = MArray{Tuple{num_state_prognostic}, FT}(undef)
+        local_tendency = MArray{Tuple{num_state_prognostic_out}, FT}(undef)
+        local_source = MArray{Tuple{num_state_prognostic_out}, FT}(undef)
 
         # XXX: will revisit this later for FVM
         fill!(local_state_prognostic_bottom1, NaN)
@@ -192,17 +193,17 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
         local_state_gradient_flux,
         e,
     )
-        @unroll for s in 1:num_state_prognostic
-            @inbounds local_state_prognostic[s] = state_prognostic[n, s, e]
+        @unroll for s in 1:num_state_prognostic_in
+            @inbounds local_state_prognostic[s] = state_prognostic.data[n, s, e]
         end
 
         @unroll for s in 1:num_state_auxiliary
-            @inbounds local_state_auxiliary[s] = state_auxiliary[n, s, e]
+            @inbounds local_state_auxiliary[s] = state_auxiliary.data[n, s, e]
         end
 
         @unroll for s in 1:num_state_gradient_flux
             @inbounds local_state_gradient_flux[s] =
-                state_gradient_flux[n, s, e]
+                state_gradient_flux.data[n, s, e]
         end
     end
 
@@ -268,7 +269,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             end
 
             # Initialize local tendency
-            @unroll for s in 1:num_state_prognostic
+            @unroll for s in 1:num_state_prognostic_out
                 local_tendency[s] = -zero(FT)
             end
         else
@@ -356,7 +357,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             )
 
             # Compute boundary flux and add it in bottom element of the mesh
-            @unroll for s in 1:num_state_prognostic
+            @unroll for s in 1:num_state_prognostic_out
                 local_tendency[s] = -α * sM * vMI[2] * local_flux[s]
             end
         end
@@ -532,7 +533,7 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                     t,
                     (VerticalDirection(),),
                 )
-                @unroll for s in 1:num_state_prognostic
+                @unroll for s in 1:num_state_prognostic_out
                     local_tendency[s] += local_source[s]
                 end
             end
@@ -540,18 +541,18 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
             # Update the bottom element:
             # numerical flux is computed with respect to the top element, so
             # `+=` is used to reverse the flux
-            @unroll for s in 1:num_state_prognostic
+            @unroll for s in 1:num_state_prognostic_out
                 local_tendency[s] += α * sM * vMI[1] * local_flux[s]
 
                 if increment
-                    tendency[n, s, eH + eV_dn] += local_tendency[s]
+                    tendency.data[n, s, eH + eV_dn] += local_tendency[s]
                 else
                     if β != 0
                         T = local_tendency[s] + β * tendency[n, s, eH + eV_dn]
                     else
                         T = local_tendency[s]
                     end
-                    tendency[n, s, eH + eV_dn] = T
+                    tendency.data[n, s, eH + eV_dn] = T
                 end
 
                 # Store contribution to the top element tendency
@@ -573,24 +574,24 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         t,
                         (VerticalDirection(),),
                     )
-                    @unroll for s in 1:num_state_prognostic
+                    @unroll for s in 1:num_state_prognostic_out
                         local_tendency[s] += local_source[s]
                     end
                 end
                 # If periodic just add in the tendency that we just computed
                 if periodicstack
-                    @unroll for s in 1:num_state_prognostic
+                    @unroll for s in 1:num_state_prognostic_out
                         if increment
-                            tendency[n, s, eH + eV_up] += local_tendency[s]
+                            tendency.data[n, s, eH + eV_up] += local_tendency[s]
                         else
                             if β != 0
                                 T =
                                     local_tendency[s] +
-                                    β * tendency[n, s, eH + eV_up]
+                                    β * tendency.data[n, s, eH + eV_up]
                             else
                                 T = local_tendency[s]
                             end
-                            tendency[n, s, eH + eV_up] = T
+                            tendency.data[n, s, eH + eV_up] = T
                         end
                     end
                 else
@@ -661,19 +662,19 @@ A finite volume reconstruction is used to construction `Fⁱⁿᵛ⋆`
                         local_state_auxiliary_bottom1,
                     )
 
-                    @unroll for s in 1:num_state_prognostic
+                    @unroll for s in 1:num_state_prognostic_out
                         local_tendency[s] -= α * sM * vMI[2] * local_flux[s]
                         if increment
-                            tendency[n, s, eH + eV_up] += local_tendency[s]
+                            tendency.data[n, s, eH + eV_up] += local_tendency[s]
                         else
                             if β != 0
                                 T =
                                     local_tendency[s] +
-                                    β * tendency[n, s, eH + eV_up]
+                                    β * tendency.data[n, s, eH + eV_up]
                             else
                                 T = local_tendency[s]
                             end
-                            tendency[n, s, eH + eV_up] = T
+                            tendency.data[n, s, eH + eV_up] = T
                         end
                     end
                 end
@@ -688,9 +689,9 @@ end
     ::Val{nvertelem},
     ::Val{periodicstack},
     ::VerticalDirection,
-    state_prognostic,
-    state_gradient_flux,
-    state_auxiliary,
+    state_prognostic::FieldArray,
+    state_gradient_flux::FieldArray,
+    state_auxiliary::FieldArray,
     vgeo,
     sgeo,
     t,
@@ -702,7 +703,8 @@ end
 
         dim = info.dim
         FT = eltype(state_prognostic)
-        num_state_prognostic = number_states(balance_law, Prognostic())
+        num_state_prognostic_in = number_states(balance_law, PrognosticIn())
+        num_state_prognostic_out = number_states(balance_law, PrognosticOut())
         ngradstate = number_states(balance_law, Gradient())
         num_state_gradient_flux = number_states(balance_law, GradientFlux())
         num_state_auxiliary = number_states(balance_law, Auxiliary())
@@ -711,8 +713,10 @@ end
         faces = (nface - 1, nface)
 
         # Storage for the prognostic state for e-1, e, e+1
-        local_state_prognostic =
-            ntuple(_ -> MArray{Tuple{num_state_prognostic}, FT}(undef), Val(3))
+        local_state_prognostic = ntuple(
+            _ -> MArray{Tuple{num_state_prognostic_in}, FT}(undef),
+            Val(3),
+        )
 
         # Storage for the auxiliary state for e-1, e, e+1
         local_state_auxiliary =
@@ -732,7 +736,7 @@ end
             MArray{Tuple{num_state_gradient_flux}, FT}(undef)
 
         local_state_prognostic_bottom1 =
-            MArray{Tuple{num_state_prognostic}, FT}(undef)
+            MArray{Tuple{num_state_prognostic_in}, FT}(undef)
         local_state_auxiliary_bottom1 =
             MArray{Tuple{num_state_auxiliary}, FT}(undef)
 
@@ -790,15 +794,16 @@ end
 
         # Load prognostic data
         @unroll for k in 1:3
-            @unroll for s in 1:num_state_prognostic
-                local_state_prognostic[k][s] = state_prognostic[n, s, els[k]]
+            @unroll for s in 1:num_state_prognostic_in
+                local_state_prognostic[k][s] =
+                    state_prognostic.data[n, s, els[k]]
             end
         end
 
         # Load auxiliary data
         @unroll for k in 1:3
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[k][s] = state_auxiliary[n, s, els[k]]
+                local_state_auxiliary[k][s] = state_auxiliary.data[n, s, els[k]]
             end
         end
 
@@ -1010,13 +1015,13 @@ end
     kernel_fvm_balance!(f!, balance_law::BalanceLaw, ::Val{nvertelem}, state_auxiliary, vgeo, elems)
 
     pᵢ₋₁ - pᵢ =  g ρᵢ Δzᵢ/2 + g ρᵢ₋₁ Δzᵢ₋₁/2
-    for i = 2:nvertelem 
+    for i = 2:nvertelem
         ρᵢ  = (pᵢ₋₁ - pᵢ - g ρᵢ₋₁ Δzᵢ₋₁/2) / (g  Δzᵢ/2)
     end
 
  - `f!`: update function
  - `balance_law`: atmosphere model
- - `state_auxiliary`: auxiliary variables, ρ is updated 
+ - `state_auxiliary`: auxiliary variables, ρ is updated
  - `vgeo`: 2*vgeo[ijk ,_JcV , e] is Δz
  - `elems`: horizontal element list
 """
@@ -1024,7 +1029,7 @@ end
     f!,
     balance_law::BalanceLaw,
     ::Val{nvertelem},
-    state_auxiliary,
+    state_auxiliary::FieldArray,
     vgeo,
     elems,
 ) where {nvertelem}
@@ -1050,7 +1055,7 @@ end
         eV = 1
         e = eV + (eH - 1) * nvertelem
         @unroll for s in 1:num_state_auxiliary
-            local_state_auxiliary_bot[s] = state_auxiliary[n, s, e]
+            local_state_auxiliary_bot[s] = state_auxiliary.data[n, s, e]
         end
         Δz[1] = 2 * vgeo[n, _JcV, e]
 
@@ -1059,7 +1064,7 @@ end
             e = eV + (eH - 1) * nvertelem
 
             @unroll for s in 1:num_state_auxiliary
-                local_state_auxiliary[s] = state_auxiliary[n, s, e]
+                local_state_auxiliary[s] = state_auxiliary.data[n, s, e]
             end
             Δz[2] = 2 * vgeo[n, _JcV, e]
 
@@ -1076,7 +1081,7 @@ end
 
             # update to the global array
             @unroll for s in 1:num_state_auxiliary
-                state_auxiliary[n, s, e] = local_state_auxiliary[s]
+                state_auxiliary.data[n, s, e] = local_state_auxiliary[s]
             end
 
             # (ρᵢ pᵢ Δzᵢ) -> (ρᵢ₋₁ pᵢ₋₁ Δzᵢ₋₁)

@@ -6,6 +6,7 @@ using DocStringExtensions
 using KernelAbstractions
 using KernelAbstractions.Extras: @unroll
 using ..MPIStateArrays
+using ..FieldArrays
 using ..Mesh.Grids
 using ..Mesh.Topologies
 using ..VariableTemplates
@@ -14,6 +15,8 @@ using ..BalanceLaws:
     BalanceLaw,
     AbstractStateType,
     Prognostic,
+    PrognosticIn,
+    PrognosticOut,
     Auxiliary,
     Gradient,
     GradientFlux,

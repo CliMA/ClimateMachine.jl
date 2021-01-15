@@ -108,6 +108,30 @@ function varsindices(::Type{S}, vars::Tuple) where {S <: NamedTuple}
 end
 varsindices(::Type{S}, vars...) where {S <: NamedTuple} = varsindices(S, vars)
 
+
+function varsindices(
+    ::Type{S},
+    ::Type{T},
+) where {S <: NamedTuple{fields}, T <: NamedTuple{fields}} where {fields}
+    SOneTo(varsize(S))
+end
+@generated function varsindices(
+    ::Type{S},
+    ::Type{T},
+) where {
+    S <: NamedTuple{fields1},
+    T <: NamedTuple{fields2},
+} where {fields1, fields2}
+    indices = Int[]
+    for field in fields2
+        @assert fieldtype(S, field) == fieldtype(T, field)
+        append!(indices, collect(varsindex(S, field)))
+    end
+    :(tuple($(indices...)))
+end
+
+
+
 """
     varsize(S)
 
