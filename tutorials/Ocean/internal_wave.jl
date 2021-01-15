@@ -98,14 +98,15 @@ time_step = 0.005 # close to Δx / c = 0.5 * 1/16, where Δx is nominal resoluti
 
 # and build a model with a smidgeon of viscosity and diffusion,
 
-using ClimateMachine.Ocean: HydrostaticBoussinesqSuperModel
+using ClimateMachine.Ocean.SuperModels: SplitExplicitOceanSuperModel
 
-model = HydrostaticBoussinesqSuperModel(
+model = SplitExplicitOceanSuperModel(
     domain = domain,
-    time_step = time_step,
-    initial_conditions = initial_conditions,
     parameters = NonDimensionalParameters(),
-    turbulence_closure = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6),
+    barotropic_time_step = time_step,
+    baroclinic_time_step = time_step / 24,
+    initial_conditions = initial_conditions,
+    turbulence_closure = (νʰ = 1e-6, νᶻ = 1e-6, κʰ = 1e-6, κᶻ = 1e-6, κᶜ = 1.0),
     coriolis = (f₀ = f, β = 0),
     buoyancy = (αᵀ = αᵀ,),
     boundary_tags = ((1, 1), (1, 1), (1, 2)),
@@ -163,7 +164,6 @@ end
 #
 # We're ready to launch.
 
-model.solver_configuration.timeend = 6 * 2π / ω
 ## model.solver.dt = 0.05 # make this work
 
 @info """ Simulating a hydrostatic Gaussian wave packet with parameters
@@ -179,9 +179,13 @@ model.solver_configuration.timeend = 6 * 2π / ω
 
 """
 
-result = ClimateMachine.invoke!(
-    model.solver_configuration;
-    user_callbacks = [tiny_progress_printer, data_fetcher],
+using ClimateMachine.ODESolvers: solve!
+
+solve!(
+    (slow = model.baroclinic.state, fast = model.barotropic.state),
+    model.solver,
+    timeend = 6 * 2π / ω,
+    callbacks = [tiny_progress_printer, data_fetcher],
 )
 
 # # Animating the result

@@ -98,3 +98,72 @@ function ocean_init_state!(
 
     return nothing
 end
+
+######
+###### Functionality for SplitExplicit01
+######
+
+function ocean_init_state!(
+    ivp::InitialValueProblem,
+    state,
+    aux,
+    local_geometry,
+    time,
+)
+
+    ics = ivp.initial_conditions
+    x, y, z = local_geometry.coord
+
+    state.u = @SVector [ics.u(x, y, z), ics.v(x, y, z)]
+    state.θ = ics.θ(x, y, z)
+    state.η = ics.η(x, y, z)
+
+    return nothing
+end
+
+"""
+    ocean_init_aux!(::OceanModel, ivp::InitialValueProblem, state, aux, local_geometry, time)
+
+Initialize `aux`iliary variables for `InitialValueProblem` by zeroing them out.
+"""
+function ocean_init_aux!(
+    ::OceanModel,
+    ivp::InitialValueProblem,
+    state,
+    aux,
+    local_geometry,
+    time,
+)
+
+    aux.w = 0
+    aux.pkin = 0
+    aux.wz0 = 0
+    aux.u_d = @SVector [0, 0]
+    aux.ΔGu = @SVector [0, 0]
+    
+    return nothing
+end
+
+"""
+    ocean_init_aux!(::BarotropicModel, ivp::InitialValueProblem, state, aux, local_geometry, time)
+
+Initialize `aux`iliary variables for `InitialValueProblem` by zeroing them out.
+"""
+function ocean_init_aux!(
+    ::BarotropicModel,
+    ivp::InitialValueProblem,
+    state,
+    aux,
+    local_geometry,
+    time,
+)
+
+    aux.Gᵁ = 0
+    aux.U_c = @SVector [0, 0]
+    aux.η_c = 0
+    aux.U_s = @SVector [0, 0]
+    aux.η_s = 0
+    aux.Δu = @SVector [0, 0]
+    
+    return nothing
+end

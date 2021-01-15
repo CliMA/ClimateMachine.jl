@@ -44,11 +44,16 @@ include("SplitExplicit/SplitExplicitModel.jl")
 include("SplitExplicit01/SplitExplicitModel.jl")
 include("OceanProblems/OceanProblems.jl")
 
-include("SuperModels.jl")
+include("SuperModels/SuperModels.jl")
 
 using .OceanProblems: InitialConditions
+
 using .SuperModels:
-    HydrostaticBoussinesqSuperModel, current_time, current_step, Δt
+    SplitExplicitOceanSuperModel,
+    HydrostaticBoussinesqSuperModel,
+    current_time,
+    current_step,
+    Δt
 
 include("JLD2Writer.jl")
 

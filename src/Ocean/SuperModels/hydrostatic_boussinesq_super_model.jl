@@ -1,23 +1,5 @@
-module SuperModels
-
-using MPI
-
-using ClimateMachine
-
-using ClimateMachine: Settings
-
-using ...DGMethods.NumericalFluxes
-
 using ..HydrostaticBoussinesq:
     HydrostaticBoussinesqModel, NonLinearAdvectionTerm, Forcing
-
-using ..OceanProblems: InitialValueProblem, InitialConditions
-using ..Domains: array_type
-using ..Ocean: FreeSlip, Impenetrable, Insulating, OceanBC, Penetrable
-using ..Ocean.Fields: SpectralElementField
-
-using ...Mesh.Filters: CutoffFilter, ExponentialFilter
-using ...Mesh.Grids: polynomialorders, DiscontinuousSpectralElementGrid
 
 using ClimateMachine:
     LS3NRK33Heuns,
@@ -216,9 +198,9 @@ end
 
 current_time(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.t
+
 Δt(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.dt
+
 current_step(model::HydrostaticBoussinesqSuperModel) =
     model.solver_configuration.solver.steps
-
-end # module

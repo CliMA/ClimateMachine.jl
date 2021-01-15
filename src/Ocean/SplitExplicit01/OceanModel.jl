@@ -189,6 +189,7 @@ function init_state_auxiliary!(
     grid,
     direction,
 )
+    #=
     init_state_auxiliary!(
         m,
         (m, A, tmp, geom) -> ocean_init_aux!(m, m.problem, A, geom),
@@ -196,6 +197,7 @@ function init_state_auxiliary!(
         grid,
         direction,
     )
+    =#
 end
 
 function vars_state(m::OceanModel, ::Gradient, T)

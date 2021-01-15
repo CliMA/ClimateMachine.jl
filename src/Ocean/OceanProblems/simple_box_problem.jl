@@ -79,6 +79,7 @@ northern hemisphere coriolis
     ::AbstractSimpleBoxProblem,
     y,
 ) = m.fₒ + m.β * y
+
 @inline coriolis_parameter(
     m::Union{SWModel, BarotropicModel},
     ::AbstractSimpleBoxProblem,
