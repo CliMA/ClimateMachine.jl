@@ -6,7 +6,12 @@
 
 function flux(::Advect{Energy}, atmos, args)
     @unpack state = args
-    return (state.ρu / state.ρ) * state.ρe
+    return (state.ρu / state.ρ) * state.energy.ρe
+end
+
+function flux(::Advect{ρθ_liq_ice}, atmos, args)
+    @unpack state = args
+    return (state.ρu / state.ρ) * state.energy.ρθ_liq_ice
 end
 
 function flux(::Pressure{Energy}, atmos, args)
@@ -19,11 +24,18 @@ end
 ##### Second order fluxes
 #####
 
-struct ViscousFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
+struct ViscousFlux{PV <: Union{Energy, ρθ_liq_ice}} <:
+       TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::ViscousFlux{Energy}, atmos, args)
     @unpack state = args
     @unpack τ = args.precomputed.turbulence
     return τ * state.ρu
+end
+
+function flux(::ViscousFlux{ρθ_liq_ice}, atmos, args)
+    @unpack state, diffusive = args
+    @unpack D_t = args.precomputed.turbulence
+    return state.ρ * (-D_t) .* diffusive.energy.∇θ_liq_ice
 end
 
 function flux(::HyperdiffViscousFlux{Energy}, atmos, args)
@@ -40,7 +52,7 @@ struct DiffEnthalpyFlux{PV <: Energy} <: TendencyDef{Flux{SecondOrder}, PV} end
 function flux(::DiffEnthalpyFlux{Energy}, atmos, args)
     @unpack state, diffusive = args
     @unpack D_t = args.precomputed.turbulence
-    d_h_tot = -D_t .* diffusive.∇h_tot
+    d_h_tot = -D_t .* diffusive.energy.∇h_tot
     return d_h_tot * state.ρ
 end
 

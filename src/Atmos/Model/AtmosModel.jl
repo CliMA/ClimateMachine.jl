@@ -124,14 +124,33 @@ default values for each field.
 # Fields
 $(DocStringExtensions.FIELDS)
 """
-struct AtmosModel{FT, PS, PR, O, RS, T, TC, HD, VS, M, P, R, S, TR, LF, DC} <:
-       BalanceLaw
+struct AtmosModel{
+    FT,
+    PS,
+    PR,
+    O,
+    E,
+    RS,
+    T,
+    TC,
+    HD,
+    VS,
+    M,
+    P,
+    R,
+    S,
+    TR,
+    LF,
+    DC,
+} <: BalanceLaw
     "Parameter Set (type to dispatch on, e.g., planet parameters. See CLIMAParameters.jl package)"
     param_set::PS
     "Problem (initial and boundary conditions)"
     problem::PR
     "An orientation model"
     orientation::O
+    "Energy sub-model, can be energy-based or θ_liq_ice-based"
+    energy::E
     "Reference State (For initial conditions, or for linearisation when using implicit solvers)"
     ref_state::RS
     "Turbulence Closure (Equations for dynamics of under-resolved turbulent flows)"
@@ -170,6 +189,7 @@ function AtmosModel{FT}(
     init_state_prognostic::ISP = nothing,
     problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
     orientation::O = FlatOrientation(),
+    energy::E = EnergyModel(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(0.21),
     turbconv::TC = NoTurbConv(),
@@ -192,6 +212,7 @@ function AtmosModel{FT}(
     ISP,
     PR,
     O,
+    E,
     RS,
     T,
     TC,
@@ -211,6 +232,7 @@ function AtmosModel{FT}(
         param_set,
         problem,
         orientation,
+        energy,
         ref_state,
         turbulence,
         turbconv,
@@ -240,6 +262,7 @@ function AtmosModel{FT}(
     init_state_prognostic::ISP = nothing,
     problem::PR = AtmosProblem(init_state_prognostic = init_state_prognostic),
     orientation::O = SphericalOrientation(),
+    energy::E = EnergyModel(),
     ref_state::RS = HydrostaticState(DecayingTemperatureProfile{FT}(param_set),),
     turbulence::T = SmagorinskyLilly{FT}(C_smag(param_set)),
     turbconv::TC = NoTurbConv(),
@@ -257,6 +280,7 @@ function AtmosModel{FT}(
     ISP,
     PR,
     O,
+    E,
     RS,
     T,
     TC,
@@ -277,6 +301,7 @@ function AtmosModel{FT}(
         param_set,
         problem,
         orientation,
+        energy,
         ref_state,
         turbulence,
         turbconv,
@@ -309,7 +334,7 @@ function vars_state(m::AtmosModel, st::Prognostic, FT)
         # start of inclusion in `AtmosLinearModel`
         ρ::FT
         ρu::SVector{3, FT}
-        ρe::FT
+        energy::vars_state(m.energy, st, FT) # TODO: adjust linearmodel
         turbulence::vars_state(m.turbulence, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
         moisture::vars_state(m.moisture, st, FT)
@@ -340,6 +365,7 @@ function vars_state(m::AtmosModel, st::Gradient, FT)
     @vars begin
         u::SVector{3, FT}
         h_tot::FT
+        energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
@@ -357,7 +383,7 @@ Post-transform gradient variables.
 """
 function vars_state(m::AtmosModel, st::GradientFlux, FT)
     @vars begin
-        ∇h_tot::SVector{3, FT}
+        energy::vars_state(m.energy, st, FT)
         turbulence::vars_state(m.turbulence, st, FT)
         turbconv::vars_state(m.turbconv, st, FT)
         hyperdiffusion::vars_state(m.hyperdiffusion, st, FT)
@@ -465,6 +491,7 @@ include("tendencies_tracers.jl")      # specify tracer tendencies
 include("problem.jl")
 include("ref_state.jl")
 include("moisture.jl")
+include("energy.jl")
 include("precipitation.jl")
 include("thermo_states.jl")
 include("radiation.jl")
@@ -513,8 +540,8 @@ equations.
     flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
     flux.ρu =
         Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
 
+    flux_first_order!(atmos.energy, atmos, flux, args)
     flux_first_order!(atmos.moisture, atmos, flux, args)
     flux_first_order!(atmos.precipitation, atmos, flux, args)
     flux_first_order!(atmos.tracers, atmos, flux, args)
@@ -531,10 +558,8 @@ function compute_gradient_argument!(
 )
     ρinv = 1 / state.ρ
     transform.u = ρinv * state.ρu
-    ts = recover_thermo_state(atmos, state, aux)
-    e_tot = state.ρe * (1 / state.ρ)
-    transform.h_tot = total_specific_enthalpy(ts, e_tot)
 
+    compute_gradient_argument!(atmos, atmos.energy, transform, state, aux, t)
     compute_gradient_argument!(atmos.moisture, transform, state, aux, t)
     compute_gradient_argument!(atmos.precipitation, transform, state, aux, t)
     compute_gradient_argument!(atmos.turbulence, transform, state, aux, t)
@@ -559,7 +584,7 @@ function compute_gradient_flux!(
     aux::Vars,
     t::Real,
 )
-    diffusive.∇h_tot = ∇transform.h_tot
+    compute_gradient_flux!(atmos.energy, diffusive, ∇transform, state, aux, t)
 
     # diffusion terms required for SGS turbulence computations
     compute_gradient_flux!(
@@ -668,8 +693,8 @@ function. Contributions from subcomponents are then assembled (pointwise).
     flux.ρ = Σfluxes(eq_tends(Mass(), atmos, tend), atmos, args) .* flux_pad
     flux.ρu =
         Σfluxes(eq_tends(Momentum(), atmos, tend), atmos, args) .* flux_pad
-    flux.ρe = Σfluxes(eq_tends(Energy(), atmos, tend), atmos, args) .* flux_pad
 
+    flux_second_order!(atmos.energy, flux, atmos, args)
     flux_second_order!(atmos.moisture, flux, atmos, args)
     flux_second_order!(atmos.precipitation, flux, atmos, args)
     flux_second_order!(atmos.tracers, flux, atmos, args)
@@ -689,7 +714,6 @@ end
     uN = abs(dot(nM, u))
     ts = recover_thermo_state(m, state, aux)
     ss = soundspeed_air(ts)
-
     FT = typeof(state.ρ)
     ws = fill(uN + ss, MVector{number_states(m, Prognostic()), FT})
     vars_ws = Vars{vars_state(m, Prognostic(), FT)}(ws)
@@ -806,7 +830,6 @@ function init_state_auxiliary!(
 )
     # update the geopotential Φ in state_auxiliary.orientation.Φ
     init_aux!(m, m.orientation, state_auxiliary, grid, direction)
-
     atmos_init_aux!(m, m.ref_state, state_auxiliary, grid, direction)
 
     init_state_auxiliary!(
@@ -868,7 +891,7 @@ function source!(
     source.ρ = Σsources(eq_tends(Mass(), atmos, tend), atmos, args)
     source.ρu =
         Σsources(eq_tends(Momentum(), atmos, tend), atmos, args) .* ρu_pad
-    source.ρe = Σsources(eq_tends(Energy(), atmos, tend), atmos, args)
+    source!(atmos.energy, source, atmos, args)
     source!(atmos.moisture, source, atmos, args)
     source!(atmos.precipitation, source, atmos, args)
     source!(atmos.turbconv, source, atmos, args)
