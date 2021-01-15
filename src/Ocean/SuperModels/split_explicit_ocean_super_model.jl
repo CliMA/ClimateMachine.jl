@@ -42,13 +42,13 @@ using CLIMAParameters.Planet: grav
 ##### It's super good
 #####
 
-struct SplitExplicitOceanSuperModel{D, G, B, C, F, T}
+struct SplitExplicitOceanSuperModel{D, G, B, C, F, S}
     domain::D
     grid::G
     barotropic::B
     baroclinic::C
     fields::F
-    timestepper::T
+    solver::S
 end
 
 """
@@ -61,10 +61,10 @@ end
            numerical_fluxes = ( first_order = RusanovNumericalFlux(),
                                second_order = CentralNumericalFluxSecondOrder(),
                                    gradient = CentralNumericalFluxGradient())
-                timestepper = ClimateMachine.ExplicitSolverType(solver_method=LS3NRK33Heuns),
     )
 
-Builds a `SuperModel` that solves the Hydrostatic Boussinesq equations.
+Builds a `SuperModel` that solves the hydrostatic Boussinesq equations using a split-explicit
+timestepping method that integrates the barotropic mode on a fast time-scale.
 
 Note: `barotropic_time_step` is adjusted so that `barotropic_time_step / baroclinic_time_step` is a
 multiple of 12.
@@ -273,13 +273,13 @@ function SplitExplicitOceanSuperModel(;
     ##### Timestepper setup
     #####
 
-    baroclinic_timestepper = LS3NRK33Heuns(baroclinic_discretization, baroclinic_state,
+    baroclinic_solver = LS3NRK33Heuns(baroclinic_discretization, baroclinic_state,
                                            dt = baroclinic_time_step, t0 = initial_time)
 
-    barotropic_timestepper = LS3NRK33Heuns(barotropic_discretization, barotropic_state,
+    barotropic_solver = LS3NRK33Heuns(barotropic_discretization, barotropic_state,
                                            dt = barotropic_time_step, t0 = initial_time)
 
-    timestepper = SplitExplicitLSRK3nSolver(baroclinic_timestepper, barotropic_timestepper)
+    solver = SplitExplicitLSRK3nSolver(baroclinic_solver, barotropic_solver)
 
     #####
     ##### Organize model properties
@@ -299,6 +299,10 @@ function SplitExplicitOceanSuperModel(;
         barotropic,
         baroclinic,
         fields,
-        timestepper,
+        solver,
     )
 end
+
+current_time(model::SplitExplicitOceanSuperModel) = model.solver.t
+Δt(model::SplitExplicitOceanSuperModel) = model.solver.dt
+current_step(model::SplitExplicitOceanSuperModel) = model.solver.steps
