@@ -535,7 +535,7 @@ function init_to_ref_state!(problem, bl, state, aux, localgeo, t)
 end
 
 function radiationflux(state, aux, t)
-    return aux.radiation.flux
+    return -aux.radiation.flux
 end
 
 function config_balanced(
@@ -549,13 +549,13 @@ function config_balanced(
         config_type,
         param_set;
         init_state_prognostic = init_to_ref_state!,
-        # problem = AtmosProblem(
-        #     boundaryconditions = (
-        #         AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
-        #         AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
-        #     ),
-        #     init_state_prognostic = init_to_ref_state!,
-        # ),
+        problem = AtmosProblem(
+            boundaryconditions = (
+                AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
+                AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
+            ),
+            init_state_prognostic = init_to_ref_state!,
+        ),
         ref_state = HydrostaticState(temp_profile),
         turbulence = ConstantDynamicViscosity(FT(0)),
         moisture = DryModel(),
@@ -581,7 +581,7 @@ function main()
     poly_order = 4
 
     timestart = FT(0)
-    timeend = FT(303)
+    timeend = FT(81)
     domain_height = FT(70e3)
 
     LES_params = let
