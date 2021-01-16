@@ -534,7 +534,11 @@ function init_to_ref_state!(problem, bl, state, aux, localgeo, t)
     state.ρe = aux.ref_state.ρe
 end
 
-function radiationflux(state, aux, t)
+function radfluxup(state, aux, t)
+    return aux.radiation.flux
+end
+
+function radfluxdown(state, aux, t)
     return -aux.radiation.flux
 end
 
@@ -551,8 +555,8 @@ function config_balanced(
         init_state_prognostic = init_to_ref_state!,
         problem = AtmosProblem(
             boundaryconditions = (
-                AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
-                AtmosBC(energy = PrescribedEnergyFlux(radiationflux)),
+                AtmosBC(energy = PrescribedEnergyFlux(radfluxup)),   # surface
+                AtmosBC(energy = PrescribedEnergyFlux(radfluxdown)), # TOA
             ),
             init_state_prognostic = init_to_ref_state!,
         ),
@@ -633,11 +637,7 @@ function main()
                         timestart,
                         timeend,
                         driver_config,
-                        #Courant_number = FT(0.1),
-                        init_on_cpu = true,
                         ode_solver_type = ode_solver_type,
-                        #CFL_direction = EveryDirection(),
-                        #diffdir = HorizontalDirection(),
                         modeldata = (RRTMGPstruct = create_rrtmgp(driver_config.grid),),
                     )
 
